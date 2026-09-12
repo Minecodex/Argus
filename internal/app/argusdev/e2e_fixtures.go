@@ -12,10 +12,13 @@ import (
 	"helm.sh/helm/v4/pkg/chart/v2/loader"
 	"helm.sh/helm/v4/pkg/cli"
 	"helm.sh/helm/v4/pkg/kube"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type fixtureFeatures struct {
-	SSH, Replay, WinRS, Artifact, Systemd, SystemdSidecar, P4Targets bool
+	SSH, Replay, Artifact, Systemd, SystemdSidecar, P4Targets bool
 }
 
 func suiteFixtureFeatures(suite string) fixtureFeatures {
@@ -25,12 +28,16 @@ func suiteFixtureFeatures(suite string) fixtureFeatures {
 		case "m3":
 			features.SSH = true
 			features.Artifact = true
+			features.Systemd = true
+			features.SystemdSidecar = true
 		case "m4":
 			features.Replay = true
 			features.Artifact = true
 		case "m6":
 			features.SSH = true
-			features.WinRS = true
+			features.Artifact = true
+			features.Systemd = true
+			features.SystemdSidecar = true
 		case "m7", "m10-query":
 			features.SSH = true
 			features.Replay = true
@@ -42,6 +49,11 @@ func suiteFixtureFeatures(suite string) fixtureFeatures {
 			features.Artifact = true
 			features.Systemd = true
 			features.P4Targets = true
+		case "tls":
+			features.SSH = true
+			features.Artifact = true
+			features.Systemd = true
+			features.P4Targets = true
 		}
 	}
 	return features
@@ -49,7 +61,7 @@ func suiteFixtureFeatures(suite string) fixtureFeatures {
 
 func (a *App) installE2EFixtures(ctx context.Context, env *E2EEnvironment) error {
 	features := suiteFixtureFeatures(env.Options.Suite)
-	if !features.SSH && !features.Replay && !features.WinRS && !features.Artifact {
+	if !features.SSH && !features.Replay && !features.Artifact {
 		return nil
 	}
 	chart, err := loader.Load(filepath.Join(a.root, "tests", "e2e", "helm", "argus-e2e-fixtures"))
@@ -78,22 +90,17 @@ func (a *App) installE2EFixtures(ctx context.Context, env *E2EEnvironment) error
 		return err
 	}
 	artifactTLS := env.ArtifactTLS
-	winrsTLS, err := generateFixtureCertificate("8.8.8.8", nil, []net.IP{net.ParseIP("8.8.8.8")})
-	if err != nil {
-		return err
-	}
 	values := map[string]any{
 		"releaseId":  env.ReleaseID,
 		"namespaces": map[string]any{"system": env.SystemNS, "sandbox": env.SandboxNS, "observability": env.ObservNS},
 		"images": map[string]any{
 			"pullPolicy": "Never", "sshTarget": images["ssh"], "replayModel": images["replay"],
-			"winrsTarget": images["winrs"], "artifactServer": images["artifact"], "systemdTarget": images["systemd"],
+			"artifactServer": images["artifact"], "systemdTarget": images["systemd"],
 		},
-		"features": map[string]any{"sshTarget": features.SSH, "replayModel": features.Replay, "winrsTarget": features.WinRS,
+		"features": map[string]any{"sshTarget": features.SSH, "replayModel": features.Replay,
 			"artifactServer": features.Artifact, "p4Targets": features.P4Targets, "p4StaticTargets": false},
 		"tls": map[string]any{
 			"replay":   map[string]any{"ca": replayTLS.CA, "certificate": replayTLS.Certificate, "privateKey": replayTLS.PrivateKey},
-			"winrs":    map[string]any{"ca": winrsTLS.CA, "certificate": winrsTLS.Certificate, "privateKey": winrsTLS.PrivateKey},
 			"artifact": map[string]any{"ca": artifactTLS.CA, "certificate": artifactTLS.Certificate, "privateKey": artifactTLS.PrivateKey},
 		},
 		"loader": map[string]any{"enabled": len(images) > 0, "images": fixtureImageList(images)},
@@ -111,7 +118,28 @@ func (a *App) patchArtifactTrust(ctx context.Context, env *E2EEnvironment, featu
 	if !features.Artifact {
 		return nil
 	}
-	volume := map[string]any{"name": "e2e-otelcol-artifact-ca", "secret": map[string]any{"secretName": "argus-e2e-artifact-tls"}}
+	ingressCA, err := env.Kube.SecretValue(ctx, env.SystemNS, "argus-enterprise-tls", "ca.crt")
+	if err != nil {
+		return err
+	}
+	combinedCA := combinedArtifactCABundle(env.ArtifactTLS.CA, ingressCA)
+	const trustSecretName = "argus-e2e-artifact-client-ca"
+	trustSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: trustSecretName, Namespace: env.SystemNS},
+		Data: map[string][]byte{"ca.crt": combinedCA}}
+	if _, err = env.Kube.Client.CoreV1().Secrets(env.SystemNS).Create(ctx, trustSecret, metav1.CreateOptions{}); err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+		current, getErr := env.Kube.Client.CoreV1().Secrets(env.SystemNS).Get(ctx, trustSecretName, metav1.GetOptions{})
+		if getErr != nil {
+			return getErr
+		}
+		current.Data = trustSecret.Data
+		if _, err = env.Kube.Client.CoreV1().Secrets(env.SystemNS).Update(ctx, current, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+	}
+	volume := map[string]any{"name": "e2e-otelcol-artifact-ca", "secret": map[string]any{"secretName": trustSecretName}}
 	mount := map[string]any{"name": "e2e-otelcol-artifact-ca", "mountPath": "/var/run/secrets/argus/e2e-otelcol-artifact-ca", "readOnly": true}
 	environment := map[string]any{"name": "ARGUS_OTELCOL_ARTIFACT_CA_PATH", "value": "/var/run/secrets/argus/e2e-otelcol-artifact-ca/ca.crt"}
 	workloads := append(e2eWorkerDeployments(env.Profile), "argus-direct-executor")
@@ -130,6 +158,19 @@ func (a *App) patchArtifactTrust(ctx context.Context, env *E2EEnvironment, featu
 	return nil
 }
 
+func combinedArtifactCABundle(values ...string) []byte {
+	var result strings.Builder
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		result.WriteString(value)
+		result.WriteByte('\n')
+	}
+	return []byte(result.String())
+}
+
 func e2eWorkerDeployments(profile string) []string {
 	if profile == "evaluation" {
 		return []string{"argus-worker"}
@@ -143,7 +184,7 @@ func e2eWorkerDeployments(profile string) []string {
 }
 
 func (a *App) patchDirectExecutorFixtures(ctx context.Context, env *E2EEnvironment, features fixtureFeatures) error {
-	if !features.SSH && !features.WinRS {
+	if !features.SSH {
 		return nil
 	}
 	containers := []any{}
@@ -154,18 +195,6 @@ func (a *App) patchDirectExecutorFixtures(ctx context.Context, env *E2EEnvironme
 			"env":   []any{map[string]any{"name": "ARGUS_E2E_SSH_PASSWORD", "value": "M3-e2e-ssh-password"}},
 			"ports": []any{map[string]any{"name": "e2e-direct-ssh", "containerPort": 2222}},
 		})
-	}
-	if features.WinRS {
-		containers = append(containers,
-			map[string]any{"name": "argus-direct-executor", "env": []any{map[string]any{"name": "SSL_CERT_FILE", "value": "/etc/argus/e2e-winrs/ca.crt"}}, "volumeMounts": []any{map[string]any{"name": "e2e-winrs-tls", "mountPath": "/etc/argus/e2e-winrs", "readOnly": true}}},
-			map[string]any{
-				"name": "argus-e2e-direct-winrs", "image": env.State.FixtureImages["winrs"], "imagePullPolicy": "Never",
-				"command":      []string{"/usr/local/bin/argus-e2e-winrs"},
-				"env":          []any{map[string]any{"name": "ARGUS_E2E_WINRS_PASSWORD", "value": "M6-e2e-winrs-password"}},
-				"ports":        []any{map[string]any{"name": "e2e-winrs", "containerPort": 5986}},
-				"volumeMounts": []any{map[string]any{"name": "e2e-winrs-tls", "mountPath": "/tls", "readOnly": true}},
-			})
-		volumes = append(volumes, map[string]any{"name": "e2e-winrs-tls", "secret": map[string]any{"secretName": "argus-e2e-winrs-tls"}})
 	}
 	if features.SystemdSidecar {
 		containers = append(containers, map[string]any{
@@ -225,7 +254,7 @@ func (a *App) removeLocalFixtureImages(ctx context.Context, images map[string]st
 
 func fixtureImageList(images map[string]string) []any {
 	result := make([]any, 0, len(images))
-	for _, name := range []string{"ssh", "replay", "winrs", "artifact", "systemd", "otelcol"} {
+	for _, name := range []string{"ssh", "replay", "artifact", "systemd", "otelcol"} {
 		if image := images[name]; image != "" {
 			result = append(result, image)
 		}

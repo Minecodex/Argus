@@ -7,13 +7,17 @@ import type {
 } from "../generated/contracts";
 import type { MockBastionScope, MockConnector } from "./resource-models";
 import type { MockContext } from "./context";
-import { ApiError } from "../transport/errors";
+import type { HostConnectionTests } from "./host-connection-tests";
+import {
+  resourceNameAvailable,
+  requireAvailableResourceName,
+} from "./name-availability";
 
 function connectorContract(value: MockConnector): Connector {
   return {
     id: value.id,
     enterprise_id: value.enterpriseId,
-    role: "bastion",
+    role: value.role ?? "bastion",
     name: value.name,
     host_id: value.hostId || undefined,
     bastion_scope_id: value.bastionScopeId || undefined,
@@ -31,6 +35,8 @@ function connectorContract(value: MockConnector): Connector {
 }
 
 function scopeContract(value: MockBastionScope): BastionScope {
+  const relayAddress =
+    value.relayAddress ?? (value.status === "active" ? "127.0.0.1" : undefined);
   return {
     id: value.id,
     enterprise_id: value.enterpriseId,
@@ -51,6 +57,12 @@ function scopeContract(value: MockBastionScope): BastionScope {
     connector_host_id: value.connectorHostId,
     active_connector_id: value.activeConnectorId,
     control_tunnel_status: value.controlTunnelStatus,
+    ...(relayAddress ? { relay_address: relayAddress } : {}),
+    relay_https_port: 8445,
+    relay_gateway_port: 9445,
+    relay_port_generation: value.status === "active" ? 1 : 0,
+    relay_status:
+      value.relayStatus ?? (value.status === "active" ? "ready" : "pending"),
     fencing_generation: 1,
     member_count: value.memberHostIds.length,
     resource_version: value.resourceVersion ?? 1,
@@ -73,9 +85,16 @@ function page<T>(items: T[], limit: number | undefined) {
 /** Mock implementation of the same generated M3 Connector Port as real mode. */
 export function createConnectorsDomain(
   ctx: MockContext,
+  connectionTests: HostConnectionTests,
 ): ArgusApiClient["connectors"] {
   const { db } = ctx;
   return {
+    async checkBastionNameAvailability(name) {
+      await ctx.pause();
+      return {
+        available: resourceNameAvailable(db, ctx.enterpriseId(), name, true),
+      };
+    },
     async list(query): Promise<ConnectorPage> {
       await ctx.pause();
       const items = db.connectors
@@ -108,33 +127,27 @@ export function createConnectorsDomain(
     },
     async previewCreateBastionScope(input) {
       await ctx.pause();
-      const name = input.name.toLocaleLowerCase();
-      const conflicts =
-        db.bastionScopes.some(
-          (entry) =>
-            entry.enterpriseId === ctx.enterpriseId() &&
-            entry.name.toLocaleLowerCase() === name,
-        ) ||
-        db.hosts.some(
-          (entry) =>
-            entry.enterpriseId === ctx.enterpriseId() &&
-            entry.name.toLocaleLowerCase() === name,
-        );
-      if (conflicts) {
-        throw new ApiError(
-          {
-            code: "RESOURCE_NAME_CONFLICT",
-            message_key: "errors.common.resource_name_conflict",
-            request_id: `mock-request-${Date.now()}`,
-            retryable: false,
-          },
-          409,
-        );
+      const name = requireAvailableResourceName(
+        db,
+        ctx.enterpriseId(),
+        input.name,
+        true,
+      );
+      if (input.install_mode !== "command") {
+        connectionTests.requireOnboarding({
+          ...input,
+          platform: "linux",
+          ssh_path: "direct_executor",
+          onboarding_control_path:
+            input.install_mode === "direct_install_tunnel"
+              ? "executor_tunnel"
+              : "direct",
+        });
       }
       return ctx.createPendingAction({
         tool: "bastion.scope.create",
         title: `创建堡垒机范围 ${input.name}`,
-        input_data: { ...input },
+        input_data: { ...input, name },
       });
     },
     async previewUpdateBastionScope(scopeId, input) {
@@ -156,12 +169,28 @@ export function createConnectorsDomain(
         (entry) => entry.id === scopeId,
         "bastion scope",
       );
+      const currentConnector = db.connectors.find(
+        (connector) =>
+          connector.id === scope.activeConnectorId &&
+          connector.status !== "revoked" &&
+          connector.status !== "uninstalled",
+      );
+      if ((scope.resourceVersion ?? 1) !== expectedVersion) {
+        throw new Error("RESOURCE_VERSION_CONFLICT");
+      }
+      if (scope.status !== "uninstalled" && currentConnector) {
+        throw new Error("BASTION_DELETE_REQUIRES_UNINSTALL");
+      }
+      const incompleteInstall = scope.status !== "uninstalled";
       return ctx.createPendingAction({
         tool: "bastion.scope.delete",
+        risk: incompleteInstall ? "write" : undefined,
         input_data: {
           scope_id: scopeId,
           name: scope.name,
           expected_version: expectedVersion,
+          expected_connector_id: currentConnector?.id ?? "",
+          delete_incomplete_install: incompleteInstall,
         },
       });
     },
@@ -208,6 +237,20 @@ export function createConnectorsDomain(
           !input.connection_test_id)
       ) {
         throw new Error("CONNECTION_TEST_REQUIRED");
+      }
+      if (
+        scope.onboardingMode === "direct_install" ||
+        scope.onboardingMode === "direct_install_tunnel"
+      ) {
+        connectionTests.requireOnboarding({
+          ...input,
+          platform: "linux",
+          ssh_path: "direct_executor",
+          onboarding_control_path:
+            scope.onboardingMode === "direct_install_tunnel"
+              ? "executor_tunnel"
+              : "direct",
+        });
       }
       return ctx.createPendingAction({
         tool: "bastion.connector.replace",

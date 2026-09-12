@@ -16,7 +16,6 @@ import (
 	"github.com/kakj-go/Argus/internal/app/component"
 	"github.com/kakj-go/Argus/internal/config"
 	"github.com/kakj-go/Argus/internal/connector"
-	"github.com/kakj-go/Argus/internal/directexecutor"
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 	remotev1 "github.com/kakj-go/Argus/internal/gen/proto/argus/remoteaccess/v1"
 	"github.com/kakj-go/Argus/internal/remoteaccess"
@@ -58,11 +57,6 @@ func Run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	direct, err := directexecutor.NewDispatcher(cfg.DirectExecutorEndpoint, cfg.DirectExecutorServerName, cfg.DirectExecutorTLSCert, cfg.DirectExecutorTLSKey, cfg.DirectExecutorCABundle)
-	if err != nil {
-		return err
-	}
-	defer direct.Close()
 	kubernetesClient, err := connector.NewDynamicClient(cfg.KubeconfigPath)
 	if err != nil {
 		return err
@@ -113,24 +107,22 @@ func Run(ctx context.Context, logger *slog.Logger) error {
 	collectorIdentity := telemetryservice.IdentityService{Store: store}
 	connectorv1.RegisterConnectorControlServiceServer(grpcServer, connector.Gateway{Service: domain,
 		Credentials: secretservice.Service{Store: store, Keyring: keyring}, HeartbeatInterval: cfg.HeartbeatInterval, Dispatch: dispatchHub,
-		RemoteAccess: remoteHub, Drain: forceRemoteDrain, TelemetryTunnelIdentityForwardTarget: cfg.TelemetryIngestHTTPEndpoint,
+		OperationSecretKey: cfg.OperationSecretKey,
+		RemoteAccess:       remoteHub, Drain: forceRemoteDrain, TelemetryTunnelIdentityForwardTarget: cfg.TelemetryIngestHTTPEndpoint,
 		CreateCollectorEnrollment: func(ctx context.Context, collectorID uuid.UUID) (connector.CollectorEnrollmentMaterial, error) {
 			token, tokenErr := collectorIdentity.CreateEnrollmentToken(ctx, nil, collectorID)
 			return connector.CollectorEnrollmentMaterial{Token: token, EnrollmentEndpoint: cfg.TelemetryEnrollmentEndpoint,
 				IngestGRPCEndpoint: cfg.TelemetryIngestGRPCEndpoint, IngestHTTPEndpoint: cfg.TelemetryIngestHTTPEndpoint}, tokenErr
 		}})
-	remoteService := remoteaccess.GatewayService{Store: store, Credentials: secretservice.Service{Store: store, Keyring: keyring}, InstanceID: cfg.InstanceID,
-		DirectRecipientID: cfg.DirectExecutorRecipientID}
+	remoteService := remoteaccess.GatewayService{Store: store, Credentials: secretservice.Service{Store: store, Keyring: keyring}, InstanceID: cfg.InstanceID}
 	peerGRPCServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(remotePeerTLS)), grpc.MaxRecvMsgSize(remoteaccess.MaxFrameBytes), grpc.MaxSendMsgSize(remoteaccess.MaxFrameBytes))
 	remotev1.RegisterGatewayPeerServiceServer(peerGRPCServer, remoteaccess.GatewayPeerServer{Service: remoteService, Local: remoteHub, InstanceID: cfg.InstanceID, Logger: logger})
 	connectorBackends := remoteaccess.DistributedConnectorFactory{InstanceID: cfg.InstanceID, Local: remoteHub,
 		Resolver: remoteaccess.ConnectorOwnerResolver{Store: store, Redis: redisClient}, Peers: remotePeerDialer}
 	remoteServer := &http.Server{Addr: cfg.RemoteWSSAddress, Handler: remoteaccess.WebSocketGateway{Service: remoteService,
-		Backends: remoteaccess.RoutedBackendFactory{Direct: remoteaccess.DirectBackendFactory{
-			Opener: direct, HandshakeTimeout: 15 * time.Second, Logger: logger,
-		}, Connector: connectorBackends},
+		Backends:    connectorBackends,
 		ObjectStore: objects, AllowedOrigins: cfg.RemoteAllowedOrigins, RejectNew: rejectNewRemote, Drain: forceRemoteDrain,
-		Sessions: remoteSessions, Terminations: terminationHub, Parks: remoteaccess.NewSessionParks(), Logger: logger}, ReadHeaderTimeout: 5 * time.Second}
+		Sessions: remoteSessions, Terminations: terminationHub, Parks: remoteaccess.NewSessionParks(), GuacdAddress: cfg.GuacdAddress, Logger: logger}, ReadHeaderTimeout: 5 * time.Second}
 	healthServer := &http.Server{Addr: cfg.HealthAddress, Handler: component.HealthHandler("argus-connector-gateway"), ReadHeaderTimeout: 5 * time.Second}
 	errorsChannel := make(chan error, 4)
 	go func() {

@@ -102,7 +102,7 @@ const collectorInstallSchema = (loopbackPortMessage: string) =>
     });
 type CollectorInstallForm = z.infer<ReturnType<typeof collectorInstallSchema>>;
 
-/** Connector 卡片：仅堡垒机（connector_local）主机显示。 */
+/** Connector 卡片：仅 Bastion Host 显示。 */
 function ConnectorCard({
   host,
   onChanged,
@@ -113,9 +113,6 @@ function ConnectorCard({
   const { t } = useTranslation();
   const api = useApi();
   const [rotating, setRotating] = useState(false);
-  const [previewingUninstall, setPreviewingUninstall] = useState(false);
-  const [uninstallAction, setUninstallAction] =
-    useState<PendingActionPublic | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [rotateStatus, setRotateStatus] =
     useState<PreviewCommitStatus>("pending");
@@ -145,28 +142,11 @@ function ConnectorCard({
     }
   };
 
-  const previewUninstall = async () => {
-    if (previewingUninstall) return;
-    setPreviewingUninstall(true);
-    try {
-      setRotating(false);
-      setUninstallAction(
-        await api.connectors.previewUninstallConnector(
-          connector.id,
-          connector.version,
-        ),
-      );
-    } finally {
-      setPreviewingUninstall(false);
-    }
-  };
-
   return (
     <Card>
       <CardHeader
         action={
-          !rotating &&
-          !uninstallAction && (
+          !rotating && (
             <ActionGroup>
               <Button
                 onClick={() => {
@@ -177,15 +157,6 @@ function ConnectorCard({
               >
                 {t("hosts.components.rotateCert")}
               </Button>
-              {connector.status === "online" ? (
-                <Button
-                  loading={previewingUninstall}
-                  onClick={() => void previewUninstall()}
-                  variant="danger"
-                >
-                  {t("hosts.components.uninstall")}
-                </Button>
-              ) : null}
             </ActionGroup>
           )
         }
@@ -252,17 +223,6 @@ function ConnectorCard({
             <p className="argus-muted">{t("hosts.components.rotateDesc")}</p>
           </PreviewCommitCard>
         )}
-        {uninstallAction ? (
-          <PendingActionConfirm
-            action={uninstallAction}
-            onCancel={() => setUninstallAction(null)}
-            onDone={() => {
-              setUninstallAction(null);
-              void connectorsQuery.refetch();
-              onChanged();
-            }}
-          />
-        ) : null}
       </CardContent>
     </Card>
   );
@@ -290,7 +250,7 @@ export function CollectorInstallWizard({
   const [transport, setTransport] = useState<
     "direct" | "executor_tunnel" | "bastion_tunnel"
   >("direct");
-  const [loopbackPort, setLoopbackPort] = useState("4317");
+  const [loopbackPort, setLoopbackPort] = useState("14317");
   const [pendingAction, setPendingAction] =
     useState<PendingActionPublic | null>(null);
   const [settling, setSettling] = useState(false);
@@ -330,17 +290,16 @@ export function CollectorInstallWizard({
   );
 
   const scope = scopeOf(host, scopes);
-  const gatewayScopes =
-    host.connection_mode === "connector_local"
-      ? scopes.filter(
-          (entry) =>
-            entry.status === "active" &&
-            entry.id !== host.bastion_scope_id &&
-            Boolean(entry.connector_host_id),
-        )
-      : scope
-        ? [scope]
-        : [];
+  const gatewayScopes = !scope
+    ? scopes.filter(
+        (entry) =>
+          entry.status === "active" &&
+          entry.id !== host.bastion_scope_id &&
+          Boolean(entry.connector_host_id),
+      )
+    : scope
+      ? [scope]
+      : [];
 
   const close = (next: boolean) => {
     if (!next) {
@@ -348,7 +307,7 @@ export function CollectorInstallWizard({
       setProfile(COLLECTOR_PROFILES[0]!);
       setRoute("direct_argus");
       setTransport("direct");
-      setLoopbackPort("4317");
+      setLoopbackPort("14317");
       setPendingAction(null);
       setSettling(false);
     }
@@ -512,13 +471,13 @@ export function CollectorInstallWizard({
                 className={`argus-choice ${transport !== "direct" ? "is-selected" : ""}`}
                 onClick={() => {
                   setTransport(
-                    host.connection_mode === "via_bastion"
+                    host.control_path === "bastion_relay"
                       ? "bastion_tunnel"
                       : "executor_tunnel",
                   );
                   if (
                     route === "direct_argus" &&
-                    host.connection_mode === "via_bastion"
+                    host.control_path === "bastion_relay"
                   ) {
                     const first = gatewayScopes[0];
                     if (first) setRoute(first.connector_host_id ?? first.id);
@@ -631,17 +590,16 @@ function CollectorCard({
   );
 
   const scope = scopeOf(host, scopes);
-  const gatewayScopes =
-    host.connection_mode === "connector_local"
-      ? scopes.filter(
-          (entry) =>
-            entry.status === "active" &&
-            entry.id !== host.bastion_scope_id &&
-            Boolean(entry.connector_host_id),
-        )
-      : scope
-        ? [scope]
-        : [];
+  const gatewayScopes = !scope
+    ? scopes.filter(
+        (entry) =>
+          entry.status === "active" &&
+          entry.id !== host.bastion_scope_id &&
+          Boolean(entry.connector_host_id),
+      )
+    : scope
+      ? [scope]
+      : [];
 
   const activeProfileIds = useMemo(
     () => [
@@ -735,7 +693,7 @@ function CollectorCard({
           route_kind: gatewayCollectorId ? "bastion_gateway" : "direct_argus",
           transport: nextTransport,
           ...(nextTransport !== "direct"
-            ? { loopback_port: currentRoute.loopback_port ?? 4317 }
+            ? { loopback_port: currentRoute.loopback_port ?? 14317 }
             : {}),
           gateway_collector_id: gatewayCollectorId,
           expected_version: collector.version,
@@ -1135,9 +1093,7 @@ export function ComponentsTab({
 }) {
   return (
     <div className="argus-hosts-stack">
-      {host.connection_mode === "connector_local" && (
-        <ConnectorCard host={host} onChanged={onChanged} />
-      )}
+      <ConnectorCard host={host} onChanged={onChanged} />
       <CollectorCard host={host} onChanged={onChanged} scopes={scopes} />
     </div>
   );

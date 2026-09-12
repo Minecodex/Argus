@@ -1,6 +1,7 @@
 import type { ArgusApiClient } from "../client";
 import type {
   AuditEvent as AuditEventContract,
+  ResourceNameAvailability,
   AuditEventPage,
   AuthenticatedSession,
   CreatedApiKeySecret,
@@ -19,6 +20,10 @@ import type {
   LoginResult,
   Host,
   HostPage,
+  HostRemovalPreview,
+  HostRemovalOperation,
+  HostOnboardingOperation,
+  HostRemovalInstruction,
   ConnectorInstallOperation,
   KubernetesCluster,
   KubernetesClusterPage,
@@ -714,11 +719,17 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
 
   client.hosts = {
     ...client.hosts,
+    checkNameAvailability: (name) =>
+      portal !== "enterprise"
+        ? unavailable("hosts.checkNameAvailability")
+        : http.request<ResourceNameAvailability>(
+            `enterprise/hosts/name-availability?${new URLSearchParams({ name })}`,
+          ),
     async list(filter) {
       const params = new URLSearchParams();
       if (filter?.query) params.set("query", filter.query);
-      if (filter?.connection_mode) {
-        params.set("connection_mode", filter.connection_mode);
+      if (filter?.control_path) {
+        params.set("control_path", filter.control_path);
       }
       if (filter?.bastion_scope_id) {
         params.set("bastion_scope_id", filter.bastion_scope_id);
@@ -776,6 +787,71 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
           body: { expected_version: version },
         },
       ),
+    getRemovalConnectionDefaults: (input) => {
+      const params = new URLSearchParams({
+        ...input,
+        expected_version: String(input.expected_version),
+      });
+      return http.request(
+        `enterprise/host-removals/connection-defaults?${params}`,
+      );
+    },
+    previewRemoval: (input: HostRemovalPreview) =>
+      http.request<PendingActionPublic>(
+        "enterprise/host-removals/actions/preview",
+        {
+          method: "POST",
+          csrf: true,
+          headers: { "Idempotency-Key": idempotencyKey() },
+          body: input,
+        },
+      ),
+    previewRetryResource: (id, input) =>
+      http.request<PendingActionPublic>(
+        `enterprise/hosts/${id}/actions/preview-retry`,
+        {
+          method: "POST",
+          csrf: true,
+          headers: { "Idempotency-Key": idempotencyKey() },
+          body: input,
+        },
+      ),
+    getOnboardingOperation: (id) =>
+      http.request<HostOnboardingOperation>(
+        `enterprise/host-onboarding-operations/${id}`,
+      ),
+    getRemovalOperation: (id) =>
+      http.request<HostRemovalOperation>(
+        `enterprise/host-removal-operations/${id}`,
+      ),
+    retryRemovalOperation: (id) =>
+      http.request<HostRemovalOperation>(
+        `enterprise/host-removal-operations/${id}/actions/retry`,
+        {
+          method: "POST",
+          csrf: true,
+          headers: { "Idempotency-Key": idempotencyKey() },
+        },
+      ),
+    regenerateRemovalCommand: (id) =>
+      http.request<HostRemovalInstruction>(
+        `enterprise/host-removal-operations/${id}/actions/regenerate-command`,
+        {
+          method: "POST",
+          csrf: true,
+          headers: { "Idempotency-Key": idempotencyKey() },
+        },
+      ),
+    previewEnableWindowsRDP: (id, version) =>
+      http.request<PendingActionPublic>(
+        `enterprise/hosts/${id}/windows-rdp/actions/preview-enable`,
+        {
+          method: "POST",
+          csrf: true,
+          headers: { "Idempotency-Key": idempotencyKey() },
+          body: { expected_version: version },
+        },
+      ),
     getCollector: async (id) =>
       (await http.request<CollectorInstance | undefined>(
         `enterprise/hosts/${id}/collector`,
@@ -792,26 +868,6 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
       ),
     previewCollectorInstall: (id, input) =>
       client.hosts.previewCollectorAction(id, "install", input),
-    previewEnrollmentRotate: (id, version) =>
-      http.request<PendingActionPublic>(
-        `enterprise/hosts/${id}/actions/preview-enrollment-rotate`,
-        {
-          method: "POST",
-          csrf: true,
-          headers: { "Idempotency-Key": idempotencyKey() },
-          body: { expected_version: version },
-        },
-      ),
-    previewUninstallCommand: (id, version) =>
-      http.request<PendingActionPublic>(
-        `enterprise/hosts/${id}/actions/preview-uninstall-command`,
-        {
-          method: "POST",
-          csrf: true,
-          headers: { "Idempotency-Key": idempotencyKey() },
-          body: { expected_version: version },
-        },
-      ),
   };
 
   client.kubernetes = {
@@ -989,6 +1045,12 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
 
   client.connectors = {
     ...client.connectors,
+    checkBastionNameAvailability: (name) =>
+      portal !== "enterprise"
+        ? unavailable("connectors.checkBastionNameAvailability")
+        : http.request<ResourceNameAvailability>(
+            `enterprise/bastion-scopes/name-availability?${new URLSearchParams({ name })}`,
+          ),
     async list(query) {
       const params = new URLSearchParams();
       if (query?.cursor) params.set("cursor", query.cursor);
@@ -1465,6 +1527,7 @@ function createUnavailableClient(): ArgusApiClient {
       claimOneTimeResult: () => unavailable("executions.claimOneTimeResult"),
     },
     hosts: {
+      checkNameAvailability: () => unavailable("hosts.checkNameAvailability"),
       list: () => unavailable("hosts.list"),
       get: () => unavailable("hosts.get"),
       createConnectionTest: () => unavailable("hosts.createConnectionTest"),
@@ -1472,14 +1535,21 @@ function createUnavailableClient(): ArgusApiClient {
       previewCreateResource: () => unavailable("hosts.previewCreateResource"),
       previewUpdateResource: () => unavailable("hosts.previewUpdateResource"),
       previewDeleteResource: () => unavailable("hosts.previewDeleteResource"),
+      getRemovalConnectionDefaults: () =>
+        unavailable("hosts.getRemovalConnectionDefaults"),
+      previewRemoval: () => unavailable("hosts.previewRemoval"),
+      previewRetryResource: () => unavailable("hosts.previewRetryResource"),
+      getOnboardingOperation: () => unavailable("hosts.getOnboardingOperation"),
+      getRemovalOperation: () => unavailable("hosts.getRemovalOperation"),
+      retryRemovalOperation: () => unavailable("hosts.retryRemovalOperation"),
+      regenerateRemovalCommand: () =>
+        unavailable("hosts.regenerateRemovalCommand"),
+      previewEnableWindowsRDP: () =>
+        unavailable("hosts.previewEnableWindowsRDP"),
       getCollector: () => unavailable("hosts.getCollector"),
       previewCollectorAction: () => unavailable("hosts.previewCollectorAction"),
       previewCollectorInstall: () =>
         unavailable("hosts.previewCollectorInstall"),
-      previewEnrollmentRotate: () =>
-        unavailable("hosts.previewEnrollmentRotate"),
-      previewUninstallCommand: () =>
-        unavailable("hosts.previewUninstallCommand"),
     },
     remoteAccess: {
       listGrants: () => unavailable("remoteAccess.listGrants"),
@@ -1554,6 +1624,8 @@ function createUnavailableClient(): ArgusApiClient {
         unavailable("remoteAccess.listRecordingEvents"),
     },
     connectors: {
+      checkBastionNameAvailability: () =>
+        unavailable("connectors.checkBastionNameAvailability"),
       list: () => unavailable("connectors.list"),
       get: () => unavailable("connectors.get"),
       listBastionScopes: () => unavailable("connectors.listBastionScopes"),

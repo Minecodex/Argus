@@ -11,7 +11,11 @@ import {
 } from "@argus/api-client";
 import { MfaStepUpDialog } from "../security/mfa-step-up-dialog";
 
-type TerminalPanelProps = { host: Host };
+type TerminalPanelProps = {
+  host: Host;
+  protocol: "shell" | "ssh" | "rdp";
+  onRDPReady: (session: RemoteAccessSession, ticket: SessionTicketResult) => void;
+};
 
 export type TerminalPanelHandle = {
   createSession: (accountId: string, reason: string) => Promise<void>;
@@ -26,15 +30,13 @@ export type TerminalPanelHandle = {
 export const TerminalPanel = forwardRef<
   TerminalPanelHandle,
   TerminalPanelProps
->(({ host }, ref) => {
+>(({ host, protocol, onRDPReady }, ref) => {
   const { t } = useTranslation();
   const api = useApi();
   const { sessions, attachSession, showSession } = useTerminalSessions();
   const [stepUpOpen, setStepUpOpen] = useState(false);
   const [pendingRequestId, setPendingRequestId] = useState<string>();
   const [pendingAccountName, setPendingAccountName] = useState("unknown");
-
-  const protocol = host.connection_mode === "direct_winrm" ? "winrs" : "ssh";
 
   const continueRequest = useCallback(
     async (request: AccessRequest, accountName: string) => {
@@ -65,9 +67,13 @@ export const TerminalPanel = forwardRef<
         terminal_rows: 30,
       });
       const ticket = await api.remoteAccess.createTicket(session.id);
+		if (session.protocol === "rdp") {
+			onRDPReady(session, ticket);
+			return;
+		}
       await attachSession(session.id, session, ticket, host.name, accountName);
     },
-    [api, attachSession, host.name, t],
+		[api, attachSession, host.name, onRDPReady, t],
   );
 
   useImperativeHandle(
@@ -91,6 +97,10 @@ export const TerminalPanel = forwardRef<
         session: RemoteAccessSession,
         ticket: SessionTicketResult,
       ) => {
+			if (session.protocol === "rdp") {
+				onRDPReady(session, ticket);
+				return;
+			}
         if (sessions.has(session.id)) {
           const current = sessions.get(session.id)!;
           await attachSession(
@@ -121,6 +131,7 @@ export const TerminalPanel = forwardRef<
       host.id,
       host.name,
       protocol,
+		onRDPReady,
       sessions,
       showSession,
     ],

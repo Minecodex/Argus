@@ -43,7 +43,11 @@ func (handler ConnectorHandler) GetConnectorBootstrapScript(ctx context.Context,
 		return connectorapi.GetConnectorBootstrapScriptdefaultJSONResponse{
 			Body: connectorError(ctx, err), StatusCode: connectorStatus(err)}, nil
 	}
-	cacheControl, disposition, contentTypeOptions := "no-store", `inline; filename="argus-connector-bootstrap.sh"`, "nosniff"
+	filename := "argus-connector-bootstrap.sh"
+	if string(request.Params.Scope) == string(installinstruction.ScopeWindowsSystem) {
+		filename = "argus-connector-bootstrap.ps1"
+	}
+	cacheControl, disposition, contentTypeOptions := "no-store", `inline; filename="`+filename+`"`, "nosniff"
 	return connectorapi.GetConnectorBootstrapScript200TextxShellscriptResponse{
 		Body: io.NopCloser(strings.NewReader(script)), ContentLength: int64(len(script)),
 		Headers: connectorapi.GetConnectorBootstrapScript200ResponseHeaders{
@@ -62,7 +66,7 @@ func (handler ConnectorHandler) EnrollConnector(ctx context.Context, request con
 		return connectorapi.EnrollConnectordefaultJSONResponse{Body: connectorError(ctx, connector.ErrEnrollmentInvalid), StatusCode: http.StatusUnauthorized}, nil
 	}
 	result, err := handler.Service.Enroll(ctx, connector.EnrollInput{Token: token, CSRPem: *request.Body.CsrPem,
-		DeviceFingerprint: request.Body.DeviceFingerprint, InstanceID: request.Body.InstanceId, Architecture: string(request.Body.Architecture), Name: request.Body.Name,
+		DeviceFingerprint: request.Body.DeviceFingerprint, InstanceID: request.Body.InstanceId, Platform: string(request.Body.Platform), Architecture: string(request.Body.Architecture), Name: request.Body.Name,
 		SoftwareVersion: request.Body.SoftwareVersion, Capabilities: request.Body.Capabilities})
 	if err != nil {
 		return connectorapi.EnrollConnectordefaultJSONResponse{Body: connectorError(ctx, err), StatusCode: connectorStatus(err)}, nil
@@ -114,6 +118,9 @@ func (handler ConnectorHandler) PreviewCreateBastionScope(ctx context.Context, r
 	input := connector.BastionInput{Name: request.Body.Name,
 		Environment: string(request.Body.Environment), Labels: stringMap(request.Body.Labels),
 		InstallMode: string(request.Body.InstallMode)}
+	if request.Body.Architecture != nil {
+		input.Architecture = string(*request.Body.Architecture)
+	}
 	if request.Body.Address != nil {
 		input.Address = *request.Body.Address
 	}
@@ -323,9 +330,21 @@ func toBastionScope[T bastionRow](value T, onboarding onboardingView) connectora
 	result := connectorapi.BastionScope{Id: openapi_types.UUID(row.ID), EnterpriseId: pointerUUID(row.EnterpriseID), Name: row.Name,
 		Environment: connectorapi.Environment(row.Environment), Labels: connectorapi.Labels(labels), Status: connectorapi.BastionScopeStatus(row.Status),
 		FencingGeneration: row.FencingGeneration, ResourceVersion: row.ResourceVersion, MemberCount: int(row.MemberCount), Onboarding: toBastionOnboarding(onboarding),
-		CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time}
+		CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time, RemovalGeneration: &row.RemovalGeneration}
+	cleanup := connectorapi.BastionScopeLocalCleanup(row.LocalCleanup)
+	result.LocalCleanup = &cleanup
+	if row.RelayAddress != "" {
+		result.RelayAddress = &row.RelayAddress
+	}
 	mode := connectorapi.BastionScopeOnboardingMode(row.OnboardingMode)
 	result.OnboardingMode = &mode
+	httpsPort, gatewayPort := int(row.RelayHttpsPort), int(row.RelayGatewayPort)
+	portGeneration := row.RelayPortGeneration
+	relayStatus := connectorapi.BastionScopeRelayStatus(row.RelayStatus)
+	result.RelayHttpsPort, result.RelayGatewayPort, result.RelayPortGeneration, result.RelayStatus = &httpsPort, &gatewayPort, &portGeneration, &relayStatus
+	if row.RelayErrorCode != "" {
+		result.RelayErrorCode = &row.RelayErrorCode
+	}
 	if row.ConnectorHostID.Valid {
 		id := openapi_types.UUID(row.ConnectorHostID.UUID)
 		result.ConnectorHostId = &id
@@ -337,6 +356,10 @@ func toBastionScope[T bastionRow](value T, onboarding onboardingView) connectora
 	if row.ControlTunnelStatus != "" {
 		status := connectorapi.BastionScopeControlTunnelStatus(row.ControlTunnelStatus)
 		result.ControlTunnelStatus = &status
+	}
+	if row.RemovalOperationID != uuid.Nil {
+		id := openapi_types.UUID(row.RemovalOperationID)
+		result.RemovalOperationId = &id
 	}
 	return result
 }

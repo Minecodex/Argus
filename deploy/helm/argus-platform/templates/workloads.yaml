@@ -177,6 +177,30 @@ spec:
             requests: {cpu: 25m, memory: 64Mi}
             limits: {cpu: 500m, memory: 256Mi}
             {{- end }}
+        {{- if eq $item.name "argus-connector-gateway" }}
+        - name: guacd
+          image: {{ $root.Values.images.guacd }}
+          imagePullPolicy: IfNotPresent
+          command: ["/opt/guacamole/sbin/guacd"]
+          args: ["-b", "127.0.0.1", "-l", "4822", "-L", "info", "-f"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            capabilities: {drop: [ALL]}
+          readinessProbe:
+            exec: {command: ["/usr/bin/nc", "-z", "127.0.0.1", "4822"]}
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            exec: {command: ["/usr/bin/nc", "-z", "127.0.0.1", "4822"]}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 25m, memory: 96Mi}
+            limits: {cpu: "1", memory: 512Mi}
+        {{- end }}
       {{- if or (eq $item.name "argus-server") $isWorker (eq $item.name "argus-direct-executor") (eq $item.name "argus-connector-gateway") }}
       volumes:
         - name: argus-trust

@@ -541,7 +541,7 @@ export interface components {
             profile_ids: string[];
             route_kind: components["schemas"]["TelemetryRouteKind"];
             transport: components["schemas"]["TelemetryRouteTransport"];
-            /** @description 隧道形态的 OTLP 回环端口;缺省 4317,相邻端口保留给身份注册与轮换 */
+            /** @description 隧道形态的 OTLP 回环端口;缺省 14317,相邻端口保留给身份注册与轮换;4317 保留给本机 OTLP receiver */
             loopback_port?: number;
             /** Format: uuid */
             gateway_collector_id?: string;

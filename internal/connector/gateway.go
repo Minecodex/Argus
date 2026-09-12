@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/connectorprotocol"
 	"io"
 	"strings"
 	"time"
@@ -25,8 +26,12 @@ import (
 
 	commonv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/common/v1"
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
+	"github.com/kakj-go/Argus/internal/hostremoval"
+	"github.com/kakj-go/Argus/internal/installation"
+	"github.com/kakj-go/Argus/internal/operationsecret"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/secret"
+	"github.com/kakj-go/Argus/internal/sshtarget"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"github.com/kakj-go/Argus/internal/telemetrybinding"
 	"github.com/kakj-go/Argus/internal/tlsmaterial"
@@ -53,6 +58,7 @@ type Gateway struct {
 	TelemetryTunnelLimit                 int
 	TelemetryTunnelForwardTarget         string
 	TelemetryTunnelIdentityForwardTarget string
+	OperationSecretKey                   []byte
 }
 
 type CollectorEnrollmentMaterial struct {
@@ -169,7 +175,8 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 				_, _ = gateway.Service.TransitionCommand(stream.Context(), identity, epoch, command.CommandID, "failed", nil, "CONNECTOR_COMMAND_SCHEMA_INVALID")
 				continue
 			}
-			if _, err := gateway.Service.TransitionCommand(stream.Context(), identity, epoch, command.CommandID, "dispatched", nil, ""); err != nil {
+			transitioned, err := gateway.Service.TransitionCommand(stream.Context(), identity, epoch, command.CommandID, "dispatched", nil, "")
+			if err != nil || cancelledHostInstallCommand(transitioned) {
 				continue
 			}
 			if err := stream.Send(&connectorv1.ConnectResponse{Sequence: serverSequence, Frame: &connectorv1.ConnectResponse_Command{Command: frame}}); err != nil {
@@ -208,12 +215,16 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 				if err != nil {
 					return gateway.close(stream, serverSequence, commonv1.CloseReason_CLOSE_REASON_AUTHORIZATION_REVOKED, "CREDENTIAL_LEASE_INVALID")
 				}
-				if err := stream.Send(&connectorv1.ConnectResponse{Sequence: serverSequence, Frame: &connectorv1.ConnectResponse_CredentialLeaseGrant{CredentialLeaseGrant: grant}}); err != nil {
-					return err
+				if grant != nil {
+					if err := stream.Send(&connectorv1.ConnectResponse{Sequence: serverSequence, Frame: &connectorv1.ConnectResponse_CredentialLeaseGrant{CredentialLeaseGrant: grant}}); err != nil {
+						return err
+					}
+					// grpc-go may retain the message after Send returns. The Connector
+					// owns zeroing the received copy after the command has completed.
+					serverSequence++
+				} else {
+					delete(activeCommands, leaseRequest.GetCommandId())
 				}
-				// grpc-go may retain the message after Send returns. The Connector owns
-				// zeroing the received copy after the command has completed.
-				serverSequence++
 			}
 			if rotationRequest := message.GetCertificateRotationRequest(); rotationRequest != nil {
 				if rotationRequest.GetConnectionEpoch() != uint64(epoch) {
@@ -336,6 +347,12 @@ func (gateway Gateway) handleFrame(ctx context.Context, identity TrustedIdentity
 		if request.GetHeartbeat().GetConnectionEpoch() != uint64(epoch) {
 			return ErrConnectorFenced
 		}
+		if err := gateway.Service.UpdateHostRuntimeObservation(ctx, identity, request.GetHeartbeat().GetHostRuntime()); err != nil {
+			return err
+		}
+		if err := gateway.Service.UpdateBastionRelayStatus(ctx, identity, request.GetHeartbeat().GetBastionRelay()); err != nil {
+			return err
+		}
 		if err := gateway.applyTelemetryTunnelStatuses(ctx, identity, epoch, request.GetHeartbeat().GetTelemetryTunnels()); err != nil {
 			return err
 		}
@@ -348,10 +365,15 @@ func (gateway Gateway) handleFrame(ctx context.Context, identity TrustedIdentity
 		if !ok {
 			return ErrCommandState
 		}
-		if _, err := gateway.Service.TransitionCommand(ctx, identity, epoch, commandID, "acknowledged", nil, ""); err != nil {
+		transitioned, err := gateway.Service.TransitionCommand(ctx, identity, epoch, commandID, "acknowledged", nil, "")
+		if err != nil {
 			return err
 		}
 		delete(acknowledgements, sequence)
+		if cancelledHostInstallCommand(transitioned) {
+			delete(active, commandID)
+			return nil
+		}
 		command := active[commandID]
 		command.acknowledged = true
 		active[commandID] = command
@@ -365,6 +387,10 @@ func (gateway Gateway) handleFrame(ctx context.Context, identity TrustedIdentity
 		if err != nil || !resultTypeAllowed(command.CommandType, result.GetTypedResult()) {
 			return ErrCommandState
 		}
+		if cancelledHostInstallCommand(command) {
+			delete(active, result.GetCommandId())
+			return nil
+		}
 		value, err := marshalTypedResult(result.GetTypedResult())
 		if err != nil || len(value) > MaxMessageBytes {
 			return ErrCommandState
@@ -374,14 +400,25 @@ func (gateway Gateway) handleFrame(ctx context.Context, identity TrustedIdentity
 			errorCode = result.GetError().GetCode()
 		}
 		next := normalizeResultStatus(result.GetStatus())
+		if command.CommandType == "host_connection_probe" {
+			_, next, errorCode, err = hostProbeOutcome(command.Payload, next, result.GetTypedResult(), errorCode)
+			if err != nil {
+				return err
+			}
+		}
 		if command.CommandType == "connector_uninstall" && next == "succeeded" && !validConnectorUninstallResult(result.GetTypedResult()) {
 			return ErrCommandState
 		}
 		if command.CommandType == "collector_management" && next == "succeeded" && !validCollectorManagementResult(command, result.GetTypedResult()) {
 			return ErrCommandState
 		}
-		if _, err = gateway.Service.TransitionCommand(ctx, identity, epoch, result.GetCommandId(), next, value, errorCode); err != nil {
-			return err
+		transitioned, transitionErr := gateway.Service.TransitionCommand(ctx, identity, epoch, result.GetCommandId(), next, value, errorCode)
+		if transitionErr != nil {
+			return transitionErr
+		}
+		if cancelledHostInstallCommand(transitioned) {
+			delete(active, result.GetCommandId())
+			return nil
 		}
 		if next != "running" {
 			delete(active, result.GetCommandId())
@@ -472,6 +509,9 @@ func (gateway Gateway) fulfillCredentialLease(ctx context.Context, identity Trus
 	command, err := gateway.Service.Store.Queries.GetConnectorCommand(ctx, db.GetConnectorCommandParams{CommandID: request.GetCommandId(), ConnectorID: identity.ConnectorID, ConnectionEpoch: epoch})
 	commandID := request.GetCommandId()
 	if err == nil {
+		if cancelledHostInstallCommand(command) && command.CredentialLeaseID.Valid && command.CredentialLeaseID.UUID == leaseID {
+			return nil, nil
+		}
 		if !command.CredentialLeaseID.Valid || command.CredentialLeaseID.UUID != leaseID || (command.Status != "acknowledged" && command.Status != "running") {
 			return nil, secret.ErrInvalidLease
 		}
@@ -500,8 +540,32 @@ func (gateway Gateway) fulfillCredentialLease(ctx context.Context, identity Trus
 	if err != nil {
 		return nil, err
 	}
+	var operationPayload []byte
+	if request.GetHostOnboardingOperationId() != "" {
+		operationID, parseErr := uuid.Parse(request.GetHostOnboardingOperationId())
+		if parseErr != nil || len(gateway.OperationSecretKey) != 32 {
+			return nil, secret.ErrInvalidLease
+		}
+		operation, getErr := gateway.Service.Store.Queries.GetHostOnboardingOperation(ctx, db.GetHostOnboardingOperationParams{ID: operationID, EnterpriseID: identity.EnterpriseID})
+		if getErr != nil || operation.Status != "running" || operation.SshPath != "bastion_connector" || !operation.BastionScopeID.Valid {
+			return nil, secret.ErrInvalidLease
+		}
+		scope, scopeErr := gateway.Service.Store.Queries.GetBastionScope(ctx, db.GetBastionScopeParams{ID: operation.BastionScopeID.UUID, EnterpriseID: identity.EnterpriseID})
+		if scopeErr != nil || !scope.ActiveConnectorID.Valid || scope.ActiveConnectorID.UUID != identity.ConnectorID {
+			return nil, secret.ErrInvalidLease
+		}
+		record, secretErr := gateway.Service.Store.Queries.GetHostOnboardingOperationSecret(ctx, db.GetHostOnboardingOperationSecretParams{OperationID: operation.ID, EnterpriseID: identity.EnterpriseID})
+		if secretErr != nil {
+			return nil, secret.ErrInvalidLease
+		}
+		material, decryptErr := operationsecret.Decrypt(gateway.OperationSecretKey, record.Nonce, record.Ciphertext, identity.EnterpriseID, operation.ID)
+		if decryptErr != nil {
+			return nil, secret.ErrInvalidLease
+		}
+		operationPayload = []byte(material.EnrollmentToken)
+	}
 	return &connectorv1.CredentialLeaseGrant{LeaseId: leaseID.String(), CommandId: commandID, ConnectionEpoch: uint64(epoch),
-		CredentialPayload: issued.Value, ExpiresAt: timestamppb.New(issued.Lease.ExpiresAt.Time), RecipientNonce: request.GetRecipientNonce()}, nil
+		CredentialPayload: issued.Value, OperationSecretPayload: operationPayload, ExpiresAt: timestamppb.New(issued.Lease.ExpiresAt.Time), RecipientNonce: request.GetRecipientNonce()}, nil
 }
 
 func (gateway Gateway) completeConnectionTest(ctx context.Context, command db.ConnectorCommand, status string, typed *anypb.Any, errorCode string) error {
@@ -513,20 +577,17 @@ func (gateway Gateway) completeConnectionTest(ctx context.Context, command db.Co
 		return ErrCommandState
 	}
 	result := resource.ConnectionTestResult{}
-	if status == "succeeded" {
-		if command.CommandType == "host_connection_probe" {
-			var value connectorv1.HostConnectionProbeResult
-			if typed.UnmarshalTo(&value) != nil {
-				return ErrCommandState
-			}
-			result = hostProbeConnectionTestResult(&value)
-		} else {
-			var value connectorv1.KubernetesConnectionProbeResult
-			if typed.UnmarshalTo(&value) != nil {
-				return ErrCommandState
-			}
-			result.RemoteVersion = value.ServerVersion
+	if command.CommandType == "host_connection_probe" {
+		result, status, errorCode, err = hostProbeOutcome(command.Payload, status, typed, errorCode)
+		if err != nil {
+			return err
 		}
+	} else if status == "succeeded" {
+		var value connectorv1.KubernetesConnectionProbeResult
+		if typed.UnmarshalTo(&value) != nil {
+			return ErrCommandState
+		}
+		result.RemoteVersion = value.ServerVersion
 	}
 	encoded, _ := json.Marshal(result)
 	_, err = gateway.Service.Store.Queries.CompleteConnectionTest(ctx, db.CompleteConnectionTestParams{ID: testID, EnterpriseID: command.EnterpriseID,
@@ -535,11 +596,19 @@ func (gateway Gateway) completeConnectionTest(ctx context.Context, command db.Co
 }
 
 func hostProbeConnectionTestResult(value *connectorv1.HostConnectionProbeResult) resource.ConnectionTestResult {
-	return resource.ConnectionTestResult{
+	result := resource.ConnectionTestResult{
 		ResolvedIPs: value.GetResolvedIps(), HostKeyFingerprint: value.GetHostKeyFingerprint(),
 		RemoteVersion: value.GetRemoteVersion(), LatencyMS: int64(value.GetLatencyMillis()),
-		Architecture: value.GetArchitecture(),
+		Platform: value.GetPlatform(), Architecture: value.GetArchitecture(), DistributionVersion: value.GetDistributionVersion(),
+		ServiceManager: value.GetServiceManager(), Privileged: value.GetPrivileged(), FreeDiskBytes: value.GetFreeDiskBytes(),
+		CallbackVerified: value.GetCallbackVerified(), CallbackControlPath: value.GetCallbackControlPath(),
+		Checks: sshtarget.ConnectionChecks(sshtarget.Evidence{Platform: value.GetPlatform(), Architecture: value.GetArchitecture(),
+			DistributionVersion: value.GetDistributionVersion(), ServiceManager: value.GetServiceManager(), Privileged: value.GetPrivileged(), FreeDiskBytes: value.GetFreeDiskBytes()}),
 	}
+	if result.CallbackVerified {
+		result.Checks = append(result.Checks, map[string]string{"name": "onboarding_callback", "status": "passed", "detail": result.CallbackControlPath})
+	}
+	return result
 }
 
 func (gateway Gateway) trustedIdentity(ctx context.Context) (TrustedIdentity, db.Connector, error) {
@@ -593,20 +662,56 @@ func (gateway Gateway) typedCommand(ctx context.Context, command db.ConnectorCom
 	switch command.CommandType {
 	case "host_connection_probe":
 		var plan struct {
-			Address        string `json:"address"`
-			Port           uint32 `json:"port"`
-			Platform       string `json:"platform"`
-			Username       string `json:"username"`
-			ConnectionMode string `json:"connection_mode"`
+			Address    string                          `json:"address"`
+			Port       uint32                          `json:"port"`
+			Platform   string                          `json:"platform"`
+			Username   string                          `json:"username"`
+			Onboarding *installation.CallbackProbePlan `json:"onboarding"`
 		}
 		if err := json.Unmarshal(command.Payload, &plan); err != nil || plan.Address == "" || plan.Port == 0 {
 			return nil, ErrCommandState
 		}
-		protocol := "ssh"
-		if strings.Contains(plan.ConnectionMode, "winrm") || (plan.ConnectionMode == "via_bastion" && plan.Platform == "windows") {
-			protocol = "winrm"
+		if plan.Platform != "linux" && plan.Platform != "windows" {
+			return nil, ErrCommandState
 		}
-		payload = &connectorv1.HostConnectionProbe{Address: plan.Address, Port: plan.Port, Protocol: protocol, Username: plan.Username}
+		probe := &connectorv1.HostConnectionProbe{Address: plan.Address, Port: plan.Port, Protocol: "ssh", Username: plan.Username, Platform: plan.Platform}
+		if p := plan.Onboarding; p != nil {
+			probe.Onboarding = &connectorv1.CallbackProbePlan{ControlPath: p.ControlPath, EnrollmentEndpoint: p.EnrollmentEndpoint, GatewayEndpoint: p.GatewayEndpoint,
+				EnrollDialAddress: p.EnrollDialAddress, GatewayDialAddress: p.GatewayDialAddress, TrustBundlePem: p.TrustBundlePEM, TrustBundleEpoch: p.TrustBundleEpoch, RelayPortGeneration: p.RelayPortGeneration}
+		}
+		payload = probe
+	case "host_connector_install":
+		var plan installation.HostConnectorInstallPlan
+		if json.Unmarshal(command.Payload, &plan) != nil || plan.ConnectorID == uuid.Nil || !plan.TargetPlatform.Valid() {
+			return nil, ErrCommandState
+		}
+		payload = &connectorv1.HostConnectorInstall{OperationId: command.OperationRef, HostId: plan.HostID.String(), ConnectorId: plan.ConnectorID.String(),
+			TargetPlatform: string(plan.TargetPlatform), TargetDistributionVersion: plan.DistributionVersion, Address: plan.Address, Port: uint32(plan.Port), Username: plan.Username,
+			PinnedHostKey: plan.PinnedHostKey, ReleaseVersionId: plan.ReleaseVersionID.String(), ManifestUri: plan.ManifestURI,
+			Artifact: &connectorv1.CollectorArtifact{Platform: plan.Artifact.Platform, Uri: plan.Artifact.URI, Sha256: plan.Artifact.SHA256,
+				Signature: plan.Artifact.Signature, SigningKeyId: plan.Artifact.SigningKeyID, ByteSize: uint64(plan.Artifact.ByteSize)},
+			SigningPublicKey: plan.SigningPublicKey, EnrollmentEndpoint: plan.EnrollmentEndpoint, GatewayEndpoint: plan.GatewayEndpoint,
+			EnrollDialAddress: plan.EnrollDialAddress, GatewayDialAddress: plan.GatewayDialAddress, TrustBundlePem: plan.TrustBundlePEM,
+			TrustBundleEpoch: uint64(plan.TrustBundleEpoch), TrustBundleSha256: plan.TrustBundleSHA256}
+	case "host_connector_removal":
+		var plan hostremoval.Plan
+		if json.Unmarshal(command.Payload, &plan) != nil || !plan.OperationID.Valid || plan.OperationID.UUID.String() != command.OperationRef ||
+			plan.HostID == uuid.Nil || plan.ConnectorID == uuid.Nil || plan.RemovalGeneration < 1 || plan.Address == "" || plan.Port < 1 || plan.Username == "" || plan.PinnedHostKey == "" {
+			return nil, ErrCommandState
+		}
+		payload = &connectorv1.HostConnectorRemoval{OperationId: plan.OperationID.UUID.String(), HostId: plan.HostID.String(), ConnectorId: plan.ConnectorID.String(),
+			RemovalGeneration: uint64(plan.RemovalGeneration), TargetPlatform: plan.TargetPlatform, Address: plan.Address, Port: uint32(plan.Port),
+			Username: plan.Username, PinnedHostKey: plan.PinnedHostKey,
+			ManagedChangeBeforeJson: plan.ManagedChangeBefore, ManagedChangeAppliedJson: plan.ManagedChangeApplied}
+		if plan.ManagedChangeID.Valid {
+			payload.(*connectorv1.HostConnectorRemoval).ManagedChangeId = plan.ManagedChangeID.UUID.String()
+		}
+	case "host_windows_rdp_configure":
+		var request connectorv1.HostWindowsRDPConfigure
+		if json.Unmarshal(command.Payload, &request) != nil || request.GetHostId() == "" || !request.GetEnable() || !request.GetEnforceNla() || !request.GetEnableFirewall() {
+			return nil, ErrCommandState
+		}
+		payload = &request
 	case "kubernetes_connection_probe":
 		var plan struct {
 			Address string `json:"address"`
@@ -670,15 +775,7 @@ func (gateway Gateway) typedCommand(ctx context.Context, command db.ConnectorCom
 }
 
 func resultTypeAllowed(commandType string, value *anypb.Any) bool {
-	allowed := map[string]string{
-		"host_connection_probe":       "type.googleapis.com/argus.connector.v1.HostConnectionProbeResult",
-		"kubernetes_connection_probe": "type.googleapis.com/argus.connector.v1.KubernetesConnectionProbeResult",
-		"kubernetes_resource_query":   "type.googleapis.com/argus.connector.v1.KubernetesResourceQueryResult",
-		"kubernetes_pod_logs":         "type.googleapis.com/argus.connector.v1.KubernetesPodLogsResult",
-		"connector_uninstall":         "type.googleapis.com/argus.connector.v1.ConnectorUninstallResult",
-		"collector_management":        "type.googleapis.com/argus.connector.v1.CollectorManagementResult",
-	}
-	return value != nil && value.TypeUrl == allowed[commandType]
+	return connectorprotocol.ResultAllowed(commandType, value)
 }
 
 func validConnectorUninstallResult(value *anypb.Any) bool {

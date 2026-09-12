@@ -6,7 +6,7 @@ M8 只在 arm64 Docker Desktop 的专用干净 Kubernetes Context、本地临时
 
 - `local-hardening` 使用单副本 PostgreSQL、Redis、Kafka、ClickHouse、MinIO 和单节点 OpenBao。
 - Production Profile 只允许 schema validate、lint 和 render；`argusctl install` 继续 fail closed。
-- Linux amd64、Windows amd64、真实 WinRM、跨可用区灾备、生产固定出口、HA 和容量证明不进入退出标准。
+- Linux amd64、Windows Server 2019/2022 x64 的 Connector/Collector/OpenSSH/ConPTY/RDP、跨可用区灾备、生产固定出口、HA 和容量证明不进入退出标准。
 - 本地性能与故障测试只形成回归证据，不形成生产 SLO、RPO 或 RTO 承诺。
 
 ## 已实现
@@ -64,7 +64,7 @@ local_hardening_complete
 - PostgreSQL/Kafka/ClickHouse/OpenBao 多节点 HA、PITR、跨故障域恢复和容量。
 - Kata/gVisor 等强化 Sandbox Runtime、真实 NAT/Egress Gateway 和出口地址证明。
 - 生产 KMS/OpenBao HA、CA 根轮换、Object Lock、签名密钥托管和供应链平台集成。
-- Linux amd64、Windows amd64、Windows Collector/Service 和真实 Windows Server WinRM 矩阵。
+- Linux amd64，以及 Windows Server 2019/2022 x64 的 Connector/Collector、Windows Service、OpenSSH、ConPTY 与 RDP 矩阵。
 - 生产告警、值班 Runbook、SLO、RPO/RTO、渗透测试和跨集群灾备。
 
 Production Profile 在上述清单完成前继续返回明确阻断，不因 `local_hardening_complete` 自动解除。

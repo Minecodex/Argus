@@ -73,7 +73,13 @@ func (executor *Executor) executeConnectorInstall(parent context.Context, operat
 	ctx, cancel := context.WithDeadline(parent, operation.ExpiresAt.Time)
 	defer cancel()
 	leaseDone := make(chan struct{})
-	go executor.renewConnectorInstallLease(ctx, operation, leaseDone)
+	go executor.renewConnectorInstallLease(ctx, operation, leaseDone, cancel)
+	claimed := operation
+	go watchInstallAuthority(ctx, cancel, leaseDone, func(readCtx context.Context) (bool, error) {
+		current, err := executor.Store.Queries.GetConnectorInstallOperation(readCtx, db.GetConnectorInstallOperationParams{ID: claimed.ID, EnterpriseID: claimed.EnterpriseID})
+		return err == nil && current.Status == "running" && current.LeaseOwner == claimed.LeaseOwner &&
+			current.Fence == claimed.Fence && current.Attempts == claimed.Attempts && current.LeaseExpiresAt.Valid && time.Now().Before(current.LeaseExpiresAt.Time), err
+	})
 	defer close(leaseDone)
 
 	command, material, err := executor.loadConnectorInstallPlan(ctx, operation)
@@ -169,6 +175,8 @@ func (executor *Executor) installConnectorOverSSH(ctx context.Context, operation
 		return err
 	}
 	defer client.Close()
+	stopOnCancel := context.AfterFunc(ctx, func() { _ = client.Close() })
+	defer stopOnCancel()
 	if err = executor.Validator.Revalidate(ctx, command.GetTargetAddress(), addresses); err != nil {
 		return err
 	}
@@ -198,23 +206,24 @@ func (executor *Executor) installConnectorOverSSH(ctx context.Context, operation
 	if err = executor.advanceConnectorInstall(ctx, operation, "artifact_transferring"); err != nil {
 		return err
 	}
-	upload := `umask 077; install -d -m 0755 /usr/local/bin; tmp=$(mktemp /usr/local/bin/.argus-connector.XXXXXX); cat > "$tmp"; chmod 0755 "$tmp"; mv -f "$tmp" /usr/local/bin/argus-connector`
+	stage := "/var/lib/argus-connector-install/" + command.GetConnectorId()
+	upload := `set -eu; umask 077; install -d -m 0700 ` + shellQuote(stage) + `; tmp=$(mktemp ` + shellQuote(stage+`/.argus-connector.XXXXXX`) + `); cat > "$tmp"; chmod 0700 "$tmp"; mv -f "$tmp" ` + shellQuote(stage+`/argus-connector`)
 	if err = runSSHCommandReader(client, upload, artifactFile); err != nil {
 		return err
 	}
 	if err = executor.advanceConnectorInstall(ctx, operation, "service_installing"); err != nil {
 		return err
 	}
-	prepareRuntime := `umask 077; id argus-connector >/dev/null 2>&1 || useradd --system --home-dir /var/lib/argus-connector --shell /usr/sbin/nologin argus-connector; install -d -m 0755 /etc/argus-connector; install -d -m 0700 -o argus-connector -g argus-connector /var/lib/argus-connector; install -d -m 0700 /var/lib/argus-otelcol /etc/argus-otelcol`
+	prepareRuntime := `set -eu; umask 077; id argus-connector >/dev/null 2>&1 || useradd --system --home-dir /var/lib/argus-connector --shell /usr/sbin/nologin argus-connector; install -d -m 0755 /etc/argus-connector; install -d -m 0700 -o argus-connector -g argus-connector /var/lib/argus-connector; install -d -m 0700 /var/lib/argus-otelcol /etc/argus-otelcol; current=""; if [ -f /var/lib/argus-connector/identity.json ]; then current=$(sed -n 's/.*"connector_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /var/lib/argus-connector/identity.json | sed -n '1p'); fi; [ -n "$current" ] || { [ ! -f /var/lib/argus-connector/.desired-connector-id ] || current=$(sed -n '1p' /var/lib/argus-connector/.desired-connector-id); }; printf '%s' "$current" > ` + shellQuote(stage+`/previous-connector-id`)
 	if err = runSSHCommand(client, prepareRuntime, nil); err != nil {
 		return err
 	}
 	trust, _ := json.Marshal(map[string]string{command.GetArtifact().GetSigningKeyId(): command.GetArtifactSigningPublicKey()})
-	writeTrust := `umask 077; tmp=$(mktemp /etc/argus-connector/.otelcol-signing-keys.XXXXXX); cat > "$tmp"; chmod 0644 "$tmp"; mv -f "$tmp" /etc/argus-connector/otelcol-signing-keys.json`
+	writeTrust := `umask 077; cat > ` + shellQuote(stage+`/otelcol-signing-keys.json`) + `; chmod 0600 ` + shellQuote(stage+`/otelcol-signing-keys.json`)
 	if err = runSSHCommand(client, writeTrust, trust); err != nil {
 		return err
 	}
-	writeServerCA := `umask 077; tmp=$(mktemp /etc/argus-connector/.server-ca.XXXXXX); cat > "$tmp"; chmod 0644 "$tmp"; mv -f "$tmp" /etc/argus-connector/server-ca.pem`
+	writeServerCA := `umask 077; cat > ` + shellQuote(stage+`/server-ca.pem`) + `; chmod 0600 ` + shellQuote(stage+`/server-ca.pem`)
 	if err = runSSHCommand(client, writeServerCA, installTrust.PEM); err != nil {
 		return err
 	}
@@ -223,18 +232,15 @@ func (executor *Executor) installConnectorOverSSH(ctx context.Context, operation
 		if len(executor.CollectorArtifactCABundle) > 1<<20 {
 			return errors.New("collector artifact CA bundle is too large")
 		}
-		writeCA := `umask 077; tmp=$(mktemp /etc/argus-connector/.otelcol-artifact-ca.XXXXXX); cat > "$tmp"; chmod 0644 "$tmp"; mv -f "$tmp" /etc/argus-connector/otelcol-artifact-ca.pem`
+		writeCA := `umask 077; cat > ` + shellQuote(stage+`/otelcol-artifact-ca.pem`) + `; chmod 0600 ` + shellQuote(stage+`/otelcol-artifact-ca.pem`)
 		if err = runSSHCommand(client, writeCA, executor.CollectorArtifactCABundle); err != nil {
 			return err
 		}
-	} else if err = runSSHCommand(client, `rm -f /etc/argus-connector/otelcol-artifact-ca.pem`, nil); err != nil {
-		return err
 	}
 	unit := connectorSystemdUnit(command, hasArtifactCA)
 	writeUnit := `umask 077; tmp=$(mktemp /etc/systemd/system/.argus-connector.XXXXXX); cat > "$tmp"; chmod 0644 "$tmp"; mv -f "$tmp" /etc/systemd/system/argus-connector.service; systemctl daemon-reload`
-	if err = runSSHCommand(client, writeUnit, []byte(unit)); err != nil {
-		return err
-	}
+	helperUnit := connectorPrivilegedSystemdUnit(command, hasArtifactCA)
+	writeHelper := `umask 077; tmp=$(mktemp /etc/systemd/system/.argus-connector-privileged.XXXXXX); cat > "$tmp"; chmod 0644 "$tmp"; mv -f "$tmp" /etc/systemd/system/argus-connector-privileged.service; systemctl daemon-reload`
 	if operation.InstallMode == "direct_install_tunnel" {
 		if err = executor.advanceConnectorInstall(ctx, operation, "control_tunnel_establishing"); err != nil {
 			return err
@@ -246,35 +252,40 @@ func (executor *Executor) installConnectorOverSSH(ctx context.Context, operation
 	if err = executor.advanceConnectorInstall(ctx, operation, "enrolling"); err != nil {
 		return err
 	}
-	if command.GetOperation() == "replace" {
-		prepareIdentity := `set -eu; root=/var/lib/argus-connector; marker="$root/.desired-connector-id"; current=""; [ -f "$marker" ] && current=$(cat "$marker"); if [ "$current" != ` + shellQuote(command.GetConnectorId()) + ` ]; then systemctl disable --now argus-connector.service >/dev/null 2>&1 || true; rm -rf "$root"; install -d -m 0700 -o argus-connector -g argus-connector "$root"; printf '%s' ` + shellQuote(command.GetConnectorId()) + ` > "$marker"; chown argus-connector:argus-connector "$marker"; fi`
-		if err = runSSHCommand(client, prepareIdentity, nil); err != nil {
-			return err
-		}
-	} else {
-		marker := `printf '%s' ` + shellQuote(command.GetConnectorId()) + ` > /var/lib/argus-connector/.desired-connector-id; chown argus-connector:argus-connector /var/lib/argus-connector/.desired-connector-id`
-		if err = runSSHCommand(client, marker, nil); err != nil {
-			return err
-		}
-	}
-	enroll := connectorEnrollCommand(command, material.EnrollmentToken)
+	enroll := connectorEnrollCommand(command, material.EnrollmentToken, stage)
 	if err = runSSHCommand(client, enroll, nil); err != nil {
+		return err
+	}
+	promote := `set -eu; current=$(cat ` + shellQuote(stage+`/previous-connector-id`) + `); systemctl disable --now argus-connector-privileged.service >/dev/null 2>&1 || true; systemctl disable --now argus-connector.service >/dev/null 2>&1 || true; if [ -n "$current" ] && [ "$current" != ` + shellQuote(command.GetConnectorId()) + ` ]; then systemctl disable --now argus-otelcol.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/argus-otelcol.service /usr/local/bin/argus-otelcol; rm -rf /var/lib/argus-otelcol /etc/argus-otelcol; install -d -m 0700 /var/lib/argus-otelcol /etc/argus-otelcol; fi; install -m 0755 ` + shellQuote(stage+`/argus-connector`) + ` /usr/local/bin/argus-connector; install -m 0644 ` + shellQuote(stage+`/server-ca.pem`) + ` /etc/argus-connector/server-ca.pem; install -m 0644 ` + shellQuote(stage+`/otelcol-signing-keys.json`) + ` /etc/argus-connector/otelcol-signing-keys.json; `
+	if hasArtifactCA {
+		promote += `install -m 0644 ` + shellQuote(stage+`/otelcol-artifact-ca.pem`) + ` /etc/argus-connector/otelcol-artifact-ca.pem; `
+	} else {
+		promote += `rm -f /etc/argus-connector/otelcol-artifact-ca.pem; `
+	}
+	promote += `printf '%s' ` + shellQuote(command.GetConnectorId()) + ` > /var/lib/argus-connector/.desired-connector-id; chown -R argus-connector:argus-connector /var/lib/argus-connector /etc/argus-connector`
+	if err = runSSHCommand(client, promote, nil); err != nil {
+		return err
+	}
+	if err = runSSHCommand(client, writeUnit, []byte(unit)); err != nil {
+		return err
+	}
+	if err = runSSHCommand(client, writeHelper, []byte(helperUnit)); err != nil {
 		return err
 	}
 	_, _ = executor.Store.Queries.ConsumeConnectorInstallOperationSecret(ctx, db.ConsumeConnectorInstallOperationSecretParams{
 		OperationID: operation.ID, EnterpriseID: operation.EnterpriseID,
 	})
-	activate := "chown -R argus-connector:argus-connector /var/lib/argus-connector; systemctl enable --now argus-connector.service; systemctl is-active --quiet argus-connector.service"
+	activate := "systemctl enable --now argus-connector-privileged.service; systemctl enable --now argus-connector.service; systemctl is-active --quiet argus-connector.service; rm -rf " + shellQuote(stage) + "; rmdir /var/lib/argus-connector-install >/dev/null 2>&1 || true"
 	if err = runSSHCommand(client, activate, nil); err != nil {
 		return err
 	}
 	return executor.advanceConnectorInstall(ctx, operation, "waiting_connector_online")
 }
 
-func connectorEnrollCommand(command *connectorv1.ConnectorInstallCommand, token string) string {
-	value := "/usr/local/bin/argus-connector enroll --connector-id " + shellQuote(command.GetConnectorId()) +
+func connectorEnrollCommand(command *connectorv1.ConnectorInstallCommand, token, stage string) string {
+	value := shellQuote(stage+"/argus-connector") + " enroll --connector-id " + shellQuote(command.GetConnectorId()) +
 		" --token " + shellQuote(token) + " --server " + shellQuote(command.GetEnrollmentEndpoint()) +
-		" --ca-file /etc/argus-connector/server-ca.pem --role bastion"
+		" --ca-file " + shellQuote(stage+"/server-ca.pem") + " --role bastion"
 	if command.GetEnrollDialAddress() != "" {
 		value = "ARGUS_CONNECTOR_ENROLL_ADDRESS=" + shellQuote(command.GetEnrollDialAddress()) + " " + value
 	}
@@ -297,22 +308,26 @@ func connectorInstallTrustBundle(command *connectorv1.ConnectorInstallCommand) (
 
 func connectorSystemdUnit(command *connectorv1.ConnectorInstallCommand, hasArtifactCA bool) string {
 	environment := "Environment=ARGUS_OTELCOL_SIGNING_PUBLIC_KEYS_FILE=/etc/argus-connector/otelcol-signing-keys.json\n"
+	environment += fmt.Sprintf("Environment=ARGUS_BASTION_RELAY_ARTIFACT_ENDPOINT=%s\n", command.GetArtifact().GetUri())
 	if hasArtifactCA {
 		environment += "Environment=ARGUS_OTELCOL_ARTIFACT_CA_PATH=/etc/argus-connector/otelcol-artifact-ca.pem\n"
 	}
 	if command.GetEnrollDialAddress() != "" {
 		environment += fmt.Sprintf("Environment=ARGUS_CONNECTOR_ENROLL_ADDRESS=%s\n", command.GetEnrollDialAddress())
+		environment += fmt.Sprintf("Environment=ARGUS_ARTIFACT_DIAL_ADDRESS=%s\n", command.GetEnrollDialAddress())
 	}
 	if command.GetGatewayDialAddress() != "" {
 		environment += fmt.Sprintf("Environment=ARGUS_CONNECTOR_DIAL_ADDRESS=%s\n", command.GetGatewayDialAddress())
 	}
 	return fmt.Sprintf(`[Unit]
 Description=Argus Connector
-After=network-online.target
-Wants=network-online.target
+After=network-online.target argus-connector-privileged.service
+Wants=network-online.target argus-connector-privileged.service
 
 [Service]
 Type=simple
+User=argus-connector
+Group=argus-connector
 %sExecStart=/usr/local/bin/argus-connector run
 Restart=always
 RestartSec=5
@@ -324,7 +339,43 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
-ReadWritePaths=/var/lib/argus-connector /etc/argus-connector /var/lib/argus-otelcol /etc/argus-otelcol /usr/local/bin /etc/systemd/system /run/systemd/system
+ReadWritePaths=/var/lib/argus-connector /etc/argus-connector
+
+[Install]
+WantedBy=multi-user.target
+`, environment)
+}
+
+func connectorPrivilegedSystemdUnit(command *connectorv1.ConnectorInstallCommand, hasArtifactCA bool) string {
+	environment := "Environment=ARGUS_OTELCOL_SIGNING_PUBLIC_KEYS_FILE=/etc/argus-connector/otelcol-signing-keys.json\n"
+	if hasArtifactCA {
+		environment += "Environment=ARGUS_OTELCOL_ARTIFACT_CA_PATH=/etc/argus-connector/otelcol-artifact-ca.pem\n"
+	}
+	if command.GetEnrollDialAddress() != "" {
+		environment += fmt.Sprintf("Environment=ARGUS_ARTIFACT_DIAL_ADDRESS=%s\n", command.GetEnrollDialAddress())
+	}
+	return fmt.Sprintf(`[Unit]
+Description=Argus Connector privileged local lifecycle helper
+After=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=argus-connector
+RuntimeDirectory=argus-connector
+RuntimeDirectoryMode=0750
+%sExecStart=/usr/local/bin/argus-connector privileged-helper
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/argus-connector /var/lib/argus-otelcol /etc/argus-otelcol /usr/local/bin /etc/systemd/system /run/systemd/system
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
 
 [Install]
 WantedBy=multi-user.target
@@ -463,7 +514,7 @@ func (executor *Executor) finishConnectorInstall(ctx context.Context, operation 
 	executor.appendConnectorInstallEvent(ctx, operation, stage, status, errorCode)
 }
 
-func (executor *Executor) renewConnectorInstallLease(ctx context.Context, operation db.ConnectorInstallOperation, done <-chan struct{}) {
+func (executor *Executor) renewConnectorInstallLease(ctx context.Context, operation db.ConnectorInstallOperation, done <-chan struct{}, cancel context.CancelFunc) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -477,6 +528,7 @@ func (executor *Executor) renewConnectorInstallLease(ctx context.Context, operat
 				ID: operation.ID, EnterpriseID: operation.EnterpriseID, Fence: operation.Fence, LeaseOwner: executor.InstanceID,
 			})
 			if rows == 0 {
+				cancel()
 				return
 			}
 		}

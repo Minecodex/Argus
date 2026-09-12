@@ -2,7 +2,7 @@
 
 ## 状态
 
-已完成。最终 Kubernetes 运行号：`20260901-planv4-final41`；脱敏 verify 证据：`artifacts/p4-e2e/20260901-planv4-final41/verify`。
+已完成。最新 Kubernetes 回归运行号：`20260906-complete13`；脱敏 verify 证据：`artifacts/p4-e2e/20260906-complete13/verify`。该回归包含 Linux 命令直连/Relay、普通 Host Direct/Bastion SSH、SSH Secret 轮换使 Credential 版本推进并拒绝旧 Preview、完整 Host onboarding 七阶段、缺失 Edge Gateway 时的自动顺序安装、Collector 卸载后重建、Bastion/Executor Tunnel 恢复和 real Chromium。
 
 ## 目标
 
@@ -45,14 +45,14 @@
 4. 不要求兼容开发期旧 UI、旧 mock/localStorage 数据和旧 action 名称；最终代码中不得保留双路径、兼容分支或废弃 feature flag。
 5. Production 认证必须覆盖堡垒机 C；唯一明确不支持的是“堡垒机无出站且 Argus 也无法 SSH”的双向不通组合。
 
-## 最终证据（2026-09-01）
+## 最终证据（2026-09-06）
 
 - Kubernetes P4 套件完成 self-enroll、堡垒机 A 命令安装、B 代安装、C 控制隧道、Executor 遥测隧道、堡垒机成员遥测隧道、replacement/fencing 和 Direct Executor 跨副本接管。
 - B operation 与两次 C operation 均进入 `completed`；replacement 后旧控制隧道以 `connector_replaced` 进入 `removed`，当前控制隧道在新 epoch established；两类遥测隧道均由新 owner 接管并 established。
-- real Playwright `e2e/p4-real.spec.ts` 通过；最终 `argusctl verify` 19/19 通过，证书、Enterprise/Platform HTTPS、CORS、工作负载和数据服务均健康。
+- real Playwright `e2e/p4-real.spec.ts` 通过；最终 `argusctl verify` 20/20 通过，证书、Enterprise/Platform HTTPS、CORS、工作负载和数据服务均健康。
 - mock Playwright 的 P4-WEB-01～08 全部通过，覆盖 zh-CN/en-US、light/dark、1366×768/1920×1080 与 axe。命令/token 未出现在 URL、storage、Query Cache、console 或资源 DTO。
 - 后续全项目 i18n 复核补充 `PendingActionPublic.action_type` 契约投影、所有已知动作 zh/en 穷举单测、Operation/Event/Tunnel 状态映射和用户可见 JSX 字面量静态门禁；真实/Mock 模式不再依赖持久化英文或中文标题决定 UI。
-- 套件在独占阶段先通过 `argus-dev doctor e2e`，随后删除临时 Helm release、Namespace、PVC、Lease、凭据和测试 CRD 后退出 0。测试结束后恢复共享开发环境中的 Strimzi、Altinity CRD、OpenSandbox 和本地 registry；恢复后的共享环境再次执行 `argusctl verify`，19/19 全部通过。共享集群按设计不再满足“dedicated E2E cluster” doctor 条件。
+- 套件在独占阶段先通过 `argus-dev doctor e2e`，随后删除临时 Helm release、Namespace、PVC、Lease、凭据和测试 CRD 后退出 0。最新运行 `20260906-complete13` 的 20 项安装校验全部通过；共享开发环境只在所有代码与 E2E 收口后重新部署。
 - Evaluation 集群的 NetworkPolicy enforcement 只能标记为 `unverified/degraded`；production NetworkPolicy、PDB、拓扑分散、配额和 artifact 检查均由 production 门禁覆盖。
 
 ## 2026-09-02 回归证据

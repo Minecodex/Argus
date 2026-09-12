@@ -41,7 +41,7 @@ cmd/
 | ------------------------- | -------------------------------------------------- | --------------------------------------------- |
 | `argus-server`            | Deployment                                         | HTTP 并发、延迟、CPU                          |
 | `argus-worker`            | Deployment                                         | Run/Task 队列长度、模型并发                   |
-| `argus-direct-executor`   | Deployment (`argus-worker --pool=direct-executor`) | 公网 SSH/WinRM 任务、远程会话并发、出口连接数 |
+| `argus-direct-executor`   | Deployment (`argus-worker --pool=direct-executor`) | Linux/Windows OpenSSH 安装、控制/遥测固定隧道、出口连接数 |
 | `argus-connector-gateway` | Deployment                                         | 在线 Connector 数、远程会话数、连接数、带宽   |
 | `argus-telemetry-ingest`  | Deployment                                         | OTLP 请求速率、Kafka Producer 延迟、CPU       |
 | `argus-telemetry-query`   | Deployment                                         | 查询并发、延迟、ClickHouse 压力               |
@@ -101,7 +101,7 @@ flowchart TB
         RA --> CG
         CG --> DE
         Server --> DE["argus-direct-executor"]
-        DE --> DirectHost["Direct Host SSH/WinRM"]
+        DE --> DirectHost["Host Connector SSH install"]
         Worker --> OS["OpenSandbox"]
         Server --> PG["PostgreSQL"]
     end
@@ -428,7 +428,7 @@ Writer 的 Kafka Receiver 配置 `message_marking.after: true`、`on_error: fals
 | ---------------------------------- | ------------------------- | ------------- | -------------------------------------------------------------------- |
 | `argus.example.com`                | `argus-server`/Web        | HTTPS/WSS     | 用户、API、Card Host                                                 |
 | `connector.argus.example.com`      | `argus-connector-gateway` | TLS 长连接    | Connector 控制链路                                                   |
-| `argus.example.com/v1/sessions`    | `argus-connector-gateway` | HTTPS/WSS     | 经短期票据授权的 SSH PTY/HTTPS WinRS；路径分流与门户同源，Listener/限流独立  |
+| `argus.example.com/v1/sessions`    | `argus-connector-gateway` | HTTPS/WSS     | 经短期票据授权的 Linux PTY、Windows ConPTY/OpenSSH/RDP；路径分流与门户同源 |
 | `otlp.argus.example.com:4317`      | `argus-telemetry-ingest`  | OTLP/gRPC TLS | 遥测推送                                                             |
 | `otlp-http.argus.example.com:4318` | `argus-telemetry-ingest`  | OTLP/HTTP TLS | 遥测推送                                                             |
 
@@ -521,7 +521,7 @@ Token 过期时间
 2. PostgreSQL/Redis/Artifact Store 读写探测。
 3. 创建并销毁一个受限 OpenSandbox Session。
 4. Connector Gateway TLS 和长连接探测。
-5. Remote Access WSS 短期票据握手、重放拒绝、SSH PTY/WinRS 模式、跨 Gateway `9446`、Drain 和录像 Artifact 写入探测。
+5. Remote Access WSS 短期票据握手、重放拒绝、Linux PTY、Windows PowerShell/ConPTY、OpenSSH 与 RDP 模式、跨 Gateway `9446`、Drain 和录像 Artifact 写入探测。
 6. Direct Executor 验证声明固定出口，并确认私网、环回、云元数据和平台内部地址被拒绝。
 7. 向 Ingest 发送带测试 Enterprise/Resource/Collector 身份的 Metrics/Logs/Trace，并验证客户端伪造同名字段会被覆盖或拒绝。
 8. 验证 Kafka Topic 收到数据、Writer 消费成功。

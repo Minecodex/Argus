@@ -53,6 +53,10 @@ Argus 必须同时满足两个要求：用户能知道输入为什么失败，�
 - `presentApiFormError` 只按每个表单显式提供的 `fieldMap` 白名单定位服务端字段；未知字段进入表单摘要，Field 和摘要都保留安全公开消息与 request ID。
 - 远程访问等业务义务错误由稳定 `code` 驱动交互：`REMOTE_ACCESS_MFA_REQUIRED` 打开 fresh Step-up 对话框，验证成功后自动重试原请求；用户界面不直接显示 `message_key` 或任意 `Error.message`。
 
+主机名称可用性检查使用 `GET /api/v1/enterprise/hosts/name-availability?name=...`，堡垒机使用 `GET /api/v1/enterprise/bastion-scopes/name-availability?name=...`。接口分别要求与创建相同的 `host.manage`、`bastion_scope.manage` 权限，企业 ID 仅取自认证主体；响应只有 `{available: boolean}` 并设置 `Cache-Control: no-store`，不返回占用者 ID、地址或其他无权查看的资源信息。名称不能为空，最长 128 个 Unicode 字符；领域服务拒绝全空白名称。查询失败不能解释成名称可用。创建预览遇到占用名称返回不可原样重试的 `RESOURCE_NAME_CONFLICT`，输入非法返回 `INVALID_ARGUMENT` 并标记 `field=name`；前端将冲突放到名称字段，在更名或关闭后忽略迟到的检测结果。数据库名称唯一索引仍是并发提交的最终约束，检测接口不提供名称预留。
+
+2026-09-12 名称预检已部署到本地 `argus-local`，沿用现有部分唯一索引，没有执行数据库迁移。验证包括 Go 全量测试与 vet、HTTP 请求校验/匿名拒绝/安全错误映射、15 个隔离 PostgreSQL 场景、Enterprise 115 项与 API Client 80 项单测、9 个桌面 Mock Playwright 场景，以及部署后两个门户的实际同源登录请求测试。新增场景覆盖 Host 五种模式、Bastion 三种模式、名称修改恢复、迟到 Preview/Commit 结果隔离、删除后复用和最终并发约束；已核对中文浅色与英文深色截图。部署检查 20/20 通过，12 个原有 PVC 的 UID、绑定卷和 Bound 状态保持不变；真实 HTTPS 名称接口已验证匿名请求返回 403、缺少名称返回 400。未使用用户账号提交真实主机创建或执行 SSH 安装。测试期间 Docker Desktop 的 Windows 管理通道超时，正常重启请求未执行；本次通过本机 Linux Docker 通道完成测试和镜像构建，所有临时 PostgreSQL/测试容器已清理，既有服务保持就绪。
+
 剩余系统缺口：
 
 1. 为用户名建立独立身份输入策略，统一允许字符、大小写归一化和 3-128 长度，并由后端执行。

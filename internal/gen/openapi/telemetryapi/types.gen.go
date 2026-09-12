@@ -713,7 +713,7 @@ type CollectorPreview struct {
 	// KubernetesImage 集群内网镜像全量地址(含 tag/digest);仅 kubernetes_cluster 资源可填,留空使用服务端默认镜像
 	KubernetesImage *string `json:"kubernetes_image,omitempty"`
 
-	// LoopbackPort 隧道形态的 OTLP 回环端口;缺省 4317,相邻端口保留给身份注册与轮换
+	// LoopbackPort 隧道形态的 OTLP 回环端口;缺省 14317,相邻端口保留给身份注册与轮换;4317 保留给本机 OTLP receiver
 	LoopbackPort *int                 `json:"loopback_port,omitempty"`
 	ProfileIds   []openapi_types.UUID `json:"profile_ids"`
 	RouteKind    TelemetryRouteKind   `json:"route_kind"`

@@ -17,9 +17,8 @@ func TestPKIRepairCommandsUsePinnedBundleAndExistingBinaries(t *testing.T) {
 		SHA256: strings.Repeat("a", 64)}}
 	commands := []string{
 		linuxConnectorRepairCommand(cfg, "one-time-token", bundle, "linux-system"),
-		linuxConnectorRepairCommand(cfg, "one-time-token", bundle, "linux-user"),
 		linuxCollectorRepairCommand(cfg, "one-time-token", bundle, "linux-system"),
-		linuxCollectorRepairCommand(cfg, "one-time-token", bundle, "linux-user"),
+		windowsConnectorRepairCommand(cfg, "one-time-token", bundle),
 		kubernetesConnectorRepairCommand(cfg, uuid.New(), "one-time-token", bundle, "argus-system"),
 		kubernetesCollectorRepairCommand(cfg, uuid.New(), "one-time-token", bundle, "argus-system"),
 	}
@@ -31,12 +30,12 @@ func TestPKIRepairCommandsUsePinnedBundleAndExistingBinaries(t *testing.T) {
 			t.Fatal("repair command omitted the one-time identity credential")
 		}
 	}
-	for _, command := range commands[:4] {
+	for _, command := range commands[:2] {
 		if !strings.Contains(command, "sha256sum -c") || !strings.Contains(command, "openssl crl2pkcs7") {
 			t.Fatalf("Linux repair command does not validate its embedded Bundle:\n%s", command)
 		}
 	}
-	if !strings.Contains(commands[5], "repair-collector") || !strings.Contains(commands[5], "rollout status") {
+	if !strings.Contains(commands[4], "repair-collector") || !strings.Contains(commands[4], "rollout status") {
 		t.Fatal("Kubernetes Collector repair does not replace identity and verify its rollout")
 	}
 }

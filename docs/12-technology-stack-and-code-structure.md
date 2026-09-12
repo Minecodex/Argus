@@ -22,7 +22,7 @@ Argus 主应用统一使用：
 | 表格         | TanStack Table + TanStack Virtual | 远程过滤、排序和翻页必须走服务端 Query Binding                                                                                      |
 | 表单         | React Hook Form + Zod             | 前端校验只改善交互，服务端仍执行最终 Schema 和业务校验                                                                              |
 | 图表         | Apache ECharts                    | 用于 Metrics、Trace、拓扑和时间序列；查询必须经过 Telemetry Query                                                                   |
-| 远程命令行   | `@xterm/xterm` + fit addon        | SSH 使用完整 PTY；WinRM 使用 HTTPS WinRS PowerShell 行模式，不伪装成完整 PTY/PSRP，且不得暴露 Credential 或允许 AI/Card 获取 Ticket |
+| 远程会话     | `@xterm/xterm` + Guacamole        | Linux PTY、Windows PowerShell/ConPTY、本机 OpenSSH 与 RDP；Credential 和 Ticket 不得暴露给 AI/Card |
 | 国际化       | i18next                           | 第一版必须完整支持 `zh-CN` 与 `en-US`；文案使用稳定 Key，不得散落在不可检索的组件常量中                                             |
 | 实时更新     | SSE 为主、WebSocket 为辅          | 模型输出、Run 和 Card 状态使用可恢复游标；断线后重新校验 Session、固定企业、explicit resource authorization 和 AuthorizationVersion                       |
 
@@ -118,7 +118,7 @@ M1 Runtime 对 Card 脚本暴露的唯一浏览器对象是 `window.argusCard`�
 | ClickHouse           | `clickhouse-go/v2`                                                | 只由 Telemetry Query、Schema Migration 和受控 Writer 使用                                                                                                                      |
 | Kubernetes           | `client-go` + Helm Go SDK                                         | 资源管理、Collector 安装、`argusctl` 正式安装编排，以及 `argus-dev` 临时 Namespace/Fixture/诊断/清理                                                                           |
 | SSH                  | `golang.org/x/crypto/ssh`                                         | Direct/Connector 共用受控 SSH PTY、Host Key、resize、输入输出和超时边界，不形成任意 Shell Tool                                                                                 |
-| WinRS                | `github.com/masterzen/winrm`                                      | 只允许 HTTPS 443/5986，使用持久 WinRS Shell 承载 PowerShell 行输入输出，不声明完整 PTY、ConPTY 或 PSRP                                                                         |
+| Windows Service/PTY  | `golang.org/x/sys/windows/{svc,registry}`                         | Connector/Collector 接入 SCM；PowerShell 会话使用 ConPTY，安装只通过 OpenSSH                                                                                                  |
 | 对象存储             | MinIO Go SDK/S3 Adapter                                           | 上层只依赖 Artifact Store 接口；录像单次调用有短超时，连续不可用超过 30 秒时会话 fail closed                                                                                   |
 | 可观测性             | OpenTelemetry Go + `slog`                                         | Trace、Metric、结构化日志统一携带 enterprise/run/tool/execution 标识                                                                                                           |
 
@@ -231,14 +231,14 @@ go run ./cmd/argus-dev web build --api-mode mock
 go run ./cmd/argus-dev release local
 ```
 
-前端生态逻辑继续保留在 Node `.mjs` 和 Playwright TypeScript 中，由 `argus-dev` 以参数数组和显式环境变量调用。仓库不再执行 `.sh`；完整 Kubernetes E2E 只在 `doctor e2e` 通过的主机和专用干净 Context 上运行。Doctor 会检查固定的 Strimzi/OpenSandbox ClusterRole 是否已由其他 Helm release 持有，避免测试接管正式 Operator；`e2e run --kube-context` 的能力检查与实际运行使用同一 Context。`release local` 在任意开发主机都固定生成 Linux arm64 镜像和二进制，并在离线 Manifest 中只记录相对路径。
+前端生态逻辑继续保留在 Node `.mjs` 和 Playwright TypeScript 中，由 `argus-dev` 以参数数组和显式环境变量调用。产品安装器包含 POSIX Shell 与 PowerShell 两种发布脚本；POSIX 脚本固定 LF，并用 `dash` 和 Alpine `sh` 验证。完整 Kubernetes E2E 只在 `doctor e2e` 通过的主机和专用干净 Context 上运行。Doctor 会检查固定的 Strimzi/OpenSandbox ClusterRole 是否已由其他 Helm release 持有，避免测试接管正式 Operator；`e2e run --kube-context` 的能力检查与实际运行使用同一 Context。`release local` 生成 Linux amd64/arm64 与 Windows amd64 Connector/Collector 发行物，并在离线 Manifest 中只记录相对路径。
 
 E2E 至少覆盖：
 
 - 初始化、双层管理域、平台/企业身份互斥、单企业用户和跨企业拒绝。
 - RoleBinding + explicit resource authorization 的列表/详情/批量/Tool/Card 一致过滤，以及显式授权或继承关系变化后的缓存、Binding、游标和流式订阅失效；标签变化不触发授权失效。
 - Connector 注册并创建 Bastion Scope、证书轮换与 fencing、双 Gateway 跨副本派发、内网主机经堡垒机接入、公网 Direct SSH 的 SSRF/固定出口边界。
-- Connector 本机/SSH/WinRM 人工命令行票据与录像；RemoteAccessGrant 限定 Host/ManagedAccount/动作；人工会话和后台 Execution 隔离。
+- Connector 本机 Linux PTY、Windows PowerShell/ConPTY、OpenSSH 与 RDP 会话票据和录像；RemoteAccessGrant 限定 Host/ManagedAccount/动作；人工会话和后台 Execution 隔离。
 - Collector 沿两种执行路径安装、Telemetry Route 选择矩阵和 Metrics/Logs/Traces Profile 配置。
 - Kubernetes Node/Host 绑定，以及 Host Collector 与 DaemonSet Collection Claim 的冲突、非冲突共存和到期迁移。
 - 资源查询、Preview/Confirm/Commit、撤权与 AuthorizationVersion、审批不补齐基础权限、Redis 清空恢复和 Pod 重启接管。

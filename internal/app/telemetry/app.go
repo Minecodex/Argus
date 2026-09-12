@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -130,12 +129,8 @@ func runIngest(ctx context.Context, cfg config.Telemetry, store *postgres.Store,
 		RequestPrefix: "argus-telemetry-server-", SubjectLabel: "argus.io/telemetry-collector-id", IssuerGeneration: int32(activeBundle.Epoch),
 		Usages: []string{"server auth"},
 	}}
-	enrollmentEndpoint := strings.TrimRight(cfg.IngestHTTPEndpoint, "/") + "/v1/identity/enroll"
-	selfEnroll := &telemetryservice.SelfEnrollService{Store: store, Identity: *identityService,
-		EnrollmentEndpoint: enrollmentEndpoint, IngestGRPCEndpoint: cfg.IngestGRPCEndpoint, IngestHTTPEndpoint: cfg.IngestHTTPEndpoint,
-		SigningPublicKeys: telemetryservice.LoadSelfEnrollSigningKeys(), BootstrapSecretKey: cfg.PendingActionKey}
 	domain := &telemetryservice.IngestServer{Control: telemetryservice.PostgresIngestControl{Queries: store.Queries}, Redis: redisClient, Kafka: producer, Identity: identityService, Logger: logger,
-		SelfEnroll: selfEnroll, IngestGRPCEndpoint: cfg.IngestGRPCEndpoint, IngestHTTPEndpoint: cfg.IngestHTTPEndpoint}
+		IngestGRPCEndpoint: cfg.IngestGRPCEndpoint, IngestHTTPEndpoint: cfg.IngestHTTPEndpoint}
 	grpcServer := telemetryservice.NewIngestGRPCServer(domain, tlsConfig)
 	grpcListener, err := net.Listen("tcp", cfg.IngestGRPCAddress)
 	if err != nil {

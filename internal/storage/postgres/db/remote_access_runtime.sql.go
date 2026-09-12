@@ -195,7 +195,7 @@ UPDATE remote_access_sessions session
 SET status='terminating',session_fence=session_fence+1,termination_reason='authorization_invalidated',updated_at=now()
 FROM candidates
 WHERE session.id=candidates.id
-RETURNING session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.connection_mode, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
+RETURNING session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.control_path, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
 `
 
 func (q *Queries) ConvergeInvalidRemoteAccessSessions(ctx context.Context, limit int32) ([]RemoteAccessSession, error) {
@@ -216,7 +216,7 @@ func (q *Queries) ConvergeInvalidRemoteAccessSessions(ctx context.Context, limit
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,
@@ -268,7 +268,7 @@ SET status='failed', terminated_at=COALESCE(terminated_at, now()),
     termination_reason=COALESCE(NULLIF(termination_reason, ''), 'REMOTE_ACCESS_TERMINATION_TIMEOUT'), updated_at=now()
 FROM candidates
 WHERE session.id=candidates.id
-RETURNING session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.connection_mode, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
+RETURNING session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.control_path, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
 `
 
 func (q *Queries) ConvergeStuckTerminatingRemoteAccessSessions(ctx context.Context, limit int32) ([]RemoteAccessSession, error) {
@@ -289,7 +289,7 @@ func (q *Queries) ConvergeStuckTerminatingRemoteAccessSessions(ctx context.Conte
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,
@@ -363,8 +363,8 @@ func (q *Queries) CreateRemoteAccessCommandEvent(ctx context.Context, arg Create
 }
 
 const createRemoteAccessRecording = `-- name: CreateRemoteAccessRecording :one
-INSERT INTO remote_access_recordings (id,enterprise_id,session_id,key_provider,key_id,key_version,wrapped_dek)
-VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, enterprise_id, session_id, status, format, key_provider, key_id, key_version, wrapped_dek, chunk_count, event_count, size_bytes, duration_ms, final_hash, retention_until, created_at, completed_at
+INSERT INTO remote_access_recordings (id,enterprise_id,session_id,key_provider,key_id,key_version,wrapped_dek,format)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, enterprise_id, session_id, status, format, key_provider, key_id, key_version, wrapped_dek, chunk_count, event_count, size_bytes, duration_ms, final_hash, retention_until, created_at, completed_at
 `
 
 type CreateRemoteAccessRecordingParams struct {
@@ -375,6 +375,7 @@ type CreateRemoteAccessRecordingParams struct {
 	KeyID        string    `json:"key_id"`
 	KeyVersion   int32     `json:"key_version"`
 	WrappedDek   []byte    `json:"wrapped_dek"`
+	Format       string    `json:"format"`
 }
 
 func (q *Queries) CreateRemoteAccessRecording(ctx context.Context, arg CreateRemoteAccessRecordingParams) (RemoteAccessRecording, error) {
@@ -386,6 +387,7 @@ func (q *Queries) CreateRemoteAccessRecording(ctx context.Context, arg CreateRem
 		arg.KeyID,
 		arg.KeyVersion,
 		arg.WrappedDek,
+		arg.Format,
 	)
 	var i RemoteAccessRecording
 	err := row.Scan(
@@ -460,10 +462,10 @@ func (q *Queries) CreateRemoteAccessRecordingChunk(ctx context.Context, arg Crea
 
 const createRemoteAccessSession = `-- name: CreateRemoteAccessSession :one
 INSERT INTO remote_access_sessions (id,enterprise_id,user_id,http_session_id,lease_id,host_id,managed_account_id,protocol,
-    connection_mode,connector_id,status,authorization_version,idle_timeout_seconds,max_duration_seconds,connect_before,
+    control_path,connector_id,status,authorization_version,idle_timeout_seconds,max_duration_seconds,connect_before,
     decision_snapshot,session_profile_snapshot,decision_snapshot_hash,recording_mode,command_audit_mode,clipboard_mode,
     file_upload_mode,file_download_mode,port_forward_mode,session_share_mode,retention_days,reason)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'authorized',$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26) RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'authorized',$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26) RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
 `
 
 type CreateRemoteAccessSessionParams struct {
@@ -475,7 +477,7 @@ type CreateRemoteAccessSessionParams struct {
 	HostID                 uuid.UUID          `json:"host_id"`
 	ManagedAccountID       uuid.UUID          `json:"managed_account_id"`
 	Protocol               string             `json:"protocol"`
-	ConnectionMode         string             `json:"connection_mode"`
+	ControlPath            string             `json:"control_path"`
 	ConnectorID            uuid.NullUUID      `json:"connector_id"`
 	AuthorizationVersion   int64              `json:"authorization_version"`
 	IdleTimeoutSeconds     int32              `json:"idle_timeout_seconds"`
@@ -505,7 +507,7 @@ func (q *Queries) CreateRemoteAccessSession(ctx context.Context, arg CreateRemot
 		arg.HostID,
 		arg.ManagedAccountID,
 		arg.Protocol,
-		arg.ConnectionMode,
+		arg.ControlPath,
 		arg.ConnectorID,
 		arg.AuthorizationVersion,
 		arg.IdleTimeoutSeconds,
@@ -534,7 +536,7 @@ func (q *Queries) CreateRemoteAccessSession(ctx context.Context, arg CreateRemot
 		&i.HostID,
 		&i.ManagedAccountID,
 		&i.Protocol,
-		&i.ConnectionMode,
+		&i.ControlPath,
 		&i.ConnectorID,
 		&i.ConnectorEpoch,
 		&i.Status,
@@ -732,7 +734,7 @@ func (q *Queries) FinishRemoteAccessRecording(ctx context.Context, arg FinishRem
 
 const finishRemoteAccessSession = `-- name: FinishRemoteAccessSession :one
 UPDATE remote_access_sessions SET status=$3,termination_reason=$4,terminated_at=now(),updated_at=now()
-WHERE id=$1 AND session_fence=$2 AND status IN ('authorized','connecting','active','terminating') RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
+WHERE id=$1 AND session_fence=$2 AND status IN ('authorized','connecting','active','terminating') RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
 `
 
 type FinishRemoteAccessSessionParams struct {
@@ -759,7 +761,7 @@ func (q *Queries) FinishRemoteAccessSession(ctx context.Context, arg FinishRemot
 		&i.HostID,
 		&i.ManagedAccountID,
 		&i.Protocol,
-		&i.ConnectionMode,
+		&i.ControlPath,
 		&i.ConnectorID,
 		&i.ConnectorEpoch,
 		&i.Status,
@@ -925,7 +927,7 @@ func (q *Queries) GetRemoteAccessRoute(ctx context.Context, sessionID uuid.UUID)
 }
 
 const getRemoteAccessSession = `-- name: GetRemoteAccessSession :one
-SELECT id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason FROM remote_access_sessions WHERE id=$1 AND enterprise_id=$2
+SELECT id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason FROM remote_access_sessions WHERE id=$1 AND enterprise_id=$2
 `
 
 type GetRemoteAccessSessionParams struct {
@@ -945,7 +947,7 @@ func (q *Queries) GetRemoteAccessSession(ctx context.Context, arg GetRemoteAcces
 		&i.HostID,
 		&i.ManagedAccountID,
 		&i.Protocol,
-		&i.ConnectionMode,
+		&i.ControlPath,
 		&i.ConnectorID,
 		&i.ConnectorEpoch,
 		&i.Status,
@@ -977,12 +979,13 @@ func (q *Queries) GetRemoteAccessSession(ctx context.Context, arg GetRemoteAcces
 }
 
 const getRemoteAccessSessionTarget = `-- name: GetRemoteAccessSessionTarget :one
-SELECT session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.connection_mode, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason, host.address,host.hostname,host.port,host.pinned_host_key,account.username,account.credential_id,
+SELECT session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.control_path, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason, host.address,host.hostname,host.port,host.pinned_host_key,host.platform,account.username,account.credential_id,credential.protocol AS credential_protocol,
        connector.connection_epoch,lease.expires_at AS lease_expires_at
 FROM remote_access_sessions session
 JOIN remote_access_leases lease ON lease.id=session.lease_id AND lease.enterprise_id=session.enterprise_id
 JOIN hosts host ON host.id=session.host_id AND host.enterprise_id=session.enterprise_id AND host.status='active'
 JOIN managed_accounts account ON account.id=session.managed_account_id AND account.enterprise_id=session.enterprise_id AND account.status='active'
+JOIN credentials credential ON credential.id=account.credential_id AND credential.enterprise_id=account.enterprise_id AND credential.status='active'
 LEFT JOIN connectors connector ON connector.id=session.connector_id AND connector.enterprise_id=session.enterprise_id AND connector.status='online'
 WHERE session.id=$1
 `
@@ -996,7 +999,7 @@ type GetRemoteAccessSessionTargetRow struct {
 	HostID                 uuid.UUID          `json:"host_id"`
 	ManagedAccountID       uuid.UUID          `json:"managed_account_id"`
 	Protocol               string             `json:"protocol"`
-	ConnectionMode         string             `json:"connection_mode"`
+	ControlPath            string             `json:"control_path"`
 	ConnectorID            uuid.NullUUID      `json:"connector_id"`
 	ConnectorEpoch         pgtype.Int8        `json:"connector_epoch"`
 	Status                 string             `json:"status"`
@@ -1023,12 +1026,14 @@ type GetRemoteAccessSessionTargetRow struct {
 	RetentionDays          int32              `json:"retention_days"`
 	GatewayInstance        pgtype.Text        `json:"gateway_instance"`
 	Reason                 string             `json:"reason"`
-	Address                string             `json:"address"`
+	Address                pgtype.Text        `json:"address"`
 	Hostname               string             `json:"hostname"`
 	Port                   int32              `json:"port"`
 	PinnedHostKey          string             `json:"pinned_host_key"`
+	Platform               string             `json:"platform"`
 	Username               string             `json:"username"`
 	CredentialID           uuid.UUID          `json:"credential_id"`
+	CredentialProtocol     string             `json:"credential_protocol"`
 	ConnectionEpoch        pgtype.Int8        `json:"connection_epoch"`
 	LeaseExpiresAt         pgtype.Timestamptz `json:"lease_expires_at"`
 }
@@ -1045,7 +1050,7 @@ func (q *Queries) GetRemoteAccessSessionTarget(ctx context.Context, id uuid.UUID
 		&i.HostID,
 		&i.ManagedAccountID,
 		&i.Protocol,
-		&i.ConnectionMode,
+		&i.ControlPath,
 		&i.ConnectorID,
 		&i.ConnectorEpoch,
 		&i.Status,
@@ -1076,8 +1081,10 @@ func (q *Queries) GetRemoteAccessSessionTarget(ctx context.Context, id uuid.UUID
 		&i.Hostname,
 		&i.Port,
 		&i.PinnedHostKey,
+		&i.Platform,
 		&i.Username,
 		&i.CredentialID,
+		&i.CredentialProtocol,
 		&i.ConnectionEpoch,
 		&i.LeaseExpiresAt,
 	)
@@ -1196,7 +1203,7 @@ func (q *Queries) ListRemoteAccessRecordings(ctx context.Context, arg ListRemote
 }
 
 const listRemoteAccessSessions = `-- name: ListRemoteAccessSessions :many
-SELECT id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason FROM remote_access_sessions session
+SELECT id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason FROM remote_access_sessions session
 WHERE session.enterprise_id=$1
   AND (session.user_id=$2 OR $3::boolean)
   AND CASE $4::text
@@ -1210,7 +1217,7 @@ WHERE session.enterprise_id=$1
   AND ($7::uuid IS NULL OR session.host_id=$7::uuid)
   AND ($8::uuid IS NULL OR session.managed_account_id=$8::uuid)
   AND ($9::text IS NULL OR session.protocol=$9::text)
-  AND ($10::text IS NULL OR session.connection_mode=$10::text)
+  AND ($10::text IS NULL OR session.control_path=$10::text)
   AND ($11::timestamptz IS NULL OR session.created_at>=$11::timestamptz)
   AND ($12::timestamptz IS NULL OR session.created_at<$12::timestamptz)
 ORDER BY session.created_at DESC,session.id DESC
@@ -1226,7 +1233,7 @@ type ListRemoteAccessSessionsParams struct {
 	HostID           uuid.NullUUID      `json:"host_id"`
 	ManagedAccountID uuid.NullUUID      `json:"managed_account_id"`
 	Protocol         pgtype.Text        `json:"protocol"`
-	ConnectionMode   pgtype.Text        `json:"connection_mode"`
+	ControlPath      pgtype.Text        `json:"control_path"`
 	CreatedFrom      pgtype.Timestamptz `json:"created_from"`
 	CreatedTo        pgtype.Timestamptz `json:"created_to"`
 }
@@ -1242,7 +1249,7 @@ func (q *Queries) ListRemoteAccessSessions(ctx context.Context, arg ListRemoteAc
 		arg.HostID,
 		arg.ManagedAccountID,
 		arg.Protocol,
-		arg.ConnectionMode,
+		arg.ControlPath,
 		arg.CreatedFrom,
 		arg.CreatedTo,
 	)
@@ -1262,7 +1269,7 @@ func (q *Queries) ListRemoteAccessSessions(ctx context.Context, arg ListRemoteAc
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,
@@ -1301,7 +1308,7 @@ func (q *Queries) ListRemoteAccessSessions(ctx context.Context, arg ListRemoteAc
 }
 
 const lockOptionalSessionsMissingRecording = `-- name: LockOptionalSessionsMissingRecording :many
-SELECT session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.connection_mode, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
+SELECT session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.control_path, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
 FROM remote_access_sessions session
 WHERE session.status IN ('authorized','connecting','active')
   AND session.recording_mode = 'optional'
@@ -1331,7 +1338,7 @@ func (q *Queries) LockOptionalSessionsMissingRecording(ctx context.Context, limi
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,
@@ -1371,7 +1378,7 @@ func (q *Queries) LockOptionalSessionsMissingRecording(ctx context.Context, limi
 
 const markRemoteAccessSessionActive = `-- name: MarkRemoteAccessSessionActive :one
 UPDATE remote_access_sessions SET status='active',connected_at=COALESCE(connected_at,now()),updated_at=now()
-WHERE id=$1 AND session_fence=$2 AND status='connecting' RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
+WHERE id=$1 AND session_fence=$2 AND status='connecting' RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
 `
 
 type MarkRemoteAccessSessionActiveParams struct {
@@ -1391,7 +1398,7 @@ func (q *Queries) MarkRemoteAccessSessionActive(ctx context.Context, arg MarkRem
 		&i.HostID,
 		&i.ManagedAccountID,
 		&i.Protocol,
-		&i.ConnectionMode,
+		&i.ControlPath,
 		&i.ConnectorID,
 		&i.ConnectorEpoch,
 		&i.Status,
@@ -1424,7 +1431,7 @@ func (q *Queries) MarkRemoteAccessSessionActive(ctx context.Context, arg MarkRem
 
 const markRemoteAccessSessionConnecting = `-- name: MarkRemoteAccessSessionConnecting :one
 UPDATE remote_access_sessions SET status='connecting',updated_at=now()
-WHERE id=$1 AND session_fence=$2 AND status='authorized' RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
+WHERE id=$1 AND session_fence=$2 AND status='authorized' RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
 `
 
 type MarkRemoteAccessSessionConnectingParams struct {
@@ -1444,7 +1451,7 @@ func (q *Queries) MarkRemoteAccessSessionConnecting(ctx context.Context, arg Mar
 		&i.HostID,
 		&i.ManagedAccountID,
 		&i.Protocol,
-		&i.ConnectionMode,
+		&i.ControlPath,
 		&i.ConnectorID,
 		&i.ConnectorEpoch,
 		&i.Status,
@@ -1500,7 +1507,7 @@ func (q *Queries) SetRemoteAccessSessionRouteMetadata(ctx context.Context, arg S
 
 const terminateRemoteAccessSession = `-- name: TerminateRemoteAccessSession :one
 UPDATE remote_access_sessions SET status='terminating',session_fence=session_fence+1,termination_reason=$3,updated_at=now()
-WHERE id=$1 AND enterprise_id=$2 AND status IN ('authorized','connecting','active') RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
+WHERE id=$1 AND enterprise_id=$2 AND status IN ('authorized','connecting','active') RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
 `
 
 type TerminateRemoteAccessSessionParams struct {
@@ -1521,7 +1528,7 @@ func (q *Queries) TerminateRemoteAccessSession(ctx context.Context, arg Terminat
 		&i.HostID,
 		&i.ManagedAccountID,
 		&i.Protocol,
-		&i.ConnectionMode,
+		&i.ControlPath,
 		&i.ConnectorID,
 		&i.ConnectorEpoch,
 		&i.Status,
@@ -1554,7 +1561,7 @@ func (q *Queries) TerminateRemoteAccessSession(ctx context.Context, arg Terminat
 
 const terminateRemoteAccessSessionsByEnterprise = `-- name: TerminateRemoteAccessSessionsByEnterprise :many
 UPDATE remote_access_sessions SET status='terminating',session_fence=session_fence+1,termination_reason=$1,updated_at=now()
-WHERE enterprise_id=$2 AND status IN ('authorized','connecting','active') RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
+WHERE enterprise_id=$2 AND status IN ('authorized','connecting','active') RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
 `
 
 type TerminateRemoteAccessSessionsByEnterpriseParams struct {
@@ -1580,7 +1587,7 @@ func (q *Queries) TerminateRemoteAccessSessionsByEnterprise(ctx context.Context,
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,
@@ -1622,7 +1629,7 @@ const terminateRemoteAccessSessionsByGrant = `-- name: TerminateRemoteAccessSess
 UPDATE remote_access_sessions session SET status='terminating',session_fence=session_fence+1,termination_reason=$1,updated_at=now()
 FROM remote_access_leases lease
 WHERE session.lease_id=lease.id AND lease.grant_id=$2 AND session.enterprise_id=$3
-  AND session.status IN ('authorized','connecting','active') RETURNING session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.connection_mode, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
+  AND session.status IN ('authorized','connecting','active') RETURNING session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.control_path, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
 `
 
 type TerminateRemoteAccessSessionsByGrantParams struct {
@@ -1649,7 +1656,7 @@ func (q *Queries) TerminateRemoteAccessSessionsByGrant(ctx context.Context, arg 
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,
@@ -1689,7 +1696,7 @@ func (q *Queries) TerminateRemoteAccessSessionsByGrant(ctx context.Context, arg 
 
 const terminateRemoteAccessSessionsByLease = `-- name: TerminateRemoteAccessSessionsByLease :many
 UPDATE remote_access_sessions SET status='terminating',session_fence=session_fence+1,termination_reason=$1,updated_at=now()
-WHERE lease_id=$2 AND enterprise_id=$3 AND status IN ('authorized','connecting','active') RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
+WHERE lease_id=$2 AND enterprise_id=$3 AND status IN ('authorized','connecting','active') RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
 `
 
 type TerminateRemoteAccessSessionsByLeaseParams struct {
@@ -1716,7 +1723,7 @@ func (q *Queries) TerminateRemoteAccessSessionsByLease(ctx context.Context, arg 
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,
@@ -1758,7 +1765,7 @@ const terminateRemoteAccessSessionsByRequest = `-- name: TerminateRemoteAccessSe
 UPDATE remote_access_sessions session SET status='terminating',session_fence=session_fence+1,termination_reason=$1,updated_at=now()
 FROM remote_access_leases lease
 WHERE session.lease_id=lease.id AND lease.request_id=$2
-  AND session.status IN ('authorized','connecting','active') RETURNING session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.connection_mode, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
+  AND session.status IN ('authorized','connecting','active') RETURNING session.id, session.enterprise_id, session.user_id, session.http_session_id, session.lease_id, session.host_id, session.managed_account_id, session.protocol, session.control_path, session.connector_id, session.connector_epoch, session.status, session.session_fence, session.authorization_version, session.idle_timeout_seconds, session.max_duration_seconds, session.connect_before, session.connected_at, session.terminated_at, session.termination_reason, session.created_at, session.updated_at, session.decision_snapshot, session.session_profile_snapshot, session.decision_snapshot_hash, session.recording_mode, session.command_audit_mode, session.clipboard_mode, session.file_upload_mode, session.file_download_mode, session.port_forward_mode, session.session_share_mode, session.retention_days, session.gateway_instance, session.reason
 `
 
 type TerminateRemoteAccessSessionsByRequestParams struct {
@@ -1784,7 +1791,7 @@ func (q *Queries) TerminateRemoteAccessSessionsByRequest(ctx context.Context, ar
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,

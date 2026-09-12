@@ -66,6 +66,18 @@ func (service Service) evaluateAccess(ctx context.Context, q *db.Queries, actor 
 	if err != nil || account.HostID != host.ID || !slices.Contains(account.AllowedProtocols, accountProtocol(input.Protocol)) {
 		return evaluatedAccess{}, ErrScopeDenied
 	}
+	if input.Protocol == "rdp" || input.Protocol == "ssh" {
+		observation, observationErr := q.GetHostRuntimeObservation(ctx, db.GetHostRuntimeObservationParams{EnterpriseID: actor.EnterpriseID, HostID: host.ID})
+		if observationErr != nil || time.Since(observation.ObservedAt.Time) > 2*time.Minute {
+			return evaluatedAccess{}, ErrSessionUnavailable
+		}
+		if input.Protocol == "ssh" && observation.OpensshStatus != "available" {
+			return evaluatedAccess{}, ErrSessionUnavailable
+		}
+		if input.Protocol == "rdp" && (host.Platform != "windows" || observation.RdpStatus != "enabled" || !observation.RdpNlaEnabled || !observation.RdpFirewallEnabled || !observation.RdpServiceRunning) {
+			return evaluatedAccess{}, ErrSessionUnavailable
+		}
+	}
 	grantRows, err := q.ListCandidateRemoteAccessGrants(ctx, db.ListCandidateRemoteAccessGrantsParams{EnterpriseID: actor.EnterpriseID, ActorID: actor.UserID})
 	if err != nil {
 		return evaluatedAccess{}, err

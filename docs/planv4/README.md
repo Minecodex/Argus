@@ -1,4 +1,6 @@
-# PlanV4：主机网络接入模式扩展
+# PlanV4：主机网络接入模式扩展（历史）
+
+> 当前 Host/Connector/Relay/Collector 契约以 [跨平台主机接入设计](../19-cross-platform-host-onboarding.md) 为准；旧 `connection_mode`、`self_enrolled` 和 WinRM/WinRS 均已删除。
 
 ## 目标
 
@@ -69,7 +71,7 @@ PlanV4 将主机接入从「双向可达 + 堡垒机成员」扩展为覆盖单�
 
 ## 完成状态（2026-09-01）
 
-PlanV4 Task 01～07 已全部完成。最终真实 Kubernetes 运行号为 `20260901-planv4-final41`，脱敏证据目录为 `artifacts/p4-e2e/20260901-planv4-final41/verify`。该运行完成了 self-enroll、堡垒机 A/B/C、Executor/Connector 遥测隧道、replacement fencing、跨副本接管、三信号推通、real Playwright、最终 19 项安装校验与零残留清理。
+PlanV4 Task 01～07 已全部完成。2026-09-06 的最新真实 Kubernetes 回归运行号为 `20260906-complete13`，脱敏证据目录为 `artifacts/p4-e2e/20260906-complete13/verify`。该运行完成了 Linux 一行命令直连/经 Bastion Relay、普通 Host Direct SSH/经 Bastion SSH、SSH Secret 轮换与旧 Preview 失效、堡垒机 A/B/C、完整 Host onboarding 七阶段、Executor/Connector 遥测隧道、replacement fencing、跨副本接管、缺失 Edge Gateway 时的自动顺序安装、三信号推通、real Playwright、最终 20 项安装校验与零残留清理。
 
 实施中确认并修正了两处原有架构偏差：模式 C 的长期控制隧道已从短期安装 operation 和进程级全局状态中拆出，成为 PostgreSQL 权威、可租约接管的 `connector_control_tunnels`；B/C Execution 不再在 operation 启动时提前成功，而是保持 `result_unknown` 并由 Reconciler 按真实安装终态收敛。修正后，PlanV4 的 `route kind × transport`、统一 Pending Action、一次性领取、身份边界和服务职责无需推翻。
 

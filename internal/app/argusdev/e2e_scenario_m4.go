@@ -368,7 +368,7 @@ func (a *App) createM4Host(ctx context.Context, env *E2EEnvironment) (string, er
 	id := uuid.NewString()
 	labels := `{"environment":"prod","team":"m4"}`
 	hash := sha256.Sum256([]byte(labels))
-	query := fmt.Sprintf("INSERT INTO hosts (id,enterprise_id,name,hostname,address,port,platform,connection_mode,environment,labels,labels_hash,connection_status) VALUES ('%s','%s','m4-managed-host','m4-managed-host','203.0.113.10',22,'linux','direct_ssh','production','%s'::jsonb,decode('%s','hex'),'offline');", id, env.State.Values["enterprise_id"], labels, hex.EncodeToString(hash[:]))
+	query := fmt.Sprintf("INSERT INTO hosts (id,enterprise_id,name,hostname,address,port,platform,architecture,role,control_path,environment,labels,labels_hash,connection_status) VALUES ('%s','%s','m4-managed-host','m4-managed-host','203.0.113.10',22,'linux','amd64','managed_host','direct','production','%s'::jsonb,decode('%s','hex'),'offline');", id, env.State.Values["enterprise_id"], labels, hex.EncodeToString(hash[:]))
 	if _, err := a.postgresQuery(ctx, env, query); err != nil {
 		return "", err
 	}

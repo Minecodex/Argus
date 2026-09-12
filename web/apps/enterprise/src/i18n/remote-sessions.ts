@@ -62,6 +62,10 @@ export const remoteSessionsZh = {
     emptyEvents: "录像中暂无事件",
     recordingDuration: "录像时长",
     recordingDurationValue: "{{seconds}} 秒",
+    rdpReplayCanvas: "RDP 录像画面",
+    rdpReplayPlay: "播放",
+    rdpReplayPause: "暂停",
+    rdpReplayPosition: "RDP 录像进度",
     filters: {
       allUsers: "全部用户",
       allHosts: "全部主机",
@@ -162,6 +166,10 @@ export const remoteSessionsEn = {
     emptyEvents: "No recording events",
     recordingDuration: "Recording length",
     recordingDurationValue: "{{seconds}} seconds",
+    rdpReplayCanvas: "RDP recording display",
+    rdpReplayPlay: "Play",
+    rdpReplayPause: "Pause",
+    rdpReplayPosition: "RDP recording position",
     filters: {
       allUsers: "All users",
       allHosts: "All hosts",

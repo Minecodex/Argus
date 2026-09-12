@@ -11,6 +11,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for ConnectionTestArchitecture.
+const (
+	Amd64 ConnectionTestArchitecture = "amd64"
+	Arm64 ConnectionTestArchitecture = "arm64"
+)
+
+// Valid indicates whether the value is a known member of the ConnectionTestArchitecture enum.
+func (e ConnectionTestArchitecture) Valid() bool {
+	switch e {
+	case Amd64:
+		return true
+	case Arm64:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ConnectionTestChecksStatus.
 const (
 	ConnectionTestChecksStatusFailed  ConnectionTestChecksStatus = "failed"
@@ -47,6 +65,42 @@ func (e ConnectionTestPath) Valid() bool {
 	case ConnectionTestPathDirect:
 		return true
 	case ConnectionTestPathInCluster:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConnectionTestPlatform.
+const (
+	Linux   ConnectionTestPlatform = "linux"
+	Windows ConnectionTestPlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the ConnectionTestPlatform enum.
+func (e ConnectionTestPlatform) Valid() bool {
+	switch e {
+	case Linux:
+		return true
+	case Windows:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConnectionTestServiceManager.
+const (
+	Systemd    ConnectionTestServiceManager = "systemd"
+	WindowsScm ConnectionTestServiceManager = "windows_scm"
+)
+
+// Valid indicates whether the value is a known member of the ConnectionTestServiceManager enum.
+func (e ConnectionTestServiceManager) Valid() bool {
+	switch e {
+	case Systemd:
+		return true
+	case WindowsScm:
 		return true
 	default:
 		return false
@@ -323,32 +377,47 @@ type ApiError_Params_AdditionalProperties struct {
 
 // ConnectionTest defines model for ConnectionTest.
 type ConnectionTest struct {
-	Checks []struct {
+	Architecture *ConnectionTestArchitecture `json:"architecture,omitempty"`
+	Checks       []struct {
 		Detail *string                    `json:"detail,omitempty"`
 		Name   string                     `json:"name"`
 		Status ConnectionTestChecksStatus `json:"status"`
 	} `json:"checks"`
-	CreatedAt          time.Time                `json:"created_at"`
-	EnterpriseId       *openapi_types.UUID      `json:"enterprise_id,omitempty"`
-	ErrorCode          *string                  `json:"error_code,omitempty"`
-	ExpiresAt          time.Time                `json:"expires_at"`
-	HostKeyFingerprint *string                  `json:"host_key_fingerprint,omitempty"`
-	Id                 openapi_types.UUID       `json:"id"`
-	LatencyMs          *int                     `json:"latency_ms,omitempty"`
-	Path               ConnectionTestPath       `json:"path"`
-	RemoteVersion      *string                  `json:"remote_version,omitempty"`
-	ResolvedIps        *[]string                `json:"resolved_ips,omitempty"`
-	ResourceId         *openapi_types.UUID      `json:"resource_id,omitempty"`
-	Status             ConnectionTestStatus     `json:"status"`
-	TargetType         ConnectionTestTargetType `json:"target_type"`
-	UpdatedAt          time.Time                `json:"updated_at"`
+	CreatedAt           time.Time                     `json:"created_at"`
+	DistributionVersion *string                       `json:"distribution_version,omitempty"`
+	EnterpriseId        *openapi_types.UUID           `json:"enterprise_id,omitempty"`
+	ErrorCode           *string                       `json:"error_code,omitempty"`
+	ExpiresAt           time.Time                     `json:"expires_at"`
+	FreeDiskBytes       *int64                        `json:"free_disk_bytes,omitempty"`
+	HostKeyFingerprint  *string                       `json:"host_key_fingerprint,omitempty"`
+	Id                  openapi_types.UUID            `json:"id"`
+	LatencyMs           *int                          `json:"latency_ms,omitempty"`
+	Path                ConnectionTestPath            `json:"path"`
+	Platform            *ConnectionTestPlatform       `json:"platform,omitempty"`
+	Privileged          *bool                         `json:"privileged,omitempty"`
+	RemoteVersion       *string                       `json:"remote_version,omitempty"`
+	ResolvedIps         *[]string                     `json:"resolved_ips,omitempty"`
+	ResourceId          *openapi_types.UUID           `json:"resource_id,omitempty"`
+	ServiceManager      *ConnectionTestServiceManager `json:"service_manager,omitempty"`
+	Status              ConnectionTestStatus          `json:"status"`
+	TargetType          ConnectionTestTargetType      `json:"target_type"`
+	UpdatedAt           time.Time                     `json:"updated_at"`
 }
+
+// ConnectionTestArchitecture defines model for ConnectionTest.Architecture.
+type ConnectionTestArchitecture string
 
 // ConnectionTestChecksStatus defines model for ConnectionTest.Checks.Status.
 type ConnectionTestChecksStatus string
 
 // ConnectionTestPath defines model for ConnectionTest.Path.
 type ConnectionTestPath string
+
+// ConnectionTestPlatform defines model for ConnectionTest.Platform.
+type ConnectionTestPlatform string
+
+// ConnectionTestServiceManager defines model for ConnectionTest.ServiceManager.
+type ConnectionTestServiceManager string
 
 // ConnectionTestStatus defines model for ConnectionTest.Status.
 type ConnectionTestStatus string

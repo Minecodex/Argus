@@ -101,28 +101,38 @@ paths:
     $ref: ./paths/m3.yaml#/managed_account_item
   /enterprise/hosts:
     $ref: ./paths/m3.yaml#/host_collection
+  /enterprise/hosts/name-availability:
+    $ref: ./paths/m3.yaml#/host_name_availability
   /enterprise/hosts/{id}:
     $ref: ./paths/m3.yaml#/host_item
   /enterprise/hosts/actions/preview-create:
     $ref: ./paths/m3.yaml#/host_preview_create
+  /enterprise/hosts/{id}/actions/preview-retry:
+    $ref: ./paths/m3.yaml#/host_preview_retry
   /enterprise/hosts/{id}/actions/preview-update:
     $ref: ./paths/m3.yaml#/host_preview_update
   /enterprise/hosts/{id}/actions/preview-delete:
     $ref: ./paths/m3.yaml#/host_preview_delete
   /enterprise/hosts/connection-tests:
     $ref: ./paths/m3.yaml#/host_connection_tests
-  /enterprise/hosts/{id}/actions/preview-enrollment-rotate:
-    $ref: ./paths/m3.yaml#/host_enrollment_rotate
-  /enterprise/hosts/{id}/actions/preview-uninstall-command:
-    $ref: ./paths/m3.yaml#/host_uninstall_command
-  /host-install/{token}:
-    $ref: ./paths/m7.yaml#/host_install_bootstrap
-  /host-bootstrap-script:
-    $ref: ./paths/m7.yaml#/host_bootstrap_script
-  /host-uninstall/{token}:
-    $ref: ./paths/m7.yaml#/host_uninstall_bootstrap
-  /host-uninstall/{id}/complete:
-    $ref: ./paths/m7.yaml#/host_uninstall_complete
+  /enterprise/host-onboarding-operations/{id}:
+    $ref: ./paths/m3.yaml#/host_onboarding_operation
+  /enterprise/host-removals/connection-defaults:
+    $ref: ./paths/m3.yaml#/host_removal_connection_defaults
+  /enterprise/host-removals/actions/preview:
+    $ref: ./paths/m3.yaml#/host_removal_preview
+  /enterprise/host-removal-operations/{id}:
+    $ref: ./paths/m3.yaml#/host_removal_operation
+  /enterprise/host-removal-operations/{id}/actions/retry:
+    $ref: ./paths/m3.yaml#/host_removal_retry
+  /enterprise/host-removal-operations/{id}/actions/regenerate-command:
+    $ref: ./paths/m3.yaml#/host_removal_command
+  /host-removal/bootstrap-script:
+    $ref: ./paths/m3.yaml#/host_removal_bootstrap
+  /host-removal/receipt:
+    $ref: ./paths/m3.yaml#/host_removal_receipt
+  /enterprise/hosts/{id}/windows-rdp/actions/preview-enable:
+    $ref: ./paths/m3.yaml#/host_windows_rdp_enable
   /enterprise/connection-tests/{id}:
     $ref: ./paths/m3.yaml#/connection_test_item
   /enterprise/kubernetes-clusters:
@@ -151,6 +161,8 @@ paths:
     $ref: ./paths/m3.yaml#/pending_action_cancel
   /enterprise/bastion-scopes:
     $ref: ./paths/m3.yaml#/bastion_collection
+  /enterprise/bastion-scopes/name-availability:
+    $ref: ./paths/m3.yaml#/bastion_name_availability
   /enterprise/bastion-scopes/{id}:
     $ref: ./paths/m3.yaml#/bastion_item
   /enterprise/bastion-scopes/actions/preview-create:
@@ -657,8 +669,6 @@ components:
       $ref: ./components/m3.yaml#/components/schemas/ManagedAccount
     Host:
       $ref: ./components/m3.yaml#/components/schemas/Host
-    HostInstallBootstrap:
-      $ref: ./components/m7.yaml#/components/schemas/HostInstallBootstrap
     KubernetesCluster:
       $ref: ./components/m3.yaml#/components/schemas/KubernetesCluster
     ConnectionTest:

@@ -45,18 +45,6 @@ export function hostStatusTone(status: HostConnectionStatus): Tone {
   }
 }
 
-/** 周期探活的实时状态色调;key_changed(主机键漂移)用警示色。 */
-export function hostLiveTone(status: NonNullable<Host["live_status"]>): Tone {
-  switch (status) {
-    case "online":
-      return "success";
-    case "key_changed":
-      return "warning";
-    default:
-      return "danger";
-  }
-}
-
 export function collectorTone(status: CollectorStatus): Tone {
   switch (status) {
     case "converged":
@@ -76,10 +64,9 @@ export function collectorTone(status: CollectorStatus): Tone {
 /** 连接路径文案：Argus → 堡垒机 → 目标地址 / Direct Executor → 目标地址。 */
 export function connectionPathKey(
   host: Host,
-): "viaBastion" | "connectorLocal" | "direct" | "selfEnrolled" {
-  if (host.connection_mode === "via_bastion") return "viaBastion";
-  if (host.connection_mode === "connector_local") return "connectorLocal";
-  if (host.connection_mode === "self_enrolled") return "selfEnrolled";
+): "bastionRelay" | "executorTunnel" | "direct" {
+  if (host.control_path === "bastion_relay") return "bastionRelay";
+  if (host.control_path === "executor_tunnel") return "executorTunnel";
   return "direct";
 }
 

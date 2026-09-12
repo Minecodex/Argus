@@ -13,9 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (a *App) verifyM6CrossGatewayDrain(ctx context.Context, env *E2EEnvironment) error {
-	hostID := env.State.Values["m3_bastion_root_host_id"]
-	connectorID := env.State.Values["m3_bastion_connector_id"]
+func (a *App) verifyM6CrossGatewayDrain(ctx context.Context, env *E2EEnvironment, hostID, accountID, connectorID string) error {
 	if hostID == "" || connectorID == "" {
 		return fmt.Errorf("M6 Bastion Host or Connector is unavailable")
 	}
@@ -32,10 +30,6 @@ func (a *App) verifyM6CrossGatewayDrain(ctx context.Context, env *E2EEnvironment
 	}
 	actionRef, _ := stringField(preview, "action_ref")
 	if _, err := a.confirmPendingAction(ctx, env, "m6-bastion-reauthorize-confirm", actionRef); err != nil {
-		return err
-	}
-	hostID, accountID, err := a.createM6BastionTarget(ctx, env)
-	if err != nil {
 		return err
 	}
 	if err := env.Kube.ScaleDeployment(ctx, env.SystemNS, "argus-connector-gateway", 2); err != nil {
@@ -149,76 +143,6 @@ func (a *App) verifyM6CrossGatewayDrain(ctx context.Context, env *E2EEnvironment
 		return err
 	}
 	return a.refreshEnterpriseLogin(ctx, env)
-}
-
-func (a *App) createM6BastionTarget(ctx context.Context, env *E2EEnvironment) (string, string, error) {
-	client, err := scenarioHTTP(env)
-	if err != nil {
-		return "", "", err
-	}
-	sshAddress, err := waitForServiceIP(ctx, env, env.SystemNS, "argus-e2e-ssh-target", 3*time.Minute)
-	if err != nil {
-		return "", "", fmt.Errorf("M6 bastion SSH fixture load balancer: %w", err)
-	}
-	target := map[string]any{
-		"address": sshAddress, "port": 22, "platform": "linux",
-		"connection_mode": "via_bastion", "bastion_scope_id": env.State.Values["m3_bastion_scope_id"],
-		"credential_id": env.State.Values["m3_credential_id"], "username": "argus",
-	}
-	test, err := client.JSON(ctx, "m6-bastion-host-test", "enterprise", http.MethodPost, "/enterprise/hosts/connection-tests", http.StatusAccepted,
-		target, enterpriseHeaders(env, "m6-bastion-host-test"))
-	if err != nil {
-		return "", "", err
-	}
-	testID, err := stringField(test, "id")
-	if err != nil {
-		return "", "", err
-	}
-	if err := a.waitConnectionTest(ctx, env, testID); err != nil {
-		return "", "", fmt.Errorf("M6 Bastion SSH connection test: %w", err)
-	}
-	previewInput := map[string]any{}
-	for key, value := range target {
-		previewInput[key] = value
-	}
-	previewInput["name"] = "m6-bastion-ssh-host"
-	previewInput["environment"] = "production"
-	previewInput["labels"] = map[string]string{"team": "m3", "route": "bastion", "terminal": "ssh"}
-	previewInput["connection_test_id"] = testID
-	preview, err := client.JSON(ctx, "m6-bastion-host-preview", "enterprise", http.MethodPost, "/enterprise/hosts/actions/preview-create", http.StatusCreated,
-		previewInput, enterpriseHeaders(env, "m6-bastion-host-preview"))
-	if err != nil {
-		return "", "", err
-	}
-	actionRef, err := stringField(preview, "action_ref")
-	if err != nil {
-		return "", "", err
-	}
-	confirmed, err := a.confirmPendingAction(ctx, env, "m6-bastion-host-confirm", actionRef)
-	if err != nil {
-		return "", "", err
-	}
-	hostID, err := stringField(confirmed, "resource_ref", "resource_id")
-	if err != nil {
-		return "", "", err
-	}
-	if err := a.refreshEnterpriseLogin(ctx, env); err != nil {
-		return "", "", err
-	}
-	accounts, err := client.JSON(ctx, "m6-bastion-accounts", "enterprise", http.MethodGet, "/enterprise/managed-accounts", http.StatusOK, nil,
-		map[string]string{"Origin": env.EnterpriseOrigin()})
-	if err != nil {
-		return "", "", err
-	}
-	account, err := findItem(objectItems(accounts), func(item map[string]any) bool { return item["host_id"] == hostID })
-	if err != nil {
-		return "", "", fmt.Errorf("M6 managed account for Bastion SSH Host %s: %w", hostID, err)
-	}
-	accountID, err := stringField(account, "id")
-	if err != nil {
-		return "", "", err
-	}
-	return hostID, accountID, nil
 }
 
 func (a *App) m6GatewayPair(ctx context.Context, env *E2EEnvironment, connectorID string) (string, string, string, error) {

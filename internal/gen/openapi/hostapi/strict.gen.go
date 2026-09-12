@@ -12,6 +12,24 @@ import (
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// GetHostOnboardingOperation Get a durable Host Connector onboarding operation.
+	// (GET /enterprise/host-onboarding-operations/{id})
+	GetHostOnboardingOperation(ctx context.Context, request GetHostOnboardingOperationRequestObject) (GetHostOnboardingOperationResponseObject, error)
+	// GetHostRemovalOperation Get a durable Host or Bastion removal operation.
+	// (GET /enterprise/host-removal-operations/{id})
+	GetHostRemovalOperation(ctx context.Context, request GetHostRemovalOperationRequestObject) (GetHostRemovalOperationResponseObject, error)
+	// RegenerateHostRemovalCommand Rotate the one-time token and return a replacement command for the same removal operation.
+	// (POST /enterprise/host-removal-operations/{id}/actions/regenerate-command)
+	RegenerateHostRemovalCommand(ctx context.Context, request RegenerateHostRemovalCommandRequestObject) (RegenerateHostRemovalCommandResponseObject, error)
+	// RetryHostRemovalOperation Resume a failed or cleanup-unknown removal from its first unverified step.
+	// (POST /enterprise/host-removal-operations/{id}/actions/retry)
+	RetryHostRemovalOperation(ctx context.Context, request RetryHostRemovalOperationRequestObject) (RetryHostRemovalOperationResponseObject, error)
+	// PreviewHostRemoval Freeze a fenced Host or Bastion removal plan.
+	// (POST /enterprise/host-removals/actions/preview)
+	PreviewHostRemoval(ctx context.Context, request PreviewHostRemovalRequestObject) (PreviewHostRemovalResponseObject, error)
+	// GetHostRemovalConnectionDefaults Read SSH account and credential references from the current installation.
+	// (GET /enterprise/host-removals/connection-defaults)
+	GetHostRemovalConnectionDefaults(ctx context.Context, request GetHostRemovalConnectionDefaultsRequestObject) (GetHostRemovalConnectionDefaultsResponseObject, error)
 	// ListHosts List explicitly authorized Hosts.
 	// (GET /enterprise/hosts)
 	ListHosts(ctx context.Context, request ListHostsRequestObject) (ListHostsResponseObject, error)
@@ -21,21 +39,30 @@ type StrictServerInterface interface {
 	// CreateHostConnectionTest Start a bounded Host connection test.
 	// (POST /enterprise/hosts/connection-tests)
 	CreateHostConnectionTest(ctx context.Context, request CreateHostConnectionTestRequestObject) (CreateHostConnectionTestResponseObject, error)
+	// CheckHostNameAvailability Check a creation name using host.manage permission without disclosing the occupying resource.
+	// (GET /enterprise/hosts/name-availability)
+	CheckHostNameAvailability(ctx context.Context, request CheckHostNameAvailabilityRequestObject) (CheckHostNameAvailabilityResponseObject, error)
 	// GetHost Get an explicitly authorized Host.
 	// (GET /enterprise/hosts/{id})
 	GetHost(ctx context.Context, request GetHostRequestObject) (GetHostResponseObject, error)
 	// PreviewDeleteHost Freeze a Host logical deletion plan.
 	// (POST /enterprise/hosts/{id}/actions/preview-delete)
 	PreviewDeleteHost(ctx context.Context, request PreviewDeleteHostRequestObject) (PreviewDeleteHostResponseObject, error)
-	// PreviewHostEnrollmentRotate Freeze a new self-enrolled Host installation command.
-	// (POST /enterprise/hosts/{id}/actions/preview-enrollment-rotate)
-	PreviewHostEnrollmentRotate(ctx context.Context, request PreviewHostEnrollmentRotateRequestObject) (PreviewHostEnrollmentRotateResponseObject, error)
-	// PreviewHostUninstallCommand Freeze a self-enrolled Host uninstall command.
-	// (POST /enterprise/hosts/{id}/actions/preview-uninstall-command)
-	PreviewHostUninstallCommand(ctx context.Context, request PreviewHostUninstallCommandRequestObject) (PreviewHostUninstallCommandResponseObject, error)
+	// PreviewRetryHost Preview a new SSH installation attempt for a failed unregistered Host.
+	// (POST /enterprise/hosts/{id}/actions/preview-retry)
+	PreviewRetryHost(ctx context.Context, request PreviewRetryHostRequestObject) (PreviewRetryHostResponseObject, error)
 	// PreviewUpdateHost Freeze a Host metadata, labels, or path update.
 	// (POST /enterprise/hosts/{id}/actions/preview-update)
 	PreviewUpdateHost(ctx context.Context, request PreviewUpdateHostRequestObject) (PreviewUpdateHostResponseObject, error)
+	// PreviewEnableHostWindowsRDP Preview the registry, NLA, service, and firewall changes required to enable RDP.
+	// (POST /enterprise/hosts/{id}/windows-rdp/actions/preview-enable)
+	PreviewEnableHostWindowsRDP(ctx context.Context, request PreviewEnableHostWindowsRDPRequestObject) (PreviewEnableHostWindowsRDPResponseObject, error)
+	// GetHostRemovalBootstrapScript Claim a one-time removal token and download the target-specific strict-TLS uninstaller.
+	// (GET /host-removal/bootstrap-script)
+	GetHostRemovalBootstrapScript(ctx context.Context, request GetHostRemovalBootstrapScriptRequestObject) (GetHostRemovalBootstrapScriptResponseObject, error)
+	// SubmitHostRemovalReceipt Submit an operation-scoped local cleanup receipt after the Connector has stopped.
+	// (POST /host-removal/receipt)
+	SubmitHostRemovalReceipt(ctx context.Context, request SubmitHostRemovalReceiptRequestObject) (SubmitHostRemovalReceiptResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -75,6 +102,171 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// GetHostOnboardingOperation operation middleware
+func (sh *strictHandler) GetHostOnboardingOperation(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request GetHostOnboardingOperationRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHostOnboardingOperation(ctx, request.(GetHostOnboardingOperationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHostOnboardingOperation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHostOnboardingOperationResponseObject); ok {
+		if err := validResponse.VisitGetHostOnboardingOperationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetHostRemovalOperation operation middleware
+func (sh *strictHandler) GetHostRemovalOperation(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request GetHostRemovalOperationRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHostRemovalOperation(ctx, request.(GetHostRemovalOperationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHostRemovalOperation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHostRemovalOperationResponseObject); ok {
+		if err := validResponse.VisitGetHostRemovalOperationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RegenerateHostRemovalCommand operation middleware
+func (sh *strictHandler) RegenerateHostRemovalCommand(w http.ResponseWriter, r *http.Request, id ResourceId, params RegenerateHostRemovalCommandParams) {
+	var request RegenerateHostRemovalCommandRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RegenerateHostRemovalCommand(ctx, request.(RegenerateHostRemovalCommandRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RegenerateHostRemovalCommand")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RegenerateHostRemovalCommandResponseObject); ok {
+		if err := validResponse.VisitRegenerateHostRemovalCommandResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryHostRemovalOperation operation middleware
+func (sh *strictHandler) RetryHostRemovalOperation(w http.ResponseWriter, r *http.Request, id ResourceId, params RetryHostRemovalOperationParams) {
+	var request RetryHostRemovalOperationRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryHostRemovalOperation(ctx, request.(RetryHostRemovalOperationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryHostRemovalOperation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryHostRemovalOperationResponseObject); ok {
+		if err := validResponse.VisitRetryHostRemovalOperationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewHostRemoval operation middleware
+func (sh *strictHandler) PreviewHostRemoval(w http.ResponseWriter, r *http.Request, params PreviewHostRemovalParams) {
+	var request PreviewHostRemovalRequestObject
+
+	request.Params = params
+
+	var body PreviewHostRemovalJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewHostRemoval(ctx, request.(PreviewHostRemovalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewHostRemoval")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewHostRemovalResponseObject); ok {
+		if err := validResponse.VisitPreviewHostRemovalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetHostRemovalConnectionDefaults operation middleware
+func (sh *strictHandler) GetHostRemovalConnectionDefaults(w http.ResponseWriter, r *http.Request, params GetHostRemovalConnectionDefaultsParams) {
+	var request GetHostRemovalConnectionDefaultsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHostRemovalConnectionDefaults(ctx, request.(GetHostRemovalConnectionDefaultsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHostRemovalConnectionDefaults")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHostRemovalConnectionDefaultsResponseObject); ok {
+		if err := validResponse.VisitGetHostRemovalConnectionDefaultsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListHosts operation middleware
@@ -169,6 +361,32 @@ func (sh *strictHandler) CreateHostConnectionTest(w http.ResponseWriter, r *http
 	}
 }
 
+// CheckHostNameAvailability operation middleware
+func (sh *strictHandler) CheckHostNameAvailability(w http.ResponseWriter, r *http.Request, params CheckHostNameAvailabilityParams) {
+	var request CheckHostNameAvailabilityRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CheckHostNameAvailability(ctx, request.(CheckHostNameAvailabilityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CheckHostNameAvailability")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CheckHostNameAvailabilityResponseObject); ok {
+		if err := validResponse.VisitCheckHostNameAvailabilityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHost operation middleware
 func (sh *strictHandler) GetHost(w http.ResponseWriter, r *http.Request, id ResourceId) {
 	var request GetHostRequestObject
@@ -229,14 +447,14 @@ func (sh *strictHandler) PreviewDeleteHost(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// PreviewHostEnrollmentRotate operation middleware
-func (sh *strictHandler) PreviewHostEnrollmentRotate(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewHostEnrollmentRotateParams) {
-	var request PreviewHostEnrollmentRotateRequestObject
+// PreviewRetryHost operation middleware
+func (sh *strictHandler) PreviewRetryHost(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewRetryHostParams) {
+	var request PreviewRetryHostRequestObject
 
 	request.Id = id
 	request.Params = params
 
-	var body PreviewHostEnrollmentRotateJSONRequestBody
+	var body PreviewRetryHostJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -244,52 +462,18 @@ func (sh *strictHandler) PreviewHostEnrollmentRotate(w http.ResponseWriter, r *h
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.PreviewHostEnrollmentRotate(ctx, request.(PreviewHostEnrollmentRotateRequestObject))
+		return sh.ssi.PreviewRetryHost(ctx, request.(PreviewRetryHostRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PreviewHostEnrollmentRotate")
+		handler = middleware(handler, "PreviewRetryHost")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(PreviewHostEnrollmentRotateResponseObject); ok {
-		if err := validResponse.VisitPreviewHostEnrollmentRotateResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// PreviewHostUninstallCommand operation middleware
-func (sh *strictHandler) PreviewHostUninstallCommand(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewHostUninstallCommandParams) {
-	var request PreviewHostUninstallCommandRequestObject
-
-	request.Id = id
-	request.Params = params
-
-	var body PreviewHostUninstallCommandJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.PreviewHostUninstallCommand(ctx, request.(PreviewHostUninstallCommandRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PreviewHostUninstallCommand")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(PreviewHostUninstallCommandResponseObject); ok {
-		if err := validResponse.VisitPreviewHostUninstallCommandResponse(w); err != nil {
+	} else if validResponse, ok := response.(PreviewRetryHostResponseObject); ok {
+		if err := validResponse.VisitPreviewRetryHostResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -324,6 +508,99 @@ func (sh *strictHandler) PreviewUpdateHost(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PreviewUpdateHostResponseObject); ok {
 		if err := validResponse.VisitPreviewUpdateHostResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewEnableHostWindowsRDP operation middleware
+func (sh *strictHandler) PreviewEnableHostWindowsRDP(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewEnableHostWindowsRDPParams) {
+	var request PreviewEnableHostWindowsRDPRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body PreviewEnableHostWindowsRDPJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewEnableHostWindowsRDP(ctx, request.(PreviewEnableHostWindowsRDPRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewEnableHostWindowsRDP")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewEnableHostWindowsRDPResponseObject); ok {
+		if err := validResponse.VisitPreviewEnableHostWindowsRDPResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetHostRemovalBootstrapScript operation middleware
+func (sh *strictHandler) GetHostRemovalBootstrapScript(w http.ResponseWriter, r *http.Request, params GetHostRemovalBootstrapScriptParams) {
+	var request GetHostRemovalBootstrapScriptRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHostRemovalBootstrapScript(ctx, request.(GetHostRemovalBootstrapScriptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHostRemovalBootstrapScript")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHostRemovalBootstrapScriptResponseObject); ok {
+		if err := validResponse.VisitGetHostRemovalBootstrapScriptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SubmitHostRemovalReceipt operation middleware
+func (sh *strictHandler) SubmitHostRemovalReceipt(w http.ResponseWriter, r *http.Request, params SubmitHostRemovalReceiptParams) {
+	var request SubmitHostRemovalReceiptRequestObject
+
+	request.Params = params
+
+	var body SubmitHostRemovalReceiptJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SubmitHostRemovalReceipt(ctx, request.(SubmitHostRemovalReceiptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SubmitHostRemovalReceipt")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SubmitHostRemovalReceiptResponseObject); ok {
+		if err := validResponse.VisitSubmitHostRemovalReceiptResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

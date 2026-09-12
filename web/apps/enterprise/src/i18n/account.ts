@@ -32,6 +32,9 @@ export const accountZh = {
   "account.mfa.disable": "停用 MFA",
   "account.mfa.proof": "验证码或恢复码",
   "account.mfa.stepUp": "完成五分钟 Step-up",
+  "account.mfa.confirmActionTitle": "验证身份后继续操作",
+  "account.mfa.confirmActionDescription":
+    "此操作需要二次身份验证。请输入认证器验证码或恢复码，验证成功后会继续确认当前预览。",
   "account.mfa.regenerate": "重新生成恢复码",
   "account.mfa.stepUpActive": "Step-up 有效至",
   "account.mfa.enrollmentTitle": "绑定认证器",
@@ -110,6 +113,9 @@ export const accountEn = {
   "account.mfa.disable": "Disable MFA",
   "account.mfa.proof": "Authenticator or recovery code",
   "account.mfa.stepUp": "Start five-minute step-up",
+  "account.mfa.confirmActionTitle": "Verify your identity to continue",
+  "account.mfa.confirmActionDescription":
+    "This action requires additional identity verification. Enter an authenticator or recovery code to continue confirming the current preview.",
   "account.mfa.regenerate": "Regenerate recovery codes",
   "account.mfa.stepUpActive": "Step-up valid until",
   "account.mfa.enrollmentTitle": "Connect authenticator",

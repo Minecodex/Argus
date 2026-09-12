@@ -329,9 +329,9 @@ type RemoteAccessSession struct {
 	CommandAuditMode     *RemoteAccessSessionCommandAuditMode `json:"command_audit_mode,omitempty"`
 	ConnectBefore        time.Time                            `json:"connect_before"`
 	ConnectedAt          *time.Time                           `json:"connected_at,omitempty"`
-	ConnectionMode       RemoteAccessSessionConnectionMode    `json:"connection_mode"`
 	ConnectorEpoch       *int64                               `json:"connector_epoch,omitempty"`
 	ConnectorId          *openapi_types.UUID                  `json:"connector_id,omitempty"`
+	ControlPath          RemoteAccessSessionControlPath       `json:"control_path"`
 	CreatedAt            time.Time                            `json:"created_at"`
 	DecisionSnapshot     *map[string]interface{}              `json:"decision_snapshot,omitempty"`
 	DecisionSnapshotHash *string                              `json:"decision_snapshot_hash,omitempty"`
@@ -369,8 +369,8 @@ type RemoteAccessSessionClipboardMode string
 // RemoteAccessSessionCommandAuditMode defines model for RemoteAccessSession.CommandAuditMode.
 type RemoteAccessSessionCommandAuditMode string
 
-// RemoteAccessSessionConnectionMode defines model for RemoteAccessSession.ConnectionMode.
-type RemoteAccessSessionConnectionMode string
+// RemoteAccessSessionControlPath defines model for RemoteAccessSession.ControlPath.
+type RemoteAccessSessionControlPath string
 
 // RemoteAccessSessionFileDownloadMode defines model for RemoteAccessSession.FileDownloadMode.
 type RemoteAccessSessionFileDownloadMode string
@@ -825,24 +825,24 @@ type RestoreRemoteAccessRuleParams struct {
 
 // ListRemoteAccessSessionsParams defines parameters for ListRemoteAccessSessions.
 type ListRemoteAccessSessionsParams struct {
-	Cursor           *Cursor                                       `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Limit            *Limit                                        `form:"limit,omitempty" json:"limit,omitempty"`
-	Scope            *ListRemoteAccessSessionsParamsScope          `form:"scope,omitempty" json:"scope,omitempty"`
-	Status           *RemoteAccessSessionStatus                    `form:"status,omitempty" json:"status,omitempty"`
-	UserId           *openapi_types.UUID                           `form:"user_id,omitempty" json:"user_id,omitempty"`
-	HostId           *openapi_types.UUID                           `form:"host_id,omitempty" json:"host_id,omitempty"`
-	ManagedAccountId *openapi_types.UUID                           `form:"managed_account_id,omitempty" json:"managed_account_id,omitempty"`
-	Protocol         *RemoteAccessProtocol                         `form:"protocol,omitempty" json:"protocol,omitempty"`
-	ConnectionMode   *ListRemoteAccessSessionsParamsConnectionMode `form:"connection_mode,omitempty" json:"connection_mode,omitempty"`
-	CreatedFrom      *time.Time                                    `form:"created_from,omitempty" json:"created_from,omitempty"`
-	CreatedTo        *time.Time                                    `form:"created_to,omitempty" json:"created_to,omitempty"`
+	Cursor           *Cursor                                    `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit            *Limit                                     `form:"limit,omitempty" json:"limit,omitempty"`
+	Scope            *ListRemoteAccessSessionsParamsScope       `form:"scope,omitempty" json:"scope,omitempty"`
+	Status           *RemoteAccessSessionStatus                 `form:"status,omitempty" json:"status,omitempty"`
+	UserId           *openapi_types.UUID                        `form:"user_id,omitempty" json:"user_id,omitempty"`
+	HostId           *openapi_types.UUID                        `form:"host_id,omitempty" json:"host_id,omitempty"`
+	ManagedAccountId *openapi_types.UUID                        `form:"managed_account_id,omitempty" json:"managed_account_id,omitempty"`
+	Protocol         *RemoteAccessProtocol                      `form:"protocol,omitempty" json:"protocol,omitempty"`
+	ControlPath      *ListRemoteAccessSessionsParamsControlPath `form:"control_path,omitempty" json:"control_path,omitempty"`
+	CreatedFrom      *time.Time                                 `form:"created_from,omitempty" json:"created_from,omitempty"`
+	CreatedTo        *time.Time                                 `form:"created_to,omitempty" json:"created_to,omitempty"`
 }
 
 // ListRemoteAccessSessionsParamsScope defines parameters for ListRemoteAccessSessions.
 type ListRemoteAccessSessionsParamsScope string
 
-// ListRemoteAccessSessionsParamsConnectionMode defines parameters for ListRemoteAccessSessions.
-type ListRemoteAccessSessionsParamsConnectionMode string
+// ListRemoteAccessSessionsParamsControlPath defines parameters for ListRemoteAccessSessions.
+type ListRemoteAccessSessionsParamsControlPath string
 
 // CreateRemoteAccessSessionParams defines parameters for CreateRemoteAccessSession.
 type CreateRemoteAccessSessionParams struct {

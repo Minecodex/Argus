@@ -7,9 +7,26 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for ConnectionTestArchitecture.
+const (
+	ConnectionTestArchitectureAmd64 ConnectionTestArchitecture = "amd64"
+	ConnectionTestArchitectureArm64 ConnectionTestArchitecture = "arm64"
+)
+
+// Valid indicates whether the value is a known member of the ConnectionTestArchitecture enum.
+func (e ConnectionTestArchitecture) Valid() bool {
+	switch e {
+	case ConnectionTestArchitectureAmd64:
+		return true
+	case ConnectionTestArchitectureArm64:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for ConnectionTestChecksStatus.
 const (
@@ -34,19 +51,55 @@ func (e ConnectionTestChecksStatus) Valid() bool {
 
 // Defines values for ConnectionTestPath.
 const (
-	Connector ConnectionTestPath = "connector"
-	Direct    ConnectionTestPath = "direct"
-	InCluster ConnectionTestPath = "in_cluster"
+	ConnectionTestPathConnector ConnectionTestPath = "connector"
+	ConnectionTestPathDirect    ConnectionTestPath = "direct"
+	ConnectionTestPathInCluster ConnectionTestPath = "in_cluster"
 )
 
 // Valid indicates whether the value is a known member of the ConnectionTestPath enum.
 func (e ConnectionTestPath) Valid() bool {
 	switch e {
-	case Connector:
+	case ConnectionTestPathConnector:
 		return true
-	case Direct:
+	case ConnectionTestPathDirect:
 		return true
-	case InCluster:
+	case ConnectionTestPathInCluster:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConnectionTestPlatform.
+const (
+	ConnectionTestPlatformLinux   ConnectionTestPlatform = "linux"
+	ConnectionTestPlatformWindows ConnectionTestPlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the ConnectionTestPlatform enum.
+func (e ConnectionTestPlatform) Valid() bool {
+	switch e {
+	case ConnectionTestPlatformLinux:
+		return true
+	case ConnectionTestPlatformWindows:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConnectionTestServiceManager.
+const (
+	Systemd    ConnectionTestServiceManager = "systemd"
+	WindowsScm ConnectionTestServiceManager = "windows_scm"
+)
+
+// Valid indicates whether the value is a known member of the ConnectionTestServiceManager enum.
+func (e ConnectionTestServiceManager) Valid() bool {
+	switch e {
+	case Systemd:
+		return true
+	case WindowsScm:
 		return true
 	default:
 		return false
@@ -167,21 +220,21 @@ func (e HostConnectionStatus) Valid() bool {
 	}
 }
 
-// Defines values for HostLiveStatus.
+// Defines values for HostLocalCleanup.
 const (
-	HostLiveStatusKeyChanged HostLiveStatus = "key_changed"
-	HostLiveStatusOffline    HostLiveStatus = "offline"
-	HostLiveStatusOnline     HostLiveStatus = "online"
+	HostLocalCleanupPending  HostLocalCleanup = "pending"
+	HostLocalCleanupUnknown  HostLocalCleanup = "unknown"
+	HostLocalCleanupVerified HostLocalCleanup = "verified"
 )
 
-// Valid indicates whether the value is a known member of the HostLiveStatus enum.
-func (e HostLiveStatus) Valid() bool {
+// Valid indicates whether the value is a known member of the HostLocalCleanup enum.
+func (e HostLocalCleanup) Valid() bool {
 	switch e {
-	case HostLiveStatusKeyChanged:
+	case HostLocalCleanupPending:
 		return true
-	case HostLiveStatusOffline:
+	case HostLocalCleanupUnknown:
 		return true
-	case HostLiveStatusOnline:
+	case HostLocalCleanupVerified:
 		return true
 	default:
 		return false
@@ -208,67 +261,55 @@ func (e HostPlatform) Valid() bool {
 
 // Defines values for HostStatus.
 const (
-	Active   HostStatus = "active"
-	Deleted  HostStatus = "deleted"
-	Disabled HostStatus = "disabled"
+	HostStatusActive         HostStatus = "active"
+	HostStatusCleanupUnknown HostStatus = "cleanup_unknown"
+	HostStatusDeleted        HostStatus = "deleted"
+	HostStatusDisabled       HostStatus = "disabled"
+	HostStatusDraining       HostStatus = "draining"
+	HostStatusRemovalFailed  HostStatus = "removal_failed"
+	HostStatusUninstalled    HostStatus = "uninstalled"
+	HostStatusUninstalling   HostStatus = "uninstalling"
 )
 
 // Valid indicates whether the value is a known member of the HostStatus enum.
 func (e HostStatus) Valid() bool {
 	switch e {
-	case Active:
+	case HostStatusActive:
 		return true
-	case Deleted:
+	case HostStatusCleanupUnknown:
 		return true
-	case Disabled:
+	case HostStatusDeleted:
 		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for HostConnectionMode.
-const (
-	HostConnectionModeConnectorLocal HostConnectionMode = "connector_local"
-	HostConnectionModeDirectSsh      HostConnectionMode = "direct_ssh"
-	HostConnectionModeDirectWinrm    HostConnectionMode = "direct_winrm"
-	HostConnectionModeSelfEnrolled   HostConnectionMode = "self_enrolled"
-	HostConnectionModeViaBastion     HostConnectionMode = "via_bastion"
-)
-
-// Valid indicates whether the value is a known member of the HostConnectionMode enum.
-func (e HostConnectionMode) Valid() bool {
-	switch e {
-	case HostConnectionModeConnectorLocal:
+	case HostStatusDisabled:
 		return true
-	case HostConnectionModeDirectSsh:
+	case HostStatusDraining:
 		return true
-	case HostConnectionModeDirectWinrm:
+	case HostStatusRemovalFailed:
 		return true
-	case HostConnectionModeSelfEnrolled:
+	case HostStatusUninstalled:
 		return true
-	case HostConnectionModeViaBastion:
+	case HostStatusUninstalling:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for HostConnectionTestCreateConnectionMode.
+// Defines values for HostConnectionTestCreateOnboardingControlPath.
 const (
-	HostConnectionTestCreateConnectionModeDirectSsh   HostConnectionTestCreateConnectionMode = "direct_ssh"
-	HostConnectionTestCreateConnectionModeDirectWinrm HostConnectionTestCreateConnectionMode = "direct_winrm"
-	HostConnectionTestCreateConnectionModeViaBastion  HostConnectionTestCreateConnectionMode = "via_bastion"
+	HostConnectionTestCreateOnboardingControlPathBastionRelay   HostConnectionTestCreateOnboardingControlPath = "bastion_relay"
+	HostConnectionTestCreateOnboardingControlPathDirect         HostConnectionTestCreateOnboardingControlPath = "direct"
+	HostConnectionTestCreateOnboardingControlPathExecutorTunnel HostConnectionTestCreateOnboardingControlPath = "executor_tunnel"
 )
 
-// Valid indicates whether the value is a known member of the HostConnectionTestCreateConnectionMode enum.
-func (e HostConnectionTestCreateConnectionMode) Valid() bool {
+// Valid indicates whether the value is a known member of the HostConnectionTestCreateOnboardingControlPath enum.
+func (e HostConnectionTestCreateOnboardingControlPath) Valid() bool {
 	switch e {
-	case HostConnectionTestCreateConnectionModeDirectSsh:
+	case HostConnectionTestCreateOnboardingControlPathBastionRelay:
 		return true
-	case HostConnectionTestCreateConnectionModeDirectWinrm:
+	case HostConnectionTestCreateOnboardingControlPathDirect:
 		return true
-	case HostConnectionTestCreateConnectionModeViaBastion:
+	case HostConnectionTestCreateOnboardingControlPathExecutorTunnel:
 		return true
 	default:
 		return false
@@ -293,6 +334,246 @@ func (e HostConnectionTestCreatePlatform) Valid() bool {
 	}
 }
 
+// Defines values for HostConnectionTestCreateSshPath.
+const (
+	HostConnectionTestCreateSshPathBastionConnector HostConnectionTestCreateSshPath = "bastion_connector"
+	HostConnectionTestCreateSshPathDirectExecutor   HostConnectionTestCreateSshPath = "direct_executor"
+)
+
+// Valid indicates whether the value is a known member of the HostConnectionTestCreateSshPath enum.
+func (e HostConnectionTestCreateSshPath) Valid() bool {
+	switch e {
+	case HostConnectionTestCreateSshPathBastionConnector:
+		return true
+	case HostConnectionTestCreateSshPathDirectExecutor:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostControlPath.
+const (
+	HostControlPathBastionRelay   HostControlPath = "bastion_relay"
+	HostControlPathDirect         HostControlPath = "direct"
+	HostControlPathExecutorTunnel HostControlPath = "executor_tunnel"
+)
+
+// Valid indicates whether the value is a known member of the HostControlPath enum.
+func (e HostControlPath) Valid() bool {
+	switch e {
+	case HostControlPathBastionRelay:
+		return true
+	case HostControlPathDirect:
+		return true
+	case HostControlPathExecutorTunnel:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostInstallMethod.
+const (
+	HostInstallMethodManual HostInstallMethod = "manual"
+	HostInstallMethodSsh    HostInstallMethod = "ssh"
+)
+
+// Valid indicates whether the value is a known member of the HostInstallMethod enum.
+func (e HostInstallMethod) Valid() bool {
+	switch e {
+	case HostInstallMethodManual:
+		return true
+	case HostInstallMethodSsh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostOnboardingOperationInstallMethod.
+const (
+	HostOnboardingOperationInstallMethodManual HostOnboardingOperationInstallMethod = "manual"
+	HostOnboardingOperationInstallMethodSsh    HostOnboardingOperationInstallMethod = "ssh"
+)
+
+// Valid indicates whether the value is a known member of the HostOnboardingOperationInstallMethod enum.
+func (e HostOnboardingOperationInstallMethod) Valid() bool {
+	switch e {
+	case HostOnboardingOperationInstallMethodManual:
+		return true
+	case HostOnboardingOperationInstallMethodSsh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostOnboardingOperationSshPath.
+const (
+	HostOnboardingOperationSshPathBastionConnector HostOnboardingOperationSshPath = "bastion_connector"
+	HostOnboardingOperationSshPathDirectExecutor   HostOnboardingOperationSshPath = "direct_executor"
+	HostOnboardingOperationSshPathNone             HostOnboardingOperationSshPath = "none"
+)
+
+// Valid indicates whether the value is a known member of the HostOnboardingOperationSshPath enum.
+func (e HostOnboardingOperationSshPath) Valid() bool {
+	switch e {
+	case HostOnboardingOperationSshPathBastionConnector:
+		return true
+	case HostOnboardingOperationSshPathDirectExecutor:
+		return true
+	case HostOnboardingOperationSshPathNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostOnboardingOperationStage.
+const (
+	HostOnboardingOperationStageCompleted     HostOnboardingOperationStage = "completed"
+	HostOnboardingOperationStageEnrolling     HostOnboardingOperationStage = "enrolling"
+	HostOnboardingOperationStageInstalling    HostOnboardingOperationStage = "installing"
+	HostOnboardingOperationStageProbing       HostOnboardingOperationStage = "probing"
+	HostOnboardingOperationStageQueued        HostOnboardingOperationStage = "queued"
+	HostOnboardingOperationStageTransferring  HostOnboardingOperationStage = "transferring"
+	HostOnboardingOperationStageWaitingOnline HostOnboardingOperationStage = "waiting_online"
+)
+
+// Valid indicates whether the value is a known member of the HostOnboardingOperationStage enum.
+func (e HostOnboardingOperationStage) Valid() bool {
+	switch e {
+	case HostOnboardingOperationStageCompleted:
+		return true
+	case HostOnboardingOperationStageEnrolling:
+		return true
+	case HostOnboardingOperationStageInstalling:
+		return true
+	case HostOnboardingOperationStageProbing:
+		return true
+	case HostOnboardingOperationStageQueued:
+		return true
+	case HostOnboardingOperationStageTransferring:
+		return true
+	case HostOnboardingOperationStageWaitingOnline:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostOnboardingOperationStatus.
+const (
+	HostOnboardingOperationStatusCancelled     HostOnboardingOperationStatus = "cancelled"
+	HostOnboardingOperationStatusExpired       HostOnboardingOperationStatus = "expired"
+	HostOnboardingOperationStatusFailed        HostOnboardingOperationStatus = "failed"
+	HostOnboardingOperationStatusQueued        HostOnboardingOperationStatus = "queued"
+	HostOnboardingOperationStatusResultUnknown HostOnboardingOperationStatus = "result_unknown"
+	HostOnboardingOperationStatusRunning       HostOnboardingOperationStatus = "running"
+	HostOnboardingOperationStatusSucceeded     HostOnboardingOperationStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the HostOnboardingOperationStatus enum.
+func (e HostOnboardingOperationStatus) Valid() bool {
+	switch e {
+	case HostOnboardingOperationStatusCancelled:
+		return true
+	case HostOnboardingOperationStatusExpired:
+		return true
+	case HostOnboardingOperationStatusFailed:
+		return true
+	case HostOnboardingOperationStatusQueued:
+		return true
+	case HostOnboardingOperationStatusResultUnknown:
+		return true
+	case HostOnboardingOperationStatusRunning:
+		return true
+	case HostOnboardingOperationStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostOnboardingOperationTargetPlatform.
+const (
+	HostOnboardingOperationTargetPlatformLinuxAmd64   HostOnboardingOperationTargetPlatform = "linux_amd64"
+	HostOnboardingOperationTargetPlatformLinuxArm64   HostOnboardingOperationTargetPlatform = "linux_arm64"
+	HostOnboardingOperationTargetPlatformWindowsAmd64 HostOnboardingOperationTargetPlatform = "windows_amd64"
+)
+
+// Valid indicates whether the value is a known member of the HostOnboardingOperationTargetPlatform enum.
+func (e HostOnboardingOperationTargetPlatform) Valid() bool {
+	switch e {
+	case HostOnboardingOperationTargetPlatformLinuxAmd64:
+		return true
+	case HostOnboardingOperationTargetPlatformLinuxArm64:
+		return true
+	case HostOnboardingOperationTargetPlatformWindowsAmd64:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostOnboardingOperationEventStage.
+const (
+	HostOnboardingOperationEventStageCompleted     HostOnboardingOperationEventStage = "completed"
+	HostOnboardingOperationEventStageEnrolling     HostOnboardingOperationEventStage = "enrolling"
+	HostOnboardingOperationEventStageInstalling    HostOnboardingOperationEventStage = "installing"
+	HostOnboardingOperationEventStageProbing       HostOnboardingOperationEventStage = "probing"
+	HostOnboardingOperationEventStageQueued        HostOnboardingOperationEventStage = "queued"
+	HostOnboardingOperationEventStageTransferring  HostOnboardingOperationEventStage = "transferring"
+	HostOnboardingOperationEventStageWaitingOnline HostOnboardingOperationEventStage = "waiting_online"
+)
+
+// Valid indicates whether the value is a known member of the HostOnboardingOperationEventStage enum.
+func (e HostOnboardingOperationEventStage) Valid() bool {
+	switch e {
+	case HostOnboardingOperationEventStageCompleted:
+		return true
+	case HostOnboardingOperationEventStageEnrolling:
+		return true
+	case HostOnboardingOperationEventStageInstalling:
+		return true
+	case HostOnboardingOperationEventStageProbing:
+		return true
+	case HostOnboardingOperationEventStageQueued:
+		return true
+	case HostOnboardingOperationEventStageTransferring:
+		return true
+	case HostOnboardingOperationEventStageWaitingOnline:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostOnboardingOperationEventStatus.
+const (
+	HostOnboardingOperationEventStatusFailed    HostOnboardingOperationEventStatus = "failed"
+	HostOnboardingOperationEventStatusRetrying  HostOnboardingOperationEventStatus = "retrying"
+	HostOnboardingOperationEventStatusStarted   HostOnboardingOperationEventStatus = "started"
+	HostOnboardingOperationEventStatusSucceeded HostOnboardingOperationEventStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the HostOnboardingOperationEventStatus enum.
+func (e HostOnboardingOperationEventStatus) Valid() bool {
+	switch e {
+	case HostOnboardingOperationEventStatusFailed:
+		return true
+	case HostOnboardingOperationEventStatusRetrying:
+		return true
+	case HostOnboardingOperationEventStatusStarted:
+		return true
+	case HostOnboardingOperationEventStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HostPreviewCreateArchitecture.
 const (
 	HostPreviewCreateArchitectureAmd64 HostPreviewCreateArchitecture = "amd64"
@@ -305,30 +586,6 @@ func (e HostPreviewCreateArchitecture) Valid() bool {
 	case HostPreviewCreateArchitectureAmd64:
 		return true
 	case HostPreviewCreateArchitectureArm64:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for HostPreviewCreateConnectionMode.
-const (
-	HostPreviewCreateConnectionModeDirectSsh    HostPreviewCreateConnectionMode = "direct_ssh"
-	HostPreviewCreateConnectionModeDirectWinrm  HostPreviewCreateConnectionMode = "direct_winrm"
-	HostPreviewCreateConnectionModeSelfEnrolled HostPreviewCreateConnectionMode = "self_enrolled"
-	HostPreviewCreateConnectionModeViaBastion   HostPreviewCreateConnectionMode = "via_bastion"
-)
-
-// Valid indicates whether the value is a known member of the HostPreviewCreateConnectionMode enum.
-func (e HostPreviewCreateConnectionMode) Valid() bool {
-	switch e {
-	case HostPreviewCreateConnectionModeDirectSsh:
-		return true
-	case HostPreviewCreateConnectionModeDirectWinrm:
-		return true
-	case HostPreviewCreateConnectionModeSelfEnrolled:
-		return true
-	case HostPreviewCreateConnectionModeViaBastion:
 		return true
 	default:
 		return false
@@ -353,21 +610,459 @@ func (e HostPreviewCreatePlatform) Valid() bool {
 	}
 }
 
-// Defines values for HostPreviewUpdateConnectionMode.
+// Defines values for HostPreviewCreateRole.
 const (
-	HostPreviewUpdateConnectionModeDirectSsh   HostPreviewUpdateConnectionMode = "direct_ssh"
-	HostPreviewUpdateConnectionModeDirectWinrm HostPreviewUpdateConnectionMode = "direct_winrm"
-	HostPreviewUpdateConnectionModeViaBastion  HostPreviewUpdateConnectionMode = "via_bastion"
+	HostPreviewCreateRoleManagedHost HostPreviewCreateRole = "managed_host"
 )
 
-// Valid indicates whether the value is a known member of the HostPreviewUpdateConnectionMode enum.
-func (e HostPreviewUpdateConnectionMode) Valid() bool {
+// Valid indicates whether the value is a known member of the HostPreviewCreateRole enum.
+func (e HostPreviewCreateRole) Valid() bool {
 	switch e {
-	case HostPreviewUpdateConnectionModeDirectSsh:
+	case HostPreviewCreateRoleManagedHost:
 		return true
-	case HostPreviewUpdateConnectionModeDirectWinrm:
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalCleanupEvidencePlatform.
+const (
+	HostRemovalCleanupEvidencePlatformLinux   HostRemovalCleanupEvidencePlatform = "linux"
+	HostRemovalCleanupEvidencePlatformWindows HostRemovalCleanupEvidencePlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalCleanupEvidencePlatform enum.
+func (e HostRemovalCleanupEvidencePlatform) Valid() bool {
+	switch e {
+	case HostRemovalCleanupEvidencePlatformLinux:
 		return true
-	case HostPreviewUpdateConnectionModeViaBastion:
+	case HostRemovalCleanupEvidencePlatformWindows:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalCleanupEvidenceRdpConfigStatus.
+const (
+	HostRemovalCleanupEvidenceRdpConfigStatusDrifted       HostRemovalCleanupEvidenceRdpConfigStatus = "drifted"
+	HostRemovalCleanupEvidenceRdpConfigStatusNotApplicable HostRemovalCleanupEvidenceRdpConfigStatus = "not_applicable"
+	HostRemovalCleanupEvidenceRdpConfigStatusRestored      HostRemovalCleanupEvidenceRdpConfigStatus = "restored"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalCleanupEvidenceRdpConfigStatus enum.
+func (e HostRemovalCleanupEvidenceRdpConfigStatus) Valid() bool {
+	switch e {
+	case HostRemovalCleanupEvidenceRdpConfigStatusDrifted:
+		return true
+	case HostRemovalCleanupEvidenceRdpConfigStatusNotApplicable:
+		return true
+	case HostRemovalCleanupEvidenceRdpConfigStatusRestored:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalCleanupEvidenceSchemaVersion.
+const (
+	ArgusHostCleanupEvidencev1 HostRemovalCleanupEvidenceSchemaVersion = "argus.host_cleanup_evidence/v1"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalCleanupEvidenceSchemaVersion enum.
+func (e HostRemovalCleanupEvidenceSchemaVersion) Valid() bool {
+	switch e {
+	case ArgusHostCleanupEvidencev1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalConnectionDefaultsStatus.
+const (
+	HostRemovalConnectionDefaultsStatusAvailable             HostRemovalConnectionDefaultsStatus = "available"
+	HostRemovalConnectionDefaultsStatusCredentialUnavailable HostRemovalConnectionDefaultsStatus = "credential_unavailable"
+	HostRemovalConnectionDefaultsStatusNotApplicable         HostRemovalConnectionDefaultsStatus = "not_applicable"
+	HostRemovalConnectionDefaultsStatusUnavailable           HostRemovalConnectionDefaultsStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalConnectionDefaultsStatus enum.
+func (e HostRemovalConnectionDefaultsStatus) Valid() bool {
+	switch e {
+	case HostRemovalConnectionDefaultsStatusAvailable:
+		return true
+	case HostRemovalConnectionDefaultsStatusCredentialUnavailable:
+		return true
+	case HostRemovalConnectionDefaultsStatusNotApplicable:
+		return true
+	case HostRemovalConnectionDefaultsStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalInstructionPlatform.
+const (
+	HostRemovalInstructionPlatformLinux   HostRemovalInstructionPlatform = "linux"
+	HostRemovalInstructionPlatformWindows HostRemovalInstructionPlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalInstructionPlatform enum.
+func (e HostRemovalInstructionPlatform) Valid() bool {
+	switch e {
+	case HostRemovalInstructionPlatformLinux:
+		return true
+	case HostRemovalInstructionPlatformWindows:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalInstructionPrivilege.
+const (
+	System HostRemovalInstructionPrivilege = "system"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalInstructionPrivilege enum.
+func (e HostRemovalInstructionPrivilege) Valid() bool {
+	switch e {
+	case System:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalInstructionShell.
+const (
+	PosixSh    HostRemovalInstructionShell = "posix_sh"
+	Powershell HostRemovalInstructionShell = "powershell"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalInstructionShell enum.
+func (e HostRemovalInstructionShell) Valid() bool {
+	switch e {
+	case PosixSh:
+		return true
+	case Powershell:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalMode.
+const (
+	Forget    HostRemovalMode = "forget"
+	Uninstall HostRemovalMode = "uninstall"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalMode enum.
+func (e HostRemovalMode) Valid() bool {
+	switch e {
+	case Forget:
+		return true
+	case Uninstall:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalOperationDeliveryMethod.
+const (
+	HostRemovalOperationDeliveryMethodManual     HostRemovalOperationDeliveryMethod = "manual"
+	HostRemovalOperationDeliveryMethodServerOnly HostRemovalOperationDeliveryMethod = "server_only"
+	HostRemovalOperationDeliveryMethodSsh        HostRemovalOperationDeliveryMethod = "ssh"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalOperationDeliveryMethod enum.
+func (e HostRemovalOperationDeliveryMethod) Valid() bool {
+	switch e {
+	case HostRemovalOperationDeliveryMethodManual:
+		return true
+	case HostRemovalOperationDeliveryMethodServerOnly:
+		return true
+	case HostRemovalOperationDeliveryMethodSsh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalOperationLocalCleanup.
+const (
+	HostRemovalOperationLocalCleanupPending  HostRemovalOperationLocalCleanup = "pending"
+	HostRemovalOperationLocalCleanupUnknown  HostRemovalOperationLocalCleanup = "unknown"
+	HostRemovalOperationLocalCleanupVerified HostRemovalOperationLocalCleanup = "verified"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalOperationLocalCleanup enum.
+func (e HostRemovalOperationLocalCleanup) Valid() bool {
+	switch e {
+	case HostRemovalOperationLocalCleanupPending:
+		return true
+	case HostRemovalOperationLocalCleanupUnknown:
+		return true
+	case HostRemovalOperationLocalCleanupVerified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalOperationTargetPlatform.
+const (
+	HostRemovalOperationTargetPlatformLinuxAmd64   HostRemovalOperationTargetPlatform = "linux_amd64"
+	HostRemovalOperationTargetPlatformLinuxArm64   HostRemovalOperationTargetPlatform = "linux_arm64"
+	HostRemovalOperationTargetPlatformWindowsAmd64 HostRemovalOperationTargetPlatform = "windows_amd64"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalOperationTargetPlatform enum.
+func (e HostRemovalOperationTargetPlatform) Valid() bool {
+	switch e {
+	case HostRemovalOperationTargetPlatformLinuxAmd64:
+		return true
+	case HostRemovalOperationTargetPlatformLinuxArm64:
+		return true
+	case HostRemovalOperationTargetPlatformWindowsAmd64:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalOperationEventStatus.
+const (
+	HostRemovalOperationEventStatusFailed    HostRemovalOperationEventStatus = "failed"
+	HostRemovalOperationEventStatusResumed   HostRemovalOperationEventStatus = "resumed"
+	HostRemovalOperationEventStatusStarted   HostRemovalOperationEventStatus = "started"
+	HostRemovalOperationEventStatusSucceeded HostRemovalOperationEventStatus = "succeeded"
+	HostRemovalOperationEventStatusUnknown   HostRemovalOperationEventStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalOperationEventStatus enum.
+func (e HostRemovalOperationEventStatus) Valid() bool {
+	switch e {
+	case HostRemovalOperationEventStatusFailed:
+		return true
+	case HostRemovalOperationEventStatusResumed:
+		return true
+	case HostRemovalOperationEventStatusStarted:
+		return true
+	case HostRemovalOperationEventStatusSucceeded:
+		return true
+	case HostRemovalOperationEventStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalReceiptLocalCleanup.
+const (
+	HostRemovalReceiptLocalCleanupVerified HostRemovalReceiptLocalCleanup = "verified"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalReceiptLocalCleanup enum.
+func (e HostRemovalReceiptLocalCleanup) Valid() bool {
+	switch e {
+	case HostRemovalReceiptLocalCleanupVerified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalStage.
+const (
+	HostRemovalStageAwaitingManualExecution HostRemovalStage = "awaiting_manual_execution"
+	HostRemovalStageCompleted               HostRemovalStage = "completed"
+	HostRemovalStageDraining                HostRemovalStage = "draining"
+	HostRemovalStageQueued                  HostRemovalStage = "queued"
+	HostRemovalStageRevokingIdentities      HostRemovalStage = "revoking_identities"
+	HostRemovalStageStoppingRelay           HostRemovalStage = "stopping_relay"
+	HostRemovalStageTerminatingSessions     HostRemovalStage = "terminating_sessions"
+	HostRemovalStageUninstallingConnector   HostRemovalStage = "uninstalling_connector"
+	HostRemovalStageUninstallingWorkloads   HostRemovalStage = "uninstalling_workloads"
+	HostRemovalStageVerifyingCleanup        HostRemovalStage = "verifying_cleanup"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalStage enum.
+func (e HostRemovalStage) Valid() bool {
+	switch e {
+	case HostRemovalStageAwaitingManualExecution:
+		return true
+	case HostRemovalStageCompleted:
+		return true
+	case HostRemovalStageDraining:
+		return true
+	case HostRemovalStageQueued:
+		return true
+	case HostRemovalStageRevokingIdentities:
+		return true
+	case HostRemovalStageStoppingRelay:
+		return true
+	case HostRemovalStageTerminatingSessions:
+		return true
+	case HostRemovalStageUninstallingConnector:
+		return true
+	case HostRemovalStageUninstallingWorkloads:
+		return true
+	case HostRemovalStageVerifyingCleanup:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalStatus.
+const (
+	HostRemovalStatusAwaitingManualExecution HostRemovalStatus = "awaiting_manual_execution"
+	HostRemovalStatusCleanupUnknown          HostRemovalStatus = "cleanup_unknown"
+	HostRemovalStatusFailed                  HostRemovalStatus = "failed"
+	HostRemovalStatusQueued                  HostRemovalStatus = "queued"
+	HostRemovalStatusRunning                 HostRemovalStatus = "running"
+	HostRemovalStatusSucceeded               HostRemovalStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalStatus enum.
+func (e HostRemovalStatus) Valid() bool {
+	switch e {
+	case HostRemovalStatusAwaitingManualExecution:
+		return true
+	case HostRemovalStatusCleanupUnknown:
+		return true
+	case HostRemovalStatusFailed:
+		return true
+	case HostRemovalStatusQueued:
+		return true
+	case HostRemovalStatusRunning:
+		return true
+	case HostRemovalStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRemovalTargetType.
+const (
+	HostRemovalTargetTypeBastionScope HostRemovalTargetType = "bastion_scope"
+	HostRemovalTargetTypeManagedHost  HostRemovalTargetType = "managed_host"
+)
+
+// Valid indicates whether the value is a known member of the HostRemovalTargetType enum.
+func (e HostRemovalTargetType) Valid() bool {
+	switch e {
+	case HostRemovalTargetTypeBastionScope:
+		return true
+	case HostRemovalTargetTypeManagedHost:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRole.
+const (
+	HostRoleBastion     HostRole = "bastion"
+	HostRoleManagedHost HostRole = "managed_host"
+)
+
+// Valid indicates whether the value is a known member of the HostRole enum.
+func (e HostRole) Valid() bool {
+	switch e {
+	case HostRoleBastion:
+		return true
+	case HostRoleManagedHost:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRuntimeObservationOpensshStatus.
+const (
+	HostRuntimeObservationOpensshStatusAvailable   HostRuntimeObservationOpensshStatus = "available"
+	HostRuntimeObservationOpensshStatusUnavailable HostRuntimeObservationOpensshStatus = "unavailable"
+	HostRuntimeObservationOpensshStatusUnknown     HostRuntimeObservationOpensshStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HostRuntimeObservationOpensshStatus enum.
+func (e HostRuntimeObservationOpensshStatus) Valid() bool {
+	switch e {
+	case HostRuntimeObservationOpensshStatusAvailable:
+		return true
+	case HostRuntimeObservationOpensshStatusUnavailable:
+		return true
+	case HostRuntimeObservationOpensshStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRuntimeObservationPlatform.
+const (
+	HostRuntimeObservationPlatformLinux   HostRuntimeObservationPlatform = "linux"
+	HostRuntimeObservationPlatformWindows HostRuntimeObservationPlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the HostRuntimeObservationPlatform enum.
+func (e HostRuntimeObservationPlatform) Valid() bool {
+	switch e {
+	case HostRuntimeObservationPlatformLinux:
+		return true
+	case HostRuntimeObservationPlatformWindows:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostRuntimeObservationRdpStatus.
+const (
+	HostRuntimeObservationRdpStatusDisabled    HostRuntimeObservationRdpStatus = "disabled"
+	HostRuntimeObservationRdpStatusEnabled     HostRuntimeObservationRdpStatus = "enabled"
+	HostRuntimeObservationRdpStatusUnavailable HostRuntimeObservationRdpStatus = "unavailable"
+	HostRuntimeObservationRdpStatusUnknown     HostRuntimeObservationRdpStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HostRuntimeObservationRdpStatus enum.
+func (e HostRuntimeObservationRdpStatus) Valid() bool {
+	switch e {
+	case HostRuntimeObservationRdpStatusDisabled:
+		return true
+	case HostRuntimeObservationRdpStatusEnabled:
+		return true
+	case HostRuntimeObservationRdpStatusUnavailable:
+		return true
+	case HostRuntimeObservationRdpStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostSSHPath.
+const (
+	HostSSHPathBastionConnector HostSSHPath = "bastion_connector"
+	HostSSHPathDirectExecutor   HostSSHPath = "direct_executor"
+	HostSSHPathNone             HostSSHPath = "none"
+)
+
+// Valid indicates whether the value is a known member of the HostSSHPath enum.
+func (e HostSSHPath) Valid() bool {
+	switch e {
+	case HostSSHPathBastionConnector:
+		return true
+	case HostSSHPathDirectExecutor:
+		return true
+	case HostSSHPathNone:
 		return true
 	default:
 		return false
@@ -376,31 +1071,31 @@ func (e HostPreviewUpdateConnectionMode) Valid() bool {
 
 // Defines values for OnboardingProjectionState.
 const (
-	AwaitingApproval OnboardingProjectionState = "awaiting_approval"
-	CommandAvailable OnboardingProjectionState = "command_available"
-	CommandConsumed  OnboardingProjectionState = "command_consumed"
-	CommandExpired   OnboardingProjectionState = "command_expired"
-	InstallFailed    OnboardingProjectionState = "install_failed"
-	Installing       OnboardingProjectionState = "installing"
-	Registered       OnboardingProjectionState = "registered"
+	OnboardingProjectionStateAwaitingApproval OnboardingProjectionState = "awaiting_approval"
+	OnboardingProjectionStateCommandAvailable OnboardingProjectionState = "command_available"
+	OnboardingProjectionStateCommandConsumed  OnboardingProjectionState = "command_consumed"
+	OnboardingProjectionStateCommandExpired   OnboardingProjectionState = "command_expired"
+	OnboardingProjectionStateInstallFailed    OnboardingProjectionState = "install_failed"
+	OnboardingProjectionStateInstalling       OnboardingProjectionState = "installing"
+	OnboardingProjectionStateRegistered       OnboardingProjectionState = "registered"
 )
 
 // Valid indicates whether the value is a known member of the OnboardingProjectionState enum.
 func (e OnboardingProjectionState) Valid() bool {
 	switch e {
-	case AwaitingApproval:
+	case OnboardingProjectionStateAwaitingApproval:
 		return true
-	case CommandAvailable:
+	case OnboardingProjectionStateCommandAvailable:
 		return true
-	case CommandConsumed:
+	case OnboardingProjectionStateCommandConsumed:
 		return true
-	case CommandExpired:
+	case OnboardingProjectionStateCommandExpired:
 		return true
-	case InstallFailed:
+	case OnboardingProjectionStateInstallFailed:
 		return true
-	case Installing:
+	case OnboardingProjectionStateInstalling:
 		return true
-	case Registered:
+	case OnboardingProjectionStateRegistered:
 		return true
 	default:
 		return false
@@ -458,586 +1153,29 @@ type ApiError_Params_AdditionalProperties struct {
 
 // ConnectionTest defines model for ConnectionTest.
 type ConnectionTest struct {
-	Checks []struct {
+	Architecture *ConnectionTestArchitecture `json:"architecture,omitempty"`
+	Checks       []struct {
 		Detail *string                    `json:"detail,omitempty"`
 		Name   string                     `json:"name"`
 		Status ConnectionTestChecksStatus `json:"status"`
 	} `json:"checks"`
-	CreatedAt          time.Time                `json:"created_at"`
-	EnterpriseId       *openapi_types.UUID      `json:"enterprise_id,omitempty"`
-	ErrorCode          *string                  `json:"error_code,omitempty"`
-	ExpiresAt          time.Time                `json:"expires_at"`
-	HostKeyFingerprint *string                  `json:"host_key_fingerprint,omitempty"`
-	Id                 openapi_types.UUID       `json:"id"`
-	LatencyMs          *int                     `json:"latency_ms,omitempty"`
-	Path               ConnectionTestPath       `json:"path"`
-	RemoteVersion      *string                  `json:"remote_version,omitempty"`
-	ResolvedIps        *[]string                `json:"resolved_ips,omitempty"`
-	ResourceId         *openapi_types.UUID      `json:"resource_id,omitempty"`
-	Status             ConnectionTestStatus     `json:"status"`
-	TargetType         ConnectionTestTargetType `json:"target_type"`
-	UpdatedAt          time.Time                `json:"updated_at"`
-}
-
-// ConnectionTestChecksStatus defines model for ConnectionTest.Checks.Status.
-type ConnectionTestChecksStatus string
-
-// ConnectionTestPath defines model for ConnectionTest.Path.
-type ConnectionTestPath string
-
-// ConnectionTestStatus defines model for ConnectionTest.Status.
-type ConnectionTestStatus string
-
-// ConnectionTestTargetType defines model for ConnectionTest.TargetType.
-type ConnectionTestTargetType string
-
-// CursorPage defines model for CursorPage.
-type CursorPage struct {
-	HasMore    bool            `json:"has_more"`
-	NextCursor *string         `json:"next_cursor"`
-	Partial    PartialMetadata `json:"partial"`
-}
-
-// Environment defines model for Environment.
-type Environment string
-
-// Host defines model for Host.
-type Host struct {
-	// Address self_enrolled 主机在激活前为空,激活后为自报地址
-	Address string `json:"address"`
-
-	// Architecture 连接测试探测的目标架构(uname -m 归一化),Linux 连接测试必须成功识别架构,Collector 安装按此选择签名产物
-	Architecture     *HostArchitecture    `json:"architecture,omitempty"`
-	BastionScopeId   *openapi_types.UUID  `json:"bastion_scope_id,omitempty"`
-	ConnectionMode   HostConnectionMode   `json:"connection_mode"`
-	ConnectionStatus HostConnectionStatus `json:"connection_status"`
-	ConnectorId      *openapi_types.UUID  `json:"connector_id,omitempty"`
-	CreatedAt        time.Time            `json:"created_at"`
-	EnterpriseId     *openapi_types.UUID  `json:"enterprise_id,omitempty"`
-	Environment      Environment          `json:"environment"`
-	Hostname         *string              `json:"hostname,omitempty"`
-	Id               openapi_types.UUID   `json:"id"`
-	Labels           Labels               `json:"labels"`
-	LabelsVersion    int64                `json:"labels_version"`
-
-	// LastProbeAt 最近一次探活时间
-	LastProbeAt *time.Time `json:"last_probe_at,omitempty"`
-	LastSeenAt  *time.Time `json:"last_seen_at,omitempty"`
-
-	// LiveStatus 周期探活的实时状态(直连主机);key_changed 表示 SSH 主机键与 pin 值不一致
-	LiveStatus    *HostLiveStatus      `json:"live_status,omitempty"`
-	Name          string               `json:"name"`
-	Onboarding    OnboardingProjection `json:"onboarding"`
-	PinnedHostKey *string              `json:"pinned_host_key,omitempty"`
-	Platform      HostPlatform         `json:"platform"`
-
-	// Port self_enrolled 主机在激活前为 0
-	Port int `json:"port"`
-
-	// ProbeLatencyMs 最近一次探活往返时延
-	ProbeLatencyMs  *int       `json:"probe_latency_ms,omitempty"`
-	ResourceVersion int64      `json:"resource_version"`
-	Status          HostStatus `json:"status"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-}
-
-// HostArchitecture 连接测试探测的目标架构(uname -m 归一化),Linux 连接测试必须成功识别架构,Collector 安装按此选择签名产物
-type HostArchitecture string
-
-// HostConnectionStatus defines model for Host.ConnectionStatus.
-type HostConnectionStatus string
-
-// HostLiveStatus 周期探活的实时状态(直连主机);key_changed 表示 SSH 主机键与 pin 值不一致
-type HostLiveStatus string
-
-// HostPlatform defines model for Host.Platform.
-type HostPlatform string
-
-// HostStatus defines model for Host.Status.
-type HostStatus string
-
-// HostConnectionMode defines model for HostConnectionMode.
-type HostConnectionMode string
-
-// HostConnectionTestCreate defines model for HostConnectionTestCreate.
-type HostConnectionTestCreate struct {
-	Address        string                                 `json:"address"`
-	BastionScopeId *openapi_types.UUID                    `json:"bastion_scope_id,omitempty"`
-	ConnectionMode HostConnectionTestCreateConnectionMode `json:"connection_mode"`
-	CredentialId   openapi_types.UUID                     `json:"credential_id"`
-	Platform       HostConnectionTestCreatePlatform       `json:"platform"`
-	Port           int                                    `json:"port"`
-	Username       string                                 `json:"username"`
-}
-
-// HostConnectionTestCreateConnectionMode defines model for HostConnectionTestCreate.ConnectionMode.
-type HostConnectionTestCreateConnectionMode string
-
-// HostConnectionTestCreatePlatform defines model for HostConnectionTestCreate.Platform.
-type HostConnectionTestCreatePlatform string
-
-// HostPage defines model for HostPage.
-type HostPage struct {
-	Items []Host     `json:"items"`
-	Page  CursorPage `json:"page"`
-}
-
-// HostPreviewCreate defines model for HostPreviewCreate.
-type HostPreviewCreate struct {
-	// Address self_enrolled 模式不填写;其余模式必填(服务端按模式校验)
-	Address *string `json:"address,omitempty"`
-
-	// Architecture self_enrolled 模式由用户按目标机器选择;其余模式由连接测试探测,不接受填写
-	Architecture   *HostPreviewCreateArchitecture  `json:"architecture,omitempty"`
-	BastionScopeId *openapi_types.UUID             `json:"bastion_scope_id,omitempty"`
-	ConnectionMode HostPreviewCreateConnectionMode `json:"connection_mode"`
-
-	// ConnectionTestId self_enrolled 模式免测试,不提供;其余模式必填(服务端按模式校验)
-	ConnectionTestId *openapi_types.UUID `json:"connection_test_id,omitempty"`
-
-	// CredentialId self_enrolled 模式不提供
-	CredentialId *openapi_types.UUID `json:"credential_id,omitempty"`
-	Environment  Environment         `json:"environment"`
-	Hostname     *string             `json:"hostname,omitempty"`
-	Labels       UserLabels          `json:"labels"`
-	Name         string              `json:"name"`
-
-	// Platform self_enrolled 第一版仅支持 linux
-	Platform HostPreviewCreatePlatform `json:"platform"`
-
-	// Port self_enrolled 模式不填写;其余模式必填(服务端按模式校验)
-	Port *int `json:"port,omitempty"`
-
-	// Username self_enrolled 模式不提供
-	Username *string `json:"username,omitempty"`
-}
-
-// HostPreviewCreateArchitecture self_enrolled 模式由用户按目标机器选择;其余模式由连接测试探测,不接受填写
-type HostPreviewCreateArchitecture string
-
-// HostPreviewCreateConnectionMode defines model for HostPreviewCreate.ConnectionMode.
-type HostPreviewCreateConnectionMode string
-
-// HostPreviewCreatePlatform self_enrolled 第一版仅支持 linux
-type HostPreviewCreatePlatform string
-
-// HostPreviewUpdate defines model for HostPreviewUpdate.
-type HostPreviewUpdate struct {
-	Address          *string                          `json:"address,omitempty"`
-	BastionScopeId   *openapi_types.UUID              `json:"bastion_scope_id,omitempty"`
-	ConnectionMode   *HostPreviewUpdateConnectionMode `json:"connection_mode,omitempty"`
-	ConnectionTestId *openapi_types.UUID              `json:"connection_test_id,omitempty"`
-	Environment      *Environment                     `json:"environment,omitempty"`
-	ExpectedVersion  int64                            `json:"expected_version"`
-	Hostname         *string                          `json:"hostname,omitempty"`
-	Labels           *UserLabels                      `json:"labels,omitempty"`
-	Name             *string                          `json:"name,omitempty"`
-	Port             *int                             `json:"port,omitempty"`
-}
-
-// HostPreviewUpdateConnectionMode defines model for HostPreviewUpdate.ConnectionMode.
-type HostPreviewUpdateConnectionMode string
-
-// IdempotencyKey defines model for IdempotencyKey.
-type IdempotencyKey = string
-
-// LabelValue defines model for LabelValue.
-type LabelValue = string
-
-// Labels defines model for Labels.
-type Labels map[string]LabelValue
-
-// OnboardingProjection defines model for OnboardingProjection.
-type OnboardingProjection struct {
-	ErrorCode        *string                   `json:"error_code,omitempty"`
-	ExecutionId      *openapi_types.UUID       `json:"execution_id,omitempty"`
-	OperationId      *openapi_types.UUID       `json:"operation_id,omitempty"`
-	PendingActionRef *string                   `json:"pending_action_ref,omitempty"`
-	State            OnboardingProjectionState `json:"state"`
-	UpdatedAt        time.Time                 `json:"updated_at"`
-}
-
-// OnboardingProjectionState defines model for OnboardingProjection.State.
-type OnboardingProjectionState string
-
-// PartialMetadata defines model for PartialMetadata.
-type PartialMetadata struct {
-	Partial bool                     `json:"partial"`
-	Reasons []PartialMetadataReasons `json:"reasons"`
-}
-
-// PartialMetadataReasons defines model for PartialMetadata.Reasons.
-type PartialMetadataReasons string
-
-// PublicJsonObject defines model for PublicJsonObject.
-type PublicJsonObject map[string]*PublicJsonValue
-
-// PublicJsonValue defines model for PublicJsonValue.
-type PublicJsonValue struct {
-	union json.RawMessage
-}
-
-// PublicJsonValue1 defines model for PublicJsonValue.1.
-type PublicJsonValue1 = bool
-
-// PublicJsonValue2 defines model for PublicJsonValue.2.
-type PublicJsonValue2 = float32
-
-// PublicJsonValue3 defines model for PublicJsonValue.3.
-type PublicJsonValue3 = string
-
-// PublicJsonValue4 defines model for PublicJsonValue.4.
-type PublicJsonValue4 = []*PublicJsonValue
-
-// RequestId defines model for RequestId.
-type RequestId = string
-
-// ResourcePreviewDelete defines model for ResourcePreviewDelete.
-type ResourcePreviewDelete struct {
-	ExpectedVersion int64 `json:"expected_version"`
-}
-
-// SystemLabelKey defines model for SystemLabelKey.
-type SystemLabelKey = string
-
-// UserLabelKey defines model for UserLabelKey.
-type UserLabelKey = string
-
-// UserLabels defines model for UserLabels.
-type UserLabels map[string]LabelValue
-
-// PendingActionPublicSchema defines model for pending-action-public.schema.
-type PendingActionPublicSchema struct {
-	ActionRef  string `json:"action_ref"`
-	ActionType string `json:"action_type"`
-	Approval   *struct {
-		ApprovedCount    int     `json:"approved_count"`
-		MinimumApprovers int     `json:"minimum_approvers"`
-		PolicyRef        *string `json:"policy_ref,omitempty"`
-		Required         bool    `json:"required"`
-		SeparationOfDuty bool    `json:"separation_of_duty"`
-	} `json:"approval,omitempty"`
-	AvailableActions []interface{} `json:"available_actions"`
-	CreatedAt        time.Time     `json:"created_at"`
-	Diff             []struct {
-		Kind interface{} `json:"kind"`
-		Text string      `json:"text"`
-	} `json:"diff"`
-	ExecutionRef  *string          `json:"execution_ref,omitempty"`
-	ExpiresAt     time.Time        `json:"expires_at"`
-	Preview       PublicJsonObject `json:"preview"`
-	ResultSummary *string          `json:"result_summary,omitempty"`
-	Risk          interface{}      `json:"risk"`
-	SchemaVersion interface{}      `json:"schema_version"`
-	Status        interface{}      `json:"status"`
-	Summary       string           `json:"summary"`
-	Title         string           `json:"title"`
-	UpdatedAt     time.Time        `json:"updated_at"`
-}
-
-// CsrfToken defines model for CsrfToken.
-type CsrfToken = string
-
-// Cursor defines model for Cursor.
-type Cursor = string
-
-// Limit defines model for Limit.
-type Limit = int
-
-// ResourceId defines model for ResourceId.
-type ResourceId = openapi_types.UUID
-
-// Error defines model for Error.
-type Error = ApiError
-
-// ListHostsParams defines parameters for ListHosts.
-type ListHostsParams struct {
-	Query          *string             `form:"query,omitempty" json:"query,omitempty"`
-	ConnectionMode *HostConnectionMode `form:"connection_mode,omitempty" json:"connection_mode,omitempty"`
-	BastionScopeId *openapi_types.UUID `form:"bastion_scope_id,omitempty" json:"bastion_scope_id,omitempty"`
-	Labels         *string             `form:"labels,omitempty" json:"labels,omitempty"`
-	Cursor         *Cursor             `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Limit          *Limit              `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// PreviewCreateHostParams defines parameters for PreviewCreateHost.
-type PreviewCreateHostParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-}
-
-// CreateHostConnectionTestParams defines parameters for CreateHostConnectionTest.
-type CreateHostConnectionTestParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-}
-
-// PreviewDeleteHostParams defines parameters for PreviewDeleteHost.
-type PreviewDeleteHostParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-}
-
-// PreviewHostEnrollmentRotateParams defines parameters for PreviewHostEnrollmentRotate.
-type PreviewHostEnrollmentRotateParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-}
-
-// PreviewHostUninstallCommandParams defines parameters for PreviewHostUninstallCommand.
-type PreviewHostUninstallCommandParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-}
-
-// PreviewUpdateHostParams defines parameters for PreviewUpdateHost.
-type PreviewUpdateHostParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-}
-
-// PreviewCreateHostJSONRequestBody defines body for PreviewCreateHost for application/json ContentType.
-type PreviewCreateHostJSONRequestBody = HostPreviewCreate
-
-// CreateHostConnectionTestJSONRequestBody defines body for CreateHostConnectionTest for application/json ContentType.
-type CreateHostConnectionTestJSONRequestBody = HostConnectionTestCreate
-
-// PreviewDeleteHostJSONRequestBody defines body for PreviewDeleteHost for application/json ContentType.
-type PreviewDeleteHostJSONRequestBody = ResourcePreviewDelete
-
-// PreviewHostEnrollmentRotateJSONRequestBody defines body for PreviewHostEnrollmentRotate for application/json ContentType.
-type PreviewHostEnrollmentRotateJSONRequestBody = ResourcePreviewDelete
-
-// PreviewHostUninstallCommandJSONRequestBody defines body for PreviewHostUninstallCommand for application/json ContentType.
-type PreviewHostUninstallCommandJSONRequestBody = ResourcePreviewDelete
-
-// PreviewUpdateHostJSONRequestBody defines body for PreviewUpdateHost for application/json ContentType.
-type PreviewUpdateHostJSONRequestBody = HostPreviewUpdate
-
-// AsApiErrorParams0 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams0
-func (t ApiError_Params_AdditionalProperties) AsApiErrorParams0() (ApiErrorParams0, error) {
-	var body ApiErrorParams0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiErrorParams0 overwrites any union data inside the ApiError_Params_AdditionalProperties as the provided ApiErrorParams0
-func (t *ApiError_Params_AdditionalProperties) FromApiErrorParams0(v ApiErrorParams0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeApiErrorParams0 performs a merge with any union data inside the ApiError_Params_AdditionalProperties, using the provided ApiErrorParams0
-func (t *ApiError_Params_AdditionalProperties) MergeApiErrorParams0(v ApiErrorParams0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsApiErrorParams1 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams1
-func (t ApiError_Params_AdditionalProperties) AsApiErrorParams1() (ApiErrorParams1, error) {
-	var body ApiErrorParams1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiErrorParams1 overwrites any union data inside the ApiError_Params_AdditionalProperties as the provided ApiErrorParams1
-func (t *ApiError_Params_AdditionalProperties) FromApiErrorParams1(v ApiErrorParams1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeApiErrorParams1 performs a merge with any union data inside the ApiError_Params_AdditionalProperties, using the provided ApiErrorParams1
-func (t *ApiError_Params_AdditionalProperties) MergeApiErrorParams1(v ApiErrorParams1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsApiErrorParams2 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams2
-func (t ApiError_Params_AdditionalProperties) AsApiErrorParams2() (ApiErrorParams2, error) {
-	var body ApiErrorParams2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiErrorParams2 overwrites any union data inside the ApiError_Params_AdditionalProperties as the provided ApiErrorParams2
-func (t *ApiError_Params_AdditionalProperties) FromApiErrorParams2(v ApiErrorParams2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeApiErrorParams2 performs a merge with any union data inside the ApiError_Params_AdditionalProperties, using the provided ApiErrorParams2
-func (t *ApiError_Params_AdditionalProperties) MergeApiErrorParams2(v ApiErrorParams2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ApiError_Params_AdditionalProperties) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ApiError_Params_AdditionalProperties) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsPublicJsonValue1 returns the union data inside the PublicJsonValue as a PublicJsonValue1
-func (t PublicJsonValue) AsPublicJsonValue1() (PublicJsonValue1, error) {
-	var body PublicJsonValue1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue1 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue1
-func (t *PublicJsonValue) FromPublicJsonValue1(v PublicJsonValue1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue1 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue1
-func (t *PublicJsonValue) MergePublicJsonValue1(v PublicJsonValue1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonValue2 returns the union data inside the PublicJsonValue as a PublicJsonValue2
-func (t PublicJsonValue) AsPublicJsonValue2() (PublicJsonValue2, error) {
-	var body PublicJsonValue2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue2 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue2
-func (t *PublicJsonValue) FromPublicJsonValue2(v PublicJsonValue2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue2 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue2
-func (t *PublicJsonValue) MergePublicJsonValue2(v PublicJsonValue2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonValue3 returns the union data inside the PublicJsonValue as a PublicJsonValue3
-func (t PublicJsonValue) AsPublicJsonValue3() (PublicJsonValue3, error) {
-	var body PublicJsonValue3
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue3 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue3
-func (t *PublicJsonValue) FromPublicJsonValue3(v PublicJsonValue3) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue3 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue3
-func (t *PublicJsonValue) MergePublicJsonValue3(v PublicJsonValue3) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonValue4 returns the union data inside the PublicJsonValue as a PublicJsonValue4
-func (t PublicJsonValue) AsPublicJsonValue4() (PublicJsonValue4, error) {
-	var body PublicJsonValue4
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue4 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue4
-func (t *PublicJsonValue) FromPublicJsonValue4(v PublicJsonValue4) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue4 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue4
-func (t *PublicJsonValue) MergePublicJsonValue4(v PublicJsonValue4) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonObject returns the union data inside the PublicJsonValue as a PublicJsonObject
-func (t PublicJsonValue) AsPublicJsonObject() (PublicJsonObject, error) {
-	var body PublicJsonObject
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonObject overwrites any union data inside the PublicJsonValue as the provided PublicJsonObject
-func (t *PublicJsonValue) FromPublicJsonObject(v PublicJsonObject) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonObject performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonObject
-func (t *PublicJsonValue) MergePublicJsonObject(v PublicJsonObject) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t PublicJsonValue) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *PublicJsonValue) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
+	CreatedAt           time.Time                     `json:"created_at"`
+	DistributionVersion *string                       `json:"distribution_version,omitempty"`
+	EnterpriseId        *openapi_types.UUID           `json:"enterprise_id,omitempty"`
+	ErrorCode           *string                       `json:"error_code,omitempty"`
+	ExpiresAt           time.Time                     `json:"expires_at"`
+	FreeDiskBytes       *int64                        `json:"free_disk_bytes,omitempty"`
+	HostKeyFingerprint  *string                       `json:"host_key_fingerprint,omitempty"`
+	Id                  openapi_types.UUID            `json:"id"`
+	LatencyMs           *int                          `json:"latency_ms,omitempty"`
+	Path                ConnectionTestPath            `json:"path"`
+	Platform            *ConnectionTestPlatform       `json:"platform,omitempty"`
+	Privileged          *bool                         `json:"privileged,omitempty"`
+	RemoteVersion       *string                       `json:"remote_version,omitempty"`
+	ResolvedIps         *[]string                     `json:"resolved_ips,omitempty"`
+	ResourceId          *openapi_types.UUID           `json:"resource_id,omitempty"`
+	ServiceManager      *ConnectionTestServiceManager `json:"service_manager,omitempty"`
+	Status              ConnectionTestStatus          `json:"status"`
+	TargetType          ConnectionTestTargetType      `json:"target_type"`
+	UpdatedAt           time.Time                     `json:"updated_at"`
 }

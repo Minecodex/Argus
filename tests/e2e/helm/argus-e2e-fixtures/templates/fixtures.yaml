@@ -91,50 +91,6 @@ spec:
           podSelector: {matchLabels: {app.kubernetes.io/name: argus-replay-model}}
       ports: [{protocol: TCP, port: 8080}, {protocol: TCP, port: 8081}]
 {{- end }}
-{{- if .Values.features.winrsTarget }}
----
-apiVersion: v1
-kind: Secret
-metadata: {name: argus-e2e-winrs-tls, namespace: {{ .Values.namespaces.system }}}
-type: Opaque
-data:
-  ca.crt: {{ .Values.tls.winrs.ca | b64enc | quote }}
-  tls.crt: {{ .Values.tls.winrs.certificate | b64enc | quote }}
-  tls.key: {{ .Values.tls.winrs.privateKey | b64enc | quote }}
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: argus-e2e-winrs-target
-  namespace: {{ .Values.namespaces.system }}
-  labels: &winrsLabels
-    app.kubernetes.io/name: argus-e2e-winrs-target
-    app.kubernetes.io/part-of: argus-e2e
-    argus.io/release-id: {{ .Values.releaseId | quote }}
-spec:
-  replicas: 1
-  selector: {matchLabels: {app.kubernetes.io/name: argus-e2e-winrs-target}}
-  template:
-    metadata: {labels: *winrsLabels}
-    spec:
-      containers:
-        - name: winrs
-          image: {{ .Values.images.winrsTarget | quote }}
-          imagePullPolicy: {{ .Values.images.pullPolicy }}
-          command: [/usr/local/bin/argus-e2e-winrs]
-          env: [{name: ARGUS_E2E_WINRS_PASSWORD, value: "M6-e2e-winrs-password"}]
-          ports: [{name: winrs, containerPort: 5986}]
-          volumeMounts: [{name: tls, mountPath: /tls, readOnly: true}]
-          readinessProbe: {tcpSocket: {port: winrs}, initialDelaySeconds: 1, periodSeconds: 1}
-      volumes: [{name: tls, secret: {secretName: argus-e2e-winrs-tls}}]
----
-apiVersion: v1
-kind: Service
-metadata: {name: argus-e2e-winrs-target, namespace: {{ .Values.namespaces.system }}}
-spec:
-  selector: {app.kubernetes.io/name: argus-e2e-winrs-target}
-  ports: [{name: winrs, port: 5986, targetPort: winrs}]
-{{- end }}
 {{- if .Values.features.artifactServer }}
 ---
 apiVersion: v1

@@ -45,6 +45,7 @@ type WebSocketGateway struct {
 	Backends       BackendFactory
 	ObjectStore    ObjectStore
 	AllowedOrigins []string
+	GuacdAddress   string
 	RejectNew      <-chan struct{}
 	Drain          <-chan struct{}
 	Sessions       *SessionTracker
@@ -308,6 +309,15 @@ func (gateway WebSocketGateway) serve(parent context.Context, connection *websoc
 		closeProtocol(connection, gatewayErrorCode(err))
 		return
 	}
+	if target.Protocol == "rdp" {
+		if reattach {
+			clear(target.CredentialPayload)
+			closeProtocol(connection, "REMOTE_ACCESS_CONNECTION_LOST")
+			return
+		}
+		gateway.serveRDP(requestCtx, connection, sessionID, target, hello)
+		return
+	}
 
 	var engine *sessionEngine
 	if reattach {
@@ -332,10 +342,7 @@ func (gateway WebSocketGateway) serve(parent context.Context, connection *websoc
 	}
 
 	writer := &websocketWriter{connection: connection}
-	mode := "ssh_pty"
-	if target.Protocol == "winrs" {
-		mode = "winrs_line"
-	}
+	mode := target.Protocol + "_pty"
 	if err := writer.write(requestCtx, serverFrame{Type: "server_ready", SessionID: sessionID.String(), Mode: mode, Nonce: hello.Nonce,
 		IdleTimeout: int64(target.IdleTimeout / time.Second), MaxDuration: int64(target.MaxDuration / time.Second)}); err != nil {
 		gateway.finishRecording(context.Background(), engine.recording, "incomplete")

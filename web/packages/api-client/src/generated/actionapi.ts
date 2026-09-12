@@ -191,8 +191,8 @@ export interface components {
                 version: number;
             };
             operation_ref?: {
-                /** @constant */
-                kind: "connector_install";
+                /** @enum {unknown} */
+                kind: "connector_install" | "host_onboarding" | "host_removal";
                 /** Format: uuid */
                 id: string;
             };

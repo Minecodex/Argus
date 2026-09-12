@@ -16,7 +16,7 @@ const (
 	CredentialProtocolHttp       CredentialProtocol = "http"
 	CredentialProtocolKubernetes CredentialProtocol = "kubernetes"
 	CredentialProtocolSsh        CredentialProtocol = "ssh"
-	CredentialProtocolWinrm      CredentialProtocol = "winrm"
+	CredentialProtocolWindows    CredentialProtocol = "windows"
 )
 
 // Valid indicates whether the value is a known member of the CredentialProtocol enum.
@@ -28,7 +28,7 @@ func (e CredentialProtocol) Valid() bool {
 		return true
 	case CredentialProtocolSsh:
 		return true
-	case CredentialProtocolWinrm:
+	case CredentialProtocolWindows:
 		return true
 	default:
 		return false
@@ -58,7 +58,7 @@ const (
 	CredentialCreateProtocolHttp       CredentialCreateProtocol = "http"
 	CredentialCreateProtocolKubernetes CredentialCreateProtocol = "kubernetes"
 	CredentialCreateProtocolSsh        CredentialCreateProtocol = "ssh"
-	CredentialCreateProtocolWinrm      CredentialCreateProtocol = "winrm"
+	CredentialCreateProtocolWindows    CredentialCreateProtocol = "windows"
 )
 
 // Valid indicates whether the value is a known member of the CredentialCreateProtocol enum.
@@ -70,7 +70,7 @@ func (e CredentialCreateProtocol) Valid() bool {
 		return true
 	case CredentialCreateProtocolSsh:
 		return true
-	case CredentialCreateProtocolWinrm:
+	case CredentialCreateProtocolWindows:
 		return true
 	default:
 		return false
@@ -97,16 +97,19 @@ func (e CredentialUpdateStatus) Valid() bool {
 
 // Defines values for ManagedAccountAllowedProtocols.
 const (
+	ManagedAccountAllowedProtocolsRdp   ManagedAccountAllowedProtocols = "rdp"
+	ManagedAccountAllowedProtocolsShell ManagedAccountAllowedProtocols = "shell"
 	ManagedAccountAllowedProtocolsSsh   ManagedAccountAllowedProtocols = "ssh"
-	ManagedAccountAllowedProtocolsWinrm ManagedAccountAllowedProtocols = "winrm"
 )
 
 // Valid indicates whether the value is a known member of the ManagedAccountAllowedProtocols enum.
 func (e ManagedAccountAllowedProtocols) Valid() bool {
 	switch e {
-	case ManagedAccountAllowedProtocolsSsh:
+	case ManagedAccountAllowedProtocolsRdp:
 		return true
-	case ManagedAccountAllowedProtocolsWinrm:
+	case ManagedAccountAllowedProtocolsShell:
+		return true
+	case ManagedAccountAllowedProtocolsSsh:
 		return true
 	default:
 		return false
@@ -154,16 +157,19 @@ func (e ManagedAccountStatus) Valid() bool {
 
 // Defines values for ManagedAccountCreateAllowedProtocols.
 const (
+	ManagedAccountCreateAllowedProtocolsRdp   ManagedAccountCreateAllowedProtocols = "rdp"
+	ManagedAccountCreateAllowedProtocolsShell ManagedAccountCreateAllowedProtocols = "shell"
 	ManagedAccountCreateAllowedProtocolsSsh   ManagedAccountCreateAllowedProtocols = "ssh"
-	ManagedAccountCreateAllowedProtocolsWinrm ManagedAccountCreateAllowedProtocols = "winrm"
 )
 
 // Valid indicates whether the value is a known member of the ManagedAccountCreateAllowedProtocols enum.
 func (e ManagedAccountCreateAllowedProtocols) Valid() bool {
 	switch e {
-	case ManagedAccountCreateAllowedProtocolsSsh:
+	case ManagedAccountCreateAllowedProtocolsRdp:
 		return true
-	case ManagedAccountCreateAllowedProtocolsWinrm:
+	case ManagedAccountCreateAllowedProtocolsShell:
+		return true
+	case ManagedAccountCreateAllowedProtocolsSsh:
 		return true
 	default:
 		return false
@@ -193,16 +199,19 @@ func (e ManagedAccountCreatePrivilegeLevel) Valid() bool {
 
 // Defines values for ManagedAccountUpdateAllowedProtocols.
 const (
+	ManagedAccountUpdateAllowedProtocolsRdp   ManagedAccountUpdateAllowedProtocols = "rdp"
+	ManagedAccountUpdateAllowedProtocolsShell ManagedAccountUpdateAllowedProtocols = "shell"
 	ManagedAccountUpdateAllowedProtocolsSsh   ManagedAccountUpdateAllowedProtocols = "ssh"
-	ManagedAccountUpdateAllowedProtocolsWinrm ManagedAccountUpdateAllowedProtocols = "winrm"
 )
 
 // Valid indicates whether the value is a known member of the ManagedAccountUpdateAllowedProtocols enum.
 func (e ManagedAccountUpdateAllowedProtocols) Valid() bool {
 	switch e {
-	case ManagedAccountUpdateAllowedProtocolsSsh:
+	case ManagedAccountUpdateAllowedProtocolsRdp:
 		return true
-	case ManagedAccountUpdateAllowedProtocolsWinrm:
+	case ManagedAccountUpdateAllowedProtocolsShell:
+		return true
+	case ManagedAccountUpdateAllowedProtocolsSsh:
 		return true
 	default:
 		return false
@@ -292,12 +301,12 @@ func (e SecretStatus) Valid() bool {
 
 // Defines values for SecretType.
 const (
-	ApiToken      SecretType = "api_token"
-	BasicAuth     SecretType = "basic_auth"
-	Kubeconfig    SecretType = "kubeconfig"
-	SshPassword   SecretType = "ssh_password"
-	SshPrivateKey SecretType = "ssh_private_key"
-	WinrmPassword SecretType = "winrm_password"
+	ApiToken        SecretType = "api_token"
+	BasicAuth       SecretType = "basic_auth"
+	Kubeconfig      SecretType = "kubeconfig"
+	SshPassword     SecretType = "ssh_password"
+	SshPrivateKey   SecretType = "ssh_private_key"
+	WindowsPassword SecretType = "windows_password"
 )
 
 // Valid indicates whether the value is a known member of the SecretType enum.
@@ -313,7 +322,7 @@ func (e SecretType) Valid() bool {
 		return true
 	case SshPrivateKey:
 		return true
-	case WinrmPassword:
+	case WindowsPassword:
 		return true
 	default:
 		return false

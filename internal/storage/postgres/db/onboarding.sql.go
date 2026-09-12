@@ -127,34 +127,53 @@ SELECT
   COALESCE(action.status, '')::text AS action_status,
   execution.id AS execution_id,
   COALESCE(execution.status, '')::text AS execution_status,
-  COALESCE(execution.error_code, action.error_code, '')::text AS error_code,
+  COALESCE(operation.error_code, execution.error_code, action.error_code, '')::text AS error_code,
   CASE
     WHEN result.execution_id IS NULL THEN 'unavailable'
     WHEN result.consumed_at IS NOT NULL THEN 'consumed'
     WHEN result.expires_at <= now() THEN 'expired'
     ELSE 'available'
   END::text AS one_time_result_state,
+  COALESCE(operation.id, '00000000-0000-0000-0000-000000000000'::uuid) AS operation_id,
+  COALESCE(operation.status, '')::text AS operation_status,
+  COALESCE(operation.stage, '')::text AS operation_stage,
+  COALESCE(operation.install_method, '')::text AS install_method,
+  COALESCE(operation.ssh_path, '')::text AS ssh_path,
+  removal.id AS removal_operation_id,
   COALESCE(enrollment.status, '')::text AS enrollment_status,
-  COALESCE(collector.status, '')::text AS collector_status,
-  COALESCE(enrollment.updated_at, execution.updated_at, action.updated_at, collector.updated_at, host.updated_at) AS projection_updated_at
+  COALESCE(connector.status, '')::text AS connector_status,
+  COALESCE(connector.updated_at, operation.updated_at, execution.updated_at, action.updated_at, host.updated_at) AS projection_updated_at
 FROM hosts AS host
 LEFT JOIN LATERAL (
   SELECT candidate.id, candidate.action_ref, candidate.enterprise_id, candidate.creator_subject_id, candidate.authorization_version, candidate.action_type, candidate.title, candidate.summary, candidate.risk, candidate.preview, candidate.diff, candidate.status, candidate.resource_type, candidate.resource_id, candidate.expected_resource_version, candidate.impact_hash, candidate.result_resource_type, candidate.result_resource_id, candidate.result_resource_version, candidate.result_summary, candidate.error_code, candidate.expires_at, candidate.created_at, candidate.updated_at, candidate.creator_subject_type, candidate.run_id, candidate.confirmation_required, candidate.policy_snapshot_hash FROM pending_actions AS candidate
   WHERE candidate.enterprise_id = host.enterprise_id
     AND candidate.resource_type = 'host'
-    AND candidate.action_type IN ('host.create','host.enrollment.rotate')
+    AND candidate.action_type IN ('host.create','host.enrollment.rotate','host.onboarding.retry')
     AND COALESCE(candidate.result_resource_id, candidate.resource_id) = host.id
   ORDER BY candidate.updated_at DESC, candidate.id DESC LIMIT 1
 ) AS action ON true
 LEFT JOIN executions AS execution ON execution.pending_action_id = action.id
 LEFT JOIN execution_one_time_results AS result ON result.execution_id = execution.id
 LEFT JOIN LATERAL (
-  SELECT token.status, token.updated_at FROM host_enrollment_tokens AS token
+  SELECT candidate.id, candidate.enterprise_id, candidate.host_id, candidate.connector_id, candidate.pending_action_id, candidate.retry_of, candidate.release_version_id, candidate.connection_test_id, candidate.install_method, candidate.ssh_path, candidate.target_platform, candidate.control_path, candidate.bastion_scope_id, candidate.status, candidate.stage, candidate.plan, candidate.plan_hash, candidate.attempts, candidate.lease_owner, candidate.fence, candidate.lease_expires_at, candidate.error_code, candidate.connector_online_at, candidate.expires_at, candidate.completed_at, candidate.created_at, candidate.updated_at FROM host_onboarding_operations AS candidate
+  WHERE candidate.enterprise_id=host.enterprise_id AND candidate.host_id=host.id
+    AND (host.connector_id IS NULL OR candidate.connector_id=host.connector_id)
+  ORDER BY candidate.created_at DESC,candidate.id DESC LIMIT 1
+) AS operation ON true
+LEFT JOIN LATERAL (
+  SELECT token.status FROM connector_enrollment_tokens AS token
   WHERE token.enterprise_id = host.enterprise_id AND token.preallocated_host_id = host.id
   ORDER BY token.created_at DESC, token.id DESC LIMIT 1
 ) AS enrollment ON true
-LEFT JOIN collector_instances AS collector ON collector.enterprise_id = host.enterprise_id
-  AND collector.resource_type = 'host' AND collector.resource_id = host.id
+LEFT JOIN connectors AS connector ON connector.id=host.connector_id AND connector.enterprise_id=host.enterprise_id
+LEFT JOIN LATERAL (
+  SELECT candidate.id FROM host_removal_operations candidate
+  WHERE candidate.enterprise_id=host.enterprise_id AND candidate.host_id=host.id
+    AND candidate.removal_generation=host.removal_generation
+    AND candidate.connector_id=host.connector_id
+    AND host.status IN ('draining','uninstalling','removal_failed','cleanup_unknown','uninstalled')
+  ORDER BY candidate.created_at DESC,candidate.id DESC LIMIT 1
+) AS removal ON true
 WHERE host.enterprise_id = $1 AND host.id = ANY($2::uuid[])
 `
 
@@ -171,8 +190,14 @@ type ListHostOnboardingFactsRow struct {
 	ExecutionStatus     string             `json:"execution_status"`
 	ErrorCode           string             `json:"error_code"`
 	OneTimeResultState  string             `json:"one_time_result_state"`
+	OperationID         uuid.UUID          `json:"operation_id"`
+	OperationStatus     string             `json:"operation_status"`
+	OperationStage      string             `json:"operation_stage"`
+	InstallMethod       string             `json:"install_method"`
+	SshPath             string             `json:"ssh_path"`
+	RemovalOperationID  uuid.UUID          `json:"removal_operation_id"`
 	EnrollmentStatus    string             `json:"enrollment_status"`
-	CollectorStatus     string             `json:"collector_status"`
+	ConnectorStatus     string             `json:"connector_status"`
 	ProjectionUpdatedAt pgtype.Timestamptz `json:"projection_updated_at"`
 }
 
@@ -196,8 +221,14 @@ func (q *Queries) ListHostOnboardingFacts(ctx context.Context, arg ListHostOnboa
 			&i.ExecutionStatus,
 			&i.ErrorCode,
 			&i.OneTimeResultState,
+			&i.OperationID,
+			&i.OperationStatus,
+			&i.OperationStage,
+			&i.InstallMethod,
+			&i.SshPath,
+			&i.RemovalOperationID,
 			&i.EnrollmentStatus,
-			&i.CollectorStatus,
+			&i.ConnectorStatus,
 			&i.ProjectionUpdatedAt,
 		); err != nil {
 			return nil, err

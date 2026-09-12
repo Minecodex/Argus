@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -410,7 +411,7 @@ func tcpAddressReachable(ctx context.Context, address string) bool {
 }
 
 func (a *App) httpsProbe(ctx context.Context, cfg *InstallConfig, host, ingressAddress, caPath string) error {
-	status, err := a.curlStatus(ctx, "https://"+host+"/healthz", "", ingressAddress, caPath)
+	status, err := a.curlStatus(ctx, cfg, "https://"+host+"/healthz", "", ingressAddress, caPath)
 	if err != nil {
 		return err
 	}
@@ -424,7 +425,7 @@ func (a *App) httpsProbe(ctx context.Context, cfg *InstallConfig, host, ingressA
 // "origin not allowed" regressions: an allowed Origin must pass and a forged
 // Origin must be rejected by the backend CORS middleware.
 func (a *App) corsOriginProbe(ctx context.Context, cfg *InstallConfig, platformHost, ingressAddress, caPath string) error {
-	status, err := a.curlStatus(ctx, "https://"+platformHost+"/api/v1/setup/status", "https://"+platformHost, ingressAddress, caPath)
+	status, err := a.curlStatus(ctx, cfg, "https://"+platformHost+"/api/v1/setup/status", "https://"+platformHost, ingressAddress, caPath)
 	if err != nil {
 		return err
 	}
@@ -434,7 +435,7 @@ func (a *App) corsOriginProbe(ctx context.Context, cfg *InstallConfig, platformH
 	if status != "200" && status != "401" {
 		return fmt.Errorf("setup status with allowed Origin returned HTTP %s", status)
 	}
-	status, err = a.curlStatus(ctx, "https://"+platformHost+"/api/v1/setup/status", "https://evil.example.net", ingressAddress, caPath)
+	status, err = a.curlStatus(ctx, cfg, "https://"+platformHost+"/api/v1/setup/status", "https://evil.example.net", ingressAddress, caPath)
 	if err != nil {
 		return err
 	}
@@ -456,7 +457,7 @@ func curlStatusArgs(rawURL, origin, ingressAddress, caPath string) ([]string, er
 	if strings.TrimSpace(caPath) == "" {
 		return nil, fmt.Errorf("probe CA bundle path is required")
 	}
-	args := []string{"-sS", "--cacert", caPath, "--noproxy", "*", "--connect-timeout", "5", "--max-time", "20", "-o", "/dev/null", "-w", "%{http_code}"}
+	args := []string{"-sS", "--cacert", caPath, "--noproxy", "*", "--connect-timeout", "5", "--max-time", "20", "-o", os.DevNull, "-w", "%{http_code}"}
 	if ingressAddress != "" {
 		connectHost := ingressAddress
 		if strings.Contains(connectHost, ":") && !strings.HasPrefix(connectHost, "[") {
@@ -470,11 +471,23 @@ func curlStatusArgs(rawURL, origin, ingressAddress, caPath string) ([]string, er
 	return append(args, rawURL), nil
 }
 
-func (a *App) curlStatus(ctx context.Context, rawURL, origin, ingressAddress, caPath string) (string, error) {
+// Private managed and customer CAs commonly have no publicly reachable CRL or
+// OCSP endpoint. Schannel may tolerate unavailable revocation information for
+// these operator probes while still verifying the explicit CA chain, hostname,
+// validity and every known revocation response.
+func curlRevocationArgs(platform string) []string {
+	if platform == "windows" {
+		return []string{"--ssl-revoke-best-effort"}
+	}
+	return nil
+}
+
+func (a *App) curlStatus(ctx context.Context, cfg *InstallConfig, rawURL, origin, ingressAddress, caPath string) (string, error) {
 	args, err := curlStatusArgs(rawURL, origin, ingressAddress, caPath)
 	if err != nil {
 		return "", err
 	}
+	args = append(curlRevocationArgs(runtime.GOOS), args...)
 	var output string
 	for attempt := 0; attempt < 3; attempt++ {
 		output, err = a.runner.quiet(ctx, "curl", args...)
@@ -656,7 +669,7 @@ exit 1`
 func clickHouseSmokePod(cfg *InstallConfig) string {
 	name := kubernetesName("argus-clickhouse-smoke-" + cfg.Spec.ReleaseID)
 	env := []string{"          - name: CLICKHOUSE_PASSWORD\n            valueFrom: {secretKeyRef: {name: argus-clickhouse-credentials, key: password}}"}
-	command := `set -eu; trap 'clickhouse-client --host argus-clickhouse-client --user argus --password "$CLICKHOUSE_PASSWORD" --query "DROP TABLE IF EXISTS default.argus_e2e_persistence" >/dev/null 2>&1' EXIT; clickhouse-client --host argus-clickhouse-client --user argus --password "$CLICKHOUSE_PASSWORD" --multiquery "CREATE TABLE IF NOT EXISTS default.argus_e2e_persistence (id String, value String) ENGINE=ReplacingMergeTree ORDER BY id; INSERT INTO default.argus_e2e_persistence VALUES ('argus-e2e','clickhouse-ok');"; clickhouse-client --host argus-clickhouse-client --user argus --password "$CLICKHOUSE_PASSWORD" --query "SELECT value FROM default.argus_e2e_persistence FINAL WHERE id='argus-e2e'" | grep -q clickhouse-ok`
+	command := `set -eu; trap 'clickhouse-client --host argus-clickhouse-client --user argus --password="$CLICKHOUSE_PASSWORD" --query "DROP TABLE IF EXISTS default.argus_e2e_persistence" >/dev/null 2>&1' EXIT; clickhouse-client --host argus-clickhouse-client --user argus --password="$CLICKHOUSE_PASSWORD" --multiquery "CREATE TABLE IF NOT EXISTS default.argus_e2e_persistence (id String, value String) ENGINE=ReplacingMergeTree ORDER BY id; INSERT INTO default.argus_e2e_persistence VALUES ('argus-e2e','clickhouse-ok');"; clickhouse-client --host argus-clickhouse-client --user argus --password="$CLICKHOUSE_PASSWORD" --query "SELECT value FROM default.argus_e2e_persistence FINAL WHERE id='argus-e2e'" | grep -q clickhouse-ok`
 	return genericSmokePod(name, cfg.Spec.Namespaces.Observability, "clickhouse/clickhouse-server:26.3.17.110-alpine", env, command)
 }
 

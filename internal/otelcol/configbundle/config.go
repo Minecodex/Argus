@@ -26,6 +26,7 @@ type RenderInput struct {
 	ResourceID   string
 	ResourceType string
 	Role         string
+	Platform     string
 	RouteKind    string
 	// Transport 是遥测物理路径(direct|executor_tunnel|bastion_tunnel,PlanV4);
 	// 隧道形态下出口端点渲染为本机回环,TLS 仍按真实上游域名校验。
@@ -157,7 +158,7 @@ func outboundConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBund
 	return map[string]any{
 		"extensions": map[string]any{
 			"argus_identity": identityConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBundleEndpoint, dialAddress, tokenFile, identityDirectory, serverCAFile, bootstrapDirectory...),
-			"file_storage":   map[string]any{"directory": identityDirectory + "/queue", "create_directory": true},
+			"file_storage":   map[string]any{"directory": targetPath(identityDirectory, "queue"), "create_directory": true},
 			"health_check":   map[string]any{"endpoint": "0.0.0.0:13133"},
 		},
 		"receivers": receivers,
@@ -168,8 +169,8 @@ func outboundConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBund
 		"exporters": map[string]any{
 			"otlp/argus": map[string]any{
 				"endpoint": ingestEndpoint,
-				"tls": map[string]any{"ca_file": identityDirectory + "/ca.pem", "cert_file": identityDirectory + "/client.pem",
-					"key_file": identityDirectory + "/client-key.pem", "reload_interval": "1m", "server_name_override": serverName},
+				"tls": map[string]any{"ca_file": targetPath(identityDirectory, "ca.pem"), "cert_file": targetPath(identityDirectory, "client.pem"),
+					"key_file": targetPath(identityDirectory, "client-key.pem"), "reload_interval": "1m", "server_name_override": serverName},
 				"sending_queue":    map[string]any{"enabled": true, "storage": "file_storage", "queue_size": 4096},
 				"retry_on_failure": map[string]any{"enabled": true, "initial_interval": "1s", "max_interval": "30s", "max_elapsed_time": "0s"},
 			},
@@ -182,7 +183,13 @@ func outboundConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBund
 }
 
 func hostConfig(input RenderInput, profiles map[string]bool, identity map[string]string, enrollment, rotation, trustBundle, endpoint, serverName string) map[string]any {
-	receivers := hostReceivers(profiles)
+	receivers := hostReceivers(profiles, input.Platform)
+	identityDirectory, tokenFile, serverCAFile := "/var/lib/argus-otelcol/identity", "/etc/argus-otelcol/enrollment-token", "/etc/argus-otelcol/server-ca.pem"
+	if input.Platform == "windows_amd64" {
+		identityDirectory = `C:\ProgramData\Argus\Collector\identity`
+		tokenFile = `C:\ProgramData\Argus\Collector\enrollment-token`
+		serverCAFile = `C:\ProgramData\Argus\Collector\server-ca.pem`
+	}
 	processors := map[string]any{"resource/argus": resourceProcessor(identity)}
 	baseReceivers := receivers
 	if input.Role == "edge_gateway" {
@@ -190,7 +197,7 @@ func hostConfig(input RenderInput, profiles map[string]bool, identity map[string
 		// otlp-receiver profile 在普通主机上表示本机明文接收器；若在这里
 		// 同时保留会与 downstream 监听器抢占端口并绕过成员身份校验。
 		delete(receivers, "otlp")
-		receivers["otlp/downstream"] = secureOTLPReceiver("0.0.0.0", "/var/lib/argus-otelcol/identity")
+		receivers["otlp/downstream"] = secureOTLPReceiver("0.0.0.0", identityDirectory)
 		// Keep the authenticated downstream receiver out of the ordinary
 		// self-collection pipelines. Sharing one receiver across both paths can
 		// drop the receiver auth context for logs and traces before the identity
@@ -211,19 +218,21 @@ func hostConfig(input RenderInput, profiles map[string]bool, identity map[string
 			}
 		}
 	}
-	return outboundConfig(input.CollectorID, enrollment, rotation, trustBundle, endpoint, serverName, input.EnrollmentDialAddress, "/etc/argus-otelcol/enrollment-token",
-		"/var/lib/argus-otelcol/identity", "/etc/argus-otelcol/server-ca.pem", receivers, processors, pipelines)
+	return outboundConfig(input.CollectorID, enrollment, rotation, trustBundle, endpoint, serverName, input.EnrollmentDialAddress, tokenFile,
+		identityDirectory, serverCAFile, receivers, processors, pipelines)
 }
 
-func hostReceivers(profiles map[string]bool) map[string]any {
+func hostReceivers(profiles map[string]bool, platform string) map[string]any {
 	receivers := map[string]any{}
 	if profiles["otlp-receiver"] {
 		receivers["otlp"] = otlpReceiver("127.0.0.1")
 	}
 	if profiles["host-basic"] || profiles["collector-self"] {
-		receivers["hostmetrics"] = map[string]any{"collection_interval": "30s", "scrapers": map[string]any{
-			"cpu": map[string]any{}, "memory": map[string]any{}, "load": map[string]any{}, "filesystem": map[string]any{}, "network": map[string]any{},
-		}}
+		scrapers := map[string]any{"cpu": map[string]any{}, "memory": map[string]any{}, "filesystem": map[string]any{}, "network": map[string]any{}}
+		if platform != "windows_amd64" {
+			scrapers["load"] = map[string]any{}
+		}
+		receivers["hostmetrics"] = map[string]any{"collection_interval": "30s", "scrapers": scrapers}
 	}
 	if profiles["linux-journald"] {
 		receivers["journald"] = map[string]any{"directory": "/var/log/journal"}
@@ -263,7 +272,7 @@ func kubernetesAgentConfig(input RenderInput, profiles map[string]bool, identity
 			"batch":          map[string]any{"timeout": "1s", "send_batch_size": 1024},
 		},
 		"exporters": map[string]any{"otlp/gateway": map[string]any{"endpoint": "argus-otelcol-gateway.argus-telemetry.svc.cluster.local:4317", "tls": map[string]any{
-			"ca_file": identityDirectory + "/ca.pem", "cert_file": identityDirectory + "/client.pem", "key_file": identityDirectory + "/client-key.pem",
+			"ca_file": targetPath(identityDirectory, "ca.pem"), "cert_file": targetPath(identityDirectory, "client.pem"), "key_file": targetPath(identityDirectory, "client-key.pem"),
 			"reload_interval": "1m", "server_name_override": collectorServerName(input.CollectorID),
 		}}},
 		"service": map[string]any{"extensions": []string{"argus_identity"}, "pipelines": pipelineConfig(receivers, []string{"memory_limiter", "resource/argus", "batch"}, "otlp/gateway")},
@@ -295,10 +304,10 @@ func identityConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBund
 	result := map[string]any{
 		"collector_id": collectorID, "enrollment_endpoint": enrollmentEndpoint, "rotation_endpoint": rotationEndpoint,
 		"trust_bundle_endpoint": trustBundleEndpoint,
-		"enrollment_token_file": tokenFile, "certificate_file": identityDirectory + "/client.pem",
-		"private_key_file": identityDirectory + "/client-key.pem", "ca_bundle_file": identityDirectory + "/ca.pem",
-		"server_certificate_file": identityDirectory + "/server.pem", "server_private_key_file": identityDirectory + "/server-key.pem",
-		"trust_bundle_state_file": identityDirectory + "/trust-bundle.json",
+		"enrollment_token_file": tokenFile, "certificate_file": targetPath(identityDirectory, "client.pem"),
+		"private_key_file": targetPath(identityDirectory, "client-key.pem"), "ca_bundle_file": targetPath(identityDirectory, "ca.pem"),
+		"server_certificate_file": targetPath(identityDirectory, "server.pem"), "server_private_key_file": targetPath(identityDirectory, "server-key.pem"),
+		"trust_bundle_state_file": targetPath(identityDirectory, "trust-bundle.json"),
 		"server_ca_file":          serverCAFile, "rotate_before": "8h", "check_interval": "5m",
 	}
 	if dialAddress != "" {
@@ -317,11 +326,18 @@ func otlpReceiver(host string) map[string]any {
 }
 
 func secureOTLPReceiver(host, identityDirectory string) map[string]any {
-	tlsConfig := map[string]any{"cert_file": identityDirectory + "/server.pem", "key_file": identityDirectory + "/server-key.pem", "client_ca_file": identityDirectory + "/ca.pem"}
+	tlsConfig := map[string]any{"cert_file": targetPath(identityDirectory, "server.pem"), "key_file": targetPath(identityDirectory, "server-key.pem"), "client_ca_file": targetPath(identityDirectory, "ca.pem")}
 	return map[string]any{"protocols": map[string]any{
 		"grpc": map[string]any{"endpoint": host + ":4317", "tls": tlsConfig, "auth": map[string]any{"authenticator": "argus_identity"}},
 		"http": map[string]any{"endpoint": host + ":4318", "tls": tlsConfig, "auth": map[string]any{"authenticator": "argus_identity"}},
 	}}
+}
+
+func targetPath(directory, name string) string {
+	if strings.Contains(directory, `:\`) {
+		return strings.TrimRight(directory, `\`) + `\` + name
+	}
+	return strings.TrimRight(directory, "/") + "/" + name
 }
 
 func collectorServerName(collectorID string) string {

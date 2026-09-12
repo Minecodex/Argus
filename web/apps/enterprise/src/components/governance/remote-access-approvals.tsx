@@ -84,7 +84,8 @@ export function RemoteAccessApprovals({
   });
   const [stepUpRequestId, setStepUpRequestId] = useState<string | null>(null);
   const resume = useMutation({
-    mutationFn: (requestId: string) => api.remoteAccess.resumeRequest(requestId),
+    mutationFn: (requestId: string) =>
+      api.remoteAccess.resumeRequest(requestId),
     onSuccess: () => {
       setStepUpRequestId(null);
       void queryClient.invalidateQueries({ queryKey: ["remote-access"] });
@@ -113,7 +114,9 @@ export function RemoteAccessApprovals({
                   <strong>
                     {request.protocol === "ssh"
                       ? "SSH PTY"
-                      : "WinRS PowerShell"}
+                      : request.protocol === "rdp"
+                        ? "RDP"
+                        : "Local Shell / PowerShell"}
                   </strong>
                   <StatusBadge tone="warning">
                     {t(`remoteAccess.requestStatuses.${request.status}`)}

@@ -59,7 +59,7 @@ Evaluation 阶段不增加第五个自研控制服务。Ingest 和 Writer 通过
 
 - 任意 SQL、任意 Collector YAML、Profiles 信号和高级尾采样。
 - 独立 TelemetryGroup 可在 `direct_argus/bastion_gateway` 稳定后延后。
-- Windows amd64 在 WinRM 管理 Adapter、Windows Service 生命周期和实体兼容验证完成前保持不可选择；这些工作与 Linux amd64 支持矩阵一起进入 Production Validation。
+- Windows amd64 Collector 通过在线 Host Connector 管理；Windows Service 生命周期、OpenSSH 安装与真实 Windows Server 2019/2022 矩阵进入 Production Validation。
 
 ## 最终运行证据
 

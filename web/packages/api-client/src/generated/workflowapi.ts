@@ -230,23 +230,29 @@ export interface components {
             /** Format: uuid */
             execution_id: string;
             /** @enum {string} */
-            result_kind: "host_install_command" | "host_uninstall_command" | "connector_install_command";
+            result_kind: "connector_install_command" | "host_removal_command";
             instruction_sets: components["schemas"]["InstallInstructionSet"][];
             /** Format: date-time */
             expires_at: string;
         };
         InstallInstructionSet: {
             /** @enum {string} */
-            scope: "linux-system" | "linux-user" | "kubernetes";
+            platform: "linux_amd64" | "linux_arm64" | "windows_amd64" | "kubernetes";
+            /** @enum {string} */
+            shell: "posix_sh" | "powershell";
+            /** @constant */
+            privilege: "system";
             /** @description 唯一面向用户展示的一键安装命令。Host 与手工 Connector 下载动态引导脚本；Kubernetes 使用等价的单命令临时脚本执行。 */
             command: string;
             /** @enum {string} */
-            download_tls_mode?: "strict" | "insecure-first-fetch";
+            bootstrap_tls_mode?: "strict" | "insecure-first-fetch";
+            release_version: string;
             /** Format: date-time */
             expires_at: string;
             /** Format: int64 */
             trust_bundle_epoch: number;
             trust_bundle_sha256: string;
+            bootstrap_sha256: string;
             installer_sha256: string;
             capability_warnings: string[];
         };
@@ -287,8 +293,8 @@ export interface components {
                 version: number;
             };
             operation_ref?: {
-                /** @constant */
-                kind: "connector_install";
+                /** @enum {unknown} */
+                kind: "connector_install" | "host_onboarding" | "host_removal";
                 /** Format: uuid */
                 id: string;
             };

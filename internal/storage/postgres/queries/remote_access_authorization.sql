@@ -296,10 +296,9 @@ FROM candidates WHERE requirement.id=candidates.id
 RETURNING requirement.*;
 
 -- name: GetRemoteAccessLeaseForSession :one
-SELECT lease.*, host.connection_mode, bastion.active_connector_id AS connector_id, account.username, account.credential_id
+SELECT lease.*, host.control_path, host.connector_id, account.username, account.credential_id
 FROM remote_access_leases lease JOIN hosts host ON host.id=lease.host_id AND host.enterprise_id=lease.enterprise_id
 JOIN managed_accounts account ON account.id=lease.managed_account_id AND account.enterprise_id=lease.enterprise_id
-LEFT JOIN bastion_scopes bastion ON bastion.id=host.bastion_scope_id AND bastion.enterprise_id=host.enterprise_id AND bastion.status='active'
 WHERE lease.id=$1 AND lease.enterprise_id=$2 AND lease.user_id=$3 AND lease.revoked_at IS NULL AND lease.expires_at>now()
   AND host.status='active' AND account.status='active';
 

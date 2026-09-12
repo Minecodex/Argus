@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kakj-go/Argus/internal/installinstruction"
 )
 
 const defaultHTTPAddress = ":8080"
@@ -67,20 +69,16 @@ type Server struct {
 	TelemetryIngestHTTP           string
 	TelemetryEnrollment           string
 	OtelcolKubernetesImage        string
-	ArtifactProbeBaseURL          string
 	OtelcolArtifactCABundle       string
-	TrustBundlePath               string
-	TrustBundleEpoch              int64
-	BootstrapTLSMode              string
-	HostInstallerSHA256           string
-	ConnectorKubernetesImage      string
-	TelemetryEnabled              bool
-	KeyWrappingMode               string
-	OpenBaoAddress                string
-	OpenBaoToken                  string
-	OpenBaoTransitKey             string
-	BreakGlassEnabled             bool
-	PlatformMFARequired           bool
+	installinstruction.TrustConfig
+	ConnectorKubernetesImage string
+	TelemetryEnabled         bool
+	KeyWrappingMode          string
+	OpenBaoAddress           string
+	OpenBaoToken             string
+	OpenBaoTransitKey        string
+	BreakGlassEnabled        bool
+	PlatformMFARequired      bool
 }
 
 func LoadServer() Server {
@@ -98,7 +96,6 @@ func LoadServer() Server {
 	issuerGeneration, _ := strconv.ParseInt(valueOrDefault("ARGUS_CONNECTOR_ISSUER_GENERATION", "1"), 10, 32)
 	telemetryIssuerGeneration, _ := strconv.ParseInt(valueOrDefault("ARGUS_TELEMETRY_ISSUER_GENERATION", "1"), 10, 32)
 	telemetryEnabled, _ := strconv.ParseBool(valueOrDefault("ARGUS_TELEMETRY_TOOL_CATALOG_ENABLED", "true"))
-	trustBundleEpoch, _ := strconv.ParseInt(valueOrDefault("ARGUS_TRUST_BUNDLE_EPOCH", "1"), 10, 64)
 	return Server{
 		Address:                       address,
 		DatabaseURL:                   os.Getenv("ARGUS_DATABASE_URL"),
@@ -153,12 +150,8 @@ func LoadServer() Server {
 		TelemetryIngestHTTP:           os.Getenv("ARGUS_TELEMETRY_INGEST_HTTP_ENDPOINT"),
 		TelemetryEnrollment:           os.Getenv("ARGUS_TELEMETRY_ENROLLMENT_ENDPOINT"),
 		OtelcolKubernetesImage:        os.Getenv("ARGUS_OTELCOL_KUBERNETES_IMAGE"),
-		ArtifactProbeBaseURL:          os.Getenv("ARGUS_ARTIFACT_PROBE_BASE_URL"),
 		OtelcolArtifactCABundle:       os.Getenv("ARGUS_OTELCOL_ARTIFACT_CA_PATH"),
-		TrustBundlePath:               valueOrDefault("ARGUS_TRUST_BUNDLE_PATH", "/var/run/secrets/argus/trust/ca.crt"),
-		TrustBundleEpoch:              trustBundleEpoch,
-		BootstrapTLSMode:              valueOrDefault("ARGUS_BOOTSTRAP_TLS_MODE", "strict"),
-		HostInstallerSHA256:           os.Getenv("ARGUS_HOST_INSTALLER_SHA256"),
+		TrustConfig:                   loadInstallationTrust(),
 		ConnectorKubernetesImage:      os.Getenv("ARGUS_CONNECTOR_KUBERNETES_IMAGE"),
 		TelemetryEnabled:              telemetryEnabled,
 		KeyWrappingMode:               valueOrDefault("ARGUS_KEY_WRAPPING_MODE", "local_test"),
@@ -197,7 +190,7 @@ func (cfg Server) Validate() error {
 		cfg.TrustBundlePath == "" || cfg.TrustBundleEpoch < 1 {
 		return errors.New("Connector enrollment, gateway, and cert-manager issuer configuration are required")
 	}
-	if cfg.BootstrapTLSMode != "strict" && cfg.BootstrapTLSMode != "insecure-first-fetch" {
+	if err := cfg.BootstrapTLSMode.Validate(); err != nil {
 		return errors.New("ARGUS_BOOTSTRAP_TLS_MODE must be strict or insecure-first-fetch")
 	}
 	if cfg.DirectExecutorEndpoint == "" || cfg.DirectExecutorServerName == "" || cfg.DirectExecutorTLSCert == "" || cfg.DirectExecutorTLSKey == "" || cfg.DirectExecutorCABundle == "" {

@@ -20,12 +20,16 @@ function resultWithWarnings(warnings: string[] | null): ActionOneTimeResult {
     expires_at: new Date(Date.now() + 60_000).toISOString(),
     instruction_sets: [
       {
-        scope: "linux-system",
+        platform: "linux_amd64",
+        shell: "posix_sh",
+        privilege: "system",
         command: "download bootstrap and execute it",
-        download_tls_mode: "insecure-first-fetch",
+        bootstrap_tls_mode: "insecure-first-fetch",
+        release_version: "0.1.0-test",
         expires_at: new Date(Date.now() + 60_000).toISOString(),
         trust_bundle_epoch: 1,
         trust_bundle_sha256: "b".repeat(64),
+        bootstrap_sha256: "c".repeat(64),
         installer_sha256: "a".repeat(64),
         capability_warnings: warnings as string[],
       },
@@ -56,7 +60,7 @@ describe("InstallInstructionPanel", () => {
 
   it("keeps strict one-line onboarding explicit about token exposure", () => {
     const result = resultWithWarnings([]);
-    result.instruction_sets[0]!.download_tls_mode = "strict";
+    result.instruction_sets[0]!.bootstrap_tls_mode = "strict";
     render(
       <LocaleProvider>
         <InstallInstructionPanel result={result} />

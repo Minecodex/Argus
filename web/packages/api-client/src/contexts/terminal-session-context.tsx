@@ -129,7 +129,7 @@ export function TerminalSessionProvider({ children }: { children: ReactNode }) {
         hostId: session.host_id,
         hostName,
         accountName,
-        protocol: session.protocol === "ssh" ? "SSH PTY" : "WinRS PowerShell",
+        protocol: session.protocol === "ssh" ? "SSH PTY" : session.protocol === "shell" ? "Local PTY" : "RDP",
         hidden: false,
       };
       const connection = new RemoteAccessConnection(ticket, {

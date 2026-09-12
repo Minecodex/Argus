@@ -44,7 +44,7 @@
 ## 实现证据
 
 - 契约：`api/openapi/paths/m2.yaml`、`api/openapi/components/m2.yaml`、错误码和状态机注册表，以及按领域生成的 Go/TypeScript 契约。
-- 数据与服务：`migrations/postgresql/00001_m2_identity_authorization.sql`、`internal/{platform,identity,authorization,audit,outbox,pagination}`、`internal/storage/{postgres,redis}`；sqlc 查询按 platform、identity、authorization、machine、audit、idempotency 分域生成，单文件均低于 2000 行。
+- 数据与服务：`migrations/postgresql/00001_argus_baseline.sql`、`internal/{platform,identity,authorization,audit,outbox,pagination}`、`internal/storage/{postgres,redis}`；sqlc 查询按 platform、identity、authorization、machine、audit、idempotency 分域生成，单文件均低于 2000 行。
 - 前端：Setup、Platform、Enterprise real Adapter，双 Audience 登录/首次改密，企业/IAM/ServiceAccount/APIKey 页面；M2 真实写表单统一使用 React Hook Form + Zod，EnterpriseUser 与 Department 均提供可审计、可撤权的启停闭环。
 - 审计展示：OpenAPI 读模型在不可变 actor/resource ID 之外尽力返回当前显示名；企业与平台门户通过统一代码目录展示中英文动作/资源名称，原始 key/UUID 保留在详情。企业引用字段使用名称选择器提交 ID，平台域不跨边界查询企业成员姓名。
 - 部署：独立 Goose Migration Job、仅 Server 可见的 Setup Token Secret Volume、输出一次性初始化链接的 `argusctl setup-token rotate` 和 `argusctl admin reset-password`。

@@ -110,14 +110,18 @@ components:
     InstallInstructionSet:
       type: object
       additionalProperties: false
-      required: [scope, command, expires_at, trust_bundle_epoch, trust_bundle_sha256, installer_sha256, capability_warnings]
+      required: [platform, shell, privilege, command, expires_at, trust_bundle_epoch, trust_bundle_sha256, bootstrap_sha256, installer_sha256, release_version, capability_warnings]
       properties:
-        scope: {type: string, enum: [linux-system, linux-user, kubernetes]}
+        platform: {type: string, enum: [linux_amd64, linux_arm64, windows_amd64, kubernetes]}
+        shell: {type: string, enum: [posix_sh, powershell]}
+        privilege: {type: string, const: system}
         command: {type: string, minLength: 1, maxLength: 131072, writeOnly: true, description: '唯一面向用户展示的一键安装命令。Host 与手工 Connector 下载动态引导脚本；Kubernetes 使用等价的单命令临时脚本执行。'}
-        download_tls_mode: {type: string, enum: [strict, insecure-first-fetch]}
+        bootstrap_tls_mode: {type: string, enum: [strict, insecure-first-fetch]}
+        release_version: {type: string, minLength: 1, maxLength: 128}
         expires_at: {type: string, format: date-time}
         trust_bundle_epoch: {type: integer, format: int64, minimum: 1}
         trust_bundle_sha256: {type: string, pattern: "^[a-f0-9]{64}$"}
+        bootstrap_sha256: {type: string, pattern: "^[a-f0-9]{64}$"}
         installer_sha256: {type: string, pattern: "^[a-f0-9]{64}$"}
         capability_warnings:
           type: array

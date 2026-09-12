@@ -1,6 +1,6 @@
 -- name: CreateRemoteAccessSession :one
 INSERT INTO remote_access_sessions (id,enterprise_id,user_id,http_session_id,lease_id,host_id,managed_account_id,protocol,
-    connection_mode,connector_id,status,authorization_version,idle_timeout_seconds,max_duration_seconds,connect_before,
+    control_path,connector_id,status,authorization_version,idle_timeout_seconds,max_duration_seconds,connect_before,
     decision_snapshot,session_profile_snapshot,decision_snapshot_hash,recording_mode,command_audit_mode,clipboard_mode,
     file_upload_mode,file_download_mode,port_forward_mode,session_share_mode,retention_days,reason)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'authorized',$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,sqlc.arg(reason)) RETURNING *;
@@ -23,7 +23,7 @@ WHERE session.enterprise_id=sqlc.arg(enterprise_id)
   AND (sqlc.narg(host_id)::uuid IS NULL OR session.host_id=sqlc.narg(host_id)::uuid)
   AND (sqlc.narg(managed_account_id)::uuid IS NULL OR session.managed_account_id=sqlc.narg(managed_account_id)::uuid)
   AND (sqlc.narg(protocol)::text IS NULL OR session.protocol=sqlc.narg(protocol)::text)
-  AND (sqlc.narg(connection_mode)::text IS NULL OR session.connection_mode=sqlc.narg(connection_mode)::text)
+  AND (sqlc.narg(control_path)::text IS NULL OR session.control_path=sqlc.narg(control_path)::text)
   AND (sqlc.narg(created_from)::timestamptz IS NULL OR session.created_at>=sqlc.narg(created_from)::timestamptz)
   AND (sqlc.narg(created_to)::timestamptz IS NULL OR session.created_at<sqlc.narg(created_to)::timestamptz)
 ORDER BY session.created_at DESC,session.id DESC;
@@ -90,12 +90,13 @@ WHERE ticket.ticket_hash=sqlc.arg(ticket_hash) AND ticket.session_id=sqlc.arg(se
 RETURNING ticket.*;
 
 -- name: GetRemoteAccessSessionTarget :one
-SELECT session.*, host.address,host.hostname,host.port,host.pinned_host_key,account.username,account.credential_id,
+SELECT session.*, host.address,host.hostname,host.port,host.pinned_host_key,host.platform,account.username,account.credential_id,credential.protocol AS credential_protocol,
        connector.connection_epoch,lease.expires_at AS lease_expires_at
 FROM remote_access_sessions session
 JOIN remote_access_leases lease ON lease.id=session.lease_id AND lease.enterprise_id=session.enterprise_id
 JOIN hosts host ON host.id=session.host_id AND host.enterprise_id=session.enterprise_id AND host.status='active'
 JOIN managed_accounts account ON account.id=session.managed_account_id AND account.enterprise_id=session.enterprise_id AND account.status='active'
+JOIN credentials credential ON credential.id=account.credential_id AND credential.enterprise_id=account.enterprise_id AND credential.status='active'
 LEFT JOIN connectors connector ON connector.id=session.connector_id AND connector.enterprise_id=session.enterprise_id AND connector.status='online'
 WHERE session.id=$1;
 
@@ -112,8 +113,8 @@ UPDATE remote_access_sessions SET status=$3,termination_reason=$4,terminated_at=
 WHERE id=$1 AND session_fence=$2 AND status IN ('authorized','connecting','active','terminating') RETURNING *;
 
 -- name: CreateRemoteAccessRecording :one
-INSERT INTO remote_access_recordings (id,enterprise_id,session_id,key_provider,key_id,key_version,wrapped_dek)
-VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *;
+INSERT INTO remote_access_recordings (id,enterprise_id,session_id,key_provider,key_id,key_version,wrapped_dek,format)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *;
 
 -- name: GetRemoteAccessRecording :one
 SELECT * FROM remote_access_recordings WHERE id=$1 AND enterprise_id=$2 AND retention_until>now();

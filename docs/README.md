@@ -36,6 +36,10 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 26. [PlanV3 企业级远程访问治理](./planv3/README.md)
 27. [PlanV4 主机网络接入模式扩展](./planv4/README.md)
 28. [PlanV5 小内核 Agent、Tool Discovery 与 Tool 自带模板](./planv5/README.md)
+29. [跨平台主机接入、堡垒机中继与快速安装](./19-cross-platform-host-onboarding.md)
+30. [Windows Server 主机接入实机验收](./20-windows-host-e2e.md)
+31. [主机与堡垒机幂等卸载](./21-host-and-bastion-removal.md)
+32. [Connector 跨集群接管](./22-cross-cluster-connector-takeover.md)
 
 远程终端正式采用与页面内容切分视口的 Terminal Dock（非遮罩，类似浏览器 DevTools）：连接生命周期由 `TerminalSessionProvider` 与 Gateway 共同管理，支持底部/左侧/右侧三向停靠切换与 20%～80% 拖拽，位置与尺寸持久化在 `argus.terminalDock`；`server_ready` 语义与远端 shell 启动进度对齐（Connector 路径等待 `state: active`）。
 
@@ -51,7 +55,7 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 | Tool Result Projection       | 从完整 Tool Result 生成的模型安全投影，保留摘要、资源引用和 `result_ref`，不复制完整大结果                                 |
 | Connector                    | 安装在主机上的接入代理，主动连接 Argus；在堡垒机主机上承担内网资源代理、命令执行、Artifact Tunnel 和远程会话隧道           |
 | Bastion Scope                | 由一个已注册 Connector 的堡垒机主机创建的稳定管辖范围，包含堡垒机、其 Connector 和经该堡垒机接入的内网主机                 |
-| Direct Executor              | Argus 服务端中受控的 SSH/WinRM 执行角色，连接其部署网络可达且经过校验的目标，不作为任意网络代理                              |
+| Direct Executor              | Argus 服务端中受控的 SSH 安装与固定隧道执行角色，连接其部署网络可达且经过校验的目标，不承载安装后的人工会话                 |
 | Remote Access Session        | 用户经授权、可选 MFA/审批后创建的人工 SSH 等远程会话；具有短期票据、录像、审计和生命周期状态                               |
 | Kubernetes Node Host Binding | Kubernetes Node 与 Argus Host 的可信物理身份绑定，用于识别同一机器上的多个 Collector                                       |
 | Collection Claim             | 某个 Collector 对特定物理资源、信号和采集范围的责任声明；用于阻止 Host Collector 与 DaemonSet 长期重复采集                 |
@@ -105,7 +109,7 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 - Connector 可以使所在主机成为堡垒机并承载远程访问隧道，但人工远程会话票据不得提供给 AI、交互卡片 或 Sandbox。
 - 人工远程访问必须同时授权目标 Host、Managed Account、协议、动作和有效期；文件传输、剪贴板、会话分享和端口转发不能由“允许连接”隐式获得。
 - 所有受管 Host 统一提供命令行入口；人工会话与 Collector 安装/配置后台任务可以共享底层连接适配器，但使用独立票据、状态机、队列和审计。
-- 独立主机可以由受控 Direct Executor 通过 SSH/WinRM 直连；公网和私网目标均须由 Executor 部署网络实际可达，并继续受高风险地址与禁用网段策略约束。
+- Linux/Windows 主机可以由受控 Direct Executor 通过 OpenSSH 安装；安装后命令和会话统一通过主机本机 Connector 的主动连接工作。
 - 堡垒机主机可以同时安装 Edge Gateway Collector；遥测仍由 Collector 的 OTLP Pipeline 转发，不能复用 Connector 控制或远程会话通道。
 - 互通网络中的 Collector 可以组成 Leaf → Edge Gateway 拓扑，仅 Edge Gateway 需要访问 Argus。
 - Host Collector 与 Kubernetes DaemonSet Collector 可以共存，但同一物理资源上的同一 Collection Claim 默认只能有一个活动采集所有者。

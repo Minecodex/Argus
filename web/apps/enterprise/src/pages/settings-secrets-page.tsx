@@ -42,14 +42,14 @@ import { ManagedAccountsSection } from "../components/settings/managed-accounts-
 const SECRET_TYPES: SecretType[] = [
   "ssh_password",
   "ssh_private_key",
-  "winrm_password",
+  "windows_password",
   "kubeconfig",
   "api_token",
   "basic_auth",
 ];
 const CREDENTIAL_PROTOCOLS: Credential["protocol"][] = [
   "ssh",
-  "winrm",
+  "windows",
   "kubernetes",
   "http",
 ];
@@ -515,7 +515,7 @@ function CredentialDrawer({
           .trim()
           .min(1, t("settings.common.required"))
           .max(credentialConstraints.name.maxLength ?? 128),
-        protocol: z.enum(["ssh", "winrm", "kubernetes", "http"]),
+        protocol: z.enum(["ssh", "windows", "kubernetes", "http"]),
         username: z
           .string()
           .trim()
@@ -555,7 +555,7 @@ function CredentialDrawer({
   const protocol = watch("protocol");
   const compatibleSecrets = secrets.filter((secret) => {
     if (protocol === "kubernetes") return secret.type === "kubeconfig";
-    if (protocol === "winrm") return secret.type === "winrm_password";
+    if (protocol === "windows") return secret.type === "windows_password";
     if (protocol === "ssh") {
       return ["ssh_password", "ssh_private_key"].includes(secret.type);
     }
@@ -669,7 +669,7 @@ function SecretDrawer({
         type: z.enum([
           "ssh_password",
           "ssh_private_key",
-          "winrm_password",
+          "windows_password",
           "kubeconfig",
           "api_token",
           "basic_auth",

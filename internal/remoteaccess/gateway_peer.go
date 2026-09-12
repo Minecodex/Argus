@@ -299,7 +299,11 @@ func (server GatewayPeerServer) OpenRemoteAccess(stream remotev1.GatewayPeerServ
 	open := first.GetOpen()
 	sessionID, sessionErr := uuid.Parse(open.GetSessionId())
 	connectorID, connectorErr := uuid.Parse(open.GetConnectorId())
-	credentialLeaseID, leaseErr := uuid.Parse(open.GetCredentialLeaseId())
+	credentialLeaseID := uuid.Nil
+	var leaseErr error
+	if open.GetCredentialLeaseId() != "" {
+		credentialLeaseID, leaseErr = uuid.Parse(open.GetCredentialLeaseId())
+	}
 	if sessionErr != nil || connectorErr != nil || leaseErr != nil || open.GetSessionFence() < 1 || open.GetConnectionEpoch() < 1 ||
 		!validSize(int(open.GetTerminalCols()), int(open.GetTerminalRows())) {
 		return status.Error(codes.InvalidArgument, "invalid Gateway peer binding")
@@ -323,10 +327,7 @@ func (server GatewayPeerServer) OpenRemoteAccess(stream remotev1.GatewayPeerServ
 		return status.Error(codes.Unavailable, "Connector stream unavailable")
 	}
 	defer backend.Close(context.Background(), "peer_closed")
-	mode := "ssh_pty"
-	if target.Protocol == "winrs" {
-		mode = "winrs_line"
-	}
+	mode := target.Protocol
 	if err := stream.Send(&remotev1.OpenRemoteAccessResponse{Sequence: 1,
 		Frame: &remotev1.OpenRemoteAccessResponse_Ready{Ready: &remotev1.GatewayPeerReady{Mode: mode}}}); err != nil {
 		return err

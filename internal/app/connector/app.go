@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const softwareVersion = "0.1.0-m3"
@@ -16,7 +17,7 @@ const softwareVersion = "0.1.0-m3"
 func Run(ctx context.Context, logger *slog.Logger) error {
 	command := "run"
 	args := os.Args[1:]
-	if len(args) > 0 && (args[0] == "run" || args[0] == "enroll" || args[0] == "repair" || args[0] == "repair-collector" || args[0] == "probe" || args[0] == "bootstrap-state") {
+	if len(args) > 0 && (args[0] == "run" || args[0] == "enroll" || args[0] == "repair" || args[0] == "repair-collector" || args[0] == "probe" || args[0] == "bootstrap-state" || args[0] == "collector-service" || args[0] == "privileged-helper" || args[0] == "verify-artifact" || args[0] == "self-test" || args[0] == "uninstall-local") {
 		command, args = args[0], args[1:]
 	}
 	switch command {
@@ -32,6 +33,16 @@ func Run(ctx context.Context, logger *slog.Logger) error {
 		return runProbe(ctx, args)
 	case "bootstrap-state":
 		return runBootstrapState(args)
+	case "collector-service":
+		return runCollectorService(ctx, args)
+	case "privileged-helper":
+		return runPrivilegedHelper(ctx, args)
+	case "verify-artifact":
+		return runVerifyArtifact(args)
+	case "self-test":
+		return runSelfTest(ctx, args)
+	case "uninstall-local":
+		return runUninstallLocal(ctx, args)
 	default:
 		return fmt.Errorf("unknown connector command %q", command)
 	}
@@ -111,13 +122,22 @@ func runEnroll(ctx context.Context, logger *slog.Logger, args []string) error {
 	caFile := flags.String("ca-file", os.Getenv("ARGUS_CONNECTOR_CA_FILE"), "current Argus Trust Bundle file")
 	connectorID := flags.String("connector-id", "", "preallocated Connector ID")
 	token := flags.String("token", os.Getenv("ARGUS_CONNECTOR_ENROLLMENT_TOKEN"), "one-time enrollment token")
-	role := flags.String("role", "bastion", "Connector role: bastion or kubernetes")
+	tokenFile := flags.String("token-file", "", "file containing the one-time enrollment token")
+	role := flags.String("role", "host", "Connector role: host, bastion, or kubernetes")
 	name := flags.String("name", hostname(), "Connector display name")
 	dataDirectory := flags.String("data-dir", defaultDataDirectory(), "Connector identity directory")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if *server == "" || *caFile == "" || *connectorID == "" || *token == "" || (*role != "bastion" && *role != "kubernetes") {
+	if *tokenFile != "" {
+		value, readErr := os.ReadFile(*tokenFile)
+		if readErr != nil {
+			return errors.New("read Connector enrollment token file")
+		}
+		*token = strings.TrimSpace(string(value))
+		clear(value)
+	}
+	if *server == "" || *caFile == "" || *connectorID == "" || *token == "" || (*role != "host" && *role != "bastion" && *role != "kubernetes") {
 		return errors.New("--server, --ca-file, --connector-id, --token, and a valid --role are required")
 	}
 	result, err := enroll(ctx, enrollOptions{Server: *server, ConnectorID: *connectorID, Token: *token, Role: *role,
@@ -146,14 +166,22 @@ func runConnector(ctx context.Context, logger *slog.Logger, args []string) error
 			return fmt.Errorf("persist Kubernetes Connector identity: %w", err)
 		}
 	}
-	return (connectorClient{store: store, logger: logger}).run(ctx)
-}
-
-func defaultDataDirectory() string {
-	if value := os.Getenv("ARGUS_CONNECTOR_DATA_DIR"); value != "" {
-		return value
+	identity, err := store.loadIdentity()
+	if err != nil {
+		return fmt.Errorf("load Connector identity: %w", err)
 	}
-	return "/var/lib/argus-connector"
+	var relay *bastionRelay
+	if identity.Role == "bastion" {
+		relay, err = startBastionRelay(ctx, store, identity, logger)
+		if err != nil {
+			return err
+		}
+		defer relay.Close()
+		status := relay.snapshot()
+		logger.Info("Bastion TLS relay initialized", "status", status.GetStatus(), "address", status.GetAdvertiseAddress(),
+			"generation", status.GetGeneration(), "listeners", status.GetListeners(), "error_code", status.GetErrorCode())
+	}
+	return (connectorClient{store: store, logger: logger, relay: relay}).run(ctx)
 }
 
 func hostname() string {

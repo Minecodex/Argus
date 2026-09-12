@@ -10,12 +10,15 @@ import (
 )
 
 type p4InstallResult struct {
-	ExecutionID string
-	OperationID string
-	ScopeID     string
-	ConnectorID string
-	HostID      string
-	Operation   map[string]any
+	ExecutionID      string
+	OperationID      string
+	ScopeID          string
+	ConnectorID      string
+	HostID           string
+	RelayAddress     string
+	RelayHTTPSPort   int
+	RelayGatewayPort int
+	Operation        map[string]any
 }
 
 func (a *App) createP4ConnectionTest(ctx context.Context, env *E2EEnvironment, name, address, credentialID string, scopeID string) (string, error) {
@@ -23,13 +26,12 @@ func (a *App) createP4ConnectionTest(ctx context.Context, env *E2EEnvironment, n
 	if err != nil {
 		return "", err
 	}
-	mode := "direct_ssh"
 	body := map[string]any{
-		"address": address, "port": 22, "platform": "linux", "connection_mode": mode,
+		"address": address, "port": 22, "platform": "linux", "ssh_path": "direct_executor",
 		"credential_id": credentialID, "username": "root",
 	}
 	if scopeID != "" {
-		body["connection_mode"] = "via_bastion"
+		body["ssh_path"] = "bastion_connector"
 		body["bastion_scope_id"] = scopeID
 	}
 	test, err := client.JSON(ctx, name+"-connection-test", "enterprise", http.MethodPost,
@@ -182,6 +184,62 @@ func waitP4Tick(ctx context.Context) error {
 	}
 }
 
+func (a *App) verifyP4HostOnboardingTimeline(ctx context.Context, env *E2EEnvironment, hostID string) error {
+	client, err := scenarioHTTP(env)
+	if err != nil {
+		return err
+	}
+	var operationID string
+	deadline := time.Now().Add(5 * time.Minute)
+	for time.Now().Before(deadline) {
+		value, queryErr := a.postgresQuery(ctx, env,
+			"SELECT id FROM host_onboarding_operations WHERE host_id='"+hostID+"' ORDER BY created_at DESC,id DESC LIMIT 1;")
+		if queryErr == nil && strings.TrimSpace(value) != "" {
+			operationID = strings.TrimSpace(value)
+			break
+		}
+		if err = waitP4Tick(ctx); err != nil {
+			return err
+		}
+	}
+	if operationID == "" {
+		return fmt.Errorf("Host %s did not create an onboarding operation", hostID)
+	}
+	deadline = time.Now().Add(5 * time.Minute)
+	for time.Now().Before(deadline) {
+		operation, getErr := client.JSON(ctx, "p4-host-onboarding-"+hostID, "enterprise", http.MethodGet,
+			"/enterprise/host-onboarding-operations/"+operationID, http.StatusOK, nil,
+			map[string]string{"Origin": env.EnterpriseOrigin()})
+		if getErr != nil {
+			return getErr
+		}
+		status, _ := operation["status"].(string)
+		if status == "failed" || status == "expired" {
+			return fmt.Errorf("Host %s onboarding ended as %s", hostID, status)
+		}
+		if status == "succeeded" {
+			want := []string{"queued", "probing", "transferring", "installing", "enrolling", "waiting_online", "completed"}
+			events, _ := operation["events"].([]any)
+			observed := make([]string, 0, len(want))
+			for _, raw := range events {
+				event, _ := raw.(map[string]any)
+				stage, _ := event["stage"].(string)
+				if stage != "" && !slices.Contains(observed, stage) {
+					observed = append(observed, stage)
+				}
+			}
+			if !slices.Equal(observed, want) || operation["stage"] != "completed" {
+				return fmt.Errorf("Host %s onboarding timeline = %v, want %v", hostID, observed, want)
+			}
+			return nil
+		}
+		if err = waitP4Tick(ctx); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("Host %s onboarding timeline did not complete", hostID)
+}
+
 func (a *App) verifyP4NoSensitivePersistence(ctx context.Context, env *E2EEnvironment) error {
 	checks := []struct {
 		name  string
@@ -201,7 +259,7 @@ WHERE details::text ILIKE '%"enrollment_token"%'
 		{"expired credential lease", `SELECT count(*) FROM credential_leases
 WHERE status = 'active' AND expires_at <= now();`},
 		{"invalid one-time envelope", `SELECT count(*) FROM execution_one_time_results
-WHERE result_kind NOT IN ('host_install_command','host_uninstall_command','connector_install_command')
+WHERE result_kind <> 'connector_install_command'
    OR octet_length(nonce) = 0 OR octet_length(ciphertext) = 0;`},
 		{"plaintext operation secret", `SELECT count(*) FROM connector_install_operation_secrets
 WHERE octet_length(nonce) = 0 OR octet_length(ciphertext) = 0;`},
@@ -266,6 +324,18 @@ func (a *App) applyP4HostCollector(ctx context.Context, env *E2EEnvironment, nam
 	if err != nil {
 		return nil, err
 	}
+	if routeKind == "bastion_gateway" && gatewayCollectorID == "" {
+		plan, _ := preview["preview"].(map[string]any)
+		sequence, _ := plan["sequence"].([]any)
+		if len(sequence) != 2 {
+			return nil, fmt.Errorf("%s Collector preview omitted the ordered Bastion Gateway bootstrap plan", name)
+		}
+		first, _ := sequence[0].(map[string]any)
+		second, _ := sequence[1].(map[string]any)
+		if first["operation"] != "enable_bastion_edge_gateway" || second["operation"] != "install_leaf_collector" {
+			return nil, fmt.Errorf("%s Collector preview returned an invalid Gateway sequence: %#v", name, sequence)
+		}
+	}
 	actionRef, err := stringField(preview, "action_ref")
 	if err != nil {
 		return nil, err
@@ -274,4 +344,46 @@ func (a *App) applyP4HostCollector(ctx context.Context, env *E2EEnvironment, nam
 		return nil, err
 	}
 	return a.waitP4HostCollector(ctx, env, hostID, "converged")
+}
+
+func (a *App) uninstallP4HostCollector(ctx context.Context, env *E2EEnvironment, name, hostID, distributionID string, profiles []string,
+	routeKind, transport, gatewayCollectorID string, loopbackPort int) error {
+	client, err := scenarioHTTP(env)
+	if err != nil {
+		return err
+	}
+	collector, err := client.JSON(ctx, name+"-collector-current", "enterprise", http.MethodGet,
+		"/enterprise/hosts/"+hostID+"/collector", http.StatusOK, nil, map[string]string{"Origin": env.EnterpriseOrigin()})
+	if err != nil {
+		return err
+	}
+	version, err := numberField(collector, "version")
+	if err != nil {
+		return err
+	}
+	body := map[string]any{
+		"distribution_version_id": distributionID, "profile_ids": profiles, "route_kind": routeKind,
+		"transport": transport, "expected_version": version,
+	}
+	if loopbackPort > 0 {
+		body["loopback_port"] = loopbackPort
+	}
+	if gatewayCollectorID != "" {
+		body["gateway_collector_id"] = gatewayCollectorID
+	}
+	preview, err := client.JSON(ctx, name+"-collector-uninstall-preview", "enterprise", http.MethodPost,
+		"/enterprise/hosts/"+hostID+"/collector/actions/preview-uninstall", http.StatusCreated,
+		body, enterpriseHeaders(env, name+"-collector-uninstall-preview"))
+	if err != nil {
+		return err
+	}
+	actionRef, err := stringField(preview, "action_ref")
+	if err != nil {
+		return err
+	}
+	if _, err = a.confirmPendingAction(ctx, env, name+"-collector-uninstall", actionRef); err != nil {
+		return err
+	}
+	_, err = a.waitP4HostCollector(ctx, env, hostID, "uninstalled")
+	return err
 }

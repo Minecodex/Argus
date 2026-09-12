@@ -77,7 +77,7 @@ func enroll(ctx context.Context, options enrollOptions) (enrollResult, error) {
 	if architecture == "" {
 		return enrollResult{}, errors.New("Connector architecture is unsupported")
 	}
-	payload := map[string]any{"csr_pem": identity.CSRPEM, "device_fingerprint": deviceFingerprint(), "instance_id": localInstanceID, "architecture": architecture,
+	payload := map[string]any{"csr_pem": identity.CSRPEM, "device_fingerprint": deviceFingerprint(), "instance_id": localInstanceID, "platform": runtime.GOOS, "architecture": architecture,
 		"name": options.Name, "software_version": softwareVersion, "capabilities": capabilities}
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -143,10 +143,15 @@ func enroll(ctx context.Context, options enrollOptions) (enrollResult, error) {
 		return enrollResult{}, err
 	}
 	state := identityState{ConnectorID: id.String(), Role: result.Role, InstanceID: localInstanceID, Name: options.Name,
-		GatewayEndpoint: result.GatewayEndpoint, CertificateExpiresAt: result.CertificateExpiresAt, Capabilities: capabilities,
+		EnrollmentEndpoint: options.Server, GatewayEndpoint: result.GatewayEndpoint, CertificateExpiresAt: result.CertificateExpiresAt, Capabilities: capabilities,
 		TrustBundleEpoch: bundle.Epoch, TrustBundleSHA256: bundle.Material.SHA256, TrustCAFingerprints: bundle.Material.Fingerprints}
-	if err := (localStore{directory: options.DataDirectory}).saveIdentity(state, keyPEM, []byte(result.CertificatePEM), bundle.Material.PEM); err != nil {
+	if err := (localStore{directory: options.DataDirectory}).saveEnrollmentIdentity(state, keyPEM, []byte(identity.CSRPEM), []byte(result.CertificatePEM), bundle.Material.PEM); err != nil {
 		return enrollResult{}, err
+	}
+	if identity.Staged {
+		if err := connectorcore.RemoveStagedLocalIdentity(options.DataDirectory, id); err != nil {
+			return enrollResult{}, err
+		}
 	}
 	return result, nil
 }
@@ -189,9 +194,12 @@ func enrollmentEndpoint(value string) (string, error) {
 }
 
 func roleCapabilities(role string) []string {
+	if role == "host" {
+		return []string{"host.local_command", "host.local_shell", "host.collector_manage", "host.tcp_tunnel", "host.windows_rdp_manage", "connector.uninstall"}
+	}
 	values := []string{"kubernetes.connection_probe", "kubernetes.query", "credential.lease", "connector.uninstall"}
 	if role == "bastion" {
-		values = append([]string{"host.connection_probe"}, values...)
+		values = append([]string{"host.connection_probe", "host.ssh_install", "bastion.tls_relay"}, values...)
 	}
 	return values
 }
@@ -214,13 +222,7 @@ func connectorArchitecture() string {
 }
 
 func deviceFingerprint() string {
-	parts := []string{hostname()}
-	for _, path := range []string{"/etc/machine-id", "/var/lib/dbus/machine-id"} {
-		if value, err := os.ReadFile(path); err == nil {
-			parts = append(parts, strings.TrimSpace(string(value)))
-			break
-		}
-	}
+	parts := append([]string{hostname()}, machineIdentityParts()...)
 	digest := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
 	return hex.EncodeToString(digest[:])
 }
@@ -264,6 +266,7 @@ func validateIssuedIdentity(connectorID uuid.UUID, keyPEM, certificatePEM, caPEM
 func pinnedAddressTransport(dialAddress string) *http.Transport {
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
 	return &http.Transport{
+		ForceAttemptHTTP2: true,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return dialer.DialContext(ctx, network, dialAddress)
 		},

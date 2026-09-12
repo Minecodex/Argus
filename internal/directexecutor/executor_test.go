@@ -189,7 +189,7 @@ func TestConnectorInstallPersistsCollectorArtifactTrust(t *testing.T) {
 		t.Fatal(err)
 	}
 	command := &connectorv1.ConnectorInstallCommand{Artifact: &connectorv1.CollectorArtifact{SigningKeyId: "release-key"},
-		ArtifactSigningPublicKey: base64.RawStdEncoding.EncodeToString(publicKey)}
+		ArtifactSigningPublicKey: base64.RawStdEncoding.EncodeToString(publicKey), EnrollDialAddress: "127.0.0.1:18443"}
 	decoded, err := connectorInstallSigningKey(command)
 	if err != nil || !bytes.Equal(decoded, publicKey) {
 		t.Fatalf("frozen signing root rejected: %v", err)
@@ -198,14 +198,20 @@ func TestConnectorInstallPersistsCollectorArtifactTrust(t *testing.T) {
 	for _, required := range []string{
 		"ARGUS_OTELCOL_SIGNING_PUBLIC_KEYS_FILE=/etc/argus-connector/otelcol-signing-keys.json",
 		"ARGUS_OTELCOL_ARTIFACT_CA_PATH=/etc/argus-connector/otelcol-artifact-ca.pem",
-		"ReadWritePaths=/var/lib/argus-connector /etc/argus-connector /var/lib/argus-otelcol",
+		"ARGUS_ARTIFACT_DIAL_ADDRESS=127.0.0.1:18443",
+		"User=argus-connector",
+		"Wants=network-online.target argus-connector-privileged.service",
+		"ReadWritePaths=/var/lib/argus-connector /etc/argus-connector",
 	} {
 		if !strings.Contains(unit, required) {
 			t.Fatalf("Connector unit omitted %q", required)
 		}
 	}
-	if strings.Contains(unit, "User=argus-connector") {
-		t.Fatal("Connector local installer unexpectedly runs without host installation privileges")
+	helper := connectorPrivilegedSystemdUnit(command, true)
+	for _, required := range []string{"User=root", "ExecStart=/usr/local/bin/argus-connector privileged-helper", "ReadWritePaths=/run/argus-connector /var/lib/argus-otelcol", "ARGUS_OTELCOL_ARTIFACT_CA_PATH=/etc/argus-connector/otelcol-artifact-ca.pem"} {
+		if !strings.Contains(helper, required) {
+			t.Fatalf("Connector helper unit omitted %q", required)
+		}
 	}
 	command.ArtifactSigningPublicKey = "invalid"
 	if _, err = connectorInstallSigningKey(command); err == nil {
@@ -228,8 +234,8 @@ func TestConnectorSSHInstallPinsPrivateCAForEnrollment(t *testing.T) {
 	if err != nil || parsed.SHA256 != material.SHA256 {
 		t.Fatalf("valid private Trust Bundle rejected: %v", err)
 	}
-	enroll := connectorEnrollCommand(command, "one-time-token")
-	for _, expected := range []string{"ARGUS_CONNECTOR_ENROLL_ADDRESS='127.0.0.1:8443'", "--server 'https://argus.private.example'", "--ca-file /etc/argus-connector/server-ca.pem"} {
+	enroll := connectorEnrollCommand(command, "one-time-token", "/var/lib/argus-connector-install/test")
+	for _, expected := range []string{"ARGUS_CONNECTOR_ENROLL_ADDRESS='127.0.0.1:8443'", "--server 'https://argus.private.example'", "--ca-file '/var/lib/argus-connector-install/test/server-ca.pem'"} {
 		if !strings.Contains(enroll, expected) {
 			t.Fatalf("remote enrollment command omitted %q: %s", expected, enroll)
 		}

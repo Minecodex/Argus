@@ -20,6 +20,8 @@ import (
 
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 
+	"github.com/kakj-go/Argus/internal/hostonboarding"
+	"github.com/kakj-go/Argus/internal/installation"
 	"github.com/kakj-go/Argus/internal/operationsecret"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
@@ -71,6 +73,7 @@ func NewBastionService(
 
 type BastionInput struct {
 	Name, Environment string
+	Architecture      string
 	Labels            map[string]string
 	ExpectedVersion   int64
 	// PlanV4 Task 06 安装模式:command=一次性命令;direct_install=平台 SSH
@@ -148,8 +151,12 @@ type connectorInstallRetryPlan struct {
 	InstallMode       string    `json:"install_mode"`
 }
 
-func bastionEnrollmentPolicy() json.RawMessage {
-	return json.RawMessage(`{"capabilities":["host.connection_probe","kubernetes.connection_probe","kubernetes.query","credential.lease","connector.uninstall"]}`)
+func bastionEnrollmentPolicy(target installation.Platform) json.RawMessage {
+	value, _ := json.Marshal(map[string]any{
+		"target_platform": target,
+		"capabilities":    []string{"host.connection_probe", "host.ssh_install", "bastion.tls_relay", "kubernetes.connection_probe", "kubernetes.query", "credential.lease", "connector.uninstall"},
+	})
+	return value
 }
 
 func (service BastionService) List(ctx context.Context, enterpriseID uuid.UUID) ([]db.ListBastionScopesRow, error) {
@@ -247,6 +254,9 @@ func (service BastionService) validateRetryInstall(ctx context.Context, q *db.Qu
 	if err != nil || test.Status != "succeeded" || !time.Now().UTC().Before(test.ExpiresAt.Time) {
 		return db.ConnectorInstallOperation{}, nil, db.GetBastionScopeRow{}, resource.ErrConnectionTestNeeded
 	}
+	if err := service.validateCallbackConnectionTest(ctx, q, enterpriseID, test, bastionInstallControlPath(operation.InstallMode), "direct_executor", uuid.NullUUID{}); err != nil {
+		return db.ConnectorInstallOperation{}, nil, db.GetBastionScopeRow{}, err
+	}
 	var result resource.ConnectionTestResult
 	if json.Unmarshal(test.Result, &result) != nil || result.HostKeyFingerprint != command.GetPinnedHostKey() {
 		return db.ConnectorInstallOperation{}, nil, db.GetBastionScopeRow{}, resource.ErrConnectionTestNeeded
@@ -259,23 +269,24 @@ func (service BastionService) validateRetryInstall(ctx context.Context, q *db.Qu
 }
 
 func (service BastionService) PreviewCreate(ctx context.Context, subject resource.Subject, enterpriseID uuid.UUID, input BastionInput, idempotencyKey string) (db.PendingAction, error) {
-	_, _, err := resource.NormalizeUserLabels(input.Labels)
+	name, err := resource.NormalizeResourceName(input.Name)
 	if err != nil {
 		return db.PendingAction{}, err
 	}
-	available, err := service.Store.Queries.BastionNameAvailable(ctx, db.BastionNameAvailableParams{
-		EnterpriseID: enterpriseID,
-		Name:         input.Name,
-	})
+	input.Name = name
+	available, err := service.NameAvailable(ctx, enterpriseID, input.Name)
 	if err != nil {
 		return db.PendingAction{}, err
 	}
-	if !available.Valid || !available.Bool {
+	if !available {
 		return db.PendingAction{}, ErrBastionNameConflict
+	}
+	if _, _, err := resource.NormalizeUserLabels(input.Labels); err != nil {
+		return db.PendingAction{}, err
 	}
 	scopeID, hostID := newID(), newID()
 	snapshot := resource.NewResourceAuthorizationSnapshot("host", hostID)
-	plan := bastionPlan{Operation: "create", ScopeID: scopeID, HostID: hostID, Input: input}
+	plan := bastionPlan{Operation: "create", ScopeID: scopeID, HostID: hostID, Input: input, Architecture: input.Architecture}
 	if err := service.freezeDirectInstallPlan(ctx, service.Store.Queries, enterpriseID, &plan); err != nil {
 		return db.PendingAction{}, err
 	}
@@ -307,6 +318,13 @@ func (service BastionService) PreviewReplacement(
 	}
 	input.InstallMode = current.OnboardingMode
 	plan := bastionPlan{Operation: "replace", ScopeID: scopeID, HostID: current.ConnectorHostID.UUID, Input: input}
+	if input.InstallMode == "command" {
+		host, hostErr := service.Store.Queries.GetHost(ctx, db.GetHostParams{ID: current.ConnectorHostID.UUID, EnterpriseID: enterpriseID})
+		if hostErr != nil || !host.Architecture.Valid {
+			return db.PendingAction{}, ErrBastionState
+		}
+		plan.Architecture = host.Architecture.String
+	}
 	if err = service.freezeDirectInstallPlan(ctx, service.Store.Queries, enterpriseID, &plan); err != nil {
 		return db.PendingAction{}, err
 	}
@@ -356,8 +374,11 @@ func (service BastionService) PreviewLifecycle(ctx context.Context, subject reso
 	if err != nil || current.ResourceVersion != expectedVersion {
 		return db.PendingAction{}, resource.ErrVersionConflict
 	}
-	deletable := current.Status == "uninstalled" || current.Status == "pending" ||
-		(current.Status == "offline" && !current.ActiveConnectorID.Valid)
+	deletable := current.Status == "uninstalled"
+	if operation == "delete" && current.Status == "pending" && !current.ActiveConnectorID.Valid && current.ConnectorHostID.Valid {
+		host, hostErr := service.Store.Queries.GetHost(ctx, db.GetHostParams{ID: current.ConnectorHostID.UUID, EnterpriseID: enterpriseID})
+		deletable = hostErr == nil && host.Role == "bastion" && host.Status == "active" && !host.ConnectorID.Valid
+	}
 	if operation == "delete" && (current.MemberCount != 0 || !deletable) {
 		return db.PendingAction{}, ErrBastionState
 	}
@@ -368,7 +389,7 @@ func (service BastionService) PreviewLifecycle(ctx context.Context, subject reso
 		return db.PendingAction{}, resource.ErrActionInvalidated
 	}
 	if !current.ConnectorHostID.Valid {
-		// Every live Scope owns exactly one live connector_local root Host. Never
+		// Every live Scope owns exactly one live Bastion Host. Never
 		// prepare a lifecycle action with uuid.Nil: delete must be all-or-nothing.
 		return db.PendingAction{}, ErrBastionState
 	}
@@ -376,11 +397,19 @@ func (service BastionService) PreviewLifecycle(ctx context.Context, subject reso
 	plan := bastionPlan{Operation: operation, ScopeID: scopeID, HostID: current.ConnectorHostID.UUID, Input: BastionInput{ExpectedVersion: expectedVersion}}
 	if operation == "rotate" {
 		plan.Input.InstallMode = "command"
+		host, hostErr := service.Store.Queries.GetHost(ctx, db.GetHostParams{ID: current.ConnectorHostID.UUID, EnterpriseID: enterpriseID})
+		if hostErr != nil || !host.Architecture.Valid {
+			return db.PendingAction{}, ErrBastionState
+		}
+		plan.Architecture = host.Architecture.String
 		if err := service.freezeDirectInstallPlan(ctx, service.Store.Queries, enterpriseID, &plan); err != nil {
 			return db.PendingAction{}, err
 		}
 	}
 	risk, verb, actionType := "dangerous", "Delete", "bastion_scope.delete"
+	if operation == "delete" && current.Status == "pending" && !current.ActiveConnectorID.Valid {
+		risk = "write"
+	}
 	if operation == "replace" {
 		verb, actionType = "Replace connector for", "bastion.connector.replace"
 	} else if operation == "rotate" {
@@ -418,16 +447,6 @@ func (service BastionService) connectorUninstallState(ctx context.Context, q *db
 	plan := connectorUninstallPlan{ConnectorID: connector.ID, ExpectedVersion: connector.Version, ConnectionEpoch: connector.ConnectionEpoch,
 		BastionScopeID: connector.BastionScopeID, KubernetesID: connector.KubernetesClusterID}
 	switch connector.Role {
-	case "bastion":
-		if !connector.BastionScopeID.Valid {
-			return snapshot, plan, ErrBastionState
-		}
-		scope, err := q.GetBastionScope(ctx, db.GetBastionScopeParams{ID: connector.BastionScopeID.UUID, EnterpriseID: connector.EnterpriseID})
-		if err != nil || !scope.ActiveConnectorID.Valid || scope.ActiveConnectorID.UUID != connector.ID || scope.Status != "active" {
-			return snapshot, plan, ErrBastionState
-		}
-		snapshot.ResourceID, snapshot.ResourceVersion, snapshot.FencingGeneration = scope.ID, scope.ResourceVersion, scope.FencingGeneration
-		plan.FencingGeneration = scope.FencingGeneration
 	case "kubernetes":
 		if !connector.KubernetesClusterID.Valid {
 			return snapshot, plan, ErrBastionState
@@ -444,6 +463,13 @@ func (service BastionService) connectorUninstallState(ctx context.Context, q *db
 }
 
 func (service BastionService) RevalidateAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) ([]byte, error) {
+	if action.ActionType == "host.windows_rdp.enable" {
+		var plan windowsRDPEnablePlan
+		if json.Unmarshal(raw, &plan) != nil || service.revalidateWindowsRDPEnable(ctx, q, action.EnterpriseID, plan) != nil {
+			return nil, resource.ErrActionInvalidated
+		}
+		return resource.HashResourceAuthorizationSnapshot("host", plan.HostID)
+	}
 	if action.ActionType == "bastion.connector.install.retry" {
 		var plan connectorInstallRetryPlan
 		if json.Unmarshal(raw, &plan) != nil {
@@ -496,6 +522,16 @@ func (service BastionService) RevalidateAction(ctx context.Context, q *db.Querie
 	if plan.Operation == "update" {
 		return resource.HashResourceAuthorizationSnapshot("host", plan.HostID)
 	}
+	if plan.Operation == "delete" {
+		deletable := current.Status == "uninstalled"
+		if current.Status == "pending" && !current.ActiveConnectorID.Valid && current.ConnectorHostID.Valid {
+			host, hostErr := q.GetHost(ctx, db.GetHostParams{ID: current.ConnectorHostID.UUID, EnterpriseID: action.EnterpriseID})
+			deletable = hostErr == nil && host.Role == "bastion" && host.Status == "active" && !host.ConnectorID.Valid
+		}
+		if !deletable || current.MemberCount != 0 {
+			return nil, resource.ErrActionInvalidated
+		}
+	}
 	if plan.Operation == "replace" {
 		if !current.ActiveConnectorID.Valid || !current.ConnectorHostID.Valid || current.ConnectorHostID.UUID != plan.HostID ||
 			!replacementStatusAllowed(current.Status) || current.OnboardingMode != plan.Input.InstallMode ||
@@ -517,6 +553,9 @@ func (service BastionService) RevalidateAction(ctx context.Context, q *db.Querie
 }
 
 func (service BastionService) CommitAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) (resource.ActionCommitResult, error) {
+	if action.ActionType == "host.windows_rdp.enable" {
+		return service.commitWindowsRDPEnable(ctx, q, action, raw)
+	}
 	if action.ActionType == "bastion.connector.install.retry" {
 		return service.commitRetryInstall(ctx, q, action, raw)
 	}
@@ -544,15 +583,19 @@ func (service BastionService) CommitAction(ctx context.Context, q *db.Queries, a
 		}
 		hostAddress, hostPort, pinnedHostKey := "connector://"+plan.HostID.String(), int32(1), ""
 		if plan.Input.InstallMode == "direct_install" || plan.Input.InstallMode == "direct_install_tunnel" {
-			_, connectionResult, validationErr := validateDirectInstallInput(ctx, q, action.EnterpriseID, plan.Input)
+			_, connectionResult, validationErr := service.validateDirectInstallInput(ctx, q, action.EnterpriseID, plan.Input)
 			if validationErr != nil {
 				return resource.ActionCommitResult{}, validationErr
 			}
 			hostAddress, hostPort, pinnedHostKey = plan.Input.Address, plan.Input.Port, connectionResult.HostKeyFingerprint
 		}
+		controlPath := "direct"
+		if plan.Input.InstallMode == "direct_install_tunnel" {
+			controlPath = "executor_tunnel"
+		}
 		host, err := q.CreateHost(ctx, db.CreateHostParams{ID: plan.HostID, EnterpriseID: action.EnterpriseID, Name: plan.Input.Name,
-			Hostname: "", Address: hostAddress, Port: hostPort, Platform: "linux",
-			Architecture: pgtype.Text{String: plan.Architecture, Valid: plan.Architecture != ""}, ConnectionMode: "connector_local",
+			Hostname: "", Address: pgtype.Text{String: hostAddress, Valid: true}, Port: hostPort, Platform: "linux", Role: "bastion", ControlPath: controlPath,
+			Architecture:   pgtype.Text{String: plan.Architecture, Valid: plan.Architecture != ""},
 			BastionScopeID: uuid.NullUUID{UUID: scope.ID, Valid: true}, Environment: plan.Input.Environment, Labels: labels, LabelsHash: hash,
 			ConnectionStatus: "onboarding", PinnedHostKey: pinnedHostKey})
 		if err != nil {
@@ -571,9 +614,11 @@ func (service BastionService) CommitAction(ctx context.Context, q *db.Queries, a
 			CreatedBy: uuid.NullUUID{UUID: creator, Valid: true}}); err != nil {
 			return resource.ActionCommitResult{}, err
 		}
+		targetPlatform := installation.Platform("linux_" + plan.Architecture)
 		enrollment, err := service.Enrollment.CreateEnrollment(ctx, q, action.CreatorSubjectID.String(), action.EnterpriseID, CreateEnrollmentInput{Role: "bastion",
 			Purpose: "initial_registration", BastionScopeID: uuid.NullUUID{UUID: scope.ID, Valid: true}, HostID: uuid.NullUUID{UUID: plan.HostID, Valid: true},
-			ManualInstall: plan.Input.InstallMode == "command", ReleaseVersionID: manualConnectorReleaseID(plan), Policy: bastionEnrollmentPolicy()})
+			ManualInstall: plan.Input.InstallMode == "command", ReleaseVersionID: manualConnectorReleaseID(plan), TargetPlatform: targetPlatform,
+			Policy: bastionEnrollmentPolicy(targetPlatform)})
 		if err != nil {
 			return resource.ActionCommitResult{}, err
 		}
@@ -670,7 +715,7 @@ func (service BastionService) CommitAction(ctx context.Context, q *db.Queries, a
 				if hostErr != nil {
 					return resource.ActionCommitResult{}, hostErr
 				}
-				_, connectionResult, hostErr := validateDirectInstallInput(ctx, q, action.EnterpriseID, plan.Input)
+				_, connectionResult, hostErr := service.validateDirectInstallInput(ctx, q, action.EnterpriseID, plan.Input)
 				if hostErr != nil {
 					return resource.ActionCommitResult{}, hostErr
 				}
@@ -690,9 +735,11 @@ func (service BastionService) CommitAction(ctx context.Context, q *db.Queries, a
 		if plan.Operation == "replace" {
 			purpose = "connector_replacement"
 		}
+		targetPlatform := installation.Platform("linux_" + plan.Architecture)
 		enrollment, err := service.Enrollment.CreateEnrollment(ctx, q, action.CreatorSubjectID.String(), action.EnterpriseID, CreateEnrollmentInput{Role: "bastion",
 			Purpose: purpose, BastionScopeID: uuid.NullUUID{UUID: plan.ScopeID, Valid: true}, HostID: uuid.NullUUID{UUID: plan.HostID, Valid: true},
-			ManualInstall: plan.Input.InstallMode == "command", ReleaseVersionID: manualConnectorReleaseID(plan), Policy: bastionEnrollmentPolicy()})
+			ManualInstall: plan.Input.InstallMode == "command", ReleaseVersionID: manualConnectorReleaseID(plan), TargetPlatform: targetPlatform,
+			Policy: bastionEnrollmentPolicy(targetPlatform)})
 		if err != nil {
 			return resource.ActionCommitResult{}, err
 		}
@@ -708,18 +755,34 @@ func (service BastionService) CommitAction(ctx context.Context, q *db.Queries, a
 			Summary: "Connector enrollment command created", OneTimeCommand: &resource.OneTimeCommandResult{
 				InstructionSets: enrollment.InstructionSets, ExpiresAt: enrollment.Record.ExpiresAt.Time}, OneTimeResultKind: "connector_install_command"}, nil
 	case "delete":
-		// 撤销未消费的注册令牌:删除后旧安装命令必须失效。
-		_ = q.RevokeActiveEnrollmentTokens(ctx, db.RevokeActiveEnrollmentTokensParams{EnterpriseID: action.EnterpriseID,
-			BastionScopeID: uuid.NullUUID{UUID: plan.ScopeID, Valid: true}})
-		_, _ = q.RevokeConnectorControlTunnelLeasesByScope(ctx, db.RevokeConnectorControlTunnelLeasesByScopeParams{
-			BastionScopeID: plan.ScopeID, EnterpriseID: action.EnterpriseID})
-		_, _ = q.MarkConnectorControlTunnelsRemovedByScope(ctx, db.MarkConnectorControlTunnelsRemovedByScopeParams{
-			BastionScopeID: plan.ScopeID, EnterpriseID: action.EnterpriseID, LastDropReason: "bastion_scope_deleted"})
 		if plan.HostID == uuid.Nil {
 			return resource.ActionCommitResult{}, ErrBastionState
 		}
-		if _, err := q.DeleteBastionRootHost(ctx, db.DeleteBastionRootHostParams{ID: plan.HostID, EnterpriseID: action.EnterpriseID,
-			BastionScopeID: uuid.NullUUID{UUID: plan.ScopeID, Valid: true}}); err != nil {
+		current, currentErr := q.GetBastionScope(ctx, db.GetBastionScopeParams{ID: plan.ScopeID, EnterpriseID: action.EnterpriseID})
+		if currentErr != nil {
+			return resource.ActionCommitResult{}, ErrBastionState
+		}
+		if current.Status == "pending" && !current.ActiveConnectorID.Valid {
+			host, hostErr := q.GetHost(ctx, db.GetHostParams{ID: plan.HostID, EnterpriseID: action.EnterpriseID})
+			if hostErr != nil || host.ConnectorID.Valid || host.Status != "active" || host.Role != "bastion" {
+				return resource.ActionCommitResult{}, ErrBastionState
+			}
+			if cancelErr := hostonboarding.CancelBastion(ctx, q, action.EnterpriseID, plan.ScopeID); cancelErr != nil {
+				if errors.Is(cancelErr, hostonboarding.ErrTargetRegistered) {
+					return resource.ActionCommitResult{}, ErrBastionState
+				}
+				return resource.ActionCommitResult{}, cancelErr
+			}
+			if _, err := q.DeleteUnregisteredBastionRootHost(ctx, db.DeleteUnregisteredBastionRootHostParams{ID: plan.HostID,
+				EnterpriseID: action.EnterpriseID, BastionScopeID: uuid.NullUUID{UUID: plan.ScopeID, Valid: true}}); err != nil {
+				return resource.ActionCommitResult{}, ErrBastionState
+			}
+		} else if current.Status == "uninstalled" {
+			if _, err := q.DeleteBastionRootHost(ctx, db.DeleteBastionRootHostParams{ID: plan.HostID, EnterpriseID: action.EnterpriseID,
+				BastionScopeID: uuid.NullUUID{UUID: plan.ScopeID, Valid: true}}); err != nil {
+				return resource.ActionCommitResult{}, ErrBastionState
+			}
+		} else {
 			return resource.ActionCommitResult{}, ErrBastionState
 		}
 		scope, err := q.DeleteBastionScope(ctx, db.DeleteBastionScopeParams{ID: plan.ScopeID, EnterpriseID: action.EnterpriseID, ResourceVersion: plan.Input.ExpectedVersion})
@@ -841,26 +904,33 @@ var _ resource.ActionExtension = BastionService{}
 
 // directInstallPlanSnapshot 是代装模式冻结校验的连接测试计划投影。
 type directInstallPlanSnapshot struct {
-	TargetType     string    `json:"target_type"`
-	Address        string    `json:"address"`
-	Port           int32     `json:"port"`
-	Username       string    `json:"username"`
-	ConnectionMode string    `json:"connection_mode"`
-	CredentialID   uuid.UUID `json:"credential_id"`
+	TargetType   string    `json:"target_type"`
+	Address      string    `json:"address"`
+	Port         int32     `json:"port"`
+	Username     string    `json:"username"`
+	Platform     string    `json:"platform"`
+	SSHPath      string    `json:"ssh_path"`
+	CredentialID uuid.UUID `json:"credential_id"`
 }
 
 type connectorReleaseManifest struct {
-	SchemaVersion       string                     `json:"schema_version"`
-	ManifestURI         string                     `json:"manifest_uri"`
-	InstallScriptURI    string                     `json:"install_script_uri"`
-	InstallScriptSHA256 string                     `json:"install_script_sha256"`
-	SigningKeyID        string                     `json:"signing_key_id"`
-	SigningPublicKey    string                     `json:"signing_public_key"`
-	Artifacts           []connectorReleaseArtifact `json:"artifacts"`
+	SchemaVersion    string                      `json:"schema_version"`
+	ManifestURI      string                      `json:"manifest_uri"`
+	SigningKeyID     string                      `json:"signing_key_id"`
+	SigningPublicKey string                      `json:"signing_public_key"`
+	Installers       []connectorReleaseInstaller `json:"installers"`
+	Artifacts        []connectorReleaseArtifact  `json:"artifacts"`
+}
+
+type connectorReleaseInstaller struct {
+	Platform string `json:"platform"`
+	Shell    string `json:"shell"`
+	URI      string `json:"uri"`
+	SHA256   string `json:"sha256"`
 }
 
 type connectorReleaseArtifact struct {
-	Architecture string `json:"architecture"`
+	Platform     string `json:"platform"`
 	URI          string `json:"uri"`
 	SHA256       string `json:"sha256"`
 	Signature    string `json:"signature"`
@@ -875,14 +945,14 @@ func (service BastionService) freezeDirectInstallPlan(ctx context.Context, q *db
 		return resource.ErrActionInvalidated
 	}
 	if plan.Input.InstallMode == "command" {
-		if plan.Architecture != "" || plan.Input.Address != "" || plan.Input.Port != 0 || plan.Input.Username != "" || plan.Input.CredentialID.Valid || plan.Input.ConnectionTestID.Valid {
+		if (plan.Architecture != "amd64" && plan.Architecture != "arm64") || plan.Input.Address != "" || plan.Input.Port != 0 || plan.Input.Username != "" || plan.Input.CredentialID.Valid || plan.Input.ConnectionTestID.Valid {
 			return resource.ErrInvalidConnectionMode
 		}
 		release, err := q.GetActiveConnectorReleaseVersion(ctx)
 		if err != nil {
 			return ErrConnectorArtifactUnavailable
 		}
-		manifest, err := connectorManualInstallRelease(release.Manifest)
+		manifest, err := connectorManualInstallRelease(release.Manifest, plan.Architecture)
 		if err != nil {
 			return err
 		}
@@ -893,7 +963,7 @@ func (service BastionService) freezeDirectInstallPlan(ctx context.Context, q *db
 		plan.ReleaseManifestHash = bytes.Clone(release.ManifestHash)
 		return nil
 	}
-	_, testResult, err := validateDirectInstallInput(ctx, q, enterpriseID, plan.Input)
+	_, testResult, err := service.validateDirectInstallInput(ctx, q, enterpriseID, plan.Input)
 	if err != nil {
 		return err
 	}
@@ -901,7 +971,7 @@ func (service BastionService) freezeDirectInstallPlan(ctx context.Context, q *db
 	if err != nil {
 		return ErrConnectorArtifactUnavailable
 	}
-	manifest, artifact, err := connectorReleaseForArchitecture(release.Manifest, testResult.Architecture)
+	manifest, artifact, err := connectorReleaseForPlatform(release.Manifest, "linux_"+testResult.Architecture)
 	if err != nil {
 		return err
 	}
@@ -916,20 +986,20 @@ func (service BastionService) freezeDirectInstallPlan(ctx context.Context, q *db
 
 func (service BastionService) validateFrozenDirectInstallPlan(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, plan bastionPlan) error {
 	if plan.Input.InstallMode == "command" {
-		if plan.Architecture != "" || !plan.ReleaseVersionID.Valid || len(plan.ReleaseManifestHash) != sha256.Size {
+		if (plan.Architecture != "amd64" && plan.Architecture != "arm64") || !plan.ReleaseVersionID.Valid || len(plan.ReleaseManifestHash) != sha256.Size {
 			return resource.ErrActionInvalidated
 		}
 		release, err := q.GetConnectorReleaseVersion(ctx, plan.ReleaseVersionID.UUID)
 		if err != nil || !bytes.Equal(release.ManifestHash, plan.ReleaseManifestHash) {
 			return resource.ErrActionInvalidated
 		}
-		manifest, err := connectorManualInstallRelease(release.Manifest)
+		manifest, err := connectorManualInstallRelease(release.Manifest, plan.Architecture)
 		if err != nil {
 			return err
 		}
 		return service.checkConnectorReleaseAvailability(ctx, manifest, true, "")
 	}
-	_, result, err := validateDirectInstallInput(ctx, q, enterpriseID, plan.Input)
+	_, result, err := service.validateDirectInstallInput(ctx, q, enterpriseID, plan.Input)
 	if err != nil || plan.Architecture != result.Architecture || !plan.ReleaseVersionID.Valid || len(plan.ReleaseManifestHash) != sha256.Size {
 		return resource.ErrActionInvalidated
 	}
@@ -937,7 +1007,7 @@ func (service BastionService) validateFrozenDirectInstallPlan(ctx context.Contex
 	if err != nil || !bytes.Equal(release.ManifestHash, plan.ReleaseManifestHash) {
 		return resource.ErrActionInvalidated
 	}
-	manifest, artifact, err := connectorReleaseForArchitecture(release.Manifest, result.Architecture)
+	manifest, artifact, err := connectorReleaseForPlatform(release.Manifest, "linux_"+result.Architecture)
 	if err != nil {
 		return err
 	}
@@ -945,8 +1015,8 @@ func (service BastionService) validateFrozenDirectInstallPlan(ctx context.Contex
 }
 
 // validateDirectInstallInput 校验模式B/C:direct 字段齐全,且引用一个与本表单
-// 完全匹配、未过期、成功的 direct_ssh 主机连接测试(冻结纪律与主机创建一致)。
-func validateDirectInstallInput(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, input BastionInput) (db.ConnectionTest, resource.ConnectionTestResult, error) {
+// 完全匹配、未过期、成功的 SSH 主机连接测试(冻结纪律与主机创建一致)。
+func (service BastionService) validateDirectInstallInput(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, input BastionInput) (db.ConnectionTest, resource.ConnectionTestResult, error) {
 	switch input.InstallMode {
 	case "command":
 		return db.ConnectionTest{}, resource.ConnectionTestResult{}, nil
@@ -966,7 +1036,7 @@ func validateDirectInstallInput(ctx context.Context, q *db.Queries, enterpriseID
 		return db.ConnectionTest{}, resource.ConnectionTestResult{}, resource.ErrConnectionTestNeeded
 	}
 	var plan directInstallPlanSnapshot
-	if json.Unmarshal(test.RequestPlan, &plan) != nil || plan.TargetType != "host" || plan.ConnectionMode != "direct_ssh" ||
+	if json.Unmarshal(test.RequestPlan, &plan) != nil || plan.TargetType != "host" || plan.Platform != "linux" || plan.SSHPath != "direct_executor" ||
 		plan.Address != input.Address || plan.Port != input.Port || plan.Username != input.Username || plan.CredentialID != input.CredentialID.UUID {
 		return db.ConnectionTest{}, resource.ConnectionTestResult{}, resource.ErrConnectionTestNeeded
 	}
@@ -978,6 +1048,9 @@ func validateDirectInstallInput(ctx context.Context, q *db.Queries, enterpriseID
 	if json.Unmarshal(test.Result, &result) != nil || result.HostKeyFingerprint == "" ||
 		(result.Architecture != "amd64" && result.Architecture != "arm64") {
 		return db.ConnectionTest{}, resource.ConnectionTestResult{}, resource.ErrConnectionTestNeeded
+	}
+	if err := service.validateCallbackConnectionTest(ctx, q, enterpriseID, test, bastionInstallControlPath(input.InstallMode), "direct_executor", uuid.NullUUID{}); err != nil {
+		return db.ConnectionTest{}, resource.ConnectionTestResult{}, err
 	}
 	return test, result, nil
 }
@@ -1007,7 +1080,7 @@ func (service BastionService) enqueueDirectInstall(ctx context.Context, q *db.Qu
 	if err != nil || !bytes.Equal(release.ManifestHash, plan.ReleaseManifestHash) {
 		return db.ConnectorInstallOperation{}, ErrConnectorArtifactUnavailable
 	}
-	manifest, artifact, err := connectorReleaseForArchitecture(release.Manifest, testResult.Architecture)
+	manifest, artifact, err := connectorReleaseForPlatform(release.Manifest, "linux_"+testResult.Architecture)
 	if err != nil {
 		return db.ConnectorInstallOperation{}, err
 	}
@@ -1035,8 +1108,8 @@ func (service BastionService) enqueueDirectInstall(ctx context.Context, q *db.Qu
 		TrustBundleSha256: bundle.Material.SHA256, TrustBundleCaFingerprints: append([]string(nil), bundle.Material.Fingerprints...),
 	}
 	if plan.Input.InstallMode == "direct_install_tunnel" {
-		command.EnrollDialAddress = "127.0.0.1:8443"
-		command.GatewayDialAddress = "127.0.0.1:9443"
+		command.EnrollDialAddress = "127.0.0.1:18443"
+		command.GatewayDialAddress = "127.0.0.1:19443"
 	}
 	encoded, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(command)
 	if err != nil {
@@ -1079,7 +1152,7 @@ func (service BastionService) enqueueDirectInstall(ctx context.Context, q *db.Qu
 			return db.ConnectorInstallOperation{}, ErrControlTunnelUnavailable
 		}
 		if _, err = q.CreateConnectorControlTunnel(ctx, db.CreateConnectorControlTunnelParams{
-			ID: newID(), EnterpriseID: action.EnterpriseID, ConnectorID: enrollment.ConnectorID, BastionScopeID: scope.ID,
+			ID: newID(), EnterpriseID: action.EnterpriseID, ConnectorID: enrollment.ConnectorID, BastionScopeID: uuid.NullUUID{UUID: scope.ID, Valid: true},
 			HostID: plan.HostID, CredentialID: credential.ID, CredentialVersion: credential.Version,
 			TargetAddress: plan.Input.Address, TargetPort: plan.Input.Port, TargetUsername: plan.Input.Username,
 			PinnedHostKey: testResult.HostKeyFingerprint, EnrollForwardTarget: service.ConnectorEnrollForwardTarget,
@@ -1092,20 +1165,27 @@ func (service BastionService) enqueueDirectInstall(ctx context.Context, q *db.Qu
 }
 
 func connectorArtifactForArchitecture(raw json.RawMessage, architecture string) (connectorReleaseArtifact, error) {
-	_, artifact, err := connectorReleaseForArchitecture(raw, architecture)
+	_, artifact, err := connectorReleaseForPlatform(raw, "linux_"+architecture)
 	return artifact, err
 }
 
-func connectorManualInstallRelease(raw json.RawMessage) (connectorReleaseManifest, error) {
-	manifest, _, err := connectorReleaseForArchitecture(raw, "amd64")
+func connectorManualInstallRelease(raw json.RawMessage, architecture string) (connectorReleaseManifest, error) {
+	manifest, _, err := connectorReleaseForPlatform(raw, "linux_"+architecture)
 	if err != nil {
 		return connectorReleaseManifest{}, err
 	}
-	if manifest.ManifestURI == "" || manifest.InstallScriptURI == "" || !validSHA256(manifest.InstallScriptSHA256) {
+	if manifest.ManifestURI == "" {
 		return connectorReleaseManifest{}, ErrConnectorArtifactInvalid
 	}
-	if _, err = connectorArtifactForArchitecture(raw, "arm64"); err != nil {
-		return connectorReleaseManifest{}, err
+	for _, platform := range []string{"linux_arm64", "windows_amd64"} {
+		if _, _, err = connectorReleaseForPlatform(raw, platform); err != nil {
+			return connectorReleaseManifest{}, err
+		}
+	}
+	for _, platform := range []string{"linux", "windows"} {
+		if _, err = connectorInstallerFromManifest(manifest, platform); err != nil {
+			return connectorReleaseManifest{}, err
+		}
 	}
 	return manifest, nil
 }
@@ -1121,12 +1201,15 @@ func (service BastionService) checkConnectorReleaseAvailability(
 	}
 	urls := []string{artifactURI}
 	if manual {
-		amd64, amd64Err := connectorArtifactFromManifest(manifest, "amd64")
-		arm64, arm64Err := connectorArtifactFromManifest(manifest, "arm64")
-		if amd64Err != nil || arm64Err != nil {
+		amd64, amd64Err := connectorArtifactFromManifest(manifest, "linux_amd64")
+		arm64, arm64Err := connectorArtifactFromManifest(manifest, "linux_arm64")
+		windows, windowsErr := connectorArtifactFromManifest(manifest, "windows_amd64")
+		linuxInstaller, linuxInstallerErr := connectorInstallerFromManifest(manifest, "linux")
+		windowsInstaller, windowsInstallerErr := connectorInstallerFromManifest(manifest, "windows")
+		if amd64Err != nil || arm64Err != nil || windowsErr != nil || linuxInstallerErr != nil || windowsInstallerErr != nil {
 			return ErrConnectorArtifactInvalid
 		}
-		urls = []string{manifest.ManifestURI, manifest.InstallScriptURI, amd64.URI, arm64.URI}
+		urls = []string{manifest.ManifestURI, linuxInstaller.URI, windowsInstaller.URI, amd64.URI, arm64.URI, windows.URI}
 	}
 	if err := service.Enrollment.Artifacts.Check(ctx, urls...); err != nil {
 		return fmt.Errorf("%w: %v", ErrConnectorArtifactUnavailable, err)
@@ -1134,24 +1217,37 @@ func (service BastionService) checkConnectorReleaseAvailability(
 	return nil
 }
 
-func connectorReleaseForArchitecture(raw json.RawMessage, architecture string) (connectorReleaseManifest, connectorReleaseArtifact, error) {
+func connectorReleaseForPlatform(raw json.RawMessage, platform string) (connectorReleaseManifest, connectorReleaseArtifact, error) {
 	var manifest connectorReleaseManifest
-	if json.Unmarshal(raw, &manifest) != nil || manifest.SchemaVersion != "argus.connector_release/v2" ||
-		manifest.SigningKeyID == "" || !validConnectorSigningPublicKey(manifest.SigningPublicKey) || !validSHA256(manifest.InstallScriptSHA256) {
+	if json.Unmarshal(raw, &manifest) != nil || manifest.SchemaVersion != "argus.connector_release/v3" ||
+		manifest.SigningKeyID == "" || !validConnectorSigningPublicKey(manifest.SigningPublicKey) {
 		return connectorReleaseManifest{}, connectorReleaseArtifact{}, ErrConnectorArtifactInvalid
 	}
-	artifact, err := connectorArtifactFromManifest(manifest, architecture)
+	artifact, err := connectorArtifactFromManifest(manifest, platform)
 	return manifest, artifact, err
 }
 
-func connectorArtifactFromManifest(manifest connectorReleaseManifest, architecture string) (connectorReleaseArtifact, error) {
+func connectorArtifactFromManifest(manifest connectorReleaseManifest, platform string) (connectorReleaseArtifact, error) {
 	for _, artifact := range manifest.Artifacts {
-		if artifact.Architecture == architecture && artifact.URI != "" && len(artifact.SHA256) == 64 &&
+		if artifact.Platform == platform && artifact.URI != "" && len(artifact.SHA256) == 64 &&
 			artifact.Signature != "" && artifact.SigningKeyID == manifest.SigningKeyID && artifact.ByteSize > 0 {
 			return artifact, nil
 		}
 	}
 	return connectorReleaseArtifact{}, ErrConnectorArtifactUnavailable
+}
+
+func connectorInstallerFromManifest(manifest connectorReleaseManifest, platform string) (connectorReleaseInstaller, error) {
+	wantShell := "posix_sh"
+	if platform == "windows" {
+		wantShell = "powershell"
+	}
+	for _, installer := range manifest.Installers {
+		if installer.Platform == platform && installer.Shell == wantShell && installer.URI != "" && validSHA256(installer.SHA256) {
+			return installer, nil
+		}
+	}
+	return connectorReleaseInstaller{}, ErrConnectorArtifactUnavailable
 }
 
 func validConnectorSigningPublicKey(value string) bool {
@@ -1171,16 +1267,13 @@ func connectorCommandMatchesRelease(command *connectorv1.ConnectorInstallCommand
 	if command.GetReleaseVersionId() != release.ID.String() || command.GetArtifact() == nil {
 		return false
 	}
-	architecture := ""
 	switch command.GetPlatform() {
 	case "linux_amd64":
-		architecture = "amd64"
 	case "linux_arm64":
-		architecture = "arm64"
 	default:
 		return false
 	}
-	manifest, artifact, err := connectorReleaseForArchitecture(release.Manifest, architecture)
+	manifest, artifact, err := connectorReleaseForPlatform(release.Manifest, command.GetPlatform())
 	if err != nil {
 		return false
 	}

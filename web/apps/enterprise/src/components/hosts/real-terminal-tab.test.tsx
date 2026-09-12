@@ -69,7 +69,7 @@ async function renderTerminal() {
         credential_id: "credential-1",
         username: "argus",
         privilege_level: "standard",
-        allowed_protocols: ["ssh", "winrm"],
+        allowed_protocols: ["shell", "ssh", "rdp"],
         status: "active",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

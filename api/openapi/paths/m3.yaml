@@ -105,13 +105,26 @@ host_collection:
     summary: List explicitly authorized Hosts.
     parameters:
       - {name: query, in: query, required: false, schema: {type: string, maxLength: 256}}
-      - {name: connection_mode, in: query, required: false, schema: {$ref: "../components/m3.yaml#/components/schemas/HostConnectionMode"}}
+      - {name: control_path, in: query, required: false, schema: {$ref: "../components/m3.yaml#/components/schemas/HostControlPath"}}
       - {name: bastion_scope_id, in: query, required: false, schema: {type: string, format: uuid}}
       - {name: labels, in: query, required: false, schema: {type: string, maxLength: 4096}}
       - {$ref: "#/components/parameters/Cursor"}
       - {$ref: "#/components/parameters/Limit"}
     responses:
       "200": {description: Host page., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostPage"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_name_availability:
+  get:
+    operationId: checkHostNameAvailability
+    summary: Check a creation name using host.manage permission without disclosing the occupying resource.
+    parameters:
+      - {name: name, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 128}}
+    responses:
+      "200":
+        description: Current name availability. Deleted records do not occupy a name; the name is not reserved.
+        headers:
+          Cache-Control: {schema: {type: string}}
+        content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/ResourceNameAvailability"}}}
       default: {$ref: "#/components/responses/Error"}
 host_item:
   parameters: [{$ref: "#/components/parameters/ResourceId"}]
@@ -166,6 +179,102 @@ connection_test_item:
     summary: Get a connection test result.
     responses:
       "200": {description: Connection Test., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/ConnectionTest"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_onboarding_operation:
+  parameters: [{$ref: "#/components/parameters/ResourceId"}]
+  get:
+    operationId: getHostOnboardingOperation
+    summary: Get a durable Host Connector onboarding operation.
+    responses:
+      "200": {description: Host onboarding operation., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostOnboardingOperation"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_preview_retry:
+  parameters: [{$ref: "#/components/parameters/ResourceId"}]
+  post:
+    operationId: previewRetryHost
+    summary: Preview a new SSH installation attempt for a failed unregistered Host.
+    parameters: [{$ref: "#/components/parameters/IdempotencyKey"}, {$ref: "#/components/parameters/CsrfToken"}]
+    requestBody: {required: true, content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostPreviewCreate"}}}}
+    responses:
+      "201": {description: Installation retry preview., content: {application/json: {schema: {$ref: "../../schemas/action/pending-action-public.schema.json"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_removal_connection_defaults:
+  get:
+    operationId: getHostRemovalConnectionDefaults
+    summary: Read SSH account and credential references from the current installation.
+    parameters:
+      - {name: target_type, in: query, required: true, schema: {$ref: "../components/m3.yaml#/components/schemas/HostRemovalTargetType"}}
+      - {name: target_id, in: query, required: true, schema: {type: string, format: uuid}}
+      - {name: expected_version, in: query, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    responses:
+      "200": {description: Non-secret SSH defaults. A fresh connection test is still required., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostRemovalConnectionDefaults"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_removal_preview:
+  post:
+    operationId: previewHostRemoval
+    summary: Freeze a fenced Host or Bastion removal plan.
+    parameters: [{$ref: "#/components/parameters/IdempotencyKey"}, {$ref: "#/components/parameters/CsrfToken"}]
+    requestBody: {required: true, content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostRemovalPreview"}}}}
+    responses:
+      "201": {description: Pending Action., content: {application/json: {schema: {$ref: "../../schemas/action/pending-action-public.schema.json"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_removal_operation:
+  parameters: [{$ref: "#/components/parameters/ResourceId"}]
+  get:
+    operationId: getHostRemovalOperation
+    summary: Get a durable Host or Bastion removal operation.
+    responses:
+      "200": {description: Removal operation., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostRemovalOperation"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_removal_retry:
+  parameters: [{$ref: "#/components/parameters/ResourceId"}]
+  post:
+    operationId: retryHostRemovalOperation
+    summary: Resume a failed or cleanup-unknown removal from its first unverified step.
+    parameters: [{$ref: "#/components/parameters/IdempotencyKey"}, {$ref: "#/components/parameters/CsrfToken"}]
+    responses:
+      "202": {description: Removal operation queued., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostRemovalOperation"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_removal_command:
+  parameters: [{$ref: "#/components/parameters/ResourceId"}]
+  post:
+    operationId: regenerateHostRemovalCommand
+    summary: Rotate the one-time token and return a replacement command for the same removal operation.
+    parameters: [{$ref: "#/components/parameters/IdempotencyKey"}, {$ref: "#/components/parameters/CsrfToken"}]
+    responses:
+      "201": {description: One-time removal instruction., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostRemovalInstruction"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_removal_bootstrap:
+  get:
+    operationId: getHostRemovalBootstrapScript
+    summary: Claim a one-time removal token and download the target-specific strict-TLS uninstaller.
+    security: []
+    parameters:
+      - {name: operation_id, in: query, required: true, schema: {type: string, format: uuid}}
+      - {name: X-Argus-Removal-Token, in: header, required: true, schema: {type: string, minLength: 32, maxLength: 256}}
+    responses:
+      "200": {description: Removal script., content: {text/x-shellscript: {schema: {type: string}}, text/x-powershell: {schema: {type: string}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_removal_receipt:
+  post:
+    operationId: submitHostRemovalReceipt
+    summary: Submit an operation-scoped local cleanup receipt after the Connector has stopped.
+    security: []
+    parameters:
+      - {name: X-Argus-Removal-Token, in: header, required: true, schema: {type: string, minLength: 32, maxLength: 256}}
+    requestBody: {required: true, content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostRemovalReceipt"}}}}
+    responses:
+      "200": {description: Reconciled removal operation., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/HostRemovalOperation"}}}}
+      default: {$ref: "#/components/responses/Error"}
+host_windows_rdp_enable:
+  parameters: [{$ref: "#/components/parameters/ResourceId"}]
+  post:
+    operationId: previewEnableHostWindowsRDP
+    summary: Preview the registry, NLA, service, and firewall changes required to enable RDP.
+    parameters: [{$ref: "#/components/parameters/IdempotencyKey"}, {$ref: "#/components/parameters/CsrfToken"}]
+    requestBody: {required: true, content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/ResourcePreviewDelete"}}}}
+    responses:
+      "201": {description: Pending Action., content: {application/json: {schema: {$ref: "../../schemas/action/pending-action-public.schema.json"}}}}
       default: {$ref: "#/components/responses/Error"}
 kubernetes_collection:
   get:
@@ -309,6 +418,19 @@ bastion_collection:
     responses:
       "200": {description: Bastion Scope page., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/BastionScopePage"}}}}
       default: {$ref: "#/components/responses/Error"}
+bastion_name_availability:
+  get:
+    operationId: checkBastionNameAvailability
+    summary: Check a creation name using bastion_scope.manage permission without disclosing the occupying resource.
+    parameters:
+      - {name: name, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 128}}
+    responses:
+      "200":
+        description: Current availability across Bastion Scopes and Hosts. Deleted records do not occupy a name; the name is not reserved.
+        headers:
+          Cache-Control: {schema: {type: string}}
+        content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/ResourceNameAvailability"}}}
+      default: {$ref: "#/components/responses/Error"}
 bastion_item:
   parameters: [{$ref: "#/components/parameters/ResourceId"}]
   get:
@@ -438,7 +560,7 @@ connector_bootstrap_script:
       - name: scope
         in: query
         required: true
-        schema: {type: string, enum: [linux-system, linux-user]}
+        schema: {type: string, enum: [linux-system, windows-system]}
     responses:
       "200":
         description: Generated strict bootstrap script.
@@ -447,26 +569,6 @@ connector_bootstrap_script:
           Content-Disposition: {schema: {type: string}}
           X-Content-Type-Options: {schema: {type: string}}
         content: {text/x-shellscript: {schema: {type: string, minLength: 1, maxLength: 131072}}}
-      default: {$ref: "#/components/responses/Error"}
-host_enrollment_rotate:
-  parameters: [{$ref: "#/components/parameters/ResourceId"}, {$ref: "#/components/parameters/CsrfToken"}]
-  post:
-    operationId: previewHostEnrollmentRotate
-    summary: Freeze a new self-enrolled Host installation command.
-    parameters: [{$ref: "#/components/parameters/IdempotencyKey"}]
-    requestBody: {required: true, content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/ResourcePreviewDelete"}}}}
-    responses:
-      "201": {description: Pending Action., content: {application/json: {schema: {$ref: "../../schemas/action/pending-action-public.schema.json"}}}}
-      default: {$ref: "#/components/responses/Error"}
-host_uninstall_command:
-  parameters: [{$ref: "#/components/parameters/ResourceId"}, {$ref: "#/components/parameters/CsrfToken"}]
-  post:
-    operationId: previewHostUninstallCommand
-    summary: Freeze a self-enrolled Host uninstall command.
-    parameters: [{$ref: "#/components/parameters/IdempotencyKey"}]
-    requestBody: {required: true, content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/ResourcePreviewDelete"}}}}
-    responses:
-      "201": {description: Dangerous Pending Action., content: {application/json: {schema: {$ref: "../../schemas/action/pending-action-public.schema.json"}}}}
       default: {$ref: "#/components/responses/Error"}
 components:
   parameters:

@@ -29,9 +29,8 @@ var (
 )
 
 const (
-	oneTimeResultKindHostInstall      = "host_install_command"
-	oneTimeResultKindHostUninstall    = "host_uninstall_command"
 	oneTimeResultKindConnectorInstall = "connector_install_command"
+	oneTimeResultKindHostRemoval      = "host_removal_command"
 )
 
 type OneTimeResult struct {
@@ -136,11 +135,11 @@ func validOneTimeResultPayload(sets []installinstruction.Set) bool {
 	}
 	seen := map[installinstruction.Scope]struct{}{}
 	for _, set := range sets {
-		tlsValid := set.Scope == installinstruction.ScopeKubernetes && set.DownloadTLSMode == ""
-		tlsValid = tlsValid || ((set.Scope == installinstruction.ScopeLinuxSystem || set.Scope == installinstruction.ScopeLinuxUser) &&
-			(set.DownloadTLSMode == string(installinstruction.DownloadTLSStrict) || set.DownloadTLSMode == string(installinstruction.DownloadTLSInsecureFirstFetch)))
+		tlsValid := set.Scope == installinstruction.ScopeKubernetes && set.BootstrapTLSMode == ""
+		tlsValid = tlsValid || ((set.Scope == installinstruction.ScopeLinuxSystem || set.Scope == installinstruction.ScopeWindowsSystem) &&
+			(set.BootstrapTLSMode == string(installinstruction.DownloadTLSStrict) || set.BootstrapTLSMode == string(installinstruction.DownloadTLSInsecureFirstFetch)))
 		if !tlsValid || set.Command == "" || set.ExpiresAt.IsZero() ||
-			set.TrustBundleEpoch < 1 || len(set.TrustBundleSHA256) != 64 || len(set.InstallerSHA256) != 64 {
+			set.TrustBundleEpoch < 1 || len(set.TrustBundleSHA256) != 64 || len(set.BootstrapSHA256) != 64 || len(set.InstallerSHA256) != 64 {
 			return false
 		}
 		if _, exists := seen[set.Scope]; exists {
@@ -157,7 +156,7 @@ func oneTimeResultAuthorizationCurrent(userStatus string, currentVersion, result
 
 func validOneTimeResultKind(value string) bool {
 	switch value {
-	case oneTimeResultKindHostInstall, oneTimeResultKindHostUninstall, oneTimeResultKindConnectorInstall:
+	case oneTimeResultKindConnectorInstall, oneTimeResultKindHostRemoval:
 		return true
 	default:
 		return false

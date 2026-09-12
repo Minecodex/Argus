@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -156,6 +157,7 @@ func TestCurlStatusArgsPinsIngressAndBypassesProxy(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantPairs := [][]string{
+		{"-o", os.DevNull},
 		{"--cacert", "/tmp/argus-ca.pem"},
 		{"--noproxy", "*"},
 		{"--connect-to", "platform.argus.test:443:127.0.0.1:443"},
@@ -178,6 +180,21 @@ func TestCurlStatusArgsPinsIngressAndBypassesProxy(t *testing.T) {
 			if argument == forbidden {
 				t.Fatalf("curl args contain TLS bypass %q: %#v", forbidden, args)
 			}
+		}
+	}
+}
+
+func TestCurlRevocationPolicySupportsPrivateCAsOnWindows(t *testing.T) {
+	for _, tc := range []struct {
+		platform string
+		want     []string
+	}{
+		{"windows", []string{"--ssl-revoke-best-effort"}},
+		{"linux", nil},
+		{"darwin", nil},
+	} {
+		if got := curlRevocationArgs(tc.platform); !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("revocation policy for %s = %v, want %v", tc.platform, got, tc.want)
 		}
 	}
 }

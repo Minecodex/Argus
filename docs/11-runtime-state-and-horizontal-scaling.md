@@ -162,7 +162,7 @@ M4 将普通 Worker 的职责拆为四个独立 Pool：`agent` 运行模型与�
 
 复用 `argus-worker` 程序但使用独立 Deployment、Task Queue、ServiceAccount、NetworkPolicy 和固定公网出口。
 
-- 只领取 `direct_ssh/direct_winrm` 安装、命令和人工远程会话连接任务。
+- 只领取平台 Direct Executor SSH 安装、ConnectionTest 和固定反向隧道任务；安装后的命令与人工远程会话由 Host Connector 承载。
 - 每次 DNS 解析和建连都重新校验最终 IP，拒绝私网、环回、链路本地、云元数据和 Argus 内部地址。
 - Credential Package 和 Remote Access Ticket 短期绑定企业、用户、Host、用途和有效期，不能写 Pod 磁盘。
 - 公网连接中断时 RemoteAccessSession 写入 `ConnectionLost`，不能在另一 Pod 静默恢复为同一 SSH TCP 会话；用户可在重新授权后创建新会话。

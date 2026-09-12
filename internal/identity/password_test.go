@@ -71,3 +71,24 @@ func TestPasswordChangeRejectsReuse(t *testing.T) {
 		t.Fatalf("password rule = %q, want %q", rule, PasswordRuleReused)
 	}
 }
+
+func TestGenerateTemporaryPasswordAlwaysSatisfiesPolicy(t *testing.T) {
+	for index := 0; index < 256; index++ {
+		password, err := GenerateTemporaryPassword(24, "temporaryadmin", "temporaryadmin@example.test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(password) != 24 {
+			t.Fatalf("temporary password length = %d, want 24", len(password))
+		}
+		if err := ValidatePassword(password, "temporaryadmin", "temporaryadmin@example.test"); err != nil {
+			t.Fatalf("generated password rejected: %v", err)
+		}
+	}
+}
+
+func TestGenerateTemporaryPasswordRejectsInvalidLength(t *testing.T) {
+	if _, err := GenerateTemporaryPassword(PasswordMinLength-1, "operator", "operator@example.test"); err == nil {
+		t.Fatal("expected invalid length error")
+	}
+}

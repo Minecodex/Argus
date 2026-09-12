@@ -17,8 +17,8 @@ import (
 )
 
 // defaultRemoteHandshakeTimeout bounds how long Open waits for the Connector
-// to report the remote session active (SSH PTY shell started or WinRS shell
-// created) before the session is treated as unavailable.
+// to report the local shell, SSH, or RDP transport active before the session
+// is treated as available.
 const defaultRemoteHandshakeTimeout = 15 * time.Second
 
 type RemoteAccessHub struct {

@@ -18,8 +18,8 @@ import (
 	connectorservice "github.com/kakj-go/Argus/internal/connector"
 	"github.com/kakj-go/Argus/internal/conversation"
 	"github.com/kakj-go/Argus/internal/directexecutor"
+	"github.com/kakj-go/Argus/internal/hostremoval"
 	"github.com/kakj-go/Argus/internal/identity"
-	"github.com/kakj-go/Argus/internal/installinstruction"
 	"github.com/kakj-go/Argus/internal/keywrap"
 	"github.com/kakj-go/Argus/internal/kubernetesreader"
 	"github.com/kakj-go/Argus/internal/mcp"
@@ -123,18 +123,16 @@ func (a *App) Run(ctx context.Context) error {
 	auditHandler := httpapi.AuditHandler{Auth: setupHandler, Enterprise: enterpriseIdentityHandler, Store: postgresStore, Cursor: cursorSigner}
 	secretDomain := secretservice.Service{Store: postgresStore, Idempotency: idempotency, Keyring: secretKeyring}
 	actionDomain := resource.PendingActionService{Store: postgresStore, Idempotency: idempotency, Key: a.config.PendingActionKey}
-	artifactChecker, err := artifactcheck.NewHTTPChecker(a.config.OtelcolArtifactCABundle, a.config.ArtifactProbeBaseURL)
+	artifactChecker, err := artifactcheck.NewHTTPChecker(a.config.OtelcolArtifactCABundle)
 	if err != nil {
 		return err
 	}
 	connectorDomain := connectorservice.Service{Store: postgresStore, Redis: redisClient, GatewayEndpoint: a.config.ConnectorGatewayAddress,
-		EnrollmentURL:   a.config.ConnectorEnrollmentURL,
-		Artifacts:       artifactChecker,
-		Credentials:     secretDomain,
-		TrustBundlePath: a.config.TrustBundlePath, TrustBundleEpoch: a.config.TrustBundleEpoch,
-		TrustBundles:     bundles,
-		BootstrapTLSMode: installinstruction.DownloadTLSMode(a.config.BootstrapTLSMode),
-		KubernetesImage:  a.config.ConnectorKubernetesImage,
+		EnrollmentURL: a.config.ConnectorEnrollmentURL,
+		Artifacts:     artifactChecker,
+		Credentials:   secretDomain,
+		TrustConfig:   a.config.TrustConfig, TrustBundles: bundles,
+		KubernetesImage: a.config.ConnectorKubernetesImage,
 		Issuer: connectorservice.CertManagerIssuer{Client: kubernetesClient, Namespace: a.config.SystemNamespace,
 			IssuerName: a.config.ConnectorIssuerName, IssuerKind: "ClusterIssuer", IssuerGeneration: int32(activeBundle.Epoch)}}
 	bastionDomain, err := connectorservice.NewBastionService(postgresStore, actionDomain, connectorDomain,
@@ -142,28 +140,25 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var actionExtension resource.ActionExtension = bastionDomain
-	selfEnroll := (*telemetryservice.SelfEnrollService)(nil)
+	removalDomain := hostremoval.Service{Store: postgresStore, Actions: actionDomain, Access: resource.AccessService{}, TrustBundles: bundles,
+		TokenKey: a.config.PendingActionKey, ExternalURL: a.config.ConnectorEnrollmentURL, Next: bastionDomain}
+	var actionExtension resource.ActionExtension = removalDomain
 	if a.config.TelemetryEnabled {
-		identityService := telemetryservice.IdentityService{Store: postgresStore, TrustBundles: bundles}
-		selfEnroll = &telemetryservice.SelfEnrollService{Store: postgresStore, Actions: actionDomain, Identity: identityService,
+		actionExtension = telemetryservice.ActionExtension{Next: removalDomain, Credentials: secretDomain,
 			EnrollmentEndpoint: a.config.TelemetryEnrollment, IngestGRPCEndpoint: a.config.TelemetryIngestGRPC,
-			IngestHTTPEndpoint: a.config.TelemetryIngestHTTP, BootstrapSecretKey: a.config.PendingActionKey, Artifacts: artifactChecker,
-			TrustBundles: bundles, TrustBundlePath: a.config.TrustBundlePath, TrustBundleEpoch: a.config.TrustBundleEpoch,
-			BootstrapTLSMode: installinstruction.DownloadTLSMode(a.config.BootstrapTLSMode), InstallerSHA256: a.config.HostInstallerSHA256}
-		actionExtension = telemetryservice.ActionExtension{Next: bastionDomain, Credentials: secretDomain,
-			EnrollmentEndpoint: a.config.TelemetryEnrollment, IngestGRPCEndpoint: a.config.TelemetryIngestGRPC,
-			IngestHTTPEndpoint: a.config.TelemetryIngestHTTP, TrustBundles: bundles, SelfEnroll: selfEnroll}
+			IngestHTTPEndpoint: a.config.TelemetryIngestHTTP, TrustBundles: bundles}
 	}
 	resourceDomain := resource.Service{Store: postgresStore, Actions: actionDomain, Access: resource.AccessService{},
 		Direct: resource.DirectTargetValidator{DeniedCIDRs: deniedCIDRs}, Commands: connectorDomain, DirectCommands: directDispatcher, Extension: actionExtension,
+		HostOnboarding:    bastionDomain,
+		OnboardingProbes:  bastionDomain,
 		ClusterEnrollment: connectorDomain,
 		Kubernetes: kubernetesreader.Reader{Store: postgresStore, Secrets: secretDomain, Validator: resource.DirectTargetValidator{DeniedCIDRs: deniedCIDRs},
 			Notifier: connectorDomain}}
 	workflowDomain := action.Service{Store: postgresStore, Idempotency: idempotency, Resources: resourceDomain,
 		OneTimeResultKey: a.config.PendingActionKey}
 	secretHandler := httpapi.SecretHandler{Identity: enterpriseIdentityHandler, Service: secretDomain}
-	hostHandler := httpapi.HostHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain, Queries: postgresStore.Queries, Onboarding: selfEnroll}
+	hostHandler := httpapi.HostHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain, Queries: postgresStore.Queries, WindowsRDP: bastionDomain, Removal: removalDomain}
 	kubernetesHandler := httpapi.KubernetesHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain}
 	connectionHandler := httpapi.ConnectionHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain}
 	actionHandler := httpapi.ResourceActionHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain, Workflow: workflowDomain, Cursor: cursorSigner}

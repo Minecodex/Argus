@@ -10,6 +10,31 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /enterprise/bastion-scopes/name-availability:
+    get:
+      operationId: checkBastionNameAvailability
+      summary: Check a creation name using bastion_scope.manage permission without disclosing the occupying resource.
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      responses:
+        '200':
+          description: Current availability across Bastion Scopes and Hosts. Deleted records do not occupy a name; the name is not reserved.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceNameAvailability'
+        default:
+          $ref: '#/components/responses/Error'
   /enterprise/bastion-scopes:
     get:
       operationId: listBastionScopes
@@ -304,7 +329,7 @@ paths:
             type: string
             enum:
               - linux-system
-              - linux-user
+              - windows-system
       responses:
         '200':
           description: Generated strict bootstrap script.
@@ -349,6 +374,10 @@ components:
         - status
         - onboarding_mode
         - onboarding
+        - relay_https_port
+        - relay_gateway_port
+        - relay_port_generation
+        - relay_status
         - fencing_generation
         - member_count
         - resource_version
@@ -377,9 +406,28 @@ components:
             - active
             - suspected_offline
             - offline
+            - draining
             - uninstalling
             - uninstalled
+            - removal_failed
+            - cleanup_unknown
             - deleted
+        removal_generation:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+        local_cleanup:
+          type: string
+          enum:
+            - verified
+            - pending
+            - unknown
+          readOnly: true
+        removal_operation_id:
+          type: string
+          format: uuid
+          readOnly: true
         onboarding_mode:
           type: string
           enum:
@@ -406,6 +454,39 @@ components:
             - removed
           readOnly: true
           description: 模式 C 长期控制隧道的权威状态；与 Connector 在线状态独立
+        relay_address:
+          type: string
+          minLength: 1
+          maxLength: 512
+          readOnly: true
+          description: Connector 首次成功监听后自动上报的成员拨号地址
+        relay_https_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          readOnly: true
+        relay_gateway_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          readOnly: true
+        relay_port_generation:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+        relay_status:
+          type: string
+          enum:
+            - pending
+            - ready
+            - degraded
+            - offline
+          readOnly: true
+        relay_error_code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+          readOnly: true
         fencing_generation:
           type: integer
           format: int64
@@ -459,6 +540,12 @@ components:
             - command
             - direct_install
             - direct_install_tunnel
+        architecture:
+          type: string
+          enum:
+            - amd64
+            - arm64
+          description: 命令安装必填；SSH 安装由连接测试探测
         address:
           type: string
           minLength: 1
@@ -477,7 +564,7 @@ components:
         connection_test_id:
           type: string
           format: uuid
-          description: 代装模式必填:与本表单字段匹配且成功的 direct_ssh 主机连接测试
+          description: 代装模式必填:与本表单字段匹配且成功的 SSH 主机连接测试
     ConnectorInstallOperation:
       type: object
       additionalProperties: false
@@ -689,6 +776,7 @@ components:
         - csr_pem
         - device_fingerprint
         - instance_id
+        - platform
         - architecture
         - name
         - software_version
@@ -712,6 +800,11 @@ components:
           enum:
             - amd64
             - arm64
+        platform:
+          type: string
+          enum:
+            - linux
+            - windows
         name:
           type: string
           minLength: 1
@@ -775,31 +868,48 @@ components:
       type: object
       additionalProperties: false
       required:
-        - scope
+        - platform
+        - shell
+        - privilege
         - command
         - expires_at
         - trust_bundle_epoch
         - trust_bundle_sha256
+        - bootstrap_sha256
         - installer_sha256
+        - release_version
         - capability_warnings
       properties:
-        scope:
+        platform:
           type: string
           enum:
-            - linux-system
-            - linux-user
+            - linux_amd64
+            - linux_arm64
+            - windows_amd64
             - kubernetes
+        shell:
+          type: string
+          enum:
+            - posix_sh
+            - powershell
+        privilege:
+          type: string
+          const: system
         command:
           type: string
           minLength: 1
           maxLength: 131072
           writeOnly: true
           description: 唯一面向用户展示的一键安装命令。Host 与手工 Connector 下载动态引导脚本；Kubernetes 使用等价的单命令临时脚本执行。
-        download_tls_mode:
+        bootstrap_tls_mode:
           type: string
           enum:
             - strict
             - insecure-first-fetch
+        release_version:
+          type: string
+          minLength: 1
+          maxLength: 128
         expires_at:
           type: string
           format: date-time
@@ -808,6 +918,9 @@ components:
           format: int64
           minimum: 1
         trust_bundle_sha256:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        bootstrap_sha256:
           type: string
           pattern: ^[a-f0-9]{64}$
         installer_sha256:
@@ -856,6 +969,15 @@ components:
         retryable:
           type: boolean
           default: false
+    ResourceNameAvailability:
+      type: object
+      additionalProperties: false
+      required:
+        - available
+      properties:
+        available:
+          type: boolean
+          description: Whether the name can currently be used for creation in the authenticated enterprise. This does not reserve the name.
     Environment:
       type: string
       enum:
@@ -886,6 +1008,17 @@ components:
           - $ref: '#/components/schemas/SystemLabelKey'
       additionalProperties:
         $ref: '#/components/schemas/LabelValue'
+    HostInstallMethod:
+      type: string
+      enum:
+        - manual
+        - ssh
+    HostSSHPath:
+      type: string
+      enum:
+        - none
+        - direct_executor
+        - bastion_connector
     OnboardingProjection:
       type: object
       additionalProperties: false
@@ -916,6 +1049,12 @@ components:
         error_code:
           type: string
           pattern: ^[A-Z][A-Z0-9_]*$
+        install_method:
+          $ref: '#/components/schemas/HostInstallMethod'
+          readOnly: true
+        ssh_path:
+          $ref: '#/components/schemas/HostSSHPath'
+          readOnly: true
         updated_at:
           type: string
           format: date-time
@@ -1171,7 +1310,7 @@ components:
         connection_test_id:
           type: string
           format: uuid
-          description: 模式 B/C 必填；必须是当前有效的 direct_ssh 测试
+          description: 模式 B/C 必填；必须是当前有效且字段完全匹配的 SSH 连接测试
     ConnectorInstallOperationEvent:
       type: object
       additionalProperties: false
@@ -1215,6 +1354,7 @@ components:
     ConnectorRole:
       type: string
       enum:
+        - host
         - bastion
         - kubernetes
     TrustBundleSnapshot:
@@ -1267,6 +1407,13 @@ components:
         retire_at:
           type: string
           format: date-time
+  responses:
+    Error:
+      description: Stable Argus API error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   parameters:
     Cursor:
       name: cursor
@@ -1314,10 +1461,3 @@ components:
         type: integer
         format: int64
         minimum: 1
-  responses:
-    Error:
-      description: Stable Argus API error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ApiError'

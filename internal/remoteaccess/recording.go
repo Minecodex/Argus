@@ -96,6 +96,7 @@ func DecryptChunk(recordingID string, dek, nonce, ciphertext []byte, sequence ui
 type Recorder struct {
 	Store        ObjectStore
 	RecordingID  string
+	Format       string
 	DEK          []byte
 	Now          func() time.Time
 	sequence     uint64
@@ -191,7 +192,11 @@ func (recorder *Recorder) Flush(ctx context.Context) (ChunkMetadata, error) {
 	ciphertext := gcm.Seal(nil, nonce, recorder.buffer, aad)
 	hashInput := append(append(recorder.previous[:0:0], recorder.previous[:]...), ciphertext...)
 	hash := sha256.Sum256(hashInput)
-	key := fmt.Sprintf("recordings/%s/%020d.cast.enc", recorder.RecordingID, sequence)
+	extension := "cast"
+	if recorder.Format == "guacamole_v1" {
+		extension = "guac"
+	}
+	key := fmt.Sprintf("recordings/%s/%020d.%s.enc", recorder.RecordingID, sequence, extension)
 	recorder.lastAttempt = recorder.now()
 	if err := recorder.Store.Put(ctx, key, ciphertext); err != nil {
 		if recorder.failureSince.IsZero() {

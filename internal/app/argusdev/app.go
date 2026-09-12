@@ -14,7 +14,7 @@ import (
 const usage = `usage:
   argus-dev doctor portable|e2e|release [--output text|json]
   argus-dev contracts lint|generate|check|breaking
-  argus-dev check query-parsers|production-artifacts|tls-security|web-entrypoints|all
+  argus-dev check guacd|installer-containers|installers|query-parsers|production-artifacts|tls-security|web-entrypoints|all
   argus-dev repo fmt|test|vet|run-server|migrate|sqlc
   argus-dev collector build linux-arm64|linux-amd64|windows-amd64|all
   argus-dev collector publish-image [--repository REPO] [--tag TAG] [--push]  # --push 发布 arm64+amd64 多架构 manifest
@@ -22,7 +22,8 @@ const usage = `usage:
   argus-dev connector publish-artifacts --endpoint URL --access-key K --secret-key K --version VERSION [--database-url URL]
   argus-dev query promql|kql|skywalking|tenant-schema
   argus-dev web build --api-mode mock|real
-  argus-dev e2e run --suite m2|m3|m4|m5|m6|m7|m8|m10-query|p4 [options]
+  argus-dev e2e run --suite m2|m3|m4|m5|m6|m7|m8|m10-query|p4|tls [options]
+  argus-dev e2e windows-host --config FILE [--run-id ID] [--artifacts DIR]
   argus-dev release local [--version VERSION] [--output DIR]`
 
 func Run(args []string, stdout, stderr io.Writer) int {

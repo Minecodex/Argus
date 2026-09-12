@@ -125,15 +125,15 @@ func (siw *ServerInterfaceWrapper) ListRemoteAccessSessions(w http.ResponseWrite
 		return
 	}
 
-	// ------------- Optional query parameter "connection_mode" -------------
+	// ------------- Optional query parameter "control_path" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "connection_mode", r.URL.Query(), &params.ConnectionMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "control_path", r.URL.Query(), &params.ControlPath, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connection_mode"})
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "control_path"})
 		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connection_mode", Err: err})
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "control_path", Err: err})
 		}
 		return
 	}

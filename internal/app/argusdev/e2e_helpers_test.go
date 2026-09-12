@@ -62,6 +62,13 @@ func TestCollectorArtifactSigning(t *testing.T) {
 	}
 }
 
+func TestCombinedArtifactCABundleKeepsFixtureAndIngressRoots(t *testing.T) {
+	got := string(combinedArtifactCABundle("  fixture-ca\n", "ingress-ca  "))
+	if got != "fixture-ca\ningress-ca\n" {
+		t.Fatalf("combined CA bundle = %q", got)
+	}
+}
+
 func TestCollectorArchives(t *testing.T) {
 	directory := t.TempDir()
 	binary := filepath.Join(directory, "argus-otelcol")
@@ -191,13 +198,14 @@ func TestParseConnectorEnrollmentCommand(t *testing.T) {
 	}
 }
 
-func TestParseConnectorCommandResultAcceptsSignedInstaller(t *testing.T) {
-	command := "curl -fsSL 'https://artifacts.example/install.sh' | sudo bash -s -- --manifest 'https://artifacts.example/manifest.json' --key-id 'release-key' --public-key 'public' --connector-id 'connector-id' --token 'token-value' --server 'https://argus.example' --role bastion"
-	got, err := parseConnectorCommandResult(command)
+func TestParseConnectorEnrollmentCommandAcceptsStructuredKubernetesInstaller(t *testing.T) {
+	script := "printf '%s' 'token-value' > \"$ARGUS_TOKEN_FILE\"\nsh \"$ARGUS_INSTALLER\" '--connector-id' 'connector-id' '--server' 'https://argus.example' '--role' 'kubernetes'"
+	command := "(set -eu; printf '%s' '" + base64.StdEncoding.EncodeToString([]byte(script)) + "' | base64 -d > \"$ARGUS_BOOTSTRAP\")"
+	got, err := parseConnectorEnrollmentCommand(command)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := connectorEnrollmentCommand{ConnectorID: "connector-id", Token: "token-value", Server: "https://argus.example", Role: "bastion"}
+	want := connectorEnrollmentCommand{ConnectorID: "connector-id", Token: "token-value", Server: "https://argus.example", Role: "kubernetes"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("parsed command = %#v, want %#v", got, want)
 	}
@@ -353,7 +361,6 @@ func TestFixtureImagesForCleanup(t *testing.T) {
 	images := map[string]string{
 		"backend": "host.docker.internal:5001/argus/argus-backend:tag",
 		"ssh":     "host.docker.internal:5001/argus/argus-e2e-ssh:tag",
-		"winrs":   "host.docker.internal:5001/argus/argus-e2e-ssh:tag",
 		"replay":  "host.docker.internal:5001/argus/argus-e2e-replay:tag",
 	}
 	want := []string{"host.docker.internal:5001/argus/argus-e2e-ssh:tag", "host.docker.internal:5001/argus/argus-e2e-replay:tag"}

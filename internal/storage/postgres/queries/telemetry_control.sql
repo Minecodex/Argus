@@ -226,8 +226,8 @@ UPDATE telemetry_certificates SET revoked_at = now(), revoke_reason = $2
 WHERE collector_id = $1 AND revoked_at IS NULL;
 
 -- name: CreateTelemetryEnrollmentToken :one
-INSERT INTO telemetry_enrollment_tokens (id, collector_id, token_hash, expires_at, host_enrollment_token_id)
-VALUES ($1,$2,$3,$4,sqlc.narg('host_enrollment_token_id')) RETURNING *;
+INSERT INTO telemetry_enrollment_tokens (id, collector_id, token_hash, expires_at)
+VALUES ($1,$2,$3,$4) RETURNING *;
 
 -- name: GetTelemetryEnrollmentTokenForUpdate :one
 SELECT * FROM telemetry_enrollment_tokens WHERE token_hash = $1 FOR UPDATE;

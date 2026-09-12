@@ -259,6 +259,18 @@ func toActionExecution(value actionservice.ExecutionView) actionapi.Execution {
 			Kind interface{}        `json:"kind"`
 		}{Id: execution.ConnectorInstallOperationID.UUID, Kind: "connector_install"}
 	}
+	if execution.HostOnboardingOperationID.Valid {
+		result.OperationRef = &struct {
+			Id   openapi_types.UUID `json:"id"`
+			Kind interface{}        `json:"kind"`
+		}{Id: execution.HostOnboardingOperationID.UUID, Kind: "host_onboarding"}
+	}
+	if execution.HostRemovalOperationID.Valid {
+		result.OperationRef = &struct {
+			Id   openapi_types.UUID `json:"id"`
+			Kind interface{}        `json:"kind"`
+		}{Id: execution.HostRemovalOperationID.UUID, Kind: "host_removal"}
+	}
 	if execution.ResultRef.Valid {
 		result.ResultRef = &execution.ResultRef.String
 	}
@@ -305,6 +317,8 @@ func actionError(ctx context.Context, err error) actionapi.ApiError {
 	defer func() { logMappedError(ctx, base.Code, err) }()
 	if errors.Is(err, resource.ErrActionUnavailable) {
 		base.Code, base.MessageKey = "ACTION_STATE_CONFLICT", "errors.actions.state_conflict"
+	} else if errors.Is(err, actionservice.ErrInvalidated) {
+		base.Code, base.MessageKey = "PENDING_ACTION_INVALIDATED", "errors.actions.pending_action_invalidated"
 	} else if errors.Is(err, actionservice.ErrStepUpRequired) {
 		base.Code, base.MessageKey = "STEP_UP_REQUIRED", "errors.identity.step_up_required"
 	}

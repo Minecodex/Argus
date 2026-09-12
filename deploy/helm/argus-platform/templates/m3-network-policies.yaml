@@ -47,7 +47,7 @@ spec:
               app.kubernetes.io/name: argus-connector-gateway
       ports:
         - {protocol: TCP, port: 9443}
-    # SSH, WinRM, artifact HTTPS and Kubernetes API targets are selected only
+    # SSH, artifact HTTPS and Kubernetes API targets are selected only
     # after DirectTargetValidator resolves, pins and revalidates the address.
     # NetworkPolicy supplies a TCP-only transport gate; the application is the
     # authoritative destination policy because managed hosts may use any CIDR

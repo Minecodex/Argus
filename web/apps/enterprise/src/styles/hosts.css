@@ -430,3 +430,84 @@
   border-radius: var(--radius-md);
   background: var(--bg-muted);
 }
+.argus-rdp-viewer__canvas {
+  min-height: 500px;
+  overflow: hidden;
+  background: var(--surface-terminal);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.argus-rdp-viewer__canvas > div {
+  transform-origin: top left;
+}
+.argus-removal-layout,
+.argus-removal-connection {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+}
+
+.argus-removal-connection {
+  gap: var(--space-3);
+}
+
+.argus-removal-modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.argus-removal-layout > .argus-button,
+.argus-removal-connection > .argus-button {
+  justify-self: start;
+}
+
+.argus-removal-dependencies,
+.argus-removal-progress ol {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.argus-removal-dependencies li,
+.argus-removal-progress li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.argus-removal-dependencies li span,
+.argus-removal-progress li span:last-child {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.argus-removal-dependencies__link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.argus-removal-dependencies__link:hover,
+.argus-removal-dependencies__link:focus-visible {
+  text-decoration: underline;
+}
+
+.argus-removal-progress {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.argus-removal-progress > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}

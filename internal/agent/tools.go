@@ -208,17 +208,26 @@ func commonHostProperties() map[string]any {
 	return map[string]any{
 		"name": map[string]any{"type": "string"}, "hostname": map[string]any{"type": "string"}, "address": map[string]any{"type": "string"},
 		"port": map[string]any{"type": "integer", "minimum": 1, "maximum": 65535}, "platform": map[string]any{"type": "string", "enum": []string{"linux", "windows"}},
-		"connection_mode": map[string]any{"type": "string", "enum": []string{"via_bastion", "direct_ssh", "direct_winrm"}}, "environment": map[string]any{"type": "string"},
-		"username": map[string]any{"type": "string"}, "bastion_scope_id": map[string]any{"type": "string", "format": "uuid"},
+		"architecture":   map[string]any{"type": "string", "enum": []string{"amd64", "arm64"}},
+		"role":           map[string]any{"type": "string", "const": "managed_host"},
+		"control_path":   map[string]any{"type": "string", "enum": []string{"direct", "bastion_relay", "executor_tunnel"}},
+		"install_method": map[string]any{"type": "string", "enum": []string{"manual", "ssh"}},
+		"ssh_path":       map[string]any{"type": "string", "enum": []string{"none", "direct_executor", "bastion_connector"}},
+		"environment":    map[string]any{"type": "string"},
+		"username":       map[string]any{"type": "string"}, "bastion_scope_id": map[string]any{"type": "string", "format": "uuid"},
 		"credential_id": map[string]any{"type": "string", "format": "uuid"}, "connection_test_id": map[string]any{"type": "string", "format": "uuid"},
 		"labels": labelSchema(), "request_id": map[string]any{"type": "string", "minLength": 1, "maxLength": 128},
 	}
 }
 func hostCreateSchema() map[string]any {
-	return objectSchema(commonHostProperties(), "name", "address", "platform", "connection_mode", "connection_test_id")
+	return objectSchema(commonHostProperties(), "name", "platform", "role", "control_path", "install_method", "ssh_path")
 }
 func hostUpdateSchema() map[string]any {
-	properties := commonHostProperties()
+	properties := map[string]any{
+		"name": map[string]any{"type": "string"}, "hostname": map[string]any{"type": "string"},
+		"environment": map[string]any{"type": "string"}, "labels": labelSchema(),
+		"request_id": map[string]any{"type": "string", "minLength": 1, "maxLength": 128},
+	}
 	properties["host_id"] = map[string]any{"type": "string", "format": "uuid"}
 	properties["expected_version"] = map[string]any{"type": "integer", "minimum": 1}
 	return objectSchema(properties, "host_id", "expected_version")
@@ -292,11 +301,42 @@ func requireString(key string) func(map[string]any) error {
 	return func(input map[string]any) error { return validateFields(input, []string{key}, []string{key}) }
 }
 func validateHostCreate(input map[string]any) error {
-	return validateFields(input, mapKeys(commonHostProperties()), []string{"name", "address", "platform", "connection_mode", "connection_test_id"}, "bastion_scope_id", "credential_id", "connection_test_id")
+	if err := validateFields(input, mapKeys(commonHostProperties()), []string{"name", "platform", "role", "control_path", "install_method", "ssh_path"}, "bastion_scope_id", "credential_id", "connection_test_id"); err != nil {
+		return err
+	}
+	return validateHostOnboardingToolInput(hostInput(input))
 }
 func validateHostUpdate(input map[string]any) error {
-	allowed := append(mapKeys(commonHostProperties()), "host_id", "expected_version")
-	return validateFields(input, allowed, []string{"host_id", "expected_version"}, "host_id", "bastion_scope_id", "credential_id", "connection_test_id")
+	allowed := []string{"host_id", "expected_version", "name", "hostname", "environment", "labels", "request_id"}
+	return validateFields(input, allowed, []string{"host_id", "expected_version"}, "host_id")
+}
+
+func validateHostOnboardingToolInput(input resource.HostInput) error {
+	if input.Role != "managed_host" || (input.Platform != "linux" && input.Platform != "windows") {
+		return errors.New("role and platform must describe a managed Linux or Windows host")
+	}
+	if input.Platform == "windows" && input.Architecture != "" && input.Architecture != "amd64" {
+		return errors.New("Windows hosts require amd64")
+	}
+	if input.ControlPath != "direct" && input.ControlPath != "bastion_relay" && input.ControlPath != "executor_tunnel" {
+		return errors.New("invalid control_path")
+	}
+	if (input.ControlPath == "bastion_relay") != input.BastionScopeID.Valid {
+		return errors.New("bastion_relay requires exactly one bastion_scope_id")
+	}
+	if input.InstallMethod == "manual" {
+		if input.SSHPath != "none" || input.Architecture == "" || input.Address != "" || input.Port != 0 || input.Username != "" || input.CredentialID.Valid || input.ConnectionTestID.Valid || input.ControlPath == "executor_tunnel" {
+			return errors.New("manual installation requires an architecture and no SSH fields")
+		}
+		return nil
+	}
+	if input.InstallMethod != "ssh" || (input.SSHPath != "direct_executor" && input.SSHPath != "bastion_connector") || input.Address == "" || input.Port < 1 || input.Username == "" || !input.CredentialID.Valid || !input.ConnectionTestID.Valid {
+		return errors.New("SSH installation requires path, target, credential and successful connection test")
+	}
+	if input.SSHPath == "bastion_connector" && input.ControlPath != "bastion_relay" || input.ControlPath == "executor_tunnel" && input.SSHPath != "direct_executor" {
+		return errors.New("SSH path does not match control_path")
+	}
+	return nil
 }
 func validateClusterCreate(input map[string]any) error {
 	return validateFields(input, mapKeys(commonClusterProperties()), []string{"name", "connection_mode"}, "bastion_scope_id", "credential_id", "connection_test_id")
@@ -446,7 +486,7 @@ func (tools ResourceTools) listHosts(ctx context.Context, call mcp.Call) (mcp.Re
 	result := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		labels, _ := resource.DecodeLabels(item.Labels)
-		result = append(result, map[string]any{"id": item.ID, "name": item.Name, "hostname": item.Hostname, "address": item.Address, "platform": item.Platform, "connection_mode": item.ConnectionMode, "connection_status": item.ConnectionStatus, "labels": labels, "resource_version": item.ResourceVersion})
+		result = append(result, map[string]any{"id": item.ID, "name": item.Name, "hostname": item.Hostname, "address": item.Address.String, "platform": item.Platform, "role": item.Role, "control_path": item.ControlPath, "connection_status": item.ConnectionStatus, "labels": labels, "resource_version": item.ResourceVersion})
 	}
 	return mcp.Result{Structured: map[string]any{"items": result}}, nil
 }
@@ -619,7 +659,7 @@ func pendingProjection(value db.PendingAction) map[string]any {
 }
 
 func hostInput(input map[string]any) resource.HostInput {
-	return resource.HostInput{Name: stringValue(input, "name"), Hostname: stringValue(input, "hostname"), Address: stringValue(input, "address"), Platform: stringValue(input, "platform"), ConnectionMode: stringValue(input, "connection_mode"), Environment: stringValue(input, "environment"), Username: stringValue(input, "username"), Port: int32(intValue(input, "port")), BastionScopeID: nullID(input, "bastion_scope_id"), CredentialID: nullID(input, "credential_id"), ConnectionTestID: nullID(input, "connection_test_id"), Labels: labelsValue(input), ExpectedVersion: intValue(input, "expected_version")}
+	return resource.HostInput{Name: stringValue(input, "name"), Hostname: stringValue(input, "hostname"), Address: stringValue(input, "address"), Platform: stringValue(input, "platform"), Role: stringValue(input, "role"), ControlPath: stringValue(input, "control_path"), InstallMethod: stringValue(input, "install_method"), SSHPath: stringValue(input, "ssh_path"), Environment: stringValue(input, "environment"), Username: stringValue(input, "username"), Architecture: stringValue(input, "architecture"), Port: int32(intValue(input, "port")), BastionScopeID: nullID(input, "bastion_scope_id"), CredentialID: nullID(input, "credential_id"), ConnectionTestID: nullID(input, "connection_test_id"), Labels: labelsValue(input), ExpectedVersion: intValue(input, "expected_version")}
 }
 func clusterInput(input map[string]any) resource.KubernetesInput {
 	return resource.KubernetesInput{Name: stringValue(input, "name"), APIServer: stringValue(input, "api_server"), ConnectionMode: stringValue(input, "connection_mode"), DefaultNamespace: stringValue(input, "default_namespace"), Environment: stringValue(input, "environment"), BastionScopeID: nullID(input, "bastion_scope_id"), CredentialID: nullID(input, "credential_id"), ConnectionTestID: nullID(input, "connection_test_id"), Labels: labelsValue(input), ExpectedVersion: intValue(input, "expected_version")}

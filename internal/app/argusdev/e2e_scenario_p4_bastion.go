@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +35,7 @@ func (a *App) runP4DirectBastion(ctx context.Context, env *E2EEnvironment, scena
 	if err != nil {
 		return err
 	}
+	scenario.DirectInstall = installed
 	if err = a.waitM3ConnectorOnline(ctx, env, installed.ConnectorID, 1); err != nil {
 		return err
 	}
@@ -116,6 +118,10 @@ func (a *App) runP4TunnelBastion(ctx context.Context, env *E2EEnvironment, scena
 		return err
 	}
 	if err = a.verifyM7Signals(ctx, env, replaced.HostID, "p4-control"); err != nil {
+		return err
+	}
+	if err = a.uninstallP4HostCollector(ctx, env, "p4-mode-c-root", replaced.HostID,
+		scenario.DistributionID, scenario.HostProfiles, "direct_argus", "executor_tunnel", "", 14317); err != nil {
 		return err
 	}
 	if _, err = a.execP4Target(ctx, env, scenario.TunnelTarget, "/bin/bash", "-lc",
@@ -309,16 +315,28 @@ func (a *App) runP4MemberTunnel(ctx context.Context, env *E2EEnvironment, scenar
 	if scenario.TunnelInstall.ScopeID == "" || scenario.RootCollectorID == "" {
 		return fmt.Errorf("mode C root is unavailable")
 	}
+	// The preceding telemetry-tunnel takeover can move the same Direct
+	// Executor pod that owns the Bastion control tunnel. Wait until the
+	// reconnected Connector remains stable, then create fresh evidence against
+	// that stable session immediately before freezing the member plan.
+	if err := a.waitM3ConnectorOnline(ctx, env, scenario.TunnelInstall.ConnectorID, 1); err != nil {
+		return err
+	}
 	testID, err := a.createP4ConnectionTest(ctx, env, "p4-member", scenario.MemberTarget.ExternalIP,
 		scenario.CredentialID, scenario.TunnelInstall.ScopeID)
 	if err != nil {
 		return err
 	}
+	facts, factsErr := a.postgresQuery(ctx, env, "SELECT json_build_object('test_status',t.status,'not_expired',t.expires_at>now(),'path',t.path,'test_connector_id',t.connector_id,'test_epoch',t.connection_epoch,'request_plan',t.request_plan,'result',t.result,'connector_status',c.status,'connector_epoch',c.connection_epoch,'scope_status',s.status,'scope_connector_id',s.active_connector_id,'credential_status',r.status,'credential_version',r.version)::text FROM connection_tests t LEFT JOIN connectors c ON c.id=t.connector_id LEFT JOIN bastion_scopes s ON s.id='"+scenario.TunnelInstall.ScopeID+"' LEFT JOIN credentials r ON r.id=t.credential_id WHERE t.id='"+testID+"';")
+	if factsErr == nil {
+		_ = writePrivate(filepath.Join(env.Options.Artifacts, "p4-member-connection-test-facts.json"), []byte(strings.TrimSpace(facts)+"\n"))
+	}
 	client, _ := scenarioHTTP(env)
 	preview, err := client.JSON(ctx, "p4-member-preview", "enterprise", http.MethodPost,
 		"/enterprise/hosts/actions/preview-create", http.StatusCreated, map[string]any{
 			"name": "p4-restricted-member", "address": scenario.MemberTarget.ExternalIP, "port": 22, "platform": "linux",
-			"connection_mode": "via_bastion", "credential_id": scenario.CredentialID, "username": "root",
+			"role": "managed_host", "control_path": "bastion_relay", "install_method": "ssh", "ssh_path": "bastion_connector",
+			"credential_id": scenario.CredentialID, "username": "root",
 			"bastion_scope_id": scenario.TunnelInstall.ScopeID, "connection_test_id": testID,
 			"environment": "production", "labels": map[string]string{"suite": "p4", "mode": "member-tunnel"},
 		}, enterpriseHeaders(env, "p4-member-preview"))
@@ -340,8 +358,12 @@ func (a *App) runP4MemberTunnel(ctx context.Context, env *E2EEnvironment, scenar
 	if err = a.refreshEnterpriseLogin(ctx, env); err != nil {
 		return err
 	}
+	scenario.MemberHostID = hostID
+	if err = a.verifyP4HostOnboardingTimeline(ctx, env, hostID); err != nil {
+		return err
+	}
 	collector, err := a.applyP4HostCollector(ctx, env, "p4-member", hostID, scenario.DistributionID,
-		scenario.HostProfiles, "bastion_gateway", "bastion_tunnel", scenario.RootCollectorID, 14318)
+		scenario.HostProfiles, "bastion_gateway", "bastion_tunnel", "", 14318)
 	if err != nil {
 		return err
 	}
@@ -352,6 +374,11 @@ func (a *App) runP4MemberTunnel(ctx context.Context, env *E2EEnvironment, scenar
 	if err = a.waitPostgresValue(ctx, env,
 		"SELECT r.status || '|' || r.transport || '|' || t.status || '|' || t.initiator FROM telemetry_routes r JOIN telemetry_tunnels t ON t.collector_id=r.collector_id WHERE r.collector_id='"+collectorID+"';",
 		"active|bastion_tunnel|established|connector", 3*time.Minute); err != nil {
+		return err
+	}
+	if err = a.waitPostgresValue(ctx, env,
+		"SELECT l.gateway_collector_id::text || '|' || g.status || '|' || g.role FROM telemetry_routes l JOIN collector_instances g ON g.id=l.gateway_collector_id WHERE l.collector_id='"+collectorID+"';",
+		scenario.RootCollectorID+"|converged|edge_gateway", 3*time.Minute); err != nil {
 		return err
 	}
 	if _, err = a.execP4Target(ctx, env, scenario.MemberTarget, "/usr/local/bin/argus-telemetry-e2e",

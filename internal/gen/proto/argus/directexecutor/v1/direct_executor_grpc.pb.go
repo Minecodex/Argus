@@ -21,7 +21,6 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	DirectExecutorService_DispatchConnectionTest_FullMethodName      = "/argus.directexecutor.v1.DirectExecutorService/DispatchConnectionTest"
 	DirectExecutorService_DispatchCollectorManagement_FullMethodName = "/argus.directexecutor.v1.DirectExecutorService/DispatchCollectorManagement"
-	DirectExecutorService_OpenRemoteAccess_FullMethodName            = "/argus.directexecutor.v1.DirectExecutorService/OpenRemoteAccess"
 )
 
 // DirectExecutorServiceClient is the client API for DirectExecutorService service.
@@ -33,7 +32,6 @@ const (
 type DirectExecutorServiceClient interface {
 	DispatchConnectionTest(ctx context.Context, in *DispatchConnectionTestRequest, opts ...grpc.CallOption) (*DispatchConnectionTestResponse, error)
 	DispatchCollectorManagement(ctx context.Context, in *DispatchCollectorManagementRequest, opts ...grpc.CallOption) (*DispatchCollectorManagementResponse, error)
-	OpenRemoteAccess(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[OpenRemoteAccessRequest, OpenRemoteAccessResponse], error)
 }
 
 type directExecutorServiceClient struct {
@@ -64,19 +62,6 @@ func (c *directExecutorServiceClient) DispatchCollectorManagement(ctx context.Co
 	return out, nil
 }
 
-func (c *directExecutorServiceClient) OpenRemoteAccess(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[OpenRemoteAccessRequest, OpenRemoteAccessResponse], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &DirectExecutorService_ServiceDesc.Streams[0], DirectExecutorService_OpenRemoteAccess_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[OpenRemoteAccessRequest, OpenRemoteAccessResponse]{ClientStream: stream}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DirectExecutorService_OpenRemoteAccessClient = grpc.BidiStreamingClient[OpenRemoteAccessRequest, OpenRemoteAccessResponse]
-
 // DirectExecutorServiceServer is the server API for DirectExecutorService service.
 // All implementations must embed UnimplementedDirectExecutorServiceServer
 // for forward compatibility.
@@ -86,7 +71,6 @@ type DirectExecutorService_OpenRemoteAccessClient = grpc.BidiStreamingClient[Ope
 type DirectExecutorServiceServer interface {
 	DispatchConnectionTest(context.Context, *DispatchConnectionTestRequest) (*DispatchConnectionTestResponse, error)
 	DispatchCollectorManagement(context.Context, *DispatchCollectorManagementRequest) (*DispatchCollectorManagementResponse, error)
-	OpenRemoteAccess(grpc.BidiStreamingServer[OpenRemoteAccessRequest, OpenRemoteAccessResponse]) error
 	mustEmbedUnimplementedDirectExecutorServiceServer()
 }
 
@@ -102,9 +86,6 @@ func (UnimplementedDirectExecutorServiceServer) DispatchConnectionTest(context.C
 }
 func (UnimplementedDirectExecutorServiceServer) DispatchCollectorManagement(context.Context, *DispatchCollectorManagementRequest) (*DispatchCollectorManagementResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DispatchCollectorManagement not implemented")
-}
-func (UnimplementedDirectExecutorServiceServer) OpenRemoteAccess(grpc.BidiStreamingServer[OpenRemoteAccessRequest, OpenRemoteAccessResponse]) error {
-	return status.Errorf(codes.Unimplemented, "method OpenRemoteAccess not implemented")
 }
 func (UnimplementedDirectExecutorServiceServer) mustEmbedUnimplementedDirectExecutorServiceServer() {}
 func (UnimplementedDirectExecutorServiceServer) testEmbeddedByValue()                               {}
@@ -163,13 +144,6 @@ func _DirectExecutorService_DispatchCollectorManagement_Handler(srv interface{},
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DirectExecutorService_OpenRemoteAccess_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(DirectExecutorServiceServer).OpenRemoteAccess(&grpc.GenericServerStream[OpenRemoteAccessRequest, OpenRemoteAccessResponse]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DirectExecutorService_OpenRemoteAccessServer = grpc.BidiStreamingServer[OpenRemoteAccessRequest, OpenRemoteAccessResponse]
-
 // DirectExecutorService_ServiceDesc is the grpc.ServiceDesc for DirectExecutorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -186,13 +160,6 @@ var DirectExecutorService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DirectExecutorService_DispatchCollectorManagement_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "OpenRemoteAccess",
-			Handler:       _DirectExecutorService_OpenRemoteAccess_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "argus/directexecutor/v1/direct_executor.proto",
 }

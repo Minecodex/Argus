@@ -1,32 +1,28 @@
 -- name: CreateHost :one
-INSERT INTO hosts (id, enterprise_id, name, hostname, address, port, platform, architecture, connection_mode, bastion_scope_id, environment, labels, labels_hash, connection_status, pinned_host_key)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *;
+INSERT INTO hosts (id, enterprise_id, name, hostname, address, port, platform, architecture, role, control_path, bastion_scope_id, environment, labels, labels_hash, connection_status, pinned_host_key)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *;
 
--- name: CreateSelfEnrolledHost :one
--- PlanV4 场景⑤:无入站路径、无凭据、无 ConnectionTest;activation 前地址未知。
-INSERT INTO hosts (id, enterprise_id, name, hostname, address, port, platform, architecture, connection_mode, bastion_scope_id, environment, labels, labels_hash, connection_status, pinned_host_key)
-VALUES ($1,$2,$3,'','',0,$4,$5,'self_enrolled',NULL,$6,$7,$8,'onboarding','') RETURNING *;
+-- name: HostNameAvailable :one
+SELECT NOT EXISTS (
+  SELECT 1 FROM hosts
+  WHERE enterprise_id = sqlc.arg('enterprise_id')
+    AND lower(name) = lower(sqlc.arg('name')) AND status <> 'deleted'
+)::boolean AS available;
 
--- name: ActivateSelfEnrolledHost :one
--- 首次 enrollment 成功:回填自报 hostname/address,转 online 并刷新 last_seen。
-UPDATE hosts SET
-  hostname = CASE WHEN sqlc.arg('hostname')::text <> '' THEN sqlc.arg('hostname') ELSE hostname END,
-  address = CASE WHEN sqlc.arg('address')::text <> '' THEN sqlc.arg('address') ELSE address END,
-  architecture = CASE WHEN sqlc.arg('architecture')::text <> '' THEN sqlc.arg('architecture') ELSE architecture END,
-  connection_status = 'online', last_seen_at = now(),
-  resource_version = resource_version + 1, updated_at = now()
-WHERE id = sqlc.arg('id') AND enterprise_id = sqlc.arg('enterprise_id') AND connection_mode = 'self_enrolled' AND status <> 'deleted'
-RETURNING *;
+-- name: ActivateHostConnector :one
+UPDATE hosts SET connector_id=$3, hostname=CASE WHEN sqlc.arg('hostname')::text<>'' THEN sqlc.arg('hostname') ELSE hostname END,
+ address=CASE WHEN sqlc.arg('address')::text<>'' THEN sqlc.arg('address') ELSE address END,
+ architecture=CASE WHEN sqlc.arg('architecture')::text<>'' THEN sqlc.arg('architecture') ELSE architecture END,
+ connection_status='onboarding',last_seen_at=now(),resource_version=resource_version+1,updated_at=now()
+WHERE id=$1 AND enterprise_id=$2 AND status='active' RETURNING *;
 
--- name: MarkHostSeen :execrows
-UPDATE hosts SET last_seen_at = now(), updated_at = updated_at
-WHERE id = $1 AND enterprise_id = $2 AND status <> 'deleted';
-
--- name: SetBastionRootHostArchitecture :execrows
--- Connector enrollment is authoritative for command-mode roots; B/C must
--- report the same architecture already frozen by their Connection Test.
-UPDATE hosts SET architecture = $3, resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND connection_mode = 'connector_local' AND status <> 'deleted';
+-- name: ActivateBastionRootHost :execrows
+-- Connector enrollment is authoritative for command-mode roots; B/C report
+-- the architecture frozen by their Connection Test. Replacement atomically
+-- switches the stable Host to the new Connector identity.
+UPDATE hosts SET connector_id = $3, architecture = $4, connection_status = 'onboarding',
+ last_seen_at = now(), resource_version = resource_version + 1, updated_at = now()
+WHERE id = $1 AND enterprise_id = $2 AND role = 'bastion' AND status = 'active';
 
 -- name: GetHost :one
 SELECT * FROM hosts WHERE id = $1 AND enterprise_id = $2 AND status <> 'deleted';
@@ -37,7 +33,7 @@ SELECT * FROM hosts WHERE enterprise_id = $1 AND status <> 'deleted' ORDER BY cr
 -- name: UpdateHost :one
 UPDATE hosts SET name = COALESCE(sqlc.narg('name'), name), environment = COALESCE(sqlc.narg('environment'), environment),
  hostname = COALESCE(sqlc.narg('hostname'), hostname), address = COALESCE(sqlc.narg('address'), address),
- port = COALESCE(sqlc.narg('port'), port), connection_mode = COALESCE(sqlc.narg('connection_mode'), connection_mode),
+ port = COALESCE(sqlc.narg('port'), port), control_path = COALESCE(sqlc.narg('control_path'), control_path),
  bastion_scope_id = CASE WHEN sqlc.arg('set_bastion_scope')::boolean THEN sqlc.narg('bastion_scope_id') ELSE bastion_scope_id END,
  connection_status = COALESCE(sqlc.narg('connection_status'), connection_status),
  pinned_host_key = COALESCE(sqlc.narg('pinned_host_key'), pinned_host_key),
@@ -47,13 +43,9 @@ UPDATE hosts SET name = COALESCE(sqlc.narg('name'), name), environment = COALESC
  resource_version = resource_version + 1, updated_at = now()
 WHERE id = $1 AND enterprise_id = $2 AND resource_version = $3 AND status <> 'deleted' RETURNING *;
 
--- name: DeleteHost :one
-UPDATE hosts SET status = 'deleted', deleted_at = now(), resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND resource_version = $3 AND connection_mode <> 'connector_local' RETURNING *;
-
 -- name: DeleteBastionRootHost :one
 UPDATE hosts SET status = 'deleted', connection_status = 'offline', deleted_at = now(), resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND bastion_scope_id = $3 AND connection_mode = 'connector_local' AND status <> 'deleted'
+WHERE id = $1 AND enterprise_id = $2 AND bastion_scope_id = $3 AND role = 'bastion' AND status <> 'deleted'
 RETURNING *;
 
 -- name: CreateKubernetesCluster :one

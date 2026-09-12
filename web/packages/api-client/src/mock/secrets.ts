@@ -15,8 +15,8 @@ export function createSecretsDomain(
     protocol:
       item.type === "kubeconfig"
         ? "kubernetes"
-        : item.type === "winrm_password"
-          ? "winrm"
+        : item.type === "windows_password"
+			? "windows"
           : "ssh",
     username: item.type === "kubeconfig" ? undefined : "argus",
     secret_id: item.id,
@@ -34,7 +34,7 @@ export function createSecretsDomain(
     username: seedCredential.username ?? "argus",
     privilege_level: "standard",
     credential_id: seedCredential.id,
-    allowed_protocols: seedCredential.protocol === "winrm" ? ["winrm"] : ["ssh"],
+    allowed_protocols: seedCredential.protocol === "windows" ? ["shell", "rdp"] : ["shell", "ssh"],
     status: "active",
     version: 1,
     created_at: seedCredential.created_at,

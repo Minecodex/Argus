@@ -9,7 +9,7 @@
     "dev:card": "pnpm --filter @argus/card-runtime dev",
     "build": "node scripts/build-web.mjs mock",
     "build:real": "node scripts/build-web.mjs real",
-    "check:real-build": "pnpm build:real && node scripts/check-real-build.mjs",
+    "check:real-build": "pnpm build:real",
     "smoke:web": "go run ./cmd/argus-dev check web-entrypoints",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
     "check:i18n": "node scripts/check-i18n-keys.mjs",

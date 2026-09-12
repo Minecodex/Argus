@@ -11,14 +11,13 @@ func TestConnectorGatewayRequiresCertificateIssuer(t *testing.T) {
 		RemotePeerServerName: "argus-connector-gateway", RemotePeerHeadlessSuffix: "argus-connector-gateway-headless.argus-system.svc", RemotePeerPort: "9446",
 		RemotePeerClientURI:         "spiffe://argus.io/services/connector-gateway/peer-client",
 		RemotePeerClientCertificate: "peer-client.crt", RemotePeerClientPrivateKey: "peer-client.key",
-		RemoteAllowedOrigins: []string{"https://enterprise.example.com"}, DirectExecutorEndpoint: "argus-direct-executor:9444",
-		DirectExecutorServerName: "argus-direct-executor", DirectExecutorTLSCert: "client.crt", DirectExecutorTLSKey: "client.key",
-		DirectExecutorCABundle: "direct-ca.crt", DirectExecutorRecipientID: "argus-direct-executor",
+		RemoteAllowedOrigins: []string{"https://enterprise.example.com"}, GuacdAddress: "127.0.0.1:4822",
 		ObjectStoreURL: "https://minio.example.com", ObjectStoreBucket: "remote-recordings", ObjectStoreAccess: "access", ObjectStoreSecret: "secret",
 		RemoteUserLimit: 3, RemoteHostLimit: 5, RemoteTenantLimit: 50,
 		TelemetryEnrollmentEndpoint: "https://api.example.com/api/v1/telemetry/collectors/enroll",
 		TelemetryIngestGRPCEndpoint: "grpcs://otlp.example.com:4317", TelemetryIngestHTTPEndpoint: "https://otlp-http.example.com:4318",
 		TrustBundlePath: "trust.pem", TrustBundleEpoch: 1,
+		OperationSecretKey: make([]byte, 32),
 	}
 	if err := valid.Validate(); err != nil {
 		t.Fatalf("valid Connector Gateway configuration failed: %v", err)

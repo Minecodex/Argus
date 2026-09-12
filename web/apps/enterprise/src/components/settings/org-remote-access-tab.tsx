@@ -35,7 +35,7 @@ type GrantForm = {
   subject_id: string;
   host_ids: string[];
   account_ids: string[];
-  protocol: "ssh" | "winrs";
+  protocol: "shell" | "ssh" | "rdp";
   valid_until: string;
 };
 
@@ -285,7 +285,7 @@ function GrantDrawer({
             t("remoteAccess.selectAtLeastOne"),
           )
           .max(grantConstraints.accounts.maxItems ?? 64),
-        protocol: z.enum(["ssh", "winrs"]),
+        protocol: z.enum(["shell", "ssh", "rdp"]),
         valid_until: z.string().min(1, t("remoteAccess.required")),
       }),
     [t],
@@ -461,7 +461,8 @@ function GrantDrawer({
               onValueChange={field.onChange}
               options={[
                 { value: "ssh", label: "SSH PTY" },
-                { value: "winrs", label: "WinRS PowerShell" },
+                { value: "shell", label: "Local Shell / PowerShell" },
+                { value: "rdp", label: "RDP" },
               ]}
               value={field.value}
             />

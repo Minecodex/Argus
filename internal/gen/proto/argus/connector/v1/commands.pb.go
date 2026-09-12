@@ -259,6 +259,8 @@ type HostConnectionProbe struct {
 	Protocol                   string                 `protobuf:"bytes,3,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	ExpectedHostKeyFingerprint string                 `protobuf:"bytes,4,opt,name=expected_host_key_fingerprint,json=expectedHostKeyFingerprint,proto3" json:"expected_host_key_fingerprint,omitempty"`
 	Username                   string                 `protobuf:"bytes,5,opt,name=username,proto3" json:"username,omitempty"`
+	Platform                   string                 `protobuf:"bytes,6,opt,name=platform,proto3" json:"platform,omitempty"`
+	Onboarding                 *CallbackProbePlan     `protobuf:"bytes,7,opt,name=onboarding,proto3" json:"onboarding,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
@@ -328,6 +330,120 @@ func (x *HostConnectionProbe) GetUsername() string {
 	return ""
 }
 
+func (x *HostConnectionProbe) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+func (x *HostConnectionProbe) GetOnboarding() *CallbackProbePlan {
+	if x != nil {
+		return x.Onboarding
+	}
+	return nil
+}
+
+type CallbackProbePlan struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	ControlPath         string                 `protobuf:"bytes,1,opt,name=control_path,json=controlPath,proto3" json:"control_path,omitempty"`
+	EnrollmentEndpoint  string                 `protobuf:"bytes,2,opt,name=enrollment_endpoint,json=enrollmentEndpoint,proto3" json:"enrollment_endpoint,omitempty"`
+	GatewayEndpoint     string                 `protobuf:"bytes,3,opt,name=gateway_endpoint,json=gatewayEndpoint,proto3" json:"gateway_endpoint,omitempty"`
+	EnrollDialAddress   string                 `protobuf:"bytes,4,opt,name=enroll_dial_address,json=enrollDialAddress,proto3" json:"enroll_dial_address,omitempty"`
+	GatewayDialAddress  string                 `protobuf:"bytes,5,opt,name=gateway_dial_address,json=gatewayDialAddress,proto3" json:"gateway_dial_address,omitempty"`
+	TrustBundlePem      []byte                 `protobuf:"bytes,6,opt,name=trust_bundle_pem,json=trustBundlePem,proto3" json:"trust_bundle_pem,omitempty"`
+	TrustBundleEpoch    int64                  `protobuf:"varint,7,opt,name=trust_bundle_epoch,json=trustBundleEpoch,proto3" json:"trust_bundle_epoch,omitempty"`
+	RelayPortGeneration int64                  `protobuf:"varint,8,opt,name=relay_port_generation,json=relayPortGeneration,proto3" json:"relay_port_generation,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *CallbackProbePlan) Reset() {
+	*x = CallbackProbePlan{}
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CallbackProbePlan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CallbackProbePlan) ProtoMessage() {}
+
+func (x *CallbackProbePlan) ProtoReflect() protoreflect.Message {
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CallbackProbePlan.ProtoReflect.Descriptor instead.
+func (*CallbackProbePlan) Descriptor() ([]byte, []int) {
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CallbackProbePlan) GetControlPath() string {
+	if x != nil {
+		return x.ControlPath
+	}
+	return ""
+}
+
+func (x *CallbackProbePlan) GetEnrollmentEndpoint() string {
+	if x != nil {
+		return x.EnrollmentEndpoint
+	}
+	return ""
+}
+
+func (x *CallbackProbePlan) GetGatewayEndpoint() string {
+	if x != nil {
+		return x.GatewayEndpoint
+	}
+	return ""
+}
+
+func (x *CallbackProbePlan) GetEnrollDialAddress() string {
+	if x != nil {
+		return x.EnrollDialAddress
+	}
+	return ""
+}
+
+func (x *CallbackProbePlan) GetGatewayDialAddress() string {
+	if x != nil {
+		return x.GatewayDialAddress
+	}
+	return ""
+}
+
+func (x *CallbackProbePlan) GetTrustBundlePem() []byte {
+	if x != nil {
+		return x.TrustBundlePem
+	}
+	return nil
+}
+
+func (x *CallbackProbePlan) GetTrustBundleEpoch() int64 {
+	if x != nil {
+		return x.TrustBundleEpoch
+	}
+	return 0
+}
+
+func (x *CallbackProbePlan) GetRelayPortGeneration() int64 {
+	if x != nil {
+		return x.RelayPortGeneration
+	}
+	return 0
+}
+
 type HostConnectionProbeResult struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	ResolvedIps        []string               `protobuf:"bytes,1,rep,name=resolved_ips,json=resolvedIps,proto3" json:"resolved_ips,omitempty"`
@@ -337,14 +453,20 @@ type HostConnectionProbeResult struct {
 	LatencyMillis      uint64                 `protobuf:"varint,5,opt,name=latency_millis,json=latencyMillis,proto3" json:"latency_millis,omitempty"`
 	// Normalized uname -m value. Linux probes must return amd64 or arm64 so
 	// signed installation artifacts can be frozen during ConnectionTest.
-	Architecture  string `protobuf:"bytes,6,opt,name=architecture,proto3" json:"architecture,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Architecture        string `protobuf:"bytes,6,opt,name=architecture,proto3" json:"architecture,omitempty"`
+	DistributionVersion string `protobuf:"bytes,7,opt,name=distribution_version,json=distributionVersion,proto3" json:"distribution_version,omitempty"`
+	ServiceManager      string `protobuf:"bytes,8,opt,name=service_manager,json=serviceManager,proto3" json:"service_manager,omitempty"`
+	Privileged          bool   `protobuf:"varint,9,opt,name=privileged,proto3" json:"privileged,omitempty"`
+	FreeDiskBytes       uint64 `protobuf:"varint,10,opt,name=free_disk_bytes,json=freeDiskBytes,proto3" json:"free_disk_bytes,omitempty"`
+	CallbackVerified    bool   `protobuf:"varint,11,opt,name=callback_verified,json=callbackVerified,proto3" json:"callback_verified,omitempty"`
+	CallbackControlPath string `protobuf:"bytes,12,opt,name=callback_control_path,json=callbackControlPath,proto3" json:"callback_control_path,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *HostConnectionProbeResult) Reset() {
 	*x = HostConnectionProbeResult{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[3]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +478,7 @@ func (x *HostConnectionProbeResult) String() string {
 func (*HostConnectionProbeResult) ProtoMessage() {}
 
 func (x *HostConnectionProbeResult) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[3]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +491,7 @@ func (x *HostConnectionProbeResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HostConnectionProbeResult.ProtoReflect.Descriptor instead.
 func (*HostConnectionProbeResult) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{3}
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *HostConnectionProbeResult) GetResolvedIps() []string {
@@ -414,6 +536,48 @@ func (x *HostConnectionProbeResult) GetArchitecture() string {
 	return ""
 }
 
+func (x *HostConnectionProbeResult) GetDistributionVersion() string {
+	if x != nil {
+		return x.DistributionVersion
+	}
+	return ""
+}
+
+func (x *HostConnectionProbeResult) GetServiceManager() string {
+	if x != nil {
+		return x.ServiceManager
+	}
+	return ""
+}
+
+func (x *HostConnectionProbeResult) GetPrivileged() bool {
+	if x != nil {
+		return x.Privileged
+	}
+	return false
+}
+
+func (x *HostConnectionProbeResult) GetFreeDiskBytes() uint64 {
+	if x != nil {
+		return x.FreeDiskBytes
+	}
+	return 0
+}
+
+func (x *HostConnectionProbeResult) GetCallbackVerified() bool {
+	if x != nil {
+		return x.CallbackVerified
+	}
+	return false
+}
+
+func (x *HostConnectionProbeResult) GetCallbackControlPath() string {
+	if x != nil {
+		return x.CallbackControlPath
+	}
+	return ""
+}
+
 type KubernetesConnectionProbe struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	ApiServer        string                 `protobuf:"bytes,1,opt,name=api_server,json=apiServer,proto3" json:"api_server,omitempty"`
@@ -424,7 +588,7 @@ type KubernetesConnectionProbe struct {
 
 func (x *KubernetesConnectionProbe) Reset() {
 	*x = KubernetesConnectionProbe{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[4]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -436,7 +600,7 @@ func (x *KubernetesConnectionProbe) String() string {
 func (*KubernetesConnectionProbe) ProtoMessage() {}
 
 func (x *KubernetesConnectionProbe) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[4]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -449,7 +613,7 @@ func (x *KubernetesConnectionProbe) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubernetesConnectionProbe.ProtoReflect.Descriptor instead.
 func (*KubernetesConnectionProbe) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{4}
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *KubernetesConnectionProbe) GetApiServer() string {
@@ -478,7 +642,7 @@ type KubernetesConnectionProbeResult struct {
 
 func (x *KubernetesConnectionProbeResult) Reset() {
 	*x = KubernetesConnectionProbeResult{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[5]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -490,7 +654,7 @@ func (x *KubernetesConnectionProbeResult) String() string {
 func (*KubernetesConnectionProbeResult) ProtoMessage() {}
 
 func (x *KubernetesConnectionProbeResult) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[5]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -503,7 +667,7 @@ func (x *KubernetesConnectionProbeResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubernetesConnectionProbeResult.ProtoReflect.Descriptor instead.
 func (*KubernetesConnectionProbeResult) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{5}
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *KubernetesConnectionProbeResult) GetServerVersion() string {
@@ -550,7 +714,7 @@ type KubernetesResourceQuery struct {
 
 func (x *KubernetesResourceQuery) Reset() {
 	*x = KubernetesResourceQuery{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[6]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -562,7 +726,7 @@ func (x *KubernetesResourceQuery) String() string {
 func (*KubernetesResourceQuery) ProtoMessage() {}
 
 func (x *KubernetesResourceQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[6]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -575,7 +739,7 @@ func (x *KubernetesResourceQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubernetesResourceQuery.ProtoReflect.Descriptor instead.
 func (*KubernetesResourceQuery) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{6}
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *KubernetesResourceQuery) GetClusterId() string {
@@ -645,7 +809,7 @@ type KubernetesResourceQueryResult struct {
 
 func (x *KubernetesResourceQueryResult) Reset() {
 	*x = KubernetesResourceQueryResult{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[7]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -657,7 +821,7 @@ func (x *KubernetesResourceQueryResult) String() string {
 func (*KubernetesResourceQueryResult) ProtoMessage() {}
 
 func (x *KubernetesResourceQueryResult) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[7]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -670,7 +834,7 @@ func (x *KubernetesResourceQueryResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubernetesResourceQueryResult.ProtoReflect.Descriptor instead.
 func (*KubernetesResourceQueryResult) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{7}
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *KubernetesResourceQueryResult) GetResourcesJson() [][]byte {
@@ -708,7 +872,7 @@ type KubernetesPodLogsQuery struct {
 
 func (x *KubernetesPodLogsQuery) Reset() {
 	*x = KubernetesPodLogsQuery{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[8]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -720,7 +884,7 @@ func (x *KubernetesPodLogsQuery) String() string {
 func (*KubernetesPodLogsQuery) ProtoMessage() {}
 
 func (x *KubernetesPodLogsQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[8]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -733,7 +897,7 @@ func (x *KubernetesPodLogsQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubernetesPodLogsQuery.ProtoReflect.Descriptor instead.
 func (*KubernetesPodLogsQuery) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{8}
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *KubernetesPodLogsQuery) GetClusterId() string {
@@ -788,7 +952,7 @@ type KubernetesPodLogsResult struct {
 
 func (x *KubernetesPodLogsResult) Reset() {
 	*x = KubernetesPodLogsResult{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[9]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -800,7 +964,7 @@ func (x *KubernetesPodLogsResult) String() string {
 func (*KubernetesPodLogsResult) ProtoMessage() {}
 
 func (x *KubernetesPodLogsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[9]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -813,7 +977,7 @@ func (x *KubernetesPodLogsResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubernetesPodLogsResult.ProtoReflect.Descriptor instead.
 func (*KubernetesPodLogsResult) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{9}
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *KubernetesPodLogsResult) GetContent() []byte {
@@ -842,7 +1006,7 @@ type ConnectorUninstall struct {
 
 func (x *ConnectorUninstall) Reset() {
 	*x = ConnectorUninstall{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[10]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -854,7 +1018,7 @@ func (x *ConnectorUninstall) String() string {
 func (*ConnectorUninstall) ProtoMessage() {}
 
 func (x *ConnectorUninstall) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[10]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -867,7 +1031,7 @@ func (x *ConnectorUninstall) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectorUninstall.ProtoReflect.Descriptor instead.
 func (*ConnectorUninstall) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{10}
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ConnectorUninstall) GetConnectorId() string {
@@ -908,7 +1072,7 @@ type ConnectorUninstallResult struct {
 
 func (x *ConnectorUninstallResult) Reset() {
 	*x = ConnectorUninstallResult{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[11]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -920,7 +1084,7 @@ func (x *ConnectorUninstallResult) String() string {
 func (*ConnectorUninstallResult) ProtoMessage() {}
 
 func (x *ConnectorUninstallResult) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[11]
+	mi := &file_argus_connector_v1_commands_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -933,7 +1097,7 @@ func (x *ConnectorUninstallResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectorUninstallResult.ProtoReflect.Descriptor instead.
 func (*ConnectorUninstallResult) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{11}
+	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ConnectorUninstallResult) GetIdentityRemoved() bool {
@@ -950,81 +1114,38 @@ func (x *ConnectorUninstallResult) GetServiceStopped() bool {
 	return false
 }
 
-type CertificateRotationRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	ConnectionEpoch uint64                 `protobuf:"varint,1,opt,name=connection_epoch,json=connectionEpoch,proto3" json:"connection_epoch,omitempty"`
-	CsrPem          []byte                 `protobuf:"bytes,2,opt,name=csr_pem,json=csrPem,proto3" json:"csr_pem,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+type HostConnectorRemoval struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	OperationId              string                 `protobuf:"bytes,1,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
+	HostId                   string                 `protobuf:"bytes,2,opt,name=host_id,json=hostId,proto3" json:"host_id,omitempty"`
+	ConnectorId              string                 `protobuf:"bytes,3,opt,name=connector_id,json=connectorId,proto3" json:"connector_id,omitempty"`
+	RemovalGeneration        uint64                 `protobuf:"varint,4,opt,name=removal_generation,json=removalGeneration,proto3" json:"removal_generation,omitempty"`
+	TargetPlatform           string                 `protobuf:"bytes,5,opt,name=target_platform,json=targetPlatform,proto3" json:"target_platform,omitempty"`
+	Address                  string                 `protobuf:"bytes,6,opt,name=address,proto3" json:"address,omitempty"`
+	Port                     uint32                 `protobuf:"varint,7,opt,name=port,proto3" json:"port,omitempty"`
+	Username                 string                 `protobuf:"bytes,8,opt,name=username,proto3" json:"username,omitempty"`
+	PinnedHostKey            string                 `protobuf:"bytes,9,opt,name=pinned_host_key,json=pinnedHostKey,proto3" json:"pinned_host_key,omitempty"`
+	ManagedChangeId          string                 `protobuf:"bytes,10,opt,name=managed_change_id,json=managedChangeId,proto3" json:"managed_change_id,omitempty"`
+	ManagedChangeBeforeJson  []byte                 `protobuf:"bytes,11,opt,name=managed_change_before_json,json=managedChangeBeforeJson,proto3" json:"managed_change_before_json,omitempty"`
+	ManagedChangeAppliedJson []byte                 `protobuf:"bytes,12,opt,name=managed_change_applied_json,json=managedChangeAppliedJson,proto3" json:"managed_change_applied_json,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
-func (x *CertificateRotationRequest) Reset() {
-	*x = CertificateRotationRequest{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CertificateRotationRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CertificateRotationRequest) ProtoMessage() {}
-
-func (x *CertificateRotationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CertificateRotationRequest.ProtoReflect.Descriptor instead.
-func (*CertificateRotationRequest) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *CertificateRotationRequest) GetConnectionEpoch() uint64 {
-	if x != nil {
-		return x.ConnectionEpoch
-	}
-	return 0
-}
-
-func (x *CertificateRotationRequest) GetCsrPem() []byte {
-	if x != nil {
-		return x.CsrPem
-	}
-	return nil
-}
-
-type CertificateRotationGrant struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	ConnectionEpoch uint64                 `protobuf:"varint,1,opt,name=connection_epoch,json=connectionEpoch,proto3" json:"connection_epoch,omitempty"`
-	CertificatePem  []byte                 `protobuf:"bytes,2,opt,name=certificate_pem,json=certificatePem,proto3" json:"certificate_pem,omitempty"`
-	NotAfter        *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=not_after,json=notAfter,proto3" json:"not_after,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *CertificateRotationGrant) Reset() {
-	*x = CertificateRotationGrant{}
+func (x *HostConnectorRemoval) Reset() {
+	*x = HostConnectorRemoval{}
 	mi := &file_argus_connector_v1_commands_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CertificateRotationGrant) String() string {
+func (x *HostConnectorRemoval) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CertificateRotationGrant) ProtoMessage() {}
+func (*HostConnectorRemoval) ProtoMessage() {}
 
-func (x *CertificateRotationGrant) ProtoReflect() protoreflect.Message {
+func (x *HostConnectorRemoval) ProtoReflect() protoreflect.Message {
 	mi := &file_argus_connector_v1_commands_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1036,60 +1157,120 @@ func (x *CertificateRotationGrant) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CertificateRotationGrant.ProtoReflect.Descriptor instead.
-func (*CertificateRotationGrant) Descriptor() ([]byte, []int) {
+// Deprecated: Use HostConnectorRemoval.ProtoReflect.Descriptor instead.
+func (*HostConnectorRemoval) Descriptor() ([]byte, []int) {
 	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *CertificateRotationGrant) GetConnectionEpoch() uint64 {
+func (x *HostConnectorRemoval) GetOperationId() string {
 	if x != nil {
-		return x.ConnectionEpoch
+		return x.OperationId
+	}
+	return ""
+}
+
+func (x *HostConnectorRemoval) GetHostId() string {
+	if x != nil {
+		return x.HostId
+	}
+	return ""
+}
+
+func (x *HostConnectorRemoval) GetConnectorId() string {
+	if x != nil {
+		return x.ConnectorId
+	}
+	return ""
+}
+
+func (x *HostConnectorRemoval) GetRemovalGeneration() uint64 {
+	if x != nil {
+		return x.RemovalGeneration
 	}
 	return 0
 }
 
-func (x *CertificateRotationGrant) GetCertificatePem() []byte {
+func (x *HostConnectorRemoval) GetTargetPlatform() string {
 	if x != nil {
-		return x.CertificatePem
+		return x.TargetPlatform
+	}
+	return ""
+}
+
+func (x *HostConnectorRemoval) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *HostConnectorRemoval) GetPort() uint32 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
+}
+
+func (x *HostConnectorRemoval) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *HostConnectorRemoval) GetPinnedHostKey() string {
+	if x != nil {
+		return x.PinnedHostKey
+	}
+	return ""
+}
+
+func (x *HostConnectorRemoval) GetManagedChangeId() string {
+	if x != nil {
+		return x.ManagedChangeId
+	}
+	return ""
+}
+
+func (x *HostConnectorRemoval) GetManagedChangeBeforeJson() []byte {
+	if x != nil {
+		return x.ManagedChangeBeforeJson
 	}
 	return nil
 }
 
-func (x *CertificateRotationGrant) GetNotAfter() *timestamppb.Timestamp {
+func (x *HostConnectorRemoval) GetManagedChangeAppliedJson() []byte {
 	if x != nil {
-		return x.NotAfter
+		return x.ManagedChangeAppliedJson
 	}
 	return nil
 }
 
-type TrustBundleUpdate struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	Epoch                 uint64                 `protobuf:"varint,1,opt,name=epoch,proto3" json:"epoch,omitempty"`
-	BundlePem             []byte                 `protobuf:"bytes,2,opt,name=bundle_pem,json=bundlePem,proto3" json:"bundle_pem,omitempty"`
-	BundleSha256          string                 `protobuf:"bytes,3,opt,name=bundle_sha256,json=bundleSha256,proto3" json:"bundle_sha256,omitempty"`
-	CurrentCaFingerprints []string               `protobuf:"bytes,4,rep,name=current_ca_fingerprints,json=currentCaFingerprints,proto3" json:"current_ca_fingerprints,omitempty"`
-	NextCaFingerprints    []string               `protobuf:"bytes,5,rep,name=next_ca_fingerprints,json=nextCaFingerprints,proto3" json:"next_ca_fingerprints,omitempty"`
-	State                 string                 `protobuf:"bytes,6,opt,name=state,proto3" json:"state,omitempty"`
-	StartedAt             *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	RetireAt              *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=retire_at,json=retireAt,proto3" json:"retire_at,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+type HostConnectorRemovalResult struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	OperationId          string                 `protobuf:"bytes,1,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
+	CleanupHash          []byte                 `protobuf:"bytes,2,opt,name=cleanup_hash,json=cleanupHash,proto3" json:"cleanup_hash,omitempty"`
+	LocalCleanupVerified bool                   `protobuf:"varint,3,opt,name=local_cleanup_verified,json=localCleanupVerified,proto3" json:"local_cleanup_verified,omitempty"`
+	LocalConfigDrift     bool                   `protobuf:"varint,4,opt,name=local_config_drift,json=localConfigDrift,proto3" json:"local_config_drift,omitempty"`
+	CleanupEvidenceJson  []byte                 `protobuf:"bytes,5,opt,name=cleanup_evidence_json,json=cleanupEvidenceJson,proto3" json:"cleanup_evidence_json,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
-func (x *TrustBundleUpdate) Reset() {
-	*x = TrustBundleUpdate{}
+func (x *HostConnectorRemovalResult) Reset() {
+	*x = HostConnectorRemovalResult{}
 	mi := &file_argus_connector_v1_commands_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TrustBundleUpdate) String() string {
+func (x *HostConnectorRemovalResult) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TrustBundleUpdate) ProtoMessage() {}
+func (*HostConnectorRemovalResult) ProtoMessage() {}
 
-func (x *TrustBundleUpdate) ProtoReflect() protoreflect.Message {
+func (x *HostConnectorRemovalResult) ProtoReflect() protoreflect.Message {
 	mi := &file_argus_connector_v1_commands_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1101,90 +1282,70 @@ func (x *TrustBundleUpdate) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TrustBundleUpdate.ProtoReflect.Descriptor instead.
-func (*TrustBundleUpdate) Descriptor() ([]byte, []int) {
+// Deprecated: Use HostConnectorRemovalResult.ProtoReflect.Descriptor instead.
+func (*HostConnectorRemovalResult) Descriptor() ([]byte, []int) {
 	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *TrustBundleUpdate) GetEpoch() uint64 {
+func (x *HostConnectorRemovalResult) GetOperationId() string {
 	if x != nil {
-		return x.Epoch
-	}
-	return 0
-}
-
-func (x *TrustBundleUpdate) GetBundlePem() []byte {
-	if x != nil {
-		return x.BundlePem
-	}
-	return nil
-}
-
-func (x *TrustBundleUpdate) GetBundleSha256() string {
-	if x != nil {
-		return x.BundleSha256
+		return x.OperationId
 	}
 	return ""
 }
 
-func (x *TrustBundleUpdate) GetCurrentCaFingerprints() []string {
+func (x *HostConnectorRemovalResult) GetCleanupHash() []byte {
 	if x != nil {
-		return x.CurrentCaFingerprints
+		return x.CleanupHash
 	}
 	return nil
 }
 
-func (x *TrustBundleUpdate) GetNextCaFingerprints() []string {
+func (x *HostConnectorRemovalResult) GetLocalCleanupVerified() bool {
 	if x != nil {
-		return x.NextCaFingerprints
+		return x.LocalCleanupVerified
+	}
+	return false
+}
+
+func (x *HostConnectorRemovalResult) GetLocalConfigDrift() bool {
+	if x != nil {
+		return x.LocalConfigDrift
+	}
+	return false
+}
+
+func (x *HostConnectorRemovalResult) GetCleanupEvidenceJson() []byte {
+	if x != nil {
+		return x.CleanupEvidenceJson
 	}
 	return nil
 }
 
-func (x *TrustBundleUpdate) GetState() string {
-	if x != nil {
-		return x.State
-	}
-	return ""
-}
-
-func (x *TrustBundleUpdate) GetStartedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.StartedAt
-	}
-	return nil
-}
-
-func (x *TrustBundleUpdate) GetRetireAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.RetireAt
-	}
-	return nil
-}
-
-type TrustBundleAcknowledge struct {
+type HostWindowsRDPConfigure struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	Epoch          uint64                 `protobuf:"varint,1,opt,name=epoch,proto3" json:"epoch,omitempty"`
-	BundleSha256   string                 `protobuf:"bytes,2,opt,name=bundle_sha256,json=bundleSha256,proto3" json:"bundle_sha256,omitempty"`
-	CaFingerprints []string               `protobuf:"bytes,3,rep,name=ca_fingerprints,json=caFingerprints,proto3" json:"ca_fingerprints,omitempty"`
+	HostId         string                 `protobuf:"bytes,1,opt,name=host_id,json=hostId,proto3" json:"host_id,omitempty"`
+	Enable         bool                   `protobuf:"varint,2,opt,name=enable,proto3" json:"enable,omitempty"`
+	EnforceNla     bool                   `protobuf:"varint,3,opt,name=enforce_nla,json=enforceNla,proto3" json:"enforce_nla,omitempty"`
+	EnableFirewall bool                   `protobuf:"varint,4,opt,name=enable_firewall,json=enableFirewall,proto3" json:"enable_firewall,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
-func (x *TrustBundleAcknowledge) Reset() {
-	*x = TrustBundleAcknowledge{}
+func (x *HostWindowsRDPConfigure) Reset() {
+	*x = HostWindowsRDPConfigure{}
 	mi := &file_argus_connector_v1_commands_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TrustBundleAcknowledge) String() string {
+func (x *HostWindowsRDPConfigure) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TrustBundleAcknowledge) ProtoMessage() {}
+func (*HostWindowsRDPConfigure) ProtoMessage() {}
 
-func (x *TrustBundleAcknowledge) ProtoReflect() protoreflect.Message {
+func (x *HostWindowsRDPConfigure) ProtoReflect() protoreflect.Message {
 	mi := &file_argus_connector_v1_commands_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1196,56 +1357,66 @@ func (x *TrustBundleAcknowledge) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TrustBundleAcknowledge.ProtoReflect.Descriptor instead.
-func (*TrustBundleAcknowledge) Descriptor() ([]byte, []int) {
+// Deprecated: Use HostWindowsRDPConfigure.ProtoReflect.Descriptor instead.
+func (*HostWindowsRDPConfigure) Descriptor() ([]byte, []int) {
 	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{15}
 }
 
-func (x *TrustBundleAcknowledge) GetEpoch() uint64 {
+func (x *HostWindowsRDPConfigure) GetHostId() string {
 	if x != nil {
-		return x.Epoch
-	}
-	return 0
-}
-
-func (x *TrustBundleAcknowledge) GetBundleSha256() string {
-	if x != nil {
-		return x.BundleSha256
+		return x.HostId
 	}
 	return ""
 }
 
-func (x *TrustBundleAcknowledge) GetCaFingerprints() []string {
+func (x *HostWindowsRDPConfigure) GetEnable() bool {
 	if x != nil {
-		return x.CaFingerprints
+		return x.Enable
 	}
-	return nil
+	return false
 }
 
-type CredentialLeaseRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	LeaseId         string                 `protobuf:"bytes,1,opt,name=lease_id,json=leaseId,proto3" json:"lease_id,omitempty"`
-	CommandId       string                 `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
-	ConnectionEpoch uint64                 `protobuf:"varint,3,opt,name=connection_epoch,json=connectionEpoch,proto3" json:"connection_epoch,omitempty"`
-	RecipientNonce  []byte                 `protobuf:"bytes,4,opt,name=recipient_nonce,json=recipientNonce,proto3" json:"recipient_nonce,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+func (x *HostWindowsRDPConfigure) GetEnforceNla() bool {
+	if x != nil {
+		return x.EnforceNla
+	}
+	return false
 }
 
-func (x *CredentialLeaseRequest) Reset() {
-	*x = CredentialLeaseRequest{}
+func (x *HostWindowsRDPConfigure) GetEnableFirewall() bool {
+	if x != nil {
+		return x.EnableFirewall
+	}
+	return false
+}
+
+type HostWindowsRDPConfigureResult struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	HostId           string                 `protobuf:"bytes,1,opt,name=host_id,json=hostId,proto3" json:"host_id,omitempty"`
+	RdpStatus        string                 `protobuf:"bytes,2,opt,name=rdp_status,json=rdpStatus,proto3" json:"rdp_status,omitempty"`
+	NlaEnabled       bool                   `protobuf:"varint,3,opt,name=nla_enabled,json=nlaEnabled,proto3" json:"nla_enabled,omitempty"`
+	FirewallEnabled  bool                   `protobuf:"varint,4,opt,name=firewall_enabled,json=firewallEnabled,proto3" json:"firewall_enabled,omitempty"`
+	ServiceRunning   bool                   `protobuf:"varint,5,opt,name=service_running,json=serviceRunning,proto3" json:"service_running,omitempty"`
+	BeforeStateJson  []byte                 `protobuf:"bytes,6,opt,name=before_state_json,json=beforeStateJson,proto3" json:"before_state_json,omitempty"`
+	AppliedStateJson []byte                 `protobuf:"bytes,7,opt,name=applied_state_json,json=appliedStateJson,proto3" json:"applied_state_json,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *HostWindowsRDPConfigureResult) Reset() {
+	*x = HostWindowsRDPConfigureResult{}
 	mi := &file_argus_connector_v1_commands_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CredentialLeaseRequest) String() string {
+func (x *HostWindowsRDPConfigureResult) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CredentialLeaseRequest) ProtoMessage() {}
+func (*HostWindowsRDPConfigureResult) ProtoMessage() {}
 
-func (x *CredentialLeaseRequest) ProtoReflect() protoreflect.Message {
+func (x *HostWindowsRDPConfigureResult) ProtoReflect() protoreflect.Message {
 	mi := &file_argus_connector_v1_commands_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1257,291 +1428,56 @@ func (x *CredentialLeaseRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CredentialLeaseRequest.ProtoReflect.Descriptor instead.
-func (*CredentialLeaseRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use HostWindowsRDPConfigureResult.ProtoReflect.Descriptor instead.
+func (*HostWindowsRDPConfigureResult) Descriptor() ([]byte, []int) {
 	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *CredentialLeaseRequest) GetLeaseId() string {
+func (x *HostWindowsRDPConfigureResult) GetHostId() string {
 	if x != nil {
-		return x.LeaseId
+		return x.HostId
 	}
 	return ""
 }
 
-func (x *CredentialLeaseRequest) GetCommandId() string {
+func (x *HostWindowsRDPConfigureResult) GetRdpStatus() string {
 	if x != nil {
-		return x.CommandId
+		return x.RdpStatus
 	}
 	return ""
 }
 
-func (x *CredentialLeaseRequest) GetConnectionEpoch() uint64 {
+func (x *HostWindowsRDPConfigureResult) GetNlaEnabled() bool {
 	if x != nil {
-		return x.ConnectionEpoch
+		return x.NlaEnabled
 	}
-	return 0
+	return false
 }
 
-func (x *CredentialLeaseRequest) GetRecipientNonce() []byte {
+func (x *HostWindowsRDPConfigureResult) GetFirewallEnabled() bool {
 	if x != nil {
-		return x.RecipientNonce
+		return x.FirewallEnabled
+	}
+	return false
+}
+
+func (x *HostWindowsRDPConfigureResult) GetServiceRunning() bool {
+	if x != nil {
+		return x.ServiceRunning
+	}
+	return false
+}
+
+func (x *HostWindowsRDPConfigureResult) GetBeforeStateJson() []byte {
+	if x != nil {
+		return x.BeforeStateJson
 	}
 	return nil
 }
 
-type CredentialLeaseGrant struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	LeaseId           string                 `protobuf:"bytes,1,opt,name=lease_id,json=leaseId,proto3" json:"lease_id,omitempty"`
-	CommandId         string                 `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
-	ConnectionEpoch   uint64                 `protobuf:"varint,3,opt,name=connection_epoch,json=connectionEpoch,proto3" json:"connection_epoch,omitempty"`
-	CredentialPayload []byte                 `protobuf:"bytes,4,opt,name=credential_payload,json=credentialPayload,proto3" json:"credential_payload,omitempty"`
-	ExpiresAt         *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	RecipientNonce    []byte                 `protobuf:"bytes,6,opt,name=recipient_nonce,json=recipientNonce,proto3" json:"recipient_nonce,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *CredentialLeaseGrant) Reset() {
-	*x = CredentialLeaseGrant{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[17]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialLeaseGrant) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialLeaseGrant) ProtoMessage() {}
-
-func (x *CredentialLeaseGrant) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[17]
+func (x *HostWindowsRDPConfigureResult) GetAppliedStateJson() []byte {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialLeaseGrant.ProtoReflect.Descriptor instead.
-func (*CredentialLeaseGrant) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{17}
-}
-
-func (x *CredentialLeaseGrant) GetLeaseId() string {
-	if x != nil {
-		return x.LeaseId
-	}
-	return ""
-}
-
-func (x *CredentialLeaseGrant) GetCommandId() string {
-	if x != nil {
-		return x.CommandId
-	}
-	return ""
-}
-
-func (x *CredentialLeaseGrant) GetConnectionEpoch() uint64 {
-	if x != nil {
-		return x.ConnectionEpoch
-	}
-	return 0
-}
-
-func (x *CredentialLeaseGrant) GetCredentialPayload() []byte {
-	if x != nil {
-		return x.CredentialPayload
-	}
-	return nil
-}
-
-func (x *CredentialLeaseGrant) GetExpiresAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.ExpiresAt
-	}
-	return nil
-}
-
-func (x *CredentialLeaseGrant) GetRecipientNonce() []byte {
-	if x != nil {
-		return x.RecipientNonce
-	}
-	return nil
-}
-
-type CommandReconcileRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	CommandIds      []string               `protobuf:"bytes,1,rep,name=command_ids,json=commandIds,proto3" json:"command_ids,omitempty"`
-	ConnectionEpoch uint64                 `protobuf:"varint,2,opt,name=connection_epoch,json=connectionEpoch,proto3" json:"connection_epoch,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *CommandReconcileRequest) Reset() {
-	*x = CommandReconcileRequest{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[18]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CommandReconcileRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CommandReconcileRequest) ProtoMessage() {}
-
-func (x *CommandReconcileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[18]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CommandReconcileRequest.ProtoReflect.Descriptor instead.
-func (*CommandReconcileRequest) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{18}
-}
-
-func (x *CommandReconcileRequest) GetCommandIds() []string {
-	if x != nil {
-		return x.CommandIds
-	}
-	return nil
-}
-
-func (x *CommandReconcileRequest) GetConnectionEpoch() uint64 {
-	if x != nil {
-		return x.ConnectionEpoch
-	}
-	return 0
-}
-
-type CommandReconcileResult struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Commands        []*ReconciledCommand   `protobuf:"bytes,1,rep,name=commands,proto3" json:"commands,omitempty"`
-	ConnectionEpoch uint64                 `protobuf:"varint,2,opt,name=connection_epoch,json=connectionEpoch,proto3" json:"connection_epoch,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *CommandReconcileResult) Reset() {
-	*x = CommandReconcileResult{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[19]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CommandReconcileResult) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CommandReconcileResult) ProtoMessage() {}
-
-func (x *CommandReconcileResult) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[19]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CommandReconcileResult.ProtoReflect.Descriptor instead.
-func (*CommandReconcileResult) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{19}
-}
-
-func (x *CommandReconcileResult) GetCommands() []*ReconciledCommand {
-	if x != nil {
-		return x.Commands
-	}
-	return nil
-}
-
-func (x *CommandReconcileResult) GetConnectionEpoch() uint64 {
-	if x != nil {
-		return x.ConnectionEpoch
-	}
-	return 0
-}
-
-type ReconciledCommand struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CommandId     string                 `protobuf:"bytes,1,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
-	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
-	ResultHash    string                 `protobuf:"bytes,3,opt,name=result_hash,json=resultHash,proto3" json:"result_hash,omitempty"`
-	Error         *v1.ErrorStatus        `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ReconciledCommand) Reset() {
-	*x = ReconciledCommand{}
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[20]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ReconciledCommand) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ReconciledCommand) ProtoMessage() {}
-
-func (x *ReconciledCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_connector_v1_commands_proto_msgTypes[20]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ReconciledCommand.ProtoReflect.Descriptor instead.
-func (*ReconciledCommand) Descriptor() ([]byte, []int) {
-	return file_argus_connector_v1_commands_proto_rawDescGZIP(), []int{20}
-}
-
-func (x *ReconciledCommand) GetCommandId() string {
-	if x != nil {
-		return x.CommandId
-	}
-	return ""
-}
-
-func (x *ReconciledCommand) GetStatus() string {
-	if x != nil {
-		return x.Status
-	}
-	return ""
-}
-
-func (x *ReconciledCommand) GetResultHash() string {
-	if x != nil {
-		return x.ResultHash
-	}
-	return ""
-}
-
-func (x *ReconciledCommand) GetError() *v1.ErrorStatus {
-	if x != nil {
-		return x.Error
+		return x.AppliedStateJson
 	}
 	return nil
 }
@@ -1576,20 +1512,42 @@ const file_argus_connector_v1_commands_proto_rawDesc = "" +
 	"resultHash\x122\n" +
 	"\x05error\x18\x06 \x01(\v2\x1c.argus.common.v1.ErrorStatusR\x05error\x127\n" +
 	"\ftyped_result\x18\a \x01(\v2\x14.google.protobuf.AnyR\vtypedResult\x122\n" +
-	"\x15result_schema_version\x18\b \x01(\tR\x13resultSchemaVersion\"\xbe\x01\n" +
+	"\x15result_schema_version\x18\b \x01(\tR\x13resultSchemaVersion\"\xa1\x02\n" +
 	"\x13HostConnectionProbe\x12\x18\n" +
 	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x12\n" +
 	"\x04port\x18\x02 \x01(\rR\x04port\x12\x1a\n" +
 	"\bprotocol\x18\x03 \x01(\tR\bprotocol\x12A\n" +
 	"\x1dexpected_host_key_fingerprint\x18\x04 \x01(\tR\x1aexpectedHostKeyFingerprint\x12\x1a\n" +
-	"\busername\x18\x05 \x01(\tR\busername\"\xfe\x01\n" +
+	"\busername\x18\x05 \x01(\tR\busername\x12\x1a\n" +
+	"\bplatform\x18\x06 \x01(\tR\bplatform\x12E\n" +
+	"\n" +
+	"onboarding\x18\a \x01(\v2%.argus.connector.v1.CallbackProbePlanR\n" +
+	"onboarding\"\x80\x03\n" +
+	"\x11CallbackProbePlan\x12!\n" +
+	"\fcontrol_path\x18\x01 \x01(\tR\vcontrolPath\x12/\n" +
+	"\x13enrollment_endpoint\x18\x02 \x01(\tR\x12enrollmentEndpoint\x12)\n" +
+	"\x10gateway_endpoint\x18\x03 \x01(\tR\x0fgatewayEndpoint\x12.\n" +
+	"\x13enroll_dial_address\x18\x04 \x01(\tR\x11enrollDialAddress\x120\n" +
+	"\x14gateway_dial_address\x18\x05 \x01(\tR\x12gatewayDialAddress\x12(\n" +
+	"\x10trust_bundle_pem\x18\x06 \x01(\fR\x0etrustBundlePem\x12,\n" +
+	"\x12trust_bundle_epoch\x18\a \x01(\x03R\x10trustBundleEpoch\x122\n" +
+	"\x15relay_port_generation\x18\b \x01(\x03R\x13relayPortGeneration\"\x83\x04\n" +
 	"\x19HostConnectionProbeResult\x12!\n" +
 	"\fresolved_ips\x18\x01 \x03(\tR\vresolvedIps\x120\n" +
 	"\x14host_key_fingerprint\x18\x02 \x01(\tR\x12hostKeyFingerprint\x12\x1a\n" +
 	"\bplatform\x18\x03 \x01(\tR\bplatform\x12%\n" +
 	"\x0eremote_version\x18\x04 \x01(\tR\rremoteVersion\x12%\n" +
 	"\x0elatency_millis\x18\x05 \x01(\x04R\rlatencyMillis\x12\"\n" +
-	"\farchitecture\x18\x06 \x01(\tR\farchitecture\"g\n" +
+	"\farchitecture\x18\x06 \x01(\tR\farchitecture\x121\n" +
+	"\x14distribution_version\x18\a \x01(\tR\x13distributionVersion\x12'\n" +
+	"\x0fservice_manager\x18\b \x01(\tR\x0eserviceManager\x12\x1e\n" +
+	"\n" +
+	"privileged\x18\t \x01(\bR\n" +
+	"privileged\x12&\n" +
+	"\x0ffree_disk_bytes\x18\n" +
+	" \x01(\x04R\rfreeDiskBytes\x12+\n" +
+	"\x11callback_verified\x18\v \x01(\bR\x10callbackVerified\x122\n" +
+	"\x15callback_control_path\x18\f \x01(\tR\x13callbackControlPath\"g\n" +
 	"\x19KubernetesConnectionProbe\x12\x1d\n" +
 	"\n" +
 	"api_server\x18\x01 \x01(\tR\tapiServer\x12+\n" +
@@ -1635,58 +1593,43 @@ const file_argus_connector_v1_commands_proto_rawDesc = "" +
 	"\x12fencing_generation\x18\x04 \x01(\x04R\x11fencingGeneration\"n\n" +
 	"\x18ConnectorUninstallResult\x12)\n" +
 	"\x10identity_removed\x18\x01 \x01(\bR\x0fidentityRemoved\x12'\n" +
-	"\x0fservice_stopped\x18\x02 \x01(\bR\x0eserviceStopped\"`\n" +
-	"\x1aCertificateRotationRequest\x12)\n" +
-	"\x10connection_epoch\x18\x01 \x01(\x04R\x0fconnectionEpoch\x12\x17\n" +
-	"\acsr_pem\x18\x02 \x01(\fR\x06csrPem\"\xad\x01\n" +
-	"\x18CertificateRotationGrant\x12)\n" +
-	"\x10connection_epoch\x18\x01 \x01(\x04R\x0fconnectionEpoch\x12'\n" +
-	"\x0fcertificate_pem\x18\x02 \x01(\fR\x0ecertificatePem\x127\n" +
-	"\tnot_after\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bnotAfterJ\x04\b\x03\x10\x04\"\xe1\x02\n" +
-	"\x11TrustBundleUpdate\x12\x14\n" +
-	"\x05epoch\x18\x01 \x01(\x04R\x05epoch\x12\x1d\n" +
+	"\x0fservice_stopped\x18\x02 \x01(\bR\x0eserviceStopped\"\xe7\x03\n" +
+	"\x14HostConnectorRemoval\x12!\n" +
+	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x17\n" +
+	"\ahost_id\x18\x02 \x01(\tR\x06hostId\x12!\n" +
+	"\fconnector_id\x18\x03 \x01(\tR\vconnectorId\x12-\n" +
+	"\x12removal_generation\x18\x04 \x01(\x04R\x11removalGeneration\x12'\n" +
+	"\x0ftarget_platform\x18\x05 \x01(\tR\x0etargetPlatform\x12\x18\n" +
+	"\aaddress\x18\x06 \x01(\tR\aaddress\x12\x12\n" +
+	"\x04port\x18\a \x01(\rR\x04port\x12\x1a\n" +
+	"\busername\x18\b \x01(\tR\busername\x12&\n" +
+	"\x0fpinned_host_key\x18\t \x01(\tR\rpinnedHostKey\x12*\n" +
+	"\x11managed_change_id\x18\n" +
+	" \x01(\tR\x0fmanagedChangeId\x12;\n" +
+	"\x1amanaged_change_before_json\x18\v \x01(\fR\x17managedChangeBeforeJson\x12=\n" +
+	"\x1bmanaged_change_applied_json\x18\f \x01(\fR\x18managedChangeAppliedJson\"\xfa\x01\n" +
+	"\x1aHostConnectorRemovalResult\x12!\n" +
+	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12!\n" +
+	"\fcleanup_hash\x18\x02 \x01(\fR\vcleanupHash\x124\n" +
+	"\x16local_cleanup_verified\x18\x03 \x01(\bR\x14localCleanupVerified\x12,\n" +
+	"\x12local_config_drift\x18\x04 \x01(\bR\x10localConfigDrift\x122\n" +
+	"\x15cleanup_evidence_json\x18\x05 \x01(\fR\x13cleanupEvidenceJson\"\x94\x01\n" +
+	"\x17HostWindowsRDPConfigure\x12\x17\n" +
+	"\ahost_id\x18\x01 \x01(\tR\x06hostId\x12\x16\n" +
+	"\x06enable\x18\x02 \x01(\bR\x06enable\x12\x1f\n" +
+	"\venforce_nla\x18\x03 \x01(\bR\n" +
+	"enforceNla\x12'\n" +
+	"\x0fenable_firewall\x18\x04 \x01(\bR\x0eenableFirewall\"\xa6\x02\n" +
+	"\x1dHostWindowsRDPConfigureResult\x12\x17\n" +
+	"\ahost_id\x18\x01 \x01(\tR\x06hostId\x12\x1d\n" +
 	"\n" +
-	"bundle_pem\x18\x02 \x01(\fR\tbundlePem\x12#\n" +
-	"\rbundle_sha256\x18\x03 \x01(\tR\fbundleSha256\x126\n" +
-	"\x17current_ca_fingerprints\x18\x04 \x03(\tR\x15currentCaFingerprints\x120\n" +
-	"\x14next_ca_fingerprints\x18\x05 \x03(\tR\x12nextCaFingerprints\x12\x14\n" +
-	"\x05state\x18\x06 \x01(\tR\x05state\x129\n" +
-	"\n" +
-	"started_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x127\n" +
-	"\tretire_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\bretireAt\"|\n" +
-	"\x16TrustBundleAcknowledge\x12\x14\n" +
-	"\x05epoch\x18\x01 \x01(\x04R\x05epoch\x12#\n" +
-	"\rbundle_sha256\x18\x02 \x01(\tR\fbundleSha256\x12'\n" +
-	"\x0fca_fingerprints\x18\x03 \x03(\tR\x0ecaFingerprints\"\xa6\x01\n" +
-	"\x16CredentialLeaseRequest\x12\x19\n" +
-	"\blease_id\x18\x01 \x01(\tR\aleaseId\x12\x1d\n" +
-	"\n" +
-	"command_id\x18\x02 \x01(\tR\tcommandId\x12)\n" +
-	"\x10connection_epoch\x18\x03 \x01(\x04R\x0fconnectionEpoch\x12'\n" +
-	"\x0frecipient_nonce\x18\x04 \x01(\fR\x0erecipientNonce\"\x8e\x02\n" +
-	"\x14CredentialLeaseGrant\x12\x19\n" +
-	"\blease_id\x18\x01 \x01(\tR\aleaseId\x12\x1d\n" +
-	"\n" +
-	"command_id\x18\x02 \x01(\tR\tcommandId\x12)\n" +
-	"\x10connection_epoch\x18\x03 \x01(\x04R\x0fconnectionEpoch\x12-\n" +
-	"\x12credential_payload\x18\x04 \x01(\fR\x11credentialPayload\x129\n" +
-	"\n" +
-	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12'\n" +
-	"\x0frecipient_nonce\x18\x06 \x01(\fR\x0erecipientNonce\"e\n" +
-	"\x17CommandReconcileRequest\x12\x1f\n" +
-	"\vcommand_ids\x18\x01 \x03(\tR\n" +
-	"commandIds\x12)\n" +
-	"\x10connection_epoch\x18\x02 \x01(\x04R\x0fconnectionEpoch\"\x86\x01\n" +
-	"\x16CommandReconcileResult\x12A\n" +
-	"\bcommands\x18\x01 \x03(\v2%.argus.connector.v1.ReconciledCommandR\bcommands\x12)\n" +
-	"\x10connection_epoch\x18\x02 \x01(\x04R\x0fconnectionEpoch\"\x9f\x01\n" +
-	"\x11ReconciledCommand\x12\x1d\n" +
-	"\n" +
-	"command_id\x18\x01 \x01(\tR\tcommandId\x12\x16\n" +
-	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1f\n" +
-	"\vresult_hash\x18\x03 \x01(\tR\n" +
-	"resultHash\x122\n" +
-	"\x05error\x18\x04 \x01(\v2\x1c.argus.common.v1.ErrorStatusR\x05errorBLZJgithub.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1;connectorv1b\x06proto3"
+	"rdp_status\x18\x02 \x01(\tR\trdpStatus\x12\x1f\n" +
+	"\vnla_enabled\x18\x03 \x01(\bR\n" +
+	"nlaEnabled\x12)\n" +
+	"\x10firewall_enabled\x18\x04 \x01(\bR\x0ffirewallEnabled\x12'\n" +
+	"\x0fservice_running\x18\x05 \x01(\bR\x0eserviceRunning\x12*\n" +
+	"\x11before_state_json\x18\x06 \x01(\fR\x0fbeforeStateJson\x12,\n" +
+	"\x12applied_state_json\x18\a \x01(\fR\x10appliedStateJsonBLZJgithub.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1;connectorv1b\x06proto3"
 
 var (
 	file_argus_connector_v1_commands_proto_rawDescOnce sync.Once
@@ -1700,49 +1643,40 @@ func file_argus_connector_v1_commands_proto_rawDescGZIP() []byte {
 	return file_argus_connector_v1_commands_proto_rawDescData
 }
 
-var file_argus_connector_v1_commands_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_argus_connector_v1_commands_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_argus_connector_v1_commands_proto_goTypes = []any{
 	(*ConnectorCommand)(nil),                // 0: argus.connector.v1.ConnectorCommand
 	(*CommandResult)(nil),                   // 1: argus.connector.v1.CommandResult
 	(*HostConnectionProbe)(nil),             // 2: argus.connector.v1.HostConnectionProbe
-	(*HostConnectionProbeResult)(nil),       // 3: argus.connector.v1.HostConnectionProbeResult
-	(*KubernetesConnectionProbe)(nil),       // 4: argus.connector.v1.KubernetesConnectionProbe
-	(*KubernetesConnectionProbeResult)(nil), // 5: argus.connector.v1.KubernetesConnectionProbeResult
-	(*KubernetesResourceQuery)(nil),         // 6: argus.connector.v1.KubernetesResourceQuery
-	(*KubernetesResourceQueryResult)(nil),   // 7: argus.connector.v1.KubernetesResourceQueryResult
-	(*KubernetesPodLogsQuery)(nil),          // 8: argus.connector.v1.KubernetesPodLogsQuery
-	(*KubernetesPodLogsResult)(nil),         // 9: argus.connector.v1.KubernetesPodLogsResult
-	(*ConnectorUninstall)(nil),              // 10: argus.connector.v1.ConnectorUninstall
-	(*ConnectorUninstallResult)(nil),        // 11: argus.connector.v1.ConnectorUninstallResult
-	(*CertificateRotationRequest)(nil),      // 12: argus.connector.v1.CertificateRotationRequest
-	(*CertificateRotationGrant)(nil),        // 13: argus.connector.v1.CertificateRotationGrant
-	(*TrustBundleUpdate)(nil),               // 14: argus.connector.v1.TrustBundleUpdate
-	(*TrustBundleAcknowledge)(nil),          // 15: argus.connector.v1.TrustBundleAcknowledge
-	(*CredentialLeaseRequest)(nil),          // 16: argus.connector.v1.CredentialLeaseRequest
-	(*CredentialLeaseGrant)(nil),            // 17: argus.connector.v1.CredentialLeaseGrant
-	(*CommandReconcileRequest)(nil),         // 18: argus.connector.v1.CommandReconcileRequest
-	(*CommandReconcileResult)(nil),          // 19: argus.connector.v1.CommandReconcileResult
-	(*ReconciledCommand)(nil),               // 20: argus.connector.v1.ReconciledCommand
-	(*timestamppb.Timestamp)(nil),           // 21: google.protobuf.Timestamp
-	(*anypb.Any)(nil),                       // 22: google.protobuf.Any
-	(*v1.ErrorStatus)(nil),                  // 23: argus.common.v1.ErrorStatus
+	(*CallbackProbePlan)(nil),               // 3: argus.connector.v1.CallbackProbePlan
+	(*HostConnectionProbeResult)(nil),       // 4: argus.connector.v1.HostConnectionProbeResult
+	(*KubernetesConnectionProbe)(nil),       // 5: argus.connector.v1.KubernetesConnectionProbe
+	(*KubernetesConnectionProbeResult)(nil), // 6: argus.connector.v1.KubernetesConnectionProbeResult
+	(*KubernetesResourceQuery)(nil),         // 7: argus.connector.v1.KubernetesResourceQuery
+	(*KubernetesResourceQueryResult)(nil),   // 8: argus.connector.v1.KubernetesResourceQueryResult
+	(*KubernetesPodLogsQuery)(nil),          // 9: argus.connector.v1.KubernetesPodLogsQuery
+	(*KubernetesPodLogsResult)(nil),         // 10: argus.connector.v1.KubernetesPodLogsResult
+	(*ConnectorUninstall)(nil),              // 11: argus.connector.v1.ConnectorUninstall
+	(*ConnectorUninstallResult)(nil),        // 12: argus.connector.v1.ConnectorUninstallResult
+	(*HostConnectorRemoval)(nil),            // 13: argus.connector.v1.HostConnectorRemoval
+	(*HostConnectorRemovalResult)(nil),      // 14: argus.connector.v1.HostConnectorRemovalResult
+	(*HostWindowsRDPConfigure)(nil),         // 15: argus.connector.v1.HostWindowsRDPConfigure
+	(*HostWindowsRDPConfigureResult)(nil),   // 16: argus.connector.v1.HostWindowsRDPConfigureResult
+	(*timestamppb.Timestamp)(nil),           // 17: google.protobuf.Timestamp
+	(*anypb.Any)(nil),                       // 18: google.protobuf.Any
+	(*v1.ErrorStatus)(nil),                  // 19: argus.common.v1.ErrorStatus
 }
 var file_argus_connector_v1_commands_proto_depIdxs = []int32{
-	21, // 0: argus.connector.v1.ConnectorCommand.expires_at:type_name -> google.protobuf.Timestamp
-	22, // 1: argus.connector.v1.ConnectorCommand.typed_payload:type_name -> google.protobuf.Any
-	23, // 2: argus.connector.v1.CommandResult.error:type_name -> argus.common.v1.ErrorStatus
-	22, // 3: argus.connector.v1.CommandResult.typed_result:type_name -> google.protobuf.Any
-	21, // 4: argus.connector.v1.CertificateRotationGrant.not_after:type_name -> google.protobuf.Timestamp
-	21, // 5: argus.connector.v1.TrustBundleUpdate.started_at:type_name -> google.protobuf.Timestamp
-	21, // 6: argus.connector.v1.TrustBundleUpdate.retire_at:type_name -> google.protobuf.Timestamp
-	21, // 7: argus.connector.v1.CredentialLeaseGrant.expires_at:type_name -> google.protobuf.Timestamp
-	20, // 8: argus.connector.v1.CommandReconcileResult.commands:type_name -> argus.connector.v1.ReconciledCommand
-	23, // 9: argus.connector.v1.ReconciledCommand.error:type_name -> argus.common.v1.ErrorStatus
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	17, // 0: argus.connector.v1.ConnectorCommand.expires_at:type_name -> google.protobuf.Timestamp
+	18, // 1: argus.connector.v1.ConnectorCommand.typed_payload:type_name -> google.protobuf.Any
+	19, // 2: argus.connector.v1.CommandResult.error:type_name -> argus.common.v1.ErrorStatus
+	18, // 3: argus.connector.v1.CommandResult.typed_result:type_name -> google.protobuf.Any
+	3,  // 4: argus.connector.v1.HostConnectionProbe.onboarding:type_name -> argus.connector.v1.CallbackProbePlan
+	5,  // [5:5] is the sub-list for method output_type
+	5,  // [5:5] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_argus_connector_v1_commands_proto_init() }
@@ -1756,7 +1690,7 @@ func file_argus_connector_v1_commands_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_argus_connector_v1_commands_proto_rawDesc), len(file_argus_connector_v1_commands_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

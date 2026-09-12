@@ -14,6 +14,7 @@ hosts:
 images:
   backend: host.docker.internal:5001/argus/argus-backend:dev
   web: host.docker.internal:5001/argus/argus-web:dev
+  guacd: guacamole/guacd:1.6.0
   pullPolicy: Never
   postgresql: postgres:18.6-alpine
 setupTokenSecretName: argus-generated-secrets
@@ -26,6 +27,8 @@ network:
   protectedCidrs: []
   protectedAddresses: []
 runtime:
+  # Injected by argusctl after resolving the configured IngressClass owner.
+  httpsInternalAddress: ""
   postgresqlPassword: ""
   redisPassword: ""
   idempotencyEncryptionKey: ""
@@ -50,9 +53,8 @@ runtime:
   connectorEnrollmentURL: https://argus.example.com
   connectorGatewayAddress: grpcs://connector.argus.example.com:9443
   # Mode C remote forwards terminate at these platform-side TCP targets.
-  # Enrollment must traverse the TLS ingress so the Connector can verify the
-  # public enrollment URL while dialing its loopback control tunnel.
-  connectorEnrollmentForwardTarget: argus.example.com:443
+  # Enrollment traverses the shared internal TLS ingress address so the
+  # Connector can verify its public enrollment URL over the loopback tunnel.
   connectorGatewayForwardTarget: argus-connector-gateway.argus-system.svc:9443
   connectorIssuerGeneration: 1
   directAdvertisedEgress: []
@@ -116,7 +118,6 @@ runtime:
   otelcolSigningPublicKey: ""
   otelcolKubernetesImage: ""
   otelcolArtifactCABundleConfigMapName: ""
-  hostInstallerSha256: ""
   connectorKubernetesImage: ""
   globalIssuerName: argus-ca
   globalIssuerGroup: cert-manager.io

@@ -50,3 +50,16 @@ func TestTunnelIdentityLoopbackPortIsAdjacentAndBounded(t *testing.T) {
 		}
 	}
 }
+
+func TestTunnelLoopbackRejectsServicePortsForDataAndIdentity(t *testing.T) {
+	for _, port := range []int32{21, 22, 4316, 4317, 8442, 8443, 8444, 8445, 8463, 8464, 9442, 9443, 9444, 9445, 9463, 9464, 13132, 13133} {
+		if !tunnelLoopbackPortsReserved(port) {
+			t.Fatalf("reserved tunnel loopback port %d was accepted", port)
+		}
+	}
+	for _, port := range []int32{14317, 14318, 24317} {
+		if tunnelLoopbackPortsReserved(port) {
+			t.Fatalf("available tunnel loopback port %d was rejected", port)
+		}
+	}
+}

@@ -13,8 +13,8 @@ for (const key of [
 ]) {
   delete process.env[key];
 }
-process.env.NO_PROXY = "127.0.0.1,localhost,.argus.dev";
-process.env.no_proxy = "127.0.0.1,localhost,.argus.dev";
+process.env.NO_PROXY = "127.0.0.1,localhost,.argus.dev,.argus.test";
+process.env.no_proxy = "127.0.0.1,localhost,.argus.dev,.argus.test";
 
 const enterpriseOrigin =
   process.env.ARGUS_E2E_ENTERPRISE_ORIGIN ?? "http://127.0.0.1:4173";
@@ -27,7 +27,13 @@ const port = (origin: string) => new URL(origin).port;
 // 钉到负载均衡地址（无需改 /etc/hosts），自签证书在测试上下文中跳过校验。
 const hostResolver = process.env.ARGUS_E2E_HOST_RESOLVER ?? "";
 const chromiumLaunchOptions = hostResolver
-  ? { args: [`--host-resolver-rules=${hostResolver}`] }
+  ? {
+      args: [
+        `--host-resolver-rules=${hostResolver}`,
+        "--proxy-server=direct://",
+        "--proxy-bypass-list=*",
+      ],
+    }
   : {};
 const ignoreHTTPSErrors = Boolean(hostResolver);
 

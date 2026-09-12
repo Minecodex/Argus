@@ -1,15 +1,14 @@
 package argusdev
 
 import (
-	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"time"
 
@@ -27,10 +26,44 @@ type connectorEnrollmentCommand struct {
 }
 
 func parseConnectorEnrollmentCommand(command string) (connectorEnrollmentCommand, error) {
-	fields := strings.Fields(command)
-	if len(fields) < 2 || fields[0] != "argus-connector" || fields[1] != "enroll" {
-		return connectorEnrollmentCommand{}, fmt.Errorf("invalid Connector enrollment command")
+	if fields := strings.Fields(command); len(fields) >= 2 && fields[0] == "argus-connector" && fields[1] == "enroll" {
+		return parseDirectConnectorEnrollment(fields)
 	}
+	marker := "printf '%s' '"
+	start := strings.Index(command, marker)
+	if start < 0 {
+		return connectorEnrollmentCommand{}, fmt.Errorf("invalid Connector installation command")
+	}
+	start += len(marker)
+	end := strings.Index(command[start:], "'")
+	if end < 1 {
+		return connectorEnrollmentCommand{}, fmt.Errorf("invalid Connector installation command")
+	}
+	script, err := base64.StdEncoding.DecodeString(command[start : start+end])
+	if err != nil {
+		return connectorEnrollmentCommand{}, fmt.Errorf("invalid Connector installation command")
+	}
+	value := string(script)
+	result := connectorEnrollmentCommand{
+		ConnectorID: quotedInstallerValue(value, "--connector-id"),
+		Server:      quotedInstallerValue(value, "--server"),
+		Role:        quotedInstallerValue(value, "--role"),
+	}
+	tokenMarker := "printf '%s' '"
+	tokenStart := strings.LastIndex(value, tokenMarker)
+	if tokenStart >= 0 {
+		tokenStart += len(tokenMarker)
+		if tokenEnd := strings.Index(value[tokenStart:], "'"); tokenEnd > 0 {
+			result.Token = value[tokenStart : tokenStart+tokenEnd]
+		}
+	}
+	if result.ConnectorID == "" || result.Token == "" || result.Server == "" || result.Role != "kubernetes" {
+		return connectorEnrollmentCommand{}, fmt.Errorf("invalid Connector installation command")
+	}
+	return result, nil
+}
+
+func parseDirectConnectorEnrollment(fields []string) (connectorEnrollmentCommand, error) {
 	result := connectorEnrollmentCommand{}
 	seen := map[string]bool{}
 	for index := 2; index < len(fields); index += 2 {
@@ -57,116 +90,18 @@ func parseConnectorEnrollmentCommand(command string) (connectorEnrollmentCommand
 	return result, nil
 }
 
-func parseConnectorCommandResult(command string) (connectorEnrollmentCommand, error) {
-	if result, err := parseConnectorEnrollmentCommand(command); err == nil {
-		return result, nil
+func quotedInstallerValue(script, name string) string {
+	marker := "'" + name + "' '"
+	start := strings.Index(script, marker)
+	if start < 0 {
+		return ""
 	}
-	fields := strings.Fields(command)
-	if len(fields) < 12 || fields[0] != "curl" || !slices.Contains(fields, "--connector-id") {
-		return connectorEnrollmentCommand{}, fmt.Errorf("invalid Connector install command")
+	start += len(marker)
+	end := strings.Index(script[start:], "'")
+	if end < 0 {
+		return ""
 	}
-	result := connectorEnrollmentCommand{}
-	seen := map[string]bool{}
-	for index := 0; index+1 < len(fields); index++ {
-		flag := fields[index]
-		if flag != "--connector-id" && flag != "--token" && flag != "--server" && flag != "--role" {
-			continue
-		}
-		if seen[flag] {
-			return connectorEnrollmentCommand{}, fmt.Errorf("invalid Connector install command")
-		}
-		seen[flag] = true
-		value := strings.Trim(fields[index+1], "'")
-		switch flag {
-		case "--connector-id":
-			result.ConnectorID = value
-		case "--token":
-			result.Token = value
-		case "--server":
-			result.Server = value
-		case "--role":
-			result.Role = value
-		}
-	}
-	if result.ConnectorID == "" || result.Token == "" || result.Server == "" || result.Role != "bastion" {
-		return connectorEnrollmentCommand{}, fmt.Errorf("invalid Connector install command")
-	}
-	return result, nil
-}
-
-func (a *App) startM3BastionConnector(ctx context.Context, env *E2EEnvironment) error {
-	command, err := parseConnectorCommandResult(env.State.Values["m3_bastion_install_command"])
-	if err != nil {
-		return err
-	}
-	binary, err := a.buildM3Connector(ctx, env)
-	if err != nil {
-		return err
-	}
-	dataDir := filepath.Join(env.WorkDir, "m3-bastion-connector")
-	server := env.Endpoints.EnrollServer
-	baseArgs := []string{"enroll", "--connector-id", command.ConnectorID, "--token", command.Token, "--server", server, "--role", command.Role, "--name", "m3-bastion", "--data-dir"}
-	instanceEnv := map[string]string{
-		"ARGUS_CONNECTOR_INSTANCE_ID": "m3-bastion-" + env.Options.RunID,
-		// E2E-only host overrides: dial the load balancers directly while TLS
-		// keeps the public hostnames as ServerName.
-		"ARGUS_CONNECTOR_CA_FILE":        env.Endpoints.CAFile,
-		"ARGUS_CONNECTOR_DIAL_ADDRESS":   env.Endpoints.ConnectorDialAddress,
-		"ARGUS_CONNECTOR_ENROLL_ADDRESS": env.Endpoints.IngressDialAddress,
-	}
-	var tampered bytes.Buffer
-	tamperedArgs := append(append([]string{}, baseArgs[:2]...), "00000000-0000-4000-8000-000000000001")
-	tamperedArgs = append(tamperedArgs, baseArgs[3:]...)
-	tamperedArgs = append(tamperedArgs, dataDir+"-tampered")
-	if err := a.runner.RunIO(ctx, instanceEnv, nil, &tampered, &tampered, binary, tamperedArgs...); err == nil || !strings.Contains(tampered.String(), "HTTP 401") {
-		return fmt.Errorf("Connector enrollment did not reject a tampered CSR identity")
-	}
-	if err := writePrivate(filepath.Join(env.Options.Artifacts, "m3-bastion-tampered-enroll.log"), redactDiagnostic(tampered.Bytes())); err != nil {
-		return err
-	}
-	validArgs := append(append([]string{}, baseArgs...), dataDir)
-	if err := a.runner.Run(ctx, instanceEnv, binary, validArgs...); err != nil {
-		return err
-	}
-	if err := a.runner.Run(ctx, instanceEnv, binary, validArgs...); err != nil {
-		return fmt.Errorf("Connector idempotent enrollment retry: %w", err)
-	}
-	var conflict bytes.Buffer
-	conflictArgs := append(append([]string{}, baseArgs...), dataDir+"-conflict")
-	if err := a.runner.RunIO(ctx, instanceEnv, nil, &conflict, &conflict, binary, conflictArgs...); err == nil || !strings.Contains(conflict.String(), "HTTP 409") {
-		return fmt.Errorf("consumed Connector token was reusable with a different key")
-	}
-	if err := writePrivate(filepath.Join(env.Options.Artifacts, "m3-bastion-conflict-enroll.log"), redactDiagnostic(conflict.Bytes())); err != nil {
-		return err
-	}
-	if err := rewriteConnectorGateway(filepath.Join(dataDir, "identity.json"), env.Endpoints.ConnectorGateway); err != nil {
-		return err
-	}
-	logFile, err := openArtifact(filepath.Join(env.Options.Artifacts, "m3-bastion-connector.log"))
-	if err != nil {
-		return err
-	}
-	process, err := a.runner.Start(instanceEnv, logFile, logFile, binary, "run", "--data-dir", dataDir)
-	if err != nil {
-		_ = logFile.Close()
-		return err
-	}
-	env.Processes = append(env.Processes, process)
-	env.State.Values["m3_bastion_connector_id"] = command.ConnectorID
-	if err := a.waitM3ConnectorOnline(ctx, env, command.ConnectorID, 1); err != nil {
-		return err
-	}
-	client, _ := scenarioHTTP(env)
-	scope, err := client.JSON(ctx, "m3-bastion-active", "enterprise", http.MethodGet, "/enterprise/bastion-scopes/"+env.State.Values["m3_bastion_scope_id"], http.StatusOK, nil, map[string]string{"Origin": env.EnterpriseOrigin()})
-	if err != nil {
-		return err
-	}
-	rootHostID, err := stringField(scope, "connector_host_id")
-	if err != nil {
-		return err
-	}
-	env.State.Values["m3_bastion_root_host_id"] = rootHostID
-	return nil
+	return script[start : start+end]
 }
 
 func (a *App) startM3KubernetesConnector(ctx context.Context, env *E2EEnvironment) error {

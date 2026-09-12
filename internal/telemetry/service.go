@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"k8s.io/apimachinery/pkg/util/validation"
 
+	"github.com/kakj-go/Argus/internal/installation"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -34,21 +35,12 @@ var (
 	ErrRouteTransportInvalid = errors.New("COLLECTOR_ROUTE_TRANSPORT_INVALID")
 	// ErrTunnelQuotaExceeded: 企业活跃反向隧道数达到上限。
 	ErrTunnelQuotaExceeded = errors.New("TUNNEL_QUOTA_EXCEEDED")
-	// ErrSelfEnrolledOperationUnsupported: self_enrolled 主机没有入站执行路径,
-	// configure/upgrade/repair 必须以新的自助安装命令收敛。
-	ErrSelfEnrolledOperationUnsupported = errors.New("HOST_OPERATION_UNSUPPORTED_FOR_SELF_ENROLLED")
-	// ErrHostInstallToken: 自助安装令牌缺失/过期/撤销。
-	ErrHostInstallTokenInvalid = errors.New("HOST_INSTALL_TOKEN_INVALID")
-	// ErrHostInstallTokenConflict: 令牌已被其他设备消费。
-	ErrHostInstallTokenConflict   = errors.New("HOST_INSTALL_TOKEN_CONFLICT")
-	ErrHostUninstallTokenInvalid  = errors.New("HOST_UNINSTALL_TOKEN_INVALID")
-	ErrHostUninstallTokenConflict = errors.New("HOST_UNINSTALL_TOKEN_CONFLICT")
-	ErrQueryBudget                = errors.New("telemetry query budget exceeded")
-	ErrQueryParse                 = errors.New("telemetry query parse error")
-	ErrQueryType                  = errors.New("telemetry query type error")
-	ErrQueryUnsupported           = errors.New("telemetry query feature unsupported")
-	ErrQueryComplexity            = errors.New("telemetry query complexity limit")
-	ErrQueryScope                 = errors.New("telemetry query scope denied")
+	ErrQueryBudget         = errors.New("telemetry query budget exceeded")
+	ErrQueryParse          = errors.New("telemetry query parse error")
+	ErrQueryType           = errors.New("telemetry query type error")
+	ErrQueryUnsupported    = errors.New("telemetry query feature unsupported")
+	ErrQueryComplexity     = errors.New("telemetry query complexity limit")
+	ErrQueryScope          = errors.New("telemetry query scope denied")
 )
 
 type Actor struct {
@@ -89,13 +81,15 @@ type CollectorPreviewInput struct {
 }
 
 type collectorActionPlan struct {
-	Operation             string      `json:"operation"`
-	ResourceType          string      `json:"resource_type"`
-	ResourceID            uuid.UUID   `json:"resource_id"`
-	DistributionVersionID uuid.UUID   `json:"distribution_version_id"`
-	ProfileIDs            []uuid.UUID `json:"profile_ids"`
-	ProfileKeys           []string    `json:"profile_keys"`
-	RouteKind             string      `json:"route_kind"`
+	PlannedCollectorID    uuid.NullUUID        `json:"planned_collector_id,omitempty"`
+	BootstrapGateway      *collectorActionPlan `json:"bootstrap_gateway,omitempty"`
+	Operation             string               `json:"operation"`
+	ResourceType          string               `json:"resource_type"`
+	ResourceID            uuid.UUID            `json:"resource_id"`
+	DistributionVersionID uuid.UUID            `json:"distribution_version_id"`
+	ProfileIDs            []uuid.UUID          `json:"profile_ids"`
+	ProfileKeys           []string             `json:"profile_keys"`
+	RouteKind             string               `json:"route_kind"`
 	// RouteTransport 是遥测数据的物理路径(direct/executor_tunnel/bastion_tunnel),
 	// 与 Transport(由谁执行安装命令)正交;PlanV4 场景②③使用隧道。
 	RouteTransport        string        `json:"route_transport,omitempty"`
@@ -299,8 +293,6 @@ func (service Service) PreviewCollectorAction(ctx context.Context, actor Actor, 
 	if err != nil {
 		return db.PendingAction{}, err
 	}
-	// self_enrolled 主机没有入站执行路径:仅允许首装与卸载(均生成一次性自助命令),
-	// 配置变更/升级/修复必须重新生成命令在目标侧收敛;路由固定直推。
 	routeTransport := input.Transport
 	if !slices.Contains([]string{"direct", "executor_tunnel", "bastion_tunnel"}, routeTransport) {
 		return db.PendingAction{}, ErrRouteTransportInvalid
@@ -314,18 +306,23 @@ func (service Service) PreviewCollectorAction(ctx context.Context, actor Actor, 
 	if loopbackPort == 0 {
 		loopbackPort = defaultTunnelLoopbackPort
 	}
-	if target.Transport == "bootstrap" {
-		if operation != "install" && operation != "uninstall" {
-			return db.PendingAction{}, ErrSelfEnrolledOperationUnsupported
-		}
-		if input.RouteKind != "direct_argus" {
-			return db.PendingAction{}, ErrQueryInvalid
-		}
+	if routeTransport != "direct" && tunnelLoopbackPortsReserved(loopbackPort) {
+		return db.PendingAction{}, ErrRouteTransportInvalid
 	}
 	tunnelTarget, err := resolveCollectorTunnelTarget(ctx, service.Store.Queries, actor.EnterpriseID,
 		resourceType, resourceID, routeTransport, input.RouteKind, int(loopbackPort), target)
 	if err != nil {
 		return db.PendingAction{}, err
+	}
+	var gatewayBootstrap *collectorActionPlan
+	var plannedGatewayEndpoint, plannedGatewayServerName string
+	if input.RouteKind == "bastion_gateway" && !input.GatewayCollectorID.Valid {
+		gatewayID, bootstrap, endpoint, serverName, planErr := service.resolveOrPlanBastionGateway(ctx, actor.EnterpriseID, resourceType, resourceID, routeTransport)
+		if planErr != nil {
+			return db.PendingAction{}, planErr
+		}
+		input.GatewayCollectorID = uuid.NullUUID{UUID: gatewayID, Valid: true}
+		gatewayBootstrap, plannedGatewayEndpoint, plannedGatewayServerName = bootstrap, endpoint, serverName
 	}
 	artifactHashes, err := artifactHashes(distribution.ArtifactManifest)
 	if err != nil {
@@ -337,9 +334,14 @@ func (service Service) PreviewCollectorAction(ctx context.Context, actor Actor, 
 		GatewayCollectorID: input.GatewayCollectorID, ExpectedVersion: input.ExpectedVersion, ArtifactHashes: artifactHashes,
 		Platform: platform, Role: role, ProfileKeys: slices.Clone(profiles)}
 	if input.RouteKind == "bastion_gateway" {
-		plan.GatewayEndpoint, plan.GatewayServerName, err = telemetryGatewayEndpoint(ctx, service.Store.Queries, actor.EnterpriseID, input.GatewayCollectorID, routeTransport)
-		if err != nil {
-			return db.PendingAction{}, err
+		plan.BootstrapGateway = gatewayBootstrap
+		if gatewayBootstrap != nil {
+			plan.GatewayEndpoint, plan.GatewayServerName = plannedGatewayEndpoint, plannedGatewayServerName
+		} else {
+			plan.GatewayEndpoint, plan.GatewayServerName, err = telemetryGatewayEndpoint(ctx, service.Store.Queries, actor.EnterpriseID, input.GatewayCollectorID, routeTransport)
+			if err != nil {
+				return db.PendingAction{}, err
+			}
 		}
 	}
 	plan.Transport, plan.ConnectorID, plan.ConnectionEpoch = target.Transport, target.ConnectorID, target.ConnectionEpoch
@@ -363,6 +365,12 @@ func (service Service) PreviewCollectorAction(ctx context.Context, actor Actor, 
 	plan.ImagePullSecrets = imagePullSecrets
 	preview := map[string]any{"operation": operation, "resource_type": resourceType, "resource_id": resourceID,
 		"distribution": distribution.Version, "profiles": profiles, "route_kind": input.RouteKind}
+	if gatewayBootstrap != nil {
+		preview["sequence"] = []map[string]any{
+			{"order": 1, "operation": "enable_bastion_edge_gateway", "resource_id": gatewayBootstrap.ResourceID},
+			{"order": 2, "operation": "install_leaf_collector", "resource_id": resourceID},
+		}
+	}
 	if plan.KubernetesImage != "" {
 		preview["kubernetes_image"] = plan.KubernetesImage
 	}
@@ -375,7 +383,7 @@ func (service Service) PreviewCollectorAction(ctx context.Context, actor Actor, 
 		Summary: "Apply a deterministic Collector " + operation + " plan", Risk: risk, ResourceType: resourceType,
 		ResourceID: uuid.NullUUID{UUID: resourceID, Valid: true}, ExpectedResourceVersion: pgtype.Int8{Int64: input.ExpectedVersion, Valid: input.ExpectedVersion > 0},
 		AuthorizationVersion: actor.AuthorizationVersion, Preview: preview,
-		Diff:          []map[string]string{{"kind": "change", "text": "Collector " + operation + " for " + resourceID.String()}},
+		Diff:          collectorActionDiff(operation, resourceID, gatewayBootstrap),
 		ImmutablePlan: plan, ResourceScopeSnapshot: map[string]any{"resource_id": resourceID, "profiles": input.ProfileIDs, "route_kind": input.RouteKind},
 		CommitHandler: "argus.telemetry.collector." + operation + ".commit",
 	}, idempotencyKey)
@@ -384,9 +392,24 @@ func (service Service) PreviewCollectorAction(ctx context.Context, actor Actor, 
 // defaultTunnelQuota 是企业级活跃反向隧道默认上限;超限时提示改用堡垒机网关。
 const defaultTunnelQuota = 256
 
-// defaultTunnelLoopbackPort 是隧道形态 Collector 出口的默认回环端口;
-// Preview 探测到冲突时可固化替代值。
-const defaultTunnelLoopbackPort = 4317
+// defaultTunnelLoopbackPort 是隧道形态 Collector 出口的默认回环端口。
+// 4317 保留给 Edge Gateway/OTLP receiver；身份注册使用相邻端口。
+const defaultTunnelLoopbackPort = 14317
+
+func tunnelLoopbackPortsReserved(loopbackPort int32) bool {
+	identityPort := loopbackPort + 1
+	for _, port := range []int32{loopbackPort, identityPort} {
+		if (port >= 8445 && port <= 8464) || (port >= 9445 && port <= 9464) {
+			return true
+		}
+	}
+	for _, reserved := range []int32{22, 4317, 8443, 9443, 13133} {
+		if loopbackPort == reserved || identityPort == reserved {
+			return true
+		}
+	}
+	return false
+}
 
 // tunnelIdentityLoopbackPort reserves the port immediately after the OTLP
 // gRPC listener for Collector enrollment and certificate rotation. Both
@@ -465,44 +488,35 @@ func resolveCollectorTunnelTarget(
 	if err != nil {
 		return result, ErrRouteTransportInvalid
 	}
-	copyExecutionTarget := func(initiator string, connectorID uuid.NullUUID) {
-		result = collectorTunnelTarget{Initiator: initiator, ConnectorID: connectorID,
-			Address: execution.Address, Port: execution.Port, Username: execution.Username,
-			PinnedHostKey: execution.PinnedHostKey, CredentialID: execution.CredentialID,
-			CredentialVersion: execution.CredentialVersion}
-	}
 	switch transport {
 	case "executor_tunnel":
-		switch host.ConnectionMode {
-		case "direct_ssh":
-			copyExecutionTarget("direct_executor", uuid.NullUUID{})
-		case "connector_local":
-			if !host.BastionScopeID.Valid || !execution.ConnectorID.Valid {
-				return result, ErrRouteTransportInvalid
-			}
-			scope, scopeErr := q.GetBastionScope(ctx, db.GetBastionScopeParams{
-				ID: host.BastionScopeID.UUID, EnterpriseID: enterpriseID})
-			if scopeErr != nil || scope.OnboardingMode != "direct_install_tunnel" ||
-				!scope.ActiveConnectorID.Valid || scope.ActiveConnectorID.UUID != execution.ConnectorID.UUID {
+		if host.ControlPath == "executor_tunnel" {
+			if !execution.ConnectorID.Valid {
 				return result, ErrRouteTransportInvalid
 			}
 			control, controlErr := q.GetConnectorControlTunnelByConnector(ctx, db.GetConnectorControlTunnelByConnectorParams{
 				ConnectorID: execution.ConnectorID.UUID, EnterpriseID: enterpriseID})
-			if controlErr != nil || control.BastionScopeID != scope.ID || control.HostID != host.ID ||
-				control.Status != "established" {
+			if controlErr != nil || control.HostID != host.ID || control.Status != "established" {
 				return result, ErrUnavailable
+			}
+			if host.Role == "bastion" {
+				if !host.BastionScopeID.Valid || !control.BastionScopeID.Valid || control.BastionScopeID.UUID != host.BastionScopeID.UUID {
+					return result, ErrRouteTransportInvalid
+				}
+			} else if control.BastionScopeID.Valid {
+				return result, ErrRouteTransportInvalid
 			}
 			result = collectorTunnelTarget{Initiator: "direct_executor", Address: control.TargetAddress,
 				Port: int64(control.TargetPort), Username: control.TargetUsername, PinnedHostKey: control.PinnedHostKey,
 				CredentialID: uuid.NullUUID{UUID: control.CredentialID, Valid: true}, CredentialVersion: control.CredentialVersion}
-		default:
+		} else {
 			return result, ErrRouteTransportInvalid
 		}
 	case "bastion_tunnel":
-		if host.ConnectionMode != "via_bastion" {
-			return result, ErrRouteTransportInvalid
+		result, err = resolveBastionMemberTunnelTarget(ctx, q, enterpriseID, host, execution)
+		if err != nil {
+			return collectorTunnelTarget{}, err
 		}
-		copyExecutionTarget("connector", execution.ConnectorID)
 	default:
 		return result, ErrRouteTransportInvalid
 	}
@@ -519,6 +533,55 @@ func resolveCollectorTunnelTarget(
 	}
 	result.EnrollmentDialAddress = net.JoinHostPort("127.0.0.1", fmt.Sprint(identityPort))
 	return result, nil
+}
+
+func resolveBastionMemberTunnelTarget(
+	ctx context.Context,
+	q *db.Queries,
+	enterpriseID uuid.UUID,
+	host db.Host,
+	execution collectorExecutionTarget,
+) (collectorTunnelTarget, error) {
+	invalid := func() (collectorTunnelTarget, error) { return collectorTunnelTarget{}, ErrRouteTransportInvalid }
+	if host.ControlPath != "bastion_relay" || !host.BastionScopeID.Valid || !host.ConnectorID.Valid ||
+		execution.Transport != "connector" || execution.ConnectorID != host.ConnectorID {
+		return invalid()
+	}
+	scope, err := q.GetBastionScope(ctx, db.GetBastionScopeParams{ID: host.BastionScopeID.UUID, EnterpriseID: enterpriseID})
+	if err != nil || scope.Status != "active" || scope.RelayStatus != "ready" || !scope.ActiveConnectorID.Valid ||
+		!scope.ConnectorHostID.Valid || scope.ActiveConnectorID == host.ConnectorID {
+		return invalid()
+	}
+	bastion, err := q.GetConnector(ctx, db.GetConnectorParams{ID: scope.ActiveConnectorID.UUID, EnterpriseID: enterpriseID})
+	if err != nil || bastion.Role != "bastion" || bastion.Status != "online" || bastion.ConnectionEpoch < 1 ||
+		!bastion.BastionScopeID.Valid || bastion.BastionScopeID.UUID != scope.ID || !bastion.HostID.Valid || bastion.HostID != scope.ConnectorHostID {
+		return invalid()
+	}
+	onboarding, err := q.GetLatestSuccessfulHostOnboardingOperation(ctx, db.GetLatestSuccessfulHostOnboardingOperationParams{
+		HostID: host.ID, EnterpriseID: enterpriseID,
+	})
+	if err != nil || onboarding.ConnectorID != host.ConnectorID.UUID || onboarding.SshPath != "bastion_connector" ||
+		onboarding.ControlPath != "bastion_relay" || !onboarding.BastionScopeID.Valid || onboarding.BastionScopeID.UUID != scope.ID {
+		return invalid()
+	}
+	var plan installation.HostConnectorInstallPlan
+	if json.Unmarshal(onboarding.Plan, &plan) != nil || plan.HostID != host.ID || plan.ConnectorID != host.ConnectorID.UUID ||
+		plan.SSHPath != "bastion_connector" || plan.ControlPath != "bastion_relay" || !plan.BastionScopeID.Valid ||
+		plan.BastionScopeID.UUID != scope.ID || plan.Address == "" || plan.Address != host.Address.String ||
+		plan.Port < 1 || plan.Port != host.Port || plan.Username == "" || plan.PinnedHostKey == "" ||
+		plan.PinnedHostKey != host.PinnedHostKey || plan.CredentialID == uuid.Nil || plan.CredentialVersion < 1 {
+		return invalid()
+	}
+	credential, err := q.GetCredential(ctx, db.GetCredentialParams{ID: plan.CredentialID, EnterpriseID: enterpriseID})
+	if err != nil || credential.Status != "active" || credential.Protocol != "ssh" || credential.Version != plan.CredentialVersion ||
+		credential.Username != plan.Username {
+		return invalid()
+	}
+	return collectorTunnelTarget{
+		Initiator: "connector", ConnectorID: scope.ActiveConnectorID,
+		Address: plan.Address, Port: int64(plan.Port), Username: plan.Username, PinnedHostKey: plan.PinnedHostKey,
+		CredentialID: uuid.NullUUID{UUID: plan.CredentialID, Valid: true}, CredentialVersion: plan.CredentialVersion,
+	}, nil
 }
 
 // validKubernetesImage 是 Collector 镜像引用的唯一格式规则:非空、无空白、
@@ -585,7 +648,7 @@ func telemetryGatewayEndpoint(ctx context.Context, q *db.Queries, enterpriseID u
 		return "", "", ErrQueryInvalid
 	}
 	host, err := q.GetHost(ctx, db.GetHostParams{ID: gateway.ResourceID, EnterpriseID: enterpriseID})
-	if err != nil || host.ConnectionMode != "connector_local" {
+	if err != nil || host.Role != "bastion" {
 		return "", "", ErrQueryInvalid
 	}
 	serverName := CollectorCertificateDNSName(gateway.ID)
@@ -594,11 +657,130 @@ func telemetryGatewayEndpoint(ctx context.Context, q *db.Queries, enterpriseID u
 		// connector:// 地址是资源定位符，不参与数据面拨号。
 		return "", serverName, nil
 	}
-	address := strings.TrimSpace(host.Address)
+	address := strings.TrimSpace(host.Address.String)
 	if transport != "direct" || address == "" || strings.Contains(address, "://") || strings.ContainsAny(address, "/?#@ \t\r\n") {
 		return "", "", ErrRouteTransportInvalid
 	}
 	return "grpcs://" + net.JoinHostPort(address, "4317"), serverName, nil
+}
+
+func (service Service) resolveOrPlanBastionGateway(ctx context.Context, enterpriseID uuid.UUID, resourceType string, resourceID uuid.UUID, leafTransport string) (uuid.UUID, *collectorActionPlan, string, string, error) {
+	if resourceType != "host" {
+		return uuid.Nil, nil, "", "", ErrRouteTransportInvalid
+	}
+	member, err := service.Store.Queries.GetHost(ctx, db.GetHostParams{ID: resourceID, EnterpriseID: enterpriseID})
+	if err != nil || !member.BastionScopeID.Valid || member.Role != "managed_host" {
+		return uuid.Nil, nil, "", "", ErrRouteTransportInvalid
+	}
+	scope, err := service.Store.Queries.GetBastionScope(ctx, db.GetBastionScopeParams{ID: member.BastionScopeID.UUID, EnterpriseID: enterpriseID})
+	if err != nil || scope.Status != "active" || !scope.ConnectorHostID.Valid {
+		return uuid.Nil, nil, "", "", ErrUnavailable
+	}
+	root, err := service.Store.Queries.GetHost(ctx, db.GetHostParams{ID: scope.ConnectorHostID.UUID, EnterpriseID: enterpriseID})
+	if err != nil || root.Role != "bastion" || !root.BastionScopeID.Valid || root.BastionScopeID.UUID != scope.ID {
+		return uuid.Nil, nil, "", "", ErrRouteTransportInvalid
+	}
+	if current, currentErr := service.Store.Queries.GetCollectorForResource(ctx, db.GetCollectorForResourceParams{
+		EnterpriseID: enterpriseID, ResourceType: "host", ResourceID: root.ID,
+	}); currentErr == nil && current.Status != "uninstalled" {
+		endpoint, serverName, endpointErr := plannedBastionGatewayEndpoint(root, current.ID, leafTransport)
+		return current.ID, nil, endpoint, serverName, endpointErr
+	} else if currentErr != nil && !errors.Is(currentErr, pgx.ErrNoRows) {
+		return uuid.Nil, nil, "", "", currentErr
+	}
+
+	platform, err := hostCollectorPlatform(root)
+	if err != nil {
+		return uuid.Nil, nil, "", "", err
+	}
+	distributions, err := service.Store.Queries.ListCollectorDistributionVersions(ctx)
+	if err != nil {
+		return uuid.Nil, nil, "", "", err
+	}
+	var distribution db.CollectorDistributionVersion
+	foundDistribution := false
+	for _, candidate := range distributions {
+		if candidate.SupportStatus == "supported" && distributionSupportsPlatform(candidate.ArtifactManifest, platform) {
+			distribution, foundDistribution = candidate, true
+			break
+		}
+	}
+	if !foundDistribution {
+		return uuid.Nil, nil, "", "", ErrDistributionPending
+	}
+	profiles, err := service.Store.Queries.ListCollectionProfiles(ctx)
+	if err != nil {
+		return uuid.Nil, nil, "", "", err
+	}
+	profileIDs := make([]uuid.UUID, 0, 3)
+	profileKeys := make([]string, 0, 3)
+	for _, key := range []string{"host-basic", "collector-self", "otlp-receiver"} {
+		for _, profile := range profiles {
+			if profile.ProfileKey == key && profile.SupportStatus == "supported" && profile.ConfigSchemaVersion == distribution.ConfigSchemaVersion && slices.Contains(profile.SupportedPlatforms, platform) {
+				profileIDs = append(profileIDs, profile.ID)
+				profileKeys = append(profileKeys, profile.ProfileKey+"@"+profile.Version)
+				break
+			}
+		}
+	}
+	if len(profileIDs) == 0 {
+		return uuid.Nil, nil, "", "", ErrDistributionPending
+	}
+	target, err := resolveCollectorExecutionTarget(ctx, service.Store.Queries, enterpriseID, "host", root.ID)
+	if err != nil {
+		return uuid.Nil, nil, "", "", err
+	}
+	routeTransport := "direct"
+	if root.ControlPath == "executor_tunnel" {
+		routeTransport = "executor_tunnel"
+	}
+	tunnel, err := resolveCollectorTunnelTarget(ctx, service.Store.Queries, enterpriseID, "host", root.ID, routeTransport, "direct_argus", defaultTunnelLoopbackPort, target)
+	if err != nil {
+		return uuid.Nil, nil, "", "", err
+	}
+	hashes, err := artifactHashes(distribution.ArtifactManifest)
+	if err != nil {
+		return uuid.Nil, nil, "", "", err
+	}
+	plannedID := newTelemetryID()
+	if previous, previousErr := service.Store.Queries.GetCollectorForResource(ctx, db.GetCollectorForResourceParams{
+		EnterpriseID: enterpriseID, ResourceType: "host", ResourceID: root.ID,
+	}); previousErr == nil {
+		plannedID = previous.ID
+	}
+	bootstrap := &collectorActionPlan{PlannedCollectorID: uuid.NullUUID{UUID: plannedID, Valid: true}, Operation: "install", ResourceType: "host", ResourceID: root.ID,
+		DistributionVersionID: distribution.ID, ProfileIDs: profileIDs, ProfileKeys: profileKeys, RouteKind: "direct_argus", RouteTransport: routeTransport,
+		LoopbackPort: defaultTunnelLoopbackPort, ArtifactHashes: hashes, Platform: platform, Role: "edge_gateway",
+		Transport: target.Transport, ConnectorID: target.ConnectorID, ConnectionEpoch: target.ConnectionEpoch,
+		TargetResourceVersion: target.ResourceVersion, TargetAddress: target.Address, TargetPort: int32(target.Port), TargetUsername: target.Username,
+		PinnedHostKey: target.PinnedHostKey, CredentialID: target.CredentialID, CredentialVersion: target.CredentialVersion,
+		TunnelInitiator: tunnel.Initiator, TunnelConnectorID: tunnel.ConnectorID, TunnelTargetAddress: tunnel.Address,
+		TunnelTargetPort: int32(tunnel.Port), TunnelTargetUsername: tunnel.Username, TunnelPinnedHostKey: tunnel.PinnedHostKey,
+		TunnelCredentialID: tunnel.CredentialID, TunnelCredentialVersion: tunnel.CredentialVersion, EnrollmentDialAddress: tunnel.EnrollmentDialAddress}
+	endpoint, serverName, err := plannedBastionGatewayEndpoint(root, plannedID, leafTransport)
+	return plannedID, bootstrap, endpoint, serverName, err
+}
+
+func plannedBastionGatewayEndpoint(root db.Host, collectorID uuid.UUID, transport string) (string, string, error) {
+	serverName := CollectorCertificateDNSName(collectorID)
+	if transport == "bastion_tunnel" {
+		return "", serverName, nil
+	}
+	address := strings.TrimSpace(root.Address.String)
+	if transport != "direct" || address == "" || strings.Contains(address, "://") || strings.ContainsAny(address, "/?#@ \t\r\n") {
+		return "", "", ErrRouteTransportInvalid
+	}
+	return "grpcs://" + net.JoinHostPort(address, "4317"), serverName, nil
+}
+
+func collectorActionDiff(operation string, resourceID uuid.UUID, bootstrap *collectorActionPlan) []map[string]string {
+	if bootstrap == nil {
+		return []map[string]string{{"kind": "change", "text": "Collector " + operation + " for " + resourceID.String()}}
+	}
+	return []map[string]string{
+		{"kind": "add", "text": "Enable Bastion Edge Gateway for " + bootstrap.ResourceID.String()},
+		{"kind": "add", "text": "Install Leaf Collector for " + resourceID.String() + " after the Gateway converges"},
+	}
 }
 
 func resolveCollectorExecutionTarget(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, resourceType string, resourceID uuid.UUID) (collectorExecutionTarget, error) {
@@ -606,55 +788,18 @@ func resolveCollectorExecutionTarget(ctx context.Context, q *db.Queries, enterpr
 	switch resourceType {
 	case "host":
 		host, err := q.GetHost(ctx, db.GetHostParams{ID: resourceID, EnterpriseID: enterpriseID})
-		if err != nil || host.Platform != "linux" {
+		if err != nil || host.Status != "active" || (host.Platform != "linux" && host.Platform != "windows") {
 			return result, ErrDistributionPending
 		}
-		result.Address, result.Port, result.PinnedHostKey, result.ResourceVersion = host.Address, int64(host.Port), host.PinnedHostKey, host.ResourceVersion
-		switch host.ConnectionMode {
-		case "self_enrolled":
-			// 只出不进主机:无入站执行路径,安装经 bootstrap 一次性命令在目标侧自装。
-			result.Transport = "bootstrap"
-		case "direct_ssh":
-			result.Transport = "direct"
-		case "connector_local", "via_bastion":
-			result.Transport = "connector"
-			if !host.BastionScopeID.Valid {
-				return result, ErrQueryInvalid
-			}
-			scope, scopeErr := q.GetBastionScope(ctx, db.GetBastionScopeParams{ID: host.BastionScopeID.UUID, EnterpriseID: enterpriseID})
-			if scopeErr != nil || !scope.ActiveConnectorID.Valid {
-				return result, ErrUnavailable
-			}
-			connector, connectorErr := q.GetConnector(ctx, db.GetConnectorParams{ID: scope.ActiveConnectorID.UUID, EnterpriseID: enterpriseID})
-			if connectorErr != nil || connector.Status != "online" || connector.ConnectionEpoch < 1 {
-				return result, ErrUnavailable
-			}
-			result.ConnectorID = uuid.NullUUID{UUID: connector.ID, Valid: true}
-			result.ConnectionEpoch = connector.ConnectionEpoch
-		default:
-			return result, ErrQueryInvalid
+		result.Address, result.Port, result.PinnedHostKey, result.ResourceVersion = host.Address.String, int64(host.Port), host.PinnedHostKey, host.ResourceVersion
+		if !host.ConnectorID.Valid {
+			return result, ErrUnavailable
 		}
-		if host.ConnectionMode != "connector_local" && host.ConnectionMode != "self_enrolled" {
-			accounts, err := q.ListManagedAccounts(ctx, enterpriseID)
-			if err != nil {
-				return result, err
-			}
-			matches := make([]db.ManagedAccount, 0, 1)
-			for _, account := range accounts {
-				if account.HostID == host.ID && account.Status == "active" && slices.Contains(account.AllowedProtocols, "ssh") {
-					matches = append(matches, account)
-				}
-			}
-			if len(matches) != 1 {
-				return result, ErrQueryInvalid
-			}
-			credential, err := q.GetCredential(ctx, db.GetCredentialParams{ID: matches[0].CredentialID, EnterpriseID: enterpriseID})
-			if err != nil || credential.Status != "active" {
-				return result, ErrUnavailable
-			}
-			result.Username, result.CredentialID, result.CredentialVersion = matches[0].Username,
-				uuid.NullUUID{UUID: credential.ID, Valid: true}, credential.Version
+		connector, connectorErr := q.GetConnector(ctx, db.GetConnectorParams{ID: host.ConnectorID.UUID, EnterpriseID: enterpriseID})
+		if connectorErr != nil || connector.Status != "online" || connector.ConnectionEpoch < 1 {
+			return result, ErrUnavailable
 		}
+		result.Transport, result.ConnectorID, result.ConnectionEpoch = "connector", host.ConnectorID, connector.ConnectionEpoch
 	case "kubernetes_cluster":
 		cluster, err := q.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: resourceID, EnterpriseID: enterpriseID})
 		if err != nil {
@@ -754,12 +899,15 @@ func (service Service) canAccessCollector(ctx context.Context, actor Actor, coll
 func (service Service) requireResource(ctx context.Context, actor Actor, resourceType string, resourceID uuid.UUID) error {
 	switch resourceType {
 	case "host":
-		_, err := service.Store.Queries.GetHost(ctx, db.GetHostParams{ID: resourceID, EnterpriseID: actor.EnterpriseID})
+		host, err := service.Store.Queries.GetHost(ctx, db.GetHostParams{ID: resourceID, EnterpriseID: actor.EnterpriseID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		if err != nil {
 			return err
+		}
+		if host.Status != "active" {
+			return ErrNotFound
 		}
 	case "kubernetes_cluster":
 		_, err := service.Store.Queries.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: resourceID, EnterpriseID: actor.EnterpriseID})
@@ -839,7 +987,7 @@ func (service Service) collectorTarget(ctx context.Context, enterpriseID uuid.UU
 	switch resourceType {
 	case "host":
 		host, err := service.Store.Queries.GetHost(ctx, db.GetHostParams{ID: resourceID, EnterpriseID: enterpriseID})
-		if err != nil {
+		if err != nil || host.Status != "active" {
 			return "", "", ErrNotFound
 		}
 		platform, platformErr := hostCollectorPlatform(host)
@@ -847,7 +995,7 @@ func (service Service) collectorTarget(ctx context.Context, enterpriseID uuid.UU
 			return "", "", platformErr
 		}
 		role := "direct"
-		if host.ConnectionMode == "connector_local" {
+		if host.Role == "bastion" {
 			role = "edge_gateway"
 		} else if routeKind == "bastion_gateway" {
 			role = "leaf"

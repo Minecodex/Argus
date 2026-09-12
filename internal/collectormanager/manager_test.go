@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -48,13 +49,49 @@ func TestValidateRejectsTamperedConfigAndPendingPlatform(t *testing.T) {
 		t.Fatal("tampered Collector config accepted")
 	}
 	command = collectorCommand(t, testConfigBundle(t), "windows_amd64", "https://artifacts.example/collector.zip", []byte("artifact"))
-	if err := Validate(command); err != ErrUnsupportedPlatform {
-		t.Fatalf("Windows validation-pending command returned %v", err)
+	if err := Validate(command); err != nil {
+		t.Fatalf("valid Windows Collector command returned %v", err)
 	}
 	command = collectorCommand(t, testConfigBundle(t), "linux_arm64", "https://artifacts.example/collector.tar.gz", []byte("artifact"))
 	command.ResourceType = "kubernetes_cluster"
 	if err := Validate(command); err != ErrUnsupportedPlatform {
 		t.Fatalf("Kubernetes command without a frozen image returned %v", err)
+	}
+}
+
+func TestClearDirectoryPreservesMountPointAndRemovesContents(t *testing.T) {
+	root := t.TempDir()
+	nested := filepath.Join(root, "identity")
+	if err := os.MkdirAll(nested, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nested, "client-key.pem"), []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := clearDirectory(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("cleared directory entries=%d err=%v", len(entries), err)
+	}
+}
+
+func TestValidateRequiresEnrollmentDialAddressOnlyForTunnelTransport(t *testing.T) {
+	command := collectorCommand(t, testConfigBundle(t), "linux_arm64", "https://artifacts.example/collector.tar.gz", []byte("artifact"))
+	command.Transport = "bastion_tunnel"
+	command.RouteKind = "bastion_gateway"
+	if err := Validate(command); err != ErrInvalidCommand {
+		t.Fatalf("tunnel command without an enrollment dial address returned %v", err)
+	}
+	command.EnrollmentDialAddress = "127.0.0.1:14319"
+	if err := Validate(command); err != nil {
+		t.Fatalf("tunnel command with a pinned enrollment dial address returned %v", err)
+	}
+	command.Transport = "direct"
+	command.RouteKind = "direct_argus"
+	if err := Validate(command); err != ErrInvalidCommand {
+		t.Fatalf("direct command with a dial override returned %v", err)
 	}
 }
 
@@ -144,6 +181,9 @@ func TestSigningKeysCanBeProvisionedThroughReadOnlyFile(t *testing.T) {
 }
 
 func TestLocalCollectorArchiveAndUnitAreHardened(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("systemd path hardening is Unix-specific")
+	}
 	binary := []byte("collector-binary")
 	var archive bytes.Buffer
 	compressed := gzip.NewWriter(&archive)
@@ -188,6 +228,9 @@ func TestLocalCollectorArchiveAndUnitAreHardened(t *testing.T) {
 }
 
 func TestLocalCollectorIdentityReadinessBindsCollectorAndFileModes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix mode-bit checks do not apply to Windows ACLs")
+	}
 	root := t.TempDir()
 	collectorID := uuid.NewString()
 	writeTestLocalCollectorIdentity(t, root, collectorID)

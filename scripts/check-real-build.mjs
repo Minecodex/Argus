@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 
 const apps = ["enterprise", "platform", "card-runtime"];
 const forbidden = [
@@ -8,17 +8,15 @@ const forbidden = [
   "host-cache-bj-01",
   "payment-worker",
   "sre-schedule",
+  ".argus.invalid",
 ];
 const failures = [];
 
 for (const app of apps) {
-  const output = execFileSync(
-    "rg",
-    ["--files", `web/apps/${app}/dist`, "-g", "*.js"],
-    { encoding: "utf8" },
-  ).trim();
-  const files = output ? output.split("\n") : [];
-  for (const file of files) {
+  const files = readdirSync(`web/apps/${app}/dist`, { recursive: true, withFileTypes: true });
+  for (const entry of files) {
+    if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
+    const file = path.join(entry.parentPath, entry.name);
     const source = readFileSync(file, "utf8");
     for (const marker of forbidden) {
       if (source.includes(marker)) {
@@ -29,7 +27,7 @@ for (const app of apps) {
 }
 
 if (failures.length > 0) {
-  throw new Error(`Real frontend build contains mock data:\n${failures.join("\n")}`);
+  throw new Error(`Real frontend build contains mock data or placeholder endpoints:\n${failures.join("\n")}`);
 }
 
-console.log("Real frontend bundles contain no mock seed markers");
+console.log("Real frontend bundles contain no mock seed markers or placeholder endpoints");

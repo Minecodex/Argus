@@ -10,7 +10,6 @@ import {
   type ActionOneTimeResult,
   type BastionScope,
   type ConfirmActionResult,
-  type Host,
   type PendingActionPublic,
 } from "@argus/api-client";
 import { Alert, Badge, Button, Dialog } from "@argus/ui";
@@ -291,12 +290,32 @@ export function PendingScopeActions({ scope }: { scope: BastionScope }) {
         onClick={() => void preview("delete")}
         variant="ghost"
       >
-        {t("hosts.pendingActions.delete")}
+        {t(
+          onboarding.state === "installing"
+            ? "hostRemoval.incomplete.cancelAndDelete"
+            : "hostRemoval.incomplete.deleteRecord",
+        )}
       </Button>
+      {pendingAction && actionKind === "delete" && (
+        <Alert
+          title={t(
+            onboarding.state === "installing"
+              ? "hostRemoval.incomplete.runningTitle"
+              : "hostRemoval.incomplete.failedTitle",
+          )}
+          description={t("hostRemoval.incomplete.warning")}
+          tone="warning"
+        />
+      )}
       {pendingAction && actionKind && (
         <PendingActionConfirm
           action={pendingAction}
           claimOneTimeResult={actionKind === "rotate"}
+          confirmLabel={
+            actionKind === "delete"
+              ? t("hostRemoval.incomplete.confirmDelete")
+              : undefined
+          }
           onCancel={() => {
             setPendingAction(null);
             setActionKind(null);
@@ -315,151 +334,6 @@ export function PendingScopeActions({ scope }: { scope: BastionScope }) {
         open={operationOpen}
         scope={scope}
       />
-    </div>
-  );
-}
-
-/** Pending self-enrolled host actions are derived only from onboarding. */
-export function SelfEnrollHostActions({ host }: { host: Host }) {
-  const { t } = useTranslation();
-  const api = useApi();
-  const invalidate = useInvalidateResources();
-  const [actionKind, setActionKind] = useState<"rotate" | "delete" | null>(
-    null,
-  );
-  const [pendingAction, setPendingAction] =
-    useState<PendingActionPublic | null>(null);
-  const [command, setCommand] = useState<ActionOneTimeResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  if (
-    host.connection_mode !== "self_enrolled" ||
-    host.connection_status !== "onboarding"
-  ) {
-    return null;
-  }
-
-  const claimExisting = async () => {
-    if (!host.onboarding.execution_id) {
-      setError(t("hosts.pendingActions.resultMissing"));
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      setCommand(
-        await api.executions.claimOneTimeResult(host.onboarding.execution_id),
-      );
-      invalidate();
-    } catch (cause) {
-      setError(
-        formatApiError(cause, t("hosts.pendingActions.failed"), (requestId) =>
-          t("common.requestReference", { requestId }),
-        ),
-      );
-      invalidate();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const preview = async (kind: "rotate" | "delete") => {
-    setBusy(true);
-    setError(null);
-    setActionKind(kind);
-    try {
-      setPendingAction(
-        kind === "rotate"
-          ? await api.hosts.previewEnrollmentRotate(
-              host.id,
-              host.resource_version,
-            )
-          : await api.hosts.previewDeleteResource(
-              host.id,
-              host.resource_version,
-            ),
-      );
-    } catch (cause) {
-      setError(
-        formatApiError(cause, t("hosts.pendingActions.failed"), (requestId) =>
-          t("common.requestReference", { requestId }),
-        ),
-      );
-      setActionKind(null);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="argus-scope-card__actions">
-      {error && (
-        <Alert
-          description={error}
-          title={t("hosts.pendingActions.failed")}
-          tone="danger"
-        />
-      )}
-      {host.onboarding.state === "command_available" && (
-        <Button
-          disabled={busy || !host.onboarding.execution_id}
-          onClick={() => void claimExisting()}
-          variant="secondary"
-        >
-          {t("hosts.pendingActions.claimCommand")}
-        </Button>
-      )}
-      {(host.onboarding.state === "command_consumed" ||
-        host.onboarding.state === "command_expired") && (
-        <Button
-          disabled={busy}
-          onClick={() => void preview("rotate")}
-          variant="secondary"
-        >
-          {t("hosts.pendingActions.rotateCommand")}
-        </Button>
-      )}
-      {host.onboarding.state === "awaiting_approval" && (
-        <Link
-          className="argus-button argus-button--secondary"
-          search={{ approval: "operation", scope: "mine" }}
-          to="/approvals"
-        >
-          {t("hosts.pendingActions.viewApproval")}
-        </Link>
-      )}
-      <Button
-        disabled={busy}
-        onClick={() => void preview("delete")}
-        variant="ghost"
-      >
-        {t("hosts.pendingActions.delete")}
-      </Button>
-      {pendingAction && actionKind && (
-        <PendingActionConfirm
-          action={pendingAction}
-          claimOneTimeResult={actionKind === "rotate"}
-          onCancel={() => {
-            setPendingAction(null);
-            setActionKind(null);
-          }}
-          onDone={(result) => {
-            if (actionKind === "rotate" && result.one_time_result) {
-              setCommand(result.one_time_result);
-            }
-            setPendingAction(null);
-            setActionKind(null);
-            invalidate();
-          }}
-        />
-      )}
-      {command && (
-        <OneTimeCommandDialog
-          result={command}
-          onClose={() => setCommand(null)}
-        />
-      )}
     </div>
   );
 }

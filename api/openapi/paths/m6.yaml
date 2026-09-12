@@ -305,7 +305,7 @@ session_collection:
       - {name: host_id, in: query, required: false, schema: {type: string, format: uuid}}
       - {name: managed_account_id, in: query, required: false, schema: {type: string, format: uuid}}
       - {name: protocol, in: query, required: false, schema: {$ref: '../components/m6.yaml#/components/schemas/RemoteAccessProtocol'}}
-      - {name: connection_mode, in: query, required: false, schema: {type: string, enum: [via_bastion, connector_local, direct_ssh, direct_winrm]}}
+      - {name: control_path, in: query, required: false, schema: {type: string, enum: [direct, bastion_relay, executor_tunnel]}}
       - {name: created_from, in: query, required: false, schema: {type: string, format: date-time}}
       - {name: created_to, in: query, required: false, schema: {type: string, format: date-time}}
     responses: {'200': {description: Session page., content: {application/json: {schema: {$ref: '../components/m6.yaml#/components/schemas/RemoteAccessSessionPage'}}}}, default: {$ref: '#/components/responses/Error'}}

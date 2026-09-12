@@ -686,8 +686,8 @@ func (handler RemoteAccessHandler) ListRemoteAccessSessions(ctx context.Context,
 	if request.Params.Protocol != nil {
 		filter.Protocol = string(*request.Params.Protocol)
 	}
-	if request.Params.ConnectionMode != nil {
-		filter.ConnectionMode = string(*request.Params.ConnectionMode)
+	if request.Params.ControlPath != nil {
+		filter.ControlPath = string(*request.Params.ControlPath)
 	}
 	if request.Params.UserId != nil {
 		filter.UserID = uuid.UUID(*request.Params.UserId)
@@ -1216,7 +1216,7 @@ func toRemoteAccessSession(value remoteaccess.SessionView) remoteaccessapi.Remot
 	session := value.Session
 	result := remoteaccessapi.RemoteAccessSession{Id: openapi_types.UUID(session.ID), EnterpriseId: pointerOpenAPIUUID(session.EnterpriseID), UserId: pointerOpenAPIUUID(session.UserID),
 		LeaseId: openapi_types.UUID(session.LeaseID), HostId: openapi_types.UUID(session.HostID), ManagedAccountId: openapi_types.UUID(session.ManagedAccountID),
-		Protocol: remoteaccessapi.RemoteAccessProtocol(session.Protocol), ConnectionMode: remoteaccessapi.RemoteAccessSessionConnectionMode(session.ConnectionMode),
+		Protocol: remoteaccessapi.RemoteAccessProtocol(session.Protocol), ControlPath: remoteaccessapi.RemoteAccessSessionControlPath(session.ControlPath),
 		Status: remoteaccessapi.RemoteAccessSessionStatus(session.Status), IdleTimeoutSeconds: int(session.IdleTimeoutSeconds),
 		MaxDurationSeconds: int(session.MaxDurationSeconds), ConnectBefore: session.ConnectBefore.Time, CreatedAt: session.CreatedAt.Time, UpdatedAt: session.UpdatedAt.Time}
 	if value.RecordingID != uuid.Nil {

@@ -10,7 +10,7 @@
 | M3（已完成） | [资源与 Connector](./M3-resource-and-connector.md)    | Host/Kubernetes labels、Secret/Credential、Bastion Scope、Connector、Direct Executor    |
 | M4（已完成） | [执行、Agent 与 Tool](./M4-action-agent-workflow.md)  | Outbox/Lease/Fence、单 Agent Loop、上下文投影/压缩、Preview/Commit、Approval、Execution、桌面审批收件箱 |
 | M5（已完成） | [交互卡片](./M5-interactive-card.md)                  | Manifest、CSP、MessagePort、RenderPlan、Binding、发布门禁                               |
-| M6（已完成） | [远程访问](./M6-remote-access.md)                     | Grant、Ticket、SSH PTY/HTTPS WinRS、加密录像、终止与撤权                                |
+| M6（已完成） | [远程访问](./M6-remote-access.md)                     | Grant、Ticket、Linux PTY、Windows ConPTY/OpenSSH/RDP、加密录像、终止与撤权               |
 | M7（已完成） | [遥测](./M7-telemetry.md)                             | Collector、Ingest、Kafka、ClickHouse、Query 和统一权限裁剪                              |
 | M8           | [本地安全与恢复](./M8-production-readiness.md)        | MFA/Step-up、OpenBao、备份恢复、升级、供应链和本地完整 E2E                              |
 | M9（已归档） | [PromQL/LogQL/TraceQL 查询语言](./M9-query-language.md) | 历史 Query IR 设计，运行代码和发布门禁已删除                               |

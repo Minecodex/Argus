@@ -183,6 +183,14 @@ UPDATE executions SET status = 'result_unknown', connector_install_operation_id 
     error_code = NULL, updated_at = now()
 WHERE id = $1 AND enterprise_id = $2 AND status = 'running' RETURNING *;
 
+-- name: MarkExecutionHostOnboardingResultUnknown :one
+UPDATE executions SET status='result_unknown',host_onboarding_operation_id=$3,error_code=NULL,updated_at=now()
+WHERE id=$1 AND enterprise_id=$2 AND status='running' RETURNING *;
+
+-- name: MarkExecutionHostRemovalResultUnknown :one
+UPDATE executions SET status='result_unknown',host_removal_operation_id=$3,error_code=NULL,updated_at=now()
+WHERE id=$1 AND enterprise_id=$2 AND status='running' RETURNING *;
+
 -- name: ListUncertainExecutions :many
 SELECT * FROM executions WHERE status = 'result_unknown'
 ORDER BY updated_at, id LIMIT $1;

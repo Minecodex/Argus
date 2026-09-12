@@ -1,4 +1,21 @@
 export interface paths {
+    "/enterprise/bastion-scopes/name-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check a creation name using bastion_scope.manage permission without disclosing the occupying resource. */
+        get: operations["checkBastionNameAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/enterprise/bastion-scopes": {
         parameters: {
             query?: never;
@@ -290,7 +307,13 @@ export interface components {
             environment: components["schemas"]["Environment"];
             labels: components["schemas"]["Labels"];
             /** @enum {string} */
-            status: "pending" | "active" | "suspected_offline" | "offline" | "uninstalling" | "uninstalled" | "deleted";
+            status: "pending" | "active" | "suspected_offline" | "offline" | "draining" | "uninstalling" | "uninstalled" | "removal_failed" | "cleanup_unknown" | "deleted";
+            /** Format: int64 */
+            readonly removal_generation?: number;
+            /** @enum {string} */
+            readonly local_cleanup?: "verified" | "pending" | "unknown";
+            /** Format: uuid */
+            readonly removal_operation_id?: string;
             /** @enum {string} */
             readonly onboarding_mode: "command" | "direct_install" | "direct_install_tunnel";
             onboarding: components["schemas"]["OnboardingProjection"];
@@ -303,6 +326,15 @@ export interface components {
              * @enum {string}
              */
             readonly control_tunnel_status?: "desired" | "establishing" | "established" | "degraded" | "down" | "removed";
+            /** @description Connector 首次成功监听后自动上报的成员拨号地址 */
+            readonly relay_address?: string;
+            readonly relay_https_port: number;
+            readonly relay_gateway_port: number;
+            /** Format: int64 */
+            readonly relay_port_generation: number;
+            /** @enum {string} */
+            readonly relay_status: "pending" | "ready" | "degraded" | "offline";
+            readonly relay_error_code?: string;
             /** Format: int64 */
             fencing_generation: number;
             member_count: number;
@@ -323,6 +355,11 @@ export interface components {
             labels: components["schemas"]["UserLabels"];
             /** @enum {string} */
             install_mode: "command" | "direct_install" | "direct_install_tunnel";
+            /**
+             * @description 命令安装必填；SSH 安装由连接测试探测
+             * @enum {string}
+             */
+            architecture?: "amd64" | "arm64";
             address?: string;
             port?: number;
             username?: string;
@@ -330,7 +367,7 @@ export interface components {
             credential_id?: string;
             /**
              * Format: uuid
-             * @description 代装模式必填:与本表单字段匹配且成功的 direct_ssh 主机连接测试
+             * @description 代装模式必填:与本表单字段匹配且成功的 SSH 主机连接测试
              */
             connection_test_id?: string;
         };
@@ -416,6 +453,8 @@ export interface components {
             instance_id: string;
             /** @enum {string} */
             architecture: "amd64" | "arm64";
+            /** @enum {string} */
+            platform: "linux" | "windows";
             name: string;
             software_version: string;
             capabilities: string[];
@@ -440,16 +479,22 @@ export interface components {
         };
         InstallInstructionSet: {
             /** @enum {string} */
-            scope: "linux-system" | "linux-user" | "kubernetes";
+            platform: "linux_amd64" | "linux_arm64" | "windows_amd64" | "kubernetes";
+            /** @enum {string} */
+            shell: "posix_sh" | "powershell";
+            /** @constant */
+            privilege: "system";
             /** @description 唯一面向用户展示的一键安装命令。Host 与手工 Connector 下载动态引导脚本；Kubernetes 使用等价的单命令临时脚本执行。 */
             command: string;
             /** @enum {string} */
-            download_tls_mode?: "strict" | "insecure-first-fetch";
+            bootstrap_tls_mode?: "strict" | "insecure-first-fetch";
+            release_version: string;
             /** Format: date-time */
             expires_at: string;
             /** Format: int64 */
             trust_bundle_epoch: number;
             trust_bundle_sha256: string;
+            bootstrap_sha256: string;
             installer_sha256: string;
             capability_warnings: string[];
         };
@@ -466,6 +511,10 @@ export interface components {
             /** @default false */
             retryable: boolean;
         };
+        ResourceNameAvailability: {
+            /** @description Whether the name can currently be used for creation in the authenticated enterprise. This does not reserve the name. */
+            available: boolean;
+        };
         /** @enum {string} */
         Environment: "development" | "staging" | "production";
         UserLabelKey: string;
@@ -474,6 +523,10 @@ export interface components {
         Labels: {
             [key: string]: components["schemas"]["LabelValue"];
         };
+        /** @enum {string} */
+        HostInstallMethod: "manual" | "ssh";
+        /** @enum {string} */
+        HostSSHPath: "none" | "direct_executor" | "bastion_connector";
         OnboardingProjection: {
             /** @enum {string} */
             state: "command_available" | "command_consumed" | "command_expired" | "awaiting_approval" | "installing" | "install_failed" | "registered";
@@ -483,6 +536,8 @@ export interface components {
             /** Format: uuid */
             operation_id?: string;
             error_code?: string;
+            readonly install_method?: components["schemas"]["HostInstallMethod"];
+            readonly ssh_path?: components["schemas"]["HostSSHPath"];
             /** Format: date-time */
             updated_at: string;
         };
@@ -560,7 +615,7 @@ export interface components {
             credential_id?: string;
             /**
              * Format: uuid
-             * @description 模式 B/C 必填；必须是当前有效的 direct_ssh 测试
+             * @description 模式 B/C 必填；必须是当前有效且字段完全匹配的 SSH 连接测试
              */
             connection_test_id?: string;
         };
@@ -577,7 +632,7 @@ export interface components {
             occurred_at: string;
         };
         /** @enum {string} */
-        ConnectorRole: "bastion" | "kubernetes";
+        ConnectorRole: "host" | "bastion" | "kubernetes";
         TrustBundleSnapshot: {
             /** Format: int64 */
             epoch: number;
@@ -618,6 +673,30 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    checkBastionNameAvailability: {
+        parameters: {
+            query: {
+                name: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current availability across Bastion Scopes and Hosts. Deleted records do not occupy a name; the name is not reserved. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceNameAvailability"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listBastionScopes: {
         parameters: {
             query?: {
@@ -997,7 +1076,7 @@ export interface operations {
     getConnectorBootstrapScript: {
         parameters: {
             query: {
-                scope: "linux-system" | "linux-user";
+                scope: "linux-system" | "windows-system";
             };
             header?: never;
             path?: never;

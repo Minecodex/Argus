@@ -12,10 +12,14 @@ export function MfaStepUpDialog({
   open,
   onOpenChange,
   onComplete,
+  title,
+  description,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: () => void | Promise<void>;
+  title?: string;
+  description?: string;
 }) {
   const { t } = useTranslation();
   const api = useApi();
@@ -69,7 +73,7 @@ export function MfaStepUpDialog({
 
   return (
     <Dialog
-      description={t("remoteAccess.stepUp.description")}
+      description={description ?? t("remoteAccess.stepUp.description")}
       footer={
         <>
           <Button
@@ -94,7 +98,7 @@ export function MfaStepUpDialog({
         if (!form.formState.isSubmitting) onOpenChange(nextOpen);
       }}
       open={open}
-      title={t("remoteAccess.stepUp.title")}
+      title={title ?? t("remoteAccess.stepUp.title")}
     >
       <form id={formId} onSubmit={submit}>
         {error && (

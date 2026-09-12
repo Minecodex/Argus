@@ -66,6 +66,8 @@ type ActionCommitResult struct {
 	// direct Connector installation. The action remains result_unknown until
 	// that operation reaches its complete success condition.
 	ConnectorInstallOperationID uuid.NullUUID
+	HostOnboardingOperationID   uuid.NullUUID
+	HostRemovalOperationID      uuid.NullUUID
 	OneTimeResultKind           string
 }
 

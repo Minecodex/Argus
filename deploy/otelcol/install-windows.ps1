@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory = $true)][string]$ArtifactPath,
   [Parameter(Mandatory = $true)][ValidatePattern("^[a-fA-F0-9]{64}$")][string]$ExpectedSha256,
+  [Parameter(Mandatory = $true)][ValidateRange(1, 268435456)][long]$ExpectedByteSize,
   [Parameter(Mandatory = $true)][string]$ArtifactSignature,
   [Parameter(Mandatory = $true)][string]$SigningPublicKey,
   [Parameter(Mandatory = $true)][ValidatePattern("^[A-Za-z0-9._-]+$")][string]$SigningKeyId,
@@ -19,15 +20,6 @@ function Assert-File([string]$Path, [string]$Purpose) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
     throw "$Purpose file is missing"
   }
-}
-
-function ConvertFrom-ArgusBase64([string]$Value) {
-  $normalized = $Value.Trim().Replace("-", "+").Replace("_", "/")
-  switch ($normalized.Length % 4) {
-    2 { $normalized += "==" }
-    3 { $normalized += "=" }
-  }
-  return [Convert]::FromBase64String($normalized)
 }
 
 function Assert-CABundle([string]$Path, [string]$ExpectedHash) {
@@ -80,32 +72,6 @@ function Assert-CABundle([string]$Path, [string]$ExpectedHash) {
   }
 }
 
-function Assert-ArtifactSignature(
-  [string]$Path,
-  [string]$Signature,
-  [string]$PublicKey,
-  [string]$TemporaryDirectory
-) {
-  $openssl = Get-Command "openssl.exe" -ErrorAction SilentlyContinue
-  if ($null -eq $openssl) {
-    throw "openssl.exe is required for Argus Ed25519 artifact verification"
-  }
-  $publicRaw = ConvertFrom-ArgusBase64 $PublicKey
-  $signatureRaw = ConvertFrom-ArgusBase64 $Signature
-  if ($publicRaw.Length -ne 32 -or $signatureRaw.Length -ne 64) {
-    throw "Argus Ed25519 signing material has an invalid size"
-  }
-  [byte[]]$prefix = 0x30,0x2a,0x30,0x05,0x06,0x03,0x2b,0x65,0x70,0x03,0x21,0x00
-  [IO.File]::WriteAllBytes((Join-Path $TemporaryDirectory "public.der"), $prefix + $publicRaw)
-  [IO.File]::WriteAllBytes((Join-Path $TemporaryDirectory "artifact.sig"), $signatureRaw)
-  & $openssl.Source pkey -pubin -inform DER -in (Join-Path $TemporaryDirectory "public.der") -out (Join-Path $TemporaryDirectory "public.pem") 2>$null
-  if ($LASTEXITCODE -ne 0) { throw "Argus Ed25519 public key was rejected" }
-  & $openssl.Source dgst -sha256 -binary -out (Join-Path $TemporaryDirectory "artifact.hash") $Path 2>$null
-  if ($LASTEXITCODE -ne 0) { throw "Collector artifact hashing failed" }
-  & $openssl.Source pkeyutl -verify -pubin -inkey (Join-Path $TemporaryDirectory "public.pem") -rawin -in (Join-Path $TemporaryDirectory "artifact.hash") -sigfile (Join-Path $TemporaryDirectory "artifact.sig") 2>$null
-  if ($LASTEXITCODE -ne 0) { throw "Collector artifact Ed25519 signature verification failed" }
-}
-
 Assert-File $ArtifactPath "Collector artifact"
 Assert-File $ConfigPath "Collector configuration"
 Assert-File $TrustBundlePath "Argus Trust Bundle"
@@ -124,7 +90,10 @@ if ([String]::IsNullOrWhiteSpace($token)) {
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ("argus-otelcol-install-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $temporary | Out-Null
 try {
-  Assert-ArtifactSignature $ArtifactPath $ArtifactSignature $SigningPublicKey $temporary
+  $connectorVerifier = Join-Path $env:ProgramFiles "Argus\Connector\argus-connector.exe"
+  Assert-File $connectorVerifier "Argus Connector artifact verifier"
+  & $connectorVerifier verify-artifact --file $ArtifactPath --sha256 $ExpectedSha256 --signature $ArtifactSignature --public-key $SigningPublicKey --byte-size $ExpectedByteSize
+  if ($LASTEXITCODE -ne 0) { throw "Collector artifact Ed25519 signature verification failed" }
   Expand-Archive -LiteralPath $ArtifactPath -DestinationPath (Join-Path $temporary "release")
   $verifiedBinary = Join-Path $temporary "release\argus-otelcol.exe"
   Assert-File $verifiedBinary "Verified Collector binary"

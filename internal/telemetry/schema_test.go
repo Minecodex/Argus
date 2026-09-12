@@ -11,11 +11,11 @@ import (
 func TestClaimAndNodeBindingSQLPreservesIsolationAndEvidenceState(t *testing.T) {
 	_, current, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(current), "..", ".."))
-	migration := readTestFile(t, filepath.Join(root, "migrations", "postgresql", "00006_m7_telemetry.sql"))
+	migration := readTestFile(t, filepath.Join(root, "migrations", "postgresql", "00001_argus_baseline.sql"))
 	queries := readTestFile(t, filepath.Join(root, "internal", "storage", "postgres", "queries", "telemetry_control.sql"))
 	for _, required := range []string{
-		"CREATE UNIQUE INDEX collection_claims_active_primary ON collection_claims (enterprise_id, physical_resource_ref, claim_type, selector_hash)",
-		"FOREIGN KEY (primary_claim_id, enterprise_id) REFERENCES collection_claims(id, enterprise_id)",
+		"CREATE UNIQUE INDEX collection_claims_active_primary ON public.collection_claims",
+		"FOREIGN KEY (primary_claim_id, enterprise_id) REFERENCES public.collection_claims(id, enterprise_id)",
 		"CREATE UNIQUE INDEX collection_claims_active_migration_per_collector",
 	} {
 		if !strings.Contains(migration, required) {
@@ -52,17 +52,17 @@ func TestTelemetrySchemaV3UsesTenantBootstrap(t *testing.T) {
 func TestTelemetryQueryRoleHasOnlyRequiredTenantLifecycleWrites(t *testing.T) {
 	_, current, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(current), "..", ".."))
-	migration := readTestFile(t, filepath.Join(root, "migrations", "postgresql", "00008_m10_telemetry_tenants.sql"))
+	migration := readTestFile(t, filepath.Join(root, "migrations", "postgresql", "00001_argus_baseline.sql"))
 	for _, required := range []string{
-		"GRANT SELECT, INSERT, UPDATE ON enterprise_telemetry_tables TO argus_telemetry_query",
-		"GRANT SELECT, INSERT, UPDATE ON audit_chain_heads TO argus_telemetry_query",
-		"GRANT INSERT ON audit_events TO argus_telemetry_query",
+		"GRANT SELECT, INSERT, UPDATE ON public.enterprise_telemetry_tables TO argus_telemetry_query",
+		"GRANT SELECT, INSERT, UPDATE ON public.audit_chain_heads TO argus_telemetry_query",
+		"GRANT INSERT ON public.audit_events TO argus_telemetry_query",
 	} {
 		if !strings.Contains(migration, required) {
 			t.Fatalf("M10 query role migration is missing %q", required)
 		}
 	}
-	if strings.Contains(migration, "GRANT DELETE ON enterprise_telemetry_tables TO argus_telemetry_query") {
+	if strings.Contains(migration, "GRANT DELETE ON public.enterprise_telemetry_tables TO argus_telemetry_query") {
 		t.Fatal("M10 query role unexpectedly has tenant readiness delete permission")
 	}
 }

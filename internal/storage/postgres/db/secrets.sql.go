@@ -12,6 +12,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const advanceCredentialVersionsBySecret = `-- name: AdvanceCredentialVersionsBySecret :exec
+UPDATE credentials SET version = version + 1, updated_at = now()
+WHERE enterprise_id = $1 AND secret_id = $2 AND status = 'active'
+`
+
+type AdvanceCredentialVersionsBySecretParams struct {
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	SecretID     uuid.UUID `json:"secret_id"`
+}
+
+func (q *Queries) AdvanceCredentialVersionsBySecret(ctx context.Context, arg AdvanceCredentialVersionsBySecretParams) error {
+	_, err := q.db.Exec(ctx, advanceCredentialVersionsBySecret, arg.EnterpriseID, arg.SecretID)
+	return err
+}
+
 const advanceSecretVersion = `-- name: AdvanceSecretVersion :one
 UPDATE secrets SET current_version = current_version + 1, version = version + 1, updated_at = now()
 WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at

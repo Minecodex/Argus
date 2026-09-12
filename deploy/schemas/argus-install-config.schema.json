@@ -73,7 +73,8 @@
             "enterpriseHost": { "type": "string", "minLength": 1 },
             "platformHost": { "type": "string", "minLength": 1 },
             "connectorHost": { "type": "string", "minLength": 1 },
-            "artifactHost": { "type": "string" }
+            "artifactHost": { "type": "string" },
+            "httpsInternalAddress": { "type": "string", "minLength": 1 }
           }
         },
         "pki": {

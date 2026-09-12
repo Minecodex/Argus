@@ -20,32 +20,34 @@ import (
 )
 
 type ConnectionTarget struct {
-	Session           db.RemoteAccessSession
-	EnterpriseID      uuid.UUID
-	UserID            uuid.UUID
-	HostID            uuid.UUID
-	ManagedAccountID  uuid.UUID
-	CredentialLeaseID uuid.UUID
-	ConnectionMode    string
-	ConnectorID       uuid.NullUUID
-	ConnectionEpoch   int64
-	Protocol          string
-	Address           string
-	Hostname          string
-	Port              int32
-	PinnedHostKey     string
-	Username          string
-	IdleTimeout       time.Duration
-	MaxDuration       time.Duration
-	LeaseExpiresAt    time.Time
+	Session            db.RemoteAccessSession
+	EnterpriseID       uuid.UUID
+	UserID             uuid.UUID
+	HostID             uuid.UUID
+	ManagedAccountID   uuid.UUID
+	CredentialLeaseID  uuid.UUID
+	ControlPath        string
+	ConnectorID        uuid.NullUUID
+	ConnectionEpoch    int64
+	Protocol           string
+	Address            string
+	Hostname           string
+	Port               int32
+	PinnedHostKey      string
+	Username           string
+	Platform           string
+	CredentialProtocol string
+	CredentialPayload  []byte
+	IdleTimeout        time.Duration
+	MaxDuration        time.Duration
+	LeaseExpiresAt     time.Time
 }
 
 type GatewayService struct {
-	Store             *postgres.Store
-	Credentials       secret.Service
-	InstanceID        string
-	DirectRecipientID string
-	Now               func() time.Time
+	Store       *postgres.Store
+	Credentials secret.Service
+	InstanceID  string
+	Now         func() time.Time
 }
 
 type GatewayRecording struct {
@@ -75,6 +77,10 @@ func (service GatewayService) AuthorizeConnection(ctx context.Context, sessionID
 		if err != nil || target.SessionFence != ticket.SessionFence || target.AuthorizationVersion != ticket.AuthorizationVersion {
 			return ErrTicketBinding
 		}
+		if target.Protocol == "ssh" && target.CredentialProtocol != "ssh" ||
+			target.Protocol == "rdp" && (target.Platform != "windows" || target.CredentialProtocol != "windows") {
+			return ErrTicketBinding
+		}
 		if reattach {
 			// Re-attach to a parked session: the PTY backend is already held
 			// by this Gateway instance, so no new lease or state transition
@@ -90,34 +96,46 @@ func (service GatewayService) AuthorizeConnection(ctx context.Context, sessionID
 		if target.Status != "authorized" {
 			return ErrSessionUnavailable
 		}
-		recipientType, recipientID := "direct_executor", service.DirectRecipientID
-		connectionEpoch := int64(0)
-		if target.ConnectionMode == "via_bastion" || target.ConnectionMode == "connector_local" {
-			if !target.ConnectorID.Valid || !target.ConnectionEpoch.Valid {
-				return ErrSessionUnavailable
-			}
-			recipientType, recipientID, connectionEpoch = "connector", target.ConnectorID.UUID.String(), target.ConnectionEpoch.Int64
+		if !target.ConnectorID.Valid || !target.ConnectionEpoch.Valid {
+			return ErrSessionUnavailable
 		}
+		recipientType, recipientID, connectionEpoch := "connector", target.ConnectorID.UUID.String(), target.ConnectionEpoch.Int64
 		if recipientID == "" || service.InstanceID == "" {
 			return ErrSessionUnavailable
 		}
-		lease, err := service.Credentials.PrepareLeaseWithQueries(secret.WithActorType(ctx, "remote_access_gateway"), q, service.InstanceID, target.EnterpriseID,
-			secret.LeaseRequest{CredentialID: target.CredentialID, OperationRef: target.ID.String(), TargetResourceType: "remote_access_session",
-				TargetResourceID: target.ID, RecipientType: recipientType, RecipientID: recipientID, Protocol: accountProtocol(target.Protocol), TTL: 5 * time.Minute})
-		if err != nil {
-			return err
+		var credentialLeaseID uuid.UUID
+		if target.Protocol != "shell" {
+			if target.Protocol == "rdp" {
+				recipientType, recipientID = "connector_gateway", service.InstanceID
+			}
+			lease, leaseErr := service.Credentials.PrepareLeaseWithQueries(secret.WithActorType(ctx, "remote_access_gateway"), q, service.InstanceID, target.EnterpriseID,
+				secret.LeaseRequest{CredentialID: target.CredentialID, OperationRef: target.ID.String(), TargetResourceType: "remote_access_session",
+					TargetResourceID: target.ID, RecipientType: recipientType, RecipientID: recipientID, Protocol: target.CredentialProtocol, TTL: 5 * time.Minute})
+			if leaseErr != nil {
+				return leaseErr
+			}
+			credentialLeaseID = lease.ID
 		}
 		session, err := q.MarkRemoteAccessSessionConnecting(ctx, db.MarkRemoteAccessSessionConnectingParams{ID: target.ID, SessionFence: target.SessionFence})
 		if err != nil {
 			return err
 		}
 		result = ConnectionTarget{Session: session, EnterpriseID: target.EnterpriseID, UserID: target.UserID, HostID: target.HostID,
-			ManagedAccountID: target.ManagedAccountID, CredentialLeaseID: lease.ID, ConnectionMode: target.ConnectionMode, ConnectorID: target.ConnectorID,
-			ConnectionEpoch: connectionEpoch, Protocol: target.Protocol, Address: target.Address, Hostname: target.Hostname, Port: target.Port,
-			PinnedHostKey: target.PinnedHostKey, Username: target.Username, IdleTimeout: time.Duration(target.IdleTimeoutSeconds) * time.Second,
+			ManagedAccountID: target.ManagedAccountID, CredentialLeaseID: credentialLeaseID, ControlPath: target.ControlPath, ConnectorID: target.ConnectorID,
+			ConnectionEpoch: connectionEpoch, Protocol: target.Protocol, Address: target.Address.String, Hostname: target.Hostname, Port: target.Port,
+			PinnedHostKey: target.PinnedHostKey, Username: target.Username, Platform: target.Platform, CredentialProtocol: target.CredentialProtocol,
+			IdleTimeout: time.Duration(target.IdleTimeoutSeconds) * time.Second,
 			MaxDuration: time.Duration(target.MaxDurationSeconds) * time.Second, LeaseExpiresAt: target.LeaseExpiresAt.Time}
 		return nil
 	})
+	if err == nil && result.Protocol == "rdp" {
+		issued, issueErr := service.Credentials.FulfillLease(ctx, result.EnterpriseID, result.CredentialLeaseID, "connector_gateway", service.InstanceID)
+		if issueErr != nil {
+			_ = service.Finish(context.Background(), result.Session.ID, result.Session.SessionFence, "failed", "CREDENTIAL_UNAVAILABLE")
+			return ConnectionTarget{}, issueErr
+		}
+		result.CredentialPayload = issued.Value
+	}
 	return result, err
 }
 
@@ -126,7 +144,7 @@ func (service GatewayService) AuthorizeConnection(ctx context.Context, sessionID
 // by the ticket-consuming Gateway; every binding is checked against durable
 // PostgreSQL facts before the local Connector stream is opened.
 func (service GatewayService) ResolvePeerTarget(ctx context.Context, sessionID uuid.UUID, fence int64, connectorID uuid.UUID, epoch int64, credentialLeaseID uuid.UUID) (ConnectionTarget, error) {
-	if service.Store == nil || sessionID == uuid.Nil || fence < 1 || connectorID == uuid.Nil || epoch < 1 || credentialLeaseID == uuid.Nil {
+	if service.Store == nil || sessionID == uuid.Nil || fence < 1 || connectorID == uuid.Nil || epoch < 1 {
 		return ConnectionTarget{}, ErrSessionUnavailable
 	}
 	target, err := service.Store.Queries.GetRemoteAccessSessionTarget(ctx, sessionID)
@@ -134,11 +152,15 @@ func (service GatewayService) ResolvePeerTarget(ctx context.Context, sessionID u
 		!target.ConnectorID.Valid || target.ConnectorID.UUID != connectorID || !target.ConnectionEpoch.Valid || target.ConnectionEpoch.Int64 != epoch {
 		return ConnectionTarget{}, ErrSessionUnavailable
 	}
-	lease, err := service.Store.Queries.GetCredentialLease(ctx, db.GetCredentialLeaseParams{ID: credentialLeaseID, EnterpriseID: target.EnterpriseID})
-	now := service.now()
-	if err != nil || lease.Status != "active" || !lease.ExpiresAt.Valid || !now.Before(lease.ExpiresAt.Time) ||
-		lease.OperationRef != sessionID.String() || lease.TargetResourceType != "remote_access_session" || lease.TargetResourceID != sessionID ||
-		lease.RecipientType != "connector" || lease.RecipientID != connectorID.String() || lease.Protocol != accountProtocol(target.Protocol) {
+	if target.Protocol == "ssh" {
+		lease, leaseErr := service.Store.Queries.GetCredentialLease(ctx, db.GetCredentialLeaseParams{ID: credentialLeaseID, EnterpriseID: target.EnterpriseID})
+		now := service.now()
+		if leaseErr != nil || lease.Status != "active" || !lease.ExpiresAt.Valid || !now.Before(lease.ExpiresAt.Time) ||
+			lease.OperationRef != sessionID.String() || lease.TargetResourceType != "remote_access_session" || lease.TargetResourceID != sessionID ||
+			lease.RecipientType != "connector" || lease.RecipientID != connectorID.String() || lease.Protocol != target.CredentialProtocol {
+			return ConnectionTarget{}, ErrSessionUnavailable
+		}
+	} else if credentialLeaseID != uuid.Nil {
 		return ConnectionTarget{}, ErrSessionUnavailable
 	}
 	return connectionTarget(target, credentialLeaseID), nil
@@ -147,7 +169,7 @@ func (service GatewayService) ResolvePeerTarget(ctx context.Context, sessionID u
 func connectionTarget(target db.GetRemoteAccessSessionTargetRow, credentialLeaseID uuid.UUID) ConnectionTarget {
 	return ConnectionTarget{Session: db.RemoteAccessSession{ID: target.ID, EnterpriseID: target.EnterpriseID, UserID: target.UserID,
 		HttpSessionID: target.HttpSessionID, LeaseID: target.LeaseID, HostID: target.HostID, ManagedAccountID: target.ManagedAccountID,
-		Protocol: target.Protocol, ConnectionMode: target.ConnectionMode, ConnectorID: target.ConnectorID, ConnectorEpoch: target.ConnectorEpoch,
+		Protocol: target.Protocol, ControlPath: target.ControlPath, ConnectorID: target.ConnectorID, ConnectorEpoch: target.ConnectorEpoch,
 		Status: target.Status, SessionFence: target.SessionFence, AuthorizationVersion: target.AuthorizationVersion,
 		IdleTimeoutSeconds: target.IdleTimeoutSeconds, MaxDurationSeconds: target.MaxDurationSeconds, ConnectBefore: target.ConnectBefore,
 		ConnectedAt: target.ConnectedAt, TerminatedAt: target.TerminatedAt, TerminationReason: target.TerminationReason,
@@ -156,9 +178,10 @@ func connectionTarget(target db.GetRemoteAccessSessionTargetRow, credentialLease
 		FileUploadMode: target.FileUploadMode, FileDownloadMode: target.FileDownloadMode, PortForwardMode: target.PortForwardMode,
 		SessionShareMode: target.SessionShareMode, RetentionDays: target.RetentionDays, CreatedAt: target.CreatedAt, UpdatedAt: target.UpdatedAt}, EnterpriseID: target.EnterpriseID, UserID: target.UserID,
 		HostID: target.HostID, ManagedAccountID: target.ManagedAccountID, CredentialLeaseID: credentialLeaseID,
-		ConnectionMode: target.ConnectionMode, ConnectorID: target.ConnectorID, ConnectionEpoch: target.ConnectionEpoch.Int64,
-		Protocol: target.Protocol, Address: target.Address, Hostname: target.Hostname, Port: target.Port, PinnedHostKey: target.PinnedHostKey,
-		Username: target.Username, IdleTimeout: time.Duration(target.IdleTimeoutSeconds) * time.Second,
+		ControlPath: target.ControlPath, ConnectorID: target.ConnectorID, ConnectionEpoch: target.ConnectionEpoch.Int64,
+		Protocol: target.Protocol, Address: target.Address.String, Hostname: target.Hostname, Port: target.Port, PinnedHostKey: target.PinnedHostKey,
+		Username: target.Username, Platform: target.Platform, CredentialProtocol: target.CredentialProtocol,
+		IdleTimeout: time.Duration(target.IdleTimeoutSeconds) * time.Second,
 		MaxDuration: time.Duration(target.MaxDurationSeconds) * time.Second, LeaseExpiresAt: target.LeaseExpiresAt.Time}
 }
 
@@ -195,7 +218,7 @@ func (service GatewayService) OpenRecording(ctx context.Context, sessionID uuid.
 		return GatewayRecording{}, ErrRecordingUnavailable
 	}
 	now := service.now()
-	return GatewayRecording{Record: record, Started: now, Recorder: &Recorder{Store: objects, RecordingID: record.ID.String(), DEK: dek, Now: service.Now}}, nil
+	return GatewayRecording{Record: record, Started: now, Recorder: &Recorder{Store: objects, RecordingID: record.ID.String(), Format: record.Format, DEK: dek, Now: service.Now}}, nil
 }
 
 func (service GatewayService) PersistChunks(ctx context.Context, recording GatewayRecording, chunks []ChunkMetadata) error {

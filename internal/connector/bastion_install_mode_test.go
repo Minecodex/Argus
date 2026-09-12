@@ -10,7 +10,7 @@ import (
 )
 
 func TestValidateDirectInstallInputRejectsMissingMode(t *testing.T) {
-	_, _, err := validateDirectInstallInput(context.Background(), nil, uuid.Must(uuid.NewV7()), BastionInput{})
+	_, _, err := (BastionService{}).validateDirectInstallInput(context.Background(), nil, uuid.Must(uuid.NewV7()), BastionInput{})
 	if !errors.Is(err, resource.ErrInvalidConnectionMode) {
 		t.Fatalf("missing install mode error = %v, want %v", err, resource.ErrInvalidConnectionMode)
 	}

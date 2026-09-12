@@ -1245,7 +1245,7 @@ export interface components {
             managed_account_id: string;
             protocol: components["schemas"]["RemoteAccessProtocol"];
             /** @enum {string} */
-            connection_mode: "via_bastion" | "connector_local" | "direct_ssh" | "direct_winrm";
+            control_path: "direct" | "bastion_relay" | "executor_tunnel";
             /** Format: uuid */
             connector_id?: string;
             /** Format: int64 */
@@ -1322,8 +1322,8 @@ export interface components {
             session_id: string;
             /** @enum {string} */
             status: "recording" | "available" | "incomplete" | "failed" | "expired";
-            /** @constant */
-            format: "asciicast_v2";
+            /** @enum {string} */
+            format: "asciicast_v2" | "guacamole_v1";
             /** @constant */
             encrypted: true;
             chunk_count: number;
@@ -1371,7 +1371,7 @@ export interface components {
         /** @enum {string} */
         RemoteAccessSubjectType: "user" | "department";
         /** @enum {string} */
-        RemoteAccessProtocol: "ssh" | "winrs";
+        RemoteAccessProtocol: "shell" | "ssh" | "rdp";
         /** @enum {string} */
         RemoteAccessAction: "terminal";
         /** @enum {string} */

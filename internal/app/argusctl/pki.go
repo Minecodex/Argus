@@ -101,7 +101,7 @@ func (a *App) runPKI(ctx context.Context, operation string, args []string) error
 	duration := flags.String("duration", "", "positive extension duration")
 	nodeKind := flags.String("node-kind", "", "connector, collector, or kubernetes_connector")
 	nodeID := flags.String("node-id", "", "node identifier")
-	scope := flags.String("scope", "linux-system", "repair target: linux-system, linux-user, or kubernetes")
+	scope := flags.String("scope", "linux-system", "repair target: linux-system, windows-system, or kubernetes")
 	targetNamespace := flags.String("target-namespace", "argus-system", "target namespace for a Kubernetes Connector repair")
 	if err := flags.Parse(args); err != nil {
 		return err

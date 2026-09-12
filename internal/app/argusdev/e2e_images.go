@@ -72,11 +72,10 @@ func (a *App) prepareE2EImages(ctx context.Context, env *E2EEnvironment) error {
 		return err
 	}
 	features := suiteFixtureFeatures(env.Options.Suite)
-	if features.SSH || features.WinRS {
+	if features.SSH {
 		if err := a.buildFixtureImage(ctx, env, "ssh", "deploy/docker/e2e-ssh.Dockerfile", localPrefix, clusterPrefix); err != nil {
 			return err
 		}
-		env.State.FixtureImages["winrs"] = env.State.FixtureImages["ssh"]
 	}
 	if features.Replay {
 		if err := a.buildFixtureImage(ctx, env, "replay", "deploy/docker/replay-model.Dockerfile", localPrefix, clusterPrefix); err != nil {

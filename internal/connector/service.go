@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"slices"
 	"strings"
@@ -25,6 +26,9 @@ import (
 	"github.com/kakj-go/Argus/internal/artifactcheck"
 	"github.com/kakj-go/Argus/internal/audit"
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
+	"github.com/kakj-go/Argus/internal/hostonboarding"
+	"github.com/kakj-go/Argus/internal/hostremoval"
+	"github.com/kakj-go/Argus/internal/installation"
 	"github.com/kakj-go/Argus/internal/installinstruction"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/secret"
@@ -56,26 +60,24 @@ type CertificateIssuer interface {
 }
 
 type Service struct {
-	Store            *postgres.Store
-	Redis            *redisstore.Client
-	Issuer           CertificateIssuer
-	EnrollmentURL    string
-	GatewayEndpoint  string
-	GatewayInstance  string
-	CertificateTTL   time.Duration
-	RegistryTTL      time.Duration
-	Credentials      secret.Service
-	Artifacts        artifactcheck.Checker
-	TrustBundlePath  string
-	TrustBundleEpoch int64
-	BootstrapTLSMode installinstruction.DownloadTLSMode
-	KubernetesImage  string
-	TrustBundles     trustbundle.Service
+	Store           *postgres.Store
+	Redis           *redisstore.Client
+	Issuer          CertificateIssuer
+	EnrollmentURL   string
+	GatewayEndpoint string
+	GatewayInstance string
+	CertificateTTL  time.Duration
+	RegistryTTL     time.Duration
+	Credentials     secret.Service
+	Artifacts       artifactcheck.Checker
+	installinstruction.TrustConfig
+	KubernetesImage string
+	TrustBundles    trustbundle.Service
 }
 
 type EnrollInput struct {
-	Token, CSRPem, DeviceFingerprint, InstanceID, Architecture, Name, SoftwareVersion string
-	Capabilities                                                                      []string
+	Token, CSRPem, DeviceFingerprint, InstanceID, Platform, Architecture, Name, SoftwareVersion string
+	Capabilities                                                                                []string
 }
 
 type EnrollmentResult struct {
@@ -102,14 +104,17 @@ type CreateEnrollmentInput struct {
 	// command. Its exact release is frozen in the Pending Action.
 	ManualInstall    bool
 	ReleaseVersionID uuid.NullUUID
+	TargetPlatform   installation.Platform
 	Policy           json.RawMessage
 	TTL              time.Duration
 	ImagePullSecrets []string
 }
 
 func (service Service) CreateEnrollment(ctx context.Context, q *db.Queries, actorID string, enterpriseID uuid.UUID, input CreateEnrollmentInput) (CreatedEnrollment, error) {
-	if (input.Role == "bastion" && (!input.BastionScopeID.Valid || !input.HostID.Valid || input.ClusterID.Valid || input.ManualInstall != input.ReleaseVersionID.Valid)) ||
+	if (input.Role == "host" && (!input.HostID.Valid || input.ClusterID.Valid || !input.ReleaseVersionID.Valid || !input.TargetPlatform.Valid())) ||
+		(input.Role == "bastion" && (!input.BastionScopeID.Valid || !input.HostID.Valid || input.ClusterID.Valid || input.ManualInstall != input.ReleaseVersionID.Valid || !input.TargetPlatform.Valid() || input.TargetPlatform.OS() != "linux")) ||
 		(input.Role == "kubernetes" && (!input.ClusterID.Valid || input.BastionScopeID.Valid || input.HostID.Valid || input.ManualInstall || input.ReleaseVersionID.Valid)) ||
+		(input.Role != "host" && input.Role != "bastion" && input.Role != "kubernetes") ||
 		(input.Role != "kubernetes" && len(input.ImagePullSecrets) != 0) || !validImagePullSecrets(input.ImagePullSecrets) {
 		return CreatedEnrollment{}, ErrEnrollmentInvalid
 	}
@@ -137,7 +142,7 @@ func (service Service) CreateEnrollment(ctx context.Context, q *db.Queries, acto
 		return CreatedEnrollment{}, ErrEnrollmentInvalid
 	}
 	var instructionSets []installinstruction.Set
-	if (input.Role == "bastion" && input.ManualInstall) || input.Role == "kubernetes" {
+	if ((input.Role == "bastion" || input.Role == "host") && input.ManualInstall) || input.Role == "kubernetes" {
 		releaseVersionID := input.ReleaseVersionID
 		if input.Role == "kubernetes" {
 			release, releaseErr := q.GetActiveConnectorReleaseVersion(ctx)
@@ -150,12 +155,20 @@ func (service Service) CreateEnrollment(ctx context.Context, q *db.Queries, acto
 		if releaseErr != nil {
 			return CreatedEnrollment{}, ErrConnectorArtifactUnavailable
 		}
-		manifest, manifestErr := connectorManualInstallRelease(release.Manifest)
+		targetPlatform := input.TargetPlatform
+		if input.Role == "kubernetes" {
+			targetPlatform = installation.LinuxAMD64
+		}
+		manifest, manifestErr := connectorManualInstallRelease(release.Manifest, targetPlatform.Architecture())
 		if manifestErr != nil {
 			return CreatedEnrollment{}, manifestErr
 		}
+		installer, installerErr := connectorInstallerFromManifest(manifest, targetPlatform.OS())
+		if installerErr != nil {
+			return CreatedEnrollment{}, installerErr
+		}
 		if service.Artifacts != nil {
-			urls := []string{manifest.ManifestURI, manifest.InstallScriptURI}
+			urls := []string{manifest.ManifestURI, installer.URI}
 			for _, artifact := range manifest.Artifacts {
 				urls = append(urls, artifact.URI)
 			}
@@ -170,10 +183,14 @@ func (service Service) CreateEnrollment(ctx context.Context, q *db.Queries, acto
 		arguments := []string{"--manifest", manifest.ManifestURI, "--key-id", manifest.SigningKeyID,
 			"--public-key", manifest.SigningPublicKey, "--connector-id", connectorID.String(),
 			"--server", service.EnrollmentURL, "--role", input.Role}
-		if input.Purpose == "connector_replacement" {
-			arguments = append(arguments, "--replace")
+		policy := connectorEnrollmentPolicy(input.Policy)
+		if policy.EnrollDialAddress != "" {
+			arguments = append(arguments, "--enroll-dial-address", policy.EnrollDialAddress)
 		}
-		scopes := []installinstruction.Scope{installinstruction.ScopeLinuxSystem, installinstruction.ScopeLinuxUser}
+		if policy.GatewayDialAddress != "" {
+			arguments = append(arguments, "--gateway-dial-address", policy.GatewayDialAddress)
+		}
+		scopes := []installinstruction.Scope{installinstruction.ScopeLinuxSystem}
 		if input.Role == "kubernetes" {
 			if strings.TrimSpace(service.KubernetesImage) == "" {
 				return CreatedEnrollment{}, ErrEnrollmentInvalid
@@ -188,19 +205,38 @@ func (service Service) CreateEnrollment(ctx context.Context, q *db.Queries, acto
 			warnings := []string{}
 			bootstrapScriptURL := ""
 			bootstrapTLSMode := installinstruction.DownloadTLSMode("")
-			if input.Role == "bastion" {
+			if input.Role == "bastion" || input.Role == "host" {
 				bootstrapScriptURL = connectorBootstrapScriptURL(service.EnrollmentURL)
 				bootstrapTLSMode = service.BootstrapTLSMode
 			}
-			if scope == installinstruction.ScopeLinuxUser {
-				warnings = append(warnings, "User services require an active login session unless systemd linger is enabled.",
-					"Profiles requiring host capabilities, kernel data, or system directories are unavailable in user mode.")
+			if targetPlatform == installation.WindowsAMD64 {
+				warnings = []string{"Requires elevated PowerShell 5.1+, curl.exe, and OpenSSL for Ed25519 artifact verification"}
+				windowsArguments := []string{"-Manifest", manifest.ManifestURI, "-KeyId", manifest.SigningKeyID, "-PublicKey", manifest.SigningPublicKey,
+					"-ConnectorId", connectorID.String(), "-Server", service.EnrollmentURL, "-Role", input.Role}
+				if policy.EnrollDialAddress != "" {
+					windowsArguments = append(windowsArguments, "-EnrollDialAddress", policy.EnrollDialAddress)
+				}
+				if policy.GatewayDialAddress != "" {
+					windowsArguments = append(windowsArguments, "-GatewayDialAddress", policy.GatewayDialAddress)
+				}
+				instruction, buildErr := installinstruction.BuildWindows(installinstruction.WindowsOptions{Platform: targetPlatform,
+					InstallerURL: installer.URI, InstallerSHA256: installer.SHA256, BootstrapScriptURL: bootstrapScriptURL,
+					HTTPSDialAddress: policy.EnrollDialAddress,
+					DownloadTLSMode:  bootstrapTLSMode, TrustBundlePEM: bundle.Material.PEM, TrustBundleEpoch: bundle.Epoch,
+					Token: token, ExpiresAt: record.ExpiresAt.Time, InstallerArguments: windowsArguments, CapabilityWarnings: warnings, ReleaseVersion: release.Version})
+				if buildErr != nil {
+					return CreatedEnrollment{}, buildErr
+				}
+				instructionSets = append(instructionSets, instruction)
+				continue
 			}
 			instruction, buildErr := installinstruction.BuildPOSIX(installinstruction.POSIXOptions{Scope: scope,
-				InstallerURL: manifest.InstallScriptURI, InstallerSHA256: manifest.InstallScriptSHA256,
+				Platform:     targetPlatform,
+				InstallerURL: installer.URI, InstallerSHA256: installer.SHA256,
 				BootstrapScriptURL: bootstrapScriptURL, DownloadTLSMode: bootstrapTLSMode,
-				TrustBundlePEM: bundle.Material.PEM, TrustBundleEpoch: bundle.Epoch, Token: token,
-				ExpiresAt: record.ExpiresAt.Time, InstallerArguments: arguments, CapabilityWarnings: warnings})
+				HTTPSDialAddress: policy.EnrollDialAddress,
+				TrustBundlePEM:   bundle.Material.PEM, TrustBundleEpoch: bundle.Epoch, Token: token,
+				ExpiresAt: record.ExpiresAt.Time, InstallerArguments: arguments, CapabilityWarnings: warnings, ReleaseVersion: release.Version})
 			if buildErr != nil {
 				return CreatedEnrollment{}, buildErr
 			}
@@ -208,6 +244,19 @@ func (service Service) CreateEnrollment(ctx context.Context, q *db.Queries, acto
 		}
 	}
 	return CreatedEnrollment{Record: record, ConnectorID: connectorID, InstructionSets: instructionSets, Token: token}, nil
+}
+
+type enrollmentPolicy struct {
+	TargetPlatform     string `json:"target_platform"`
+	ControlPath        string `json:"control_path"`
+	EnrollDialAddress  string `json:"enroll_dial_address"`
+	GatewayDialAddress string `json:"gateway_dial_address"`
+}
+
+func connectorEnrollmentPolicy(raw json.RawMessage) enrollmentPolicy {
+	var policy enrollmentPolicy
+	_ = json.Unmarshal(raw, &policy)
+	return policy
 }
 
 func (service Service) installationTrustBundle(ctx context.Context) (trustbundle.Bundle, error) {
@@ -239,26 +288,35 @@ func connectorBootstrapScriptURL(enrollmentURL string) string {
 // installer still performs the existing one-time enrollment transaction.
 func (service Service) BootstrapScript(ctx context.Context, token string, scope installinstruction.Scope) (string, error) {
 	if service.Store == nil || strings.TrimSpace(token) == "" ||
-		(scope != installinstruction.ScopeLinuxSystem && scope != installinstruction.ScopeLinuxUser) {
+		(scope != installinstruction.ScopeLinuxSystem && scope != installinstruction.ScopeWindowsSystem) {
 		return "", ErrEnrollmentInvalid
 	}
 	tokenHash := sha256.Sum256([]byte(token))
 	record, err := service.Store.Queries.GetEnrollmentTokenByHash(ctx, tokenHash[:])
 	if err != nil || record.Status != "active" || !record.ExpiresAt.Valid || !time.Now().UTC().Before(record.ExpiresAt.Time) ||
-		record.Role != "bastion" || !record.ReleaseVersionID.Valid ||
-		(record.Purpose != "initial_registration" && record.Purpose != "connector_replacement") {
+		(record.Role != "host" && record.Role != "bastion") || !record.ReleaseVersionID.Valid ||
+		(record.Purpose != "host_registration" && record.Purpose != "initial_registration" && record.Purpose != "connector_replacement") {
 		return "", ErrEnrollmentInvalid
 	}
 	release, err := service.Store.Queries.GetConnectorReleaseVersion(ctx, record.ReleaseVersionID.UUID)
 	if err != nil {
 		return "", ErrConnectorArtifactUnavailable
 	}
-	manifest, err := connectorManualInstallRelease(release.Manifest)
+	policy := connectorEnrollmentPolicy(record.Policy)
+	targetPlatform := installation.Platform(policy.TargetPlatform)
+	if !targetPlatform.Valid() || (scope == installinstruction.ScopeWindowsSystem) != (targetPlatform == installation.WindowsAMD64) {
+		return "", ErrEnrollmentInvalid
+	}
+	manifest, err := connectorManualInstallRelease(release.Manifest, targetPlatform.Architecture())
 	if err != nil {
 		return "", ErrConnectorArtifactUnavailable
 	}
+	installer, installerErr := connectorInstallerFromManifest(manifest, targetPlatform.OS())
+	if installerErr != nil {
+		return "", installerErr
+	}
 	if service.Artifacts != nil {
-		urls := []string{manifest.ManifestURI, manifest.InstallScriptURI}
+		urls := []string{manifest.ManifestURI, installer.URI}
 		for _, artifact := range manifest.Artifacts {
 			urls = append(urls, artifact.URI)
 		}
@@ -273,21 +331,41 @@ func (service Service) BootstrapScript(ctx context.Context, token string, scope 
 	arguments := []string{"--manifest", manifest.ManifestURI, "--key-id", manifest.SigningKeyID,
 		"--public-key", manifest.SigningPublicKey, "--connector-id", record.PreallocatedConnectorID.String(),
 		"--server", service.EnrollmentURL, "--role", record.Role}
-	if record.Purpose == "connector_replacement" {
-		arguments = append(arguments, "--replace")
+	if policy.EnrollDialAddress != "" {
+		arguments = append(arguments, "--enroll-dial-address", policy.EnrollDialAddress)
 	}
-	warnings := []string{}
-	if scope == installinstruction.ScopeLinuxUser {
-		warnings = append(warnings, "User services require an active login session unless systemd linger is enabled.",
-			"Profiles requiring host capabilities, kernel data, or system directories are unavailable in user mode.")
+	if policy.GatewayDialAddress != "" {
+		arguments = append(arguments, "--gateway-dial-address", policy.GatewayDialAddress)
 	}
-	instruction, err := installinstruction.BuildPOSIX(installinstruction.POSIXOptions{Scope: scope,
-		InstallerURL: manifest.InstallScriptURI, InstallerSHA256: manifest.InstallScriptSHA256,
-		BootstrapScriptURL: connectorBootstrapScriptURL(service.EnrollmentURL), DownloadTLSMode: service.BootstrapTLSMode,
-		TrustBundlePEM: bundle.Material.PEM, TrustBundleEpoch: bundle.Epoch, Token: token,
-		ExpiresAt: record.ExpiresAt.Time, InstallerArguments: arguments, CapabilityWarnings: warnings})
+	var instruction installinstruction.Set
+	if targetPlatform == installation.WindowsAMD64 {
+		windowsArguments := []string{"-Manifest", manifest.ManifestURI, "-KeyId", manifest.SigningKeyID, "-PublicKey", manifest.SigningPublicKey,
+			"-ConnectorId", record.PreallocatedConnectorID.String(), "-Server", service.EnrollmentURL, "-Role", record.Role}
+		if policy.EnrollDialAddress != "" {
+			windowsArguments = append(windowsArguments, "-EnrollDialAddress", policy.EnrollDialAddress)
+		}
+		if policy.GatewayDialAddress != "" {
+			windowsArguments = append(windowsArguments, "-GatewayDialAddress", policy.GatewayDialAddress)
+		}
+		instruction, err = installinstruction.BuildWindows(installinstruction.WindowsOptions{Platform: targetPlatform,
+			InstallerURL: installer.URI, InstallerSHA256: installer.SHA256, BootstrapScriptURL: connectorBootstrapScriptURL(service.EnrollmentURL),
+			HTTPSDialAddress: policy.EnrollDialAddress,
+			DownloadTLSMode:  service.BootstrapTLSMode, TrustBundlePEM: bundle.Material.PEM, TrustBundleEpoch: bundle.Epoch,
+			Token: token, ExpiresAt: record.ExpiresAt.Time, InstallerArguments: windowsArguments,
+			CapabilityWarnings: []string{"Requires elevated PowerShell 5.1+, curl.exe, and OpenSSL for Ed25519 artifact verification"}, ReleaseVersion: release.Version})
+	} else {
+		instruction, err = installinstruction.BuildPOSIX(installinstruction.POSIXOptions{Scope: scope, Platform: targetPlatform,
+			InstallerURL: installer.URI, InstallerSHA256: installer.SHA256,
+			BootstrapScriptURL: connectorBootstrapScriptURL(service.EnrollmentURL), DownloadTLSMode: service.BootstrapTLSMode,
+			HTTPSDialAddress: policy.EnrollDialAddress,
+			TrustBundlePEM:   bundle.Material.PEM, TrustBundleEpoch: bundle.Epoch, Token: token,
+			ExpiresAt: record.ExpiresAt.Time, InstallerArguments: arguments, ReleaseVersion: release.Version})
+	}
 	if err != nil {
 		return "", err
+	}
+	if record.Role == "host" {
+		_ = hostonboarding.AdvanceByConnector(ctx, service.Store.Queries, record.PreallocatedConnectorID, record.EnterpriseID, "installing")
 	}
 	_, _ = audit.Append(ctx, service.Store.Queries, audit.Entry{Domain: "enterprise",
 		EnterpriseID: uuid.NullUUID{UUID: record.EnterpriseID, Valid: true}, ActorType: "system", ActorID: "connector-bootstrap",
@@ -330,7 +408,7 @@ type TrustedIdentity struct {
 }
 
 func (service Service) Enroll(ctx context.Context, input EnrollInput) (EnrollmentResult, error) {
-	if service.Issuer == nil || input.Token == "" || input.DeviceFingerprint == "" || input.InstanceID == "" ||
+	if service.Issuer == nil || input.Token == "" || input.DeviceFingerprint == "" || input.InstanceID == "" || (input.Platform != "linux" && input.Platform != "windows") ||
 		(input.Architecture != "amd64" && input.Architecture != "arm64") || service.GatewayEndpoint == "" {
 		return EnrollmentResult{}, ErrEnrollmentInvalid
 	}
@@ -340,7 +418,11 @@ func (service Service) Enroll(ctx context.Context, input EnrollInput) (Enrollmen
 	}
 	deviceHash := sha256.Sum256([]byte(input.DeviceFingerprint))
 	tokenHash := sha256.Sum256([]byte(input.Token))
+	if candidate, candidateErr := service.Store.Queries.GetEnrollmentTokenByHash(ctx, tokenHash[:]); candidateErr == nil && candidate.Role == "host" && candidate.Status == "active" {
+		_ = hostonboarding.AdvanceByConnector(ctx, service.Store.Queries, candidate.PreallocatedConnectorID, candidate.EnterpriseID, "enrolling")
+	}
 	var result EnrollmentResult
+	var takeoverConnectorID uuid.NullUUID
 	err = service.Store.InTx(ctx, func(q *db.Queries) error {
 		token, err := q.GetEnrollmentTokenForUpdate(ctx, tokenHash[:])
 		if err != nil {
@@ -369,11 +451,73 @@ func (service Service) Enroll(ctx context.Context, input EnrollInput) (Enrollmen
 		if token.Status != "active" || !time.Now().UTC().Before(token.ExpiresAt.Time) || !capabilitiesAllowed(token.Role, input.Capabilities) {
 			return ErrEnrollmentInvalid
 		}
+		if token.Role == "host" || token.Role == "bastion" {
+			policy := connectorEnrollmentPolicy(token.Policy)
+			if policy.TargetPlatform != input.Platform+"_"+input.Architecture {
+				return ErrEnrollmentInvalid
+			}
+		}
 		connectorID := token.PreallocatedConnectorID
 		if len(csr.URIs) != 1 || csr.URIs[0].String() != CertificateURI(connectorID) {
 			return ErrEnrollmentInvalid
 		}
 		repair := token.Purpose == "pki_repair"
+		if !repair {
+			existing, existingErr := q.GetLiveConnectorByInstanceForUpdate(ctx, db.GetLiveConnectorByInstanceForUpdateParams{
+				EnterpriseID: token.EnterpriseID, InstanceID: input.InstanceID,
+			})
+			if existingErr == nil && existing.ID != connectorID {
+				if !subtleEqual(existing.DeviceFingerprintHash, deviceHash[:]) {
+					return ErrEnrollmentConflict
+				}
+				if _, existingErr = q.DeleteConnectorSessionsForReplacement(ctx, db.DeleteConnectorSessionsForReplacementParams{
+					ConnectorID: existing.ID, EnterpriseID: existing.EnterpriseID,
+				}); existingErr != nil {
+					return existingErr
+				}
+				if existingErr = q.RevokeConnectorCertificates(ctx, db.RevokeConnectorCertificatesParams{
+					ConnectorID: existing.ID, EnterpriseID: existing.EnterpriseID,
+				}); existingErr != nil {
+					return existingErr
+				}
+				if existingErr = q.RevokePKISubjectCertificates(ctx, db.RevokePKISubjectCertificatesParams{
+					SubjectKind: "connector", SubjectID: existing.ID.String(), RevocationReason: "connector_takeover",
+				}); existingErr != nil {
+					return existingErr
+				}
+				if rows, fenceErr := q.FenceConnectorForReplacement(ctx, db.FenceConnectorForReplacementParams{
+					ID: existing.ID, EnterpriseID: existing.EnterpriseID,
+				}); fenceErr != nil || rows != 1 {
+					return ErrEnrollmentConflict
+				}
+				_, _ = q.RevokeRemovalConnectorCommands(ctx, db.RevokeRemovalConnectorCommandsParams{
+					EnterpriseID: existing.EnterpriseID, ConnectorID: existing.ID,
+				})
+				_, _ = q.RevokeConnectorControlTunnelLeases(ctx, db.RevokeConnectorControlTunnelLeasesParams{
+					ConnectorID: existing.ID, EnterpriseID: existing.EnterpriseID,
+				})
+				_, _ = q.MarkConnectorControlTunnelRemoved(ctx, db.MarkConnectorControlTunnelRemovedParams{
+					ConnectorID: existing.ID, EnterpriseID: existing.EnterpriseID, LastDropReason: "connector_takeover",
+				})
+				_, _ = q.MarkHostConnectorOffline(ctx, db.MarkHostConnectorOfflineParams{
+					EnterpriseID: existing.EnterpriseID, ConnectorID: uuid.NullUUID{UUID: existing.ID, Valid: true},
+				})
+				_, _ = q.MarkBastionConnectorOfflineForTakeover(ctx, db.MarkBastionConnectorOfflineForTakeoverParams{
+					EnterpriseID: existing.EnterpriseID, ActiveConnectorID: uuid.NullUUID{UUID: existing.ID, Valid: true},
+				})
+				if existing.HostID.Valid {
+					_, _ = q.TerminateRemoteAccessSessionsByHostRemoval(ctx, db.TerminateRemoteAccessSessionsByHostRemovalParams{
+						EnterpriseID: existing.EnterpriseID, HostID: existing.HostID.UUID,
+					})
+					_, _ = q.InvalidateHostTelemetryForRemoval(ctx, db.InvalidateHostTelemetryForRemovalParams{
+						EnterpriseID: existing.EnterpriseID, ResourceID: existing.HostID.UUID,
+					})
+				}
+				takeoverConnectorID = uuid.NullUUID{UUID: existing.ID, Valid: true}
+			} else if existingErr != nil && !errors.Is(existingErr, pgx.ErrNoRows) {
+				return existingErr
+			}
+		}
 		var connector db.Connector
 		if repair {
 			connector, err = q.GetConnector(ctx, db.GetConnectorParams{ID: connectorID, EnterpriseID: token.EnterpriseID})
@@ -440,9 +584,15 @@ func (service Service) Enroll(ctx context.Context, input EnrollInput) (Enrollmen
 		if _, err := q.ConsumeEnrollmentToken(ctx, db.ConsumeEnrollmentTokenParams{ID: token.ID, ConsumedDeviceHash: deviceHash[:], RegisteredConnectorID: uuid.NullUUID{UUID: connector.ID, Valid: true}}); err != nil {
 			return ErrEnrollmentConflict
 		}
-		if !repair && token.Role == "bastion" {
-			rows, updateErr := q.SetBastionRootHostArchitecture(ctx, db.SetBastionRootHostArchitectureParams{
-				ID: token.PreallocatedHostID.UUID, EnterpriseID: token.EnterpriseID, Architecture: pgtype.Text{String: input.Architecture, Valid: true},
+		if !repair && token.Role == "host" {
+			if _, err := q.ActivateHostConnector(ctx, db.ActivateHostConnectorParams{ID: token.PreallocatedHostID.UUID, EnterpriseID: token.EnterpriseID,
+				ConnectorID: uuid.NullUUID{UUID: connector.ID, Valid: true}, Hostname: input.Name, Architecture: input.Architecture}); err != nil {
+				return err
+			}
+		} else if !repair && token.Role == "bastion" {
+			rows, updateErr := q.ActivateBastionRootHost(ctx, db.ActivateBastionRootHostParams{
+				ID: token.PreallocatedHostID.UUID, EnterpriseID: token.EnterpriseID,
+				ConnectorID: uuid.NullUUID{UUID: connector.ID, Valid: true}, Architecture: pgtype.Text{String: input.Architecture, Valid: true},
 			})
 			if updateErr != nil || rows != 1 {
 				return ErrEnrollmentConflict
@@ -461,9 +611,13 @@ func (service Service) Enroll(ctx context.Context, input EnrollInput) (Enrollmen
 		if repair {
 			action, summary = "connector.pki_repair", "connector identity repaired"
 		}
+		details := map[string]any{"summary": summary, "status": connector.Status}
+		if takeoverConnectorID.Valid {
+			details["replaced_connector_id"] = takeoverConnectorID.UUID.String()
+		}
 		if _, err := audit.Append(ctx, q, audit.Entry{Domain: "enterprise", EnterpriseID: uuid.NullUUID{UUID: token.EnterpriseID, Valid: true},
 			ActorType: "connector", ActorID: connector.ID.String(), Action: action, ResourceType: "connector", ResourceID: connector.ID.String(),
-			Result: "success", Details: map[string]any{"summary": summary, "status": connector.Status}}); err != nil {
+			Result: "success", Details: details}); err != nil {
 			return err
 		}
 		bundle, bundleErr := service.enrollmentTrustBundle(ctx, certificate.CABundlePEM)
@@ -478,6 +632,15 @@ func (service Service) Enroll(ctx context.Context, input EnrollInput) (Enrollmen
 			GatewayEndpoint: service.GatewayEndpoint, Result: resultName}
 		return nil
 	})
+	// Onboarding progress is an operational projection owned by the dispatcher.
+	// Keep it outside the serializable identity transaction: its lease renewal
+	// updates the same row and must never abort an otherwise valid enrollment.
+	if err == nil && result.Connector.Role == "host" {
+		_ = hostonboarding.AdvanceByConnector(ctx, service.Store.Queries, result.Connector.ID, result.Connector.EnterpriseID, "waiting_online")
+	}
+	if err == nil && takeoverConnectorID.Valid && service.Redis != nil {
+		_ = service.Redis.DeleteConnectorRegistry(ctx, takeoverConnectorID.UUID.String())
+	}
 	return result, err
 }
 
@@ -514,6 +677,11 @@ func (service Service) OpenSession(ctx context.Context, identity TrustedIdentity
 			return err
 		}
 		switch connector.Role {
+		case "host":
+			if _, err = q.RestoreHostConnectorOnline(ctx, db.RestoreHostConnectorOnlineParams{EnterpriseID: connector.EnterpriseID,
+				ConnectorID: uuid.NullUUID{UUID: connector.ID, Valid: true}}); err != nil {
+				return err
+			}
 		case "bastion":
 			if _, err = q.RestoreBastionConnectorOnline(ctx, db.RestoreBastionConnectorOnlineParams{EnterpriseID: connector.EnterpriseID,
 				ActiveConnectorID: uuid.NullUUID{UUID: connector.ID, Valid: true}}); err != nil {
@@ -531,6 +699,13 @@ func (service Service) OpenSession(ctx context.Context, identity TrustedIdentity
 	})
 	if err != nil {
 		return db.Connector{}, err
+	}
+	// As with enrollment progress, completing a Host onboarding operation is a
+	// projection update. Running it outside the serializable session/fencing
+	// transaction prevents the dispatcher lease heartbeat from aborting the
+	// Connector's otherwise valid session establishment.
+	if connector.Role == "host" {
+		_ = hostonboarding.CompleteByConnector(ctx, service.Store.Queries, connector.ID, connector.EnterpriseID)
 	}
 	if service.Redis != nil {
 		_ = service.Redis.SetConnectorRegistry(ctx, connector.ID.String(), redisstore.ConnectorRegistryEntry{GatewayInstanceID: service.GatewayInstance,
@@ -613,9 +788,121 @@ func (service Service) Heartbeat(ctx context.Context, identity TrustedIdentity, 
 	if err != nil || rows != 1 {
 		return ErrConnectorFenced
 	}
+	_, _ = service.Store.Queries.RestoreHostConnectorOnline(ctx, db.RestoreHostConnectorOnlineParams{EnterpriseID: identity.EnterpriseID,
+		ConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true}})
 	if service.Redis != nil {
 		_ = service.Redis.SetConnectorRegistry(ctx, identity.ConnectorID.String(), redisstore.ConnectorRegistryEntry{GatewayInstanceID: service.GatewayInstance,
 			ConnectionEpoch: epoch}, service.registryTTL())
+	}
+	return nil
+}
+
+func (service Service) UpdateBastionRelayStatus(ctx context.Context, identity TrustedIdentity, status *connectorv1.BastionRelayStatus) error {
+	connector, err := service.Store.Queries.GetConnector(ctx, db.GetConnectorParams{ID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID})
+	if err != nil {
+		return ErrConnectorFenced
+	}
+	if connector.Role != "bastion" {
+		if status != nil {
+			return ErrCommandState
+		}
+		return nil
+	}
+	address, httpsPort, gatewayPort, generation, err := validateBastionRelayStatus(status)
+	if err != nil {
+		return ErrCommandState
+	}
+	rows, err := service.Store.Queries.SetBastionRelayStatus(ctx, db.SetBastionRelayStatusParams{EnterpriseID: identity.EnterpriseID,
+		ActiveConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true}, RelayStatus: status.GetStatus(), RelayAddress: address,
+		RelayHttpsPort: httpsPort, RelayGatewayPort: gatewayPort, RelayPortGeneration: generation, RelayErrorCode: status.GetErrorCode()})
+	if err != nil || rows != 1 {
+		return ErrConnectorFenced
+	}
+	return nil
+}
+
+func validateBastionRelayStatus(status *connectorv1.BastionRelayStatus) (string, int32, int32, int64, error) {
+	if status == nil || (status.GetStatus() != "ready" && status.GetStatus() != "degraded") || len(status.GetListeners()) != 2 || status.GetGeneration() > uint64(^uint64(0)>>1) {
+		return "", 0, 0, 0, ErrCommandState
+	}
+	if (status.GetStatus() == "ready" && status.GetErrorCode() != "") || (status.GetStatus() == "degraded" && !validRelayErrorCode(status.GetErrorCode())) {
+		return "", 0, 0, 0, ErrCommandState
+	}
+	ports := map[string]int32{}
+	for _, listener := range status.GetListeners() {
+		if listener == nil || (listener.GetKind() != "https" && listener.GetKind() != "gateway") || listener.GetPort() < 1 || listener.GetPort() > 65535 ||
+			(listener.GetStatus() != "ready" && listener.GetStatus() != "closed" && listener.GetStatus() != "port_conflict" && listener.GetStatus() != "error") {
+			return "", 0, 0, 0, ErrCommandState
+		}
+		if _, duplicate := ports[listener.GetKind()]; duplicate {
+			return "", 0, 0, 0, ErrCommandState
+		}
+		ports[listener.GetKind()] = int32(listener.GetPort())
+		if status.GetStatus() == "ready" && listener.GetStatus() != "ready" {
+			return "", 0, 0, 0, ErrCommandState
+		}
+	}
+	if ports["https"] == ports["gateway"] {
+		return "", 0, 0, 0, ErrCommandState
+	}
+	address := strings.TrimSpace(status.GetAdvertiseAddress())
+	generation := int64(status.GetGeneration())
+	if status.GetStatus() == "ready" {
+		if generation < 1 || !validBastionRelayAddress(address) {
+			return "", 0, 0, 0, ErrCommandState
+		}
+	} else if generation == 0 {
+		address = ""
+	}
+	return address, ports["https"], ports["gateway"], generation, nil
+}
+
+func validRelayErrorCode(value string) bool {
+	if value == "" || value[0] < 'A' || value[0] > 'Z' {
+		return false
+	}
+	for _, character := range value[1:] {
+		if character != '_' && (character < 'A' || character > 'Z') && (character < '0' || character > '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func validBastionRelayAddress(value string) bool {
+	if value == "" || len(value) > 253 || strings.ContainsAny(value, "/\\@?#") {
+		return false
+	}
+	if net.ParseIP(value) != nil {
+		return true
+	}
+	return len(validation.IsDNS1123Subdomain(strings.ToLower(value))) == 0
+}
+
+func (service Service) UpdateHostRuntimeObservation(ctx context.Context, identity TrustedIdentity, observation *connectorv1.HostRuntimeObservation) error {
+	connector, err := service.Store.Queries.GetConnector(ctx, db.GetConnectorParams{ID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID})
+	if err != nil {
+		return ErrConnectorFenced
+	}
+	if connector.Role == "kubernetes" {
+		if observation != nil {
+			return ErrCommandState
+		}
+		return nil
+	}
+	if observation == nil || observation.GetObservedAt() == nil || !observation.GetObservedAt().IsValid() ||
+		(observation.GetPlatform() != "linux" && observation.GetPlatform() != "windows") ||
+		(observation.GetOpensshStatus() != "available" && observation.GetOpensshStatus() != "unavailable" && observation.GetOpensshStatus() != "unknown") ||
+		(observation.GetRdpStatus() != "enabled" && observation.GetRdpStatus() != "disabled" && observation.GetRdpStatus() != "unavailable" && observation.GetRdpStatus() != "unknown") ||
+		time.Since(observation.GetObservedAt().AsTime()) > 5*time.Minute || observation.GetObservedAt().AsTime().After(time.Now().Add(time.Minute)) {
+		return ErrCommandState
+	}
+	_, err = service.Store.Queries.UpsertHostRuntimeObservation(ctx, db.UpsertHostRuntimeObservationParams{ID: identity.ConnectorID,
+		EnterpriseID: identity.EnterpriseID, Platform: observation.GetPlatform(), OpensshStatus: observation.GetOpensshStatus(), RdpStatus: observation.GetRdpStatus(),
+		RdpNlaEnabled: observation.GetRdpNlaEnabled(), RdpFirewallEnabled: observation.GetRdpFirewallEnabled(), RdpServiceRunning: observation.GetRdpServiceRunning(),
+		ObservedAt: pgtype.Timestamptz{Time: observation.GetObservedAt().AsTime(), Valid: true}})
+	if err != nil {
+		return ErrCommandState
 	}
 	return nil
 }
@@ -626,6 +913,8 @@ func (service Service) Disconnect(ctx context.Context, identity TrustedIdentity,
 	rows, _ := service.Store.Queries.MarkConnectorDisconnected(ctx, db.MarkConnectorDisconnectedParams{ID: identity.ConnectorID,
 		EnterpriseID: identity.EnterpriseID, ConnectionEpoch: epoch})
 	if rows == 1 {
+		_, _ = service.Store.Queries.MarkHostConnectorOffline(ctx, db.MarkHostConnectorOfflineParams{EnterpriseID: identity.EnterpriseID,
+			ConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true}})
 		_, _ = service.Store.Queries.MarkBastionScopeConnectorSuspectedOffline(ctx, db.MarkBastionScopeConnectorSuspectedOfflineParams{
 			EnterpriseID: identity.EnterpriseID, ActiveConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true},
 		})
@@ -645,8 +934,7 @@ func (service Service) EnqueueConnectionTest(ctx context.Context, q *db.Queries,
 	commandType := "host_connection_probe"
 	protocol := "ssh"
 	var plan struct {
-		ConnectionMode string `json:"connection_mode"`
-		Platform       string `json:"platform"`
+		Platform string `json:"platform"`
 	}
 	if err := json.Unmarshal(test.RequestPlan, &plan); err != nil {
 		return ErrCommandState
@@ -654,10 +942,8 @@ func (service Service) EnqueueConnectionTest(ctx context.Context, q *db.Queries,
 	if test.TargetType == "kubernetes_cluster" {
 		commandType = "kubernetes_connection_probe"
 		protocol = "kubernetes"
-	} else if test.TargetType != "host" {
+	} else if test.TargetType != "host" || (plan.Platform != "linux" && plan.Platform != "windows") {
 		return ErrCommandState
-	} else if plan.ConnectionMode == "direct_winrm" || (plan.ConnectionMode == "via_bastion" && plan.Platform == "windows") {
-		protocol = "winrm"
 	}
 	leaseTTL := time.Until(test.ExpiresAt.Time)
 	if leaseTTL > 5*time.Minute {
@@ -698,7 +984,13 @@ func (service Service) NotifyConnectorCommand(ctx context.Context, connectorID u
 
 func (service Service) TransitionCommand(ctx context.Context, identity TrustedIdentity, epoch int64, commandID, next string, result json.RawMessage, errorCode string) (db.ConnectorCommand, error) {
 	current, err := service.Store.Queries.GetConnectorCommand(ctx, db.GetConnectorCommandParams{CommandID: commandID, ConnectorID: identity.ConnectorID, ConnectionEpoch: epoch})
-	if err != nil || !allowedCommandTransition(current.Status, next) || len(result) > 1<<20 {
+	if err != nil || len(result) > 1<<20 {
+		return db.ConnectorCommand{}, ErrCommandState
+	}
+	if cancelledHostInstallCommand(current) {
+		return current, nil
+	}
+	if !allowedCommandTransition(current.Status, next) {
 		return db.ConnectorCommand{}, ErrCommandState
 	}
 	var hash []byte
@@ -721,9 +1013,21 @@ func (service Service) TransitionCommand(ctx context.Context, identity TrustedId
 		}
 		var transitionErr error
 		transitioned, transitionErr = q.TransitionConnectorCommand(ctx, db.TransitionConnectorCommandParams{CommandID: commandID, ConnectorID: identity.ConnectorID,
-			ConnectionEpoch: epoch, Status: next, Result: result, ResultHash: hash, ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}})
+			ConnectionEpoch: epoch, ExpectedStatus: current.Status, Status: next, Result: result, ResultHash: hash, ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}})
 		if transitionErr != nil {
 			return transitionErr
+		}
+		if current.CommandType == "host_connector_install" {
+			operationID, parseErr := uuid.Parse(current.OperationRef)
+			stage := map[string]string{"dispatched": "transferring", "acknowledged": "transferring", "running": "installing", "succeeded": "waiting_online"}[next]
+			if parseErr != nil {
+				return ErrCommandState
+			}
+			if stage != "" {
+				if stageErr := hostonboarding.Advance(ctx, q, operationID, identity.EnterpriseID, stage); stageErr != nil {
+					return stageErr
+				}
+			}
 		}
 		if current.CommandType == "collector_management" && (next == "succeeded" || next == "failed") {
 			return finalizeCollectorManagement(ctx, q, current, next, result, errorCode)
@@ -731,12 +1035,56 @@ func (service Service) TransitionCommand(ctx context.Context, identity TrustedId
 		if current.CommandType == "connector_uninstall" && next == "succeeded" {
 			return finalizeConnectorUninstall(ctx, q, identity, epoch)
 		}
+		if current.CommandType == "host_connector_removal" && next == "succeeded" {
+			operationID, parseErr := uuid.Parse(current.OperationRef)
+			if parseErr != nil {
+				return ErrCommandState
+			}
+			operation, getErr := q.GetHostRemovalOperationForUpdate(ctx, db.GetHostRemovalOperationForUpdateParams{ID: operationID, EnterpriseID: identity.EnterpriseID})
+			var outcome connectorv1.HostConnectorRemovalResult
+			if getErr != nil || protojson.Unmarshal(result, &outcome) != nil || outcome.GetOperationId() != operationID.String() || !outcome.GetLocalCleanupVerified() {
+				return ErrCommandState
+			}
+			evidence, _, evidenceErr := hostremoval.ParseCleanupEvidence(outcome.GetCleanupEvidenceJson(), operation.ID, operation.ConnectorID, operation.RemovalGeneration)
+			if evidenceErr != nil || outcome.GetLocalConfigDrift() != (evidence.RDPConfigStatus == "drifted") {
+				return ErrCommandState
+			}
+			return (hostremoval.Service{Store: service.Store}).FinalizeTrustedWithQueries(ctx, q, operation, outcome.GetCleanupEvidenceJson(), outcome.GetCleanupHash())
+		}
+		if current.CommandType == "host_windows_rdp_configure" && next == "succeeded" {
+			return finalizeWindowsRDPChangeJournal(ctx, q, current, result)
+		}
 		return nil
 	})
 	if err == nil && current.CommandType == "connector_uninstall" && next == "succeeded" && service.Redis != nil {
 		_ = service.Redis.DeleteConnectorRegistry(ctx, identity.ConnectorID.String())
 	}
+	if err != nil {
+		latest, readErr := service.Store.Queries.GetConnectorCommand(ctx, db.GetConnectorCommandParams{CommandID: commandID, ConnectorID: identity.ConnectorID, ConnectionEpoch: epoch})
+		if readErr == nil && cancelledHostInstallCommand(latest) {
+			return latest, nil
+		}
+	}
 	return transitioned, err
+}
+
+func finalizeWindowsRDPChangeJournal(ctx context.Context, q *db.Queries, command db.ConnectorCommand, raw json.RawMessage) error {
+	var request connectorv1.HostWindowsRDPConfigure
+	var result connectorv1.HostWindowsRDPConfigureResult
+	if json.Unmarshal(command.Payload, &request) != nil || protojson.Unmarshal(raw, &result) != nil || request.GetHostId() == "" ||
+		result.GetHostId() != request.GetHostId() || !json.Valid(result.GetBeforeStateJson()) || !json.Valid(result.GetAppliedStateJson()) {
+		return ErrCommandState
+	}
+	hostID, err := uuid.Parse(request.GetHostId())
+	if err != nil {
+		return ErrCommandState
+	}
+	state := append(append([]byte(nil), result.GetBeforeStateJson()...), result.GetAppliedStateJson()...)
+	hash := sha256.Sum256(state)
+	_, err = q.UpsertHostManagedChangeJournal(ctx, db.UpsertHostManagedChangeJournalParams{ID: uuid.New(), EnterpriseID: command.EnterpriseID,
+		HostID: hostID, ConnectorID: command.ConnectorID, ChangeType: "windows_rdp", BeforeState: result.GetBeforeStateJson(),
+		AppliedState: result.GetAppliedStateJson(), StateHash: hash[:]})
+	return err
 }
 
 type collectorManagementRequest struct {
@@ -891,13 +1239,8 @@ func finalizeConnectorUninstall(ctx context.Context, q *db.Queries, identity Tru
 	_, _ = q.MarkConnectorControlTunnelRemoved(ctx, db.MarkConnectorControlTunnelRemovedParams{
 		ConnectorID: connector.ID, EnterpriseID: connector.EnterpriseID, LastDropReason: "connector_uninstalled"})
 	_, _ = q.CloseConnectorSession(ctx, db.CloseConnectorSessionParams{ConnectorID: connector.ID, EnterpriseID: connector.EnterpriseID, ConnectionEpoch: epoch})
-	if connector.Role == "bastion" {
-		rows, err := q.FinalizeBastionConnectorUninstall(ctx, db.FinalizeBastionConnectorUninstallParams{EnterpriseID: connector.EnterpriseID,
-			ActiveConnectorID: uuid.NullUUID{UUID: connector.ID, Valid: true}})
-		if err != nil || rows != 1 {
-			return ErrCommandState
-		}
-		return nil
+	if connector.Role != "kubernetes" {
+		return ErrCommandState
 	}
 	rows, err := q.FinalizeKubernetesConnectorUninstall(ctx, db.FinalizeKubernetesConnectorUninstallParams{EnterpriseID: connector.EnterpriseID,
 		ConnectorID: uuid.NullUUID{UUID: connector.ID, Valid: true}})
@@ -1022,7 +1365,8 @@ func validateCertificate(value Certificate, connectorID uuid.UUID, publicKeyHash
 
 func capabilitiesAllowed(role string, values []string) bool {
 	allowed := map[string]map[string]bool{
-		"bastion":    {"host.connection_probe": true, "kubernetes.connection_probe": true, "kubernetes.query": true, "credential.lease": true, "connector.uninstall": true},
+		"host":       {"host.local_command": true, "host.local_shell": true, "host.collector_manage": true, "host.tcp_tunnel": true, "host.windows_rdp_manage": true, "connector.uninstall": true},
+		"bastion":    {"host.connection_probe": true, "host.ssh_install": true, "bastion.tls_relay": true, "kubernetes.connection_probe": true, "kubernetes.query": true, "credential.lease": true, "connector.uninstall": true},
 		"kubernetes": {"kubernetes.connection_probe": true, "kubernetes.query": true, "credential.lease": true, "connector.uninstall": true},
 	}
 	seen := map[string]bool{}

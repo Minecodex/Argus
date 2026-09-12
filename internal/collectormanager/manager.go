@@ -29,9 +29,9 @@ import (
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/util/validation"
 
+	"github.com/kakj-go/Argus/internal/artifacthttp"
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 	"github.com/kakj-go/Argus/internal/otelcol/configbundle"
-	"github.com/kakj-go/Argus/internal/tlsmaterial"
 	"github.com/kakj-go/Argus/internal/trustbundle"
 )
 
@@ -62,30 +62,12 @@ type Manager struct {
 	Root               string
 	HTTPClient         *http.Client
 	TrustedSigningKeys map[string]ed25519.PublicKey
-	// ManageLocalService is enabled only by the Connector's connector_local
-	// execution path. Direct and SSH managers retain their existing behavior.
+	// ManageLocalService is enabled by a Host Connector managing its own Collector.
 	ManageLocalService bool
 }
 
 func NewArtifactHTTPClient(caBundlePath string) (*http.Client, error) {
-	material, err := tlsmaterial.Load(tlsmaterial.Options{CABundlePath: caBundlePath})
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
-	}
-	transport, err := tlsmaterial.NewHTTPTransport(material, nil)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
-	}
-	return &http.Client{
-		Timeout:   2 * time.Minute,
-		Transport: transport,
-		CheckRedirect: func(next *http.Request, previous []*http.Request) error {
-			if len(previous) >= 3 || next.URL.Scheme != "https" || next.URL.Hostname() != previous[0].URL.Hostname() {
-				return ErrArtifactInvalid
-			}
-			return nil
-		},
-	}, nil
+	return artifacthttp.FromEnvironment(caBundlePath)
 }
 
 type persistedState struct {
@@ -128,12 +110,15 @@ func Validate(command *connectorv1.CollectorManagementCommand) error {
 	}
 	switch command.GetTransport() {
 	case "direct":
+		if command.GetEnrollmentDialAddress() != "" {
+			return ErrInvalidCommand
+		}
 	case "executor_tunnel":
-		if command.GetRouteKind() != "direct_argus" {
+		if command.GetRouteKind() != "direct_argus" || !validDialAddress(command.GetEnrollmentDialAddress()) {
 			return ErrInvalidCommand
 		}
 	case "bastion_tunnel":
-		if command.GetRouteKind() != "bastion_gateway" {
+		if command.GetRouteKind() != "bastion_gateway" || !validDialAddress(command.GetEnrollmentDialAddress()) {
 			return ErrInvalidCommand
 		}
 	default:
@@ -185,10 +170,8 @@ func Validate(command *connectorv1.CollectorManagementCommand) error {
 		}
 	}
 	artifact := command.GetArtifact()
-	// 产物平台必须与目标匹配:计划生成时已按主机 OS + 探测架构选定
-	// (linux_amd64 / linux_arm64),此处只接受命令携带的合法 linux 产物;
-	// windows 产物暂无 SSH 安装路径,维持拒绝。
-	if artifact == nil || (artifact.GetPlatform() != "linux_arm64" && artifact.GetPlatform() != "linux_amd64") {
+	// 产物平台必须与目标匹配:计划生成时已按主机 OS + 探测架构选定。
+	if artifact == nil || (artifact.GetPlatform() != "linux_arm64" && artifact.GetPlatform() != "linux_amd64" && artifact.GetPlatform() != "windows_amd64") {
 		return ErrUnsupportedPlatform
 	}
 	if _, err := uuid.Parse(artifact.GetDistributionVersionId()); err != nil {
@@ -205,9 +188,17 @@ func Validate(command *connectorv1.CollectorManagementCommand) error {
 	return nil
 }
 
+func validDialAddress(value string) bool {
+	host, port, err := net.SplitHostPort(strings.TrimSpace(value))
+	return err == nil && host != "" && port != ""
+}
+
 func (manager Manager) ApplyLocal(ctx context.Context, command *connectorv1.CollectorManagementCommand) (Result, error) {
 	if err := Validate(command); err != nil {
-		return Result{}, err
+		return Result{}, withStage("command_validation", err)
+	}
+	if command.GetArtifact().GetPlatform() == "windows_amd64" {
+		return manager.applyWindowsLocal(ctx, command)
 	}
 	root := manager.Root
 	if root == "" {
@@ -226,28 +217,28 @@ func (manager Manager) ApplyLocal(ctx context.Context, command *connectorv1.Coll
 		return buildResult(command, "uninstalled"), nil
 	}
 	if err := os.MkdirAll(directory, 0o700); err != nil {
-		return Result{}, err
+		return Result{}, withStage("state_prepare", err)
 	}
 	if err := manager.writeArtifactAtomic(ctx, filepath.Join(directory, "collector.artifact"), command.GetArtifact(), 0o500); err != nil {
-		return Result{}, err
+		return Result{}, withStage("artifact_fetch", err)
 	}
 	runtimeConfig, err := configbundle.Extract(command.GetRenderedConfig(), "host")
 	if err != nil {
-		return Result{}, err
+		return Result{}, withStage("config_prepare", err)
 	}
 	if err = writeAtomic(filepath.Join(directory, "collector-config.yaml"), runtimeConfig, 0o600); err != nil {
-		return Result{}, err
+		return Result{}, withStage("config_prepare", err)
 	}
 	trust, err := commandTrustBundle(command)
 	if err != nil {
-		return Result{}, err
+		return Result{}, withStage("trust_prepare", err)
 	}
 	if err = writeAtomic(filepath.Join(directory, "server-ca.pem"), trust.PEM, 0o600); err != nil {
-		return Result{}, err
+		return Result{}, withStage("trust_prepare", err)
 	}
 	if len(command.GetEnrollmentToken()) > 0 && !manager.ManageLocalService {
 		if err = writeAtomic(filepath.Join(directory, "enrollment-token"), command.GetEnrollmentToken(), 0o600); err != nil {
-			return Result{}, err
+			return Result{}, withStage("identity_prepare", err)
 		}
 	}
 	state := persistedState{SchemaVersion: "argus.collector_state/v1", CollectorID: command.GetCollectorId(), ResourceID: command.GetResourceId(),
@@ -257,15 +248,15 @@ func (manager Manager) ApplyLocal(ctx context.Context, command *connectorv1.Coll
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 	encoded, err := json.Marshal(state)
 	if err != nil {
-		return Result{}, err
+		return Result{}, withStage("state_prepare", err)
 	}
 	if manager.ManageLocalService {
 		if err = activateLocalCollectorService(ctx, command, root, directory); err != nil {
-			return Result{}, err
+			return Result{}, withStage("service_activate", err)
 		}
 	}
 	if err = writeAtomic(filepath.Join(directory, "state.json"), encoded, 0o600); err != nil {
-		return Result{}, err
+		return Result{}, withStage("state_persist", err)
 	}
 	return buildResult(command, "converged"), nil
 }
@@ -408,31 +399,50 @@ func uninstallLocalCollectorService(ctx context.Context, root string) error {
 	if os.Geteuid() != 0 || !validLocalCollectorRoot(root) {
 		return ErrInvalidCommand
 	}
-	if output, err := exec.CommandContext(ctx, "systemctl", "disable", "--now", "argus-otelcol.service").CombinedOutput(); err != nil &&
-		!strings.Contains(string(output), "does not exist") && !strings.Contains(string(output), "not loaded") {
-		return fmt.Errorf("collector systemd uninstall: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	for _, path := range []string{"/etc/systemd/system/argus-otelcol.service", "/usr/local/bin/argus-otelcol", "/etc/argus-otelcol"} {
-		if err := os.RemoveAll(path); err != nil {
-			return err
+	if output, err := exec.CommandContext(ctx, "systemctl", "stop", "argus-otelcol.service").CombinedOutput(); err != nil {
+		if activeErr := exec.CommandContext(ctx, "systemctl", "is-active", "--quiet", "argus-otelcol.service").Run(); activeErr == nil {
+			return withStage("service_stop", fmt.Errorf("collector systemd stop: %w: %s", err, strings.TrimSpace(string(output))))
 		}
 	}
-	entries, err := os.ReadDir(root)
+	if output, err := exec.CommandContext(ctx, "systemctl", "disable", "argus-otelcol.service").CombinedOutput(); err != nil {
+		if enabledErr := exec.CommandContext(ctx, "systemctl", "is-enabled", "--quiet", "argus-otelcol.service").Run(); enabledErr == nil {
+			return withStage("service_disable", fmt.Errorf("collector systemd disable: %w: %s", err, strings.TrimSpace(string(output))))
+		}
+	}
+	for _, path := range []string{"/etc/systemd/system/argus-otelcol.service", "/usr/local/bin/argus-otelcol"} {
+		if err := os.RemoveAll(path); err != nil {
+			return withStage("service_files_remove", err)
+		}
+	}
+	// /etc/argus-otelcol and root are ReadWritePaths mount points of the
+	// hardened privileged helper. Their contents can be removed, while
+	// unlinking the mount point itself correctly fails with EROFS.
+	if err := clearDirectory("/etc/argus-otelcol", 0o755); err != nil {
+		return withStage("service_files_remove", err)
+	}
+	if err := clearDirectory(root, 0o700); err != nil {
+		return withStage("state_remove", err)
+	}
+	if output, err := exec.CommandContext(ctx, "systemctl", "daemon-reload").CombinedOutput(); err != nil {
+		return withStage("service_reload", fmt.Errorf("collector systemd daemon-reload: %w: %s", err, strings.TrimSpace(string(output))))
+	}
+	if err := exec.CommandContext(ctx, "systemctl", "is-active", "--quiet", "argus-otelcol.service").Run(); err == nil {
+		return withStage("service_verify", errors.New("Collector service remained active after uninstall"))
+	}
+	return nil
+}
+
+func clearDirectory(path string, mode os.FileMode) error {
+	entries, err := os.ReadDir(path)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	for _, entry := range entries {
-		if err = os.RemoveAll(filepath.Join(root, entry.Name())); err != nil {
+		if err = os.RemoveAll(filepath.Join(path, entry.Name())); err != nil {
 			return err
 		}
 	}
-	if err = os.MkdirAll(root, 0o700); err != nil {
-		return err
-	}
-	if output, err := exec.CommandContext(ctx, "systemctl", "daemon-reload").CombinedOutput(); err != nil {
-		return fmt.Errorf("collector systemd daemon-reload: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	return nil
+	return os.MkdirAll(path, mode)
 }
 
 func validLocalCollectorRoot(root string) bool {
@@ -555,21 +565,24 @@ func (manager Manager) FetchArtifactTo(ctx context.Context, artifact *connectorv
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return fmt.Errorf("%w: fetch %s: %v", ErrArtifactInvalid, artifact.GetUri(), err)
+		return fmt.Errorf("%w: %w", ErrArtifactInvalid, err)
 	}
 	defer response.Body.Close()
 	expected := int64(artifact.GetByteSize())
-	if response.StatusCode != http.StatusOK || response.ContentLength >= 0 && response.ContentLength != expected {
-		return fmt.Errorf("%w: status %d contentLength %d want %d bytes", ErrArtifactInvalid, response.StatusCode, response.ContentLength, artifact.GetByteSize())
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("%w: %w", ErrArtifactInvalid, artifacthttp.StatusError{Status: response.StatusCode})
+	}
+	if response.ContentLength >= 0 && response.ContentLength != expected {
+		return fmt.Errorf("%w: %w", ErrArtifactInvalid, artifacthttp.ErrSize)
 	}
 	hash := sha256.New()
 	written, err := io.Copy(io.MultiWriter(destination, hash), io.LimitReader(response.Body, expected+1))
 	if err != nil || written != expected {
-		return fmt.Errorf("%w: read body: got %d bytes want %d: %v", ErrArtifactInvalid, written, artifact.GetByteSize(), err)
+		return fmt.Errorf("%w: %w", ErrArtifactInvalid, artifacthttp.ErrSize)
 	}
 	digest := hash.Sum(nil)
 	if !strings.EqualFold(hex.EncodeToString(digest), artifact.GetSha256()) {
-		return fmt.Errorf("%w: sha256 mismatch", ErrArtifactInvalid)
+		return fmt.Errorf("%w: %w", ErrArtifactInvalid, artifacthttp.ErrDigest)
 	}
 	keys := manager.TrustedSigningKeys
 	if len(keys) == 0 {
@@ -578,7 +591,7 @@ func (manager Manager) FetchArtifactTo(ctx context.Context, artifact *connectorv
 	key := keys[artifact.GetSigningKeyId()]
 	signature, decodeErr := base64.RawStdEncoding.DecodeString(artifact.GetSignature())
 	if len(key) != ed25519.PublicKeySize || decodeErr != nil || !ed25519.Verify(key, digest, signature) {
-		return fmt.Errorf("%w: signature verify failed for key %q", ErrArtifactInvalid, artifact.GetSigningKeyId())
+		return fmt.Errorf("%w: %w", ErrArtifactInvalid, artifacthttp.ErrSignature)
 	}
 	return nil
 }

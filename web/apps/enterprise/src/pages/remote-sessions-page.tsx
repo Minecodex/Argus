@@ -27,7 +27,7 @@ export function RemoteSessionsPage() {
   const users = useQuery({ queryKey: ["org", "users"], queryFn: () => api.org.listUsers() });
   const hosts = useQuery({ queryKey: ["hosts", "session-lookup"], queryFn: () => api.hosts.list() });
   const accounts = useQuery({ queryKey: ["managed-accounts", "session-lookup"], queryFn: () => api.secrets.listManagedAccounts() });
-  const sessionFilter = { limit: 50, scope: tab === "history" ? "history" as const : "active" as const, user_id: userId || undefined, host_id: hostId || undefined, managed_account_id: accountId || undefined, protocol: protocol ? protocol as "ssh" | "winrs" : undefined, connection_mode: connectionMode ? connectionMode as "via_bastion" | "connector_local" | "direct_ssh" | "direct_winrm" : undefined };
+  const sessionFilter = { limit: 50, scope: tab === "history" ? "history" as const : "active" as const, user_id: userId || undefined, host_id: hostId || undefined, managed_account_id: accountId || undefined, protocol: protocol ? protocol as "shell" | "ssh" | "rdp" : undefined, control_path: connectionMode ? connectionMode as "direct" | "bastion_relay" | "executor_tunnel" : undefined };
   const sessions = useQuery({ queryKey: ["remote-access", "sessions", sessionFilter], queryFn: () => api.remoteAccess.listSessions(sessionFilter), enabled: tab !== "recordings",
     // 存在「终止中」会话时自动轮询，后端收敛后列表自动转历史。
     refetchInterval: (query) => query.state.data?.items.some((item) => item.status === "terminating") ? 2000 : false });
@@ -77,8 +77,8 @@ export function RemoteSessionsPage() {
           { key: "host", value: hostId, allLabel: t("remoteSessions.filters.allHosts"), options: (hosts.data?.items ?? []).map((item) => ({ value: item.id, label: item.name })), onChange: setHostId },
           ...(tab === "recordings" ? [{ key: "recording-status", value: recordingStatus, allLabel: t("remoteSessions.filters.allStatuses"), options: ["recording", "available", "incomplete", "failed", "expired"].map((value) => ({ value, label: t(`remoteSessions.status.${value}`) })), onChange: setRecordingStatus }] : [
             { key: "account", value: accountId, allLabel: t("remoteSessions.filters.allAccounts"), options: (accounts.data ?? []).map((item) => ({ value: item.id, label: item.username })), onChange: setAccountId },
-            { key: "protocol", value: protocol, allLabel: t("remoteSessions.filters.allProtocols"), options: [{ value: "ssh", label: "SSH" }, { value: "winrs", label: "WinRS" }], onChange: setProtocol },
-            { key: "mode", value: connectionMode, allLabel: t("remoteSessions.filters.allModes"), options: ["via_bastion", "connector_local", "direct_ssh", "direct_winrm"].map((value) => ({ value, label: value })), onChange: setConnectionMode },
+            { key: "protocol", value: protocol, allLabel: t("remoteSessions.filters.allProtocols"), options: [{ value: "shell", label: "Shell" }, { value: "ssh", label: "SSH" }, { value: "rdp", label: "RDP" }], onChange: setProtocol },
+            { key: "mode", value: connectionMode, allLabel: t("remoteSessions.filters.allModes"), options: ["direct", "bastion_relay", "executor_tunnel"].map((value) => ({ value, label: value })), onChange: setConnectionMode },
           ]),
         ]}
         onRefresh={() => void queryClient.invalidateQueries({ queryKey: ["remote-access", tab === "recordings" ? "recordings" : "sessions"] })}

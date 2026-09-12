@@ -88,7 +88,7 @@
 | M3 | 资源与连接闭环 | 带 labels 的 Host/Kubernetes、Secret/Credential、Connector、Bastion Scope、Direct Executor 可真实管理 |
 | M4 | 确定性执行闭环 | Outbox/Lease/Fence、Run、单 Agent Loop、上下文投影/压缩、Tool 权限/Schema 门禁、Preview/PendingAction/Approval/Execution 可恢复执行、桌面审批收件箱 |
 | M5 | Card 闭环 | 系统 Card 通过 CSP/MessagePort/Manifest/Binding 安全展示和触发动作，企业 Card 通过发布门禁 |
-| M6 | 人工远程访问闭环 | Grant、短期票据、SSH PTY/HTTPS WinRS、加密录像、终止、撤权和审计完整 |
+| M6 | 人工远程访问闭环 | Grant、短期票据、Linux PTY、Windows PowerShell/ConPTY、OpenSSH、RDP、加密录像、终止、撤权和审计完整 |
 | M7 | 遥测闭环 | Collector、Ingest/Kafka/ClickHouse/Query、可信资源身份和统一数据裁剪贯通 |
 | M8 | 本地安全与恢复 | TOTP/Step-up、OpenBao、备份恢复、升级、供应链和本地 Kubernetes E2E 达标 |
 

@@ -14,8 +14,7 @@ import (
 // Defines values for ActionOneTimeResultResultKind.
 const (
 	ConnectorInstallCommand ActionOneTimeResultResultKind = "connector_install_command"
-	HostInstallCommand      ActionOneTimeResultResultKind = "host_install_command"
-	HostUninstallCommand    ActionOneTimeResultResultKind = "host_uninstall_command"
+	HostRemovalCommand      ActionOneTimeResultResultKind = "host_removal_command"
 )
 
 // Valid indicates whether the value is a known member of the ActionOneTimeResultResultKind enum.
@@ -23,9 +22,7 @@ func (e ActionOneTimeResultResultKind) Valid() bool {
 	switch e {
 	case ConnectorInstallCommand:
 		return true
-	case HostInstallCommand:
-		return true
-	case HostUninstallCommand:
+	case HostRemovalCommand:
 		return true
 	default:
 		return false
@@ -158,14 +155,14 @@ func (e ApprovalRequirementStatus) Valid() bool {
 	}
 }
 
-// Defines values for InstallInstructionSetDownloadTlsMode.
+// Defines values for InstallInstructionSetBootstrapTlsMode.
 const (
-	InsecureFirstFetch InstallInstructionSetDownloadTlsMode = "insecure-first-fetch"
-	Strict             InstallInstructionSetDownloadTlsMode = "strict"
+	InsecureFirstFetch InstallInstructionSetBootstrapTlsMode = "insecure-first-fetch"
+	Strict             InstallInstructionSetBootstrapTlsMode = "strict"
 )
 
-// Valid indicates whether the value is a known member of the InstallInstructionSetDownloadTlsMode enum.
-func (e InstallInstructionSetDownloadTlsMode) Valid() bool {
+// Valid indicates whether the value is a known member of the InstallInstructionSetBootstrapTlsMode enum.
+func (e InstallInstructionSetBootstrapTlsMode) Valid() bool {
 	switch e {
 	case InsecureFirstFetch:
 		return true
@@ -176,21 +173,57 @@ func (e InstallInstructionSetDownloadTlsMode) Valid() bool {
 	}
 }
 
-// Defines values for InstallInstructionSetScope.
+// Defines values for InstallInstructionSetPlatform.
 const (
-	Kubernetes  InstallInstructionSetScope = "kubernetes"
-	LinuxSystem InstallInstructionSetScope = "linux-system"
-	LinuxUser   InstallInstructionSetScope = "linux-user"
+	Kubernetes   InstallInstructionSetPlatform = "kubernetes"
+	LinuxAmd64   InstallInstructionSetPlatform = "linux_amd64"
+	LinuxArm64   InstallInstructionSetPlatform = "linux_arm64"
+	WindowsAmd64 InstallInstructionSetPlatform = "windows_amd64"
 )
 
-// Valid indicates whether the value is a known member of the InstallInstructionSetScope enum.
-func (e InstallInstructionSetScope) Valid() bool {
+// Valid indicates whether the value is a known member of the InstallInstructionSetPlatform enum.
+func (e InstallInstructionSetPlatform) Valid() bool {
 	switch e {
 	case Kubernetes:
 		return true
-	case LinuxSystem:
+	case LinuxAmd64:
 		return true
-	case LinuxUser:
+	case LinuxArm64:
+		return true
+	case WindowsAmd64:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstallInstructionSetPrivilege.
+const (
+	System InstallInstructionSetPrivilege = "system"
+)
+
+// Valid indicates whether the value is a known member of the InstallInstructionSetPrivilege enum.
+func (e InstallInstructionSetPrivilege) Valid() bool {
+	switch e {
+	case System:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstallInstructionSetShell.
+const (
+	PosixSh    InstallInstructionSetShell = "posix_sh"
+	Powershell InstallInstructionSetShell = "powershell"
+)
+
+// Valid indicates whether the value is a known member of the InstallInstructionSetShell enum.
+func (e InstallInstructionSetShell) Valid() bool {
+	switch e {
+	case PosixSh:
+		return true
+	case Powershell:
 		return true
 	default:
 		return false
@@ -383,23 +416,33 @@ type IdempotencyKey = string
 
 // InstallInstructionSet defines model for InstallInstructionSet.
 type InstallInstructionSet struct {
-	CapabilityWarnings []string `json:"capability_warnings"`
+	BootstrapSha256    string                                 `json:"bootstrap_sha256"`
+	BootstrapTlsMode   *InstallInstructionSetBootstrapTlsMode `json:"bootstrap_tls_mode,omitempty"`
+	CapabilityWarnings []string                               `json:"capability_warnings"`
 
 	// Command 唯一面向用户展示的一键安装命令。Host 与手工 Connector 下载动态引导脚本；Kubernetes 使用等价的单命令临时脚本执行。
-	Command           *string                               `json:"command,omitempty"`
-	DownloadTlsMode   *InstallInstructionSetDownloadTlsMode `json:"download_tls_mode,omitempty"`
-	ExpiresAt         time.Time                             `json:"expires_at"`
-	InstallerSha256   string                                `json:"installer_sha256"`
-	Scope             InstallInstructionSetScope            `json:"scope"`
-	TrustBundleEpoch  int64                                 `json:"trust_bundle_epoch"`
-	TrustBundleSha256 string                                `json:"trust_bundle_sha256"`
+	Command           *string                        `json:"command,omitempty"`
+	ExpiresAt         time.Time                      `json:"expires_at"`
+	InstallerSha256   string                         `json:"installer_sha256"`
+	Platform          InstallInstructionSetPlatform  `json:"platform"`
+	Privilege         InstallInstructionSetPrivilege `json:"privilege"`
+	ReleaseVersion    string                         `json:"release_version"`
+	Shell             InstallInstructionSetShell     `json:"shell"`
+	TrustBundleEpoch  int64                          `json:"trust_bundle_epoch"`
+	TrustBundleSha256 string                         `json:"trust_bundle_sha256"`
 }
 
-// InstallInstructionSetDownloadTlsMode defines model for InstallInstructionSet.DownloadTlsMode.
-type InstallInstructionSetDownloadTlsMode string
+// InstallInstructionSetBootstrapTlsMode defines model for InstallInstructionSet.BootstrapTlsMode.
+type InstallInstructionSetBootstrapTlsMode string
 
-// InstallInstructionSetScope defines model for InstallInstructionSet.Scope.
-type InstallInstructionSetScope string
+// InstallInstructionSetPlatform defines model for InstallInstructionSet.Platform.
+type InstallInstructionSetPlatform string
+
+// InstallInstructionSetPrivilege defines model for InstallInstructionSet.Privilege.
+type InstallInstructionSetPrivilege string
+
+// InstallInstructionSetShell defines model for InstallInstructionSet.Shell.
+type InstallInstructionSetShell string
 
 // PartialMetadata defines model for PartialMetadata.
 type PartialMetadata struct {

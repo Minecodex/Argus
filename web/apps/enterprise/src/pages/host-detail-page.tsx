@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
@@ -6,6 +6,7 @@ import { Cpu, HardDrive, MemoryStick, Timer } from "lucide-react";
 import { useApi, type Host } from "@argus/api-client";
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -23,9 +24,14 @@ import {
 } from "@argus/ui";
 import "../styles/hosts.css";
 import { ComponentsTab } from "../components/hosts/components-tab";
+import { HostRemovalDialog } from "../components/hosts/host-removal-dialog";
+import {
+  removalTargetForBastion,
+  removalTargetForHost,
+  type RemovalTarget,
+} from "../components/hosts/host-removal-target";
 import { TasksTab } from "../components/hosts/tasks-tab";
 import { RealTerminalTab } from "../components/hosts/real-terminal-tab";
-import { SelfEnrollCommandPanel } from "../components/hosts/self-enroll-command-panel";
 import { ResourceTelemetry } from "../components/telemetry/resource-telemetry";
 import {
   collectorTone,
@@ -34,7 +40,6 @@ import {
   environmentTone,
   formatDateTime,
   formatUptime,
-  hostLiveTone,
   hostStatusTone,
   scopeOf,
   seededNumber,
@@ -53,7 +58,10 @@ function OverviewTab({ host }: { host: Host }) {
     queryKey: ["bastion-scopes"],
     queryFn: () => api.connectors.listBastionScopes(),
   });
-  const scopes = scopesQuery.data?.items ?? [];
+  const scopes = useMemo(
+    () => scopesQuery.data?.items ?? [],
+    [scopesQuery.data],
+  );
   const scope = scopeOf(host, scopes);
   const accountsQuery = useQuery({
     queryKey: ["managed-accounts"],
@@ -84,130 +92,139 @@ function OverviewTab({ host }: { host: Host }) {
 
   return (
     <div className="argus-hosts-stack">
-      {!realMode && <div className="argus-stat-row">
-        <StatCard
-          detail={t("hosts.overview.metrics24h")}
-          icon={<Cpu aria-hidden size={16} />}
-          label={t("hosts.overview.cpu")}
-          tone="accent"
-          value={`${Math.round(seededNumber(`${host.id}:cpu:now`, 18, 82))}%`}
-        />
-        <StatCard
-          icon={<MemoryStick aria-hidden size={16} />}
-          label={t("hosts.overview.memory")}
-          tone="info"
-          value={`${Math.round(seededNumber(`${host.id}:mem:now`, 30, 88))}%`}
-        />
-        <StatCard
-          icon={<HardDrive aria-hidden size={16} />}
-          label={t("hosts.overview.disk")}
-          tone="warning"
-          value={`${Math.round(seededNumber(`${host.id}:disk:now`, 35, 92))}%`}
-        />
-        <StatCard
-          icon={<Timer aria-hidden size={16} />}
-          label={t("hosts.overview.uptime")}
-          value={formatUptime(host.created_at)}
-        />
-      </div>}
+      {!realMode && (
+        <div className="argus-stat-row">
+          <StatCard
+            detail={t("hosts.overview.metrics24h")}
+            icon={<Cpu aria-hidden size={16} />}
+            label={t("hosts.overview.cpu")}
+            tone="accent"
+            value={`${Math.round(seededNumber(`${host.id}:cpu:now`, 18, 82))}%`}
+          />
+          <StatCard
+            icon={<MemoryStick aria-hidden size={16} />}
+            label={t("hosts.overview.memory")}
+            tone="info"
+            value={`${Math.round(seededNumber(`${host.id}:mem:now`, 30, 88))}%`}
+          />
+          <StatCard
+            icon={<HardDrive aria-hidden size={16} />}
+            label={t("hosts.overview.disk")}
+            tone="warning"
+            value={`${Math.round(seededNumber(`${host.id}:disk:now`, 35, 92))}%`}
+          />
+          <StatCard
+            icon={<Timer aria-hidden size={16} />}
+            label={t("hosts.overview.uptime")}
+            value={formatUptime(host.created_at)}
+          />
+        </div>
+      )}
 
-      {!realMode && <Card>
-        <CardHeader title={t("hosts.overview.basicInfo")} />
-        <CardContent>
-          <KeyValueGrid
-            columns={3}
-            items={[
-              {
-                label: t("hosts.overview.kv.hostname"),
-                value: <span className="argus-mono">{host.hostname}</span>,
-              },
-              {
-                label: t("hosts.overview.kv.address"),
-                value: (
-                  <span className="argus-mono">
-                    {host.address}:{host.port}
-                  </span>
-                ),
-              },
-              {
-                label: t("hosts.overview.kv.platform"),
-                value: host.platform === "linux" ? "Linux" : "Windows",
-              },
-              {
-                label: t("hosts.overview.kv.environment"),
-                value: (
-                  <Badge tone={environmentTone(host.environment)}>
-                    {t(`hosts.env.${host.environment}`)}
-                  </Badge>
-                ),
-              },
-              {
-                label: t("hosts.overview.kv.connectionMode"),
-                value: t(`hosts.connectionMode.${host.connection_mode}`),
-              },
-              { label: t("hosts.overview.kv.connectionPath"), value: path },
-              {
-                label: t("hosts.overview.kv.credential"),
-                value: managedAccounts.length > 0 ? (
-                  <span className="argus-mono">
-                    {managedAccounts.map((account) => account.username).join(", ")}
-                  </span>
-                ) : (
-                  "—"
-                ),
-              },
-              {
-                label: t("hosts.overview.kv.telemetryRoute"),
-                value: telemetryRouteOf(host) ? (
-                  <span className="argus-mono">{telemetryRouteOf(host)}</span>
-                ) : (
-                  "—"
-                ),
-              },
-              {
-                label: t("hosts.overview.kv.lastSeen"),
-                value: formatDateTime(host.last_seen_at ?? host.updated_at),
-              },
-              {
-                label: t("hosts.overview.kv.createdAt"),
-                value: formatDateTime(host.created_at),
-              },
-              {
-                label: t("hosts.overview.kv.labels"),
-                value:
-                  Object.keys(host.labels).length > 0 ? (
-                    <span className="argus-host-tile__tags">
-                      {Object.entries(host.labels).map(([key, value]) => (
-                        <Badge key={key} tone="neutral">
-                          {key}={value}
-                        </Badge>
-                      ))}
+      {!realMode && (
+        <Card>
+          <CardHeader title={t("hosts.overview.basicInfo")} />
+          <CardContent>
+            <KeyValueGrid
+              columns={3}
+              items={[
+                {
+                  label: t("hosts.overview.kv.hostname"),
+                  value: <span className="argus-mono">{host.hostname}</span>,
+                },
+                {
+                  label: t("hosts.overview.kv.address"),
+                  value: (
+                    <span className="argus-mono">
+                      {host.address}:{host.port}
                     </span>
+                  ),
+                },
+                {
+                  label: t("hosts.overview.kv.platform"),
+                  value: host.platform === "linux" ? "Linux" : "Windows",
+                },
+                {
+                  label: t("hosts.overview.kv.environment"),
+                  value: (
+                    <Badge tone={environmentTone(host.environment)}>
+                      {t(`hosts.env.${host.environment}`)}
+                    </Badge>
+                  ),
+                },
+                {
+                  label: t("hosts.overview.kv.connectionMode"),
+                  value: t(`hosts.controlPath.${host.control_path}`),
+                },
+                { label: t("hosts.overview.kv.connectionPath"), value: path },
+                {
+                  label: t("hosts.overview.kv.credential"),
+                  value:
+                    managedAccounts.length > 0 ? (
+                      <span className="argus-mono">
+                        {managedAccounts
+                          .map((account) => account.username)
+                          .join(", ")}
+                      </span>
+                    ) : (
+                      "—"
+                    ),
+                },
+                {
+                  label: t("hosts.overview.kv.telemetryRoute"),
+                  value: telemetryRouteOf(host) ? (
+                    <span className="argus-mono">{telemetryRouteOf(host)}</span>
                   ) : (
                     "—"
                   ),
-              },
-            ]}
-          />
-        </CardContent>
-      </Card>}
+                },
+                {
+                  label: t("hosts.overview.kv.lastSeen"),
+                  value: formatDateTime(host.last_seen_at ?? host.updated_at),
+                },
+                {
+                  label: t("hosts.overview.kv.createdAt"),
+                  value: formatDateTime(host.created_at),
+                },
+                {
+                  label: t("hosts.overview.kv.labels"),
+                  value:
+                    Object.keys(host.labels).length > 0 ? (
+                      <span className="argus-host-tile__tags">
+                        {Object.entries(host.labels).map(([key, value]) => (
+                          <Badge key={key} tone="neutral">
+                            {key}={value}
+                          </Badge>
+                        ))}
+                      </span>
+                    ) : (
+                      "—"
+                    ),
+                },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      )}
 
-      {!realMode && <Card>
-        <CardHeader title={t("hosts.overview.metrics24h")} />
-        <CardContent>
-          <MetricChart
-            formatValue={(value) => `${Math.round(value)}%`}
-            height={240}
-            labels={metrics.labels}
-            series={[
-              { name: "CPU", points: metrics.cpu },
-              { name: t("hosts.overview.memory"), points: metrics.memory },
-            ]}
-            showLegend
-            type="area"
-          />
-        </CardContent>
-      </Card>}
+      {!realMode && (
+        <Card>
+          <CardHeader title={t("hosts.overview.metrics24h")} />
+          <CardContent>
+            <MetricChart
+              formatValue={(value) => `${Math.round(value)}%`}
+              height={240}
+              labels={metrics.labels}
+              series={[
+                { name: "CPU", points: metrics.cpu },
+                { name: t("hosts.overview.memory"), points: metrics.memory },
+              ]}
+              showLegend
+              type="area"
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -217,6 +234,7 @@ export function HostDetailPage() {
   const api = useApi();
   const queryClient = useQueryClient();
   const { hostId } = useParams({ strict: false });
+  const [removalOpen, setRemovalOpen] = useState(false);
 
   const hostQuery = useQuery({
     queryKey: ["hosts", "detail", hostId],
@@ -230,7 +248,19 @@ export function HostDetailPage() {
   });
 
   const host = hostQuery.data;
-  const scopes = scopesQuery.data?.items ?? [];
+  const scopes = useMemo(
+    () => scopesQuery.data?.items ?? [],
+    [scopesQuery.data],
+  );
+  const removalTarget = useMemo<RemovalTarget | null>(() => {
+    if (!host) return null;
+    if (host.role === "bastion") {
+      const scope = scopes.find((entry) => entry.id === host.bastion_scope_id);
+      if (!scope) return null;
+      return removalTargetForBastion(scope, host);
+    }
+    return removalTargetForHost(host);
+  }, [host, scopes]);
   const initialTab =
     typeof window !== "undefined" && window.location.hash === "#otlp-collector"
       ? "components"
@@ -241,13 +271,22 @@ export function HostDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ["bastion-scopes"] });
     void queryClient.invalidateQueries({ queryKey: ["connectors"] });
     void queryClient.invalidateQueries({ queryKey: ["host-collector"] });
-    void queryClient.invalidateQueries({ queryKey: ["remote-access", "sessions"] });
+    void queryClient.invalidateQueries({
+      queryKey: ["remote-access", "sessions"],
+    });
     void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     void queryClient.invalidateQueries({ queryKey: ["audit"] });
   };
 
   return (
     <PageShell
+      actions={
+        removalTarget && removalTarget.status !== "uninstalled" ? (
+          <Button onClick={() => setRemovalOpen(true)} variant="danger">
+            {t("hosts.removal.action")}
+          </Button>
+        ) : undefined
+      }
       className="argus-host-detail-page"
       breadcrumbs={[
         { label: t("hosts.detail.backToList"), href: "/hosts" },
@@ -257,24 +296,17 @@ export function HostDetailPage() {
         host ? (
           <>
             {host.name}{" "}
-            {host.live_status ? (
-              <StatusBadge
-                pulse={host.live_status === "online"}
-                tone={hostLiveTone(host.live_status)}
-              >
-                {t(`hosts.liveStatus.${host.live_status}`)}
+            <StatusBadge
+              pulse={host.connection_status === "online"}
+              tone={hostStatusTone(host.connection_status)}
+            >
+              {t(`hosts.status.${host.connection_status}`)}
+            </StatusBadge>{" "}
+            {!realMode && (
+              <StatusBadge tone={collectorTone(collectorStatusOf(host))}>
+                {t(`hosts.collectorStatus.${collectorStatusOf(host)}`)}
               </StatusBadge>
-            ) : (
-              <StatusBadge
-                pulse={host.connection_status === "online"}
-                tone={hostStatusTone(host.connection_status)}
-              >
-                {t(`hosts.status.${host.connection_status}`)}
-              </StatusBadge>
-            )}{" "}
-            {!realMode && <StatusBadge tone={collectorTone(collectorStatusOf(host))}>
-              {t(`hosts.collectorStatus.${collectorStatusOf(host)}`)}
-            </StatusBadge>}
+            )}
           </>
         ) : (
           (hostId ?? "")
@@ -291,59 +323,72 @@ export function HostDetailPage() {
       )}
       {host && (
         <>
-          <SelfEnrollCommandPanel host={host} />
           <Tabs defaultValue={initialTab}>
-          <TabsList>
-            <TabsTrigger value="overview">
-              {t("hosts.detail.tabOverview")}
-            </TabsTrigger>
-            {host.connection_mode !== "self_enrolled" && (
+            <TabsList>
+              <TabsTrigger value="overview">
+                {t("hosts.detail.tabOverview")}
+              </TabsTrigger>
               <TabsTrigger value="terminal">
                 {t("hosts.detail.tabTerminal")}
               </TabsTrigger>
-            )}
-            <TabsTrigger value="components">
-              {t("hosts.detail.tabComponents")}
-            </TabsTrigger>
-            <TabsTrigger value="metrics">{t("telemetry.metrics")}</TabsTrigger>
-            <TabsTrigger value="logs">{t("telemetry.logs")}</TabsTrigger>
-            <TabsTrigger value="traces">{t("telemetry.traces")}</TabsTrigger>
-            {!realMode && <TabsTrigger value="tasks">
-              {t("hosts.detail.tabTasks")}
-            </TabsTrigger>}
-          </TabsList>
-          <TabsContent value="overview">
-            <OverviewTab host={host} />
-          </TabsContent>
-          {host.connection_mode !== "self_enrolled" && (
-            <TabsContent value="terminal">
-              {realMode ? <RealTerminalTab host={host} /> : <EmptyState description={t("hosts.terminal.realOnlyDesc")} title={t("hosts.terminal.realOnly")} />}
+              <TabsTrigger value="components">
+                {t("hosts.detail.tabComponents")}
+              </TabsTrigger>
+              <TabsTrigger value="metrics">
+                {t("telemetry.metrics")}
+              </TabsTrigger>
+              <TabsTrigger value="logs">{t("telemetry.logs")}</TabsTrigger>
+              <TabsTrigger value="traces">{t("telemetry.traces")}</TabsTrigger>
+              {!realMode && (
+                <TabsTrigger value="tasks">
+                  {t("hosts.detail.tabTasks")}
+                </TabsTrigger>
+              )}
+            </TabsList>
+            <TabsContent value="overview">
+              <OverviewTab host={host} />
             </TabsContent>
-          )}
-          <TabsContent value="components">
-            <div id="otlp-collector">
-              <ComponentsTab
-                host={host}
-                onChanged={invalidateAll}
-                scopes={scopes}
-              />
-            </div>
-          </TabsContent>
-          <TabsContent value="metrics">
-            <ResourceTelemetry resourceId={host.id} signal="metrics" />
-          </TabsContent>
-          <TabsContent value="logs">
-            <ResourceTelemetry resourceId={host.id} signal="logs" />
-          </TabsContent>
-          <TabsContent value="traces">
-            <ResourceTelemetry resourceId={host.id} signal="traces" />
-          </TabsContent>
-          {!realMode && <TabsContent value="tasks">
-            <TasksTab host={host} />
-          </TabsContent>}
+            <TabsContent value="terminal">
+              {realMode ? (
+                <RealTerminalTab host={host} />
+              ) : (
+                <EmptyState
+                  description={t("hosts.terminal.realOnlyDesc")}
+                  title={t("hosts.terminal.realOnly")}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="components">
+              <div id="otlp-collector">
+                <ComponentsTab
+                  host={host}
+                  onChanged={invalidateAll}
+                  scopes={scopes}
+                />
+              </div>
+            </TabsContent>
+            <TabsContent value="metrics">
+              <ResourceTelemetry resourceId={host.id} signal="metrics" />
+            </TabsContent>
+            <TabsContent value="logs">
+              <ResourceTelemetry resourceId={host.id} signal="logs" />
+            </TabsContent>
+            <TabsContent value="traces">
+              <ResourceTelemetry resourceId={host.id} signal="traces" />
+            </TabsContent>
+            {!realMode && (
+              <TabsContent value="tasks">
+                <TasksTab host={host} />
+              </TabsContent>
+            )}
           </Tabs>
         </>
       )}
+      <HostRemovalDialog
+        onChanged={invalidateAll}
+        onOpenChange={setRemovalOpen}
+        target={removalOpen ? removalTarget : null}
+      />
     </PageShell>
   );
 }

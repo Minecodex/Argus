@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/netip"
 	"sync"
 	"time"
 
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
-	"github.com/kakj-go/Argus/internal/remoteaccess/winrsline"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -29,9 +27,12 @@ type localRemoteSession struct {
 }
 
 func newLocalRemoteSession(open *connectorv1.RemoteAccessOpen) (*localRemoteSession, error) {
-	if open.GetMaxFrameBytes() == 0 || open.GetMaxFrameBytes() > 64<<10 || open.GetSessionFence() == 0 || open.GetTargetPort() == 0 ||
-		(open.GetProtocol() != "ssh" && open.GetProtocol() != "winrs") || open.GetTerminalCols() < 20 || open.GetTerminalRows() < 5 {
+	if open.GetMaxFrameBytes() == 0 || open.GetMaxFrameBytes() > 64<<10 || open.GetSessionFence() == 0 ||
+		(open.GetProtocol() != "shell" && open.GetProtocol() != "ssh" && open.GetProtocol() != "rdp") || open.GetTerminalCols() < 20 || open.GetTerminalRows() < 5 {
 		return nil, errors.New("invalid remote access session")
+	}
+	if open.GetProtocol() == "ssh" && open.GetTargetPort() == 0 {
+		return nil, errors.New("SSH target port is required")
 	}
 	nonce := make([]byte, 32)
 	if _, err := rand.Read(nonce); err != nil {
@@ -87,10 +88,13 @@ func (session *localRemoteSession) run(parent context.Context, credential []byte
 	session.mu.Unlock()
 	defer cancel()
 	var err error
-	if session.open.GetProtocol() == "ssh" {
+	switch session.open.GetProtocol() {
+	case "shell":
+		err = session.runLocalShell(ctx, outgoing)
+	case "ssh":
 		err = session.runSSH(ctx, credential, outgoing)
-	} else {
-		err = session.runWinRS(ctx, credential, outgoing)
+	case "rdp":
+		err = session.runLocalTCP(ctx, "127.0.0.1:3389", outgoing)
 	}
 	status, reason := connectorv1.RemoteAccessStateValue_REMOTE_ACCESS_STATE_VALUE_TERMINATED, "remote_closed"
 	if err != nil {
@@ -114,7 +118,7 @@ func (session *localRemoteSession) runSSH(ctx context.Context, credential []byte
 	if configuration.User == "" {
 		return errors.New("managed account username is required")
 	}
-	client, err := ssh.Dial("tcp", net.JoinHostPort(session.open.GetTargetHost(), fmt.Sprint(session.open.GetTargetPort())), configuration)
+	client, err := ssh.Dial("tcp", net.JoinHostPort("127.0.0.1", fmt.Sprint(session.open.GetTargetPort())), configuration)
 	if err != nil {
 		return err
 	}
@@ -164,50 +168,74 @@ func (session *localRemoteSession) runSSH(ctx context.Context, credential []byte
 	}
 }
 
-func (session *localRemoteSession) runWinRS(ctx context.Context, credential []byte, outgoing chan<- outboundFrame) error {
-	if session.open.GetTargetPort() != 5986 && session.open.GetTargetPort() != 443 {
-		return errors.New("WINRM_TLS_REQUIRED")
-	}
-	address, err := netip.ParseAddr(session.open.GetTargetHost())
-	if err == nil && !address.IsLoopback() && !address.IsPrivate() {
-		return errors.New("Connector WinRS target is outside the Connector network")
-	}
-	if session.open.GetUsername() == "" {
-		return errors.New("managed account username is required")
-	}
-	client, err := winrsline.Open(winrsline.Options{
-		Host: session.open.GetTargetHost(), Port: int(session.open.GetTargetPort()),
-		Username: session.open.GetUsername(), Password: string(credential), Timeout: 30 * time.Second,
-	})
+func (session *localRemoteSession) runLocalShell(ctx context.Context, outgoing chan<- outboundFrame) error {
+	terminal, err := openLocalTerminal(ctx, session.open.GetTerminalCols(), session.open.GetTerminalRows())
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer terminal.Close()
+	outputs := make(chan connectorOutput, 2)
+	go readConnectorOutput(terminal, connectorv1.RemoteAccessOutputStream_REMOTE_ACCESS_OUTPUT_STREAM_STDOUT, outputs)
 	outgoing <- outboundFrame{value: session.stateFrame(connectorv1.RemoteAccessStateValue_REMOTE_ACCESS_STATE_VALUE_ACTIVE, "")}
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case output := <-outputs:
+			if output.err != nil {
+				if errors.Is(output.err, io.EOF) {
+					return nil
+				}
+				return output.err
+			}
+			outgoing <- outboundFrame{value: session.outputFrame(output.stream, output.data)}
+		case frame := <-session.inbound:
+			switch {
+			case frame.GetRemoteAccessInput() != nil:
+				_, err = terminal.Write(frame.GetRemoteAccessInput().GetData())
+			case frame.GetRemoteAccessResize() != nil:
+				resize := frame.GetRemoteAccessResize()
+				err = terminal.Resize(resize.GetCols(), resize.GetRows())
+			case frame.GetRemoteAccessClose() != nil:
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (session *localRemoteSession) runLocalTCP(ctx context.Context, address string, outgoing chan<- outboundFrame) error {
+	dialer := net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
+	connection, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return err
+	}
+	defer connection.Close()
+	outputs := make(chan connectorOutput, 4)
+	go readConnectorOutput(connection, connectorv1.RemoteAccessOutputStream_REMOTE_ACCESS_OUTPUT_STREAM_STDOUT, outputs)
+	outgoing <- outboundFrame{value: session.stateFrame(connectorv1.RemoteAccessStateValue_REMOTE_ACCESS_STATE_VALUE_ACTIVE, "")}
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case output := <-outputs:
+			if output.err != nil {
+				if errors.Is(output.err, io.EOF) {
+					return nil
+				}
+				return output.err
+			}
+			outgoing <- outboundFrame{value: session.outputFrame(output.stream, output.data)}
 		case frame := <-session.inbound:
 			if frame.GetRemoteAccessClose() != nil {
 				return nil
 			}
-			if frame.GetRemoteAccessResize() != nil {
-				continue
-			}
-			input := frame.GetRemoteAccessInput()
-			if input == nil || len(input.GetData()) == 0 {
-				return errors.New("invalid WinRS line")
-			}
-			result, err := client.ExecuteLine(ctx, string(input.GetData()))
-			if err != nil {
-				return err
-			}
-			if len(result.Stdout) > 0 {
-				outgoing <- outboundFrame{value: session.outputFrame(connectorv1.RemoteAccessOutputStream_REMOTE_ACCESS_OUTPUT_STREAM_STDOUT, result.Stdout)}
-			}
-			if len(result.Stderr) > 0 {
-				outgoing <- outboundFrame{value: session.outputFrame(connectorv1.RemoteAccessOutputStream_REMOTE_ACCESS_OUTPUT_STREAM_STDERR, result.Stderr)}
+			if input := frame.GetRemoteAccessInput(); input != nil {
+				if _, err = connection.Write(input.GetData()); err != nil {
+					return err
+				}
 			}
 		}
 	}

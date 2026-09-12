@@ -13,6 +13,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -83,7 +84,17 @@ func EnrollIdentity(ctx context.Context, command *connectorv1.CollectorManagemen
 	if err != nil {
 		return IdentityMaterial{}, ErrInvalidCommand
 	}
-	client := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{TLSClientConfig: tlsConfig},
+	transport := &http.Transport{TLSClientConfig: tlsConfig, ForceAttemptHTTP2: true}
+	if dialAddress := strings.TrimSpace(command.GetEnrollmentDialAddress()); dialAddress != "" {
+		if !validDialAddress(dialAddress) {
+			return IdentityMaterial{}, ErrInvalidCommand
+		}
+		dialer := &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
+		transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, dialAddress)
+		}
+	}
+	client := &http.Client{Timeout: 30 * time.Second, Transport: transport,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return ErrInvalidCommand }}
 	response, err := client.Do(request)
 	if err != nil {

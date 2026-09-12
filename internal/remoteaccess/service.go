@@ -116,7 +116,7 @@ type RequestListFilter struct {
 
 type SessionListFilter struct {
 	Scope                            string
-	Status, Protocol, ConnectionMode string
+	Status, Protocol, ControlPath    string
 	UserID, HostID, ManagedAccountID uuid.UUID
 	CreatedFrom, CreatedTo           *time.Time
 }
@@ -480,12 +480,12 @@ func (service Service) CreateSession(ctx context.Context, actor Actor, leaseID u
 			UserLimit: service.UserLimit, HostLimit: service.HostLimit, EnterpriseLimit: service.EnterpriseLimit}).Check(); err != nil {
 			return SessionView{}, err
 		}
-		if !connectionModeSupports(lease.ConnectionMode, lease.Protocol) {
+		if !controlPathSupports(lease.ControlPath, lease.Protocol) {
 			return SessionView{}, ErrScopeDenied
 		}
 		session, err := q.CreateRemoteAccessSession(ctx, db.CreateRemoteAccessSessionParams{ID: newID(), EnterpriseID: actor.EnterpriseID, UserID: actor.UserID,
 			HttpSessionID: actor.HTTPSessionID, LeaseID: lease.ID, HostID: lease.HostID, ManagedAccountID: lease.ManagedAccountID,
-			Protocol: lease.Protocol, ConnectionMode: lease.ConnectionMode, ConnectorID: lease.ConnectorID, AuthorizationVersion: actor.AuthorizationVersion,
+			Protocol: lease.Protocol, ControlPath: lease.ControlPath, ConnectorID: lease.ConnectorID, AuthorizationVersion: actor.AuthorizationVersion,
 			IdleTimeoutSeconds: int32(profile.IdleTimeoutSeconds), MaxDurationSeconds: int32(profile.MaxSessionSeconds), ConnectBefore: timestamp(service.now().Add(ConnectionWindow)),
 			DecisionSnapshot: lease.DecisionSnapshot, SessionProfileSnapshot: lease.SessionProfileSnapshot, DecisionSnapshotHash: lease.DecisionSnapshotHash,
 			RecordingMode: profile.RecordingMode, CommandAuditMode: profile.CommandAuditMode, ClipboardMode: profile.ClipboardMode,
@@ -496,7 +496,7 @@ func (service Service) CreateSession(ctx context.Context, actor Actor, leaseID u
 		}
 		recordingID := uuid.Nil
 		if profile.RecordingMode == "required" {
-			recordingID, err = service.createSessionRecording(ctx, q, actor.EnterpriseID, session.ID)
+			recordingID, err = service.createSessionRecording(ctx, q, actor.EnterpriseID, session.ID, session.Protocol)
 			if err != nil {
 				return SessionView{}, ErrRecordingUnavailable
 			}
@@ -505,7 +505,7 @@ func (service Service) CreateSession(ctx context.Context, actor Actor, leaseID u
 		return result, appendAuditDetails(ctx, q, actor.UserID, actor.EnterpriseID, "remote_access.session.create", "remote_access_session", session.ID, sessionAuditDetails(session, "authorized"))
 	})
 	if err == nil && result.Session.RecordingMode == "optional" {
-		recordingID, optionalErr := service.ensureOptionalRecording(ctx, actor.EnterpriseID, result.Session.ID)
+		recordingID, optionalErr := service.ensureOptionalRecording(ctx, actor.EnterpriseID, result.Session.ID, result.Session.Protocol)
 		if optionalErr == nil {
 			result.RecordingID = recordingID
 		} else {
@@ -515,14 +515,14 @@ func (service Service) CreateSession(ctx context.Context, actor Actor, leaseID u
 	return result, err
 }
 
-func (service Service) ensureOptionalRecording(ctx context.Context, enterpriseID, sessionID uuid.UUID) (uuid.UUID, error) {
+func (service Service) ensureOptionalRecording(ctx context.Context, enterpriseID, sessionID uuid.UUID, protocol string) (uuid.UUID, error) {
 	if existing, err := service.recordingIDForSession(ctx, service.Store.Queries, enterpriseID, sessionID); err != nil || existing != uuid.Nil {
 		return existing, err
 	}
 	var recordingID uuid.UUID
 	err := service.Store.InTx(ctx, func(q *db.Queries) error {
 		var createErr error
-		recordingID, createErr = service.createSessionRecording(ctx, q, enterpriseID, sessionID)
+		recordingID, createErr = service.createSessionRecording(ctx, q, enterpriseID, sessionID, protocol)
 		return createErr
 	})
 	return recordingID, err
@@ -539,7 +539,7 @@ func (service Service) ListSessions(ctx context.Context, actor Actor, all bool, 
 		EnterpriseID: actor.EnterpriseID, ActorID: actor.UserID, AllSessions: all, Scope: filter.Scope,
 		Status: optionalText(filter.Status), UserID: optionalUUID(filter.UserID), HostID: optionalUUID(filter.HostID),
 		ManagedAccountID: optionalUUID(filter.ManagedAccountID), Protocol: optionalText(filter.Protocol),
-		ConnectionMode: optionalText(filter.ConnectionMode), CreatedFrom: optionalTime(filter.CreatedFrom), CreatedTo: optionalTime(filter.CreatedTo),
+		ControlPath: optionalText(filter.ControlPath), CreatedFrom: optionalTime(filter.CreatedFrom), CreatedTo: optionalTime(filter.CreatedTo),
 	})
 	if err != nil {
 		return nil, err
@@ -929,7 +929,7 @@ func validGrantFields(input GrantInput) bool {
 }
 
 func validProtocols(values []string) bool {
-	if len(values) == 0 || len(values) > 2 {
+	if len(values) == 0 || len(values) > 3 {
 		return false
 	}
 	seen := map[string]bool{}
@@ -942,20 +942,12 @@ func validProtocols(values []string) bool {
 	return true
 }
 
-func validProtocol(value string) bool { return value == "ssh" || value == "winrs" }
+func validProtocol(value string) bool { return value == "shell" || value == "ssh" || value == "rdp" }
 
-func accountProtocol(protocol string) string {
-	if protocol == "winrs" {
-		return "winrm"
-	}
-	return protocol
-}
+func accountProtocol(protocol string) string { return protocol }
 
-func connectionModeSupports(mode, protocol string) bool {
-	if protocol == "ssh" {
-		return mode == "via_bastion" || mode == "connector_local" || mode == "direct_ssh"
-	}
-	return protocol == "winrs" && (mode == "via_bastion" || mode == "connector_local" || mode == "direct_winrm")
+func controlPathSupports(path, protocol string) bool {
+	return (path == "direct" || path == "bastion_relay" || path == "executor_tunnel") && validProtocol(protocol)
 }
 
 func appendAudit(ctx context.Context, q *db.Queries, actorID, enterpriseID uuid.UUID, actionName, resourceType string, resourceID uuid.UUID, status string) error {
@@ -973,7 +965,7 @@ func sessionAuditDetails(session db.RemoteAccessSession, status string) map[stri
 		"status": status, "remote_session_id": session.ID, "lease_id": session.LeaseID,
 		"authorization_version": session.AuthorizationVersion, "snapshot_hash": hex.EncodeToString(session.DecisionSnapshotHash),
 		"host_id": session.HostID, "managed_account_id": session.ManagedAccountID, "protocol": session.Protocol,
-		"connection_mode": session.ConnectionMode, "session_fence": session.SessionFence,
+		"control_path": session.ControlPath, "session_fence": session.SessionFence,
 		"recording_mode": session.RecordingMode, "command_audit_mode": session.CommandAuditMode,
 		"clipboard_mode": session.ClipboardMode, "file_upload_mode": session.FileUploadMode,
 		"file_download_mode": session.FileDownloadMode, "port_forward_mode": session.PortForwardMode,
@@ -989,7 +981,7 @@ func recordingAuditDetails(recording db.RemoteAccessRecording, status string) ma
 	}
 }
 
-func (service Service) createSessionRecording(ctx context.Context, q *db.Queries, enterpriseID, sessionID uuid.UUID) (uuid.UUID, error) {
+func (service Service) createSessionRecording(ctx context.Context, q *db.Queries, enterpriseID, sessionID uuid.UUID, protocol string) (uuid.UUID, error) {
 	recordingID := newID()
 	dek := make([]byte, 32)
 	if _, err := rand.Read(dek); err != nil {
@@ -1005,8 +997,16 @@ func (service Service) createSessionRecording(ctx context.Context, q *db.Queries
 		return uuid.Nil, err
 	}
 	_, err = q.CreateRemoteAccessRecording(ctx, db.CreateRemoteAccessRecordingParams{ID: recordingID, EnterpriseID: enterpriseID,
-		SessionID: sessionID, KeyProvider: envelope.Provider, KeyID: envelope.KeyID, KeyVersion: int32(envelope.KeyVersion), WrappedDek: wrapped})
+		SessionID: sessionID, KeyProvider: envelope.Provider, KeyID: envelope.KeyID, KeyVersion: int32(envelope.KeyVersion), WrappedDek: wrapped,
+		Format: recordingFormatForProtocol(protocol)})
 	return recordingID, err
+}
+
+func recordingFormatForProtocol(protocol string) string {
+	if protocol == "rdp" {
+		return "guacamole_v1"
+	}
+	return "asciicast_v2"
 }
 
 func (service Service) recordingIDForSession(ctx context.Context, q *db.Queries, enterpriseID, sessionID uuid.UUID) (uuid.UUID, error) {

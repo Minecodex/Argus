@@ -77,7 +77,7 @@ func TestSanitizeDetailsKeepsRemoteAccessRuntimeTrace(t *testing.T) {
 	input := map[string]any{
 		"request_id": uuid.New(), "lease_id": uuid.New(), "remote_session_id": uuid.New(), "recording_id": uuid.New(),
 		"grant_id": uuid.New(), "host_id": uuid.New(), "managed_account_id": uuid.New(), "protocol": "ssh",
-		"connection_mode": "direct_ssh", "session_fence": int64(3), "recording_status": "available",
+		"control_path": "direct", "session_fence": int64(3), "recording_status": "available",
 		"chunk_count": int32(2), "event_count": int64(8), "result_count": 1,
 	}
 	encoded, err := json.Marshal(sanitizeDetails(input))

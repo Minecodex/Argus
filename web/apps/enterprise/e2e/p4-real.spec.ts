@@ -10,8 +10,8 @@ const loginWithMfa = createMfaLogin("enterprise");
 const hostFlow = '[data-testid="host-onboarding-flow"]';
 const bastionFlow = '[data-testid="bastion-onboarding-flow"]';
 
-test.describe("PlanV4 real onboarding acceptance", () => {
-  test.skip(!enabled, "PlanV4 Kubernetes environment is not active");
+test.describe("cross-platform host onboarding acceptance", () => {
+  test.skip(!enabled, "host onboarding Kubernetes environment is not active");
   test.describe.configure({ mode: "serial", timeout: 180_000 });
 
   test("renders converged resources, shared wizard steps, and public DTOs without enrollment secrets", async ({
@@ -100,12 +100,26 @@ async function verifyHostWizardSteps(page: Page) {
   });
   const flow = dialog.locator(hostFlow);
   await expect(flow).toHaveAttribute("data-phase", "select_mode");
+  await expect(flow).toHaveAttribute("data-mode", "command_direct");
   await expect(flow.locator(".argus-scenario-card")).toHaveCount(5);
   await expect(flow.locator("form, input, textarea")).toHaveCount(0);
+  await dialog
+    .getByRole("button", {
+      name: /平台可 SSH · 主机无出站|Platform SSH · no host egress/i,
+    })
+    .click();
   await dialog.getByRole("button", { name: /下一步|Next/i }).click();
   await expect(flow).toHaveAttribute("data-phase", "details");
+  await expect(flow).toHaveAttribute("data-mode", "ssh_tunnel");
+  await expect(flow).toHaveAttribute("data-install-method", "ssh");
+  await expect(flow).toHaveAttribute("data-control-path", "executor_tunnel");
+  await expect(flow).toHaveAttribute("data-ssh-path", "direct_executor");
   await expect(flow.locator(".argus-scenario-card")).toHaveCount(0);
   await expect(dialog.getByLabel(/主机名|Host name/i)).toBeFocused();
+  await expect(dialog.getByLabel(/操作系统|Platform/i)).toBeVisible();
+  await expect(dialog.getByLabel(/地址|Address/i)).toBeVisible();
+  await expect(dialog.getByLabel(/安装方式|Install method/i)).toHaveCount(0);
+  await expect(dialog.getByLabel(/控制路径|Control path/i)).toHaveCount(0);
   await dialog.getByRole("button", { name: /关闭|Close/i }).click();
   await expect(dialog).not.toBeVisible();
 }
@@ -129,7 +143,7 @@ async function verifyBastionWizardSteps(page: Page) {
   await expect(flow).toHaveAttribute("data-mode", "direct_install_tunnel");
   await expect(flow.locator(".argus-scenario-card")).toHaveCount(0);
   await expect(dialog.getByLabel(/名称|Name/i)).toBeFocused();
-  await expect(dialog.getByLabel(/地址|Address/i)).toBeVisible();
+  await expect(dialog.locator('input[name="address"]')).toBeVisible();
   await dialog.getByRole("button", { name: /关闭|Close/i }).click();
   await expect(dialog).not.toBeVisible();
 }

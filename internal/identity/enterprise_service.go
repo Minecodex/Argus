@@ -55,7 +55,7 @@ func (service EnterpriseService) GetUser(ctx context.Context, enterpriseID, user
 }
 
 func (service EnterpriseService) CreateUser(ctx context.Context, actorID string, enterpriseID uuid.UUID, username, displayName, email string, departmentID uuid.UUID, roleIDs []uuid.UUID, idempotencyKey string) (CreatedEnterpriseCredential, error) {
-	password, err := RandomToken(24)
+	password, err := GenerateTemporaryPassword(24, username, email)
 	if err != nil {
 		return CreatedEnterpriseCredential{}, err
 	}

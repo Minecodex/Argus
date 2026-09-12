@@ -194,21 +194,29 @@ type AuthorizationVersion struct {
 }
 
 type BastionScope struct {
-	ID                uuid.UUID          `json:"id"`
-	EnterpriseID      uuid.UUID          `json:"enterprise_id"`
-	Name              string             `json:"name"`
-	Environment       string             `json:"environment"`
-	Labels            []byte             `json:"labels"`
-	LabelsHash        []byte             `json:"labels_hash"`
-	Status            string             `json:"status"`
-	ConnectorHostID   uuid.NullUUID      `json:"connector_host_id"`
-	ActiveConnectorID uuid.NullUUID      `json:"active_connector_id"`
-	FencingGeneration int64              `json:"fencing_generation"`
-	ResourceVersion   int64              `json:"resource_version"`
-	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	OnboardingMode    string             `json:"onboarding_mode"`
+	ID                  uuid.UUID          `json:"id"`
+	EnterpriseID        uuid.UUID          `json:"enterprise_id"`
+	Name                string             `json:"name"`
+	Environment         string             `json:"environment"`
+	Labels              []byte             `json:"labels"`
+	LabelsHash          []byte             `json:"labels_hash"`
+	Status              string             `json:"status"`
+	ConnectorHostID     uuid.NullUUID      `json:"connector_host_id"`
+	ActiveConnectorID   uuid.NullUUID      `json:"active_connector_id"`
+	FencingGeneration   int64              `json:"fencing_generation"`
+	ResourceVersion     int64              `json:"resource_version"`
+	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	OnboardingMode      string             `json:"onboarding_mode"`
+	RelayAddress        string             `json:"relay_address"`
+	RelayHttpsPort      int32              `json:"relay_https_port"`
+	RelayGatewayPort    int32              `json:"relay_gateway_port"`
+	RelayPortGeneration int64              `json:"relay_port_generation"`
+	RelayStatus         string             `json:"relay_status"`
+	RelayErrorCode      string             `json:"relay_error_code"`
+	RemovalGeneration   int64              `json:"removal_generation"`
+	LocalCleanup        string             `json:"local_cleanup"`
 }
 
 type BreakGlassSession struct {
@@ -516,7 +524,7 @@ type ConnectorControlTunnel struct {
 	ID                   uuid.UUID          `json:"id"`
 	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
 	ConnectorID          uuid.UUID          `json:"connector_id"`
-	BastionScopeID       uuid.UUID          `json:"bastion_scope_id"`
+	BastionScopeID       uuid.NullUUID      `json:"bastion_scope_id"`
 	HostID               uuid.UUID          `json:"host_id"`
 	CredentialID         uuid.UUID          `json:"credential_id"`
 	CredentialVersion    int64              `json:"credential_version"`
@@ -797,6 +805,8 @@ type Execution struct {
 	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
 	TelemetryCollectorOperationID uuid.NullUUID      `json:"telemetry_collector_operation_id"`
 	ConnectorInstallOperationID   uuid.NullUUID      `json:"connector_install_operation_id"`
+	HostOnboardingOperationID     uuid.NullUUID      `json:"host_onboarding_operation_id"`
+	HostRemovalOperationID        uuid.NullUUID      `json:"host_removal_operation_id"`
 }
 
 type ExecutionOneTimeResult struct {
@@ -815,86 +825,190 @@ type ExecutionOneTimeResult struct {
 }
 
 type Host struct {
-	ID               uuid.UUID          `json:"id"`
-	EnterpriseID     uuid.UUID          `json:"enterprise_id"`
-	Name             string             `json:"name"`
-	Hostname         string             `json:"hostname"`
-	Address          string             `json:"address"`
-	Port             int32              `json:"port"`
-	Platform         string             `json:"platform"`
-	ConnectionMode   string             `json:"connection_mode"`
-	BastionScopeID   uuid.NullUUID      `json:"bastion_scope_id"`
-	ConnectorID      uuid.NullUUID      `json:"connector_id"`
-	Environment      string             `json:"environment"`
-	Labels           []byte             `json:"labels"`
-	LabelsHash       []byte             `json:"labels_hash"`
-	LabelsVersion    int64              `json:"labels_version"`
-	ResourceVersion  int64              `json:"resource_version"`
-	ConnectionStatus string             `json:"connection_status"`
-	PinnedHostKey    string             `json:"pinned_host_key"`
-	LastSeenAt       pgtype.Timestamptz `json:"last_seen_at"`
-	Status           string             `json:"status"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	Architecture     pgtype.Text        `json:"architecture"`
-	LastProbeClaimAt pgtype.Timestamptz `json:"last_probe_claim_at"`
+	ID                uuid.UUID          `json:"id"`
+	EnterpriseID      uuid.UUID          `json:"enterprise_id"`
+	Name              string             `json:"name"`
+	Hostname          string             `json:"hostname"`
+	Address           pgtype.Text        `json:"address"`
+	Port              int32              `json:"port"`
+	Platform          string             `json:"platform"`
+	BastionScopeID    uuid.NullUUID      `json:"bastion_scope_id"`
+	ConnectorID       uuid.NullUUID      `json:"connector_id"`
+	Environment       string             `json:"environment"`
+	Labels            []byte             `json:"labels"`
+	LabelsHash        []byte             `json:"labels_hash"`
+	LabelsVersion     int64              `json:"labels_version"`
+	ResourceVersion   int64              `json:"resource_version"`
+	ConnectionStatus  string             `json:"connection_status"`
+	PinnedHostKey     string             `json:"pinned_host_key"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	Status            string             `json:"status"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	Architecture      pgtype.Text        `json:"architecture"`
+	Role              string             `json:"role"`
+	ControlPath       string             `json:"control_path"`
+	RemovalGeneration int64              `json:"removal_generation"`
+	LocalCleanup      string             `json:"local_cleanup"`
 }
 
-type HostEnrollmentToken struct {
-	ID                   uuid.UUID          `json:"id"`
-	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
-	PreallocatedHostID   uuid.UUID          `json:"preallocated_host_id"`
-	CollectorID          uuid.UUID          `json:"collector_id"`
-	TokenHash            []byte             `json:"token_hash"`
-	FrozenPlan           []byte             `json:"frozen_plan"`
-	FrozenPlanHash       []byte             `json:"frozen_plan_hash"`
-	Status               string             `json:"status"`
-	RemainingUses        int32              `json:"remaining_uses"`
-	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
-	ConsumedAt           pgtype.Timestamptz `json:"consumed_at"`
-	ConsumedDeviceHash   []byte             `json:"consumed_device_hash"`
-	ReportedHostname     string             `json:"reported_hostname"`
-	ReportedAddress      string             `json:"reported_address"`
-	ReportedArchitecture string             `json:"reported_architecture"`
-	ExchangeKeyVersion   pgtype.Int4        `json:"exchange_key_version"`
-	ExchangeNonce        []byte             `json:"exchange_nonce"`
-	ExchangeCiphertext   []byte             `json:"exchange_ciphertext"`
-	ExchangeExpiresAt    pgtype.Timestamptz `json:"exchange_expires_at"`
-	CreatedBy            uuid.UUID          `json:"created_by"`
-	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+type HostManagedChangeJournal struct {
+	ID           uuid.UUID          `json:"id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	HostID       uuid.UUID          `json:"host_id"`
+	ConnectorID  uuid.UUID          `json:"connector_id"`
+	ChangeType   string             `json:"change_type"`
+	BeforeState  []byte             `json:"before_state"`
+	AppliedState []byte             `json:"applied_state"`
+	StateHash    []byte             `json:"state_hash"`
+	Status       string             `json:"status"`
+	RestoredAt   pgtype.Timestamptz `json:"restored_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
-type HostProbeState struct {
-	HostID              uuid.UUID          `json:"host_id"`
-	EnterpriseID        uuid.UUID          `json:"enterprise_id"`
-	Status              string             `json:"status"`
-	LastCheckedAt       pgtype.Timestamptz `json:"last_checked_at"`
-	LatencyMs           int32              `json:"latency_ms"`
-	Fingerprint         string             `json:"fingerprint"`
-	ConsecutiveFailures int32              `json:"consecutive_failures"`
-	Error               string             `json:"error"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+type HostOnboardingOperation struct {
+	ID                uuid.UUID          `json:"id"`
+	EnterpriseID      uuid.UUID          `json:"enterprise_id"`
+	HostID            uuid.UUID          `json:"host_id"`
+	ConnectorID       uuid.UUID          `json:"connector_id"`
+	PendingActionID   uuid.UUID          `json:"pending_action_id"`
+	RetryOf           uuid.NullUUID      `json:"retry_of"`
+	ReleaseVersionID  uuid.UUID          `json:"release_version_id"`
+	ConnectionTestID  uuid.NullUUID      `json:"connection_test_id"`
+	InstallMethod     string             `json:"install_method"`
+	SshPath           string             `json:"ssh_path"`
+	TargetPlatform    string             `json:"target_platform"`
+	ControlPath       string             `json:"control_path"`
+	BastionScopeID    uuid.NullUUID      `json:"bastion_scope_id"`
+	Status            string             `json:"status"`
+	Stage             string             `json:"stage"`
+	Plan              []byte             `json:"plan"`
+	PlanHash          []byte             `json:"plan_hash"`
+	Attempts          int32              `json:"attempts"`
+	LeaseOwner        string             `json:"lease_owner"`
+	Fence             int64              `json:"fence"`
+	LeaseExpiresAt    pgtype.Timestamptz `json:"lease_expires_at"`
+	ErrorCode         pgtype.Text        `json:"error_code"`
+	ConnectorOnlineAt pgtype.Timestamptz `json:"connector_online_at"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
-type HostUninstallToken struct {
-	ID                  uuid.UUID          `json:"id"`
-	EnterpriseID        uuid.UUID          `json:"enterprise_id"`
-	HostID              uuid.UUID          `json:"host_id"`
-	CollectorID         uuid.UUID          `json:"collector_id"`
-	TokenHash           []byte             `json:"token_hash"`
-	CompletionTokenHash []byte             `json:"completion_token_hash"`
-	FrozenPlan          []byte             `json:"frozen_plan"`
-	FrozenPlanHash      []byte             `json:"frozen_plan_hash"`
-	Status              string             `json:"status"`
-	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
-	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
-	CompletedAt         pgtype.Timestamptz `json:"completed_at"`
-	ConsumedDeviceHash  []byte             `json:"consumed_device_hash"`
-	CreatedBy           uuid.UUID          `json:"created_by"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+type HostOnboardingOperationEvent struct {
+	ID           uuid.UUID          `json:"id"`
+	OperationID  uuid.UUID          `json:"operation_id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	Sequence     int64              `json:"sequence"`
+	Stage        string             `json:"stage"`
+	Status       string             `json:"status"`
+	ErrorCode    pgtype.Text        `json:"error_code"`
+	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
+}
+
+type HostOnboardingOperationSecret struct {
+	OperationID  uuid.UUID          `json:"operation_id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	KeyVersion   int32              `json:"key_version"`
+	Nonce        []byte             `json:"nonce"`
+	Ciphertext   []byte             `json:"ciphertext"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt   pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type HostRemovalOperation struct {
+	ID                uuid.UUID          `json:"id"`
+	EnterpriseID      uuid.UUID          `json:"enterprise_id"`
+	PendingActionID   uuid.UUID          `json:"pending_action_id"`
+	TargetType        string             `json:"target_type"`
+	HostID            uuid.UUID          `json:"host_id"`
+	BastionScopeID    uuid.NullUUID      `json:"bastion_scope_id"`
+	ConnectorID       uuid.UUID          `json:"connector_id"`
+	RemovalMode       string             `json:"removal_mode"`
+	DeliveryMethod    string             `json:"delivery_method"`
+	SshPath           string             `json:"ssh_path"`
+	TargetPlatform    string             `json:"target_platform"`
+	ControlPath       string             `json:"control_path"`
+	ConnectionTestID  uuid.NullUUID      `json:"connection_test_id"`
+	CredentialID      uuid.NullUUID      `json:"credential_id"`
+	CredentialVersion pgtype.Int8        `json:"credential_version"`
+	PinnedHostKey     string             `json:"pinned_host_key"`
+	ResourceVersion   int64              `json:"resource_version"`
+	ConnectorVersion  int64              `json:"connector_version"`
+	ConnectionEpoch   int64              `json:"connection_epoch"`
+	RemovalGeneration int64              `json:"removal_generation"`
+	TrustBundleEpoch  int64              `json:"trust_bundle_epoch"`
+	Plan              []byte             `json:"plan"`
+	PlanHash          []byte             `json:"plan_hash"`
+	Status            string             `json:"status"`
+	Stage             string             `json:"stage"`
+	Attempts          int32              `json:"attempts"`
+	LeaseOwner        string             `json:"lease_owner"`
+	LeaseExpiresAt    pgtype.Timestamptz `json:"lease_expires_at"`
+	ErrorCode         pgtype.Text        `json:"error_code"`
+	LocalCleanup      string             `json:"local_cleanup"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HostRemovalOperationEvent struct {
+	ID           uuid.UUID          `json:"id"`
+	OperationID  uuid.UUID          `json:"operation_id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	Sequence     int64              `json:"sequence"`
+	Stage        string             `json:"stage"`
+	Status       string             `json:"status"`
+	ErrorCode    pgtype.Text        `json:"error_code"`
+	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
+}
+
+type HostRemovalOperationStep struct {
+	OperationID   uuid.UUID          `json:"operation_id"`
+	EnterpriseID  uuid.UUID          `json:"enterprise_id"`
+	Stage         string             `json:"stage"`
+	Status        string             `json:"status"`
+	Attempt       int32              `json:"attempt"`
+	Postcondition []byte             `json:"postcondition"`
+	ResultHash    []byte             `json:"result_hash"`
+	ErrorCode     pgtype.Text        `json:"error_code"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HostRemovalToken struct {
+	ID           uuid.UUID          `json:"id"`
+	OperationID  uuid.UUID          `json:"operation_id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	Purpose      string             `json:"purpose"`
+	TokenHash    []byte             `json:"token_hash"`
+	KeyVersion   int32              `json:"key_version"`
+	Nonce        []byte             `json:"nonce"`
+	Ciphertext   []byte             `json:"ciphertext"`
+	Status       string             `json:"status"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt   pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type HostRuntimeObservation struct {
+	HostID             uuid.UUID          `json:"host_id"`
+	EnterpriseID       uuid.UUID          `json:"enterprise_id"`
+	ConnectorID        uuid.UUID          `json:"connector_id"`
+	Platform           string             `json:"platform"`
+	OpensshStatus      string             `json:"openssh_status"`
+	RdpStatus          string             `json:"rdp_status"`
+	RdpNlaEnabled      bool               `json:"rdp_nla_enabled"`
+	RdpFirewallEnabled bool               `json:"rdp_firewall_enabled"`
+	RdpServiceRunning  bool               `json:"rdp_service_running"`
+	ObservedAt         pgtype.Timestamptz `json:"observed_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
 type IdempotencyRecord struct {
@@ -1454,7 +1568,7 @@ type RemoteAccessSession struct {
 	HostID                 uuid.UUID          `json:"host_id"`
 	ManagedAccountID       uuid.UUID          `json:"managed_account_id"`
 	Protocol               string             `json:"protocol"`
-	ConnectionMode         string             `json:"connection_mode"`
+	ControlPath            string             `json:"control_path"`
 	ConnectorID            uuid.NullUUID      `json:"connector_id"`
 	ConnectorEpoch         pgtype.Int8        `json:"connector_epoch"`
 	Status                 string             `json:"status"`
@@ -1807,13 +1921,12 @@ type TelemetryDlqRecord struct {
 }
 
 type TelemetryEnrollmentToken struct {
-	ID                    uuid.UUID          `json:"id"`
-	CollectorID           uuid.UUID          `json:"collector_id"`
-	TokenHash             []byte             `json:"token_hash"`
-	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
-	ConsumedAt            pgtype.Timestamptz `json:"consumed_at"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-	HostEnrollmentTokenID uuid.NullUUID      `json:"host_enrollment_token_id"`
+	ID          uuid.UUID          `json:"id"`
+	CollectorID uuid.UUID          `json:"collector_id"`
+	TokenHash   []byte             `json:"token_hash"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt  pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type TelemetryRetentionPolicy struct {

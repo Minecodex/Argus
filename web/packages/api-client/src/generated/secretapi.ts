@@ -188,7 +188,7 @@ export interface components {
             readonly enterprise_id: string;
             name: string;
             /** @enum {string} */
-            protocol: "ssh" | "winrm" | "kubernetes" | "http";
+            protocol: "ssh" | "windows" | "kubernetes" | "http";
             username?: string;
             /** Format: uuid */
             secret_id: string;
@@ -204,7 +204,7 @@ export interface components {
         CredentialCreate: {
             name: string;
             /** @enum {string} */
-            protocol: "ssh" | "winrm" | "kubernetes" | "http";
+            protocol: "ssh" | "windows" | "kubernetes" | "http";
             username?: string;
             /** Format: uuid */
             secret_id: string;
@@ -235,7 +235,7 @@ export interface components {
             privilege_level: "standard" | "sudo" | "administrator";
             /** Format: uuid */
             credential_id: string;
-            allowed_protocols: ("ssh" | "winrm")[];
+            allowed_protocols: ("shell" | "ssh" | "rdp")[];
             /** @enum {string} */
             status: "active" | "disabled";
             /** Format: int64 */
@@ -253,7 +253,7 @@ export interface components {
             privilege_level: "standard" | "sudo" | "administrator";
             /** Format: uuid */
             credential_id: string;
-            allowed_protocols: ("ssh" | "winrm")[];
+            allowed_protocols: ("shell" | "ssh" | "rdp")[];
         };
         ManagedAccountUpdate: {
             username?: string;
@@ -261,7 +261,7 @@ export interface components {
             privilege_level?: "standard" | "sudo" | "administrator";
             /** Format: uuid */
             credential_id?: string;
-            allowed_protocols?: ("ssh" | "winrm")[];
+            allowed_protocols?: ("shell" | "ssh" | "rdp")[];
             /** @enum {string} */
             status?: "active" | "disabled";
             /** Format: int64 */
@@ -285,7 +285,7 @@ export interface components {
             retryable: boolean;
         };
         /** @enum {string} */
-        SecretType: "ssh_password" | "ssh_private_key" | "winrm_password" | "kubeconfig" | "api_token" | "basic_auth";
+        SecretType: "ssh_password" | "ssh_private_key" | "windows_password" | "kubeconfig" | "api_token" | "basic_auth";
         PartialMetadata: {
             partial: boolean;
             reasons: ("authorization_filtered" | "budget_truncated" | "source_timeout" | "source_unavailable")[];

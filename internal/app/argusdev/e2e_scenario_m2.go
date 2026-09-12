@@ -114,14 +114,16 @@ func (a *App) runM2Scenario(ctx context.Context, env *E2EEnvironment) error {
 	env.State.Values["platform_csrf"] = platformCSRF
 	env.State.Values["enterprise_csrf"] = enterpriseCSRF
 
-	platformProof := platformMFA.RecoveryCodes[0]
-	enterpriseProof := enterpriseMFA.RecoveryCodes[0]
-	if err := a.runPlaywright(ctx, env, "e2e/m2-real.spec.ts", map[string]string{
-		"ARGUS_M2_E2E": "1", "ARGUS_M2_PLATFORM_USERNAME": platformUsername, "ARGUS_M2_PLATFORM_PASSWORD": platformPassword,
-		"ARGUS_M2_PLATFORM_MFA_CODE": platformProof, "ARGUS_M2_ENTERPRISE_USERNAME": enterpriseUsername, "ARGUS_M2_ENTERPRISE_PASSWORD": enterprisePassword,
-		"ARGUS_M2_ENTERPRISE_MFA_CODE": enterpriseProof,
-	}); err != nil {
-		return err
+	if env.Options.Suite != "p4" && !suiteHas(env.Options.Suite, "tls") {
+		platformProof := platformMFA.RecoveryCodes[0]
+		enterpriseProof := enterpriseMFA.RecoveryCodes[0]
+		if err := a.runPlaywright(ctx, env, "e2e/m2-real.spec.ts", map[string]string{
+			"ARGUS_M2_E2E": "1", "ARGUS_M2_PLATFORM_USERNAME": platformUsername, "ARGUS_M2_PLATFORM_PASSWORD": platformPassword,
+			"ARGUS_M2_PLATFORM_MFA_CODE": platformProof, "ARGUS_M2_ENTERPRISE_USERNAME": enterpriseUsername, "ARGUS_M2_ENTERPRISE_PASSWORD": enterprisePassword,
+			"ARGUS_M2_ENTERPRISE_MFA_CODE": enterpriseProof,
+		}); err != nil {
+			return err
+		}
 	}
 	env.State.Values["platform_recovery_codes"] = strings.Join(platformMFA.RecoveryCodes[1:], ",")
 	env.State.Values["enterprise_recovery_codes"] = strings.Join(enterpriseMFA.RecoveryCodes[1:], ",")

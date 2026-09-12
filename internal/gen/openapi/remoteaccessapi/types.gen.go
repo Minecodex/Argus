@@ -261,16 +261,19 @@ func (e RemoteAccessGrantWriteStatus) Valid() bool {
 
 // Defines values for RemoteAccessProtocol.
 const (
+	Rdp   RemoteAccessProtocol = "rdp"
+	Shell RemoteAccessProtocol = "shell"
 	Ssh   RemoteAccessProtocol = "ssh"
-	Winrs RemoteAccessProtocol = "winrs"
 )
 
 // Valid indicates whether the value is a known member of the RemoteAccessProtocol enum.
 func (e RemoteAccessProtocol) Valid() bool {
 	switch e {
-	case Ssh:
+	case Rdp:
 		return true
-	case Winrs:
+	case Shell:
+		return true
+	case Ssh:
 		return true
 	default:
 		return false
@@ -295,12 +298,15 @@ func (e RemoteAccessRecordingEncrypted) Valid() bool {
 // Defines values for RemoteAccessRecordingFormat.
 const (
 	AsciicastV2 RemoteAccessRecordingFormat = "asciicast_v2"
+	GuacamoleV1 RemoteAccessRecordingFormat = "guacamole_v1"
 )
 
 // Valid indicates whether the value is a known member of the RemoteAccessRecordingFormat enum.
 func (e RemoteAccessRecordingFormat) Valid() bool {
 	switch e {
 	case AsciicastV2:
+		return true
+	case GuacamoleV1:
 		return true
 	default:
 		return false
@@ -511,24 +517,21 @@ func (e RemoteAccessSessionCommandAuditMode) Valid() bool {
 	}
 }
 
-// Defines values for RemoteAccessSessionConnectionMode.
+// Defines values for RemoteAccessSessionControlPath.
 const (
-	RemoteAccessSessionConnectionModeConnectorLocal RemoteAccessSessionConnectionMode = "connector_local"
-	RemoteAccessSessionConnectionModeDirectSsh      RemoteAccessSessionConnectionMode = "direct_ssh"
-	RemoteAccessSessionConnectionModeDirectWinrm    RemoteAccessSessionConnectionMode = "direct_winrm"
-	RemoteAccessSessionConnectionModeViaBastion     RemoteAccessSessionConnectionMode = "via_bastion"
+	RemoteAccessSessionControlPathBastionRelay   RemoteAccessSessionControlPath = "bastion_relay"
+	RemoteAccessSessionControlPathDirect         RemoteAccessSessionControlPath = "direct"
+	RemoteAccessSessionControlPathExecutorTunnel RemoteAccessSessionControlPath = "executor_tunnel"
 )
 
-// Valid indicates whether the value is a known member of the RemoteAccessSessionConnectionMode enum.
-func (e RemoteAccessSessionConnectionMode) Valid() bool {
+// Valid indicates whether the value is a known member of the RemoteAccessSessionControlPath enum.
+func (e RemoteAccessSessionControlPath) Valid() bool {
 	switch e {
-	case RemoteAccessSessionConnectionModeConnectorLocal:
+	case RemoteAccessSessionControlPathBastionRelay:
 		return true
-	case RemoteAccessSessionConnectionModeDirectSsh:
+	case RemoteAccessSessionControlPathDirect:
 		return true
-	case RemoteAccessSessionConnectionModeDirectWinrm:
-		return true
-	case RemoteAccessSessionConnectionModeViaBastion:
+	case RemoteAccessSessionControlPathExecutorTunnel:
 		return true
 	default:
 		return false
@@ -1318,24 +1321,21 @@ func (e ListRemoteAccessSessionsParamsScope) Valid() bool {
 	}
 }
 
-// Defines values for ListRemoteAccessSessionsParamsConnectionMode.
+// Defines values for ListRemoteAccessSessionsParamsControlPath.
 const (
-	ListRemoteAccessSessionsParamsConnectionModeConnectorLocal ListRemoteAccessSessionsParamsConnectionMode = "connector_local"
-	ListRemoteAccessSessionsParamsConnectionModeDirectSsh      ListRemoteAccessSessionsParamsConnectionMode = "direct_ssh"
-	ListRemoteAccessSessionsParamsConnectionModeDirectWinrm    ListRemoteAccessSessionsParamsConnectionMode = "direct_winrm"
-	ListRemoteAccessSessionsParamsConnectionModeViaBastion     ListRemoteAccessSessionsParamsConnectionMode = "via_bastion"
+	ListRemoteAccessSessionsParamsControlPathBastionRelay   ListRemoteAccessSessionsParamsControlPath = "bastion_relay"
+	ListRemoteAccessSessionsParamsControlPathDirect         ListRemoteAccessSessionsParamsControlPath = "direct"
+	ListRemoteAccessSessionsParamsControlPathExecutorTunnel ListRemoteAccessSessionsParamsControlPath = "executor_tunnel"
 )
 
-// Valid indicates whether the value is a known member of the ListRemoteAccessSessionsParamsConnectionMode enum.
-func (e ListRemoteAccessSessionsParamsConnectionMode) Valid() bool {
+// Valid indicates whether the value is a known member of the ListRemoteAccessSessionsParamsControlPath enum.
+func (e ListRemoteAccessSessionsParamsControlPath) Valid() bool {
 	switch e {
-	case ListRemoteAccessSessionsParamsConnectionModeConnectorLocal:
+	case ListRemoteAccessSessionsParamsControlPathBastionRelay:
 		return true
-	case ListRemoteAccessSessionsParamsConnectionModeDirectSsh:
+	case ListRemoteAccessSessionsParamsControlPathDirect:
 		return true
-	case ListRemoteAccessSessionsParamsConnectionModeDirectWinrm:
-		return true
-	case ListRemoteAccessSessionsParamsConnectionModeViaBastion:
+	case ListRemoteAccessSessionsParamsControlPathExecutorTunnel:
 		return true
 	default:
 		return false

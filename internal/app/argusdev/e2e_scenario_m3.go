@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 func (a *App) runM3Scenario(ctx context.Context, env *E2EEnvironment) error {
+	if err := a.patchP4DirectExecutor(ctx, env); err != nil {
+		return err
+	}
 	client, err := scenarioHTTP(env)
 	if err != nil {
 		return err
@@ -25,7 +29,7 @@ func (a *App) runM3Scenario(ctx context.Context, env *E2EEnvironment) error {
 		return err
 	}
 	credential, err := client.JSON(ctx, "m3-credential-create", "enterprise", http.MethodPost, "/enterprise/credentials", http.StatusCreated,
-		map[string]any{"name": "m3-ssh", "protocol": "ssh", "username": "argus", "secret_id": secretID}, enterpriseHeaders(env, "m3-credential"))
+		map[string]any{"name": "m3-ssh", "protocol": "ssh", "username": "root", "secret_id": secretID}, enterpriseHeaders(env, "m3-credential"))
 	if err != nil {
 		return err
 	}
@@ -57,7 +61,7 @@ func (a *App) runM3Scenario(ctx context.Context, env *E2EEnvironment) error {
 	}
 
 	test, err := client.JSON(ctx, "m3-direct-host-test", "enterprise", http.MethodPost, "/enterprise/hosts/connection-tests", http.StatusAccepted,
-		map[string]any{"address": "10.255.255.1", "port": 2222, "platform": "linux", "connection_mode": "direct_ssh", "credential_id": credentialID, "username": "argus"}, enterpriseHeaders(env, "m3-direct-test"))
+		map[string]any{"address": "8.8.8.8", "port": 22, "platform": "linux", "ssh_path": "direct_executor", "credential_id": credentialID, "username": "root"}, enterpriseHeaders(env, "m3-direct-test"))
 	if err != nil {
 		return err
 	}
@@ -69,7 +73,9 @@ func (a *App) runM3Scenario(ctx context.Context, env *E2EEnvironment) error {
 		return err
 	}
 	preview, err := client.JSON(ctx, "m3-direct-host-preview", "enterprise", http.MethodPost, "/enterprise/hosts/actions/preview-create", http.StatusCreated,
-		map[string]any{"name": "m3-direct-host", "address": "10.255.255.1", "port": 2222, "platform": "linux", "connection_mode": "direct_ssh", "credential_id": credentialID, "username": "argus", "environment": "production", "labels": map[string]string{"team": "m3", "route": "direct"}, "connection_test_id": testID}, enterpriseHeaders(env, "m3-direct-host"))
+		map[string]any{"name": "m3-direct-host", "address": "8.8.8.8", "port": 22, "platform": "linux", "role": "managed_host", "control_path": "direct",
+			"install_method": "ssh", "ssh_path": "direct_executor", "credential_id": credentialID, "username": "root", "environment": "production",
+			"labels": map[string]string{"team": "m3", "route": "direct"}, "connection_test_id": testID}, enterpriseHeaders(env, "m3-direct-host"))
 	if err != nil {
 		return err
 	}
@@ -83,6 +89,9 @@ func (a *App) runM3Scenario(ctx context.Context, env *E2EEnvironment) error {
 	}
 	hostID, err := stringField(confirmed, "resource_ref", "resource_id")
 	if err != nil {
+		return err
+	}
+	if err = a.waitPostgresValue(ctx, env, "SELECT h.connection_status || '|' || c.status || '|' || o.status FROM hosts h JOIN connectors c ON c.id=h.connector_id JOIN host_onboarding_operations o ON o.host_id=h.id WHERE h.id='"+hostID+"';", "online|online|succeeded", 5*time.Minute); err != nil {
 		return err
 	}
 	env.State.Values["m3_direct_host_id"] = hostID
@@ -107,14 +116,18 @@ func (a *App) runM3Scenario(ctx context.Context, env *E2EEnvironment) error {
 	if _, err := a.createM3Bastion(ctx, env, "m3-bastion-2", "migration-target"); err != nil {
 		return err
 	}
-	preserve := suiteHas(env.Options.Suite, "m7") || suiteHas(env.Options.Suite, "m6")
+	preserve := suiteHas(env.Options.Suite, "m7")
 	if preserve {
+		target, targetErr := a.createP4Target(ctx, env, "m3-bastion", "198.51.100.30", p4NetworkOpen)
+		if targetErr != nil {
+			return targetErr
+		}
 		id, err := a.createM3Bastion(ctx, env, "m3-bastion", "bastion")
 		if err != nil {
 			return err
 		}
 		env.State.Values["m3_bastion_scope_id"] = id
-		if err := a.startM3BastionConnector(ctx, env); err != nil {
+		if err := a.startM3BastionTarget(ctx, env, target, id); err != nil {
 			return err
 		}
 		clusterID, err := a.createM3BastionKubernetes(ctx, env)
@@ -151,7 +164,7 @@ func (a *App) createM3InCluster(ctx context.Context, env *E2EEnvironment) (strin
 		return "", err
 	}
 	if oneTime, ok := result["one_time_result"].(map[string]any); ok {
-		if command, _ := oneTime["command"].(string); command != "" {
+		if command := oneTimeCommand(oneTime); command != "" {
 			env.State.Values["m3_in_cluster_install_command"] = command
 		}
 	}
@@ -161,7 +174,8 @@ func (a *App) createM3InCluster(ctx context.Context, env *E2EEnvironment) (strin
 func (a *App) createM3Bastion(ctx context.Context, env *E2EEnvironment, name, route string) (string, error) {
 	client, _ := scenarioHTTP(env)
 	preview, err := client.JSON(ctx, "m3-"+name+"-preview", "enterprise", http.MethodPost, "/enterprise/bastion-scopes/actions/preview-create", http.StatusCreated,
-		map[string]any{"name": name, "environment": "production", "labels": map[string]string{"team": "m3", "route": route}}, enterpriseHeaders(env, "m3-"+name))
+		map[string]any{"name": name, "environment": "production", "labels": map[string]string{"team": "m3", "route": route},
+			"install_mode": "command", "architecture": strings.TrimPrefix(env.ImagePlatform, "linux/")}, enterpriseHeaders(env, "m3-"+name))
 	if err != nil {
 		return "", err
 	}
@@ -178,9 +192,44 @@ func (a *App) createM3Bastion(ctx context.Context, env *E2EEnvironment, name, ro
 		return "", err
 	}
 	if oneTime, ok := result["one_time_result"].(map[string]any); ok {
-		if command, _ := oneTime["command"].(string); command != "" {
+		if command := oneTimeCommand(oneTime); command != "" {
 			env.State.Values[strings.ReplaceAll(name, "-", "_")+"_install_command"] = command
 		}
 	}
 	return id, nil
+}
+
+func (a *App) startM3BastionTarget(ctx context.Context, env *E2EEnvironment, target p4Target, scopeID string) error {
+	command := env.State.Values["m3_bastion_install_command"]
+	if command == "" {
+		return fmt.Errorf("M3 Bastion install command is unavailable")
+	}
+	if _, err := a.execP4Target(ctx, env, target, "/bin/bash", "-lc", command); err != nil {
+		return err
+	}
+	connectorID, err := a.postgresQuery(ctx, env, "SELECT preallocated_connector_id FROM connector_enrollment_tokens WHERE bastion_scope_id='"+scopeID+"' ORDER BY created_at DESC LIMIT 1;")
+	if err != nil || strings.TrimSpace(connectorID) == "" {
+		return fmt.Errorf("M3 Bastion Connector identity is unavailable: %w", err)
+	}
+	connectorID = strings.TrimSpace(connectorID)
+	if err = a.waitM3ConnectorOnline(ctx, env, connectorID, 1); err != nil {
+		return err
+	}
+	rootHostID, err := a.postgresQuery(ctx, env, "SELECT connector_host_id FROM bastion_scopes WHERE id='"+scopeID+"';")
+	if err != nil || strings.TrimSpace(rootHostID) == "" {
+		return fmt.Errorf("M3 Bastion root Host is unavailable: %w", err)
+	}
+	env.State.Values["m3_bastion_connector_id"] = connectorID
+	env.State.Values["m3_bastion_root_host_id"] = strings.TrimSpace(rootHostID)
+	return nil
+}
+
+func oneTimeCommand(result map[string]any) string {
+	sets, _ := result["instruction_sets"].([]any)
+	if len(sets) == 0 {
+		return ""
+	}
+	first, _ := sets[0].(map[string]any)
+	command, _ := first["command"].(string)
+	return command
 }

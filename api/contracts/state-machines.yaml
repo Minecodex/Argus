@@ -124,6 +124,51 @@ machines:
       failed: []
       timed_out: []
       expired: []
+  host_onboarding_operation:
+    initial: queued
+    terminal: [succeeded, failed, expired]
+    transitions:
+      queued: [running, failed, expired]
+      running: [succeeded, failed, result_unknown, expired]
+      result_unknown: [succeeded, failed, expired]
+      succeeded: []
+      failed: []
+      expired: []
+  host_onboarding_stage:
+    initial: queued
+    terminal: [completed]
+    transitions:
+      queued: [probing]
+      probing: [transferring]
+      transferring: [installing]
+      installing: [enrolling]
+      enrolling: [waiting_online]
+      waiting_online: [completed]
+      completed: []
+  host_removal_operation:
+    initial: queued
+    terminal: [succeeded]
+    transitions:
+      queued: [running, awaiting_manual_execution, failed]
+      awaiting_manual_execution: [running, failed, cleanup_unknown]
+      running: [succeeded, failed, cleanup_unknown]
+      failed: [queued, awaiting_manual_execution]
+      cleanup_unknown: [queued, awaiting_manual_execution, succeeded]
+      succeeded: []
+  host_removal_stage:
+    initial: queued
+    terminal: [completed]
+    transitions:
+      queued: [draining, terminating_sessions, awaiting_manual_execution]
+      draining: [terminating_sessions]
+      terminating_sessions: [awaiting_manual_execution, uninstalling_workloads, revoking_identities]
+      awaiting_manual_execution: [uninstalling_workloads]
+      uninstalling_workloads: [stopping_relay, uninstalling_connector]
+      stopping_relay: [uninstalling_connector]
+      uninstalling_connector: [verifying_cleanup]
+      verifying_cleanup: [revoking_identities]
+      revoking_identities: [completed]
+      completed: []
   connection_test:
     initial: queued
     terminal: [succeeded, failed, result_unknown, expired]
@@ -139,9 +184,12 @@ machines:
     terminal: [deleted]
     transitions:
       pending: [active, offline, deleted]
-      active: [suspected_offline, offline, uninstalling]
-      suspected_offline: [active, offline, uninstalling]
-      offline: [active, uninstalling, uninstalled, deleted]
-      uninstalling: [uninstalled, offline]
+      active: [suspected_offline, offline, draining]
+      suspected_offline: [active, offline, draining]
+      offline: [active, draining, deleted]
+      draining: [uninstalling, removal_failed, cleanup_unknown]
+      uninstalling: [uninstalled, removal_failed, cleanup_unknown]
+      removal_failed: [draining, deleted]
+      cleanup_unknown: [draining, uninstalled, deleted]
       uninstalled: [deleted]
       deleted: []

@@ -3,6 +3,7 @@ info: {title: Argus Connector API, version: 1.0.0, license: {name: Proprietary, 
 servers: [{url: /api/v1}]
 security: [{sessionCookie: []}]
 paths:
+  /enterprise/bastion-scopes/name-availability: {$ref: ../argus.yaml#/paths/~1enterprise~1bastion-scopes~1name-availability}
   /enterprise/bastion-scopes: {$ref: ../argus.yaml#/paths/~1enterprise~1bastion-scopes}
   "/enterprise/bastion-scopes/{id}": {$ref: "../argus.yaml#/paths/~1enterprise~1bastion-scopes~1{id}"}
   /enterprise/bastion-scopes/actions/preview-create: {$ref: ../argus.yaml#/paths/~1enterprise~1bastion-scopes~1actions~1preview-create}

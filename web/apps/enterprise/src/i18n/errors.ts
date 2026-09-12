@@ -64,14 +64,22 @@ export const ERROR_CODES = [
   "CONNECTION_TEST_FAILED",
   "DIRECT_TARGET_DENIED",
   "DIRECT_PLAN_INVALID",
-  "HOST_INSTALL_TOKEN_INVALID",
-  "HOST_INSTALL_TOKEN_CONFLICT",
-  "HOST_UNINSTALL_TOKEN_INVALID",
-  "HOST_UNINSTALL_TOKEN_CONFLICT",
   "HOST_INSTALL_FAILED",
   "HOST_ONBOARDING_STATE_UNAVAILABLE",
-  "HOST_SELF_ENROLL_UNSUPPORTED_PLATFORM",
-  "HOST_OPERATION_UNSUPPORTED_FOR_SELF_ENROLLED",
+  "HOST_ONBOARDING_UNSUPPORTED_PLATFORM",
+  "HOST_REMOVAL_DEPENDENCIES_EXIST",
+  "HOST_REMOVAL_CONNECTION_TEST_REQUIRED",
+  "HOST_REMOVAL_NOT_INSTALLED",
+  "HOST_REMOVAL_STATE_CONFLICT",
+  "HOST_REMOVAL_TOKEN_INVALID",
+  "HOST_REMOVAL_EXPIRED",
+  "HOST_REMOVAL_TARGET_UNREACHABLE",
+  "HOST_REMOVAL_HOST_KEY_CHANGED",
+  "HOST_REMOVAL_CREDENTIAL_UNAVAILABLE",
+  "HOST_REMOVAL_LOCAL_CLEANUP_UNKNOWN",
+  "HOST_REMOVAL_FINALIZE_FAILED",
+  "TARGET_IDENTITY_CHANGED",
+  "LOCAL_CONFIG_DRIFT",
   "COLLECTOR_ROUTE_TRANSPORT_INVALID",
   "COLLECTOR_LOOPBACK_PORT_CONFLICT",
   "TUNNEL_FORWARD_TARGET_UNCONFIGURED",
@@ -157,7 +165,6 @@ export const ERROR_CODES = [
   "REMOTE_ACCESS_CONNECTION_LOST",
   "REMOTE_ACCESS_INVALID_STATE_TRANSITION",
   "REMOTE_ACCESS_INVALID_GOVERNANCE",
-  "WINRM_TLS_REQUIRED",
   "COLLECTOR_DISTRIBUTION_UNSUPPORTED",
   "COLLECTOR_ARTIFACT_INVALID",
   "COLLECTOR_ARTIFACT_UNAVAILABLE",
@@ -342,7 +349,6 @@ const errorTokenZhMap: Record<string, string> = {
   SCOPE: "范围",
   RECORDING: "录制",
   CAPACITY: "容量",
-  WINRM: "WinRM",
   TLS: "TLS",
   COLLECTOR: "收集器",
   DISTRIBUTION: "发行版",
@@ -375,21 +381,33 @@ const errorTokenZhMap: Record<string, string> = {
 
 const errorSpecialZhMap: Record<string, string> = {
   RESOURCE_NAME_CONFLICT: "该名称已被未删除的资源使用，请更换名称后重试。",
-  HOST_INSTALL_TOKEN_INVALID:
-    "自助安装令牌无效、已撤销或已过期，请重新生成安装命令。",
-  HOST_INSTALL_TOKEN_CONFLICT:
-    "该安装命令已被其他设备使用，请重新生成新的安装命令。",
-  HOST_UNINSTALL_TOKEN_INVALID:
-    "主机卸载令牌无效、已撤销或已过期，请重新生成卸载命令。",
-  HOST_UNINSTALL_TOKEN_CONFLICT:
-    "该卸载命令已被其他设备使用，请重新生成新的卸载命令。",
   HOST_INSTALL_FAILED: "主机安装未完成，请查看安装结果后重试。",
   HOST_ONBOARDING_STATE_UNAVAILABLE:
     "服务端暂时无法确定主机接入状态，请稍后刷新。",
-  HOST_SELF_ENROLL_UNSUPPORTED_PLATFORM:
-    "自助注册主机暂不支持该操作系统或架构，当前仅支持 Linux。",
-  HOST_OPERATION_UNSUPPORTED_FOR_SELF_ENROLLED:
-    "自助注册主机不支持远程配置与升级，请生成新的安装命令在目标机器重新执行。",
+  HOST_ONBOARDING_UNSUPPORTED_PLATFORM:
+    "该 Connector 安装目标不支持所选操作系统或架构。Windows 当前仅支持 amd64。",
+  HOST_REMOVAL_DEPENDENCIES_EXIST:
+    "堡垒机仍有成员主机、遥测路由、会话或运行中任务，请先处理依赖。",
+  HOST_REMOVAL_CONNECTION_TEST_REQUIRED:
+    "自动卸载需要重新完成 SSH 连接测试并固定当前 Host Key。",
+  HOST_REMOVAL_STATE_CONFLICT:
+    "资源状态已变化或已有卸载任务，请刷新资源状态后继续。",
+  HOST_REMOVAL_NOT_INSTALLED:
+    "此资源尚未完成 Connector 安装，暂无可卸载的 Connector。请返回安装进度处理。",
+  HOST_REMOVAL_TOKEN_INVALID: "卸载命令已使用、过期或与当前卸载任务不匹配。",
+  HOST_REMOVAL_EXPIRED: "卸载任务已过期，请从原任务继续卸载。",
+  HOST_REMOVAL_TARGET_UNREACHABLE: "无法连接目标机器，请检查网络和 SSH 服务。",
+  HOST_REMOVAL_HOST_KEY_CHANGED: "目标 SSH Host Key 已变化，已拒绝继续卸载。",
+  HOST_REMOVAL_CREDENTIAL_UNAVAILABLE:
+    "卸载所选 SSH 凭据已失效或版本发生变化。",
+  HOST_REMOVAL_LOCAL_CLEANUP_UNKNOWN:
+    "Connector 停止后未收到完整回执，请从原任务继续验证本机清理。",
+  HOST_REMOVAL_FINALIZE_FAILED:
+    "本机清理已执行，但服务端身份吊销尚未完成，请重试。",
+  TARGET_IDENTITY_CHANGED:
+    "目标已重新安装或 Connector 身份发生变化，旧卸载任务已被围栏。",
+  LOCAL_CONFIG_DRIFT:
+    "检测到管理员在启用 RDP 后修改了配置，Argus 保留了这些修改。",
   COLLECTOR_ROUTE_TRANSPORT_INVALID:
     "该主机当前的接入模式不允许选择这种数据回传路径。",
   COLLECTOR_LOOPBACK_PORT_CONFLICT:
@@ -436,7 +454,6 @@ const errorSpecialZhMap: Record<string, string> = {
     "远程访问配置当前状态不允许执行此操作。",
   REMOTE_ACCESS_INVALID_GOVERNANCE:
     "远程访问治理配置不符合安全约束，请检查引用和参数。",
-  WINRM_TLS_REQUIRED: "WinRM 连接必须使用 TLS，请检查主机配置。",
   MFA_PROOF_INVALID: "MFA 验证码无效或已过期，请重新获取验证码。",
   MFA_ENROLLMENT_REQUIRED: "当前账号尚未完成 MFA 注册，请先完成注册。",
   AUTHORIZATION_DENIED: "当前账号没有执行此操作的权限。",
@@ -451,6 +468,14 @@ const errorSpecialZhMap: Record<string, string> = {
 };
 
 const errorTokenEnMap: Record<string, string> = {};
+const errorSpecialEnMap: Record<string, string> = {
+  RESOURCE_NAME_CONFLICT:
+    "This name is already used by a resource that has not been deleted. Choose another name.",
+  HOST_REMOVAL_NOT_INSTALLED:
+    "This resource has no installed Connector to uninstall. Return to its installation progress.",
+  HOST_REMOVAL_STATE_CONFLICT:
+    "The resource state changed or a removal operation already exists. Refresh the resource before continuing.",
+};
 function englishToken(token: string): string {
   return token
     .toLowerCase()
@@ -459,6 +484,8 @@ function englishToken(token: string): string {
 function humanize(code: string, locale: Locale): string {
   if (locale === "zh-CN" && errorSpecialZhMap[code])
     return errorSpecialZhMap[code];
+  if (locale === "en-US" && errorSpecialEnMap[code])
+    return errorSpecialEnMap[code];
   const tokens = code.split("_");
   if (locale === "en-US")
     return (

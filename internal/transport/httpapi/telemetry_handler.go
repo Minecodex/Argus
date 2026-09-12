@@ -599,8 +599,6 @@ func telemetryError(ctx context.Context, err error) telemetryapi.ApiError {
 		code = "COLLECTOR_ROUTE_TRANSPORT_INVALID"
 	case errors.Is(err, telemetryservice.ErrTunnelQuotaExceeded):
 		code = "TUNNEL_QUOTA_EXCEEDED"
-	case errors.Is(err, telemetryservice.ErrSelfEnrolledOperationUnsupported):
-		code = "HOST_OPERATION_UNSUPPORTED_FOR_SELF_ENROLLED"
 	case errors.Is(err, telemetryservice.ErrQueryParse):
 		code = "QUERY_PARSE_ERROR"
 	case errors.Is(err, telemetryservice.ErrQueryType):

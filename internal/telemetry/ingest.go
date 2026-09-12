@@ -71,7 +71,6 @@ type IngestServer struct {
 	Kafka              *kgo.Client
 	Logger             *slog.Logger
 	Identity           *IdentityService
-	SelfEnroll         *SelfEnrollService
 	IngestGRPCEndpoint string
 	IngestHTTPEndpoint string
 }
@@ -97,9 +96,6 @@ func NewIngestGRPCServer(server *IngestServer, tlsConfig *tls.Config) *grpc.Serv
 func (server *IngestServer) HTTPHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/identity/enroll", server.httpEnrollCollector)
-	mux.HandleFunc("/v1/host-bootstrap-script", server.httpHostBootstrapScript)
-	mux.HandleFunc("/v1/host-install/", server.httpHostInstallBootstrap)
-	mux.HandleFunc("/v1/host-uninstall/", server.httpHostUninstall)
 	mux.HandleFunc("/v1/metrics", server.httpExport("metrics"))
 	mux.HandleFunc("/v1/logs", server.httpExport("logs"))
 	mux.HandleFunc("/v1/traces", server.httpExport("traces"))

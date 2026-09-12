@@ -63,7 +63,7 @@ export function TerminalEmulator({
   clearLabel?: string;
   height?: number;
   className?: string;
-  /** PTY mode uses xterm and emits raw input; line mode preserves WinRS semantics. */
+  /** PTY mode uses xterm and emits raw input; line mode is for command-at-a-time views. */
   mode?: "line" | "pty";
   onData?: (data: string) => void;
   onResize?: (cols: number, rows: number) => void;

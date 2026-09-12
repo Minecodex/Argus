@@ -46,7 +46,6 @@ import type {
 } from "./internal-types";
 import type {
   ConnectorEnrollmentToken,
-  HostEnrollmentToken,
   ConnectorUninstallCommand,
   MockBastionScope,
   MockConnector,
@@ -56,7 +55,7 @@ import type {
 
 /** Whole in-memory database backing the mock client. */
 export interface MockDb {
-  schemaVersion: 13;
+  schemaVersion: 14;
   seq: Record<string, number>;
   platformState: { state: PlatformState; name: string };
   enterprises: Enterprise[];
@@ -91,8 +90,6 @@ export interface MockDb {
   connectors: MockConnector[];
   bastionScopes: MockBastionScope[];
   enrollmentTokens: ConnectorEnrollmentToken[];
-  /** self_enrolled 主机的一次性自助安装令牌(PlanV4)。 */
-  hostEnrollmentTokens: HostEnrollmentToken[];
   uninstallCommands: ConnectorUninstallCommand[];
   clusters: MockKubernetesCluster[];
   nodeBindings: KubernetesNodeHostBinding[];
@@ -124,7 +121,7 @@ export interface MockDb {
 }
 
 export const STORAGE_PREFIX = "argus-mock:";
-const DB_KEY = `${STORAGE_PREFIX}db-v13`;
+const DB_KEY = `${STORAGE_PREFIX}db-v14`;
 
 function storage(): Storage | null {
   try {
@@ -141,7 +138,7 @@ export function loadDb(): MockDb | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as MockDb;
-    return parsed.schemaVersion === 13 ? parsed : null;
+    return parsed.schemaVersion === 14 ? parsed : null;
   } catch {
     return null;
   }
@@ -151,7 +148,7 @@ export function saveDb(db: MockDb): void {
   const store = storage();
   if (!store) return;
   try {
-    // 一次性自助命令与令牌只存在于内存;持久化前剥离,与真实链路
+    // 一次性命令与令牌只存在于内存;持久化前剥离,与真实链路
     // 「命令仅在服务端加密的 one-time result 中一次性领取」的语义一致。
     const sanitizeEnrollmentToken = <T extends ConnectorEnrollmentToken>(
       token: T,
@@ -162,11 +159,6 @@ export function saveDb(db: MockDb): void {
     const sanitized = {
       ...db,
       oneTimeResults: {},
-      hostEnrollmentTokens: db.hostEnrollmentTokens.map((token) => ({
-        ...token,
-        token: "",
-        instructionSets: [],
-      })),
       enrollmentTokens: db.enrollmentTokens.map(sanitizeEnrollmentToken),
       uninstallCommands: db.uninstallCommands.map(sanitizeUninstallCommand),
       bastionScopes: db.bastionScopes.map((scope) => ({

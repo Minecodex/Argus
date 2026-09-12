@@ -24,10 +24,6 @@ describe("mock persistence sensitive data boundary", () => {
   it("never writes one-time host or Connector commands and tokens", () => {
     const db = createSeedDb(1_700_000_000_000);
     const sensitive = [
-      ...db.hostEnrollmentTokens.flatMap((item) => [
-        item.token,
-        ...item.instructionSets.flatMap((set) => [set.command]),
-      ]),
       ...db.enrollmentTokens.flatMap((item) => [
         item.token,
         ...item.instructionSets.flatMap((set) => [set.command]),

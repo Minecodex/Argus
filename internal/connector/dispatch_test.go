@@ -67,9 +67,9 @@ func TestConnectorUninstallReconcileStaysResultUnknown(t *testing.T) {
 func TestHostProbeProjectionPreservesTargetArchitecture(t *testing.T) {
 	result := hostProbeConnectionTestResult(&connectorv1.HostConnectionProbeResult{
 		ResolvedIps: []string{"10.20.30.40"}, HostKeyFingerprint: "SHA256:test",
-		RemoteVersion: "SSH-2.0-test", LatencyMillis: 17, Architecture: "arm64",
+		RemoteVersion: "SSH-2.0-test", LatencyMillis: 17, Platform: "linux", Architecture: "arm64",
 	})
-	if result.Architecture != "arm64" || result.LatencyMS != 17 || result.HostKeyFingerprint != "SHA256:test" {
+	if result.Platform != "linux" || result.Architecture != "arm64" || result.LatencyMS != 17 || result.HostKeyFingerprint != "SHA256:test" {
 		t.Fatalf("Connector Host probe projection lost frozen fields: %+v", result)
 	}
 }

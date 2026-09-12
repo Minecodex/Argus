@@ -48,7 +48,7 @@ func TestGovernanceBoundaries(t *testing.T) {
 	if err := ValidateSessionProfile("profile", 60, 61, 90, "required", "required", GovernanceDraft); err == nil {
 		t.Fatal("idle timeout above maximum must fail")
 	}
-	if err := ValidateRule("rule", []string{"rdp"}, []string{"terminal"}, []string{"notify"}, uuid.Nil, uuid.Nil, GovernanceDraft); err == nil {
+	if err := ValidateRule("rule", []string{"telnet"}, []string{"terminal"}, []string{"notify"}, uuid.Nil, uuid.Nil, GovernanceDraft); err == nil {
 		t.Fatal("unknown protocol must fail")
 	}
 	if err := ValidateSourceCIDRs([]string{"not-a-cidr"}); err == nil {

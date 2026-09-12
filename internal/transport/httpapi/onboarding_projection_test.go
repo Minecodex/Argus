@@ -9,7 +9,7 @@ import (
 )
 
 func TestHostOnboardingProjectionUsesServerFacts(t *testing.T) {
-	host := db.Host{ConnectionMode: "self_enrolled", ConnectionStatus: "onboarding"}
+	host := db.Host{Role: "managed_host", ControlPath: "direct", ConnectionStatus: "onboarding"}
 	tests := []struct {
 		name string
 		fact db.ListHostOnboardingFactsRow
@@ -20,6 +20,8 @@ func TestHostOnboardingProjectionUsesServerFacts(t *testing.T) {
 		{name: "claimed command", fact: db.ListHostOnboardingFactsRow{OneTimeResultState: "consumed", EnrollmentStatus: "active"}, want: "command_consumed"},
 		{name: "bootstrap exchanged", fact: db.ListHostOnboardingFactsRow{OneTimeResultState: "consumed", EnrollmentStatus: "consumed"}, want: "installing"},
 		{name: "failed", fact: db.ListHostOnboardingFactsRow{ExecutionStatus: "failed", ErrorCode: "HOST_INSTALL_FAILED"}, want: "install_failed"},
+		{name: "artifact download failure", fact: db.ListHostOnboardingFactsRow{OperationStatus: "failed", ErrorCode: "HOST_ONBOARDING_ARTIFACT_DNS_FAILED"}, want: "install_failed"},
+		{name: "completed installation survives disconnect", fact: db.ListHostOnboardingFactsRow{OperationStatus: "succeeded", ConnectorStatus: "offline", EnrollmentStatus: "consumed"}, want: "registered"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -29,7 +31,7 @@ func TestHostOnboardingProjectionUsesServerFacts(t *testing.T) {
 		})
 	}
 	host.ConnectionStatus = "online"
-	if actual := deriveHostOnboarding(host, db.ListHostOnboardingFactsRow{CollectorStatus: "converged"}); actual.State != "registered" {
+	if actual := deriveHostOnboarding(host, db.ListHostOnboardingFactsRow{ConnectorStatus: "online"}); actual.State != "registered" {
 		t.Fatalf("converged state = %q", actual.State)
 	}
 }

@@ -61,10 +61,6 @@ func (dispatcher *Dispatcher) DispatchCollectorManagement(ctx context.Context, o
 	return err
 }
 
-func (dispatcher *Dispatcher) OpenRemoteAccess(ctx context.Context) (directv1.DirectExecutorService_OpenRemoteAccessClient, error) {
-	return dispatcher.client.OpenRemoteAccess(ctx)
-}
-
 type RPCServer struct {
 	directv1.UnimplementedDirectExecutorServiceServer
 	Executor *Executor

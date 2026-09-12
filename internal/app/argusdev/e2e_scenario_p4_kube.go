@@ -2,7 +2,7 @@ package argusdev
 
 import (
 	"context"
-	"net"
+	"fmt"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -18,9 +18,10 @@ const p4SSHPassword = "M3-e2e-ssh-password"
 type p4TargetNetwork string
 
 const (
-	p4NetworkOpen       p4TargetNetwork = "open"
-	p4NetworkRootTunnel p4TargetNetwork = "root_tunnel"
-	p4NetworkMember     p4TargetNetwork = "member"
+	p4NetworkOpen         p4TargetNetwork = "open"
+	p4NetworkOutboundOnly p4TargetNetwork = "outbound_only"
+	p4NetworkRootTunnel   p4TargetNetwork = "root_tunnel"
+	p4NetworkMember       p4TargetNetwork = "member"
 )
 
 type p4Target struct {
@@ -38,14 +39,40 @@ func (a *App) patchP4DirectExecutor(ctx context.Context, env *E2EEnvironment) er
 	patch := map[string]any{"spec": map[string]any{
 		"replicas": int32(2),
 		"template": map[string]any{"spec": map[string]any{"hostAliases": []any{
-			map[string]any{"ip": env.Endpoints.IngressIP, "hostnames": []string{hosts["enterprise"], hosts["platform"], hosts["cards"], hosts["remote"]}},
+			map[string]any{"ip": env.Endpoints.IngressIP, "hostnames": []string{hosts["platform"], hosts["cards"], hosts["remote"]}},
+			// Regression: external Enterprise and Artifact hostnames resolving to
+			// loopback must not break the explicit cluster-internal HTTPS route.
+			map[string]any{"ip": "127.0.0.1", "hostnames": []string{hosts["enterprise"], hosts["artifacts"]}},
 			map[string]any{"ip": env.Endpoints.ConnectorIP, "hostnames": []string{hosts["connector"]}},
 		}}},
 	}}
 	if err = env.Kube.PatchDeployment(ctx, env.SystemNS, "argus-direct-executor", patch); err != nil {
 		return err
 	}
-	return env.Kube.WaitDeployment(ctx, env.SystemNS, "argus-direct-executor", 5*time.Minute)
+	if err = env.Kube.WaitDeployment(ctx, env.SystemNS, "argus-direct-executor", 5*time.Minute); err != nil {
+		return err
+	}
+	deployment, err := env.Kube.Client.AppsV1().Deployments(env.SystemNS).Get(ctx, "argus-direct-executor", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	for _, hostname := range []string{hosts["enterprise"], hosts["artifacts"]} {
+		if p4HostAliasAddress(deployment.Spec.Template.Spec.HostAliases, hostname) != "127.0.0.1" {
+			return fmt.Errorf("Direct Executor external hostname %s does not resolve to the loopback regression target", hostname)
+		}
+	}
+	return nil
+}
+
+func p4HostAliasAddress(aliases []corev1.HostAlias, hostname string) string {
+	for _, alias := range aliases {
+		for _, candidate := range alias.Hostnames {
+			if candidate == hostname {
+				return alias.IP
+			}
+		}
+	}
+	return ""
 }
 
 func (a *App) createP4Target(ctx context.Context, env *E2EEnvironment, name, externalIP string, network p4TargetNetwork) (p4Target, error) {
@@ -108,7 +135,11 @@ func (a *App) createP4Target(ctx context.Context, env *E2EEnvironment, name, ext
 		ObjectMeta: metav1.ObjectMeta{Name: target.Name, Namespace: target.Namespace, Labels: labels},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/instance": target.Name}, ExternalIPs: []string{target.ExternalIP},
-			Ports: []corev1.ServicePort{{Name: "ssh", Port: 22, TargetPort: intstr.FromString("ssh")}},
+			Ports: []corev1.ServicePort{
+				{Name: "ssh", Port: 22, TargetPort: intstr.FromInt32(22)},
+				{Name: "relay-https", Port: 8445, TargetPort: intstr.FromInt32(8445)},
+				{Name: "relay-gateway", Port: 9445, TargetPort: intstr.FromInt32(9445)},
+			},
 		},
 	}
 	if _, err = env.Kube.Client.CoreV1().Services(target.Namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
@@ -131,7 +162,7 @@ func p4HostAliases(env *E2EEnvironment) ([]corev1.HostAlias, error) {
 		return nil, err
 	}
 	return []corev1.HostAlias{
-		{IP: env.Endpoints.IngressIP, Hostnames: []string{hosts["enterprise"], hosts["platform"], hosts["cards"], hosts["remote"]}},
+		{IP: env.Endpoints.IngressIP, Hostnames: []string{hosts["enterprise"], hosts["platform"], hosts["cards"], hosts["remote"], hosts["artifacts"]}},
 		{IP: env.Endpoints.ConnectorIP, Hostnames: []string{hosts["connector"]}},
 	}, nil
 }
@@ -147,14 +178,21 @@ func (a *App) createP4TargetPolicies(ctx context.Context, env *E2EEnvironment, t
 					{NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/metadata.name": env.SystemNS}}, PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "argus-direct-executor"}}},
 					{NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"argus.io/release-id": env.ReleaseID}}, PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "argus-p4-target"}}},
 				},
-				Ports: []networkingv1.NetworkPolicyPort{{Protocol: protocol(corev1.ProtocolTCP), Port: intOrString(22)}},
+				Ports: []networkingv1.NetworkPolicyPort{
+					{Protocol: protocol(corev1.ProtocolTCP), Port: intOrString(22)},
+					portRange(8445, 8464),
+					portRange(9445, 9464),
+				},
 			}},
 		},
+	}
+	if target.Network == p4NetworkOutboundOnly {
+		ingress.Spec.Ingress = nil
 	}
 	if _, err := env.Kube.Client.NetworkingV1().NetworkPolicies(target.Namespace).Create(ctx, ingress, metav1.CreateOptions{}); err != nil {
 		return err
 	}
-	if target.Network == p4NetworkOpen {
+	if target.Network == p4NetworkOpen || target.Network == p4NetworkOutboundOnly {
 		return nil
 	}
 	egress := []networkingv1.NetworkPolicyEgressRule{
@@ -163,17 +201,11 @@ func (a *App) createP4TargetPolicies(ctx context.Context, env *E2EEnvironment, t
 		{To: []networkingv1.NetworkPolicyPeer{{NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/metadata.name": env.SystemNS}}, PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "argus-e2e-artifact-server"}}}},
 			Ports: []networkingv1.NetworkPolicyPort{{Protocol: protocol(corev1.ProtocolTCP), Port: intOrString(8443)}}},
 		{To: []networkingv1.NetworkPolicyPeer{{NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"argus.io/release-id": env.ReleaseID}}, PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "argus-p4-target"}}}},
-			Ports: []networkingv1.NetworkPolicyPort{{Protocol: protocol(corev1.ProtocolTCP), Port: intOrString(22)}}},
-	}
-	if target.Network == p4NetworkMember {
-		cidr := env.Endpoints.IngressIP + "/32"
-		if net.ParseIP(env.Endpoints.IngressIP).To4() == nil {
-			cidr = env.Endpoints.IngressIP + "/128"
-		}
-		egress = append(egress, networkingv1.NetworkPolicyEgressRule{
-			To:    []networkingv1.NetworkPolicyPeer{{IPBlock: &networkingv1.IPBlock{CIDR: cidr}}},
-			Ports: []networkingv1.NetworkPolicyPort{{Protocol: protocol(corev1.ProtocolTCP), Port: intOrString(443)}},
-		})
+			Ports: []networkingv1.NetworkPolicyPort{
+				{Protocol: protocol(corev1.ProtocolTCP), Port: intOrString(22)},
+				portRange(8445, 8464),
+				portRange(9445, 9464),
+			}},
 	}
 	policy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: target.Name + "-egress", Namespace: target.Namespace, Labels: labels},
@@ -187,6 +219,10 @@ func protocol(value corev1.Protocol) *corev1.Protocol { return &value }
 func intOrString(value int) *intstr.IntOrString {
 	port := intstr.FromInt32(int32(value))
 	return &port
+}
+
+func portRange(start, end int32) networkingv1.NetworkPolicyPort {
+	return networkingv1.NetworkPolicyPort{Protocol: protocol(corev1.ProtocolTCP), Port: intOrString(int(start)), EndPort: &end}
 }
 
 func (a *App) execP4Target(ctx context.Context, env *E2EEnvironment, target p4Target, command ...string) (string, error) {

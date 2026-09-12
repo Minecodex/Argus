@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/kakj-go/Argus/internal/installinstruction"
 )
 
 type Telemetry struct {
@@ -42,14 +44,12 @@ type Telemetry struct {
 	IngestGRPCEndpoint          string
 	IngestHTTPEndpoint          string
 	QueryConcurrency            int
-	TrustBundlePath             string
-	TrustBundleEpoch            int64
+	installinstruction.TrustConfig
 }
 
 func LoadTelemetry(mode string) Telemetry {
 	issuerGeneration, _ := strconv.ParseInt(valueOrDefault("ARGUS_TELEMETRY_ISSUER_GENERATION", "1"), 10, 32)
 	queryConcurrency, _ := strconv.Atoi(valueOrDefault("ARGUS_TELEMETRY_QUERY_CONCURRENCY", "4"))
-	trustBundleEpoch, _ := strconv.ParseInt(valueOrDefault("ARGUS_TRUST_BUNDLE_EPOCH", "1"), 10, 64)
 	pendingActionKey, _ := base64.RawURLEncoding.DecodeString(os.Getenv("ARGUS_PENDING_ACTION_ENCRYPTION_KEY"))
 	return Telemetry{
 		Mode: mode, HealthAddress: LoadHealthAddress(), DatabaseURL: os.Getenv("ARGUS_DATABASE_URL"), PendingActionKey: pendingActionKey, RedisURL: os.Getenv("ARGUS_REDIS_URL"),
@@ -75,8 +75,7 @@ func LoadTelemetry(mode string) Telemetry {
 		IngestGRPCEndpoint:          os.Getenv("ARGUS_TELEMETRY_INGEST_GRPC_ENDPOINT"),
 		IngestHTTPEndpoint:          os.Getenv("ARGUS_TELEMETRY_INGEST_HTTP_ENDPOINT"),
 		QueryConcurrency:            queryConcurrency,
-		TrustBundlePath:             valueOrDefault("ARGUS_TRUST_BUNDLE_PATH", "/var/run/secrets/argus/trust/ca.crt"),
-		TrustBundleEpoch:            trustBundleEpoch,
+		TrustConfig:                 loadInstallationTrust(),
 	}
 }
 
@@ -108,6 +107,11 @@ func (cfg Telemetry) Validate() error {
 	}
 	if cfg.Mode == "ingest" && len(cfg.PendingActionKey) != 32 {
 		return errors.New("telemetry ingest bootstrap encryption key must be 32 bytes")
+	}
+	if cfg.Mode == "ingest" {
+		if err := cfg.BootstrapTLSMode.Validate(); err != nil {
+			return err
+		}
 	}
 	if (cfg.Mode == "writer" || cfg.Mode == "query") && (cfg.ClickHouseAddress == "" || cfg.ClickHouseUsername == "" || cfg.ClickHousePassword == "") {
 		return errors.New("telemetry ClickHouse configuration is required")

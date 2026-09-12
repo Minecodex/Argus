@@ -1044,16 +1044,15 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/RemoteAccessProtocol'
-        - name: connection_mode
+        - name: control_path
           in: query
           required: false
           schema:
             type: string
             enum:
-              - via_bastion
-              - connector_local
-              - direct_ssh
-              - direct_winrm
+              - direct
+              - bastion_relay
+              - executor_tunnel
         - name: created_from
           in: query
           required: false
@@ -1327,7 +1326,7 @@ components:
         protocols:
           type: array
           minItems: 1
-          maxItems: 2
+          maxItems: 3
           uniqueItems: true
           items:
             $ref: '#/components/schemas/RemoteAccessProtocol'
@@ -1396,7 +1395,7 @@ components:
         protocols:
           type: array
           minItems: 1
-          maxItems: 2
+          maxItems: 3
           uniqueItems: true
           items:
             $ref: '#/components/schemas/RemoteAccessProtocol'
@@ -1455,7 +1454,7 @@ components:
         protocols:
           type: array
           minItems: 1
-          maxItems: 2
+          maxItems: 3
           uniqueItems: true
           items:
             $ref: '#/components/schemas/RemoteAccessProtocol'
@@ -1530,7 +1529,7 @@ components:
         protocols:
           type: array
           minItems: 1
-          maxItems: 2
+          maxItems: 3
           uniqueItems: true
           items:
             $ref: '#/components/schemas/RemoteAccessProtocol'
@@ -2613,7 +2612,7 @@ components:
         - host_id
         - managed_account_id
         - protocol
-        - connection_mode
+        - control_path
         - status
         - session_fence
         - authorization_version
@@ -2646,13 +2645,12 @@ components:
           format: uuid
         protocol:
           $ref: '#/components/schemas/RemoteAccessProtocol'
-        connection_mode:
+        control_path:
           type: string
           enum:
-            - via_bastion
-            - connector_local
-            - direct_ssh
-            - direct_winrm
+            - direct
+            - bastion_relay
+            - executor_tunnel
         connector_id:
           type: string
           format: uuid
@@ -2847,7 +2845,9 @@ components:
             - expired
         format:
           type: string
-          const: asciicast_v2
+          enum:
+            - asciicast_v2
+            - guacamole_v1
         encrypted:
           type: boolean
           const: true
@@ -2971,8 +2971,9 @@ components:
     RemoteAccessProtocol:
       type: string
       enum:
+        - shell
         - ssh
-        - winrs
+        - rdp
     RemoteAccessAction:
       type: string
       enum:

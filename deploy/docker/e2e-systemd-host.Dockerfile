@@ -14,7 +14,7 @@ FROM ubuntu:24.04
 
 ENV container=docker
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates curl iproute2 openssh-client openssh-server openssl sudo systemd systemd-sysv && \
+      ca-certificates curl iproute2 iptables openssh-client openssh-server openssl socat sudo systemd systemd-sysv && \
     useradd --create-home --shell /bin/bash argus && \
     echo 'argus:M3-e2e-ssh-password' | chpasswd && \
 	echo 'root:M3-e2e-ssh-password' | chpasswd && \

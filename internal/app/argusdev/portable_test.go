@@ -201,10 +201,13 @@ func TestSuiteDependencies(t *testing.T) {
 	want := map[string][]string{
 		"m2": {"m2"}, "m3": {"m2", "m3"}, "m4": {"m2", "m4"},
 		"m5": {"m2", "m3", "m4", "m5"}, "m6": {"m2", "m3", "m6"},
-		"m7":        {"m2", "m3", "m4", "m5", "m7"},
-		"m10-query": {"m2", "m3", "m4", "m5", "m7", "m10-query"},
-		"m8":        {"m6", "m7", "m8"},
-		"p4":        {"m2", "p4"},
+		"m7":                  {"m2", "m3", "m4", "m5", "m7"},
+		"m10-query":           {"m2", "m3", "m4", "m5", "m7", "m10-query"},
+		"m8":                  {"m6", "m7", "m8"},
+		"p4":                  {"m2", "p4"},
+		"tls":                 {"m2", "tls"},
+		"tls-managed-strict":  {"m2", "tls"},
+		"tls-existing-strict": {"m2", "tls"},
 	}
 	if !reflect.DeepEqual(suiteDependencies, want) {
 		t.Fatalf("suite dependencies = %#v", suiteDependencies)

@@ -86,6 +86,90 @@ describe("auth", () => {
   });
 });
 
+describe("unfinished onboarding deletion", () => {
+  it("deletes an unregistered Host after one confirmed preview", async () => {
+    const client = makeClient();
+    await login(client, "chenxi");
+    const host = (await client.hosts.list({ query: "public-web-01" }))
+      .items[0]!;
+    const action = await client.hosts.previewDeleteResource(
+      host.id,
+      host.resource_version,
+    );
+    const result = await client.approvals.confirm(action.action_ref);
+    expect(result.pending_action.status).toBe("succeeded");
+    expect(
+      (await client.hosts.list({ query: "public-web-01" })).items,
+    ).toHaveLength(0);
+  });
+
+  it("keeps an unregistered Host when its deletion preview is cancelled", async () => {
+    const client = makeClient();
+    await login(client, "chenxi");
+    const host = (await client.hosts.list({ query: "public-web-01" }))
+      .items[0]!;
+    const action = await client.hosts.previewDeleteResource(
+      host.id,
+      host.resource_version,
+    );
+    await client.approvals.cancel(action.action_ref);
+    expect((await client.hosts.get(host.id)).id).toBe(host.id);
+  });
+
+  it("rejects direct deletion of currently registered resources", async () => {
+    const client = makeClient();
+    await login(client, "chenxi");
+    const host = (await client.hosts.list({ query: "cache-bj-01" })).items[0]!;
+    await expect(
+      client.hosts.previewDeleteResource(host.id, host.resource_version),
+    ).rejects.toThrow("HOST_DELETE_REQUIRES_UNINSTALL");
+    const scope = await client.connectors.getBastionScope("scope-sh");
+    await expect(
+      client.connectors.previewDeleteBastionScope(
+        scope.id,
+        scope.resource_version,
+      ),
+    ).rejects.toThrow("BASTION_DELETE_REQUIRES_UNINSTALL");
+  });
+
+  it("does not commit a Host deletion after its resource version changes", async () => {
+    const client = makeClient();
+    await login(client, "chenxi");
+    const host = (await client.hosts.list({ query: "public-web-01" }))
+      .items[0]!;
+    const deletion = await client.hosts.previewDeleteResource(
+      host.id,
+      host.resource_version,
+    );
+    const update = await client.hosts.previewUpdateResource(host.id, {
+      labels: { changed: "true" },
+      expected_version: host.resource_version,
+    });
+    await client.approvals.confirm(update.action_ref);
+    await expect(client.approvals.confirm(deletion.action_ref)).rejects.toThrow(
+      "RESOURCE_VERSION_CONFLICT",
+    );
+    expect((await client.hosts.get(host.id)).id).toBe(host.id);
+  });
+
+  it("does not commit a Bastion deletion after late registration", async () => {
+    const client = makeClient();
+    await login(client, "chenxi");
+    const scope = await client.connectors.getBastionScope("scope-sh2");
+    const deletion = await client.connectors.previewDeleteBastionScope(
+      scope.id,
+      scope.resource_version,
+    );
+    expect(client.simulate.connectorRegister(scope.id).success).toBe(true);
+    await expect(client.approvals.confirm(deletion.action_ref)).rejects.toThrow(
+      "BASTION_DELETE_REQUIRES_UNINSTALL",
+    );
+    expect((await client.connectors.getBastionScope(scope.id)).status).toBe(
+      "active",
+    );
+  });
+});
+
 describe("machine credentials", () => {
   it("creates, rotates, and revokes API keys with contract-shaped secrets", async () => {
     const client = makeClient();
@@ -226,7 +310,8 @@ describe("hosts CRUD", () => {
       address: "10.0.9.99",
       port: 22,
       platform: "linux",
-      connection_mode: "via_bastion",
+      ssh_path: "bastion_connector",
+      onboarding_control_path: "bastion_relay",
       bastion_scope_id: "scope-sh",
       credential_id: "sec-ssh-prod",
       username: "root",
@@ -236,7 +321,10 @@ describe("hosts CRUD", () => {
       address: "10.0.9.99",
       port: 22,
       platform: "linux",
-      connection_mode: "via_bastion",
+      role: "managed_host",
+      control_path: "bastion_relay",
+      install_method: "ssh",
+      ssh_path: "bastion_connector",
       bastion_scope_id: "scope-sh",
       credential_id: "sec-ssh-prod",
       username: "root",
@@ -258,7 +346,7 @@ describe("hosts CRUD", () => {
     const hosts = await client.hosts.list({ query: "mock-host-01" });
     expect(hosts.items.length).toBe(1);
     const created = hosts.items[0];
-    expect(created?.connection_mode).toBe("via_bastion");
+    expect(created?.control_path).toBe("bastion_relay");
 
     const scope = await client.connectors.getBastionScope("scope-sh");
     expect(scope.member_count).toBeGreaterThan(0);
@@ -291,7 +379,7 @@ describe("hosts CRUD", () => {
       address: "10.0.1.11",
       port: 22,
       platform: "linux",
-      connection_mode: "via_bastion",
+      ssh_path: "bastion_connector",
       bastion_scope_id: "scope-sh",
       credential_id: "sec-ssh-prod",
       username: "root",
@@ -306,9 +394,16 @@ describe("hosts CRUD", () => {
         profile_ids: ["profile-host-basic"],
         route_kind: "bastion_gateway",
         transport: "direct",
-        gateway_collector_id: "col-db-01",
       },
     );
+    const installPreview = install.preview as Record<string, unknown>;
+    expect(installPreview).toMatchObject({
+      sequence: [
+        { order: 1, operation: "enable_bastion_edge_gateway" },
+        { order: 2, operation: "install_leaf_collector" },
+      ],
+    });
+    const plannedGatewayId = String(installPreview["gateway_collector_id"]);
     const { execution } = await client.approvals.confirm(install.action_ref);
     await waitFor(async () => {
       const current = await client.tasks.get(execution?.execution_id ?? "");
@@ -325,8 +420,13 @@ describe("hosts CRUD", () => {
     ).toMatchObject({
       kind: "bastion_gateway",
       transport: "direct",
-      gateway_collector_id: "col-db-01",
+      gateway_collector_id: plannedGatewayId,
     });
+    expect(
+      (await client.telemetry.listCollectors()).find(
+        (entry) => entry.id === plannedGatewayId,
+      ),
+    ).toMatchObject({ resource_id: "host-gw-bj-01", role: "edge_gateway" });
 
     const route = await client.approvals.preview({
       tool: "telemetry.collector.route",

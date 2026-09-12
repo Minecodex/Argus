@@ -56,7 +56,7 @@ func (reconciler RemoteAccessGovernanceReconciler) reconcile(ctx context.Context
 			return err
 		}
 		for _, session := range sessions {
-			recordingID, err := reconciler.Service.createSessionRecording(ctx, q, session.EnterpriseID, session.ID)
+			recordingID, err := reconciler.Service.createSessionRecording(ctx, q, session.EnterpriseID, session.ID, session.Protocol)
 			if err != nil {
 				return err
 			}

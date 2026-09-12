@@ -76,6 +76,10 @@ WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING *;
 UPDATE credential_leases AS lease SET status = 'revoked' WHERE lease.enterprise_id = $1 AND lease.status = 'active'
 AND lease.credential_id IN (SELECT credential.id FROM credentials AS credential WHERE credential.secret_id = $2 AND credential.enterprise_id = $1);
 
+-- name: AdvanceCredentialVersionsBySecret :exec
+UPDATE credentials SET version = version + 1, updated_at = now()
+WHERE enterprise_id = $1 AND secret_id = $2 AND status = 'active';
+
 -- name: MarkSecretAccessed :exec
 UPDATE secrets SET last_accessed_at = now(), updated_at = now() WHERE id = $1 AND enterprise_id = $2;
 

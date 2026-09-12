@@ -32,7 +32,7 @@ Argus 同时存在两个隔离的管理域：
 - 为租户提供完整的身份、RBAC 和数据权限体系。
 - 为企业提供资源标签、显式资源授权和统一数据裁剪，并使生产远程访问和 AI 操作具有独立、可审计的授权范围。
 - 通过统一 Connector 将一台主机注册为堡垒机，代理访问其管辖范围内的 Windows、Linux、macOS 主机和 Kubernetes API Server。
-- 对 Direct Executor 部署网络可达且经过校验的主机提供受控 Direct SSH/WinRM 接入，并为人工运维提供带短期票据、录像和审计的远程会话。
+- 对 Direct Executor 或 Linux Bastion 可达的 Linux/Windows OpenSSH 目标提供自动安装；安装后的受控命令和人工会话统一经过目标本机 Connector。
 - 同时提供 Chatbox 与传统管理界面，且两者能力一致。
 - 允许 Model Agent 使用 MCP Tool 完成多步骤 AIOps 工作流。
 - 通过 OpenSandbox 安全处理附件、脚本、代码生成和临时计算。
@@ -71,7 +71,7 @@ flowchart LR
     RemoteGateway --> Connector
     Worker --> DirectExecutor["Direct Executor"]
     RemoteGateway --> DirectExecutor
-    DirectExecutor --> DirectHost["Direct Host SSH/WinRM"]
+    DirectExecutor --> DirectHost["Host Connector SSH install"]
     Worker --> Sandbox["OpenSandbox"]
 
     Collector["argus-otelcol"] --> Ingest["argus-telemetry --mode=ingest"]
@@ -169,7 +169,7 @@ MCP Tool 不应直接形成一套与管理后台不同的数据库逻辑。
 
 Connector 主动向服务端建立长连接。安装成功后，所在主机成为一个堡垒机 Host，并创建稳定的 Bastion Scope；后续通过内网地址、Credential 和该堡垒机添加的主机进入同一范围。Connector 既管理本机，也作为进入该范围的跳板连接其他主机和 Kubernetes。
 
-没有选择堡垒机的主机使用 `direct_ssh`/`direct_winrm` 适配器，由 `argus-worker` 中受控 Direct Executor 从其部署网络连接。直连不以公网/私网划分，但 Direct Executor 仍拒绝环回、链路本地、云元数据和配置的禁用网段，并通过独立网络策略限制可达范围，不能成为任意网络代理。
+没有选择堡垒机的主机可由受控 Direct Executor 通过 OpenSSH 完成首次安装，也可以由用户执行一行系统命令。安装后 Host Connector 主动连接 Argus；Direct Executor 不再承载人工会话。目标解析仍拒绝环回、链路本地、云元数据和配置的禁用网段。
 
 人工远程访问与 AI Tool 执行是两个明确边界：
 

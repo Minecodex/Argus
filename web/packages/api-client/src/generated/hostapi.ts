@@ -1,4 +1,21 @@
 export interface paths {
+    "/enterprise/hosts/name-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check a creation name using host.manage permission without disclosing the occupying resource. */
+        get: operations["checkHostNameAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/enterprise/hosts": {
         parameters: {
             query?: never;
@@ -46,6 +63,25 @@ export interface paths {
         put?: never;
         /** Freeze a validated Host creation plan. */
         post: operations["previewCreateHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enterprise/hosts/{id}/actions/preview-retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview a new SSH installation attempt for a failed unregistered Host. */
+        post: operations["previewRetryHost"];
         delete?: never;
         options?: never;
         head?: never;
@@ -107,33 +143,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/enterprise/hosts/{id}/actions/preview-enrollment-rotate": {
+    "/enterprise/host-onboarding-operations/{id}": {
         parameters: {
             query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-            };
+            header?: never;
             path: {
                 id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
-        get?: never;
+        /** Get a durable Host Connector onboarding operation. */
+        get: operations["getHostOnboardingOperation"];
         put?: never;
-        /** Freeze a new self-enrolled Host installation command. */
-        post: operations["previewHostEnrollmentRotate"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/enterprise/hosts/{id}/actions/preview-uninstall-command": {
+    "/enterprise/host-removals/connection-defaults": {
         parameters: {
             query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read SSH account and credential references from the current installation. */
+        get: operations["getHostRemovalConnectionDefaults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enterprise/host-removals/actions/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Freeze a fenced Host or Bastion removal plan. */
+        post: operations["previewHostRemoval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enterprise/host-removal-operations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
             };
+            cookie?: never;
+        };
+        /** Get a durable Host or Bastion removal operation. */
+        get: operations["getHostRemovalOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enterprise/host-removal-operations/{id}/actions/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
             path: {
                 id: components["parameters"]["ResourceId"];
             };
@@ -141,8 +226,80 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Freeze a self-enrolled Host uninstall command. */
-        post: operations["previewHostUninstallCommand"];
+        /** Resume a failed or cleanup-unknown removal from its first unverified step. */
+        post: operations["retryHostRemovalOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enterprise/host-removal-operations/{id}/actions/regenerate-command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate the one-time token and return a replacement command for the same removal operation. */
+        post: operations["regenerateHostRemovalCommand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/host-removal/bootstrap-script": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Claim a one-time removal token and download the target-specific strict-TLS uninstaller. */
+        get: operations["getHostRemovalBootstrapScript"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/host-removal/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit an operation-scoped local cleanup receipt after the Connector has stopped. */
+        post: operations["submitHostRemovalReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enterprise/hosts/{id}/windows-rdp/actions/preview-enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview the registry, NLA, service, and firewall changes required to enable RDP. */
+        post: operations["previewEnableHostWindowsRDP"];
         delete?: never;
         options?: never;
         head?: never;
@@ -160,9 +317,8 @@ export interface components {
             readonly enterprise_id: string;
             name: string;
             hostname?: string;
-            /** @description self_enrolled 主机在激活前为空,激活后为自报地址 */
+            /** @description Connector 注册前可以为空，注册后由可信 enrollment 回填 */
             address: string;
-            /** @description self_enrolled 主机在激活前为 0 */
             port: number;
             /** @enum {string} */
             platform: "linux" | "windows";
@@ -171,11 +327,13 @@ export interface components {
              * @enum {string}
              */
             readonly architecture?: "amd64" | "arm64";
-            connection_mode: components["schemas"]["HostConnectionMode"];
+            role: components["schemas"]["HostRole"];
+            control_path: components["schemas"]["HostControlPath"];
             /** Format: uuid */
             bastion_scope_id?: string;
             /** Format: uuid */
             connector_id?: string;
+            readonly runtime?: components["schemas"]["HostRuntimeObservation"];
             environment: components["schemas"]["Environment"];
             labels: components["schemas"]["Labels"];
             /** Format: int64 */
@@ -184,23 +342,17 @@ export interface components {
             resource_version: number;
             /** @enum {string} */
             connection_status: "online" | "offline" | "onboarding" | "degraded" | "unknown";
-            /**
-             * @description 周期探活的实时状态(直连主机);key_changed 表示 SSH 主机键与 pin 值不一致
-             * @enum {string}
-             */
-            readonly live_status?: "online" | "offline" | "key_changed";
-            /**
-             * Format: date-time
-             * @description 最近一次探活时间
-             */
-            readonly last_probe_at?: string;
-            /** @description 最近一次探活往返时延 */
-            readonly probe_latency_ms?: number;
             pinned_host_key?: string;
             /** Format: date-time */
             last_seen_at?: string;
             /** @enum {string} */
-            status: "active" | "disabled" | "deleted";
+            status: "active" | "disabled" | "draining" | "uninstalling" | "uninstalled" | "removal_failed" | "cleanup_unknown" | "deleted";
+            /** Format: int64 */
+            readonly removal_generation?: number;
+            /** @enum {string} */
+            readonly local_cleanup?: "verified" | "pending" | "unknown";
+            /** Format: uuid */
+            readonly removal_operation_id?: string;
             onboarding: components["schemas"]["OnboardingProjection"];
             /** Format: date-time */
             created_at: string;
@@ -214,28 +366,28 @@ export interface components {
         HostPreviewCreate: {
             name: string;
             hostname?: string;
-            /** @description self_enrolled 模式不填写;其余模式必填(服务端按模式校验) */
+            /** @description manual 不填写；ssh 必填 */
             address?: string;
-            /** @description self_enrolled 模式不填写;其余模式必填(服务端按模式校验) */
+            /** @description manual 为 0；ssh 必填 */
             port?: number;
-            /**
-             * @description self_enrolled 第一版仅支持 linux
-             * @enum {string}
-             */
-            platform: "linux" | "windows";
             /** @enum {string} */
-            connection_mode: "via_bastion" | "direct_ssh" | "direct_winrm" | "self_enrolled";
+            platform: "linux" | "windows";
+            /** @constant */
+            role: "managed_host";
+            control_path: components["schemas"]["HostControlPath"];
+            install_method: components["schemas"]["HostInstallMethod"];
+            ssh_path: components["schemas"]["HostSSHPath"];
             /** Format: uuid */
             bastion_scope_id?: string;
             /**
              * Format: uuid
-             * @description self_enrolled 模式不提供
+             * @description ssh 模式必填
              */
             credential_id?: string;
-            /** @description self_enrolled 模式不提供 */
+            /** @description ssh 模式必填 */
             username?: string;
             /**
-             * @description self_enrolled 模式由用户按目标机器选择;其余模式由连接测试探测,不接受填写
+             * @description manual 由用户选择；ssh 由连接测试探测
              * @enum {string}
              */
             architecture?: "amd64" | "arm64";
@@ -243,23 +395,15 @@ export interface components {
             labels: components["schemas"]["UserLabels"];
             /**
              * Format: uuid
-             * @description self_enrolled 模式免测试,不提供;其余模式必填(服务端按模式校验)
+             * @description ssh 模式必填
              */
             connection_test_id?: string;
         };
         HostPreviewUpdate: {
             name?: string;
             hostname?: string;
-            address?: string;
-            port?: number;
-            /** @enum {string} */
-            connection_mode?: "via_bastion" | "direct_ssh" | "direct_winrm";
-            /** Format: uuid */
-            bastion_scope_id?: string;
             environment?: components["schemas"]["Environment"];
             labels?: components["schemas"]["UserLabels"];
-            /** Format: uuid */
-            connection_test_id?: string;
             /** Format: int64 */
             expected_version: number;
         };
@@ -286,6 +430,16 @@ export interface components {
             resolved_ips?: string[];
             host_key_fingerprint?: string;
             remote_version?: string;
+            /** @enum {string} */
+            platform?: "linux" | "windows";
+            /** @enum {string} */
+            architecture?: "amd64" | "arm64";
+            distribution_version?: string;
+            /** @enum {string} */
+            service_manager?: "systemd" | "windows_scm";
+            privileged?: boolean;
+            /** Format: int64 */
+            free_disk_bytes?: number;
             error_code?: string;
             /** Format: date-time */
             expires_at: string;
@@ -294,8 +448,140 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
-        /** @enum {string} */
-        HostConnectionMode: "connector_local" | "via_bastion" | "direct_ssh" | "direct_winrm" | "self_enrolled";
+        HostOnboardingOperation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            host_id: string;
+            /** Format: uuid */
+            connector_id: string;
+            /** Format: uuid */
+            retry_of?: string;
+            /** Format: uuid */
+            release_version_id?: string;
+            /** Format: uuid */
+            connection_test_id?: string;
+            /** @enum {string} */
+            install_method: "manual" | "ssh";
+            /** @enum {string} */
+            ssh_path: "none" | "direct_executor" | "bastion_connector";
+            /** @enum {string} */
+            target_platform: "linux_amd64" | "linux_arm64" | "windows_amd64";
+            control_path: components["schemas"]["HostControlPath"];
+            /** Format: uuid */
+            bastion_scope_id?: string;
+            /** @enum {string} */
+            stage: "queued" | "probing" | "transferring" | "installing" | "enrolling" | "waiting_online" | "completed";
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "failed" | "result_unknown" | "expired" | "cancelled";
+            attempts: number;
+            max_attempts: number;
+            /** Format: date-time */
+            connector_online_at?: string;
+            error_code?: string;
+            events: components["schemas"]["HostOnboardingOperationEvent"][];
+            /** Format: date-time */
+            completed_at?: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        HostRemovalConnectionDefaults: {
+            username: string;
+            /** @enum {string} */
+            status: "available" | "credential_unavailable" | "unavailable" | "not_applicable";
+            /** Format: uuid */
+            credential_id?: string;
+            credential_name?: string;
+        };
+        HostRemovalPreview: {
+            target_type: components["schemas"]["HostRemovalTargetType"];
+            /** Format: uuid */
+            target_id: string;
+            /** Format: int64 */
+            expected_version: number;
+            mode: components["schemas"]["HostRemovalMode"];
+            /** Format: uuid */
+            connection_test_id?: string;
+            /** Format: uuid */
+            credential_id?: string;
+            /** @description mode=forget 时必须与资源当前名称完全一致 */
+            confirmation_name?: string;
+        };
+        HostRemovalOperation: {
+            /** Format: uuid */
+            id: string;
+            target_type: components["schemas"]["HostRemovalTargetType"];
+            /** Format: uuid */
+            target_id: string;
+            /** Format: uuid */
+            connector_id: string;
+            mode: components["schemas"]["HostRemovalMode"];
+            /** @enum {string} */
+            delivery_method: "manual" | "ssh" | "server_only";
+            ssh_path: components["schemas"]["HostSSHPath"];
+            /** @enum {string} */
+            target_platform: "linux_amd64" | "linux_arm64" | "windows_amd64";
+            status: components["schemas"]["HostRemovalStatus"];
+            stage: components["schemas"]["HostRemovalStage"];
+            attempt: number;
+            max_attempts: number;
+            /** @enum {string} */
+            local_cleanup: "pending" | "verified" | "unknown";
+            error_code?: string;
+            events: components["schemas"]["HostRemovalOperationEvent"][];
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            completed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        HostRemovalInstruction: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            platform: "linux" | "windows";
+            /** @enum {string} */
+            shell: "posix_sh" | "powershell";
+            /** @constant */
+            privilege: "system";
+            command: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        HostRemovalReceipt: {
+            /** Format: uuid */
+            operation_id: string;
+            /** Format: int64 */
+            removal_generation: number;
+            /** Format: uuid */
+            connector_id: string;
+            stage: components["schemas"]["HostRemovalStage"];
+            /** @constant */
+            local_cleanup: "verified";
+            result_hash: string;
+            evidence: components["schemas"]["HostRemovalCleanupEvidence"];
+            error_code?: string;
+        };
+        HostRuntimeObservation: {
+            /** @enum {string} */
+            platform: "linux" | "windows";
+            /** @enum {string} */
+            openssh_status: "available" | "unavailable" | "unknown";
+            /** @enum {string} */
+            rdp_status: "enabled" | "disabled" | "unavailable" | "unknown";
+            rdp_nla_enabled: boolean;
+            rdp_firewall_enabled: boolean;
+            rdp_service_running: boolean;
+            /** Format: date-time */
+            observed_at: string;
+        };
         RequestId: string;
         ApiError: {
             code: string;
@@ -309,6 +595,14 @@ export interface components {
             /** @default false */
             retryable: boolean;
         };
+        ResourceNameAvailability: {
+            /** @description Whether the name can currently be used for creation in the authenticated enterprise. This does not reserve the name. */
+            available: boolean;
+        };
+        /** @enum {string} */
+        HostControlPath: "direct" | "bastion_relay" | "executor_tunnel";
+        /** @enum {string} */
+        HostRole: "managed_host" | "bastion";
         /** @enum {string} */
         Environment: "development" | "staging" | "production";
         UserLabelKey: string;
@@ -317,6 +611,10 @@ export interface components {
         Labels: {
             [key: string]: components["schemas"]["LabelValue"];
         };
+        /** @enum {string} */
+        HostInstallMethod: "manual" | "ssh";
+        /** @enum {string} */
+        HostSSHPath: "none" | "direct_executor" | "bastion_connector";
         OnboardingProjection: {
             /** @enum {string} */
             state: "command_available" | "command_consumed" | "command_expired" | "awaiting_approval" | "installing" | "install_failed" | "registered";
@@ -326,6 +624,8 @@ export interface components {
             /** Format: uuid */
             operation_id?: string;
             error_code?: string;
+            readonly install_method?: components["schemas"]["HostInstallMethod"];
+            readonly ssh_path?: components["schemas"]["HostSSHPath"];
             /** Format: date-time */
             updated_at: string;
         };
@@ -389,12 +689,72 @@ export interface components {
             /** @enum {string} */
             platform: "linux" | "windows";
             /** @enum {string} */
-            connection_mode: "via_bastion" | "direct_ssh" | "direct_winrm";
+            ssh_path: "direct_executor" | "bastion_connector";
+            /**
+             * @description Validate the target callback route for SSH installation; omit for an SSH-only connection test such as removal.
+             * @enum {string}
+             */
+            onboarding_control_path?: "direct" | "bastion_relay" | "executor_tunnel";
             /** Format: uuid */
             bastion_scope_id?: string;
             /** Format: uuid */
             credential_id: string;
             username: string;
+        };
+        HostOnboardingOperationEvent: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            stage: "queued" | "probing" | "transferring" | "installing" | "enrolling" | "waiting_online" | "completed";
+            /** @enum {string} */
+            status: "started" | "succeeded" | "failed" | "retrying";
+            error_code?: string;
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        /** @enum {string} */
+        HostRemovalTargetType: "managed_host" | "bastion_scope";
+        /** @enum {string} */
+        HostRemovalMode: "uninstall" | "forget";
+        /** @enum {string} */
+        HostRemovalStatus: "queued" | "running" | "awaiting_manual_execution" | "succeeded" | "failed" | "cleanup_unknown";
+        /** @enum {string} */
+        HostRemovalStage: "queued" | "draining" | "terminating_sessions" | "awaiting_manual_execution" | "uninstalling_workloads" | "stopping_relay" | "uninstalling_connector" | "verifying_cleanup" | "revoking_identities" | "completed";
+        HostRemovalOperationEvent: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            sequence: number;
+            stage: components["schemas"]["HostRemovalStage"];
+            /** @enum {string} */
+            status: "started" | "succeeded" | "failed" | "unknown" | "resumed";
+            error_code?: string;
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        HostRemovalCleanupEvidence: {
+            /** @constant */
+            schema_version: "argus.host_cleanup_evidence/v1";
+            /** Format: uuid */
+            operation_id: string;
+            /** Format: uuid */
+            connector_id: string;
+            /** Format: int64 */
+            removal_generation: number;
+            /** @enum {string} */
+            platform: "linux" | "windows";
+            collector_service_absent: boolean;
+            collector_process_absent: boolean;
+            collector_files_absent: boolean;
+            connector_service_absent: boolean;
+            connector_process_absent: boolean;
+            connector_files_absent: boolean;
+            connector_user_absent: boolean;
+            relay_ports_released: boolean;
+            /** @enum {string} */
+            rdp_config_status: "not_applicable" | "restored" | "drifted";
+            /** Format: date-time */
+            observed_at: string;
         };
     };
     responses: {
@@ -421,11 +781,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    checkHostNameAvailability: {
+        parameters: {
+            query: {
+                name: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current name availability. Deleted records do not occupy a name; the name is not reserved. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceNameAvailability"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listHosts: {
         parameters: {
             query?: {
                 query?: string;
-                connection_mode?: components["schemas"]["HostConnectionMode"];
+                control_path?: components["schemas"]["HostControlPath"];
                 bastion_scope_id?: string;
                 labels?: string;
                 cursor?: components["parameters"]["Cursor"];
@@ -489,6 +873,36 @@ export interface operations {
         };
         responses: {
             /** @description Pending Action. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["pending-action-public.schema"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewRetryHost: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostPreviewCreate"];
+            };
+        };
+        responses: {
+            /** @description Installation retry preview. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -588,21 +1002,67 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    previewHostEnrollmentRotate: {
+    getHostOnboardingOperation: {
         parameters: {
             query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
                 id: components["parameters"]["ResourceId"];
             };
             cookie?: never;
         };
+        requestBody?: never;
+        responses: {
+            /** @description Host onboarding operation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostOnboardingOperation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getHostRemovalConnectionDefaults: {
+        parameters: {
+            query: {
+                target_type: components["schemas"]["HostRemovalTargetType"];
+                target_id: string;
+                expected_version: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-secret SSH defaults. A fresh connection test is still required. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostRemovalConnectionDefaults"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewHostRemoval: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ResourcePreviewDelete"];
+                "application/json": components["schemas"]["HostRemovalPreview"];
             };
         };
         responses: {
@@ -618,12 +1078,140 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    previewHostUninstallCommand: {
+    getHostRemovalOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removal operation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostRemovalOperation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    retryHostRemovalOperation: {
         parameters: {
             query?: never;
             header: {
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removal operation queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostRemovalOperation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    regenerateHostRemovalCommand: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One-time removal instruction. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostRemovalInstruction"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getHostRemovalBootstrapScript: {
+        parameters: {
+            query: {
+                operation_id: string;
+            };
+            header: {
+                "X-Argus-Removal-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removal script. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/x-shellscript": string;
+                    "text/x-powershell": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    submitHostRemovalReceipt: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Argus-Removal-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostRemovalReceipt"];
+            };
+        };
+        responses: {
+            /** @description Reconciled removal operation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostRemovalOperation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewEnableHostWindowsRDP: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
             };
             path: {
                 id: components["parameters"]["ResourceId"];
@@ -636,7 +1224,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Dangerous Pending Action. */
+            /** @description Pending Action. */
             201: {
                 headers: {
                     [name: string]: unknown;

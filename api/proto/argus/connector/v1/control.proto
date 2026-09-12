@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package argus.connector.v1;
+
+option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1;connectorv1";
+
+import "argus/common/v1/common.proto";
+import "argus/connector/v1/collector.proto";
+import "google/protobuf/timestamp.proto";
+
+message HostConnectorInstall {
+  string operation_id = 1;
+  string host_id = 2;
+  string connector_id = 3;
+  string target_platform = 4;
+  string address = 5;
+  uint32 port = 6;
+  string username = 7;
+  string pinned_host_key = 8;
+  string release_version_id = 9;
+  string manifest_uri = 10;
+  CollectorArtifact artifact = 11;
+  string signing_public_key = 12;
+  string enrollment_endpoint = 13;
+  string gateway_endpoint = 14;
+  string enroll_dial_address = 15;
+  string gateway_dial_address = 16;
+  bytes trust_bundle_pem = 17;
+  uint64 trust_bundle_epoch = 18;
+  string trust_bundle_sha256 = 19;
+  string target_distribution_version = 20;
+}
+
+message HostConnectorInstallResult {
+  string host_id = 1;
+  string connector_id = 2;
+  bool service_started = 3;
+}
+
+message CertificateRotationRequest {
+  uint64 connection_epoch = 1;
+  bytes csr_pem = 2;
+}
+
+message CertificateRotationGrant {
+  uint64 connection_epoch = 1;
+  bytes certificate_pem = 2;
+  google.protobuf.Timestamp not_after = 4;
+  reserved 3;
+}
+
+message TrustBundleUpdate {
+  uint64 epoch = 1;
+  bytes bundle_pem = 2;
+  string bundle_sha256 = 3;
+  repeated string current_ca_fingerprints = 4;
+  repeated string next_ca_fingerprints = 5;
+  string state = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp retire_at = 8;
+}
+
+message TrustBundleAcknowledge {
+  uint64 epoch = 1;
+  string bundle_sha256 = 2;
+  repeated string ca_fingerprints = 3;
+}
+
+message CredentialLeaseRequest {
+  string lease_id = 1;
+  string command_id = 2;
+  uint64 connection_epoch = 3;
+  bytes recipient_nonce = 4;
+  string host_onboarding_operation_id = 5;
+}
+
+message CredentialLeaseGrant {
+  string lease_id = 1;
+  string command_id = 2;
+  uint64 connection_epoch = 3;
+  bytes credential_payload = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  bytes recipient_nonce = 6;
+  bytes operation_secret_payload = 7;
+}
+
+message CommandReconcileRequest {
+  repeated string command_ids = 1;
+  uint64 connection_epoch = 2;
+}
+
+message CommandReconcileResult {
+  repeated ReconciledCommand commands = 1;
+  uint64 connection_epoch = 2;
+}
+
+message ReconciledCommand {
+  string command_id = 1;
+  string status = 2;
+  string result_hash = 3;
+  argus.common.v1.ErrorStatus error = 4;
+}

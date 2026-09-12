@@ -24,6 +24,9 @@ func executeCollectorManagement(ctx context.Context, payload *anypb.Any, credent
 	if payload == nil || payload.UnmarshalTo(&command) != nil {
 		return nil, collectormanager.ErrInvalidCommand
 	}
+	if command.GetResourceType() == "host" && command.GetTargetUsername() == "" && len(credential) == 0 && usePrivilegedCollectorHelper() {
+		return executePrivilegedCollector(ctx, payload)
+	}
 	var err error
 	var artifactClient *http.Client
 	artifactClient, clientErr := collectormanager.NewArtifactHTTPClient(os.Getenv("ARGUS_OTELCOL_ARTIFACT_CA_PATH"))
@@ -85,7 +88,17 @@ func executeCollectorManagement(ctx context.Context, payload *anypb.Any, credent
 }
 
 func collectorManagementFailureCode(err error) string {
+	if failure, ok := err.(interface{ failureCode() string }); ok && failure.failureCode() != "" {
+		return failure.failureCode()
+	}
 	return collectormanager.FailureCode(err)
+}
+
+func collectorManagementFailureStage(err error) string {
+	if failure, ok := err.(interface{ failureStage() string }); ok && failure.failureStage() != "" {
+		return failure.failureStage()
+	}
+	return collectormanager.FailureStage(err)
 }
 
 func resolveCollectorAddresses(ctx context.Context, hostname string) ([]netip.Addr, error) {

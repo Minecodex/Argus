@@ -120,10 +120,11 @@ type Images struct {
 }
 
 type Exposure struct {
-	IngressClassName string `json:"ingressClassName"`
-	EnterpriseHost   string `json:"enterpriseHost"`
-	PlatformHost     string `json:"platformHost"`
-	ConnectorHost    string `json:"connectorHost"`
+	HTTPSInternalAddress string `json:"httpsInternalAddress,omitempty"`
+	IngressClassName     string `json:"ingressClassName"`
+	EnterpriseHost       string `json:"enterpriseHost"`
+	PlatformHost         string `json:"platformHost"`
+	ConnectorHost        string `json:"connectorHost"`
 	// ArtifactHost 为 Collector 产物下载源的主机名;留空时按
 	// artifacts.<enterprise 父域名> 派生。
 	ArtifactHost string `json:"artifactHost"`

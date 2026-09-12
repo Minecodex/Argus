@@ -67,7 +67,7 @@
           "additionalProperties": false,
           "required": ["kind", "id"],
           "properties": {
-            "kind": {"const": "connector_install"},
+            "kind": {"enum": ["connector_install", "host_onboarding", "host_removal"]},
             "id": {"type": "string", "format": "uuid"}
           }
         },

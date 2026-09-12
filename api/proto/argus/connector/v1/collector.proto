@@ -51,6 +51,10 @@ message CollectorManagementCommand {
   // Names only. Registry credentials and registry CA configuration remain
   // owned by the target cluster administrator.
   repeated string image_pull_secrets = 30;
+  // Tunnel transports pin only the TCP target for the one-time identity
+  // enrollment request. The enrollment_endpoint hostname remains authoritative
+  // for HTTP Host, TLS SNI, and CA verification.
+  string enrollment_dial_address = 31;
 }
 
 message CollectorManagementResult {

@@ -1,5 +1,7 @@
 # OpenTelemetry 接入与监控数据链路
 
+> Host 安装和执行路径已由 [跨平台主机接入设计](./19-cross-platform-host-onboarding.md) 替换：首装仅 Host Connector，Collector 后装并由本机 Connector 管理；旧 `self_enrolled`/WinRM 路径不再有效。
+
 ## 1. 目标与范围
 
 ### M10 查询语义
@@ -263,7 +265,7 @@ OTLP 收集器详情使用：
 
 - Bastion Scope 成员选择 `direct_argus`，或选择所属堡垒机上已经启用 Gateway Profile 的 Collector。
 - PlanV4 的 route kind × transport 合法组合、回环 TLS 和隧道前件见 §3.5。隧道路由要求隧道进入 `established` 后安装才执行；隧道断开不等于 Collector 故障。
-- `self_enrolled`（只出不进）主机经一次性安装命令自注册，路由固定 `direct_argus` + `direct`；bootstrap 交换端点由 ingest 公开承载（`/host-install/{token}`），激活回填自报地址，在线状态由 Collector enrollment/心跳投影。
+- 一行命令接入的普通主机先注册 Host Connector；Collector 由用户后续启用，路由可按主机控制路径选择 `direct_argus + direct` 或受控 Tunnel，在线状态由 Connector 会话投影。
 - 堡垒机本机选择 `direct_argus`，或选择同企业内另一个已激活堡垒机作为上报代理；不得选择自身，保存前必须通过路由测试。
 - 堡垒机上的普通 Collector 默认只采集本机；启用 OTLP Listener、持久队列、Leaf mTLS 和 Gateway Pipeline 后才成为成员候选。
 - 独立主机只能选择同一企业、不属于任何 Bastion Scope、已经显式加入 Telemetry Group、启用 Gateway Profile 且路由测试成功的独立 Collector。
@@ -416,7 +418,7 @@ Kubernetes 侧的产物是容器镜像而非二进制：`argus-otelcol` 定制�
 
 - `direct_download`：目标从批准地址下载。
 - `connector_tunnel`：Argus Artifact Store 经 Connector Data Channel 发送。（尚未实现；堡垒机出向连产物源都不可达的极端隔离场景启用，见"后续工作"）
-- `direct_executor_transfer`：公网独立主机由受控 Direct Executor 从 Artifact Store 读取批准包并经 SSH/WinRM 传输。（当前实现：Direct Executor 从 MinIO HTTPS 源下载并经 SSH 推送，目标零下载）
+- `direct_executor_transfer`：平台 SSH 安装时由受控 Direct Executor 从 Artifact Store 读取批准包，并通过 Linux 或 Windows OpenSSH 的 stdin/SFTP 传输，目标无需自行下载。
 
 Tunnel 要求：
 
@@ -542,7 +544,7 @@ UI 必须显示每个 Profile 将创建的 Receiver、权限、监听端口、Co
 
 ## 10. 配置下发与远程管理
 
-MVP 根据 Host 连接模式使用 Connector 或 Direct Executor：
+Collector 生命周期统一由目标主机在线的 Host Connector 执行：
 
 1. 根据已启用 Profile 和经服务端校验的 Telemetry Route 合成完整期望配置。
 2. 在目标上执行对应版本的配置校验。
@@ -552,7 +554,7 @@ MVP 根据 Host 连接模式使用 Connector 或 Direct Executor：
 6. 检查健康端点和发送状态。
 7. 失败自动回滚。
 
-`connector_local` 和 `via_bastion` 经 Connector 执行；`direct_ssh/direct_winrm` 经受控 Direct Executor 执行；`self_enrolled` 不进入执行器派发路径，只能通过用户在目标执行新的冻结 bootstrap 命令收敛配置。执行器路径复用相同 Config Revision、Preview/Commit、健康检查和审计协议，不能各自拼接 YAML。
+Direct Executor 和 Bastion Connector 只负责首次 SSH 安装。安装完成后，即使 SSH 不再可达，Collector 的安装、升级、配置和卸载仍由该主机主动出站的 Host Connector 执行。`bastion_tunnel` 的独立数据隧道由所属 Scope 的 Bastion Connector 发起，使用成功 onboarding operation 冻结的 SSH 地址、Host Key 和凭据版本；成员 Connector 与堡垒机 Connector 身份不能混用。所有路径复用相同 Config Revision、Preview/Commit、健康检查和审计协议。
 
 当 route transport 为 `executor_tunnel` 或 `bastion_tunnel` 时，版本化模板把出口渲染为已冻结的回环端口并强制真实上游 server name。配置渲染必须拒绝 transport、loopback port、Tunnel 行或 forward 目标不一致，以及任何 `tls.insecure=true` 组合。Tunnel 监督与 Collector 配置是两个状态机，但 Route 只有在两者都验证成功后才能 active。
 
@@ -1073,7 +1075,7 @@ CRI-O：使用对应 Registry Mirror 或 Runtime 导入方式
 
 OpenTelemetry Profiles 信号、Trace 高级查询、双 Gateway、OpAMP、尾部采样、企业自定义 Distribution 和弱网 K8s 镜像分发在后续阶段实现。
 
-PlanV4 在既有 M7 基线上按以下顺序扩展：先固化 route × transport 与 Tunnel/operation 契约，再完成 `self_enrolled` 和堡垒机 A/B/C 的动作边界，随后收口 Executor/Connector 监督恢复、统一向导和状态投影，最后以受限网络 Kubernetes E2E 验证三信号、重启接管、撤权、配额、审计与零残留。详细任务见 [PlanV4](./planv4/README.md)。
+跨平台 Host Connector 重构已将 route × transport、Tunnel/operation、普通主机与堡垒机动作边界、Executor/Connector 监督恢复、统一向导和状态投影收敛到当前模型；受限网络 Kubernetes E2E 负责验证三信号、重启接管、撤权、配额、审计与零残留。当前权威接入设计见[跨平台主机接入](./19-cross-platform-host-onboarding.md)。
 
 ## 24. 参考
 

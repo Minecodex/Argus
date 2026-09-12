@@ -5,12 +5,8 @@ import type {
 } from "../generated/contracts";
 import type { Environment, ISODateString } from "../types/common";
 
-export type MockHostConnectionMode =
-  | "connector_local"
-  | "self_enrolled"
-  | "via_bastion"
-  | "direct_ssh"
-  | "direct_winrm";
+export type MockHostControlPath =
+  "direct" | "bastion_relay" | "executor_tunnel";
 
 export interface MockHost {
   id: string;
@@ -21,31 +17,47 @@ export interface MockHost {
   port: number;
   platform: "linux" | "windows";
   architecture?: "amd64" | "arm64";
-  connectionMode: MockHostConnectionMode;
+  role: "managed_host" | "bastion";
+  controlPath: MockHostControlPath;
   bastionScopeId?: string;
   connectorId?: string;
   credentialRef?: string;
+  installMethod?: "manual" | "ssh";
+  installUsername?: string;
+  installCredentialId?: string;
+  installSSHPath?: "none" | "direct_executor" | "bastion_connector";
   environment: Environment;
   labels: Record<string, string>;
   connectionStatus:
     "online" | "offline" | "onboarding" | "degraded" | "unknown";
   collectorStatus: CollectorInstance["status"] | "not_installed";
-  liveStatus?: "online" | "offline" | "key_changed";
-  probeLatencyMs?: number;
   telemetryRoute?: string;
   lastSeenAt?: ISODateString;
   createdAt: ISODateString;
   updatedAt: ISODateString;
   resourceVersion?: number;
+  status?:
+    | "active"
+    | "disabled"
+    | "draining"
+    | "uninstalling"
+    | "uninstalled"
+    | "removal_failed"
+    | "cleanup_unknown"
+    | "deleted";
+  removalGeneration?: number;
+  localCleanup?: "verified" | "pending" | "unknown";
   onboardingState?: OnboardingProjection["state"];
   onboardingExecutionId?: string;
   onboardingOperationId?: string;
   onboardingErrorCode?: string;
+  rdpEnabled?: boolean;
 }
 
 export interface MockConnector {
   id: string;
   enterpriseId: string;
+  role?: "host" | "bastion" | "kubernetes";
   name: string;
   hostId: string;
   bastionScopeId: string;
@@ -64,19 +76,6 @@ export type ConnectorEnrollmentPurpose =
   "initial_registration" | "connector_replacement";
 export type ConnectorEnrollmentStatus =
   "active" | "consumed" | "revoked" | "expired";
-
-export interface HostEnrollmentToken {
-  id: string;
-  enterpriseId: string;
-  hostId: string;
-  status: "active" | "consumed" | "revoked" | "expired";
-  token: string;
-  instructionSets: ActionOneTimeResult["instruction_sets"];
-  expiresAt: string;
-  remainingUses: number;
-  createdBy: string;
-  createdAt: string;
-}
 
 export interface ConnectorEnrollmentToken {
   id: string;
@@ -117,7 +116,17 @@ export interface MockBastionScope {
   name: string;
   environment: Environment;
   labels: Record<string, string>;
-  status: "pending" | "active" | "degraded" | "uninstalling" | "uninstalled";
+  status:
+    | "pending"
+    | "active"
+    | "degraded"
+    | "offline"
+    | "draining"
+    | "uninstalling"
+    | "uninstalled"
+    | "removal_failed"
+    | "cleanup_unknown"
+    | "deleted";
   connectorHostId?: string;
   activeConnectorId?: string;
   memberHostIds: string[];
@@ -139,6 +148,8 @@ export interface MockBastionScope {
     | "degraded"
     | "down"
     | "removed";
+  relayAddress?: string;
+  relayStatus?: "pending" | "ready" | "degraded" | "offline";
 }
 
 export interface MockKubernetesCluster {

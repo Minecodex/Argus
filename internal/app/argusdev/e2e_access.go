@@ -91,14 +91,14 @@ func (a *App) resolveE2EAccess(ctx context.Context, env *E2EEnvironment) error {
 	if err != nil {
 		return err
 	}
-	// 与 ingress-certificates.yaml 的多 SAN 证书 secret 名保持一致。
-	caPEM, err := env.Kube.SecretValue(ctx, env.SystemNS, "argus-web-tls", "ca.crt")
+	// 与 ingress-certificates.yaml 的 enterprise 证书 Secret 名保持一致。
+	caPEM, err := env.Kube.SecretValue(ctx, env.SystemNS, "argus-enterprise-tls", "ca.crt")
 	if err != nil {
 		return fmt.Errorf("read ingress CA: %w", err)
 	}
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM([]byte(caPEM)) {
-		return fmt.Errorf("ingress CA from secret argus-web-tls could not be parsed")
+		return fmt.Errorf("ingress CA from secret argus-enterprise-tls could not be parsed")
 	}
 	caFile := filepath.Join(env.Options.Artifacts, "argus-e2e-ingress-ca.pem")
 	if err := writePrivate(caFile, []byte(caPEM)); err != nil {
@@ -137,11 +137,12 @@ func (a *App) resolveE2EAccess(ctx context.Context, env *E2EEnvironment) error {
 			hosts["platform"]:   ingressDialIP,
 			hosts["cards"]:      ingressDialIP,
 			hosts["remote"]:     ingressDialIP,
+			hosts["artifacts"]:  ingressDialIP,
 			hosts["connector"]:  connectorDialIP,
 		},
 	}
 	var resolver strings.Builder
-	for _, host := range []string{hosts["enterprise"], hosts["platform"], hosts["cards"], hosts["remote"]} {
+	for _, host := range []string{hosts["enterprise"], hosts["platform"], hosts["cards"], hosts["remote"], hosts["artifacts"]} {
 		fmt.Fprintf(&resolver, "MAP %s %s,", host, ingressDialIP)
 	}
 	fmt.Fprintf(&resolver, "MAP %s %s", hosts["connector"], connectorDialIP)
@@ -158,8 +159,8 @@ func (a *App) resolveE2EAccess(ctx context.Context, env *E2EEnvironment) error {
 	return nil
 }
 
-// e2eExposureHosts reads the exposure hosts (including the derived cards and
-// remote hosts) from the generated install config so the access layer stays
+// e2eExposureHosts reads the exposure hosts (including the derived cards,
+// remote and artifact hosts) from the generated install config so the access layer stays
 // profile-agnostic.
 func e2eExposureHosts(configPath string) (map[string]string, error) {
 	data, err := os.ReadFile(configPath)
@@ -188,6 +189,7 @@ func e2eExposureHosts(configPath string) (map[string]string, error) {
 		"connector":  exposure.ConnectorHost,
 		"cards":      "cards." + e2eParentDomain(exposure.EnterpriseHost),
 		"remote":     "remote." + e2eParentDomain(exposure.PlatformHost),
+		"artifacts":  "artifacts." + e2eParentDomain(exposure.EnterpriseHost),
 	}, nil
 }
 

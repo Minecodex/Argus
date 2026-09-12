@@ -350,7 +350,7 @@ export const settingsZh = {
       types: {
         ssh_password: "SSH 密码",
         ssh_private_key: "SSH 私钥",
-        winrm_password: "WinRM 密码",
+        windows_password: "Windows 密码",
         kubeconfig: "Kubeconfig",
         api_token: "API Token",
         basic_auth: "Basic Auth",
@@ -972,7 +972,7 @@ export const settingsEn = {
       types: {
         ssh_password: "SSH password",
         ssh_private_key: "SSH private key",
-        winrm_password: "WinRM password",
+        windows_password: "Windows password",
         kubeconfig: "Kubeconfig",
         api_token: "API token",
         basic_auth: "Basic auth",

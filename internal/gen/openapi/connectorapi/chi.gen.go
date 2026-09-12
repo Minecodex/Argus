@@ -29,6 +29,9 @@ type ServerInterface interface {
 	// PreviewCreateBastionScope Freeze Bastion Scope creation and enrollment policy.
 	// (POST /enterprise/bastion-scopes/actions/preview-create)
 	PreviewCreateBastionScope(w http.ResponseWriter, r *http.Request, params PreviewCreateBastionScopeParams)
+	// CheckBastionNameAvailability Check a creation name using bastion_scope.manage permission without disclosing the occupying resource.
+	// (GET /enterprise/bastion-scopes/name-availability)
+	CheckBastionNameAvailability(w http.ResponseWriter, r *http.Request, params CheckBastionNameAvailabilityParams)
 	// GetBastionScope Get a Bastion Scope.
 	// (GET /enterprise/bastion-scopes/{id})
 	GetBastionScope(w http.ResponseWriter, r *http.Request, id ResourceId)
@@ -89,6 +92,12 @@ func (_ Unimplemented) ListBastionScopes(w http.ResponseWriter, r *http.Request,
 // PreviewCreateBastionScope Freeze Bastion Scope creation and enrollment policy.
 // (POST /enterprise/bastion-scopes/actions/preview-create)
 func (_ Unimplemented) PreviewCreateBastionScope(w http.ResponseWriter, r *http.Request, params PreviewCreateBastionScopeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CheckBastionNameAvailability Check a creation name using bastion_scope.manage permission without disclosing the occupying resource.
+// (GET /enterprise/bastion-scopes/name-availability)
+func (_ Unimplemented) CheckBastionNameAvailability(w http.ResponseWriter, r *http.Request, params CheckBastionNameAvailabilityParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -350,6 +359,39 @@ func (siw *ServerInterfaceWrapper) PreviewCreateBastionScope(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PreviewCreateBastionScope(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CheckBastionNameAvailability operation middleware
+func (siw *ServerInterfaceWrapper) CheckBastionNameAvailability(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CheckBastionNameAvailabilityParams
+
+	// ------------- Required query parameter "name" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "name", r.URL.Query(), &params.Name, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "name"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckBastionNameAvailability(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1149,6 +1191,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/enterprise/bastion-scopes/name-availability", wrapper.CheckBastionNameAvailability)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/enterprise/bastion-scopes", wrapper.ListBastionScopes)
 	})
 	r.Group(func(r chi.Router) {
@@ -1368,6 +1413,55 @@ type PreviewCreateBastionScopedefaultJSONResponse struct {
 }
 
 func (response PreviewCreateBastionScopedefaultJSONResponse) VisitPreviewCreateBastionScopeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckBastionNameAvailabilityRequestObject struct {
+	Params CheckBastionNameAvailabilityParams
+}
+
+type CheckBastionNameAvailabilityResponseObject interface {
+	VisitCheckBastionNameAvailabilityResponse(w http.ResponseWriter) error
+}
+
+type CheckBastionNameAvailability200ResponseHeaders struct {
+	CacheControl *string
+}
+
+type CheckBastionNameAvailability200JSONResponse struct {
+	Body    ResourceNameAvailability
+	Headers CheckBastionNameAvailability200ResponseHeaders
+}
+
+func (response CheckBastionNameAvailability200JSONResponse) VisitCheckBastionNameAvailabilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.CacheControl != nil {
+		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckBastionNameAvailabilitydefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response CheckBastionNameAvailabilitydefaultJSONResponse) VisitCheckBastionNameAvailabilityResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {

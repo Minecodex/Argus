@@ -206,7 +206,7 @@ func (service EnterpriseService) ChangeStatus(ctx context.Context, actorID strin
 }
 
 func (service EnterpriseService) CreateAdmin(ctx context.Context, actorID string, enterpriseID uuid.UUID, username, displayName, email, idempotencyKey string) (CreatedCredential, error) {
-	password, err := identity.RandomToken(24)
+	password, err := identity.GenerateTemporaryPassword(24, username, email)
 	if err != nil {
 		return CreatedCredential{}, err
 	}
@@ -267,7 +267,7 @@ func (service EnterpriseService) ResetAdminPassword(ctx context.Context, actorID
 	if err != nil {
 		return CreatedCredential{}, err
 	}
-	password, err := identity.RandomToken(24)
+	password, err := identity.GenerateTemporaryPassword(24, user.Username, user.Email.String)
 	if err != nil {
 		return CreatedCredential{}, err
 	}

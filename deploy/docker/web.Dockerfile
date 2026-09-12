@@ -7,8 +7,10 @@ WORKDIR /src
 
 RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY scripts/build-web.mjs scripts/check-real-build.mjs ./scripts/
 COPY web ./web
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=argus-pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --fetch-retries 5 --fetch-timeout 300000
 ARG VITE_API_MODE=real
 ARG VITE_API_BASE_URL=/
 # Card origin and platform login URL are resolved at runtime from
@@ -21,9 +23,7 @@ RUN VITE_API_MODE=$VITE_API_MODE \
     VITE_CARD_ORIGIN=$VITE_CARD_ORIGIN \
     VITE_PLATFORM_URL=$VITE_PLATFORM_URL \
     VITE_DIRECT_EGRESS_ADDRESSES=$VITE_DIRECT_EGRESS_ADDRESSES \
-    pnpm --filter @argus/platform build && \
-    pnpm --filter @argus/enterprise build && \
-    pnpm --filter @argus/card-runtime build
+    node scripts/build-web.mjs "$VITE_API_MODE"
 
 FROM nginxinc/nginx-unprivileged:1.29.4-alpine
 COPY deploy/docker/nginx.conf /etc/nginx/nginx.conf

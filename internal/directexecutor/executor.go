@@ -3,7 +3,6 @@ package directexecutor
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,8 +22,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kakj-go/Argus/internal/installation"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/secret"
+	"github.com/kakj-go/Argus/internal/sshtarget"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	telemetryservice "github.com/kakj-go/Argus/internal/telemetry"
@@ -65,13 +66,15 @@ type Executor struct {
 }
 
 type connectionPlan struct {
-	TargetType        string   `json:"target_type"`
-	Address           string   `json:"address"`
-	Port              int32    `json:"port"`
-	Username          string   `json:"username"`
-	ConnectionMode    string   `json:"connection_mode"`
-	CredentialVersion int64    `json:"credential_version"`
-	ResolvedIPs       []string `json:"resolved_ips"`
+	TargetType        string                          `json:"target_type"`
+	Address           string                          `json:"address"`
+	Port              int32                           `json:"port"`
+	Username          string                          `json:"username"`
+	Platform          string                          `json:"platform"`
+	ConnectionMode    string                          `json:"connection_mode"`
+	CredentialVersion int64                           `json:"credential_version"`
+	ResolvedIPs       []string                        `json:"resolved_ips"`
+	Onboarding        *installation.CallbackProbePlan `json:"onboarding,omitempty"`
 }
 
 func (executor *Executor) Run(ctx context.Context) error {
@@ -85,6 +88,8 @@ func (executor *Executor) Run(ctx context.Context) error {
 	}
 	go executor.RunTunnelReconciler(ctx)
 	go executor.runConnectorInstallLoop(ctx)
+	go executor.runHostOnboardingLoop(ctx)
+	go executor.runHostRemovalLoop(ctx)
 	go executor.runConnectorTunnelReconciler(ctx)
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -261,9 +266,7 @@ func (executor *Executor) execute(parent context.Context, test db.ConnectionTest
 		return
 	}
 	protocol := "ssh"
-	if plan.ConnectionMode == "direct_winrm" {
-		protocol = "winrm"
-	} else if test.TargetType == "kubernetes_cluster" {
+	if test.TargetType == "kubernetes_cluster" {
 		protocol = "kubernetes"
 	}
 	lease, err := executor.Secrets.IssueLease(secret.WithActorType(ctx, "direct_executor"), executor.InstanceID, test.EnterpriseID, secret.LeaseRequest{
@@ -284,8 +287,6 @@ func (executor *Executor) execute(parent context.Context, test db.ConnectionTest
 	switch protocol {
 	case "ssh":
 		result, err = executor.probeSSH(ctx, plan, addresses, plan.Username, lease.Value)
-	case "winrm":
-		result, err = executor.probeWinRM(ctx, plan, addresses, plan.Username, lease.Value)
 	case "kubernetes":
 		result, err = executor.probeKubernetes(ctx, plan, addresses, lease.Value)
 	}
@@ -305,6 +306,9 @@ func (executor *Executor) execute(parent context.Context, test db.ConnectionTest
 func classifyConnectionError(err error) string {
 	if err == nil {
 		return ""
+	}
+	if code := sshtarget.CallbackFailureCode(err); code != "" {
+		return "HOST_ONBOARDING_CALLBACK_" + code
 	}
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, os.ErrDeadlineExceeded) {
 		return "TIMEOUT"
@@ -345,6 +349,8 @@ func (executor *Executor) probeSSH(ctx context.Context, plan connectionPlan, add
 		return resource.ConnectionTestResult{}, err
 	}
 	defer connection.Close()
+	stopOnCancel := context.AfterFunc(ctx, func() { _ = connection.Close() })
+	defer stopOnCancel()
 	if err := executor.Validator.Revalidate(ctx, plan.Address, addresses); err != nil {
 		return resource.ConnectionTestResult{}, err
 	}
@@ -357,59 +363,26 @@ func (executor *Executor) probeSSH(ctx context.Context, plan connectionPlan, add
 	// Collector 产物按目标架构分发,连接测试时探测 uname -m 并随主机记录,
 	// 安装计划据此选择 linux_amd64 / linux_arm64 产物。架构无法确认时
 	// 连接测试失败，禁止默认为另一架构后继续生成安装计划。
-	architecture, err := probeArchitecture(client)
+	evidence, err := sshtarget.Probe(client, plan.Platform)
 	if err != nil {
 		return resource.ConnectionTestResult{}, err
 	}
-	return resource.ConnectionTestResult{ResolvedIPs: addressStrings(addresses), HostKeyFingerprint: fingerprint, RemoteVersion: string(clientConnection.ServerVersion()), Architecture: architecture}, nil
-}
-
-// probeArchitecture 把远端 uname -m 归一化为 Go GOARCH 命名。
-func probeArchitecture(client *ssh.Client) (string, error) {
-	session, err := client.NewSession()
-	if err != nil {
-		return "", fmt.Errorf("open architecture probe session: %w", err)
+	result := resource.ConnectionTestResult{ResolvedIPs: addressStrings(addresses), HostKeyFingerprint: fingerprint, RemoteVersion: string(clientConnection.ServerVersion()),
+		Platform: evidence.Platform, Architecture: evidence.Architecture, DistributionVersion: evidence.DistributionVersion,
+		ServiceManager: evidence.ServiceManager, Privileged: evidence.Privileged, FreeDiskBytes: evidence.FreeDiskBytes,
+		Checks: sshtarget.ConnectionChecks(evidence)}
+	if plan.Onboarding != nil {
+		err := executor.probeOnboardingCallbacks(ctx, client, *plan.Onboarding)
+		check := map[string]string{"name": "onboarding_callback", "status": "passed", "detail": plan.Onboarding.ControlPath}
+		if err != nil {
+			check["status"], check["detail"] = "failed", classifyConnectionError(err)
+			result.Checks = append(result.Checks, check)
+			return result, err
+		}
+		result.CallbackVerified, result.CallbackControlPath = true, plan.Onboarding.ControlPath
+		result.Checks = append(result.Checks, check)
 	}
-	defer session.Close()
-	output, err := session.Output("uname -m")
-	if err != nil {
-		return "", fmt.Errorf("probe target architecture: %w", err)
-	}
-	switch strings.TrimSpace(string(output)) {
-	case "x86_64", "amd64":
-		return "amd64", nil
-	case "aarch64", "arm64":
-		return "arm64", nil
-	default:
-		return "", fmt.Errorf("unsupported target architecture %q", strings.TrimSpace(string(output)))
-	}
-}
-
-func (executor *Executor) probeWinRM(ctx context.Context, plan connectionPlan, addresses []netip.Addr, username string, credential []byte) (resource.ConnectionTestResult, error) {
-	if plan.Port != 5986 && plan.Port != 443 {
-		return resource.ConnectionTestResult{}, resource.ErrWinRMTLSRequired
-	}
-	target := &url.URL{Scheme: "https", Host: net.JoinHostPort(plan.Address, fmt.Sprint(plan.Port)), Path: "/wsman"}
-	transport := &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: plan.Address},
-		DialContext: fixedDialer(addresses[0], plan.Port)}
-	client := &http.Client{Transport: transport, Timeout: executor.Timeout, CheckRedirect: rejectRedirect}
-	body := `<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body/></s:Envelope>`
-	request, _ := http.NewRequestWithContext(ctx, http.MethodPost, target.String(), strings.NewReader(body))
-	request.Header.Set("Content-Type", "application/soap+xml;charset=UTF-8")
-	request.SetBasicAuth(username, string(credential))
-	response, err := client.Do(request)
-	if err != nil {
-		return resource.ConnectionTestResult{}, err
-	}
-	defer response.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxProbeResponseBytes))
-	if err := executor.Validator.Revalidate(ctx, plan.Address, addresses); err != nil {
-		return resource.ConnectionTestResult{}, err
-	}
-	if response.StatusCode == http.StatusUnauthorized || response.StatusCode >= 500 {
-		return resource.ConnectionTestResult{}, errors.New("WinRM authentication failed")
-	}
-	return resource.ConnectionTestResult{ResolvedIPs: addressStrings(addresses), RemoteVersion: response.Header.Get("Server")}, nil
+	return result, nil
 }
 
 func (executor *Executor) probeKubernetes(ctx context.Context, plan connectionPlan, addresses []netip.Addr, kubeconfig []byte) (resource.ConnectionTestResult, error) {

@@ -26,6 +26,7 @@ import type {
 } from "./resource-models";
 import { publicActionType } from "./action-type";
 import { mockInstallInstructionSets } from "./install-instructions";
+import { requireAvailableResourceName } from "./name-availability";
 
 type MockTelemetryRouteInput = {
   kind: "direct_argus" | "bastion_gateway";
@@ -111,10 +112,11 @@ function mockTelemetryRoute(
 
 const IMMEDIATE_RESOURCE_TOOLS = new Set([
   "host.create",
+  "host.onboarding.retry",
   "host.update",
   "host.delete",
-  "host.enrollment.rotate",
-  "host.uninstall.command",
+  "host.removal.uninstall",
+  "host.removal.forget",
   "kubernetes.cluster.create",
   "kubernetes.cluster.update",
   "kubernetes.cluster.delete",
@@ -128,11 +130,11 @@ const IMMEDIATE_RESOURCE_TOOLS = new Set([
 
 const TOOL_RISK: Record<string, RiskLevel> = {
   "host.create": "write",
+  "host.onboarding.retry": "write",
   "host.update": "write",
   "host.delete": "dangerous",
-  "host.enrollment.rotate": "write",
-  "host.uninstall.command": "dangerous",
-  "host.restart": "dangerous",
+  "host.removal.uninstall": "write",
+  "host.removal.forget": "critical",
   "telemetry.host.install": "write",
   "telemetry.kubernetes.install": "write",
   "telemetry.collector.configure": "write",
@@ -232,7 +234,7 @@ export function createEngine(ctx: BaseContext): Engine {
   function createPendingAction(
     input: Parameters<Engine["createPendingAction"]>[0],
   ): PendingActionPublic {
-    const riskLevel = TOOL_RISK[input.tool] ?? "write";
+    const riskLevel = input.risk ?? TOOL_RISK[input.tool] ?? "write";
     const policy = db.approvalPolicies.find(
       (candidate) =>
         candidate.enterpriseId === ctx.enterpriseId() &&
@@ -600,35 +602,21 @@ export function createEngine(ctx: BaseContext): Engine {
     ctx.emitTask(task);
   }
 
-  function createHostEnrollment(
+  function createHostInstallCommand(
     host: MockHost,
-    createdBy: string,
   ): Exclude<SideEffectResult, undefined> {
-    for (const existing of db.hostEnrollmentTokens) {
-      if (existing.hostId === host.id && existing.status === "active") {
-        existing.status = "revoked";
-        existing.remainingUses = 0;
-      }
-    }
     const token = `hst_${nextId(db, "token")}_${Math.random().toString(36).slice(2, 10)}`;
     const expiresAt = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
-    const instructionSets = mockInstallInstructionSets(token, expiresAt);
-    const record = {
-      id: nextId(db, "hostenroll"),
-      enterpriseId: host.enterpriseId,
-      hostId: host.id,
-      status: "active" as const,
+    const target = `${host.platform}_${host.architecture ?? "amd64"}` as
+      "linux_amd64" | "linux_arm64" | "windows_amd64";
+    const instructionSets = mockInstallInstructionSets(
       token,
-      instructionSets,
       expiresAt,
-      remainingUses: 1,
-      createdBy,
-      createdAt: ctx.nowIso(),
-    };
-    db.hostEnrollmentTokens.push(record);
+      target,
+    );
     return {
       instructionSets,
-      resultKind: "host_install_command",
+      resultKind: "connector_install_command",
       expiresAt,
       resource: {
         resource_type: "host",
@@ -657,10 +645,11 @@ export function createEngine(ctx: BaseContext): Engine {
       .toString(36)
       .slice(2, 10)}`;
     const expiresAt = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+    const root = db.hosts.find((host) => host.id === scope.connectorHostId);
     const instructionSets = mockInstallInstructionSets(
       token,
       expiresAt,
-      "connector",
+      root?.architecture === "arm64" ? "linux_arm64" : "linux_amd64",
     );
     const enrollment = {
       id: enrollmentId,
@@ -748,21 +737,53 @@ export function createEngine(ctx: BaseContext): Engine {
     const plan = db.actionPlans[action.action_ref];
     if (!plan) throw new Error("pending action plan unavailable");
     const { input_data } = plan;
+    if (plan.tool === "host.onboarding.retry") {
+      const host = db.hosts.find(
+        (item) => item.id === String(input_data["host_id"]),
+      );
+      if (
+        !host ||
+        host.connectorId ||
+        host.onboardingState !== "install_failed"
+      )
+        throw new Error("installation retry is unavailable");
+      host.connectionStatus = "online";
+      host.onboardingState = "registered";
+      host.onboardingErrorCode = undefined;
+      host.onboardingOperationId = nextId(db, "host-onboarding");
+      host.connectorId = nextId(db, "connector");
+      host.updatedAt = ctx.nowIso();
+      action.result_summary = `Installation retried for ${host.name}`;
+      return;
+    }
     if (plan.tool === "host.create") {
+      const normalizedName = requireAvailableResourceName(
+        db,
+        plan.enterprise_id,
+        String(input_data["name"] ?? "new-host"),
+      );
       const host: MockHost = {
+        installMethod:
+          (input_data["install_method"] as MockHost["installMethod"]) ??
+          "manual",
+        installSSHPath:
+          (input_data["ssh_path"] as MockHost["installSSHPath"]) ?? "none",
+        installUsername: input_data["username"] as string | undefined,
+        installCredentialId: input_data["credential_id"] as string | undefined,
         id: nextId(db, "host"),
         enterpriseId: plan.enterprise_id,
-        name: String(input_data["name"] ?? "new-host"),
+        name: normalizedName,
         hostname: String(
           input_data["hostname"] ?? input_data["name"] ?? "new-host",
         ),
         address: String(input_data["address"] ?? ""),
         port: Number(input_data["port"] ?? 22),
         platform: (input_data["platform"] as MockHost["platform"]) ?? "linux",
-        connectionMode:
-          (input_data["connection_mode"] as MockHost["connectionMode"]) ??
-          (input_data["connectionMode"] as MockHost["connectionMode"]) ??
-          "direct_ssh",
+        architecture:
+          (input_data["architecture"] as MockHost["architecture"]) ?? "amd64",
+        role: "managed_host",
+        controlPath:
+          (input_data["control_path"] as MockHost["controlPath"]) ?? "direct",
         bastionScopeId:
           (input_data["bastion_scope_id"] as string | undefined) ??
           (input_data["bastionScopeId"] as string | undefined),
@@ -775,8 +796,8 @@ export function createEngine(ctx: BaseContext): Engine {
           (input_data["environment"] as MockHost["environment"]) ??
           "production",
         labels: (input_data["labels"] as Record<string, string>) ?? {},
-        connectionStatus: "online",
-        collectorStatus: "installing",
+        connectionStatus: "onboarding",
+        collectorStatus: "not_installed",
         createdAt: ctx.nowIso(),
         updatedAt: ctx.nowIso(),
         resourceVersion: 1,
@@ -790,39 +811,22 @@ export function createEngine(ctx: BaseContext): Engine {
         scope.updatedAt = ctx.nowIso();
       }
       action.result_summary = `已创建主机 ${host.name}`;
-      if (host.connectionMode === "self_enrolled") {
-        host.connectionStatus = "onboarding";
+      if (input_data["install_method"] === "manual") {
         host.address = "";
         host.port = 0;
-        return createHostEnrollment(host, plan.created_by);
+        return createHostInstallCommand(host);
       }
       return;
     }
-    if (plan.tool === "host.enrollment.rotate") {
+    if (plan.tool === "host.windows_rdp.enable") {
       const host = db.hosts.find(
         (entry) => entry.id === String(input_data["host_id"] ?? ""),
       );
-      if (!host) return;
-      host.resourceVersion = (host.resourceVersion ?? 1) + 1;
-      return createHostEnrollment(host, plan.created_by);
-    }
-    if (plan.tool === "host.uninstall.command") {
-      const host = db.hosts.find(
-        (entry) => entry.id === String(input_data["host_id"] ?? ""),
-      );
-      if (!host) return;
-      const token = `hun_${nextId(db, "token")}_${Math.random().toString(36).slice(2, 10)}`;
-      const expiresAt = new Date(Date.now() + 30 * 60_000).toISOString();
-      return {
-        instructionSets: mockInstallInstructionSets(token, expiresAt),
-        resultKind: "host_uninstall_command",
-        expiresAt,
-        resource: {
-          resource_type: "host",
-          resource_id: host.id,
-          version: host.resourceVersion ?? 1,
-        },
-      };
+      if (host) {
+        host.rdpEnabled = true;
+        host.updatedAt = ctx.nowIso();
+      }
+      return;
     }
     if (plan.tool === "host.update") {
       const host = db.hosts.find(
@@ -834,11 +838,6 @@ export function createEngine(ctx: BaseContext): Engine {
       if (input_data["hostname"] !== undefined) {
         host.hostname = String(input_data["hostname"]);
       }
-      if (input_data["address"] !== undefined) {
-        host.address = String(input_data["address"]);
-      }
-      if (input_data["port"] !== undefined)
-        host.port = Number(input_data["port"]);
       if (input_data["environment"] !== undefined) {
         host.environment = input_data["environment"] as MockHost["environment"];
       }
@@ -852,6 +851,24 @@ export function createEngine(ctx: BaseContext): Engine {
     }
     if (plan.tool === "host.delete") {
       const id = String(input_data["id"] ?? "");
+      const host = db.hosts.find((entry) => entry.id === id);
+      if (!host) throw new Error("HOST_NOT_FOUND");
+      if (input_data["delete_incomplete_install"] === true) {
+        if (
+          (host.resourceVersion ?? 1) !== Number(input_data["expected_version"])
+        ) {
+          throw new Error("RESOURCE_VERSION_CONFLICT");
+        }
+        const currentConnector = db.connectors.find(
+          (connector) =>
+            connector.id === host.connectorId &&
+            connector.status !== "revoked" &&
+            connector.status !== "uninstalled",
+        );
+        if (currentConnector) {
+          throw new Error("HOST_DELETE_REQUIRES_UNINSTALL");
+        }
+      }
       db.hosts = db.hosts.filter((entry) => entry.id !== id);
       for (const scope of db.bastionScopes) {
         scope.memberHostIds = scope.memberHostIds.filter(
@@ -861,11 +878,116 @@ export function createEngine(ctx: BaseContext): Engine {
       action.result_summary = `已删除主机 ${id}`;
       return;
     }
+    if (
+      plan.tool === "host.removal.uninstall" ||
+      plan.tool === "host.removal.forget"
+    ) {
+      const targetId = String(input_data["target_id"] ?? "");
+      const forget = plan.tool === "host.removal.forget";
+      const host = db.hosts.find((entry) => entry.id === targetId);
+      if (host) {
+        host.status = forget ? "deleted" : "uninstalled";
+        host.localCleanup = forget ? "unknown" : "verified";
+        host.connectionStatus = "offline";
+        host.resourceVersion = (host.resourceVersion ?? 1) + 1;
+        host.updatedAt = ctx.nowIso();
+      }
+      const scope = db.bastionScopes.find((entry) => entry.id === targetId);
+      if (scope) {
+        scope.status = forget ? "deleted" : "uninstalled";
+        scope.updatedAt = ctx.nowIso();
+      }
+      action.result_summary = forget ? "已仅从 Argus 移除" : "卸载命令已生成";
+      if (forget) return;
+      const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
+      return {
+        resultKind: "host_removal_command",
+        expiresAt,
+        instructionSets: [
+          {
+            platform:
+              host?.platform === "windows" ? "windows_amd64" : "linux_amd64",
+            shell: host?.platform === "windows" ? "powershell" : "posix_sh",
+            privilege: "system",
+            command:
+              host?.platform === "windows"
+                ? "# mock PowerShell removal command"
+                : "# mock POSIX removal command",
+            bootstrap_tls_mode: "strict",
+            release_version: "removal-v1",
+            expires_at: expiresAt,
+            trust_bundle_epoch: 1,
+            trust_bundle_sha256: "a".repeat(64),
+            bootstrap_sha256: "b".repeat(64),
+            installer_sha256: "b".repeat(64),
+            capability_warnings: [],
+          },
+        ],
+      };
+    }
     if (plan.tool === "telemetry.host.install") {
       const hostId = String(
         input_data["host_id"] ?? input_data["hostId"] ?? "",
       );
       if (hostId.length === 0) throw new Error("TELEMETRY_ROUTE_INVALID");
+      const bootstrapGatewayHostId = String(
+        input_data["bootstrap_gateway_host_id"] ?? "",
+      );
+      if (bootstrapGatewayHostId.length > 0) {
+        const gatewayCollectorId = String(
+          input_data["gateway_collector_id"] ?? "",
+        );
+        if (gatewayCollectorId.length === 0) {
+          throw new Error("TELEMETRY_ROUTE_INVALID");
+        }
+        const gatewayHost = db.hosts.find(
+          (entry) =>
+            entry.id === bootstrapGatewayHostId &&
+            entry.enterpriseId === plan.enterprise_id &&
+            entry.role === "bastion",
+        );
+        if (!gatewayHost) throw new Error("TELEMETRY_ROUTE_INVALID");
+        const existingGateway = db.collectors.find(
+          (entry) =>
+            entry.enterprise_id === plan.enterprise_id &&
+            entry.resource_type === "host" &&
+            entry.resource_id === bootstrapGatewayHostId,
+        );
+        if (existingGateway && existingGateway.id !== gatewayCollectorId) {
+          throw new Error("TELEMETRY_ROUTE_INVALID");
+        }
+        const gateway = existingGateway ?? {
+          id: gatewayCollectorId,
+          enterprise_id: plan.enterprise_id,
+          resource_type: "host" as const,
+          resource_id: bootstrapGatewayHostId,
+          distribution_version_id: String(
+            input_data["distribution_version_id"] ?? "dist-linux-arm64-v1",
+          ),
+          platform:
+            gatewayHost.architecture === "amd64"
+              ? ("linux_amd64" as const)
+              : ("linux_arm64" as const),
+          role: "edge_gateway" as const,
+          desired_revision: 1,
+          effective_revision: 0,
+          status: "installing" as const,
+          version: 1,
+          created_at: ctx.nowIso(),
+          updated_at: ctx.nowIso(),
+        };
+        if (!existingGateway) db.collectors.push(gateway);
+        gateway.status = "installing";
+        gateway.route = mockTelemetryRoute(
+          gateway,
+          { kind: "direct_argus", transport: "direct" },
+          plan.enterprise_id,
+          ctx.nowIso(),
+          nextId(db, "route"),
+        );
+        registerSettling(db, gateway.id);
+        gatewayHost.collectorStatus = "installing";
+      }
       const routeInput = parseTelemetryRouteInput(input_data);
       let collector = db.collectors.find(
         (entry) =>
@@ -1054,12 +1176,18 @@ export function createEngine(ctx: BaseContext): Engine {
       return;
     }
     if (plan.tool === "bastion.scope.create") {
+      const normalizedName = requireAvailableResourceName(
+        db,
+        plan.enterprise_id,
+        String(input_data["name"] ?? "new-bastion"),
+        true,
+      );
       const now = ctx.nowIso();
       const rootHostId = nextId(db, "host");
       const scope: MockBastionScope = {
         id: nextId(db, "scope"),
         enterpriseId: plan.enterprise_id,
-        name: String(input_data["name"] ?? "new-bastion"),
+        name: normalizedName,
         environment:
           (input_data["environment"] as
             "development" | "staging" | "production") ?? "production",
@@ -1089,7 +1217,14 @@ export function createEngine(ctx: BaseContext): Engine {
             ? 1
             : Number(input_data["port"] ?? 22),
         platform: "linux",
-        connectionMode: "connector_local",
+        architecture:
+          (input_data["architecture"] as "amd64" | "arm64" | undefined) ??
+          "amd64",
+        role: "bastion",
+        controlPath:
+          scope.onboardingMode === "direct_install_tunnel"
+            ? "executor_tunnel"
+            : "direct",
         bastionScopeId: scope.id,
         environment: scope.environment,
         labels: { ...scope.labels },
@@ -1138,11 +1273,28 @@ export function createEngine(ctx: BaseContext): Engine {
     }
     if (plan.tool === "bastion.scope.delete") {
       const id = String(input_data["scope_id"] ?? "");
+      const scope = db.bastionScopes.find((entry) => entry.id === id);
+      if (!scope) throw new Error("BASTION_SCOPE_NOT_FOUND");
+      if (input_data["delete_incomplete_install"] === true) {
+        if (
+          (scope.resourceVersion ?? 1) !==
+          Number(input_data["expected_version"])
+        ) {
+          throw new Error("RESOURCE_VERSION_CONFLICT");
+        }
+        const currentConnector = db.connectors.find(
+          (connector) =>
+            connector.id === scope.activeConnectorId &&
+            connector.status !== "revoked" &&
+            connector.status !== "uninstalled",
+        );
+        if (currentConnector) {
+          throw new Error("BASTION_DELETE_REQUIRES_UNINSTALL");
+        }
+      }
       db.bastionScopes = db.bastionScopes.filter((entry) => entry.id !== id);
       db.hosts = db.hosts.filter(
-        (entry) =>
-          entry.bastionScopeId !== id ||
-          entry.connectionMode !== "connector_local",
+        (entry) => entry.bastionScopeId !== id || entry.role !== "bastion",
       );
       action.result_summary = `已删除堡垒机范围 ${id}`;
       return;
@@ -1310,10 +1462,12 @@ export function createEngine(ctx: BaseContext): Engine {
           name: `host-new-${db.hosts.length + 1}`,
           address: ipMatch?.[0] ?? "10.0.9.10",
           port: 22,
-          connectionMode: "via_bastion",
-          bastionScopeId: "scope-sh",
-          connectorId: "conn-sh-01",
-          credentialRef: "sec-ssh-prod",
+          role: "managed_host",
+          control_path: "bastion_relay",
+          install_method: "ssh",
+          ssh_path: "bastion_connector",
+          bastion_scope_id: "scope-sh",
+          credential_id: "sec-ssh-prod",
           environment: "production",
         },
       });

@@ -586,10 +586,9 @@ func (q *Queries) ExpireRemoteAccessRequirements(ctx context.Context, limit int3
 }
 
 const getRemoteAccessLeaseForSession = `-- name: GetRemoteAccessLeaseForSession :one
-SELECT lease.id, lease.request_id, lease.enterprise_id, lease.user_id, lease.grant_id, lease.host_id, lease.managed_account_id, lease.protocol, lease.action, lease.authorization_version, lease.issued_at, lease.expires_at, lease.revoked_at, lease.revoke_reason, lease.decision_snapshot, lease.session_profile_snapshot, lease.decision_snapshot_hash, host.connection_mode, bastion.active_connector_id AS connector_id, account.username, account.credential_id
+SELECT lease.id, lease.request_id, lease.enterprise_id, lease.user_id, lease.grant_id, lease.host_id, lease.managed_account_id, lease.protocol, lease.action, lease.authorization_version, lease.issued_at, lease.expires_at, lease.revoked_at, lease.revoke_reason, lease.decision_snapshot, lease.session_profile_snapshot, lease.decision_snapshot_hash, host.control_path, host.connector_id, account.username, account.credential_id
 FROM remote_access_leases lease JOIN hosts host ON host.id=lease.host_id AND host.enterprise_id=lease.enterprise_id
 JOIN managed_accounts account ON account.id=lease.managed_account_id AND account.enterprise_id=lease.enterprise_id
-LEFT JOIN bastion_scopes bastion ON bastion.id=host.bastion_scope_id AND bastion.enterprise_id=host.enterprise_id AND bastion.status='active'
 WHERE lease.id=$1 AND lease.enterprise_id=$2 AND lease.user_id=$3 AND lease.revoked_at IS NULL AND lease.expires_at>now()
   AND host.status='active' AND account.status='active'
 `
@@ -618,7 +617,7 @@ type GetRemoteAccessLeaseForSessionRow struct {
 	DecisionSnapshot       []byte             `json:"decision_snapshot"`
 	SessionProfileSnapshot []byte             `json:"session_profile_snapshot"`
 	DecisionSnapshotHash   []byte             `json:"decision_snapshot_hash"`
-	ConnectionMode         string             `json:"connection_mode"`
+	ControlPath            string             `json:"control_path"`
 	ConnectorID            uuid.NullUUID      `json:"connector_id"`
 	Username               string             `json:"username"`
 	CredentialID           uuid.UUID          `json:"credential_id"`
@@ -645,7 +644,7 @@ func (q *Queries) GetRemoteAccessLeaseForSession(ctx context.Context, arg GetRem
 		&i.DecisionSnapshot,
 		&i.SessionProfileSnapshot,
 		&i.DecisionSnapshotHash,
-		&i.ConnectionMode,
+		&i.ControlPath,
 		&i.ConnectorID,
 		&i.Username,
 		&i.CredentialID,
@@ -1298,7 +1297,7 @@ WHERE session.enterprise_id=$2
     WHEN 'session_profile' THEN session.decision_snapshot->'session_profile'->'source_profiles' @> jsonb_build_array(jsonb_build_object('id', $4::uuid::text))
     ELSE false
   END
-RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
+RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
 `
 
 type TerminateRemoteAccessSessionsByGovernanceSourceParams struct {
@@ -1331,7 +1330,7 @@ func (q *Queries) TerminateRemoteAccessSessionsByGovernanceSource(ctx context.Co
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,
@@ -1374,7 +1373,7 @@ UPDATE remote_access_sessions SET status='invalidated',terminated_at=now(),termi
     session_fence=session_fence+1,updated_at=now()
 WHERE enterprise_id=$2 AND user_id=ANY($3::uuid[])
   AND status IN ('requested','authorized','connecting','active','connection_lost')
-RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, connection_mode, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
+RETURNING id, enterprise_id, user_id, http_session_id, lease_id, host_id, managed_account_id, protocol, control_path, connector_id, connector_epoch, status, session_fence, authorization_version, idle_timeout_seconds, max_duration_seconds, connect_before, connected_at, terminated_at, termination_reason, created_at, updated_at, decision_snapshot, session_profile_snapshot, decision_snapshot_hash, recording_mode, command_audit_mode, clipboard_mode, file_upload_mode, file_download_mode, port_forward_mode, session_share_mode, retention_days, gateway_instance, reason
 `
 
 type TerminateRemoteAccessSessionsByUsersParams struct {
@@ -1401,7 +1400,7 @@ func (q *Queries) TerminateRemoteAccessSessionsByUsers(ctx context.Context, arg 
 			&i.HostID,
 			&i.ManagedAccountID,
 			&i.Protocol,
-			&i.ConnectionMode,
+			&i.ControlPath,
 			&i.ConnectorID,
 			&i.ConnectorEpoch,
 			&i.Status,

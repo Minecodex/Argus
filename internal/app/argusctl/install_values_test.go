@@ -22,6 +22,11 @@ var splitWorkerDeployments = []string{
 	"argus-worker-sandbox",
 }
 
+func withTestHTTPSInternalAddress(values map[string]any) map[string]any {
+	values["runtime"].(map[string]any)["httpsInternalAddress"] = "ingress-nginx-controller.ingress-nginx.svc:443"
+	return values
+}
+
 func TestTelemetryCatalogByteSizesRemainDecimalAfterHelmValueRoundTrip(t *testing.T) {
 	root, err := findRepoRoot(".")
 	if err != nil {
@@ -35,8 +40,9 @@ func TestTelemetryCatalogByteSizesRemainDecimalAfterHelmValueRoundTrip(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "0123456789abcdef0123456789abcdef", strings.Repeat("a", 64))
+	values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "0123456789abcdef0123456789abcdef")
 	runtimeValues := values["runtime"].(map[string]any)
+	withTestHTTPSInternalAddress(values)
 	runtimeValues["otelcolLinuxArm64ByteSize"] = float64(61236274)
 	runtimeValues["otelcolLinuxAmd64Uri"] = "https://artifacts.example/amd64.tar.gz"
 	runtimeValues["otelcolLinuxAmd64Sha256"] = strings.Repeat("a", 64)
@@ -94,7 +100,7 @@ func TestLocalHardeningInstallerValuesRenderCharts(t *testing.T) {
 		values    map[string]any
 	}{
 		{name: "data", chartName: "argus-data", namespace: cfg.Spec.Namespaces.System, values: dataValues(cfg, credentials)},
-		{name: "platform", chartName: "argus-platform", namespace: cfg.Spec.Namespaces.System, values: platformValues(cfg, credentials, "setup-secret", "idempotency", "cursor", "pending", "", strings.Repeat("a", 64))},
+		{name: "platform", chartName: "argus-platform", namespace: cfg.Spec.Namespaces.System, values: withTestHTTPSInternalAddress(platformValues(cfg, credentials, "setup-secret", "idempotency", "cursor", "pending", ""))},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -129,7 +135,7 @@ func TestInstallerProvidesRequiredObjectStoreBootstrapValues(t *testing.T) {
 	if got := images["minioClient"]; got != "minio/mc:RELEASE.2025-08-13T08-35-41Z" {
 		t.Fatalf("minioClient = %v", got)
 	}
-	platform := platformValues(cfg, credentials, "setup-secret", "idempotency", "cursor", "pending", "secret-kek", strings.Repeat("a", 64))
+	platform := platformValues(cfg, credentials, "setup-secret", "idempotency", "cursor", "pending", "secret-kek")
 	runtimeValues := platform["runtime"].(map[string]any)
 	if got := runtimeValues["remoteOrigin"]; got != "https://argus.dev" {
 		t.Fatalf("remoteOrigin = %v", got)
@@ -155,18 +161,20 @@ func TestPlatformValuesUseUnifiedDomainHosts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek", strings.Repeat("a", 64))
+	values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek")
 	runtimeValues := values["runtime"].(map[string]any)
 	for key, want := range map[string]string{
-		"remoteOrigin":                     "https://argus.dev",
-		"connectorEnrollmentURL":           "https://argus.dev",
-		"connectorGatewayAddress":          "grpcs://connector.argus.dev:9443",
-		"connectorEnrollmentForwardTarget": "argus.dev:443",
-		"connectorGatewayForwardTarget":    "argus-connector-gateway.argus-e2e-local-system.svc:9443",
+		"remoteOrigin":                  "https://argus.dev",
+		"connectorEnrollmentURL":        "https://argus.dev",
+		"connectorGatewayAddress":       "grpcs://connector.argus.dev:9443",
+		"connectorGatewayForwardTarget": "argus-connector-gateway.argus-e2e-local-system.svc:9443",
 	} {
 		if got := runtimeValues[key]; got != want {
 			t.Fatalf("%s = %v, want %s", key, got, want)
 		}
+	}
+	if _, exists := runtimeValues["connectorEnrollmentForwardTarget"]; exists {
+		t.Fatal("platform values must not derive the internal enrollment target from the public enterprise host")
 	}
 	if got := runtimeValues["secureCookies"]; got != true {
 		t.Fatalf("secureCookies = %v, want true", got)
@@ -192,6 +200,38 @@ func TestPlatformValuesUseUnifiedDomainHosts(t *testing.T) {
 	}
 }
 
+func TestPlatformChartRequiresInstallerHTTPSAddress(t *testing.T) {
+	root, err := findRepoRoot(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(filepath.Join(root, "deploy", "profiles", "evaluation.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadLocalChart(root, "argus-platform")
+	if err != nil {
+		t.Fatal(err)
+	}
+	configuration := action.NewConfiguration(action.ConfigurationSetLogger(slog.NewTextHandler(io.Discard, nil)))
+	install := action.NewInstall(configuration)
+	install.ReleaseName = "argus-missing-internal-https-render"
+	install.Namespace = cfg.Spec.Namespaces.System
+	install.DryRunStrategy = action.DryRunClient
+	_, err = install.Run(loaded, platformValues(
+		cfg,
+		localHardeningTestCredentials(),
+		"setup-secret",
+		"idempotency",
+		"cursor",
+		"pending",
+		"0123456789abcdef0123456789abcdef",
+	))
+	if err == nil || !strings.Contains(err.Error(), "runtime.httpsInternalAddress is required") {
+		t.Fatalf("render error = %v, want missing installer-discovered HTTPS address", err)
+	}
+}
+
 func TestProductionPlatformValuesCarryExplicitTunnelCapacity(t *testing.T) {
 	root, err := findRepoRoot(".")
 	if err != nil {
@@ -201,7 +241,7 @@ func TestProductionPlatformValuesCarryExplicitTunnelCapacity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek", strings.Repeat("a", 64))
+	values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek")
 	production := values["production"].(map[string]any)
 	capacity := production["directExecutor"].(map[string]any)
 	if capacity["telemetryTunnelLimit"] != 64 || capacity["controlTunnelLimit"] != 32 || capacity["tunnelBytesPerSecond"] != int64(67108864) {
@@ -218,13 +258,13 @@ func TestPlatformMFARequirementIsExplicitAndDefaultsOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtimeValues := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek", strings.Repeat("a", 64))["runtime"].(map[string]any)
+	runtimeValues := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek")["runtime"].(map[string]any)
 	if got := runtimeValues["platformMfaRequired"]; got != false {
 		t.Fatalf("platformMfaRequired = %v, want false", got)
 	}
 
 	cfg.Spec.Security.PlatformMFARequired = true
-	runtimeValues = platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek", strings.Repeat("a", 64))["runtime"].(map[string]any)
+	runtimeValues = platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek")["runtime"].(map[string]any)
 	if got := runtimeValues["platformMfaRequired"]; got != true {
 		t.Fatalf("platformMfaRequired = %v, want true", got)
 	}
@@ -241,7 +281,7 @@ func TestAllowedOriginsAreHttpsDomainsOnly(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek", strings.Repeat("a", 64))
+			values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "secret-kek")
 			runtimeValues := values["runtime"].(map[string]any)
 			want := []any{
 				"https://argus.dev",
@@ -568,8 +608,9 @@ func TestPlatformChartAllowsTelemetryToBeDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "", strings.Repeat("a", 64))
+	values := platformValues(cfg, localHardeningTestCredentials(), "setup-secret", "idempotency", "cursor", "pending", "")
 	runtimeValues := values["runtime"].(map[string]any)
+	withTestHTTPSInternalAddress(values)
 	runtimeValues["telemetryToolCatalogEnabled"] = false
 	runtimeValues["otelcolLinuxArm64Uri"] = ""
 	runtimeValues["otelcolLinuxArm64Sha256"] = ""
@@ -739,7 +780,7 @@ func renderPlatformResources(t *testing.T, profile string) []*unstructured.Unstr
 	install.ReleaseName = "argus-" + profile + "-render"
 	install.Namespace = cfg.Spec.Namespaces.System
 	install.DryRunStrategy = action.DryRunClient
-	rendered, err := install.Run(loaded, platformValues(
+	values := platformValues(
 		cfg,
 		localHardeningTestCredentials(),
 		"setup-secret",
@@ -747,8 +788,9 @@ func renderPlatformResources(t *testing.T, profile string) []*unstructured.Unstr
 		"cursor",
 		"pending",
 		"0123456789abcdef0123456789abcdef",
-		strings.Repeat("a", 64),
-	))
+	)
+	withTestHTTPSInternalAddress(values)
+	rendered, err := install.Run(loaded, values)
 	if err != nil {
 		t.Fatalf("render platform chart for %s: %v", profile, err)
 	}

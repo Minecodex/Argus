@@ -105,7 +105,7 @@ func Upsert(ctx context.Context, q *db.Queries, enterpriseID, clusterID uuid.UUI
 		value = normalize(value)
 		candidates := make([]uuid.UUID, 0, 1)
 		for _, host := range hosts {
-			if host.Status == "active" && slices.Contains(value.InternalIPs, host.Address) {
+			if host.Status == "active" && host.Address.Valid && slices.Contains(value.InternalIPs, host.Address.String) {
 				candidates = append(candidates, host.ID)
 			}
 		}

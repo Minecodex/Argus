@@ -33,6 +33,7 @@ const strictBody = source.slice(offset);
 const strictImports = ["context"];
 if (strictBody.includes("json.")) strictImports.push("encoding/json");
 if (strictBody.includes("fmt.")) strictImports.push("fmt");
+if (strictBody.includes("io.")) strictImports.push("io");
 if (strictBody.includes("openapi_types.")) {
   strictImports.push('openapi_types "github.com/oapi-codegen/runtime/types"');
 }
@@ -66,6 +67,7 @@ const serverImports = (body) => {
   if (body.includes("bytes.")) imports.push("bytes");
   if (body.includes("json.")) imports.push("encoding/json");
   if (body.includes("fmt.")) imports.push("fmt");
+  if (body.includes("io.")) imports.push("io");
   if (body.includes("http.")) imports.push("net/http");
   if (body.includes("openapi_types.")) imports.push('openapi_types "github.com/oapi-codegen/runtime/types"');
   return imports;
@@ -86,6 +88,7 @@ if (responseOffset >= 0 && chiSource.split("\n").length > 2000) {
   const keptImports = [];
   if (keptBody.includes("bytes.")) keptImports.push("bytes");
   if (keptBody.includes("json.")) keptImports.push("encoding/json");
+  if (keptBody.includes("io.")) keptImports.push("io");
   keptImports.push("errors", "fmt", "net/http");
   keptImports.push("github.com/go-chi/chi/v5", "github.com/oapi-codegen/runtime");
   if (keptBody.includes("openapi_types.")) keptImports.push('openapi_types "github.com/oapi-codegen/runtime/types"');

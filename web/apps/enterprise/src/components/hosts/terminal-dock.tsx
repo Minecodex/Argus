@@ -29,13 +29,28 @@ const DOCK_POSITIONS: Array<{
   labelKey: string;
   icon: LucideIcon;
 }> = [
-  { value: "bottom", labelKey: "hosts.terminal.dockPositionBottom", icon: PanelBottom },
-  { value: "left", labelKey: "hosts.terminal.dockPositionLeft", icon: PanelLeft },
-  { value: "right", labelKey: "hosts.terminal.dockPositionRight", icon: PanelRight },
+  {
+    value: "bottom",
+    labelKey: "hosts.terminal.dockPositionBottom",
+    icon: PanelBottom,
+  },
+  {
+    value: "left",
+    labelKey: "hosts.terminal.dockPositionLeft",
+    icon: PanelLeft,
+  },
+  {
+    value: "right",
+    labelKey: "hosts.terminal.dockPositionRight",
+    icon: PanelRight,
+  },
 ];
 
 /** 拖拽方向语义：沿箭头方向移动分隔条时的尺寸增减。 */
-function keyboardDelta(position: TerminalDockPosition, key: string): number | null {
+function keyboardDelta(
+  position: TerminalDockPosition,
+  key: string,
+): number | null {
   const grow: Record<TerminalDockPosition, string> = {
     bottom: "ArrowUp",
     left: "ArrowLeft",
@@ -77,9 +92,7 @@ export function TerminalDock() {
   const resetTerminalDockSize = useUiStore(
     (state) => state.resetTerminalDockSize,
   );
-  const [terminatingIds, setTerminatingIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [terminatingIds, setTerminatingIds] = useState<Set<string>>(new Set());
   const draggingRef = useRef(false);
   const dockRef = useRef<HTMLElement>(null);
 
@@ -289,13 +302,12 @@ export function TerminalDock() {
             autoFocusKey={`${activeSession.id}:${dockOpen}`}
             host={activeSession.hostName}
             lines={activeSession.lines}
-            mode={activeSession.protocol === "SSH PTY" ? "pty" : "line"}
+            mode={activeSession.protocol === "RDP" ? "line" : "pty"}
             onCommand={(command) =>
               sendInput(activeSession.id, `${command}\r\n`)
             }
             onData={(data) => sendInput(activeSession.id, data)}
             onResize={(cols, rows) => resize(activeSession.id, cols, rows)}
-            prompt={activeSession.protocol === "WinRS PowerShell" ? "PS>" : ""}
             protocol={activeSession.protocol}
             sessionId={activeSession.id}
             startedAt={activeSession.connectedAt}

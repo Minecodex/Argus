@@ -49,6 +49,12 @@ import {
   type OnboardingWizardState,
 } from "./onboarding-wizard-state";
 import { PendingActionConfirm } from "./pending-action-confirm";
+import { ConnectionTestSummary } from "./connection-test-summary";
+import { connectionTestFailureMessage } from "./onboarding-errors";
+import {
+  useResourceNameAvailability,
+  type ResourceNameSnapshot,
+} from "./use-resource-name-availability";
 import {
   connectorControlTunnelStatusLabel,
   connectorInstallEventStatusLabel,
@@ -64,6 +70,7 @@ type BastionFormValues = {
   name: string;
   environment: (typeof ENVIRONMENTS)[number];
   labelsText: string;
+  architecture: "amd64" | "arm64";
   address: string;
   port: string;
   username: string;
@@ -103,7 +110,11 @@ export function AddBastionDialog({
     useState<ActionOneTimeResult | null>(null);
   const [testing, setTesting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [previewName, setPreviewName] = useState<ResourceNameSnapshot | null>(
+    null,
+  );
   const createdNotified = useRef(false);
+  const prepareGeneration = useRef(0);
   const constraints = { name: formConstraint("BastionPreviewCreate", "name") };
 
   const credentialsQuery = useQuery({
@@ -128,9 +139,14 @@ export function AddBastionDialog({
             .string()
             .trim()
             .min(1, t("hosts.wizard.required"))
-            .max(constraints.name.maxLength ?? 128),
+            .refine(
+              (name) =>
+                Array.from(name).length <= (constraints.name.maxLength ?? 128),
+              t("resourceNames.tooLong"),
+            ),
           environment: z.enum(ENVIRONMENTS),
           labelsText: z.string(),
+          architecture: z.enum(["amd64", "arm64"]),
           address: z.string(),
           port: z.string(),
           username: z.string(),
@@ -159,6 +175,7 @@ export function AddBastionDialog({
       name: "",
       environment: "production",
       labelsText: "",
+      architecture: "amd64",
       address: "",
       port: "22",
       username: "",
@@ -166,8 +183,15 @@ export function AddBastionDialog({
     },
   });
   const values = form.watch();
+  const nameAvailability = useResourceNameAvailability({
+    name: values.name,
+    enabled: open,
+    check: api.connectors.checkBastionNameAvailability,
+  });
 
   const reset = () => {
+    prepareGeneration.current += 1;
+    nameAvailability.reset();
     form.reset();
     dispatch({ type: "reset", mode: "command" });
     setPendingMode(null);
@@ -256,15 +280,21 @@ export function AddBastionDialog({
     applyMode(mode);
   };
 
-  const createConnectionTest = async (input: BastionFormValues) => {
+  const createConnectionTest = async (
+    input: BastionFormValues,
+    snapshot: ResourceNameSnapshot,
+  ) => {
     let result = await api.hosts.createConnectionTest({
       address: input.address,
       port: Number(input.port),
       platform: "linux",
-      connection_mode: "direct_ssh",
+      ssh_path: "direct_executor",
+      onboarding_control_path:
+        wizard.mode === "direct_install_tunnel" ? "executor_tunnel" : "direct",
       credential_id: input.credentialId,
       username: input.username,
     });
+    if (!nameAvailability.isCurrent(snapshot)) return null;
     for (
       let attempt = 0;
       attempt < 60 && ["queued", "running"].includes(result.status);
@@ -272,6 +302,7 @@ export function AddBastionDialog({
     ) {
       await new Promise((resolve) => window.setTimeout(resolve, 500));
       result = await api.hosts.getConnectionTest(result.id);
+      if (!nameAvailability.isCurrent(snapshot)) return null;
     }
     setConnectionTest(result);
     return result;
@@ -281,18 +312,24 @@ export function AddBastionDialog({
     if (submitting || testing) return;
     form.clearErrors();
     setSubmitting(true);
+    setConnectionTest(null);
     let connectionTestId: string | undefined;
+    const nameSnapshot = nameAvailability.capture();
+    if (input.name.trim() !== nameSnapshot.name.trim()) {
+      setSubmitting(false);
+      return;
+    }
+    const generation = ++prepareGeneration.current;
     try {
+      if (!(await nameAvailability.validate())) return;
       if (wizard.mode !== "command") {
         setTesting(true);
-        const test = await createConnectionTest(input);
+        const test = await createConnectionTest(input, nameSnapshot);
+        if (!test) return;
         if (test.status !== "succeeded") {
           form.setError("root", {
             type: "server",
-            message: formatErrorCode(
-              test.error_code,
-              t("hosts.bastionForm.testFailed"),
-            ),
+            message: connectionTestFailureMessage(test.error_code, t),
           });
           return;
         }
@@ -304,6 +341,9 @@ export function AddBastionDialog({
         labels: parseLabels(input.labelsText),
         install_mode: wizard.mode,
         ...(wizard.mode === "command"
+          ? { architecture: input.architecture }
+          : {}),
+        ...(wizard.mode === "command"
           ? {}
           : {
               address: input.address,
@@ -313,12 +353,19 @@ export function AddBastionDialog({
               connection_test_id: connectionTestId,
             }),
       });
+      if (!nameAvailability.isCurrent(nameSnapshot)) {
+        void api.approvals.cancel(action.action_ref).catch(() => {});
+        return;
+      }
+      setPreviewName(nameSnapshot);
       setPendingAction(action);
       dispatch({
         type: "next",
         terminal: wizard.mode === "command" ? "confirm_command" : "verify",
       });
     } catch (error) {
+      if (!nameAvailability.isCurrent(nameSnapshot)) return;
+      if (nameAvailability.handleConflict(error, nameSnapshot)) return;
       presentApiFormError(error, {
         fallback: t("hosts.bastionForm.commandGenerateFailed"),
         fieldMap: {
@@ -340,8 +387,10 @@ export function AddBastionDialog({
           form.setError("root", { message, type: "server" }),
       });
     } finally {
-      setTesting(false);
-      setSubmitting(false);
+      if (prepareGeneration.current === generation) {
+        setTesting(false);
+        setSubmitting(false);
+      }
     }
   });
 
@@ -468,23 +517,37 @@ export function AddBastionDialog({
                 onChange={() => dispatch({ type: "change_mode" })}
                 t={t}
               />
-              {form.formState.errors.root?.message && (
-                <Alert
-                  description={form.formState.errors.root.message}
-                  title={t("hosts.bastionForm.testFailed")}
-                  tone="danger"
-                />
+              {form.formState.errors.root?.message &&
+                connectionTest?.status !== "failed" && (
+                  <Alert
+                    description={form.formState.errors.root.message}
+                    title={t("hosts.bastionForm.testFailed")}
+                    tone="danger"
+                  />
+                )}
+              {connectionTest?.status === "failed" && (
+                <ConnectionTestSummary result={connectionTest} />
               )}
               <div className="argus-scenario-wizard__form">
                 <Field
-                  error={form.formState.errors.name?.message}
+                  error={
+                    form.formState.errors.name?.message ??
+                    nameAvailability.error
+                  }
+                  hint={
+                    nameAvailability.checking
+                      ? t("resourceNames.checking")
+                      : undefined
+                  }
                   label={t("hosts.bastionForm.name")}
                   requirement="required"
                 >
                   <Input
                     autoFocus
                     placeholder={t("hosts.bastionForm.namePlaceholder")}
-                    {...form.register("name")}
+                    {...form.register("name", {
+                      onBlur: nameAvailability.onBlur,
+                    })}
                   />
                 </Field>
                 <Field
@@ -506,6 +569,29 @@ export function AddBastionDialog({
                     value={values.environment}
                   />
                 </Field>
+                {wizard.mode === "command" && (
+                  <Field
+                    label={t("hosts.wizard.architecture")}
+                    requirement="required"
+                  >
+                    <Select
+                      onValueChange={(value) =>
+                        form.setValue(
+                          "architecture",
+                          value as "amd64" | "arm64",
+                          {
+                            shouldValidate: true,
+                          },
+                        )
+                      }
+                      options={[
+                        { value: "amd64", label: "AMD64 / x86_64" },
+                        { value: "arm64", label: "ARM64 / aarch64" },
+                      ]}
+                      value={values.architecture}
+                    />
+                  </Field>
+                )}
                 {wizard.mode !== "command" && (
                   <>
                     <Field
@@ -556,6 +642,11 @@ export function AddBastionDialog({
                     </Field>
                   </>
                 )}
+                <Alert
+                  description={t("hosts.bastionForm.relayAutomaticDescription")}
+                  title={t("hosts.bastionForm.relayAutomaticTitle")}
+                  tone="info"
+                />
                 <Field
                   className="argus-field--wide"
                   label={t("hosts.bastionForm.labels")}
@@ -570,16 +661,32 @@ export function AddBastionDialog({
             pendingAction && (
               <div className="argus-dialog__flow">
                 {connectionTest && (
-                  <ConnectionTestSummary result={connectionTest} t={t} />
+                  <ConnectionTestSummary result={connectionTest} />
                 )}
                 <PendingActionConfirm
                   action={pendingAction}
+                  onError={(error) => {
+                    if (
+                      !previewName ||
+                      !nameAvailability.isCurrent(previewName)
+                    )
+                      return true;
+                    if (!nameAvailability.handleConflict(error, previewName))
+                      return false;
+                    setPendingAction(null);
+                    setConnectionTest(null);
+                    dispatch({ type: "back" });
+                    return true;
+                  }}
                   claimOneTimeResult={wizard.mode === "command"}
                   onCancel={() => {
                     setPendingAction(null);
                     dispatch({ type: "back" });
                   }}
-                  onDone={committed}
+                  onDone={(result) => {
+                    if (previewName && nameAvailability.isCurrent(previewName))
+                      committed(result);
+                  }}
                 />
               </div>
             )}
@@ -800,26 +907,6 @@ function SelectedMode({
         {t("hosts.wizard.changeMode")}
       </Button>
     </div>
-  );
-}
-
-function ConnectionTestSummary({
-  result,
-  t,
-}: {
-  result: ConnectionTest;
-  t: Translate;
-}) {
-  return (
-    <Alert
-      description={
-        result.status === "succeeded"
-          ? t("hosts.wizard.testPassed")
-          : formatErrorCode(result.error_code, t("hosts.wizard.testFailed"))
-      }
-      title={t("hosts.wizard.connectionTestSummary")}
-      tone={result.status === "succeeded" ? "success" : "danger"}
-    />
   );
 }
 

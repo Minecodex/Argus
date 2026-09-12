@@ -106,7 +106,7 @@ PendingAction、UserConfirmation、ApprovalRequest 和 Execution 分开保存。
 ## 6. 第二阶段：资源管理基座（M3）
 
 - Host/KubernetesCluster CRUD 和用户自定义 `labels`，以及标签筛选、分组；标签变化不触发授权 Preview/Commit。
-- 主机 `connector_local`、`via_bastion`、公网 `direct_ssh/direct_winrm` 连接模式。
+- Host `role`、`control_path`、统一 Connector enrollment 与 Linux/Windows OpenSSH 安装矩阵。
 - 受控 Direct Executor：固定出口、SSRF 防护、Host Key 校验和独立执行池。
 - Secret、Credential、ManagedAccount 和绑定操作/资源/接收者的短期 Credential Lease；不提供原值读取权限。
 - 主机卡片按 Bastion Scope 分组，直连 Host 独立显示。
@@ -120,7 +120,7 @@ PendingAction、UserConfirmation、ApprovalRequest 和 Execution 分开保存。
 
 M3 已于 2026-08-17 达到该完成标准。临时 Namespace E2E 同时验证了 Connector 注册竞争/证书轮换、双 Gateway 路由、Bastion Replacement、Direct SSRF 边界、Kubernetes 三种接入、explicit resource authorization 撤权、Secret 轮换、Redis 清空和 Server/Gateway 重启恢复；M3 Namespace、PVC 与 Lease 均已清理。
 
-人工 SSH/WinRS 会话、RemoteAccessGrant、AccessLease、短期会话票据、录像和终止已由 M6 完成；M8 已为本地环境补齐 TOTP、Step-up 和 Break Glass，并由统一 AuthenticationAssuranceService 约束 Critical Action 与 Remote Access。Collector 安装、CollectionClaim、Telemetry Route 与 OTLP 链路属于 M7。M3 ConnectorCommand 仍明确禁止任意 Shell、文件写入、Remote Access Frame 和 Collector 命令，M6 使用独立类型化会话协议。
+人工 Linux PTY、Windows PowerShell/ConPTY、OpenSSH 与 RDP 会话，连同 RemoteAccessGrant、AccessLease、短期会话票据、录像和终止由 M6 领域承载；M8 已为本地环境补齐 TOTP、Step-up 和 Break Glass，并由统一 AuthenticationAssuranceService 约束 Critical Action 与 Remote Access。Collector 安装、CollectionClaim、Telemetry Route 与 OTLP 链路属于 M7。ConnectorCommand 继续禁止任意 Shell、文件写入和 Remote Access Frame，远程会话使用独立类型化协议。
 
 ## 7. 第三阶段：Chatbox 与 MCP
 
@@ -154,11 +154,11 @@ M3 已于 2026-08-17 达到该完成标准。临时 Namespace E2E 同时验证�
 - RemoteAccessGrant 限定 user/department、显式 Host ID/标签过滤条件、ManagedAccount、协议、动作和有效期；审批只能收窄，不能补齐缺失权限。
 - AccessRequest/Lease 与 M4 Action Approval 分离，多策略全部满足；MFA obligation 在 Evaluation 中 fail closed。
 - Ticket 为 60 秒一次性 opaque Token，绑定 HTTP Session、用户、企业、Host、ManagedAccount、协议、Lease、AuthorizationVersion 和 Session Fence。
-- SSH 提供完整 PTY；WinRM 只提供 HTTPS WinRS PowerShell 行模式，不宣称完整 PTY、PSRP 或桌面能力。
+- Linux 提供 PTY，Windows 提供 PowerShell/ConPTY；OpenSSH 可用时提供本机 SSH，RDP 经 Connector Tunnel 与 Gateway/guacd 提供。
 - 录像采用 asciicast v2 NDJSON、AES-256-GCM 分片和 SHA-256 Hash Chain；ObjectStore 连续不可用 30 秒或内存缓冲超过 4 MiB 时终止会话。
 - Gateway 外部 WSS、内部 peer mTLS、Connector gRPC 和 Direct Executor RPC 使用独立端口与身份；Redis 丢失后从 PostgreSQL 和 Connector 心跳恢复。
 
-完成标准：已于 2026-08-18 达成。旧 Shell Harness 最终运行号为 `20260818072400-79219`，验证真实 SSH、TLS WinRS 模拟器、跨 Gateway Drain、Ticket 重放、AuthorizationVersion 撤权、MinIO fail closed、录像和 real Playwright，清理后 Namespace、PVC 与 Lease 零残留。当前官方入口为 `go run ./cmd/argus-dev e2e run --suite m6`。M8 本地加固补齐 MFA/Step-up 与本地录像恢复；Production 录像不可变保留、真实 Windows、容量和安全审计仍在 Production Validation 清单。
+当前完成标准以 Linux PTY、Windows PowerShell/ConPTY、OpenSSH、RDP Gateway/guacd、跨 Gateway Drain、Ticket 重放、AuthorizationVersion 撤权、Object Store fail closed、录像和 real Playwright 为准。官方入口为 `go run ./cmd/argus-dev e2e run --suite m6`；真实 Windows Server、容量和安全审计仍在 Production Validation 清单。
 
 ## 10. 第六阶段：OpenTelemetry 监控链路（M7）
 

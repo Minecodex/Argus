@@ -270,6 +270,16 @@ export interface components {
             resolved_ips?: string[];
             host_key_fingerprint?: string;
             remote_version?: string;
+            /** @enum {string} */
+            platform?: "linux" | "windows";
+            /** @enum {string} */
+            architecture?: "amd64" | "arm64";
+            distribution_version?: string;
+            /** @enum {string} */
+            service_manager?: "systemd" | "windows_scm";
+            privileged?: boolean;
+            /** Format: int64 */
+            free_disk_bytes?: number;
             error_code?: string;
             /** Format: date-time */
             expires_at: string;

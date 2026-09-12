@@ -151,8 +151,12 @@ type CollectorManagementCommand struct {
 	// Names only. Registry credentials and registry CA configuration remain
 	// owned by the target cluster administrator.
 	ImagePullSecrets []string `protobuf:"bytes,30,rep,name=image_pull_secrets,json=imagePullSecrets,proto3" json:"image_pull_secrets,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Tunnel transports pin only the TCP target for the one-time identity
+	// enrollment request. The enrollment_endpoint hostname remains authoritative
+	// for HTTP Host, TLS SNI, and CA verification.
+	EnrollmentDialAddress string `protobuf:"bytes,31,opt,name=enrollment_dial_address,json=enrollmentDialAddress,proto3" json:"enrollment_dial_address,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *CollectorManagementCommand) Reset() {
@@ -393,6 +397,13 @@ func (x *CollectorManagementCommand) GetImagePullSecrets() []string {
 		return x.ImagePullSecrets
 	}
 	return nil
+}
+
+func (x *CollectorManagementCommand) GetEnrollmentDialAddress() string {
+	if x != nil {
+		return x.EnrollmentDialAddress
+	}
+	return ""
 }
 
 type CollectorManagementResult struct {
@@ -806,7 +817,7 @@ const file_argus_connector_v1_collector_proto_rawDesc = "" +
 	"\x06sha256\x18\x04 \x01(\tR\x06sha256\x12\x1c\n" +
 	"\tsignature\x18\x05 \x01(\tR\tsignature\x12$\n" +
 	"\x0esigning_key_id\x18\x06 \x01(\tR\fsigningKeyId\x12\x1b\n" +
-	"\tbyte_size\x18\a \x01(\x04R\bbyteSize\"\xa1\n" +
+	"\tbyte_size\x18\a \x01(\x04R\bbyteSize\"\xd9\n" +
 	"\n" +
 	"\x1aCollectorManagementCommand\x12!\n" +
 	"\fcollector_id\x18\x01 \x01(\tR\vcollectorId\x12\x1c\n" +
@@ -842,7 +853,8 @@ const file_argus_connector_v1_collector_proto_rawDesc = "" +
 	"\x12trust_bundle_epoch\x18\x1b \x01(\x04R\x10trustBundleEpoch\x12.\n" +
 	"\x13trust_bundle_sha256\x18\x1c \x01(\tR\x11trustBundleSha256\x12?\n" +
 	"\x1ctrust_bundle_ca_fingerprints\x18\x1d \x03(\tR\x19trustBundleCaFingerprints\x12,\n" +
-	"\x12image_pull_secrets\x18\x1e \x03(\tR\x10imagePullSecrets\"\xe8\x02\n" +
+	"\x12image_pull_secrets\x18\x1e \x03(\tR\x10imagePullSecrets\x126\n" +
+	"\x17enrollment_dial_address\x18\x1f \x01(\tR\x15enrollmentDialAddress\"\xe8\x02\n" +
 	"\x19CollectorManagementResult\x12!\n" +
 	"\fcollector_id\x18\x01 \x01(\tR\vcollectorId\x12-\n" +
 	"\x12effective_revision\x18\x02 \x01(\x04R\x11effectiveRevision\x122\n" +

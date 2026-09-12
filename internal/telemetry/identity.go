@@ -16,7 +16,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/kakj-go/Argus/internal/audit"
 	"github.com/kakj-go/Argus/internal/connector"
 	"github.com/kakj-go/Argus/internal/identity"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
@@ -64,14 +63,6 @@ func CollectorServerCertificateURI(collectorID uuid.UUID) string {
 }
 
 func (service IdentityService) CreateEnrollmentToken(ctx context.Context, q *db.Queries, collectorID uuid.UUID) (string, error) {
-	return service.createEnrollmentToken(ctx, q, collectorID, uuid.NullUUID{})
-}
-
-func (service IdentityService) CreateEnrollmentTokenForHost(ctx context.Context, q *db.Queries, collectorID, hostEnrollmentTokenID uuid.UUID) (string, error) {
-	return service.createEnrollmentToken(ctx, q, collectorID, uuid.NullUUID{UUID: hostEnrollmentTokenID, Valid: true})
-}
-
-func (service IdentityService) createEnrollmentToken(ctx context.Context, q *db.Queries, collectorID uuid.UUID, hostEnrollmentTokenID uuid.NullUUID) (string, error) {
 	if service.Store == nil && q == nil {
 		return "", ErrUnavailable
 	}
@@ -86,7 +77,7 @@ func (service IdentityService) createEnrollmentToken(ctx context.Context, q *db.
 	}
 	_, err = queries.CreateTelemetryEnrollmentToken(ctx, db.CreateTelemetryEnrollmentTokenParams{
 		ID: newTelemetryID(), CollectorID: collectorID, TokenHash: hash[:],
-		ExpiresAt: pgtype.Timestamptz{Time: time.Now().UTC().Add(enrollmentTokenTTL), Valid: true}, HostEnrollmentTokenID: hostEnrollmentTokenID,
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().UTC().Add(enrollmentTokenTTL), Valid: true},
 	})
 	if err != nil {
 		return "", err
@@ -167,10 +158,6 @@ func (service IdentityService) Enroll(ctx context.Context, token, collectorIDVal
 		if _, err = q.ConsumeTelemetryEnrollmentToken(ctx, record.ID); err != nil {
 			return ErrEnrollmentInvalid
 		}
-		if err = convergeSelfEnrolledHostAfterEnrollment(ctx, q, collector, record); err != nil {
-			return err
-		}
-		touchHostSeen(ctx, q, collector)
 		bundle, bundleErr := service.enrollmentTrustBundle(ctx, clientIssued.CABundlePEM)
 		if bundleErr != nil {
 			return bundleErr
@@ -184,28 +171,6 @@ func (service IdentityService) Enroll(ctx context.Context, token, collectorIDVal
 		return nil
 	})
 	return result, err
-}
-
-func convergeSelfEnrolledHostAfterEnrollment(ctx context.Context, q *db.Queries, collector db.CollectorInstance, enrollment db.TelemetryEnrollmentToken) error {
-	if collector.ResourceType != "host" || !enrollment.HostEnrollmentTokenID.Valid {
-		return nil
-	}
-	exchange, err := q.GetHostEnrollmentTokenForUpdate(ctx, enrollment.HostEnrollmentTokenID.UUID)
-	if err != nil || exchange.PreallocatedHostID != collector.ResourceID || exchange.EnterpriseID != collector.EnterpriseID {
-		return ErrEnrollmentInvalid
-	}
-	if _, err = q.ActivateSelfEnrolledHost(ctx, db.ActivateSelfEnrolledHostParams{ID: collector.ResourceID,
-		EnterpriseID: collector.EnterpriseID, Hostname: exchange.ReportedHostname, Address: exchange.ReportedAddress,
-		Architecture: exchange.ReportedArchitecture}); err != nil {
-		return err
-	}
-	if err = finishBootstrapOperation(ctx, q, collector.EnterpriseID, collector, "install"); err != nil {
-		return err
-	}
-	_, err = audit.Append(ctx, q, audit.Entry{Domain: "enterprise", EnterpriseID: uuid.NullUUID{UUID: collector.EnterpriseID, Valid: true},
-		ActorType: "system", ActorID: "collector-enrollment", Action: "host.self_enrollment.activate", ResourceType: "host",
-		ResourceID: collector.ResourceID.String(), Result: "success", Details: map[string]any{"collector_id": collector.ID.String(), "token_id": exchange.ID.String()}})
-	return err
 }
 
 func (service IdentityService) Rotate(ctx context.Context, certificate *x509.Certificate, clientCSRPEM, serverCSRPEM string) (EnrollmentResult, error) {
@@ -287,7 +252,6 @@ func (service IdentityService) Rotate(ctx context.Context, certificate *x509.Cer
 			CollectorID: collectorID, SerialNumber: clientSerial, SerialNumber_2: serverSerial}); err != nil {
 			return err
 		}
-		touchHostSeen(ctx, q, collector)
 		bundle, bundleErr := service.enrollmentTrustBundle(ctx, clientIssued.CABundlePEM)
 		if bundleErr != nil {
 			return bundleErr
@@ -396,12 +360,3 @@ func collectorIDFromURI(value *url.URL) (uuid.UUID, error) {
 }
 
 func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
-
-// touchHostSeen 在证书签发/轮换成功后刷新宿主 Host 的 last_seen:
-// self_enrolled 主机没有探活通道,这是其在线事实的持续来源。
-func touchHostSeen(ctx context.Context, q *db.Queries, collector db.CollectorInstance) {
-	if collector.ResourceType != "host" {
-		return
-	}
-	_, _ = q.MarkHostSeen(ctx, db.MarkHostSeenParams{ID: collector.ResourceID, EnterpriseID: collector.EnterpriseID})
-}

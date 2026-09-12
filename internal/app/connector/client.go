@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/connectorprotocol"
 	"log/slog"
 	"net/url"
 	"os"
@@ -37,6 +38,7 @@ var errIdentityRotated = errors.New("Connector identity rotated")
 type connectorClient struct {
 	store  localStore
 	logger *slog.Logger
+	relay  *bastionRelay
 }
 
 type receivedFrame struct {
@@ -166,6 +168,10 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 	var activeRemote atomic.Int32
 	var rotationKey []byte
 	var stopAfterAcknowledgement uint64
+	var runtimeObservation *connectorv1.HostRuntimeObservation
+	if identity.Role == "host" || identity.Role == "bastion" {
+		runtimeObservation = observeHostRuntime()
+	}
 	if welcome.GetCertificateRotationRequested() || certificateNeedsRotation(client.store) {
 		rotationKey, err = client.requestRotation(identity, epoch, outgoing)
 		if err != nil {
@@ -194,6 +200,9 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 		case <-ctx.Done():
 			return nil
 		case <-heartbeatChannel:
+			if identity.Role == "host" || identity.Role == "bastion" {
+				runtimeObservation = observeHostRuntime()
+			}
 			// A Connector control stream can remain open longer than the 24-hour
 			// client certificate lifetime. Re-evaluate rotation on every heartbeat
 			// so a long-lived stream moves to the next issuer during CA overlap
@@ -208,7 +217,7 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 				ConnectionEpoch: epoch, SentAt: timestamppb.Now(), ActiveCommands: uint32(active.Load()),
 				ActiveRemoteAccessStreams: uint32(activeRemote.Load()), TelemetryTunnels: tunnels.Snapshot(),
 				TrustBundleEpoch: uint64(identity.TrustBundleEpoch), TrustBundleSha256: identity.TrustBundleSHA256,
-				TrustBundleCaFingerprints: identity.TrustCAFingerprints}}}}); err != nil {
+				TrustBundleCaFingerprints: identity.TrustCAFingerprints, BastionRelay: client.relay.snapshot(), HostRuntime: runtimeObservation}}}}); err != nil {
 				return err
 			}
 		case item := <-outgoingChannel:
@@ -247,6 +256,9 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 				}
 				if stopSequenceAcknowledged(stopAfterAcknowledgement, acknowledged) {
 					client.removeIdentity()
+					if err := finalizeLocalUninstall(ctx, client.store.directory); err != nil {
+						client.logger.Error("Connector local uninstall cleanup failed", "error", err)
+					}
 					return nil
 				}
 			case message.GetClose() != nil:
@@ -282,7 +294,8 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 					delete(pending, grant.GetCommandId())
 					credential := append([]byte(nil), grant.GetCredentialPayload()...)
 					active.Add(1)
-					go executeConnectorCommand(ctx, value.command, credential, completed)
+					operationSecret := append([]byte(nil), grant.GetOperationSecretPayload()...)
+					go executeConnectorCommand(ctx, value.command, credential, operationSecret, completed)
 					continue
 				}
 				remote, ok := remotePending[grant.GetCommandId()]
@@ -332,10 +345,11 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 					}
 					pending[command.GetCommandId()] = pendingLease{command: command, nonce: nonce}
 					outgoing <- outboundFrame{value: &connectorv1.ConnectRequest{Frame: &connectorv1.ConnectRequest_CredentialLeaseRequest{CredentialLeaseRequest: &connectorv1.CredentialLeaseRequest{
-						LeaseId: command.GetCredentialLeaseId(), CommandId: command.GetCommandId(), ConnectionEpoch: epoch, RecipientNonce: nonce}}}}
+						LeaseId: command.GetCredentialLeaseId(), CommandId: command.GetCommandId(), ConnectionEpoch: epoch, RecipientNonce: nonce,
+						HostOnboardingOperationId: hostOnboardingOperationID(command)}}}}
 				} else {
 					active.Add(1)
-					go executeConnectorCommand(ctx, command, nil, completed)
+					go executeConnectorCommand(ctx, command, nil, nil, completed)
 				}
 			case message.GetTelemetryTunnelDesiredSet() != nil:
 				desiredSet := message.GetTelemetryTunnelDesiredSet()
@@ -375,7 +389,8 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 				}
 			case message.GetRemoteAccessOpen() != nil:
 				open := message.GetRemoteAccessOpen()
-				if open.GetConnectionEpoch() != epoch || open.GetStreamId() == "" || open.GetSessionId() == "" || open.GetCredentialLeaseId() == "" ||
+				requiresCredential := open.GetProtocol() == "ssh"
+				if open.GetConnectionEpoch() != epoch || open.GetStreamId() == "" || open.GetSessionId() == "" || requiresCredential && open.GetCredentialLeaseId() == "" ||
 					open.GetExpiresAt() == nil || time.Now().After(open.GetExpiresAt().AsTime()) || remoteSessions[open.GetStreamId()] != nil {
 					return errors.New("Connector remote access open frame is invalid")
 				}
@@ -384,8 +399,13 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 					return err
 				}
 				remoteSessions[open.GetStreamId()] = remote
-				remotePending[open.GetSessionId()] = remote
-				outgoing <- outboundFrame{value: remote.leaseRequest(epoch)}
+				if requiresCredential {
+					remotePending[open.GetSessionId()] = remote
+					outgoing <- outboundFrame{value: remote.leaseRequest(epoch)}
+				} else {
+					activeRemote.Add(1)
+					go remote.run(ctx, nil, outgoing, remoteDone)
+				}
 			case message.GetRemoteAccessInput() != nil || message.GetRemoteAccessResize() != nil || message.GetRemoteAccessClose() != nil:
 				streamID := remoteServerStreamID(message)
 				remote := remoteSessions[streamID]
@@ -426,11 +446,16 @@ func receiveServerFrames(stream connectorv1.ConnectorControlService_ConnectClien
 	}
 }
 
-func executeConnectorCommand(ctx context.Context, command *connectorv1.ConnectorCommand, credential []byte, output chan<- completedCommand) {
+func executeConnectorCommand(ctx context.Context, command *connectorv1.ConnectorCommand, credential, operationSecret []byte, output chan<- completedCommand) {
 	defer clear(credential)
-	outcome := (commandExecutor{}).execute(ctx, command, credential)
+	defer clear(operationSecret)
+	outcome := (commandExecutor{}).execute(ctx, command, credential, operationSecret)
 	if outcome.code != "" {
-		slog.Warn("Connector command failed", "command_id", command.GetCommandId(), "command_type", command.GetCommandType(), "error_code", outcome.code)
+		attributes := []any{"command_id", command.GetCommandId(), "command_type", command.GetCommandType(), "error_code", outcome.code}
+		if outcome.stage != "" {
+			attributes = append(attributes, "failure_stage", outcome.stage)
+		}
+		slog.Warn("Connector command failed", attributes...)
 	}
 	output <- completedCommand{command: command, outcome: outcome}
 }
@@ -472,24 +497,22 @@ func parseGatewayEndpoint(value string) (*url.URL, error) {
 }
 
 func emptyCommandResult(commandType string) (*anypb.Any, error) {
-	var value proto.Message
-	switch commandType {
-	case "host_connection_probe":
-		value = &connectorv1.HostConnectionProbeResult{}
-	case "kubernetes_connection_probe":
-		value = &connectorv1.KubernetesConnectionProbeResult{}
-	case "kubernetes_resource_query":
-		value = &connectorv1.KubernetesResourceQueryResult{}
-	case "kubernetes_pod_logs":
-		value = &connectorv1.KubernetesPodLogsResult{}
-	case "connector_uninstall":
-		value = &connectorv1.ConnectorUninstallResult{}
-	case "collector_management":
-		value = &connectorv1.CollectorManagementResult{}
-	default:
-		return nil, errors.New("unsupported Connector command result type")
+	value, err := connectorprotocol.Result(commandType)
+	if err != nil {
+		return nil, err
 	}
 	return anypb.New(value)
+}
+
+func hostOnboardingOperationID(command *connectorv1.ConnectorCommand) string {
+	if command == nil || command.GetCommandType() != "host_connector_install" || command.GetTypedPayload() == nil {
+		return ""
+	}
+	var request connectorv1.HostConnectorInstall
+	if command.GetTypedPayload().UnmarshalTo(&request) != nil {
+		return ""
+	}
+	return request.GetOperationId()
 }
 
 func commandResultFrame(command *connectorv1.ConnectorCommand, epoch uint64, outcome commandOutcome) *connectorv1.ConnectRequest {

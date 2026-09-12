@@ -13,6 +13,7 @@ import {
   TerminalPlayer,
 } from "@argus/ui";
 import { useRecordingEvents } from "../../lib/recording-events";
+import { RDPRecordingPlayer } from "./rdp-recording-player";
 // 组件被会话中心与主机页共用，样式随组件引入，避免依赖具体页面的 CSS 导入。
 import "../../styles/remote-sessions.css";
 
@@ -48,6 +49,19 @@ export function RecordingDetailDialog({
   const recording = meta.data ?? null;
   const { events, duration, isPending, isError } =
     useRecordingEvents(recordingId);
+  const replay =
+    recording?.format === "guacamole_v1" ? (
+      <RDPRecordingPlayer
+        emptyLabel={t("remoteSessions.emptyEvents")}
+        events={events}
+      />
+    ) : (
+      <TerminalPlayer
+        emptyLabel={t("remoteSessions.emptyEvents")}
+        events={events}
+        loadingLabel={t("common.loading")}
+      />
+    );
   return (
     <Dialog
       description={t("remoteSessions.recordingDescription")}
@@ -135,12 +149,7 @@ export function RecordingDetailDialog({
                 />
               )}
               {!isError && isPending && <Spinner label={t("common.loading")} />}
-              {!isError && !isPending && events.length === 0 && (
-                <TerminalPlayer
-                  emptyLabel={t("remoteSessions.emptyEvents")}
-                  events={events}
-                />
-              )}
+              {!isError && !isPending && events.length === 0 && replay}
               {!isError && !isPending && events.length > 0 && (
                 <Tabs defaultValue="replay">
                   <TabsList>
@@ -151,13 +160,7 @@ export function RecordingDetailDialog({
                       {t("remoteSessions.eventsTab")}
                     </TabsTrigger>
                   </TabsList>
-                  <TabsContent value="replay">
-                    <TerminalPlayer
-                      emptyLabel={t("remoteSessions.emptyEvents")}
-                      events={events}
-                      loadingLabel={t("common.loading")}
-                    />
-                  </TabsContent>
+                  <TabsContent value="replay">{replay}</TabsContent>
                   <TabsContent value="events">
                     <pre className="argus-recording-events">
                       {events.map(eventText).join("\n")}

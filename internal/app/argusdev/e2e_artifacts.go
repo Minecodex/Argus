@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -53,6 +54,32 @@ type E2EArtifactSigning struct {
 	PrivateKey ed25519.PrivateKey
 }
 
+func (a *App) prepareE2EArtifactServer(env *E2EEnvironment) error {
+	if !suiteFixtureFeatures(env.Options.Suite).Artifact {
+		return nil
+	}
+	staging := filepath.Join(a.root, "build", "e2e-artifacts")
+	if err := os.RemoveAll(staging); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(staging, 0o755); err != nil {
+		return err
+	}
+	serviceName := "argus-e2e-artifact-server"
+	dnsName := serviceName + "." + env.SystemNS + ".svc"
+	tls, err := generateFixtureCertificate(serviceName, []string{serviceName, dnsName}, nil)
+	if err != nil {
+		return err
+	}
+	env.ArtifactTLS = tls
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+	env.ArtifactSigning = &E2EArtifactSigning{KeyID: "argus-e2e-" + env.Options.RunID, PublicKey: publicKey, PrivateKey: privateKey}
+	return nil
+}
+
 func (env *E2EEnvironment) clearArtifactSigningPrivateKey() {
 	if env.ArtifactSigning == nil {
 		return
@@ -62,10 +89,11 @@ func (env *E2EEnvironment) clearArtifactSigningPrivateKey() {
 }
 
 func (a *App) prepareE2ECollectorArtifacts(ctx context.Context, env *E2EEnvironment) error {
-	if !suiteHas(env.Options.Suite, "m7") && env.Options.Suite != "m10-query" && env.Options.Suite != "p4" {
+	hostArtifactSuite := env.Options.Suite == "p4" || suiteHas(env.Options.Suite, "tls")
+	if !suiteHas(env.Options.Suite, "m7") && env.Options.Suite != "m10-query" && !hostArtifactSuite {
 		return nil
 	}
-	if env.Options.Suite != "p4" && env.ImagePlatform != "linux/arm64" {
+	if !hostArtifactSuite && env.ImagePlatform != "linux/arm64" {
 		return fmt.Errorf("%w: %s requires an arm64 Kubernetes node for the locked Collector distribution", errCapability, env.Options.Suite)
 	}
 	linuxPath := filepath.Join(a.root, "build", "otelcol", "artifacts", "argus-otelcol-linux-arm64.tar.gz")
@@ -95,14 +123,14 @@ func (a *App) prepareE2ECollectorArtifacts(ctx context.Context, env *E2EEnvironm
 	if err != nil {
 		return err
 	}
-	dnsName := "argus-e2e-artifact-server." + env.SystemNS + ".svc"
+	artifactBase := "https://artifacts." + env.ReleaseID + ".argus.test/argus-collector-artifacts/e2e"
 	env.CollectorArtifacts = &E2ECollectorArtifacts{
 		Version: "0.1.0-m7", LinuxPath: linuxPath,
-		LinuxURI:    "https://" + dnsName + ":8443/m7/linux-arm64.tar.gz",
+		LinuxURI:    artifactBase + "/linux-arm64.tar.gz",
 		LinuxSHA256: linuxHash, LinuxSignature: linuxSignature, LinuxByteSize: linuxSize,
-		LinuxAMD64Path: linuxAMD64Path, LinuxAMD64URI: "https://" + dnsName + ":8443/m7/linux-amd64.tar.gz",
+		LinuxAMD64Path: linuxAMD64Path, LinuxAMD64URI: artifactBase + "/linux-amd64.tar.gz",
 		LinuxAMD64SHA256: linuxAMD64Hash, LinuxAMD64Signature: linuxAMD64Signature, LinuxAMD64ByteSize: linuxAMD64Size,
-		WindowsPath: windowsPath, WindowsURI: "https://artifacts.argus.invalid/m7/windows-amd64.zip",
+		WindowsPath: windowsPath, WindowsURI: artifactBase + "/windows-amd64.zip",
 		WindowsSHA256: windowsHash, WindowsSignature: windowsSignature, WindowsByteSize: windowsSize,
 		SigningKeyID:     env.ArtifactSigning.KeyID,
 		SigningPublicKey: base64.RawStdEncoding.EncodeToString(env.ArtifactSigning.PublicKey), TLS: env.ArtifactTLS,
@@ -239,6 +267,27 @@ func signCollectorArtifact(privateKey ed25519.PrivateKey, path string) (string, 
 	digest := sha256.Sum256(data)
 	signature := ed25519.Sign(privateKey, digest[:])
 	return hex.EncodeToString(digest[:]), uint64(len(data)), base64.RawStdEncoding.EncodeToString(signature), nil
+}
+
+func copyE2EArtifact(source, destination string) error {
+	input, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	if err = os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		return err
+	}
+	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(output, input)
+	closeErr := output.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
 }
 
 func writeCollectorTarGz(source, destination string) error {

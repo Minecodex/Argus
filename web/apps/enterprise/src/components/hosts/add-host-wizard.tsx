@@ -1,20 +1,19 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useReducer, useRef, useState } from "react";
-import { useForm, type UseFormReturn } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
 import {
-  formConstraint,
   presentApiFormError,
   useApi,
   type ActionOneTimeResult,
   type BastionScope,
-  type ConfirmActionResult,
   type ConnectionTest,
   type Environment,
   type HostPreviewCreate,
+  type Host,
   type PendingActionPublic,
 } from "@argus/api-client";
 import {
@@ -33,36 +32,81 @@ import {
 } from "@argus/ui";
 
 import { formatDateTime } from "../settings/shared";
-import { ARGUS_EGRESS_ADDRESSES, parseLabels } from "./host-utils";
+import { parseLabels } from "./host-utils";
 import { InstallInstructionPanel } from "./install-instruction-panel";
 import {
-  cleanHostModeSpecificDraft,
-  hostModeSwitchLosesFields,
   onboardingWizardReducer,
   onboardingWizardStep,
-  type HostModeSpecificDraft,
-  type HostOnboardingMode,
   type OnboardingWizardState,
 } from "./onboarding-wizard-state";
 import { PendingActionConfirm } from "./pending-action-confirm";
+import { ConnectionTestSummary } from "./connection-test-summary";
+import { connectionTestFailureMessage } from "./onboarding-errors";
+import {
+  useResourceNameAvailability,
+  type ResourceNameSnapshot,
+} from "./use-resource-name-availability";
 
-const HOST_FORM_ID = "argus-host-onboarding-form";
+const FORM_ID = "argus-host-onboarding-form";
 const ENVIRONMENTS: Environment[] = ["development", "staging", "production"];
+
+type HostOnboardingMode =
+  | "command_direct"
+  | "ssh_direct"
+  | "ssh_tunnel"
+  | "command_bastion"
+  | "ssh_bastion";
+
+type HostModeConfig = {
+  installMethod: "manual" | "ssh";
+  controlPath: "direct" | "bastion_relay" | "executor_tunnel";
+  sshPath: "none" | "direct_executor" | "bastion_connector";
+};
+
+const HOST_MODE_CONFIG: Record<HostOnboardingMode, HostModeConfig> = {
+  command_direct: {
+    installMethod: "manual",
+    controlPath: "direct",
+    sshPath: "none",
+  },
+  ssh_direct: {
+    installMethod: "ssh",
+    controlPath: "direct",
+    sshPath: "direct_executor",
+  },
+  ssh_tunnel: {
+    installMethod: "ssh",
+    controlPath: "executor_tunnel",
+    sshPath: "direct_executor",
+  },
+  command_bastion: {
+    installMethod: "manual",
+    controlPath: "bastion_relay",
+    sshPath: "none",
+  },
+  ssh_bastion: {
+    installMethod: "ssh",
+    controlPath: "bastion_relay",
+    sshPath: "bastion_connector",
+  },
+};
+
 const initialState: OnboardingWizardState<HostOnboardingMode> = {
   phase: "select_mode",
-  mode: "direct_both",
-};
-const constraints = {
-  address: formConstraint("HostPreviewCreate", "address"),
-  name: formConstraint("HostPreviewCreate", "name"),
-  port: formConstraint("HostPreviewCreate", "port"),
-  username: formConstraint("HostPreviewCreate", "username"),
+  mode: "command_direct",
 };
 
-type HostWizardForm = HostModeSpecificDraft & {
+type HostWizardForm = {
   name: string;
   environment: Environment;
   labelsText: string;
+  platform: "linux" | "windows";
+  architecture: "amd64" | "arm64";
+  scopeId: string;
+  address: string;
+  port: string;
+  username: string;
+  credentialId: string;
 };
 
 export function AddHostWizard({
@@ -70,17 +114,28 @@ export function AddHostWizard({
   onOpenChange,
   scopes,
   onCreated,
+  retryHost,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   scopes: BastionScope[];
   onCreated: () => void;
+  retryHost?: Host;
 }) {
   const { t } = useTranslation();
   const api = useApi();
   const [wizard, dispatch] = useReducer(
     onboardingWizardReducer<HostOnboardingMode>,
-    initialState,
+    retryHost
+      ? {
+          ...initialState,
+          mode: (retryHost.control_path === "bastion_relay"
+            ? "ssh_bastion"
+            : retryHost.control_path === "executor_tunnel"
+              ? "ssh_tunnel"
+              : "ssh_direct") as HostOnboardingMode,
+        }
+      : initialState,
   );
   const [pendingMode, setPendingMode] = useState<HostOnboardingMode | null>(
     null,
@@ -92,12 +147,16 @@ export function AddHostWizard({
   );
   const [oneTimeResult, setOneTimeResult] =
     useState<ActionOneTimeResult | null>(null);
-  const [testing, setTesting] = useState(false);
-  const createdNotified = useRef(false);
-
-  const isSelf = wizard.mode === "self_enrolled";
-  const isMember =
-    wizard.mode === "bastion_member" || wizard.mode === "bastion_tunnel_member";
+  const [busy, setBusy] = useState(false);
+  const [previewName, setPreviewName] = useState<ResourceNameSnapshot | null>(
+    null,
+  );
+  const notified = useRef(false);
+  const prepareGeneration = useRef(0);
+  const mode = HOST_MODE_CONFIG[wizard.mode];
+  const relayScopes = scopes.filter(
+    (scope) => scope.relay_status === "ready" && Boolean(scope.relay_address),
+  );
 
   const schema = useMemo(
     () =>
@@ -106,211 +165,214 @@ export function AddHostWizard({
           name: z
             .string()
             .trim()
-            .min(1, t("hosts.wizard.required"))
-            .max(constraints.name.maxLength ?? 128),
+            .min(1)
+            .refine(
+              (name) => Array.from(name).length <= 128,
+              t("resourceNames.tooLong"),
+            ),
           environment: z.enum(["development", "staging", "production"]),
           labelsText: z.string(),
-          address: z.string(),
-          port: z.string(),
-          protocol: z.enum(["ssh", "winrm"]),
           platform: z.enum(["linux", "windows"]),
           architecture: z.enum(["amd64", "arm64"]),
-          account: z.string(),
-          credentialId: z.string(),
           scopeId: z.string(),
+          address: z.string(),
+          port: z.string(),
+          username: z.string(),
+          credentialId: z.string(),
         })
         .superRefine((value, context) => {
-          if (isSelf) return;
-          const issue = (message: string, field: keyof HostWizardForm) =>
-            context.addIssue({ code: "custom", message, path: [field] });
-          if (
-            value.address.trim().length <
-              (constraints.address.minLength ?? 1) ||
-            value.address.trim().length > (constraints.address.maxLength ?? 512)
-          ) {
-            issue(t("hosts.wizard.required"), "address");
+          const issue = (
+            path: keyof HostWizardForm,
+            message = t("hosts.wizard.required"),
+          ) => context.addIssue({ code: "custom", path: [path], message });
+          if (value.platform === "windows" && value.architecture !== "amd64")
+            issue("architecture");
+          if (mode.controlPath === "bastion_relay" && !value.scopeId)
+            issue("scopeId");
+          if (mode.installMethod === "ssh") {
+            if (!value.address.trim()) issue("address");
+            const port = Number(value.port);
+            if (!Number.isInteger(port) || port < 1 || port > 65535)
+              issue("port", t("hosts.wizard.portInvalid"));
+            if (!value.username.trim()) issue("username");
+            if (!value.credentialId) issue("credentialId");
           }
-          const port = Number(value.port);
-          if (
-            !Number.isInteger(port) ||
-            port < (constraints.port.minimum ?? 1) ||
-            port > (constraints.port.maximum ?? 65535)
-          ) {
-            issue(t("hosts.wizard.portInvalid"), "port");
-          }
-          if (
-            value.account.trim().length <
-              (constraints.username.minLength ?? 1) ||
-            value.account.trim().length >
-              (constraints.username.maxLength ?? 256)
-          ) {
-            issue(t("hosts.wizard.required"), "account");
-          }
-          if (!value.credentialId)
-            issue(t("hosts.wizard.required"), "credentialId");
-          if (isMember && !value.scopeId)
-            issue(t("hosts.wizard.scopeRequired"), "scopeId");
         }),
-    [isMember, isSelf, t],
+    [mode.controlPath, mode.installMethod, t],
   );
   const form = useForm<HostWizardForm>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: "",
-      environment: "production",
+      name: retryHost?.name ?? "",
+      environment: retryHost?.environment ?? "production",
       labelsText: "",
-      address: "",
-      port: "22",
-      protocol: "ssh",
-      platform: "linux",
-      architecture: "amd64",
-      account: "",
+      platform: retryHost?.platform ?? "linux",
+      architecture: retryHost?.architecture ?? "amd64",
+      scopeId: retryHost?.bastion_scope_id ?? "",
+      address: retryHost?.address ?? "",
+      port: String(retryHost?.port || 22),
+      username: "",
       credentialId: "",
-      scopeId: "",
     },
   });
   const values = form.watch();
-  const credentialsQuery = useQuery({
-    queryKey: ["credentials"],
-    queryFn: () => api.secrets.listCredentials(),
-    enabled: open && wizard.phase !== "select_mode" && !isSelf,
+  const nameAvailability = useResourceNameAvailability({
+    name: values.name,
+    enabled: open && !retryHost,
+    check: api.hosts.checkNameAvailability,
   });
-  const credentials = useMemo(
-    () =>
-      (credentialsQuery.data ?? []).filter(
-        (credential) => credential.protocol === values.protocol,
-      ),
-    [credentialsQuery.data, values.protocol],
+  const credentialsQuery = useQuery({
+    queryKey: ["credentials", "ssh"],
+    queryFn: () => api.secrets.listCredentials(),
+    enabled:
+      open && wizard.phase !== "select_mode" && mode.installMethod === "ssh",
+  });
+  const credentials = (credentialsQuery.data ?? []).filter(
+    (credential) =>
+      credential.protocol === "ssh" && credential.status === "active",
   );
 
   const reset = () => {
+    prepareGeneration.current += 1;
+    nameAvailability.reset();
     form.reset();
-    dispatch({ type: "reset", mode: "direct_both" });
+    dispatch({ type: "reset", mode: "command_direct" });
     setPendingMode(null);
     setPendingAction(null);
     setConnectionTest(null);
     setOneTimeResult(null);
-    setTesting(false);
-    createdNotified.current = false;
+    setBusy(false);
+    notified.current = false;
   };
   const close = (next: boolean) => {
-    if (!next) {
-      if (pendingAction) {
-        void api.approvals.cancel(pendingAction.action_ref).catch(() => {
-          // The server may already have expired or committed the preview.
-        });
-      }
-      reset();
-    }
+    if (!next) reset();
     onOpenChange(next);
   };
-  const notifyCreated = () => {
-    if (createdNotified.current) return;
-    createdNotified.current = true;
-    onCreated();
-  };
 
-  const specificDraft = (): HostModeSpecificDraft => ({
-    address: values.address,
-    port: values.port,
-    protocol: values.protocol,
-    platform: values.platform,
-    architecture: values.architecture,
-    account: values.account,
-    credentialId: values.credentialId,
-    scopeId: values.scopeId,
-  });
-  const applyMode = (mode: HostOnboardingMode) => {
-    const cleaned = cleanHostModeSpecificDraft(
-      specificDraft(),
-      wizard.mode,
-      mode,
-    );
-    for (const [field, value] of Object.entries(cleaned) as Array<
-      [keyof HostModeSpecificDraft, string]
-    >) {
-      form.setValue(field, value as never);
+  const applyMode = (next: HostOnboardingMode) => {
+    const current = HOST_MODE_CONFIG[wizard.mode];
+    const target = HOST_MODE_CONFIG[next];
+    if (current.installMethod === "ssh" && target.installMethod === "manual") {
+      form.setValue("address", "");
+      form.setValue("port", "22");
+      form.setValue("username", "");
+      form.setValue("credentialId", "");
     }
+    if (target.controlPath !== "bastion_relay") form.setValue("scopeId", "");
     setConnectionTest(null);
     setPendingAction(null);
-    dispatch({ type: "select_mode", mode });
+    dispatch({ type: "select_mode", mode: next });
   };
-  const requestMode = (mode: HostOnboardingMode) => {
-    if (mode === wizard.mode) return;
-    if (hostModeSwitchLosesFields(specificDraft(), wizard.mode, mode)) {
-      setPendingMode(mode);
+  const requestMode = (next: HostOnboardingMode) => {
+    if (next === wizard.mode) return;
+    const current = HOST_MODE_CONFIG[wizard.mode];
+    const target = HOST_MODE_CONFIG[next];
+    const losesSSHFields =
+      current.installMethod === "ssh" &&
+      target.installMethod === "manual" &&
+      Boolean(
+        values.address.trim() ||
+        values.username.trim() ||
+        values.credentialId ||
+        values.port !== "22",
+      );
+    const losesScope =
+      current.controlPath === "bastion_relay" &&
+      target.controlPath !== "bastion_relay" &&
+      Boolean(values.scopeId);
+    if (losesSSHFields || losesScope || connectionTest) {
+      setPendingMode(next);
       return;
     }
-    applyMode(mode);
+    applyMode(next);
   };
 
-  const connectionMode = (input: HostWizardForm) => {
-    if (isSelf) return "self_enrolled" as const;
-    if (isMember) return "via_bastion" as const;
-    return input.protocol === "winrm"
-      ? ("direct_winrm" as const)
-      : ("direct_ssh" as const);
-  };
-
-  const runConnectionTest = async (input: HostWizardForm) => {
-    let result = await api.hosts.createConnectionTest({
-      address: input.address,
-      port: Number(input.port),
-      platform: input.platform,
-      connection_mode: connectionMode(input) as
-        "via_bastion" | "direct_ssh" | "direct_winrm",
-      bastion_scope_id: isMember ? input.scopeId : undefined,
-      credential_id: input.credentialId,
-      username: input.account,
-    });
-    for (
-      let attempt = 0;
-      attempt < 60 && ["queued", "running"].includes(result.status);
-      attempt += 1
-    ) {
-      await new Promise((resolve) => window.setTimeout(resolve, 500));
-      result = await api.hosts.getConnectionTest(result.id);
-    }
-    setConnectionTest(result);
-    return result;
-  };
-
-  const preparePreview = async (input: HostWizardForm) => {
-    if (testing) return;
+  const prepare = async (input: HostWizardForm) => {
+    if (busy) return;
+    setBusy(true);
+    setConnectionTest(null);
     form.clearErrors();
-    setTesting(true);
+    const nameSnapshot = nameAvailability.capture();
+    if (input.name.trim() !== nameSnapshot.name.trim()) {
+      setBusy(false);
+      return;
+    }
+    const generation = ++prepareGeneration.current;
+    const isCurrent = () =>
+      retryHost || nameAvailability.isCurrent(nameSnapshot);
     try {
-      const test = isSelf ? null : await runConnectionTest(input);
-      if (test && test.status !== "succeeded") {
-        form.setError("root", {
-          type: "server",
-          message: t("hosts.wizard.testFailed"),
+      if (!retryHost && !(await nameAvailability.validate())) return;
+      let test: ConnectionTest | null = null;
+      if (mode.installMethod === "ssh") {
+        test = await api.hosts.createConnectionTest({
+          address: input.address.trim(),
+          port: Number(input.port),
+          platform: input.platform,
+          ssh_path: mode.sshPath as "direct_executor" | "bastion_connector",
+          onboarding_control_path: mode.controlPath,
+          bastion_scope_id:
+            mode.sshPath === "bastion_connector" ? input.scopeId : undefined,
+          credential_id: input.credentialId,
+          username: input.username.trim(),
         });
-        return;
+        if (!isCurrent()) return;
+        for (
+          let attempt = 0;
+          attempt < 60 && ["queued", "running"].includes(test.status);
+          attempt += 1
+        ) {
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+          test = await api.hosts.getConnectionTest(test.id);
+          if (!isCurrent()) return;
+        }
+        setConnectionTest(test);
+        if (test.status !== "succeeded") {
+          form.setError("root", {
+            type: "server",
+            message: connectionTestFailureMessage(test.error_code, t),
+          });
+          return;
+        }
       }
       const request: HostPreviewCreate = {
-        name: input.name,
-        platform: isSelf ? "linux" : input.platform,
-        connection_mode: connectionMode(input),
+        name: input.name.trim(),
+        platform: input.platform,
+        role: "managed_host",
+        control_path: mode.controlPath,
+        install_method: mode.installMethod,
+        ssh_path: mode.sshPath,
+        bastion_scope_id:
+          mode.controlPath === "bastion_relay" ? input.scopeId : undefined,
+        architecture:
+          mode.installMethod === "manual" ? input.architecture : undefined,
         environment: input.environment,
         labels: parseLabels(input.labelsText),
-        ...(isSelf
-          ? { architecture: input.architecture }
-          : {
-              address: input.address,
-              port: Number(input.port),
-              credential_id: input.credentialId,
-              username: input.account,
-              bastion_scope_id: isMember ? input.scopeId : undefined,
-              connection_test_id: test!.id,
-            }),
+        address:
+          mode.installMethod === "ssh" ? input.address.trim() : undefined,
+        port: mode.installMethod === "ssh" ? Number(input.port) : undefined,
+        username:
+          mode.installMethod === "ssh" ? input.username.trim() : undefined,
+        credential_id:
+          mode.installMethod === "ssh" ? input.credentialId : undefined,
+        connection_test_id: test?.id,
       };
-      setPendingAction(await api.hosts.previewCreateResource(request));
+      const action = retryHost
+        ? await api.hosts.previewRetryResource(retryHost.id, request)
+        : await api.hosts.previewCreateResource(request);
+      if (!isCurrent()) {
+        void api.approvals.cancel(action.action_ref).catch(() => {});
+        return;
+      }
+      setPreviewName(nameSnapshot);
+      setPendingAction(action);
       dispatch({
         type: "next",
-        terminal: isSelf ? "confirm_command" : "verify",
+        terminal:
+          mode.installMethod === "manual" ? "confirm_command" : "verify",
       });
     } catch (error) {
+      if (!isCurrent()) return;
+      if (nameAvailability.handleConflict(error, nameSnapshot)) return;
       presentApiFormError(error, {
         fallback: t("hosts.wizard.previewFailed"),
         fieldMap: {
@@ -320,45 +382,18 @@ export function AddHostWizard({
           name: "name",
           platform: "platform",
           port: "port",
-          username: "account",
+          username: "username",
         },
         requestReference: (requestId) =>
           t("common.requestReference", { requestId }),
         setFieldError: (field, message) =>
-          form.setError(
-            field,
-            { message, type: "server" },
-            { shouldFocus: true },
-          ),
+          form.setError(field, { message, type: "server" }),
         setFormError: (message) =>
           form.setError("root", { message, type: "server" }),
       });
     } finally {
-      setTesting(false);
+      if (prepareGeneration.current === generation) setBusy(false);
     }
-  };
-
-  const committed = (result: ConfirmActionResult) => {
-    setPendingAction(null);
-    if (result.one_time_result) {
-      setOneTimeResult(result.one_time_result);
-      dispatch({ type: "commit_command" });
-    } else {
-      dispatch({ type: "commit_complete" });
-    }
-    notifyCreated();
-  };
-  const previewBack = async () => {
-    if (pendingAction) {
-      try {
-        await api.approvals.cancel(pendingAction.action_ref);
-      } catch {
-        // Expired previews are safe to discard.
-      }
-    }
-    setPendingAction(null);
-    setConnectionTest(null);
-    dispatch({ type: "back" });
   };
 
   const steps = [
@@ -374,38 +409,85 @@ export function AddHostWizard({
     },
     {
       id: "verify",
-      title: isSelf
-        ? t("hosts.wizard.generateCommand")
-        : t("hosts.wizard.step3"),
+      title:
+        mode.installMethod === "manual"
+          ? t("hosts.wizard.generateCommand")
+          : t("hosts.wizard.testAndPreview"),
       description: t("hosts.wizard.step3Desc"),
     },
   ];
+  const terminalPhase =
+    wizard.phase === "command_result" || wizard.phase === "completed";
 
   return (
     <>
       <Dialog
         className="argus-dialog--wizard"
-        description={t("hosts.wizard.dialogDesc")}
+        description={t(
+          retryHost
+            ? "hosts.onboardingProgress.retryHint"
+            : "hosts.wizard.dialogDesc",
+        )}
         footer={
-          <HostFooter
-            back={() => dispatch({ type: "back" })}
-            busy={testing}
-            close={close}
-            next={() =>
-              dispatch({
-                type: "next",
-                terminal: isSelf ? "confirm_command" : "verify",
-              })
-            }
-            phase={wizard.phase}
-            previewBack={() => void previewBack()}
-            t={t}
-            valid={Boolean(values.name.trim())}
-          />
+          <>
+            <span className="argus-dialog__footer-hint">
+              {wizard.phase === "select_mode"
+                ? t("hosts.wizard.scenarioHint")
+                : t("hosts.wizard.footerHint")}
+            </span>
+            {wizard.phase === "select_mode" && (
+              <>
+                <Button onClick={() => close(false)} variant="secondary">
+                  {t("hosts.cancel")}
+                </Button>
+                <Button
+                  onClick={() =>
+                    dispatch({
+                      type: "next",
+                      terminal:
+                        mode.installMethod === "manual"
+                          ? "confirm_command"
+                          : "verify",
+                    })
+                  }
+                  variant="primary"
+                >
+                  {t("hosts.wizard.next")}
+                </Button>
+              </>
+            )}
+            {wizard.phase === "details" && (
+              <>
+                <Button
+                  onClick={() => dispatch({ type: "back" })}
+                  variant="secondary"
+                >
+                  {t("hosts.wizard.back")}
+                </Button>
+                <Button
+                  form={FORM_ID}
+                  loading={busy}
+                  type="submit"
+                  variant="primary"
+                >
+                  {mode.installMethod === "manual"
+                    ? t("hosts.wizard.generateCommand")
+                    : t("hosts.wizard.testAndPreview")}
+                </Button>
+              </>
+            )}
+            {terminalPhase && (
+              <Button onClick={() => close(false)} variant="primary">
+                {t("hosts.done")}
+              </Button>
+            )}
+          </>
         }
         onOpenChange={close}
         open={open}
-        title={t("hosts.wizard.title")}
+        title={t(
+          retryHost ? "hosts.onboardingProgress.retry" : "hosts.wizard.title",
+        )}
         width={1080}
       >
         <WizardProgress
@@ -414,62 +496,241 @@ export function AddHostWizard({
         />
         <div
           className="argus-wizard-dialog__content"
+          data-control-path={mode.controlPath}
+          data-install-method={mode.installMethod}
           data-mode={wizard.mode}
           data-phase={wizard.phase}
+          data-platform={values.platform}
+          data-ssh-path={mode.sshPath}
           data-testid="host-onboarding-flow"
         >
           {wizard.phase === "select_mode" && (
-            <HostModeStep mode={wizard.mode} onSelect={requestMode} t={t} />
+            <HostModeStep
+              mode={wizard.mode}
+              onSelect={requestMode}
+              relayAvailable={relayScopes.length > 0}
+              t={t}
+            />
           )}
           {wizard.phase === "details" && (
-            <HostDetails
-              credentials={credentials}
-              form={form}
-              isMember={isMember}
-              isSelf={isSelf}
-              mode={wizard.mode}
-              onChangeMode={() => dispatch({ type: "change_mode" })}
-              onValid={preparePreview}
-              scopes={scopes}
-              t={t}
-              values={values}
-            />
+            <form
+              className="argus-wizard-details"
+              id={FORM_ID}
+              onSubmit={form.handleSubmit(prepare)}
+            >
+              <SelectedHostMode
+                mode={wizard.mode}
+                onChange={() => dispatch({ type: "change_mode" })}
+                t={t}
+              />
+              {form.formState.errors.root?.message &&
+                connectionTest?.status !== "failed" && (
+                  <Alert
+                    description={form.formState.errors.root.message}
+                    title={t("hosts.wizard.previewFailed")}
+                    tone="danger"
+                  />
+                )}
+              {connectionTest?.status === "failed" && (
+                <ConnectionTestSummary result={connectionTest} />
+              )}
+              <div className="argus-scenario-wizard__form">
+                <Field
+                  error={
+                    form.formState.errors.name?.message ??
+                    nameAvailability.error
+                  }
+                  hint={
+                    nameAvailability.checking
+                      ? t("resourceNames.checking")
+                      : undefined
+                  }
+                  label={t("hosts.wizard.name")}
+                  requirement="required"
+                >
+                  <Input
+                    autoFocus
+                    {...form.register("name", {
+                      onBlur: nameAvailability.onBlur,
+                    })}
+                  />
+                </Field>
+                <Field
+                  label={t("hosts.wizard.environment")}
+                  requirement="required"
+                >
+                  <Select
+                    value={values.environment}
+                    onValueChange={(value) =>
+                      form.setValue("environment", value as Environment)
+                    }
+                    options={ENVIRONMENTS.map((value) => ({
+                      value,
+                      label: t(`hosts.env.${value}`),
+                    }))}
+                  />
+                </Field>
+                <Field
+                  label={t("hosts.wizard.platform")}
+                  requirement="required"
+                >
+                  <Select
+                    value={values.platform}
+                    onValueChange={(value) => {
+                      form.setValue("platform", value as "linux" | "windows");
+                      if (value === "windows")
+                        form.setValue("architecture", "amd64");
+                    }}
+                    options={[
+                      { value: "linux", label: "Linux" },
+                      { value: "windows", label: "Windows Server 2019+" },
+                    ]}
+                  />
+                </Field>
+                {mode.installMethod === "manual" &&
+                  values.platform === "linux" && (
+                    <Field
+                      label={t("hosts.wizard.architecture")}
+                      requirement="required"
+                    >
+                      <Select
+                        value={values.architecture}
+                        onValueChange={(value) =>
+                          form.setValue(
+                            "architecture",
+                            value as "amd64" | "arm64",
+                          )
+                        }
+                        options={[
+                          { value: "amd64", label: "x64 / amd64" },
+                          { value: "arm64", label: "arm64" },
+                        ]}
+                      />
+                    </Field>
+                  )}
+                {mode.controlPath === "bastion_relay" && (
+                  <Field
+                    className="argus-field--wide"
+                    error={form.formState.errors.scopeId?.message}
+                    label={t("hosts.wizard.scope")}
+                    requirement="required"
+                  >
+                    <Select
+                      value={values.scopeId}
+                      onValueChange={(value) => form.setValue("scopeId", value)}
+                      options={relayScopes.map((scope) => ({
+                        value: scope.id,
+                        label: `${scope.name} · ${scope.relay_address}:${scope.relay_https_port}`,
+                      }))}
+                      placeholder={t("hosts.wizard.selectScope")}
+                    />
+                  </Field>
+                )}
+                {mode.installMethod === "ssh" && (
+                  <>
+                    <Field
+                      error={form.formState.errors.address?.message}
+                      label={t("hosts.wizard.address")}
+                      requirement="required"
+                    >
+                      <Input {...form.register("address")} />
+                    </Field>
+                    <Field
+                      error={form.formState.errors.port?.message}
+                      label={t("hosts.wizard.port")}
+                      requirement="required"
+                    >
+                      <Input inputMode="numeric" {...form.register("port")} />
+                    </Field>
+                    <Field
+                      error={form.formState.errors.username?.message}
+                      label={t("hosts.wizard.account")}
+                      requirement="required"
+                    >
+                      <Input {...form.register("username")} />
+                    </Field>
+                    <Field
+                      error={form.formState.errors.credentialId?.message}
+                      label={t("hosts.wizard.credential")}
+                      requirement="required"
+                    >
+                      <Select
+                        value={values.credentialId}
+                        onValueChange={(value) =>
+                          form.setValue("credentialId", value)
+                        }
+                        options={credentials.map((credential) => ({
+                          value: credential.id,
+                          label: credential.name,
+                        }))}
+                      />
+                    </Field>
+                  </>
+                )}
+                <Field
+                  className="argus-field--wide"
+                  label={t("hosts.wizard.labels")}
+                  requirement="optional"
+                >
+                  <Textarea rows={3} {...form.register("labelsText")} />
+                </Field>
+              </div>
+            </form>
           )}
           {(wizard.phase === "verify" || wizard.phase === "confirm_command") &&
             pendingAction && (
               <div className="argus-dialog__flow">
                 {connectionTest && (
-                  <Alert
-                    description={
-                      connectionTest.status === "succeeded"
-                        ? t("hosts.wizard.testPassed")
-                        : t("hosts.wizard.testFailed")
-                    }
-                    title={t("hosts.wizard.connectionTestSummary")}
-                    tone={
-                      connectionTest.status === "succeeded"
-                        ? "success"
-                        : "danger"
-                    }
-                  />
+                  <ConnectionTestSummary result={connectionTest} />
                 )}
                 <PendingActionConfirm
                   action={pendingAction}
-                  claimOneTimeResult={isSelf}
+                  onError={(error) => {
+                    if (retryHost) return false;
+                    if (
+                      !previewName ||
+                      !nameAvailability.isCurrent(previewName)
+                    )
+                      return true;
+                    if (!nameAvailability.handleConflict(error, previewName))
+                      return false;
+                    setPendingAction(null);
+                    setConnectionTest(null);
+                    dispatch({ type: "back" });
+                    return true;
+                  }}
+                  claimOneTimeResult={mode.installMethod === "manual"}
                   onCancel={() => {
                     setPendingAction(null);
                     dispatch({ type: "back" });
                   }}
-                  onDone={committed}
+                  onDone={(result) => {
+                    if (
+                      !retryHost &&
+                      (!previewName || !nameAvailability.isCurrent(previewName))
+                    )
+                      return;
+                    setPendingAction(null);
+                    if (!notified.current) {
+                      notified.current = true;
+                      onCreated();
+                    }
+                    if (result.one_time_result) {
+                      setOneTimeResult(result.one_time_result);
+                      dispatch({ type: "commit_command" });
+                    } else {
+                      dispatch({ type: "commit_complete" });
+                    }
+                  }}
                 />
               </div>
             )}
           {wizard.phase === "command_result" && oneTimeResult && (
-            <div className="argus-dialog__flow argus-detail-section">
+            <div className="argus-dialog__flow">
               <Alert
                 description={t("hosts.wizard.commandOnce")}
                 title={t("hosts.wizard.commandTitle")}
-                tone="success"
+                tone="warning"
               />
               <InstallInstructionPanel result={oneTimeResult} />
               <p className="argus-muted">
@@ -504,310 +765,88 @@ export function AddHostWizard({
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-function HostDetails({
-  credentials,
-  form,
-  isMember,
-  isSelf,
-  mode,
-  onChangeMode,
-  onValid,
-  scopes,
-  t,
-  values,
-}: {
-  credentials: Array<{ id: string; name: string }>;
-  form: UseFormReturn<HostWizardForm>;
-  isMember: boolean;
-  isSelf: boolean;
-  mode: HostOnboardingMode;
-  onChangeMode: () => void;
-  onValid: (values: HostWizardForm) => Promise<void>;
-  scopes: BastionScope[];
-  t: Translate;
-  values: HostWizardForm;
-}) {
-  const errors = form.formState.errors;
-  return (
-    <form
-      className="argus-wizard-details"
-      id={HOST_FORM_ID}
-      onSubmit={form.handleSubmit(onValid)}
-    >
-      <div className="argus-selected-mode">
-        <div>
-          <span>{t("hosts.wizard.selectedMode")}</span>
-          <strong>{t(`hosts.scenario.titleOf.${mode}`)}</strong>
-        </div>
-        <Button onClick={onChangeMode} type="button" variant="ghost">
-          {t("hosts.wizard.changeMode")}
-        </Button>
-      </div>
-      {errors.root?.message && (
-        <Alert
-          description={errors.root.message}
-          title={t("hosts.wizard.previewFailed")}
-          tone="danger"
-        />
-      )}
-      <div className="argus-scenario-wizard__form">
-        <Field
-          error={errors.name?.message}
-          label={t("hosts.wizard.name")}
-          requirement="required"
-        >
-          <Input
-            autoFocus
-            placeholder={t("hosts.wizard.namePlaceholder")}
-            {...form.register("name")}
-          />
-        </Field>
-        <Field label={t("hosts.wizard.environment")} requirement="required">
-          <Select
-            onValueChange={(value) =>
-              form.setValue("environment", value as Environment, {
-                shouldValidate: true,
-              })
-            }
-            options={ENVIRONMENTS.map((value) => ({
-              value,
-              label: t(`hosts.env.${value}`),
-            }))}
-            value={values.environment}
-          />
-        </Field>
-        {isMember && (
-          <Field
-            className="argus-field--wide"
-            error={errors.scopeId?.message}
-            label={t("hosts.wizard.scope")}
-            requirement="required"
-          >
-            <Select
-              onValueChange={(value) =>
-                form.setValue("scopeId", value, { shouldValidate: true })
-              }
-              options={scopes.map((scope) => ({
-                value: scope.id,
-                label: scope.name,
-              }))}
-              placeholder={t("hosts.wizard.selectScope")}
-              value={values.scopeId}
-            />
-          </Field>
-        )}
-        {isSelf ? (
-          <>
-            <Field label={t("hosts.wizard.platform")} requirement="none">
-              <Input disabled value={t("hosts.wizard.platformLinux")} />
-            </Field>
-            <Field
-              label={t("hosts.wizard.architecture")}
-              requirement="required"
-            >
-              <Select
-                onValueChange={(value) =>
-                  form.setValue(
-                    "architecture",
-                    value as HostWizardForm["architecture"],
-                    { shouldValidate: true },
-                  )
-                }
-                options={[
-                  { value: "amd64", label: "amd64" },
-                  { value: "arm64", label: "arm64" },
-                ]}
-                value={values.architecture}
-              />
-            </Field>
-            <Alert
-              description={t("hosts.wizard.selfEnrolledPrereq")}
-              title={t("hosts.wizard.selfEnrolledPrereqTitle")}
-              tone="info"
-            />
-          </>
-        ) : (
-          <>
-            <Field
-              error={errors.address?.message}
-              label={t("hosts.wizard.address")}
-              requirement="required"
-            >
-              <Input
-                placeholder={t("hosts.wizard.addressPlaceholder")}
-                {...form.register("address")}
-              />
-            </Field>
-            <Field
-              error={errors.port?.message}
-              label={t("hosts.wizard.port")}
-              requirement="required"
-            >
-              <Input inputMode="numeric" {...form.register("port")} />
-            </Field>
-            <Field label={t("hosts.wizard.protocol")} requirement="required">
-              <Select
-                onValueChange={(value) => {
-                  const protocol = value as HostWizardForm["protocol"];
-                  form.setValue("protocol", protocol, { shouldValidate: true });
-                  form.setValue("port", protocol === "winrm" ? "5986" : "22");
-                  form.setValue(
-                    "platform",
-                    protocol === "winrm" ? "windows" : "linux",
-                  );
-                  form.setValue("credentialId", "");
-                }}
-                options={[
-                  { value: "ssh", label: "SSH" },
-                  { value: "winrm", label: "WinRM" },
-                ]}
-                value={values.protocol}
-              />
-            </Field>
-            <Field label={t("hosts.wizard.platform")} requirement="required">
-              <Select
-                disabled={values.protocol === "winrm"}
-                onValueChange={(value) =>
-                  form.setValue(
-                    "platform",
-                    value as HostWizardForm["platform"],
-                    { shouldValidate: true },
-                  )
-                }
-                options={[
-                  { value: "linux", label: t("hosts.wizard.platformLinux") },
-                  {
-                    value: "windows",
-                    label: t("hosts.wizard.platformWindows"),
-                  },
-                ]}
-                value={values.platform}
-              />
-            </Field>
-            <Field
-              error={errors.account?.message}
-              label={t("hosts.wizard.account")}
-              requirement="required"
-            >
-              <Input
-                placeholder={t("hosts.wizard.accountPlaceholder")}
-                {...form.register("account")}
-              />
-            </Field>
-            <Field
-              error={errors.credentialId?.message}
-              label={t("hosts.wizard.secret")}
-              requirement="required"
-            >
-              <Select
-                onValueChange={(value) =>
-                  form.setValue("credentialId", value, {
-                    shouldValidate: true,
-                  })
-                }
-                options={credentials.map((credential) => ({
-                  value: credential.id,
-                  label: credential.name,
-                }))}
-                placeholder={t("hosts.wizard.secretNone")}
-                value={values.credentialId}
-              />
-            </Field>
-          </>
-        )}
-        <Field
-          className="argus-field--wide"
-          label={t("hosts.wizard.labels")}
-          requirement="optional"
-        >
-          <Textarea {...form.register("labelsText")} rows={3} />
-        </Field>
-      </div>
-    </form>
-  );
-}
-
 function HostModeStep({
   mode,
   onSelect,
+  relayAvailable,
   t,
 }: {
   mode: HostOnboardingMode;
   onSelect: (mode: HostOnboardingMode) => void;
+  relayAvailable: boolean;
   t: Translate;
 }) {
-  const modes: HostOnboardingMode[] = [
-    "direct_both",
-    "direct_in",
-    "self_enrolled",
-    "bastion_member",
-    "bastion_tunnel_member",
-  ];
+  const renderCard = (candidate: HostOnboardingMode) => {
+    const isBastion =
+      HOST_MODE_CONFIG[candidate].controlPath === "bastion_relay";
+    const available = !isBastion || relayAvailable;
+    return (
+      <ScenarioCard
+        description={t(`hosts.hostMode.summaryOf.${candidate}`)}
+        diagram={<HostTopology mode={candidate} t={t} />}
+        key={candidate}
+        onSelect={() => onSelect(candidate)}
+        refLabel={t(`hosts.hostMode.referenceOf.${candidate}`)}
+        selected={mode === candidate}
+        status={available ? "supported" : "unavailable"}
+        statusLabel={
+          available
+            ? t("hosts.scenario.statusSupported")
+            : t("hosts.wizard.noActiveScope")
+        }
+        title={t(`hosts.hostMode.titleOf.${candidate}`)}
+      />
+    );
+  };
   return (
     <div className="argus-mode-selection">
-      <div className="argus-mode-selection__cards">
-        {modes.map((candidate) => (
-          <ScenarioCard
-            description={t(`hosts.scenario.summaryOf.${candidate}`)}
-            diagram={<HostTopology mode={candidate} t={t} />}
-            key={candidate}
-            onSelect={() => onSelect(candidate)}
-            refLabel={hostModeReference(candidate, t)}
-            selected={mode === candidate}
-            statusLabel={t("hosts.scenario.statusSupported")}
-            title={t(`hosts.scenario.titleOf.${candidate}`)}
-          />
-        ))}
+      <div className="argus-mode-selection__cards argus-scenario-wizard__list">
+        <div className="argus-scenario-wizard__group">
+          {t("hosts.hostMode.groupStandalone")}
+        </div>
+        {(["command_direct", "ssh_direct", "ssh_tunnel"] as const).map(
+          renderCard,
+        )}
+        <div className="argus-scenario-wizard__group">
+          {t("hosts.hostMode.groupBastion")}
+        </div>
+        {(["command_bastion", "ssh_bastion"] as const).map(renderCard)}
       </div>
       <div className="argus-mode-selection__detail">
-        <h3>{t(`hosts.scenario.titleOf.${mode}`)}</h3>
-        <p>{t(`hosts.scenario.summaryOf.${mode}`)}</p>
+        <h3>{t(`hosts.hostMode.titleOf.${mode}`)}</h3>
+        <p>{t(`hosts.hostMode.summaryOf.${mode}`)}</p>
         <ModeGrid items={hostModeGrid(mode, t)} />
-        {(mode === "direct_both" || mode === "direct_in") && (
-          <Alert
-            description={t("hosts.wizard.egressNote", {
-              ip:
-                ARGUS_EGRESS_ADDRESSES.join(", ") ||
-                t("hosts.wizard.egressNotConfigured"),
-            })}
-            title={t("hosts.wizard.networkPrerequisite")}
-            tone="info"
-          />
-        )}
       </div>
     </div>
   );
 }
 
 function HostTopology({ mode, t }: { mode: HostOnboardingMode; t: Translate }) {
-  if (mode === "bastion_member" || mode === "bastion_tunnel_member") {
+  if (mode === "command_bastion" || mode === "ssh_bastion") {
     return (
       <TopologyDiagram
-        label={t(`hosts.scenario.titleOf.${mode}`)}
+        label={t(`hosts.hostMode.titleOf.${mode}`)}
         layout="member"
         links={[
           {
-            mode: "ok",
-            direction: "down",
-            label: t("hosts.topology.sshManage"),
+            mode: mode === "ssh_bastion" ? "ok" : "blocked",
+            direction: mode === "ssh_bastion" ? "down" : "none",
+            label:
+              mode === "ssh_bastion"
+                ? t("hosts.topology.sshManage")
+                : t("hosts.topology.noDirect"),
             slot: "left",
           },
           {
-            mode: mode === "bastion_member" ? "ok" : "blocked",
-            direction: mode === "bastion_member" ? "up" : "none",
-            label:
-              mode === "bastion_member"
-                ? t("hosts.topology.otlpPush")
-                : t("hosts.topology.noDirect"),
+            mode: "ok",
+            direction: "up",
+            label: t("hosts.topology.relayConnect"),
             slot: "right",
           },
           {
-            mode: mode === "bastion_member" ? "ok" : "tunnel",
+            mode: "ok",
             direction: "right",
-            label:
-              mode === "bastion_member"
-                ? t("hosts.topology.egress")
-                : t("hosts.topology.tunnelOtlp"),
+            label: t("hosts.topology.egress"),
             slot: "h",
           },
         ]}
@@ -820,14 +859,8 @@ function HostTopology({ mode, t }: { mode: HostOnboardingMode; t: Translate }) {
     );
   }
   const links =
-    mode === "self_enrolled"
+    mode === "command_direct"
       ? [
-          {
-            mode: "blocked" as const,
-            direction: "none" as const,
-            label: t("hosts.topology.noDirect"),
-            slot: "top" as const,
-          },
           {
             mode: "ok" as const,
             direction: "right" as const,
@@ -835,7 +868,7 @@ function HostTopology({ mode, t }: { mode: HostOnboardingMode; t: Translate }) {
             slot: "mid" as const,
           },
         ]
-      : mode === "direct_both"
+      : mode === "ssh_direct"
         ? [
             {
               mode: "ok" as const,
@@ -872,7 +905,7 @@ function HostTopology({ mode, t }: { mode: HostOnboardingMode; t: Translate }) {
           ];
   return (
     <TopologyDiagram
-      label={t(`hosts.scenario.titleOf.${mode}`)}
+      label={t(`hosts.hostMode.titleOf.${mode}`)}
       layout="pair"
       links={links}
       nodes={[
@@ -883,135 +916,47 @@ function HostTopology({ mode, t }: { mode: HostOnboardingMode; t: Translate }) {
   );
 }
 
-function hostModeReference(mode: HostOnboardingMode, t: Translate) {
-  if (mode === "direct_both") return t("hosts.scenario.refCase1");
-  if (mode === "direct_in") return t("hosts.scenario.refCase2");
-  if (mode === "self_enrolled") return t("hosts.scenario.refCase5");
-  if (mode === "bastion_member") return t("hosts.scenario.refStandard");
-  return t("hosts.scenario.refCase3");
-}
-
 function hostModeGrid(mode: HostOnboardingMode, t: Translate) {
-  const self = mode === "self_enrolled";
-  const member = mode === "bastion_member" || mode === "bastion_tunnel_member";
+  const config = HOST_MODE_CONFIG[mode];
   return [
     {
-      label: t("hosts.wizard.modeGrid.mode"),
-      value: self
-        ? t("hosts.wizard.modeGrid.modeSelf")
-        : member
-          ? t("hosts.wizard.modeGrid.modeBastion")
-          : t("hosts.wizard.modeGrid.modeDirect"),
+      label: t("hosts.wizard.installMethod"),
+      value:
+        config.installMethod === "manual"
+          ? t("hosts.wizard.commandInstall")
+          : t("hosts.wizard.sshInstall"),
       tone: "info" as const,
     },
     {
-      label: t("hosts.wizard.modeGrid.install"),
-      value: self
-        ? t("hosts.wizard.modeGrid.installSelf")
-        : member
-          ? t("hosts.wizard.modeGrid.installConnector")
-          : t("hosts.wizard.modeGrid.installExecutor"),
+      label: t("hosts.wizard.controlPath"),
+      value: t(`hosts.controlPath.${config.controlPath}`),
     },
     {
-      label: t("hosts.wizard.modeGrid.telemetry"),
-      value:
-        mode === "direct_in"
-          ? t("hosts.wizard.modeGrid.telemetryExecutorTunnel")
-          : mode === "bastion_tunnel_member"
-            ? t("hosts.wizard.modeGrid.telemetryBastionTunnel")
-            : member
-              ? t("hosts.wizard.modeGrid.telemetryGateway")
-              : t("hosts.wizard.modeGrid.telemetryDirect"),
-    },
-    {
-      label: t("hosts.wizard.modeGrid.terminal"),
-      value: self
-        ? t("hosts.wizard.modeGrid.terminalNo")
-        : t("hosts.wizard.modeGrid.terminalYes"),
-    },
-    {
-      label: t("hosts.wizard.modeGrid.liveness"),
-      value: self
-        ? t("hosts.wizard.modeGrid.livenessSeen")
-        : t("hosts.wizard.modeGrid.livenessProbe"),
-    },
-    {
-      label: t("hosts.wizard.modeGrid.egress"),
-      value:
-        mode === "direct_both"
-          ? t("hosts.wizard.modeGrid.egressBoth")
-          : mode === "direct_in"
-            ? t("hosts.wizard.modeGrid.egressInOnly")
-            : self
-              ? t("hosts.wizard.modeGrid.egressSelf")
-              : t("hosts.wizard.modeGrid.egressBastion"),
+      label: t("hosts.wizard.networkPrerequisite"),
+      value: t(`hosts.hostMode.prerequisiteOf.${mode}`),
       tone: "warn" as const,
     },
   ];
 }
 
-function HostFooter({
-  phase,
-  valid,
-  busy,
+function SelectedHostMode({
+  mode,
+  onChange,
   t,
-  close,
-  back,
-  next,
-  previewBack,
 }: {
-  phase: OnboardingWizardState<HostOnboardingMode>["phase"];
-  valid: boolean;
-  busy: boolean;
+  mode: HostOnboardingMode;
+  onChange: () => void;
   t: Translate;
-  close: (next: boolean) => void;
-  back: () => void;
-  next: () => void;
-  previewBack: () => void;
 }) {
   return (
-    <>
-      <span className="argus-dialog__footer-hint">
-        {t("hosts.wizard.footerHint")}
-      </span>
-      {phase === "select_mode" && (
-        <Button onClick={() => close(false)} variant="secondary">
-          {t("common.cancel")}
-        </Button>
-      )}
-      {phase === "select_mode" && (
-        <Button onClick={next} variant="primary">
-          {t("hosts.wizard.next")}
-        </Button>
-      )}
-      {phase === "details" && (
-        <Button disabled={busy} onClick={back} variant="secondary">
-          {t("hosts.wizard.back")}
-        </Button>
-      )}
-      {phase === "details" && (
-        <Button
-          disabled={!valid}
-          form={HOST_FORM_ID}
-          loading={busy}
-          type="submit"
-          variant="primary"
-        >
-          {t("hosts.wizard.next")}
-        </Button>
-      )}
-      {(phase === "verify" || phase === "confirm_command") && (
-        <Button onClick={previewBack} variant="secondary">
-          {t("hosts.wizard.back")}
-        </Button>
-      )}
-      {(phase === "command_result" || phase === "completed") && (
-        <Button onClick={() => close(false)} variant="primary">
-          {phase === "command_result"
-            ? t("hosts.wizard.commandSaved")
-            : t("common.close")}
-        </Button>
-      )}
-    </>
+    <div className="argus-selected-mode">
+      <div>
+        <span>{t("hosts.wizard.selectedMode")}</span>
+        <strong>{t(`hosts.hostMode.titleOf.${mode}`)}</strong>
+      </div>
+      <Button onClick={onChange} type="button" variant="ghost">
+        {t("hosts.wizard.changeMode")}
+      </Button>
+    </div>
   );
 }

@@ -64,6 +64,7 @@ import type { K8sWorkload, K8sWorkloadFilter } from "./provisional";
 import type { TaskEvent, TaskFilter, TaskViewModel } from "./provisional";
 import type {
   ApprovalDecisionCreate,
+  ResourceNameAvailability,
   ActionOneTimeResult,
   ApprovalRequestView,
   BastionPreviewCreate,
@@ -86,6 +87,11 @@ import type {
   HostPage,
   HostPreviewCreate,
   HostPreviewUpdate,
+  HostRemovalPreview,
+  HostRemovalConnectionDefaults,
+  HostRemovalOperation,
+  HostOnboardingOperation,
+  HostRemovalInstruction,
   ConnectorInstallOperation,
   KubernetesCluster,
   KubernetesClusterPage,
@@ -196,7 +202,7 @@ export interface RemoteAccessSessionListQuery extends CursorListQuery {
   host_id?: string;
   managed_account_id?: string;
   protocol?: RemoteAccessSession["protocol"];
-  connection_mode?: RemoteAccessSession["connection_mode"];
+  control_path?: RemoteAccessSession["control_path"];
   created_from?: string;
   created_to?: string;
 }
@@ -212,7 +218,7 @@ export interface RemoteAccessRecordingListQuery extends CursorListQuery {
 
 export interface HostListFilter extends CursorListQuery {
   query?: string;
-  connection_mode?: Host["connection_mode"];
+  control_path?: Host["control_path"];
   bastion_scope_id?: string;
   labels?: Record<string, string[]>;
 }
@@ -305,6 +311,7 @@ export interface ArgusApiClient {
 
   /** Host inventory and host collector management. */
   hosts: {
+    checkNameAvailability(name: string): Promise<ResourceNameAvailability>;
     list(filter?: HostListFilter): Promise<HostPage>;
     get(id: string): Promise<Host>;
     createConnectionTest(
@@ -322,6 +329,25 @@ export interface ArgusApiClient {
       id: string,
       expectedVersion: number,
     ): Promise<PendingActionPublic>;
+    previewRemoval(input: HostRemovalPreview): Promise<PendingActionPublic>;
+    getRemovalConnectionDefaults(
+      input: Pick<
+        HostRemovalPreview,
+        "target_type" | "target_id" | "expected_version"
+      >,
+    ): Promise<HostRemovalConnectionDefaults>;
+    getOnboardingOperation(id: string): Promise<HostOnboardingOperation>;
+    previewRetryResource(
+      id: string,
+      input: HostPreviewCreate,
+    ): Promise<PendingActionPublic>;
+    getRemovalOperation(id: string): Promise<HostRemovalOperation>;
+    retryRemovalOperation(id: string): Promise<HostRemovalOperation>;
+    regenerateRemovalCommand(id: string): Promise<HostRemovalInstruction>;
+    previewEnableWindowsRDP(
+      hostId: string,
+      expectedVersion: number,
+    ): Promise<PendingActionPublic>;
     /** Collector install wizard on a host: status -> preview -> confirm. */
     getCollector(hostId: string): Promise<CollectorInstance | null>;
     previewCollectorAction(
@@ -332,14 +358,6 @@ export interface ArgusApiClient {
     previewCollectorInstall(
       hostId: string,
       input: CollectorPreview,
-    ): Promise<PendingActionPublic>;
-    previewEnrollmentRotate(
-      hostId: string,
-      expectedVersion: number,
-    ): Promise<PendingActionPublic>;
-    previewUninstallCommand(
-      hostId: string,
-      expectedVersion: number,
     ): Promise<PendingActionPublic>;
   };
 
@@ -433,6 +451,9 @@ export interface ArgusApiClient {
 
   /** Connectors and Bastion Scopes. */
   connectors: {
+    checkBastionNameAvailability(
+      name: string,
+    ): Promise<ResourceNameAvailability>;
     list(query?: CursorListQuery): Promise<ConnectorPage>;
     get(id: string): Promise<Connector>;
     listBastionScopes(query?: CursorListQuery): Promise<BastionScopePage>;

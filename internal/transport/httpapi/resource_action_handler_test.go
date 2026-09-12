@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -10,6 +11,13 @@ import (
 	actionservice "github.com/kakj-go/Argus/internal/action"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
+
+func TestActionErrorMapsRevalidationFailure(t *testing.T) {
+	result := actionError(context.Background(), actionservice.ErrInvalidated)
+	if result.Code != "PENDING_ACTION_INVALIDATED" || result.MessageKey != "errors.actions.pending_action_invalidated" {
+		t.Fatalf("invalidated action error = %#v", result)
+	}
+}
 
 func TestToActionExecutionProjectsDurableReferences(t *testing.T) {
 	now := time.Now().UTC()

@@ -43,6 +43,21 @@ func TestEnrollIdentityUsesPinnedTLSAndValidatesIssuedIdentity(t *testing.T) {
 	}
 }
 
+func TestEnrollIdentityPinsOnlyTCPAddressForTunnel(t *testing.T) {
+	collectorID := uuid.NewString()
+	serverURL, serverCA := enrollmentTLSServer(t, collectorID, http.StatusCreated, 0, nil)
+	command := enrollmentCommand(t, collectorID, serverURL, serverCA)
+	serverEndpoint, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	command.EnrollmentDialAddress = serverEndpoint.Host
+	command.EnrollmentEndpoint = "https://127.0.0.1:1"
+	if _, err = EnrollIdentity(t.Context(), command); err != nil {
+		t.Fatalf("pinned Collector enrollment did not use the tunnel TCP target: %v", err)
+	}
+}
+
 func TestEnrollIdentityRejectsUntrustedServerAndInvalidIssuedIdentity(t *testing.T) {
 	collectorID := uuid.NewString()
 	tests := []struct {

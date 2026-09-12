@@ -3,10 +3,10 @@ package connector
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/artifacthttp"
 	"io"
 	"net"
 	"net/http"
@@ -26,23 +26,27 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
+	"github.com/kakj-go/Argus/internal/installation"
+	"github.com/kakj-go/Argus/internal/sshtarget"
 )
 
 const (
 	commandTimeout             = 45 * time.Second
 	collectorManagementTimeout = 3 * time.Minute
+	hostRemovalTimeout         = 5 * time.Minute
 )
 
 type commandOutcome struct {
 	result *anypb.Any
 	code   string
 	detail string
+	stage  string
 	stop   bool
 }
 
 type commandExecutor struct{}
 
-func (commandExecutor) execute(parent context.Context, command *connectorv1.ConnectorCommand, credential []byte) commandOutcome {
+func (commandExecutor) execute(parent context.Context, command *connectorv1.ConnectorCommand, credential, operationSecret []byte) commandOutcome {
 	ctx, cancel := context.WithTimeout(parent, timeoutForCommand(command.GetCommandType()))
 	defer cancel()
 	if command.GetTypedPayload() == nil || command.GetCommandId() == "" || command.GetExpiresAt() == nil || time.Now().After(command.GetExpiresAt().AsTime()) {
@@ -66,15 +70,49 @@ func (commandExecutor) execute(parent context.Context, command *connectorv1.Conn
 		}
 	case "collector_management":
 		value, err = executeCollectorManagement(ctx, command.GetTypedPayload(), credential)
+	case "host_connector_install":
+		value, err = executeHostConnectorInstall(ctx, command.GetTypedPayload(), credential, operationSecret)
+	case "host_connector_removal":
+		value, err = executeHostConnectorRemoval(ctx, command.GetTypedPayload(), credential)
+	case "host_windows_rdp_configure":
+		var request connectorv1.HostWindowsRDPConfigure
+		if err = command.GetTypedPayload().UnmarshalTo(&request); err == nil {
+			value, err = configureWindowsRDP(ctx, &request)
+		}
 	default:
 		err = errors.New("unsupported Connector command")
 	}
 	if err != nil {
 		code := "CONNECTOR_COMMAND_FAILED"
+		stage := ""
+		if command.GetCommandType() == "host_connection_probe" {
+			partial, _ := value.(*connectorv1.HostConnectionProbeResult)
+			if partial == nil {
+				partial = &connectorv1.HostConnectionProbeResult{}
+			}
+			typed, _ := anypb.New(partial)
+			detail := err.Error()
+			if callbackCode := sshtarget.CallbackFailureCode(err); callbackCode != "" {
+				code = "HOST_ONBOARDING_CALLBACK_" + callbackCode
+				detail = code
+			}
+			return commandOutcome{code: code, detail: detail, result: typed}
+		}
 		if command.GetCommandType() == "collector_management" {
 			code = collectorManagementFailureCode(err)
+			stage = collectorManagementFailureStage(err)
+		} else if command.GetCommandType() == "host_connector_install" || command.GetCommandType() == "host_connector_removal" {
+			stage = hostConnectorInstallFailureStage(err)
+			if command.GetCommandType() == "host_connector_install" {
+				if artifactCode := artifacthttp.FailureCode(err); artifactCode != "" {
+					code = "HOST_ONBOARDING_ARTIFACT_" + artifactCode
+				}
+				if callbackCode := sshtarget.CallbackFailureCode(err); callbackCode != "" {
+					code = "HOST_ONBOARDING_CALLBACK_" + callbackCode
+				}
+			}
 		}
-		return commandOutcome{code: code, detail: err.Error()}
+		return commandOutcome{code: code, detail: err.Error(), stage: stage}
 	}
 	typed, err := anypb.New(value)
 	if err != nil {
@@ -86,6 +124,9 @@ func (commandExecutor) execute(parent context.Context, command *connectorv1.Conn
 func timeoutForCommand(commandType string) time.Duration {
 	if commandType == "collector_management" {
 		return collectorManagementTimeout
+	}
+	if commandType == "host_connector_removal" {
+		return hostRemovalTimeout
 	}
 	return commandTimeout
 }
@@ -100,7 +141,8 @@ func executeHostProbe(ctx context.Context, payload *anypb.Any, credential []byte
 	if err != nil {
 		return nil, err
 	}
-	result := &connectorv1.HostConnectionProbeResult{ResolvedIps: resolved, Platform: "linux"}
+	result := &connectorv1.HostConnectionProbeResult{ResolvedIps: resolved}
+	defer func() { result.LatencyMillis = uint64(time.Since(started).Milliseconds()) }()
 	switch request.Protocol {
 	case "ssh":
 		auth, err := connectorSSHAuth(credential)
@@ -115,66 +157,43 @@ func executeHostProbe(ctx context.Context, payload *anypb.Any, credential []byte
 				}
 				return nil
 			}}
-		connection, err := ssh.Dial("tcp", net.JoinHostPort(request.Address, fmt.Sprint(request.Port)), configuration)
+		raw, err := (&net.Dialer{Timeout: 10 * time.Second}).DialContext(ctx, "tcp", net.JoinHostPort(request.Address, fmt.Sprint(request.Port)))
 		if err != nil {
 			return nil, err
 		}
-		architecture, err := connectorTargetArchitecture(connection)
+		defer raw.Close()
+		stopOnCancel := context.AfterFunc(ctx, func() { _ = raw.Close() })
+		defer stopOnCancel()
+		clientConnection, channels, requests, err := ssh.NewClientConn(raw, net.JoinHostPort(request.Address, fmt.Sprint(request.Port)), configuration)
+		if err != nil {
+			return nil, err
+		}
+		connection := ssh.NewClient(clientConnection, channels, requests)
+		defer connection.Close()
+		evidence, err := sshtarget.Probe(connection, request.Platform)
 		if err != nil {
 			_ = connection.Close()
 			return nil, err
 		}
-		result.Architecture = architecture
+		result.Platform, result.Architecture = evidence.Platform, evidence.Architecture
+		result.DistributionVersion, result.ServiceManager = evidence.DistributionVersion, evidence.ServiceManager
+		result.Privileged, result.FreeDiskBytes = evidence.Privileged, evidence.FreeDiskBytes
 		result.RemoteVersion = string(connection.ServerVersion())
-		_ = connection.Close()
-	case "winrm":
-		result.Platform = "windows"
-		scheme := "http"
-		if request.Port == 443 || request.Port == 5986 {
-			scheme = "https"
+		if frozen := request.GetOnboarding(); frozen != nil {
+			if frozen.GetControlPath() == "executor_tunnel" {
+				return result, &sshtarget.CallbackError{Code: "CONFIG_INVALID"}
+			}
+			plan := installation.CallbackProbePlan{ControlPath: frozen.GetControlPath(), EnrollmentEndpoint: frozen.GetEnrollmentEndpoint(), GatewayEndpoint: frozen.GetGatewayEndpoint(),
+				EnrollDialAddress: frozen.GetEnrollDialAddress(), GatewayDialAddress: frozen.GetGatewayDialAddress(), TrustBundlePEM: frozen.GetTrustBundlePem(), TrustBundleEpoch: frozen.GetTrustBundleEpoch(), RelayPortGeneration: frozen.GetRelayPortGeneration()}
+			if err := sshtarget.ProbeOnboarding(ctx, connection, plan); err != nil {
+				return result, err
+			}
+			result.CallbackVerified, result.CallbackControlPath = true, plan.ControlPath
 		}
-		transport := &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: request.Address}}
-		client := &http.Client{Transport: transport, Timeout: 15 * time.Second, CheckRedirect: rejectConnectorRedirect}
-		body := `<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body/></s:Envelope>`
-		httpRequest, _ := http.NewRequestWithContext(ctx, http.MethodPost,
-			(&url.URL{Scheme: scheme, Host: net.JoinHostPort(request.Address, fmt.Sprint(request.Port)), Path: "/wsman"}).String(), strings.NewReader(body))
-		httpRequest.Header.Set("Content-Type", "application/soap+xml;charset=UTF-8")
-		httpRequest.SetBasicAuth(request.Username, string(credential))
-		response, err := client.Do(httpRequest)
-		if err != nil {
-			return nil, err
-		}
-		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 64*1024))
-		_ = response.Body.Close()
-		if response.StatusCode == http.StatusUnauthorized || response.StatusCode >= 500 {
-			return nil, errors.New("WinRM authentication failed")
-		}
-		result.RemoteVersion = response.Header.Get("Server")
 	default:
 		return nil, errors.New("unsupported Host probe protocol")
 	}
-	result.LatencyMillis = uint64(time.Since(started).Milliseconds())
 	return result, nil
-}
-
-func connectorTargetArchitecture(client *ssh.Client) (string, error) {
-	session, err := client.NewSession()
-	if err != nil {
-		return "", fmt.Errorf("open architecture probe session: %w", err)
-	}
-	defer session.Close()
-	output, err := session.Output("uname -m")
-	if err != nil {
-		return "", fmt.Errorf("probe target architecture: %w", err)
-	}
-	switch strings.TrimSpace(string(output)) {
-	case "x86_64", "amd64":
-		return "amd64", nil
-	case "aarch64", "arm64":
-		return "arm64", nil
-	default:
-		return "", fmt.Errorf("unsupported target architecture %q", strings.TrimSpace(string(output)))
-	}
 }
 
 func executeKubernetesProbe(ctx context.Context, payload *anypb.Any, credential []byte) (*connectorv1.KubernetesConnectionProbeResult, error) {

@@ -15,22 +15,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/kakj-go/Argus/internal/hostonboarding"
+	"github.com/kakj-go/Argus/internal/installation"
 	"github.com/kakj-go/Argus/internal/remoteaccess/revocation"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
 var (
-	ErrResourceDenied        = errors.New("resource is not explicitly authorized")
-	ErrConnectionTestNeeded  = errors.New("successful connection test required")
-	ErrInvalidConnectionMode = errors.New("invalid connection mode")
-	ErrWinRMTLSRequired      = errors.New("WINRM_TLS_REQUIRED")
-	// ErrSelfEnrollUnsupported: self_enrolled 第一版仅支持 linux amd64/arm64。
-	ErrSelfEnrollUnsupported = errors.New("HOST_SELF_ENROLL_UNSUPPORTED_PLATFORM")
-	// ErrSelfEnrollConflictingInput: self_enrolled 主机不接受地址/凭据/堡垒机等入站连接字段。
-	ErrSelfEnrollConflictingInput = errors.New("invalid connection mode")
-	ErrVersionConflict            = errors.New("resource version conflict")
-	ErrKubernetesUnavailable      = errors.New("kubernetes reader unavailable")
+	ErrResourceDenied            = errors.New("resource is not explicitly authorized")
+	ErrConnectionTestNeeded      = errors.New("successful connection test required")
+	ErrInvalidConnectionMode     = errors.New("invalid host onboarding path")
+	ErrHostOnboardingUnsupported = errors.New("HOST_ONBOARDING_UNSUPPORTED_PLATFORM")
+	ErrHostOnboardingInvalid     = errors.New("invalid host onboarding input")
+	ErrVersionConflict           = errors.New("resource version conflict")
+	ErrKubernetesUnavailable     = errors.New("kubernetes reader unavailable")
 )
 
 type CommandEnqueuer interface {
@@ -52,14 +51,12 @@ type ActionExtension interface {
 	CommitAction(context.Context, *db.Queries, db.PendingAction, json.RawMessage) (ActionCommitResult, error)
 }
 
-// SelfEnrolledHostOnboardingExtension lets the telemetry domain freeze and
-// commit the default Collector install together with host.create. Keeping this
-// as an optional capability avoids putting Collector catalog rules in the
-// resource domain while preserving a single transactional create action.
-type SelfEnrolledHostOnboardingExtension interface {
-	PrepareSelfEnrolledHostOnboarding(context.Context, *db.Queries, uuid.UUID, uuid.UUID, string) (json.RawMessage, error)
-	RevalidateSelfEnrolledHostOnboarding(context.Context, *db.Queries, uuid.UUID, json.RawMessage) error
-	CommitSelfEnrolledHostOnboarding(context.Context, *db.Queries, db.PendingAction, db.Host, json.RawMessage) (ActionCommitResult, error)
+// HostConnectorOnboardingExtension freezes and commits the Connector-only
+// onboarding plan. Collector installation remains a later telemetry action.
+type HostConnectorOnboardingExtension interface {
+	PrepareHostConnectorOnboarding(context.Context, *db.Queries, uuid.UUID, uuid.UUID, HostInput, string) (json.RawMessage, error)
+	RevalidateHostConnectorOnboarding(context.Context, *db.Queries, uuid.UUID, json.RawMessage) error
+	CommitHostConnectorOnboarding(context.Context, *db.Queries, db.PendingAction, db.Host, json.RawMessage) (ActionCommitResult, error)
 }
 
 type KubernetesEnrollmentCreator interface {
@@ -91,6 +88,8 @@ type Service struct {
 	DirectCommands    DirectDispatcher
 	Kubernetes        KubernetesReader
 	Extension         ActionExtension
+	HostOnboarding    HostConnectorOnboardingExtension
+	OnboardingProbes  OnboardingProbePlanner
 	ClusterEnrollment KubernetesEnrollmentCreator
 	TestTTL           time.Duration
 }
@@ -119,12 +118,13 @@ func (service Service) prepareAction(ctx context.Context, subject Subject, enter
 }
 
 type HostInput struct {
-	Name, Hostname, Address, Platform, ConnectionMode, Environment, Username string
-	Architecture                                                             string
-	Port                                                                     int32
-	BastionScopeID, CredentialID, ConnectionTestID                           uuid.NullUUID
-	Labels                                                                   map[string]string
-	ExpectedVersion                                                          int64
+	Name, Hostname, Address, Platform, Role, ControlPath, InstallMethod, SSHPath, Environment, Username string
+	Architecture                                                                                        string
+	OnboardingControlPath                                                                               string
+	Port                                                                                                int32
+	BastionScopeID, CredentialID, ConnectionTestID                                                      uuid.NullUUID
+	Labels                                                                                              map[string]string
+	ExpectedVersion                                                                                     int64
 }
 
 type KubernetesInput struct {
@@ -136,37 +136,48 @@ type KubernetesInput struct {
 }
 
 type connectionPlan struct {
-	TargetType        string        `json:"target_type"`
-	Address           string        `json:"address"`
-	Port              int32         `json:"port,omitempty"`
-	Platform          string        `json:"platform,omitempty"`
-	Username          string        `json:"username,omitempty"`
-	ConnectionMode    string        `json:"connection_mode"`
-	BastionScopeID    uuid.NullUUID `json:"bastion_scope_id,omitempty"`
-	ConnectorID       uuid.NullUUID `json:"connector_id,omitempty"`
-	CredentialID      uuid.NullUUID `json:"credential_id,omitempty"`
-	CredentialVersion int64         `json:"credential_version,omitempty"`
-	ResolvedIPs       []string      `json:"resolved_ips,omitempty"`
+	TargetType        string                          `json:"target_type"`
+	Address           string                          `json:"address"`
+	Port              int32                           `json:"port,omitempty"`
+	Platform          string                          `json:"platform,omitempty"`
+	Username          string                          `json:"username,omitempty"`
+	ConnectionMode    string                          `json:"connection_mode"`
+	SSHPath           string                          `json:"ssh_path,omitempty"`
+	BastionScopeID    uuid.NullUUID                   `json:"bastion_scope_id,omitempty"`
+	ConnectorID       uuid.NullUUID                   `json:"connector_id,omitempty"`
+	CredentialID      uuid.NullUUID                   `json:"credential_id,omitempty"`
+	CredentialVersion int64                           `json:"credential_version,omitempty"`
+	ResolvedIPs       []string                        `json:"resolved_ips,omitempty"`
+	Onboarding        *installation.CallbackProbePlan `json:"onboarding,omitempty"`
 }
 
 type ConnectionTestResult struct {
-	Checks             []map[string]string `json:"checks"`
-	LatencyMS          int64               `json:"latency_ms,omitempty"`
-	ResolvedIPs        []string            `json:"resolved_ips,omitempty"`
-	HostKeyFingerprint string              `json:"host_key_fingerprint,omitempty"`
-	RemoteVersion      string              `json:"remote_version,omitempty"`
-	// Architecture 为 uname -m 归一化后的目标架构(amd64/arm64),
-	// Collector 安装计划据此选择分发产物;Linux 探测失败时连接测试失败。
-	Architecture string `json:"architecture,omitempty"`
+	Checks              []map[string]string `json:"checks"`
+	LatencyMS           int64               `json:"latency_ms,omitempty"`
+	ResolvedIPs         []string            `json:"resolved_ips,omitempty"`
+	HostKeyFingerprint  string              `json:"host_key_fingerprint,omitempty"`
+	RemoteVersion       string              `json:"remote_version,omitempty"`
+	Architecture        string              `json:"architecture,omitempty"`
+	Platform            string              `json:"platform,omitempty"`
+	DistributionVersion string              `json:"distribution_version,omitempty"`
+	ServiceManager      string              `json:"service_manager,omitempty"`
+	Privileged          bool                `json:"privileged,omitempty"`
+	FreeDiskBytes       uint64              `json:"free_disk_bytes,omitempty"`
+	CallbackVerified    bool                `json:"callback_verified,omitempty"`
+	CallbackControlPath string              `json:"callback_control_path,omitempty"`
 }
 
 type hostActionPlan struct {
-	Operation      string          `json:"operation"`
-	HostID         uuid.UUID       `json:"host_id"`
-	Input          HostInput       `json:"input"`
-	PinnedKey      string          `json:"pinned_host_key,omitempty"`
-	Arch           string          `json:"architecture,omitempty"`
-	OnboardingPlan json.RawMessage `json:"onboarding_plan,omitempty"`
+	RetryOf             uuid.UUID       `json:"retry_of,omitempty"`
+	Operation           string          `json:"operation"`
+	HostID              uuid.UUID       `json:"host_id"`
+	Input               HostInput       `json:"input"`
+	PinnedKey           string          `json:"pinned_host_key,omitempty"`
+	Arch                string          `json:"architecture,omitempty"`
+	DistributionVersion string          `json:"distribution_version,omitempty"`
+	ServiceManager      string          `json:"service_manager,omitempty"`
+	FreeDiskBytes       uint64          `json:"free_disk_bytes,omitempty"`
+	OnboardingPlan      json.RawMessage `json:"onboarding_plan,omitempty"`
 }
 
 type kubernetesActionPlan struct {
@@ -229,14 +240,24 @@ func (service Service) CreateHostConnectionTest(ctx context.Context, subject Sub
 }
 
 func (service Service) hostConnectionPlan(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, actorID string, input HostInput) (connectionPlan, db.CreateConnectionTestParams, error) {
-	if input.ConnectionMode != "via_bastion" && input.ConnectionMode != "direct_ssh" && input.ConnectionMode != "direct_winrm" {
+	if input.SSHPath != "direct_executor" && input.SSHPath != "bastion_connector" {
 		return connectionPlan{}, db.CreateConnectionTestParams{}, ErrInvalidConnectionMode
 	}
-	if (input.ConnectionMode == "direct_winrm" || (input.ConnectionMode == "via_bastion" && input.Platform == "windows")) && input.Port != 443 && input.Port != 5986 {
-		return connectionPlan{}, db.CreateConnectionTestParams{}, ErrWinRMTLSRequired
+	if input.Platform != "linux" && input.Platform != "windows" {
+		return connectionPlan{}, db.CreateConnectionTestParams{}, ErrHostOnboardingUnsupported
 	}
 	plan := connectionPlan{TargetType: "host", Address: input.Address, Port: input.Port, Platform: input.Platform, Username: input.Username,
-		ConnectionMode: input.ConnectionMode, BastionScopeID: input.BastionScopeID}
+		SSHPath: input.SSHPath, BastionScopeID: input.BastionScopeID}
+	if input.OnboardingControlPath != "" {
+		if service.OnboardingProbes == nil {
+			return connectionPlan{}, db.CreateConnectionTestParams{}, ErrActionUnavailable
+		}
+		var err error
+		plan.Onboarding, err = service.OnboardingProbes.PlanHostOnboardingProbe(ctx, q, enterpriseID, input.OnboardingControlPath, input.SSHPath, input.BastionScopeID)
+		if err != nil {
+			return connectionPlan{}, db.CreateConnectionTestParams{}, err
+		}
+	}
 	params := db.CreateConnectionTestParams{ID: newResourceID(), EnterpriseID: enterpriseID, TargetType: "host", Path: "direct", CreatedBy: uuid.MustParse(actorID),
 		ExpiresAt: pgtype.Timestamptz{Time: service.testExpiry(), Valid: true}}
 	if !input.CredentialID.Valid {
@@ -247,18 +268,14 @@ func (service Service) hostConnectionPlan(ctx context.Context, q *db.Queries, en
 		if err != nil || credential.Status != "active" {
 			return connectionPlan{}, db.CreateConnectionTestParams{}, ErrConnectionTestNeeded
 		}
-		expectedProtocol := "ssh"
-		if input.ConnectionMode == "direct_winrm" || (input.ConnectionMode == "via_bastion" && input.Platform == "windows") {
-			expectedProtocol = "winrm"
-		}
-		if credential.Protocol != expectedProtocol || input.Username == "" {
+		if credential.Protocol != "ssh" || input.Username == "" || input.Address == "" || input.Port < 1 {
 			return connectionPlan{}, db.CreateConnectionTestParams{}, ErrConnectionTestNeeded
 		}
 		plan.CredentialID = uuid.NullUUID{UUID: credential.ID, Valid: true}
 		plan.CredentialVersion = credential.Version
 		params.CredentialID, params.CredentialVersion = plan.CredentialID, pgtype.Int8{Int64: credential.Version, Valid: true}
 	}
-	if input.ConnectionMode == "via_bastion" {
+	if input.SSHPath == "bastion_connector" {
 		if !input.BastionScopeID.Valid {
 			return connectionPlan{}, db.CreateConnectionTestParams{}, ErrInvalidConnectionMode
 		}
@@ -273,6 +290,9 @@ func (service Service) hostConnectionPlan(ctx context.Context, q *db.Queries, en
 		plan.ConnectorID = scope.ActiveConnectorID
 		params.Path, params.ConnectorID, params.ConnectionEpoch = "connector", scope.ActiveConnectorID, pgtype.Int8{Int64: connector.ConnectionEpoch, Valid: true}
 	} else {
+		if input.BastionScopeID.Valid {
+			return connectionPlan{}, db.CreateConnectionTestParams{}, ErrInvalidConnectionMode
+		}
 		addresses, err := service.Direct.Resolve(ctx, input.Address)
 		if err != nil {
 			return connectionPlan{}, db.CreateConnectionTestParams{}, err
@@ -303,6 +323,13 @@ func (service Service) CompleteConnectionTest(ctx context.Context, enterpriseID,
 	if status != "succeeded" && status != "failed" && status != "result_unknown" {
 		return db.ConnectionTest{}, ErrConnectionTestNeeded
 	}
+	var plan connectionPlan
+	if json.Unmarshal(test.RequestPlan, &plan) != nil {
+		return db.ConnectionTest{}, ErrConnectionTestNeeded
+	}
+	if status == "succeeded" && plan.Onboarding != nil && (!result.CallbackVerified || result.CallbackControlPath != plan.Onboarding.ControlPath) {
+		status, errorCode = "failed", "HOST_ONBOARDING_CALLBACK_RESPONSE_INVALID"
+	}
 	encoded, err := json.Marshal(result)
 	if err != nil || len(encoded) > 64*1024 {
 		return db.ConnectionTest{}, ErrConnectionTestNeeded
@@ -312,70 +339,112 @@ func (service Service) CompleteConnectionTest(ctx context.Context, enterpriseID,
 }
 
 func (service Service) PreviewCreateHost(ctx context.Context, subject Subject, enterpriseID uuid.UUID, input HostInput, idempotencyKey string) (db.PendingAction, error) {
-	arch, pinnedKey := "", ""
-	if input.ConnectionMode == "self_enrolled" {
-		if err := validateSelfEnrolledInput(input); err != nil {
-			return db.PendingAction{}, err
-		}
-		arch = input.Architecture
-	} else {
-		test, result, err := service.requireHostConnectionTest(ctx, service.Store.Queries, enterpriseID, input)
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		_ = test
-		arch = result.Architecture
-		pinnedKey = result.HostKeyFingerprint
-	}
-	if _, _, err := NormalizeUserLabels(input.Labels); err != nil {
+	name, err := NormalizeResourceName(input.Name)
+	if err != nil {
 		return db.PendingAction{}, err
 	}
-	hostID := newResourceID()
-	snapshot := NewResourceAuthorizationSnapshot("host", hostID)
-	plan := hostActionPlan{Operation: "create", HostID: hostID, Input: input, PinnedKey: pinnedKey, Arch: arch}
-	connectionStatus := "online"
-	if input.ConnectionMode == "self_enrolled" {
-		onboarding, ok := service.Extension.(SelfEnrolledHostOnboardingExtension)
-		if !ok {
-			return db.PendingAction{}, ErrActionUnavailable
-		}
-		frozen, err := onboarding.PrepareSelfEnrolledHostOnboarding(
-			ctx, service.Store.Queries, enterpriseID, hostID, "linux_"+arch,
-		)
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		plan.OnboardingPlan = frozen
-		connectionStatus = "onboarding"
+	input.Name = name
+	available, err := service.HostNameAvailable(ctx, enterpriseID, input.Name)
+	if err != nil {
+		return db.PendingAction{}, err
 	}
+	if !available {
+		return db.PendingAction{}, ErrResourceNameConflict
+	}
+	hostID := newResourceID()
+	plan, err := service.prepareHostInstall(ctx, enterpriseID, hostID, input)
+	if err != nil {
+		return db.PendingAction{}, err
+	}
+	snapshot := NewResourceAuthorizationSnapshot("host", hostID)
 	return service.prepareAction(ctx, subject, enterpriseID, PrepareActionInput{ActionType: "host.create", Title: "Create host", Summary: "Create a validated host resource",
 		Risk: "write", ResourceType: "host", ResourceID: uuid.NullUUID{UUID: hostID, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,
-		Preview: map[string]any{"host_id": hostID, "name": input.Name, "connection_mode": input.ConnectionMode, "connection_status": connectionStatus},
+		Preview: map[string]any{"host_id": hostID, "name": input.Name, "control_path": input.ControlPath, "install_method": input.InstallMethod, "connection_status": "onboarding"},
 		Diff:    []map[string]string{{"kind": "add", "text": "Create host " + input.Name}}, ImmutablePlan: plan, ResourceScopeSnapshot: snapshot, CommitHandler: "argus.host.create.commit"}, idempotencyKey)
 }
 
-// validateSelfEnrolledInput 校验「只出不进」主机的输入:linux 限定架构,
-// 且不接受任何入站连接字段(地址/端口/凭据/账号/堡垒机)与连接测试引用。
-func validateSelfEnrolledInput(input HostInput) error {
-	if input.Platform != "linux" {
-		return ErrSelfEnrollUnsupported
+func (service Service) prepareHostInstall(ctx context.Context, enterpriseID, hostID uuid.UUID, input HostInput) (hostActionPlan, error) {
+	if err := validateHostOnboardingInput(input); err != nil {
+		return hostActionPlan{}, err
 	}
-	if input.Architecture != "amd64" && input.Architecture != "arm64" {
-		return ErrSelfEnrollUnsupported
+	arch, pinnedKey := input.Architecture, ""
+	distributionVersion, serviceManager := "", ""
+	var freeDiskBytes uint64
+	if input.InstallMethod == "ssh" {
+		test, result, err := service.requireHostConnectionTest(ctx, service.Store.Queries, enterpriseID, input)
+		if err != nil {
+			return hostActionPlan{}, err
+		}
+		_ = test
+		if result.Platform != input.Platform {
+			return hostActionPlan{}, ErrConnectionTestNeeded
+		}
+		arch = result.Architecture
+		pinnedKey = result.HostKeyFingerprint
+		distributionVersion, serviceManager, freeDiskBytes = result.DistributionVersion, result.ServiceManager, result.FreeDiskBytes
 	}
-	if input.Address != "" || input.Port != 0 || input.Hostname != "" || input.Username != "" ||
-		input.BastionScopeID.Valid || input.CredentialID.Valid || input.ConnectionTestID.Valid {
-		return ErrSelfEnrollConflictingInput
+	if _, _, err := NormalizeUserLabels(input.Labels); err != nil {
+		return hostActionPlan{}, err
+	}
+	plan := hostActionPlan{Operation: "create", HostID: hostID, Input: input, PinnedKey: pinnedKey, Arch: arch,
+		DistributionVersion: distributionVersion, ServiceManager: serviceManager, FreeDiskBytes: freeDiskBytes}
+	if service.HostOnboarding == nil {
+		return hostActionPlan{}, ErrActionUnavailable
+	}
+	frozen, err := service.HostOnboarding.PrepareHostConnectorOnboarding(
+		ctx, service.Store.Queries, enterpriseID, hostID, input, input.Platform+"_"+arch,
+	)
+	if err != nil {
+		return hostActionPlan{}, err
+	}
+	plan.OnboardingPlan = frozen
+	return plan, nil
+}
+
+func validateHostOnboardingInput(input HostInput) error {
+	if input.Role != "managed_host" || (input.Platform != "linux" && input.Platform != "windows") {
+		return ErrHostOnboardingUnsupported
+	}
+	if input.Platform == "windows" && input.Architecture != "" && input.Architecture != "amd64" {
+		return ErrHostOnboardingUnsupported
+	}
+	if input.ControlPath != "direct" && input.ControlPath != "bastion_relay" && input.ControlPath != "executor_tunnel" {
+		return ErrInvalidConnectionMode
+	}
+	if (input.ControlPath == "bastion_relay") != input.BastionScopeID.Valid {
+		return ErrInvalidConnectionMode
+	}
+	switch input.InstallMethod {
+	case "manual":
+		if (input.Platform == "linux" && input.Architecture != "amd64" && input.Architecture != "arm64") || (input.Platform == "windows" && input.Architecture != "amd64") ||
+			input.SSHPath != "none" || input.Address != "" || input.Port != 0 || input.Username != "" || input.CredentialID.Valid || input.ConnectionTestID.Valid || input.ControlPath == "executor_tunnel" {
+			return ErrHostOnboardingInvalid
+		}
+	case "ssh":
+		if input.SSHPath != "direct_executor" && input.SSHPath != "bastion_connector" || input.Address == "" || input.Port < 1 || input.Username == "" || !input.CredentialID.Valid || !input.ConnectionTestID.Valid {
+			return ErrHostOnboardingInvalid
+		}
+		if input.SSHPath == "bastion_connector" && input.ControlPath != "bastion_relay" {
+			return ErrInvalidConnectionMode
+		}
+		if input.ControlPath == "executor_tunnel" && input.SSHPath != "direct_executor" {
+			return ErrInvalidConnectionMode
+		}
+	default:
+		return ErrInvalidConnectionMode
+	}
+	if input.Platform == "windows" && input.Architecture == "arm64" {
+		return ErrHostOnboardingInvalid
 	}
 	return nil
 }
 
 func (service Service) PreviewUpdateHost(ctx context.Context, subject Subject, enterpriseID, hostID uuid.UUID, input HostInput, idempotencyKey string) (db.PendingAction, error) {
 	current, err := service.GetHost(ctx, enterpriseID, hostID, subject.AuthorizedResourceIDs)
-	if err != nil || current.ResourceVersion != input.ExpectedVersion {
+	if err != nil || current.ResourceVersion != input.ExpectedVersion || current.Status != "active" && current.Status != "disabled" {
 		return db.PendingAction{}, ErrVersionConflict
 	}
-	if input.ConnectionMode != "" && !editableHostConnectionMode(input.ConnectionMode) {
+	if input.ControlPath != "" || input.InstallMethod != "" || input.SSHPath != "" || input.BastionScopeID.Valid || input.CredentialID.Valid {
 		return db.PendingAction{}, ErrInvalidConnectionMode
 	}
 	if input.Labels != nil {
@@ -386,15 +455,8 @@ func (service Service) PreviewUpdateHost(ctx context.Context, subject Subject, e
 		}
 		_ = encoded
 	}
-	result := ConnectionTestResult{HostKeyFingerprint: current.PinnedHostKey, Architecture: hostArchitecture(current.Architecture)}
-	if hostNetworkPathChanged(current, input) || input.ConnectionTestID.Valid {
-		_, result, err = service.requireHostUpdateConnectionTest(ctx, service.Store.Queries, enterpriseID, current, input)
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-	}
 	snapshot := NewResourceAuthorizationSnapshot("host", hostID)
-	plan := hostActionPlan{Operation: "update", HostID: hostID, Input: input, PinnedKey: result.HostKeyFingerprint, Arch: result.Architecture}
+	plan := hostActionPlan{Operation: "update", HostID: hostID, Input: input, PinnedKey: current.PinnedHostKey, Arch: hostArchitecture(current.Architecture)}
 	return service.prepareAction(ctx, subject, enterpriseID, PrepareActionInput{ActionType: "host.update", Title: "Update host", Summary: "Apply validated host changes",
 		Risk: "write", ResourceType: "host", ResourceID: uuid.NullUUID{UUID: hostID, Valid: true}, ExpectedResourceVersion: pgtype.Int8{Int64: input.ExpectedVersion, Valid: true},
 		AuthorizationVersion: subject.AuthorizationVersion, Preview: map[string]any{"host_id": hostID, "name": current.Name},
@@ -403,13 +465,18 @@ func (service Service) PreviewUpdateHost(ctx context.Context, subject Subject, e
 
 func (service Service) PreviewDeleteHost(ctx context.Context, subject Subject, enterpriseID, hostID uuid.UUID, expectedVersion int64, idempotencyKey string) (db.PendingAction, error) {
 	current, err := service.GetHost(ctx, enterpriseID, hostID, subject.AuthorizedResourceIDs)
-	if err != nil || current.ResourceVersion != expectedVersion || current.ConnectionMode == "connector_local" {
+	deletable := current.Status == "uninstalled" || current.Status == "active" && !current.ConnectorID.Valid
+	if err != nil || current.ResourceVersion != expectedVersion || current.Role == "bastion" || !deletable {
 		return db.PendingAction{}, ErrVersionConflict
 	}
 	snapshot := NewResourceAuthorizationSnapshot("host", hostID)
 	plan := hostActionPlan{Operation: "delete", HostID: hostID, Input: HostInput{ExpectedVersion: expectedVersion}}
+	risk := "dangerous"
+	if current.Status == "active" && !current.ConnectorID.Valid {
+		risk = "write"
+	}
 	return service.prepareAction(ctx, subject, enterpriseID, PrepareActionInput{ActionType: "host.delete", Title: "Delete host", Summary: "Logically delete host " + current.Name,
-		Risk: "dangerous", ResourceType: "host", ResourceID: uuid.NullUUID{UUID: hostID, Valid: true}, ExpectedResourceVersion: pgtype.Int8{Int64: expectedVersion, Valid: true},
+		Risk: risk, ResourceType: "host", ResourceID: uuid.NullUUID{UUID: hostID, Valid: true}, ExpectedResourceVersion: pgtype.Int8{Int64: expectedVersion, Valid: true},
 		AuthorizationVersion: subject.AuthorizationVersion, Preview: map[string]any{"host_id": hostID, "name": current.Name},
 		Diff: []map[string]string{{"kind": "remove", "text": "Delete host " + current.Name}}, ImmutablePlan: plan, ResourceScopeSnapshot: snapshot, CommitHandler: "argus.host.delete.commit"}, idempotencyKey)
 }
@@ -437,7 +504,7 @@ func (service Service) ExecutePendingAction(ctx context.Context, q *db.Queries, 
 }
 
 func (service Service) revalidateAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) ([]byte, error) {
-	if (strings.HasPrefix(action.ActionType, "telemetry.") || action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.uninstall.command") && service.Extension != nil {
+	if (strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate") && service.Extension != nil {
 		return service.Extension.RevalidateAction(ctx, q, action, raw)
 	}
 	switch action.ResourceType {
@@ -446,31 +513,30 @@ func (service Service) revalidateAction(ctx context.Context, q *db.Queries, acti
 		if err := json.Unmarshal(raw, &plan); err != nil {
 			return nil, err
 		}
-		if plan.Operation == "create" && plan.Input.ConnectionMode == "self_enrolled" {
-			onboarding, ok := service.Extension.(SelfEnrolledHostOnboardingExtension)
-			if !ok || len(plan.OnboardingPlan) == 0 || onboarding.RevalidateSelfEnrolledHostOnboarding(
-				ctx, q, action.EnterpriseID, plan.OnboardingPlan,
-			) != nil {
+		if plan.Operation == "create" || plan.Operation == "retry" {
+			if service.HostOnboarding == nil || len(plan.OnboardingPlan) == 0 || service.HostOnboarding.RevalidateHostConnectorOnboarding(ctx, q, action.EnterpriseID, plan.OnboardingPlan) != nil {
 				return nil, ErrActionInvalidated
 			}
-		}
-		if plan.Operation == "create" && plan.Input.ConnectionMode != "self_enrolled" {
-			_, result, err := service.requireHostConnectionTest(ctx, q, action.EnterpriseID, plan.Input)
-			if err != nil || !hostConnectionEvidenceMatches(plan, result) {
-				return nil, ErrActionInvalidated
+			if plan.Input.InstallMethod == "ssh" {
+				_, result, err := service.requireHostConnectionTest(ctx, q, action.EnterpriseID, plan.Input)
+				if err != nil || !hostConnectionEvidenceMatches(plan, result) {
+					return nil, ErrActionInvalidated
+				}
 			}
 		}
 		var current db.Host
 		if plan.Operation != "create" {
 			var err error
 			current, err = q.GetHost(ctx, db.GetHostParams{ID: plan.HostID, EnterpriseID: action.EnterpriseID})
-			if err != nil || current.ResourceVersion != plan.Input.ExpectedVersion {
+			deletable := current.Status == "uninstalled" || current.Status == "active" && !current.ConnectorID.Valid
+			if err != nil || current.ResourceVersion != plan.Input.ExpectedVersion || plan.Operation == "delete" && !deletable {
 				return nil, ErrActionInvalidated
 			}
-		}
-		if plan.Operation == "update" && (hostNetworkPathChanged(current, plan.Input) || plan.Input.ConnectionTestID.Valid) {
-			if _, _, err := service.requireHostUpdateConnectionTest(ctx, q, action.EnterpriseID, current, plan.Input); err != nil {
-				return nil, ErrActionInvalidated
+			if plan.Operation == "retry" {
+				previous, err := q.GetLatestHostOnboardingOperation(ctx, db.GetLatestHostOnboardingOperationParams{HostID: plan.HostID, EnterpriseID: action.EnterpriseID})
+				if err != nil || previous.ID != plan.RetryOf || (previous.Status != "failed" && previous.Status != "expired") || current.ConnectorID.Valid || current.Status != "active" {
+					return nil, ErrActionInvalidated
+				}
 			}
 		}
 		return HashResourceAuthorizationSnapshot("host", plan.HostID)
@@ -502,11 +568,13 @@ func (service Service) revalidateAction(ctx context.Context, q *db.Queries, acti
 }
 
 func hostConnectionEvidenceMatches(plan hostActionPlan, result ConnectionTestResult) bool {
-	return plan.PinnedKey == result.HostKeyFingerprint && plan.Arch == result.Architecture
+	return plan.PinnedKey == result.HostKeyFingerprint && plan.Arch == result.Architecture &&
+		plan.DistributionVersion == result.DistributionVersion && plan.ServiceManager == result.ServiceManager &&
+		plan.FreeDiskBytes == result.FreeDiskBytes && result.Privileged
 }
 
 func (service Service) commitAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) (ActionCommitResult, error) {
-	if (strings.HasPrefix(action.ActionType, "telemetry.") || action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.uninstall.command") && service.Extension != nil {
+	if (strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate") && service.Extension != nil {
 		return service.Extension.CommitAction(ctx, q, action, raw)
 	}
 	if action.ResourceType == "host" {
@@ -534,63 +602,57 @@ func (service Service) commitHost(ctx context.Context, q *db.Queries, action db.
 	var host db.Host
 	var err error
 	switch plan.Operation {
+	case "retry":
+		host, err = q.UpdateHost(ctx, db.UpdateHostParams{ID: plan.HostID, EnterpriseID: enterpriseID, ResourceVersion: plan.Input.ExpectedVersion, PinnedHostKey: text(plan.PinnedKey), Architecture: text(plan.Arch)})
+		if err != nil {
+			return ActionCommitResult{}, ErrActionInvalidated
+		}
+		if _, err = q.RevokeActiveHostEnrollmentTokens(ctx, db.RevokeActiveHostEnrollmentTokensParams{EnterpriseID: enterpriseID, PreallocatedHostID: uuid.NullUUID{UUID: host.ID, Valid: true}}); err != nil {
+			return ActionCommitResult{}, err
+		}
+		if err = retirePreviousHostControlTunnel(ctx, q, enterpriseID, host.ID, plan.RetryOf); err != nil {
+			return ActionCommitResult{}, err
+		}
+		result, err := service.HostOnboarding.CommitHostConnectorOnboarding(ctx, q, action, host, plan.OnboardingPlan)
+		if err != nil {
+			return ActionCommitResult{}, err
+		}
+		if err = q.SetHostOnboardingRetryOf(ctx, db.SetHostOnboardingRetryOfParams{ID: result.HostOnboardingOperationID.UUID, EnterpriseID: enterpriseID, RetryOf: uuid.NullUUID{UUID: plan.RetryOf, Valid: true}}); err != nil {
+			return ActionCommitResult{}, err
+		}
+		result.ResourceType, result.ResourceID, result.ResourceVersion = "host", host.ID, host.ResourceVersion
+		return result, nil
 	case "create":
 		labels, hash, normalizeErr := NormalizeStoredLabels(plan.Input.Labels)
 		if normalizeErr != nil {
 			return ActionCommitResult{}, normalizeErr
 		}
-		if plan.Input.ConnectionMode == "self_enrolled" {
-			// 自助注册主机:无地址/凭据/托管账号,等待 bootstrap 激活后回填自报地址。
-			host, err = q.CreateSelfEnrolledHost(ctx, db.CreateSelfEnrolledHostParams{ID: plan.HostID, EnterpriseID: enterpriseID, Name: plan.Input.Name,
-				Platform: plan.Input.Platform, Architecture: text(plan.Arch), Environment: plan.Input.Environment, Labels: labels, LabelsHash: hash})
-			if err != nil {
-				return ActionCommitResult{}, err
-			}
-			creator, parseErr := uuid.Parse(actorID)
-			if parseErr == nil {
-				if _, err = q.AddDataAuthorizationGrant(ctx, db.AddDataAuthorizationGrantParams{ID: newResourceID(), EnterpriseID: enterpriseID,
-					SubjectType: explicitGrantSubjectType(actorType), SubjectID: creator, ResourceType: "host", ResourceID: host.ID, CreatedBy: uuid.NullUUID{UUID: creator, Valid: true}}); err != nil {
-					return ActionCommitResult{}, err
-				}
-			}
-			onboarding, ok := service.Extension.(SelfEnrolledHostOnboardingExtension)
-			if !ok || len(plan.OnboardingPlan) == 0 {
-				return ActionCommitResult{}, ErrActionUnavailable
-			}
-			result, onboardingErr := onboarding.CommitSelfEnrolledHostOnboarding(ctx, q, action, host, plan.OnboardingPlan)
-			if onboardingErr != nil {
-				return ActionCommitResult{}, onboardingErr
-			}
-			result.ResourceType, result.ResourceID, result.ResourceVersion = "host", host.ID, host.ResourceVersion
-			result.Summary = "Self-enrolled host created; install command issued"
-			return result, nil
-		}
 		host, err = q.CreateHost(ctx, db.CreateHostParams{ID: plan.HostID, EnterpriseID: enterpriseID, Name: plan.Input.Name, Hostname: plan.Input.Hostname,
-			Address: plan.Input.Address, Port: plan.Input.Port, Platform: plan.Input.Platform, Architecture: text(plan.Arch), ConnectionMode: plan.Input.ConnectionMode,
-			BastionScopeID: plan.Input.BastionScopeID, Environment: plan.Input.Environment, Labels: labels, LabelsHash: hash, ConnectionStatus: "online", PinnedHostKey: plan.PinnedKey})
-		if err == nil && plan.Input.CredentialID.Valid {
-			protocol, privilege := "ssh", "sudo"
-			if plan.Input.ConnectionMode == "direct_winrm" || (plan.Input.ConnectionMode == "via_bastion" && plan.Input.Platform == "windows") {
-				protocol, privilege = "winrm", "administrator"
-			}
-			_, err = q.CreateManagedAccount(ctx, db.CreateManagedAccountParams{ID: newResourceID(), EnterpriseID: enterpriseID, HostID: host.ID,
-				Username: plan.Input.Username, PrivilegeLevel: privilege, CredentialID: plan.Input.CredentialID.UUID, AllowedProtocols: []string{protocol}})
-		}
+			Address: text(plan.Input.Address), Port: plan.Input.Port, Platform: plan.Input.Platform, Architecture: text(plan.Arch), Role: "managed_host", ControlPath: plan.Input.ControlPath,
+			BastionScopeID: plan.Input.BastionScopeID, Environment: plan.Input.Environment, Labels: labels, LabelsHash: hash, ConnectionStatus: "onboarding", PinnedHostKey: plan.PinnedKey})
 		if err == nil {
 			creator, parseErr := uuid.Parse(actorID)
 			if parseErr == nil {
 				_, err = q.AddDataAuthorizationGrant(ctx, db.AddDataAuthorizationGrantParams{ID: newResourceID(), EnterpriseID: enterpriseID, SubjectType: explicitGrantSubjectType(actorType), SubjectID: creator, ResourceType: "host", ResourceID: host.ID, CreatedBy: uuid.NullUUID{UUID: creator, Valid: true}})
 			}
 		}
+		if err == nil {
+			if service.HostOnboarding == nil || len(plan.OnboardingPlan) == 0 {
+				return ActionCommitResult{}, ErrActionUnavailable
+			}
+			result, onboardingErr := service.HostOnboarding.CommitHostConnectorOnboarding(ctx, q, action, host, plan.OnboardingPlan)
+			if onboardingErr != nil {
+				return ActionCommitResult{}, onboardingErr
+			}
+			result.ResourceType, result.ResourceID, result.ResourceVersion = "host", host.ID, host.ResourceVersion
+			return result, nil
+		}
 	case "update":
 		params := db.UpdateHostParams{ID: plan.HostID, EnterpriseID: enterpriseID, ResourceVersion: plan.Input.ExpectedVersion, Name: text(plan.Input.Name),
-			Environment: text(plan.Input.Environment), Hostname: text(plan.Input.Hostname), Address: text(plan.Input.Address), ConnectionMode: text(plan.Input.ConnectionMode),
-			SetBastionScope: plan.Input.ConnectionMode != "", BastionScopeID: plan.Input.BastionScopeID, PinnedHostKey: text(plan.PinnedKey), Architecture: text(plan.Arch)}
+			Environment: text(plan.Input.Environment), Hostname: text(plan.Input.Hostname), Address: text(plan.Input.Address),
+			SetBastionScope: false, PinnedHostKey: text(plan.PinnedKey), Architecture: text(plan.Arch)}
 		if plan.Input.Port > 0 {
 			params.Port = pgtype.Int4{Int32: plan.Input.Port, Valid: true}
-		}
-		if plan.Input.ConnectionTestID.Valid {
-			params.ConnectionStatus = pgtype.Text{String: "online", Valid: true}
 		}
 		if plan.Input.Labels != nil {
 			current, getErr := q.GetHost(ctx, db.GetHostParams{ID: plan.HostID, EnterpriseID: enterpriseID})
@@ -605,11 +667,22 @@ func (service Service) commitHost(ctx context.Context, q *db.Queries, action db.
 		}
 		host, err = q.UpdateHost(ctx, params)
 	case "delete":
-		host, err = q.DeleteHost(ctx, db.DeleteHostParams{ID: plan.HostID, EnterpriseID: enterpriseID, ResourceVersion: plan.Input.ExpectedVersion})
-		if err == nil {
-			// 删除主机同时作废其全部未消费的自助安装令牌,防止已删除资源被重新激活。
-			_, _ = q.RevokeActiveHostEnrollmentTokens(ctx, db.RevokeActiveHostEnrollmentTokensParams{
-				EnterpriseID: enterpriseID, PreallocatedHostID: plan.HostID})
+		current, getErr := q.GetHost(ctx, db.GetHostParams{ID: plan.HostID, EnterpriseID: enterpriseID})
+		if getErr != nil {
+			return ActionCommitResult{}, ErrActionInvalidated
+		}
+		if current.Status == "uninstalled" {
+			host, err = q.DeleteUninstalledManagedHost(ctx, db.DeleteUninstalledManagedHostParams{ID: plan.HostID, EnterpriseID: enterpriseID, ResourceVersion: plan.Input.ExpectedVersion})
+		} else if current.Status == "active" && !current.ConnectorID.Valid {
+			if cancelErr := hostonboarding.CancelHost(ctx, q, enterpriseID, current.ID); cancelErr != nil {
+				if errors.Is(cancelErr, hostonboarding.ErrTargetRegistered) {
+					return ActionCommitResult{}, ErrActionInvalidated
+				}
+				return ActionCommitResult{}, cancelErr
+			}
+			host, err = q.DeleteUnregisteredManagedHost(ctx, db.DeleteUnregisteredManagedHostParams{ID: current.ID, EnterpriseID: enterpriseID, ResourceVersion: plan.Input.ExpectedVersion})
+		} else {
+			return ActionCommitResult{}, ErrActionInvalidated
 		}
 	default:
 		return ActionCommitResult{}, ErrActionInvalidated
@@ -667,14 +740,10 @@ func (service Service) requireHostConnectionTest(ctx context.Context, q *db.Quer
 		(input.Platform == "linux" && result.Architecture != "amd64" && result.Architecture != "arm64") {
 		return db.ConnectionTest{}, ConnectionTestResult{}, ErrConnectionTestNeeded
 	}
-	return test, result, nil
-}
-
-func (service Service) requireHostUpdateConnectionTest(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, current db.Host, input HostInput) (db.ConnectionTest, ConnectionTestResult, error) {
-	test, plan, result, err := service.requireConnectionTest(ctx, q, enterpriseID, input.ConnectionTestID, "host")
-	if err != nil || !hostUpdateConnectionPlanMatches(plan, current, input) ||
-		(current.Platform == "linux" && result.Architecture != "amd64" && result.Architecture != "arm64") {
-		return db.ConnectionTest{}, ConnectionTestResult{}, ErrConnectionTestNeeded
+	if input.InstallMethod == "ssh" {
+		if err := service.validateOnboardingProbe(ctx, q, enterpriseID, input, plan.Onboarding, result); err != nil {
+			return db.ConnectionTest{}, ConnectionTestResult{}, err
+		}
 	}
 	return test, result, nil
 }
@@ -696,8 +765,11 @@ func (service Service) requireKubernetesConnectionTest(ctx context.Context, q *d
 }
 
 func hostConnectionPlanMatches(plan connectionPlan, input HostInput) bool {
+	if input.InstallMethod == "ssh" && (plan.Onboarding == nil || plan.Onboarding.ControlPath != input.ControlPath) {
+		return false
+	}
 	return plan.TargetType == "host" && plan.Address == input.Address && plan.Port == input.Port && plan.Platform == input.Platform &&
-		plan.Username == input.Username && plan.ConnectionMode == input.ConnectionMode && plan.BastionScopeID == input.BastionScopeID &&
+		plan.Username == input.Username && plan.SSHPath == input.SSHPath && plan.BastionScopeID == input.BastionScopeID &&
 		plan.CredentialID == input.CredentialID
 }
 
@@ -706,38 +778,6 @@ func hostArchitecture(value pgtype.Text) string {
 		return value.String
 	}
 	return ""
-}
-
-func hostNetworkPathChanged(current db.Host, input HostInput) bool {
-	if input.Address != "" && input.Address != current.Address {
-		return true
-	}
-	if input.Port > 0 && input.Port != current.Port {
-		return true
-	}
-	if input.ConnectionMode == "" {
-		return false
-	}
-	return input.ConnectionMode != current.ConnectionMode || input.BastionScopeID != current.BastionScopeID
-}
-
-func editableHostConnectionMode(mode string) bool {
-	return mode == "via_bastion" || mode == "direct_ssh" || mode == "direct_winrm"
-}
-
-func hostUpdateConnectionPlanMatches(plan connectionPlan, current db.Host, input HostInput) bool {
-	address, port, mode, scopeID := current.Address, current.Port, current.ConnectionMode, current.BastionScopeID
-	if input.Address != "" {
-		address = input.Address
-	}
-	if input.Port > 0 {
-		port = input.Port
-	}
-	if input.ConnectionMode != "" {
-		mode, scopeID = input.ConnectionMode, input.BastionScopeID
-	}
-	return plan.TargetType == "host" && plan.Address == address && plan.Port == port && plan.Platform == current.Platform &&
-		plan.ConnectionMode == mode && plan.BastionScopeID == scopeID && plan.CredentialID.Valid && plan.Username != ""
 }
 
 func kubernetesConnectionPlanMatches(plan connectionPlan, input KubernetesInput, normalizedAddress string) bool {
@@ -758,7 +798,10 @@ func (service Service) validateConnectionPlanState(ctx context.Context, q *db.Qu
 			return ErrConnectionTestNeeded
 		}
 		connector, err := q.GetConnector(ctx, db.GetConnectorParams{ID: plan.ConnectorID.UUID, EnterpriseID: enterpriseID})
-		if err != nil || connector.Status != "online" || connector.ConnectionEpoch != test.ConnectionEpoch.Int64 {
+		// A reconnect by the same fenced Connector identity must not invalidate
+		// fresh Host-key and credential evidence. A different Connector ID is
+		// rejected above through the frozen plan and active Scope checks.
+		if err != nil || connector.Status != "online" || connector.ConnectionEpoch < test.ConnectionEpoch.Int64 {
 			return ErrConnectionTestNeeded
 		}
 		if !plan.BastionScopeID.Valid {

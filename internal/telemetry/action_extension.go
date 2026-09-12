@@ -33,143 +33,9 @@ type ActionExtension struct {
 	IngestGRPCEndpoint string
 	IngestHTTPEndpoint string
 	TrustBundles       trustbundle.Service
-	SelfEnroll         *SelfEnrollService
-}
-
-var defaultSelfEnrolledProfileKeys = []string{"host-basic", "linux-journald", "otlp-receiver"}
-
-// PrepareSelfEnrolledHostOnboarding freezes the release and default profile
-// set in host.create. The resource domain owns the Host record; telemetry owns
-// every Collector-specific choice and can therefore evolve independently.
-func (extension ActionExtension) PrepareSelfEnrolledHostOnboarding(
-	ctx context.Context,
-	q *db.Queries,
-	enterpriseID, hostID uuid.UUID,
-	platform string,
-) (json.RawMessage, error) {
-	_ = enterpriseID
-	if extension.SelfEnroll == nil || (platform != "linux_amd64" && platform != "linux_arm64") {
-		return nil, resource.ErrActionUnavailable
-	}
-	distributions, err := q.ListCollectorDistributionVersions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	distributionIndex := slices.IndexFunc(distributions, func(item db.CollectorDistributionVersion) bool {
-		return item.SupportStatus == "supported" && distributionSupportsPlatform(item.ArtifactManifest, platform)
-	})
-	if distributionIndex < 0 {
-		return nil, ErrDistributionPending
-	}
-	distribution := distributions[distributionIndex]
-	artifact, err := artifactForPlatform(distribution.ArtifactManifest, platform)
-	if err != nil {
-		return nil, resource.ErrActionUnavailable
-	}
-	if err = extension.SelfEnroll.ensureArtifactAvailability(ctx, artifact.URI); err != nil {
-		return nil, err
-	}
-	hashes, err := artifactHashes(distribution.ArtifactManifest)
-	if err != nil {
-		return nil, resource.ErrActionUnavailable
-	}
-	profiles, err := q.ListCollectionProfiles(ctx)
-	if err != nil {
-		return nil, err
-	}
-	profileIDs := make([]uuid.UUID, 0, len(defaultSelfEnrolledProfileKeys))
-	profileKeys := make([]string, 0, len(defaultSelfEnrolledProfileKeys))
-	for _, key := range defaultSelfEnrolledProfileKeys {
-		index := slices.IndexFunc(profiles, func(item db.CollectionProfile) bool {
-			return item.ProfileKey == key && item.SupportStatus == "supported" &&
-				item.ConfigSchemaVersion == distribution.ConfigSchemaVersion && slices.Contains(item.SupportedPlatforms, platform)
-		})
-		if index < 0 {
-			return nil, ErrDistributionPending
-		}
-		profileIDs = append(profileIDs, profiles[index].ID)
-		profileKeys = append(profileKeys, profiles[index].ProfileKey+"@"+profiles[index].Version)
-	}
-	plan := collectorActionPlan{
-		Operation: "install", ResourceType: "host", ResourceID: hostID,
-		DistributionVersionID: distribution.ID, ProfileIDs: profileIDs, ProfileKeys: profileKeys,
-		RouteKind: "direct_argus", RouteTransport: "direct", ArtifactHashes: hashes,
-		Platform: platform, Role: "direct", Transport: "bootstrap", TargetResourceVersion: 1,
-	}
-	encoded, err := json.Marshal(plan)
-	if err != nil {
-		return nil, err
-	}
-	return resource.CanonicalJSON(encoded)
-}
-
-func (extension ActionExtension) RevalidateSelfEnrolledHostOnboarding(
-	ctx context.Context,
-	q *db.Queries,
-	enterpriseID uuid.UUID,
-	raw json.RawMessage,
-) error {
-	_ = enterpriseID
-	var plan collectorActionPlan
-	if json.Unmarshal(raw, &plan) != nil || !validSelfEnrolledOnboardingPlan(plan) {
-		return resource.ErrActionInvalidated
-	}
-	if err := validateCollectorCatalogPlan(ctx, q, plan); err != nil {
-		return err
-	}
-	distributions, err := q.ListCollectorDistributionVersions(ctx)
-	if err != nil {
-		return err
-	}
-	index := slices.IndexFunc(distributions, func(item db.CollectorDistributionVersion) bool { return item.ID == plan.DistributionVersionID })
-	if index < 0 {
-		return ErrDistributionPending
-	}
-	artifact, err := artifactForPlatform(distributions[index].ArtifactManifest, plan.Platform)
-	if err != nil {
-		return err
-	}
-	return extension.SelfEnroll.ensureArtifactAvailability(ctx, artifact.URI)
-}
-
-func (extension ActionExtension) CommitSelfEnrolledHostOnboarding(
-	ctx context.Context,
-	q *db.Queries,
-	action db.PendingAction,
-	host db.Host,
-	raw json.RawMessage,
-) (resource.ActionCommitResult, error) {
-	var plan collectorActionPlan
-	if json.Unmarshal(raw, &plan) != nil || !validSelfEnrolledOnboardingPlan(plan) {
-		return resource.ActionCommitResult{}, resource.ErrActionInvalidated
-	}
-	expectedPlatform, platformErr := hostCollectorPlatform(host)
-	if platformErr != nil ||
-		plan.ResourceID != host.ID || host.ConnectionMode != "self_enrolled" ||
-		plan.Platform != expectedPlatform || plan.TargetResourceVersion != host.ResourceVersion {
-		return resource.ActionCommitResult{}, resource.ErrActionInvalidated
-	}
-	if err := validateCollectorPlan(ctx, q, action.EnterpriseID, plan); err != nil {
-		return resource.ActionCommitResult{}, err
-	}
-	return extension.commitCollectorAction(ctx, q, action, plan)
-}
-
-func validSelfEnrolledOnboardingPlan(plan collectorActionPlan) bool {
-	return plan.Operation == "install" && plan.ResourceType == "host" && plan.ResourceID != uuid.Nil &&
-		plan.RouteKind == "direct_argus" && plan.RouteTransport == "direct" && !plan.GatewayCollectorID.Valid &&
-		plan.Role == "direct" && plan.Transport == "bootstrap" && plan.TargetResourceVersion == 1 &&
-		(plan.Platform == "linux_amd64" || plan.Platform == "linux_arm64") &&
-		len(plan.ProfileIDs) == len(defaultSelfEnrolledProfileKeys) && len(plan.ProfileKeys) == len(defaultSelfEnrolledProfileKeys)
 }
 
 func (extension ActionExtension) RevalidateAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) ([]byte, error) {
-	if action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.uninstall.command" {
-		if extension.SelfEnroll == nil {
-			return nil, resource.ErrActionInvalidated
-		}
-		return extension.SelfEnroll.RevalidateHostCommandAction(ctx, q, action, raw)
-	}
 	if !strings.HasPrefix(action.ActionType, "telemetry.") {
 		return extension.revalidateNext(ctx, q, action, raw)
 	}
@@ -207,12 +73,6 @@ func (extension ActionExtension) RevalidateAction(ctx context.Context, q *db.Que
 }
 
 func (extension ActionExtension) CommitAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) (resource.ActionCommitResult, error) {
-	if action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.uninstall.command" {
-		if extension.SelfEnroll == nil {
-			return resource.ActionCommitResult{}, resource.ErrActionInvalidated
-		}
-		return extension.SelfEnroll.CommitHostCommandAction(ctx, q, action, raw)
-	}
 	if !strings.HasPrefix(action.ActionType, "telemetry.") {
 		if extension.Next == nil {
 			return resource.ActionCommitResult{}, resource.ErrActionInvalidated
@@ -237,6 +97,15 @@ func (extension ActionExtension) revalidateNext(ctx context.Context, q *db.Queri
 }
 
 func validateCollectorPlan(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, plan collectorActionPlan) error {
+	if plan.BootstrapGateway != nil {
+		if plan.BootstrapGateway.BootstrapGateway != nil || !plan.BootstrapGateway.PlannedCollectorID.Valid ||
+			plan.GatewayCollectorID != plan.BootstrapGateway.PlannedCollectorID {
+			return resource.ErrActionInvalidated
+		}
+		if err := validateCollectorPlan(ctx, q, enterpriseID, *plan.BootstrapGateway); err != nil {
+			return err
+		}
+	}
 	if err := validateCollectorCatalogPlan(ctx, q, plan); err != nil {
 		return err
 	}
@@ -351,12 +220,40 @@ func validateGateway(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID,
 	if plan.RouteKind != "bastion_gateway" || !plan.GatewayCollectorID.Valid {
 		return resource.ErrActionInvalidated
 	}
+	if plan.BootstrapGateway != nil {
+		bootstrap := *plan.BootstrapGateway
+		if bootstrap.Operation != "install" || bootstrap.ResourceType != "host" || bootstrap.Role != "edge_gateway" ||
+			bootstrap.RouteKind != "direct_argus" || bootstrap.ResourceID == plan.ResourceID || bootstrap.PlannedCollectorID != plan.GatewayCollectorID {
+			return resource.ErrActionInvalidated
+		}
+		gatewayHost, err := q.GetHost(ctx, db.GetHostParams{ID: bootstrap.ResourceID, EnterpriseID: enterpriseID})
+		if err != nil || gatewayHost.Role != "bastion" || !gatewayHost.BastionScopeID.Valid {
+			return resource.ErrActionInvalidated
+		}
+		target, err := q.GetHost(ctx, db.GetHostParams{ID: plan.ResourceID, EnterpriseID: enterpriseID})
+		if err != nil || !target.BastionScopeID.Valid || target.BastionScopeID.UUID != gatewayHost.BastionScopeID.UUID {
+			return resource.ErrActionInvalidated
+		}
+		current, currentErr := q.GetCollectorForResource(ctx, db.GetCollectorForResourceParams{EnterpriseID: enterpriseID, ResourceType: "host", ResourceID: gatewayHost.ID})
+		if currentErr == nil && (current.ID != bootstrap.PlannedCollectorID.UUID || current.Status != "uninstalled") {
+			return resource.ErrActionInvalidated
+		}
+		if currentErr != nil && !errors.Is(currentErr, pgx.ErrNoRows) {
+			return currentErr
+		}
+		transport, _ := plan.telemetryTransport()
+		endpoint, serverName, err := plannedBastionGatewayEndpoint(gatewayHost, bootstrap.PlannedCollectorID.UUID, transport)
+		if err != nil || plan.GatewayEndpoint != endpoint || plan.GatewayServerName != serverName {
+			return resource.ErrActionInvalidated
+		}
+		return nil
+	}
 	gateway, err := q.GetCollectorInstance(ctx, db.GetCollectorInstanceParams{ID: plan.GatewayCollectorID.UUID, EnterpriseID: enterpriseID})
 	if err != nil || gateway.ResourceType != "host" || gateway.Role != "edge_gateway" || gateway.Status == "uninstalled" {
 		return resource.ErrActionInvalidated
 	}
 	gatewayHost, err := q.GetHost(ctx, db.GetHostParams{ID: gateway.ResourceID, EnterpriseID: enterpriseID})
-	if err != nil || gatewayHost.ConnectionMode != "connector_local" || !gatewayHost.BastionScopeID.Valid {
+	if err != nil || gatewayHost.Role != "bastion" || !gatewayHost.BastionScopeID.Valid {
 		return resource.ErrActionInvalidated
 	}
 	switch plan.ResourceType {
@@ -400,6 +297,13 @@ func commitNodeBinding(ctx context.Context, q *db.Queries, action db.PendingActi
 }
 
 func (extension ActionExtension) commitCollectorAction(ctx context.Context, q *db.Queries, action db.PendingAction, plan collectorActionPlan) (resource.ActionCommitResult, error) {
+	if plan.BootstrapGateway != nil {
+		bootstrap := *plan.BootstrapGateway
+		if _, err := extension.commitCollectorAction(ctx, q, action, bootstrap); err != nil {
+			return resource.ActionCommitResult{}, err
+		}
+		plan.BootstrapGateway = nil
+	}
 	if plan.Operation == "uninstall" {
 		collector, err := q.MarkCollectorUninstalling(ctx, db.MarkCollectorUninstallingParams{
 			EnterpriseID: action.EnterpriseID, ResourceType: plan.ResourceType, ResourceID: plan.ResourceID, Column4: plan.ExpectedVersion,
@@ -417,8 +321,12 @@ func (extension ActionExtension) commitCollectorAction(ctx context.Context, q *d
 		return extension.enqueueCollectorOperation(ctx, q, action, collector, plan, nil)
 	}
 
+	collectorID := newTelemetryID()
+	if plan.PlannedCollectorID.Valid {
+		collectorID = plan.PlannedCollectorID.UUID
+	}
 	collector, err := q.UpsertCollectorForAction(ctx, db.UpsertCollectorForActionParams{
-		ID: newTelemetryID(), EnterpriseID: action.EnterpriseID, ResourceType: plan.ResourceType, ResourceID: plan.ResourceID,
+		ID: collectorID, EnterpriseID: action.EnterpriseID, ResourceType: plan.ResourceType, ResourceID: plan.ResourceID,
 		DistributionVersionID: plan.DistributionVersionID, Platform: plan.Platform, Role: plan.Role,
 	})
 	if err != nil {
@@ -426,7 +334,7 @@ func (extension ActionExtension) commitCollectorAction(ctx context.Context, q *d
 	}
 	routeTransport, routeLoopbackPort := plan.telemetryTransport()
 	rendered, err := configbundle.Render(configbundle.RenderInput{CollectorID: collector.ID.String(), ResourceID: plan.ResourceID.String(),
-		ResourceType: plan.ResourceType, Role: plan.Role, RouteKind: plan.RouteKind, Transport: routeTransport,
+		ResourceType: plan.ResourceType, Role: plan.Role, Platform: plan.Platform, RouteKind: plan.RouteKind, Transport: routeTransport,
 		TunnelLoopbackPort: int(routeLoopbackPort.Int32), GatewayEndpoint: plan.GatewayEndpoint,
 		GatewayServerName: plan.GatewayServerName, ProfileKeys: plan.ProfileKeys,
 		EnrollmentEndpoint: extension.EnrollmentEndpoint, EnrollmentDialAddress: plan.EnrollmentDialAddress,
@@ -511,7 +419,8 @@ func (extension ActionExtension) enqueueCollectorOperation(ctx context.Context, 
 		CollectorVersion: uint64(collector.Version), DesiredRevision: uint64(collector.DesiredRevision), RenderedConfig: rendered,
 		ConfigSha256: hex.EncodeToString(configHash[:]), RouteKind: plan.RouteKind, ResourceType: plan.ResourceType,
 		Transport: payloadTransport, LoopbackPort: uint32(payloadLoopback.Int32),
-		TargetAddress: plan.TargetAddress, TargetPort: uint32(plan.TargetPort), TargetUsername: plan.TargetUsername, PinnedHostKey: plan.PinnedHostKey,
+		EnrollmentDialAddress: plan.EnrollmentDialAddress,
+		TargetAddress:         plan.TargetAddress, TargetPort: uint32(plan.TargetPort), TargetUsername: plan.TargetUsername, PinnedHostKey: plan.PinnedHostKey,
 		KubernetesImage:  plan.KubernetesImage,
 		ImagePullSecrets: slices.Clone(plan.ImagePullSecrets),
 		TrustBundlePem:   bundle.Material.PEM, TrustBundleEpoch: uint64(bundle.Epoch),
@@ -539,36 +448,6 @@ func (extension ActionExtension) enqueueCollectorOperation(ctx context.Context, 
 		if _, err = q.MarkCollectorConfigApplying(ctx, db.MarkCollectorConfigApplyingParams{CollectorID: collector.ID, Revision: collector.DesiredRevision}); err != nil {
 			return resource.ActionCommitResult{}, err
 		}
-	}
-	if plan.Transport == "bootstrap" {
-		// self_enrolled 主机:不派发执行器/Connector,签发一次性自助安装令牌,
-		// 命令经 one-time result 仅在确认结果中展示一次。
-		if extension.SelfEnroll == nil {
-			return resource.ActionCommitResult{}, resource.ErrActionUnavailable
-		}
-		frozen := hostInstallFrozenPlan{Mode: plan.Operation, CollectorID: collector.ID, HostID: plan.ResourceID,
-			DesiredRevision: collector.DesiredRevision, DistributionVersionID: plan.DistributionVersionID,
-			ProfileIDs: plan.ProfileIDs, Platform: plan.Platform, PlanHash: hash[:]}
-		_, token, tokenErr := extension.SelfEnroll.IssueInstallToken(ctx, q, action.EnterpriseID, action.CreatorSubjectID.String(), action.CreatorSubjectType, frozen)
-		if tokenErr != nil {
-			return resource.ActionCommitResult{}, tokenErr
-		}
-		expiresAt := time.Now().UTC().Add(hostInstallTokenTTL)
-		instructions, cmdErr := extension.SelfEnroll.BuildInstallInstructions(ctx, artifact.URI, token, plan.Operation, expiresAt)
-		if cmdErr != nil {
-			return resource.ActionCommitResult{}, cmdErr
-		}
-		operation, opErr := q.CreateTelemetryCollectorOperation(ctx, db.CreateTelemetryCollectorOperationParams{ID: newTelemetryID(), EnterpriseID: action.EnterpriseID,
-			CollectorID: collector.ID, PendingActionID: action.ID, Operation: plan.Operation, ExecutorKind: "bootstrap", Plan: encoded, PlanHash: hash[:],
-			ExpiresAt: pgtype.Timestamptz{Time: minTime(action.ExpiresAt.Time, time.Now().UTC().Add(24*time.Hour)), Valid: true}})
-		if opErr != nil {
-			return resource.ActionCommitResult{}, opErr
-		}
-		_ = operation
-		return resource.ActionCommitResult{ResourceType: plan.ResourceType, ResourceID: plan.ResourceID, ResourceVersion: collector.Version,
-			Summary: "Self-enrolled install command issued",
-			OneTimeCommand: &resource.OneTimeCommandResult{InstructionSets: instructions,
-				ExpiresAt: expiresAt}, OneTimeResultKind: "host_install_command"}, nil
 	}
 	if plan.Transport == "connector" {
 		if !plan.ConnectorID.Valid || plan.ConnectionEpoch < 1 {

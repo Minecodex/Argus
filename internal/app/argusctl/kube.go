@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -174,16 +173,12 @@ func (a *App) buildPreflight(ctx context.Context, cfg *InstallConfig) (Preflight
 		add("pki", "pass", string(cfg.Spec.PKI.Mode), true)
 	}
 
-	var fs syscall.Statfs_t
-	if err := syscall.Statfs(filepathDir(cfg.path), &fs); err != nil {
+	if free, err := hostDiskFreeBytes(filepathDir(cfg.path)); err != nil {
 		add("host-disk", "warn", err.Error(), false)
+	} else if free < 25*1024*1024*1024 {
+		add("host-disk", "fail", fmt.Sprintf("only %s free; at least 25Gi is required for images and PVC backing", byteSize(free)), true)
 	} else {
-		free := uint64(fs.Bavail) * uint64(fs.Bsize)
-		if free < 25*1024*1024*1024 {
-			add("host-disk", "fail", fmt.Sprintf("only %s free; at least 25Gi is required for images and PVC backing", byteSize(free)), true)
-		} else {
-			add("host-disk", "pass", fmt.Sprintf("%s free", byteSize(free)), true)
-		}
+		add("host-disk", "pass", fmt.Sprintf("%s free", byteSize(free)), true)
 	}
 
 	if cfg.Spec.Profile == "production" {
@@ -272,17 +267,24 @@ func unstructuredNestedSlice(object map[string]any, fields ...string) ([]any, bo
 
 func (a *App) plan(cfg *InstallConfig, output string) error {
 	plan := struct {
-		Profile      string     `json:"profile"`
-		ReleaseID    string     `json:"releaseId"`
-		Namespaces   Namespaces `json:"namespaces"`
-		Stages       []string   `json:"stages"`
-		Images       []string   `json:"images"`
-		Degradations []string   `json:"degradations,omitempty"`
-		Blockers     []string   `json:"blockers,omitempty"`
+		Profile          string     `json:"profile"`
+		ReleaseID        string     `json:"releaseId"`
+		Namespaces       Namespaces `json:"namespaces"`
+		Stages           []string   `json:"stages"`
+		Images           []string   `json:"images"`
+		BootstrapTLSMode string     `json:"bootstrapTLSMode"`
+		SecurityWarnings []string   `json:"securityWarnings,omitempty"`
+		Degradations     []string   `json:"degradations,omitempty"`
+		Blockers         []string   `json:"blockers,omitempty"`
 	}{
 		Profile: cfg.Spec.Profile, ReleaseID: cfg.Spec.ReleaseID, Namespaces: cfg.Spec.Namespaces,
-		Stages: []string{"foundation", "data-operators", "data", "sandbox", "telemetry-pipeline", "platform"},
-		Images: []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio")},
+		Stages:           []string{"foundation", "data-operators", "data", "sandbox", "telemetry-pipeline", "platform"},
+		Images:           []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio")},
+		BootstrapTLSMode: cfg.Spec.PKI.BootstrapTLSMode,
+	}
+	if cfg.Spec.PKI.BootstrapTLSMode == "insecure-first-fetch" {
+		plan.SecurityWarnings = append(plan.SecurityWarnings,
+			"INSECURE_FIRST_FETCH_TOKEN_AND_SCRIPT_INTERCEPTION_RISK: the first bootstrap request skips server certificate verification; preinstall the CA and select strict for authenticated bootstrap")
 	}
 	if cfg.Spec.Profile == "evaluation" {
 		plan.Degradations = []string{"NETWORK_POLICY_ENFORCEMENT_UNVERIFIED", "SHARED_CONTAINER_SANDBOX_RUNTIME"}
@@ -298,6 +300,10 @@ func (a *App) plan(cfg *InstallConfig, output string) error {
 		}
 		for _, degradation := range plan.Degradations {
 			_, _ = fmt.Fprintf(w, "WARN: %s\n", degradation)
+		}
+		_, _ = fmt.Fprintf(w, "Bootstrap TLS: %s\n", plan.BootstrapTLSMode)
+		for _, warning := range plan.SecurityWarnings {
+			_, _ = fmt.Fprintf(w, "SECURITY WARNING: %s\n", warning)
 		}
 		for _, blocker := range plan.Blockers {
 			_, _ = fmt.Fprintf(w, "BLOCKED: %s\n", blocker)

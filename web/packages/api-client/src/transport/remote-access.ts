@@ -2,7 +2,7 @@ import type { SessionTicketResult } from "../generated/contracts";
 import { WebSocketTransport } from "./websocket";
 
 export type RemoteAccessServerFrame =
-  | { protocol: "argus.remote_access/v1"; type: "server_ready"; sequence: number; session_id: string; mode: "ssh_pty" | "winrs_line"; nonce: string; idle_timeout_seconds: number; max_duration_seconds: number }
+  | { protocol: "argus.remote_access/v1"; type: "server_ready"; sequence: number; session_id: string; mode: "ssh_pty" | "shell_pty" | "rdp_guacamole"; nonce: string; idle_timeout_seconds: number; max_duration_seconds: number }
   | { protocol: "argus.remote_access/v1"; type: "output"; sequence: number; stream: "stdout" | "stderr"; data: string }
   | { protocol: "argus.remote_access/v1"; type: "state"; sequence: number; status: string; reason?: string }
   | { protocol: "argus.remote_access/v1"; type: "error"; sequence: number; code: string; message: string; terminal: boolean };

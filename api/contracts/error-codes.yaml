@@ -64,14 +64,22 @@ codes:
   CONNECTION_TEST_FAILED: {http_status: 422, message_key: errors.connection_test.failed, retryable: false}
   DIRECT_TARGET_DENIED: {http_status: 403, message_key: errors.direct.target_denied, retryable: false}
   DIRECT_PLAN_INVALID: {http_status: 422, message_key: errors.direct.plan_invalid, retryable: false}
-  HOST_INSTALL_TOKEN_INVALID: {http_status: 401, message_key: errors.host_install.token_invalid, retryable: false}
-  HOST_INSTALL_TOKEN_CONFLICT: {http_status: 409, message_key: errors.host_install.token_conflict, retryable: false}
-  HOST_UNINSTALL_TOKEN_INVALID: {http_status: 401, message_key: errors.host_uninstall.token_invalid, retryable: false}
-  HOST_UNINSTALL_TOKEN_CONFLICT: {http_status: 409, message_key: errors.host_uninstall.token_conflict, retryable: false}
   HOST_INSTALL_FAILED: {http_status: 409, message_key: errors.host_install.failed, retryable: true}
   HOST_ONBOARDING_STATE_UNAVAILABLE: {http_status: 500, message_key: errors.host_install.state_unavailable, retryable: true}
-  HOST_SELF_ENROLL_UNSUPPORTED_PLATFORM: {http_status: 422, message_key: errors.host_install.unsupported_platform, retryable: false}
-  HOST_OPERATION_UNSUPPORTED_FOR_SELF_ENROLLED: {http_status: 409, message_key: errors.host_install.operation_unsupported, retryable: false}
+  HOST_ONBOARDING_UNSUPPORTED_PLATFORM: {http_status: 422, message_key: errors.host_install.unsupported_platform, retryable: false}
+  HOST_REMOVAL_DEPENDENCIES_EXIST: {http_status: 409, message_key: errors.host_removal.dependencies_exist, retryable: false}
+  HOST_REMOVAL_CONNECTION_TEST_REQUIRED: {http_status: 422, message_key: errors.host_removal.connection_test_required, retryable: false}
+  HOST_REMOVAL_NOT_INSTALLED: {http_status: 409, message_key: errors.host_removal.not_installed, retryable: false}
+  HOST_REMOVAL_STATE_CONFLICT: {http_status: 409, message_key: errors.host_removal.state_conflict, retryable: false}
+  HOST_REMOVAL_TOKEN_INVALID: {http_status: 401, message_key: errors.host_removal.token_invalid, retryable: false}
+  HOST_REMOVAL_EXPIRED: {http_status: 410, message_key: errors.host_removal.expired, retryable: false}
+  HOST_REMOVAL_TARGET_UNREACHABLE: {http_status: 503, message_key: errors.host_removal.target_unreachable, retryable: true}
+  HOST_REMOVAL_HOST_KEY_CHANGED: {http_status: 409, message_key: errors.host_removal.host_key_changed, retryable: false}
+  HOST_REMOVAL_CREDENTIAL_UNAVAILABLE: {http_status: 409, message_key: errors.host_removal.credential_unavailable, retryable: false}
+  HOST_REMOVAL_LOCAL_CLEANUP_UNKNOWN: {http_status: 202, message_key: errors.host_removal.cleanup_unknown, retryable: true}
+  HOST_REMOVAL_FINALIZE_FAILED: {http_status: 503, message_key: errors.host_removal.finalize_failed, retryable: true}
+  TARGET_IDENTITY_CHANGED: {http_status: 409, message_key: errors.host_removal.target_identity_changed, retryable: false}
+  LOCAL_CONFIG_DRIFT: {http_status: 200, message_key: errors.host_removal.local_config_drift, retryable: false}
   COLLECTOR_ROUTE_TRANSPORT_INVALID: {http_status: 422, message_key: errors.telemetry.route_transport_invalid, retryable: false}
   COLLECTOR_LOOPBACK_PORT_CONFLICT: {http_status: 409, message_key: errors.telemetry.loopback_port_conflict, retryable: true}
   TUNNEL_FORWARD_TARGET_UNCONFIGURED: {http_status: 503, message_key: errors.telemetry.tunnel_forward_target_unconfigured, retryable: true}
@@ -157,7 +165,6 @@ codes:
   REMOTE_ACCESS_CONNECTION_LOST: {http_status: 409, message_key: errors.remote_access.connection_lost, retryable: true}
   REMOTE_ACCESS_INVALID_STATE_TRANSITION: {http_status: 409, message_key: errors.remote_access.invalid_state_transition, retryable: false}
   REMOTE_ACCESS_INVALID_GOVERNANCE: {http_status: 422, message_key: errors.remote_access.invalid_governance, retryable: false}
-  WINRM_TLS_REQUIRED: {http_status: 422, message_key: errors.remote_access.winrm_tls_required, retryable: false}
   COLLECTOR_DISTRIBUTION_UNSUPPORTED: {http_status: 422, message_key: errors.telemetry.distribution_unsupported, retryable: false}
   COLLECTOR_ARTIFACT_INVALID: {http_status: 422, message_key: errors.telemetry.artifact_invalid, retryable: false}
   COLLECTOR_ARTIFACT_UNAVAILABLE: {http_status: 503, message_key: errors.telemetry.artifact_unavailable, retryable: true}

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -49,7 +50,7 @@ func RegisterCertificateIdentity(ctx context.Context, q *db.Queries, certificate
 	digest := sha256.Sum256(certificate.Raw)
 	record, err := q.CreatePKICertificateIdentity(ctx, db.CreatePKICertificateIdentityParams{
 		SerialNumber: CertificateSerial(certificate), SubjectKind: identity.Kind, SubjectID: identity.SubjectID,
-		EnterpriseID: identity.EnterpriseID, UriSan: uriSAN, DnsSans: certificate.DNSNames, ExtendedKeyUsage: usage,
+		EnterpriseID: identity.EnterpriseID, UriSan: uriSAN, DnsSans: normalizedDNSNames(certificate), ExtendedKeyUsage: usage,
 		IssuerGeneration: identity.IssuerGeneration, CertificateSha256: hex.EncodeToString(digest[:]), Status: "active",
 		NotBefore: pgtype.Timestamptz{Time: certificate.NotBefore.UTC(), Valid: true}, NotAfter: pgtype.Timestamptz{Time: certificate.NotAfter.UTC(), Valid: true},
 	})
@@ -77,7 +78,7 @@ func VerifyCertificateIdentity(record db.PkiCertificateIdentity, certificate *x5
 	if len(certificate.URIs) == 1 {
 		uriSAN = certificate.URIs[0].String()
 	}
-	if len(certificate.URIs) > 1 || record.UriSan != uriSAN {
+	if len(certificate.URIs) > 1 || record.UriSan != uriSAN || !slices.Equal(record.DnsSans, certificate.DNSNames) {
 		return errors.New("PKI certificate URI identity is invalid")
 	}
 	digest := sha256.Sum256(certificate.Raw)
@@ -85,4 +86,10 @@ func VerifyCertificateIdentity(record db.PkiCertificateIdentity, certificate *x5
 		return errors.New("PKI certificate fingerprint is invalid")
 	}
 	return nil
+}
+
+func normalizedDNSNames(certificate *x509.Certificate) []string {
+	result := make([]string, len(certificate.DNSNames))
+	copy(result, certificate.DNSNames)
+	return result
 }

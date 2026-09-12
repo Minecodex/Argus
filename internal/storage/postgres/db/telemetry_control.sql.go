@@ -268,7 +268,7 @@ func (q *Queries) ConfirmKubernetesNodeHostBinding(ctx context.Context, arg Conf
 const consumeTelemetryEnrollmentToken = `-- name: ConsumeTelemetryEnrollmentToken :one
 UPDATE telemetry_enrollment_tokens SET consumed_at = now()
 WHERE id = $1 AND consumed_at IS NULL AND expires_at > now()
-RETURNING id, collector_id, token_hash, expires_at, consumed_at, created_at, host_enrollment_token_id
+RETURNING id, collector_id, token_hash, expires_at, consumed_at, created_at
 `
 
 func (q *Queries) ConsumeTelemetryEnrollmentToken(ctx context.Context, id uuid.UUID) (TelemetryEnrollmentToken, error) {
@@ -281,7 +281,6 @@ func (q *Queries) ConsumeTelemetryEnrollmentToken(ctx context.Context, id uuid.U
 		&i.ExpiresAt,
 		&i.ConsumedAt,
 		&i.CreatedAt,
-		&i.HostEnrollmentTokenID,
 	)
 	return i, err
 }
@@ -551,16 +550,15 @@ func (q *Queries) CreateTelemetryCollectorOperation(ctx context.Context, arg Cre
 }
 
 const createTelemetryEnrollmentToken = `-- name: CreateTelemetryEnrollmentToken :one
-INSERT INTO telemetry_enrollment_tokens (id, collector_id, token_hash, expires_at, host_enrollment_token_id)
-VALUES ($1,$2,$3,$4,$5) RETURNING id, collector_id, token_hash, expires_at, consumed_at, created_at, host_enrollment_token_id
+INSERT INTO telemetry_enrollment_tokens (id, collector_id, token_hash, expires_at)
+VALUES ($1,$2,$3,$4) RETURNING id, collector_id, token_hash, expires_at, consumed_at, created_at
 `
 
 type CreateTelemetryEnrollmentTokenParams struct {
-	ID                    uuid.UUID          `json:"id"`
-	CollectorID           uuid.UUID          `json:"collector_id"`
-	TokenHash             []byte             `json:"token_hash"`
-	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
-	HostEnrollmentTokenID uuid.NullUUID      `json:"host_enrollment_token_id"`
+	ID          uuid.UUID          `json:"id"`
+	CollectorID uuid.UUID          `json:"collector_id"`
+	TokenHash   []byte             `json:"token_hash"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 }
 
 func (q *Queries) CreateTelemetryEnrollmentToken(ctx context.Context, arg CreateTelemetryEnrollmentTokenParams) (TelemetryEnrollmentToken, error) {
@@ -569,7 +567,6 @@ func (q *Queries) CreateTelemetryEnrollmentToken(ctx context.Context, arg Create
 		arg.CollectorID,
 		arg.TokenHash,
 		arg.ExpiresAt,
-		arg.HostEnrollmentTokenID,
 	)
 	var i TelemetryEnrollmentToken
 	err := row.Scan(
@@ -579,7 +576,6 @@ func (q *Queries) CreateTelemetryEnrollmentToken(ctx context.Context, arg Create
 		&i.ExpiresAt,
 		&i.ConsumedAt,
 		&i.CreatedAt,
-		&i.HostEnrollmentTokenID,
 	)
 	return i, err
 }
@@ -1096,7 +1092,7 @@ func (q *Queries) GetTelemetryCollectorOperation(ctx context.Context, arg GetTel
 }
 
 const getTelemetryEnrollmentTokenForUpdate = `-- name: GetTelemetryEnrollmentTokenForUpdate :one
-SELECT id, collector_id, token_hash, expires_at, consumed_at, created_at, host_enrollment_token_id FROM telemetry_enrollment_tokens WHERE token_hash = $1 FOR UPDATE
+SELECT id, collector_id, token_hash, expires_at, consumed_at, created_at FROM telemetry_enrollment_tokens WHERE token_hash = $1 FOR UPDATE
 `
 
 func (q *Queries) GetTelemetryEnrollmentTokenForUpdate(ctx context.Context, tokenHash []byte) (TelemetryEnrollmentToken, error) {
@@ -1109,7 +1105,6 @@ func (q *Queries) GetTelemetryEnrollmentTokenForUpdate(ctx context.Context, toke
 		&i.ExpiresAt,
 		&i.ConsumedAt,
 		&i.CreatedAt,
-		&i.HostEnrollmentTokenID,
 	)
 	return i, err
 }

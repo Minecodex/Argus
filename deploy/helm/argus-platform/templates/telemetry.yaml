@@ -196,6 +196,7 @@ spec:
             - {name: ARGUS_REDIS_URL, value: {{ printf "redis://:%s@argus-redis.%s.svc:6379/0" (required "runtime.redisPassword is required" $.Values.runtime.redisPassword) $system | quote }}}
             {{- end }}
             {{- if eq $mode "ingest" }}
+            - {name: ARGUS_BOOTSTRAP_TLS_MODE, value: {{ required "pki.bootstrapTLSMode is required" $.Values.pki.bootstrapTLSMode | quote }} }
             - name: ARGUS_PENDING_ACTION_ENCRYPTION_KEY
               valueFrom: {secretKeyRef: {name: argus-telemetry-runtime, key: bootstrap-encryption-key}}
             {{- if $.Values.runtime.otelcolSigningPublicKey }}

@@ -200,6 +200,12 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 	if err := clients.setStage(ctx, cfg, "telemetry-pipeline", "running", "installing ClickHouse migration and Kafka topics"); err != nil {
 		return err
 	}
+	// Re-run the idempotent migration for this installation. Reusing a completed
+	// Job can race its TTL deletion between the initial and final readiness gates.
+	if _, err := a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", cfg.Spec.Namespaces.Observability,
+		"delete", "job", "argus-clickhouse-telemetry-migration", "--ignore-not-found=true", "--wait=true"); err != nil {
+		return fmt.Errorf("reset ClickHouse migration job: %w", err)
+	}
 	if err := helm.installOrUpgrade(ctx, cfg.Spec.ReleaseID+"-telemetry-pipeline", cfg.Spec.Namespaces.Observability, telemetryChart, telemetryValues(cfg, preflight.Network)); err != nil {
 		return err
 	}
@@ -249,7 +255,12 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 		_, _ = a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", cfg.Spec.Namespaces.System,
 			"delete", "job", "argus-postgresql-migration", "--ignore-not-found=true", "--wait=false")
 	}
-	platformValues := platformValues(cfg, credentials, setupSecret, idempotencyKey, cursorSigningKey, pendingActionKey, secretKEK, connectorRelease.HostInstallerSHA256, preflight.Network)
+	platformValues := platformValues(cfg, credentials, setupSecret, idempotencyKey, cursorSigningKey, pendingActionKey, secretKEK, preflight.Network)
+	httpsAddress, err := httpsInternalAddress(ctx, clients, cfg)
+	if err != nil {
+		return err
+	}
+	platformValues["runtime"].(map[string]any)["httpsInternalAddress"] = httpsAddress
 	runtimePKI, err := preserveRuntimePKIState(ctx, clients, cfg, platformValues)
 	if err != nil {
 		return err
@@ -408,7 +419,7 @@ func dataValues(cfg *InstallConfig, secrets map[string]string, profiles ...Netwo
 	}
 }
 
-func platformValues(cfg *InstallConfig, credentials map[string]string, setupSecret, idempotencyKey, cursorSigningKey, pendingActionKey, secretKEK, hostInstallerSHA256 string, profiles ...NetworkProfile) map[string]any {
+func platformValues(cfg *InstallConfig, credentials map[string]string, setupSecret, idempotencyKey, cursorSigningKey, pendingActionKey, secretKEK string, profiles ...NetworkProfile) map[string]any {
 	network := NetworkProfile{}
 	if len(profiles) > 0 {
 		network = profiles[0]
@@ -435,12 +446,11 @@ func platformValues(cfg *InstallConfig, credentials map[string]string, setupSecr
 	runtimeValues := map[string]any{
 		"postgresqlPassword": credentials["postgresql-password"], "redisPassword": credentials["redis-password"],
 		"idempotencyEncryptionKey": idempotencyKey, "cursorSigningKey": cursorSigningKey,
-		"pendingActionEncryptionKey":       pendingActionKey,
-		"connectorEnrollmentURL":           connectorEnrollmentURL,
-		"connectorGatewayAddress":          connectorGatewayAddress,
-		"connectorEnrollmentForwardTarget": enterpriseHost + ":443",
-		"connectorGatewayForwardTarget":    fmt.Sprintf("argus-connector-gateway.%s.svc:9443", cfg.Spec.Namespaces.System),
-		"objectStoreUrl":                   "http://argus-minio:9000", "objectStoreBucket": "argus-remote-recordings",
+		"pendingActionEncryptionKey":    pendingActionKey,
+		"connectorEnrollmentURL":        connectorEnrollmentURL,
+		"connectorGatewayAddress":       connectorGatewayAddress,
+		"connectorGatewayForwardTarget": fmt.Sprintf("argus-connector-gateway.%s.svc:9443", cfg.Spec.Namespaces.System),
+		"objectStoreUrl":                "http://argus-minio:9000", "objectStoreBucket": "argus-remote-recordings",
 		"remoteOrigin":         remoteOrigin,
 		"objectStoreAccessKey": credentials["minio-root-user"], "objectStoreSecretKey": credentials["minio-root-password"],
 		"telemetryClickhouseMigrationPassword": credentials["telemetry-clickhouse-migration-password"],
@@ -465,7 +475,6 @@ func platformValues(cfg *InstallConfig, credentials map[string]string, setupSecr
 		"globalIssuerGroup":                    cfg.Spec.PKI.IssuerRef.Group,
 		"trustBundleConfigMapName":             cfg.trustBundleName(),
 		"trustBundleEpoch":                     1,
-		"hostInstallerSha256":                  hostInstallerSHA256,
 		"connectorKubernetesImage":             cfg.Image("argus-backend"),
 		"allowedOrigins":                       allowedOrigins, "secureCookies": true,
 		"keyWrappingMode": "local_test", "breakGlassEnabled": false, "platformMfaRequired": cfg.Spec.Security.PlatformMFARequired, "databaseRolesEnabled": false,
@@ -989,11 +998,17 @@ func ensureSetupToken(ctx context.Context, clients *kubeClients, namespace, name
 }
 
 func randomSecret(size int) (string, error) {
-	buffer := make([]byte, size)
-	if _, err := rand.Read(buffer); err != nil {
-		return "", err
+	for {
+		buffer := make([]byte, size)
+		if _, err := rand.Read(buffer); err != nil {
+			return "", err
+		}
+		value := base64.RawURLEncoding.EncodeToString(buffer)
+		clear(buffer)
+		if len(value) > 0 && value[0] != '-' && value[0] != '_' {
+			return value, nil
+		}
 	}
-	return strings.TrimRight(base64.RawURLEncoding.EncodeToString(buffer), "="), nil
 }
 
 func waitForData(ctx context.Context, clients *kubeClients, cfg *InstallConfig) error {
@@ -1038,7 +1053,7 @@ func waitForData(ctx context.Context, clients *kubeClients, cfg *InstallConfig) 
 func (a *App) restartLocalRegistryWorkloads(ctx context.Context, cfg *InstallConfig) error {
 	system := append(
 		append([]string{"argus-web", "argus-server"}, expectedWorkerDeployments(cfg.Spec.Profile)...),
-		"argus-direct-executor", "argus-connector-gateway",
+		"argus-direct-executor", "argus-connector-gateway", "argus-pki-controller",
 	)
 	for _, name := range system {
 		if _, err := a.runner.run(ctx, nil, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", cfg.Spec.Namespaces.System, "rollout", "restart", "deployment/"+name); err != nil {

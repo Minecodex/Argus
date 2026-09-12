@@ -57,11 +57,12 @@ export function ManagedAccountsSection({
       );
       if (
         !credential ||
-        (credential.protocol !== "ssh" && credential.protocol !== "winrm")
+        (credential.protocol !== "ssh" && credential.protocol !== "windows")
       ) {
-        throw new Error("managed account credential must use ssh or winrm");
+		throw new Error("managed account credential must use SSH or Windows credentials");
       }
-      const allowed_protocols = [credential.protocol];
+		const allowed_protocols: Array<"shell" | "ssh" | "rdp"> =
+			credential.protocol === "windows" ? ["shell", "rdp"] : ["shell", "ssh"];
       return editing
         ? api.secrets.updateManagedAccount(editing.id, {
             username: values.username,
@@ -237,7 +238,7 @@ function ManagedAccountDrawer({
   const compatibleCredentials = credentials.filter(
     (credential) =>
       credential.status === "active" &&
-      (credential.protocol === "ssh" || credential.protocol === "winrm"),
+      (credential.protocol === "ssh" || credential.protocol === "windows"),
   );
   const submit = handleSubmit(async (values) => {
     clearErrors();

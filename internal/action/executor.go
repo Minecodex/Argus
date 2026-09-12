@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/kakj-go/Argus/internal/conversation"
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
+	"github.com/kakj-go/Argus/internal/hostonboarding"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/runtime"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
@@ -108,6 +110,22 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 				ConnectorInstallOperationID: result.ConnectorInstallOperationID,
 			})
 			return err
+		}
+		if result.HostOnboardingOperationID.Valid {
+			_, err = q.MarkExecutionHostOnboardingResultUnknown(ctx, db.MarkExecutionHostOnboardingResultUnknownParams{
+				ID: execution.ID, EnterpriseID: execution.EnterpriseID, HostOnboardingOperationID: result.HostOnboardingOperationID,
+			})
+			if err != nil || result.OneTimeCommand == nil {
+				return err
+			}
+		}
+		if result.HostRemovalOperationID.Valid {
+			_, err = q.MarkExecutionHostRemovalResultUnknown(ctx, db.MarkExecutionHostRemovalResultUnknownParams{
+				ID: execution.ID, EnterpriseID: execution.EnterpriseID, HostRemovalOperationID: result.HostRemovalOperationID,
+			})
+			if err != nil || result.OneTimeCommand == nil {
+				return err
+			}
 		}
 		if result.OneTimeCommand != nil {
 			if action.CreatorSubjectType != "user" {
@@ -245,6 +263,46 @@ func resourceNameConflict(cause error) bool {
 }
 
 func (executor Executor) reconcileExecution(ctx context.Context, q *db.Queries, execution db.Execution) error {
+	if execution.HostRemovalOperationID.Valid {
+		operation, err := q.GetHostRemovalOperation(ctx, db.GetHostRemovalOperationParams{ID: execution.HostRemovalOperationID.UUID, EnterpriseID: execution.EnterpriseID})
+		if err != nil {
+			return err
+		}
+		switch operation.Status {
+		case "succeeded":
+			return executor.finishReconciledExecution(ctx, q, execution, "succeeded", operation.ErrorCode,
+				"Host removal operation "+operation.ID.String()+" reconciled", "", uuid.Nil, 0)
+		case "failed", "cleanup_unknown":
+			code := operation.ErrorCode.String
+			if code == "" {
+				code = "HOST_REMOVAL_FAILED"
+			}
+			return executor.finishReconciledExecution(ctx, q, execution, "failed", pgtype.Text{String: code, Valid: true},
+				"Host removal operation "+operation.ID.String()+" reconciled", "", uuid.Nil, 0)
+		default:
+			return nil
+		}
+	}
+	if execution.HostOnboardingOperationID.Valid {
+		operation, err := q.GetHostOnboardingOperation(ctx, db.GetHostOnboardingOperationParams{ID: execution.HostOnboardingOperationID.UUID, EnterpriseID: execution.EnterpriseID})
+		if err != nil {
+			return err
+		}
+		status, errorCode, terminal, err := reconciledHostOnboardingOutcome(ctx, q, operation)
+		if err != nil || !terminal {
+			return err
+		}
+		host, err := q.GetHost(ctx, db.GetHostParams{ID: operation.HostID, EnterpriseID: operation.EnterpriseID})
+		if errors.Is(err, pgx.ErrNoRows) && status != "succeeded" {
+			return executor.finishReconciledExecution(ctx, q, execution, status, errorCode,
+				"Host onboarding operation "+operation.ID.String()+" reconciled after record deletion", "", uuid.Nil, 0)
+		}
+		if err != nil {
+			return err
+		}
+		return executor.finishReconciledExecution(ctx, q, execution, status, errorCode,
+			"Host onboarding operation "+operation.ID.String()+" reconciled", "host", host.ID, host.ResourceVersion)
+	}
 	if execution.ConnectorInstallOperationID.Valid {
 		operation, err := q.GetConnectorInstallOperation(ctx, db.GetConnectorInstallOperationParams{
 			ID: execution.ConnectorInstallOperationID.UUID, EnterpriseID: execution.EnterpriseID,
@@ -257,6 +315,10 @@ func (executor Executor) reconcileExecution(ctx context.Context, q *db.Queries, 
 			return err
 		}
 		scope, err := q.GetBastionScope(ctx, db.GetBastionScopeParams{ID: operation.BastionScopeID, EnterpriseID: operation.EnterpriseID})
+		if errors.Is(err, pgx.ErrNoRows) && status != "succeeded" {
+			return executor.finishReconciledExecution(ctx, q, execution, status, errorCode,
+				"Connector install operation "+operation.ID.String()+" reconciled after record deletion", "", uuid.Nil, 0)
+		}
 		if err != nil {
 			return err
 		}
@@ -293,6 +355,37 @@ func (executor Executor) reconcileExecution(ctx context.Context, q *db.Queries, 
 	}
 	return executor.finishReconciledExecution(ctx, q, execution, status, errorCode,
 		"Connector command "+command.CommandID+" reconciled", "", uuid.Nil, 0)
+}
+
+func reconciledHostOnboardingOutcome(ctx context.Context, q *db.Queries, operation db.HostOnboardingOperation) (string, pgtype.Text, bool, error) {
+	switch operation.Status {
+	case "cancelled":
+		code := operation.ErrorCode
+		if !code.Valid {
+			code = pgtype.Text{String: hostonboarding.HostCancellationErrorCode, Valid: true}
+		}
+		return "cancelled", code, true, nil
+	case "succeeded":
+		if operation.Stage != "completed" || !operation.ConnectorOnlineAt.Valid {
+			return "", pgtype.Text{}, false, nil
+		}
+		connector, err := q.GetConnector(ctx, db.GetConnectorParams{ID: operation.ConnectorID, EnterpriseID: operation.EnterpriseID})
+		if err != nil {
+			return "", pgtype.Text{}, false, err
+		}
+		if connector.Status != "online" {
+			return "", pgtype.Text{}, false, nil
+		}
+		return "succeeded", pgtype.Text{}, true, nil
+	case "failed", "expired":
+		code := operation.ErrorCode
+		if !code.Valid {
+			code = pgtype.Text{String: "HOST_ONBOARDING_RESULT_UNKNOWN", Valid: true}
+		}
+		return "failed", code, true, nil
+	default:
+		return "", pgtype.Text{}, false, nil
+	}
 }
 
 func reconciledConnectorCommandOutcome(ctx context.Context, q *db.Queries, command db.ConnectorCommand) (string, pgtype.Text, bool, error) {
@@ -371,12 +464,20 @@ func (executor Executor) finishReconciledExecution(ctx context.Context, q *db.Qu
 	if err != nil {
 		return err
 	}
+	resultType := pgtype.Text{String: resourceType, Valid: resourceType != ""}
+	resultID := uuid.NullUUID{UUID: resourceID, Valid: resourceID != uuid.Nil}
+	resultVersion := pgtype.Int8{Int64: resourceVersion, Valid: resourceVersion > 0}
+	if resourceType == "" && (execution.HostOnboardingOperationID.Valid || execution.ConnectorInstallOperationID.Valid) {
+		// A deleted target is no longer publicly readable. Preserve any
+		// previously recorded result reference as historical evidence.
+		resultType, resultID, resultVersion = action.ResultResourceType, action.ResultResourceID, action.ResultResourceVersion
+	}
 	finished, err := q.FinishPendingAction(ctx, db.FinishPendingActionParams{
 		ID: action.ID, EnterpriseID: action.EnterpriseID, Status: status,
 		ResultSummary: summary, ErrorCode: errorCode,
-		ResultResourceType:    pgtype.Text{String: resourceType, Valid: resourceType != ""},
-		ResultResourceID:      uuid.NullUUID{UUID: resourceID, Valid: resourceID != uuid.Nil},
-		ResultResourceVersion: pgtype.Int8{Int64: resourceVersion, Valid: resourceVersion > 0},
+		ResultResourceType:    resultType,
+		ResultResourceID:      resultID,
+		ResultResourceVersion: resultVersion,
 	})
 	if err != nil {
 		return err
@@ -395,6 +496,12 @@ func (executor Executor) finishReconciledExecution(ctx context.Context, q *db.Qu
 
 func reconciledConnectorInstallOutcome(ctx context.Context, q *db.Queries, operation db.ConnectorInstallOperation) (string, pgtype.Text, bool, error) {
 	switch operation.Status {
+	case "cancelled":
+		code := operation.ErrorCode
+		if !code.Valid {
+			code = pgtype.Text{String: hostonboarding.BastionCancellationErrorCode, Valid: true}
+		}
+		return "cancelled", code, true, nil
 	case "succeeded":
 		if operation.Stage != "completed" || !operation.ConnectorOnlineAt.Valid {
 			return "", pgtype.Text{}, false, nil
@@ -418,7 +525,7 @@ func reconciledConnectorInstallOutcome(ctx context.Context, q *db.Queries, opera
 			}
 		}
 		return "succeeded", pgtype.Text{}, true, nil
-	case "failed", "expired", "cancelled":
+	case "failed", "expired":
 		code := operation.ErrorCode
 		if !code.Valid {
 			code = pgtype.Text{String: "CONNECTOR_INSTALL_RESULT_UNKNOWN", Valid: true}

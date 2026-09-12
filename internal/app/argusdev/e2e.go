@@ -2,7 +2,9 @@ package argusdev
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -27,6 +29,8 @@ type E2EOptions struct {
 	UnitOnly     bool
 	Argusctl     string
 	BaselinesRun bool
+	PKIMode      string
+	BootstrapTLS string
 }
 
 type E2EEnvironment struct {
@@ -47,9 +51,9 @@ type E2EEnvironment struct {
 	Processes          []*Process
 	ManagedNamespaces  []string
 	ManagedClusterRBAC []string
+	ExternalPKI        *e2eExternalPKI
 	State              *ScenarioState
 	CollectorArtifacts *E2ECollectorArtifacts
-	ConnectorArtifacts *E2EConnectorArtifacts
 	ArtifactSigning    *E2EArtifactSigning
 	ArtifactTLS        fixtureCertificate
 	installed          bool
@@ -61,18 +65,24 @@ type E2EEnvironment struct {
 }
 
 var suiteDependencies = map[string][]string{
-	"m2":        {"m2"},
-	"m3":        {"m2", "m3"},
-	"m4":        {"m2", "m4"},
-	"m5":        {"m2", "m3", "m4", "m5"},
-	"m6":        {"m2", "m3", "m6"},
-	"m7":        {"m2", "m3", "m4", "m5", "m7"},
-	"m10-query": {"m2", "m3", "m4", "m5", "m7", "m10-query"},
-	"m8":        {"m6", "m7", "m8"},
-	"p4":        {"m2", "p4"},
+	"m2":                  {"m2"},
+	"m3":                  {"m2", "m3"},
+	"m4":                  {"m2", "m4"},
+	"m5":                  {"m2", "m3", "m4", "m5"},
+	"m6":                  {"m2", "m3", "m6"},
+	"m7":                  {"m2", "m3", "m4", "m5", "m7"},
+	"m10-query":           {"m2", "m3", "m4", "m5", "m7", "m10-query"},
+	"m8":                  {"m6", "m7", "m8"},
+	"p4":                  {"m2", "p4"},
+	"tls":                 {"m2", "tls"},
+	"tls-managed-strict":  {"m2", "tls"},
+	"tls-existing-strict": {"m2", "tls"},
 }
 
 func (a *App) runE2E(ctx context.Context, args []string) error {
+	if len(args) > 0 && args[0] == "windows-host" {
+		return a.runWindowsHostE2E(ctx, args[1:])
+	}
 	if len(args) == 0 || args[0] != "run" {
 		return fmt.Errorf("%w: usage: argus-dev e2e run --suite SUITE [options]", errUsage)
 	}
@@ -104,6 +114,9 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	options := E2EOptions{Suite: *suite, KubeContext: *kubeContext, RunID: *runID, Artifacts: *artifacts, UnitOnly: *unitOnly, Argusctl: *argusctl}
 	if *unitOnly {
 		return a.runE2EUnitGate(ctx, options)
+	}
+	if options.Suite == "tls" {
+		return a.runTLSE2EMatrix(ctx, options)
 	}
 	return a.runE2ECluster(ctx, options)
 }
@@ -178,6 +191,7 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 	if err := a.invokeArgusctl(ctx, env, "install", "--config", env.ConfigPath); err != nil {
 		return err
 	}
+	env.clearArtifactSigningPrivateKey()
 	env.installed = true
 	env.fixtureAttempted = true
 	if err := a.installE2EFixtures(ctx, env); err != nil {
@@ -185,9 +199,6 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 	}
 	env.fixtureReady = true
 	if err := a.resolveE2EAccess(ctx, env); err != nil {
-		return err
-	}
-	if err := a.registerE2EConnectorRelease(ctx, env); err != nil {
 		return err
 	}
 	if err := a.runE2EScenarios(ctx, env); err != nil {
@@ -227,16 +238,17 @@ func (a *App) prepareE2EEnvironment(ctx context.Context, env *E2EEnvironment) er
 	env.SandboxNS = kubernetesNameForDev(release + "-sandbox")
 	env.ObservNS = kubernetesNameForDev(release + "-observability")
 	env.ImageTag = kubernetesNameForDev("e2e-" + env.Options.RunID)
+	if env.Options.PKIMode == "existing-cluster-issuer" {
+		if err := a.prepareE2EExternalIssuer(ctx, env); err != nil {
+			return err
+		}
+	}
 	if err := a.prepareE2EArtifactServer(env); err != nil {
 		return err
 	}
 	if err := a.prepareE2ECollectorArtifacts(ctx, env); err != nil {
 		return err
 	}
-	if err := a.prepareE2EConnectorArtifacts(ctx, env); err != nil {
-		return err
-	}
-	env.clearArtifactSigningPrivateKey()
 	profile := "evaluation"
 	if env.Options.Suite == "m8" {
 		profile = "local-hardening"
@@ -286,6 +298,15 @@ func (a *App) writeE2EConfig(env *E2EEnvironment, profile string) (string, error
 	exposure["enterpriseHost"] = "enterprise." + e2eDomain
 	exposure["platformHost"] = "platform." + e2eDomain
 	exposure["connectorHost"] = "connector." + e2eDomain
+	if env.Options.PKIMode != "" {
+		pki := nestedMap(spec, "pki")
+		pki["mode"] = env.Options.PKIMode
+		pki["bootstrapTLSMode"] = env.Options.BootstrapTLS
+		if env.ExternalPKI != nil {
+			pki["issuerRef"] = map[string]any{"name": env.ExternalPKI.IssuerName, "group": "cert-manager.io"}
+			pki["caBundle"] = map[string]any{"inlinePEM": env.ExternalPKI.CAPEM}
+		}
+	}
 	images := nestedMap(spec, "images")
 	images["tag"] = env.ImageTag
 	images["pullPolicy"] = "Never"
@@ -326,10 +347,15 @@ func nestedMap(parent map[string]any, key string) map[string]any {
 }
 
 func (a *App) invokeArgusctl(ctx context.Context, env *E2EEnvironment, args ...string) error {
-	return a.runner.Run(ctx, nil, env.Argusctl, args...)
+	variables := map[string]string{}
+	if env.ArtifactSigning != nil && len(env.ArtifactSigning.PrivateKey) == ed25519.PrivateKeySize {
+		variables["ARGUS_OTELCOL_SIGNING_PRIVATE_KEY"] = base64.RawStdEncoding.EncodeToString(env.ArtifactSigning.PrivateKey)
+	}
+	return a.runner.Run(ctx, variables, env.Argusctl, args...)
 }
 
 func (a *App) cleanupE2E(env *E2EEnvironment) error {
+	env.clearArtifactSigningPrivateKey()
 	var cleanupErrors []error
 	record := func(operation string, err error) {
 		if err != nil {
@@ -385,6 +411,9 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 		}
 		if env.leaseAcquired {
 			record("release E2E Lease", env.Kube.ReleaseLease(cleanupCtx, "argus-"+env.Options.Suite+"-e2e"))
+		}
+		if env.ExternalPKI != nil {
+			record("delete external E2E ClusterIssuer", a.deleteE2EExternalIssuer(cleanupCtx, env))
 		}
 	}
 	return errors.Join(cleanupErrors...)

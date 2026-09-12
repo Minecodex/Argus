@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ApiError,
   formatApiError,
   formatErrorCode,
   useApi,
@@ -9,6 +10,7 @@ import {
 } from "@argus/api-client";
 import { Button, PreviewCommitCard, type PreviewCommitStatus } from "@argus/ui";
 import { presentPendingAction } from "../pending-action-presentation";
+import { MfaStepUpDialog } from "../security/mfa-step-up-dialog";
 
 function diffLinesOf(action: PendingActionPublic) {
   return action.diff.map((line) => ({
@@ -29,16 +31,21 @@ function diffLinesOf(action: PendingActionPublic) {
 export function PendingActionConfirm({
   action,
   claimOneTimeResult = false,
+  confirmLabel,
   onDone,
   onCancel,
   onDismiss,
+  onError,
 }: {
   action: PendingActionPublic;
   claimOneTimeResult?: boolean;
+  confirmLabel?: string;
   onDone?: (result: ConfirmActionResult) => void;
   onCancel?: () => void;
   /** 中性关闭(不取消动作):等待审批场景下由用户手动关闭卡片。 */
   onDismiss?: () => void;
+  /** Return true when the owning form has handled the failure. */
+  onError?: (error: unknown) => boolean;
 }) {
   const { t } = useTranslation();
   const api = useApi();
@@ -47,6 +54,7 @@ export function PendingActionConfirm({
   const [resultMessage, setResultMessage] = useState<string | undefined>();
   const [confirming, setConfirming] = useState(false);
   const [awaitingApproval, setAwaitingApproval] = useState(false);
+  const [stepUpOpen, setStepUpOpen] = useState(false);
 
   const confirm = async () => {
     if (confirming) return;
@@ -80,6 +88,17 @@ export function PendingActionConfirm({
           }
           if (execution.status === "result_unknown") {
             if (execution.operation_ref) {
+              if (
+                claimOneTimeResult &&
+                execution.one_time_result_state === "available"
+              ) {
+                result = {
+                  ...result,
+                  one_time_result: await api.executions.claimOneTimeResult(
+                    execution.execution_id,
+                  ),
+                };
+              }
               settled = true;
               break;
             }
@@ -96,6 +115,21 @@ export function PendingActionConfirm({
             execution.status === "failed" ||
             execution.status === "cancelled"
           ) {
+            if (
+              execution.error_code &&
+              onError?.(
+                new ApiError(
+                  {
+                    code: execution.error_code,
+                    message_key: `errors.codes.${execution.error_code}`,
+                    request_id: "unknown",
+                    retryable: false,
+                  },
+                  409,
+                ),
+              )
+            )
+              return;
             setStatus(
               execution.status === "cancelled" ? "cancelled" : "failed",
             );
@@ -131,6 +165,11 @@ export function PendingActionConfirm({
       }
       onDone?.(result);
     } catch (cause) {
+      if (cause instanceof ApiError && cause.code === "STEP_UP_REQUIRED") {
+        setStepUpOpen(true);
+        return;
+      }
+      if (onError?.(cause)) return;
       setStatus("failed");
       setResultMessage(
         formatApiError(cause, t("hosts.preview.executionFailed"), (requestId) =>
@@ -162,33 +201,43 @@ export function PendingActionConfirm({
   };
 
   return (
-    <PreviewCommitCard
-      affected={[]}
-      confirming={confirming}
-      diff={diffLinesOf({ ...action, diff: presented.diff })}
-      expiresAt={action.expires_at}
-      onCancel={() => void cancel()}
-      onConfirm={() => void confirm()}
-      resultMessage={resultMessage}
-      risk={action.risk}
-      riskLabel={presented.riskLabel}
-      status={status}
-      title={presented.title}
-    >
-      <p className="argus-muted">{presented.summary}</p>
-      {awaitingApproval && (
-        <div className="argus-form-actions">
-          <span className="argus-muted">
-            {t("hosts.preview.awaitingApprovalHint")}
-          </span>
-          <Button
-            onClick={() => (onDismiss ?? onCancel)?.()}
-            variant="secondary"
-          >
-            {t("hosts.preview.close")}
-          </Button>
-        </div>
-      )}
-    </PreviewCommitCard>
+    <>
+      <PreviewCommitCard
+        affected={[]}
+        confirmLabel={confirmLabel}
+        confirming={confirming}
+        diff={diffLinesOf({ ...action, diff: presented.diff })}
+        expiresAt={action.expires_at}
+        onCancel={() => void cancel()}
+        onConfirm={() => void confirm()}
+        resultMessage={resultMessage}
+        risk={action.risk}
+        riskLabel={presented.riskLabel}
+        status={status}
+        title={presented.title}
+      >
+        <p className="argus-muted">{presented.summary}</p>
+        {awaitingApproval && (
+          <div className="argus-form-actions">
+            <span className="argus-muted">
+              {t("hosts.preview.awaitingApprovalHint")}
+            </span>
+            <Button
+              onClick={() => (onDismiss ?? onCancel)?.()}
+              variant="secondary"
+            >
+              {t("hosts.preview.close")}
+            </Button>
+          </div>
+        )}
+      </PreviewCommitCard>
+      <MfaStepUpDialog
+        title={t("account.mfa.confirmActionTitle")}
+        description={t("account.mfa.confirmActionDescription")}
+        open={stepUpOpen}
+        onOpenChange={setStepUpOpen}
+        onComplete={confirm}
+      />
+    </>
   );
 }

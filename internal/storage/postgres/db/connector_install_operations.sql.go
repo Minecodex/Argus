@@ -64,6 +64,25 @@ func (q *Queries) AdvanceConnectorInstallOperation(ctx context.Context, arg Adva
 	return i, err
 }
 
+const cancelConnectorInstallOperationsByScope = `-- name: CancelConnectorInstallOperationsByScope :execrows
+UPDATE connector_install_operations SET status='cancelled',error_code='CONNECTOR_INSTALL_CANCELLED_BY_DELETE',
+ completed_at=now(),lease_owner='',lease_expires_at=NULL,updated_at=now()
+WHERE bastion_scope_id=$1 AND enterprise_id=$2 AND status IN ('queued','running','result_unknown')
+`
+
+type CancelConnectorInstallOperationsByScopeParams struct {
+	BastionScopeID uuid.UUID `json:"bastion_scope_id"`
+	EnterpriseID   uuid.UUID `json:"enterprise_id"`
+}
+
+func (q *Queries) CancelConnectorInstallOperationsByScope(ctx context.Context, arg CancelConnectorInstallOperationsByScopeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, cancelConnectorInstallOperationsByScope, arg.BastionScopeID, arg.EnterpriseID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const claimConnectorControlTunnels = `-- name: ClaimConnectorControlTunnels :many
 WITH claimed AS (
   SELECT id FROM connector_control_tunnels
@@ -250,19 +269,19 @@ RETURNING id, enterprise_id, connector_id, bastion_scope_id, host_id, credential
 `
 
 type CreateConnectorControlTunnelParams struct {
-	ID                   uuid.UUID `json:"id"`
-	EnterpriseID         uuid.UUID `json:"enterprise_id"`
-	ConnectorID          uuid.UUID `json:"connector_id"`
-	BastionScopeID       uuid.UUID `json:"bastion_scope_id"`
-	HostID               uuid.UUID `json:"host_id"`
-	CredentialID         uuid.UUID `json:"credential_id"`
-	CredentialVersion    int64     `json:"credential_version"`
-	TargetAddress        string    `json:"target_address"`
-	TargetPort           int32     `json:"target_port"`
-	TargetUsername       string    `json:"target_username"`
-	PinnedHostKey        string    `json:"pinned_host_key"`
-	EnrollForwardTarget  string    `json:"enroll_forward_target"`
-	GatewayForwardTarget string    `json:"gateway_forward_target"`
+	ID                   uuid.UUID     `json:"id"`
+	EnterpriseID         uuid.UUID     `json:"enterprise_id"`
+	ConnectorID          uuid.UUID     `json:"connector_id"`
+	BastionScopeID       uuid.NullUUID `json:"bastion_scope_id"`
+	HostID               uuid.UUID     `json:"host_id"`
+	CredentialID         uuid.UUID     `json:"credential_id"`
+	CredentialVersion    int64         `json:"credential_version"`
+	TargetAddress        string        `json:"target_address"`
+	TargetPort           int32         `json:"target_port"`
+	TargetUsername       string        `json:"target_username"`
+	PinnedHostKey        string        `json:"pinned_host_key"`
+	EnrollForwardTarget  string        `json:"enroll_forward_target"`
+	GatewayForwardTarget string        `json:"gateway_forward_target"`
 }
 
 func (q *Queries) CreateConnectorControlTunnel(ctx context.Context, arg CreateConnectorControlTunnelParams) (ConnectorControlTunnel, error) {
@@ -517,6 +536,26 @@ type DeleteConnectorInstallOperationSecretParams struct {
 
 func (q *Queries) DeleteConnectorInstallOperationSecret(ctx context.Context, arg DeleteConnectorInstallOperationSecretParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteConnectorInstallOperationSecret, arg.OperationID, arg.EnterpriseID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteConnectorInstallOperationSecretsByScope = `-- name: DeleteConnectorInstallOperationSecretsByScope :execrows
+DELETE FROM connector_install_operation_secrets secret
+USING connector_install_operations operation
+WHERE secret.operation_id=operation.id AND secret.enterprise_id=operation.enterprise_id
+  AND operation.bastion_scope_id=$1 AND operation.enterprise_id=$2
+`
+
+type DeleteConnectorInstallOperationSecretsByScopeParams struct {
+	BastionScopeID uuid.UUID `json:"bastion_scope_id"`
+	EnterpriseID   uuid.UUID `json:"enterprise_id"`
+}
+
+func (q *Queries) DeleteConnectorInstallOperationSecretsByScope(ctx context.Context, arg DeleteConnectorInstallOperationSecretsByScopeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteConnectorInstallOperationSecretsByScope, arg.BastionScopeID, arg.EnterpriseID)
 	if err != nil {
 		return 0, err
 	}
@@ -1064,9 +1103,9 @@ WHERE bastion_scope_id = $1 AND enterprise_id = $2 AND status <> 'removed'
 `
 
 type MarkConnectorControlTunnelsRemovedByScopeParams struct {
-	BastionScopeID uuid.UUID `json:"bastion_scope_id"`
-	EnterpriseID   uuid.UUID `json:"enterprise_id"`
-	LastDropReason string    `json:"last_drop_reason"`
+	BastionScopeID uuid.NullUUID `json:"bastion_scope_id"`
+	EnterpriseID   uuid.UUID     `json:"enterprise_id"`
+	LastDropReason string        `json:"last_drop_reason"`
 }
 
 func (q *Queries) MarkConnectorControlTunnelsRemovedByScope(ctx context.Context, arg MarkConnectorControlTunnelsRemovedByScopeParams) (int64, error) {
@@ -1290,12 +1329,33 @@ WHERE lease.enterprise_id = $2 AND lease.status = 'active'
 `
 
 type RevokeConnectorControlTunnelLeasesByScopeParams struct {
-	BastionScopeID uuid.UUID `json:"bastion_scope_id"`
-	EnterpriseID   uuid.UUID `json:"enterprise_id"`
+	BastionScopeID uuid.NullUUID `json:"bastion_scope_id"`
+	EnterpriseID   uuid.UUID     `json:"enterprise_id"`
 }
 
 func (q *Queries) RevokeConnectorControlTunnelLeasesByScope(ctx context.Context, arg RevokeConnectorControlTunnelLeasesByScopeParams) (int64, error) {
 	result, err := q.db.Exec(ctx, revokeConnectorControlTunnelLeasesByScope, arg.BastionScopeID, arg.EnterpriseID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const revokeConnectorInstallCredentialLeasesByScope = `-- name: RevokeConnectorInstallCredentialLeasesByScope :execrows
+UPDATE credential_leases lease SET status='revoked'
+WHERE lease.enterprise_id=$2 AND lease.status='active' AND lease.operation_ref IN (
+  SELECT 'connector_install:'||operation.id::text FROM connector_install_operations operation
+  WHERE operation.bastion_scope_id=$1 AND operation.enterprise_id=$2
+)
+`
+
+type RevokeConnectorInstallCredentialLeasesByScopeParams struct {
+	BastionScopeID uuid.UUID `json:"bastion_scope_id"`
+	EnterpriseID   uuid.UUID `json:"enterprise_id"`
+}
+
+func (q *Queries) RevokeConnectorInstallCredentialLeasesByScope(ctx context.Context, arg RevokeConnectorInstallCredentialLeasesByScopeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeConnectorInstallCredentialLeasesByScope, arg.BastionScopeID, arg.EnterpriseID)
 	if err != nil {
 		return 0, err
 	}

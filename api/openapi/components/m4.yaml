@@ -282,7 +282,7 @@ components:
       properties:
         schema_version: {type: string, const: argus.action_one_time_result/v3}
         execution_id: {type: string, format: uuid}
-        result_kind: {type: string, enum: [host_install_command, host_uninstall_command, connector_install_command]}
+        result_kind: {type: string, enum: [connector_install_command, host_removal_command]}
         instruction_sets:
           type: array
           minItems: 1

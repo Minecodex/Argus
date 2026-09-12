@@ -4,6 +4,7 @@ import type {
   ListQuery,
   Page,
   PendingActionPublic,
+  RiskLevel,
   User,
 } from "../types";
 import type { TaskViewModel } from "../provisional";
@@ -22,6 +23,7 @@ export interface AuditEntry {
 export interface CreatePendingActionInput {
   tool: string;
   title?: string;
+  risk?: RiskLevel;
   input_data: Record<string, unknown>;
   conversation_id?: string;
 }

@@ -4,11 +4,7 @@ import type {
   Execution,
   Run,
 } from "../generated/contracts";
-import type {
-  ListQuery,
-  Page,
-  User,
-} from "../types";
+import type { ListQuery, Page, User } from "../types";
 import type { TaskEvent, TaskViewModel } from "../provisional";
 import { createApprovalsDomain } from "./approvals";
 import { createAuditDomain } from "./audit";
@@ -19,6 +15,7 @@ import type { AuditEntry, BaseContext, MockContext } from "./context";
 import { createConversationsDomain } from "./conversations";
 import { createEngine } from "./engine";
 import { createHostsDomain } from "./hosts";
+import { createHostConnectionTests } from "./host-connection-tests";
 import { createKubernetesDomain } from "./kubernetes";
 import { createModelsDomain } from "./models";
 import { createOrgDomain } from "./org";
@@ -193,6 +190,8 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
     emitTask,
   };
   const ctx: MockContext = { ...base, ...createEngine(base) };
+  const secretsDomain = createSecretsDomain(ctx);
+  const hostConnectionTests = createHostConnectionTests(ctx);
   const approvalsDomain = createApprovalsDomain(ctx);
 
   function mockApprovalView(actionRef: string): ApprovalRequestView {
@@ -240,7 +239,6 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
     };
   }
 
-
   return {
     auth: createAuthDomain(ctx),
     conversations: createConversationsDomain(ctx),
@@ -262,11 +260,19 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
       },
       async get(executionId): Promise<Execution> {
         await pause();
-        return mustFind(db.executions, (entry) => entry.execution_id === executionId, "execution");
+        return mustFind(
+          db.executions,
+          (entry) => entry.execution_id === executionId,
+          "execution",
+        );
       },
       async claimOneTimeResult(executionId) {
         await pause();
-        const execution = mustFind(db.executions, (entry) => entry.execution_id === executionId, "execution");
+        const execution = mustFind(
+          db.executions,
+          (entry) => entry.execution_id === executionId,
+          "execution",
+        );
         const result = db.oneTimeResults[executionId];
         if (execution.one_time_result_state !== "available" || !result) {
           throw new Error("ONE_TIME_RESULT_ALREADY_CONSUMED");
@@ -274,7 +280,11 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
         if (Date.parse(result.expires_at) <= Date.now()) {
           db.executions = db.executions.map((entry) =>
             entry.execution_id === executionId
-              ? { ...entry, one_time_result_state: "expired", updated_at: nowIso() }
+              ? {
+                  ...entry,
+                  one_time_result_state: "expired",
+                  updated_at: nowIso(),
+                }
               : entry,
           );
           delete db.oneTimeResults[executionId];
@@ -283,14 +293,22 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
         }
         db.executions = db.executions.map((entry) =>
           entry.execution_id === executionId
-            ? { ...entry, one_time_result_state: "consumed", updated_at: nowIso() }
+            ? {
+                ...entry,
+                one_time_result_state: "consumed",
+                updated_at: nowIso(),
+              }
             : entry,
         );
         if (execution.resource_ref?.resource_type === "host") {
-          const host = db.hosts.find((entry) => entry.id === execution.resource_ref?.resource_id);
+          const host = db.hosts.find(
+            (entry) => entry.id === execution.resource_ref?.resource_id,
+          );
           if (host) host.onboardingState = "command_consumed";
         } else if (execution.resource_ref?.resource_type === "bastion_scope") {
-          const scope = db.bastionScopes.find((entry) => entry.id === execution.resource_ref?.resource_id);
+          const scope = db.bastionScopes.find(
+            (entry) => entry.id === execution.resource_ref?.resource_id,
+          );
           if (scope) scope.onboardingState = "command_consumed";
         }
         delete db.oneTimeResults[executionId];
@@ -298,9 +316,9 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
         return result;
       },
     },
-    hosts: createHostsDomain(ctx),
+    hosts: createHostsDomain(ctx, secretsDomain, hostConnectionTests),
     remoteAccess: createRemoteAccessDomain(ctx),
-    connectors: createConnectorsDomain(ctx),
+    connectors: createConnectorsDomain(ctx, hostConnectionTests),
     kubernetes: createKubernetesDomain(ctx),
     telemetry: createTelemetryDomain(ctx),
     tasks: createTasksDomain(ctx),
@@ -328,7 +346,7 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
     models: createModelsDomain(ctx),
     interactiveCards: createInteractiveCardsDomain(ctx),
     org: createOrgDomain(ctx),
-    secrets: createSecretsDomain(ctx),
+    secrets: secretsDomain,
     audit: createAuditDomain(ctx),
     platform: createPlatformDomain(ctx),
     setup: createSetupDomain(ctx),
@@ -432,7 +450,8 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
             address: "10.9.0.2",
             port: 22,
             platform: "linux",
-            connectionMode: "connector_local",
+            role: "bastion",
+            controlPath: "direct",
             bastionScopeId: scope.id,
             connectorId,
             environment: scope.environment,

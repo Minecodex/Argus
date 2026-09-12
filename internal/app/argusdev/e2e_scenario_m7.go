@@ -118,6 +118,7 @@ func (a *App) verifyM7Catalog(ctx context.Context, env *E2EEnvironment) (string,
 		return "", nil, nil, err
 	}
 	var distributionID string
+	targetPlatform := strings.ReplaceAll(env.ImagePlatform, "/", "_")
 	windowsHash := ""
 	if env.CollectorArtifacts != nil {
 		windowsHash = env.CollectorArtifacts.WindowsSHA256
@@ -128,7 +129,7 @@ func (a *App) verifyM7Catalog(ctx context.Context, env *E2EEnvironment) (string,
 		for _, value := range artifacts {
 			artifact, _ := value.(map[string]any)
 			platform, _ := artifact["platform"].(string)
-			if status == "supported" && platform == "linux_arm64" {
+			if status == "supported" && platform == targetPlatform {
 				distributionID, _ = distribution["id"].(string)
 			}
 			if status == "validation_pending" && platform == "windows_amd64" && artifact["sha256"] != windowsHash {
@@ -137,7 +138,7 @@ func (a *App) verifyM7Catalog(ctx context.Context, env *E2EEnvironment) (string,
 		}
 	}
 	if distributionID == "" {
-		return "", nil, nil, fmt.Errorf("M7 supported Linux arm64 Collector distribution is missing")
+		return "", nil, nil, fmt.Errorf("M7 supported %s Collector distribution is missing", targetPlatform)
 	}
 	profiles, err := client.JSONArray(ctx, "m7-profiles", "enterprise", http.MethodGet, "/enterprise/telemetry/profiles", http.StatusOK, nil, map[string]string{"Origin": env.EnterpriseOrigin()})
 	if err != nil {
@@ -198,33 +199,11 @@ func (a *App) grantM7HostScope(ctx context.Context, env *E2EEnvironment) error {
 }
 
 func (a *App) createM7Host(ctx context.Context, env *E2EEnvironment) (string, error) {
-	client, _ := scenarioHTTP(env)
-	test, err := client.JSON(ctx, "m7-systemd-host-test", "enterprise", http.MethodPost, "/enterprise/hosts/connection-tests", http.StatusAccepted,
-		map[string]any{"address": "8.8.8.8", "port": 22, "platform": "linux", "connection_mode": "direct_ssh", "credential_id": env.State.Values["m3_credential_id"], "username": "root"}, enterpriseHeaders(env, "m7-systemd-host-test"))
-	if err != nil {
-		return "", err
+	hostID := env.State.Values["m3_direct_host_id"]
+	if hostID == "" {
+		return "", fmt.Errorf("M7 requires the M3 online Host Connector")
 	}
-	testID, err := stringField(test, "id")
-	if err != nil {
-		return "", err
-	}
-	if err := a.waitConnectionTest(ctx, env, testID); err != nil {
-		return "", err
-	}
-	preview, err := client.JSON(ctx, "m7-systemd-host-preview", "enterprise", http.MethodPost, "/enterprise/hosts/actions/preview-create", http.StatusCreated,
-		map[string]any{"name": "m7-linux-arm64-systemd", "address": "8.8.8.8", "port": 22, "platform": "linux", "connection_mode": "direct_ssh", "credential_id": env.State.Values["m3_credential_id"], "username": "root", "environment": "production", "labels": map[string]string{"team": "m7", "runtime": "systemd"}, "connection_test_id": testID}, enterpriseHeaders(env, "m7-systemd-host"))
-	if err != nil {
-		return "", err
-	}
-	actionRef, err := stringField(preview, "action_ref")
-	if err != nil {
-		return "", err
-	}
-	confirmed, err := a.confirmPendingAction(ctx, env, "m7-systemd-host-confirm", actionRef)
-	if err != nil {
-		return "", err
-	}
-	return stringField(confirmed, "resource_ref", "resource_id")
+	return hostID, nil
 }
 
 func (a *App) applyM7CollectorAction(ctx context.Context, env *E2EEnvironment, resourceType, resourceID, action, distributionID string, profiles []string) error {

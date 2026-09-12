@@ -1,6 +1,7 @@
 package argusdev
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -16,6 +17,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	"github.com/kakj-go/Argus/internal/installation"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
@@ -25,23 +27,30 @@ const defaultConnectorArtifactBucket = "argus-connector-artifacts"
 var immutableReleaseVersion = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,126}$`)
 
 type connectorPublishedManifest struct {
-	SchemaVersion    string                       `json:"schema_version"`
-	ReleaseID        uuid.UUID                    `json:"release_id"`
-	Version          string                       `json:"version"`
-	ManifestURI      string                       `json:"manifest_uri"`
-	InstallScriptURI string                       `json:"install_script_uri"`
-	SigningKeyID     string                       `json:"signing_key_id"`
-	SigningPublicKey string                       `json:"signing_public_key"`
-	Artifacts        []connectorPublishedArtifact `json:"artifacts"`
+	SchemaVersion    string                        `json:"schema_version"`
+	ReleaseID        uuid.UUID                     `json:"release_id"`
+	Version          string                        `json:"version"`
+	ManifestURI      string                        `json:"manifest_uri"`
+	SigningKeyID     string                        `json:"signing_key_id"`
+	SigningPublicKey string                        `json:"signing_public_key"`
+	Installers       []connectorPublishedInstaller `json:"installers"`
+	Artifacts        []connectorPublishedArtifact  `json:"artifacts"`
 }
 
 type connectorPublishedArtifact struct {
-	Architecture string `json:"architecture"`
+	Platform     string `json:"platform"`
 	URI          string `json:"uri"`
 	SHA256       string `json:"sha256"`
 	Signature    string `json:"signature"`
 	SigningKeyID string `json:"signing_key_id"`
 	ByteSize     int64  `json:"byte_size"`
+}
+
+type connectorPublishedInstaller struct {
+	Platform string `json:"platform"`
+	Shell    string `json:"shell"`
+	URI      string `json:"uri"`
+	SHA256   string `json:"sha256"`
 }
 
 func (a *App) runConnector(ctx context.Context, args []string) error {
@@ -89,17 +98,20 @@ func (a *App) publishConnectorArtifacts(ctx context.Context, args []string) erro
 	releaseID := uuid.New()
 	base := strings.TrimRight(publicBase, "/")
 	manifestKey := "argus-connector/" + version + "/manifest.json"
-	scriptKey := "argus-connector/" + version + "/install.sh"
-	manifest := connectorPublishedManifest{SchemaVersion: "argus.connector_release/v1", ReleaseID: releaseID, Version: version,
-		ManifestURI: base + "/" + bucket + "/" + manifestKey, InstallScriptURI: base + "/" + bucket + "/" + scriptKey,
+	manifest := connectorPublishedManifest{SchemaVersion: "argus.connector_release/v3", ReleaseID: releaseID, Version: version,
+		ManifestURI:  base + "/" + bucket + "/" + manifestKey,
 		SigningKeyID: keyID, SigningPublicKey: base64.RawStdEncoding.EncodeToString(publicKey)}
-	for _, architecture := range []string{"amd64", "arm64"} {
-		path := filepath.Join(a.root, "build", "connector", "artifacts", "argus-connector-linux-"+architecture)
+	for _, target := range []struct{ os, architecture, platform, filename, objectName string }{
+		{"linux", "amd64", "linux_amd64", "argus-connector-linux-amd64", "linux-amd64"},
+		{"linux", "arm64", "linux_arm64", "argus-connector-linux-arm64", "linux-arm64"},
+		{"windows", "amd64", "windows_amd64", "argus-connector-windows-amd64.exe", "windows-amd64.exe"},
+	} {
+		path := filepath.Join(a.root, "build", "connector", "artifacts", target.filename)
 		if err = os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err
 		}
-		fmt.Fprintf(a.stdout, "building Connector %s\n", architecture)
-		if err = a.runner.Run(ctx, map[string]string{"GOOS": "linux", "GOARCH": architecture, "CGO_ENABLED": "0"},
+		fmt.Fprintf(a.stdout, "building Connector %s/%s\n", target.os, target.architecture)
+		if err = a.runner.Run(ctx, map[string]string{"GOOS": target.os, "GOARCH": target.architecture, "CGO_ENABLED": "0"},
 			"go", "build", "-trimpath", "-ldflags", "-s -w", "-o", path, "./cmd/argus-connector"); err != nil {
 			return err
 		}
@@ -107,22 +119,37 @@ func (a *App) publishConnectorArtifacts(ctx context.Context, args []string) erro
 		if signErr != nil {
 			return signErr
 		}
-		objectKey := "argus-connector/" + version + "/linux-" + architecture
+		objectKey := "argus-connector/" + version + "/" + target.objectName
 		if _, statErr := client.StatObject(ctx, bucket, objectKey, minio.StatObjectOptions{}); statErr == nil {
 			return fmt.Errorf("immutable Connector artifact already exists: %s/%s", bucket, objectKey)
 		}
 		if _, err = client.FPutObject(ctx, bucket, objectKey, path, minio.PutObjectOptions{ContentType: "application/octet-stream"}); err != nil {
 			return err
 		}
-		manifest.Artifacts = append(manifest.Artifacts, connectorPublishedArtifact{Architecture: architecture,
+		manifest.Artifacts = append(manifest.Artifacts, connectorPublishedArtifact{Platform: target.platform,
 			URI: base + "/" + bucket + "/" + objectKey, SHA256: digest, Signature: signature, SigningKeyID: keyID, ByteSize: int64(size)})
 	}
-	scriptPath := filepath.Join(a.root, "deploy", "scripts", "connector-install.sh")
-	if _, statErr := client.StatObject(ctx, bucket, scriptKey, minio.StatObjectOptions{}); statErr == nil {
-		return fmt.Errorf("immutable Connector install script already exists: %s/%s", bucket, scriptKey)
-	}
-	if _, err = client.FPutObject(ctx, bucket, scriptKey, scriptPath, minio.PutObjectOptions{ContentType: "application/x-sh"}); err != nil {
-		return err
+	for _, installer := range []struct {
+		platform, filename, objectName, contentType string
+		shell                                       installation.Shell
+	}{
+		{"linux", "connector-install.sh", "install.sh", "application/x-sh", installation.POSIXShell},
+		{"windows", "connector-install.ps1", "install.ps1", "text/plain", installation.PowerShell},
+	} {
+		content, readErr := installation.ReadCanonicalScript(filepath.Join(a.root, "deploy", "scripts", installer.filename), installer.shell)
+		if readErr != nil {
+			return readErr
+		}
+		objectKey := "argus-connector/" + version + "/" + installer.objectName
+		if _, statErr := client.StatObject(ctx, bucket, objectKey, minio.StatObjectOptions{}); statErr == nil {
+			return fmt.Errorf("immutable Connector installer already exists: %s/%s", bucket, objectKey)
+		}
+		if _, err = client.PutObject(ctx, bucket, objectKey, bytes.NewReader(content), int64(len(content)), minio.PutObjectOptions{ContentType: installer.contentType}); err != nil {
+			return err
+		}
+		digest := sha256.Sum256(content)
+		manifest.Installers = append(manifest.Installers, connectorPublishedInstaller{Platform: installer.platform, Shell: string(installer.shell),
+			URI: base + "/" + bucket + "/" + objectKey, SHA256: fmt.Sprintf("%x", digest[:])})
 	}
 	encoded, err := json.Marshal(manifest)
 	if err != nil {

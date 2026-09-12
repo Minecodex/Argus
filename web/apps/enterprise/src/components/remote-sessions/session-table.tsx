@@ -105,7 +105,7 @@ export function SessionTable({
           { key: "host_id", header: t("remoteSessions.columns.host"), render: (row) => hostName(row.host_id) },
           { key: "managed_account_id", header: t("remoteSessions.columns.account"), render: (row) => accountName(row.managed_account_id) },
           { key: "protocol", header: t("remoteSessions.columns.protocol") },
-          { key: "connection_mode", header: t("remoteSessions.columns.mode") },
+          { key: "control_path", header: t("remoteSessions.columns.mode") },
           { key: "created_at", header: t("remoteSessions.columns.created"), render: (row) => date(row.created_at) },
           {
             key: "actions",
@@ -139,7 +139,7 @@ export function SessionTable({
               <div><dt>{t("remoteSessions.columns.host")}</dt><dd>{hostName(detail.host_id)}</dd></div>
               <div><dt>{t("remoteSessions.columns.account")}</dt><dd>{accountName(detail.managed_account_id)}</dd></div>
               <div><dt>{t("remoteSessions.columns.protocol")}</dt><dd>{detail.protocol}</dd></div>
-              <div><dt>{t("remoteSessions.columns.mode")}</dt><dd>{detail.connection_mode}</dd></div>
+              <div><dt>{t("remoteSessions.columns.mode")}</dt><dd>{detail.control_path}</dd></div>
               <div><dt>{t("remoteSessions.columns.created")}</dt><dd>{date(detail.created_at)}</dd></div>
               <div><dt>{t("remoteSessions.detailFields.connectedAt")}</dt><dd>{date(detail.connected_at)}</dd></div>
               <div><dt>{t("remoteSessions.detailFields.endedAt")}</dt><dd>{date(detail.terminated_at)}</dd></div>

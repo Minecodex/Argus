@@ -8,7 +8,7 @@ SSH PTY 的提示符、当前用户、主机名、工作目录和 ANSI 光标都
 
 ## 当前方案
 
-1. **就绪语义与远端 shell 进度对齐**：Direct Executor 在 `RequestPty`+`Shell()` 成功并启动输出读取后才发送 `Ready`；Connector 路径 `RemoteAccessHub.Open` 在入队 open 帧后等待 Connector 回传首个 `state: active`（SSH shell 已启动 / WinRS shell 已创建）才返回，Gateway 此时才发送 `server_ready`。等待上限 15 秒（`HandshakeTimeout` 可配），失败、超时或 Connector 断连按会话不可用处理并向浏览器返回明确错误，不再出现假“已连接”。
+1. **就绪语义与远端 shell 进度对齐**：`RemoteAccessHub.Open` 在入队 open 帧后等待 Host Connector 回传首个 `state: active`（Linux PTY、Windows PowerShell/ConPTY 或 OpenSSH shell 已启动）才返回，Gateway 此时才发送 `server_ready`。等待上限 15 秒（`HandshakeTimeout` 可配），失败、超时或 Connector 断连按会话不可用处理并向浏览器返回明确错误，不再出现假“已连接”。
 2. 握手失败清理时会向 Connector 发送 `RemoteAccessClose` 终止远端会话；已移除 stream 的迟到上行帧由 `Deliver` 静默丢弃，不会判伤整条 Connector 连接。
 3. Gateway 按顺序转发原始 output frame；首个 chunk 与后续 chunk 使用同一条通道。
 4. `TerminalSessionProvider` 在应用根部保存会话和输出缓冲，页面路由或 Dock 收起不会卸载连接。

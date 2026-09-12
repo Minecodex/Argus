@@ -41,7 +41,9 @@ test.describe("M2 real identity flow", () => {
     await expect(page).toHaveURL(`${platformOrigin}/`);
     await page.goto(`${platformOrigin}/pki`);
     await expect(page.getByRole("heading", { name: /PKI/ })).toBeVisible();
-    await expect(page.getByText("Bundle SHA-256", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("term").filter({ hasText: "Bundle SHA-256" }),
+    ).toBeVisible();
     await expect(page.locator(".argus-pki-fingerprints code").first()).toBeVisible();
     await expectNoCredentialInBrowserState(page, platformPassword);
   });

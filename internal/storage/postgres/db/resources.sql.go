@@ -12,33 +12,60 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const activateSelfEnrolledHost = `-- name: ActivateSelfEnrolledHost :one
-UPDATE hosts SET
-  hostname = CASE WHEN $1::text <> '' THEN $1 ELSE hostname END,
-  address = CASE WHEN $2::text <> '' THEN $2 ELSE address END,
-  architecture = CASE WHEN $3::text <> '' THEN $3 ELSE architecture END,
-  connection_status = 'online', last_seen_at = now(),
-  resource_version = resource_version + 1, updated_at = now()
-WHERE id = $4 AND enterprise_id = $5 AND connection_mode = 'self_enrolled' AND status <> 'deleted'
-RETURNING id, enterprise_id, name, hostname, address, port, platform, connection_mode, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, last_probe_claim_at
+const activateBastionRootHost = `-- name: ActivateBastionRootHost :execrows
+UPDATE hosts SET connector_id = $3, architecture = $4, connection_status = 'onboarding',
+ last_seen_at = now(), resource_version = resource_version + 1, updated_at = now()
+WHERE id = $1 AND enterprise_id = $2 AND role = 'bastion' AND status = 'active'
 `
 
-type ActivateSelfEnrolledHostParams struct {
-	Hostname     string    `json:"hostname"`
-	Address      string    `json:"address"`
-	Architecture string    `json:"architecture"`
-	ID           uuid.UUID `json:"id"`
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
+type ActivateBastionRootHostParams struct {
+	ID           uuid.UUID     `json:"id"`
+	EnterpriseID uuid.UUID     `json:"enterprise_id"`
+	ConnectorID  uuid.NullUUID `json:"connector_id"`
+	Architecture pgtype.Text   `json:"architecture"`
 }
 
-// 首次 enrollment 成功:回填自报 hostname/address,转 online 并刷新 last_seen。
-func (q *Queries) ActivateSelfEnrolledHost(ctx context.Context, arg ActivateSelfEnrolledHostParams) (Host, error) {
-	row := q.db.QueryRow(ctx, activateSelfEnrolledHost,
+// Connector enrollment is authoritative for command-mode roots; B/C report
+// the architecture frozen by their Connection Test. Replacement atomically
+// switches the stable Host to the new Connector identity.
+func (q *Queries) ActivateBastionRootHost(ctx context.Context, arg ActivateBastionRootHostParams) (int64, error) {
+	result, err := q.db.Exec(ctx, activateBastionRootHost,
+		arg.ID,
+		arg.EnterpriseID,
+		arg.ConnectorID,
+		arg.Architecture,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const activateHostConnector = `-- name: ActivateHostConnector :one
+UPDATE hosts SET connector_id=$3, hostname=CASE WHEN $4::text<>'' THEN $4 ELSE hostname END,
+ address=CASE WHEN $5::text<>'' THEN $5 ELSE address END,
+ architecture=CASE WHEN $6::text<>'' THEN $6 ELSE architecture END,
+ connection_status='onboarding',last_seen_at=now(),resource_version=resource_version+1,updated_at=now()
+WHERE id=$1 AND enterprise_id=$2 AND status='active' RETURNING id, enterprise_id, name, hostname, address, port, platform, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, role, control_path, removal_generation, local_cleanup
+`
+
+type ActivateHostConnectorParams struct {
+	ID           uuid.UUID     `json:"id"`
+	EnterpriseID uuid.UUID     `json:"enterprise_id"`
+	ConnectorID  uuid.NullUUID `json:"connector_id"`
+	Hostname     string        `json:"hostname"`
+	Address      string        `json:"address"`
+	Architecture string        `json:"architecture"`
+}
+
+func (q *Queries) ActivateHostConnector(ctx context.Context, arg ActivateHostConnectorParams) (Host, error) {
+	row := q.db.QueryRow(ctx, activateHostConnector,
+		arg.ID,
+		arg.EnterpriseID,
+		arg.ConnectorID,
 		arg.Hostname,
 		arg.Address,
 		arg.Architecture,
-		arg.ID,
-		arg.EnterpriseID,
 	)
 	var i Host
 	err := row.Scan(
@@ -49,7 +76,6 @@ func (q *Queries) ActivateSelfEnrolledHost(ctx context.Context, arg ActivateSelf
 		&i.Address,
 		&i.Port,
 		&i.Platform,
-		&i.ConnectionMode,
 		&i.BastionScopeID,
 		&i.ConnectorID,
 		&i.Environment,
@@ -65,7 +91,10 @@ func (q *Queries) ActivateSelfEnrolledHost(ctx context.Context, arg ActivateSelf
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Architecture,
-		&i.LastProbeClaimAt,
+		&i.Role,
+		&i.ControlPath,
+		&i.RemovalGeneration,
+		&i.LocalCleanup,
 	)
 	return i, err
 }
@@ -326,8 +355,8 @@ func (q *Queries) CreateConnectionTest(ctx context.Context, arg CreateConnection
 }
 
 const createHost = `-- name: CreateHost :one
-INSERT INTO hosts (id, enterprise_id, name, hostname, address, port, platform, architecture, connection_mode, bastion_scope_id, environment, labels, labels_hash, connection_status, pinned_host_key)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id, enterprise_id, name, hostname, address, port, platform, connection_mode, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, last_probe_claim_at
+INSERT INTO hosts (id, enterprise_id, name, hostname, address, port, platform, architecture, role, control_path, bastion_scope_id, environment, labels, labels_hash, connection_status, pinned_host_key)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id, enterprise_id, name, hostname, address, port, platform, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, role, control_path, removal_generation, local_cleanup
 `
 
 type CreateHostParams struct {
@@ -335,11 +364,12 @@ type CreateHostParams struct {
 	EnterpriseID     uuid.UUID     `json:"enterprise_id"`
 	Name             string        `json:"name"`
 	Hostname         string        `json:"hostname"`
-	Address          string        `json:"address"`
+	Address          pgtype.Text   `json:"address"`
 	Port             int32         `json:"port"`
 	Platform         string        `json:"platform"`
 	Architecture     pgtype.Text   `json:"architecture"`
-	ConnectionMode   string        `json:"connection_mode"`
+	Role             string        `json:"role"`
+	ControlPath      string        `json:"control_path"`
 	BastionScopeID   uuid.NullUUID `json:"bastion_scope_id"`
 	Environment      string        `json:"environment"`
 	Labels           []byte        `json:"labels"`
@@ -358,7 +388,8 @@ func (q *Queries) CreateHost(ctx context.Context, arg CreateHostParams) (Host, e
 		arg.Port,
 		arg.Platform,
 		arg.Architecture,
-		arg.ConnectionMode,
+		arg.Role,
+		arg.ControlPath,
 		arg.BastionScopeID,
 		arg.Environment,
 		arg.Labels,
@@ -375,7 +406,6 @@ func (q *Queries) CreateHost(ctx context.Context, arg CreateHostParams) (Host, e
 		&i.Address,
 		&i.Port,
 		&i.Platform,
-		&i.ConnectionMode,
 		&i.BastionScopeID,
 		&i.ConnectorID,
 		&i.Environment,
@@ -391,7 +421,10 @@ func (q *Queries) CreateHost(ctx context.Context, arg CreateHostParams) (Host, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Architecture,
-		&i.LastProbeClaimAt,
+		&i.Role,
+		&i.ControlPath,
+		&i.RemovalGeneration,
+		&i.LocalCleanup,
 	)
 	return i, err
 }
@@ -635,68 +668,10 @@ func (q *Queries) CreatePendingActionToken(ctx context.Context, arg CreatePendin
 	return i, err
 }
 
-const createSelfEnrolledHost = `-- name: CreateSelfEnrolledHost :one
-INSERT INTO hosts (id, enterprise_id, name, hostname, address, port, platform, architecture, connection_mode, bastion_scope_id, environment, labels, labels_hash, connection_status, pinned_host_key)
-VALUES ($1,$2,$3,'','',0,$4,$5,'self_enrolled',NULL,$6,$7,$8,'onboarding','') RETURNING id, enterprise_id, name, hostname, address, port, platform, connection_mode, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, last_probe_claim_at
-`
-
-type CreateSelfEnrolledHostParams struct {
-	ID           uuid.UUID   `json:"id"`
-	EnterpriseID uuid.UUID   `json:"enterprise_id"`
-	Name         string      `json:"name"`
-	Platform     string      `json:"platform"`
-	Architecture pgtype.Text `json:"architecture"`
-	Environment  string      `json:"environment"`
-	Labels       []byte      `json:"labels"`
-	LabelsHash   []byte      `json:"labels_hash"`
-}
-
-// PlanV4 场景⑤:无入站路径、无凭据、无 ConnectionTest;activation 前地址未知。
-func (q *Queries) CreateSelfEnrolledHost(ctx context.Context, arg CreateSelfEnrolledHostParams) (Host, error) {
-	row := q.db.QueryRow(ctx, createSelfEnrolledHost,
-		arg.ID,
-		arg.EnterpriseID,
-		arg.Name,
-		arg.Platform,
-		arg.Architecture,
-		arg.Environment,
-		arg.Labels,
-		arg.LabelsHash,
-	)
-	var i Host
-	err := row.Scan(
-		&i.ID,
-		&i.EnterpriseID,
-		&i.Name,
-		&i.Hostname,
-		&i.Address,
-		&i.Port,
-		&i.Platform,
-		&i.ConnectionMode,
-		&i.BastionScopeID,
-		&i.ConnectorID,
-		&i.Environment,
-		&i.Labels,
-		&i.LabelsHash,
-		&i.LabelsVersion,
-		&i.ResourceVersion,
-		&i.ConnectionStatus,
-		&i.PinnedHostKey,
-		&i.LastSeenAt,
-		&i.Status,
-		&i.DeletedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Architecture,
-		&i.LastProbeClaimAt,
-	)
-	return i, err
-}
-
 const deleteBastionRootHost = `-- name: DeleteBastionRootHost :one
 UPDATE hosts SET status = 'deleted', connection_status = 'offline', deleted_at = now(), resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND bastion_scope_id = $3 AND connection_mode = 'connector_local' AND status <> 'deleted'
-RETURNING id, enterprise_id, name, hostname, address, port, platform, connection_mode, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, last_probe_claim_at
+WHERE id = $1 AND enterprise_id = $2 AND bastion_scope_id = $3 AND role = 'bastion' AND status <> 'deleted'
+RETURNING id, enterprise_id, name, hostname, address, port, platform, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, role, control_path, removal_generation, local_cleanup
 `
 
 type DeleteBastionRootHostParams struct {
@@ -716,7 +691,6 @@ func (q *Queries) DeleteBastionRootHost(ctx context.Context, arg DeleteBastionRo
 		&i.Address,
 		&i.Port,
 		&i.Platform,
-		&i.ConnectionMode,
 		&i.BastionScopeID,
 		&i.ConnectorID,
 		&i.Environment,
@@ -732,50 +706,10 @@ func (q *Queries) DeleteBastionRootHost(ctx context.Context, arg DeleteBastionRo
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Architecture,
-		&i.LastProbeClaimAt,
-	)
-	return i, err
-}
-
-const deleteHost = `-- name: DeleteHost :one
-UPDATE hosts SET status = 'deleted', deleted_at = now(), resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND resource_version = $3 AND connection_mode <> 'connector_local' RETURNING id, enterprise_id, name, hostname, address, port, platform, connection_mode, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, last_probe_claim_at
-`
-
-type DeleteHostParams struct {
-	ID              uuid.UUID `json:"id"`
-	EnterpriseID    uuid.UUID `json:"enterprise_id"`
-	ResourceVersion int64     `json:"resource_version"`
-}
-
-func (q *Queries) DeleteHost(ctx context.Context, arg DeleteHostParams) (Host, error) {
-	row := q.db.QueryRow(ctx, deleteHost, arg.ID, arg.EnterpriseID, arg.ResourceVersion)
-	var i Host
-	err := row.Scan(
-		&i.ID,
-		&i.EnterpriseID,
-		&i.Name,
-		&i.Hostname,
-		&i.Address,
-		&i.Port,
-		&i.Platform,
-		&i.ConnectionMode,
-		&i.BastionScopeID,
-		&i.ConnectorID,
-		&i.Environment,
-		&i.Labels,
-		&i.LabelsHash,
-		&i.LabelsVersion,
-		&i.ResourceVersion,
-		&i.ConnectionStatus,
-		&i.PinnedHostKey,
-		&i.LastSeenAt,
-		&i.Status,
-		&i.DeletedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Architecture,
-		&i.LastProbeClaimAt,
+		&i.Role,
+		&i.ControlPath,
+		&i.RemovalGeneration,
+		&i.LocalCleanup,
 	)
 	return i, err
 }
@@ -948,7 +882,7 @@ func (q *Queries) GetConnectionTest(ctx context.Context, arg GetConnectionTestPa
 }
 
 const getHost = `-- name: GetHost :one
-SELECT id, enterprise_id, name, hostname, address, port, platform, connection_mode, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, last_probe_claim_at FROM hosts WHERE id = $1 AND enterprise_id = $2 AND status <> 'deleted'
+SELECT id, enterprise_id, name, hostname, address, port, platform, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, role, control_path, removal_generation, local_cleanup FROM hosts WHERE id = $1 AND enterprise_id = $2 AND status <> 'deleted'
 `
 
 type GetHostParams struct {
@@ -967,7 +901,6 @@ func (q *Queries) GetHost(ctx context.Context, arg GetHostParams) (Host, error) 
 		&i.Address,
 		&i.Port,
 		&i.Platform,
-		&i.ConnectionMode,
 		&i.BastionScopeID,
 		&i.ConnectorID,
 		&i.Environment,
@@ -983,7 +916,10 @@ func (q *Queries) GetHost(ctx context.Context, arg GetHostParams) (Host, error) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Architecture,
-		&i.LastProbeClaimAt,
+		&i.Role,
+		&i.ControlPath,
+		&i.RemovalGeneration,
+		&i.LocalCleanup,
 	)
 	return i, err
 }
@@ -1176,8 +1112,28 @@ func (q *Queries) GetPendingActionTokenForUpdate(ctx context.Context, arg GetPen
 	return i, err
 }
 
+const hostNameAvailable = `-- name: HostNameAvailable :one
+SELECT NOT EXISTS (
+  SELECT 1 FROM hosts
+  WHERE enterprise_id = $1
+    AND lower(name) = lower($2) AND status <> 'deleted'
+)::boolean AS available
+`
+
+type HostNameAvailableParams struct {
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	Name         string    `json:"name"`
+}
+
+func (q *Queries) HostNameAvailable(ctx context.Context, arg HostNameAvailableParams) (pgtype.Bool, error) {
+	row := q.db.QueryRow(ctx, hostNameAvailable, arg.EnterpriseID, arg.Name)
+	var available pgtype.Bool
+	err := row.Scan(&available)
+	return available, err
+}
+
 const listHosts = `-- name: ListHosts :many
-SELECT id, enterprise_id, name, hostname, address, port, platform, connection_mode, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, last_probe_claim_at FROM hosts WHERE enterprise_id = $1 AND status <> 'deleted' ORDER BY created_at, id
+SELECT id, enterprise_id, name, hostname, address, port, platform, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, role, control_path, removal_generation, local_cleanup FROM hosts WHERE enterprise_id = $1 AND status <> 'deleted' ORDER BY created_at, id
 `
 
 func (q *Queries) ListHosts(ctx context.Context, enterpriseID uuid.UUID) ([]Host, error) {
@@ -1197,7 +1153,6 @@ func (q *Queries) ListHosts(ctx context.Context, enterpriseID uuid.UUID) ([]Host
 			&i.Address,
 			&i.Port,
 			&i.Platform,
-			&i.ConnectionMode,
 			&i.BastionScopeID,
 			&i.ConnectorID,
 			&i.Environment,
@@ -1213,7 +1168,10 @@ func (q *Queries) ListHosts(ctx context.Context, enterpriseID uuid.UUID) ([]Host
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Architecture,
-			&i.LastProbeClaimAt,
+			&i.Role,
+			&i.ControlPath,
+			&i.RemovalGeneration,
+			&i.LocalCleanup,
 		); err != nil {
 			return nil, err
 		}
@@ -1494,24 +1452,6 @@ func (q *Queries) MarkConnectorConnectionTestRunning(ctx context.Context, arg Ma
 	return i, err
 }
 
-const markHostSeen = `-- name: MarkHostSeen :execrows
-UPDATE hosts SET last_seen_at = now(), updated_at = updated_at
-WHERE id = $1 AND enterprise_id = $2 AND status <> 'deleted'
-`
-
-type MarkHostSeenParams struct {
-	ID           uuid.UUID `json:"id"`
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
-}
-
-func (q *Queries) MarkHostSeen(ctx context.Context, arg MarkHostSeenParams) (int64, error) {
-	result, err := q.db.Exec(ctx, markHostSeen, arg.ID, arg.EnterpriseID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const markPendingActionExecuting = `-- name: MarkPendingActionExecuting :one
 UPDATE pending_actions SET status = 'executing', updated_at = now()
 WHERE id = $1 AND enterprise_id = $2 AND status = 'awaiting_confirmation' AND expires_at > now() RETURNING id, action_ref, enterprise_id, creator_subject_id, authorization_version, action_type, title, summary, risk, preview, diff, status, resource_type, resource_id, expected_resource_version, impact_hash, result_resource_type, result_resource_id, result_resource_version, result_summary, error_code, expires_at, created_at, updated_at, creator_subject_type, run_id, confirmation_required, policy_snapshot_hash
@@ -1558,31 +1498,10 @@ func (q *Queries) MarkPendingActionExecuting(ctx context.Context, arg MarkPendin
 	return i, err
 }
 
-const setBastionRootHostArchitecture = `-- name: SetBastionRootHostArchitecture :execrows
-UPDATE hosts SET architecture = $3, resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND connection_mode = 'connector_local' AND status <> 'deleted'
-`
-
-type SetBastionRootHostArchitectureParams struct {
-	ID           uuid.UUID   `json:"id"`
-	EnterpriseID uuid.UUID   `json:"enterprise_id"`
-	Architecture pgtype.Text `json:"architecture"`
-}
-
-// Connector enrollment is authoritative for command-mode roots; B/C must
-// report the same architecture already frozen by their Connection Test.
-func (q *Queries) SetBastionRootHostArchitecture(ctx context.Context, arg SetBastionRootHostArchitectureParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setBastionRootHostArchitecture, arg.ID, arg.EnterpriseID, arg.Architecture)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const updateHost = `-- name: UpdateHost :one
 UPDATE hosts SET name = COALESCE($4, name), environment = COALESCE($5, environment),
  hostname = COALESCE($6, hostname), address = COALESCE($7, address),
- port = COALESCE($8, port), connection_mode = COALESCE($9, connection_mode),
+ port = COALESCE($8, port), control_path = COALESCE($9, control_path),
  bastion_scope_id = CASE WHEN $10::boolean THEN $11 ELSE bastion_scope_id END,
  connection_status = COALESCE($12, connection_status),
  pinned_host_key = COALESCE($13, pinned_host_key),
@@ -1590,7 +1509,7 @@ UPDATE hosts SET name = COALESCE($4, name), environment = COALESCE($5, environme
  labels = COALESCE($15, labels), labels_hash = COALESCE($16, labels_hash),
  labels_version = CASE WHEN $15::jsonb IS NULL THEN labels_version ELSE labels_version + 1 END,
  resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND resource_version = $3 AND status <> 'deleted' RETURNING id, enterprise_id, name, hostname, address, port, platform, connection_mode, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, last_probe_claim_at
+WHERE id = $1 AND enterprise_id = $2 AND resource_version = $3 AND status <> 'deleted' RETURNING id, enterprise_id, name, hostname, address, port, platform, bastion_scope_id, connector_id, environment, labels, labels_hash, labels_version, resource_version, connection_status, pinned_host_key, last_seen_at, status, deleted_at, created_at, updated_at, architecture, role, control_path, removal_generation, local_cleanup
 `
 
 type UpdateHostParams struct {
@@ -1602,7 +1521,7 @@ type UpdateHostParams struct {
 	Hostname         pgtype.Text   `json:"hostname"`
 	Address          pgtype.Text   `json:"address"`
 	Port             pgtype.Int4   `json:"port"`
-	ConnectionMode   pgtype.Text   `json:"connection_mode"`
+	ControlPath      pgtype.Text   `json:"control_path"`
 	SetBastionScope  bool          `json:"set_bastion_scope"`
 	BastionScopeID   uuid.NullUUID `json:"bastion_scope_id"`
 	ConnectionStatus pgtype.Text   `json:"connection_status"`
@@ -1622,7 +1541,7 @@ func (q *Queries) UpdateHost(ctx context.Context, arg UpdateHostParams) (Host, e
 		arg.Hostname,
 		arg.Address,
 		arg.Port,
-		arg.ConnectionMode,
+		arg.ControlPath,
 		arg.SetBastionScope,
 		arg.BastionScopeID,
 		arg.ConnectionStatus,
@@ -1640,7 +1559,6 @@ func (q *Queries) UpdateHost(ctx context.Context, arg UpdateHostParams) (Host, e
 		&i.Address,
 		&i.Port,
 		&i.Platform,
-		&i.ConnectionMode,
 		&i.BastionScopeID,
 		&i.ConnectorID,
 		&i.Environment,
@@ -1656,7 +1574,10 @@ func (q *Queries) UpdateHost(ctx context.Context, arg UpdateHostParams) (Host, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Architecture,
-		&i.LastProbeClaimAt,
+		&i.Role,
+		&i.ControlPath,
+		&i.RemovalGeneration,
+		&i.LocalCleanup,
 	)
 	return i, err
 }

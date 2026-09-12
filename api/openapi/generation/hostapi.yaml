@@ -3,14 +3,23 @@ info: {title: Argus Host API, version: 1.0.0, license: {name: Proprietary, ident
 servers: [{url: /api/v1}]
 security: [{sessionCookie: []}]
 paths:
+  /enterprise/hosts/name-availability: {$ref: ../argus.yaml#/paths/~1enterprise~1hosts~1name-availability}
   /enterprise/hosts: {$ref: ../argus.yaml#/paths/~1enterprise~1hosts}
   "/enterprise/hosts/{id}": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}"}
   /enterprise/hosts/actions/preview-create: {$ref: ../argus.yaml#/paths/~1enterprise~1hosts~1actions~1preview-create}
+  "/enterprise/hosts/{id}/actions/preview-retry": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}~1actions~1preview-retry"}
   "/enterprise/hosts/{id}/actions/preview-update": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}~1actions~1preview-update"}
   "/enterprise/hosts/{id}/actions/preview-delete": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}~1actions~1preview-delete"}
   /enterprise/hosts/connection-tests: {$ref: ../argus.yaml#/paths/~1enterprise~1hosts~1connection-tests}
-  "/enterprise/hosts/{id}/actions/preview-enrollment-rotate": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}~1actions~1preview-enrollment-rotate"}
-  "/enterprise/hosts/{id}/actions/preview-uninstall-command": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}~1actions~1preview-uninstall-command"}
+  "/enterprise/host-onboarding-operations/{id}": {$ref: "../argus.yaml#/paths/~1enterprise~1host-onboarding-operations~1{id}"}
+  /enterprise/host-removals/connection-defaults: {$ref: ../argus.yaml#/paths/~1enterprise~1host-removals~1connection-defaults}
+  /enterprise/host-removals/actions/preview: {$ref: ../argus.yaml#/paths/~1enterprise~1host-removals~1actions~1preview}
+  "/enterprise/host-removal-operations/{id}": {$ref: "../argus.yaml#/paths/~1enterprise~1host-removal-operations~1{id}"}
+  "/enterprise/host-removal-operations/{id}/actions/retry": {$ref: "../argus.yaml#/paths/~1enterprise~1host-removal-operations~1{id}~1actions~1retry"}
+  "/enterprise/host-removal-operations/{id}/actions/regenerate-command": {$ref: "../argus.yaml#/paths/~1enterprise~1host-removal-operations~1{id}~1actions~1regenerate-command"}
+  /host-removal/bootstrap-script: {$ref: ../argus.yaml#/paths/~1host-removal~1bootstrap-script}
+  /host-removal/receipt: {$ref: ../argus.yaml#/paths/~1host-removal~1receipt}
+  "/enterprise/hosts/{id}/windows-rdp/actions/preview-enable": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}~1windows-rdp~1actions~1preview-enable"}
 components:
   securitySchemes:
     sessionCookie: {$ref: ../argus.yaml#/components/securitySchemes/sessionCookie}
@@ -20,3 +29,10 @@ components:
     HostPreviewCreate: {$ref: ../components/m3.yaml#/components/schemas/HostPreviewCreate}
     HostPreviewUpdate: {$ref: ../components/m3.yaml#/components/schemas/HostPreviewUpdate}
     ConnectionTest: {$ref: ../components/m3.yaml#/components/schemas/ConnectionTest}
+    HostOnboardingOperation: {$ref: ../components/m3.yaml#/components/schemas/HostOnboardingOperation}
+    HostRemovalConnectionDefaults: {$ref: ../components/m3.yaml#/components/schemas/HostRemovalConnectionDefaults}
+    HostRemovalPreview: {$ref: ../components/m3.yaml#/components/schemas/HostRemovalPreview}
+    HostRemovalOperation: {$ref: ../components/m3.yaml#/components/schemas/HostRemovalOperation}
+    HostRemovalInstruction: {$ref: ../components/m3.yaml#/components/schemas/HostRemovalInstruction}
+    HostRemovalReceipt: {$ref: ../components/m3.yaml#/components/schemas/HostRemovalReceipt}
+    HostRuntimeObservation: {$ref: ../components/m3.yaml#/components/schemas/HostRuntimeObservation}

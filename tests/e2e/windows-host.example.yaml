@@ -1,0 +1,44 @@
+schemaVersion: argus.windows_host_e2e/v1
+targets:
+  - name: server-2019-manual-direct
+    scenario: manual_direct
+    address: 192.0.2.10
+    port: 22
+    username: Administrator
+    hostKeySHA256: SHA256:replace-with-pinned-openssh-host-key
+    passwordEnv: ARGUS_WINDOWS_2019_PASSWORD
+    installCommandEnv: ARGUS_WINDOWS_2019_MANUAL_DIRECT_COMMAND
+    upgradeCommandEnv: ARGUS_WINDOWS_2019_UPGRADE_COMMAND
+    uninstallCommandEnv: ARGUS_WINDOWS_2019_UNINSTALL_COMMAND
+    minimumBuild: 17763
+    requireRDP: true
+  - name: server-2022-bastion-relay
+    scenario: manual_bastion_relay
+    address: 192.0.2.11
+    port: 22
+    username: Administrator
+    hostKeySHA256: SHA256:replace-with-pinned-openssh-host-key
+    passwordEnv: ARGUS_WINDOWS_2022_PASSWORD
+    installCommandEnv: ARGUS_WINDOWS_2022_RELAY_COMMAND
+    minimumBuild: 20348
+    requireRDP: true
+  - name: server-2022-direct-ssh
+    scenario: direct_ssh
+    address: 192.0.2.12
+    port: 22
+    username: Administrator
+    hostKeySHA256: SHA256:replace-with-pinned-openssh-host-key
+    privateKeyFile: C:/secure/argus-windows-e2e
+    minimumBuild: 20348
+    requireRDP: false
+    waitForInstallSeconds: 900
+  - name: server-2022-bastion-ssh
+    scenario: bastion_ssh
+    address: 192.0.2.13
+    port: 22
+    username: Administrator
+    hostKeySHA256: SHA256:replace-with-pinned-openssh-host-key
+    passwordEnv: ARGUS_WINDOWS_2022_BASTION_PASSWORD
+    minimumBuild: 20348
+    requireRDP: false
+    waitForInstallSeconds: 900

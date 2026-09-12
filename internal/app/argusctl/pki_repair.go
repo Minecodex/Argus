@@ -39,8 +39,8 @@ func (a *App) pkiRepairCommand(ctx context.Context, cfg *InstallConfig, nodeKind
 	if err != nil {
 		return errors.New("pki repair-command requires a UUID --node-id")
 	}
-	if scope != "linux-system" && scope != "linux-user" && scope != "kubernetes" {
-		return errors.New("pki repair-command --scope must be linux-system, linux-user, or kubernetes")
+	if scope != "linux-system" && scope != "windows-system" && scope != "kubernetes" {
+		return errors.New("pki repair-command --scope must be linux-system, windows-system, or kubernetes")
 	}
 	if scope == "kubernetes" && (len(targetNamespace) > 63 || !dnsLabel.MatchString(targetNamespace)) {
 		return errors.New("pki repair-command requires a valid --target-namespace")
@@ -57,14 +57,14 @@ func (a *App) pkiRepairCommand(ctx context.Context, cfg *InstallConfig, nodeKind
 	var command string
 	var expiresAt time.Time
 	if nodeKind == "connector" || nodeKind == "kubernetes_connector" {
-		requiredRole := "bastion"
+		requiredRole := ""
 		if nodeKind == "kubernetes_connector" {
 			requiredRole = "kubernetes"
 			if scope != "kubernetes" {
 				return errors.New("kubernetes_connector repair requires --scope kubernetes")
 			}
 		} else if scope == "kubernetes" {
-			return errors.New("connector repair requires a Linux scope")
+			return errors.New("connector repair requires a system host scope")
 		}
 		connector, token, expiry, issueErr := issueConnectorRepairToken(ctx, session, id, requiredRole)
 		if issueErr != nil {
@@ -73,10 +73,28 @@ func (a *App) pkiRepairCommand(ctx context.Context, cfg *InstallConfig, nodeKind
 		expiresAt = expiry
 		if nodeKind == "kubernetes_connector" {
 			command = kubernetesConnectorRepairCommand(cfg, connector.ID, token, current, targetNamespace)
+		} else if scope == "windows-system" {
+			if !connector.HostID.Valid {
+				return errors.New("Connector Host binding is unavailable")
+			}
+			host, hostErr := session.store.Queries.GetHost(ctx, db.GetHostParams{ID: connector.HostID.UUID, EnterpriseID: connector.EnterpriseID})
+			if hostErr != nil || host.Platform != "windows" {
+				return errors.New("windows-system repair requires a Windows Host Connector")
+			}
+			command = windowsConnectorRepairCommand(cfg, token, current)
 		} else {
+			if connector.HostID.Valid {
+				host, hostErr := session.store.Queries.GetHost(ctx, db.GetHostParams{ID: connector.HostID.UUID, EnterpriseID: connector.EnterpriseID})
+				if hostErr != nil || host.Platform != "linux" {
+					return errors.New("linux-system repair requires a Linux Connector")
+				}
+			}
 			command = linuxConnectorRepairCommand(cfg, token, current, scope)
 		}
 	} else {
+		if scope == "windows-system" {
+			return errors.New("Windows Collector repair is performed through its Host Connector")
+		}
 		collector, token, expiry, issueErr := issueCollectorRepairToken(ctx, session, id, scope)
 		if issueErr != nil {
 			return issueErr
@@ -101,7 +119,11 @@ func (a *App) pkiRepairCommand(ctx context.Context, cfg *InstallConfig, nodeKind
 
 func issueConnectorRepairToken(ctx context.Context, session *pkiSession, connectorID uuid.UUID, requiredRole string) (db.Connector, string, time.Time, error) {
 	connector, err := session.store.Queries.GetConnectorByID(ctx, connectorID)
-	if err != nil || connector.Role != requiredRole || connector.Status == "uninstalled" || connector.Status == "revoked" {
+	roleAllowed := connector.Role == requiredRole
+	if requiredRole == "" {
+		roleAllowed = connector.Role == "host" || connector.Role == "bastion"
+	}
+	if err != nil || !roleAllowed || connector.Status == "uninstalled" || connector.Status == "revoked" {
 		return db.Connector{}, "", time.Time{}, errors.New("repair Connector does not exist or is no longer active")
 	}
 	token, err := identity.RandomToken(32)
@@ -109,7 +131,18 @@ func issueConnectorRepairToken(ctx context.Context, session *pkiSession, connect
 		return db.Connector{}, "", time.Time{}, err
 	}
 	expiresAt := time.Now().UTC().Add(pkiRepairTokenTTL)
-	policy, _ := json.Marshal(map[string]any{"capabilities": connector.Capabilities, "purpose": "pki_repair"})
+	policyValue := map[string]any{"capabilities": connector.Capabilities, "purpose": "pki_repair"}
+	if connector.Role == "host" || connector.Role == "bastion" {
+		if !connector.HostID.Valid {
+			return db.Connector{}, "", time.Time{}, errors.New("repair Connector Host binding is unavailable")
+		}
+		host, hostErr := session.store.Queries.GetHost(ctx, db.GetHostParams{ID: connector.HostID.UUID, EnterpriseID: connector.EnterpriseID})
+		if hostErr != nil || !host.Architecture.Valid {
+			return db.Connector{}, "", time.Time{}, errors.New("repair Connector platform is unavailable")
+		}
+		policyValue["target_platform"] = host.Platform + "_" + host.Architecture.String
+	}
+	policy, _ := json.Marshal(policyValue)
 	err = session.store.InTx(ctx, func(q *db.Queries) error {
 		target := connector.BastionScopeID
 		if connector.Role == "kubernetes" {
@@ -165,19 +198,8 @@ func issueCollectorRepairToken(ctx context.Context, session *pkiSession, collect
 func linuxConnectorRepairCommand(cfg *InstallConfig, token string, bundle trustbundle.Bundle, scope string) string {
 	server := "https://" + cfg.Spec.Exposure.EnterpriseHost
 	body := repairBundlePreamble(bundle)
-	if scope == "linux-user" {
-		return body + `
-ARGUS_REPAIR_DATA="${XDG_DATA_HOME:-$HOME/.local/share}/argus-connector"
-systemctl --user stop argus-connector.service
-if ! "${XDG_BIN_HOME:-$HOME/.local/bin}/argus-connector" repair --server ` + posixQuote(server) + ` --token ` + posixQuote(token) + ` --ca-file "$ARGUS_REPAIR_CA" --data-dir "$ARGUS_REPAIR_DATA"; then
-  systemctl --user start argus-connector.service
-  exit 1
-fi
-systemctl --user start argus-connector.service
-systemctl --user is-active --quiet argus-connector.service`
-	}
 	return body + `
-if [ "$(id -u)" -eq 0 ]; then ARGUS_REPAIR_SUDO=""; elif command -v sudo >/dev/null 2>&1; then ARGUS_REPAIR_SUDO=sudo; else echo 'root or sudo is required; use --scope linux-user when supported' >&2; exit 1; fi
+if [ "$(id -u)" -eq 0 ]; then ARGUS_REPAIR_SUDO=""; elif command -v sudo >/dev/null 2>&1; then ARGUS_REPAIR_SUDO=sudo; else echo 'root or sudo is required' >&2; exit 1; fi
 $ARGUS_REPAIR_SUDO systemctl stop argus-connector.service
 if ! $ARGUS_REPAIR_SUDO /usr/local/bin/argus-connector repair --server ` + posixQuote(server) + ` --token ` + posixQuote(token) + ` --ca-file "$ARGUS_REPAIR_CA" --data-dir /var/lib/argus-connector; then
   $ARGUS_REPAIR_SUDO systemctl start argus-connector.service
@@ -188,28 +210,19 @@ $ARGUS_REPAIR_SUDO systemctl start argus-connector.service
 $ARGUS_REPAIR_SUDO systemctl is-active --quiet argus-connector.service`
 }
 
+func windowsConnectorRepairCommand(cfg *InstallConfig, token string, bundle trustbundle.Bundle) string {
+	server := "https://" + cfg.Spec.Exposure.EnterpriseHost
+	encodedBundle := base64.StdEncoding.EncodeToString(bundle.Material.PEM)
+	return `$ErrorActionPreference='Stop';$d=Join-Path ([IO.Path]::GetTempPath()) ('argus-pki-repair-'+[Guid]::NewGuid().ToString('N'));New-Item -ItemType Directory -Path $d|Out-Null;try{$ca=Join-Path $d 'ca.pem';[IO.File]::WriteAllBytes($ca,[Convert]::FromBase64String(` + powershellQuote(encodedBundle) + `));Stop-Service ArgusConnector -Force;& 'C:\Program Files\Argus\Connector\argus-connector.exe' repair --server ` + powershellQuote(server) + ` --token ` + powershellQuote(token) + ` --ca-file $ca --data-dir 'C:\ProgramData\Argus\Connector';if($LASTEXITCODE-ne 0){Start-Service ArgusConnector;throw 'Connector PKI repair failed'};Start-Service ArgusConnector;(Get-Service ArgusConnector).WaitForStatus('Running',[TimeSpan]::FromSeconds(30))}finally{Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue}`
+}
+
+func powershellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
+
 func linuxCollectorRepairCommand(cfg *InstallConfig, token string, bundle trustbundle.Bundle, scope string) string {
 	endpoint := collectorEnrollmentEndpoint(cfg)
 	body := repairBundlePreamble(bundle)
-	if scope == "linux-user" {
-		return body + `
-ARGUS_REPAIR_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/argus-otelcol"
-ARGUS_REPAIR_ETC="${XDG_CONFIG_HOME:-$HOME/.config}/argus-otelcol"
-systemctl --user stop argus-otelcol.service
-install -m 0600 "$ARGUS_REPAIR_CA" "$ARGUS_REPAIR_ETC/server-ca.pem"
-printf '%s' ` + posixQuote(token) + ` > "$ARGUS_REPAIR_ETC/enrollment-token"
-chmod 0600 "$ARGUS_REPAIR_ETC/enrollment-token"
-rm -f "$ARGUS_REPAIR_ROOT/identity/client.pem" "$ARGUS_REPAIR_ROOT/identity/server.pem" "$ARGUS_REPAIR_ROOT/identity/trust-bundle.json"
-systemctl --user start argus-otelcol.service
-ARGUS_REPAIR_I=0
-while [ "$ARGUS_REPAIR_I" -lt 90 ]; do
-  if [ -s "$ARGUS_REPAIR_ROOT/identity/client.pem" ] && [ -s "$ARGUS_REPAIR_ROOT/identity/server.pem" ] && [ ! -e "$ARGUS_REPAIR_ETC/enrollment-token" ]; then exit 0; fi
-  ARGUS_REPAIR_I=$((ARGUS_REPAIR_I+1)); sleep 1
-done
-echo 'Collector PKI repair did not become ready' >&2; exit 1`
-	}
 	return body + `
-if [ "$(id -u)" -eq 0 ]; then ARGUS_REPAIR_SUDO=""; elif command -v sudo >/dev/null 2>&1; then ARGUS_REPAIR_SUDO=sudo; else echo 'root or sudo is required; use --scope linux-user when supported' >&2; exit 1; fi
+if [ "$(id -u)" -eq 0 ]; then ARGUS_REPAIR_SUDO=""; elif command -v sudo >/dev/null 2>&1; then ARGUS_REPAIR_SUDO=sudo; else echo 'root or sudo is required' >&2; exit 1; fi
 $ARGUS_REPAIR_SUDO systemctl stop argus-otelcol.service
 $ARGUS_REPAIR_SUDO install -m 0600 "$ARGUS_REPAIR_CA" /etc/argus-otelcol/server-ca.pem
 printf '%s' ` + posixQuote(token) + ` | $ARGUS_REPAIR_SUDO sh -c 'umask 077; cat > /etc/argus-otelcol/enrollment-token'

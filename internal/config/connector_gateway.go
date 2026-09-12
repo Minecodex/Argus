@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"os"
 	"strconv"
@@ -36,12 +37,7 @@ type ConnectorGateway struct {
 	HeartbeatInterval           time.Duration
 	RemoteOrigin                string
 	RemoteAllowedOrigins        []string
-	DirectExecutorEndpoint      string
-	DirectExecutorServerName    string
-	DirectExecutorTLSCert       string
-	DirectExecutorTLSKey        string
-	DirectExecutorCABundle      string
-	DirectExecutorRecipientID   string
+	GuacdAddress                string
 	ObjectStoreURL              string
 	ObjectStoreBucket           string
 	ObjectStoreAccess           string
@@ -55,6 +51,7 @@ type ConnectorGateway struct {
 	TelemetryEnabled            bool
 	TrustBundlePath             string
 	TrustBundleEpoch            int64
+	OperationSecretKey          []byte
 }
 
 func LoadConnectorGateway() ConnectorGateway {
@@ -65,6 +62,7 @@ func LoadConnectorGateway() ConnectorGateway {
 	issuerGeneration, _ := strconv.ParseInt(valueOrDefault("ARGUS_CONNECTOR_ISSUER_GENERATION", "1"), 10, 32)
 	telemetryEnabled, _ := strconv.ParseBool(valueOrDefault("ARGUS_TELEMETRY_TOOL_CATALOG_ENABLED", "true"))
 	trustBundleEpoch, _ := strconv.ParseInt(valueOrDefault("ARGUS_TRUST_BUNDLE_EPOCH", "1"), 10, 64)
+	operationSecretKey, _ := base64.RawURLEncoding.DecodeString(os.Getenv("ARGUS_PENDING_ACTION_ENCRYPTION_KEY"))
 	return ConnectorGateway{
 		GRPCAddress:                 valueOrDefault("ARGUS_CONNECTOR_GRPC_ADDRESS", ":9443"),
 		RemoteWSSAddress:            valueOrDefault("ARGUS_REMOTE_WSS_ADDRESS", ":9445"),
@@ -94,12 +92,7 @@ func LoadConnectorGateway() ConnectorGateway {
 		HeartbeatInterval:           30 * time.Second,
 		RemoteOrigin:                os.Getenv("ARGUS_REMOTE_ORIGIN"),
 		RemoteAllowedOrigins:        splitList(os.Getenv("ARGUS_ALLOWED_ORIGINS")),
-		DirectExecutorEndpoint:      os.Getenv("ARGUS_DIRECT_EXECUTOR_ENDPOINT"),
-		DirectExecutorServerName:    os.Getenv("ARGUS_DIRECT_EXECUTOR_SERVER_NAME"),
-		DirectExecutorTLSCert:       valueOrDefault("ARGUS_DIRECT_EXECUTOR_CLIENT_CERT_PATH", "/var/run/secrets/argus/direct-executor-client/tls.crt"),
-		DirectExecutorTLSKey:        valueOrDefault("ARGUS_DIRECT_EXECUTOR_CLIENT_KEY_PATH", "/var/run/secrets/argus/direct-executor-client/tls.key"),
-		DirectExecutorCABundle:      valueOrDefault("ARGUS_DIRECT_EXECUTOR_CA_PATH", "/var/run/secrets/argus/trust/ca.crt"),
-		DirectExecutorRecipientID:   valueOrDefault("ARGUS_DIRECT_EXECUTOR_RECIPIENT_ID", "argus-direct-executor"),
+		GuacdAddress:                valueOrDefault("ARGUS_GUACD_ADDRESS", "127.0.0.1:4822"),
 		ObjectStoreURL:              os.Getenv("ARGUS_OBJECT_STORE_URL"),
 		ObjectStoreBucket:           os.Getenv("ARGUS_OBJECT_STORE_BUCKET"),
 		ObjectStoreAccess:           os.Getenv("ARGUS_OBJECT_STORE_ACCESS_KEY"),
@@ -113,6 +106,7 @@ func LoadConnectorGateway() ConnectorGateway {
 		TelemetryEnabled:            telemetryEnabled,
 		TrustBundlePath:             valueOrDefault("ARGUS_TRUST_BUNDLE_PATH", "/var/run/secrets/argus/trust/ca.crt"),
 		TrustBundleEpoch:            trustBundleEpoch,
+		OperationSecretKey:          operationSecretKey,
 	}
 }
 
@@ -139,11 +133,14 @@ func (cfg ConnectorGateway) Validate() error {
 	if cfg.SystemNamespace == "" || cfg.IssuerName == "" || cfg.IssuerGeneration < 1 || cfg.TrustBundlePath == "" || cfg.TrustBundleEpoch < 1 {
 		return errors.New("connector gateway cert-manager issuer configuration is required")
 	}
-	if cfg.RemoteWSSAddress == "" || cfg.RemoteRPCAddress == "" || cfg.RemoteOrigin == "" || cfg.RemotePeerServerName == "" || cfg.RemotePeerClientURI == "" || cfg.RemotePeerHeadlessSuffix == "" || cfg.RemotePeerPort == "" {
+	if len(cfg.OperationSecretKey) != 32 {
+		return errors.New("connector gateway operation secret key must be 32 bytes")
+	}
+	if cfg.RemoteWSSAddress == "" || cfg.RemoteRPCAddress == "" || cfg.RemoteOrigin == "" || cfg.RemotePeerServerName == "" || cfg.RemotePeerClientURI == "" || cfg.RemotePeerHeadlessSuffix == "" || cfg.RemotePeerPort == "" || cfg.GuacdAddress == "" {
 		return errors.New("remote access WSS, internal RPC, and Origin configuration are required")
 	}
-	if len(cfg.RemoteAllowedOrigins) == 0 || cfg.DirectExecutorEndpoint == "" || cfg.DirectExecutorServerName == "" || cfg.DirectExecutorTLSCert == "" || cfg.DirectExecutorTLSKey == "" || cfg.DirectExecutorCABundle == "" || cfg.DirectExecutorRecipientID == "" {
-		return errors.New("remote access Origin allowlist and Direct Executor mTLS configuration are required")
+	if len(cfg.RemoteAllowedOrigins) == 0 {
+		return errors.New("remote access Origin allowlist is required")
 	}
 	if cfg.ObjectStoreURL == "" || cfg.ObjectStoreBucket == "" || cfg.ObjectStoreAccess == "" || cfg.ObjectStoreSecret == "" {
 		return errors.New("remote access ObjectStore configuration is required")

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Pencil, TerminalSquare, Trash2 } from "lucide-react";
+import { Pencil, RefreshCw, TerminalSquare, Trash2 } from "lucide-react";
 import {
   formatApiError,
   useApi,
@@ -28,24 +28,28 @@ import {
 } from "@argus/ui";
 import "../styles/hosts.css";
 import { AddHostWizard } from "../components/hosts/add-host-wizard";
+import { HostOnboardingProgress } from "../components/hosts/host-onboarding-progress";
 import { CollectorInstallWizard } from "../components/hosts/components-tab";
 import {
   EditBastionDrawer,
   EditHostDrawer,
 } from "../components/hosts/host-drawers";
 import { AddBastionDialog } from "../components/hosts/add-bastion-dialog";
-import {
-  PendingScopeActions,
-  SelfEnrollHostActions,
-} from "../components/hosts/pending-resource-actions";
+import { BastionReplacementDialog } from "../components/hosts/bastion-replacement-dialog";
+import { PendingScopeActions } from "../components/hosts/pending-resource-actions";
 import { PendingActionConfirm } from "../components/hosts/pending-action-confirm";
+import { HostRemovalDialog } from "../components/hosts/host-removal-dialog";
+import {
+  removalTargetForBastion,
+  removalTargetForHost,
+  type RemovalTarget,
+} from "../components/hosts/host-removal-target";
 import {
   ARGUS_EGRESS_ADDRESSES,
   collectorStatusOf,
   collectorTone,
   connectionPathKey,
   environmentTone,
-  hostLiveTone,
   hostStatusTone,
   scopeOf,
 } from "../components/hosts/host-utils";
@@ -128,12 +132,14 @@ function HostTile({
   scopes,
   onEdit,
   onDelete,
+  onRemove,
   onCollectorAction,
 }: {
   host: Host;
   scopes: BastionScope[];
   onEdit: (host: Host) => void;
   onDelete: (host: Host) => void;
+  onRemove: (host: Host) => void;
   onCollectorAction?: (host: Host) => void;
 }) {
   const { t } = useTranslation();
@@ -150,31 +156,27 @@ function HostTile({
           <Link params={{ hostId: host.id }} to="/hosts/$hostId">
             {host.name}
           </Link>
-          {host.connection_mode === "self_enrolled" &&
-            host.connection_status === "onboarding" && (
-              <StatusBadge pulse tone="info">
-                {t("hosts.standalone.selfEnrollWaiting")}
-              </StatusBadge>
+          <StatusBadge
+            pulse={host.connection_status === "online"}
+            tone={
+              host.status === "active" &&
+              host.onboarding.state === "install_failed"
+                ? "danger"
+                : hostStatusTone(host.connection_status)
+            }
+          >
+            {t(
+              host.status === "active" &&
+                host.onboarding.state === "install_failed"
+                ? "hosts.onboardingProgress.failed"
+                : `hosts.status.${host.connection_status}`,
             )}
-          {host.live_status ? (
+          </StatusBadge>
+          {host.status !== "active" && (
             <StatusBadge
-              pulse={host.live_status === "online"}
-              tone={hostLiveTone(host.live_status)}
-              title={t("hosts.liveStatus.probeHint", {
-                latency: host.probe_latency_ms ?? 0,
-                time: host.last_probe_at
-                  ? new Date(host.last_probe_at).toLocaleTimeString()
-                  : "",
-              })}
+              tone={host.status === "uninstalled" ? "warning" : "danger"}
             >
-              {t(`hosts.liveStatus.${host.live_status}`)}
-            </StatusBadge>
-          ) : (
-            <StatusBadge
-              pulse={host.connection_status === "online"}
-              tone={hostStatusTone(host.connection_status)}
-            >
-              {t(`hosts.status.${host.connection_status}`)}
+              {t(`hosts.removal.resourceStatus.${host.status}`)}
             </StatusBadge>
           )}
         </span>
@@ -185,6 +187,7 @@ function HostTile({
       <div className="argus-host-tile__path" title={path}>
         {path}
       </div>
+      <HostOnboardingProgress host={host} />
       <div className="argus-host-tile__footer">
         <span className="argus-host-tile__tags">
           <Badge tone={environmentTone(host.environment)}>
@@ -219,17 +222,26 @@ function HostTile({
             <Pencil aria-hidden size={14} />
           </Button>
           <Button
-            aria-label={t("hosts.row.delete")}
-            onClick={() => onDelete(host)}
+            aria-label={t(
+              host.status === "uninstalled"
+                ? "hosts.row.delete"
+                : "hosts.removal.action",
+            )}
+            onClick={() =>
+              host.status === "uninstalled" ? onDelete(host) : onRemove(host)
+            }
             size="icon"
-            title={t("hosts.row.delete")}
+            title={t(
+              host.status === "uninstalled"
+                ? "hosts.row.delete"
+                : "hosts.removal.action",
+            )}
             variant="ghost"
           >
             <Trash2 aria-hidden size={14} />
           </Button>
         </span>
       </div>
-      <SelfEnrollHostActions host={host} />
     </div>
   );
 }
@@ -250,6 +262,10 @@ export function HostsPage() {
   const [addBastionOpen, setAddBastionOpen] = useState(false);
   const [addHostOpen, setAddHostOpen] = useState(false);
   const [editBastion, setEditBastion] = useState<BastionScope | null>(null);
+  const [replaceBastion, setReplaceBastion] = useState<{
+    scope: BastionScope;
+    host: Host;
+  } | null>(null);
   const [deleteBastion, setDeleteBastion] = useState<BastionScope | null>(null);
   const [deleteBastionAction, setDeleteBastionAction] =
     useState<PendingActionPublic | null>(null);
@@ -257,6 +273,9 @@ export function HostsPage() {
   const [deleteBastionError, setDeleteBastionError] = useState("");
   const [editHost, setEditHost] = useState<Host | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Host | null>(null);
+  const [removalTarget, setRemovalTarget] = useState<RemovalTarget | null>(
+    null,
+  );
   const [deleteAction, setDeleteAction] = useState<PendingActionPublic | null>(
     null,
   );
@@ -393,17 +412,7 @@ export function HostsPage() {
         host.id !== scope.connector_host_id,
     );
   const standaloneHosts = hosts.filter((host) => !host.bastion_scope_id);
-  const standaloneHasSelfEnrolled = standaloneHosts.some(
-    (host) => host.connection_mode === "self_enrolled",
-  );
-  const standaloneHasDirect = standaloneHosts.some(
-    (host) => host.connection_mode !== "self_enrolled",
-  );
-  const standaloneModeKey = standaloneHasSelfEnrolled
-    ? standaloneHasDirect
-      ? "hosts.standalone.mixedModes"
-      : "hosts.standalone.selfEnrolled"
-    : "hosts.standalone.directExecutor";
+  const standaloneModeKey = "hosts.standalone.connectorManaged";
   const activeScopes = scopes.filter(
     (scope) =>
       scope.status === "active" && connectorOf(scope)?.status === "online",
@@ -445,6 +454,18 @@ export function HostsPage() {
       params: { hostId: host.id },
       hash: "otlp-collector",
     });
+  };
+
+  const removeHost = (host: Host) => {
+    setRemovalTarget(removalTargetForHost(host));
+  };
+
+  const removeBastion = (
+    scope: BastionScope,
+    host: Host,
+    connector?: Connector,
+  ) => {
+    setRemovalTarget(removalTargetForBastion(scope, host, connector));
   };
 
   return (
@@ -580,6 +601,24 @@ export function HostsPage() {
                           : t("hosts.scope.connectorOffline")}
                     </StatusBadge>
                   )}
+                  <StatusBadge
+                    pulse={scope.relay_status === "ready"}
+                    title={
+                      scope.relay_address
+                        ? `${scope.relay_address}:${scope.relay_https_port} / ${scope.relay_gateway_port}${scope.relay_error_code ? ` · ${scope.relay_error_code}` : ""}`
+                        : t("hosts.scope.relayEndpointPending")
+                    }
+                    tone={
+                      scope.relay_status === "ready"
+                        ? "success"
+                        : scope.relay_status === "degraded"
+                          ? "warning"
+                          : "danger"
+                    }
+                  >
+                    {t("hosts.scope.tlsRelay")} ·{" "}
+                    {t(`hosts.scope.relayStatus.${scope.relay_status}`)}
+                  </StatusBadge>
                   {scope.control_tunnel_status && (
                     <StatusBadge
                       pulse={
@@ -637,6 +676,24 @@ export function HostsPage() {
                         </button>
                       )}
                       <span className="argus-scope-card__title-actions">
+                        {[
+                          "active",
+                          "suspected_offline",
+                          "offline",
+                          "uninstalled",
+                        ].includes(scope.status) && (
+                          <Button
+                            aria-label={t("hosts.bastionForm.replaceConnector")}
+                            onClick={() =>
+                              setReplaceBastion({ scope, host: bastionHost })
+                            }
+                            size="icon"
+                            title={t("hosts.bastionForm.replaceConnector")}
+                            variant="ghost"
+                          >
+                            <RefreshCw aria-hidden size={14} />
+                          </Button>
+                        )}
                         <Button
                           aria-label={t("hosts.row.edit")}
                           onClick={() => setEditBastion(scope)}
@@ -646,21 +703,30 @@ export function HostsPage() {
                         >
                           <Pencil aria-hidden size={14} />
                         </Button>
-                        {(connector?.status === "offline" ||
-                          scope.status === "uninstalled") && (
-                          <Button
-                            aria-label={t("hosts.bastionDelete.action")}
-                            onClick={() => {
+                        <Button
+                          aria-label={t(
+                            scope.status === "uninstalled"
+                              ? "hosts.bastionDelete.action"
+                              : "hosts.removal.action",
+                          )}
+                          onClick={() => {
+                            if (scope.status === "uninstalled") {
                               setDeleteBastionError("");
                               setDeleteBastion(scope);
-                            }}
-                            size="icon"
-                            title={t("hosts.bastionDelete.action")}
-                            variant="ghost"
-                          >
-                            <Trash2 aria-hidden size={14} />
-                          </Button>
-                        )}
+                            } else {
+                              removeBastion(scope, bastionHost, connector);
+                            }
+                          }}
+                          size="icon"
+                          title={t(
+                            scope.status === "uninstalled"
+                              ? "hosts.bastionDelete.action"
+                              : "hosts.removal.action",
+                          )}
+                          variant="ghost"
+                        >
+                          <Trash2 aria-hidden size={14} />
+                        </Button>
                       </span>
                     </>
                   )}
@@ -692,6 +758,7 @@ export function HostsPage() {
                         key={host.id}
                         onCollectorAction={realMode ? undefined : openCollector}
                         onDelete={setDeleteTarget}
+                        onRemove={removeHost}
                         onEdit={setEditHost}
                         scopes={scopes}
                       />
@@ -715,9 +782,7 @@ export function HostsPage() {
                 <Badge tone="accent">{t(standaloneModeKey)}</Badge>
               </span>
               <span className="argus-standalone__hint">
-                {!standaloneHasDirect
-                  ? t("hosts.standalone.selfEnrolledHint")
-                  : t("hosts.standalone.egressHint", { ip: egressDisplay })}
+                {t("hosts.standalone.egressHint", { ip: egressDisplay })}
               </span>
             </div>
             <div className="argus-scope-card__body">
@@ -728,6 +793,7 @@ export function HostsPage() {
                     key={host.id}
                     onCollectorAction={realMode ? undefined : openCollector}
                     onDelete={setDeleteTarget}
+                    onRemove={removeHost}
                     onEdit={setEditHost}
                     scopes={scopes}
                   />
@@ -755,6 +821,21 @@ export function HostsPage() {
         onOpenChange={setAddHostOpen}
         open={addHostOpen}
         scopes={activeScopes}
+      />
+      <HostRemovalDialog
+        onChanged={invalidateAll}
+        onOpenChange={(open) => {
+          if (!open) setRemovalTarget(null);
+        }}
+        target={removalTarget}
+      />
+      <BastionReplacementDialog
+        host={replaceBastion?.host ?? null}
+        onChanged={invalidateAll}
+        onOpenChange={(open) => {
+          if (!open) setReplaceBastion(null);
+        }}
+        scope={replaceBastion?.scope ?? null}
       />
       <EditBastionDrawer
         onOpenChange={(open) => {

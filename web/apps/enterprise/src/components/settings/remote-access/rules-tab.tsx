@@ -36,7 +36,7 @@ function RuleSimulator() {
   });
   const [hostId, setHostId] = useState("");
   const [accountId, setAccountId] = useState("");
-  const [protocol, setProtocol] = useState<"ssh" | "winrs">("ssh");
+  const [protocol, setProtocol] = useState<"shell" | "ssh" | "rdp">("ssh");
   const [stepUp, setStepUp] = useState(false);
   const [result, setResult] = useState<Awaited<
     ReturnType<typeof api.remoteAccess.simulateRule>
@@ -119,10 +119,11 @@ function RuleSimulator() {
         <Field label={t("remoteAccess.protocol")} requirement="required">
           <Select
             ariaLabel={t("remoteAccess.protocol")}
-            onValueChange={(value) => setProtocol(value as "ssh" | "winrs")}
+            onValueChange={(value) => setProtocol(value as "shell" | "ssh" | "rdp")}
             options={[
               { value: "ssh", label: "SSH" },
-              { value: "winrs", label: "WinRS" },
+              { value: "shell", label: "Local Shell / PowerShell" },
+              { value: "rdp", label: "RDP" },
             ]}
             value={protocol}
           />
@@ -269,7 +270,7 @@ export function RulesTab() {
               t("remoteAccess.validation.range", { min: 0, max: 10000 }),
             ),
           protocols: z
-            .array(z.enum(["ssh", "winrs"]))
+            .array(z.enum(["shell", "ssh", "rdp"]))
             .min(1, t("remoteAccess.validation.selectOne"))
             .max(2),
           actions: z.array(z.literal("terminal")).length(1),
@@ -506,7 +507,7 @@ export function RulesTab() {
             label={(value) => value.toUpperCase()}
             onChange={(value) => set("protocols", value)}
             selected={form.protocols}
-            values={["ssh", "winrs"] as const}
+            values={["shell", "ssh", "rdp"] as const}
           />
         </Field>
         <Field label={t("remoteAccess.sourceCidrs")} requirement="optional">

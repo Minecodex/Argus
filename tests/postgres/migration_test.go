@@ -95,8 +95,8 @@ func assertBastionRootLifecycle(t *testing.T, database *sql.DB) {
 		t.Helper()
 		var scopeID string
 		if scanErr := tx.QueryRow(`
-			INSERT INTO bastion_scopes (id, enterprise_id, name, environment, labels_hash, onboarding_mode)
-			VALUES (gen_random_uuid(), $1::uuid, 'Reusable bastion', 'production', decode(repeat('00', 32), 'hex'), 'command')
+			INSERT INTO bastion_scopes (id, enterprise_id, name, environment, labels_hash, onboarding_mode, relay_address)
+			VALUES (gen_random_uuid(), $1::uuid, 'Reusable bastion', 'production', decode(repeat('00', 32), 'hex'), 'command', 'bastion.internal')
 			RETURNING id::text
 		`, enterpriseID).Scan(&scopeID); scanErr != nil {
 			t.Fatal(scanErr)
@@ -107,8 +107,8 @@ func assertBastionRootLifecycle(t *testing.T, database *sql.DB) {
 		t.Helper()
 		var hostID string
 		if scanErr := tx.QueryRow(`
-			INSERT INTO hosts (id, enterprise_id, name, address, port, platform, connection_mode, bastion_scope_id, environment, labels_hash)
-			VALUES (gen_random_uuid(), $1::uuid, $2, 'connector://pending', 1, 'linux', 'connector_local', $3::uuid, 'production', decode(repeat('00', 32), 'hex'))
+			INSERT INTO hosts (id, enterprise_id, name, address, port, platform, role, control_path, bastion_scope_id, environment, labels_hash)
+			VALUES (gen_random_uuid(), $1::uuid, $2, '', 0, 'linux', 'bastion', 'direct', $3::uuid, 'production', decode(repeat('00', 32), 'hex'))
 			RETURNING id::text
 		`, enterpriseID, name, scopeID).Scan(&hostID); scanErr != nil {
 			t.Fatal(scanErr)
@@ -131,10 +131,10 @@ func assertBastionRootLifecycle(t *testing.T, database *sql.DB) {
 	secondScopeID := createScope()
 	createRoot(secondScopeID, "Reusable bastion")
 	if _, err = tx.Exec(`
-		INSERT INTO hosts (id, enterprise_id, name, address, port, platform, connection_mode, bastion_scope_id, environment, labels_hash)
-		VALUES (gen_random_uuid(), $1::uuid, 'Second live root', 'connector://duplicate', 1, 'linux', 'connector_local', $2::uuid, 'production', decode(repeat('00', 32), 'hex'))
+		INSERT INTO hosts (id, enterprise_id, name, address, port, platform, role, control_path, bastion_scope_id, environment, labels_hash)
+		VALUES (gen_random_uuid(), $1::uuid, 'Second live root', '', 0, 'linux', 'bastion', 'direct', $2::uuid, 'production', decode(repeat('00', 32), 'hex'))
 	`, enterpriseID, secondScopeID); err == nil {
-		t.Fatal("a scope accepted a second live connector_local root host")
+		t.Fatal("a scope accepted a second live bastion host")
 	}
 }
 

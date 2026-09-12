@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -23,7 +24,7 @@ func TestGrantCannotBeExpandedByRequest(t *testing.T) {
 	if !grant.Authorizes(intent) {
 		t.Fatal("expected exact grant match")
 	}
-	intent.Protocol = "winrs"
+	intent.Protocol = "telnet"
 	if grant.Authorizes(intent) {
 		t.Fatal("request expanded protocol beyond grant")
 	}
@@ -138,6 +139,27 @@ func TestRecordingChunkIsEncryptedAndChained(t *testing.T) {
 	}
 	if second.PreviousHash != first.Hash {
 		t.Fatal("hash chain did not link chunks")
+	}
+}
+
+func TestGuacamoleRecordingUsesDistinctEncryptedObjectType(t *testing.T) {
+	objects := &memoryObjects{}
+	recorder := Recorder{Store: objects, RecordingID: uuid.NewString(), Format: "guacamole_v1", DEK: make([]byte, 32)}
+	if _, err := recorder.Append(context.Background(), RecordingEvent{Time: 0.1, Type: "o", Data: "4.sync,1.1;"}); err != nil {
+		t.Fatal(err)
+	}
+	chunk, err := recorder.Flush(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(chunk.ObjectKey, ".guac.enc") {
+		t.Fatalf("Guacamole recording object key = %q", chunk.ObjectKey)
+	}
+}
+
+func TestRecordingFormatFollowsSessionProtocol(t *testing.T) {
+	if recordingFormatForProtocol("rdp") != "guacamole_v1" || recordingFormatForProtocol("ssh") != "asciicast_v2" || recordingFormatForProtocol("shell") != "asciicast_v2" {
+		t.Fatal("session protocol did not select the expected recording format")
 	}
 }
 

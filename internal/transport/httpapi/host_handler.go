@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,22 +13,165 @@ import (
 
 	actionservice "github.com/kakj-go/Argus/internal/action"
 	hostapi "github.com/kakj-go/Argus/internal/gen/openapi/hostapi"
+	"github.com/kakj-go/Argus/internal/hostremoval"
 	"github.com/kakj-go/Argus/internal/identity"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	telemetryservice "github.com/kakj-go/Argus/internal/telemetry"
 )
 
-type HostOnboardingActionService interface {
-	PreviewEnrollmentRotate(context.Context, resource.Subject, uuid.UUID, uuid.UUID, int64, string) (db.PendingAction, error)
-	PreviewUninstallCommand(context.Context, resource.Subject, uuid.UUID, uuid.UUID, int64, string) (db.PendingAction, error)
+type HostWindowsRDPActionService interface {
+	PreviewWindowsRDPEnable(context.Context, resource.Subject, uuid.UUID, uuid.UUID, int64, string) (db.PendingAction, error)
 }
 
 type HostHandler struct {
 	Identity   EnterpriseIdentityHandler
 	Service    resource.Service
 	Queries    *db.Queries
-	Onboarding HostOnboardingActionService
+	WindowsRDP HostWindowsRDPActionService
+	Removal    hostremoval.Service
+}
+
+func (handler HostHandler) PreviewHostRemoval(ctx context.Context, request hostapi.PreviewHostRemovalRequestObject) (hostapi.PreviewHostRemovalResponseObject, error) {
+	p, apiError := handler.auth(ctx, true, request.Params.XCSRFToken, "host.manage")
+	if apiError != nil {
+		return hostapi.PreviewHostRemovaldefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
+	}
+	if request.Body == nil {
+		return hostapi.PreviewHostRemovaldefaultJSONResponse{Body: hostError(ctx, hostremoval.ErrInvalidTarget), StatusCode: http.StatusBadRequest}, nil
+	}
+	input := hostremoval.PreviewInput{TargetType: string(request.Body.TargetType), TargetID: uuid.UUID(request.Body.TargetId), ExpectedVersion: request.Body.ExpectedVersion,
+		Mode: string(request.Body.Mode), ConnectionTestID: optionalUUID(request.Body.ConnectionTestId), CredentialID: optionalUUID(request.Body.CredentialId)}
+	if request.Body.ConfirmationName != nil {
+		input.ConfirmationName = *request.Body.ConfirmationName
+	}
+	action, err := handler.Removal.Preview(ctx, resourceSubject(p), p.EnterpriseIDValue(), input, request.Params.IdempotencyKey)
+	if err != nil {
+		return hostapi.PreviewHostRemovaldefaultJSONResponse{Body: hostError(ctx, err), StatusCode: hostRemovalStatus(err)}, nil
+	}
+	return hostapi.PreviewHostRemoval201JSONResponse(pendingForHost(action)), nil
+}
+
+func (handler HostHandler) GetHostRemovalOperation(ctx context.Context, request hostapi.GetHostRemovalOperationRequestObject) (hostapi.GetHostRemovalOperationResponseObject, error) {
+	p, apiError := handler.auth(ctx, false, "", "host.read")
+	if apiError != nil {
+		return hostapi.GetHostRemovalOperationdefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
+	}
+	view, err := handler.Removal.Get(ctx, p.EnterpriseIDValue(), uuid.UUID(request.Id))
+	if err != nil || !handler.Service.Access.CanAccess(p.AuthorizedResourceIDs, view.Operation.HostID) {
+		if err == nil {
+			err = resource.ErrResourceDenied
+		}
+		return hostapi.GetHostRemovalOperationdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: hostRemovalStatus(err)}, nil
+	}
+	return hostapi.GetHostRemovalOperation200JSONResponse(toHostRemovalOperation(view)), nil
+}
+
+func (handler HostHandler) RetryHostRemovalOperation(ctx context.Context, request hostapi.RetryHostRemovalOperationRequestObject) (hostapi.RetryHostRemovalOperationResponseObject, error) {
+	p, apiError := handler.auth(ctx, true, request.Params.XCSRFToken, "host.manage")
+	if apiError != nil {
+		return hostapi.RetryHostRemovalOperationdefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
+	}
+	current, err := handler.Removal.Get(ctx, p.EnterpriseIDValue(), uuid.UUID(request.Id))
+	if err != nil || !handler.Service.Access.CanAccess(p.AuthorizedResourceIDs, current.Operation.HostID) {
+		if err == nil {
+			err = resource.ErrResourceDenied
+		}
+		return hostapi.RetryHostRemovalOperationdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: hostRemovalStatus(err)}, nil
+	}
+	view, err := handler.Removal.Retry(ctx, p.ActorID(), p.EnterpriseIDValue(), uuid.UUID(request.Id), request.Params.IdempotencyKey)
+	if err != nil {
+		return hostapi.RetryHostRemovalOperationdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: hostRemovalStatus(err)}, nil
+	}
+	return hostapi.RetryHostRemovalOperation202JSONResponse(toHostRemovalOperation(view)), nil
+}
+
+func (handler HostHandler) RegenerateHostRemovalCommand(ctx context.Context, request hostapi.RegenerateHostRemovalCommandRequestObject) (hostapi.RegenerateHostRemovalCommandResponseObject, error) {
+	p, apiError := handler.auth(ctx, true, request.Params.XCSRFToken, "host.manage")
+	if apiError != nil {
+		return hostapi.RegenerateHostRemovalCommanddefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
+	}
+	current, err := handler.Removal.Get(ctx, p.EnterpriseIDValue(), uuid.UUID(request.Id))
+	if err != nil || !handler.Service.Access.CanAccess(p.AuthorizedResourceIDs, current.Operation.HostID) {
+		if err == nil {
+			err = resource.ErrResourceDenied
+		}
+		return hostapi.RegenerateHostRemovalCommanddefaultJSONResponse{Body: hostError(ctx, err), StatusCode: hostRemovalStatus(err)}, nil
+	}
+	instruction, err := handler.Removal.RegenerateInstruction(ctx, p.ActorID(), p.EnterpriseIDValue(), uuid.UUID(request.Id), request.Params.IdempotencyKey)
+	if err != nil {
+		return hostapi.RegenerateHostRemovalCommanddefaultJSONResponse{Body: hostError(ctx, err), StatusCode: hostRemovalStatus(err)}, nil
+	}
+	command := instruction.Set.Command
+	platform := "linux"
+	if instruction.Set.Shell == "powershell" {
+		platform = "windows"
+	}
+	return hostapi.RegenerateHostRemovalCommand201JSONResponse{OperationId: openapi_types.UUID(instruction.OperationID), Platform: hostapi.HostRemovalInstructionPlatform(platform),
+		Shell: hostapi.HostRemovalInstructionShell(instruction.Set.Shell), Privilege: hostapi.HostRemovalInstructionPrivilege("system"), Command: &command, ExpiresAt: instruction.Set.ExpiresAt}, nil
+}
+
+func (handler HostHandler) GetHostRemovalBootstrapScript(ctx context.Context, request hostapi.GetHostRemovalBootstrapScriptRequestObject) (hostapi.GetHostRemovalBootstrapScriptResponseObject, error) {
+	script, contentType, err := handler.Removal.ClaimBootstrap(ctx, uuid.UUID(request.Params.OperationId), request.Params.XArgusRemovalToken)
+	if err != nil {
+		return hostapi.GetHostRemovalBootstrapScriptdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: hostRemovalStatus(err)}, nil
+	}
+	if contentType == "text/x-powershell" {
+		return hostapi.GetHostRemovalBootstrapScript200TextxPowershellResponse{Body: bytes.NewBufferString(script), ContentLength: int64(len(script))}, nil
+	}
+	return hostapi.GetHostRemovalBootstrapScript200TextxShellscriptResponse{Body: bytes.NewBufferString(script), ContentLength: int64(len(script))}, nil
+}
+
+func (handler HostHandler) SubmitHostRemovalReceipt(ctx context.Context, request hostapi.SubmitHostRemovalReceiptRequestObject) (hostapi.SubmitHostRemovalReceiptResponseObject, error) {
+	if request.Body == nil {
+		return hostapi.SubmitHostRemovalReceiptdefaultJSONResponse{Body: hostError(ctx, hostremoval.ErrTokenInvalid), StatusCode: http.StatusBadRequest}, nil
+	}
+	code := ""
+	if request.Body.ErrorCode != nil {
+		code = *request.Body.ErrorCode
+	}
+	evidence, marshalErr := json.Marshal(request.Body.Evidence)
+	if marshalErr != nil {
+		return hostapi.SubmitHostRemovalReceiptdefaultJSONResponse{Body: hostError(ctx, hostremoval.ErrTokenInvalid), StatusCode: http.StatusBadRequest}, nil
+	}
+	view, err := handler.Removal.SubmitReceipt(ctx, request.Params.XArgusRemovalToken, hostremoval.Receipt{OperationID: uuid.UUID(request.Body.OperationId),
+		RemovalGeneration: request.Body.RemovalGeneration, ConnectorID: uuid.UUID(request.Body.ConnectorId), Stage: string(request.Body.Stage),
+		LocalCleanup: string(request.Body.LocalCleanup), ResultHash: request.Body.ResultHash, ErrorCode: code, Evidence: evidence})
+	if err != nil {
+		return hostapi.SubmitHostRemovalReceiptdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: hostRemovalStatus(err)}, nil
+	}
+	return hostapi.SubmitHostRemovalReceipt200JSONResponse(toHostRemovalOperation(view)), nil
+}
+
+func (handler HostHandler) PreviewEnableHostWindowsRDP(ctx context.Context, request hostapi.PreviewEnableHostWindowsRDPRequestObject) (hostapi.PreviewEnableHostWindowsRDPResponseObject, error) {
+	p, apiError := handler.auth(ctx, true, request.Params.XCSRFToken, "host.manage")
+	if apiError != nil {
+		return hostapi.PreviewEnableHostWindowsRDPdefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
+	}
+	if request.Body == nil || handler.WindowsRDP == nil {
+		return hostapi.PreviewEnableHostWindowsRDPdefaultJSONResponse{Body: hostError(ctx, errors.New("invalid request")), StatusCode: http.StatusBadRequest}, nil
+	}
+	action, err := handler.WindowsRDP.PreviewWindowsRDPEnable(ctx, resourceSubject(p), p.EnterpriseIDValue(), uuid.UUID(request.Id), request.Body.ExpectedVersion, request.Params.IdempotencyKey)
+	if err != nil {
+		return hostapi.PreviewEnableHostWindowsRDPdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: resourceStatus(err)}, nil
+	}
+	return hostapi.PreviewEnableHostWindowsRDP201JSONResponse(pendingForHost(action)), nil
+}
+
+func (handler HostHandler) GetHostOnboardingOperation(ctx context.Context, request hostapi.GetHostOnboardingOperationRequestObject) (hostapi.GetHostOnboardingOperationResponseObject, error) {
+	p, apiError := handler.auth(ctx, false, "", "host.read")
+	if apiError != nil {
+		return hostapi.GetHostOnboardingOperationdefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
+	}
+	operation, err := handler.Queries.GetHostOnboardingOperation(ctx, db.GetHostOnboardingOperationParams{ID: uuid.UUID(request.Id), EnterpriseID: p.EnterpriseIDValue()})
+	if err != nil || !handler.Service.Access.CanAccess(p.AuthorizedResourceIDs, operation.HostID) {
+		return hostapi.GetHostOnboardingOperationdefaultJSONResponse{Body: hostError(ctx, resource.ErrResourceDenied), StatusCode: http.StatusNotFound}, nil
+	}
+	events, err := handler.Queries.ListHostOnboardingOperationEvents(ctx, db.ListHostOnboardingOperationEventsParams{OperationID: operation.ID, EnterpriseID: operation.EnterpriseID})
+	if err != nil {
+		return hostapi.GetHostOnboardingOperationdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: http.StatusInternalServerError}, nil
+	}
+	return hostapi.GetHostOnboardingOperation200JSONResponse(toHostOnboardingOperation(operation, events)), nil
 }
 
 func (handler HostHandler) ListHosts(ctx context.Context, _ hostapi.ListHostsRequestObject) (hostapi.ListHostsResponseObject, error) {
@@ -40,30 +184,29 @@ func (handler HostHandler) ListHosts(ctx context.Context, _ hostapi.ListHostsReq
 		return hostapi.ListHostsdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: resourceStatus(err)}, nil
 	}
 	converted := make([]hostapi.Host, 0, len(items))
-	probeStates := handler.probeStates(ctx, items)
+	runtimeStates := handler.runtimeStates(ctx, p.EnterpriseIDValue(), items)
 	onboarding := loadHostOnboarding(ctx, handler.Queries, p.EnterpriseIDValue(), items)
 	for _, item := range items {
-		converted = append(converted, toHost(item, probeStates[item.ID], onboarding[item.ID]))
+		converted = append(converted, toHost(item, runtimeStates[item.ID], onboarding[item.ID]))
 	}
 	return hostapi.ListHosts200JSONResponse{Items: converted, Page: emptyHostPage()}, nil
 }
 
-// probeStates 批量读取主机的实时探活状态;查询失败时退化为不展示(不影响列表)。
-func (handler HostHandler) probeStates(ctx context.Context, items []db.Host) map[uuid.UUID]db.HostProbeState {
+func (handler HostHandler) runtimeStates(ctx context.Context, enterpriseID uuid.UUID, items []db.Host) map[uuid.UUID]db.HostRuntimeObservation {
+	result := map[uuid.UUID]db.HostRuntimeObservation{}
 	if handler.Queries == nil || len(items) == 0 {
-		return nil
+		return result
 	}
 	ids := make([]uuid.UUID, 0, len(items))
 	for _, item := range items {
 		ids = append(ids, item.ID)
 	}
-	states, err := handler.Queries.ListHostProbeStatesByHosts(ctx, ids)
+	values, err := handler.Queries.ListHostRuntimeObservations(ctx, db.ListHostRuntimeObservationsParams{EnterpriseID: enterpriseID, Column2: ids})
 	if err != nil {
-		return nil
+		return result
 	}
-	result := make(map[uuid.UUID]db.HostProbeState, len(states))
-	for _, state := range states {
-		result[state.HostID] = state
+	for _, value := range values {
+		result[value.HostID] = value
 	}
 	return result
 }
@@ -77,12 +220,12 @@ func (handler HostHandler) GetHost(ctx context.Context, request hostapi.GetHostR
 	if err != nil {
 		return hostapi.GetHostdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: resourceStatus(err)}, nil
 	}
-	var probeState db.HostProbeState
+	var runtimeState db.HostRuntimeObservation
 	if handler.Queries != nil {
-		probeState, _ = handler.Queries.GetHostProbeState(ctx, uuid.UUID(request.Id))
+		runtimeState, _ = handler.Queries.GetHostRuntimeObservation(ctx, db.GetHostRuntimeObservationParams{EnterpriseID: p.EnterpriseIDValue(), HostID: uuid.UUID(request.Id)})
 	}
 	onboarding := loadHostOnboarding(ctx, handler.Queries, p.EnterpriseIDValue(), []db.Host{item})
-	return hostapi.GetHost200JSONResponse(toHost(item, probeState, onboarding[item.ID])), nil
+	return hostapi.GetHost200JSONResponse(toHost(item, runtimeState, onboarding[item.ID])), nil
 }
 
 func (handler HostHandler) CreateHostConnectionTest(ctx context.Context, request hostapi.CreateHostConnectionTestRequestObject) (hostapi.CreateHostConnectionTestResponseObject, error) {
@@ -93,8 +236,11 @@ func (handler HostHandler) CreateHostConnectionTest(ctx context.Context, request
 	if request.Body == nil {
 		return hostapi.CreateHostConnectionTestdefaultJSONResponse{Body: hostError(ctx, errors.New("invalid request")), StatusCode: http.StatusBadRequest}, nil
 	}
-	input := resource.HostInput{Address: request.Body.Address, Port: int32(request.Body.Port), Platform: string(request.Body.Platform), ConnectionMode: string(request.Body.ConnectionMode),
+	input := resource.HostInput{Address: request.Body.Address, Port: int32(request.Body.Port), Platform: string(request.Body.Platform), SSHPath: string(request.Body.SshPath),
 		BastionScopeID: optionalUUID(request.Body.BastionScopeId), CredentialID: uuid.NullUUID{UUID: uuid.UUID(request.Body.CredentialId), Valid: true}, Username: request.Body.Username}
+	if request.Body.OnboardingControlPath != nil {
+		input.OnboardingControlPath = string(*request.Body.OnboardingControlPath)
+	}
 	test, err := handler.Service.CreateHostConnectionTest(ctx, resourceSubject(p), p.EnterpriseIDValue(), input, request.Params.IdempotencyKey)
 	if err != nil {
 		return hostapi.CreateHostConnectionTestdefaultJSONResponse{Body: hostError(ctx, err), StatusCode: resourceStatus(err)}, nil
@@ -118,10 +264,9 @@ func (handler HostHandler) PreviewCreateHost(ctx context.Context, request hostap
 	return hostapi.PreviewCreateHost201JSONResponse(pendingForHost(action)), nil
 }
 
-// hostCreateInput 将可选的连接字段转换为 HostInput;self_enrolled 模式下
-// 地址/端口/凭据/账号/连接测试均不填写。
 func hostCreateInput(value hostapi.HostPreviewCreate) resource.HostInput {
-	input := resource.HostInput{Name: value.Name, Platform: string(value.Platform), ConnectionMode: string(value.ConnectionMode),
+	input := resource.HostInput{Name: value.Name, Platform: string(value.Platform), Role: string(value.Role), ControlPath: string(value.ControlPath),
+		InstallMethod: string(value.InstallMethod), SSHPath: string(value.SshPath),
 		Environment: string(value.Environment), Labels: stringMap(value.Labels), BastionScopeID: optionalUUID(value.BastionScopeId)}
 	if value.Hostname != nil {
 		input.Hostname = *value.Hostname
@@ -145,36 +290,6 @@ func hostCreateInput(value hostapi.HostPreviewCreate) resource.HostInput {
 		input.ConnectionTestID = uuid.NullUUID{UUID: uuid.UUID(*value.ConnectionTestId), Valid: true}
 	}
 	return input
-}
-
-func (handler HostHandler) PreviewHostEnrollmentRotate(ctx context.Context, request hostapi.PreviewHostEnrollmentRotateRequestObject) (hostapi.PreviewHostEnrollmentRotateResponseObject, error) {
-	p, apiError := handler.auth(ctx, true, request.Params.XCSRFToken, "host.manage")
-	if apiError != nil {
-		return hostapi.PreviewHostEnrollmentRotatedefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
-	}
-	if request.Body == nil || handler.Onboarding == nil {
-		return hostapi.PreviewHostEnrollmentRotatedefaultJSONResponse{Body: hostError(ctx, errors.New("invalid request")), StatusCode: http.StatusBadRequest}, nil
-	}
-	action, err := handler.Onboarding.PreviewEnrollmentRotate(ctx, resourceSubject(p), p.EnterpriseIDValue(), uuid.UUID(request.Id), request.Body.ExpectedVersion, request.Params.IdempotencyKey)
-	if err != nil {
-		return hostapi.PreviewHostEnrollmentRotatedefaultJSONResponse{Body: hostError(ctx, err), StatusCode: resourceStatus(err)}, nil
-	}
-	return hostapi.PreviewHostEnrollmentRotate201JSONResponse(pendingForHost(action)), nil
-}
-
-func (handler HostHandler) PreviewHostUninstallCommand(ctx context.Context, request hostapi.PreviewHostUninstallCommandRequestObject) (hostapi.PreviewHostUninstallCommandResponseObject, error) {
-	p, apiError := handler.auth(ctx, true, request.Params.XCSRFToken, "host.manage")
-	if apiError != nil {
-		return hostapi.PreviewHostUninstallCommanddefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
-	}
-	if request.Body == nil || handler.Onboarding == nil {
-		return hostapi.PreviewHostUninstallCommanddefaultJSONResponse{Body: hostError(ctx, errors.New("invalid request")), StatusCode: http.StatusBadRequest}, nil
-	}
-	action, err := handler.Onboarding.PreviewUninstallCommand(ctx, resourceSubject(p), p.EnterpriseIDValue(), uuid.UUID(request.Id), request.Body.ExpectedVersion, request.Params.IdempotencyKey)
-	if err != nil {
-		return hostapi.PreviewHostUninstallCommanddefaultJSONResponse{Body: hostError(ctx, err), StatusCode: resourceStatus(err)}, nil
-	}
-	return hostapi.PreviewHostUninstallCommand201JSONResponse(pendingForHost(action)), nil
 }
 
 func (handler HostHandler) PreviewUpdateHost(ctx context.Context, request hostapi.PreviewUpdateHostRequestObject) (hostapi.PreviewUpdateHostResponseObject, error) {
@@ -223,22 +338,12 @@ func resourceSubject(value identity.Principal) resource.Subject {
 }
 
 func hostUpdateInput(value hostapi.HostPreviewUpdate) resource.HostInput {
-	result := resource.HostInput{ExpectedVersion: value.ExpectedVersion, BastionScopeID: optionalUUID(value.BastionScopeId),
-		ConnectionTestID: optionalUUID(value.ConnectionTestId)}
+	result := resource.HostInput{ExpectedVersion: value.ExpectedVersion}
 	if value.Name != nil {
 		result.Name = *value.Name
 	}
 	if value.Hostname != nil {
 		result.Hostname = *value.Hostname
-	}
-	if value.Address != nil {
-		result.Address = *value.Address
-	}
-	if value.Port != nil {
-		result.Port = int32(*value.Port)
-	}
-	if value.ConnectionMode != nil {
-		result.ConnectionMode = string(*value.ConnectionMode)
 	}
 	if value.Environment != nil {
 		result.Environment = string(*value.Environment)
@@ -249,12 +354,13 @@ func hostUpdateInput(value hostapi.HostPreviewUpdate) resource.HostInput {
 	return result
 }
 
-func toHost(value db.Host, probe db.HostProbeState, onboarding onboardingView) hostapi.Host {
+func toHost(value db.Host, runtimeState db.HostRuntimeObservation, onboarding onboardingView) hostapi.Host {
 	labels, _ := resource.DecodeLabels(value.Labels)
-	result := hostapi.Host{Id: openapi_types.UUID(value.ID), EnterpriseId: pointerUUID(value.EnterpriseID), Name: value.Name, Address: value.Address, Port: int(value.Port),
-		Platform: hostapi.HostPlatform(value.Platform), ConnectionMode: hostapi.HostConnectionMode(value.ConnectionMode), Environment: hostapi.Environment(value.Environment),
+	result := hostapi.Host{Id: openapi_types.UUID(value.ID), EnterpriseId: pointerUUID(value.EnterpriseID), Name: value.Name, Address: value.Address.String, Port: int(value.Port),
+		Platform: hostapi.HostPlatform(value.Platform), Role: hostapi.HostRole(value.Role), ControlPath: hostapi.HostControlPath(value.ControlPath), Environment: hostapi.Environment(value.Environment),
 		Labels: hostapi.Labels(labels), LabelsVersion: value.LabelsVersion, ResourceVersion: value.ResourceVersion, ConnectionStatus: hostapi.HostConnectionStatus(value.ConnectionStatus),
-		Status: hostapi.HostStatus(value.Status), Onboarding: toHostOnboarding(onboarding), CreatedAt: value.CreatedAt.Time, UpdatedAt: value.UpdatedAt.Time}
+		Status: hostapi.HostStatus(value.Status), Onboarding: toHostOnboarding(onboarding), CreatedAt: value.CreatedAt.Time, UpdatedAt: value.UpdatedAt.Time,
+		RemovalGeneration: &value.RemovalGeneration, LocalCleanup: pointerHostCleanup(value.LocalCleanup)}
 	if value.Hostname != "" {
 		result.Hostname = &value.Hostname
 	}
@@ -273,16 +379,18 @@ func toHost(value db.Host, probe db.HostProbeState, onboarding onboardingView) h
 		architecture := hostapi.HostArchitecture(value.Architecture.String)
 		result.Architecture = &architecture
 	}
-	if probe.HostID != uuid.Nil {
-		liveStatus := hostapi.HostLiveStatus(probe.Status)
-		result.LiveStatus = &liveStatus
-		probeLatency := int(probe.LatencyMs)
-		result.ProbeLatencyMs = &probeLatency
-		probedAt := probe.LastCheckedAt.Time
-		result.LastProbeAt = &probedAt
-	}
 	if value.LastSeenAt.Valid {
 		result.LastSeenAt = &value.LastSeenAt.Time
+	}
+	if onboarding.RemovalOperationID.Valid {
+		id := openapi_types.UUID(onboarding.RemovalOperationID.UUID)
+		result.RemovalOperationId = &id
+	}
+	if runtimeState.HostID != uuid.Nil {
+		result.Runtime = &hostapi.HostRuntimeObservation{Platform: hostapi.HostRuntimeObservationPlatform(runtimeState.Platform),
+			OpensshStatus: hostapi.HostRuntimeObservationOpensshStatus(runtimeState.OpensshStatus), RdpStatus: hostapi.HostRuntimeObservationRdpStatus(runtimeState.RdpStatus),
+			RdpNlaEnabled: runtimeState.RdpNlaEnabled, RdpFirewallEnabled: runtimeState.RdpFirewallEnabled,
+			RdpServiceRunning: runtimeState.RdpServiceRunning, ObservedAt: runtimeState.ObservedAt.Time}
 	}
 	return result
 }
@@ -302,6 +410,14 @@ func toHostOnboarding(value onboardingView) hostapi.OnboardingProjection {
 	}
 	if value.ErrorCode != "" {
 		result.ErrorCode = &value.ErrorCode
+	}
+	if value.InstallMethod != "" {
+		method := hostapi.HostInstallMethod(value.InstallMethod)
+		result.InstallMethod = &method
+	}
+	if value.SSHPath != "" {
+		path := hostapi.HostSSHPath(value.SSHPath)
+		result.SshPath = &path
 	}
 	return result
 }
@@ -346,8 +462,101 @@ func toHostConnectionTest(value db.ConnectionTest) hostapi.ConnectionTest {
 	if resultValue.RemoteVersion != "" {
 		result.RemoteVersion = &resultValue.RemoteVersion
 	}
+	if resultValue.Platform != "" {
+		platform := hostapi.ConnectionTestPlatform(resultValue.Platform)
+		result.Platform = &platform
+	}
+	if resultValue.Architecture != "" {
+		architecture := hostapi.ConnectionTestArchitecture(resultValue.Architecture)
+		result.Architecture = &architecture
+	}
+	if resultValue.DistributionVersion != "" {
+		result.DistributionVersion = &resultValue.DistributionVersion
+	}
+	if resultValue.ServiceManager != "" {
+		serviceManager := hostapi.ConnectionTestServiceManager(resultValue.ServiceManager)
+		result.ServiceManager = &serviceManager
+	}
+	if resultValue.Platform != "" {
+		privileged := resultValue.Privileged
+		freeDiskBytes := int64(resultValue.FreeDiskBytes)
+		result.Privileged = &privileged
+		result.FreeDiskBytes = &freeDiskBytes
+	}
 	if value.ErrorCode.Valid {
 		result.ErrorCode = &value.ErrorCode.String
+	}
+	return result
+}
+
+func toHostOnboardingOperation(operation db.HostOnboardingOperation, events []db.HostOnboardingOperationEvent) hostapi.HostOnboardingOperation {
+	converted := make([]hostapi.HostOnboardingOperationEvent, 0, len(events))
+	for _, event := range events {
+		item := hostapi.HostOnboardingOperationEvent{Id: openapi_types.UUID(event.ID), Stage: hostapi.HostOnboardingOperationEventStage(event.Stage),
+			Status: hostapi.HostOnboardingOperationEventStatus(event.Status), OccurredAt: event.OccurredAt.Time}
+		if event.ErrorCode.Valid {
+			item.ErrorCode = &event.ErrorCode.String
+		}
+		converted = append(converted, item)
+	}
+	result := hostapi.HostOnboardingOperation{Id: openapi_types.UUID(operation.ID), HostId: openapi_types.UUID(operation.HostID), ConnectorId: openapi_types.UUID(operation.ConnectorID),
+		InstallMethod: hostapi.HostOnboardingOperationInstallMethod(operation.InstallMethod), SshPath: hostapi.HostOnboardingOperationSshPath(operation.SshPath),
+		TargetPlatform: hostapi.HostOnboardingOperationTargetPlatform(operation.TargetPlatform), ControlPath: hostapi.HostControlPath(operation.ControlPath),
+		Stage: hostapi.HostOnboardingOperationStage(operation.Stage), Status: hostapi.HostOnboardingOperationStatus(operation.Status), Attempts: int(operation.Attempts),
+		MaxAttempts: 3, Events: converted, ExpiresAt: operation.ExpiresAt.Time, CreatedAt: operation.CreatedAt.Time, UpdatedAt: operation.UpdatedAt.Time}
+	if operation.BastionScopeID.Valid {
+		id := openapi_types.UUID(operation.BastionScopeID.UUID)
+		result.BastionScopeId = &id
+	}
+	if operation.ConnectionTestID.Valid {
+		id := openapi_types.UUID(operation.ConnectionTestID.UUID)
+		result.ConnectionTestId = &id
+	}
+	if operation.RetryOf.Valid {
+		id := openapi_types.UUID(operation.RetryOf.UUID)
+		result.RetryOf = &id
+	}
+	id := openapi_types.UUID(operation.ReleaseVersionID)
+	result.ReleaseVersionId = &id
+	if operation.ConnectorOnlineAt.Valid {
+		result.ConnectorOnlineAt = &operation.ConnectorOnlineAt.Time
+	}
+	if operation.CompletedAt.Valid {
+		result.CompletedAt = &operation.CompletedAt.Time
+	}
+	if operation.ErrorCode.Valid {
+		result.ErrorCode = &operation.ErrorCode.String
+	}
+	return result
+}
+
+func toHostRemovalOperation(view hostremoval.View) hostapi.HostRemovalOperation {
+	operation := view.Operation
+	events := make([]hostapi.HostRemovalOperationEvent, 0, len(view.Events))
+	for _, value := range view.Events {
+		item := hostapi.HostRemovalOperationEvent{Id: openapi_types.UUID(value.ID), Sequence: value.Sequence,
+			Stage: hostapi.HostRemovalStage(value.Stage), Status: hostapi.HostRemovalOperationEventStatus(value.Status), OccurredAt: value.OccurredAt.Time}
+		if value.ErrorCode.Valid {
+			item.ErrorCode = &value.ErrorCode.String
+		}
+		events = append(events, item)
+	}
+	targetID := operation.HostID
+	if operation.TargetType == hostremoval.TargetBastion && operation.BastionScopeID.Valid {
+		targetID = operation.BastionScopeID.UUID
+	}
+	result := hostapi.HostRemovalOperation{Id: openapi_types.UUID(operation.ID), TargetType: hostapi.HostRemovalTargetType(operation.TargetType),
+		TargetId: openapi_types.UUID(targetID), ConnectorId: openapi_types.UUID(operation.ConnectorID), Mode: hostapi.HostRemovalMode(operation.RemovalMode),
+		DeliveryMethod: hostapi.HostRemovalOperationDeliveryMethod(operation.DeliveryMethod), SshPath: hostapi.HostSSHPath(operation.SshPath),
+		TargetPlatform: hostapi.HostRemovalOperationTargetPlatform(operation.TargetPlatform), Status: hostapi.HostRemovalStatus(operation.Status),
+		Stage: hostapi.HostRemovalStage(operation.Stage), Attempt: int(operation.Attempts), MaxAttempts: 10,
+		LocalCleanup: hostapi.HostRemovalOperationLocalCleanup(operation.LocalCleanup), Events: events, ExpiresAt: operation.ExpiresAt.Time,
+		CreatedAt: operation.CreatedAt.Time, UpdatedAt: operation.UpdatedAt.Time}
+	if operation.ErrorCode.Valid {
+		result.ErrorCode = &operation.ErrorCode.String
+	}
+	if operation.CompletedAt.Valid {
+		result.CompletedAt = &operation.CompletedAt.Time
 	}
 	return result
 }
@@ -387,6 +596,11 @@ func optionalUUID(value *openapi_types.UUID) uuid.NullUUID {
 	return uuid.NullUUID{UUID: uuid.UUID(*value), Valid: true}
 }
 
+func pointerHostCleanup(value string) *hostapi.HostLocalCleanup {
+	converted := hostapi.HostLocalCleanup(value)
+	return &converted
+}
+
 func stringMap[T ~string](value map[string]T) map[string]string {
 	result := make(map[string]string, len(value))
 	for key, item := range value {
@@ -408,52 +622,80 @@ func hostError(ctx context.Context, err error) hostapi.ApiError {
 func hostErrorBase(ctx context.Context, err error) hostapi.ApiError {
 	base := setupErrorBase(ctx, err)
 	switch {
-	case errors.Is(err, resource.ErrResourceDenied):
+	case errors.Is(err, resource.ErrResourceDenied), errors.Is(err, hostremoval.ErrInvalidTarget):
 		base.Code, base.MessageKey = "RESOURCE_NOT_FOUND", "errors.common.resource_not_found"
 	case errors.Is(err, resource.ErrVersionConflict):
 		base.Code, base.MessageKey = "VERSION_CONFLICT", "errors.common.version_conflict"
+	case errors.Is(err, resource.ErrResourceNameConflict):
+		base.Code, base.MessageKey = "RESOURCE_NAME_CONFLICT", "errors.common.resource_name_conflict"
+		base.Retryable = retryablePointer(false)
+	case errors.Is(err, resource.ErrInvalidResourceName):
+		base.Code, base.MessageKey = "INVALID_ARGUMENT", "errors.common.invalid_argument"
+		base.Retryable = retryablePointer(false)
 	case errors.Is(err, resource.ErrConnectionTestNeeded):
 		base.Code, base.MessageKey = "CONNECTION_TEST_REQUIRED", "errors.connection_test.required"
 	case errors.Is(err, resource.ErrDirectTargetDenied):
 		base.Code, base.MessageKey = "DIRECT_TARGET_DENIED", "errors.direct.target_denied"
-	case errors.Is(err, resource.ErrWinRMTLSRequired):
-		base.Code, base.MessageKey = "WINRM_TLS_REQUIRED", "errors.remote_access.winrm_tls_required"
 	case errors.Is(err, resource.ErrActionInvalidated):
 		base.Code, base.MessageKey = "PENDING_ACTION_INVALIDATED", "errors.actions.pending_action_invalidated"
-	case errors.Is(err, resource.ErrSelfEnrollUnsupported):
-		base.Code, base.MessageKey = "HOST_SELF_ENROLL_UNSUPPORTED_PLATFORM", "errors.host_install.unsupported_platform"
-	case errors.Is(err, resource.ErrSelfEnrollConflictingInput):
+	case errors.Is(err, resource.ErrHostOnboardingUnsupported):
+		base.Code, base.MessageKey = "HOST_ONBOARDING_UNSUPPORTED_PLATFORM", "errors.host_install.unsupported_platform"
+	case errors.Is(err, resource.ErrHostOnboardingInvalid):
 		base.Code, base.MessageKey = "INVALID_ARGUMENT", "errors.common.invalid_argument"
 	case errors.Is(err, telemetryservice.ErrDistributionPending):
 		base.Code, base.MessageKey = "COLLECTOR_DISTRIBUTION_VALIDATION_PENDING", "errors.telemetry.distribution_validation_pending"
 	case errors.Is(err, telemetryservice.ErrCollectorArtifactUnavailable):
 		base.Code, base.MessageKey = "COLLECTOR_ARTIFACT_UNAVAILABLE", "errors.telemetry.artifact_unavailable"
 		base.Retryable = retryablePointer(true)
-	case errors.Is(err, telemetryservice.ErrSelfEnrolledOperationUnsupported):
-		base.Code, base.MessageKey = "HOST_OPERATION_UNSUPPORTED_FOR_SELF_ENROLLED", "errors.host_install.operation_unsupported"
-	case errors.Is(err, telemetryservice.ErrHostInstallTokenInvalid):
-		base.Code, base.MessageKey = "HOST_INSTALL_TOKEN_INVALID", "errors.host_install.token_invalid"
-	case errors.Is(err, telemetryservice.ErrHostInstallTokenConflict):
-		base.Code, base.MessageKey = "HOST_INSTALL_TOKEN_CONFLICT", "errors.host_install.token_conflict"
-	case errors.Is(err, telemetryservice.ErrHostUninstallTokenInvalid):
-		base.Code, base.MessageKey = "HOST_UNINSTALL_TOKEN_INVALID", "errors.host_uninstall.token_invalid"
-	case errors.Is(err, telemetryservice.ErrHostUninstallTokenConflict):
-		base.Code, base.MessageKey = "HOST_UNINSTALL_TOKEN_CONFLICT", "errors.host_uninstall.token_conflict"
+	case errors.Is(err, hostremoval.ErrDependenciesExist):
+		base.Code, base.MessageKey = "HOST_REMOVAL_DEPENDENCIES_EXIST", "errors.host_removal.dependencies_exist"
+	case errors.Is(err, hostremoval.ErrConnectionTestNeeded):
+		base.Code, base.MessageKey = "HOST_REMOVAL_CONNECTION_TEST_REQUIRED", "errors.host_removal.connection_test_required"
+	case errors.Is(err, hostremoval.ErrNotInstalled):
+		base.Code, base.MessageKey = "HOST_REMOVAL_NOT_INSTALLED", "errors.host_removal.not_installed"
+	case errors.Is(err, hostremoval.ErrIdentityChanged):
+		base.Code, base.MessageKey = "TARGET_IDENTITY_CHANGED", "errors.host_removal.target_identity_changed"
+	case errors.Is(err, hostremoval.ErrTokenInvalid):
+		base.Code, base.MessageKey = "HOST_REMOVAL_TOKEN_INVALID", "errors.host_removal.token_invalid"
+	case errors.Is(err, hostremoval.ErrOperationState):
+		base.Code, base.MessageKey = "HOST_REMOVAL_STATE_CONFLICT", "errors.host_removal.state_conflict"
 	}
-	return hostapi.ApiError{Code: base.Code, Message: base.Message, MessageKey: base.MessageKey,
+	result := hostapi.ApiError{Code: base.Code, Message: base.Message, MessageKey: base.MessageKey,
 		Params: copyErrorParams[map[string]hostapi.ApiError_Params_AdditionalProperties](base.Params), RequestId: base.RequestId,
 		Retryable: base.Retryable, TraceId: base.TraceId}
+	if errors.Is(err, resource.ErrInvalidResourceName) {
+		result.Params = copyErrorParams[map[string]hostapi.ApiError_Params_AdditionalProperties](map[string]string{"field": "name"})
+	}
+	return result
+}
+
+func hostRemovalStatus(err error) int {
+	switch {
+	case errors.Is(err, hostremoval.ErrTokenInvalid):
+		return http.StatusUnauthorized
+	case errors.Is(err, hostremoval.ErrConnectionTestNeeded):
+		return http.StatusUnprocessableEntity
+	case errors.Is(err, hostremoval.ErrInvalidTarget), errors.Is(err, resource.ErrResourceDenied), errors.Is(err, pgx.ErrNoRows):
+		return http.StatusNotFound
+	case errors.Is(err, hostremoval.ErrOperationState), errors.Is(err, hostremoval.ErrIdentityChanged),
+		errors.Is(err, hostremoval.ErrDependenciesExist), errors.Is(err, hostremoval.ErrNotInstalled), errors.Is(err, resource.ErrVersionConflict):
+		return http.StatusConflict
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 func resourceStatus(err error) int {
 	switch {
+	case errors.Is(err, resource.ErrInvalidResourceName):
+		return http.StatusBadRequest
 	case errors.Is(err, pgx.ErrNoRows), errors.Is(err, resource.ErrResourceDenied):
 		return http.StatusNotFound
 	case errors.Is(err, resource.ErrDirectTargetDenied):
 		return http.StatusForbidden
 	case errors.Is(err, actionservice.ErrStepUpRequired):
 		return http.StatusForbidden
-	case errors.Is(err, resource.ErrConnectionTestNeeded), errors.Is(err, resource.ErrWinRMTLSRequired), errors.Is(err, resource.ErrSelfEnrollUnsupported):
+	case errors.Is(err, resource.ErrConnectionTestNeeded), errors.Is(err, resource.ErrHostOnboardingUnsupported):
 		return http.StatusUnprocessableEntity
 	case errors.Is(err, telemetryservice.ErrCollectorArtifactUnavailable):
 		return http.StatusServiceUnavailable

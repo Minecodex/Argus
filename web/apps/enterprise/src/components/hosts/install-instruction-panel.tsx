@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { ActionOneTimeResult } from "@argus/api-client";
-import { Alert, CodeBlock, Tabs, TabsList, TabsTrigger } from "@argus/ui";
+import { Alert, CodeBlock } from "@argus/ui";
 
 export function InstallInstructionPanel({
   result,
@@ -16,12 +15,7 @@ export function InstallInstructionPanel({
   const instructionSets = Array.isArray(result.instruction_sets)
     ? result.instruction_sets
     : [];
-  const [requestedScope, setRequestedScope] = useState(
-    instructionSets[0]?.scope ?? "linux-system",
-  );
-  const instruction =
-    instructionSets.find((item) => item.scope === requestedScope) ??
-    instructionSets[0];
+  const instruction = instructionSets[0];
 
   if (!instruction) {
     return (
@@ -35,37 +29,23 @@ export function InstallInstructionPanel({
 
   return (
     <div className="argus-dialog__flow argus-detail-section">
-      {instructionSets.length > 1 && (
-        <Tabs
-          onValueChange={(value) =>
-            setRequestedScope(value as typeof requestedScope)
-          }
-          value={instruction.scope}
-        >
-          <TabsList>
-            {instructionSets.map((item) => (
-              <TabsTrigger key={item.scope} value={item.scope}>
-                {t(`hosts.wizard.installInstructions.scope.${item.scope}`)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      )}
-
       <Alert
         description={t(
-          instruction.download_tls_mode === "insecure-first-fetch"
+          instruction.bootstrap_tls_mode === "insecure-first-fetch"
             ? "hosts.wizard.installInstructions.insecureFirstFetch"
             : "hosts.wizard.installInstructions.downloadRisk",
         )}
         title={t(
-          instruction.download_tls_mode === "insecure-first-fetch"
+          instruction.bootstrap_tls_mode === "insecure-first-fetch"
             ? "hosts.wizard.installInstructions.insecureFirstFetchTitle"
             : "hosts.wizard.installInstructions.downloadRiskTitle",
         )}
         tone="warning"
       />
-      <CodeBlock code={instruction.command} language="bash" />
+      <CodeBlock
+        code={instruction.command}
+        language={instruction.shell === "powershell" ? "powershell" : "bash"}
+      />
       <p className="argus-muted">
         {t("hosts.wizard.installInstructions.bundle", {
           epoch: instruction.trust_bundle_epoch,

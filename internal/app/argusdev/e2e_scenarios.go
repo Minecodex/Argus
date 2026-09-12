@@ -35,6 +35,8 @@ func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 			err = a.runM10QueryScenario(ctx, env)
 		case "p4":
 			err = a.runP4Scenario(ctx, env)
+		case "tls":
+			err = a.runTLSScenario(ctx, env)
 		default:
 			err = fmt.Errorf("unsupported E2E dependency %q", phase)
 		}

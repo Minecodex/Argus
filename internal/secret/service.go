@@ -216,6 +216,9 @@ func (service Service) Rotate(ctx context.Context, actorID string, enterpriseID,
 		if err := q.RevokeCredentialLeasesBySecret(ctx, db.RevokeCredentialLeasesBySecretParams{EnterpriseID: enterpriseID, SecretID: secretID}); err != nil {
 			return SecretRecord{}, err
 		}
+		if err := q.AdvanceCredentialVersionsBySecret(ctx, db.AdvanceCredentialVersionsBySecretParams{EnterpriseID: enterpriseID, SecretID: secretID}); err != nil {
+			return SecretRecord{}, err
+		}
 		if err := q.ExpireConnectionTestsByCredential(ctx, db.ExpireConnectionTestsByCredentialParams{EnterpriseID: enterpriseID, SecretID: secretID}); err != nil {
 			return SecretRecord{}, err
 		}
@@ -404,7 +407,7 @@ func (service Service) RenewLease(
 // Callers use it when the recipient will redeem the lease over an authenticated channel.
 func (service Service) PrepareLeaseWithQueries(ctx context.Context, q *db.Queries, actorID string, enterpriseID uuid.UUID, request LeaseRequest) (db.CredentialLease, error) {
 	if request.TTL <= 0 || request.TTL > MaxLeaseTTL || request.OperationRef == "" || request.TargetResourceID == uuid.Nil ||
-		(request.RecipientType != "connector" && request.RecipientType != "direct_executor") || request.RecipientID == "" {
+		(request.RecipientType != "connector" && request.RecipientType != "direct_executor" && request.RecipientType != "connector_gateway") || request.RecipientID == "" {
 		return db.CredentialLease{}, ErrInvalidLease
 	}
 	credential, err := q.GetCredential(ctx, db.GetCredentialParams{ID: request.CredentialID, EnterpriseID: enterpriseID})
@@ -459,7 +462,7 @@ func secretAAD(enterpriseID, secretID uuid.UUID, version int32, secretType strin
 func protocolSupportsSecret(protocol, secretType string) bool {
 	supported := map[string]map[string]bool{
 		"ssh":        {"ssh_password": true, "ssh_private_key": true},
-		"winrm":      {"winrm_password": true},
+		"windows":    {"windows_password": true},
 		"kubernetes": {"kubeconfig": true},
 		"http":       {"api_token": true, "basic_auth": true},
 	}

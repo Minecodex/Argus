@@ -4,7 +4,10 @@ import { aiSettingsEn, aiSettingsZh } from "./ai-settings";
 import { accountEn, accountZh } from "./account";
 import { chatEn, chatZh } from "./chat";
 import { commonEn, commonZh } from "./common";
+import { connectionChecksEn, connectionChecksZh } from "./connection-checks";
 import { hostsEn, hostsZh } from "./hosts";
+import { resourceNamesEn, resourceNamesZh } from "./resource-names";
+import { hostRemovalEn, hostRemovalZh } from "./host-removal";
 import { kubernetesEn, kubernetesZh } from "./kubernetes";
 import { loginEn, loginZh } from "./login";
 import { pendingActionsEn, pendingActionsZh } from "./pending-actions";
@@ -25,12 +28,15 @@ import { errorsEn, errorsZh } from "./errors";
  * - 通用/跨模块文案放 `common.ts`，外壳与导航文案放 `shell.ts`。
  */
 const modulesZh = [
+  connectionChecksZh,
   commonZh,
   accountZh,
   shellZh,
   loginZh,
   chatZh,
   hostsZh,
+  resourceNamesZh,
+  hostRemovalZh,
   kubernetesZh,
   aiSettingsZh,
   remoteAccessZh,
@@ -42,12 +48,15 @@ const modulesZh = [
   errorsZh,
 ];
 const modulesEn = [
+  connectionChecksEn,
   commonEn,
   accountEn,
   shellEn,
   loginEn,
   chatEn,
   hostsEn,
+  resourceNamesEn,
+  hostRemovalEn,
   kubernetesEn,
   aiSettingsEn,
   remoteAccessEn,

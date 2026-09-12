@@ -46,6 +46,24 @@ SELECT * FROM connector_install_operations
 WHERE bastion_scope_id = $1 AND enterprise_id = $2
 ORDER BY created_at DESC, id DESC LIMIT 1;
 
+-- name: CancelConnectorInstallOperationsByScope :execrows
+UPDATE connector_install_operations SET status='cancelled',error_code='CONNECTOR_INSTALL_CANCELLED_BY_DELETE',
+ completed_at=now(),lease_owner='',lease_expires_at=NULL,updated_at=now()
+WHERE bastion_scope_id=$1 AND enterprise_id=$2 AND status IN ('queued','running','result_unknown');
+
+-- name: DeleteConnectorInstallOperationSecretsByScope :execrows
+DELETE FROM connector_install_operation_secrets secret
+USING connector_install_operations operation
+WHERE secret.operation_id=operation.id AND secret.enterprise_id=operation.enterprise_id
+  AND operation.bastion_scope_id=$1 AND operation.enterprise_id=$2;
+
+-- name: RevokeConnectorInstallCredentialLeasesByScope :execrows
+UPDATE credential_leases lease SET status='revoked'
+WHERE lease.enterprise_id=$2 AND lease.status='active' AND lease.operation_ref IN (
+  SELECT 'connector_install:'||operation.id::text FROM connector_install_operations operation
+  WHERE operation.bastion_scope_id=$1 AND operation.enterprise_id=$2
+);
+
 -- name: ClaimConnectorInstallOperations :many
 WITH claimed AS (
   SELECT id FROM connector_install_operations

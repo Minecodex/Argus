@@ -1361,7 +1361,7 @@ test("org role drawer: permission matrix uses credential, not secret", async ({
   ).toBeVisible();
 });
 
-test("host delete surfaces dual-approval state instead of silently closing", async ({
+test("active host must be uninstalled before its record can be deleted", async ({
   page,
 }) => {
   await login(page);
@@ -1370,27 +1370,6 @@ test("host delete surfaces dual-approval state instead of silently closing", asy
   // 选取一个已知独立主机,确认初始可见。
   const target = page.locator(".argus-host-tile", { hasText: "public-web-01" });
   await expect(target).toBeVisible();
-  await target.getByRole("button", { name: "删除" }).click();
-
-  // 第一段:删除确认框;第二段:Preview/Confirm 卡。
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "删除" }).click();
-  await dialog.getByRole("button", { name: "确认执行" }).click();
-
-  // 删除为危险操作,进入双人审批:卡片必须保持打开并给出明确引导,
-  // 而不是静默关闭让用户误以为"删除没有生效/列表没有刷新"。
-  await expect(dialog.getByText("已确认，等待审批通过后执行")).toBeVisible();
-  await expect(dialog.getByText(/双人审批/)).toBeVisible();
-  // Dialog 自身也有一个"关闭"(X)按钮,用卡片内的那个。
-  await dialog
-    .getByRole("button", { name: "关闭" })
-    .filter({ hasText: "关闭" })
-    .first()
-    .click();
-  await expect(dialog).toHaveCount(0);
-
-  // 未批准前主机仍在列表(治理语义正确);审批中心出现待办。
-  await expect(target).toBeVisible();
-  await expect(page.getByRole("link", { name: /审批中心/ })).toBeVisible();
+  await expect(target.getByRole("button", { name: "删除" })).toHaveCount(0);
+  await expect(target.getByRole("button", { name: "卸载" })).toBeVisible();
 });

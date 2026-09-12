@@ -65,6 +65,8 @@ spec:
 
 `bootstrapTLSMode` 控制目标机第一次取得引导脚本的方式：`managed` 默认 `insecure-first-fetch`，用于目标系统尚不信任 Argus 自签名 CA 的情况；`existing-cluster-issuer` 默认 `strict`，适用于目标系统已经信任服务端证书链。客户私有 Issuer 是否已进入每台目标机的系统信任库无法由控制面可靠推断，因此允许管理员显式选择。两种模式不会在运行时互相回退：`strict` 校验失败即失败，`insecure-first-fetch` 也只影响第一个脚本请求。
 
+Server、Worker 和 Telemetry Ingest 统一加载并传递 `installinstruction.TrustConfig`（Bundle 路径、epoch 和首次下载模式）。动态下载命令的生成器拒绝缺失模式，不能在应用组装漏传时默认为 `strict`。Telemetry Ingest 提供普通主机的动态脚本，因此也必须配置当前 Trust Bundle、`ARGUS_BOOTSTRAP_TLS_MODE` 和 `ARGUS_HOST_INSTALLER_SHA256`，启动时校验模式与摘要。配置更新不会改写已经生成的一次性结果；修复或切换策略后需要重新生成命令。
+
 argusctl 安装或复用锁定兼容版本的 cert-manager 与 trust-manager。trust-manager 把 `argus-trust-bundle` 只同步到带 Argus 标签的控制面命名空间。客户端只挂载公共 Bundle，不从任何服务端 TLS Secret 读取 `ca.crt`，也不会接触 CA 或其他服务私钥。
 
 服务端叶证书默认 90 天并提前 15 天续期；Connector、Collector 和服务间客户端身份默认 24 小时并提前 8 小时轮换。
@@ -72,11 +74,13 @@ argusctl 安装或复用锁定兼容版本的 cert-manager 与 trust-manager。t
 
 ## 4. 安装指令与 SSH
 
-API 返回结构化 `InstallInstructionSet`，分别提供 Linux 系统、Linux 用户或 Kubernetes 作用域。每个作用域只返回一个 `command`，页面不再提供一行、交互式和自动化三种命令模式或模式 Tab。Host 与手工 Connector 的命令把带一次性令牌请求头的动态引导脚本下载到权限受限的临时文件，再执行该文件；Kubernetes 使用等价的单命令临时脚本执行。指令同时携带 `download_tls_mode`（仅动态下载入口）、Bundle epoch/hash、安装器 SHA-256 和能力警告。
+API 返回单平台、系统级 `InstallInstructionSet`。每次只展示 Linux POSIX Shell、Windows PowerShell 或 Kubernetes 中目标所需的一条 `command`，不提供脚本语言 Tab 和 Linux 用户级安装。指令同时携带 `bootstrap_tls_mode`（仅动态下载入口）、发行版本、Bundle epoch/hash、Bootstrap SHA-256、安装器 SHA-256 和能力警告。
 
-短入口分别由 `/api/v1/connectors/bootstrap-script` 和 `/v1/host-bootstrap-script` 提供。令牌放在 `X-Argus-Enrollment-Token` 请求头而不是 URL；响应使用 `no-store`，下载动作进入审计，但不消费令牌。真正的 enrollment/卸载交换仍使用原有原子单次消费语义，因此网络重试不会提前耗尽授权。
+Host、Bastion 和 Kubernetes Connector 共用 `/api/v1/connectors/bootstrap-script`。令牌放在 `X-Argus-Enrollment-Token` 请求头而不是 URL；响应使用 `no-store`，下载不消费令牌。真正的 enrollment 使用原子单次消费语义，因此网络重试不会提前耗尽授权。
 
-当 `download_tls_mode=insecure-first-fetch` 时，只有上述第一个 `curl` 带 `--insecure`。这解决“目标机还不信任自签名 CA，因而无法先下载包含 CA 的脚本”的引导闭环，但意味着该次请求可能被中间人替换并执行；它是管理员明确选择的快速接入权衡，不等价于端到端可信引导。需要完整传输身份保证时应让目标机预置信任 CA，或使用受公开 CA 保护的入口并配置 `strict`。
+当 `bootstrap_tls_mode=insecure-first-fetch` 时，只有上述第一个 `curl`/`curl.exe` 带 `--insecure`。这解决“目标机还不信任自签名 CA，因而无法先下载包含 CA 的脚本”的引导闭环，但意味着该次请求可能被中间人替换并执行；它是管理员明确选择的快速接入权衡，不等价于端到端可信引导。需要完整传输身份保证时应让目标机预置信任 CA，或使用受公开 CA 保护的入口并配置 `strict`。
+
+模式 A 仅要求堡垒机主动出站可达 API、Artifact 和 Connector Gateway，不要求 Argus 反向 SSH 到堡垒机。`curl: (60)` 出现在首次脚本下载时，表示目标系统不能验证入口证书链，此时脚本尚未执行、注册令牌尚未消费。页面“安装命令已领取，等待注册”表示一次性结果已经展示，不能当作安装成功或令牌消费状态。
 
 安全引导顺序固定为：
 
@@ -86,13 +90,15 @@ API 返回结构化 `InstallInstructionSet`，分别提供 Linux 系统、Linux 
 4. 校验固定的安装器 SHA-256，成功后才执行脚本。
 5. 安装器使用同一 Bundle 获取冻结 Manifest、交换一次性令牌并下载 Artifact。
 6. 二进制继续校验 SHA-256、大小和 Ed25519 签名。
-7. 仅在上述校验完成后，系统模式才以 root 运行或请求 sudo；用户模式不提权。
+7. 仅在上述校验完成后才以 root/管理员权限写入系统目录并注册 systemd 或 Windows Service。
 
-禁止 `curl | bash`。没有 sudo 时系统模式明确失败并提示切换用户模式；用户模式使用 XDG 目录和 `systemd --user`，未启用 linger 时只保证登录会话存续。需要内核数据、系统目录或特殊 capability 的 Profile 不允许用户模式。
+禁止 `curl | bash`。Linux 目标没有 root/sudo、没有 systemd 或不满足系统目录权限时明确失败；产品不提供用户级 Connector 安装。Alpine 等非 systemd 系统只执行 POSIX/供应链预检并返回稳定的不支持结果，不在当前正式运行矩阵中伪装成功。
 
 SSH 远程安装先严格验证主机密钥，再把安装计划冻结的版本化 Bundle 写入 `/etc/argus-connector/server-ca.pem`，复制已校验安装器和冻结 Manifest。Connector enrollment 必须显式传入该 CA 文件，不能回退系统根；目标不能直连 Argus 时使用受管隧道，TCP 可以拨到 loopback，但 HTTP Host、TLS SNI 与证书主机名始终保持原始 Argus 域名。
 
-Windows Collector 当前仍是 `validation_pending`，不出现在正式 `InstallInstructionSet` 中。仓库内验证脚本同样要求 Bundle SHA/CA 约束及 Artifact SHA-256/Ed25519 全部成功后才检查管理员权限和写入 Windows Service，不能作为绕过 TLS 或供应链验证的旁路。
+Windows amd64 Connector 已进入正式 `InstallInstructionSet`，PowerShell 5.1+ 不依赖 OpenSSL；下载的 Connector 先校验大小和 SHA-256，再由其 `verify-artifact` 子命令校验 Ed25519。Windows Collector 发行目录仍保持 `validation_pending`，实机矩阵通过前不能提交“启用采集”。
+
+`go run ./cmd/argus-dev e2e run --suite tls` 会在两个独立临时集群中验证 `managed + strict` 和 `existing-cluster-issuer + strict`：未预置信任时首次请求失败且 Token 未消费，写入服务 CA 后同一条命令完成注册。`insecure-first-fetch` 由 P4 套件验证；错误 CA、错误名称、过期证书、摘要篡改和旧 Bundle epoch 由 Linux 执行测试与 Connector 状态测试覆盖。
 
 ## 5. 运行时热加载
 
@@ -150,7 +156,7 @@ argusctl pki repair-command --node-kind connector --node-id <id> --scope linux-s
 argusctl pki repair-command --node-kind collector --node-id <id> --scope kubernetes
 ```
 
-修复命令嵌入当前公共 Bundle、验证 epoch/hash，并为相同逻辑节点签发一次性修复令牌和新身份；二进制不重装。Linux 用户安装选择 `linux-user`，Kubernetes 可通过 `--target-namespace` 指定 Connector 命名空间。
+修复命令嵌入当前公共 Bundle、验证 epoch/hash，并为相同逻辑节点签发一次性修复令牌和新身份；二进制不重装。Host/Bastion 只支持系统级修复，Kubernetes 可通过 `--target-namespace` 指定 Connector 命名空间。
 
 操作命令：
 

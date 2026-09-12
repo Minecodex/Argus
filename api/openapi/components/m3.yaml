@@ -1,11 +1,17 @@
 components:
   schemas:
+    ResourceNameAvailability:
+      type: object
+      additionalProperties: false
+      required: [available]
+      properties:
+        available: {type: boolean, description: Whether the name can currently be used for creation in the authenticated enterprise. This does not reserve the name.}
     Environment:
       type: string
       enum: [development, staging, production]
     SecretType:
       type: string
-      enum: [ssh_password, ssh_private_key, winrm_password, kubeconfig, api_token, basic_auth]
+      enum: [ssh_password, ssh_private_key, windows_password, kubeconfig, api_token, basic_auth]
     Secret:
       type: object
       additionalProperties: false
@@ -64,7 +70,7 @@ components:
         id: {type: string, format: uuid}
         enterprise_id: {type: string, format: uuid, readOnly: true}
         name: {type: string, minLength: 1, maxLength: 128}
-        protocol: {type: string, enum: [ssh, winrm, kubernetes, http]}
+        protocol: {type: string, enum: [ssh, windows, kubernetes, http]}
         username: {type: string, maxLength: 256}
         secret_id: {type: string, format: uuid}
         status: {type: string, enum: [active, disabled]}
@@ -77,7 +83,7 @@ components:
       required: [name, protocol, secret_id]
       properties:
         name: {type: string, minLength: 1, maxLength: 128}
-        protocol: {type: string, enum: [ssh, winrm, kubernetes, http]}
+        protocol: {type: string, enum: [ssh, windows, kubernetes, http]}
         username: {type: string, maxLength: 256}
         secret_id: {type: string, format: uuid}
     CredentialUpdate:
@@ -108,7 +114,7 @@ components:
         username: {type: string, minLength: 1, maxLength: 256}
         privilege_level: {type: string, enum: [standard, sudo, administrator]}
         credential_id: {type: string, format: uuid}
-        allowed_protocols: {type: array, minItems: 1, uniqueItems: true, items: {type: string, enum: [ssh, winrm]}}
+        allowed_protocols: {type: array, minItems: 1, uniqueItems: true, items: {type: string, enum: [shell, ssh, rdp]}}
         status: {type: string, enum: [active, disabled]}
         version: {type: integer, format: int64, minimum: 1}
         created_at: {type: string, format: date-time}
@@ -122,7 +128,7 @@ components:
         username: {type: string, minLength: 1, maxLength: 256}
         privilege_level: {type: string, enum: [standard, sudo, administrator]}
         credential_id: {type: string, format: uuid}
-        allowed_protocols: {type: array, minItems: 1, uniqueItems: true, items: {type: string, enum: [ssh, winrm]}}
+        allowed_protocols: {type: array, minItems: 1, uniqueItems: true, items: {type: string, enum: [shell, ssh, rdp]}}
     ManagedAccountUpdate:
       type: object
       additionalProperties: false
@@ -131,7 +137,7 @@ components:
         username: {type: string, minLength: 1, maxLength: 256}
         privilege_level: {type: string, enum: [standard, sudo, administrator]}
         credential_id: {type: string, format: uuid}
-        allowed_protocols: {type: array, minItems: 1, uniqueItems: true, items: {type: string, enum: [ssh, winrm]}}
+        allowed_protocols: {type: array, minItems: 1, uniqueItems: true, items: {type: string, enum: [shell, ssh, rdp]}}
         status: {type: string, enum: [active, disabled]}
         expected_version: {type: integer, format: int64, minimum: 1}
     ManagedAccountPage:
@@ -141,36 +147,51 @@ components:
       properties:
         items: {type: array, items: {$ref: "#/components/schemas/ManagedAccount"}}
         page: {$ref: "./common.yaml#/components/schemas/CursorPage"}
-    HostConnectionMode:
-      type: string
-      enum: [connector_local, via_bastion, direct_ssh, direct_winrm, self_enrolled]
+    HostRole: {type: string, enum: [managed_host, bastion]}
+    HostControlPath: {type: string, enum: [direct, bastion_relay, executor_tunnel]}
+    HostInstallMethod: {type: string, enum: [manual, ssh]}
+    HostSSHPath: {type: string, enum: [none, direct_executor, bastion_connector]}
+    HostRuntimeObservation:
+      type: object
+      additionalProperties: false
+      required: [platform, openssh_status, rdp_status, rdp_nla_enabled, rdp_firewall_enabled, rdp_service_running, observed_at]
+      properties:
+        platform: {type: string, enum: [linux, windows]}
+        openssh_status: {type: string, enum: [available, unavailable, unknown]}
+        rdp_status: {type: string, enum: [enabled, disabled, unavailable, unknown]}
+        rdp_nla_enabled: {type: boolean}
+        rdp_firewall_enabled: {type: boolean}
+        rdp_service_running: {type: boolean}
+        observed_at: {type: string, format: date-time}
     Host:
       type: object
       additionalProperties: false
-      required: [id, enterprise_id, name, address, port, platform, connection_mode, environment, labels, labels_version, resource_version, connection_status, status, onboarding, created_at, updated_at]
+      required: [id, enterprise_id, name, address, port, platform, role, control_path, environment, labels, labels_version, resource_version, connection_status, status, onboarding, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         enterprise_id: {type: string, format: uuid, readOnly: true}
         name: {type: string, minLength: 1, maxLength: 128}
         hostname: {type: string, maxLength: 253}
-        address: {type: string, minLength: 0, maxLength: 512, description: 'self_enrolled 主机在激活前为空,激活后为自报地址'}
-        port: {type: integer, minimum: 0, maximum: 65535, description: 'self_enrolled 主机在激活前为 0'}
+        address: {type: string, minLength: 0, maxLength: 512, description: 'Connector 注册前可以为空，注册后由可信 enrollment 回填'}
+        port: {type: integer, minimum: 0, maximum: 65535}
         platform: {type: string, enum: [linux, windows]}
         architecture: {type: string, enum: [amd64, arm64], readOnly: true, description: '连接测试探测的目标架构(uname -m 归一化),Linux 连接测试必须成功识别架构,Collector 安装按此选择签名产物'}
-        connection_mode: {$ref: "#/components/schemas/HostConnectionMode"}
+        role: {$ref: "#/components/schemas/HostRole"}
+        control_path: {$ref: "#/components/schemas/HostControlPath"}
         bastion_scope_id: {type: string, format: uuid}
         connector_id: {type: string, format: uuid}
+        runtime: {$ref: "#/components/schemas/HostRuntimeObservation", readOnly: true}
         environment: {$ref: "#/components/schemas/Environment"}
         labels: {$ref: "../../schemas/labels/labels.schema.json#/$defs/Labels"}
         labels_version: {type: integer, format: int64, minimum: 1}
         resource_version: {type: integer, format: int64, minimum: 1}
         connection_status: {type: string, enum: [online, offline, onboarding, degraded, unknown]}
-        live_status: {type: string, enum: [online, offline, key_changed], readOnly: true, description: '周期探活的实时状态(直连主机);key_changed 表示 SSH 主机键与 pin 值不一致'}
-        last_probe_at: {type: string, format: date-time, readOnly: true, description: '最近一次探活时间'}
-        probe_latency_ms: {type: integer, readOnly: true, description: '最近一次探活往返时延'}
         pinned_host_key: {type: string, maxLength: 512}
         last_seen_at: {type: string, format: date-time}
-        status: {type: string, enum: [active, disabled, deleted]}
+        status: {type: string, enum: [active, disabled, draining, uninstalling, uninstalled, removal_failed, cleanup_unknown, deleted]}
+        removal_generation: {type: integer, format: int64, minimum: 0, readOnly: true}
+        local_cleanup: {type: string, enum: [verified, pending, unknown], readOnly: true}
+        removal_operation_id: {type: string, format: uuid, readOnly: true}
         onboarding: {$ref: "#/components/schemas/OnboardingProjection"}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
@@ -184,21 +205,24 @@ components:
     HostPreviewCreate:
       type: object
       additionalProperties: false
-      required: [name, platform, connection_mode, environment, labels]
+      required: [name, platform, role, control_path, install_method, ssh_path, environment, labels]
       properties:
         name: {type: string, minLength: 1, maxLength: 128}
         hostname: {type: string, maxLength: 253}
-        address: {type: string, minLength: 0, maxLength: 512, description: 'self_enrolled 模式不填写;其余模式必填(服务端按模式校验)'}
-        port: {type: integer, minimum: 0, maximum: 65535, description: 'self_enrolled 模式不填写;其余模式必填(服务端按模式校验)'}
-        platform: {type: string, enum: [linux, windows], description: 'self_enrolled 第一版仅支持 linux'}
-        connection_mode: {type: string, enum: [via_bastion, direct_ssh, direct_winrm, self_enrolled]}
+        address: {type: string, minLength: 0, maxLength: 512, description: 'manual 不填写；ssh 必填'}
+        port: {type: integer, minimum: 0, maximum: 65535, description: 'manual 为 0；ssh 必填'}
+        platform: {type: string, enum: [linux, windows]}
+        role: {type: string, const: managed_host}
+        control_path: {$ref: "#/components/schemas/HostControlPath"}
+        install_method: {$ref: "#/components/schemas/HostInstallMethod"}
+        ssh_path: {$ref: "#/components/schemas/HostSSHPath"}
         bastion_scope_id: {type: string, format: uuid}
-        credential_id: {type: string, format: uuid, description: 'self_enrolled 模式不提供'}
-        username: {type: string, minLength: 0, maxLength: 256, description: 'self_enrolled 模式不提供'}
-        architecture: {type: string, enum: [amd64, arm64], description: 'self_enrolled 模式由用户按目标机器选择;其余模式由连接测试探测,不接受填写'}
+        credential_id: {type: string, format: uuid, description: 'ssh 模式必填'}
+        username: {type: string, minLength: 0, maxLength: 256, description: 'ssh 模式必填'}
+        architecture: {type: string, enum: [amd64, arm64], description: 'manual 由用户选择；ssh 由连接测试探测'}
         environment: {$ref: "#/components/schemas/Environment"}
         labels: {$ref: "../../schemas/labels/labels.schema.json#/$defs/UserLabels"}
-        connection_test_id: {type: string, format: uuid, description: 'self_enrolled 模式免测试,不提供;其余模式必填(服务端按模式校验)'}
+        connection_test_id: {type: string, format: uuid, description: 'ssh 模式必填'}
     OnboardingProjection:
       type: object
       additionalProperties: false
@@ -209,6 +233,8 @@ components:
         execution_id: {type: string, format: uuid}
         operation_id: {type: string, format: uuid}
         error_code: {type: string, pattern: "^[A-Z][A-Z0-9_]*$"}
+        install_method: {$ref: "#/components/schemas/HostInstallMethod", readOnly: true}
+        ssh_path: {$ref: "#/components/schemas/HostSSHPath", readOnly: true}
         updated_at: {type: string, format: date-time}
     ResourcePreviewUpdate:
       type: object
@@ -227,13 +253,8 @@ components:
       properties:
         name: {type: string, minLength: 1, maxLength: 128}
         hostname: {type: string, maxLength: 253}
-        address: {type: string, minLength: 1, maxLength: 512}
-        port: {type: integer, minimum: 1, maximum: 65535}
-        connection_mode: {type: string, enum: [via_bastion, direct_ssh, direct_winrm]}
-        bastion_scope_id: {type: string, format: uuid}
         environment: {$ref: "#/components/schemas/Environment"}
         labels: {$ref: "../../schemas/labels/labels.schema.json#/$defs/UserLabels"}
-        connection_test_id: {type: string, format: uuid}
         expected_version: {type: integer, format: int64, minimum: 1}
     ResourcePreviewDelete:
       type: object
@@ -251,7 +272,7 @@ components:
         port: {type: integer, minimum: 1, maximum: 65535}
         username: {type: string, minLength: 1, maxLength: 256}
         credential_id: {type: string, format: uuid}
-        connection_test_id: {type: string, format: uuid, description: '模式 B/C 必填；必须是当前有效的 direct_ssh 测试'}
+        connection_test_id: {type: string, format: uuid, description: '模式 B/C 必填；必须是当前有效且字段完全匹配的 SSH 连接测试'}
     ConnectionTest:
       type: object
       additionalProperties: false
@@ -278,6 +299,12 @@ components:
         resolved_ips: {type: array, maxItems: 16, uniqueItems: true, items: {type: string}}
         host_key_fingerprint: {type: string, maxLength: 512}
         remote_version: {type: string, maxLength: 128}
+        platform: {type: string, enum: [linux, windows]}
+        architecture: {type: string, enum: [amd64, arm64]}
+        distribution_version: {type: string, minLength: 1, maxLength: 256}
+        service_manager: {type: string, enum: [systemd, windows_scm]}
+        privileged: {type: boolean}
+        free_disk_bytes: {type: integer, format: int64, minimum: 0}
         error_code: {type: string, pattern: "^[A-Z][A-Z0-9_]*$"}
         expires_at: {type: string, format: date-time}
         created_at: {type: string, format: date-time}
@@ -285,12 +312,16 @@ components:
     HostConnectionTestCreate:
       type: object
       additionalProperties: false
-      required: [address, port, platform, connection_mode, credential_id, username]
+      required: [address, port, platform, ssh_path, credential_id, username]
       properties:
         address: {type: string, minLength: 1, maxLength: 512}
         port: {type: integer, minimum: 1, maximum: 65535}
         platform: {type: string, enum: [linux, windows]}
-        connection_mode: {type: string, enum: [via_bastion, direct_ssh, direct_winrm]}
+        ssh_path: {type: string, enum: [direct_executor, bastion_connector]}
+        onboarding_control_path:
+          type: string
+          enum: [direct, bastion_relay, executor_tunnel]
+          description: Validate the target callback route for SSH installation; omit for an SSH-only connection test such as removal.
         bastion_scope_id: {type: string, format: uuid}
         credential_id: {type: string, format: uuid}
         username: {type: string, minLength: 1, maxLength: 256}
@@ -400,7 +431,7 @@ components:
         bytes: {type: integer, minimum: 0, maximum: 1048576}
     ConnectorRole:
       type: string
-      enum: [bastion, kubernetes]
+      enum: [host, bastion, kubernetes]
     Connector:
       type: object
       additionalProperties: false
@@ -433,19 +464,28 @@ components:
     BastionScope:
       type: object
       additionalProperties: false
-      required: [id, enterprise_id, name, environment, labels, status, onboarding_mode, onboarding, fencing_generation, member_count, resource_version, created_at, updated_at]
+      required: [id, enterprise_id, name, environment, labels, status, onboarding_mode, onboarding, relay_https_port, relay_gateway_port, relay_port_generation, relay_status, fencing_generation, member_count, resource_version, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         enterprise_id: {type: string, format: uuid, readOnly: true}
         name: {type: string, minLength: 1, maxLength: 128}
         environment: {$ref: "#/components/schemas/Environment"}
         labels: {$ref: "../../schemas/labels/labels.schema.json#/$defs/Labels"}
-        status: {type: string, enum: [pending, active, suspected_offline, offline, uninstalling, uninstalled, deleted]}
+        status: {type: string, enum: [pending, active, suspected_offline, offline, draining, uninstalling, uninstalled, removal_failed, cleanup_unknown, deleted]}
+        removal_generation: {type: integer, format: int64, minimum: 0, readOnly: true}
+        local_cleanup: {type: string, enum: [verified, pending, unknown], readOnly: true}
+        removal_operation_id: {type: string, format: uuid, readOnly: true}
         onboarding_mode: {type: string, enum: [command, direct_install, direct_install_tunnel], readOnly: true}
         onboarding: {$ref: "#/components/schemas/OnboardingProjection"}
         connector_host_id: {type: string, format: uuid}
         active_connector_id: {type: string, format: uuid}
         control_tunnel_status: {type: string, enum: [desired, establishing, established, degraded, down, removed], readOnly: true, description: '模式 C 长期控制隧道的权威状态；与 Connector 在线状态独立'}
+        relay_address: {type: string, minLength: 1, maxLength: 512, readOnly: true, description: 'Connector 首次成功监听后自动上报的成员拨号地址'}
+        relay_https_port: {type: integer, minimum: 1, maximum: 65535, readOnly: true}
+        relay_gateway_port: {type: integer, minimum: 1, maximum: 65535, readOnly: true}
+        relay_port_generation: {type: integer, format: int64, minimum: 0, readOnly: true}
+        relay_status: {type: string, enum: [pending, ready, degraded, offline], readOnly: true}
+        relay_error_code: {type: string, pattern: "^[A-Z][A-Z0-9_]*$", readOnly: true}
         fencing_generation: {type: integer, format: int64, minimum: 1}
         member_count: {type: integer, minimum: 0}
         resource_version: {type: integer, format: int64, minimum: 1}
@@ -468,13 +508,14 @@ components:
         labels: {$ref: "../../schemas/labels/labels.schema.json#/$defs/UserLabels"}
         # PlanV4 Task 06 安装模式:command=一次性命令行;direct_install=
         # 平台 SSH 代装(双向可达);direct_install_tunnel=代装+控制通道反向隧道
-        # (堡垒机无出站)。后两者要求 direct 字段与成功的 direct_ssh 连接测试。
+        # (堡垒机无出站)。后两者要求 direct 字段与成功的 SSH 连接测试。
         install_mode: {type: string, enum: [command, direct_install, direct_install_tunnel]}
+        architecture: {type: string, enum: [amd64, arm64], description: '命令安装必填；SSH 安装由连接测试探测'}
         address: {type: string, minLength: 1, maxLength: 512}
         port: {type: integer, minimum: 1, maximum: 65535}
         username: {type: string, minLength: 1, maxLength: 256}
         credential_id: {type: string, format: uuid}
-        connection_test_id: {type: string, format: uuid, description: '代装模式必填:与本表单字段匹配且成功的 direct_ssh 主机连接测试'}
+        connection_test_id: {type: string, format: uuid, description: '代装模式必填:与本表单字段匹配且成功的 SSH 主机连接测试'}
     ConnectorInstallOperationEvent:
       type: object
       additionalProperties: false
@@ -486,6 +527,164 @@ components:
         error_code: {type: string, pattern: "^[A-Z][A-Z0-9_]*$"}
         detail: {type: string, maxLength: 1024}
         occurred_at: {type: string, format: date-time}
+    HostOnboardingOperationEvent:
+      type: object
+      additionalProperties: false
+      required: [id, stage, status, occurred_at]
+      properties:
+        id: {type: string, format: uuid}
+        stage: {type: string, enum: [queued, probing, transferring, installing, enrolling, waiting_online, completed]}
+        status: {type: string, enum: [started, succeeded, failed, retrying]}
+        error_code: {type: string, pattern: "^[A-Z][A-Z0-9_]*$"}
+        occurred_at: {type: string, format: date-time}
+    HostOnboardingOperation:
+      type: object
+      additionalProperties: false
+      required: [id, host_id, connector_id, install_method, ssh_path, target_platform, control_path, stage, status, attempts, max_attempts, events, expires_at, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        host_id: {type: string, format: uuid}
+        connector_id: {type: string, format: uuid}
+        retry_of: {type: string, format: uuid}
+        release_version_id: {type: string, format: uuid}
+        connection_test_id: {type: string, format: uuid}
+        install_method: {type: string, enum: [manual, ssh]}
+        ssh_path: {type: string, enum: [none, direct_executor, bastion_connector]}
+        target_platform: {type: string, enum: [linux_amd64, linux_arm64, windows_amd64]}
+        control_path: {$ref: "#/components/schemas/HostControlPath"}
+        bastion_scope_id: {type: string, format: uuid}
+        stage: {type: string, enum: [queued, probing, transferring, installing, enrolling, waiting_online, completed]}
+        status: {type: string, enum: [queued, running, succeeded, failed, result_unknown, expired, cancelled]}
+        attempts: {type: integer, minimum: 0, maximum: 3}
+        max_attempts: {type: integer, minimum: 1, maximum: 3}
+        connector_online_at: {type: string, format: date-time}
+        error_code: {type: string, pattern: "^[A-Z][A-Z0-9_]*$"}
+        events: {type: array, maxItems: 256, items: {$ref: "#/components/schemas/HostOnboardingOperationEvent"}}
+        completed_at: {type: string, format: date-time}
+        expires_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    HostRemovalTargetType:
+      type: string
+      enum: [managed_host, bastion_scope]
+    HostRemovalMode:
+      type: string
+      enum: [uninstall, forget]
+    HostRemovalStatus:
+      type: string
+      enum: [queued, running, awaiting_manual_execution, succeeded, failed, cleanup_unknown]
+    HostRemovalStage:
+      type: string
+      enum: [queued, draining, terminating_sessions, awaiting_manual_execution, uninstalling_workloads, stopping_relay, uninstalling_connector, verifying_cleanup, revoking_identities, completed]
+    HostRemovalDependency:
+      type: object
+      additionalProperties: false
+      required: [type, id, name, reason]
+      properties:
+        type: {type: string, enum: [member_host, onboarding_operation, removal_operation, telemetry_route, telemetry_tunnel, collector, collector_operation, remote_session, connector_command, credential_lease, control_tunnel]}
+        id: {type: string, format: uuid}
+        name: {type: string, maxLength: 256}
+        reason: {type: string, maxLength: 128}
+    HostRemovalConnectionDefaults:
+      type: object
+      additionalProperties: false
+      required: [username, status]
+      properties:
+        username: {type: string}
+        status: {type: string, enum: [available, credential_unavailable, unavailable, not_applicable]}
+        credential_id: {type: string, format: uuid}
+        credential_name: {type: string}
+    HostRemovalPreview:
+      type: object
+      additionalProperties: false
+      required: [target_type, target_id, expected_version, mode]
+      properties:
+        target_type: {$ref: "#/components/schemas/HostRemovalTargetType"}
+        target_id: {type: string, format: uuid}
+        expected_version: {type: integer, format: int64, minimum: 1}
+        mode: {$ref: "#/components/schemas/HostRemovalMode"}
+        connection_test_id: {type: string, format: uuid}
+        credential_id: {type: string, format: uuid}
+        confirmation_name: {type: string, minLength: 1, maxLength: 128, description: 'mode=forget 时必须与资源当前名称完全一致'}
+    HostRemovalOperationEvent:
+      type: object
+      additionalProperties: false
+      required: [id, sequence, stage, status, occurred_at]
+      properties:
+        id: {type: string, format: uuid}
+        sequence: {type: integer, format: int64, minimum: 1}
+        stage: {$ref: "#/components/schemas/HostRemovalStage"}
+        status: {type: string, enum: [started, succeeded, failed, unknown, resumed]}
+        error_code: {type: string, pattern: "^[A-Z][A-Z0-9_]*$"}
+        occurred_at: {type: string, format: date-time}
+    HostRemovalOperation:
+      type: object
+      additionalProperties: false
+      required: [id, target_type, target_id, connector_id, mode, delivery_method, ssh_path, target_platform, status, stage, attempt, max_attempts, local_cleanup, events, expires_at, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        target_type: {$ref: "#/components/schemas/HostRemovalTargetType"}
+        target_id: {type: string, format: uuid}
+        connector_id: {type: string, format: uuid}
+        mode: {$ref: "#/components/schemas/HostRemovalMode"}
+        delivery_method: {type: string, enum: [manual, ssh, server_only]}
+        ssh_path: {$ref: "#/components/schemas/HostSSHPath"}
+        target_platform: {type: string, enum: [linux_amd64, linux_arm64, windows_amd64]}
+        status: {$ref: "#/components/schemas/HostRemovalStatus"}
+        stage: {$ref: "#/components/schemas/HostRemovalStage"}
+        attempt: {type: integer, minimum: 0}
+        max_attempts: {type: integer, minimum: 1}
+        local_cleanup: {type: string, enum: [pending, verified, unknown]}
+        error_code: {type: string, pattern: "^[A-Z][A-Z0-9_]*$"}
+        events: {type: array, items: {$ref: "#/components/schemas/HostRemovalOperationEvent"}}
+        expires_at: {type: string, format: date-time}
+        completed_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    HostRemovalReceipt:
+      type: object
+      additionalProperties: false
+      required: [operation_id, removal_generation, connector_id, stage, local_cleanup, result_hash, evidence]
+      properties:
+        operation_id: {type: string, format: uuid}
+        removal_generation: {type: integer, format: int64, minimum: 1}
+        connector_id: {type: string, format: uuid}
+        stage: {$ref: "#/components/schemas/HostRemovalStage"}
+        local_cleanup: {type: string, const: verified}
+        result_hash: {type: string, pattern: "^[a-f0-9]{64}$"}
+        evidence: {$ref: "#/components/schemas/HostRemovalCleanupEvidence"}
+        error_code: {type: string, pattern: "^[A-Z][A-Z0-9_]*$"}
+    HostRemovalCleanupEvidence:
+      type: object
+      additionalProperties: false
+      required: [schema_version, operation_id, connector_id, removal_generation, platform, collector_service_absent, collector_process_absent, collector_files_absent, connector_service_absent, connector_process_absent, connector_files_absent, connector_user_absent, relay_ports_released, rdp_config_status, observed_at]
+      properties:
+        schema_version: {type: string, const: argus.host_cleanup_evidence/v1}
+        operation_id: {type: string, format: uuid}
+        connector_id: {type: string, format: uuid}
+        removal_generation: {type: integer, format: int64, minimum: 1}
+        platform: {type: string, enum: [linux, windows]}
+        collector_service_absent: {type: boolean}
+        collector_process_absent: {type: boolean}
+        collector_files_absent: {type: boolean}
+        connector_service_absent: {type: boolean}
+        connector_process_absent: {type: boolean}
+        connector_files_absent: {type: boolean}
+        connector_user_absent: {type: boolean}
+        relay_ports_released: {type: boolean}
+        rdp_config_status: {type: string, enum: [not_applicable, restored, drifted]}
+        observed_at: {type: string, format: date-time}
+    HostRemovalInstruction:
+      type: object
+      additionalProperties: false
+      required: [operation_id, platform, shell, privilege, command, expires_at]
+      properties:
+        operation_id: {type: string, format: uuid}
+        platform: {type: string, enum: [linux, windows]}
+        shell: {type: string, enum: [posix_sh, powershell]}
+        privilege: {type: string, const: system}
+        command: {type: string, minLength: 1, maxLength: 16384, writeOnly: true}
+        expires_at: {type: string, format: date-time}
     ConnectorInstallOperation:
       type: object
       additionalProperties: false
@@ -527,12 +726,13 @@ components:
     ConnectorEnrollRequest:
       type: object
       additionalProperties: false
-      required: [csr_pem, device_fingerprint, instance_id, architecture, name, software_version, capabilities]
+      required: [csr_pem, device_fingerprint, instance_id, platform, architecture, name, software_version, capabilities]
       properties:
         csr_pem: {type: string, minLength: 1, maxLength: 32768, writeOnly: true}
         device_fingerprint: {type: string, minLength: 32, maxLength: 256}
         instance_id: {type: string, minLength: 1, maxLength: 128}
         architecture: {type: string, enum: [amd64, arm64]}
+        platform: {type: string, enum: [linux, windows]}
         name: {type: string, minLength: 1, maxLength: 128}
         software_version: {type: string, minLength: 1, maxLength: 128}
         capabilities: {type: array, maxItems: 64, uniqueItems: true, items: {type: string, minLength: 2, pattern: "^[a-z][a-z0-9_.-]+$"}}

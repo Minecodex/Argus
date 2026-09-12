@@ -90,7 +90,7 @@ func TestLoadLocalHardeningConfigWithoutWindowsArtifact(t *testing.T) {
 	if openBao["enabled"] != true || openBao["transitKey"] != "argus-local-hardening" {
 		t.Fatalf("local-hardening data values did not enable OpenBao Transit: %#v", openBao)
 	}
-	platform := platformValues(cfg, credentials, "setup-secret", "idempotency", "cursor", "pending", "", strings.Repeat("a", 64))
+	platform := platformValues(cfg, credentials, "setup-secret", "idempotency", "cursor", "pending", "")
 	runtime := platform["runtime"].(map[string]any)
 	if runtime["keyWrappingMode"] != "openbao_transit" || runtime["openBaoToken"] != "openbao-token" || runtime["databaseRolesEnabled"] != true {
 		t.Fatalf("local-hardening platform values are incomplete: %#v", runtime)
@@ -132,6 +132,30 @@ spec:
 	}
 	if _, err := LoadConfig(path); err == nil {
 		t.Fatal("expected strict YAML decoding error")
+	}
+}
+
+func TestHTTPSInternalAddressOverridesIngressDiscovery(t *testing.T) {
+	root, err := findRepoRoot(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "deploy", "profiles", "evaluation.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = []byte(strings.Replace(string(data), "    ingressClassName: nginx", "    ingressClassName: nginx\n    httpsInternalAddress: custom-gateway.edge.svc:8443", 1))
+	path := filepath.Join(t.TempDir(), "custom-ingress.yaml")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("load httpsInternalAddress override: %v", err)
+	}
+	address, err := httpsInternalAddress(t.Context(), &kubeClients{}, cfg)
+	if err != nil || address != "custom-gateway.edge.svc:8443" {
+		t.Fatalf("internal HTTPS address = %q, err = %v", address, err)
 	}
 }
 

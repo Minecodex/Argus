@@ -39,6 +39,16 @@ type connectorControlTunnelSupervisor struct {
 	limiter *rate.Limiter
 }
 
+const (
+	connectorControlTunnelStateCheckInterval = time.Second
+	connectorControlTunnelStateErrorLimit    = int32(3)
+	connectorControlTunnelStateReadTimeout   = 2 * time.Second
+	connectorControlTunnelDropRetryInterval  = time.Second
+)
+
+type connectorControlTunnelStateReader func(context.Context) (db.ConnectorControlTunnel, error)
+type connectorControlTunnelDropper func(context.Context, db.MarkConnectorControlTunnelDroppedParams) (int64, error)
+
 func newConnectorControlTunnelSupervisor(limit int, bytesPerSecond int64) *connectorControlTunnelSupervisor {
 	return &connectorControlTunnelSupervisor{entries: make(map[uuid.UUID]*connectorControlTunnelEntry),
 		limit: limit, limiter: tunnelruntime.NewLimiter(bytesPerSecond)}
@@ -131,7 +141,19 @@ func (executor *Executor) establishConnectorControlTunnel(parent context.Context
 		executor.markConnectorControlTunnelDropped(context.Background(), tunnel, "down", "target_revalidation_failed")
 		return
 	}
-	enroll, err := client.Listen("tcp", "127.0.0.1:8443")
+	host, err := executor.Store.Queries.GetHost(ctx, db.GetHostParams{ID: tunnel.HostID, EnterpriseID: tunnel.EnterpriseID})
+	if err != nil {
+		cancel()
+		_ = client.Close()
+		revokeLease()
+		executor.markConnectorControlTunnelDropped(context.Background(), tunnel, "down", "host_binding_unavailable")
+		return
+	}
+	enrollListen, gatewayListen := "127.0.0.1:8443", "127.0.0.1:9443"
+	if host.Role == "bastion" {
+		enrollListen, gatewayListen = "127.0.0.1:18443", "127.0.0.1:19443"
+	}
+	enroll, err := client.Listen("tcp", enrollListen)
 	if err != nil {
 		cancel()
 		_ = client.Close()
@@ -139,7 +161,7 @@ func (executor *Executor) establishConnectorControlTunnel(parent context.Context
 		executor.markConnectorControlTunnelDropped(context.Background(), tunnel, "degraded", "enroll_forward_failed")
 		return
 	}
-	gateway, err := client.Listen("tcp", "127.0.0.1:9443")
+	gateway, err := client.Listen("tcp", gatewayListen)
 	if err != nil {
 		cancel()
 		_ = enroll.Close()
@@ -183,15 +205,57 @@ func (executor *Executor) serveConnectorControlListener(ctx context.Context, ent
 }
 
 func (executor *Executor) superviseConnectorControlTunnel(ctx context.Context, entry *connectorControlTunnelEntry) {
-	ticker := time.NewTicker(tunnelruntime.HeartbeatInterval)
-	defer ticker.Stop()
+	executor.superviseConnectorControlTunnelWithStateReader(ctx, entry, connectorControlTunnelStateCheckInterval,
+		func(ctx context.Context) (db.ConnectorControlTunnel, error) {
+			return executor.Store.Queries.GetConnectorControlTunnel(ctx, db.GetConnectorControlTunnelParams{
+				ID: entry.tunnel.ID, EnterpriseID: entry.tunnel.EnterpriseID,
+			})
+		}, executor.Store.Queries.MarkConnectorControlTunnelDropped)
+}
+
+func (executor *Executor) superviseConnectorControlTunnelWithStateReader(ctx context.Context, entry *connectorControlTunnelEntry,
+	stateCheckInterval time.Duration, readState connectorControlTunnelStateReader, dropState connectorControlTunnelDropper,
+) {
+	heartbeatTicker := time.NewTicker(tunnelruntime.HeartbeatInterval)
+	defer heartbeatTicker.Stop()
+	stateTicker := time.NewTicker(stateCheckInterval)
+	defer stateTicker.Stop()
 	defer executor.controlTunnels.remove(entry)
 	defer executor.closeConnectorControlTunnel(entry)
+	var consecutiveStateErrors int32
+	authorityLeaseDeadline := time.Now().Add(tunnelruntime.LeaseDuration)
+	if entry.tunnel.LeaseExpiresAt.Valid {
+		authorityLeaseDeadline = entry.tunnel.LeaseExpiresAt.Time
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-stateTicker.C:
+			readCtx, cancelRead := context.WithTimeout(ctx, connectorControlTunnelStateReadTimeout)
+			current, err := readState(readCtx)
+			cancelRead()
+			if err != nil {
+				consecutiveStateErrors++
+				if consecutiveStateErrors >= connectorControlTunnelStateErrorLimit {
+					slog.Error("connector control tunnel authority verification failed", "tunnel_id", entry.tunnel.ID,
+						"consecutive_errors", consecutiveStateErrors, "error", err)
+					executor.closeConnectorControlTunnel(entry)
+					go executor.retryConnectorControlTunnelDrop(entry.tunnel, authorityLeaseDeadline,
+						"degraded", "authority_verification_failed", dropState)
+					return
+				}
+				continue
+			}
+			consecutiveStateErrors = 0
+			if current.Status != "established" || current.LeaseOwner != entry.tunnel.LeaseOwner ||
+				current.Fence != entry.tunnel.Fence || current.Epoch != entry.tunnel.Epoch {
+				return
+			}
+			if current.LeaseExpiresAt.Valid {
+				authorityLeaseDeadline = current.LeaseExpiresAt.Time
+			}
+		case <-heartbeatTicker.C:
 			if _, _, err := entry.client.SendRequest("keepalive@openssh.com", true, nil); err != nil {
 				tunnelruntime.RecordReconnect("control")
 				executor.failConnectorControlTunnel(entry, "keepalive_failed")
@@ -216,6 +280,40 @@ func (executor *Executor) superviseConnectorControlTunnel(ctx context.Context, e
 			if rows == 0 {
 				return
 			}
+		}
+	}
+}
+
+func (executor *Executor) retryConnectorControlTunnelDrop(tunnel db.ConnectorControlTunnel, deadline time.Time, status, reason string,
+	dropState connectorControlTunnelDropper,
+) {
+	if !deadline.After(time.Now()) {
+		return
+	}
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+	ticker := time.NewTicker(connectorControlTunnelDropRetryInterval)
+	defer ticker.Stop()
+	for {
+		attemptCtx, cancelAttempt := context.WithTimeout(ctx, connectorControlTunnelStateReadTimeout)
+		rows, err := dropState(attemptCtx, db.MarkConnectorControlTunnelDroppedParams{
+			ID: tunnel.ID, EnterpriseID: tunnel.EnterpriseID, Fence: tunnel.Fence, LeaseOwner: tunnel.LeaseOwner,
+			Status: status, LastDropReason: reason,
+		})
+		cancelAttempt()
+		if err == nil {
+			if rows > 0 {
+				tunnel.Status, tunnel.LastDropReason = status, reason
+				auditCtx, cancelAudit := context.WithTimeout(context.Background(), connectorControlTunnelStateReadTimeout)
+				executor.auditConnectorControlTunnel(auditCtx, tunnelaudit.Disconnect, tunnel, status, reason)
+				cancelAudit()
+			}
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
 		}
 	}
 }
@@ -251,13 +349,25 @@ func (executor *Executor) markConnectorControlTunnelDropped(ctx context.Context,
 
 func (executor *Executor) closeConnectorControlTunnel(entry *connectorControlTunnelEntry) {
 	entry.closeOnce.Do(func() {
-		entry.cancel()
-		_ = entry.enroll.Close()
-		_ = entry.gateway.Close()
-		_ = entry.client.Close()
+		if entry.cancel != nil {
+			entry.cancel()
+		}
+		if entry.enroll != nil {
+			_ = entry.enroll.Close()
+		}
+		if entry.gateway != nil {
+			_ = entry.gateway.Close()
+		}
+		if entry.client != nil {
+			_ = entry.client.Close()
+		}
 		if entry.credentialLeaseID != uuid.Nil {
-			_ = executor.Store.Queries.RevokeCredentialLease(context.Background(), db.RevokeCredentialLeaseParams{
-				ID: entry.credentialLeaseID, EnterpriseID: entry.tunnel.EnterpriseID})
+			revokeCtx, cancelRevoke := context.WithTimeout(context.Background(), connectorControlTunnelStateReadTimeout)
+			if executor.Store != nil {
+				_ = executor.Store.Queries.RevokeCredentialLease(revokeCtx, db.RevokeCredentialLeaseParams{
+					ID: entry.credentialLeaseID, EnterpriseID: entry.tunnel.EnterpriseID})
+			}
+			cancelRevoke()
 		}
 		if entry.counted {
 			tunnelruntime.AddActive("control", -1)

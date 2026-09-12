@@ -151,13 +151,15 @@ func (handler WorkflowHandler) ClaimExecutionOneTimeResult(ctx context.Context, 
 	for _, instruction := range value.InstructionSets {
 		command := instruction.Command
 		projected := workflowapi.InstallInstructionSet{
-			Scope: workflowapi.InstallInstructionSetScope(instruction.Scope), Command: &command, ExpiresAt: instruction.ExpiresAt,
+			Platform: workflowapi.InstallInstructionSetPlatform(instruction.Platform), Shell: workflowapi.InstallInstructionSetShell(instruction.Shell),
+			Privilege: workflowapi.InstallInstructionSetPrivilege(instruction.Privilege), ReleaseVersion: instruction.ReleaseVersion,
+			Command: &command, ExpiresAt: instruction.ExpiresAt,
 			TrustBundleEpoch: instruction.TrustBundleEpoch, TrustBundleSha256: instruction.TrustBundleSHA256,
-			InstallerSha256: instruction.InstallerSHA256, CapabilityWarnings: append([]string{}, instruction.CapabilityWarnings...),
+			BootstrapSha256: instruction.BootstrapSHA256, InstallerSha256: instruction.InstallerSHA256, CapabilityWarnings: append([]string{}, instruction.CapabilityWarnings...),
 		}
-		if instruction.DownloadTLSMode != "" {
-			mode := workflowapi.InstallInstructionSetDownloadTlsMode(instruction.DownloadTLSMode)
-			projected.DownloadTlsMode = &mode
+		if instruction.BootstrapTLSMode != "" {
+			mode := workflowapi.InstallInstructionSetBootstrapTlsMode(instruction.BootstrapTLSMode)
+			projected.BootstrapTlsMode = &mode
 		}
 		instructionSets = append(instructionSets, projected)
 	}
@@ -244,6 +246,18 @@ func toWorkflowExecution(value actionservice.ExecutionView) workflowapi.Executio
 			Id   openapi_types.UUID `json:"id"`
 			Kind interface{}        `json:"kind"`
 		}{Id: value.Execution.ConnectorInstallOperationID.UUID, Kind: "connector_install"}
+	}
+	if value.Execution.HostOnboardingOperationID.Valid {
+		result.OperationRef = &struct {
+			Id   openapi_types.UUID `json:"id"`
+			Kind interface{}        `json:"kind"`
+		}{Id: value.Execution.HostOnboardingOperationID.UUID, Kind: "host_onboarding"}
+	}
+	if value.Execution.HostRemovalOperationID.Valid {
+		result.OperationRef = &struct {
+			Id   openapi_types.UUID `json:"id"`
+			Kind interface{}        `json:"kind"`
+		}{Id: value.Execution.HostRemovalOperationID.UUID, Kind: "host_removal"}
 	}
 	if value.Execution.ResultRef.Valid {
 		result.ResultRef = &value.Execution.ResultRef.String

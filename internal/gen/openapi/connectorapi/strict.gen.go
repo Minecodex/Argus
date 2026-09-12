@@ -24,6 +24,9 @@ type StrictServerInterface interface {
 	// PreviewCreateBastionScope Freeze Bastion Scope creation and enrollment policy.
 	// (POST /enterprise/bastion-scopes/actions/preview-create)
 	PreviewCreateBastionScope(ctx context.Context, request PreviewCreateBastionScopeRequestObject) (PreviewCreateBastionScopeResponseObject, error)
+	// CheckBastionNameAvailability Check a creation name using bastion_scope.manage permission without disclosing the occupying resource.
+	// (GET /enterprise/bastion-scopes/name-availability)
+	CheckBastionNameAvailability(ctx context.Context, request CheckBastionNameAvailabilityRequestObject) (CheckBastionNameAvailabilityResponseObject, error)
 	// GetBastionScope Get a Bastion Scope.
 	// (GET /enterprise/bastion-scopes/{id})
 	GetBastionScope(ctx context.Context, request GetBastionScopeRequestObject) (GetBastionScopeResponseObject, error)
@@ -209,6 +212,32 @@ func (sh *strictHandler) PreviewCreateBastionScope(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PreviewCreateBastionScopeResponseObject); ok {
 		if err := validResponse.VisitPreviewCreateBastionScopeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CheckBastionNameAvailability operation middleware
+func (sh *strictHandler) CheckBastionNameAvailability(w http.ResponseWriter, r *http.Request, params CheckBastionNameAvailabilityParams) {
+	var request CheckBastionNameAvailabilityRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CheckBastionNameAvailability(ctx, request.(CheckBastionNameAvailabilityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CheckBastionNameAvailability")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CheckBastionNameAvailabilityResponseObject); ok {
+		if err := validResponse.VisitCheckBastionNameAvailabilityResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

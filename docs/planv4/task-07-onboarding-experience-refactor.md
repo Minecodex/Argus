@@ -154,7 +154,14 @@
 
 - Mode A 一次性命令响应在服务端边界固定输出空数组而非 `null`，命令面板仍做输入归一化；空 warning 或空 instruction 集合不再触发 React `.map` 崩溃。
 - 安装结果统一为单一 `command`；原一行/交互式/自动化三模式及其 Tab 已删除，系统级与用户级作用域选择继续保留。
-- Scope 创建事务在根 Host 创建后立即写入 `connector_host_id`；删除事务不再允许缺少根 Host 关联时跳过清理。迁移 `00033_bastion_root_host_lifecycle.sql` 清理历史已删除 Scope 遗留的有效根 Host、回填现存关联，并约束每个 Scope 只能有一个有效根 Host。
+- Scope 创建事务在根 Host 创建后立即写入 `connector_host_id`；删除事务不再允许缺少根 Host 关联时跳过清理。当前单一 PostgreSQL 基线直接约束每个 Scope 只能有一个有效根 Host，不再保留 `00033` 历史修复迁移。
 - 名称冲突统一为不可重试的 `RESOURCE_NAME_CONFLICT`。软删除记录继续由条件唯一索引排除，同名 Scope 删除后可重新创建；并发有效同名资源仍由数据库兜底拒绝。
 - 创建确认只在 Execution 未结束时指数退避查询；Scope/Connector 列表仅在 B/C 后台安装处于 `installing` 时轮询，模式 A 命令生成/领取后及成功、失败、取消、未知结果、超时均停止，并展示稳定的双语错误。
 - Go 单元/契约测试、Enterprise/Platform typecheck 与单测、Mode A 删除后同名重建的定向 Playwright 用例均通过。
+
+## 首次 TLS 引导修复（2026-09-05）
+
+- Server、Worker 和 Telemetry Ingest 共用安装信任配置，补齐 Worker 的堡垒机/普通主机首次下载模式，以及 Ingest 动态脚本服务的 CA、epoch 和安装器摘要。
+- 动态命令缺少 TLS 模式时拒绝生成；自签名快速模式只放宽首个请求，后续 CA、域名与安装器摘要继续严格校验。Linux HTTPS 执行测试覆盖快速模式、严格模式的可信/不可信入口、后续错误 CA/域名与安装器篡改。
+- 待注册堡垒机中英文文案明确“命令已领取，等待注册”，解释领取不等于安装完成，以及仅在命令丢失或过期时重新生成。
+- P4 Kubernetes 场景读取当前 `instruction_sets` 契约，断言 Worker 输出的首次下载策略与命令一致；模式 A 和 self-enrolled 目标禁用入站，并保持目标系统不信任 Argus CA。完整运行要求独立集群，不能用 mock Playwright 或 Linux TLS 测试代替注册/在线验收。

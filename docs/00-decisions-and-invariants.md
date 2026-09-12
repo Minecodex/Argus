@@ -80,7 +80,7 @@ Bastion Scope、Telemetry Group 或标签关系都不能跨企业传播权限。
 - 用户点击确认后，由 `argus-server` 内的 Action Executor 使用服务端私有 Token 直接调用 `.commit`，不再启动模型推理。
 - Commit 必须重新检查当前身份、企业状态、功能权限、explicit resource authorization、远程/操作授权、授权版本、审批、资源归属、资源标签/版本和执行前置条件。审批只能满足 Rule 的附加条件，不能补齐缺失的基础权限。
 - 产生安装命令等敏感结果的 Execution 公开对象只返回 `one_time_result_available`。结果使用 `execution_one_time_results` AES-GCM 加密、短时保存并由原发起人通过独立幂等接口原子领取；同一 Idempotency-Key 可以重放同一响应，新 Key 二次领取稳定失败。明文不得进入 PendingAction、Execution、普通资源 DTO、浏览器持久化、日志、审计或 Redis。
-- 领取已有一次性结果不是令牌轮换。待注册主机/堡垒机的 `host.enrollment.rotate`/`bastion.enrollment.rotate`、`host.uninstall.command` 和 `bastion.connector.replace` 是不同的写动作，必须分别定义前件、风险、审计和 Preview/Commit；服务端不能依赖前端入口区分它们。
+- 领取已有一次性结果不是令牌轮换。待注册主机/堡垒机的 `host.enrollment.rotate`/`bastion.enrollment.rotate`、统一 `host.removal.uninstall|forget` 和 `bastion.connector.replace` 是不同的写动作，必须分别定义前件、风险、审计和 Preview/Commit；服务端不能依赖前端入口区分它们。
 
 ## 5. AI、Card 和 Sandbox 不变量
 
@@ -106,7 +106,7 @@ Bastion Scope、Telemetry Group 或标签关系都不能跨企业传播权限。
 ### 6.0 PlanV4 网络接入与遥测传输不变量
 
 - 遥测路由的 `transport`（`direct`/`executor_tunnel`/`bastion_tunnel`）与 `kind` 正交：transport 只改变字节物理路径，不参与任何身份、凭证签发与授权判定；隧道路径上的 OTLP 仍是端到端 Collector TLS，不得进入 Connector 控制通道或远程会话流。隧道断开不等于 Collector 故障，两者必须以独立状态呈现。
-- `self_enrolled`（只出不进）主机不进入任何执行器命令派发路径；其配置在安装时冻结，变更必须生成新的一次性自助命令在目标侧收敛；远程会话对该类主机 fail closed；在线事实以 `last_seen`（证书签发/轮换刷新）为准。
+- 普通主机首次只安装本机 Host Connector；Collector 必须在主机详情通过独立 Preview/Commit 后装。安装后控制和人工会话只依赖 Connector 主动长连接。
 - 普通主机的产品模式固定为双向可达、只进不出、只出不进/自助安装、标准堡垒机成员和受限端口堡垒机成员；前两者可映射到相同 `connection_mode`、通过 transport 区分物理路径，后两者同理。界面模式不能反向改变服务端身份与路由不变量。
 - 堡垒机安装固定为 A 手动命令、B 平台 SSH 代安装和 C 平台代安装加控制隧道。C 的 SSH remote forward 只承载 enrollment Web/API 与 Connector 9443 控制长连接，不自动成为 Telemetry Route；堡垒机及成员的遥测仍按 route kind × transport 独立选择和验证。
 - 自助安装命令与令牌遵守单次原子消费、同设备幂等、他设备 409 和轮换先撤销旧未消费令牌。初次创建或轮换产生的命令走 Execution 一次性结果领取；待注册资源不得调用会 fencing 已有身份的 Connector replacement。
@@ -129,7 +129,7 @@ Grant、Rule、Workflow、SessionProfile、explicit resource authorization/RBAC�
 - Connector 只建立出站 mTLS 长连接，处理控制命令、批准 Artifact、端口/协议隧道和经授权的人工远程会话；Collector 不复用 Connector 通道发送遥测。
 - Connector 命令必须具有持久化状态、幂等键、连接代次 `connection_epoch`、过期时间和结果未知状态，不能把断连直接视为执行失败。
 - 安装 Connector 并注册为堡垒机时必须创建稳定的 Bastion Scope 和对应 Host；经堡垒机接入的内网主机只能归属一个 Bastion Scope。Bastion Scope 不能与可轮换、可重装的 Connector 实例共用同一主键和生命周期。
-- 主机连接模式第一版固定为 `connector_local`、`via_bastion`、`direct_ssh`、`direct_winrm` 和 `self_enrolled`。Direct 模式由受控 Direct Executor 访问其部署网络可达且经过校验的目标，不以公网/私网划分；必须执行 Host Key/目标身份校验、DNS Rebinding 防护，并拦截环回、链路本地、云元数据、Argus/集群保护地址及配置的禁用网段。用户私网和自定义端口默认允许；固定出口由用户管理的 Egress Gateway 提供。
+- Host 使用 `role=managed_host|bastion` 与 `control_path=direct|bastion_relay|executor_tunnel`。安装方式 `manual|ssh` 和 SSH 路径只冻结在 onboarding operation；Windows SSH 固定使用 OpenSSH，WinRM/WinRS 已删除。
 - Remote Access Session 是人工操作边界，不等同于 MCP Tool Commit。它必须使用短期一次性会话票据，并校验 Enterprise、Host、ManagedAccount、协议、动作、Grant、explicit resource authorization、授权版本、MFA/审批、最长时长、录像与审计；AI、Card 和 OpenSandbox 不得获得交互式会话票据。当前版本不提供定时无人值守任务。
 - 所有已建立管理连接的 Host 都提供统一的“命令行”入口；人工命令行与后台任务可以复用底层连接适配器，但必须使用不同的票据、API、队列、状态机和审计类型。
 - Bastion Scope 成员的 Telemetry Route 只能是直接推送 Argus 或推送到所属堡垒机上已启用 Gateway 模式的 Collector；独立主机不得选择任何 Bastion Scope 内成员作为上游。

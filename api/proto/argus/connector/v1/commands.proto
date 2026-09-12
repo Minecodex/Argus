@@ -39,6 +39,19 @@ message HostConnectionProbe {
   string protocol = 3;
   string expected_host_key_fingerprint = 4;
   string username = 5;
+  string platform = 6;
+  CallbackProbePlan onboarding = 7;
+}
+
+message CallbackProbePlan {
+  string control_path = 1;
+  string enrollment_endpoint = 2;
+  string gateway_endpoint = 3;
+  string enroll_dial_address = 4;
+  string gateway_dial_address = 5;
+  bytes trust_bundle_pem = 6;
+  int64 trust_bundle_epoch = 7;
+  int64 relay_port_generation = 8;
 }
 
 message HostConnectionProbeResult {
@@ -50,6 +63,12 @@ message HostConnectionProbeResult {
   // Normalized uname -m value. Linux probes must return amd64 or arm64 so
   // signed installation artifacts can be frozen during ConnectionTest.
   string architecture = 6;
+  string distribution_version = 7;
+  string service_manager = 8;
+  bool privileged = 9;
+  uint64 free_disk_bytes = 10;
+  bool callback_verified = 11;
+  string callback_control_path = 12;
 }
 
 message KubernetesConnectionProbe {
@@ -107,64 +126,42 @@ message ConnectorUninstallResult {
   bool service_stopped = 2;
 }
 
-message CertificateRotationRequest {
-  uint64 connection_epoch = 1;
-  bytes csr_pem = 2;
+message HostConnectorRemoval {
+  string operation_id = 1;
+  string host_id = 2;
+  string connector_id = 3;
+  uint64 removal_generation = 4;
+  string target_platform = 5;
+  string address = 6;
+  uint32 port = 7;
+  string username = 8;
+  string pinned_host_key = 9;
+  string managed_change_id = 10;
+  bytes managed_change_before_json = 11;
+  bytes managed_change_applied_json = 12;
 }
 
-message CertificateRotationGrant {
-  uint64 connection_epoch = 1;
-  bytes certificate_pem = 2;
-  google.protobuf.Timestamp not_after = 4;
-  reserved 3;
+message HostConnectorRemovalResult {
+  string operation_id = 1;
+  bytes cleanup_hash = 2;
+  bool local_cleanup_verified = 3;
+  bool local_config_drift = 4;
+  bytes cleanup_evidence_json = 5;
 }
 
-message TrustBundleUpdate {
-  uint64 epoch = 1;
-  bytes bundle_pem = 2;
-  string bundle_sha256 = 3;
-  repeated string current_ca_fingerprints = 4;
-  repeated string next_ca_fingerprints = 5;
-  string state = 6;
-  google.protobuf.Timestamp started_at = 7;
-  google.protobuf.Timestamp retire_at = 8;
+message HostWindowsRDPConfigure {
+  string host_id = 1;
+  bool enable = 2;
+  bool enforce_nla = 3;
+  bool enable_firewall = 4;
 }
 
-message TrustBundleAcknowledge {
-  uint64 epoch = 1;
-  string bundle_sha256 = 2;
-  repeated string ca_fingerprints = 3;
-}
-
-message CredentialLeaseRequest {
-  string lease_id = 1;
-  string command_id = 2;
-  uint64 connection_epoch = 3;
-  bytes recipient_nonce = 4;
-}
-
-message CredentialLeaseGrant {
-  string lease_id = 1;
-  string command_id = 2;
-  uint64 connection_epoch = 3;
-  bytes credential_payload = 4;
-  google.protobuf.Timestamp expires_at = 5;
-  bytes recipient_nonce = 6;
-}
-
-message CommandReconcileRequest {
-  repeated string command_ids = 1;
-  uint64 connection_epoch = 2;
-}
-
-message CommandReconcileResult {
-  repeated ReconciledCommand commands = 1;
-  uint64 connection_epoch = 2;
-}
-
-message ReconciledCommand {
-  string command_id = 1;
-  string status = 2;
-  string result_hash = 3;
-  argus.common.v1.ErrorStatus error = 4;
+message HostWindowsRDPConfigureResult {
+  string host_id = 1;
+  string rdp_status = 2;
+  bool nla_enabled = 3;
+  bool firewall_enabled = 4;
+  bool service_running = 5;
+  bytes before_state_json = 6;
+  bytes applied_state_json = 7;
 }

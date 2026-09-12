@@ -31,10 +31,13 @@ export function onboardingWizardReducer<Mode extends string>(
 ): OnboardingWizardState<Mode> {
   switch (action.type) {
     case "select_mode":
-      return state.phase === "select_mode" ? { ...state, mode: action.mode } : state;
+      return state.phase === "select_mode"
+        ? { ...state, mode: action.mode }
+        : state;
     case "next":
       if (state.phase === "select_mode") return { ...state, phase: "details" };
-      if (state.phase === "details") return { ...state, phase: action.terminal };
+      if (state.phase === "details")
+        return { ...state, phase: action.terminal };
       return state;
     case "back":
       if (state.phase === "details") return { ...state, phase: "select_mode" };
@@ -43,19 +46,31 @@ export function onboardingWizardReducer<Mode extends string>(
       }
       return state;
     case "change_mode":
-      return state.phase === "details" || state.phase === "verify" || state.phase === "confirm_command"
+      return state.phase === "details" ||
+        state.phase === "verify" ||
+        state.phase === "confirm_command"
         ? { ...state, phase: "select_mode" }
         : state;
     case "commit_command":
-      return state.phase === "confirm_command" ? { ...state, phase: "command_result" } : state;
+      return state.phase === "confirm_command"
+        ? { ...state, phase: "command_result" }
+        : state;
     case "commit_operation":
-      return state.phase === "verify" ? { ...state, phase: "installing" } : state;
+      return state.phase === "verify"
+        ? { ...state, phase: "installing" }
+        : state;
     case "commit_complete":
-      return state.phase === "verify" ? { ...state, phase: "completed" } : state;
+      return state.phase === "verify"
+        ? { ...state, phase: "completed" }
+        : state;
     case "operation_complete":
-      return state.phase === "installing" ? { ...state, phase: "completed" } : state;
+      return state.phase === "installing"
+        ? { ...state, phase: "completed" }
+        : state;
     case "return_details":
-      return state.phase === "installing" ? { ...state, phase: "details" } : state;
+      return state.phase === "installing"
+        ? { ...state, phase: "details" }
+        : state;
     case "reset":
       return { phase: "select_mode", mode: action.mode };
   }
@@ -65,76 +80,4 @@ export function onboardingWizardStep(phase: OnboardingWizardPhase): number {
   if (phase === "select_mode") return 0;
   if (phase === "details") return 1;
   return 2;
-}
-
-export type HostOnboardingMode =
-  | "direct_both"
-  | "direct_in"
-  | "self_enrolled"
-  | "bastion_member"
-  | "bastion_tunnel_member";
-
-export type HostModeSpecificDraft = {
-  address: string;
-  port: string;
-  protocol: "ssh" | "winrm";
-  platform: "linux" | "windows";
-  architecture: "amd64" | "arm64";
-  account: string;
-  credentialId: string;
-  scopeId: string;
-};
-
-function hostModeFamily(mode: HostOnboardingMode) {
-  if (mode === "self_enrolled") return "self";
-  if (mode === "direct_both" || mode === "direct_in") return "direct";
-  return "bastion";
-}
-
-export function hostModeSwitchLosesFields(
-  draft: HostModeSpecificDraft,
-  from: HostOnboardingMode,
-  to: HostOnboardingMode,
-) {
-  if (hostModeFamily(from) === hostModeFamily(to)) return false;
-  if (from === "self_enrolled") return draft.architecture !== "amd64";
-  return Boolean(
-    draft.address.trim() ||
-      draft.account.trim() ||
-      draft.credentialId ||
-      draft.scopeId ||
-      draft.port !== "22" ||
-      draft.protocol !== "ssh" ||
-      draft.platform !== "linux",
-  );
-}
-
-export function cleanHostModeSpecificDraft(
-  draft: HostModeSpecificDraft,
-  from: HostOnboardingMode,
-  to: HostOnboardingMode,
-): HostModeSpecificDraft {
-  if (hostModeFamily(from) === hostModeFamily(to)) return draft;
-  if (to === "self_enrolled") {
-    return {
-      address: "",
-      port: "22",
-      protocol: "ssh",
-      platform: "linux",
-      architecture: "amd64",
-      account: "",
-      credentialId: "",
-      scopeId: "",
-    };
-  }
-  return {
-    address: "",
-    port: "22",
-    protocol: "ssh",
-    platform: "linux",
-    architecture: "amd64",
-    account: "",
-    credentialId: "",
-    scopeId: "",
-  };
 }

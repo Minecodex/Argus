@@ -10,12 +10,15 @@ import (
 )
 
 type onboardingView struct {
-	State            string
-	PendingActionRef string
-	ExecutionID      uuid.NullUUID
-	OperationID      uuid.NullUUID
-	ErrorCode        string
-	UpdatedAt        time.Time
+	State              string
+	PendingActionRef   string
+	ExecutionID        uuid.NullUUID
+	OperationID        uuid.NullUUID
+	ErrorCode          string
+	InstallMethod      string
+	SSHPath            string
+	RemovalOperationID uuid.NullUUID
+	UpdatedAt          time.Time
 }
 
 func loadHostOnboarding(ctx context.Context, queries *db.Queries, enterpriseID uuid.UUID, hosts []db.Host) map[uuid.UUID]onboardingView {
@@ -42,25 +45,39 @@ func loadHostOnboarding(ctx context.Context, queries *db.Queries, enterpriseID u
 
 func deriveHostOnboarding(host db.Host, fact db.ListHostOnboardingFactsRow) onboardingView {
 	view := onboardingView{State: "registered", PendingActionRef: fact.ActionRef, ExecutionID: fact.ExecutionID,
-		ErrorCode: fact.ErrorCode, UpdatedAt: fact.ProjectionUpdatedAt.Time}
+		OperationID: uuid.NullUUID{UUID: fact.OperationID, Valid: fact.OperationID != uuid.Nil}, ErrorCode: fact.ErrorCode,
+		InstallMethod: fact.InstallMethod, SSHPath: fact.SshPath, UpdatedAt: fact.ProjectionUpdatedAt.Time}
+	view.RemovalOperationID = uuid.NullUUID{UUID: fact.RemovalOperationID, Valid: fact.RemovalOperationID != uuid.Nil}
 	if !fact.ProjectionUpdatedAt.Valid {
 		view.UpdatedAt = host.UpdatedAt.Time
 	}
-	if host.ConnectionMode != "self_enrolled" || (host.ConnectionStatus == "online" && fact.CollectorStatus == "converged") {
+	if host.ConnectionStatus == "online" && fact.ConnectorStatus == "online" {
 		return view
 	}
 	if fact.ActionStatus == "awaiting_approval" {
 		view.State, view.ErrorCode = "awaiting_approval", ""
 		return view
 	}
-	if fact.ExecutionStatus == "failed" || fact.CollectorStatus == "result_unknown" {
+	if fact.ExecutionStatus == "failed" || fact.OperationStatus == "result_unknown" {
 		view.State = "install_failed"
 		if view.ErrorCode == "" {
 			view.ErrorCode = "HOST_INSTALL_FAILED"
 		}
 		return view
 	}
-	if fact.EnrollmentStatus == "consumed" || fact.CollectorStatus == "installing" {
+	if fact.OperationStatus == "failed" || fact.OperationStatus == "expired" {
+		view.State = "install_failed"
+		if view.ErrorCode == "" {
+			view.ErrorCode = "HOST_CONNECTOR_INSTALL_FAILED"
+		}
+		return view
+	}
+	// A completed installation remains completed when its Connector later goes
+	// offline or is uninstalled; connection/removal state has separate fields.
+	if fact.OperationStatus == "succeeded" {
+		return view
+	}
+	if fact.EnrollmentStatus == "consumed" || fact.OperationStatus == "queued" || fact.OperationStatus == "running" {
 		view.State, view.ErrorCode = "installing", ""
 		return view
 	}

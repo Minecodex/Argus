@@ -255,14 +255,6 @@ func (a *App) publishCollectorArtifacts(ctx context.Context, args []string) erro
 		fmt.Fprintf(a.stdout, "  %sSignature: %s\n", item.specPrefix, signature)
 		fmt.Fprintf(a.stdout, "  %sByteSize: %d\n", item.specPrefix, size)
 	}
-	// 自助注册主机的安装脚本与产物同桶发布;脚本 URL 由安装命令按产物 origin 推导。
-	scriptPath := filepath.Join(a.root, "deploy", "scripts", "host-install.sh")
-	scriptKey := "install/host.sh"
-	fmt.Fprintf(a.stdout, "uploading %s → %s/%s\n", scriptPath, bucket, scriptKey)
-	if _, err = client.FPutObject(ctx, bucket, scriptKey, scriptPath, minio.PutObjectOptions{ContentType: "application/x-sh"}); err != nil {
-		return err
-	}
-
 	windowsPath := filepath.Join(a.root, "build", "otelcol", "artifacts", "argus-otelcol-windows-amd64.zip")
 	if withWindows {
 		if err := a.buildCollectorArtifact(ctx, "windows-amd64", windowsPath, true); err != nil {

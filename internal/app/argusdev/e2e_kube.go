@@ -202,10 +202,14 @@ func (k *E2EKube) CollectDiagnostics(ctx context.Context, env *E2EEnvironment, d
 			if pod.Labels["app.kubernetes.io/name"] == "argus-p4-target" {
 				// The P4 target runs systemd as PID 1, so the container log only
 				// contains its bootstrap output. Capture the managed Collector's
-				// journal and queue/exporter state before the target Namespace is
+				// Connector/Collector journals and queue/exporter state before the target Namespace is
 				// removed. The fixed command deliberately avoids reading the
 				// enrollment-token and private-key files.
 				output, execErr := k.execPod(ctx, namespace, pod.Name, "systemd", "/bin/bash", "-lc", strings.Join([]string{
+					"systemctl show argus-connector.service --property=ActiveState,SubState,ExecMainStatus,NRestarts --no-pager 2>&1 || true",
+					"journalctl -u argus-connector.service --no-pager --output=short-iso -n 2000 2>&1 || true",
+					"systemctl show argus-connector-privileged.service --property=ActiveState,SubState,ExecMainStatus,NRestarts --no-pager 2>&1 || true",
+					"journalctl -u argus-connector-privileged.service --no-pager --output=short-iso -n 2000 2>&1 || true",
 					"systemctl show argus-otelcol.service --property=ActiveState,SubState,ExecMainStatus,NRestarts --no-pager 2>&1 || true",
 					"journalctl -u argus-otelcol.service --no-pager --output=short-iso -n 2000 2>&1 || true",
 					"find /var/lib/argus-otelcol/identity/queue -maxdepth 2 -type f -printf 'queue_file=%f size=%s\\n' 2>/dev/null || true",

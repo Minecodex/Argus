@@ -8,6 +8,7 @@ export type {
 } from "./client";
 export type {
   BastionScope,
+  ResourceNameAvailability,
   BastionScopePage,
   BastionPreviewCreate,
   BastionConnectorReplacementPreview,
@@ -38,6 +39,11 @@ export type {
   HostPage,
   HostPreviewCreate,
   HostPreviewUpdate,
+  HostRemovalPreview,
+  HostRemovalConnectionDefaults,
+  HostRemovalOperation,
+  HostOnboardingOperation,
+  HostRemovalInstruction,
   OnboardingProjection,
   KubernetesCluster,
   KubernetesClusterPage,

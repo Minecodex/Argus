@@ -39,7 +39,15 @@ jobs:
       - run: go run ./cmd/argus-dev contracts lint
       - run: go run ./cmd/argus-dev contracts check
       - run: go run ./cmd/argus-dev check query-parsers
+      - run: go run ./cmd/argus-dev check installers
+      - run: go run ./cmd/argus-dev check tls-security
+      - if: runner.os == 'Linux'
+        run: go run ./cmd/argus-dev check guacd
       - run: go test ./...
+      - if: runner.os == 'Linux'
+        run: pnpm test
+      - if: runner.os == 'Linux'
+        run: pnpm lint
       - run: go run ./cmd/argus-dev web build --api-mode mock
       - run: go run ./cmd/argus-dev web build --api-mode real
       - run: go run ./cmd/argusctl plan --config deploy/profiles/evaluation.yaml --output json

@@ -1187,7 +1187,7 @@ export interface operations {
                 host_id?: string;
                 managed_account_id?: string;
                 protocol?: components["schemas"]["RemoteAccessProtocol"];
-                connection_mode?: "via_bastion" | "connector_local" | "direct_ssh" | "direct_winrm";
+                control_path?: "direct" | "bastion_relay" | "executor_tunnel";
                 created_from?: string;
                 created_to?: string;
             };

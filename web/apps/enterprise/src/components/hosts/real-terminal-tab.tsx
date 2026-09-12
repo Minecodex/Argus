@@ -12,6 +12,8 @@ import {
   useTerminalSessions,
   type Host,
   type RemoteAccessSession,
+  type SessionTicketResult,
+  type PendingActionPublic,
 } from "@argus/api-client";
 import {
   Alert,
@@ -27,6 +29,8 @@ import {
 import { RecordingDetailDialog } from "../remote-sessions/recording-detail";
 import { SessionTable } from "../remote-sessions/session-table";
 import { TerminalPanel } from "./terminal-panel";
+import { RDPViewer } from "./rdp-viewer";
+import { PendingActionConfirm } from "./pending-action-confirm";
 
 const activeStates: RemoteAccessSession["status"][] = [
   "authorized",
@@ -43,6 +47,21 @@ export function RealTerminalTab({ host }: { host: Host }) {
   const { sessions: terminalSessions } = useTerminalSessions();
   const [error, setError] = useState("");
   const [recordingId, setRecordingId] = useState<string | null>(null);
+  const [protocol, setProtocol] = useState<"shell" | "ssh" | "rdp">("shell");
+  const [rdp, setRDP] = useState<{
+    session: RemoteAccessSession;
+    ticket: SessionTicketResult;
+  } | null>(null);
+  const [rdpEnableAction, setRDPEnableAction] =
+    useState<PendingActionPublic | null>(null);
+  const rdpReady =
+    host.platform === "windows" &&
+    host.runtime?.rdp_status === "enabled" &&
+    Boolean(
+      host.runtime.rdp_nla_enabled &&
+      host.runtime.rdp_firewall_enabled &&
+      host.runtime.rdp_service_running,
+    );
   const terminalPanelRef = useRef<{
     createSession: (accountId: string, reason: string) => Promise<void>;
     attachSession: (session: RemoteAccessSession, ticket: any) => Promise<void>;
@@ -62,7 +81,8 @@ export function RealTerminalTab({ host }: { host: Host }) {
     queryFn: () => api.org.listUsers(),
   });
   const userNames = useMemo(
-    () => new Map((users.data ?? []).map((item) => [item.id, item.displayName])),
+    () =>
+      new Map((users.data ?? []).map((item) => [item.id, item.displayName])),
     [users.data],
   );
   // 与「会话中心」共用 ["remote-access", "sessions"] 前缀，SessionTable
@@ -86,11 +106,8 @@ export function RealTerminalTab({ host }: { host: Host }) {
       ),
     [sessions.data],
   );
-  const protocol = host.connection_mode === "direct_winrm" ? "winrs" : "ssh";
   const options = (accounts.data ?? [])
-    .filter((item) =>
-      item.allowed_protocols.includes(protocol === "winrs" ? "winrm" : "ssh"),
-    )
+    .filter((item) => item.allowed_protocols.includes(protocol))
     .map((item) => ({ value: item.id, label: item.username }));
   const schema = useMemo(
     () =>
@@ -123,7 +140,10 @@ export function RealTerminalTab({ host }: { host: Host }) {
   const start = form.handleSubmit(async (values) => {
     setError("");
     try {
-      await terminalPanelRef.current?.createSession(values.accountId, values.reason);
+      await terminalPanelRef.current?.createSession(
+        values.accountId,
+        values.reason,
+      );
       form.reset();
       refresh();
     } catch (err) {
@@ -139,12 +159,16 @@ export function RealTerminalTab({ host }: { host: Host }) {
     setError("");
     // 本地已有连接的会话只重新显示 Dock 标签页；authorized/active 会话
     // 可签发票据接入或重接（刷新后重进同一终端）。
-    if (terminalSessions.has(session.id)) {
+    if (session.protocol !== "rdp" && terminalSessions.has(session.id)) {
       terminalPanelRef.current?.showSession(session.id);
       return;
     }
     try {
       const ticket = await api.remoteAccess.createTicket(session.id);
+      if (session.protocol === "rdp") {
+        setRDP({ session, ticket });
+        return;
+      }
       await terminalPanelRef.current?.attachSession(session, ticket);
     } catch (err) {
       setError(
@@ -161,6 +185,13 @@ export function RealTerminalTab({ host }: { host: Host }) {
         <CardHeader title={t("hosts.terminal.sessionConfirmTitle")} />
         <CardContent className="argus-session-confirm">
           <form onSubmit={start}>
+            {host.platform === "windows" && !rdpReady && (
+              <Alert
+                description={t("hosts.terminal.rdpNotReadyDesc")}
+                title={t("hosts.terminal.rdpNotReadyTitle")}
+                tone="warning"
+              />
+            )}
             {error && (
               <Alert
                 description={error}
@@ -169,6 +200,30 @@ export function RealTerminalTab({ host }: { host: Host }) {
               />
             )}
             <div className="argus-form-row">
+              <Field
+                label={t("hosts.terminal.protocol")}
+                requirement="required"
+              >
+                <Select
+                  onValueChange={(value) =>
+                    setProtocol(value as "shell" | "ssh" | "rdp")
+                  }
+                  options={[
+                    {
+                      value: "shell",
+                      label:
+                        host.platform === "windows"
+                          ? "PowerShell / ConPTY"
+                          : "Shell / PTY",
+                    },
+                    ...(host.runtime?.openssh_status === "available"
+                      ? [{ value: "ssh", label: "OpenSSH" }]
+                      : []),
+                    ...(rdpReady ? [{ value: "rdp", label: "RDP" }] : []),
+                  ]}
+                  value={protocol}
+                />
+              </Field>
               <Controller
                 control={form.control}
                 name="accountId"
@@ -203,7 +258,40 @@ export function RealTerminalTab({ host }: { host: Host }) {
             <Button type="submit" variant="primary">
               {t("hosts.terminal.start")}
             </Button>
+            {host.platform === "windows" && !rdpReady && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  void api.hosts
+                    .previewEnableWindowsRDP(host.id, host.resource_version)
+                    .then(setRDPEnableAction)
+                    .catch((cause) =>
+                      setError(
+                        formatApiError(
+                          cause,
+                          t("hosts.terminal.rdpEnablePreviewFailed"),
+                          (requestId) =>
+                            t("common.requestReference", { requestId }),
+                        ),
+                      ),
+                    )
+                }
+              >
+                {t("hosts.terminal.rdpEnablePreview")}
+              </Button>
+            )}
           </form>
+          {rdpEnableAction && (
+            <PendingActionConfirm
+              action={rdpEnableAction}
+              onCancel={() => setRDPEnableAction(null)}
+              onDone={() => {
+                setRDPEnableAction(null);
+                void queryClient.invalidateQueries({ queryKey: ["hosts"] });
+              }}
+            />
+          )}
         </CardContent>
       </Card>
       <Card>
@@ -212,7 +300,11 @@ export function RealTerminalTab({ host }: { host: Host }) {
             <Button
               aria-label={t("hosts.terminal.refreshList")}
               loading={sessions.isFetching}
-              onClick={() => void queryClient.invalidateQueries({ queryKey: ["remote-access", "sessions"] })}
+              onClick={() =>
+                void queryClient.invalidateQueries({
+                  queryKey: ["remote-access", "sessions"],
+                })
+              }
               size="sm"
               title={t("hosts.terminal.refreshList")}
               variant="ghost"
@@ -231,7 +323,8 @@ export function RealTerminalTab({ host }: { host: Host }) {
           ) : (
             <SessionTable
               accountName={(id) =>
-                (accounts.data ?? []).find((item) => item.id === id)?.username ?? id
+                (accounts.data ?? []).find((item) => item.id === id)
+                  ?.username ?? id
               }
               allowTerminate
               hostName={(id) => (id === host.id ? host.name : id)}
@@ -243,9 +336,17 @@ export function RealTerminalTab({ host }: { host: Host }) {
           )}
         </CardContent>
       </Card>
-      <TerminalPanel ref={terminalPanelRef} host={host} />
+      <TerminalPanel
+        ref={terminalPanelRef}
+        host={host}
+        protocol={protocol}
+        onRDPReady={(session, ticket) => setRDP({ session, ticket })}
+      />
+      {rdp && <RDPViewer ticket={rdp.ticket} onClose={() => setRDP(null)} />}
       <RecordingDetailDialog
-        onOpenChange={(open) => { if (!open) setRecordingId(null); }}
+        onOpenChange={(open) => {
+          if (!open) setRecordingId(null);
+        }}
         recordingId={recordingId}
       />
     </div>

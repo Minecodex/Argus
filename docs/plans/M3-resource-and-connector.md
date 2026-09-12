@@ -44,7 +44,7 @@
 
 - 契约：`api/openapi/components/m3.yaml`、`api/openapi/paths/m3.yaml`、`api/proto/argus/connector/v1/commands.proto`、`api/proto/argus/directexecutor/v1/direct_executor.proto`。
 - 领域：`internal/{resource,secret,connector,directexecutor,kubernetesreader}`。
-- 数据：`migrations/postgresql/00002_m3_resources_connectors.sql`、`internal/storage/postgres/queries/{resources,secrets,connectors}.sql`。
+- 数据：`migrations/postgresql/00001_argus_baseline.sql`、`internal/storage/postgres/queries/{resources,secrets,connectors}.sql`。
 - 部署：`deploy/helm/argus-platform/templates/{connector-pki,direct-executor-pki,m3-network-policies}.yaml`。
 - 前端：`web/packages/api-client/src/generated/*api.ts` 与 Enterprise Host/Kubernetes/Secret/ManagedAccount 页面；凭据管理按密钥、连接凭证、托管账号三个 Tab 分区，并由页面头部提供统一创建入口。
 - E2E：`internal/app/argusdev/e2e_scenario_m3*.go` 负责集群与业务编排，`web/apps/enterprise/e2e/m3-real.spec.ts` 保留 Playwright 浏览器验证。

@@ -28,7 +28,7 @@ data:
   ARGUS_CLICKHOUSE_HOST: argus-clickhouse-client.{{ .Values.namespaces.observability }}.svc
   ARGUS_CONNECTOR_ENROLLMENT_URL: {{ .Values.runtime.connectorEnrollmentURL | quote }}
   ARGUS_CONNECTOR_GATEWAY_ADDRESS: {{ .Values.runtime.connectorGatewayAddress | quote }}
-  ARGUS_CONNECTOR_ENROLLMENT_FORWARD_TARGET: {{ required "runtime.connectorEnrollmentForwardTarget is required" .Values.runtime.connectorEnrollmentForwardTarget | quote }}
+  ARGUS_CONNECTOR_ENROLLMENT_FORWARD_TARGET: {{ required "runtime.httpsInternalAddress is required" .Values.runtime.httpsInternalAddress | quote }}
   ARGUS_CONNECTOR_GATEWAY_FORWARD_TARGET: {{ required "runtime.connectorGatewayForwardTarget is required" .Values.runtime.connectorGatewayForwardTarget | quote }}
   ARGUS_SYSTEM_NAMESPACE: {{ .Values.namespaces.system | quote }}
   ARGUS_CONNECTOR_ISSUER_NAME: {{ .Values.runtime.globalIssuerName | quote }}
@@ -86,12 +86,11 @@ data:
   ARGUS_TRUST_BUNDLE_PATH: /var/run/secrets/argus/trust/ca.crt
   ARGUS_TRUST_BUNDLE_EPOCH: {{ .Values.runtime.trustBundleEpoch | quote }}
   ARGUS_BOOTSTRAP_TLS_MODE: {{ required "pki.bootstrapTLSMode is required" .Values.pki.bootstrapTLSMode | quote }}
-  ARGUS_HOST_INSTALLER_SHA256: {{ required "runtime.hostInstallerSha256 is required" .Values.runtime.hostInstallerSha256 | quote }}
   ARGUS_CONNECTOR_KUBERNETES_IMAGE: {{ required "runtime.connectorKubernetesImage is required" .Values.runtime.connectorKubernetesImage | quote }}
   ARGUS_OTELCOL_ARTIFACT_CA_PATH: /var/run/secrets/argus/trust/ca.crt
-  # Preview/confirm readiness probes keep the public catalog path but use the
-  # cluster-internal object-store origin, avoiding ingress hairpin dependencies.
-  ARGUS_ARTIFACT_PROBE_BASE_URL: "http://argus-minio:9000"
+  # Probe and download preserve public TLS identity while dialing the internal HTTPS entry.
+  ARGUS_ARTIFACT_INTERNAL_ORIGIN: {{ printf "https://%s" .Values.hosts.artifact | quote }}
+  ARGUS_ARTIFACT_INTERNAL_ADDRESS: {{ required "runtime.httpsInternalAddress is required" .Values.runtime.httpsInternalAddress | quote }}
 ---
 apiVersion: v1
 kind: Secret

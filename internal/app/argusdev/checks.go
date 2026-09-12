@@ -19,17 +19,26 @@ import (
 )
 
 func (a *App) runCheck(ctx context.Context, args []string) error {
-	if len(args) != 1 || !oneOf(args[0], "query-parsers", "production-artifacts", "tls-security", "web-entrypoints", "all") {
-		return fmt.Errorf("%w: usage: argus-dev check query-parsers|production-artifacts|tls-security|web-entrypoints|all", errUsage)
+	if len(args) != 1 || !oneOf(args[0], "guacd", "installer-containers", "installers", "query-parsers", "production-artifacts", "tls-security", "web-entrypoints", "all") {
+		return fmt.Errorf("%w: usage: argus-dev check guacd|installer-containers|installers|query-parsers|production-artifacts|tls-security|web-entrypoints|all", errUsage)
 	}
 	checks := []struct {
 		name string
 		run  func(context.Context) error
 	}{
+		{"installers", a.checkInstallers},
 		{"query-parsers", a.checkQueryParsers},
 		{"production-artifacts", a.checkProductionArtifacts},
 		{"tls-security", a.checkTLSSecurity},
 		{"web-entrypoints", a.checkWebEntrypoints},
+	}
+	if args[0] == "installer-containers" {
+		_, _ = fmt.Fprintln(a.stdout, "Running installer-containers check")
+		return a.checkInstallerContainers(ctx)
+	}
+	if args[0] == "guacd" {
+		_, _ = fmt.Fprintln(a.stdout, "Running guacd check")
+		return a.checkGuacd(ctx)
 	}
 	for _, check := range checks {
 		if args[0] != "all" && args[0] != check.name {
@@ -122,6 +131,7 @@ type queryParserLock struct {
 		Notice   string `json:"notice"`
 		Module   string `json:"module"`
 		Version  string `json:"version"`
+		Sum      string `json:"sum"`
 		License  string `json:"license"`
 		Commit   string `json:"commit"`
 	} `json:"engines"`
@@ -173,8 +183,13 @@ func (a *App) checkQueryParsers(ctx context.Context) error {
 		if _, err := os.Stat(filepath.Join(download.Dir, "LICENSE")); err != nil {
 			return fmt.Errorf("query engine license missing for %s", engine.Module)
 		}
-		if engine.Language == "promql" && download.Origin.Hash != engine.Commit {
-			return fmt.Errorf("PromQL engine commit drift: lock=%s module=%s", engine.Commit, download.Origin.Hash)
+		if engine.Language == "promql" {
+			if download.Origin.Hash != "" && download.Origin.Hash != engine.Commit {
+				return fmt.Errorf("PromQL engine commit drift: lock=%s module=%s", engine.Commit, download.Origin.Hash)
+			}
+			if download.Origin.Hash == "" && (engine.Sum == "" || download.Sum != engine.Sum) {
+				return fmt.Errorf("PromQL engine checksum drift: lock=%s module=%s", engine.Sum, download.Sum)
+			}
 		}
 	}
 	sort.Strings(languages)
@@ -187,6 +202,7 @@ func (a *App) checkQueryParsers(ctx context.Context) error {
 
 type moduleDownload struct {
 	Dir    string `json:"Dir"`
+	Sum    string `json:"Sum"`
 	Origin struct {
 		Hash string `json:"Hash"`
 	} `json:"Origin"`
@@ -281,9 +297,13 @@ func (a *App) validatePlanV4ArtifactPipeline() error {
 		{path: "deploy/otelcol/builder-linux-arm64.yaml", required: []string{"argusidentity", "argusgatewayidentity", "otelcol_version: 0.133.0"}},
 		{path: "deploy/otelcol/builder-linux-amd64.yaml", required: []string{"argusidentity", "argusgatewayidentity", "otelcol_version: 0.133.0"}},
 		{path: "deploy/otelcol/builder-windows-amd64.yaml", required: []string{"argusidentity", "otelcol_version: 0.133.0"}},
-		{path: "deploy/otelcol/install-windows.ps1", required: []string{"argus-otelcol.exe", "Assert-CABundle", "Assert-ArtifactSignature", "TrustBundleEpoch", "No privileged filesystem or service mutation"}},
-		{path: "deploy/scripts/host-install.sh", required: []string{"artifact ed25519 signature verification failed", "artifact sha256 mismatch", "X-Argus-Uninstall-Completion-Token"},
-			forbid: []string{"falling back to sha256", "WARNING: ed25519 public key unavailable"}},
+		{path: "deploy/otelcol/install-windows.ps1", required: []string{"argus-otelcol.exe", "Assert-CABundle", "verify-artifact", "ExpectedByteSize", "TrustBundleEpoch", "No privileged filesystem or service mutation"}, forbid: []string{"openssl.exe"}},
+		{path: "deploy/scripts/connector-install.sh", required: []string{"artifact Ed25519 signature verification failed", "artifact sha256 mismatch", "--token-file"}},
+		{path: "deploy/scripts/connector-install.ps1", required: []string{"verify-artifact", "Ed25519 signature verification failed", "Connector artifact SHA-256 mismatch", "ArgusConnector"}, forbid: []string{"openssl.exe"}},
+		{path: "internal/connector/identity.go", required: []string{".enrollment", "hasForeignLocalIdentity", "RemoveStagedLocalIdentity"}},
+		{path: "internal/directexecutor/host_onboarding.go", required: []string{"argus-connector-install", "previous-connector-id", "disable --now argus-otelcol.service"}},
+		{path: "internal/app/connector/host_install.go", required: []string{"argus-connector-install", "previous-connector-id", "disable --now argus-otelcol.service"}},
+		{path: "internal/directexecutor/connector_install.go", required: []string{"argus-connector-install", "previous-connector-id", "disable --now argus-otelcol.service"}},
 		{path: "deploy/docker/backend.Dockerfile", required: []string{"argus-connector"}},
 	}
 	for _, check := range checks {
@@ -308,7 +328,7 @@ func (a *App) validatePlanV4ArtifactPipeline() error {
 func validateBackendDockerfile(data []byte) error {
 	required := map[string]string{
 		"COPY api/openapi ./api/openapi": "bundled OpenAPI runtime package",
-		"RUN set -eu;":                   "fail-fast shell execution",
+		"set -eu;":                       "fail-fast shell execution",
 	}
 	for snippet, purpose := range required {
 		if !bytes.Contains(data, []byte(snippet)) {
@@ -406,8 +426,8 @@ func (a *App) checkWebEntrypoints(ctx context.Context) (returnErr error) {
 		"--set-string", "runtime.otelcolWindowsAmd64Signature=m1-smoke-signature", "--set", "runtime.otelcolWindowsAmd64ByteSize=1",
 		"--set-string", "runtime.otelcolSigningKeyId=m1-smoke", "--set-string", "runtime.otelcolSigningPublicKey=m1-smoke-public-key",
 		"--set-string", "runtime.otelcolKubernetesImage=argus-otelcol:m1-smoke",
-		"--set-string", "runtime.hostInstallerSha256=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
 		"--set-string", "runtime.connectorKubernetesImage=argus-backend:m1-smoke",
+		"--set-string", "runtime.httpsInternalAddress=ingress-nginx-controller.ingress-nginx.svc:443",
 		"--set-json", `runtime.secretKEKKeyring={"current_version":1,"keys":{"1":"DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"}}`,
 		"--set", "production.directExecutor.telemetryTunnelLimit=64",
 		"--set", "production.directExecutor.controlTunnelLimit=32",
@@ -450,12 +470,12 @@ func (a *App) checkWebEntrypoints(ctx context.Context) (returnErr error) {
 		_ = a.runner.Run(context.Background(), nil, "docker", "image", "rm", "--force", image)
 	}()
 	if err := a.runner.Run(ctx, nil, "docker", "build", "--file", "deploy/docker/web.Dockerfile", "--tag", image,
-		"--build-arg", "VITE_API_MODE=real", "--build-arg", "VITE_API_BASE_URL=https://api.argus.invalid",
-		"--build-arg", "VITE_CARD_ORIGIN=https://cards.argus.invalid", "--build-arg", "VITE_PLATFORM_URL=https://platform.argus.invalid",
+		"--build-arg", "VITE_API_MODE=real", "--build-arg", "VITE_API_BASE_URL=/",
 		"--build-arg", "VITE_DIRECT_EGRESS_ADDRESSES=198.51.100.10", "."); err != nil {
 		return err
 	}
 	if err := a.runner.Run(ctx, nil, "docker", "run", "--detach", "--name", container,
+		"--add-host", "argus-server:127.0.0.1",
 		"--publish", "127.0.0.1::8080", "--publish", "127.0.0.1::8081", "--publish", "127.0.0.1::8083", image); err != nil {
 		return err
 	}
@@ -497,7 +517,9 @@ func renderedDocumentContains(rendered, kind string, values ...string) bool {
 
 func waitHTTP(ctx context.Context, url, expected string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
-	client := &http.Client{Timeout: 3 * time.Second}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	client := &http.Client{Timeout: 3 * time.Second, Transport: transport}
 	for time.Now().Before(deadline) {
 		request, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		response, err := client.Do(request)

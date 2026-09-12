@@ -32,8 +32,8 @@ spec:
           command: [sh, -ec]
           args:
             - |
-              until clickhouse-client --host argus-clickhouse-client --user argus_telemetry_migration --password "$CLICKHOUSE_PASSWORD" --query 'SELECT 1'; do sleep 3; done
-              clickhouse-client --host argus-clickhouse-client --user argus_telemetry_migration --password "$CLICKHOUSE_PASSWORD" --multiquery < /migrations/00001_m7_telemetry.sql
+              until clickhouse-client --host argus-clickhouse-client --user argus_telemetry_migration --password="$CLICKHOUSE_PASSWORD" --query 'SELECT 1'; do sleep 3; done
+              clickhouse-client --host argus-clickhouse-client --user argus_telemetry_migration --password="$CLICKHOUSE_PASSWORD" --multiquery < /migrations/00001_m7_telemetry.sql
           volumeMounts:
             - {name: migration, mountPath: /migrations, readOnly: true}
       volumes:

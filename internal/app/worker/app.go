@@ -25,7 +25,7 @@ import (
 	connectorservice "github.com/kakj-go/Argus/internal/connector"
 	"github.com/kakj-go/Argus/internal/directexecutor"
 	directv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/directexecutor/v1"
-	"github.com/kakj-go/Argus/internal/hostprobe"
+	"github.com/kakj-go/Argus/internal/hostremoval"
 	"github.com/kakj-go/Argus/internal/keywrap"
 	"github.com/kakj-go/Argus/internal/kubernetesreader"
 	"github.com/kakj-go/Argus/internal/mcp"
@@ -114,14 +114,13 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	defer directDispatcher.Close()
 	secretDomain := secretservice.Service{Store: store, Keyring: keyring}
 	actionDomain := resource.PendingActionService{Store: store, Idempotency: idempotency, Key: cfg.PendingActionKey}
-	artifactChecker, err := artifactcheck.NewHTTPChecker(cfg.OtelcolArtifactCABundle, cfg.ArtifactProbeBaseURL)
+	artifactChecker, err := artifactcheck.NewHTTPChecker(cfg.OtelcolArtifactCABundle)
 	if err != nil {
 		return err
 	}
 	connectorDomain := connectorservice.Service{Store: store, Redis: redisClient, GatewayEndpoint: cfg.ConnectorGatewayAddress,
 		EnrollmentURL: cfg.ConnectorEnrollmentURL, Credentials: secretDomain, Artifacts: artifactChecker,
-		TrustBundlePath: cfg.TrustBundlePath, TrustBundleEpoch: cfg.TrustBundleEpoch,
-		TrustBundles:    bundles,
+		TrustConfig: cfg.TrustConfig, TrustBundles: bundles,
 		KubernetesImage: cfg.ConnectorKubernetesImage,
 		Issuer: connectorservice.CertManagerIssuer{Client: kubernetesClient, Namespace: cfg.SystemNamespace,
 			IssuerName: cfg.ConnectorIssuerName, IssuerKind: "ClusterIssuer", IssuerGeneration: int32(activeBundle.Epoch)}}
@@ -130,16 +129,16 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	if err != nil {
 		return err
 	}
-	workerSelfEnroll := &telemetryservice.SelfEnrollService{Store: store, Actions: actionDomain, Identity: telemetryservice.IdentityService{Store: store, TrustBundles: bundles},
+	removalDomain := hostremoval.Service{Store: store, Actions: actionDomain, Access: resource.AccessService{}, TrustBundles: bundles,
+		TokenKey: cfg.PendingActionKey, ExternalURL: cfg.ConnectorEnrollmentURL, Next: bastionDomain}
+	telemetryActions := telemetryservice.ActionExtension{Next: removalDomain, Credentials: secretDomain,
 		EnrollmentEndpoint: cfg.TelemetryEnrollment, IngestGRPCEndpoint: cfg.TelemetryIngestGRPC,
-		IngestHTTPEndpoint: cfg.TelemetryIngestHTTP, BootstrapSecretKey: cfg.PendingActionKey, Artifacts: artifactChecker,
-		TrustBundles: bundles, TrustBundlePath: cfg.TrustBundlePath, TrustBundleEpoch: cfg.TrustBundleEpoch, InstallerSHA256: cfg.HostInstallerSHA256}
-	telemetryActions := telemetryservice.ActionExtension{Next: bastionDomain, Credentials: secretDomain,
-		EnrollmentEndpoint: cfg.TelemetryEnrollment, IngestGRPCEndpoint: cfg.TelemetryIngestGRPC,
-		IngestHTTPEndpoint: cfg.TelemetryIngestHTTP, TrustBundles: bundles, SelfEnroll: workerSelfEnroll}
+		IngestHTTPEndpoint: cfg.TelemetryIngestHTTP, TrustBundles: bundles}
 	resourceDomain := resource.Service{Store: store, Actions: actionDomain, Access: resource.AccessService{},
 		Direct: resource.DirectTargetValidator{DeniedCIDRs: denied}, Commands: connectorDomain, DirectCommands: directDispatcher,
-		Extension: telemetryActions, ClusterEnrollment: connectorDomain,
+		HostOnboarding:   bastionDomain,
+		OnboardingProbes: bastionDomain,
+		Extension:        telemetryActions, ClusterEnrollment: connectorDomain,
 		Kubernetes: kubernetesreader.Reader{Store: store, Secrets: secretDomain, Validator: resource.DirectTargetValidator{DeniedCIDRs: denied}, Notifier: connectorDomain}}
 	registry := mcp.NewRegistry()
 	if err := (agent.ResourceTools{Store: store, Resources: resourceDomain}).Register(registry); err != nil {
@@ -182,7 +181,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	}
 	workerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	errorsChannel := make(chan error, len(queues)+4)
+	errorsChannel := make(chan error, len(queues)+5)
 	var group sync.WaitGroup
 	for _, queue := range queues {
 		queue := queue
@@ -200,6 +199,16 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		}()
 	}
 	if pool == PoolDefault || pool == PoolAction {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			errorsChannel <- removalDomain.Run(workerCtx, hostname+":host-removal")
+		}()
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			errorsChannel <- bastionDomain.RunHostOnboardingDispatcher(workerCtx, hostname+":host-onboarding")
+		}()
 		group.Add(1)
 		go func() {
 			defer group.Done()
@@ -316,7 +325,6 @@ func runDirectExecutor(ctx context.Context, logger *slog.Logger) error {
 	errorsChannel := make(chan error, 3)
 	// 主机实时探活归属 Direct Executor 池:它是唯一出站不受 NetworkPolicy
 	// 端口限制的组件(worker 只放行固定内部端口,探测任意目标端口会被拒)。
-	go func() { errorsChannel <- (hostprobe.Reconciler{Store: store, Logger: logger}).Run(ctx) }()
 	go func() {
 		if err := health.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errorsChannel <- err

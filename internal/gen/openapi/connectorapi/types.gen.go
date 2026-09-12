@@ -11,6 +11,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for BastionPreviewCreateArchitecture.
+const (
+	BastionPreviewCreateArchitectureAmd64 BastionPreviewCreateArchitecture = "amd64"
+	BastionPreviewCreateArchitectureArm64 BastionPreviewCreateArchitecture = "arm64"
+)
+
+// Valid indicates whether the value is a known member of the BastionPreviewCreateArchitecture enum.
+func (e BastionPreviewCreateArchitecture) Valid() bool {
+	switch e {
+	case BastionPreviewCreateArchitectureAmd64:
+		return true
+	case BastionPreviewCreateArchitectureArm64:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BastionPreviewCreateInstallMode.
 const (
 	BastionPreviewCreateInstallModeCommand             BastionPreviewCreateInstallMode = "command"
@@ -62,6 +80,27 @@ func (e BastionScopeControlTunnelStatus) Valid() bool {
 	}
 }
 
+// Defines values for BastionScopeLocalCleanup.
+const (
+	BastionScopeLocalCleanupPending  BastionScopeLocalCleanup = "pending"
+	BastionScopeLocalCleanupUnknown  BastionScopeLocalCleanup = "unknown"
+	BastionScopeLocalCleanupVerified BastionScopeLocalCleanup = "verified"
+)
+
+// Valid indicates whether the value is a known member of the BastionScopeLocalCleanup enum.
+func (e BastionScopeLocalCleanup) Valid() bool {
+	switch e {
+	case BastionScopeLocalCleanupPending:
+		return true
+	case BastionScopeLocalCleanupUnknown:
+		return true
+	case BastionScopeLocalCleanupVerified:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BastionScopeOnboardingMode.
 const (
 	BastionScopeOnboardingModeCommand             BastionScopeOnboardingMode = "command"
@@ -83,12 +122,39 @@ func (e BastionScopeOnboardingMode) Valid() bool {
 	}
 }
 
+// Defines values for BastionScopeRelayStatus.
+const (
+	BastionScopeRelayStatusDegraded BastionScopeRelayStatus = "degraded"
+	BastionScopeRelayStatusOffline  BastionScopeRelayStatus = "offline"
+	BastionScopeRelayStatusPending  BastionScopeRelayStatus = "pending"
+	BastionScopeRelayStatusReady    BastionScopeRelayStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the BastionScopeRelayStatus enum.
+func (e BastionScopeRelayStatus) Valid() bool {
+	switch e {
+	case BastionScopeRelayStatusDegraded:
+		return true
+	case BastionScopeRelayStatusOffline:
+		return true
+	case BastionScopeRelayStatusPending:
+		return true
+	case BastionScopeRelayStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BastionScopeStatus.
 const (
 	BastionScopeStatusActive           BastionScopeStatus = "active"
+	BastionScopeStatusCleanupUnknown   BastionScopeStatus = "cleanup_unknown"
 	BastionScopeStatusDeleted          BastionScopeStatus = "deleted"
+	BastionScopeStatusDraining         BastionScopeStatus = "draining"
 	BastionScopeStatusOffline          BastionScopeStatus = "offline"
 	BastionScopeStatusPending          BastionScopeStatus = "pending"
+	BastionScopeStatusRemovalFailed    BastionScopeStatus = "removal_failed"
 	BastionScopeStatusSuspectedOffline BastionScopeStatus = "suspected_offline"
 	BastionScopeStatusUninstalled      BastionScopeStatus = "uninstalled"
 	BastionScopeStatusUninstalling     BastionScopeStatus = "uninstalling"
@@ -99,11 +165,17 @@ func (e BastionScopeStatus) Valid() bool {
 	switch e {
 	case BastionScopeStatusActive:
 		return true
+	case BastionScopeStatusCleanupUnknown:
+		return true
 	case BastionScopeStatusDeleted:
+		return true
+	case BastionScopeStatusDraining:
 		return true
 	case BastionScopeStatusOffline:
 		return true
 	case BastionScopeStatusPending:
+		return true
+	case BastionScopeStatusRemovalFailed:
 		return true
 	case BastionScopeStatusSuspectedOffline:
 		return true
@@ -151,16 +223,34 @@ func (e ConnectorStatus) Valid() bool {
 
 // Defines values for ConnectorEnrollRequestArchitecture.
 const (
-	Amd64 ConnectorEnrollRequestArchitecture = "amd64"
-	Arm64 ConnectorEnrollRequestArchitecture = "arm64"
+	ConnectorEnrollRequestArchitectureAmd64 ConnectorEnrollRequestArchitecture = "amd64"
+	ConnectorEnrollRequestArchitectureArm64 ConnectorEnrollRequestArchitecture = "arm64"
 )
 
 // Valid indicates whether the value is a known member of the ConnectorEnrollRequestArchitecture enum.
 func (e ConnectorEnrollRequestArchitecture) Valid() bool {
 	switch e {
-	case Amd64:
+	case ConnectorEnrollRequestArchitectureAmd64:
 		return true
-	case Arm64:
+	case ConnectorEnrollRequestArchitectureArm64:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConnectorEnrollRequestPlatform.
+const (
+	Linux   ConnectorEnrollRequestPlatform = "linux"
+	Windows ConnectorEnrollRequestPlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the ConnectorEnrollRequestPlatform enum.
+func (e ConnectorEnrollRequestPlatform) Valid() bool {
+	switch e {
+	case Linux:
+		return true
+	case Windows:
 		return true
 	default:
 		return false
@@ -371,6 +461,7 @@ func (e ConnectorInstallOperationEventStatus) Valid() bool {
 // Defines values for ConnectorRole.
 const (
 	ConnectorRoleBastion    ConnectorRole = "bastion"
+	ConnectorRoleHost       ConnectorRole = "host"
 	ConnectorRoleKubernetes ConnectorRole = "kubernetes"
 )
 
@@ -378,6 +469,8 @@ const (
 func (e ConnectorRole) Valid() bool {
 	switch e {
 	case ConnectorRoleBastion:
+		return true
+	case ConnectorRoleHost:
 		return true
 	case ConnectorRoleKubernetes:
 		return true
@@ -407,14 +500,53 @@ func (e Environment) Valid() bool {
 	}
 }
 
-// Defines values for InstallInstructionSetDownloadTlsMode.
+// Defines values for HostInstallMethod.
 const (
-	InsecureFirstFetch InstallInstructionSetDownloadTlsMode = "insecure-first-fetch"
-	Strict             InstallInstructionSetDownloadTlsMode = "strict"
+	Manual HostInstallMethod = "manual"
+	Ssh    HostInstallMethod = "ssh"
 )
 
-// Valid indicates whether the value is a known member of the InstallInstructionSetDownloadTlsMode enum.
-func (e InstallInstructionSetDownloadTlsMode) Valid() bool {
+// Valid indicates whether the value is a known member of the HostInstallMethod enum.
+func (e HostInstallMethod) Valid() bool {
+	switch e {
+	case Manual:
+		return true
+	case Ssh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostSSHPath.
+const (
+	BastionConnector HostSSHPath = "bastion_connector"
+	DirectExecutor   HostSSHPath = "direct_executor"
+	None             HostSSHPath = "none"
+)
+
+// Valid indicates whether the value is a known member of the HostSSHPath enum.
+func (e HostSSHPath) Valid() bool {
+	switch e {
+	case BastionConnector:
+		return true
+	case DirectExecutor:
+		return true
+	case None:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstallInstructionSetBootstrapTlsMode.
+const (
+	InsecureFirstFetch InstallInstructionSetBootstrapTlsMode = "insecure-first-fetch"
+	Strict             InstallInstructionSetBootstrapTlsMode = "strict"
+)
+
+// Valid indicates whether the value is a known member of the InstallInstructionSetBootstrapTlsMode enum.
+func (e InstallInstructionSetBootstrapTlsMode) Valid() bool {
 	switch e {
 	case InsecureFirstFetch:
 		return true
@@ -425,21 +557,57 @@ func (e InstallInstructionSetDownloadTlsMode) Valid() bool {
 	}
 }
 
-// Defines values for InstallInstructionSetScope.
+// Defines values for InstallInstructionSetPlatform.
 const (
-	InstallInstructionSetScopeKubernetes  InstallInstructionSetScope = "kubernetes"
-	InstallInstructionSetScopeLinuxSystem InstallInstructionSetScope = "linux-system"
-	InstallInstructionSetScopeLinuxUser   InstallInstructionSetScope = "linux-user"
+	InstallInstructionSetPlatformKubernetes   InstallInstructionSetPlatform = "kubernetes"
+	InstallInstructionSetPlatformLinuxAmd64   InstallInstructionSetPlatform = "linux_amd64"
+	InstallInstructionSetPlatformLinuxArm64   InstallInstructionSetPlatform = "linux_arm64"
+	InstallInstructionSetPlatformWindowsAmd64 InstallInstructionSetPlatform = "windows_amd64"
 )
 
-// Valid indicates whether the value is a known member of the InstallInstructionSetScope enum.
-func (e InstallInstructionSetScope) Valid() bool {
+// Valid indicates whether the value is a known member of the InstallInstructionSetPlatform enum.
+func (e InstallInstructionSetPlatform) Valid() bool {
 	switch e {
-	case InstallInstructionSetScopeKubernetes:
+	case InstallInstructionSetPlatformKubernetes:
 		return true
-	case InstallInstructionSetScopeLinuxSystem:
+	case InstallInstructionSetPlatformLinuxAmd64:
 		return true
-	case InstallInstructionSetScopeLinuxUser:
+	case InstallInstructionSetPlatformLinuxArm64:
+		return true
+	case InstallInstructionSetPlatformWindowsAmd64:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstallInstructionSetPrivilege.
+const (
+	System InstallInstructionSetPrivilege = "system"
+)
+
+// Valid indicates whether the value is a known member of the InstallInstructionSetPrivilege enum.
+func (e InstallInstructionSetPrivilege) Valid() bool {
+	switch e {
+	case System:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstallInstructionSetShell.
+const (
+	PosixSh    InstallInstructionSetShell = "posix_sh"
+	Powershell InstallInstructionSetShell = "powershell"
+)
+
+// Valid indicates whether the value is a known member of the InstallInstructionSetShell enum.
+func (e InstallInstructionSetShell) Valid() bool {
+	switch e {
+	case PosixSh:
+		return true
+	case Powershell:
 		return true
 	default:
 		return false
@@ -532,16 +700,16 @@ func (e TrustBundleSnapshotState) Valid() bool {
 
 // Defines values for GetConnectorBootstrapScriptParamsScope.
 const (
-	GetConnectorBootstrapScriptParamsScopeLinuxSystem GetConnectorBootstrapScriptParamsScope = "linux-system"
-	GetConnectorBootstrapScriptParamsScopeLinuxUser   GetConnectorBootstrapScriptParamsScope = "linux-user"
+	LinuxSystem   GetConnectorBootstrapScriptParamsScope = "linux-system"
+	WindowsSystem GetConnectorBootstrapScriptParamsScope = "windows-system"
 )
 
 // Valid indicates whether the value is a known member of the GetConnectorBootstrapScriptParamsScope enum.
 func (e GetConnectorBootstrapScriptParamsScope) Valid() bool {
 	switch e {
-	case GetConnectorBootstrapScriptParamsScopeLinuxSystem:
+	case LinuxSystem:
 		return true
-	case GetConnectorBootstrapScriptParamsScopeLinuxUser:
+	case WindowsSystem:
 		return true
 	default:
 		return false
@@ -578,7 +746,7 @@ type BastionConnectorReplacementPreview struct {
 	// Address 模式 B/C 必填；必须与本次连接测试一致
 	Address *string `json:"address,omitempty"`
 
-	// ConnectionTestId 模式 B/C 必填；必须是当前有效的 direct_ssh 测试
+	// ConnectionTestId 模式 B/C 必填；必须是当前有效且字段完全匹配的 SSH 连接测试
 	ConnectionTestId *openapi_types.UUID `json:"connection_test_id,omitempty"`
 	CredentialId     *openapi_types.UUID `json:"credential_id,omitempty"`
 	ExpectedVersion  int64               `json:"expected_version"`
@@ -590,7 +758,10 @@ type BastionConnectorReplacementPreview struct {
 type BastionPreviewCreate struct {
 	Address *string `json:"address,omitempty"`
 
-	// ConnectionTestId 代装模式必填:与本表单字段匹配且成功的 direct_ssh 主机连接测试
+	// Architecture 命令安装必填；SSH 安装由连接测试探测
+	Architecture *BastionPreviewCreateArchitecture `json:"architecture,omitempty"`
+
+	// ConnectionTestId 代装模式必填:与本表单字段匹配且成功的 SSH 主机连接测试
 	ConnectionTestId *openapi_types.UUID             `json:"connection_test_id,omitempty"`
 	CredentialId     *openapi_types.UUID             `json:"credential_id,omitempty"`
 	Environment      Environment                     `json:"environment"`
@@ -600,6 +771,9 @@ type BastionPreviewCreate struct {
 	Port             *int                            `json:"port,omitempty"`
 	Username         *string                         `json:"username,omitempty"`
 }
+
+// BastionPreviewCreateArchitecture 命令安装必填；SSH 安装由连接测试探测
+type BastionPreviewCreateArchitecture string
 
 // BastionPreviewCreateInstallMode defines model for BastionPreviewCreate.InstallMode.
 type BastionPreviewCreateInstallMode string
@@ -617,20 +791,37 @@ type BastionScope struct {
 	FencingGeneration   int64                            `json:"fencing_generation"`
 	Id                  openapi_types.UUID               `json:"id"`
 	Labels              Labels                           `json:"labels"`
+	LocalCleanup        *BastionScopeLocalCleanup        `json:"local_cleanup,omitempty"`
 	MemberCount         int                              `json:"member_count"`
 	Name                string                           `json:"name"`
 	Onboarding          OnboardingProjection             `json:"onboarding"`
 	OnboardingMode      *BastionScopeOnboardingMode      `json:"onboarding_mode,omitempty"`
-	ResourceVersion     int64                            `json:"resource_version"`
-	Status              BastionScopeStatus               `json:"status"`
-	UpdatedAt           time.Time                        `json:"updated_at"`
+
+	// RelayAddress Connector 首次成功监听后自动上报的成员拨号地址
+	RelayAddress        *string                  `json:"relay_address,omitempty"`
+	RelayErrorCode      *string                  `json:"relay_error_code,omitempty"`
+	RelayGatewayPort    *int                     `json:"relay_gateway_port,omitempty"`
+	RelayHttpsPort      *int                     `json:"relay_https_port,omitempty"`
+	RelayPortGeneration *int64                   `json:"relay_port_generation,omitempty"`
+	RelayStatus         *BastionScopeRelayStatus `json:"relay_status,omitempty"`
+	RemovalGeneration   *int64                   `json:"removal_generation,omitempty"`
+	RemovalOperationId  *openapi_types.UUID      `json:"removal_operation_id,omitempty"`
+	ResourceVersion     int64                    `json:"resource_version"`
+	Status              BastionScopeStatus       `json:"status"`
+	UpdatedAt           time.Time                `json:"updated_at"`
 }
 
 // BastionScopeControlTunnelStatus 模式 C 长期控制隧道的权威状态；与 Connector 在线状态独立
 type BastionScopeControlTunnelStatus string
 
+// BastionScopeLocalCleanup defines model for BastionScope.LocalCleanup.
+type BastionScopeLocalCleanup string
+
 // BastionScopeOnboardingMode defines model for BastionScope.OnboardingMode.
 type BastionScopeOnboardingMode string
+
+// BastionScopeRelayStatus defines model for BastionScope.RelayStatus.
+type BastionScopeRelayStatus string
 
 // BastionScopeStatus defines model for BastionScope.Status.
 type BastionScopeStatus string
@@ -673,11 +864,15 @@ type ConnectorEnrollRequest struct {
 	DeviceFingerprint string                             `json:"device_fingerprint"`
 	InstanceId        string                             `json:"instance_id"`
 	Name              string                             `json:"name"`
+	Platform          ConnectorEnrollRequestPlatform     `json:"platform"`
 	SoftwareVersion   string                             `json:"software_version"`
 }
 
 // ConnectorEnrollRequestArchitecture defines model for ConnectorEnrollRequest.Architecture.
 type ConnectorEnrollRequestArchitecture string
+
+// ConnectorEnrollRequestPlatform defines model for ConnectorEnrollRequest.Platform.
+type ConnectorEnrollRequestPlatform string
 
 // ConnectorEnrollResult defines model for ConnectorEnrollResult.
 type ConnectorEnrollResult struct {
@@ -768,28 +963,44 @@ type CursorPage struct {
 // Environment defines model for Environment.
 type Environment string
 
+// HostInstallMethod defines model for HostInstallMethod.
+type HostInstallMethod string
+
+// HostSSHPath defines model for HostSSHPath.
+type HostSSHPath string
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
 // InstallInstructionSet defines model for InstallInstructionSet.
 type InstallInstructionSet struct {
-	CapabilityWarnings []string `json:"capability_warnings"`
+	BootstrapSha256    string                                 `json:"bootstrap_sha256"`
+	BootstrapTlsMode   *InstallInstructionSetBootstrapTlsMode `json:"bootstrap_tls_mode,omitempty"`
+	CapabilityWarnings []string                               `json:"capability_warnings"`
 
 	// Command 唯一面向用户展示的一键安装命令。Host 与手工 Connector 下载动态引导脚本；Kubernetes 使用等价的单命令临时脚本执行。
-	Command           *string                               `json:"command,omitempty"`
-	DownloadTlsMode   *InstallInstructionSetDownloadTlsMode `json:"download_tls_mode,omitempty"`
-	ExpiresAt         time.Time                             `json:"expires_at"`
-	InstallerSha256   string                                `json:"installer_sha256"`
-	Scope             InstallInstructionSetScope            `json:"scope"`
-	TrustBundleEpoch  int64                                 `json:"trust_bundle_epoch"`
-	TrustBundleSha256 string                                `json:"trust_bundle_sha256"`
+	Command           *string                        `json:"command,omitempty"`
+	ExpiresAt         time.Time                      `json:"expires_at"`
+	InstallerSha256   string                         `json:"installer_sha256"`
+	Platform          InstallInstructionSetPlatform  `json:"platform"`
+	Privilege         InstallInstructionSetPrivilege `json:"privilege"`
+	ReleaseVersion    string                         `json:"release_version"`
+	Shell             InstallInstructionSetShell     `json:"shell"`
+	TrustBundleEpoch  int64                          `json:"trust_bundle_epoch"`
+	TrustBundleSha256 string                         `json:"trust_bundle_sha256"`
 }
 
-// InstallInstructionSetDownloadTlsMode defines model for InstallInstructionSet.DownloadTlsMode.
-type InstallInstructionSetDownloadTlsMode string
+// InstallInstructionSetBootstrapTlsMode defines model for InstallInstructionSet.BootstrapTlsMode.
+type InstallInstructionSetBootstrapTlsMode string
 
-// InstallInstructionSetScope defines model for InstallInstructionSet.Scope.
-type InstallInstructionSetScope string
+// InstallInstructionSetPlatform defines model for InstallInstructionSet.Platform.
+type InstallInstructionSetPlatform string
+
+// InstallInstructionSetPrivilege defines model for InstallInstructionSet.Privilege.
+type InstallInstructionSetPrivilege string
+
+// InstallInstructionSetShell defines model for InstallInstructionSet.Shell.
+type InstallInstructionSetShell string
 
 // LabelValue defines model for LabelValue.
 type LabelValue = string
@@ -801,8 +1012,10 @@ type Labels map[string]LabelValue
 type OnboardingProjection struct {
 	ErrorCode        *string                   `json:"error_code,omitempty"`
 	ExecutionId      *openapi_types.UUID       `json:"execution_id,omitempty"`
+	InstallMethod    *HostInstallMethod        `json:"install_method,omitempty"`
 	OperationId      *openapi_types.UUID       `json:"operation_id,omitempty"`
 	PendingActionRef *string                   `json:"pending_action_ref,omitempty"`
+	SshPath          *HostSSHPath              `json:"ssh_path,omitempty"`
 	State            OnboardingProjectionState `json:"state"`
 	UpdatedAt        time.Time                 `json:"updated_at"`
 }
@@ -841,6 +1054,12 @@ type PublicJsonValue4 = []*PublicJsonValue
 
 // RequestId defines model for RequestId.
 type RequestId = string
+
+// ResourceNameAvailability defines model for ResourceNameAvailability.
+type ResourceNameAvailability struct {
+	// Available Whether the name can currently be used for creation in the authenticated enterprise. This does not reserve the name.
+	Available bool `json:"available"`
+}
 
 // ResourcePreviewDelete defines model for ResourcePreviewDelete.
 type ResourcePreviewDelete struct {
@@ -950,6 +1169,11 @@ type ListBastionScopesParams struct {
 type PreviewCreateBastionScopeParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+}
+
+// CheckBastionNameAvailabilityParams defines parameters for CheckBastionNameAvailability.
+type CheckBastionNameAvailabilityParams struct {
+	Name string `form:"name" json:"name"`
 }
 
 // PreviewBastionConnectorReplacementParams defines parameters for PreviewBastionConnectorReplacement.

@@ -5,11 +5,13 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -18,12 +20,30 @@ type LocalIdentity struct {
 	ConnectorID uuid.UUID
 	PrivateKey  *ecdsa.PrivateKey
 	CSRPEM      string
+	Staged      bool
 }
 
 func GenerateLocalIdentity(directory string, connectorID uuid.UUID) (LocalIdentity, error) {
 	if connectorID == uuid.Nil {
 		return LocalIdentity{}, errors.New("connector ID is required")
 	}
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		return LocalIdentity{}, err
+	}
+	if err := os.Chmod(directory, 0o700); err != nil {
+		return LocalIdentity{}, err
+	}
+	if foreign, err := hasForeignLocalIdentity(directory, connectorID); err != nil {
+		return LocalIdentity{}, err
+	} else if foreign {
+		identity, err := generateLocalIdentityAt(filepath.Join(directory, ".enrollment", connectorID.String()), connectorID)
+		identity.Staged = err == nil
+		return identity, err
+	}
+	return generateLocalIdentityAt(directory, connectorID)
+}
+
+func generateLocalIdentityAt(directory string, connectorID uuid.UUID) (LocalIdentity, error) {
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		return LocalIdentity{}, err
 	}
@@ -74,6 +94,63 @@ func GenerateLocalIdentity(directory string, connectorID uuid.UUID) (LocalIdenti
 		return LocalIdentity{}, err
 	}
 	return LocalIdentity{ConnectorID: connectorID, PrivateKey: key, CSRPEM: string(csrPEM)}, nil
+}
+
+func hasForeignLocalIdentity(directory string, connectorID uuid.UUID) (bool, error) {
+	metadata, err := os.ReadFile(filepath.Join(directory, "identity.json"))
+	if err == nil {
+		var value struct {
+			ConnectorID string `json:"connector_id"`
+		}
+		if json.Unmarshal(metadata, &value) != nil || value.ConnectorID == "" {
+			return false, errors.New("Connector identity metadata is invalid")
+		}
+		current, parseErr := uuid.Parse(value.ConnectorID)
+		if parseErr != nil {
+			return false, errors.New("Connector identity metadata is invalid")
+		}
+		return current != connectorID, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return false, err
+	}
+	keyPEM, keyErr := os.ReadFile(filepath.Join(directory, "connector-key.pem"))
+	csrPEM, csrErr := os.ReadFile(filepath.Join(directory, "connector.csr.pem"))
+	if keyErr == nil && csrErr == nil {
+		if _, parseErr := parseLocalIdentity(connectorID, keyPEM, csrPEM); parseErr == nil {
+			return false, nil
+		}
+		oldID, parseErr := connectorIDFromCSR(csrPEM)
+		if parseErr == nil && oldID != connectorID {
+			if _, oldErr := parseLocalIdentity(oldID, keyPEM, csrPEM); oldErr == nil {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func connectorIDFromCSR(csrPEM []byte) (uuid.UUID, error) {
+	block, rest := pem.Decode(csrPEM)
+	if block == nil || block.Type != "CERTIFICATE REQUEST" || len(rest) != 0 {
+		return uuid.Nil, errors.New("Connector enrollment CSR is invalid")
+	}
+	csr, err := x509.ParseCertificateRequest(block.Bytes)
+	if err != nil || csr.CheckSignature() != nil || len(csr.URIs) != 1 {
+		return uuid.Nil, errors.New("Connector enrollment CSR is invalid")
+	}
+	const prefix = "spiffe://argus.io/connector/"
+	if value := csr.URIs[0].String(); strings.HasPrefix(value, prefix) {
+		return uuid.Parse(strings.TrimPrefix(value, prefix))
+	}
+	return uuid.Nil, errors.New("Connector enrollment CSR is invalid")
+}
+
+func RemoveStagedLocalIdentity(directory string, connectorID uuid.UUID) error {
+	if connectorID == uuid.Nil {
+		return errors.New("connector ID is required")
+	}
+	return os.RemoveAll(filepath.Join(directory, ".enrollment"))
 }
 
 func parseLocalIdentity(connectorID uuid.UUID, keyPEM, csrPEM []byte) (LocalIdentity, error) {
