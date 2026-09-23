@@ -6,7 +6,7 @@
 
 `go run ./cmd/argus-dev e2e run --suite m10-query` 默认运行临时 Namespace 的真实 Collector → Kafka → Writer → ClickHouse → 单进程 Query 流程，并以 PromQL、KQL、SkyWalking GraphQL 验证查询、安全投影、租户表隔离、故障恢复和清理。`--unit-only` 只用于开发机快速门禁检查，不构成发布证据。
 
-> 本文描述第一版目标部署架构。仓库已经具备可安装、可验证和可清理的 Evaluation 基座；M2-M7 的身份、资源/Connector、Agent、Card、Remote Access 和 Telemetry 均已接入 real API。实际完成度见[当前实现盘点与 Kubernetes 落地路线](./13-current-implementation-and-kubernetes-rollout.md)，PostgreSQL 环境决策见[PostgreSQL 部署决策](./14-postgresql-deployment-decision.md)。
+> 本文描述第一版目标部署架构。仓库已经具备可安装、可验证和可清理的 Evaluation 基座；M2-M7 的身份、资源/Connector、Agent、展示、Remote Access 和 Telemetry 均已接入 real API。实际完成度见[当前实现盘点与 Kubernetes 落地路线](./13-current-implementation-and-kubernetes-rollout.md)，PostgreSQL 环境决策见[PostgreSQL 部署决策](./14-postgresql-deployment-decision.md)。
 
 ## 1. 目标
 
@@ -63,7 +63,7 @@ Evaluation 合并 Worker 的默认资源为 `requests: 100m/256Mi`、`limits: 2 
 
 | 工作负载                  | 横向扩展方式                                    | 必要条件                                                                           |
 | ------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `argus-server`            | 任意副本处理 HTTP/Card Action                   | Session、Run、Pending Action、Token 和 Card Instance 不保存在 Pod 本地             |
+| `argus-server`            | 任意副本处理 HTTP/宿主确认                   | Session、Run、Pending Action、Token 和 ToolPresentation 不保存在 Pod 本地             |
 | `argus-worker`            | PostgreSQL Task Lease 分工                      | Fence Token、幂等、外部副作用对账                                                  |
 | `argus-direct-executor`   | 公网连接任务与人工会话分工                      | 固定出口、SSRF 防护、Host Key、短期 Credential/Session Ticket、无 Pod 本地唯一状态 |
 | `argus-connector-gateway` | Connector/远程会话连接分布和跨 Gateway 内部转发 | PostgreSQL 命令队列、Redis Registry/Pub/Sub、connection_epoch、短期票据、录像外置、Drain |
@@ -71,7 +71,7 @@ Evaluation 合并 Worker 的默认资源为 `requests: 100m/256Mi`、`limits: 2 
 | `argus-telemetry-query`   | 任意副本查询                                    | 无状态 Cursor、Enterprise/授权 Resource 条件强制注入、字段脱敏和查询预算           |
 | `argus-telemetry writer`  | Kafka Consumer Group                            | Partition 数、Rebalance 和 Offset 门禁                                             |
 
-具体状态所有权和扩缩容失败场景见[运行时状态、Redis 与横向扩展](./11-runtime-state-and-horizontal-scaling.md)。Migration、Bootstrap、系统 Card Catalog Sync 和 DLQ 重放不是普通横向扩展工作负载，必须使用 Job/Lease 或幂等数据库约束保证单一结果。`argus-card-catalog-sync` 只同步随镜像发布的不可变系统 Card Revision，普通 Server 启动不修改目录。
+具体状态所有权和扩缩容失败场景见[运行时状态、Redis 与横向扩展](./11-runtime-state-and-horizontal-scaling.md)。Migration、Bootstrap、 DLQ 重放不是普通横向扩展工作负载，必须使用 Job/Lease 或幂等数据库约束保证单一结果。自有 Tool CatalogRevision 与 backend 镜像 Digest 绑定，模板由 Tool 包随版本发布。
 
 ### 2.2 Kubernetes 内置平台依赖
 
@@ -80,7 +80,7 @@ Evaluation 合并 Worker 的默认资源为 `requests: 100m/256Mi`、`limits: 2 
 | PostgreSQL  | 控制面元数据、RBAC、会话、Run、Pending Action、审计索引                                  | Kubernetes 内置；Evaluation 低副本，Production 使用持久卷和高可用拓扑，具体 Operator 选型形成 ADR |
 | Redis       | 短期缓存、分布式锁、限流和轻量任务协调；不可保存唯一业务状态                             | Kubernetes 内置，按 Profile 配置持久化和高可用                                                    |
 | MinIO       | Connector/Collector 安装包、远程会话录像、Sandbox Artifact、附件、导出物和集群内备份目标 | Kubernetes 内置的 S3 兼容 Artifact Store                                                          |
-| OpenSandbox | 不可信代码、附件解析、临时分析和 交互卡片 构建                                           | Kubernetes 内置，使用独立 Namespace 和隔离 Runtime                                                |
+| OpenSandbox | 不可信代码、附件解析、临时分析和 Tool 模板 构建                                           | Kubernetes 内置，使用独立 Namespace 和隔离 Runtime                                                |
 | Kafka       | 遥测持久缓冲和写入解耦                                                                   | Strimzi Kafka Operator + KRaft                                                                    |
 | ClickHouse  | Metrics、Logs、Traces 存储                                                               | Altinity ClickHouse Operator + ClickHouseInstallation + Keeper                                    |
 
@@ -192,7 +192,7 @@ flowchart LR
     B --> V
 ```
 
-对外访问只有域名模式：安装配置必须提供 `spec.exposure` 的 `enterpriseHost`、`platformHost`、`connectorHost`，并通过 `spec.pki.mode=managed|existing-cluster-issuer` 强制使用唯一全局 `ClusterIssuer`，不允许 HTTP 暴露或直接提供叶证书。门户流量经 Ingress（默认 `nginx` IngressClass）路由到 `argus-web` 三个 server；Enterprise `argus.<domain>`、Platform `platform.<domain>`、Card Runtime `cards.<domain>`（由企业域派生）；Remote WSS 统一由企业门户域名 `argus.<domain>` 的 `/v1/sessions` 路径承载，与企业页面同源。浏览器 Origin 精确允许列表只包含三个 HTTPS 门户域名。Web 容器以当前页面同源访问 `/api/v1/`（`VITE_API_BASE_URL=/`），由 Nginx 代理到集群内 `argus-server`；卡片 Origin 与 Platform 跳转地址由 Helm 渲染的 `/argus-runtime.json` 在运行时注入。Platform 在未初始化时显示首次初始化向导，初始化完成后同一地址只进入登录页。managed 私有 CA 不要求写入 Connector/Collector 的系统信任库，但首次浏览器访问仍需由客户信任该 CA。
+对外访问只有域名模式：安装配置必须提供 `spec.exposure` 的 `enterpriseHost`、`platformHost`、`connectorHost`，并通过 `spec.pki.mode=managed|existing-cluster-issuer` 强制使用唯一全局 `ClusterIssuer`，不允许 HTTP 暴露或直接提供叶证书。门户流量经 Ingress（默认 `nginx` IngressClass）路由到 `argus-web` 三个 server；Enterprise `argus.<domain>`、Platform `platform.<domain>`、Template Runtime `templates.<domain>`（由企业域派生）；Remote WSS 统一由企业门户域名 `argus.<domain>` 的 `/v1/sessions` 路径承载，与企业页面同源。业务 API 使用精确的 HTTPS Origin 允许列表，模板不调用业务 API。Web 容器以当前页面同源访问 `/api/v1/`（`VITE_API_BASE_URL=/`），由 Nginx 代理到集群内 `argus-server`；模板 Origin 与 Platform 跳转地址由 Helm 渲染的 `/argus-runtime.json` 在运行时注入。Platform 在未初始化时显示首次初始化向导，初始化完成后同一地址只进入登录页。managed 私有 CA 不要求写入 Connector/Collector 的系统信任库，但首次浏览器访问仍需由客户信任该 CA。
 
 每一步写入 `ArgusInstallation` 状态或安装状态 ConfigMap。再次执行相同命令时，从未完成阶段继续，并对配置变更生成计划。自动化/GitOps 环境也可以直接使用对应 Helm Release 和 CR，不强制使用 `argusctl`。
 
@@ -264,9 +264,9 @@ spec:
     defaultProfiles:
       - shell-basic
       - python-analysis
-      - node-card-builder
+      - workspace-analysis
     runtimeClassName: gvisor
-    networkPolicy: deny-by-default
+    networkPolicy: deny-all
 
   kafka:
     mode: bundled-strimzi
@@ -426,7 +426,7 @@ Writer 的 Kafka Receiver 配置 `message_marking.after: true`、`on_error: fals
 
 | 入口                               | 后端                      | 协议          | 用途                                                                 |
 | ---------------------------------- | ------------------------- | ------------- | -------------------------------------------------------------------- |
-| `argus.example.com`                | `argus-server`/Web        | HTTPS/WSS     | 用户、API、Card Host                                                 |
+| `argus.example.com`                | `argus-server`/Web        | HTTPS/WSS     | 用户、API、Template Host                                                 |
 | `connector.argus.example.com`      | `argus-connector-gateway` | TLS 长连接    | Connector 控制链路                                                   |
 | `argus.example.com/v1/sessions`    | `argus-connector-gateway` | HTTPS/WSS     | 经短期票据授权的 Linux PTY、Windows ConPTY/OpenSSH/RDP；路径分流与门户同源 |
 | `otlp.argus.example.com:4317`      | `argus-telemetry-ingest`  | OTLP/gRPC TLS | 遥测推送                                                             |

@@ -45,9 +45,12 @@ func (a *App) runM4Scenario(ctx context.Context, env *E2EEnvironment) error {
 		return err
 	}
 	approverRoleID, _ := stringField(resourceApprover, "id")
-	if _, err := client.JSON(ctx, "m4-admin-binding", "enterprise", http.MethodPost, "/enterprise/role-bindings", http.StatusCreated,
-		map[string]any{"subject_type": "user", "subject_id": env.State.Values["admin_user_id"], "role_id": roleID}, enterpriseHeaders(env, "m4-admin-binding")); err != nil {
-		return err
+	// A preceding M3 phase already created this exact built-in role binding.
+	if env.State.Values["m3_resource_admin_role_id"] != roleID {
+		if _, err := client.JSON(ctx, "m4-admin-binding", "enterprise", http.MethodPost, "/enterprise/role-bindings", http.StatusCreated,
+			map[string]any{"subject_type": "user", "subject_id": env.State.Values["admin_user_id"], "role_id": roleID}, enterpriseHeaders(env, "m4-admin-binding")); err != nil {
+			return err
+		}
 	}
 	if err := a.refreshEnterpriseLogin(ctx, env); err != nil {
 		return err
@@ -57,7 +60,7 @@ func (a *App) runM4Scenario(ctx context.Context, env *E2EEnvironment) error {
 	var modelID string
 	for _, protocol := range []string{"chat_completions", "responses"} {
 		created, err := client.JSON(ctx, "m4-model-"+protocol, "enterprise", http.MethodPost, "/enterprise/ai-models/test-and-create", http.StatusCreated,
-			map[string]any{"name": "M4 Replay " + protocol, "base_url": modelBase, "model_id": "argus-replay-" + protocol, "api_protocol": protocol, "api_key": "m4-write-only-key", "context_window_tokens": 8192, "max_output_tokens": 512, "input_price_per_million": 0.1, "output_price_per_million": 0.2}, enterpriseHeaders(env, "m4-model-"+protocol))
+			map[string]any{"name": "M4 Replay " + protocol, "base_url": modelBase, "model_id": "argus-replay-" + protocol, "api_protocol": protocol, "api_key": "m4-write-only-key", "context_window_tokens": 32768, "max_output_tokens": 1024, "input_price_per_million": 0.1, "output_price_per_million": 0.2}, enterpriseHeaders(env, "m4-model-"+protocol))
 		if err != nil {
 			return err
 		}
@@ -104,6 +107,18 @@ func (a *App) runM4Scenario(ctx context.Context, env *E2EEnvironment) error {
 		return err
 	}
 	env.State.Values["m4_host_id"] = hostID
+	grantPath := "/enterprise/data-authorizations/user/" + env.State.Values["admin_user_id"]
+	grantState, err := client.JSON(ctx, "m4-host-grant-state", "enterprise", http.MethodGet, grantPath+"?resource_type=host", http.StatusOK, nil, enterpriseHeaders(env, ""))
+	if err != nil {
+		return err
+	}
+	if _, err := client.JSON(ctx, "m4-host-grant", "enterprise", http.MethodPost, grantPath, http.StatusNoContent,
+		map[string]any{"resource_type": "host", "resource_ids": []string{hostID}, "remove": false, "expected_version": grantState["authorization_version"]}, enterpriseHeaders(env, "m4-host-grant")); err != nil {
+		return err
+	}
+	if err := a.refreshEnterpriseLogin(ctx, env); err != nil {
+		return err
+	}
 	host, err := client.JSON(ctx, "m4-host", "enterprise", http.MethodGet, "/enterprise/hosts/"+hostID, http.StatusOK, nil, map[string]string{"Origin": env.EnterpriseOrigin()})
 	if err != nil {
 		return err
@@ -122,6 +137,9 @@ func (a *App) runM4Scenario(ctx context.Context, env *E2EEnvironment) error {
 	// Role binding changes invalidate every enterprise user's authorization
 	// version, including the independent approver used later in this scenario.
 	if err := a.refreshM4ApproverLogin(ctx, env); err != nil {
+		return err
+	}
+	if err := a.verifyM4RunLifecycle(ctx, env, hostID); err != nil {
 		return err
 	}
 	if err := a.createM4Sandbox(ctx, env); err != nil {
@@ -257,6 +275,19 @@ func (a *App) verifyM4Compaction(ctx context.Context, env *E2EEnvironment, conve
 	if !foundToolResult || !foundAssistant {
 		return fmt.Errorf("M4 conversation ledger is missing tool or assistant evidence")
 	}
+	// Preserve a recent turn while compacting the earlier complete tool group.
+	followup, err := client.JSON(ctx, "m4-history-followup", "enterprise", http.MethodPost, "/conversations/"+conversationID+"/messages", http.StatusAccepted,
+		map[string]any{"content": "Summarize the previous visible host results."}, enterpriseHeaders(env, "m4-history-followup"))
+	if err != nil {
+		return err
+	}
+	followupID, err := stringField(followup, "run", "run_id")
+	if err != nil {
+		return err
+	}
+	if err := a.waitRunTerminal(ctx, env, followupID); err != nil {
+		return err
+	}
 	if _, err := client.JSON(ctx, "m4-compact", "enterprise", http.MethodPost, "/runs/"+runID+"/compact", http.StatusAccepted, nil, enterpriseHeaders(env, "m4-compact")); err != nil {
 		return err
 	}
@@ -279,7 +310,7 @@ func (a *App) verifyM4Compaction(ctx context.Context, env *E2EEnvironment, conve
 func (a *App) verifyM4OneTimeResult(ctx context.Context, env *E2EEnvironment) error {
 	client, _ := scenarioHTTP(env)
 	preview, err := client.JSON(ctx, "m4-bastion-preview", "enterprise", http.MethodPost, "/enterprise/bastion-scopes/actions/preview-create", http.StatusCreated,
-		map[string]any{"name": "m4-one-time-result", "environment": "production", "labels": map[string]string{"team": "m4", "route": "enrollment"}}, enterpriseHeaders(env, "m4-bastion-preview"))
+		map[string]any{"name": "m4-one-time-result", "environment": "production", "install_mode": "command", "architecture": strings.TrimPrefix(env.ImagePlatform, "linux/"), "labels": map[string]string{"team": "m4", "route": "enrollment"}}, enterpriseHeaders(env, "m4-bastion-preview"))
 	if err != nil {
 		return err
 	}
@@ -315,15 +346,15 @@ func (a *App) verifyM4OneTimeResult(ctx context.Context, env *E2EEnvironment) er
 	if err != nil {
 		return err
 	}
-	command, err := stringField(claimed, "command")
-	if err != nil || claimed["schema_version"] != "argus.action_one_time_result/v2" || claimed["result_kind"] != "connector_install_command" {
+	command := oneTimeCommand(claimed)
+	if command == "" || claimed["schema_version"] != "argus.action_one_time_result/v3" || claimed["result_kind"] != "connector_install_command" {
 		return fmt.Errorf("M4 one-time result did not match the Connector enrollment contract")
 	}
 	replayed, err := client.JSON(ctx, "m4-enrollment-claim-retry", "enterprise", http.MethodPost, "/enterprise/executions/"+executionID+"/one-time-result", http.StatusOK, nil, claimHeaders)
 	if err != nil {
 		return err
 	}
-	replayedCommand, _ := stringField(replayed, "command")
+	replayedCommand := oneTimeCommand(replayed)
 	if replayedCommand != command {
 		return fmt.Errorf("M4 one-time result idempotency replay changed the command")
 	}
@@ -357,7 +388,7 @@ func (a *App) waitRunTerminal(ctx context.Context, env *E2EEnvironment, runID st
 			return nil
 		}
 		if status == "failed" {
-			return fmt.Errorf("run %s failed", runID)
+			return fmt.Errorf("run %s failed (%v / %v)", runID, run["error_code"], run["stop_reason"])
 		}
 		time.Sleep(time.Second)
 	}

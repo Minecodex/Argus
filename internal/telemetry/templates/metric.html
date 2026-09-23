@@ -1,0 +1,14 @@
+<section><h3 id="title"></h3><div id="chart"></div><div id="detail"></div></section>
+<script>
+ArgusTemplate.onData((data, context) => {
+  const zh = context.locale === 'zh-CN';
+  document.getElementById('title').textContent = zh ? '指标查询' : 'Metrics';
+  const root = document.getElementById('chart'); root.replaceChildren();
+  const detail = document.getElementById('detail'); detail.replaceChildren();
+  const payload = data.data || data.result || data;
+  const series = payload.series || payload.result || data.series || [];
+  ArgusTemplate.timeseries(root, Array.isArray(series) ? series : [], zh ? '时间序列' : 'Time series');
+  if (payload.metadata) ArgusTemplate.details(detail, payload.metadata);
+  if (data.partial) ArgusTemplate.note(detail, zh ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
+});
+</script>

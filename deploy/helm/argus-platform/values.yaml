@@ -7,7 +7,7 @@ namespaces:
 hosts:
   enterprise: argus.example.com
   platform: platform.argus.example.com
-  cards: cards.argus.example.com
+  templates: templates.argus.example.com
   connector: connector.argus.example.com
   # Collector 产物(经 MinIO)的对外 HTTPS 源;为空时不创建产物路由。
   artifact: artifacts.argus.example.com
@@ -72,12 +72,8 @@ runtime:
   allowedOrigins:
     - https://argus.example.com
     - https://platform.argus.example.com
-    - https://cards.argus.example.com
+    - https://templates.argus.example.com
   secureCookies: true
-  cardPresentationTtl: 10m
-  cardValidationTtl: 30m
-  cardRuntimeVersion: argus-card-runtime/v1
-  cardMaxPresentationBytes: 1048576
   # 终端 WSS 与企业门户同源（wss://<enterprise>/v1/sessions），无独立远程域名。
   remoteOrigin: https://argus.example.com
   remoteUserLimit: 3
@@ -167,3 +163,14 @@ production:
     telemetryTunnelLimit: 0
     controlTunnelLimit: 0
     tunnelBytesPerSecond: 0
+
+workspace:
+  enabled: false
+  storageClass: argus-workspace
+  defaultBytes: 2147483648
+  enterpriseBytes: 21474836480
+  maxFileBytes: 104857600
+  idleSeconds: 900
+  processLimit: 256
+  execdImage: opensandbox/execd:v1.0.22@sha256:0d8f44cf4194732719aa79999d4b120c98bdab02bc61e9ad13f75f83af4c2684
+  egressImage: ""

@@ -55,7 +55,6 @@ export const governanceZh = {
       origin: {
         admin_ui: "管理后台",
         admin_chatbox: "Chatbox 会话",
-        card_action: "卡片操作",
         openapi: "OpenAPI",
         platform_ui: "平台后台",
         system: "系统",
@@ -283,7 +282,6 @@ export const governanceEn = {
       origin: {
         admin_ui: "Admin console",
         admin_chatbox: "Chatbox session",
-        card_action: "Card action",
         openapi: "OpenAPI",
         platform_ui: "Platform console",
         system: "System",

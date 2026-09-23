@@ -12,7 +12,7 @@ FROM secrets s WHERE s.id = $1 AND s.enterprise_id = $2;
 
 -- name: ListSecrets :many
 SELECT s.*, (SELECT count(*) FROM credentials c WHERE c.secret_id = s.id AND c.status = 'active')::bigint AS reference_count
-FROM secrets s WHERE s.enterprise_id = $1 ORDER BY s.created_at, s.id;
+FROM secrets s WHERE s.enterprise_id = $1 AND s.owner_type='user' ORDER BY s.created_at, s.id;
 
 -- name: GetCurrentSecretVersion :one
 SELECT v.* FROM secret_versions v JOIN secrets s ON s.id = v.secret_id
@@ -43,7 +43,7 @@ INSERT INTO credentials (id, enterprise_id, name, protocol, username, secret_id)
 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
 
 -- name: ListCredentials :many
-SELECT * FROM credentials WHERE enterprise_id = $1 ORDER BY created_at, id;
+SELECT c.* FROM credentials c JOIN secrets s ON s.id=c.secret_id AND s.enterprise_id=c.enterprise_id WHERE c.enterprise_id=$1 AND s.owner_type='user' ORDER BY c.created_at,c.id;
 
 -- name: GetCredential :one
 SELECT * FROM credentials WHERE id = $1 AND enterprise_id = $2;

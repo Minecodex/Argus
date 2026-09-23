@@ -29,7 +29,7 @@ func (q *Queries) AdvanceCredentialVersionsBySecret(ctx context.Context, arg Adv
 
 const advanceSecretVersion = `-- name: AdvanceSecretVersion :one
 UPDATE secrets SET current_version = current_version + 1, version = version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at
+WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING id, owner_type, owner_id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at
 `
 
 type AdvanceSecretVersionParams struct {
@@ -43,6 +43,8 @@ func (q *Queries) AdvanceSecretVersion(ctx context.Context, arg AdvanceSecretVer
 	var i Secret
 	err := row.Scan(
 		&i.ID,
+		&i.OwnerType,
+		&i.OwnerID,
 		&i.EnterpriseID,
 		&i.Name,
 		&i.Type,
@@ -212,7 +214,7 @@ func (q *Queries) CreateManagedAccount(ctx context.Context, arg CreateManagedAcc
 
 const createSecret = `-- name: CreateSecret :one
 INSERT INTO secrets (id, enterprise_id, name, type, description, created_by)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, owner_type, owner_id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at
 `
 
 type CreateSecretParams struct {
@@ -236,6 +238,8 @@ func (q *Queries) CreateSecret(ctx context.Context, arg CreateSecretParams) (Sec
 	var i Secret
 	err := row.Scan(
 		&i.ID,
+		&i.OwnerType,
+		&i.OwnerID,
 		&i.EnterpriseID,
 		&i.Name,
 		&i.Type,
@@ -456,7 +460,7 @@ func (q *Queries) GetManagedAccount(ctx context.Context, arg GetManagedAccountPa
 }
 
 const getSecret = `-- name: GetSecret :one
-SELECT s.id, s.enterprise_id, s.name, s.type, s.description, s.status, s.current_version, s.last_accessed_at, s.version, s.created_by, s.created_at, s.updated_at, (SELECT count(*) FROM credentials c WHERE c.secret_id = s.id AND c.status = 'active')::bigint AS reference_count
+SELECT s.id, s.owner_type, s.owner_id, s.enterprise_id, s.name, s.type, s.description, s.status, s.current_version, s.last_accessed_at, s.version, s.created_by, s.created_at, s.updated_at, (SELECT count(*) FROM credentials c WHERE c.secret_id = s.id AND c.status = 'active')::bigint AS reference_count
 FROM secrets s WHERE s.id = $1 AND s.enterprise_id = $2
 `
 
@@ -467,6 +471,8 @@ type GetSecretParams struct {
 
 type GetSecretRow struct {
 	ID             uuid.UUID          `json:"id"`
+	OwnerType      string             `json:"owner_type"`
+	OwnerID        uuid.NullUUID      `json:"owner_id"`
 	EnterpriseID   uuid.UUID          `json:"enterprise_id"`
 	Name           string             `json:"name"`
 	Type           string             `json:"type"`
@@ -486,6 +492,8 @@ func (q *Queries) GetSecret(ctx context.Context, arg GetSecretParams) (GetSecret
 	var i GetSecretRow
 	err := row.Scan(
 		&i.ID,
+		&i.OwnerType,
+		&i.OwnerID,
 		&i.EnterpriseID,
 		&i.Name,
 		&i.Type,
@@ -533,7 +541,7 @@ func (q *Queries) GetSecretVersionByID(ctx context.Context, arg GetSecretVersion
 }
 
 const listCredentials = `-- name: ListCredentials :many
-SELECT id, enterprise_id, name, protocol, username, secret_id, status, version, created_at, updated_at FROM credentials WHERE enterprise_id = $1 ORDER BY created_at, id
+SELECT c.id, c.enterprise_id, c.name, c.protocol, c.username, c.secret_id, c.status, c.version, c.created_at, c.updated_at FROM credentials c JOIN secrets s ON s.id=c.secret_id AND s.enterprise_id=c.enterprise_id WHERE c.enterprise_id=$1 AND s.owner_type='user' ORDER BY c.created_at,c.id
 `
 
 func (q *Queries) ListCredentials(ctx context.Context, enterpriseID uuid.UUID) ([]Credential, error) {
@@ -604,12 +612,14 @@ func (q *Queries) ListManagedAccounts(ctx context.Context, enterpriseID uuid.UUI
 }
 
 const listSecrets = `-- name: ListSecrets :many
-SELECT s.id, s.enterprise_id, s.name, s.type, s.description, s.status, s.current_version, s.last_accessed_at, s.version, s.created_by, s.created_at, s.updated_at, (SELECT count(*) FROM credentials c WHERE c.secret_id = s.id AND c.status = 'active')::bigint AS reference_count
-FROM secrets s WHERE s.enterprise_id = $1 ORDER BY s.created_at, s.id
+SELECT s.id, s.owner_type, s.owner_id, s.enterprise_id, s.name, s.type, s.description, s.status, s.current_version, s.last_accessed_at, s.version, s.created_by, s.created_at, s.updated_at, (SELECT count(*) FROM credentials c WHERE c.secret_id = s.id AND c.status = 'active')::bigint AS reference_count
+FROM secrets s WHERE s.enterprise_id = $1 AND s.owner_type='user' ORDER BY s.created_at, s.id
 `
 
 type ListSecretsRow struct {
 	ID             uuid.UUID          `json:"id"`
+	OwnerType      string             `json:"owner_type"`
+	OwnerID        uuid.NullUUID      `json:"owner_id"`
 	EnterpriseID   uuid.UUID          `json:"enterprise_id"`
 	Name           string             `json:"name"`
 	Type           string             `json:"type"`
@@ -635,6 +645,8 @@ func (q *Queries) ListSecrets(ctx context.Context, enterpriseID uuid.UUID) ([]Li
 		var i ListSecretsRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.OwnerType,
+			&i.OwnerID,
 			&i.EnterpriseID,
 			&i.Name,
 			&i.Type,
@@ -872,7 +884,7 @@ UPDATE secrets SET
   description = COALESCE($5, description),
   status = COALESCE($6, status),
   version = version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at
+WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING id, owner_type, owner_id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at
 `
 
 type UpdateSecretMetadataParams struct {
@@ -896,6 +908,8 @@ func (q *Queries) UpdateSecretMetadata(ctx context.Context, arg UpdateSecretMeta
 	var i Secret
 	err := row.Scan(
 		&i.ID,
+		&i.OwnerType,
+		&i.OwnerID,
 		&i.EnterpriseID,
 		&i.Name,
 		&i.Type,

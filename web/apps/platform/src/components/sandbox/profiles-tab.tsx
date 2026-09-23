@@ -13,7 +13,6 @@ import {
   type SandboxProfile,
 } from "@argus/api-client";
 import {
-  Badge,
   Alert,
   Button,
   DataTable,
@@ -24,135 +23,46 @@ import {
   Select,
   Spinner,
   Switch,
-  Textarea,
 } from "@argus/ui";
 
-type ProfileRow = {
-  id: string;
-  name: string;
-  image: string;
-  resources: string;
-  timeouts: string;
-  network: string;
-  capabilities: string[];
-  builtin: boolean;
-  enabled: boolean;
-};
-
-const profileConstraints = {
+const constraints = {
+  name: formConstraint("SandboxProfileWrite", "name"),
   cpu: formConstraint("SandboxProfileWrite", "cpu_millis"),
   memory: formConstraint("SandboxProfileWrite", "memory_mib"),
-  name: formConstraint("SandboxProfileWrite", "name"),
   timeout: formConstraint("SandboxProfileWrite", "timeout_seconds"),
 };
-
-const cpuMinimum = (profileConstraints.cpu.minimum ?? 100) / 1000;
-const cpuMaximum = (profileConstraints.cpu.maximum ?? 16000) / 1000;
-
 type FormState = {
   id: string | null;
   name: string;
-  description: string;
   imageId: string;
   cpu: number;
   memoryMb: number;
-  diskMb: number;
-  pids: number;
-  commandSeconds: number;
-  idleSeconds: number;
-  lifetimeSeconds: number;
-  networkMode: "deny_all" | "allow_list";
-  allowedDomains: string;
-  fileUpload: boolean;
-  artifactDownload: boolean;
-  secretInjection: boolean;
-  gpu: boolean;
+  timeoutSeconds: number;
 };
-
-function formFromProfile(profile: SandboxProfile): FormState {
-  return {
-    id: profile.id,
-    name: profile.name,
-    description: profile.description,
-    imageId: profile.imageId,
-    cpu: profile.resources.cpu,
-    memoryMb: profile.resources.memoryMb,
-    diskMb: profile.resources.diskMb,
-    pids: profile.resources.pids,
-    commandSeconds: profile.timeouts.commandSeconds,
-    idleSeconds: profile.timeouts.idleSeconds,
-    lifetimeSeconds: profile.timeouts.lifetimeSeconds,
-    networkMode: profile.network.mode,
-    allowedDomains: profile.network.allowedDomains.join(", "),
-    fileUpload: profile.capabilities.fileUpload,
-    artifactDownload: profile.capabilities.artifactDownload,
-    secretInjection: profile.capabilities.secretInjection,
-    gpu: profile.capabilities.gpu,
-  };
-}
-
-function emptyForm(imageId: string): FormState {
-  return {
-    id: null,
-    name: "",
-    description: "",
-    imageId,
-    cpu: 1,
-    memoryMb: 1024,
-    diskMb: 2048,
-    pids: 128,
-    commandSeconds: 300,
-    idleSeconds: 180,
-    lifetimeSeconds: 900,
-    networkMode: "deny_all",
-    allowedDomains: "",
-    fileUpload: true,
-    artifactDownload: true,
-    secretInjection: false,
-    gpu: false,
-  };
-}
-
+type ProfileRow = { [Key in keyof SandboxProfile]: SandboxProfile[Key] };
 function toInput(form: FormState): CreateSandboxProfileInput {
   return {
     name: form.name.trim(),
-    description: form.description.trim(),
     imageId: form.imageId,
-    resources: {
-      cpu: form.cpu,
-      memoryMb: form.memoryMb,
-      diskMb: form.diskMb,
-      pids: form.pids,
-    },
-    timeouts: {
-      commandSeconds: form.commandSeconds,
-      idleSeconds: form.idleSeconds,
-      lifetimeSeconds: form.lifetimeSeconds,
-    },
-    network: {
-      mode: form.networkMode,
-      allowedDomains: form.allowedDomains
-        .split(",")
-        .map((entry) => entry.trim())
-        .filter(Boolean),
-    },
-    capabilities: {
-      fileUpload: form.fileUpload,
-      artifactDownload: form.artifactDownload,
-      secretInjection: form.secretInjection,
-      gpu: form.gpu,
-    },
+    resources: { cpu: form.cpu, memoryMb: form.memoryMb },
+    timeoutSeconds: form.timeoutSeconds,
+  };
+}
+function fromProfile(profile: SandboxProfile): FormState {
+  return {
+    id: profile.id,
+    name: profile.name,
+    imageId: profile.imageId,
+    ...profile.resources,
+    timeoutSeconds: profile.timeoutSeconds,
   };
 }
 
-/** Sandbox Profile Tab：AI 唯一可选的执行单元，平台超管 CRUD + 启停。 */
 export function ProfilesTab() {
   const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
-
   const [form, setForm] = useState<FormState | null>(null);
-
   const profiles = useQuery({
     queryKey: ["platform", "profiles"],
     queryFn: () => api.platform.profiles.list(),
@@ -161,10 +71,8 @@ export function ProfilesTab() {
     queryKey: ["platform", "images"],
     queryFn: () => api.platform.images.list(),
   });
-
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["platform", "profiles"] });
-
   const save = useMutation({
     mutationFn: (input: FormState) =>
       input.id
@@ -175,92 +83,81 @@ export function ProfilesTab() {
       void invalidate();
     },
   });
-
   const toggle = useMutation({
     mutationFn: (input: { id: string; enabled: boolean }) =>
       api.platform.profiles.update(input.id, { enabled: input.enabled }),
     onSuccess: () => void invalidate(),
   });
-
-  const imageName = (id: string) =>
-    images.data?.find((item) => item.id === id)?.name ?? id;
-
-  const rows: ProfileRow[] = (profiles.data ?? []).map((item) => ({
-    id: item.id,
-    name: item.name,
-    image: imageName(item.imageId),
-    resources: `${item.resources.cpu}C / ${item.resources.memoryMb}MB / ${item.resources.diskMb}MB`,
-    timeouts: `${item.timeouts.commandSeconds}/${item.timeouts.idleSeconds}/${item.timeouts.lifetimeSeconds}`,
-    network:
-      item.network.mode === "deny_all"
-        ? t("sandbox.profiles.network.deny_all")
-        : `${t("sandbox.profiles.network.allow_list")}: ${item.network.allowedDomains.join(", ")}`,
-    capabilities: (
-      ["fileUpload", "artifactDownload", "secretInjection", "gpu"] as const
-    )
-      .filter((cap) => item.capabilities[cap])
-      .map((cap) => t(`sandbox.profiles.caps.${cap}`)),
-    builtin: item.builtin,
-    enabled: item.enabled,
-  }));
-
-  const findProfile = (id: string) =>
-    profiles.data?.find((item) => item.id === id);
-
   return (
     <div className="argus-platform-stack">
+      <Alert
+        title={t("sandbox.profiles.offlineTitle")}
+        description={t("sandbox.profiles.offlineDescription")}
+      />
       <div className="argus-tab-toolbar">
         <Button
-          onClick={() => setForm(emptyForm(images.data?.[0]?.id ?? ""))}
           variant="primary"
+          onClick={() =>
+            setForm({
+              id: null,
+              name: "",
+              imageId: images.data?.find((image) => image.enabled)?.id ?? "",
+              cpu: 1,
+              memoryMb: 1024,
+              timeoutSeconds: 900,
+            })
+          }
         >
           {t("sandbox.profiles.add")}
         </Button>
       </div>
-
+      {(profiles.isError || toggle.isError) && (
+        <Alert
+          tone="danger"
+          title={t("sandbox.form.saveFailed")}
+          description={String(profiles.error ?? toggle.error)}
+        />
+      )}
       {profiles.isPending ? (
         <Spinner />
       ) : (
         <DataTable<ProfileRow>
           columns={[
+            { key: "name", header: t("sandbox.profiles.table.name") },
             {
-              key: "name",
-              header: t("sandbox.profiles.table.name"),
-              render: (row) => (
-                <span className="argus-cell-with-badge">
-                  <code className="argus-mono">{row.name}</code>
-                  {row.builtin && (
-                    <Badge>{t("sandbox.profiles.builtin")}</Badge>
-                  )}
-                </span>
-              ),
+              key: "imageId",
+              header: t("sandbox.profiles.table.image"),
+              render: (row) =>
+                images.data?.find((image) => image.id === row.imageId)?.name ??
+                row.imageId,
             },
-            { key: "image", header: t("sandbox.profiles.table.image") },
             {
               key: "resources",
               header: t("sandbox.profiles.table.resources"),
-              render: (row) => (
-                <code className="argus-mono">{row.resources}</code>
-              ),
+              render: (row) =>
+                `${row.resources.cpu} CPU / ${row.resources.memoryMb} MiB`,
             },
             {
-              key: "timeouts",
-              header: t("sandbox.profiles.table.timeouts"),
-              render: (row) => (
-                <code className="argus-mono">{row.timeouts}</code>
-              ),
+              key: "timeoutSeconds",
+              header: t("sandbox.profiles.form.timeoutSeconds"),
             },
-            { key: "network", header: t("sandbox.profiles.table.network") },
             {
-              key: "capabilities",
-              header: t("sandbox.profiles.table.capabilities"),
-              render: (row) => (
-                <span className="argus-cell-with-badge">
-                  {row.capabilities.map((cap) => (
-                    <Badge key={cap}>{cap}</Badge>
-                  ))}
-                </span>
-              ),
+              key: "taskKinds",
+              header: t("sandbox.profiles.table.purpose"),
+              render: (row) =>
+                row.taskKinds
+                  .map((kind) => t(`sandbox.profiles.purpose.${kind}`))
+                  .join(", "),
+            },
+            {
+              key: "networkMode",
+              header: t("sandbox.profiles.table.network"),
+              render: (row) =>
+                t(
+                  row.networkMode === "none"
+                    ? "sandbox.profiles.network.deny_all"
+                    : "sandbox.profiles.network.allow_list",
+                ),
             },
             {
               key: "enabled",
@@ -268,10 +165,9 @@ export function ProfilesTab() {
               render: (row) => (
                 <Switch
                   checked={row.enabled}
+                  disabled={toggle.isPending}
                   label={t("sandbox.profiles.table.enabled")}
-                  onChange={(checked) =>
-                    toggle.mutate({ id: row.id, enabled: checked })
-                  }
+                  onChange={(enabled) => toggle.mutate({ id: row.id, enabled })}
                 />
               ),
             },
@@ -279,53 +175,30 @@ export function ProfilesTab() {
               key: "id",
               header: t("common.actions"),
               render: (row) => (
-                <RowAction
-                  onClick={() => {
-                    const profile = findProfile(row.id);
-                    if (profile) setForm(formFromProfile(profile));
-                  }}
-                >
+                <RowAction onClick={() => setForm(fromProfile(row))}>
                   {t("common.edit")}
                 </RowAction>
               ),
             },
           ]}
-          data={rows}
+          data={profiles.data ?? []}
           getRowKey={(row) => row.id}
         />
       )}
-
       {form && (
-        <ProfileFormDrawer
-          images={images.data ?? []}
+        <ProfileForm
           initial={form}
+          images={images.data ?? []}
           loading={save.isPending}
           onClose={() => setForm(null)}
-          onSubmit={(values) => save.mutateAsync(values)}
+          onSubmit={(input) => save.mutateAsync(input)}
         />
       )}
     </div>
   );
 }
 
-const numericProfileFields = [
-  "cpu",
-  "memoryMb",
-  "diskMb",
-  "pids",
-  "commandSeconds",
-  "idleSeconds",
-  "lifetimeSeconds",
-] as const;
-
-const capabilityFields = [
-  "fileUpload",
-  "artifactDownload",
-  "secretInjection",
-  "gpu",
-] as const;
-
-function ProfileFormDrawer({
+function ProfileForm({
   initial,
   images,
   loading,
@@ -336,63 +209,60 @@ function ProfileFormDrawer({
   images: SandboxImage[];
   loading: boolean;
   onClose: () => void;
-  onSubmit: (values: FormState) => Promise<unknown>;
+  onSubmit: (input: FormState) => Promise<unknown>;
 }) {
   const { t } = useTranslation();
+  const required = t("sandbox.form.required");
+  const bounds = {
+    cpu: {
+      minimum: (constraints.cpu.minimum ?? 100) / 1000,
+      maximum: (constraints.cpu.maximum ?? 16000) / 1000,
+      step: 0.1,
+    },
+    memoryMb: {
+      minimum: constraints.memory.minimum ?? 128,
+      maximum: constraints.memory.maximum ?? 65536,
+      step: 1,
+    },
+    timeoutSeconds: {
+      minimum: constraints.timeout.minimum ?? 10,
+      maximum: constraints.timeout.maximum ?? 3600,
+      step: 1,
+    },
+  };
   const schema = z.object({
     name: z
       .string()
       .trim()
-      .min(profileConstraints.name.minLength ?? 1, t("sandbox.form.required"))
-      .max(profileConstraints.name.maxLength ?? 128),
-    description: z.string(),
-    imageId: z.string().min(1, t("sandbox.form.required")),
+      .min(constraints.name.minLength ?? 1, required)
+      .max(constraints.name.maxLength ?? 128),
+    imageId: z.string().min(1, required),
     cpu: z
-      .number({ error: t("sandbox.form.required") })
-      .min(cpuMinimum)
-      .max(cpuMaximum),
+      .number({ error: required })
+      .min(bounds.cpu.minimum)
+      .max(bounds.cpu.maximum),
     memoryMb: z
-      .number({ error: t("sandbox.form.required") })
-      .min(profileConstraints.memory.minimum ?? 128)
-      .max(profileConstraints.memory.maximum ?? 65536),
-    diskMb: z.number({ error: t("sandbox.form.required") }).min(0),
-    pids: z
-      .number({ error: t("sandbox.form.required") })
+      .number({ error: required })
       .int()
-      .min(0),
-    commandSeconds: z
-      .number({ error: t("sandbox.form.required") })
-      .min(profileConstraints.timeout.minimum ?? 10)
-      .max(profileConstraints.timeout.maximum ?? 3600),
-    idleSeconds: z
-      .number({ error: t("sandbox.form.required") })
-      .min(profileConstraints.timeout.minimum ?? 10)
-      .max(profileConstraints.timeout.maximum ?? 3600),
-    lifetimeSeconds: z
-      .number({ error: t("sandbox.form.required") })
-      .min(profileConstraints.timeout.minimum ?? 10)
-      .max(profileConstraints.timeout.maximum ?? 3600),
-    networkMode: z.enum(["deny_all", "allow_list"]),
-    allowedDomains: z.string(),
-    fileUpload: z.boolean(),
-    artifactDownload: z.boolean(),
-    secretInjection: z.boolean(),
-    gpu: z.boolean(),
+      .min(bounds.memoryMb.minimum)
+      .max(bounds.memoryMb.maximum),
+    timeoutSeconds: z
+      .number({ error: required })
+      .int()
+      .min(bounds.timeoutSeconds.minimum)
+      .max(bounds.timeoutSeconds.maximum),
   });
-  type Values = z.infer<typeof schema>;
   const {
     control,
+    register,
     clearErrors,
     handleSubmit,
-    register,
     setError,
-    watch,
     formState: { errors },
-  } = useForm<Values>({
+  } = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: initial,
   });
-  const networkMode = watch("networkMode");
   const submit = handleSubmit(async (values) => {
     clearErrors();
     try {
@@ -401,13 +271,12 @@ function ProfileFormDrawer({
       presentApiFormError(error, {
         fallback: t("sandbox.form.saveFailed"),
         fieldMap: {
-          backend_id: "imageId",
-          cpu_millis: "cpu",
-          image_id: "imageId",
-          memory_mib: "memoryMb",
           name: "name",
-          network_mode: "networkMode",
-          timeout_seconds: "commandSeconds",
+          backend_id: "imageId",
+          image_id: "imageId",
+          cpu_millis: "cpu",
+          memory_mib: "memoryMb",
+          timeout_seconds: "timeoutSeconds",
         },
         requestReference: (requestId) =>
           t("common.requestReference", { requestId }),
@@ -418,33 +287,6 @@ function ProfileFormDrawer({
       });
     }
   });
-  const numberField = (key: (typeof numericProfileFields)[number]) => {
-    const bounds =
-      key === "cpu"
-        ? { maximum: cpuMaximum, minimum: cpuMinimum, step: 0.1 }
-        : key === "memoryMb"
-          ? profileConstraints.memory
-          : key === "commandSeconds" ||
-              key === "idleSeconds" ||
-              key === "lifetimeSeconds"
-            ? profileConstraints.timeout
-            : { minimum: 0 };
-    return (
-      <Field
-        error={errors[key]?.message}
-        requirement="required"
-        label={t(`sandbox.profiles.form.${key}`)}
-      >
-        <Input
-          {...register(key, { valueAsNumber: true })}
-          max={bounds.maximum}
-          min={bounds.minimum}
-          step={"step" in bounds ? bounds.step : undefined}
-          type="number"
-        />
-      </Field>
-    );
-  };
   return (
     <FormDrawer
       loading={loading}
@@ -458,9 +300,9 @@ function ProfileFormDrawer({
       <div className="argus-drawer-stack">
         {errors.root?.message && (
           <Alert
-            description={errors.root.message}
-            title={t("sandbox.form.saveFailed")}
             tone="danger"
+            title={t("sandbox.form.saveFailed")}
+            description={errors.root.message}
           />
         )}
         <Field
@@ -468,17 +310,7 @@ function ProfileFormDrawer({
           requirement="required"
           label={t("sandbox.profiles.form.name")}
         >
-          <Input
-            {...register("name")}
-            maxLength={profileConstraints.name.maxLength}
-          />
-        </Field>
-        <Field
-          error={errors.description?.message}
-          requirement="optional"
-          label={t("sandbox.profiles.form.description")}
-        >
-          <Textarea {...register("description")} rows={2} />
+          <Input {...register("name")} maxLength={constraints.name.maxLength} />
         </Field>
         <Field
           error={errors.imageId?.message}
@@ -490,91 +322,39 @@ function ProfileFormDrawer({
             name="imageId"
             render={({ field }) => (
               <Select
-                onValueChange={field.onChange}
-                options={images.map((image) => ({
-                  value: image.id,
-                  label: image.name,
-                }))}
                 value={field.value}
+                onValueChange={field.onChange}
+                options={images
+                  .filter(
+                    (image) => image.enabled || image.id === initial.imageId,
+                  )
+                  .map((image) => ({ value: image.id, label: image.name }))}
               />
             )}
           />
         </Field>
-
-        <section className="argus-drawer-section">
-          <h3>{t("sandbox.profiles.form.resources")}</h3>
-          <div className="argus-form-grid">
-            {numericProfileFields.slice(0, 4).map(numberField)}
-          </div>
-        </section>
-
-        <section className="argus-drawer-section">
-          <h3>{t("sandbox.profiles.form.timeouts")}</h3>
-          <div className="argus-form-grid">
-            {numericProfileFields.slice(4).map(numberField)}
-          </div>
-        </section>
-
-        <section className="argus-drawer-section">
-          <h3>{t("sandbox.profiles.form.network")}</h3>
-          <Field
-            error={errors.networkMode?.message}
-            requirement="required"
-            label={t("sandbox.profiles.form.networkMode")}
-          >
-            <Controller
-              control={control}
-              name="networkMode"
-              render={({ field }) => (
-                <Select
-                  onValueChange={field.onChange}
-                  options={[
-                    {
-                      value: "deny_all",
-                      label: t("sandbox.profiles.network.deny_all"),
-                    },
-                    {
-                      value: "allow_list",
-                      label: t("sandbox.profiles.network.allow_list"),
-                    },
-                  ]}
-                  value={field.value}
-                />
-              )}
-            />
-          </Field>
-          {networkMode === "allow_list" && (
+        <div className="argus-form-grid">
+          {(["cpu", "memoryMb", "timeoutSeconds"] as const).map((key) => (
             <Field
-              error={errors.allowedDomains?.message}
-              requirement="optional"
-              hint={t("sandbox.profiles.form.allowedDomainsHint")}
-              label={t("sandbox.profiles.form.allowedDomains")}
+              key={key}
+              error={errors[key]?.message}
+              requirement="required"
+              label={t(`sandbox.profiles.form.${key}`)}
             >
-              <Input {...register("allowedDomains")} />
+              <Input
+                {...register(key, { valueAsNumber: true })}
+                type="number"
+                min={bounds[key].minimum}
+                max={bounds[key].maximum}
+                step={bounds[key].step}
+              />
             </Field>
-          )}
-        </section>
-
-        <section className="argus-drawer-section">
-          <h3>{t("sandbox.profiles.form.capabilities")}</h3>
-          {capabilityFields.map((capability) => (
-            <Controller
-              control={control}
-              key={capability}
-              name={capability}
-              render={({ field }) => (
-                <label className="argus-switch-row">
-                  <Switch
-                    checked={field.value}
-                    label={t(`sandbox.profiles.caps.${capability}`)}
-                    onChange={field.onChange}
-                  />
-                  <span>{t(`sandbox.profiles.caps.${capability}`)}</span>
-                </label>
-              )}
-            />
           ))}
-        </section>
+        </div>
+        <Alert
+          title={t("sandbox.profiles.offlineTitle")}
+          description={t("sandbox.profiles.offlineDescription")}
+        />
       </div>
     </FormDrawer>
   );

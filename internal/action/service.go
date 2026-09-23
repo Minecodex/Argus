@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kakj-go/Argus/internal/audit"
+	"github.com/kakj-go/Argus/internal/conversation"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -64,12 +65,6 @@ type Decision struct {
 	Execution *db.Execution
 }
 
-type CardBindingInvocation struct {
-	Action        string
-	Confirmation  Confirmation
-	PendingAction db.PendingAction
-}
-
 func (service Service) Confirm(ctx context.Context, actorID, requestID string, enterpriseID uuid.UUID, authorizationVersion int64, stepUp bool, actionRef, idempotencyKey string) (Confirmation, error) {
 	actor, err := uuid.Parse(actorID)
 	if err != nil {
@@ -84,70 +79,11 @@ func (service Service) Confirm(ctx context.Context, actorID, requestID string, e
 	}{actionRef, authorizationVersion}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "pending_action.confirm", idempotencyKey, request, 200,
 		func(q *db.Queries) (Confirmation, error) {
-			return service.confirmWithQueries(ctx, q, actor, actorID, requestID, enterpriseID, authorizationVersion, stepUp, actionRef, idempotencyKey, true)
+			return service.confirmWithQueries(ctx, q, actor, actorID, requestID, enterpriseID, authorizationVersion, stepUp, actionRef, idempotencyKey)
 		})
 }
 
-func (service Service) InvokeCardBinding(ctx context.Context, actorID, requestID string, enterpriseID uuid.UUID, authorizationVersion int64, stepUp bool, bindingRef, idempotencyKey string) (CardBindingInvocation, error) {
-	actor, err := uuid.Parse(actorID)
-	if err != nil {
-		return CardBindingInvocation{}, ErrUnavailable
-	}
-	request := struct {
-		BindingRef           string `json:"binding_ref"`
-		AuthorizationVersion int64  `json:"authorization_version"`
-	}{bindingRef, authorizationVersion}
-	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "card_action_binding.invoke", idempotencyKey, request, 200,
-		func(q *db.Queries) (CardBindingInvocation, error) {
-			binding, err := q.GetCardActionBindingForUpdate(ctx, db.GetCardActionBindingForUpdateParams{BindingRef: bindingRef, EnterpriseID: enterpriseID})
-			if err != nil {
-				return CardBindingInvocation{}, ErrInvalidated
-			}
-			if err := cardBindingStateError(binding.Status, binding.ExpiresAt.Time, time.Now().UTC()); err != nil {
-				return CardBindingInvocation{}, err
-			}
-			if !binding.ActorUserID.Valid || binding.ActorUserID.UUID != actor || !binding.AuthorizationVersion.Valid || binding.AuthorizationVersion.Int64 != authorizationVersion {
-				return CardBindingInvocation{}, ErrInvalidated
-			}
-			pending, err := q.GetPendingActionByIDForUpdate(ctx, db.GetPendingActionByIDForUpdateParams{ID: binding.PendingActionID, EnterpriseID: enterpriseID})
-			if err != nil || pending.CreatorSubjectType != "user" || pending.CreatorSubjectID != actor || pending.AuthorizationVersion != authorizationVersion {
-				return CardBindingInvocation{}, ErrInvalidated
-			}
-			if _, err = q.ConsumeCardActionBinding(ctx, db.ConsumeCardActionBindingParams{ID: binding.ID, EnterpriseID: enterpriseID}); err != nil {
-				return CardBindingInvocation{}, ErrInvalidated
-			}
-			if binding.Action == "cancel" {
-				cancelled, cancelErr := q.CancelPendingAction(ctx, db.CancelPendingActionParams{ActionRef: pending.ActionRef, EnterpriseID: enterpriseID, CreatorSubjectID: actor})
-				if cancelErr != nil {
-					return CardBindingInvocation{}, ErrInvalidated
-				}
-				if err := service.audit(ctx, q, actorID, enterpriseID, "pending_action.cancel", cancelled, "cancelled"); err != nil {
-					return CardBindingInvocation{}, err
-				}
-				return CardBindingInvocation{Action: "cancel", PendingAction: cancelled}, nil
-			}
-			if binding.Action != "confirm" {
-				return CardBindingInvocation{}, ErrInvalidated
-			}
-			confirmation, err := service.confirmWithQueries(ctx, q, actor, actorID, requestID, enterpriseID, authorizationVersion, stepUp, pending.ActionRef, idempotencyKey, false)
-			return CardBindingInvocation{Action: "confirm", Confirmation: confirmation, PendingAction: confirmation.PendingAction}, err
-		})
-}
-
-func cardBindingStateError(status string, expiresAt, now time.Time) error {
-	if status == "consumed" {
-		return ErrBindingConsumed
-	}
-	if status == "expired" || now.After(expiresAt) {
-		return ErrBindingExpired
-	}
-	if status != "pending" {
-		return ErrInvalidated
-	}
-	return nil
-}
-
-func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, actor uuid.UUID, actorID, requestID string, enterpriseID uuid.UUID, authorizationVersion int64, stepUp bool, actionRef, idempotencyKey string, createTextBinding bool) (Confirmation, error) {
+func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, actor uuid.UUID, actorID, requestID string, enterpriseID uuid.UUID, authorizationVersion int64, stepUp bool, actionRef, idempotencyKey string) (Confirmation, error) {
 	action, plan, err := service.lockAndRevalidate(ctx, q, enterpriseID, actionRef, "awaiting_confirmation", authorizationVersion)
 	if err != nil || action.CreatorSubjectType != "user" || action.CreatorSubjectID != actor {
 		return Confirmation{}, ErrInvalidated
@@ -159,7 +95,7 @@ func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, ac
 		EnterpriseID: enterpriseID, ActorUserID: actor, AuthorizationVersion: authorizationVersion}); err != nil {
 		return Confirmation{}, err
 	}
-	if createTextBinding {
+	{
 		bindingRef, err := randomRef("bind_")
 		if err != nil {
 			return Confirmation{}, err
@@ -205,6 +141,9 @@ func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, ac
 	if err != nil {
 		return Confirmation{}, err
 	}
+	if err := conversation.ScheduleActionRun(ctx, q, action, false); err != nil {
+		return Confirmation{}, err
+	}
 	return Confirmation{PendingAction: action, ApprovalRequest: &approval}, service.audit(ctx, q, actorID, enterpriseID, "pending_action.confirm", action, "awaiting_approval")
 }
 
@@ -243,6 +182,9 @@ func (service Service) Decide(ctx context.Context, actorID string, enterpriseID,
 				}
 				action, err = q.RejectPendingAction(ctx, db.RejectPendingActionParams{ID: action.ID, EnterpriseID: enterpriseID})
 				if err != nil {
+					return Decision{}, err
+				}
+				if err := conversation.ScheduleActionRun(ctx, q, action, false); err != nil {
 					return Decision{}, err
 				}
 				return Decision{Request: approval, Action: action}, service.audit(ctx, q, actorID, enterpriseID, "approval.reject", action, "rejected")
@@ -344,6 +286,9 @@ func (service Service) createExecutionTask(ctx context.Context, q *db.Queries, a
 	payload, _ := json.Marshal(ExecutionTask{ExecutionID: execution.ID, EnterpriseID: action.EnterpriseID})
 	_, err = q.CreateRuntimeTask(ctx, db.CreateRuntimeTaskParams{ID: newID(), EnterpriseID: uuid.NullUUID{UUID: action.EnterpriseID, Valid: true},
 		Queue: "action", RunID: action.RunID, Payload: payload, MaxAttempts: 5, AvailableAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}})
+	if err == nil {
+		err = conversation.ScheduleActionRun(ctx, q, action, false)
+	}
 	return execution, err
 }
 

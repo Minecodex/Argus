@@ -11,7 +11,7 @@ Chatbox 和 Model Agent 负责：
 - 选择和调用 MCP Tool。
 - 生成执行计划。
 - 请求用户确认。
-- 组织回答，并通过内置“渲染交互卡片”Skill 从系统卡片和已启用企业卡片中生成 Render Plan。
+- 组织回答。自有 Tool 的同包 Builder 生成展示数据，Agent 不选择、读取或生成模板。
 
 MCP Tool 和领域服务负责：
 
@@ -22,11 +22,11 @@ MCP Tool 和领域服务负责：
 - 返回结构化结果和结构化错误。
 - 写入审计。
 
-人工 RemoteAccessSession 不属于 Model Agent 或 MCP Tool 能力。创建 SSH Web Terminal 使用管理 UI/OpenAPI 的独立授权接口、MFA/JIT/审批和短期一次性票据；AI、交互卡片和 OpenSandbox 不能获得该票据。当前版本不提供定时无人值守任务。交互式会话中的人工命令不逐条走 Tool Preview/Commit，必须由会话级权限、时长、录像、剪贴板/文件传输策略和审计约束。
+人工 RemoteAccessSession 不属于 Model Agent 或 MCP Tool 能力。创建 SSH Web Terminal 使用管理 UI/OpenAPI 的独立授权接口、MFA/JIT/审批和短期一次性票据；AI、交互工具详情和 OpenSandbox 不能获得该票据。当前版本不提供定时无人值守任务。交互式会话中的人工命令不逐条走 Tool Preview/Commit，必须由会话级权限、时长、录像、剪贴板/文件传输策略和审计约束。
 
 Conversation 和 Run 只绑定服务端确认的 `enterprise_id`。模型生成的企业、标签过滤条件、Host 或 Kubernetes ID 只是候选参数，不能切换当前身份域或扩大显式资源授权；每个 ToolCall、Run、PendingAction 和 Execution 保存实际目标资源引用和授权版本快照。
 
-## 2. Tool 设计
+## 2. 自有 Tool 设计
 
 Tool 分成两类：
 
@@ -75,7 +75,6 @@ telemetry.collector.status
 telemetry.metrics.query
 telemetry.logs.query
 pending_action.cancel
-card.render
 ```
 
 取消采用统一的 `pending_action.cancel`，它接收公开 `action_ref` 并再次检查用户和会话；取消不是业务 Commit，不需要向模型暴露私有 Token。查询、预览和提交必须显式区分，高风险 Tool 不应依靠模型记住“刚才已经确认”。
@@ -126,26 +125,11 @@ Commit 的 MCP 输入 Schema 固定为：
 
 ## 3. Tool Result 与数据来源
 
-每一次调用都应生成稳定的 `tool_call_id`，完整 Tool Result 保存在服务端执行上下文中。AI 在生成 Render Plan 时引用：
+每次调用持久化 ToolCall 与来源、工具版本、Schema Hash、派发状态、授权范围和完整结果 Hash。模型只收到有界投影及 `result_ref`。完整结果最大 64 MiB，小于 4 MiB 可内联保存，更大结果进入私有对象存储。
 
-```json
-{
-  "call_id": "call_host_list_01",
-  "path": "$.data.items[*].name"
-}
-```
+自有 Tool 的 Presentation Builder 在同包内绑定固定模板，生成独立详情数据与资源/结果引用。模板源码、确认控件和私有提交计划不进入 ToolResult 模型投影。外接 MCP 不使用模板扩展。
 
-而不是把返回值复制成没有来源的字面量。这样 `card.render` 可以校验：
-
-- Tool 来源。
-- 调用所属企业、会话、目标资源引用和显式授权版本快照。
-- 字段路径和类型。
-- Slot 允许的数据来源。
-- 字段是否敏感。
-
-多 Tool 数据组合可以通过受限表达式描述，并保留所有输入的来源链。
-
-M4 的确定性投影上限为：完整 Tool Result 最多 4 MiB 并保存为 Artifact，列表最多投影 50 项，Pod Logs 最多投影 32 KiB，任一模型投影总量最多 64 KiB。投影保存稳定 Hash、`projected_bytes`、`resource_refs` 和公开 `result_ref`；完整结果不能复制进模型上下文。
+`workflow.import_result` 受控导入当前会话结果到 Workspace，服务端验证企业、会话、当前授权与结果 Hash。`workflow.publish_file` 发布已核验的工作文件为不可变私有交付；工作目录同名文件后来改变不会修改历史下载。
 
 ## 4. Agent Harness 与持久化 Run
 
@@ -189,36 +173,26 @@ Agent Loop 为 Preview 注入服务端可信 `run_id`，PendingAction 和后续 
 
 ## 5. 两阶段操作
 
-以新增主机为例：
-
 ```mermaid
 sequenceDiagram
-    participant U as 用户
-    participant A as Model Agent
-    participant P as host.create.preview
-    participant R as card.render
-    participant H as Card Host
-    participant E as argus-server Action Executor
-    participant S as Pending Action Store
-    participant C as host.create.commit
-
-    U->>A: 添加主机
-    A->>P: 提交待验证参数
-    P->>S: 分别保存 PendingAction、不可变计划记录和加密 Token Record
-    P-->>A: 仅公开 preview + action_ref + expires_at
-    A->>R: 绑定预览数据和 Action Slot
-    R-->>H: Card Instance
-    H-->>U: 显示确认/取消卡片
-    U->>H: 点击确认
-    H->>E: 只发送 action_binding_id
-    E->>S: 读取服务端私有 argus__token
-    E->>E: 校验用户、企业、显式资源授权、授权版本、权限、审批、资源版本、过期和幂等
-    E->>C: 代码直接使用 argus__token 调用 Commit
-    C-->>E: 创建结果
-    E-->>H: 更新卡片状态
+    actor U as 用户
+    participant H as 宿主
+    participant A as Agent
+    participant G as Tool Gateway
+    participant E as Action Executor
+    U->>A: 请求业务变更
+    A->>G: Search / Describe / Invoke Preview
+    G-->>A: 公开模型结果与 action_ref
+    G-->>H: Tool 详情与独立 PendingAction
+    H-->>U: 权威影响范围、确认/取消
+    U->>H: 确认一次
+    H->>E: action_ref + request_id
+    E->>E: 重新鉴权、审批并执行冻结计划
+    E-->>H: 审批和执行状态
+    E->>A: 授权范围内只读验证与总结
 ```
 
-用户点击确认后的提交不再进入模型推理。M4 的 Tool Gateway 是 Worker 进程内可信 Registry；提交只允许 Action Executor 使用内部身份调用隐藏的 Commit Handler。浏览器请求只携带公开 `action_ref` 或后续 Card 产生的 `action_binding_id`，不得携带 Commit Tool 名称、业务参数或 `argus__token`。若未来把 Gateway 拆成独立进程，内部调用必须使用 mTLS，且不得暴露到公共 Ingress。
+详情模板不持有确认入口。用户确认之后不再由模型决定是否提交，失败或过期需重新生成 Preview。模板失败不影响有效公开动作的宿主展示。
 
 ## 6. Preview Tool 返回约定
 
@@ -271,106 +245,41 @@ MCP 核心协议提供 `structuredContent` 和可选 `outputSchema`，但不定�
 
 ```text
 完整 Preview Result
-├── 公开投影：进入 Tool Result Store、模型上下文和 card.render
+├── 公开投影：进入 Tool Result Store、模型上下文及宿主确认控件
 └── 私有投影：argus__token 加密保存到 Pending Action Store
 ```
 
 `argus__token` 推荐使用至少 256 bit 随机不透明值。Pending Action Store 保存用于查重/校验的 Token 哈希，以及使用专用密钥加密的 Token 密文或 Secret Store Handle；只有 Action Executor 可解密/读取一次并调用 Commit。日志和审计只记录 Token ID/哈希摘要，禁止记录原值、密文或可逆编码。
 
-业务 Tool 不需要绑定某张卡片。内置“渲染交互卡片”Skill 根据 `kind`、Tool Output Schema、预览数据和已启用交互卡片目录生成可校验 Render Plan；运行时绑定始终引用真实 `tool_call_id + path`。
+自有 Tool 在同包 Presentation Builder 中绑定固定模板，保存 ToolCall、内容 Hash 和来源引用。模型不选择模板或生成 Render Plan；客户 MCP 仅返回文字/结构化数据。
 
-## 7. Token 与 Action Binding
+## 7. Token 与确认记录
 
-如果真正的提交 Token 进入模型上下文、浏览器或卡片，模型或前端代码就可能绕过用户点击直接提交，用户确认将不再是安全边界。因此采用：
+模型和浏览器只使用公开 `action_ref`。私有提交令牌、不可变执行参数、签名和令牌消费状态保留在服务端。模板既不接收提交令牌，也不接收确认绑定。
 
-```text
-模型可见：公开 preview、action_ref
-浏览器和 交互卡片 可见：action_binding_id
-argus-server 私有：argus__token、目标 Commit Tool、计划和参数
-```
+宿主提交 `action_ref + request_id` 后，服务端重验调用主体、企业、AuthorizationVersion、动作状态、目标资源版本和审批策略，再创建/消费通用确认记录。`action_bindings` 是内部幂等/审计记录，与展示实例没有外键关系，不开放模板绑定调用接口。
 
-完整 Tool Result 到达 Argus Tool Gateway 后，Gateway 将 `_meta.argus__token` 存入 Pending Action Store，只向模型、浏览器和普通 Tool Result Store 提供安全投影。MCP `_meta` 本身不是保密边界，因此带 Preview/Commit 能力的变更 Tool 只允许通过 Argus 管理的 Tool Gateway 调用；不受控的外部 MCP Client 不得获得完整 Preview 返回。
+每次业务变更先生成新预览；冻结参数不能由确认请求补充或覆盖。Confirm 的幂等重放返回同一结果，执行器继续使用既有 Execution 幂等键。已失效或过期的动作不能通过重试获得新授权。
 
-Action Binding 至少保存：
+## 8. 模型工具与容量
 
-```json
-{
-  "binding_id": "cab_01K2...",
-  "card_instance_id": "cardi_01K2...",
-  "action_ref": "pa_01K2...",
-  "action": "confirm",
-  "target_tool": "host.create.commit",
-  "enterprise_id": "ent-1",
-  "resource_scope_snapshot": "scope-snapshot-37",
-  "user_id": "user-1",
-  "conversation_id": "chat-1",
-  "expires_at": "...",
-  "status": "pending"
-}
-```
+自有业务能力通过 `tool.search/describe/invoke` 暴露，固定七个分类。模型不直接接收自有完整目录。启用且健康的 Sandbox 提供 `read/write/edit/bash`；用户为会话选择的客户 MCP 工具直接追加为模型工具。因此工具数是 `3 + 可选 4 + N`。
 
-Token 或 Pending Action 服务端记录应绑定：
+运行前及消息接受事务前检查完整工具集合、必要上下文和输出预留。容量不足返回 422 `MODEL_TOOL_CAPACITY_EXCEEDED`，不创建 Run/Task、不裁剪工具、不切换模型，保留输入与附件。执行时再次校验当前授权，不把预检当作授权票据。
 
-- 唯一 ID 和一次性使用状态。
-- enterprise_id、creator_user_id 和 conversation_id。
-- authorization_version、显式授权版本和有效的目标资源快照。
-- preview_call_id。
-- commit Tool。
-- 预览参数哈希。
-- 不可变执行计划版本和资源版本。
-- 风险计算结果、Policy Version 和所需审批策略。
-- 有效期。
+## 9. 宿主交互进入会话
 
-Commit Tool 必须只接收 `argus__token`，由服务端恢复预览参数，避免确认后参数被修改。Token 在状态从 Ready 原子更新为 Executing 时即视为已消费；后续重试使用 Execution ID 和业务幂等键，不重新消费或签发原 Token。
+确认、取消、审批和执行结果由宿主通过固定业务 API 提交，记录真实用户/服务事件，不伪装为模型发起的调用。自有 Tool 自动生成独立 `tool_presentation` 事件；上传和交付使用 `workspace_file_added`、`artifact_published`，上传事件可以没有 Run。
 
-## 8. Tool 暴露范围
+模板只展示详情，不能确认或取消。确认后 Action Executor 按冻结计划执行，Run 进入持久化只读验证阶段。Worker 恢复不会重新得到变更权限；新业务变更重新 Preview。
 
-推荐将模型与卡片执行器的权限分开：
+## 10. 客户 MCP 边界
 
-```text
-模型可调用：host.create.preview、pending_action.cancel、card.render
-Action Executor 可调用：host.create.commit
-```
+首期固定 [Remote Streamable HTTP 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)，支持 JSON/SSE、Session、分页发现和有界恢复。只支持无认证、Bearer、Basic；stdio、旧双端点 HTTP+SSE、OAuth 和 UI 扩展不属于本期。
 
-统一取消 Tool 后，推荐权限为：
+企业管理员配置连接与凭据并授权成员；普通用户只选择已授权连接。选择按会话保存，新增连接不自动加入，撤权或停用立即阻止调用。凭据复用企业 Secret/Credential 加密体系，模型不接触凭据或租约。
 
-```text
-Model Agent：读取 Tool、*.preview、pending_action.cancel、card.render
-Action Executor：与 Action Binding 对应的 *.commit
-Card iframe：无直接 Tool 权限，只能调用已绑定 Query/Action Slot
-```
-
-Commit Tool 不得出现在 Model Agent 的 Tool Registry 投影中。Tool Gateway 还必须校验调用方是 Action Executor 的内部服务身份，不能只凭某个请求声明 `origin=card_action`。
-
-## 9. 点击结果进入会话
-
-直接点击结果记录为独立会话事件，而不是伪装成 Model Agent 发起的 Tool Call：
-
-```json
-{
-  "type": "card_action_result",
-  "origin": "user_interaction",
-  "actor_user_id": "user-1",
-  "card_instance_id": "cardi_01K2...",
-  "action": "confirm",
-  "tool": "host.create.commit",
-  "status": "success",
-  "result_ref": "tool-result-123"
-}
-```
-
-前端直接更新原卡片。下次模型继续对话时再把该事件作为历史上下文提供，不需要在每次点击后启动模型。
-
-## 10. MCP 兼容边界
-
-以 2026-07-28 规范为基线：
-
-- [MCP Tools](https://modelcontextprotocol.io/specification/2026-07-28/server/tools) 支持结构化输出、输出 Schema 和多轮输入要求，但不规定具体 UI。
-- [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) 是官方可选扩展，允许沙箱 HTML 通过 Host Bridge 发起 `tools/call`。
-- Argus 可以只让通用 `card.render` 声明 MCP App UI，业务 Tool 不声明 UI，从而保持 Tool 与 交互卡片 解耦。
-- 不支持 MCP Apps 的客户端可以降级成文字预览和普通确认对话。
-
-降级成文字确认时仍然不能把 `argus__token` 交给客户端。客户端提交公开 `action_ref` 和明确确认手势，`argus-server` 创建一次性 Action Binding 后仍由 Action Executor 执行 Commit。
+客户工具直接交给模型，读写可直接执行，不进入自有 Registry，不套用自有 Preview/Commit，不消费其 HTML 或 Dashboard 元数据。已派发但没有终态的调用记录 `result_unknown` 并停止 Run 自动推进，不自动重发写请求。
 
 ## 11. Pending Action、审批和执行状态
 
@@ -412,7 +321,7 @@ Execution 如果产生 Bastion 或 Kubernetes Connector Enrollment，公开对�
 ## 12. 并发、幂等和错误处理
 
 - 确认、取消、过期和审批使用数据库条件更新，只能有一个合法状态迁移成功。
-- Action Binding 调用先以 `(binding_id, request_id)` 去重；Commit 再以 Pending Action/Execution 的业务幂等键去重。
+- 宿主确认先按用户与请求幂等键去重；Commit 再以 Pending Action/Execution 的业务幂等键去重。
 - 用户双击返回同一个 Execution，不创建第二次执行。
 - Commit 已创建 Execution 但响应丢失时，Action Executor 查询现有 Execution，不重新调用业务变更。
 - 远端结果未知时返回 `EXECUTION_RESULT_UNKNOWN`，进入对账流程；只有 ConnectorCommand/上游操作的终态事实才能完成 Execution，不能当作普通失败自动重试或重放副作用。
@@ -431,4 +340,4 @@ Execution 如果产生 Bastion 或 Kubernetes Connector Enrollment，公开对�
 7. Preview 后修改资源版本、显式资源授权、AuthorizationVersion 或撤销权限，Commit 必须失败并要求重新 Preview；标签变化不触发授权失效。
 8. 双击、超时重试和服务重启不会产生重复副作用。
 9. 审批不能补齐缺失的基础权限；Break Glass 只能用于 Policy 明确允许且绑定单个 Pending Action 的场景。
-10. Model Agent、Card 和 OpenSandbox 无法创建或消费人工远程会话票据。
+10. Model Agent、Template 和 OpenSandbox 无法创建或消费人工远程会话票据。

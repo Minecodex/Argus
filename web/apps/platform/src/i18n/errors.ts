@@ -1,5 +1,7 @@
 /** Stable API error-code translations. Keep this list aligned with api/contracts/error-codes.yaml. */
 export const ERROR_CODES = [
+  "TASK_RETRY_EXHAUSTED",
+  "MODEL_RESPONSE_INTERRUPTED",
   "INTERNAL_ERROR",
   "INVALID_ARGUMENT",
   "AUTHENTICATION_REQUIRED",
@@ -338,6 +340,8 @@ const errorTokenZhMap: Record<string, string> = {
 };
 
 const errorSpecialZhMap: Record<string, string> = {
+  TASK_RETRY_EXHAUSTED: "任务重试已耗尽，已停止自动推进。",
+  MODEL_RESPONSE_INTERRUPTED: "模型响应中断，该次输出未用于工具执行。",
   REMOTE_ACCESS_GRANT_REQUIRED:
     "当前账号未获得该主机和托管账号的远程访问授权。",
   REMOTE_ACCESS_SCOPE_DENIED: "当前账号不在该远程访问范围内。",

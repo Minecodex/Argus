@@ -102,7 +102,7 @@ func TestInstalledExecutorTunnelE2E(t *testing.T) {
 			t.Errorf("restore installed Direct Executor: %v", restoreErr)
 		}
 	})
-	if err = app.patchP4DirectExecutor(t.Context(), env); err != nil {
+	if err = app.patchP4DirectExecutor(t.Context(), env, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,7 +111,7 @@ func TestInstalledExecutorTunnelE2E(t *testing.T) {
 		defer cancel()
 		for index := len(env.ManagedNamespaces) - 1; index >= 0; index-- {
 			if namespace := env.ManagedNamespaces[index]; namespace != "" {
-				if cleanupErr := env.Kube.DeleteNamespace(cleanupCtx, namespace); cleanupErr != nil {
+				if cleanupErr := env.Kube.DeleteNamespace(cleanupCtx, namespace, env.ReleaseID); cleanupErr != nil {
 					t.Errorf("delete owned target namespace %s: %v", namespace, cleanupErr)
 				}
 			}
@@ -410,7 +410,7 @@ func cleanupInstalledTunnelResources(ctx context.Context, app *App, env *E2EEnvi
 }
 
 func removeInstalledTunnelHost(ctx context.Context, app *App, env *E2EEnvironment, scenario *p4Scenario, credentialID string) error {
-	testID, err := app.createP4ConnectionTest(ctx, env, "installed-tunnel-remove", scenario.ExecutorHostTarget.ExternalIP, credentialID, "")
+	testID, err := app.createP4ConnectionTest(ctx, env, "installed-tunnel-remove", scenario.ExecutorHostTarget.ExternalIP, credentialID, "", "")
 	if err != nil {
 		return fmt.Errorf("create cleanup connection test: %w", err)
 	}

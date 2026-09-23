@@ -447,7 +447,7 @@ func (a *App) checkWebEntrypoints(ctx context.Context) (returnErr error) {
 		return err
 	}
 	for _, expected := range []string{
-		"host: cards.argus.example.com", "name: cards", "containerPort: 8083",
+		"host: templates.argus.example.com", "name: templates", "containerPort: 8083",
 		`ARGUS_DIRECT_EXECUTOR_CLIENT_URIS: "spiffe://argus.io/services/server/client,spiffe://argus.io/services/worker/client,spiffe://argus.io/services/connector-gateway/direct-executor-client"`,
 		"secretName: argus-server-direct-executor-client-tls", "secretName: argus-worker-direct-executor-client-tls", "secretName: argus-connector-gateway-direct-executor-client-tls",
 		"secretName: argus-server-telemetry-client-tls", "secretName: argus-worker-telemetry-client-tls", "secretName: argus-connector-gateway-peer-client-tls",

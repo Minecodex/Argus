@@ -13,14 +13,14 @@ RUN --mount=type=cache,id=argus-pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --fetch-retries 5 --fetch-timeout 300000
 ARG VITE_API_MODE=real
 ARG VITE_API_BASE_URL=/
-# Card origin and platform login URL are resolved at runtime from
+# Template origin and platform login URL are resolved at runtime from
 # /argus-runtime.json (injected by Helm); VITE_* values are dev/mock overrides.
-ARG VITE_CARD_ORIGIN=
+ARG VITE_TEMPLATE_ORIGIN=
 ARG VITE_PLATFORM_URL=
 ARG VITE_DIRECT_EGRESS_ADDRESSES=
 RUN VITE_API_MODE=$VITE_API_MODE \
     VITE_API_BASE_URL=$VITE_API_BASE_URL \
-    VITE_CARD_ORIGIN=$VITE_CARD_ORIGIN \
+    VITE_TEMPLATE_ORIGIN=$VITE_TEMPLATE_ORIGIN \
     VITE_PLATFORM_URL=$VITE_PLATFORM_URL \
     VITE_DIRECT_EGRESS_ADDRESSES=$VITE_DIRECT_EGRESS_ADDRESSES \
     node scripts/build-web.mjs "$VITE_API_MODE"
@@ -29,5 +29,5 @@ FROM nginxinc/nginx-unprivileged:1.29.4-alpine
 COPY deploy/docker/nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /src/web/apps/enterprise/dist /srv/enterprise
 COPY --from=build /src/web/apps/platform/dist /srv/platform
-COPY --from=build /src/web/apps/card-runtime/dist /srv/card-runtime
+COPY --from=build /src/web/apps/template-runtime/dist /srv/template-runtime
 EXPOSE 8080 8081 8083

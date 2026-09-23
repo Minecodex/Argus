@@ -89,12 +89,8 @@ func (env *E2EEnvironment) clearArtifactSigningPrivateKey() {
 }
 
 func (a *App) prepareE2ECollectorArtifacts(ctx context.Context, env *E2EEnvironment) error {
-	hostArtifactSuite := env.Options.Suite == "p4" || suiteHas(env.Options.Suite, "tls")
-	if !suiteHas(env.Options.Suite, "m7") && env.Options.Suite != "m10-query" && !hostArtifactSuite {
+	if !suiteFixtureFeatures(env.Options.Suite).Artifact {
 		return nil
-	}
-	if !hostArtifactSuite && env.ImagePlatform != "linux/arm64" {
-		return fmt.Errorf("%w: %s requires an arm64 Kubernetes node for the locked Collector distribution", errCapability, env.Options.Suite)
 	}
 	linuxPath := filepath.Join(a.root, "build", "otelcol", "artifacts", "argus-otelcol-linux-arm64.tar.gz")
 	linuxAMD64Path := filepath.Join(a.root, "build", "otelcol", "artifacts", "argus-otelcol-linux-amd64.tar.gz")

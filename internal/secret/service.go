@@ -131,6 +131,9 @@ func (service Service) List(ctx context.Context, enterpriseID uuid.UUID) ([]Secr
 }
 
 func (service Service) Get(ctx context.Context, enterpriseID, secretID uuid.UUID) (SecretRecord, error) {
+	if err := service.assertPublicSecret(ctx, enterpriseID, secretID); err != nil {
+		return SecretRecord{}, err
+	}
 	row, err := service.Store.Queries.GetSecret(ctx, db.GetSecretParams{ID: secretID, EnterpriseID: enterpriseID})
 	if err != nil {
 		return SecretRecord{}, err
@@ -165,6 +168,9 @@ func (service Service) Create(ctx context.Context, actorID string, enterpriseID 
 }
 
 func (service Service) Update(ctx context.Context, actorID string, enterpriseID, secretID uuid.UUID, input SecretInput) (SecretRecord, error) {
+	if err := service.assertPublicSecret(ctx, enterpriseID, secretID); err != nil {
+		return SecretRecord{}, err
+	}
 	var result SecretRecord
 	err := service.Store.InTx(ctx, func(q *db.Queries) error {
 		secret, err := q.UpdateSecretMetadata(ctx, db.UpdateSecretMetadataParams{ID: secretID, EnterpriseID: enterpriseID, Version: input.ExpectedVersion,
@@ -186,6 +192,9 @@ func (service Service) Update(ctx context.Context, actorID string, enterpriseID,
 }
 
 func (service Service) Rotate(ctx context.Context, actorID string, enterpriseID, secretID uuid.UUID, input SecretInput, idempotencyKey string) (SecretRecord, error) {
+	if err := service.assertPublicSecret(ctx, enterpriseID, secretID); err != nil {
+		return SecretRecord{}, err
+	}
 	if input.Value == "" {
 		return SecretRecord{}, ErrSecretValueRequired
 	}
@@ -230,6 +239,9 @@ func (service Service) Rotate(ctx context.Context, actorID string, enterpriseID,
 }
 
 func (service Service) Disable(ctx context.Context, actorID string, enterpriseID, secretID uuid.UUID, expectedVersion int64) error {
+	if err := service.assertPublicSecret(ctx, enterpriseID, secretID); err != nil {
+		return err
+	}
 	return service.Store.InTx(ctx, func(q *db.Queries) error {
 		rows, err := q.DisableSecret(ctx, db.DisableSecretParams{ID: secretID, EnterpriseID: enterpriseID, Version: expectedVersion})
 		if err != nil {
@@ -251,6 +263,9 @@ func (service Service) ListCredentials(ctx context.Context, enterpriseID uuid.UU
 }
 
 func (service Service) CreateCredential(ctx context.Context, actorID string, enterpriseID uuid.UUID, input CredentialInput, idempotencyKey string) (db.Credential, error) {
+	if err := service.assertPublicSecret(ctx, enterpriseID, input.SecretID); err != nil {
+		return db.Credential{}, err
+	}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "credential.create", idempotencyKey, input, 201, func(q *db.Queries) (db.Credential, error) {
 		secret, err := q.GetSecret(ctx, db.GetSecretParams{ID: input.SecretID, EnterpriseID: enterpriseID})
 		if err != nil || secret.Status != "active" || !protocolSupportsSecret(input.Protocol, secret.Type) {
@@ -268,8 +283,20 @@ func (service Service) CreateCredential(ctx context.Context, actorID string, ent
 }
 
 func (service Service) UpdateCredential(ctx context.Context, actorID string, enterpriseID, credentialID uuid.UUID, input CredentialInput) (db.Credential, error) {
+	current, err := service.Store.Queries.GetCredential(ctx, db.GetCredentialParams{ID: credentialID, EnterpriseID: enterpriseID})
+	if err != nil {
+		return db.Credential{}, err
+	}
+	if err := service.assertPublicSecret(ctx, enterpriseID, current.SecretID); err != nil {
+		return db.Credential{}, err
+	}
+	if input.SecretID != uuid.Nil {
+		if err := service.assertPublicSecret(ctx, enterpriseID, input.SecretID); err != nil {
+			return db.Credential{}, err
+		}
+	}
 	var result db.Credential
-	err := service.Store.InTx(ctx, func(q *db.Queries) error {
+	err = service.Store.InTx(ctx, func(q *db.Queries) error {
 		var secretID uuid.NullUUID
 		if input.SecretID != uuid.Nil {
 			secretID = uuid.NullUUID{UUID: input.SecretID, Valid: true}
@@ -407,7 +434,7 @@ func (service Service) RenewLease(
 // Callers use it when the recipient will redeem the lease over an authenticated channel.
 func (service Service) PrepareLeaseWithQueries(ctx context.Context, q *db.Queries, actorID string, enterpriseID uuid.UUID, request LeaseRequest) (db.CredentialLease, error) {
 	if request.TTL <= 0 || request.TTL > MaxLeaseTTL || request.OperationRef == "" || request.TargetResourceID == uuid.Nil ||
-		(request.RecipientType != "connector" && request.RecipientType != "direct_executor" && request.RecipientType != "connector_gateway") || request.RecipientID == "" {
+		(request.RecipientType != "connector" && request.RecipientType != "direct_executor" && request.RecipientType != "connector_gateway" && request.RecipientType != "mcp_adapter") || request.RecipientID == "" {
 		return db.CredentialLease{}, ErrInvalidLease
 	}
 	credential, err := q.GetCredential(ctx, db.GetCredentialParams{ID: request.CredentialID, EnterpriseID: enterpriseID})
@@ -421,6 +448,16 @@ func (service Service) PrepareLeaseWithQueries(ctx context.Context, q *db.Querie
 	secretRecord, err := q.GetSecret(ctx, db.GetSecretParams{ID: credential.SecretID, EnterpriseID: enterpriseID})
 	if err != nil || secretRecord.Status != "active" {
 		return db.CredentialLease{}, ErrCredentialUnavailable
+	}
+	if request.RecipientType == "mcp_adapter" {
+		if secretRecord.OwnerType != "mcp_connection" || !secretRecord.OwnerID.Valid || secretRecord.OwnerID.UUID != request.TargetResourceID {
+			return db.CredentialLease{}, ErrInvalidLease
+		}
+		if err := validateMCPLease(ctx, q, enterpriseID, actorID, request, credential); err != nil {
+			return db.CredentialLease{}, err
+		}
+	} else if secretRecord.OwnerType == "mcp_connection" {
+		return db.CredentialLease{}, ErrInvalidLease
 	}
 	lease, err := q.CreateCredentialLease(ctx, db.CreateCredentialLeaseParams{ID: newUUID(), EnterpriseID: enterpriseID, CredentialID: credential.ID,
 		SecretVersionID: version.ID, OperationRef: request.OperationRef, TargetResourceType: request.TargetResourceType, TargetResourceID: request.TargetResourceID,

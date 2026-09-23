@@ -44,25 +44,16 @@ func (tools Tools) Register(registry *mcp.Registry) error {
 }
 
 func (tools Tools) metadata(id, permission string, input, output map[string]any, execute func(context.Context, mcp.Call) (mcp.Result, error)) mcp.Metadata {
-	return mcp.Metadata{ID: id, ToolFamily: id, Risk: "read", Visibility: mcp.Visible, ExecutionMode: mcp.ParallelSafe,
+	return tools.presentationMetadata(mcp.Metadata{ID: id, Discovery: telemetryDiscovery[id], ToolFamily: id, Risk: "read", Visibility: mcp.Visible, ExecutionMode: mcp.ParallelSafe,
 		Required: []string{permission}, InputVersion: id + "/v1", OutputVersion: id + "/v1", ProjectionSchema: "argus.tool_result_projection/v1",
-		MaxResultBytes: 4 << 20, InputSchema: input, OutputSchema: output, CardSafe: true, FieldTypes: telemetryFieldTypes(id), SemanticFields: telemetrySemanticFields(id),
+		MaxResultBytes: 4 << 20, InputSchema: input, OutputSchema: output, FieldTypes: telemetryFieldTypes(id), SemanticFields: telemetrySemanticFields(id),
 		Authorize: tools.authorize(permission), Validate: func(value map[string]any) error {
 			if value == nil {
 				return ErrQueryInvalid
 			}
 			return nil
 		}, Execute: execute,
-		CardProjector: func(_ context.Context, _ mcp.Call, result mcp.Result) (map[string]any, bool, error) {
-			encoded, err := json.Marshal(result.Structured)
-			if err != nil {
-				return nil, false, err
-			}
-			var output map[string]any
-			err = json.Unmarshal(encoded, &output)
-			return output, result.Partial, err
-		},
-	}
+	})
 }
 
 func (tools Tools) authorize(permission string) func(context.Context, mcp.Call) error {

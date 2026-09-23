@@ -43,7 +43,7 @@ export interface components {
             event_id: string;
             sequence: number;
             /** @enum {unknown} */
-            event_type: "agent_event" | "task_event" | "card_action_result" | "authorization_invalidated" | "stream_closing";
+            event_type: "agent_event" | "task_event" | "authorization_invalidated" | "stream_closing";
             /** Format: date-time */
             occurred_at: string;
             authorization_version?: number;

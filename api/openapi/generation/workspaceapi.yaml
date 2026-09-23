@@ -1,0 +1,49 @@
+{
+  "openapi": "3.1.0",
+  "info":
+    {
+      "title": "Argus workspaceapi",
+      "version": "1.0.0",
+      "license":
+        { "name": "Proprietary", "identifier": "LicenseRef-Proprietary" },
+    },
+  "servers": [{ "url": "/api/v1" }],
+  "security": [{ "sessionCookie": [] }],
+  "paths":
+    {
+      "/conversations/{conversation_id}/workspace":
+        {
+          "$ref": "../argus.yaml#/paths/~1conversations~1{conversation_id}~1workspace",
+        },
+      "/conversations/{conversation_id}/workspace/files":
+        {
+          "$ref": "../argus.yaml#/paths/~1conversations~1{conversation_id}~1workspace~1files",
+        },
+      "/conversations/{conversation_id}/workspace/uploads":
+        {
+          "$ref": "../argus.yaml#/paths/~1conversations~1{conversation_id}~1workspace~1uploads",
+        },
+      "/conversations/{conversation_id}/workspace/uploads/{upload_id}/content":
+        {
+          "$ref": "../argus.yaml#/paths/~1conversations~1{conversation_id}~1workspace~1uploads~1{upload_id}~1content",
+        },
+      "/conversations/{conversation_id}/workspace/files/{file_id}/content":
+        {
+          "$ref": "../argus.yaml#/paths/~1conversations~1{conversation_id}~1workspace~1files~1{file_id}~1content",
+        },
+      "/conversations/{conversation_id}/deliveries/{delivery_id}/content":
+        {
+          "$ref": "../argus.yaml#/paths/~1conversations~1{conversation_id}~1deliveries~1{delivery_id}~1content",
+        },
+    },
+  "components":
+    {
+      "securitySchemes":
+        {
+          "sessionCookie":
+            {
+              "$ref": "../argus.yaml#/components/securitySchemes/sessionCookie",
+            },
+        },
+    },
+}

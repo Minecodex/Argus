@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package argus.workspace.v1;
+
+option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/workspace/v1;workspacev1";
+
+service WorkspaceIOService {
+  rpc BindLease(BindLeaseRequest) returns (BindLeaseResponse);
+  rpc ReleaseLease(ReleaseLeaseRequest) returns (ReleaseLeaseResponse);
+  rpc Upload(stream UploadRequest) returns (UploadResponse);
+  rpc Download(DownloadRequest) returns (stream DownloadResponse);
+  rpc Edit(EditRequest) returns (EditResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+}
+
+// Only implemented by the trusted supervisor in the offline compute image.
+// The independent workspace-io role never registers this command service.
+service WorkspaceSupervisorService {
+  rpc BindLease(WorkspaceSupervisorServiceBindLeaseRequest) returns (WorkspaceSupervisorServiceBindLeaseResponse);
+  rpc ReleaseLease(WorkspaceSupervisorServiceReleaseLeaseRequest) returns (WorkspaceSupervisorServiceReleaseLeaseResponse);
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+}
+
+message BindLeaseRequest {
+  string workspace_id = 1;
+  int64 generation = 2;
+  int64 fence_token = 3;
+}
+message ReleaseLeaseRequest { Authority authority = 1; }
+message BindLeaseResponse {}
+message ReleaseLeaseResponse {}
+message WorkspaceSupervisorServiceBindLeaseRequest {
+  string workspace_id = 1;
+  int64 generation = 2;
+  int64 fence_token = 3;
+}
+message WorkspaceSupervisorServiceBindLeaseResponse {}
+message WorkspaceSupervisorServiceReleaseLeaseRequest { Authority authority = 1; }
+message WorkspaceSupervisorServiceReleaseLeaseResponse {}
+message ExecuteRequest {
+  Authority authority = 1;
+  string command = 2;
+  int32 timeout_seconds = 3;
+}
+message ExecuteResponse {
+  string stdout = 1;
+  string stderr = 2;
+  int32 exit_code = 3;
+  bool partial = 4;
+}
+
+message Authority {
+  string workspace_id = 1;
+  int64 fence_token = 2;
+}
+message UploadRequest {
+  Authority authority = 1;
+  string path = 2;
+  int64 expected_bytes = 3;
+  bool replace = 4;
+  bytes data = 5;
+}
+message DownloadRequest {
+  Authority authority = 1;
+  string path = 2;
+  int64 offset = 3;
+  int64 length = 4;
+}
+message EditRequest {
+  Authority authority = 1;
+  string path = 2;
+  string old_text = 3;
+  string new_text = 4;
+}
+message DeleteRequest {
+  Authority authority = 1;
+  string path = 2;
+}
+message DeleteResponse {}
+message UploadResponse {
+  string path = 1;
+  int64 byte_size = 2;
+  string content_hash = 3;
+}
+message DownloadResponse {
+  bytes data = 1;
+  int64 total_bytes = 2;
+}
+
+message EditResponse {
+  string path = 1;
+  int64 byte_size = 2;
+  string content_hash = 3;
+}

@@ -1,0 +1,728 @@
+{
+  "mcp_connections":
+    {
+      "get":
+        {
+          "operationId": "listMCPConnections",
+          "summary": "listMCPConnections.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/MCPConnectionPage",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+        },
+      "post":
+        {
+          "operationId": "createMCPConnection",
+          "summary": "createMCPConnection.",
+          "responses":
+            {
+              "201":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/MCPConnection",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters":
+            [
+              { "$ref": "#/components/parameters/CsrfToken" },
+              { "$ref": "#/components/parameters/IdempotencyKey" },
+            ],
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "../components/planv5.yaml#/components/schemas/MCPConnectionWrite",
+                        },
+                    },
+                },
+            },
+        },
+    },
+  "mcp_connection":
+    {
+      "parameters":
+        [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "get":
+        {
+          "operationId": "getMCPConnection",
+          "summary": "getMCPConnection.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/MCPConnection",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+        },
+      "put":
+        {
+          "operationId": "updateMCPConnection",
+          "summary": "updateMCPConnection.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/MCPConnection",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "../components/planv5.yaml#/components/schemas/MCPConnectionWrite",
+                        },
+                    },
+                },
+            },
+        },
+    },
+  "mcp_test":
+    {
+      "parameters":
+        [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "post":
+        {
+          "operationId": "testMCPConnection",
+          "summary": "testMCPConnection.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/MCPConnection",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters":
+            [
+              { "$ref": "#/components/parameters/CsrfToken" },
+              { "$ref": "#/components/parameters/IdempotencyKey" },
+            ],
+        },
+    },
+  "mcp_state":
+    {
+      "parameters":
+        [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "put":
+        {
+          "operationId": "setMCPConnectionState",
+          "summary": "setMCPConnectionState.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/MCPConnection",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "../components/planv5.yaml#/components/schemas/MCPConnectionState",
+                        },
+                    },
+                },
+            },
+        },
+    },
+  "mcp_members":
+    {
+      "parameters":
+        [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "put":
+        {
+          "operationId": "setMCPConnectionMembers",
+          "summary": "setMCPConnectionMembers.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/MCPConnection",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "../components/planv5.yaml#/components/schemas/MCPConnectionMembers",
+                        },
+                    },
+                },
+            },
+        },
+    },
+  "workspace":
+    {
+      "parameters":
+        [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "get":
+        {
+          "operationId": "getConversationWorkspace",
+          "summary": "getConversationWorkspace.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/Workspace",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+        },
+      "delete":
+        {
+          "operationId": "deleteConversationWorkspace",
+          "summary": "deleteConversationWorkspace.",
+          "responses":
+            {
+              "202":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/Workspace",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters":
+            [
+              { "$ref": "#/components/parameters/CsrfToken" },
+              { "$ref": "#/components/parameters/IdempotencyKey" },
+            ],
+        },
+    },
+  "workspace_files":
+    {
+      "parameters":
+        [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "get":
+        {
+          "operationId": "listWorkspaceFiles",
+          "summary": "listWorkspaceFiles.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/WorkspaceFilePage",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    },
+  "workspace_uploads":
+    {
+      "parameters":
+        [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "post":
+        {
+          "operationId": "createWorkspaceUpload",
+          "summary": "createWorkspaceUpload.",
+          "responses":
+            {
+              "201":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/WorkspaceUpload",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters":
+            [
+              { "$ref": "#/components/parameters/CsrfToken" },
+              { "$ref": "#/components/parameters/IdempotencyKey" },
+            ],
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "../components/planv5.yaml#/components/schemas/WorkspaceUploadCreate",
+                        },
+                    },
+                },
+            },
+        },
+    },
+  "workspace_upload_content":
+    {
+      "parameters":
+        [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "put":
+        {
+          "operationId": "uploadWorkspaceContent",
+          "summary": "uploadWorkspaceContent.",
+          "responses":
+            {
+              "201":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/WorkspaceFile",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/octet-stream":
+                    { "schema": { "type": "string", "format": "binary" } },
+                },
+            },
+        },
+    },
+  "workspace_file_content":
+    {
+      "parameters":
+        [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "get":
+        {
+          "operationId": "downloadWorkspaceFile",
+          "summary": "downloadWorkspaceFile.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/octet-stream":
+                        { "schema": { "type": "string", "format": "binary" } },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+              "206":
+                {
+                  "description": "Partial file content.",
+                  "content":
+                    {
+                      "application/octet-stream":
+                        { "schema": { "type": "string", "format": "binary" } },
+                    },
+                },
+            },
+          "parameters":
+            [
+              {
+                "name": "Range",
+                "in": "header",
+                "required": false,
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+            ],
+        },
+    },
+  "delivery_content":
+    {
+      "parameters":
+        [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+          {
+            "name": "delivery_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "get":
+        {
+          "operationId": "downloadFileDelivery",
+          "summary": "downloadFileDelivery.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/octet-stream":
+                        { "schema": { "type": "string", "format": "binary" } },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+              "206":
+                {
+                  "description": "Partial file content.",
+                  "content":
+                    {
+                      "application/octet-stream":
+                        { "schema": { "type": "string", "format": "binary" } },
+                    },
+                },
+            },
+          "parameters":
+            [
+              {
+                "name": "Range",
+                "in": "header",
+                "required": false,
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+            ],
+        },
+    },
+  "tool_presentation":
+    {
+      "parameters":
+        [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+          {
+            "name": "tool_call_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "get":
+        {
+          "operationId": "getToolPresentation",
+          "summary": "getToolPresentation.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/ToolPresentation",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    },
+  "conversation_preflight":
+    {
+      "parameters":
+        [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+          },
+        ],
+      "post":
+        {
+          "operationId": "preflightConversation",
+          "summary": "preflightConversation.",
+          "responses":
+            {
+              "200":
+                {
+                  "description": "Operation result.",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "../components/planv5.yaml#/components/schemas/ConversationPreflight",
+                            },
+                        },
+                    },
+                },
+              "default": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters":
+            [
+              { "$ref": "#/components/parameters/CsrfToken" },
+            ],
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "../components/planv5.yaml#/components/schemas/ConversationPreflightInput",
+                        },
+                    },
+                },
+            },
+        },
+    },
+  "components":
+    {
+      "parameters":
+        {
+          "CsrfToken":
+            {
+              "name": "X-CSRF-Token",
+              "in": "header",
+              "required": true,
+              "schema": { "type": "string", "minLength": 32, "maxLength": 256 },
+            },
+          "IdempotencyKey":
+            {
+              "name": "Idempotency-Key",
+              "in": "header",
+              "required": true,
+              "schema":
+                {
+                  "$ref": "../components/common.yaml#/components/schemas/IdempotencyKey",
+                },
+            },
+        },
+      "responses":
+        {
+          "Error":
+            {
+              "description": "Stable Argus error.",
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "../components/common.yaml#/components/schemas/ApiError",
+                        },
+                    },
+                },
+            },
+        },
+    },
+}

@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import type { PendingActionPublic } from "@argus/api-client";
-import type { CardInstance } from "./chat-view-model";
 import { formatApiError, useApi } from "@argus/api-client";
 import {
   PreviewCommitCard,
@@ -34,11 +33,10 @@ function toPreviewStatus(action: PendingActionPublic): PreviewCommitStatus {
  * 预览摘要、风险、Diff、影响对象、计划哈希、过期倒计时；
  * [确认执行] 直接调 approvals.confirm（不经过模型），状态原地流转。
  */
-export function PendingActionCard({ card }: { card: CardInstance }) {
+export function PendingActionCard({ actionRef }: { actionRef: string }) {
   const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
-  const actionRef = card.pendingActionRef ?? "";
   const [confirming, setConfirming] = useState(false);
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
 
@@ -61,6 +59,8 @@ export function PendingActionCard({ card }: { card: CardInstance }) {
   // （真实后端每次返回新对象，不受影响）。
   const { data: action, dataUpdatedAt } = query;
 
+  if (query.isError)
+    return <p role="alert">{t("planv5.previewUnavailable")}</p>;
   if (!action) {
     return (
       <div className="argus-chat-action">
@@ -165,8 +165,14 @@ export function PendingActionCard({ card }: { card: CardInstance }) {
           content: line.text,
         }))}
         expiresAt={action.expires_at}
-        onCancel={awaitingApproval ? undefined : cancel}
-        onConfirm={awaitingApproval ? undefined : confirm}
+        onCancel={
+          action.status === "awaiting_confirmation" ? cancel : undefined
+        }
+        onConfirm={
+          action.status === "awaiting_confirmation" && !query.isFetching
+            ? confirm
+            : undefined
+        }
         resultMessage={resultMessage}
         risk={action.risk}
         riskLabel={t(`chat.action.risk.${action.risk}`)}

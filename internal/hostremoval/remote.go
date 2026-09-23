@@ -11,16 +11,19 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
 func DecodeOperationPlan(operation db.HostRemovalOperation) (Plan, error) {
 	var plan Plan
-	if json.Unmarshal(operation.Plan, &plan) != nil || !plan.OperationID.Valid || plan.OperationID.UUID != operation.ID ||
+	if json.Unmarshal(operation.Plan, &plan) != nil || plan.SchemaVersion != "argus.host_removal/v1" || !plan.OperationID.Valid || plan.OperationID.UUID != operation.ID ||
 		plan.HostID != operation.HostID || plan.ConnectorID != operation.ConnectorID || plan.RemovalGeneration != operation.RemovalGeneration {
 		return Plan{}, ErrIdentityChanged
 	}
-	canonical, err := json.Marshal(plan)
+	// Hash all persisted fields, including any unknown field, before using the
+	// typed plan. Remarshalling the struct would discard unrecognized content.
+	canonical, err := resource.CanonicalJSON(operation.Plan)
 	if err != nil {
 		return Plan{}, err
 	}

@@ -42,7 +42,6 @@ import type {
   MockActionPlanRecord,
   MockConversationRecord,
   MockEnterpriseUserRecord,
-  MockInteractiveCard,
 } from "./internal-types";
 import type {
   ConnectorEnrollmentToken,
@@ -55,7 +54,7 @@ import type {
 
 /** Whole in-memory database backing the mock client. */
 export interface MockDb {
-  schemaVersion: 14;
+  schemaVersion: 15;
   seq: Record<string, number>;
   platformState: { state: PlatformState; name: string };
   enterprises: Enterprise[];
@@ -109,7 +108,7 @@ export interface MockDb {
   models: AIModel[];
   modelQuotas: ModelQuota[];
   usagePoints: ModelUsagePoint[];
-  interactiveCards: MockInteractiveCard[];
+  planv5: import("./planv5").MockPlanV5;
   auditEvents: AuditEvent[];
   sandboxBackends: SandboxBackend[];
   sandboxImages: SandboxImage[];
@@ -138,7 +137,7 @@ export function loadDb(): MockDb | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as MockDb;
-    return parsed.schemaVersion === 14 ? parsed : null;
+    return parsed.schemaVersion === 15 ? parsed : null;
   } catch {
     return null;
   }

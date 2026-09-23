@@ -133,9 +133,11 @@ func (a *App) verify(ctx context.Context, cfg *InstallConfig, output, artifactPa
 	add("minio-object-roundtrip", a.runSmokePod(ctx, cfg, clients, cfg.Spec.Namespaces.System, "minio", minioSmokePod(cfg)))
 	add("kafka-produce-consume", a.kafkaSmoke(ctx, cfg, clients))
 	add("clickhouse-write-read", a.runSmokePod(ctx, cfg, clients, cfg.Spec.Namespaces.Observability, "clickhouse", clickHouseSmokePod(cfg)))
-	add("opensandbox-lifecycle", a.openSandboxSmoke(ctx, cfg, clients))
+	if cfg.Spec.OpenSandbox.Enabled {
+		add("opensandbox-lifecycle", a.openSandboxSmoke(ctx, cfg, clients))
+	}
 
-	for _, image := range []string{"argus-backend", "argus-web", "minio"} {
+	for _, image := range []string{"argus-backend", "argus-web", "minio", "argus-workspace", "argus-workspace-egress"} {
 		digest, inspectErr := a.imageManifestDigest(ctx, cfg, image)
 		if inspectErr != nil {
 			report.Images[image] = "unavailable: " + inspectErr.Error()
@@ -163,19 +165,15 @@ func (a *App) imageManifestDigest(ctx context.Context, cfg *InstallConfig, image
 	if cfg.Spec.Images.Mode == "local-registry" {
 		return localRegistryManifestDigest(ctx, cfg, image)
 	}
-	inspect, err := a.runner.quiet(ctx, "docker", "manifest", "inspect", cfg.Image(image))
+	inspect, err := a.runner.quiet(ctx, "docker", "buildx", "imagetools", "inspect", cfg.Image(image), "--format", "{{.Manifest.Digest}}")
 	if err != nil {
 		return "", err
 	}
-	var manifest struct {
-		Config struct {
-			Digest string `json:"digest"`
-		} `json:"config"`
+	digest := strings.TrimSpace(inspect)
+	if !strings.HasPrefix(digest, "sha256:") || len(digest) != 71 {
+		return "", fmt.Errorf("image manifest digest unavailable")
 	}
-	if json.Unmarshal([]byte(inspect), &manifest) == nil && manifest.Config.Digest != "" {
-		return manifest.Config.Digest, nil
-	}
-	return "manifest-present", nil
+	return digest, nil
 }
 
 func localRegistryManifestDigest(ctx context.Context, cfg *InstallConfig, image string) (string, error) {
@@ -234,13 +232,13 @@ func webIngressHosts(cfg *InstallConfig) []string {
 	return []string{
 		cfg.Spec.Exposure.EnterpriseHost,
 		cfg.Spec.Exposure.PlatformHost,
-		"cards." + parentDomain(cfg.Spec.Exposure.EnterpriseHost),
+		"templates." + parentDomain(cfg.Spec.Exposure.EnterpriseHost),
 		artifactHost,
 	}
 }
 
 func ingressCertificatesReady(ctx context.Context, clients *kubeClients, cfg *InstallConfig, hosts []string) error {
-	names := []string{"enterprise", "platform", "cards", "artifact"}
+	names := []string{"enterprise", "platform", "templates", "artifact"}
 	if len(hosts) != len(names) {
 		return fmt.Errorf("unexpected ingress host set")
 	}
@@ -391,6 +389,9 @@ func connectorLoadBalancerReady(ctx context.Context, clients *kubeClients, cfg *
 }
 
 func selectIngressProbeAddress(ctx context.Context, cfg *InstallConfig, loadBalancerAddress string) string {
+	if override := strings.TrimSpace(os.Getenv("ARGUSCTL_HTTPS_PROBE_ADDRESS")); override != "" {
+		return override
+	}
 	// Local-registry installations run against a local development cluster.
 	// Docker Desktop publishes LoadBalancer port 443 on localhost, while host
 	// proxy/TUN software may reset direct connections to its bridge address.
@@ -459,11 +460,18 @@ func curlStatusArgs(rawURL, origin, ingressAddress, caPath string) ([]string, er
 	}
 	args := []string{"-sS", "--cacert", caPath, "--noproxy", "*", "--connect-timeout", "5", "--max-time", "20", "-o", os.DevNull, "-w", "%{http_code}"}
 	if ingressAddress != "" {
-		connectHost := ingressAddress
+		connectHost, connectPort := ingressAddress, port
+		if host, overridePort, err := net.SplitHostPort(ingressAddress); err == nil {
+			value, err := strconv.Atoi(overridePort)
+			if err != nil || value < 1 || value > 65535 {
+				return nil, fmt.Errorf("invalid HTTPS probe port")
+			}
+			connectHost, connectPort = host, overridePort
+		}
 		if strings.Contains(connectHost, ":") && !strings.HasPrefix(connectHost, "[") {
 			connectHost = "[" + connectHost + "]"
 		}
-		args = append(args, "--connect-to", fmt.Sprintf("%s:%s:%s:%s", parsed.Hostname(), port, connectHost, port))
+		args = append(args, "--connect-to", fmt.Sprintf("%s:%s:%s:%s", parsed.Hostname(), port, connectHost, connectPort))
 	}
 	if origin != "" {
 		args = append(args, "-H", "Origin: "+origin)
@@ -663,7 +671,8 @@ for attempt in $(seq 1 12); do
 done
 echo "MinIO object roundtrip did not become writable after bounded retries" >&2
 exit 1`
-	return genericSmokePod(name, cfg.Spec.Namespaces.System, "minio/mc:RELEASE.2025-08-13T08-35-41Z", env, command)
+	manifest := genericSmokePod(name, cfg.Spec.Namespaces.System, cfg.Image("minio"), env, command)
+	return strings.Replace(manifest, "      command:", "      imagePullPolicy: "+cfg.Spec.Images.PullPolicy+"\n      command:", 1)
 }
 
 func clickHouseSmokePod(cfg *InstallConfig) string {

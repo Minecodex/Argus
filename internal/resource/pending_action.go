@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kakj-go/Argus/internal/audit"
+	"github.com/kakj-go/Argus/internal/conversation"
 	"github.com/kakj-go/Argus/internal/installinstruction"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -269,6 +270,20 @@ func (service PendingActionService) Cancel(ctx context.Context, actorID string, 
 		}
 		if err := appendResourceAudit(ctx, q, actorID, enterpriseID, "pending_action.cancel", result.ResourceType, result.ResourceID.UUID, map[string]any{"status": "cancelled"}); err != nil {
 			return db.PendingAction{}, err
+		}
+		if result.RunID.Valid {
+			run, err := q.GetRunAwaitingPendingAction(ctx, db.GetRunAwaitingPendingActionParams{ID: result.RunID.UUID, EnterpriseID: enterpriseID, ActionRef: actionRef})
+			if err == nil {
+				if _, err = conversation.CancelRunRecord(ctx, q, run, "pending_action_cancelled", "user", actorID); err != nil {
+					return db.PendingAction{}, err
+				}
+			} else if !errors.Is(err, pgx.ErrNoRows) {
+				return db.PendingAction{}, err
+			} else {
+				if err := conversation.ScheduleActionRun(ctx, q, result, false); err != nil {
+					return db.PendingAction{}, err
+				}
+			}
 		}
 		return result, nil
 	})

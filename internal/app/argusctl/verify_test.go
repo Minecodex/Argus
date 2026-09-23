@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -32,6 +33,19 @@ func TestOpenSandboxSmokePodUsesWorkloadImageReference(t *testing.T) {
 	}
 	if !strings.Contains(manifest, "imagePullPolicy: Never") {
 		t.Fatalf("smoke pod did not preserve the configured pull policy:\n%s", manifest)
+	}
+}
+
+func TestMinioSmokePodUsesBundledClientImage(t *testing.T) {
+	cfg := &InstallConfig{}
+	cfg.Spec.Namespaces.System = "argus-system"
+	cfg.Spec.Images = Images{Mode: "local-registry", Registry: "host.docker.internal:5001", Tag: "verified", PullPolicy: "Never"}
+	manifest := minioSmokePod(cfg)
+	if !strings.Contains(manifest, "image: host.docker.internal:5001/argus/minio:verified\n") || !strings.Contains(manifest, "imagePullPolicy: Never\n") {
+		t.Fatal("MinIO verification must use the deployed image and configured pull policy")
+	}
+	if strings.Contains(manifest, "minio/mc:") {
+		t.Fatal("verification requires an external mc image")
 	}
 }
 
@@ -184,6 +198,16 @@ func TestCurlStatusArgsPinsIngressAndBypassesProxy(t *testing.T) {
 	}
 }
 
+func TestCurlStatusArgsPreservesTLSHostWithForwardedPort(t *testing.T) {
+	args, err := curlStatusArgs("https://platform.argus.test/healthz", "https://platform.argus.test", "127.0.0.1:52123", "/tmp/ca.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(args, "platform.argus.test:443:127.0.0.1:52123") || slices.Contains(args, "--insecure") {
+		t.Fatalf("incorrect TLS probe route: %v", args)
+	}
+}
+
 func TestCurlRevocationPolicySupportsPrivateCAsOnWindows(t *testing.T) {
 	for _, tc := range []struct {
 		platform string
@@ -204,7 +228,7 @@ func TestWebIngressHostsExcludeLegacyRemoteDomain(t *testing.T) {
 	cfg.Spec.Exposure.EnterpriseHost = "enterprise.argus.test"
 	cfg.Spec.Exposure.PlatformHost = "platform.argus.test"
 	hosts := webIngressHosts(cfg)
-	want := []string{"enterprise.argus.test", "platform.argus.test", "cards.argus.test", "artifacts.argus.test"}
+	want := []string{"enterprise.argus.test", "platform.argus.test", "templates.argus.test", "artifacts.argus.test"}
 	if !reflect.DeepEqual(hosts, want) {
 		t.Fatalf("webIngressHosts() = %#v, want %#v", hosts, want)
 	}

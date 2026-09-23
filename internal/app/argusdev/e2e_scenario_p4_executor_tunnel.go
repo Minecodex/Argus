@@ -64,7 +64,7 @@ func (a *App) runP4ExecutorTunnelHost(ctx context.Context, env *E2EEnvironment, 
 		"timeout 3 bash -c '</dev/tcp/"+env.Endpoints.IngressIP+"/443'"); err == nil {
 		return fmt.Errorf("executor-tunnel Host unexpectedly retained direct platform egress")
 	}
-	testID, err := a.createP4ConnectionTest(ctx, env, "p4-executor-host-first", scenario.ExecutorHostTarget.ExternalIP, scenario.CredentialID, "")
+	testID, err := a.createP4ConnectionTest(ctx, env, "p4-executor-host-first", scenario.ExecutorHostTarget.ExternalIP, scenario.CredentialID, "", "executor_tunnel")
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (a *App) runP4ExecutorTunnelHost(ctx context.Context, env *E2EEnvironment, 
 	if err != nil {
 		return err
 	}
-	input := p4ExecutorTunnelHostInput(scenario, testID, 0)
+	input := p4ExecutorTunnelHostInput(scenario, testID)
 	preview, err := client.JSON(ctx, "p4-executor-host-preview", "enterprise", http.MethodPost,
 		"/enterprise/hosts/actions/preview-create", http.StatusCreated, input,
 		enterpriseHeaders(env, "p4-executor-host-preview"))
@@ -105,15 +105,8 @@ func (a *App) runP4ExecutorTunnelHost(ctx context.Context, env *E2EEnvironment, 
 	confirmed, confirmErr := client.JSON(ctx, "p4-executor-host-confirm-failing", "enterprise", http.MethodPost,
 		"/enterprise/pending-actions/"+actionRef+"/confirm", http.StatusOK, nil,
 		enterpriseHeaders(env, "p4-executor-host-confirm-failing"))
-	cleanupErr := a.removeP4CallbackFailureInjection(ctx, env, injection)
-	if cleanupErr == nil {
-		injectionActive = false
-	}
 	if confirmErr != nil {
 		return confirmErr
-	}
-	if cleanupErr != nil {
-		return cleanupErr
 	}
 	if confirmedHostID, _ := nestedString(confirmed, "resource_ref", "resource_id"); confirmedHostID != "" && confirmedHostID != hostID {
 		return fmt.Errorf("executor-tunnel confirmation changed Host identity from %s to %s", hostID, confirmedHostID)
@@ -122,23 +115,22 @@ func (a *App) runP4ExecutorTunnelHost(ctx context.Context, env *E2EEnvironment, 
 	if err != nil {
 		return err
 	}
+	// Confirmation queues deterministic execution. Keep the scoped trigger
+	// until the worker has created and probed the tunnel, then remove it before
+	// the explicit retry. Removing it when HTTP confirmation returns races the
+	// asynchronous Action Executor and can make the intended fault disappear.
+	if err := a.removeP4CallbackFailureInjection(ctx, env, injection); err != nil {
+		return err
+	}
+	injectionActive = false
 
-	retryTestID, err := a.createP4ConnectionTest(ctx, env, "p4-executor-host-retry", scenario.ExecutorHostTarget.ExternalIP, scenario.CredentialID, "")
-	if err != nil {
-		return err
-	}
-	host, err := client.JSON(ctx, "p4-executor-host-resource", "enterprise", http.MethodGet,
-		"/enterprise/hosts/"+hostID, http.StatusOK, nil, map[string]string{"Origin": env.EnterpriseOrigin()})
-	if err != nil {
-		return err
-	}
-	version, err := numberField(host, "resource_version")
+	retryTestID, err := a.createP4ConnectionTest(ctx, env, "p4-executor-host-retry", scenario.ExecutorHostTarget.ExternalIP, scenario.CredentialID, "", "executor_tunnel")
 	if err != nil {
 		return err
 	}
 	retryPreview, err := client.JSON(ctx, "p4-executor-host-retry-preview", "enterprise", http.MethodPost,
 		"/enterprise/hosts/"+hostID+"/actions/preview-retry", http.StatusCreated,
-		p4ExecutorTunnelHostInput(scenario, retryTestID, version),
+		p4ExecutorTunnelHostInput(scenario, retryTestID),
 		enterpriseHeaders(env, "p4-executor-host-retry-preview"))
 	if err != nil {
 		return err
@@ -177,21 +169,17 @@ func (a *App) runP4ExecutorTunnelHost(ctx context.Context, env *E2EEnvironment, 
 	return nil
 }
 
-func p4ExecutorTunnelHostInput(scenario *p4Scenario, connectionTestID string, expectedVersion int64) map[string]any {
+func p4ExecutorTunnelHostInput(scenario *p4Scenario, connectionTestID string) map[string]any {
 	hostName := scenario.ExecutorHostName
 	if hostName == "" {
 		hostName = "p4-executor-tunnel-host"
 	}
-	input := map[string]any{
+	return map[string]any{
 		"name": hostName, "address": scenario.ExecutorHostTarget.ExternalIP, "port": 22, "platform": "linux",
 		"role": "managed_host", "control_path": "executor_tunnel", "install_method": "ssh", "ssh_path": "direct_executor",
 		"credential_id": scenario.CredentialID, "username": "root", "connection_test_id": connectionTestID,
 		"environment": "production", "labels": map[string]string{"suite": "p4", "mode": "executor-tunnel-host"},
 	}
-	if expectedVersion > 0 {
-		input["expected_version"] = expectedVersion
-	}
-	return input
 }
 
 func (a *App) installP4CallbackFailureInjection(ctx context.Context, env *E2EEnvironment, hostID string) (p4CallbackFailureInjection, error) {

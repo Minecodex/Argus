@@ -1,6 +1,6 @@
 # Argus 设计文档
 
-Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Chatbox 作为主要入口，以管理后台作为确定性配置入口，以 MCP Tool 作为业务能力边界，并通过 Connector/Agent 连接主机、Kubernetes 集群及其他受管环境。
+Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Chatbox 作为主要入口，以管理后台作为确定性配置入口，以自有 Tool Gateway 和客户 Remote MCP 作为工具接入边界，并通过 Connector/Agent 连接主机、Kubernetes 集群及其他受管环境。
 
 当前企业门户正式支持和验收范围为桌面 Web 端；移动端不属于本版本产品承诺或 E2E 门禁。
 
@@ -13,7 +13,7 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 3. [多租户、RBAC 与数据权限](./02-identity-authorization-and-data-permission.md)
 4. [Connector、堡垒机、主机与 Kubernetes 资源管理](./03-connectors-and-resources.md)
 5. [Agent、MCP 与两阶段操作](./04-agent-mcp-and-action-workflow.md)
-6. [交互卡片与渲染运行时](./05-interactive-cards-and-interactive-ui.md)
+6. [Tool 模板与宿主交互](./05-tool-templates-and-host-ui.md)
 7. [安全基线与 MVP 路线](./06-security-and-mvp-roadmap.md)
 8. [系统初始化与双层管理门户](./07-bootstrap-and-administration.md)
 9. [模型与 OpenSandbox 管理](./08-model-and-sandbox-management.md)
@@ -35,11 +35,13 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 25. [PlanV2 遥测仪表盘与 AI 分析](./planv2/README.md)
 26. [PlanV3 企业级远程访问治理](./planv3/README.md)
 27. [PlanV4 主机网络接入模式扩展](./planv4/README.md)
-28. [PlanV5 小内核 Agent、Tool Discovery 与 Tool 自带模板](./planv5/README.md)
+28. [PlanV5 小内核 Agent、自有 Tool Gateway、客户 MCP 与持久 Workspace](./planv5/README.md)
 29. [跨平台主机接入、堡垒机中继与快速安装](./19-cross-platform-host-onboarding.md)
 30. [Windows Server 主机接入实机验收](./20-windows-host-e2e.md)
 31. [主机与堡垒机幂等卸载](./21-host-and-bastion-removal.md)
 32. [Connector 跨集群接管](./22-cross-cluster-connector-takeover.md)
+
+PlanV5 已于 2026-09-13 同步 [已确认决策与待决问题](./planv5/02-confirmed-decisions-and-open-questions.md) Q1～Q16：自有 Registry 经三个元工具使用并保留 Preview/Commit 与模板，宿主统一确认；客户 MCP 首期仅 Remote Streamable HTTP，由企业管理员配置/授权、用户按会话选择；工具超容量运行前明确提示；离线镜像预装依赖，每会话持久目录支持业务文件上传和产物下载。首期产品边界已收敛，代码和设计正在按新基线切换；验收状态与未通过门禁统一记录在 [实施状态](./planv5/implementation-status.md)，未通过的任务不视为完成。
 
 远程终端正式采用与页面内容切分视口的 Terminal Dock（非遮罩，类似浏览器 DevTools）：连接生命周期由 `TerminalSessionProvider` 与 Gateway 共同管理，支持底部/左侧/右侧三向停靠切换与 20%～80% 拖拽，位置与尺寸持久化在 `argus.terminalDock`；`server_ready` 语义与远端 shell 启动进度对齐（Connector 路径等待 `state: active`）。
 
@@ -61,14 +63,14 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 | Collection Claim             | 某个 Collector 对特定物理资源、信号和采集范围的责任声明；用于阻止 Host Collector 与 DaemonSet 长期重复采集                 |
 | MCP Tool                     | 暴露业务查询或操作能力的工具，不负责决定界面表现                                                                           |
 | Tool Result                  | 某一次 MCP Tool 调用的结构化结果，必须具有可追踪的调用标识                                                                 |
-| InteractiveCard              | 系统或企业维护的 HTML/CSS/JavaScript 沙箱 UI，包含 Slot、绑定、Demo、验证和启用状态                                        |
-| Render Plan                  | 内置“渲染交互卡片”Skill 对 Tool Result、已启用卡片、字段映射和动作绑定作出的声明式渲染决策                                 |
+| Tool Presentation | 自有 Tool 的不可变模板和业务详情，按会话、ToolCall、内容 Hash 与当前授权读取 |
+| Workspace | 每会话持久工作目录，独立硬额度 PVC；计算回收不删除文件 |
 | AIModel                      | 企业内一步测试创建的 OpenAI Compatible 模型配置，也是调用、计价、额度和治理的唯一模型对象                                  |
 | Department                   | 企业内成员的唯一组织归属；每个企业用户固定属于一个部门                                                                     |
 | Pending Action               | 已预览、等待用户确认、可确认/取消/过期的一次服务端操作                                                                     |
 | `argus__token`               | Preview Tool 返回给 Argus 服务端的私有一次性提交能力；模型、用户、浏览器和卡片均不可见                                     |
-| Action Executor              | `argus-server` 内负责校验 Card Action、消费私有 Token 并直接调用 Commit Tool 的确定性模块                                  |
-| Host Bridge                  | 沙箱卡片与 Argus 宿主之间唯一的受控通信通道                                                                                |
+| Action Executor              | `argus-server` 内负责校验宿主确认、消费私有 Token 并直接调用 Commit Tool 的确定性模块                                  |
+| Host Bridge                  | 沙箱模板与 Argus 宿主之间唯一的受控通信通道                                                                                |
 | Platform Super Admin         | 首次初始化创建的平台超级管理员；M2 管理企业、企业管理员和平台审计，OpenSandbox 治理在 M4 接入                              |
 | Enterprise Admin             | 企业管理员，管理本企业用户、模型、Agent、资源、权限和业务设置                                                              |
 | Resource Label               | Host 和 KubernetesCluster 的用户自定义 `labels`，仅用于展示、搜索、普通筛选和保存视图；`argus.io/*` 为系统保留命名空间       |
@@ -82,7 +84,7 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 | Edge Gateway Collector       | 部署在客户网络出口节点，接收内网 OTLP 并统一向 Argus 推送的 Collector                                                      |
 | Argus Telemetry Ingest       | `argus-telemetry --mode=ingest` 运行角色，接收、认证、限流并将 OTLP 数据写入 Kafka                                         |
 | Telemetry Group              | 描述不依赖 Bastion Scope 的独立 Collector Gateway 组网；堡垒机范围内的成员路由由 Bastion Scope 和 Telemetry Route 共同约束 |
-| argus-server                 | Argus 控制面 API，承载身份、权限、资源、Tool、Card、Pending Action 和监控控制能力                                          |
+| argus-server                 | Argus 控制面 API，承载身份、权限、资源、Tool、模板、Pending Action 和监控控制能力                                          |
 | argus-worker                 | Argus 异步执行面，承载 Agent Harness、模型调用、Tool Run、安装任务和 OpenSandbox 调用                                      |
 | argus-connector-gateway      | 承载 Connector 长连接、命令流、Artifact Tunnel 和经短期票据授权的人工远程会话流，不接收 OTLP 遥测                          |
 | argus-telemetry              | 遥测服务程序，以 `ingest`、`writer` 或 `query` 模式分别承担摄入入口、可靠写入和查询入口                                    |
@@ -91,11 +93,11 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 
 - Chatbox 是交互和编排层，不承载新增主机、查询 Pod 等原生业务逻辑。
 - 管理后台、Chatbox、OpenAPI 和后台执行任务复用同一套领域服务、权限检查和审计链路。
-- Tool 只产出业务数据；已启用交互卡片由内置“渲染交互卡片”Skill 选择，并通过 Render Plan 与真实 `tool_call_id + path` 动态连接。
-- 数据绑定应引用 `tool_call_id + path`，避免复制值后丢失来源。
-- 用户确认后的提交由卡片事件直接触发，不再经过模型推理。
-- 所有变更 Tool 必须成对提供 `.preview` 和 `.commit`；Preview 的 `_meta.argus__token` 仅由服务端消费，Commit 不接受可变业务参数。
-- AI 可以自由生成具有丰富视觉和交互的 HTML/CSS/JavaScript，但只能运行在受限沙箱中。
+- 自有 Tool 产出业务数据，并由同包 Presentation Builder 绑定固定模板；外接 MCP 结果只作为文字或结构化数据。
+- 业务详情保留 `tool_call_id`、结果引用及内容 Hash，模板源码和私有提交数据不进入模型。
+- 用户通过宿主 PendingAction 确认一次，Action Executor 确定性提交；后续只读验证和总结可以使用模型。
+- 自有变更 Tool 必须成对提供 `.preview` 和 `.commit`；Preview 的 `_meta.argus__token` 仅由服务端消费，Commit 不接受可变业务参数。
+- 自有模板随代码发布，首期不提供企业模板编辑器、Slot Binding 或模板市场。
 - 所有特权操作都必须经过服务端授权、Action Binding 和审计；静态代码扫描不是唯一安全边界。
 - 涉及生产变更的能力必须以服务端状态机、幂等和短期一次性授权为基础，不能依赖一次模型上下文维持状态。
 - 第一版 Agent Harness 使用单 Agent 小内核；完整 ConversationEvent 永久保留，模型上下文由 Typed Run Checkpoint、ContextSnapshot 和最近完整 Turn 组成。
@@ -106,7 +108,7 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 - 企业管理员负责本企业 IAM，但管理权限不自动等于生产 Shell、目标账号、Secret 原值或 AI 生产执行权限。
 - AI 只能选择超级管理员批准的 Sandbox Profile，不能自行指定任意镜像或扩大资源、网络权限。
 - OpenTelemetry Collector 本身承担采集与 OTLP 推送；Argus 不额外开发一个重复的遥测 Pusher 进程。
-- Connector 可以使所在主机成为堡垒机并承载远程访问隧道，但人工远程会话票据不得提供给 AI、交互卡片 或 Sandbox。
+- Connector 可以使所在主机成为堡垒机并承载远程访问隧道，但人工远程会话票据不得提供给 AI、Tool 模板 或 Sandbox。
 - 人工远程访问必须同时授权目标 Host、Managed Account、协议、动作和有效期；文件传输、剪贴板、会话分享和端口转发不能由“允许连接”隐式获得。
 - 所有受管 Host 统一提供命令行入口；人工会话与 Collector 安装/配置后台任务可以共享底层连接适配器，但使用独立票据、状态机、队列和审计。
 - Linux/Windows 主机可以由受控 Direct Executor 通过 OpenSSH 安装；安装后命令和会话统一通过主机本机 Connector 的主动连接工作。
@@ -119,7 +121,7 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 - 控制链路、遥测推送链路和遥测查询链路使用不同服务、端口、凭证与扩缩容策略。
 - Kubernetes 一键部署必须包含 OpenSandbox、Kafka、ClickHouse 等依赖；ClickHouse 统一由 Altinity ClickHouse Operator 管理。
 - 第一版所有中间件随 Argus 安装到同一 Kubernetes 集群的隔离命名空间中；外部托管中间件接入延后。
-- 第一版主前端固定为 React + TypeScript + Vite，交互卡片保持框架无关的 HTML/CSS/JavaScript 沙箱运行时。
+- 第一版主前端固定为 React + TypeScript + Vite，Tool 模板保持框架无关的 HTML/CSS/JavaScript 沙箱运行时。
 - 第一版后端固定使用 Go；外部 API 使用 REST/OpenAPI，内部服务与 Connector 使用 gRPC/protobuf。
 - ClickHouse 在 M10 按 Enterprise UUID 创建 Metrics、Logs、Traces 租户物理表；表名由 `TenantTableRouter` 生成，企业内部仍通过 `ResourceId` 和 explicit resource authorization 裁剪。
-- Telemetry Query 在 `EnterpriseId` 之外还必须执行授权 Resource ID、用户筛选条件、Signal、字段脱敏、时间范围和预算约束；标签筛选不能扩大授权范围；用户、AI 和 Card 复用同一裁剪结果。
+- Telemetry Query 在 `EnterpriseId` 之外还必须执行授权 Resource ID、用户筛选条件、Signal、字段脱敏、时间范围和预算约束；标签筛选不能扩大授权范围；用户、AI 和模板 复用同一裁剪结果。

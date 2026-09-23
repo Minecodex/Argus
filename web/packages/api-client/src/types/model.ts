@@ -73,7 +73,12 @@ export interface ModelQuota {
 export interface ModelAvailability {
   modelId: string;
   available: boolean;
-  reason?: "disabled" | "unhealthy" | "compatibility_failed" | "department_quota_exhausted" | "user_quota_exhausted";
+  reason?:
+    | "disabled"
+    | "unhealthy"
+    | "compatibility_failed"
+    | "department_quota_exhausted"
+    | "user_quota_exhausted";
   departmentRemaining?: number;
   userRemaining?: number;
 }
@@ -100,6 +105,11 @@ export interface ModelUsageSummary {
   from: string;
   to: string;
   modelId?: string;
+  usageComplete: boolean;
+  cachedInputTokens: number;
+  cachedUsageComplete: boolean;
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
   totalInputTokens: number;
   totalOutputTokens: number;
   totalRequests: number;

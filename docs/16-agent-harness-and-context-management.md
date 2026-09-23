@@ -13,7 +13,7 @@ Argus 第一版 Agent Harness 采用小内核设计，核心循环参考 Pi `age
 
 Argus 不复用 Pi 的内存 Session 作为事实来源。Conversation、Run、Step、ToolCall、ToolResult、ContextSnapshot、PendingAction、Execution 和 ModelCall 的权威状态全部保存在 PostgreSQL；Redis 只用于通知和短期加速。ModelUsage 是从 ModelCall 聚合出的查询投影，不是另一份可写事实。
 
-第一版只实现单 Model Agent。Presentation/Card Render 作为同一 Run 内受限的声明式步骤实现，不启动拥有独立权限的子 Agent；通用子 Agent 调度延后。
+第一版只实现单 Model Agent。自有 Tool 在确定性 Presentation Builder 内绑定模板，不启动展示子 Agent；通用子 Agent 调度延后。
 
 ## 2. 核心边界
 
@@ -65,7 +65,9 @@ pending_action_created
 user_confirmation
 approval_update
 execution_update
-card_action_result
+tool_presentation
+workspace_file_added
+artifact_published
 run_state_changed
 context_compacted
 ```
@@ -182,7 +184,7 @@ required_permissions
 - Metrics 保留聚合、异常区间、缺失/部分数据标记和 Query Ref。
 - Secret、凭证、敏感字段和未授权资源在 Projection 前移除。
 
-任一完整 Tool Result 最多 4 MiB 并保存到 Artifact；模型投影总量最多 64 KiB，同时记录稳定 Projection Hash、`projected_bytes` 和 `resource_refs`。相同规范化输入必须得到相同投影与哈希。
+任一完整 Tool Result 最多 64 MiB；4 MiB 内可内联到 Artifact，更大结果保存到私有对象存储；模型投影总量最多 64 KiB，同时记录稳定 Projection Hash、`projected_bytes` 和 `resource_refs`。相同规范化输入必须得到相同投影与哈希。
 
 只有无法稳定结构化归纳的结果才允许调用模型生成 Narrative Summary。模型生成的摘要必须带来源引用，不能替代完整 ToolResult。
 
@@ -250,6 +252,7 @@ context_window_tokens - reserved_output_tokens - safety_margin_tokens
 - 切点必须位于完整 Turn 边界，不能拆开 ToolCall/ToolResult、PendingAction 创建/确认或同一执行状态组。
 - 最新用户输入、当前等待事项、未完成 ToolCall 和活动 PendingAction 不进入旧历史摘要。
 - 单个最新用户输入本身超过预算时返回稳定错误并引导使用文件/Artifact，不能静默截断用户请求。
+- 消息接受、Agent 与 Compactor 使用同一预算实现。不可压缩的工具/系统/当前输入必须严格小于 `floor(usable × 0.85)`；达到阈值时在创建 Run/Task 前返回 `MODEL_TOOL_CAPACITY_EXCEEDED`，不能接受后再因无历史可压缩而失败。
 - System Prompt、Tool Schema、Typed Checkpoint、摘要和最近历史分别记录预算占用。
 
 第一版 Compaction 使用当前 Run 固定的 `model_id + model_revision`，不自动切换廉价模型或 Fallback；压缩调用纳入该用户和部门的 Token/金额结算。
@@ -276,6 +279,13 @@ estimate context
 - 优先使用最后一个有效 Snapshot 加最近 Tail 重试组装。
 - 如果仍超过硬限制，Run 进入可恢复的 `waiting_system`/`failed` 状态并返回 `CONTEXT_COMPACTION_FAILED`，不能静默丢弃关键历史。
 - Worker 重启后可以根据 Snapshot 状态和 Source Range 幂等重试；相同 Source Hash 不创建重复 Active Snapshot。
+- Run 失败与对应的 SSE 终态事实在同一事务写入；并发完成/取消只保留获胜的一个终态，过期的压缩任务不能终止已转入动作等待的 Run。
+
+Preview 已成功后，等待状态从 PostgreSQL 的 Run 绑定动作恢复，不依赖当前进程的内存引用或模型再次总结。完整工具批次提交后，宿主确认引用按动作只发布一次；Action Executor 完成后，后续 Agent 任务均恢复持久的只读验证阶段。
+
+审批拒绝、执行前失效及未派发动作到期同样必须在领域事务中安排 Run 继续任务；完成/取消和终态事件保持幂等。通知只合并 pending 任务，不能依赖可能已经读过旧状态的 running 任务。
+
+当前 Workspace 身份与生命周期属于服务端事实，每次预检、推理和摘要输入都读取。历史文件引用按原 Workspace/文件身份验证，已失效引用不保留可用路径；同名新文件不能重新绑定旧引用。历史叙述不能覆盖目录已删除这一当前事实，原始 ConversationEvent 不因此改写。
 
 ## 10. Provider 原生能力
 
@@ -368,3 +378,17 @@ OpenAI Responses Compaction、Anthropic Server-side Compaction 或 Context Editi
 - [Pi Coding Agent Compaction](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/core/compaction/compaction.ts)
 - [OpenAI Agents SDK Sessions](https://openai.github.io/openai-agents-js/guides/sessions/)
 - [Anthropic Context Editing](https://platform.claude.com/docs/en/build-with-claude/context-editing)
+
+## PlanV5 执行补充
+
+Run 固定 ModelToolSet、原生 CatalogRevision、外接连接/工具 Schema 快照和 Provider 别名映射。完整 Provider 请求正文计算 Hash 并记录到 ModelCall；最大模型迭代次数 24，重启不重置。ContextSnapshot 为 Conversation 作用域，通过版本条件更新；跨 Run 读取最近未压缩事件。
+
+消息预检和正式接受接口都校验完整工具集合、最低必要上下文、输出预留与安全余量。工具超容量返回 422 MODEL_TOOL_CAPACITY_EXCEEDED，不创建 Run/Task，不裁工具或换模型。外接调用派发后失去终态记为 result_unknown，禁止自动重发并停止 Run 自动推进。
+
+宿主确认后的提交不经过模型；执行完成后 Run 持久化 verification_only，只允许已授权自有只读工具和总结。新的变更必须开启新 Preview。
+
+## PlanV5 用量来源与持久文件授权
+
+普通推理与压缩共用按方向记录的 `provider/estimated/missing` 用量来源，明确返回零不等于字段缺失。ModelCall 和额度结算保留来源；实际模型统计仅合计实报，估算不能让完整性门禁通过。持久 Workspace 在导入前记录来源，任意代码可复制文件，因此授权约束整个目录及派生文件；来源失效阻止读取/执行而保留文件。工程、数据库和 P5 d 证据见 [R12～R13 修复记录](./planv5/fixes-r12-r13-2026-09-22.md)，真实模型评测仍未执行。
+
+PlanV5 最新补齐：MCP 返回数据在进入目录和结果前拒绝本次已知认证值；缓存输入单独记录且不重复计入输入总量；ModelCall 保存实际组装使用的摘要 ID/Hash，派发时不重新推断。工程、数据库和 P5 b 证据见 [R14～R15 修复记录](./planv5/fixes-r14-r15-2026-09-23.md)。

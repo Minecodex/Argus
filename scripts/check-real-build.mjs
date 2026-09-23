@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-const apps = ["enterprise", "platform", "card-runtime"];
+const apps = ["enterprise", "platform", "template-runtime"];
 const forbidden = [
   "argus-mock:",
   "createMockApiClient",

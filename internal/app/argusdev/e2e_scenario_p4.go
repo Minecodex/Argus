@@ -42,7 +42,7 @@ func (a *App) runP4Scenario(ctx context.Context, env *E2EEnvironment) error {
 			return err
 		}
 	}
-	if err := a.patchP4DirectExecutor(ctx, env); err != nil {
+	if err := a.patchP4DirectExecutor(ctx, env, true); err != nil {
 		return err
 	}
 	credentialID, err := a.prepareP4EnterpriseAccess(ctx, env)
@@ -130,7 +130,7 @@ func (a *App) runP4Scenario(ctx context.Context, env *E2EEnvironment) error {
 }
 
 func (a *App) verifyP4CredentialRotationInvalidatesPreview(ctx context.Context, env *E2EEnvironment, scenario *p4Scenario) error {
-	testID, err := a.createP4ConnectionTest(ctx, env, "p4-stale-credential", scenario.DirectHostTarget.ExternalIP, scenario.CredentialID, "")
+	testID, err := a.createP4ConnectionTest(ctx, env, "p4-stale-credential", scenario.DirectHostTarget.ExternalIP, scenario.CredentialID, "", "direct")
 	if err != nil {
 		return err
 	}
@@ -484,7 +484,7 @@ func (a *App) runP4ManualRelayHost(ctx context.Context, env *E2EEnvironment, sce
 }
 
 func (a *App) runP4DirectHost(ctx context.Context, env *E2EEnvironment, scenario *p4Scenario) error {
-	testID, err := a.createP4ConnectionTest(ctx, env, "p4-direct-host", scenario.DirectHostTarget.ExternalIP, scenario.CredentialID, "")
+	testID, err := a.createP4ConnectionTest(ctx, env, "p4-direct-host", scenario.DirectHostTarget.ExternalIP, scenario.CredentialID, "", "direct")
 	if err != nil {
 		return err
 	}

@@ -1,3 +1,4 @@
+import type { ConversationEvent } from "@argus/api-client/contracts";
 export type MessageRole = "user" | "assistant" | "system";
 
 export interface ToolCallTrace {
@@ -7,26 +8,6 @@ export interface ToolCallTrace {
   summary?: string;
   durationMs?: number;
   startedAt: string;
-}
-
-export interface CardInstance {
-  id: string;
-  interactiveCardId: string;
-  version: string;
-  title?: string;
-  pendingActionRef?: string;
-  actionBindingId?: string;
-}
-
-export interface CardActionResultEvent {
-  type: "card_action_result";
-  origin: "user_interaction";
-  actorUserId: string;
-  cardInstanceId: string;
-  action: string;
-  tool: string;
-  status: "success" | "failed";
-  resultRef?: string;
 }
 
 export interface ChatMessage {
@@ -41,10 +22,11 @@ export interface ChatMessage {
   outputPricePerMillionSnapshot?: number;
   inputTokens?: number;
   outputTokens?: number;
-  createdInteractiveCardId?: string;
   toolCalls?: ToolCallTrace[];
-  cards?: CardInstance[];
-  event?: CardActionResultEvent;
+  presentations?: string[];
+  pendingActionRefs?: string[];
+  files?: ChatFile[];
+  artifacts?: ChatFile[];
 }
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -94,46 +76,19 @@ export function chatMessageFromPublic(value: unknown): ChatMessage | null {
         ) {
           return [];
         }
-        return [{
-          callId,
-          toolName,
-          status,
-          startedAt,
-          summary: stringValue(item.summary),
-          durationMs: numberValue(item.duration_ms),
-        }];
+        return [
+          {
+            callId,
+            toolName,
+            status,
+            startedAt,
+            summary: stringValue(item.summary),
+            durationMs: numberValue(item.duration_ms),
+          },
+        ];
       })
     : [];
-  const cards = Array.isArray(source.cards)
-    ? source.cards.flatMap((entry): CardInstance[] => {
-        const item = record(entry);
-        const id = stringValue(item?.card_instance_id);
-        const interactiveCardId = stringValue(item?.interactive_card_id);
-        const version = stringValue(item?.version);
-        if (!item || !id || !interactiveCardId || !version) return [];
-        return [{
-          id,
-          interactiveCardId,
-          version,
-          title: stringValue(item.title),
-          pendingActionRef: stringValue(item.pending_action_ref),
-          actionBindingId: stringValue(item.action_binding_id),
-        }];
-      })
-    : [];
-  const action = record(source.card_action_result);
-  const event = action
-    ? {
-        type: "card_action_result" as const,
-        origin: "user_interaction" as const,
-        actorUserId: stringValue(action.actor_user_id) ?? "unknown",
-        cardInstanceId: stringValue(action.card_instance_id) ?? "unknown",
-        action: stringValue(action.action) ?? "unknown",
-        tool: stringValue(action.tool) ?? "unknown",
-        status: action.status === "failed" ? "failed" as const : "success" as const,
-        resultRef: stringValue(action.result_ref),
-      }
-    : undefined;
+
   return {
     id: messageId,
     conversationId,
@@ -150,9 +105,138 @@ export function chatMessageFromPublic(value: unknown): ChatMessage | null {
     ),
     inputTokens: numberValue(source.input_tokens),
     outputTokens: numberValue(source.output_tokens),
-    createdInteractiveCardId: stringValue(source.created_interactive_card_id),
     toolCalls,
-    cards,
-    event,
+    presentations: stringArray(source.presentations),
+    pendingActionRefs: stringArray(source.pending_action_refs),
+    files: fileArray(source.files),
+    artifacts: fileArray(source.artifacts),
   };
+}
+
+export type ChatFile = {
+  id: string;
+  name: string;
+  byte_size: number;
+  content_hash?: string;
+};
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+function fileArray(value: unknown): ChatFile[] {
+  return Array.isArray(value)
+    ? value.flatMap((entry) => {
+        const item = record(entry);
+        return item &&
+          typeof item.id === "string" &&
+          typeof item.name === "string"
+          ? [
+              {
+                id: item.id,
+                name: item.name,
+                byte_size: Number(item.byte_size) || 0,
+                content_hash: stringValue(item.content_hash),
+              },
+            ]
+          : [];
+      })
+    : [];
+}
+
+export function chatMessagesFromEvents(
+  events: readonly ConversationEvent[],
+): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+  const assistants = new Map<string, ChatMessage>();
+  for (const event of [...events].sort((a, b) => a.sequence - b.sequence)) {
+    const payload = record(event.payload) ?? {};
+    const explicit = chatMessageFromPublic(payload.message);
+    if (explicit) {
+      messages.push(explicit);
+      continue;
+    }
+    if (event.event_type === "user_message") {
+      messages.push({
+        id: event.event_id,
+        conversationId: event.conversation_id,
+        role: "user",
+        content: stringValue(payload.content) ?? "",
+        createdAt: event.occurred_at,
+        files: fileArray(payload.files),
+      });
+      continue;
+    }
+    if (!event.run_id) {
+      if (event.event_type === "workspace_file_added")
+        messages.push({
+          id: event.event_id,
+          conversationId: event.conversation_id,
+          role: "user",
+          content: "",
+          createdAt: event.occurred_at,
+          files: fileArray([payload.file]),
+        });
+      continue;
+    }
+    if (
+      ![
+        "assistant_message",
+        "tool_call_result",
+        "tool_presentation",
+        "pending_action_created",
+        "artifact_published",
+      ].includes(event.event_type)
+    )
+      continue;
+    let message = assistants.get(event.run_id);
+    if (!message) {
+      message = {
+        id: `run-${event.run_id}`,
+        conversationId: event.conversation_id,
+        role: "assistant",
+        content: "",
+        createdAt: event.occurred_at,
+        toolCalls: [],
+        presentations: [],
+        pendingActionRefs: [],
+        artifacts: [],
+      };
+      assistants.set(event.run_id, message);
+      messages.push(message);
+    }
+    if (event.event_type === "assistant_message") {
+      const content = stringValue(payload.content);
+      if (content)
+        message.content += [message.content ? "\n\n" : "", content].join("");
+    }
+    if (
+      event.event_type === "tool_call_result" &&
+      typeof payload.tool_call_id === "string"
+    )
+      message.toolCalls?.push({
+        callId: payload.tool_call_id,
+        toolName:
+          stringValue(payload.target_tool_id) ??
+          stringValue(payload.tool_id) ??
+          "tool",
+        status: payload.status === "succeeded" ? "success" : "failed",
+        summary:
+          payload.status === "result_unknown" ? "result_unknown" : undefined,
+        startedAt: event.occurred_at,
+      });
+    if (
+      event.event_type === "tool_presentation" &&
+      typeof payload.tool_call_id === "string"
+    )
+      message.presentations?.push(payload.tool_call_id);
+    if (
+      event.event_type === "pending_action_created" &&
+      typeof payload.action_ref === "string"
+    )
+      message.pendingActionRefs?.push(payload.action_ref);
+    if (event.event_type === "artifact_published")
+      message.artifacts?.push(...fileArray([payload.artifact]));
+  }
+  return messages;
 }

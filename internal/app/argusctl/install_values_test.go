@@ -132,8 +132,8 @@ func TestInstallerProvidesRequiredObjectStoreBootstrapValues(t *testing.T) {
 	credentials := localHardeningTestCredentials()
 	data := dataValues(cfg, credentials)
 	images := data["images"].(map[string]any)
-	if got := images["minioClient"]; got != "minio/mc:RELEASE.2025-08-13T08-35-41Z" {
-		t.Fatalf("minioClient = %v", got)
+	if _, exists := images["minioClient"]; exists {
+		t.Fatal("bucket initialization must reuse the versioned MinIO image")
 	}
 	platform := platformValues(cfg, credentials, "setup-secret", "idempotency", "cursor", "pending", "secret-kek")
 	runtimeValues := platform["runtime"].(map[string]any)
@@ -182,7 +182,7 @@ func TestPlatformValuesUseUnifiedDomainHosts(t *testing.T) {
 	hosts := values["hosts"].(map[string]any)
 	for key, want := range map[string]string{
 		"enterprise": "argus.dev", "platform": "platform.argus.dev",
-		"cards": "cards.argus.dev", "connector": "connector.argus.dev",
+		"templates": "templates.argus.dev", "connector": "connector.argus.dev",
 	} {
 		if got := hosts[key]; got != want {
 			t.Fatalf("hosts.%s = %v, want %s", key, got, want)
@@ -286,7 +286,7 @@ func TestAllowedOriginsAreHttpsDomainsOnly(t *testing.T) {
 			want := []any{
 				"https://argus.dev",
 				"https://platform.argus.dev",
-				"https://cards.argus.dev",
+				"https://templates.argus.dev",
 			}
 			if got := runtimeValues["allowedOrigins"]; !reflect.DeepEqual(got, want) {
 				t.Fatalf("allowedOrigins = %#v, want %#v", got, want)
@@ -328,7 +328,7 @@ func TestIngressRendersUnifiedHostsWithTLS(t *testing.T) {
 	}
 	// The remote-access WSS endpoint shares the enterprise origin instead of
 	// a dedicated terminal domain.
-	for _, want := range []string{"argus.dev", "platform.argus.dev", "cards.argus.dev", "artifacts.argus.dev"} {
+	for _, want := range []string{"argus.dev", "platform.argus.dev", "templates.argus.dev", "artifacts.argus.dev"} {
 		if !hosts[want] {
 			t.Fatalf("Ingress rule for %s missing", want)
 		}
@@ -351,7 +351,7 @@ func TestIngressRendersUnifiedHostsWithTLS(t *testing.T) {
 	}
 	for host, secret := range map[string]string{
 		"argus.dev": "argus-enterprise-tls", "platform.argus.dev": "argus-platform-tls",
-		"cards.argus.dev": "argus-cards-tls", "artifacts.argus.dev": "argus-artifact-tls",
+		"templates.argus.dev": "argus-templates-tls", "artifacts.argus.dev": "argus-artifact-tls",
 	} {
 		if secrets[host] != secret {
 			t.Fatalf("TLS secret for %s = %q, want %q", host, secrets[host], secret)
@@ -375,7 +375,7 @@ func TestIngressRendersUnifiedHostsWithTLS(t *testing.T) {
 	configMap := requireResource(t, resourcesByKind(resources, "ConfigMap"), "argus-web-runtime-config")
 	data := configMap.Object["data"].(map[string]any)
 	runtimeJSON := data["argus-runtime.json"].(string)
-	if !strings.Contains(runtimeJSON, `"cardOrigin": "https://cards.argus.dev"`) || !strings.Contains(runtimeJSON, `"platformLoginUrl": "https://platform.argus.dev/login"`) {
+	if !strings.Contains(runtimeJSON, `"templateOrigin": "https://templates.argus.dev"`) || !strings.Contains(runtimeJSON, `"platformLoginUrl": "https://platform.argus.dev/login"`) {
 		t.Fatalf("runtime config JSON = %q", runtimeJSON)
 	}
 }
@@ -569,6 +569,15 @@ func TestMinIOBucketInitStopsOptionParsingBeforeCredentials(t *testing.T) {
 		t.Fatalf("read MinIO bucket init containers: found=%v err=%v", found, err)
 	}
 	container := containers[0].(map[string]any)
+	minio := requireResource(t, resourcesByKind(resources, "StatefulSet"), "argus-minio")
+	serverContainers, found, err := unstructured.NestedSlice(minio.Object, "spec", "template", "spec", "containers")
+	if err != nil || !found || len(serverContainers) != 1 {
+		t.Fatal("MinIO server container is missing")
+	}
+	serverContainer := serverContainers[0].(map[string]any)
+	if container["image"] != serverContainer["image"] || container["imagePullPolicy"] != serverContainer["imagePullPolicy"] {
+		t.Fatal("bucket initialization must use the same bundled image and pull policy as the object store")
+	}
 	args := container["args"].([]any)
 	if len(args) != 1 || !strings.Contains(args[0].(string), `mc alias set -- argus`) {
 		t.Fatalf("MinIO bucket init command does not stop option parsing: %#v", args)

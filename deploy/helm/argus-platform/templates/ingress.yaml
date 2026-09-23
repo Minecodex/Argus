@@ -3,6 +3,11 @@ kind: Ingress
 metadata:
   name: argus-web
   namespace: {{ .Values.namespaces.system }}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "360"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "360"
 spec:
   ingressClassName: {{ .Values.ingressClassName }}
   tls:
@@ -11,8 +16,8 @@ spec:
       secretName: argus-enterprise-tls
     - hosts: [{{ .Values.hosts.platform }}]
       secretName: argus-platform-tls
-    - hosts: [{{ .Values.hosts.cards }}]
-      secretName: argus-cards-tls
+    - hosts: [{{ .Values.hosts.templates }}]
+      secretName: argus-templates-tls
     {{- with .Values.hosts.artifact }}
     - hosts: [{{ . }}]
       secretName: argus-artifact-tls
@@ -39,13 +44,13 @@ spec:
             pathType: Prefix
             backend:
               service: {name: argus-web, port: {name: platform}}
-    - host: {{ .Values.hosts.cards }}
+    - host: {{ .Values.hosts.templates }}
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
-              service: {name: argus-web, port: {name: cards}}
+              service: {name: argus-web, port: {name: templates}}
     {{- with .Values.hosts.artifact }}
     # Collector 产物匿名下载源:MinIO S3 路径式 GET,完整性由产物签名保证。
     - host: {{ . }}

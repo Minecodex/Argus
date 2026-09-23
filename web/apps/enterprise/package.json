@@ -13,7 +13,6 @@
   "dependencies": {
     "@argus/api-client": "workspace:*",
     "@argus/auth": "workspace:*",
-    "@argus/card-host": "workspace:*",
     "@argus/observability": "workspace:*",
     "@argus/ui": "workspace:*",
     "@hookform/resolvers": "^5.8.0",

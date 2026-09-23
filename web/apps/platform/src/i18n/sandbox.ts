@@ -1,5 +1,19 @@
 /** OpenSandbox 基座（六个 Tab）文案。 */
 export const sandboxZh = {
+  "sandbox.quotas.table.monthlySeconds": "月度计算时长（秒）",
+  "sandbox.quotas.loadFailed": "无法读取企业计算配额，请重试。",
+  "sandbox.quotas.retentionTitle": "工作文件持续保留",
+  "sandbox.quotas.retentionDescription":
+    "计算时长额度不改变文件保留策略。只有明确删除 Workspace 或永久删除会话才清理文件，存储容量由平台部署配置控制。",
+
+  "sandbox.profiles.offlineTitle": "离线 Workspace 执行环境",
+  "sandbox.profiles.offlineDescription":
+    "会话文件可上传和下载，代码执行禁止联网。Workspace 容量、进程数和命令超时由平台部署配置统一控制。",
+  "sandbox.profiles.table.purpose": "用途",
+  "sandbox.profiles.purpose.agent_workspace": "离线业务分析",
+  "sandbox.profiles.purpose.smoke": "环境检查",
+  "sandbox.profiles.form.timeoutSeconds": "实例有效期（秒）",
+
   "sandbox.sessions.enterpriseUser": "企业用户",
   "sandbox.title": "OpenSandbox 基座",
   "sandbox.description":
@@ -139,6 +153,21 @@ export const sandboxZh = {
 };
 
 export const sandboxEn = {
+  "sandbox.quotas.table.monthlySeconds": "Monthly compute time (seconds)",
+  "sandbox.quotas.loadFailed":
+    "Cannot load this enterprise's compute quota. Retry the request.",
+  "sandbox.quotas.retentionTitle": "Working files remain available",
+  "sandbox.quotas.retentionDescription":
+    "Compute quotas do not expire files. Files are removed only when the Workspace or conversation is explicitly deleted permanently. Storage limits are controlled by platform deployment settings.",
+
+  "sandbox.profiles.offlineTitle": "Offline Workspace execution",
+  "sandbox.profiles.offlineDescription":
+    "Conversation files support upload and download. Code has no network access. Workspace capacity, process limits and command timeouts are controlled by platform deployment settings.",
+  "sandbox.profiles.table.purpose": "Purpose",
+  "sandbox.profiles.purpose.agent_workspace": "Offline business analysis",
+  "sandbox.profiles.purpose.smoke": "Environment check",
+  "sandbox.profiles.form.timeoutSeconds": "Instance lifetime (seconds)",
+
   "sandbox.sessions.enterpriseUser": "Enterprise user",
   "sandbox.title": "OpenSandbox foundation",
   "sandbox.description":

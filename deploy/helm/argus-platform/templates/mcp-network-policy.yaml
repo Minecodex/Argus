@@ -1,0 +1,20 @@
+{{- if .Values.network.policyApiSupported }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argus-customer-mcp-transport
+  namespace: {{ .Values.namespaces.system }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [argus-server, argus-worker, argus-worker-agent]
+  policyTypes: [Egress]
+  # Customer HTTPS endpoints may use any TCP port. The trusted adapter pins
+  # resolved addresses, rejects protected infrastructure and redirects, and
+  # checks current grants/configuration before sending credentials or calls.
+  # User code runs in separately selected offline Workspace pods.
+  egress:
+    - ports: [{protocol: TCP, port: 1, endPort: 65535}]
+{{- end }}

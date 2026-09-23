@@ -59,13 +59,6 @@ export const AUDIT_ACTION_CODES = [
   "execution.one_time_result.claim",
   "telemetry.query.execute",
   "telemetry.dlq.replay",
-  "interactive_card.create",
-  "interactive_card.revise",
-  "interactive_card.validate",
-  "interactive_card.activate",
-  "interactive_card.disable",
-  "interactive_card.rollback",
-  "interactive_card.deprecate",
   "remote_access.grant.create",
   "remote_access.grant.update",
   "remote_access.grant.enabled",
@@ -141,7 +134,6 @@ export const AUDIT_RESOURCE_TYPE_CODES = [
   "approval_policy",
   "pending_action",
   "execution",
-  "interactive_card",
   "sandbox_backend",
   "sandbox_image",
   "sandbox_profile",
@@ -172,10 +164,7 @@ export const AUDIT_ACTOR_TYPE_CODES = [
   "system",
 ] as const;
 
-export type AuditPresentationKind =
-  | "actions"
-  | "resourceTypes"
-  | "actorTypes";
+export type AuditPresentationKind = "actions" | "resourceTypes" | "actorTypes";
 
 export function auditCodeKey(code: string): string {
   return code.replaceAll(".", "_").replaceAll("-", "_");

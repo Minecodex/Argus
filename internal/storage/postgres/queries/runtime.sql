@@ -4,11 +4,11 @@ VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetConversation :one
-SELECT * FROM conversations WHERE id = $1 AND enterprise_id = $2 AND owner_user_id = $3;
+SELECT * FROM conversations WHERE id = $1 AND enterprise_id = $2 AND owner_user_id = $3 AND status<>'deleted';
 
 -- name: ListConversations :many
 SELECT * FROM conversations
-WHERE enterprise_id = $1 AND owner_user_id = $2
+WHERE enterprise_id = $1 AND owner_user_id = $2 AND status<>'deleted'
 ORDER BY updated_at DESC, id DESC LIMIT $3;
 
 -- name: UpdateConversation :one
@@ -18,7 +18,7 @@ UPDATE conversations SET
     status = COALESCE(sqlc.narg('status'), status),
     version = version + 1, updated_at = now()
 WHERE id = sqlc.arg('id') AND enterprise_id = sqlc.arg('enterprise_id')
-  AND owner_user_id = sqlc.arg('owner_user_id') AND version = sqlc.arg('expected_version')
+  AND owner_user_id = sqlc.arg('owner_user_id') AND version = sqlc.arg('expected_version') AND status<>'deleted'
 RETURNING *;
 
 -- name: CreateRun :one
@@ -62,8 +62,7 @@ RETURNING *;
 SELECT * FROM conversation_events WHERE run_id = $1 AND enterprise_id = $2 ORDER BY sequence;
 
 -- name: NextConversationSequence :one
-SELECT COALESCE(MAX(sequence), 0)::bigint + 1 AS sequence
-FROM conversation_events WHERE conversation_id = $1;
+UPDATE conversations SET event_sequence=event_sequence+1 WHERE id=$1 RETURNING event_sequence;
 
 -- name: CreateConversationEvent :one
 INSERT INTO conversation_events (id, enterprise_id, conversation_id, run_id, step_id, sequence, event_type, actor_type, actor_id, payload, content_hash, artifact_ref, data_classification)
@@ -87,8 +86,12 @@ RETURNING *;
 WITH candidate AS (
     SELECT runtime_tasks.id FROM runtime_tasks
     WHERE runtime_tasks.queue = $1
-      AND runtime_tasks.attempt < runtime_tasks.max_attempts
+      AND (runtime_tasks.attempt < runtime_tasks.max_attempts OR runtime_tasks.status IN ('leased','running'))
       AND runtime_tasks.available_at <= now()
+      AND (runtime_tasks.queue NOT IN ('agent','compaction') OR runtime_tasks.run_id IS NULL OR NOT EXISTS (
+          SELECT 1 FROM runtime_tasks active WHERE active.queue=runtime_tasks.queue AND active.run_id=runtime_tasks.run_id
+          AND active.id<>runtime_tasks.id AND active.status IN ('leased','running')
+      ))
       AND (runtime_tasks.status = 'pending' OR (runtime_tasks.status IN ('leased','running') AND runtime_tasks.lease_until < now()))
     ORDER BY runtime_tasks.available_at, runtime_tasks.created_at
     FOR UPDATE SKIP LOCKED LIMIT 1
@@ -121,8 +124,8 @@ WHERE id = $1 AND lease_owner = $2 AND fence_token = $3
 RETURNING *;
 
 -- name: CreateArtifact :one
-INSERT INTO artifacts (id, result_ref, enterprise_id, conversation_id, run_id, content_type, data_classification, content, content_hash, byte_size)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO artifacts (id, result_ref, enterprise_id, conversation_id, run_id, content_type, data_classification, content, content_hash, byte_size,object_key,authorization_scope)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,$11,$12)
 RETURNING *;
 
 -- name: GetArtifactByRef :one
@@ -154,15 +157,15 @@ VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
 RETURNING *;
 
 -- name: GetActiveContextSnapshot :one
-SELECT * FROM context_snapshots WHERE run_id = $1 AND enterprise_id = $2 AND status = 'active';
+SELECT * FROM context_snapshots WHERE conversation_id = $1 AND enterprise_id = $2 AND status = 'active';
 
 -- name: GetContextSnapshotBySourceHash :one
 SELECT * FROM context_snapshots
-WHERE run_id = $1 AND enterprise_id = $2 AND source_hash = $3;
+WHERE conversation_id = $1 AND enterprise_id = $2 AND source_hash = $3;
 
 -- name: NextContextSnapshotRevision :one
-SELECT COALESCE(MAX(revision), 0)::integer + 1 FROM context_snapshots WHERE run_id = $1 AND enterprise_id = $2;
+SELECT COALESCE(MAX(revision), 0)::integer + 1 FROM context_snapshots WHERE conversation_id = $1 AND enterprise_id = $2;
 
 -- name: SupersedeContextSnapshots :exec
 UPDATE context_snapshots SET status = 'superseded'
-WHERE run_id = $1 AND enterprise_id = $2 AND status = 'active';
+WHERE conversation_id = $1 AND enterprise_id = $2 AND status = 'active';

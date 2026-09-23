@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	pool := flag.String("pool", workerapp.PoolDefault, "worker pool: default, agent, action, compaction, sandbox, or direct-executor")
+	pool := flag.String("pool", workerapp.PoolDefault, "worker pool: default, agent, action, compaction, sandbox, direct-executor, or workspace-io")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

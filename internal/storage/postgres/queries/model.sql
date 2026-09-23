@@ -57,8 +57,13 @@ SELECT * FROM model_quotas WHERE enterprise_id = $1 ORDER BY model_id, subject_t
 SELECT model_id,
     date_trunc('month', completed_at)::date AS month,
     count(*)::bigint AS request_count,
-    COALESCE(sum(input_tokens), 0)::bigint AS input_tokens,
-    COALESCE(sum(output_tokens), 0)::bigint AS output_tokens,
+    COALESCE(sum(input_tokens) FILTER(WHERE input_usage_source='provider'), 0)::bigint AS input_tokens,
+    COALESCE(sum(input_tokens) FILTER(WHERE input_usage_source='estimated'), 0)::bigint AS estimated_input_tokens,
+    COALESCE(sum(output_tokens) FILTER(WHERE output_usage_source='provider'), 0)::bigint AS output_tokens,
+    COALESCE(sum(output_tokens) FILTER(WHERE output_usage_source='estimated'), 0)::bigint AS estimated_output_tokens,
+    bool_and(input_usage_source='provider' AND output_usage_source='provider' AND cached_input_usage_source<>'invalid' AND (cached_input_usage_source<>'provider' OR cached_input_tokens<=input_tokens) AND status='succeeded')::boolean AS usage_complete,
+    COALESCE(sum(cached_input_tokens) FILTER(WHERE cached_input_usage_source='provider' AND input_usage_source='provider' AND cached_input_tokens<=input_tokens),0)::bigint AS cached_input_tokens,
+    bool_and(cached_input_usage_source='provider' AND input_usage_source='provider' AND cached_input_tokens<=input_tokens AND status='succeeded')::boolean AS cached_usage_complete,
     COALESCE(sum(amount), 0)::numeric(20,8) AS amount,
     count(*) FILTER (WHERE call_kind = 'compaction')::bigint AS compaction_count
 FROM model_calls
@@ -91,15 +96,20 @@ FROM model_quota_reservations
 WHERE enterprise_id = $1 AND model_id = $2 AND month = $3 AND status IN ('active','settled');
 
 -- name: SettleQuotaReservation :one
-UPDATE model_quota_reservations SET settled_amount = $3, status = 'settled'
-WHERE id = $1 AND enterprise_id = $2 AND status = 'active' RETURNING *;
+UPDATE model_quota_reservations r SET settled_amount = $3, status = 'settled',
+ usage_source=(SELECT CASE WHEN c.input_usage_source='invalid' OR c.output_usage_source='invalid' OR c.cached_input_usage_source='invalid' THEN 'invalid'
+ WHEN c.input_usage_source='provider' AND c.output_usage_source='provider' THEN 'provider'
+ WHEN c.input_usage_source='estimated' OR c.output_usage_source='estimated' THEN 'estimated' ELSE 'missing' END
+ FROM model_calls c WHERE c.id=r.model_call_id AND c.enterprise_id=r.enterprise_id)
+WHERE r.id = $1 AND r.enterprise_id = $2 AND r.status = 'active' RETURNING r.*;
 
 -- name: CreateModelCall :one
 INSERT INTO model_calls (id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash,
-    input_price_snapshot, output_price_snapshot, status)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'reserved') RETURNING *;
+    input_price_snapshot, output_price_snapshot, context_snapshot_id, context_snapshot_hash, context_from_sequence, context_through_sequence, status)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'reserved') RETURNING *;
 
 -- name: FinishModelCall :one
 UPDATE model_calls SET input_tokens = $3, output_tokens = $4, amount = $5, latency_ms = $6,
-    stop_reason = $7, status = $8, error_code = $9, completed_at = now()
+    stop_reason = $7, status = $8, error_code = $9, completed_at = now(),
+    input_usage_source=$10, output_usage_source=$11, cached_input_tokens=$12, cached_input_usage_source=$13
 WHERE id = $1 AND enterprise_id = $2 RETURNING *;

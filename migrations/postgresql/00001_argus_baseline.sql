@@ -136,13 +136,10 @@ CREATE TABLE public.action_bindings (
     expires_at timestamp with time zone NOT NULL,
     consumed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    card_instance_id uuid,
     conversation_id uuid,
     authorization_version bigint,
-    binding_source text DEFAULT 'text_fallback'::text NOT NULL,
     CONSTRAINT action_bindings_action_check CHECK ((action = ANY (ARRAY['confirm'::text, 'cancel'::text, 'approve'::text, 'reject'::text]))),
     CONSTRAINT action_bindings_authorization_version_check CHECK (((authorization_version IS NULL) OR (authorization_version > 0))),
-    CONSTRAINT action_bindings_binding_source_check CHECK ((binding_source = ANY (ARRAY['text_fallback'::text, 'card'::text]))),
     CONSTRAINT action_bindings_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'consumed'::text, 'cancelled'::text, 'expired'::text, 'invalidated'::text])))
 );
 
@@ -354,12 +351,14 @@ CREATE TABLE public.artifacts (
     run_id uuid,
     content_type text NOT NULL,
     data_classification text NOT NULL,
-    content bytea NOT NULL,
+    content bytea,
+    object_key text,
+    authorization_scope text NOT NULL DEFAULT '',
     content_hash bytea NOT NULL,
     byte_size integer NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT artifacts_byte_size_check CHECK (((byte_size >= 0) AND (byte_size <= 4194304))),
-    CONSTRAINT artifacts_content_check CHECK ((octet_length(content) <= 4194304)),
+    CONSTRAINT artifacts_byte_size_check CHECK (((byte_size >= 0) AND (byte_size <= 67108864))),
+    CONSTRAINT artifacts_content_check CHECK ((content IS NOT NULL AND object_key IS NULL AND octet_length(content)=byte_size AND byte_size<=4194304) OR (content IS NULL AND object_key IS NOT NULL)),
     CONSTRAINT artifacts_content_hash_check CHECK ((octet_length(content_hash) = 32)),
     CONSTRAINT artifacts_data_classification_check CHECK ((data_classification = ANY (ARRAY['public'::text, 'internal'::text, 'sensitive'::text])))
 );
@@ -492,202 +491,6 @@ CREATE TABLE public.break_glass_sessions (
     CONSTRAINT break_glass_sessions_reason_check CHECK (((char_length(reason) >= 8) AND (char_length(reason) <= 2048))),
     CONSTRAINT break_glass_sessions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text, 'expired'::text]))),
     CONSTRAINT break_glass_sessions_ticket_ref_check CHECK (((char_length(ticket_ref) >= 1) AND (char_length(ticket_ref) <= 256)))
-);
-
-
---
--- Name: card_data_sources; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_data_sources (
-    id uuid NOT NULL,
-    card_instance_id uuid NOT NULL,
-    slot_name text NOT NULL,
-    tool_call_id uuid NOT NULL,
-    result_ref text NOT NULL,
-    field_path text NOT NULL,
-    output_schema_version text NOT NULL,
-    source_hash bytea NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT card_data_sources_source_hash_check CHECK ((octet_length(source_hash) = 32))
-);
-
-
---
--- Name: card_demo_scenarios; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_demo_scenarios (
-    id uuid NOT NULL,
-    card_version_id uuid NOT NULL,
-    scenario text NOT NULL,
-    data jsonb NOT NULL,
-    byte_size integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT card_demo_scenarios_byte_size_check CHECK (((byte_size >= 0) AND (byte_size <= 262144))),
-    CONSTRAINT card_demo_scenarios_scenario_check CHECK ((scenario = ANY (ARRAY['default'::text, 'empty'::text, 'error'::text, 'large'::text, 'light'::text, 'dark'::text, 'zh-CN'::text, 'en-US'::text])))
-);
-
-
---
--- Name: card_instances; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_instances (
-    id uuid NOT NULL,
-    enterprise_id uuid NOT NULL,
-    conversation_id uuid NOT NULL,
-    run_id uuid,
-    card_id uuid NOT NULL,
-    card_version_id uuid NOT NULL,
-    actor_user_id uuid NOT NULL,
-    presentation_kind text NOT NULL,
-    render_spec jsonb NOT NULL,
-    render_spec_hash bytea NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT card_instances_presentation_kind_check CHECK ((presentation_kind = ANY (ARRAY['table'::text, 'detail'::text, 'pending_action'::text, 'metric'::text, 'generic'::text]))),
-    CONSTRAINT card_instances_render_spec_hash_check CHECK ((octet_length(render_spec_hash) = 32)),
-    CONSTRAINT card_instances_status_check CHECK ((status = ANY (ARRAY['active'::text, 'invalidated'::text])))
-);
-
-
---
--- Name: card_presentations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_presentations (
-    id uuid NOT NULL,
-    card_instance_id uuid NOT NULL,
-    enterprise_id uuid NOT NULL,
-    viewer_user_id uuid NOT NULL,
-    authorization_version bigint NOT NULL,
-    locale text NOT NULL,
-    color_scheme text NOT NULL,
-    locale_fallback boolean DEFAULT false NOT NULL,
-    initial_data jsonb NOT NULL,
-    partial boolean DEFAULT false NOT NULL,
-    expires_at timestamp with time zone NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT card_presentations_authorization_version_check CHECK ((authorization_version > 0)),
-    CONSTRAINT card_presentations_color_scheme_check CHECK ((color_scheme = ANY (ARRAY['light'::text, 'dark'::text]))),
-    CONSTRAINT card_presentations_locale_check CHECK ((locale = ANY (ARRAY['zh-CN'::text, 'en-US'::text])))
-);
-
-
---
--- Name: card_query_binding_specs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_query_binding_specs (
-    id uuid NOT NULL,
-    card_instance_id uuid NOT NULL,
-    slot_name text NOT NULL,
-    tool_id text NOT NULL,
-    fixed_input jsonb NOT NULL,
-    input_hash bytea NOT NULL,
-    output_schema_version text NOT NULL,
-    schema_hash bytea NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT card_query_binding_specs_input_hash_check CHECK ((octet_length(input_hash) = 32)),
-    CONSTRAINT card_query_binding_specs_schema_hash_check CHECK ((octet_length(schema_hash) = 32)),
-    CONSTRAINT card_query_binding_specs_tool_id_check CHECK ((tool_id ~ '^[a-z][a-z0-9_.-]+$'::text))
-);
-
-
---
--- Name: card_query_bindings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_query_bindings (
-    id uuid NOT NULL,
-    binding_ref text NOT NULL,
-    presentation_id uuid NOT NULL,
-    binding_spec_id uuid NOT NULL,
-    enterprise_id uuid NOT NULL,
-    viewer_user_id uuid NOT NULL,
-    authorization_version bigint NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    expires_at timestamp with time zone NOT NULL,
-    last_invoked_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT card_query_bindings_authorization_version_check CHECK ((authorization_version > 0)),
-    CONSTRAINT card_query_bindings_status_check CHECK ((status = ANY (ARRAY['active'::text, 'expired'::text, 'invalidated'::text])))
-);
-
-
---
--- Name: card_slot_bindings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_slot_bindings (
-    id uuid NOT NULL,
-    card_version_id uuid NOT NULL,
-    slot_name text NOT NULL,
-    slot_kind text NOT NULL,
-    mode text NOT NULL,
-    tool_id text NOT NULL,
-    output_schema_version text NOT NULL,
-    schema_hash bytea NOT NULL,
-    field_path text NOT NULL,
-    value_type text NOT NULL,
-    semantic_type text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT card_slot_bindings_mode_check CHECK ((mode = ANY (ARRAY['strict'::text, 'preferred'::text]))),
-    CONSTRAINT card_slot_bindings_schema_hash_check CHECK ((octet_length(schema_hash) = 32)),
-    CONSTRAINT card_slot_bindings_slot_kind_check CHECK ((slot_kind = ANY (ARRAY['data'::text, 'query'::text, 'action'::text]))),
-    CONSTRAINT card_slot_bindings_slot_name_check CHECK ((slot_name ~ '^[a-z][a-z0-9_]*$'::text)),
-    CONSTRAINT card_slot_bindings_tool_id_check CHECK ((tool_id ~ '^[a-z][a-z0-9_.-]+$'::text)),
-    CONSTRAINT card_slot_bindings_value_type_check CHECK ((value_type = ANY (ARRAY['string'::text, 'number'::text, 'boolean'::text, 'array'::text, 'object'::text])))
-);
-
-
---
--- Name: card_validation_runs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_validation_runs (
-    id uuid NOT NULL,
-    card_version_id uuid NOT NULL,
-    enterprise_id uuid NOT NULL,
-    actor_user_id uuid NOT NULL,
-    content_hash bytea NOT NULL,
-    runtime_version text NOT NULL,
-    nonce_hash bytea NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    required_scenarios text[] NOT NULL,
-    passed_scenarios text[] DEFAULT '{}'::text[] NOT NULL,
-    issues jsonb DEFAULT '[]'::jsonb NOT NULL,
-    expires_at timestamp with time zone NOT NULL,
-    completed_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT card_validation_runs_content_hash_check CHECK ((octet_length(content_hash) = 32)),
-    CONSTRAINT card_validation_runs_nonce_hash_check CHECK ((octet_length(nonce_hash) = 32)),
-    CONSTRAINT card_validation_runs_runtime_version_check CHECK (((char_length(runtime_version) >= 1) AND (char_length(runtime_version) <= 128))),
-    CONSTRAINT card_validation_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'passed'::text, 'failed'::text, 'expired'::text])))
-);
-
-
---
--- Name: card_versions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_versions (
-    id uuid NOT NULL,
-    card_id uuid NOT NULL,
-    revision integer NOT NULL,
-    status text DEFAULT 'draft'::text NOT NULL,
-    manifest jsonb NOT NULL,
-    entrypoint_html bytea NOT NULL,
-    content_hash bytea NOT NULL,
-    manifest_hash bytea NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT card_versions_content_hash_check CHECK ((octet_length(content_hash) = 32)),
-    CONSTRAINT card_versions_entrypoint_html_check CHECK ((octet_length(entrypoint_html) <= 524288)),
-    CONSTRAINT card_versions_manifest_hash_check CHECK ((octet_length(manifest_hash) = 32)),
-    CONSTRAINT card_versions_revision_check CHECK ((revision > 0)),
-    CONSTRAINT card_versions_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'validating'::text, 'validated'::text, 'active'::text, 'retired'::text])))
 );
 
 
@@ -1207,7 +1010,7 @@ CREATE TABLE public.conversation_events (
     CONSTRAINT conversation_events_actor_type_check CHECK ((actor_type = ANY (ARRAY['user'::text, 'model'::text, 'service'::text, 'worker'::text, 'system'::text]))),
     CONSTRAINT conversation_events_content_hash_check CHECK ((octet_length(content_hash) = 32)),
     CONSTRAINT conversation_events_data_classification_check CHECK ((data_classification = ANY (ARRAY['public'::text, 'internal'::text, 'sensitive'::text]))),
-    CONSTRAINT conversation_events_event_type_check CHECK ((event_type = ANY (ARRAY['user_message'::text, 'assistant_message'::text, 'model_usage'::text, 'tool_call_requested'::text, 'tool_call_started'::text, 'tool_call_result'::text, 'pending_action_created'::text, 'user_confirmation'::text, 'approval_update'::text, 'execution_update'::text, 'card_draft_created'::text, 'card_instance_created'::text, 'card_presentation_invalidated'::text, 'card_action_result'::text, 'run_state_changed'::text, 'context_compacted'::text, 'agent_delta'::text]))),
+    CONSTRAINT conversation_events_event_type_check CHECK ((event_type = ANY (ARRAY['user_message'::text, 'assistant_message'::text, 'model_usage'::text, 'tool_call_requested'::text, 'tool_call_started'::text, 'tool_call_result'::text, 'pending_action_created'::text, 'user_confirmation'::text, 'approval_update'::text, 'execution_update'::text, 'tool_presentation'::text, 'workspace_file_added'::text, 'artifact_published'::text, 'run_state_changed'::text, 'context_compacted'::text, 'agent_delta'::text]))),
     CONSTRAINT conversation_events_sequence_check CHECK ((sequence > 0))
 );
 
@@ -1217,16 +1020,19 @@ CREATE TABLE public.conversation_events (
 --
 
 CREATE TABLE public.conversations (
+	files_cleaned_at timestamptz,
     id uuid NOT NULL,
     enterprise_id uuid NOT NULL,
     owner_user_id uuid NOT NULL,
     title text NOT NULL,
     selected_model_id uuid NOT NULL,
+    context_revision bigint DEFAULT 0 NOT NULL,
+    event_sequence bigint DEFAULT 0 NOT NULL,
     status text DEFAULT 'active'::text NOT NULL,
     version bigint DEFAULT 1 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT conversations_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text]))),
+    CONSTRAINT conversations_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text, 'deleted'::text]))),
     CONSTRAINT conversations_title_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 256))),
     CONSTRAINT conversations_version_check CHECK ((version > 0))
 );
@@ -1252,7 +1058,7 @@ CREATE TABLE public.credential_leases (
     consumed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT credential_leases_protocol_check CHECK ((protocol = ANY (ARRAY['ssh'::text, 'windows'::text, 'kubernetes'::text, 'http'::text]))),
-    CONSTRAINT credential_leases_recipient_type_check CHECK ((recipient_type = ANY (ARRAY['connector'::text, 'direct_executor'::text, 'connector_gateway'::text]))),
+    CONSTRAINT credential_leases_recipient_type_check CHECK ((recipient_type = ANY (ARRAY['connector'::text, 'direct_executor'::text, 'connector_gateway'::text, 'mcp_adapter'::text]))),
     CONSTRAINT credential_leases_status_check CHECK ((status = ANY (ARRAY['active'::text, 'consumed'::text, 'expired'::text, 'revoked'::text])))
 );
 
@@ -1748,38 +1554,6 @@ CREATE TABLE public.idempotency_records (
 
 
 --
--- Name: interactive_cards; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.interactive_cards (
-    id uuid NOT NULL,
-    enterprise_id uuid,
-    source text NOT NULL,
-    slug text NOT NULL,
-    name text NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
-    lifecycle text DEFAULT 'draft'::text NOT NULL,
-    enabled boolean DEFAULT false NOT NULL,
-    availability text DEFAULT 'disabled'::text NOT NULL,
-    active_version_id uuid,
-    latest_revision integer DEFAULT 1 NOT NULL,
-    version bigint DEFAULT 1 NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT interactive_cards_availability_check CHECK ((availability = ANY (ARRAY['available'::text, 'disabled'::text, 'dependency_pending'::text, 'invalidated'::text]))),
-    CONSTRAINT interactive_cards_check CHECK ((((source = 'system'::text) AND (enterprise_id IS NULL) AND (created_by IS NULL)) OR ((source = 'enterprise'::text) AND (enterprise_id IS NOT NULL) AND (created_by IS NOT NULL)))),
-    CONSTRAINT interactive_cards_description_check CHECK ((char_length(description) <= 2048)),
-    CONSTRAINT interactive_cards_latest_revision_check CHECK ((latest_revision > 0)),
-    CONSTRAINT interactive_cards_lifecycle_check CHECK ((lifecycle = ANY (ARRAY['draft'::text, 'active'::text, 'deprecated'::text]))),
-    CONSTRAINT interactive_cards_name_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 128))),
-    CONSTRAINT interactive_cards_slug_check CHECK ((slug ~ '^[a-z][a-z0-9-]{0,62}$'::text)),
-    CONSTRAINT interactive_cards_source_check CHECK ((source = ANY (ARRAY['system'::text, 'enterprise'::text]))),
-    CONSTRAINT interactive_cards_version_check CHECK ((version > 0))
-);
-
-
---
 -- Name: kubernetes_clusters; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1949,8 +1723,20 @@ CREATE TABLE public.model_calls (
     model_revision integer NOT NULL,
     call_kind text NOT NULL,
     projection_hash bytea NOT NULL,
+    context_snapshot_id uuid,
+    context_snapshot_hash bytea,
+    CHECK ((context_snapshot_id IS NULL AND context_snapshot_hash IS NULL) OR (context_snapshot_id IS NOT NULL AND context_snapshot_hash IS NOT NULL AND octet_length(context_snapshot_hash)=32)),
+    tool_snapshot_hash text DEFAULT '' NOT NULL,
+    capability_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+    dispatched_at timestamptz,
+    context_from_sequence bigint DEFAULT 0 NOT NULL,
+    context_through_sequence bigint DEFAULT 0 NOT NULL,
     input_tokens bigint DEFAULT 0 NOT NULL,
     output_tokens bigint DEFAULT 0 NOT NULL,
+    cached_input_tokens bigint NOT NULL DEFAULT 0 CHECK (cached_input_tokens>=0),
+    cached_input_usage_source text NOT NULL DEFAULT 'missing' CHECK (cached_input_usage_source IN ('provider','missing','invalid')),
+    input_usage_source text NOT NULL DEFAULT 'missing' CHECK (input_usage_source IN ('provider','estimated','missing','invalid')),
+    output_usage_source text NOT NULL DEFAULT 'missing' CHECK (output_usage_source IN ('provider','estimated','missing','invalid')),
     input_price_snapshot numeric(20,8) NOT NULL,
     output_price_snapshot numeric(20,8) NOT NULL,
     amount numeric(20,8) DEFAULT 0 NOT NULL,
@@ -1960,6 +1746,8 @@ CREATE TABLE public.model_calls (
     error_code text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
+    CONSTRAINT model_calls_cache_subset_check CHECK (cached_input_usage_source <> 'provider' OR (input_usage_source='provider' AND cached_input_tokens<=input_tokens)),
+    CONSTRAINT model_calls_invalid_usage_check CHECK ((input_usage_source='invalid' AND output_usage_source='invalid' AND cached_input_usage_source='invalid' AND status IN ('failed','cancelled')) OR (input_usage_source<>'invalid' AND output_usage_source<>'invalid' AND cached_input_usage_source<>'invalid')),
     CONSTRAINT model_calls_amount_check CHECK ((amount >= (0)::numeric)),
     CONSTRAINT model_calls_call_kind_check CHECK ((call_kind = ANY (ARRAY['inference'::text, 'compaction'::text]))),
     CONSTRAINT model_calls_input_tokens_check CHECK ((input_tokens >= 0)),
@@ -1998,6 +1786,7 @@ CREATE TABLE public.model_quota_reservations (
     user_id uuid NOT NULL,
     month date NOT NULL,
     reserved_amount numeric(20,8) NOT NULL,
+    usage_source text NOT NULL DEFAULT 'missing' CHECK (usage_source IN ('provider','estimated','missing','invalid')),
     settled_amount numeric(20,8),
     status text NOT NULL,
     expires_at timestamp with time zone NOT NULL,
@@ -2859,6 +2648,9 @@ CREATE TABLE public.runs (
     current_step_id uuid,
     authorization_version bigint NOT NULL,
     checkpoint jsonb DEFAULT '{}'::jsonb NOT NULL,
+    verification_only boolean NOT NULL DEFAULT false,
+    tool_snapshot jsonb DEFAULT '{}'::jsonb NOT NULL,
+    tool_snapshot_hash text DEFAULT '' NOT NULL,
     stop_reason text,
     error_code text,
     version bigint DEFAULT 1 NOT NULL,
@@ -3006,7 +2798,9 @@ CREATE TABLE public.sandbox_quotas (
 CREATE TABLE public.sandbox_sessions (
     id uuid NOT NULL,
     enterprise_id uuid NOT NULL,
-    task_id uuid NOT NULL,
+    task_id uuid,
+    workspace_id uuid,
+    tool_call_id uuid UNIQUE,
     profile_id uuid NOT NULL,
     profile_revision integer NOT NULL,
     upstream_session_id text NOT NULL,
@@ -3068,6 +2862,8 @@ CREATE TABLE public.secret_versions (
 
 CREATE TABLE public.secrets (
     id uuid NOT NULL,
+    owner_type text NOT NULL DEFAULT 'user' CHECK (owner_type IN ('user','mcp_connection')),
+    owner_id uuid,
     enterprise_id uuid NOT NULL,
     name text NOT NULL,
     type text NOT NULL,
@@ -3424,6 +3220,13 @@ CREATE TABLE public.tool_calls (
     run_id uuid NOT NULL,
     step_id uuid NOT NULL,
     tool_id text NOT NULL,
+    source text DEFAULT 'argus' NOT NULL CHECK (source IN ('argus','external_mcp','sandbox')),
+    authorization_scope text NOT NULL DEFAULT '',
+    model_call_id uuid,
+    call_sequence integer DEFAULT 0 NOT NULL,
+    connection_id uuid,
+    schema_hash text DEFAULT '' NOT NULL,
+    dispatched_at timestamp with time zone,
     input jsonb NOT NULL,
     input_hash bytea NOT NULL,
     status text NOT NULL,
@@ -3431,7 +3234,7 @@ CREATE TABLE public.tool_calls (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT tool_calls_input_hash_check CHECK ((octet_length(input_hash) = 32)),
-    CONSTRAINT tool_calls_status_check CHECK ((status = ANY (ARRAY['requested'::text, 'running'::text, 'succeeded'::text, 'failed'::text, 'cancelled'::text]))),
+    CONSTRAINT tool_calls_status_check CHECK ((status = ANY (ARRAY['prepared'::text, 'dispatched'::text, 'succeeded'::text, 'failed'::text, 'cancelled'::text, 'result_unknown'::text]))),
     CONSTRAINT tool_calls_tool_id_check CHECK ((tool_id ~ '^[a-z][a-z0-9_.-]+$'::text))
 );
 
@@ -3710,166 +3513,6 @@ ALTER TABLE ONLY public.break_glass_sessions
 
 
 --
--- Name: card_data_sources card_data_sources_card_instance_id_slot_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_data_sources
-    ADD CONSTRAINT card_data_sources_card_instance_id_slot_name_key UNIQUE (card_instance_id, slot_name);
-
-
---
--- Name: card_data_sources card_data_sources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_data_sources
-    ADD CONSTRAINT card_data_sources_pkey PRIMARY KEY (id);
-
-
---
--- Name: card_demo_scenarios card_demo_scenarios_card_version_id_scenario_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_demo_scenarios
-    ADD CONSTRAINT card_demo_scenarios_card_version_id_scenario_key UNIQUE (card_version_id, scenario);
-
-
---
--- Name: card_demo_scenarios card_demo_scenarios_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_demo_scenarios
-    ADD CONSTRAINT card_demo_scenarios_pkey PRIMARY KEY (id);
-
-
---
--- Name: card_instances card_instances_id_enterprise_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_instances
-    ADD CONSTRAINT card_instances_id_enterprise_id_key UNIQUE (id, enterprise_id);
-
-
---
--- Name: card_instances card_instances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_instances
-    ADD CONSTRAINT card_instances_pkey PRIMARY KEY (id);
-
-
---
--- Name: card_presentations card_presentations_id_enterprise_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_presentations
-    ADD CONSTRAINT card_presentations_id_enterprise_id_key UNIQUE (id, enterprise_id);
-
-
---
--- Name: card_presentations card_presentations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_presentations
-    ADD CONSTRAINT card_presentations_pkey PRIMARY KEY (id);
-
-
---
--- Name: card_query_binding_specs card_query_binding_specs_card_instance_id_slot_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_binding_specs
-    ADD CONSTRAINT card_query_binding_specs_card_instance_id_slot_name_key UNIQUE (card_instance_id, slot_name);
-
-
---
--- Name: card_query_binding_specs card_query_binding_specs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_binding_specs
-    ADD CONSTRAINT card_query_binding_specs_pkey PRIMARY KEY (id);
-
-
---
--- Name: card_query_bindings card_query_bindings_binding_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_bindings
-    ADD CONSTRAINT card_query_bindings_binding_ref_key UNIQUE (binding_ref);
-
-
---
--- Name: card_query_bindings card_query_bindings_id_enterprise_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_bindings
-    ADD CONSTRAINT card_query_bindings_id_enterprise_id_key UNIQUE (id, enterprise_id);
-
-
---
--- Name: card_query_bindings card_query_bindings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_bindings
-    ADD CONSTRAINT card_query_bindings_pkey PRIMARY KEY (id);
-
-
---
--- Name: card_slot_bindings card_slot_bindings_card_version_id_slot_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_slot_bindings
-    ADD CONSTRAINT card_slot_bindings_card_version_id_slot_name_key UNIQUE (card_version_id, slot_name);
-
-
---
--- Name: card_slot_bindings card_slot_bindings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_slot_bindings
-    ADD CONSTRAINT card_slot_bindings_pkey PRIMARY KEY (id);
-
-
---
--- Name: card_validation_runs card_validation_runs_id_enterprise_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_validation_runs
-    ADD CONSTRAINT card_validation_runs_id_enterprise_id_key UNIQUE (id, enterprise_id);
-
-
---
--- Name: card_validation_runs card_validation_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_validation_runs
-    ADD CONSTRAINT card_validation_runs_pkey PRIMARY KEY (id);
-
-
---
--- Name: card_versions card_versions_card_id_revision_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_versions
-    ADD CONSTRAINT card_versions_card_id_revision_key UNIQUE (card_id, revision);
-
-
---
--- Name: card_versions card_versions_id_card_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_versions
-    ADD CONSTRAINT card_versions_id_card_id_key UNIQUE (id, card_id);
-
-
---
--- Name: card_versions card_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_versions
-    ADD CONSTRAINT card_versions_pkey PRIMARY KEY (id);
-
-
---
 -- Name: collection_claims collection_claims_id_enterprise_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4138,7 +3781,7 @@ ALTER TABLE ONLY public.context_snapshots
 --
 
 ALTER TABLE ONLY public.context_snapshots
-    ADD CONSTRAINT context_snapshots_run_id_revision_key UNIQUE (run_id, revision);
+    ADD CONSTRAINT context_snapshots_conversation_revision_key UNIQUE (conversation_id, revision);
 
 
 --
@@ -4146,7 +3789,7 @@ ALTER TABLE ONLY public.context_snapshots
 --
 
 ALTER TABLE ONLY public.context_snapshots
-    ADD CONSTRAINT context_snapshots_run_id_source_hash_key UNIQUE (run_id, source_hash);
+    ADD CONSTRAINT context_snapshots_conversation_source_hash_key UNIQUE (conversation_id, source_hash);
 
 
 --
@@ -4427,22 +4070,6 @@ ALTER TABLE ONLY public.hosts
 
 ALTER TABLE ONLY public.idempotency_records
     ADD CONSTRAINT idempotency_records_pkey PRIMARY KEY (audience, subject_id, operation, idempotency_key);
-
-
---
--- Name: interactive_cards interactive_cards_id_enterprise_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.interactive_cards
-    ADD CONSTRAINT interactive_cards_id_enterprise_id_key UNIQUE (id, enterprise_id);
-
-
---
--- Name: interactive_cards interactive_cards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.interactive_cards
-    ADD CONSTRAINT interactive_cards_pkey PRIMARY KEY (id);
 
 
 --
@@ -5354,7 +4981,7 @@ ALTER TABLE ONLY public.temporary_credentials
 --
 
 ALTER TABLE ONLY public.tool_calls
-    ADD CONSTRAINT tool_calls_call_id_key UNIQUE (call_id);
+    ADD CONSTRAINT tool_calls_step_call_key UNIQUE (step_id, call_id);
 
 
 --
@@ -5444,20 +5071,6 @@ CREATE UNIQUE INDEX bastion_scopes_name_unique ON public.bastion_scopes USING bt
 --
 
 CREATE INDEX break_glass_active_subject ON public.break_glass_sessions USING btree (enterprise_id, user_id, expires_at) WHERE (status = 'active'::text);
-
-
---
--- Name: card_instances_conversation; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX card_instances_conversation ON public.card_instances USING btree (conversation_id, created_at, id);
-
-
---
--- Name: card_query_bindings_expiry; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX card_query_bindings_expiry ON public.card_query_bindings USING btree (expires_at) WHERE (status = 'active'::text);
 
 
 --
@@ -5555,7 +5168,7 @@ CREATE UNIQUE INDEX connectors_enterprise_instance_live_unique ON public.connect
 -- Name: context_snapshots_one_active; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX context_snapshots_one_active ON public.context_snapshots USING btree (run_id) WHERE (status = 'active'::text);
+CREATE UNIQUE INDEX context_snapshots_one_active ON public.context_snapshots USING btree (conversation_id) WHERE (status = 'active'::text);
 
 
 --
@@ -5668,27 +5281,6 @@ CREATE UNIQUE INDEX hosts_name_unique ON public.hosts USING btree (enterprise_id
 --
 
 CREATE INDEX hosts_scope_index ON public.hosts USING btree (enterprise_id, bastion_scope_id, created_at, id) WHERE (status <> 'deleted'::text);
-
-
---
--- Name: interactive_cards_catalog; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX interactive_cards_catalog ON public.interactive_cards USING btree (enterprise_id, source, enabled, availability, updated_at DESC);
-
-
---
--- Name: interactive_cards_enterprise_slug_unique; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX interactive_cards_enterprise_slug_unique ON public.interactive_cards USING btree (enterprise_id, slug) WHERE (source = 'enterprise'::text);
-
-
---
--- Name: interactive_cards_system_slug_unique; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX interactive_cards_system_slug_unique ON public.interactive_cards USING btree (slug) WHERE (source = 'system'::text);
 
 
 --
@@ -5879,6 +5471,10 @@ CREATE UNIQUE INDEX runs_one_active_per_conversation ON public.runs USING btree 
 
 CREATE INDEX runtime_tasks_claim ON public.runtime_tasks USING btree (queue, available_at, created_at) WHERE ((status = 'pending'::text) OR ((status = ANY (ARRAY['leased'::text, 'running'::text])) AND (lease_until IS NOT NULL)));
 
+CREATE UNIQUE INDEX runtime_tasks_one_active_model_queue_per_run ON public.runtime_tasks (run_id,queue)
+WHERE queue IN ('agent','compaction') AND run_id IS NOT NULL AND status IN ('leased','running');
+
+
 
 --
 -- Name: sandbox_sessions_active; Type: INDEX; Schema: public; Owner: -
@@ -6004,14 +5600,6 @@ CREATE TRIGGER remote_access_workflows_reject_delete BEFORE DELETE ON public.rem
 --
 
 CREATE CONSTRAINT TRIGGER role_binding_subject_enterprise AFTER INSERT OR UPDATE ON public.role_bindings DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION public.validate_role_binding_subject();
-
-
---
--- Name: action_bindings action_bindings_card_instance_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.action_bindings
-    ADD CONSTRAINT action_bindings_card_instance_id_fkey FOREIGN KEY (card_instance_id) REFERENCES public.card_instances(id);
 
 
 --
@@ -6220,190 +5808,6 @@ ALTER TABLE ONLY public.break_glass_sessions
 
 ALTER TABLE ONLY public.break_glass_sessions
     ADD CONSTRAINT break_glass_sessions_user_id_enterprise_id_fkey FOREIGN KEY (user_id, enterprise_id) REFERENCES public.enterprise_users(id, enterprise_id);
-
-
---
--- Name: card_data_sources card_data_sources_card_instance_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_data_sources
-    ADD CONSTRAINT card_data_sources_card_instance_id_fkey FOREIGN KEY (card_instance_id) REFERENCES public.card_instances(id) ON DELETE CASCADE;
-
-
---
--- Name: card_data_sources card_data_sources_result_ref_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_data_sources
-    ADD CONSTRAINT card_data_sources_result_ref_fkey FOREIGN KEY (result_ref) REFERENCES public.artifacts(result_ref);
-
-
---
--- Name: card_data_sources card_data_sources_tool_call_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_data_sources
-    ADD CONSTRAINT card_data_sources_tool_call_id_fkey FOREIGN KEY (tool_call_id) REFERENCES public.tool_calls(id);
-
-
---
--- Name: card_demo_scenarios card_demo_scenarios_card_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_demo_scenarios
-    ADD CONSTRAINT card_demo_scenarios_card_version_id_fkey FOREIGN KEY (card_version_id) REFERENCES public.card_versions(id) ON DELETE CASCADE;
-
-
---
--- Name: card_instances card_instances_actor_user_id_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_instances
-    ADD CONSTRAINT card_instances_actor_user_id_enterprise_id_fkey FOREIGN KEY (actor_user_id, enterprise_id) REFERENCES public.enterprise_users(id, enterprise_id);
-
-
---
--- Name: card_instances card_instances_card_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_instances
-    ADD CONSTRAINT card_instances_card_id_fkey FOREIGN KEY (card_id) REFERENCES public.interactive_cards(id);
-
-
---
--- Name: card_instances card_instances_card_version_id_card_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_instances
-    ADD CONSTRAINT card_instances_card_version_id_card_id_fkey FOREIGN KEY (card_version_id, card_id) REFERENCES public.card_versions(id, card_id);
-
-
---
--- Name: card_instances card_instances_conversation_id_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_instances
-    ADD CONSTRAINT card_instances_conversation_id_enterprise_id_fkey FOREIGN KEY (conversation_id, enterprise_id) REFERENCES public.conversations(id, enterprise_id);
-
-
---
--- Name: card_instances card_instances_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_instances
-    ADD CONSTRAINT card_instances_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id);
-
-
---
--- Name: card_instances card_instances_run_id_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_instances
-    ADD CONSTRAINT card_instances_run_id_enterprise_id_fkey FOREIGN KEY (run_id, enterprise_id) REFERENCES public.runs(id, enterprise_id);
-
-
---
--- Name: card_presentations card_presentations_card_instance_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_presentations
-    ADD CONSTRAINT card_presentations_card_instance_id_fkey FOREIGN KEY (card_instance_id) REFERENCES public.card_instances(id);
-
-
---
--- Name: card_presentations card_presentations_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_presentations
-    ADD CONSTRAINT card_presentations_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id);
-
-
---
--- Name: card_presentations card_presentations_viewer_user_id_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_presentations
-    ADD CONSTRAINT card_presentations_viewer_user_id_enterprise_id_fkey FOREIGN KEY (viewer_user_id, enterprise_id) REFERENCES public.enterprise_users(id, enterprise_id);
-
-
---
--- Name: card_query_binding_specs card_query_binding_specs_card_instance_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_binding_specs
-    ADD CONSTRAINT card_query_binding_specs_card_instance_id_fkey FOREIGN KEY (card_instance_id) REFERENCES public.card_instances(id) ON DELETE CASCADE;
-
-
---
--- Name: card_query_bindings card_query_bindings_binding_spec_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_bindings
-    ADD CONSTRAINT card_query_bindings_binding_spec_id_fkey FOREIGN KEY (binding_spec_id) REFERENCES public.card_query_binding_specs(id);
-
-
---
--- Name: card_query_bindings card_query_bindings_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_bindings
-    ADD CONSTRAINT card_query_bindings_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id);
-
-
---
--- Name: card_query_bindings card_query_bindings_presentation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_bindings
-    ADD CONSTRAINT card_query_bindings_presentation_id_fkey FOREIGN KEY (presentation_id) REFERENCES public.card_presentations(id) ON DELETE CASCADE;
-
-
---
--- Name: card_query_bindings card_query_bindings_viewer_user_id_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_query_bindings
-    ADD CONSTRAINT card_query_bindings_viewer_user_id_enterprise_id_fkey FOREIGN KEY (viewer_user_id, enterprise_id) REFERENCES public.enterprise_users(id, enterprise_id);
-
-
---
--- Name: card_slot_bindings card_slot_bindings_card_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_slot_bindings
-    ADD CONSTRAINT card_slot_bindings_card_version_id_fkey FOREIGN KEY (card_version_id) REFERENCES public.card_versions(id) ON DELETE CASCADE;
-
-
---
--- Name: card_validation_runs card_validation_runs_actor_user_id_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_validation_runs
-    ADD CONSTRAINT card_validation_runs_actor_user_id_enterprise_id_fkey FOREIGN KEY (actor_user_id, enterprise_id) REFERENCES public.enterprise_users(id, enterprise_id);
-
-
---
--- Name: card_validation_runs card_validation_runs_card_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_validation_runs
-    ADD CONSTRAINT card_validation_runs_card_version_id_fkey FOREIGN KEY (card_version_id) REFERENCES public.card_versions(id);
-
-
---
--- Name: card_validation_runs card_validation_runs_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_validation_runs
-    ADD CONSTRAINT card_validation_runs_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id);
-
-
---
--- Name: card_versions card_versions_card_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_versions
-    ADD CONSTRAINT card_versions_card_id_fkey FOREIGN KEY (card_id) REFERENCES public.interactive_cards(id);
 
 
 --
@@ -7044,22 +6448,6 @@ ALTER TABLE ONLY public.hosts
 
 ALTER TABLE ONLY public.hosts
     ADD CONSTRAINT hosts_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id);
-
-
---
--- Name: interactive_cards interactive_cards_active_version_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.interactive_cards
-    ADD CONSTRAINT interactive_cards_active_version_fk FOREIGN KEY (active_version_id, id) REFERENCES public.card_versions(id, card_id);
-
-
---
--- Name: interactive_cards interactive_cards_enterprise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.interactive_cards
-    ADD CONSTRAINT interactive_cards_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id);
 
 
 --
@@ -8069,11 +7457,6 @@ INSERT INTO public.permissions (id, description, registry_version) VALUES ('appr
 INSERT INTO public.permissions (id, description, registry_version) VALUES ('approval.read', 'Read approval requests', 3);
 INSERT INTO public.permissions (id, description, registry_version) VALUES ('approval.decide', 'Approve or reject eligible requests', 3);
 INSERT INTO public.permissions (id, description, registry_version) VALUES ('execution.read', 'Read deterministic execution state', 3);
-INSERT INTO public.permissions (id, description, registry_version) VALUES ('interactive_card.read', 'Read the interactive Card catalog', 4);
-INSERT INTO public.permissions (id, description, registry_version) VALUES ('interactive_card.create', 'Create enterprise Card drafts through Chat', 4);
-INSERT INTO public.permissions (id, description, registry_version) VALUES ('interactive_card.update', 'Create Card configuration revisions', 4);
-INSERT INTO public.permissions (id, description, registry_version) VALUES ('interactive_card.publish', 'Validate, activate, disable, and roll back Cards', 4);
-INSERT INTO public.permissions (id, description, registry_version) VALUES ('interactive_card.deprecate', 'Deprecate enterprise Cards', 4);
 INSERT INTO public.permissions (id, description, registry_version) VALUES ('telemetry.collector.read', 'Read Collector catalog and status', 6);
 INSERT INTO public.permissions (id, description, registry_version) VALUES ('telemetry.collector.manage', 'Manage Collector lifecycle and routes', 6);
 INSERT INTO public.permissions (id, description, registry_version) VALUES ('telemetry.query.metrics', 'Query authorized metrics', 6);
@@ -8088,6 +7471,198 @@ INSERT INTO public.permissions (id, description, registry_version) VALUES ('remo
 INSERT INTO public.permissions (id, description, registry_version) VALUES ('remote_access.session_profile.read', 'Read remote access session profiles', 8);
 INSERT INTO public.permissions (id, description, registry_version) VALUES ('remote_access.session_profile.manage', 'Manage remote access session profiles', 8);
 INSERT INTO public.permissions (id, description, registry_version) VALUES ('remote_access.governance.references.read', 'Read remote access governance references', 8);
+
+-- PlanV5 is part of this fresh baseline, not a historical migration.
+CREATE TABLE public.mcp_connections (
+    id uuid PRIMARY KEY,
+    enterprise_id uuid NOT NULL REFERENCES enterprises(id),
+    name text NOT NULL CHECK (length(name) BETWEEN 1 AND 128),
+    status text NOT NULL DEFAULT 'disabled' CHECK (status IN ('enabled','disabled')),
+    health_status text NOT NULL DEFAULT 'unknown' CHECK (health_status IN ('unknown','healthy','unhealthy')),
+    current_revision integer NOT NULL DEFAULT 0 CHECK (current_revision>=0),
+    current_tool_snapshot_id uuid,
+    authorization_epoch bigint NOT NULL DEFAULT 1 CHECK (authorization_epoch>0),
+    version bigint NOT NULL DEFAULT 1 CHECK (version>0),
+    last_error_code text,
+    created_by uuid NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (id,enterprise_id), UNIQUE (enterprise_id,name),
+    FOREIGN KEY (created_by,enterprise_id) REFERENCES enterprise_users(id,enterprise_id)
+);
+
+CREATE TABLE public.mcp_connection_revisions (
+    connection_id uuid NOT NULL,
+    enterprise_id uuid NOT NULL,
+    revision integer NOT NULL CHECK (revision>0),
+    endpoint text NOT NULL CHECK (length(endpoint)<=2048),
+    auth_type text NOT NULL CHECK (auth_type IN ('none','bearer','basic')),
+    credential_id uuid,
+    credential_version bigint,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (connection_id,revision),
+    UNIQUE (connection_id,enterprise_id,revision),
+    FOREIGN KEY (connection_id,enterprise_id) REFERENCES mcp_connections(id,enterprise_id),
+    FOREIGN KEY (credential_id,enterprise_id) REFERENCES credentials(id,enterprise_id),
+    CHECK ((auth_type='none' AND credential_id IS NULL) OR (auth_type<>'none' AND credential_id IS NOT NULL AND credential_version>0))
+);
+
+CREATE TABLE public.mcp_tool_snapshots (
+    id uuid PRIMARY KEY,
+    connection_id uuid NOT NULL,
+    enterprise_id uuid NOT NULL,
+    connection_revision integer NOT NULL,
+    schema_hash text NOT NULL CHECK (schema_hash ~ '^[a-f0-9]{64}$'),
+    tools jsonb NOT NULL CHECK (jsonb_typeof(tools)='array'),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (id,enterprise_id),
+    UNIQUE (connection_id,connection_revision,schema_hash),
+    FOREIGN KEY (connection_id,enterprise_id,connection_revision) REFERENCES mcp_connection_revisions(connection_id,enterprise_id,revision)
+);
+
+ALTER TABLE mcp_connections ADD CONSTRAINT mcp_connection_snapshot_fk
+    FOREIGN KEY (current_tool_snapshot_id,enterprise_id) REFERENCES mcp_tool_snapshots(id,enterprise_id);
+
+CREATE TABLE public.mcp_connection_grants (
+    connection_id uuid NOT NULL,
+    enterprise_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (connection_id,user_id),
+    FOREIGN KEY (connection_id,enterprise_id) REFERENCES mcp_connections(id,enterprise_id),
+    FOREIGN KEY (user_id,enterprise_id) REFERENCES enterprise_users(id,enterprise_id)
+);
+
+CREATE TABLE public.conversation_mcp_connections (
+    conversation_id uuid NOT NULL,
+    enterprise_id uuid NOT NULL,
+    connection_id uuid NOT NULL,
+    PRIMARY KEY (conversation_id,connection_id),
+    FOREIGN KEY (conversation_id,enterprise_id) REFERENCES conversations(id,enterprise_id),
+    FOREIGN KEY (connection_id,enterprise_id) REFERENCES mcp_connections(id,enterprise_id)
+);
+
+CREATE TABLE public.workspace_quotas (
+    enterprise_id uuid PRIMARY KEY REFERENCES enterprises(id),
+    limit_bytes bigint NOT NULL DEFAULT 21474836480 CHECK (limit_bytes>0),
+    reserved_bytes bigint NOT NULL DEFAULT 0 CHECK (reserved_bytes>=0 AND reserved_bytes<=limit_bytes),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.workspaces (
+    id uuid PRIMARY KEY,
+    runtime_uid integer GENERATED ALWAYS AS IDENTITY (START WITH 100000) NOT NULL UNIQUE,
+    enterprise_id uuid NOT NULL,
+    conversation_id uuid NOT NULL,
+    status text NOT NULL DEFAULT 'provisioning' CHECK (status IN ('provisioning','ready','deleting','deleted','failed')),
+    pvc_name text NOT NULL UNIQUE,
+    namespace text NOT NULL,
+    capacity_bytes bigint NOT NULL CHECK (capacity_bytes>0),
+    environment_version text NOT NULL,
+    source_result_refs text[] NOT NULL DEFAULT '{}',
+    active_pod_name text,
+    active_sandbox_id text,
+    lease_owner text,
+    lease_until timestamptz,
+    fence_token bigint NOT NULL DEFAULT 0,
+    version bigint NOT NULL DEFAULT 1,
+    last_used_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (id,enterprise_id),
+    FOREIGN KEY (conversation_id,enterprise_id) REFERENCES conversations(id,enterprise_id)
+);
+CREATE UNIQUE INDEX workspaces_one_live ON workspaces(conversation_id) WHERE status<>'deleted';
+ALTER TABLE sandbox_sessions ADD CONSTRAINT sandbox_session_workspace_fk FOREIGN KEY (workspace_id,enterprise_id) REFERENCES workspaces(id,enterprise_id);
+ALTER TABLE sandbox_sessions ADD CONSTRAINT sandbox_session_owner_check CHECK (task_id IS NOT NULL OR (workspace_id IS NOT NULL AND tool_call_id IS NOT NULL));
+
+CREATE TABLE public.workspace_files (
+    id uuid PRIMARY KEY,
+    enterprise_id uuid NOT NULL,
+    workspace_id uuid NOT NULL,
+    conversation_id uuid NOT NULL,
+    name text NOT NULL CHECK (length(name) BETWEEN 1 AND 255),
+    path text NOT NULL CHECK (path !~ '(^/|(^|/)\.\.(/|$))'),
+    byte_size bigint NOT NULL CHECK (byte_size>=0),
+    content_hash text NOT NULL CHECK (content_hash ~ '^[a-f0-9]{64}$'),
+    media_type text NOT NULL,
+    source_result_refs text[] NOT NULL DEFAULT '{}',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz,
+    UNIQUE (id,enterprise_id),
+    FOREIGN KEY (workspace_id,enterprise_id) REFERENCES workspaces(id,enterprise_id),
+    FOREIGN KEY (conversation_id,enterprise_id) REFERENCES conversations(id,enterprise_id)
+);
+CREATE UNIQUE INDEX workspace_files_live_path ON workspace_files(workspace_id,path) WHERE deleted_at IS NULL;
+
+CREATE TABLE public.workspace_uploads (
+    id uuid PRIMARY KEY,
+    enterprise_id uuid NOT NULL,
+    workspace_id uuid NOT NULL,
+    owner_user_id uuid NOT NULL,
+    name text NOT NULL CHECK (length(name) BETWEEN 1 AND 255),
+    path text NOT NULL,
+    expected_bytes bigint NOT NULL CHECK (expected_bytes>=0),
+    status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','uploading','complete','failed','cancelled')),
+    request_id text NOT NULL,
+    file_id uuid,
+    error_code text,
+    expires_at timestamptz NOT NULL DEFAULT (now()+interval '1 hour'),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (workspace_id,request_id),
+    FOREIGN KEY (workspace_id,enterprise_id) REFERENCES workspaces(id,enterprise_id),
+    FOREIGN KEY (owner_user_id,enterprise_id) REFERENCES enterprise_users(id,enterprise_id),
+    FOREIGN KEY (file_id,enterprise_id) REFERENCES workspace_files(id,enterprise_id)
+);
+
+CREATE TABLE public.file_deliveries (
+    id uuid PRIMARY KEY,
+    enterprise_id uuid NOT NULL,
+    conversation_id uuid NOT NULL,
+    workspace_id uuid NOT NULL,
+    run_id uuid,
+    name text NOT NULL,
+    media_type text NOT NULL,
+    byte_size bigint NOT NULL CHECK (byte_size>=0),
+    content_hash text NOT NULL CHECK (content_hash ~ '^[a-f0-9]{64}$'),
+    object_key text NOT NULL UNIQUE,
+    source_result_refs text[] NOT NULL DEFAULT '{}',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz,
+    FOREIGN KEY (conversation_id,enterprise_id) REFERENCES conversations(id,enterprise_id),
+    FOREIGN KEY (workspace_id,enterprise_id) REFERENCES workspaces(id,enterprise_id),
+    FOREIGN KEY (run_id,enterprise_id) REFERENCES runs(id,enterprise_id)
+);
+
+ALTER TABLE tool_calls ADD CONSTRAINT tool_calls_id_enterprise_key UNIQUE (id,enterprise_id);
+CREATE TABLE public.template_assets (
+    hash text PRIMARY KEY CHECK (hash ~ '^[a-f0-9]{64}$'),
+    source text NOT NULL CHECK (octet_length(source)<=262144),
+    runtime text NOT NULL CHECK (runtime='argus-template/v1'),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE public.tool_presentations (
+    id uuid PRIMARY KEY,
+    enterprise_id uuid NOT NULL,
+    conversation_id uuid NOT NULL,
+    tool_call_id uuid NOT NULL UNIQUE,
+    tool_version text NOT NULL,
+    authorization_scope text NOT NULL,
+    template_hash text NOT NULL CHECK (template_hash ~ '^[a-f0-9]{64}$'),
+    detail_data jsonb NOT NULL CHECK (octet_length(detail_data::text)<=1048576),
+    resource_refs jsonb NOT NULL DEFAULT '[]'::jsonb,
+    status text NOT NULL CHECK (status IN ('ready','failed')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY (tool_call_id,enterprise_id) REFERENCES tool_calls(id,enterprise_id),
+    FOREIGN KEY (template_hash) REFERENCES template_assets(hash),
+    FOREIGN KEY (conversation_id,enterprise_id) REFERENCES conversations(id,enterprise_id)
+);
+
+INSERT INTO permissions (id,description,registry_version) VALUES
+    ('mcp_connection.manage','Manage enterprise MCP connections and member grants',9),
+    ('workspace.use','Read and write own conversation workspace',9);
 
 REVOKE UPDATE, DELETE ON public.audit_events FROM PUBLIC;
 
@@ -8128,6 +7703,9 @@ BEGIN
 END
 $roles$;
 -- +goose StatementEnd
+
+ALTER TABLE public.context_snapshots ADD CONSTRAINT context_snapshot_identity_key UNIQUE(id,enterprise_id,snapshot_hash);
+ALTER TABLE public.model_calls ADD CONSTRAINT model_call_context_snapshot_fk FOREIGN KEY(context_snapshot_id,enterprise_id,context_snapshot_hash) REFERENCES public.context_snapshots(id,enterprise_id,snapshot_hash);
 
 -- +goose Down
 -- +goose StatementBegin

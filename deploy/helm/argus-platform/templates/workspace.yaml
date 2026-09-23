@@ -1,0 +1,159 @@
+{{- if .Values.workspace.enabled }}
+{{- $root := . -}}
+{{- range $item := list (dict "name" "argus-workspace-io" "namespace" .Values.namespaces.sandbox "secret" "argus-workspace-io-tls" "usage" "server auth" "dns" (printf "workspace-io.%s.svc" .Values.namespaces.sandbox)) (dict "name" "argus-workspace-client" "namespace" .Values.namespaces.system "secret" "argus-workspace-client-tls" "usage" "client auth" "dns" "argus-workspace-client") (dict "name" "argus-workspace-admission" "namespace" .Values.namespaces.system "secret" "argus-workspace-admission-tls" "usage" "server auth" "dns" (printf "argus-workspace-admission.%s.svc" .Values.namespaces.system)) }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $item.name }}
+  namespace: {{ $item.namespace }}
+  labels: {app.kubernetes.io/part-of: argus, argus.io/release-id: {{ $root.Values.releaseId | quote }}}
+spec:
+  secretName: {{ $item.secret }}
+  commonName: {{ $item.name }}
+  {{- if eq $item.usage "client auth" }}
+  duration: 24h
+  renewBefore: 8h
+  uris: [spiffe://argus.io/services/workspace/client]
+  {{- else }}
+  duration: 2160h
+  renewBefore: 360h
+  {{- end }}
+  dnsNames: [{{ $item.dns | quote }}]
+  usages: [{{ $item.usage | quote }}]
+  privateKey: {algorithm: ECDSA, size: 256, rotationPolicy: Always}
+  issuerRef:
+    name: {{ $root.Values.pki.issuerName }}
+    kind: ClusterIssuer
+    group: {{ $root.Values.pki.issuerGroup }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argus-workspace-admission
+  namespace: {{ .Values.namespaces.system }}
+  labels: {app.kubernetes.io/part-of: argus, argus.io/release-id: {{ .Values.releaseId | quote }}}
+spec:
+  selector: {app.kubernetes.io/name: argus-server}
+  ports: [{name: admission, port: 443, targetPort: 8448}]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ .Values.releaseId }}-workspace
+  labels: {app.kubernetes.io/part-of: argus, argus.io/release-id: {{ .Values.releaseId | quote }}}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ printf "%s/argus-workspace-admission" .Values.namespaces.system | quote }}
+webhooks:
+  - name: workspace.argus.io
+    admissionReviewVersions: [v1]
+    sideEffects: None
+    failurePolicy: Fail
+    reinvocationPolicy: Never
+    timeoutSeconds: 10
+    namespaceSelector:
+      matchLabels: {kubernetes.io/metadata.name: {{ .Values.namespaces.sandbox | quote }}}
+    objectSelector:
+      matchExpressions: [{key: argus.io/workspace-id, operator: Exists}]
+    clientConfig:
+      service: {name: argus-workspace-admission, namespace: {{ .Values.namespaces.system }}, path: /admit-workspace, port: 443}
+    rules:
+      - operations: [CREATE]
+        apiGroups: [""]
+        apiVersions: [v1]
+        resources: [pods]
+        scope: Namespaced
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argus-workspace-controller
+  namespace: {{ .Values.namespaces.sandbox }}
+  labels: {app.kubernetes.io/part-of: argus, argus.io/release-id: {{ .Values.releaseId | quote }}}
+rules:
+  - apiGroups: [""]
+    resources: [pods, persistentvolumeclaims]
+    verbs: [get, list, watch, create, delete]
+  - apiGroups: [sandbox.opensandbox.io]
+    resources: [batchsandboxes]
+    verbs: [get, list, watch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argus-workspace-controller
+  namespace: {{ .Values.namespaces.sandbox }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: argus-workspace-controller}
+subjects:
+  - {kind: ServiceAccount, name: argus-server, namespace: {{ .Values.namespaces.system }}}
+  - {kind: ServiceAccount, name: argus-worker, namespace: {{ .Values.namespaces.system }}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.releaseId }}-workspace-storage-reader
+  labels: {app.kubernetes.io/part-of: argus, argus.io/release-id: {{ .Values.releaseId | quote }}}
+rules:
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses]
+    resourceNames: [{{ .Values.workspace.storageClass | quote }}]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [persistentvolumes]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.releaseId }}-workspace-storage-reader
+  labels: {app.kubernetes.io/part-of: argus, argus.io/release-id: {{ .Values.releaseId | quote }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ .Values.releaseId }}-workspace-storage-reader}
+subjects:
+  - {kind: ServiceAccount, name: argus-server, namespace: {{ .Values.namespaces.system }}}
+  - {kind: ServiceAccount, name: argus-worker, namespace: {{ .Values.namespaces.system }}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argus-workspace-offline
+  namespace: {{ .Values.namespaces.sandbox }}
+spec:
+  podSelector:
+    matchExpressions: [{key: argus.io/workspace-id, operator: Exists}]
+  policyTypes: [Ingress, Egress]
+  egress: []
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ .Values.namespaces.system | quote }}}
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [argus-server, argus-worker, argus-worker-agent, argus-worker-sandbox]
+      ports: [{protocol: TCP, port: 8447}, {protocol: TCP, port: 8448}]
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/name: opensandbox-server}}
+      ports: [{protocol: TCP, port: 44772}, {protocol: TCP, port: 8000}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argus-workspace-control
+  namespace: {{ .Values.namespaces.system }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [argus-server, argus-worker, argus-worker-agent, argus-worker-sandbox]
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports: [{protocol: TCP, port: 8448}]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ .Values.namespaces.sandbox | quote }}}
+      ports: [{protocol: TCP, port: 8447}, {protocol: TCP, port: 8448}, {protocol: TCP, port: 80}]
+{{- end }}

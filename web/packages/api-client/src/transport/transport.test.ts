@@ -51,7 +51,11 @@ describe("configured adapter", () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            event: { sequence: 7 },
+            event: {
+              event_id: "event-7",
+              sequence: 7,
+              occurred_at: "2026-09-13T00:00:00Z",
+            },
             run: { run_id: "run-1" },
           }),
           { status: 202, headers: { "content-type": "application/json" } },
@@ -99,7 +103,10 @@ describe("configured adapter", () => {
       events.push(event);
     }
 
-    expect(events.map((event) => event.event_id)).toEqual(["event-8"]);
+    expect(events.map((event) => event.event_id)).toEqual([
+      "event-7",
+      "event-8",
+    ]);
     const streamHeaders = fetch.mock.calls[1]?.[1]?.headers as Headers;
     expect(streamHeaders.get("last-event-id")).toBe("7");
   });

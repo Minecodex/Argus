@@ -14,8 +14,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/kakj-go/Argus/internal/storage/objectstore"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 var (
@@ -26,8 +28,10 @@ var (
 )
 
 type Service struct {
+	Objects     *objectstore.Client
 	Store       *postgres.Store
 	Idempotency postgres.Idempotency
+	Tools       toolruntime.Factory
 }
 
 type MessageAccepted struct {
@@ -36,18 +40,11 @@ type MessageAccepted struct {
 }
 
 type AgentTask struct {
-	RunID        uuid.UUID       `json:"run_id"`
-	EnterpriseID uuid.UUID       `json:"enterprise_id"`
-	Reason       string          `json:"reason"`
-	Command      *MessageCommand `json:"command,omitempty"`
-	ExecutionRef string          `json:"execution_ref,omitempty"`
-	ActionRef    string          `json:"action_ref,omitempty"`
-}
-
-type MessageCommand struct {
-	Type             string     `json:"type"`
-	CardID           *uuid.UUID `json:"card_id,omitempty"`
-	ExpectedRevision *int32     `json:"expected_revision,omitempty"`
+	RunID        uuid.UUID `json:"run_id"`
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	Reason       string    `json:"reason"`
+	ExecutionRef string    `json:"execution_ref,omitempty"`
+	ActionRef    string    `json:"action_ref,omitempty"`
 }
 
 type ToolResultView struct {
@@ -86,7 +83,7 @@ func (service Service) Create(ctx context.Context, actorID string, enterpriseID,
 		})
 }
 
-func (service Service) Update(ctx context.Context, enterpriseID, ownerID, conversationID uuid.UUID, expectedVersion int64, title, status *string, modelID *uuid.UUID) (db.Conversation, error) {
+func (service Service) Update(ctx context.Context, enterpriseID, ownerID, conversationID uuid.UUID, expectedVersion int64, title, status *string, modelID *uuid.UUID, selectedConnections []uuid.UUID) (db.Conversation, error) {
 	params := db.UpdateConversationParams{ID: conversationID, EnterpriseID: enterpriseID, OwnerUserID: ownerID, ExpectedVersion: expectedVersion}
 	if title != nil {
 		params.Title = pgtype.Text{String: *title, Valid: true}
@@ -101,15 +98,69 @@ func (service Service) Update(ctx context.Context, enterpriseID, ownerID, conver
 		}
 		params.SelectedModelID = uuid.NullUUID{UUID: *modelID, Valid: true}
 	}
-	return service.Store.Queries.UpdateConversation(ctx, params)
+	var updated db.Conversation
+	err := service.Store.InTx(ctx, func(q *db.Queries) error {
+		if _, err := q.LockConversation(ctx, db.LockConversationParams{ID: conversationID, EnterpriseID: enterpriseID, OwnerUserID: ownerID}); err != nil {
+			return err
+		}
+		if selectedConnections != nil {
+			seen := map[uuid.UUID]bool{}
+			for _, id := range selectedConnections {
+				if seen[id] {
+					return toolruntime.Error{Kind: "MCP_CONNECTION_INVALID"}
+				}
+				seen[id] = true
+				allowed, err := q.HasMCPConnectionGrant(ctx, db.HasMCPConnectionGrantParams{ConnectionID: id, EnterpriseID: enterpriseID, UserID: ownerID})
+				if err != nil {
+					return err
+				}
+				if !allowed {
+					return toolruntime.Error{Kind: "MCP_CONNECTION_UNAVAILABLE"}
+				}
+				connection, err := q.GetMCPConnection(ctx, db.GetMCPConnectionParams{ID: id, EnterpriseID: enterpriseID})
+				if err != nil || connection.Status != "enabled" {
+					return toolruntime.Error{Kind: "MCP_CONNECTION_UNAVAILABLE"}
+				}
+			}
+			if err := q.ClearConversationMCPConnections(ctx, db.ClearConversationMCPConnectionsParams{ConversationID: conversationID, EnterpriseID: enterpriseID}); err != nil {
+				return err
+			}
+			for _, id := range selectedConnections {
+				if err := q.SelectConversationMCPConnection(ctx, db.SelectConversationMCPConnectionParams{ConversationID: conversationID, EnterpriseID: enterpriseID, ConnectionID: id}); err != nil {
+					return err
+				}
+			}
+		}
+		var err error
+		updated, err = q.UpdateConversation(ctx, params)
+		return err
+	})
+	return updated, err
 }
 
-func (service Service) AddMessage(ctx context.Context, actorID string, enterpriseID, ownerID, conversationID uuid.UUID, authorizationVersion int64, locale, content string, command *MessageCommand, idempotencyKey string) (MessageAccepted, error) {
+func (service Service) AddMessage(ctx context.Context, actorID string, enterpriseID, ownerID, conversationID uuid.UUID, authorizationVersion int64, locale, content string, fileIDs []uuid.UUID, idempotencyKey string) (MessageAccepted, error) {
 	input := struct {
-		ConversationID uuid.UUID       `json:"conversation_id"`
-		Content        string          `json:"content"`
-		Command        *MessageCommand `json:"command,omitempty"`
-	}{conversationID, content, command}
+		ConversationID uuid.UUID   `json:"conversation_id"`
+		Content        string      `json:"content"`
+		FileIDs        []uuid.UUID `json:"file_ids"`
+	}{conversationID, content, fileIDs}
+	requestBytes, _ := json.Marshal(input)
+	prior, err := service.Idempotency.Lookup(ctx, service.Store.Queries, "enterprise", actorID, "conversation.message.create", idempotencyKey, requestBytes)
+	if err != nil {
+		return MessageAccepted{}, err
+	}
+	if prior.Replay {
+		var accepted MessageAccepted
+		err := json.Unmarshal(prior.Body, &accepted)
+		return accepted, err
+	}
+	preflight, err := service.Preflight(ctx, enterpriseID, ownerID, conversationID, content, fileIDs)
+	if err != nil {
+		return MessageAccepted{}, err
+	}
+	if !preflight.Ready {
+		return MessageAccepted{}, preflight.CapacityError()
+	}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "conversation.message.create", idempotencyKey, input, 202,
 		func(q *db.Queries) (MessageAccepted, error) {
 			conversation, err := q.LockConversation(ctx, db.LockConversationParams{ID: conversationID, EnterpriseID: enterpriseID, OwnerUserID: ownerID})
@@ -118,6 +169,15 @@ func (service Service) AddMessage(ctx context.Context, actorID string, enterpris
 			}
 			if conversation.Status != "active" {
 				return MessageAccepted{}, ErrConversationClosed
+			}
+			if conversation.Version != preflight.ConversationVersion {
+				return MessageAccepted{}, toolruntime.Error{Kind: "TOOL_CONFIGURATION_CHANGED"}
+			}
+			if err := validateFiles(ctx, q, enterpriseID, conversationID, fileIDs); err != nil {
+				return MessageAccepted{}, err
+			}
+			if err := validateSelectedConnections(ctx, q, enterpriseID, ownerID, conversationID, preflight.Snapshot); err != nil {
+				return MessageAccepted{}, err
 			}
 			if _, err := q.GetActiveRunForConversation(ctx, db.GetActiveRunForConversationParams{ConversationID: conversationID, EnterpriseID: enterpriseID}); err == nil {
 				return MessageAccepted{}, ErrRunAlreadyActive
@@ -128,6 +188,9 @@ func (service Service) AddMessage(ctx context.Context, actorID string, enterpris
 			if err != nil || model.Status != "enabled" || model.HealthStatus != "healthy" {
 				return MessageAccepted{}, ErrModelUnavailable
 			}
+			if int32(model.Revision) != preflight.ModelRevision {
+				return MessageAccepted{}, toolruntime.Error{Kind: "TOOL_CONFIGURATION_CHANGED"}
+			}
 			checkpoint, _ := json.Marshal(map[string]any{"schema_version": "argus.run_checkpoint/v1", "goal": content,
 				"authorization_version": authorizationVersion, "completed_step_ids": []string{}, "tool_call_refs": []string{},
 				"active_public_pending_action_refs": []string{}, "execution_refs": []string{}})
@@ -137,17 +200,28 @@ func (service Service) AddMessage(ctx context.Context, actorID string, enterpris
 			if err != nil {
 				return MessageAccepted{}, err
 			}
-			messagePayload := map[string]any{"content": content}
-			if command != nil {
-				messagePayload["command"] = command
+			snapshotBytes, _ := json.Marshal(preflight.Snapshot)
+			run, err = q.SetRunToolSnapshot(ctx, db.SetRunToolSnapshotParams{ID: run.ID, EnterpriseID: enterpriseID, ToolSnapshot: snapshotBytes, ToolSnapshotHash: preflight.SnapshotHash})
+			if err != nil {
+				return MessageAccepted{}, err
 			}
+			messagePayload := map[string]any{"content": content}
+			files := make([]map[string]any, 0, len(fileIDs))
+			for _, id := range fileIDs {
+				file, e := q.GetWorkspaceFile(ctx, db.GetWorkspaceFileParams{ID: id, EnterpriseID: enterpriseID})
+				if e != nil {
+					return MessageAccepted{}, e
+				}
+				files = append(files, FileReference(file))
+			}
+			messagePayload["files"] = files
 			event, err := AppendEvent(ctx, q, EventInput{EnterpriseID: enterpriseID, ConversationID: conversationID,
 				RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, Type: "user_message", ActorType: "user", ActorID: actorID,
 				Payload: messagePayload, Classification: "internal"})
 			if err != nil {
 				return MessageAccepted{}, err
 			}
-			payload, _ := json.Marshal(AgentTask{RunID: run.ID, EnterpriseID: enterpriseID, Reason: "user_message", Command: command})
+			payload, _ := json.Marshal(AgentTask{RunID: run.ID, EnterpriseID: enterpriseID, Reason: "user_message"})
 			if _, err := q.CreateRuntimeTask(ctx, db.CreateRuntimeTaskParams{ID: newID(), EnterpriseID: uuid.NullUUID{UUID: enterpriseID, Valid: true},
 				Queue: "agent", RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, Payload: payload, MaxAttempts: 5,
 				AvailableAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}}); err != nil {
@@ -168,29 +242,45 @@ func (service Service) ListEvents(ctx context.Context, enterpriseID, ownerID, co
 		EnterpriseID: enterpriseID, Sequence: after, Limit: limit})
 }
 
-func (service Service) GetRun(ctx context.Context, enterpriseID, runID uuid.UUID) (db.Run, error) {
-	return service.Store.Queries.GetRun(ctx, db.GetRunParams{ID: runID, EnterpriseID: enterpriseID})
+func (service Service) GetRun(ctx context.Context, enterpriseID, ownerID, runID uuid.UUID) (db.Run, error) {
+	return service.Store.Queries.GetOwnedRun(ctx, db.GetOwnedRunParams{ID: runID, EnterpriseID: enterpriseID, ActorUserID: ownerID})
 }
 
 func (service Service) CancelRun(ctx context.Context, actorID string, enterpriseID, runID uuid.UUID, idempotencyKey string) (db.Run, error) {
+	ownerID, err := uuid.Parse(actorID)
+	if err != nil {
+		return db.Run{}, ErrRunNotCancellable
+	}
+	if _, err := service.GetRun(ctx, enterpriseID, ownerID, runID); err != nil {
+		return db.Run{}, err
+	}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "run.cancel", idempotencyKey, runID, 200,
 		func(q *db.Queries) (db.Run, error) {
-			run, err := q.GetRun(ctx, db.GetRunParams{ID: runID, EnterpriseID: enterpriseID})
+			run, err := q.GetOwnedRunForUpdate(ctx, db.GetOwnedRunForUpdateParams{ID: runID, EnterpriseID: enterpriseID, ActorUserID: ownerID})
 			if err != nil {
 				return db.Run{}, err
+			}
+			if run.ActorUserID != ownerID {
+				return db.Run{}, pgx.ErrNoRows
 			}
 			if run.Status != "pending" && run.Status != "running" && run.Status != "waiting_input" && run.Status != "waiting_approval" && run.Status != "waiting_system" {
 				return db.Run{}, ErrRunNotCancellable
 			}
-			return q.UpdateRunStatus(ctx, db.UpdateRunStatusParams{ID: run.ID, EnterpriseID: enterpriseID, Status: "cancelled",
-				StopReason: pgtype.Text{String: "user_cancelled", Valid: true}, Version: run.Version})
+			return CancelRunRecord(ctx, q, run, "user_cancelled", "user", actorID)
 		})
 }
 
 func (service Service) RequestCompaction(ctx context.Context, actorID string, enterpriseID, runID uuid.UUID, idempotencyKey string) (db.Run, error) {
+	owner, err := uuid.Parse(actorID)
+	if err != nil {
+		return db.Run{}, pgx.ErrNoRows
+	}
+	if _, err := service.GetRun(ctx, enterpriseID, owner, runID); err != nil {
+		return db.Run{}, err
+	}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "run.compact", idempotencyKey, runID, 202,
 		func(q *db.Queries) (db.Run, error) {
-			run, err := q.GetRun(ctx, db.GetRunParams{ID: runID, EnterpriseID: enterpriseID})
+			run, err := q.GetOwnedRunForUpdate(ctx, db.GetOwnedRunForUpdateParams{ID: runID, EnterpriseID: enterpriseID, ActorUserID: owner})
 			if err != nil {
 				return db.Run{}, err
 			}
@@ -211,6 +301,9 @@ func (service Service) GetToolResult(ctx context.Context, enterpriseID, ownerID 
 		return ToolResultView{}, pgx.ErrNoRows
 	}
 	if _, err := service.Get(ctx, enterpriseID, ownerID, artifact.ConversationID.UUID); err != nil {
+		return ToolResultView{}, err
+	}
+	if err := service.resultScope(ctx, enterpriseID, ownerID, artifact.AuthorizationScope); err != nil {
 		return ToolResultView{}, err
 	}
 	result, err := service.Store.Queries.GetToolResultByArtifact(ctx, db.GetToolResultByArtifactParams{ArtifactID: artifact.ID, EnterpriseID: enterpriseID})

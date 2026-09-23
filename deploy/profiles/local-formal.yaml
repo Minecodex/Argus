@@ -29,6 +29,7 @@ spec:
   security:
     platformMfaRequired: false
   openSandbox:
+    enabled: true
     runtimeClassName: ""
     allowSharedRuntime: true
   telemetry:
@@ -44,6 +45,12 @@ spec:
     signingKeyId: argus-evaluation-collector-signing-v1
     signingPublicKey: KipqW8DuwdLu1utyo6JbL5u+vtVT/4ZFVKSjOuK8s64
     kubernetesImage: docker.io/kakj-go/argus-otelcol:0.1.0-m7
+  workspace:
+    enabled: true
+    storageClass: argus-workspace
+    storageNamespace: argus-workspace-storage
+    dataDirectory: /var/local/argus-workspaces/data
+    metadataDirectory: /var/local/argus-workspaces/meta
   persistence:
     postgresql: 2Gi
     redis: 1Gi

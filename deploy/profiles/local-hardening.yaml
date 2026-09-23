@@ -34,6 +34,7 @@ spec:
       expectedIPs: []
       verificationURL: ""
   openSandbox:
+    enabled: true
     runtimeClassName: ""
     allowSharedRuntime: true
   telemetry:
@@ -44,6 +45,12 @@ spec:
     linuxArm64ByteSize: 1
     signingKeyId: argus-local-hardening-collector-signing-v1
     signingPublicKey: KipqW8DuwdLu1utyo6JbL5u+vtVT/4ZFVKSjOuK8s64
+  workspace:
+    enabled: true
+    storageClass: argus-workspace
+    storageNamespace: argus-workspace-storage
+    dataDirectory: /var/local/argus-workspaces/data
+    metadataDirectory: /var/local/argus-workspaces/meta
   persistence:
     postgresql: 2Gi
     redis: 1Gi

@@ -21,7 +21,7 @@ type p4InstallResult struct {
 	Operation        map[string]any
 }
 
-func (a *App) createP4ConnectionTest(ctx context.Context, env *E2EEnvironment, name, address, credentialID string, scopeID string) (string, error) {
+func (a *App) createP4ConnectionTest(ctx context.Context, env *E2EEnvironment, name, address, credentialID string, scopeID, onboardingPath string) (string, error) {
 	client, err := scenarioHTTP(env)
 	if err != nil {
 		return "", err
@@ -29,6 +29,9 @@ func (a *App) createP4ConnectionTest(ctx context.Context, env *E2EEnvironment, n
 	body := map[string]any{
 		"address": address, "port": 22, "platform": "linux", "ssh_path": "direct_executor",
 		"credential_id": credentialID, "username": "root",
+	}
+	if onboardingPath != "" {
+		body["onboarding_control_path"] = onboardingPath
 	}
 	if scopeID != "" {
 		body["ssh_path"] = "bastion_connector"
@@ -256,8 +259,6 @@ WHERE plan::text ILIKE '%"enrollment_token"%'
 WHERE details::text ILIKE '%"enrollment_token"%'
    OR details::text ILIKE '%--token%'
    OR details::text ILIKE '%curl -fsSL%';`},
-		{"expired credential lease", `SELECT count(*) FROM credential_leases
-WHERE status = 'active' AND expires_at <= now();`},
 		{"invalid one-time envelope", `SELECT count(*) FROM execution_one_time_results
 WHERE result_kind <> 'connector_install_command'
    OR octet_length(nonce) = 0 OR octet_length(ciphertext) = 0;`},
@@ -272,6 +273,13 @@ WHERE octet_length(nonce) = 0 OR octet_length(ciphertext) = 0;`},
 		if strings.TrimSpace(value) != "0" {
 			return fmt.Errorf("P4 sensitive persistence check %s found %s violations", check.name, strings.TrimSpace(value))
 		}
+	}
+	// Fulfill/consume/renew reject expires_at immediately. The worker marks
+	// abandoned rows expired every five seconds, so wait for that durable
+	// cleanup instead of failing when this read falls between two ticks.
+	if err := a.waitPostgresValue(ctx, env, `SELECT count(*) FROM credential_leases
+WHERE status = 'active' AND expires_at <= now();`, "0", 20*time.Second); err != nil {
+		return fmt.Errorf("P4 expired credential lease reconciliation: %w", err)
 	}
 	return nil
 }

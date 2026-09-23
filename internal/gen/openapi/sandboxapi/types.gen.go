@@ -142,14 +142,14 @@ func (e SandboxProfileStatus) Valid() bool {
 
 // Defines values for SandboxProfileTaskKinds.
 const (
-	SandboxProfileTaskKindsAttachmentProcessing SandboxProfileTaskKinds = "attachment_processing"
-	SandboxProfileTaskKindsSmoke                SandboxProfileTaskKinds = "smoke"
+	SandboxProfileTaskKindsAgentWorkspace SandboxProfileTaskKinds = "agent_workspace"
+	SandboxProfileTaskKindsSmoke          SandboxProfileTaskKinds = "smoke"
 )
 
 // Valid indicates whether the value is a known member of the SandboxProfileTaskKinds enum.
 func (e SandboxProfileTaskKinds) Valid() bool {
 	switch e {
-	case SandboxProfileTaskKindsAttachmentProcessing:
+	case SandboxProfileTaskKindsAgentWorkspace:
 		return true
 	case SandboxProfileTaskKindsSmoke:
 		return true
@@ -196,14 +196,14 @@ func (e SandboxProfileWriteStatus) Valid() bool {
 
 // Defines values for SandboxProfileWriteTaskKinds.
 const (
-	SandboxProfileWriteTaskKindsAttachmentProcessing SandboxProfileWriteTaskKinds = "attachment_processing"
-	SandboxProfileWriteTaskKindsSmoke                SandboxProfileWriteTaskKinds = "smoke"
+	SandboxProfileWriteTaskKindsAgentWorkspace SandboxProfileWriteTaskKinds = "agent_workspace"
+	SandboxProfileWriteTaskKindsSmoke          SandboxProfileWriteTaskKinds = "smoke"
 )
 
 // Valid indicates whether the value is a known member of the SandboxProfileWriteTaskKinds enum.
 func (e SandboxProfileWriteTaskKinds) Valid() bool {
 	switch e {
-	case SandboxProfileWriteTaskKindsAttachmentProcessing:
+	case SandboxProfileWriteTaskKindsAgentWorkspace:
 		return true
 	case SandboxProfileWriteTaskKindsSmoke:
 		return true
@@ -408,9 +408,11 @@ type SandboxSession struct {
 	ProfileId         openapi_types.UUID   `json:"profile_id"`
 	ProfileRevision   int                  `json:"profile_revision"`
 	Status            SandboxSessionStatus `json:"status"`
-	TaskId            openapi_types.UUID   `json:"task_id"`
+	TaskId            *openapi_types.UUID  `json:"task_id,omitempty"`
+	ToolCallId        *openapi_types.UUID  `json:"tool_call_id,omitempty"`
 	UpdatedAt         time.Time            `json:"updated_at"`
 	UpstreamSessionId string               `json:"upstream_session_id"`
+	WorkspaceId       *openapi_types.UUID  `json:"workspace_id,omitempty"`
 }
 
 // SandboxSessionStatus defines model for SandboxSession.Status.

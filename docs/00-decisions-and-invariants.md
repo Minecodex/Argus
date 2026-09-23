@@ -75,19 +75,19 @@ Bastion Scope、Telemetry Group 或标签关系都不能跨企业传播权限。
 
 - 查询和诊断 Tool 可以是单阶段；任何改变持久状态、远端系统、权限、配置、凭证、资源标签或网络拓扑的 Tool 必须具有同名 `.preview` 和 `.commit`。
 - `.preview` 的内部结果必须包含固定私有字段 `_meta.argus__token`；公开结果只包含 `action_ref`、预览、风险、有效期和可用动作。
-- `argus__token` 和 PendingAction 私有参数不得进入模型上下文、用户消息、浏览器、Card DOM、日志、普通 Tool Result、公开 API DTO 或审计正文。
+- `argus__token` 和 PendingAction 私有参数不得进入模型上下文、用户消息、浏览器、模板 DOM、日志、普通 Tool Result、公开 API DTO 或审计正文。
 - `.commit` 只接受 `argus__token` 和由服务端生成的幂等上下文，不接受可由用户、浏览器或模型修改的业务参数。
 - 用户点击确认后，由 `argus-server` 内的 Action Executor 使用服务端私有 Token 直接调用 `.commit`，不再启动模型推理。
 - Commit 必须重新检查当前身份、企业状态、功能权限、explicit resource authorization、远程/操作授权、授权版本、审批、资源归属、资源标签/版本和执行前置条件。审批只能满足 Rule 的附加条件，不能补齐缺失的基础权限。
 - 产生安装命令等敏感结果的 Execution 公开对象只返回 `one_time_result_available`。结果使用 `execution_one_time_results` AES-GCM 加密、短时保存并由原发起人通过独立幂等接口原子领取；同一 Idempotency-Key 可以重放同一响应，新 Key 二次领取稳定失败。明文不得进入 PendingAction、Execution、普通资源 DTO、浏览器持久化、日志、审计或 Redis。
 - 领取已有一次性结果不是令牌轮换。待注册主机/堡垒机的 `host.enrollment.rotate`/`bastion.enrollment.rotate`、统一 `host.removal.uninstall|forget` 和 `bastion.connector.replace` 是不同的写动作，必须分别定义前件、风险、审计和 Preview/Commit；服务端不能依赖前端入口区分它们。
 
-## 5. AI、Card 和 Sandbox 不变量
+## 5. AI、模板和 Sandbox 不变量
 
 - AI 负责理解、规划和选择，不是权限、审批、Secret 或唯一状态的边界。
 - Model Agent 可发现的 Tool、可读取的数据和可操作的资源不得超过当前企业用户的功能权限与 explicit resource authorization。Conversation/Run 只绑定服务端确认的 `enterprise_id`；模型输出的企业、标签过滤条件或资源 ID 只是候选参数。
 - 每个 ToolCall、Run、PendingAction 和 Execution 必须保存目标资源引用、授权版本、功能权限和资源范围快照，以便 Commit、恢复、审计和撤权判断。
-- Agent Harness 第一版采用单 Agent 小内核；通用子 Agent、Agent 间消息和动态角色委派延后。Card Render 是同一 Run 内的受限声明式步骤，不拥有独立权限。
+- Agent Harness 第一版采用单 Agent 小内核；通用子 Agent、Agent 间消息和动态角色委派延后。Presentation Builder 属于自有 Tool 的确定性代码，不经过模型挑选。
 - ConversationEvent Ledger、RunState/RunCheckpoint 和 ModelContextProjection 必须分离。完整事件历史只追加并保存在 PostgreSQL/Artifact Store；上下文压缩只能生成派生 ContextSnapshot，不能删除、覆盖或成为唯一历史。
 - 模型上下文固定由服务端 ContextAssembler 生成，结构为 Typed Run Checkpoint + Narrative Summary + 未压缩的最近完整 Turn。摘要是不可信派生文本，不能作为授权、审批、Commit、explicit resource authorization、资源归属或执行状态事实。
 - 大 ToolResult 必须优先通过版本化 Projection Schema 做确定性裁剪，完整结果保存在服务端并以 `result_ref` 引用；不能依靠递归自然语言摘要保存唯一诊断证据。
@@ -96,9 +96,9 @@ Bastion Scope、Telemetry Group 或标签关系都不能跨企业传播权限。
 - 模型域只有 `AIModel`；调用直接绑定 `model_id + model_revision`，Message/Run 保存实际模型和调用时价格快照，不保留旧的多层模型对象和路由配置。
 - 会话允许显式切换模型，切换只影响后续消息；已开始的 Run 固定原模型，系统不得自动 Fallback。
 - 模型额度按企业时区自然月、部门总池和可选个人上限治理。缺失额度表示无限，部门总池始终是最终上限。
-- 浏览器和交互卡片只获得 `query_binding_id` 或 `action_binding_id`；真实 Token、私有参数和任意 Tool 名称只保存在服务端。
-- Card Runtime 必须使用独立 Origin 或严格沙箱 iframe、按卡片生成的 CSP、版本化 Manifest 和 MessageChannel/MessagePort。禁止以全局 `postMessage('*')` 作为运行时协议。
-- 企业交互卡片由企业管理员通过受控流程创建，创建后始终禁用；只有安全、Slot Binding 和全部 Demo 场景验证通过后才能启用。系统卡片完全只读，不存在个人卡片。
+- 模板只获得已授权的业务详情和宿主资源/结果引用；私有 Token 与提交参数只在服务端保存。
+- Template Runtime 使用独立 Origin 和 opaque sandbox iframe、固定无网络 CSP、内容 Hash、nonce、消息序号及 MessagePort。Bridge 只提供 resize/open_resource/open_result。
+- 自有 Tool 模板与实现一起版本化发布；宿主统一显示影响范围、确认/取消和审批执行状态，模板失败不能绕过权威 Preview 校验。
 - OpenSandbox 默认无生产 Secret、无宿主文件系统、无 Connector 直连、无任意外网和无直接生产执行能力。
 
 ## 6. Connector、远程访问和遥测不变量
@@ -130,13 +130,13 @@ Grant、Rule、Workflow、SessionProfile、explicit resource authorization/RBAC�
 - Connector 命令必须具有持久化状态、幂等键、连接代次 `connection_epoch`、过期时间和结果未知状态，不能把断连直接视为执行失败。
 - 安装 Connector 并注册为堡垒机时必须创建稳定的 Bastion Scope 和对应 Host；经堡垒机接入的内网主机只能归属一个 Bastion Scope。Bastion Scope 不能与可轮换、可重装的 Connector 实例共用同一主键和生命周期。
 - Host 使用 `role=managed_host|bastion` 与 `control_path=direct|bastion_relay|executor_tunnel`。安装方式 `manual|ssh` 和 SSH 路径只冻结在 onboarding operation；Windows SSH 固定使用 OpenSSH，WinRM/WinRS 已删除。
-- Remote Access Session 是人工操作边界，不等同于 MCP Tool Commit。它必须使用短期一次性会话票据，并校验 Enterprise、Host、ManagedAccount、协议、动作、Grant、explicit resource authorization、授权版本、MFA/审批、最长时长、录像与审计；AI、Card 和 OpenSandbox 不得获得交互式会话票据。当前版本不提供定时无人值守任务。
+- Remote Access Session 是人工操作边界，不等同于 MCP Tool Commit。它必须使用短期一次性会话票据，并校验 Enterprise、Host、ManagedAccount、协议、动作、Grant、explicit resource authorization、授权版本、MFA/审批、最长时长、录像与审计；AI、模板和 OpenSandbox 不得获得交互式会话票据。当前版本不提供定时无人值守任务。
 - 所有已建立管理连接的 Host 都提供统一的“命令行”入口；人工命令行与后台任务可以复用底层连接适配器，但必须使用不同的票据、API、队列、状态机和审计类型。
 - Bastion Scope 成员的 Telemetry Route 只能是直接推送 Argus 或推送到所属堡垒机上已启用 Gateway 模式的 Collector；独立主机不得选择任何 Bastion Scope 内成员作为上游。
 - 同一物理 Kubernetes Node 上的同一 `CollectionClaim` 默认只能有一个活动采集所有者；迁移期临时重叠必须指定主实例和过期时间。
 - “监控插件”在产品层表示由 Argus 管理的版本化 Collection Profile，不表示运行时下载任意 Collector 插件或向用户暴露任意 YAML。
 - 遥测身份来自 Ingest 认证和受信资源目录，固定为 `EnterpriseId + ResourceId + CollectorId`；客户端自报的同名字段必须被覆盖或拒绝，不保留 `ProjectId`。
-- Telemetry Query 必须强制企业、授权资源 ID、用户筛选条件、Signal、字段脱敏、时间范围和查询预算；Web、Model Agent 和 Card 复用同一安全投影。
+- Telemetry Query 必须强制企业、授权资源 ID、用户筛选条件、Signal、字段脱敏、时间范围和查询预算；Web、Model Agent 和模板 复用同一安全投影。
 
 ## 7. 部署、扩缩容与技术栈不变量
 
@@ -165,7 +165,7 @@ Direct Executor 默认允许用户私网和自定义端口，只拒绝 Argus/集
 
 - Production PostgreSQL Operator、同步复制、PITR 和故障恢复目标。
 - Kafka 与 ClickHouse 的容量档位、分片键和写入吞吐基准。
-- Card 独立 Origin 已定为 `cards.<parent-domain>` 约定并经运行时配置注入（见 7.5）；剩余浏览器兼容策略细节。
+- Template Origin 使用 `templates.<parent-domain>`，经运行时配置注入；正式验收限桌面 Web。
 - 标签过滤条件的第一版精确语法、复杂度上限和索引策略。
 - Remote Access Gateway 的协议库、录像格式和强制终止实现。
 - SBOM、签名、镜像扫描和离线制品的交付工具链。

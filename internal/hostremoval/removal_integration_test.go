@@ -42,8 +42,8 @@ func TestRemovalIntegration(t *testing.T) {
 	}
 	ctx := context.Background()
 	pg := "argus-removal-pg-" + uuid.NewString()[:8]
-	dockerTest(t, "run", "-d", "--name", pg, "-e", "POSTGRES_PASSWORD=removal-test-only", "-p", "127.0.0.1::5432", "postgres:18.6-alpine")
-	t.Cleanup(func() { dockerTest(t, "rm", "-f", pg) })
+	dockerTest(t, "run", "-d", "--label", "argus.io/test=host-removal", "--name", pg, "-e", "POSTGRES_PASSWORD=removal-test-only", "-p", "127.0.0.1::5432", "postgres:18.6-alpine")
+	t.Cleanup(func() { dockerTest(t, "rm", "-f", "-v", pg) })
 	address := strings.TrimSpace(dockerTest(t, "port", pg, "5432/tcp"))
 	var store *postgres.Store
 	var err error
@@ -190,7 +190,7 @@ func removalFixture(t *testing.T, store *postgres.Store, role string) (db.HostRe
 		plan.RelayHTTPSPort = 8445
 		plan.RelayGatewayPort = 9445
 	}
-	encoded, _ := json.Marshal(plan)
+	encoded, _ := canonicalPlan(plan)
 	digest := sha256.Sum256(encoded)
 	operation, err := store.Queries.CreateHostRemovalOperation(context.Background(), db.CreateHostRemovalOperationParams{ID: op, EnterpriseID: ent, PendingActionID: action, TargetType: role, HostID: host, BastionScopeID: scope, ConnectorID: connector, RemovalMode: "uninstall", DeliveryMethod: "manual", SshPath: "none", TargetPlatform: "linux_amd64", ControlPath: "direct", ResourceVersion: 1, ConnectorVersion: 1, ConnectionEpoch: 1, RemovalGeneration: 1, TrustBundleEpoch: 1, Plan: encoded, PlanHash: digest[:], Status: "awaiting_manual_execution", Stage: "awaiting_manual_execution", ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true}})
 	if err != nil {
@@ -250,8 +250,8 @@ func newRemovalTarget(t *testing.T, binary string, plan Plan) string {
 	if image == "" {
 		image = "argus-systemd-host"
 	}
-	dockerTest(t, "run", "-d", "--privileged", "--name", name, "--tmpfs", "/run", "--tmpfs", "/run/lock", "-p", "127.0.0.1::22", image)
-	t.Cleanup(func() { dockerTest(t, "rm", "-f", name) })
+	dockerTest(t, "run", "-d", "--privileged", "--label", "argus.io/test=host-removal", "--name", name, "--tmpfs", "/run", "--tmpfs", "/run/lock", "-p", "127.0.0.1::22", image)
+	t.Cleanup(func() { dockerTest(t, "rm", "-f", "-v", name) })
 	for i := 0; i < 40; i++ {
 		if exec.Command("docker", "exec", name, "systemctl", "is-active", "--quiet", "ssh").Run() == nil {
 			break

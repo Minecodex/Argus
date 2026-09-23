@@ -66,9 +66,7 @@ export function createApprovalsDomain(
         resourceType: "pending_action",
         resourceId: action.action_ref,
         summary: `${action.title} 已确认`,
-        origin: db.actionPlans[action.action_ref]?.conversation_id
-          ? "card_action"
-          : "admin_ui",
+        origin: "admin_ui",
       });
       if (action.approval?.required) {
         action.status = "awaiting_approval";

@@ -345,13 +345,25 @@ type ModelQuotaUpsertSubjectType string
 
 // ModelUsage defines model for ModelUsage.
 type ModelUsage struct {
-	Amount          float32            `json:"amount"`
-	CompactionCount int64              `json:"compaction_count"`
-	InputTokens     int64              `json:"input_tokens"`
-	ModelId         openapi_types.UUID `json:"model_id"`
-	Month           string             `json:"month"`
-	OutputTokens    int64              `json:"output_tokens"`
-	RequestCount    int64              `json:"request_count"`
+	// Amount Recorded quota amount including estimates when usage is incomplete.
+	Amount float32 `json:"amount"`
+
+	// CachedInputTokens Provider-reported cached subset of input tokens; never add it to the input total.
+	CachedInputTokens int64 `json:"cached_input_tokens"`
+
+	// CachedUsageComplete Every call supplied its cached-input breakdown; missing is not zero.
+	CachedUsageComplete   bool               `json:"cached_usage_complete"`
+	CompactionCount       int64              `json:"compaction_count"`
+	EstimatedInputTokens  int64              `json:"estimated_input_tokens"`
+	EstimatedOutputTokens int64              `json:"estimated_output_tokens"`
+	InputTokens           int64              `json:"input_tokens"`
+	ModelId               openapi_types.UUID `json:"model_id"`
+	Month                 string             `json:"month"`
+	OutputTokens          int64              `json:"output_tokens"`
+	RequestCount          int64              `json:"request_count"`
+
+	// UsageComplete All calls have complete provider-reported usage.
+	UsageComplete bool `json:"usage_complete"`
 }
 
 // PartialMetadata defines model for PartialMetadata.

@@ -9,7 +9,7 @@ import type { TaskEvent, TaskViewModel } from "../provisional";
 import { createApprovalsDomain } from "./approvals";
 import { createAuditDomain } from "./audit";
 import { createAuthDomain } from "./auth";
-import { createInteractiveCardsDomain } from "./interactive-cards";
+import { createPlanV5Domains } from "./planv5";
 import { createConnectorsDomain } from "./connectors";
 import type { AuditEntry, BaseContext, MockContext } from "./context";
 import { createConversationsDomain } from "./conversations";
@@ -344,7 +344,7 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
       },
     },
     models: createModelsDomain(ctx),
-    interactiveCards: createInteractiveCardsDomain(ctx),
+    ...createPlanV5Domains(ctx),
     org: createOrgDomain(ctx),
     secrets: secretsDomain,
     audit: createAuditDomain(ctx),

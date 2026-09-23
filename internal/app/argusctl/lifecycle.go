@@ -50,6 +50,9 @@ func (a *App) uninstall(ctx context.Context, cfg *InstallConfig, deleteCRDs bool
 				_ = clients.typed.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
 			}
 		}
+		if err := removeWorkspaceStorage(ctx, cfg, clients, helm); err != nil {
+			return err
+		}
 	}
 	if err := helm.uninstall(cfg.Spec.ReleaseID+"-foundation", "default"); err != nil {
 		_, _ = fmt.Fprintf(a.stderr, "warning: %v\n", err)

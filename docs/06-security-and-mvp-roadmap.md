@@ -7,7 +7,7 @@ Argus 同时连接模型、不可信用户输入、生成代码、基础设施�
 核心原则：
 
 - 权限由服务端统一判断。
-- Secret 不进入普通聊天、日志和 Card DOM。
+- Secret 不进入普通聊天、日志和 模板 DOM。
 - 人工确认必须对应不可篡改的预览内容。
 - 模型不能持有能够绕过确认的完整提交能力。
 - AI 生成代码必须同时经过静态检查和运行时隔离。
@@ -20,18 +20,18 @@ Argus 同时连接模型、不可信用户输入、生成代码、基础设施�
 | 威胁                                       | 控制                                                                                                                                                 |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 跨企业数据访问                             | enterprise_id 强制过滤、统一授权中心、服务端检查                                                                                                     |
-| 借标签或直接资源 ID 越权                   | 企业归属复核、受限标签过滤条件、explicit resource authorization、Query Service 强制 Resource Filter、统一 Tool/Card 数据裁剪                                                 |
+| 借标签或直接资源 ID 越权                   | 企业归属复核、受限标签过滤条件、explicit resource authorization、Query Service 强制 Resource Filter、统一 Tool/模板 数据裁剪                                                 |
 | 平台管理员借空企业上下文读取企业数据       | 平台/企业身份类型互斥、不同 Audience 和 API 域、平台账号不能加入企业                                                                                 |
 | Prompt injection 诱导越权 Tool             | Tool allowlist、策略中心、风险分级、模型与 Action Executor 权限隔离                                                                                  |
 | AI 绕过确认直接提交                        | 模型只看到 action_ref；`_meta.argus__token` 仅进入服务端 Pending Action Store；Commit Tool 不暴露给模型                                              |
 | 确认后修改参数                             | Token 绑定预览参数哈希；commit 从服务端恢复参数                                                                                                      |
 | Token 重放                                 | 短期、一次性、jti、幂等和消费状态                                                                                                                    |
 | 凭证泄漏给模型                             | Secret 表单、SecretRef、上下文投影和日志脱敏                                                                                                         |
-| 恶意 交互卡片                              | 静态扫描、独立来源 iframe、CSP、Bridge 白名单、资源限制                                                                                              |
-| 卡片伪造 Tool 数据来源                     | 使用 tool_call_id + path，服务端解析，禁止受限 Slot 使用 literal                                                                                     |
+| 恶意 Tool 模板                              | 静态扫描、独立来源 iframe、CSP、Bridge 白名单、资源限制                                                                                              |
+| 模板伪造 Tool 数据来源                     | 详情由自有 Tool Builder 生成，按 ToolCall/Hash/当前授权读取；模板只能打开宿主白名单引用                                                                                     |
 | Connector 被冒用                           | 一次性注册、mTLS、证书轮换、设备吊销和本地策略                                                                                                       |
 | Direct Executor 被用于 SSRF/内网扫描       | 固定出口、协议/端口白名单、DNS 前后校验、私网/元数据/内部地址拒绝和独立 Worker Pool                                                                  |
-| 远程会话票据泄漏或被 AI 使用               | 一次性短期票据绑定用户/浏览器/企业/Host/ManagedAccount/动作/explicit resource authorization/授权版本；AI、Card、Sandbox 不可获取；MFA/JIT/审批、录像与强制终止 |
+| 远程会话票据泄漏或被 AI 使用               | 一次性短期票据绑定用户/浏览器/企业/Host/ManagedAccount/动作/explicit resource authorization/授权版本；AI、模板、Sandbox 不可获取；MFA/JIT/审批、录像与强制终止 |
 | 功能权限被误当作 root/任意账号访问         | RoleBinding 只授予功能能力；explicit resource authorization 和 RemoteAccessGrant 独立限定 Host、ManagedAccount、协议、动作和有效期                                         |
 | 交互式 Shell 绕过 Tool 两阶段确认          | 明确划分人工堡垒会话与 AI Tool；人工会话使用独立权限、理由、审批、时长、剪贴板/文件策略、录像和命令审计                                              |
 | 后台任务借人工终端执行未审计命令           | RemoteAccessSession 与 Execution/ConnectorCommand 使用不同票据、API、队列和审计；安装配置只执行不可变计划和版本化模板，禁止向人工终端注入命令        |
@@ -70,20 +70,11 @@ stateDiagram-v2
 
 PendingAction、UserConfirmation、ApprovalRequest 和 Execution 分开保存。创建人确认不能自动满足职责分离审批，权限撤销、企业停用、资源版本或执行计划变化都会使未执行确认失效。
 
-## 4. 交互卡片 发布安全
+## 4. Tool 模板安全
 
-发布前至少执行：
+模板随自有 Tool 的代码版本一起发布，部署锁定实现 Revision。运行时校验内容 Hash，采用独立 Origin、opaque iframe、无网络 CSP、MessagePort nonce/序号和引用白名单。HTML 失败仅影响详情，宿主仍须取得有效权威 Preview 才能确认。
 
-1. Manifest 和 JSON Schema 校验。
-2. HTML/CSS/JavaScript AST 检查。
-3. 依赖锁定和供应链扫描。
-4. CSP 与权限计算。
-5. Demo 数据渲染。
-6. 运行时超时和资源测试。
-7. 对 enterprise/system 等级执行人工审核。
-8. 生成不可变版本和内容哈希。
-
-交互卡片 更新必须创建新版本，历史消息继续引用原版本或保存渲染快照，避免旧会话展示内容在不知情时变化。
+客户 MCP 工具和模板源码互相隔离；外接 MCP 不消费 UI 扩展。首期不开放模板编辑、市场或任意动态脚本发布。
 
 ## 5. 第一阶段：SaaS 和连接基座
 
@@ -138,16 +129,11 @@ M3 已于 2026-08-17 达到该完成标准。临时 Namespace E2E 同时验证�
 
 完成标准：用户能够通过自然语言添加、查询其 explicit resource authorization 范围内资源；模型可发现的 Tool 和可见数据不超过当前用户权限；所有写操作可预览、确认、审计且不能由模型绕过确认或通过审批补齐基础权限。
 
-## 8. 第四阶段：交互卡片
+## 8. PlanV5：工具与持久工作区
 
-- 交互卡片包格式，以及自定义卡片/内置卡片目录。
-- 企业超级管理员通过 `/` 命令创建企业自定义卡片，创建后默认禁用。
-- Slot Binding、Tool Output Schema Catalog、Action Slot 和 Render Plan。
-- 安全与场景验证、AI 自修复、启用门禁。
-- 独立 Origin 或严格沙箱 iframe、按卡片 CSP、版本化 Manifest、MessageChannel/MessagePort Host Bridge、自适应高度和真实 Demo 预览。
-- 内置卡片只读，普通用户只查看已启用企业卡片和内置卡片。
+自有三元网关、企业 Remote MCP、原生 Provider 消息、跨 Run 上下文、Tool 模板、宿主单次确认和每会话 Workspace 按 [PlanV5](./planv5/README.md) 实施。旧 Card 领域已从目标基线删除，无兼容运行路径。
 
-完成标准：同一 Tool Result 可以被不同 交互卡片 展示，一张 交互卡片 可以组合多个 Tool Result；用户点击 Action Slot 可在不经过模型的情况下安全调用第二阶段 Tool。
+门禁包括双 Provider、授权和版本变化、MCP 未知写结果、容量预检、离线网络、直接写满硬额度、实例交接与零双写、不可变文件下载及显式删除。完成状态以实施证据为准。
 
 ## 9. 第五阶段：人工远程访问（M6）
 
@@ -182,13 +168,13 @@ M3 已于 2026-08-17 达到该完成标准。临时 Namespace E2E 同时验证�
 - OpenSandbox 集成。
 - 日志分析和故障诊断。
 - 长任务、重试、暂停和恢复。
-- 企业级 交互卡片 发布和治理。
+- 企业级 Tool 模板 发布和治理。
 - 高危生产操作的增强审批。
 - ServiceAccount、Tool 与 explicit resource authorization 的受控后台执行、AuthorizationVersion 撤权和单管理员受控 Break Glass；当前版本不提供定时无人值守任务。
 
 完成标准：AI 能够在受控范围内完成“发现问题—获取证据—生成计划—用户批准—执行—验证”的完整闭环。
 
-第一版不把通用子 Agent 作为完成条件。Card Render 作为同一 Run 的受限声明式步骤；只有单 Agent Harness、上下文投影和恢复语义稳定后，才评估子 Agent、Agent 间消息和动态委派。
+第一版不把通用子 Agent 作为完成条件。Tool Presentation 由同包确定性代码生成；只有单 Agent Harness、上下文投影和恢复语义稳定后，才评估子 Agent、Agent 间消息和动态委派。
 
 ## 12. 第一版建议收敛
 
@@ -204,7 +190,7 @@ M3 已于 2026-08-17 达到该完成标准。临时 Namespace E2E 同时验证�
    - 所有变更 Tool 的 `.preview/.commit` 强制配对。
    - `_meta.argus__token` 安全分流、单次消费和不可见性测试。
    - PendingAction、Approval、Execution 和 ConnectorCommand 状态机。
-4. 交互卡片/Render Plan/Host Bridge。
+4. Tool 模板/Presentation/Host Bridge。
 5. Bastion Scope/Telemetry Route/Collector Identity/多租户遥测 Schema；独立 Telemetry Group 在基础链路稳定后引入。
 
 `AIModel` 的兼容实现、子 Agent 实现和前端视觉技术可以演进替换；上述五个协议一旦被业务大量依赖，修改成本会显著更高，应优先形成版本化规范和测试用例。
@@ -217,7 +203,7 @@ M3 已于 2026-08-17 达到该完成标准。临时 Namespace E2E 同时验证�
 
 1. 平台超级管理员能够创建企业、默认部门和初始企业管理员，但不能读取该企业 Host、Conversation、Telemetry、Secret 或审计正文。
 2. EnterpriseUser 不能登录或构造 Token 访问其他企业，也不存在企业切换入口。
-3. explicit resource authorization A 的用户不能通过列表、详情、批量 API、Tool、Card、游标、伪造标签过滤条件或直接资源 ID 获取范围外资源。
+3. explicit resource authorization A 的用户不能通过列表、详情、批量 API、Tool、模板、游标、伪造标签过滤条件或直接资源 ID 获取范围外资源。
 4. 仅有 Metrics 权限的用户不能查询 Logs、Traces、Live Tail、Export 或敏感字段；Model Agent 得到相同裁剪结果。
 5. `resource_operator` 没有 RemoteAccessGrant 时不能建立终端；Grant 只允许显式 Host 和 ManagedAccount，不能改为 root 或启用未授权文件能力。
 6. 生产 Tool 完成 Preview 后撤销 RoleBinding/explicit resource authorization 或递增 AuthorizationVersion，Commit 必须失败并要求重新 Preview；标签变化不触发失效。

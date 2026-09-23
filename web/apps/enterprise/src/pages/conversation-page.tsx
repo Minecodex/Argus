@@ -1,15 +1,24 @@
-import { useEffect, useState } from "react";
+import { ConversationWorkspace } from "../components/chat/conversation-workspace";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Check, Minimize2, PanelRight, Pencil, X } from "lucide-react";
+import {
+  Archive,
+  Check,
+  Minimize2,
+  PanelRight,
+  Pencil,
+  Trash2,
+  X,
+} from "lucide-react";
 import type { AIModel, ModelAvailability } from "@argus/api-client";
-import { useApi } from "@argus/api-client";
-import { Button, Input, Select } from "@argus/ui";
+import { formatApiError, useApi } from "@argus/api-client";
+import { Button, ConfirmDialog, Input, Select } from "@argus/ui";
 import { ChatComposer } from "../components/chat/composer";
 import { ChatContextPanel } from "../components/chat/context-panel";
 import { ChatMessageList } from "../components/chat/message-list";
-import { chatMessageFromPublic } from "../components/chat/chat-view-model";
+import { chatMessagesFromEvents } from "../components/chat/chat-view-model";
 import { useChatStream } from "../components/chat/use-chat-stream";
 import { useUiStore } from "../store/ui";
 import "../styles/chat.css";
@@ -72,6 +81,9 @@ function ConversationHeader({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
   const [archiving, setArchiving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const saveTitle = () => {
     const next = draft.trim();
@@ -160,6 +172,45 @@ function ConversationHeader({
           value={selectedModelId}
         />
         <Button
+          aria-label={t("planv5.files.deleteConversation")}
+          size="icon"
+          variant="ghost"
+          onClick={() => setDeleting(true)}
+        >
+          <Trash2 size={15} />
+        </Button>
+        <ConfirmDialog
+          open={deleting}
+          onOpenChange={setDeleting}
+          title={t("planv5.files.deleteConversation")}
+          description={t("planv5.files.deleteConversationConfirm")}
+          danger
+          loading={removing}
+          confirmLabel={t("planv5.files.deleteConversation")}
+          onConfirm={() => {
+            setRemoving(true);
+            setRemoveError(null);
+            void api.conversations
+              .remove(conversationId)
+              .then(async () => {
+                await queryClient.invalidateQueries({
+                  queryKey: ["conversations"],
+                });
+                void navigate({ to: "/", search: {} });
+              })
+              .catch((error) =>
+                setRemoveError(
+                  formatApiError(error, t("planv5.files.failed"), (requestId) =>
+                    t("common.requestReference", { requestId }),
+                  ),
+                ),
+              )
+              .finally(() => setRemoving(false));
+          }}
+        >
+          {removeError && <p role="alert">{removeError}</p>}
+        </ConfirmDialog>
+        <Button
           aria-label={t("chat.header.archive")}
           loading={archiving}
           onClick={archive}
@@ -220,11 +271,7 @@ export function ConversationPage() {
     queryFn: () => api.conversations.listEvents(conversationId ?? ""),
     enabled: Boolean(conversationId),
   });
-  const messages = (events ?? []).flatMap((event) => {
-    const payload = event.payload as Record<string, unknown>;
-    const message = chatMessageFromPublic(payload.message);
-    return message ? [message] : [];
-  });
+  const messages = chatMessagesFromEvents(events ?? []);
   const { data: models = [] } = useQuery({
     queryKey: ["models", "chat"],
     queryFn: () => api.models.list(),
@@ -242,7 +289,7 @@ export function ConversationPage() {
     window.localStorage.getItem("argus.lastModelId") ??
     availableModels[0]?.id;
 
-  // 会话推送事件（如 card_action_result，docs/04 §9）到达后刷新消息列表。
+  // 会话追加事件到达后刷新消息列表。
   useEffect(() => {
     if (!conversationId) return;
     return api.conversations.subscribe(conversationId, () => {
@@ -252,21 +299,26 @@ export function ConversationPage() {
     });
   }, [api, conversationId, queryClient]);
 
-  const handleSend = (text: string, mockIntent?: "interactive_card.create") => {
-    void (async () => {
-      let id = conversationId;
-      if (!id) {
-        // 欢迎空态下直接发送：先建会话（首条消息截断为标题）再跳转。
+  const creating = useRef<Promise<string> | null>(null);
+  const prepareConversation = async (title = "") => {
+    if (conversationId) return conversationId;
+    if (!creating.current)
+      creating.current = (async () => {
         const created = await api.conversations.create({
-          title: text.length > 30 ? `${text.slice(0, 30)}…` : text,
+          title: title.slice(0, 30) || t("chat.header.untitled"),
           selected_model_id: preferredModelId ?? "",
         });
         await queryClient.invalidateQueries({ queryKey: ["conversations"] });
         void navigate({ to: "/", search: { c: created.id } });
-        id = created.id;
-      }
-      await send(id, text, mockIntent);
-    })();
+        return created.id;
+      })().finally(() => {
+        creating.current = null;
+      });
+    return creating.current;
+  };
+  const handleSend = async (text: string, fileIds?: string[]) => {
+    const id = await prepareConversation(text);
+    return send(id, text, fileIds);
   };
 
   const changeModel = async (modelId: string) => {
@@ -298,6 +350,13 @@ export function ConversationPage() {
             title={title}
           />
         )}
+        {conversationId && (
+          <ConversationWorkspace
+            conversationId={conversationId}
+            selected={conversation?.selected_mcp_connection_ids ?? []}
+            disabled={sending}
+          />
+        )}
         {conversationId ? (
           <ChatMessageList
             messages={messages}
@@ -309,7 +368,7 @@ export function ConversationPage() {
         )}
         {error && (
           <div className="argus-chat-composer__note" role="alert">
-            {t("chat.error.sendFailed")}
+            {error}
           </div>
         )}
         {!error && stopReason && stopReason !== "completed" && (
@@ -344,6 +403,8 @@ export function ConversationPage() {
               ?.available
           }
           onSend={handleSend}
+          conversationId={conversationId}
+          prepareConversation={prepareConversation}
           onStop={stop}
           sending={sending}
         />

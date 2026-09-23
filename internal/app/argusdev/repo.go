@@ -45,7 +45,10 @@ func (a *App) runRepo(ctx context.Context, args []string) error {
 	case "migrate":
 		return a.runner.Run(ctx, nil, "go", "run", "./cmd/argus-migrate", "up")
 	case "sqlc":
-		return a.runner.Run(ctx, nil, "go", "tool", "sqlc", "generate")
+		if err := a.runner.Run(ctx, nil, "go", "tool", "sqlc", "generate"); err != nil {
+			return err
+		}
+		return a.runner.Run(ctx, nil, "go", "run", "./scripts/sqlc-split")
 	default:
 		return fmt.Errorf("%w: unsupported repo command %q", errUsage, args[0])
 	}

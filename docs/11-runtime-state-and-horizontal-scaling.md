@@ -22,7 +22,8 @@
 | RemoteAccessSession/票据消费事实 | PostgreSQL 加密记录或专用 Secret Store | 在线路由、短 TTL 票据/JTI 和状态通知 | 从会话状态恢复；原一次性票据不恢复，必要时重新授权 |
 | Remote Session Recording | Artifact Store + PostgreSQL 索引 | 不缓存正文 | 按 recording_ref 校验和读取；Gateway 本地临时分片必须上传后清理 |
 | 登录 Session/撤销列表 | PostgreSQL 保存身份和撤销事实 | 热 Session、速率限制 | 重新认证或从数据库加载 |
-| Tool Result/Card Instance | PostgreSQL/Artifact Store | 热数据缓存 | 按 result_ref/card_instance_id 读取 |
+| Tool Result/Presentation | PostgreSQL/私有对象存储 | 热数据缓存 | 按 result_ref/tool_call_id 和当前授权读取 |
+| Workspace | PostgreSQL 租约/fence + 每会话 RawFile PVC | 不作为写入者授权依据 | 撤销旧 Pod 后重新挂载；明确删除才回收文件 |
 | Telemetry 摄入配额 | PostgreSQL 保存配置和结算 | 分布式计数器和快速撤销 | 重新加载配置，允许短窗口保守限流 |
 
 ## 3. Redis 的正确使用
@@ -109,10 +110,13 @@ Worker 执行规则：
 4. 无外部副作用的计算 Step 可以在 Lease 过期后重新执行。
 5. 有外部副作用的 Step 必须先查询 Execution 或 ConnectorCommand；只有证明未执行时才能重试。
 6. Worker 关闭时停止领取新任务，尝试完成或释放安全可重试的任务。
+7. 同一 Run 的 Agent/Compaction 各自最多一个活动 Task，以 PostgreSQL 部分唯一索引兜底；重试耗尽的过期任务只能被领取来完成终态收敛，不再次执行业务。
+8. Agent 事件组事务锁定任务行并检查 owner/fence/有效期；模型与外接业务发送前再次检查。旧 Worker 恢复不能继续追加事件或发起调用。外接 MCP 的 initialize/tools-list 仍为 prepared，业务 HTTP 请求发送前才持久化 dispatched。
+9. 中断的模型调用与 Step 收敛为失败；可安全恢复的 ToolCall 完成后修复 Step 并继续。Hard Compaction 的 waiting_system 和任务创建在同一事务中；若先前 Soft Compaction 已解决容量，重新组装实际上下文后恢复，不能丢失唤醒。
 
 ## 6. Action Executor 和 Token
 
-Action Executor 是 `argus-server` 内部模块，所有副本都可以接收 Card Action。它不依赖接收 Preview 的原 Server 副本：
+Action Executor 是 `argus-server` 内部模块，所有副本都可以接收宿主确认。它不依赖接收 Preview 的原 Server 副本：
 
 ```mermaid
 flowchart LR
@@ -133,7 +137,7 @@ Action Binding 和 Pending Action 的唯一状态位于 PostgreSQL；Redis 只�
 可以横向扩展。
 
 - HTTP Session 使用签名 Cookie/Token 或 Redis 热 Session，撤销和身份事实持久化。
-- Conversation、Card Instance、Pending Action 和 Action Binding 不保存在 Pod 内存。
+- Conversation、ToolPresentation、Pending Action 和 Action Binding 不保存在 Pod 内存。
 - WebSocket/SSE 可以连接任意副本；事件通过 Redis Stream/PubSub 或从数据库增量读取。
 - Action Executor 使用数据库 CAS，因此不要求会话粘滞。
 - 缩容前停止接收新连接，并给流式连接设置重连游标。
@@ -227,7 +231,7 @@ M4 将普通 Worker 的职责拆为四个独立 Pool：`agent` 运行模型与�
 
 发布前至少验证：
 
-1. 任意删除一个 Server Pod，Card Action 不丢失且不会重复 Commit。
+1. 任意删除一个 Server Pod，宿主确认动作 不丢失且不会重复 Commit。
 2. Worker 在 Tool 成功后、写回前被杀死，系统能对账而不是盲目重试。
 3. Redis 清空后，Run、Pending Action 和 Connector Command 不丢失，Connector Registry 能重建。
 4. Connector Gateway Drain 时，新命令不会发往旧 connection_epoch。

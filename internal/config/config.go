@@ -16,6 +16,7 @@ const defaultHTTPAddress = ":8080"
 const defaultHealthAddress = ":8081"
 
 type Server struct {
+	ToolImplementationRevision    string
 	Address                       string
 	DatabaseURL                   string
 	RedisURL                      string
@@ -46,10 +47,6 @@ type Server struct {
 	DirectExecutorCABundle        string
 	SessionIdleTTL                time.Duration
 	SessionAbsoluteTTL            time.Duration
-	CardPresentationTTL           time.Duration
-	CardValidationTTL             time.Duration
-	CardRuntimeVersion            string
-	CardMaxPresentationBytes      int
 	RemoteOrigin                  string
 	RemoteUserLimit               int
 	RemoteHostLimit               int
@@ -97,6 +94,7 @@ func LoadServer() Server {
 	telemetryIssuerGeneration, _ := strconv.ParseInt(valueOrDefault("ARGUS_TELEMETRY_ISSUER_GENERATION", "1"), 10, 32)
 	telemetryEnabled, _ := strconv.ParseBool(valueOrDefault("ARGUS_TELEMETRY_TOOL_CATALOG_ENABLED", "true"))
 	return Server{
+		ToolImplementationRevision:    os.Getenv("ARGUS_TOOL_IMPLEMENTATION_REVISION"),
 		Address:                       address,
 		DatabaseURL:                   os.Getenv("ARGUS_DATABASE_URL"),
 		RedisURL:                      os.Getenv("ARGUS_REDIS_URL"),
@@ -127,10 +125,6 @@ func LoadServer() Server {
 		DirectExecutorCABundle:        valueOrDefault("ARGUS_DIRECT_EXECUTOR_CA_PATH", "/var/run/secrets/argus/trust/ca.crt"),
 		SessionIdleTTL:                30 * time.Minute,
 		SessionAbsoluteTTL:            12 * time.Hour,
-		CardPresentationTTL:           durationOrDefault("ARGUS_CARD_PRESENTATION_TTL", 10*time.Minute),
-		CardValidationTTL:             durationOrDefault("ARGUS_CARD_VALIDATION_TTL", 30*time.Minute),
-		CardRuntimeVersion:            valueOrDefault("ARGUS_CARD_RUNTIME_VERSION", "argus-card-runtime/v1"),
-		CardMaxPresentationBytes:      intOrDefault("ARGUS_CARD_MAX_PRESENTATION_BYTES", 1024*1024),
 		RemoteOrigin:                  os.Getenv("ARGUS_REMOTE_ORIGIN"),
 		RemoteUserLimit:               intOrDefault("ARGUS_REMOTE_USER_LIMIT", 3),
 		RemoteHostLimit:               intOrDefault("ARGUS_REMOTE_HOST_LIMIT", 5),
@@ -195,9 +189,6 @@ func (cfg Server) Validate() error {
 	}
 	if cfg.DirectExecutorEndpoint == "" || cfg.DirectExecutorServerName == "" || cfg.DirectExecutorTLSCert == "" || cfg.DirectExecutorTLSKey == "" || cfg.DirectExecutorCABundle == "" {
 		return errors.New("Direct Executor endpoint and mTLS configuration are required")
-	}
-	if cfg.CardPresentationTTL <= 0 || cfg.CardPresentationTTL > time.Hour || cfg.CardValidationTTL <= 0 || cfg.CardValidationTTL > 24*time.Hour || cfg.CardRuntimeVersion == "" || cfg.CardMaxPresentationBytes <= 0 || cfg.CardMaxPresentationBytes > 1024*1024 {
-		return errors.New("Card presentation, validation, runtime, and size configuration is invalid")
 	}
 	if cfg.RemoteOrigin == "" || cfg.RemoteUserLimit < 1 || cfg.RemoteHostLimit < 1 || cfg.RemoteEnterpriseLimit < 1 {
 		return errors.New("remote access Origin and capacity limits are required")

@@ -1,328 +1,305 @@
-import { useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUp,
   AtSign,
   Cable,
-  FilePlus2,
   FileText,
   Paperclip,
   Server,
   Square,
   X,
 } from "lucide-react";
-import { useApi } from "@argus/api-client";
+import { useApi, formatApiError, type WorkspaceFile } from "@argus/api-client";
 import { Button, Tooltip } from "@argus/ui";
-import { usePermission } from "../../lib/permissions";
 
-const mockMode = import.meta.env.VITE_API_MODE === "mock";
-
-type MentionChip = { kind: "host" | "connector"; id: string; label: string };
-type PickerState = {
-  kind: "mention" | "command";
-  start: number;
-  end: number;
-  query: string;
-};
-type PickerItem = {
-  id: string;
-  label: string;
-  detail?: string;
-  kind: "host" | "connector" | "command";
-};
-
-function detectTrigger(value: string, caret: number) {
-  const match = /(?:^|[\s\n])([@/])([^\s@/]*)$/.exec(value.slice(0, caret));
-  if (!match) return null;
-  const token = match[2] ?? "";
-  return {
-    trigger: match[1] ?? "@",
-    start: caret - token.length - 1,
-    end: caret,
-    query: token,
-  };
-}
-
+type Mention = { kind: "host" | "connector"; id: string; label: string };
 export function ChatComposer({
   sending,
   disabled,
   onSend,
   onStop,
+  conversationId,
+  prepareConversation,
 }: {
   sending: boolean;
   disabled?: boolean;
-  onSend: (text: string, mockIntent?: "interactive_card.create") => void;
-  onStop: () => void;
+  conversationId?: string;
+  onSend(text: string, fileIds?: string[]): Promise<boolean>;
+  onStop(): void;
+  prepareConversation(): Promise<string>;
 }) {
   const { t } = useTranslation();
   const api = useApi();
-  const canCreateCard = usePermission("interactive_card.create");
+  const queries = useQueryClient();
   const [text, setText] = useState("");
-  const [mentions, setMentions] = useState<MentionChip[]>([]);
-  const [files, setFiles] = useState<string[]>([]);
-  const [picker, setPicker] = useState<PickerState | null>(null);
-  const [mockIntent, setMockIntent] = useState<"interactive_card.create">();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mentions, setMentions] = useState<Mention[]>([]);
+  const [files, setFiles] = useState<WorkspaceFile[]>([]);
+  const [picker, setPicker] = useState<{
+    start: number;
+    end: number;
+    query: string;
+  } | null>(null);
+  const [upload, setUpload] = useState<{
+    name: string;
+    percent: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const activeUpload = useRef<AbortController | null>(null);
+  const previousConversation = useRef(conversationId);
+  useEffect(() => {
+    if (
+      previousConversation.current &&
+      previousConversation.current !== conversationId
+    ) {
+      activeUpload.current?.abort();
+      setFiles([]);
+      setText("");
+      setMentions([]);
+    }
+    previousConversation.current = conversationId;
+  }, [conversationId]);
+  useEffect(() => () => activeUpload.current?.abort(), []);
   const hosts = useQuery({
     queryKey: ["hosts", "picker"],
     queryFn: () => api.hosts.list(),
-    enabled: picker?.kind === "mention",
+    enabled: !!picker,
   });
   const connectors = useQuery({
     queryKey: ["connectors", "picker"],
     queryFn: () => api.connectors.list(),
-    enabled: picker?.kind === "mention",
+    enabled: !!picker,
   });
-
-  const pickerItems: PickerItem[] = (() => {
-    if (!picker) return [];
-    const match = (label: string) =>
-      label.toLowerCase().includes(picker.query.toLowerCase());
-    if (picker.kind === "command") {
-      const label = t("chat.composer.createInteractiveCard");
-      return mockMode && canCreateCard && match(label)
-        ? [
-            {
-              id: "interactive_card.create",
-              label,
-              detail: t("chat.composer.createInteractiveCardHint"),
-              kind: "command" as const,
-            },
-          ]
-        : [];
-    }
-    return [
-      ...(connectors.data?.items ?? [])
-        .filter((item) => match(item.name))
-        .map((item) => ({
-          id: `connector:${item.id}`,
-          label: item.name,
-          detail: item.status,
-          kind: "connector" as const,
-        })),
-      ...(hosts.data?.items ?? [])
-        .filter((item) => match(item.name))
-        .map((item) => ({
-          id: `host:${item.id}`,
-          label: item.name,
-          detail: item.hostname,
-          kind: "host" as const,
-        })),
-    ];
-  })();
-
-  const autosize = () => {
-    const element = textareaRef.current;
-    if (!element) return;
-    element.style.height = "auto";
-    element.style.height = `${Math.min(element.scrollHeight, 168)}px`;
-  };
+  const items: Mention[] = [
+    ...(hosts.data?.items ?? []).map((item) => ({
+      kind: "host" as const,
+      id: item.id,
+      label: item.name,
+    })),
+    ...(connectors.data?.items ?? []).map((item) => ({
+      kind: "connector" as const,
+      id: item.id,
+      label: item.name,
+    })),
+  ].filter((item) =>
+    item.label.toLowerCase().includes(picker?.query.toLowerCase() ?? ""),
+  );
   const updateText = (value: string, caret: number) => {
     setText(value);
-    const trigger = detectTrigger(value, caret);
-    if (
-      !trigger ||
-      (trigger.trigger === "/" && (!mockMode || !canCreateCard))
-    ) {
-      setPicker(null);
-      return;
-    }
-    setPicker({
-      kind: trigger.trigger === "@" ? "mention" : "command",
-      start: trigger.start,
-      end: trigger.end,
-      query: trigger.query,
-    });
+    const match = /(?:^|\s)@([^\s@]*)$/.exec(value.slice(0, caret));
+    setPicker(
+      match
+        ? { start: caret - match[1]!.length - 1, end: caret, query: match[1]! }
+        : null,
+    );
   };
-  const selectItem = (item: PickerItem) => {
+  const choose = (item: Mention) => {
     if (!picker) return;
-    if (item.kind === "command") {
-      setMockIntent("interactive_card.create");
-      setText(text.slice(0, picker.start) + text.slice(picker.end));
-      setPicker(null);
-      requestAnimationFrame(() => textareaRef.current?.focus());
-      return;
-    }
-    const [, id] = item.id.split(":");
-    const kind = item.kind === "host" ? "host" : "connector";
     setMentions((current) =>
-      current.some((entry) => entry.id === item.id)
-        ? current
-        : [...current, { kind, id: id ?? item.id, label: item.label }],
+      current.some((x) => x.id === item.id) ? current : [...current, item],
     );
     setText(text.slice(0, picker.start) + text.slice(picker.end));
     setPicker(null);
-    requestAnimationFrame(() => textareaRef.current?.focus());
+    area.current?.focus();
   };
-  const submit = () => {
-    const value = text.trim();
-    if (!value || sending || disabled) return;
-    onSend(value, mockIntent);
-    setText("");
-    setMentions([]);
-    setFiles([]);
-    setMockIntent(undefined);
-    setPicker(null);
-    requestAnimationFrame(autosize);
-  };
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (picker && event.key === "Enter" && pickerItems[0]) {
-      event.preventDefault();
-      selectItem(pickerItems[0]);
-      return;
+  const submit = async () => {
+    if (!text.trim() || sending || disabled || submitting || upload) return;
+    setSubmitting(true);
+    setError(null);
+    const value = [
+      text.trim(),
+      ...mentions.map((item) => `@${item.label} (${item.kind}:${item.id})`),
+    ].join("\n");
+    try {
+      if (
+        await onSend(
+          value,
+          files.map((file) => file.id),
+        )
+      ) {
+        setText("");
+        setMentions([]);
+        setFiles([]);
+        setPicker(null);
+      }
+    } catch (error) {
+      setError(
+        formatApiError(error, t("planv5.sendFailed"), (requestId) =>
+          t("common.requestReference", { requestId }),
+        ),
+      );
+    } finally {
+      setSubmitting(false);
     }
+  };
+  const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Escape") setPicker(null);
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
       event.preventDefault();
-      submit();
+      if (picker && items[0]) choose(items[0]);
+      else void submit();
     }
   };
-  const insertTrigger = (trigger: "@" | "/") => {
-    if (trigger === "/" && (!mockMode || !canCreateCard)) return;
-    const caret = textareaRef.current?.selectionStart ?? text.length;
-    const next = `${text.slice(0, caret)}${trigger}${text.slice(caret)}`;
-    updateText(next, caret + 1);
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(caret + 1, caret + 1);
-    });
-  };
-  const pickFiles = (event: ChangeEvent<HTMLInputElement>) => {
-    setFiles((current) => [
-      ...current,
-      ...Array.from(event.target.files ?? []).map((file) => file.name),
-    ]);
+  const pickFiles = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files ?? []);
     event.target.value = "";
+    if (!selected.length) return;
+    const controller = new AbortController();
+    activeUpload.current = controller;
+    setError(null);
+    try {
+      const id = await prepareConversation();
+      for (const file of selected) {
+        setUpload({ name: file.name, percent: 0 });
+        const stored = await api.workspace.upload(
+          id,
+          file,
+          (percent) => setUpload({ name: file.name, percent }),
+          controller.signal,
+        );
+        setFiles((current) => [...current, stored]);
+      }
+      await queries.invalidateQueries({ queryKey: ["workspace-files", id] });
+      await queries.invalidateQueries({ queryKey: ["workspace", id] });
+    } catch (error) {
+      if (!controller.signal.aborted)
+        setError(
+          formatApiError(error, t("planv5.files.failed"), (requestId) =>
+            t("common.requestReference", { requestId }),
+          ),
+        );
+    } finally {
+      setUpload(null);
+      activeUpload.current = null;
+    }
   };
-
   return (
     <div className="argus-chat-composer">
       <div className="argus-chat-composer__inner">
-        {(mentions.length > 0 || files.length > 0 || mockIntent) && (
-          <div className="argus-chat-composer__chips">
-            {mockIntent && (
-              <span className="argus-chat-chip">
-                <FilePlus2 size={12} />/
-                {t("chat.composer.createInteractiveCard")}
-                <button
-                  aria-label={t("chat.composer.removeCommand")}
-                  onClick={() => setMockIntent(undefined)}
-                  type="button"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            )}
-            {mentions.map((chip) => (
-              <span className="argus-chat-chip" key={chip.id}>
-                {chip.kind === "host" ? (
-                  <Server size={12} />
-                ) : (
-                  <Cable size={12} />
-                )}
-                {chip.label}
-                <button
-                  aria-label={`remove ${chip.label}`}
-                  onClick={() =>
-                    setMentions((current) =>
-                      current.filter((entry) => entry.id !== chip.id),
-                    )
-                  }
-                  type="button"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            ))}
-            {files.map((name, index) => (
-              <span className="argus-chat-chip" key={`${name}-${index}`}>
-                <FileText size={12} />
-                {name}
-                <button
-                  aria-label={`remove ${name}`}
-                  onClick={() =>
-                    setFiles((current) =>
-                      current.filter((_, item) => item !== index),
-                    )
-                  }
-                  type="button"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        <div className="argus-chat-composer__chips">
+          {mentions.map((item) => (
+            <span className="argus-chat-chip" key={item.id}>
+              {item.kind === "host" ? (
+                <Server size={12} />
+              ) : (
+                <Cable size={12} />
+              )}{" "}
+              {item.label}
+              <button
+                type="button"
+                aria-label={t("planv5.files.remove")}
+                onClick={() =>
+                  setMentions((current) =>
+                    current.filter((x) => x.id !== item.id),
+                  )
+                }
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          {files.map((file) => (
+            <span className="argus-chat-chip" key={file.id}>
+              <FileText size={12} />
+              {file.name}
+              <button
+                type="button"
+                aria-label={t("planv5.files.remove")}
+                disabled={sending}
+                onClick={() =>
+                  setFiles((current) => current.filter((x) => x.id !== file.id))
+                }
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          {upload && (
+            <span role="status">
+              {upload.name} ·{" "}
+              {t("planv5.files.uploading", { percent: upload.percent })}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => activeUpload.current?.abort()}
+              >
+                {t("planv5.files.cancel")}
+              </Button>
+            </span>
+          )}
+        </div>
+        {error && <p role="alert">{error}</p>}
         <div className="argus-chat-composer__box">
           {picker && (
-            <div className="argus-chat-picker" role="listbox">
-              <div className="argus-chat-picker__title">
-                {picker.kind === "mention"
-                  ? t("chat.composer.mentionTitle")
-                  : t("chat.composer.commandTitle")}
-              </div>
+            <div
+              className="argus-chat-picker"
+              role="listbox"
+              aria-label={t("chat.composer.mentionTitle")}
+            >
               <div className="argus-chat-picker__list">
-                {pickerItems.length === 0 ? (
-                  <div className="argus-chat-picker__empty">
-                    {t("chat.composer.noMatch")}
-                  </div>
-                ) : (
-                  pickerItems.map((item) => (
+                {items.length ? (
+                  items.map((item) => (
                     <button
                       className="argus-chat-picker__item"
-                      key={item.id}
-                      onClick={() => selectItem(item)}
                       role="option"
+                      aria-selected="false"
                       type="button"
+                      key={item.id}
+                      onClick={() => choose(item)}
                     >
-                      {item.kind === "command" ? (
-                        <FilePlus2 size={14} />
-                      ) : item.kind === "host" ? (
-                        <Server size={14} />
-                      ) : (
-                        <Cable size={14} />
-                      )}
                       {item.label}
-                      <small>{item.detail}</small>
                     </button>
                   ))
+                ) : (
+                  <p>{t("chat.composer.noMatch")}</p>
                 )}
               </div>
             </div>
           )}
           <textarea
+            ref={area}
             aria-label={t("chat.composer.send")}
-            disabled={disabled}
-            onChange={(event) => {
-              updateText(event.target.value, event.target.selectionStart ?? 0);
-              autosize();
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              disabled
-                ? t("chat.composer.noModel")
-                : t("chat.composer.placeholder")
-            }
-            ref={textareaRef}
-            rows={2}
             value={text}
+            disabled={disabled || sending}
+            rows={2}
+            placeholder={t(
+              disabled ? "chat.composer.noModel" : "chat.composer.placeholder",
+            )}
+            onKeyDown={keyDown}
+            onChange={(event) =>
+              updateText(event.target.value, event.target.selectionStart)
+            }
           />
           <div className="argus-chat-composer__toolbar">
             <input
               hidden
-              multiple
-              onChange={pickFiles}
-              ref={fileInputRef}
               type="file"
+              disabled={(!conversationId && disabled) || sending || !!upload}
+              multiple
+              ref={fileInput}
+              onChange={(event) => void pickFiles(event)}
             />
-            <Tooltip content={t("chat.composer.attach")}>
+            <Tooltip content={t("planv5.files.attach")}>
               <Button
-                aria-label={t("chat.composer.attach")}
-                onClick={() => fileInputRef.current?.click()}
-                size="icon"
+                aria-label={t("planv5.files.attach")}
                 variant="ghost"
+                size="icon"
+                disabled={(!conversationId && disabled) || sending || !!upload}
+                onClick={() => fileInput.current?.click()}
               >
                 <Paperclip size={15} />
               </Button>
@@ -330,25 +307,17 @@ export function ChatComposer({
             <Tooltip content={t("chat.composer.mention")}>
               <Button
                 aria-label={t("chat.composer.mention")}
-                onClick={() => insertTrigger("@")}
-                size="icon"
                 variant="ghost"
+                size="icon"
+                disabled={disabled || sending}
+                onClick={() => {
+                  updateText(text + "@", text.length + 1);
+                  area.current?.focus();
+                }}
               >
                 <AtSign size={15} />
               </Button>
             </Tooltip>
-            {mockMode && canCreateCard && (
-              <Tooltip content={t("chat.composer.createInteractiveCard")}>
-                <Button
-                  aria-label={t("chat.composer.createInteractiveCard")}
-                  onClick={() => insertTrigger("/")}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <FilePlus2 size={15} />
-                </Button>
-              </Tooltip>
-            )}
             <span>{t("chat.composer.hint")}</span>
             {sending ? (
               <Button
@@ -362,10 +331,9 @@ export function ChatComposer({
             ) : (
               <Button
                 aria-label={t("chat.composer.send")}
-                disabled={disabled || !text.trim()}
-                onClick={submit}
+                onClick={() => void submit()}
+                disabled={disabled || !text.trim() || submitting || !!upload}
                 size="icon"
-                variant="primary"
               >
                 <ArrowUp size={16} />
               </Button>

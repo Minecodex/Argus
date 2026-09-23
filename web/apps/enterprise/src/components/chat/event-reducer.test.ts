@@ -22,6 +22,19 @@ function event(
 }
 
 describe("conversation event reducer", () => {
+  it.each([
+    "user_cancelled",
+    "pending_action_cancelled",
+    "request_cancelled",
+    "workspace_deleted",
+    "conversation_deleted",
+  ])("projects %s as a cancelled Run", (reason) => {
+    const result = reduceAgentEvent(
+      initialConversationProjection,
+      event(1, "run_completed", { stop_reason: reason }),
+    );
+    expect(result.stop_reason).toBe("cancelled");
+  });
   it("merges ordered deltas and rejects duplicate or out-of-order events", () => {
     const first = reduceAgentEvent(
       initialConversationProjection,

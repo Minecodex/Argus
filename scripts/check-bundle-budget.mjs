@@ -6,7 +6,7 @@ const kib = 1024;
 const apps = {
   platform: 1024 * kib,
   enterprise: 1024 * kib,
-  "card-runtime": 650 * kib,
+  "template-runtime": 650 * kib,
 };
 const maxChunk = 500 * kib;
 const failures = [];

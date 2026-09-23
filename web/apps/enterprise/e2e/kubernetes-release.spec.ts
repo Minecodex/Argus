@@ -1,4 +1,4 @@
-import { enterpriseOrigin, platformOrigin, cardOrigin } from "./origins";
+import { enterpriseOrigin, platformOrigin, templateOrigin } from "./origins";
 import { expect, test } from "@playwright/test";
 
 test.skip(
@@ -18,7 +18,7 @@ test("all Web origins serve deep links after refresh", async ({ page }) => {
     { url: `${enterpriseOrigin}/hosts`, root: "#root", populated: true },
     { url: `${platformOrigin}/sandbox`, root: "#root", populated: true },
     {
-      url: `${cardOrigin}/runtime`,
+      url: `${templateOrigin}/runtime`,
       root: "#card-root",
       populated: false,
     },

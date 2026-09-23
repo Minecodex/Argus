@@ -18,7 +18,7 @@
 → 从 Host/Kubernetes 详情页通过绑定快速进入
 ~~~
 
-实现边界：Dashboard、查询执行、权限、资源绑定和审计由同一套后端领域服务提供。Enterprise Web、Card Host 和后续 AI Inspect 都只能调用该服务，不能自行拼接查询或复制保存逻辑。
+实现边界：Dashboard、查询执行、权限、资源绑定和审计由同一套后端领域服务提供。Enterprise Web、调用展示数据的业务宿主 和后续 AI Inspect 都只能调用该服务，不能自行拼接查询或复制保存逻辑。
 
 ## 2. 依赖与非目标
 
@@ -199,7 +199,7 @@ T1.1 契约
 
 - 用户可以通过后台创建并发布一个包含三种信号的真实 Dashboard。
 - 用户可以逐个添加 Panel、修改查询、变量和布局，并通过统一运行时查看结果。
-- UI、Card Host 和后续 AI Inspect 通过同一个 ExecuteDashboard 获得一致的权限裁剪、预算和结果语义。
+- UI、调用展示数据的业务宿主 和后续 AI Inspect 通过同一个 ExecuteDashboard 获得一致的权限裁剪、预算和结果语义。
 - 从 Host/Kubernetes 详情页打开时，查询范围正确带入当前资源上下文。
 - 未验证查询、越权资源、stale Binding、重复提交和 partial 结果均有明确状态。
 - 所有写操作可审计、可恢复，页面不暴露私有 PendingAction 参数。
@@ -208,3 +208,5 @@ T1.1 契约
 
 对应主计划：P2V-0、P2V-1、P2V-2、P2V-3，以及 P2V-5 中的 UI、Runtime、Binding 和通用发布测试。
 
+
+> PlanV5 展示边界：Dashboard 仍是独立持久业务对象。会话展示不再依赖模板 Catalog、Slot/Binding 或可执行 Card；使用 Tool 自有模板和宿主单次确认。模板 Bridge 不发起查询，Chat 内换时间或翻页由新用户消息产生新 ToolCall。

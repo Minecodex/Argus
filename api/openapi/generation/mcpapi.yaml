@@ -1,0 +1,41 @@
+{
+  "openapi": "3.1.0",
+  "info":
+    {
+      "title": "Argus mcpapi",
+      "version": "1.0.0",
+      "license":
+        { "name": "Proprietary", "identifier": "LicenseRef-Proprietary" },
+    },
+  "servers": [{ "url": "/api/v1" }],
+  "security": [{ "sessionCookie": [] }],
+  "paths":
+    {
+      "/enterprise/mcp-connections":
+        { "$ref": "../argus.yaml#/paths/~1enterprise~1mcp-connections" },
+      "/enterprise/mcp-connections/{id}":
+        { "$ref": "../argus.yaml#/paths/~1enterprise~1mcp-connections~1{id}" },
+      "/enterprise/mcp-connections/{id}/test":
+        {
+          "$ref": "../argus.yaml#/paths/~1enterprise~1mcp-connections~1{id}~1test",
+        },
+      "/enterprise/mcp-connections/{id}/state":
+        {
+          "$ref": "../argus.yaml#/paths/~1enterprise~1mcp-connections~1{id}~1state",
+        },
+      "/enterprise/mcp-connections/{id}/members":
+        {
+          "$ref": "../argus.yaml#/paths/~1enterprise~1mcp-connections~1{id}~1members",
+        },
+    },
+  "components":
+    {
+      "securitySchemes":
+        {
+          "sessionCookie":
+            {
+              "$ref": "../argus.yaml#/components/securitySchemes/sessionCookie",
+            },
+        },
+    },
+}

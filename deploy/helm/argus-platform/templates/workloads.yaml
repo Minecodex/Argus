@@ -81,6 +81,12 @@ spec:
                 name: argus-runtime-secrets
           {{- if or (eq $item.name "argus-server") $isWorker (eq $item.name "argus-direct-executor") (eq $item.name "argus-connector-gateway") }}
           volumeMounts:
+          {{- if and $root.Values.workspace.enabled (or (eq $item.name "argus-server") $isWorker) }}
+            - {name: workspace-client, mountPath: /var/run/argus/workspace-client, readOnly: true}
+          {{- if eq $item.name "argus-server" }}
+            - {name: workspace-admission, mountPath: /var/run/argus/workspace-admission, readOnly: true}
+          {{- end }}
+          {{- end }}
             - name: argus-trust
               mountPath: /var/run/secrets/argus/trust
               readOnly: true
@@ -203,6 +209,14 @@ spec:
         {{- end }}
       {{- if or (eq $item.name "argus-server") $isWorker (eq $item.name "argus-direct-executor") (eq $item.name "argus-connector-gateway") }}
       volumes:
+      {{- if and $root.Values.workspace.enabled (or (eq $item.name "argus-server") $isWorker) }}
+        - name: workspace-client
+          secret: {secretName: argus-workspace-client-tls}
+      {{- if eq $item.name "argus-server" }}
+        - name: workspace-admission
+          secret: {secretName: argus-workspace-admission-tls}
+      {{- end }}
+      {{- end }}
         - name: argus-trust
           configMap:
             name: {{ $root.Values.runtime.trustBundleConfigMapName }}

@@ -1,0 +1,29 @@
+{
+  "openapi": "3.1.0",
+  "info":
+    {
+      "title": "Argus presentationapi",
+      "version": "1.0.0",
+      "license":
+        { "name": "Proprietary", "identifier": "LicenseRef-Proprietary" },
+    },
+  "servers": [{ "url": "/api/v1" }],
+  "security": [{ "sessionCookie": [] }],
+  "paths":
+    {
+      "/conversations/{conversation_id}/tool-presentations/{tool_call_id}":
+        {
+          "$ref": "../argus.yaml#/paths/~1conversations~1{conversation_id}~1tool-presentations~1{tool_call_id}",
+        },
+    },
+  "components":
+    {
+      "securitySchemes":
+        {
+          "sessionCookie":
+            {
+              "$ref": "../argus.yaml#/components/securitySchemes/sessionCookie",
+            },
+        },
+    },
+}

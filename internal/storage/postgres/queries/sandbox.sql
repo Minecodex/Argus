@@ -71,10 +71,11 @@ SELECT * FROM sandbox_quotas WHERE enterprise_id = $1 FOR UPDATE;
 
 -- name: UpsertSandboxQuota :one
 INSERT INTO sandbox_quotas (enterprise_id, max_concurrent_sessions, monthly_session_seconds)
-VALUES ($1,$2,$3)
+SELECT $1,$2,$3
+WHERE sqlc.arg('expected_version')::bigint = 0 OR EXISTS (SELECT 1 FROM sandbox_quotas WHERE enterprise_id=$1 AND version=sqlc.arg('expected_version'))
 ON CONFLICT (enterprise_id) DO UPDATE SET max_concurrent_sessions = EXCLUDED.max_concurrent_sessions,
     monthly_session_seconds = EXCLUDED.monthly_session_seconds, version = sandbox_quotas.version + 1, updated_at = now()
-WHERE sandbox_quotas.version = $4 OR $4 = 0
+WHERE sandbox_quotas.version = sqlc.arg('expected_version')
 RETURNING *;
 
 -- name: CountActiveSandboxSessions :one
@@ -126,12 +127,12 @@ ORDER BY updated_at, id LIMIT $2;
 UPDATE sandbox_sessions SET status = $2,
     started_at = COALESCE(sqlc.narg('started_at'), started_at),
     terminated_at = COALESCE(sqlc.narg('terminated_at'), terminated_at), updated_at = now()
-WHERE id = $1 RETURNING *;
+WHERE id = $1 AND status NOT IN ('terminated','failed') RETURNING *;
 
 -- name: UpdateSandboxSessionExpiry :one
 UPDATE sandbox_sessions SET status = $2, expires_at = $3,
     started_at = COALESCE(sqlc.narg('started_at'), started_at), updated_at = now()
-WHERE id = $1 RETURNING *;
+WHERE id = $1 AND status NOT IN ('terminated','failed') RETURNING *;
 
 -- name: ListSandboxUsage :many
 SELECT * FROM sandbox_usage ORDER BY month DESC, enterprise_id LIMIT $1;

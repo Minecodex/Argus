@@ -2,6 +2,7 @@ releaseId: argus-e2e
 namespaces:
   system: argus-system
   sandbox: argus-sandbox
+  replay: argus-sandbox
   observability: argus-observability
 images:
   pullPolicy: Never

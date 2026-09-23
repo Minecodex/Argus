@@ -1,0 +1,10 @@
+<section><h3 id="title"></h3><div id="overview"></div></section>
+<script>
+ArgusTemplate.onData((data, context) => {
+  document.getElementById('title').textContent = context.locale === 'zh-CN' ? '可观测数据详情' : 'Observability details';
+  const root = document.getElementById('overview'); root.replaceChildren();
+  if (Array.isArray(data.items)) ArgusTemplate.table(root, data.items, ['name','status','resource_type','last_seen_at']);
+  else ArgusTemplate.details(root, data);
+  if (data.partial) ArgusTemplate.note(root, context.locale === 'zh-CN' ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
+});
+</script>

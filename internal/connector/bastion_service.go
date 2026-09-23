@@ -207,7 +207,7 @@ func (service BastionService) PreviewRetryInstall(ctx context.Context, subject r
 	}
 	plan := connectorInstallRetryPlan{SourceOperationID: operation.ID, ScopeID: scope.ID, ScopeVersion: scope.ResourceVersion,
 		HostID: operation.HostID, ConnectionTestID: operation.ConnectionTestID, InstallMode: operation.InstallMode}
-	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{
+	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{RunID: subject.RunID,
 		ActionType: "bastion.connector.install.retry", Title: "Retry Connector installation", Summary: "Retry Connector installation for " + scope.Name,
 		Risk: "write", ResourceType: "bastion_scope", ResourceID: uuid.NullUUID{UUID: scope.ID, Valid: true},
 		ExpectedResourceVersion: pgtype.Int8{Int64: scope.ResourceVersion, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,
@@ -290,7 +290,7 @@ func (service BastionService) PreviewCreate(ctx context.Context, subject resourc
 	if err := service.freezeDirectInstallPlan(ctx, service.Store.Queries, enterpriseID, &plan); err != nil {
 		return db.PendingAction{}, err
 	}
-	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{ActionType: "bastion_scope.create", Title: "Create bastion",
+	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{RunID: subject.RunID, ActionType: "bastion_scope.create", Title: "Create bastion",
 		Summary: "Create a stable Bastion Scope and one-time enrollment", Risk: "dangerous", ResourceType: "bastion_scope",
 		ResourceID: uuid.NullUUID{UUID: scopeID, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,
 		Preview: map[string]any{"scope_id": scopeID, "host_id": hostID, "name": input.Name},
@@ -335,7 +335,7 @@ func (service BastionService) PreviewReplacement(
 	if input.ConnectionTestID.Valid {
 		preview["connection_test_id"] = input.ConnectionTestID.UUID
 	}
-	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{
+	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{RunID: subject.RunID,
 		ActionType: "bastion.connector.replace", Title: "Replace bastion Connector", Summary: "Fence and replace Connector for " + current.Name,
 		Risk: "dangerous", ResourceType: "bastion_scope", ResourceID: uuid.NullUUID{UUID: scopeID, Valid: true},
 		ExpectedResourceVersion: pgtype.Int8{Int64: input.ExpectedVersion, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,
@@ -361,7 +361,7 @@ func (service BastionService) PreviewUpdate(ctx context.Context, subject resourc
 	}
 	snapshot := resource.NewResourceAuthorizationSnapshot("host", current.ConnectorHostID.UUID)
 	plan := bastionPlan{Operation: "update", ScopeID: scopeID, HostID: current.ConnectorHostID.UUID, Input: input}
-	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{ActionType: "bastion_scope.update", Title: "Update bastion",
+	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{RunID: subject.RunID, ActionType: "bastion_scope.update", Title: "Update bastion",
 		Summary: "Update Bastion Scope metadata", Risk: "write", ResourceType: "bastion_scope", ResourceID: uuid.NullUUID{UUID: scopeID, Valid: true},
 		ExpectedResourceVersion: pgtype.Int8{Int64: input.ExpectedVersion, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,
 		Preview: map[string]any{"scope_id": scopeID, "name": current.Name},
@@ -415,7 +415,7 @@ func (service BastionService) PreviewLifecycle(ctx context.Context, subject reso
 	} else if operation == "rotate" {
 		risk, verb, actionType = "write", "Rotate enrollment for", "bastion.enrollment.rotate"
 	}
-	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{ActionType: actionType, Title: verb + " bastion",
+	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{RunID: subject.RunID, ActionType: actionType, Title: verb + " bastion",
 		Summary: verb + " " + current.Name, Risk: risk, ResourceType: "bastion_scope", ResourceID: uuid.NullUUID{UUID: scopeID, Valid: true},
 		ExpectedResourceVersion: pgtype.Int8{Int64: expectedVersion, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,
 		Preview: map[string]any{"scope_id": scopeID, "name": current.Name, "member_count": current.MemberCount, "fencing_generation": current.FencingGeneration},
@@ -432,7 +432,7 @@ func (service BastionService) PreviewConnectorUninstall(ctx context.Context, sub
 	if err != nil {
 		return db.PendingAction{}, err
 	}
-	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{
+	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{RunID: subject.RunID,
 		ActionType: "connector.uninstall", Title: "Uninstall connector", Summary: "Remove the Connector identity and fence its managed route",
 		Risk: "dangerous", ResourceType: "connector", ResourceID: uuid.NullUUID{UUID: connector.ID, Valid: true},
 		ExpectedResourceVersion: pgtype.Int8{Int64: expectedVersion, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,

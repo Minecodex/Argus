@@ -809,6 +809,16 @@ function GovernanceView({
           </Badge>
         )}
       </div>
+      {data && !data.usageComplete && (
+        <Alert
+          tone="warning"
+          title={t("aiSettings.dashboard.usageIncompleteTitle")}
+          description={t("aiSettings.dashboard.usageIncomplete", {
+            input: data.estimatedInputTokens,
+            output: data.estimatedOutputTokens,
+          })}
+        />
+      )}
       <div className="argus-settings-stat-grid">
         <StatCard
           icon={<Activity size={16} />}
@@ -821,6 +831,15 @@ function GovernanceView({
           value={(
             (data?.totalInputTokens ?? 0) + (data?.totalOutputTokens ?? 0)
           ).toLocaleString()}
+        />
+        <StatCard
+          label={t("aiSettings.dashboard.cachedTokens")}
+          value={(data?.cachedInputTokens ?? 0).toLocaleString()}
+          detail={t(
+            data?.cachedUsageComplete
+              ? "aiSettings.dashboard.cachedIncluded"
+              : "aiSettings.dashboard.cachedPartial",
+          )}
         />
         <StatCard
           icon={<CircleDollarSign size={16} />}

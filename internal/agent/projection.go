@@ -7,17 +7,23 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kakj-go/Argus/internal/mcp"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 const (
 	maxProjectedItems = 50
-	maxProjectedLog   = 32 << 10
+	maxProjectedText  = 32 << 10
 )
 
-func encodeToolResultProjection(resultRef, toolCallID string, call pendingToolCall, full []byte, result mcp.Result) ([]byte, bool, error) {
-	clean, _ := sanitize(result.Structured).(map[string]any)
-	summary, refs, partial := projectStructuredResult(call.Name, clean)
+func encodeToolResultProjection(resultRef, toolCallID string, full []byte, result toolruntime.Result) ([]byte, bool, error) {
+	clean, _ := sanitize(result.Data).(map[string]any)
+	// Trusted Schema documents describe fields, including credential references;
+	// redacting property names would silently corrupt their validation contract.
+	if result.DataIsSchema {
+		encoded, _ := json.Marshal(result.Data)
+		_ = json.Unmarshal(encoded, &clean)
+	}
+	summary, refs, partial := projectStructuredResult(clean)
 	partial = partial || result.Partial
 	payload := map[string]any{
 		"schema_version":            "argus.tool_result_projection/v1",
@@ -54,19 +60,18 @@ func encodeToolResultProjection(resultRef, toolCallID string, call pendingToolCa
 	return encoded, true, nil
 }
 
-func projectStructuredResult(toolID string, clean map[string]any) (any, []any, bool) {
+func projectStructuredResult(clean map[string]any) (any, []any, bool) {
 	if clean == nil {
 		return map[string]any{}, []any{}, false
 	}
-	if toolID == "kubernetes.pod.logs" {
-		return projectPodLogs(clean)
-	}
+	clipped := false
+	clean = boundModelValue(clean, &clipped).(map[string]any)
 	items, ok := clean["items"].([]any)
 	if !ok {
-		return clean, resourceRefs(clean), false
+		return clean, resourceRefs(clean), clipped
 	}
 	visible := items
-	partial := false
+	partial := clipped
 	if len(visible) > maxProjectedItems {
 		visible = visible[:maxProjectedItems]
 		partial = true
@@ -89,22 +94,41 @@ func projectStructuredResult(toolID string, clean map[string]any) (any, []any, b
 	return summary, refs, partial
 }
 
-func projectPodLogs(clean map[string]any) (any, []any, bool) {
-	content, _ := clean["content"].(string)
-	partial, _ := clean["truncated"].(bool)
-	if len(content) > maxProjectedLog {
-		content = content[:maxProjectedLog]
-		partial = true
+func boundModelValue(value any, clipped *bool) any {
+	switch value := value.(type) {
+	case string:
+		if len(value) > maxProjectedText {
+			*clipped = true
+			return strings.ToValidUTF8(value[:maxProjectedText], "")
+		}
+		return value
+	case []any:
+		if len(value) > maxProjectedItems {
+			*clipped = true
+			value = value[:maxProjectedItems]
+		}
+		for i, item := range value {
+			value[i] = boundModelValue(item, clipped)
+		}
+		return value
+	case map[string]any:
+		for key, item := range value {
+			if key == "items" {
+				continue
+			}
+			value[key] = boundModelValue(item, clipped)
+		}
+		return value
+	default:
+		return value
 	}
-	summary := map[string]any{
-		"cluster_id": clean["cluster_id"], "namespace": clean["namespace"], "pod": clean["pod"], "container": clean["container"],
-		"content": content, "bytes": clean["bytes"], "truncated": partial, "projected_lines": strings.Count(content, "\n") + 1,
-	}
-	return summary, resourceRefs(clean), partial
 }
 
 func resourceRefs(value map[string]any) []any {
-	for _, key := range []string{"id", "host_id", "cluster_id", "connector_id", "action_ref"} {
+	for _, key := range sortedKeys(value) {
+		if key != "id" && !strings.HasSuffix(key, "_id") && !strings.HasSuffix(key, "_ref") {
+			continue
+		}
 		if ref, ok := value[key]; ok && fmt.Sprint(ref) != "" {
 			return []any{map[string]any{"kind": key, "ref": ref}}
 		}

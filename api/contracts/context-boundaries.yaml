@@ -18,7 +18,6 @@ legal_cut_after:
   - model_usage
   - tool_call_result
   - execution_update
-  - card_action_result
   - run_state_changed
   - context_compacted
 never_compact_active:

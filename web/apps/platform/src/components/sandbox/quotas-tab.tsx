@@ -2,18 +2,14 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApi } from "@argus/api-client";
-import { Button, DataTable, EmptyState, FormDrawer, RowAction, Spinner } from "@argus/ui";
+import { DataTable, EmptyState, RowAction, Spinner } from "@argus/ui";
 import { QuotaEditor } from "../quota-editor";
 
 type QuotaRow = {
   enterpriseId: string;
   enterpriseName: string;
-  allowedProfiles: string;
   maxConcurrentSessions: number;
-  maxDailySessionMinutes: number;
-  maxDailyCpuMinutes: number;
-  maxArtifactStorageMb: number;
-  artifactRetentionDays: number;
+  monthlySessionSeconds: number;
 };
 
 /** 企业配额 Tab：按企业聚合展示 Sandbox 配额，抽屉内编辑。 */
@@ -49,12 +45,8 @@ export function QuotasTab() {
       {
         enterpriseId: enterprise.id,
         enterpriseName: enterprise.name,
-        allowedProfiles: quota.allowedProfiles.join(", "),
         maxConcurrentSessions: quota.maxConcurrentSessions,
-        maxDailySessionMinutes: quota.maxDailySessionMinutes,
-        maxDailyCpuMinutes: quota.maxDailyCpuMinutes,
-        maxArtifactStorageMb: quota.maxArtifactStorageMb,
-        artifactRetentionDays: quota.artifactRetentionDays,
+        monthlySessionSeconds: quota.monthlySessionSeconds,
       },
     ];
   });
@@ -73,35 +65,13 @@ export function QuotasTab() {
               header: t("sandbox.quotas.table.enterprise"),
             },
             {
-              key: "allowedProfiles",
-              header: t("sandbox.quotas.table.allowedProfiles"),
-              render: (row) => (
-                <code className="argus-mono">{row.allowedProfiles}</code>
-              ),
-            },
-            {
               key: "maxConcurrentSessions",
               header: t("sandbox.quotas.table.concurrent"),
               align: "right",
             },
             {
-              key: "maxDailySessionMinutes",
-              header: t("sandbox.quotas.table.dailyMinutes"),
-              align: "right",
-            },
-            {
-              key: "maxDailyCpuMinutes",
-              header: t("sandbox.quotas.table.dailyCpu"),
-              align: "right",
-            },
-            {
-              key: "maxArtifactStorageMb",
-              header: t("sandbox.quotas.table.storage"),
-              align: "right",
-            },
-            {
-              key: "artifactRetentionDays",
-              header: t("sandbox.quotas.table.retention"),
+              key: "monthlySessionSeconds",
+              header: t("sandbox.quotas.table.monthlySeconds"),
               align: "right",
             },
             {
@@ -126,21 +96,13 @@ export function QuotasTab() {
         />
       )}
 
-      <FormDrawer
-        footer={
-          <Button onClick={() => setEditing(null)} variant="secondary">
-            {t("common.close")}
-          </Button>
-        }
-        onOpenChange={(open) => {
-          if (!open) setEditing(null);
-        }}
-        open={editing !== null}
-        title={`${t("sandbox.quotas.edit")} — ${editing?.name ?? ""}`}
-        width={560}
-      >
-        {editing && <QuotaEditor enterpriseId={editing.id} />}
-      </FormDrawer>
+      {editing && (
+        <QuotaEditor
+          enterpriseId={editing.id}
+          enterpriseName={editing.name}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

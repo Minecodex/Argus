@@ -1,4 +1,23 @@
 export interface paths {
+    "/conversations/{conversation_id}/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** preflightConversation. */
+        post: operations["preflightConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations": {
         parameters: {
             query?: never;
@@ -31,7 +50,8 @@ export interface paths {
         /** updateConversation. */
         put: operations["updateConversation"];
         post?: never;
-        delete?: never;
+        /** Permanently delete a conversation and schedule its owned file cleanup. */
+        delete: operations["deleteConversation"];
         options?: never;
         head?: never;
         patch?: never;
@@ -178,8 +198,9 @@ export interface components {
             title: string;
             /** Format: uuid */
             selected_model_id: string;
+            selected_mcp_connection_ids: string[];
             /** @enum {string} */
-            status: "active" | "archived";
+            status: "active" | "archived" | "deleted";
             /** Format: int64 */
             version: number;
             /** Format: date-time */
@@ -196,6 +217,7 @@ export interface components {
             title?: string;
             /** Format: uuid */
             selected_model_id?: string;
+            selected_mcp_connection_ids?: string[];
             /** @enum {string} */
             status?: "active" | "archived";
             /** Format: int64 */
@@ -207,13 +229,7 @@ export interface components {
         };
         MessageCreate: {
             content: string;
-            command?: {
-                /** @enum {string} */
-                type: "interactive_card.create" | "interactive_card.revise";
-                /** Format: uuid */
-                card_id?: string;
-                expected_revision?: number;
-            };
+            file_ids?: string[];
         };
         MessageAccepted: {
             event: components["schemas"]["ConversationEvent"];
@@ -236,6 +252,10 @@ export interface components {
             partial: boolean;
             projection: components["schemas"]["ToolResultProjection"];
         };
+        ConversationPreflightInput: {
+            content: string;
+            file_ids?: string[];
+        };
         RequestId: string;
         ApiError: {
             code: string;
@@ -248,6 +268,19 @@ export interface components {
             trace_id?: string;
             /** @default false */
             retryable: boolean;
+        };
+        ConversationPreflight: {
+            ready: boolean;
+            /** Format: uuid */
+            model_id: string;
+            tool_count: number;
+            estimated_tokens: number;
+            usable_tokens: number;
+            tool_schema_tokens: number;
+            snapshot_hash: string;
+            /** @enum {string} */
+            sandbox_status: "ready" | "not_configured" | "unhealthy" | "profile_unavailable" | "quota_unavailable";
+            error_code?: string;
         };
         PartialMetadata: {
             partial: boolean;
@@ -271,7 +304,7 @@ export interface components {
             run_id?: string;
             step_id?: string;
             /** @enum {unknown} */
-            event_type: "user_message" | "assistant_message" | "model_usage" | "tool_call_requested" | "tool_call_started" | "tool_call_result" | "pending_action_created" | "user_confirmation" | "approval_update" | "execution_update" | "card_draft_created" | "card_instance_created" | "card_presentation_invalidated" | "card_action_result" | "run_state_changed" | "context_compacted";
+            event_type: "user_message" | "assistant_message" | "model_usage" | "tool_call_requested" | "tool_call_started" | "tool_call_result" | "pending_action_created" | "user_confirmation" | "approval_update" | "execution_update" | "run_state_changed" | "context_compacted" | "tool_presentation" | "workspace_file_added" | "artifact_published";
             /** @enum {unknown} */
             actor_type?: "user" | "model" | "service" | "worker" | "system";
             actor_id?: string;
@@ -382,8 +415,17 @@ export interface components {
         } & (unknown & unknown);
     };
     responses: {
-        /** @description Stable Argus API error. */
+        /** @description Stable Argus error. */
         Error: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Stable Argus API error. */
+        "responses-Error": {
             headers: {
                 [name: string]: unknown;
             };
@@ -393,10 +435,10 @@ export interface components {
         };
     };
     parameters: {
+        CsrfToken: string;
         Cursor: string;
         Limit: number;
         IdempotencyKey: components["schemas"]["IdempotencyKey"];
-        CsrfToken: string;
         RequestId: components["schemas"]["RequestId"];
     };
     requestBodies: never;
@@ -405,6 +447,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    preflightConversation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationPreflightInput"];
+            };
+        };
+        responses: {
+            /** @description Operation result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationPreflight"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listConversations: {
         parameters: {
             query?: {
@@ -426,7 +497,7 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationPage"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
         };
     };
     createConversation: {
@@ -454,7 +525,7 @@ export interface operations {
                     "application/json": components["schemas"]["Conversation"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
         };
     };
     getConversation: {
@@ -477,7 +548,7 @@ export interface operations {
                     "application/json": components["schemas"]["Conversation"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
         };
     };
     updateConversation: {
@@ -506,7 +577,33 @@ export interface operations {
                     "application/json": components["schemas"]["Conversation"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
+        };
+    };
+    deleteConversation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deletion accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            default: components["responses"]["responses-Error"];
         };
     };
     createConversationMessage: {
@@ -536,7 +633,7 @@ export interface operations {
                     "application/json": components["schemas"]["MessageAccepted"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
         };
     };
     listConversationEvents: {
@@ -562,7 +659,7 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationEventPage"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
         };
     };
     getRun: {
@@ -585,7 +682,7 @@ export interface operations {
                     "application/json": components["schemas"]["Run"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
         };
     };
     cancelRun: {
@@ -611,7 +708,7 @@ export interface operations {
                     "application/json": components["schemas"]["RunCommandResult"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
         };
     };
     compactRun: {
@@ -637,7 +734,7 @@ export interface operations {
                     "application/json": components["schemas"]["RunCommandResult"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
         };
     };
     getToolResult: {
@@ -660,7 +757,7 @@ export interface operations {
                     "application/json": components["schemas"]["ToolResult"];
                 };
             };
-            default: components["responses"]["Error"];
+            default: components["responses"]["responses-Error"];
         };
     };
     streamConversationEvents: {

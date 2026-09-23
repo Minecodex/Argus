@@ -29,3 +29,10 @@ export * from "./terminal";
 export * from "./terminal-player";
 export * from "./theme";
 export * from "./wizard";
+
+export { ToolPresentationFrame } from "./template/frame";
+export type {
+  TemplatePresentation,
+  TemplateResource,
+  TemplateContext,
+} from "./template/protocol";

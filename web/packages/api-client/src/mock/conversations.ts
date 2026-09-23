@@ -38,9 +38,6 @@ function serializeMessage(message: ChatMessage): Record<string, unknown> {
     ...(message.outputTokens !== undefined
       ? { output_tokens: message.outputTokens }
       : {}),
-    ...(message.createdInteractiveCardId
-      ? { created_interactive_card_id: message.createdInteractiveCardId }
-      : {}),
     tool_calls: (message.toolCalls ?? []).map((call) => ({
       call_id: call.callId,
       tool_name: call.toolName,
@@ -51,34 +48,8 @@ function serializeMessage(message: ChatMessage): Record<string, unknown> {
         : {}),
       started_at: call.startedAt,
     })),
-    cards: (message.cards ?? []).map((card) => ({
-      card_instance_id: card.id,
-      interactive_card_id: card.interactiveCardId,
-      version: card.version,
-      ...(card.title ? { title: card.title } : {}),
-      ...(card.pendingActionRef
-        ? { pending_action_ref: card.pendingActionRef }
-        : {}),
-      ...(card.actionBindingId
-        ? { action_binding_id: card.actionBindingId }
-        : {}),
-    })),
-    ...(message.event
-      ? {
-          card_action_result: {
-            type: message.event.type,
-            origin: message.event.origin,
-            actor_user_id: message.event.actorUserId,
-            card_instance_id: message.event.cardInstanceId,
-            action: message.event.action,
-            tool: message.event.tool,
-            status: message.event.status,
-            ...(message.event.resultRef
-              ? { result_ref: message.event.resultRef }
-              : {}),
-          },
-        }
-      : {}),
+    presentations: message.presentations ?? [],
+    pending_action_refs: message.pendingActionRefs ?? [],
   };
 }
 
@@ -93,11 +64,7 @@ function conversationEvent(
     sequence,
     enterprise_id: enterpriseId,
     conversation_id: message.conversationId,
-    event_type: message.event
-      ? "card_action_result"
-      : message.role === "user"
-        ? "user_message"
-        : "assistant_message",
+    event_type: message.role === "user" ? "user_message" : "assistant_message",
     actor_type: message.role === "user" ? "user" : "model",
     occurred_at: message.createdAt,
     content_hash: `mock-content-${message.id}`.padEnd(64, "0"),
@@ -111,6 +78,7 @@ function publicConversation(value: MockConversationRecord): Conversation {
     id: value.id,
     title: value.title,
     selected_model_id: value.selectedModelId,
+    selected_mcp_connection_ids: value.selectedMCPConnectionIds ?? [],
     status: value.status,
     version: value.version ?? 1,
     created_at: value.createdAt,
@@ -148,36 +116,12 @@ function agentEvent(
       duration_ms: source.durationMs,
       ...(source.summary ? { summary: source.summary } : {}),
     };
-  } else if (source.type === "card") {
-    event_type = source.card.pendingActionRef
-      ? "pending_action_created"
-      : "message_delta";
-    payload = {
-      message_id: source.messageId,
-      card: {
-        card_instance_id: source.card.id,
-        interactive_card_id: source.card.interactiveCardId,
-        version: source.card.version,
-        ...(source.card.title ? { title: source.card.title } : {}),
-        ...(source.card.pendingActionRef
-          ? { pending_action_ref: source.card.pendingActionRef }
-          : {}),
-        ...(source.card.actionBindingId
-          ? { action_binding_id: source.card.actionBindingId }
-          : {}),
-      },
-      ...(source.card.pendingActionRef
-        ? { action_ref: source.card.pendingActionRef }
-        : {}),
-    };
-  } else if (source.type === "interactive_card_created") {
-    payload = {
-      message_id: source.messageId,
-      created_interactive_card_id: source.interactiveCardId,
-    };
-  } else if (source.type === "card_action_result") {
-    event_type = "message_completed";
-    payload = { message_id: source.messageId };
+  } else if (source.type === "presentation") {
+    event_type = "tool_presentation";
+    payload = { message_id: source.messageId, tool_call_id: source.toolCallId };
+  } else if (source.type === "pending_action") {
+    event_type = "pending_action_created";
+    payload = { message_id: source.messageId, action_ref: source.actionRef };
   } else if (source.type === "message_done") {
     event_type = "message_completed";
     payload = {
@@ -253,10 +197,88 @@ export function createConversationsDomain(
   const { db } = ctx;
 
   return {
+    async remove(id) {
+      const item = ctx.mustFind(
+        db.conversations,
+        (item) =>
+          item.id === id &&
+          item.enterpriseId === ctx.enterpriseId() &&
+          item.createdBy === ctx.actor().id,
+        "conversation",
+      );
+      item.status = "deleted";
+      for (const file of db.planv5.files[id] ?? [])
+        delete db.planv5.contents[file.id];
+      delete db.planv5.files[id];
+      delete db.planv5.workspaces[id];
+      db.messages = db.messages.filter((item) => item.conversationId !== id);
+      ctx.save();
+    },
+    async preflight(id, input) {
+      const c = ctx.mustFind(
+        db.conversations,
+        (item) => item.id === id,
+        "conversation",
+      );
+      const model = ctx.mustFind(
+        db.models,
+        (item) => item.id === c.selectedModelId,
+        "model",
+      );
+      const selected = db.planv5.selections[id] ?? [];
+      const toolCount =
+        7 +
+        db.planv5.connections
+          .filter((item) => selected.includes(item.value.id))
+          .reduce((sum, item) => sum + item.value.tool_count, 0);
+      const estimated = input.content.length + toolCount * 150;
+      const usable =
+        model.contextWindowTokens -
+        model.maxOutputTokens -
+        Math.max(4096, Math.ceil(model.contextWindowTokens * 0.05));
+      return {
+        ready: estimated <= usable,
+        model_id: model.id,
+        tool_count: toolCount,
+        estimated_tokens: estimated,
+        usable_tokens: usable,
+        tool_schema_tokens: toolCount * 150,
+        snapshot_hash: "mock-snapshot",
+        sandbox_status: "ready",
+      };
+    },
+    async updateConnections(id, ids) {
+      const c = ctx.mustFind(
+        db.conversations,
+        (item) => item.id === id && item.enterpriseId === ctx.enterpriseId(),
+        "conversation",
+      );
+      for (const id of ids) {
+        if (
+          !db.planv5.connections.some(
+            (item) =>
+              item.enterpriseId === ctx.enterpriseId() &&
+              item.value.id === id &&
+              item.value.status === "enabled" &&
+              item.value.member_ids.includes(ctx.actor().id),
+          )
+        )
+          throw new Error("MCP_CONNECTION_FORBIDDEN");
+      }
+      c.selectedMCPConnectionIds = [...ids];
+      db.planv5.selections[id] = [...ids];
+      c.version = (c.version ?? 1) + 1;
+      ctx.save();
+      return publicConversation(c);
+    },
     async list(query) {
       await ctx.pause();
       const items = db.conversations
-        .filter((entry) => entry.enterpriseId === ctx.enterpriseId())
+        .filter(
+          (entry) =>
+            entry.enterpriseId === ctx.enterpriseId() &&
+            entry.status !== "deleted",
+        )
         .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
       return ctx.paginate(items.map(publicConversation), query);
     },
@@ -386,88 +408,6 @@ export function createConversationsDomain(
       db.messages.push(userMessage);
       conversation.lastMessageAt = userMessage.createdAt;
       ctx.save();
-      if (options?.mock_intent === "interactive_card.create") {
-        const createdAt = ctx.nowIso();
-        const name =
-          input.content.replace(/^\s*\/?\s*/, "").slice(0, 28) || "新交互卡片";
-        const card = {
-          id: nextId(db, "card"),
-          enterpriseId: ctx.enterpriseId(),
-          source: "enterprise" as const,
-          slug: `generated-${Date.now()}`,
-          name,
-          description: "由 AI 根据会话需求生成",
-          version: "0.1.0",
-          revision: 1,
-          lifecycle: "draft" as const,
-          enabled: false,
-          htmlTemplate:
-            '<article style="padding:16px;font-family:system-ui"><h3 data-slot="title"></h3><div data-slot="items"></div></article>',
-          slots: [
-            {
-              name: "title",
-              type: "string" as const,
-              required: true,
-              aiGenerated: true,
-            },
-            { name: "items", type: "array" as const, required: true },
-          ],
-          bindings: [],
-          demoData: { title: name, items: [{ name: "Demo", status: "ok" }] },
-          validation: {
-            valid: false,
-            checkedAt: createdAt,
-            passedScenarios: [],
-            issues: [
-              {
-                code: "BINDING_REQUIRED",
-                message: "required slot has no binding",
-                slot: "items",
-              },
-            ],
-          },
-          createdBy: ctx.actor().id,
-          createdAt,
-          updatedAt: createdAt,
-        };
-        db.interactiveCards.push(card);
-        ctx.save();
-        return streamEnvelopes(
-          (async function* () {
-            const messageId = nextId(db, "msg");
-            const content = `已创建“${card.name}”草稿。卡片默认禁用，请前往交互卡片详情完成绑定、验证并启用。`;
-            yield { type: "message_start" as const, messageId };
-            yield { type: "token" as const, messageId, delta: content };
-            yield {
-              type: "interactive_card_created" as const,
-              messageId,
-              interactiveCardId: card.id,
-            };
-            const message: ChatMessage = {
-              id: messageId,
-              conversationId,
-              role: "assistant",
-              content,
-              modelId: conversation.selectedModelId,
-              modelRevision: db.models.find(
-                (entry) => entry.id === conversation.selectedModelId,
-              )?.revision,
-              inputPricePerMillionSnapshot: db.models.find(
-                (entry) => entry.id === conversation.selectedModelId,
-              )?.inputPricePerMillionTokens,
-              outputPricePerMillionSnapshot: db.models.find(
-                (entry) => entry.id === conversation.selectedModelId,
-              )?.outputPricePerMillionTokens,
-              createdInteractiveCardId: card.id,
-              createdAt: ctx.nowIso(),
-            };
-            db.messages.push(message);
-            ctx.save();
-            yield { type: "message_done" as const, message };
-          })(),
-          options.signal,
-        );
-      }
       return streamEnvelopes(
         ctx.streamReply(conversationId, input.content),
         options?.signal,

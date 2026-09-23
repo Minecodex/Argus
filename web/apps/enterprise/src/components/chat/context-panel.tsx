@@ -35,19 +35,19 @@ export function ChatContextPanel({ messages }: { messages: ChatMessage[] }) {
   const api = useApi();
   const toggleContextPanel = useUiStore((state) => state.toggleContextPanel);
 
-  // 当前会话引用的卡片资源（来自消息中的卡片引用，按卡片实例去重）。
+  // 当前会话引用的工具详情，按 ToolCall 去重。
   const references = useMemo(() => {
     const seen = new Map<
       string,
       { id: string; title: string; version: string }
     >();
     for (const message of messages) {
-      for (const card of message.cards ?? []) {
-        if (!seen.has(card.id)) {
-          seen.set(card.id, {
-            id: card.id,
-            title: card.title ?? card.interactiveCardId,
-            version: card.version,
+      for (const toolCallId of message.presentations ?? []) {
+        if (!seen.has(toolCallId)) {
+          seen.set(toolCallId, {
+            id: toolCallId,
+            title: toolCallId,
+            version: "argus-template/v1",
           });
         }
       }

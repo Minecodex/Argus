@@ -219,6 +219,20 @@ export interface components {
             input_tokens: number;
             /** Format: int64 */
             output_tokens: number;
+            /** Format: int64 */
+            estimated_input_tokens: number;
+            /** Format: int64 */
+            estimated_output_tokens: number;
+            /**
+             * Format: int64
+             * @description Provider-reported cached subset of input tokens; never add it to the input total.
+             */
+            cached_input_tokens: number;
+            /** @description Every call supplied its cached-input breakdown; missing is not zero. */
+            cached_usage_complete: boolean;
+            /** @description All calls have complete provider-reported usage. */
+            usage_complete: boolean;
+            /** @description Recorded quota amount including estimates when usage is incomplete. */
             amount: number;
             /** Format: int64 */
             request_count: number;

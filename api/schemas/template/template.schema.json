@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argus.io/schemas/v1/template/template.schema.json",
+  "$ref": "#/$defs/TemplateMessage",
+  "$defs": {
+    "TemplateMessage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "nonce", "sequence", "request_id", "type", "payload"],
+      "properties": {
+        "version": {"const": "argus-template/v1"},
+        "nonce": {"type": "string", "minLength": 32, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$"},
+        "sequence": {"type": "integer", "minimum": 1},
+        "request_id": {"type": "string", "minLength": 16, "maxLength": 128},
+        "type": {"enum": ["hello", "ready", "context", "resize", "open_resource", "open_result", "error", "destroy"]},
+        "payload": {"type": "object"}
+      },
+      "allOf": [
+        {"if": {"properties": {"type": {"enum": ["ready", "destroy"]}}}, "then": {"properties": {"payload": {"maxProperties": 0}}}},
+        {"if": {"properties": {"type": {"const": "resize"}}}, "then": {"properties": {"payload": {"type": "object", "additionalProperties": false, "required": ["height"], "properties": {"height": {"type": "number", "minimum": 1, "maximum": 2147483647}}}}}},
+        {"if": {"properties": {"type": {"const": "open_resource"}}}, "then": {"properties": {"payload": {"type": "object", "additionalProperties": false, "required": ["type", "id"], "properties": {"type": {"type": "string", "maxLength": 64}, "id": {"type": "string", "maxLength": 128}}}}}},
+        {"if": {"properties": {"type": {"const": "open_result"}}}, "then": {"properties": {"payload": {"type": "object", "additionalProperties": false, "required": ["ref"], "properties": {"ref": {"type": "string", "maxLength": 128}}}}}}
+      ]
+    },
+    "ToolResultEnvelope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "tool_call_id", "source", "version", "status", "model_result"],
+      "properties": {
+        "schema_version": {"const": "argus.tool_result_envelope/v1"},
+        "tool_call_id": {"type": "string", "format": "uuid"},
+        "source": {"enum": ["argus", "external_mcp", "sandbox"]},
+        "category": {"enum": ["host", "k8s", "metric", "trace", "log", "connector", "workflow"]},
+        "name": {"type": "string"}, "version": {"type": "string"},
+        "status": {"enum": ["succeeded", "failed", "result_unknown", "cancelled"]},
+        "model_result": {"$ref": "../agent/agent.schema.json#/$defs/ToolResultProjection"},
+        "presentation_ref": {"type": "string", "format": "uuid"}
+      }
+    }
+  }
+}

@@ -549,7 +549,7 @@ describe("pending actions and approvals", () => {
 });
 
 describe("conversations", () => {
-  it("streams tokens, tool calls and a card for a host-create request", async () => {
+  it("streams tools, details and one host confirmation for a host-create request", async () => {
     const client = makeClient();
     await login(client, "chenxi");
     const conversation = await client.conversations.create({
@@ -594,12 +594,16 @@ describe("conversations", () => {
     );
     const completedMessage = (
       completed?.payload as {
-        message?: { role?: string; tool_calls?: unknown[]; cards?: unknown[] };
+        message?: {
+          role?: string;
+          tool_calls?: unknown[];
+          presentations?: unknown[];
+        };
       }
     ).message;
     expect(completedMessage?.role).toBe("assistant");
     expect(completedMessage?.tool_calls).toHaveLength(3);
-    expect(completedMessage?.cards).toHaveLength(1);
+    expect(completedMessage?.presentations).toHaveLength(1);
 
     // The streamed card carries a real pending action that can be confirmed.
     if (typeof cardPayload?.action_ref === "string") {
@@ -715,83 +719,36 @@ describe("AI model governance", () => {
   });
 });
 
-describe("interactive cards", () => {
-  it("enforces binding validation and keeps system cards read-only", async () => {
+describe("PlanV5 MCP selections", () => {
+  it("keeps explicit selections and rejects stale edits", async () => {
     const client = makeClient();
     await login(client, "chenxi");
-    const cards = await client.interactiveCards.list();
-    const card = cards.find((item) => item.source === "enterprise")!;
-    const catalog = await client.interactiveCards.listToolSchemas();
-    const tool = catalog.items[0]!;
-    const demos = [
-      "default",
-      "empty",
-      "error",
-      "large",
-      "light",
-      "dark",
-      "zh-CN",
-      "en-US",
-    ] as const;
-    const version = await client.interactiveCards.createConfigurationVersion(
-      card.id,
-      {
-        base_revision: card.latest_revision,
-        expected_version: card.version,
-        name: card.name,
-        description: card.description,
-        slot_bindings: [
-          {
-            slot_name: "items",
-            slot_kind: "data",
-            mode: "strict",
-            tool_id: tool.tool_id,
-            output_schema_version: tool.output_schema_version,
-            schema_hash: tool.schema_hash,
-            path: tool.fields[0]!.path,
-            value_type: "array",
-          },
-        ],
-        demos: demos.map((scenario) => ({ scenario, data: {} })),
-      },
-    );
-    const run = await client.interactiveCards.startValidation(card.id, {
-      revision: version.revision,
-      runtime_version: "argus-card-runtime/v1",
+    const first = await client.mcp.create({
+      name: "CRM",
+      endpoint: "https://mcp.example.com/mcp",
+      auth_type: "none",
+      member_ids: ["u-chenxi"],
     });
-    const validated = await client.interactiveCards.submitValidationEvidence(
-      run.id,
-      {
-        nonce: run.nonce,
-        content_hash: run.content_hash,
-        runtime_version: run.runtime_version,
-        scenarios: demos.map((scenario) => ({
-          scenario,
-          ready: true,
-          protocol_violations: 0,
-          runtime_errors: 0,
-          serious_a11y_violations: 0,
-          missing_required_slots: [],
-          size_violation: false,
-        })),
-      },
-    );
-    expect(validated.status).toBe("passed");
+    const selected = await client.conversations.updateConnections("conv-1", [
+      first.id,
+    ]);
+    expect(selected.selected_mcp_connection_ids).toEqual([first.id]);
+    await client.mcp.create({
+      name: "Other",
+      endpoint: "https://other.example.com/mcp",
+      auth_type: "none",
+      member_ids: ["u-chenxi"],
+    });
     expect(
-      (
-        await client.interactiveCards.changeState(card.id, "activate", {
-          expected_version: version.revision,
-          revision: version.revision,
-        })
-      ).enabled,
-    ).toBe(true);
-
-    const system = cards.find((item) => item.source === "system")!;
+      (await client.conversations.get("conv-1")).selected_mcp_connection_ids,
+    ).toEqual([first.id]);
+    await client.mcp.setState(first.id, "disabled", first.version);
     await expect(
-      client.interactiveCards.changeState(system.id, "disable", {
-        expected_version: system.version,
-      }),
-    ).rejects.toThrow("read-only");
+      client.mcp.setMembers(first.id, [], first.version),
+    ).rejects.toThrow("MCP_CONNECTION_CONFLICT");
+    await expect(
+      client.conversations.updateConnections("conv-1", [first.id]),
+    ).rejects.toThrow("MCP_CONNECTION_FORBIDDEN");
   });
 });
 

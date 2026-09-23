@@ -1,0 +1,151 @@
+components:
+  schemas:
+    MCPConnection:
+      type: object
+      additionalProperties: false
+      required: [id, name, transport, endpoint, auth_type, status, health_status, version, revision, tool_count, member_ids, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 128}
+        transport: {type: string, enum: [streamable_http]}
+        endpoint: {type: string, format: uri, maxLength: 2048}
+        auth_type: {type: string, enum: [none, bearer, basic]}
+        status: {type: string, enum: [enabled, disabled]}
+        health_status: {type: string, enum: [unknown, healthy, unhealthy]}
+        version: {type: integer, format: int64}
+        revision: {type: integer}
+        tool_count: {type: integer, minimum: 0}
+        member_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
+        last_error_code: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    MCPConnectionWrite:
+      type: object
+      additionalProperties: false
+      required: [name, endpoint, auth_type, member_ids]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 128}
+        endpoint: {type: string, format: uri, maxLength: 2048}
+        auth_type: {type: string, enum: [none, bearer, basic]}
+        credential_value: {type: string, maxLength: 8192, writeOnly: true}
+        expected_version: {type: integer, format: int64, minimum: 1}
+        member_ids: {type: array, uniqueItems: true, maxItems: 10000, items: {type: string, format: uuid}}
+    MCPConnectionState:
+      type: object
+      additionalProperties: false
+      required: [status, expected_version]
+      properties:
+        status: {type: string, enum: [enabled, disabled]}
+        expected_version: {type: integer, format: int64, minimum: 1}
+    MCPConnectionMembers:
+      type: object
+      additionalProperties: false
+      required: [member_ids, expected_version]
+      properties:
+        member_ids: {type: array, uniqueItems: true, maxItems: 10000, items: {type: string, format: uuid}}
+        expected_version: {type: integer, format: int64, minimum: 1}
+    MCPConnectionPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/MCPConnection'}}
+    ConversationPreflightInput:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content: {type: string, minLength: 1, maxLength: 1048576}
+        file_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}}
+    ConversationPreflight:
+      type: object
+      additionalProperties: false
+      required: [ready, model_id, tool_count, estimated_tokens, usable_tokens, tool_schema_tokens, snapshot_hash, sandbox_status]
+      properties:
+        ready: {type: boolean}
+        model_id: {type: string, format: uuid}
+        tool_count: {type: integer, minimum: 0}
+        estimated_tokens: {type: integer, minimum: 0}
+        usable_tokens: {type: integer}
+        tool_schema_tokens: {type: integer, minimum: 0}
+        snapshot_hash: {type: string}
+        sandbox_status: {type: string, enum: [ready, not_configured, unhealthy, profile_unavailable, quota_unavailable]}
+        error_code: {type: string}
+    Workspace:
+      type: object
+      additionalProperties: false
+      required: [id, conversation_id, status, capacity_bytes, version, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        conversation_id: {type: string, format: uuid}
+        status: {type: string, enum: [provisioning, ready, deleting, deleted, failed]}
+        capacity_bytes: {type: integer, format: int64, minimum: 1}
+        version: {type: integer, format: int64, minimum: 1}
+        created_at: {type: string, format: date-time}
+    WorkspaceFile:
+      type: object
+      additionalProperties: false
+      required: [id, name, path, byte_size, content_hash, media_type, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        path: {type: string}
+        byte_size: {type: integer, format: int64, minimum: 0}
+        content_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        media_type: {type: string}
+        created_at: {type: string, format: date-time}
+    WorkspaceFilePage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/WorkspaceFile'}}
+    WorkspaceUploadCreate:
+      type: object
+      additionalProperties: false
+      required: [name, byte_size]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 255}
+        byte_size: {type: integer, format: int64, minimum: 0}
+    WorkspaceUpload:
+      type: object
+      additionalProperties: false
+      required: [id, name, byte_size, status, expires_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        byte_size: {type: integer, format: int64}
+        status: {type: string, enum: [pending, uploading, complete, failed, cancelled]}
+        expires_at: {type: string, format: date-time}
+    FileDelivery:
+      type: object
+      additionalProperties: false
+      required: [id, name, media_type, byte_size, content_hash, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        media_type: {type: string}
+        byte_size: {type: integer, format: int64, minimum: 0}
+        content_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        created_at: {type: string, format: date-time}
+    ToolPresentation:
+      type: object
+      additionalProperties: false
+      required: [tool_call_id, runtime, template_hash, template_source, detail_data, status]
+      properties:
+        tool_call_id: {type: string, format: uuid}
+        runtime: {type: string, enum: [argus-template/v1]}
+        template_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        template_source: {type: string, maxLength: 262144}
+        detail_data: {type: object, additionalProperties: true}
+        resource_refs:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [type, id]
+            properties:
+              type: {type: string, enum: [host, kubernetes_cluster, connector]}
+              id: {type: string, format: uuid}
+        result_refs: {type: array, items: {type: string}}
+        status: {type: string, enum: [ready, failed]}

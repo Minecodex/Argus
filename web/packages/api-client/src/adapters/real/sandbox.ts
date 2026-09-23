@@ -6,7 +6,10 @@ import type {
   SandboxSession,
   SandboxUsage,
 } from "../../generated/contracts";
-import { ClientOperationUnavailableError } from "../../transport/errors";
+import {
+  ApiError,
+  ClientOperationUnavailableError,
+} from "../../transport/errors";
 import type {
   EnterpriseSandboxQuota,
   SandboxBackend,
@@ -53,30 +56,11 @@ function profileView(value: SandboxProfileContract): SandboxProfile {
   return {
     id: value.id,
     name: value.name,
-    description: value.task_kinds.join(", "),
     imageId: value.image_id,
-    resources: {
-      cpu: value.cpu_millis / 1000,
-      memoryMb: value.memory_mib,
-      diskMb: 0,
-      pids: 0,
-    },
-    timeouts: {
-      commandSeconds: value.timeout_seconds,
-      idleSeconds: value.timeout_seconds,
-      lifetimeSeconds: value.timeout_seconds,
-    },
-    network: {
-      mode: value.network_mode === "none" ? "deny_all" : "allow_list",
-      allowedDomains: [],
-    },
-    capabilities: {
-      fileUpload: false,
-      artifactDownload: false,
-      secretInjection: false,
-      gpu: false,
-    },
-    builtin: false,
+    resources: { cpu: value.cpu_millis / 1000, memoryMb: value.memory_mib },
+    timeoutSeconds: value.timeout_seconds,
+    taskKinds: value.task_kinds,
+    networkMode: value.network_mode,
     enabled: value.status === "enabled",
     createdAt: value.created_at,
   };
@@ -85,12 +69,9 @@ function profileView(value: SandboxProfileContract): SandboxProfile {
 function quotaView(value: SandboxQuota): EnterpriseSandboxQuota {
   return {
     enterpriseId: value.enterprise_id,
-    allowedProfiles: [],
+    version: value.version,
     maxConcurrentSessions: value.max_concurrent_sessions,
-    maxDailySessionMinutes: Math.floor(value.monthly_session_seconds / 60),
-    maxDailyCpuMinutes: 0,
-    maxArtifactStorageMb: 0,
-    artifactRetentionDays: 0,
+    monthlySessionSeconds: value.monthly_session_seconds,
   };
 }
 
@@ -306,12 +287,11 @@ export function installSandboxDomains(context: RealDomainContext): void {
             name: input.name,
             backend_id: image.backend_id,
             image_id: input.imageId,
-            task_kinds: ["attachment_processing"],
+            task_kinds: ["agent_workspace"],
             cpu_millis: Math.round(input.resources.cpu * 1000),
             memory_mib: input.resources.memoryMb,
-            timeout_seconds: input.timeouts.lifetimeSeconds,
-            network_mode:
-              input.network.mode === "deny_all" ? "none" : "restricted",
+            timeout_seconds: input.timeoutSeconds,
+            network_mode: "none",
             status: "enabled",
             expected_version: 0,
           },
@@ -350,13 +330,8 @@ export function installSandboxDomains(context: RealDomainContext): void {
                 ? current.cpu_millis
                 : Math.round(patch.resources.cpu * 1000),
             memory_mib: patch.resources?.memoryMb ?? current.memory_mib,
-            timeout_seconds:
-              patch.timeouts?.lifetimeSeconds ?? current.timeout_seconds,
-            network_mode: patch.network
-              ? patch.network.mode === "deny_all"
-                ? "none"
-                : "restricted"
-              : current.network_mode,
+            timeout_seconds: patch.timeoutSeconds ?? current.timeout_seconds,
+            network_mode: current.network_mode,
             status:
               patch.enabled === undefined
                 ? current.status
@@ -375,27 +350,33 @@ export function installSandboxDomains(context: RealDomainContext): void {
 
   client.platform.quotas = {
     async get(enterpriseId) {
-      const value = await http.request<SandboxQuota>(
-        `platform/sandbox/enterprise-quotas/${enterpriseId}`,
-      );
-      versions.set(`sandbox-quota:${enterpriseId}`, value.version);
-      return quotaView(value);
+      try {
+        const value = await http.request<SandboxQuota>(
+          `platform/sandbox/enterprise-quotas/${enterpriseId}`,
+        );
+        versions.set(`sandbox-quota:${enterpriseId}`, value.version);
+        return quotaView(value);
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 404) throw error;
+        versions.set(`sandbox-quota:${enterpriseId}`, 0);
+        return {
+          enterpriseId,
+          version: 0,
+          maxConcurrentSessions: 0,
+          monthlySessionSeconds: 0,
+        };
+      }
     },
     async update(enterpriseId, patch) {
-      const current = await client.platform.quotas.get(enterpriseId);
       const value = await http.request<SandboxQuota>(
         `platform/sandbox/enterprise-quotas/${enterpriseId}`,
         {
           method: "PUT",
           csrf: true,
           body: {
-            max_concurrent_sessions:
-              patch.maxConcurrentSessions ?? current.maxConcurrentSessions,
-            monthly_session_seconds:
-              (patch.maxDailySessionMinutes ?? current.maxDailySessionMinutes) *
-              60,
-            expected_version:
-              versions.get(`sandbox-quota:${enterpriseId}`) ?? 1,
+            max_concurrent_sessions: patch.maxConcurrentSessions,
+            monthly_session_seconds: patch.monthlySessionSeconds,
+            expected_version: patch.expectedVersion,
           },
         },
       );

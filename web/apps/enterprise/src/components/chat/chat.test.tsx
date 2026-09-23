@@ -126,35 +126,6 @@ describe("ChatMessageItem", () => {
     );
     expect(screen.getByTestId("tool-trace")).toBeInTheDocument();
   });
-
-  it("将卡片动作 key 显示为本地化名称", () => {
-    const client = createMockApiClient({ persist: false, delay: 0 });
-    const wrapper = createWrapper(client);
-    render(
-      <ChatMessageItem
-        message={makeMessage({
-          id: "msg-result",
-          event: {
-            type: "card_action_result",
-            origin: "user_interaction",
-            actorUserId: "user-1",
-            cardInstanceId: "card-1",
-            action: "confirm",
-            tool: "host.create",
-            status: "success",
-          },
-        })}
-      />,
-      { wrapper },
-    );
-
-    expect(screen.getByTestId("card-action-result")).toHaveTextContent(
-      "卡片操作 · 确认 · 执行成功",
-    );
-    expect(screen.getByTestId("card-action-result")).not.toHaveTextContent(
-      "confirm",
-    );
-  });
 });
 
 describe("ChatMessageList", () => {
@@ -166,7 +137,7 @@ describe("ChatMessageList", () => {
     });
     const assistantMessage = makeMessage({
       id: "msg-assistant-persisted",
-      content: "已创建交互卡片草稿",
+      content: "已汇总主机容量",
     });
 
     render(
@@ -178,7 +149,7 @@ describe("ChatMessageList", () => {
     );
 
     expect(screen.getAllByText("主机容量表")).toHaveLength(1);
-    expect(screen.getAllByText("已创建交互卡片草稿")).toHaveLength(1);
+    expect(screen.getAllByText("已汇总主机容量")).toHaveLength(1);
   });
 });
 
@@ -198,19 +169,9 @@ describe("PendingActionCard", () => {
     });
     const confirmSpy = vi.spyOn(client.approvals, "confirm");
 
-    render(
-      <PendingActionCard
-        card={{
-          id: "cardi-t1",
-          interactiveCardId: "cs-host-create-confirm",
-          version: "3.0.1",
-          title: "新增主机确认",
-          pendingActionRef: action.action_ref,
-          actionBindingId: "cab-t1",
-        }}
-      />,
-      { wrapper: createWrapper(client) },
-    );
+    render(<PendingActionCard actionRef={action.action_ref} />, {
+      wrapper: createWrapper(client),
+    });
 
     // 预览加载完成：结构化动作按当前语言展示，且保留资源名称与地址。
     await screen.findByText("新增主机 host-test-x");
@@ -239,17 +200,9 @@ describe("PendingActionCard", () => {
     });
     const cancelSpy = vi.spyOn(client.approvals, "cancel");
 
-    render(
-      <PendingActionCard
-        card={{
-          id: "cardi-t2",
-          interactiveCardId: "cs-host-create-confirm",
-          version: "3.0.1",
-          pendingActionRef: action.action_ref,
-        }}
-      />,
-      { wrapper: createWrapper(client) },
-    );
+    render(<PendingActionCard actionRef={action.action_ref} />, {
+      wrapper: createWrapper(client),
+    });
 
     await screen.findByText("新增主机 host-test-y");
     fireEvent.click(screen.getByRole("button", { name: "取消" }));

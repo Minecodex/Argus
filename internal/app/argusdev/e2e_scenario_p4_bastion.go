@@ -13,7 +13,7 @@ import (
 )
 
 func (a *App) runP4DirectBastion(ctx context.Context, env *E2EEnvironment, scenario *p4Scenario) error {
-	testID, err := a.createP4ConnectionTest(ctx, env, "p4-mode-b", scenario.DirectTarget.ExternalIP, scenario.CredentialID, "")
+	testID, err := a.createP4ConnectionTest(ctx, env, "p4-mode-b", scenario.DirectTarget.ExternalIP, scenario.CredentialID, "", "direct")
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (a *App) runP4DirectBastion(ctx context.Context, env *E2EEnvironment, scena
 }
 
 func (a *App) runP4TunnelBastion(ctx context.Context, env *E2EEnvironment, scenario *p4Scenario) error {
-	testID, err := a.createP4ConnectionTest(ctx, env, "p4-mode-c", scenario.TunnelTarget.ExternalIP, scenario.CredentialID, "")
+	testID, err := a.createP4ConnectionTest(ctx, env, "p4-mode-c", scenario.TunnelTarget.ExternalIP, scenario.CredentialID, "", "executor_tunnel")
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func (a *App) verifyP4ControlTunnelTakeover(ctx context.Context, env *E2EEnviron
 
 func (a *App) replaceP4TunnelConnector(ctx context.Context, env *E2EEnvironment, scenario *p4Scenario, previous p4InstallResult) (p4InstallResult, error) {
 	client, _ := scenarioHTTP(env)
-	testID, err := a.createP4ConnectionTest(ctx, env, "p4-mode-c-replacement", scenario.TunnelTarget.ExternalIP, scenario.CredentialID, "")
+	testID, err := a.createP4ConnectionTest(ctx, env, "p4-mode-c-replacement", scenario.TunnelTarget.ExternalIP, scenario.CredentialID, "", "executor_tunnel")
 	if err != nil {
 		return p4InstallResult{}, err
 	}
@@ -323,7 +323,7 @@ func (a *App) runP4MemberTunnel(ctx context.Context, env *E2EEnvironment, scenar
 		return err
 	}
 	testID, err := a.createP4ConnectionTest(ctx, env, "p4-member", scenario.MemberTarget.ExternalIP,
-		scenario.CredentialID, scenario.TunnelInstall.ScopeID)
+		scenario.CredentialID, scenario.TunnelInstall.ScopeID, "bastion_relay")
 	if err != nil {
 		return err
 	}

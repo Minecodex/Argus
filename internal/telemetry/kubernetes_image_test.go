@@ -129,3 +129,24 @@ func TestHostCollectorPlatform(t *testing.T) {
 		}
 	}
 }
+
+func TestKubernetesCollectorPlatformUsesSelectedDistribution(t *testing.T) {
+	for _, item := range []struct{ manifest, want string }{
+		{`[{"platform":"linux_amd64"}]`, "linux_amd64"},
+		{`[{"platform":"linux_arm64"}]`, "linux_arm64"},
+		{`[{"platform":"windows_amd64"}]`, ""},
+		{`[{"platform":"linux_riscv64"}]`, ""},
+		{`[{"platform":"linux_amd64"},{"platform":"linux_arm64"}]`, ""},
+		{`[]`, ""},
+		{`{`, ""},
+	} {
+		got, err := kubernetesCollectorPlatform([]byte(item.manifest))
+		if item.want == "" {
+			if !errors.Is(err, ErrDistributionPending) {
+				t.Fatalf("unsupported manifest accepted: %s", item.manifest)
+			}
+		} else if err != nil || got != item.want {
+			t.Fatalf("manifest %s selected %s: %v", item.manifest, got, err)
+		}
+	}
+}

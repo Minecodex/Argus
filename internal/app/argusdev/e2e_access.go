@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,7 +29,7 @@ import (
 type E2EEndpoints struct {
 	EnterpriseOrigin string
 	PlatformOrigin   string
-	CardOrigin       string
+	TemplateOrigin   string
 	RemoteOrigin     string
 	APIBase          string
 	ConnectorGateway string
@@ -42,6 +43,7 @@ type E2EEndpoints struct {
 	CAFile               string
 	RootCAs              *x509.CertPool
 	hostIPs              map[string]string
+	hostPorts            map[string]string
 }
 
 // Transport returns a shared round tripper that pins the public hostnames to
@@ -53,6 +55,9 @@ func (e *E2EEndpoints) Transport() *http.Transport {
 			dialer := &net.Dialer{Timeout: 10 * time.Second}
 			if host, port, err := net.SplitHostPort(addr); err == nil {
 				if ip, mapped := e.hostIPs[host]; mapped {
+					if override := e.hostPorts[host]; override != "" {
+						port = override
+					}
 					addr = net.JoinHostPort(ip, port)
 				}
 			}
@@ -73,7 +78,7 @@ func (e *E2EEndpoints) HTTPClient() *http.Client {
 
 func (env *E2EEnvironment) EnterpriseOrigin() string { return env.Endpoints.EnterpriseOrigin }
 func (env *E2EEnvironment) PlatformOrigin() string   { return env.Endpoints.PlatformOrigin }
-func (env *E2EEnvironment) CardOrigin() string       { return env.Endpoints.CardOrigin }
+func (env *E2EEnvironment) TemplateOrigin() string   { return env.Endpoints.TemplateOrigin }
 
 // resolveE2EAccess waits for the ingress and connector load balancers to be
 // allocated, loads the ingress CA, and records the domain endpoints the
@@ -115,11 +120,36 @@ func (a *App) resolveE2EAccess(ctx context.Context, env *E2EEnvironment) error {
 	if dialReachable(ctx, "127.0.0.1:9443") {
 		connectorDialIP = "127.0.0.1"
 	}
+	ingressPort, gatewayPort := "443", "9443"
+	forwardTarget := os.Getenv("ARGUS_E2E_INGRESS_FORWARD")
+	if env.IngressNS != "" {
+		forwardTarget = env.IngressNS + "/argus-e2e-ingress"
+	}
+	if target := forwardTarget; target != "" {
+		namespace, service, ok := strings.Cut(target, "/")
+		if !ok || namespace == "" || service == "" {
+			return fmt.Errorf("ARGUS_E2E_INGRESS_FORWARD must be namespace/service")
+		}
+		forward, err := env.Kube.PortForwardService(ctx, namespace, service, []string{"0:443"}, io.Discard)
+		if err != nil {
+			return err
+		}
+		env.Forwards = append(env.Forwards, forward)
+		ingressDialIP = "127.0.0.1"
+		ingressPort = strconv.Itoa(int(forward.Ports[0].Local))
+		gateway, err := env.Kube.PortForwardService(ctx, env.SystemNS, "argus-connector-gateway-public", []string{"0:9443"}, io.Discard)
+		if err != nil {
+			return err
+		}
+		env.Forwards = append(env.Forwards, gateway)
+		connectorDialIP = "127.0.0.1"
+		gatewayPort = strconv.Itoa(int(gateway.Ports[0].Local))
+	}
 
 	endpoints := &E2EEndpoints{
 		EnterpriseOrigin: "https://" + hosts["enterprise"],
 		PlatformOrigin:   "https://" + hosts["platform"],
-		CardOrigin:       "https://" + hosts["cards"],
+		TemplateOrigin:   "https://" + hosts["templates"],
 		RemoteOrigin:     "wss://" + hosts["remote"],
 		APIBase:          "https://" + hosts["platform"] + "/api/v1",
 		ConnectorGateway: "grpcs://" + hosts["connector"] + ":9443",
@@ -128,24 +158,27 @@ func (a *App) resolveE2EAccess(ctx context.Context, env *E2EEnvironment) error {
 		ConnectorIP:      connectorIP,
 		// 子进程(connector 等)经地址覆盖直拨;使用与 hostIPs 相同的回退地址,
 		// 避免宿主机代理拦截 Docker 桥网段 LB IP。
-		IngressDialAddress:   net.JoinHostPort(ingressDialIP, "443"),
-		ConnectorDialAddress: net.JoinHostPort(connectorDialIP, "9443"),
+		IngressDialAddress:   net.JoinHostPort(ingressDialIP, ingressPort),
+		ConnectorDialAddress: net.JoinHostPort(connectorDialIP, gatewayPort),
 		CAFile:               caFile,
 		RootCAs:              pool,
 		hostIPs: map[string]string{
 			hosts["enterprise"]: ingressDialIP,
 			hosts["platform"]:   ingressDialIP,
-			hosts["cards"]:      ingressDialIP,
+			hosts["templates"]:  ingressDialIP,
 			hosts["remote"]:     ingressDialIP,
 			hosts["artifacts"]:  ingressDialIP,
 			hosts["connector"]:  connectorDialIP,
 		},
 	}
 	var resolver strings.Builder
-	for _, host := range []string{hosts["enterprise"], hosts["platform"], hosts["cards"], hosts["remote"], hosts["artifacts"]} {
-		fmt.Fprintf(&resolver, "MAP %s %s,", host, ingressDialIP)
+	endpoints.hostPorts = map[string]string{}
+	for _, host := range []string{hosts["enterprise"], hosts["platform"], hosts["templates"], hosts["remote"], hosts["artifacts"]} {
+		endpoints.hostPorts[host] = ingressPort
+		fmt.Fprintf(&resolver, "MAP %s:443 %s,", host, net.JoinHostPort(ingressDialIP, ingressPort))
 	}
-	fmt.Fprintf(&resolver, "MAP %s %s", hosts["connector"], connectorDialIP)
+	endpoints.hostPorts[hosts["connector"]] = gatewayPort
+	fmt.Fprintf(&resolver, "MAP %s:9443 %s", hosts["connector"], net.JoinHostPort(connectorDialIP, gatewayPort))
 	endpoints.HostResolver = resolver.String()
 	env.Endpoints = endpoints
 
@@ -187,7 +220,7 @@ func e2eExposureHosts(configPath string) (map[string]string, error) {
 		"enterprise": exposure.EnterpriseHost,
 		"platform":   exposure.PlatformHost,
 		"connector":  exposure.ConnectorHost,
-		"cards":      "cards." + e2eParentDomain(exposure.EnterpriseHost),
+		"templates":  "templates." + e2eParentDomain(exposure.EnterpriseHost),
 		"remote":     "remote." + e2eParentDomain(exposure.PlatformHost),
 		"artifacts":  "artifacts." + e2eParentDomain(exposure.EnterpriseHost),
 	}, nil
@@ -259,16 +292,21 @@ func serviceLoadBalancerIP(entries []corev1.LoadBalancerIngress) string {
 
 func waitHTTPSReady(ctx context.Context, client *http.Client, url, expected string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
+	lastFailure := "no response"
 	for time.Now().Before(deadline) {
 		request, requestErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if requestErr == nil {
 			response, err := client.Do(request)
+			if err != nil {
+				lastFailure = err.Error()
+			}
 			if err == nil {
 				body, readErr := io.ReadAll(response.Body)
 				_ = response.Body.Close()
 				if readErr == nil && response.StatusCode < 400 && strings.Contains(string(body), expected) {
 					return nil
 				}
+				lastFailure = fmt.Sprintf("HTTP %d", response.StatusCode)
 			}
 		}
 		select {
@@ -277,7 +315,7 @@ func waitHTTPSReady(ctx context.Context, client *http.Client, url, expected stri
 		case <-time.After(2 * time.Second):
 		}
 	}
-	return fmt.Errorf("HTTPS endpoint %s did not become ready", url)
+	return fmt.Errorf("HTTPS endpoint %s did not become ready: %s", url, lastFailure)
 }
 
 // dialReachable 探测 TCP 地址是否可建立连接;用于选择宿主机 localhost

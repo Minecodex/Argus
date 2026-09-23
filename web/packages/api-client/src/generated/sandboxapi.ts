@@ -269,7 +269,7 @@ export interface components {
             backend_id: string;
             /** Format: uuid */
             image_id: string;
-            task_kinds: ("smoke" | "attachment_processing")[];
+            task_kinds: ("smoke" | "agent_workspace")[];
             cpu_millis: number;
             memory_mib: number;
             timeout_seconds: number;
@@ -291,7 +291,7 @@ export interface components {
             backend_id: string;
             /** Format: uuid */
             image_id: string;
-            task_kinds: ("smoke" | "attachment_processing")[];
+            task_kinds: ("smoke" | "agent_workspace")[];
             cpu_millis: number;
             memory_mib: number;
             timeout_seconds: number;
@@ -328,7 +328,11 @@ export interface components {
             /** Format: uuid */
             enterprise_id: string;
             /** Format: uuid */
-            task_id: string;
+            task_id?: string;
+            /** Format: uuid */
+            workspace_id?: string;
+            /** Format: uuid */
+            tool_call_id?: string;
             /** Format: uuid */
             profile_id: string;
             profile_revision: number;

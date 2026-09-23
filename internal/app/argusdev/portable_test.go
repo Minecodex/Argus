@@ -200,9 +200,9 @@ func TestDoctorJSON(t *testing.T) {
 func TestSuiteDependencies(t *testing.T) {
 	want := map[string][]string{
 		"m2": {"m2"}, "m3": {"m2", "m3"}, "m4": {"m2", "m4"},
-		"m5": {"m2", "m3", "m4", "m5"}, "m6": {"m2", "m3", "m6"},
-		"m7":                  {"m2", "m3", "m4", "m5", "m7"},
-		"m10-query":           {"m2", "m3", "m4", "m5", "m7", "m10-query"},
+		"p5": {"m2", "p5"}, "m6": {"m2", "m3", "m6"},
+		"m7":                  {"m2", "m3", "m4", "p5-native", "m7"},
+		"m10-query":           {"m2", "m3", "m4", "p5-native", "m7", "m10-query"},
 		"m8":                  {"m6", "m7", "m8"},
 		"p4":                  {"m2", "p4"},
 		"tls":                 {"m2", "tls"},

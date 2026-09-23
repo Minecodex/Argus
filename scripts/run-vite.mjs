@@ -8,14 +8,14 @@ const [app, portValue, apiMode = "mock"] = process.argv.slice(2);
 const apps = {
   enterprise: "web/apps/enterprise",
   platform: "web/apps/platform",
-  card: "web/apps/card-runtime",
+  template: "web/apps/template-runtime",
 };
 
 if (!apps[app] || !/^\d+$/.test(portValue ?? "")) {
-  console.error("usage: node scripts/run-vite.mjs enterprise|platform|card PORT [mock|real]");
+  console.error("usage: node scripts/run-vite.mjs enterprise|platform|template PORT [mock|real]");
   process.exit(2);
 }
-if (app !== "card") {
+if (app !== "template") {
   process.env.VITE_API_MODE = apiMode;
 }
 

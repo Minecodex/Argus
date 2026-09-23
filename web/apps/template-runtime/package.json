@@ -1,0 +1,19 @@
+{
+  "name": "@argus/template-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4176",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit --pretty false",
+    "test": "vitest run src"
+  },
+  "dependencies": {
+    "@argus/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^7.0.6"
+  }
+}

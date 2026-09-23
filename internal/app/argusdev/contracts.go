@@ -14,21 +14,25 @@ import (
 )
 
 var contractDomains = []string{
-	"common", "identity", "authorization", "labels", "action", "card", "agent", "stream", "setup", "m8api", "platform",
+	"mcpapi", "workspaceapi", "presentationapi",
+	"common", "identity", "authorization", "labels", "action", "agent", "stream", "setup", "m8api", "platform",
 	"enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi", "kubernetesapi", "connectionapi",
-	"actionapi", "connectorapi", "conversationapi", "modelapi", "workflowapi", "sandboxapi", "cardapi",
+	"actionapi", "connectorapi", "conversationapi", "modelapi", "workflowapi", "sandboxapi",
 	"remoteaccessapi", "telemetryapi",
 }
 
 var contractServerDomains = []string{
+	"mcpapi", "workspaceapi", "presentationapi",
 	"setup", "m8api", "platform", "enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi",
 	"kubernetesapi", "connectionapi", "actionapi", "connectorapi", "conversationapi", "modelapi", "workflowapi",
-	"sandboxapi", "cardapi", "remoteaccessapi", "telemetryapi",
+	"sandboxapi", "remoteaccessapi", "telemetryapi",
 }
 
 var splitServerDomains = []string{
+	"conversationapi",
+	"mcpapi", "workspaceapi", "presentationapi",
 	"enterpriseauthz", "secretapi", "hostapi", "kubernetesapi", "connectionapi", "actionapi", "connectorapi", "sandboxapi",
-	"cardapi", "remoteaccessapi", "telemetryapi",
+	"remoteaccessapi", "telemetryapi",
 }
 
 func (a *App) runContracts(ctx context.Context, args []string) error {
@@ -70,7 +74,7 @@ func (a *App) contractLint(ctx context.Context) error {
 	if err := a.runner.Run(ctx, nil, "go", "tool", "buf", "lint", "api/proto"); err != nil {
 		return err
 	}
-	return a.runner.Run(ctx, nil, "go", "test", "./tests/contract", "-skip", "^TestContractCompatibility$")
+	return a.runner.Run(ctx, nil, "go", "test", "./tests/contract")
 }
 
 func (a *App) contractGenerate(ctx context.Context) error {
@@ -185,7 +189,7 @@ func (a *App) contractCheck(ctx context.Context) error {
 }
 
 func (a *App) contractBreaking(ctx context.Context) error {
-	if err := a.runner.Run(ctx, nil, "go", "test", "./tests/contract", "-run", "TestContractCompatibility"); err != nil {
+	if err := a.runner.Run(ctx, nil, "go", "test", "./tests/contract"); err != nil {
 		return err
 	}
 	if _, err := a.runner.Output(ctx, nil, "git", "cat-file", "-e", "origin/main:api/proto/buf.yaml"); err != nil {

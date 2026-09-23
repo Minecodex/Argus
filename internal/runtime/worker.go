@@ -114,7 +114,11 @@ func (processor Processor) runOne(ctx context.Context) (bool, error) {
 			}
 		}
 	}()
-	err = processor.Handle.Handle(taskCtx, Task{RuntimeTask: running})
+	if running.Attempt > running.MaxAttempts {
+		err = Error{ErrorCode: "TASK_RETRY_EXHAUSTED", Cause: errors.New("the final attempt lost its worker lease"), Permanent: true}
+	} else {
+		err = processor.Handle.Handle(taskCtx, Task{RuntimeTask: running})
+	}
 	cancelTask()
 	<-renewDone
 	if err != nil && running.Attempt < running.MaxAttempts && retryable(err) {

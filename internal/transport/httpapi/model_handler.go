@@ -146,7 +146,7 @@ func (handler ModelHandler) ListModelUsage(ctx context.Context, request modelapi
 	}
 	result := make([]modelapi.ModelUsage, 0, len(items))
 	for _, item := range items {
-		result = append(result, modelapi.ModelUsage{ModelId: item.ModelID, Month: item.Month.Time.Format("2006-01"), RequestCount: item.RequestCount, InputTokens: item.InputTokens, OutputTokens: item.OutputTokens, Amount: float32(numericValue(item.Amount)), CompactionCount: item.CompactionCount})
+		result = append(result, modelapi.ModelUsage{ModelId: item.ModelID, Month: item.Month.Time.Format("2006-01"), RequestCount: item.RequestCount, InputTokens: item.InputTokens, OutputTokens: item.OutputTokens, Amount: float32(numericValue(item.Amount)), CompactionCount: item.CompactionCount, EstimatedInputTokens: item.EstimatedInputTokens, EstimatedOutputTokens: item.EstimatedOutputTokens, UsageComplete: item.UsageComplete, CachedInputTokens: item.CachedInputTokens, CachedUsageComplete: item.CachedUsageComplete})
 	}
 	return modelapi.ListModelUsage200JSONResponse(result), nil
 }

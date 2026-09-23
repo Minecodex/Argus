@@ -9,7 +9,7 @@ spec:
   ports:
     - {name: enterprise, port: 8080, targetPort: 8080}
     - {name: platform, port: 8081, targetPort: 8081}
-    - {name: cards, port: 8083, targetPort: 8083}
+    - {name: templates, port: 8083, targetPort: 8083}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -51,7 +51,7 @@ spec:
           ports:
             - {name: enterprise, containerPort: 8080}
             - {name: platform, containerPort: 8081}
-            - {name: cards, containerPort: 8083}
+            - {name: templates, containerPort: 8083}
           readinessProbe:
             httpGet: {path: /healthz, port: enterprise}
             initialDelaySeconds: 2

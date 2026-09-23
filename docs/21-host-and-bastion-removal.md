@@ -39,6 +39,8 @@ Direct Executor 在安装期间单独检查操作状态、所有者、fence、at
 
 `host_removal_operations` 冻结目标 Host、Bastion Scope、Connector ID/version/connection epoch、资源版本、`removal_generation`、安装来源、SSH 证据、Trust Bundle epoch、组件清单和计划哈希。一个目标只能存在一个活动操作。
 
+卸载计划的持久化、比较和 Hash 校验统一使用规范 JSON，依赖清单按类型及 ID 排序。PostgreSQL JSONB 改变对象键顺序不使同一计划失效；执行时对完整原始 JSON 校验 Hash，新增未知字段也不能逃过完整性校验。直接 SSH、堡垒机派发和人工卸载入口复用同一计划校验，身份、版本或影响范围变化仍需新的 Preview。
+
 阶段为：
 
 ```text

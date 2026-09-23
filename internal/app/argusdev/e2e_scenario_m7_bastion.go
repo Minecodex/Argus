@@ -32,7 +32,7 @@ func (a *App) verifyM7BastionGateway(ctx context.Context, env *E2EEnvironment) (
 	}
 	identity := map[string][]byte{}
 	for _, file := range []string{"client.pem", "client-key.pem", "ca.pem"} {
-		value, err := env.Kube.Exec(ctx, env.SystemNS, "app.kubernetes.io/name=argus-direct-executor", "argus-e2e-systemd-host", "cat", "/var/lib/argus-otelcol/identity/"+file)
+		value, err := a.execM7Host(ctx, env, "argus-e2e-systemd-host", "cat", "/var/lib/argus-otelcol/identity/"+file)
 		if err != nil {
 			return err
 		}

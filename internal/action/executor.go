@@ -51,7 +51,14 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 			return err
 		}
 		if execution.Status == "succeeded" || execution.Status == "failed" || execution.Status == "cancelled" {
-			return nil
+			if !execution.RunID.Valid {
+				return nil
+			}
+			action, err := q.GetPendingActionByIDForUpdate(ctx, db.GetPendingActionByIDForUpdateParams{ID: execution.PendingActionID, EnterpriseID: execution.EnterpriseID})
+			if err != nil {
+				return err
+			}
+			return conversation.ScheduleActionRun(ctx, q, action, true)
 		}
 		if execution.Status == "result_unknown" {
 			return executor.reconcileExecution(ctx, q, execution)
@@ -70,14 +77,22 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 			status := action.Status
 			_, err = q.FinishExecution(ctx, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID,
 				Status: status, ResultRef: pgtype.Text{}, ErrorCode: action.ErrorCode})
-			return err
+			if err != nil {
+				return err
+			}
+			return conversation.ScheduleActionRun(ctx, q, action, true)
 		}
 		if action.Status != "ready" || !authorizationCurrent(ctx, q, action) || !approvalCurrent(ctx, q, action) {
-			_, _ = q.InvalidatePendingActionM4(ctx, db.InvalidatePendingActionM4Params{ID: action.ID, EnterpriseID: action.EnterpriseID,
-				ErrorCode: pgtype.Text{String: "ACTION_INVALIDATED", Valid: true}})
+			if _, err := q.InvalidatePendingActionM4(ctx, db.InvalidatePendingActionM4Params{ID: action.ID, EnterpriseID: action.EnterpriseID,
+				ErrorCode: pgtype.Text{String: "ACTION_INVALIDATED", Valid: true}}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
 			_, err = q.FinishExecution(ctx, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID,
 				Status: "failed", ErrorCode: pgtype.Text{String: "ACTION_INVALIDATED", Valid: true}})
-			return err
+			if err != nil {
+				return err
+			}
+			return conversation.ScheduleActionRun(ctx, q, action, false)
 		}
 		result, err := executor.Resources.ExecutePendingAction(ctx, q, action)
 		if err != nil {
@@ -582,6 +597,9 @@ func (reconciler Reconciler) Run(ctx context.Context) error {
 	ticker := time.NewTicker(reconciler.Poll)
 	defer ticker.Stop()
 	for {
+		if err := reconciler.ReconcileExpired(ctx); err != nil && ctx.Err() == nil {
+			reconciler.Logger.Error("pending action expiry failed", "error", err)
+		}
 		items, err := reconciler.Executor.Store.Queries.ListUncertainExecutions(ctx, 100)
 		if err != nil {
 			reconciler.Logger.Error("execution reconciliation scan failed", "error", err)
@@ -655,9 +673,8 @@ func authorizationCurrent(ctx context.Context, q *db.Queries, action db.PendingA
 }
 
 func enqueueVerify(ctx context.Context, q *db.Queries, execution db.Execution, action db.PendingAction) error {
-	payload, _ := json.Marshal(conversation.AgentTask{RunID: execution.RunID.UUID, EnterpriseID: execution.EnterpriseID,
-		Reason: "execution_verify", ExecutionRef: execution.ExecutionRef, ActionRef: action.ActionRef})
-	_, err := q.CreateRuntimeTask(ctx, db.CreateRuntimeTaskParams{ID: newID(), EnterpriseID: uuid.NullUUID{UUID: execution.EnterpriseID, Valid: true},
-		Queue: "agent", RunID: execution.RunID, Payload: payload, MaxAttempts: 5, AvailableAt: pgtype.Timestamptz{Time: action.UpdatedAt.Time, Valid: true}})
-	return err
+	if execution.RunID != action.RunID || execution.EnterpriseID != action.EnterpriseID {
+		return ErrInvalidated
+	}
+	return conversation.ScheduleActionRun(ctx, q, action, true)
 }

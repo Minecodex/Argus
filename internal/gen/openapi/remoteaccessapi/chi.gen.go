@@ -6,10 +6,10 @@ package remoteaccessapi
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
-	"net/http"
 )
 
 // ServerInterface represents all server handlers.

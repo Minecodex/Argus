@@ -20,7 +20,8 @@ const enterpriseOrigin =
   process.env.ARGUS_E2E_ENTERPRISE_ORIGIN ?? "http://127.0.0.1:4173";
 const platformOrigin =
   process.env.ARGUS_E2E_PLATFORM_ORIGIN ?? "http://127.0.0.1:4174";
-const cardOrigin = process.env.ARGUS_E2E_CARD_ORIGIN ?? "http://127.0.0.1:4176";
+const templateOrigin =
+  process.env.ARGUS_E2E_TEMPLATE_ORIGIN ?? "http://127.0.0.1:4176";
 const port = (origin: string) => new URL(origin).port;
 
 // 集群 E2E 通过域名访问 Ingress：浏览器用 host-resolver-rules 把公开域名
@@ -62,8 +63,8 @@ export default defineConfig({
           reuseExistingServer: !process.env.CI,
         },
         {
-          command: `node ../../../scripts/run-vite.mjs card ${port(cardOrigin)}`,
-          url: cardOrigin,
+          command: `node ../../../scripts/run-vite.mjs template ${port(templateOrigin)}`,
+          url: templateOrigin,
           reuseExistingServer: !process.env.CI,
         },
       ],

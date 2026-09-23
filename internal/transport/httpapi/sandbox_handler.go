@@ -249,7 +249,17 @@ func toSandboxQuota(v db.SandboxQuota) sandboxapi.SandboxQuota {
 	return sandboxapi.SandboxQuota{EnterpriseId: v.EnterpriseID, MaxConcurrentSessions: int(v.MaxConcurrentSessions), MonthlySessionSeconds: v.MonthlySessionSeconds, Version: v.Version, CreatedAt: v.CreatedAt.Time, UpdatedAt: v.UpdatedAt.Time}
 }
 func toSandboxSession(v db.SandboxSession) sandboxapi.SandboxSession {
-	return sandboxapi.SandboxSession{Id: v.ID, EnterpriseId: v.EnterpriseID, TaskId: v.TaskID, ProfileId: v.ProfileID, ProfileRevision: int(v.ProfileRevision), UpstreamSessionId: v.UpstreamSessionID, Status: sandboxapi.SandboxSessionStatus(v.Status), ExpiresAt: v.ExpiresAt.Time, CreatedAt: v.CreatedAt.Time, UpdatedAt: v.UpdatedAt.Time}
+	value := sandboxapi.SandboxSession{Id: v.ID, EnterpriseId: v.EnterpriseID, ProfileId: v.ProfileID, ProfileRevision: int(v.ProfileRevision), UpstreamSessionId: v.UpstreamSessionID, Status: sandboxapi.SandboxSessionStatus(v.Status), ExpiresAt: v.ExpiresAt.Time, CreatedAt: v.CreatedAt.Time, UpdatedAt: v.UpdatedAt.Time}
+	if v.TaskID.Valid {
+		value.TaskId = &v.TaskID.UUID
+	}
+	if v.WorkspaceID.Valid {
+		value.WorkspaceId = &v.WorkspaceID.UUID
+	}
+	if v.ToolCallID.Valid {
+		value.ToolCallId = &v.ToolCallID.UUID
+	}
+	return value
 }
 func toSandboxUsage(v db.SandboxUsage) sandboxapi.SandboxUsage {
 	month := ""
@@ -267,6 +277,9 @@ func sandboxError(ctx context.Context, err error) sandboxapi.ApiError {
 	}
 	if errors.Is(err, sandbox.ErrVersionConflict) {
 		code, key = "VERSION_CONFLICT", "errors.common.version_conflict"
+	}
+	if errors.Is(err, sandbox.ErrInvalidProfile) {
+		code, key = "INVALID_ARGUMENT", "errors.common.invalid_argument"
 	}
 	return sandboxapi.ApiError{Code: code, MessageKey: key, RequestId: requestID(ctx)}
 }

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/presentation"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 	"slices"
 	"sort"
 	"strings"
@@ -32,6 +34,7 @@ const (
 )
 
 type Metadata struct {
+	Discovery                Discovery
 	ID                       string
 	ToolFamily               string
 	Risk                     string
@@ -48,8 +51,8 @@ type Metadata struct {
 	CompatibleOutputVersions []string
 	SemanticFields           map[string]string
 	FieldTypes               map[string]string
-	CardSafe                 bool
-	CardProjector            func(context.Context, Call, Result) (map[string]any, bool, error)
+	Template                 *toolruntime.TemplateAsset
+	Present                  func(context.Context, Call, Result) (*toolruntime.Presentation, error)
 	Authorize                func(context.Context, Call) error
 	Validate                 func(map[string]any) error
 	Execute                  func(context.Context, Call) (Result, error)
@@ -104,6 +107,9 @@ func (registry *Registry) Register(metadata Metadata) error {
 		metadata.CompatibleOutputVersions = append(metadata.CompatibleOutputVersions, metadata.OutputVersion)
 	}
 	sort.Strings(metadata.CompatibleOutputVersions)
+	if err := presentation.Validate(metadata.Template); err != nil {
+		return err
+	}
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
 	if _, exists := registry.tools[metadata.ID]; exists {
@@ -111,36 +117,6 @@ func (registry *Registry) Register(metadata Metadata) error {
 	}
 	registry.tools[metadata.ID] = metadata
 	return nil
-}
-
-// CardCatalog returns only model-visible read/preview Tools with an authoritative
-// output schema and a server-side Card-safe projector.
-func (registry *Registry) CardCatalog() []Metadata {
-	registry.mu.RLock()
-	defer registry.mu.RUnlock()
-	result := make([]Metadata, 0, len(registry.tools))
-	for _, metadata := range registry.tools {
-		if metadata.Visibility != Visible || !metadata.CardSafe || metadata.OutputSchema == nil || metadata.CardProjector == nil || strings.HasSuffix(metadata.ID, ".commit") {
-			continue
-		}
-		metadata.Execute = nil
-		metadata.Authorize = nil
-		metadata.Validate = nil
-		metadata.CardProjector = nil
-		result = append(result, metadata)
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
-	return result
-}
-
-func (registry *Registry) ProjectForCard(ctx context.Context, call Call, result Result) (map[string]any, bool, error) {
-	registry.mu.RLock()
-	metadata, exists := registry.tools[call.ToolID]
-	registry.mu.RUnlock()
-	if !exists || !metadata.CardSafe || metadata.CardProjector == nil {
-		return nil, false, ErrToolNotAvailable
-	}
-	return metadata.CardProjector(ctx, call, result)
 }
 
 func (registry *Registry) ModelCatalog() []Metadata {

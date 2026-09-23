@@ -21,9 +21,10 @@ function normalizeBaseUrl(base_url: string): URL {
   const pathname = url.pathname.replace(/\/+$/, "");
   // Production serves the API at /api/v1. Accepting /api as an input keeps
   // older deployment values from producing the invalid /api/api/v1 path.
-  url.pathname = pathname === "/api" || pathname.endsWith("/api")
-    ? `${pathname}/v1/`
-    : `${pathname}/api/v1/`;
+  url.pathname =
+    pathname === "/api" || pathname.endsWith("/api")
+      ? `${pathname}/v1/`
+      : `${pathname}/api/v1/`;
   return url;
 }
 
@@ -52,6 +53,79 @@ export class HttpTransport {
 
   resolve(path: string): URL {
     return new URL(path.replace(/^\//, ""), this.api_base_url);
+  }
+
+  async upload<T>(
+    path: string,
+    file: File,
+    onProgress: (percent: number) => void,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    const csrf = await this.options.csrf_token?.();
+    if (!csrf)
+      throw new ApiError(
+        {
+          code: "CSRF_TOKEN_MISSING",
+          message_key: "errors.csrf_token_missing",
+          request_id: crypto.randomUUID(),
+          retryable: false,
+        },
+        0,
+      );
+    if (signal?.aborted)
+      throw new DOMException("Upload cancelled", "AbortError");
+    return new Promise<T>((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open("PUT", this.resolve(path));
+      request.withCredentials = true;
+      request.timeout = 360_000;
+      request.setRequestHeader("Content-Type", "application/octet-stream");
+      request.setRequestHeader("X-CSRF-Token", csrf);
+      request.setRequestHeader(
+        "X-Request-ID",
+        this.options.request_id?.() ?? crypto.randomUUID(),
+      );
+      request.setRequestHeader(
+        "Accept-Language",
+        this.options.locale?.() ?? "zh-CN",
+      );
+      const abort = () => request.abort();
+      signal?.addEventListener("abort", abort, { once: true });
+      const cleanup = () => signal?.removeEventListener("abort", abort);
+      request.upload.onprogress = (event) => {
+        if (event.lengthComputable)
+          onProgress(
+            Math.min(
+              99,
+              Math.round((event.loaded / Math.max(event.total, 1)) * 100),
+            ),
+          );
+      };
+      request.onerror = request.ontimeout = () => {
+        cleanup();
+        reject(new Error("File upload failed"));
+      };
+      request.onabort = () => {
+        cleanup();
+        reject(new DOMException("Upload cancelled", "AbortError"));
+      };
+      request.onload = () => {
+        cleanup();
+        try {
+          const value = JSON.parse(request.responseText);
+          if (request.status < 200 || request.status >= 300) {
+            reject(new ApiError(value as ApiErrorBody, request.status));
+            return;
+          }
+          onProgress(100);
+          resolve(value as T);
+        } catch {
+          reject(new Error("Invalid file upload response"));
+        }
+      };
+      onProgress(0);
+      request.send(file);
+    });
   }
 
   raw(path: string, init: RequestInit = {}): Promise<Response> {

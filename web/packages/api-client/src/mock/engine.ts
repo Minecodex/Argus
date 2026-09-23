@@ -1,3 +1,4 @@
+import { publishMockPresentation } from "./planv5";
 import type {
   ConfirmActionResult,
   PendingActionPublic,
@@ -12,7 +13,6 @@ import type {
 } from "../generated/contracts";
 import type { TaskViewModel, TaskStep } from "../provisional";
 import type {
-  MockCardInstance as CardInstance,
   MockChatMessage as ChatMessage,
   MockChatStreamEvent as ChatStreamEvent,
   MockToolCallTrace as ToolCallTrace,
@@ -1451,7 +1451,8 @@ export function createEngine(ctx: BaseContext): Engine {
       yield { type: "token", messageId, delta };
     }
 
-    const cards: CardInstance[] = [];
+    const pendingActionRefs: string[] = [];
+    const presentations: string[] = [];
     if (wantsHostCreate) {
       const ipMatch = /\b(?:\d{1,3}\.){3}\d{1,3}\b/.exec(text);
       const action = createPendingAction({
@@ -1471,26 +1472,17 @@ export function createEngine(ctx: BaseContext): Engine {
           environment: "production",
         },
       });
-      const card: CardInstance = {
-        id: nextId(db, "cardi"),
-        interactiveCardId: "cs-host-create-confirm",
-        version: "3.0.1",
-        title: "新增主机确认",
-        pendingActionRef: action.action_ref,
-        actionBindingId: nextId(db, "cab"),
-      };
-      cards.push(card);
-      yield { type: "card", messageId, card };
-    } else {
-      const card: CardInstance = {
-        id: nextId(db, "cardi"),
-        interactiveCardId: "cs-host-overview",
-        version: "1.4.0",
-        title: "主机概览",
-      };
-      cards.push(card);
-      yield { type: "card", messageId, card };
+      pendingActionRefs.push(action.action_ref);
+      yield { type: "pending_action", messageId, actionRef: action.action_ref };
     }
+    const toolCallId = traces.at(-1)?.callId ?? crypto.randomUUID();
+    await publishMockPresentation(ctx, conversationId, toolCallId, {
+      items: db.hosts
+        .filter((host) => host.enterpriseId === ctx.enterpriseId())
+        .slice(0, 20),
+    });
+    presentations.push(toolCallId);
+    yield { type: "presentation", messageId, toolCallId };
 
     const conversation = db.conversations.find(
       (entry) => entry.id === conversationId,
@@ -1507,7 +1499,8 @@ export function createEngine(ctx: BaseContext): Engine {
       content: answer,
       createdAt: ctx.nowIso(),
       toolCalls: traces,
-      cards,
+      presentations,
+      pendingActionRefs,
       modelId: model?.id,
       modelRevision: model?.revision,
       inputPricePerMillionSnapshot: model?.inputPricePerMillionTokens,

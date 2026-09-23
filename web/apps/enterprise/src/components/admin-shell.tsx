@@ -129,15 +129,7 @@ function buildSections(
       items: [
         { key: "shell.nav.settingsOrg", to: "/settings/org", icon: Users },
         { key: "shell.nav.settingsAi", to: "/settings/ai", icon: Bot },
-        ...(!realMode
-          ? [
-              {
-                key: "shell.nav.settingsInteractiveCards",
-                to: "/settings/interactive-cards",
-                icon: Component,
-              },
-            ]
-          : []),
+        { key: "planv5.mcp.title", to: "/settings/mcp", icon: Component },
         {
           key: "shell.nav.settingsSecrets",
           to: "/settings/secrets",
@@ -155,6 +147,7 @@ function buildSections(
 }
 
 function Sidebar() {
+  const canManageMCP = usePermission("mcp_connection.manage");
   const { t } = useTranslation();
   const { sidebarCollapsed, toggleSidebar, mobileNavOpen, setMobileNavOpen } =
     useUiStore();
@@ -195,27 +188,29 @@ function Sidebar() {
                   {t(section.groupKey)}
                 </div>
               )}
-              {section.items.map((item) => (
-                <Tooltip content={t(item.key)} key={item.key}>
-                  <Link
-                    activeProps={{ className: "active" }}
-                    className="argus-nav-item"
-                    onClick={() => setMobileNavOpen(false)}
-                    to={item.to}
-                  >
-                    <item.icon aria-hidden size={17} />
-                    {!sidebarCollapsed && (
-                      <>
-                        <span>{t(item.key)}</span>
-                        {item.alert && <i className="argus-nav-alert" />}
-                        {item.count !== undefined && (
-                          <small>{item.count}</small>
-                        )}
-                      </>
-                    )}
-                  </Link>
-                </Tooltip>
-              ))}
+              {section.items
+                .filter((item) => item.to !== "/settings/mcp" || canManageMCP)
+                .map((item) => (
+                  <Tooltip content={t(item.key)} key={item.key}>
+                    <Link
+                      activeProps={{ className: "active" }}
+                      className="argus-nav-item"
+                      onClick={() => setMobileNavOpen(false)}
+                      to={item.to}
+                    >
+                      <item.icon aria-hidden size={17} />
+                      {!sidebarCollapsed && (
+                        <>
+                          <span>{t(item.key)}</span>
+                          {item.alert && <i className="argus-nav-alert" />}
+                          {item.count !== undefined && (
+                            <small>{item.count}</small>
+                          )}
+                        </>
+                      )}
+                    </Link>
+                  </Tooltip>
+                ))}
             </div>
           ))}
         </nav>
@@ -287,7 +282,7 @@ const pageTitles: Record<string, string> = {
   "/remote-sessions": "shell.nav.remoteSessions",
   "/settings/org": "shell.nav.settingsOrg",
   "/settings/ai": "shell.nav.settingsAi",
-  "/settings/interactive-cards": "shell.nav.settingsInteractiveCards",
+  "/settings/mcp": "planv5.mcp.title",
   "/settings/secrets": "shell.nav.settingsSecrets",
   "/settings/audit": "shell.nav.settingsAudit",
   "/demo": "shell.nav.demo",
@@ -407,7 +402,8 @@ export function AdminShell() {
   const mainRef = useRef<HTMLElement>(null);
   // 只有 Dock 面板实际渲染时才让外壳为它切分网格，否则会预留空白区域。
   const dockVisible =
-    dockOpen && Array.from(sessions.values()).some((session) => !session.hidden);
+    dockOpen &&
+    Array.from(sessions.values()).some((session) => !session.hidden);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {

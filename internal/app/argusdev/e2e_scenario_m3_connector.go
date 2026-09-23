@@ -189,6 +189,7 @@ func (a *App) startM3KubernetesConnector(ctx context.Context, env *E2EEnvironmen
 					VolumeMounts:    []corev1.VolumeMount{{Name: "identity-source", MountPath: "/identity-source", ReadOnly: true}, {Name: "identity", MountPath: "/identity"}}}},
 				Containers: []corev1.Container{{Name: "connector", Image: env.State.FixtureImages["backend"], ImagePullPolicy: corev1.PullNever,
 					Command: []string{"/usr/local/bin/argus-connector"}, Args: []string{"run", "--data-dir", "/var/lib/argus-connector"},
+					Env:          []corev1.EnvVar{{Name: "ARGUS_OTELCOL_ARTIFACT_CA_PATH", Value: "/var/lib/argus-connector/connector-ca.pem"}},
 					VolumeMounts: []corev1.VolumeMount{{Name: "identity", MountPath: "/var/lib/argus-connector"}}}},
 				Volumes: []corev1.Volume{{Name: "identity-source", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: secretName, DefaultMode: &mode}}},
 					{Name: "identity", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},

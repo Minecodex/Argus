@@ -1,0 +1,21 @@
+<section><h3 id="title"></h3><div id="traces"></div></section>
+<script>
+ArgusTemplate.onData((data, context) => {
+  const zh = context.locale === 'zh-CN';
+  document.getElementById('title').textContent = zh ? '调用链' : 'Traces';
+  const root = document.getElementById('traces'); root.replaceChildren();
+  const payload = data.data || data;
+  // GraphQL aliases may rename the root field; the schema of its value is stable.
+  const roots = Array.isArray(payload) ? payload : Object.values(payload).filter((value) => value && typeof value === 'object');
+  const traces = payload.traceId ? [payload] : roots.flatMap((value) => Array.isArray(value.traces) ? value.traces : value.traceId ? [value] : []);
+  ArgusTemplate.table(root, traces, ['traceId','rootService','rootOperation','startTime','duration','durationMs','isError']);
+  for (const trace of traces) {
+    if (Array.isArray(trace.spans) && trace.spans.length) {
+      ArgusTemplate.note(root, (zh ? '跨度 · ' : 'Spans · ') + trace.traceId);
+      ArgusTemplate.table(root, trace.spans, ['spanId','parentSpanId','serviceName','operationName','startTime','duration','durationMs','isError']);
+    }
+  }
+  if (!traces.length && Object.keys(payload).length) ArgusTemplate.details(root, payload);
+  if (data.partial || data.extensions?.argus?.partial) ArgusTemplate.note(root, zh ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
+});
+</script>

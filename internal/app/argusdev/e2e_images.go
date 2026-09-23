@@ -48,7 +48,7 @@ func (a *App) prepareE2EImages(ctx context.Context, env *E2EEnvironment) error {
 	env.State.FixtureImages["minio"] = clusterPrefix + "minio:" + env.ImageTag
 	buildLabel := "io.argus.e2e.run=" + env.ImageTag
 	backendArgs := []string{"buildx", "build", "--platform", env.ImagePlatform, "--file", "deploy/docker/backend.Dockerfile", "--tag", localPrefix + "argus-backend:" + env.ImageTag, "--label", buildLabel, "--push"}
-	if suiteHas(env.Options.Suite, "m4") || suiteHas(env.Options.Suite, "m5") || suiteHas(env.Options.Suite, "m7") || env.Options.Suite == "m10-query" || env.Options.Suite == "p4" {
+	if suiteHas(env.Options.Suite, "m4") || suiteHas(env.Options.Suite, "p5") || suiteHas(env.Options.Suite, "m7") || env.Options.Suite == "m10-query" || env.Options.Suite == "p4" {
 		backendArgs = append(backendArgs, "--build-arg", "GO_BUILD_TAGS=m4e2e")
 	}
 	backendArgs = append(backendArgs, ".")
@@ -84,10 +84,14 @@ func (a *App) prepareE2EImages(ctx context.Context, env *E2EEnvironment) error {
 	}
 	if features.Artifact {
 		if env.CollectorArtifacts != nil {
+			dist, err := e2eCollectorImageDist(a.root, env.ImagePlatform)
+			if err != nil {
+				return err
+			}
 			env.State.FixtureImages["otelcol"] = clusterPrefix + "argus-otelcol:" + env.ImageTag
 			if err := a.retryE2EImageBuild(ctx, "E2E OpenTelemetry Collector image", func(buildCtx context.Context) error {
 				return a.runner.Run(buildCtx, nil, "docker", "buildx", "build", "--platform", env.ImagePlatform, "--file", "deploy/docker/otelcol.Dockerfile",
-					"--tag", localPrefix+"argus-otelcol:"+env.ImageTag, "--label", buildLabel, "--push", ".")
+					"--build-arg", "DIST_PATH="+dist, "--tag", localPrefix+"argus-otelcol:"+env.ImageTag, "--label", buildLabel, "--push", ".")
 			}); err != nil {
 				return err
 			}
@@ -104,55 +108,27 @@ func (a *App) prepareE2EImages(ctx context.Context, env *E2EEnvironment) error {
 	if err := a.invokeArgusctl(ctx, env, "images", "load", "--config", env.ConfigPath); err != nil {
 		return err
 	}
-	return a.ensureE2EInstallDisk(ctx)
+	return checkE2EInstallDisk(a.root, availableDiskBytes)
 }
 
-func (a *App) ensureE2EInstallDisk(ctx context.Context) error {
-	free, pruned, err := reclaimE2EInstallDisk(
-		ctx,
-		a.root,
-		availableDiskBytes,
-		func(pruneCtx context.Context) error {
-			return a.runner.Run(pruneCtx, nil, "docker", "builder", "prune", "--all", "--force")
-		},
-	)
-	if err != nil {
-		return err
-	}
-	if pruned {
-		_, _ = fmt.Fprintf(a.stdout, "Reclaimed BuildKit cache before E2E install; %.1fGi free\n", float64(free)/float64(1<<30))
-	}
-	return nil
-}
-
-func reclaimE2EInstallDisk(
-	ctx context.Context,
+// Shared builder caches have no reliable per-run ownership. Insufficient
+// capacity must stop the test, never trigger a global Docker prune.
+func checkE2EInstallDisk(
 	root string,
 	probe func(string) (uint64, error),
-	prune func(context.Context) error,
-) (uint64, bool, error) {
+) error {
 	free, err := probe(root)
 	if err != nil {
-		return 0, false, fmt.Errorf("%w: inspect E2E install disk: %v", errCapability, err)
-	}
-	if free >= e2eInstallMinimumDiskBytes {
-		return free, false, nil
-	}
-	if err := prune(ctx); err != nil {
-		return free, false, fmt.Errorf("%w: reclaim BuildKit cache before E2E install: %v", errCapability, err)
-	}
-	free, err = probe(root)
-	if err != nil {
-		return 0, true, fmt.Errorf("%w: inspect E2E install disk after BuildKit cleanup: %v", errCapability, err)
+		return fmt.Errorf("%w: inspect E2E install disk: %v", errCapability, err)
 	}
 	if free < e2eInstallMinimumDiskBytes {
-		return free, true, fmt.Errorf(
-			"%w: only %.1fGi free after BuildKit cleanup; at least 25Gi is required for E2E install",
+		return fmt.Errorf(
+			"%w: only %.1fGi free; at least 25Gi is required for E2E install; shared caches were not deleted",
 			errCapability,
 			float64(free)/float64(1<<30),
 		)
 	}
-	return free, true, nil
+	return nil
 }
 
 func (a *App) buildFixtureImage(ctx context.Context, env *E2EEnvironment, name, dockerfile, localPrefix, clusterPrefix string) error {

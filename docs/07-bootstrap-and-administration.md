@@ -13,7 +13,7 @@ Argus 第一次启动时没有任何用户和企业。系统通过一次性初�
 前端固定分为三个界面：
 
 1. 企业工作台：企业用户的 Chatbox、会话和模型选择。
-2. 企业管理后台：企业管理员和被授权成员管理本企业模型、组织、资源、交互卡片与审计。
+2. 企业管理后台：企业管理员和被授权成员管理本企业模型、组织、资源、Tool 模板与审计。
 3. 平台超级管理员门户：M2 管理企业生命周期、企业管理员和平台审计；OpenSandbox 治理在 M4 接入。
 
 企业工作台和企业管理后台共享企业 Session；平台门户使用独立平台 Session/Audience。任一入口发现身份域不匹配时必须拒绝进入并引导到正确门户，不能先渲染错误界面再依赖接口报错。
@@ -128,7 +128,7 @@ M1 原型中的 Sandbox 页面在 M2 real 模式保持稳定不可用，不得�
 - Connector、主机和 Kubernetes。
 - Bastion Scope、Remote Access Session、远程终端和会话录像。
 - 企业 Secret。
-- 企业 交互卡片。
+- 企业 MCP 连接、凭据和成员授权。
 - 企业 Tool Result 和业务审计正文。
 - 企业原始 Metrics、Logs、Traces 和 Collector 配置正文。
 
@@ -235,7 +235,7 @@ Enterprise 用户名全局大小写不敏感唯一。原因是企业登录只提
 ├── 远程访问授权
 ├── 访问策略
 ├── AI 设置
-├── 交互卡片（自定义 / 内置）
+├── MCP 连接（企业连接 / 成员授权）
 ├── Secret
 └── 企业审计
 ```
@@ -248,7 +248,7 @@ Collector 不单独占用左侧菜单。未安装时在主机或 Kubernetes 详�
 
 企业管理员可以创建自定义企业角色并下放部分管理能力。OpenSandbox 是 SaaS 平台底层资产，企业工作台和管理后台均不展示或查询 OpenSandbox 服务、镜像、Profile、配额、活动会话和用量；相关管理与观测只存在于平台超级管理员门户。
 
-进入 Chatbox 只恢复固定企业身份、功能权限和 DataAuthorizationGrant，不提供 Project 选择器。Conversation 和 Run 保存 `enterprise_id`；具体 ToolCall、Run、PendingAction 和 Execution 保存目标资源引用和授权范围快照。模型或 Card 不能修改身份域或扩大 DataAuthorizationGrant。
+进入 Chatbox 只恢复固定企业身份、功能权限和 DataAuthorizationGrant，不提供 Project 选择器。Conversation 和 Run 保存 `enterprise_id`；具体 ToolCall、Run、PendingAction 和 Execution 保存目标资源引用和授权范围快照。模型或模板 不能修改身份域或扩大 DataAuthorizationGrant。
 
 ## 9. 固定企业上下文和资源范围
 
@@ -290,7 +290,7 @@ argus admin reset-password
 平台审计和企业审计分离：
 
 - 平台审计：初始化、企业生命周期、企业管理员生命周期、Sandbox Profile、镜像、配额和活动会话终止。
-- 企业审计：Department、用户权限、RoleBinding、DataAuthorizationGrant、资源标签、RemoteAccessGrant、ManagedAccount、Connector、资源、OpenTelemetry 安装与配置、监控查询/导出、Chatbox、MCP Tool、Card Action、Break Glass 和 Secret 使用。
+- 企业审计：Department、用户权限、RoleBinding、DataAuthorizationGrant、资源标签、RemoteAccessGrant、ManagedAccount、Connector、资源、OpenTelemetry 安装与配置、监控查询/导出、Chatbox、MCP Tool、宿主确认动作、Break Glass 和 Secret 使用。
 
 超级管理员默认只能查看平台审计；企业管理员只能查看本企业审计。企业审计读取按角色、DataAuthorizationGrant 和字段规则裁剪；`security_auditor` 可以查看被授权的企业审计正文，但不能因此获得远程操作、监控敏感字段或 Secret 权限。
 

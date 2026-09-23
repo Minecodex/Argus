@@ -1,5 +1,7 @@
 # M5：交互卡片闭环
 
+> 历史验收记录：本阶段的 Card 领域、API、Slot/Binding、确认 Bridge 与运行入口已由 PlanV5 删除；本文的已完成项只记录旧版本事实，不是当前架构或可执行测试清单。当前展示采用 Tool 自有模板，确认由宿主 PendingAction 提供；有效的隔离、授权和恢复用例已迁入 `argus-dev e2e run --suite p5`，状态见 [当前验收报告](../planv5/acceptance-report.md)。
+
 ## 目标
 
 让系统 Card 和企业 Card 在不暴露 Tool/Token/私有参数的前提下展示裁剪数据、执行绑定查询和触发确定性动作。
@@ -45,4 +47,4 @@ M4 已提供公开 `result_ref`、PendingAction/Approval/Execution、隐藏 Comm
 
 ## 完成证据
 
-截至 2026-08-17，M5 已完成。旧 Shell Harness 最终成功运行号为 `20260817211415-4363`，脱敏证据位于 `artifacts/m5-e2e/20260817211415-4363`。该运行覆盖 M2-M4 回归、两版企业 Card 的八场景浏览器验证、系统/企业选择、explicit resource authorization 撤权与重新物化、Action Binding 幂等、非创建人审批、Commit/Verify、回滚、Redis 清空和 Server 重启恢复；`m4-runtime-state.txt`、`m5-card-state.txt` 与 `cleanup.txt` 均已生成，运行结束后临时 Namespace、PVC 和 Lease 均无残留。当前官方入口为 `go run ./cmd/argus-dev e2e run --suite m5`。
+截至 2026-08-17，旧 M5 已完成。旧 Shell Harness 最终成功运行号为 `20260817211415-4363`，脱敏证据位于 `artifacts/m5-e2e/20260817211415-4363`。该运行覆盖 M2-M4 回归、两版企业 Card 的八场景浏览器验证、系统/企业选择、explicit resource authorization 撤权与重新物化、Action Binding 幂等、非创建人审批、Commit/Verify、回滚、Redis 清空和 Server 重启恢复；`m4-runtime-state.txt`、`m5-card-state.txt` 与 `cleanup.txt` 均已生成，运行结束后临时 Namespace、PVC 和 Lease 均无残留。旧 `--suite m5` 入口已删除；当前展示和持久 Workspace 验收使用 `go run ./cmd/argus-dev e2e run --suite p5`。

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +25,7 @@ var (
 	ErrUnavailable     = errors.New("sandbox unavailable")
 	ErrVersionConflict = errors.New("sandbox version conflict")
 	ErrQuotaExceeded   = errors.New("sandbox quota exceeded")
+	ErrInvalidProfile  = errors.New("workspace profile must have no network access")
 )
 
 type BackendInput struct {
@@ -117,12 +120,18 @@ func (service Service) UpdateImage(ctx context.Context, id uuid.UUID, input Imag
 }
 
 func (service Service) CreateProfile(ctx context.Context, input ProfileInput) (db.SandboxProfile, error) {
+	if slices.Contains(input.TaskKinds, "agent_workspace") && input.NetworkMode != "none" {
+		return db.SandboxProfile{}, ErrInvalidProfile
+	}
 	return service.Store.Queries.CreateSandboxProfile(ctx, db.CreateSandboxProfileParams{ID: newID(), Name: input.Name, BackendID: input.BackendID,
 		ImageID: input.ImageID, TaskKinds: input.TaskKinds, CpuMillis: input.CPUMillis, MemoryMib: input.MemoryMiB,
 		TimeoutSeconds: input.TimeoutSeconds, NetworkMode: input.NetworkMode, Status: input.Status})
 }
 
 func (service Service) UpdateProfile(ctx context.Context, id uuid.UUID, input ProfileInput) (db.SandboxProfile, error) {
+	if slices.Contains(input.TaskKinds, "agent_workspace") && input.NetworkMode != "none" {
+		return db.SandboxProfile{}, ErrInvalidProfile
+	}
 	value, err := service.Store.Queries.UpdateSandboxProfile(ctx, db.UpdateSandboxProfileParams{ID: id, Name: input.Name, BackendID: input.BackendID,
 		ImageID: input.ImageID, TaskKinds: input.TaskKinds, CpuMillis: input.CPUMillis, MemoryMib: input.MemoryMiB,
 		TimeoutSeconds: input.TimeoutSeconds, NetworkMode: input.NetworkMode, Status: input.Status, Version: input.ExpectedVersion})
@@ -137,7 +146,7 @@ func (service Service) GetQuota(ctx context.Context, enterpriseID uuid.UUID) (db
 }
 func (service Service) UpdateQuota(ctx context.Context, enterpriseID uuid.UUID, concurrent int32, seconds, expected int64) (db.SandboxQuota, error) {
 	value, err := service.Store.Queries.UpsertSandboxQuota(ctx, db.UpsertSandboxQuotaParams{EnterpriseID: enterpriseID,
-		MaxConcurrentSessions: concurrent, MonthlySessionSeconds: seconds, Version: expected})
+		MaxConcurrentSessions: concurrent, MonthlySessionSeconds: seconds, ExpectedVersion: expected})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return db.SandboxQuota{}, ErrVersionConflict
 	}
@@ -194,6 +203,9 @@ func (service Service) ReconcileSession(ctx context.Context, session db.SandboxS
 	if session.Status == "terminated" || session.Status == "failed" {
 		return session, nil
 	}
+	if session.WorkspaceID.Valid && strings.HasPrefix(session.UpstreamSessionID, "pending:") && session.ExpiresAt.Time.After(time.Now().UTC()) {
+		return session, nil
+	}
 	profile, err := service.Store.Queries.GetSandboxProfile(ctx, session.ProfileID)
 	if err != nil {
 		return db.SandboxSession{}, err
@@ -225,7 +237,17 @@ func (service Service) ReconcileSession(ctx context.Context, session db.SandboxS
 
 func (service Service) finalizeSession(ctx context.Context, id uuid.UUID, status string) (db.SandboxSession, error) {
 	var result db.SandboxSession
-	err := service.Store.InTx(ctx, func(q *db.Queries) error {
+	// Quota -> session is the same lock order used by creation and renewal.
+	// These row locks and the atomic usage upsert provide serialization without
+	// aborting a concurrent reconciler's already completed workload cleanup.
+	err := service.Store.InReadCommittedTx(ctx, func(q *db.Queries) error {
+		observed, err := q.GetSandboxSession(ctx, id)
+		if err != nil {
+			return err
+		}
+		if _, err = q.GetSandboxQuotaForUpdate(ctx, observed.EnterpriseID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
 		session, err := q.GetSandboxSessionForUpdate(ctx, id)
 		if err != nil {
 			return err
@@ -249,7 +271,9 @@ func (service Service) finalizeSession(ctx context.Context, id uuid.UUID, status
 		if seconds < 0 {
 			seconds = 0
 		}
-		month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+		// Reservations are grouped by creation month; settlement must use the
+		// same period. A Workspace session is rotated before cross-month reuse.
+		month := monthStart(session.CreatedAt.Time)
 		_, err = q.AddSandboxUsage(ctx, db.AddSandboxUsageParams{
 			EnterpriseID:   session.EnterpriseID,
 			Month:          pgtype.Date{Time: month, Valid: true},
@@ -274,7 +298,7 @@ func (runner Runner) Handle(ctx context.Context, task runtime.Task) error {
 	if json.Unmarshal(task.Payload, &payload) != nil || payload.EnterpriseID == uuid.Nil || payload.TaskID == uuid.Nil || payload.TaskKind == "" {
 		return runtime.Error{ErrorCode: "TOOL_INPUT_INVALID", Cause: ErrUnavailable, Permanent: true}
 	}
-	if existing, err := runner.Service.Store.Queries.GetSandboxSessionByTask(ctx, payload.TaskID); err == nil {
+	if existing, err := runner.Service.Store.Queries.GetSandboxSessionByTask(ctx, uuid.NullUUID{UUID: payload.TaskID, Valid: true}); err == nil {
 		_, reconcileErr := runner.Service.ReconcileSession(ctx, existing)
 		return reconcileErr
 	} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -339,7 +363,7 @@ func (runner Runner) Handle(ctx context.Context, task runtime.Task) error {
 	}
 	var existing db.SandboxSession
 	err = runner.Service.Store.InTx(ctx, func(q *db.Queries) error {
-		if value, lookupErr := q.GetSandboxSessionByTask(ctx, payload.TaskID); lookupErr == nil {
+		if value, lookupErr := q.GetSandboxSessionByTask(ctx, uuid.NullUUID{UUID: payload.TaskID, Valid: true}); lookupErr == nil {
 			existing = value
 			return nil
 		} else if !errors.Is(lookupErr, pgx.ErrNoRows) {
@@ -364,7 +388,7 @@ func (runner Runner) Handle(ctx context.Context, task runtime.Task) error {
 			return ErrQuotaExceeded
 		}
 		_, createErr := q.CreateSandboxSession(ctx, db.CreateSandboxSessionParams{ID: newID(), EnterpriseID: payload.EnterpriseID,
-			TaskID: payload.TaskID, ProfileID: profile.ID, ProfileRevision: profile.Revision, UpstreamSessionID: created.ID, Status: status,
+			TaskID: uuid.NullUUID{UUID: payload.TaskID, Valid: true}, ProfileID: profile.ID, ProfileRevision: profile.Revision, UpstreamSessionID: created.ID, Status: status,
 			ExpiresAt: pgtype.Timestamptz{Time: expires, Valid: true}, StartedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: status == "running"}})
 		return createErr
 	})
@@ -379,7 +403,7 @@ func (runner Runner) Handle(ctx context.Context, task runtime.Task) error {
 		return runtime.Error{ErrorCode: "SANDBOX_QUOTA_EXCEEDED", Cause: err, Permanent: true}
 	}
 	if err != nil {
-		if existing, lookupErr := runner.Service.Store.Queries.GetSandboxSessionByTask(ctx, payload.TaskID); lookupErr == nil {
+		if existing, lookupErr := runner.Service.Store.Queries.GetSandboxSessionByTask(ctx, uuid.NullUUID{UUID: payload.TaskID, Valid: true}); lookupErr == nil {
 			if existing.UpstreamSessionID != created.ID {
 				_ = client.Delete(ctx, created.ID)
 			}

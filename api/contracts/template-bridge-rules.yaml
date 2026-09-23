@@ -1,0 +1,14 @@
+version: argus.template_bridge_rules/v1
+bridge_version: argus-template/v1
+handshake_transport: window_post_message
+business_transport: message_port
+require_exact_parent_origin: true
+require_exact_parent_source: true
+sandbox: allow-scripts
+min_nonce_length: 32
+sequence_rule: strictly_increasing
+max_message_bytes: 2097152
+allowed_operations: [resize, open_resource, open_result]
+resource_refs: server_authorized_allowlist
+result_refs: server_authorized_allowlist
+forbidden_operations: [confirm_action, cancel_action, query.invoke, action.invoke, fetch]

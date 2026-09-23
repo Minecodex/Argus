@@ -4,11 +4,68 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	kubetesting "k8s.io/client-go/testing"
 )
+
+func TestDeleteNamespaceRequiresOwnershipAndIdentity(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "owned", UID: "owned-uid", ResourceVersion: "7", Labels: map[string]string{"argus.io/release-id": "test-release"}}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "foreign", UID: "foreign-uid", Labels: map[string]string{"argus.io/release-id": "other-release"}}},
+	)
+	checked := false
+	client.PrependReactor("delete", "namespaces", func(action kubetesting.Action) (bool, runtime.Object, error) {
+		deletion := action.(kubetesting.DeleteAction)
+		if deletion.GetName() != "owned" {
+			t.Fatal("foreign namespace deletion attempted")
+		}
+		p := deletion.GetDeleteOptions().Preconditions
+		if p == nil || p.UID == nil || *p.UID != "owned-uid" || p.ResourceVersion == nil || *p.ResourceVersion != "7" {
+			t.Fatal("namespace deletion omitted identity preconditions")
+		}
+		checked = true
+		return false, nil, nil
+	})
+	kube := &E2EKube{Client: client}
+	if err := kube.DeleteNamespace(ctx, "foreign", "test-release"); err == nil {
+		t.Fatal("foreign namespace accepted")
+	}
+	if err := kube.DeleteNamespace(ctx, "owned", "test-release"); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("owned namespace was not deleted")
+	}
+	if err := kube.DeleteNamespace(ctx, "absent", "test-release"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestM7RegistersNamespaceBeforeInstallationAndRefusesExistingNamespace(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+	env := &E2EEnvironment{ReleaseID: "test-release", SystemNS: "test-system", Kube: &E2EKube{Client: client}}
+	if err := prepareM7CollectorNamespace(ctx, env); err != nil {
+		t.Fatal(err)
+	}
+	if len(env.ManagedNamespaces) != 1 || env.ManagedNamespaces[0] != m7CollectorNamespace {
+		t.Fatal("namespace missing from failure cleanup")
+	}
+	namespace, err := client.CoreV1().Namespaces().Get(ctx, m7CollectorNamespace, metav1.GetOptions{})
+	if err != nil || namespace.Labels["app.kubernetes.io/part-of"] != "argus" || namespace.Labels["argus.io/release-id"] != "test-release" {
+		t.Fatal("namespace ownership is incomplete")
+	}
+	other := &E2EEnvironment{ReleaseID: "other", SystemNS: "other-system", Kube: env.Kube}
+	if err := prepareM7CollectorNamespace(ctx, other); err == nil || len(other.ManagedNamespaces) != 0 {
+		t.Fatal("pre-existing namespace was adopted")
+	}
+}
 
 func TestCleanupManagedCollectorRBACOnlyDeletesTemporaryNamespaceBindings(t *testing.T) {
 	ctx := context.Background()

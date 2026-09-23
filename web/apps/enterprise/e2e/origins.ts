@@ -5,5 +5,5 @@ export const enterpriseOrigin =
   process.env.ARGUS_E2E_ENTERPRISE_ORIGIN ?? "http://127.0.0.1:4173";
 export const platformOrigin =
   process.env.ARGUS_E2E_PLATFORM_ORIGIN ?? "http://127.0.0.1:4174";
-export const cardOrigin =
-  process.env.ARGUS_E2E_CARD_ORIGIN ?? "http://127.0.0.1:4176";
+export const templateOrigin =
+  process.env.ARGUS_E2E_TEMPLATE_ORIGIN ?? "http://127.0.0.1:4176";

@@ -208,13 +208,13 @@ func (q *Queries) CreateSandboxProfile(ctx context.Context, arg CreateSandboxPro
 
 const createSandboxSession = `-- name: CreateSandboxSession :one
 INSERT INTO sandbox_sessions (id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, enterprise_id, task_id, workspace_id, tool_call_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at
 `
 
 type CreateSandboxSessionParams struct {
 	ID                uuid.UUID          `json:"id"`
 	EnterpriseID      uuid.UUID          `json:"enterprise_id"`
-	TaskID            uuid.UUID          `json:"task_id"`
+	TaskID            uuid.NullUUID      `json:"task_id"`
 	ProfileID         uuid.UUID          `json:"profile_id"`
 	ProfileRevision   int32              `json:"profile_revision"`
 	UpstreamSessionID string             `json:"upstream_session_id"`
@@ -240,6 +240,8 @@ func (q *Queries) CreateSandboxSession(ctx context.Context, arg CreateSandboxSes
 		&i.ID,
 		&i.EnterpriseID,
 		&i.TaskID,
+		&i.WorkspaceID,
+		&i.ToolCallID,
 		&i.ProfileID,
 		&i.ProfileRevision,
 		&i.UpstreamSessionID,
@@ -415,7 +417,7 @@ func (q *Queries) GetSandboxQuotaForUpdate(ctx context.Context, enterpriseID uui
 }
 
 const getSandboxSession = `-- name: GetSandboxSession :one
-SELECT id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions WHERE id = $1
+SELECT id, enterprise_id, task_id, workspace_id, tool_call_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions WHERE id = $1
 `
 
 func (q *Queries) GetSandboxSession(ctx context.Context, id uuid.UUID) (SandboxSession, error) {
@@ -425,6 +427,8 @@ func (q *Queries) GetSandboxSession(ctx context.Context, id uuid.UUID) (SandboxS
 		&i.ID,
 		&i.EnterpriseID,
 		&i.TaskID,
+		&i.WorkspaceID,
+		&i.ToolCallID,
 		&i.ProfileID,
 		&i.ProfileRevision,
 		&i.UpstreamSessionID,
@@ -439,16 +443,18 @@ func (q *Queries) GetSandboxSession(ctx context.Context, id uuid.UUID) (SandboxS
 }
 
 const getSandboxSessionByTask = `-- name: GetSandboxSessionByTask :one
-SELECT id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions WHERE task_id = $1
+SELECT id, enterprise_id, task_id, workspace_id, tool_call_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions WHERE task_id = $1
 `
 
-func (q *Queries) GetSandboxSessionByTask(ctx context.Context, taskID uuid.UUID) (SandboxSession, error) {
+func (q *Queries) GetSandboxSessionByTask(ctx context.Context, taskID uuid.NullUUID) (SandboxSession, error) {
 	row := q.db.QueryRow(ctx, getSandboxSessionByTask, taskID)
 	var i SandboxSession
 	err := row.Scan(
 		&i.ID,
 		&i.EnterpriseID,
 		&i.TaskID,
+		&i.WorkspaceID,
+		&i.ToolCallID,
 		&i.ProfileID,
 		&i.ProfileRevision,
 		&i.UpstreamSessionID,
@@ -463,7 +469,7 @@ func (q *Queries) GetSandboxSessionByTask(ctx context.Context, taskID uuid.UUID)
 }
 
 const getSandboxSessionForUpdate = `-- name: GetSandboxSessionForUpdate :one
-SELECT id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions WHERE id = $1 FOR UPDATE
+SELECT id, enterprise_id, task_id, workspace_id, tool_call_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) GetSandboxSessionForUpdate(ctx context.Context, id uuid.UUID) (SandboxSession, error) {
@@ -473,6 +479,8 @@ func (q *Queries) GetSandboxSessionForUpdate(ctx context.Context, id uuid.UUID) 
 		&i.ID,
 		&i.EnterpriseID,
 		&i.TaskID,
+		&i.WorkspaceID,
+		&i.ToolCallID,
 		&i.ProfileID,
 		&i.ProfileRevision,
 		&i.UpstreamSessionID,
@@ -487,7 +495,7 @@ func (q *Queries) GetSandboxSessionForUpdate(ctx context.Context, id uuid.UUID) 
 }
 
 const listExpiredSandboxSessions = `-- name: ListExpiredSandboxSessions :many
-SELECT id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions WHERE expires_at <= $1 AND status IN ('creating','running','terminating','unknown')
+SELECT id, enterprise_id, task_id, workspace_id, tool_call_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions WHERE expires_at <= $1 AND status IN ('creating','running','terminating','unknown')
 ORDER BY expires_at FOR UPDATE SKIP LOCKED LIMIT $2
 `
 
@@ -509,6 +517,8 @@ func (q *Queries) ListExpiredSandboxSessions(ctx context.Context, arg ListExpire
 			&i.ID,
 			&i.EnterpriseID,
 			&i.TaskID,
+			&i.WorkspaceID,
+			&i.ToolCallID,
 			&i.ProfileID,
 			&i.ProfileRevision,
 			&i.UpstreamSessionID,
@@ -644,7 +654,7 @@ func (q *Queries) ListSandboxProfiles(ctx context.Context) ([]SandboxProfile, er
 }
 
 const listSandboxSessions = `-- name: ListSandboxSessions :many
-SELECT id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions ORDER BY created_at DESC, id DESC LIMIT $1
+SELECT id, enterprise_id, task_id, workspace_id, tool_call_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions ORDER BY created_at DESC, id DESC LIMIT $1
 `
 
 func (q *Queries) ListSandboxSessions(ctx context.Context, limit int32) ([]SandboxSession, error) {
@@ -660,6 +670,8 @@ func (q *Queries) ListSandboxSessions(ctx context.Context, limit int32) ([]Sandb
 			&i.ID,
 			&i.EnterpriseID,
 			&i.TaskID,
+			&i.WorkspaceID,
+			&i.ToolCallID,
 			&i.ProfileID,
 			&i.ProfileRevision,
 			&i.UpstreamSessionID,
@@ -681,7 +693,7 @@ func (q *Queries) ListSandboxSessions(ctx context.Context, limit int32) ([]Sandb
 }
 
 const listSandboxSessionsForReconcile = `-- name: ListSandboxSessionsForReconcile :many
-SELECT id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions
+SELECT id, enterprise_id, task_id, workspace_id, tool_call_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at FROM sandbox_sessions
 WHERE status IN ('creating','terminating','unknown')
    OR (status = 'running' AND expires_at <= $1)
 ORDER BY updated_at, id LIMIT $2
@@ -705,6 +717,8 @@ func (q *Queries) ListSandboxSessionsForReconcile(ctx context.Context, arg ListS
 			&i.ID,
 			&i.EnterpriseID,
 			&i.TaskID,
+			&i.WorkspaceID,
+			&i.ToolCallID,
 			&i.ProfileID,
 			&i.ProfileRevision,
 			&i.UpstreamSessionID,
@@ -985,7 +999,7 @@ func (q *Queries) UpdateSandboxProfile(ctx context.Context, arg UpdateSandboxPro
 const updateSandboxSessionExpiry = `-- name: UpdateSandboxSessionExpiry :one
 UPDATE sandbox_sessions SET status = $2, expires_at = $3,
     started_at = COALESCE($4, started_at), updated_at = now()
-WHERE id = $1 RETURNING id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at
+WHERE id = $1 AND status NOT IN ('terminated','failed') RETURNING id, enterprise_id, task_id, workspace_id, tool_call_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at
 `
 
 type UpdateSandboxSessionExpiryParams struct {
@@ -1007,6 +1021,8 @@ func (q *Queries) UpdateSandboxSessionExpiry(ctx context.Context, arg UpdateSand
 		&i.ID,
 		&i.EnterpriseID,
 		&i.TaskID,
+		&i.WorkspaceID,
+		&i.ToolCallID,
 		&i.ProfileID,
 		&i.ProfileRevision,
 		&i.UpstreamSessionID,
@@ -1024,7 +1040,7 @@ const updateSandboxSessionStatus = `-- name: UpdateSandboxSessionStatus :one
 UPDATE sandbox_sessions SET status = $2,
     started_at = COALESCE($3, started_at),
     terminated_at = COALESCE($4, terminated_at), updated_at = now()
-WHERE id = $1 RETURNING id, enterprise_id, task_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at
+WHERE id = $1 AND status NOT IN ('terminated','failed') RETURNING id, enterprise_id, task_id, workspace_id, tool_call_id, profile_id, profile_revision, upstream_session_id, status, expires_at, started_at, terminated_at, created_at, updated_at
 `
 
 type UpdateSandboxSessionStatusParams struct {
@@ -1046,6 +1062,8 @@ func (q *Queries) UpdateSandboxSessionStatus(ctx context.Context, arg UpdateSand
 		&i.ID,
 		&i.EnterpriseID,
 		&i.TaskID,
+		&i.WorkspaceID,
+		&i.ToolCallID,
 		&i.ProfileID,
 		&i.ProfileRevision,
 		&i.UpstreamSessionID,
@@ -1061,10 +1079,11 @@ func (q *Queries) UpdateSandboxSessionStatus(ctx context.Context, arg UpdateSand
 
 const upsertSandboxQuota = `-- name: UpsertSandboxQuota :one
 INSERT INTO sandbox_quotas (enterprise_id, max_concurrent_sessions, monthly_session_seconds)
-VALUES ($1,$2,$3)
+SELECT $1,$2,$3
+WHERE $4::bigint = 0 OR EXISTS (SELECT 1 FROM sandbox_quotas WHERE enterprise_id=$1 AND version=$4)
 ON CONFLICT (enterprise_id) DO UPDATE SET max_concurrent_sessions = EXCLUDED.max_concurrent_sessions,
     monthly_session_seconds = EXCLUDED.monthly_session_seconds, version = sandbox_quotas.version + 1, updated_at = now()
-WHERE sandbox_quotas.version = $4 OR $4 = 0
+WHERE sandbox_quotas.version = $4
 RETURNING enterprise_id, max_concurrent_sessions, monthly_session_seconds, version, created_at, updated_at
 `
 
@@ -1072,7 +1091,7 @@ type UpsertSandboxQuotaParams struct {
 	EnterpriseID          uuid.UUID `json:"enterprise_id"`
 	MaxConcurrentSessions int32     `json:"max_concurrent_sessions"`
 	MonthlySessionSeconds int64     `json:"monthly_session_seconds"`
-	Version               int64     `json:"version"`
+	ExpectedVersion       int64     `json:"expected_version"`
 }
 
 func (q *Queries) UpsertSandboxQuota(ctx context.Context, arg UpsertSandboxQuotaParams) (SandboxQuota, error) {
@@ -1080,7 +1099,7 @@ func (q *Queries) UpsertSandboxQuota(ctx context.Context, arg UpsertSandboxQuota
 		arg.EnterpriseID,
 		arg.MaxConcurrentSessions,
 		arg.MonthlySessionSeconds,
-		arg.Version,
+		arg.ExpectedVersion,
 	)
 	var i SandboxQuota
 	err := row.Scan(

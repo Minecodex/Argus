@@ -93,7 +93,8 @@ import { HttpTransport, type HttpTransportOptions } from "../transport/http";
 import { SseTransport } from "../transport/sse";
 import { WebSocketTransport } from "../transport/websocket";
 import { installAgentDomains } from "./real/agent";
-import { installCardDomains } from "./real/card";
+import { createPlanV5Domains } from "./real/planv5";
+import type { PlanV5Domains } from "../planv5";
 import type { RealDomainContext } from "./real/context";
 import { installSandboxDomains } from "./real/sandbox";
 import { installWorkflowDomains } from "./real/workflow";
@@ -254,7 +255,9 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
     return portal;
   };
 
-  const client = createUnavailableClient();
+  const client = createUnavailableClient(
+    createPlanV5Domains(http, idempotencyKey),
+  );
   const domainContext: RealDomainContext = {
     client,
     http,
@@ -557,7 +560,7 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
   client.org = createOrganizationClient(http, versions, remember);
   installWorkflowDomains(domainContext);
   installAgentDomains(domainContext);
-  installCardDomains(domainContext);
+
   installRemoteAccessDomains(domainContext);
 
   client.audit = {
@@ -1485,8 +1488,9 @@ function createOrganizationClient(
   };
 }
 
-function createUnavailableClient(): ArgusApiClient {
+function createUnavailableClient(planv5: PlanV5Domains): ArgusApiClient {
   return {
+    ...planv5,
     auth: {
       login: () => unavailable("auth.login"),
       completePasswordChange: () => unavailable("auth.completePasswordChange"),
@@ -1507,6 +1511,9 @@ function createUnavailableClient(): ArgusApiClient {
       me: () => unavailable("auth.me"),
     },
     conversations: {
+      remove: () => unavailable("conversations.remove"),
+      preflight: () => unavailable("conversations.preflight"),
+      updateConnections: () => unavailable("conversations.updateConnections"),
       list: () => unavailable("conversations.list"),
       get: () => unavailable("conversations.get"),
       create: () => unavailable("conversations.create"),
@@ -1718,25 +1725,6 @@ function createUnavailableClient(): ArgusApiClient {
       listQuotas: () => unavailable("models.listQuotas"),
       setQuota: () => unavailable("models.setQuota"),
       usage: () => unavailable("models.usage"),
-    },
-    interactiveCards: {
-      list: () => unavailable("interactiveCards.list"),
-      get: () => unavailable("interactiveCards.get"),
-      listVersions: () => unavailable("interactiveCards.listVersions"),
-      getVersion: () => unavailable("interactiveCards.getVersion"),
-      createConfigurationVersion: () =>
-        unavailable("interactiveCards.createConfigurationVersion"),
-      startValidation: () => unavailable("interactiveCards.startValidation"),
-      submitValidationEvidence: () =>
-        unavailable("interactiveCards.submitValidationEvidence"),
-      changeState: () => unavailable("interactiveCards.changeState"),
-      listToolSchemas: () => unavailable("interactiveCards.listToolSchemas"),
-      createPresentation: () =>
-        unavailable("interactiveCards.createPresentation"),
-      invokeQueryBinding: () =>
-        unavailable("interactiveCards.invokeQueryBinding"),
-      invokeActionBinding: () =>
-        unavailable("interactiveCards.invokeActionBinding"),
     },
     org: {
       listUsers: () => unavailable("org.listUsers"),

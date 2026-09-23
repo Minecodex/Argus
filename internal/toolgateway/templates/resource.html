@@ -1,0 +1,21 @@
+<section aria-live="polite"><h3 id="title"></h3><div id="result"></div></section>
+<script>
+ArgusTemplate.onData((data, context) => {
+  const zh = context.locale === 'zh-CN';
+  document.getElementById('title').textContent = zh ? '资源详情' : 'Resource details';
+  const root = document.getElementById('result'); root.replaceChildren();
+  const items = Array.isArray(data.items) ? data.items : [data.host || data.cluster || data.connector || data];
+  if (!items.length) { root.textContent = zh ? '没有可显示的资源' : 'No resources to display'; }
+  const rows = items.map((item) => ({...item, ...(item.summary && typeof item.summary === 'object' ? item.summary : {})}));
+  if (rows.length) ArgusTemplate.table(root, rows, ['name', 'status', 'connection_status', 'address', 'api_server', 'namespace', 'phase', 'ready', 'platform', 'role', 'resource_version']);
+  if (!Array.isArray(data.items)) ArgusTemplate.details(root, data.host || data.cluster || data.connector || data);
+  for (const ref of data._resource_refs || []) {
+    const button = document.createElement('button'); button.type = 'button';
+    button.className = 'argus-template-resource';
+    const row = items.find((item) => item.id === ref.id);
+    button.textContent = (zh ? '打开资源 ' : 'Open resource ') + (row?.name || '');
+    button.addEventListener('click', () => ArgusTemplate.openResource(ref.type, ref.id)); root.append(button);
+  }
+  if (data.partial) ArgusTemplate.note(root, zh ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
+});
+</script>

@@ -328,13 +328,11 @@ export function createPlatformDomain(
         const profile = {
           id: nextId(db, "sp"),
           name: input.name,
-          description: input.description,
           imageId: input.imageId,
           resources: input.resources,
-          timeouts: input.timeouts,
-          network: input.network,
-          capabilities: input.capabilities,
-          builtin: false,
+          timeoutSeconds: input.timeoutSeconds,
+          taskKinds: ["agent_workspace" as const],
+          networkMode: "none" as const,
           enabled: true,
           createdAt: ctx.nowIso(),
         };
@@ -372,16 +370,34 @@ export function createPlatformDomain(
         const quota = db.sandboxQuotas.find(
           (entry) => entry.enterpriseId === targetEnterpriseId,
         );
-        if (!quota) throw new Error("sandbox quota not found");
-        return quota;
+        return (
+          quota ?? {
+            enterpriseId: targetEnterpriseId,
+            version: 0,
+            maxConcurrentSessions: 0,
+            monthlySessionSeconds: 0,
+          }
+        );
       },
       async update(targetEnterpriseId, patch) {
         await platformPause();
-        const quota = db.sandboxQuotas.find(
+        let quota = db.sandboxQuotas.find(
           (entry) => entry.enterpriseId === targetEnterpriseId,
         );
-        if (!quota) throw new Error("sandbox quota not found");
-        Object.assign(quota, patch);
+        if (!quota) {
+          quota = {
+            enterpriseId: targetEnterpriseId,
+            version: 0,
+            maxConcurrentSessions: 0,
+            monthlySessionSeconds: 0,
+          };
+          db.sandboxQuotas.push(quota);
+        }
+        if (quota.version !== patch.expectedVersion)
+          throw new Error("VERSION_CONFLICT");
+        quota.maxConcurrentSessions = patch.maxConcurrentSessions;
+        quota.monthlySessionSeconds = patch.monthlySessionSeconds;
+        quota.version++;
         ctx.audit("platform.sandbox_quota.manage", {
           platform: true,
           resourceType: "enterprise",

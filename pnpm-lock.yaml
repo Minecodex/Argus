@@ -78,22 +78,6 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@24.13.3)(jiti@2.7.0)(jsdom@26.1.0(supports-color@7.1.0))(lightningcss@1.32.0)(supports-color@7.1.0)
 
-  web/apps/card-runtime:
-    dependencies:
-      '@argus/api-client':
-        specifier: workspace:*
-        version: link:../../packages/api-client
-      axe-core:
-        specifier: ^4.13.0
-        version: 4.13.0
-    devDependencies:
-      typescript:
-        specifier: ^5.8.3
-        version: 5.8.3
-      vite:
-        specifier: ^7.0.6
-        version: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
-
   web/apps/enterprise:
     dependencies:
       '@argus/api-client':
@@ -102,9 +86,6 @@ importers:
       '@argus/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@argus/card-host':
-        specifier: workspace:*
-        version: link:../../packages/card-host
       '@argus/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -196,6 +177,19 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  web/apps/template-runtime:
+    dependencies:
+      '@argus/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      vite:
+        specifier: ^7.0.6
+        version: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
+
   web/packages/api-client:
     devDependencies:
       typescript:
@@ -211,25 +205,6 @@ importers:
         specifier: ^5.0.7
         version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
-      typescript:
-        specifier: ^5.8.3
-        version: 5.8.3
-
-  web/packages/card-host:
-    dependencies:
-      '@argus/api-client':
-        specifier: workspace:*
-        version: link:../api-client
-      react:
-        specifier: ^19.1.1
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.1.1
-        version: 19.2.8(react@19.2.8)
-    devDependencies:
-      '@types/react':
-        specifier: ^19.1.9
-        version: 19.2.18
       typescript:
         specifier: ^5.8.3
         version: 5.8.3

@@ -51,7 +51,7 @@ export const commonZh = {
       eyebrow: "企业治理",
       title: "企业管理",
       description:
-        "模型、Agent、交互卡片、组织权限与企业审计；配置变更产生不可变 Revision。",
+        "模型、MCP 连接、组织权限与企业审计；配置变更产生不可变 Revision。",
     },
   },
   demo: {

@@ -127,8 +127,8 @@ func (a *App) doctorWithOptions(ctx context.Context, scope string, options docto
 					add("kubernetes-architecture", "fail", err.Error())
 				} else if architecture != "amd64" && architecture != "arm64" {
 					add("kubernetes-architecture", "fail", "unsupported node architecture "+architecture)
-				} else if oneOf(options.E2ESuite, "m7", "m8", "m10-query") && architecture != "arm64" {
-					add("kubernetes-architecture", "fail", options.E2ESuite+" requires arm64 for the locked Collector distribution")
+				} else if options.E2ESuite == "m8" && architecture != "arm64" {
+					add("kubernetes-architecture", "fail", "m8 requires arm64 for its validated local-hardening baseline")
 				} else {
 					add("kubernetes-architecture", "pass", architecture)
 				}

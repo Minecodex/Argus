@@ -23,3 +23,14 @@ PendingAction storage has three independent authorities:
 
 None of these three server-only records are part of browser TypeScript
 generation.
+
+`agent/tool-discovery.schema.json` owns tool-authored business documentation
+(schema version, revision, bilingual title/description, keywords, result meaning,
+preconditions and intent/guidance examples). Gateway startup validates this
+contract before exposing a native tool. Metadata content hashes participate in
+Manifest and Catalog revisions; missing documentation has no ID-based fallback.
+
+`agent/tool-manifest.schema.json` owns the full `tool.describe` result, including
+category/name, input schema, risk/permissions and the business documentation. Its
+`argus.tool_manifest/v1` identity is distinct from the authored documentation
+contract. Both are validated during Gateway startup.

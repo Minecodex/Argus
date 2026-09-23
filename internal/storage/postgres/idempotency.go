@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"io"
 	"time"
 
@@ -73,7 +74,17 @@ func (service Idempotency) Begin(ctx context.Context, queries *db.Queries, audie
 	if rows == 1 {
 		return IdempotencyResult{}, nil
 	}
+	return service.Lookup(ctx, queries, audience, subjectID, operation, key, request)
+}
+
+// Lookup checks a completed request without reserving an operation. Expensive
+// preflight checks can run after this read and before the acceptance transaction.
+func (service Idempotency) Lookup(ctx context.Context, queries *db.Queries, audience, subjectID, operation, key string, request []byte) (IdempotencyResult, error) {
+	hash := sha256.Sum256(request)
 	record, err := queries.GetIdempotencyRecord(ctx, db.GetIdempotencyRecordParams{Audience: audience, SubjectID: subjectID, Operation: operation, IdempotencyKey: key})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return IdempotencyResult{}, nil
+	}
 	if err != nil {
 		return IdempotencyResult{}, err
 	}

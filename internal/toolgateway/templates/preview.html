@@ -1,0 +1,9 @@
+<section aria-live="polite"><h3 id="title"></h3><div id="details"></div></section>
+<script>
+ArgusTemplate.onData((data, context) => {
+  const zh = context.locale === 'zh-CN';
+  document.getElementById('title').textContent = zh ? '变更详情' : 'Change details';
+  const root = document.getElementById('details'); root.replaceChildren();
+  ArgusTemplate.details(root, data.preview || data.diff || data.summary || data);
+});
+</script>

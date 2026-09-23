@@ -18,6 +18,9 @@ func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 	}
 	for _, phase := range suiteDependencies[env.Options.Suite] {
 		var err error
+		if phase != "m2" {
+			_, _ = fmt.Fprintf(a.stdout, "E2E phase %s started\n", phase)
+		}
 		switch phase {
 		case "m2":
 			continue
@@ -25,8 +28,10 @@ func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 			err = a.runM3Scenario(ctx, env)
 		case "m4":
 			err = a.runM4Scenario(ctx, env)
-		case "m5":
-			err = a.runM5Scenario(ctx, env)
+		case "p5":
+			err = a.runP5Scenario(ctx, env)
+		case "p5-native":
+			err = a.verifyP5Native(ctx, env)
 		case "m6":
 			err = a.runM6Scenario(ctx, env)
 		case "m7":
@@ -41,8 +46,9 @@ func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 			err = fmt.Errorf("unsupported E2E dependency %q", phase)
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", phase, err)
 		}
+		_, _ = fmt.Fprintf(a.stdout, "E2E phase %s passed\n", phase)
 	}
 	return nil
 }
@@ -52,7 +58,7 @@ func (a *App) runPlaywright(ctx context.Context, env *E2EEnvironment, spec strin
 	variables["ARGUS_E2E_ARTIFACTS"] = artifactDir
 	variables["ARGUS_E2E_ENTERPRISE_ORIGIN"] = env.Endpoints.EnterpriseOrigin
 	variables["ARGUS_E2E_PLATFORM_ORIGIN"] = env.Endpoints.PlatformOrigin
-	variables["ARGUS_E2E_CARD_ORIGIN"] = env.Endpoints.CardOrigin
+	variables["ARGUS_E2E_TEMPLATE_ORIGIN"] = env.Endpoints.TemplateOrigin
 	variables["ARGUS_E2E_HOST_RESOLVER"] = env.Endpoints.HostResolver
 	variables["ARGUS_E2E_ENTERPRISE_TOTP_SECRET"] = env.State.Values["enterprise_mfa_secret"]
 	variables["ARGUS_E2E_ENTERPRISE_TOTP_LAST_CODE"] = env.State.Values["enterprise_mfa_last"]

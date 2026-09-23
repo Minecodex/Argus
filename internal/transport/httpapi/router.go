@@ -17,7 +17,7 @@ import (
 	"github.com/kakj-go/Argus/internal/buildinfo"
 	actionapi "github.com/kakj-go/Argus/internal/gen/openapi/actionapi"
 	auditapi "github.com/kakj-go/Argus/internal/gen/openapi/audit"
-	cardapi "github.com/kakj-go/Argus/internal/gen/openapi/cardapi"
+
 	connectionapi "github.com/kakj-go/Argus/internal/gen/openapi/connectionapi"
 	connectorapi "github.com/kakj-go/Argus/internal/gen/openapi/connectorapi"
 	conversationapi "github.com/kakj-go/Argus/internal/gen/openapi/conversationapi"
@@ -27,14 +27,17 @@ import (
 	kubernetesapi "github.com/kakj-go/Argus/internal/gen/openapi/kubernetesapi"
 	m8api "github.com/kakj-go/Argus/internal/gen/openapi/m8api"
 	machineapi "github.com/kakj-go/Argus/internal/gen/openapi/machine"
+	mcpapi "github.com/kakj-go/Argus/internal/gen/openapi/mcpapi"
 	modelapi "github.com/kakj-go/Argus/internal/gen/openapi/modelapi"
 	platformapi "github.com/kakj-go/Argus/internal/gen/openapi/platform"
+	presentationapi "github.com/kakj-go/Argus/internal/gen/openapi/presentationapi"
 	remoteaccessapi "github.com/kakj-go/Argus/internal/gen/openapi/remoteaccessapi"
 	sandboxapi "github.com/kakj-go/Argus/internal/gen/openapi/sandboxapi"
 	secretapi "github.com/kakj-go/Argus/internal/gen/openapi/secretapi"
 	setupapi "github.com/kakj-go/Argus/internal/gen/openapi/setup"
 	telemetryapi "github.com/kakj-go/Argus/internal/gen/openapi/telemetryapi"
 	workflowapi "github.com/kakj-go/Argus/internal/gen/openapi/workflowapi"
+	workspaceapi "github.com/kakj-go/Argus/internal/gen/openapi/workspaceapi"
 )
 
 type response struct {
@@ -70,12 +73,15 @@ type RouterOptions struct {
 	Workflow                *WorkflowHandler
 	Conversation            *ConversationHandler
 	Model                   *ModelHandler
+	MCP                     *MCPHandler
+	Workspace               *WorkspaceHandler
+	Presentation            *PresentationHandler
 	Sandbox                 *SandboxHandler
 	Connector               *ConnectorHandler
-	Card                    *CardHandler
-	RemoteAccess            *RemoteAccessHandler
-	Telemetry               *TelemetryHandler
-	AllowedOrigins          []string
+
+	RemoteAccess   *RemoteAccessHandler
+	Telemetry      *TelemetryHandler
+	AllowedOrigins []string
 }
 
 func NewRouter() http.Handler { return NewRouterWithOptions(RouterOptions{}) }
@@ -171,10 +177,6 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 		strict := connectorapi.NewStrictHandler(*options.Connector, []connectorapi.StrictMiddlewareFunc{connectorRequestContext})
 		connectorapi.HandlerFromMuxWithBaseURL(strict, router, "/api/v1")
 	}
-	if options.Card != nil {
-		strict := cardapi.NewStrictHandler(*options.Card, []cardapi.StrictMiddlewareFunc{cardRequestContext})
-		cardapi.HandlerFromMuxWithBaseURL(strict, router, "/api/v1")
-	}
 	if options.RemoteAccess != nil {
 		strict := remoteaccessapi.NewStrictHandler(*options.RemoteAccess, []remoteaccessapi.StrictMiddlewareFunc{remoteAccessRequestContext})
 		remoteaccessapi.HandlerFromMuxWithBaseURL(strict, router, "/api/v1")
@@ -182,6 +184,15 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 	if options.Telemetry != nil {
 		strict := telemetryapi.NewStrictHandler(*options.Telemetry, []telemetryapi.StrictMiddlewareFunc{telemetryRequestContext})
 		telemetryapi.HandlerFromMuxWithBaseURL(strict, router, "/api/v1")
+	}
+	if options.MCP != nil {
+		mcpapi.HandlerFromMuxWithBaseURL(mcpapi.NewStrictHandler(*options.MCP, []mcpapi.StrictMiddlewareFunc{mcpRequestContext}), router, "/api/v1")
+	}
+	if options.Workspace != nil {
+		workspaceapi.HandlerFromMuxWithBaseURL(workspaceapi.NewStrictHandler(*options.Workspace, []workspaceapi.StrictMiddlewareFunc{workspaceRequestContext}), router, "/api/v1")
+	}
+	if options.Presentation != nil {
+		presentationapi.HandlerFromMuxWithBaseURL(presentationapi.NewStrictHandler(*options.Presentation, []presentationapi.StrictMiddlewareFunc{presentationRequestContext}), router, "/api/v1")
 	}
 	return router
 }
@@ -310,12 +321,6 @@ func connectorRequestContext(next connectorapi.StrictHandlerFunc, _ string) conn
 	}
 }
 
-func cardRequestContext(next cardapi.StrictHandlerFunc, _ string) cardapi.StrictHandlerFunc {
-	return func(ctx context.Context, writer http.ResponseWriter, request *http.Request, value any) (any, error) {
-		return next(WithRequestContext(ctx, writer, request), writer, request, value)
-	}
-}
-
 func remoteAccessRequestContext(next remoteaccessapi.StrictHandlerFunc, _ string) remoteaccessapi.StrictHandlerFunc {
 	return func(ctx context.Context, writer http.ResponseWriter, request *http.Request, value any) (any, error) {
 		return next(WithRequestContext(ctx, writer, request), writer, request, value)
@@ -435,7 +440,9 @@ func requestLoggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handl
 
 func bodyLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		request.Body = http.MaxBytesReader(writer, request.Body, 1<<20)
+		if !isWorkspaceUpload(request) {
+			request.Body = http.MaxBytesReader(writer, request.Body, 1<<20)
+		}
 		next.ServeHTTP(writer, request)
 	})
 }

@@ -122,10 +122,14 @@ func (h *ScenarioHTTP) jsonValue(ctx context.Context, name, clientName, method, 
 	}
 	if response.StatusCode != expected {
 		redacted := redactJSON(result)
+		detail := "response body omitted"
 		if encoded, marshalErr := json.MarshalIndent(redacted, "", "  "); marshalErr == nil {
 			_ = writePrivate(filepath.Join(h.Artifacts, name+"-response.json"), append(encoded, '\n'))
+			if result != nil {
+				detail = string(encoded)
+			}
 		}
-		return result, fmt.Errorf("%s: expected HTTP %d, got %d: %s", name, expected, response.StatusCode, strings.TrimSpace(string(data)))
+		return result, fmt.Errorf("%s: expected HTTP %d, got %d: %s", name, expected, response.StatusCode, detail)
 	}
 	return result, nil
 }
@@ -159,7 +163,7 @@ func redactJSON(value any) any {
 
 func containsSensitiveField(value string) bool {
 	lower := strings.ToLower(value)
-	for _, field := range []string{"password", "secret", "token", "csrf", "authorization", "cookie", "private_key", "privatekey", "recovery_code"} {
+	for _, field := range []string{"password", "secret", "token", "csrf", "authorization", "cookie", "private_key", "privatekey", "recovery_code", "api_key", "apikey", "credential_value"} {
 		if strings.Contains(lower, field) {
 			return true
 		}

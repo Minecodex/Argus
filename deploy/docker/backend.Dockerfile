@@ -13,6 +13,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 ARG GO_BUILD_TAGS=""
 COPY api/openapi ./api/openapi
+COPY api/schemas ./api/schemas
 COPY cmd ./cmd
 COPY internal ./internal
 COPY migrations ./migrations
@@ -21,7 +22,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     set -eu; \
     mkdir -p /out && \
-    for name in argus-server argus-worker argus-connector-gateway argus-telemetry argus-telemetry-dlq-replay argus-connector argus-pki-controller argusctl argus-migrate argus-card-catalog-sync argus-telemetry-catalog-sync argus-sandbox-smoke; do \
+    for name in argus-server argus-worker argus-connector-gateway argus-telemetry argus-telemetry-dlq-replay argus-connector argus-pki-controller argusctl argus-migrate argus-telemetry-catalog-sync argus-sandbox-smoke; do \
       CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
 		-tags "$GO_BUILD_TAGS" \
         -trimpath \

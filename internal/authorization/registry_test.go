@@ -10,8 +10,8 @@ func TestPermissionRegistryVersionAndBuiltinRolesIncludeM7(t *testing.T) {
 	for _, permission := range []string{
 		"data_authorization.read", "data_authorization.manage",
 		"conversation.use", "model.manage", "model.quota.manage", "approval_policy.manage",
-		"approval.decide", "execution.read", "interactive_card.read",
-		"interactive_card.create", "interactive_card.update", "interactive_card.publish", "interactive_card.deprecate",
+		"approval.decide", "execution.read", "mcp_connection.manage", "workspace.use",
+
 		"remote_access.grant.read", "remote_access.grant.manage",
 		"remote_access.rule.read", "remote_access.rule.manage", "remote_access.workflow.read", "remote_access.workflow.manage",
 		"remote_access.session_profile.read", "remote_access.session_profile.manage", "remote_access.governance.references.read",
@@ -44,9 +44,9 @@ func TestPermissionRegistryVersionAndBuiltinRolesIncludeM7(t *testing.T) {
 	}
 
 	assertRolePermissions(t, "enterprise_admin", "model.manage", "model.quota.manage", "approval_policy.manage",
-		"interactive_card.read", "interactive_card.create", "interactive_card.update", "interactive_card.publish", "interactive_card.deprecate",
+
 		"remote_access.grant.manage", "remote_access.rule.manage", "remote_access.workflow.manage", "remote_access.session_profile.manage")
-	assertRolePermissions(t, "resource_admin", "conversation.use", "model.read", "approval.decide")
+	assertRolePermissions(t, "resource_admin", "workspace.use", "conversation.use", "model.read", "approval.decide")
 	assertRolePermissions(t, "resource_operator", "remote_access.request", "remote_access.session.create")
 	assertRolePermissions(t, "resource_viewer", "remote_access.request", "remote_access.session.create")
 	assertRolePermissions(t, "resource_approver", "approval.read", "approval.decide", "execution.read", "remote_access.session.approve")

@@ -19,13 +19,16 @@ import (
 	"github.com/kakj-go/Argus/internal/agent"
 	"github.com/kakj-go/Argus/internal/app/component"
 	"github.com/kakj-go/Argus/internal/artifactcheck"
-	cardservice "github.com/kakj-go/Argus/internal/card"
+
 	"github.com/kakj-go/Argus/internal/collectormanager"
 	"github.com/kakj-go/Argus/internal/config"
 	connectorservice "github.com/kakj-go/Argus/internal/connector"
+	"github.com/kakj-go/Argus/internal/conversation"
 	"github.com/kakj-go/Argus/internal/directexecutor"
+	"github.com/kakj-go/Argus/internal/enterprisemcp"
 	directv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/directexecutor/v1"
 	"github.com/kakj-go/Argus/internal/hostremoval"
+	"github.com/kakj-go/Argus/internal/integration/remotemcp"
 	"github.com/kakj-go/Argus/internal/keywrap"
 	"github.com/kakj-go/Argus/internal/kubernetesreader"
 	"github.com/kakj-go/Argus/internal/mcp"
@@ -38,6 +41,8 @@ import (
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	redisstore "github.com/kakj-go/Argus/internal/storage/redis"
 	telemetryservice "github.com/kakj-go/Argus/internal/telemetry"
+	"github.com/kakj-go/Argus/internal/toolgateway"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 	"github.com/kakj-go/Argus/internal/trustbundle"
 )
 
@@ -48,9 +53,13 @@ const (
 	PoolCompaction     = "compaction"
 	PoolSandbox        = "sandbox"
 	PoolDirectExecutor = "direct-executor"
+	PoolWorkspaceIO    = "workspace-io"
 )
 
 func Run(ctx context.Context, logger *slog.Logger, pool string) error {
+	if pool == PoolWorkspaceIO {
+		return runWorkspaceIO(ctx, logger)
+	}
 	if pool != PoolDefault && pool != PoolAgent && pool != PoolAction && pool != PoolCompaction && pool != PoolSandbox && pool != PoolDirectExecutor {
 		return fmt.Errorf("unsupported worker pool %q", pool)
 	}
@@ -141,7 +150,10 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		Extension:        telemetryActions, ClusterEnrollment: connectorDomain,
 		Kubernetes: kubernetesreader.Reader{Store: store, Secrets: secretDomain, Validator: resource.DirectTargetValidator{DeniedCIDRs: denied}, Notifier: connectorDomain}}
 	registry := mcp.NewRegistry()
-	if err := (agent.ResourceTools{Store: store, Resources: resourceDomain}).Register(registry); err != nil {
+	if err := (toolgateway.ResourceTools{Store: store, Resources: resourceDomain}).Register(registry); err != nil {
+		return err
+	}
+	if err := (toolgateway.LifecycleTools{Base: toolgateway.ResourceTools{Store: store, Resources: resourceDomain}, Bastion: bastionDomain, Removal: removalDomain}).Register(registry); err != nil {
 		return err
 	}
 	if cfg.TelemetryEnabled && (pool == PoolDefault || pool == PoolAgent) {
@@ -154,19 +166,32 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 			return queryErr
 		}
 		defer telemetryQuery.Close()
-		telemetryDomain := telemetryservice.Service{Store: store, Access: resource.AccessService{}, Actions: actionDomain, Query: telemetryQuery}
+		telemetryDomain := component.TelemetryDomain(cfg, store, actionDomain, telemetryQuery)
 		if err := (telemetryservice.Tools{Service: telemetryDomain}).Register(registry); err != nil {
+			return err
+		}
+		if err := (toolgateway.CollectorPreviewTools{Base: toolgateway.ResourceTools{Store: store, Resources: resourceDomain}, Service: telemetryDomain}).Register(registry); err != nil {
 			return err
 		}
 	}
 	modelDomain := modelservice.Service{Store: store, Keyring: keyring}
-	cardDomain := cardservice.Service{Store: store, Idempotency: idempotency, Tools: registry,
-		PresentationTTL: cfg.CardPresentationTTL, ValidationTTL: cfg.CardValidationTTL, RuntimeVersion: cfg.CardRuntimeVersion, MaxPresentation: cfg.CardMaxPresentationBytes}
-	if err := cardDomain.RegisterRenderTool(registry); err != nil {
+
+	workspaceDomain, err := component.Workspace(ctx, cfg, store, idempotency, sandbox.Service{Store: store, Keyring: keyring})
+	if err != nil {
 		return err
 	}
+	if err := workspaceDomain.RegisterTools(registry); err != nil {
+		return err
+	}
+	nativeGateway, err := toolgateway.New(registry, cfg.ToolImplementationRevision)
+	if err != nil {
+		return err
+	}
+	conversationDomain := conversation.Service{Store: store, Idempotency: idempotency}
+	mcpDomain := enterprisemcp.Service{Store: store, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: denied}}
+	toolFactory := toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, mcpDomain}, Validate: conversationDomain.ValidateToolPrincipal}
 	handlers := map[string]runtime.Handler{
-		PoolAgent:      agent.Loop{Store: store, Models: modelDomain, Tools: registry, Cards: cardDomain},
+		PoolAgent:      agent.Loop{Store: store, Models: modelDomain, Tools: toolFactory, Objects: workspaceDomain.Objects},
 		PoolAction:     action.Executor{Store: store, Resources: resourceDomain, OneTimeResultKey: cfg.PendingActionKey},
 		PoolCompaction: agent.Compactor{Store: store, Models: modelDomain},
 		PoolSandbox:    sandbox.Runner{Service: sandbox.Service{Store: store, Keyring: keyring}},
@@ -181,7 +206,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	}
 	workerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	errorsChannel := make(chan error, len(queues)+5)
+	errorsChannel := make(chan error, len(queues)+12)
 	var group sync.WaitGroup
 	for _, queue := range queues {
 		queue := queue
@@ -192,6 +217,8 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		}()
 	}
 	if pool == PoolDefault || pool == PoolSandbox {
+		group.Add(1)
+		go func() { defer group.Done(); errorsChannel <- workspaceDomain.RunReconciler(workerCtx, logger) }()
 		group.Add(1)
 		go func() {
 			defer group.Done()

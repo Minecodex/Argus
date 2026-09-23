@@ -10,16 +10,18 @@ import (
 	"time"
 
 	"github.com/kakj-go/Argus/internal/action"
-	"github.com/kakj-go/Argus/internal/agent"
+	"github.com/kakj-go/Argus/internal/app/component"
 	"github.com/kakj-go/Argus/internal/artifactcheck"
 	"github.com/kakj-go/Argus/internal/authorization"
-	cardservice "github.com/kakj-go/Argus/internal/card"
+
 	"github.com/kakj-go/Argus/internal/config"
 	connectorservice "github.com/kakj-go/Argus/internal/connector"
 	"github.com/kakj-go/Argus/internal/conversation"
 	"github.com/kakj-go/Argus/internal/directexecutor"
+	"github.com/kakj-go/Argus/internal/enterprisemcp"
 	"github.com/kakj-go/Argus/internal/hostremoval"
 	"github.com/kakj-go/Argus/internal/identity"
+	"github.com/kakj-go/Argus/internal/integration/remotemcp"
 	"github.com/kakj-go/Argus/internal/keywrap"
 	"github.com/kakj-go/Argus/internal/kubernetesreader"
 	"github.com/kakj-go/Argus/internal/mcp"
@@ -35,6 +37,8 @@ import (
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	redisstore "github.com/kakj-go/Argus/internal/storage/redis"
 	telemetryservice "github.com/kakj-go/Argus/internal/telemetry"
+	"github.com/kakj-go/Argus/internal/toolgateway"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 	"github.com/kakj-go/Argus/internal/transport/httpapi"
 	"github.com/kakj-go/Argus/internal/trustbundle"
 )
@@ -168,15 +172,13 @@ func (a *App) Run(ctx context.Context) error {
 	modelHandler := httpapi.ModelHandler{Identity: enterpriseIdentityHandler,
 		Service: modelservice.Service{Store: postgresStore, Idempotency: idempotency, Keyring: secretKeyring}}
 	toolRegistry := mcp.NewRegistry()
-	if err := (agent.ResourceTools{Store: postgresStore, Resources: resourceDomain}).Register(toolRegistry); err != nil {
+	if err := (toolgateway.ResourceTools{Store: postgresStore, Resources: resourceDomain}).Register(toolRegistry); err != nil {
 		return err
 	}
-	cardDomain := cardservice.Service{Store: postgresStore, Idempotency: idempotency, Tools: toolRegistry, PresentationTTL: a.config.CardPresentationTTL,
-		ValidationTTL: a.config.CardValidationTTL, RuntimeVersion: a.config.CardRuntimeVersion, MaxPresentation: a.config.CardMaxPresentationBytes}
-	if err := cardDomain.RegisterRenderTool(toolRegistry); err != nil {
+	if err := (toolgateway.LifecycleTools{Base: toolgateway.ResourceTools{Store: postgresStore, Resources: resourceDomain}, Bastion: bastionDomain, Removal: removalDomain}).Register(toolRegistry); err != nil {
 		return err
 	}
-	cardHandler := httpapi.CardHandler{Identity: enterpriseIdentityHandler, Service: cardDomain, Workflow: workflowDomain}
+
 	sandboxHandler := httpapi.SandboxHandler{Auth: setupHandler, Service: sandbox.Service{Store: postgresStore, Keyring: secretKeyring}}
 	connectorHandler := httpapi.ConnectorHandler{Identity: enterpriseIdentityHandler, Service: connectorDomain, Bastion: bastionDomain, Queries: postgresStore.Queries}
 	remoteWebsocketURL, err := websocketURL(a.config.RemoteOrigin)
@@ -200,8 +202,7 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		defer telemetryQuery.Close()
 		platformHandler.Enterprise.Telemetry = telemetryQuery
-		telemetryDomain := telemetryservice.Service{Store: postgresStore, Access: resource.AccessService{}, Actions: actionDomain,
-			Query: telemetryQuery, Engine: telemetryQuery, OtelcolKubernetesImage: a.config.OtelcolKubernetesImage}
+		telemetryDomain := component.TelemetryDomain(a.config, postgresStore, actionDomain, telemetryQuery)
 		telemetryIdentity := telemetryservice.IdentityService{Store: postgresStore, TrustBundles: bundles, Issuer: connectorservice.CertManagerIssuer{
 			Client: kubernetesClient, Namespace: a.config.SystemNamespace, IssuerName: a.config.TelemetryIssuerName, IssuerKind: "ClusterIssuer",
 			RequestPrefix: "argus-telemetry-", SubjectLabel: "argus.io/telemetry-collector-id", IssuerGeneration: int32(activeBundle.Epoch),
@@ -214,9 +215,33 @@ func (a *App) Run(ctx context.Context) error {
 		if err := (telemetryservice.Tools{Service: telemetryDomain}).Register(toolRegistry); err != nil {
 			return err
 		}
+		if err := (toolgateway.CollectorPreviewTools{Base: toolgateway.ResourceTools{Store: postgresStore, Resources: resourceDomain}, Service: telemetryDomain}).Register(toolRegistry); err != nil {
+			return err
+		}
 		telemetryHandler = &httpapi.TelemetryHandler{Identity: enterpriseIdentityHandler, Service: telemetryDomain, CollectorIdentity: telemetryIdentity,
 			IngestGRPCEndpoint: a.config.TelemetryIngestGRPC, IngestHTTPEndpoint: a.config.TelemetryIngestHTTP}
 	}
+	workspaceDomain, err := component.Workspace(ctx, a.config, postgresStore, idempotency, sandboxHandler.Service)
+	if err != nil {
+		return err
+	}
+	if err := workspaceDomain.RegisterTools(toolRegistry); err != nil {
+		return err
+	}
+	conversationHandler.Service.Objects = workspaceDomain.Objects
+	workspaceHandler := httpapi.WorkspaceHandler{Identity: enterpriseIdentityHandler, Service: workspaceDomain}
+	presentationHandler := httpapi.PresentationHandler{Identity: enterpriseIdentityHandler, Store: postgresStore}
+	admissionErrors, err := component.StartWorkspaceAdmission(ctx, workspaceDomain)
+	if err != nil {
+		return err
+	}
+	nativeGateway, err := toolgateway.New(toolRegistry, a.config.ToolImplementationRevision)
+	if err != nil {
+		return err
+	}
+	mcpDomain := enterprisemcp.Service{Store: postgresStore, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: deniedCIDRs}}
+	mcpHandler := httpapi.MCPHandler{Identity: enterpriseIdentityHandler, Service: mcpDomain}
+	conversationHandler.Service.Tools = toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, mcpDomain}, Validate: conversationHandler.Service.ValidateToolPrincipal}
 	go (outbox.Relay{Store: postgresStore, Redis: redisClient, Logger: a.logger}).Run(ctx)
 	server := &http.Server{
 		Addr: a.config.Address,
@@ -228,13 +253,16 @@ func (a *App) Run(ctx context.Context) error {
 			Sandbox:        &sandboxHandler,
 			AllowedOrigins: a.config.AllowedOrigins,
 			Connector:      &connectorHandler,
-			Card:           &cardHandler,
-			RemoteAccess:   &remoteAccessHandler,
-			Telemetry:      telemetryHandler,
+
+			RemoteAccess: &remoteAccessHandler,
+			Telemetry:    telemetryHandler,
+			MCP:          &mcpHandler,
+			Workspace:    &workspaceHandler,
+			Presentation: &presentationHandler,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		ReadTimeout:       6 * time.Minute,
+		WriteTimeout:      6 * time.Minute,
 		IdleTimeout:       60 * time.Second,
 	}
 
@@ -251,7 +279,16 @@ func (a *App) Run(ctx context.Context) error {
 	}()
 
 	a.logger.Info("argus-server started", "address", a.config.Address)
-	err = server.ListenAndServe()
+	serveErrors := make(chan error, 1)
+	go func() { serveErrors <- server.ListenAndServe() }()
+	select {
+	case err = <-serveErrors:
+	case err = <-admissionErrors:
+		_ = server.Close()
+		if err == nil && ctx.Err() == nil {
+			err = errors.New("Workspace admission stopped")
+		}
+	}
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

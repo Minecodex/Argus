@@ -1,9 +1,22 @@
 package sandbox
 
 import (
+	"errors"
+	"github.com/google/uuid"
 	"testing"
 	"time"
 )
+
+func TestWorkspaceProfilesRejectNetworkAccessBeforePersistence(t *testing.T) {
+	service := Service{}
+	input := ProfileInput{TaskKinds: []string{"agent_workspace"}, NetworkMode: "restricted"}
+	if _, err := service.CreateProfile(t.Context(), input); !errors.Is(err, ErrInvalidProfile) {
+		t.Fatalf("networked workspace profile accepted: %v", err)
+	}
+	if _, err := service.UpdateProfile(t.Context(), uuid.New(), input); !errors.Is(err, ErrInvalidProfile) {
+		t.Fatalf("workspace profile network update accepted: %v", err)
+	}
+}
 
 func TestSandboxReservationHonorsMonthlyQuota(t *testing.T) {
 	t.Parallel()

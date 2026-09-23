@@ -56,12 +56,11 @@ components:
             - user_confirmation
             - approval_update
             - execution_update
-            - card_draft_created
-            - card_instance_created
-            - card_presentation_invalidated
-            - card_action_result
             - run_state_changed
             - context_compacted
+            - tool_presentation
+            - workspace_file_added
+            - artifact_published
         actor_type:
           enum:
             - user
@@ -94,7 +93,6 @@ components:
         - schema_version
         - event_id
         - sequence
-        - run_id
         - event_type
         - occurred_at
         - payload
@@ -119,9 +117,6 @@ components:
             - tool_call_started
             - tool_call_completed
             - pending_action_created
-            - card_draft_created
-            - card_instance_created
-            - card_presentation_invalidated
             - waiting_input
             - waiting_approval
             - context_compaction_started
@@ -129,11 +124,16 @@ components:
             - context_compaction_failed
             - run_completed
             - run_failed
+            - tool_presentation
+            - workspace_file_added
+            - artifact_published
         occurred_at:
           type: string
           format: date-time
         payload:
           $ref: '#/components/schemas/PublicJsonObject'
+        conversation_id:
+          type: string
     RunCheckpoint:
       type: object
       additionalProperties: false

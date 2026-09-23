@@ -50,7 +50,7 @@ func (service BastionService) PreviewWindowsRDPEnable(ctx context.Context, subje
 	plan := windowsRDPEnablePlan{HostID: host.ID, HostResourceVersion: host.ResourceVersion, ConnectorID: connector.ID,
 		ConnectorVersion: connector.Version, ConnectionEpoch: connector.ConnectionEpoch, ObservationObservedAt: observation.ObservedAt.Time,
 		EnforceNLA: true, EnableFirewall: true}
-	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{ActionType: "host.windows_rdp.enable", Title: "Enable Windows RDP",
+	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{RunID: subject.RunID, ActionType: "host.windows_rdp.enable", Title: "Enable Windows RDP",
 		Summary: "Enable Remote Desktop, NLA, the TermService service, and the built-in RDP firewall rules", Risk: "dangerous", ResourceType: "host",
 		ResourceID: uuid.NullUUID{UUID: host.ID, Valid: true}, ExpectedResourceVersion: pgtype.Int8{Int64: host.ResourceVersion, Valid: true},
 		AuthorizationVersion: subject.AuthorizationVersion, Preview: map[string]any{"host_id": host.ID, "registry": []string{"fDenyTSConnections=0", "UserAuthentication=1"},

@@ -7,7 +7,6 @@ import type {
 } from "@argus/api-client/contracts";
 import {
   chatMessageFromPublic,
-  type CardInstance,
   type ChatMessage,
   type ToolCallTrace,
 } from "./chat-view-model";
@@ -30,7 +29,7 @@ export type ConversationProjection = {
   message_text: string;
   message_id?: string;
   tool_calls: ReadonlyMap<string, ToolCallTrace>;
-  cards: readonly CardInstance[];
+  presentations: readonly string[];
   completed_message?: ChatMessage;
   pending_action_refs: readonly string[];
   execution_refs: readonly string[];
@@ -44,7 +43,7 @@ export const initialConversationProjection: ConversationProjection = {
   events: [],
   message_text: "",
   tool_calls: new Map(),
-  cards: [],
+  presentations: [],
   pending_action_refs: [],
   execution_refs: [],
   compaction: { status: "idle" },
@@ -77,7 +76,7 @@ export function reduceAgentEvent(
   const tool_calls = new Map(state.tool_calls);
   let message_text = state.message_text;
   let message_id = state.message_id;
-  let cards = state.cards;
+  let presentations = state.presentations;
   let completed_message = state.completed_message;
   let pending_action_refs = state.pending_action_refs;
   let execution_refs = state.execution_refs;
@@ -104,9 +103,16 @@ export function reduceAgentEvent(
     if (ref) {
       tool_calls.set(ref, {
         callId: ref,
-        toolName: current?.toolName ?? "tool",
+        toolName:
+          current?.toolName ??
+          stringField(payload, "target_tool_id") ??
+          stringField(payload, "tool_id") ??
+          "tool",
         startedAt: current?.startedAt ?? event.occurred_at,
-        status: payload.status === "failed" ? "failed" : "success",
+        status:
+          payload.status === "succeeded" || payload.status === "success"
+            ? "success"
+            : "failed",
         summary: stringField(payload, "summary"),
         durationMs:
           typeof payload.duration_ms === "number"
@@ -132,24 +138,24 @@ export function reduceAgentEvent(
   } else if (event.event_type === "context_compaction_failed") {
     compaction = { ...compaction, status: "failed" };
   } else if (event.event_type === "run_completed") {
-    stop_reason =
-      payload.stop_reason === "output_limit" ? "output_limit" : "completed";
+    stop_reason = [
+      "user_cancelled",
+      "pending_action_cancelled",
+      "request_cancelled",
+      "workspace_deleted",
+      "conversation_deleted",
+    ].includes(stringField(payload, "stop_reason") ?? "")
+      ? "cancelled"
+      : payload.stop_reason === "output_limit"
+        ? "output_limit"
+        : "completed";
   } else if (event.event_type === "run_failed") {
     stop_reason = "failed";
   }
-  const card = objectPayload(payload.card);
-  const cardId = stringField(card, "card_instance_id");
-  const interactiveCardId = stringField(card, "interactive_card_id");
-  const version = stringField(card, "version");
-  if (cardId && interactiveCardId && version && !cards.some((item) => item.id === cardId)) {
-    cards = [...cards, {
-      id: cardId,
-      interactiveCardId,
-      version,
-      title: stringField(card, "title"),
-      pendingActionRef: stringField(card, "pending_action_ref"),
-      actionBindingId: stringField(card, "action_binding_id"),
-    }];
+  if (event.event_type === "tool_presentation") {
+    const ref = stringField(payload, "tool_call_id");
+    if (ref && !presentations.includes(ref))
+      presentations = [...presentations, ref];
   }
   if (event.event_type === "message_completed") {
     completed_message = chatMessageFromPublic(payload.message) ?? undefined;
@@ -165,7 +171,7 @@ export function reduceAgentEvent(
     message_text,
     message_id,
     tool_calls,
-    cards,
+    presentations,
     completed_message,
     pending_action_refs,
     execution_refs,

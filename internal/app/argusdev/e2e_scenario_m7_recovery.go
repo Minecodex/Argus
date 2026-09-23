@@ -160,7 +160,7 @@ func secretEnvSource(name, key string) *corev1.EnvVarSource {
 func (a *App) verifyM7Authorization(ctx context.Context, env *E2EEnvironment) error {
 	sensitive := "Authorization: Bearer m7-redaction-fixture"
 	hostID := env.State.Values["m7_host_id"]
-	if _, err := env.Kube.Exec(ctx, env.SystemNS, "app.kubernetes.io/name=argus-direct-executor", "argus-direct-executor",
+	if _, err := a.execM7Host(ctx, env, "argus-direct-executor",
 		"/usr/local/bin/argus-telemetry-e2e", "--endpoint=127.0.0.1:4317", "--resource-id="+hostID, "--marker=redaction", "--log-body="+sensitive); err != nil {
 		return err
 	}

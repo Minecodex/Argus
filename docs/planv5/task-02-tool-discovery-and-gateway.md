@@ -1,8 +1,14 @@
-# Task 02：Tool Discovery 与统一 Tool Gateway
+# Task 02：自有 Tool Discovery 与 Tool Gateway
 
 ## 目标
 
-用 `tool.search`、`tool.describe`、`tool.invoke` 三个稳定元工具替换完整业务 Tool Schema 注入。所有 Native Tool、未来 Remote MCP 和 Sandbox stdio MCP 都通过同一个 Catalog、权限门禁、Schema 校验、执行预算和结果投影边界。
+用 `tool.search`、`tool.describe`、`tool.invoke` 三个元工具访问 Argus 自有 MCP Registry，替换自有业务 Tool Schema 的直接注入。自有 Tool 保留权限、数据授权、Preview/Commit 与 Tool 自有模板。
+
+客户 MCP 不进入该 Registry/Catalog，也不映射为自有分类；首期只支持 Remote Streamable HTTP，各个 Schema 直接提供给模型，执行与数据投影由 Task 04 的外接 Adapter 负责，stdio 延后。四基础工具也是独立核心执行入口。共享基础观测/协议原语不代表套用同一业务治理流程。参见 [已确认决策](./02-confirmed-decisions-and-open-questions.md)。
+
+## 当前实施状态
+
+三元 Gateway、七分类、主体感知缓存、独立鉴权、固定目录版本及 27 个正式 Preview 已接入。Kubernetes 的模型分类按约定使用 `k8s`；内部 Tool ID 仍以 `kubernetes.` 开头。二者不混用，不增加分类兼容别名。目录/Schema 和真实数据库调用已有证据，新增 Collector 模型入口已在 M10 g 轮通过。2026-09-23 的 R17 发现缺项现已补齐：52 个正式工具的版本化业务描述、关键词、结果语义、前件和示例均进入 Catalog，确定性检索及 Schema/版本/缓存回归通过，完整 P5 b 验证七分类九组模型投影。见 [R17 修复与验收](./fixes-r17-2026-09-23.md)。真实模型检索质量评测仍归 Task 06 待执行。
 
 ## 交付内容
 
@@ -19,7 +25,8 @@
 - [ ] 定义代码内 `ToolManifest`：分类、名称、版本、标题、描述、关键词、Schema、风险、权限、执行器、Projection 和 Presentation。
 - [ ] Catalog 启动时校验名称规范、分类、版本、Schema、重复项、执行器和模板资产。
 - [ ] Catalog Revision 根据规范化 Manifest 集合确定性计算。
-- [ ] Commit Tool 注册到内部隐藏目录，永不进入模型 Search/Describe。
+- [ ] 自有 Commit Tool 注册到内部隐藏目录，永不进入模型 Search/Describe 或直接模型工具列表。
+- [ ] 客户 MCP 不进入自有 Catalog，不能通过上游同名工具或模型别名取得自有内部身份。
 - [ ] Platform/Enterprise 启用状态、用户权限和 Capability Snapshot 作为查询投影，不修改原始 Manifest。
 - [ ] Catalog 不把 Endpoint、stdio 命令、镜像、环境变量或 Secret 暴露给 Agent。
 
@@ -47,7 +54,7 @@
 - [ ] 输入固定为 `category + name + arguments`，不允许模型指定版本、执行器、Endpoint 或 Profile。
 - [ ] Gateway 在执行前重新解析 Manifest，并验证分类、名称、启用状态、权限、资源授权、Schema、风险和预算。
 - [ ] Gateway 注入可信 `enterprise_id/user_id/run_id/tool_call_id/invocation_id/authorization_version`，忽略模型同名字段。
-- [ ] 只读 Tool 根据 Manifest 执行；变更 Tool 只能调用 Preview，Commit 目录对模型隐藏。
+- [ ] 自有只读 Tool 根据 Manifest 执行；自有业务变更只能调用 Preview，Commit 对模型隐藏。`workflow` 查询/取消沿用其公开状态机接口；不把离线文件写入或客户 MCP 直接写入套为业务 Preview。
 - [ ] 执行超时、取消、并发和重试策略由 Manifest 风险级别与执行器共同约束。
 - [ ] Tool 执行完成后统一进入 Result Projector，不允许 Handler 直接写模型消息或浏览器 SSE。
 - [ ] 幂等键绑定真实 Tool 身份、规范化参数、调用主体和 Run，不使用模型自由文本。
@@ -64,18 +71,19 @@ type Executor interface {
 ```
 
 - [ ] `NativeExecutor` 迁移现有 Go Tool。
-- [ ] 预留 `RemoteMCPExecutor`，Task 04 实现传输。
-- [ ] 预留 `SandboxBuiltinExecutor` 和 `SandboxStdioMCPExecutor`，Task 04 实现执行。
+- [ ] 自有 Gateway 不注册客户 MCP Executor；Task 04 经 ExternalMCPToolSet 提供独立 Remote Streamable HTTP Adapter，不实现 stdio。
+- [ ] 四基础工具经 SandboxBuiltinExecutor 暴露为核心工具，不要求通过自有分类发现。
 - [ ] 执行器只返回 Raw Result 和受控元数据，不负责构造模型消息或操作 DOM。
 - [ ] 所有上游错误先规范化为 Argus 稳定错误，再做受众投影。
 
 ### P5-T07：Result Projector
 
-- [ ] 保留现有 4 MiB 完整结果和 64 KiB 模型投影基线。
+- [ ] 保留自有 Tool 现有单项 4 MiB 内联 Artifact 与 64 KiB 模型投影基线；超大文件需要独立文件存储/传输接口，不能假定现有 `artifacts` 表可容纳完整 Workspace。
 - [ ] 每个 Tool 使用版本化确定性 Projection；大结果保存 Artifact 并返回 `result_ref`。
 - [ ] 模型投影包含摘要、样本、统计、资源引用、Partial 和稳定错误。
 - [ ] Presentation Projection 作为独立受众对象交给 Task 03，不进入 Agent Context。
 - [ ] 原始 Tool Result、模型投影和 Presentation 使用同一 `tool_call_id`、Tool Version 和 Authorization Snapshot。
+- [ ] 受控结果导入 Workspace 只导出当前可授权的数据，不包含模板源码、私有 Preview 记录或连接凭据；会话文件上传/产物下载沿用 Task 04 的文件边界，具体模型可调用接口在详细设计中固化，不增加核心工具。
 
 ### P5-T08：现有业务 Tool 迁移
 
@@ -86,14 +94,14 @@ type Executor interface {
 - [ ] Trace Tool 迁移到 `trace`。
 - [ ] Connector Tool 迁移到 `connector`。
 - [ ] PendingAction 查询和取消迁移到 `workflow`；Commit Tool 保留内部隐藏。
-- [ ] 删除每个 Tool 面向模型的直接注册，业务 Tool 只能由三个元工具访问。
+- [ ] 删除自有业务 Tool 面向模型的直接注册，自有 Registry 只能由三个元工具访问；保留客户 MCP 的独立直接模型注册路径。
 
 ### P5-T09：后续 Skill 接口
 
 - [ ] 定义只读 `SkillManifest` 和 `ActiveSkillContext`，包含名称、版本、描述、Instruction Hash 和允许分类提示。
 - [ ] Skill 只通过显式产品命令/受信入口激活，当前不建设 Marketplace、远程安装或模糊自动选择。
 - [ ] 激活 Skill 不向模型增加 Tool Schema，只向 ContextAssembler 增加一个版本化 Instruction Block。
-- [ ] Skill 只能指导三个元工具的使用；可执行代码必须注册为 Tool，界面必须由目标 Tool Template 提供。
+- [ ] Skill 使用自有业务能力时指导三个元工具；自有界面由目标 Tool 提供。Skill 对离线代码/已有客户 MCP 的指导范围待细化，不自行注册 MCP、执行器或模板。
 - [ ] Skill 不能扩大 Tool Visibility、权限、预算、Sandbox Capability 或 Commit 可见性。
 - [ ] 删除 Card Render Skill 后，不得以通用 Skill 名义重新建立模板选择逻辑。
 
@@ -126,12 +134,13 @@ normalized_query_or_tool_name
 - [ ] 大日志、指标、Pod 列表先确定性投影，完整结果可按 `result_ref` 获取。
 - [ ] Redis 清空、Worker 重启和 Catalog Reload 不改变权限语义。
 - [ ] 激活 Skill 只改变 Instruction Context，不改变核心 Tool Schema、Catalog 权限或执行器。
+- [ ] 外接客户 MCP 在自有 Search/Describe/Invoke 中不存在，却可按明确模型工具映射直接调用；外接工具不受自有分类枚举约束。
 
 ## 完成标准
 
-1. 模型请求不再包含任何业务 Tool 的完整 Schema。
-2. 所有正式业务 Tool 只能通过 Search → Describe → Invoke 路径调用。
+1. 模型请求不再直接包含自有业务 Tool Catalog 的完整 Schema；客户 MCP 直接 Schema 不受此限制。
+2. 所有正式自有业务 Tool 通过 Search/Describe/Invoke 路径访问；客户 MCP 使用独立直接模型工具。
 3. Catalog 分类和 Executor 完全正交。
-4. Tool Gateway 成为权限、Schema、预算、幂等和结果投影的唯一入口。
-5. Commit Tool 对模型不可发现、不可描述、不可调用。
-6. Catalog 扩容不会线性增加初始模型 Tool Schema Token。
+4. 自有 Tool Gateway 成为自有业务权限、Schema、预算、幂等与双投影入口。
+5. 自有 Commit 对模型不可发现、不可描述、不可直接调用。
+6. 自有 Catalog 扩容不会线性增加初始核心 Schema Token；客户 MCP Schema 成本单独计量。

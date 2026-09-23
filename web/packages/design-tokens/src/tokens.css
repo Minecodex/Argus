@@ -1,4 +1,5 @@
 :root {
+  --line-height-normal: 1.5;
   color-scheme: dark;
   --font-sans:
     Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui,

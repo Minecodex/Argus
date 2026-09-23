@@ -25,15 +25,27 @@ test.describe("M4 real Agent and governance flow", () => {
     );
 
     await page.goto(`${enterpriseOrigin}/`);
-    await expect(page.getByText("M4 recovery flow", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("M4 recovery flow", { exact: true }),
+    ).toBeVisible();
 
     await page.goto(`${enterpriseOrigin}/settings/ai`);
-    await expect(page.getByText("M4 Replay chat_completions", { exact: true })).toBeVisible();
-    await expect(page.getByText("M4 Replay responses", { exact: true })).toBeVisible();
-
-    await page.goto(`${enterpriseOrigin}/approvals`);
     await expect(
-      page.getByRole("button", { name: /Update host.*(Succeeded|已成功)/ }).first(),
+      page.getByText("M4 Replay chat_completions", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("M4 Replay responses", { exact: true }),
+    ).toBeVisible();
+
+    await page.goto(
+      `${enterpriseOrigin}/approvals?approval=operation&scope=done`,
+    );
+    await expect(
+      page
+        .getByRole("button", {
+          name: /(Update host|更新主机).*m4-managed-host.*(Succeeded|已成功)/,
+        })
+        .first(),
     ).toBeVisible();
 
     await page.goto(`${enterpriseOrigin}/tasks`);
@@ -62,9 +74,36 @@ test.describe("M4 real Agent and governance flow", () => {
       platformPassword,
     );
     await page.goto(`${platformOrigin}/sandbox`);
-    await expect(page.getByText("M4 OpenSandbox", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("M4 OpenSandbox", { exact: true }),
+    ).toBeVisible();
     await page.getByRole("tab", { name: "Sandbox Profiles" }).click();
     await expect(page.getByText("M4 smoke", { exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Enterprise quotas" }).click();
+    await page
+      .getByRole("button", { name: "Edit quota", exact: true })
+      .first()
+      .click();
+    const quota = page.getByRole("dialog");
+    await expect(page.locator("form form")).toHaveCount(0);
+    await expect(quota.getByRole("checkbox")).toHaveCount(0);
+    await quota.getByLabel("Monthly compute time (seconds)").fill("125");
+    const saved = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PUT" &&
+        response.url().includes("/platform/sandbox/enterprise-quotas/"),
+    );
+    await quota.getByRole("button", { name: "Save", exact: true }).click();
+    expect((await saved).status()).toBe(200);
+    await page.reload();
+    await page.getByRole("tab", { name: "Enterprise quotas" }).click();
+    await page
+      .getByRole("button", { name: "Edit quota", exact: true })
+      .first()
+      .click();
+    await expect(
+      page.getByRole("dialog").getByLabel("Monthly compute time (seconds)"),
+    ).toHaveValue("125");
     await expectNoCredentialInBrowserState(page, "write-only");
   });
 });

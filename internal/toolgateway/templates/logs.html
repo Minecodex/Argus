@@ -1,0 +1,9 @@
+<section><h3 id="title"></h3><pre id="logs"></pre><p id="notice"></p></section>
+<script>
+ArgusTemplate.onData((data, context) => {
+  const zh = context.locale === 'zh-CN';
+  document.getElementById('title').textContent = zh ? 'Pod 日志' : 'Pod logs';
+  document.getElementById('logs').textContent = String(data.content || data.logs || '');
+  document.getElementById('notice').textContent = data.truncated ? (zh ? '日志已截断。请发送新消息调整查询。' : 'Logs were truncated. Send another message to adjust the query.') : '';
+});
+</script>

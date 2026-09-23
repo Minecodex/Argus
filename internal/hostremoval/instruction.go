@@ -56,8 +56,8 @@ func (service Service) createInstruction(ctx context.Context, q *db.Queries, ope
 			return Instruction{}, err
 		}
 	}
-	var plan Plan
-	if json.Unmarshal(operation.Plan, &plan) != nil || !plan.OperationID.Valid || plan.OperationID.UUID != operation.ID || plan.ConnectorID != operation.ConnectorID || plan.RemovalGeneration != operation.RemovalGeneration {
+	plan, err := DecodeOperationPlan(operation)
+	if err != nil {
 		return Instruction{}, ErrIdentityChanged
 	}
 	receiptURL, err := service.receiptURL()
@@ -117,8 +117,8 @@ func (service Service) ClaimBootstrap(ctx context.Context, operationID uuid.UUID
 		if err = service.validateOperationFence(ctx, q, operation); err != nil {
 			return err
 		}
-		var plan Plan
-		if json.Unmarshal(operation.Plan, &plan) != nil {
+		plan, err := DecodeOperationPlan(operation)
+		if err != nil {
 			return ErrIdentityChanged
 		}
 		receiptURL, err := service.receiptURL()

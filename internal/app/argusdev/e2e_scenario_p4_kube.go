@@ -31,18 +31,22 @@ type p4Target struct {
 	Network    p4TargetNetwork
 }
 
-func (a *App) patchP4DirectExecutor(ctx context.Context, env *E2EEnvironment) error {
+func (a *App) patchP4DirectExecutor(ctx context.Context, env *E2EEnvironment, loopbackRegression bool) error {
 	hosts, err := e2eExposureHosts(env.ConfigPath)
 	if err != nil {
 		return err
 	}
+	callbackAddress := env.Endpoints.IngressIP
+	if loopbackRegression {
+		callbackAddress = "127.0.0.1"
+	}
 	patch := map[string]any{"spec": map[string]any{
 		"replicas": int32(2),
 		"template": map[string]any{"spec": map[string]any{"hostAliases": []any{
-			map[string]any{"ip": env.Endpoints.IngressIP, "hostnames": []string{hosts["platform"], hosts["cards"], hosts["remote"]}},
+			map[string]any{"ip": env.Endpoints.IngressIP, "hostnames": []string{hosts["platform"], hosts["templates"], hosts["remote"]}},
 			// Regression: external Enterprise and Artifact hostnames resolving to
 			// loopback must not break the explicit cluster-internal HTTPS route.
-			map[string]any{"ip": "127.0.0.1", "hostnames": []string{hosts["enterprise"], hosts["artifacts"]}},
+			map[string]any{"ip": callbackAddress, "hostnames": []string{hosts["enterprise"], hosts["artifacts"]}},
 			map[string]any{"ip": env.Endpoints.ConnectorIP, "hostnames": []string{hosts["connector"]}},
 		}}},
 	}}
@@ -57,8 +61,8 @@ func (a *App) patchP4DirectExecutor(ctx context.Context, env *E2EEnvironment) er
 		return err
 	}
 	for _, hostname := range []string{hosts["enterprise"], hosts["artifacts"]} {
-		if p4HostAliasAddress(deployment.Spec.Template.Spec.HostAliases, hostname) != "127.0.0.1" {
-			return fmt.Errorf("Direct Executor external hostname %s does not resolve to the loopback regression target", hostname)
+		if p4HostAliasAddress(deployment.Spec.Template.Spec.HostAliases, hostname) != callbackAddress {
+			return fmt.Errorf("Direct Executor external hostname %s does not resolve to the expected fixture target", hostname)
 		}
 	}
 	return nil
@@ -162,7 +166,7 @@ func p4HostAliases(env *E2EEnvironment) ([]corev1.HostAlias, error) {
 		return nil, err
 	}
 	return []corev1.HostAlias{
-		{IP: env.Endpoints.IngressIP, Hostnames: []string{hosts["enterprise"], hosts["platform"], hosts["cards"], hosts["remote"], hosts["artifacts"]}},
+		{IP: env.Endpoints.IngressIP, Hostnames: []string{hosts["enterprise"], hosts["platform"], hosts["templates"], hosts["remote"], hosts["artifacts"]}},
 		{IP: env.Endpoints.ConnectorIP, Hostnames: []string{hosts["connector"]}},
 	}, nil
 }

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @argus/enterprise dev",
     "dev:platform": "pnpm --filter @argus/platform dev",
-    "dev:card": "pnpm --filter @argus/card-runtime dev",
+    "dev:template": "pnpm --filter @argus/template-runtime dev",
     "build": "node scripts/build-web.mjs mock",
     "build:real": "node scripts/build-web.mjs real",
     "check:real-build": "pnpm build:real",

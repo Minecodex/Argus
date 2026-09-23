@@ -1,5 +1,5 @@
 export interface ArgusRuntimeConfig {
-  cardOrigin?: string;
+  templateOrigin?: string;
   platformLoginUrl?: string;
 }
 

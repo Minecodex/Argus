@@ -1,0 +1,43 @@
+.argus-planv5-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.argus-planv5-form {
+  display: grid;
+  gap: var(--space-4);
+}
+.argus-planv5-members {
+  display: grid;
+  gap: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+.argus-planv5-members label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.argus-chat-file {
+  display: inline-block;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  margin: var(--space-1);
+  font-size: var(--font-size-13);
+}
+.argus-conversation-workspace {
+  padding: var(--space-2) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-13);
+  color: var(--text-secondary);
+}
+.argus-planv5-connection {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}

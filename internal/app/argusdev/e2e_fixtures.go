@@ -25,6 +25,11 @@ func suiteFixtureFeatures(suite string) fixtureFeatures {
 	features := fixtureFeatures{}
 	for _, dependency := range suiteDependencies[suite] {
 		switch dependency {
+		case "p5":
+			features.Replay = true
+			// Installation publishes signed Collector/Connector artifacts even
+			// when the suite does not run host onboarding scenarios.
+			features.Artifact = true
 		case "m3":
 			features.SSH = true
 			features.Artifact = true
@@ -64,6 +69,11 @@ func (a *App) installE2EFixtures(ctx context.Context, env *E2EEnvironment) error
 	if !features.SSH && !features.Replay && !features.Artifact {
 		return nil
 	}
+	if features.Replay {
+		if err := prepareReplayFixtureNamespace(ctx, env); err != nil {
+			return err
+		}
+	}
 	chart, err := loader.Load(filepath.Join(a.root, "tests", "e2e", "helm", "argus-e2e-fixtures"))
 	if err != nil {
 		return err
@@ -84,7 +94,7 @@ func (a *App) installE2EFixtures(ctx context.Context, env *E2EEnvironment) error
 	install.CreateNamespace = false
 	images := env.State.FixtureImages
 	replayTLS, err := generateFixtureCertificate("argus-replay-model", []string{
-		"argus-replay-model", "argus-replay-model." + env.SandboxNS + ".svc",
+		"argus-replay-model", "argus-replay-model." + env.ReplayNamespace() + ".svc",
 	}, nil)
 	if err != nil {
 		return err
@@ -92,7 +102,7 @@ func (a *App) installE2EFixtures(ctx context.Context, env *E2EEnvironment) error
 	artifactTLS := env.ArtifactTLS
 	values := map[string]any{
 		"releaseId":  env.ReleaseID,
-		"namespaces": map[string]any{"system": env.SystemNS, "sandbox": env.SandboxNS, "observability": env.ObservNS},
+		"namespaces": map[string]any{"system": env.SystemNS, "sandbox": env.SandboxNS, "observability": env.ObservNS, "replay": env.ReplayNamespace()},
 		"images": map[string]any{
 			"pullPolicy": "Never", "sshTarget": images["ssh"], "replayModel": images["replay"],
 			"artifactServer": images["artifact"], "systemdTarget": images["systemd"],

@@ -1,0 +1,11 @@
+<section><h3 id="title"></h3><div id="logs"></div></section>
+<script>
+ArgusTemplate.onData((data, context) => {
+  document.getElementById('title').textContent = context.locale === 'zh-CN' ? '日志查询' : 'Logs';
+  const root = document.getElementById('logs'); root.replaceChildren();
+  const payload = data.data || data.result || data;
+  const rows = Array.isArray(payload) ? payload : payload.rows || payload.items || payload.hits || [];
+  ArgusTemplate.table(root, Array.isArray(rows) ? rows : [], ['timestamp','severity_text','service_name','body','trace_id','span_id']);
+  if (data.partial) ArgusTemplate.note(root, context.locale === 'zh-CN' ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
+});
+</script>

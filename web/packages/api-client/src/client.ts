@@ -1,3 +1,4 @@
+import type { PlanV5Domains, ConversationPreflight } from "./planv5";
 import type {
   AIModel,
   ApiKey,
@@ -111,15 +112,6 @@ import type {
   ResourcePreviewUpdate,
   StreamEventEnvelope,
   SandboxUsage,
-  InteractiveCard,
-  CardVersion,
-  CardVersionSummary,
-  CardValidationRun,
-  CardValidationStart,
-  CardValidationEvidence,
-  CardConfigurationVersionCreate,
-  CardStateCommand,
-  CardPresentation,
   CollectionClaim,
   CollectionProfile,
   CollectorDistributionVersion,
@@ -140,9 +132,6 @@ import type {
   SkyWalkingGraphQLResponse,
   RouteTestCreate,
   RouteTestResult,
-  CardPresentationCreate,
-  CardBindingInvokeResult,
-  ToolSchemaCatalog,
   RemoteAccessGrant,
   RemoteAccessGrantWrite,
   RemoteAccessGrantUpdate,
@@ -242,7 +231,7 @@ export interface KubernetesPodLogsQuery {
  * infrastructure goes through the Pending Action two-phase flow
  * (preview -> confirm -> optional approval -> execution Task).
  */
-export interface ArgusApiClient {
+export interface ArgusApiClient extends PlanV5Domains {
   /** Session lifecycle and enterprise context. */
   auth: {
     login(input: LoginInput): Promise<SessionInfo>;
@@ -271,6 +260,7 @@ export interface ArgusApiClient {
 
   /** Chatbox conversations and streaming assistant replies. */
   conversations: {
+    remove(id: string): Promise<void>;
     list(query?: ListQuery): Promise<Page<Conversation>>;
     get(id: string): Promise<Conversation>;
     create(input?: ConversationCreate): Promise<Conversation>;
@@ -278,7 +268,7 @@ export interface ArgusApiClient {
     listEvents(conversationId: string): Promise<ConversationEvent[]>;
     /**
      * Sends a user message and streams the assistant reply: token deltas,
-     * tool call progress, inserted cards and the final message.
+     * tool call progress, Tool presentations and the final message.
      */
     sendMessage(
       conversationId: string,
@@ -286,11 +276,15 @@ export interface ArgusApiClient {
       options?: {
         signal?: AbortSignal;
         last_event_id?: string;
-        mock_intent?: "interactive_card.create";
       },
     ): AsyncIterable<StreamEventEnvelope>;
+    updateConnections(
+      id: string,
+      connectionIds: string[],
+    ): Promise<Conversation>;
+    preflight(id: string, input: MessageCreate): Promise<ConversationPreflight>;
     updateModel(id: string, modelId: string): Promise<Conversation>;
-    /** Push immutable events for a conversation (e.g. card_action_result). */
+    /** Push immutable events for a conversation. */
     subscribe(
       conversationId: string,
       listener: (event: ConversationEvent) => void,
@@ -361,7 +355,7 @@ export interface ArgusApiClient {
     ): Promise<PendingActionPublic>;
   };
 
-  /** Human-only remote access. Tickets never cross into Agent, Card, or Sandbox APIs. */
+  /** Human-only remote access. Tickets never cross into Agent or Sandbox APIs. */
   remoteAccess: {
     listGrants(query?: CursorListQuery): Promise<Page<RemoteAccessGrant>>;
     getGrant(id: string): Promise<RemoteAccessGrant>;
@@ -621,38 +615,6 @@ export interface ArgusApiClient {
     usage(range?: UsageRange): Promise<ModelUsageSummary>;
   };
 
-  /** Interactive card catalog, bindings, validation and enable gates. */
-  interactiveCards: {
-    list(): Promise<InteractiveCard[]>;
-    get(id: string): Promise<InteractiveCard>;
-    listVersions(id: string): Promise<CardVersionSummary[]>;
-    getVersion(id: string, revision: number): Promise<CardVersion>;
-    createConfigurationVersion(
-      id: string,
-      input: CardConfigurationVersionCreate,
-    ): Promise<CardVersion>;
-    startValidation(
-      id: string,
-      input: CardValidationStart,
-    ): Promise<CardValidationRun>;
-    submitValidationEvidence(
-      runId: string,
-      input: CardValidationEvidence,
-    ): Promise<CardValidationRun>;
-    changeState(
-      id: string,
-      action: "activate" | "disable" | "rollback" | "deprecate",
-      input: CardStateCommand,
-    ): Promise<InteractiveCard>;
-    listToolSchemas(): Promise<ToolSchemaCatalog>;
-    createPresentation(
-      cardInstanceId: string,
-      input: CardPresentationCreate,
-    ): Promise<CardPresentation>;
-    invokeQueryBinding(bindingId: string): Promise<CardBindingInvokeResult>;
-    invokeActionBinding(bindingId: string): Promise<CardBindingInvokeResult>;
-  };
-
   /** Organization: users, departments, roles, explicit resource grants, policies, API keys. */
   org: {
     listUsers(): Promise<User[]>;
@@ -808,7 +770,9 @@ export interface ArgusApiClient {
       get(enterpriseId: string): Promise<EnterpriseSandboxQuota>;
       update(
         enterpriseId: string,
-        patch: Partial<Omit<EnterpriseSandboxQuota, "enterpriseId">>,
+        patch: Omit<EnterpriseSandboxQuota, "enterpriseId" | "version"> & {
+          expectedVersion: number;
+        },
       ): Promise<EnterpriseSandboxQuota>;
     };
     sessions: {

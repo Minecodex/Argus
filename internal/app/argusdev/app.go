@@ -22,7 +22,7 @@ const usage = `usage:
   argus-dev connector publish-artifacts --endpoint URL --access-key K --secret-key K --version VERSION [--database-url URL]
   argus-dev query promql|kql|skywalking|tenant-schema
   argus-dev web build --api-mode mock|real
-  argus-dev e2e run --suite m2|m3|m4|m5|m6|m7|m8|m10-query|p4|tls [options]
+  argus-dev e2e run --suite m2|m3|m4|p5|m6|m7|m8|m10-query|p4|tls [options]
   argus-dev e2e windows-host --config FILE [--run-id ID] [--artifacts DIR]
   argus-dev release local [--version VERSION] [--output DIR]`
 

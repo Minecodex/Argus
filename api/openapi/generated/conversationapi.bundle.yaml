@@ -10,6 +10,34 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /conversations/{conversation_id}/preflight:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: preflightConversation
+      summary: preflightConversation.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationPreflight'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationPreflightInput'
   /conversations:
     get:
       operationId: listConversations
@@ -25,7 +53,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConversationPage'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
     post:
       operationId: createConversation
       summary: createConversation.
@@ -46,7 +74,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Conversation'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /conversations/{conversation_id}:
     parameters:
       - name: conversation_id
@@ -55,6 +83,21 @@ paths:
         schema:
           type: string
           format: uuid
+    delete:
+      operationId: deleteConversation
+      summary: Permanently delete a conversation and schedule its owned file cleanup.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '202':
+          description: Deletion accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        default:
+          $ref: '#/components/responses/responses-Error'
     get:
       operationId: getConversation
       summary: getConversation.
@@ -66,7 +109,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Conversation'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
     put:
       operationId: updateConversation
       summary: updateConversation.
@@ -86,7 +129,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Conversation'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /conversations/{conversation_id}/messages:
     parameters:
       - name: conversation_id
@@ -115,7 +158,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessageAccepted'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /conversations/{conversation_id}/ledger:
     parameters:
       - name: conversation_id
@@ -138,7 +181,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConversationEventPage'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /runs/{run_id}:
     parameters:
       - name: run_id
@@ -158,7 +201,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Run'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /runs/{run_id}/cancel:
     parameters:
       - name: run_id
@@ -181,7 +224,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RunCommandResult'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /runs/{run_id}/compact:
     parameters:
       - name: run_id
@@ -204,7 +247,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RunCommandResult'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /tool-results/{result_ref}:
     parameters:
       - name: result_ref
@@ -225,7 +268,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ToolResult'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /conversations/{conversation_id}/events:
     get:
       operationId: streamConversationEvents
@@ -272,6 +315,7 @@ components:
         - id
         - title
         - selected_model_id
+        - selected_mcp_connection_ids
         - status
         - version
         - created_at
@@ -287,11 +331,19 @@ components:
         selected_model_id:
           type: string
           format: uuid
+        selected_mcp_connection_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 100
+          items:
+            type: string
+            format: uuid
         status:
           type: string
           enum:
             - active
             - archived
+            - deleted
         version:
           type: integer
           format: int64
@@ -328,6 +380,13 @@ components:
         selected_model_id:
           type: string
           format: uuid
+        selected_mcp_connection_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 100
+          items:
+            type: string
+            format: uuid
         status:
           type: string
           enum:
@@ -360,23 +419,13 @@ components:
           type: string
           minLength: 1
           maxLength: 1048576
-        command:
-          type: object
-          additionalProperties: false
-          required:
-            - type
-          properties:
-            type:
-              type: string
-              enum:
-                - interactive_card.create
-                - interactive_card.revise
-            card_id:
-              type: string
-              format: uuid
-            expected_revision:
-              type: integer
-              minimum: 1
+        file_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          items:
+            type: string
+            format: uuid
     MessageAccepted:
       type: object
       additionalProperties: false
@@ -440,11 +489,28 @@ components:
         byte_size:
           type: integer
           minimum: 0
-          maximum: 4194304
+          maximum: 67108864
         partial:
           type: boolean
         projection:
           $ref: '#/components/schemas/ToolResultProjection'
+    ConversationPreflightInput:
+      type: object
+      additionalProperties: false
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1048576
+        file_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          items:
+            type: string
+            format: uuid
     RequestId:
       type: string
       minLength: 16
@@ -481,6 +547,47 @@ components:
         retryable:
           type: boolean
           default: false
+    ConversationPreflight:
+      type: object
+      additionalProperties: false
+      required:
+        - ready
+        - model_id
+        - tool_count
+        - estimated_tokens
+        - usable_tokens
+        - tool_schema_tokens
+        - snapshot_hash
+        - sandbox_status
+      properties:
+        ready:
+          type: boolean
+        model_id:
+          type: string
+          format: uuid
+        tool_count:
+          type: integer
+          minimum: 0
+        estimated_tokens:
+          type: integer
+          minimum: 0
+        usable_tokens:
+          type: integer
+        tool_schema_tokens:
+          type: integer
+          minimum: 0
+        snapshot_hash:
+          type: string
+        sandbox_status:
+          type: string
+          enum:
+            - ready
+            - not_configured
+            - unhealthy
+            - profile_unavailable
+            - quota_unavailable
+        error_code:
+          type: string
     PartialMetadata:
       type: object
       additionalProperties: false
@@ -588,12 +695,11 @@ components:
             - user_confirmation
             - approval_update
             - execution_update
-            - card_draft_created
-            - card_instance_created
-            - card_presentation_invalidated
-            - card_action_result
             - run_state_changed
             - context_compacted
+            - tool_presentation
+            - workspace_file_added
+            - artifact_published
         actor_type:
           enum:
             - user
@@ -978,6 +1084,14 @@ components:
               required:
                 - partial_reasons
   parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 256
     Cursor:
       name: cursor
       in: query
@@ -1001,14 +1115,6 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/IdempotencyKey'
-    CsrfToken:
-      name: X-CSRF-Token
-      in: header
-      required: true
-      schema:
-        type: string
-        minLength: 32
-        maxLength: 256
     RequestId:
       name: X-Request-ID
       in: header
@@ -1017,6 +1123,12 @@ components:
         $ref: '#/components/schemas/RequestId'
   responses:
     Error:
+      description: Stable Argus error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    responses-Error:
       description: Stable Argus API error.
       content:
         application/json:

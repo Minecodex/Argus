@@ -1,5 +1,9 @@
 version: argus.context_budget_rules/v1
 hard_input_limit_formula: context_window_tokens-reserved_output_tokens-safety_margin_tokens
+soft_compaction_ratio: 0.70
+hard_compaction_ratio: 0.85
+fixed_input_admission_limit_formula: floor(hard_input_limit*0.85)-1
+fixed_input_capacity_error: MODEL_TOOL_CAPACITY_EXCEEDED
 retention_unit: tokens
 cut_boundary: complete_event_group
 compaction_mode: incremental

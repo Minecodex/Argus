@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import {
@@ -10,7 +10,7 @@ import {
   useApi,
   type EnterpriseSandboxQuota,
 } from "@argus/api-client";
-import { Alert, Button, Field, Input, Spinner, useUiText } from "@argus/ui";
+import { Alert, Button, Field, FormDrawer, Input, Spinner } from "@argus/ui";
 
 const quotaConstraints = {
   concurrent: formConstraint("SandboxQuotaWrite", "max_concurrent_sessions"),
@@ -21,12 +21,19 @@ const quotaConstraints = {
 };
 
 /**
- * 企业 Sandbox 配额编辑器（企业管理详情抽屉与 OpenSandbox 企业配额 Tab 共用）。
- * mock 中配额记录随种子数据存在；未配置的企业展示提示。
+ * 企业 Sandbox 配额编辑抽屉统一拥有加载、校验和提交的单一表单。
+ * 未配置企业从零额度开始，由管理员明确保存后生效。
  */
-export function QuotaEditor({ enterpriseId }: { enterpriseId: string }) {
+export function QuotaEditor({
+  enterpriseId,
+  enterpriseName,
+  onClose,
+}: {
+  enterpriseId: string;
+  enterpriseName: string;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
-  const text = useUiText();
   const api = useApi();
   const queryClient = useQueryClient();
 
@@ -35,29 +42,20 @@ export function QuotaEditor({ enterpriseId }: { enterpriseId: string }) {
     queryFn: () => api.platform.quotas.get(enterpriseId),
     retry: false,
   });
-  const profiles = useQuery({
-    queryKey: ["platform", "profiles"],
-    queryFn: () => api.platform.profiles.list(),
-  });
 
   const schema = z.object({
-    allowedProfiles: z.array(z.string()),
     maxConcurrentSessions: z
       .number()
       .int()
       .min(quotaConstraints.concurrent.minimum ?? 0)
       .max(quotaConstraints.concurrent.maximum ?? 10000),
-    maxDailySessionMinutes: z
+    monthlySessionSeconds: z
       .number()
       .int()
-      .min((quotaConstraints.sessionSeconds.minimum ?? 0) / 60),
-    maxDailyCpuMinutes: z.number().int().min(0),
-    maxArtifactStorageMb: z.number().int().min(0),
-    artifactRetentionDays: z.number().int().min(0),
+      .min(quotaConstraints.sessionSeconds.minimum ?? 0),
   });
   type QuotaFormValues = z.infer<typeof schema>;
   const {
-    control,
     handleSubmit,
     register,
     reset,
@@ -65,12 +63,8 @@ export function QuotaEditor({ enterpriseId }: { enterpriseId: string }) {
   } = useForm<QuotaFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      allowedProfiles: [],
       maxConcurrentSessions: 0,
-      maxDailySessionMinutes: 0,
-      maxDailyCpuMinutes: 0,
-      maxArtifactStorageMb: 0,
-      artifactRetentionDays: 0,
+      monthlySessionSeconds: 0,
     },
   });
   useEffect(() => {
@@ -80,12 +74,9 @@ export function QuotaEditor({ enterpriseId }: { enterpriseId: string }) {
   const save = useMutation({
     mutationFn: (input: QuotaFormValues) =>
       api.platform.quotas.update(enterpriseId, {
-        allowedProfiles: input.allowedProfiles,
+        expectedVersion: quota.data?.version ?? 0,
         maxConcurrentSessions: input.maxConcurrentSessions,
-        maxDailySessionMinutes: input.maxDailySessionMinutes,
-        maxDailyCpuMinutes: input.maxDailyCpuMinutes,
-        maxArtifactStorageMb: input.maxArtifactStorageMb,
-        artifactRetentionDays: input.artifactRetentionDays,
+        monthlySessionSeconds: input.monthlySessionSeconds,
       }),
     onSuccess: (updated) => {
       queryClient.setQueryData(["platform", "quota", enterpriseId], updated);
@@ -93,23 +84,9 @@ export function QuotaEditor({ enterpriseId }: { enterpriseId: string }) {
     },
   });
 
-  if (quota.isPending) return <Spinner />;
-  if (quota.isError || !quota.data) {
-    return (
-      <Alert
-        description={text(
-          "该企业尚未配置 Sandbox 配额，种子数据外的企业需先由平台初始化。",
-          "No sandbox quota configured for this enterprise yet.",
-        )}
-        title={t("sandbox.quotas.edit")}
-        tone="warning"
-      />
-    );
-  }
-
   const numberField = (
     label: string,
-    key: keyof Omit<EnterpriseSandboxQuota, "enterpriseId" | "allowedProfiles">,
+    key: keyof Omit<EnterpriseSandboxQuota, "enterpriseId" | "version">,
   ) => (
     <Field error={errors[key]?.message} requirement="required" label={label}>
       <Input
@@ -120,72 +97,67 @@ export function QuotaEditor({ enterpriseId }: { enterpriseId: string }) {
     </Field>
   );
 
+  const canEdit = !!quota.data && !quota.isPending && !quota.isError;
+
   return (
-    <form
-      className="argus-quota-editor"
-      onSubmit={handleSubmit((values) => save.mutate(values))}
+    <FormDrawer
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title={`${t("sandbox.quotas.edit")} — ${enterpriseName}`}
+      width={560}
+      loading={save.isPending}
+      submitLabel={t("common.save")}
+      cancelLabel={t("common.close")}
+      onSubmit={
+        canEdit ? handleSubmit((values) => save.mutate(values)) : undefined
+      }
+      footer={
+        !canEdit ? (
+          <Button onClick={onClose} variant="secondary">
+            {t("common.close")}
+          </Button>
+        ) : undefined
+      }
     >
-      {save.isError && (
+      {quota.isPending ? (
+        <Spinner />
+      ) : quota.isError || !quota.data ? (
         <Alert
-          description={formatApiError(
-            save.error,
-            t("sandbox.form.saveFailed"),
-            (requestId) => t("common.requestReference", { requestId }),
-          )}
-          title={t("sandbox.form.saveFailed")}
-          tone="danger"
+          description={t("sandbox.quotas.loadFailed")}
+          title={t("sandbox.quotas.edit")}
+          tone="warning"
         />
+      ) : (
+        <div className="argus-quota-editor">
+          {save.isError && (
+            <Alert
+              description={formatApiError(
+                save.error,
+                t("sandbox.form.saveFailed"),
+                (requestId) => t("common.requestReference", { requestId }),
+              )}
+              title={t("sandbox.form.saveFailed")}
+              tone="danger"
+            />
+          )}
+          <Alert
+            title={t("sandbox.quotas.retentionTitle")}
+            description={t("sandbox.quotas.retentionDescription")}
+          />
+          <div className="argus-form-grid">
+            {numberField(
+              t("sandbox.quotas.table.concurrent"),
+              "maxConcurrentSessions",
+            )}
+            {numberField(
+              t("sandbox.quotas.table.monthlySeconds"),
+              "monthlySessionSeconds",
+            )}
+          </div>
+        </div>
       )}
-      <Field
-        controlMode="group"
-        error={errors.allowedProfiles?.message}
-        requirement="optional"
-        label={t("sandbox.quotas.table.allowedProfiles")}
-      >
-        <Controller
-          control={control}
-          name="allowedProfiles"
-          render={({ field }) => (
-            <div className="argus-quota-editor__profiles">
-              {(profiles.data ?? []).map((profile) => (
-                <label className="argus-quota-editor__profile" key={profile.id}>
-                  <input
-                    checked={field.value.includes(profile.id)}
-                    onChange={(event) =>
-                      field.onChange(
-                        event.target.checked
-                          ? [...field.value, profile.id]
-                          : field.value.filter((id) => id !== profile.id),
-                      )
-                    }
-                    type="checkbox"
-                  />
-                  <span>{profile.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        />
-      </Field>
-      <div className="argus-form-grid">
-        {numberField(
-          t("sandbox.quotas.table.concurrent"),
-          "maxConcurrentSessions",
-        )}
-        {numberField(
-          t("sandbox.quotas.table.dailyMinutes"),
-          "maxDailySessionMinutes",
-        )}
-        {numberField(t("sandbox.quotas.table.dailyCpu"), "maxDailyCpuMinutes")}
-        {numberField(t("sandbox.quotas.table.storage"), "maxArtifactStorageMb")}
-        {numberField(
-          t("sandbox.quotas.table.retention"),
-          "artifactRetentionDays",
-        )}
-      </div>
-      <Button loading={save.isPending} type="submit" variant="primary">
-        {t("common.save")}
-      </Button>
-    </form>
+    </FormDrawer>
   );
 }

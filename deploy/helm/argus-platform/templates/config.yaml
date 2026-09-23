@@ -18,6 +18,24 @@ metadata:
     app.kubernetes.io/part-of: argus
     argus.io/release-id: {{ .Values.releaseId | quote }}
 data:
+  ARGUS_TOOL_IMPLEMENTATION_REVISION: {{ .Values.images.backend | quote }}
+  ARGUS_WORKSPACE_ENABLED: {{ .Values.workspace.enabled | quote }}
+  ARGUS_WORKSPACE_NAMESPACE: {{ .Values.namespaces.sandbox | quote }}
+  ARGUS_WORKSPACE_STORAGE_CLASS: {{ .Values.workspace.storageClass | quote }}
+  ARGUS_WORKSPACE_IO_IMAGE: {{ .Values.images.backend | quote }}
+  ARGUS_WORKSPACE_EGRESS_IMAGE: {{ .Values.workspace.egressImage | quote }}
+  ARGUS_WORKSPACE_EXECD_IMAGE: {{ .Values.workspace.execdImage | quote }}
+  ARGUS_WORKSPACE_BYTES: {{ .Values.workspace.defaultBytes | int64 | quote }}
+  ARGUS_WORKSPACE_ENTERPRISE_BYTES: {{ .Values.workspace.enterpriseBytes | int64 | quote }}
+  ARGUS_WORKSPACE_MAX_FILE_BYTES: {{ .Values.workspace.maxFileBytes | int64 | quote }}
+  ARGUS_WORKSPACE_IDLE_SECONDS: {{ .Values.workspace.idleSeconds | int | quote }}
+  ARGUS_WORKSPACE_PROCESS_LIMIT: {{ .Values.workspace.processLimit | int | quote }}
+  ARGUS_WORKSPACE_CLIENT_CERT: /var/run/argus/workspace-client/tls.crt
+  ARGUS_WORKSPACE_CLIENT_KEY: /var/run/argus/workspace-client/tls.key
+  ARGUS_WORKSPACE_CA: /var/run/argus/workspace-client/ca.crt
+  ARGUS_WORKSPACE_ADMISSION_CERT: /var/run/argus/workspace-admission/tls.crt
+  ARGUS_WORKSPACE_ADMISSION_KEY: /var/run/argus/workspace-admission/tls.key
+
   ARGUS_ALLOWED_ORIGINS: {{ join "," .Values.runtime.allowedOrigins | quote }}
   ARGUS_SECURE_COOKIES: {{ .Values.runtime.secureCookies | quote }}
   ARGUS_SETUP_TOKEN_PATH: /var/run/secrets/argus/setup/token
@@ -48,10 +66,6 @@ data:
   ARGUS_TELEMETRY_TUNNEL_LIMIT: {{ $telemetryTunnelLimit | int | quote }}
   ARGUS_CONTROL_TUNNEL_LIMIT: {{ $controlTunnelLimit | int | quote }}
   ARGUS_TUNNEL_BYTES_PER_SECOND: {{ $tunnelBytesPerSecond | int64 | quote }}
-  ARGUS_CARD_PRESENTATION_TTL: {{ .Values.runtime.cardPresentationTtl | quote }}
-  ARGUS_CARD_VALIDATION_TTL: {{ .Values.runtime.cardValidationTtl | quote }}
-  ARGUS_CARD_RUNTIME_VERSION: {{ .Values.runtime.cardRuntimeVersion | quote }}
-  ARGUS_CARD_MAX_PRESENTATION_BYTES: {{ .Values.runtime.cardMaxPresentationBytes | int | quote }}
   ARGUS_REMOTE_ORIGIN: {{ .Values.runtime.remoteOrigin | quote }}
   ARGUS_REMOTE_USER_LIMIT: {{ .Values.runtime.remoteUserLimit | int | quote }}
   ARGUS_REMOTE_HOST_LIMIT: {{ .Values.runtime.remoteHostLimit | int | quote }}

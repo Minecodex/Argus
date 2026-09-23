@@ -16,6 +16,10 @@ import (
 )
 
 func (a *App) createM3BastionKubernetes(ctx context.Context, env *E2EEnvironment) (string, error) {
+	// This Bastion fixture runs inside the target cluster. A desktop kubeconfig
+	// may point at a host-only loopback port, which refers to the Bastion itself
+	// when sent as a command. Use the cluster Service with the same trusted CA.
+	const apiServer = "https://kubernetes.default.svc"
 	serviceAccountName := "argus-e2e-kubernetes-connector"
 	if _, err := env.Kube.Client.CoreV1().ServiceAccounts(env.SystemNS).Create(ctx, &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{Name: serviceAccountName, Namespace: env.SystemNS, Labels: map[string]string{"app.kubernetes.io/part-of": "argus-e2e"}},
@@ -54,7 +58,7 @@ func (a *App) createM3BastionKubernetes(ctx context.Context, env *E2EEnvironment
 	}
 	kubeconfig, err := yaml.Marshal(map[string]any{
 		"apiVersion": "v1", "kind": "Config", "current-context": "argus-e2e",
-		"clusters": []any{map[string]any{"name": "argus-e2e", "cluster": map[string]any{"server": env.Kube.Config.Host, "certificate-authority-data": base64.StdEncoding.EncodeToString(caData)}}},
+		"clusters": []any{map[string]any{"name": "argus-e2e", "cluster": map[string]any{"server": apiServer, "certificate-authority-data": base64.StdEncoding.EncodeToString(caData)}}},
 		"contexts": []any{map[string]any{"name": "argus-e2e", "context": map[string]any{"cluster": "argus-e2e", "user": "argus-e2e", "namespace": env.SystemNS}}},
 		"users":    []any{map[string]any{"name": "argus-e2e", "user": map[string]any{"token": token.Status.Token}}},
 	})
@@ -89,7 +93,7 @@ func (a *App) createM3BastionKubernetes(ctx context.Context, env *E2EEnvironment
 		return "", fmt.Errorf("loopback Kubernetes direct target returned %v", denied["code"])
 	}
 	test, err := client.JSON(ctx, "m3-bastion-kubernetes-test", "enterprise", http.MethodPost, "/enterprise/kubernetes-clusters/connection-tests", http.StatusAccepted,
-		map[string]any{"api_server": env.Kube.Config.Host, "connection_mode": "via_bastion", "bastion_scope_id": env.State.Values["m3_bastion_scope_id"], "credential_id": credentialID}, enterpriseHeaders(env, "m3-bastion-kubernetes-test"))
+		map[string]any{"api_server": apiServer, "connection_mode": "via_bastion", "bastion_scope_id": env.State.Values["m3_bastion_scope_id"], "credential_id": credentialID}, enterpriseHeaders(env, "m3-bastion-kubernetes-test"))
 	if err != nil {
 		return "", err
 	}
@@ -101,7 +105,7 @@ func (a *App) createM3BastionKubernetes(ctx context.Context, env *E2EEnvironment
 		return "", err
 	}
 	preview, err := client.JSON(ctx, "m3-bastion-kubernetes-preview", "enterprise", http.MethodPost, "/enterprise/kubernetes-clusters/actions/preview-create", http.StatusCreated,
-		map[string]any{"name": "m3-via-bastion", "api_server": env.Kube.Config.Host, "connection_mode": "via_bastion", "bastion_scope_id": env.State.Values["m3_bastion_scope_id"], "credential_id": credentialID, "default_namespace": "default", "environment": "production", "labels": map[string]string{"team": "m3", "route": "bastion"}, "connection_test_id": testID}, enterpriseHeaders(env, "m3-bastion-kubernetes"))
+		map[string]any{"name": "m3-via-bastion", "api_server": apiServer, "connection_mode": "via_bastion", "bastion_scope_id": env.State.Values["m3_bastion_scope_id"], "credential_id": credentialID, "default_namespace": "default", "environment": "production", "labels": map[string]string{"team": "m3", "route": "bastion"}, "connection_test_id": testID}, enterpriseHeaders(env, "m3-bastion-kubernetes"))
 	if err != nil {
 		return "", err
 	}

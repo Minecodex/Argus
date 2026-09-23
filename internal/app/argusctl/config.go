@@ -32,8 +32,9 @@ type InstallConfig struct {
 	Metadata   struct {
 		Name string `json:"name"`
 	} `json:"metadata"`
-	Spec InstallSpec `json:"spec"`
-	path string
+	Spec           InstallSpec `json:"spec"`
+	path           string
+	resolvedImages map[string]string
 }
 
 type InstallSpec struct {
@@ -49,9 +50,11 @@ type InstallSpec struct {
 	PKI            PKIConfig              `json:"pki"`
 	DirectExecutor DirectExecutorCapacity `json:"directExecutor"`
 	OpenSandbox    struct {
+		Enabled            bool   `json:"enabled"`
 		RuntimeClassName   string `json:"runtimeClassName"`
 		AllowSharedRuntime bool   `json:"allowSharedRuntime"`
 	} `json:"openSandbox"`
+	Workspace   WorkspaceInstall   `json:"workspace"`
 	Telemetry   TelemetryArtifacts `json:"telemetry"`
 	Persistence Persistence        `json:"persistence"`
 }
@@ -190,6 +193,9 @@ func LoadConfig(path string) (*InstallConfig, error) {
 }
 
 func (c *InstallConfig) Validate() error {
+	if err := c.Spec.Workspace.validate(); err != nil {
+		return err
+	}
 	if c.APIVersion != installAPIVersion || c.Kind != installKind {
 		return fmt.Errorf("config must be %s %s", installAPIVersion, installKind)
 	}
@@ -348,6 +354,9 @@ func validHostname(value string) bool {
 }
 
 func (c *InstallConfig) Image(name string) string {
+	if value := c.resolvedImages[name]; value != "" {
+		return value
+	}
 	registry := strings.TrimSuffix(c.Spec.Images.Registry, "/")
 	if !strings.HasSuffix(registry, "/argus") {
 		registry += "/argus"

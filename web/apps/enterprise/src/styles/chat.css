@@ -278,42 +278,6 @@
   color: var(--info);
 }
 
-/* ---------- 沙箱卡片包装 ---------- */
-.argus-chat-card {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  overflow: hidden;
-}
-.argus-chat-card__head {
-  min-height: 36px;
-  padding: 0 var(--space-px-12);
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-8);
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: var(--font-size-12);
-  font-weight: 620;
-}
-.argus-chat-card__head small {
-  color: var(--text-disabled);
-  font: var(--font-size-10) var(--font-mono);
-  font-weight: 400;
-}
-.argus-chat-card__head .argus-badge {
-  margin-left: auto;
-}
-.argus-chat-card__body {
-  padding: var(--space-px-4) 0;
-}
-.argus-chat-card__loading {
-  padding: var(--space-px-18) var(--space-px-12);
-  display: flex;
-  justify-content: center;
-  color: var(--text-tertiary);
-  font-size: var(--font-size-12);
-}
-
 /* ---------- Pending Action 确认卡片 ---------- */
 .argus-chat-action {
   max-width: 560px;
@@ -331,35 +295,6 @@
 }
 .argus-chat-action__task-link:hover {
   text-decoration: underline;
-}
-
-/* ---------- card_action_result 回显条 ---------- */
-.argus-chat-result {
-  width: min(820px, 100%);
-  margin: 0 auto;
-  padding: 0 var(--space-px-24);
-  display: flex;
-}
-.argus-chat-result__bar {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-px-8);
-  padding: var(--space-px-6) var(--space-px-12);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--bg-sidebar) 55%, transparent);
-  color: var(--text-secondary);
-  font-size: var(--font-size-12);
-}
-.argus-chat-result__bar.is-success svg {
-  color: var(--success);
-}
-.argus-chat-result__bar.is-failed svg {
-  color: var(--danger);
-}
-.argus-chat-result__bar code {
-  color: var(--text-disabled);
-  font-size: var(--font-size-10-5);
 }
 
 /* ---------- 输入区 ---------- */

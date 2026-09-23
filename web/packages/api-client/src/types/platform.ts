@@ -98,65 +98,32 @@ export interface CreateSandboxImageInput {
   languages: SandboxImageLanguage[];
 }
 
-export interface SandboxResources {
-  cpu: number;
-  memoryMb: number;
-  diskMb: number;
-  pids: number;
-}
-
-export interface SandboxTimeouts {
-  commandSeconds: number;
-  idleSeconds: number;
-  lifetimeSeconds: number;
-}
-
-export interface SandboxNetworkPolicy {
-  mode: "deny_all" | "allow_list";
-  allowedDomains: string[];
-}
-
-export interface SandboxCapabilities {
-  fileUpload: boolean;
-  artifactDownload: boolean;
-  secretInjection: boolean;
-  gpu: boolean;
-}
-
-/** The only execution unit an AI may select; approved by super admins. */
+/** Platform-owned offline execution profile. Workspace storage is configured separately. */
 export interface SandboxProfile {
   id: string;
   name: string;
-  description: string;
   imageId: string;
-  resources: SandboxResources;
-  timeouts: SandboxTimeouts;
-  network: SandboxNetworkPolicy;
-  capabilities: SandboxCapabilities;
-  builtin: boolean;
+  resources: { cpu: number; memoryMb: number };
+  timeoutSeconds: number;
+  taskKinds: Array<"smoke" | "agent_workspace">;
+  networkMode: "none" | "restricted";
   enabled: boolean;
   createdAt: Iso;
 }
 
 export interface CreateSandboxProfileInput {
   name: string;
-  description: string;
   imageId: string;
-  resources: SandboxResources;
-  timeouts: SandboxTimeouts;
-  network: SandboxNetworkPolicy;
-  capabilities: SandboxCapabilities;
+  resources: { cpu: number; memoryMb: number };
+  timeoutSeconds: number;
 }
 
 /** Per-enterprise sandbox quota, set by super admins (docs/08 §9). */
 export interface EnterpriseSandboxQuota {
   enterpriseId: string;
-  allowedProfiles: string[];
+  version: number;
   maxConcurrentSessions: number;
-  maxDailySessionMinutes: number;
-  maxDailyCpuMinutes: number;
-  maxArtifactStorageMb: number;
-  artifactRetentionDays: number;
+  monthlySessionSeconds: number;
 }
 
 /** Platform-visible sandbox session metadata only, never content. */

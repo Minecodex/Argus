@@ -20,11 +20,11 @@
 
 ## 状态
 
-当前为设计和实施计划，尚未改变现有 M0-M10 的已完成状态。实现时新增一个 Dashboard 领域模块，复用 M4 的 Agent/Tool/Preview/Commit、M5 的 Card Runtime、M7/M10 的 Telemetry Query，不新增第二套遥测存储或查询语言。
+Dashboard 保留独立业务领域，Agent、Tool Gateway、Preview/Commit、Tool 自有模板及宿主确认以 PlanV5 为当前底座，遥测查询复用 M7/M10 的 Telemetry Query，不新增第二套存储或查询语言。历史 M0-M10 的验收记录只证明当时版本，当前切换门禁见 [PlanV5 验收报告](../planv5/acceptance-report.md)。
 
 ## 关键决策摘要
 
-1. `Dashboard` 是长期持久化业务对象，`InteractiveCard` 只用于会话中的预览、分析摘要和确认交互。
+1. `Dashboard` 是长期持久化业务对象，`ToolPresentation` 只用于会话中的预览详情和分析摘要；确认由宿主固定控件提供。
 2. 一个 Dashboard 可以混排三种信号，但每个 Panel 保留自己的 PromQL、KQL 或 SkyWalking GraphQL 语义。
 3. Dashboard 保存不可变 `DashboardRevision`；只有已验证的 Revision 才能被前端执行或被 AI Skill 使用。
 4. 资源绑定是导航和查询上下文，不是授权边界；每次打开、刷新、AI 查询和绑定变更都重新执行 explicit resource authorization 与 AuthorizationVersion 校验。
@@ -34,3 +34,5 @@
 8. 变量设计采用查询变量模型：每个变量独立配置 Metrics/Logs/Traces 查询，后续变量通过查询中的 `$variable` 自动建立依赖，Panel 是否使用变量只看查询是否显式引用；执行语义参考 Grafana，跨信号和值发现参考 SigNoz，配置体验参考 OpenObserve。
 9. 变量编辑弹框采用宽屏自适应布局，头部和底部操作区固定，只允许正文区域纵向滚动；变量链、查询编辑器和目录结果不得各自形成滚动容器。
 10. 实施顺序先完成 Task 1 的人工仪表盘基线，再在同一领域服务上接入 Task 2 的 AI 创建和 `@Dashboard` 分析；AI 不拥有独立的存储、权限或查询执行路径。
+
+> PlanV5 展示边界：Dashboard 仍是独立持久业务对象。会话展示不再依赖模板 Catalog、Slot/Binding 或可执行 Card；使用 Tool 自有模板和宿主单次确认。模板 Bridge 不发起查询，Chat 内换时间或翻页由新用户消息产生新 ToolCall。

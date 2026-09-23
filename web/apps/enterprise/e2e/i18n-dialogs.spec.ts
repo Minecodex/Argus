@@ -1,7 +1,6 @@
 import { enterpriseOrigin, platformOrigin } from "./origins";
 import { expect, test, type Page } from "@playwright/test";
 
-
 async function login(page: Page, origin: string, username: string) {
   const url =
     origin === platformOrigin
@@ -48,7 +47,9 @@ for (const locale of ["zh-CN", "en-US"] as const) {
   });
 }
 
-test("Platform quota drawer resolves shared Sandbox keys", async ({ page }) => {
+test("Platform quota drawer resolves shared keys and persists exact seconds without navigation", async ({
+  page,
+}) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("argus.locale", "zh-CN");
     window.localStorage.setItem("argus.theme", "light");
@@ -61,9 +62,21 @@ test("Platform quota drawer resolves shared Sandbox keys", async ({ page }) => {
 
   const drawer = page.getByRole("dialog");
   await expect(drawer).toBeVisible();
-  await expect(
-    drawer.getByRole("group", { name: "允许的 Profile" }),
-  ).toBeVisible();
+  await expect(drawer.getByLabel("月度计算时长（秒）")).toBeVisible();
   await expect(drawer.getByLabel("并发会话")).toBeVisible();
   await expect(drawer).not.toContainText("enterprises.quota.");
+  await expect(page.locator("form form")).toHaveCount(0);
+  await drawer.getByLabel("月度计算时长（秒）").fill("125");
+  await drawer.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page).toHaveURL(`${platformOrigin}/sandbox`);
+  await drawer
+    .locator(".argus-drawer__footer")
+    .getByRole("button", { name: "关闭", exact: true })
+    .click();
+  await page.reload();
+  await page.getByRole("tab", { name: "企业配额" }).click();
+  await page.getByRole("button", { name: "编辑配额" }).first().click();
+  await expect(
+    page.getByRole("dialog").getByLabel("月度计算时长（秒）"),
+  ).toHaveValue("125");
 });

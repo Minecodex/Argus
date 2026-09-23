@@ -2,7 +2,7 @@
 
 ## 1. 目标
 
-本文固定 Argus 第一版的前端、后端、协议、数据访问、测试和仓库结构基线。技术选型服务于现有架构边界：四个自研服务端程序、统一领域服务、PostgreSQL 权威状态、Connector 控制链路、独立遥测写入/查询链路以及受限 Card Runtime。
+本文固定 Argus 第一版的前端、后端、协议、数据访问、测试和仓库结构基线。技术选型服务于现有架构边界：四个自研服务端程序、统一领域服务、PostgreSQL 权威状态、Connector 控制链路、独立遥测写入/查询链路以及受限 Template Runtime。
 
 第一版先形成一个仓库和一套版本锁定清单。前后端框架、SDK、Operator、Chart 和镜像均固定版本或 Digest，不在构建和安装时解析 `latest`。
 
@@ -19,12 +19,12 @@ Argus 主应用统一使用：
 | 服务端状态   | TanStack Query                    | API 缓存、游标分页、失效和重试；不能作为业务状态事实来源                                                                            |
 | 本地 UI 状态 | Zustand                           | 只保存草稿、布局和临时交互状态，不保存权限、Pending Action 或 Run 唯一状态                                                          |
 | UI 基础      | Radix UI + Tailwind CSS + CVA     | 所有颜色、字号、间距、圆角和状态样式来自统一 Design Token                                                                           |
-| 表格         | TanStack Table + TanStack Virtual | 远程过滤、排序和翻页必须走服务端 Query Binding                                                                                      |
+| 表格         | TanStack Table + TanStack Virtual | 远程过滤、排序和翻页必须走相应业务查询 API；Tool 模板翻页或换时间需发起新会话消息                                                                                      |
 | 表单         | React Hook Form + Zod             | 前端校验只改善交互，服务端仍执行最终 Schema 和业务校验                                                                              |
 | 图表         | Apache ECharts                    | 用于 Metrics、Trace、拓扑和时间序列；查询必须经过 Telemetry Query                                                                   |
-| 远程会话     | `@xterm/xterm` + Guacamole        | Linux PTY、Windows PowerShell/ConPTY、本机 OpenSSH 与 RDP；Credential 和 Ticket 不得暴露给 AI/Card |
+| 远程会话     | `@xterm/xterm` + Guacamole        | Linux PTY、Windows PowerShell/ConPTY、本机 OpenSSH 与 RDP；Credential 和 Ticket 不得暴露给 AI/模板 |
 | 国际化       | i18next                           | 第一版必须完整支持 `zh-CN` 与 `en-US`；文案使用稳定 Key，不得散落在不可检索的组件常量中                                             |
-| 实时更新     | SSE 为主、WebSocket 为辅          | 模型输出、Run 和 Card 状态使用可恢复游标；断线后重新校验 Session、固定企业、explicit resource authorization 和 AuthorizationVersion                       |
+| 实时更新     | SSE 为主、WebSocket 为辅          | 模型输出、Run 和模板展示状态使用可恢复游标；断线后重新校验 Session、固定企业、explicit resource authorization 和 AuthorizationVersion                       |
 
 不使用 Next.js 作为第一版主框架。Argus 是登录后的控制平面，不依赖 SEO 或服务端页面渲染；Vite 静态构建可以减少运行时和部署复杂度。
 
@@ -37,24 +37,23 @@ web/
 ├── apps/
 │   ├── enterprise/
 │   ├── platform/
-│   └── card-runtime/
+│   └── template-runtime/
 └── packages/
     ├── ui/
     ├── design-tokens/
     ├── api-client/
     ├── auth/
-    ├── card-host/
     └── observability/
 ```
 
 - `platform` 承载首次初始化和平台超级管理员能力；启动时先检查平台状态，未初始化显示向导，初始化后进入登录。
 - `enterprise` 包含 Chatbox 和企业管理后台。
-- `card-runtime` 只承载独立 Origin 的框架无关 Card iframe 运行时，不接入门户认证状态或业务路由。
+- `template-runtime` 承载独立 Origin 的模板 iframe，不接入门户认证状态或业务路由。
 - `ui` 是唯一通用组件实现，业务应用不得维护平行组件库。
 - 列表/表格/卡片栅格的行内操作统一使用 `@argus/ui` 的 `ActionGroup`（容器）+ `RowAction`（文字型操作按钮）组合；`RowAction` 固定为 ghost + sm 的纯文字形态，破坏性或不可逆操作（删除、卸载、终止、停用企业等）传 `danger` 以红色文字呈现，不得再混用 `Button` 的 secondary/primary/danger 边框按钮形态。页面级主操作（如"新建"）、表单与对话框底部按钮、面板头部动作仍使用 `Button`。
 - 日期与日期时间输入统一使用 `@argus/ui` 的 `DateTimePicker`。组件基于开源 `react-datepicker`，对外保留表单契约使用的 `yyyy-MM-dd` / `yyyy-MM-ddTHH:mm` 本地值格式，并由 Argus Design Token 覆盖日历、时间列表和输入框样式；输入框文字与日历图标都必须打开同一面板。
 - `api-client` 由 OpenAPI 生成基础类型，在其上提供领域 Port、mock/real Adapter 以及 HTTP/SSE/WebSocket Transport；客户端上下文不能替代服务端资源归属检查。两个门户必须显式设置 `VITE_API_MODE=mock|real`，未知模式、real 缺少 Base URL 或调用尚未冻结的领域操作都 fail closed，禁止隐式回退 mock。
-- `card-host` 只实现 iframe 生命周期、Manifest/RenderPlan 校验、Host Bridge 和受控 Action/Query 调用；`card-runtime` 负责独立 Origin 内的 CSP 和 Card 文档执行，两者共同消费生成的 Bridge 契约。
+- `@argus/ui` 的 Template Host 实现 iframe 生命周期、Hash 校验与引用白名单；运行时执行固定模板并消费版本化 Bridge 契约。
 
 ### 2.2 主题与国际化契约
 
@@ -70,7 +69,7 @@ web/
 语言规则：
 
 - 第一版支持 `zh-CN`、`en-US`，默认回退为 `zh-CN`。优先级为用户 Profile → 企业默认语言 → `Accept-Language` → `zh-CN`。
-- 路由、导航、表单、校验、空状态、错误、通知、实时事件和 交互卡片 均使用稳定 `message_key` 与参数渲染，不拼接依赖中文语序的句子。
+- 路由、导航、表单、校验、空状态、错误、通知、实时事件和 Tool 模板 均使用稳定 `message_key` 与参数渲染，不拼接依赖中文语序的句子。
 - 资源名、用户输入、代码、日志原文、ID、枚举和 Tool 字段不翻译；日期、数字、单位和相对时间通过 `Intl` 按当前 Locale 与用户时区格式化。
 - API 客户端在普通 HTTP、SSE 建连和必要的 WebSocket 握手中发送 `Accept-Language`。服务端返回 `Content-Language`，并在语言不受支持时回退而不是改变业务错误码。
 - 后端错误响应使用稳定 `code`、`message_key`、`params` 和可选本地化 `message`。领域层、审计和 Outbox 不能把某一种语言的 `message` 当作唯一事实。
@@ -82,24 +81,13 @@ web/
 
 国际化资源按门户和领域拆分并接受缺失 Key 检查。新增或修改用户可见功能时，中文与英文资源、浅色与深色状态以及键盘/读屏标签必须在同一个变更中完成。
 
-### 2.3 Card Runtime
+### 2.3 Template Runtime
 
-主应用使用 React，但 交互卡片 保持框架无关，使用标准 HTML、CSS、JavaScript 和 JSON Schema。Card iframe 不加载主应用 React 上下文、状态容器或 Query Client。
+主应用使用 React；通用 Template Host 位于 `@argus/ui`，运行时位于 `web/apps/template-runtime`。自有 Tool 同包维护 HTML/CSS/JavaScript 模板与 Presentation Builder，源码按 Hash 保存。
 
-```text
-React 主应用
-└── Card Host
-    └── 独立来源 iframe
-        └── HTML/CSS/JavaScript 交互卡片
-```
+独立 Template Origin 提供运行时。iframe 仅启用 `allow-scripts`，保持 opaque origin；固定 CSP 禁止网络、外部框架、嵌套 frame、表单和动态求值。MessagePort 绑定握手来源、nonce 和单调序号。Bridge 仅包含 `resize/open_resource/open_result`，资源和结果目标必须命中宿主下发白名单。
 
-Card Host 根据版本化 Manifest 生成最小 CSP，并使用 `MessageChannel/MessagePort`、通道 nonce、消息序号、Origin 校验和版本化消息 Schema。全局 `window.postMessage` 只允许完成一次受限握手，不得以 `targetOrigin='*'` 传输业务消息。浏览器和 Card 只能获得 `query_binding_id` 或 `action_binding_id`，不能获得 Secret、Commit Tool、PendingAction 私有参数或 `argus__token`。
-
-Card Host 在独立的 `host.context` 消息中传递 `locale`、解析后的 `theme/color_scheme` 和白名单语义 Token。Card iframe 不能读取宿主 DOM 或任意 CSS；语言或主题变化由 Host Bridge 推送新 Context，卡片应原地更新而不是重建业务 Action Binding。
-
-M1 Runtime 对 Card 脚本暴露的唯一浏览器对象是 `window.argusCard`，提供 Binding ID 级 `query/action`、最小 `data/context`、更新订阅和高度回报。独立 Origin iframe 使用 `allow-scripts allow-same-origin`：后者只用于保留 Card 自身 Origin 以支持精确 `targetOrigin`，不得把 Card Runtime 与任一门户部署为同源。
-
-交互卡片 Manifest 必须声明 `schema_version`、入口内容哈希、允许资源、Data/Query/Action Slot、Bridge 能力、`supported_locales`、`default_locale` 和主题能力。系统卡片必须完整支持 `zh-CN/en-US` 与 `light/dark`；企业卡片缺少当前语言时可以回退到声明的默认语言，但宿主必须明确标识回退，不得静默显示错误语义。第一版不存在个人卡片。
+语言、明暗主题与 design tokens 由宿主传入。宿主 PendingAction 控件从权威公开 Preview 显示影响范围、确认/取消和审批执行状态；模板无确认入口，无 Slot/Binding/Catalog。
 
 ## 3. 后端技术栈
 
@@ -161,7 +149,11 @@ internal/
 ├── agent/
 ├── mcp/
 ├── action/
-├── card/
+├── presentation/
+├── toolgateway/
+├── enterprisemcp/
+├── workspace/
+├── workspaceio/
 ├── connector/
 ├── remoteaccess/
 ├── resource/
@@ -236,7 +228,7 @@ go run ./cmd/argus-dev release local
 E2E 至少覆盖：
 
 - 初始化、双层管理域、平台/企业身份互斥、单企业用户和跨企业拒绝。
-- RoleBinding + explicit resource authorization 的列表/详情/批量/Tool/Card 一致过滤，以及显式授权或继承关系变化后的缓存、Binding、游标和流式订阅失效；标签变化不触发授权失效。
+- RoleBinding + explicit resource authorization 的列表/详情/批量/Tool/模板 一致过滤，以及显式授权或继承关系变化后的缓存、Binding、游标和流式订阅失效；标签变化不触发授权失效。
 - Connector 注册并创建 Bastion Scope、证书轮换与 fencing、双 Gateway 跨副本派发、内网主机经堡垒机接入、公网 Direct SSH 的 SSRF/固定出口边界。
 - Connector 本机 Linux PTY、Windows PowerShell/ConPTY、OpenSSH 与 RDP 会话票据和录像；RemoteAccessGrant 限定 Host/ManagedAccount/动作；人工会话和后台 Execution 隔离。
 - Collector 沿两种执行路径安装、Telemetry Route 选择矩阵和 Metrics/Logs/Traces Profile 配置。
@@ -245,7 +237,7 @@ E2E 至少覆盖：
 - Agent Event 顺序、ToolCall/ToolResult 完整切点、确定性 ToolResult Projection、增量 ContextSnapshot、压缩失败恢复、Projection Hash 和私有字段不可见性。
 - OTLP 写入可信 Enterprise/Resource/Collector 身份，以及跨企业、超出 explicit resource authorization、跨 Signal 和敏感字段查询拒绝。
 
-前端与 Card E2E 还必须覆盖 `zh-CN/en-US × light/dark` 基础矩阵、偏好持久化、缺失翻译回退、语言协商和主题切换后 Action Binding 不变。测试完成后删除临时 Namespace。
+前端与 Template E2E 还必须覆盖 `zh-CN/en-US × light/dark` 基础矩阵、偏好持久化、缺失翻译回退、语言协商和主题切换后权威动作引用不变。测试完成后删除临时 Namespace。
 
 ## 6. 第一版仓库骨架
 
@@ -258,7 +250,6 @@ Argus/
 │   ├── argus-telemetry/
 │   ├── argus-connector/
 │   ├── argus-migrate/
-│   ├── argus-card-catalog-sync/
 │   ├── argus-replay-model/       # 仅 E2E build tag
 │   └── argusctl/
 ├── internal/
@@ -269,7 +260,6 @@ Argus/
 │   ├── postgresql/
 │   └── clickhouse/
 ├── web/
-├── interactive-cards/
 ├── deploy/
 └── tests/
     ├── contract/

@@ -132,7 +132,7 @@ func (h helmManager) loadRemoteChart(ctx context.Context, name, source string) (
 	return loaded, nil
 }
 
-func (h helmManager) loadOpenSandboxChart(ctx context.Context) (*chart.Chart, error) {
+func (h helmManager) loadOpenSandboxControllerChart(ctx context.Context) (*chart.Chart, error) {
 	archivePath, err := downloadFile(ctx, h.cacheDir, "opensandbox-0.2.0-source.tgz", openSandboxURL)
 	if err != nil {
 		return nil, err
@@ -159,20 +159,7 @@ func (h helmManager) loadOpenSandboxChart(ctx context.Context) (*chart.Chart, er
 		return nil, err
 	}
 	chartsDir = filepath.Join(chartsDir, "kubernetes", "charts")
-	parent, err := loader.Load(filepath.Join(chartsDir, "opensandbox"))
-	if err != nil {
-		return nil, err
-	}
-	controller, err := loader.Load(filepath.Join(chartsDir, "opensandbox-controller"))
-	if err != nil {
-		return nil, err
-	}
-	server, err := loader.Load(filepath.Join(chartsDir, "opensandbox-server"))
-	if err != nil {
-		return nil, err
-	}
-	parent.SetDependencies(controller, server)
-	return parent, nil
+	return loader.Load(filepath.Join(chartsDir, "opensandbox-controller"))
 }
 
 func downloadFile(ctx context.Context, directory, filename, source string) (string, error) {

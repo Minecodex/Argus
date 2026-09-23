@@ -1,12 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "@tanstack/react-router";
 import { Bot } from "lucide-react";
 import { Avatar, Badge } from "@argus/ui";
 import { useEnterpriseAuthStore } from "@argus/auth";
-import { ActionResultBar } from "./action-result-bar";
 import { PendingActionCard } from "./pending-action-card";
 import { ToolTrace } from "./tool-trace";
-import { SandboxCardFrame } from "./sandbox-card-frame";
+import { ConversationPresentation } from "./tool-presentation";
+import { useApi } from "@argus/api-client";
 import type { ChatMessage } from "./chat-view-model";
 
 function formatTime(value: string, locale: string): string {
@@ -16,7 +15,7 @@ function formatTime(value: string, locale: string): string {
   });
 }
 
-/** 单条消息：用户 / AI（含工具 trace 与卡片）/ card_action_result 事件。 */
+/** 会话消息与独立的工具详情、宿主确认和文件交付。 */
 export function ChatMessageItem({
   message,
   streaming = false,
@@ -26,11 +25,15 @@ export function ChatMessageItem({
   streaming?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  const downloads = (items: ChatMessage["files"], kind: "file" | "delivery") =>
+    items?.length ? (
+      <MessageFiles
+        items={items}
+        conversationId={message.conversationId}
+        kind={kind}
+      />
+    ) : null;
   const user = useEnterpriseAuthStore((state) => state.session?.user);
-
-  if (message.event) {
-    return <ActionResultBar message={message} />;
-  }
 
   if (message.role === "user") {
     return (
@@ -47,6 +50,7 @@ export function ChatMessageItem({
           <time>{formatTime(message.createdAt, i18n.language)}</time>
         </div>
         <div className="argus-chat-message__body">{message.content}</div>
+        {downloads(message.files, "file")}
       </div>
     );
   }
@@ -61,35 +65,67 @@ export function ChatMessageItem({
         {message.modelId && <Badge tone="accent">{message.modelId}</Badge>}
         <time>{formatTime(message.createdAt, i18n.language)}</time>
       </div>
-      {message.createdInteractiveCardId && (
-        <div className="argus-chat-message__body">
-          <Link
-            className="argus-chat-message__card-link"
-            to="/settings/interactive-cards"
-          >
-            {t("chat.card.openCreated")}
-          </Link>
-        </div>
-      )}
       <div
         className={`argus-chat-message__body ${streaming && message.content ? "argus-chat-message__caret" : ""}`}
       >
         {message.content}
       </div>
-      {(message.toolCalls?.length || message.cards?.length) && (
+      {(message.toolCalls?.length ||
+        message.presentations?.length ||
+        message.pendingActionRefs?.length ||
+        message.artifacts?.length) && (
         <div className="argus-chat-message__extras">
           {message.toolCalls && message.toolCalls.length > 0 && (
             <ToolTrace toolCalls={message.toolCalls} />
           )}
-          {message.cards?.map((card) =>
-            card.pendingActionRef ? (
-              <PendingActionCard card={card} key={card.id} />
-            ) : (
-              <SandboxCardFrame card={card} key={card.id} />
-            ),
-          )}
+          {message.presentations?.map((toolCallId) => (
+            <ConversationPresentation
+              key={toolCallId}
+              conversationId={message.conversationId}
+              toolCallId={toolCallId}
+            />
+          ))}
+          {message.pendingActionRefs?.map((actionRef) => (
+            <PendingActionCard actionRef={actionRef} key={actionRef} />
+          ))}
+          {downloads(message.artifacts, "delivery")}
         </div>
       )}
     </div>
+  );
+}
+
+function MessageFiles({
+  items,
+  conversationId,
+  kind,
+}: {
+  items: NonNullable<ChatMessage["files"]>;
+  conversationId: string;
+  kind: "file" | "delivery";
+}) {
+  const api = useApi();
+  return (
+    <>
+      {items.map((file) => {
+        let href: string | undefined;
+        try {
+          href = api.workspace.downloadUrl(conversationId, file.id, kind);
+        } catch {
+          href = undefined;
+        }
+        return (
+          <a
+            className="argus-chat-file"
+            href={href}
+            aria-disabled={!href}
+            download={file.name}
+            key={file.id}
+          >
+            {file.name}
+          </a>
+        );
+      })}
+    </>
   );
 }

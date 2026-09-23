@@ -139,8 +139,6 @@ func TestSchemas(t *testing.T) {
 		{"label-selector", "https://argus.io/schemas/v1/labels/labels.schema.json", ""},
 		{"pending-action", "https://argus.io/schemas/v1/action/pending-action-public.schema.json", ""},
 		{"action-binding", "https://argus.io/schemas/v1/action/workflow.schema.json", ""},
-		{"card-manifest", "https://argus.io/schemas/v1/card/card.schema.json", "/$defs/CardManifest"},
-		{"bridge-message", "https://argus.io/schemas/v1/card/card.schema.json", "/$defs/BridgeMessage"},
 		{"conversation-event", "https://argus.io/schemas/v1/agent/agent.schema.json", ""},
 		{"context-snapshot", "https://argus.io/schemas/v1/agent/agent.schema.json", "/$defs/ContextSnapshot"},
 		{"tool-result-projection", "https://argus.io/schemas/v1/agent/agent.schema.json", "/$defs/ToolResultProjection"},
@@ -520,53 +518,24 @@ func TestContextBoundaries(t *testing.T) {
 	}
 }
 
-func TestCardBridgeRules(t *testing.T) {
+func TestTemplateBridgeRejectsExecutionCapabilities(t *testing.T) {
 	root := repoRoot(t)
-	var rules struct {
-		BridgeVersion      string `json:"bridge_version"`
-		HandshakeTransport string `json:"handshake_transport"`
-		BusinessTransport  string `json:"business_transport"`
-		RequireExactOrigin bool   `json:"require_exact_origin"`
-		MinNonceLength     int    `json:"min_nonce_length"`
-		MaxMessageBytes    int    `json:"max_message_bytes"`
-	}
-	readYAML(t, filepath.Join(root, "api/contracts/card-bridge-rules.yaml"), &rules)
-	if rules.BridgeVersion != "argus.card_bridge/v1" || rules.HandshakeTransport != "window_post_message" || rules.BusinessTransport != "message_port" || !rules.RequireExactOrigin || rules.MinNonceLength < 16 || rules.MaxMessageBytes > 1<<20 {
-		t.Fatal("unsafe bridge limits")
-	}
-	if err := validateBridgeSequence([]uint64{1, 2, 3}); err != nil {
+	compiler := schemaCompiler(t, root)
+	schema := compiler.MustCompile("https://argus.io/schemas/v1/template/template.schema.json")
+	packet := map[string]any{"version": "argus-template/v1", "nonce": strings.Repeat("a", 32), "sequence": 1, "request_id": strings.Repeat("r", 16), "type": "resize", "payload": map[string]any{"height": 240}}
+	if err := schema.Validate(packet); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateBridgeSequence([]uint64{1, 1}); err == nil {
-		t.Fatal("duplicate bridge sequence accepted")
+	for _, name := range []string{"confirm_action", "cancel_action", "action.invoke", "query.invoke", "fetch"} {
+		packet["type"] = name
+		if schema.Validate(packet) == nil {
+			t.Fatalf("accepted template operation %s", name)
+		}
 	}
-	if err := validateBridgeSequence([]uint64{2, 1}); err == nil {
-		t.Fatal("out-of-order bridge sequence accepted")
-	}
-
-	valid := readJSON(t, filepath.Join(root, "tests/contract/fixtures/valid/bridge-message.json"))
-	compiler := schemaCompiler(t, root)
-	schema := compiler.MustCompile("https://argus.io/schemas/v1/card/card.schema.json#/$defs/BridgeMessage")
-	wrongVersion := cloneJSON(t, valid).(map[string]any)
-	wrongVersion["bridge_version"] = "argus.card_bridge/v2"
-	if err := schema.Validate(wrongVersion); err == nil {
-		t.Fatal("wrong bridge version accepted")
-	}
-	if err := validateBridgeContext(valid, "https://cards.argus.test", "https://evil.test", "0123456789abcdef", rules.MaxMessageBytes, map[string]bool{"cab_01": true}); err == nil {
-		t.Fatal("wrong bridge origin accepted")
-	}
-	if err := validateBridgeContext(valid, "https://cards.argus.test", "https://cards.argus.test", "wrong-nonce-value", rules.MaxMessageBytes, map[string]bool{"cab_01": true}); err == nil {
-		t.Fatal("wrong bridge nonce accepted")
-	}
-	forged := cloneJSON(t, valid).(map[string]any)
-	forged["payload"].(map[string]any)["action_binding_id"] = "cab_forged"
-	if err := validateBridgeContext(forged, "https://cards.argus.test", "https://cards.argus.test", "0123456789abcdef", rules.MaxMessageBytes, map[string]bool{"cab_01": true}); err == nil {
-		t.Fatal("forged binding id accepted")
-	}
-	oversized := cloneJSON(t, valid).(map[string]any)
-	oversized["payload"] = map[string]any{"blob": strings.Repeat("a", rules.MaxMessageBytes)}
-	if err := validateBridgeContext(oversized, "https://cards.argus.test", "https://cards.argus.test", "0123456789abcdef", rules.MaxMessageBytes, map[string]bool{"cab_01": true}); err == nil {
-		t.Fatal("oversized bridge message accepted")
+	packet["type"] = "ready"
+	packet["payload"] = map[string]any{"confirm_action": "forged"}
+	if schema.Validate(packet) == nil {
+		t.Fatal("accepted extra payload fields")
 	}
 }
 
@@ -1230,6 +1199,52 @@ func (catalog fixtureCatalog) sample(t *testing.T, raw any, documentID string, m
 		for key, value := range catalog.sampleObject(t, node, documentID, mode, stack) {
 			result[key] = value
 		}
+		for _, raw := range schemas {
+			conditional, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			condition, ok := conditional["if"].(map[string]any)
+			if !ok {
+				continue
+			}
+			properties, _ := condition["properties"].(map[string]any)
+			matched := true
+			for key, raw := range properties {
+				rule, _ := raw.(map[string]any)
+				if constant, ok := rule["const"]; ok && !reflect.DeepEqual(result[key], constant) {
+					matched = false
+				}
+				if values, ok := rule["enum"].([]any); ok {
+					found := false
+					for _, value := range values {
+						found = found || reflect.DeepEqual(result[key], value)
+					}
+					matched = matched && found
+				}
+			}
+			if matched {
+				then, _ := conditional["then"].(map[string]any)
+				properties, _ := then["properties"].(map[string]any)
+				for key, schema := range properties {
+					if object, ok := schema.(map[string]any); ok && numberOr(object["maxProperties"], -1) == 0 {
+						result[key] = map[string]any{}
+					} else {
+						baseProperties, _ := node["properties"].(map[string]any)
+						if base := baseProperties[key]; base != nil {
+							resolved, origin := catalog.resolveNode(t, base, documentID, map[string]bool{})
+							merged := cloneJSON(t, resolved).(map[string]any)
+							for name, value := range schema.(map[string]any) {
+								merged[name] = value
+							}
+							result[key] = catalog.sample(t, merged, origin, mode, stack)
+							continue
+						}
+						result[key] = catalog.sample(t, schema, documentID, mode, stack)
+					}
+				}
+			}
+		}
 		return result
 	}
 	typeName := schemaType(node)
@@ -1471,6 +1486,7 @@ func schemaString(node map[string]any, mode fixtureMode) string {
 		{"^[A-Z2-7]{16,128}$", "JBSWY3DPEHPK3PXP"},
 		{"^[0-9]{6}$", "123456"},
 		{"^\\$", "$.items"},
+		{"^[A-Za-z0-9_-]+$", strings.Repeat("a", 32)},
 		{"^[A-Za-z0-9", "request_00000001"},
 		{"^sha256:[a-f0-9]{64}$", "sha256:" + strings.Repeat("a", 64)},
 		{"^[0-9a-fA-F]{64}$", strings.Repeat("a", 64)},
@@ -1563,39 +1579,6 @@ func canonicalSelector(t *testing.T, value any) string {
 		t.Fatal(err)
 	}
 	return string(data)
-}
-
-func validateBridgeSequence(sequences []uint64) error {
-	for index := 1; index < len(sequences); index++ {
-		if sequences[index] <= sequences[index-1] {
-			return fmt.Errorf("bridge sequence must be strictly increasing")
-		}
-	}
-	return nil
-}
-
-func validateBridgeContext(message any, expectedOrigin, origin, expectedNonce string, maxBytes int, bindings map[string]bool) error {
-	if origin != expectedOrigin {
-		return fmt.Errorf("bridge origin mismatch")
-	}
-	root, ok := message.(map[string]any)
-	if !ok || root["nonce"] != expectedNonce {
-		return fmt.Errorf("bridge nonce mismatch")
-	}
-	data, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
-	if len(data) > maxBytes {
-		return fmt.Errorf("bridge message exceeds %d bytes", maxBytes)
-	}
-	payload, _ := root["payload"].(map[string]any)
-	for _, key := range []string{"query_binding_id", "action_binding_id"} {
-		if bindingID, ok := payload[key].(string); ok && !bindings[bindingID] {
-			return fmt.Errorf("unknown binding id %s", bindingID)
-		}
-	}
-	return nil
 }
 
 func validateCompactionCut(events []contextEvent, cutAfter int) error {

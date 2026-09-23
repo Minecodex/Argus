@@ -1,6 +1,12 @@
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { StreamTerminatedError, useApi } from "@argus/api-client";
+import {
+  StreamTerminatedError,
+  useApi,
+  ApiError,
+  formatApiError,
+} from "@argus/api-client";
+import { useTranslation } from "react-i18next";
 import { useEnterpriseAuthStore } from "@argus/auth";
 import type { ChatMessage } from "./chat-view-model";
 import {
@@ -22,8 +28,8 @@ export type ChatStreamState = {
   send: (
     conversationId: string,
     text: string,
-    mockIntent?: "interactive_card.create",
-  ) => Promise<void>;
+    fileIds?: string[],
+  ) => Promise<boolean>;
   /** 中断当前网络流和本地消费循环。 */
   stop: () => void;
   compact: () => void;
@@ -34,6 +40,7 @@ export type ChatStreamState = {
  */
 export function useChatStream(): ChatStreamState {
   const api = useApi();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [streaming, setStreaming] = useState<ChatMessage | null>(null);
   const [pendingUser, setPendingUser] = useState<ChatMessage | null>(null);
@@ -62,12 +69,8 @@ export function useChatStream(): ChatStreamState {
   }, [api]);
 
   const send = useCallback(
-    async (
-      conversationId: string,
-      text: string,
-      mockIntent?: "interactive_card.create",
-    ) => {
-      if (sending) return;
+    async (conversationId: string, text: string, fileIds?: string[]) => {
+      if (sending) return false;
       const controller = new AbortController();
       abortRef.current = controller;
       setSending(true);
@@ -83,17 +86,27 @@ export function useChatStream(): ChatStreamState {
       });
 
       let projection = initialConversationProjection;
+      let accepted = false;
 
       try {
+        const preflight = await api.conversations.preflight(conversationId, {
+          content: text,
+          file_ids: fileIds,
+        });
+        if (!preflight.ready) {
+          setError(t("planv5.capacity"));
+          return false;
+        }
         const stream = api.conversations.sendMessage(
           conversationId,
           {
             content: text,
-            ...(mockIntent ? { command: { type: mockIntent } } : {}),
+            file_ids: fileIds,
           },
-          { signal: controller.signal, mock_intent: mockIntent },
+          { signal: controller.signal },
         );
         for await (const envelope of stream) {
+          accepted = true;
           const streamed = envelope.data as { run_id?: string };
           if (streamed.run_id && streamed.run_id !== runRef.current) {
             runRef.current = streamed.run_id;
@@ -110,7 +123,8 @@ export function useChatStream(): ChatStreamState {
               content: projection.message_text,
               createdAt: envelope.occurred_at,
               toolCalls: [...projection.tool_calls.values()],
-              cards: [...projection.cards],
+              presentations: [...projection.presentations],
+              pendingActionRefs: [...projection.pending_action_refs],
             },
           );
           if (projection.stop_reason) setStopReason(projection.stop_reason);
@@ -126,14 +140,29 @@ export function useChatStream(): ChatStreamState {
           ) {
             useEnterpriseAuthStore.getState().clear();
             window.location.assign("/login");
-            return;
+            return accepted;
           }
-          setError("send failed");
+          setError(
+            streamError instanceof ApiError &&
+              streamError.code === "MODEL_TOOL_CAPACITY_EXCEEDED"
+              ? t("planv5.capacity")
+              : formatApiError(
+                  streamError,
+                  t("planv5.sendFailed"),
+                  (requestId) => t("common.requestReference", { requestId }),
+                ),
+          );
           setStopReason("failed");
         }
       } finally {
         // 等待列表刷新完成再清掉本地乐观消息，避免流式内容闪烁消失。
         await queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        await queryClient.invalidateQueries({
+          queryKey: ["workspace", conversationId],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ["workspace-files", conversationId],
+        });
         setStreaming(null);
         setPendingUser(null);
         setSending(false);
@@ -141,8 +170,9 @@ export function useChatStream(): ChatStreamState {
         runRef.current = null;
         setActiveRunId(null);
       }
+      return accepted;
     },
-    [api, queryClient, sending],
+    [api, queryClient, sending, t],
   );
 
   return {

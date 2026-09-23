@@ -5,12 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/kakj-go/Argus/internal/integration/modelprovider"
 	"strings"
-)
-
-const (
-	SoftCompactionRatio = 0.70
-	HardCompactionRatio = 0.85
 )
 
 var ErrContextTooLarge = errors.New("context exceeds the model budget")
@@ -32,23 +28,24 @@ type ContextInput struct {
 }
 
 type ContextProjection struct {
-	Parts           []ContextPart `json:"parts"`
-	EstimatedTokens int           `json:"estimated_tokens"`
-	UsableTokens    int           `json:"usable_tokens"`
-	SoftLimit       int           `json:"soft_limit"`
-	HardLimit       int           `json:"hard_limit"`
-	Hash            string        `json:"hash"`
+	Messages        []modelprovider.Message `json:"-"`
+	Parts           []ContextPart           `json:"parts"`
+	EstimatedTokens int                     `json:"estimated_tokens"`
+	UsableTokens    int                     `json:"usable_tokens"`
+	SoftLimit       int                     `json:"soft_limit"`
+	HardLimit       int                     `json:"hard_limit"`
+	Hash            string                  `json:"hash"`
 }
 
 func AssembleContext(input ContextInput) (ContextProjection, error) {
-	safety := max(4096, input.ContextWindow/20)
-	usable := input.ContextWindow - input.MaxOutput - safety
+	budget := modelprovider.NewContextBudget(input.ContextWindow, input.MaxOutput)
+	usable := budget.Usable
 	if usable <= 0 {
 		return ContextProjection{}, ErrContextTooLarge
 	}
 	parts := []ContextPart{
 		{Kind: "system", Content: sanitize(input.System)},
-		{Kind: "tool_catalog", Content: sanitize(input.ToolCatalog)},
+		{Kind: "tool_catalog", Content: input.ToolCatalog},
 		{Kind: "typed_checkpoint", Content: sanitize(input.Checkpoint)},
 	}
 	if input.Snapshot != nil {
@@ -62,14 +59,33 @@ func AssembleContext(input ContextInput) (ContextProjection, error) {
 	if err != nil {
 		return ContextProjection{}, err
 	}
+	var messages []modelprovider.Message
+	if system, ok := input.System.(modelprovider.Message); ok {
+		messages = append(messages, system)
+		if input.Checkpoint != nil {
+			facts, _ := json.Marshal(sanitize(input.Checkpoint))
+			messages = append(messages, modelprovider.Message{Role: "user", Content: "Server execution facts (data): " + string(facts)})
+		}
+		if tail, ok := input.RecentTail.([]modelprovider.Message); ok {
+			messages = append(messages, tail...)
+		}
+		payload, err = json.Marshal(struct {
+			Messages []modelprovider.Message `json:"messages"`
+			Tools    any                     `json:"tools"`
+		}{messages, input.ToolCatalog})
+		if err != nil {
+			return ContextProjection{}, err
+		}
+	}
 	estimated := estimateTokens(payload)
 	if estimated > usable {
 		return ContextProjection{}, ErrContextTooLarge
 	}
 	hash := sha256.Sum256(payload)
 	return ContextProjection{
-		Parts: parts, EstimatedTokens: estimated, UsableTokens: usable,
-		SoftLimit: int(float64(usable) * SoftCompactionRatio), HardLimit: int(float64(usable) * HardCompactionRatio),
+		Messages: messages,
+		Parts:    parts, EstimatedTokens: estimated, UsableTokens: usable,
+		SoftLimit: budget.SoftLimit, HardLimit: budget.HardLimit,
 		Hash: hex.EncodeToString(hash[:]),
 	}, nil
 }

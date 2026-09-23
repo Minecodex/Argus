@@ -58,9 +58,9 @@ const SettingsAiPage = lazyRouteComponent(
   () => import("./pages/settings-ai-page"),
   "SettingsAiPage",
 );
-const SettingsInteractiveCardsPage = lazyRouteComponent(
-  () => import("./pages/settings-interactive-cards-page"),
-  "SettingsInteractiveCardsPage",
+const SettingsMCPPage = lazyRouteComponent(
+  () => import("./pages/settings-mcp-page"),
+  "SettingsMCPPage",
 );
 const SettingsSecretsPage = lazyRouteComponent(
   () => import("./pages/settings-secrets-page"),
@@ -184,10 +184,10 @@ const settingsAiRoute = createRoute({
   path: "/settings/ai",
   component: SettingsAiPage,
 });
-const settingsInteractiveCardsRoute = createRoute({
+const settingsMCPRoute = createRoute({
   getParentRoute: () => adminRoute,
-  path: "/settings/interactive-cards",
-  component: SettingsInteractiveCardsPage,
+  path: "/settings/mcp",
+  component: SettingsMCPPage,
 });
 const settingsSecretsRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -224,7 +224,7 @@ const routeTree = rootRoute.addChildren([
       accountRoute,
       settingsOrgRoute,
       settingsAiRoute,
-      settingsInteractiveCardsRoute,
+      settingsMCPRoute,
       settingsSecretsRoute,
       settingsAuditRoute,
       ...(demoRoute ? [demoRoute] : []),

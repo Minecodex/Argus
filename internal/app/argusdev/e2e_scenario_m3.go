@@ -9,7 +9,7 @@ import (
 )
 
 func (a *App) runM3Scenario(ctx context.Context, env *E2EEnvironment) error {
-	if err := a.patchP4DirectExecutor(ctx, env); err != nil {
+	if err := a.patchP4DirectExecutor(ctx, env, false); err != nil {
 		return err
 	}
 	client, err := scenarioHTTP(env)
@@ -61,7 +61,7 @@ func (a *App) runM3Scenario(ctx context.Context, env *E2EEnvironment) error {
 	}
 
 	test, err := client.JSON(ctx, "m3-direct-host-test", "enterprise", http.MethodPost, "/enterprise/hosts/connection-tests", http.StatusAccepted,
-		map[string]any{"address": "8.8.8.8", "port": 22, "platform": "linux", "ssh_path": "direct_executor", "credential_id": credentialID, "username": "root"}, enterpriseHeaders(env, "m3-direct-test"))
+		map[string]any{"address": "8.8.8.8", "port": 22, "platform": "linux", "onboarding_control_path": "direct", "ssh_path": "direct_executor", "credential_id": credentialID, "username": "root"}, enterpriseHeaders(env, "m3-direct-test"))
 	if err != nil {
 		return err
 	}

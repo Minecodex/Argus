@@ -88,6 +88,31 @@ export function installAgentDomains(context: RealDomainContext): void {
     context;
 
   client.conversations = {
+    async remove(id) {
+      await http.request(`conversations/${id}`, {
+        method: "DELETE",
+        csrf: true,
+        headers: { "Idempotency-Key": idempotencyKey() },
+      });
+    },
+    preflight: (id, body) =>
+      http.request(`conversations/${id}/preflight`, {
+        method: "POST",
+        csrf: true,
+        body,
+      }),
+    async updateConnections(id, connectionIds) {
+      return remember(
+        await http.request<ConversationContract>(`conversations/${id}`, {
+          method: "PUT",
+          csrf: true,
+          body: {
+            selected_mcp_connection_ids: connectionIds,
+            expected_version: expectedVersion(id),
+          },
+        }),
+      );
+    },
     async list(query) {
       const params = new URLSearchParams();
       if (query?.page?.cursor) params.set("cursor", query.page.cursor);
@@ -144,6 +169,24 @@ export function installAgentDomains(context: RealDomainContext): void {
         headers: { "Idempotency-Key": idempotencyKey() },
         body: input,
       });
+      yield {
+        schema_version: "argus.stream_event/v1",
+        event_id: accepted.event.event_id,
+        sequence: accepted.event.sequence,
+        event_type: "agent_event",
+        occurred_at: accepted.event.occurred_at,
+        terminal: false,
+        resume_cursor: String(accepted.event.sequence),
+        data: {
+          schema_version: "argus.agent_event/v1",
+          event_id: accepted.event.event_id,
+          sequence: accepted.event.sequence,
+          run_id: accepted.run.run_id,
+          event_type: "run_started",
+          occurred_at: accepted.event.occurred_at,
+          payload: {},
+        },
+      };
       yield* sse.stream(`conversations/${id}/events`, {
         signal: streamOptions?.signal,
         last_event_id:
@@ -357,6 +400,20 @@ export function installAgentDomains(context: RealDomainContext): void {
         from: `${month}-01`,
         to: `${month}-31`,
         modelId: range?.modelId,
+        cachedInputTokens: values.reduce(
+          (sum, item) => sum + item.cached_input_tokens,
+          0,
+        ),
+        cachedUsageComplete: values.every((item) => item.cached_usage_complete),
+        usageComplete: values.every((item) => item.usage_complete),
+        estimatedInputTokens: values.reduce(
+          (sum, item) => sum + item.estimated_input_tokens,
+          0,
+        ),
+        estimatedOutputTokens: values.reduce(
+          (sum, item) => sum + item.estimated_output_tokens,
+          0,
+        ),
         totalInputTokens: values.reduce(
           (sum, item) => sum + item.input_tokens,
           0,
@@ -379,5 +436,4 @@ export function installAgentDomains(context: RealDomainContext): void {
       };
     },
   };
-
 }

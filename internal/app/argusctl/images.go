@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/containerimage"
 	"net"
 	"os"
 	"path/filepath"
@@ -49,6 +50,8 @@ func (a *App) imagesBuild(ctx context.Context, cfg *InstallConfig, platform stri
 		{"argus-backend", "deploy/docker/backend.Dockerfile"},
 		{"argus-web", "deploy/docker/web.Dockerfile"},
 		{"minio", "deploy/docker/minio.Dockerfile"},
+		{"argus-workspace", "deploy/docker/workspace.Dockerfile"},
+		{"argus-workspace-egress", "deploy/docker/workspace-egress.Dockerfile"},
 	}
 	for _, build := range builds {
 		image := cfg.Image(build.name)
@@ -135,8 +138,13 @@ func (a *App) imagesLoad(ctx context.Context, cfg *InstallConfig) error {
 func (a *App) imagesClean(ctx context.Context, cfg *InstallConfig) error {
 	loaderName := kubernetesName("argus-image-loader-" + cfg.Spec.ReleaseID)
 	podsOutput, _ := a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", "kube-system", "get", "pods", "--selector", "app.kubernetes.io/name="+loaderName, "--output", "name")
+	activeImages, activeErr := a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "get", "pods", "--all-namespaces", "--output", "jsonpath={.items[*].spec.containers[*].image}")
+	if activeErr != nil {
+		return fmt.Errorf("inspect active image references before cleanup: %w", activeErr)
+	}
 	for _, pod := range strings.Fields(podsOutput) {
-		for _, image := range []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio")} {
+		inventory, _ := a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", "kube-system", "exec", pod, "--", "/host/ctr", "--address", "/run/containerd/containerd.sock", "--namespace", "k8s.io", "images", "list")
+		for _, image := range containerimage.RemovalReferences([]string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress")}, inventory, strings.Fields(activeImages)) {
 			_, _ = a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", "kube-system", "exec", pod, "--", "/host/ctr", "--address", "/run/containerd/containerd.sock", "--namespace", "k8s.io", "images", "remove", image)
 		}
 	}
@@ -146,10 +154,10 @@ func (a *App) imagesClean(ctx context.Context, cfg *InstallConfig) error {
 	// E2E run, eventually exhausting the Docker Desktop disk.
 	_, _ = a.runner.quiet(ctx, "docker", "container", "rm", "--force", "--volumes", cfg.registryContainerName())
 	_, _ = a.runner.quiet(ctx, "docker", "buildx", "rm", "--force", buildxBuilderName(cfg))
-	for _, image := range []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio")} {
+	for _, image := range []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress")} {
 		_, _ = a.runner.quiet(ctx, "docker", "image", "rm", "--force", image)
 	}
-	for _, image := range []string{"argus-backend", "argus-web", "minio"} {
+	for _, image := range []string{"argus-backend", "argus-web", "minio", "argus-workspace", "argus-workspace-egress"} {
 		_, _ = a.runner.quiet(ctx, "docker", "image", "rm", "--force", localRegistryReference(cfg, image))
 	}
 	return nil
@@ -168,7 +176,7 @@ func localRegistryReference(cfg *InstallConfig, name string) string {
 }
 
 func imageLoaderManifest(name string, cfg *InstallConfig) string {
-	images := []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio")}
+	images := []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress")}
 	quoted := make([]string, 0, len(images))
 	for _, image := range images {
 		quoted = append(quoted, fmt.Sprintf("%q", image))
@@ -203,6 +211,11 @@ spec:
             - |
               for image in %s; do
                 /host/ctr --address /run/containerd/containerd.sock --namespace k8s.io images pull --plain-http "$image"
+                digest=$(/host/ctr --address /run/containerd/containerd.sock --namespace k8s.io images ls | awk -v ref="$image" '$1 == ref {print $3}')
+                case "$digest" in sha256:*) ;; *) echo "image digest unavailable" >&2; exit 1;; esac
+                repository=${image%%:*}
+                /host/ctr --address /run/containerd/containerd.sock --namespace k8s.io images tag --force "$image" "$image@$digest"
+                /host/ctr --address /run/containerd/containerd.sock --namespace k8s.io images tag --force "$image" "$repository@$digest"
               done
           volumeMounts:
             - {name: ctr, mountPath: /host/ctr, readOnly: true}

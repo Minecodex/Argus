@@ -6,8 +6,8 @@ package remoteaccessapi
 import (
 	"bytes"
 	"encoding/json"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 	"net/http"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 type ResumeRemoteAccessRequestRequestObject struct {

@@ -1,0 +1,29 @@
+version: argus.contract_cutovers/v1
+cutovers:
+  - id: planv5
+    date: "2026-09-13"
+    design: docs/planv5/README.md
+    implementation_status: docs/planv5/implementation-status.md
+    database_baseline: migrations/postgresql/00001_argus_baseline.sql
+    previous_source_revision: 909c40c
+    compatibility: none
+    data_conversion: none
+    changes:
+      - Remove Card APIs, commands, DTOs, tables, bindings, catalogs and runtime.
+      - Replace model-facing business handlers with a fixed native Tool Gateway.
+      - Use native Chat Completions and Responses tool messages and run snapshots.
+      - Add enterprise Remote MCP connections, revisions, grants and conversation selection.
+      - Add conversation-scoped ContextSnapshot versions and persistent Workspace storage.
+      - Add authenticated file uploads, immutable deliveries and fixed file RPCs.
+      - Replace rendering with immutable Tool presentations and host-owned confirmation.
+      - Add explicit Workspace and permanent conversation deletion lifecycles.
+      - Track durable Workspace import sources before writes and gate all directory access.
+      - Separate provider-reported, estimated and missing model usage in storage and public totals.
+      - Reject credential-bearing MCP envelopes before catalog or result publication.
+      - Persist cached input usage provenance and exact model context snapshot identity.
+      - Validate final usage consistency and retain invalid observations outside reported totals.
+      - Require versioned business discovery metadata for every model-visible native tool.
+    validation:
+      - Clean database migrations; no historical data conversion scripts.
+      - Source contracts and generated Go, TypeScript, protobuf and SQLC must agree.
+      - Implementation completion requires all PlanV5 acceptance gates to pass.

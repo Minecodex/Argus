@@ -110,7 +110,7 @@ func (a *App) waitConnectionTest(ctx context.Context, env *E2EEnvironment, id st
 		case "succeeded":
 			return nil
 		case "failed", "cancelled", "expired":
-			return fmt.Errorf("connection test %s ended as %s", id, status)
+			return fmt.Errorf("connection test %s ended as %s (%v)", id, status, result["error_code"])
 		}
 		select {
 		case <-ctx.Done():
@@ -282,6 +282,9 @@ func (a *App) waitRunStatus(ctx context.Context, env *E2EEnvironment, runID, exp
 		}
 		if current == "failed" || current == "cancelled" {
 			return fmt.Errorf("run %s ended as %s", runID, current)
+		}
+		if current == "succeeded" && expected != "succeeded" {
+			return fmt.Errorf("run %s ended as succeeded while waiting for %s", runID, expected)
 		}
 		select {
 		case <-ctx.Done():

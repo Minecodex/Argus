@@ -13,6 +13,7 @@ spec:
     redis: "8.10.0-alpine"
     minioSource: "RELEASE.2025-10-15T17-29-55Z"
     minioClient: "RELEASE.2025-08-13T08-35-41Z"
+    minioClientCommit: "7394ce0dd2a80935aded936b09fa12cbb3cb8096"
     strimziOperator: "1.1.0"
     kafka: "4.2.1"
     altinityOperator: "0.27.3"
@@ -24,6 +25,16 @@ spec:
     openSandboxServer: "0.2.2"
     openSandboxExecd: "1.0.22"
     openSandboxEgress: "1.1.6"
+    rawfileLocalPV: "0.15.1"
+    rawfileChartSha256: "3107fbe473f64de9ae84aae3677d395daa19d22049dd12ade0e5cda037b90169"
+  workspace:
+    python: "3.12.12"
+    pythonDigest: "sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c"
+    node: "24.20.0"
+    nodeDigest: "sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e"
+    execdDigest: "sha256:0d8f44cf4194732719aa79999d4b120c98bdab02bc61e9ad13f75f83af4c2684"
+    egressDigest: "sha256:014d36e4a862c4a466c670b9df3f7516940b4b2aa440062438f09d1d8f9c9403"
+    requirementsLock: "deploy/workspace/requirements.lock"
   platforms:
     - linux/amd64
     - linux/arm64

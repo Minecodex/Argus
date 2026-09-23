@@ -1,5 +1,7 @@
 /** Stable API error-code translations. Keep this list aligned with api/contracts/error-codes.yaml. */
 export const ERROR_CODES = [
+  "TASK_RETRY_EXHAUSTED",
+  "MODEL_RESPONSE_INTERRUPTED",
   "INTERNAL_ERROR",
   "INVALID_ARGUMENT",
   "AUTHENTICATION_REQUIRED",
@@ -131,25 +133,6 @@ export const ERROR_CODES = [
   "ACTION_RESULT_ALREADY_CONSUMED",
   "SANDBOX_PROFILE_UNAVAILABLE",
   "SANDBOX_QUOTA_EXCEEDED",
-  "CARD_NOT_FOUND",
-  "CARD_VERSION_NOT_FOUND",
-  "CARD_SOURCE_READ_ONLY",
-  "CARD_VERSION_CONFLICT",
-  "CARD_CONTENT_TOO_LARGE",
-  "CARD_MANIFEST_INVALID",
-  "CARD_CONTENT_HASH_MISMATCH",
-  "CARD_STATIC_VALIDATION_FAILED",
-  "CARD_RUNTIME_VALIDATION_REQUIRED",
-  "CARD_RUNTIME_VALIDATION_FAILED",
-  "CARD_BINDING_INVALID",
-  "CARD_SCHEMA_INCOMPATIBLE",
-  "CARD_NOT_ENABLED",
-  "CARD_DEPENDENCY_UNAVAILABLE",
-  "CARD_NO_COMPATIBLE_RENDERER",
-  "CARD_PRESENTATION_INVALIDATED",
-  "CARD_BINDING_EXPIRED",
-  "CARD_BINDING_CONSUMED",
-  "CARD_ACTION_INVALIDATED",
   "REMOTE_ACCESS_GRANT_REQUIRED",
   "REMOTE_ACCESS_SCOPE_DENIED",
   "REMOTE_ACCESS_APPROVAL_REQUIRED",
@@ -206,11 +189,83 @@ export const ERROR_CODES = [
   "TELEMETRY_DEPENDENCY_UNAVAILABLE",
   "CLIENT_OPERATION_UNAVAILABLE",
   "TELEMETRY_DLQ_REPLAY_CONFLICT",
+  "CONVERSATION_UNAVAILABLE",
+  "MCP_AUTHENTICATION_FAILED",
+  "MCP_CATALOG_TOO_LARGE",
+  "MCP_CONNECTION_CONFLICT",
+  "MCP_CONNECTION_FORBIDDEN",
+  "MCP_CONNECTION_INVALID",
+  "MCP_CONNECTION_UNAVAILABLE",
+  "MCP_CREDENTIAL_INVALID",
+  "MCP_CREDENTIAL_REQUIRED",
+  "MCP_ENDPOINT_FORBIDDEN",
+  "MCP_ENDPOINT_UNAVAILABLE",
+  "MCP_MEMBER_INVALID",
+  "MCP_MESSAGE_TOO_LARGE",
+  "MCP_PROTOCOL_ERROR",
+  "MCP_RESPONSE_CREDENTIAL_EXPOSED",
+  "MCP_PROTOCOL_VERSION_UNSUPPORTED",
+  "MCP_SCHEMA_CHANGED",
+  "MCP_SESSION_UNAVAILABLE",
+  "MCP_STREAM_INTERRUPTED",
+  "MCP_TOOL_ERROR",
+  "MCP_UPSTREAM_ERROR",
+  "MCP_UPSTREAM_TIMEOUT",
+  "MCP_UPSTREAM_UNAVAILABLE",
+  "MODEL_TOOL_CAPACITY_EXCEEDED",
+  "MODEL_USAGE_INVALID",
+  "PRESENTATION_FORBIDDEN",
+  "PRESENTATION_INVALID",
+  "SANDBOX_COMMAND_RESULT_UNKNOWN",
+  "SANDBOX_UNAVAILABLE",
+  "SKILL_CONTEXT_INVALID",
+  "TOOL_CANCELLED",
+  "TOOL_CATEGORY_UNKNOWN",
+  "TOOL_CONFIGURATION_CHANGED",
+  "TOOL_CONFIGURATION_INVALID",
+  "TOOL_EXECUTION_FAILED",
+  "TOOL_NOT_FOUND",
+  "TOOL_PERMISSION_DENIED",
+  "TOOL_READ_ONLY_REQUIRED",
+  "TOOL_RESULT_FORBIDDEN",
+  "TOOL_RESULT_INVALID",
+  "TOOL_RESULT_STORAGE_UNAVAILABLE",
+  "TOOL_RESULT_UNKNOWN",
+  "TOOL_SCHEMA_INVALID",
+  "TOOL_TIMEOUT",
+  "TOOL_VERSION_UNAVAILABLE",
+  "WORKSPACE_BUSY",
+  "WORKSPACE_DELETED",
+  "WORKSPACE_FILE_CONFLICT",
+  "WORKSPACE_FILE_FORBIDDEN",
+  "WORKSPACE_FILE_INVALID",
+  "WORKSPACE_FILE_NOT_FOUND",
+  "WORKSPACE_FILE_TOO_LARGE",
+  "WORKSPACE_FORBIDDEN",
+  "WORKSPACE_HARD_QUOTA_UNAVAILABLE",
+  "WORKSPACE_LEASE_LOST",
+  "WORKSPACE_NOT_CONFIGURED",
+  "WORKSPACE_OPERATION_TIMEOUT",
+  "WORKSPACE_OWNERSHIP_INVALID",
+  "WORKSPACE_QUOTA_EXCEEDED",
+  "WORKSPACE_RUNTIME_UNAVAILABLE",
+  "WORKSPACE_STORAGE_FORBIDDEN",
+  "WORKSPACE_STORAGE_UNAVAILABLE",
+  "WORKSPACE_UNAVAILABLE",
+  "WORKSPACE_UPLOAD_CONFLICT",
+  "WORKSPACE_UPLOAD_EXPIRED",
+  "WORKSPACE_UPLOAD_FAILED",
 ] as const;
 
 type Locale = "zh-CN" | "en-US";
 
 const errorTokenZhMap: Record<string, string> = {
+  WORKSPACE: "工作目录",
+  MCP: "MCP",
+  SKILL: "上下文包",
+  LEASE: "执行租约",
+  CAPACITY: "容量",
+  SCHEMA: "工具定义",
   INTERNAL: "内部",
   ERROR: "错误",
   INVALID: "无效",
@@ -290,7 +345,6 @@ const errorTokenZhMap: Record<string, string> = {
   KEY: "密钥",
   SECRET: "密文",
   REFERENCED: "被引用",
-  LEASE: "租约",
   CONNECTION: "连接",
   TEST: "测试",
   DIRECT: "直连",
@@ -309,7 +363,6 @@ const errorTokenZhMap: Record<string, string> = {
   GATEWAY: "网关",
   DRAINING: "排空中",
   DISCONNECTED: "已断开",
-  SCHEMA: "结构",
   REPLAYABLE: "可重放",
   CERTIFICATE: "证书",
   ROTATION: "轮换",
@@ -348,7 +401,6 @@ const errorTokenZhMap: Record<string, string> = {
   GRANT: "授权",
   SCOPE: "范围",
   RECORDING: "录制",
-  CAPACITY: "容量",
   TLS: "TLS",
   COLLECTOR: "收集器",
   DISTRIBUTION: "发行版",
@@ -380,6 +432,21 @@ const errorTokenZhMap: Record<string, string> = {
 };
 
 const errorSpecialZhMap: Record<string, string> = {
+ MODEL_USAGE_INVALID: "模型用量数据不一致，本次运行已停止，未执行该响应中的工具。",
+  MCP_RESPONSE_CREDENTIAL_EXPOSED:
+    "MCP 返回数据包含连接认证值，已阻止使用。请联系企业管理员检查该连接。",
+  TASK_RETRY_EXHAUSTED: "任务重试已耗尽，已停止自动推进。",
+  MODEL_RESPONSE_INTERRUPTED: "模型响应中断，该次输出未用于工具执行。",
+  MODEL_TOOL_CAPACITY_EXCEEDED: "模型容量不足，请减少所选连接或更换模型。",
+  MCP_CONNECTION_FORBIDDEN: "你未获授权使用此 MCP 连接，请联系企业管理员。",
+  MCP_CONNECTION_UNAVAILABLE: "MCP 连接已停用或暂时不可用，请调整会话选择。",
+  MCP_SCHEMA_CHANGED: "工具定义已更新，本次调用已停止，请发送新消息继续。",
+  TOOL_RESULT_UNKNOWN: "请求可能已执行，结果尚不确定；系统不会自动重发。",
+  WORKSPACE_BUSY: "工作目录正在处理另一个操作，请稍后重试。",
+  WORKSPACE_QUOTA_EXCEEDED: "工作目录容量不足，已有文件已保留。",
+  WORKSPACE_FILE_CONFLICT: "目标文件已存在或内容不一致，请使用新文件名。",
+  WORKSPACE_LEASE_LOST: "工作目录的执行权已变更，本次操作已停止。",
+
   RESOURCE_NAME_CONFLICT: "该名称已被未删除的资源使用，请更换名称后重试。",
   HOST_INSTALL_FAILED: "主机安装未完成，请查看安装结果后重试。",
   HOST_ONBOARDING_STATE_UNAVAILABLE:
@@ -469,6 +536,32 @@ const errorSpecialZhMap: Record<string, string> = {
 
 const errorTokenEnMap: Record<string, string> = {};
 const errorSpecialEnMap: Record<string, string> = {
+ MODEL_USAGE_INVALID: "The model returned inconsistent usage. This run stopped without executing tools from that response.",
+  MCP_RESPONSE_CREDENTIAL_EXPOSED:
+    "The MCP response contains connection authentication data and was blocked. Contact your enterprise administrator.",
+  TASK_RETRY_EXHAUSTED:
+    "Task retries are exhausted. Automatic progress has stopped.",
+  MODEL_RESPONSE_INTERRUPTED:
+    "The model response was interrupted and was not used to execute tools.",
+  MODEL_TOOL_CAPACITY_EXCEEDED:
+    "The model has insufficient capacity. Select fewer connections or another model.",
+  MCP_CONNECTION_FORBIDDEN:
+    "You are not authorized to use this MCP connection. Contact your enterprise administrator.",
+  MCP_CONNECTION_UNAVAILABLE:
+    "The MCP connection is disabled or unavailable. Adjust the conversation selection.",
+  MCP_SCHEMA_CHANGED:
+    "The tool definition changed. This invocation stopped; send another message to continue.",
+  TOOL_RESULT_UNKNOWN:
+    "The request may have executed, but its result is unknown. It will not be resent automatically.",
+  WORKSPACE_BUSY:
+    "The workspace is processing another operation. Try again shortly.",
+  WORKSPACE_QUOTA_EXCEEDED:
+    "The workspace is full. Existing files have been retained.",
+  WORKSPACE_FILE_CONFLICT:
+    "The target exists or its content differs. Use another file name.",
+  WORKSPACE_LEASE_LOST:
+    "Workspace execution ownership changed. This operation stopped.",
+
   RESOURCE_NAME_CONFLICT:
     "This name is already used by a resource that has not been deleted. Choose another name.",
   HOST_REMOVAL_NOT_INSTALLED:

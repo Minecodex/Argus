@@ -12,14 +12,15 @@ import (
 
 // AgentEvent defines model for AgentEvent.
 type AgentEvent struct {
-	EventId       string           `json:"event_id"`
-	EventType     interface{}      `json:"event_type"`
-	MessageId     *string          `json:"message_id,omitempty"`
-	OccurredAt    time.Time        `json:"occurred_at"`
-	Payload       PublicJsonObject `json:"payload"`
-	RunId         string           `json:"run_id"`
-	SchemaVersion interface{}      `json:"schema_version"`
-	Sequence      int              `json:"sequence"`
+	ConversationId *string          `json:"conversation_id,omitempty"`
+	EventId        string           `json:"event_id"`
+	EventType      interface{}      `json:"event_type"`
+	MessageId      *string          `json:"message_id,omitempty"`
+	OccurredAt     time.Time        `json:"occurred_at"`
+	Payload        PublicJsonObject `json:"payload"`
+	RunId          *string          `json:"run_id,omitempty"`
+	SchemaVersion  interface{}      `json:"schema_version"`
+	Sequence       int              `json:"sequence"`
 }
 
 // ContextBudget defines model for ContextBudget.

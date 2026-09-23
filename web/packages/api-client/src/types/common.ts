@@ -12,12 +12,7 @@ export type RiskLevel = "read" | "write" | "dangerous" | "critical";
 
 /** Where an audited action originated from. */
 export type AuditOrigin =
-  | "admin_ui"
-  | "admin_chatbox"
-  | "card_action"
-  | "openapi"
-  | "platform_ui"
-  | "system";
+  "admin_ui" | "admin_chatbox" | "openapi" | "platform_ui" | "system";
 
 export type SortDirection = "asc" | "desc";
 
@@ -43,7 +38,7 @@ export interface ListQuery {
   page?: PageParams;
 }
 
-/** Loose reference to a related domain object (task, audit, card bindings). */
+/** Loose reference to a related domain object (task, audit, tool results). */
 export interface ResourceRef {
   type: string;
   id: string;

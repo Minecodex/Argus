@@ -3,51 +3,52 @@ package agent
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"golang.org/x/sync/errgroup"
 
-	cardservice "github.com/kakj-go/Argus/internal/card"
 	"github.com/kakj-go/Argus/internal/conversation"
 	"github.com/kakj-go/Argus/internal/integration/modelprovider"
-	"github.com/kakj-go/Argus/internal/mcp"
 	modelservice "github.com/kakj-go/Argus/internal/model"
+	"github.com/kakj-go/Argus/internal/presentation"
 	"github.com/kakj-go/Argus/internal/runtime"
+	"github.com/kakj-go/Argus/internal/storage/objectstore"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 const (
-	maxAgentTurns      = 8
-	maxToolResultBytes = 4 << 20
+	maxAgentTurns      = 24
+	maxToolResultBytes = 64 << 20
 	maxProjectionBytes = 64 << 10
 )
 
 type Loop struct {
+	Objects        *objectstore.Client
 	Store          *postgres.Store
 	Models         modelservice.Service
-	Tools          *mcp.Registry
-	Cards          cardservice.Service
+	Tools          toolruntime.Factory
 	EndpointPolicy modelprovider.PublicEndpointPolicy
 }
 
-type pendingToolCall struct{ ID, Name, Arguments string }
+type pendingToolCall struct {
+	ID, Name, Arguments string
+	Index               int
+}
 
 type toolExecutionResult struct {
-	message   string
-	actionRef string
+	message string
+	unknown bool
+	through int64
 }
 
 func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
@@ -55,16 +56,42 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 	if err := json.Unmarshal(task.Payload, &payload); err != nil || payload.RunID == uuid.Nil || payload.EnterpriseID == uuid.Nil {
 		return runtime.Error{ErrorCode: "TOOL_INPUT_INVALID", Cause: errors.New("invalid agent task"), Permanent: true}
 	}
+	ctx, cancelLease := withTaskLease(ctx, loop.Store, task)
+	defer cancelLease()
+	if err := assertTaskLease(ctx); err != nil {
+		return err
+	}
 	run, err := loop.Store.Queries.GetRun(ctx, db.GetRunParams{ID: payload.RunID, EnterpriseID: payload.EnterpriseID})
 	if err != nil {
 		return err
 	}
+	if err := fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
+		return q.ReconcileInterruptedModelCalls(ctx, db.ReconcileInterruptedModelCallsParams{RunID: run.ID, EnterpriseID: run.EnterpriseID, CallKind: "inference"})
+	}); err != nil {
+		return err
+	}
+
 	if terminalRun(run.Status) {
-		return nil
+		return loop.reconcileTerminalToolCalls(ctx, run)
+	}
+	// A worker can die after committing an unknown Tool result but before
+	// committing the Run's terminal event. Recovery must not ask the model to
+	// continue from that persisted result or report a successful Run.
+	unknown, err := loop.Store.Queries.HasUnknownRunToolResult(ctx, db.HasUnknownRunToolResultParams{RunID: run.ID, EnterpriseID: run.EnterpriseID})
+	if err != nil {
+		return err
+	}
+	if unknown {
+		return loop.finishRun(ctx, run, "failed", "result_unknown", "TOOL_RESULT_UNKNOWN")
 	}
 	user, err := loop.Store.Queries.GetEnterpriseUser(ctx, db.GetEnterpriseUserParams{ID: run.ActorUserID, EnterpriseID: run.EnterpriseID})
 	if err != nil || user.Status != "active" || user.AuthorizationVersion != run.AuthorizationVersion {
 		return loop.finishRun(ctx, run, "failed", "authorization_invalidated", "AUTHORIZATION_VERSION_STALE")
+	}
+	if current, paused, err := loop.reconcileActions(ctx, run); err != nil || paused {
+		return err
+	} else {
+		run = current
 	}
 	revision, err := loop.Store.Queries.GetEnabledAIModelRevision(ctx, db.GetEnabledAIModelRevisionParams{ModelID: run.ModelID, EnterpriseID: run.EnterpriseID, Revision: run.ModelRevision})
 	if err != nil {
@@ -78,31 +105,76 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 
 	provider := modelprovider.Provider{Protocol: modelprovider.Protocol(revision.ApiProtocol), BaseURL: revision.BaseUrl,
 		APIKey: string(credential), Client: loop.EndpointPolicy.Client()}
-	messages, currentInput, err := loop.messages(ctx, run)
+	messages, currentInput, modelScope, source, err := loop.messages(ctx, run)
 	if err != nil {
 		return err
 	}
-	if payload.Command != nil {
-		return loop.handleCardCommand(ctx, run, user, revision, provider, currentInput, *payload.Command)
-	}
-	if payload.Reason == "execution_verify" {
-		verification, verifyErr := loop.executionVerification(ctx, run, payload)
+	if run.VerificationOnly {
+		verification, verifyErr := loop.executionVerification(ctx, run)
 		if verifyErr != nil {
 			return verifyErr
 		}
 		messages = append(messages, modelprovider.Message{Role: "user", Content: verification})
 		currentInput = verification
 	}
-	pendingActionRef := ""
-	for turn := 0; turn < maxAgentTurns; turn++ {
+	principal, err := (conversation.Service{Store: loop.Store}).ToolPrincipal(ctx, run.EnterpriseID, run.ActorUserID, run.ConversationID)
+	if err != nil {
+		return err
+	}
+	if loop.Tools == nil {
+		return loop.finishRun(ctx, run, "failed", "tools_unavailable", "TOOL_CONFIGURATION_INVALID")
+	}
+	var savedTools toolruntime.Snapshot
+	if json.Unmarshal(run.ToolSnapshot, &savedTools) != nil || savedTools.Hash() != run.ToolSnapshotHash {
+		return loop.finishRun(ctx, run, "failed", "invalid_tool_snapshot", "TOOL_CONFIGURATION_INVALID")
+	}
+	toolSet, err := loop.Tools.Restore(ctx, principal, savedTools)
+	if err != nil {
+		var toolError toolruntime.Error
+		if errors.As(err, &toolError) {
+			return loop.finishRun(ctx, run, "failed", "tool_snapshot_unavailable", toolError.Kind)
+		}
+		return err
+	}
+	if recovered, err := loop.recoverToolCalls(ctx, run, toolSet, principal, run.VerificationOnly); err != nil || recovered {
+		return err
+	}
+	usedCalls, err := loop.Store.Queries.CountRunInferenceCalls(ctx, db.CountRunInferenceCallsParams{RunID: run.ID, EnterpriseID: run.EnterpriseID})
+	if err != nil {
+		return err
+	}
+	for turn := int(usedCalls); turn < maxAgentTurns; turn++ {
 		if cancelled, err := loop.cancelled(ctx, run); err != nil || cancelled {
 			return err
 		}
-		turnTools := selectTurnTools(loop.modelTools(), messages, currentInput)
-		projection, err := loop.context(ctx, run, revision, messages, currentInput, turnTools)
+		unknown, err := loop.Store.Queries.HasUnknownRunToolResult(ctx, db.HasUnknownRunToolResultParams{RunID: run.ID, EnterpriseID: run.EnterpriseID})
+		if err != nil {
+			return err
+		}
+		if unknown {
+			return loop.finishRun(ctx, run, "failed", "result_unknown", "TOOL_RESULT_UNKNOWN")
+		}
+		if err := assertTaskLease(ctx); err != nil {
+			return err
+		}
+		currentScope, scopeErr := presentation.Scope(ctx, loop.Store, run.EnterpriseID, run.ActorUserID)
+		if scopeErr != nil || currentScope != modelScope {
+			return loop.finishRun(ctx, run, "failed", "authorization_invalidated", "AUTHORIZATION_VERSION_STALE")
+		}
+		turnTools := toolSet.Models()
+		projection, err := loop.context(ctx, run, revision, messages, currentInput, turnTools, source)
 		if err != nil {
 			return loop.waitForCompaction(ctx, run, "CONTEXT_TOO_LARGE")
 		}
+		request := modelprovider.Request{Model: revision.ProviderModelID, Messages: projection.Messages, Tools: turnTools, MaxTokens: int(revision.MaxOutputTokens)}
+		wireBytes, err := provider.RequestBytes(request)
+		if err != nil {
+			return err
+		}
+		// For arbitrary OpenAI-compatible tokenizers the wire byte count is a
+		// conservative upper bound, shared with message preflight. Never rely
+		// on English characters-per-token estimates for Unicode or schemas.
+		projection.EstimatedTokens = wireBytes
 		if projection.NeedsHardCompaction() {
 			return loop.waitForCompaction(ctx, run, "")
 		}
@@ -115,7 +187,7 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 			return err
 		}
 		run = updatedRun
-		modelCall, err := loop.createModelCall(ctx, run, step, revision, projection)
+		modelCall, err := loop.createModelCall(ctx, run, step, revision, projection, source)
 		if err != nil {
 			_ = loop.failStep(ctx, run, step)
 			return err
@@ -123,11 +195,21 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 		reservedAmount := tokenAmount(int64(projection.EstimatedTokens), int64(revision.MaxOutputTokens), revision.InputPricePerMillion, revision.OutputPricePerMillion)
 		reservation, err := loop.Models.ReserveQuota(ctx, modelCall, user.DepartmentID, user.ID, reservedAmount)
 		if err != nil {
-			_ = loop.finishModelCall(ctx, modelCall, revision, 0, 0, 0, "quota_exceeded", "failed", "MODEL_QUOTA_EXCEEDED")
+			_ = loop.finishModelCall(ctx, modelCall, revision, modelprovider.TokenUsage{}, 0, "quota_exceeded", "failed", "MODEL_QUOTA_EXCEEDED", tokenAmount(0, 0, revision.InputPricePerMillion, revision.OutputPricePerMillion))
 			_ = loop.failStep(ctx, run, step)
 			return loop.finishRun(ctx, run, "failed", "quota_exceeded", "MODEL_QUOTA_EXCEEDED")
 		}
-		request := modelprovider.Request{Model: revision.ProviderModelID, Messages: messages, Tools: turnTools, MaxTokens: int(revision.MaxOutputTokens)}
+		actualHash, err := provider.RequestHash(request)
+		if err != nil {
+			return err
+		}
+		hashBytes, err := hex.DecodeString(actualHash)
+		if err != nil {
+			return err
+		}
+		if err := persistModelDispatch(ctx, loop.Store, db.MarkModelDispatchedParams{ID: modelCall.ID, EnterpriseID: run.EnterpriseID, ProjectionHash: hashBytes, ToolSnapshotHash: run.ToolSnapshotHash, CapabilitySnapshot: revision.Capabilities}); err != nil {
+			return err
+		}
 		started := time.Now()
 		var text strings.Builder
 		var delta strings.Builder
@@ -142,9 +224,11 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 			return loop.persistDelta(ctx, run, step, value)
 		}
 		calls := map[string]*pendingToolCall{}
-		var inputTokens, outputTokens int64
-		stopReason := "completed"
-		err = provider.Stream(ctx, request, func(event modelprovider.Event) error {
+		var usage modelprovider.TokenUsage
+		stopReason := ""
+		requestContext, stopRequest := loop.toolContext(ctx, run)
+		err = provider.Stream(requestContext, request, func(event modelprovider.Event) error {
+			usage.Observe(event)
 			if cancelled, checkErr := loop.cancelled(ctx, run); checkErr != nil || cancelled {
 				if checkErr != nil {
 					return checkErr
@@ -158,14 +242,14 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 				if delta.Len() >= 8<<10 || time.Since(lastDeltaFlush) >= 250*time.Millisecond {
 					return flushDelta()
 				}
-			case "tool_call_delta", "tool_call_done":
+			case "tool_call_done":
 				key := event.ToolCallID
 				if key == "" {
 					key = fmt.Sprintf("call_%d", len(calls)+1)
 				}
 				call := calls[key]
 				if call == nil {
-					call = &pendingToolCall{ID: key}
+					call = &pendingToolCall{ID: key, Index: event.Index}
 					calls[key] = call
 				}
 				if event.ToolName != "" {
@@ -177,330 +261,154 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 					call.Arguments += event.Arguments
 				}
 			case "usage":
-				inputTokens += event.Input
-				outputTokens += event.Output
 			case "completed":
 				if event.StopReason != "" {
 					stopReason = event.StopReason
 				}
-				if event.Input > 0 {
-					inputTokens = event.Input
-				}
-				if event.Output > 0 {
-					outputTokens = event.Output
-				}
 			}
 			return nil
 		})
-		if flushErr := flushDelta(); err == nil && flushErr != nil {
-			err = flushErr
+		stopRequest()
+		if err == nil {
+			if flushErr := flushDelta(); flushErr != nil {
+				err = flushErr
+			}
 		}
 		if err != nil {
-			_ = loop.finishModelCall(ctx, modelCall, revision, inputTokens, outputTokens, time.Since(started), stopReason, "failed", "MODEL_COMPATIBILITY_FAILED")
-			_ = loop.Models.SettleQuota(ctx, reservation, tokenAmount(inputTokens, outputTokens, revision.InputPricePerMillion, revision.OutputPricePerMillion))
-			_ = loop.failStep(ctx, run, step)
+			code := "MODEL_COMPATIBILITY_FAILED"
+			if errors.Is(err, modelprovider.ErrInvalidUsage) {
+				usage.Invalidate()
+				code = "MODEL_USAGE_INVALID"
+			}
+			if finishErr := loop.finishModelCall(ctx, modelCall, revision, usage, time.Since(started), stopReason, "failed", code, reservation.ReservedAmount); finishErr != nil {
+				return finishErr
+			}
+			if settleErr := loop.Models.SettleQuota(ctx, reservation, usageAmount(usage, revision, reservation.ReservedAmount)); settleErr != nil {
+				return settleErr
+			}
+			if stepErr := loop.failStep(ctx, run, step); stepErr != nil {
+				return stepErr
+			}
+			if code == "MODEL_USAGE_INVALID" {
+				return loop.finishRun(ctx, run, "failed", "model_usage_invalid", code)
+			}
 			if errors.Is(err, context.Canceled) {
-				return nil
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				return loop.finishRun(ctx, run, "cancelled", "request_cancelled", "")
 			}
 			return runtime.Error{ErrorCode: "MODEL_COMPATIBILITY_FAILED", Cause: err}
 		}
-		if inputTokens == 0 {
-			inputTokens = int64(projection.EstimatedTokens)
-		}
-		if outputTokens == 0 {
-			outputTokens = int64((text.Len() + 3) / 4)
-		}
-		if err := loop.finishModelCall(ctx, modelCall, revision, inputTokens, outputTokens, time.Since(started), stopReason, "succeeded", ""); err != nil {
+		usage.Estimate(int64(projection.EstimatedTokens), int64((text.Len()+3)/4))
+		if err := loop.finishModelCall(ctx, modelCall, revision, usage, time.Since(started), stopReason, "succeeded", "", reservation.ReservedAmount); err != nil {
 			_ = loop.failStep(ctx, run, step)
 			return err
 		}
-		if err := loop.Models.SettleQuota(ctx, reservation, tokenAmount(inputTokens, outputTokens, revision.InputPricePerMillion, revision.OutputPricePerMillion)); err != nil {
+		if err := loop.Models.SettleQuota(ctx, reservation, tokenAmount(usage.Input, usage.Output, revision.InputPricePerMillion, revision.OutputPricePerMillion)); err != nil {
 			_ = loop.failStep(ctx, run, step)
 			return err
 		}
 		if len(calls) == 0 {
-			if err := loop.persistAssistant(ctx, run, step, text.String(), inputTokens, outputTokens); err != nil {
+			if err := loop.persistAssistant(ctx, run, step, text.String(), modelScope, usage); err != nil {
 				return err
-			}
-			if pendingActionRef != "" {
-				return loop.waitForAction(ctx, run, pendingActionRef)
 			}
 			return loop.finishRun(ctx, run, "succeeded", stopReason, "")
 		}
 		if !allowsToolExecution(stopReason) {
-			if _, finishErr := loop.Store.Queries.FinishRunStep(ctx, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "failed"}); finishErr != nil {
+			if finishErr := persistStepStatus(ctx, loop.Store, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "failed"}); finishErr != nil {
 				return finishErr
 			}
 			return loop.finishRun(ctx, run, "failed", "model_output_incomplete", "TOOL_INPUT_INVALID")
 		}
 		ordered := orderedCalls(calls)
-		toolResults, err := loop.executeToolCalls(ctx, run, step, ordered)
+		toolResults, err := loop.executeToolCalls(ctx, run, step, modelCall, toolSet, principal, run.VerificationOnly, text.String(), modelScope, ordered)
 		if err != nil {
 			_ = loop.failStep(ctx, run, step)
 			return err
 		}
-		for index, call := range ordered {
-			resultMessage := toolResults[index].message
-			messages = append(messages, modelprovider.Message{Role: "assistant", Content: "Tool call: " + call.Name + " " + call.Arguments}, modelprovider.Message{Role: "user", Content: resultMessage})
+		assistant := modelprovider.Message{Role: "assistant", Content: text.String()}
+		for _, call := range ordered {
+			assistant.ToolCalls = append(assistant.ToolCalls, modelprovider.ToolCall{ID: call.ID, Name: call.Name, Arguments: call.Arguments})
 		}
-		if _, err := loop.Store.Queries.FinishRunStep(ctx, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "succeeded"}); err != nil {
+		messages = append(messages, assistant)
+		for index, call := range ordered {
+			messages = append(messages, modelprovider.Message{Role: "tool", ToolCallID: call.ID, Content: toolResults[index].message})
+			source.ThroughSequence = max(source.ThroughSequence, toolResults[index].through)
+			if toolResults[index].unknown {
+				return loop.finishRun(ctx, run, "failed", "result_unknown", "TOOL_RESULT_UNKNOWN")
+			}
+		}
+		if err := persistStepStatus(ctx, loop.Store, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "succeeded"}); err != nil {
 			return err
 		}
-		if actionRef := firstActionRef(toolResults); actionRef != "" {
-			pendingActionRef = actionRef
-			continue
+		if current, paused, err := loop.reconcileActions(ctx, run); err != nil || paused {
+			return err
+		} else {
+			run = current
 		}
-		if pendingActionRef != "" && slices.ContainsFunc(ordered, func(call *pendingToolCall) bool { return call.Name == "card.render" }) {
-			return loop.waitForAction(ctx, run, pendingActionRef)
-		}
+
 	}
 	return loop.finishRun(ctx, run, "failed", "output_limit", "RUN_STEP_LIMIT_REACHED")
 }
 
-func (loop Loop) HandleExhausted(ctx context.Context, task runtime.Task, cause error) error {
-	var payload conversation.AgentTask
-	if err := json.Unmarshal(task.Payload, &payload); err != nil || payload.RunID == uuid.Nil || payload.EnterpriseID == uuid.Nil {
-		return nil
-	}
-	run, err := loop.Store.Queries.GetRun(ctx, db.GetRunParams{ID: payload.RunID, EnterpriseID: payload.EnterpriseID})
-	if err != nil || terminalRun(run.Status) {
-		return err
-	}
-	errorCode := "TASK_FAILED"
-	type coded interface{ Code() string }
-	var value coded
-	if errors.As(cause, &value) && value.Code() != "" {
-		errorCode = value.Code()
-	}
-	if run.CurrentStepID.Valid {
-		_, _ = loop.Store.Queries.FinishRunStep(ctx, db.FinishRunStepParams{ID: run.CurrentStepID.UUID, EnterpriseID: run.EnterpriseID, Status: "failed"})
-	}
-	return loop.finishRun(ctx, run, "failed", "worker_attempts_exhausted", errorCode)
-}
-
-func (loop Loop) executeToolCalls(ctx context.Context, run db.Run, step db.RunStep, calls []*pendingToolCall) ([]toolExecutionResult, error) {
-	results := make([]toolExecutionResult, len(calls))
-	if !loop.parallelSafe(calls) {
-		for index, call := range calls {
-			value, err := loop.executeTool(ctx, run, step, *call)
-			if err != nil {
-				return nil, err
-			}
-			results[index] = value
-		}
-		return results, nil
-	}
-	group, groupCtx := errgroup.WithContext(ctx)
-	for index, call := range calls {
-		index, call := index, call
-		group.Go(func() error {
-			value, err := loop.executeTool(groupCtx, run, step, *call)
-			if err == nil {
-				results[index] = value
-			}
-			return err
-		})
-	}
-	if err := group.Wait(); err != nil {
-		return nil, err
-	}
-	return results, nil
-}
-
-func (loop Loop) parallelSafe(calls []*pendingToolCall) bool {
-	if len(calls) < 2 || loop.Tools == nil {
-		return false
-	}
-	for _, call := range calls {
-		metadata, ok := loop.Tools.Lookup(call.Name)
-		if !ok || metadata.Risk != "read" || metadata.ExecutionMode != mcp.ParallelSafe {
-			return false
-		}
-	}
-	return true
-}
-
-func (loop Loop) messages(ctx context.Context, run db.Run) ([]modelprovider.Message, string, error) {
-	events, err := loop.Store.Queries.ListRunConversationEvents(ctx, db.ListRunConversationEventsParams{RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, EnterpriseID: run.EnterpriseID})
+func (loop Loop) context(ctx context.Context, run db.Run, revision db.AiModelRevision, messages []modelprovider.Message, current string, tools []modelprovider.Tool, source ContextSource) (ContextProjection, error) {
+	checkpoint, _, err := conversation.ContextFacts(ctx, loop.Store.Queries, run.EnterpriseID, run.ActorUserID, run.ConversationID)
 	if err != nil {
-		return nil, "", err
-	}
-	messages := []modelprovider.Message{{Role: "system", Content: "You are Argus. Use only governed tools. Never invent action confirmation or commit capabilities."}}
-	current := ""
-	for _, event := range events {
-		var payload map[string]any
-		if json.Unmarshal(event.Payload, &payload) != nil {
-			continue
-		}
-		content, _ := payload["content"].(string)
-		switch event.EventType {
-		case "user_message":
-			messages = append(messages, modelprovider.Message{Role: "user", Content: content})
-			current = content
-		case "assistant_message":
-			messages = append(messages, modelprovider.Message{Role: "assistant", Content: content})
-		case "tool_call_result":
-			encoded, _ := json.Marshal(payload["projection"])
-			messages = append(messages, modelprovider.Message{Role: "user", Content: "Tool result: " + string(encoded)})
-		}
-	}
-	return messages, current, nil
-}
-
-func (loop Loop) executionVerification(ctx context.Context, run db.Run, task conversation.AgentTask) (string, error) {
-	if task.ActionRef == "" || task.ExecutionRef == "" {
-		return "", runtime.Error{ErrorCode: "TOOL_INPUT_INVALID", Cause: errors.New("verify task is incomplete"), Permanent: true}
-	}
-	action, err := loop.Store.Queries.GetPendingAction(ctx, db.GetPendingActionParams{ActionRef: task.ActionRef, EnterpriseID: run.EnterpriseID})
-	if err != nil || !action.RunID.Valid || action.RunID.UUID != run.ID {
-		return "", runtime.Error{ErrorCode: "ACTION_INVALIDATED", Cause: errors.New("verify action is not bound to run"), Permanent: true}
-	}
-	execution, err := loop.Store.Queries.GetExecutionByAction(ctx, db.GetExecutionByActionParams{ActionRef: task.ActionRef, EnterpriseID: run.EnterpriseID})
-	if err != nil || execution.ExecutionRef != task.ExecutionRef || !execution.RunID.Valid || execution.RunID.UUID != run.ID {
-		return "", runtime.Error{ErrorCode: "ACTION_INVALIDATED", Cause: errors.New("verify execution is not bound to run"), Permanent: true}
-	}
-	projection, _ := json.Marshal(map[string]any{"schema_version": "argus.execution_verification/v1", "action_ref": action.ActionRef,
-		"action_status": action.Status, "execution_ref": execution.ExecutionRef, "execution_status": execution.Status,
-		"resource_type": action.ResultResourceType, "resource_id": action.ResultResourceID, "resource_version": action.ResultResourceVersion,
-		"result_summary": action.ResultSummary, "error_code": action.ErrorCode})
-	return "Verify this deterministic execution result and report it to the user: " + string(projection), nil
-}
-
-func (loop Loop) context(ctx context.Context, run db.Run, revision db.AiModelRevision, messages []modelprovider.Message, current string, tools []modelprovider.Tool) (ContextProjection, error) {
-	var checkpoint any
-	_ = json.Unmarshal(run.Checkpoint, &checkpoint)
-	var snapshot any
-	active, err := loop.Store.Queries.GetActiveContextSnapshot(ctx, db.GetActiveContextSnapshotParams{RunID: run.ID, EnterpriseID: run.EnterpriseID})
-	if err == nil {
-		snapshot = map[string]any{"typed_checkpoint": json.RawMessage(active.TypedCheckpoint), "narrative_summary": active.NarrativeSummary, "source_hash": hex.EncodeToString(active.SourceHash)}
-	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return ContextProjection{}, err
+	}
+	var snapshot any
+	if source.Snapshot != nil {
+		active := source.Snapshot
+		snapshot = map[string]any{"id": active.ID, "typed_checkpoint": json.RawMessage(active.TypedCheckpoint), "narrative_summary": active.NarrativeSummary, "source_hash": hex.EncodeToString(active.SourceHash)}
 	}
 	return AssembleContext(ContextInput{ContextWindow: int(revision.ContextWindowTokens), MaxOutput: int(revision.MaxOutputTokens), System: messages[0], ToolCatalog: tools, Checkpoint: checkpoint, Snapshot: snapshot, RecentTail: messages[1:], CurrentInput: current})
 }
 
-func (loop Loop) startStep(ctx context.Context, run db.Run, projection ContextProjection) (db.RunStep, db.Run, error) {
-	sequence, err := loop.Store.Queries.NextRunStepSequence(ctx, db.NextRunStepSequenceParams{RunID: run.ID, EnterpriseID: run.EnterpriseID})
-	if err != nil {
-		return db.RunStep{}, db.Run{}, err
-	}
-	step, err := loop.Store.Queries.CreateRunStep(ctx, db.CreateRunStepParams{ID: newAgentID(), RunID: run.ID, EnterpriseID: run.EnterpriseID, Sequence: sequence, StepType: "model_call", Status: "running"})
-	if err != nil {
-		return db.RunStep{}, db.Run{}, err
-	}
-	updated, err := loop.Store.Queries.SetRunCurrentStep(ctx, db.SetRunCurrentStepParams{ID: run.ID, EnterpriseID: run.EnterpriseID, Status: "running", CurrentStepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Version: run.Version})
-	return step, updated, err
-}
-
-func (loop Loop) createModelCall(ctx context.Context, run db.Run, step db.RunStep, revision db.AiModelRevision, projection ContextProjection) (db.ModelCall, error) {
-	hash, _ := hex.DecodeString(projection.Hash)
-	return loop.Store.Queries.CreateModelCall(ctx, db.CreateModelCallParams{ID: newAgentID(), EnterpriseID: run.EnterpriseID, RunID: run.ID, StepID: step.ID, ModelID: run.ModelID, ModelRevision: run.ModelRevision, CallKind: "inference", ProjectionHash: hash, InputPriceSnapshot: revision.InputPricePerMillion, OutputPriceSnapshot: revision.OutputPricePerMillion})
-}
-
-func (loop Loop) finishModelCall(ctx context.Context, call db.ModelCall, revision db.AiModelRevision, input, output int64, latency time.Duration, reason, status, errorCode string) error {
-	amount := tokenAmount(input, output, revision.InputPricePerMillion, revision.OutputPricePerMillion)
-	_, err := loop.Store.Queries.FinishModelCall(ctx, db.FinishModelCallParams{ID: call.ID, EnterpriseID: call.EnterpriseID, InputTokens: input, OutputTokens: output, Amount: amount, LatencyMs: latency.Milliseconds(), StopReason: pgtype.Text{String: reason, Valid: reason != ""}, Status: status, ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}})
-	return err
-}
-
-func (loop Loop) failStep(ctx context.Context, run db.Run, step db.RunStep) error {
-	_, err := loop.Store.Queries.FinishRunStep(ctx, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "failed"})
-	return err
-}
-
-func (loop Loop) executeTool(ctx context.Context, run db.Run, step db.RunStep, call pendingToolCall) (toolExecutionResult, error) {
-	var input map[string]any
-	if call.Name == "" || json.Unmarshal([]byte(call.Arguments), &input) != nil {
-		return toolExecutionResult{}, runtime.Error{ErrorCode: "TOOL_INPUT_INVALID", Cause: errors.New("incomplete tool call"), Permanent: true}
-	}
-	encoded, _ := json.Marshal(input)
-	inputHash := sha256.Sum256(encoded)
-	record, err := loop.Store.Queries.CreateToolCall(ctx, db.CreateToolCallParams{ID: newAgentID(), CallID: call.ID, EnterpriseID: run.EnterpriseID, RunID: run.ID, StepID: step.ID, ToolID: call.Name, Input: encoded, InputHash: inputHash[:], Status: "running"})
-	if err != nil {
-		return toolExecutionResult{}, err
-	}
-	metadata, available := loop.Tools.Lookup(call.Name)
-	if !available || metadata.Visibility != mcp.Visible {
-		_, _ = loop.Store.Queries.FinishToolCall(ctx, db.FinishToolCallParams{ID: record.ID, Status: "failed", ErrorCode: pgtype.Text{String: "CLIENT_OPERATION_UNAVAILABLE", Valid: true}})
-		return toolExecutionResult{}, runtime.Error{ErrorCode: "CLIENT_OPERATION_UNAVAILABLE", Cause: mcp.ErrToolNotAvailable, Permanent: true}
-	}
-	result, err := loop.Tools.Call(ctx, mcp.Call{ToolID: call.Name, CallID: call.ID, Caller: "model", Enterprise: run.EnterpriseID.String(), Subject: run.ActorUserID.String(), SubjectType: "user", RunID: run.ID.String(), InvocationID: run.ID.String(), Input: input})
-	if err != nil {
-		code := "TOOL_EXECUTION_FAILED"
-		if errors.Is(err, mcp.ErrPermissionDenied) {
-			code = "AUTHORIZATION_DENIED"
-		} else if errors.Is(err, mcp.ErrInputInvalid) {
-			code = "TOOL_INPUT_INVALID"
-		}
-		_, _ = loop.Store.Queries.FinishToolCall(ctx, db.FinishToolCallParams{ID: record.ID, Status: "failed", ErrorCode: pgtype.Text{String: code, Valid: true}})
-		return toolExecutionResult{}, runtime.Error{ErrorCode: code, Cause: err, Permanent: true}
-	}
-	full, _ := json.Marshal(result.Structured)
-	maxBytes := min(maxToolResultBytes, metadata.MaxResultBytes)
-	if len(full) > maxBytes {
-		return toolExecutionResult{}, runtime.Error{ErrorCode: "TOOL_RESULT_TOO_LARGE", Cause: errors.New("tool result exceeds 4 MiB"), Permanent: true}
-	}
-	resultRef := result.ResultRef
-	if resultRef == "" {
-		resultRef, _ = opaqueRef("result_")
-	}
-	projection, projectionPartial, err := encodeToolResultProjection(resultRef, record.ID.String(), call, full, result)
-	if err != nil {
-		return toolExecutionResult{}, runtime.Error{ErrorCode: "TOOL_RESULT_TOO_LARGE", Cause: err, Permanent: true}
-	}
-	fullHash := sha256.Sum256(full)
-	projectionHash := sha256.Sum256(projection)
-	artifact, err := loop.Store.Queries.CreateArtifact(ctx, db.CreateArtifactParams{ID: newAgentID(), ResultRef: resultRef, EnterpriseID: run.EnterpriseID, ConversationID: uuid.NullUUID{UUID: run.ConversationID, Valid: true}, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, ContentType: "application/json", DataClassification: "internal", Content: full, ContentHash: fullHash[:], ByteSize: int32(len(full))})
-	if err != nil {
-		return toolExecutionResult{}, err
-	}
-	if _, err = loop.Store.Queries.CreateToolResult(ctx, db.CreateToolResultParams{ID: newAgentID(), ToolCallID: record.ID, EnterpriseID: run.EnterpriseID, ArtifactID: artifact.ID, Projection: projection, ProjectionHash: projectionHash[:], ProjectionBytes: int32(len(projection)), Partial: projectionPartial}); err != nil {
-		return toolExecutionResult{}, err
-	}
-	if _, err = loop.Store.Queries.FinishToolCall(ctx, db.FinishToolCallParams{ID: record.ID, Status: "succeeded"}); err != nil {
-		return toolExecutionResult{}, err
-	}
-	err = loop.Store.InTx(ctx, func(q *db.Queries) error {
-		_, eventErr := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "tool_call_result", ActorType: "service", Payload: map[string]any{"tool_call_id": call.ID, "tool_id": call.Name, "result_ref": resultRef, "projection": json.RawMessage(projection)}, ArtifactRef: resultRef, Classification: "internal"})
-		return eventErr
-	})
-	actionRef, _ := result.Structured["action_ref"].(string)
-	return toolExecutionResult{message: "Tool result " + resultRef + ": " + string(projection), actionRef: actionRef}, err
-}
-
-func firstActionRef(results []toolExecutionResult) string {
-	for _, result := range results {
-		if result.actionRef != "" {
-			return result.actionRef
-		}
-	}
-	return ""
-}
-
-func (loop Loop) waitForAction(ctx context.Context, run db.Run, actionRef string) error {
-	return loop.Store.InTx(ctx, func(q *db.Queries) error {
-		current, err := q.GetRun(ctx, db.GetRunParams{ID: run.ID, EnterpriseID: run.EnterpriseID})
+func (loop Loop) startStep(ctx context.Context, run db.Run, projection ContextProjection) (step db.RunStep, updated db.Run, err error) {
+	err = fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
+		sequence, err := q.NextRunStepSequence(ctx, db.NextRunStepSequenceParams{RunID: run.ID, EnterpriseID: run.EnterpriseID})
 		if err != nil {
 			return err
 		}
-		if _, err = q.UpdateRunStatus(ctx, db.UpdateRunStatusParams{ID: run.ID, EnterpriseID: run.EnterpriseID, Status: "waiting_input",
-			StopReason: pgtype.Text{String: "pending_action_confirmation", Valid: true}, Version: current.Version}); err != nil {
+		step, err = q.CreateRunStep(ctx, db.CreateRunStepParams{ID: newAgentID(), RunID: run.ID, EnterpriseID: run.EnterpriseID, Sequence: sequence, StepType: "model_call", Status: "running"})
+		if err != nil {
 			return err
 		}
-		_, err = conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID,
-			RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, Type: "pending_action_created", ActorType: "service",
-			Payload: map[string]any{"action_ref": actionRef, "card": map[string]any{"card_instance_id": "pending_action_" + actionRef,
-				"interactive_card_id": "argus.pending_action", "version": "v1", "title": "Pending action", "pending_action_ref": actionRef}}, Classification: "internal"})
+		updated, err = q.SetRunCurrentStep(ctx, db.SetRunCurrentStepParams{ID: run.ID, EnterpriseID: run.EnterpriseID, Status: "running", CurrentStepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Version: run.Version})
+		return err
+	})
+	return
+}
+
+func (loop Loop) createModelCall(ctx context.Context, run db.Run, step db.RunStep, revision db.AiModelRevision, projection ContextProjection, source ContextSource) (call db.ModelCall, err error) {
+	hash, _ := hex.DecodeString(projection.Hash)
+	err = fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
+		var createErr error
+		call, createErr = q.CreateModelCall(ctx, db.CreateModelCallParams{ID: newAgentID(), EnterpriseID: run.EnterpriseID, RunID: run.ID, StepID: step.ID, ModelID: run.ModelID, ModelRevision: run.ModelRevision, CallKind: "inference", ContextSnapshotID: source.snapshotID(), ContextSnapshotHash: source.snapshotHash(), ContextFromSequence: source.FromSequence, ContextThroughSequence: source.ThroughSequence, ProjectionHash: hash, InputPriceSnapshot: revision.InputPricePerMillion, OutputPriceSnapshot: revision.OutputPricePerMillion})
+		return createErr
+	})
+	return
+}
+func (loop Loop) finishModelCall(ctx context.Context, call db.ModelCall, revision db.AiModelRevision, usage modelprovider.TokenUsage, latency time.Duration, reason, status, errorCode string, reserved pgtype.Numeric) error {
+	amount := usageAmount(usage, revision, reserved)
+	return fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
+		_, err := q.FinishModelCall(ctx, db.FinishModelCallParams{ID: call.ID, EnterpriseID: call.EnterpriseID, InputTokens: usage.Input, OutputTokens: usage.Output, CachedInputTokens: usage.CachedInput, CachedInputUsageSource: usage.CachedSource(), InputUsageSource: usage.InputSource(), OutputUsageSource: usage.OutputSource(), Amount: amount, LatencyMs: latency.Milliseconds(), StopReason: pgtype.Text{String: reason, Valid: reason != ""}, Status: status, ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}})
 		return err
 	})
 }
 
-func (loop Loop) persistAssistant(ctx context.Context, run db.Run, step db.RunStep, text string, input, output int64) error {
-	return loop.Store.InTx(ctx, func(q *db.Queries) error {
-		if _, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "assistant_message", ActorType: "model", ActorID: run.ModelID.String(), Payload: map[string]any{"content": text}, Classification: "internal"}); err != nil {
+func (loop Loop) failStep(ctx context.Context, run db.Run, step db.RunStep) error {
+	err := persistStepStatus(ctx, loop.Store, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "failed"})
+	return err
+}
+
+func (loop Loop) persistAssistant(ctx context.Context, run db.Run, step db.RunStep, text, scope string, usage modelprovider.TokenUsage) error {
+	return fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
+		if _, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "assistant_message", ActorType: "model", ActorID: run.ModelID.String(), Payload: map[string]any{"content": text, "authorization_scope": scope}, Classification: "internal"}); err != nil {
 			return err
 		}
-		_, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "model_usage", ActorType: "system", Payload: map[string]any{"input_tokens": input, "output_tokens": output}, Classification: "internal"})
+		_, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "model_usage", ActorType: "system", Payload: map[string]any{"input_tokens": usage.Input, "output_tokens": usage.Output, "input_usage_source": usage.InputSource(), "output_usage_source": usage.OutputSource(), "usage_complete": usage.Complete(), "cached_input_tokens": usage.CachedInput, "cached_input_usage_source": usage.CachedSource(), "cached_usage_complete": usage.CacheComplete()}, Classification: "internal"})
 		if err != nil {
 			return err
 		}
@@ -509,28 +417,18 @@ func (loop Loop) persistAssistant(ctx context.Context, run db.Run, step db.RunSt
 	})
 }
 func (loop Loop) persistDelta(ctx context.Context, run db.Run, step db.RunStep, text string) error {
-	return loop.Store.InTx(ctx, func(q *db.Queries) error {
+	return fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
 		_, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "run_state_changed", ActorType: "model", Payload: map[string]any{"agent_event_type": "message_delta", "delta": text}, Classification: "internal"})
 		return err
 	})
 }
 func (loop Loop) finishRun(ctx context.Context, run db.Run, status, reason, errorCode string) error {
-	return loop.Store.InTx(ctx, func(q *db.Queries) error {
-		current, err := q.GetRun(ctx, db.GetRunParams{ID: run.ID, EnterpriseID: run.EnterpriseID})
+	return fencedRunTransition(ctx, loop.Store, func(q *db.Queries) error {
+		current, err := q.GetRunForUpdate(ctx, db.GetRunForUpdateParams{ID: run.ID, EnterpriseID: run.EnterpriseID})
 		if err != nil {
 			return err
 		}
-		if terminalRun(current.Status) {
-			return nil
-		}
-		if _, err = q.UpdateRunStatus(ctx, db.UpdateRunStatusParams{ID: run.ID, EnterpriseID: run.EnterpriseID, Status: status, StopReason: pgtype.Text{String: reason, Valid: reason != ""}, ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}, Version: current.Version}); err != nil {
-			return err
-		}
-		payload := map[string]any{"status": status, "stop_reason": reason}
-		if errorCode != "" {
-			payload["error_code"] = errorCode
-		}
-		_, err = conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, Type: "run_state_changed", ActorType: "system", Payload: payload, Classification: "internal"})
+		_, err = conversation.FinishRunRecord(ctx, q, current, status, reason, errorCode, "system", "")
 		return err
 	})
 }
@@ -538,166 +436,48 @@ func (loop Loop) cancelled(ctx context.Context, run db.Run) (bool, error) {
 	value, err := loop.Store.Queries.GetRun(ctx, db.GetRunParams{ID: run.ID, EnterpriseID: run.EnterpriseID})
 	return err == nil && value.Status == "cancelled", err
 }
+func compactionTask(run db.Run, reason string) db.CreateRuntimeTaskParams {
+	payload, _ := json.Marshal(conversation.AgentTask{RunID: run.ID, EnterpriseID: run.EnterpriseID, Reason: reason})
+	return db.CreateRuntimeTaskParams{ID: newAgentID(), EnterpriseID: uuid.NullUUID{UUID: run.EnterpriseID, Valid: true}, Queue: "compaction", RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, Payload: payload, MaxAttempts: 3, AvailableAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}}
+}
 func (loop Loop) waitForCompaction(ctx context.Context, run db.Run, errorCode string) error {
-	if err := loop.enqueueCompaction(ctx, run, "hard_limit"); err != nil {
+	return fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
+		current, err := q.GetRun(ctx, db.GetRunParams{ID: run.ID, EnterpriseID: run.EnterpriseID})
+		if err != nil {
+			return err
+		}
+		if terminalRun(current.Status) {
+			return nil
+		}
+		if _, err := q.UpdateRunStatus(ctx, db.UpdateRunStatusParams{ID: run.ID, EnterpriseID: run.EnterpriseID, Status: "waiting_system", StopReason: pgtype.Text{String: "context_compaction", Valid: true}, ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}, Version: current.Version}); err != nil {
+			return err
+		}
+		_, err = q.CreateRuntimeTask(ctx, compactionTask(run, "hard_limit"))
 		return err
-	}
-	current, err := loop.Store.Queries.GetRun(ctx, db.GetRunParams{ID: run.ID, EnterpriseID: run.EnterpriseID})
-	if err != nil {
-		return err
-	}
-	_, err = loop.Store.Queries.UpdateRunStatus(ctx, db.UpdateRunStatusParams{ID: run.ID, EnterpriseID: run.EnterpriseID, Status: "waiting_system", StopReason: pgtype.Text{String: "context_compaction", Valid: true}, ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}, Version: current.Version})
-	return err
+	})
 }
 func (loop Loop) enqueueCompaction(ctx context.Context, run db.Run, reason string) error {
-	payload, _ := json.Marshal(conversation.AgentTask{RunID: run.ID, EnterpriseID: run.EnterpriseID, Reason: reason})
-	_, err := loop.Store.Queries.CreateRuntimeTask(ctx, db.CreateRuntimeTaskParams{ID: newAgentID(), EnterpriseID: uuid.NullUUID{UUID: run.EnterpriseID, Valid: true}, Queue: "compaction", RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, Payload: payload, MaxAttempts: 3, AvailableAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}})
-	return err
-}
-func (loop Loop) modelTools() []modelprovider.Tool {
-	if loop.Tools == nil {
-		return nil
-	}
-	catalog := loop.Tools.ModelCatalog()
-	result := make([]modelprovider.Tool, 0, len(catalog))
-	for _, item := range catalog {
-		result = append(result, modelprovider.Tool{Name: item.ID, Description: "Governed Argus tool", Schema: item.InputSchema})
-	}
-	return result
-}
-
-func selectTurnTools(catalog []modelprovider.Tool, messages []modelprovider.Message, current string) []modelprovider.Tool {
-	var context strings.Builder
-	context.WriteString(strings.ToLower(current))
-	for _, message := range messages {
-		encoded, _ := json.Marshal(message.Content)
-		context.WriteByte('\n')
-		context.WriteString(strings.ToLower(string(encoded)))
-	}
-	text := context.String()
-	hasOperationIntent := containsAny(text, "list", "show", "inventory", "status", "overview", "get", "detail", "inspect", "describe", "create", "add", "new", "update", "change", "edit", "label", "delete", "remove", "cancel", "log")
-	type scoredTool struct {
-		tool  modelprovider.Tool
-		score int
-	}
-	scored := make([]scoredTool, 0, len(catalog))
-	for _, tool := range catalog {
-		name := strings.ToLower(tool.Name)
-		score := 0
-		if strings.Contains(text, name) {
-			score = 100
-		}
-		parts := strings.Split(name, ".")
-		domain := parts[0]
-		domainMatched := false
-		if domain == "kubernetes" {
-			if containsAny(text, "kubernetes", "k8s", "cluster", "namespace", "pod", "deployment", "statefulset", "daemonset") {
-				domainMatched = true
-			}
-		} else if len(domain) > 2 && strings.Contains(text, domain) {
-			domainMatched = true
-		}
-		operationMatched := false
-		switch {
-		case name == "card.render":
-			if containsAny(text, "tool result", "present", "presentation", "card", "table", "detail", "overview") {
-				score += 80
-			}
-		case strings.HasSuffix(name, ".list"):
-			if containsAny(text, "list", "show", "inventory", "status", "overview") {
-				operationMatched = true
-			}
-		case strings.HasSuffix(name, ".get"):
-			if containsAny(text, "get", "detail", "inspect", "describe") {
-				operationMatched = true
-			}
-		case strings.HasSuffix(name, ".create.preview"):
-			if containsAny(text, "create", "add", "new") {
-				operationMatched = true
-			}
-		case strings.HasSuffix(name, ".update.preview"):
-			if containsAny(text, "update", "change", "edit", "label") {
-				operationMatched = true
-			}
-		case strings.HasSuffix(name, ".delete.preview"):
-			if containsAny(text, "delete", "remove") {
-				operationMatched = true
-			}
-		case strings.HasSuffix(name, ".cancel"):
-			if strings.Contains(text, "cancel") {
-				operationMatched = true
-			}
-		case strings.HasSuffix(name, ".logs"):
-			if strings.Contains(text, "log") {
-				operationMatched = true
-			}
-		}
-		if domainMatched && operationMatched {
-			score += 40
-		} else if domainMatched && !hasOperationIntent {
-			score += 20
-		}
-		if score > 0 {
-			scored = append(scored, scoredTool{tool: tool, score: score})
-		}
-	}
-	if len(scored) == 0 {
-		defaults := map[string]bool{
-			"host.list": true, "host.get": true,
-			"kubernetes.cluster.list": true, "kubernetes.cluster.get": true,
-			"connector.list": true, "connector.get": true,
-			"pending_action.list": true, "card.render": true,
-		}
-		for _, tool := range catalog {
-			if defaults[tool.Name] {
-				scored = append(scored, scoredTool{tool: tool, score: 1})
-			}
-		}
-	}
-	sort.Slice(scored, func(i, j int) bool {
-		if scored[i].score != scored[j].score {
-			return scored[i].score > scored[j].score
-		}
-		return scored[i].tool.Name < scored[j].tool.Name
-	})
-	limit := min(8, len(scored))
-	result := make([]modelprovider.Tool, 0, limit)
-	for _, item := range scored[:limit] {
-		result = append(result, item.tool)
-	}
-	return result
-}
-
-func containsAny(value string, candidates ...string) bool {
-	for _, candidate := range candidates {
-		if strings.Contains(value, candidate) {
-			return true
-		}
-	}
-	return false
+	return fencedTransaction(ctx, loop.Store, func(q *db.Queries) error { _, err := q.CreateRuntimeTask(ctx, compactionTask(run, reason)); return err })
 }
 func orderedCalls(values map[string]*pendingToolCall) []*pendingToolCall {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
+	result := make([]*pendingToolCall, 0, len(values))
+	for _, value := range values {
+		result = append(result, value)
 	}
-	sort.Strings(keys)
-	result := make([]*pendingToolCall, 0, len(keys))
-	for _, key := range keys {
-		result = append(result, values[key])
-	}
+	sort.SliceStable(result, func(i, j int) bool { return result[i].Index < result[j].Index })
 	return result
 }
+
 func terminalRun(status string) bool {
-	return status == "succeeded" || status == "failed" || status == "cancelled" || status == "timed_out"
+	return conversation.TerminalRun(status)
 }
 
 func allowsToolExecution(stopReason string) bool {
 	switch strings.ToLower(strings.TrimSpace(stopReason)) {
-	case "length", "max_tokens", "incomplete", "content_filter", "failed", "cancelled":
-		return false
-	default:
+	case "stop", "tool_calls", "completed":
 		return true
+	default:
+		return false
 	}
 }
 func opaqueRef(prefix string) (string, error) {

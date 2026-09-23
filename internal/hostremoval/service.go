@@ -1,7 +1,6 @@
 package hostremoval
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -379,7 +378,7 @@ func (service Service) CommitAction(ctx context.Context, q *db.Queries, action d
 	}
 	operationID := uuid.New()
 	plan.OperationID = uuid.NullUUID{UUID: operationID, Valid: true}
-	encoded, err := json.Marshal(plan)
+	encoded, err := canonicalPlan(plan)
 	if err != nil {
 		return resource.ActionCommitResult{}, err
 	}
@@ -493,13 +492,6 @@ func removalConnectorMatches(operation db.HostRemovalOperation, connector db.Con
 
 func removalTargetStatus(status string) bool {
 	return status == "draining" || status == "uninstalling" || status == "removal_failed" || status == "cleanup_unknown"
-}
-
-func plansEqual(left, right Plan) bool {
-	left.CreatedAt, right.CreatedAt = time.Time{}, time.Time{}
-	a, _ := json.Marshal(left)
-	b, _ := json.Marshal(right)
-	return bytes.Equal(a, b)
 }
 
 func stagesFor(plan Plan) []string {

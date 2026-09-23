@@ -16,8 +16,12 @@ const claimRuntimeTask = `-- name: ClaimRuntimeTask :one
 WITH candidate AS (
     SELECT runtime_tasks.id FROM runtime_tasks
     WHERE runtime_tasks.queue = $1
-      AND runtime_tasks.attempt < runtime_tasks.max_attempts
+      AND (runtime_tasks.attempt < runtime_tasks.max_attempts OR runtime_tasks.status IN ('leased','running'))
       AND runtime_tasks.available_at <= now()
+      AND (runtime_tasks.queue NOT IN ('agent','compaction') OR runtime_tasks.run_id IS NULL OR NOT EXISTS (
+          SELECT 1 FROM runtime_tasks active WHERE active.queue=runtime_tasks.queue AND active.run_id=runtime_tasks.run_id
+          AND active.id<>runtime_tasks.id AND active.status IN ('leased','running')
+      ))
       AND (runtime_tasks.status = 'pending' OR (runtime_tasks.status IN ('leased','running') AND runtime_tasks.lease_until < now()))
     ORDER BY runtime_tasks.available_at, runtime_tasks.created_at
     FOR UPDATE SKIP LOCKED LIMIT 1
@@ -60,9 +64,9 @@ func (q *Queries) ClaimRuntimeTask(ctx context.Context, arg ClaimRuntimeTaskPara
 }
 
 const createArtifact = `-- name: CreateArtifact :one
-INSERT INTO artifacts (id, result_ref, enterprise_id, conversation_id, run_id, content_type, data_classification, content, content_hash, byte_size)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, result_ref, enterprise_id, conversation_id, run_id, content_type, data_classification, content, content_hash, byte_size, created_at
+INSERT INTO artifacts (id, result_ref, enterprise_id, conversation_id, run_id, content_type, data_classification, content, content_hash, byte_size,object_key,authorization_scope)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,$11,$12)
+RETURNING id, result_ref, enterprise_id, conversation_id, run_id, content_type, data_classification, content, object_key, authorization_scope, content_hash, byte_size, created_at
 `
 
 type CreateArtifactParams struct {
@@ -76,6 +80,8 @@ type CreateArtifactParams struct {
 	Content            []byte        `json:"content"`
 	ContentHash        []byte        `json:"content_hash"`
 	ByteSize           int32         `json:"byte_size"`
+	ObjectKey          pgtype.Text   `json:"object_key"`
+	AuthorizationScope string        `json:"authorization_scope"`
 }
 
 func (q *Queries) CreateArtifact(ctx context.Context, arg CreateArtifactParams) (Artifact, error) {
@@ -90,6 +96,8 @@ func (q *Queries) CreateArtifact(ctx context.Context, arg CreateArtifactParams) 
 		arg.Content,
 		arg.ContentHash,
 		arg.ByteSize,
+		arg.ObjectKey,
+		arg.AuthorizationScope,
 	)
 	var i Artifact
 	err := row.Scan(
@@ -101,6 +109,8 @@ func (q *Queries) CreateArtifact(ctx context.Context, arg CreateArtifactParams) 
 		&i.ContentType,
 		&i.DataClassification,
 		&i.Content,
+		&i.ObjectKey,
+		&i.AuthorizationScope,
 		&i.ContentHash,
 		&i.ByteSize,
 		&i.CreatedAt,
@@ -189,7 +199,7 @@ func (q *Queries) CreateContextSnapshot(ctx context.Context, arg CreateContextSn
 const createConversation = `-- name: CreateConversation :one
 INSERT INTO conversations (id, enterprise_id, owner_user_id, title, selected_model_id)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, enterprise_id, owner_user_id, title, selected_model_id, status, version, created_at, updated_at
+RETURNING files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at
 `
 
 type CreateConversationParams struct {
@@ -210,11 +220,14 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 	)
 	var i Conversation
 	err := row.Scan(
+		&i.FilesCleanedAt,
 		&i.ID,
 		&i.EnterpriseID,
 		&i.OwnerUserID,
 		&i.Title,
 		&i.SelectedModelID,
+		&i.ContextRevision,
+		&i.EventSequence,
 		&i.Status,
 		&i.Version,
 		&i.CreatedAt,
@@ -284,7 +297,7 @@ func (q *Queries) CreateConversationEvent(ctx context.Context, arg CreateConvers
 const createRun = `-- name: CreateRun :one
 INSERT INTO runs (id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, authorization_version, checkpoint)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, stop_reason, error_code, version, created_at, updated_at
+RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at
 `
 
 type CreateRunParams struct {
@@ -324,6 +337,9 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		&i.CurrentStepID,
 		&i.AuthorizationVersion,
 		&i.Checkpoint,
+		&i.VerificationOnly,
+		&i.ToolSnapshot,
+		&i.ToolSnapshotHash,
 		&i.StopReason,
 		&i.ErrorCode,
 		&i.Version,
@@ -426,7 +442,7 @@ func (q *Queries) CreateRuntimeTask(ctx context.Context, arg CreateRuntimeTaskPa
 const createToolCall = `-- name: CreateToolCall :one
 INSERT INTO tool_calls (id, call_id, enterprise_id, run_id, step_id, tool_id, input, input_hash, status)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, call_id, enterprise_id, run_id, step_id, tool_id, input, input_hash, status, error_code, created_at, updated_at
+RETURNING id, call_id, enterprise_id, run_id, step_id, tool_id, source, authorization_scope, model_call_id, call_sequence, connection_id, schema_hash, dispatched_at, input, input_hash, status, error_code, created_at, updated_at
 `
 
 type CreateToolCallParams struct {
@@ -461,6 +477,13 @@ func (q *Queries) CreateToolCall(ctx context.Context, arg CreateToolCallParams) 
 		&i.RunID,
 		&i.StepID,
 		&i.ToolID,
+		&i.Source,
+		&i.AuthorizationScope,
+		&i.ModelCallID,
+		&i.CallSequence,
+		&i.ConnectionID,
+		&i.SchemaHash,
+		&i.DispatchedAt,
 		&i.Input,
 		&i.InputHash,
 		&i.Status,
@@ -589,7 +612,7 @@ func (q *Queries) FinishRuntimeTask(ctx context.Context, arg FinishRuntimeTaskPa
 }
 
 const finishToolCall = `-- name: FinishToolCall :one
-UPDATE tool_calls SET status = $2, error_code = $3, updated_at = now() WHERE id = $1 RETURNING id, call_id, enterprise_id, run_id, step_id, tool_id, input, input_hash, status, error_code, created_at, updated_at
+UPDATE tool_calls SET status = $2, error_code = $3, updated_at = now() WHERE id = $1 RETURNING id, call_id, enterprise_id, run_id, step_id, tool_id, source, authorization_scope, model_call_id, call_sequence, connection_id, schema_hash, dispatched_at, input, input_hash, status, error_code, created_at, updated_at
 `
 
 type FinishToolCallParams struct {
@@ -608,6 +631,13 @@ func (q *Queries) FinishToolCall(ctx context.Context, arg FinishToolCallParams) 
 		&i.RunID,
 		&i.StepID,
 		&i.ToolID,
+		&i.Source,
+		&i.AuthorizationScope,
+		&i.ModelCallID,
+		&i.CallSequence,
+		&i.ConnectionID,
+		&i.SchemaHash,
+		&i.DispatchedAt,
 		&i.Input,
 		&i.InputHash,
 		&i.Status,
@@ -619,16 +649,16 @@ func (q *Queries) FinishToolCall(ctx context.Context, arg FinishToolCallParams) 
 }
 
 const getActiveContextSnapshot = `-- name: GetActiveContextSnapshot :one
-SELECT id, enterprise_id, conversation_id, run_id, revision, source_from_sequence, source_through_sequence, first_kept_sequence, typed_checkpoint, narrative_summary, compaction_model_id, compaction_model_revision, prompt_version, estimated_tokens_before, actual_tokens_after, source_hash, snapshot_hash, status, error_code, created_at FROM context_snapshots WHERE run_id = $1 AND enterprise_id = $2 AND status = 'active'
+SELECT id, enterprise_id, conversation_id, run_id, revision, source_from_sequence, source_through_sequence, first_kept_sequence, typed_checkpoint, narrative_summary, compaction_model_id, compaction_model_revision, prompt_version, estimated_tokens_before, actual_tokens_after, source_hash, snapshot_hash, status, error_code, created_at FROM context_snapshots WHERE conversation_id = $1 AND enterprise_id = $2 AND status = 'active'
 `
 
 type GetActiveContextSnapshotParams struct {
-	RunID        uuid.UUID `json:"run_id"`
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	ConversationID uuid.UUID `json:"conversation_id"`
+	EnterpriseID   uuid.UUID `json:"enterprise_id"`
 }
 
 func (q *Queries) GetActiveContextSnapshot(ctx context.Context, arg GetActiveContextSnapshotParams) (ContextSnapshot, error) {
-	row := q.db.QueryRow(ctx, getActiveContextSnapshot, arg.RunID, arg.EnterpriseID)
+	row := q.db.QueryRow(ctx, getActiveContextSnapshot, arg.ConversationID, arg.EnterpriseID)
 	var i ContextSnapshot
 	err := row.Scan(
 		&i.ID,
@@ -656,7 +686,7 @@ func (q *Queries) GetActiveContextSnapshot(ctx context.Context, arg GetActiveCon
 }
 
 const getActiveRunForConversation = `-- name: GetActiveRunForConversation :one
-SELECT id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, stop_reason, error_code, version, created_at, updated_at FROM runs
+SELECT id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at FROM runs
 WHERE conversation_id = $1 AND enterprise_id = $2
   AND status IN ('pending','running','waiting_input','waiting_approval','waiting_system')
 ORDER BY created_at DESC LIMIT 1
@@ -682,6 +712,9 @@ func (q *Queries) GetActiveRunForConversation(ctx context.Context, arg GetActive
 		&i.CurrentStepID,
 		&i.AuthorizationVersion,
 		&i.Checkpoint,
+		&i.VerificationOnly,
+		&i.ToolSnapshot,
+		&i.ToolSnapshotHash,
 		&i.StopReason,
 		&i.ErrorCode,
 		&i.Version,
@@ -692,7 +725,7 @@ func (q *Queries) GetActiveRunForConversation(ctx context.Context, arg GetActive
 }
 
 const getArtifactByRef = `-- name: GetArtifactByRef :one
-SELECT id, result_ref, enterprise_id, conversation_id, run_id, content_type, data_classification, content, content_hash, byte_size, created_at FROM artifacts WHERE result_ref = $1 AND enterprise_id = $2
+SELECT id, result_ref, enterprise_id, conversation_id, run_id, content_type, data_classification, content, object_key, authorization_scope, content_hash, byte_size, created_at FROM artifacts WHERE result_ref = $1 AND enterprise_id = $2
 `
 
 type GetArtifactByRefParams struct {
@@ -712,6 +745,8 @@ func (q *Queries) GetArtifactByRef(ctx context.Context, arg GetArtifactByRefPara
 		&i.ContentType,
 		&i.DataClassification,
 		&i.Content,
+		&i.ObjectKey,
+		&i.AuthorizationScope,
 		&i.ContentHash,
 		&i.ByteSize,
 		&i.CreatedAt,
@@ -721,17 +756,17 @@ func (q *Queries) GetArtifactByRef(ctx context.Context, arg GetArtifactByRefPara
 
 const getContextSnapshotBySourceHash = `-- name: GetContextSnapshotBySourceHash :one
 SELECT id, enterprise_id, conversation_id, run_id, revision, source_from_sequence, source_through_sequence, first_kept_sequence, typed_checkpoint, narrative_summary, compaction_model_id, compaction_model_revision, prompt_version, estimated_tokens_before, actual_tokens_after, source_hash, snapshot_hash, status, error_code, created_at FROM context_snapshots
-WHERE run_id = $1 AND enterprise_id = $2 AND source_hash = $3
+WHERE conversation_id = $1 AND enterprise_id = $2 AND source_hash = $3
 `
 
 type GetContextSnapshotBySourceHashParams struct {
-	RunID        uuid.UUID `json:"run_id"`
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
-	SourceHash   []byte    `json:"source_hash"`
+	ConversationID uuid.UUID `json:"conversation_id"`
+	EnterpriseID   uuid.UUID `json:"enterprise_id"`
+	SourceHash     []byte    `json:"source_hash"`
 }
 
 func (q *Queries) GetContextSnapshotBySourceHash(ctx context.Context, arg GetContextSnapshotBySourceHashParams) (ContextSnapshot, error) {
-	row := q.db.QueryRow(ctx, getContextSnapshotBySourceHash, arg.RunID, arg.EnterpriseID, arg.SourceHash)
+	row := q.db.QueryRow(ctx, getContextSnapshotBySourceHash, arg.ConversationID, arg.EnterpriseID, arg.SourceHash)
 	var i ContextSnapshot
 	err := row.Scan(
 		&i.ID,
@@ -759,7 +794,7 @@ func (q *Queries) GetContextSnapshotBySourceHash(ctx context.Context, arg GetCon
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, enterprise_id, owner_user_id, title, selected_model_id, status, version, created_at, updated_at FROM conversations WHERE id = $1 AND enterprise_id = $2 AND owner_user_id = $3
+SELECT files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at FROM conversations WHERE id = $1 AND enterprise_id = $2 AND owner_user_id = $3 AND status<>'deleted'
 `
 
 type GetConversationParams struct {
@@ -772,11 +807,14 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 	row := q.db.QueryRow(ctx, getConversation, arg.ID, arg.EnterpriseID, arg.OwnerUserID)
 	var i Conversation
 	err := row.Scan(
+		&i.FilesCleanedAt,
 		&i.ID,
 		&i.EnterpriseID,
 		&i.OwnerUserID,
 		&i.Title,
 		&i.SelectedModelID,
+		&i.ContextRevision,
+		&i.EventSequence,
 		&i.Status,
 		&i.Version,
 		&i.CreatedAt,
@@ -786,7 +824,7 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 }
 
 const getRun = `-- name: GetRun :one
-SELECT id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, stop_reason, error_code, version, created_at, updated_at FROM runs WHERE id = $1 AND enterprise_id = $2
+SELECT id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at FROM runs WHERE id = $1 AND enterprise_id = $2
 `
 
 type GetRunParams struct {
@@ -809,6 +847,9 @@ func (q *Queries) GetRun(ctx context.Context, arg GetRunParams) (Run, error) {
 		&i.CurrentStepID,
 		&i.AuthorizationVersion,
 		&i.Checkpoint,
+		&i.VerificationOnly,
+		&i.ToolSnapshot,
+		&i.ToolSnapshotHash,
 		&i.StopReason,
 		&i.ErrorCode,
 		&i.Version,
@@ -916,8 +957,8 @@ func (q *Queries) ListConversationEvents(ctx context.Context, arg ListConversati
 }
 
 const listConversations = `-- name: ListConversations :many
-SELECT id, enterprise_id, owner_user_id, title, selected_model_id, status, version, created_at, updated_at FROM conversations
-WHERE enterprise_id = $1 AND owner_user_id = $2
+SELECT files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at FROM conversations
+WHERE enterprise_id = $1 AND owner_user_id = $2 AND status<>'deleted'
 ORDER BY updated_at DESC, id DESC LIMIT $3
 `
 
@@ -937,11 +978,14 @@ func (q *Queries) ListConversations(ctx context.Context, arg ListConversationsPa
 	for rows.Next() {
 		var i Conversation
 		if err := rows.Scan(
+			&i.FilesCleanedAt,
 			&i.ID,
 			&i.EnterpriseID,
 			&i.OwnerUserID,
 			&i.Title,
 			&i.SelectedModelID,
+			&i.ContextRevision,
+			&i.EventSequence,
 			&i.Status,
 			&i.Version,
 			&i.CreatedAt,
@@ -1002,7 +1046,7 @@ func (q *Queries) ListRunConversationEvents(ctx context.Context, arg ListRunConv
 }
 
 const lockConversation = `-- name: LockConversation :one
-SELECT id, enterprise_id, owner_user_id, title, selected_model_id, status, version, created_at, updated_at FROM conversations WHERE id = $1 AND enterprise_id = $2 AND owner_user_id = $3 FOR UPDATE
+SELECT files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at FROM conversations WHERE id = $1 AND enterprise_id = $2 AND owner_user_id = $3 FOR UPDATE
 `
 
 type LockConversationParams struct {
@@ -1015,11 +1059,14 @@ func (q *Queries) LockConversation(ctx context.Context, arg LockConversationPara
 	row := q.db.QueryRow(ctx, lockConversation, arg.ID, arg.EnterpriseID, arg.OwnerUserID)
 	var i Conversation
 	err := row.Scan(
+		&i.FilesCleanedAt,
 		&i.ID,
 		&i.EnterpriseID,
 		&i.OwnerUserID,
 		&i.Title,
 		&i.SelectedModelID,
+		&i.ContextRevision,
+		&i.EventSequence,
 		&i.Status,
 		&i.Version,
 		&i.CreatedAt,
@@ -1029,31 +1076,30 @@ func (q *Queries) LockConversation(ctx context.Context, arg LockConversationPara
 }
 
 const nextContextSnapshotRevision = `-- name: NextContextSnapshotRevision :one
-SELECT COALESCE(MAX(revision), 0)::integer + 1 FROM context_snapshots WHERE run_id = $1 AND enterprise_id = $2
+SELECT COALESCE(MAX(revision), 0)::integer + 1 FROM context_snapshots WHERE conversation_id = $1 AND enterprise_id = $2
 `
 
 type NextContextSnapshotRevisionParams struct {
-	RunID        uuid.UUID `json:"run_id"`
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	ConversationID uuid.UUID `json:"conversation_id"`
+	EnterpriseID   uuid.UUID `json:"enterprise_id"`
 }
 
 func (q *Queries) NextContextSnapshotRevision(ctx context.Context, arg NextContextSnapshotRevisionParams) (int32, error) {
-	row := q.db.QueryRow(ctx, nextContextSnapshotRevision, arg.RunID, arg.EnterpriseID)
+	row := q.db.QueryRow(ctx, nextContextSnapshotRevision, arg.ConversationID, arg.EnterpriseID)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
 }
 
 const nextConversationSequence = `-- name: NextConversationSequence :one
-SELECT COALESCE(MAX(sequence), 0)::bigint + 1 AS sequence
-FROM conversation_events WHERE conversation_id = $1
+UPDATE conversations SET event_sequence=event_sequence+1 WHERE id=$1 RETURNING event_sequence
 `
 
-func (q *Queries) NextConversationSequence(ctx context.Context, conversationID uuid.UUID) (int32, error) {
-	row := q.db.QueryRow(ctx, nextConversationSequence, conversationID)
-	var sequence int32
-	err := row.Scan(&sequence)
-	return sequence, err
+func (q *Queries) NextConversationSequence(ctx context.Context, id uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, nextConversationSequence, id)
+	var event_sequence int64
+	err := row.Scan(&event_sequence)
+	return event_sequence, err
 }
 
 const nextRunStepSequence = `-- name: NextRunStepSequence :one
@@ -1162,7 +1208,7 @@ func (q *Queries) RequeueRuntimeTask(ctx context.Context, arg RequeueRuntimeTask
 const setRunCurrentStep = `-- name: SetRunCurrentStep :one
 UPDATE runs SET status = $3, current_step_id = $4, version = version + 1, updated_at = now()
 WHERE id = $1 AND enterprise_id = $2 AND version = $5
-RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, stop_reason, error_code, version, created_at, updated_at
+RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at
 `
 
 type SetRunCurrentStepParams struct {
@@ -1194,6 +1240,9 @@ func (q *Queries) SetRunCurrentStep(ctx context.Context, arg SetRunCurrentStepPa
 		&i.CurrentStepID,
 		&i.AuthorizationVersion,
 		&i.Checkpoint,
+		&i.VerificationOnly,
+		&i.ToolSnapshot,
+		&i.ToolSnapshotHash,
 		&i.StopReason,
 		&i.ErrorCode,
 		&i.Version,
@@ -1241,16 +1290,16 @@ func (q *Queries) StartRuntimeTask(ctx context.Context, arg StartRuntimeTaskPara
 
 const supersedeContextSnapshots = `-- name: SupersedeContextSnapshots :exec
 UPDATE context_snapshots SET status = 'superseded'
-WHERE run_id = $1 AND enterprise_id = $2 AND status = 'active'
+WHERE conversation_id = $1 AND enterprise_id = $2 AND status = 'active'
 `
 
 type SupersedeContextSnapshotsParams struct {
-	RunID        uuid.UUID `json:"run_id"`
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	ConversationID uuid.UUID `json:"conversation_id"`
+	EnterpriseID   uuid.UUID `json:"enterprise_id"`
 }
 
 func (q *Queries) SupersedeContextSnapshots(ctx context.Context, arg SupersedeContextSnapshotsParams) error {
-	_, err := q.db.Exec(ctx, supersedeContextSnapshots, arg.RunID, arg.EnterpriseID)
+	_, err := q.db.Exec(ctx, supersedeContextSnapshots, arg.ConversationID, arg.EnterpriseID)
 	return err
 }
 
@@ -1261,8 +1310,8 @@ UPDATE conversations SET
     status = COALESCE($3, status),
     version = version + 1, updated_at = now()
 WHERE id = $4 AND enterprise_id = $5
-  AND owner_user_id = $6 AND version = $7
-RETURNING id, enterprise_id, owner_user_id, title, selected_model_id, status, version, created_at, updated_at
+  AND owner_user_id = $6 AND version = $7 AND status<>'deleted'
+RETURNING files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at
 `
 
 type UpdateConversationParams struct {
@@ -1287,11 +1336,14 @@ func (q *Queries) UpdateConversation(ctx context.Context, arg UpdateConversation
 	)
 	var i Conversation
 	err := row.Scan(
+		&i.FilesCleanedAt,
 		&i.ID,
 		&i.EnterpriseID,
 		&i.OwnerUserID,
 		&i.Title,
 		&i.SelectedModelID,
+		&i.ContextRevision,
+		&i.EventSequence,
 		&i.Status,
 		&i.Version,
 		&i.CreatedAt,
@@ -1303,7 +1355,7 @@ func (q *Queries) UpdateConversation(ctx context.Context, arg UpdateConversation
 const updateRunStatus = `-- name: UpdateRunStatus :one
 UPDATE runs SET status = $3, stop_reason = $4, error_code = $5, version = version + 1, updated_at = now()
 WHERE id = $1 AND enterprise_id = $2 AND version = $6
-RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, stop_reason, error_code, version, created_at, updated_at
+RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at
 `
 
 type UpdateRunStatusParams struct {
@@ -1337,6 +1389,9 @@ func (q *Queries) UpdateRunStatus(ctx context.Context, arg UpdateRunStatusParams
 		&i.CurrentStepID,
 		&i.AuthorizationVersion,
 		&i.Checkpoint,
+		&i.VerificationOnly,
+		&i.ToolSnapshot,
+		&i.ToolSnapshotHash,
 		&i.StopReason,
 		&i.ErrorCode,
 		&i.Version,

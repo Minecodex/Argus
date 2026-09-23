@@ -62,4 +62,4 @@
 
 - Host/Kubernetes 真实资源接入。
 - Agent、Card、Remote Access 和 Telemetry。
-- M1 已完成的前端 Adapter、认证恢复状态机、Card Runtime 传输基座和样式/UI 门禁。
+- 前端 Adapter、认证恢复状态机、PlanV5 Template Host/Runtime 传输基座和统一样式/UI 门禁。

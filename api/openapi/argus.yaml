@@ -11,6 +11,32 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  "/enterprise/mcp-connections":
+    $ref: ./paths/planv5.yaml#/mcp_connections
+  "/enterprise/mcp-connections/{id}":
+    $ref: ./paths/planv5.yaml#/mcp_connection
+  "/enterprise/mcp-connections/{id}/test":
+    $ref: ./paths/planv5.yaml#/mcp_test
+  "/enterprise/mcp-connections/{id}/state":
+    $ref: ./paths/planv5.yaml#/mcp_state
+  "/enterprise/mcp-connections/{id}/members":
+    $ref: ./paths/planv5.yaml#/mcp_members
+  "/conversations/{conversation_id}/workspace":
+    $ref: ./paths/planv5.yaml#/workspace
+  "/conversations/{conversation_id}/workspace/files":
+    $ref: ./paths/planv5.yaml#/workspace_files
+  "/conversations/{conversation_id}/workspace/uploads":
+    $ref: ./paths/planv5.yaml#/workspace_uploads
+  "/conversations/{conversation_id}/workspace/uploads/{upload_id}/content":
+    $ref: ./paths/planv5.yaml#/workspace_upload_content
+  "/conversations/{conversation_id}/workspace/files/{file_id}/content":
+    $ref: ./paths/planv5.yaml#/workspace_file_content
+  "/conversations/{conversation_id}/deliveries/{delivery_id}/content":
+    $ref: ./paths/planv5.yaml#/delivery_content
+  "/conversations/{conversation_id}/tool-presentations/{tool_call_id}":
+    $ref: ./paths/planv5.yaml#/tool_presentation
+  "/conversations/{conversation_id}/preflight":
+    $ref: ./paths/planv5.yaml#/conversation_preflight
   /setup/status:
     $ref: ./paths/m2.yaml#/setup_status
   /setup/initialize:
@@ -257,28 +283,6 @@ paths:
     $ref: ./paths/m4.yaml#/sandbox_terminate
   /platform/sandbox/usage:
     $ref: ./paths/m4.yaml#/sandbox_usage_collection
-  /enterprise/interactive-cards:
-    $ref: ./paths/m5.yaml#/card_collection
-  /enterprise/interactive-cards/{card_id}:
-    $ref: ./paths/m5.yaml#/card_item
-  /enterprise/interactive-cards/{card_id}/versions:
-    $ref: ./paths/m5.yaml#/card_versions
-  /enterprise/interactive-cards/{card_id}/versions/{revision}:
-    $ref: ./paths/m5.yaml#/card_version
-  /enterprise/interactive-cards/{card_id}/validation-runs:
-    $ref: ./paths/m5.yaml#/card_validation_runs
-  /enterprise/card-validation-runs/{run_id}/evidence:
-    $ref: ./paths/m5.yaml#/card_validation_evidence
-  /enterprise/interactive-cards/{card_id}/{state_action}:
-    $ref: ./paths/m5.yaml#/card_state
-  /enterprise/tool-schema-catalog:
-    $ref: ./paths/m5.yaml#/tool_schema_catalog
-  /enterprise/card-instances/{card_instance_id}/presentations:
-    $ref: ./paths/m5.yaml#/card_presentations
-  /enterprise/card-query-bindings/{binding_id}/invoke:
-    $ref: ./paths/m5.yaml#/card_query_invoke
-  /enterprise/card-action-bindings/{binding_id}/invoke:
-    $ref: ./paths/m5.yaml#/card_action_invoke
   /enterprise/remote-access-grants:
     $ref: ./paths/m6.yaml#/grant_collection
   /enterprise/remote-access-grants/{id}:
@@ -497,32 +501,6 @@ components:
       $ref: ../schemas/action/workflow.schema.json#/$defs/ApprovalRequest
     Execution:
       $ref: ../schemas/action/workflow.schema.json#/$defs/Execution
-    CardManifest:
-      $ref: ../schemas/card/card.schema.json#/$defs/CardManifest
-    DataBinding:
-      $ref: ../schemas/card/card.schema.json#/$defs/DataBinding
-    QueryBinding:
-      $ref: ../schemas/card/card.schema.json#/$defs/QueryBinding
-    RenderPlan:
-      $ref: ../schemas/card/card.schema.json#/$defs/RenderPlan
-    BridgeMessage:
-      $ref: ../schemas/card/card.schema.json#/$defs/BridgeMessage
-    SlotBinding:
-      $ref: ../schemas/card/card.schema.json#/$defs/SlotBinding
-    ToolSchemaCatalogEntry:
-      $ref: ../schemas/card/card.schema.json#/$defs/ToolSchemaCatalogEntry
-    InteractiveCard:
-      $ref: ./components/m5.yaml#/components/schemas/InteractiveCard
-    CardVersion:
-      $ref: ./components/m5.yaml#/components/schemas/CardVersion
-    CardVersionSummary:
-      $ref: ./components/m5.yaml#/components/schemas/CardVersionSummary
-    CardValidationRun:
-      $ref: ./components/m5.yaml#/components/schemas/CardValidationRun
-    CardInstance:
-      $ref: ./components/m5.yaml#/components/schemas/CardInstance
-    CardPresentation:
-      $ref: ./components/m5.yaml#/components/schemas/CardPresentation
     RemoteAccessGrant:
       $ref: ./components/m6.yaml#/components/schemas/RemoteAccessGrant
     RemoteAccessRule:

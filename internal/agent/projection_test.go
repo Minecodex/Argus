@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kakj-go/Argus/internal/mcp"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 func TestToolResultProjectionBoundsListsAndTracksPartialState(t *testing.T) {
@@ -15,8 +15,8 @@ func TestToolResultProjectionBoundsListsAndTracksPartialState(t *testing.T) {
 		items = append(items, map[string]any{"id": index, "name": strings.Repeat("host", 20)})
 	}
 	full, _ := json.Marshal(map[string]any{"items": items})
-	encoded, partial, err := encodeToolResultProjection("result_1", "01900000-0000-7000-8000-000000000001", pendingToolCall{ID: "call_1", Name: "host.list"}, full,
-		mcp.Result{Structured: map[string]any{"items": items}})
+	encoded, partial, err := encodeToolResultProjection("result_1", "01900000-0000-7000-8000-000000000001", full,
+		toolruntime.Result{Data: map[string]any{"items": items}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,12 +39,12 @@ func TestToolResultProjectionBoundsListsAndTracksPartialState(t *testing.T) {
 	}
 }
 
-func TestPodLogProjectionRedactsAndTruncates(t *testing.T) {
+func TestTextProjectionRedactsAndTruncates(t *testing.T) {
 	t.Parallel()
 	content := strings.Repeat("line\n", 10_000)
 	structured := map[string]any{"cluster_id": "cluster", "namespace": "default", "pod": "pod", "content": content, "bytes": len(content), "api_key": "argus_ak_prefix.secret"}
 	full, _ := json.Marshal(structured)
-	encoded, partial, err := encodeToolResultProjection("result_logs", "01900000-0000-7000-8000-000000000002", pendingToolCall{ID: "call_logs", Name: "kubernetes.pod.logs"}, full, mcp.Result{Structured: structured})
+	encoded, partial, err := encodeToolResultProjection("result_logs", "01900000-0000-7000-8000-000000000002", full, toolruntime.Result{Data: structured})
 	if err != nil {
 		t.Fatal(err)
 	}

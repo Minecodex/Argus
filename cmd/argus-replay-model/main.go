@@ -5,7 +5,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -19,6 +18,19 @@ import (
 )
 
 type message struct {
+	Type       string `json:"type,omitempty"`
+	Name       string `json:"name,omitempty"`
+	CallID     string `json:"call_id,omitempty"`
+	Output     string `json:"output,omitempty"`
+	Arguments  string `json:"arguments,omitempty"`
+	ToolCallID string `json:"tool_call_id,omitempty"`
+	ToolCalls  []struct {
+		ID       string `json:"id"`
+		Function struct {
+			Name      string `json:"name"`
+			Arguments string `json:"arguments"`
+		} `json:"function"`
+	} `json:"tool_calls,omitempty"`
 	Role    string `json:"role"`
 	Content any    `json:"content"`
 }
@@ -33,12 +45,14 @@ type replayRequest struct {
 }
 
 type replayTool struct {
-	Type       string         `json:"type"`
-	Name       string         `json:"name"`
-	Parameters map[string]any `json:"parameters"`
-	Function   *struct {
-		Name       string         `json:"name"`
-		Parameters map[string]any `json:"parameters"`
+	Description string         `json:"description"`
+	Type        string         `json:"type"`
+	Name        string         `json:"name"`
+	Parameters  map[string]any `json:"parameters"`
+	Function    *struct {
+		Description string         `json:"description"`
+		Name        string         `json:"name"`
+		Parameters  map[string]any `json:"parameters"`
 	} `json:"function"`
 }
 
@@ -62,6 +76,7 @@ func main() {
 		address = ":8080"
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/mcp", remoteMCP)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	mux.HandleFunc("/v1/chat/completions", chatCompletions)
 	mux.HandleFunc("/v1/responses", responses)
@@ -169,6 +184,9 @@ func chatCompletions(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	startSSE(w)
+	if inconsistentUsageFixture(value) {
+		writeSSE(w, map[string]any{"choices": []any{}, "usage": map[string]any{"prompt_tokens": 100, "prompt_tokens_details": map[string]any{"cached_tokens": 80}}})
+	}
 	if tool, arguments, useTool := selectTool(value); useTool {
 		callID := fmt.Sprintf("call_%d", requestSequence.Add(1))
 		toolCall := map[string]any{
@@ -185,7 +203,11 @@ func chatCompletions(w http.ResponseWriter, request *http.Request) {
 		writeSSE(w, chatChunk(map[string]any{"content": replayText(value)}, ""))
 		writeSSE(w, chatChunk(map[string]any{}, "stop"))
 	}
-	writeSSE(w, map[string]any{"choices": []any{}, "usage": map[string]any{"prompt_tokens": 32, "completion_tokens": 8, "total_tokens": 40}})
+	if inconsistentUsageFixture(value) {
+		writeSSE(w, map[string]any{"choices": []any{}, "usage": map[string]any{"prompt_tokens": 50, "completion_tokens": 8}})
+	} else if !missingUsageFixture(value) {
+		writeSSE(w, map[string]any{"choices": []any{}, "usage": map[string]any{"prompt_tokens": 32, "completion_tokens": 8, "total_tokens": 40, "prompt_tokens_details": map[string]any{"cached_tokens": 16}}})
+	}
 	writeRawSSE(w, "[DONE]")
 }
 
@@ -201,12 +223,21 @@ func responses(w http.ResponseWriter, request *http.Request) {
 	startSSE(w)
 	if tool, arguments, useTool := selectTool(value); useTool {
 		callID := fmt.Sprintf("call_%d", requestSequence.Add(1))
-		writeSSE(w, map[string]any{"type": "response.function_call_arguments.delta", "call_id": callID, "name": tool, "delta": arguments})
-		writeSSE(w, map[string]any{"type": "response.function_call_arguments.done", "call_id": callID, "name": tool, "arguments": arguments})
+		itemID := "fc_" + callID
+		item := map[string]any{"id": itemID, "type": "function_call", "call_id": callID, "name": tool, "arguments": ""}
+		writeSSE(w, map[string]any{"type": "response.output_item.added", "output_index": 0, "item": item})
+		writeSSE(w, map[string]any{"type": "response.function_call_arguments.delta", "item_id": itemID, "output_index": 0, "delta": arguments})
+		writeSSE(w, map[string]any{"type": "response.function_call_arguments.done", "item_id": itemID, "output_index": 0, "arguments": arguments})
+		item["arguments"] = arguments
+		writeSSE(w, map[string]any{"type": "response.output_item.done", "output_index": 0, "item": item})
 	} else {
 		writeSSE(w, map[string]any{"type": "response.output_text.delta", "delta": replayText(value)})
 	}
-	writeSSE(w, map[string]any{"type": "response.completed", "response": map[string]any{"status": "completed", "usage": map[string]any{"input_tokens": 32, "output_tokens": 8}}})
+	completed := map[string]any{"status": "completed"}
+	if !missingUsageFixture(value) {
+		completed["usage"] = map[string]any{"input_tokens": 32, "output_tokens": 8, "input_tokens_details": map[string]any{"cached_tokens": 16}}
+	}
+	writeSSE(w, map[string]any{"type": "response.completed", "response": completed})
 }
 
 func decodeRequest(w http.ResponseWriter, request *http.Request) (replayRequest, bool) {
@@ -247,151 +278,17 @@ func writeRawSSE(w http.ResponseWriter, payload string) {
 
 func replayText(request replayRequest) string {
 	if len(request.ResponseFormat) > 0 || len(request.Text) > 0 {
-		if requestsCardDraft(request) {
-			return replayCardDraft(request)
-		}
 		return `{"ok":true}`
 	}
+	if text, ok := workspaceContextEcho(request); ok {
+		return text
+	}
 	for _, item := range append(request.Messages, request.Input...) {
-		if item.Role == "tool" {
+		if item.Role == "tool" || item.Type == "function_call_output" {
 			return "The requested operation completed successfully."
 		}
 	}
 	return "OK"
-}
-
-func requestsCardDraft(request replayRequest) bool {
-	encoded, _ := json.Marshal(map[string]any{"response_format": request.ResponseFormat, "text": request.Text})
-	return strings.Contains(string(encoded), `"entrypoint_html"`) && strings.Contains(string(encoded), `"bindings"`)
-}
-
-func replayCardDraft(request replayRequest) string {
-	prompt := lastContent(append(request.Messages, request.Input...))
-	presentationKind := "table"
-	if strings.Contains(strings.ToLower(prompt), "detail") {
-		presentationKind = "detail"
-	}
-	const marker = "Tool Schema Catalog: "
-	var catalog []map[string]any
-	if index := strings.Index(prompt, marker); index >= 0 {
-		_ = json.Unmarshal([]byte(strings.TrimSpace(prompt[index+len(marker):])), &catalog)
-	}
-	var selected map[string]any
-	for _, item := range catalog {
-		if item["tool_id"] == "host.list" {
-			selected = item
-			break
-		}
-	}
-	if selected == nil && len(catalog) > 0 {
-		selected = catalog[0]
-	}
-	toolID, _ := selected["tool_id"].(string)
-	version, _ := selected["output_schema_version"].(string)
-	schemaHash, _ := selected["schema_hash"].(string)
-	if toolID == "" {
-		toolID, version, schemaHash = "host.list", "host.list/v1", strings.Repeat("0", 64)
-	}
-	html := `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;font:14px system-ui;color:CanvasText;background:Canvas}main{padding:12px}pre{white-space:pre-wrap}</style></head><body><main><strong>Enterprise host inventory</strong><pre data-slot="primary" id="content"></pre></main><script>(function(){var api=window.argusCard;function render(value){document.getElementById("content").textContent=JSON.stringify(value.primary||[],null,2)}render(api.data);api.onData(render)})()</script></body></html>`
-	hash := sha256.Sum256([]byte(html))
-	contentHash := fmt.Sprintf("%x", hash[:])
-	manifest := map[string]any{"schema_version": "argus.card_manifest/v1", "card_id": "00000000-0000-0000-0000-000000000000", "revision": 1,
-		"source": "enterprise", "entrypoint_hash": contentHash, "bridge_version": "argus.card_bridge/v1", "max_message_bytes": 1048576,
-		"slots":             []any{map[string]any{"name": "primary", "kind": "data", "required": true, "value_type": "array"}},
-		"allowed_resources": []string{"inline_style", "inline_script"}, "supported_locales": []string{"zh-CN", "en-US"}, "default_locale": "zh-CN",
-		"supported_color_schemes": []string{"light", "dark"}, "presentation_kind": presentationKind}
-	demos := map[string]any{}
-	for _, scenario := range []string{"default", "empty", "error", "large", "light", "dark", "zh-CN", "en-US"} {
-		demos[scenario] = map[string]any{"primary": []any{}}
-	}
-	bundle := map[string]any{"slug": "m5-enterprise-host-list", "name": "Enterprise host inventory", "description": "Generated by the fixed M5 replay model.",
-		"entrypoint_html": html, "manifest": manifest, "bindings": []any{map[string]any{"slot_name": "primary", "slot_kind": "data", "mode": "strict",
-			"tool_id": toolID, "output_schema_version": version, "schema_hash": schemaHash, "path": "$.items", "value_type": "array", "semantic_type": "resource_collection"}}, "demos": demos}
-	encoded, _ := json.Marshal(bundle)
-	return string(encoded)
-}
-
-func selectTool(request replayRequest) (string, string, bool) {
-	messages := append(request.Messages, request.Input...)
-	for _, item := range messages {
-		if item.Role == "tool" {
-			return "", "", false
-		}
-	}
-	rawPrompt := lastContent(messages)
-	prompt := strings.ToLower(rawPrompt)
-	type candidate struct {
-		name   string
-		schema map[string]any
-	}
-	candidates := make([]candidate, 0, len(request.Tools))
-	for _, item := range request.Tools {
-		name, schema := item.Name, item.Parameters
-		if item.Function != nil {
-			name, schema = item.Function.Name, item.Function.Parameters
-		}
-		if name == "" {
-			continue
-		}
-		candidates = append(candidates, candidate{name: name, schema: schema})
-	}
-	trimmedPrompt := strings.TrimSpace(prompt)
-	if strings.HasPrefix(trimmedPrompt, "verify this deterministic execution result") {
-		return "", "", false
-	}
-	if strings.HasPrefix(trimmedPrompt, "tool result") {
-		previousTool := ""
-		for index := len(messages) - 2; index >= 0; index-- {
-			content, _ := messages[index].Content.(string)
-			if strings.HasPrefix(content, "Tool call: ") {
-				previousTool = strings.Fields(strings.TrimPrefix(content, "Tool call: "))[0]
-				break
-			}
-		}
-		if previousTool == "card.render" {
-			return "", "", false
-		}
-		for _, item := range candidates {
-			if item.name != "card.render" {
-				continue
-			}
-			start := strings.Index(rawPrompt, "{")
-			var projection map[string]any
-			if start < 0 || json.Unmarshal([]byte(rawPrompt[start:]), &projection) != nil {
-				return "", "", false
-			}
-			toolCallID, _ := projection["tool_call_id"].(string)
-			if toolCallID == "" {
-				return "", "", false
-			}
-			kind := "table"
-			if strings.Contains(previousTool, "pending_action") || strings.HasSuffix(previousTool, ".preview") {
-				kind = "pending_action"
-			} else {
-				for _, message := range messages {
-					content, _ := message.Content.(string)
-					if strings.Contains(strings.ToLower(content), "detail") {
-						kind = "detail"
-						break
-					}
-				}
-			}
-			arguments, _ := json.Marshal(map[string]any{"tool_call_ids": []string{toolCallID}, "presentation_kind": kind})
-			return item.name, string(arguments), true
-		}
-		return "", "", false
-	}
-	for _, item := range candidates {
-		if item.name == "compatibility_probe" || strings.Contains(prompt, strings.ToLower(item.name)) {
-			return selectedToolWithPrompt(item.name, item.schema, rawPrompt)
-		}
-	}
-	for _, item := range candidates {
-		if strings.Contains(prompt, toolKeyword(item.name)) {
-			return selectedToolWithPrompt(item.name, item.schema, rawPrompt)
-		}
-	}
-	return "", "", false
 }
 
 func selectedTool(name string, schema map[string]any) (string, string, bool) {
@@ -471,4 +368,14 @@ func exampleValue(schema map[string]any) any {
 	default:
 		return "m4-e2e"
 	}
+}
+
+func missingUsageFixture(value replayRequest) bool {
+	data, _ := json.Marshal([]any{value.Messages, value.Input})
+	return strings.Contains(string(data), "argus_e2e_usage_missing")
+}
+
+func inconsistentUsageFixture(value replayRequest) bool {
+	data, _ := json.Marshal([]any{value.Messages, value.Input})
+	return strings.Contains(string(data), "argus_e2e_usage_inconsistent") || len(value.Tools) == 0 && strings.Contains(string(data), "argus_e2e_compaction_usage_inconsistent")
 }

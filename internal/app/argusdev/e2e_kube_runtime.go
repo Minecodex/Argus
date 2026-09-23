@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/containerimage"
 	"io"
 	"net/http"
 	"sort"
@@ -26,6 +27,7 @@ import (
 )
 
 type KubeForward struct {
+	Ports      []portforward.ForwardedPort
 	stop       chan struct{}
 	done       chan error
 	stopOnce   sync.Once
@@ -54,7 +56,7 @@ func (k *E2EKube) WaitDeployment(ctx context.Context, namespace, name string, ti
 		if deployment.Spec.Replicas != nil {
 			desired = *deployment.Spec.Replicas
 		}
-		if deployment.Status.ObservedGeneration >= deployment.Generation && deployment.Status.AvailableReplicas == desired {
+		if deployment.Status.ObservedGeneration >= deployment.Generation && deployment.Status.AvailableReplicas == desired && deployment.Status.UpdatedReplicas == desired && deployment.Status.Replicas == desired {
 			return nil
 		}
 		select {
@@ -278,6 +280,11 @@ func (k *E2EKube) PortForwardService(ctx context.Context, namespace, serviceName
 	go func() { handle.done <- forwarder.ForwardPorts() }()
 	select {
 	case <-ready:
+		handle.Ports, err = forwarder.GetPorts()
+		if err != nil {
+			_ = handle.Stop()
+			return nil, err
+		}
 		return handle, nil
 	case err := <-handle.done:
 		return nil, fmt.Errorf("port-forward %s/%s: %w", namespace, serviceName, err)
@@ -310,10 +317,25 @@ func (k *E2EKube) RemoveImages(ctx context.Context, namespace, selector, contain
 	if err != nil {
 		return err
 	}
+	allPods, err := k.Client.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	var activeImages []string
+	for _, pod := range allPods.Items {
+		for _, container := range pod.Spec.Containers {
+			activeImages = append(activeImages, container.Image)
+		}
+	}
 	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].Name < pods.Items[j].Name })
 	var removeErrors []error
 	for _, pod := range pods.Items {
-		for _, image := range images {
+		inventory, listErr := k.execPod(ctx, namespace, pod.Name, container, "/host/ctr", "--address", "/run/containerd/containerd.sock", "--namespace", "k8s.io", "images", "list")
+		if listErr != nil {
+			removeErrors = append(removeErrors, listErr)
+			continue
+		}
+		for _, image := range containerimage.RemovalReferences(images, inventory, activeImages) {
 			_, err := k.execPod(ctx, namespace, pod.Name, container, "/host/ctr", "--address", "/run/containerd/containerd.sock", "--namespace", "k8s.io", "images", "remove", image)
 			if err != nil && !strings.Contains(strings.ToLower(err.Error()), "not found") {
 				removeErrors = append(removeErrors, fmt.Errorf("%s on %s: %w", image, pod.Name, err))
@@ -346,8 +368,20 @@ func (k *E2EKube) execPod(ctx context.Context, namespace, podName, container str
 	return strings.TrimSpace(stdout.String()), nil
 }
 
-func (k *E2EKube) DeleteNamespace(ctx context.Context, namespace string) error {
-	err := k.Client.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
+func (k *E2EKube) DeleteNamespace(ctx context.Context, namespace, releaseID string) error {
+	current, err := k.Client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if releaseID == "" || current.Labels["argus.io/release-id"] != releaseID {
+		return fmt.Errorf("refusing to delete namespace %s not owned by release %s", namespace, releaseID)
+	}
+	err = k.Client.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{
+		UID: &current.UID, ResourceVersion: &current.ResourceVersion,
+	}})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}

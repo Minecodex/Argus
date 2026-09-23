@@ -79,11 +79,6 @@ export const BUILTIN_ROLE_TEMPLATES: BuiltinRoleTemplate[] = [
       "telemetry.sensitive_fields.read",
       "credential.manage",
       "credential.use",
-      "interactive_card.read",
-      "interactive_card.create",
-      "interactive_card.update",
-      "interactive_card.delete",
-      "interactive_card.publish",
     ],
   },
   {
@@ -106,8 +101,6 @@ export const BUILTIN_ROLE_TEMPLATES: BuiltinRoleTemplate[] = [
       "telemetry.query.traces",
       "telemetry.live_tail",
       "credential.use",
-      "interactive_card.read",
-      "interactive_card.create",
     ],
   },
   {
@@ -122,7 +115,6 @@ export const BUILTIN_ROLE_TEMPLATES: BuiltinRoleTemplate[] = [
       "kubernetes.pod.read",
       "telemetry.read",
       "telemetry.query.metrics",
-      "interactive_card.read",
     ],
   },
   {

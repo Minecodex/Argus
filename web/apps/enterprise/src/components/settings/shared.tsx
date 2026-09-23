@@ -49,10 +49,8 @@ export const PERMISSION_CATALOG: Array<{
   { resource: "telemetry.gateway", actions: ["manage"] },
   { resource: "credential", actions: ["manage", "use", "reveal"] },
   { resource: "audit", actions: ["read"] },
-  {
-    resource: "interactive_card",
-    actions: ["read", "create", "update", "delete", "publish"],
-  },
+  { resource: "mcp_connection", actions: ["manage"] },
+  { resource: "workspace", actions: ["use"] },
   { resource: "ai_model", actions: ["read", "manage"] },
   { resource: "model_quota", actions: ["read", "manage"] },
   { resource: "model_usage", actions: ["read"] },

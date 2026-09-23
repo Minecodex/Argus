@@ -35,6 +35,19 @@ type CreateRequest struct {
 	ResourceLimits map[string]string `json:"resourceLimits"`
 	Metadata       map[string]string `json:"metadata"`
 	NetworkPolicy  map[string]any    `json:"networkPolicy,omitempty"`
+	Volumes        []Volume          `json:"volumes,omitempty"`
+	Entrypoint     []string          `json:"entrypoint,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+}
+
+type Volume struct {
+	Name      string `json:"name"`
+	PVC       PVC    `json:"pvc"`
+	MountPath string `json:"mountPath"`
+	ReadOnly  bool   `json:"readOnly"`
+}
+type PVC struct {
+	ClaimName string `json:"claimName"`
 }
 
 type ImageSpec struct {

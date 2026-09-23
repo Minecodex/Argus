@@ -125,7 +125,7 @@ Preview 返回：
 - Spec Hash、Diff、风险、预算、过期时间和公开 Action Ref。
 - 部分 Panel 失败、Catalog 不确定和需要用户澄清的事项。
 
-用户在 Preview Card 或后台确认页点击确认；Action Executor 根据 Action Ref 读取服务端私有计划并 Commit。模型、Skill、浏览器和 Card 都不能携带可变业务参数调用 Commit。
+用户在宿主 PendingAction 控件或后台确认页点击一次确认；Tool 模板只展示业务详情。Action Executor 根据 Action Ref 读取服务端私有计划并 Commit。模型、Skill、浏览器和模板都不能携带可变业务参数调用 Commit。
 
 重复点击、网络超时和 Worker 重启必须通过 Execution ID、幂等键和 ResultUnknown 对账恢复，不能重复创建 Revision 或 Binding。
 
@@ -225,13 +225,13 @@ projection_hash
 
 没有证据的 Panel 不能被总结为正常。结果只提供有限样本和摘要，大结果放在 Tool Result/Artifact Store，并保留可回溯 evidence_ref。
 
-### T2.9 Chatbox、Card 与分析工作台
+### T2.9 Chatbox、Template 与分析工作台
 
 - Chatbox 输入框支持 Dashboard @ 候选和稳定 Mention Chip。
-- /创建仪表盘 展示 Draft Preview Card，用户可以查看 Panel、变量、绑定和风险。
-- 用户确认由 Card Action Binding 触发，不再经过模型二次推理。
+- /创建仪表盘 展示 Draft Tool 详情模板，用户可以查看 Panel、变量、绑定和风险。
+- 用户确认由 宿主 PendingAction API 触发，不再经过模型二次推理。
 - @Dashboard 分析结果展示结论、证据、时间范围、Revision、Panel 和资源入口。
-- Card 只承载 Preview、确认和分析摘要，不承载 Dashboard 本体，也不能访问宿主 DOM、Cookie 或私有 Token。
+- Template 只承载 Preview 详情和分析摘要；确认由宿主 PendingAction 控件负责，不承载 Dashboard 本体，也不能访问宿主 DOM、Cookie 或私有 Token。
 
 ## 4. 工具与权限清单
 
@@ -272,11 +272,11 @@ telemetry.dashboard.update.commit
 - Commit 只接受 Action Ref，重复 Commit 幂等。
 - provenance 缺失、query_hash 不匹配、Revision 失效和 Target 越权全部拒绝。
 
-### 5.2 Chatbox/Card 测试
+### 5.2 Chatbox/Template 测试
 
 - @ 候选只返回当前用户可见 Dashboard。
 - 没有 @ 时不会模糊选择 Dashboard。
-- Draft Preview Card 的确认动作不暴露私有参数。
+- Draft Tool 详情模板 的确认动作不暴露私有参数。
 - 伪造 Mention ID、Action Binding ID、Origin 或 Tool Result 来源被拒绝。
 
 ### 5.3 E2E 测试
@@ -296,5 +296,7 @@ telemetry.dashboard.update.commit
 
 ## 7. 主计划映射
 
-对应主计划：P2V-4，以及 P2V-5 中的 AI 创建、@Dashboard、Inspect、Evidence Projection、Chatbox/Card 和安全发布测试。
+对应主计划：P2V-4，以及 P2V-5 中的 AI 创建、@Dashboard、Inspect、Evidence Projection、Chatbox/Template 和安全发布测试。
 
+
+> PlanV5 展示边界：Dashboard 仍是独立持久业务对象。会话展示不再依赖模板 Catalog、Slot/Binding 或可执行 Card；使用 Tool 自有模板和宿主单次确认。模板 Bridge 不发起查询，Chat 内换时间或翻页由新用户消息产生新 ToolCall。

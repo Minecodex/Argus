@@ -1,4 +1,4 @@
-import { enterpriseOrigin, platformOrigin, cardOrigin } from "./origins";
+import { platformOrigin } from "./origins";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -128,274 +128,6 @@ test("setup marks required fields and initializes without an admin email", async
   await page.getByRole("button", { name: /初始化|提交/ }).click();
   await expect(page).toHaveURL(`${platformOrigin}/login`);
   await expect(page.locator('input[autocomplete="username"]')).toBeVisible();
-});
-
-test("card runtime executes a cross-origin bridge and enforces CSP", async ({
-  page,
-}) => {
-  await page.goto("/login");
-  await page.evaluate(
-    async ({ cardOrigin, enterpriseOrigin }) => {
-      const html = `
-      <button id="query" type="button">Query</button>
-      <button id="action" type="button">Action</button>
-      <output id="result"></output>
-      <span id="network">pending</span>
-      <script>
-        document.getElementById("query").onclick = async () => {
-          const result = await window.argusCard.query("query-1");
-          document.getElementById("result").textContent = result.answer;
-        };
-        document.getElementById("action").onclick = async () => {
-          const result = await window.argusCard.action("action-1");
-          document.getElementById("result").textContent = result.status;
-        };
-        fetch("${enterpriseOrigin}/csp-probe")
-          .then(() => document.getElementById("network").textContent = "escaped")
-          .catch(() => document.getElementById("network").textContent = "blocked");
-      </script>`;
-      const digest = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(html),
-      );
-      const hash = Array.from(new Uint8Array(digest), (byte) =>
-        byte.toString(16).padStart(2, "0"),
-      ).join("");
-      const iframe = document.createElement("iframe");
-      iframe.id = "bridge-card";
-      iframe.sandbox.add("allow-scripts");
-      iframe.sandbox.add("allow-same-origin");
-      iframe.src = `${cardOrigin}/?parent_origin=${encodeURIComponent(window.location.origin)}`;
-      document.body.append(iframe);
-      await new Promise<void>((resolve) =>
-        iframe.addEventListener("load", () => resolve(), { once: true }),
-      );
-      const channel = new MessageChannel();
-      const nonce = "nonce-1234567890";
-      let hostSequence = 1;
-      const messages: unknown[] = [];
-      await new Promise<void>((resolve) => {
-        channel.port1.onmessage = (event) => {
-          const message = event.data as {
-            type: string;
-            payload: Record<string, unknown>;
-          };
-          messages.push(message);
-          if (
-            message.type === "query.invoke" ||
-            message.type === "action.invoke"
-          ) {
-            hostSequence += 1;
-            channel.port1.postMessage({
-              bridge_version: "argus.card_bridge/v1",
-              message_id: `host-${hostSequence}`,
-              nonce,
-              sequence: hostSequence,
-              type: "binding.result",
-              payload: {
-                request_id: message.payload.request_id,
-                ok: true,
-                data:
-                  message.type === "query.invoke"
-                    ? { answer: "query-ok" }
-                    : { status: "action-ok" },
-              },
-            });
-          }
-          if (
-            message.type === "card.ready" ||
-            message.type === "bridge.error"
-          ) {
-            resolve();
-          }
-        };
-        channel.port1.start();
-        iframe.contentWindow!.postMessage(
-          {
-            bridge_version: "argus.card_bridge/v1",
-            message_id: "hello-1",
-            nonce,
-            sequence: 1,
-            type: "host.hello",
-            payload: {
-              html,
-              entrypoint_hash: hash,
-              allowed_resources: ["inline_script"],
-              max_message_bytes: 1024 * 1024,
-              locale: "zh-CN",
-              color_scheme: "dark",
-              render_plan: {
-                schema_version: "argus.render_plan/v1",
-                card_id: "card-e2e",
-                card_revision: 1,
-                card_instance_id: "instance-e2e",
-                data_bindings: [],
-                query_binding_ids: { list: "query-1" },
-                action_binding_ids: { commit: "action-1" },
-                locale: "zh-CN",
-                color_scheme: "dark",
-              },
-              initial_data: {},
-            },
-          },
-          cardOrigin,
-          [channel.port2],
-        );
-      });
-      const state = window as typeof window & {
-        __cardMessages?: unknown[];
-        __sendCardContext?: () => void;
-      };
-      state.__cardMessages = messages;
-      state.__sendCardContext = () => {
-        hostSequence += 1;
-        channel.port1.postMessage({
-          bridge_version: "argus.card_bridge/v1",
-          message_id: `host-${hostSequence}`,
-          nonce,
-          sequence: hostSequence,
-          type: "host.context",
-          payload: {
-            locale: "en-US",
-            color_scheme: "light",
-            design_tokens: {},
-          },
-        });
-      };
-    },
-    { cardOrigin, enterpriseOrigin },
-  );
-
-  const card = page.frameLocator("#bridge-card");
-  const handshakeMessages = await page.evaluate(
-    () =>
-      (
-        window as typeof window & {
-          __cardMessages?: Array<{ type?: string; payload?: unknown }>;
-        }
-      ).__cardMessages ?? [],
-  );
-  expect(
-    handshakeMessages.find((message) => message.type === "bridge.error"),
-  ).toBeUndefined();
-  await card.getByRole("button", { name: "Query" }).click();
-  await expect(card.locator("#result")).toHaveText("query-ok");
-  await card.getByRole("button", { name: "Action" }).click();
-  await expect(card.locator("#result")).toHaveText("action-ok");
-  await expect(card.locator("#network")).toHaveText("blocked");
-  await page.evaluate(() => {
-    (
-      window as typeof window & { __sendCardContext?: () => void }
-    ).__sendCardContext?.();
-  });
-  await expect(card.locator("html")).toHaveAttribute("lang", "en-US");
-  await expect(card.locator("html")).toHaveAttribute(
-    "data-color-scheme",
-    "light",
-  );
-  const messages = await page.evaluate(
-    () =>
-      (
-        window as typeof window & {
-          __cardMessages?: Array<{ payload?: unknown }>;
-        }
-      ).__cardMessages ?? [],
-  );
-  expect(
-    messages.some((message) =>
-      JSON.stringify(message.payload).includes("params"),
-    ),
-  ).toBe(false);
-});
-
-test("card runtime rejects a wrong parent origin and entrypoint hash", async ({
-  page,
-}) => {
-  await page.goto("/login");
-  const result = await page.evaluate(async (cardOrigin) => {
-    const makeFrame = async (id: string, parentOrigin: string) => {
-      const iframe = document.createElement("iframe");
-      iframe.id = id;
-      iframe.sandbox.add("allow-scripts");
-      iframe.sandbox.add("allow-same-origin");
-      iframe.src = `${cardOrigin}/?parent_origin=${encodeURIComponent(parentOrigin)}`;
-      document.body.append(iframe);
-      await new Promise<void>((resolve) =>
-        iframe.addEventListener("load", () => resolve(), { once: true }),
-      );
-      return iframe;
-    };
-    const hello = (entrypointHash: string) => ({
-      bridge_version: "argus.card_bridge/v1",
-      message_id: "hello-security",
-      nonce: "nonce-1234567890",
-      sequence: 1,
-      type: "host.hello",
-      payload: {
-        html: '<p id="trusted">trusted</p>',
-        entrypoint_hash: entrypointHash,
-        allowed_resources: [],
-        max_message_bytes: 1024 * 1024,
-        locale: "zh-CN",
-        color_scheme: "dark",
-        render_plan: {
-          schema_version: "argus.render_plan/v1",
-          card_id: "card-security",
-          card_revision: 1,
-          card_instance_id: "instance-security",
-          data_bindings: [],
-          query_binding_ids: {},
-          action_binding_ids: {},
-          locale: "zh-CN",
-          color_scheme: "dark",
-        },
-        initial_data: {},
-      },
-    });
-
-    const wrongOrigin = await makeFrame(
-      "wrong-origin-card",
-      "https://evil.example.test",
-    );
-    const ignoredChannel = new MessageChannel();
-    let originMessage = false;
-    ignoredChannel.port1.onmessage = () => {
-      originMessage = true;
-    };
-    ignoredChannel.port1.start();
-    wrongOrigin.contentWindow!.postMessage(hello("0".repeat(64)), cardOrigin, [
-      ignoredChannel.port2,
-    ]);
-    await new Promise((resolve) => setTimeout(resolve, 200));
-
-    const wrongHash = await makeFrame(
-      "wrong-hash-card",
-      window.location.origin,
-    );
-    const hashChannel = new MessageChannel();
-    const hashError = await new Promise<string | null>((resolve) => {
-      const timer = setTimeout(() => resolve(null), 1000);
-      hashChannel.port1.onmessage = (event) => {
-        const message = event.data as {
-          type?: string;
-          payload?: { code?: string };
-        };
-        if (message.type === "bridge.error") {
-          clearTimeout(timer);
-          resolve(message.payload?.code ?? null);
-        }
-      };
-      hashChannel.port1.start();
-      wrongHash.contentWindow!.postMessage(hello("0".repeat(64)), cardOrigin, [
-        hashChannel.port2,
-      ]);
-    });
-    return { originMessage, hashError };
-  }, cardOrigin);
-  expect(result).toEqual({
-    originMessage: false,
-    hashError: "ENTRYPOINT_HASH_MISMATCH",
-  });
 });
 
 test("protected routes redirect to login and login redirects back", async ({
@@ -638,18 +370,22 @@ test("add host wizard walks three steps to the confirm card", async ({
   await expect(drawer).toBeVisible();
 
   // 第 1 步只选择场景；第 2 步才挂载业务表单。
-  await drawer.getByRole("button", { name: /^双向可达/ }).click();
+  await drawer
+    .getByRole("button", { name: /^平台可 SSH · 主机可访问 Argus/ })
+    .click();
   await drawer.getByRole("button", { name: "下一步", exact: true }).click();
 
   // 填写内网地址与凭据。
   await drawer.getByLabel("主机名").fill("web-e2e-01");
   await drawer.getByLabel("地址").fill("10.0.1.5");
   await drawer.getByLabel("登录账号").fill("argus");
-  await drawer.getByLabel("登录凭据或密钥").click();
+  await drawer.getByLabel("SSH 凭据").click();
   await page.getByRole("option", { name: "prod-ssh-key" }).click();
 
   // 第二步提交后完成连接测试并进入第三步预览。
-  await drawer.getByRole("button", { name: "下一步", exact: true }).click();
+  await drawer
+    .getByRole("button", { name: "测试连接并预览", exact: true })
+    .click();
   await expect(drawer.getByText("测试通过，可生成预览")).toBeVisible({
     timeout: 10_000,
   });
@@ -662,15 +398,12 @@ test("add host wizard walks three steps to the confirm card", async ({
   ).toBeVisible();
   await drawer.getByRole("button", { name: "确认执行" }).click();
   await expect(drawer.getByText("主机创建完成")).toBeVisible();
-  await drawer
-    .locator(".argus-dialog__footer")
-    .getByRole("button", { name: "关闭", exact: true })
-    .click();
+  await drawer.getByRole("button", { name: "完成", exact: true }).click();
   await expect(drawer).not.toBeVisible();
   await expect(page.getByText("web-e2e-01")).toBeVisible();
 });
 
-test("add host wizard scenario cards gate planned tunnels and support self-enroll", async ({
+test("add host wizard supports direct enrollment and SSH network scenarios", async ({
   page,
 }) => {
   await login(page);
@@ -680,21 +413,27 @@ test("add host wizard scenario cards gate planned tunnels and support self-enrol
   await expect(drawer).toBeVisible();
 
   // ⑤ 只出不进:免连接测试,表单仅名称/架构/环境/标签。
-  await drawer.getByRole("button", { name: /^只出不进/ }).click();
+  await drawer
+    .getByRole("button", { name: /^主机可访问 Argus · 一行命令/ })
+    .click();
   // 场景②(只进不出)与场景③(隧道成员)已随后端隧道链路开放,可选可提交。
-  const inboundOnly = drawer.getByRole("button", { name: /^只进不出/ });
+  const inboundOnly = drawer.getByRole("button", {
+    name: /^平台可 SSH · 主机无出站/,
+  });
   await expect(inboundOnly).toBeEnabled();
-  await expect(drawer.getByText("场景 ②").first()).toBeVisible();
+
   const tunnelMember = drawer.getByRole("button", {
-    name: /^成员连不上堡垒机端口/,
+    name: /成员.*无出站|堡垒机.*SSH/,
   });
   await expect(tunnelMember).toBeEnabled();
   await drawer.getByRole("button", { name: "下一步", exact: true }).click();
   await drawer.getByLabel("主机名").fill("office-self-01");
-  await drawer.getByText("前置条件", { exact: true }).waitFor();
+
   // 提交会立刻进入 loading/确认卡,click 可能因按钮随即禁用而抛超时——
   // 触发后以确认卡出现为准。
-  await drawer.getByRole("button", { name: "下一步", exact: true }).click();
+  await drawer
+    .getByRole("button", { name: "生成一次性安装命令", exact: true })
+    .click();
   await expect(drawer.getByText("新增主机 office-self-01")).toBeVisible({
     timeout: 10_000,
   });
@@ -715,7 +454,7 @@ test("add host wizard scenario cards gate planned tunnels and support self-enrol
     .getByText(/curl -fsS/)
     .first()
     .textContent();
-  await drawer.getByRole("button", { name: "我已保存，关闭" }).click();
+  await drawer.getByRole("button", { name: "完成" }).click();
   await expect(drawer).not.toBeVisible();
   const browserState = JSON.stringify({
     local: await page.evaluate(() => localStorage),
@@ -730,10 +469,14 @@ test("approvals inbox: open a pending action and approve it", async ({
 }) => {
   await login(page);
   await page.goto("/approvals");
-  await page.getByRole("button", { name: /重启 payment-worker/ }).click();
+  await page
+    .getByRole("button", { name: /重启工作负载 payment-worker/ })
+    .click();
 
   const detail = page.locator(".argus-approval-detail");
-  await expect(detail.getByText("重启 payment-worker")).toBeVisible();
+  await expect(
+    detail.getByText("重启工作负载 payment-worker", { exact: true }).first(),
+  ).toBeVisible();
   const approveButton = detail.getByRole("button", { name: "批准" });
   await expect(approveButton).toBeVisible();
   await detail.getByLabel("批准").fill("同意，窗口内执行");
@@ -750,7 +493,9 @@ test("approvals inbox: reject a pending action with a reason", async ({
 }) => {
   await login(page);
   await page.goto("/approvals");
-  await page.getByRole("button", { name: /重启 payment-worker/ }).click();
+  await page
+    .getByRole("button", { name: /重启工作负载 payment-worker/ })
+    .click();
 
   const detail = page.locator(".argus-approval-detail");
   await detail.getByRole("button", { name: "驳回" }).click();
@@ -780,7 +525,7 @@ test("approvals inbox: desktop tabs preserve scope deep links", async ({
     "true",
   );
   await expect(
-    page.getByRole("button", { name: /升级 12 个 Collector/ }),
+    page.getByRole("button", { name: /升级遥测收集器/ }),
   ).toBeVisible();
 
   await page.getByRole("tab", { name: "已处理" }).click();
@@ -796,7 +541,7 @@ test("approvals inbox: desktop tabs preserve scope deep links", async ({
     "true",
   );
   await expect(
-    page.getByRole("button", { name: /重启 payment-worker/ }),
+    page.getByRole("button", { name: /重启工作负载 payment-worker/ }),
   ).toHaveCount(0);
 
   await page.reload();
@@ -888,12 +633,11 @@ test("host and bastion collector statuses expose contract-backed actions", async
   );
 });
 
-test("online Bastion gates replacement and deletion while members remain", async ({
+test("online Bastion metadata changes require confirmation and preserve its members", async ({
   page,
 }) => {
   await login(page);
   await page.goto("/hosts");
-
   const scope = page
     .locator(".argus-scope-card")
     .filter({ hasText: "上海机房堡垒机-01" })
@@ -902,49 +646,25 @@ test("online Bastion gates replacement and deletion while members remain", async
     .locator(".argus-scope-card__head")
     .getByRole("button", { name: "编辑" })
     .click();
-
-  const drawer = page.getByRole("dialog", {
-    name: /编辑堡垒机.*上海机房堡垒机-01/,
-  });
-  await expect(drawer).toBeVisible();
-  await expect(drawer.getByLabel("名称")).toHaveValue("上海机房堡垒机-01");
-  await expect(drawer.getByLabel("环境")).toBeVisible();
-  await expect(drawer.getByLabel("标签")).toBeVisible();
-  await expect(drawer.getByLabel("地址")).toHaveCount(0);
-  await expect(drawer.getByLabel("端口")).toHaveCount(0);
-  await expect(drawer.getByText("Connector 替换")).toBeVisible();
-  await expect(drawer.getByText("替换会执行 fencing")).toBeVisible();
-  await expect(
-    drawer.getByRole("button", { name: "替换 Connector" }),
-  ).toBeVisible();
-
-  await drawer.getByLabel("名称").fill("上海核心堡垒机-E2E");
-  await drawer.getByRole("button", { name: "保存", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "编辑资源元数据" });
+  await expect(drawer.getByLabel("主机名")).toHaveValue("上海机房堡垒机-01");
+  await expect(drawer.getByLabel("地址", { exact: true })).toHaveCount(0);
+  await drawer.getByLabel("主机名").fill("上海核心堡垒机-E2E");
+  await drawer
+    .getByRole("button", { name: "生成变更预览", exact: true })
+    .click();
   await drawer.getByRole("button", { name: "确认执行" }).click();
   await expect(drawer).not.toBeVisible();
-
-  const updatedScope = page
+  const updated = page
     .locator(".argus-scope-card")
     .filter({ hasText: "上海核心堡垒机-E2E" })
     .first();
-  await expect(updatedScope.getByText("成员 3")).toBeVisible();
+  await expect(updated.getByText("成员 3")).toBeVisible();
   await expect(
-    updatedScope
+    updated
       .locator(".argus-scope-card__head")
-      .getByRole("button", { name: "删除堡垒机" }),
+      .getByRole("button", { name: /删除/ }),
   ).toHaveCount(0);
-
-  await updatedScope
-    .locator(".argus-scope-card__head")
-    .getByRole("button", { name: "编辑" })
-    .click();
-  const onlineDrawer = page.getByRole("dialog", {
-    name: /编辑堡垒机.*上海核心堡垒机-E2E/,
-  });
-  await expect(onlineDrawer.getByText("Connector 替换")).toBeVisible();
-  await expect(
-    onlineDrawer.getByRole("button", { name: "替换 Connector" }),
-  ).toBeVisible();
 });
 
 test("new Bastion shows one-time enrollment and can register", async ({
@@ -1122,34 +842,7 @@ test("telemetry query builder and DSL editor execute all three language models",
   await expectNoSeriousAccessibilityViolations(page);
 });
 
-test("chat administrator can create a disabled interactive card", async ({
-  page,
-}) => {
-  await login(page);
-  await page.getByRole("button", { name: "创建交互卡片" }).click();
-  await page.getByRole("option", { name: /创建交互卡片/ }).click();
-  await page.getByRole("textbox", { name: "发送" }).fill("主机容量表");
-  await page.getByRole("button", { name: "发送" }).click();
-  await expect(page.getByText(/已创建“主机容量表”草稿/)).toBeVisible({
-    timeout: 30_000,
-  });
-  await page.getByRole("link", { name: "进入管理后台" }).click();
-  await page.getByRole("link", { name: /交互卡片/ }).click();
-  const row = page.locator(".argus-ic-row").filter({ hasText: "主机容量表" });
-  await expect(row).toBeVisible();
-  await expect(row.getByText("草稿")).toBeVisible();
-});
-
-test("regular user has no interactive-card slash command", async ({ page }) => {
-  await login(page, "lina");
-  await expect(page.getByRole("button", { name: "创建交互卡片" })).toHaveCount(
-    0,
-  );
-  await page.getByRole("textbox", { name: "发送" }).fill("/");
-  await expect(page.getByRole("listbox")).toHaveCount(0);
-});
-
-test("chatbox: host-create request confirms via card to success", async ({
+test("chatbox: host-create request confirms once in the host to success", async ({
   page,
 }) => {
   await login(page);
@@ -1167,7 +860,9 @@ test("chatbox: host-create request confirms via card to success", async ({
   await card.getByRole("button", { name: "确认执行" }).click();
   // 卡片原地轮询执行状态，直到 mock 任务步骤推进到成功（"已创建主机 …"）。
   await expect
-    .poll(async () => card.getByText(/已创建主机/).count(), { timeout: 30_000 })
+    .poll(async () => card.getByText(/主机 .*已创建/).count(), {
+      timeout: 30_000,
+    })
     .toBeGreaterThan(0);
   await expect(card.getByRole("link", { name: /查看任务/ })).toBeVisible();
 });
@@ -1184,7 +879,9 @@ test("tasks: list renders and the detail drawer opens", async ({ page }) => {
 
   const drawer = page.getByRole("dialog", { name: taskTitle });
   await expect(drawer).toBeVisible();
-  await expect(drawer.getByText("执行步骤")).toBeVisible();
+  await expect(
+    drawer.getByRole("heading", { name: "执行步骤", exact: true }),
+  ).toBeVisible();
   await expect(drawer.getByText("日志")).toBeVisible();
 });
 

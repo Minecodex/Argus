@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
-	"net/http"
 )
 
 // ServerInterface represents all server handlers.

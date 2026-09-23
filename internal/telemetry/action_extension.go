@@ -181,7 +181,7 @@ func validateTarget(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, 
 			return resource.ErrActionInvalidated
 		}
 	case "kubernetes_cluster":
-		if plan.Platform != "linux_arm64" {
+		if plan.Platform != "linux_arm64" && plan.Platform != "linux_amd64" {
 			return resource.ErrActionInvalidated
 		}
 		if _, err := q.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: plan.ResourceID, EnterpriseID: enterpriseID}); err != nil {

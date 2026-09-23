@@ -44,6 +44,21 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 		return err
 	}
 	helm := helmManager{contextName: cfg.Spec.KubeContext, cacheDir: filepath.Join(root, "deploy", ".cache", "charts"), log: a.stderr}
+	{
+		resolved := map[string]string{}
+		names := []string{"argus-backend"}
+		if cfg.Spec.Workspace.Enabled {
+			names = append(names, "argus-workspace", "argus-workspace-egress")
+		}
+		for _, name := range names {
+			digest, err := a.imageManifestDigest(ctx, cfg, name)
+			if err != nil {
+				return fmt.Errorf("resolve Workspace image %s: %w", name, err)
+			}
+			resolved[name] = cfg.Image(name) + "@" + digest
+		}
+		cfg.resolvedImages = resolved
+	}
 
 	foundation, err := loadLocalChart(root, "argus-foundation")
 	if err != nil {
@@ -158,39 +173,13 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 		return err
 	}
 
-	if err := clients.setStage(ctx, cfg, "sandbox", "running", "installing OpenSandbox 0.2.0"); err != nil {
+	if err := a.installWorkspaceStorage(ctx, cfg, clients, helm); err != nil {
 		return err
 	}
-	openSandbox, err := helm.loadOpenSandboxChart(ctx)
-	if err != nil {
-		return err
-	}
-	generatedSecret := cfg.Spec.ReleaseID + "-generated-secrets"
-	apiKey, err := ensureSecretValue(ctx, clients, cfg.Spec.Namespaces.Sandbox, generatedSecret, "opensandbox-api-key", 32)
-	if err != nil {
-		return err
-	}
-	if err := helm.installOrUpgrade(ctx, cfg.upstreamReleaseName("os"), cfg.Spec.Namespaces.Sandbox, openSandbox, openSandboxValues(cfg, generatedSecret)); err != nil {
-		return err
-	}
-	if err := a.markOwnedCRDs(ctx, cfg); err != nil {
-		return err
-	}
-	sandboxMarker, err := loadLocalChart(root, "argus-sandbox")
-	if err != nil {
-		return err
-	}
-	if err := helm.installOrUpgrade(ctx, cfg.Spec.ReleaseID+"-sandbox", cfg.Spec.Namespaces.Sandbox, sandboxMarker, sandboxValues(cfg, apiKey)); err != nil {
-		return err
-	}
-	if err := waitForDeployment(ctx, clients, cfg.Spec.Namespaces.Sandbox, "opensandbox-controller-manager", 10*time.Minute); err != nil {
-		return err
-	}
-	if err := waitForDeployment(ctx, clients, cfg.Spec.Namespaces.Sandbox, "opensandbox-server", 10*time.Minute); err != nil {
-		return err
-	}
-	if err := clients.setStage(ctx, cfg, "sandbox", "complete", "OpenSandbox ready with shared-runtime degradation"); err != nil {
-		return err
+	if cfg.Spec.OpenSandbox.Enabled {
+		if err := a.installOpenSandbox(ctx, cfg, clients, helm, root); err != nil {
+			return err
+		}
 	}
 
 	telemetryChart, err := loadLocalChart(root, "argus-telemetry-pipeline")
@@ -389,8 +378,7 @@ func dataValues(cfg *InstallConfig, secrets map[string]string, profiles ...Netwo
 		"images": map[string]any{
 			"registry": cfg.Spec.Images.Registry, "tag": cfg.Spec.Images.Tag, "pullPolicy": cfg.Spec.Images.PullPolicy,
 			"postgresql": "postgres:18.6-alpine", "redis": "redis:8.10.0-alpine", "minio": cfg.Image("minio"),
-			"minioClient": "minio/mc:RELEASE.2025-08-13T08-35-41Z",
-			"clickhouse":  "clickhouse/clickhouse-server:26.3.17.110-alpine",
+			"clickhouse": "clickhouse/clickhouse-server:26.3.17.110-alpine",
 		},
 		"openbao": map[string]any{
 			"enabled": cfg.Spec.Profile == "local-hardening", "token": secrets["openbao-token"],
@@ -427,7 +415,7 @@ func platformValues(cfg *InstallConfig, credentials map[string]string, setupSecr
 	enterpriseHost := cfg.Spec.Exposure.EnterpriseHost
 	platformHost := cfg.Spec.Exposure.PlatformHost
 	connectorHost := cfg.Spec.Exposure.ConnectorHost
-	cardsHost := "cards." + parentDomain(enterpriseHost)
+	templatesHost := "templates." + parentDomain(enterpriseHost)
 	artifactHost := cfg.Spec.Exposure.ArtifactHost
 	if artifactHost == "" {
 		artifactHost = "artifacts." + parentDomain(enterpriseHost)
@@ -435,7 +423,7 @@ func platformValues(cfg *InstallConfig, credentials map[string]string, setupSecr
 	allowedOrigins := []any{
 		"https://" + enterpriseHost,
 		"https://" + platformHost,
-		"https://" + cardsHost,
+		"https://" + templatesHost,
 	}
 	connectorEnrollmentURL := "https://" + enterpriseHost
 	connectorGatewayAddress := "grpcs://" + connectorHost + ":9443"
@@ -502,7 +490,8 @@ func platformValues(cfg *InstallConfig, credentials map[string]string, setupSecr
 	values := map[string]any{
 		"releaseId": cfg.Spec.ReleaseID, "profile": cfg.Spec.Profile, "namespaces": namespacesValues(cfg), "replicas": 1, "setupTokenSecretName": setupSecret,
 		"images":           map[string]any{"backend": cfg.Image("argus-backend"), "web": cfg.Image("argus-web"), "pullPolicy": cfg.Spec.Images.PullPolicy, "postgresql": "postgres:18.6-alpine"},
-		"hosts":            map[string]any{"enterprise": enterpriseHost, "platform": platformHost, "cards": cardsHost, "connector": connectorHost, "artifact": artifactHost},
+		"workspace":        map[string]any{"enabled": cfg.Spec.Workspace.Enabled, "storageClass": cfg.Spec.Workspace.StorageClass, "defaultBytes": cfg.Spec.Workspace.DefaultBytes, "enterpriseBytes": cfg.Spec.Workspace.EnterpriseBytes, "maxFileBytes": cfg.Spec.Workspace.MaxFileBytes, "egressImage": cfg.Image("argus-workspace-egress")},
+		"hosts":            map[string]any{"enterprise": enterpriseHost, "platform": platformHost, "templates": templatesHost, "connector": connectorHost, "artifact": artifactHost},
 		"ingressClassName": cfg.Spec.Exposure.IngressClassName,
 		"pki":              buildPKIValues(cfg),
 		"runtime":          runtimeValues,
@@ -829,6 +818,10 @@ func sandboxValues(cfg *InstallConfig, apiKey string) map[string]any {
 	return map[string]any{
 		"releaseId": cfg.Spec.ReleaseID, "apiKey": apiKey, "runtimeClassName": cfg.Spec.OpenSandbox.RuntimeClassName,
 		"allowSharedRuntime": cfg.Spec.OpenSandbox.AllowSharedRuntime,
+		"namespace":          cfg.Spec.Namespaces.Sandbox,
+		"execdImage":         "opensandbox/execd:v1.0.22@sha256:0d8f44cf4194732719aa79999d4b120c98bdab02bc61e9ad13f75f83af4c2684",
+		"egressImage":        cfg.Image("argus-workspace-egress"),
+		"serverConfig":       openSandboxConfig(cfg),
 		"versions":           map[string]any{"chart": "0.2.0", "server": "0.2.2", "controller": "0.2.0"},
 	}
 }
@@ -844,54 +837,6 @@ func telemetryValues(cfg *InstallConfig, profiles ...NetworkProfile) map[string]
 		"images":     map[string]any{"clickhouse": "clickhouse/clickhouse-server:26.3.17.110-alpine"},
 		"clickhouse": map[string]any{"endpoint": "tcp://argus-clickhouse-client:9000"},
 		"kafka":      map[string]any{"brokers": "argus-kafka-kafka-bootstrap:9092"},
-	}
-}
-
-func openSandboxValues(cfg *InstallConfig, generatedSecret string) map[string]any {
-	config := fmt.Sprintf(`[server]
-host = "0.0.0.0"
-port = 80
-api_key = ""
-
-[log]
-level = "INFO"
-
-[runtime]
-type = "kubernetes"
-execd_image = "opensandbox/execd:v1.0.22"
-
-[kubernetes]
-kubeconfig_path = ""
-namespace = %q
-informer_enabled = true
-informer_resync_seconds = 300
-informer_watch_timeout_seconds = 60
-snapshot_create_timeout_seconds = 900
-workload_provider = "batchsandbox"
-batchsandbox_template_file = "/etc/opensandbox/example.batchsandbox-template.yaml"
-
-[egress]
-image = "opensandbox/egress:v1.1.6"
-mode = "dns+nft"
-`, cfg.Spec.Namespaces.Sandbox)
-	return map[string]any{
-		"opensandbox-controller": map[string]any{
-			"namespaceOverride": cfg.Spec.Namespaces.Sandbox,
-			"controller": map[string]any{
-				"replicaCount": 1,
-				"image":        map[string]any{"repository": "opensandbox/controller", "tag": "v0.2.0", "pullPolicy": "IfNotPresent"},
-				"resources":    map[string]any{"requests": map[string]any{"cpu": "25m", "memory": "64Mi"}, "limits": map[string]any{"cpu": "500m", "memory": "256Mi"}},
-			},
-		},
-		"opensandbox-server": map[string]any{
-			"namespaceOverride": cfg.Spec.Namespaces.Sandbox,
-			"server": map[string]any{
-				"replicaCount": 1, "image": map[string]any{"repository": "opensandbox/server", "tag": "v0.2.2"},
-				"resources": map[string]any{"requests": map[string]any{"cpu": "100m", "memory": "256Mi"}, "limits": map[string]any{"cpu": "1", "memory": "1Gi"}},
-				"env":       []any{map[string]any{"name": "OPENSANDBOX_SERVER_API_KEY", "valueFrom": map[string]any{"secretKeyRef": map[string]any{"name": generatedSecret, "key": "opensandbox-api-key"}}}},
-			},
-			"configToml": config,
-		},
 	}
 }
 

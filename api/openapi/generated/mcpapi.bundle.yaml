@@ -1,0 +1,389 @@
+openapi: 3.1.0
+info:
+  title: Argus mcpapi
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+paths:
+  /enterprise/mcp-connections:
+    get:
+      operationId: listMCPConnections
+      summary: listMCPConnections.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPConnectionPage'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: createMCPConnection
+      summary: createMCPConnection.
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPConnection'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPConnectionWrite'
+  /enterprise/mcp-connections/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getMCPConnection
+      summary: getMCPConnection.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPConnection'
+        default:
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: updateMCPConnection
+      summary: updateMCPConnection.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPConnection'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPConnectionWrite'
+  /enterprise/mcp-connections/{id}/test:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: testMCPConnection
+      summary: testMCPConnection.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPConnection'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+  /enterprise/mcp-connections/{id}/state:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: setMCPConnectionState
+      summary: setMCPConnectionState.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPConnection'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPConnectionState'
+  /enterprise/mcp-connections/{id}/members:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: setMCPConnectionMembers
+      summary: setMCPConnectionMembers.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPConnection'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPConnectionMembers'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argus_session
+  schemas:
+    RequestId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._-]+$
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message_key
+        - request_id
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+        message_key:
+          type: string
+          pattern: ^errors\.[a-z0-9_.]+$
+        params:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        message:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+        trace_id:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+          default: false
+    MCPConnection:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - transport
+        - endpoint
+        - auth_type
+        - status
+        - health_status
+        - version
+        - revision
+        - tool_count
+        - member_ids
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        transport:
+          type: string
+          enum:
+            - streamable_http
+        endpoint:
+          type: string
+          format: uri
+          maxLength: 2048
+        auth_type:
+          type: string
+          enum:
+            - none
+            - bearer
+            - basic
+        status:
+          type: string
+          enum:
+            - enabled
+            - disabled
+        health_status:
+          type: string
+          enum:
+            - unknown
+            - healthy
+            - unhealthy
+        version:
+          type: integer
+          format: int64
+        revision:
+          type: integer
+        tool_count:
+          type: integer
+          minimum: 0
+        member_ids:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        last_error_code:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MCPConnectionPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MCPConnection'
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]+$
+    MCPConnectionWrite:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - endpoint
+        - auth_type
+        - member_ids
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        endpoint:
+          type: string
+          format: uri
+          maxLength: 2048
+        auth_type:
+          type: string
+          enum:
+            - none
+            - bearer
+            - basic
+        credential_value:
+          type: string
+          maxLength: 8192
+          writeOnly: true
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        member_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 10000
+          items:
+            type: string
+            format: uuid
+    MCPConnectionState:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - expected_version
+      properties:
+        status:
+          type: string
+          enum:
+            - enabled
+            - disabled
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    MCPConnectionMembers:
+      type: object
+      additionalProperties: false
+      required:
+        - member_ids
+        - expected_version
+      properties:
+        member_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 10000
+          items:
+            type: string
+            format: uuid
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+  responses:
+    Error:
+      description: Stable Argus error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 256
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'

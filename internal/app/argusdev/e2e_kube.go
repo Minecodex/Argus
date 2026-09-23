@@ -108,9 +108,19 @@ func (k *E2EKube) AcquireLease(ctx context.Context, name, holder string) error {
 	return err
 }
 
-func (k *E2EKube) ReleaseLease(ctx context.Context, name string) error {
+func (k *E2EKube) ReleaseLease(ctx context.Context, name, holder string) error {
 	leases := k.Client.CoordinationV1().Leases("kube-system")
-	if err := leases.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	current, err := leases.Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if current.Spec.HolderIdentity == nil || *current.Spec.HolderIdentity != holder {
+		return fmt.Errorf("refusing to release another E2E lease")
+	}
+	if err := leases.Delete(ctx, name, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &current.UID, ResourceVersion: &current.ResourceVersion}}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	for {

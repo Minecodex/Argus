@@ -1,5 +1,7 @@
 # M1：前端与 API 基础
 
+> 本文保留原 M1 的阶段验收记录。当前共享 UI、应用目录、展示契约和运行入口以 PlanV5 为准：旧 Card Runtime 已替换为 `template-runtime` 与 `@argus/ui` 的 Template Host，Card 领域和 Bridge 动作已删除；旧记录不能替代当前 [PlanV5 门禁](../planv5/acceptance-report.md)。
+
 ## 目标
 
 让三个前端应用建立在冻结契约和统一组件边界上，移除会阻碍真实后端接入的安全与结构欠账。

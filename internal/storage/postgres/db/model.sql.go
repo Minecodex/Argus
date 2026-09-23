@@ -178,21 +178,25 @@ func (q *Queries) CreateAIModelRevision(ctx context.Context, arg CreateAIModelRe
 
 const createModelCall = `-- name: CreateModelCall :one
 INSERT INTO model_calls (id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash,
-    input_price_snapshot, output_price_snapshot, status)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'reserved') RETURNING id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash, input_tokens, output_tokens, input_price_snapshot, output_price_snapshot, amount, latency_ms, stop_reason, status, error_code, created_at, completed_at
+    input_price_snapshot, output_price_snapshot, context_snapshot_id, context_snapshot_hash, context_from_sequence, context_through_sequence, status)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'reserved') RETURNING id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash, context_snapshot_id, context_snapshot_hash, tool_snapshot_hash, capability_snapshot, dispatched_at, context_from_sequence, context_through_sequence, input_tokens, output_tokens, cached_input_tokens, cached_input_usage_source, input_usage_source, output_usage_source, input_price_snapshot, output_price_snapshot, amount, latency_ms, stop_reason, status, error_code, created_at, completed_at
 `
 
 type CreateModelCallParams struct {
-	ID                  uuid.UUID      `json:"id"`
-	EnterpriseID        uuid.UUID      `json:"enterprise_id"`
-	RunID               uuid.UUID      `json:"run_id"`
-	StepID              uuid.UUID      `json:"step_id"`
-	ModelID             uuid.UUID      `json:"model_id"`
-	ModelRevision       int32          `json:"model_revision"`
-	CallKind            string         `json:"call_kind"`
-	ProjectionHash      []byte         `json:"projection_hash"`
-	InputPriceSnapshot  pgtype.Numeric `json:"input_price_snapshot"`
-	OutputPriceSnapshot pgtype.Numeric `json:"output_price_snapshot"`
+	ID                     uuid.UUID      `json:"id"`
+	EnterpriseID           uuid.UUID      `json:"enterprise_id"`
+	RunID                  uuid.UUID      `json:"run_id"`
+	StepID                 uuid.UUID      `json:"step_id"`
+	ModelID                uuid.UUID      `json:"model_id"`
+	ModelRevision          int32          `json:"model_revision"`
+	CallKind               string         `json:"call_kind"`
+	ProjectionHash         []byte         `json:"projection_hash"`
+	InputPriceSnapshot     pgtype.Numeric `json:"input_price_snapshot"`
+	OutputPriceSnapshot    pgtype.Numeric `json:"output_price_snapshot"`
+	ContextSnapshotID      uuid.NullUUID  `json:"context_snapshot_id"`
+	ContextSnapshotHash    []byte         `json:"context_snapshot_hash"`
+	ContextFromSequence    int64          `json:"context_from_sequence"`
+	ContextThroughSequence int64          `json:"context_through_sequence"`
 }
 
 func (q *Queries) CreateModelCall(ctx context.Context, arg CreateModelCallParams) (ModelCall, error) {
@@ -207,6 +211,10 @@ func (q *Queries) CreateModelCall(ctx context.Context, arg CreateModelCallParams
 		arg.ProjectionHash,
 		arg.InputPriceSnapshot,
 		arg.OutputPriceSnapshot,
+		arg.ContextSnapshotID,
+		arg.ContextSnapshotHash,
+		arg.ContextFromSequence,
+		arg.ContextThroughSequence,
 	)
 	var i ModelCall
 	err := row.Scan(
@@ -218,8 +226,19 @@ func (q *Queries) CreateModelCall(ctx context.Context, arg CreateModelCallParams
 		&i.ModelRevision,
 		&i.CallKind,
 		&i.ProjectionHash,
+		&i.ContextSnapshotID,
+		&i.ContextSnapshotHash,
+		&i.ToolSnapshotHash,
+		&i.CapabilitySnapshot,
+		&i.DispatchedAt,
+		&i.ContextFromSequence,
+		&i.ContextThroughSequence,
 		&i.InputTokens,
 		&i.OutputTokens,
+		&i.CachedInputTokens,
+		&i.CachedInputUsageSource,
+		&i.InputUsageSource,
+		&i.OutputUsageSource,
 		&i.InputPriceSnapshot,
 		&i.OutputPriceSnapshot,
 		&i.Amount,
@@ -271,7 +290,7 @@ func (q *Queries) CreateModelCompatibilityResult(ctx context.Context, arg Create
 
 const createQuotaReservation = `-- name: CreateQuotaReservation :one
 INSERT INTO model_quota_reservations (id, enterprise_id, model_call_id, model_id, department_id, user_id, month, reserved_amount, status, expires_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'active',$9) RETURNING id, enterprise_id, model_call_id, model_id, department_id, user_id, month, reserved_amount, settled_amount, status, expires_at, created_at
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'active',$9) RETURNING id, enterprise_id, model_call_id, model_id, department_id, user_id, month, reserved_amount, usage_source, settled_amount, status, expires_at, created_at
 `
 
 type CreateQuotaReservationParams struct {
@@ -308,6 +327,7 @@ func (q *Queries) CreateQuotaReservation(ctx context.Context, arg CreateQuotaRes
 		&i.UserID,
 		&i.Month,
 		&i.ReservedAmount,
+		&i.UsageSource,
 		&i.SettledAmount,
 		&i.Status,
 		&i.ExpiresAt,
@@ -318,20 +338,25 @@ func (q *Queries) CreateQuotaReservation(ctx context.Context, arg CreateQuotaRes
 
 const finishModelCall = `-- name: FinishModelCall :one
 UPDATE model_calls SET input_tokens = $3, output_tokens = $4, amount = $5, latency_ms = $6,
-    stop_reason = $7, status = $8, error_code = $9, completed_at = now()
-WHERE id = $1 AND enterprise_id = $2 RETURNING id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash, input_tokens, output_tokens, input_price_snapshot, output_price_snapshot, amount, latency_ms, stop_reason, status, error_code, created_at, completed_at
+    stop_reason = $7, status = $8, error_code = $9, completed_at = now(),
+    input_usage_source=$10, output_usage_source=$11, cached_input_tokens=$12, cached_input_usage_source=$13
+WHERE id = $1 AND enterprise_id = $2 RETURNING id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash, context_snapshot_id, context_snapshot_hash, tool_snapshot_hash, capability_snapshot, dispatched_at, context_from_sequence, context_through_sequence, input_tokens, output_tokens, cached_input_tokens, cached_input_usage_source, input_usage_source, output_usage_source, input_price_snapshot, output_price_snapshot, amount, latency_ms, stop_reason, status, error_code, created_at, completed_at
 `
 
 type FinishModelCallParams struct {
-	ID           uuid.UUID      `json:"id"`
-	EnterpriseID uuid.UUID      `json:"enterprise_id"`
-	InputTokens  int64          `json:"input_tokens"`
-	OutputTokens int64          `json:"output_tokens"`
-	Amount       pgtype.Numeric `json:"amount"`
-	LatencyMs    int64          `json:"latency_ms"`
-	StopReason   pgtype.Text    `json:"stop_reason"`
-	Status       string         `json:"status"`
-	ErrorCode    pgtype.Text    `json:"error_code"`
+	ID                     uuid.UUID      `json:"id"`
+	EnterpriseID           uuid.UUID      `json:"enterprise_id"`
+	InputTokens            int64          `json:"input_tokens"`
+	OutputTokens           int64          `json:"output_tokens"`
+	Amount                 pgtype.Numeric `json:"amount"`
+	LatencyMs              int64          `json:"latency_ms"`
+	StopReason             pgtype.Text    `json:"stop_reason"`
+	Status                 string         `json:"status"`
+	ErrorCode              pgtype.Text    `json:"error_code"`
+	InputUsageSource       string         `json:"input_usage_source"`
+	OutputUsageSource      string         `json:"output_usage_source"`
+	CachedInputTokens      int64          `json:"cached_input_tokens"`
+	CachedInputUsageSource string         `json:"cached_input_usage_source"`
 }
 
 func (q *Queries) FinishModelCall(ctx context.Context, arg FinishModelCallParams) (ModelCall, error) {
@@ -345,6 +370,10 @@ func (q *Queries) FinishModelCall(ctx context.Context, arg FinishModelCallParams
 		arg.StopReason,
 		arg.Status,
 		arg.ErrorCode,
+		arg.InputUsageSource,
+		arg.OutputUsageSource,
+		arg.CachedInputTokens,
+		arg.CachedInputUsageSource,
 	)
 	var i ModelCall
 	err := row.Scan(
@@ -356,8 +385,19 @@ func (q *Queries) FinishModelCall(ctx context.Context, arg FinishModelCallParams
 		&i.ModelRevision,
 		&i.CallKind,
 		&i.ProjectionHash,
+		&i.ContextSnapshotID,
+		&i.ContextSnapshotHash,
+		&i.ToolSnapshotHash,
+		&i.CapabilitySnapshot,
+		&i.DispatchedAt,
+		&i.ContextFromSequence,
+		&i.ContextThroughSequence,
 		&i.InputTokens,
 		&i.OutputTokens,
+		&i.CachedInputTokens,
+		&i.CachedInputUsageSource,
+		&i.InputUsageSource,
+		&i.OutputUsageSource,
 		&i.InputPriceSnapshot,
 		&i.OutputPriceSnapshot,
 		&i.Amount,
@@ -634,8 +674,13 @@ const listModelUsage = `-- name: ListModelUsage :many
 SELECT model_id,
     date_trunc('month', completed_at)::date AS month,
     count(*)::bigint AS request_count,
-    COALESCE(sum(input_tokens), 0)::bigint AS input_tokens,
-    COALESCE(sum(output_tokens), 0)::bigint AS output_tokens,
+    COALESCE(sum(input_tokens) FILTER(WHERE input_usage_source='provider'), 0)::bigint AS input_tokens,
+    COALESCE(sum(input_tokens) FILTER(WHERE input_usage_source='estimated'), 0)::bigint AS estimated_input_tokens,
+    COALESCE(sum(output_tokens) FILTER(WHERE output_usage_source='provider'), 0)::bigint AS output_tokens,
+    COALESCE(sum(output_tokens) FILTER(WHERE output_usage_source='estimated'), 0)::bigint AS estimated_output_tokens,
+    bool_and(input_usage_source='provider' AND output_usage_source='provider' AND cached_input_usage_source<>'invalid' AND (cached_input_usage_source<>'provider' OR cached_input_tokens<=input_tokens) AND status='succeeded')::boolean AS usage_complete,
+    COALESCE(sum(cached_input_tokens) FILTER(WHERE cached_input_usage_source='provider' AND input_usage_source='provider' AND cached_input_tokens<=input_tokens),0)::bigint AS cached_input_tokens,
+    bool_and(cached_input_usage_source='provider' AND input_usage_source='provider' AND cached_input_tokens<=input_tokens AND status='succeeded')::boolean AS cached_usage_complete,
     COALESCE(sum(amount), 0)::numeric(20,8) AS amount,
     count(*) FILTER (WHERE call_kind = 'compaction')::bigint AS compaction_count
 FROM model_calls
@@ -653,13 +698,18 @@ type ListModelUsageParams struct {
 }
 
 type ListModelUsageRow struct {
-	ModelID         uuid.UUID      `json:"model_id"`
-	Month           pgtype.Date    `json:"month"`
-	RequestCount    int64          `json:"request_count"`
-	InputTokens     int64          `json:"input_tokens"`
-	OutputTokens    int64          `json:"output_tokens"`
-	Amount          pgtype.Numeric `json:"amount"`
-	CompactionCount int64          `json:"compaction_count"`
+	ModelID               uuid.UUID      `json:"model_id"`
+	Month                 pgtype.Date    `json:"month"`
+	RequestCount          int64          `json:"request_count"`
+	InputTokens           int64          `json:"input_tokens"`
+	EstimatedInputTokens  int64          `json:"estimated_input_tokens"`
+	OutputTokens          int64          `json:"output_tokens"`
+	EstimatedOutputTokens int64          `json:"estimated_output_tokens"`
+	UsageComplete         bool           `json:"usage_complete"`
+	CachedInputTokens     int64          `json:"cached_input_tokens"`
+	CachedUsageComplete   bool           `json:"cached_usage_complete"`
+	Amount                pgtype.Numeric `json:"amount"`
+	CompactionCount       int64          `json:"compaction_count"`
 }
 
 func (q *Queries) ListModelUsage(ctx context.Context, arg ListModelUsageParams) ([]ListModelUsageRow, error) {
@@ -681,7 +731,12 @@ func (q *Queries) ListModelUsage(ctx context.Context, arg ListModelUsageParams) 
 			&i.Month,
 			&i.RequestCount,
 			&i.InputTokens,
+			&i.EstimatedInputTokens,
 			&i.OutputTokens,
+			&i.EstimatedOutputTokens,
+			&i.UsageComplete,
+			&i.CachedInputTokens,
+			&i.CachedUsageComplete,
 			&i.Amount,
 			&i.CompactionCount,
 		); err != nil {
@@ -696,8 +751,12 @@ func (q *Queries) ListModelUsage(ctx context.Context, arg ListModelUsageParams) 
 }
 
 const settleQuotaReservation = `-- name: SettleQuotaReservation :one
-UPDATE model_quota_reservations SET settled_amount = $3, status = 'settled'
-WHERE id = $1 AND enterprise_id = $2 AND status = 'active' RETURNING id, enterprise_id, model_call_id, model_id, department_id, user_id, month, reserved_amount, settled_amount, status, expires_at, created_at
+UPDATE model_quota_reservations r SET settled_amount = $3, status = 'settled',
+ usage_source=(SELECT CASE WHEN c.input_usage_source='invalid' OR c.output_usage_source='invalid' OR c.cached_input_usage_source='invalid' THEN 'invalid'
+ WHEN c.input_usage_source='provider' AND c.output_usage_source='provider' THEN 'provider'
+ WHEN c.input_usage_source='estimated' OR c.output_usage_source='estimated' THEN 'estimated' ELSE 'missing' END
+ FROM model_calls c WHERE c.id=r.model_call_id AND c.enterprise_id=r.enterprise_id)
+WHERE r.id = $1 AND r.enterprise_id = $2 AND r.status = 'active' RETURNING r.id, r.enterprise_id, r.model_call_id, r.model_id, r.department_id, r.user_id, r.month, r.reserved_amount, r.usage_source, r.settled_amount, r.status, r.expires_at, r.created_at
 `
 
 type SettleQuotaReservationParams struct {
@@ -718,6 +777,7 @@ func (q *Queries) SettleQuotaReservation(ctx context.Context, arg SettleQuotaRes
 		&i.UserID,
 		&i.Month,
 		&i.ReservedAmount,
+		&i.UsageSource,
 		&i.SettledAmount,
 		&i.Status,
 		&i.ExpiresAt,

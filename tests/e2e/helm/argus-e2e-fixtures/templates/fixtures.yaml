@@ -34,7 +34,7 @@ spec:
 ---
 apiVersion: v1
 kind: Secret
-metadata: {name: argus-replay-model-tls, namespace: {{ .Values.namespaces.sandbox }}}
+metadata: {name: argus-replay-model-tls, namespace: {{ .Values.namespaces.replay }}}
 type: kubernetes.io/tls
 data:
   tls.crt: {{ .Values.tls.replay.certificate | b64enc | quote }}
@@ -45,7 +45,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: argus-replay-model
-  namespace: {{ .Values.namespaces.sandbox }}
+  namespace: {{ .Values.namespaces.replay }}
   labels: &replayLabels
     app.kubernetes.io/name: argus-replay-model
     app.kubernetes.io/part-of: argus-e2e
@@ -72,7 +72,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: argus-replay-model, namespace: {{ .Values.namespaces.sandbox }}}
+metadata: {name: argus-replay-model, namespace: {{ .Values.namespaces.replay }}}
 spec:
   selector: {app.kubernetes.io/name: argus-replay-model}
   ports: [{name: model, port: 443, targetPort: model}, {name: sandbox, port: 8081, targetPort: sandbox}]
@@ -83,11 +83,11 @@ metadata: {name: argus-e2e-replay-egress, namespace: {{ .Values.namespaces.syste
 spec:
   podSelector:
     matchExpressions:
-      - {key: app.kubernetes.io/name, operator: In, values: [argus-worker]}
+      - {key: app.kubernetes.io/name, operator: In, values: [argus-server, argus-worker, argus-worker-agent, argus-worker-compaction, argus-worker-sandbox]}
   policyTypes: [Egress]
   egress:
     - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: {{ .Values.namespaces.sandbox }}}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: {{ .Values.namespaces.replay }}}}
           podSelector: {matchLabels: {app.kubernetes.io/name: argus-replay-model}}
       ports: [{protocol: TCP, port: 8080}, {protocol: TCP, port: 8081}]
 {{- end }}

@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -31,47 +32,51 @@ type E2EOptions struct {
 	BaselinesRun bool
 	PKIMode      string
 	BootstrapTLS string
+	RealModel    *p5RealModelConfig
 }
 
 type E2EEnvironment struct {
-	Options            E2EOptions
-	Root               string
-	WorkDir            string
-	ConfigPath         string
-	Profile            string
-	ReleaseID          string
-	SystemNS           string
-	SandboxNS          string
-	ObservNS           string
-	ImageTag           string
-	ImagePlatform      string
-	Argusctl           string
-	Kube               *E2EKube
-	Endpoints          *E2EEndpoints
-	Processes          []*Process
-	ManagedNamespaces  []string
-	ManagedClusterRBAC []string
-	ExternalPKI        *e2eExternalPKI
-	State              *ScenarioState
-	CollectorArtifacts *E2ECollectorArtifacts
-	ArtifactSigning    *E2EArtifactSigning
-	ArtifactTLS        fixtureCertificate
-	installed          bool
-	imagesAttempted    bool
-	installAttempted   bool
-	leaseAcquired      bool
-	fixtureAttempted   bool
-	fixtureReady       bool
+	IngressNS, IngressClass string
+	Forwards                []*KubeForward
+	Paused                  []pausedWorkload
+	Options                 E2EOptions
+	Root                    string
+	WorkDir                 string
+	ConfigPath              string
+	Profile                 string
+	ReleaseID               string
+	SystemNS                string
+	SandboxNS               string
+	ObservNS                string
+	ImageTag                string
+	ImagePlatform           string
+	Argusctl                string
+	Kube                    *E2EKube
+	Endpoints               *E2EEndpoints
+	Processes               []*Process
+	ManagedNamespaces       []string
+	ManagedClusterRBAC      []string
+	ExternalPKI             *e2eExternalPKI
+	State                   *ScenarioState
+	CollectorArtifacts      *E2ECollectorArtifacts
+	ArtifactSigning         *E2EArtifactSigning
+	ArtifactTLS             fixtureCertificate
+	installed               bool
+	imagesAttempted         bool
+	installAttempted        bool
+	leaseAcquired           bool
+	fixtureAttempted        bool
+	fixtureReady            bool
 }
 
 var suiteDependencies = map[string][]string{
 	"m2":                  {"m2"},
 	"m3":                  {"m2", "m3"},
 	"m4":                  {"m2", "m4"},
-	"m5":                  {"m2", "m3", "m4", "m5"},
+	"p5":                  {"m2", "p5"},
 	"m6":                  {"m2", "m3", "m6"},
-	"m7":                  {"m2", "m3", "m4", "m5", "m7"},
-	"m10-query":           {"m2", "m3", "m4", "m5", "m7", "m10-query"},
+	"m7":                  {"m2", "m3", "m4", "p5-native", "m7"},
+	"m10-query":           {"m2", "m3", "m4", "p5-native", "m7", "m10-query"},
 	"m8":                  {"m6", "m7", "m8"},
 	"p4":                  {"m2", "p4"},
 	"tls":                 {"m2", "tls"},
@@ -94,6 +99,7 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	artifacts := flags.String("artifacts", envOr("ARGUS_E2E_ARTIFACTS", ""), "artifact directory")
 	unitOnly := flags.Bool("unit-only", envBool("ARGUS_E2E_UNIT_ONLY"), "run the suite's non-cluster gate only")
 	argusctl := flags.String("argusctl", envOr("ARGUS_E2E_ARGUSCTL", envOr("ARGUSCTL_BIN", "")), "existing argusctl binary")
+	realModelPath := flags.String("real-model-config", "", "P5 real-model benchmark JSON configuration (API key from named environment variable)")
 	if err := flags.Parse(args[1:]); err != nil {
 		return fmt.Errorf("%w: %v", errUsage, err)
 	}
@@ -112,6 +118,16 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 		*artifacts = filepath.Join(a.root, *artifacts)
 	}
 	options := E2EOptions{Suite: *suite, KubeContext: *kubeContext, RunID: *runID, Artifacts: *artifacts, UnitOnly: *unitOnly, Argusctl: *argusctl}
+	if *realModelPath != "" {
+		if *suite != "p5" || *unitOnly {
+			return fmt.Errorf("%w: --real-model-config requires the P5 cluster suite", errUsage)
+		}
+		var err error
+		options.RealModel, err = loadP5RealModelConfig(*realModelPath)
+		if err != nil {
+			return err
+		}
+	}
 	if *unitOnly {
 		return a.runE2EUnitGate(ctx, options)
 	}
@@ -122,15 +138,19 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 }
 
 func (a *App) runE2EUnitGate(ctx context.Context, options E2EOptions) error {
+	targets := []string{"./..."}
 	if options.Suite == "m10-query" {
-		for _, target := range []string{"./internal/transport/httpapi", "./internal/telemetry", "./tests/contract"} {
-			if err := a.runner.Run(ctx, nil, "go", "test", target); err != nil {
-				return err
-			}
-		}
-		return nil
+		targets = []string{"./internal/transport/httpapi", "./internal/telemetry", "./tests/contract"}
 	}
-	return a.runner.Run(ctx, nil, "go", "test", "./...")
+	for _, target := range targets {
+		if err := a.runner.Run(ctx, nil, "go", "test", target); err != nil {
+			return err
+		}
+	}
+	if suiteFixtureFeatures(options.Suite).Replay {
+		return a.runner.Run(ctx, nil, "go", "test", "-tags", "m4e2e", "./cmd/argus-replay-model")
+	}
+	return nil
 }
 
 func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr error) {
@@ -167,16 +187,25 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 	}
 	env := &E2EEnvironment{Options: options, Root: a.root, WorkDir: workDir, State: NewScenarioState(options.RunID)}
 	defer func() {
+		if returnErr != nil {
+			_, _ = fmt.Fprintf(a.stderr, "E2E failed before cleanup: %v\n", returnErr)
+		}
 		returnErr = errors.Join(returnErr, a.cleanupE2E(env))
 		_ = os.RemoveAll(workDir)
 	}()
 	if err := a.prepareE2EEnvironment(ctx, env); err != nil {
 		return err
 	}
-	if err := env.Kube.AcquireLease(ctx, "argus-"+options.Suite+"-e2e", options.RunID); err != nil {
+	if err := env.Kube.AcquireLease(ctx, "argus-global-e2e", options.RunID); err != nil {
 		return err
 	}
 	env.leaseAcquired = true
+	if err := a.installE2EIngress(ctx, env); err != nil {
+		return err
+	}
+	if err := a.pauseFormalWorkloads(ctx, env); err != nil {
+		return err
+	}
 	if err := a.invokeArgusctl(ctx, env, "preflight", "--config", env.ConfigPath); err != nil {
 		return err
 	}
@@ -191,7 +220,11 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 	if err := a.invokeArgusctl(ctx, env, "install", "--config", env.ConfigPath); err != nil {
 		return err
 	}
-	env.clearArtifactSigningPrivateKey()
+	// P5 installs agent-lite first, then enables OpenSandbox using the same
+	// release and signing identity. The second install clears this key.
+	if options.Suite != "p5" {
+		env.clearArtifactSigningPrivateKey()
+	}
 	env.installed = true
 	env.fixtureAttempted = true
 	if err := a.installE2EFixtures(ctx, env); err != nil {
@@ -237,6 +270,10 @@ func (a *App) prepareE2EEnvironment(ctx context.Context, env *E2EEnvironment) er
 	env.SystemNS = kubernetesNameForDev(release + "-system")
 	env.SandboxNS = kubernetesNameForDev(release + "-sandbox")
 	env.ObservNS = kubernetesNameForDev(release + "-observability")
+	if envBool("ARGUS_E2E_ISOLATED_INGRESS") {
+		env.IngressNS = kubernetesNameForDev(release + "-ingress")
+		env.IngressClass = kubernetesNameForDev(release + "-nginx")
+	}
 	env.ImageTag = kubernetesNameForDev("e2e-" + env.Options.RunID)
 	if env.Options.PKIMode == "existing-cluster-issuer" {
 		if err := a.prepareE2EExternalIssuer(ctx, env); err != nil {
@@ -290,10 +327,27 @@ func (a *App) writeE2EConfig(env *E2EEnvironment, profile string) (string, error
 	spec["kubeContext"] = env.Options.KubeContext
 	spec["releaseId"] = env.ReleaseID
 	spec["namespaces"] = map[string]any{"system": env.SystemNS, "sandbox": env.SandboxNS, "observability": env.ObservNS}
+	workspace := nestedMap(spec, "workspace")
+	workspace["storageClass"] = "argus-workspace"
+	workspace["defaultBytes"] = int64(256 << 20)
+	workspace["maxFileBytes"] = int64(100 << 20)
+	if env.Options.Suite == "p5" {
+		nestedMap(spec, "openSandbox")["enabled"] = false
+	}
 	// Ingress-nginx rejects duplicate host/path pairs across namespaces. Give
 	// every E2E release its own DNS suffix so a suite can coexist with a local
 	// Argus installation (and with another suite) without mutating either one.
 	exposure := nestedMap(spec, "exposure")
+	if selected := os.Getenv("ARGUS_E2E_INGRESS_CLASS"); selected != "" {
+		exposure["ingressClassName"] = selected
+	}
+	if address := os.Getenv("ARGUS_E2E_HTTPS_INTERNAL_ADDRESS"); address != "" {
+		exposure["httpsInternalAddress"] = address
+	}
+	if env.IngressNS != "" {
+		exposure["ingressClassName"] = env.IngressClass
+		exposure["httpsInternalAddress"] = "argus-e2e-ingress." + env.IngressNS + ".svc:443"
+	}
 	e2eDomain := env.ReleaseID + ".argus.test"
 	exposure["enterpriseHost"] = "enterprise." + e2eDomain
 	exposure["platformHost"] = "platform." + e2eDomain
@@ -309,6 +363,13 @@ func (a *App) writeE2EConfig(env *E2EEnvironment, profile string) (string, error
 	}
 	images := nestedMap(spec, "images")
 	images["tag"] = env.ImageTag
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	registryPort := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+	images["registry"] = fmt.Sprintf("host.docker.internal:%d", registryPort)
 	images["pullPolicy"] = "Never"
 	if artifacts := env.CollectorArtifacts; artifacts != nil {
 		spec["telemetry"] = map[string]any{
@@ -348,10 +409,16 @@ func nestedMap(parent map[string]any, key string) map[string]any {
 
 func (a *App) invokeArgusctl(ctx context.Context, env *E2EEnvironment, args ...string) error {
 	variables := map[string]string{}
+	if env.Endpoints != nil {
+		variables["ARGUSCTL_HTTPS_PROBE_ADDRESS"] = env.Endpoints.IngressDialAddress
+	}
 	if env.ArtifactSigning != nil && len(env.ArtifactSigning.PrivateKey) == ed25519.PrivateKeySize {
 		variables["ARGUS_OTELCOL_SIGNING_PRIVATE_KEY"] = base64.RawStdEncoding.EncodeToString(env.ArtifactSigning.PrivateKey)
 	}
-	return a.runner.Run(ctx, variables, env.Argusctl, args...)
+	stdout := &diagnosticStream{destination: a.runner.Stdout}
+	stderr := &diagnosticStream{destination: a.runner.Stderr}
+	err := a.runner.RunIO(ctx, variables, nil, stdout, stderr, env.Argusctl, args...)
+	return errors.Join(err, stdout.Flush(), stderr.Flush())
 }
 
 func (a *App) cleanupE2E(env *E2EEnvironment) error {
@@ -365,8 +432,12 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 	for index := len(env.Processes) - 1; index >= 0; index-- {
 		record("stop local process", env.Processes[index].Stop(5*time.Second))
 	}
+	for _, forward := range env.Forwards {
+		record("stop E2E port forward", forward.Stop())
+	}
 	if env.Kube != nil {
 		diagnosticCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		a.collectScenarioState(diagnosticCtx, env)
 		record("collect redacted diagnostics", env.Kube.CollectDiagnostics(diagnosticCtx, env, filepath.Join(env.Options.Artifacts, "diagnostics")))
 		cancel()
 	}
@@ -391,12 +462,12 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 		record("delete managed Collector RBAC", cleanupManagedCollectorRBAC(cleanupCtx, env))
 		for _, namespace := range env.ManagedNamespaces {
 			if namespace != "" {
-				record("delete namespace "+namespace, env.Kube.DeleteNamespace(cleanupCtx, namespace))
+				record("delete namespace "+namespace, env.Kube.DeleteNamespace(cleanupCtx, namespace, env.ReleaseID))
 			}
 		}
 		for _, namespace := range []string{env.SystemNS, env.SandboxNS, env.ObservNS} {
 			if namespace != "" {
-				record("delete namespace "+namespace, env.Kube.DeleteNamespace(cleanupCtx, namespace))
+				record("delete namespace "+namespace, env.Kube.DeleteNamespace(cleanupCtx, namespace, env.ReleaseID))
 			}
 		}
 		for _, name := range env.ManagedClusterRBAC {
@@ -409,8 +480,15 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 				record("delete ClusterRole "+name, err)
 			}
 		}
+		if env.IngressClass != "" {
+			err := env.Kube.Client.NetworkingV1().IngressClasses().Delete(cleanupCtx, env.IngressClass, metav1.DeleteOptions{})
+			if err != nil && !apierrors.IsNotFound(err) {
+				record("delete E2E IngressClass", err)
+			}
+		}
 		if env.leaseAcquired {
-			record("release E2E Lease", env.Kube.ReleaseLease(cleanupCtx, "argus-"+env.Options.Suite+"-e2e"))
+			record("restore original replicas", restoreFormalWorkloads(cleanupCtx, env))
+			record("release E2E Lease", env.Kube.ReleaseLease(cleanupCtx, "argus-global-e2e", env.Options.RunID))
 		}
 		if env.ExternalPKI != nil {
 			record("delete external E2E ClusterIssuer", a.deleteE2EExternalIssuer(cleanupCtx, env))

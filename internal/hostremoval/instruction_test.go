@@ -126,7 +126,7 @@ func TestRemovalTokenEnvelopeRoundTrip(t *testing.T) {
 
 func TestDecodeOperationPlanRejectsMutation(t *testing.T) {
 	plan := testPlan("linux_arm64")
-	encoded, _ := json.Marshal(plan)
+	encoded, _ := canonicalPlan(plan)
 	digest := sha256.Sum256(encoded)
 	operation := db.HostRemovalOperation{ID: plan.OperationID.UUID, HostID: plan.HostID, ConnectorID: plan.ConnectorID,
 		RemovalGeneration: plan.RemovalGeneration, Plan: encoded, PlanHash: digest[:]}

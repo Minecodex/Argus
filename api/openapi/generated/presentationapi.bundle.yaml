@@ -1,0 +1,142 @@
+openapi: 3.1.0
+info:
+  title: Argus presentationapi
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+paths:
+  /conversations/{conversation_id}/tool-presentations/{tool_call_id}:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: tool_call_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getToolPresentation
+      summary: getToolPresentation.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolPresentation'
+        default:
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argus_session
+  schemas:
+    RequestId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._-]+$
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message_key
+        - request_id
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+        message_key:
+          type: string
+          pattern: ^errors\.[a-z0-9_.]+$
+        params:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        message:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+        trace_id:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+          default: false
+    ToolPresentation:
+      type: object
+      additionalProperties: false
+      required:
+        - tool_call_id
+        - runtime
+        - template_hash
+        - template_source
+        - detail_data
+        - status
+      properties:
+        tool_call_id:
+          type: string
+          format: uuid
+        runtime:
+          type: string
+          enum:
+            - argus-template/v1
+        template_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        template_source:
+          type: string
+          maxLength: 262144
+        detail_data:
+          type: object
+          additionalProperties: true
+        resource_refs:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - type
+              - id
+            properties:
+              type:
+                type: string
+                enum:
+                  - host
+                  - kubernetes_cluster
+                  - connector
+              id:
+                type: string
+                format: uuid
+        result_refs:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum:
+            - ready
+            - failed
+  responses:
+    Error:
+      description: Stable Argus error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'

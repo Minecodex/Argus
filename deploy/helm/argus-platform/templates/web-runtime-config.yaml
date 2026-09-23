@@ -8,6 +8,6 @@ metadata:
 data:
   argus-runtime.json: |
     {
-      "cardOrigin": {{ printf "https://%s" .Values.hosts.cards | quote }},
+      "templateOrigin": {{ printf "https://%s" .Values.hosts.templates | quote }},
       "platformLoginUrl": {{ printf "https://%s/login" .Values.hosts.platform | quote }}
     }

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"mime"
 	"net/http"
 	"regexp"
 	"strings"
@@ -86,12 +87,35 @@ func openAPIRequestValidationMiddleware(next http.Handler) http.Handler {
 				SkipSettingDefaults: true,
 			},
 		}
+		// Only the known binary operation streams directly to the bounded file
+		// service. Schema validation still covers its path, headers and auth.
+		if route.Operation.OperationID == "uploadWorkspaceContent" && isWorkspaceUpload(request) {
+			media, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+			if err != nil || media != "application/octet-stream" || request.Body == nil {
+				writeOpenAPIValidationError(writer, request, errors.New("invalid upload media type"))
+				return
+			}
+			validationInput.Options.ExcludeRequestBody = true
+			// kin-openapi also buffers bodies before calling its authentication
+			// callback, even NoopAuthenticationFunc. Validate a metadata-only
+			// clone; enterprise session/CSRF checks run in the real handler.
+			metadataRequest := request.Clone(request.Context())
+			metadataRequest.Body = http.NoBody
+			metadataRequest.GetBody = nil
+			validationInput.Request = metadataRequest
+		}
 		if validationErr := openapi3filter.ValidateRequest(request.Context(), validationInput); validationErr != nil {
 			writeOpenAPIValidationError(writer, request, validationErr)
 			return
 		}
 		next.ServeHTTP(writer, request)
 	})
+}
+
+var workspaceUploadPath = regexp.MustCompile(`^/api/v1/conversations/[0-9a-fA-F-]{36}/workspace/uploads/[0-9a-fA-F-]{36}/content$`)
+
+func isWorkspaceUpload(r *http.Request) bool {
+	return r.Method == http.MethodPut && workspaceUploadPath.MatchString(r.URL.Path)
 }
 
 func requestHasBody(request *http.Request) bool {

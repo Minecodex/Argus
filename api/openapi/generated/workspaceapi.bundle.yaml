@@ -1,0 +1,404 @@
+openapi: 3.1.0
+info:
+  title: Argus workspaceapi
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+paths:
+  /conversations/{conversation_id}/workspace:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getConversationWorkspace
+      summary: getConversationWorkspace.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteConversationWorkspace
+      summary: deleteConversationWorkspace.
+      responses:
+        '202':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+  /conversations/{conversation_id}/workspace/files:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listWorkspaceFiles
+      summary: listWorkspaceFiles.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceFilePage'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{conversation_id}/workspace/uploads:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: createWorkspaceUpload
+      summary: createWorkspaceUpload.
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceUpload'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceUploadCreate'
+  /conversations/{conversation_id}/workspace/uploads/{upload_id}/content:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: upload_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: uploadWorkspaceContent
+      summary: uploadWorkspaceContent.
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceFile'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+  /conversations/{conversation_id}/workspace/files/{file_id}/content:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: downloadWorkspaceFile
+      summary: downloadWorkspaceFile.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: Partial file content.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - name: Range
+          in: header
+          required: false
+          schema:
+            type: string
+            maxLength: 128
+  /conversations/{conversation_id}/deliveries/{delivery_id}/content:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: delivery_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: downloadFileDelivery
+      summary: downloadFileDelivery.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: Partial file content.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - name: Range
+          in: header
+          required: false
+          schema:
+            type: string
+            maxLength: 128
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argus_session
+  schemas:
+    RequestId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._-]+$
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message_key
+        - request_id
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+        message_key:
+          type: string
+          pattern: ^errors\.[a-z0-9_.]+$
+        params:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        message:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+        trace_id:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+          default: false
+    Workspace:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - conversation_id
+        - status
+        - capacity_bytes
+        - version
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - provisioning
+            - ready
+            - deleting
+            - deleted
+            - failed
+        capacity_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]+$
+    WorkspaceFile:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - path
+        - byte_size
+        - content_hash
+        - media_type
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        path:
+          type: string
+        byte_size:
+          type: integer
+          format: int64
+          minimum: 0
+        content_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        media_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    WorkspaceFilePage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceFile'
+    WorkspaceUploadCreate:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - byte_size
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        byte_size:
+          type: integer
+          format: int64
+          minimum: 0
+    WorkspaceUpload:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - byte_size
+        - status
+        - expires_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        byte_size:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+            - pending
+            - uploading
+            - complete
+            - failed
+            - cancelled
+        expires_at:
+          type: string
+          format: date-time
+  responses:
+    Error:
+      description: Stable Argus error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 256
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'

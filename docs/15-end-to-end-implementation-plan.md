@@ -18,7 +18,7 @@
 → Connector/Direct Executor 执行并审计
 → 人工远程访问使用独立授权和录像
 → Collector 推送可信遥测
-→ Web/Agent/Card 通过同一 Query Service 获取裁剪结果
+→ Web/Agent/Tool 模板 通过同一 Query Service 获取裁剪结果
 → 故障恢复、撤权、备份和 E2E 验证通过
 ```
 
@@ -32,7 +32,7 @@
 - Host/KubernetesCluster 使用 `labels: Record<string,string>` 归类；`argus.io/*` 为系统保留命名空间。
 - RoleBinding 授予功能能力；DataAuthorizationGrant 只使用明确 Host/Kubernetes Cluster ID 授权资源。
 - 所有变更使用 Preview/Commit；私有 Token 和参数只在服务端保存。
-- Card 使用 Manifest、CSP、MessageChannel/MessagePort 和 Binding ID。
+- 自有 Tool 模板使用内容 Hash、CSP 和 MessagePort；确认、取消及审批执行状态由宿主统一提供。
 - 人工 RemoteAccessSession 与 AI/Tool Execution 使用不同票据、接口、状态机和审计；当前版本不提供定时无人值守任务。企业审批收件箱以桌面端为唯一正式支持视口，移动端不纳入 M4/M6 E2E 验收。
 - 遥测可信身份为 `EnterpriseId + ResourceId + CollectorId`，查询强制应用授权资源范围。
 - Agent Harness 第一版为 Provider-neutral 单 Agent 小内核；完整 ConversationEvent 不可变保存，上下文使用 Typed Checkpoint + ContextSnapshot + Recent Tail，可选 Provider Compaction 不成为事实来源。
@@ -68,7 +68,7 @@
 
 ### 3.3 安全能力随功能同时交付
 
-权限、审计、撤权、幂等、错误投影和失败恢复不是最后补充项。涉及远程访问、Card、Secret 或生产执行的 UI 在后端安全闭环未完成前保持禁用或不展示。
+权限、审计、撤权、幂等、错误投影和失败恢复不是最后补充项。涉及远程访问、模板、Secret 或生产执行的 UI 在后端安全闭环未完成前保持禁用或不展示。
 
 ### 3.4 E2E 资源纪律
 
@@ -82,12 +82,12 @@
 
 | 阶段 | 目标 | 关键退出结果 |
 | --- | --- | --- |
-| M0 | 契约冻结与文档收敛 | 身份、labels/DataAuthorizationGrant、错误、流式、PendingAction、Card、Agent Event/ContextSnapshot 契约可生成且有 Breaking Check |
+| M0 | 契约冻结与文档收敛 | 身份、labels/DataAuthorizationGrant、错误、流式、PendingAction、Template Bridge、Agent Event/ContextSnapshot 契约可生成且有 Breaking Check |
 | M1 | 前端与 API 基座 | real/mock Adapter 分离，UI/Token/i18n/安全欠账收敛，前端不再暴露私有 PendingAction 参数 |
 | M2 | 初始化、身份与授权闭环 | Setup、平台域、企业域、Department、RoleBinding/DataAuthorizationGrant、Session、审计走真实 API |
 | M3 | 资源与连接闭环 | 带 labels 的 Host/Kubernetes、Secret/Credential、Connector、Bastion Scope、Direct Executor 可真实管理 |
 | M4 | 确定性执行闭环 | Outbox/Lease/Fence、Run、单 Agent Loop、上下文投影/压缩、Tool 权限/Schema 门禁、Preview/PendingAction/Approval/Execution 可恢复执行、桌面审批收件箱 |
-| M5 | Card 闭环 | 系统 Card 通过 CSP/MessagePort/Manifest/Binding 安全展示和触发动作，企业 Card 通过发布门禁 |
+| P5 | Agent 工具与持久 Workspace | 三元网关、直接 Remote MCP、原生消息、Tool 模板、宿主确认、离线四工具、硬额度存储和不可变交付 |
 | M6 | 人工远程访问闭环 | Grant、短期票据、Linux PTY、Windows PowerShell/ConPTY、OpenSSH、RDP、加密录像、终止、撤权和审计完整 |
 | M7 | 遥测闭环 | Collector、Ingest/Kafka/ClickHouse/Query、可信资源身份和统一数据裁剪贯通 |
 | M8 | 本地安全与恢复 | TOTP/Step-up、OpenBao、备份恢复、升级、供应链和本地 Kubernetes E2E 达标 |
@@ -96,7 +96,7 @@ M6 的 PlanV3 Task 01 已固化远程访问治理契约，Task 02 已将 `Remote
 
 详细任务见[分阶段任务文件](./plans/README.md)。
 
-截至 2026-08-19，M0-M7 已按各自退出标准完成；M8 改为 arm64 Docker Desktop 本地加固，不承担 Production Ready。完成状态固定为 `local_hardening_complete`，Production Profile 继续 fail closed。
+历史验收记录（2026-08-19）：M0-M7 已按各自退出标准完成；M8 改为 arm64 Docker Desktop 本地加固，不承担 Production Ready。完成状态固定为 `local_hardening_complete`，Production Profile 继续 fail closed。
 
 ## 5. 依赖关系
 
@@ -108,17 +108,17 @@ flowchart LR
     M2 --> M3["M3 资源连接"]
     M2 --> M4["M4 执行 Agent"]
     M3 --> M4
-    M4 --> M5["M5 Card"]
+    M4 --> P5["P5 Tool / MCP / Workspace"]
     M3 --> M6["M6 远程访问"]
     M4 --> M6
     M3 --> M7["M7 遥测"]
     M4 --> M7
-    M5 --> M8["M8 Local Hardening"]
+    P5 --> M8["M8 Local Hardening"]
     M6 --> M8
     M7 --> M8
 ```
 
-M1 与 M2 可以在 M0 契约稳定后部分并行，但真实页面接入必须以服务端契约和生成客户端为准。M5、M6、M7 可以在 M4 后并行开发，发布顺序仍按各自安全门禁决定。
+M1 与 M2 可以在 M0 契约稳定后部分并行，但真实页面接入必须以服务端契约和生成客户端为准。P5、M6、M7 使用 M4 的确定性执行基础，发布顺序仍按各自安全门禁决定。
 
 ## 6. 跨阶段工作流
 
@@ -126,7 +126,7 @@ M1 与 M2 可以在 M0 契约稳定后部分并行，但真实页面接入必须
 
 - OpenAPI 3.1 是浏览器和外部 API 权威协议。
 - protobuf 是内部服务和 Connector 权威协议。
-- JSON Schema 固化标签过滤条件、PendingAction 公共投影、Card Manifest/RenderPlan 和安装配置。
+- JSON Schema 固化标签过滤条件、PendingAction 公共投影、Tool Manifest/Template Bridge 和安装配置。
 - PostgreSQL Migration 与领域对象同阶段提交；普通服务启动不得自动改 Schema。
 - 所有协议在 CI 执行 lint、生成漂移和 Breaking Change 检查。
 
@@ -155,7 +155,7 @@ M1 与 M2 可以在 M0 契约稳定后部分并行，但真实页面接入必须
 - 浏览器生产认证使用 HttpOnly/Secure/SameSite Cookie 与 CSRF，不以 localStorage 保存权威 Session。
 - Secret/APIKey/ServiceAccount 原值只显示一次，数据库保存哈希或 `secret_ref`。
 - 所有显式授权关系和角色/部门继承关系变化递增 AuthorizationVersion；标签变化不改变授权版本。
-- PendingAction 公共 DTO 与内部记录分离；浏览器、模型和 Card 永远看不到私有参数/Token。
+- PendingAction 公共 DTO 与内部记录分离；浏览器、模型和模板 永远看不到私有参数/Token。
 - 每个阶段同步补齐审计事件、字段脱敏和审计查询权限。
 
 ## 7. 闭环验收场景
@@ -166,13 +166,13 @@ M8 结束时至少通过以下全链路场景：
 2. 平台管理员创建企业和初始管理员，但无法读取企业业务正文。
 3. 企业管理员创建 Department、用户、RoleBinding 和基于 `environment=staging` 的 DataAuthorizationGrant。
 4. 接入带标签的堡垒机、经堡垒机 Host、直连 Host 和 KubernetesCluster。
-5. 范围内用户可以列表/详情/Tool 查询资源，范围外资源通过直接 ID、批量、游标、Card 和遥测查询均不可见。
+5. 范围内用户可以列表/详情/Tool 查询资源，范围外资源通过直接 ID、批量、游标、模板和遥测查询均不可见。
 6. 修改显式授权关系或角色/部门继承关系后，旧游标、PendingAction 和票据失效，活动订阅重新鉴权；标签变化仅影响筛选结果。
 7. Agent 发起变更 Preview，可信 `run_id` 贯穿 PendingAction、Execution 和 Verify；浏览器只持有 ActionBinding，用户确认后 Action Executor 确定性 Commit，重复点击不产生重复副作用。
 8. 长会话和大 ToolResult 触发确定性投影与 ContextSnapshot；原始事件仍可追溯，Worker 重启后能从相同切点恢复，摘要不能恢复已撤销权限。
 9. 需要审批的生产动作不能由创建人自批；多策略必须全部满足；撤权后 Commit 失败；ResultUnknown 仅依据外部命令终态对账且不重放副作用。
 10. 桌面审批收件箱支持“操作审批 / 远程访问审批”一级 Tab，以及“待我审批 / 我发起的 / 已处理”二级范围；刷新和深链接保持选择，远程访问申请不混入 PendingAction 列表。
-11. 系统 Card 使用 MessagePort 展示裁剪后的 Tool Result，伪造消息、Binding ID 或 Origin 被拒绝。
+11. Tool 模板使用 MessagePort 展示业务详情，伪造 nonce/序号、资源引用或 Origin 被拒绝；确认入口仅在宿主。
 12. RemoteAccessGrant 只允许指定 Host 与 ManagedAccount；票据撤销、会话终止、录像和审计可验证。
 13. Collector 伪造 Enterprise/Resource/Collector 身份被覆盖或拒绝，Metrics/Logs/Traces 只通过 Query Service 按资源范围返回。
 14. 删除 Server/Worker/Gateway/Writer Pod、清空 Redis、制造 Kafka 积压和 ClickHouse Replica 故障后，事实状态可恢复且无重复危险执行。
@@ -193,7 +193,7 @@ M8 结束时至少通过以下全链路场景：
 
 ## 9. 当前建议起点
 
-截至 2026-08-19，M0-M7 已完成：契约与生成门禁、显式 mock/real 前端基座、身份授权、资源/Connector、Agent/审批/确定性执行、Card 发布/渲染/Binding、人工 Remote Access，以及 Linux arm64 Host/Kubernetes Telemetry 均已有代码、测试和临时 Kubernetes Namespace 证据。
+历史验收记录（2026-08-19）：M0-M7 已完成：契约与生成门禁、显式 mock/real 前端基座、身份授权、资源/Connector、Agent/审批/确定性执行、Card 发布/渲染/Binding、人工 Remote Access，以及 Linux arm64 Host/Kubernetes Telemetry 均已有代码、测试和临时 Kubernetes Namespace 证据。
 
 M8 本地实现重点：
 
@@ -201,8 +201,14 @@ M8 本地实现重点：
 - 完成本地加密备份恢复、可恢复升级、故障注入和供应链发布证据。
 - 保持 Production Profile 阻断，把 HA、容量、真实出口、AMD64/Windows 和跨集群灾备移入 Production Validation。
 
-M1 完成后进入 M2，建立第一条真实 Setup → Platform → Enterprise 授权垂直闭环。这条路径是后续 Connector、Agent、Card、远程访问和遥测的共同根基。
+M1 完成后进入 M2，建立第一条真实 Setup → Platform → Enterprise 授权垂直闭环。这条路径是后续 Connector、Agent、模板、远程访问和遥测的共同根基。
 
 ## 10. M8 退出证据
 
 `fv-20260824-m8-final13` 是当前最终证据运行：M6/M7 baseline、Local Hardening、故障后验证、7 文件加密备份、删除源 Namespace、全新 Namespace Restore 和恢复后 17 项 `argusctl verify` 均通过。运行产物位于 `artifacts/m8-e2e/fv-20260824-m8-final13`，恢复专项产物位于 `artifacts/k8s-e2e/m8r-fv-20260824-m8-final13`。完整 E2E 的退出码只由业务验证或不可恢复清理错误决定；已删除 Service 导致的端口转发 NotFound 属于幂等清理。
+
+## PlanV5 当前退出门禁
+
+现行 Agent/展示/Workspace 以 [PlanV5](./planv5/README.md) 为基线，旧 M5 不再是运行路径。执行 argus-dev p5（agent-lite/agent-sandbox 串行）、M4/P4 和受影响的 M7/M10 回归。临时资源持有全局 Lease，记录并恢复正式部署原副本数；只清理本轮拥有的 Namespace、PVC、Pod、交付对象、RBAC 和 Lease。
+
+契约/SQLC、全量 Go、前端类型/单元/lint、mock/real 构建、桌面 Playwright、安装器与完整 Kubernetes 门禁缺一不可；[实施状态](./planv5/implementation-status.md) 记录实际结果，不能以历史里程碑或 Mock 演示代替。

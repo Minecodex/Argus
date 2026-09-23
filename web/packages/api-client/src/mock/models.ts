@@ -31,7 +31,8 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
   const monthPrefix = () => ctx.nowIso().slice(0, 7);
   const usageFor = (modelId: string) =>
     db.usagePoints.filter(
-      (point) => point.modelId === modelId && point.date.startsWith(monthPrefix()),
+      (point) =>
+        point.modelId === modelId && point.date.startsWith(monthPrefix()),
     );
   const sumAmount = (points: ModelUsagePoint[]) =>
     points.reduce((sum, point) => sum + point.amount, 0);
@@ -39,7 +40,9 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
   return {
     async list() {
       await ctx.pause();
-      return db.models.filter((model) => model.enterpriseId === ctx.enterpriseId());
+      return db.models.filter(
+        (model) => model.enterpriseId === ctx.enterpriseId(),
+      );
     },
     async get(id) {
       await ctx.pause();
@@ -85,17 +88,26 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
     async update(id, patch) {
       await ctx.pause();
       if (!isEnterpriseAdmin()) throw new Error("forbidden");
-      const model = ctx.mustFind(db.models, (entry) => entry.id === id, "AI model");
+      const model = ctx.mustFind(
+        db.models,
+        (entry) => entry.id === id,
+        "AI model",
+      );
       const connectionChanged =
-        patch.baseUrl !== undefined || patch.apiKey !== undefined || patch.modelId !== undefined;
+        patch.baseUrl !== undefined ||
+        patch.apiKey !== undefined ||
+        patch.modelId !== undefined;
       if (connectionChanged) {
         const ok =
           (patch.baseUrl ?? model.baseUrl).startsWith("http") &&
-          !/invalid|incompatible/i.test((patch.modelId ?? model.modelId) + (patch.apiKey ?? ""));
+          !/invalid|incompatible/i.test(
+            (patch.modelId ?? model.modelId) + (patch.apiKey ?? ""),
+          );
         model.compatibility = compatibility(ctx.nowIso(), ok);
         model.enabled = ok && (patch.enabled ?? model.enabled);
         model.healthStatus = ok ? "healthy" : "unreachable";
-        if (patch.apiKey) model.credentialRef = `secret://model/${nextId(db, "credential")}`;
+        if (patch.apiKey)
+          model.credentialRef = `secret://model/${nextId(db, "credential")}`;
       }
       const publicPatch = { ...patch };
       delete publicPatch.apiKey;
@@ -115,7 +127,11 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
     },
     async test(id) {
       await ctx.pause();
-      const model = ctx.mustFind(db.models, (entry) => entry.id === id, "AI model");
+      const model = ctx.mustFind(
+        db.models,
+        (entry) => entry.id === id,
+        "AI model",
+      );
       model.compatibility = compatibility(ctx.nowIso(), true);
       model.healthStatus = "healthy";
       model.updatedAt = ctx.nowIso();
@@ -131,38 +147,76 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
         .map((model) => {
           const points = usageFor(model.id);
           const departmentQuota = db.modelQuotas.find(
-            (q) => q.modelId === model.id && q.subjectType === "department" && q.subjectId === enterpriseUser.departmentId,
+            (q) =>
+              q.modelId === model.id &&
+              q.subjectType === "department" &&
+              q.subjectId === enterpriseUser.departmentId,
           );
           const userQuota = db.modelQuotas.find(
-            (q) => q.modelId === model.id && q.subjectType === "user" && q.subjectId === enterpriseUser.userId,
+            (q) =>
+              q.modelId === model.id &&
+              q.subjectType === "user" &&
+              q.subjectId === enterpriseUser.userId,
           );
-          const departmentUsed = sumAmount(points.filter((p) => p.departmentId === enterpriseUser.departmentId));
-          const userUsed = sumAmount(points.filter((p) => p.userId === enterpriseUser.userId));
-          const departmentRemaining = departmentQuota ? Math.max(0, departmentQuota.monthlyAmount - departmentUsed) : undefined;
-          const userRemaining = userQuota ? Math.max(0, userQuota.monthlyAmount - userUsed) : undefined;
+          const departmentUsed = sumAmount(
+            points.filter(
+              (p) => p.departmentId === enterpriseUser.departmentId,
+            ),
+          );
+          const userUsed = sumAmount(
+            points.filter((p) => p.userId === enterpriseUser.userId),
+          );
+          const departmentRemaining = departmentQuota
+            ? Math.max(0, departmentQuota.monthlyAmount - departmentUsed)
+            : undefined;
+          const userRemaining = userQuota
+            ? Math.max(0, userQuota.monthlyAmount - userUsed)
+            : undefined;
           let reason: import("../types").ModelAvailability["reason"];
           if (!model.enabled) reason = "disabled";
           else if (model.healthStatus !== "healthy") reason = "unhealthy";
-          else if (!model.compatibility.toolCalling || !model.compatibility.structuredOutput) reason = "compatibility_failed";
-          else if (departmentRemaining !== undefined && departmentRemaining <= 0) reason = "department_quota_exhausted";
-          else if (userRemaining !== undefined && userRemaining <= 0) reason = "user_quota_exhausted";
-          return { modelId: model.id, available: !reason, reason, departmentRemaining, userRemaining };
+          else if (
+            !model.compatibility.toolCalling ||
+            !model.compatibility.structuredOutput
+          )
+            reason = "compatibility_failed";
+          else if (
+            departmentRemaining !== undefined &&
+            departmentRemaining <= 0
+          )
+            reason = "department_quota_exhausted";
+          else if (userRemaining !== undefined && userRemaining <= 0)
+            reason = "user_quota_exhausted";
+          return {
+            modelId: model.id,
+            available: !reason,
+            reason,
+            departmentRemaining,
+            userRemaining,
+          };
         });
     },
     async listQuotas(modelId) {
       await ctx.pause();
       const enterpriseUser = currentEnterpriseUser();
       let quotas = db.modelQuotas.filter(
-        (quota) => quota.enterpriseId === ctx.enterpriseId() && (!modelId || quota.modelId === modelId),
+        (quota) =>
+          quota.enterpriseId === ctx.enterpriseId() &&
+          (!modelId || quota.modelId === modelId),
       );
       if (!isEnterpriseAdmin()) {
         if (!enterpriseUser || !isDepartmentAdmin()) return [];
         const memberIds = new Set(
-          db.enterpriseUsers.filter((entry) => entry.departmentId === enterpriseUser.departmentId).map((entry) => entry.userId),
+          db.enterpriseUsers
+            .filter(
+              (entry) => entry.departmentId === enterpriseUser.departmentId,
+            )
+            .map((entry) => entry.userId),
         );
         quotas = quotas.filter(
           (quota) =>
-            (quota.subjectType === "department" && quota.subjectId === enterpriseUser.departmentId) ||
+            (quota.subjectType === "department" &&
+              quota.subjectId === enterpriseUser.departmentId) ||
             (quota.subjectType === "user" && memberIds.has(quota.subjectId)),
         );
       }
@@ -171,26 +225,45 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
     async setQuota(input) {
       await ctx.pause();
       const enterpriseUser = currentEnterpriseUser();
-      if (input.subjectType === "department" && !isEnterpriseAdmin()) throw new Error("forbidden");
+      if (input.subjectType === "department" && !isEnterpriseAdmin())
+        throw new Error("forbidden");
       if (input.subjectType === "user" && !isEnterpriseAdmin()) {
-        if (!enterpriseUser || !isDepartmentAdmin()) throw new Error("forbidden");
-        const target = db.enterpriseUsers.find((entry) => entry.userId === input.subjectId);
-        if (!target || target.departmentId !== enterpriseUser.departmentId) throw new Error("cross-department quota denied");
+        if (!enterpriseUser || !isDepartmentAdmin())
+          throw new Error("forbidden");
+        const target = db.enterpriseUsers.find(
+          (entry) => entry.userId === input.subjectId,
+        );
+        if (!target || target.departmentId !== enterpriseUser.departmentId)
+          throw new Error("cross-department quota denied");
       }
       if (input.subjectType === "user" && input.monthlyAmount !== undefined) {
-        const target = db.enterpriseUsers.find((entry) => entry.userId === input.subjectId);
-        const departmentQuota = db.modelQuotas.find(
-          (quota) => quota.modelId === input.modelId && quota.subjectType === "department" && quota.subjectId === target?.departmentId,
+        const target = db.enterpriseUsers.find(
+          (entry) => entry.userId === input.subjectId,
         );
-        if (departmentQuota && input.monthlyAmount > departmentQuota.monthlyAmount) {
+        const departmentQuota = db.modelQuotas.find(
+          (quota) =>
+            quota.modelId === input.modelId &&
+            quota.subjectType === "department" &&
+            quota.subjectId === target?.departmentId,
+        );
+        if (
+          departmentQuota &&
+          input.monthlyAmount > departmentQuota.monthlyAmount
+        ) {
           throw new Error("user quota exceeds department quota");
         }
       }
       const existing = db.modelQuotas.find(
-        (quota) => quota.modelId === input.modelId && quota.subjectType === input.subjectType && quota.subjectId === input.subjectId,
+        (quota) =>
+          quota.modelId === input.modelId &&
+          quota.subjectType === input.subjectType &&
+          quota.subjectId === input.subjectId,
       );
       if (input.monthlyAmount === undefined) {
-        if (existing) db.modelQuotas = db.modelQuotas.filter((quota) => quota.id !== existing.id);
+        if (existing)
+          db.modelQuotas = db.modelQuotas.filter(
+            (quota) => quota.id !== existing.id,
+          );
         ctx.save();
         return null;
       }
@@ -219,30 +292,61 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
       const to = range?.to ?? "9999-99-99";
       const enterpriseUser = currentEnterpriseUser();
       let points = db.usagePoints.filter(
-        (point) => point.date >= from && point.date <= to && (!range?.modelId || point.modelId === range.modelId),
+        (point) =>
+          point.date >= from &&
+          point.date <= to &&
+          (!range?.modelId || point.modelId === range.modelId),
       );
       if (!isEnterpriseAdmin() && enterpriseUser) {
         points = isDepartmentAdmin()
-          ? points.filter((point) => point.departmentId === enterpriseUser.departmentId)
+          ? points.filter(
+              (point) => point.departmentId === enterpriseUser.departmentId,
+            )
           : points.filter((point) => point.userId === enterpriseUser.userId);
       }
-      const totalRequests = points.reduce((sum, point) => sum + point.requestCount, 0);
-      const successCount = points.reduce((sum, point) => sum + point.successCount, 0);
+      const totalRequests = points.reduce(
+        (sum, point) => sum + point.requestCount,
+        0,
+      );
+      const successCount = points.reduce(
+        (sum, point) => sum + point.successCount,
+        0,
+      );
       return {
         from,
         to,
         modelId: range?.modelId,
-        totalInputTokens: points.reduce((sum, point) => sum + point.inputTokens, 0),
-        totalOutputTokens: points.reduce((sum, point) => sum + point.outputTokens, 0),
+        usageComplete: true,
+        cachedInputTokens: 0,
+        cachedUsageComplete: true,
+        estimatedInputTokens: 0,
+        estimatedOutputTokens: 0,
+        totalInputTokens: points.reduce(
+          (sum, point) => sum + point.inputTokens,
+          0,
+        ),
+        totalOutputTokens: points.reduce(
+          (sum, point) => sum + point.outputTokens,
+          0,
+        ),
         totalRequests,
         successRate: totalRequests ? successCount / totalRequests : 1,
         totalAmount: points.reduce((sum, point) => sum + point.amount, 0),
         avgLatencyMs: totalRequests
-          ? points.reduce((sum, point) => sum + point.avgLatencyMs * point.requestCount, 0) / totalRequests
+          ? points.reduce(
+              (sum, point) => sum + point.avgLatencyMs * point.requestCount,
+              0,
+            ) / totalRequests
           : 0,
         errorCount: points.reduce((sum, point) => sum + point.errorCount, 0),
-        toolCallingFailures: points.reduce((sum, point) => sum + point.toolCallingFailures, 0),
-        structuredOutputFailures: points.reduce((sum, point) => sum + point.structuredOutputFailures, 0),
+        toolCallingFailures: points.reduce(
+          (sum, point) => sum + point.toolCallingFailures,
+          0,
+        ),
+        structuredOutputFailures: points.reduce(
+          (sum, point) => sum + point.structuredOutputFailures,
+          0,
+        ),
         points,
       };
     },

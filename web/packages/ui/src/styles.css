@@ -45,7 +45,8 @@
 .argus-button--primary {
   background: var(--accent);
   color: var(--text-inverse);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--overlay-white) 12%, transparent) inset;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--overlay-white) 12%, transparent)
+    inset;
 }
 .argus-button--primary:hover:not(:disabled) {
   background: var(--accent-hover);
@@ -988,4 +989,28 @@
   .argus-card__header {
     align-items: flex-start;
   }
+}
+
+.argus-tool-presentation {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  padding: var(--space-3);
+}
+.argus-tool-presentation__frame {
+  border: 0;
+  width: 100%;
+  display: block;
+}
+.argus-tool-presentation__frame[hidden] {
+  display: none;
+}
+.argus-tool-presentation__toggle {
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  padding: var(--space-2);
+  font: inherit;
+  cursor: pointer;
 }

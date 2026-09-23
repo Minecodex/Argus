@@ -1,5 +1,7 @@
 # M4：确定性执行、Agent 与 Tool 闭环
 
+> 本文保留 M4 的阶段设计和验收记录。当前 Agent 原生消息、三元 Tool Gateway、跨 Run 上下文及恢复以 PlanV5 为准；旧 Sandbox 临时目录与 Card 接入约定已由持久 Workspace 和 Tool Presentation 替换。PendingAction、审批、确定性 Commit、模型管理及配额继续保留，其当前回归状态见 [PlanV5 验收报告](../planv5/acceptance-report.md)。
+
 ## 目标
 
 交付可恢复、可审批、不可被模型或浏览器绕过的查询与变更执行链路，并让 Chatbox 使用真实 Model/Tool/Run。

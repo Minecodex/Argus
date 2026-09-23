@@ -9,7 +9,6 @@
 | M2（已完成） | [初始化、身份与授权](./M2-bootstrap-identity-rbac.md) | Setup、平台/企业身份、Department、RoleBinding/explicit resource authorization、Session、审计                  |
 | M3（已完成） | [资源与 Connector](./M3-resource-and-connector.md)    | Host/Kubernetes labels、Secret/Credential、Bastion Scope、Connector、Direct Executor    |
 | M4（已完成） | [执行、Agent 与 Tool](./M4-action-agent-workflow.md)  | Outbox/Lease/Fence、单 Agent Loop、上下文投影/压缩、Preview/Commit、Approval、Execution、桌面审批收件箱 |
-| M5（已完成） | [交互卡片](./M5-interactive-card.md)                  | Manifest、CSP、MessagePort、RenderPlan、Binding、发布门禁                               |
 | M6（已完成） | [远程访问](./M6-remote-access.md)                     | Grant、Ticket、Linux PTY、Windows ConPTY/OpenSSH/RDP、加密录像、终止与撤权               |
 | M7（已完成） | [遥测](./M7-telemetry.md)                             | Collector、Ingest、Kafka、ClickHouse、Query 和统一权限裁剪                              |
 | M8           | [本地安全与恢复](./M8-production-readiness.md)        | MFA/Step-up、OpenBao、备份恢复、升级、供应链和本地完整 E2E                              |
@@ -37,3 +36,5 @@
 - 变更路径覆盖权限、审计、错误、幂等和撤权测试。
 - 需要完整依赖的流程在临时 Kubernetes Namespace 执行 E2E，并无条件清理测试资源。
 - 若实现改变架构边界，同步更新 `docs/00` 和相关专题文档。
+
+旧 M5 Card 领域已由 [PlanV5](../planv5/README.md) 取代，不再作为现行实现或验收基线。

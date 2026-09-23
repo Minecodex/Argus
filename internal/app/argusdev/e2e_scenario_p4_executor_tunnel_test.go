@@ -1,6 +1,40 @@
 package argusdev
 
-import "testing"
+import (
+	"encoding/json"
+	"path/filepath"
+	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
+)
+
+func TestP4ExecutorTunnelRetryUsesPublicRequestContract(t *testing.T) {
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	document, err := loader.LoadFromFile(filepath.Join("..", "..", "..", "api", "openapi", "generated", "hostapi.bundle.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenario := &p4Scenario{CredentialID: "11111111-1111-4111-8111-111111111111", ExecutorHostTarget: p4Target{ExternalIP: "198.51.100.28"}}
+	encoded, err := json.Marshal(p4ExecutorTunnelHostInput(scenario, "22222222-2222-4222-8222-222222222222"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var input map[string]any
+	if err := json.Unmarshal(encoded, &input); err != nil {
+		t.Fatal(err)
+	}
+	schema := document.Components.Schemas["HostPreviewCreate"].Value
+	if err := schema.VisitJSON(input); err != nil {
+		t.Fatalf("retry fixture violates public request contract: %v", err)
+	}
+	// Retry freezes the current resource version on the server. The create-
+	// shaped request does not accept an extra client expected_version field.
+	input["expected_version"] = 1
+	if err := schema.VisitJSON(input); err == nil {
+		t.Fatal("contract unexpectedly accepted the obsolete retry field")
+	}
+}
 
 func TestValidateP4ExecutorTunnelRetryFacts(t *testing.T) {
 	t.Parallel()

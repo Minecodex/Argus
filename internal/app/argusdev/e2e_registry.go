@@ -51,7 +51,7 @@ func remoteE2EImagesForCleanup(configPath, imageTag string, fixtureImages map[st
 			images = append(images, image)
 		}
 	}
-	for _, name := range []string{"argus-backend", "argus-web", "minio"} {
+	for _, name := range []string{"argus-backend", "argus-web", "minio", "argus-workspace", "argus-workspace-egress"} {
 		add(registry + "/argus/" + name + ":" + imageTag)
 	}
 	for _, image := range fixtureImages {

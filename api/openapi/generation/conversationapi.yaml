@@ -3,6 +3,7 @@ info: {title: Argus Conversation API, version: 1.0.0, license: {name: Proprietar
 servers: [{url: /api/v1}]
 security: [{sessionCookie: []}]
 paths:
+  "/conversations/{conversation_id}/preflight": {$ref: "../argus.yaml#/paths/~1conversations~1{conversation_id}~1preflight"}
   /conversations: {$ref: ../argus.yaml#/paths/~1conversations}
   "/conversations/{conversation_id}": {$ref: "../argus.yaml#/paths/~1conversations~1{conversation_id}"}
   "/conversations/{conversation_id}/messages": {$ref: "../argus.yaml#/paths/~1conversations~1{conversation_id}~1messages"}

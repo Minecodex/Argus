@@ -46,6 +46,7 @@ var (
 type Actor struct {
 	EnterpriseID          uuid.UUID
 	SubjectID             uuid.UUID
+	RunID                 uuid.NullUUID
 	AuthorizationVersion  int64
 	AuthorizedResourceIDs []uuid.UUID
 }
@@ -272,7 +273,7 @@ func (service Service) PreviewCollectorAction(ctx context.Context, actor Actor, 
 	if input.RouteKind != "direct_argus" && input.RouteKind != "bastion_gateway" {
 		return db.PendingAction{}, ErrQueryInvalid
 	}
-	platform, role, err := service.collectorTarget(ctx, actor.EnterpriseID, resourceType, resourceID, input.RouteKind)
+	platform, role, err := service.collectorTarget(ctx, actor.EnterpriseID, resourceType, resourceID, input.RouteKind, distribution.ArtifactManifest)
 	if err != nil {
 		return db.PendingAction{}, err
 	}
@@ -378,7 +379,7 @@ func (service Service) PreviewCollectorAction(ctx context.Context, actor Actor, 
 		preview["image_pull_secrets"] = plan.ImagePullSecrets
 	}
 	risk := collectorActionRisk(operation)
-	return service.Actions.Prepare(ctx, actor.SubjectID.String(), actor.EnterpriseID, resource.PrepareActionInput{
+	return service.Actions.Prepare(ctx, actor.SubjectID.String(), actor.EnterpriseID, resource.PrepareActionInput{RunID: actor.RunID,
 		ActionType: "telemetry.collector." + operation, Title: "Collector " + operation,
 		Summary: "Apply a deterministic Collector " + operation + " plan", Risk: risk, ResourceType: resourceType,
 		ResourceID: uuid.NullUUID{UUID: resourceID, Valid: true}, ExpectedResourceVersion: pgtype.Int8{Int64: input.ExpectedVersion, Valid: input.ExpectedVersion > 0},
@@ -867,7 +868,7 @@ func (service Service) PreviewBinding(ctx context.Context, actor Actor, bindingI
 	}
 	plan := bindingActionPlan{Operation: "confirm_node_host_binding", BindingID: binding.ID, HostID: hostID,
 		ExpectedVersion: expectedVersion, EvidenceHash: hex.EncodeToString(binding.EvidenceHash)}
-	return service.Actions.Prepare(ctx, actor.SubjectID.String(), actor.EnterpriseID, resource.PrepareActionInput{
+	return service.Actions.Prepare(ctx, actor.SubjectID.String(), actor.EnterpriseID, resource.PrepareActionInput{RunID: actor.RunID,
 		ActionType: "telemetry.node_host_binding.confirm", Title: "Confirm Kubernetes node binding", Summary: "Bind node " + binding.NodeName + " to an authorized Host",
 		Risk: "write", ResourceType: "kubernetes_cluster", ResourceID: uuid.NullUUID{UUID: binding.KubernetesClusterID, Valid: true},
 		ExpectedResourceVersion: pgtype.Int8{Int64: expectedVersion, Valid: true}, AuthorizationVersion: actor.AuthorizationVersion,
@@ -983,7 +984,7 @@ func hostCollectorPlatform(host db.Host) (string, error) {
 	}
 }
 
-func (service Service) collectorTarget(ctx context.Context, enterpriseID uuid.UUID, resourceType string, resourceID uuid.UUID, routeKind string) (string, string, error) {
+func (service Service) collectorTarget(ctx context.Context, enterpriseID uuid.UUID, resourceType string, resourceID uuid.UUID, routeKind string, artifacts json.RawMessage) (string, string, error) {
 	switch resourceType {
 	case "host":
 		host, err := service.Store.Queries.GetHost(ctx, db.GetHostParams{ID: resourceID, EnterpriseID: enterpriseID})
@@ -1005,10 +1006,29 @@ func (service Service) collectorTarget(ctx context.Context, enterpriseID uuid.UU
 		if _, err := service.Store.Queries.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: resourceID, EnterpriseID: enterpriseID}); err != nil {
 			return "", "", ErrNotFound
 		}
-		return "linux_arm64", "daemonset", nil
+		platform, err := kubernetesCollectorPlatform(artifacts)
+		return platform, "daemonset", err
 	default:
 		return "", "", ErrNotFound
 	}
+}
+
+// Kubernetes uses an explicitly selected distribution and container image;
+// there is no SSH architecture probe. Freeze the catalog's single Linux
+// platform instead of labelling every target arm64. Image compatibility is
+// subsequently enforced by the target cluster's rollout.
+func kubernetesCollectorPlatform(raw json.RawMessage) (string, error) {
+	var artifacts []struct {
+		Platform string `json:"platform"`
+	}
+	if json.Unmarshal(raw, &artifacts) != nil || len(artifacts) != 1 {
+		return "", ErrDistributionPending
+	}
+	platform := artifacts[0].Platform
+	if platform != "linux_arm64" && platform != "linux_amd64" {
+		return "", ErrDistributionPending
+	}
+	return platform, nil
 }
 
 func distributionSupportsPlatform(raw json.RawMessage, platform string) bool {

@@ -1,4 +1,4 @@
-{{- $hosts := dict "enterprise" .Values.hosts.enterprise "platform" .Values.hosts.platform "cards" .Values.hosts.cards -}}
+{{- $hosts := dict "enterprise" .Values.hosts.enterprise "platform" .Values.hosts.platform "templates" .Values.hosts.templates -}}
 {{- with .Values.hosts.artifact }}{{- $_ := set $hosts "artifact" . -}}{{- end }}
 {{- range $name, $host := $hosts }}
 ---

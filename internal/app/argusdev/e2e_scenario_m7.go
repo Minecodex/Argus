@@ -64,10 +64,12 @@ func (a *App) runM7Scenario(ctx context.Context, env *E2EEnvironment) error {
 	if otelcolImage == "" {
 		return fmt.Errorf("M7 requires the fixture otelcol image reference")
 	}
+	if err := prepareM7CollectorNamespace(ctx, env); err != nil {
+		return err
+	}
 	if err := a.applyM7CollectorActionWithImage(ctx, env, "kubernetes-cluster", clusterID, "install", distributionID, kubernetesProfiles, otelcolImage); err != nil {
 		return err
 	}
-	env.ManagedNamespaces = append(env.ManagedNamespaces, m7CollectorNamespace)
 	if err := env.Kube.WaitDaemonSet(ctx, m7CollectorNamespace, "argus-otelcol-agent", 5*time.Minute); err != nil {
 		return err
 	}
@@ -88,6 +90,9 @@ func (a *App) runM7Scenario(ctx context.Context, env *E2EEnvironment) error {
 		return err
 	}
 	if err := a.verifyM7Signals(ctx, env, clusterID, "base"); err != nil {
+		return err
+	}
+	if err := a.verifyM7OverviewPresentation(ctx, env, clusterID); err != nil {
 		return err
 	}
 	if err := a.verifyM7BastionGateway(ctx, env); err != nil {
@@ -155,15 +160,6 @@ func (a *App) verifyM7Catalog(ctx context.Context, env *E2EEnvironment) (string,
 	if len(host) != 3 || len(kubernetes) != 3 {
 		return "", nil, nil, fmt.Errorf("M7 Collector profiles are incomplete")
 	}
-	cards, err := client.JSON(ctx, "m7-telemetry-card", "enterprise", http.MethodGet, "/enterprise/interactive-cards", http.StatusOK, nil, map[string]string{"Origin": env.EnterpriseOrigin()})
-	if err != nil {
-		return "", nil, nil, err
-	}
-	if _, err := findItem(objectItems(cards), func(item map[string]any) bool {
-		return item["slug"] == "telemetry-overview" && item["availability"] == "available" && item["enabled"] == true
-	}); err != nil {
-		return "", nil, nil, fmt.Errorf("M7 telemetry overview card: %w", err)
-	}
 	return distributionID, host, kubernetes, nil
 }
 
@@ -190,6 +186,15 @@ func (a *App) grantM7HostScope(ctx context.Context, env *E2EEnvironment) error {
 		return err
 	}
 	roleID, _ := stringField(role, "id")
+	bindings, err := client.JSON(ctx, "m7-existing-host-binding", "enterprise", http.MethodGet, "/enterprise/role-bindings", 200, nil, enterpriseHeaders(env, ""))
+	if err != nil {
+		return err
+	}
+	for _, binding := range objectItems(bindings) {
+		if binding["subject_type"] == "user" && binding["subject_id"] == env.State.Values["admin_user_id"] && binding["role_id"] == roleID {
+			return nil
+		}
+	}
 	if _, err := client.JSON(ctx, "m7-host-binding", "enterprise", http.MethodPost, "/enterprise/role-bindings", http.StatusCreated, map[string]any{
 		"subject_type": "user", "subject_id": env.State.Values["admin_user_id"], "role_id": roleID,
 	}, enterpriseHeaders(env, "m7-host-binding")); err != nil {
@@ -218,10 +223,7 @@ func (a *App) applyM7CollectorActionWithImage(ctx context.Context, env *E2EEnvir
 	if resourceType == "kubernetes-cluster" {
 		base = "/enterprise/kubernetes-clusters/" + resourceID + "/collector"
 	}
-	body := map[string]any{"distribution_version_id": distributionID, "profile_ids": profiles, "route_kind": "direct_argus"}
-	if kubernetesImage != "" {
-		body["kubernetes_image"] = kubernetesImage
-	}
+	body := m7CollectorPreviewBody(distributionID, profiles, kubernetesImage)
 	idempotencyKey := "m7-collector-" + resourceType + "-" + resourceID + "-" + action
 	if action != "install" {
 		current, err := client.JSON(ctx, "m7-collector-current-"+action, "enterprise", http.MethodGet, base, http.StatusOK, nil, map[string]string{"Origin": env.EnterpriseOrigin()})
@@ -235,6 +237,15 @@ func (a *App) applyM7CollectorActionWithImage(ctx context.Context, env *E2EEnvir
 		body["expected_version"] = version
 		idempotencyKey += fmt.Sprintf("-%d", version)
 	}
+	category, idField := m7NativeCollectorIdentity(resourceType)
+	nativeInput := make(map[string]any, len(body)+1)
+	for key, value := range body {
+		nativeInput[key] = value
+	}
+	nativeInput[idField] = resourceID
+	if err := a.verifyNativePreview(ctx, env, idempotencyKey, category, "collector."+action+".preview", nativeInput); err != nil {
+		return err
+	}
 	preview, err := client.JSON(ctx, "m7-collector-preview-"+action, "enterprise", http.MethodPost, base+"/actions/preview-"+action, http.StatusCreated, body, enterpriseHeaders(env, idempotencyKey))
 	if err != nil {
 		return err
@@ -245,6 +256,21 @@ func (a *App) applyM7CollectorActionWithImage(ctx context.Context, env *E2EEnvir
 	}
 	_, err = a.confirmPendingAction(ctx, env, idempotencyKey+"-confirm", actionRef)
 	return err
+}
+
+func m7NativeCollectorIdentity(resourceType string) (string, string) {
+	if resourceType == "kubernetes-cluster" {
+		return "k8s", "cluster_id"
+	}
+	return "host", "host_id"
+}
+
+func m7CollectorPreviewBody(distributionID string, profiles []string, kubernetesImage string) map[string]any {
+	body := map[string]any{"distribution_version_id": distributionID, "profile_ids": profiles, "route_kind": "direct_argus", "transport": "direct"}
+	if kubernetesImage != "" {
+		body["kubernetes_image"] = kubernetesImage
+	}
+	return body
 }
 
 func (a *App) waitM7HostCollector(ctx context.Context, env *E2EEnvironment, expected string) error {
@@ -273,7 +299,7 @@ func (a *App) waitM7HostCollector(ctx context.Context, env *E2EEnvironment, expe
 }
 
 func (a *App) generateM7HostSignals(ctx context.Context, env *E2EEnvironment, marker string) error {
-	_, err := env.Kube.Exec(ctx, env.SystemNS, "app.kubernetes.io/name=argus-direct-executor", "argus-direct-executor",
+	_, err := a.execM7Host(ctx, env, "argus-direct-executor",
 		"/usr/local/bin/argus-telemetry-e2e", "--endpoint=127.0.0.1:4317", "--resource-id="+env.State.Values["m7_host_id"], "--marker="+marker)
 	if err != nil {
 		a.captureM7HostCollectorJournal(ctx, env)
@@ -282,7 +308,7 @@ func (a *App) generateM7HostSignals(ctx context.Context, env *E2EEnvironment, ma
 }
 
 func (a *App) captureM7HostCollectorJournal(ctx context.Context, env *E2EEnvironment) {
-	value, err := env.Kube.Exec(ctx, env.SystemNS, "app.kubernetes.io/name=argus-direct-executor", "argus-e2e-systemd-host",
+	value, err := a.execM7Host(ctx, env, "argus-e2e-systemd-host",
 		"journalctl", "--unit", "argus-otelcol.service", "--no-pager", "--lines", "200")
 	if err != nil {
 		value = err.Error()

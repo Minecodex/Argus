@@ -65,9 +65,9 @@ async function bootstrap() {
   const mode = import.meta.env.VITE_API_MODE;
   if (mode === "real") {
     const runtime = await loadRuntimeConfig();
-    if (!runtime.cardOrigin && !import.meta.env.VITE_CARD_ORIGIN) {
+    if (!runtime.templateOrigin && !import.meta.env.VITE_TEMPLATE_ORIGIN) {
       throw new Error(
-        "Card runtime origin is unavailable: /argus-runtime.json served neither cardOrigin nor VITE_CARD_ORIGIN was set",
+        "Template runtime origin is unavailable: /argus-runtime.json served neither templateOrigin nor VITE_TEMPLATE_ORIGIN was set",
       );
     }
   }

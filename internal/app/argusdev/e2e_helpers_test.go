@@ -373,50 +373,31 @@ func TestFixtureImagesForCleanup(t *testing.T) {
 	}
 }
 
-func TestReclaimE2EInstallDisk(t *testing.T) {
-	t.Run("keeps cache when capacity is sufficient", func(t *testing.T) {
-		pruneCalls := 0
-		free, pruned, err := reclaimE2EInstallDisk(
-			context.Background(),
-			"workspace",
-			func(string) (uint64, error) { return e2eInstallMinimumDiskBytes, nil },
-			func(context.Context) error { pruneCalls++; return nil },
-		)
-		if err != nil || pruned || free != e2eInstallMinimumDiskBytes || pruneCalls != 0 {
-			t.Fatalf("free=%d pruned=%t pruneCalls=%d err=%v", free, pruned, pruneCalls, err)
-		}
-	})
-
-	t.Run("prunes cache once when capacity is low", func(t *testing.T) {
-		probes := []uint64{20 << 30, 31 << 30}
-		probeCalls := 0
-		pruneCalls := 0
-		free, pruned, err := reclaimE2EInstallDisk(
-			context.Background(),
-			"workspace",
-			func(string) (uint64, error) {
-				value := probes[probeCalls]
-				probeCalls++
-				return value, nil
-			},
-			func(context.Context) error { pruneCalls++; return nil },
-		)
-		if err != nil || !pruned || free != 31<<30 || probeCalls != 2 || pruneCalls != 1 {
-			t.Fatalf("free=%d pruned=%t probeCalls=%d pruneCalls=%d err=%v", free, pruned, probeCalls, pruneCalls, err)
-		}
-	})
-
-	t.Run("fails when cleanup cannot restore capacity", func(t *testing.T) {
-		free, pruned, err := reclaimE2EInstallDisk(
-			context.Background(),
-			"workspace",
-			func(string) (uint64, error) { return 20 << 30, nil },
-			func(context.Context) error { return nil },
-		)
-		if !pruned || free != 20<<30 || !errors.Is(err, errCapability) {
-			t.Fatalf("free=%d pruned=%t err=%v", free, pruned, err)
-		}
-	})
+func TestCheckE2EInstallDisk(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		free      uint64
+		probeErr  error
+		wantError bool
+	}{
+		{"at threshold", e2eInstallMinimumDiskBytes, nil, false},
+		{"below threshold stops without cleanup", e2eInstallMinimumDiskBytes - 1, nil, true},
+		{"unavailable probe fails closed", 0, errors.New("volume unavailable"), true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			calls := 0
+			err := checkE2EInstallDisk("workspace", func(path string) (uint64, error) {
+				calls++
+				if path != "workspace" {
+					t.Fatalf("unexpected path %q", path)
+				}
+				return test.free, test.probeErr
+			})
+			if calls != 1 || errors.Is(err, errCapability) != test.wantError {
+				t.Fatalf("probe calls=%d err=%v", calls, err)
+			}
+		})
+	}
 }
 
 func TestReleaseIDForDevFitsEveryHelmStageName(t *testing.T) {
@@ -489,5 +470,21 @@ func TestWriteE2EConfigUsesStructuredProfile(t *testing.T) {
 	}
 	if strings.Contains(string(data), "m4e2e") || strings.Contains(string(data), "ARGUS_E2E") {
 		t.Fatalf("generated install config exposed E2E-only fields: %s", data)
+	}
+	env.Options.Suite = "p5"
+	path, err = app.writeE2EConfig(env, "evaluation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	spec = nestedMap(document, "spec")
+	if nestedMap(spec, "openSandbox")["enabled"] != false {
+		t.Fatal("P5 agent-lite installed OpenSandbox")
 	}
 }

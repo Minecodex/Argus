@@ -1071,7 +1071,7 @@ CRI-O：使用对应 Registry Mirror 或 Runtime 导入方式
 8. Altinity ClickHouse Operator、ClickHouseInstallation、多租户表与 Migration。
 9. Kubernetes Node/Host 绑定，以及带 Collection Claim 冲突检测的 DaemonSet + Gateway Deployment。
 10. Collector 自身监控、配额和成本控制。
-11. 带 explicit resource authorization/Resource、Signal、字段脱敏和查询预算授权的 Metrics/Logs 查询 Tool、交互卡片、告警和综合可观测性页面。
+11. 带 explicit resource authorization/Resource、Signal、字段脱敏和查询预算授权的 Metrics/Logs 查询 Tool、Tool 模板、告警和综合可观测性页面。
 
 OpenTelemetry Profiles 信号、Trace 高级查询、双 Gateway、OpAMP、尾部采样、企业自定义 Distribution 和弱网 K8s 镜像分发在后续阶段实现。
 

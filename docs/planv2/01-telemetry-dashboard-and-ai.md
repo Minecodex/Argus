@@ -35,7 +35,7 @@
 - 任意 SQL、任意 ClickHouse 查询、任意 Collector 配置或任意 DSL 注入。
 - 重新实现 PromQL、KQL 或 Trace GraphQL；继续使用 M10 三个独立 Engine。
 - 用一个新的统一查询 AST 替换现有三种 Query Wire Format。
-- 把 Dashboard 做成可执行任意 Tool 的 Card。
+- 让 Dashboard 展示组件通过 Bridge 执行任意 Tool。
 - 个人私有 Dashboard；第一版沿用企业级可见性模型。
 - 通过绑定绕过 explicit resource authorization，或把绑定当作授权授予机制。
 - 第一阶段的动态标签绑定、大规模语义向量搜索和未引用 Dashboard 的模糊自动匹配。
@@ -50,7 +50,7 @@ PlanV2 不改变已确定的服务边界：
 | Dashboard 执行 | `argus-telemetry query` 的 M10 PromQL/KQL/SkyWalking Engine |
 | AI 查询和创建 | M4 Agent Harness、Tool Registry、Run、ToolResultProjection |
 | 用户确认和提交 | M4 PendingAction、Action Binding、Action Executor、Execution |
-| 会话内预览和确认 | M5 Card Runtime、RenderPlan、Binding ID |
+| 会话内预览和确认 | PlanV5 Tool Template Runtime 与宿主 PendingAction |
 | 图表、日志、Trace 展示 | 现有 `@argus/ui` Telemetry 组件和 ECharts |
 | 权限 | M2 RoleBinding/explicit resource authorization/AuthorizationVersion |
 | 资源入口 | M3 Host/Kubernetes 资源事实和资源详情路由 |
@@ -541,7 +541,7 @@ Preview 失败不能创建 active Dashboard。局部 Panel 失败时必须指出
 
 ### 6.3 Commit
 
-用户点击 Card 或后台确认按钮后：
+用户点击宿主或后台的确认按钮后：
 
 ```text
 浏览器 → action_binding_id/action_ref
@@ -639,7 +639,7 @@ GET    /dashboard-folders
 POST   /dashboard-folders/preview
 ```
 
-`POST /dashboards/{id}/execute` 接受时间范围、变量、当前 Target 和 Panel IDs，不接受查询文本。UI、Card Host 和 AI Inspect 最终都调用同一个 Dashboard Query Service。
+`POST /dashboards/{id}/execute` 接受时间范围、变量、当前 Target 和 Panel IDs，不接受查询文本。UI、调用展示数据的业务宿主 和 AI Inspect 最终都调用同一个 Dashboard Query Service。
 
 ### 8.2 内部服务
 
@@ -699,7 +699,7 @@ Dashboard 权限不能授予遥测数据权限。每次读取、执行、AI Insp
 审计至少记录：
 
 - Dashboard/Folder/Revision 的创建、发布、修改、归档和恢复。
-- 查询来源（`admin_ui`、`model_agent`、`card_runtime`）、Dashboard、Revision、Panel、Target、变量摘要、时间范围、预算和结果状态。
+- 查询来源（`admin_ui`、`model_agent`、`tool_presentation`）、Dashboard、Revision、Panel、Target、变量摘要、时间范围、预算和结果状态。
 - Binding attach/detach、传播策略和资源 UID。
 - AI 生成的原始用户请求引用、Draft Hash、Preview/Commit 关联和用户确认者。
 
@@ -799,7 +799,7 @@ Dashboard 权限不能授予遥测数据权限。每次读取、执行、AI Insp
 - 用户可以逐个添加 Metrics、Logs、Traces Panel，修改查询和布局，并通过统一运行时查看结果。
 - 变量可以按查询引用自动形成依赖链，Panel 只在显式引用变量时生效。
 - Dashboard 从 Host/Kubernetes 详情页打开时，查询范围正确带入当前资源上下文。
-- UI、Card Host 和内部 Inspect 调用获得相同的权限裁剪、预算和结果语义。
+- UI、调用展示数据的业务宿主 和内部 Inspect 调用获得相同的权限裁剪、预算和结果语义。
 - 任何未验证查询、越权 Target、stale Binding、重复 Commit 或 partial 结果都有明确错误/状态，不能伪装成空数据或正常。
 
 ### Task 2：AI 创建仪表盘与 `@Dashboard` 分析工作台
@@ -815,7 +815,7 @@ Dashboard 权限不能授予遥测数据权限。每次读取、执行、AI Insp
 5. **分析上下文和查询规划**：实现 `telemetry.dashboard.get`，向 Agent 提供 active Revision 的 Panel 查询定义、变量约束、支持的 Query Tool、Target 范围和预算；Agent 可以选择 Panel、决定查询顺序和并行策略，但不能修改查询文本。
 6. **Dashboard provenance 和 Inspect**：实现 `telemetry.dashboard.inspect` 及带 provenance 的 Metrics/Logs/Traces Query Tool；服务端复核 `dashboard_ref + revision_ref + panel_id + query_hash + signal`，重新执行权限、explicit resource authorization、绑定和预算校验。
 7. **Evidence Projection 和总结**：将结果投影为统计摘要、Top Pattern、日志样本、慢 Trace、阈值观察、partial、warning 和 `evidence_ref`；模型输出必须区分 `observed`、`inferred`、`unknown`，并提供返回 Dashboard/Panel/资源详情的入口。
-8. **会话/Card 工作台和测试**：接入 Chatbox mention、Skill、Tool Result Projection、Preview Card 和确认 Card；覆盖 AI 生成、用户确认、失败恢复、越权拒绝、查询哈希不匹配、Revision 失效、数据不足和三类信号混排 E2E。
+8. **会话工作台和测试**：接入 Chatbox mention、版本化 Skill 上下文、Tool Result Projection、Tool 自有预览模板和宿主 PendingAction 控件；覆盖 AI 生成、单次确认、失败恢复、越权拒绝、查询哈希不匹配、Revision 失效、数据不足和三类信号混排 E2E。
 
 **Task 2 的交付顺序**：
 
@@ -827,7 +827,7 @@ DashboardDraft Schema 与 Skill
 → dashboard.get/inspect 与 provenance 门禁
 → Agent 选择 Panel 和查询顺序
 → Evidence Projection 与总结
-→ Chatbox/Card/E2E 验收
+→ Chatbox/Template/E2E 验收
 ```
 
 **Task 2 退出标准**：
@@ -854,7 +854,7 @@ Task 1 的 Batch A/B 是第一版人工仪表盘基线；Task 2 的 Batch C/D �
 ### P2V-0：契约与架构冻结
 
 - [ ] `P2V-CONTRACT-01` 固化 Dashboard、Folder、Revision、Panel、Target、Variable、Binding JSON Schema。
-- [ ] `P2V-ADR-01` 新增 Dashboard 领域 ADR，确认不复用 InteractiveCard、不新增 Query Engine、不把 Binding 当授权边界。
+- [ ] `P2V-ADR-01` 新增 Dashboard 领域 ADR，确认不复用 ToolPresentation、不新增 Query Engine、不把 Binding 当授权边界。
 - [ ] `P2V-OPENAPI-01` 增加 REST 路径、错误码、分页、执行结果和 Preview 公共投影。
 - [ ] `P2V-TOOL-01` 冻结 MCP Tool Catalog、权限、Input/Output Schema 和 Projection Schema。
 
@@ -872,7 +872,7 @@ Task 1 的 Batch A/B 是第一版人工仪表盘基线；Task 2 的 Batch C/D �
 - [ ] `P2V-EXEC-02` 接入 M10 PromQL/KQL/SkyWalking Engine，保持三种原生结果语义。
 - [ ] `P2V-EXEC-03` 实现 Dashboard 总预算、并发、缓存、取消、partial 和单 Panel 错误投影。
 - [ ] `P2V-CATALOG-01` 实现指标名、Label/字段、服务和有限值的受控 Catalog 查询。
-- [ ] `P2V-EXEC-04` 为 UI、Card Host、MCP Inspect 复用同一执行服务和安全投影。
+- [ ] `P2V-EXEC-04` 为 UI、调用展示数据的业务宿主、MCP Inspect 复用同一执行服务和安全投影。
 
 ### P2V-3：后台页面与资源入口
 
@@ -889,14 +889,14 @@ Task 1 的 Batch A/B 是第一版人工仪表盘基线；Task 2 的 Batch C/D �
 - [ ] `P2V-AI-02` 实现 Dashboard `@` 候选列表、稳定引用 ID、名称/描述过滤和未引用时的明确提示。
 - [ ] `P2V-AI-03` 实现 Evidence Projection、事实/推断/未知分类和 `evidence_ref` 回溯。
 - [ ] `P2V-AI-04` 实现 `/创建仪表盘` Skill 和自然语言 Dashboard Draft JSON 生成，优先调用 Catalog 确认真实查询对象。
-- [ ] `P2V-AI-05` 将 AI Create/Update 接入 Preview Card、用户点击确认和隐藏 Commit。
+- [ ] `P2V-AI-05` 将 AI Create/Update 接入 Tool 预览详情、用户点击确认和隐藏 Commit。
 - [ ] `P2V-AI-06` 支持创建时的绑定建议；绑定目标必须在 Preview 中逐项展示并可取消。
 - [ ] `P2V-AI-07` 为 PromQL/KQL/SkyWalking Query Tool 增加 Dashboard provenance、Panel query_hash 和 Revision 复核门禁。
 
 ### P2V-5：端到端验收与发布门禁
 
 - [ ] `P2V-E2E-01` UI 创建 Dashboard：Panel、变量、绑定、Preview、Confirm、刷新和审计。
-- [ ] `P2V-E2E-02` AI 创建 Dashboard：自然语言、Catalog、Preview Card、Commit、Revision 和资源入口。
+- [ ] `P2V-E2E-02` AI 创建 Dashboard：自然语言、Catalog、Tool 预览详情、Commit、Revision 和资源入口。
 - [ ] `P2V-E2E-03` 使用 `@` 引用 Dashboard 后执行 Inspect，覆盖 Agent 选择 Panel、调用三类 Query Tool、混排和总结证据。
 - [ ] `P2V-E2E-04` 从 Host、Cluster、Namespace、Workload、Service 详情页打开并验证 Target 上下文。
 - [ ] `P2V-E2E-05` 覆盖跨企业、explicit resource authorization、AuthorizationVersion、敏感字段、Kubernetes UID 漂移和 stale Binding。
@@ -967,8 +967,8 @@ Task 1 的 Batch A/B 是第一版人工仪表盘基线；Task 2 的 Batch C/D �
 除 `docs/plans/README.md` 中的通用完成定义外，PlanV2 必须满足：
 
 - 查询语句永远来自已验证 active Revision，浏览器和模型不能覆盖表达式。
-- Preview/Commit 的私有 Token、完整草稿参数和未裁剪结果不出现在模型、Card、浏览器 DOM、网络日志或审计正文中。
-- 同一 Dashboard 从 UI、Card 和 AI Inspect 获得一致的授权裁剪和查询语义。
+- Preview/Commit 的私有 Token、完整草稿参数和未裁剪结果不出现在模型、Tool 模板、浏览器 DOM、网络日志或审计正文中。
+- 同一 Dashboard 从业务 UI、Tool Presentation 和 AI Inspect 获得一致的授权裁剪和查询语义。
 - 绑定只缩小有效资源范围，不扩大 explicit resource authorization；撤权后旧缓存、链接和查询立即失效或返回明确错误。
 - Kubernetes 对象使用 UID，UID 漂移不自动跟随同名对象。
 - Panel 错误、查询超时、partial 和无数据可区分；AI 不得把无证据状态总结为正常。
@@ -978,11 +978,13 @@ Task 1 的 Batch A/B 是第一版人工仪表盘基线；Task 2 的 Batch C/D �
 
 ## 15. 架构影响说明
 
-本计划不改变现有服务进程边界、租户边界、Telemetry Query Engine、Card Runtime 或 Preview/Commit 安全协议。新增的是 `Dashboard` 领域模块和一组对现有服务的组合调用。
+Dashboard 业务继续复用既有服务进程、租户边界和 Telemetry Query Engine；会话展示接入 PlanV5 的 Tool 模板与 Template Host，确认及 Preview/Commit 由宿主和 Action Executor 统一处理。新增业务能力仍属于 `Dashboard` 领域及其对现有服务的组合调用。
 
 实现开始前需要新增 Dashboard ADR，并在代码合入同时更新：
 
 - `docs/00-decisions-and-invariants.md`：补充 Dashboard Revision、绑定非授权边界和已发布查询才能被 AI 执行的不变量。
 - `docs/09-opentelemetry-observability.md`：将 Dashboard/AI 分析从“后续大屏”更新为 PlanV2 范围，并列出新的 Query/Binding Tool。
 - `docs/04-agent-mcp-and-action-workflow.md`：补充 Dashboard Preview/Commit 和 Inspect Tool 的暴露边界。
-- `docs/05-interactive-cards-and-interactive-ui.md`：说明 Card 仅承载 Dashboard Preview/分析摘要，不承载 Dashboard 本体。
+- `docs/05-tool-templates-and-host-ui.md`：说明 Tool 模板承载 Dashboard Preview/分析详情，宿主拥有单次确认入口；Dashboard 本体保留独立业务页面。
+
+> PlanV5 展示边界：Dashboard 仍是独立持久业务对象。会话展示不再依赖模板 Catalog、Slot/Binding 或可执行 Card；使用 Tool 自有模板和宿主单次确认。模板 Bridge 不发起查询，Chat 内换时间或翻页由新用户消息产生新 ToolCall。

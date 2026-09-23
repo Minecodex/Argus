@@ -1,5 +1,7 @@
 version: argus.error_codes/v1
 codes:
+  TASK_RETRY_EXHAUSTED: {http_status: 503, message_key: errors.agent.task_retry_exhausted, retryable: false}
+  MODEL_RESPONSE_INTERRUPTED: {http_status: 503, message_key: errors.agent.model_response_interrupted, retryable: true}
   INTERNAL_ERROR: {http_status: 500, message_key: errors.common.internal, retryable: true}
   INVALID_ARGUMENT: {http_status: 400, message_key: errors.common.invalid_argument, retryable: false, safe_params: [field, rule, min_length, max_length, minimum, maximum, min_items, max_items, format]}
   AUTHENTICATION_REQUIRED: {http_status: 401, message_key: errors.auth.authentication_required, retryable: false}
@@ -131,25 +133,6 @@ codes:
   ACTION_RESULT_ALREADY_CONSUMED: {http_status: 409, message_key: errors.execution.one_time_result_consumed, retryable: false}
   SANDBOX_PROFILE_UNAVAILABLE: {http_status: 503, message_key: errors.sandbox.profile_unavailable, retryable: true}
   SANDBOX_QUOTA_EXCEEDED: {http_status: 429, message_key: errors.sandbox.quota_exceeded, retryable: false}
-  CARD_NOT_FOUND: {http_status: 404, message_key: errors.card.not_found, retryable: false}
-  CARD_VERSION_NOT_FOUND: {http_status: 404, message_key: errors.card.version_not_found, retryable: false}
-  CARD_SOURCE_READ_ONLY: {http_status: 409, message_key: errors.card.source_read_only, retryable: false}
-  CARD_VERSION_CONFLICT: {http_status: 409, message_key: errors.card.version_conflict, retryable: true}
-  CARD_CONTENT_TOO_LARGE: {http_status: 422, message_key: errors.card.content_too_large, retryable: false}
-  CARD_MANIFEST_INVALID: {http_status: 422, message_key: errors.card.manifest_invalid, retryable: false}
-  CARD_CONTENT_HASH_MISMATCH: {http_status: 422, message_key: errors.card.content_hash_mismatch, retryable: false}
-  CARD_STATIC_VALIDATION_FAILED: {http_status: 422, message_key: errors.card.static_validation_failed, retryable: false}
-  CARD_RUNTIME_VALIDATION_REQUIRED: {http_status: 409, message_key: errors.card.runtime_validation_required, retryable: false}
-  CARD_RUNTIME_VALIDATION_FAILED: {http_status: 422, message_key: errors.card.runtime_validation_failed, retryable: false}
-  CARD_BINDING_INVALID: {http_status: 422, message_key: errors.card.binding_invalid, retryable: false}
-  CARD_SCHEMA_INCOMPATIBLE: {http_status: 409, message_key: errors.card.schema_incompatible, retryable: false}
-  CARD_NOT_ENABLED: {http_status: 409, message_key: errors.card.not_enabled, retryable: false}
-  CARD_DEPENDENCY_UNAVAILABLE: {http_status: 503, message_key: errors.card.dependency_unavailable, retryable: true}
-  CARD_NO_COMPATIBLE_RENDERER: {http_status: 404, message_key: errors.card.no_compatible_renderer, retryable: false}
-  CARD_PRESENTATION_INVALIDATED: {http_status: 409, message_key: errors.card.presentation_invalidated, retryable: false}
-  CARD_BINDING_EXPIRED: {http_status: 410, message_key: errors.card.binding_expired, retryable: false}
-  CARD_BINDING_CONSUMED: {http_status: 409, message_key: errors.card.binding_consumed, retryable: false}
-  CARD_ACTION_INVALIDATED: {http_status: 409, message_key: errors.card.action_invalidated, retryable: false}
   REMOTE_ACCESS_GRANT_REQUIRED: {http_status: 403, message_key: errors.remote_access.grant_required, retryable: false}
   REMOTE_ACCESS_SCOPE_DENIED: {http_status: 403, message_key: errors.remote_access.scope_denied, retryable: false}
   REMOTE_ACCESS_APPROVAL_REQUIRED: {http_status: 409, message_key: errors.remote_access.approval_required, retryable: false}
@@ -206,3 +189,69 @@ codes:
   TELEMETRY_DEPENDENCY_UNAVAILABLE: {http_status: 503, message_key: errors.telemetry.dependency_unavailable, retryable: true}
   CLIENT_OPERATION_UNAVAILABLE: {http_status: 400, message_key: errors.client.operation_unavailable, retryable: false}
   TELEMETRY_DLQ_REPLAY_CONFLICT: {http_status: 409, message_key: errors.telemetry.dlq_replay_conflict, retryable: false}
+  CONVERSATION_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.conversation_unavailable, retryable: false}
+  MCP_AUTHENTICATION_FAILED: {http_status: 422, message_key: errors.planv5.mcp_authentication_failed, retryable: false}
+  MCP_CATALOG_TOO_LARGE: {http_status: 422, message_key: errors.planv5.mcp_catalog_too_large, retryable: false}
+  MCP_CONNECTION_CONFLICT: {http_status: 409, message_key: errors.planv5.mcp_connection_conflict, retryable: false}
+  MCP_CONNECTION_FORBIDDEN: {http_status: 403, message_key: errors.planv5.mcp_connection_forbidden, retryable: false}
+  MCP_CONNECTION_INVALID: {http_status: 422, message_key: errors.planv5.mcp_connection_invalid, retryable: false}
+  MCP_CONNECTION_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.mcp_connection_unavailable, retryable: false}
+  MCP_CREDENTIAL_INVALID: {http_status: 422, message_key: errors.planv5.mcp_credential_invalid, retryable: false}
+  MCP_CREDENTIAL_REQUIRED: {http_status: 422, message_key: errors.planv5.mcp_credential_required, retryable: false}
+  MCP_ENDPOINT_FORBIDDEN: {http_status: 403, message_key: errors.planv5.mcp_endpoint_forbidden, retryable: false}
+  MCP_ENDPOINT_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.mcp_endpoint_unavailable, retryable: false}
+  MCP_MEMBER_INVALID: {http_status: 422, message_key: errors.planv5.mcp_member_invalid, retryable: false}
+  MCP_MESSAGE_TOO_LARGE: {http_status: 422, message_key: errors.planv5.mcp_message_too_large, retryable: false}
+  MCP_RESPONSE_CREDENTIAL_EXPOSED: {http_status: 422, message_key: errors.planv5.mcp_response_credential_exposed, retryable: false}
+  MCP_PROTOCOL_ERROR: {http_status: 422, message_key: errors.planv5.mcp_protocol_error, retryable: false}
+  MCP_PROTOCOL_VERSION_UNSUPPORTED: {http_status: 422, message_key: errors.planv5.mcp_protocol_version_unsupported, retryable: false}
+  MCP_SCHEMA_CHANGED: {http_status: 409, message_key: errors.planv5.mcp_schema_changed, retryable: false}
+  MCP_SESSION_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.mcp_session_unavailable, retryable: false}
+  MCP_STREAM_INTERRUPTED: {http_status: 422, message_key: errors.planv5.mcp_stream_interrupted, retryable: false}
+  MCP_TOOL_ERROR: {http_status: 422, message_key: errors.planv5.mcp_tool_error, retryable: false}
+  MCP_UPSTREAM_ERROR: {http_status: 422, message_key: errors.planv5.mcp_upstream_error, retryable: false}
+  MCP_UPSTREAM_TIMEOUT: {http_status: 422, message_key: errors.planv5.mcp_upstream_timeout, retryable: false}
+  MCP_UPSTREAM_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.mcp_upstream_unavailable, retryable: false}
+  MODEL_USAGE_INVALID: {http_status: 422, message_key: errors.planv5.model_usage_invalid, retryable: false}
+  MODEL_TOOL_CAPACITY_EXCEEDED: {http_status: 422, message_key: errors.planv5.model_tool_capacity_exceeded, retryable: false}
+  PRESENTATION_FORBIDDEN: {http_status: 403, message_key: errors.planv5.presentation_forbidden, retryable: false}
+  PRESENTATION_INVALID: {http_status: 422, message_key: errors.planv5.presentation_invalid, retryable: false}
+  SANDBOX_COMMAND_RESULT_UNKNOWN: {http_status: 422, message_key: errors.planv5.sandbox_command_result_unknown, retryable: false}
+  SANDBOX_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.sandbox_unavailable, retryable: false}
+  SKILL_CONTEXT_INVALID: {http_status: 422, message_key: errors.planv5.skill_context_invalid, retryable: false}
+  TOOL_CANCELLED: {http_status: 422, message_key: errors.planv5.tool_cancelled, retryable: false}
+  TOOL_CATEGORY_UNKNOWN: {http_status: 422, message_key: errors.planv5.tool_category_unknown, retryable: false}
+  TOOL_CONFIGURATION_CHANGED: {http_status: 409, message_key: errors.planv5.tool_configuration_changed, retryable: false}
+  TOOL_CONFIGURATION_INVALID: {http_status: 422, message_key: errors.planv5.tool_configuration_invalid, retryable: false}
+  TOOL_EXECUTION_FAILED: {http_status: 422, message_key: errors.planv5.tool_execution_failed, retryable: false}
+  TOOL_NOT_FOUND: {http_status: 404, message_key: errors.planv5.tool_not_found, retryable: false}
+  TOOL_PERMISSION_DENIED: {http_status: 403, message_key: errors.planv5.tool_permission_denied, retryable: false}
+  TOOL_READ_ONLY_REQUIRED: {http_status: 422, message_key: errors.planv5.tool_read_only_required, retryable: false}
+  TOOL_RESULT_FORBIDDEN: {http_status: 403, message_key: errors.planv5.tool_result_forbidden, retryable: false}
+  TOOL_RESULT_INVALID: {http_status: 422, message_key: errors.planv5.tool_result_invalid, retryable: false}
+  TOOL_RESULT_STORAGE_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.tool_result_storage_unavailable, retryable: false}
+  TOOL_RESULT_UNKNOWN: {http_status: 422, message_key: errors.planv5.tool_result_unknown, retryable: false}
+  TOOL_SCHEMA_INVALID: {http_status: 422, message_key: errors.planv5.tool_schema_invalid, retryable: false}
+  TOOL_TIMEOUT: {http_status: 422, message_key: errors.planv5.tool_timeout, retryable: false}
+  TOOL_VERSION_UNAVAILABLE: {http_status: 409, message_key: errors.planv5.tool_version_unavailable, retryable: false}
+  WORKSPACE_BUSY: {http_status: 422, message_key: errors.planv5.workspace_busy, retryable: false}
+  WORKSPACE_DELETED: {http_status: 422, message_key: errors.planv5.workspace_deleted, retryable: false}
+  WORKSPACE_FILE_CONFLICT: {http_status: 409, message_key: errors.planv5.workspace_file_conflict, retryable: false}
+  WORKSPACE_FILE_FORBIDDEN: {http_status: 403, message_key: errors.planv5.workspace_file_forbidden, retryable: false}
+  WORKSPACE_FILE_INVALID: {http_status: 422, message_key: errors.planv5.workspace_file_invalid, retryable: false}
+  WORKSPACE_FILE_NOT_FOUND: {http_status: 404, message_key: errors.planv5.workspace_file_not_found, retryable: false}
+  WORKSPACE_FILE_TOO_LARGE: {http_status: 422, message_key: errors.planv5.workspace_file_too_large, retryable: false}
+  WORKSPACE_FORBIDDEN: {http_status: 403, message_key: errors.planv5.workspace_forbidden, retryable: false}
+  WORKSPACE_HARD_QUOTA_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.workspace_hard_quota_unavailable, retryable: false}
+  WORKSPACE_LEASE_LOST: {http_status: 422, message_key: errors.planv5.workspace_lease_lost, retryable: false}
+  WORKSPACE_NOT_CONFIGURED: {http_status: 503, message_key: errors.planv5.workspace_not_configured, retryable: false}
+  WORKSPACE_OPERATION_TIMEOUT: {http_status: 422, message_key: errors.planv5.workspace_operation_timeout, retryable: false}
+  WORKSPACE_OWNERSHIP_INVALID: {http_status: 422, message_key: errors.planv5.workspace_ownership_invalid, retryable: false}
+  WORKSPACE_QUOTA_EXCEEDED: {http_status: 422, message_key: errors.planv5.workspace_quota_exceeded, retryable: false}
+  WORKSPACE_RUNTIME_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.workspace_runtime_unavailable, retryable: false}
+  WORKSPACE_STORAGE_FORBIDDEN: {http_status: 403, message_key: errors.planv5.workspace_storage_forbidden, retryable: false}
+  WORKSPACE_STORAGE_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.workspace_storage_unavailable, retryable: false}
+  WORKSPACE_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.workspace_unavailable, retryable: false}
+  WORKSPACE_UPLOAD_CONFLICT: {http_status: 409, message_key: errors.planv5.workspace_upload_conflict, retryable: false}
+  WORKSPACE_UPLOAD_EXPIRED: {http_status: 422, message_key: errors.planv5.workspace_upload_expired, retryable: false}
+  WORKSPACE_UPLOAD_FAILED: {http_status: 422, message_key: errors.planv5.workspace_upload_failed, retryable: false}

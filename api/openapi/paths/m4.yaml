@@ -16,6 +16,13 @@ conversation_collection:
       default: {$ref: '#/components/responses/Error'}
 conversation_item:
   parameters: [{name: conversation_id, in: path, required: true, schema: {type: string, format: uuid}}]
+  delete:
+    operationId: deleteConversation
+    summary: Permanently delete a conversation and schedule its owned file cleanup.
+    parameters: [{$ref: '#/components/parameters/IdempotencyKey'}, {$ref: '#/components/parameters/CsrfToken'}]
+    responses:
+      '202': {description: Deletion accepted., content: {application/json: {schema: {$ref: '../components/m4.yaml#/components/schemas/Conversation'}}}}
+      default: {$ref: '#/components/responses/Error'}
   get:
     operationId: getConversation
     summary: getConversation.

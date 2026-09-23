@@ -15,6 +15,7 @@ import (
 const (
 	ConversationStatusActive   ConversationStatus = "active"
 	ConversationStatusArchived ConversationStatus = "archived"
+	ConversationStatusDeleted  ConversationStatus = "deleted"
 )
 
 // Valid indicates whether the value is a known member of the ConversationStatus enum.
@@ -23,6 +24,35 @@ func (e ConversationStatus) Valid() bool {
 	case ConversationStatusActive:
 		return true
 	case ConversationStatusArchived:
+		return true
+	case ConversationStatusDeleted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConversationPreflightSandboxStatus.
+const (
+	NotConfigured      ConversationPreflightSandboxStatus = "not_configured"
+	ProfileUnavailable ConversationPreflightSandboxStatus = "profile_unavailable"
+	QuotaUnavailable   ConversationPreflightSandboxStatus = "quota_unavailable"
+	Ready              ConversationPreflightSandboxStatus = "ready"
+	Unhealthy          ConversationPreflightSandboxStatus = "unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the ConversationPreflightSandboxStatus enum.
+func (e ConversationPreflightSandboxStatus) Valid() bool {
+	switch e {
+	case NotConfigured:
+		return true
+	case ProfileUnavailable:
+		return true
+	case QuotaUnavailable:
+		return true
+	case Ready:
+		return true
+	case Unhealthy:
 		return true
 	default:
 		return false
@@ -41,24 +71,6 @@ func (e ConversationUpdateStatus) Valid() bool {
 	case ConversationUpdateStatusActive:
 		return true
 	case ConversationUpdateStatusArchived:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for MessageCreateCommandType.
-const (
-	InteractiveCardCreate MessageCreateCommandType = "interactive_card.create"
-	InteractiveCardRevise MessageCreateCommandType = "interactive_card.revise"
-)
-
-// Valid indicates whether the value is a known member of the MessageCreateCommandType enum.
-func (e MessageCreateCommandType) Valid() bool {
-	switch e {
-	case InteractiveCardCreate:
-		return true
-	case InteractiveCardRevise:
 		return true
 	default:
 		return false
@@ -143,13 +155,14 @@ type ContextSnapshot struct {
 
 // Conversation defines model for Conversation.
 type Conversation struct {
-	CreatedAt       time.Time          `json:"created_at"`
-	Id              openapi_types.UUID `json:"id"`
-	SelectedModelId openapi_types.UUID `json:"selected_model_id"`
-	Status          ConversationStatus `json:"status"`
-	Title           string             `json:"title"`
-	UpdatedAt       time.Time          `json:"updated_at"`
-	Version         int64              `json:"version"`
+	CreatedAt                time.Time            `json:"created_at"`
+	Id                       openapi_types.UUID   `json:"id"`
+	SelectedMcpConnectionIds []openapi_types.UUID `json:"selected_mcp_connection_ids"`
+	SelectedModelId          openapi_types.UUID   `json:"selected_model_id"`
+	Status                   ConversationStatus   `json:"status"`
+	Title                    string               `json:"title"`
+	UpdatedAt                time.Time            `json:"updated_at"`
+	Version                  int64                `json:"version"`
 }
 
 // ConversationStatus defines model for Conversation.Status.
@@ -192,12 +205,35 @@ type ConversationPage struct {
 	Page  CursorPage     `json:"page"`
 }
 
+// ConversationPreflight defines model for ConversationPreflight.
+type ConversationPreflight struct {
+	ErrorCode        *string                            `json:"error_code,omitempty"`
+	EstimatedTokens  int                                `json:"estimated_tokens"`
+	ModelId          openapi_types.UUID                 `json:"model_id"`
+	Ready            bool                               `json:"ready"`
+	SandboxStatus    ConversationPreflightSandboxStatus `json:"sandbox_status"`
+	SnapshotHash     string                             `json:"snapshot_hash"`
+	ToolCount        int                                `json:"tool_count"`
+	ToolSchemaTokens int                                `json:"tool_schema_tokens"`
+	UsableTokens     int                                `json:"usable_tokens"`
+}
+
+// ConversationPreflightSandboxStatus defines model for ConversationPreflight.SandboxStatus.
+type ConversationPreflightSandboxStatus string
+
+// ConversationPreflightInput defines model for ConversationPreflightInput.
+type ConversationPreflightInput struct {
+	Content string                `json:"content"`
+	FileIds *[]openapi_types.UUID `json:"file_ids,omitempty"`
+}
+
 // ConversationUpdate defines model for ConversationUpdate.
 type ConversationUpdate struct {
-	ExpectedVersion int64                     `json:"expected_version"`
-	SelectedModelId *openapi_types.UUID       `json:"selected_model_id,omitempty"`
-	Status          *ConversationUpdateStatus `json:"status,omitempty"`
-	Title           *string                   `json:"title,omitempty"`
+	ExpectedVersion          int64                     `json:"expected_version"`
+	SelectedMcpConnectionIds *[]openapi_types.UUID     `json:"selected_mcp_connection_ids,omitempty"`
+	SelectedModelId          *openapi_types.UUID       `json:"selected_model_id,omitempty"`
+	Status                   *ConversationUpdateStatus `json:"status,omitempty"`
+	Title                    *string                   `json:"title,omitempty"`
 }
 
 // ConversationUpdateStatus defines model for ConversationUpdate.Status.
@@ -221,16 +257,9 @@ type MessageAccepted struct {
 
 // MessageCreate defines model for MessageCreate.
 type MessageCreate struct {
-	Command *struct {
-		CardId           *openapi_types.UUID      `json:"card_id,omitempty"`
-		ExpectedRevision *int                     `json:"expected_revision,omitempty"`
-		Type             MessageCreateCommandType `json:"type"`
-	} `json:"command,omitempty"`
-	Content string `json:"content"`
+	Content string                `json:"content"`
+	FileIds *[]openapi_types.UUID `json:"file_ids,omitempty"`
 }
-
-// MessageCreateCommandType defines model for MessageCreate.Command.Type.
-type MessageCreateCommandType string
 
 // PartialMetadata defines model for PartialMetadata.
 type PartialMetadata struct {
@@ -362,6 +391,9 @@ type Limit = int
 // Error defines model for Error.
 type Error = ApiError
 
+// ResponsesError defines model for responses-Error.
+type ResponsesError = ApiError
+
 // ListConversationsParams defines parameters for ListConversations.
 type ListConversationsParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -370,6 +402,12 @@ type ListConversationsParams struct {
 
 // CreateConversationParams defines parameters for CreateConversation.
 type CreateConversationParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+}
+
+// DeleteConversationParams defines parameters for DeleteConversation.
+type DeleteConversationParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
 }
@@ -397,6 +435,11 @@ type CreateConversationMessageParams struct {
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
 }
 
+// PreflightConversationParams defines parameters for PreflightConversation.
+type PreflightConversationParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
 // CancelRunParams defines parameters for CancelRun.
 type CancelRunParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
@@ -417,6 +460,9 @@ type UpdateConversationJSONRequestBody = ConversationUpdate
 
 // CreateConversationMessageJSONRequestBody defines body for CreateConversationMessage for application/json ContentType.
 type CreateConversationMessageJSONRequestBody = MessageCreate
+
+// PreflightConversationJSONRequestBody defines body for PreflightConversation for application/json ContentType.
+type PreflightConversationJSONRequestBody = ConversationPreflightInput
 
 // AsApiErrorParams0 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams0
 func (t ApiError_Params_AdditionalProperties) AsApiErrorParams0() (ApiErrorParams0, error) {

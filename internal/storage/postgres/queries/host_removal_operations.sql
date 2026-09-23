@@ -223,7 +223,8 @@ SELECT 'collector_operation'::text, operation.id, operation.operation::text, ope
 FROM telemetry_collector_operations operation
 JOIN collector_instances collector ON collector.id=operation.collector_id AND collector.enterprise_id=operation.enterprise_id
 WHERE operation.enterprise_id=$1 AND collector.resource_type='host' AND collector.resource_id=$2
-  AND operation.status IN ('queued','running','result_unknown');
+  AND operation.status IN ('queued','running','result_unknown')
+ORDER BY dependency_type, dependency_id;
 
 -- name: ListBastionRemovalDependencies :many
 SELECT 'member_host'::text AS dependency_type, host.id AS dependency_id, host.name::text AS name,
@@ -280,7 +281,8 @@ FROM telemetry_collector_operations operation
 JOIN collector_instances collector ON collector.id=operation.collector_id AND collector.enterprise_id=operation.enterprise_id
 LEFT JOIN hosts host ON host.id=collector.resource_id AND host.enterprise_id=collector.enterprise_id AND collector.resource_type='host'
 WHERE operation.enterprise_id=$1 AND operation.status IN ('queued','running','result_unknown')
-  AND collector.resource_type='host' AND (collector.resource_id=$3 OR host.bastion_scope_id=$2);
+  AND collector.resource_type='host' AND (collector.resource_id=$3 OR host.bastion_scope_id=$2)
+ORDER BY dependency_type, dependency_id;
 
 -- name: TerminateRemoteAccessSessionsByHostRemoval :execrows
 UPDATE remote_access_sessions SET status='terminating',session_fence=session_fence+1,

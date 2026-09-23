@@ -90,14 +90,14 @@ test.describe("M3 real resource flow", () => {
     await expect(row).toContainText(/禁用|Disabled/i);
   });
 
-  test("renders remaining Hosts after label-based revocation", async ({
+  test("renders only the authorized real host inventory", async ({
     page,
   }) => {
     await page.goto("/hosts");
     await expect(
       page.getByText("m3-direct-host", { exact: true }),
     ).toBeVisible();
-		await expect(page.getByText("m3-bastion-2")).toBeVisible();
+    await expect(page.getByText("m3-bastion-2")).toBeVisible();
     if (preserveBastion) {
       await expect(page.getByText("m3-bastion", { exact: true })).toBeVisible();
     } else {
@@ -120,10 +120,15 @@ test.describe("M3 real resource flow", () => {
       .filter({ hasText: "m3-direct-host" });
     await tile.getByRole("button", { name: /编辑|Edit/i }).click();
     const drawer = page.getByRole("dialog", {
-      name: /编辑主机.*m3-direct-host|Edit host.*m3-direct-host/i,
+      name: /编辑资源元数据|Edit resource metadata/i,
     });
     await expect(drawer).toBeVisible();
-    const save = drawer.getByRole("button", { name: /保存|Save/i });
+    await drawer
+      .getByRole("textbox", { name: /主机名|Host name/i })
+      .fill("m3-cancelled-update");
+    const save = drawer.getByRole("button", {
+      name: /生成变更预览|Generate change preview/i,
+    });
     await expect(save).toBeVisible();
     const previewResponse = page.waitForResponse(
       (response) =>
@@ -208,7 +213,15 @@ test.describe("M3 real resource flow", () => {
       ),
     ).toBeVisible({ timeout: 90_000 });
     const command = await drawer.locator(".argus-code code").textContent();
-    expect(command).toContain("argus-connector");
+    // The install command transports a signed bootstrap as base64. Inspect
+    // its decoded instructions without printing the one-time token on failure.
+    const encoded = command?.match(
+      /printf '%s' '([A-Za-z0-9+/=]+)' \| base64 -d/,
+    );
+    expect(Boolean(encoded)).toBe(true);
+    const bootstrap = Buffer.from(encoded![1]!, "base64").toString("utf8");
+    expect(bootstrap.includes("argus-connector")).toBe(true);
+    expect(bootstrap.includes("'--role' 'kubernetes'")).toBe(true);
     const browserState = await page.evaluate(() =>
       JSON.stringify({
         localStorage: window.localStorage,

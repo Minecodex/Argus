@@ -134,7 +134,6 @@ components:
           enum:
             - agent_event
             - task_event
-            - card_action_result
             - authorization_invalidated
             - stream_closing
         occurred_at:

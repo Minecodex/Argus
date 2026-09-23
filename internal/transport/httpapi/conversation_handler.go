@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +17,7 @@ import (
 	conversationapi "github.com/kakj-go/Argus/internal/gen/openapi/conversationapi"
 	"github.com/kakj-go/Argus/internal/identity"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 type ConversationHandler struct {
@@ -70,7 +70,13 @@ func (handler ConversationHandler) GetConversation(ctx context.Context, request 
 	if err != nil {
 		return conversationapi.GetConversationdefaultJSONResponse{Body: conversationError(ctx, err), StatusCode: conversationStatus(err)}, nil
 	}
-	return conversationapi.GetConversation200JSONResponse(toConversation(value)), nil
+	result := toConversation(value)
+	ids, err := handler.Service.Store.Queries.GetConversationMCPConnections(ctx, db.GetConversationMCPConnectionsParams{ConversationID: value.ID, EnterpriseID: value.EnterpriseID})
+	if err != nil {
+		return conversationapi.GetConversationdefaultJSONResponse{Body: conversationError(ctx, err), StatusCode: conversationStatus(err)}, nil
+	}
+	result.SelectedMcpConnectionIds = ids
+	return conversationapi.GetConversation200JSONResponse(result), nil
 }
 
 func (handler ConversationHandler) UpdateConversation(ctx context.Context, request conversationapi.UpdateConversationRequestObject) (conversationapi.UpdateConversationResponseObject, error) {
@@ -88,11 +94,17 @@ func (handler ConversationHandler) UpdateConversation(ctx context.Context, reque
 		value := uuid.UUID(*request.Body.SelectedModelId)
 		modelID = &value
 	}
-	value, err := handler.Service.Update(ctx, p.EnterpriseIDValue(), uuid.MustParse(p.ActorID()), uuid.UUID(request.ConversationId), request.Body.ExpectedVersion, request.Body.Title, status, modelID)
+	var selected []uuid.UUID
+	if request.Body.SelectedMcpConnectionIds != nil {
+		selected = append(make([]uuid.UUID, 0), (*request.Body.SelectedMcpConnectionIds)...)
+	}
+	value, err := handler.Service.Update(ctx, p.EnterpriseIDValue(), uuid.MustParse(p.ActorID()), uuid.UUID(request.ConversationId), request.Body.ExpectedVersion, request.Body.Title, status, modelID, selected)
 	if err != nil {
 		return conversationapi.UpdateConversationdefaultJSONResponse{Body: conversationError(ctx, err), StatusCode: conversationStatus(err)}, nil
 	}
-	return conversationapi.UpdateConversation200JSONResponse(toConversation(value)), nil
+	result := toConversation(value)
+	result.SelectedMcpConnectionIds, _ = handler.Service.Store.Queries.GetConversationMCPConnections(ctx, db.GetConversationMCPConnectionsParams{ConversationID: value.ID, EnterpriseID: value.EnterpriseID})
+	return conversationapi.UpdateConversation200JSONResponse(result), nil
 }
 
 func (handler ConversationHandler) CreateConversationMessage(ctx context.Context, request conversationapi.CreateConversationMessageRequestObject) (conversationapi.CreateConversationMessageResponseObject, error) {
@@ -100,26 +112,12 @@ func (handler ConversationHandler) CreateConversationMessage(ctx context.Context
 	if apiError != nil {
 		return conversationapi.CreateConversationMessagedefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
 	}
-	var command *conversation.MessageCommand
-	if request.Body.Command != nil {
-		if !slices.Contains(p.Permissions, "*") && !slices.Contains(p.Permissions, "interactive_card.create") {
-			return conversationapi.CreateConversationMessagedefaultJSONResponse{Body: conversationError(ctx, errors.New("authorization denied")), StatusCode: http.StatusForbidden}, nil
-		}
-		command = &conversation.MessageCommand{Type: string(request.Body.Command.Type)}
-		if request.Body.Command.CardId != nil {
-			value := uuid.UUID(*request.Body.Command.CardId)
-			command.CardID = &value
-		}
-		if request.Body.Command.ExpectedRevision != nil {
-			value := int32(*request.Body.Command.ExpectedRevision)
-			command.ExpectedRevision = &value
-		}
-		if command.Type == "interactive_card.revise" && (command.CardID == nil || command.ExpectedRevision == nil) {
-			return conversationapi.CreateConversationMessagedefaultJSONResponse{Body: conversationError(ctx, errors.New("invalid Card revision command")), StatusCode: http.StatusBadRequest}, nil
-		}
+	var fileIDs []uuid.UUID
+	if request.Body.FileIds != nil {
+		fileIDs = *request.Body.FileIds
 	}
 	accepted, err := handler.Service.AddMessage(ctx, p.ActorID(), p.EnterpriseIDValue(), uuid.MustParse(p.ActorID()), uuid.UUID(request.ConversationId),
-		p.AuthorizationVersion(), LocaleFromContext(ctx), request.Body.Content, command, request.Params.IdempotencyKey)
+		p.AuthorizationVersion(), LocaleFromContext(ctx), request.Body.Content, fileIDs, request.Params.IdempotencyKey)
 	if err != nil {
 		return conversationapi.CreateConversationMessagedefaultJSONResponse{Body: conversationError(ctx, err), StatusCode: conversationStatus(err)}, nil
 	}
@@ -173,7 +171,7 @@ func (handler ConversationHandler) GetRun(ctx context.Context, request conversat
 	if apiError != nil {
 		return conversationapi.GetRundefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
 	}
-	value, err := handler.Service.GetRun(ctx, p.EnterpriseIDValue(), uuid.UUID(request.RunId))
+	value, err := handler.Service.GetRun(ctx, p.EnterpriseIDValue(), uuid.MustParse(p.ActorID()), uuid.UUID(request.RunId))
 	if err != nil {
 		return conversationapi.GetRundefaultJSONResponse{Body: conversationError(ctx, err), StatusCode: conversationStatus(err)}, nil
 	}
@@ -223,6 +221,10 @@ func (handler ConversationHandler) GetToolResult(ctx context.Context, request co
 
 func (handler ConversationHandler) writeEventStream(ctx context.Context, writer *io.PipeWriter, principal identity.Principal, conversationID uuid.UUID, after int64) {
 	defer writer.Close()
+	// A stalled consumer can block Pipe.Write before the polling select. Closing
+	// the pipe on cancellation bounds that producer's lifetime as well.
+	stop := context.AfterFunc(ctx, func() { _ = writer.CloseWithError(ctx.Err()) })
+	defer stop()
 	poll := time.NewTicker(500 * time.Millisecond)
 	heartbeat := time.NewTicker(15 * time.Second)
 	defer poll.Stop()
@@ -302,7 +304,9 @@ func toAgentStreamEnvelope(value db.ConversationEvent, authorizationVersion int6
 	case "tool_call_result":
 		eventType = "tool_call_completed"
 		agentPayload = payload
-		agentPayload["status"] = "succeeded"
+	case "tool_presentation", "workspace_file_added", "artifact_published":
+		eventType = value.EventType
+		agentPayload = payload
 	case "pending_action_created":
 		eventType = "pending_action_created"
 		agentPayload = payload
@@ -312,17 +316,20 @@ func toAgentStreamEnvelope(value db.ConversationEvent, authorizationVersion int6
 	default:
 		return nil, false
 	}
-	if eventType == "" || !value.RunID.Valid {
+	if eventType == "" {
 		return nil, false
 	}
 	agentEvent := map[string]any{
-		"schema_version": "argus.agent_event/v1",
-		"event_id":       value.ID.String(),
-		"sequence":       value.Sequence,
-		"run_id":         value.RunID.UUID.String(),
-		"event_type":     eventType,
-		"occurred_at":    value.OccurredAt.Time,
-		"payload":        agentPayload,
+		"schema_version":  "argus.agent_event/v1",
+		"event_id":        value.ID.String(),
+		"sequence":        value.Sequence,
+		"conversation_id": value.ConversationID.String(),
+		"event_type":      eventType,
+		"occurred_at":     value.OccurredAt.Time,
+		"payload":         agentPayload,
+	}
+	if value.RunID.Valid {
+		agentEvent["run_id"] = value.RunID.UUID.String()
 	}
 	if value.StepID.Valid {
 		agentEvent["step_id"] = value.StepID.UUID.String()
@@ -357,7 +364,8 @@ func (handler ConversationHandler) auth(ctx context.Context, mutation bool, csrf
 
 func toConversation(value db.Conversation) conversationapi.Conversation {
 	return conversationapi.Conversation{Id: value.ID, Title: value.Title, SelectedModelId: value.SelectedModelID,
-		Status: conversationapi.ConversationStatus(value.Status), Version: value.Version, CreatedAt: value.CreatedAt.Time, UpdatedAt: value.UpdatedAt.Time}
+		SelectedMcpConnectionIds: []uuid.UUID{},
+		Status:                   conversationapi.ConversationStatus(value.Status), Version: value.Version, CreatedAt: value.CreatedAt.Time, UpdatedAt: value.UpdatedAt.Time}
 }
 
 func toConversationRun(value db.Run) conversationapi.Run {
@@ -401,6 +409,10 @@ func toConversationEvent(value db.ConversationEvent) conversationapi.Conversatio
 }
 
 func conversationError(ctx context.Context, err error) conversationapi.ApiError {
+	var toolError toolruntime.Error
+	if errors.As(err, &toolError) {
+		return planV5Error[conversationapi.ApiError](ctx, err)
+	}
 	code, key := "INTERNAL_ERROR", "errors.common.internal"
 	defer func() { logMappedError(ctx, code, err) }()
 	switch {
@@ -421,6 +433,10 @@ func conversationError(ctx context.Context, err error) conversationapi.ApiError 
 }
 
 func conversationStatus(err error) int {
+	var toolError toolruntime.Error
+	if errors.As(err, &toolError) {
+		return planV5Status(err)
+	}
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return http.StatusNotFound

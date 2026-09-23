@@ -4,7 +4,6 @@ import { calculateModelAmount } from "../types";
 import type { RemoteAccessRecording } from "../generated/contracts";
 import { createOrgSeed } from "./seed-org";
 import type { MockDb } from "./store";
-import type { MockInteractiveCard } from "./internal-types";
 import type { MockHost } from "./resource-models";
 import { publicActionType } from "./action-type";
 import {
@@ -19,7 +18,7 @@ import {
  * Builds the seed database: one initialized platform with a super admin,
  * two enterprises (Acme, Globex), twelve hosts across three active Bastion
  * Scopes plus one pending scope, two Kubernetes clusters and a consistent
- * graph of tasks, pending actions, models, cards and audit events.
+ * graph of tasks, pending actions, models and audit events.
  * Org 域种子（用户/部门/项目/角色/绑定/策略等）见 seed-org.ts。
  */
 export function createSeedDb(now: number = Date.now()): MockDb {
@@ -483,76 +482,6 @@ export function createSeedDb(now: number = Date.now()): MockDb {
     }),
   ];
 
-  const interactiveCard = (
-    partial: Pick<MockInteractiveCard, "id" | "slug" | "name"> &
-      Partial<Omit<MockInteractiveCard, "id" | "slug" | "name">>,
-  ): MockInteractiveCard => {
-    const source = partial.source ?? "system";
-    const enterprise = source === "enterprise";
-    const body =
-      partial.htmlTemplate ??
-      `<article class="card"><header><span class="eyebrow">ARGUS</span><h3 data-slot="title"></h3></header><p>Validated interactive result</p></article>`;
-    const htmlTemplate = `<!doctype html><html><head><style>
-      *{box-sizing:border-box}html,body{margin:0;background:var(--bg-canvas);color:var(--text-primary);font-family:var(--font-sans);font-size:13px}
-      body{padding:12px}.card,.host-card{padding:14px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-surface)}
-      header{display:flex;align-items:center;gap:10px}.eyebrow{color:var(--accent);font-size:10px;font-weight:700}h3{margin:0;font-size:15px}p{margin:10px 0 0;color:var(--text-secondary)}
-      [data-slot]{min-height:1em}section[data-slot]{margin-top:10px}
-    </style></head><body>${body}<script>
-      window.argus.onInit(function(payload){
-        var tokens=payload.context.designTokens||{};
-        Object.keys(tokens).forEach(function(key){document.documentElement.style.setProperty(key,tokens[key]);});
-        document.documentElement.dataset.theme=payload.context.theme;
-        var data=payload.initialData||{};
-        document.querySelectorAll("[data-slot]").forEach(function(node){
-          var value=data[node.getAttribute("data-slot")];
-          if(value===undefined||value===null)return;
-          node.textContent=typeof value==="object"?JSON.stringify(value,null,2):String(value);
-        });
-        window.argus.resize();
-      });
-    </script></body></html>`;
-    return {
-      id: partial.id,
-      enterpriseId: enterprise
-        ? (partial.enterpriseId ?? "ent-acme")
-        : undefined,
-      source,
-      slug: partial.slug,
-      name: partial.name,
-      description: partial.description ?? "",
-      version: partial.version ?? "1.0.0",
-      revision: 1,
-      lifecycle: partial.lifecycle ?? (enterprise ? "draft" : "active"),
-      enabled: partial.enabled ?? !enterprise,
-      htmlTemplate,
-      slots: partial.slots ?? [
-        { name: "title", type: "string", required: true },
-      ],
-      bindings: partial.bindings ?? [],
-      demoData: partial.demoData ?? { title: partial.name },
-      validation: enterprise
-        ? partial.validation
-        : {
-            valid: true,
-            checkedAt: ago(DAY),
-            passedScenarios: [
-              "default",
-              "empty",
-              "error",
-              "large",
-              "light",
-              "dark",
-              "zh-CN",
-              "en-US",
-            ],
-            issues: [],
-          },
-      createdBy: partial.createdBy,
-      createdAt: partial.createdAt ?? ago(90 * DAY),
-      updatedAt: partial.updatedAt ?? ago(30 * DAY),
-    };
-  };
-
   const usagePoints: ModelUsagePoint[] = [];
   for (let day = 13; day >= 0; day -= 1) {
     const date = new Date(now - day * DAY).toISOString().slice(0, 10) ?? "";
@@ -728,7 +657,15 @@ export function createSeedDb(now: number = Date.now()): MockDb {
   };
 
   const db: MockDb = {
-    schemaVersion: 14,
+    planv5: {
+      connections: [],
+      selections: {},
+      workspaces: {},
+      files: {},
+      contents: {},
+      presentations: {},
+    },
+    schemaVersion: 15,
     seq: {},
     platformState: { state: "initialized", name: "Argus" },
     enterprises: [
@@ -1392,16 +1329,7 @@ export function createSeedDb(now: number = Date.now()): MockDb {
             startedAt: ago(14 * MINUTE),
           },
         ],
-        cards: [
-          {
-            id: "cardi-0001",
-            interactiveCardId: "cs-host-create-confirm",
-            version: "3.0.1",
-            title: "新增主机确认",
-            pendingActionRef: "pa_ref_pa-0004",
-            actionBindingId: "cab-0001",
-          },
-        ],
+        pendingActionRefs: ["pa_ref_pa-0004"],
       },
       {
         id: "msg-0003",
@@ -1409,16 +1337,6 @@ export function createSeedDb(now: number = Date.now()): MockDb {
         role: "system",
         content: "用户确认了新增主机操作",
         createdAt: ago(12 * MINUTE),
-        event: {
-          type: "card_action_result",
-          origin: "user_interaction",
-          actorUserId: "u-chenxi",
-          cardInstanceId: "cardi-0001",
-          action: "confirm",
-          tool: "host.create.commit",
-          status: "success",
-          resultRef: "task-8f21",
-        },
       },
       {
         id: "msg-0004",
@@ -1554,122 +1472,6 @@ export function createSeedDb(now: number = Date.now()): MockDb {
       },
     ],
     usagePoints,
-    interactiveCards: [
-      interactiveCard({
-        id: "cs-resource-list",
-        slug: "resource-list",
-        name: "资源列表",
-        description: "通用资源列表卡片",
-        slots: [
-          { name: "columns", type: "array", required: true },
-          { name: "items", type: "array", required: true },
-        ],
-        demoData: { columns: ["name", "status"], items: [] },
-      }),
-      interactiveCard({
-        id: "cs-resource-detail",
-        slug: "resource-detail",
-        name: "资源详情",
-        description: "通用资源详情卡片",
-        slots: [
-          { name: "identity", type: "object", required: true },
-          { name: "status", type: "string", required: true },
-        ],
-        demoData: { identity: { name: "host-web-11" }, status: "online" },
-      }),
-      interactiveCard({
-        id: "cs-pending-action-confirm",
-        slug: "pending-action-confirm",
-        name: "操作确认",
-        description: "普通变更的预览与确认",
-        slots: [
-          { name: "preview", type: "object", required: true },
-          { name: "risk", type: "string", required: true },
-        ],
-        demoData: { preview: { name: "server-01" }, risk: "write" },
-      }),
-      interactiveCard({
-        id: "cs-critical-action-approval",
-        slug: "critical-action-approval",
-        name: "高危审批",
-        description: "高危操作的确认与审批状态",
-        slots: [
-          { name: "title", type: "string", required: true, aiGenerated: true },
-        ],
-      }),
-      interactiveCard({
-        id: "cs-execution-progress",
-        slug: "execution-progress",
-        name: "执行进度",
-        description: "长任务步骤进度",
-        slots: [{ name: "steps", type: "array", required: true }],
-        demoData: { steps: [] },
-      }),
-      interactiveCard({
-        id: "cs-configuration-diff",
-        slug: "configuration-diff",
-        name: "配置差异",
-        description: "配置前后 Diff 展示",
-        slots: [
-          { name: "before", type: "string", required: true },
-          { name: "after", type: "string", required: true },
-        ],
-      }),
-      interactiveCard({
-        id: "cs-host-overview",
-        slug: "host-overview",
-        name: "主机概览",
-        description: "主机状态、资源使用率和告警",
-        version: "1.4.0",
-        htmlTemplate:
-          '<article class="host-card"><h3 data-slot="title" data-type="string"></h3>' +
-          '<div data-slot="host_name" data-type="string"></div>' +
-          '<div data-slot="cpu_usage" data-type="number"></div>' +
-          '<section data-slot="alerts" data-type="array"></section></article>',
-        slots: [
-          { name: "title", type: "string", required: true, aiGenerated: true },
-          { name: "host_name", type: "string", required: true },
-          { name: "cpu_usage", type: "number", required: false },
-          { name: "alerts", type: "array", required: false },
-        ],
-        demoData: {
-          title: "生产主机状态",
-          host_name: "host-web-11",
-          cpu_usage: 42,
-          alerts: [],
-        },
-      }),
-      interactiveCard({
-        id: "cs-host-create-confirm",
-        slug: "host-create-confirm",
-        name: "新增主机确认",
-        description: "新增主机的不可变预览与确认",
-        version: "3.0.1",
-        source: "enterprise",
-        lifecycle: "draft",
-        enabled: false,
-        enterpriseId: "ent-acme",
-        createdBy: "u-chenxi",
-        slots: [
-          { name: "title", type: "string", required: true, aiGenerated: true },
-        ],
-        createdAt: ago(6 * DAY),
-        updatedAt: ago(DAY),
-      }),
-      interactiveCard({
-        id: "cs-my-cron",
-        slug: "cron-job-board",
-        name: "定时任务看板",
-        description: "企业自定义的定时任务卡片",
-        source: "enterprise",
-        lifecycle: "draft",
-        enabled: false,
-        enterpriseId: "ent-acme",
-        createdBy: "u-chenxi",
-        createdAt: ago(3 * DAY),
-        updatedAt: ago(2 * DAY),
-      }),
-    ],
     auditEvents: [
       {
         id: "aud-0001",
@@ -1779,7 +1581,7 @@ export function createSeedDb(now: number = Date.now()): MockDb {
       },
       {
         id: "img-node",
-        name: "Node Card Builder",
+        name: "Workspace Analysis",
         reference: "registry.argus.local/sandbox/node-builder",
         digest: "sha256:9f2ca41d0003",
         languages: [{ name: "node", version: "22" }],
@@ -1804,94 +1606,44 @@ export function createSeedDb(now: number = Date.now()): MockDb {
       {
         id: "sp-shell",
         name: "shell-basic",
-        description: "文本、压缩包和简单脚本",
         imageId: "img-shell",
-        resources: { cpu: 1, memoryMb: 1024, diskMb: 2048, pids: 128 },
-        timeouts: {
-          commandSeconds: 300,
-          idleSeconds: 180,
-          lifetimeSeconds: 900,
-        },
-        network: { mode: "deny_all", allowedDomains: [] },
-        capabilities: {
-          fileUpload: true,
-          artifactDownload: true,
-          secretInjection: false,
-          gpu: false,
-        },
-        builtin: true,
+        resources: { cpu: 1, memoryMb: 1024 },
+        timeoutSeconds: 300,
+        taskKinds: ["agent_workspace"],
+        networkMode: "none",
         enabled: true,
         createdAt: ago(90 * DAY),
       },
       {
         id: "sp-python",
         name: "python-analysis",
-        description: "日志、JSON、CSV 数据分析",
         imageId: "img-python",
-        resources: { cpu: 1, memoryMb: 2048, diskMb: 4096, pids: 128 },
-        timeouts: {
-          commandSeconds: 600,
-          idleSeconds: 300,
-          lifetimeSeconds: 1800,
-        },
-        network: { mode: "deny_all", allowedDomains: [] },
-        capabilities: {
-          fileUpload: true,
-          artifactDownload: true,
-          secretInjection: false,
-          gpu: false,
-        },
-        builtin: true,
+        resources: { cpu: 1, memoryMb: 2048 },
+        timeoutSeconds: 300,
+        taskKinds: ["agent_workspace"],
+        networkMode: "none",
         enabled: true,
         createdAt: ago(90 * DAY),
       },
       {
         id: "sp-node",
-        name: "node-card-builder",
-        description: "交互卡片 生成和验证",
+        name: "workspace-analysis",
         imageId: "img-node",
-        resources: { cpu: 2, memoryMb: 4096, diskMb: 8192, pids: 256 },
-        timeouts: {
-          commandSeconds: 600,
-          idleSeconds: 300,
-          lifetimeSeconds: 1800,
-        },
-        network: {
-          mode: "allow_list",
-          allowedDomains: ["npm.registry.internal"],
-        },
-        capabilities: {
-          fileUpload: true,
-          artifactDownload: true,
-          secretInjection: false,
-          gpu: false,
-        },
-        builtin: true,
+        resources: { cpu: 2, memoryMb: 4096 },
+        timeoutSeconds: 300,
+        taskKinds: ["agent_workspace"],
+        networkMode: "none",
         enabled: true,
         createdAt: ago(90 * DAY),
       },
       {
         id: "sp-go",
         name: "go-build",
-        description: "Go 代码生成、构建和测试",
         imageId: "img-go",
-        resources: { cpu: 2, memoryMb: 4096, diskMb: 8192, pids: 128 },
-        timeouts: {
-          commandSeconds: 600,
-          idleSeconds: 300,
-          lifetimeSeconds: 1800,
-        },
-        network: {
-          mode: "allow_list",
-          allowedDomains: ["proxy.golang.internal"],
-        },
-        capabilities: {
-          fileUpload: true,
-          artifactDownload: true,
-          secretInjection: false,
-          gpu: false,
-        },
-        builtin: true,
+        resources: { cpu: 2, memoryMb: 4096 },
+        timeoutSeconds: 300,
+        taskKinds: ["agent_workspace"],
+        networkMode: "none",
         enabled: true,
         createdAt: ago(90 * DAY),
       },
@@ -1899,21 +1651,15 @@ export function createSeedDb(now: number = Date.now()): MockDb {
     sandboxQuotas: [
       {
         enterpriseId: "ent-acme",
-        allowedProfiles: ["sp-shell", "sp-python", "sp-node"],
+        version: 1,
         maxConcurrentSessions: 5,
-        maxDailySessionMinutes: 1000,
-        maxDailyCpuMinutes: 2000,
-        maxArtifactStorageMb: 10_240,
-        artifactRetentionDays: 7,
+        monthlySessionSeconds: 60000,
       },
       {
         enterpriseId: "ent-globex",
-        allowedProfiles: ["sp-shell"],
+        version: 1,
         maxConcurrentSessions: 2,
-        maxDailySessionMinutes: 300,
-        maxDailyCpuMinutes: 600,
-        maxArtifactStorageMb: 2048,
-        artifactRetentionDays: 3,
+        monthlySessionSeconds: 18000,
       },
     ],
     sandboxSessions: [
