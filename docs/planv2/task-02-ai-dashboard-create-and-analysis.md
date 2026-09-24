@@ -1,114 +1,123 @@
-# Task 02：AI 创建仪表盘与 @Dashboard 分析
+# Task 02：AI 创建仪表盘与 Chat 内分析
 
-## 1. Task 定义
+## 1. 目标与用户闭环
 
-目标：在 Task 01 提供的 Dashboard 领域服务、OTLP Catalog 和 Query Runtime 之上，接入两个显式 AI 能力：用户通过 /创建仪表盘 生成结构化 Dashboard Draft 并确认发布；用户通过 @ 明确引用仪表盘，让 Agent 根据已发布 Panel 查询获取指标、日志和 Trace 证据并总结是否存在问题。
-
-完成后的用户闭环：
+在 Task 01 的 Dashboard、个人草稿、Catalog、Query Runtime 和结果导出服务上接入 AI 创建与分析。以 [主设计](./01-telemetry-dashboard-and-ai.md) 和 [Q1～Q42 决策记录](./02-confirmed-decisions.md) 为准。Q32 的 APM 能力在 Task 01 补齐并验收后接入相同契约；Q31 的人工完整链路展开不使 AI 自动改写已发布查询或补取未配置明细。Q34 的多来源回答不等于全量数据保证；Q35/Q36 的来源和局部过滤按 Panel 隔离，继续由 Chat 自己的明确参数驱动。Q37/Q38/Q39 的动态来源、显式映射及标准下钻由人工与 AI 共用；Q40 的重新取数采用最新发布版，单次执行冻结配置。
 
 ~~~text
-用户输入 /创建仪表盘
-→ Skill 收集需求并调用 Catalog
-→ 生成 DashboardDraft JSON
-→ dashboard.create.preview
-→ 用户查看 Preview 并点击确认
-→ Action Executor Commit
-→ 返回 Dashboard 入口
+/创建仪表盘
+→ 从真实 Catalog 收集字段与资源信息
+→ AI 生成 builder/DSL Panel 与构建器变量的 Draft
+→ 服务端验证并生成发布预览
+→ 用户宿主确认
+→ 发布 Dashboard/Revision
 
-用户输入 @支付服务健康度 最近一小时有没有问题
-→ 客户端生成稳定 Dashboard Mention
-→ dashboard.get 获取 active Revision
-→ Agent 选择 Panel 和查询顺序
-→ 通过 provenance 校验的 Query Tool 查询
-→ Evidence Projection
-→ 输出 observed/inferred/unknown 总结
+Chat 中 @具体仪表盘
+或未指定对象时列出授权仪表盘，由用户明确选择
+→ 获取已发布统计图查询定义
+→ 按默认条件和用户问题确定时间、资源、变量
+→ 泛问检查所有适用图，具体问题按需查询
+→ 导出已发布展示查询或显式明细来源的完整结果
+→ 结果文件进入会话 Workspace
+→ AI 用 read/grep/bash/脚本分析
+→ Chat 输出自主判断、范围和覆盖不足
 ~~~
 
-AI 只负责理解、规划和调用工具，不能成为新的 Dashboard 存储、权限或查询执行实现。
+AI 分析不依赖 Dashboard 页面是否打开，不获取页面“当前视图”，不改变页面筛选。用户不需要分析工作台、图表或额外可视化界面。
 
 ## 2. 依赖与非目标
 
-### 2.1 必须先完成 Task 01
+### 2.1 前提
 
-- Dashboard、Revision、Panel、Variable、Binding Schema 已冻结。
-- ExecuteDashboard 能从 active Revision 执行 Metrics/Logs/Traces。
-- Catalog、Preview/Commit、权限、explicit resource authorization、AuthorizationVersion 已可调用。
-- 至少有一个真实后台页面和 API E2E 证明手工创建闭环。
-- Tool Result Projection、PendingAction、Action Executor 和 Chatbox Mention 基座可复用。
+- Task 01 的人工三信号闭环、草稿发布、授权、Catalog 和 Runtime 已有真实 API/UI E2E 证据。
+- 配置契约区分构建器变量与 builder/DSL Panel。
+- 统一 Query Runtime 支持系统资源范围、变量适配、总预算和状态；导出服务具备分片、可信来源与完整性记录。
+- 复用 PlanV5 持久 Workspace、受控导入、离线 read/write/edit/bash、来源授权和配额；有界 Tool Result 导入不等于大结果完整导出。
+- PendingAction、Action Executor、Tool Result Projection 和 PlanV5 宿主确认可复用。
+- 不能假定结构化 Dashboard Mention、显式 Skill 激活、授权 Dashboard 列表及 Gateway 分类已存在，需通过 T2.0 补齐。
 
-### 2.2 本 Task 不实现
+### 2.2 非目标
 
-- 没有 @ 时从全企业 Dashboard 中模糊猜测仪表盘。
-- 模型直接执行任意 PromQL、KQL、SQL 或 Trace GraphQL。
-- 模型直接提交 Commit 或读取私有 PendingAction 参数。
-- 把 AI 摘要写回 Dashboard 作为事实。
-- 自动创建告警、自动修复或自动修改生产资源。
+- 未经用户选择自动挑选仪表盘。
+- AI 临时改写查询、自动去掉聚合/limit、还原原始点或展开未发布 Trace 字段；额外明细必须有明确的已发布查询，文件交付由 AI 工具内部处理，不是仪表盘功能。
+- 模型直接提交 Commit、读取私有提交 Token 或代替服务端宣称验证通过。
+- 把摘要写回 Dashboard 当作业务事实。
+- 告警、自动修复或生产资源变更；不建设必填阈值或服务端固定诊断规则，AI 自行判断。
+- Dashboard 页面分析按钮、浏览器当前视图捕获、自动页面联动或分析工作台。
+- 本期 Kubernetes 下级对象绑定、UID 精确过滤或传播。
 
-## 3. 子任务分解
+AI 创建可以生成底层支持的查询语句；“分析不能任意查询”不等于“创建只能生成构建器”。
 
-### T2.1 /创建仪表盘 Skill
+## 3. 子任务
 
-注册显式命令，内部命令 ID 固定为 telemetry.dashboard.create。自然语言只用于收集需求，不作为服务端协议。
+### T2.0 显式命令、结构化引用与 PlanV5 接点
 
-Skill 需要收集：
+- 补齐版本化 Skill 激活、ContextSource 注入、Run 配置冻结和恢复。
+- 创建命令内部 ID 固定为 telemetry.dashboard.create；显示文案本地化。
+- 增加稳定 Dashboard ID 的结构化 Mention 与用户列表选择事实，持久化到消息/Run，不能仅拼入自然语言文本。
+- 已有 Host/Connector 文本引用能力不能当作 Dashboard 结构化协议已完成的证据。
+- 为 telemetry.dashboard.* 注册正式 Gateway 分类、名称映射、Schema 和同包业务元数据，继续通过 PlanV5 三个元工具使用。
+- Dashboard Action 与现有 Collector Action 明确分派，隐藏 Commit 不进入模型 Registry。
+- 发布、分析、导出和文件来源校验由服务端执行，不依赖 Skill Prompt。
+- 按 Q20/Q21 统一收敛现有三信号/字段细分门禁到对象访问和编辑，HTTP/Tool/角色/前端一致，Workspace 来源指纹加入 Dashboard。
 
-- Dashboard 名称、描述和 Folder。
-- Panel 标题、Signal、展示类型、查询意图和布局。
-- Metrics/Logs/Traces 变量、默认值、依赖和刷新策略。
-- 默认时间范围、自动刷新和可选资源绑定。
-- 用户指定的服务、主机、Kubernetes 对象和环境范围。
+### T2.1 AI 创建 Skill
 
-Skill 生成 JSON Draft，不生成前端 HTML、Markdown 配置或直接可执行查询。
+收集名称、描述、Folder、Panel、变量、默认时间、刷新、正常查询需求及 Host/Cluster 关联建议。
+
+- AI 与人工支持相同配置契约。
+- Panel 可生成 builder 配置或受支持的 PromQL/KQL/只读 Trace GraphQL 定义。
+- 变量只生成构建器配置，不能绕过变量 Schema 提交自由 DSL。
+- 每张统计图只有一个有效编辑来源，展示和明细 Target 都使用该模式；切换要求完整、无损。
+- 平台根据来源和图型生成标准下钻，AI 与人工一样可配置或编辑后随 Panel 发布；跨信号明细显式声明目标来源、查询和参数映射，不将其变成运行时自由查询。
+- 不生成 export_source 或仪表盘导出配置；只创建正常统计图查询。AI 后续取数时工具内部交付文件，额外明细仍须明确的已发布查询。
+- 生成严格版本化 JSON Draft，不生成前端 HTML。
+- 正常以已有数据配置，不专门建设无数据预建字段流程。
+- 不能根据模型声称正确就跳过类型、权限、预算或样本验证。
 
 ### T2.2 Catalog 辅助生成
 
-模型生成 Draft 前优先调用受授权 Catalog：
+使用受授权的真实数据目录：
 
-- Metrics：确认指标名、Label 和有限值。
-- Logs：确认字段、字段值、严重级别和受控检索语义。
-- Traces：确认服务、Span 属性、状态和时延范围。
-- Resources：确认 Host/Kubernetes 资源 ID、UID 和用户可用范围。
+- Metrics：指标名、类型、Label、有限值、运算兼容性。
+- Logs：实际支持字段、类型、值、过滤与聚合能力。
+- Traces：支持的服务/属性、状态、时延筛选与 Trace 详情能力。
+- Resources：实际 Host/Cluster ID 与当前用户可查询范围。
+- 来源标识仅在可靠时使用；不将安装插件目录当作已采集指标证据。
 
-Catalog 的候选不唯一时，Skill 必须返回澄清项，不允许模型自行选择相似名称。Catalog 结果只能作为 Draft 的来源证据，最终仍由服务端 Query Parser 和 explicit resource authorization 重新校验。
+存在名称或资源候选歧义时让用户选择。Catalog 是配置来源信息，不替代服务端 Parser、Schema、授权与预算校验。
 
-### T2.3 DashboardDraft JSON 接收与校验工具
+### T2.3 Draft 接收与服务端验证
 
-定义版本化 DashboardDraft：
+复用 Task 01 的 DashboardDraft 和 Panel/Variable 契约，包含：
 
-~~~json
-{
-  "schema_version": "argus.telemetry_dashboard/v1",
-  "name": "支付服务健康度",
-  "description": "支付服务核心链路的统一观察面",
-  "folder_id": "folder_01",
-  "spec": {
-    "default_time_range": {"kind": "relative", "seconds": 3600},
-    "default_refresh_seconds": 0,
-    "variables": [],
-    "panels": [],
-    "layout": {"columns": 12, "row_height": 8}
-  },
-  "proposed_bindings": []
-}
+~~~text
+draft_id? / expected_draft_version? # 首次内联创建省略，修改已有草稿时必填
+dashboard_id? / base_revision_id?
+name / description / folder_id
+spec
+proposed_bindings[]                 # 仅 Host/Cluster，可选
 ~~~
 
-Tool Input Schema 必须设置 additionalProperties=false，并拒绝 Skill 未声明的字段。
+工具输入使用严格 Schema，拒绝未知字段与客户端伪造的 compiled_query/query_hash。AI 输出的查询语句只是待验证配置，不是可直接执行的提交凭证。
 
-服务端校验：
+create.preview 接收首次无 ID 的内联配置，服务端按当前主体和幂等键创建个人草稿并返回 ID/版本，再执行预览校验；同一请求重试复用该草稿。后续修改须携带 ID 与预期版本，也支持引用已保存草稿生成预览。update.preview 复用该流程并检查已有 Dashboard 授权和基线。首次创建只检查创建权限、新对象企业归属及底层查询授权，不要求新 Dashboard 已有对象授权。
 
-1. 名称、描述、Folder 和企业归属。
-2. Schema Version、Panel 数量、布局和展示类型。
-3. 每个 Signal、Query Language、expression、pipeline、operation_name 和 variables_schema。
-4. 变量 Key、查询依赖、未定义引用、循环依赖、默认值和最大选项数。
-5. 查询预算、时间范围、刷新频率和资源绑定范围。
-6. 资源 ID、Kubernetes UID、explicit resource authorization 和 AuthorizationVersion。
-7. Catalog provenance、Parser/Validator 结果和样本返回类型。
+校验：
 
-校验失败只能返回结构化错误和修复建议，不能创建 active Dashboard。
+1. 企业、主体、Draft 归属、Folder、Dashboard 对象权限与功能权限。
+2. Panel、Signal、图表类型、唯一编辑模式、明确的适用 Host/Cluster 类型和原生查询语言。
+3. 字段、类型、查询参数、变量依赖、未定义引用、循环与默认值。
+4. 数量、布局、时间、刷新、运算和预算。
+5. Dashboard/Host/Cluster 对象访问/管理、统一数据安全规则及可选关联建议；不按三信号或字段分权。
+6. 待发布查询的结果类型与用途验证；文件序列化属于工具内部协议，不增加用户导出配置。
+7. 配置硬验证与独立样本执行报告。
 
-### T2.4 Preview/Commit 与确认工作台
+语法、类型、权限、预算等硬失败阻止发布。硬校验通过后，样本 no_data/unavailable 可作为明确警告发布；实际类型错误不能伪装成样本服务不可用。
 
-UI 创建和 AI 创建必须共用：
+### T2.4 预览、宿主确认与发布
+
+复用：
 
 ~~~text
 telemetry.dashboard.create.preview
@@ -117,186 +126,207 @@ telemetry.dashboard.create.commit
 telemetry.dashboard.update.commit
 ~~~
 
-Preview 返回：
+预览展示名称/Folder、Panel 配置、变量依赖、默认范围、明确关联建议、配置校验、样本状态、Diff、Spec Hash、公开 action_ref 和过期时间。
 
-- Dashboard 和 Folder 摘要。
-- Panel 列表、查询语言、查询校验和样本结果。
-- 变量依赖图、默认值、绑定目标和预计查询范围。
-- Spec Hash、Diff、风险、预算、过期时间和公开 Action Ref。
-- 部分 Panel 失败、Catalog 不确定和需要用户澄清的事项。
+- AI 草稿可由所属编辑者继续整理，保存不反复确认。
+- 预览冻结草稿 ID/版本、发布基线和内容，后续编辑不改变计划，但使旧预览不可提交，需要重新预览；新编辑内容保留。
+- 创建/更新模板只展示业务详情；宿主 PendingAction 控件提供一次确认。
+- Action Executor 从服务端私有计划执行，Commit 不接收可变查询、名称或资源参数。
+- 更新时 active Revision 与基线不一致则返回冲突与差异；不能覆盖其他编辑者的新发布。
+- Execution ID、幂等键和 ResultUnknown 对账覆盖重复确认、网络超时和重启。
+- 创建者对象授权与 Dashboard/Revision 在同一事务产生。
+- Commit 原子消费仍为 editing 的草稿版本，一个新建草稿最多产生一个 Dashboard；跨 Action 的旧创建预览也不能重复创建。
 
-用户在宿主 PendingAction 控件或后台确认页点击一次确认；Tool 模板只展示业务详情。Action Executor 根据 Action Ref 读取服务端私有计划并 Commit。模型、Skill、浏览器和模板都不能携带可变业务参数调用 Commit。
+### T2.5 授权列表、用户选择与 @
 
-重复点击、网络超时和 Worker 重启必须通过 Execution ID、幂等键和 ResultUnknown 对账恢复，不能重复创建 Revision 或 Binding。
-
-### T2.5 Dashboard @ Mention Resolver
-
-分析必须使用显式 @ 引用：
+实现 telemetry.dashboard.list，并让它与 @ resolver 复用同一个授权搜索服务。
 
 ~~~text
-用户输入：@支付服务健康度 最近一小时有没有问题
+用户：有没有问题？
+→ 列出当前用户可访问的仪表盘候选
+→ 用户选择一个或多个
+→ 保存稳定 ID 的明确选择事实
+→ 开始分析
 
-结构化消息：
-mentions: [{kind: "dashboard", id: "db_01", label: "支付服务健康度"}]
-text: "最近一小时有没有问题"
+用户：@支付服务健康度 最近一小时有没有问题？
+→ 直接保存稳定 ID 的引用
+→ 开始分析，不再重复要求选择
 ~~~
 
 要求：
 
-- 用户输入 @ 后展示当前企业、当前用户有权访问的 Dashboard 候选。
-- 名称、描述、别名和标签只用于候选过滤，不构成未引用时的自动选择依据。
-- 消息事实使用稳定 Dashboard ID，label 只用于显示。
-- Dashboard 被归档、撤权或不可见时，Mention 解析必须返回明确错误。
-- 没有 @ 时，Skill 应提示用户先引用 Dashboard，而不是猜测目标。
+- 未指定对象时不能自动选第一个、全部或相似名称的 Dashboard。
+- 已在对话中明确选择对象时可以继续使用，不要求每次重新 @。
+- ID 是执行事实，名称只是显示值；歧义时澄清。
+- 列表分页、过滤、读取、选择、Run 恢复、查询/导出和文件来源均重新检查对象授权。
+- 被归档、撤权或不可见的 Dashboard 返回明确不可用结果，不泄漏未授权对象信息。
+- 用户选择来源、Conversation、Run 和分析上下文绑定，模型不能自行增加未选择的 Dashboard。
 
-### T2.6 dashboard.get 与 Agent 查询规划
+### T2.6 已发布来源、默认参数、追问与覆盖
 
-实现只读 Tool：telemetry.dashboard.get。
+get 返回冻结 Revision、普通查询与明细查询定义、来源哈希、变量契约、默认条件、适用资源及预算。可访问 Dashboard 的用户可读完整查询配置与默认值，不新增配置字段阅读权限；编辑另受管理能力控制。
 
-返回模型安全的 DashboardAnalysisContext：
+get 同时返回来源类型/能力版本、局部过滤和标准下钻定义；实际 source IDs 与历史配置版本由服务端根据时间和顶部资源解析后冻结，模型不能指定任意替代来源。共享变量候选和值映射按作者配置执行，不按厂商服务名称自动合并。
 
-~~~text
-dashboard_ref / revision_ref
-dashboard_name / description
-target_context / allowed_resource_ids
-panels[]
-  panel_id / title / signal / visualization
-  language / expression / pipeline / operation_name
-  query_hash
-  required_variables / allowed_variables
-  scope_mode / budget
-context_expiry
-~~~
+参数：
 
-Agent 可以根据问题选择 Panel、决定先查错误率还是延迟、是否并行查询、发现异常后是否补查 Logs/Traces，但不能修改 expression、pipeline、Panel 类型或变量定义。
+- 首次使用默认时间/变量，用户明确条件覆盖默认值；未指定资源时使用当前用户有权且适用资源。
+- 各 Panel 的来源绑定与局部过滤定义来自冻结 Revision；局部选值从已发布默认值和用户明确要求解析，按 Panel ID 保存、继承和导出。来源不可被运行时随意替换，不把同名厂商字段当作通用变量；指向不明确时澄清。
+- 追问继承上一次明确的仪表盘、资源和变量，按用户要求修改条件；继承的变量选值因候选变化失效时应用上述自动 All 规则。
+- 以结构化会话事实保存选择和参数，恢复不能只靠模型自然语言摘要；无历史明确条件才使用默认规则。
+- 显式无权/非法条件不能按“未指定”处理，Binding 不参与取数范围求交。
+- 候选按当前时间/资源/前置变量重新获取；已有自定义变量选值消失时自动切到 All，随后更新依赖变量，并把实际条件记入会话上下文。
+- 无具体候选仍保留 All；回退不改变对象授权、系统资源选择或发布默认值，也不把非法/无权的系统资源请求转换为全部。
+- 不捕获 Dashboard 页面状态，每次实际导出固定绝对时间和版本；重新查询不能拿旧文件冒充。
+- Range 导出步长来自已发布策略：固定值原样执行，自动策略由服务端按实际区间和目标点数确定，不读取浏览器尺寸；结果清单记录实际步长。
+- 解释旧结论可使用原证据；新查询按新的权威请求记录来源，权限和归档状态每次重验。
+- Q40：新取数采用请求开始时的最新发布版，并在本次执行中冻结。旧文件保留原 Revision/查询/参数/时间/来源；各 Dashboard 独立保留默认值和明确覆盖条件。兼容条件继承，语义不兼容时提示重新明确，不把旧来源参数套到新查询或把旧文件冒充新结果。
 
-### T2.7 provenance、Inspect 与 Query Tool 门禁
+覆盖：
 
-分析模式下的 Metrics/Logs/Traces Query Tool 必须携带：
+- 泛问处理全部适用统计图，具体问题按需处理。
+- 导出状态、数据完整性和 AI 实际分析覆盖分别记录；文件生成不等于已分析。
+- 未配置明细的聚合图只能导出聚合结果，不能临时补取原始日志或 Span。
+- 失败、无数据、预算/空间不足、撤权或未完成分析须在结论中说明。
+- 多 Dashboard 保留各自版本、时间和范围，不混淆事实。
+- 同一 Dashboard 中不同来源的 Panel 分别保留来源、局部参数和覆盖状态；AI 可综合已选择图的结果，但不能暗中合并查询范围或替另一厂商补取明细。
 
-~~~json
-{
-  "dashboard_ref": "db_01",
-  "revision_ref": "rev_07",
-  "panel_id": "error-rate",
-  "query_hash": "sha256:...",
-  "target_context": {"type": "host", "id": "host_01"},
-  "from": "...",
-  "to": "..."
-}
-~~~
+### T2.7 AI 数据查询工具内部的文件交付与 provenance
 
-服务端重新读取 Revision，复核 dashboard_ref、revision_ref、panel_id、query_hash、language、signal 和 expression，并重新执行：
+模型经 Gateway 调用：
 
 ~~~text
-DashboardBinding/Target Context
-∩ 当前用户 explicit resource authorization
-∩ 当前 AuthorizationVersion
-∩ Query Tool Signal 与预算
+telemetry.dashboard.query
+telemetry.dashboard.query.get
+telemetry.dashboard.query.cancel
 ~~~
 
-以下情况必须拒绝：查询表达式被修改、Panel 不属于 Revision、Revision 失效、Target 不在绑定范围、Query Tool 与 Signal 不匹配、变量值不合法或预算超限。
+输入只包含已选 Dashboard、context_ref、Panel IDs 和合法运行参数；普通/明细查询由服务端从发布配置恢复，不能携带替代表达式或未发布原始数据请求。
 
-telemetry.dashboard.inspect 可以作为组合 Tool；也可以由 Agent 分解为带 provenance 的 PromQL、KQL 和 SkyWalking Query Tool。两条路径必须复用 Task 01 的 ExecuteDashboard、权限、预算和结果投影。
+Q39 的明细请求通过已发布 drilldown_ref/query_ref 及其声明的输入参数选择；服务端恢复目标信号、来源映射、范围策略和预算。平台生成的标准下钻与人工修改后的下钻均须先发布，不能因为是标准模板就运行未发布的动态新版本。
 
-### T2.8 Evidence Projection 与模型总结
+执行要求：
 
-Inspect 返回模型安全的 DashboardEvidenceProjection：
+1. 复用 Task 01 ExportDashboard、原生 Engine、对象授权与共享预算，冻结实际查询、参数和读取边界。
+2. 工具默认完整交付统计图查询结果；需要明细时只能选择已发布的查询引用。保留聚合/limit、Metrics instant/range/step 和 GraphQL 字段选择。
+3. 补稳定分页、续传、去重及嵌套详情完整性。系统分页不能改变查询含义，第一页不能冒充全量。
+4. 受控流式/分片交付到当前会话 Workspace，写入前登记来源并检查容量，分片原子提交；不把大数据集通过模型或单个 Tool Result 中转。
+5. 返回 export_id、status、source_ref、Workspace/file refs、路径、Schema、Hash、实际数量和完整性。总量未知时标未知，不伪造统计。
+6. 任务、分片和来源元数据持久化，幂等重试不重复追加；重启恢复、取消、预算耗尽和磁盘满均有权威状态。
+7. 每次导出、续传、读状态、文件访问和计算检查对象来源授权及会话归属，拒绝跨企业/会话。
+8. 已发布统计图查询和明确的明细查询都属于已发布 Panel；不能改用通用工具绕过来源限制。
+9. 下载到 Workspace 是查询交付，不修改配置，不额外要求 Preview/Commit。
+
+provenance 关联 Dashboard/Revision/Panel/Target、实际来源及查询哈希、主体、对象资源、时间、变量、导出 ID、文件 Hash 和完整性。
+
+复用 PlanV5 的持久目录、来源依赖、容量和明确删除规则；满额不自动删旧文件。Workspace/Sandbox 不可用时明确报告能力状态，不伪造下载或已分析结果。
+
+### T2.8 离线文件分析与 AI 自主结论
 
 ~~~text
-dashboard_id / revision_id / dashboard_name
-target_context / effective_resource_ids
-time_range / data_freshness
-panels[]
-  panel_id / title / signal
-  summary_stats
-  top_series / top_log_patterns / slow_traces
-  threshold_observations
-  query_meta / warnings / partial
-  evidence_ref
-projection_hash
+服务端完成/报告导出
+→ AI 读取可信清单与实际文件
+→ read/grep/bash/预装脚本处理三信号数据
+→ AI 根据文件和用户问题判断
+→ Chat 输出结论、依据和覆盖不足
 ~~~
 
-模型总结必须区分：
+- 数据导出由服务端完成，Sandbox 保持离线；AI 不直接连接遥测存储或在 bash 中下载数据。
+- 日志、指标和 Trace 均以实际文件为分析依据；可以分段读取、编写脚本、统计、关联并生成派生文件。
+- 沿用已发布结果或明细来源的字段/类型/时间，不把计算后的 Metrics 反称原始采样点，不把聚合计数当日志原文。
+- 不用服务端固定摘要或有限 Top N 投影代替文件分析。进入模型上下文的是必要清单、命令输出与模型实际读取的片段。
+- 不新增必填阈值、固定诊断规则或服务端确定性异常判定；AI 自行分析。结果不完整、缺失与推断依据仍须说明。
+- 服务端不可变 source_ref/Hash/范围是原始事实；Workspace 内的清单和副本可被修改，不能自证原始性。派生文件明确区分，不覆盖审计来源。
+- 记录工具实际执行与使用的数据文件，不能以模型声称“已读完”代替执行证据。
+- 用户主要阅读 Chat 结论，不要求打开文件或图表；用户需要分析产物时复用 workflow.publish_file 等已有受控交付。
+- 来源撤权沿用 Workspace 当前访问/计算限制；目录持久化和删除不另建自动清理策略。
 
-- observed：查询直接观察到的事实。
-- inferred：基于多个事实得出的推断。
-- unknown：无数据、partial、权限裁剪或查询失败导致无法判断。
+### T2.9 Chat 与创建预览展示
 
-没有证据的 Panel 不能被总结为正常。结果只提供有限样本和摘要，大结果放在 Tool Result/Artifact Store，并保留可回溯 evidence_ref。
+- Chat 支持授权列表、明确选择、稳定 Mention 和自然语言问题。
+- AI 创建使用 Tool 自有预览详情及宿主单次确认。
+- AI 文件分析默认输出 Chat 文字结论，不强制展示图表或专用分析卡片；复用现有会话文件和任务状态。
+- 不创建 Dashboard 页面分析工作台，不读取或同步修改页面筛选。
+- Dashboard 页面未打开也能完成全部分析流程。
+- Template Bridge 不执行查询，确认不通过模型二次推理。
+- 复用现有双语、深浅色和桌面可访问性规范。
 
-### T2.9 Chatbox、Template 与分析工作台
-
-- Chatbox 输入框支持 Dashboard @ 候选和稳定 Mention Chip。
-- /创建仪表盘 展示 Draft Tool 详情模板，用户可以查看 Panel、变量、绑定和风险。
-- 用户确认由 宿主 PendingAction API 触发，不再经过模型二次推理。
-- @Dashboard 分析结果展示结论、证据、时间范围、Revision、Panel 和资源入口。
-- Template 只承载 Preview 详情和分析摘要；确认由宿主 PendingAction 控件负责，不承载 Dashboard 本体，也不能访问宿主 DOM、Cookie 或私有 Token。
-
-## 4. 工具与权限清单
-
-只读或分析工具：
+## 4. 工具与授权清单
 
 ~~~text
-telemetry.dashboard.catalog.metric_names
-telemetry.dashboard.catalog.attribute_values
-telemetry.dashboard.catalog.log_fields
-telemetry.dashboard.catalog.trace_services
-telemetry.dashboard.get
-telemetry.dashboard.inspect
+只读：
+  telemetry.dashboard.list
+  telemetry.dashboard.get
+  telemetry.dashboard.query
+  telemetry.dashboard.query.get
+  telemetry.dashboard.query.cancel
+  telemetry.dashboard.catalog.metric_names
+  telemetry.dashboard.catalog.attribute_values
+  telemetry.dashboard.catalog.log_fields
+  telemetry.dashboard.catalog.trace_services
+
+模型可见的发布预览：
+  telemetry.dashboard.create.preview
+  telemetry.dashboard.update.preview
+
+仅隐藏 Action Catalog：
+  telemetry.dashboard.create.commit
+  telemetry.dashboard.update.commit
 ~~~
 
-创建和更新 Preview 工具：
+模型可见工具经 PlanV5 自有三个元工具使用，并提供严格版本化 Schema、正式业务元数据和权限检查。隐藏 Commit 仅由 Action Executor 内部调用，不通过模型元工具调用。list/get/query 不能因为模型知道某个 ID 就跳过 Dashboard 对象授权。
 
-~~~text
-telemetry.dashboard.create.preview
-telemetry.dashboard.update.preview
-~~~
+Dashboard 功能权限收敛为 read/manage，与 Dashboard/Host/Cluster 对象授权、AuthorizationVersion 分别检查；分析/导出/读取配置不新增三信号或字段级权限。关联不授予数据权限。离线四工具和文件导入/发布复用既有 Workspace 能力入口及来源约束。
 
-Commit 工具只能存在隐藏 Action Catalog，不能出现在 Model Agent Tool Registry 中：
+## 5. 测试与门禁
 
-~~~text
-telemetry.dashboard.create.commit
-telemetry.dashboard.update.commit
-~~~
+### 5.1 创建与发布
 
-权限至少包括 telemetry.dashboard.read、create、update、inspect、catalog.read；创建、更新、绑定和分析每次重新校验企业、可见性、Signal 权限、explicit resource authorization、字段脱敏权限和 AuthorizationVersion。
+- UI/AI 共用契约：builder 和 DSL Panel 均能生成、验证、预览和发布；变量拒绝自由 DSL。
+- 拒绝未知字段、互斥来源冲突、伪造派生查询、非法语法、类型、变量依赖和越权资源。
+- 普通/明细查询必须明确发布；AI 查询工具内部交付文件，Dashboard 页面和创建表单不出现导出入口/导出来源设置。
+- 无损转换失败仍保留 DSL。
+- 硬错误阻止 active 发布；合法查询 no_data/unavailable 可带明确警告发布。
+- 首次无 Draft ID 的 AI 创建、后续带版本修改、预览后编辑失效及同一新建草稿的跨预览去重。
+- 私有计划不泄漏，Commit 不接受可变配置；重复提交、冲突、响应丢失与重启可恢复。
 
-## 5. 测试与退出门禁
+### 5.2 选择、查询与结论
 
-### 5.1 Skill 和 Tool 测试
+- 未指定对象时先列授权清单并等待用户选择，不能先查询。
+- @ 或明确选择后不重复询问对象；持久化和重放使用稳定 ID。
+- 多个仪表盘分别检查对象授权，伪造选择或上下文被拒绝。
+- 默认时间/变量、用户覆盖条件、未指定资源范围及连续追问继承正确；当前选值在新候选中消失则自动回退 All，并保持授权和系统资源边界。
+- 泛问覆盖全部适用图，具体问题按需查询。
+- 失败、无数据、预算不足和未完成项被准确记录并影响结论。
+- 展示/明细来源不可临时改写，未配置原始数据获取和通用 Tool 绕过被拒绝。
+- 导出分页/分片不重置总预算，显式 limit 与传输分页区分；同授权版本不同主体不共享越权缓存。
+- 三信号真实文件交付、Hash/Schema、内容与完整性一致；空数据、部分文件和完整结果不混淆。
+- AI 实际使用 read/grep/bash/脚本分析文件，自主给结论，不依赖固定阈值/摘要；派生文件不冒充原始来源。
+- Workspace 未启用/不可用/满额、导出取消/重启、来源撤权和跨会话访问有明确结果。
+- 对象访问者可看查询配置，管理能力控制编辑，不再要求三信号/字段独立权限。
+- Q37 来源动态解析与执行冻结、Q38 不同来源同名实体不自动合并、Q39 UI/AI 标准下钻一致及跨信号目标限制；新模板版本不改写旧发布查询。
+- 撤权、归档、版本变更、过期上下文、取消和 partial 均有明确结果。
+- 在从未打开 Dashboard 页面的 Chat 中完成分析，确认没有页面状态依赖或页面变更。
 
-- Draft Schema 拒绝未知字段、非法 Signal、非法 Panel、循环变量和越权 Binding。
-- Catalog 候选不唯一时返回澄清项，不自动猜测。
-- Preview 失败不能产生 active Dashboard。
-- Commit 只接受 Action Ref，重复 Commit 幂等。
-- provenance 缺失、query_hash 不匹配、Revision 失效和 Target 越权全部拒绝。
+### 5.3 临时 Kubernetes Namespace E2E
 
-### 5.2 Chatbox/Template 测试
+- 使用真实三信号数据完成 AI 两种 Panel 模式创建、服务端验证、宿主确认和发布。
+- Chat 完成“未指定 → 授权列表 → 用户选择 → 真实文件导出 → 离线工具分析全部适用图 → 结论”。
+- 覆盖 @、具体问题、默认参数、追问继承、明细来源、部分导出、预算/容量、撤权和 Dashboard 归档。
+- 验证 Workspace 内实际字节及分析命令，不以模型文本声称文件存在或已完成分析作为验收。
+- 覆盖模型重试、Worker 重启、Redis 清空、发布冲突、重复确认与恢复。
+- 成功/失败按归属清理 Namespace、PVC、Topic、Bucket、Lease、测试 Action/绑定与临时诊断资源，保留脱敏证据并保护正常部署。
 
-- @ 候选只返回当前用户可见 Dashboard。
-- 没有 @ 时不会模糊选择 Dashboard。
-- Draft Tool 详情模板 的确认动作不暴露私有参数。
-- 伪造 Mention ID、Action Binding ID、Origin 或 Tool Result 来源被拒绝。
+## 6. 退出标准
 
-### 5.3 E2E 测试
-
-- 自然语言创建 Metrics/Logs/Traces 混合 Dashboard，Preview、确认、Commit 和打开详情页。
-- @Dashboard 后 Agent 先查询 Metrics，再根据异常补查 Logs/Traces，并输出证据引用。
-- 覆盖模型重试、Worker 重启、Redis 清空、查询 partial、权限变化和 Dashboard 归档。
-- 临时 Kubernetes Namespace 测试成功和失败都清理 Namespace、PVC、Topic、Bucket、Lease、Action 和诊断文件。
-
-## 6. Task 退出标准
-
-- 用户可以通过 /创建仪表盘 生成结构化 Draft，查看 Preview 后点击确认创建真实 Dashboard。
-- 用户可以通过 @ 明确引用 Dashboard，Agent 能读取 active Revision，自行选择 Panel 查询并总结三类信号证据。
-- Agent 不能调用未授权 Dashboard、修改已发布查询、绕过 Binding/explicit resource authorization 或把任意查询伪装成 Dashboard 证据。
-- 查询结果、模型总结、Preview 和 Commit 都能回溯到 Dashboard、Revision、Panel、query_hash、Target 和时间范围。
-- AI 创建和 AI 分析在模型重试、Worker 重启、Redis 清空、权限变化和部分查询失败时保持可恢复、可审计、可解释。
+- AI 能用与人工相同的 builder/DSL 能力创建 Dashboard，经服务端验证和用户确认才发布。
+- 用户可通过 @ 或授权列表明确选择一个或多个 Dashboard，AI 不猜测目标。
+- Dashboard 没有导出功能；AI 数据查询工具在内部将已发布查询完整结果写入 Workspace，额外明细来自明确的已发布查询，再由 AI 使用文件工具分析。
+- 泛问全覆盖、具体问题按需，证据不足不被总结为正常。
+- 内部可追溯 Dashboard、Revision、Panel、来源查询哈希、资源/时间、export_id、文件 Hash 和完整性。
+- 没有独立存储、权限、查询或确认路径；故障与授权变化下仍可恢复、可审计。
+- 所有完成项均有实际测试证据，不把 Skill 接口存在或模型输出示例视为完成。
 
 ## 7. 主计划映射
 
-对应主计划：P2V-4，以及 P2V-5 中的 AI 创建、@Dashboard、Inspect、Evidence Projection、Chatbox/Template 和安全发布测试。
-
-
-> PlanV5 展示边界：Dashboard 仍是独立持久业务对象。会话展示不再依赖模板 Catalog、Slot/Binding 或可执行 Card；使用 Tool 自有模板和宿主单次确认。模板 Bridge 不发起查询，Chat 内换时间或翻页由新用户消息产生新 ToolCall。
+对应 P2V-TOOL、AI-01～AI-07、E2E-02/03/05/06，以及共用的 EXEC、EXPORT、AUTH、ACTION、AUDIT 和 RELEASE 门禁。

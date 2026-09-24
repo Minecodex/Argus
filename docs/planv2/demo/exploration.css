@@ -1,0 +1,63 @@
+
+/* Free dashboard canvas: dimensions are persisted in the personal draft. */
+:root { --layout-gap: 16px; --span-detail-width: 270px; --log-volume-height: 100px; }
+.argus-dashboard-grid { position: relative; width: 100%; scroll-margin-top: calc(var(--demo-topbar) + var(--space-px-80)); }
+.argus-dashboard-grid.is-editing { background-image: linear-gradient(to right,var(--border-subtle) 1px,transparent 1px),linear-gradient(to bottom,var(--border-subtle) 1px,transparent 1px); background-size: calc((100% + var(--layout-gap))/12) 48px; border-radius: var(--radius-md); }
+.argus-positioned-panel { position: absolute; display: flex; flex-direction: column; min-width: 0; transition: none; }
+.argus-positioned-panel > .argus-card-head { flex: 0 0 auto; padding: var(--space-3); gap: var(--space-2); flex-wrap: nowrap; min-height: var(--space-px-48); }
+.argus-positioned-panel > .argus-card-body { padding: var(--space-3); flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.argus-positioned-panel > footer { font-size: var(--font-size-10); padding-right: var(--space-6); }
+.argus-panel-heading { min-width: 0; flex: 1; }
+.argus-panel-heading h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--font-size-13); }
+.argus-panel-heading small { font-size: var(--font-size-10); }
+.argus-positioned-panel.is-layout-active { z-index: 5; border-color: var(--brand-highlight); box-shadow: var(--shadow-lg); }
+.argus-drag-handle { cursor: grab; touch-action: none; border: 0; background: transparent; color: var(--text-tertiary); padding: var(--space-1); font-size: var(--font-size-20); }
+.argus-resize-handle { position: absolute; bottom: 0; right: 0; width: var(--space-6); height: var(--space-6); padding: 0; border: 0; border-top-left-radius: var(--radius-sm); background: var(--accent-soft); color: var(--brand-highlight); cursor: nwse-resize; touch-action: none; font-size: var(--font-size-20); z-index: 6; }
+.argus-layout-dragging { user-select: none; }
+.argus-layout-status { position: absolute; bottom: var(--space-2); left: var(--space-2); font: var(--font-size-11) var(--font-mono); color: var(--brand-highlight); pointer-events: none; }
+.argus-viz-host { width: 100%; height: 100%; min-height: var(--space-px-80); flex: 1; }
+.argus-rich-stat { display: flex; height: 100%; flex-direction: column; gap: var(--space-2); }
+.argus-sparkline { min-height: var(--space-px-48); }
+.argus-explore-tools { display: flex; flex-wrap: wrap; gap: var(--space-2); flex-shrink: 0; }
+.argus-explore-tools .argus-input { min-width: 160px; flex: 1; }
+.argus-explore-tools .argus-select { min-width: auto; width: auto; flex: 0; }
+.argus-explore-tools .argus-duration-input { min-width: var(--space-px-80); max-width: 130px; }
+.argus-log-view { display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; height: 100%; }
+.argus-log-lines { overflow: auto; min-height: var(--space-px-50); flex: 1; }
+.argus-log-line { border-bottom: var(--demo-line) solid var(--border-subtle); }
+.argus-log-line > summary { display: flex; align-items: baseline; gap: var(--space-2); padding: var(--space-2); list-style: none; font: var(--font-size-11)/1.6 var(--font-mono); }
+.argus-log-line > summary:hover { background: var(--bg-hover); }
+.argus-log-line[open] { background: var(--bg-elevated); }
+.argus-log-line > .argus-stack { padding: var(--space-3); }
+.argus-log-line pre { padding: var(--space-3); background: var(--bg-canvas); border-radius: var(--radius-sm); font-size: var(--font-size-11); }
+.argus-log-time { color: var(--text-tertiary); flex: 0 0 var(--space-px-48); }
+.argus-log-body { min-width: 0; overflow-wrap: anywhere; }
+.argus-level { font: 650 var(--font-size-10) var(--font-mono); padding: var(--space-px-2) var(--space-1); border-radius: var(--radius-3); color: var(--info); background: var(--info-soft); flex-shrink: 0; }
+.argus-level--error { color: var(--danger); background: var(--danger-soft); }
+.argus-level--warn { color: var(--warning); background: var(--warning-soft); }
+.argus-label-filter { padding: var(--space-1) var(--space-2); border: var(--demo-line) solid var(--border-default); background: var(--bg-canvas); color: var(--text-secondary); border-radius: var(--radius-sm); font: var(--font-size-10) var(--font-mono); }
+.argus-log-volume, .argus-trace-distribution { height: var(--log-volume-height); min-height: var(--log-volume-height); flex-shrink: 0; }
+.argus-trace-distribution { height: 150px; }
+.argus-trace-table { overflow: auto; flex: 1; min-height: 0; }
+.argus-log-body mark { background: var(--warning-soft); color: var(--warning); border-bottom: var(--demo-line) solid var(--warning); }
+.argus-modal-body > .argus-log-view { height: min(58vh,650px); min-height: 280px; }
+.argus-waterfall-layout { display: grid; grid-template-columns: minmax(0,1fr) var(--span-detail-width); gap: var(--space-4); align-items: start; }
+.argus-waterfall { border: var(--demo-line) solid var(--border-default); border-radius: var(--radius-sm); overflow: hidden; min-width: 0; }
+.argus-waterfall-scale { display: grid; grid-template-columns: 45% 1fr 1fr; padding: var(--space-2); background: var(--bg-elevated); color: var(--text-tertiary); font: var(--font-size-10) var(--font-mono); }
+.argus-waterfall-scale > :last-child { text-align: right; }
+.argus-span-row { display: grid; grid-template-columns: 45% 55%; border-top: var(--demo-line) solid var(--border-subtle); min-height: var(--space-px-50); }
+.argus-span-row.is-selected { background: var(--accent-soft); }
+.argus-span-name { display: flex; min-width: 0; align-items: center; }
+.argus-span-toggle { width: var(--space-5); flex: 0 0 var(--space-5); padding: 0; background: transparent; border: 0; color: var(--text-tertiary); }
+.argus-span-label { min-width: 0; padding: var(--space-2) var(--space-1); border: 0; text-align: left; background: transparent; }
+.argus-span-label b, .argus-span-label small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.argus-span-label b { font-size: var(--font-size-11); }
+.argus-span-label small { color: var(--text-tertiary); font-size: var(--font-size-10); }
+.argus-span-track { position: relative; border: 0; border-left: var(--demo-line) solid var(--border-subtle); background: transparent; margin: 0 var(--space-2); }
+.argus-span-track i { position: absolute; height: var(--space-3); top: var(--space-3); border-radius: var(--radius-2); background: var(--info); opacity: .8; }
+.argus-span-track i.is-error { background: var(--danger); }
+.argus-span-track span { position: absolute; bottom: var(--space-1); right: var(--space-1); color: var(--text-tertiary); font: var(--font-size-10) var(--font-mono); }
+.argus-span-details { display: grid; gap: var(--space-3); border: var(--demo-line) solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--space-4); min-width: 0; background: var(--bg-elevated); overflow-wrap: anywhere; }
+.argus-span-details small { color: var(--text-tertiary); }
+.argus-span-details pre { background: var(--bg-canvas); padding: var(--space-2); font-size: var(--font-size-10); }
+

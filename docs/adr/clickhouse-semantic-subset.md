@@ -1,5 +1,7 @@
 # ADR: ClickHouse Semantic Subset
 
+> 查询语言兼容范围的历史说明：本文的 LogQL/TraceQL 条目属于 M9 阶段设计，已被 [M10 Query Engine ADR](./telemetry-query-engine.md) 的 PromQL/Argus KQL/SkyWalking GraphQL 边界替代，不能作为当前已支持 LogQL/TraceQL 的证明。PromQL 支持范围也以 M10 及代码验证为准。PlanV2 的 Q27～Q31 已明确保留 KQL、OTLP/ClickHouse，并以完整 APM 为目标；能力缺口和待决细节见 [能力讨论](../planv2/03-observability-depth-discussion.md)，不将当前子集视为完整能力。
+
 ## 决策
 
 ClickHouse 继续作为 Metrics、Logs、Traces 的唯一事实存储。Metrics 使用 `metric_series` + `metric_samples` 两层模型；Logs 使用低基数 `stream_labels` 与高基数 `structured_metadata` 分离模型；Traces 使用 Span 明细、`trace_summary` 和 `trace_span_edges` 派生表。

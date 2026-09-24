@@ -1,38 +1,77 @@
 # PlanV2：遥测仪表盘与 AI 分析
 
-本目录定义 Argus 下一阶段的自定义遥测仪表盘能力，覆盖：
+本目录记录 Q1～Q42 的仪表盘方向与开发基线。已确认动态来源匹配、跨来源显式变量映射、标准下钻随图发布、APM 专用图型/详情及归档恢复；Q40 已明确新取数采用最新发布版，Q34 的采样统计仍待澄清。已确认规则同步进设计和 Task，文档更新不代表功能已落地。
 
-- 用户在后台创建、编辑和查看 Metrics/Logs/Traces 混合仪表盘。
-- `/dashboards` 首屏以 Folder + Dashboard 目录组织内容，支持组内创建和根级未分组 Dashboard；创建时先填写名称/描述，进入详情后逐个添加统计图并调整布局。
-- Dashboard 详情页提供 OTLP Catalog：顶部按 Metrics/Logs/Traces 分 Tab，Tab 下先选择 Collector 插件，再在指标/字段行下展开 Label、属性和可用值。
-- 用户用自然语言让 AI 生成仪表盘，并通过既有 Preview/Commit 流程确认发布。
-- 用户在会话中通过 `@` 明确引用仪表盘；AI 读取该仪表盘的已发布查询配置，执行受授权的查询并总结指标、日志和 Trace 证据。
-- 仪表盘绑定 Host、Kubernetes Cluster、Namespace、Workload、Service 等资源，从资源详情页快速打开并自动带入查询上下文。
-- 实施归并为两个大 Task：Task 1 负责 Dashboard Workbench、Query Runtime、Catalog 和资源入口；Task 2 负责 `/创建仪表盘`、`@Dashboard` 分析、provenance 和 Evidence Projection。
+Q35/Q36：不同 Panel 可分别绑定采集来源，按厂商能力提供查询和展示，保持 Argus 样式与对象权限。Dashboard 顶部通用过滤与图内局部过滤分层；时间/资源约束所有适用图，共享自定义变量仍只影响引用它的查询。详细规则见 [专项设计](./04-collector-plugins-and-source-views.md)。Demo 的变化 13～15 覆盖来源和两层过滤，16～20 补齐 APM/标准下钻、最新版本 Chat、来源历史与归档恢复；最新场景为 demo.html#apm。原型缺陷已修复，不代表正式后端已实现。
 
-## 文档
+## 阅读顺序
 
 | 文件 | 内容 |
 | --- | --- |
-| [01-telemetry-dashboard-and-ai.md](./01-telemetry-dashboard-and-ai.md) | 产品边界、领域模型、查询执行、AI Skill、资源绑定、API、权限、前端和 E2E 计划 |
-| [task-01-dashboard-workbench-and-runtime.md](./task-01-dashboard-workbench-and-runtime.md) | Task 01：Dashboard Workbench、Query Runtime、OTLP Catalog、资源绑定和人工仪表盘闭环 |
-| [task-02-ai-dashboard-create-and-analysis.md](./task-02-ai-dashboard-create-and-analysis.md) | Task 02：/创建仪表盘、Dashboard Draft、@Dashboard 分析、provenance 和 Evidence Projection |
+| [决策记录](./02-confirmed-decisions.md) | Q1～Q42 的确认结论、后续修正、验收落点和明确标注的未决项 |
+| [展示与 APM 能力讨论](./03-observability-depth-discussion.md) | 保留 KQL、OTLP/ClickHouse、完整 APM 目标、授权链路展开及下一轮待决问题 |
+| [Collector 插件、厂商视图与两层过滤](./04-collector-plugins-and-source-views.md) | 官方组件矩阵、来源差异、当前代码缺口、Panel 来源绑定和过滤规则 |
+| [整体闭环与可实施性审查](./05-closure-and-implementation-review.md) | 已验证的原型缺陷、工程契约缺口、Q37～Q42 回答状态和实施依赖 |
+| [主设计](./01-telemetry-dashboard-and-ai.md) | 领域对象、查询、权限、草稿发布、资源入口、Chat 和测试边界 |
+| [Task 01](./task-01-dashboard-workbench-and-runtime.md) | 遥测能力补齐、Catalog、人工编辑发布、Query Runtime、Host/Cluster 入口 |
+| [Task 02](./task-02-ai-dashboard-create-and-analysis.md) | AI 创建、AI 数据查询内部的结果文件交付、Workspace 文件分析与 Chat 结论 |
 
-## 状态
+[demo.html](./demo.html) 已同步当前已确认交互并新增展示候选，默认进入“本轮变化点”：可逐项查看前后差异、跳转体验、勾选核对并保存本地备注。覆盖个人草稿/发布、变量构建器、失效选值自动回退全部、三信号编辑、资源入口、对象访问及独立 Chat 文件分析。运行方式和演示边界见 [原型说明](./demo/README.md)。所有数据、验证和 AI 工具过程均为模拟，不代表后端或正式验收完成。
 
-Dashboard 保留独立业务领域，Agent、Tool Gateway、Preview/Commit、Tool 自有模板及宿主确认以 PlanV5 为当前底座，遥测查询复用 M7/M10 的 Telemetry Query，不新增第二套存储或查询语言。历史 M0-M10 的验收记录只证明当时版本，当前切换门禁见 [PlanV5 验收报告](../planv5/acceptance-report.md)。
+## 产品闭环
 
-## 关键决策摘要
+- 后台以 Folder + Dashboard 组织 Metrics/Logs/Traces 混合仪表盘。
+- 每位编辑者有服务端个人草稿，刷新可恢复；多个 Panel、变量和布局修改集中预览、确认、发布。
+- 变量通过构建器配置；统计图支持构建器或底层已支持的 PromQL、KQL、只读 Trace GraphQL。
+- Host/Kubernetes Cluster 页面绑定仪表盘，快捷打开时自动选中该资源。
+- Chat 可以 @具体仪表盘，也可以先列出授权仪表盘，让用户明确选择。
+- AI 数据查询工具读取已发布统计图查询，在内部取数并写入会话 Workspace；AI 使用 read/grep/bash/脚本分析文件。仪表盘界面没有导出按钮、下载页或导出配置。
+- AI 创建与人工配置能力相同，生成的配置须经服务端验证和用户确认才能发布。
+- 来源类型与顶部资源动态匹配，停采保留历史，重装区分来源；共享业务变量由作者明确跨来源映射。
+- 平台按来源/图型生成标准下钻并随图发布，人工和 AI 共用；APM 通过专用图型与展开/全屏详情呈现。
+- 非空分组迁出内容后才能归档，历史和草稿保留，恢复后重新验证发布基线。
 
-1. `Dashboard` 是长期持久化业务对象，`ToolPresentation` 只用于会话中的预览详情和分析摘要；确认由宿主固定控件提供。
-2. 一个 Dashboard 可以混排三种信号，但每个 Panel 保留自己的 PromQL、KQL 或 SkyWalking GraphQL 语义。
-3. Dashboard 保存不可变 `DashboardRevision`；只有已验证的 Revision 才能被前端执行或被 AI Skill 使用。
-4. 资源绑定是导航和查询上下文，不是授权边界；每次打开、刷新、AI 查询和绑定变更都重新执行 explicit resource authorization 与 AuthorizationVersion 校验。
-5. 所有持久化变更均使用现有 `.preview/.commit` 协议。产品文案可以称“准备/确认”，不另造一套 `prepare` 协议。
-6. 分析入口必须是显式 Dashboard `@` 引用；创建入口必须是显式 `/` Skill，不做用户语言到 Dashboard 的模糊自动匹配。
-7. AI 可以从 active Revision 读取 Panel 查询定义并决定查询顺序，但指标 Query Tool 必须校验 Dashboard/Revision/Panel provenance 和查询哈希。
-8. 变量设计采用查询变量模型：每个变量独立配置 Metrics/Logs/Traces 查询，后续变量通过查询中的 `$variable` 自动建立依赖，Panel 是否使用变量只看查询是否显式引用；执行语义参考 Grafana，跨信号和值发现参考 SigNoz，配置体验参考 OpenObserve。
-9. 变量编辑弹框采用宽屏自适应布局，头部和底部操作区固定，只允许正文区域纵向滚动；变量链、查询编辑器和目录结果不得各自形成滚动容器。
-10. 实施顺序先完成 Task 1 的人工仪表盘基线，再在同一领域服务上接入 Task 2 的 AI 创建和 `@Dashboard` 分析；AI 不拥有独立的存储、权限或查询执行路径。
+## 关键规则
 
-> PlanV5 展示边界：Dashboard 仍是独立持久业务对象。会话展示不再依赖模板 Catalog、Slot/Binding 或可执行 Card；使用 Tool 自有模板和宿主单次确认。模板 Bridge 不发起查询，Chat 内换时间或翻页由新用户消息产生新 ToolCall。
+1. Dashboard、个人草稿、不可变 Revision、导航绑定是独立领域事实；Tool 模板只承担创建/更新预览详情。
+2. Dashboard 对象授权复用主机/K8s 的“功能权限 + 显式对象授权”机制；有效授权来自用户、部门和角色的并集。
+3. 能访问 Dashboard 不等于能访问其底层数据。资源下拉、目录、执行和 AI 都重新检查 Host/Cluster 对象授权。可访问者能看查询配置与默认变量，编辑由管理能力控制，不按 Metrics/Logs/Traces 或配置字段分权。
+4. 绑定只负责资源页面入口及预选条件，不限制 Dashboard 查询全集，不授予权限。系统资源筛选强制作用于所有适用 Panel。
+5. 草稿保存不反复确认，生效配置才走 Preview/Commit。发布检查起始 Revision，冲突不能静默覆盖。
+6. 配置硬校验与样本状态分开；合法查询无数据或样本后端临时不可用时可带警告发布，不能因此宣称数据正常。
+7. 查询只有一个有效编辑来源。Builder 可转 DSL，DSL 只有完整、无损可解析时才能转回；派生查询不成为第二份可编辑来源。
+8. AI 创建可生成 builder/DSL Panel，但变量只用构建器。AI 数据查询工具内部交付已发布查询完整结果；额外明细须有明确的已发布查询，AI 不临时改写查询。仪表盘本身不提供导出功能或导出来源配置。
+9. 未指定仪表盘先列候选、由用户选择；泛问检查所选仪表盘的全部适用统计图，具体问题按需选择，覆盖不足必须说明。
+10. Chat 不读取 Dashboard 页面的“当前视图”，也不修改页面。默认条件来自保存的默认时间和变量；未指定资源时使用授权且适用资源。追问继承明确条件并按用户要求更新；自定义变量选值在新候选中消失时另按自动回退全部规则处理。
+11. 用户主要看到 Chat 结论、范围和未知部分，无需图表或专门分析工作台；数据文件与来源保留追溯，AI 自行判断，不增加必填阈值或固定诊断规则。
+12. 本期资源绑定只做 Host 与 Kubernetes Cluster。Kubernetes 下级对象绑定、UID 精确过滤及传播策略后续再设计。
+13. Catalog 从真实观测数据发现指标和字段，不把安装插件目录当作数据事实。变量配置以已有数据为主，不专门建设无数据预配置流程。
+14. 时间、资源或前置变量变化后重载候选；当前自定义变量选值消失时自动改成“全部”，更新依赖变量。All 仍受对象授权、系统资源和上游条件约束，不修改发布默认值。
+15. AI 查询工具内部将结果流式/分片交付到当前会话 Workspace，记录范围、Hash 和完整性；预算/空间/故障导致的不完整必须说明，不能将第一页当成全量。
+16. 正式体验和 E2E 范围为桌面 Web，支持中英文、深浅色、键盘与读屏。
+
+## 展示与后端能力重新评审
+
+用户要求增强 Metrics 图型、Logs/Trace 探索和自由拖拽缩放。Demo 新增变化 09～12、11 类 Metrics 图型、日志结果内检索、Span 瀑布及 x/y/w/h 网格。Q27～Q31 明确保留 Argus KQL 与 OTLP/ClickHouse，目标扩展为完整 APM，并允许明确打开链路时查看另有授权的 B/C。现有 KQL/Trace 子集尚不足以覆盖目标，需补查询、跨批次组装和分析层。详细事实与下一轮问题见 [能力讨论](./03-observability-depth-discussion.md)；未决项和模拟界面不视为已交付。
+
+## 前一轮构建器基线（扩展范围正在讨论）
+
+| 信号 | 能力 |
+| --- | --- |
+| Metrics | 趋势、当前值、分组聚合、计数器速率、Top N、受控错误率和直方图 P95 |
+| Logs | 明细、条件过滤、数量趋势、按字段分组计数 |
+| Traces | 列表、错误/慢请求筛选、单条 Trace 详情 |
+
+DSL 模式可用当前底层支持的语法，仍须满足字段、类型、图表、权限和预算校验。该表是 Q14 的基础交付矩阵；Q32 已追加服务/实例/接口总览、调用量/错误率/时延、服务拓扑、慢错误 Trace、Span 详情及关联日志，Profiling 后续考虑。不能以完成基础表宣称整体交付，也不能推定现有 Engine 和组件已全部覆盖。
+
+应用以 OTLP 接入；后续按 Collector 接收组件扩展 SkyWalking、Jaeger 等来源，再统一进入现有 OTLP/ClickHouse 链路。插件决定接入协议及可转换字段，不决定数据是否全量；Q34 的采样统计展示方式单独澄清。
+
+## 实施与现状
+
+先完成 Task 1 的人工闭环，再接入 Task 2。Task 1 新增 T1.0，核实并补齐实际字段、目录、聚合和展示能力。Task 2 补齐显式命令、引用与追问继承、Run 恢复、导出文件交付，以及 PlanV5 Gateway/Workspace/Action 接点。
+
+复用现有服务进程、PostgreSQL、M10 三个 Engine、PlanV5 Tool Gateway 和宿主确认；不新增第二套存储、授权系统或查询引擎。Dashboard 领域、数据发现、总预算、结构化引用和大结果导出是待建设能力，不能按“给现有页面加配置”估算。
+
+历史 M0-M10 验收只证明当时版本。PlanV5 当前状态见 [验收报告](../planv5/acceptance-report.md)；PlanV2 必须独立取得真实三信号、授权、恢复、发布和临时 Kubernetes Namespace E2E 证据。
+
+现有代码仍有三信号/敏感字段权限门禁；实施时统一调整相关 API、工具、角色、前端、缓存及来源检查。现有 Workspace 的持久目录、离线工具、来源授权和配额可以复用，但有界 Tool Result 导入不等于完整时间窗口导出。

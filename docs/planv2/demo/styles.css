@@ -1,0 +1,150 @@
+/* Standalone design-review prototype. Production UI remains owned by @argus/ui. */
+:root {
+  --demo-sidebar: 220px; --demo-page: 1320px; --demo-modal: 1080px;
+  --demo-dialog: 640px; --demo-control: 38px; --demo-topbar: 64px;
+  --demo-outline: 2px; --demo-line: 1px; --demo-chart: 190px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); font: var(--font-size-13)/var(--line-height-normal) var(--font-sans); }
+button, input, select, textarea { font: inherit; }
+button, select, summary, label { cursor: pointer; }
+button { color: inherit; }
+input, textarea { cursor: text; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
+  outline: var(--demo-outline) solid var(--brand-highlight); outline-offset: var(--space-px-3);
+}
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: var(--font-size-24); letter-spacing: -.025em; line-height: 1.25; }
+h2 { font-size: var(--font-size-16); } h3 { font-size: var(--font-size-14); }
+small { font-size: var(--font-size-11); }
+a { color: var(--brand-highlight); }
+pre, code, .argus-mono { font-family: var(--font-mono); }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.argus-shell { min-width: 1000px; }
+.argus-sidebar { position: fixed; inset: 0 auto 0 0; width: var(--demo-sidebar); background: var(--bg-sidebar); border-right: var(--demo-line) solid var(--border-subtle); display: flex; flex-direction: column; padding: var(--space-4); z-index: 10; }
+.argus-brand { display: flex; gap: var(--space-3); align-items: center; height: var(--demo-topbar); font-size: var(--font-size-16); font-weight: 700; }
+.argus-brand-mark { width: var(--space-px-34); height: var(--space-px-34); display: grid; place-items: center; background: linear-gradient(145deg,var(--brand-start),var(--brand-end)); color: var(--text-inverse); border-radius: var(--radius-9); }
+.argus-brand small { display: block; color: var(--text-tertiary); font-size: var(--font-size-9); letter-spacing: .1em; font-weight: 400; }
+.argus-enterprise { padding: var(--space-3); border: var(--demo-line) solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-surface); margin: var(--space-3) 0 var(--space-6); }
+.argus-muted { color: var(--text-tertiary); } .argus-dim { color: var(--text-disabled); }
+.argus-nav { display: grid; gap: var(--space-1); }
+.argus-nav button { border: 0; background: transparent; text-align: left; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-sm); color: var(--text-tertiary); }
+.argus-nav button:hover, .argus-nav button.is-active { background: var(--bg-muted); color: var(--text-primary); }
+.argus-nav button.is-active { box-shadow: inset var(--space-px-3) 0 var(--accent); }
+.argus-nav-icon { color: var(--brand-muted); width: var(--space-5); }
+.argus-sidebar-foot { margin-top: auto; padding-top: var(--space-5); border-top: var(--demo-line) solid var(--border-subtle); color: var(--text-tertiary); font-size: var(--font-size-11); }
+.argus-main { margin-left: var(--demo-sidebar); }
+.argus-topbar { position: sticky; top: 0; z-index: 8; min-height: var(--demo-topbar); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-6); background: var(--bg-canvas); border-bottom: var(--demo-line) solid var(--border-subtle); }
+.argus-topbar .argus-select { width: auto; }
+.argus-topbar > .argus-actions { flex-wrap: nowrap; }
+.argus-content { max-width: var(--demo-page); margin: auto; padding: var(--space-8) var(--space-6) var(--space-px-80); display: grid; gap: var(--space-5); }
+.argus-row, .argus-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.argus-between { justify-content: space-between; } .argus-end { justify-content: flex-end; }
+.argus-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-5); }
+.argus-heading p { margin-top: var(--space-2); max-width: 70ch; color: var(--text-tertiary); }
+.argus-eyebrow { display: block; margin-bottom: var(--space-2); color: var(--brand-highlight); font-size: var(--font-size-10); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.argus-button { min-height: var(--demo-control); padding: var(--space-2) var(--space-4); border: var(--demo-line) solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-elevated); font-weight: 600; white-space: nowrap; }
+.argus-button:hover { background: var(--bg-hover); }
+.argus-button--primary { background: var(--accent); border-color: var(--accent); color: var(--text-inverse); }
+.argus-button--primary:hover { background: var(--accent-hover); }
+.argus-button--ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.argus-button--small { min-height: var(--space-px-30); padding: var(--space-1) var(--space-3); font-size: var(--font-size-11); }
+.argus-button--danger { color: var(--danger); }
+.argus-badge { display: inline-flex; align-items: center; width: fit-content; padding: var(--space-px-3) var(--space-2); border: var(--demo-line) solid var(--border-default); border-radius: var(--radius-pill); color: var(--text-secondary); font-size: var(--font-size-10); font-weight: 650; white-space: nowrap; }
+.argus-badge--accent { background: var(--accent-soft); color: var(--brand-highlight); border-color: var(--accent); }
+.argus-badge--success { background: var(--success-soft); color: var(--success); border-color: var(--success); }
+.argus-badge--warning { background: var(--warning-soft); color: var(--warning); border-color: var(--warning); }
+.argus-badge--info { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+.argus-badge--danger { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+.argus-card { border: var(--demo-line) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); overflow: hidden; min-width: 0; }
+.argus-card-head { padding: var(--space-4) var(--space-5); border-bottom: var(--demo-line) solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.argus-card-body { padding: var(--space-5); }
+.argus-stack { display: grid; gap: var(--space-4); }
+.argus-grid { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); gap: var(--space-4); }
+.argus-half { grid-column: span 6; } .argus-full { grid-column: span 12; } .argus-third { grid-column: span 4; }
+.argus-form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-4); }
+.argus-field { display: grid; gap: var(--space-2); min-width: 0; color: var(--text-secondary); font-size: var(--font-size-12); }
+.argus-field--wide { grid-column: 1 / -1; }
+.argus-input, .argus-select, .argus-textarea { width: 100%; min-height: var(--demo-control); padding: var(--space-2) var(--space-3); color: var(--text-primary); background: var(--bg-canvas); border: var(--demo-line) solid var(--border-default); border-radius: var(--radius-sm); }
+.argus-textarea { min-height: var(--space-px-100); resize: vertical; }
+.argus-code-editor { min-height: var(--demo-chart); font-family: var(--font-mono); font-size: var(--font-size-12); }
+.argus-filterbar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-4); border: var(--demo-line) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); }
+.argus-filterbar .argus-field { min-width: 140px; flex: 1; } .argus-filterbar .argus-button { margin-left: auto; }
+.argus-notice { padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); border: var(--demo-line) solid var(--border-default); background: var(--bg-elevated); display: flex; gap: var(--space-3); align-items: flex-start; color: var(--text-secondary); }
+.argus-notice--info { border-color: var(--info); background: var(--info-soft); }
+.argus-notice--warning { border-color: var(--warning); background: var(--warning-soft); }
+.argus-notice--success { border-color: var(--success); background: var(--success-soft); }
+.argus-notice--danger { border-color: var(--danger); background: var(--danger-soft); }
+.argus-notice > div { flex: 1; } .argus-notice p + p { margin-top: var(--space-2); }
+.argus-review-hero { padding: var(--space-6); border: var(--demo-line) solid var(--border-default); border-radius: var(--radius-lg); background: linear-gradient(115deg,var(--accent-soft),var(--bg-surface)); }
+.argus-review-card { display: flex; flex-direction: column; }
+.argus-review-card .argus-card-body { flex: 1; display: grid; gap: var(--space-4); }
+.argus-compare { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+.argus-compare > div { padding: var(--space-3); border: var(--demo-line) solid var(--border-subtle); border-radius: var(--radius-sm); }
+.argus-compare > div:last-child { background: var(--success-soft); }
+.argus-compare small { display: block; margin-bottom: var(--space-2); }
+.argus-check { display: inline-flex; align-items: center; gap: var(--space-2); }
+.argus-check input { accent-color: var(--accent); }
+.argus-note-input { min-height: var(--demo-control); }
+.argus-catalog-item { padding: var(--space-5); text-align: left; color: inherit; border: var(--demo-line) solid var(--border-subtle); background: var(--bg-canvas); border-radius: var(--radius-md); display: grid; gap: var(--space-3); min-height: 150px; }
+.argus-catalog-item:hover { border-color: var(--brand-highlight); background: var(--bg-elevated); }
+.argus-folder-body { padding: var(--space-4); display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: var(--space-3); }
+.argus-tabbar { display: flex; gap: var(--space-2); border-bottom: var(--demo-line) solid var(--border-subtle); padding-bottom: var(--space-3); }
+.argus-tabbar button.is-active { color: var(--brand-highlight); border-color: var(--accent); background: var(--accent-soft); }
+.argus-preview-strip { position: sticky; top: var(--demo-topbar); z-index: 6; background: var(--bg-elevated); border: var(--demo-line) solid var(--warning); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); }
+.argus-stat { font: 600 var(--font-size-30)/1.2 var(--font-mono); }
+.argus-chart { width: 100%; height: var(--demo-chart); display: block; }
+.argus-chart-grid { stroke: var(--border-default); stroke-width: 1; stroke-dasharray: 4 6; }
+.argus-chart-line { stroke: var(--info); stroke-width: 2; fill: none; }
+.argus-chart-line--second { stroke: var(--brand-highlight); }
+.argus-chart-area { fill: var(--info-soft); }
+.argus-chart-label { fill: var(--text-tertiary); font: var(--font-size-11) var(--font-mono); }
+.argus-legend { display: flex; justify-content: space-between; gap: var(--space-3); color: var(--text-tertiary); font-size: var(--font-size-11); margin-top: var(--space-2); }
+.argus-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-12); }
+.argus-table th, .argus-table td { text-align: left; padding: var(--space-3); border-bottom: var(--demo-line) solid var(--border-subtle); vertical-align: top; overflow-wrap: anywhere; }
+.argus-table th { color: var(--text-tertiary); font-weight: 500; }
+.argus-table tr:last-child td { border-bottom: 0; }
+.argus-table-wrap { overflow-x: auto; }
+.argus-empty { padding: var(--space-10); min-height: var(--demo-chart); display: grid; place-content: center; gap: var(--space-3); text-align: center; color: var(--text-tertiary); }
+.argus-detail { border: var(--demo-line) solid var(--border-subtle); padding: var(--space-3); border-radius: var(--radius-sm); }
+.argus-detail summary { color: var(--text-secondary); }
+.argus-detail[open] summary { margin-bottom: var(--space-3); }
+.argus-detail pre { padding: var(--space-3); border-radius: var(--radius-sm); background: var(--bg-canvas); font-size: var(--font-size-11); color: var(--text-secondary); }
+.argus-popup { position: relative; min-width: 140px; }
+.argus-popup > summary { padding: var(--space-2) var(--space-3); min-height: var(--demo-control); border: var(--demo-line) solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-canvas); list-style: none; }
+.argus-popup-list { position: absolute; left: 0; top: calc(100% + var(--space-1)); min-width: 210px; max-height: 280px; overflow: auto; z-index: 12; padding: var(--space-3); border: var(--demo-line) solid var(--border-default); background: var(--bg-elevated); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); display: grid; gap: var(--space-3); }
+.argus-modal-backdrop { position: fixed; inset: 0; background: color-mix(in srgb,var(--overlay-black) 65%,transparent); z-index: 30; padding: var(--space-6); display: grid; place-items: center; }
+.argus-modal { display: flex; flex-direction: column; width: min(var(--demo-modal),96vw); max-height: calc(100vh - var(--space-px-48)); background: var(--bg-surface); border: var(--demo-line) solid var(--border-default); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; }
+.argus-modal--small { width: min(var(--demo-dialog),90vw); }
+.argus-modal-head, .argus-modal-foot { padding: var(--space-4) var(--space-5); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-shrink: 0; background: var(--bg-elevated); }
+.argus-modal-head { border-bottom: var(--demo-line) solid var(--border-subtle); }
+.argus-modal-foot { border-top: var(--demo-line) solid var(--border-subtle); justify-content: flex-end; }
+.argus-modal-body { overflow-y: auto; padding: var(--space-5); display: grid; gap: var(--space-4); }
+.argus-variable-layout { display: grid; grid-template-columns: 200px minmax(0,1fr); gap: var(--space-5); align-items: start; }
+.argus-variable-list { display: grid; gap: var(--space-2); }
+.argus-variable-list button { text-align: left; white-space: normal; }
+.argus-resource-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-4); }
+.argus-chat { display: grid; gap: var(--space-4); max-width: 920px; margin: auto; width: 100%; }
+.argus-chat-message { padding: var(--space-5); border: var(--demo-line) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); display: grid; gap: var(--space-3); }
+.argus-chat-message--user { margin-left: var(--space-px-70); background: var(--accent-soft); border-color: var(--accent); }
+.argus-chat-compose { position: sticky; bottom: var(--space-4); background: var(--bg-elevated); padding: var(--space-4); border: var(--demo-line) solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
+.argus-chat-compose textarea { min-height: var(--space-px-80); }
+.argus-chat-context { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+.argus-progress { display: flex; gap: var(--space-3); align-items: center; color: var(--info); }
+.argus-progress i { height: var(--space-2); width: var(--space-2); border-radius: var(--radius-round); background: var(--info); animation: argus-pulse 1s infinite alternate; }
+.argus-toast { position: fixed; bottom: var(--space-6); left: 50%; transform: translateX(-50%); z-index: 50; max-width: 75vw; padding: var(--space-3) var(--space-5); background: var(--bg-elevated); border: var(--demo-line) solid var(--border-strong); box-shadow: var(--shadow-lg); border-radius: var(--radius-sm); }
+.argus-query-preview { padding: var(--space-4); background: var(--bg-canvas); border: var(--demo-line) solid var(--border-subtle); border-radius: var(--radius-sm); font-size: var(--font-size-12); }
+.argus-reorder { display: flex; gap: var(--space-1); }
+.argus-panel[draggable="true"] { cursor: grab; }
+.argus-panel.is-dragging { opacity: .4; }
+.argus-warning-text { color: var(--warning); } .argus-danger-text { color: var(--danger); }
+.argus-success-text { color: var(--success); }
+@keyframes argus-pulse { to { opacity: .25; } }
+@media (min-width: 1600px) { .argus-content { padding-top: var(--space-10); } }
+@media (max-width: 1200px) {
+  .argus-folder-body { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .argus-review-card { grid-column: span 12; }
+  .argus-heading { flex-wrap: wrap; }
+}
