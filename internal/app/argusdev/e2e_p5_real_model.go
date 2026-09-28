@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ type p5BenchmarkReport struct {
 	Kind        string              `json:"kind"`
 	Model       string              `json:"model"`
 	Protocol    string              `json:"api_protocol"`
+	Groups      []string            `json:"groups,omitempty"`
 	Planned     int                 `json:"planned_tasks"`
 	Passed      bool                `json:"passed"`
 	Completed   int                 `json:"completed_tasks"`
@@ -175,6 +177,10 @@ func (a *App) runP5RealModelBenchmark(ctx context.Context, env *E2EEnvironment) 
 }
 
 func (a *App) p5RealTask(ctx context.Context, env *E2EEnvironment, conversation, id, prompt string, files []string) (p5BenchmarkSample, error) {
+	return a.realModelTask(ctx, env, conversation, id, prompt, files, nil)
+}
+
+func (a *App) realModelTask(ctx context.Context, env *E2EEnvironment, conversation, id, prompt string, files []string, selection map[string]any, afterStart ...func(string) error) (p5BenchmarkSample, error) {
 	client, err := scenarioHTTP(env)
 	if err != nil {
 		return p5BenchmarkSample{}, err
@@ -182,13 +188,22 @@ func (a *App) p5RealTask(ctx context.Context, env *E2EEnvironment, conversation,
 	if files == nil {
 		files = []string{}
 	}
-	response, err := client.JSON(ctx, "p5-real-message-"+id, "enterprise", http.MethodPost, "/conversations/"+conversation+"/messages", 202, map[string]any{"content": prompt, "file_ids": files}, enterpriseHeaders(env, "p5-real-message-"+id))
+	input := map[string]any{"content": prompt, "file_ids": files}
+	if selection != nil {
+		input["dashboard_context"] = selection
+	}
+	response, err := client.JSON(ctx, "real-message-"+id, "enterprise", http.MethodPost, "/conversations/"+conversation+"/messages", 202, input, enterpriseHeaders(env, "real-message-"+id))
 	if err != nil {
 		return p5BenchmarkSample{}, err
 	}
 	run, err := stringField(response, "run", "run_id")
 	if err != nil {
 		return p5BenchmarkSample{}, err
+	}
+	for _, prepare := range afterStart {
+		if err := prepare(run); err != nil {
+			return p5BenchmarkSample{ID: id, RunID: run}, err
+		}
 	}
 	deadline := time.NewTimer(10 * time.Minute)
 	defer deadline.Stop()
@@ -214,11 +229,21 @@ func (a *App) p5RealTask(ctx context.Context, env *E2EEnvironment, conversation,
 func (a *App) p5DeleteWorkspace(ctx context.Context, env *E2EEnvironment, conversation string) error {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
+	if uuid.Validate(conversation) != nil {
+		return fmt.Errorf("invalid Workspace conversation identity")
+	}
+	exists, err := a.postgresQuery(ctx, env, "SELECT count(*) FROM workspaces WHERE conversation_id='"+conversation+"';")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(exists) == "0" {
+		return nil
+	}
 	client, err := scenarioHTTP(env)
 	if err != nil {
 		return err
 	}
-	if _, err := client.JSON(ctx, "p5-real-workspace-delete", "enterprise", http.MethodDelete, "/conversations/"+conversation+"/workspace", 202, nil, enterpriseHeaders(env, "p5-real-workspace-delete")); err != nil {
+	if _, err := client.JSON(ctx, "p5-real-workspace-delete", "enterprise", http.MethodDelete, "/conversations/"+conversation+"/workspace", 202, nil, enterpriseHeaders(env, p5RequestKey("p5-real-workspace-delete", conversation))); err != nil {
 		return err
 	}
 	for {

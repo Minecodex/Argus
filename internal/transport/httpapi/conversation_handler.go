@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/kakj-go/Argus/internal/conversation"
+	"github.com/kakj-go/Argus/internal/dashboardaccess"
 	conversationapi "github.com/kakj-go/Argus/internal/gen/openapi/conversationapi"
 	"github.com/kakj-go/Argus/internal/identity"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -117,7 +118,7 @@ func (handler ConversationHandler) CreateConversationMessage(ctx context.Context
 		fileIDs = *request.Body.FileIds
 	}
 	accepted, err := handler.Service.AddMessage(ctx, p.ActorID(), p.EnterpriseIDValue(), uuid.MustParse(p.ActorID()), uuid.UUID(request.ConversationId),
-		p.AuthorizationVersion(), LocaleFromContext(ctx), request.Body.Content, fileIDs, request.Params.IdempotencyKey)
+		p.AuthorizationVersion(), LocaleFromContext(ctx), request.Body.Content, fileIDs, request.Params.IdempotencyKey, dashboardSelection(request.Body.DashboardContext))
 	if err != nil {
 		return conversationapi.CreateConversationMessagedefaultJSONResponse{Body: conversationError(ctx, err), StatusCode: conversationStatus(err)}, nil
 	}
@@ -409,8 +410,14 @@ func toConversationEvent(value db.ConversationEvent) conversationapi.Conversatio
 }
 
 func conversationError(ctx context.Context, err error) conversationapi.ApiError {
+	if errors.Is(err, dashboardaccess.ErrDenied) {
+		return dashboardConvert[conversationapi.ApiError](dashboardError(ctx, err))
+	}
 	var toolError toolruntime.Error
 	if errors.As(err, &toolError) {
+		if toolError.Kind == "DASHBOARD_INVALID" {
+			return conversationapi.ApiError{Code: toolError.Kind, MessageKey: "errors.dashboard.invalid", RequestId: "server-generated-request"}
+		}
 		return planV5Error[conversationapi.ApiError](ctx, err)
 	}
 	code, key := "INTERNAL_ERROR", "errors.common.internal"
@@ -433,6 +440,9 @@ func conversationError(ctx context.Context, err error) conversationapi.ApiError 
 }
 
 func conversationStatus(err error) int {
+	if errors.Is(err, dashboardaccess.ErrDenied) {
+		return http.StatusForbidden
+	}
 	var toolError toolruntime.Error
 	if errors.As(err, &toolError) {
 		return planV5Status(err)

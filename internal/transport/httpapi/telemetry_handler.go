@@ -292,7 +292,7 @@ func (handler TelemetryHandler) QueryMetricsInstant(ctx context.Context, request
 	if request.Body == nil {
 		return telemetryapi.QueryMetricsInstantdefaultJSONResponse{Body: telemetryError(ctx, telemetryservice.ErrQueryInvalid), StatusCode: http.StatusBadRequest}, nil
 	}
-	result, err := handler.executeEngine(ctx, "telemetry.query.metrics", queryengine.LanguagePromQL, request.Body.Query, "", "", nil, fromOpenAPIUUIDs(request.Body.ResourceIds), request.Body.TimeRange.From, request.Body.TimeRange.To, 0, request.Body.Budget, true, false)
+	result, err := handler.executeEngine(ctx, "telemetry.promql.query", queryengine.LanguagePromQL, request.Body.Query, "", "", nil, fromOpenAPIUUIDs(request.Body.ResourceIds), request.Body.TimeRange.From, request.Body.TimeRange.To, 0, request.Body.Budget, true)
 	if err != nil {
 		return telemetryapi.QueryMetricsInstantdefaultJSONResponse{Body: telemetryError(ctx, err), StatusCode: telemetryStatus(err)}, nil
 	}
@@ -303,7 +303,7 @@ func (handler TelemetryHandler) QueryMetricsRange(ctx context.Context, request t
 	if request.Body == nil {
 		return telemetryapi.QueryMetricsRangedefaultJSONResponse{Body: telemetryError(ctx, telemetryservice.ErrQueryInvalid), StatusCode: http.StatusBadRequest}, nil
 	}
-	result, err := handler.executeEngine(ctx, "telemetry.query.metrics", queryengine.LanguagePromQL, request.Body.Query, "", "", nil, fromOpenAPIUUIDs(request.Body.ResourceIds), request.Body.TimeRange.From, request.Body.TimeRange.To, time.Duration(request.Body.StepSeconds)*time.Second, request.Body.Budget, false, false)
+	result, err := handler.executeEngine(ctx, "telemetry.promql.query", queryengine.LanguagePromQL, request.Body.Query, "", "", nil, fromOpenAPIUUIDs(request.Body.ResourceIds), request.Body.TimeRange.From, request.Body.TimeRange.To, time.Duration(request.Body.StepSeconds)*time.Second, request.Body.Budget, false)
 	if err != nil {
 		return telemetryapi.QueryMetricsRangedefaultJSONResponse{Body: telemetryError(ctx, err), StatusCode: telemetryStatus(err)}, nil
 	}
@@ -318,7 +318,7 @@ func (handler TelemetryHandler) QueryLogsKQL(ctx context.Context, request teleme
 	if request.Body.Pipeline != nil {
 		pipeline = *request.Body.Pipeline
 	}
-	result, err := handler.executeEngine(ctx, "telemetry.query.logs", queryengine.LanguageKQL, request.Body.Query, pipeline, "", nil, fromOpenAPIUUIDs(request.Body.ResourceIds), request.Body.TimeRange.From, request.Body.TimeRange.To, 0, request.Body.Budget, false, true)
+	result, err := handler.executeEngine(ctx, "telemetry.kql.query", queryengine.LanguageKQL, request.Body.Query, pipeline, "", nil, fromOpenAPIUUIDs(request.Body.ResourceIds), request.Body.TimeRange.From, request.Body.TimeRange.To, 0, request.Body.Budget, false)
 	if err != nil {
 		return telemetryapi.QueryLogsKQLdefaultJSONResponse{Body: telemetryError(ctx, err), StatusCode: telemetryStatus(err)}, nil
 	}
@@ -336,7 +336,7 @@ func (handler TelemetryHandler) QueryTracesGraphQL(ctx context.Context, request 
 	if request.Body.Variables != nil {
 		variables = *request.Body.Variables
 	}
-	result, err := handler.executeEngine(ctx, "telemetry.query.traces", queryengine.LanguageTrace, request.Body.Query, "", operation, variables, fromOpenAPIUUIDs(request.Body.ResourceIds), request.Body.TimeRange.From, request.Body.TimeRange.To, 0, request.Body.Budget, false, true)
+	result, err := handler.executeEngine(ctx, "telemetry.skywalking.trace", queryengine.LanguageTrace, request.Body.Query, "", operation, variables, fromOpenAPIUUIDs(request.Body.ResourceIds), request.Body.TimeRange.From, request.Body.TimeRange.To, 0, request.Body.Budget, false)
 	if err != nil {
 		return telemetryapi.QueryTracesGraphQLdefaultJSONResponse{Body: telemetryError(ctx, err), StatusCode: telemetryStatus(err)}, nil
 	}
@@ -347,13 +347,10 @@ func (handler TelemetryHandler) QueryTracesGraphQL(ctx context.Context, request 
 	return telemetryapi.QueryTracesGraphQL200JSONResponse(response), nil
 }
 
-func (handler TelemetryHandler) executeEngine(ctx context.Context, permission string, language queryengine.Language, expression, pipeline, operation string, variables map[string]any, resources []uuid.UUID, from, to time.Time, step time.Duration, budget *telemetryapi.TelemetryQueryBudget, instant, sensitive bool) (queryengine.Result, error) {
-	actor, principal, apiError := handler.actor(ctx, false, "", permission)
+func (handler TelemetryHandler) executeEngine(ctx context.Context, toolID string, language queryengine.Language, expression, pipeline, operation string, variables map[string]any, resources []uuid.UUID, from, to time.Time, step time.Duration, budget *telemetryapi.TelemetryQueryBudget, instant bool) (queryengine.Result, error) {
+	actor, _, apiError := handler.queryActor(ctx, toolID)
 	if apiError != nil {
 		return queryengine.Result{}, telemetryRequestError{apiError: *apiError}
-	}
-	if sensitive {
-		sensitive = hasPermission(principal, "telemetry.sensitive_fields.read")
 	}
 	resources, partial, err := handler.Service.AuthorizedResources(ctx, actor, resources)
 	if err != nil {
@@ -368,8 +365,11 @@ func (handler TelemetryHandler) executeEngine(ctx context.Context, permission st
 	if handler.Service.Engine == nil {
 		return queryengine.Result{}, telemetryservice.ErrUnavailable
 	}
-	result, err := handler.Service.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: language, Expression: expression, Pipeline: pipeline, Operation: operation, Variables: variables, Instant: instant, Start: from, End: to, Step: step, Scope: queryengine.Scope{EnterpriseID: actor.EnterpriseID, ResourceIDs: resources, AuthorizationVersion: actor.AuthorizationVersion, SensitiveFields: sensitive}, Budget: telemetryEngineBudget(budget)})
+	result, err := handler.Service.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: language, Expression: expression, Pipeline: pipeline, Operation: operation, Variables: variables, Instant: instant, Start: from, End: to, Step: step, Scope: queryengine.Scope{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: resources, AuthorizationVersion: actor.AuthorizationVersion}, Budget: telemetryEngineBudget(budget)})
 	if err != nil {
+		return queryengine.Result{}, err
+	}
+	if err := handler.Service.ValidateQueryScope(ctx, actor, resources); err != nil {
 		return queryengine.Result{}, err
 	}
 	return result, nil
@@ -464,7 +464,7 @@ func (err telemetryRequestError) Error() string {
 }
 
 func (handler TelemetryHandler) QueryTelemetryOverview(ctx context.Context, request telemetryapi.QueryTelemetryOverviewRequestObject) (telemetryapi.QueryTelemetryOverviewResponseObject, error) {
-	actor, _, apiError := handler.actor(ctx, false, "", "telemetry.query.metrics")
+	actor, _, apiError := handler.queryActor(ctx, "telemetry.overview")
 	if apiError != nil {
 		return telemetryapi.QueryTelemetryOverviewdefaultJSONResponse{Body: *apiError, StatusCode: telemetryAuthStatus(*apiError)}, nil
 	}
@@ -472,6 +472,9 @@ func (handler TelemetryHandler) QueryTelemetryOverview(ctx context.Context, requ
 		return telemetryapi.QueryTelemetryOverviewdefaultJSONResponse{Body: telemetryError(ctx, telemetryservice.ErrQueryInvalid), StatusCode: http.StatusBadRequest}, nil
 	}
 	item, err := handler.Service.QueryOverview(ctx, actor, fromOpenAPIUUIDs(request.Body.ResourceIds), request.Body.LookbackSeconds)
+	if err == nil {
+		err = handler.Service.ValidateQueryScope(ctx, actor, fromOpenAPIUUIDs(request.Body.ResourceIds))
+	}
 	if err != nil {
 		return telemetryapi.QueryTelemetryOverviewdefaultJSONResponse{Body: telemetryError(ctx, err), StatusCode: telemetryStatus(err)}, nil
 	}

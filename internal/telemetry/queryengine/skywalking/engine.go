@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,9 +18,12 @@ import (
 )
 
 type Scope struct {
+	SourceKeys   []string
 	EnterpriseID uuid.UUID
 	ResourceIDs  []uuid.UUID
 }
+
+var ErrBudget = errors.New("trace query budget exceeded")
 
 type Budget struct {
 	MaxRows               int
@@ -41,11 +45,16 @@ type Request struct {
 }
 
 type Result struct {
-	Data         map[string]any
-	Errors       []string
-	Elapsed      time.Duration
-	ScannedRows  int64
-	ScannedBytes int64
+	LatestSampleAt *time.Time
+	Partial        bool
+	ResultType     string
+	Warnings       []string
+	Data           map[string]any
+	Errors         []string
+	Elapsed        time.Duration
+	ScannedRows    int64
+	ScannedBytes   int64
+	ReturnedRows   int64
 }
 
 type TableRouter interface {
@@ -77,6 +86,9 @@ func mustSchemaSource() string {
 }
 
 func (e Engine) Execute(ctx context.Context, request Request) (Result, error) {
+	if len(request.Scope.ResourceIDs) == 0 {
+		return Result{}, fmt.Errorf("trace graphql resource scope required")
+	}
 	if e.Conn == nil || e.Router == nil || request.Scope.EnterpriseID == uuid.Nil {
 		return Result{}, fmt.Errorf("trace graphql storage unavailable")
 	}
@@ -95,6 +107,11 @@ func (e Engine) Execute(ctx context.Context, request Request) (Result, error) {
 	if request.Budget.MaxRelationExpansions <= 0 {
 		request.Budget.MaxRelationExpansions = request.Budget.MaxRows
 	}
+	if request.Budget.Timeout <= 0 {
+		request.Budget.Timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, request.Budget.Timeout)
+	defer cancel()
 	request.Budget.progress = &chstats.Tracker{}
 	document, err := graphqlparser.Parse(graphqlparser.ParseParams{Source: request.Document})
 	if err != nil {
@@ -118,38 +135,45 @@ func (e Engine) Execute(ctx context.Context, request Request) (Result, error) {
 	started := time.Now()
 	response := traceSchema.Exec(withExecutionState(ctx, state), request.Document, request.OperationName, request.Variables)
 	if len(response.Errors) > 0 {
-		return Result{Errors: schemaErrors(response.Errors), Elapsed: time.Since(started), ScannedRows: request.Budget.progress.Rows(), ScannedBytes: request.Budget.progress.Bytes()}, fmt.Errorf("graphql query failed")
+		cause := errors.New("graphql query failed")
+		if state.lastError != nil {
+			cause = fmt.Errorf("graphql query failed: %w", state.lastError)
+		}
+		return Result{Errors: schemaErrors(response.Errors), Elapsed: time.Since(started), ScannedRows: request.Budget.progress.Rows(), ScannedBytes: request.Budget.progress.Bytes()}, cause
 	}
 	var data map[string]any
 	if err := json.Unmarshal(response.Data, &data); err != nil {
 		return Result{}, fmt.Errorf("graphql result invalid: %w", err)
 	}
 	if int64(len(response.Data)) > request.Budget.MaxResultBytes {
-		return Result{}, fmt.Errorf("graphql result byte budget exceeded")
+		return Result{}, ErrBudget
 	}
-	return Result{Data: data, Elapsed: time.Since(started), ScannedRows: request.Budget.progress.Rows(), ScannedBytes: request.Budget.progress.Bytes()}, nil
+	if request.Budget.MaxScanBytes > 0 && request.Budget.progress.Bytes() > request.Budget.MaxScanBytes {
+		return Result{}, ErrBudget
+	}
+	kind, err := ResultKind(request.Document, request.OperationName)
+	if err != nil {
+		return Result{}, err
+	}
+	return Result{LatestSampleAt: request.Budget.progress.LatestEvent(), Partial: state.partial, ResultType: kind, Warnings: state.warnings, Data: data, Elapsed: time.Since(started), ScannedRows: request.Budget.progress.Rows(), ScannedBytes: request.Budget.progress.Bytes(), ReturnedRows: int64(state.rows + state.relations)}, nil
 }
 
 func (e Engine) tables(enterpriseID uuid.UUID) (traceTables, error) {
-	summary, err := e.Router.Table("trace_summary", enterpriseID)
-	if err != nil {
-		return traceTables{}, err
-	}
 	spans, err := e.Router.Table("traces", enterpriseID)
 	if err != nil {
 		return traceTables{}, err
 	}
-	edges, err := e.Router.Table("trace_span_edges", enterpriseID)
-	if err != nil {
-		return traceTables{}, err
-	}
-	return traceTables{summary: summary, spans: spans, edges: edges}, nil
+	return traceTables{spans: spans}, nil
 }
 
 func queryContext(ctx context.Context, budget Budget) context.Context {
-	settings := clickhouse.Settings{"max_result_rows": budget.MaxRows, "max_execution_time": max(1, int(budget.Timeout.Seconds()))}
+	settings := clickhouse.Settings{"max_result_rows": max(budget.MaxRows, budget.MaxRelationExpansions) + 1, "max_execution_time": max(1, int(budget.Timeout.Seconds()))}
 	if budget.MaxScanBytes > 0 {
-		settings["max_bytes_to_read"] = budget.MaxScanBytes
+		remaining := budget.MaxScanBytes
+		if budget.progress != nil {
+			remaining -= budget.progress.Bytes()
+		}
+		settings["max_bytes_to_read"] = max(int64(1), remaining)
 	}
 	if budget.progress == nil {
 		return clickhouse.Context(ctx, clickhouse.WithSettings(settings))

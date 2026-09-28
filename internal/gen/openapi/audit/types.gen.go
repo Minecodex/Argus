@@ -64,19 +64,19 @@ func (e AuditEventDomain) Valid() bool {
 
 // Defines values for AuditEventResult.
 const (
-	Denied  AuditEventResult = "denied"
-	Failure AuditEventResult = "failure"
-	Success AuditEventResult = "success"
+	AuditEventResultDenied  AuditEventResult = "denied"
+	AuditEventResultFailure AuditEventResult = "failure"
+	AuditEventResultSuccess AuditEventResult = "success"
 )
 
 // Valid indicates whether the value is a known member of the AuditEventResult enum.
 func (e AuditEventResult) Valid() bool {
 	switch e {
-	case Denied:
+	case AuditEventResultDenied:
 		return true
-	case Failure:
+	case AuditEventResultFailure:
 		return true
-	case Success:
+	case AuditEventResultSuccess:
 		return true
 	default:
 		return false
@@ -119,6 +119,27 @@ func (e Audience) Valid() bool {
 	case AudienceEnterprise:
 		return true
 	case AudiencePlatform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAuditEventsParamsResult.
+const (
+	ListAuditEventsParamsResultDenied  ListAuditEventsParamsResult = "denied"
+	ListAuditEventsParamsResultFailure ListAuditEventsParamsResult = "failure"
+	ListAuditEventsParamsResultSuccess ListAuditEventsParamsResult = "success"
+)
+
+// Valid indicates whether the value is a known member of the ListAuditEventsParamsResult enum.
+func (e ListAuditEventsParamsResult) Valid() bool {
+	switch e {
+	case ListAuditEventsParamsResultDenied:
+		return true
+	case ListAuditEventsParamsResultFailure:
+		return true
+	case ListAuditEventsParamsResultSuccess:
 		return true
 	default:
 		return false
@@ -218,10 +239,22 @@ type Error = ApiError
 
 // ListAuditEventsParams defines parameters for ListAuditEvents.
 type ListAuditEventsParams struct {
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
-	Action *string `form:"action,omitempty" json:"action,omitempty"`
+	Cursor       *Cursor                      `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit        *Limit                       `form:"limit,omitempty" json:"limit,omitempty"`
+	Action       *string                      `form:"action,omitempty" json:"action,omitempty"`
+	ActorId      *string                      `form:"actor_id,omitempty" json:"actor_id,omitempty"`
+	ResourceType *string                      `form:"resource_type,omitempty" json:"resource_type,omitempty"`
+	ResourceId   *string                      `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+	Result       *ListAuditEventsParamsResult `form:"result,omitempty" json:"result,omitempty"`
+
+	// Query Case-insensitive search in event codes, identifiers and sanitized details.
+	Query *string    `form:"query,omitempty" json:"query,omitempty"`
+	From  *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To    *time.Time `form:"to,omitempty" json:"to,omitempty"`
 }
+
+// ListAuditEventsParamsResult defines parameters for ListAuditEvents.
+type ListAuditEventsParamsResult string
 
 // AsApiErrorParams0 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams0
 func (t ApiError_Params_AdditionalProperties) AsApiErrorParams0() (ApiErrorParams0, error) {

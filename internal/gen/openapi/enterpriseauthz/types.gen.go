@@ -13,6 +13,7 @@ import (
 
 // Defines values for DataAuthorizationResourceType.
 const (
+	Dashboard         DataAuthorizationResourceType = "dashboard"
 	Host              DataAuthorizationResourceType = "host"
 	KubernetesCluster DataAuthorizationResourceType = "kubernetes_cluster"
 )
@@ -20,6 +21,8 @@ const (
 // Valid indicates whether the value is a known member of the DataAuthorizationResourceType enum.
 func (e DataAuthorizationResourceType) Valid() bool {
 	switch e {
+	case Dashboard:
+		return true
 	case Host:
 		return true
 	case KubernetesCluster:

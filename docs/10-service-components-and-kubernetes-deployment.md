@@ -1,8 +1,10 @@
 # 服务组件与 Kubernetes 一键部署
 
-## Schema Version 3 查询门禁
+OpenSandbox 共享依赖补充（2026-09-25）：v0.2.0 控制器监听整个集群并使用固定集群角色。安装器发现外部 Helm 拥有的三份 CRD 时，先只读核对 group/scope/names、所需版本和验证约束，以及外部控制器的所有者、v0.2.0 镜像和就绪状态；兼容时复用控制器，仅在本发布 Namespace 部署自己的 Server。允许可选字段和文档扩展，拒绝新增必填约束或隐式默认值；不兼容或混合所有权时停止，不接管、重标记或删除外部资源。卸载仅清理本发布资源。实现及验收见 [PlanV2 自监控记录](./planv2/self-monitoring-native-traces.md)。
 
-`argus-telemetry query` 只在 ClickHouse Schema Version 3 就绪后启动。Schema v3 包含 metric series/samples、logs、traces、trace summary 和 span edges；部署按一次性替换处理，不保留旧 M7 查询表和协议。
+## Schema Version 4 查询门禁
+
+`argus-telemetry query` 与 Writer 只在 ClickHouse Schema Version 4 就绪后启动。Schema v4 在按企业隔离的 metric series/samples、logs、traces、trace summary 和 span edges 表中保留采集来源身份。Helm 按文件名顺序执行 `migrations/clickhouse` 对应的全部迁移，租户表由 TenantSchemaManager 在租户锁下创建或升级。旧 M7 共享查询表不保留；已有租户数据的未知来源不按名称猜测。
 
 `go run ./cmd/argus-dev e2e run --suite m10-query` 默认运行临时 Namespace 的真实 Collector → Kafka → Writer → ClickHouse → 单进程 Query 流程，并以 PromQL、KQL、SkyWalking GraphQL 验证查询、安全投影、租户表隔离、故障恢复和清理。`--unit-only` 只用于开发机快速门禁检查，不构成发布证据。
 
@@ -84,7 +86,7 @@ Evaluation 合并 Worker 的默认资源为 `requests: 100m/256Mi`、`limits: 2 
 | Kafka       | 遥测持久缓冲和写入解耦                                                                   | Strimzi Kafka Operator + KRaft                                                                    |
 | ClickHouse  | Metrics、Logs、Traces 存储                                                               | Altinity ClickHouse Operator + ClickHouseInstallation + Keeper                                    |
 
-第一版不提供外部 PostgreSQL、Redis、Artifact Store、OpenSandbox、Kafka 或 ClickHouse 模式。Evaluation 与 Production 使用相同的组件和协议边界，差异只体现在副本、容量、持久化、拓扑分布和隔离等级。外部托管中间件接入作为后续能力，不能进入第一版配置 Schema、发布矩阵或 E2E 分支。
+第一版不提供外部 PostgreSQL、Redis、Artifact Store、OpenSandbox、Kafka 或 ClickHouse 模式。Evaluation 与 Production 使用相同的组件和协议边界，差异只体现在副本、容量、持久化、拓扑分布和隔离等级。外部托管中间件接入作为后续能力，不能进入第一版配置 Schema、发布矩阵或 E2E 分支。同一集群中经过兼容性校验的 OpenSandbox Operator/CRD 可以复用；Argus 的 Server、API Key、Namespace 和运行资源仍独立创建，这不属于外部托管 OpenSandbox 服务模式。
 
 安装器不应擅自安装或替换集群级 CNI、CSI/StorageClass、Ingress/Gateway Controller、LoadBalancer 实现、DNS 或证书 Issuer（cert-manager 例外，由安装器锁定版本安装）。这些能力与云厂商和集群发行版强相关；一键安装负责预检、选择已有实现并给出明确错误。安装器创建 Kubernetes Service 资源（例如 Connector 专用 LoadBalancer Service）不属于安装 LB 实现：它只是声明对外暴露意图，地址分配由集群已有实现完成。Evaluation Profile 可以另提供针对 kind、k3s 等已知环境的配套脚本，但不能把它当作通用生产路径。
 
@@ -453,6 +455,8 @@ Token 过期时间
 - 查看平台级 Kafka、ClickHouse 和摄入健康，但不能查看企业业务内容。
 
 ## 12. 高可用与容量 Profile
+
+当前平台 Chart 中 Argus Server 的容器硬上限为 256 MiB，显式配置 `GOMEMLIMIT=192MiB` 为 Go 管理内存设置软预算，给其他进程内存及密码校验峰值保留空间。Argon2 参数保持不变。软预算不替代容器上限、请求限流或规模测试；PlanV2 验收另核对测试期间 Server Pod 与重启次数，见 [审计与生命周期收尾](./planv2/audit-lifecycle-20260927.md)。
 
 安装配置提供三个明确 Profile：
 

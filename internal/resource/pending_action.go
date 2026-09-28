@@ -121,6 +121,9 @@ func (service PendingActionService) ExecuteReady(ctx context.Context, q *db.Quer
 	clear(plaintext)
 	if revalidate != nil {
 		impactHash, err := revalidate(ctx, q, action, canonicalPlan)
+		if ActionValidationCode(err) != "" {
+			return ActionCommitResult{}, err
+		}
 		if err != nil || !subtleEqual(impactHash, action.ImpactHash) {
 			return ActionCommitResult{}, ErrActionInvalidated
 		}
@@ -330,6 +333,9 @@ func (service PendingActionService) Confirm(ctx context.Context, actorID string,
 		clear(plaintext)
 		if revalidate != nil {
 			impactHash, err := revalidate(ctx, q, action, canonicalPlan)
+			if ActionValidationCode(err) != "" {
+				return ActionConfirmation{}, err
+			}
 			if err != nil || !subtleEqual(impactHash, action.ImpactHash) {
 				return ActionConfirmation{}, ErrActionInvalidated
 			}

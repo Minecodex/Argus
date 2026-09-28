@@ -111,8 +111,14 @@ it("PlanV5 adapter URLs, methods and required headers match the authoritative Op
     fetch,
     csrf_token: () => "csrf-test",
   });
+  await complete.conversations.dashboardContext(id);
   await complete.conversations.preflight(id, {
     content: "Check capacity",
+    dashboard_context: {
+      mode: "analyze",
+      dashboard_ids: [id],
+      expected_version: 0,
+    },
     file_ids: [],
   });
 });

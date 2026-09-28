@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"github.com/kakj-go/Argus/internal/telemetry/datapolicy"
 	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
@@ -29,7 +30,7 @@ func Scope(ctx context.Context, store *postgres.Store, enterprise, user uuid.UUI
 	}
 	sort.Strings(permissions)
 	ids := []string{}
-	for _, kind := range []string{"host", "kubernetes_cluster"} {
+	for _, kind := range []string{"host", "kubernetes_cluster", "dashboard"} {
 		values, err := store.Queries.ListUserAuthorizedResourceIDs(ctx, db.ListUserAuthorizedResourceIDsParams{EnterpriseID: enterprise, UserID: user, ResourceType: kind})
 		if err != nil {
 			return "", err
@@ -39,7 +40,7 @@ func Scope(ctx context.Context, store *postgres.Store, enterprise, user uuid.UUI
 		}
 	}
 	sort.Strings(ids)
-	encoded, _ := json.Marshal([]any{enterprise, user, actor.AuthorizationVersion, permissions, ids})
+	encoded, _ := json.Marshal([]any{datapolicy.Version, enterprise, user, actor.AuthorizationVersion, permissions, ids})
 	hash := sha256.Sum256(encoded)
 	return hex.EncodeToString(hash[:]), nil
 }

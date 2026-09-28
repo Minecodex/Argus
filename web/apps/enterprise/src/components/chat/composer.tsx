@@ -12,6 +12,7 @@ import {
   AtSign,
   Cable,
   FileText,
+  LayoutDashboard,
   Paperclip,
   Server,
   Square,
@@ -19,8 +20,18 @@ import {
 } from "lucide-react";
 import { useApi, formatApiError, type WorkspaceFile } from "@argus/api-client";
 import { Button, Tooltip } from "@argus/ui";
+import { usePermission } from "../../lib/permissions";
+import { mentionQuery } from "./mention-query";
+import {
+  DashboardChatContextBar,
+  useDashboardChatContext,
+} from "./dashboard-context";
 
-type Mention = { kind: "host" | "connector"; id: string; label: string };
+type Mention = {
+  kind: "host" | "connector" | "dashboard";
+  id: string;
+  label: string;
+};
 export function ChatComposer({
   sending,
   disabled,
@@ -32,12 +43,19 @@ export function ChatComposer({
   sending: boolean;
   disabled?: boolean;
   conversationId?: string;
-  onSend(text: string, fileIds?: string[]): Promise<boolean>;
+  onSend(
+    text: string,
+    fileIds?: string[],
+    context?: import("@argus/api-client").DashboardChatSelection,
+  ): Promise<boolean>;
   onStop(): void;
   prepareConversation(): Promise<string>;
 }) {
   const { t } = useTranslation();
   const api = useApi();
+  const dashboard = useDashboardChatContext(conversationId);
+  const canReadDashboard = usePermission("telemetry.dashboard.read");
+  const canCreateDashboard = usePermission("telemetry.dashboard.manage");
   const queries = useQueryClient();
   const [text, setText] = useState("");
   const [mentions, setMentions] = useState<Mention[]>([]);
@@ -80,7 +98,20 @@ export function ChatComposer({
     queryFn: () => api.connectors.list(),
     enabled: !!picker,
   });
+  const dashboards = useQuery({
+    queryKey: ["dashboards", "chat-picker"],
+    queryFn: () => api.dashboards.list(),
+    enabled:
+      canReadDashboard && (!!picker || dashboard.selection.mode !== "none"),
+  });
   const items: Mention[] = [
+    ...(dashboards.data ?? [])
+      .filter((item) => item.lifecycle === "active")
+      .map((item) => ({
+        kind: "dashboard" as const,
+        id: item.id,
+        label: item.name,
+      })),
     ...(hosts.data?.items ?? []).map((item) => ({
       kind: "host" as const,
       id: item.id,
@@ -96,24 +127,37 @@ export function ChatComposer({
   );
   const updateText = (value: string, caret: number) => {
     setText(value);
-    const match = /(?:^|\s)@([^\s@]*)$/.exec(value.slice(0, caret));
-    setPicker(
-      match
-        ? { start: caret - match[1]!.length - 1, end: caret, query: match[1]! }
-        : null,
-    );
+    setPicker(mentionQuery(value, caret));
   };
   const choose = (item: Mention) => {
     if (!picker) return;
-    setMentions((current) =>
-      current.some((x) => x.id === item.id) ? current : [...current, item],
-    );
+    if (item.kind === "dashboard") {
+      if (
+        !dashboard.selection.dashboard_ids.includes(item.id) &&
+        dashboard.selection.dashboard_ids.length < 20
+      )
+        dashboard.change(
+          dashboard.selection.mode === "create" ? "create" : "analyze",
+          [...dashboard.selection.dashboard_ids, item.id],
+        );
+    } else
+      setMentions((current) =>
+        current.some((x) => x.id === item.id) ? current : [...current, item],
+      );
     setText(text.slice(0, picker.start) + text.slice(picker.end));
     setPicker(null);
     area.current?.focus();
   };
   const submit = async () => {
-    if (!text.trim() || sending || disabled || submitting || upload) return;
+    if (
+      !text.trim() ||
+      sending ||
+      disabled ||
+      submitting ||
+      upload ||
+      !dashboard.ready
+    )
+      return;
     setSubmitting(true);
     setError(null);
     const value = [
@@ -125,8 +169,12 @@ export function ChatComposer({
         await onSend(
           value,
           files.map((file) => file.id),
+          /^\/(?:创建仪表盘|create-dashboard)(?:\s|$)/.test(text.trim())
+            ? { ...dashboard.selection, mode: "create" }
+            : dashboard.selection,
         )
       ) {
+        dashboard.accepted();
         setText("");
         setMentions([]);
         setFiles([]);
@@ -190,6 +238,23 @@ export function ChatComposer({
   return (
     <div className="argus-chat-composer">
       <div className="argus-chat-composer__inner">
+        <DashboardChatContextBar
+          selection={dashboard.selection}
+          items={dashboards.data ?? []}
+          disabled={sending || submitting}
+          failed={dashboard.failed}
+          onChange={(mode, ids) => {
+            dashboard.change(mode, ids);
+            if (mode === "none")
+              setText(
+                text.replace(
+                  /^\s*\/(?:创建仪表盘|create-dashboard)(?:\s|$)/,
+                  "",
+                ),
+              );
+          }}
+          onReload={() => void dashboard.reload()}
+        />
         <div className="argus-chat-composer__chips">
           {mentions.map((item) => (
             <span className="argus-chat-chip" key={item.id}>
@@ -251,6 +316,9 @@ export function ChatComposer({
               aria-label={t("chat.composer.mentionTitle")}
             >
               <div className="argus-chat-picker__list">
+                {dashboards.isError && (
+                  <p role="alert">{t("chat.dashboard.failed")}</p>
+                )}
                 {items.length ? (
                   items.map((item) => (
                     <button
@@ -261,6 +329,9 @@ export function ChatComposer({
                       key={item.id}
                       onClick={() => choose(item)}
                     >
+                      {item.kind === "dashboard" && (
+                        <LayoutDashboard size={13} />
+                      )}{" "}
                       {item.label}
                     </button>
                   ))
@@ -318,6 +389,20 @@ export function ChatComposer({
                 <AtSign size={15} />
               </Button>
             </Tooltip>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={
+                disabled || sending || !dashboard.ready || !canCreateDashboard
+              }
+              onClick={() => {
+                dashboard.change("create", []);
+                setText(t("chat.dashboard.command") + " ");
+                area.current?.focus();
+              }}
+            >
+              {t("chat.dashboard.createEntry")}
+            </Button>
             <span>{t("chat.composer.hint")}</span>
             {sending ? (
               <Button
@@ -332,7 +417,13 @@ export function ChatComposer({
               <Button
                 aria-label={t("chat.composer.send")}
                 onClick={() => void submit()}
-                disabled={disabled || !text.trim() || submitting || !!upload}
+                disabled={
+                  disabled ||
+                  !text.trim() ||
+                  submitting ||
+                  !!upload ||
+                  !dashboard.ready
+                }
                 size="icon"
               >
                 <ArrowUp size={16} />

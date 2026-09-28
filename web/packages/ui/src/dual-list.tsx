@@ -11,6 +11,7 @@ export type DualListItem = {
 export type ResourceAuthorizationDualListLabels = {
   host: string;
   kubernetes: string;
+  dashboard?: string;
   searchPlaceholder: string;
   available: string;
   authorized: string;
@@ -23,22 +24,29 @@ export type ResourceAuthorizationDualListLabels = {
   nextPage: string;
 };
 
-type ResourceType = "host" | "kubernetes_cluster";
+type ResourceType = "host" | "kubernetes_cluster" | "dashboard";
+type ResourceValues = {
+  host: string[];
+  kubernetes_cluster: string[];
+  dashboard?: string[];
+};
 type Side = "available" | "authorized";
 const PAGE_SIZE = 20;
 
 export function ResourceAuthorizationDualList({
   hosts,
   clusters,
+  dashboards,
   value,
   labels,
   onChange,
 }: {
   hosts: DualListItem[];
   clusters: DualListItem[];
-  value: Record<ResourceType, string[]>;
+  dashboards?: DualListItem[];
+  value: ResourceValues;
   labels: ResourceAuthorizationDualListLabels;
-  onChange: (next: Record<ResourceType, string[]>) => void;
+  onChange: (next: ResourceValues) => void;
 }) {
   const [tab, setTab] = useState<ResourceType>("host");
   const [query, setQuery] = useState("");
@@ -48,9 +56,18 @@ export function ResourceAuthorizationDualList({
   >({
     host: { available: [], authorized: [] },
     kubernetes_cluster: { available: [], authorized: [] },
+    dashboard: { available: [], authorized: [] },
   });
-  const items = tab === "host" ? hosts : clusters;
-  const authorized = useMemo(() => new Set(value[tab]), [value, tab]);
+  const items = useMemo(
+    () =>
+      tab === "host"
+        ? hosts
+        : tab === "kubernetes_cluster"
+          ? clusters
+          : (dashboards ?? []),
+    [tab, hosts, clusters, dashboards],
+  );
+  const authorized = useMemo(() => new Set(value[tab] ?? []), [value, tab]);
   const filtered = useMemo(
     () =>
       items.filter((item) =>
@@ -96,7 +113,7 @@ export function ResourceAuthorizationDualList({
 
   const move = (ids: string[], add: boolean) => {
     if (!ids.length) return;
-    const next = new Set(value[tab]);
+    const next = new Set(value[tab] ?? []);
     ids.forEach((id) => {
       const item = items.find((entry) => entry.id === id);
       if (!item || item.inherited) return;
@@ -122,7 +139,7 @@ export function ResourceAuthorizationDualList({
     <label className="argus-dual-list__item" key={item.id}>
       <input
         checked={selected[tab][side].includes(item.id)}
-        disabled={side === "authorized" && item.inherited}
+        disabled={item.inherited}
         onChange={(event) =>
           updateSelection(side, item.id, event.target.checked)
         }
@@ -211,6 +228,15 @@ export function ResourceAuthorizationDualList({
         >
           {labels.kubernetes}
         </Button>
+        {dashboards !== undefined && (
+          <Button
+            onClick={() => setTab("dashboard")}
+            size="sm"
+            variant={tab === "dashboard" ? "secondary" : "ghost"}
+          >
+            {labels.dashboard}
+          </Button>
+        )}
       </div>
       <input
         className="argus-input"

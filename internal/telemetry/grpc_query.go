@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/selfmonitor"
+	"github.com/kakj-go/Argus/internal/telemetry/datapolicy"
 	"log/slog"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +35,7 @@ const overviewSchemaVersion = "argus.telemetry_overview/v1"
 
 type QueryRPCServer struct {
 	telemetryv1.UnimplementedTelemetryQueryServiceServer
+	telemetryv1.UnimplementedTelemetryCatalogServiceServer
 	Backend     OverviewBackend
 	Logger      *slog.Logger
 	Limiter     QueryConcurrencyLimiter
@@ -93,7 +97,9 @@ func RegisterQueryRPC(server *grpc.Server, backend OverviewBackend, limiter Quer
 	if len(lifecycle) > 0 {
 		tenantLifecycle = lifecycle[0]
 	}
-	telemetryv1.RegisterTelemetryQueryServiceServer(server, &QueryRPCServer{Backend: backend, Limiter: limiter, Logger: logger, Coordinator: engine, Readiness: readiness, Lifecycle: tenantLifecycle})
+	handler := &QueryRPCServer{Backend: backend, Limiter: limiter, Logger: logger, Coordinator: engine, Readiness: readiness, Lifecycle: tenantLifecycle}
+	telemetryv1.RegisterTelemetryQueryServiceServer(server, handler)
+	telemetryv1.RegisterTelemetryCatalogServiceServer(server, handler)
 }
 
 func (server *QueryRPCServer) EnsureTenantSchema(ctx context.Context, request *telemetryv1.EnsureTenantSchemaRequest) (*telemetryv1.EnsureTenantSchemaResponse, error) {
@@ -133,7 +139,7 @@ func (server *QueryRPCServer) ExecuteQueryV2(ctx context.Context, request *telem
 	if server.Coordinator == nil || server.Limiter == nil || !trustedRPCPeer(ctx) {
 		return nil, status.Error(codes.Unauthenticated, "telemetry query engine unavailable")
 	}
-	if request == nil || request.Scope == nil || request.Budget == nil || request.SchemaVersion != "argus.telemetry_query/v3" {
+	if request == nil || request.Scope == nil || request.Budget == nil || request.SchemaVersion != "argus.telemetry_query/v4" {
 		return nil, status.Error(codes.InvalidArgument, "telemetry query request rejected")
 	}
 	budget, err := queryBudgetFromProto(request.Budget)
@@ -157,7 +163,7 @@ func (server *QueryRPCServer) ExecuteQueryV2(ctx context.Context, request *telem
 			return nil, status.Error(codes.Unavailable, "telemetry tenant is not ready")
 		}
 	}
-	input := queryengine.Request{Scope: queryengine.Scope{EnterpriseID: enterpriseID, ResourceIDs: resources, AuthorizationVersion: int64(request.Scope.AuthorizationVersion), SensitiveFields: request.Scope.SensitiveFields}, Budget: budget}
+	input := queryengine.Request{CacheNamespace: request.CacheNamespace, Scope: queryengine.Scope{EnterpriseID: enterpriseID, ResourceIDs: resources, AuthorizationVersion: int64(request.Scope.AuthorizationVersion), SubjectID: uuid.MustParse(request.Scope.SubjectId), SubjectType: request.Scope.SubjectType, SourceKeys: request.Scope.SourceKeys}, Budget: budget}
 	language := queryengine.LanguagePromQL
 	if value := request.GetPromql(); value != nil {
 		input.Expression = value.Expression
@@ -207,13 +213,16 @@ func (server *QueryRPCServer) ExecuteQueryV2(ctx context.Context, request *telem
 	defer cancel()
 	result, err := server.Coordinator.Execute(queryCtx, input)
 	if err != nil {
+		if errors.Is(err, queryengine.ErrBackend) {
+			return nil, status.Error(codes.Unavailable, "QUERY_UNAVAILABLE")
+		}
 		return nil, status.Error(codes.InvalidArgument, queryErrorCode(err))
 	}
 	encoded, err := json.Marshal(result.Data)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "telemetry query encoding failed")
 	}
-	return &telemetryv1.ExecuteQueryV2Response{SchemaVersion: "argus.telemetry_result/v3", Language: string(result.Language), ResultType: result.ResultType, ResultJson: encoded, Warnings: result.Meta.Warnings, Partial: result.Meta.Partial, Meta: &telemetryv1.QueryMeta{PlanHash: result.Meta.PlanHash, Engine: result.Meta.Engine, EngineVersion: result.Meta.EngineVersion, ScannedBytes: uint64(max(result.Meta.ScannedBytes, 0)), ScannedRows: uint64(max(result.Meta.ScannedRows, 0)), ReturnedRows: uint64(max(result.Meta.ReturnedRows, 0)), LoadedSamples: uint64(max(result.Meta.LoadedSamples, 0)), ElapsedMillis: uint64(max(result.Meta.ElapsedMillis, 0)), Partial: result.Meta.Partial}}, nil
+	return &telemetryv1.ExecuteQueryV2Response{SchemaVersion: "argus.telemetry_result/v3", Language: string(result.Language), ResultType: result.ResultType, ResultJson: encoded, Warnings: result.Meta.Warnings, Partial: result.Meta.Partial, Meta: &telemetryv1.QueryMeta{QueryCompletedAt: queryCompletedProto(result.Meta.QueryCompletedAt), CacheHit: result.Meta.CacheHit, LatestSampleAt: queryCompletedProto(result.Meta.LatestSampleAt), SampleTimeBasis: result.Meta.SampleTimeBasis, IngestionStatus: result.Meta.IngestionStatus, PlanHash: result.Meta.PlanHash, Engine: result.Meta.Engine, EngineVersion: result.Meta.EngineVersion, ScannedBytes: uint64(max(result.Meta.ScannedBytes, 0)), ScannedRows: uint64(max(result.Meta.ScannedRows, 0)), ReturnedRows: uint64(max(result.Meta.ReturnedRows, 0)), LoadedSamples: uint64(max(result.Meta.LoadedSamples, 0)), ElapsedMillis: uint64(max(result.Meta.ElapsedMillis, 0)), Partial: result.Meta.Partial}}, nil
 }
 
 func queryBudgetFromProto(value *telemetryv1.QueryBudget) (queryengine.Budget, error) {
@@ -293,7 +302,7 @@ func (server *QueryRPCServer) QueryOverview(ctx context.Context, request *teleme
 	defer release()
 	queryCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	output, err := server.Backend.Overview(queryCtx, OverviewRequest{EnterpriseID: enterpriseID, ResourceIDs: resources,
+	output, err := server.Backend.Overview(queryCtx, OverviewRequest{SubjectID: uuid.MustParse(request.Scope.SubjectId), SubjectType: request.Scope.SubjectType, EnterpriseID: enterpriseID, ResourceIDs: resources,
 		AuthorizationVersion: int64(request.Scope.AuthorizationVersion), From: from, To: to, MaxScanBytes: int64(request.MaxScanBytes), Timeout: timeout})
 	if err != nil {
 		if server.Logger != nil {
@@ -322,7 +331,11 @@ func trustedRPCPeer(ctx context.Context) bool {
 }
 
 func scopeFromProto(value *telemetryv1.TelemetryQueryScope, signal string) (uuid.UUID, []uuid.UUID, error) {
-	if value == nil || (signal != "" && !slices.Contains(value.AllowedSignals, signal)) || len(value.AuthorizedResources) == 0 || len(value.AuthorizedResources) > 1000 {
+	if value == nil || value.Signal != signal || !slices.Contains([]string{"user", "service_account"}, value.SubjectType) || len(value.AuthorizedResources) == 0 || len(value.AuthorizedResources) > 1000 {
+		return uuid.Nil, nil, ErrQueryInvalid
+	}
+	subject, subjectErr := uuid.Parse(value.SubjectId)
+	if subjectErr != nil || subject == uuid.Nil {
 		return uuid.Nil, nil, ErrQueryInvalid
 	}
 	enterpriseID, err := uuid.Parse(value.EnterpriseId)
@@ -337,7 +350,18 @@ func scopeFromProto(value *telemetryv1.TelemetryQueryScope, signal string) (uuid
 		}
 		resourceIDs = append(resourceIDs, id)
 	}
-	if value.ScopeHash != scopeHash(enterpriseID, resourceIDs, int64(value.AuthorizationVersion), signal, value.SensitiveFields) {
+	if len(value.SourceKeys) > 10000 {
+		return uuid.Nil, nil, ErrQueryInvalid
+	}
+	for _, key := range value.SourceKeys {
+		idText, revisionText, found := strings.Cut(key, ":")
+		id, e := uuid.Parse(idText)
+		revision, e2 := strconv.ParseInt(revisionText, 10, 64)
+		if !found || e != nil || e2 != nil || id == uuid.Nil || revision <= 0 {
+			return uuid.Nil, nil, ErrQueryInvalid
+		}
+	}
+	if value.ScopeHash != scopeHash(enterpriseID, subject, value.SubjectType, resourceIDs, int64(value.AuthorizationVersion), signal, value.SourceKeys...) {
 		return uuid.Nil, nil, ErrQueryInvalid
 	}
 	return enterpriseID, resourceIDs, nil
@@ -354,7 +378,7 @@ func NewGRPCQueryBackend(endpoint string, tlsCredentials credentials.TransportCr
 	if err != nil || tlsCredentials == nil {
 		return nil, ErrQueryBackend
 	}
-	connection, err := grpc.NewClient(target, grpc.WithTransportCredentials(tlsCredentials))
+	connection, err := grpc.NewClient(target, grpc.WithTransportCredentials(tlsCredentials), grpc.WithChainUnaryInterceptor(selfmonitor.UnaryClient))
 	if err != nil {
 		return nil, err
 	}
@@ -410,9 +434,9 @@ func (backend *GRPCQueryBackend) ExecuteEngineQuery(ctx context.Context, input q
 	for _, id := range input.Scope.ResourceIDs {
 		resources = append(resources, &commonv1.ResourceRef{ResourceType: "host", ResourceId: id.String()})
 	}
-	scope := &telemetryv1.TelemetryQueryScope{EnterpriseId: input.Scope.EnterpriseID.String(), AuthorizedResources: resources, AllowedSignals: []string{signal}, AuthorizationVersion: uint64(input.Scope.AuthorizationVersion), SensitiveFields: input.Scope.SensitiveFields, ScopeHash: scopeHash(input.Scope.EnterpriseID, input.Scope.ResourceIDs, input.Scope.AuthorizationVersion, signal, input.Scope.SensitiveFields)}
+	scope := queryProtoScope(input.Scope.EnterpriseID, input.Scope.SubjectID, input.Scope.SubjectType, resources, input.Scope.ResourceIDs, input.Scope.AuthorizationVersion, signal, input.Scope.SourceKeys)
 	budget := &telemetryv1.QueryBudget{MaxScanBytes: uint64(input.Budget.MaxScanBytes), MaxRows: uint32(input.Budget.MaxRows), MaxSamples: uint32(input.Budget.MaxSamples), MaxSeries: uint32(input.Budget.MaxSeries), MaxResultBytes: uint64(input.Budget.MaxResultBytes), TimeoutMillis: uint32(input.Budget.Timeout.Milliseconds())}
-	request := &telemetryv1.ExecuteQueryV2Request{SchemaVersion: "argus.telemetry_query/v3", Scope: scope, Budget: budget}
+	request := &telemetryv1.ExecuteQueryV2Request{SchemaVersion: "argus.telemetry_query/v4", Scope: scope, Budget: budget, CacheNamespace: input.CacheNamespace}
 	switch input.Language {
 	case queryengine.LanguagePromQL:
 		request.Query = &telemetryv1.ExecuteQueryV2Request_Promql{Promql: &telemetryv1.PromQLQuery{Expression: input.Expression, Start: timestamppb.New(input.Start), End: timestamppb.New(input.End), StepSeconds: uint64(input.Step.Seconds()), Instant: input.Instant}}
@@ -449,7 +473,7 @@ func (backend *GRPCQueryBackend) ExecuteEngineQuery(ctx context.Context, input q
 	if warnings == nil {
 		warnings = []string{}
 	}
-	meta := queryengine.QueryMeta{Engine: response.Meta.GetEngine(), EngineVersion: response.Meta.GetEngineVersion(), PlanHash: response.Meta.GetPlanHash(), ScannedBytes: int64(response.Meta.GetScannedBytes()), ScannedRows: int64(response.Meta.GetScannedRows()), ReturnedRows: int64(response.Meta.GetReturnedRows()), LoadedSamples: int64(response.Meta.GetLoadedSamples()), ElapsedMillis: int64(response.Meta.GetElapsedMillis()), Partial: response.Partial, Warnings: warnings}
+	meta := queryengine.QueryMeta{QueryCompletedAt: queryCompletedTime(response.Meta.GetQueryCompletedAt()), CacheHit: response.Meta.GetCacheHit(), LatestSampleAt: queryCompletedTime(response.Meta.GetLatestSampleAt()), SampleTimeBasis: response.Meta.GetSampleTimeBasis(), IngestionStatus: response.Meta.GetIngestionStatus(), Engine: response.Meta.GetEngine(), EngineVersion: response.Meta.GetEngineVersion(), PlanHash: response.Meta.GetPlanHash(), ScannedBytes: int64(response.Meta.GetScannedBytes()), ScannedRows: int64(response.Meta.GetScannedRows()), ReturnedRows: int64(response.Meta.GetReturnedRows()), LoadedSamples: int64(response.Meta.GetLoadedSamples()), ElapsedMillis: int64(response.Meta.GetElapsedMillis()), Partial: response.Partial, Warnings: warnings}
 	return queryengine.Result{Language: queryengine.Language(response.Language), ResultType: response.ResultType, Data: data, Meta: meta}, nil
 }
 
@@ -488,8 +512,7 @@ func (backend *GRPCQueryBackend) Overview(ctx context.Context, input OverviewReq
 	for _, id := range input.ResourceIDs {
 		resources = append(resources, &commonv1.ResourceRef{ResourceType: "host", ResourceId: id.String()})
 	}
-	scope := &telemetryv1.TelemetryQueryScope{EnterpriseId: input.EnterpriseID.String(), AuthorizedResources: resources, AllowedSignals: []string{"overview"},
-		AuthorizationVersion: uint64(input.AuthorizationVersion), ScopeHash: scopeHash(input.EnterpriseID, input.ResourceIDs, input.AuthorizationVersion, "overview", false)}
+	scope := queryProtoScope(input.EnterpriseID, input.SubjectID, input.SubjectType, resources, input.ResourceIDs, input.AuthorizationVersion, "overview", nil)
 	response, err := backend.client.QueryOverview(ctx, &telemetryv1.QueryOverviewRequest{SchemaVersion: overviewSchemaVersion, Scope: scope,
 		From: timestamppb.New(input.From), To: timestamppb.New(input.To), MaxScanBytes: uint64(input.MaxScanBytes), TimeoutMillis: uint32(input.Timeout.Milliseconds())})
 	if err != nil || response == nil || response.Result == nil || response.Result.SchemaVersion != "argus.telemetry_overview_result/v1" {
@@ -502,13 +525,19 @@ func (backend *GRPCQueryBackend) Overview(ctx context.Context, input OverviewReq
 	return output, nil
 }
 
-func scopeHash(enterpriseID uuid.UUID, resourceIDs []uuid.UUID, authorizationVersion int64, signal string, sensitiveFields bool) string {
+func scopeHash(enterpriseID, subjectID uuid.UUID, subjectType string, resourceIDs []uuid.UUID, authorizationVersion int64, signal string, sourceKeys ...string) string {
 	values := make([]string, 0, len(resourceIDs))
 	for _, id := range resourceIDs {
 		values = append(values, id.String())
 	}
 	slices.Sort(values)
-	material := enterpriseID.String() + "\n" + strings.Join(values, "\n") + "\n" + signal + "\n" + fmt.Sprintf("%d", authorizationVersion) + "\n" + fmt.Sprintf("%t", sensitiveFields)
+	material := enterpriseID.String() + "\n" + strings.Join(values, "\n") + "\n" + signal + "\n" + fmt.Sprintf("%d", authorizationVersion) + "\n" + subjectType + "\n" + subjectID.String() + "\n" + datapolicy.Version
+	if len(sourceKeys) > 0 {
+		keys := slices.Clone(sourceKeys)
+		slices.Sort(keys)
+		keys = slices.Compact(keys)
+		material += "\n" + strings.Join(keys, "\n")
+	}
 	hash := sha256.Sum256([]byte(material))
 	return hex.EncodeToString(hash[:])
 }
@@ -528,3 +557,17 @@ func grpcTarget(endpoint string) (string, error) {
 }
 
 var _ OverviewBackend = (*GRPCQueryBackend)(nil)
+
+func queryCompletedProto(value *time.Time) *timestamppb.Timestamp {
+	if value == nil {
+		return nil
+	}
+	return timestamppb.New(*value)
+}
+func queryCompletedTime(value *timestamppb.Timestamp) *time.Time {
+	if value == nil || !value.IsValid() {
+		return nil
+	}
+	result := value.AsTime()
+	return &result
+}

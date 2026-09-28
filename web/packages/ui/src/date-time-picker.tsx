@@ -1,6 +1,5 @@
 import { CalendarDays } from "lucide-react";
-import { forwardRef, type InputHTMLAttributes } from "react";
-import DatePicker from "react-datepicker";
+import { forwardRef, lazy, Suspense, type InputHTMLAttributes } from "react";
 import "react-datepicker/dist/react-datepicker.css";
 import { Input } from "./form";
 import { cx } from "./lib";
@@ -42,81 +41,100 @@ function toDateFromAttribute(value?: string | number) {
   return typeof value === "string" ? toDate(value) : undefined;
 }
 
-const PickerInput = forwardRef<
-  HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement>
->((props, ref) => <Input {...props} ref={ref} />);
-PickerInput.displayName = "DateTimePickerInput";
+export const DateTimePicker = /* @__PURE__ */ (() => {
+  const DatePicker = lazy(() => import("react-datepicker"));
+  const PickerInput = forwardRef<
+    HTMLInputElement,
+    InputHTMLAttributes<HTMLInputElement>
+  >((props, ref) => <Input {...props} ref={ref} />);
+  PickerInput.displayName = "DateTimePickerInput";
 
-export const DateTimePicker = forwardRef<
-  HTMLInputElement,
-  Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "type" | "value"> & {
-    onChange?: (value: string) => void;
-    type?: DateTimePickerType;
-    value?: string;
-  }
->(
-  (
-    {
-      className,
-      disabled,
-      id,
-      max,
-      min,
-      name,
-      onBlur,
-      onChange,
-      placeholder,
-      required,
-      type = "datetime-local",
-      value,
-      ...props
-    },
-    ref,
-  ) => {
-    const text = useUiText();
-    const selected = parseLocalValue(value);
-    const displayFormat = type === "date" ? "yyyy/MM/dd" : "yyyy/MM/dd HH:mm";
-    return (
-      <div className={cx("argus-date-time-picker", className)}>
-        <DatePicker
-          calendarClassName="argus-date-time-picker__calendar"
-          dateFormat={displayFormat}
-          disabled={disabled}
-          isClearable={!required}
-          minDate={toDateFromAttribute(min)}
-          maxDate={toDateFromAttribute(max)}
-          name={name}
-          onBlur={onBlur}
-          onChange={(date: Date | null) =>
-            onChange?.(date ? formatLocalValue(date, type) : "")
-          }
-          placeholderText={placeholder}
-          popperClassName="argus-date-time-picker__popper"
-          selected={selected}
-          showTimeSelect={type === "datetime-local"}
-          timeCaption={text("时间", "Time")}
-          timeFormat="HH:mm"
-          timeIntervals={1}
-          wrapperClassName="argus-date-time-picker__control"
-          customInput={
-            <PickerInput
-              {...props}
-              aria-label={props["aria-label"]}
-              id={id}
-              ref={ref}
-              required={required}
-              value={value}
+  const Component = forwardRef<
+    HTMLInputElement,
+    Omit<
+      InputHTMLAttributes<HTMLInputElement>,
+      "onChange" | "type" | "value"
+    > & {
+      onChange?: (value: string) => void;
+      type?: DateTimePickerType;
+      value?: string;
+    }
+  >(
+    (
+      {
+        className,
+        disabled,
+        id,
+        max,
+        min,
+        name,
+        onBlur,
+        onChange,
+        placeholder,
+        required,
+        type = "datetime-local",
+        value,
+        ...props
+      },
+      ref,
+    ) => {
+      const text = useUiText();
+      const selected = parseLocalValue(value);
+      const displayFormat = type === "date" ? "yyyy/MM/dd" : "yyyy/MM/dd HH:mm";
+      return (
+        <div className={cx("argus-date-time-picker", className)}>
+          <Suspense
+            fallback={
+              <Input
+                disabled
+                aria-busy="true"
+                aria-label={props["aria-label"]}
+                id={id}
+                value={value ?? ""}
+              />
+            }
+          >
+            <DatePicker
+              calendarClassName="argus-date-time-picker__calendar"
+              dateFormat={displayFormat}
+              disabled={disabled}
+              isClearable={!required}
+              minDate={toDateFromAttribute(min)}
+              maxDate={toDateFromAttribute(max)}
+              name={name}
+              onBlur={onBlur}
+              onChange={(date: Date | null) =>
+                onChange?.(date ? formatLocalValue(date, type) : "")
+              }
+              placeholderText={placeholder}
+              popperClassName="argus-date-time-picker__popper"
+              selected={selected}
+              showTimeSelect={type === "datetime-local"}
+              timeCaption={text("时间", "Time")}
+              timeFormat="HH:mm"
+              timeIntervals={1}
+              wrapperClassName="argus-date-time-picker__control"
+              customInput={
+                <PickerInput
+                  {...props}
+                  aria-label={props["aria-label"]}
+                  id={id}
+                  ref={ref}
+                  required={required}
+                  value={value}
+                />
+              }
             />
-          }
-        />
-        <CalendarDays
-          aria-hidden
-          className="argus-date-time-picker__icon"
-          size={18}
-        />
-      </div>
-    );
-  },
-);
-DateTimePicker.displayName = "DateTimePicker";
+          </Suspense>
+          <CalendarDays
+            aria-hidden
+            className="argus-date-time-picker__icon"
+            size={18}
+          />
+        </div>
+      );
+    },
+  );
+  Component.displayName = "DateTimePicker";
+  return Component;
+})();

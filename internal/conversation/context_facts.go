@@ -40,7 +40,8 @@ func ContextFacts(ctx context.Context, q *db.Queries, enterprise, owner, convers
 	if err != nil {
 		return nil, workspace, err
 	}
-	return map[string]any{"actions": actions, "workspace": workspace}, workspace, nil
+	return map[string]any{"actions": actions, "workspace": workspace,
+		"action_result_semantics": "resource_id/resource_type describe the original target and may be null for creation. result_resource_id/result_resource_type identify the produced object. result_resource_version is its object lifecycle version, not a dashboard revision number or conversation context version."}, workspace, nil
 }
 
 func FileReference(file db.WorkspaceFile) map[string]any {

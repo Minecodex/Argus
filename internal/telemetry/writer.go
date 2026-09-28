@@ -41,12 +41,6 @@ type tenantReadyEntry struct {
 	checked time.Time
 }
 
-type spanFact struct {
-	traceID, spanID, parentID, service, operation, status string
-	start, end                                            time.Time
-	duration                                              uint64
-}
-
 func NewKafkaConsumer(brokers []string, group, username, password string) (*kgo.Client, error) {
 	if username == "" || password == "" {
 		return nil, ErrUnavailable
@@ -71,14 +65,25 @@ func (writer *Writer) Run(ctx context.Context) error {
 		}
 		for iterator := fetches.RecordIter(); !iterator.Done(); {
 			record := iterator.Next()
-			if err := writer.writeRecord(ctx, record); err != nil {
+			if record.Timestamp.IsZero() {
+				record.Timestamp = time.Now().UTC()
+			}
+			for {
+				err := writer.writeRecord(ctx, record)
+				if err == nil {
+					break
+				}
 				if errors.Is(err, errPermanentRecord) {
 					if dlqErr := writer.deadLetter(ctx, record, err); dlqErr != nil {
 						return dlqErr
 					}
-				} else {
-					time.Sleep(time.Second)
 					break
+				} else {
+					select {
+					case <-ctx.Done():
+						return nil
+					case <-time.After(time.Second):
+					}
 				}
 			}
 			if err := writer.Kafka.CommitRecords(ctx, record); err != nil {
@@ -108,7 +113,7 @@ func (writer *Writer) writeRecord(ctx context.Context, record *kgo.Record) error
 		return err
 	}
 	if !ready {
-		return fmt.Errorf("%w: enterprise telemetry tables are not ready", errPermanentRecord)
+		return fmt.Errorf("%w: enterprise telemetry tables are not ready", ErrUnavailable)
 	}
 	retention, err := writer.Control.Retention(ctx, identity.EnterpriseID)
 	if err != nil {
@@ -177,20 +182,24 @@ func (writer *Writer) writeMetrics(ctx context.Context, record *kgo.Record, iden
 		return 0, err
 	}
 	seriesBatch, err := writer.ClickHouse.PrepareBatch(ctx, fmt.Sprintf(`INSERT INTO %s
-		(resource_id, series_id, metric_name, labels, labels_hash, resource_attributes, scope_name, scope_version, scope_attributes, metric_type, temporality, is_monotonic, unit, description, kafka_topic, kafka_partition, kafka_offset, record_sequence, expires_at)`, tables.MetricSeries))
+		(resource_id, series_id, metric_name, labels, labels_hash, resource_attributes, scope_name, scope_version, scope_attributes, metric_type, temporality, is_monotonic, unit, description, kafka_topic, kafka_partition, kafka_offset, record_sequence, expires_at, source_id, source_revision, source_type)`, tables.MetricSeries))
 	if err != nil {
 		return 0, err
 	}
 	sampleBatch, err := writer.ClickHouse.PrepareBatch(ctx, fmt.Sprintf(`INSERT INTO %s
 		(resource_id, series_id, metric_name, timestamp, start_timestamp, value, float_value, count, sum, min, max, bucket_counts, explicit_bounds, quantile_values,
 		 exponential_scale, exponential_zero_count, exponential_zero_threshold, exponential_positive_offset, exponential_positive_bucket_counts, exponential_negative_offset, exponential_negative_bucket_counts,
-			sample_type, ingest_key, kafka_topic, kafka_partition, kafka_offset, record_sequence, expires_at)`, tables.MetricSamples))
+			sample_type, ingest_key, kafka_topic, kafka_partition, kafka_offset, record_sequence, expires_at, source_id, source_revision, source_type)`, tables.MetricSamples))
 	if err != nil {
 		return 0, err
 	}
 	var sequence uint32
 	seriesSeen := map[string]struct{}{}
 	for _, resourceMetrics := range request.ResourceMetrics {
+		source, sourceErr := recordSource(resourceMetrics.Resource.GetAttributes())
+		if sourceErr != nil {
+			return 0, sourceErr
+		}
 		resourceAttrs := attributesMap(resourceMetrics.Resource.GetAttributes())
 		for _, scope := range resourceMetrics.ScopeMetrics {
 			scopeAttrs := attributesMap(scope.Scope.GetAttributes())
@@ -203,21 +212,32 @@ func (writer *Writer) writeMetrics(ctx context.Context, record *kgo.Record, iden
 					exponentialScale any, exponentialZeroCount any, exponentialZeroThreshold any, exponentialPositiveOffset any, exponentialPositiveBuckets []uint64,
 					exponentialNegativeOffset any, exponentialNegativeBuckets []uint64, attrs []*commonpb.KeyValue, metricType, temporality string, monotonic bool) error {
 					sequence++
-					observed := timestampValue(timestamp)
+					observed := timestampValue(timestamp, record.Timestamp)
 					labels := normalizedMetricLabels(attrs)
+					labels["argus_resource_id"] = identity.ResourceID.String()
+					labels["argus_source_id"] = source.ID.String()
+					labels["argus_source_revision"] = strconv.FormatInt(source.Revision, 10)
+					delete(labels, "otel_scope_name")
+					delete(labels, "otel_scope_version")
+					if scope.Scope.GetName() != "" {
+						labels["otel_scope_name"] = scope.Scope.GetName()
+					}
+					if scope.Scope.GetVersion() != "" {
+						labels["otel_scope_version"] = scope.Scope.GetVersion()
+					}
 					seriesID, labelsHash := metricSeriesID(identity, metricName, labels)
 					seriesKey := seriesID.String()
 					if _, exists := seriesSeen[seriesKey]; !exists {
 						seriesSeen[seriesKey] = struct{}{}
 						if err := seriesBatch.Append(identity.ResourceID, seriesID, metricName, labels, labelsHash, resourceAttrs,
 							scope.Scope.GetName(), scope.Scope.GetVersion(), scopeAttrs, metricType, temporality, monotonic, metric.Unit, metric.Description,
-							record.Topic, record.Partition, record.Offset, sequence, observed.Add(retention)); err != nil {
+							record.Topic, record.Partition, record.Offset, sequence, observed.Add(retention), source.ID, source.Revision, source.Type); err != nil {
 							return err
 						}
 					}
 					if err := sampleBatch.Append(identity.ResourceID, seriesID, metricName, observed, timestampValue(start), value, value, count, sum, min, max,
 						buckets, bounds, quantiles, exponentialScale, exponentialZeroCount, exponentialZeroThreshold, exponentialPositiveOffset, exponentialPositiveBuckets,
-						exponentialNegativeOffset, exponentialNegativeBuckets, metricType, ingestKey(record, sequence), record.Topic, record.Partition, record.Offset, sequence, observed.Add(retention)); err != nil {
+						exponentialNegativeOffset, exponentialNegativeBuckets, metricType, ingestKey(record, sequence), record.Topic, record.Partition, record.Offset, sequence, observed.Add(retention), source.ID, source.Revision, source.Type); err != nil {
 						return err
 					}
 					return nil
@@ -289,12 +309,16 @@ func (writer *Writer) writeLogs(ctx context.Context, record *kgo.Record, identit
 		return 0, err
 	}
 	batch, err := writer.ClickHouse.PrepareBatch(ctx, fmt.Sprintf(`INSERT INTO %s
-		(resource_id, collector_id, timestamp, observed_timestamp, severity_text, severity_number, service_name, scope_name, scope_version, scope_attributes, stream_labels, structured_metadata, body, body_size, trace_id, span_id, event_id, ingest_key, kafka_topic, kafka_partition, kafka_offset, record_sequence, expires_at)`, tables.Logs))
+		(resource_id, collector_id, timestamp, observed_timestamp, severity_text, severity_number, service_name, scope_name, scope_version, scope_attributes, stream_labels, structured_metadata, resource_attributes, body, body_size, trace_id, span_id, event_id, ingest_key, kafka_topic, kafka_partition, kafka_offset, record_sequence, expires_at, source_id, source_revision, source_type)`, tables.Logs))
 	if err != nil {
 		return 0, err
 	}
 	var sequence uint32
 	for _, resourceLogs := range request.ResourceLogs {
+		source, sourceErr := recordSource(resourceLogs.Resource.GetAttributes())
+		if sourceErr != nil {
+			return 0, sourceErr
+		}
 		serviceName := attributeString(resourceLogs.Resource.GetAttributes(), "service.name")
 		resourceAttrs := attributesMap(resourceLogs.Resource.GetAttributes())
 		streamLabels := streamLabelMap(resourceAttrs)
@@ -302,15 +326,15 @@ func (writer *Writer) writeLogs(ctx context.Context, record *kgo.Record, identit
 			scopeAttrs := attributesMap(scope.Scope.GetAttributes())
 			for _, item := range scope.LogRecords {
 				sequence++
-				observed := timestampValue(item.TimeUnixNano)
+				observed := timestampValue(item.TimeUnixNano, record.Timestamp)
 				if item.TimeUnixNano == 0 {
-					observed = timestampValue(item.ObservedTimeUnixNano)
+					observed = timestampValue(item.ObservedTimeUnixNano, record.Timestamp)
 				}
 				body := anyValueString(item.Body)
-				if err := batch.Append(identity.ResourceID, identity.CollectorID, observed, timestampValue(item.ObservedTimeUnixNano), item.SeverityText, item.SeverityNumber, serviceName,
+				if err := batch.Append(identity.ResourceID, identity.CollectorID, observed, timestampValue(item.ObservedTimeUnixNano, record.Timestamp), item.SeverityText, item.SeverityNumber, serviceName,
 					scope.Scope.GetName(), scope.Scope.GetVersion(), scopeAttrs,
-					streamLabels, attributesMap(item.Attributes), body, uint32(len(body)), hex.EncodeToString(item.TraceId), hex.EncodeToString(item.SpanId), ingestKey(record, sequence), ingestKey(record, sequence),
-					record.Topic, record.Partition, record.Offset, sequence, observed.Add(retention)); err != nil {
+					streamLabels, attributesMap(item.Attributes), resourceAttrs, body, uint32(len(body)), hex.EncodeToString(item.TraceId), hex.EncodeToString(item.SpanId), ingestKey(record, sequence), ingestKey(record, sequence),
+					record.Topic, record.Partition, record.Offset, sequence, observed.Add(retention), source.ID, source.Revision, source.Type); err != nil {
 					return 0, err
 				}
 			}
@@ -329,21 +353,23 @@ func (writer *Writer) writeTraces(ctx context.Context, record *kgo.Record, ident
 	}
 	batch, err := writer.ClickHouse.PrepareBatch(ctx, fmt.Sprintf(`INSERT INTO %s
 		(resource_id, collector_id, trace_id, span_id, parent_span_id, root_span_id, service_name, operation, span_kind, status, status_code, status_message, trace_state, start_time, end_time, duration_ns, resource_attributes, scope_name, scope_version, scope_attributes, attributes, events, links,
-			 ingest_key, kafka_topic, kafka_partition, kafka_offset, record_sequence, expires_at)`, tables.Traces))
+			 ingest_key, kafka_topic, kafka_partition, kafka_offset, record_sequence, expires_at, source_id, source_revision, source_type)`, tables.Traces))
 	if err != nil {
 		return 0, err
 	}
 	var sequence uint32
-	byTrace := map[string][]spanFact{}
-	rootSpanIDs := traceRootSpanIDs(request)
 	for _, resourceSpans := range request.ResourceSpans {
+		source, sourceErr := recordSource(resourceSpans.Resource.GetAttributes())
+		if sourceErr != nil {
+			return 0, sourceErr
+		}
 		serviceName := attributeString(resourceSpans.Resource.GetAttributes(), "service.name")
 		resourceAttrs := attributesMap(resourceSpans.Resource.GetAttributes())
 		for _, scope := range resourceSpans.ScopeSpans {
 			scopeAttrs := attributesMap(scope.Scope.GetAttributes())
 			for _, span := range scope.Spans {
 				sequence++
-				started := timestampValue(span.StartTimeUnixNano)
+				started := timestampValue(span.StartTimeUnixNano, record.Timestamp)
 				duration := uint64(0)
 				if span.EndTimeUnixNano >= span.StartTimeUnixNano {
 					duration = span.EndTimeUnixNano - span.StartTimeUnixNano
@@ -358,17 +384,19 @@ func (writer *Writer) writeTraces(ctx context.Context, record *kgo.Record, ident
 				traceID := hex.EncodeToString(span.TraceId)
 				spanID := hex.EncodeToString(span.SpanId)
 				parentID := hex.EncodeToString(span.ParentSpanId)
-				rootID := rootSpanIDs[traceID]
+				rootID := ""
+				if parentID == "" {
+					rootID = spanID
+				}
 				ended := started.Add(time.Duration(duration))
 				events, _ := json.Marshal(span.Events)
 				links, _ := json.Marshal(span.Links)
 				if err := batch.Append(identity.ResourceID, identity.CollectorID, traceID, spanID,
 					parentID, rootID, serviceName, span.Name, uint8(span.Kind), spanStatus, uint8(statusCode), statusMessage, span.TraceState, started, ended, duration, resourceAttrs,
 					scope.Scope.GetName(), scope.Scope.GetVersion(), scopeAttrs, attributesMap(span.Attributes), string(events), string(links), ingestKey(record, sequence),
-					record.Topic, record.Partition, record.Offset, sequence, started.Add(retention)); err != nil {
+					record.Topic, record.Partition, record.Offset, sequence, started.Add(retention), source.ID, source.Revision, source.Type); err != nil {
 					return 0, err
 				}
-				byTrace[traceID] = append(byTrace[traceID], spanFact{traceID, spanID, parentID, serviceName, span.Name, spanStatus, started, ended, duration})
 			}
 		}
 	}
@@ -378,97 +406,7 @@ func (writer *Writer) writeTraces(ctx context.Context, record *kgo.Record, ident
 	if err := batch.Send(); err != nil {
 		return 0, err
 	}
-	if err := writer.writeTraceDerived(ctx, identity, byTrace, record, retention); err != nil {
-		return 0, err
-	}
 	return int64(sequence), nil
-}
-
-func (writer *Writer) writeTraceDerived(ctx context.Context, identity TrustedIdentity, traces map[string][]spanFact, record *kgo.Record, retention time.Duration) error {
-	if len(traces) == 0 {
-		return nil
-	}
-	tables, err := writer.Router.Tables(identity.EnterpriseID)
-	if err != nil {
-		return err
-	}
-	summary, err := writer.ClickHouse.PrepareBatch(ctx, fmt.Sprintf(`INSERT INTO %s
-		(resource_id, trace_id, root_span_id, root_service, root_operation, start_time, duration_ns, span_count, error_count, status, expires_at)`, tables.TraceSummary))
-	if err != nil {
-		return err
-	}
-	edges, err := writer.ClickHouse.PrepareBatch(ctx, fmt.Sprintf(`INSERT INTO %s
-		(resource_id, trace_id, parent_span_id, child_span_id, parent_service, child_service, depth, expires_at)`, tables.TraceSpanEdges))
-	if err != nil {
-		return err
-	}
-	for traceID, spans := range traces {
-		if len(spans) == 0 {
-			continue
-		}
-		root := spans[0]
-		errorsCount := uint32(0)
-		maxEnd := root.end
-		rootFound := false
-		services := map[string]string{}
-		for _, span := range spans {
-			services[span.spanID] = span.service
-			if span.parentID == "" {
-				root = span
-				rootFound = true
-			}
-			if span.status == "error" {
-				errorsCount++
-			}
-			if span.end.After(maxEnd) {
-				maxEnd = span.end
-			}
-		}
-		if !rootFound {
-			root = spans[0]
-		}
-		status := "unset"
-		if errorsCount > 0 {
-			status = "error"
-		} else {
-			status = "ok"
-		}
-		if err := summary.Append(identity.ResourceID, traceID, root.spanID, root.service, root.operation, root.start, uint64(maxEnd.Sub(root.start)), uint32(len(spans)), errorsCount, status, root.start.Add(retention)); err != nil {
-			return err
-		}
-		for _, span := range spans {
-			if span.parentID != "" {
-				if err := edges.Append(identity.ResourceID, traceID, span.parentID, span.spanID, services[span.parentID], span.service, uint16(1), span.start.Add(retention)); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	if err := summary.Send(); err != nil {
-		return err
-	}
-	return edges.Send()
-}
-
-func traceRootSpanIDs(request *collecttraces.ExportTraceServiceRequest) map[string]string {
-	result := map[string]string{}
-	if request == nil {
-		return result
-	}
-	for _, resourceSpans := range request.ResourceSpans {
-		for _, scopeSpans := range resourceSpans.ScopeSpans {
-			for _, span := range scopeSpans.Spans {
-				if len(span.TraceId) == 0 || len(span.SpanId) == 0 || len(span.ParentSpanId) != 0 {
-					continue
-				}
-				traceID := hex.EncodeToString(span.TraceId)
-				if _, exists := result[traceID]; !exists {
-					result[traceID] = hex.EncodeToString(span.SpanId)
-				}
-			}
-		}
-	}
-	return result
 }
 
 func normalizedSpanStatus(code tracepb.Status_StatusCode) string {
@@ -614,9 +552,12 @@ func numberValue(point *metricspb.NumberDataPoint) float64 {
 		return 0
 	}
 }
-func timestampValue(value uint64) time.Time {
+func timestampValue(value uint64, fallback ...time.Time) time.Time {
 	if value == 0 {
-		return time.Now().UTC()
+		if len(fallback) > 0 && !fallback[0].IsZero() {
+			return fallback[0].UTC()
+		}
+		return time.Unix(0, 0).UTC()
 	}
 	return time.Unix(0, int64(value)).UTC()
 }

@@ -1283,6 +1283,7 @@ func (q *Queries) IsRuntimeTaskLeaseCurrent(ctx context.Context, arg IsRuntimeTa
 
 const listConversationActionFacts = `-- name: ListConversationActionFacts :many
 SELECT action.action_ref,action.status,action.resource_type,action.resource_id,
+ action.result_resource_type,action.result_resource_id,action.result_resource_version,
  action.result_summary,action.error_code,execution.execution_ref,execution.status AS execution_status
 FROM pending_actions action JOIN runs run ON run.id=action.run_id AND run.enterprise_id=action.enterprise_id
 LEFT JOIN executions execution ON execution.pending_action_id=action.id AND execution.enterprise_id=action.enterprise_id
@@ -1297,14 +1298,17 @@ type ListConversationActionFactsParams struct {
 }
 
 type ListConversationActionFactsRow struct {
-	ActionRef       string        `json:"action_ref"`
-	Status          string        `json:"status"`
-	ResourceType    string        `json:"resource_type"`
-	ResourceID      uuid.NullUUID `json:"resource_id"`
-	ResultSummary   string        `json:"result_summary"`
-	ErrorCode       pgtype.Text   `json:"error_code"`
-	ExecutionRef    pgtype.Text   `json:"execution_ref"`
-	ExecutionStatus pgtype.Text   `json:"execution_status"`
+	ActionRef             string        `json:"action_ref"`
+	Status                string        `json:"status"`
+	ResourceType          string        `json:"resource_type"`
+	ResourceID            uuid.NullUUID `json:"resource_id"`
+	ResultResourceType    pgtype.Text   `json:"result_resource_type"`
+	ResultResourceID      uuid.NullUUID `json:"result_resource_id"`
+	ResultResourceVersion pgtype.Int8   `json:"result_resource_version"`
+	ResultSummary         string        `json:"result_summary"`
+	ErrorCode             pgtype.Text   `json:"error_code"`
+	ExecutionRef          pgtype.Text   `json:"execution_ref"`
+	ExecutionStatus       pgtype.Text   `json:"execution_status"`
 }
 
 func (q *Queries) ListConversationActionFacts(ctx context.Context, arg ListConversationActionFactsParams) ([]ListConversationActionFactsRow, error) {
@@ -1321,6 +1325,9 @@ func (q *Queries) ListConversationActionFacts(ctx context.Context, arg ListConve
 			&i.Status,
 			&i.ResourceType,
 			&i.ResourceID,
+			&i.ResultResourceType,
+			&i.ResultResourceID,
+			&i.ResultResourceVersion,
 			&i.ResultSummary,
 			&i.ErrorCode,
 			&i.ExecutionRef,
@@ -1793,17 +1800,4 @@ type MarkRunVerificationOnlyParams struct {
 func (q *Queries) MarkRunVerificationOnly(ctx context.Context, arg MarkRunVerificationOnlyParams) error {
 	_, err := q.db.Exec(ctx, markRunVerificationOnly, arg.ID, arg.EnterpriseID)
 	return err
-}
-
-const markToolDispatched = `-- name: MarkToolDispatched :execrows
-UPDATE tool_calls SET status='dispatched',dispatched_at=now(),updated_at=now()
-WHERE tool_calls.id=$1 AND tool_calls.enterprise_id=$2 AND tool_calls.status='prepared'
-AND EXISTS(SELECT 1 FROM runs r WHERE r.id=tool_calls.run_id AND r.enterprise_id=tool_calls.enterprise_id
-  AND r.version=$3 AND r.status NOT IN ('succeeded','failed','cancelled'))
-`
-
-type MarkToolDispatchedParams struct {
-	ID                 uuid.UUID `json:"id"`
-	EnterpriseID       uuid.UUID `json:"enterprise_id"`
-	ExpectedRunVersion int64     `json:"expected_run_version"`
 }

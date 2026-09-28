@@ -85,8 +85,8 @@ func (service Service) Confirm(ctx context.Context, actorID, requestID string, e
 
 func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, actor uuid.UUID, actorID, requestID string, enterpriseID uuid.UUID, authorizationVersion int64, stepUp bool, actionRef, idempotencyKey string) (Confirmation, error) {
 	action, plan, err := service.lockAndRevalidate(ctx, q, enterpriseID, actionRef, "awaiting_confirmation", authorizationVersion)
-	if err != nil || action.CreatorSubjectType != "user" || action.CreatorSubjectID != actor {
-		return Confirmation{}, ErrInvalidated
+	if err := confirmationAccessError(action, actor, err); err != nil {
+		return Confirmation{}, err
 	}
 	if action.Risk == "critical" && !stepUp {
 		return Confirmation{}, ErrStepUpRequired
@@ -240,10 +240,20 @@ func (service Service) lockAndRevalidate(ctx context.Context, q *db.Queries, ent
 		return db.PendingAction{}, db.PendingActionPlan{}, ErrUnavailable
 	}
 	impactHash, err := service.Resources.RevalidatePendingAction(ctx, q, action, plan.ImmutablePlan)
+	if resource.ActionValidationCode(err) != "" {
+		return action, plan, errors.Join(ErrInvalidated, err)
+	}
 	if err != nil || !equalHash(impactHash, action.ImpactHash) {
 		return db.PendingAction{}, db.PendingActionPlan{}, ErrInvalidated
 	}
 	return action, plan, nil
+}
+
+func confirmationAccessError(action db.PendingAction, actor uuid.UUID, cause error) error {
+	if action.CreatorSubjectType != "user" || action.CreatorSubjectID != actor {
+		return ErrInvalidated
+	}
+	return cause
 }
 
 func (service Service) createApprovalRequest(ctx context.Context, q *db.Queries, action db.PendingAction, policies []db.ApprovalPolicy) (db.ApprovalRequest, error) {

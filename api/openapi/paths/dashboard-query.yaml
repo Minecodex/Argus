@@ -1,0 +1,220 @@
+{
+  "jobs": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "startDashboardQueryJob",
+      "summary": "startDashboardQueryJob.",
+      "parameters": [
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard-query.yaml#/components/schemas/DashboardQueryJobInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "202": {
+          "description": "Persistent query state. Materialized files retain their original attempt and source.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard-query.yaml#/components/schemas/DashboardQueryJobView"
+              }
+            }
+          }
+        },
+        "403": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        },
+        "409": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "job": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "job_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getDashboardQueryJob",
+      "summary": "getDashboardQueryJob.",
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "Persistent query state. Materialized files retain their original attempt and source.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard-query.yaml#/components/schemas/DashboardQueryJobView"
+              }
+            }
+          }
+        },
+        "403": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        },
+        "409": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "cancel": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "job_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "cancelDashboardQueryJob",
+      "summary": "cancelDashboardQueryJob.",
+      "parameters": [
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/CsrfToken"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Persistent query state. Materialized files retain their original attempt and source.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard-query.yaml#/components/schemas/DashboardQueryJobView"
+              }
+            }
+          }
+        },
+        "403": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        },
+        "409": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "resume": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "job_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "resumeDashboardQueryJob",
+      "summary": "resumeDashboardQueryJob.",
+      "parameters": [
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard-query.yaml#/components/schemas/DashboardQueryResumeInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "202": {
+          "description": "Persistent query state. Materialized files retain their original attempt and source.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard-query.yaml#/components/schemas/DashboardQueryJobView"
+              }
+            }
+          }
+        },
+        "403": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        },
+        "409": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

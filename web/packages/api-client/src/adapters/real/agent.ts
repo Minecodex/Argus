@@ -88,6 +88,8 @@ export function installAgentDomains(context: RealDomainContext): void {
     context;
 
   client.conversations = {
+    dashboardContext: (id) =>
+      http.request(`conversations/${id}/dashboard-context`),
     async remove(id) {
       await http.request(`conversations/${id}`, {
         method: "DELETE",

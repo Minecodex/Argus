@@ -24,12 +24,28 @@ export function createAuditDomain(ctx: MockContext): ArgusApiClient["audit"] {
           (entry) => entry.resourceType === filter.resourceType,
         );
       }
+      if (filter?.resourceId)
+        items = items.filter((entry) => entry.resourceId === filter.resourceId);
+      if (filter?.from)
+        items = items.filter((entry) => entry.createdAt >= filter.from!);
+      if (filter?.to)
+        items = items.filter((entry) => entry.createdAt < filter.to!);
       if (filter?.result) {
         items = items.filter((entry) => entry.result === filter.result);
       }
       if (filter?.query) {
         items = items.filter((entry) =>
-          entry.summary.includes(filter.query ?? ""),
+          [
+            entry.action,
+            entry.actorUserId,
+            entry.resourceType,
+            entry.resourceId,
+            entry.summary,
+            JSON.stringify(entry.details ?? {}),
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(filter.query!.trim().toLowerCase()),
         );
       }
       return ctx.paginate(items, query);

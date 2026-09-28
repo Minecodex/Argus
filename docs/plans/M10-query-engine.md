@@ -23,7 +23,7 @@
 - PromQL 结果在关闭上游 Query 前深拷贝 scalar/string/vector/matrix 与 Histogram，避免 Prometheus 全局 point pool 被后续查询复用后改写已返回结果。
 - 物理租户表不再保留 `enterprise_id` 列；`resource_id` 是租户内唯一授权裁剪字段，Trace Span Edge 也携带 `resource_id`。
 - HTTP 和 MCP 查询入口会先将请求资源 ID 与服务端 Data Scope 做完整授权校验，存在未授权资源时返回 `QUERY_SCOPE_DENIED`，不会静默裁剪或返回 partial 成功结果。
-- Coordinator 统一执行结果字节预算、日志正文/Trace attributes-events-links 脱敏和查询审计；敏感字段权限通过带签名的 gRPC Scope 传递，不能由查询文本覆盖。
+- Coordinator 统一执行结果字节预算、凭证屏蔽和查询审计。PlanV2 已移除三信号/字段权限分支，普通日志正文和 Trace attributes/events/links 保留；内部 v4 Scope 绑定主体、对象、来源和路由，详见 [对象查询授权](../planv2/object-query-authorization.md)。
 - HTTP、gRPC、MCP 三个入口均可设置 `max_result_bytes`；未设置时统一采用 8 MiB 默认值，超限返回 `QUERY_BUDGET_EXCEEDED`，不返回标记成功的截断结果。
 - PromQL 的 `MaxSeries` 已贯穿 OpenAPI、protobuf、HTTP、gRPC、MCP 和 Prometheus Storage Adapter；默认 100,000、硬上限 1,000,000。gRPC 零值使用服务端默认预算，超过任一硬上限稳定返回 `ResourceExhausted: QUERY_BUDGET_EXCEEDED`。
 - KQL 已支持字段存在性、wildcard、`parse json`、`parse logfmt`、受限 `parse pattern "...<field>..."`、where、unwrap、stats count、sort 和 limit。

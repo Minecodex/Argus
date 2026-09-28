@@ -12,12 +12,14 @@ import (
 )
 
 type Querier interface {
+	AbandonDashboardQueryAttempts(ctx context.Context, arg AbandonDashboardQueryAttemptsParams) error
 	AcknowledgeNodeTrustBundle(ctx context.Context, arg AcknowledgeNodeTrustBundleParams) (PkiNodeTrustAck, error)
 	ActivateBastionConnector(ctx context.Context, arg ActivateBastionConnectorParams) (BastionScope, error)
 	// Connector enrollment is authoritative for command-mode roots; B/C report
 	// the architecture frozen by their Connection Test. Replacement atomically
 	// switches the stable Host to the new Connector identity.
 	ActivateBastionRootHost(ctx context.Context, arg ActivateBastionRootHostParams) (int64, error)
+	ActivateDashboardRevision(ctx context.Context, arg ActivateDashboardRevisionParams) (Dashboard, error)
 	ActivateHostConnector(ctx context.Context, arg ActivateHostConnectorParams) (Host, error)
 	ActivateKubernetesConnector(ctx context.Context, arg ActivateKubernetesConnectorParams) (KubernetesCluster, error)
 	ActivateMfaCredential(ctx context.Context, id uuid.UUID) (MfaCredential, error)
@@ -52,8 +54,10 @@ type Querier interface {
 	CanReadRemoteAccessRequestAsApprover(ctx context.Context, arg CanReadRemoteAccessRequestAsApproverParams) (bool, error)
 	CancelConnectorInstallOperationsByScope(ctx context.Context, arg CancelConnectorInstallOperationsByScopeParams) (int64, error)
 	CancelConversationAgentRuns(ctx context.Context, arg CancelConversationAgentRunsParams) ([]Run, error)
+	CancelConversationDashboardQueryJobs(ctx context.Context, arg CancelConversationDashboardQueryJobsParams) error
 	CancelHostOnboardingOperationsByHost(ctx context.Context, arg CancelHostOnboardingOperationsByHostParams) (int64, error)
 	CancelPendingAction(ctx context.Context, arg CancelPendingActionParams) (PendingAction, error)
+	CancelQueuedDashboardQueryTasks(ctx context.Context, arg CancelQueuedDashboardQueryTasksParams) error
 	ChangeEnterpriseStatus(ctx context.Context, arg ChangeEnterpriseStatusParams) (Enterprise, error)
 	ClaimBastionHostOnboardingOperations(ctx context.Context, arg ClaimBastionHostOnboardingOperationsParams) ([]HostOnboardingOperation, error)
 	ClaimBastionHostRemovalOperations(ctx context.Context, arg ClaimBastionHostRemovalOperationsParams) ([]HostRemovalOperation, error)
@@ -92,6 +96,7 @@ type Querier interface {
 	ConsumeActionBinding(ctx context.Context, arg ConsumeActionBindingParams) (ActionBinding, error)
 	ConsumeConnectorInstallOperationSecret(ctx context.Context, arg ConsumeConnectorInstallOperationSecretParams) (int64, error)
 	ConsumeCredentialLease(ctx context.Context, arg ConsumeCredentialLeaseParams) (int64, error)
+	ConsumeDashboardDraft(ctx context.Context, arg ConsumeDashboardDraftParams) (DashboardDraft, error)
 	ConsumeEnrollmentToken(ctx context.Context, arg ConsumeEnrollmentTokenParams) (ConnectorEnrollmentToken, error)
 	ConsumeExecutionOneTimeResult(ctx context.Context, arg ConsumeExecutionOneTimeResultParams) (ExecutionOneTimeResult, error)
 	ConsumeHostOnboardingOperationSecret(ctx context.Context, arg ConsumeHostOnboardingOperationSecretParams) (int64, error)
@@ -113,6 +118,7 @@ type Querier interface {
 	CountDepartmentUsers(ctx context.Context, arg CountDepartmentUsersParams) (int64, error)
 	CountEligibleApprovalDecisions(ctx context.Context, arg CountEligibleApprovalDecisionsParams) (int32, error)
 	CountEnterpriseIAMManagers(ctx context.Context, enterpriseID uuid.UUID) (int64, error)
+	CountFolderDashboards(ctx context.Context, arg CountFolderDashboardsParams) (int64, error)
 	CountOwnedConnectorControlTunnels(ctx context.Context, leaseOwner string) (int64, error)
 	CountRemoteAccessApprovalWorkflowReferences(ctx context.Context, approvalWorkflowID uuid.NullUUID) (CountRemoteAccessApprovalWorkflowReferencesRow, error)
 	CountRemoteAccessApprovals(ctx context.Context, requirementID uuid.UUID) (int32, error)
@@ -153,6 +159,18 @@ type Querier interface {
 	CreateConversationEvent(ctx context.Context, arg CreateConversationEventParams) (ConversationEvent, error)
 	CreateCredential(ctx context.Context, arg CreateCredentialParams) (Credential, error)
 	CreateCredentialLease(ctx context.Context, arg CreateCredentialLeaseParams) (CredentialLease, error)
+	CreateDashboard(ctx context.Context, arg CreateDashboardParams) (Dashboard, error)
+	CreateDashboardAnalysisContext(ctx context.Context, arg CreateDashboardAnalysisContextParams) (DashboardAnalysisContext, error)
+	CreateDashboardBinding(ctx context.Context, arg CreateDashboardBindingParams) (DashboardBinding, error)
+	CreateDashboardBudgetReservation(ctx context.Context, arg CreateDashboardBudgetReservationParams) (DashboardBudgetReservation, error)
+	CreateDashboardDraft(ctx context.Context, arg CreateDashboardDraftParams) (DashboardDraft, error)
+	CreateDashboardFolder(ctx context.Context, arg CreateDashboardFolderParams) (DashboardFolder, error)
+	CreateDashboardQueryAttempt(ctx context.Context, arg CreateDashboardQueryAttemptParams) (DashboardQueryAttempt, error)
+	CreateDashboardQueryDelivery(ctx context.Context, arg CreateDashboardQueryDeliveryParams) error
+	CreateDashboardQueryFile(ctx context.Context, arg CreateDashboardQueryFileParams) (DashboardQueryFile, error)
+	CreateDashboardQueryJob(ctx context.Context, arg CreateDashboardQueryJobParams) (DashboardQueryJob, error)
+	CreateDashboardRevision(ctx context.Context, arg CreateDashboardRevisionParams) (DashboardRevision, error)
+	CreateDashboardRunParameters(ctx context.Context, arg CreateDashboardRunParametersParams) error
 	CreateDepartment(ctx context.Context, arg CreateDepartmentParams) (Department, error)
 	CreateEnterprise(ctx context.Context, arg CreateEnterpriseParams) (Enterprise, error)
 	CreateEnterpriseUser(ctx context.Context, arg CreateEnterpriseUserParams) (EnterpriseUser, error)
@@ -202,6 +220,7 @@ type Querier interface {
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
 	CreateRoleBinding(ctx context.Context, arg CreateRoleBindingParams) (RoleBinding, error)
 	CreateRun(ctx context.Context, arg CreateRunParams) (Run, error)
+	CreateRunDashboardContext(ctx context.Context, arg CreateRunDashboardContextParams) (DashboardRunContext, error)
 	CreateRunStep(ctx context.Context, arg CreateRunStepParams) (RunStep, error)
 	CreateRuntimeTask(ctx context.Context, arg CreateRuntimeTaskParams) (RuntimeTask, error)
 	CreateSandboxBackend(ctx context.Context, arg CreateSandboxBackendParams) (SandboxBackend, error)
@@ -235,6 +254,7 @@ type Querier interface {
 	DeleteConnectorInstallOperationSecret(ctx context.Context, arg DeleteConnectorInstallOperationSecretParams) (int64, error)
 	DeleteConnectorInstallOperationSecretsByScope(ctx context.Context, arg DeleteConnectorInstallOperationSecretsByScopeParams) (int64, error)
 	DeleteConnectorSessionsForReplacement(ctx context.Context, arg DeleteConnectorSessionsForReplacementParams) (int64, error)
+	DeleteDashboardBinding(ctx context.Context, arg DeleteDashboardBindingParams) (int64, error)
 	DeleteHostOnboardingOperationSecretsByHost(ctx context.Context, arg DeleteHostOnboardingOperationSecretsByHostParams) (int64, error)
 	DeleteKubernetesCluster(ctx context.Context, arg DeleteKubernetesClusterParams) (KubernetesCluster, error)
 	DeleteMCPConnectionGrants(ctx context.Context, arg DeleteMCPConnectionGrantsParams) error
@@ -253,7 +273,9 @@ type Querier interface {
 	DisableMfaCredential(ctx context.Context, arg DisableMfaCredentialParams) (int64, error)
 	DisableSecret(ctx context.Context, arg DisableSecretParams) (int64, error)
 	DisableUserRoleBindingsExcept(ctx context.Context, arg DisableUserRoleBindingsExceptParams) error
+	DiscardDashboardDraft(ctx context.Context, arg DiscardDashboardDraftParams) (int64, error)
 	DropOwnedConnectorTelemetryTunnels(ctx context.Context, arg DropOwnedConnectorTelemetryTunnelsParams) (int64, error)
+	EnsureDashboardRunBudget(ctx context.Context, arg EnsureDashboardRunBudgetParams) error
 	EnsureTelemetryRetentionPolicy(ctx context.Context, enterpriseID uuid.UUID) (TelemetryRetentionPolicy, error)
 	EnsureWorkspaceQuota(ctx context.Context, arg EnsureWorkspaceQuotaParams) error
 	EscalateRemoteAccessRequirements(ctx context.Context, limit int32) ([]RemoteAccessRequirementSnapshot, error)
@@ -261,6 +283,7 @@ type Querier interface {
 	ExpireConnectionTestsByCredential(ctx context.Context, arg ExpireConnectionTestsByCredentialParams) error
 	ExpireConnectorInstallOperations(ctx context.Context) (int64, error)
 	ExpireCredentialLeases(ctx context.Context) (int64, error)
+	ExpireDashboardBudgetReservations(ctx context.Context, arg ExpireDashboardBudgetReservationsParams) error
 	ExpireHostOnboardingConnectorCommandsByHost(ctx context.Context, arg ExpireHostOnboardingConnectorCommandsByHostParams) (int64, error)
 	ExpireHostOnboardingOperations(ctx context.Context) (int64, error)
 	ExpireHostRemovalOperations(ctx context.Context) ([]HostRemovalOperation, error)
@@ -284,6 +307,8 @@ type Querier interface {
 	FinalizeConnectorUninstall(ctx context.Context, arg FinalizeConnectorUninstallParams) (Connector, error)
 	FinalizeHostConnectorRemoval(ctx context.Context, arg FinalizeHostConnectorRemovalParams) (int64, error)
 	FinalizeKubernetesConnectorUninstall(ctx context.Context, arg FinalizeKubernetesConnectorUninstallParams) (int64, error)
+	FindDashboardBinding(ctx context.Context, arg FindDashboardBindingParams) (DashboardBinding, error)
+	FindDashboardQueryJob(ctx context.Context, arg FindDashboardQueryJobParams) (DashboardQueryJob, error)
 	FinishConnectorInstallOperation(ctx context.Context, arg FinishConnectorInstallOperationParams) (ConnectorInstallOperation, error)
 	FinishConversationFileCleanup(ctx context.Context, id uuid.UUID) error
 	FinishExecution(ctx context.Context, arg FinishExecutionParams) (Execution, error)
@@ -341,6 +366,7 @@ type Querier interface {
 	GetConnectorSession(ctx context.Context, arg GetConnectorSessionParams) (ConnectorSession, error)
 	GetContextSnapshotBySourceHash(ctx context.Context, arg GetContextSnapshotBySourceHashParams) (ContextSnapshot, error)
 	GetConversation(ctx context.Context, arg GetConversationParams) (Conversation, error)
+	GetConversationDashboardContext(ctx context.Context, arg GetConversationDashboardContextParams) (DashboardConversationContext, error)
 	GetConversationMCPConnections(ctx context.Context, arg GetConversationMCPConnectionsParams) ([]uuid.UUID, error)
 	GetConversationWorkspace(ctx context.Context, arg GetConversationWorkspaceParams) (Workspace, error)
 	GetConversationWorkspaceContext(ctx context.Context, arg GetConversationWorkspaceContextParams) (GetConversationWorkspaceContextRow, error)
@@ -350,6 +376,18 @@ type Querier interface {
 	GetCurrentSandboxUsage(ctx context.Context, arg GetCurrentSandboxUsageParams) (SandboxUsage, error)
 	GetCurrentSecretVersion(ctx context.Context, arg GetCurrentSecretVersionParams) (SecretVersion, error)
 	GetCurrentTrustBundle(ctx context.Context) (PkiTrustBundle, error)
+	GetDashboard(ctx context.Context, arg GetDashboardParams) (Dashboard, error)
+	GetDashboardAnalysisContext(ctx context.Context, arg GetDashboardAnalysisContextParams) (DashboardAnalysisContext, error)
+	GetDashboardDraft(ctx context.Context, arg GetDashboardDraftParams) (DashboardDraft, error)
+	GetDashboardFolder(ctx context.Context, arg GetDashboardFolderParams) (DashboardFolder, error)
+	GetDashboardParameterState(ctx context.Context, arg GetDashboardParameterStateParams) (DashboardParameterState, error)
+	GetDashboardQueryDelivery(ctx context.Context, arg GetDashboardQueryDeliveryParams) (DashboardQueryDelivery, error)
+	GetDashboardQueryFile(ctx context.Context, arg GetDashboardQueryFileParams) (DashboardQueryFile, error)
+	GetDashboardQueryJob(ctx context.Context, arg GetDashboardQueryJobParams) (DashboardQueryJob, error)
+	GetDashboardRevision(ctx context.Context, arg GetDashboardRevisionParams) (DashboardRevision, error)
+	GetDashboardRunBudget(ctx context.Context, arg GetDashboardRunBudgetParams) (DashboardRunBudget, error)
+	GetDashboardRunParameters(ctx context.Context, arg GetDashboardRunParametersParams) (DashboardRunParameter, error)
+	GetDashboardRunUserMessage(ctx context.Context, arg GetDashboardRunUserMessageParams) (ConversationEvent, error)
 	GetDefaultDepartment(ctx context.Context, enterpriseID uuid.UUID) (Department, error)
 	GetDepartment(ctx context.Context, arg GetDepartmentParams) (Department, error)
 	GetEffectiveRoleBindings(ctx context.Context, arg GetEffectiveRoleBindingsParams) ([]RoleBinding, error)
@@ -425,6 +463,7 @@ type Querier interface {
 	GetRoleBinding(ctx context.Context, arg GetRoleBindingParams) (RoleBinding, error)
 	GetRun(ctx context.Context, arg GetRunParams) (Run, error)
 	GetRunAwaitingPendingAction(ctx context.Context, arg GetRunAwaitingPendingActionParams) (Run, error)
+	GetRunDashboardContext(ctx context.Context, arg GetRunDashboardContextParams) (DashboardRunContext, error)
 	GetRunForUpdate(ctx context.Context, arg GetRunForUpdateParams) (Run, error)
 	GetSandboxBackend(ctx context.Context, id uuid.UUID) (SandboxBackend, error)
 	GetSandboxImage(ctx context.Context, id uuid.UUID) (SandboxImage, error)
@@ -458,6 +497,7 @@ type Querier interface {
 	GetValidTelemetryCertificateBySerial(ctx context.Context, arg GetValidTelemetryCertificateBySerialParams) (TelemetryCertificate, error)
 	GetWorkspace(ctx context.Context, arg GetWorkspaceParams) (Workspace, error)
 	GetWorkspaceFile(ctx context.Context, arg GetWorkspaceFileParams) (WorkspaceFile, error)
+	GetWorkspaceFileByPath(ctx context.Context, arg GetWorkspaceFileByPathParams) (WorkspaceFile, error)
 	GetWorkspaceForAdmission(ctx context.Context, arg GetWorkspaceForAdmissionParams) (Workspace, error)
 	GetWorkspaceQuota(ctx context.Context, enterpriseID uuid.UUID) (WorkspaceQuota, error)
 	GetWorkspaceSandboxSession(ctx context.Context, arg GetWorkspaceSandboxSessionParams) (SandboxSession, error)
@@ -466,6 +506,7 @@ type Querier interface {
 	HasExecutionOneTimeResult(ctx context.Context, arg HasExecutionOneTimeResultParams) (bool, error)
 	HasMCPConnectionGrant(ctx context.Context, arg HasMCPConnectionGrantParams) (bool, error)
 	HasPendingAgentTask(ctx context.Context, arg HasPendingAgentTaskParams) (bool, error)
+	HasPendingDashboardBudgetReservations(ctx context.Context, arg HasPendingDashboardBudgetReservationsParams) (bool, error)
 	HasRunPendingActionEvent(ctx context.Context, arg HasRunPendingActionEventParams) (bool, error)
 	HasUnknownRunToolResult(ctx context.Context, arg HasUnknownRunToolResultParams) (bool, error)
 	HeartbeatConnectorControlTunnel(ctx context.Context, arg HeartbeatConnectorControlTunnelParams) (int64, error)
@@ -498,6 +539,7 @@ type Querier interface {
 	ListApprovalPolicies(ctx context.Context, enterpriseID uuid.UUID) ([]ApprovalPolicy, error)
 	ListApprovalRequests(ctx context.Context, arg ListApprovalRequestsParams) ([]ApprovalRequest, error)
 	ListApprovalRequirements(ctx context.Context, arg ListApprovalRequirementsParams) ([]ApprovalRequirementSnapshot, error)
+	ListAuditEventsPage(ctx context.Context, arg ListAuditEventsPageParams) ([]AuditEvent, error)
 	ListBastionOnboardingFacts(ctx context.Context, arg ListBastionOnboardingFactsParams) ([]ListBastionOnboardingFactsRow, error)
 	ListBastionRemovalDependencies(ctx context.Context, arg ListBastionRemovalDependenciesParams) ([]ListBastionRemovalDependenciesRow, error)
 	ListBastionScopes(ctx context.Context, enterpriseID uuid.UUID) ([]ListBastionScopesRow, error)
@@ -514,6 +556,12 @@ type Querier interface {
 	ListConversationEvents(ctx context.Context, arg ListConversationEventsParams) ([]ConversationEvent, error)
 	ListConversations(ctx context.Context, arg ListConversationsParams) ([]Conversation, error)
 	ListCredentials(ctx context.Context, enterpriseID uuid.UUID) ([]Credential, error)
+	ListDashboardBindings(ctx context.Context, arg ListDashboardBindingsParams) ([]DashboardBinding, error)
+	ListDashboardDrafts(ctx context.Context, arg ListDashboardDraftsParams) ([]DashboardDraft, error)
+	ListDashboardFolders(ctx context.Context, enterpriseID uuid.UUID) ([]DashboardFolder, error)
+	ListDashboardQueryFiles(ctx context.Context, arg ListDashboardQueryFilesParams) ([]DashboardQueryFile, error)
+	ListDashboardRevisions(ctx context.Context, arg ListDashboardRevisionsParams) ([]DashboardRevision, error)
+	ListDashboards(ctx context.Context, enterpriseID uuid.UUID) ([]Dashboard, error)
 	ListDataAuthorizationGrants(ctx context.Context, arg ListDataAuthorizationGrantsParams) ([]DataAuthorizationGrant, error)
 	ListDeletedConversationsForCleanup(ctx context.Context, limit int32) ([]Conversation, error)
 	ListDeletingWorkspaces(ctx context.Context, limit int32) ([]Workspace, error)
@@ -568,6 +616,7 @@ type Querier interface {
 	ListRemoteAccessRules(ctx context.Context, enterpriseID uuid.UUID) ([]RemoteAccessRule, error)
 	ListRemoteAccessSessionProfiles(ctx context.Context, enterpriseID uuid.UUID) ([]RemoteAccessSessionProfile, error)
 	ListRemoteAccessSessions(ctx context.Context, arg ListRemoteAccessSessionsParams) ([]RemoteAccessSession, error)
+	ListResourceDashboardBindings(ctx context.Context, arg ListResourceDashboardBindingsParams) ([]DashboardBinding, error)
 	ListRoleBindings(ctx context.Context, enterpriseID uuid.UUID) ([]RoleBinding, error)
 	ListRolePermissions(ctx context.Context, roleID uuid.UUID) ([]string, error)
 	ListRoles(ctx context.Context, enterpriseID uuid.UUID) ([]Role, error)
@@ -586,6 +635,7 @@ type Querier interface {
 	ListServiceAccountIDsForRole(ctx context.Context, arg ListServiceAccountIDsForRoleParams) ([]uuid.UUID, error)
 	ListServiceAccounts(ctx context.Context, enterpriseID uuid.UUID) ([]ServiceAccount, error)
 	ListTelemetryRoutes(ctx context.Context, enterpriseID uuid.UUID) ([]TelemetryRoute, error)
+	ListTelemetrySources(ctx context.Context, arg ListTelemetrySourcesParams) ([]ListTelemetrySourcesRow, error)
 	ListTelemetryTunnelsByHosts(ctx context.Context, dollar_1 []uuid.UUID) ([]TelemetryTunnel, error)
 	ListTrustBundles(ctx context.Context, limit int32) ([]PkiTrustBundle, error)
 	ListUncertainConnectorCommands(ctx context.Context, arg ListUncertainConnectorCommandsParams) ([]ConnectorCommand, error)
@@ -600,6 +650,15 @@ type Querier interface {
 	LockAuditChain(ctx context.Context, chainKey string) (AuditChainHead, error)
 	LockBastionEnrollmentTokensForCancellation(ctx context.Context, arg LockBastionEnrollmentTokensForCancellationParams) ([]ConnectorEnrollmentToken, error)
 	LockConversation(ctx context.Context, arg LockConversationParams) (Conversation, error)
+	LockDashboard(ctx context.Context, arg LockDashboardParams) (Dashboard, error)
+	LockDashboardBindingCluster(ctx context.Context, arg LockDashboardBindingClusterParams) (LockDashboardBindingClusterRow, error)
+	LockDashboardBindingHost(ctx context.Context, arg LockDashboardBindingHostParams) (LockDashboardBindingHostRow, error)
+	LockDashboardBudgetReservation(ctx context.Context, arg LockDashboardBudgetReservationParams) (DashboardBudgetReservation, error)
+	LockDashboardDraft(ctx context.Context, arg LockDashboardDraftParams) (DashboardDraft, error)
+	LockDashboardFolder(ctx context.Context, arg LockDashboardFolderParams) (DashboardFolder, error)
+	LockDashboardQueryJob(ctx context.Context, arg LockDashboardQueryJobParams) (DashboardQueryJob, error)
+	LockDashboardRunBudget(ctx context.Context, arg LockDashboardRunBudgetParams) (DashboardRunBudget, error)
+	LockDashboardRunParameters(ctx context.Context, arg LockDashboardRunParametersParams) (DashboardRunParameter, error)
 	LockEnterpriseForAccessUpdate(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	LockEnterpriseUserForAccessUpdate(ctx context.Context, arg LockEnterpriseUserForAccessUpdateParams) (EnterpriseUser, error)
 	LockHostEnrollmentTokensForCancellation(ctx context.Context, arg LockHostEnrollmentTokensForCancellationParams) ([]ConnectorEnrollmentToken, error)
@@ -674,6 +733,7 @@ type Querier interface {
 	NextConversationSequence(ctx context.Context, id uuid.UUID) (int64, error)
 	NextHostRemovalEventSequence(ctx context.Context, operationID uuid.UUID) (int32, error)
 	NextRunStepSequence(ctx context.Context, arg NextRunStepSequenceParams) (int32, error)
+	RebaseDashboardDraft(ctx context.Context, arg RebaseDashboardDraftParams) (DashboardDraft, error)
 	ReconcileInterruptedModelCalls(ctx context.Context, arg ReconcileInterruptedModelCallsParams) error
 	RecordTelemetryDLQ(ctx context.Context, arg RecordTelemetryDLQParams) (TelemetryDlqRecord, error)
 	RecoverConnectorInstallOperations(ctx context.Context) (int64, error)
@@ -683,6 +743,7 @@ type Querier interface {
 	RecoverHostOnboardingOperations(ctx context.Context) (int64, error)
 	RecoverHostRemovalOperations(ctx context.Context) (int64, error)
 	RecoverTelemetryCollectorOperations(ctx context.Context) (int64, error)
+	RegisterTelemetrySource(ctx context.Context, arg RegisterTelemetrySourceParams) error
 	RegisterWorkspaceSource(ctx context.Context, arg RegisterWorkspaceSourceParams) (Workspace, error)
 	RejectPendingAction(ctx context.Context, arg RejectPendingActionParams) (PendingAction, error)
 	ReleaseCollectorClaims(ctx context.Context, arg ReleaseCollectorClaimsParams) error
@@ -698,6 +759,7 @@ type Querier interface {
 	RequeueConnectorInstallOperation(ctx context.Context, arg RequeueConnectorInstallOperationParams) (ConnectorInstallOperation, error)
 	RequeueRuntimeTask(ctx context.Context, arg RequeueRuntimeTaskParams) (RuntimeTask, error)
 	ReserveWorkspaceCapacity(ctx context.Context, arg ReserveWorkspaceCapacityParams) (WorkspaceQuota, error)
+	ResolveTelemetrySource(ctx context.Context, arg ResolveTelemetrySourceParams) (TelemetrySource, error)
 	RestoreBastionConnectorOnline(ctx context.Context, arg RestoreBastionConnectorOnlineParams) (int64, error)
 	RestoreHostConnectorOnline(ctx context.Context, arg RestoreHostConnectorOnlineParams) (int64, error)
 	RestoreKubernetesConnectorOnline(ctx context.Context, arg RestoreKubernetesConnectorOnlineParams) (int64, error)
@@ -705,6 +767,7 @@ type Querier interface {
 	ResumeBastionScopeRemoval(ctx context.Context, arg ResumeBastionScopeRemovalParams) (int64, error)
 	ResumeManagedHostRemoval(ctx context.Context, arg ResumeManagedHostRemovalParams) (int64, error)
 	ResumeRemoteAccessRequest(ctx context.Context, arg ResumeRemoteAccessRequestParams) (RemoteAccessRequest, error)
+	RetryDashboardQueryTask(ctx context.Context, arg RetryDashboardQueryTaskParams) (int64, error)
 	RetryHostOnboardingOperation(ctx context.Context, arg RetryHostOnboardingOperationParams) (HostOnboardingOperation, error)
 	RetryHostRemovalOperation(ctx context.Context, arg RetryHostRemovalOperationParams) (HostRemovalOperation, error)
 	RetryOutboxEvent(ctx context.Context, arg RetryOutboxEventParams) error
@@ -740,10 +803,19 @@ type Querier interface {
 	RevokeSubjectBreakGlassSessions(ctx context.Context, userID uuid.UUID) error
 	RevokeSubjectSessions(ctx context.Context, arg RevokeSubjectSessionsParams) error
 	RollbackCollectorClaimMigrations(ctx context.Context, arg RollbackCollectorClaimMigrationsParams) (int64, error)
+	SaveDashboardDraft(ctx context.Context, arg SaveDashboardDraftParams) (DashboardDraft, error)
+	SealDashboardQueryAttempt(ctx context.Context, arg SealDashboardQueryAttemptParams) (DashboardQueryAttempt, error)
+	SealDashboardQueryJob(ctx context.Context, arg SealDashboardQueryJobParams) (DashboardQueryJob, error)
 	SeedTrustBundleNodes(ctx context.Context, arg SeedTrustBundleNodesParams) (int64, error)
 	SelectConversationMCPConnection(ctx context.Context, arg SelectConversationMCPConnectionParams) error
 	SelectSandboxProfile(ctx context.Context, dollar_1 string) (SandboxProfile, error)
 	SetBastionRelayStatus(ctx context.Context, arg SetBastionRelayStatusParams) (int64, error)
+	SetConversationDashboardContext(ctx context.Context, arg SetConversationDashboardContextParams) (DashboardConversationContext, error)
+	SetDashboardBudgetReservation(ctx context.Context, arg SetDashboardBudgetReservationParams) error
+	SetDashboardParameterState(ctx context.Context, arg SetDashboardParameterStateParams) (DashboardParameterState, error)
+	SetDashboardQueryJobState(ctx context.Context, arg SetDashboardQueryJobStateParams) (DashboardQueryJob, error)
+	SetDashboardRunBudget(ctx context.Context, arg SetDashboardRunBudgetParams) error
+	SetDashboardRunParameters(ctx context.Context, arg SetDashboardRunParametersParams) (DashboardRunParameter, error)
 	SetEnterpriseMfaEnabled(ctx context.Context, arg SetEnterpriseMfaEnabledParams) error
 	SetHostOnboardingRetryOf(ctx context.Context, arg SetHostOnboardingRetryOfParams) error
 	SetPendingActionPolicySnapshot(ctx context.Context, arg SetPendingActionPolicySnapshotParams) (PendingAction, error)
@@ -793,6 +865,8 @@ type Querier interface {
 	UpdateBastionScope(ctx context.Context, arg UpdateBastionScopeParams) (BastionScope, error)
 	UpdateConversation(ctx context.Context, arg UpdateConversationParams) (Conversation, error)
 	UpdateCredential(ctx context.Context, arg UpdateCredentialParams) (Credential, error)
+	UpdateDashboardFolder(ctx context.Context, arg UpdateDashboardFolderParams) (DashboardFolder, error)
+	UpdateDashboardLifecycle(ctx context.Context, arg UpdateDashboardLifecycleParams) (Dashboard, error)
 	UpdateDepartment(ctx context.Context, arg UpdateDepartmentParams) (Department, error)
 	UpdateEnterprise(ctx context.Context, arg UpdateEnterpriseParams) (Enterprise, error)
 	UpdateEnterpriseUser(ctx context.Context, arg UpdateEnterpriseUserParams) (EnterpriseUser, error)

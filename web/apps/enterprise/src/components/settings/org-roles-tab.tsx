@@ -48,7 +48,10 @@ export function OrgRolesTab() {
   );
 
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["org", "roles"] });
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["org", "roles"] }),
+      queryClient.invalidateQueries({ queryKey: ["org", "self-permissions"] }),
+    ]);
 
   const save = useMutation({
     mutationFn: (input: {

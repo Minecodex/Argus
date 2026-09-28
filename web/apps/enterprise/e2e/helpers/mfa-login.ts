@@ -5,8 +5,8 @@ import { expect, type Page } from "@playwright/test";
 
 type Audience = "enterprise" | "platform";
 
-export function createMfaLogin(audience: Audience) {
-  const nextProof = createMfaProof(audience);
+export function createMfaLogin(audience: Audience, identity?: "EDITOR") {
+  const nextProof = createMfaProof(audience, identity);
 
   return async (
     page: Page,
@@ -35,13 +35,16 @@ export function createMfaLogin(audience: Audience) {
   };
 }
 
-export function createMfaProof(audience: Audience) {
-  const prefix = `ARGUS_E2E_${audience.toUpperCase()}_TOTP`;
+export function createMfaProof(audience: Audience, identity?: "EDITOR") {
+  const prefix = `ARGUS_E2E_${audience.toUpperCase()}${identity ? `_${identity}` : ""}_TOTP`;
   const secret = process.env[`${prefix}_SECRET`] ?? "";
   let lastCode = process.env[`${prefix}_LAST_CODE`] ?? "";
   const artifactDir = process.env.ARGUS_E2E_ARTIFACTS ?? "";
   const stateFile = artifactDir
-    ? join(artifactDir, `.argus-${audience}-totp-last-code`)
+    ? join(
+        artifactDir,
+        `.argus-${audience}${identity ? `-${identity.toLowerCase()}` : ""}-totp-last-code`,
+      )
     : "";
 
   return async () => {

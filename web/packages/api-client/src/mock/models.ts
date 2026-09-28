@@ -25,9 +25,10 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
     db.enterpriseUsers.find((entry) => entry.userId === ctx.actor().id);
   const permissions = () =>
     resolvePermissions(db, ctx.enterpriseId(), ctx.actor().id, ctx.nowIso());
-  const isEnterpriseAdmin = () => permissions().has("*");
+  const isEnterpriseAdmin = () =>
+    permissions().has("*") || permissions().has("model.manage");
   const isDepartmentAdmin = () =>
-    !permissions().has("*") && permissions().has("model_quota.manage");
+    !isEnterpriseAdmin() && permissions().has("model.quota.manage");
   const monthPrefix = () => ctx.nowIso().slice(0, 7);
   const usageFor = (modelId: string) =>
     db.usagePoints.filter(
@@ -224,6 +225,8 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
     },
     async setQuota(input) {
       await ctx.pause();
+      if (!permissions().has("*") && !permissions().has("model.quota.manage"))
+        throw new Error("forbidden");
       const enterpriseUser = currentEnterpriseUser();
       if (input.subjectType === "department" && !isEnterpriseAdmin())
         throw new Error("forbidden");

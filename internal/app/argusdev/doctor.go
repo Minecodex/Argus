@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/app/argusctl"
 	"io"
 	"os"
 	"os/exec"
@@ -132,7 +133,7 @@ func (a *App) doctorWithOptions(ctx context.Context, scope string, options docto
 				} else {
 					add("kubernetes-architecture", "pass", architecture)
 				}
-				if conflicts, err := dedicatedClusterConflictsWithTimeout(ctx, kube); err != nil {
+				if conflicts, err := dedicatedClusterConflictsWithTimeout(ctx, kube, a.root); err != nil {
 					add("kubernetes-dedicated-cluster", "fail", err.Error())
 				} else if len(conflicts) != 0 {
 					add("kubernetes-dedicated-cluster", "fail", "full E2E requires a dedicated cluster; conflicting resources: "+strings.Join(conflicts, ", "))
@@ -193,10 +194,23 @@ func nodeArchitectureWithTimeout(ctx context.Context, kube *E2EKube) (string, er
 	return kube.NodeArchitecture(probeCtx)
 }
 
-func dedicatedClusterConflictsWithTimeout(ctx context.Context, kube *E2EKube) ([]string, error) {
+func dedicatedClusterConflictsWithTimeout(ctx context.Context, kube *E2EKube, roots ...string) ([]string, error) {
 	probeCtx, cancel := context.WithTimeout(ctx, doctorProbeTimeout)
 	defer cancel()
-	return kube.DedicatedClusterConflicts(probeCtx)
+	conflicts, err := kube.DedicatedClusterConflicts(probeCtx)
+	if err != nil || len(roots) == 0 {
+		return conflicts, err
+	}
+	for _, conflict := range conflicts {
+		if strings.HasPrefix(conflict, "ClusterRole/opensandbox-") {
+			owner, err := argusctl.CompatibleOpenSandboxOwner(probeCtx, kube.Context, roots[0])
+			if err != nil {
+				return nil, fmt.Errorf("shared OpenSandbox preflight: %w", err)
+			}
+			return kube.DedicatedClusterConflicts(probeCtx, owner)
+		}
+	}
+	return conflicts, nil
 }
 
 func kubectlContextArgs(contextName string, args ...string) []string {

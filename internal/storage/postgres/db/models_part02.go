@@ -6,6 +6,207 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type RoleBinding struct {
+	ID           uuid.UUID          `json:"id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	SubjectType  string             `json:"subject_type"`
+	SubjectID    uuid.UUID          `json:"subject_id"`
+	RoleID       uuid.UUID          `json:"role_id"`
+	ValidFrom    pgtype.Timestamptz `json:"valid_from"`
+	ValidUntil   pgtype.Timestamptz `json:"valid_until"`
+	Status       string             `json:"status"`
+	Version      int64              `json:"version"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RolePermission struct {
+	RoleID       uuid.UUID `json:"role_id"`
+	PermissionID string    `json:"permission_id"`
+}
+
+type Run struct {
+	ID                   uuid.UUID          `json:"id"`
+	ConversationID       uuid.UUID          `json:"conversation_id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	ActorUserID          uuid.UUID          `json:"actor_user_id"`
+	ModelID              uuid.UUID          `json:"model_id"`
+	ModelRevision        int32              `json:"model_revision"`
+	Locale               string             `json:"locale"`
+	Status               string             `json:"status"`
+	CurrentStepID        uuid.NullUUID      `json:"current_step_id"`
+	AuthorizationVersion int64              `json:"authorization_version"`
+	Checkpoint           []byte             `json:"checkpoint"`
+	VerificationOnly     bool               `json:"verification_only"`
+	ToolSnapshot         []byte             `json:"tool_snapshot"`
+	ToolSnapshotHash     string             `json:"tool_snapshot_hash"`
+	StopReason           pgtype.Text        `json:"stop_reason"`
+	ErrorCode            pgtype.Text        `json:"error_code"`
+	Version              int64              `json:"version"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RunStep struct {
+	ID           uuid.UUID          `json:"id"`
+	RunID        uuid.UUID          `json:"run_id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	Sequence     int32              `json:"sequence"`
+	StepType     string             `json:"step_type"`
+	Status       string             `json:"status"`
+	Attempt      int32              `json:"attempt"`
+	Version      int64              `json:"version"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RuntimeTask struct {
+	ID            uuid.UUID          `json:"id"`
+	EnterpriseID  uuid.NullUUID      `json:"enterprise_id"`
+	Queue         string             `json:"queue"`
+	RunID         uuid.NullUUID      `json:"run_id"`
+	StepID        uuid.NullUUID      `json:"step_id"`
+	Payload       []byte             `json:"payload"`
+	Status        string             `json:"status"`
+	Attempt       int32              `json:"attempt"`
+	MaxAttempts   int32              `json:"max_attempts"`
+	LeaseOwner    pgtype.Text        `json:"lease_owner"`
+	LeaseUntil    pgtype.Timestamptz `json:"lease_until"`
+	FenceToken    int64              `json:"fence_token"`
+	AvailableAt   pgtype.Timestamptz `json:"available_at"`
+	LastErrorCode pgtype.Text        `json:"last_error_code"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SandboxBackend struct {
+	ID                   uuid.UUID          `json:"id"`
+	Name                 string             `json:"name"`
+	Endpoint             string             `json:"endpoint"`
+	CredentialProvider   pgtype.Text        `json:"credential_provider"`
+	CredentialKeyID      pgtype.Text        `json:"credential_key_id"`
+	CredentialKeyVersion pgtype.Int4        `json:"credential_key_version"`
+	CredentialWrappedDek []byte             `json:"credential_wrapped_dek"`
+	CredentialWrapNonce  []byte             `json:"credential_wrap_nonce"`
+	CredentialNonce      []byte             `json:"credential_nonce"`
+	CredentialCiphertext []byte             `json:"credential_ciphertext"`
+	CredentialValueHash  []byte             `json:"credential_value_hash"`
+	Status               string             `json:"status"`
+	HealthStatus         string             `json:"health_status"`
+	Version              int64              `json:"version"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SandboxImage struct {
+	ID        uuid.UUID          `json:"id"`
+	BackendID uuid.UUID          `json:"backend_id"`
+	Name      string             `json:"name"`
+	ImageRef  string             `json:"image_ref"`
+	Digest    string             `json:"digest"`
+	Status    string             `json:"status"`
+	Version   int64              `json:"version"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SandboxProfile struct {
+	ID             uuid.UUID          `json:"id"`
+	Name           string             `json:"name"`
+	BackendID      uuid.UUID          `json:"backend_id"`
+	ImageID        uuid.UUID          `json:"image_id"`
+	TaskKinds      []string           `json:"task_kinds"`
+	CpuMillis      int32              `json:"cpu_millis"`
+	MemoryMib      int32              `json:"memory_mib"`
+	TimeoutSeconds int32              `json:"timeout_seconds"`
+	NetworkMode    string             `json:"network_mode"`
+	Status         string             `json:"status"`
+	Revision       int32              `json:"revision"`
+	Version        int64              `json:"version"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SandboxQuota struct {
+	EnterpriseID          uuid.UUID          `json:"enterprise_id"`
+	MaxConcurrentSessions int32              `json:"max_concurrent_sessions"`
+	MonthlySessionSeconds int64              `json:"monthly_session_seconds"`
+	Version               int64              `json:"version"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SandboxSession struct {
+	ID                uuid.UUID          `json:"id"`
+	EnterpriseID      uuid.UUID          `json:"enterprise_id"`
+	TaskID            uuid.NullUUID      `json:"task_id"`
+	WorkspaceID       uuid.NullUUID      `json:"workspace_id"`
+	ToolCallID        uuid.NullUUID      `json:"tool_call_id"`
+	ProfileID         uuid.UUID          `json:"profile_id"`
+	ProfileRevision   int32              `json:"profile_revision"`
+	UpstreamSessionID string             `json:"upstream_session_id"`
+	Status            string             `json:"status"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	TerminatedAt      pgtype.Timestamptz `json:"terminated_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SandboxUsage struct {
+	EnterpriseID   uuid.UUID          `json:"enterprise_id"`
+	Month          pgtype.Date        `json:"month"`
+	SessionCount   int64              `json:"session_count"`
+	SessionSeconds int64              `json:"session_seconds"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Secret struct {
+	ID             uuid.UUID          `json:"id"`
+	OwnerType      string             `json:"owner_type"`
+	OwnerID        uuid.NullUUID      `json:"owner_id"`
+	EnterpriseID   uuid.UUID          `json:"enterprise_id"`
+	Name           string             `json:"name"`
+	Type           string             `json:"type"`
+	Description    string             `json:"description"`
+	Status         string             `json:"status"`
+	CurrentVersion int32              `json:"current_version"`
+	LastAccessedAt pgtype.Timestamptz `json:"last_accessed_at"`
+	Version        int64              `json:"version"`
+	CreatedBy      uuid.UUID          `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SecretVersion struct {
+	ID           uuid.UUID          `json:"id"`
+	SecretID     uuid.UUID          `json:"secret_id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	Version      int32              `json:"version"`
+	Provider     string             `json:"provider"`
+	KeyID        string             `json:"key_id"`
+	KeyVersion   int32              `json:"key_version"`
+	WrappedDek   []byte             `json:"wrapped_dek"`
+	WrapNonce    []byte             `json:"wrap_nonce"`
+	Nonce        []byte             `json:"nonce"`
+	Ciphertext   []byte             `json:"ciphertext"`
+	ValueHash    []byte             `json:"value_hash"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type ServiceAccount struct {
+	ID                   uuid.UUID          `json:"id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	Name                 string             `json:"name"`
+	Description          string             `json:"description"`
+	AllowedToolIds       []string           `json:"allowed_tool_ids"`
+	Status               string             `json:"status"`
+	AuthorizationVersion int64              `json:"authorization_version"`
+	Version              int64              `json:"version"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Session struct {
 	ID                   uuid.UUID          `json:"id"`
 	TokenHash            []byte             `json:"token_hash"`
@@ -128,6 +329,22 @@ type TelemetryRouteTest struct {
 	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+}
+
+type TelemetrySource struct {
+	ID                uuid.UUID          `json:"id"`
+	EnterpriseID      uuid.UUID          `json:"enterprise_id"`
+	CollectorID       uuid.UUID          `json:"collector_id"`
+	Generation        uuid.UUID          `json:"generation"`
+	ResourceType      string             `json:"resource_type"`
+	ResourceID        uuid.UUID          `json:"resource_id"`
+	SourceKey         string             `json:"source_key"`
+	SourceType        string             `json:"source_type"`
+	Signals           []string           `json:"signals"`
+	ConfigRevision    int64              `json:"config_revision"`
+	ConfigHash        []byte             `json:"config_hash"`
+	CapabilityVersion string             `json:"capability_version"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type TelemetryTunnel struct {

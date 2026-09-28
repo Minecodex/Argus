@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -16,6 +17,22 @@ func TestActionErrorMapsRevalidationFailure(t *testing.T) {
 	result := actionError(context.Background(), actionservice.ErrInvalidated)
 	if result.Code != "PENDING_ACTION_INVALIDATED" || result.MessageKey != "errors.actions.pending_action_invalidated" {
 		t.Fatalf("invalidated action error = %#v", result)
+	}
+}
+
+type dashboardConflictFailure struct{}
+
+func (dashboardConflictFailure) Error() string                { return "private database reason" }
+func (dashboardConflictFailure) ActionValidationCode() string { return "DASHBOARD_VERSION_CONFLICT" }
+func TestActionHTTPRetainsSafeDashboardConflict(t *testing.T) {
+	err := errors.Join(actionservice.ErrInvalidated, dashboardConflictFailure{})
+	for _, code := range []string{actionError(context.Background(), err).Code, workflowError(context.Background(), err).Code} {
+		if code != "DASHBOARD_VERSION_CONFLICT" {
+			t.Fatal(code)
+		}
+	}
+	if workflowStatus(err) != 409 {
+		t.Fatal("conflict HTTP status changed")
 	}
 }
 

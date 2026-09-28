@@ -681,7 +681,7 @@ export interface components {
             /** @constant */
             schema_version: "argus.kql_result/v1";
             /** @enum {string} */
-            result_type: "log_entries" | "log_streams";
+            result_type: "log_entries" | "log_streams" | "table" | "timeseries";
             data: unknown;
             warnings: string[];
             partial: boolean;

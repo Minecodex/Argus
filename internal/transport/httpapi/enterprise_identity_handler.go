@@ -197,6 +197,10 @@ func (handler EnterpriseIdentityHandler) DisableDepartment(ctx context.Context, 
 }
 
 func (handler EnterpriseIdentityHandler) enterprisePrincipal(ctx context.Context, mutation bool, csrf, permission string) (identity.Principal, *enterpriseapi.ApiError) {
+	return handler.enterprisePrincipalAny(ctx, mutation, csrf, permission)
+}
+
+func (handler EnterpriseIdentityHandler) enterprisePrincipalAny(ctx context.Context, mutation bool, csrf string, permissions ...string) (identity.Principal, *enterpriseapi.ApiError) {
 	metadata, ok := RequestFromContext(ctx)
 	if !ok {
 		value := enterpriseIdentityError(ctx, identity.ErrSessionInvalid)
@@ -217,7 +221,7 @@ func (handler EnterpriseIdentityHandler) enterprisePrincipal(ctx context.Context
 		principal, err = handler.Auth.authenticate(ctx, "enterprise", mutation, csrf)
 	}
 	_, hasEnterprise := principal.EnterpriseID()
-	if err == nil && hasEnterprise && (slices.Contains(principal.Permissions, "*") || slices.Contains(principal.Permissions, permission)) {
+	if err == nil && hasEnterprise && len(permissions) > 0 && (slices.Contains(principal.Permissions, "*") || slices.ContainsFunc(permissions, func(permission string) bool { return slices.Contains(principal.Permissions, permission) })) {
 		return principal, nil
 	}
 	if err == nil {

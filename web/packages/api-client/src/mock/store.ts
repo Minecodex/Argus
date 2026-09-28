@@ -55,6 +55,7 @@ import type {
 /** Whole in-memory database backing the mock client. */
 export interface MockDb {
   schemaVersion: 15;
+  dashboards?: import("./dashboard-state").MockDashboards;
   seq: Record<string, number>;
   platformState: { state: PlatformState; name: string };
   enterprises: Enterprise[];
@@ -69,7 +70,7 @@ export interface MockDb {
   dataAuthorizationGrants?: Array<{
     subject_type: "user" | "department" | "role" | "service_account";
     subject_id: string;
-    resource_type: "host" | "kubernetes_cluster";
+    resource_type: "host" | "kubernetes_cluster" | "dashboard";
     resource_id: string;
     active: boolean;
   }>;

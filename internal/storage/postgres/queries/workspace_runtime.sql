@@ -56,7 +56,9 @@ WHERE conversation_id=$1 AND enterprise_id=$2 AND status NOT IN ('deleted','dele
 
 -- name: ListDeletedConversationsForCleanup :many
 SELECT * FROM conversations c WHERE status='deleted' AND files_cleaned_at IS NULL
-AND NOT EXISTS(SELECT 1 FROM workspaces w WHERE w.conversation_id=c.id AND w.status<>'deleted') LIMIT $1;
+AND NOT EXISTS(SELECT 1 FROM workspaces w WHERE w.conversation_id=c.id AND w.status<>'deleted')
+AND NOT EXISTS(SELECT 1 FROM dashboard_query_jobs j JOIN runtime_tasks t ON t.id=j.task_id
+ WHERE j.conversation_id=c.id AND t.status IN ('leased','running') AND t.lease_until>now()) LIMIT $1;
 
 -- name: FinishConversationFileCleanup :exec
 UPDATE conversations SET files_cleaned_at=now() WHERE id=$1 AND status='deleted';

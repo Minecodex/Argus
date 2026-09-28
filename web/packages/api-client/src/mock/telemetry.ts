@@ -14,16 +14,23 @@ import type {
   SkyWalkingGraphQLResponse,
 } from "../generated/contracts";
 import type { MockContext } from "./context";
+import { requireTelemetryResources } from "./telemetry-access";
+import {
+  collectorComponents,
+  collectorConfigSchemaVersion,
+  collectorDistributionVersion,
+  collectorVersion,
+} from "../generated/collector-registry";
 
 const DISTRIBUTIONS: CollectorDistributionVersion[] = [
   {
     id: "dist-linux-arm64-v1",
     name: "Argus OpenTelemetry Collector",
-    version: "0.132.0-argus.1",
-    collector_version: "0.132.0",
-    config_schema_version: "argus.otelcol/v1",
+    version: collectorDistributionVersion,
+    collector_version: collectorVersion,
+    config_schema_version: collectorConfigSchemaVersion,
     support_status: "supported",
-    components: ["otlp", "hostmetrics", "journald", "filelog", "prometheus"],
+    components: [...collectorComponents.linux_arm64],
     artifacts: [
       {
         platform: "linux_arm64",
@@ -34,17 +41,17 @@ const DISTRIBUTIONS: CollectorDistributionVersion[] = [
         byte_size: 48_000_000,
       },
     ],
-    kubernetes_image: "docker.io/kakj-go/argus-otelcol:0.132.0-argus.1",
+    kubernetes_image: `docker.io/kakj-go/argus-otelcol:${collectorDistributionVersion}`,
     created_at: "2026-08-18T00:00:00Z",
   },
   {
     id: "dist-linux-amd64-v1",
     name: "Argus OpenTelemetry Collector",
-    version: "0.132.0-argus.1",
-    collector_version: "0.132.0",
-    config_schema_version: "argus.otelcol/v1",
+    version: collectorDistributionVersion,
+    collector_version: collectorVersion,
+    config_schema_version: collectorConfigSchemaVersion,
     support_status: "supported",
-    components: ["otlp", "hostmetrics", "journald", "filelog", "prometheus"],
+    components: [...collectorComponents.linux_amd64],
     artifacts: [
       {
         platform: "linux_amd64",
@@ -55,17 +62,17 @@ const DISTRIBUTIONS: CollectorDistributionVersion[] = [
         byte_size: 51_000_000,
       },
     ],
-    kubernetes_image: "docker.io/kakj-go/argus-otelcol:0.132.0-argus.1",
+    kubernetes_image: `docker.io/kakj-go/argus-otelcol:${collectorDistributionVersion}`,
     created_at: "2026-08-18T00:00:00Z",
   },
   {
     id: "dist-windows-amd64-v1",
     name: "Argus OpenTelemetry Collector",
-    version: "0.132.0-argus.1",
-    collector_version: "0.132.0",
-    config_schema_version: "argus.otelcol/v1",
+    version: collectorDistributionVersion,
+    collector_version: collectorVersion,
+    config_schema_version: collectorConfigSchemaVersion,
     support_status: "validation_pending",
-    components: ["otlp", "hostmetrics", "windowseventlog"],
+    components: [...collectorComponents.windows_amd64],
     artifacts: [
       {
         platform: "windows_amd64",
@@ -81,17 +88,79 @@ const DISTRIBUTIONS: CollectorDistributionVersion[] = [
 ];
 
 const PROFILES: CollectionProfile[] = [
-  profile("profile-host-basic", "host-basic", ["metrics"], ["linux_arm64", "linux_amd64"]),
-  profile("profile-linux-journald", "linux-journald", ["logs"], ["linux_arm64", "linux_amd64"]),
-  profile("profile-file-log", "file-log", ["logs"], ["linux_arm64", "linux_amd64"]),
-  profile("profile-prometheus", "prometheus-endpoint", ["metrics"], ["linux_arm64", "linux_amd64"]),
-  profile("profile-otlp", "otlp-receiver", ["metrics", "logs", "traces"], ["linux_arm64", "linux_amd64"]),
-  profile("profile-k8s-node-container", "k8s-node-container", ["metrics", "logs"], ["linux_arm64", "linux_amd64"]),
-  profile("profile-k8s-cluster", "k8s-cluster", ["metrics"], ["linux_arm64", "linux_amd64"]),
-  profile("profile-k8s-otlp-gateway", "k8s-otlp-gateway", ["metrics", "logs", "traces"], ["linux_arm64", "linux_amd64"]),
-  profile("profile-collector-self", "collector-self", ["metrics", "logs"], ["linux_arm64", "linux_amd64"]),
+  profile(
+    "profile-host-basic",
+    "host-basic",
+    ["metrics"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-linux-journald",
+    "linux-journald",
+    ["logs"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-file-log",
+    "file-log",
+    ["logs"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-prometheus",
+    "prometheus-endpoint",
+    ["metrics"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-otlp",
+    "otlp-receiver",
+    ["metrics", "logs", "traces"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-skywalking",
+    "skywalking-receiver",
+    ["traces"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-jaeger",
+    "jaeger-receiver",
+    ["traces"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-k8s-node-container",
+    "k8s-node-container",
+    ["metrics", "logs"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-k8s-cluster",
+    "k8s-cluster",
+    ["metrics"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-k8s-otlp-gateway",
+    "k8s-otlp-gateway",
+    ["metrics", "logs", "traces"],
+    ["linux_arm64", "linux_amd64"],
+  ),
+  profile(
+    "profile-collector-self",
+    "collector-self",
+    ["metrics"],
+    ["linux_arm64", "linux_amd64"],
+  ),
   {
-    ...profile("profile-windows-event-log", "windows-event-log", ["logs"], ["windows_amd64"]),
+    ...profile(
+      "profile-windows-event-log",
+      "windows-event-log",
+      ["logs"],
+      ["windows_amd64"],
+    ),
     support_status: "validation_pending",
   },
 ];
@@ -112,16 +181,21 @@ function profile(
     required_components: [key],
     supported_platforms: supportedPlatforms,
     claim_types: [key],
-    config_schema_version: "argus.otelcol/v1",
+    config_schema_version: collectorConfigSchemaVersion,
     support_status: "supported",
   };
 }
 
-export function createTelemetryDomain(ctx: MockContext): ArgusApiClient["telemetry"] {
+export function createTelemetryDomain(
+  ctx: MockContext,
+): ArgusApiClient["telemetry"] {
   return {
     async listDistributions() {
       await ctx.pause();
-      return DISTRIBUTIONS.map((item) => ({ ...item, artifacts: [...item.artifacts] }));
+      return DISTRIBUTIONS.map((item) => ({
+        ...item,
+        artifacts: [...item.artifacts],
+      }));
     },
     async listProfiles() {
       await ctx.pause();
@@ -130,7 +204,9 @@ export function createTelemetryDomain(ctx: MockContext): ArgusApiClient["telemet
     async listCollectors() {
       await ctx.pause();
       const enterpriseId = ctx.enterpriseId();
-      return ctx.db.collectors.filter((item) => item.enterprise_id === enterpriseId);
+      return ctx.db.collectors.filter(
+        (item) => item.enterprise_id === enterpriseId,
+      );
     },
     async listRoutes() {
       await ctx.pause();
@@ -141,16 +217,22 @@ export function createTelemetryDomain(ctx: MockContext): ArgusApiClient["telemet
     async listClaims(resourceId) {
       await ctx.pause();
       return ctx.db.collectionClaims.filter(
-        (entry) => entry.enterprise_id === ctx.enterpriseId() &&
+        (entry) =>
+          entry.enterprise_id === ctx.enterpriseId() &&
           (!resourceId || entry.physical_resource_ref.includes(resourceId)),
       );
     },
     async testRoute(input) {
       await ctx.pause();
       const collector = ctx.db.collectors.find(
-        (entry) => entry.id === input.collector_id && entry.enterprise_id === ctx.enterpriseId(),
+        (entry) =>
+          entry.id === input.collector_id &&
+          entry.enterprise_id === ctx.enterpriseId(),
       );
-      if (!collector || (input.route_kind === "bastion_gateway" && !input.gateway_collector_id)) {
+      if (
+        !collector ||
+        (input.route_kind === "bastion_gateway" && !input.gateway_collector_id)
+      ) {
         throw new Error("TELEMETRY_ROUTE_INVALID");
       }
       const now = new Date();
@@ -177,14 +259,19 @@ export function createTelemetryDomain(ctx: MockContext): ArgusApiClient["telemet
       };
     },
     async overview(input): Promise<TelemetryOverview> {
+      requireTelemetryResources(ctx, input.resource_ids);
       await ctx.pause();
       const collectors = ctx.db.collectors.filter((item) =>
         input.resource_ids.includes(item.resource_id),
       );
       return {
         resource_count: input.resource_ids.length,
-        healthy_collectors: collectors.filter((item) => item.status === "converged").length,
-        degraded_collectors: collectors.filter((item) => item.status !== "converged").length,
+        healthy_collectors: collectors.filter(
+          (item) => item.status === "converged",
+        ).length,
+        degraded_collectors: collectors.filter(
+          (item) => item.status !== "converged",
+        ).length,
         metric_points: input.resource_ids.length * 7200,
         log_records: input.resource_ids.length * 320,
         spans: input.resource_ids.length * 140,
@@ -192,31 +279,77 @@ export function createTelemetryDomain(ctx: MockContext): ArgusApiClient["telemet
         partial: false,
       };
     },
-    async queryMetrics(input: PromQLInstantQuery): Promise<PrometheusQueryResponse> {
+    async queryMetrics(
+      input: PromQLInstantQuery,
+    ): Promise<PrometheusQueryResponse> {
+      requireTelemetryResources(ctx, input.resource_ids);
       await ctx.pause();
       const now = new Date(input.time_range.to).getTime();
       const partial = input.resource_ids.includes("k8s-prod-east");
-      const result = input.resource_ids.map((resource_id, index) => ({ metric: { __name__: "system_cpu_utilization", resource_id }, values: [
+      const result = input.resource_ids.map((resource_id, index) => ({
+        metric: { __name__: "system_cpu_utilization", resource_id },
+        values: [
           [(now - 120_000) / 1000, String(38 + index)],
           [(now - 60_000) / 1000, String(40 + index)],
           [now / 1000, String(42 + index)],
-        ] }));
-      return { status: "success", data: { resultType: "matrix", result }, warnings: partial ? ["row_limit"] : [], argus_meta: queryMeta("a", partial) };
+        ],
+      }));
+      return {
+        status: "success",
+        data: { resultType: "matrix", result },
+        warnings: partial ? ["row_limit"] : [],
+        argus_meta: queryMeta("a", partial),
+      };
     },
-    async queryMetricsRange(input: PromQLRangeQuery): Promise<PrometheusQueryResponse> {
+    async queryMetricsRange(
+      input: PromQLRangeQuery,
+    ): Promise<PrometheusQueryResponse> {
       return this.queryMetrics(input);
     },
     async queryLogs(input: KQLQuery): Promise<KQLQueryResponse> {
+      requireTelemetryResources(ctx, input.resource_ids);
       await ctx.pause();
       const now = new Date(input.time_range.to).toISOString();
-      const data = input.resource_ids.slice(0, 3).map((resource_id, index) => ({ timestamp: now, resource_id, severity_text: index === 0 ? "ERROR" : "INFO", body: index === 0 ? "credential=[REDACTED]" : "request completed", trace_id: String(index + 1).padStart(32, "0"), service_name: "argus-demo" }));
-      return { schema_version: "argus.kql_result/v1", result_type: "log_entries", data, warnings: [], partial: false, meta: queryMeta("b", false) };
+      const data = input.resource_ids.slice(0, 3).map((resource_id, index) => ({
+        timestamp: now,
+        resource_id,
+        severity_text: index === 0 ? "ERROR" : "INFO",
+        body: index === 0 ? "credential=[REDACTED]" : "request completed",
+        trace_id: String(index + 1).padStart(32, "0"),
+        service_name: "argus-demo",
+      }));
+      return {
+        schema_version: "argus.kql_result/v1",
+        result_type: "log_entries",
+        data,
+        warnings: [],
+        partial: false,
+        meta: queryMeta("b", false),
+      };
     },
-    async queryTraces(input: SkyWalkingTraceGraphQLQuery): Promise<SkyWalkingGraphQLResponse> {
+    async queryTraces(
+      input: SkyWalkingTraceGraphQLQuery,
+    ): Promise<SkyWalkingGraphQLResponse> {
+      requireTelemetryResources(ctx, input.resource_ids);
       await ctx.pause();
       const now = new Date(input.time_range.to).toISOString();
-      const traces = input.resource_ids.slice(0, 3).map((resource_id, index) => ({ traceId: String(index + 1).padStart(32, "0"), rootService: "argus-demo", rootOperation: "GET /", startTime: now, duration: 1, spanCount: 1, errorCount: 0, status: "ok", resource_id }));
-      return { data: { queryBasicTraces: { total: traces.length, traces } }, extensions: { argus: queryMeta("c", false) } };
+      const traces = input.resource_ids
+        .slice(0, 3)
+        .map((resource_id, index) => ({
+          traceId: String(index + 1).padStart(32, "0"),
+          rootService: "argus-demo",
+          rootOperation: "GET /",
+          startTime: now,
+          duration: 1,
+          spanCount: 1,
+          errorCount: 0,
+          status: "ok",
+          resource_id,
+        }));
+      return {
+        data: { queryBasicTraces: { total: traces.length, traces } },
+        extensions: { argus: queryMeta("c", false) },
+      };
     },
   };
 }

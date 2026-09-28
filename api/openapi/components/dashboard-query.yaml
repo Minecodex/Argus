@@ -1,0 +1,190 @@
+{
+  "components": {
+    "schemas": {
+      "DashboardQueryJobInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dashboard_id",
+          "parameters"
+        ],
+        "properties": {
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parameters": {
+            "$ref": "./dashboard.yaml#/components/schemas/DashboardExecutionInput"
+          },
+          "drilldown": {
+            "$ref": "#/components/schemas/DashboardQueryDrilldownInput",
+            "description": "Continue a sealed parent result with its published revision and effective parameters. parameters must have no overrides."
+          }
+        }
+      },
+      "DashboardQueryJobView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "dashboard_id",
+          "revision_id",
+          "status",
+          "version",
+          "files"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "fetching",
+              "materialized",
+              "delivering",
+              "complete",
+              "partial",
+              "cancelled",
+              "failed"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "manifest": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "panel_id",
+                "target_id",
+                "kind",
+                "bytes",
+                "sha256",
+                "source_ref",
+                "path"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "panel_id": {
+                  "type": "string"
+                },
+                "target_id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "data",
+                    "manifest"
+                  ]
+                },
+                "bytes": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "source_ref": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "workspace_file_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DashboardQueryResumeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_version"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "DashboardQueryDrilldownInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parent_job_id",
+          "panel_id",
+          "drilldown_id",
+          "values",
+          "expand_authorized_resources"
+        ],
+        "properties": {
+          "parent_job_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "panel_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "drilldown_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "values": {
+            "type": "object",
+            "maxProperties": 16,
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "expand_authorized_resources": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

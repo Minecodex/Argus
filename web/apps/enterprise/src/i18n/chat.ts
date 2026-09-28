@@ -4,8 +4,22 @@
  */
 export const chatZh = {
   chat: {
+    dashboard: {
+      command: "/创建仪表盘",
+      context: "仪表盘上下文",
+      analyze: "分析仪表盘",
+      create: "创建 / 编辑仪表盘",
+      select: "使用 @ 选择需要分析的仪表盘",
+      exit: "退出仪表盘模式",
+      reload: "重新读取会话选择",
+      failed: "无法读取仪表盘选择，请重试",
+      unavailable: "不可用的仪表盘",
+      remove: "移除仪表盘",
+      createEntry: "创建仪表盘",
+    },
     assistant: "Argus",
     you: "你",
+    messageHistory: "会话消息",
     welcome: {
       title: "Argus 智能会话",
       description:
@@ -118,8 +132,22 @@ export const chatZh = {
 
 export const chatEn = {
   chat: {
+    dashboard: {
+      command: "/create-dashboard",
+      context: "Dashboard context",
+      analyze: "Analyze dashboards",
+      create: "Create / edit dashboards",
+      select: "Use @ to choose dashboards",
+      exit: "Exit dashboard mode",
+      reload: "Reload conversation selection",
+      failed: "Could not load dashboard selection. Retry.",
+      unavailable: "Unavailable dashboard",
+      remove: "Remove dashboard",
+      createEntry: "Create dashboard",
+    },
     assistant: "Argus",
     you: "You",
+    messageHistory: "Conversation messages",
     welcome: {
       title: "Argus Intelligent Chat",
       description:

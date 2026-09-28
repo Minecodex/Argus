@@ -24,7 +24,15 @@ func (response fileContentResponse) VisitDownloadFileDeliveryResponse(w http.Res
 	return response.write(w)
 }
 func (response fileContentResponse) write(w http.ResponseWriter) error {
-	defer response.reader.Close()
+	closed := false
+	closeReader := func() error {
+		if closed {
+			return nil
+		}
+		closed = true
+		return response.reader.Close()
+	}
+	defer closeReader()
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -40,6 +48,9 @@ func (response fileContentResponse) write(w http.ResponseWriter) error {
 		start, length, err = singleFileRange(*response.requestedRange, response.size)
 		if err != nil {
 			w.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", response.size))
+			if err := closeReader(); err != nil {
+				return err
+			}
 			w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
 			return nil
 		}
@@ -49,9 +60,30 @@ func (response fileContentResponse) write(w http.ResponseWriter) error {
 	if _, err := io.CopyN(io.Discard, response.reader, start); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Length", strconv.FormatInt(length, 10))
-	w.WriteHeader(status)
-	_, err := io.CopyN(w, response.reader, length)
+	// A client may finish as soon as Content-Length bytes arrive and cancel the
+	// request before deferred lease release. Keep only a bounded final block so
+	// downloads finish after the Workspace writer lease has been released. The
+	// rest remains streamed; cleanup errors cannot masquerade as a complete file.
+	tailSize := min(length, int64(32<<10))
+	if length > tailSize {
+		w.Header().Set("Content-Length", strconv.FormatInt(length, 10))
+		w.WriteHeader(status)
+		if _, err := io.CopyN(w, response.reader, length-tailSize); err != nil {
+			return err
+		}
+	}
+	tail := make([]byte, int(tailSize))
+	if _, err := io.ReadFull(response.reader, tail); err != nil {
+		return err
+	}
+	if err := closeReader(); err != nil {
+		return err
+	}
+	if length == tailSize {
+		w.Header().Set("Content-Length", strconv.FormatInt(length, 10))
+		w.WriteHeader(status)
+	}
+	_, err := w.Write(tail)
 	return err
 }
 func singleFileRange(value string, size int64) (int64, int64, error) {

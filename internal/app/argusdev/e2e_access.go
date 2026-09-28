@@ -88,11 +88,11 @@ func (a *App) resolveE2EAccess(ctx context.Context, env *E2EEnvironment) error {
 	if err != nil {
 		return err
 	}
-	ingressIP, err := waitForIngressIP(ctx, env, 5*time.Minute)
-	if err != nil {
-		return err
+	forwardTarget := os.Getenv("ARGUS_E2E_INGRESS_FORWARD")
+	if env.IngressNS != "" {
+		forwardTarget = env.IngressNS + "/argus-e2e-ingress"
 	}
-	connectorIP, err := waitForServiceIP(ctx, env, env.SystemNS, "argus-connector-gateway-public", 5*time.Minute)
+	ingressIP, connectorIP, err := resolveE2EAddresses(ctx, env, forwardTarget)
 	if err != nil {
 		return err
 	}
@@ -121,10 +121,6 @@ func (a *App) resolveE2EAccess(ctx context.Context, env *E2EEnvironment) error {
 		connectorDialIP = "127.0.0.1"
 	}
 	ingressPort, gatewayPort := "443", "9443"
-	forwardTarget := os.Getenv("ARGUS_E2E_INGRESS_FORWARD")
-	if env.IngressNS != "" {
-		forwardTarget = env.IngressNS + "/argus-e2e-ingress"
-	}
 	if target := forwardTarget; target != "" {
 		namespace, service, ok := strings.Cut(target, "/")
 		if !ok || namespace == "" || service == "" {
@@ -189,7 +185,54 @@ func (a *App) resolveE2EAccess(ctx context.Context, env *E2EEnvironment) error {
 	if err := waitHTTPSReady(ctx, httpClient, endpoints.EnterpriseOrigin+"/healthz", "ok", 2*time.Minute); err != nil {
 		return fmt.Errorf("enterprise portal through ingress: %w", err)
 	}
+	// Static portal health does not exercise the API upstream. After a Server
+	// rollout its Service route can still be converging even though Pods are Ready.
+	if err := waitHTTPSReady(ctx, httpClient, endpoints.APIBase+"/setup/status", `"state":`, 2*time.Minute); err != nil {
+		return fmt.Errorf("platform API through ingress: %w", err)
+	}
 	return nil
+}
+
+// Explicit port-forward mode has two real routes: host clients use forwarded
+// loopback ports; in-cluster fixtures use Service ClusterIPs with public TLS
+// names. Neither depends on a cloud LoadBalancer being allocated on kind.
+func resolveE2EAddresses(ctx context.Context, env *E2EEnvironment, forward string) (string, string, error) {
+	if forward != "" {
+		namespace, service, ok := strings.Cut(forward, "/")
+		if !ok || namespace == "" || service == "" || strings.Contains(service, "/") {
+			return "", "", fmt.Errorf("ARGUS_E2E_INGRESS_FORWARD must be namespace/service")
+		}
+		ingress, err := waitForServiceClusterIP(ctx, env, namespace, service)
+		if err != nil {
+			return "", "", err
+		}
+		connector, err := waitForServiceClusterIP(ctx, env, env.SystemNS, "argus-connector-gateway-public")
+		return ingress, connector, err
+	}
+	ingress, err := waitForIngressIP(ctx, env, 5*time.Minute)
+	if err != nil {
+		return "", "", err
+	}
+	connector, err := waitForServiceIP(ctx, env, env.SystemNS, "argus-connector-gateway-public", 5*time.Minute)
+	return ingress, connector, err
+}
+
+func waitForServiceClusterIP(ctx context.Context, env *E2EEnvironment, namespace, name string) (string, error) {
+	deadline := time.NewTimer(time.Minute)
+	defer deadline.Stop()
+	for {
+		service, err := env.Kube.Client.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err == nil && service.Spec.Type != corev1.ServiceTypeExternalName && net.ParseIP(service.Spec.ClusterIP) != nil {
+			return service.Spec.ClusterIP, nil
+		}
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-deadline.C:
+			return "", fmt.Errorf("Service %s/%s has no ClusterIP for forwarding", namespace, name)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }
 
 // e2eExposureHosts reads the exposure hosts (including the derived cards,

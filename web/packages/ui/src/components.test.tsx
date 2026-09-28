@@ -104,7 +104,7 @@ describe("SearchInput", () => {
 });
 
 describe("DateTimePicker", () => {
-  it("opens when the input text is clicked and keeps the local value format", () => {
+  it("opens when the input text is clicked and keeps the local value format", async () => {
     const onChange = vi.fn();
     const { container } = render(
       <DateTimePicker
@@ -114,6 +114,11 @@ describe("DateTimePicker", () => {
         value="2026-08-26T23:06"
       />,
       { wrapper: Wrapper },
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("textbox", { name: "Expires at" }),
+      ).not.toBeDisabled(),
     );
     const input = screen.getByRole("textbox", { name: "Expires at" });
     fireEvent.click(input);

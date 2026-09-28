@@ -3,13 +3,13 @@ package authorization
 import "testing"
 
 func TestPermissionRegistryVersionAndBuiltinRolesIncludeM7(t *testing.T) {
-	if PermissionRegistryVersion != 9 {
-		t.Fatalf("permission registry version = %d, want 9", PermissionRegistryVersion)
+	if PermissionRegistryVersion != 11 {
+		t.Fatalf("permission registry version = %d, want 11", PermissionRegistryVersion)
 	}
 
 	for _, permission := range []string{
 		"data_authorization.read", "data_authorization.manage",
-		"conversation.use", "model.manage", "model.quota.manage", "approval_policy.manage",
+		"conversation.use", "model.manage", "model.quota.manage", "approval_policy.manage", "telemetry.dashboard.read", "telemetry.dashboard.manage",
 		"approval.decide", "execution.read", "mcp_connection.manage", "workspace.use",
 
 		"remote_access.grant.read", "remote_access.grant.manage",
@@ -22,8 +22,8 @@ func TestPermissionRegistryVersionAndBuiltinRolesIncludeM7(t *testing.T) {
 		}
 	}
 	for _, permission := range []string{
-		"telemetry.collector.read", "telemetry.collector.manage", "telemetry.query.metrics", "telemetry.query.logs",
-		"telemetry.query.traces", "telemetry.sensitive_fields.read", "telemetry.usage.read",
+		"telemetry.collector.read", "telemetry.collector.manage",
+		"telemetry.usage.read",
 	} {
 		if _, ok := PermissionRegistry[permission]; !ok {
 			t.Errorf("M7 permission %q is missing from registry", permission)
@@ -54,6 +54,21 @@ func TestPermissionRegistryVersionAndBuiltinRolesIncludeM7(t *testing.T) {
 	assertRoleLacksPermissions(t, "resource_operator", "remote_access.rule.read", "remote_access.governance.references.read", "remote_access.session.terminate")
 	assertRoleLacksPermissions(t, "resource_viewer", "remote_access.session_profile.read")
 	assertRoleLacksPermissions(t, "resource_approver", "remote_access.workflow.read", "remote_access.recording.read")
+}
+
+func TestSignalAndFieldPermissionsAreNotAssignable(t *testing.T) {
+	for _, id := range []string{"telemetry.query.metrics", "telemetry.query.logs", "telemetry.query.traces", "telemetry.sensitive_fields.read"} {
+		if _, ok := PermissionRegistry[id]; ok {
+			t.Fatalf("retired permission %s is assignable", id)
+		}
+		for _, role := range BuiltinRoles {
+			for _, permission := range role.Permissions {
+				if permission == id {
+					t.Fatalf("role %s retains %s", role.Key, id)
+				}
+			}
+		}
+	}
 }
 
 func assertRoleLacksPermissions(t *testing.T, key string, permissions ...string) {

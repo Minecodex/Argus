@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"errors"
+	"github.com/kakj-go/Argus/internal/selfmonitor"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -17,6 +18,8 @@ import (
 	"github.com/kakj-go/Argus/internal/config"
 	connectorservice "github.com/kakj-go/Argus/internal/connector"
 	"github.com/kakj-go/Argus/internal/conversation"
+	"github.com/kakj-go/Argus/internal/dashboard"
+	"github.com/kakj-go/Argus/internal/dashboardcontext"
 	"github.com/kakj-go/Argus/internal/directexecutor"
 	"github.com/kakj-go/Argus/internal/enterprisemcp"
 	"github.com/kakj-go/Argus/internal/hostremoval"
@@ -55,6 +58,12 @@ func New(cfg config.Server, logger *slog.Logger) *App {
 }
 
 func (a *App) Run(ctx context.Context) error {
+	stopTracing, traceErr := selfmonitor.Start(ctx, "argus-server", a.logger)
+	if traceErr != nil {
+		return traceErr
+	}
+	defer stopTracing()
+
 	if err := a.config.Validate(); err != nil {
 		return err
 	}
@@ -152,6 +161,8 @@ func (a *App) Run(ctx context.Context) error {
 			EnrollmentEndpoint: a.config.TelemetryEnrollment, IngestGRPCEndpoint: a.config.TelemetryIngestGRPC,
 			IngestHTTPEndpoint: a.config.TelemetryIngestHTTP, TrustBundles: bundles}
 	}
+	actionExtension = dashboard.ActionExtension{Next: actionExtension}
+	dashboardHandler := httpapi.DashboardHandler{Identity: enterpriseIdentityHandler, Service: dashboard.Service{Store: postgresStore, Actions: actionDomain}}
 	resourceDomain := resource.Service{Store: postgresStore, Actions: actionDomain, Access: resource.AccessService{},
 		Direct: resource.DirectTargetValidator{DeniedCIDRs: deniedCIDRs}, Commands: connectorDomain, DirectCommands: directDispatcher, Extension: actionExtension,
 		HostOnboarding:    bastionDomain,
@@ -203,6 +214,9 @@ func (a *App) Run(ctx context.Context) error {
 		defer telemetryQuery.Close()
 		platformHandler.Enterprise.Telemetry = telemetryQuery
 		telemetryDomain := component.TelemetryDomain(a.config, postgresStore, actionDomain, telemetryQuery)
+		dashboardRuntime := &dashboard.Runtime{Store: postgresStore, Backend: telemetryQuery, ContextKey: actionDomain.Key}
+		dashboardHandler.Runtime = dashboardRuntime
+		dashboardHandler.Service.Verifier = dashboardRuntime
 		telemetryIdentity := telemetryservice.IdentityService{Store: postgresStore, TrustBundles: bundles, Issuer: connectorservice.CertManagerIssuer{
 			Client: kubernetesClient, Namespace: a.config.SystemNamespace, IssuerName: a.config.TelemetryIssuerName, IssuerKind: "ClusterIssuer",
 			RequestPrefix: "argus-telemetry-", SubjectLabel: "argus.io/telemetry-collector-id", IssuerGeneration: int32(activeBundle.Epoch),
@@ -229,19 +243,27 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 	conversationHandler.Service.Objects = workspaceDomain.Objects
+	if dashboardHandler.Runtime != nil {
+		dashboardHandler.Queries = &dashboard.QueryJobs{Runtime: *dashboardHandler.Runtime, Objects: workspaceDomain.Objects}
+	}
 	workspaceHandler := httpapi.WorkspaceHandler{Identity: enterpriseIdentityHandler, Service: workspaceDomain}
 	presentationHandler := httpapi.PresentationHandler{Identity: enterpriseIdentityHandler, Store: postgresStore}
 	admissionErrors, err := component.StartWorkspaceAdmission(ctx, workspaceDomain)
 	if err != nil {
 		return err
 	}
+	if err := (toolgateway.DashboardTools{Service: dashboardHandler.Service, Jobs: dashboardHandler.Queries}).Register(toolRegistry); err != nil {
+		return err
+	}
 	nativeGateway, err := toolgateway.New(toolRegistry, a.config.ToolImplementationRevision)
 	if err != nil {
 		return err
 	}
+	dashboardPolicy := dashboardcontext.Policy{Store: postgresStore}
+	nativeGateway.Scope = dashboardPolicy.BusinessScope
 	mcpDomain := enterprisemcp.Service{Store: postgresStore, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: deniedCIDRs}}
 	mcpHandler := httpapi.MCPHandler{Identity: enterpriseIdentityHandler, Service: mcpDomain}
-	conversationHandler.Service.Tools = toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, mcpDomain}, Validate: conversationHandler.Service.ValidateToolPrincipal}
+	conversationHandler.Service.Tools = toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, mcpDomain}, ContextSources: []toolruntime.SkillContextSource{dashboardPolicy}, Filter: dashboardPolicy.Filter, AuthorizeTool: dashboardPolicy.AuthorizeTool, Validate: conversationHandler.Service.ValidateToolPrincipal}
 	go (outbox.Relay{Store: postgresStore, Redis: redisClient, Logger: a.logger}).Run(ctx)
 	server := &http.Server{
 		Addr: a.config.Address,
@@ -256,6 +278,7 @@ func (a *App) Run(ctx context.Context) error {
 
 			RemoteAccess: &remoteAccessHandler,
 			Telemetry:    telemetryHandler,
+			Dashboard:    &dashboardHandler,
 			MCP:          &mcpHandler,
 			Workspace:    &workspaceHandler,
 			Presentation: &presentationHandler,

@@ -1,3 +1,4 @@
+import { createDashboardDomains } from "./dashboard";
 import type { ArgusApiClient } from "../client";
 import type {
   ApprovalRequestView,
@@ -345,6 +346,7 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
     },
     models: createModelsDomain(ctx),
     ...createPlanV5Domains(ctx),
+    ...createDashboardDomains(ctx),
     org: createOrgDomain(ctx),
     secrets: secretsDomain,
     audit: createAuditDomain(ctx),

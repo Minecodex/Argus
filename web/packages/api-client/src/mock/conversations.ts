@@ -10,6 +10,11 @@ import type { MockChatMessage as ChatMessage } from "./chat-types";
 import type { MockChatStreamEvent } from "./chat-types";
 import type { MockContext } from "./context";
 import { nextId } from "./store";
+import {
+  mockDashboardReply,
+  currentDashboardContext,
+  prepareDashboardContext,
+} from "./dashboard-context";
 
 function serializeMessage(message: ChatMessage): Record<string, unknown> {
   return {
@@ -17,6 +22,7 @@ function serializeMessage(message: ChatMessage): Record<string, unknown> {
     conversation_id: message.conversationId,
     role: message.role,
     content: message.content,
+    dashboard_context: message.dashboardContext,
     created_at: message.createdAt,
     ...(message.modelId ? { model_id: message.modelId } : {}),
     ...(message.modelRevision ? { model_revision: message.modelRevision } : {}),
@@ -214,7 +220,11 @@ export function createConversationsDomain(
       db.messages = db.messages.filter((item) => item.conversationId !== id);
       ctx.save();
     },
+    async dashboardContext(id) {
+      return structuredClone(currentDashboardContext(ctx, id));
+    },
     async preflight(id, input) {
+      prepareDashboardContext(ctx, id, input);
       const c = ctx.mustFind(
         db.conversations,
         (item) => item.id === id,
@@ -357,6 +367,11 @@ export function createConversationsDomain(
       return publicConversation(conversation);
     },
     sendMessage(conversationId, input, options) {
+      const dashboardContext = prepareDashboardContext(
+        ctx,
+        conversationId,
+        input,
+      );
       const conversation = ctx.mustFind(
         db.conversations,
         (entry) => entry.id === conversationId,
@@ -402,14 +417,18 @@ export function createConversationsDomain(
         conversationId,
         role: "user",
         content: input.content,
+        dashboardContext,
         createdAt: ctx.nowIso(),
         modelId: conversation.selectedModelId,
       };
+      (db.planv5.dashboardContexts ??= {})[conversationId] = dashboardContext;
       db.messages.push(userMessage);
       conversation.lastMessageAt = userMessage.createdAt;
       ctx.save();
       return streamEnvelopes(
-        ctx.streamReply(conversationId, input.content),
+        dashboardContext.mode === "none"
+          ? ctx.streamReply(conversationId, input.content)
+          : mockDashboardReply(ctx, conversationId, dashboardContext.mode),
         options?.signal,
       );
     },

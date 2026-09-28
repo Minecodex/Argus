@@ -17,7 +17,7 @@ func (handler ConversationHandler) PreflightConversation(ctx context.Context, re
 	if request.Body.FileIds != nil {
 		files = *request.Body.FileIds
 	}
-	value, err := handler.Service.Preflight(ctx, p.EnterpriseIDValue(), uuid.MustParse(p.ActorID()), request.ConversationId, request.Body.Content, files)
+	value, err := handler.Service.Preflight(ctx, p.EnterpriseIDValue(), uuid.MustParse(p.ActorID()), request.ConversationId, request.Body.Content, files, dashboardSelection(request.Body.DashboardContext))
 	if err == nil && !value.Ready {
 		err = value.CapacityError()
 	}

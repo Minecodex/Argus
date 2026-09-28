@@ -218,11 +218,10 @@ func (server *IngestServer) Export(ctx context.Context, request *collectmetrics.
 	if err != nil || validateMetrics(request) != nil {
 		return nil, status.Error(codes.PermissionDenied, "telemetry identity or payload rejected")
 	}
-	identity, err = server.resolveMetricPayloadIdentity(ctx, identity, request)
+	identity, err = server.prepareMetricPayload(ctx, identity, request)
 	if err != nil {
 		return nil, status.Error(codes.PermissionDenied, "telemetry downstream identity rejected")
 	}
-	overrideMetricIdentity(request, identity)
 	payload, err := proto.Marshal(request)
 	if err == nil {
 		err = server.publish(ctx, "metrics", identity, payload)
@@ -239,11 +238,10 @@ func (server *IngestServer) ExportLogs(ctx context.Context, request *collectlogs
 	if err != nil || validateLogs(request) != nil {
 		return nil, status.Error(codes.PermissionDenied, "telemetry identity or payload rejected")
 	}
-	identity, err = server.resolveLogPayloadIdentity(ctx, identity, request)
+	identity, err = server.prepareLogPayload(ctx, identity, request)
 	if err != nil {
 		return nil, status.Error(codes.PermissionDenied, "telemetry downstream identity rejected")
 	}
-	overrideLogIdentity(request, identity)
 	payload, err := proto.Marshal(request)
 	if err == nil {
 		err = server.publish(ctx, "logs", identity, payload)
@@ -260,11 +258,10 @@ func (server *IngestServer) ExportTraces(ctx context.Context, request *collecttr
 	if err != nil || validateTraces(request) != nil {
 		return nil, status.Error(codes.PermissionDenied, "telemetry identity or payload rejected")
 	}
-	identity, err = server.resolveTracePayloadIdentity(ctx, identity, request)
+	identity, err = server.prepareTracePayload(ctx, identity, request)
 	if err != nil {
 		return nil, status.Error(codes.PermissionDenied, "telemetry downstream identity rejected")
 	}
-	overrideTraceIdentity(request, identity)
 	payload, err := proto.Marshal(request)
 	if err == nil {
 		err = server.publish(ctx, "traces", identity, payload)
@@ -313,9 +310,8 @@ func (server *IngestServer) httpExport(signal string) http.HandlerFunc {
 			if err == nil {
 				err = validateMetrics(value)
 				if err == nil {
-					identity, err = server.resolveMetricPayloadIdentity(request.Context(), identity, value)
+					identity, err = server.prepareMetricPayload(request.Context(), identity, value)
 				}
-				overrideMetricIdentity(value, identity)
 				message = value
 			}
 		case "logs":
@@ -324,9 +320,8 @@ func (server *IngestServer) httpExport(signal string) http.HandlerFunc {
 			if err == nil {
 				err = validateLogs(value)
 				if err == nil {
-					identity, err = server.resolveLogPayloadIdentity(request.Context(), identity, value)
+					identity, err = server.prepareLogPayload(request.Context(), identity, value)
 				}
-				overrideLogIdentity(value, identity)
 				message = value
 			}
 		case "traces":
@@ -335,9 +330,8 @@ func (server *IngestServer) httpExport(signal string) http.HandlerFunc {
 			if err == nil {
 				err = validateTraces(value)
 				if err == nil {
-					identity, err = server.resolveTracePayloadIdentity(request.Context(), identity, value)
+					identity, err = server.prepareTracePayload(request.Context(), identity, value)
 				}
-				overrideTraceIdentity(value, identity)
 				message = value
 			}
 		}
@@ -564,7 +558,32 @@ func overrideTraceIdentity(value *collecttraces.ExportTraceServiceRequest, ident
 }
 
 func validateAttributes(values []*commonpb.KeyValue) error {
-	if len(values) > maxAttributes {
+	return validateAttributeBudget(values, maxAttributes)
+}
+
+func validateResourceAttributes(values []*commonpb.KeyValue) error {
+	if len(values) > maxAttributes+16 {
+		return errIngestRejected
+	}
+	user, reserved := 0, 0
+	for _, value := range values {
+		if value == nil {
+			return errIngestRejected
+		}
+		if strings.HasPrefix(value.Key, "argus.") {
+			reserved++
+		} else {
+			user++
+		}
+	}
+	if user > maxAttributes || reserved > 16 {
+		return errIngestRejected
+	}
+	return validateAttributeBudget(values, maxAttributes+16)
+}
+
+func validateAttributeBudget(values []*commonpb.KeyValue, limit int) error {
+	if len(values) > limit {
 		return errIngestRejected
 	}
 	for _, value := range values {
@@ -581,7 +600,7 @@ func validateAttributes(values []*commonpb.KeyValue) error {
 
 func validateMetrics(value *collectmetrics.ExportMetricsServiceRequest) error {
 	for _, resource := range value.ResourceMetrics {
-		if resource.Resource != nil && validateAttributes(resource.Resource.Attributes) != nil {
+		if resource.Resource != nil && validateResourceAttributes(resource.Resource.Attributes) != nil {
 			return errIngestRejected
 		}
 		for _, scope := range resource.ScopeMetrics {
@@ -630,7 +649,7 @@ func validateMetrics(value *collectmetrics.ExportMetricsServiceRequest) error {
 }
 func validateLogs(value *collectlogs.ExportLogsServiceRequest) error {
 	for _, resource := range value.ResourceLogs {
-		if resource.Resource != nil && validateAttributes(resource.Resource.Attributes) != nil {
+		if resource.Resource != nil && validateResourceAttributes(resource.Resource.Attributes) != nil {
 			return errIngestRejected
 		}
 		for _, scope := range resource.ScopeLogs {
@@ -647,15 +666,27 @@ func validateLogs(value *collectlogs.ExportLogsServiceRequest) error {
 	return nil
 }
 func validateTraces(value *collecttraces.ExportTraceServiceRequest) error {
+	if value == nil {
+		return errIngestRejected
+	}
 	for _, resource := range value.ResourceSpans {
-		if resource.Resource != nil && validateAttributes(resource.Resource.Attributes) != nil {
+		if resource == nil {
+			return errIngestRejected
+		}
+		if resource.Resource != nil && validateResourceAttributes(resource.Resource.Attributes) != nil {
 			return errIngestRejected
 		}
 		for _, scope := range resource.ScopeSpans {
+			if scope == nil {
+				return errIngestRejected
+			}
 			if scope.Scope != nil && validateAttributes(scope.Scope.Attributes) != nil {
 				return errIngestRejected
 			}
 			for _, span := range scope.Spans {
+				if !validTraceSpan(span) {
+					return errIngestRejected
+				}
 				if validateAttributes(span.Attributes) != nil || len(span.Events) > maxTraceEvents || len(span.Links) > maxTraceLinks {
 					return errIngestRejected
 				}

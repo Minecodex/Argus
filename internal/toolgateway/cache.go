@@ -20,7 +20,7 @@ type discoveryEntry struct {
 }
 
 func discoveryKey(revision, operation string, call toolruntime.Invocation) string {
-	data, _ := json.Marshal([]any{revision, operation, call.Principal.EnterpriseID, call.Principal.UserID, call.Principal.AuthorizationVersion, call.Principal.Permissions, call.Arguments})
+	data, _ := json.Marshal([]any{revision, operation, call.RunID, call.Principal.EnterpriseID, call.Principal.UserID, call.Principal.AuthorizationVersion, call.Principal.Permissions, call.Arguments})
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
 }

@@ -17,8 +17,8 @@ import (
 func TestMetricsRequestIncludesProfileAndRecoveryMetrics(t *testing.T) {
 	request := metricsRequest(&resourcepb.Resource{}, uint64(time.Now().UnixNano()), ".backlog")
 	metrics := request.ResourceMetrics[0].ScopeMetrics[0].Metrics
-	if len(metrics) != 4 {
-		t.Fatalf("metric count = %d, want 4", len(metrics))
+	if len(metrics) != 5 {
+		t.Fatalf("metric count = %d, want 5", len(metrics))
 	}
 	if metrics[0].Name != "system.cpu.utilization" || metrics[0].Unit != "1" {
 		t.Fatalf("profile metric = %q %q", metrics[0].Name, metrics[0].Unit)
@@ -31,6 +31,18 @@ func TestMetricsRequestIncludesProfileAndRecoveryMetrics(t *testing.T) {
 	}
 	if metrics[3].Name != "argus.m7.e2e.summary.backlog" || metrics[3].GetSummary() == nil {
 		t.Fatalf("summary metric = %q", metrics[3].Name)
+	}
+	histogram := metrics[4].GetHistogram()
+	if histogram == nil || len(histogram.DataPoints) != 1 {
+		t.Fatal("classic histogram needed for real bucket rendering")
+	}
+	point := histogram.DataPoints[0]
+	var total uint64
+	for _, count := range point.BucketCounts {
+		total += count
+	}
+	if len(point.BucketCounts) != len(point.ExplicitBounds)+1 || total != point.Count || point.GetSum() != 16 {
+		t.Fatal("histogram count, sum or bounds are inconsistent")
 	}
 }
 

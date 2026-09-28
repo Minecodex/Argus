@@ -1,0 +1,119 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Argus dashboardapi",
+    "version": "1.0.0",
+    "license": {
+      "name": "Proprietary",
+      "identifier": "LicenseRef-Proprietary"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "sessionCookie": []
+    }
+  ],
+  "paths": {
+    "/dashboards": {
+      "$ref": "../argus.yaml#/paths/~1dashboards"
+    },
+    "/dashboards/{id}": {
+      "$ref": "../argus.yaml#/paths/~1dashboards~1{id}"
+    },
+    "/dashboards/{id}/revisions": {
+      "$ref": "../argus.yaml#/paths/~1dashboards~1{id}~1revisions"
+    },
+    "/dashboard-drafts": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-drafts"
+    },
+    "/dashboard-drafts/{id}": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-drafts~1{id}"
+    },
+    "/dashboard-drafts/{id}/preview": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-drafts~1{id}~1preview"
+    },
+    "/dashboard-drafts/{id}/rebase": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-drafts~1{id}~1rebase"
+    },
+    "/dashboard-spec/validate": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-spec~1validate"
+    },
+    "/dashboard-folders": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-folders"
+    },
+    "/dashboard-folders/preview": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-folders~1preview"
+    },
+    "/dashboards/{id}/actions/preview": {
+      "$ref": "../argus.yaml#/paths/~1dashboards~1{id}~1actions~1preview"
+    },
+    "/dashboards/{id}/execute": {
+      "$ref": "../argus.yaml#/paths/~1dashboards~1{id}~1execute"
+    },
+    "/dashboard-drafts/{id}/sample": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-drafts~1{id}~1sample"
+    },
+    "/dashboards/catalog/query": {
+      "$ref": "../argus.yaml#/paths/~1dashboards~1catalog~1query"
+    },
+    "/dashboards/{id}/drilldown": {
+      "$ref": "../argus.yaml#/paths/~1dashboards~1{id}~1drilldown"
+    },
+    "/dashboard-drafts/{id}/drilldowns/generate": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-drafts~1{id}~1drilldowns~1generate"
+    },
+    "/hosts/{id}/dashboard-bindings": {
+      "$ref": "../argus.yaml#/paths/~1hosts~1{id}~1dashboard-bindings"
+    },
+    "/hosts/{id}/dashboard-bindings/preview": {
+      "$ref": "../argus.yaml#/paths/~1hosts~1{id}~1dashboard-bindings~1preview"
+    },
+    "/kubernetes/clusters/{id}/dashboard-bindings": {
+      "$ref": "../argus.yaml#/paths/~1kubernetes~1clusters~1{id}~1dashboard-bindings"
+    },
+    "/kubernetes/clusters/{id}/dashboard-bindings/preview": {
+      "$ref": "../argus.yaml#/paths/~1kubernetes~1clusters~1{id}~1dashboard-bindings~1preview"
+    },
+    "/dashboards/{id}/bindings": {
+      "$ref": "../argus.yaml#/paths/~1dashboards~1{id}~1bindings"
+    },
+    "/dashboard-spec/convert-panel": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-spec~1convert-panel"
+    },
+    "/conversations/{id}/dashboard-queries": {
+      "$ref": "../argus.yaml#/paths/~1conversations~1{id}~1dashboard-queries"
+    },
+    "/conversations/{id}/dashboard-queries/{job_id}": {
+      "$ref": "../argus.yaml#/paths/~1conversations~1{id}~1dashboard-queries~1{job_id}"
+    },
+    "/conversations/{id}/dashboard-queries/{job_id}/cancel": {
+      "$ref": "../argus.yaml#/paths/~1conversations~1{id}~1dashboard-queries~1{job_id}~1cancel"
+    },
+    "/conversations/{id}/dashboard-queries/{job_id}/resume": {
+      "$ref": "../argus.yaml#/paths/~1conversations~1{id}~1dashboard-queries~1{job_id}~1resume"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "$ref": "../argus.yaml#/components/securitySchemes/sessionCookie"
+      }
+    },
+    "schemas": {
+      "DashboardAnalysisResolveInput": {
+        "$ref": "../components/dashboard-analysis.yaml#/components/schemas/DashboardAnalysisResolveInput"
+      },
+      "DashboardAnalysisQueryInput": {
+        "$ref": "../components/dashboard-analysis.yaml#/components/schemas/DashboardAnalysisQueryInput"
+      },
+      "DashboardAnalysisCandidateInput": {
+        "$ref": "../components/dashboard-analysis.yaml#/components/schemas/DashboardAnalysisCandidateInput"
+      }
+    }
+  }
+}

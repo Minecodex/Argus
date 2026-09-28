@@ -1,3 +1,4 @@
+import { dashboardsZh, dashboardsEn } from "./dashboards";
 import { planv5Zh, planv5En } from "./planv5";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
@@ -29,6 +30,7 @@ import { errorsEn, errorsZh } from "./errors";
  * - 通用/跨模块文案放 `common.ts`，外壳与导航文案放 `shell.ts`。
  */
 const modulesZh = [
+  dashboardsZh,
   planv5Zh,
   connectionChecksZh,
   commonZh,
@@ -50,6 +52,7 @@ const modulesZh = [
   errorsZh,
 ];
 const modulesEn = [
+  dashboardsEn,
   planv5En,
   connectionChecksEn,
   commonEn,

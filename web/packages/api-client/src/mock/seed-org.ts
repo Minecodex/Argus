@@ -8,6 +8,7 @@ import type {
   User,
 } from "../types";
 import type { MockEnterpriseUserRecord } from "./internal-types";
+import { builtinRolePermissions } from "../generated/permission-registry";
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -29,113 +30,47 @@ export const BUILTIN_ROLE_TEMPLATES: BuiltinRoleTemplate[] = [
     key: "enterprise_admin",
     name: "Enterprise Admin",
     description: "企业管理员",
-    permissions: ["*"],
   },
   {
     key: "iam_admin",
     name: "IAM Admin",
-    description: "身份与授权管理员",
-    permissions: ["identity.user.manage", "audit.read"],
+    description: "身份与权限管理员",
   },
   {
     key: "security_auditor",
     name: "Security Auditor",
     description: "安全审计员",
-    permissions: ["audit.read", "remote_access.recording.read"],
   },
   {
     key: "resource_admin",
     name: "Resource Admin",
-    description: "项目管理员",
-    permissions: [
-      "host.read",
-      "host.create",
-      "host.update",
-      "host.connection.test",
-      "host.direct_connect",
-      "connector.read",
-      "connector.create",
-      "connector.rotate_credential",
-      "bastion_scope.read",
-      "bastion_scope.create",
-      "bastion_scope.manage",
-      "remote_access.request",
-      "remote_access.session.create",
-      "remote_access.session.approve",
-      "remote_access.session.terminate",
-      "remote_access.recording.read",
-      "kubernetes.cluster.read",
-      "kubernetes.cluster.create",
-      "kubernetes.pod.read",
-      "kubernetes.workload.restart",
-      "telemetry.read",
-      "telemetry.query.metrics",
-      "telemetry.query.logs",
-      "telemetry.query.traces",
-      "telemetry.live_tail",
-      "telemetry.export",
-      "telemetry.alert.manage",
-      "telemetry.dashboard.manage",
-      "telemetry.sensitive_fields.read",
-      "credential.manage",
-      "credential.use",
-    ],
+    description: "资源管理员",
   },
   {
     key: "resource_operator",
     name: "Resource Operator",
-    description: "项目操作员",
-    permissions: [
-      "host.read",
-      "host.connection.test",
-      "connector.read",
-      "bastion_scope.read",
-      "remote_access.request",
-      "remote_access.session.create",
-      "kubernetes.cluster.read",
-      "kubernetes.pod.read",
-      "kubernetes.workload.restart",
-      "telemetry.read",
-      "telemetry.query.metrics",
-      "telemetry.query.logs",
-      "telemetry.query.traces",
-      "telemetry.live_tail",
-      "credential.use",
-    ],
+    description: "资源操作员",
   },
   {
     key: "resource_viewer",
     name: "Resource Viewer",
-    description: "项目只读成员",
-    permissions: [
-      "host.read",
-      "connector.read",
-      "bastion_scope.read",
-      "kubernetes.cluster.read",
-      "kubernetes.pod.read",
-      "telemetry.read",
-      "telemetry.query.metrics",
-    ],
+    description: "资源只读成员",
   },
   {
     key: "resource_approver",
     name: "Resource Approver",
-    description: "项目审批人",
-    permissions: [
-      "host.read",
-      "kubernetes.cluster.read",
-      "telemetry.read",
-      "telemetry.query.metrics",
-      "remote_access.session.approve",
-    ],
+    description: "资源审批人",
   },
-  {
-    key: "department_admin",
-    name: "Department Admin",
-    description: "部门管理员（模型配额）",
-    permissions: ["model_quota.manage", "model_usage.read"],
-  },
-];
+].map((role) => ({
+  ...role,
+  permissions: [...(builtinRolePermissions[role.key] ?? [])],
+}));
+BUILTIN_ROLE_TEMPLATES.push({
+  key: "department_admin",
+  name: "Department Admin",
+  description: "部门模型配额管理员",
+  permissions: ["model.quota.manage", "model.usage.read"],
+});
 
 /** createSeedDb 的 org 域部分：身份、授权与访问控制种子。 */
 export interface OrgSeed {

@@ -24,6 +24,7 @@ ON CONFLICT (enterprise_id, resource_type, resource_id) DO UPDATE SET
   distribution_version_id = EXCLUDED.distribution_version_id,
   platform = EXCLUDED.platform,
   role = EXCLUDED.role,
+  source_generation = CASE WHEN collector_instances.status = 'uninstalled' THEN gen_random_uuid() ELSE collector_instances.source_generation END,
   status = 'installing',
   desired_revision = collector_instances.desired_revision + 1,
   version = collector_instances.version + 1,

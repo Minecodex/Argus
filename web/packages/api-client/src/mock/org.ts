@@ -717,32 +717,26 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
             .map((binding) => binding.role_id),
         );
       }
-      const catalog: DataAuthorizationResource[] =
+      const resources =
         resourceType === "host"
-          ? db.hosts
-              .filter((host) => host.enterpriseId === ctx.enterpriseId())
-              .map((host) => ({
-                resource_type: resourceType,
-                resource_id: host.id,
-                name: host.name,
-                direct: direct.has(host.id),
-                inherited: !direct.has(host.id) && inherited.has(host.id),
-                sources: direct.has(host.id)
-                  ? ["直接"]
-                  : (inheritedSources.get(host.id) ?? []),
-              }))
-          : db.clusters
-              .filter((cluster) => cluster.enterpriseId === ctx.enterpriseId())
-              .map((cluster) => ({
-                resource_type: resourceType,
-                resource_id: cluster.id,
-                name: cluster.name,
-                direct: direct.has(cluster.id),
-                inherited: !direct.has(cluster.id) && inherited.has(cluster.id),
-                sources: direct.has(cluster.id)
-                  ? ["直接"]
-                  : (inheritedSources.get(cluster.id) ?? []),
-              }));
+          ? db.hosts.filter((row) => row.enterpriseId === ctx.enterpriseId())
+          : resourceType === "kubernetes_cluster"
+            ? db.clusters.filter(
+                (row) => row.enterpriseId === ctx.enterpriseId(),
+              )
+            : (db.dashboards?.items ?? [])
+                .filter((row) => row.enterprise === ctx.enterpriseId())
+                .map((row) => row.value);
+      const catalog: DataAuthorizationResource[] = resources.map((row) => ({
+        resource_type: resourceType,
+        resource_id: row.id,
+        name: row.name,
+        direct: direct.has(row.id),
+        inherited: !direct.has(row.id) && inherited.has(row.id),
+        sources: direct.has(row.id)
+          ? ["直接"]
+          : (inheritedSources.get(row.id) ?? []),
+      }));
       const offset = Math.max(0, Number.parseInt(cursor ?? "0", 10) || 0);
       const pageSize = Math.min(Math.max(limit ?? 50, 1), 200);
       const items = catalog.slice(offset, offset + pageSize);

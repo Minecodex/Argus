@@ -26,6 +26,7 @@ type TableRouter interface {
 }
 
 type Scope struct {
+	SourceKeys   []string
 	EnterpriseID uuid.UUID
 	ResourceIDs  []uuid.UUID
 }
@@ -109,6 +110,10 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 		where = append(where, "s.resource_id IN (?)")
 		args = append(args, q.scope.ResourceIDs)
 	}
+	if len(q.scope.SourceKeys) > 0 {
+		where = append(where, "s.source_key IN (?)")
+		args = append(args, q.scope.SourceKeys)
+	}
 	limit := q.maxSeries
 	if hints != nil && hints.Limit > 0 && (limit <= 0 || hints.Limit < limit) {
 		limit = hints.Limit
@@ -116,15 +121,15 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 	if limit <= 0 {
 		limit = 100000
 	}
-	settings := clickhouse.Settings{"max_result_rows": limit}
+	settings := clickhouse.Settings{"max_result_rows": limit + 1}
 	if q.maxScanBytes > 0 {
 		settings["max_bytes_to_read"] = q.maxScanBytes
 	}
 	if q.timeout > 0 {
 		settings["max_execution_time"] = max(1, int(q.timeout.Seconds()))
 	}
-	seriesQuery := fmt.Sprintf("SELECT s.series_id, s.metric_name, s.labels FROM %s AS s WHERE %s ORDER BY s.series_id LIMIT ?", quoteIdentifier(q.seriesTable), strings.Join(where, " AND "))
-	seriesArgs := append(args, limit)
+	seriesQuery := fmt.Sprintf("SELECT s.series_id, s.metric_name, s.labels FROM %s AS s FINAL WHERE %s ORDER BY s.series_id LIMIT ?", quoteIdentifier(q.seriesTable), strings.Join(where, " AND "))
+	seriesArgs := append(args, limit+1)
 	seriesRows, err := q.conn.Query(q.queryContext(ctx, settings), seriesQuery, seriesArgs...)
 	if err != nil {
 		return storage.ErrSeriesSet(err)
@@ -142,7 +147,7 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 		item := ensureSeries(selected, id.String(), metricName, rawLabels, limit)
 		if item == nil {
 			seriesRows.Close()
-			return storage.ErrSeriesSet(fmt.Errorf("promql max series exceeded"))
+			return storage.ErrSeriesSet(fmt.Errorf("%w: max series", ErrBudget))
 		}
 		selectedIDs = append(selectedIDs, id)
 	}
@@ -154,6 +159,7 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 	if len(selectedIDs) == 0 {
 		return &seriesSet{items: nil, index: -1}
 	}
+	settings["max_result_rows"] = max(1, q.maxSamples) + 1
 	sampleQuery := fmt.Sprintf(`SELECT series_id, timestamp, float_value, stale_marker, sample_type, count, sum, bucket_counts, explicit_bounds,
 	quantile_values, exponential_scale, exponential_zero_count, exponential_zero_threshold, exponential_positive_offset, exponential_positive_bucket_counts,
 	exponential_negative_offset, exponential_negative_bucket_counts
@@ -162,6 +168,10 @@ FROM %s WHERE series_id IN (?) AND timestamp >= ? AND timestamp <= ? ORDER BY se
 	// sample timestamp as DateTime64(9). Binding integers makes ClickHouse treat
 	// the comparison as decimal arithmetic and can overflow on current releases.
 	sampleArgs := []any{selectedIDs, time.UnixMilli(q.mint).UTC(), time.UnixMilli(q.maxt).UTC()}
+	if len(q.scope.SourceKeys) > 0 {
+		sampleQuery = strings.Replace(sampleQuery, " ORDER BY", " AND source_key IN (?) ORDER BY", 1)
+		sampleArgs = append(sampleArgs, q.scope.SourceKeys)
+	}
 	rows, err := q.conn.Query(q.queryContext(ctx, settings), sampleQuery, sampleArgs...)
 	if err != nil {
 		return storage.ErrSeriesSet(err)
@@ -194,6 +204,9 @@ FROM %s WHERE series_id IN (?) AND timestamp >= ? AND timestamp <= ? ORDER BY se
 		item := selected[id.String()]
 		if item == nil {
 			continue
+		}
+		if !stale {
+			q.progress.ObserveEvent(timestamp)
 		}
 		seriesByID[id.String()] = item
 		quantileValues := normalizeQuantiles(quantileRaw)

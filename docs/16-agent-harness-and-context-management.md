@@ -74,6 +74,8 @@ context_compacted
 
 事件只追加，不因上下文压缩删除或覆盖。大正文可以保存到 Artifact Store，事件保存内容哈希、`result_ref`、安全摘要和数据分级。
 
+模型流式增量与最终回复的事件事务先锁定并核对 RuntimeTask 租约，再以 READ COMMITTED 写入。`NextConversationSequence` 的原子 UPDATE 串行分配同一会话序号；最终回复、用量事件与 Step 完成仍原子提交。这样后台查询进度并发追加事件时，不会因 SERIALIZABLE 旧快照冲突中断正在读取的模型流。该隔离级别仅用于这两类受租约保护的事件写入，不改变领域事务和通用应用回调，不重试模型请求或工具操作；旧 owner/fence 仍无法写入。真实 PostgreSQL 锁竞争回归覆盖增量、最终事件组、连续序号、恰好一次内容及接管后拒绝。
+
 ### 3.2 RunState 与 RunCheckpoint
 
 RunState 是服务端结构化事实，至少包含：

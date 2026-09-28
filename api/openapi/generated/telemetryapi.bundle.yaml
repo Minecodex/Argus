@@ -1421,6 +1421,8 @@ components:
           enum:
             - log_entries
             - log_streams
+            - table
+            - timeseries
         data: {}
         warnings:
           type: array

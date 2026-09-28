@@ -31,57 +31,37 @@ SELECT permission_id FROM role_permissions WHERE role_id = $1 ORDER BY permissio
 -- name: ListUserAuthorizedResourceIDs :many
 SELECT DISTINCT dag.resource_id
 FROM data_authorization_grants dag
-LEFT JOIN enterprise_users eu
-  ON dag.subject_type = 'department'
- AND eu.department_id = dag.subject_id
- AND eu.enterprise_id = dag.enterprise_id
- AND eu.id = sqlc.arg(user_id)
-LEFT JOIN role_bindings rb
-  ON dag.subject_type = 'role'
- AND rb.role_id = dag.subject_id
- AND rb.enterprise_id = dag.enterprise_id
- AND rb.subject_type IN ('user', 'department')
- AND rb.status = 'active'
-LEFT JOIN enterprise_users role_eu
-  ON rb.subject_type = 'department'
- AND role_eu.department_id = rb.subject_id
- AND role_eu.enterprise_id = rb.enterprise_id
- AND role_eu.id = sqlc.arg(user_id)
-WHERE dag.enterprise_id = sqlc.arg(enterprise_id)
-  AND dag.resource_type = sqlc.arg(resource_type)
-  AND dag.status = 'active'
-  AND (
-    (dag.subject_type = 'user' AND dag.subject_id = sqlc.arg(user_id))
-    OR (dag.subject_type = 'department' AND eu.id IS NOT NULL)
-    OR (dag.subject_type = 'role' AND (
-      EXISTS (SELECT 1 FROM role_bindings rbu WHERE rbu.enterprise_id = dag.enterprise_id AND rbu.subject_type = 'user' AND rbu.subject_id = sqlc.arg(user_id) AND rbu.role_id = dag.subject_id AND rbu.status = 'active')
-      OR role_eu.id IS NOT NULL
-    ))
-  )
-ORDER BY dag.resource_id;
+JOIN enterprise_users subject ON subject.id=sqlc.arg(user_id) AND subject.enterprise_id=dag.enterprise_id AND subject.status='active'
+JOIN departments department ON department.id=subject.department_id AND department.enterprise_id=subject.enterprise_id AND department.status='active'
+WHERE dag.enterprise_id=sqlc.arg(enterprise_id) AND dag.resource_type=sqlc.arg(resource_type) AND dag.status='active'
+ AND (
+  (dag.subject_type='user' AND dag.subject_id=subject.id)
+  OR (dag.subject_type='department' AND dag.subject_id=subject.department_id)
+  OR (dag.subject_type='role' AND EXISTS(
+   SELECT 1 FROM role_bindings binding
+   JOIN roles role ON role.id=binding.role_id AND role.enterprise_id=binding.enterprise_id AND role.status='active'
+   WHERE binding.enterprise_id=dag.enterprise_id AND binding.role_id=dag.subject_id AND binding.status='active'
+    AND (binding.valid_from IS NULL OR binding.valid_from<=now()) AND (binding.valid_until IS NULL OR binding.valid_until>now())
+    AND ((binding.subject_type='user' AND binding.subject_id=subject.id) OR (binding.subject_type='department' AND binding.subject_id=subject.department_id))
+  ))
+ ) ORDER BY dag.resource_id;
 
 -- name: ListServiceAccountAuthorizedResourceIDs :many
 SELECT DISTINCT dag.resource_id
 FROM data_authorization_grants dag
-LEFT JOIN role_bindings rb
-  ON dag.subject_type = 'role'
- AND rb.role_id = dag.subject_id
- AND rb.enterprise_id = dag.enterprise_id
- AND rb.subject_type = 'service_account'
- AND rb.subject_id = sqlc.arg(service_account_id)
- AND rb.status = 'active'
-WHERE dag.enterprise_id = sqlc.arg(enterprise_id)
-  AND dag.resource_type = sqlc.arg(resource_type)
-  AND dag.status = 'active'
-  AND (
-    (dag.subject_type = 'service_account' AND dag.subject_id = sqlc.arg(service_account_id))
-    OR rb.id IS NOT NULL
-  )
-ORDER BY dag.resource_id;
+JOIN service_accounts subject ON subject.id=sqlc.arg(service_account_id) AND subject.enterprise_id=dag.enterprise_id AND subject.status='active'
+WHERE dag.enterprise_id=sqlc.arg(enterprise_id) AND dag.resource_type=sqlc.arg(resource_type) AND dag.status='active'
+ AND ((dag.subject_type='service_account' AND dag.subject_id=subject.id) OR (dag.subject_type='role' AND EXISTS(
+  SELECT 1 FROM role_bindings binding
+  JOIN roles role ON role.id=binding.role_id AND role.enterprise_id=binding.enterprise_id AND role.status='active'
+  WHERE binding.enterprise_id=dag.enterprise_id AND binding.role_id=dag.subject_id AND binding.subject_type='service_account' AND binding.subject_id=subject.id AND binding.status='active'
+   AND (binding.valid_from IS NULL OR binding.valid_from<=now()) AND (binding.valid_until IS NULL OR binding.valid_until>now())
+ ))) ORDER BY dag.resource_id;
 
 -- name: ListDepartmentAuthorizedResourceIDs :many
 SELECT DISTINCT dag.resource_id
 FROM data_authorization_grants dag
+JOIN roles role ON role.id=dag.subject_id AND role.enterprise_id=dag.enterprise_id AND role.status='active'
 JOIN role_bindings rb
   ON dag.subject_type = 'role'
  AND rb.role_id = dag.subject_id
@@ -89,6 +69,8 @@ JOIN role_bindings rb
  AND rb.subject_type = 'department'
  AND rb.subject_id = sqlc.arg(department_id)
  AND rb.status = 'active'
+ AND (rb.valid_from IS NULL OR rb.valid_from<=now())
+ AND (rb.valid_until IS NULL OR rb.valid_until>now())
 WHERE dag.enterprise_id = sqlc.arg(enterprise_id)
   AND dag.resource_type = sqlc.arg(resource_type)
   AND dag.status = 'active'

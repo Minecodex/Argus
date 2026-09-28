@@ -21,9 +21,10 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-var Categories = []string{"host", "k8s", "metric", "trace", "log", "connector", "workflow"}
+var Categories = []string{"host", "k8s", "metric", "trace", "log", "connector", "workflow", "dashboard"}
 
 type Gateway struct {
+	Scope     func(context.Context, toolruntime.Invocation) (func(string) bool, error)
 	cache     discoveryCache
 	Registry  *mcp.Registry
 	manifests []Manifest
@@ -58,7 +59,7 @@ func New(registry *mcp.Registry, implementationRevision string) (*Gateway, error
 			version += ":" + metadata.Template.Hash
 		}
 		manifest := Manifest{SchemaVersion: "argus.tool_manifest/v1", Category: category, Name: name, Version: version, Discovery: discovery, DiscoveryHash: discoveryHash,
-			Risk: metadata.Risk, Required: append([]string{}, metadata.Required...),
+			Risk: metadata.Risk, Required: append([]string{}, metadata.Required...), AnyRequired: append([]string{}, metadata.AnyRequired...),
 			InputSchema: metadata.InputSchema, OutputSchema: metadata.OutputSchema, ToolID: metadata.ID,
 			RequiresConfirmation: strings.HasSuffix(metadata.ID, ".preview")}
 		if err := validateManifest(manifest); err != nil {
@@ -102,6 +103,7 @@ func identity(id string) (string, string, bool) {
 		return "connector", "collector.get", true
 	}
 	for _, prefix := range []struct{ prefix, category string }{
+		{"telemetry.dashboard.", "dashboard"},
 		{"host.", "host"}, {"kubernetes.", "k8s"}, {"connector.", "connector"},
 		{"telemetry.metric.", "metric"}, {"telemetry.metrics.", "metric"}, {"metric.", "metric"},
 		{"telemetry.trace.", "trace"}, {"telemetry.traces.", "trace"}, {"trace.", "trace"},
@@ -150,6 +152,14 @@ func coreDescription(name string) string {
 }
 
 func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Invocation) (toolruntime.Result, error) {
+	allow := func(string) bool { return true }
+	if g.Scope != nil {
+		var err error
+		allow, err = g.Scope(ctx, call)
+		if err != nil {
+			return toolruntime.Result{}, err
+		}
+	}
 	category, _ := call.Arguments["category"].(string)
 	if !slices.Contains(Categories, category) {
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_CATEGORY_UNKNOWN"}
@@ -159,7 +169,7 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 		if cached, ok := g.cache.get(key); ok {
 			return cached, nil
 		}
-		value, err := g.search(call, category)
+		value, err := g.search(call, category, allow)
 		if err == nil {
 			g.cache.put(key, value)
 		}
@@ -168,7 +178,7 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 	name, _ := call.Arguments["name"].(string)
 	key := category + "/" + name
 	manifest, ok := g.byName[key]
-	if !ok || !call.Principal.Allows(manifest.Required...) {
+	if !ok || !manifest.allowed(call.Principal) || !allow(manifest.ToolID) {
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_NOT_FOUND"}
 	}
 	if tool == "tool.describe" {
@@ -193,7 +203,7 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 	if call.ReadOnly && manifest.Risk != "read" {
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_READ_ONLY_REQUIRED"}
 	}
-	if manifest.Risk != "read" && !manifest.RequiresConfirmation && !slices.Contains([]string{"pending_action.cancel", "workflow.import_result", "workflow.publish_file"}, manifest.ToolID) {
+	if manifest.Risk != "read" && !manifest.RequiresConfirmation && !slices.Contains([]string{"pending_action.cancel", "workflow.import_result", "workflow.publish_file", "telemetry.dashboard.query.cancel", "telemetry.dashboard.query.resume", "telemetry.dashboard.draft.create", "telemetry.dashboard.draft.save", "telemetry.dashboard.draft.drilldowns"}, manifest.ToolID) {
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_NOT_FOUND"}
 	}
 	native := mcp.Call{ToolID: manifest.ToolID, CallID: call.CallID, Caller: "model", Enterprise: call.Principal.EnterpriseID.String(),
@@ -222,7 +232,7 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 	return output, nil
 }
 
-func (g *Gateway) search(call toolruntime.Invocation, category string) (toolruntime.Result, error) {
+func (g *Gateway) search(call toolruntime.Invocation, category string, scopes ...func(string) bool) (toolruntime.Result, error) {
 	query, _ := call.Arguments["query"].(string)
 	query = normalizeSearch(query)
 	limit := 10
@@ -232,7 +242,7 @@ func (g *Gateway) search(call toolruntime.Invocation, category string) (toolrunt
 	if limit < 1 || limit > 20 {
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_INPUT_INVALID"}
 	}
-	scopeBytes, _ := json.Marshal([]any{g.Revision, call.Principal.EnterpriseID, call.Principal.UserID, call.Principal.AuthorizationVersion, category, query})
+	scopeBytes, _ := json.Marshal([]any{g.Revision, call.Principal.EnterpriseID, call.Principal.UserID, call.Principal.AuthorizationVersion, call.RunID, category, query})
 	scopeHash := sha256.Sum256(scopeBytes)
 	scope := hex.EncodeToString(scopeHash[:])
 	offset := 0
@@ -253,7 +263,10 @@ func (g *Gateway) search(call toolruntime.Invocation, category string) (toolrunt
 	}
 	hits := []hit{}
 	for _, manifest := range g.manifests {
-		if manifest.Category != category || !call.Principal.Allows(manifest.Required...) {
+		if len(scopes) > 0 && !scopes[0](manifest.ToolID) {
+			continue
+		}
+		if manifest.Category != category || !manifest.allowed(call.Principal) {
 			continue
 		}
 		score, matched := discoveryScore(manifest, query)

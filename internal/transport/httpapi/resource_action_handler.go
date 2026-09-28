@@ -315,7 +315,9 @@ func emptyActionPage() actionapi.CursorPage {
 func actionError(ctx context.Context, err error) actionapi.ApiError {
 	base := hostErrorBase(ctx, err)
 	defer func() { logMappedError(ctx, base.Code, err) }()
-	if errors.Is(err, resource.ErrActionUnavailable) {
+	if resource.ActionValidationCode(err) == "DASHBOARD_VERSION_CONFLICT" {
+		base.Code, base.MessageKey = "DASHBOARD_VERSION_CONFLICT", "errors.dashboard.version_conflict"
+	} else if errors.Is(err, resource.ErrActionUnavailable) {
 		base.Code, base.MessageKey = "ACTION_STATE_CONFLICT", "errors.actions.state_conflict"
 	} else if errors.Is(err, actionservice.ErrInvalidated) {
 		base.Code, base.MessageKey = "PENDING_ACTION_INVALIDATED", "errors.actions.pending_action_invalidated"

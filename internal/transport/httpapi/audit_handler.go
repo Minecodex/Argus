@@ -38,6 +38,9 @@ type auditPresentationResolver struct {
 }
 
 func (handler AuditHandler) ListAuditEvents(ctx context.Context, request auditapi.ListAuditEventsRequestObject) (auditapi.ListAuditEventsResponseObject, error) {
+	if request.Params.From != nil && request.Params.To != nil && !request.Params.To.After(*request.Params.From) {
+		return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditapi.ApiError{Code: "INVALID_ARGUMENT", MessageKey: "errors.common.invalid_argument", RequestId: requestID(ctx)}, StatusCode: http.StatusBadRequest}, nil
+	}
 	audience := string(request.Audience)
 	var principal identity.Principal
 	var err error
@@ -55,39 +58,40 @@ func (handler AuditHandler) ListAuditEvents(ctx context.Context, request auditap
 			return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, err), StatusCode: authStatus(err)}, nil
 		}
 	}
-	var rows []db.AuditEvent
 	var binding pagination.Binding
 	if audience == "platform" {
 		if principal.PlatformUser == nil {
 			return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, errors.New("authorization denied")), StatusCode: http.StatusForbidden}, nil
 		}
-		rows, err = handler.Store.Queries.ListAllPlatformAuditEvents(ctx)
-		binding = pagination.Binding{Audience: "platform", SubjectType: "platform_user", SubjectID: principal.ActorID(), FilterHash: pagination.HashFilter(map[string]any{"action": request.Params.Action}), Sort: "created_at_desc"}
+		binding = pagination.Binding{Audience: "platform", SubjectType: "platform_user", SubjectID: principal.ActorID(), FilterHash: pagination.HashFilter(auditFilters(request.Params)), Sort: "created_at_desc"}
 	} else if audience == "enterprise" {
 		if _, ok := principal.EnterpriseID(); !ok || (!slices.Contains(principal.Permissions, "*") && !slices.Contains(principal.Permissions, "audit.read")) {
 			return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, errors.New("authorization denied")), StatusCode: http.StatusForbidden}, nil
 		}
-		rows, err = handler.Store.Queries.ListAllEnterpriseAuditEvents(ctx, uuid.NullUUID{UUID: principal.EnterpriseIDValue(), Valid: true})
-		binding = enterpriseCursorBinding(principal, map[string]any{"action": request.Params.Action}, "created_at_desc")
+		binding = enterpriseCursorBinding(principal, auditFilters(request.Params), "created_at_desc")
 	} else {
 		return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, errors.New("invalid audience")), StatusCode: http.StatusBadRequest}, nil
 	}
-	if err != nil {
-		return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, err), StatusCode: http.StatusInternalServerError}, nil
-	}
-	filtered := make([]db.AuditEvent, 0, len(rows))
-	for _, row := range rows {
-		if request.Params.Action != nil && row.Action != *request.Params.Action {
-			continue
-		}
-		filtered = append(filtered, row)
-	}
-	filtered, next, hasMore, err := paginate(handler.Cursor, filtered, cursorValue(request.Params.Cursor), listLimit(request.Params.Limit), binding, func(value db.AuditEvent) pageKey {
-		return pageKey{Time: value.CreatedAt.Time, ID: value.ID.String()}
-	})
+	query, err := auditPageParams(request.Params, binding, handler.Cursor)
 	if err != nil {
 		code, key, status := paginationError(err)
 		return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditapi.ApiError{Code: code, MessageKey: key, RequestId: requestID(ctx), Retryable: retryablePointer(code == "CURSOR_EXPIRED")}, StatusCode: status}, nil
+	}
+	filtered, err := handler.Store.Queries.ListAuditEventsPage(ctx, query)
+	if err != nil {
+		return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, err), StatusCode: http.StatusInternalServerError}, nil
+	}
+	limit := listLimit(request.Params.Limit)
+	hasMore := len(filtered) > limit
+	var next *string
+	if hasMore {
+		filtered = filtered[:limit]
+		last := filtered[len(filtered)-1]
+		value, err := handler.Cursor.Encode(binding, pagination.Position{Time: last.CreatedAt.Time, ID: last.ID.String()})
+		if err != nil {
+			return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, err), StatusCode: http.StatusInternalServerError}, nil
+		}
+		next = &value
 	}
 	items := make([]auditapi.AuditEvent, 0, len(filtered))
 	resolver := auditPresentationResolver{
@@ -161,6 +165,16 @@ func (resolver *auditPresentationResolver) resolveResource(ctx context.Context, 
 	if !row.ResourceType.Valid || !row.ResourceID.Valid {
 		return ""
 	}
+	// A bounded name captured by the domain remains useful after rename/delete;
+	// resolving someone else's private draft through its read API is unnecessary.
+	if slices.Contains([]string{"dashboard", "dashboard_folder", "dashboard_draft", "dashboard_binding", "dashboard_query_job"}, row.ResourceType.String) {
+		var detail struct {
+			ResourceName string `json:"resource_name"`
+		}
+		if json.Unmarshal(row.Details, &detail) == nil && len(detail.ResourceName) <= 512 && detail.ResourceName != "" {
+			return detail.ResourceName
+		}
+	}
 	key := row.ResourceType.String + ":" + row.ResourceID.String
 	if cached, ok := resolver.resources[key]; ok {
 		return cached
@@ -186,6 +200,14 @@ func (resolver *auditPresentationResolver) resolveResourceUncached(ctx context.C
 	}
 	enterpriseID := row.EnterpriseID.UUID
 	switch row.ResourceType.String {
+	case "dashboard":
+		if value, e := resolver.queries.GetDashboard(ctx, db.GetDashboardParams{ID: id, EnterpriseID: enterpriseID}); e == nil {
+			return value.Name
+		}
+	case "dashboard_folder":
+		if value, e := resolver.queries.GetDashboardFolder(ctx, db.GetDashboardFolderParams{ID: id, EnterpriseID: enterpriseID}); e == nil {
+			return value.Name
+		}
 	case "enterprise_user", "enterprise_admin", "user":
 		if value, queryErr := resolver.queries.GetEnterpriseUser(ctx, db.GetEnterpriseUserParams{ID: id, EnterpriseID: enterpriseID}); queryErr == nil {
 			return value.DisplayName

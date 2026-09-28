@@ -213,6 +213,8 @@ func (e ConfigRevisionStatus) Valid() bool {
 const (
 	LogEntries KQLQueryResponseResultType = "log_entries"
 	LogStreams KQLQueryResponseResultType = "log_streams"
+	Table      KQLQueryResponseResultType = "table"
+	Timeseries KQLQueryResponseResultType = "timeseries"
 )
 
 // Valid indicates whether the value is a known member of the KQLQueryResponseResultType enum.
@@ -221,6 +223,10 @@ func (e KQLQueryResponseResultType) Valid() bool {
 	case LogEntries:
 		return true
 	case LogStreams:
+		return true
+	case Table:
+		return true
+	case Timeseries:
 		return true
 	default:
 		return false

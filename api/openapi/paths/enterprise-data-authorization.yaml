@@ -1,0 +1,25 @@
+resources:
+  get:
+    operationId: listDataAuthorizationResources
+    summary: List explicit data authorization resources for a subject.
+    parameters:
+      - {name: subject_type, in: path, required: true, schema: {$ref: "../components/data-authorization.yaml#/components/schemas/DataAuthorizationSubjectType"}}
+      - {name: subject_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: resource_type, in: query, required: true, schema: {$ref: "../components/data-authorization.yaml#/components/schemas/DataAuthorizationResourceType"}}
+      - {$ref: "../argus.yaml#/components/parameters/Cursor"}
+      - {$ref: "../argus.yaml#/components/parameters/Limit"}
+    responses:
+      "200": {description: Resource authorization page., content: {application/json: {schema: {$ref: "../components/data-authorization.yaml#/components/schemas/DataAuthorizationPage"}}}}
+      default: {$ref: "../argus.yaml#/components/responses/Error"}
+  post:
+    operationId: updateDataAuthorization
+    summary: Add or remove explicit data authorization resources.
+    parameters:
+      - {name: subject_type, in: path, required: true, schema: {$ref: "../components/data-authorization.yaml#/components/schemas/DataAuthorizationSubjectType"}}
+      - {name: subject_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {$ref: "../argus.yaml#/components/parameters/CsrfToken"}
+      - {$ref: "../argus.yaml#/components/parameters/IdempotencyKey"}
+    requestBody: {required: true, content: {application/json: {schema: {$ref: "../components/data-authorization.yaml#/components/schemas/DataAuthorizationBatch"}}}}
+    responses:
+      "204": {description: Authorization updated.}
+      default: {$ref: "../argus.yaml#/components/responses/Error"}

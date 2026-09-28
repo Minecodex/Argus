@@ -6,6 +6,7 @@ import { PendingActionCard } from "./pending-action-card";
 import { ToolTrace } from "./tool-trace";
 import { ConversationPresentation } from "./tool-presentation";
 import { useApi } from "@argus/api-client";
+import { DashboardMessageReference } from "./dashboard-context";
 import type { ChatMessage } from "./chat-view-model";
 
 function formatTime(value: string, locale: string): string {
@@ -50,6 +51,9 @@ export function ChatMessageItem({
           <time>{formatTime(message.createdAt, i18n.language)}</time>
         </div>
         <div className="argus-chat-message__body">{message.content}</div>
+        {message.dashboardContext && (
+          <DashboardMessageReference selection={message.dashboardContext} />
+        )}
         {downloads(message.files, "file")}
       </div>
     );
@@ -70,10 +74,12 @@ export function ChatMessageItem({
       >
         {message.content}
       </div>
-      {(message.toolCalls?.length ||
+      {Boolean(
+        message.toolCalls?.length ||
         message.presentations?.length ||
         message.pendingActionRefs?.length ||
-        message.artifacts?.length) && (
+        message.artifacts?.length,
+      ) && (
         <div className="argus-chat-message__extras">
           {message.toolCalls && message.toolCalls.length > 0 && (
             <ToolTrace toolCalls={message.toolCalls} />

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/kakj-go/Argus/internal/dashboardcontext"
 	"github.com/kakj-go/Argus/internal/storage/objectstore"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -138,12 +139,20 @@ func (service Service) Update(ctx context.Context, enterpriseID, ownerID, conver
 	return updated, err
 }
 
-func (service Service) AddMessage(ctx context.Context, actorID string, enterpriseID, ownerID, conversationID uuid.UUID, authorizationVersion int64, locale, content string, fileIDs []uuid.UUID, idempotencyKey string) (MessageAccepted, error) {
+func (service Service) AddMessage(ctx context.Context, actorID string, enterpriseID, ownerID, conversationID uuid.UUID, authorizationVersion int64, locale, content string, fileIDs []uuid.UUID, idempotencyKey string, selections ...*dashboardcontext.Selection) (MessageAccepted, error) {
+	if len(selections) > 1 {
+		return MessageAccepted{}, toolruntime.Error{Kind: "DASHBOARD_INVALID"}
+	}
+	var selected *dashboardcontext.Selection
+	if len(selections) == 1 {
+		selected = selections[0]
+	}
 	input := struct {
-		ConversationID uuid.UUID   `json:"conversation_id"`
-		Content        string      `json:"content"`
-		FileIDs        []uuid.UUID `json:"file_ids"`
-	}{conversationID, content, fileIDs}
+		ConversationID   uuid.UUID                   `json:"conversation_id"`
+		Content          string                      `json:"content"`
+		FileIDs          []uuid.UUID                 `json:"file_ids"`
+		DashboardContext *dashboardcontext.Selection `json:"dashboard_context,omitempty"`
+	}{conversationID, content, fileIDs, selected}
 	requestBytes, _ := json.Marshal(input)
 	prior, err := service.Idempotency.Lookup(ctx, service.Store.Queries, "enterprise", actorID, "conversation.message.create", idempotencyKey, requestBytes)
 	if err != nil {
@@ -154,12 +163,15 @@ func (service Service) AddMessage(ctx context.Context, actorID string, enterpris
 		err := json.Unmarshal(prior.Body, &accepted)
 		return accepted, err
 	}
-	preflight, err := service.Preflight(ctx, enterpriseID, ownerID, conversationID, content, fileIDs)
+	preflight, err := service.Preflight(ctx, enterpriseID, ownerID, conversationID, content, fileIDs, selected)
 	if err != nil {
 		return MessageAccepted{}, err
 	}
 	if !preflight.Ready {
 		return MessageAccepted{}, preflight.CapacityError()
+	}
+	if preflight.Principal.AuthorizationVersion != authorizationVersion {
+		return MessageAccepted{}, toolruntime.Error{Kind: "AUTHORIZATION_VERSION_STALE"}
 	}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "conversation.message.create", idempotencyKey, input, 202,
 		func(q *db.Queries) (MessageAccepted, error) {
@@ -200,12 +212,15 @@ func (service Service) AddMessage(ctx context.Context, actorID string, enterpris
 			if err != nil {
 				return MessageAccepted{}, err
 			}
+			if err := dashboardcontext.Commit(ctx, q, preflight.Principal, run.ID, preflight.Dashboard); err != nil {
+				return MessageAccepted{}, err
+			}
 			snapshotBytes, _ := json.Marshal(preflight.Snapshot)
 			run, err = q.SetRunToolSnapshot(ctx, db.SetRunToolSnapshotParams{ID: run.ID, EnterpriseID: enterpriseID, ToolSnapshot: snapshotBytes, ToolSnapshotHash: preflight.SnapshotHash})
 			if err != nil {
 				return MessageAccepted{}, err
 			}
-			messagePayload := map[string]any{"content": content}
+			messagePayload := map[string]any{"content": content, "dashboard_context": preflight.Dashboard.Snapshot}
 			files := make([]map[string]any, 0, len(fileIDs))
 			for _, id := range fileIDs {
 				file, e := q.GetWorkspaceFile(ctx, db.GetWorkspaceFileParams{ID: id, EnterpriseID: enterpriseID})

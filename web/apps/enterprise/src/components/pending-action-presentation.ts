@@ -31,6 +31,15 @@ export const PENDING_ACTION_TYPES = [
   "telemetry.collector.repair",
   "telemetry.collector.uninstall",
   "telemetry.node_host_binding.confirm",
+  "telemetry.dashboard.publish",
+  "telemetry.dashboard.binding.attach",
+  "telemetry.dashboard.binding.detach",
+  "telemetry.dashboard.archive",
+  "telemetry.dashboard.restore",
+  "telemetry.dashboard.folder.create",
+  "telemetry.dashboard.folder.update",
+  "telemetry.dashboard.folder.archive",
+  "telemetry.dashboard.folder.restore",
 ] as const;
 
 export type PendingActionType = (typeof PENDING_ACTION_TYPES)[number];
@@ -176,6 +185,17 @@ function previewOf(action: PendingActionPublic): Record<string, unknown> {
 
 function displayName(action: PendingActionPublic, fallback: string): string {
   const preview = previewOf(action);
+  if (
+    action.action_type === "telemetry.dashboard.publish" &&
+    typeof preview.after_json === "string"
+  ) {
+    try {
+      const after = JSON.parse(preview.after_json);
+      if (typeof after?.name === "string") return after.name;
+    } catch {
+      /* Unknown preview shapes use the generic label. */
+    }
+  }
   for (const key of [
     "name",
     "host_name",
@@ -251,7 +271,12 @@ export function presentPendingAction(
   const actionType = canonicalType(action.action_type);
   const definition = actionType ? definitions[actionType] : undefined;
   const name = displayName(action, t("common.unknown"));
-  const options = { name };
+  const resourceName = previewOf(action).resource_name;
+  const options = {
+    name,
+    resourceName:
+      typeof resourceName === "string" ? resourceName : t("common.unknown"),
+  };
   const prefix = definition
     ? `pendingActions.actions.${definition.key}`
     : "pendingActions.fallback";

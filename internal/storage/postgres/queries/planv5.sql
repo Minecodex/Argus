@@ -232,6 +232,7 @@ WHERE id=$1 AND enterprise_id=$2 AND context_revision=$3 RETURNING context_revis
 
 -- name: ListConversationActionFacts :many
 SELECT action.action_ref,action.status,action.resource_type,action.resource_id,
+ action.result_resource_type,action.result_resource_id,action.result_resource_version,
  action.result_summary,action.error_code,execution.execution_ref,execution.status AS execution_status
 FROM pending_actions action JOIN runs run ON run.id=action.run_id AND run.enterprise_id=action.enterprise_id
 LEFT JOIN executions execution ON execution.pending_action_id=action.id AND execution.enterprise_id=action.enterprise_id

@@ -10,6 +10,7 @@ import {
   Container,
   History,
   House,
+  LayoutDashboard,
   KeyRound,
   Menu,
   ScrollText,
@@ -88,6 +89,7 @@ function buildSections(
     {
       groupKey: "shell.groups.resources",
       items: [
+        {key:"dashboards.title",to:"/dashboards",icon:LayoutDashboard},
         {
           key: "shell.nav.hosts",
           to: "/hosts",
@@ -148,6 +150,7 @@ function buildSections(
 
 function Sidebar() {
   const canManageMCP = usePermission("mcp_connection.manage");
+  const canReadDashboards = usePermission("telemetry.dashboard.read");
   const { t } = useTranslation();
   const { sidebarCollapsed, toggleSidebar, mobileNavOpen, setMobileNavOpen } =
     useUiStore();
@@ -189,7 +192,7 @@ function Sidebar() {
                 </div>
               )}
               {section.items
-                .filter((item) => item.to !== "/settings/mcp" || canManageMCP)
+                .filter((item) => (item.to !== "/settings/mcp" || canManageMCP) && (item.to !== "/dashboards" || canReadDashboards))
                 .map((item) => (
                   <Tooltip content={t(item.key)} key={item.key}>
                     <Link

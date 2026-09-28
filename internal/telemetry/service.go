@@ -44,6 +44,7 @@ var (
 )
 
 type Actor struct {
+	SubjectType           string
 	EnterpriseID          uuid.UUID
 	SubjectID             uuid.UUID
 	RunID                 uuid.NullUUID
@@ -911,12 +912,15 @@ func (service Service) requireResource(ctx context.Context, actor Actor, resourc
 			return ErrNotFound
 		}
 	case "kubernetes_cluster":
-		_, err := service.Store.Queries.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: resourceID, EnterpriseID: actor.EnterpriseID})
+		cluster, err := service.Store.Queries.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: resourceID, EnterpriseID: actor.EnterpriseID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		if err != nil {
 			return err
+		}
+		if cluster.Status != "active" {
+			return ErrNotFound
 		}
 	default:
 		return ErrNotFound

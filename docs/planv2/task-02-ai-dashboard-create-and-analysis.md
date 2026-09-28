@@ -1,5 +1,9 @@
 # Task 02：AI 创建仪表盘与 Chat 内分析
 
+2026-09-28 收尾：Task 02 首期检查已关闭，主清单 37/37。h/i/o/p 的 13 个代表性真实 GLM 场景有分轮通过证据；p 轮异常组 4/4、部署检查 20/20、退出码 0。未声称一次最新镜像全量重跑或任意问题质量保证，详见 [真实模型验收记录](./real-model-validation-20260928.md)。下文的“暂不执行”保留此前非模型收尾阶段的决定。
+
+2026-09-28：Chat 选择、条件状态、builder/DSL 工具协议、宿主确认、后台任务、真实文件/PVC、来源授权及故障恢复的非模型实现与功能验收完成，最终环境清理与原有资源核对通过；见 [验收结论](./completion-review-20260928.md)。实际模型的生成、条件理解、策略与结论质量按用户要求暂不执行，原始模型质量门禁不标为通过。实现契约见 [Chat 上下文与工具](./chat-context.md)。
+
 ## 1. 目标与用户闭环
 
 在 Task 01 的 Dashboard、个人草稿、Catalog、Query Runtime 和结果导出服务上接入 AI 创建与分析。以 [主设计](./01-telemetry-dashboard-and-ai.md) 和 [Q1～Q42 决策记录](./02-confirmed-decisions.md) 为准。Q32 的 APM 能力在 Task 01 补齐并验收后接入相同契约；Q31 的人工完整链路展开不使 AI 自动改写已发布查询或补取未配置明细。Q34 的多来源回答不等于全量数据保证；Q35/Q36 的来源和局部过滤按 Panel 隔离，继续由 Chat 自己的明确参数驱动。Q37/Q38/Q39 的动态来源、显式映射及标准下钻由人工与 AI 共用；Q40 的重新取数采用最新发布版，单次执行冻结配置。
@@ -101,7 +105,7 @@ proposed_bindings[]                 # 仅 Host/Cluster，可选
 
 工具输入使用严格 Schema，拒绝未知字段与客户端伪造的 compiled_query/query_hash。AI 输出的查询语句只是待验证配置，不是可直接执行的提交凭证。
 
-create.preview 接收首次无 ID 的内联配置，服务端按当前主体和幂等键创建个人草稿并返回 ID/版本，再执行预览校验；同一请求重试复用该草稿。后续修改须携带 ID 与预期版本，也支持引用已保存草稿生成预览。update.preview 复用该流程并检查已有 Dashboard 授权和基线。首次创建只检查创建权限、新对象企业归属及底层查询授权，不要求新 Dashboard 已有对象授权。
+实现采用 draft.create 接收首次配置，按当前主体及不可变工具调用身份复用个人草稿并返回 ID/版本；draft.save 检查预期版本，publish.preview 引用已保存草稿执行发布校验。这样与人工编辑统一，积累修改期间无需反复生成确认。已有 Dashboard 必须已被用户选择，并检查对象授权与发布基线；新建 Dashboard 不要求预先存在对象授权。
 
 校验：
 
@@ -120,10 +124,10 @@ create.preview 接收首次无 ID 的内联配置，服务端按当前主体和�
 复用：
 
 ~~~text
-telemetry.dashboard.create.preview
-telemetry.dashboard.update.preview
-telemetry.dashboard.create.commit
-telemetry.dashboard.update.commit
+telemetry.dashboard.draft.create / draft.get / draft.save
+telemetry.dashboard.draft.drilldowns
+telemetry.dashboard.publish.preview
+telemetry.dashboard.publish.commit # 仅内部 Action Executor
 ~~~
 
 预览展示名称/Folder、Panel 配置、变量依赖、默认范围、明确关联建议、配置校验、样本状态、Diff、Spec Hash、公开 action_ref 和过期时间。
@@ -201,7 +205,7 @@ telemetry.dashboard.query.get
 telemetry.dashboard.query.cancel
 ~~~
 
-输入只包含已选 Dashboard、context_ref、Panel IDs 和合法运行参数；普通/明细查询由服务端从发布配置恢复，不能携带替代表达式或未发布原始数据请求。
+模型 query/v2 输入只包含已选 Dashboard、context_ref 和可选 Panel IDs，或已发布下钻引用；运行条件由 context.resolve 持久解析，query 不再接受自由参数覆盖。普通/明细查询由服务端从发布配置恢复，不能携带替代表达式或未发布原始数据请求。详细契约见 [条件继承与累计预算](./chat-conditions-budget.md)。
 
 Q39 的明细请求通过已发布 drilldown_ref/query_ref 及其声明的输入参数选择；服务端恢复目标信号、来源映射、范围策略和预算。平台生成的标准下钻与人工修改后的下钻均须先发布，不能因为是标准模板就运行未发布的动态新版本。
 
@@ -257,21 +261,28 @@ provenance 关联 Dashboard/Revision/Panel/Target、实际来源及查询哈希�
 只读：
   telemetry.dashboard.list
   telemetry.dashboard.get
+  telemetry.dashboard.context.resolve
+  telemetry.dashboard.context.candidates
+  telemetry.dashboard.budget.get
   telemetry.dashboard.query
   telemetry.dashboard.query.get
   telemetry.dashboard.query.cancel
-  telemetry.dashboard.catalog.metric_names
-  telemetry.dashboard.catalog.attribute_values
-  telemetry.dashboard.catalog.log_fields
-  telemetry.dashboard.catalog.trace_services
+  telemetry.dashboard.catalog.resources
+  telemetry.dashboard.catalog # 创建模式的完整配置 Catalog
+  telemetry.dashboard.convert
+
+个人草稿（不发布）：
+  telemetry.dashboard.draft.create
+  telemetry.dashboard.draft.get
+  telemetry.dashboard.draft.validate
+  telemetry.dashboard.draft.save
+  telemetry.dashboard.draft.drilldowns
 
 模型可见的发布预览：
-  telemetry.dashboard.create.preview
-  telemetry.dashboard.update.preview
+  telemetry.dashboard.publish.preview
 
 仅隐藏 Action Catalog：
-  telemetry.dashboard.create.commit
-  telemetry.dashboard.update.commit
+  telemetry.dashboard.publish.commit
 ~~~
 
 模型可见工具经 PlanV5 自有三个元工具使用，并提供严格版本化 Schema、正式业务元数据和权限检查。隐藏 Commit 仅由 Action Executor 内部调用，不通过模型元工具调用。list/get/query 不能因为模型知道某个 ID 就跳过 Dashboard 对象授权。

@@ -12,6 +12,7 @@ import (
 	actionservice "github.com/kakj-go/Argus/internal/action"
 	workflowapi "github.com/kakj-go/Argus/internal/gen/openapi/workflowapi"
 	"github.com/kakj-go/Argus/internal/identity"
+	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
@@ -272,6 +273,8 @@ func workflowError(ctx context.Context, err error) workflowapi.ApiError {
 	code, key := "INTERNAL_ERROR", "errors.common.internal"
 	defer func() { logMappedError(ctx, code, err) }()
 	switch {
+	case resource.ActionValidationCode(err) == "DASHBOARD_VERSION_CONFLICT":
+		code, key = "DASHBOARD_VERSION_CONFLICT", "errors.dashboard.version_conflict"
 	case errors.Is(err, actionservice.ErrInvalidated):
 		code, key = "ACTION_INVALIDATED", "errors.actions.invalidated"
 	case errors.Is(err, actionservice.ErrApprovalIneligible):

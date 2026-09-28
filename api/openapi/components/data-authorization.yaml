@@ -1,0 +1,37 @@
+components:
+  schemas:
+    DataAuthorizationSubjectType:
+      type: string
+      enum: [user, department, role, service_account]
+    DataAuthorizationResourceType:
+      type: string
+      enum: [host, kubernetes_cluster, dashboard]
+    DataAuthorizationResource:
+      type: object
+      additionalProperties: false
+      required: [resource_type, resource_id, name, direct, inherited, sources]
+      properties:
+        resource_type: {$ref: "#/components/schemas/DataAuthorizationResourceType"}
+        resource_id: {type: string, format: uuid}
+        name: {type: string}
+        direct: {type: boolean}
+        inherited: {type: boolean}
+        sources: {type: array, uniqueItems: true, items: {type: string}}
+    DataAuthorizationPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, authorization_version, affected_member_count]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/DataAuthorizationResource"}}
+        page: {$ref: "../argus.yaml#/components/schemas/CursorPage"}
+        authorization_version: {type: integer, format: int64, minimum: 1}
+        affected_member_count: {type: integer, format: int64, minimum: 0}
+    DataAuthorizationBatch:
+      type: object
+      additionalProperties: false
+      required: [resource_type, resource_ids, remove, expected_version]
+      properties:
+        resource_type: {$ref: "#/components/schemas/DataAuthorizationResourceType"}
+        resource_ids: {type: array, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
+        remove: {type: boolean}
+        expected_version: {type: integer, format: int64, minimum: 1}

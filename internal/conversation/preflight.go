@@ -7,25 +7,28 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/kakj-go/Argus/internal/dashboardcontext"
 	"github.com/kakj-go/Argus/internal/integration/modelprovider"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 type Preflight struct {
-	Ready               bool                 `json:"ready"`
-	ModelID             uuid.UUID            `json:"model_id"`
-	ToolCount           int                  `json:"tool_count"`
-	EstimatedTokens     int                  `json:"estimated_tokens"`
-	UsableTokens        int                  `json:"usable_tokens"`
-	ToolSchemaTokens    int                  `json:"tool_schema_tokens"`
-	SnapshotHash        string               `json:"snapshot_hash"`
-	SandboxStatus       string               `json:"sandbox_status"`
-	ErrorCode           string               `json:"error_code,omitempty"`
-	Snapshot            toolruntime.Snapshot `json:"-"`
-	ConversationVersion int64                `json:"-"`
-	ModelRevision       int32                `json:"-"`
-	InputLimitTokens    int                  `json:"-"`
+	Dashboard           dashboardcontext.Prepared `json:"-"`
+	Principal           toolruntime.Principal     `json:"-"`
+	Ready               bool                      `json:"ready"`
+	ModelID             uuid.UUID                 `json:"model_id"`
+	ToolCount           int                       `json:"tool_count"`
+	EstimatedTokens     int                       `json:"estimated_tokens"`
+	UsableTokens        int                       `json:"usable_tokens"`
+	ToolSchemaTokens    int                       `json:"tool_schema_tokens"`
+	SnapshotHash        string                    `json:"snapshot_hash"`
+	SandboxStatus       string                    `json:"sandbox_status"`
+	ErrorCode           string                    `json:"error_code,omitempty"`
+	Snapshot            toolruntime.Snapshot      `json:"-"`
+	ConversationVersion int64                     `json:"-"`
+	ModelRevision       int32                     `json:"-"`
+	InputLimitTokens    int                       `json:"-"`
 }
 
 func (service Service) ToolPrincipal(ctx context.Context, enterpriseID, userID, conversationID uuid.UUID) (toolruntime.Principal, error) {
@@ -40,7 +43,7 @@ func (service Service) ToolPrincipal(ctx context.Context, enterpriseID, userID, 
 	return toolruntime.Principal{EnterpriseID: enterpriseID, UserID: userID, ConversationID: conversationID, AuthorizationVersion: user.AuthorizationVersion, Permissions: permissions}, nil
 }
 
-func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, conversationID uuid.UUID, content string, fileIDs []uuid.UUID) (Preflight, error) {
+func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, conversationID uuid.UUID, content string, fileIDs []uuid.UUID, selections ...*dashboardcontext.Selection) (Preflight, error) {
 	c, err := service.Get(ctx, enterpriseID, ownerID, conversationID)
 	if err != nil {
 		return Preflight{}, err
@@ -55,6 +58,26 @@ func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, con
 	if err != nil {
 		return Preflight{}, err
 	}
+	if len(selections) > 1 {
+		return Preflight{}, toolruntime.Error{Kind: "DASHBOARD_INVALID"}
+	}
+	var selection *dashboardcontext.Selection
+	if len(selections) == 1 {
+		selection = selections[0]
+	}
+	if command := dashboardcontext.Command(content); command != nil {
+		if selection != nil && selection.Mode != "create" {
+			return Preflight{}, toolruntime.Error{Kind: "DASHBOARD_INVALID"}
+		}
+		if selection == nil {
+			selection = command
+		}
+	}
+	dashboard, err := dashboardcontext.Prepare(ctx, service.Store.Queries, p, selection)
+	if err != nil {
+		return Preflight{}, err
+	}
+	ctx = dashboardcontext.WithSnapshot(ctx, dashboard.Snapshot)
 	model, err := service.Store.Queries.GetAIModel(ctx, db.GetAIModelParams{ID: c.SelectedModelID, EnterpriseID: enterpriseID})
 	if err != nil || model.Status != "enabled" || model.HealthStatus != "healthy" {
 		return Preflight{}, ErrModelUnavailable
@@ -71,6 +94,10 @@ func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, con
 	// avoids undercounting CJK/user supplied schemas on compatible providers.
 	schemaTokens := len(schema)
 	facts, workspace, err := ContextFacts(ctx, service.Store.Queries, enterpriseID, ownerID, conversationID)
+	if err != nil {
+		return Preflight{}, err
+	}
+	facts["dashboard"], err = dashboardcontext.Facts(ctx, service.Store.Queries, p, dashboard.Snapshot)
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -99,6 +126,7 @@ func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, con
 	}
 	budget := modelprovider.NewContextBudget(int(model.ContextWindowTokens), int(model.MaxOutputTokens))
 	result := Preflight{Ready: true, ModelID: model.ID, ToolCount: len(set.Models()), ToolSchemaTokens: schemaTokens,
+		Dashboard: dashboard, Principal: p,
 		UsableTokens: budget.Usable, InputLimitTokens: max(0, budget.HardLimit-1), EstimatedTokens: minimumBytes,
 		SnapshotHash: set.Snapshot.Hash(), SandboxStatus: set.Snapshot.SandboxStatus, Snapshot: set.Snapshot,
 		ConversationVersion: c.Version, ModelRevision: int32(model.Revision)}

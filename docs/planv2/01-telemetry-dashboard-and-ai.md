@@ -1,6 +1,6 @@
 # PlanV2：遥测仪表盘、AI 创建与资源绑定
 
-本轮范围提示：Q27～Q31 明确保留 Argus KQL、OTel/OTLP 和 ClickHouse，目标扩展到丰富展示与完整 APM。现有 KQL/Trace GraphQL 子集只是当前代码事实；协议转换、跨批次组装和 APM 分析仍需建设，详细范围见 [能力讨论](./03-observability-depth-discussion.md)。Demo 已增强可视化与自由布局，不代表真实后端完成。
+本轮范围提示：Q27～Q31 明确保留 Argus KQL、OTel/OTLP 和 ClickHouse，Q32 将首期 APM 验收限定为常用排查能力。受支持的 KQL/Trace GraphQL、跨批次组装、来源区分、APM 与丰富展示已取得非模型验收证据，见 [2026-09-28 验收结论](./completion-review-20260928.md)；不承诺上游语言或厂商所有功能。历史范围讨论见 [能力讨论](./03-observability-depth-discussion.md)，Demo 本身不构成正式实现证据。
 
 Q35/Q36 最新确认：各 Panel 可分别绑定采集来源，Trace 按厂商能力提供对应查询和视图，保持 Argus 统一样式与对象权限。Dashboard 顶部通用过滤与图内厂商过滤分层，来源和局部条件进入执行范围。详细规则见 [插件与两层过滤设计](./04-collector-plugins-and-source-views.md)。
 
@@ -27,7 +27,7 @@ Chat 中 @具体仪表盘，或从授权列表中明确选择仪表盘
 → 在 Chat 中给出结论，并简述范围和证据不足
 ~~~
 
-本轮 Q1～Q42 的结论见 [决策记录](./02-confirmed-decisions.md)。后续澄清取代早期的“统计图只用构建器”“分析 Dashboard 当前页面视图”“为类似日志界面改用 LogQL”等提议。Q37/Q38/Q39/Q41/Q42 已明确动态来源、显式共享映射、标准下钻、APM 展示位置和归档恢复；Q40 明确重新取数采用最新发布版；Q34 的采样统计仍待澄清。
+本轮 Q1～Q42 的结论见 [决策记录](./02-confirmed-decisions.md)。后续澄清取代早期的“统计图只用构建器”“分析 Dashboard 当前页面视图”“为类似日志界面改用 LogQL”等提议。Q37/Q38/Q39/Q41/Q42 已明确动态来源、显式共享映射、标准下钻、APM 展示位置和归档恢复；Q40 明确重新取数采用最新发布版；Q34 已确认展示已接收样本统计，不推算全量。
 
 产品体验：
 
@@ -44,7 +44,7 @@ Chat 中 @具体仪表盘，或从授权列表中明确选择仪表盘
 
 本期不实现：
 
-- Profiling、方法级性能剖析；原生 SkyWalking/Jaeger Receiver 等多协议采集扩展放在后续，本期 APM 通过标准 OTLP 输入验收。
+- Profiling、方法级性能剖析及其余未确认的多协议扩展放在后续。2026-09-25 用户追加的 SkyWalking/Jaeger 原生 Trace Receiver 与 Argus 自监控纳入本轮，详见 [新增范围](./self-monitoring-native-traces.md)；应用 APM 主路径继续通过标准 OTLP 输入验收。
 - 告警规则、通知、值班、自动修复；不建设 AI 必须遵守的固定诊断规则或必填阈值。已有可选阈值仅为展示配置，异常由 AI 结合数据与用户问题判断。
 - 任意 SQL、ClickHouse 直查、未经支持的查询语法或任意 Collector 配置。
 - 新查询引擎、第二套遥测存储、将三信号统一成一个语义 AST。
@@ -240,7 +240,8 @@ Panel
   detail_query_targets[]?          # 可选的普通明细查询定义，非导出配置
   drilldowns[]?                     # 标准下钻入口、detail_query_ref、输入映射与范围策略
   layout = {x, y, w, h, min_w, min_h}
-  unit / decimals / thresholds / legend / display_options / links
+  unit / decimals / thresholds / legend
+  display?                          # reducer / min / max / draw_style / stack / smooth，展示专用
 
 QueryTarget
   id / language = promql | kql | skywalking_graphql
@@ -261,7 +262,7 @@ applicable_resource_types 是发布配置中明确声明、由服务端校验的
 - 构建器可以转换为查询语句。
 - 查询语句只有能完整、无损解析时才能转回构建器；不支持的表达式保留语句模式，不近似转换、不丢条件。
 - compiled_query 是服务端派生的执行产物，不是第二个可编辑事实来源；客户端不能通过上传派生字段覆盖验证结果。
-- query_hash 覆盖原生查询及参数契约等执行语义，布局修改不改变查询哈希。明细查询独立生成 detail_query_hash 并纳入 Spec Hash。
+- query_hash 覆盖原生查询及参数契约等执行语义，布局和显示配置修改不改变查询哈希。明细查询独立生成 detail_query_hash 并纳入 Spec Hash。显示计算只作用于返回样本，不改写查询或 AI 文件结果；具体图型矩阵与计算口径见 [正式显示配置](./chart-display.md)。
 - 来源绑定、局部过滤定义和参数映射纳入执行身份与发布校验；运行态局部选值纳入请求/缓存，不作为第二份可编辑查询。来源所需字段、查询运算及厂商详情逐项声明支持，现有 skywalking_graphql 名称不证明所有厂商原生 API 兼容。
 - UI 与 AI 创建支持相同的两种编辑来源；分析时只执行已发布的展示或明细查询定义，不能上传替代查询文本。
 
@@ -285,7 +286,7 @@ applicable_resource_types 是发布配置中明确声明、由服务端校验的
 
 任意跨查询公式、任意函数嵌套和复杂 Trace 聚合不进入首期构建器。DSL 模式允许当前底层已支持且通过校验的语法，但不能使用未知字段、突破预算或返回不适合该 Panel 的类型。首期构建器矩阵是交付要求，不是对现有代码能力的完成声明。
 
-该表为基础编辑能力，不排除 Q32/Q41 的平台预定义 APM 能力。首期增加服务/实例/接口总览、调用量/错误率/时延、服务拓扑和慢错误 Trace 等专用统计图，提供展开详情与全屏视图；按厂商组织信息、复用 Argus 组件及权限，不另建独立 APM 一级页面。每种图型声明实际查询、结果形状、过滤与下钻能力；不能只注册名字而仍渲染成通用列表。采样统计口径仍按 Q34 待澄清项处理。
+该表为基础编辑能力，不排除 Q32/Q41 的平台预定义 APM 能力。首期增加服务/实例/接口总览、调用量/错误率/时延、服务拓扑和慢错误 Trace 等专用统计图，提供展开详情与全屏视图；按厂商组织信息、复用 Argus 组件及权限，不另建独立 APM 一级页面。每种图型声明实际查询、结果形状、过滤与下钻能力；不能只注册名字而仍渲染成通用列表。采样统计按 Q34 展示已接收样本，明确注明口径，不推算全量；独立请求指标另列来源。
 
 ### 3.7 系统资源筛选与自定义变量
 
@@ -439,6 +440,8 @@ DashboardPanelResult
 
 新鲜度区分查询完成时间、最新样本事件时间和可获得的采集/摄入状态。无法证明数据完整到达时记为 unknown。无新错误日志不自动等于数据过期或系统正常。
 
+当前实现记录原始样本时间，日志聚合缺少原始时间证据时显示 unknown；正式图表通过共享详情组件分别展示查询完成、缓存命中、已观察样本事件时间和摄入完整性。详见 [Runtime 收尾及验证](./runtime-refresh-cache-freshness.md)。
+
 ### 4.4 总预算、完整性与缓存
 
 Dashboard 预算覆盖变量发现、Panel 查询、AI 查询结果的内部导出、分页和同一次 AI 分批请求：
@@ -450,6 +453,8 @@ Dashboard 预算覆盖变量发现、Panel 查询、AI 查询结果的内部导�
 - 来源绑定定义/能力版本、本次冻结的实际来源集合及配置版本、规范化的各 Panel 局部参数和下钻目标/映射同样进入执行指纹、缓存和文件来源清单；动态来源新增或局部条件变化不能复用不同范围的旧结果。
 - Signal 是查询语义，不是授权维度。不同主体授权版本相同不能据此共享不同范围的数据，命中前仍重新执行对象授权。
 - 导航绑定缓存独立失效；已导出文件只按实际查询身份、时间与完整性复用，同名路径不代表相同数据。
+
+当前查询结果缓存由现有 Query Coordinator 承载，进程内上限 64 MiB/1024 条、TTL 30 秒，仅对服务端确认的已发布查询身份启用。命中仍经过对象授权、预算、限流和审计，并保留原执行成本与完成时间；不缓存 partial/失败，不把缓存作为文件任务持久化依据。
 
 ### 4.5 受控结果导出与 Workspace 交付
 
@@ -710,7 +715,7 @@ telemetry_dashboard_exports          # 任务/来源/分片元数据，数据文
 
 不按 Metrics/Logs/Traces 或遥测字段分权，Signal 仅用于数据源与引擎选择。必要的凭证屏蔽等统一数据安全规则仍适用，不构成另一套细粒度角色权限。
 
-当前代码存在 telemetry.query.metrics/logs/traces、telemetry.sensitive_fields.read 等细分门禁；本期核查并统一收敛 HTTP、Tool、角色、前端、缓存与来源校验，不能只在 Dashboard 特殊绕过旧权限。
+HTTP、Tool、注册表/内置角色、前端矩阵、游标和 Workspace 来源已收敛到对象权限，旧 telemetry.query.metrics/logs/traces、telemetry.sensitive_fields.read 已移除；实现与迁移边界见 [对象查询授权](./object-query-authorization.md)。不依靠 Dashboard 特例绕过旧权限。
 
 同步数据库约束、同企业验证、授权目录、主体加载、契约、角色管理和 Workspace 来源指纹。遥测 Scope 只接收 Host/Cluster ID，不能混入 Dashboard ID。
 
@@ -756,7 +761,7 @@ telemetry_dashboard_exports          # 任务/来源/分片元数据，数据文
 
 布局应保存 x/y/w/h，提供标题把手拖动、右下角宽高缩放、12 列吸附、最小尺寸、边界约束与碰撞处理；键盘操作、取消拖动及刷新恢复纳入验收。半宽/全宽按钮或仅重排顺序不能视为完成。普通查看不可修改布局，编辑只写个人草稿，统一发布。
 
-展示层应按结果形状注册图型与配置，复用 @argus/ui/ECharts。Demo 展示 Time series、Stat、Gauge、Bar gauge、Bar chart、Pie、Histogram、Heatmap、State timeline、Scatter、Table；正式数据适配、单位、计算口径和支持矩阵仍须验证。日志继续使用 Argus KQL，日志/Trace 需要可检索、展开和下钻的交互。APM 展示覆盖 Q32 的服务/实例/接口总览、指标、拓扑及链路排查清单；采样统计口径见能力讨论的待澄清项，数据能力缺失不能仅以插件已启用掩盖。
+展示层应按结果形状注册图型与配置，复用 @argus/ui/ECharts。Demo 展示 Time series、Stat、Gauge、Bar gauge、Bar chart、Pie、Histogram、Heatmap、State timeline、Scatter、Table；正式数据适配、单位、计算口径和支持矩阵仍须验证。日志继续使用 Argus KQL，日志/Trace 需要可检索、展开和下钻的交互。APM 展示覆盖 Q32 的服务/实例/接口总览、指标、拓扑及链路排查清单；采样统计按 Q34 标注已接收样本口径，不推算全量，数据能力缺失不能仅以插件已启用掩盖。
 
 ## 12. 实施任务与顺序
 
@@ -793,43 +798,49 @@ Task 2 依赖 Task 1 真实人工闭环，不根据历史 M0-M10 验收推定当
 
 ### P2V 检查清单
 
-- [ ] P2V-CONTRACT-01：Folder/Dashboard/Draft/Revision/Panel/QueryTarget/Variable/Binding Schema。
-- [ ] P2V-ADR-01：Dashboard 独立领域、单一编辑来源、绑定仅导航、Chat 查询边界。
-- [ ] P2V-OPENAPI-01：草稿、发布基线、授权、执行、目录和公开预览契约。
-- [ ] P2V-TOOL-01：Gateway 分类、版本化元数据、list/get/query 与隐藏 Commit。
-- [ ] P2V-DB-01：Migration、sqlc、个人草稿、对象授权与索引。
-- [ ] P2V-DOMAIN-01：草稿/发布版分离与 active 指针原子更新。
-- [ ] P2V-VALIDATE-01：硬校验、独立样本状态、双模式无损转换与变量图。
-- [ ] P2V-ACTION-01：生效配置的 Preview/Commit、幂等、冲突与恢复。
-- [ ] P2V-AUDIT-01：编辑、发布、查询覆盖、授权与关联审计。
-- [ ] P2V-EXEC-01：统一 ExecuteDashboard、系统资源筛选与变量适配。
-- [ ] P2V-EXEC-02：三种原生结果与首期构建器能力矩阵。
-- [ ] P2V-EXEC-03：共享预算、范围指纹缓存、取消、partial 与空范围拒绝。
-- [ ] P2V-EXEC-04：UI 查询与 AI 导出共用执行语义，AI 通过 Workspace 文件分析。
-- [ ] P2V-EXPORT-01：AI 查询工具内部使用已发布查询、稳定分页/分片/续传与来源哈希/完整性。
-- [ ] P2V-EXPORT-02：会话 Workspace 流式交付、容量、撤权、取消与恢复。
-- [ ] P2V-AUTH-01：三信号/字段细分门禁统一收敛到对象访问与编辑控制。
-- [ ] P2V-CATALOG-01：真实数据目录、字段映射、类型和值发现。
-- [ ] P2V-WEB-01：目录、个人草稿恢复、详情、编辑与发布预览。
-- [ ] P2V-WEB-02：时间、资源、变量、布局和结果状态。
-- [ ] P2V-WEB-03：双语、深浅色、桌面键盘与读屏。
-- [ ] P2V-BINDING-01：Host/Cluster 页面配置与解除关联。
-- [ ] P2V-BINDING-02：快捷打开预选资源并强制过滤所有适用 Panel。
-- [ ] P2V-BINDING-03：资源删除、关联失效、双方撤权和用户切换范围。
-- [ ] P2V-AI-01：版本化 Skill 激活、结构化引用、追问继承与 Run 恢复。
-- [ ] P2V-AI-02：未指定对象先列授权仪表盘，用户明确选择后执行。
-- [ ] P2V-AI-03：文件来源、数据完整性、未知状态与泛问覆盖检查。
-- [ ] P2V-AI-04：AI 生成 builder/DSL Panel、构建器变量和严格 Draft JSON。
-- [ ] P2V-AI-05：预览、宿主单次确认、隐藏 Commit 与幂等。
-- [ ] P2V-AI-06：仅 Host/Cluster 的可选关联建议。
-- [ ] P2V-AI-07：从冻结发布版恢复展示/明细查询，记录文件来源，拒绝未配置的原始数据获取。
-- [ ] P2V-E2E-01：UI 草稿、恢复、发布、冲突、运行与审计。
-- [ ] P2V-E2E-02：AI 两种查询编辑模式创建并确认发布。
-- [ ] P2V-E2E-03：列表选择/@、泛问全覆盖、具体问题按需、Chat 结论。
-- [ ] P2V-E2E-04：Host/Cluster 快捷入口与无绑定独立访问。
-- [ ] P2V-E2E-05：对象/数据双层授权、跨企业、相同授权版本不同主体、统一数据安全处理。
-- [ ] P2V-E2E-06：Redis 清空、重启、重复确认、版本变化、partial 和失败恢复。
-- [ ] P2V-RELEASE-01：官方 Harness 的归属清理与发布门禁。
+**最新代码复核：36/37。**历史分轮功能验收仍有效；2026-09-28 本轮发现前端类型检查 TS2493，重新打开 RELEASE。新版三信号分析提示和当前整版联合复验尚无通过记录，详见 [当前前后端复核](./current-code-review-20260928.md)。以下较早阶段数字保留为历史记录。
+
+2026-09-28 后续：真实 GLM 四项基础场景 4/4 通过，最终退出码 0，归属清理及原有资源核对通过，见 [执行记录](./real-model-validation-20260928.md)。P2V-AI-02、P2V-E2E-02 已关闭；当前共 33 项关闭，4 项仍有专项模型验收待补。
+
+此前非模型范围按 [验收结论与能力矩阵](./completion-review-20260928.md) 关闭。页面证据是 depth-f 轮 26 项 + depth-g 轮 6 项，后台证据来自 depth-h 轮；确定性工具不等于模型质量。depth-h 退出码 0、归属清理与原有资源核对通过，RELEASE 的临时部署门禁关闭。GLM 专项只新增有明确实际证据的模型结论，未执行的扩展场景仍不标为通过。
+
+- [x] P2V-CONTRACT-01：Folder/Dashboard/Draft/Revision/Panel/QueryTarget/Variable/Binding Schema。
+- [x] P2V-ADR-01：Dashboard 独立领域、单一编辑来源、绑定仅导航、Chat 查询边界。
+- [x] P2V-OPENAPI-01：草稿、发布基线、授权、执行、目录和公开预览契约。
+- [x] P2V-TOOL-01：Gateway 分类、版本化元数据、list/get/query 与隐藏 Commit。
+- [x] P2V-DB-01：Migration、sqlc、个人草稿、对象授权与索引。
+- [x] P2V-DOMAIN-01：草稿/发布版分离与 active 指针原子更新。
+- [x] P2V-VALIDATE-01：硬校验、独立样本状态、双模式无损转换与变量图。
+- [x] P2V-ACTION-01：生效配置的 Preview/Commit、幂等、冲突与恢复。
+- [x] P2V-AUDIT-01：编辑、发布、查询覆盖、授权与关联审计。
+- [x] P2V-EXEC-01：统一 ExecuteDashboard、系统资源筛选与变量适配。
+- [x] P2V-EXEC-02：三种原生结果与首期构建器能力矩阵。
+- [x] P2V-EXEC-03：共享预算、范围指纹缓存、取消、partial 与空范围拒绝。
+- [x] P2V-EXEC-04：UI 查询与 AI 导出共用执行语义，AI 通过 Workspace 文件分析。
+- [x] P2V-EXPORT-01：AI 查询工具内部使用已发布查询、稳定分页/分片/续传与来源哈希/完整性。
+- [x] P2V-EXPORT-02：会话 Workspace 流式交付、容量、撤权、取消与恢复。
+- [x] P2V-AUTH-01：三信号/字段细分门禁统一收敛到对象访问与编辑控制。
+- [x] P2V-CATALOG-01：真实数据目录、字段映射、类型和值发现。
+- [x] P2V-WEB-01：目录、个人草稿恢复、详情、编辑与发布预览。证据：[工作台与文件链路](./closure-workbench-files-20260926.md)，[最新真实页面回归](./audit-lifecycle-20260927.md)。
+- [x] P2V-WEB-02：时间、资源、变量、布局和结果状态。
+- [x] P2V-WEB-03：双语、深浅色、桌面键盘与读屏语义。证据为具名控件/区域、键盘及 Axe serious/critical 检查；未执行指定屏幕阅读器的人工认证。
+- [x] P2V-BINDING-01：Host/Cluster 页面配置与解除关联。证据：[正式资源入口用例](../../web/apps/enterprise/e2e/planv2-collaboration-real.spec.ts)，[真实部署结果](./publication-gallery-boundaries-20260927.md)。
+- [x] P2V-BINDING-02：快捷打开预选资源并强制过滤所有适用 Panel。证据：[同一用例核对请求和执行资源范围、Host 无法读取 Cluster 标记](../../web/apps/enterprise/e2e/planv2-collaboration-real.spec.ts)，[最新回归](./audit-lifecycle-20260927.md)。
+- [x] P2V-BINDING-03：资源删除、关联失效、双方撤权和用户切换范围。证据：[关联生命周期与权限](./audit-lifecycle-20260927.md)，[Cluster→全部→Host 范围切换及局部资源约束](./interaction-boundaries-20260927.md)。
+- [x] P2V-AI-01：版本化 Skill 激活、结构化引用、追问继承与 Run 恢复。
+- [x] P2V-AI-02：未指定对象先列授权仪表盘，用户明确选择后执行。**GLM 实测列清单、引导选择器/@、未选择不取数，以及明确选择后查询通过；见真实模型记录。**
+- [x] P2V-AI-03：文件来源、数据完整性、未知状态与泛问覆盖检查。**i 轮三信号文件哈希/记录数及完整用量通过；p 轮无数据、查询失败、预算耗尽、真实满空间 4/4 通过。覆盖以真实文件交付、观测值及未知结论核对，不采信模型自报已分析。分轮证据、失败记录及边界见真实模型验收报告。**
+- [x] P2V-AI-04：AI 生成 builder/DSL Panel、构建器变量和严格 Draft JSON。**h 轮变量及引用范围通过；o 轮 builder/DSL 按服务端时钟检索真实目录，默认同时包含主机和集群，严格校验、宿主确认与发布版本一致。**
+- [x] P2V-AI-05：预览、宿主单次确认、隐藏 Commit 与幂等。
+- [x] P2V-AI-06：仅 Host/Cluster 的可选关联建议。**h 轮真实 GLM 从授权目录确认两种资源 ID，建议进入同一草稿预览，经宿主确认后绑定结果一致。**
+- [x] P2V-AI-07：从冻结发布版恢复展示/明细查询，记录文件来源，拒绝未配置的原始数据获取。
+- [x] P2V-E2E-01：UI 草稿、恢复、发布、冲突、运行与审计。证据：[双编辑者及发布边界](./publication-gallery-boundaries-20260927.md)，[审计跨页和版本/执行事实](./audit-lifecycle-20260927.md)。
+- [x] P2V-E2E-02：AI 两种查询编辑模式创建并确认发布。**GLM 实际创建 builder/DSL，经服务端验证、宿主确认后核对真实发布版本，通过。**
+- [x] P2V-E2E-03：列表选择/@、泛问全覆盖、具体问题按需、Chat 结论。**真实 Chat 交互、GLM 目标询问及 h 轮多仪表盘独立默认值、按需选图、时间/资源/变量追问继承、新发布版本切换通过；Chat 指标和 ERROR 日志数与不可变文件一致。异常分析交付及完整用量另由 AI-03 跟踪。**
+- [x] P2V-E2E-04：Host/Cluster 快捷入口与无绑定独立访问。证据：[资源入口及解绑后仍可查询](../../web/apps/enterprise/e2e/planv2-collaboration-real.spec.ts)，[无绑定工作台创建和查看](../../web/apps/enterprise/e2e/planv2-workbench-real.spec.ts)，[最新回归](./audit-lifecycle-20260927.md)。
+- [x] P2V-E2E-05：对象/数据双层授权、跨企业、相同授权版本不同主体、统一数据安全处理。
+- [x] P2V-E2E-06：Redis 清空、重启、重复确认、版本变化、partial 和失败恢复。
+- [ ] P2V-RELEASE-01：官方 Harness 的归属清理与发布门禁。历史归属清理通过；当前前端类型门禁失败，重新打开，见 [本轮复核](./current-code-review-20260928.md)。
 
 ## 13. 关键验收场景
 
@@ -875,7 +886,7 @@ Task 2 依赖 Task 1 真实人工闭环，不根据历史 M0-M10 验收推定当
 - 临时 Kubernetes Namespace E2E 覆盖三信号真实数据、重启、Redis 清空、授权变化和失败恢复。
 - 成功或失败均按归属清理临时 Namespace、PVC、Topic、Bucket、Lease、测试绑定与临时诊断资源；保留脱敏验收证据，保护正常部署与无关资源。
 
-本计划更新不等于代码实现完成；所有实现与发布复选项保持未完成，须由对应真实证据关闭。
+计划文档或 Demo 本身不能关闭实现与发布门禁。2026-09-28 非模型 31 项已有证据，随后 GLM 专项新增关闭 2 项，合计 33 项关闭、4 项仍有部分验收待补。完成状态以 §12 检查清单及 [真实模型验收结论](./real-model-validation-20260928.md) 为准；RELEASE 项仅覆盖临时环境部署和归属清理，不代表长期正式部署或远端发布。
 
 ## 15. 文档与架构影响
 

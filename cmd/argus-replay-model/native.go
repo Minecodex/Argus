@@ -80,6 +80,11 @@ func selectTool(request replayRequest) (string, string, bool) {
 			return "", "", false
 		}
 		step := plan[len(calls)]
+		resolved, err := replayResultArguments(step.Arguments, messages[start+1:])
+		if err != nil {
+			return "", "", false
+		}
+		step.Arguments = resolved
 		if strings.HasPrefix(step.Tool, "mcp:") {
 			original := strings.TrimPrefix(step.Tool, "mcp:")
 			for _, tool := range request.Tools {

@@ -657,6 +657,7 @@ export function createSeedDb(now: number = Date.now()): MockDb {
   };
 
   const db: MockDb = {
+    dashboards: { items: [], drafts: [], revisions: [], folders: [] },
     planv5: {
       connections: [],
       selections: {},
@@ -1355,7 +1356,7 @@ export function createSeedDb(now: number = Date.now()): MockDb {
         toolCalls: [
           {
             callId: "call-0004",
-            toolName: "telemetry.metrics.query",
+            toolName: "telemetry.promql.query",
             status: "success",
             summary: "p99 by pod · 1h",
             durationMs: 1400,
@@ -1741,5 +1742,21 @@ export function createSeedDb(now: number = Date.now()): MockDb {
     };
   }
 
+  db.dataAuthorizationGrants = [
+    ...db.hosts.map((h) => ({
+      subject_type: "user" as const,
+      subject_id: h.enterpriseId === "ent-acme" ? "u-root" : "u-gadmin",
+      resource_type: "host" as const,
+      resource_id: h.id,
+      active: true,
+    })),
+    ...db.clusters.map((c) => ({
+      subject_type: "user" as const,
+      subject_id: c.enterpriseId === "ent-acme" ? "u-root" : "u-gadmin",
+      resource_type: "kubernetes_cluster" as const,
+      resource_id: c.id,
+      active: true,
+    })),
+  ];
   return db;
 }

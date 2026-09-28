@@ -11,6 +11,7 @@ export interface ToolCallTrace {
 }
 
 export interface ChatMessage {
+  dashboardContext?: import("@argus/api-client").DashboardChatSelection;
   id: string;
   conversationId: string;
   role: MessageRole;
@@ -41,6 +42,21 @@ function stringValue(value: unknown): string | undefined {
 
 function numberValue(value: unknown): number | undefined {
   return typeof value === "number" ? value : undefined;
+}
+
+function dashboardReference(value: unknown): ChatMessage["dashboardContext"] {
+  const data = record(value);
+  if (
+    !data ||
+    !["none", "analyze", "create"].includes(String(data.mode)) ||
+    !Array.isArray(data.dashboard_ids) ||
+    !data.dashboard_ids.every((id) => typeof id === "string")
+  )
+    return undefined;
+  return {
+    mode: data.mode as "none" | "analyze" | "create",
+    dashboard_ids: data.dashboard_ids,
+  };
 }
 
 export function chatMessageFromPublic(value: unknown): ChatMessage | null {
@@ -94,6 +110,7 @@ export function chatMessageFromPublic(value: unknown): ChatMessage | null {
     conversationId,
     role,
     content,
+    dashboardContext: dashboardReference(source.dashboard_context),
     createdAt,
     modelId: stringValue(source.model_id),
     modelRevision: numberValue(source.model_revision),
@@ -162,6 +179,7 @@ export function chatMessagesFromEvents(
         conversationId: event.conversation_id,
         role: "user",
         content: stringValue(payload.content) ?? "",
+        dashboardContext: dashboardReference(payload.dashboard_context),
         createdAt: event.occurred_at,
         files: fileArray(payload.files),
       });

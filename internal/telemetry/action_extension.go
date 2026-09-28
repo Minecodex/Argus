@@ -334,6 +334,7 @@ func (extension ActionExtension) commitCollectorAction(ctx context.Context, q *d
 	}
 	routeTransport, routeLoopbackPort := plan.telemetryTransport()
 	rendered, err := configbundle.Render(configbundle.RenderInput{CollectorID: collector.ID.String(), ResourceID: plan.ResourceID.String(),
+		SourceGeneration: collector.SourceGeneration.String(), ConfigRevision: collector.DesiredRevision,
 		ResourceType: plan.ResourceType, Role: plan.Role, Platform: plan.Platform, RouteKind: plan.RouteKind, Transport: routeTransport,
 		TunnelLoopbackPort: int(routeLoopbackPort.Int32), GatewayEndpoint: plan.GatewayEndpoint,
 		GatewayServerName: plan.GatewayServerName, ProfileKeys: plan.ProfileKeys,
@@ -352,6 +353,19 @@ func (extension ActionExtension) commitCollectorAction(ctx context.Context, q *d
 		ProfileIds: plan.ProfileIDs, RenderedConfig: rendered, ConfigHash: configHash[:],
 	}); err != nil {
 		return resource.ActionCommitResult{}, err
+	}
+	sources, err := configbundle.Sources(rendered)
+	if err != nil {
+		return resource.ActionCommitResult{}, err
+	}
+	for _, source := range sources {
+		id, parseErr := uuid.Parse(source.ID)
+		if parseErr != nil {
+			return resource.ActionCommitResult{}, parseErr
+		}
+		if err := q.RegisterTelemetrySource(ctx, db.RegisterTelemetrySourceParams{ID: id, EnterpriseID: action.EnterpriseID, CollectorID: collector.ID, Generation: collector.SourceGeneration, ResourceType: collector.ResourceType, ResourceID: collector.ResourceID, SourceKey: source.Key, SourceType: source.Type, Signals: source.Signals, ConfigRevision: collector.DesiredRevision, ConfigHash: configHash[:], CapabilityVersion: source.CapabilityVersion}); err != nil {
+			return resource.ActionCommitResult{}, err
+		}
 	}
 	if _, err = q.UpsertTelemetryRoute(ctx, db.UpsertTelemetryRouteParams{
 		ID: newTelemetryID(), EnterpriseID: action.EnterpriseID, CollectorID: collector.ID,

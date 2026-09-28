@@ -4,8 +4,7 @@ metadata:
   name: argus-telemetry-clickhouse-migration
   namespace: {{ .Values.namespace }}
 data:
-  00001_m7_telemetry.sql: |
-{{ .Files.Get "files/00001_m7_telemetry.sql" | indent 4 }}
+{{ (.Files.Glob "files/*.sql").AsConfig | indent 2 }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -33,7 +32,10 @@ spec:
           args:
             - |
               until clickhouse-client --host argus-clickhouse-client --user argus_telemetry_migration --password="$CLICKHOUSE_PASSWORD" --query 'SELECT 1'; do sleep 3; done
-              clickhouse-client --host argus-clickhouse-client --user argus_telemetry_migration --password="$CLICKHOUSE_PASSWORD" --multiquery < /migrations/00001_m7_telemetry.sql
+              for migration in /migrations/*.sql; do
+                test -f "$migration"
+                clickhouse-client --host argus-clickhouse-client --user argus_telemetry_migration --password="$CLICKHOUSE_PASSWORD" --multiquery < "$migration"
+              done
           volumeMounts:
             - {name: migration, mountPath: /migrations, readOnly: true}
       volumes:

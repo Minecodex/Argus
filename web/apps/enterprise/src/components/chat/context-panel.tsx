@@ -59,9 +59,10 @@ export function ChatContextPanel({ messages }: { messages: ChatMessage[] }) {
     queryKey: ["auth", "me"],
     queryFn: () => api.auth.me(),
   });
-  // 与 useMyPermissions 相同的绑定解析（user 主体 ∪ 本部门 department 主体）。
+  // Role labels require org read access; effective permissions use the session.
   const myRoles = useMyRoles();
-  const permissionCount = useMyPermissions().size;
+  const permissions = useMyPermissions();
+  const canReadRoles = permissions.has("*") || permissions.has("role.read");
   const actionLabel = (action: string) =>
     t(auditPresentationKey("settings.audit", "actions", action), {
       defaultValue: humanizeAuditCode(action),
@@ -71,7 +72,9 @@ export function ChatContextPanel({ messages }: { messages: ChatMessage[] }) {
     queryKey: ["audit", "mine", me?.user.id],
     queryFn: () =>
       api.audit.list({ actorUserId: me?.user.id }, { page: { limit: 5 } }),
-    enabled: Boolean(me?.user.id),
+    enabled:
+      Boolean(me?.user.id) &&
+      (permissions.has("*") || permissions.has("audit.read")),
   });
 
   return (
@@ -111,7 +114,7 @@ export function ChatContextPanel({ messages }: { messages: ChatMessage[] }) {
           {t("chat.context.permissions")}
         </span>
         <div className="argus-chat-context__roles">
-          {myRoles.length === 0 && (
+          {canReadRoles && myRoles.length === 0 && (
             <p className="argus-chat-context__empty">
               {t("chat.context.noRoles")}
             </p>
@@ -123,11 +126,9 @@ export function ChatContextPanel({ messages }: { messages: ChatMessage[] }) {
             </Badge>
           ))}
         </div>
-        {myRoles.length > 0 && (
-          <p className="argus-chat-context__empty">
-            {t("chat.context.permissionsCount", { count: permissionCount })}
-          </p>
-        )}
+        <p className="argus-chat-context__empty">
+          {t("chat.context.permissionsCount", { count: permissions.size })}
+        </p>
       </section>
 
       <section className="argus-chat-context__section">

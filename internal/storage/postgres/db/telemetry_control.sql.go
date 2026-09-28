@@ -808,7 +808,7 @@ func (q *Queries) GetCollectorConfigRevision(ctx context.Context, arg GetCollect
 }
 
 const getCollectorForResource = `-- name: GetCollectorForResource :one
-SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at FROM collector_instances WHERE enterprise_id = $1 AND resource_type = $2 AND resource_id = $3
+SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at, source_generation FROM collector_instances WHERE enterprise_id = $1 AND resource_type = $2 AND resource_id = $3
 `
 
 type GetCollectorForResourceParams struct {
@@ -836,12 +836,13 @@ func (q *Queries) GetCollectorForResource(ctx context.Context, arg GetCollectorF
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceGeneration,
 	)
 	return i, err
 }
 
 const getCollectorInstance = `-- name: GetCollectorInstance :one
-SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at FROM collector_instances WHERE id = $1 AND enterprise_id = $2
+SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at, source_generation FROM collector_instances WHERE id = $1 AND enterprise_id = $2
 `
 
 type GetCollectorInstanceParams struct {
@@ -868,12 +869,13 @@ func (q *Queries) GetCollectorInstance(ctx context.Context, arg GetCollectorInst
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceGeneration,
 	)
 	return i, err
 }
 
 const getCollectorInstanceByID = `-- name: GetCollectorInstanceByID :one
-SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at FROM collector_instances WHERE id = $1
+SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at, source_generation FROM collector_instances WHERE id = $1
 `
 
 func (q *Queries) GetCollectorInstanceByID(ctx context.Context, id uuid.UUID) (CollectorInstance, error) {
@@ -895,6 +897,7 @@ func (q *Queries) GetCollectorInstanceByID(ctx context.Context, id uuid.UUID) (C
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceGeneration,
 	)
 	return i, err
 }
@@ -970,7 +973,7 @@ func (q *Queries) GetLatestCollectorOperation(ctx context.Context, arg GetLatest
 }
 
 const getTelemetryCollectorIdentity = `-- name: GetTelemetryCollectorIdentity :one
-SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at FROM collector_instances WHERE id = $1 AND status NOT IN ('uninstalled','uninstalling')
+SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at, source_generation FROM collector_instances WHERE id = $1 AND status NOT IN ('uninstalled','uninstalling')
 `
 
 func (q *Queries) GetTelemetryCollectorIdentity(ctx context.Context, id uuid.UUID) (CollectorInstance, error) {
@@ -992,12 +995,13 @@ func (q *Queries) GetTelemetryCollectorIdentity(ctx context.Context, id uuid.UUI
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceGeneration,
 	)
 	return i, err
 }
 
 const getTelemetryCollectorIdentityBySerial = `-- name: GetTelemetryCollectorIdentityBySerial :one
-SELECT ci.id, ci.enterprise_id, ci.resource_type, ci.resource_id, ci.distribution_version_id, ci.platform, ci.role, ci.status, ci.desired_revision, ci.effective_revision, ci.authorization_version, ci.last_seen_at, ci.version, ci.created_at, ci.updated_at, tc.serial_number, tc.uri_san, tc.not_after
+SELECT ci.id, ci.enterprise_id, ci.resource_type, ci.resource_id, ci.distribution_version_id, ci.platform, ci.role, ci.status, ci.desired_revision, ci.effective_revision, ci.authorization_version, ci.last_seen_at, ci.version, ci.created_at, ci.updated_at, ci.source_generation, tc.serial_number, tc.uri_san, tc.not_after
 FROM telemetry_certificates tc
 JOIN collector_instances ci ON ci.id = tc.collector_id
 WHERE tc.serial_number = $1 AND tc.certificate_usage = 'clientAuth' AND tc.revoked_at IS NULL AND tc.not_before <= now() AND tc.not_after > now()
@@ -1020,6 +1024,7 @@ type GetTelemetryCollectorIdentityBySerialRow struct {
 	Version               int64              `json:"version"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	SourceGeneration      uuid.UUID          `json:"source_generation"`
 	SerialNumber          string             `json:"serial_number"`
 	UriSan                string             `json:"uri_san"`
 	NotAfter              pgtype.Timestamptz `json:"not_after"`
@@ -1044,6 +1049,7 @@ func (q *Queries) GetTelemetryCollectorIdentityBySerial(ctx context.Context, ser
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceGeneration,
 		&i.SerialNumber,
 		&i.UriSan,
 		&i.NotAfter,
@@ -1356,7 +1362,7 @@ func (q *Queries) ListCollectionClaims(ctx context.Context, arg ListCollectionCl
 }
 
 const listCollectorInstances = `-- name: ListCollectorInstances :many
-SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at FROM collector_instances
+SELECT id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at, source_generation FROM collector_instances
 WHERE enterprise_id = $1
   AND ($3::text IS NULL OR resource_type = $3)
   AND ($4::uuid IS NULL OR resource_id = $4)
@@ -1401,6 +1407,7 @@ func (q *Queries) ListCollectorInstances(ctx context.Context, arg ListCollectorI
 			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SourceGeneration,
 		); err != nil {
 			return nil, err
 		}
@@ -1555,7 +1562,7 @@ UPDATE collector_instances SET status = 'uninstalling', desired_revision = desir
   version = version + 1, updated_at = now()
 WHERE enterprise_id = $1 AND resource_type = $2 AND resource_id = $3
   AND ($4::bigint = 0 OR version = $4)
-RETURNING id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at
+RETURNING id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at, source_generation
 `
 
 type MarkCollectorUninstallingParams struct {
@@ -1589,6 +1596,7 @@ func (q *Queries) MarkCollectorUninstalling(ctx context.Context, arg MarkCollect
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceGeneration,
 	)
 	return i, err
 }
@@ -1780,11 +1788,12 @@ ON CONFLICT (enterprise_id, resource_type, resource_id) DO UPDATE SET
   distribution_version_id = EXCLUDED.distribution_version_id,
   platform = EXCLUDED.platform,
   role = EXCLUDED.role,
+  source_generation = CASE WHEN collector_instances.status = 'uninstalled' THEN gen_random_uuid() ELSE collector_instances.source_generation END,
   status = 'installing',
   desired_revision = collector_instances.desired_revision + 1,
   version = collector_instances.version + 1,
   updated_at = now()
-RETURNING id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at
+RETURNING id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at, source_generation
 `
 
 type UpsertCollectorForActionParams struct {

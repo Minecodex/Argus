@@ -3,12 +3,15 @@ package queryengine
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/kakj-go/Argus/internal/telemetry/datapolicy"
+	"io"
 	"log/slog"
+	"net"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -35,10 +38,12 @@ const (
 )
 
 type Scope struct {
+	SubjectID            uuid.UUID
+	SubjectType          string
+	SourceKeys           []string
 	EnterpriseID         uuid.UUID
 	ResourceIDs          []uuid.UUID
 	AuthorizationVersion int64
-	SensitiveFields      bool
 }
 
 type Budget struct {
@@ -51,30 +56,36 @@ type Budget struct {
 }
 
 type Request struct {
-	Language   Language
-	Expression string
-	Pipeline   string
-	Operation  string
-	Variables  map[string]any
-	Instant    bool
-	Start      time.Time
-	End        time.Time
-	Step       time.Duration
-	Scope      Scope
-	Budget     Budget
+	CacheNamespace string
+	Language       Language
+	Expression     string
+	Pipeline       string
+	Operation      string
+	Variables      map[string]any
+	Instant        bool
+	Start          time.Time
+	End            time.Time
+	Step           time.Duration
+	Scope          Scope
+	Budget         Budget
 }
 
 type QueryMeta struct {
-	PlanHash      string
-	Engine        string
-	EngineVersion string
-	ScannedBytes  int64
-	ScannedRows   int64
-	ReturnedRows  int64
-	LoadedSamples int64
-	ElapsedMillis int64
-	Partial       bool
-	Warnings      []string
+	QueryCompletedAt *time.Time `json:"query_completed_at,omitempty"`
+	LatestSampleAt   *time.Time `json:"latest_sample_at,omitempty"`
+	SampleTimeBasis  string     `json:"sample_time_basis"`
+	IngestionStatus  string     `json:"ingestion_status"`
+	CacheHit         bool       `json:"cache_hit"`
+	PlanHash         string     `json:"plan_hash"`
+	Engine           string     `json:"engine"`
+	EngineVersion    string     `json:"engine_version"`
+	ScannedBytes     int64      `json:"scanned_bytes"`
+	ScannedRows      int64      `json:"scanned_rows"`
+	ReturnedRows     int64      `json:"returned_rows"`
+	LoadedSamples    int64      `json:"loaded_samples"`
+	ElapsedMillis    int64      `json:"elapsed_millis"`
+	Partial          bool       `json:"partial"`
+	Warnings         []string   `json:"warnings"`
 }
 
 type Result struct {
@@ -89,6 +100,8 @@ type Engine interface {
 }
 
 type AuditEvent struct {
+	SubjectID            uuid.UUID
+	SubjectType          string
 	Language             Language
 	EnterpriseID         uuid.UUID
 	ResourceIDs          []uuid.UUID
@@ -112,7 +125,7 @@ func (sink SlogAuditSink) Record(_ context.Context, event AuditEvent) error {
 	if sink.Logger == nil {
 		return nil
 	}
-	sink.Logger.Info("telemetry query audit", "language", event.Language, "enterprise_id", event.EnterpriseID,
+	sink.Logger.Info("telemetry query audit", "language", event.Language, "enterprise_id", event.EnterpriseID, "subject_id", event.SubjectID, "subject_type", event.SubjectType,
 		"resource_count", len(event.ResourceIDs), "authorization_version", event.AuthorizationVersion,
 		"plan_hash", event.PlanHash, "expression_hash", event.ExpressionHash, "elapsed_ms", event.Elapsed.Milliseconds(),
 		"success", event.Success, "error", event.Error, "returned_rows", event.Meta.ReturnedRows,
@@ -170,9 +183,16 @@ func (sink PersistentAuditSink) record(ctx context.Context, event AuditEvent) er
 		if err := audit.InitializeChain(ctx, queries, "enterprise", enterpriseID); err != nil {
 			return err
 		}
+		actorType, actorID := "system", "argus-telemetry-query"
+		if event.SubjectID != uuid.Nil && (event.SubjectType == "user" || event.SubjectType == "service_account") {
+			actorType, actorID = event.SubjectType, event.SubjectID.String()
+			if actorType == "user" {
+				actorType = "enterprise_user"
+			}
+		}
 		_, err := audit.Append(ctx, queries, audit.Entry{
-			Domain: "enterprise", EnterpriseID: enterpriseID, ActorType: "system",
-			ActorID: "argus-telemetry-query", Action: "telemetry.query.execute",
+			Domain: "enterprise", EnterpriseID: enterpriseID, ActorType: actorType,
+			ActorID: actorID, Action: "telemetry.query.execute",
 			ResourceType: "telemetry_query", Result: result,
 			Details: map[string]any{
 				"language":              string(event.Language),
@@ -185,6 +205,8 @@ func (sink PersistentAuditSink) record(ctx context.Context, event AuditEvent) er
 				"scanned_rows":          event.Meta.ScannedRows,
 				"loaded_samples":        event.Meta.LoadedSamples,
 				"returned_rows":         event.Meta.ReturnedRows,
+				"cache_hit":             event.Meta.CacheHit,
+				"query_completed_at":    event.Meta.QueryCompletedAt,
 				"success":               event.Success,
 				"error":                 persistentAuditError(event),
 			},
@@ -209,6 +231,7 @@ func persistentAuditError(event AuditEvent) string {
 }
 
 type Coordinator struct {
+	Cache      *ResultCache
 	PromQL     Engine
 	KQL        Engine
 	Trace      Engine
@@ -230,6 +253,7 @@ type Policy struct {
 var (
 	ErrUnsupportedLanguage = errors.New("query language unsupported")
 	ErrBudget              = errors.New("query budget exceeded")
+	ErrBackend             = errors.New("query backend unavailable")
 )
 
 func (c *Coordinator) Execute(ctx context.Context, request Request) (Result, error) {
@@ -263,7 +287,7 @@ func (c *Coordinator) Execute(ctx context.Context, request Request) (Result, err
 		if c.Audit == nil {
 			return
 		}
-		_ = c.Audit.Record(context.Background(), AuditEvent{Language: request.Language, EnterpriseID: request.Scope.EnterpriseID,
+		_ = c.Audit.Record(context.Background(), AuditEvent{SubjectID: request.Scope.SubjectID, SubjectType: request.Scope.SubjectType, Language: request.Language, EnterpriseID: request.Scope.EnterpriseID,
 			ResourceIDs: request.Scope.ResourceIDs, AuthorizationVersion: request.Scope.AuthorizationVersion, PlanHash: result.Meta.PlanHash,
 			ExpressionHash: expressionHash, StartedAt: started, Elapsed: time.Since(started), Success: execErr == nil,
 			Error: errorString(execErr), Meta: result.Meta})
@@ -292,6 +316,17 @@ func (c *Coordinator) Execute(ctx context.Context, request Request) (Result, err
 	defer release()
 	queryCtx, cancel := context.WithTimeout(ctx, request.Budget.Timeout)
 	defer cancel()
+	if err := queryCtx.Err(); err != nil {
+		audit(Result{}, err)
+		return Result{}, err
+	}
+	cacheKey := resultCacheKey(request)
+	if result, ok := c.Cache.get(cacheKey); ok {
+		// Keep original query cost and completion time. The caller's cumulative
+		// ledger still charges this result, and every hit gets its own audit.
+		audit(result, nil)
+		return result, nil
+	}
 	result, err := engine.Execute(queryCtx, request)
 	if err != nil {
 		err = normalizeExecutionError(err)
@@ -316,7 +351,15 @@ func (c *Coordinator) Execute(ctx context.Context, request Request) (Result, err
 	if result.Meta.Warnings == nil {
 		result.Meta.Warnings = []string{}
 	}
-	result.Data = projectData(request.Language, result.Data, request.Scope.SensitiveFields)
+	projected, redacted, projectionErr := datapolicy.Project(result.Data)
+	if projectionErr != nil {
+		audit(Result{}, projectionErr)
+		return Result{}, projectionErr
+	}
+	result.Data = projected
+	if redacted {
+		result.Meta.Warnings = append(result.Meta.Warnings, "CREDENTIAL_VALUES_REDACTED")
+	}
 	encoded, marshalErr := json.Marshal(result.Data)
 	if marshalErr != nil {
 		audit(Result{}, marshalErr)
@@ -326,13 +369,36 @@ func (c *Coordinator) Execute(ctx context.Context, request Request) (Result, err
 		audit(Result{}, ErrBudget)
 		return Result{}, ErrBudget
 	}
+	if err := queryCtx.Err(); err != nil {
+		audit(Result{}, err)
+		return Result{}, err
+	}
+	completed := time.Now().UTC()
+	result.Meta.QueryCompletedAt = &completed
+	result.Meta.CacheHit = false
+	result.Meta.IngestionStatus = "unknown"
+	result.Meta.SampleTimeBasis = "unknown"
+	if result.Meta.LatestSampleAt != nil {
+		result.Meta.SampleTimeBasis = "observed_query_samples"
+	}
+	c.Cache.put(cacheKey, result)
 	audit(result, nil)
 	return result, nil
 }
 
+// NormalizeExecutionError preserves resource-limit failures across query and catalog RPCs.
+func NormalizeExecutionError(err error) error { return normalizeExecutionError(err) }
+
 func normalizeExecutionError(err error) error {
+	if errors.Is(err, promqlengine.ErrBudget) || errors.Is(err, kqlengine.ErrBudget) || errors.Is(err, skywalking.ErrBudget) || errors.Is(err, context.DeadlineExceeded) {
+		return errors.Join(ErrBudget, err)
+	}
 	if err == nil || errors.Is(err, ErrBudget) {
 		return err
+	}
+	var networkError net.Error
+	if errors.As(err, &networkError) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, sql.ErrConnDone) {
+		return errors.Join(ErrBackend, err)
 	}
 	var exception *clickhouseproto.Exception
 	if !errors.As(err, &exception) {
@@ -341,6 +407,8 @@ func normalizeExecutionError(err error) error {
 	// Stable ClickHouse server error codes for enforced query-resource limits.
 	// Keep the original exception in the chain for server-side diagnostics.
 	switch exception.Code {
+	case 60, 81, 209, 210, 279:
+		return errors.Join(ErrBackend, err)
 	case 158, // TOO_MANY_ROWS
 		159, // TIMEOUT_EXCEEDED
 		160, // TOO_SLOW
@@ -382,62 +450,6 @@ func errorString(err error) string {
 	return err.Error()
 }
 
-func projectData(language Language, data any, sensitive bool) any {
-	if sensitive || data == nil {
-		return data
-	}
-	return projectValue(language, data)
-}
-
-func projectValue(language Language, value any) any {
-	switch item := value.(type) {
-	case []map[string]any:
-		out := make([]map[string]any, 0, len(item))
-		for _, row := range item {
-			projected := make(map[string]any, len(row))
-			for key, value := range row {
-				if isSensitiveField(language, key) {
-					projected[key] = "[REDACTED]"
-					continue
-				}
-				projected[key] = projectValue(language, value)
-			}
-			out = append(out, projected)
-		}
-		return out
-	case map[string]any:
-		out := make(map[string]any, len(item))
-		for key, value := range item {
-			if isSensitiveField(language, key) {
-				out[key] = "[REDACTED]"
-				continue
-			}
-			out[key] = projectValue(language, value)
-		}
-		return out
-	case []any:
-		out := make([]any, len(item))
-		for index, value := range item {
-			out[index] = projectValue(language, value)
-		}
-		return out
-	default:
-		return value
-	}
-}
-
-func isSensitiveField(language Language, key string) bool {
-	switch language {
-	case LanguageKQL:
-		return key == "body"
-	case LanguageTrace:
-		lower := strings.ToLower(key)
-		return lower == "attributes" || lower == "resourceattributes" || lower == "events" || lower == "links"
-	default:
-		return false
-	}
-}
-
 func (c *Coordinator) acquire(ctx context.Context, language Language) (func(), error) {
 	c.once.Do(func() {
 		if c.Policy.PromQLConcurrency <= 0 {
@@ -475,10 +487,12 @@ func planHash(request Request) string {
 		Instant                         bool
 		EnterpriseID                    uuid.UUID
 		ResourceIDs                     []uuid.UUID
+		SourceKeys                      []string
+		Variables                       map[string]any
 		Start, End                      time.Time
 		Step                            time.Duration
 		Budget                          Budget
-	}{request.Language, request.Expression, request.Pipeline, request.Operation, request.Instant, request.Scope.EnterpriseID, request.Scope.ResourceIDs, request.Start, request.End, request.Step, request.Budget})
+	}{request.Language, request.Expression, request.Pipeline, request.Operation, request.Instant, request.Scope.EnterpriseID, request.Scope.ResourceIDs, request.Scope.SourceKeys, request.Variables, request.Start, request.End, request.Step, request.Budget})
 	digest := sha256.Sum256(payload)
 	return hex.EncodeToString(digest[:])
 }
@@ -517,13 +531,13 @@ func (e KQLEngine) Execute(ctx context.Context, request Request) (Result, error)
 	}
 	result, err := kqlengine.Execute(ctx, e.Conn, routerAdapter{router}, kqlengine.Request{
 		Expression: request.Expression, Pipeline: request.Pipeline, Start: request.Start, End: request.End,
-		Scope:  kqlengine.Scope{EnterpriseID: request.Scope.EnterpriseID, ResourceIDs: request.Scope.ResourceIDs},
+		Scope:  kqlengine.Scope{EnterpriseID: request.Scope.EnterpriseID, ResourceIDs: request.Scope.ResourceIDs, SourceKeys: request.Scope.SourceKeys},
 		Budget: kqlengine.Budget{MaxRows: request.Budget.MaxRows, MaxScanBytes: request.Budget.MaxScanBytes, Timeout: request.Budget.Timeout},
 	})
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{Language: LanguageKQL, ResultType: "log_entries", Data: result.Data, Meta: QueryMeta{Engine: "argus-kql", EngineVersion: "v1", ScannedBytes: result.ScannedBytes, ScannedRows: result.ScannedRows, ReturnedRows: int64(len(result.Data)), ElapsedMillis: result.Elapsed.Milliseconds(), Warnings: result.Warnings}}, nil
+	return Result{Language: LanguageKQL, ResultType: result.ResultType, Data: result.Data, Meta: QueryMeta{LatestSampleAt: result.LatestSampleAt, Engine: "argus-kql", EngineVersion: "v2", ScannedBytes: result.ScannedBytes, ScannedRows: result.ScannedRows, ReturnedRows: int64(len(result.Data)), ElapsedMillis: result.Elapsed.Milliseconds(), Partial: result.Partial, Warnings: result.Warnings}}, nil
 }
 
 type TraceEngine struct {
@@ -532,11 +546,11 @@ type TraceEngine struct {
 
 func (e TraceEngine) Execute(ctx context.Context, request Request) (Result, error) {
 	result, err := e.Engine.Execute(ctx, skywalking.Request{Document: request.Expression, OperationName: request.Operation, Variables: request.Variables, Start: request.Start, End: request.End,
-		Scope: skywalking.Scope{EnterpriseID: request.Scope.EnterpriseID, ResourceIDs: request.Scope.ResourceIDs}, Budget: skywalking.Budget{MaxRows: request.Budget.MaxRows, MaxScanBytes: request.Budget.MaxScanBytes, Timeout: request.Budget.Timeout, MaxResultBytes: request.Budget.MaxResultBytes, MaxRelationExpansions: request.Budget.MaxRows}})
+		Scope: skywalking.Scope{EnterpriseID: request.Scope.EnterpriseID, ResourceIDs: request.Scope.ResourceIDs, SourceKeys: request.Scope.SourceKeys}, Budget: skywalking.Budget{MaxRows: request.Budget.MaxRows, MaxScanBytes: request.Budget.MaxScanBytes, Timeout: request.Budget.Timeout, MaxResultBytes: request.Budget.MaxResultBytes, MaxRelationExpansions: request.Budget.MaxRows}})
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{Language: LanguageTrace, ResultType: "traces", Data: result.Data, Meta: QueryMeta{Engine: "skywalking-graphql", EngineVersion: "v1", ScannedBytes: result.ScannedBytes, ScannedRows: result.ScannedRows, ElapsedMillis: result.Elapsed.Milliseconds(), Warnings: result.Errors}}, nil
+	return Result{Language: LanguageTrace, ResultType: result.ResultType, Data: result.Data, Meta: QueryMeta{LatestSampleAt: result.LatestSampleAt, Engine: "skywalking-graphql", EngineVersion: "v2", Partial: result.Partial, ScannedBytes: result.ScannedBytes, ScannedRows: result.ScannedRows, ReturnedRows: result.ReturnedRows, ElapsedMillis: result.Elapsed.Milliseconds(), Warnings: result.Warnings}}, nil
 }
 
 type routerAdapter struct {
@@ -550,7 +564,7 @@ func (r routerAdapter) Table(name string, id uuid.UUID) (string, error) {
 }
 
 func (e PromQLEngine) Execute(ctx context.Context, request Request) (Result, error) {
-	result, err := e.Engine.Execute(ctx, promqlengine.Request{Expression: request.Expression, Instant: request.Instant, Start: request.Start, End: request.End, Step: request.Step, Scope: promqlengine.Scope{EnterpriseID: request.Scope.EnterpriseID, ResourceIDs: request.Scope.ResourceIDs}, MaxSamples: request.Budget.MaxSamples, MaxSeries: request.Budget.MaxSeries, MaxScanBytes: request.Budget.MaxScanBytes, Timeout: request.Budget.Timeout})
+	result, err := e.Engine.Execute(ctx, promqlengine.Request{Expression: request.Expression, Instant: request.Instant, Start: request.Start, End: request.End, Step: request.Step, Scope: promqlengine.Scope{EnterpriseID: request.Scope.EnterpriseID, ResourceIDs: request.Scope.ResourceIDs, SourceKeys: request.Scope.SourceKeys}, MaxSamples: request.Budget.MaxSamples, MaxSeries: request.Budget.MaxSeries, MaxScanBytes: request.Budget.MaxScanBytes, Timeout: request.Budget.Timeout})
 	if err != nil {
 		return Result{}, err
 	}
@@ -565,7 +579,7 @@ func (e PromQLEngine) Execute(ctx context.Context, request Request) (Result, err
 	case promql.Vector:
 		resultType = "vector"
 	}
-	meta := QueryMeta{Engine: "prometheus-promql", EngineVersion: "v0.314.0", ScannedBytes: result.ScannedBytes, ScannedRows: result.ScannedRows, ElapsedMillis: result.Elapsed.Milliseconds(), Warnings: result.Warnings}
+	meta := QueryMeta{LatestSampleAt: result.LatestSampleAt, Engine: "prometheus-promql", EngineVersion: "v0.314.0", ScannedBytes: result.ScannedBytes, ScannedRows: result.ScannedRows, ElapsedMillis: result.Elapsed.Milliseconds(), Warnings: result.Warnings}
 	if stats, ok := result.Stats.(*promqlstats.Statistics); ok && stats != nil && stats.Samples != nil {
 		meta.LoadedSamples = stats.Samples.SamplesRead
 	}

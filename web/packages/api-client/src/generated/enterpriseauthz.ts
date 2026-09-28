@@ -201,7 +201,7 @@ export interface components {
         /** @enum {string} */
         DataAuthorizationSubjectType: "user" | "department" | "role" | "service_account";
         /** @enum {string} */
-        DataAuthorizationResourceType: "host" | "kubernetes_cluster";
+        DataAuthorizationResourceType: "host" | "kubernetes_cluster" | "dashboard";
         DataAuthorizationResource: {
             resource_type: components["schemas"]["DataAuthorizationResourceType"];
             /** Format: uuid */

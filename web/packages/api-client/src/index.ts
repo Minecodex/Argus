@@ -184,3 +184,15 @@ export {
 export type { AuditPresentationKind } from "./audit-presentation";
 
 export type * from "./planv5";
+
+export * from "./dashboard";
+
+export type {
+  DashboardChatSelection,
+  DashboardChatContext,
+} from "./generated/contracts";
+export {
+  permissionIDs,
+  permissionRegistryVersion,
+  builtinRolePermissions,
+} from "./generated/permission-registry";

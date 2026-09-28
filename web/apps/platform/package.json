@@ -2,6 +2,7 @@
   "name": "@argus/platform",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "node ../../../scripts/run-vite.mjs platform 4174 mock",

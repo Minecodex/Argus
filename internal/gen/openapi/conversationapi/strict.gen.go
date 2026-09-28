@@ -28,6 +28,9 @@ type StrictServerInterface interface {
 	// UpdateConversation updateConversation.
 	// (PUT /conversations/{conversation_id})
 	UpdateConversation(ctx context.Context, request UpdateConversationRequestObject) (UpdateConversationResponseObject, error)
+	// GetConversationDashboardContext Read the current user's structured Dashboard selection
+	// (GET /conversations/{conversation_id}/dashboard-context)
+	GetConversationDashboardContext(ctx context.Context, request GetConversationDashboardContextRequestObject) (GetConversationDashboardContextResponseObject, error)
 	// StreamConversationEvents Resume a conversation event stream.
 	// (GET /conversations/{conversation_id}/events)
 	StreamConversationEvents(ctx context.Context, request StreamConversationEventsRequestObject) (StreamConversationEventsResponseObject, error)
@@ -232,6 +235,32 @@ func (sh *strictHandler) UpdateConversation(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateConversationResponseObject); ok {
 		if err := validResponse.VisitUpdateConversationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetConversationDashboardContext operation middleware
+func (sh *strictHandler) GetConversationDashboardContext(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID) {
+	var request GetConversationDashboardContextRequestObject
+
+	request.ConversationId = conversationId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetConversationDashboardContext(ctx, request.(GetConversationDashboardContextRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetConversationDashboardContext")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetConversationDashboardContextResponseObject); ok {
+		if err := validResponse.VisitGetConversationDashboardContextResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

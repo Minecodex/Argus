@@ -2,8 +2,10 @@ package argusdev
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -38,6 +40,8 @@ func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 			err = a.runM7Scenario(ctx, env)
 		case "m10-query":
 			err = a.runM10QueryScenario(ctx, env)
+		case "planv2":
+			err = a.runPlanV2Scenario(ctx, env)
 		case "p4":
 			err = a.runP4Scenario(ctx, env)
 		case "tls":
@@ -53,6 +57,13 @@ func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 	return nil
 }
 func (a *App) runPlaywright(ctx context.Context, env *E2EEnvironment, spec string, variables map[string]string) error {
+	// PlanV2 depends on the setup/API checks from these suites, while its own
+	// real browser cases exercise the dashboard. Baseline portal UI stays in
+	// m2/m3/m4/m7 so focused runs do not repeat all MFA-driven browser flows.
+	if env.Options.Suite == "planv2" && !planV2BrowserSelector(spec) {
+		_, _ = fmt.Fprintf(a.stdout, "Baseline browser %s belongs to its own suite; PlanV2 retains the setup/API checks\n", spec)
+		return nil
+	}
 	variables["ARGUS_E2E_EXTERNAL"] = "1"
 	artifactDir := filepath.Join(env.Options.Artifacts, "playwright-"+env.Options.Suite)
 	variables["ARGUS_E2E_ARTIFACTS"] = artifactDir
@@ -64,16 +75,25 @@ func (a *App) runPlaywright(ctx context.Context, env *E2EEnvironment, spec strin
 	variables["ARGUS_E2E_ENTERPRISE_TOTP_LAST_CODE"] = env.State.Values["enterprise_mfa_last"]
 	variables["ARGUS_E2E_PLATFORM_TOTP_SECRET"] = env.State.Values["platform_mfa_secret"]
 	variables["ARGUS_E2E_PLATFORM_TOTP_LAST_CODE"] = env.State.Values["platform_mfa_last"]
-	if err := a.runner.Run(ctx, variables, "pnpm", "--filter", "@argus/enterprise", "exec", "playwright", "test", spec, "--workers=1"); err != nil {
-		return err
+	args := []string{"--filter", "@argus/enterprise", "exec", "playwright", "test", spec, "--workers=1"}
+	if env.Options.Suite == "planv2" && env.Options.PlanV2BrowserGrep != "" {
+		args = append(args, "--grep", env.Options.PlanV2BrowserGrep)
 	}
-	return syncPlaywrightMFAState(env, artifactDir)
+	err := a.runner.Run(ctx, variables, "pnpm", args...)
+	return errors.Join(err, syncPlaywrightMFAState(env, artifactDir))
+}
+
+// Playwright selectors use forward-slash paths and may contain regex escapes.
+// filepath.Base on Windows treats a regex backslash as a directory separator.
+func planV2BrowserSelector(spec string) bool {
+	return strings.HasPrefix(path.Base(spec), "planv2-")
 }
 
 func syncPlaywrightMFAState(env *E2EEnvironment, artifactDir string) error {
 	for audience, stateKey := range map[string]string{
-		"enterprise": "enterprise_mfa_last",
-		"platform":   "platform_mfa_last",
+		"enterprise":        "enterprise_mfa_last",
+		"platform":          "platform_mfa_last",
+		"enterprise-editor": "p2_editor_mfa_last",
 	} {
 		path := filepath.Join(artifactDir, ".argus-"+audience+"-totp-last-code")
 		data, err := os.ReadFile(path)

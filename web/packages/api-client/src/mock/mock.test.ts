@@ -29,6 +29,33 @@ async function waitFor(
 }
 
 describe("auth", () => {
+  it("excludes expired and future role bindings from the self session", async () => {
+    const client = makeClient();
+    const user = await login(client, "wanglei");
+    const baseline = [...user.permissions].sort();
+    expect(baseline).not.toContain("role.manage");
+    await login(client, "root");
+    const role = await client.org.createRole({
+      name: "Session expiry regression",
+      permissions: ["role.manage"],
+    });
+    await client.org.createRoleBinding({
+      subject_type: "user",
+      subject_id: user.user.id,
+      role_id: role.id,
+      valid_until: "2000-01-01T00:00:00Z",
+    });
+    await client.org.createRoleBinding({
+      subject_type: "department",
+      subject_id: user.session.department_id!,
+      role_id: role.id,
+      valid_from: "2100-01-01T00:00:00Z",
+    });
+    const current = await login(client, "wanglei");
+    expect([...current.permissions].sort()).toEqual(baseline);
+    expect([...(await client.auth.me()).permissions].sort()).toEqual(baseline);
+  });
+
   it("logs in, reports me() and rejects bad credentials", async () => {
     const client = makeClient();
     const session = await login(client, "root");

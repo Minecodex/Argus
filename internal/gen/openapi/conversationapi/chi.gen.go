@@ -33,6 +33,9 @@ type ServerInterface interface {
 	// UpdateConversation updateConversation.
 	// (PUT /conversations/{conversation_id})
 	UpdateConversation(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID, params UpdateConversationParams)
+	// GetConversationDashboardContext Read the current user's structured Dashboard selection
+	// (GET /conversations/{conversation_id}/dashboard-context)
+	GetConversationDashboardContext(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID)
 	// StreamConversationEvents Resume a conversation event stream.
 	// (GET /conversations/{conversation_id}/events)
 	StreamConversationEvents(w http.ResponseWriter, r *http.Request, conversationId string, params StreamConversationEventsParams)
@@ -90,6 +93,12 @@ func (_ Unimplemented) GetConversation(w http.ResponseWriter, r *http.Request, c
 // UpdateConversation updateConversation.
 // (PUT /conversations/{conversation_id})
 func (_ Unimplemented) UpdateConversation(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID, params UpdateConversationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetConversationDashboardContext Read the current user's structured Dashboard selection
+// (GET /conversations/{conversation_id}/dashboard-context)
+func (_ Unimplemented) GetConversationDashboardContext(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -412,6 +421,32 @@ func (siw *ServerInterfaceWrapper) UpdateConversation(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateConversation(w, r, conversationId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetConversationDashboardContext operation middleware
+func (siw *ServerInterfaceWrapper) GetConversationDashboardContext(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "conversation_id" -------------
+	var conversationId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "conversation_id", chi.URLParam(r, "conversation_id"), &conversationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "conversation_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetConversationDashboardContext(w, r, conversationId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -996,6 +1031,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/conversations/{conversation_id}/dashboard-context", wrapper.GetConversationDashboardContext)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/conversations/{conversation_id}/preflight", wrapper.PreflightConversation)
 	})
 	r.Group(func(r chi.Router) {
@@ -1230,6 +1268,45 @@ type UpdateConversationdefaultJSONResponse struct {
 }
 
 func (response UpdateConversationdefaultJSONResponse) VisitUpdateConversationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConversationDashboardContextRequestObject struct {
+	ConversationId openapi_types.UUID `json:"conversation_id"`
+}
+
+type GetConversationDashboardContextResponseObject interface {
+	VisitGetConversationDashboardContextResponse(w http.ResponseWriter) error
+}
+
+type GetConversationDashboardContext200JSONResponse DashboardChatContext
+
+func (response GetConversationDashboardContext200JSONResponse) VisitGetConversationDashboardContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConversationDashboardContextdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response GetConversationDashboardContextdefaultJSONResponse) VisitGetConversationDashboardContextResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {

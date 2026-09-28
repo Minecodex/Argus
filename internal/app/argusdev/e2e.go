@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -23,16 +25,20 @@ import (
 )
 
 type E2EOptions struct {
-	Suite        string
-	KubeContext  string
-	RunID        string
-	Artifacts    string
-	UnitOnly     bool
-	Argusctl     string
-	BaselinesRun bool
-	PKIMode      string
-	BootstrapTLS string
-	RealModel    *p5RealModelConfig
+	Suite               string
+	KubeContext         string
+	RunID               string
+	Artifacts           string
+	UnitOnly            bool
+	Argusctl            string
+	BaselinesRun        bool
+	PKIMode             string
+	BootstrapTLS        string
+	RealModel           *p5RealModelConfig
+	PlanV2RuntimeOnly   bool
+	PlanV2BrowserGrep   string
+	PlanV2RealModelOnly bool
+	PlanV2ModelGroups   []string
 }
 
 type E2EEnvironment struct {
@@ -77,6 +83,7 @@ var suiteDependencies = map[string][]string{
 	"m6":                  {"m2", "m3", "m6"},
 	"m7":                  {"m2", "m3", "m4", "p5-native", "m7"},
 	"m10-query":           {"m2", "m3", "m4", "p5-native", "m7", "m10-query"},
+	"planv2":              {"m2", "m3", "m4", "p5-native", "m7", "m10-query", "planv2"},
 	"m8":                  {"m6", "m7", "m8"},
 	"p4":                  {"m2", "p4"},
 	"tls":                 {"m2", "tls"},
@@ -99,7 +106,11 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	artifacts := flags.String("artifacts", envOr("ARGUS_E2E_ARTIFACTS", ""), "artifact directory")
 	unitOnly := flags.Bool("unit-only", envBool("ARGUS_E2E_UNIT_ONLY"), "run the suite's non-cluster gate only")
 	argusctl := flags.String("argusctl", envOr("ARGUS_E2E_ARGUSCTL", envOr("ARGUSCTL_BIN", "")), "existing argusctl binary")
-	realModelPath := flags.String("real-model-config", "", "P5 real-model benchmark JSON configuration (API key from named environment variable)")
+	realModelPath := flags.String("real-model-config", "", "P5 or PlanV2 real-model benchmark JSON configuration (API key from named environment variable)")
+	runtimeOnly := flags.Bool("planv2-runtime-only", false, "PlanV2 runtime/protocol/fault acceptance without browser tests; reported as partial scope")
+	browserGrep := flags.String("planv2-browser-grep", "", "run matching PlanV2 browser cases plus runtime; records the selected scope")
+	realModelOnly := flags.Bool("planv2-real-model-only", false, "run real model tasks with deployed telemetry and file prerequisites; excludes browser and fault suites")
+	modelGroups := flags.String("planv2-model-groups", "", "explicit PlanV2 real-model groups: core,authoring,conditions,failures; omitted runs all")
 	if err := flags.Parse(args[1:]); err != nil {
 		return fmt.Errorf("%w: %v", errUsage, err)
 	}
@@ -109,6 +120,27 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	if _, exists := suiteDependencies[*suite]; !exists {
 		return fmt.Errorf("%w: unsupported suite %q", errUsage, *suite)
 	}
+	if *realModelOnly && (*suite != "planv2" || *unitOnly || *runtimeOnly || *browserGrep != "" || *realModelPath == "") {
+		return fmt.Errorf("%w: --planv2-real-model-only requires PlanV2 cluster acceptance and a real-model configuration without other scope selectors", errUsage)
+	}
+	if *modelGroups != "" && !*realModelOnly {
+		return fmt.Errorf("%w: model group selection requires --planv2-real-model-only", errUsage)
+	}
+	groups, groupErr := planV2ParseModelGroups(*modelGroups)
+	if groupErr != nil {
+		return groupErr
+	}
+	if *runtimeOnly && (*suite != "planv2" || *unitOnly || *realModelPath != "") {
+		return fmt.Errorf("%w: --planv2-runtime-only requires PlanV2 cluster acceptance without a real-model configuration", errUsage)
+	}
+	if *browserGrep != "" {
+		if *suite != "planv2" || *unitOnly || *runtimeOnly || *realModelPath != "" || len(*browserGrep) > 1024 {
+			return fmt.Errorf("%w: --planv2-browser-grep requires PlanV2 cluster acceptance without runtime-only or real-model options", errUsage)
+		}
+		if _, err := regexp.Compile(*browserGrep); err != nil {
+			return fmt.Errorf("%w: invalid browser selection", errUsage)
+		}
+	}
 	if *runID == "" {
 		*runID = time.Now().UTC().Format("20060102150405") + fmt.Sprintf("-%d", os.Getpid())
 	}
@@ -117,10 +149,15 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	} else if !filepath.IsAbs(*artifacts) {
 		*artifacts = filepath.Join(a.root, *artifacts)
 	}
-	options := E2EOptions{Suite: *suite, KubeContext: *kubeContext, RunID: *runID, Artifacts: *artifacts, UnitOnly: *unitOnly, Argusctl: *argusctl}
+	options := E2EOptions{Suite: *suite, KubeContext: *kubeContext, RunID: *runID, Artifacts: *artifacts, UnitOnly: *unitOnly, Argusctl: *argusctl, PlanV2RuntimeOnly: *runtimeOnly}
+	options.PlanV2BrowserGrep = *browserGrep
+	options.PlanV2RealModelOnly = *realModelOnly
+	if *modelGroups != "" {
+		options.PlanV2ModelGroups = groups
+	}
 	if *realModelPath != "" {
-		if *suite != "p5" || *unitOnly {
-			return fmt.Errorf("%w: --real-model-config requires the P5 cluster suite", errUsage)
+		if (*suite != "p5" && *suite != "planv2") || *unitOnly {
+			return fmt.Errorf("%w: --real-model-config requires the P5 or PlanV2 cluster suite", errUsage)
 		}
 		var err error
 		options.RealModel, err = loadP5RealModelConfig(*realModelPath)
@@ -141,6 +178,9 @@ func (a *App) runE2EUnitGate(ctx context.Context, options E2EOptions) error {
 	targets := []string{"./..."}
 	if options.Suite == "m10-query" {
 		targets = []string{"./internal/transport/httpapi", "./internal/telemetry", "./tests/contract"}
+	}
+	if options.Suite == "planv2" {
+		targets = []string{"./internal/dashboard", "./internal/selfmonitor", "./internal/otelcol/configbundle", "./internal/telemetry", "./internal/transport/httpapi", "./tests/contract"}
 	}
 	for _, target := range targets {
 		if err := a.runner.Run(ctx, nil, "go", "test", target); err != nil {
@@ -226,6 +266,9 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 		env.clearArtifactSigningPrivateKey()
 	}
 	env.installed = true
+	if err := configureRealModelEndpointDNS(ctx, env); err != nil {
+		return err
+	}
 	env.fixtureAttempted = true
 	if err := a.installE2EFixtures(ctx, env); err != nil {
 		return err
@@ -241,6 +284,20 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 		return err
 	}
 	result := fmt.Sprintf("{\"run_id\":%q,\"suite\":%q,\"status\":\"passed\"}\n", options.RunID, options.Suite)
+	if options.PlanV2RealModelOnly {
+		result = fmt.Sprintf("{\"run_id\":%q,\"suite\":%q,\"scope\":\"real_model_with_telemetry_and_files\",\"browser_executed\":false,\"status\":\"passed\"}\n", options.RunID, options.Suite)
+		if len(options.PlanV2ModelGroups) > 0 {
+			raw, _ := json.Marshal(map[string]any{"run_id": options.RunID, "suite": options.Suite, "scope": "selected_real_model_groups_with_telemetry_and_files", "model_groups": options.PlanV2ModelGroups, "browser_executed": false, "status": "passed"})
+			result = string(raw) + "\n"
+		}
+	}
+	if options.PlanV2RuntimeOnly {
+		result = fmt.Sprintf("{\"run_id\":%q,\"suite\":%q,\"scope\":\"runtime_protocol_faults\",\"browser_executed\":false,\"status\":\"passed\"}\n", options.RunID, options.Suite)
+	}
+	if options.PlanV2BrowserGrep != "" {
+		raw, _ := json.Marshal(map[string]any{"run_id": options.RunID, "suite": options.Suite, "scope": "selected_browsers_and_runtime", "browser_filter": options.PlanV2BrowserGrep, "status": "passed"})
+		result = string(raw) + "\n"
+	}
 	return writePrivate(filepath.Join(options.Artifacts, "result.json"), []byte(result))
 }
 

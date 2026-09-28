@@ -1,0 +1,1957 @@
+{
+  "components": {
+    "schemas": {
+      "DashboardSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "argus.telemetry_dashboard/v1"
+            ],
+            "description": "Exact configuration version; do not abbreviate to v1.",
+            "example": "argus.telemetry_dashboard/v1"
+          },
+          "default_time_range": {
+            "$ref": "#/components/schemas/DashboardTimeRange"
+          },
+          "default_refresh_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "0 disables refresh; otherwise 5..86400 seconds.",
+            "example": 0
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardVariable"
+            }
+          },
+          "panels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardPanel"
+            }
+          },
+          "layout": {
+            "$ref": "#/components/schemas/DashboardGrid"
+          }
+        },
+        "required": [
+          "schema_version",
+          "default_time_range",
+          "default_refresh_seconds",
+          "variables",
+          "panels",
+          "layout"
+        ]
+      },
+      "DashboardTimeRange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "relative",
+              "absolute"
+            ],
+            "description": "relative requires seconds (1..604800); absolute requires from and to with a positive interval no longer than seven days."
+          },
+          "seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "example": {
+          "kind": "relative",
+          "seconds": 3600
+        }
+      },
+      "DashboardGrid": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The grid always has 12 columns.",
+            "example": 12
+          },
+          "row_height": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Grid row height, from 1 to 64; the editor default is 8.",
+            "example": 8
+          }
+        },
+        "required": [
+          "columns",
+          "row_height"
+        ]
+      },
+      "DashboardRectangle": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "y": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "w": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Width in grid columns; at least min_w and x+w must be <=12.",
+            "example": 12
+          },
+          "h": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Height in grid rows; at least min_h, at most 1000.",
+            "example": 32
+          },
+          "min_w": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minimum width, at least 1.",
+            "example": 3
+          },
+          "min_h": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minimum height, at least 1.",
+            "example": 12
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "w",
+          "h",
+          "min_w",
+          "min_h"
+        ]
+      },
+      "DashboardSourceBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_type": {
+            "type": "string",
+            "description": "Use a registered source type from catalog.resources, such as otlp, prometheus, hostmetrics, filelog, skywalking or jaeger; never a resource ID.",
+            "example": "otlp"
+          },
+          "capability_version": {
+            "type": "string",
+            "description": "Use the capability version returned by catalog.resources; current supported sources use v1.",
+            "example": "v1"
+          }
+        },
+        "required": [
+          "source_type",
+          "capability_version"
+        ]
+      },
+      "DashboardVariable": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "multiple": {
+            "type": "boolean"
+          },
+          "include_all": {
+            "type": "boolean"
+          },
+          "default": {
+            "$ref": "#/components/schemas/DashboardSelection"
+          },
+          "query": {
+            "$ref": "#/components/schemas/DashboardCandidateQuery"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "label",
+          "multiple",
+          "include_all",
+          "default",
+          "query"
+        ]
+      },
+      "DashboardSelection": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "all": {
+            "type": "boolean"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "all",
+          "values"
+        ]
+      },
+      "DashboardCandidateQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "signal": {
+            "type": "string",
+            "enum": [
+              "metrics",
+              "logs",
+              "traces"
+            ]
+          },
+          "source_binding": {
+            "$ref": "#/components/schemas/DashboardSourceBinding"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardFilter"
+            }
+          },
+          "parameter_bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardParameterBinding"
+            }
+          }
+        },
+        "required": [
+          "signal",
+          "source_binding",
+          "field",
+          "filters"
+        ]
+      },
+      "DashboardFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "variable": {
+            "type": "string"
+          },
+          "local_parameter": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "maxItems": 200
+          },
+          "drilldown_input": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "operator"
+        ]
+      },
+      "DashboardLocalFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "query",
+              "text",
+              "number"
+            ]
+          },
+          "default": {
+            "$ref": "#/components/schemas/DashboardSelection"
+          },
+          "query": {
+            "$ref": "#/components/schemas/DashboardCandidateQuery"
+          },
+          "multiple": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "default"
+        ]
+      },
+      "DashboardPanel": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "signal": {
+            "type": "string",
+            "enum": [
+              "metrics",
+              "logs",
+              "traces"
+            ]
+          },
+          "authoring_mode": {
+            "type": "string",
+            "enum": [
+              "builder",
+              "dsl"
+            ],
+            "description": "All display and detail targets in a Panel use this single editing source."
+          },
+          "applicable_resource_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_binding": {
+            "$ref": "#/components/schemas/DashboardSourceBinding"
+          },
+          "local_filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardLocalFilter"
+            }
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardTarget"
+            }
+          },
+          "detail_query_targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardTarget"
+            }
+          },
+          "drilldowns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardDrilldown"
+            }
+          },
+          "layout": {
+            "$ref": "#/components/schemas/DashboardRectangle"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "decimals": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "legend": {
+            "type": "boolean"
+          },
+          "thresholds": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/DashboardThreshold"
+            }
+          },
+          "display": {
+            "$ref": "#/components/schemas/DashboardDisplayOptions"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "type",
+          "signal",
+          "authoring_mode",
+          "applicable_resource_types",
+          "source_binding",
+          "local_filters",
+          "targets",
+          "detail_query_targets",
+          "drilldowns",
+          "layout",
+          "unit",
+          "decimals",
+          "legend",
+          "thresholds"
+        ]
+      },
+      "DashboardDisplayOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Presentation only. Reductions operate independently on each returned series; mean ignores missing samples and is not time weighted, sum is sample sum not counter increase. Last preserves a missing final sample. Bounds and thresholds use raw query units. Unset bounds are automatic. Draw style, stack and smooth apply only to time series. Does not change query mode, query hash or exported data.",
+        "properties": {
+          "reducer": {
+            "type": "string",
+            "enum": [
+              "last",
+              "min",
+              "max",
+              "mean",
+              "sum"
+            ]
+          },
+          "min": {
+            "type": "number",
+            "format": "double"
+          },
+          "max": {
+            "type": "number",
+            "format": "double"
+          },
+          "draw_style": {
+            "type": "string",
+            "enum": [
+              "line",
+              "area",
+              "bar"
+            ]
+          },
+          "stack": {
+            "type": "boolean"
+          },
+          "smooth": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DashboardThreshold": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "type": "number",
+            "format": "double"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "info",
+              "success",
+              "warning",
+              "danger"
+            ]
+          }
+        },
+        "required": [
+          "value",
+          "tone"
+        ]
+      },
+      "DashboardTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "promql",
+              "kql",
+              "skywalking_graphql"
+            ]
+          },
+          "signal": {
+            "type": "string",
+            "description": "Omit on display targets: they inherit Panel.signal. Required on a detail target."
+          },
+          "source_binding": {
+            "$ref": "#/components/schemas/DashboardSourceBinding",
+            "description": "Omit on display targets: they inherit Panel.source_binding. Required on a detail target, including cross-signal drilldowns."
+          },
+          "source_definition": {
+            "$ref": "#/components/schemas/DashboardDefinition"
+          },
+          "query_mode": {
+            "type": "string",
+            "enum": [
+              "",
+              "instant",
+              "range"
+            ],
+            "description": "PromQL uses instant or range; a metric timeseries uses range. Logs and Trace use an empty string."
+          },
+          "range_step_policy": {
+            "$ref": "#/components/schemas/DashboardStepPolicy"
+          },
+          "parameter_bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardParameterBinding"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "language",
+          "source_definition",
+          "query_mode",
+          "range_step_policy",
+          "parameter_bindings"
+        ]
+      },
+      "DashboardDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "builder": {
+            "$ref": "#/components/schemas/DashboardBuilder"
+          },
+          "dsl": {
+            "$ref": "#/components/schemas/DashboardDSL"
+          }
+        },
+        "required": [],
+        "description": "Exactly one of builder or dsl, matching the containing Panel.authoring_mode."
+      },
+      "DashboardDSL": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "type": "string"
+          },
+          "pipeline": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "expression"
+        ]
+      },
+      "DashboardBuilder": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "value",
+              "sum",
+              "avg",
+              "min",
+              "max",
+              "rate",
+              "topk",
+              "p95",
+              "records",
+              "count",
+              "count_by",
+              "count_over_time",
+              "list",
+              "detail",
+              "apm_services",
+              "apm_instances",
+              "apm_endpoints",
+              "apm_red",
+              "apm_topology",
+              "trace_graph",
+              "log_context",
+              "error_rate"
+            ]
+          },
+          "metric": {
+            "type": "string"
+          },
+          "metric_type": {
+            "type": "string"
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardFilter"
+            }
+          },
+          "group_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "window_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "bucket_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "top_n": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50000,
+            "description": "Optional explicit log, APM or trace-list limit. Log context uses its own before/after bound."
+          },
+          "context_before": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 200
+          },
+          "context_after": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 200
+          },
+          "error_filters": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/DashboardFilter"
+            },
+            "description": "Fixed error classification for same-counter error_rate. Only literal matchers; shared dynamic scope belongs in filters. Output is a 0..1 ratio; zero traffic produces no data."
+          }
+        },
+        "required": [
+          "operation",
+          "filters",
+          "group_by"
+        ]
+      },
+      "DashboardParameterBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "parameter": {
+            "type": "string"
+          },
+          "variable": {
+            "type": "string"
+          },
+          "local_parameter": {
+            "type": "string"
+          },
+          "identity_mapping": {
+            "type": "boolean"
+          },
+          "value_map": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "maxProperties": 1000
+          },
+          "drilldown_input": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "parameter"
+        ]
+      },
+      "DashboardStepPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "",
+              "fixed",
+              "auto"
+            ],
+            "description": "Metrics range queries require fixed or auto. fixed requires seconds=1..86400. auto requires target_points=1..10000 AND min_step_seconds>=1. Empty is only for targets that do not use a range step."
+          },
+          "seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Required for fixed: interval in seconds, from 1 to 86400.",
+            "example": 30
+          },
+          "target_points": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Required for auto: target data points, from 1 to 10000.",
+            "example": 120
+          },
+          "min_step_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Required for auto: minimum interval in seconds, at least 1.",
+            "example": 10
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "example": {
+          "kind": "auto",
+          "target_points": 120,
+          "min_step_seconds": 10
+        }
+      },
+      "DashboardDrilldown": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "detail_query_ref": {
+            "type": "string"
+          },
+          "scope_policy": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "origin_query_ref": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "time_window": {
+            "$ref": "#/components/schemas/DashboardDrilldownTimeWindow"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "detail_query_ref",
+          "scope_policy",
+          "inputs",
+          "origin_query_ref"
+        ]
+      },
+      "DashboardBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "resource_type": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_id"
+        ]
+      },
+      "DashboardIssue": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "code",
+          "message"
+        ]
+      },
+      "DashboardValidationReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardIssue"
+            }
+          },
+          "compiler_version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "valid",
+          "issues",
+          "compiler_version"
+        ]
+      },
+      "DashboardDraftInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 8000
+          },
+          "folder_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/DashboardSpec"
+          },
+          "proposed_bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardBinding"
+            }
+          },
+          "expected_version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "spec",
+          "proposed_bindings"
+        ]
+      },
+      "DashboardDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "base_revision_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "base_object_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "draft_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/DashboardSpec"
+          },
+          "proposed_bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardBinding"
+            }
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "base_object_version",
+          "draft_version",
+          "status",
+          "name",
+          "description",
+          "spec",
+          "proposed_bindings",
+          "updated_at"
+        ]
+      },
+      "DashboardItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "active_revision_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lifecycle": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "active_revision_id",
+          "version",
+          "lifecycle",
+          "updated_at"
+        ]
+      },
+      "DashboardRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision_number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/DashboardSpec"
+          },
+          "spec_hash": {
+            "type": "string"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/DashboardValidationReport"
+          },
+          "sample": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "dashboard_id",
+          "revision_number",
+          "name",
+          "description",
+          "spec",
+          "spec_hash",
+          "validation",
+          "sample",
+          "created_at"
+        ]
+      },
+      "DashboardDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dashboard": {
+            "$ref": "#/components/schemas/DashboardItem"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/DashboardRevision"
+          }
+        },
+        "required": [
+          "dashboard",
+          "revision"
+        ]
+      },
+      "DashboardVersionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "expected_version"
+        ]
+      },
+      "DashboardRebaseInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "object_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "expected_version",
+          "object_version",
+          "revision_id"
+        ]
+      },
+      "DashboardValidationResult": {
+        "$ref": "#/components/schemas/DashboardValidationReport"
+      },
+      "DashboardFolder": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "description",
+          "sort_order",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sort_order": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "DashboardLifecycleInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "expected_version",
+          "name",
+          "description",
+          "sort_order"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "folder.create",
+              "folder.update",
+              "folder.archive",
+              "folder.restore",
+              "archive",
+              "restore"
+            ]
+          },
+          "expected_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 8000
+          },
+          "sort_order": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DashboardExecutionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "candidates_only": {
+            "type": "boolean",
+            "description": "Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode."
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 1000
+          },
+          "panel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DashboardSelection"
+            },
+            "maxProperties": 32
+          },
+          "local_values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/DashboardSelection"
+              },
+              "maxProperties": 32
+            },
+            "maxProperties": 64
+          }
+        },
+        "required": []
+      },
+      "DashboardResourceScope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "type"
+        ]
+      },
+      "DashboardResolvedSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "generation": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string"
+          },
+          "capability_version": {
+            "type": "string"
+          },
+          "current_installation": {
+            "type": "boolean",
+            "description": "Whether this source belongs to the current installed generation when this execution was frozen; not proof of active collection."
+          },
+          "registered_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Registration time of this source configuration revision."
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "resource_id",
+          "generation",
+          "type",
+          "capability_version"
+        ]
+      },
+      "DashboardTargetExecution": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "query_hash": {
+            "type": "string"
+          },
+          "result_type": {
+            "type": "string"
+          },
+          "data": {},
+          "meta": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "step_seconds": {
+            "type": "integer",
+            "description": "Actual frozen PromQL range step in seconds."
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "query_hash",
+          "result_type",
+          "data",
+          "meta"
+        ]
+      },
+      "DashboardPanelExecution": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardResolvedSource"
+            }
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardTargetExecution"
+            }
+          },
+          "detail_sources": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/DashboardResolvedSource"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "sources",
+          "targets",
+          "detail_sources"
+        ]
+      },
+      "DashboardExecution": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardResourceScope"
+            }
+          },
+          "panels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardPanelExecution"
+            }
+          },
+          "partial": {
+            "type": "boolean"
+          },
+          "execution_hash": {
+            "type": "string"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DashboardSelection"
+            },
+            "maxProperties": 32
+          },
+          "local_values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/DashboardSelection"
+              },
+              "maxProperties": 32
+            },
+            "maxProperties": 64
+          },
+          "variable_candidates": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DashboardCandidateState"
+            }
+          },
+          "local_candidates": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/DashboardCandidateState"
+              }
+            }
+          },
+          "execution_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "context_token": {
+            "type": "string",
+            "maxLength": 1048576
+          },
+          "context_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "dashboard_id",
+          "revision_id",
+          "from",
+          "to",
+          "resources",
+          "panels",
+          "partial",
+          "execution_hash",
+          "variables",
+          "local_values",
+          "variable_candidates",
+          "local_candidates",
+          "execution_id"
+        ]
+      },
+      "DashboardCatalogFilter": {
+        "$ref": "./dashboard-catalog.yaml#/components/schemas/DashboardCatalogFilter"
+      },
+      "DashboardCatalogInput": {
+        "$ref": "./dashboard-catalog.yaml#/components/schemas/DashboardCatalogInput"
+      },
+      "DashboardMetricDescriptor": {
+        "$ref": "./dashboard-catalog.yaml#/components/schemas/DashboardMetricDescriptor"
+      },
+      "DashboardCatalogField": {
+        "$ref": "./dashboard-catalog.yaml#/components/schemas/DashboardCatalogField"
+      },
+      "DashboardCatalogResult": {
+        "$ref": "./dashboard-catalog.yaml#/components/schemas/DashboardCatalogResult"
+      },
+      "DashboardDraftSample": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "draft_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draft_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/DashboardValidationReport"
+          },
+          "sample": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "draft_id",
+          "draft_version",
+          "validation",
+          "sample"
+        ]
+      },
+      "DashboardCandidateState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "partial",
+              "unavailable",
+              "skipped_budget"
+            ]
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "maxItems": 200
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "selected_exists": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardResolvedSource"
+            }
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "values",
+          "complete",
+          "selected_exists",
+          "reset",
+          "sources"
+        ]
+      },
+      "DashboardDrilldownTimeWindow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "type": "string"
+          },
+          "seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 604800
+          },
+          "duration_input": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "DashboardDrilldownInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_token": {
+            "type": "string",
+            "maxLength": 1048576
+          },
+          "panel_id": {
+            "type": "string"
+          },
+          "drilldown_id": {
+            "type": "string"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "maxProperties": 16
+          },
+          "expand_authorized_resources": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "context_token",
+          "panel_id",
+          "drilldown_id",
+          "values",
+          "expand_authorized_resources"
+        ]
+      },
+      "DashboardDrilldownExecution": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent_execution_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "panel_id": {
+            "type": "string"
+          },
+          "drilldown_id": {
+            "type": "string"
+          },
+          "scope_policy": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "authorized_trace"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardResourceScope"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardResolvedSource"
+            }
+          },
+          "result": {
+            "$ref": "#/components/schemas/DashboardTargetExecution"
+          },
+          "context_token": {
+            "type": "string"
+          },
+          "context_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "execution_hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dashboard_id",
+          "revision_id",
+          "parent_execution_id",
+          "panel_id",
+          "drilldown_id",
+          "scope_policy",
+          "from",
+          "to",
+          "resources",
+          "sources",
+          "result",
+          "context_token",
+          "context_expires_at",
+          "execution_hash"
+        ]
+      },
+      "DashboardGenerateDrilldownsInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "panel_id": {
+            "type": "string"
+          },
+          "signal_sources": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DashboardSourceBinding"
+            }
+          }
+        },
+        "required": [
+          "expected_version",
+          "panel_id",
+          "signal_sources"
+        ]
+      },
+      "DashboardGeneratedDrilldowns": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/DashboardDraft"
+          },
+          "added": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardIssue"
+            }
+          }
+        },
+        "required": [
+          "draft",
+          "added",
+          "issues"
+        ]
+      },
+      "DashboardBindingInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "dashboard_id",
+          "expected_dashboard_version",
+          "expected_resource_version"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "attach",
+              "detach"
+            ]
+          },
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expected_dashboard_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "expected_resource_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "binding_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expected_binding_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "DashboardBindingView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "resource_type",
+          "resource_id",
+          "resource_name",
+          "resource_version",
+          "dashboard"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster"
+            ]
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resource_name": {
+            "type": "string"
+          },
+          "resource_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dashboard": {
+            "$ref": "#/components/schemas/DashboardItem"
+          }
+        }
+      },
+      "ResourceDashboardBindings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resource_type",
+          "resource_id",
+          "resource_name",
+          "resource_version",
+          "items"
+        ],
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster"
+            ]
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resource_name": {
+            "type": "string"
+          },
+          "resource_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardBindingView"
+            }
+          }
+        }
+      },
+      "DashboardConvertPanelInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "panel",
+          "mode"
+        ],
+        "properties": {
+          "panel": {
+            "$ref": "#/components/schemas/DashboardPanel"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "builder",
+              "dsl"
+            ]
+          }
+        }
+      },
+      "DashboardConvertedPanel": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "converted",
+          "panel",
+          "issues"
+        ],
+        "properties": {
+          "converted": {
+            "type": "boolean"
+          },
+          "panel": {
+            "$ref": "#/components/schemas/DashboardPanel"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardIssue"
+            }
+          }
+        }
+      }
+    }
+  }
+}

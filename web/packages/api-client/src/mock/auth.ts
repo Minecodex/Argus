@@ -1,6 +1,7 @@
 import type { ArgusApiClient } from "../client";
 import type { SessionInfo, User } from "../types";
 import type { MockContext } from "./context";
+import { resolvePermissions } from "./permissions";
 
 /** Session lifecycle for mutually exclusive platform or single-enterprise identities. */
 export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
@@ -46,27 +47,13 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
         },
         permissions: ["*"],
         amr: ["password"],
-		mfa_state: user.mfaEnabled ? "enabled" : "disabled",
+        mfa_state: user.mfaEnabled ? "enabled" : "disabled",
         authenticated_at: now,
       });
     }
     if (!enterpriseUser) throw new Error("enterprise user required");
-    const roleIds = db.roleBindings
-      .filter(
-        (binding) =>
-          binding.status === "active" &&
-          ((binding.subject_type === "user" &&
-            binding.subject_id === user.id) ||
-            (binding.subject_type === "department" &&
-              binding.subject_id === enterpriseUser.departmentId)),
-      )
-      .map((binding) => binding.role_id);
     const permissions = [
-      ...new Set(
-        db.roles
-          .filter((role) => roleIds.includes(role.id))
-          .flatMap((role) => role.permissions),
-      ),
+      ...resolvePermissions(db, enterpriseUser.enterpriseId, user.id, now),
     ];
     return withStepUp({
       session: {
@@ -150,17 +137,34 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
       return { ...sessionInfo(user), amr: ["password", "totp"] };
     },
     async enrollTotp() {
-      return { enrollment_id: "mock-mfa-enrollment", secret: "JBSWY3DPEHPK3PXP", otpauth_uri: "otpauth://totp/Argus%3Amock?secret=JBSWY3DPEHPK3PXP", expires_at: new Date(Date.now() + 600_000).toISOString() };
+      return {
+        enrollment_id: "mock-mfa-enrollment",
+        secret: "JBSWY3DPEHPK3PXP",
+        otpauth_uri: "otpauth://totp/Argus%3Amock?secret=JBSWY3DPEHPK3PXP",
+        expires_at: new Date(Date.now() + 600_000).toISOString(),
+      };
     },
     async verifyTotpEnrollment() {
       const user = db.users.find((entry) => entry.id === db.session.userId);
       if (!user) throw new Error("unauthenticated");
       user.mfaEnabled = true;
       ctx.save();
-      return { codes: Array.from({ length: 10 }, (_, index) => `MOCK-${String(index + 1).padStart(4, "0")}-CODE`), generated_at: ctx.nowIso() };
+      return {
+        codes: Array.from(
+          { length: 10 },
+          (_, index) => `MOCK-${String(index + 1).padStart(4, "0")}-CODE`,
+        ),
+        generated_at: ctx.nowIso(),
+      };
     },
     async regenerateRecoveryCodes() {
-      return { codes: Array.from({ length: 10 }, (_, index) => `MOCK-${String(index + 1).padStart(4, "0")}-NEWC`), generated_at: ctx.nowIso() };
+      return {
+        codes: Array.from(
+          { length: 10 },
+          (_, index) => `MOCK-${String(index + 1).padStart(4, "0")}-NEWC`,
+        ),
+        generated_at: ctx.nowIso(),
+      };
     },
     async disableTotp() {
       const user = db.users.find((entry) => entry.id === db.session.userId);
@@ -178,9 +182,20 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
     },
     async createBreakGlassSession(input) {
       const user = db.users.find((entry) => entry.id === db.session.userId);
-      const subjectRecord = db.enterpriseUsers.find((entry) => entry.userId === user?.id);
+      const subjectRecord = db.enterpriseUsers.find(
+        (entry) => entry.userId === user?.id,
+      );
       if (!user || !subjectRecord) throw new Error("unauthenticated");
-      const created = { id: crypto.randomUUID(), enterprise_id: subjectRecord.enterpriseId, user_id: user.id, reason: input.reason, ticket_ref: input.ticket_ref, status: "active" as const, expires_at: new Date(Date.now() + 900_000).toISOString(), created_at: ctx.nowIso() };
+      const created = {
+        id: crypto.randomUUID(),
+        enterprise_id: subjectRecord.enterpriseId,
+        user_id: user.id,
+        reason: input.reason,
+        ticket_ref: input.ticket_ref,
+        status: "active" as const,
+        expires_at: new Date(Date.now() + 900_000).toISOString(),
+        created_at: ctx.nowIso(),
+      };
       breakGlassSessions.push(created);
       return created;
     },

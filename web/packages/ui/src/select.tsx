@@ -42,7 +42,13 @@ export function Select({
   return (
     <SelectPrimitive.Root
       disabled={disabled}
-      onValueChange={(next) => onValueChange(next === EMPTY_VALUE ? "" : next)}
+      onValueChange={(next) => {
+        const decoded = next === EMPTY_VALUE ? "" : next;
+        // Radix's native form proxy can emit an empty change while dynamic options
+        // are being replaced. Only an actual option is a user selection.
+        if (options.some((option) => option.value === decoded))
+          onValueChange(decoded);
+      }}
       required={required ?? field?.required}
       value={normalizedValue}
     >

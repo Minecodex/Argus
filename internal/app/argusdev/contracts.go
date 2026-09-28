@@ -14,7 +14,7 @@ import (
 )
 
 var contractDomains = []string{
-	"mcpapi", "workspaceapi", "presentationapi",
+	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi",
 	"common", "identity", "authorization", "labels", "action", "agent", "stream", "setup", "m8api", "platform",
 	"enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi", "kubernetesapi", "connectionapi",
 	"actionapi", "connectorapi", "conversationapi", "modelapi", "workflowapi", "sandboxapi",
@@ -22,7 +22,7 @@ var contractDomains = []string{
 }
 
 var contractServerDomains = []string{
-	"mcpapi", "workspaceapi", "presentationapi",
+	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi",
 	"setup", "m8api", "platform", "enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi",
 	"kubernetesapi", "connectionapi", "actionapi", "connectorapi", "conversationapi", "modelapi", "workflowapi",
 	"sandboxapi", "remoteaccessapi", "telemetryapi",
@@ -30,7 +30,7 @@ var contractServerDomains = []string{
 
 var splitServerDomains = []string{
 	"conversationapi",
-	"mcpapi", "workspaceapi", "presentationapi",
+	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi",
 	"enterpriseauthz", "secretapi", "hostapi", "kubernetesapi", "connectionapi", "actionapi", "connectorapi", "sandboxapi",
 	"remoteaccessapi", "telemetryapi",
 }
@@ -60,7 +60,7 @@ func (a *App) contractLint(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	arguments := []string{"exec", "redocly", "lint", "api/openapi/argus.yaml"}
+	arguments := []string{"node_modules/@redocly/cli/bin/cli.js", "lint", "api/openapi/argus.yaml"}
 	for _, file := range files {
 		relative, relErr := filepath.Rel(a.root, file)
 		if relErr != nil {
@@ -68,7 +68,7 @@ func (a *App) contractLint(ctx context.Context) error {
 		}
 		arguments = append(arguments, filepath.ToSlash(relative))
 	}
-	if err := a.runner.Run(ctx, nil, "pnpm", arguments...); err != nil {
+	if err := a.runner.Run(ctx, nil, "node", arguments...); err != nil {
 		return err
 	}
 	if err := a.runner.Run(ctx, nil, "go", "tool", "buf", "lint", "api/proto"); err != nil {
@@ -105,6 +105,14 @@ func (a *App) contractGenerate(ctx context.Context) error {
 	if err := a.runner.Run(ctx, nil, "gofmt", "-w", "internal/gen/openapi/passwordpolicy/policy.gen.go"); err != nil {
 		return err
 	}
+	// The Go registry generators import identity, which itself imports the
+	// generated password policy. Bootstrap that package before compiling them.
+	if err := a.runner.Run(ctx, nil, "go", "run", "./scripts/permission-registry", "web/packages/api-client/src/generated/permission-registry.ts"); err != nil {
+		return err
+	}
+	if err := a.runner.Run(ctx, nil, "go", "run", "./scripts/collector-registry", "web/packages/api-client/src/generated/collector-registry.ts"); err != nil {
+		return err
+	}
 	matches, err := filepath.Glob(filepath.Join(generatedBundles, "*.bundle.*"))
 	if err != nil {
 		return err
@@ -114,7 +122,7 @@ func (a *App) contractGenerate(ctx context.Context) error {
 			return err
 		}
 	}
-	if err := a.runner.Run(ctx, nil, "pnpm", "exec", "redocly", "bundle", "api/openapi/argus.yaml", "--output", "api/openapi/generated/argus.bundle.json", "--ext", "json"); err != nil {
+	if err := a.runner.Run(ctx, nil, "node", "node_modules/@redocly/cli/bin/cli.js", "bundle", "api/openapi/argus.yaml", "--output", "api/openapi/generated/argus.bundle.json", "--ext", "json"); err != nil {
 		return err
 	}
 	if err := a.runner.Run(ctx, nil, "node", "scripts/minify-json.mjs", "api/openapi/generated/argus.bundle.json"); err != nil {
@@ -127,7 +135,7 @@ func (a *App) contractGenerate(ctx context.Context) error {
 	}
 	for _, domain := range contractDomains {
 		bundle := "api/openapi/generated/" + domain + ".bundle.yaml"
-		if err := a.runner.Run(ctx, nil, "pnpm", "exec", "redocly", "bundle", "api/openapi/generation/"+domain+".yaml", "--output", bundle, "--ext", "yaml"); err != nil {
+		if err := a.runner.Run(ctx, nil, "node", "node_modules/@redocly/cli/bin/cli.js", "bundle", "api/openapi/generation/"+domain+".yaml", "--output", bundle, "--ext", "yaml"); err != nil {
 			return err
 		}
 		directory := filepath.Join(generatedOpenAPI, domain)

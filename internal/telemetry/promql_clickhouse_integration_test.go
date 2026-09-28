@@ -84,6 +84,9 @@ func TestPromQLClickHouseMixedMetricTypes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if result.LatestSampleAt == nil || !result.LatestSampleAt.Equal(now) {
+			t.Fatalf("query evaluation timestamp replaced actual sample time: %v, sample %v", result.LatestSampleAt, now)
+		}
 		matrix, ok := result.Value.(promql.Matrix)
 		if !ok {
 			t.Fatalf("result type = %T, want promql.Matrix", result.Value)
@@ -132,6 +135,13 @@ func TestPromQLClickHouseConformance(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Compare the upstream engine against the same canonical label identity as
+	// stored OTLP series. Resource/source labels are trusted ingestion metadata.
+	for i := range points {
+		points[i].labels["argus_resource_id"] = resourceID.String()
+		points[i].labels["argus_source_id"] = uuid.Nil.String()
+		points[i].labels["argus_source_revision"] = "0"
+	}
 	reference := newConformanceQueryable(points)
 	argus := promqlengine.NewEngine(conn, router, nil)
 	referenceEngine := promql.NewEngine(promql.EngineOpts{MaxSamples: 100_000, Timeout: 10 * time.Second, LookbackDelta: 5 * time.Minute, EnableAtModifier: true, EnableNegativeOffset: true, Parser: parser.NewParser(parser.Options{})})

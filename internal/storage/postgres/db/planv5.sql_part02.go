@@ -8,6 +8,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const markToolDispatched = `-- name: MarkToolDispatched :execrows
+UPDATE tool_calls SET status='dispatched',dispatched_at=now(),updated_at=now()
+WHERE tool_calls.id=$1 AND tool_calls.enterprise_id=$2 AND tool_calls.status='prepared'
+AND EXISTS(SELECT 1 FROM runs r WHERE r.id=tool_calls.run_id AND r.enterprise_id=tool_calls.enterprise_id
+  AND r.version=$3 AND r.status NOT IN ('succeeded','failed','cancelled'))
+`
+
+type MarkToolDispatchedParams struct {
+	ID                 uuid.UUID `json:"id"`
+	EnterpriseID       uuid.UUID `json:"enterprise_id"`
+	ExpectedRunVersion int64     `json:"expected_run_version"`
+}
+
 func (q *Queries) MarkToolDispatched(ctx context.Context, arg MarkToolDispatchedParams) (int64, error) {
 	result, err := q.db.Exec(ctx, markToolDispatched, arg.ID, arg.EnterpriseID, arg.ExpectedRunVersion)
 	if err != nil {

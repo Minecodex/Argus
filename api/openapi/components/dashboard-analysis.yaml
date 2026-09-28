@@ -1,0 +1,70 @@
+components:
+  schemas:
+    DashboardAnalysisCandidateInput:
+      type: object
+      additionalProperties: false
+      required: [dashboard_id, context_ref, name]
+      properties:
+        dashboard_id: {type: string, format: uuid}
+        context_ref: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 128}
+        panel_id: {type: string, minLength: 1, maxLength: 128}
+    DashboardAnalysisResolveInput:
+      type: object
+      additionalProperties: false
+      required: [dashboard_id, expected_version, changes, evidence]
+      properties:
+        dashboard_id: {type: string, format: uuid}
+        expected_version: {type: integer, format: int64, minimum: 0}
+        changes: {$ref: '#/components/schemas/DashboardConditionPatch'}
+        evidence:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            additionalProperties: false
+            required: [path, quote]
+            properties:
+              path: {type: string, minLength: 1, maxLength: 512, description: JSON pointer for each changed condition; / for reset_all}
+              quote: {type: string, minLength: 1, maxLength: 2048, description: "Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness"}
+    DashboardConditionPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        reset_all: {type: boolean}
+        reset_time: {type: boolean}
+        reset_resources: {type: boolean}
+        time: {$ref: ./dashboard.yaml#/components/schemas/DashboardTimeRange}
+        resources:
+          type: object
+          additionalProperties: false
+          required: [all, ids]
+          properties:
+            all: {type: boolean}
+            ids: {type: array, uniqueItems: true, maxItems: 1000, items: {type: string, format: uuid}}
+        variables:
+          type: object
+          maxProperties: 64
+          additionalProperties:
+            anyOf:
+              - {$ref: ./dashboard.yaml#/components/schemas/DashboardSelection}
+              - {type: 'null'}
+        local_values:
+          type: object
+          maxProperties: 100
+          additionalProperties:
+            type: object
+            maxProperties: 32
+            additionalProperties:
+              anyOf:
+                - {$ref: ./dashboard.yaml#/components/schemas/DashboardSelection}
+                - {type: 'null'}
+    DashboardAnalysisQueryInput:
+      type: object
+      additionalProperties: false
+      required: [dashboard_id]
+      properties:
+        dashboard_id: {type: string, format: uuid}
+        context_ref: {type: string, format: uuid, description: Required for a root query; obtained from context.resolve in the same Run}
+        panel_ids: {type: array, uniqueItems: true, maxItems: 100, items: {type: string, minLength: 1, maxLength: 128}, description: Optional strategy for this query only; never inherited}
+        drilldown: {$ref: ./dashboard-query.yaml#/components/schemas/DashboardQueryDrilldownInput}

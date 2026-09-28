@@ -45,6 +45,9 @@ func TestOverwriteRemovesForgedArgusAttributes(t *testing.T) {
 	attributes.PutStr("argus.enterprise.id", "forged")
 	attributes.PutStr("argus.downstream.collector.id", "also-forged")
 	attributes.PutStr("service.name", "checkout")
+	attributes.PutStr("argus.source.id", "source-reference")
+	attributes.PutStr("argus.source.revision", "7")
+	attributes.PutStr("argus.source.type", "forged-vendor")
 	overwrite(attributes, downstreamIdentity{collectorID: "trusted-collector", serial: "00ff"})
 
 	if value, ok := attributes.Get("argus.enterprise.id"); ok {
@@ -58,5 +61,11 @@ func TestOverwriteRemovesForgedArgusAttributes(t *testing.T) {
 	}
 	if value, ok := attributes.Get("service.name"); !ok || value.Str() != "checkout" {
 		t.Fatalf("non-Argus attribute was removed: %#v %v", value, ok)
+	}
+	if value, ok := attributes.Get("argus.source.id"); !ok || value.Str() != "source-reference" {
+		t.Fatal("gateway lost downstream source reference")
+	}
+	if _, ok := attributes.Get("argus.source.type"); ok {
+		t.Fatal("gateway preserved an unverified vendor claim")
 	}
 }

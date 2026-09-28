@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"github.com/kakj-go/Argus/internal/selfmonitor"
 	"log/slog"
 	"net"
 	"net/http"
@@ -32,6 +33,12 @@ const (
 )
 
 func Run(ctx context.Context, logger *slog.Logger, mode string) error {
+	stopTracing, traceErr := selfmonitor.Start(ctx, "argus-telemetry-"+mode, logger)
+	if traceErr != nil {
+		return traceErr
+	}
+	defer stopTracing()
+
 	cfg := config.LoadTelemetry(mode)
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -261,10 +268,11 @@ func runQuery(ctx context.Context, cfg config.Telemetry, store *postgres.Store, 
 		_ = redisClient.Close()
 		return nil, err
 	}
-	server := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)), grpc.MaxRecvMsgSize(1<<20), grpc.MaxSendMsgSize(8<<20))
+	server := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)), grpc.MaxRecvMsgSize(1<<20), grpc.MaxSendMsgSize(8<<20), grpc.ChainUnaryInterceptor(selfmonitor.UnaryServer))
 	router := telemetryservice.TenantTableRouter{}
 	promEngine := promqlengine.NewEngine(clickhouse, router, logger)
 	coordinator := &queryengine.Coordinator{
+		Cache:  queryengine.NewResultCache(64<<20, 30*time.Second),
 		PromQL: queryengine.PromQLEngine{Engine: promEngine},
 		KQL:    queryengine.KQLEngine{Conn: clickhouse, Router: router},
 		Trace:  queryengine.TraceEngine{Engine: skywalking.Engine{Conn: clickhouse, Router: router}},

@@ -75,7 +75,7 @@ const serverImports = (body) => {
 
 const chiPath = input.replace(/server\.gen\.go$/, "chi.gen.go");
 const strictPath = input.replace(/server\.gen\.go$/, "strict.gen.go");
-const responseMarker = /type List[A-Za-z0-9]+RequestObject struct \{/;
+const responseMarker = /^type [A-Za-z0-9]+RequestObject struct \{/m;
 const responseMatch = chiSource.match(responseMarker);
 const responseOffset = responseMatch ? responseMatch.index : -1;
 if (responseOffset >= 0 && chiSource.split("\n").length > 2000) {
@@ -89,7 +89,8 @@ if (responseOffset >= 0 && chiSource.split("\n").length > 2000) {
   if (keptBody.includes("bytes.")) keptImports.push("bytes");
   if (keptBody.includes("json.")) keptImports.push("encoding/json");
   if (keptBody.includes("io.")) keptImports.push("io");
-  keptImports.push("errors", "fmt", "net/http");
+  if (keptBody.includes("errors.")) keptImports.push("errors");
+  keptImports.push("fmt", "net/http");
   keptImports.push("github.com/go-chi/chi/v5", "github.com/oapi-codegen/runtime");
   if (keptBody.includes("openapi_types.")) keptImports.push('openapi_types "github.com/oapi-codegen/runtime/types"');
   chiSource = generatedHeader(keptImports, keptBody);

@@ -1,4 +1,21 @@
 export interface paths {
+    "/conversations/{conversation_id}/dashboard-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the current user's structured Dashboard selection */
+        get: operations["getConversationDashboardContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{conversation_id}/preflight": {
         parameters: {
             query?: never;
@@ -228,6 +245,7 @@ export interface components {
             page: components["schemas"]["CursorPage"];
         };
         MessageCreate: {
+            dashboard_context?: components["schemas"]["DashboardChatSelection"];
             content: string;
             file_ids?: string[];
         };
@@ -252,10 +270,6 @@ export interface components {
             partial: boolean;
             projection: components["schemas"]["ToolResultProjection"];
         };
-        ConversationPreflightInput: {
-            content: string;
-            file_ids?: string[];
-        };
         RequestId: string;
         ApiError: {
             code: string;
@@ -268,6 +282,27 @@ export interface components {
             trace_id?: string;
             /** @default false */
             retryable: boolean;
+        };
+        DashboardChatContext: {
+            /** @enum {string} */
+            schema_version: "argus.dashboard_context/v1";
+            /** @enum {string} */
+            mode: "none" | "analyze" | "create";
+            dashboard_ids: string[];
+            /** Format: int64 */
+            version: number;
+        };
+        DashboardChatSelection: {
+            /** @enum {string} */
+            mode: "none" | "analyze" | "create";
+            dashboard_ids: string[];
+            /** Format: int64 */
+            expected_version?: number;
+        };
+        ConversationPreflightInput: {
+            dashboard_context?: components["schemas"]["DashboardChatSelection"];
+            content: string;
+            file_ids?: string[];
         };
         ConversationPreflight: {
             ready: boolean;
@@ -447,6 +482,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getConversationDashboardContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saved selection; revoked or archived IDs remain removable without disclosing their metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardChatContext"];
+                };
+            };
+            /** @description Stable Argus error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     preflightConversation: {
         parameters: {
             query?: never;

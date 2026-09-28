@@ -14,11 +14,19 @@ func (a *App) installOpenSandbox(ctx context.Context, cfg *InstallConfig, client
 	if err != nil {
 		return err
 	}
-	if err := helm.installOrUpgrade(ctx, cfg.upstreamReleaseName("os"), cfg.Spec.Namespaces.Sandbox, controller, openSandboxControllerValues(cfg)); err != nil {
+	shared, err := sharedOpenSandboxController(ctx, cfg, clients, controller)
+	if err != nil {
 		return err
 	}
-	if err := a.markOwnedCRDs(ctx, cfg); err != nil {
-		return err
+	if shared == "" {
+		if err := helm.installOrUpgrade(ctx, cfg.upstreamReleaseName("os"), cfg.Spec.Namespaces.Sandbox, controller, openSandboxControllerValues(cfg)); err != nil {
+			return err
+		}
+		if err := a.markOwnedCRDs(ctx, cfg); err != nil {
+			return err
+		}
+	} else {
+		_, _ = fmt.Fprintf(a.stdout, "Reusing compatible OpenSandbox controller %s; preserving external ownership\n", shared)
 	}
 	key, err := ensureSecretValue(ctx, clients, cfg.Spec.Namespaces.Sandbox, cfg.Spec.ReleaseID+"-generated-secrets", "opensandbox-api-key", 32)
 	if err != nil {
@@ -32,6 +40,9 @@ func (a *App) installOpenSandbox(ctx context.Context, cfg *InstallConfig, client
 		return err
 	}
 	for _, name := range []string{"opensandbox-controller-manager", "opensandbox-server"} {
+		if shared != "" && name == "opensandbox-controller-manager" {
+			continue
+		}
 		if err := waitForDeployment(ctx, clients, cfg.Spec.Namespaces.Sandbox, name, 10*time.Minute); err != nil {
 			return err
 		}

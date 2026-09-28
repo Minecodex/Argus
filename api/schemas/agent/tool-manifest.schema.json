@@ -107,7 +107,8 @@
         "trace",
         "log",
         "connector",
-        "workflow"
+        "workflow",
+        "dashboard"
       ]
     },
     "name": {
@@ -142,6 +143,15 @@
     },
     "requires_confirmation": {
       "type": "boolean"
+    },
+    "any_required_permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "At least one of these object-read capabilities is required in addition to required_permissions."
     }
   }
 }

@@ -1,5 +1,16 @@
 /** Stable API error-code translations. Keep this list aligned with api/contracts/error-codes.yaml. */
 export const ERROR_CODES = [
+  "DASHBOARD_CONDITION_EVIDENCE_REQUIRED",
+  "DASHBOARD_CONDITIONS_INCOMPATIBLE",
+  "DASHBOARD_SELECTION_REQUIRED",
+  "DASHBOARD_SELECTION_STALE",
+  "DASHBOARD_CONTEXT_EXPIRED",
+  "DASHBOARD_UNAVAILABLE",
+  "DASHBOARD_INVALID",
+  "DASHBOARD_DENIED",
+  "DASHBOARD_NOT_FOUND",
+  "DASHBOARD_VERSION_CONFLICT",
+  "DASHBOARD_ARCHIVED",
   "TASK_RETRY_EXHAUSTED",
   "MODEL_RESPONSE_INTERRUPTED",
   "INTERNAL_ERROR",
@@ -432,7 +443,22 @@ const errorTokenZhMap: Record<string, string> = {
 };
 
 const errorSpecialZhMap: Record<string, string> = {
- MODEL_USAGE_INVALID: "模型用量数据不一致，本次运行已停止，未执行该响应中的工具。",
+  DASHBOARD_SELECTION_REQUIRED: "请先在会话中选择需要查询或编辑的仪表盘。",
+  DASHBOARD_CONDITION_EVIDENCE_REQUIRED:
+    "条件变更需要关联本轮用户消息中的明确要求。",
+  DASHBOARD_CONDITIONS_INCOMPATIBLE:
+    "已发布参数的含义发生变化，请重新明确相关条件或恢复默认值。",
+  DASHBOARD_SELECTION_STALE: "所选数据已变化，请刷新后再打开详情。",
+  DASHBOARD_CONTEXT_EXPIRED: "查询上下文已过期，请刷新仪表盘后重试。",
+  DASHBOARD_UNAVAILABLE: "仪表盘服务暂时不可用，请稍后重试。",
+  DASHBOARD_INVALID: "仪表盘配置未通过校验，请检查查询和配置。",
+  DASHBOARD_DENIED: "你没有访问或编辑此仪表盘的权限。",
+  DASHBOARD_NOT_FOUND: "仪表盘或个人草稿不存在。",
+  DASHBOARD_VERSION_CONFLICT:
+    "仪表盘或草稿已有新版本，请查看差异并整理后重新预览。",
+  DASHBOARD_ARCHIVED: "仪表盘或分组已归档，恢复并重新校验后才能发布。",
+  MODEL_USAGE_INVALID:
+    "模型用量数据不一致，本次运行已停止，未执行该响应中的工具。",
   MCP_RESPONSE_CREDENTIAL_EXPOSED:
     "MCP 返回数据包含连接认证值，已阻止使用。请联系企业管理员检查该连接。",
   TASK_RETRY_EXHAUSTED: "任务重试已耗尽，已停止自动推进。",
@@ -536,7 +562,29 @@ const errorSpecialZhMap: Record<string, string> = {
 
 const errorTokenEnMap: Record<string, string> = {};
 const errorSpecialEnMap: Record<string, string> = {
- MODEL_USAGE_INVALID: "The model returned inconsistent usage. This run stopped without executing tools from that response.",
+  DASHBOARD_CONDITION_EVIDENCE_REQUIRED:
+    "Condition changes must reference the current user message.",
+  DASHBOARD_CONDITIONS_INCOMPATIBLE:
+    "Published parameter meanings changed. Specify the affected conditions again or reset them to defaults.",
+  DASHBOARD_SELECTION_REQUIRED:
+    "Select the dashboard in Chat before querying or editing it.",
+  DASHBOARD_SELECTION_STALE:
+    "The selected data has changed. Refresh before opening its details.",
+  DASHBOARD_CONTEXT_EXPIRED:
+    "The query context has expired. Refresh the dashboard and try again.",
+  DASHBOARD_UNAVAILABLE:
+    "The dashboard service is temporarily unavailable. Try again later.",
+  DASHBOARD_INVALID:
+    "Dashboard validation failed. Check the queries and configuration.",
+  DASHBOARD_DENIED:
+    "You do not have permission to access or edit this dashboard.",
+  DASHBOARD_NOT_FOUND: "The dashboard or personal draft was not found.",
+  DASHBOARD_VERSION_CONFLICT:
+    "The dashboard or draft has changed. Review and resolve the differences before previewing again.",
+  DASHBOARD_ARCHIVED:
+    "The dashboard or folder is archived. Restore it and revalidate before publishing.",
+  MODEL_USAGE_INVALID:
+    "The model returned inconsistent usage. This run stopped without executing tools from that response.",
   MCP_RESPONSE_CREDENTIAL_EXPOSED:
     "The MCP response contains connection authentication data and was blocked. Contact your enterprise administrator.",
   TASK_RETRY_EXHAUSTED:

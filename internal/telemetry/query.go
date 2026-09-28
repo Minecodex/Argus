@@ -3,7 +3,6 @@ package telemetry
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,6 +53,8 @@ type Overview struct {
 }
 
 type OverviewRequest struct {
+	SubjectID            uuid.UUID
+	SubjectType          string
 	EnterpriseID         uuid.UUID
 	ResourceIDs          []uuid.UUID
 	AuthorizationVersion int64
@@ -104,7 +105,10 @@ func (service Service) QueryOverview(ctx context.Context, actor Actor, ids []uui
 	if err != nil {
 		return Overview{}, err
 	}
-	request := OverviewRequest{EnterpriseID: actor.EnterpriseID, ResourceIDs: resources, AuthorizationVersion: actor.AuthorizationVersion,
+	if partial {
+		return Overview{}, ErrQueryScope
+	}
+	request := OverviewRequest{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: resources, AuthorizationVersion: actor.AuthorizationVersion,
 		From: now.Add(-time.Duration(lookback) * time.Second), To: now, MaxScanBytes: policy.MaxScanBytes, Timeout: time.Duration(policy.MaxExecutionMs) * time.Millisecond}
 	result, err := service.Query.Overview(ctx, request)
 	if err != nil {
@@ -115,12 +119,3 @@ func (service Service) QueryOverview(ctx context.Context, actor Actor, ids []uui
 }
 
 var ErrQueryBackend = errors.New("telemetry query backend unavailable")
-
-func redactTelemetryText(value string) string {
-	for _, marker := range []string{"password=", "token=", "secret=", "authorization:", "api_key="} {
-		if strings.Contains(strings.ToLower(value), marker) {
-			return "[redacted by telemetry field policy]"
-		}
-	}
-	return value
-}

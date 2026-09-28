@@ -135,6 +135,10 @@
   overflow-y: auto;
   padding: var(--space-px-20) 0 var(--space-px-12);
 }
+.argus-chat__stream:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 .argus-chat-stream__inner {
   width: min(820px, 100%);
   margin: 0 auto;

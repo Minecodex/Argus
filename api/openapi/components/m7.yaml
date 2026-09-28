@@ -315,7 +315,7 @@ components:
       required: [schema_version, result_type, data, warnings, partial, meta]
       properties:
         schema_version: {type: string, const: argus.kql_result/v1}
-        result_type: {type: string, enum: [log_entries, log_streams]}
+        result_type: {type: string, enum: [log_entries, log_streams, table, timeseries]}
         data: {}
         warnings: {type: array, items: {type: string, maxLength: 512}}
         partial: {type: boolean}

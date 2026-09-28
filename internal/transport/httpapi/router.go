@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/kakj-go/Argus/internal/selfmonitor"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/kakj-go/Argus/internal/buildinfo"
 	actionapi "github.com/kakj-go/Argus/internal/gen/openapi/actionapi"
 	auditapi "github.com/kakj-go/Argus/internal/gen/openapi/audit"
+	dashboardapi "github.com/kakj-go/Argus/internal/gen/openapi/dashboardapi"
 
 	connectionapi "github.com/kakj-go/Argus/internal/gen/openapi/connectionapi"
 	connectorapi "github.com/kakj-go/Argus/internal/gen/openapi/connectorapi"
@@ -81,6 +83,7 @@ type RouterOptions struct {
 
 	RemoteAccess   *RemoteAccessHandler
 	Telemetry      *TelemetryHandler
+	Dashboard      *DashboardHandler
 	AllowedOrigins []string
 }
 
@@ -89,6 +92,7 @@ func NewRouter() http.Handler { return NewRouterWithOptions(RouterOptions{}) }
 func NewRouterWithOptions(options RouterOptions) http.Handler {
 	router := chi.NewRouter()
 	router.Use(requestIDMiddleware)
+	router.Use(selfmonitor.HTTP)
 	router.Use(requestLoggingMiddleware(options.Logger))
 	router.Use(corsMiddleware(options.AllowedOrigins))
 	router.Use(localeMiddleware)
@@ -97,6 +101,14 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 	router.Get("/", serviceInfo)
 	router.Get("/healthz", health)
 	router.Get("/readyz", ready(options))
+	if options.Dashboard != nil {
+		strict := dashboardapi.NewStrictHandler(*options.Dashboard, []dashboardapi.StrictMiddlewareFunc{func(next dashboardapi.StrictHandlerFunc, _ string) dashboardapi.StrictHandlerFunc {
+			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, value any) (any, error) {
+				return next(WithRequestContext(ctx, w, r), w, r, value)
+			}
+		}})
+		dashboardapi.HandlerFromMuxWithBaseURL(strict, router, "/api/v1")
+	}
 	if options.Setup != nil {
 		strict := setupapi.NewStrictHandler(*options.Setup, []setupapi.StrictMiddlewareFunc{
 			func(next setupapi.StrictHandlerFunc, _ string) setupapi.StrictHandlerFunc {

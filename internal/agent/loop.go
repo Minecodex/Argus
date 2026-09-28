@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kakj-go/Argus/internal/conversation"
+	"github.com/kakj-go/Argus/internal/dashboardcontext"
 	"github.com/kakj-go/Argus/internal/integration/modelprovider"
 	modelservice "github.com/kakj-go/Argus/internal/model"
 	"github.com/kakj-go/Argus/internal/presentation"
@@ -357,6 +358,18 @@ func (loop Loop) context(ctx context.Context, run db.Run, revision db.AiModelRev
 	if err != nil {
 		return ContextProjection{}, err
 	}
+	p, err := (conversation.Service{Store: loop.Store}).ToolPrincipal(ctx, run.EnterpriseID, run.ActorUserID, run.ConversationID)
+	if err != nil {
+		return ContextProjection{}, err
+	}
+	selection, err := dashboardcontext.ForRun(ctx, loop.Store.Queries, p, run.ID)
+	if err != nil {
+		return ContextProjection{}, err
+	}
+	checkpoint["dashboard"], err = dashboardcontext.Facts(ctx, loop.Store.Queries, p, selection, run.ID)
+	if err != nil {
+		return ContextProjection{}, err
+	}
 	var snapshot any
 	if source.Snapshot != nil {
 		active := source.Snapshot
@@ -404,7 +417,7 @@ func (loop Loop) failStep(ctx context.Context, run db.Run, step db.RunStep) erro
 }
 
 func (loop Loop) persistAssistant(ctx context.Context, run db.Run, step db.RunStep, text, scope string, usage modelprovider.TokenUsage) error {
-	return fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
+	return fencedEventTransaction(ctx, loop.Store, func(q *db.Queries) error {
 		if _, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "assistant_message", ActorType: "model", ActorID: run.ModelID.String(), Payload: map[string]any{"content": text, "authorization_scope": scope}, Classification: "internal"}); err != nil {
 			return err
 		}
@@ -417,7 +430,7 @@ func (loop Loop) persistAssistant(ctx context.Context, run db.Run, step db.RunSt
 	})
 }
 func (loop Loop) persistDelta(ctx context.Context, run db.Run, step db.RunStep, text string) error {
-	return fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
+	return fencedEventTransaction(ctx, loop.Store, func(q *db.Queries) error {
 		_, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "run_state_changed", ActorType: "model", Payload: map[string]any{"agent_event_type": "message_delta", "delta": text}, Classification: "internal"})
 		return err
 	})

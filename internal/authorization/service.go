@@ -155,6 +155,15 @@ func (service Service) ListGrantResources(ctx context.Context, enterpriseID, sub
 			sources := ids[cluster.ID]
 			result = append(result, GrantResource{ResourceType: resourceType, ResourceID: cluster.ID, Name: cluster.Name, Direct: direct[cluster.ID], Inherited: len(sources) > 0, Sources: sources})
 		}
+	} else if resourceType == "dashboard" {
+		items, err := service.Store.Queries.ListDashboards(ctx, enterpriseID)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range items {
+			sources := ids[item.ID]
+			result = append(result, GrantResource{ResourceType: resourceType, ResourceID: item.ID, Name: item.Name, Direct: direct[item.ID], Inherited: len(sources) > 0, Sources: sources})
+		}
 	}
 	for i := range result {
 		if result[i].Direct {
@@ -273,7 +282,7 @@ func (service Service) UpdateGrantBatch(ctx context.Context, actorID string, ent
 	if input.SubjectType != "user" && input.SubjectType != "department" && input.SubjectType != "role" && input.SubjectType != "service_account" {
 		return errors.New("invalid subject type")
 	}
-	if input.ResourceType != "host" && input.ResourceType != "kubernetes_cluster" {
+	if input.ResourceType != "host" && input.ResourceType != "kubernetes_cluster" && input.ResourceType != "dashboard" {
 		return errors.New("invalid resource type")
 	}
 	if len(input.ResourceIDs) == 0 {
@@ -284,6 +293,9 @@ func (service Service) UpdateGrantBatch(ctx context.Context, actorID string, ent
 		return errors.New("invalid actor id")
 	}
 	return service.Store.InTx(ctx, func(q *db.Queries) error {
+		if err := service.validateSubject(ctx, q, enterpriseID, input.SubjectType, input.SubjectID); err != nil {
+			return err
+		}
 		if input.ExpectedVersion > 0 {
 			current, versionErr := service.currentSubjectVersion(ctx, q, enterpriseID, input.SubjectType, input.SubjectID)
 			if versionErr != nil {
@@ -379,6 +391,11 @@ func (service Service) validateResource(ctx context.Context, q *db.Queries, ente
 		}
 	case "kubernetes_cluster":
 		_, err := q.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: resourceID, EnterpriseID: enterpriseID})
+		if err != nil {
+			return ErrInvalidResource
+		}
+	case "dashboard":
+		_, err := q.GetDashboard(ctx, db.GetDashboardParams{ID: resourceID, EnterpriseID: enterpriseID})
 		if err != nil {
 			return ErrInvalidResource
 		}

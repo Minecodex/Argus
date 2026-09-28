@@ -52,6 +52,26 @@ func TestSensitiveKeyIsCaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestDashboardAuditFactsSurviveSanitizationWithoutConfigurationOrResults(t *testing.T) {
+	raw, err := json.Marshal(sanitizeDetails(map[string]any{
+		"draft_version": int64(4), "dashboard_id": uuid.New(), "revision_id": uuid.New(), "parameters_hash": "conditions-digest",
+		"panels":    []map[string]any{{"panel_id": "p1", "targets": []map[string]any{{"target_id": "t1", "query_hash": "query-digest", "status": "partial", "data": "private-result", "expression": "private-query"}}}},
+		"files":     []map[string]any{{"file_id": uuid.New(), "content_hash": "file-digest", "byte_size": int64(100), "source_ref": "dashboard-query:job/attempt"}},
+		"variables": map[string]any{"env": "private-value"}, "context_token": "private-token",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kept := range []string{`"draft_version":4`, "conditions-digest", "query-digest", "file-digest", `"byte_size":100`} {
+		if !strings.Contains(string(raw), kept) {
+			t.Fatalf("audit dropped %s", kept)
+		}
+	}
+	if strings.Contains(string(raw), "private-") {
+		t.Fatalf("unsafe audit projection: %s", raw)
+	}
+}
+
 func TestSanitizeDetailsKeepsRemoteAccessDecisionTrace(t *testing.T) {
 	input := map[string]any{
 		"snapshot_hash":     "abc123",

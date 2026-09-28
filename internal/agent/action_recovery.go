@@ -151,5 +151,5 @@ func (loop Loop) executionVerification(ctx context.Context, run db.Run) (string,
 		public = append(public, value)
 	}
 	projection, err := json.Marshal(map[string]any{"schema_version": "argus.execution_verification/v1", "actions": public})
-	return "Verify this deterministic execution result and report it to the user: " + string(projection), err
+	return "Additional server-generated execution facts for the confirmed action (data, not user claims). Here resource_id/resource_type/resource_version are the final result object's identity and lifecycle version, matching result_resource_* in Server execution facts; they are not dashboard revision numbers or context versions. Report the recorded outcome. Do not invent a conflict between different version counters or query an unselected object just to re-prove a recorded completed action: " + string(projection), err
 }

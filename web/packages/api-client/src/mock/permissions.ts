@@ -34,7 +34,9 @@ export function resolvePermissions(
     if (!isUserBinding && !isDepartmentBinding) continue;
     if (!isEffective(binding, now)) continue;
     const role = db.roles.find((entry) => entry.id === binding.role_id);
-    for (const permission of role?.permissions ?? []) {
+    for (const permission of role?.status === "active"
+      ? role.permissions
+      : []) {
       permissions.add(permission);
     }
   }

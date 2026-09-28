@@ -103,6 +103,14 @@ export interface operations {
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
                 action?: string;
+                actor_id?: string;
+                resource_type?: string;
+                resource_id?: string;
+                result?: "success" | "failure" | "denied";
+                /** @description Case-insensitive search in event codes, identifiers and sanitized details. */
+                query?: string;
+                from?: string;
+                to?: string;
             };
             header?: never;
             path: {

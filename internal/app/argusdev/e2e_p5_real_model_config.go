@@ -17,6 +17,7 @@ type p5RealModelConfig struct {
 	ModelID       string  `json:"model_id"`
 	Protocol      string  `json:"api_protocol"`
 	APIKeyEnv     string  `json:"api_key_env"`
+	EndpointIP    string  `json:"endpoint_ip,omitempty"`
 	ContextWindow int     `json:"context_window_tokens"`
 	MaxOutput     int     `json:"max_output_tokens"`
 	InputPrice    float64 `json:"input_price_per_million"`
@@ -53,6 +54,9 @@ func (c p5RealModelConfig) validate() error {
 	}
 	if strings.Contains(strings.ToLower(c.BaseURL+" "+c.ModelID), "argus-replay") {
 		return fmt.Errorf("%w: Replay cannot be used as a real-model benchmark", errUsage)
+	}
+	if err := validateRealModelEndpointIP(c); err != nil {
+		return err
 	}
 	if strings.TrimSpace(c.ModelID) == "" || len(c.ModelID) > 256 || (c.Protocol != "chat_completions" && c.Protocol != "responses") {
 		return fmt.Errorf("%w: real-model model_id or api_protocol is invalid", errUsage)

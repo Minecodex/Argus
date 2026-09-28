@@ -60,7 +60,7 @@ func (k *E2EKube) NodeArchitecture(ctx context.Context) (string, error) {
 
 // DedicatedClusterConflicts reports cluster-scoped resources whose fixed names
 // prevent the upstream operator charts from being owned by an E2E Helm release.
-func (k *E2EKube) DedicatedClusterConflicts(ctx context.Context) ([]string, error) {
+func (k *E2EKube) DedicatedClusterConflicts(ctx context.Context, compatibleOpenSandboxOwner ...string) ([]string, error) {
 	names := []string{
 		"strimzi-cluster-operator-namespaced",
 		"opensandbox-manager-role",
@@ -77,6 +77,9 @@ func (k *E2EKube) DedicatedClusterConflicts(ctx context.Context) ([]string, erro
 		}
 		owner := strings.TrimSpace(role.Annotations["meta.helm.sh/release-name"])
 		ownerNamespace := strings.TrimSpace(role.Annotations["meta.helm.sh/release-namespace"])
+		if strings.HasPrefix(name, "opensandbox-") && len(compatibleOpenSandboxOwner) > 0 && compatibleOpenSandboxOwner[0] != "" && ownerNamespace+"/"+owner == compatibleOpenSandboxOwner[0] {
+			continue
+		}
 		description := "ClusterRole/" + name
 		if owner != "" {
 			description += " owned by Helm release " + owner

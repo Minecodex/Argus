@@ -432,6 +432,28 @@ audit_events:
         in: query
         required: false
         schema: {type: string, pattern: "^[a-z][a-z0-9_.]+$"}
+      - name: actor_id
+        in: query
+        schema: {type: string, minLength: 1, maxLength: 256}
+      - name: resource_type
+        in: query
+        schema: {type: string, minLength: 1, maxLength: 128}
+      - name: resource_id
+        in: query
+        schema: {type: string, minLength: 1, maxLength: 256}
+      - name: result
+        in: query
+        schema: {type: string, enum: [success, failure, denied]}
+      - name: query
+        in: query
+        description: Case-insensitive search in event codes, identifiers and sanitized details.
+        schema: {type: string, maxLength: 256}
+      - name: from
+        in: query
+        schema: {type: string, format: date-time}
+      - name: to
+        in: query
+        schema: {type: string, format: date-time}
     responses:
       "200": {description: Audit events for the authenticated domain., content: {application/json: {schema: {$ref: "../components/m2.yaml#/components/schemas/AuditEventPage"}}}}
       default: {$ref: "#/components/responses/Error"}

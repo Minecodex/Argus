@@ -49,16 +49,16 @@ func TestCoordinatorPreservesPromQLInstantMode(t *testing.T) {
 	}
 }
 
-func TestCoordinatorProjectsSensitiveKQLFieldsAndAudits(t *testing.T) {
+func TestCoordinatorKeepsOrdinaryKQLFieldsAndAudits(t *testing.T) {
 	audit := &captureAudit{}
-	engine := &captureEngineResult{result: Result{Language: LanguageKQL, ResultType: "log_entries", Data: []map[string]any{{"body": "secret", "service_name": "api"}}}}
+	engine := &captureEngineResult{result: Result{Language: LanguageKQL, ResultType: "log_entries", Data: []map[string]any{{"body": "normal request", "service_name": "api"}}}}
 	coordinator := &Coordinator{KQL: engine, Audit: audit}
 	result, err := coordinator.Execute(context.Background(), Request{Language: LanguageKQL, Expression: "service_name = api", Scope: Scope{EnterpriseID: uuid.New()}, Budget: Budget{Timeout: time.Second, MaxRows: 10, MaxSamples: 10}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	rows := result.Data.([]map[string]any)
-	if rows[0]["body"] != "[REDACTED]" || rows[0]["service_name"] != "api" {
+	if rows[0]["body"] != "normal request" || rows[0]["service_name"] != "api" {
 		t.Fatalf("unexpected projected result: %#v", rows)
 	}
 	if !audit.event.Success || audit.event.ExpressionHash == "" || audit.event.PlanHash == "" {

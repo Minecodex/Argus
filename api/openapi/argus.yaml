@@ -11,6 +11,44 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  "/conversations/{conversation_id}/dashboard-context":
+    $ref: ./paths/dashboard-chat.yaml#/context
+  "/conversations/{id}/dashboard-queries":
+    $ref: ./paths/dashboard-query.yaml#/jobs
+  "/conversations/{id}/dashboard-queries/{job_id}":
+    $ref: ./paths/dashboard-query.yaml#/job
+  "/conversations/{id}/dashboard-queries/{job_id}/cancel":
+    $ref: ./paths/dashboard-query.yaml#/cancel
+  "/conversations/{id}/dashboard-queries/{job_id}/resume":
+    $ref: ./paths/dashboard-query.yaml#/resume
+  "/dashboards/{id}/execute":
+    $ref: ./paths/dashboard.yaml#/execute
+  "/dashboard-drafts/{id}/sample":
+    $ref: ./paths/dashboard.yaml#/sample
+  "/dashboards/catalog/query":
+    $ref: ./paths/dashboard.yaml#/catalog
+  "/dashboard-folders":
+    $ref: ./paths/dashboard.yaml#/folder_collection
+  "/dashboard-folders/preview":
+    $ref: ./paths/dashboard.yaml#/folder_preview
+  "/dashboards/{id}/actions/preview":
+    $ref: ./paths/dashboard.yaml#/dashboard_action
+  "/dashboards":
+    $ref: ./paths/dashboard.yaml#/dashboards
+  "/dashboards/{id}":
+    $ref: ./paths/dashboard.yaml#/dashboard
+  "/dashboards/{id}/revisions":
+    $ref: ./paths/dashboard.yaml#/revisions
+  "/dashboard-drafts":
+    $ref: ./paths/dashboard.yaml#/drafts
+  "/dashboard-drafts/{id}":
+    $ref: ./paths/dashboard.yaml#/draft
+  "/dashboard-drafts/{id}/preview":
+    $ref: ./paths/dashboard.yaml#/preview
+  "/dashboard-drafts/{id}/rebase":
+    $ref: ./paths/dashboard.yaml#/rebase
+  "/dashboard-spec/validate":
+    $ref: ./paths/dashboard.yaml#/validation
   "/enterprise/mcp-connections":
     $ref: ./paths/planv5.yaml#/mcp_connections
   "/enterprise/mcp-connections/{id}":
@@ -439,8 +477,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /dashboards/{id}/drilldown:
+    $ref: ./paths/dashboard.yaml#/drilldown
+  /dashboard-drafts/{id}/drilldowns/generate:
+    $ref: ./paths/dashboard.yaml#/generateDrilldowns
+  /hosts/{id}/dashboard-bindings:
+    $ref: ./paths/dashboard.yaml#/hostBindings
+  /hosts/{id}/dashboard-bindings/preview:
+    $ref: ./paths/dashboard.yaml#/hostBindingPreview
+  /kubernetes/clusters/{id}/dashboard-bindings:
+    $ref: ./paths/dashboard.yaml#/clusterBindings
+  /kubernetes/clusters/{id}/dashboard-bindings/preview:
+    $ref: ./paths/dashboard.yaml#/clusterBindingPreview
+  /dashboards/{id}/bindings:
+    $ref: ./paths/dashboard.yaml#/dashboardBindings
+  "/enterprise/data-authorizations/{subject_type}/{subject_id}":
+    $ref: ./paths/enterprise-data-authorization.yaml#/resources
+  /dashboard-spec/convert-panel:
+    $ref: ./paths/dashboard.yaml#/convertPanel
 components:
   schemas:
+    DashboardAnalysisCandidateInput:
+      $ref: ./components/dashboard-analysis.yaml#/components/schemas/DashboardAnalysisCandidateInput
+    DashboardAnalysisResolveInput:
+      $ref: ./components/dashboard-analysis.yaml#/components/schemas/DashboardAnalysisResolveInput
+    DashboardAnalysisQueryInput:
+      $ref: ./components/dashboard-analysis.yaml#/components/schemas/DashboardAnalysisQueryInput
     Locale:
       $ref: ./components/common.yaml#/components/schemas/Locale
     RequestId:

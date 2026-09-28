@@ -1,0 +1,19 @@
+components:
+  schemas:
+    DashboardChatSelection:
+      type: object
+      additionalProperties: false
+      required: [mode, dashboard_ids]
+      properties:
+        mode: {type: string, enum: [none, analyze, create]}
+        dashboard_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}}
+        expected_version: {type: integer, format: int64, minimum: 0}
+    DashboardChatContext:
+      type: object
+      additionalProperties: false
+      required: [schema_version, mode, dashboard_ids, version]
+      properties:
+        schema_version: {type: string, enum: [argus.dashboard_context/v1]}
+        mode: {type: string, enum: [none, analyze, create]}
+        dashboard_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}}
+        version: {type: integer, format: int64, minimum: 0}

@@ -316,9 +316,13 @@ export function ConversationPage() {
       });
     return creating.current;
   };
-  const handleSend = async (text: string, fileIds?: string[]) => {
+  const handleSend = async (
+    text: string,
+    fileIds?: string[],
+    dashboardContext?: import("@argus/api-client").DashboardChatSelection,
+  ) => {
     const id = await prepareConversation(text);
-    return send(id, text, fileIds);
+    return send(id, text, fileIds, dashboardContext);
   };
 
   const changeModel = async (modelId: string) => {

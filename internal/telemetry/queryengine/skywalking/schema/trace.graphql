@@ -41,9 +41,20 @@ type Query {
     order: String
     pageNum: Int
     pageSize: Int
+    sourceId: String
+    resourceId: String
+    traceId: String
+    operationName: String
+    filters: [APMAttributeFilter!]
   ): TraceQueryResult!
 
-  queryTrace(traceId: String!): Trace
+  queryTraceGraph(traceId: String!, sourceId: String!, resourceId: String!, filters: [APMAttributeFilter!]): TraceGraph
+  queryTrace(traceId: String!, sourceId: String, resourceId: String): Trace
+  queryAPMServices(serviceName: String, serviceInstanceName: String, operationName: String, sourceId: String, resourceId: String, limit: Int, filters: [APMAttributeFilter!]): APMResult!
+  queryAPMInstances(serviceName: String, serviceInstanceName: String, operationName: String, sourceId: String, resourceId: String, limit: Int, filters: [APMAttributeFilter!]): APMResult!
+  queryAPMEndpoints(serviceName: String, serviceInstanceName: String, operationName: String, sourceId: String, resourceId: String, limit: Int, filters: [APMAttributeFilter!]): APMResult!
+  queryAPMRED(serviceName: String, serviceInstanceName: String, operationName: String, sourceId: String, resourceId: String, bucketSeconds: Int!, limit: Int, filters: [APMAttributeFilter!]): APMResult!
+  queryAPMTopology(serviceName: String, serviceInstanceName: String, operationName: String, sourceId: String, resourceId: String, limit: Int, filters: [APMAttributeFilter!]): APMTopologyResult!
 }
 
 type TraceQueryResult {
@@ -52,6 +63,12 @@ type TraceQueryResult {
 }
 
 type Trace {
+  sourceId: String!
+  resourceId: String!
+  rootPresent: Boolean!
+  rootCount: Int!
+  missingParentCount: Int!
+  completeness: String!
   traceId: String!
   rootService: String!
   rootOperation: String!
@@ -65,6 +82,14 @@ type Trace {
 }
 
 type Span {
+  traceId: String!
+  sourceId: String!
+  resourceId: String!
+  resourceAttributes: String!
+  scopeName: String!
+  kind: Int!
+  statusMessage: String!
+  traceState: String!
   spanId: String!
   parentSpanId: String!
   serviceName: String!
@@ -78,9 +103,116 @@ type Span {
 }
 
 type TraceSpanEdge {
+  missingParent: Boolean!
+  cycle: Boolean!
   parentSpanId: String!
   childSpanId: String!
   parentService: String!
   childService: String!
   depth: Int!
+}
+
+type APMResult {
+  basis: String!
+  percentileMethod: String!
+  groupBy: String!
+  status: String!
+  windowStart: String!
+  windowEnd: String!
+  limited: Boolean!
+  coverage: APMCoverage!
+  rows: [APMRow!]!
+}
+
+type APMCoverage {
+  observedSpanCount: Float!
+  requestSampleCount: Float!
+  missingServiceCount: Float!
+  missingInstanceCount: Float!
+  missingOperationCount: Float!
+  unknownSourceCount: Float!
+}
+
+type APMRow {
+  sourceId: String!
+  resourceId: String!
+  serviceName: String!
+  instanceId: String!
+  instanceName: String!
+  operationName: String!
+  timestamp: String!
+  intervalSeconds: Float!
+  observedSpanCount: Float!
+  sampleCount: Float!
+  errorCount: Float!
+  errorRate: Float
+  samplesPerSecond: Float
+  durationMeanMs: Float
+  durationP50Ms: Float
+  durationP95Ms: Float
+  durationP99Ms: Float
+}
+
+type APMTopologyResult {
+  basis: String!
+  percentileMethod: String!
+  status: String!
+  windowStart: String!
+  windowEnd: String!
+  limited: Boolean!
+  coverage: APMTopologyCoverage!
+  nodes: [APMTopologyNode!]!
+  edges: [APMTopologyEdge!]!
+}
+type APMTopologyCoverage {
+  observedSpanCount: Float!
+  missingParentCount: Float!
+  ambiguousParentCount: Float!
+  cyclicSpanCount: Float!
+  missingServiceCount: Float!
+  unknownSourceCount: Float!
+}
+type APMTopologyNode {
+  id: String!
+  sourceId: String!
+  resourceId: String!
+  serviceName: String!
+}
+type APMTopologyEdge {
+  sourceNodeId: String!
+  targetNodeId: String!
+  observedEdgeCount: Float!
+  sampleCount: Float!
+  errorCount: Float!
+  errorRate: Float
+  samplesPerSecond: Float
+  durationMeanMs: Float
+  durationP95Ms: Float
+}
+
+input APMAttributeFilter {
+  resource: Boolean!
+  key: String!
+  values: [String!]
+  negate: Boolean
+}
+
+type TraceGraph {
+ traceId: String!
+ completeness: String!
+ missingParentCount: Int!
+ ambiguousParentCount: Int!
+ excludedSpanCount: Int!
+ spans: [Span!]!
+ edges: [TraceGraphEdge!]!
+}
+type TraceGraphEdge {
+ parentSpanId: String!
+ childSpanId: String!
+ parentSourceId: String!
+ childSourceId: String!
+ parentResourceId: String!
+ childResourceId: String!
+ missingParent: Boolean!
+ cycle: Boolean!
 }

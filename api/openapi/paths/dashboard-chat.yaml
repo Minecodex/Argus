@@ -1,0 +1,18 @@
+context:
+  get:
+    operationId: getConversationDashboardContext
+    summary: Read the current user's structured Dashboard selection
+    tags: [Conversations]
+    parameters:
+      - {name: conversation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    responses:
+      '200':
+        description: Saved selection; revoked or archived IDs remain removable without disclosing their metadata
+        content:
+          application/json:
+            schema: {$ref: ../components/dashboard-chat.yaml#/components/schemas/DashboardChatContext}
+      default:
+        description: Stable Argus error
+        content:
+          application/json:
+            schema: {$ref: ../components/common.yaml#/components/schemas/ApiError}

@@ -2,6 +2,7 @@
 export type { components as McpapiComponents, paths as McpapiPaths } from "./mcpapi.js";
 export type { components as WorkspaceapiComponents, paths as WorkspaceapiPaths } from "./workspaceapi.js";
 export type { components as PresentationapiComponents, paths as PresentationapiPaths } from "./presentationapi.js";
+export type { components as DashboardapiComponents, paths as DashboardapiPaths } from "./dashboardapi.js";
 export type { components as CommonComponents, paths as CommonPaths } from "./common.js";
 export type { components as IdentityComponents, paths as IdentityPaths } from "./identity.js";
 export type { components as AuthorizationComponents, paths as AuthorizationPaths } from "./authorization.js";
@@ -154,6 +155,8 @@ export type ConversationEventPage = import("./conversationapi.js").components["s
 export type ConversationCreate = import("./conversationapi.js").components["schemas"]["ConversationCreate"];
 export type ConversationUpdate = import("./conversationapi.js").components["schemas"]["ConversationUpdate"];
 export type MessageCreate = import("./conversationapi.js").components["schemas"]["MessageCreate"];
+export type DashboardChatSelection = import("./conversationapi.js").components["schemas"]["DashboardChatSelection"];
+export type DashboardChatContext = import("./conversationapi.js").components["schemas"]["DashboardChatContext"];
 export type MessageAccepted = import("./conversationapi.js").components["schemas"]["MessageAccepted"];
 export type ToolResult = import("./conversationapi.js").components["schemas"]["ToolResult"];
 export type AIModel = import("./modelapi.js").components["schemas"]["AIModel"];

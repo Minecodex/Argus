@@ -17,16 +17,18 @@ function isEffective(binding: RoleBinding, nowIso: string): boolean {
  */
 export function useMyEffectiveBindings(): RoleBinding[] {
   const api = useApi();
+  const canReadRoles = usePermission("role.read");
   const userId = useEnterpriseAuthStore((state) => state.session?.user.id);
   const departmentId = useEnterpriseAuthStore(
     (state) => state.session?.session.department_id,
   );
   const { data } = useQuery({
-    queryKey: ["org", "role-bindings"],
+    queryKey: ["org", "role-bindings", userId],
     queryFn: () => api.org.listRoleBindings(),
-    enabled: Boolean(userId),
+    enabled: Boolean(userId) && canReadRoles,
   });
   return useMemo(() => {
+    if (!canReadRoles) return [];
     const now = new Date().toISOString();
     return (data ?? []).filter(
       (binding) =>
@@ -36,29 +38,55 @@ export function useMyEffectiveBindings(): RoleBinding[] {
             binding.subject_id === departmentId)) &&
         isEffective(binding, now),
     );
-  }, [data, userId, departmentId]);
+  }, [data, userId, departmentId, canReadRoles]);
 }
 
 /** 当前用户经由有效绑定获得的角色列表。 */
 export function useMyRoles(): Role[] {
   const api = useApi();
+  const canReadRoles = usePermission("role.read");
+  const userId = useEnterpriseAuthStore((state) => state.session?.user.id);
   const bindings = useMyEffectiveBindings();
   const { data: roles } = useQuery({
-    queryKey: ["org", "roles"],
+    queryKey: ["org", "roles", userId],
     queryFn: () => api.org.listRoles(),
+    enabled: Boolean(userId) && canReadRoles,
   });
   return useMemo(() => {
+    if (!canReadRoles) return [];
     const role_ids = new Set(bindings.map((binding) => binding.role_id));
     return (roles ?? []).filter((role) => role_ids.has(role.id));
-  }, [roles, bindings]);
+  }, [roles, bindings, canReadRoles]);
 }
 
-/** 当前用户的权限点并集（取自有效绑定对应角色的 permissions）。 */
+/** Self permissions come from the server session, never the privileged org catalog.
+ * The query is scoped to one session and refreshed on focus/organization changes.
+ * HTTP and tool authorization remain the enforcement boundary.
+ */
 export function useMyPermissions(): Set<string> {
-  const roles = useMyRoles();
+  const api = useApi();
+  const session = useEnterpriseAuthStore((state) => state.session);
+  const status = useEnterpriseAuthStore((state) => state.status);
+  const enabled =
+    status === "authenticated" && session?.session.audience === "enterprise";
+  const current = useQuery({
+    queryKey: [
+      "org",
+      "self-permissions",
+      session?.session.enterprise_id,
+      session?.user.id,
+      session?.session.id,
+    ],
+    queryFn: async () => (await api.auth.me()).permissions,
+    enabled,
+    initialData: enabled ? session.permissions : undefined,
+    initialDataUpdatedAt: 0,
+    staleTime: 15000,
+    refetchOnWindowFocus: true,
+  });
   return useMemo(
-    () => new Set(roles.flatMap((role) => role.permissions)),
-    [roles],
+    () => new Set(enabled && !current.isError ? (current.data ?? []) : []),
+    [enabled, current.data, current.isError],
   );
 }
 

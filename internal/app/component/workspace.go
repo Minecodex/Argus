@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/kakj-go/Argus/internal/config"
+	"github.com/kakj-go/Argus/internal/dashboard"
 	"github.com/kakj-go/Argus/internal/sandbox"
 	"github.com/kakj-go/Argus/internal/storage/objectstore"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/tlsmaterial"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 	"github.com/kakj-go/Argus/internal/workspace"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -28,6 +30,14 @@ func Workspace(ctx context.Context, cfg config.Server, store *postgres.Store, id
 		return service, err
 	}
 	service.Objects = objects
+	queries := dashboard.QueryJobs{Runtime: dashboard.Runtime{Store: store}}
+	service.ExternalSource = func(ctx context.Context, p toolruntime.Principal, ref string) (bool, error) {
+		handled, err := queries.AuthorizeSource(ctx, p, ref)
+		if handled {
+			err = dashboardWorkspaceSourceError(err)
+		}
+		return handled, err
+	}
 	if !settings.Enabled {
 		return service, nil
 	}
@@ -48,6 +58,15 @@ func Workspace(ctx context.Context, cfg config.Server, store *postgres.Store, id
 		return service, err
 	}
 	return service, nil
+}
+
+// Translate the source domain at the composition boundary. Workspace does not
+// depend on Dashboard, and a denied/archived source is not an internal IO error.
+func dashboardWorkspaceSourceError(err error) error {
+	if errors.Is(err, dashboard.ErrDenied) || errors.Is(err, dashboard.ErrArchived) || errors.Is(err, dashboard.ErrNotFound) {
+		return toolruntime.Error{Kind: "WORKSPACE_FILE_FORBIDDEN"}
+	}
+	return err
 }
 
 // StartWorkspaceAdmission shares argus-server ownership but uses an isolated

@@ -19,15 +19,18 @@ type Bundle struct {
 	Host              json.RawMessage `json:"host"`
 	KubernetesAgent   json.RawMessage `json:"kubernetes_agent"`
 	KubernetesGateway json.RawMessage `json:"kubernetes_gateway"`
+	Sources           []Source        `json:"sources"`
 }
 
 type RenderInput struct {
-	CollectorID  string
-	ResourceID   string
-	ResourceType string
-	Role         string
-	Platform     string
-	RouteKind    string
+	CollectorID      string
+	ResourceID       string
+	ResourceType     string
+	Role             string
+	SourceGeneration string
+	ConfigRevision   int64
+	Platform         string
+	RouteKind        string
 	// Transport 是遥测物理路径(direct|executor_tunnel|bastion_tunnel,PlanV4);
 	// 隧道形态下出口端点渲染为本机回环,TLS 仍按真实上游域名校验。
 	Transport             string
@@ -106,20 +109,35 @@ func Render(input RenderInput) ([]byte, error) {
 	}
 	identity := resourceIdentity(input.CollectorID, input.ResourceID, input.ResourceType)
 
-	host, err := json.Marshal(hostConfig(input, profiles, identity, enrollment.String(), rotation, trustBundle, exportEndpoint, exportServerName))
+	hostConfigValue := hostConfig(input, profiles, identity, enrollment.String(), rotation, trustBundle, exportEndpoint, exportServerName)
+	agentConfigValue := kubernetesAgentConfig(input, profiles, identity, enrollment.String(), rotation, trustBundle)
+	gatewayConfigValue := kubernetesGatewayConfig(input, profiles, identity, enrollment.String(), rotation, trustBundle, exportEndpoint, exportServerName)
+	if profiles["collector-self"] {
+		for _, config := range []map[string]any{hostConfigValue, agentConfigValue, gatewayConfigValue} {
+			addSelfMonitoring(config)
+		}
+	}
+	hostSources := bindSources(hostConfigValue, "host", input)
+	agentSources := bindSources(agentConfigValue, "kubernetes_agent", input)
+	gatewaySources := bindSources(gatewayConfigValue, "kubernetes_gateway", input)
+	sources := hostSources
+	if input.ResourceType == "kubernetes_cluster" {
+		sources = append(agentSources, gatewaySources...)
+	}
+	host, err := json.Marshal(hostConfigValue)
 	if err != nil {
 		return nil, err
 	}
-	agent, err := json.Marshal(kubernetesAgentConfig(input, profiles, identity, enrollment.String(), rotation, trustBundle))
+	agent, err := json.Marshal(agentConfigValue)
 	if err != nil {
 		return nil, err
 	}
-	gateway, err := json.Marshal(kubernetesGatewayConfig(input, profiles, identity, enrollment.String(), rotation, trustBundle, exportEndpoint, exportServerName))
+	gateway, err := json.Marshal(gatewayConfigValue)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(Bundle{SchemaVersion: SchemaVersion, CollectorID: input.CollectorID, Host: host,
-		KubernetesAgent: agent, KubernetesGateway: gateway})
+		KubernetesAgent: agent, KubernetesGateway: gateway, Sources: sources})
 }
 
 func Extract(value []byte, target string) ([]byte, error) {
@@ -224,10 +242,11 @@ func hostConfig(input RenderInput, profiles map[string]bool, identity map[string
 
 func hostReceivers(profiles map[string]bool, platform string) map[string]any {
 	receivers := map[string]any{}
+	nativeTraceReceivers(profiles, receivers)
 	if profiles["otlp-receiver"] {
 		receivers["otlp"] = otlpReceiver("127.0.0.1")
 	}
-	if profiles["host-basic"] || profiles["collector-self"] {
+	if profiles["host-basic"] {
 		scrapers := map[string]any{"cpu": map[string]any{}, "memory": map[string]any{}, "filesystem": map[string]any{}, "network": map[string]any{}}
 		if platform != "windows_amd64" {
 			scrapers["load"] = map[string]any{}
@@ -250,6 +269,7 @@ func hostReceivers(profiles map[string]bool, platform string) map[string]any {
 
 func kubernetesAgentConfig(input RenderInput, profiles map[string]bool, identity map[string]string, enrollment, rotation, trustBundle string) map[string]any {
 	receivers := map[string]any{}
+	nativeTraceReceivers(profiles, receivers)
 	if profiles["k8s-node-container"] {
 		receivers["kubeletstats"] = map[string]any{"collection_interval": "30s", "auth_type": "serviceAccount", "endpoint": "https://${env:K8S_NODE_NAME}:10250",
 			"ca_file": "/var/run/argus-kubelet/pki/kubelet.crt", "insecure_skip_verify": false}
@@ -258,7 +278,7 @@ func kubernetesAgentConfig(input RenderInput, profiles map[string]bool, identity
 	if profiles["otlp-receiver"] || profiles["k8s-otlp-gateway"] {
 		receivers["otlp"] = otlpReceiver("127.0.0.1")
 	}
-	if len(receivers) == 0 {
+	if len(receivers) == 0 && !profiles["collector-self"] {
 		receivers["hostmetrics"] = map[string]any{"collection_interval": "30s", "root_path": "/hostfs", "scrapers": map[string]any{"cpu": map[string]any{}, "memory": map[string]any{}}}
 	}
 	identityDirectory := "/var/lib/argus-otelcol/identity"
@@ -347,15 +367,18 @@ func collectorServerName(collectorID string) string {
 func pipelineConfig(receivers map[string]any, processors []string, exporter string) map[string]any {
 	bySignal := map[string][]string{"metrics": {}, "logs": {}, "traces": {}}
 	for name := range receivers {
-		switch name {
+		receiverType, _, _ := strings.Cut(name, "/")
+		switch receiverType {
 		case "hostmetrics", "prometheus", "kubeletstats", "k8s_cluster":
 			bySignal["metrics"] = append(bySignal["metrics"], name)
-		case "journald", "filelog":
+		case "journald", "filelog", "windowseventlog":
 			bySignal["logs"] = append(bySignal["logs"], name)
-		default:
+		case "otlp":
 			for signal := range bySignal {
 				bySignal[signal] = append(bySignal[signal], name)
 			}
+		case "skywalking", "jaeger":
+			bySignal["traces"] = append(bySignal["traces"], name)
 		}
 	}
 	result := map[string]any{}
@@ -371,6 +394,7 @@ func normalizeProfiles(resourceType string, values []string) (map[string]bool, e
 	allowed := map[string]bool{
 		"host-basic": true, "linux-journald": true, "file-log": true, "prometheus-endpoint": true, "otlp-receiver": true,
 		"k8s-node-container": true, "k8s-cluster": true, "k8s-otlp-gateway": true, "collector-self": true,
+		"skywalking-receiver": true, "jaeger-receiver": true,
 	}
 	result := map[string]bool{}
 	for _, value := range values {
@@ -378,7 +402,7 @@ func normalizeProfiles(resourceType string, values []string) (map[string]bool, e
 		if versioned && (version == "" || strings.Contains(version, "@")) {
 			return nil, fmt.Errorf("Collection Profile %q has an invalid version", value)
 		}
-		if !allowed[key] || (resourceType == "host" && strings.HasPrefix(key, "k8s-")) || (resourceType == "kubernetes_cluster" && !strings.HasPrefix(key, "k8s-") && key != "otlp-receiver" && key != "collector-self") {
+		if !allowed[key] || (resourceType == "host" && strings.HasPrefix(key, "k8s-")) || (resourceType == "kubernetes_cluster" && !strings.HasPrefix(key, "k8s-") && key != "otlp-receiver" && key != "collector-self" && key != "skywalking-receiver" && key != "jaeger-receiver") {
 			return nil, fmt.Errorf("Collection Profile %q is not valid for %s", value, resourceType)
 		}
 		result[key] = true

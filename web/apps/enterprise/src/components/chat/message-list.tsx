@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { ChatMessageItem } from "./message-item";
 import type { ChatMessage } from "./chat-view-model";
 
@@ -15,6 +16,7 @@ export function ChatMessageList({
   pendingUser: ChatMessage | null;
   streaming: ChatMessage | null;
 }) {
+  const { t } = useTranslation();
   const streamRef = useRef<HTMLDivElement>(null);
   const persistedIds = new Set(messages.map((message) => message.id));
   const pendingUserPersisted =
@@ -35,7 +37,13 @@ export function ChatMessageList({
   }, [messages, pendingUser, streaming]);
 
   return (
-    <div className="argus-chat__stream" ref={streamRef}>
+    <div
+      className="argus-chat__stream"
+      ref={streamRef}
+      role="region"
+      aria-label={t("chat.messageHistory")}
+      tabIndex={0}
+    >
       <div className="argus-chat-stream__inner">
         {messages.map((message) => (
           <ChatMessageItem key={message.id} message={message} />

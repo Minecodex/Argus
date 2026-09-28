@@ -1,6 +1,6 @@
 # 多租户、RBAC 与数据权限
 
-> 当前基线：数据授权由 `data_authorization_grants` 独立保存。它只绑定 `user`、`department`、`role`、`service_account` 与明确的 Host 或 Kubernetes Cluster ID。标签只用于展示、搜索、普通筛选和保存视图，不参与授权判断。
+> 当前基线：数据授权由 `data_authorization_grants` 独立保存，绑定 `user`、`department`、`role`、`service_account` 与明确的 Host、Kubernetes Cluster 或 Dashboard ID。标签只用于展示、搜索、普通筛选和保存视图，不参与授权判断。
 
 ## 1. 总体模型
 
@@ -30,6 +30,8 @@ enterprise_id                  -> 租户和安全隔离
 - `ServiceAccount` 是受控机器主体；APIKey 只认证到 ServiceAccount，不单独配置资源范围。
 - `AuthorizationVersion` 在授权关系、角色绑定或主体组织关系变化时递增，用于失效游标、会话、PendingAction 和缓存。
 
+企业前端的功能入口使用登录/会话 API 返回的当前主体有效 `permissions`，按企业、用户、会话隔离缓存，并在窗口聚焦或组织权限变更后重新读取。不能依赖需要 `role.read` 的全企业角色/绑定列表来判定自己的权限；角色目录仅用于获授权的管理和名称展示。前端权限状态只控制交互，HTTP、工具和后台执行仍执行当次服务端授权校验。Mock 会话必须复用同一有效期、角色状态和主体合并规则。
+
 平台超级管理员与企业身份互斥，不能因为平台身份进入企业资源范围。
 
 ## 3. 显式资源授权
@@ -39,7 +41,7 @@ data_authorization_grants
 ├── enterprise_id
 ├── subject_type: user | department | role | service_account
 ├── subject_id
-├── resource_type: host | kubernetes_cluster
+├── resource_type: host | kubernetes_cluster | dashboard
 ├── resource_id
 ├── status / version
 ├── created_by
@@ -73,13 +75,13 @@ Host 和 Kubernetes Cluster 保留 `labels: Record<string,string>`，并继续�
 
 远程访问先检查显式 Host 授权，再检查 RemoteAccessGrant、ManagedAccount、协议、动作和有效期。满足这些基础条件即可访问；RemoteAccessRule 是可选叠加层，用于拒绝、MFA、审批、通知或收紧 SessionProfile，不能补齐或扩大缺失的功能权限、资源授权和 Grant。没有匹配 Rule 时使用系统安全默认 SessionProfile。
 
-Telemetry Query 在受信 `EnterpriseId + ResourceId + CollectorId` 基础上应用显式授权资源 ID、Signal 权限、字段脱敏、时间范围和查询预算。Web、Agent、Card 和 OpenAPI 复用同一裁剪结果。
+Telemetry Query 在受信 `EnterpriseId + ResourceId + CollectorId` 基础上检查对象读取能力、显式授权资源 ID、时间范围和查询预算。Host/Kubernetes 入口分别沿用 host.read/kubernetes.read；Dashboard 入口检查 Dashboard 访问，再按资源数据授权裁剪。Signal 仅用于选择引擎，不存在三信号或字段读取权限。凭证屏蔽统一适用于所有读取者，普通日志和 Trace 细节保留。HTTP、Agent、目录游标和 Workspace 使用同一当前授权边界，具体见 [PlanV2 对象查询授权](./planv2/object-query-authorization.md)。
 
 ## 7. 管理入口
 
 组织设置不再提供独立“权限管理”页面。角色、用户、部门和 ServiceAccount 列表均提供“数据授权”入口：
 
-- 弹框包含 Host、Kubernetes 两个 Tab。
+- 弹框包含 Host、Kubernetes、Dashboard 三类对象。
 - 左侧是未授权资源，右侧是已授权资源。
 - 支持搜索、分页、多选、批量移动和全部移动。
 - 用户/部门弹框展示直接与继承来源，继承资源不可直接移除。

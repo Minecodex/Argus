@@ -8,12 +8,16 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 func pointer[T any](value T) *T { return &value }
 
 func planV5Status(err error) int {
+	if errors.Is(err, postgres.ErrIdempotencyConflict) {
+		return http.StatusConflict
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return http.StatusNotFound
 	}
@@ -50,6 +54,11 @@ func planV5Error[T any](ctx context.Context, err error) T {
 		id = current.RequestID
 	}
 	body := map[string]any{"code": code, "message_key": "errors.planv5." + strings.ToLower(code), "request_id": id}
+	if errors.Is(err, postgres.ErrIdempotencyConflict) {
+		code = "IDEMPOTENCY_CONFLICT"
+		body["code"] = code
+		body["message_key"] = "errors.common.idempotency_conflict"
+	}
 	var detail toolruntime.Error
 	if errors.As(err, &detail) {
 		if detail.Message != "" {

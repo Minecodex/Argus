@@ -140,12 +140,10 @@ func (lifecycle TenantSchemaLifecycle) EnsureTenantSchema(ctx context.Context, e
 			return err
 		}
 		if err := lifecycle.Manager.VerifyTenant(ctx, enterpriseID); err != nil {
-			_ = lifecycle.Manager.DropTenant(ctx, enterpriseID)
 			lifecycle.recordError(ctx, enterpriseID, err)
 			return err
 		}
 		if err := lifecycle.record(ctx, enterpriseID, "ready", pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}, pgtype.Text{}); err != nil {
-			_ = lifecycle.Manager.DropTenant(ctx, enterpriseID)
 			lifecycle.recordError(ctx, enterpriseID, err)
 			return err
 		}
@@ -200,11 +198,10 @@ func (m ClickHouseTenantSchemaManager) EnsureTenant(ctx context.Context, enterpr
 	}
 	for _, ddl := range tenantTableDDL(tables) {
 		if err := m.Conn.Exec(ctx, ddl); err != nil {
-			_ = m.DropTenant(ctx, enterpriseID)
 			return err
 		}
 	}
-	return nil
+	return m.upgradeSourceColumns(ctx, tables)
 }
 
 func (m ClickHouseTenantSchemaManager) VerifyTenant(ctx context.Context, enterpriseID uuid.UUID) error {
@@ -265,7 +262,7 @@ type tenantTableExpectation struct {
 }
 
 func tenantTableExpectations(t TenantTables) map[string]tenantTableExpectation {
-	return map[string]tenantTableExpectation{
+	result := map[string]tenantTableExpectation{
 		t.MetricSeries: {
 			SortingKey: "metric_name, labels_hash, resource_id, series_id",
 			Columns: columns(
@@ -315,6 +312,21 @@ func tenantTableExpectations(t TenantTables) map[string]tenantTableExpectation {
 			),
 		},
 	}
+	for table, expectation := range result {
+		expectation.Columns["source_id"] = "UUID"
+		expectation.Columns["source_revision"] = "Int64"
+		expectation.Columns["source_type"] = "LowCardinality(String)"
+		expectation.Columns["source_key"] = "String"
+		if table == t.Traces || table == t.TraceSummary || table == t.TraceSpanEdges {
+			expectation.SortingKey += ", source_id, source_revision"
+		}
+		if table == t.Logs {
+			expectation.Columns["resource_attributes"] = "Map(String,String)"
+		}
+		result[table] = expectation
+	}
+	return result
+
 }
 
 func columns(values ...string) map[string]string {
@@ -357,31 +369,37 @@ func tenantTableDDL(t TenantTables) []string {
 resource_id UUID, series_id UUID, metric_name LowCardinality(String), labels Map(String,String), labels_hash UInt64,
 resource_attributes Map(String,String), scope_name LowCardinality(String), scope_version LowCardinality(String), scope_attributes Map(String,String),
 metric_type LowCardinality(String), temporality LowCardinality(String), is_monotonic Bool, unit LowCardinality(String), description String,
-kafka_topic LowCardinality(String), kafka_partition Int32, kafka_offset Int64, record_sequence UInt32, expires_at DateTime64(3,'UTC')
+kafka_topic LowCardinality(String), kafka_partition Int32, kafka_offset Int64, record_sequence UInt32, expires_at DateTime64(3,'UTC'),
+source_id UUID, source_revision Int64, source_type LowCardinality(String), source_key String MATERIALIZED concat(toString(source_id), ':', toString(source_revision))
 ) ENGINE = ReplacingMergeTree ORDER BY (metric_name, labels_hash, resource_id, series_id) TTL expires_at DELETE`, t.MetricSeries),
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 resource_id UUID, series_id UUID, metric_name LowCardinality(String), timestamp DateTime64(9,'UTC'), start_timestamp DateTime64(9,'UTC'),
 value Nullable(Float64), float_value Nullable(Float64), stale_marker Bool DEFAULT false, count Nullable(UInt64), sum Nullable(Float64), min Nullable(Float64), max Nullable(Float64),
 bucket_counts Array(UInt64), explicit_bounds Array(Float64), quantile_values Array(Tuple(Float64,Float64)), exponential_scale Nullable(Int32), exponential_zero_count Nullable(UInt64), exponential_zero_threshold Nullable(Float64),
 exponential_positive_offset Nullable(Int32), exponential_positive_bucket_counts Array(UInt64), exponential_negative_offset Nullable(Int32), exponential_negative_bucket_counts Array(UInt64),
-sample_type LowCardinality(String), ingest_key String, kafka_topic LowCardinality(String), kafka_partition Int32, kafka_offset Int64, record_sequence UInt32, expires_at DateTime64(3,'UTC')
+sample_type LowCardinality(String), ingest_key String, kafka_topic LowCardinality(String), kafka_partition Int32, kafka_offset Int64, record_sequence UInt32, expires_at DateTime64(3,'UTC'),
+source_id UUID, source_revision Int64, source_type LowCardinality(String), source_key String MATERIALIZED concat(toString(source_id), ':', toString(source_revision))
 ) ENGINE = ReplacingMergeTree ORDER BY (series_id, timestamp, ingest_key) TTL expires_at DELETE`, t.MetricSamples),
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 resource_id UUID, collector_id UUID, timestamp DateTime64(9,'UTC'), observed_timestamp DateTime64(9,'UTC'), severity_text LowCardinality(String), severity_number UInt8,
 service_name LowCardinality(String), scope_name LowCardinality(String), scope_version LowCardinality(String), scope_attributes Map(String,String), stream_labels Map(String,String), structured_metadata Map(String,String),
-body String, body_size UInt32, trace_id String, span_id String, event_id String, ingest_key String, kafka_topic LowCardinality(String), kafka_partition Int32, kafka_offset Int64, record_sequence UInt32, expires_at DateTime64(3,'UTC')
+resource_attributes Map(String,String), body String, body_size UInt32, trace_id String, span_id String, event_id String, ingest_key String, kafka_topic LowCardinality(String), kafka_partition Int32, kafka_offset Int64, record_sequence UInt32, expires_at DateTime64(3,'UTC'),
+source_id UUID, source_revision Int64, source_type LowCardinality(String), source_key String MATERIALIZED concat(toString(source_id), ':', toString(source_revision))
 ) ENGINE = ReplacingMergeTree ORDER BY (resource_id, service_name, timestamp, event_id) TTL expires_at DELETE`, t.Logs),
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 resource_id UUID, collector_id UUID, trace_id String, span_id String, parent_span_id String, root_span_id String, service_name LowCardinality(String), operation LowCardinality(String),
 span_kind UInt8, status LowCardinality(String), status_code UInt8, status_message String, trace_state String, start_time DateTime64(9,'UTC'), end_time DateTime64(9,'UTC'), duration_ns UInt64,
 resource_attributes Map(String,String), scope_name LowCardinality(String), scope_version LowCardinality(String), scope_attributes Map(String,String), attributes Map(String,String), events String, links String,
-ingest_key String, kafka_topic LowCardinality(String), kafka_partition Int32, kafka_offset Int64, record_sequence UInt32, expires_at DateTime64(3,'UTC')
-) ENGINE = ReplacingMergeTree ORDER BY (resource_id, trace_id, start_time, span_id) TTL expires_at DELETE`, t.Traces),
+ingest_key String, kafka_topic LowCardinality(String), kafka_partition Int32, kafka_offset Int64, record_sequence UInt32, expires_at DateTime64(3,'UTC'),
+source_id UUID, source_revision Int64, source_type LowCardinality(String), source_key String MATERIALIZED concat(toString(source_id), ':', toString(source_revision))
+) ENGINE = ReplacingMergeTree ORDER BY (resource_id, trace_id, start_time, span_id, source_id, source_revision) TTL expires_at DELETE`, t.Traces),
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-resource_id UUID, trace_id String, root_span_id String, root_service LowCardinality(String), root_operation LowCardinality(String), start_time DateTime64(9,'UTC'), duration_ns UInt64, span_count UInt32, error_count UInt32, status LowCardinality(String), expires_at DateTime64(3,'UTC')
-) ENGINE = ReplacingMergeTree ORDER BY (resource_id, trace_id) TTL expires_at DELETE`, t.TraceSummary),
+resource_id UUID, trace_id String, root_span_id String, root_service LowCardinality(String), root_operation LowCardinality(String), start_time DateTime64(9,'UTC'), duration_ns UInt64, span_count UInt32, error_count UInt32, status LowCardinality(String), expires_at DateTime64(3,'UTC'),
+source_id UUID, source_revision Int64, source_type LowCardinality(String), source_key String MATERIALIZED concat(toString(source_id), ':', toString(source_revision))
+) ENGINE = ReplacingMergeTree ORDER BY (resource_id, trace_id, source_id, source_revision) TTL expires_at DELETE`, t.TraceSummary),
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-resource_id UUID, trace_id String, parent_span_id String, child_span_id String, parent_service LowCardinality(String), child_service LowCardinality(String), depth UInt16, expires_at DateTime64(3,'UTC')
-		) ENGINE = ReplacingMergeTree ORDER BY (resource_id, trace_id, parent_span_id, child_span_id) TTL expires_at DELETE`, t.TraceSpanEdges),
+resource_id UUID, trace_id String, parent_span_id String, child_span_id String, parent_service LowCardinality(String), child_service LowCardinality(String), depth UInt16, expires_at DateTime64(3,'UTC'),
+source_id UUID, source_revision Int64, source_type LowCardinality(String), source_key String MATERIALIZED concat(toString(source_id), ':', toString(source_revision))
+		) ENGINE = ReplacingMergeTree ORDER BY (resource_id, trace_id, parent_span_id, child_span_id, source_id, source_revision) TTL expires_at DELETE`, t.TraceSpanEdges),
 	}
 }

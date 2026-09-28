@@ -68,16 +68,19 @@ func TestP5RealModelConfigurationAndRequestContract(t *testing.T) {
 		}
 	}
 	for name, modify := range map[string]func(*p5RealModelConfig){
-		"http":            func(c *p5RealModelConfig) { c.BaseURL = "http://model.example/v1" },
-		"url credentials": func(c *p5RealModelConfig) { c.BaseURL = "https://user:pass@model.example/v1" },
-		"url query":       func(c *p5RealModelConfig) { c.BaseURL = "https://model.example/v1?key=secret" },
-		"Replay endpoint": func(c *p5RealModelConfig) { c.BaseURL = "https://argus-replay-model.test/v1" },
-		"Replay model":    func(c *p5RealModelConfig) { c.ModelID = "argus-replay-test" },
-		"protocol":        func(c *p5RealModelConfig) { c.Protocol = "unknown" },
-		"missing key":     func(c *p5RealModelConfig) { c.APIKeyEnv = "ARGUS_BENCHMARK_MISSING_KEY" },
-		"context":         func(c *p5RealModelConfig) { c.ContextWindow = 4096 },
-		"output":          func(c *p5RealModelConfig) { c.MaxOutput = c.ContextWindow },
-		"quota":           func(c *p5RealModelConfig) { c.MonthlyAmount = 0 },
+		"http":                func(c *p5RealModelConfig) { c.BaseURL = "http://model.example/v1" },
+		"url credentials":     func(c *p5RealModelConfig) { c.BaseURL = "https://user:pass@model.example/v1" },
+		"url query":           func(c *p5RealModelConfig) { c.BaseURL = "https://model.example/v1?key=secret" },
+		"Replay endpoint":     func(c *p5RealModelConfig) { c.BaseURL = "https://argus-replay-model.test/v1" },
+		"Replay model":        func(c *p5RealModelConfig) { c.ModelID = "argus-replay-test" },
+		"protocol":            func(c *p5RealModelConfig) { c.Protocol = "unknown" },
+		"missing key":         func(c *p5RealModelConfig) { c.APIKeyEnv = "ARGUS_BENCHMARK_MISSING_KEY" },
+		"context":             func(c *p5RealModelConfig) { c.ContextWindow = 4096 },
+		"output":              func(c *p5RealModelConfig) { c.MaxOutput = c.ContextWindow },
+		"quota":               func(c *p5RealModelConfig) { c.MonthlyAmount = 0 },
+		"private endpoint IP": func(c *p5RealModelConfig) { c.EndpointIP = "10.0.0.1" },
+		"fake endpoint IP":    func(c *p5RealModelConfig) { c.EndpointIP = "198.18.0.80" },
+		"invalid endpoint IP": func(c *p5RealModelConfig) { c.EndpointIP = "not-an-ip" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			invalid := config
@@ -96,6 +99,16 @@ func TestP5RealModelConfigurationAndRequestContract(t *testing.T) {
 		if !errors.Is(err, errUsage) || strings.Contains(err.Error(), "fixture-api-key") {
 			t.Fatalf("unsafe validation error: %v", err)
 		}
+	}
+}
+
+func TestRealModelEndpointIPIsOnlyADeploymentHint(t *testing.T) {
+	config := p5RealModelConfig{BaseURL: "https://model.example/v1", EndpointIP: "8.8.8.8"}
+	if err := validateRealModelEndpointIP(config); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := config.modelRequest()["endpoint_ip"]; exists {
+		t.Fatal("deployment DNS hint escaped into product model configuration")
 	}
 }
 

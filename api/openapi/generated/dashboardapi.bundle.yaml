@@ -1,0 +1,2770 @@
+openapi: 3.1.0
+info:
+  title: Argus dashboardapi
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+paths:
+  /dashboards:
+    get:
+      operationId: listDashboards
+      summary: listDashboards.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DashboardItem'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboards/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getDashboard
+      summary: getDashboard.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardDetail'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboards/{id}/revisions:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listDashboardRevisions
+      summary: listDashboardRevisions.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DashboardRevision'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboard-drafts:
+    get:
+      operationId: listDashboardDrafts
+      summary: listDashboardDrafts.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DashboardDraft'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: createDashboardDraft
+      summary: createDashboardDraft.
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardDraft'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardDraftInput'
+  /dashboard-drafts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getDashboardDraft
+      summary: getDashboardDraft.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardDraft'
+        default:
+          $ref: '#/components/responses/Error'
+    patch:
+      operationId: saveDashboardDraft
+      summary: saveDashboardDraft.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardDraft'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardDraftInput'
+    delete:
+      operationId: discardDashboardDraft
+      summary: discardDashboardDraft.
+      responses:
+        '204':
+          description: Operation completed.
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardVersionInput'
+  /dashboard-drafts/{id}/preview:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: previewDashboardPublication
+      summary: previewDashboardPublication.
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardVersionInput'
+  /dashboard-drafts/{id}/rebase:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: rebaseDashboardDraft
+      summary: rebaseDashboardDraft.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardDraft'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardRebaseInput'
+  /dashboard-spec/validate:
+    post:
+      operationId: validateDashboardSpec
+      summary: validateDashboardSpec.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardValidationReport'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardSpec'
+  /dashboard-folders:
+    get:
+      operationId: listDashboardFolders
+      summary: List dashboard folders.
+      responses:
+        '200':
+          description: Folders.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DashboardFolder'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboard-folders/preview:
+    post:
+      operationId: previewDashboardFolder
+      summary: Preview a folder change without publishing it.
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardLifecycleInput'
+  /dashboards/{id}/actions/preview:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: previewDashboardLifecycle
+      summary: Preview dashboard archive or restore.
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardLifecycleInput'
+  /dashboards/{id}/execute:
+    post:
+      operationId: executeDashboard
+      summary: executeDashboard.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardExecutionInput'
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardExecution'
+        default:
+          $ref: '#/components/responses/Error'
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /dashboard-drafts/{id}/sample:
+    post:
+      operationId: sampleDashboardDraft
+      summary: sampleDashboardDraft.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardVersionInput'
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardDraftSample'
+        default:
+          $ref: '#/components/responses/Error'
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /dashboards/catalog/query:
+    post:
+      operationId: queryDashboardCatalog
+      summary: queryDashboardCatalog.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardCatalogInput'
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardCatalogResult'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboards/{id}/drilldown:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: executeDashboardDrilldown
+      summary: executeDashboardDrilldown.
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardDrilldownInput'
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardDrilldownExecution'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboard-drafts/{id}/drilldowns/generate:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: generateDashboardDrilldowns
+      summary: generateDashboardDrilldowns.
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardGenerateDrilldownsInput'
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardGeneratedDrilldowns'
+        default:
+          $ref: '#/components/responses/Error'
+  /hosts/{id}/dashboard-bindings:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listHostDashboardBindings
+      summary: List authorized active dashboard shortcuts.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceDashboardBindings'
+        default:
+          $ref: '#/components/responses/Error'
+  /hosts/{id}/dashboard-bindings/preview:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: previewHostDashboardBinding
+      summary: Preview a resource dashboard binding change.
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardBindingInput'
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+  /kubernetes/clusters/{id}/dashboard-bindings:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listClusterDashboardBindings
+      summary: List authorized active dashboard shortcuts.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceDashboardBindings'
+        default:
+          $ref: '#/components/responses/Error'
+  /kubernetes/clusters/{id}/dashboard-bindings/preview:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: previewClusterDashboardBinding
+      summary: Preview a resource dashboard binding change.
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardBindingInput'
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboards/{id}/bindings:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listDashboardBindings
+      summary: List shortcuts visible to the current subject on both sides.
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DashboardBindingView'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboard-spec/convert-panel:
+    post:
+      operationId: convertDashboardPanel
+      summary: Convert every query in a panel only when the editing sources are losslessly representable.
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardConvertPanelInput'
+      responses:
+        '200':
+          description: Atomic conversion result. Unsupported conversion returns the original panel.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardConvertedPanel'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{id}/dashboard-queries:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: startDashboardQueryJob
+      summary: startDashboardQueryJob.
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardQueryJobInput'
+      responses:
+        '202':
+          description: Persistent query state. Materialized files retain their original attempt and source.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardQueryJobView'
+        '403':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{id}/dashboard-queries/{job_id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getDashboardQueryJob
+      summary: getDashboardQueryJob.
+      parameters: []
+      responses:
+        '200':
+          description: Persistent query state. Materialized files retain their original attempt and source.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardQueryJobView'
+        '403':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{id}/dashboard-queries/{job_id}/cancel:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: cancelDashboardQueryJob
+      summary: cancelDashboardQueryJob.
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Persistent query state. Materialized files retain their original attempt and source.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardQueryJobView'
+        '403':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{id}/dashboard-queries/{job_id}/resume:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: resumeDashboardQueryJob
+      summary: resumeDashboardQueryJob.
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardQueryResumeInput'
+      responses:
+        '202':
+          description: Persistent query state. Materialized files retain their original attempt and source.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardQueryJobView'
+        '403':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argus_session
+  schemas:
+    DashboardAnalysisResolveInput:
+      type: object
+      additionalProperties: false
+      required:
+        - dashboard_id
+        - expected_version
+        - changes
+        - evidence
+      properties:
+        dashboard_id:
+          type: string
+          format: uuid
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 0
+        changes:
+          $ref: '#/components/schemas/DashboardConditionPatch'
+        evidence:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - path
+              - quote
+            properties:
+              path:
+                type: string
+                minLength: 1
+                maxLength: 512
+                description: JSON pointer for each changed condition; / for reset_all
+              quote:
+                type: string
+                minLength: 1
+                maxLength: 2048
+                description: Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness
+    DashboardAnalysisQueryInput:
+      type: object
+      additionalProperties: false
+      required:
+        - dashboard_id
+      properties:
+        dashboard_id:
+          type: string
+          format: uuid
+        context_ref:
+          type: string
+          format: uuid
+          description: Required for a root query; obtained from context.resolve in the same Run
+        panel_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 100
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Optional strategy for this query only; never inherited
+        drilldown:
+          $ref: '#/components/schemas/DashboardQueryDrilldownInput'
+    DashboardAnalysisCandidateInput:
+      type: object
+      additionalProperties: false
+      required:
+        - dashboard_id
+        - context_ref
+        - name
+      properties:
+        dashboard_id:
+          type: string
+          format: uuid
+        context_ref:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        panel_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+    RequestId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._-]+$
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message_key
+        - request_id
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+        message_key:
+          type: string
+          pattern: ^errors\.[a-z0-9_.]+$
+        params:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        message:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+        trace_id:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+          default: false
+    DashboardItem:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        folder_id:
+          type: string
+          format: uuid
+        active_revision_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+        lifecycle:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - description
+        - active_revision_id
+        - version
+        - lifecycle
+        - updated_at
+    DashboardTimeRange:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - relative
+            - absolute
+          description: relative requires seconds (1..604800); absolute requires from and to with a positive interval no longer than seven days.
+        seconds:
+          type: integer
+          format: int64
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+      required:
+        - kind
+      example:
+        kind: relative
+        seconds: 3600
+    DashboardSelection:
+      type: object
+      additionalProperties: false
+      properties:
+        all:
+          type: boolean
+        values:
+          type: array
+          items:
+            type: string
+      required:
+        - all
+        - values
+    DashboardSourceBinding:
+      type: object
+      additionalProperties: false
+      properties:
+        source_type:
+          type: string
+          description: Use a registered source type from catalog.resources, such as otlp, prometheus, hostmetrics, filelog, skywalking or jaeger; never a resource ID.
+          example: otlp
+        capability_version:
+          type: string
+          description: Use the capability version returned by catalog.resources; current supported sources use v1.
+          example: v1
+      required:
+        - source_type
+        - capability_version
+    DashboardFilter:
+      type: object
+      additionalProperties: false
+      properties:
+        field:
+          type: string
+        operator:
+          type: string
+        value:
+          type: string
+        variable:
+          type: string
+        local_parameter:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
+            maxLength: 4096
+          maxItems: 200
+        drilldown_input:
+          type: string
+      required:
+        - field
+        - operator
+    DashboardParameterBinding:
+      type: object
+      additionalProperties: false
+      properties:
+        parameter:
+          type: string
+        variable:
+          type: string
+        local_parameter:
+          type: string
+        identity_mapping:
+          type: boolean
+        value_map:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 4096
+          maxProperties: 1000
+        drilldown_input:
+          type: string
+      required:
+        - parameter
+    DashboardCandidateQuery:
+      type: object
+      additionalProperties: false
+      properties:
+        signal:
+          type: string
+          enum:
+            - metrics
+            - logs
+            - traces
+        source_binding:
+          $ref: '#/components/schemas/DashboardSourceBinding'
+        metric:
+          type: string
+        field:
+          type: string
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardFilter'
+        parameter_bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardParameterBinding'
+      required:
+        - signal
+        - source_binding
+        - field
+        - filters
+    DashboardVariable:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        label:
+          type: string
+        multiple:
+          type: boolean
+        include_all:
+          type: boolean
+        default:
+          $ref: '#/components/schemas/DashboardSelection'
+        query:
+          $ref: '#/components/schemas/DashboardCandidateQuery'
+      required:
+        - id
+        - name
+        - label
+        - multiple
+        - include_all
+        - default
+        - query
+    DashboardLocalFilter:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        kind:
+          type: string
+          enum:
+            - query
+            - text
+            - number
+        default:
+          $ref: '#/components/schemas/DashboardSelection'
+        query:
+          $ref: '#/components/schemas/DashboardCandidateQuery'
+        multiple:
+          type: boolean
+        required:
+          type: boolean
+      required:
+        - id
+        - label
+        - kind
+        - default
+    DashboardBuilder:
+      type: object
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum:
+            - value
+            - sum
+            - avg
+            - min
+            - max
+            - rate
+            - topk
+            - p95
+            - records
+            - count
+            - count_by
+            - count_over_time
+            - list
+            - detail
+            - apm_services
+            - apm_instances
+            - apm_endpoints
+            - apm_red
+            - apm_topology
+            - trace_graph
+            - log_context
+            - error_rate
+        metric:
+          type: string
+        metric_type:
+          type: string
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardFilter'
+        group_by:
+          type: array
+          items:
+            type: string
+        window_seconds:
+          type: integer
+          format: int64
+        bucket_seconds:
+          type: integer
+          format: int64
+        top_n:
+          type: integer
+          format: int64
+        trace_id:
+          type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50000
+          description: Optional explicit log, APM or trace-list limit. Log context uses its own before/after bound.
+        context_before:
+          type: integer
+          minimum: 0
+          maximum: 200
+        context_after:
+          type: integer
+          minimum: 0
+          maximum: 200
+        error_filters:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/DashboardFilter'
+          description: Fixed error classification for same-counter error_rate. Only literal matchers; shared dynamic scope belongs in filters. Output is a 0..1 ratio; zero traffic produces no data.
+      required:
+        - operation
+        - filters
+        - group_by
+    DashboardDSL:
+      type: object
+      additionalProperties: false
+      properties:
+        expression:
+          type: string
+        pipeline:
+          type: string
+        operation:
+          type: string
+        variables:
+          type: object
+          additionalProperties: {}
+      required:
+        - expression
+    DashboardDefinition:
+      type: object
+      additionalProperties: false
+      properties:
+        builder:
+          $ref: '#/components/schemas/DashboardBuilder'
+        dsl:
+          $ref: '#/components/schemas/DashboardDSL'
+      required: []
+      description: Exactly one of builder or dsl, matching the containing Panel.authoring_mode.
+    DashboardStepPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - ''
+            - fixed
+            - auto
+          description: Metrics range queries require fixed or auto. fixed requires seconds=1..86400. auto requires target_points=1..10000 AND min_step_seconds>=1. Empty is only for targets that do not use a range step.
+        seconds:
+          type: integer
+          format: int64
+          description: 'Required for fixed: interval in seconds, from 1 to 86400.'
+          example: 30
+        target_points:
+          type: integer
+          format: int64
+          description: 'Required for auto: target data points, from 1 to 10000.'
+          example: 120
+        min_step_seconds:
+          type: integer
+          format: int64
+          description: 'Required for auto: minimum interval in seconds, at least 1.'
+          example: 10
+      required:
+        - kind
+      example:
+        kind: auto
+        target_points: 120
+        min_step_seconds: 10
+    DashboardTarget:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        language:
+          type: string
+          enum:
+            - promql
+            - kql
+            - skywalking_graphql
+        signal:
+          type: string
+          description: 'Omit on display targets: they inherit Panel.signal. Required on a detail target.'
+        source_binding:
+          $ref: '#/components/schemas/DashboardSourceBinding'
+          description: 'Omit on display targets: they inherit Panel.source_binding. Required on a detail target, including cross-signal drilldowns.'
+        source_definition:
+          $ref: '#/components/schemas/DashboardDefinition'
+        query_mode:
+          type: string
+          enum:
+            - ''
+            - instant
+            - range
+          description: PromQL uses instant or range; a metric timeseries uses range. Logs and Trace use an empty string.
+        range_step_policy:
+          $ref: '#/components/schemas/DashboardStepPolicy'
+        parameter_bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardParameterBinding'
+      required:
+        - id
+        - language
+        - source_definition
+        - query_mode
+        - range_step_policy
+        - parameter_bindings
+    DashboardDrilldownTimeWindow:
+      type: object
+      additionalProperties: false
+      properties:
+        input:
+          type: string
+        seconds:
+          type: integer
+          minimum: 0
+          maximum: 604800
+        duration_input:
+          type: string
+      required:
+        - input
+    DashboardDrilldown:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail_query_ref:
+          type: string
+        scope_policy:
+          type: string
+        inputs:
+          type: object
+          additionalProperties:
+            type: string
+        origin_query_ref:
+          type: string
+        kind:
+          type: string
+        time_window:
+          $ref: '#/components/schemas/DashboardDrilldownTimeWindow'
+      required:
+        - id
+        - title
+        - detail_query_ref
+        - scope_policy
+        - inputs
+        - origin_query_ref
+    DashboardRectangle:
+      type: object
+      additionalProperties: false
+      properties:
+        x:
+          type: integer
+          format: int64
+        'y':
+          type: integer
+          format: int64
+        w:
+          type: integer
+          format: int64
+          description: Width in grid columns; at least min_w and x+w must be <=12.
+          example: 12
+        h:
+          type: integer
+          format: int64
+          description: Height in grid rows; at least min_h, at most 1000.
+          example: 32
+        min_w:
+          type: integer
+          format: int64
+          description: Minimum width, at least 1.
+          example: 3
+        min_h:
+          type: integer
+          format: int64
+          description: Minimum height, at least 1.
+          example: 12
+      required:
+        - x
+        - 'y'
+        - w
+        - h
+        - min_w
+        - min_h
+    DashboardThreshold:
+      type: object
+      additionalProperties: false
+      properties:
+        value:
+          type: number
+          format: double
+        tone:
+          type: string
+          enum:
+            - info
+            - success
+            - warning
+            - danger
+      required:
+        - value
+        - tone
+    DashboardDisplayOptions:
+      type: object
+      additionalProperties: false
+      description: Presentation only. Reductions operate independently on each returned series; mean ignores missing samples and is not time weighted, sum is sample sum not counter increase. Last preserves a missing final sample. Bounds and thresholds use raw query units. Unset bounds are automatic. Draw style, stack and smooth apply only to time series. Does not change query mode, query hash or exported data.
+      properties:
+        reducer:
+          type: string
+          enum:
+            - last
+            - min
+            - max
+            - mean
+            - sum
+        min:
+          type: number
+          format: double
+        max:
+          type: number
+          format: double
+        draw_style:
+          type: string
+          enum:
+            - line
+            - area
+            - bar
+        stack:
+          type: boolean
+        smooth:
+          type: boolean
+    DashboardPanel:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        signal:
+          type: string
+          enum:
+            - metrics
+            - logs
+            - traces
+        authoring_mode:
+          type: string
+          enum:
+            - builder
+            - dsl
+          description: All display and detail targets in a Panel use this single editing source.
+        applicable_resource_types:
+          type: array
+          items:
+            type: string
+        source_binding:
+          $ref: '#/components/schemas/DashboardSourceBinding'
+        local_filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardLocalFilter'
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTarget'
+        detail_query_targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTarget'
+        drilldowns:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardDrilldown'
+        layout:
+          $ref: '#/components/schemas/DashboardRectangle'
+        unit:
+          type: string
+        decimals:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 8
+        legend:
+          type: boolean
+        thresholds:
+          type: array
+          maxItems: 16
+          items:
+            $ref: '#/components/schemas/DashboardThreshold'
+        display:
+          $ref: '#/components/schemas/DashboardDisplayOptions'
+      required:
+        - id
+        - title
+        - description
+        - type
+        - signal
+        - authoring_mode
+        - applicable_resource_types
+        - source_binding
+        - local_filters
+        - targets
+        - detail_query_targets
+        - drilldowns
+        - layout
+        - unit
+        - decimals
+        - legend
+        - thresholds
+    DashboardGrid:
+      type: object
+      additionalProperties: false
+      properties:
+        columns:
+          type: integer
+          format: int64
+          description: The grid always has 12 columns.
+          example: 12
+        row_height:
+          type: integer
+          format: int64
+          description: Grid row height, from 1 to 64; the editor default is 8.
+          example: 8
+      required:
+        - columns
+        - row_height
+    DashboardSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        schema_version:
+          type: string
+          enum:
+            - argus.telemetry_dashboard/v1
+          description: Exact configuration version; do not abbreviate to v1.
+          example: argus.telemetry_dashboard/v1
+        default_time_range:
+          $ref: '#/components/schemas/DashboardTimeRange'
+        default_refresh_seconds:
+          type: integer
+          format: int64
+          description: 0 disables refresh; otherwise 5..86400 seconds.
+          example: 0
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardVariable'
+        panels:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardPanel'
+        layout:
+          $ref: '#/components/schemas/DashboardGrid'
+      required:
+        - schema_version
+        - default_time_range
+        - default_refresh_seconds
+        - variables
+        - panels
+        - layout
+    DashboardIssue:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+      required:
+        - path
+        - code
+        - message
+    DashboardValidationReport:
+      type: object
+      additionalProperties: false
+      properties:
+        valid:
+          type: boolean
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardIssue'
+        compiler_version:
+          type: string
+      required:
+        - valid
+        - issues
+        - compiler_version
+    DashboardRevision:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        dashboard_id:
+          type: string
+          format: uuid
+        revision_number:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        spec:
+          $ref: '#/components/schemas/DashboardSpec'
+        spec_hash:
+          type: string
+        validation:
+          $ref: '#/components/schemas/DashboardValidationReport'
+        sample:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - dashboard_id
+        - revision_number
+        - name
+        - description
+        - spec
+        - spec_hash
+        - validation
+        - sample
+        - created_at
+    DashboardDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        dashboard:
+          $ref: '#/components/schemas/DashboardItem'
+        revision:
+          $ref: '#/components/schemas/DashboardRevision'
+      required:
+        - dashboard
+        - revision
+    DashboardBinding:
+      type: object
+      additionalProperties: false
+      properties:
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+      required:
+        - resource_type
+        - resource_id
+    DashboardDraft:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        dashboard_id:
+          type: string
+          format: uuid
+        base_revision_id:
+          type: string
+          format: uuid
+        base_object_version:
+          type: integer
+          format: int64
+        draft_version:
+          type: integer
+          format: int64
+        status:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        folder_id:
+          type: string
+          format: uuid
+        spec:
+          $ref: '#/components/schemas/DashboardSpec'
+        proposed_bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBinding'
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - base_object_version
+        - draft_version
+        - status
+        - name
+        - description
+        - spec
+        - proposed_bindings
+        - updated_at
+    DashboardDraftInput:
+      type: object
+      additionalProperties: false
+      properties:
+        dashboard_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 8000
+        folder_id:
+          type: string
+          format: uuid
+        spec:
+          $ref: '#/components/schemas/DashboardSpec'
+        proposed_bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBinding'
+        expected_version:
+          type: integer
+          format: int64
+      required:
+        - name
+        - description
+        - spec
+        - proposed_bindings
+    DashboardVersionInput:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+      required:
+        - expected_version
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]+$
+    PublicJsonValue:
+      x-argus-typescript-type: unknown
+      oneOf:
+        - type: 'null'
+        - type: boolean
+        - type: number
+        - type: string
+        - type: array
+          items:
+            $ref: '#/components/schemas/PublicJsonValue'
+        - $ref: '#/components/schemas/PublicJsonObject'
+    PublicJsonObject:
+      x-argus-typescript-type: unknown
+      type: object
+      propertyNames:
+        allOf:
+          - pattern: ^[a-z][a-z0-9_]*$
+          - not:
+              pattern: (^|_)(argus__token|token|secret|credential|private_params?|commit_tool|remote_access_ticket)($|_)
+      additionalProperties:
+        $ref: '#/components/schemas/PublicJsonValue'
+    pending-action-public.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://argus.io/schemas/v1/action/pending-action-public.schema.json
+      title: PendingActionPublic
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - action_ref
+        - action_type
+        - title
+        - summary
+        - risk
+        - preview
+        - diff
+        - status
+        - available_actions
+        - expires_at
+        - created_at
+        - updated_at
+      properties:
+        schema_version:
+          const: argus.pending_action/v1
+        action_ref:
+          type: string
+          minLength: 1
+        action_type:
+          type: string
+          minLength: 3
+          maxLength: 128
+        title:
+          type: string
+          minLength: 1
+          maxLength: 256
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        risk:
+          enum:
+            - read
+            - write
+            - dangerous
+            - critical
+        preview:
+          $ref: '#/components/schemas/PublicJsonObject'
+        diff:
+          type: array
+          maxItems: 256
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - kind
+              - text
+            properties:
+              kind:
+                enum:
+                  - add
+                  - remove
+                  - change
+                  - note
+              text:
+                type: string
+                maxLength: 2048
+        status:
+          enum:
+            - prepared
+            - awaiting_confirmation
+            - awaiting_approval
+            - ready
+            - executing
+            - succeeded
+            - failed
+            - result_unknown
+            - cancelled
+            - expired
+            - rejected
+            - invalidated
+        available_actions:
+          type: array
+          uniqueItems: true
+          items:
+            enum:
+              - confirm
+              - cancel
+              - approve
+              - reject
+        approval:
+          type: object
+          additionalProperties: false
+          required:
+            - required
+            - minimum_approvers
+            - approved_count
+            - separation_of_duty
+          properties:
+            required:
+              type: boolean
+            policy_ref:
+              type: string
+            minimum_approvers:
+              type: integer
+              minimum: 0
+            approved_count:
+              type: integer
+              minimum: 0
+            separation_of_duty:
+              type: boolean
+        execution_ref:
+          type: string
+          minLength: 1
+        result_summary:
+          type: string
+          maxLength: 4096
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    DashboardRebaseInput:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+        object_version:
+          type: integer
+          format: int64
+        revision_id:
+          type: string
+          format: uuid
+      required:
+        - expected_version
+        - object_version
+        - revision_id
+    DashboardFolder:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - description
+        - sort_order
+        - status
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        sort_order:
+          type: integer
+          format: int32
+        status:
+          type: string
+          enum:
+            - active
+            - archived
+        version:
+          type: integer
+          format: int64
+    DashboardLifecycleInput:
+      type: object
+      additionalProperties: false
+      required:
+        - operation
+        - expected_version
+        - name
+        - description
+        - sort_order
+      properties:
+        id:
+          type: string
+          format: uuid
+        operation:
+          type: string
+          enum:
+            - folder.create
+            - folder.update
+            - folder.archive
+            - folder.restore
+            - archive
+            - restore
+        expected_version:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 8000
+        sort_order:
+          type: integer
+          format: int32
+    DashboardExecutionInput:
+      type: object
+      additionalProperties: false
+      properties:
+        candidates_only:
+          type: boolean
+          description: Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode.
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 1000
+        panel_ids:
+          type: array
+          items:
+            type: string
+          maxItems: 64
+        variables:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DashboardSelection'
+          maxProperties: 32
+        local_values:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              $ref: '#/components/schemas/DashboardSelection'
+            maxProperties: 32
+          maxProperties: 64
+      required: []
+    DashboardResourceScope:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - host
+            - kubernetes_cluster
+      required:
+        - id
+        - type
+    DashboardResolvedSource:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          format: int64
+        resource_id:
+          type: string
+          format: uuid
+        generation:
+          type: string
+          format: uuid
+        type:
+          type: string
+        capability_version:
+          type: string
+        current_installation:
+          type: boolean
+          description: Whether this source belongs to the current installed generation when this execution was frozen; not proof of active collection.
+        registered_at:
+          type: string
+          format: date-time
+          description: Registration time of this source configuration revision.
+      required:
+        - id
+        - revision
+        - resource_id
+        - generation
+        - type
+        - capability_version
+    DashboardTargetExecution:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        code:
+          type: string
+        query_hash:
+          type: string
+        result_type:
+          type: string
+        data: {}
+        meta:
+          type: object
+          additionalProperties: true
+        step_seconds:
+          type: integer
+          description: Actual frozen PromQL range step in seconds.
+      required:
+        - id
+        - status
+        - query_hash
+        - result_type
+        - data
+        - meta
+    DashboardPanelExecution:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardResolvedSource'
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTargetExecution'
+        detail_sources:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/DashboardResolvedSource'
+      required:
+        - id
+        - status
+        - sources
+        - targets
+        - detail_sources
+    DashboardCandidateState:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - success
+            - partial
+            - unavailable
+            - skipped_budget
+        values:
+          type: array
+          items:
+            type: string
+            maxLength: 4096
+          maxItems: 200
+        complete:
+          type: boolean
+        selected_exists:
+          type: object
+          additionalProperties:
+            type: boolean
+        reset:
+          type: boolean
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardResolvedSource'
+        code:
+          type: string
+      required:
+        - status
+        - values
+        - complete
+        - selected_exists
+        - reset
+        - sources
+    DashboardExecution:
+      type: object
+      additionalProperties: false
+      properties:
+        dashboard_id:
+          type: string
+          format: uuid
+        revision_id:
+          type: string
+          format: uuid
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardResourceScope'
+        panels:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardPanelExecution'
+        partial:
+          type: boolean
+        execution_hash:
+          type: string
+        variables:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DashboardSelection'
+          maxProperties: 32
+        local_values:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              $ref: '#/components/schemas/DashboardSelection'
+            maxProperties: 32
+          maxProperties: 64
+        variable_candidates:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DashboardCandidateState'
+        local_candidates:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              $ref: '#/components/schemas/DashboardCandidateState'
+        execution_id:
+          type: string
+          format: uuid
+        context_token:
+          type: string
+          maxLength: 1048576
+        context_expires_at:
+          type: string
+          format: date-time
+      required:
+        - dashboard_id
+        - revision_id
+        - from
+        - to
+        - resources
+        - panels
+        - partial
+        - execution_hash
+        - variables
+        - local_values
+        - variable_candidates
+        - local_candidates
+        - execution_id
+    DashboardDraftSample:
+      type: object
+      additionalProperties: false
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        draft_version:
+          type: integer
+          format: int64
+        validation:
+          $ref: '#/components/schemas/DashboardValidationReport'
+        sample:
+          type: object
+          additionalProperties: true
+      required:
+        - draft_id
+        - draft_version
+        - validation
+        - sample
+    DashboardCatalogFilter:
+      type: object
+      additionalProperties: false
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 256
+        values:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 200
+        operator:
+          type: string
+          enum:
+            - '='
+            - '!='
+            - '>'
+            - '>='
+            - <
+            - <=
+      required:
+        - field
+        - values
+    DashboardCatalogInput:
+      type: object
+      additionalProperties: false
+      properties:
+        source_binding:
+          $ref: '#/components/schemas/DashboardSourceBinding'
+        signal:
+          type: string
+          enum:
+            - metrics
+            - logs
+            - traces
+        kind:
+          type: string
+          enum:
+            - metrics
+            - values
+            - fields
+        metric:
+          type: string
+          maxLength: 256
+        field:
+          type: string
+          maxLength: 256
+        search:
+          type: string
+          maxLength: 256
+        selected_values:
+          type: array
+          items:
+            type: string
+          maxItems: 200
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardCatalogFilter'
+          maxItems: 32
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 1000
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        cursor:
+          type: string
+          maxLength: 8192
+      required:
+        - source_binding
+        - signal
+        - kind
+        - selected_values
+        - filters
+        - resource_ids
+        - from
+        - to
+        - limit
+    DashboardMetricDescriptor:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        unit:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - type
+        - unit
+        - labels
+    DashboardCatalogField:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+      required:
+        - name
+        - type
+    DashboardCatalogResult:
+      type: object
+      additionalProperties: false
+      properties:
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardMetricDescriptor'
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardCatalogField'
+        values:
+          type: array
+          items:
+            type: string
+        complete:
+          type: boolean
+        meta:
+          type: object
+          additionalProperties: true
+        selected_exists:
+          type: object
+          additionalProperties:
+            type: boolean
+        has_more:
+          type: boolean
+        next_cursor:
+          type: string
+      required:
+        - metrics
+        - fields
+        - values
+        - complete
+        - selected_exists
+        - meta
+        - has_more
+    DashboardDrilldownInput:
+      type: object
+      additionalProperties: false
+      properties:
+        context_token:
+          type: string
+          maxLength: 1048576
+        panel_id:
+          type: string
+        drilldown_id:
+          type: string
+        values:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 4096
+          maxProperties: 16
+        expand_authorized_resources:
+          type: boolean
+      required:
+        - context_token
+        - panel_id
+        - drilldown_id
+        - values
+        - expand_authorized_resources
+    DashboardDrilldownExecution:
+      type: object
+      additionalProperties: false
+      properties:
+        dashboard_id:
+          type: string
+          format: uuid
+        revision_id:
+          type: string
+          format: uuid
+        parent_execution_id:
+          type: string
+          format: uuid
+        panel_id:
+          type: string
+        drilldown_id:
+          type: string
+        scope_policy:
+          type: string
+          enum:
+            - inherit
+            - authorized_trace
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardResourceScope'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardResolvedSource'
+        result:
+          $ref: '#/components/schemas/DashboardTargetExecution'
+        context_token:
+          type: string
+        context_expires_at:
+          type: string
+          format: date-time
+        execution_hash:
+          type: string
+      required:
+        - dashboard_id
+        - revision_id
+        - parent_execution_id
+        - panel_id
+        - drilldown_id
+        - scope_policy
+        - from
+        - to
+        - resources
+        - sources
+        - result
+        - context_token
+        - context_expires_at
+        - execution_hash
+    DashboardGenerateDrilldownsInput:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        panel_id:
+          type: string
+        signal_sources:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DashboardSourceBinding'
+      required:
+        - expected_version
+        - panel_id
+        - signal_sources
+    DashboardGeneratedDrilldowns:
+      type: object
+      additionalProperties: false
+      properties:
+        draft:
+          $ref: '#/components/schemas/DashboardDraft'
+        added:
+          type: array
+          items:
+            type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardIssue'
+      required:
+        - draft
+        - added
+        - issues
+    DashboardBindingView:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - resource_type
+        - resource_id
+        - resource_name
+        - resource_version
+        - dashboard
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+        resource_type:
+          type: string
+          enum:
+            - host
+            - kubernetes_cluster
+        resource_id:
+          type: string
+          format: uuid
+        resource_name:
+          type: string
+        resource_version:
+          type: integer
+          format: int64
+        dashboard:
+          $ref: '#/components/schemas/DashboardItem'
+    ResourceDashboardBindings:
+      type: object
+      additionalProperties: false
+      required:
+        - resource_type
+        - resource_id
+        - resource_name
+        - resource_version
+        - items
+      properties:
+        resource_type:
+          type: string
+          enum:
+            - host
+            - kubernetes_cluster
+        resource_id:
+          type: string
+          format: uuid
+        resource_name:
+          type: string
+        resource_version:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBindingView'
+    DashboardBindingInput:
+      type: object
+      additionalProperties: false
+      required:
+        - operation
+        - dashboard_id
+        - expected_dashboard_version
+        - expected_resource_version
+      properties:
+        operation:
+          type: string
+          enum:
+            - attach
+            - detach
+        dashboard_id:
+          type: string
+          format: uuid
+        expected_dashboard_version:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_resource_version:
+          type: integer
+          format: int64
+          minimum: 1
+        binding_id:
+          type: string
+          format: uuid
+        expected_binding_version:
+          type: integer
+          format: int64
+          minimum: 1
+    DashboardConvertPanelInput:
+      type: object
+      additionalProperties: false
+      required:
+        - panel
+        - mode
+      properties:
+        panel:
+          $ref: '#/components/schemas/DashboardPanel'
+        mode:
+          type: string
+          enum:
+            - builder
+            - dsl
+    DashboardConvertedPanel:
+      type: object
+      additionalProperties: false
+      required:
+        - converted
+        - panel
+        - issues
+      properties:
+        converted:
+          type: boolean
+        panel:
+          $ref: '#/components/schemas/DashboardPanel'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardIssue'
+    DashboardQueryDrilldownInput:
+      type: object
+      additionalProperties: false
+      required:
+        - parent_job_id
+        - panel_id
+        - drilldown_id
+        - values
+        - expand_authorized_resources
+      properties:
+        parent_job_id:
+          type: string
+          format: uuid
+        panel_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        drilldown_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        values:
+          type: object
+          maxProperties: 16
+          additionalProperties:
+            type: string
+            maxLength: 4096
+        expand_authorized_resources:
+          type: boolean
+    DashboardQueryJobInput:
+      type: object
+      additionalProperties: false
+      required:
+        - dashboard_id
+        - parameters
+      properties:
+        dashboard_id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        parameters:
+          $ref: '#/components/schemas/DashboardExecutionInput'
+        drilldown:
+          $ref: '#/components/schemas/DashboardQueryDrilldownInput'
+          description: Continue a sealed parent result with its published revision and effective parameters. parameters must have no overrides.
+    DashboardQueryJobView:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - dashboard_id
+        - revision_id
+        - status
+        - version
+        - files
+      properties:
+        id:
+          type: string
+          format: uuid
+        dashboard_id:
+          type: string
+          format: uuid
+        revision_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - queued
+            - fetching
+            - materialized
+            - delivering
+            - complete
+            - partial
+            - cancelled
+            - failed
+        version:
+          type: integer
+          format: int64
+        error_code:
+          type: string
+        manifest:
+          type: object
+          additionalProperties: true
+        files:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - panel_id
+              - target_id
+              - kind
+              - bytes
+              - sha256
+              - source_ref
+              - path
+            properties:
+              id:
+                type: string
+                format: uuid
+              panel_id:
+                type: string
+              target_id:
+                type: string
+              kind:
+                type: string
+                enum:
+                  - data
+                  - manifest
+              bytes:
+                type: integer
+                format: int64
+              sha256:
+                type: string
+              source_ref:
+                type: string
+              path:
+                type: string
+              workspace_id:
+                type: string
+                format: uuid
+              workspace_file_id:
+                type: string
+                format: uuid
+    DashboardQueryResumeInput:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_version
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    DashboardConditionPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        reset_all:
+          type: boolean
+        reset_time:
+          type: boolean
+        reset_resources:
+          type: boolean
+        time:
+          $ref: '#/components/schemas/DashboardTimeRange'
+        resources:
+          type: object
+          additionalProperties: false
+          required:
+            - all
+            - ids
+          properties:
+            all:
+              type: boolean
+            ids:
+              type: array
+              uniqueItems: true
+              maxItems: 1000
+              items:
+                type: string
+                format: uuid
+        variables:
+          type: object
+          maxProperties: 64
+          additionalProperties:
+            anyOf:
+              - $ref: '#/components/schemas/DashboardSelection'
+              - type: 'null'
+        local_values:
+          type: object
+          maxProperties: 100
+          additionalProperties:
+            type: object
+            maxProperties: 32
+            additionalProperties:
+              anyOf:
+                - $ref: '#/components/schemas/DashboardSelection'
+                - type: 'null'
+  responses:
+    Error:
+      description: Operation result.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 256
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'

@@ -1054,7 +1054,7 @@ test("org role drawer: permission matrix uses credential, not secret", async ({
     credentialRow.getByRole("checkbox", { name: "使用" }),
   ).toBeVisible();
   await expect(
-    credentialRow.getByRole("checkbox", { name: "查看原值" }),
+    credentialRow.getByRole("checkbox", { name: "查看", exact: true }),
   ).toBeVisible();
 });
 

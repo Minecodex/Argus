@@ -1,0 +1,331 @@
+.argus-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: var(--argus-dashboard-row);
+  align-items: stretch;
+}
+.argus-dashboard-tile {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  margin: var(--space-1);
+  background: var(--bg-surface);
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.argus-dashboard-move {
+  position: absolute;
+  inset-inline-start: var(--space-1);
+  top: var(--space-1);
+  z-index: 2;
+  touch-action: none;
+  cursor: grab;
+}
+.argus-dashboard-resize {
+  position: absolute;
+  inset-inline-end: 0;
+  bottom: 0;
+  touch-action: none;
+  cursor: nwse-resize;
+  z-index: 2;
+}
+.argus-query-editor {
+  display: grid;
+  gap: var(--space-3);
+}
+.argus-field-explorer {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+.argus-field-explorer p,
+.argus-field-explorer span {
+  color: var(--text-secondary);
+  font-size: var(--font-size-13);
+}
+.argus-field-explorer__search,
+.argus-field-explorer__list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.argus-field-explorer__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.argus-field-explorer__list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.argus-field-explorer__list code {
+  overflow-wrap: anywhere;
+  min-width: 0;
+  flex: 1;
+}
+.argus-field-explorer__list button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.argus-query-editor__heading {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}
+.argus-query-editor__code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-13);
+}
+.argus-observation-chart {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+}
+.argus-observation-stats {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(var(--dashboard-stat-min-width), 1fr)
+  );
+  gap: var(--space-3);
+  padding: var(--space-4);
+  overflow: auto;
+}
+.argus-observation-stats:focus-visible {
+  outline-offset: calc(var(--space-1) * -1);
+}
+.argus-observation-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.argus-observation-stat strong {
+  font-size: var(--font-size-32);
+  font-variant-numeric: tabular-nums;
+}
+.argus-observation-stat strong[data-tone="info"] {
+  color: var(--info);
+}
+.argus-observation-stat strong[data-tone="success"] {
+  color: var(--success);
+}
+.argus-observation-stat strong[data-tone="warning"] {
+  color: var(--warning);
+}
+.argus-observation-stat strong[data-tone="danger"] {
+  color: var(--danger);
+}
+.argus-observation-stat span {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.argus-observation-table {
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+}
+.argus-observation-log-controls {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+.argus-observation-log-field-picker summary,
+.argus-observation-log-details summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-size-13);
+}
+.argus-observation-log-field-picker fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  border: var(--space-px-1) solid var(--border-subtle);
+  padding: var(--space-2);
+}
+.argus-observation-log-field-picker label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-13);
+}
+.argus-observation-log-field-picker input {
+  accent-color: var(--accent);
+}
+.argus-observation-logs {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.argus-observation-log-entry {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: var(--space-px-1) solid var(--border-subtle);
+}
+.argus-observation-log-entry header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-13);
+}
+.argus-observation-log-entry time {
+  color: var(--text-secondary);
+}
+.argus-observation-log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-12);
+}
+.argus-observation-log-meta span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.argus-observation-log-body,
+.argus-observation-log-details pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-13);
+}
+.argus-observation-log-body {
+  max-height: calc(var(--space-10) * 5);
+  overflow: auto;
+}
+.argus-observation-log-details .argus-kv-grid {
+  padding-top: var(--space-2);
+}
+.argus-observation-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-13);
+}
+.argus-observation-table th,
+.argus-observation-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--space-px-1) solid var(--border-subtle);
+  text-align: start;
+  max-width: var(--dashboard-cell-max-width);
+  overflow-wrap: anywhere;
+}
+.argus-observation-table th {
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  z-index: 1;
+}
+.argus-observation-table tbody tr:focus-within,
+.argus-observation-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+.argus-observation-empty {
+  padding: var(--space-4);
+  color: var(--text-secondary);
+}
+.argus-value-selector {
+  display: grid;
+  gap: var(--space-3);
+  max-height: 55vh;
+  overflow: auto;
+}
+.argus-value-selector label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.argus-value-selector input {
+  accent-color: var(--accent);
+}
+.argus-value-selector-summary {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.argus-observation-caption {
+  color: var(--text-secondary);
+  font-size: var(--font-size-12);
+  margin: var(--space-2);
+  overflow-wrap: anywhere;
+}
+.argus-observation-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font-size: var(--font-size-12);
+}
+.argus-trace-view {
+  overflow: auto;
+  min-height: 0;
+  width: 100%;
+}
+.argus-trace-timeline {
+  width: 45%;
+  min-width: var(--dashboard-stat-min-width);
+}
+.argus-trace-bar-track {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: var(--space-2) 0;
+  background: var(--bg-muted);
+  cursor: pointer;
+}
+.argus-trace-origin {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--font-size-12);
+  overflow-wrap: anywhere;
+  padding: var(--space-1) var(--space-2);
+}
+.argus-trace-bar {
+  display: block;
+  min-width: var(--space-px-1);
+  height: var(--space-3);
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+}
+.argus-trace-bar--error {
+  background: var(--danger);
+}
+.argus-trace-span-details {
+  padding: var(--space-3);
+  border-top: var(--space-px-1) solid var(--border-default);
+}
+.argus-trace-span-details dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.argus-trace-span-details dt {
+  color: var(--text-secondary);
+}
+.argus-trace-span-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.argus-trace-span-details pre {
+  background: var(--bg-muted);
+  padding: var(--space-3);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-12);
+}

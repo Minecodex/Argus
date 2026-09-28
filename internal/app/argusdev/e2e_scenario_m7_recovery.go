@@ -3,6 +3,7 @@ package argusdev
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
 	"strings"
 	"time"
@@ -160,24 +161,19 @@ func secretEnvSource(name, key string) *corev1.EnvVarSource {
 func (a *App) verifyM7Authorization(ctx context.Context, env *E2EEnvironment) error {
 	sensitive := "Authorization: Bearer m7-redaction-fixture"
 	hostID := env.State.Values["m7_host_id"]
-	if _, err := a.execM7Host(ctx, env, "argus-direct-executor",
-		"/usr/local/bin/argus-telemetry-e2e", "--endpoint=127.0.0.1:4317", "--resource-id="+hostID, "--marker=redaction", "--log-body="+sensitive); err != nil {
+	if _, err := a.execM7Host(ctx, env, "argus-direct-executor", "/usr/local/bin/argus-telemetry-e2e", "--endpoint=127.0.0.1:4317", "--resource-id="+hostID, "--marker=redaction", "--log-body="+sensitive); err != nil {
 		return err
 	}
 	client, _ := scenarioHTTP(env)
 	deadline := time.Now().Add(3 * time.Minute)
-	foundSensitiveLog := false
-	lastQueryErr := fmt.Errorf("query deadline expired before a valid response was observed")
+	found := false
 	for time.Now().Before(deadline) {
-		response, err := client.JSON(ctx, "m7-sensitive-raw", "enterprise", http.MethodPost, "/enterprise/logs/query", http.StatusOK, map[string]any{
-			"query": `service_name = argus-m7-e2e AND body : "` + sensitive + `"`, "resource_ids": []string{hostID}, "time_range": telemetryTimeRange(15 * time.Minute), "budget": telemetryBudget(10),
-		}, enterpriseHeaders(env, ""))
+		response, err := client.JSON(ctx, "m7-uniform-redaction", "enterprise", http.MethodPost, "/enterprise/logs/query", http.StatusOK, map[string]any{"query": "service_name = argus-m7-e2e AND body : \"" + sensitive + "\"", "resource_ids": []string{hostID}, "time_range": telemetryTimeRange(15 * time.Minute), "budget": telemetryBudget(10)}, enterpriseHeaders(env, ""))
 		if err != nil {
 			return err
 		}
-		lastQueryErr = assertKQLResponse(response, sensitive, 0)
-		if lastQueryErr == nil {
-			foundSensitiveLog = true
+		if assertKQLResponse(response, "Authorization: [REDACTED]", 0) == nil {
+			found = true
 			break
 		}
 		select {
@@ -186,52 +182,53 @@ func (a *App) verifyM7Authorization(ctx context.Context, env *E2EEnvironment) er
 		case <-time.After(2 * time.Second):
 		}
 	}
-	if !foundSensitiveLog {
-		return fmt.Errorf("M7 sensitive telemetry fixture did not reach Query: %w", lastQueryErr)
+	if !found {
+		return fmt.Errorf("credential masking did not apply to the enterprise administrator")
 	}
-	mutation := "DELETE FROM role_permissions WHERE permission_id='telemetry.sensitive_fields.read' AND role_id=(SELECT id FROM roles WHERE enterprise_id='" + env.State.Values["enterprise_id"] + "' AND identity_key='enterprise_admin');" +
-		"UPDATE enterprise_users SET authorization_version=authorization_version+1,updated_at=now() WHERE id='" + env.State.Values["admin_user_id"] + "' AND enterprise_id='" + env.State.Values["enterprise_id"] + "';"
-	if _, err := a.postgresQuery(ctx, env, mutation); err != nil {
+	where := "enterprise_id='" + env.State.Values["enterprise_id"] + "' AND resource_type='host' AND resource_id='" + hostID + "'"
+	ids, err := a.postgresQuery(ctx, env, "SELECT string_agg(id::text,',') FROM data_authorization_grants WHERE "+where+" AND status='active';")
+	if err != nil {
 		return err
 	}
-	stale, err := client.JSON(ctx, "m7-stale-session", "enterprise", http.MethodPost, "/enterprise/logs/query", http.StatusConflict, map[string]any{
-		"query": "service_name = argus-m7-e2e", "resource_ids": []string{hostID}, "time_range": telemetryTimeRange(15 * time.Minute), "budget": telemetryBudget(100),
-	}, enterpriseHeaders(env, ""))
+	grants := []string{}
+	for _, id := range strings.Split(strings.TrimSpace(ids), ",") {
+		if uuid.Validate(id) != nil {
+			return fmt.Errorf("invalid fixture grant identity")
+		}
+		grants = append(grants, "'"+id+"'")
+	}
+	exact := "id IN (" + strings.Join(grants, ",") + ") AND " + where
+	restored := false
+	bump := "UPDATE enterprise_users SET authorization_version=authorization_version+1,updated_at=now() WHERE id='" + env.State.Values["admin_user_id"] + "' AND enterprise_id='" + env.State.Values["enterprise_id"] + "';"
+	defer func() {
+		if restored {
+			return
+		}
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		_, _ = a.postgresQuery(cleanup, env, "UPDATE data_authorization_grants SET status='active',version=version+1 WHERE "+exact+";"+bump)
+	}()
+	if _, err = a.postgresQuery(ctx, env, "UPDATE data_authorization_grants SET status='disabled',version=version+1 WHERE "+exact+";"+bump); err != nil {
+		return err
+	}
+	query := map[string]any{"query": "service_name = argus-m7-e2e", "resource_ids": []string{hostID}, "time_range": telemetryTimeRange(15 * time.Minute), "budget": telemetryBudget(100)}
+	stale, err := client.JSON(ctx, "m7-stale-session", "enterprise", http.MethodPost, "/enterprise/logs/query", http.StatusConflict, query, enterpriseHeaders(env, ""))
 	if err != nil {
 		return err
 	}
 	if stale["code"] != "AUTHORIZATION_VERSION_STALE" {
-		return fmt.Errorf("M7 stale session returned %v", stale["code"])
+		return fmt.Errorf("stale session returned %v", stale["code"])
 	}
-	if err := a.refreshEnterpriseLogin(ctx, env); err != nil {
+	if err = a.refreshEnterpriseLogin(ctx, env); err != nil {
 		return err
 	}
-	redacted, err := client.JSON(ctx, "m7-sensitive-redacted", "enterprise", http.MethodPost, "/enterprise/logs/query", http.StatusOK, map[string]any{
-		"query": "service_name = argus-m7-e2e", "resource_ids": []string{hostID}, "time_range": telemetryTimeRange(15 * time.Minute), "budget": telemetryBudget(100),
-	}, enterpriseHeaders(env, ""))
-	if err != nil {
+	if _, err = client.JSON(ctx, "m7-object-revoked", "enterprise", http.MethodPost, "/enterprise/logs/query", http.StatusForbidden, query, enterpriseHeaders(env, "")); err != nil {
 		return err
 	}
-	items, _ := redacted["data"].([]any)
-	foundRedaction := false
-	for _, value := range items {
-		entry, _ := value.(map[string]any)
-		body, _ := entry["body"].(string)
-		if body == sensitive {
-			return fmt.Errorf("M7 sensitive telemetry body remained visible")
-		}
-		if body == "[REDACTED]" || body == "[redacted by telemetry field policy]" {
-			foundRedaction = true
-		}
-	}
-	if !foundRedaction {
-		return fmt.Errorf("M7 sensitive telemetry body was not replaced by the field policy")
-	}
-	restore := "INSERT INTO role_permissions (role_id,permission_id) SELECT id,'telemetry.sensitive_fields.read' FROM roles WHERE enterprise_id='" + env.State.Values["enterprise_id"] + "' AND identity_key='enterprise_admin' ON CONFLICT DO NOTHING;" +
-		"UPDATE enterprise_users SET authorization_version=authorization_version+1,updated_at=now() WHERE id='" + env.State.Values["admin_user_id"] + "' AND enterprise_id='" + env.State.Values["enterprise_id"] + "';"
-	if _, err := a.postgresQuery(ctx, env, restore); err != nil {
+	if _, err = a.postgresQuery(ctx, env, "UPDATE data_authorization_grants SET status='active',version=version+1 WHERE "+exact+";"+bump); err != nil {
 		return err
 	}
+	restored = true
 	return a.refreshEnterpriseLogin(ctx, env)
 }
 

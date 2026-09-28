@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { CheckItem } from "@argus/ui";
+import { permissionIDs } from "@argus/api-client";
 
 /** 设置页共用的本地时间格式。 */
 export function formatDateTime(iso?: string, locale?: string): string {
@@ -16,45 +17,14 @@ export function formatDateTime(iso?: string, locale?: string): string {
 }
 
 /** docs/02 §4 的企业域权限点目录，按资源分组用于角色编辑矩阵。 */
-export const PERMISSION_CATALOG: Array<{
-  resource: string;
-  actions: string[];
-}> = [
-  { resource: "connector", actions: ["read", "create", "rotate_credential"] },
-  { resource: "bastion_scope", actions: ["read", "create", "manage"] },
-  {
-    resource: "host",
-    actions: ["read", "create", "update", "connection.test", "direct_connect"],
-  },
-  { resource: "remote_access", actions: ["request"] },
-  {
-    resource: "remote_access.session",
-    actions: ["create", "approve", "terminate"],
-  },
-  { resource: "remote_access.recording", actions: ["read"] },
-  { resource: "kubernetes.cluster", actions: ["read", "create"] },
-  { resource: "kubernetes.pod", actions: ["read"] },
-  { resource: "kubernetes.workload", actions: ["restart"] },
-  {
-    resource: "telemetry",
-    actions: ["read", "live_tail", "export", "sensitive_fields.read"],
-  },
-  { resource: "telemetry.query", actions: ["metrics", "logs", "traces"] },
-  { resource: "telemetry.alert", actions: ["manage"] },
-  { resource: "telemetry.dashboard", actions: ["manage"] },
-  {
-    resource: "telemetry.collector",
-    actions: ["read", "install", "configure", "upgrade", "uninstall"],
-  },
-  { resource: "telemetry.gateway", actions: ["manage"] },
-  { resource: "credential", actions: ["manage", "use", "reveal"] },
-  { resource: "audit", actions: ["read"] },
-  { resource: "mcp_connection", actions: ["manage"] },
-  { resource: "workspace", actions: ["use"] },
-  { resource: "ai_model", actions: ["read", "manage"] },
-  { resource: "model_quota", actions: ["read", "manage"] },
-  { resource: "model_usage", actions: ["read"] },
-];
+export const PERMISSION_CATALOG = Object.entries(
+  permissionIDs.reduce<Record<string, string[]>>((groups, id) => {
+    const separator = id.lastIndexOf(".");
+    const resource = id.slice(0, separator);
+    (groups[resource] ??= []).push(id.slice(separator + 1));
+    return groups;
+  }, {}),
+).map(([resource, actions]) => ({ resource, actions }));
 
 /** 角色编辑用的权限点勾选矩阵（资源 × 动作，CheckItem 网格）。 */
 export function PermissionMatrix({
@@ -68,7 +38,8 @@ export function PermissionMatrix({
 }) {
   const { t } = useTranslation();
   const selected = new Set(value);
-  const fullAccess = selected.has("*");
+  const fullAccess =
+    selected.has("*") || permissionIDs.every((id) => selected.has(id));
   const labelKey = (value: string) => value.replaceAll(".", "_");
 
   const toggle = (permission: string) => {
@@ -84,12 +55,12 @@ export function PermissionMatrix({
       <div
         onClick={() => {
           if (disabled) return;
-          onChange(fullAccess ? [] : ["*"]);
+          onChange(fullAccess ? [] : [...permissionIDs]);
         }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            if (!disabled) onChange(fullAccess ? [] : ["*"]);
+            if (!disabled) onChange(fullAccess ? [] : [...permissionIDs]);
           }
         }}
         role="checkbox"

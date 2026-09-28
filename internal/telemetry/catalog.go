@@ -10,10 +10,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kakj-go/Argus/internal/otelcol/configbundle"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
-const CatalogRevision = 1
+const CatalogRevision = 3
 
 const (
 	LinuxARM64DistributionName   = "argus-otelcol-linux-arm64"
@@ -42,7 +43,7 @@ type CatalogSync struct {
 
 func (sync CatalogSync) Run(ctx context.Context) error {
 	if sync.Version == "" {
-		sync.Version = "0.1.0-m7"
+		sync.Version = configbundle.DistributionVersion
 	}
 	if sync.Service.Store == nil || sync.LinuxArtifactURI == "" || sync.SigningKeyID == "" {
 		return errors.New("telemetry Linux arm64 artifact URI, signing key, and store are required")
@@ -90,7 +91,7 @@ func (sync CatalogSync) Run(ctx context.Context) error {
 			return err
 		}
 	}
-	linuxComponents := []string{"otlp", "hostmetrics", "kubeletstats", "filelog", "journald", "prometheus", "batch", "memory_limiter", "file_storage", "argus_identity"}
+	linuxComponents := configbundle.DistributionComponents("linux_amd64")
 	distributions := []struct {
 		name, platform, uri, hash, signature, status string
 		byteSize                                     uint64
@@ -111,7 +112,7 @@ func (sync CatalogSync) Run(ctx context.Context) error {
 			byteSize                                     uint64
 			components                                   []string
 		}{WindowsAMD64DistributionName, "windows_amd64", sync.WindowsArtifactURI, windowsHash, sync.WindowsArtifactSignature, "validation_pending", sync.WindowsArtifactByteSize,
-			[]string{"otlp", "hostmetrics", "filelog", "windowseventlog", "prometheus", "batch", "memory_limiter", "file_storage", "argus_identity"}})
+			configbundle.DistributionComponents("windows_amd64")})
 	}
 	for _, distribution := range distributions {
 		artifacts, marshalErr := json.Marshal([]map[string]any{{
@@ -123,7 +124,7 @@ func (sync CatalogSync) Run(ctx context.Context) error {
 		}
 		_, err = sync.Service.Store.Queries.UpsertCollectorDistributionVersion(ctx, db.UpsertCollectorDistributionVersionParams{
 			ID:   uuid.NewSHA1(uuid.NameSpaceURL, []byte("argus.collector.distribution/"+distribution.name+"/"+sync.Version)),
-			Name: distribution.name, Version: sync.Version, CollectorVersion: "0.133.0", ConfigSchemaVersion: "argus.collector_config/v1",
+			Name: distribution.name, Version: sync.Version, CollectorVersion: configbundle.CollectorVersion, ConfigSchemaVersion: configbundle.CatalogConfigSchemaVersion,
 			SupportStatus: distribution.status, Components: distribution.components, ArtifactManifest: artifacts, CatalogRevision: CatalogRevision,
 		})
 		if err != nil {
@@ -134,15 +135,17 @@ func (sync CatalogSync) Run(ctx context.Context) error {
 		key, name, description, status         string
 		signals, components, platforms, claims []string
 	}{
-		{"host-basic", "Host basic", "Bounded host metrics and Collector self telemetry.", "supported", []string{"metrics"}, []string{"hostmetrics", "collector-self"}, []string{"linux_arm64", "linux_amd64"}, []string{"host"}},
+		{"host-basic", "Host basic", "Bounded host metrics.", "supported", []string{"metrics"}, []string{"hostmetrics"}, []string{"linux_arm64", "linux_amd64"}, []string{"host"}},
 		{"linux-journald", "Linux journald", "Controlled journald ingestion.", "supported", []string{"logs"}, []string{"journald"}, []string{"linux_arm64", "linux_amd64"}, []string{"host-log"}},
 		{"file-log", "File log", "Controlled allowlisted file log ingestion.", "supported", []string{"logs"}, []string{"filelog"}, []string{"linux_arm64", "linux_amd64"}, []string{"host-log"}},
 		{"prometheus-endpoint", "Prometheus endpoint", "Bounded Prometheus endpoint scraping.", "supported", []string{"metrics"}, []string{"prometheus"}, []string{"linux_arm64", "linux_amd64"}, []string{"prometheus-target"}},
 		{"otlp-receiver", "OTLP receiver", "Bounded local OTLP receiver.", "supported", []string{"metrics", "logs", "traces"}, []string{"otlp"}, []string{"linux_arm64", "linux_amd64"}, []string{"otlp-source"}},
+		{"skywalking-receiver", "SkyWalking traces", "Local SkyWalking gRPC traces; source identity is registered by Argus. JVM metrics and OAP management are not enabled.", "supported", []string{"traces"}, []string{"skywalking"}, []string{"linux_arm64", "linux_amd64"}, []string{"skywalking-source"}},
+		{"jaeger-receiver", "Jaeger traces", "Local Jaeger gRPC and Thrift HTTP traces; remote sampling is not enabled.", "supported", []string{"traces"}, []string{"jaeger"}, []string{"linux_arm64", "linux_amd64"}, []string{"jaeger-source"}},
 		{"k8s-node-container", "Kubernetes node and container", "DaemonSet node, pod, and container telemetry.", "supported", []string{"metrics", "logs"}, []string{"kubeletstats", "filelog"}, []string{"linux_arm64", "linux_amd64"}, []string{"kubernetes-node"}},
-		{"k8s-cluster", "Kubernetes cluster", "Cluster metadata telemetry.", "supported", []string{"metrics"}, []string{"k8scluster"}, []string{"linux_arm64", "linux_amd64"}, []string{"kubernetes-cluster"}},
+		{"k8s-cluster", "Kubernetes cluster", "Cluster metadata telemetry.", "supported", []string{"metrics"}, []string{"k8s_cluster"}, []string{"linux_arm64", "linux_amd64"}, []string{"kubernetes-cluster"}},
 		{"k8s-otlp-gateway", "Kubernetes OTLP gateway", "In-cluster aggregation gateway.", "supported", []string{"metrics", "logs", "traces"}, []string{"otlp", "batch"}, []string{"linux_arm64", "linux_amd64"}, []string{"kubernetes-gateway"}},
-		{"collector-self", "Collector self", "Collector health and queue telemetry.", "supported", []string{"metrics", "logs"}, []string{"collector-self"}, []string{"linux_arm64", "linux_amd64"}, []string{"collector"}},
+		{"collector-self", "Collector self", "Collector process, receiver and exporter metrics from the local internal metrics endpoint.", "supported", []string{"metrics"}, []string{"prometheus"}, []string{"linux_arm64", "linux_amd64"}, []string{"collector"}},
 	}
 	if windowsConfigured {
 		profiles = append(profiles, struct {
@@ -154,7 +157,7 @@ func (sync CatalogSync) Run(ctx context.Context) error {
 		_, err = sync.Service.Store.Queries.UpsertCollectionProfile(ctx, db.UpsertCollectionProfileParams{
 			ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("argus.collection-profile/"+profile.key+"/v1")), ProfileKey: profile.key, Version: "1",
 			Name: profile.name, Description: profile.description, Signals: profile.signals, RequiredComponents: profile.components,
-			SupportedPlatforms: profile.platforms, ClaimTypes: profile.claims, ConfigSchemaVersion: "argus.collector_config/v1", SupportStatus: profile.status, CatalogRevision: CatalogRevision,
+			SupportedPlatforms: profile.platforms, ClaimTypes: profile.claims, ConfigSchemaVersion: configbundle.CatalogConfigSchemaVersion, SupportStatus: profile.status, CatalogRevision: CatalogRevision,
 		})
 		if err != nil {
 			return err

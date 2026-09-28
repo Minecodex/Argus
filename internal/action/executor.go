@@ -97,6 +97,9 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 		result, err := executor.Resources.ExecutePendingAction(ctx, q, action)
 		if err != nil {
 			if errors.Is(err, resource.ErrActionInvalidated) || errors.Is(err, resource.ErrActionUnavailable) {
+				if code := resource.ActionValidationCode(err); code != "" {
+					return runtime.Error{ErrorCode: code, Cause: err, Permanent: true}
+				}
 				return runtime.Error{ErrorCode: "ACTION_INVALIDATED", Cause: err}
 			}
 			if resourceNameConflict(err) {
@@ -253,6 +256,9 @@ func (executor Executor) HandleExhausted(ctx context.Context, task runtime.Task,
 }
 
 func executionFailureCode(cause error) string {
+	if code := resource.ActionValidationCode(cause); code != "" {
+		return code
+	}
 	type coded interface{ Code() string }
 	var value coded
 	if errors.As(cause, &value) {

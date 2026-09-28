@@ -10,6 +10,9 @@ import { useEnterpriseAuthStore } from "@argus/auth";
 import { AdminShell } from "./components/admin-shell";
 import { ChatShell } from "./components/chat-shell";
 
+const DashboardsPage = lazyRouteComponent(() => import("./pages/dashboards-page"), "DashboardsPage");
+const DashboardViewPage = lazyRouteComponent(() => import("./pages/dashboard-view-page"), "DashboardViewPage");
+const DashboardEditorPage = lazyRouteComponent(() => import("./pages/dashboard-editor-page"), "DashboardEditorPage");
 const LoginPage = lazyRouteComponent(
   () => import("./pages/login-page"),
   "LoginPage",
@@ -128,6 +131,9 @@ const adminRoute = createRoute({
   id: "admin",
   component: AdminShell,
 });
+const dashboardsRoute = createRoute({getParentRoute:()=>adminRoute,path:"/dashboards",component:DashboardsPage});
+const dashboardViewRoute = createRoute({getParentRoute:()=>adminRoute,path:"/dashboards/$dashboardId",component:DashboardViewPage,validateSearch:(search:Record<string,unknown>):{resource?:string}=>({resource:typeof search.resource==="string"?search.resource:undefined})});
+const dashboardEditorRoute = createRoute({getParentRoute:()=>adminRoute,path:"/dashboard-drafts/$draftId",component:DashboardEditorPage});
 const hostsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/hosts",
@@ -214,6 +220,9 @@ const routeTree = rootRoute.addChildren([
   authedRoute.addChildren([
     chatRoute.addChildren([indexRoute]),
     adminRoute.addChildren([
+      dashboardsRoute,
+      dashboardViewRoute,
+      dashboardEditorRoute,
       hostsRoute,
       hostDetailRoute,
       kubernetesRoute,

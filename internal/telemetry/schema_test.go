@@ -3,7 +3,10 @@ package telemetry
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -31,6 +34,51 @@ func TestClaimAndNodeBindingSQLPreservesIsolationAndEvidenceState(t *testing.T) 
 		if !strings.Contains(queries, required) {
 			t.Fatalf("M7 Claim/Binding query is missing invariant %q", required)
 		}
+	}
+}
+
+func TestHelmIncludesEveryClickHouseMigration(t *testing.T) {
+	_, current, _, _ := runtime.Caller(0)
+	root := filepath.Clean(filepath.Join(filepath.Dir(current), "..", ".."))
+	source := filepath.Join(root, "migrations", "clickhouse")
+	chart := filepath.Join(root, "deploy", "helm", "argus-telemetry-pipeline")
+	paths, err := filepath.Glob(filepath.Join(source, "*.sql"))
+	if err != nil || len(paths) == 0 {
+		t.Fatal("no authoritative ClickHouse migrations", err)
+	}
+	names := []string{}
+	var latest uint64
+	for _, path := range paths {
+		name := filepath.Base(path)
+		names = append(names, name)
+		sql := readTestFile(t, path)
+		if sql != readTestFile(t, filepath.Join(chart, "files", name)) {
+			t.Fatalf("Helm migration %s differs from authority", name)
+		}
+		for _, match := range regexp.MustCompile(`(?i)SELECT\s+(\d+)\s+WHERE\s+NOT\s+EXISTS`).FindAllStringSubmatch(sql, -1) {
+			version, err := strconv.ParseUint(match[1], 10, 32)
+			if err != nil {
+				t.Fatal(err)
+			}
+			latest = max(latest, version)
+		}
+	}
+	if latest != uint64(TelemetrySchemaVersion) {
+		t.Fatalf("migration version %d differs from runtime requirement %d", latest, TelemetrySchemaVersion)
+	}
+	packaged, err := filepath.Glob(filepath.Join(chart, "files", "*.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range packaged {
+		packaged[i] = filepath.Base(packaged[i])
+	}
+	if !slices.Equal(names, packaged) {
+		t.Fatal("Helm migration set differs", names, packaged)
+	}
+	template := readTestFile(t, filepath.Join(chart, "templates", "migration.yaml"))
+	if !strings.Contains(template, `.Files.Glob "files/*.sql"`) || !strings.Contains(template, `for migration in /migrations/*.sql`) {
+		t.Fatal("Helm does not package and execute the full ordered migration set")
 	}
 }
 

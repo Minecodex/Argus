@@ -1,22 +1,19 @@
 package kql
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
-
-	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chstats"
 )
 
 type Scope struct {
+	SourceKeys   []string
 	EnterpriseID uuid.UUID
 	ResourceIDs  []uuid.UUID
 }
@@ -32,11 +29,15 @@ type Request struct {
 	Budget               Budget
 }
 type Result struct {
-	Data         []map[string]any
-	Warnings     []string
-	Elapsed      time.Duration
-	ScannedBytes int64
-	ScannedRows  int64
+	LatestSampleAt *time.Time
+	ResultType     string
+	Columns        []Column
+	Partial        bool
+	Data           []map[string]any
+	Warnings       []string
+	Elapsed        time.Duration
+	ScannedBytes   int64
+	ScannedRows    int64
 }
 
 type TableRouter interface {
@@ -58,9 +59,10 @@ const (
 
 type Expr interface{ exprNode() }
 type Predicate struct {
-	Field string
-	Op    Op
-	Value string
+	Field  string
+	Op     Op
+	Value  string
+	Quoted bool
 }
 
 func (Predicate) exprNode() {}
@@ -166,67 +168,18 @@ func (p *Parser) parsePredicate() (Expr, error) {
 	}
 	value := p.tokens[p.index]
 	p.index++
-	return Predicate{Field: field, Op: op, Value: value}, nil
+	quoted := strings.HasPrefix(value, "\"")
+	if quoted {
+		decoded, err := strconv.Unquote(value)
+		if err != nil {
+			return nil, err
+		}
+		value = decoded
+	}
+	return Predicate{Field: field, Op: op, Value: value, Quoted: quoted}, nil
 }
 func (p *Parser) peek(value string) bool {
 	return p.index < len(p.tokens) && strings.EqualFold(p.tokens[p.index], value)
-}
-
-func lex(input string) ([]string, error) {
-	var out []string
-	var b strings.Builder
-	quoted := false
-	flush := func() {
-		if b.Len() > 0 {
-			out = append(out, b.String())
-			b.Reset()
-		}
-	}
-	for _, r := range input {
-		if quoted {
-			if r == '"' {
-				quoted = false
-				flush()
-			} else {
-				b.WriteRune(r)
-			}
-			continue
-		}
-		if r == '"' {
-			flush()
-			quoted = true
-			continue
-		}
-		if unicode.IsSpace(r) {
-			flush()
-			continue
-		}
-		if strings.ContainsRune("()", r) {
-			flush()
-			out = append(out, string(r))
-			continue
-		}
-		if r == ':' {
-			flush()
-			out = append(out, ":")
-			continue
-		}
-		if strings.ContainsRune("=!<>", r) {
-			if b.Len() > 0 && strings.ContainsRune("=!<>", r) {
-				b.WriteRune(r)
-				continue
-			}
-			flush()
-			b.WriteRune(r)
-			continue
-		}
-		b.WriteRune(r)
-	}
-	if quoted {
-		return nil, fmt.Errorf("unterminated quote")
-	}
-	flush()
-	return out, nil
 }
 
 type Compiler struct {
@@ -270,18 +223,64 @@ func (c *Compiler) predicate(p Predicate) (string, error) {
 	if key != "" {
 		c.Args = append(c.Args, key)
 	}
+	// ClickHouse may stringify non-string JSON scalars. Quoted KQL literals
+	// retain their string type independently of server conversion settings.
+	if p.Quoted && strings.HasPrefix(p.Field, "json.") {
+		field = "if(JSONType(body, ?)='String', JSONExtractString(body, ?), NULL)"
+		c.Args = append(c.Args, key)
+	}
 	switch p.Op {
 	case OpContains:
 		if strings.ContainsAny(p.Value, "*?") {
-			pattern := strings.ReplaceAll(strings.ReplaceAll(p.Value, "%", "\\%"), "*", "%")
-			pattern = strings.ReplaceAll(pattern, "?", "_")
-			c.Args = append(c.Args, pattern)
-			return "lower(" + field + ") LIKE lower(?) ESCAPE '\\'", nil
+			var pattern strings.Builder
+			pattern.WriteString("(?is)^")
+			for _, r := range p.Value {
+				switch r {
+				case '*':
+					pattern.WriteString(".*")
+				case '?':
+					pattern.WriteString(".")
+				default:
+					pattern.WriteString(regexp.QuoteMeta(string(r)))
+				}
+			}
+			pattern.WriteString("$")
+			c.Args = append(c.Args, pattern.String())
+			return "match(" + field + ", ?)", nil
 		}
 		c.Args = append(c.Args, p.Value)
 		return "positionCaseInsensitive(" + field + ", ?)>0", nil
 	case OpEqual, OpNotEqual, OpGT, OpGTE, OpLT, OpLTE:
-		c.Args = append(c.Args, typedValue(p.Value))
+		var value any = p.Value
+		if p.Field == "severity_number" {
+			number, err := strconv.ParseUint(p.Value, 10, 8)
+			if err != nil {
+				return "", fmt.Errorf("severity_number requires an unsigned byte")
+			}
+			value = int64(number)
+		} else if !p.Quoted && strings.HasPrefix(p.Field, "json.") && (p.Op == OpEqual || p.Op == OpNotEqual) {
+			value = typedValue(p.Value)
+			switch value.(type) {
+			case int64, float64:
+				field = "toFloat64OrNull(JSONExtractRaw(body, ?))"
+			default:
+				if p.Value == "true" || p.Value == "false" || p.Value == "null" {
+					field = "JSONExtractRaw(body, ?)"
+				}
+			}
+		} else if !p.Quoted && (p.Op == OpGT || p.Op == OpGTE || p.Op == OpLT || p.Op == OpLTE) && p.Field != "timestamp" {
+			value = typedValue(p.Value)
+			switch value.(type) {
+			case int64, float64:
+				if strings.HasPrefix(p.Field, "json.") {
+					field = "JSONExtractRaw(body, ?)"
+				}
+				field = "toFloat64OrNull(toString(" + field + "))"
+			default:
+				return "", fmt.Errorf("numeric comparison requires a number")
+			}
+		}
+		c.Args = append(c.Args, value)
 		return field + " " + string(p.Op) + " ?", nil
 	default:
 		return "", fmt.Errorf("operator %q is unsupported", p.Op)
@@ -310,6 +309,12 @@ func (c *Compiler) exists(field string) (string, error) {
 }
 func allowedField(field string) (string, string, bool) {
 	switch field {
+	case "resource_id", "source_id":
+		return "toString(" + field + ")", "", true
+	case "source_type", "source_key", "event_id":
+		return field, "", true
+	case "source_revision":
+		return "toString(source_revision)", "", true
 	case "body":
 		return "body", "", true
 	case "timestamp":
@@ -346,7 +351,7 @@ func allowedFieldForParser(field, parser string) (string, string, bool) {
 		return "JSONExtractString(body, ?)", strings.TrimPrefix(field, "json."), true
 	}
 	if parser == "logfmt" && strings.HasPrefix(field, "logfmt.") {
-		return "extractKeyValue(body, ?)", strings.TrimPrefix(field, "logfmt."), true
+		return `extractKeyValuePairs(body, '=', ' \t\r\n', '"')[?]`, strings.TrimPrefix(field, "logfmt."), true
 	}
 	return "", "", false
 }
@@ -354,112 +359,10 @@ func typedValue(value string) any {
 	if i, err := strconv.ParseInt(value, 10, 64); err == nil {
 		return i
 	}
-	if f, err := strconv.ParseFloat(value, 64); err == nil {
+	if f, err := strconv.ParseFloat(value, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
 		return f
 	}
 	return value
-}
-
-func Execute(ctx context.Context, conn driver.Conn, router TableRouter, request Request) (Result, error) {
-	if conn == nil {
-		return Result{}, fmt.Errorf("kql storage unavailable")
-	}
-	if request.Scope.EnterpriseID == uuid.Nil {
-		return Result{}, fmt.Errorf("enterprise id required")
-	}
-	expr, err := Parse(request.Expression)
-	if err != nil {
-		return Result{}, err
-	}
-	table, err := router.Table("logs", request.Scope.EnterpriseID)
-	if err != nil {
-		return Result{}, err
-	}
-	compiler := Compiler{Table: table}
-	where, err := compiler.Compile(expr)
-	if err != nil {
-		return Result{}, err
-	}
-	args := []any{request.Start, request.End}
-	args = append(args, compiler.Args...)
-	order := "timestamp DESC"
-	limit := request.Budget.MaxRows
-	parserName, unwrapField, statsBy := "", "", ""
-	if request.Pipeline != "" {
-		where, order, limit, parserName, unwrapField, statsBy, err = compilePipelineOptions(request.Pipeline, where, order, limit, &args)
-		if err != nil {
-			return Result{}, err
-		}
-	}
-	if len(request.Scope.ResourceIDs) > 0 {
-		where += " AND resource_id IN (?)"
-		args = append(args, request.Scope.ResourceIDs)
-	}
-	query := fmt.Sprintf("SELECT timestamp, resource_id, severity_text, severity_number, service_name, body, trace_id, span_id FROM `%s` WHERE timestamp >= ? AND timestamp < ? AND %s ORDER BY %s LIMIT ?", table, where, order)
-	if statsBy != "" {
-		field, key, ok := allowedFieldForParser(statsBy, parserName)
-		if !ok {
-			return Result{}, fmt.Errorf("stats field %q is not queryable", statsBy)
-		}
-		if key != "" {
-			args = append([]any{key}, args...)
-		}
-		args = append(args, limit)
-		query = fmt.Sprintf("SELECT %s AS group_value, count() FROM `%s` WHERE timestamp >= ? AND timestamp < ? AND %s GROUP BY group_value ORDER BY count() DESC LIMIT ?", field, table, where)
-	} else {
-		args = append(args, limit)
-	}
-	started := time.Now()
-	progress := &chstats.Tracker{}
-	settings := clickhouse.Settings{"max_result_rows": limit, "max_execution_time": max(1, int(request.Budget.Timeout.Seconds()))}
-	if request.Budget.MaxScanBytes > 0 {
-		settings["max_bytes_to_read"] = request.Budget.MaxScanBytes
-	}
-	rows, err := conn.Query(progress.Context(ctx, settings), query, args...)
-	if err != nil {
-		return Result{}, err
-	}
-	defer rows.Close()
-	result := Result{Data: make([]map[string]any, 0)}
-	for rows.Next() {
-		if statsBy != "" {
-			var fieldValue string
-			var count uint64
-			if err := rows.Scan(&fieldValue, &count); err != nil {
-				return Result{}, err
-			}
-			result.Data = append(result.Data, map[string]any{"field": statsBy, "value": fieldValue, "count": count})
-			continue
-		}
-		var timestamp time.Time
-		var resourceID uuid.UUID
-		var severity string
-		var severityNumber uint8
-		var service, body, traceID, spanID string
-		if err := rows.Scan(&timestamp, &resourceID, &severity, &severityNumber, &service, &body, &traceID, &spanID); err != nil {
-			return Result{}, err
-		}
-		result.Data = append(result.Data, map[string]any{"timestamp": timestamp, "resource_id": resourceID, "severity_text": severity, "severity_number": severityNumber, "service_name": service, "body": body, "trace_id": traceID, "span_id": spanID})
-		if parserName != "" {
-			parsed := parsePipelineBody(body, parserName)
-			item := result.Data[len(result.Data)-1]
-			item["parsed_fields"] = parsed
-			if unwrapField != "" {
-				key := unwrapField
-				if strings.HasPrefix(key, "pattern.") {
-					key = strings.TrimPrefix(key, "pattern.")
-				}
-				item["unwrap"] = typedValue(parsed[key])
-			}
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return Result{}, err
-	}
-	result.Elapsed = time.Since(started)
-	result.ScannedBytes = progress.Bytes()
-	result.ScannedRows = progress.Rows()
-	return result, nil
 }
 
 func compilePipeline(pipeline, where, order string, limit int, args *[]any) (string, string, int, error) {
@@ -468,75 +371,24 @@ func compilePipeline(pipeline, where, order string, limit int, args *[]any) (str
 }
 
 func compilePipelineOptions(pipeline, where, order string, limit int, args *[]any) (string, string, int, string, string, string, error) {
-	parserName, unwrapField, statsBy := "", "", ""
-	for _, raw := range strings.Split(pipeline, "|") {
-		stage := strings.TrimSpace(raw)
-		if stage == "" {
-			continue
-		}
-		lower := strings.ToLower(stage)
-		switch {
-		case lower == "parse json":
-			parserName = "json"
-		case lower == "parse logfmt":
-			parserName = "logfmt"
-		case strings.HasPrefix(lower, "parse pattern"):
-			pattern := strings.TrimSpace(stage[len("parse pattern"):])
-			pattern = strings.Trim(pattern, "\"")
-			if pattern == "" || len(pattern) > 2048 {
-				return "", "", 0, "", "", "", fmt.Errorf("parse pattern requires a bounded pattern")
-			}
-			parserName = "pattern:" + pattern
-		case strings.HasPrefix(lower, "unwrap "):
-			unwrapField = strings.TrimSpace(stage[len("unwrap "):])
-			if unwrapField == "" {
-				return "", "", 0, "", "", "", fmt.Errorf("unwrap field is required")
-			}
-			if strings.HasPrefix(parserName, "pattern:") {
-				if !strings.HasPrefix(unwrapField, "pattern.") || strings.TrimPrefix(unwrapField, "pattern.") == "" {
-					return "", "", 0, "", "", "", fmt.Errorf("pattern unwrap requires pattern.<field>")
-				}
-			} else if _, _, ok := allowedFieldForParser(unwrapField, parserName); !ok {
-				return "", "", 0, "", "", "", fmt.Errorf("unwrap field %q is not queryable", unwrapField)
-			}
-		case strings.HasPrefix(lower, "stats "):
-			value := strings.TrimSpace(stage[len("stats "):])
-			if !strings.HasPrefix(strings.ToLower(value), "count() by ") {
-				return "", "", 0, "", "", "", fmt.Errorf("only stats count() by field is supported")
-			}
-			statsBy = strings.TrimSpace(value[len("count() by "):])
-			if _, _, ok := allowedFieldForParser(statsBy, parserName); !ok {
-				return "", "", 0, "", "", "", fmt.Errorf("stats field %q is not queryable", statsBy)
-			}
-		case strings.HasPrefix(lower, "where "):
-			expr, err := Parse(strings.TrimSpace(stage[len("where "):]))
-			if err != nil {
-				return "", "", 0, "", "", "", err
-			}
-			compiler := Compiler{Parser: parserName}
-			compiled, err := compiler.Compile(expr)
-			if err != nil {
-				return "", "", 0, "", "", "", err
-			}
-			where += " AND (" + compiled + ")"
-			*args = append(*args, compiler.Args...)
-		case strings.HasPrefix(lower, "sort "):
-			parts := strings.Fields(lower)
-			if len(parts) != 3 || parts[1] != "timestamp" || (parts[2] != "asc" && parts[2] != "desc") {
-				return "", "", 0, "", "", "", fmt.Errorf("unsupported sort pipeline")
-			}
-			order = "timestamp " + strings.ToUpper(parts[2])
-		case strings.HasPrefix(lower, "limit "):
-			value, err := strconv.Atoi(strings.TrimSpace(stage[len("limit "):]))
-			if err != nil || value < 1 || value > limit {
-				return "", "", 0, "", "", "", fmt.Errorf("pipeline limit exceeds budget")
-			}
-			limit = value
-		default:
-			return "", "", 0, "", "", "", fmt.Errorf("unsupported pipeline stage %q", stage)
-		}
+	p, err := ParsePipeline(pipeline, limit)
+	if err != nil {
+		return "", "", 0, "", "", "", err
 	}
-	return where, order, limit, parserName, unwrapField, statsBy, nil
+	for _, filter := range p.Filters {
+		compiler := Compiler{Parser: p.Parser}
+		compiled, err := compiler.Compile(filter)
+		if err != nil {
+			return "", "", 0, "", "", "", err
+		}
+		where += " AND (" + compiled + ")"
+		*args = append(*args, compiler.Args...)
+	}
+	stats := ""
+	if p.Aggregate != nil {
+		stats = p.Aggregate.Group
+	}
+	return where, p.SortField + " " + p.SortDirection, p.Limit, p.Parser, p.Unwrap, stats, nil
 }
 
 func parseStructuredBody(body, parser string) map[string]string {
@@ -550,12 +402,7 @@ func parseStructuredBody(body, parser string) map[string]string {
 		}
 	}
 	if parser == "logfmt" {
-		for _, token := range strings.Fields(body) {
-			parts := strings.SplitN(token, "=", 2)
-			if len(parts) == 2 {
-				result[parts[0]] = strings.Trim(parts[1], "\"")
-			}
-		}
+		return parseLogfmt(body)
 	}
 	return result
 }

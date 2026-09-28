@@ -42,6 +42,7 @@ components:
       additionalProperties: false
       required: [content]
       properties:
+        dashboard_context: {$ref: ./dashboard-chat.yaml#/components/schemas/DashboardChatSelection}
         content: {type: string, minLength: 1, maxLength: 1048576}
         file_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}}
     MessageAccepted:

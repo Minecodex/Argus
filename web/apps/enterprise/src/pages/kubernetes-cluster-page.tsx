@@ -19,6 +19,7 @@ import { CollectorWizard } from "../components/kubernetes/collector-wizard";
 import { connectionStatusTone } from "../components/kubernetes/status";
 import { WorkloadExplorer } from "../components/kubernetes/workload-explorer";
 import { ResourceTelemetry } from "../components/telemetry/resource-telemetry";
+import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
 import "../styles/kubernetes.css";
 
 /** Kubernetes 集群详情：资源查询 + Collector 安装/管理。 */
@@ -98,6 +99,7 @@ export function KubernetesClusterPage() {
         </span>
       }
     >
+      <ResourceDashboardLinks type="kubernetes_cluster" id={id} />
       <Tabs defaultValue={initialTab}>
         <TabsList>
           <TabsTrigger value="resources">

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/selfmonitor"
 	"log/slog"
 	"net"
 	"net/http"
@@ -24,6 +25,8 @@ import (
 	"github.com/kakj-go/Argus/internal/config"
 	connectorservice "github.com/kakj-go/Argus/internal/connector"
 	"github.com/kakj-go/Argus/internal/conversation"
+	"github.com/kakj-go/Argus/internal/dashboard"
+	"github.com/kakj-go/Argus/internal/dashboardcontext"
 	"github.com/kakj-go/Argus/internal/directexecutor"
 	"github.com/kakj-go/Argus/internal/enterprisemcp"
 	directv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/directexecutor/v1"
@@ -57,6 +60,12 @@ const (
 )
 
 func Run(ctx context.Context, logger *slog.Logger, pool string) error {
+	stopTracing, traceErr := selfmonitor.Start(ctx, "argus-worker", logger)
+	if traceErr != nil {
+		return traceErr
+	}
+	defer stopTracing()
+
 	if pool == PoolWorkspaceIO {
 		return runWorkspaceIO(ctx, logger)
 	}
@@ -147,7 +156,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		Direct: resource.DirectTargetValidator{DeniedCIDRs: denied}, Commands: connectorDomain, DirectCommands: directDispatcher,
 		HostOnboarding:   bastionDomain,
 		OnboardingProbes: bastionDomain,
-		Extension:        telemetryActions, ClusterEnrollment: connectorDomain,
+		Extension:        dashboard.ActionExtension{Next: telemetryActions}, ClusterEnrollment: connectorDomain,
 		Kubernetes: kubernetesreader.Reader{Store: store, Secrets: secretDomain, Validator: resource.DirectTargetValidator{DeniedCIDRs: denied}, Notifier: connectorDomain}}
 	registry := mcp.NewRegistry()
 	if err := (toolgateway.ResourceTools{Store: store, Resources: resourceDomain}).Register(registry); err != nil {
@@ -156,6 +165,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	if err := (toolgateway.LifecycleTools{Base: toolgateway.ResourceTools{Store: store, Resources: resourceDomain}, Bastion: bastionDomain, Removal: removalDomain}).Register(registry); err != nil {
 		return err
 	}
+	var dashboardQueries *dashboard.QueryJobs
 	if cfg.TelemetryEnabled && (pool == PoolDefault || pool == PoolAgent) {
 		telemetryTLS, tlsErr := telemetryservice.ClientTLSConfig(cfg.TelemetryClientCert, cfg.TelemetryClientKey, cfg.TelemetryCABundle, cfg.TelemetryServerName)
 		if tlsErr != nil {
@@ -167,6 +177,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		}
 		defer telemetryQuery.Close()
 		telemetryDomain := component.TelemetryDomain(cfg, store, actionDomain, telemetryQuery)
+		dashboardQueries = &dashboard.QueryJobs{Runtime: dashboard.Runtime{Store: store, Backend: telemetryQuery, ContextKey: actionDomain.Key}}
 		if err := (telemetryservice.Tools{Service: telemetryDomain}).Register(registry); err != nil {
 			return err
 		}
@@ -183,13 +194,26 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	if err := workspaceDomain.RegisterTools(registry); err != nil {
 		return err
 	}
+	if dashboardQueries != nil {
+		dashboardQueries.Objects = workspaceDomain.Objects
+		dashboardQueries.Delivery = workspaceDomain
+	}
+	dashboardService := dashboard.Service{Store: store, Actions: actionDomain}
+	if dashboardQueries != nil {
+		dashboardService.Verifier = dashboardQueries.Runtime
+	}
+	if err := (toolgateway.DashboardTools{Service: dashboardService, Jobs: dashboardQueries}).Register(registry); err != nil {
+		return err
+	}
 	nativeGateway, err := toolgateway.New(registry, cfg.ToolImplementationRevision)
 	if err != nil {
 		return err
 	}
 	conversationDomain := conversation.Service{Store: store, Idempotency: idempotency}
+	dashboardPolicy := dashboardcontext.Policy{Store: store}
+	nativeGateway.Scope = dashboardPolicy.BusinessScope
 	mcpDomain := enterprisemcp.Service{Store: store, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: denied}}
-	toolFactory := toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, mcpDomain}, Validate: conversationDomain.ValidateToolPrincipal}
+	toolFactory := toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, mcpDomain}, ContextSources: []toolruntime.SkillContextSource{dashboardPolicy}, Filter: dashboardPolicy.Filter, AuthorizeTool: dashboardPolicy.AuthorizeTool, Validate: conversationDomain.ValidateToolPrincipal}
 	handlers := map[string]runtime.Handler{
 		PoolAgent:      agent.Loop{Store: store, Models: modelDomain, Tools: toolFactory, Objects: workspaceDomain.Objects},
 		PoolAction:     action.Executor{Store: store, Resources: resourceDomain, OneTimeResultKey: cfg.PendingActionKey},
@@ -199,6 +223,10 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	queues := []string{pool}
 	if pool == PoolDefault {
 		queues = []string{PoolAgent, PoolAction, PoolCompaction, PoolSandbox}
+	}
+	if dashboardQueries != nil {
+		handlers["dashboard_query"] = dashboardQueries
+		queues = append(queues, "dashboard_query")
 	}
 	hostname, _ := os.Hostname()
 	if hostname == "" {

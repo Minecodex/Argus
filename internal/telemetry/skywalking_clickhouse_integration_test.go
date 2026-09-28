@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -60,7 +61,42 @@ func TestSkyWalkingGraphQLClickHouseTraceQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v (graphql errors: %v)", err, result.Errors)
 	}
+	if result.LatestSampleAt == nil || !result.LatestSampleAt.Equal(now) {
+		t.Fatalf("Span sample timestamp lost: %v", result.LatestSampleAt)
+	}
 	if result.Data == nil {
 		t.Fatal("trace GraphQL result is empty")
+	}
+
+	// A hidden service participating in the same trace must not influence an
+	// authorized resource's list through tag or instance membership queries.
+	hiddenIdentity := identity
+	hiddenIdentity.ResourceID = uuid.New()
+	request.ResourceSpans[0].Resource.Attributes = append(request.ResourceSpans[0].Resource.Attributes,
+		&commonpb.KeyValue{Key: "service.instance.id", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "hidden-instance"}}})
+	request.ResourceSpans[0].ScopeSpans[0].Spans[0].Attributes = []*commonpb.KeyValue{
+		{Key: "private.marker", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "hidden-value"}}},
+	}
+	if _, err := writer.writeTraces(ctx, &kgo.Record{Topic: "otlp-traces", Partition: 0, Offset: 2}, hiddenIdentity, request, time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	for _, filter := range []string{`serviceInstanceName: "hidden-instance"`, `tags: [{key: "private.marker", value: "hidden-value"}]`} {
+		filtered, err := (skywalking.Engine{Conn: conn, Router: router}).Execute(ctx, skywalking.Request{
+			Document: `query { queryBasicTraces(` + filter + `) { total traces { traceId } } }`,
+			Start:    now.Add(-time.Minute), End: now.Add(time.Minute), Scope: skywalking.Scope{EnterpriseID: enterpriseID, ResourceIDs: []uuid.UUID{resourceID}},
+			Budget: skywalking.Budget{MaxRows: 100, MaxScanBytes: 256 << 20, Timeout: 10 * time.Second},
+		})
+		if err != nil {
+			t.Fatalf("filter %s: %v (%v)", filter, err, filtered.Errors)
+		}
+		encoded, _ := json.Marshal(filtered.Data)
+		var decoded struct {
+			Page struct {
+				Total int `json:"total"`
+			} `json:"queryBasicTraces"`
+		}
+		if err := json.Unmarshal(encoded, &decoded); err != nil || decoded.Page.Total != 0 {
+			t.Fatalf("hidden resource influenced trace membership: %s (%v)", encoded, err)
+		}
 	}
 }

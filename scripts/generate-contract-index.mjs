@@ -136,6 +136,8 @@ const namedTypes = [
   ["conversationapi", "ConversationCreate", "ConversationCreate"],
   ["conversationapi", "ConversationUpdate", "ConversationUpdate"],
   ["conversationapi", "MessageCreate", "MessageCreate"],
+  ["conversationapi", "DashboardChatSelection", "DashboardChatSelection"],
+  ["conversationapi", "DashboardChatContext", "DashboardChatContext"],
   ["conversationapi", "MessageAccepted", "MessageAccepted"],
   ["conversationapi", "ToolResult", "ToolResult"],
   ["modelapi", "AIModel", "AIModel"],

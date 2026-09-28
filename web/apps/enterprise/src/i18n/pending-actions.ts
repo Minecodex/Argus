@@ -73,6 +73,64 @@ export const pendingActionsZh = {
       onboarding: "等待注册",
     },
     actions: {
+      telemetry_dashboard_binding_attach: {
+        title: "关联仪表盘 {{name}}",
+        summary:
+          "在 {{resourceName}} 中添加仪表盘快捷入口；关联不改变数据权限。",
+        diff: "将 {{name}} 关联到 {{resourceName}}",
+        result: "仪表盘已关联",
+      },
+      telemetry_dashboard_binding_detach: {
+        title: "解除仪表盘关联 {{name}}",
+        summary:
+          "从 {{resourceName}} 移除快捷入口；仪表盘、草稿和历史版本保留。",
+        diff: "解除 {{resourceName}} 与 {{name}} 的关联",
+        result: "关联已解除",
+      },
+
+      telemetry_dashboard_publish: {
+        title: "发布仪表盘 {{name}}",
+        summary: "发布不可变版本，普通查看使用该版本",
+        diff: "保存本次预览中的配置并检查编辑基线",
+        result: "仪表盘已发布",
+      },
+      telemetry_dashboard_archive: {
+        title: "归档仪表盘 {{name}}",
+        summary: "保留历史和个人草稿，停止发布",
+        diff: "归档所选仪表盘",
+        result: "仪表盘已归档",
+      },
+      telemetry_dashboard_restore: {
+        title: "恢复仪表盘 {{name}}",
+        summary: "恢复后发布需重新检查基线",
+        diff: "恢复所选仪表盘",
+        result: "仪表盘已恢复",
+      },
+      telemetry_dashboard_folder_create: {
+        title: "创建仪表盘分组 {{name}}",
+        summary: "创建目录分组",
+        diff: "创建分组",
+        result: "分组已创建",
+      },
+      telemetry_dashboard_folder_update: {
+        title: "修改仪表盘分组 {{name}}",
+        summary: "更新分组名称和描述",
+        diff: "修改分组",
+        result: "分组已更新",
+      },
+      telemetry_dashboard_folder_archive: {
+        title: "归档仪表盘分组 {{name}}",
+        summary: "非空分组需先迁出内容",
+        diff: "归档空分组",
+        result: "分组已归档",
+      },
+      telemetry_dashboard_folder_restore: {
+        title: "恢复仪表盘分组 {{name}}",
+        summary: "恢复分组以继续配置仪表盘",
+        diff: "恢复分组",
+        result: "分组已恢复",
+      },
+
       host_create: {
         title: "新增主机 {{name}}",
         summary: "创建已验证的主机资源",
@@ -285,6 +343,64 @@ export const pendingActionsEn = {
       onboarding: "Awaiting enrollment",
     },
     actions: {
+      telemetry_dashboard_binding_attach: {
+        title: "Link dashboard {{name}}",
+        summary:
+          "Add a dashboard shortcut to {{resourceName}}. Linking does not change data access.",
+        diff: "Link {{name}} to {{resourceName}}",
+        result: "Dashboard linked",
+      },
+      telemetry_dashboard_binding_detach: {
+        title: "Unlink dashboard {{name}}",
+        summary:
+          "Remove the shortcut from {{resourceName}}. The dashboard, drafts and history remain.",
+        diff: "Unlink {{name}} from {{resourceName}}",
+        result: "Dashboard unlinked",
+      },
+
+      telemetry_dashboard_publish: {
+        title: "Publish dashboard {{name}}",
+        summary: "Publish an immutable revision for ordinary viewing",
+        diff: "Save the reviewed configuration and check the editing baseline",
+        result: "Dashboard published",
+      },
+      telemetry_dashboard_archive: {
+        title: "Archive dashboard {{name}}",
+        summary: "Keep history and personal drafts; publishing is suspended",
+        diff: "Archive the selected dashboard",
+        result: "Dashboard archived",
+      },
+      telemetry_dashboard_restore: {
+        title: "Restore dashboard {{name}}",
+        summary: "Publishing requires a fresh baseline check",
+        diff: "Restore the selected dashboard",
+        result: "Dashboard restored",
+      },
+      telemetry_dashboard_folder_create: {
+        title: "Create dashboard folder {{name}}",
+        summary: "Create a directory folder",
+        diff: "Create the folder",
+        result: "Folder created",
+      },
+      telemetry_dashboard_folder_update: {
+        title: "Update dashboard folder {{name}}",
+        summary: "Update the folder name and description",
+        diff: "Update the folder",
+        result: "Folder updated",
+      },
+      telemetry_dashboard_folder_archive: {
+        title: "Archive dashboard folder {{name}}",
+        summary: "Move out any remaining contents first",
+        diff: "Archive the empty folder",
+        result: "Folder archived",
+      },
+      telemetry_dashboard_folder_restore: {
+        title: "Restore dashboard folder {{name}}",
+        summary: "Restore the folder to continue configuring dashboards",
+        diff: "Restore the folder",
+        result: "Folder restored",
+      },
+
       host_create: {
         title: "Add host {{name}}",
         summary: "Create a validated host resource",

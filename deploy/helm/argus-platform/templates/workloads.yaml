@@ -127,8 +127,12 @@ spec:
               mountPath: /var/run/secrets/argus/direct-executor-client
               readOnly: true
           {{- end }}
-          {{- if or $root.Values.runtime.databaseRolesEnabled (ne $item.name "argus-server") }}
           env:
+          {{- if eq $item.name "argus-server" }}
+            # Reserve headroom within the 256 MiB container for native memory
+            # and password-verification peaks; keep Argon2 parameters unchanged.
+            - {name: GOMEMLIMIT, value: "192MiB"}
+          {{- end }}
           {{- if $root.Values.runtime.databaseRolesEnabled }}
             - name: ARGUS_DATABASE_URL
               valueFrom:
@@ -147,7 +151,6 @@ spec:
             - name: ARGUS_GATEWAY_INSTANCE_ID
               valueFrom:
                 fieldRef: {fieldPath: metadata.name}
-          {{- end }}
           {{- end }}
           {{- end }}
           {{- if eq $item.name "argus-direct-executor" }}

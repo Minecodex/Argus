@@ -109,10 +109,11 @@ type ConnectionSnapshot struct {
 }
 
 type Set struct {
-	Snapshot Snapshot
-	tools    map[string]Tool
-	schemas  map[string]*jsonschema.Schema
-	Validate func(context.Context, Principal) error
+	Snapshot      Snapshot
+	tools         map[string]Tool
+	schemas       map[string]*jsonschema.Schema
+	Validate      func(context.Context, Principal) error
+	AuthorizeTool func(context.Context, Principal, uuid.UUID, Definition) error
 }
 
 func NewSet(snapshot Snapshot, tools []Tool) (*Set, error) {
@@ -176,6 +177,11 @@ func (set *Set) Invoke(ctx context.Context, name string, call Invocation) (Resul
 	if !ok {
 		return Result{}, Error{Kind: "TOOL_NOT_FOUND"}
 	}
+	if set.AuthorizeTool != nil {
+		if err := set.AuthorizeTool(ctx, call.Principal, call.RunID, tool.Definition); err != nil {
+			return Result{}, err
+		}
+	}
 	if call.ReadOnly && !tool.ReadOnly {
 		return Result{}, Error{Kind: "TOOL_READ_ONLY_REQUIRED"}
 	}
@@ -212,6 +218,8 @@ type CompositeFactory struct {
 	Providers      []Provider
 	ContextSources []SkillContextSource
 	Validate       func(context.Context, Principal) error
+	Filter         func(context.Context, Principal, []Tool) ([]Tool, error)
+	AuthorizeTool  func(context.Context, Principal, uuid.UUID, Definition) error
 }
 
 func (factory CompositeFactory) Build(ctx context.Context, principal Principal) (*Set, error) {
@@ -249,6 +257,13 @@ func (factory CompositeFactory) Build(ctx context.Context, principal Principal) 
 			snapshot.SandboxStatus = part.SandboxStatus
 		}
 	}
+	if factory.Filter != nil {
+		var err error
+		tools, err = factory.Filter(ctx, principal, tools)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if len(tools) > 128 {
 		return nil, Error{Kind: "MODEL_TOOL_CAPACITY_EXCEEDED", Details: map[string]any{"tool_count": len(tools), "maximum_tools": 128}}
 	}
@@ -257,6 +272,7 @@ func (factory CompositeFactory) Build(ctx context.Context, principal Principal) 
 		return nil, err
 	}
 	set.Validate = factory.Validate
+	set.AuthorizeTool = factory.AuthorizeTool
 	return set, nil
 }
 
@@ -317,6 +333,7 @@ func (factory CompositeFactory) Restore(ctx context.Context, principal Principal
 		return nil, err
 	}
 	set.Validate = factory.Validate
+	set.AuthorizeTool = factory.AuthorizeTool
 	return set, nil
 }
 

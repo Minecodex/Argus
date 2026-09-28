@@ -1,3 +1,4 @@
+import type { DashboardDomains } from "./dashboard";
 import type { PlanV5Domains, ConversationPreflight } from "./planv5";
 import type {
   AIModel,
@@ -231,7 +232,7 @@ export interface KubernetesPodLogsQuery {
  * infrastructure goes through the Pending Action two-phase flow
  * (preview -> confirm -> optional approval -> execution Task).
  */
-export interface ArgusApiClient extends PlanV5Domains {
+export interface ArgusApiClient extends PlanV5Domains, DashboardDomains {
   /** Session lifecycle and enterprise context. */
   auth: {
     login(input: LoginInput): Promise<SessionInfo>;
@@ -260,6 +261,9 @@ export interface ArgusApiClient extends PlanV5Domains {
 
   /** Chatbox conversations and streaming assistant replies. */
   conversations: {
+    dashboardContext(
+      id: string,
+    ): Promise<import("./generated/contracts").DashboardChatContext>;
     remove(id: string): Promise<void>;
     list(query?: ListQuery): Promise<Page<Conversation>>;
     get(id: string): Promise<Conversation>;

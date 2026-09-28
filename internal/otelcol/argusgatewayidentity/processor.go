@@ -116,6 +116,15 @@ func telemetryCollectorID(certificate *x509.Certificate) (string, bool) {
 }
 
 func overwrite(attributes pcommon.Map, identity downstreamIdentity) {
+	sourceID, hasSource := attributes.Get("argus.source.id")
+	sourceRevision, hasRevision := attributes.Get("argus.source.revision")
+	id, revision := "", ""
+	if hasSource && sourceID.Type() == pcommon.ValueTypeStr {
+		id = sourceID.Str()
+	}
+	if hasRevision && sourceRevision.Type() == pcommon.ValueTypeStr {
+		revision = sourceRevision.Str()
+	}
 	keys := make([]string, 0, attributes.Len())
 	attributes.Range(func(key string, _ pcommon.Value) bool {
 		if strings.HasPrefix(key, "argus.") {
@@ -128,4 +137,12 @@ func overwrite(attributes pcommon.Map, identity downstreamIdentity) {
 	}
 	attributes.PutStr("argus.downstream.collector.id", identity.collectorID)
 	attributes.PutStr("argus.downstream.certificate.serial", identity.serial)
+	// Ingest validates these references against this authenticated Collector's
+	// registered generation and configuration. Vendor/type claims are discarded.
+	if id != "" {
+		attributes.PutStr("argus.source.id", id)
+	}
+	if revision != "" {
+		attributes.PutStr("argus.source.revision", revision)
+	}
 }

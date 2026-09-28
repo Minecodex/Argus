@@ -104,7 +104,14 @@ func (client *Client) Health(ctx context.Context) error {
 
 func (client *Client) Create(ctx context.Context, input CreateRequest) (Sandbox, error) {
 	var result Sandbox
-	err := client.request(ctx, http.MethodPost, "/sandboxes", input, &result)
+	// The lifecycle server waits up to 60 seconds for a new Kubernetes workload.
+	// Its caller must not abandon creation at the ordinary 30-second read limit.
+	// Keep the transport and caller cancellation; never replay a creation request.
+	creation := *client
+	httpClient := *client.http
+	httpClient.Timeout = 90 * time.Second
+	creation.http = &httpClient
+	err := creation.request(ctx, http.MethodPost, "/sandboxes", input, &result)
 	return result, err
 }
 

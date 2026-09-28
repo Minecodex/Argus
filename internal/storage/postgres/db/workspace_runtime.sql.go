@@ -376,7 +376,9 @@ func (q *Queries) GetWorkspaceSandboxSession(ctx context.Context, arg GetWorkspa
 
 const listDeletedConversationsForCleanup = `-- name: ListDeletedConversationsForCleanup :many
 SELECT files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at FROM conversations c WHERE status='deleted' AND files_cleaned_at IS NULL
-AND NOT EXISTS(SELECT 1 FROM workspaces w WHERE w.conversation_id=c.id AND w.status<>'deleted') LIMIT $1
+AND NOT EXISTS(SELECT 1 FROM workspaces w WHERE w.conversation_id=c.id AND w.status<>'deleted')
+AND NOT EXISTS(SELECT 1 FROM dashboard_query_jobs j JOIN runtime_tasks t ON t.id=j.task_id
+ WHERE j.conversation_id=c.id AND t.status IN ('leased','running') AND t.lease_until>now()) LIMIT $1
 `
 
 func (q *Queries) ListDeletedConversationsForCleanup(ctx context.Context, limit int32) ([]Conversation, error) {

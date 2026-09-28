@@ -91,7 +91,7 @@ const modelFieldByApiName: Record<string, keyof ModelFormValues> = {
 export function SettingsAiPage() {
   const { t } = useTranslation();
   const canManageModels = usePermission("model.manage");
-  const canManageQuota = usePermission("model_quota.manage");
+  const canManageQuota = usePermission("model.quota.manage");
   const departmentAdmin = !canManageModels && canManageQuota;
   const [tab, setTab] = useState("models");
   const [dashboardModelId, setDashboardModelId] = useState<string>();

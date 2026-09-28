@@ -77,6 +77,63 @@ func (e ConversationUpdateStatus) Valid() bool {
 	}
 }
 
+// Defines values for DashboardChatContextMode.
+const (
+	DashboardChatContextModeAnalyze DashboardChatContextMode = "analyze"
+	DashboardChatContextModeCreate  DashboardChatContextMode = "create"
+	DashboardChatContextModeNone    DashboardChatContextMode = "none"
+)
+
+// Valid indicates whether the value is a known member of the DashboardChatContextMode enum.
+func (e DashboardChatContextMode) Valid() bool {
+	switch e {
+	case DashboardChatContextModeAnalyze:
+		return true
+	case DashboardChatContextModeCreate:
+		return true
+	case DashboardChatContextModeNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardChatContextSchemaVersion.
+const (
+	ArgusDashboardContextv1 DashboardChatContextSchemaVersion = "argus.dashboard_context/v1"
+)
+
+// Valid indicates whether the value is a known member of the DashboardChatContextSchemaVersion enum.
+func (e DashboardChatContextSchemaVersion) Valid() bool {
+	switch e {
+	case ArgusDashboardContextv1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardChatSelectionMode.
+const (
+	DashboardChatSelectionModeAnalyze DashboardChatSelectionMode = "analyze"
+	DashboardChatSelectionModeCreate  DashboardChatSelectionMode = "create"
+	DashboardChatSelectionModeNone    DashboardChatSelectionMode = "none"
+)
+
+// Valid indicates whether the value is a known member of the DashboardChatSelectionMode enum.
+func (e DashboardChatSelectionMode) Valid() bool {
+	switch e {
+	case DashboardChatSelectionModeAnalyze:
+		return true
+	case DashboardChatSelectionModeCreate:
+		return true
+	case DashboardChatSelectionModeNone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PartialMetadataReasons.
 const (
 	AuthorizationFiltered PartialMetadataReasons = "authorization_filtered"
@@ -223,8 +280,9 @@ type ConversationPreflightSandboxStatus string
 
 // ConversationPreflightInput defines model for ConversationPreflightInput.
 type ConversationPreflightInput struct {
-	Content string                `json:"content"`
-	FileIds *[]openapi_types.UUID `json:"file_ids,omitempty"`
+	Content          string                  `json:"content"`
+	DashboardContext *DashboardChatSelection `json:"dashboard_context,omitempty"`
+	FileIds          *[]openapi_types.UUID   `json:"file_ids,omitempty"`
 }
 
 // ConversationUpdate defines model for ConversationUpdate.
@@ -246,6 +304,30 @@ type CursorPage struct {
 	Partial    PartialMetadata `json:"partial"`
 }
 
+// DashboardChatContext defines model for DashboardChatContext.
+type DashboardChatContext struct {
+	DashboardIds  []openapi_types.UUID              `json:"dashboard_ids"`
+	Mode          DashboardChatContextMode          `json:"mode"`
+	SchemaVersion DashboardChatContextSchemaVersion `json:"schema_version"`
+	Version       int64                             `json:"version"`
+}
+
+// DashboardChatContextMode defines model for DashboardChatContext.Mode.
+type DashboardChatContextMode string
+
+// DashboardChatContextSchemaVersion defines model for DashboardChatContext.SchemaVersion.
+type DashboardChatContextSchemaVersion string
+
+// DashboardChatSelection defines model for DashboardChatSelection.
+type DashboardChatSelection struct {
+	DashboardIds    []openapi_types.UUID       `json:"dashboard_ids"`
+	ExpectedVersion *int64                     `json:"expected_version,omitempty"`
+	Mode            DashboardChatSelectionMode `json:"mode"`
+}
+
+// DashboardChatSelectionMode defines model for DashboardChatSelection.Mode.
+type DashboardChatSelectionMode string
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
@@ -257,8 +339,9 @@ type MessageAccepted struct {
 
 // MessageCreate defines model for MessageCreate.
 type MessageCreate struct {
-	Content string                `json:"content"`
-	FileIds *[]openapi_types.UUID `json:"file_ids,omitempty"`
+	Content          string                  `json:"content"`
+	DashboardContext *DashboardChatSelection `json:"dashboard_context,omitempty"`
+	FileIds          *[]openapi_types.UUID   `json:"file_ids,omitempty"`
 }
 
 // PartialMetadata defines model for PartialMetadata.

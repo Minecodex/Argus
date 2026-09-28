@@ -10,6 +10,32 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /conversations/{conversation_id}/dashboard-context:
+    get:
+      operationId: getConversationDashboardContext
+      summary: Read the current user's structured Dashboard selection
+      tags:
+        - Conversations
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Saved selection; revoked or archived IDs remain removable without disclosing their metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardChatContext'
+        default:
+          description: Stable Argus error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /conversations/{conversation_id}/preflight:
     parameters:
       - name: conversation_id
@@ -415,6 +441,8 @@ components:
       required:
         - content
       properties:
+        dashboard_context:
+          $ref: '#/components/schemas/DashboardChatSelection'
         content:
           type: string
           minLength: 1
@@ -494,23 +522,6 @@ components:
           type: boolean
         projection:
           $ref: '#/components/schemas/ToolResultProjection'
-    ConversationPreflightInput:
-      type: object
-      additionalProperties: false
-      required:
-        - content
-      properties:
-        content:
-          type: string
-          minLength: 1
-          maxLength: 1048576
-        file_ids:
-          type: array
-          uniqueItems: true
-          maxItems: 20
-          items:
-            type: string
-            format: uuid
     RequestId:
       type: string
       minLength: 16
@@ -547,6 +558,79 @@ components:
         retryable:
           type: boolean
           default: false
+    DashboardChatContext:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - mode
+        - dashboard_ids
+        - version
+      properties:
+        schema_version:
+          type: string
+          enum:
+            - argus.dashboard_context/v1
+        mode:
+          type: string
+          enum:
+            - none
+            - analyze
+            - create
+        dashboard_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          items:
+            type: string
+            format: uuid
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    DashboardChatSelection:
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - dashboard_ids
+      properties:
+        mode:
+          type: string
+          enum:
+            - none
+            - analyze
+            - create
+        dashboard_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          items:
+            type: string
+            format: uuid
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 0
+    ConversationPreflightInput:
+      type: object
+      additionalProperties: false
+      required:
+        - content
+      properties:
+        dashboard_context:
+          $ref: '#/components/schemas/DashboardChatSelection'
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1048576
+        file_ids:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          items:
+            type: string
+            format: uuid
     ConversationPreflight:
       type: object
       additionalProperties: false

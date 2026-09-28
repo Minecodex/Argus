@@ -1,3 +1,5 @@
+import { createDashboardDomains } from "./real/dashboard";
+import type { DashboardDomains } from "../dashboard";
 import type { ArgusApiClient } from "../client";
 import type {
   AuditEvent as AuditEventContract,
@@ -211,6 +213,9 @@ function auditEvent(value: AuditEventContract): AuditEvent {
         : value.action,
     result: value.result,
     createdAt: value.created_at,
+    details: value.details,
+    previousHash: value.previous_hash,
+    eventHash: value.event_hash,
   };
 }
 
@@ -255,9 +260,10 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
     return portal;
   };
 
-  const client = createUnavailableClient(
-    createPlanV5Domains(http, idempotencyKey),
-  );
+  const client = createUnavailableClient({
+    ...createPlanV5Domains(http, idempotencyKey),
+    ...createDashboardDomains(http, idempotencyKey),
+  });
   const domainContext: RealDomainContext = {
     client,
     http,
@@ -564,12 +570,11 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
   installRemoteAccessDomains(domainContext);
 
   client.audit = {
-    list: (filter, query) =>
-      listAudit("enterprise", filter?.action, query?.page?.limit),
+    list: (filter, query) => listAudit("enterprise", filter, query),
   };
   client.platform.audit = {
     list: (filter, query): Promise<Page<PlatformAuditEvent>> =>
-      listAudit("platform", filter?.action, query?.page?.limit),
+      listAudit("platform", filter, query),
   };
   client.platform.pki = {
     async get(): Promise<PlatformPKIStatus> {
@@ -1173,12 +1178,24 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
 
   async function listAudit(
     audience: "platform" | "enterprise",
-    action?: string,
-    limit?: number,
+    filter?: import("../types").AuditFilter,
+    query?: import("../types").ListQuery,
   ): Promise<Page<AuditEvent>> {
     const params = new URLSearchParams();
-    if (action) params.set("action", action);
-    if (limit) params.set("limit", String(limit));
+    for (const [key, value] of Object.entries({
+      action: filter?.action,
+      actor_id: filter?.actorUserId,
+      resource_type: filter?.resourceType,
+      resource_id: filter?.resourceId,
+      result: filter?.result,
+      query: filter?.query,
+      from: filter?.from,
+      to: filter?.to,
+      cursor: query?.page?.cursor,
+    })) {
+      if (value) params.set(key, value);
+    }
+    if (query?.page?.limit) params.set("limit", String(query.page.limit));
     const value = await http.request<AuditEventPage>(
       `${audience}/audit-events?${params}`,
     );
@@ -1488,7 +1505,9 @@ function createOrganizationClient(
   };
 }
 
-function createUnavailableClient(planv5: PlanV5Domains): ArgusApiClient {
+function createUnavailableClient(
+  planv5: PlanV5Domains & DashboardDomains,
+): ArgusApiClient {
   return {
     ...planv5,
     auth: {
@@ -1511,6 +1530,7 @@ function createUnavailableClient(planv5: PlanV5Domains): ArgusApiClient {
       me: () => unavailable("auth.me"),
     },
     conversations: {
+      dashboardContext: () => unavailable("conversations.dashboardContext"),
       remove: () => unavailable("conversations.remove"),
       preflight: () => unavailable("conversations.preflight"),
       updateConnections: () => unavailable("conversations.updateConnections"),

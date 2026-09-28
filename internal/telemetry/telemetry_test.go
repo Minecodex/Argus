@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"io"
 	"math"
 	"testing"
 	"time"
@@ -28,6 +29,16 @@ import (
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 )
+
+func TestBackendUnavailabilityIsNotQueryInvalid(t *testing.T) {
+	err := queryengine.NormalizeExecutionError(io.EOF)
+	if !errors.Is(err, queryengine.ErrBackend) {
+		t.Fatal("transport failure lost its availability classification")
+	}
+	if !errors.Is(engineRPCError(status.Error(codes.Unavailable, "QUERY_UNAVAILABLE")), ErrQueryBackend) {
+		t.Fatal("RPC availability failure was treated as configuration error")
+	}
+}
 
 func TestValidateArtifactHash(t *testing.T) {
 	hash := sha256.Sum256([]byte("collector"))
@@ -222,25 +233,25 @@ func TestValidateMetricsSupportsM7MetricKinds(t *testing.T) {
 }
 
 func TestQueryRequestBindsScopeSignalAndBudget(t *testing.T) {
-	enterpriseID, resourceID := uuid.New(), uuid.New()
+	enterpriseID, resourceID, subjectID := uuid.New(), uuid.New(), uuid.New()
 	scope := &telemetryv1.TelemetryQueryScope{
 		EnterpriseId: enterpriseID.String(), AuthorizedResources: []*commonv1.ResourceRef{{ResourceType: "host", ResourceId: resourceID.String()}},
-		AllowedSignals: []string{"metrics"}, AuthorizationVersion: 7,
+		SubjectId: subjectID.String(), SubjectType: "user", Signal: "metrics", AuthorizationVersion: 7,
 	}
-	scope.ScopeHash = scopeHash(enterpriseID, []uuid.UUID{resourceID}, 7, "metrics", false)
+	scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", []uuid.UUID{resourceID}, 7, "metrics")
 	if _, _, err := scopeFromProto(scope, "metrics"); err != nil {
 		t.Fatalf("valid query rejected: %v", err)
 	}
-	scope.AllowedSignals = []string{"logs"}
+	scope.Signal = "logs"
 	if _, _, err := scopeFromProto(scope, "metrics"); err == nil {
 		t.Fatal("cross-signal query accepted")
 	}
-	scope.AllowedSignals = []string{"metrics"}
-	scope.ScopeHash = scopeHash(enterpriseID, []uuid.UUID{uuid.New()}, 7, "metrics", false)
+	scope.Signal = "metrics"
+	scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", []uuid.UUID{uuid.New()}, 7, "metrics")
 	if _, _, err := scopeFromProto(scope, "metrics"); err == nil {
 		t.Fatal("forged resource scope hash accepted")
 	}
-	scope.ScopeHash = scopeHash(enterpriseID, []uuid.UUID{resourceID}, 7, "metrics", false)
+	scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", []uuid.UUID{resourceID}, 7, "metrics")
 	scope.AuthorizationVersion = 8
 	if _, _, err := scopeFromProto(scope, "metrics"); err == nil {
 		t.Fatal("stale AuthorizationVersion scope hash accepted")
@@ -274,7 +285,7 @@ func TestQueryBudgetFromProtoBindsMaxSeriesAndDefaults(t *testing.T) {
 }
 
 func TestExecuteQuerySignalMatchesScopeHashBinding(t *testing.T) {
-	enterpriseID, resourceID := uuid.New(), uuid.New()
+	enterpriseID, resourceID, subjectID := uuid.New(), uuid.New(), uuid.New()
 	tests := []struct {
 		name, signal string
 		request      *telemetryv1.ExecuteQueryV2Request
@@ -289,8 +300,8 @@ func TestExecuteQuerySignalMatchesScopeHashBinding(t *testing.T) {
 			if err != nil || got != test.signal {
 				t.Fatalf("querySignal() = %q, %v; want %q", got, err, test.signal)
 			}
-			scope := &telemetryv1.TelemetryQueryScope{EnterpriseId: enterpriseID.String(), AuthorizedResources: []*commonv1.ResourceRef{{ResourceType: "host", ResourceId: resourceID.String()}}, AllowedSignals: []string{test.signal}, AuthorizationVersion: 7}
-			scope.ScopeHash = scopeHash(enterpriseID, []uuid.UUID{resourceID}, 7, test.signal, false)
+			scope := &telemetryv1.TelemetryQueryScope{EnterpriseId: enterpriseID.String(), AuthorizedResources: []*commonv1.ResourceRef{{ResourceType: "host", ResourceId: resourceID.String()}}, SubjectId: subjectID.String(), SubjectType: "user", Signal: test.signal, AuthorizationVersion: 7}
+			scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", []uuid.UUID{resourceID}, 7, test.signal)
 			if _, _, err := scopeFromProto(scope, got); err != nil {
 				t.Fatalf("scope binding rejected matching signal: %v", err)
 			}
@@ -372,12 +383,7 @@ func TestTelemetryProjectionUsesSnakeCaseAndSensitivePolicy(t *testing.T) {
 			t.Fatalf("Web/Agent/Card overview projection is missing %q: %s", key, encoded)
 		}
 	}
-	if got := redactTelemetryText("Authorization: Bearer private-value"); got != "[redacted by telemetry field policy]" {
-		t.Fatalf("sensitive log body was not redacted: %q", got)
-	}
-	if got := redactTelemetryText("ordinary application log"); got != "ordinary application log" {
-		t.Fatalf("ordinary log was unexpectedly changed: %q", got)
-	}
+
 }
 
 func TestIngestFailsClosedWithoutRedisAndKafka(t *testing.T) {

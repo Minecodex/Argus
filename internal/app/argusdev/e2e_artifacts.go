@@ -18,9 +18,11 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+
+	"github.com/kakj-go/Argus/internal/otelcol/configbundle"
 )
 
-const collectorBuilderVersion = "v0.133.0"
+const collectorBuilderVersion = "v" + configbundle.CollectorVersion
 
 type E2ECollectorArtifacts struct {
 	Version             string
@@ -121,7 +123,7 @@ func (a *App) prepareE2ECollectorArtifacts(ctx context.Context, env *E2EEnvironm
 	}
 	artifactBase := "https://artifacts." + env.ReleaseID + ".argus.test/argus-collector-artifacts/e2e"
 	env.CollectorArtifacts = &E2ECollectorArtifacts{
-		Version: "0.1.0-m7", LinuxPath: linuxPath,
+		Version: configbundle.DistributionVersion, LinuxPath: linuxPath,
 		LinuxURI:    artifactBase + "/linux-arm64.tar.gz",
 		LinuxSHA256: linuxHash, LinuxSignature: linuxSignature, LinuxByteSize: linuxSize,
 		LinuxAMD64Path: linuxAMD64Path, LinuxAMD64URI: artifactBase + "/linux-amd64.tar.gz",

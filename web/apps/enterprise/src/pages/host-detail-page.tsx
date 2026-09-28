@@ -33,6 +33,7 @@ import {
 import { TasksTab } from "../components/hosts/tasks-tab";
 import { RealTerminalTab } from "../components/hosts/real-terminal-tab";
 import { ResourceTelemetry } from "../components/telemetry/resource-telemetry";
+import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
 import {
   collectorTone,
   collectorStatusOf,
@@ -314,6 +315,7 @@ export function HostDetailPage() {
       }
     >
       {hostQuery.isLoading && <Spinner />}
+      {host && <ResourceDashboardLinks type="host" id={host.id} />}
       {hostQuery.isError && (
         <EmptyState
           description=""

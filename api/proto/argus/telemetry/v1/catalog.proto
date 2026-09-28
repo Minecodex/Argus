@@ -1,0 +1,31 @@
+syntax = "proto3";
+package argus.telemetry.v1;
+option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/telemetry/v1;telemetryv1";
+
+import "argus/telemetry/v1/telemetry.proto";
+import "google/protobuf/timestamp.proto";
+
+// Metadata discovery runs in the existing Query process with read-only storage.
+service TelemetryCatalogService {
+  rpc DiscoverData(DiscoverDataRequest) returns (DiscoverDataResponse);
+}
+
+message DiscoverDataRequest {
+  TelemetryQueryScope scope = 1;
+  string signal = 2;
+  string kind = 3;
+  string metric = 4;
+  string field = 5;
+  string search = 6;
+  repeated string selected_values = 7;
+  bytes filters_json = 8;
+  google.protobuf.Timestamp from = 9;
+  google.protobuf.Timestamp to = 10;
+  QueryBudget budget = 11;
+  uint32 limit = 12;
+  string cursor = 13;
+}
+message DiscoverDataResponse {
+  string schema_version = 1;
+  bytes result_json = 2;
+}

@@ -2,6 +2,7 @@ package promqlengine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chstats"
 )
+
+var ErrBudget = errors.New("promql query budget exceeded")
 
 type Request struct {
 	Expression   string
@@ -30,12 +33,13 @@ type Request struct {
 }
 
 type Result struct {
-	Value        parser.Value
-	Warnings     []string
-	Elapsed      time.Duration
-	Stats        any
-	ScannedRows  int64
-	ScannedBytes int64
+	LatestSampleAt *time.Time
+	Value          parser.Value
+	Warnings       []string
+	Elapsed        time.Duration
+	Stats          any
+	ScannedRows    int64
+	ScannedBytes   int64
 }
 
 type Engine struct {
@@ -108,7 +112,7 @@ func (e *Engine) Execute(ctx context.Context, request Request) (Result, error) {
 	// the value before the deferred Close runs so a later query cannot mutate an
 	// already returned result through pooled backing arrays.
 	value := clonePromQLValue(result.Value)
-	return Result{Value: value, Warnings: warnings, Elapsed: time.Since(started), Stats: query.Stats(), ScannedRows: progress.Rows(), ScannedBytes: progress.Bytes()}, nil
+	return Result{LatestSampleAt: progress.LatestEvent(), Value: value, Warnings: warnings, Elapsed: time.Since(started), Stats: query.Stats(), ScannedRows: progress.Rows(), ScannedBytes: progress.Bytes()}, nil
 }
 
 func clonePromQLValue(value parser.Value) parser.Value {

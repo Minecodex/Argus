@@ -135,6 +135,7 @@ export function FormDrawer({
             aria-label={title}
             onSubmit={(event) => {
               event.preventDefault();
+              event.stopPropagation();
               onSubmit?.();
             }}
             style={{ width: `min(${width}px, 100vw)` }}

@@ -1,3 +1,4 @@
+import { commitDashboardAction } from "./dashboard";
 import { publishMockPresentation } from "./planv5";
 import type {
   ConfirmActionResult,
@@ -352,6 +353,8 @@ export function createEngine(ctx: BaseContext): Engine {
   function commitResourceAction(
     action: PendingActionPublic,
   ): ConfirmActionResult | undefined {
+    const dashboardResult = commitDashboardAction(ctx, action);
+    if (dashboardResult) return dashboardResult;
     const plan = db.actionPlans[action.action_ref];
     if (
       !plan ||
@@ -803,6 +806,13 @@ export function createEngine(ctx: BaseContext): Engine {
         resourceVersion: 1,
       };
       db.hosts.push(host);
+      (db.dataAuthorizationGrants ??= []).push({
+        subject_type: "user",
+        subject_id: plan.created_by,
+        resource_type: "host",
+        resource_id: host.id,
+        active: true,
+      });
       const scope = db.bastionScopes.find(
         (entry) => entry.id === host.bastionScopeId,
       );
@@ -1115,8 +1125,9 @@ export function createEngine(ctx: BaseContext): Engine {
       return;
     }
     if (plan.tool === "kubernetes.cluster.create") {
+      const clusterId = nextId(db, "k8s");
       db.clusters.push({
-        id: nextId(db, "k8s"),
+        id: clusterId,
         enterpriseId: plan.enterprise_id,
         name: String(input_data["name"] ?? "new-cluster"),
         apiServer: String(
@@ -1145,6 +1156,13 @@ export function createEngine(ctx: BaseContext): Engine {
         createdAt: ctx.nowIso(),
         updatedAt: ctx.nowIso(),
         resourceVersion: 1,
+      });
+      (db.dataAuthorizationGrants ??= []).push({
+        subject_type: "user",
+        subject_id: plan.created_by,
+        resource_type: "kubernetes_cluster",
+        resource_id: clusterId,
+        active: true,
       });
       return;
     }
@@ -1233,6 +1251,13 @@ export function createEngine(ctx: BaseContext): Engine {
         createdAt: now,
         updatedAt: now,
         resourceVersion: 1,
+      });
+      (db.dataAuthorizationGrants ??= []).push({
+        subject_type: "user",
+        subject_id: plan.created_by,
+        resource_type: "host",
+        resource_id: rootHostId,
+        active: true,
       });
       action.result_summary = `已创建堡垒机范围 ${scope.name}`;
       if (scope.onboardingMode === "command") {
@@ -1411,7 +1436,7 @@ export function createEngine(ctx: BaseContext): Engine {
       /(新增|添加|add|create)/i.test(text) && /(主机|host)/i.test(text);
     const toolNames = wantsHostCreate
       ? ["host.resolve_context", "host.test_connection", "host.create.preview"]
-      : ["telemetry.metrics.query"];
+      : ["telemetry.promql.query"];
     const traces: ToolCallTrace[] = [];
     for (const toolName of toolNames) {
       const callId = nextId(db, "call");

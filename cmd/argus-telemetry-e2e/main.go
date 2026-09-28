@@ -41,12 +41,23 @@ func main() {
 	tlsCertificate := flag.String("tls-cert", "", "OTLP client certificate path")
 	tlsKey := flag.String("tls-key", "", "OTLP client private key path")
 	tlsServerName := flag.String("tls-server-name", "", "expected OTLP server name")
+	selfcheckURL := flag.String("native-selfcheck-url", "", "exercise native SkyWalking/Jaeger SDKs against the local Argus HTTP service")
+	sharedService := flag.String("native-service-name", "", "optional common service name for native source isolation checks")
+	traceRole := flag.String("planv2-trace-role", "", "frontend or backend trace boundary fixture")
+	traceTime := flag.String("planv2-trace-time", "", "shared RFC3339Nano event time for out-of-order spans")
+	traceGeneration := flag.String("planv2-trace-generation", "old", "fixture body distinguishing installation generations")
 	flag.Parse()
 	if *kafkaPassword == "" {
 		*kafkaPassword = os.Getenv("ARGUS_E2E_KAFKA_PASSWORD")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	if *selfcheckURL != "" {
+		if err := nativeNamedSelfcheck(ctx, *selfcheckURL, *sharedService); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if *kafkaBrokers != "" {
 		producePermanentRecord(ctx, strings.Split(*kafkaBrokers, ","), *kafkaUsername, *kafkaPassword, *enterpriseID, *resourceID, *collectorID)
 		return
@@ -54,6 +65,16 @@ func main() {
 	transport := credentials.TransportCredentials(insecure.NewCredentials())
 	if *tlsCA != "" || *tlsCertificate != "" || *tlsKey != "" || *tlsServerName != "" {
 		transport = telemetryTransportCredentials(*tlsCA, *tlsCertificate, *tlsKey, *tlsServerName)
+	}
+	if *traceRole != "" {
+		at, err := time.Parse(time.RFC3339Nano, *traceTime)
+		if err == nil {
+			err = emitPlanV2Trace(ctx, *endpoint, transport, *traceRole, *traceGeneration, at)
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		return
 	}
 	now := uint64(time.Now().UTC().UnixNano())
 	resource := &resourcepb.Resource{Attributes: []*commonpb.KeyValue{
@@ -70,11 +91,19 @@ func main() {
 	// exercising the same leaf certificate and route for all three signals.
 	for _, export := range []func(grpc.ClientConnInterface) error{
 		func(connection grpc.ClientConnInterface) error {
-			_, err := collectmetrics.NewMetricsServiceClient(connection).Export(ctx, metricsRequest(resource, now, suffix))
+			request := metricsRequest(resource, now, suffix)
+			if suffix == ".planv2" {
+				request.ResourceMetrics[0].ScopeMetrics[0].Metrics = append(request.ResourceMetrics[0].ScopeMetrics[0].Metrics, planV2SelectionMetric(now))
+			}
+			_, err := collectmetrics.NewMetricsServiceClient(connection).Export(ctx, request)
 			return err
 		},
 		func(connection grpc.ClientConnInterface) error {
-			_, err := collectlogs.NewLogsServiceClient(connection).Export(ctx, logsRequest(resource, now, suffix, *logBody))
+			request := logsRequest(resource, now, suffix, *logBody)
+			if suffix == ".planv2" {
+				request.ResourceLogs[0].ScopeLogs[0].LogRecords = append(request.ResourceLogs[0].ScopeLogs[0].LogRecords, planV2SelectionLogs(now)...)
+			}
+			_, err := collectlogs.NewLogsServiceClient(connection).Export(ctx, request)
 			return err
 		},
 		func(connection grpc.ClientConnInterface) error {
@@ -129,6 +158,7 @@ func telemetryTransportCredentials(caPath, certificatePath, keyPath, serverName 
 
 func metricsRequest(resource *resourcepb.Resource, now uint64, suffix string) *collectmetrics.ExportMetricsServiceRequest {
 	histogramSum := 7.0
+	classicSum := 16.0
 	return &collectmetrics.ExportMetricsServiceRequest{
 		ResourceMetrics: []*metricspb.ResourceMetrics{{
 			Resource: resource,
@@ -148,6 +178,7 @@ func metricsRequest(resource *resourcepb.Resource, now uint64, suffix string) *c
 					{Name: "argus.m7.e2e.summary" + suffix, Data: &metricspb.Metric_Summary{Summary: &metricspb.Summary{DataPoints: []*metricspb.SummaryDataPoint{{
 						TimeUnixNano: now, Count: 2, Sum: 7, QuantileValues: []*metricspb.SummaryDataPoint_ValueAtQuantile{{Quantile: 0.5, Value: 3}, {Quantile: 0.9, Value: 4}},
 					}}}}},
+					{Name: "argus.planv2.latency", Unit: "ms", Data: &metricspb.Metric_Histogram{Histogram: &metricspb.Histogram{AggregationTemporality: metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_CUMULATIVE, DataPoints: []*metricspb.HistogramDataPoint{{TimeUnixNano: now, Count: 6, Sum: &classicSum, ExplicitBounds: []float64{1, 5}, BucketCounts: []uint64{2, 3, 1}}}}}},
 				},
 			}},
 		}},

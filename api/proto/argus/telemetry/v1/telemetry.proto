@@ -49,10 +49,16 @@ message TelemetryIngestContext {
 message TelemetryQueryScope {
   string enterprise_id = 1;
   repeated argus.common.v1.ResourceRef authorized_resources = 2;
-  repeated string allowed_signals = 3;
+  reserved 3, 6;
+  reserved "allowed_signals", "sensitive_fields";
   uint64 authorization_version = 4;
   string scope_hash = 5;
-  bool sensitive_fields = 6;
+  // Frozen source UUID:configuration-revision keys. Empty is only for legacy native queries.
+  repeated string source_keys = 7;
+  // Routing identity, not a signal-specific permission.
+  string signal = 8;
+  string subject_id = 9;
+  string subject_type = 10;
 }
 
 message QueryOverviewRequest {
@@ -99,6 +105,8 @@ message DropTenantSchemaResponse {
 // language-specific syntax out of a shared DSL/IR while preserving one RPC
 // boundary for auth, budget and audit enforcement.
 message ExecuteQueryV2Request {
+  // Server-derived published definition/source identity; empty disables caching.
+  string cache_namespace = 4;
   string schema_version = 1;
   TelemetryQueryScope scope = 2;
   QueryBudget budget = 3;
@@ -162,4 +170,9 @@ message QueryMeta {
   uint64 loaded_samples = 7;
   uint64 elapsed_millis = 8;
   bool partial = 9;
+  google.protobuf.Timestamp query_completed_at = 10;
+  bool cache_hit = 11;
+  google.protobuf.Timestamp latest_sample_at = 12;
+  string sample_time_basis = 13;
+  string ingestion_status = 14;
 }

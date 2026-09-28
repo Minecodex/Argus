@@ -1,4 +1,6 @@
 :root {
+  --dashboard-stat-min-width: 120px;
+  --dashboard-cell-max-width: 320px;
   --line-height-normal: 1.5;
   color-scheme: dark;
   --font-sans:

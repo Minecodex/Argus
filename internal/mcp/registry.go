@@ -41,6 +41,7 @@ type Metadata struct {
 	Visibility               Visibility
 	ExecutionMode            ExecutionMode
 	Required                 []string
+	AnyRequired              []string
 	InputVersion             string
 	OutputVersion            string
 	ProjectionSchema         string

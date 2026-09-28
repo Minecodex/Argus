@@ -105,7 +105,7 @@ func validDataAuthorizationSubjectType(value string) bool {
 }
 
 func validDataAuthorizationResourceType(value string) bool {
-	return value == "host" || value == "kubernetes_cluster"
+	return value == "host" || value == "kubernetes_cluster" || value == "dashboard"
 }
 
 func (handler EnterpriseAuthorizationHandler) ListPermissions(ctx context.Context, request authzapi.ListPermissionsRequestObject) (authzapi.ListPermissionsResponseObject, error) {

@@ -19,6 +19,12 @@ func (service Service) Delete(ctx context.Context, enterprise, owner, id uuid.UU
 		if err := q.MarkConversationWorkspacesDeleting(ctx, db.MarkConversationWorkspacesDeletingParams{ConversationID: id, EnterpriseID: enterprise}); err != nil {
 			return value, err
 		}
+		if err := q.CancelConversationDashboardQueryJobs(ctx, db.CancelConversationDashboardQueryJobsParams{ConversationID: id, EnterpriseID: enterprise}); err != nil {
+			return value, err
+		}
+		if err := q.CancelQueuedDashboardQueryTasks(ctx, db.CancelQueuedDashboardQueryTasksParams{ConversationID: id, EnterpriseID: enterprise}); err != nil {
+			return value, err
+		}
 		runs, err := q.CancelConversationAgentRuns(ctx, db.CancelConversationAgentRunsParams{ConversationID: id, EnterpriseID: enterprise})
 		if err != nil {
 			return value, err

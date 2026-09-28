@@ -8,6 +8,7 @@ export interface MockToolCallTrace {
 }
 
 export interface MockChatMessage {
+  dashboardContext?: import("../generated/contracts").DashboardChatContext;
   id: string;
   conversationId: string;
   role: "user" | "assistant" | "system";

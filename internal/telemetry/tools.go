@@ -24,16 +24,16 @@ func (tools Tools) Register(registry *mcp.Registry) error {
 	registrations := []mcp.Metadata{
 		tools.metadata("telemetry.collector.list", "telemetry.collector.read", collectorListInputSchema(), collectorListOutputSchema(), tools.collectors),
 		tools.metadata("telemetry.collector.get", "telemetry.collector.read", idInputSchema("collector_id"), collectorOutputSchema(), tools.collector),
-		tools.metadata("telemetry.promql.query", "telemetry.query.metrics", dslQueryInputSchema("promql", "metrics"), promQLOutputSchema(), func(ctx context.Context, call mcp.Call) (mcp.Result, error) {
+		tools.metadata("telemetry.promql.query", "", dslQueryInputSchema("promql", "metrics"), promQLOutputSchema(), func(ctx context.Context, call mcp.Call) (mcp.Result, error) {
 			return tools.dslQuery(ctx, call, queryengine.LanguagePromQL)
 		}),
-		tools.metadata("telemetry.kql.query", "telemetry.query.logs", dslQueryInputSchema("kql", "logs"), kqlOutputSchema(), func(ctx context.Context, call mcp.Call) (mcp.Result, error) {
+		tools.metadata("telemetry.kql.query", "", dslQueryInputSchema("kql", "logs"), kqlOutputSchema(), func(ctx context.Context, call mcp.Call) (mcp.Result, error) {
 			return tools.dslQuery(ctx, call, queryengine.LanguageKQL)
 		}),
-		tools.metadata("telemetry.skywalking.trace", "telemetry.query.traces", dslQueryInputSchema("skywalking_graphql", "traces"), traceGraphQLOutputSchema(), func(ctx context.Context, call mcp.Call) (mcp.Result, error) {
+		tools.metadata("telemetry.skywalking.trace", "", dslQueryInputSchema("skywalking_graphql", "traces"), traceGraphQLOutputSchema(), func(ctx context.Context, call mcp.Call) (mcp.Result, error) {
 			return tools.dslQuery(ctx, call, queryengine.LanguageTrace)
 		}),
-		tools.metadata("telemetry.overview", "telemetry.query.metrics", overviewInputSchema(), overviewOutputSchema(), tools.overview),
+		tools.metadata("telemetry.overview", "", overviewInputSchema(), overviewOutputSchema(), tools.overview),
 	}
 	for _, metadata := range registrations {
 		if err := registry.Register(metadata); err != nil {
@@ -44,7 +44,7 @@ func (tools Tools) Register(registry *mcp.Registry) error {
 }
 
 func (tools Tools) metadata(id, permission string, input, output map[string]any, execute func(context.Context, mcp.Call) (mcp.Result, error)) mcp.Metadata {
-	return tools.presentationMetadata(mcp.Metadata{ID: id, Discovery: telemetryDiscovery[id], ToolFamily: id, Risk: "read", Visibility: mcp.Visible, ExecutionMode: mcp.ParallelSafe,
+	metadata := tools.presentationMetadata(mcp.Metadata{ID: id, Discovery: telemetryDiscovery[id], ToolFamily: id, Risk: "read", Visibility: mcp.Visible, ExecutionMode: mcp.ParallelSafe,
 		Required: []string{permission}, InputVersion: id + "/v1", OutputVersion: id + "/v1", ProjectionSchema: "argus.tool_result_projection/v1",
 		MaxResultBytes: 4 << 20, InputSchema: input, OutputSchema: output, FieldTypes: telemetryFieldTypes(id), SemanticFields: telemetrySemanticFields(id),
 		Authorize: tools.authorize(permission), Validate: func(value map[string]any) error {
@@ -54,6 +54,11 @@ func (tools Tools) metadata(id, permission string, input, output map[string]any,
 			return nil
 		}, Execute: execute,
 	})
+	if permission == "" {
+		metadata.Required = []string{}
+		metadata.AnyRequired = []string{"host.read", "kubernetes.read"}
+	}
+	return metadata
 }
 
 func (tools Tools) authorize(permission string) func(context.Context, mcp.Call) error {
@@ -61,6 +66,10 @@ func (tools Tools) authorize(permission string) func(context.Context, mcp.Call) 
 		actor, permissions, err := tools.actor(ctx, call)
 		_ = actor
 		if err != nil {
+			return err
+		}
+		if permission == "" {
+			_, err = tools.Service.ResourceQueryActor(ctx, actor.EnterpriseID, actor.SubjectID, actor.SubjectType, actor.AuthorizationVersion)
 			return err
 		}
 		if !slices.Contains(permissions, "*") && !slices.Contains(permissions, permission) {
@@ -96,7 +105,7 @@ func (tools Tools) actor(ctx context.Context, call mcp.Call) (Actor, []string, e
 			}
 			scopes = append(scopes, values...)
 		}
-		return Actor{EnterpriseID: enterpriseID, SubjectID: subjectID, AuthorizationVersion: account.AuthorizationVersion, AuthorizedResourceIDs: scopes}, permissions, err
+		return Actor{SubjectType: "service_account", EnterpriseID: enterpriseID, SubjectID: subjectID, AuthorizationVersion: account.AuthorizationVersion, AuthorizedResourceIDs: scopes}, permissions, err
 	}
 	user, err := tools.Service.Store.Queries.GetEnterpriseUser(ctx, db.GetEnterpriseUserParams{ID: subjectID, EnterpriseID: enterpriseID})
 	if err != nil || user.Status != "active" {
@@ -114,7 +123,7 @@ func (tools Tools) actor(ctx context.Context, call mcp.Call) (Actor, []string, e
 		}
 		scopes = append(scopes, values...)
 	}
-	return Actor{EnterpriseID: enterpriseID, SubjectID: subjectID, AuthorizationVersion: user.AuthorizationVersion, AuthorizedResourceIDs: scopes}, permissions, err
+	return Actor{SubjectType: "user", EnterpriseID: enterpriseID, SubjectID: subjectID, AuthorizationVersion: user.AuthorizationVersion, AuthorizedResourceIDs: scopes}, permissions, err
 }
 
 func (tools Tools) collectors(ctx context.Context, call mcp.Call) (mcp.Result, error) {
@@ -141,7 +150,11 @@ func (tools Tools) collector(ctx context.Context, call mcp.Call) (mcp.Result, er
 	return mcp.Result{Structured: map[string]any{"collector": item}}, err
 }
 func (tools Tools) dslQuery(ctx context.Context, call mcp.Call, language queryengine.Language) (mcp.Result, error) {
-	actor, permissions, err := tools.actor(ctx, call)
+	actor, _, err := tools.actor(ctx, call)
+	if err != nil {
+		return mcp.Result{}, err
+	}
+	actor, err = tools.Service.ResourceQueryActor(ctx, actor.EnterpriseID, actor.SubjectID, actor.SubjectType, actor.AuthorizationVersion)
 	if err != nil {
 		return mcp.Result{}, err
 	}
@@ -191,17 +204,23 @@ func (tools Tools) dslQuery(ctx context.Context, call mcp.Call, language queryen
 	if language == queryengine.LanguageTrace {
 		expression = fmt.Sprint(call.Input["document"])
 	}
-	sensitive := slices.Contains(permissions, "*") || slices.Contains(permissions, "telemetry.sensitive_fields.read")
 	result, err := tools.Service.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: language, Expression: expression, Pipeline: pipeline, Instant: language == queryengine.LanguagePromQL && step <= 0, Start: from, End: to, Step: step,
-		Scope: queryengine.Scope{EnterpriseID: actor.EnterpriseID, ResourceIDs: ids, AuthorizationVersion: actor.AuthorizationVersion, SensitiveFields: sensitive}, Budget: queryengine.Budget{MaxRows: limit, MaxSamples: maxSamples, MaxSeries: maxSeries, MaxScanBytes: maxScanBytes, MaxResultBytes: maxResultBytes, Timeout: timeout}})
+		Scope: queryengine.Scope{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: ids, AuthorizationVersion: actor.AuthorizationVersion}, Budget: queryengine.Budget{MaxRows: limit, MaxSamples: maxSamples, MaxSeries: maxSeries, MaxScanBytes: maxScanBytes, MaxResultBytes: maxResultBytes, Timeout: timeout}})
 	if err != nil {
 		return mcp.Result{}, err
 	}
 	output := protocolQueryOutput(result)
+	if err := tools.Service.ValidateQueryScope(ctx, actor, ids); err != nil {
+		return mcp.Result{}, err
+	}
 	return mcp.Result{Structured: output, Partial: result.Meta.Partial}, nil
 }
 func (tools Tools) overview(ctx context.Context, call mcp.Call) (mcp.Result, error) {
 	actor, _, err := tools.actor(ctx, call)
+	if err != nil {
+		return mcp.Result{}, err
+	}
+	actor, err = tools.Service.ResourceQueryActor(ctx, actor.EnterpriseID, actor.SubjectID, actor.SubjectType, actor.AuthorizationVersion)
 	if err != nil {
 		return mcp.Result{}, err
 	}
@@ -214,6 +233,9 @@ func (tools Tools) overview(ctx context.Context, call mcp.Call) (mcp.Result, err
 		lookback = int(value)
 	}
 	item, err := tools.Service.QueryOverview(ctx, actor, ids, lookback)
+	if err == nil {
+		err = tools.Service.ValidateQueryScope(ctx, actor, ids)
+	}
 	encoded, _ := json.Marshal(item)
 	var output map[string]any
 	_ = json.Unmarshal(encoded, &output)

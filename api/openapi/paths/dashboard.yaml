@@ -1,0 +1,964 @@
+{
+  "dashboards": {
+    "get": {
+      "operationId": "listDashboards",
+      "summary": "listDashboards.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "../components/dashboard.yaml#/components/schemas/DashboardItem"
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "dashboard": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getDashboard",
+      "summary": "getDashboard.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDetail"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "revisions": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listDashboardRevisions",
+      "summary": "listDashboardRevisions.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "../components/dashboard.yaml#/components/schemas/DashboardRevision"
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "drafts": {
+    "get": {
+      "operationId": "listDashboardDrafts",
+      "summary": "listDashboardDrafts.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraft"
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    },
+    "post": {
+      "operationId": "createDashboardDraft",
+      "summary": "createDashboardDraft.",
+      "responses": {
+        "201": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraft"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraftInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "draft": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getDashboardDraft",
+      "summary": "getDashboardDraft.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraft"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    },
+    "patch": {
+      "operationId": "saveDashboardDraft",
+      "summary": "saveDashboardDraft.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraft"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraftInput"
+            }
+          }
+        }
+      }
+    },
+    "delete": {
+      "operationId": "discardDashboardDraft",
+      "summary": "discardDashboardDraft.",
+      "responses": {
+        "204": {
+          "description": "Operation completed."
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardVersionInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "preview": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "previewDashboardPublication",
+      "summary": "previewDashboardPublication.",
+      "responses": {
+        "201": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../schemas/action/pending-action-public.schema.json"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardVersionInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "rebase": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "rebaseDashboardDraft",
+      "summary": "rebaseDashboardDraft.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraft"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardRebaseInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "validation": {
+    "post": {
+      "operationId": "validateDashboardSpec",
+      "summary": "validateDashboardSpec.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardValidationReport"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardSpec"
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "CsrfToken": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 256
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "$ref": "../components/common.yaml#/components/schemas/IdempotencyKey"
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Operation result.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/common.yaml#/components/schemas/ApiError"
+            }
+          }
+        }
+      }
+    }
+  },
+  "folder_collection": {
+    "get": {
+      "operationId": "listDashboardFolders",
+      "summary": "List dashboard folders.",
+      "responses": {
+        "200": {
+          "description": "Folders.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "../components/dashboard.yaml#/components/schemas/DashboardFolder"
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "folder_preview": {
+    "post": {
+      "operationId": "previewDashboardFolder",
+      "summary": "Preview a folder change without publishing it.",
+      "responses": {
+        "201": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../schemas/action/pending-action-public.schema.json"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardLifecycleInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "dashboard_action": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "previewDashboardLifecycle",
+      "summary": "Preview dashboard archive or restore.",
+      "responses": {
+        "201": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../schemas/action/pending-action-public.schema.json"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardLifecycleInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "execute": {
+    "post": {
+      "operationId": "executeDashboard",
+      "summary": "executeDashboard.",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardExecutionInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardExecution"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    },
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ]
+  },
+  "sample": {
+    "post": {
+      "operationId": "sampleDashboardDraft",
+      "summary": "sampleDashboardDraft.",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardVersionInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraftSample"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    },
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ]
+  },
+  "catalog": {
+    "post": {
+      "operationId": "queryDashboardCatalog",
+      "summary": "queryDashboardCatalog.",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardCatalogInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardCatalogResult"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "drilldown": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "executeDashboardDrilldown",
+      "summary": "executeDashboardDrilldown.",
+      "parameters": [],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDrilldownInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDrilldownExecution"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "generateDrilldowns": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "generateDashboardDrilldowns",
+      "summary": "generateDashboardDrilldowns.",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardGenerateDrilldownsInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardGeneratedDrilldowns"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "hostBindings": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listHostDashboardBindings",
+      "summary": "List authorized active dashboard shortcuts.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/ResourceDashboardBindings"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "hostBindingPreview": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "previewHostDashboardBinding",
+      "summary": "Preview a resource dashboard binding change.",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardBindingInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../schemas/action/pending-action-public.schema.json"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "clusterBindings": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listClusterDashboardBindings",
+      "summary": "List authorized active dashboard shortcuts.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/ResourceDashboardBindings"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "clusterBindingPreview": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "previewClusterDashboardBinding",
+      "summary": "Preview a resource dashboard binding change.",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardBindingInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../schemas/action/pending-action-public.schema.json"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "dashboardBindings": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listDashboardBindings",
+      "summary": "List shortcuts visible to the current subject on both sides.",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "../components/dashboard.yaml#/components/schemas/DashboardBindingView"
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "convertPanel": {
+    "post": {
+      "operationId": "convertDashboardPanel",
+      "summary": "Convert every query in a panel only when the editing sources are losslessly representable.",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardConvertPanelInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Atomic conversion result. Unsupported conversion returns the original panel.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardConvertedPanel"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

@@ -77,20 +77,33 @@ export function DataAuthorizationDialog({
   const [value, setValue] = useState<{
     host: string[];
     kubernetes_cluster: string[];
-  }>({ host: [], kubernetes_cluster: [] });
+    dashboard: string[];
+  }>({ host: [], kubernetes_cluster: [], dashboard: [] });
   const [baseline, setBaseline] = useState<
     Record<DataAuthorizationResourceType, string[]>
-  >({ host: [], kubernetes_cluster: [] });
+  >({ host: [], kubernetes_cluster: [], dashboard: [] });
+  const dashboards = useQuery({
+    queryKey: ["authorization", subjectType, subjectId, "dashboard"],
+    enabled: open && Boolean(subjectId),
+    queryFn: () =>
+      listAllAuthorization(api, subjectType, subjectId, "dashboard"),
+  });
   const [confirmOpen, setConfirmOpen] = useState(false);
   useEffect(() => {
-    if (!hosts.data || !clusters.data) return;
+    if (!hosts.data || !clusters.data || !dashboards.data) return;
     const hostSelected = hosts.data.items
       .filter((item) => item.direct || item.inherited)
       .map((item) => item.resource_id);
     const clusterSelected = clusters.data.items
       .filter((item) => item.direct || item.inherited)
       .map((item) => item.resource_id);
-    setValue({ host: hostSelected, kubernetes_cluster: clusterSelected });
+    setValue({
+      host: hostSelected,
+      kubernetes_cluster: clusterSelected,
+      dashboard: dashboards.data.items
+        .filter((item) => item.direct || item.inherited)
+        .map((item) => item.resource_id),
+    });
     setBaseline({
       host: hosts.data.items
         .filter((item) => item.direct)
@@ -98,8 +111,35 @@ export function DataAuthorizationDialog({
       kubernetes_cluster: clusters.data.items
         .filter((item) => item.direct)
         .map((item) => item.resource_id),
+      dashboard: dashboards.data.items
+        .filter((item) => item.direct)
+        .map((item) => item.resource_id),
     });
-  }, [hosts.data, clusters.data]);
+  }, [hosts.data, clusters.data, dashboards.data]);
+  const dashboardItems = useMemo(
+    () =>
+      (dashboards.data?.items ?? []).map((item) => ({
+        id: item.resource_id,
+        label: item.name,
+        inherited: item.inherited,
+        source: item.sources.join(", "),
+      })),
+    [dashboards.data],
+  );
+  const directSelection = (type: DataAuthorizationResourceType) => {
+    const items =
+      type === "host"
+        ? hosts.data?.items
+        : type === "kubernetes_cluster"
+          ? clusters.data?.items
+          : dashboards.data?.items;
+    const inherited = new Set(
+      items
+        ?.filter((item) => item.inherited && !item.direct)
+        .map((item) => item.resource_id),
+    );
+    return value[type].filter((id) => !inherited.has(id));
+  };
   const hostItems = useMemo(
     () =>
       (hosts.data?.items ?? []).map((item) => ({
@@ -126,9 +166,13 @@ export function DataAuthorizationDialog({
         hosts.data?.authorization_version ??
         clusters.data?.authorization_version ??
         1;
-      for (const resourceType of ["host", "kubernetes_cluster"] as const) {
+      for (const resourceType of [
+        "host",
+        "kubernetes_cluster",
+        "dashboard",
+      ] as const) {
         const before = new Set(baseline[resourceType]);
-        const after = new Set(value[resourceType]);
+        const after = new Set(directSelection(resourceType));
         const add = [...after].filter((id) => !before.has(id));
         const remove = [...before].filter((id) => !after.has(id));
         if (add.length) {
@@ -173,15 +217,19 @@ export function DataAuthorizationDialog({
       await queryClient.invalidateQueries({
         queryKey: ["authorization", subjectType, subjectId],
       });
+      await queryClient.invalidateQueries({
+        predicate: (query) => String(query.queryKey[0]).startsWith("dashboard"),
+      });
       onOpenChange(false);
     },
   });
   const dirty = (Object.keys(value) as DataAuthorizationResourceType[]).some(
     (resourceType) => {
       const before = new Set(baseline[resourceType]);
+      const selected = directSelection(resourceType);
       return (
-        value[resourceType].some((id) => !before.has(id)) ||
-        baseline[resourceType].some((id) => !value[resourceType].includes(id))
+        selected.some((id) => !before.has(id)) ||
+        baseline[resourceType].some((id) => !selected.includes(id))
       );
     },
   );
@@ -190,16 +238,19 @@ export function DataAuthorizationDialog({
     clusters.data?.affected_member_count ??
     0;
   const submit = () => {
+    if (loading || loadError || save.isPending) return;
     if (subjectType === "role" && dirty) {
       setConfirmOpen(true);
       return;
     }
     save.mutate();
   };
-  const loading = hosts.isPending || clusters.isPending;
+  const loading = hosts.isPending || clusters.isPending || dashboards.isPending;
+  const loadError = hosts.error ?? clusters.error ?? dashboards.error;
   const labels = {
     host: t("settings.org.dataAuthorization.host"),
     kubernetes: t("settings.org.dataAuthorization.kubernetes"),
+    dashboard: t("settings.org.dataAuthorization.dashboard"),
     searchPlaceholder: t("settings.org.dataAuthorization.searchPlaceholder"),
     available: t("settings.org.dataAuthorization.available"),
     authorized: t("settings.org.dataAuthorization.authorized"),
@@ -217,7 +268,7 @@ export function DataAuthorizationDialog({
         open={open}
         onOpenChange={onOpenChange}
         onSubmit={submit}
-        loading={save.isPending}
+        loading={save.isPending || loading}
         submitLabel={t("settings.org.dataAuthorization.save")}
         title={t("settings.org.dataAuthorization.title", {
           subject: subjectLabel,
@@ -225,13 +276,18 @@ export function DataAuthorizationDialog({
       >
         {loading ? (
           <Spinner label={t("common.loading")} />
+        ) : loadError ? (
+          <p role="alert">{t("settings.org.dataAuthorization.loadFailed")}</p>
         ) : (
           <ResourceAuthorizationDualList
             hosts={hostItems}
             clusters={clusterItems}
+            dashboards={dashboardItems}
             labels={labels}
             value={value}
-            onChange={setValue}
+            onChange={(next) =>
+              setValue({ ...next, dashboard: next.dashboard ?? [] })
+            }
           />
         )}
         {save.error ? (

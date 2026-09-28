@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  type DashboardChatSelection,
   StreamTerminatedError,
   useApi,
   ApiError,
@@ -29,6 +30,7 @@ export type ChatStreamState = {
     conversationId: string,
     text: string,
     fileIds?: string[],
+    dashboardContext?: DashboardChatSelection,
   ) => Promise<boolean>;
   /** 中断当前网络流和本地消费循环。 */
   stop: () => void;
@@ -69,7 +71,12 @@ export function useChatStream(): ChatStreamState {
   }, [api]);
 
   const send = useCallback(
-    async (conversationId: string, text: string, fileIds?: string[]) => {
+    async (
+      conversationId: string,
+      text: string,
+      fileIds?: string[],
+      dashboardContext?: DashboardChatSelection,
+    ) => {
       if (sending) return false;
       const controller = new AbortController();
       abortRef.current = controller;
@@ -82,6 +89,7 @@ export function useChatStream(): ChatStreamState {
         conversationId,
         role: "user",
         content: text,
+        dashboardContext,
         createdAt: new Date().toISOString(),
       });
 
@@ -92,6 +100,7 @@ export function useChatStream(): ChatStreamState {
         const preflight = await api.conversations.preflight(conversationId, {
           content: text,
           file_ids: fileIds,
+          dashboard_context: dashboardContext,
         });
         if (!preflight.ready) {
           setError(t("planv5.capacity"));
@@ -102,6 +111,7 @@ export function useChatStream(): ChatStreamState {
           {
             content: text,
             file_ids: fileIds,
+            dashboard_context: dashboardContext,
           },
           { signal: controller.signal },
         );
@@ -162,6 +172,9 @@ export function useChatStream(): ChatStreamState {
         });
         await queryClient.invalidateQueries({
           queryKey: ["workspace-files", conversationId],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ["conversation-dashboard-context", conversationId],
         });
         setStreaming(null);
         setPendingUser(null);

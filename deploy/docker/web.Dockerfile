@@ -7,7 +7,8 @@ WORKDIR /src
 
 RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
-COPY scripts/build-web.mjs scripts/check-real-build.mjs ./scripts/
+# Vite configuration also imports shared build helpers from scripts/.
+COPY scripts ./scripts/
 COPY web ./web
 RUN --mount=type=cache,id=argus-pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --fetch-retries 5 --fetch-timeout 300000

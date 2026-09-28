@@ -7,8 +7,13 @@ import type {
 } from "../planv5";
 import type { BaseContext, MockContext } from "./context";
 import { ApiError } from "../transport/errors";
+import { assertDashboardQuerySources } from "./dashboard-queries";
 
 export type MockPlanV5 = {
+  dashboardContexts?: Record<
+    string,
+    import("../generated/contracts").DashboardChatContext
+  >;
   connections: { enterpriseId: string; value: MCPConnection }[];
   selections: Record<string, string[]>;
   workspaces: Record<string, Workspace>;
@@ -168,6 +173,7 @@ export function createPlanV5Domains(ctx: MockContext): PlanV5Domains {
       },
       async upload(id, file, progress, signal) {
         conversation(id);
+        assertDashboardQuerySources(ctx, id);
         if (file.size > 100 * 1024 * 1024)
           throw new Error("WORKSPACE_FILE_TOO_LARGE");
         if (signal?.aborted)
@@ -211,6 +217,7 @@ export function createPlanV5Domains(ctx: MockContext): PlanV5Domains {
       },
       downloadUrl(id, file) {
         conversation(id);
+        assertDashboardQuerySources(ctx, id);
         if (!(state.files[id] ?? []).some((item) => item.id === file))
           throw new Error("WORKSPACE_FILE_NOT_FOUND");
         return state.contents[file]!;

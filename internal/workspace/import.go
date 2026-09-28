@@ -60,6 +60,15 @@ func (service Service) ImportResult(ctx context.Context, p toolruntime.Principal
 }
 func (service Service) validateSources(ctx context.Context, p toolruntime.Principal, refs []string) error {
 	for _, ref := range refs {
+		if service.ExternalSource != nil {
+			handled, err := service.ExternalSource(ctx, p, ref)
+			if err != nil {
+				return err
+			}
+			if handled {
+				continue
+			}
+		}
 		if _, err := (conversation.Service{Store: service.Store}).GetToolResult(ctx, p.EnterpriseID, p.UserID, ref); err != nil {
 			return err
 		}

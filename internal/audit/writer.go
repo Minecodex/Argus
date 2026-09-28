@@ -43,6 +43,19 @@ var allowedDetailKeys = map[string]bool{
 	"tunnel_id": true, "epoch": true, "fence": true, "lease_owner": true,
 	"initiator": true, "drop_reason": true, "bytes_relayed": true,
 	"throttled_events": true, "connection_epoch": true, "operation_id": true,
+	"resource_name": true, "dashboard_id": true, "draft_id": true, "draft_version": true,
+	"base_revision_id": true, "base_object_version": true, "revision_id": true, "revision_number": true,
+	"folder_id": true, "binding_id": true, "bound_resource_type": true, "bound_resource_id": true,
+	"action_ref": true, "spec_hash": true, "execution_id": true, "execution_hash": true,
+	"query_job_id": true, "attempt_id": true, "conversation_id": true, "run_id": true,
+	"from": true, "to": true, "parameters_hash": true, "resources": true, "resource_type": true, "resource_id": true,
+	"sources": true, "source_id": true, "source_revision": true, "source_type": true, "generation": true,
+	"panels": true, "panel_id": true, "targets": true, "target_id": true, "query_hash": true,
+	"result_type": true, "partial": true, "step_seconds": true, "cache_hit": true, "query_completed_at": true,
+	"files": true, "file_id": true, "content_hash": true, "byte_size": true, "file_kind": true,
+	"source_ref": true, "analysis_status": true, "complete": true,
+	"drilldown_id": true, "scope_policy": true, "parent_execution_id": true,
+	"variables": true, "local_filters": true, "variable_id": true, "all": true, "value_count": true, "selection_hash": true,
 }
 
 type Entry struct {

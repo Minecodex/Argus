@@ -19,10 +19,26 @@ type Manifest struct {
 	DiscoveryHash        string         `json:"discovery_hash"`
 	Risk                 string         `json:"risk"`
 	Required             []string       `json:"required_permissions"`
+	AnyRequired          []string       `json:"any_required_permissions,omitempty"`
 	InputSchema          map[string]any `json:"input_schema"`
 	OutputSchema         map[string]any `json:"output_schema,omitempty"`
 	RequiresConfirmation bool           `json:"requires_confirmation"`
 	ToolID               string         `json:"-"`
+}
+
+func (manifest Manifest) allowed(principal toolruntime.Principal) bool {
+	if !principal.Allows(manifest.Required...) {
+		return false
+	}
+	if len(manifest.AnyRequired) == 0 {
+		return true
+	}
+	for _, permission := range manifest.AnyRequired {
+		if principal.Allows(permission) {
+			return true
+		}
+	}
+	return false
 }
 
 var manifestSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {

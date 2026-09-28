@@ -1,0 +1,222 @@
+{
+  "components": {
+    "schemas": {
+      "DashboardCatalogFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 200
+          },
+          "operator": {
+            "type": "string",
+            "enum": [
+              "=",
+              "!=",
+              ">",
+              ">=",
+              "<",
+              "<="
+            ]
+          }
+        },
+        "required": [
+          "field",
+          "values"
+        ]
+      },
+      "DashboardCatalogInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_binding": {
+            "$ref": "./dashboard.yaml#/components/schemas/DashboardSourceBinding"
+          },
+          "signal": {
+            "type": "string",
+            "enum": [
+              "metrics",
+              "logs",
+              "traces"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "metrics",
+              "values",
+              "fields"
+            ]
+          },
+          "metric": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "field": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "selected_values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardCatalogFilter"
+            },
+            "maxItems": 32
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 1000
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "required": [
+          "source_binding",
+          "signal",
+          "kind",
+          "selected_values",
+          "filters",
+          "resource_ids",
+          "from",
+          "to",
+          "limit"
+        ]
+      },
+      "DashboardMetricDescriptor": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "unit",
+          "labels"
+        ]
+      },
+      "DashboardCatalogField": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ]
+      },
+      "DashboardCatalogResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardMetricDescriptor"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardCatalogField"
+            }
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "selected_exists": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "metrics",
+          "fields",
+          "values",
+          "complete",
+          "selected_exists",
+          "meta",
+          "has_more"
+        ]
+      }
+    }
+  }
+}

@@ -137,3 +137,17 @@ func TestDedicatedClusterConflictsAllowsCleanCluster(t *testing.T) {
 		t.Fatalf("conflicts = %#v", conflicts)
 	}
 }
+
+func TestDedicatedClusterAllowsOnlyValidatedSandboxOwner(t *testing.T) {
+	role := func(name, owner string) *rbacv1.ClusterRole {
+		return &rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: map[string]string{"meta.helm.sh/release-name": owner, "meta.helm.sh/release-namespace": "external"}}}
+	}
+	kube := &E2EKube{Client: fake.NewSimpleClientset(role("opensandbox-manager-role", "verified"), role("opensandbox-server-role", "different"), role("strimzi-cluster-operator-namespaced", "verified"))}
+	conflicts, err := kube.DedicatedClusterConflicts(context.Background(), "external/verified")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(conflicts) != 2 {
+		t.Fatalf("shared dependency exception escaped its boundary: %v", conflicts)
+	}
+}

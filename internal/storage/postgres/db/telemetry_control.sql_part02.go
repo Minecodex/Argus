@@ -35,6 +35,7 @@ func (q *Queries) UpsertCollectorForAction(ctx context.Context, arg UpsertCollec
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceGeneration,
 	)
 	return i, err
 }

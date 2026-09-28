@@ -47,6 +47,12 @@ func (a *App) runM7Scenario(ctx context.Context, env *E2EEnvironment) error {
 	if err := a.generateM7HostSignals(ctx, env, "host-systemd"); err != nil {
 		return err
 	}
+	if env.Options.Suite == "planv2" {
+		env.State.Values["p2_trace_time"] = time.Now().UTC().Format(time.RFC3339Nano)
+		if _, err := a.execM7Host(ctx, env, "argus-direct-executor", "/usr/local/bin/argus-telemetry-e2e", "--endpoint=127.0.0.1:4317", "--planv2-trace-role=backend", "--planv2-trace-generation=old", "--planv2-trace-time="+env.State.Values["p2_trace_time"]); err != nil {
+			return err
+		}
+	}
 	for _, action := range []string{"configure", "repair", "upgrade"} {
 		if err := a.applyM7CollectorAction(ctx, env, "host", hostID, action, distributionID, hostProfiles); err != nil {
 			return err

@@ -23,12 +23,13 @@ import (
 )
 
 type Service struct {
-	Store       *postgres.Store
-	Idempotency postgres.Idempotency
-	Sandbox     sandbox.Service
-	Kubernetes  Kubernetes
-	Config      config.Workspace
-	Objects     *objectstore.Client
+	Store          *postgres.Store
+	Idempotency    postgres.Idempotency
+	Sandbox        sandbox.Service
+	Kubernetes     Kubernetes
+	Config         config.Workspace
+	Objects        *objectstore.Client
+	ExternalSource func(context.Context, toolruntime.Principal, string) (bool, error)
 }
 
 // A tool operation is tied to its Run; user file operations are tied to the
@@ -36,6 +37,16 @@ type Service struct {
 type accessScope struct {
 	RunID, WorkspaceID uuid.UUID
 	Runtime            *sandbox.WorkspaceIdentity
+	// Only trusted query-file imports set this. Model tool execution keeps the
+	// active-Run requirement; durable transfer may finish after its Run returns.
+	BackgroundTransfer bool
+}
+
+func workspaceRunAllowed(run db.Run, p toolruntime.Principal, scope accessScope) bool {
+	if run.EnterpriseID != p.EnterpriseID || run.ConversationID != p.ConversationID || run.ActorUserID != p.UserID || run.Status == "cancelled" || run.Status == "timed_out" {
+		return false
+	}
+	return scope.BackgroundTransfer || (run.Status != "failed" && run.Status != "succeeded")
 }
 
 func (service Service) Authorize(ctx context.Context, p toolruntime.Principal) error {
@@ -73,7 +84,7 @@ func (service Service) ensure(ctx context.Context, p toolruntime.Principal, scop
 		}
 		if scope.RunID != uuid.Nil {
 			run, err := q.GetRun(ctx, db.GetRunParams{ID: scope.RunID, EnterpriseID: p.EnterpriseID})
-			if err != nil || run.ConversationID != p.ConversationID || run.ActorUserID != p.UserID || run.Status == "cancelled" || run.Status == "failed" || run.Status == "succeeded" {
+			if err != nil || !workspaceRunAllowed(run, p, scope) {
 				return toolruntime.Error{Kind: "TOOL_CANCELLED"}
 			}
 		}

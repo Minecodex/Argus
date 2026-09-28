@@ -49,3 +49,7 @@ corepack pnpm test
 corepack pnpm build
 corepack pnpm e2e
 ```
+
+## 开源协议
+
+本项目基于 [Apache License 2.0](./LICENSE) 开源。第三方依赖的版权声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。

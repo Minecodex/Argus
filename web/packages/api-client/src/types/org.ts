@@ -86,7 +86,7 @@ export interface CreateApiKeyInput {
 
 export type DataAuthorizationSubjectType =
   "user" | "department" | "role" | "service_account";
-export type DataAuthorizationResourceType = "host" | "kubernetes_cluster";
+export type DataAuthorizationResourceType = "host" | "kubernetes_cluster" | "dashboard";
 export interface DataAuthorizationResource {
   resource_type: DataAuthorizationResourceType;
   resource_id: string;

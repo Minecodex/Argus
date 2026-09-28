@@ -27,12 +27,19 @@ export interface AuditEvent {
   summary: string;
   result: AuditResult;
   createdAt: ISODateString;
+  /** Server-sanitized immutable facts; not raw configuration or query rows. */
+  details?: Record<string, unknown>;
+  previousHash?: string;
+  eventHash?: string;
 }
 
 export interface AuditFilter {
   action?: string;
   actorUserId?: string;
   resourceType?: string;
+  resourceId?: string;
   result?: AuditResult;
   query?: string;
+  from?: ISODateString;
+  to?: ISODateString;
 }
