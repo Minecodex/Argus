@@ -16,6 +16,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Keep the checkout stable during local Git clones
+        run: |
+          git config --local gc.auto 0
+          git config --local maintenance.auto false
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
