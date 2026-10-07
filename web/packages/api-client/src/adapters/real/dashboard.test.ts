@@ -157,7 +157,7 @@ it("dashboard adapter uses declared HTTP operations and required confirmation he
   });
   const controller = new AbortController();
   await api.execute(id, {}, controller.signal);
-  await api.sample(id, 1, controller.signal);
+  await api.sample(id, { expected_version: 1 }, controller.signal);
   await api.catalog(
     {
       kind: "metrics",

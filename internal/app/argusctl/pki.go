@@ -360,7 +360,7 @@ func requireRecentControlPlaneAcknowledgement(ctx context.Context, store *postgr
 }
 
 func activeControlPlaneNodeIDs(ctx context.Context, clients *kubeClients, cfg *InstallConfig) ([]string, error) {
-	namespaces := []string{cfg.Spec.Namespaces.System, cfg.Spec.Namespaces.Observability}
+	namespaces := slices.Compact([]string{cfg.Spec.Namespaces.System, cfg.Spec.Namespaces.Observability})
 	ids := make([]string, 0, 8)
 	for _, namespace := range namespaces {
 		pods, err := clients.typed.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})

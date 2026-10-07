@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useParams, useSearch } from "@tanstack/react-router";
 import { Cpu, HardDrive, MemoryStick, Timer } from "lucide-react";
 import { useApi, type Host } from "@argus/api-client";
 import {
@@ -34,6 +34,8 @@ import { TasksTab } from "../components/hosts/tasks-tab";
 import { RealTerminalTab } from "../components/hosts/real-terminal-tab";
 import { ResourceTelemetry } from "../components/telemetry/resource-telemetry";
 import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
+import { useResourceDashboardTab } from "../components/dashboards/use-resource-dashboard-tab";
+import { usePermission } from "../lib/permissions";
 import {
   collectorTone,
   collectorStatusOf,
@@ -235,6 +237,8 @@ export function HostDetailPage() {
   const api = useApi();
   const queryClient = useQueryClient();
   const { hostId } = useParams({ strict: false });
+  const search = useSearch({ from: "/authed/admin/hosts/$hostId" });
+  const canReadDashboards = usePermission("telemetry.dashboard.read");
   const [removalOpen, setRemovalOpen] = useState(false);
 
   const hostQuery = useQuery({
@@ -266,6 +270,12 @@ export function HostDetailPage() {
     typeof window !== "undefined" && window.location.hash === "#otlp-collector"
       ? "components"
       : "overview";
+  const [tab, setTab] = useResourceDashboardTab(
+    hostId ?? "",
+    initialTab === "components" ? undefined : search.tab,
+    initialTab,
+    canReadDashboards,
+  );
 
   const invalidateAll = () => {
     void queryClient.invalidateQueries({ queryKey: ["hosts"] });
@@ -283,7 +293,7 @@ export function HostDetailPage() {
     <PageShell
       actions={
         removalTarget && removalTarget.status !== "uninstalled" ? (
-          <Button onClick={() => setRemovalOpen(true)} variant="danger">
+          <Button onPress={() => setRemovalOpen(true)} variant="danger">
             {t("hosts.removal.action")}
           </Button>
         ) : undefined
@@ -315,7 +325,6 @@ export function HostDetailPage() {
       }
     >
       {hostQuery.isLoading && <Spinner />}
-      {host && <ResourceDashboardLinks type="host" id={host.id} />}
       {hostQuery.isError && (
         <EmptyState
           description=""
@@ -325,11 +334,16 @@ export function HostDetailPage() {
       )}
       {host && (
         <>
-          <Tabs defaultValue={initialTab}>
+          <Tabs value={tab} onValueChange={setTab}>
             <TabsList>
               <TabsTrigger value="overview">
                 {t("hosts.detail.tabOverview")}
               </TabsTrigger>
+              {canReadDashboards && (
+                <TabsTrigger value="dashboards">
+                  {t("dashboardLinks.resourceTab")}
+                </TabsTrigger>
+              )}
               <TabsTrigger value="terminal">
                 {t("hosts.detail.tabTerminal")}
               </TabsTrigger>
@@ -350,6 +364,11 @@ export function HostDetailPage() {
             <TabsContent value="overview">
               <OverviewTab host={host} />
             </TabsContent>
+            {canReadDashboards && (
+              <TabsContent value="dashboards">
+                <ResourceDashboardLinks type="host" id={host.id} />
+              </TabsContent>
+            )}
             <TabsContent value="terminal">
               {realMode ? (
                 <RealTerminalTab host={host} />

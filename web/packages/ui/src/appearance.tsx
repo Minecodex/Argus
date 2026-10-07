@@ -18,8 +18,8 @@ export function AppearanceControls() {
       <Tooltip content={themeLabel}>
         <Button
           aria-label={themeLabel}
-          onClick={toggleTheme}
-          size="icon"
+          onPress={toggleTheme}
+          isIconOnly
           variant="ghost"
         >
           {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
@@ -39,7 +39,7 @@ export function AppearanceControls() {
         trigger={
           <Button
             aria-label={text("切换语言", "Switch language")}
-            size="icon"
+            isIconOnly
             variant="ghost"
           >
             <Languages size={16} />

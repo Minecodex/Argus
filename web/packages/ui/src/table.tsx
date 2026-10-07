@@ -20,7 +20,7 @@ export function DataTable<T extends Record<string, unknown>>({
   getRowKey: (item: T) => string;
 }) {
   return (
-    <div className="argus-table-wrap">
+    <div className="argus-table-wrap" tabIndex={0}>
       <table className="argus-table">
         <thead>
           <tr>
@@ -73,18 +73,18 @@ export function Pagination({
       <div>
         <Button
           aria-label={text("上一页", "Previous page")}
-          disabled={page <= 1}
-          onClick={() => onChange(page - 1)}
-          size="icon"
+          isDisabled={page <= 1}
+          onPress={() => onChange(page - 1)}
+          isIconOnly
           variant="ghost"
         >
           <ChevronLeft size={16} />
         </Button>
         <Button
           aria-label={text("下一页", "Next page")}
-          disabled={page >= totalPages}
-          onClick={() => onChange(page + 1)}
-          size="icon"
+          isDisabled={page >= totalPages}
+          onPress={() => onChange(page + 1)}
+          isIconOnly
           variant="ghost"
         >
           <ChevronRight size={16} />

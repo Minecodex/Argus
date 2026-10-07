@@ -19,10 +19,19 @@ export function webVendorChunk(rawId: string) {
   if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id))
     return "vendor-react";
   if (id.includes("/@tanstack/")) return "vendor-tanstack";
-  if (id.includes("/@radix-ui/")) return "vendor-radix";
+
+  // Split optional date/color/table engines from the primitives used at login.
+  // A single accessibility chunk eagerly pulled every optional control in.
+  if (/\/(?:@heroui|react-aria|react-aria-components|react-stately|@react-aria|@react-stately)\//.test(id)) {
+    if (/(?:Calendar|DatePicker|DateField|DateInput|DateRange|TimeField|\/date(?:picker)?\/|\/calendar\/|\/components\/(?:calendar|date-|time-))/i.test(id)) return "vendor-calendar";
+    if (/(?:Color|color-|color\/)/.test(id)) return "vendor-color";
+    if (/(?:Table|Tree|GridList|\/table\/)/.test(id)) return "vendor-collections";
+    return "vendor-controls";
+  }
+
   if (id.includes("/lucide-react/")) return "vendor-icons";
   if (id.includes("/@xterm/")) return "vendor-terminal";
-  if (id.includes("/react-datepicker/") || id.includes("/date-fns/"))
+  if (id.includes("/@internationalized/date/"))
     return "vendor-dates";
   if (
     id.includes("/react-hook-form/") ||
@@ -30,5 +39,5 @@ export function webVendorChunk(rawId: string) {
     id.includes("/zod/")
   )
     return "vendor-forms";
-  return "vendor";
+  return;
 }

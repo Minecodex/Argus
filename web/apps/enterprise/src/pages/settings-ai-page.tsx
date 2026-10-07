@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { QueryBoundary } from "@argus/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -158,100 +159,108 @@ function ModelsView({ onDashboard }: { onDashboard: (id: string) => void }) {
     <div className="argus-ai-stack">
       <div className="argus-ai-toolbar">
         <span />
-        <Button onClick={() => setDrawer({ mode: "create" })} variant="primary">
+        <Button onPress={() => setDrawer({ mode: "create" })} variant="primary">
           <Plus size={15} />
           {t("aiSettings.model.add")}
         </Button>
       </div>
-      {(models.data ?? []).length === 0 ? (
-        <EmptyState description="" title={t("aiSettings.model.empty")} />
-      ) : (
-        <DataTable<AIModel & Record<string, unknown>>
-          columns={[
-            {
-              key: "name",
-              header: t("aiSettings.model.name"),
-              render: (model) => (
-                <div className="argus-ai-model-name">
-                  <b>{model.name}</b>
-                  <small>{model.modelId}</small>
-                </div>
-              ),
-            },
-            {
-              key: "baseUrl",
-              header: t("aiSettings.model.baseUrl"),
-              render: (model) => <code>{model.baseUrl}</code>,
-            },
-            {
-              key: "inputPrice",
-              header: t("aiSettings.model.inputPrice"),
-              render: (model) => model.inputPricePerMillionTokens.toFixed(2),
-            },
-            {
-              key: "outputPrice",
-              header: t("aiSettings.model.outputPrice"),
-              render: (model) => model.outputPricePerMillionTokens.toFixed(2),
-            },
-            {
-              key: "health",
-              header: t("settings.common.status"),
-              render: (model) => (
-                <StatusBadge
-                  tone={model.healthStatus === "healthy" ? "success" : "danger"}
-                >
-                  {t(`aiSettings.model.${model.healthStatus}`)}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "revision",
-              header: t("aiSettings.model.revisionLabel"),
-              render: (model) => <Badge>{model.revision}</Badge>,
-            },
-            {
-              key: "actions",
-              header: t("settings.common.actions"),
-              render: (model) => (
-                <span className="argus-ai-actions">
-                  <RowAction
-                    onClick={() =>
-                      void api.models
-                        .test(model.id)
-                        .then(() => models.refetch())
+      <QueryBoundary query={models}>
+        {(models.data ?? []).length === 0 ? (
+          <EmptyState description="" title={t("aiSettings.model.empty")} />
+        ) : (
+          <DataTable<AIModel & Record<string, unknown>>
+            columns={[
+              {
+                key: "name",
+                header: t("aiSettings.model.name"),
+                render: (model) => (
+                  <div className="argus-ai-model-name">
+                    <b>{model.name}</b>
+                    <small>{model.modelId}</small>
+                  </div>
+                ),
+              },
+              {
+                key: "baseUrl",
+                header: t("aiSettings.model.baseUrl"),
+                render: (model) => <code>{model.baseUrl}</code>,
+              },
+              {
+                key: "inputPrice",
+                header: t("aiSettings.model.inputPrice"),
+                render: (model) => model.inputPricePerMillionTokens.toFixed(2),
+              },
+              {
+                key: "outputPrice",
+                header: t("aiSettings.model.outputPrice"),
+                render: (model) => model.outputPricePerMillionTokens.toFixed(2),
+              },
+              {
+                key: "health",
+                header: t("settings.common.status"),
+                render: (model) => (
+                  <StatusBadge
+                    tone={
+                      model.healthStatus === "healthy" ? "success" : "danger"
                     }
                   >
-                    <RefreshCw size={14} />
-                    {t("aiSettings.model.test")}
-                  </RowAction>
-                  <RowAction onClick={() => setDrawer({ mode: "edit", model })}>
-                    {t("aiSettings.model.edit")}
-                  </RowAction>
-                  <RowAction onClick={() => setQuotaModel(model)}>
-                    {t("aiSettings.model.quota")}
-                  </RowAction>
-                  <RowAction onClick={() => onDashboard(model.id)}>
-                    {t("aiSettings.model.dashboard")}
-                  </RowAction>
-                  <Switch
-                    checked={model.enabled}
-                    label={
-                      model.enabled
-                        ? t("aiSettings.model.disable")
-                        : t("aiSettings.model.enable")
-                    }
-                    onChange={(enabled) =>
-                      update.mutate({ id: model.id, patch: { enabled } })
-                    }
-                  />
-                </span>
-              ),
-            },
-          ]}
-          data={(models.data ?? []) as Array<AIModel & Record<string, unknown>>}
-          getRowKey={(model) => model.id}
-        />
-      )}
+                    {t(`aiSettings.model.${model.healthStatus}`)}
+                  </StatusBadge>
+                ),
+              },
+              {
+                key: "revision",
+                header: t("aiSettings.model.revisionLabel"),
+                render: (model) => <Badge>{model.revision}</Badge>,
+              },
+              {
+                key: "actions",
+                header: t("settings.common.actions"),
+                render: (model) => (
+                  <span className="argus-ai-actions">
+                    <RowAction
+                      onPress={() =>
+                        void api.models
+                          .test(model.id)
+                          .then(() => models.refetch())
+                      }
+                    >
+                      <RefreshCw size={14} />
+                      {t("aiSettings.model.test")}
+                    </RowAction>
+                    <RowAction
+                      onPress={() => setDrawer({ mode: "edit", model })}
+                    >
+                      {t("aiSettings.model.edit")}
+                    </RowAction>
+                    <RowAction onPress={() => setQuotaModel(model)}>
+                      {t("aiSettings.model.quota")}
+                    </RowAction>
+                    <RowAction onPress={() => onDashboard(model.id)}>
+                      {t("aiSettings.model.dashboard")}
+                    </RowAction>
+                    <Switch
+                      checked={model.enabled}
+                      label={
+                        model.enabled
+                          ? t("aiSettings.model.disable")
+                          : t("aiSettings.model.enable")
+                      }
+                      onChange={(enabled) =>
+                        update.mutate({ id: model.id, patch: { enabled } })
+                      }
+                    />
+                  </span>
+                ),
+              },
+            ]}
+            data={
+              (models.data ?? []) as Array<AIModel & Record<string, unknown>>
+            }
+            getRowKey={(model) => model.id}
+          />
+        )}
+      </QueryBoundary>
       {drawer && <ModelDrawer onClose={() => setDrawer(null)} state={drawer} />}
       {quotaModel && (
         <QuotaDrawer model={quotaModel} onClose={() => setQuotaModel(null)} />
@@ -513,62 +522,73 @@ function ModelDrawer({
             )}
           />
         </Field>
-        <div className="argus-form-row">
-          <Field
-            error={errors.contextWindowTokens?.message}
-            requirement="required"
-            label={t("aiSettings.model.contextWindowTokens")}
-          >
-            <Input
-              {...register("contextWindowTokens", { valueAsNumber: true })}
-              min={modelConstraints.contextWindowTokens.minimum}
-              step="1"
-              type="number"
-            />
-          </Field>
-          <Field
-            error={errors.maxOutputTokens?.message}
-            requirement="required"
-            label={t("aiSettings.model.maxOutputTokens")}
-          >
-            <Input
-              {...register("maxOutputTokens", { valueAsNumber: true })}
-              min={modelConstraints.maxOutputTokens.minimum}
-              step="1"
-              type="number"
-            />
-          </Field>
-        </div>
-        <div className="argus-form-row">
-          <Field
-            error={errors.inputPricePerMillionTokens?.message}
-            requirement="required"
-            label={t("aiSettings.model.inputPrice")}
-          >
-            <Input
-              {...register("inputPricePerMillionTokens", {
-                valueAsNumber: true,
-              })}
-              min={modelConstraints.inputPrice.minimum}
-              step="0.01"
-              type="number"
-            />
-          </Field>
-          <Field
-            error={errors.outputPricePerMillionTokens?.message}
-            requirement="required"
-            label={t("aiSettings.model.outputPrice")}
-          >
-            <Input
-              {...register("outputPricePerMillionTokens", {
-                valueAsNumber: true,
-              })}
-              min={modelConstraints.outputPrice.minimum}
-              step="0.01"
-              type="number"
-            />
-          </Field>
-        </div>
+        <details
+          className="argus-config-advanced"
+          open={Boolean(
+            errors.contextWindowTokens ||
+            errors.maxOutputTokens ||
+            errors.inputPricePerMillionTokens ||
+            errors.outputPricePerMillionTokens,
+          )}
+        >
+          <summary>{t("aiSettings.model.advanced")}</summary>
+          <div className="argus-form-row">
+            <Field
+              error={errors.contextWindowTokens?.message}
+              requirement="required"
+              label={t("aiSettings.model.contextWindowTokens")}
+            >
+              <Input
+                {...register("contextWindowTokens", { valueAsNumber: true })}
+                min={modelConstraints.contextWindowTokens.minimum}
+                step="1"
+                type="number"
+              />
+            </Field>
+            <Field
+              error={errors.maxOutputTokens?.message}
+              requirement="required"
+              label={t("aiSettings.model.maxOutputTokens")}
+            >
+              <Input
+                {...register("maxOutputTokens", { valueAsNumber: true })}
+                min={modelConstraints.maxOutputTokens.minimum}
+                step="1"
+                type="number"
+              />
+            </Field>
+          </div>
+          <div className="argus-form-row">
+            <Field
+              error={errors.inputPricePerMillionTokens?.message}
+              requirement="required"
+              label={t("aiSettings.model.inputPrice")}
+            >
+              <Input
+                {...register("inputPricePerMillionTokens", {
+                  valueAsNumber: true,
+                })}
+                min={modelConstraints.inputPrice.minimum}
+                step="0.01"
+                type="number"
+              />
+            </Field>
+            <Field
+              error={errors.outputPricePerMillionTokens?.message}
+              requirement="required"
+              label={t("aiSettings.model.outputPrice")}
+            >
+              <Input
+                {...register("outputPricePerMillionTokens", {
+                  valueAsNumber: true,
+                })}
+                min={modelConstraints.outputPrice.minimum}
+                step="0.01"
+                type="number"
+              />
+            </Field>
+          </div>
+        </details>
       </div>
     </FormDrawer>
   );
@@ -787,110 +807,118 @@ function GovernanceView({
       .map(([subject, amount]) => ({ subject, amount }));
   }, [data]);
   return (
-    <div className="argus-ai-stack">
-      <div className="argus-ai-toolbar">
-        <Select
-          className="argus-ai-model-filter"
-          onValueChange={(value) => onModelChange(value || undefined)}
-          options={[
-            { value: "", label: t("aiSettings.dashboard.allModels") },
-            ...(models.data ?? []).map((model) => ({
-              value: model.id,
-              label: model.name,
-            })),
-          ]}
-          value={modelId ?? ""}
-        />
-        {canManage && (
-          <Badge>
-            {t("aiSettings.dashboard.quotaCount", {
-              count: (quotas.data ?? []).length,
-            })}
-          </Badge>
-        )}
-      </div>
-      {data && !data.usageComplete && (
-        <Alert
-          tone="warning"
-          title={t("aiSettings.dashboard.usageIncompleteTitle")}
-          description={t("aiSettings.dashboard.usageIncomplete", {
-            input: data.estimatedInputTokens,
-            output: data.estimatedOutputTokens,
-          })}
-        />
-      )}
-      <div className="argus-settings-stat-grid">
-        <StatCard
-          icon={<Activity size={16} />}
-          label={t("aiSettings.dashboard.requests")}
-          value={data?.totalRequests ?? 0}
-        />
-        <StatCard
-          icon={<Gauge size={16} />}
-          label={t("aiSettings.dashboard.tokens")}
-          value={(
-            (data?.totalInputTokens ?? 0) + (data?.totalOutputTokens ?? 0)
-          ).toLocaleString()}
-        />
-        <StatCard
-          label={t("aiSettings.dashboard.cachedTokens")}
-          value={(data?.cachedInputTokens ?? 0).toLocaleString()}
-          detail={t(
-            data?.cachedUsageComplete
-              ? "aiSettings.dashboard.cachedIncluded"
-              : "aiSettings.dashboard.cachedPartial",
-          )}
-        />
-        <StatCard
-          icon={<CircleDollarSign size={16} />}
-          label={t("aiSettings.dashboard.amount")}
-          value={(data?.totalAmount ?? 0).toFixed(2)}
-        />
-        <StatCard
-          label={t("aiSettings.dashboard.successRate")}
-          value={`${((data?.successRate ?? 1) * 100).toFixed(1)}%`}
-        />
-        <StatCard
-          label={t("aiSettings.dashboard.latency")}
-          value={`${Math.round(data?.avgLatencyMs ?? 0)} ms`}
-        />
-        <StatCard
-          label={t("aiSettings.dashboard.errors")}
-          value={data?.errorCount ?? 0}
-          tone="danger"
-        />
-        <StatCard
-          label={t("aiSettings.dashboard.toolFailures")}
-          value={data?.toolCallingFailures ?? 0}
-          tone="warning"
-        />
-        <StatCard
-          label={t("aiSettings.dashboard.structuredFailures")}
-          value={data?.structuredOutputFailures ?? 0}
-          tone="warning"
-        />
-      </div>
-      <section className="argus-settings-section">
-        <h2 className="argus-settings-section__title">
-          {t("aiSettings.dashboard.ranking")}
-        </h2>
-        {ranking.length ? (
-          <DataTable
-            columns={[
-              { key: "subject", header: t("aiSettings.quota.subject") },
-              {
-                key: "amount",
-                header: t("aiSettings.dashboard.amount"),
-                render: (row) => row.amount.toFixed(2),
-              },
+    <QueryBoundary
+      query={usage}
+      dependencies={[models, ...(canManage ? [quotas] : [])]}
+    >
+      <div className="argus-ai-stack">
+        <div className="argus-ai-toolbar">
+          <Select
+            className="argus-ai-model-filter"
+            onValueChange={(value) => onModelChange(value || undefined)}
+            options={[
+              { value: "", label: t("aiSettings.dashboard.allModels") },
+              ...(models.data ?? []).map((model) => ({
+                value: model.id,
+                label: model.name,
+              })),
             ]}
-            data={ranking}
-            getRowKey={(row) => row.subject}
+            value={modelId ?? ""}
           />
-        ) : (
-          <EmptyState description="" title={t("aiSettings.dashboard.noData")} />
+          {canManage && (
+            <Badge>
+              {t("aiSettings.dashboard.quotaCount", {
+                count: (quotas.data ?? []).length,
+              })}
+            </Badge>
+          )}
+        </div>
+        {data && !data.usageComplete && (
+          <Alert
+            tone="warning"
+            title={t("aiSettings.dashboard.usageIncompleteTitle")}
+            description={t("aiSettings.dashboard.usageIncomplete", {
+              input: data.estimatedInputTokens,
+              output: data.estimatedOutputTokens,
+            })}
+          />
         )}
-      </section>
-    </div>
+        <div className="argus-settings-stat-grid">
+          <StatCard
+            icon={<Activity size={16} />}
+            label={t("aiSettings.dashboard.requests")}
+            value={data?.totalRequests ?? 0}
+          />
+          <StatCard
+            icon={<Gauge size={16} />}
+            label={t("aiSettings.dashboard.tokens")}
+            value={(
+              (data?.totalInputTokens ?? 0) + (data?.totalOutputTokens ?? 0)
+            ).toLocaleString()}
+          />
+          <StatCard
+            label={t("aiSettings.dashboard.cachedTokens")}
+            value={(data?.cachedInputTokens ?? 0).toLocaleString()}
+            detail={t(
+              data?.cachedUsageComplete
+                ? "aiSettings.dashboard.cachedIncluded"
+                : "aiSettings.dashboard.cachedPartial",
+            )}
+          />
+          <StatCard
+            icon={<CircleDollarSign size={16} />}
+            label={t("aiSettings.dashboard.amount")}
+            value={(data?.totalAmount ?? 0).toFixed(2)}
+          />
+          <StatCard
+            label={t("aiSettings.dashboard.successRate")}
+            value={`${((data?.successRate ?? 1) * 100).toFixed(1)}%`}
+          />
+          <StatCard
+            label={t("aiSettings.dashboard.latency")}
+            value={`${Math.round(data?.avgLatencyMs ?? 0)} ms`}
+          />
+          <StatCard
+            label={t("aiSettings.dashboard.errors")}
+            value={data?.errorCount ?? 0}
+            tone="danger"
+          />
+          <StatCard
+            label={t("aiSettings.dashboard.toolFailures")}
+            value={data?.toolCallingFailures ?? 0}
+            tone="warning"
+          />
+          <StatCard
+            label={t("aiSettings.dashboard.structuredFailures")}
+            value={data?.structuredOutputFailures ?? 0}
+            tone="warning"
+          />
+        </div>
+        <section className="argus-settings-section">
+          <h2 className="argus-settings-section__title">
+            {t("aiSettings.dashboard.ranking")}
+          </h2>
+          {ranking.length ? (
+            <DataTable
+              columns={[
+                { key: "subject", header: t("aiSettings.quota.subject") },
+                {
+                  key: "amount",
+                  header: t("aiSettings.dashboard.amount"),
+                  render: (row) => row.amount.toFixed(2),
+                },
+              ]}
+              data={ranking}
+              getRowKey={(row) => row.subject}
+            />
+          ) : (
+            <EmptyState
+              description=""
+              title={t("aiSettings.dashboard.noData")}
+            />
+          )}
+        </section>
+      </div>
+    </QueryBoundary>
   );
 }

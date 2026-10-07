@@ -1,3 +1,4 @@
+import { Textarea } from "@argus/ui";
 import {
   useEffect,
   useRef,
@@ -264,33 +265,35 @@ export function ChatComposer({
                 <Cable size={12} />
               )}{" "}
               {item.label}
-              <button
+              <Button
+                variant="ghost"
                 type="button"
                 aria-label={t("planv5.files.remove")}
-                onClick={() =>
+                onPress={() =>
                   setMentions((current) =>
                     current.filter((x) => x.id !== item.id),
                   )
                 }
               >
                 <X size={11} />
-              </button>
+              </Button>
             </span>
           ))}
           {files.map((file) => (
             <span className="argus-chat-chip" key={file.id}>
               <FileText size={12} />
               {file.name}
-              <button
+              <Button
+                variant="ghost"
                 type="button"
                 aria-label={t("planv5.files.remove")}
-                disabled={sending}
-                onClick={() =>
+                isDisabled={sending}
+                onPress={() =>
                   setFiles((current) => current.filter((x) => x.id !== file.id))
                 }
               >
                 <X size={11} />
-              </button>
+              </Button>
             </span>
           ))}
           {upload && (
@@ -300,7 +303,7 @@ export function ChatComposer({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => activeUpload.current?.abort()}
+                onPress={() => activeUpload.current?.abort()}
               >
                 {t("planv5.files.cancel")}
               </Button>
@@ -321,19 +324,20 @@ export function ChatComposer({
                 )}
                 {items.length ? (
                   items.map((item) => (
-                    <button
+                    <Button
+                      variant="ghost"
                       className="argus-chat-picker__item"
                       role="option"
                       aria-selected="false"
                       type="button"
                       key={item.id}
-                      onClick={() => choose(item)}
+                      onPress={() => choose(item)}
                     >
                       {item.kind === "dashboard" && (
                         <LayoutDashboard size={13} />
                       )}{" "}
                       {item.label}
-                    </button>
+                    </Button>
                   ))
                 ) : (
                   <p>{t("chat.composer.noMatch")}</p>
@@ -341,7 +345,7 @@ export function ChatComposer({
               </div>
             </div>
           )}
-          <textarea
+          <Textarea
             ref={area}
             aria-label={t("chat.composer.send")}
             value={text}
@@ -368,9 +372,11 @@ export function ChatComposer({
               <Button
                 aria-label={t("planv5.files.attach")}
                 variant="ghost"
-                size="icon"
-                disabled={(!conversationId && disabled) || sending || !!upload}
-                onClick={() => fileInput.current?.click()}
+                isIconOnly
+                isDisabled={
+                  (!conversationId && disabled) || sending || !!upload
+                }
+                onPress={() => fileInput.current?.click()}
               >
                 <Paperclip size={15} />
               </Button>
@@ -379,9 +385,9 @@ export function ChatComposer({
               <Button
                 aria-label={t("chat.composer.mention")}
                 variant="ghost"
-                size="icon"
-                disabled={disabled || sending}
-                onClick={() => {
+                isIconOnly
+                isDisabled={disabled || sending}
+                onPress={() => {
                   updateText(text + "@", text.length + 1);
                   area.current?.focus();
                 }}
@@ -392,10 +398,10 @@ export function ChatComposer({
             <Button
               variant="ghost"
               size="sm"
-              disabled={
+              isDisabled={
                 disabled || sending || !dashboard.ready || !canCreateDashboard
               }
-              onClick={() => {
+              onPress={() => {
                 dashboard.change("create", []);
                 setText(t("chat.dashboard.command") + " ");
                 area.current?.focus();
@@ -407,8 +413,8 @@ export function ChatComposer({
             {sending ? (
               <Button
                 aria-label={t("chat.composer.stop")}
-                onClick={onStop}
-                size="icon"
+                onPress={onStop}
+                isIconOnly
                 variant="secondary"
               >
                 <Square size={13} />
@@ -416,15 +422,15 @@ export function ChatComposer({
             ) : (
               <Button
                 aria-label={t("chat.composer.send")}
-                onClick={() => void submit()}
-                disabled={
+                onPress={() => void submit()}
+                isDisabled={
                   disabled ||
                   !text.trim() ||
                   submitting ||
                   !!upload ||
                   !dashboard.ready
                 }
-                size="icon"
+                isIconOnly
               >
                 <ArrowUp size={16} />
               </Button>

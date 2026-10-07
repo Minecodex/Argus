@@ -97,24 +97,24 @@ export function LogViewer({
         <div className="argus-log-viewer__actions">
           <Button
             aria-label={pauseLabel ?? text("暂停", "Pause")}
-            onClick={() => setPaused((value) => !value)}
-            size="icon"
+            onPress={() => setPaused((value) => !value)}
+            isIconOnly
             variant={paused ? "secondary" : "ghost"}
           >
             {paused ? <Play size={14} /> : <Pause size={14} />}
           </Button>
           <Button
             aria-label={copyLabel ?? text("复制", "Copy")}
-            onClick={copy}
-            size="icon"
+            onPress={copy}
+            isIconOnly
             variant="ghost"
           >
             <Copy size={14} />
           </Button>
           <Button
             aria-label={downloadLabel ?? text("下载", "Download")}
-            onClick={download}
-            size="icon"
+            onPress={download}
+            isIconOnly
             variant="ghost"
           >
             <Download size={14} />

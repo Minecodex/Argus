@@ -136,7 +136,7 @@ export function RemoteAccessApprovals({
                 ) : null}
                 {scope === "created" && request.status === "awaiting_mfa" ? (
                   <Button
-                    onClick={() => setStepUpRequestId(request.id)}
+                    onPress={() => setStepUpRequestId(request.id)}
                     size="sm"
                     variant="primary"
                   >
@@ -282,7 +282,7 @@ function RemoteAccessDecisionForm({
       </Field>
       <div className="argus-settings-inline-actions">
         <Button
-          loading={loading}
+          isPending={loading}
           size="sm"
           type="submit"
           value="approve"
@@ -291,7 +291,7 @@ function RemoteAccessDecisionForm({
           {t("remoteAccess.approve")}
         </Button>
         <Button
-          loading={loading}
+          isPending={loading}
           size="sm"
           type="submit"
           value="reject"

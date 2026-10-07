@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -119,7 +120,9 @@ function RuleSimulator() {
         <Field label={t("remoteAccess.protocol")} requirement="required">
           <Select
             ariaLabel={t("remoteAccess.protocol")}
-            onValueChange={(value) => setProtocol(value as "shell" | "ssh" | "rdp")}
+            onValueChange={(value) =>
+              setProtocol(value as "shell" | "ssh" | "rdp")
+            }
             options={[
               { value: "ssh", label: "SSH" },
               { value: "shell", label: "Local Shell / PowerShell" },
@@ -140,8 +143,8 @@ function RuleSimulator() {
           />
         </div>
         <Button
-          disabled={!hostId || !accountId}
-          loading={simulate.isPending}
+          isDisabled={!hostId || !accountId}
+          isPending={simulate.isPending}
           type="submit"
           variant="secondary"
         >
@@ -212,10 +215,11 @@ function Checks<T extends string>({
       {values.map((value) => {
         const checked = selected.includes(value);
         return (
-          <button
+          <Button
+            variant="ghost"
             aria-pressed={checked}
             key={value}
-            onClick={() =>
+            onPress={() =>
               onChange(
                 checked
                   ? selected.filter((item) => item !== value)
@@ -225,7 +229,7 @@ function Checks<T extends string>({
             type="button"
           >
             <CheckItem checked={checked}>{label(value)}</CheckItem>
-          </button>
+          </Button>
         );
       })}
     </div>
@@ -403,7 +407,7 @@ export function RulesTab() {
           {t("remoteAccess.rules")}
         </h2>
         <Button
-          onClick={() => {
+          onPress={() => {
             setEditing(null);
             setOpen(true);
           }}
@@ -413,37 +417,39 @@ export function RulesTab() {
           {t("remoteAccess.newRule")}
         </Button>
       </div>
-      {items.length === 0 ? (
-        <EmptyState description="" title={t("remoteAccess.noRules")} />
-      ) : (
-        <GovernanceList
-          extraColumns={[
-            {
-              key: "priority",
-              header: t("remoteAccess.priority"),
-              render: (row) => row.priority,
-            },
-            {
-              key: "effects",
-              header: t("remoteAccess.effects"),
-              render: (row) =>
-                row.effects.length > 0
-                  ? row.effects.join(" · ")
-                  : t("remoteAccess.profileOnly"),
-            },
-          ]}
-          items={items}
-          onArchive={(id) => lifecycle(api.remoteAccess.archiveRule, id)}
-          onDisable={(id) => lifecycle(api.remoteAccess.disableRule, id)}
-          onEdit={(item) => {
-            setEditing(item);
-            setOpen(true);
-          }}
-          onEnable={(id) => lifecycle(api.remoteAccess.enableRule, id)}
-          onRestore={(id) => lifecycle(api.remoteAccess.restoreRule, id)}
-          references={api.remoteAccess.getRuleReferences}
-        />
-      )}
+      <QueryBoundary query={query} dependencies={[workflows, profiles]}>
+        {items.length === 0 ? (
+          <EmptyState description="" title={t("remoteAccess.noRules")} />
+        ) : (
+          <GovernanceList
+            extraColumns={[
+              {
+                key: "priority",
+                header: t("remoteAccess.priority"),
+                render: (row) => row.priority,
+              },
+              {
+                key: "effects",
+                header: t("remoteAccess.effects"),
+                render: (row) =>
+                  row.effects.length > 0
+                    ? row.effects.join(" · ")
+                    : t("remoteAccess.profileOnly"),
+              },
+            ]}
+            items={items}
+            onArchive={(id) => lifecycle(api.remoteAccess.archiveRule, id)}
+            onDisable={(id) => lifecycle(api.remoteAccess.disableRule, id)}
+            onEdit={(item) => {
+              setEditing(item);
+              setOpen(true);
+            }}
+            onEnable={(id) => lifecycle(api.remoteAccess.enableRule, id)}
+            onRestore={(id) => lifecycle(api.remoteAccess.restoreRule, id)}
+            references={api.remoteAccess.getRuleReferences}
+          />
+        )}
+      </QueryBoundary>
       <RuleSimulator />
       <FormDrawer
         description={t("remoteAccess.ruleDescription")}

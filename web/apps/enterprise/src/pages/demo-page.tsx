@@ -25,6 +25,7 @@ import {
   CardHeader,
   CheckItem,
   CodeBlock,
+  ControlShowcase,
   ConfirmDialog,
   DataTable,
   DescriptionList,
@@ -258,8 +259,8 @@ export function DemoPage() {
                     <Plus size={13} />
                     {text("小按钮", "Small")}
                   </Button>
-                  <Button loading>{text("处理中", "Processing")}</Button>
-                  <Button disabled>{text("禁用状态", "Disabled")}</Button>
+                  <Button isPending>{text("处理中", "Processing")}</Button>
+                  <Button isDisabled>{text("禁用状态", "Disabled")}</Button>
                   <Tooltip
                     content={text(
                       "图标按钮需要可访问名称",
@@ -268,7 +269,7 @@ export function DemoPage() {
                   >
                     <Button
                       aria-label={text("通知", "Notifications")}
-                      size="icon"
+                      isIconOnly
                       variant="secondary"
                     >
                       <Bell size={15} />
@@ -341,10 +342,19 @@ export function DemoPage() {
           id="forms"
           title={t("demo.forms")}
         >
+          <DemoBlock
+            title={text(
+              "统一控件尺寸与状态",
+              "Shared control sizes and states",
+            )}
+          >
+            <ControlShowcase />
+          </DemoBlock>
           <div className="argus-demo-grid argus-two">
             <DemoBlock title={text("输入控件", "Input controls")}>
               <div className="argus-form-demo">
-                <Field requirement="optional"
+                <Field
+                  requirement="optional"
                   hint={text(
                     "名称在企业内唯一",
                     "Unique within the enterprise",
@@ -358,7 +368,8 @@ export function DemoPage() {
                     )}
                   />
                 </Field>
-                <Field requirement="optional"
+                <Field
+                  requirement="optional"
                   error={text(
                     "地址必须使用 HTTPS",
                     "The address must use HTTPS",
@@ -367,7 +378,8 @@ export function DemoPage() {
                 >
                   <Input defaultValue="http://gateway.internal" />
                 </Field>
-                <Field requirement="optional"
+                <Field
+                  requirement="optional"
                   hint={text(
                     "不要在此输入密码或私钥",
                     "Do not enter passwords or private keys here",
@@ -554,7 +566,10 @@ export function DemoPage() {
                     }
                   >
                     <div className="argus-form-demo">
-                      <Field requirement="optional" label={text("名称", "Name")}>
+                      <Field
+                        requirement="optional"
+                        label={text("名称", "Name")}
+                      >
                         <Input
                           placeholder={text(
                             "例如：上海机房堡垒机-01",
@@ -562,7 +577,8 @@ export function DemoPage() {
                           )}
                         />
                       </Field>
-                      <Field requirement="optional"
+                      <Field
+                        requirement="optional"
                         label={text("允许注册次数", "Allowed registrations")}
                       >
                         <Input defaultValue="1" type="number" />
@@ -603,12 +619,12 @@ export function DemoPage() {
                 <Divider label={text("抽屉与确认", "Drawer & confirm")} />
                 <div>
                   <Button
-                    onClick={() => setDrawerOpen(true)}
+                    onPress={() => setDrawerOpen(true)}
                     variant="secondary"
                   >
                     {text("打开 FormDrawer", "Open FormDrawer")}
                   </Button>
-                  <Button onClick={() => setConfirmOpen(true)} variant="danger">
+                  <Button onPress={() => setConfirmOpen(true)} variant="danger">
                     {text("打开 ConfirmDialog", "Open ConfirmDialog")}
                   </Button>
                 </div>
@@ -625,7 +641,8 @@ export function DemoPage() {
                   <Field requirement="optional" label={text("名称", "Name")}>
                     <Input defaultValue="host-web-11" />
                   </Field>
-                  <Field requirement="optional"
+                  <Field
+                    requirement="optional"
                     hint={text(
                       "每行一个，格式 key=value",
                       "One per line, key=value",

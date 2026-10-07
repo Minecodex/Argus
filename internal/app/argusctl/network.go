@@ -173,7 +173,7 @@ func discoverProtectedTargets(ctx context.Context, clients *kubeClients, cfg *In
 	for _, value := range []string{"169.254.169.254/32", "100.100.100.200/32", "fd00:ec2::254/128"} {
 		addCIDR(value, "metadata")
 	}
-	for _, namespace := range []string{cfg.Spec.Namespaces.System, cfg.Spec.Namespaces.Sandbox, cfg.Spec.Namespaces.Observability} {
+	for _, namespace := range cfg.applicationNamespaces() {
 		if services, err := clients.typed.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{}); err == nil {
 			for _, service := range services.Items {
 				for _, ip := range service.Spec.ClusterIPs {

@@ -142,15 +142,17 @@ flowchart TB
 
 ## 4. Kubernetes 命名空间与 Release
 
-默认分为三个命名空间：
+默认使用两个应用命名空间，另可提供一个入口命名空间：
 
 ```text
-argus-system         Argus 服务、Web、Migration、PostgreSQL、Redis、Artifact Store
-argus-sandbox        OpenSandbox 控制/API 与 Kubernetes Runtime
-argus-observability  Kafka、ClickHouse、argus-telemetry writer、遥测内部组件
+argus-system   Argus 服务、Web、数据库、遥测、Kafka/ClickHouse、Workspace CSI 驱动
+argus-sandbox  OpenSandbox Server、沙箱运行 Pod 与 Workspace PVC
+argus-ingress 自带入口控制器；复用用户现有 Ingress Controller 时不创建
 ```
 
-Operator 可以安装在 `argus-observability`，也可以复用平台已有的集群级 Operator。命名空间拆分用于 RBAC、NetworkPolicy、Quota 和故障域隔离，不表示需要拆分仓库或增加业务服务。
+遥测和 Workspace 存储驱动默认与控制面同处 `argus-system`，仍保留独立 Deployment/DaemonSet、ServiceAccount、RBAC 和资源限制。CSI 驱动需要节点目录和特权权限，普通业务用户不得获得控制面命名空间的工作负载创建权限；不把沙箱并入控制面。命名空间合并不会自动消除数据库依赖，也不表示发布所有服务时上报必然不中断。
+
+安装器对物理 Namespace、基础策略及 PKI Role/RoleBinding 去重，`system` 角色保留命名空间管理标签。卸载先删除沙箱资源并等待 Workspace PV 回收，保留 CSI 驱动到回收完成，最后清理存储驱动和控制面。存储组件卸载不得单独删除共用的 `argus-system`，也不得删除复用的外部驱动。现有数据不能通过改 namespace 名称直接迁移，变更前需要备份迁移或确认空业务后重建。
 
 建议 Release/资源所有权：
 
@@ -348,6 +350,7 @@ Kafka 第一版统一使用 Strimzi Kafka Operator 和 KRaft；Evaluation Profil
 完整安装包含 OpenSandbox 服务及 Kubernetes Runtime，并自动在 Argus 中创建一个平台 `SandboxBackend`。部署约束：
 
 - 放入独立 Namespace 和 ServiceAccount。
+- 集群已有兼容的全局 OpenSandbox Controller 时复用该控制器，Argus Server、凭据与 Workspace 仍独立部署。默认校验锁定版本；不同外部构建必须通过 `openSandbox.sharedController.namespace/imageDigest` 显式指定，并同时验证 CRD 契约、Helm 归属、Deployment/ReplicaSet/Pod 归属、就绪状态及实际运行镜像摘要。不得接管或修改外部 CRD/Deployment，也不因存在 `latest` 标签就自动接受。安装后必须通过真实沙箱创建、执行与销毁验证；外部控制器升级后重新验收。
 - 默认拒绝外网、宿主文件系统、特权容器和生产 Secret。
 - Sandbox 工作负载设置 CPU、内存、临时磁盘、PID、空闲和总生命周期限制。
 - 只允许批准的镜像 Digest；镜像拉取权限与 Argus 主服务分开。

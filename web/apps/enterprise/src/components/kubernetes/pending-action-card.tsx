@@ -90,7 +90,9 @@ export function PendingActionCard({
           return result;
         }
         if (execution.status === "failed" || execution.status === "cancelled") {
-          throw new Error(formatErrorCode(execution.error_code, "Execution failed"));
+          throw new Error(
+            formatErrorCode(execution.error_code, "Execution failed"),
+          );
         }
         await new Promise((resolve) => window.setTimeout(resolve, 500));
       }
@@ -143,7 +145,7 @@ export function PendingActionCard({
           <span className="argus-muted">
             {t("hosts.preview.awaitingApprovalHint")}
           </span>
-          <Button onClick={() => onDismiss?.()} variant="secondary">
+          <Button onPress={() => onDismiss?.()} variant="secondary">
             {t("hosts.preview.close")}
           </Button>
         </div>

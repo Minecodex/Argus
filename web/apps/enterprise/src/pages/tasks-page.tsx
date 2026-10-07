@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { QueryBoundary } from "@argus/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import type {
@@ -112,9 +113,9 @@ function ExecutionsPage() {
     <PageShell
       actions={
         <IconButton
-          disabled={executions.isFetching}
+          isDisabled={executions.isFetching}
           label={t("governance.tasks.refresh")}
-          onClick={() =>
+          onPress={() =>
             void queryClient.invalidateQueries({ queryKey: ["executions"] })
           }
           variant="secondary"
@@ -147,70 +148,73 @@ function ExecutionsPage() {
           value={items.filter((item) => item.status === "failed").length}
         />
       </div>
-      {executions.isPending ? (
-        <Spinner label={t("common.loading")} />
-      ) : items.length === 0 ? (
-        <EmptyState
-          description={t("governance.tasks.emptyDescription")}
-          title={t("governance.tasks.emptyTitle")}
-        />
-      ) : (
-        <DataTable<Execution & Record<string, unknown>>
-          columns={[
-            {
-              key: "execution_id",
-              header: t("governance.tasks.columns.executionId"),
-            },
-            {
-              key: "action_ref",
-              header: t("governance.tasks.columns.actionRef"),
-            },
-            {
-              key: "status",
-              header: t("governance.tasks.columns.status"),
-              render: (item) => (
-                <StatusBadge
-                  pulse={item.status === "running"}
-                  tone={executionTone(item.status)}
-                >
-                  {t(`governance.tasks.status.${item.status}`)}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "result_ref",
-              header: t("governance.tasks.columns.resultRef"),
-            },
-            {
-              key: "error_code",
-              header: t("governance.tasks.columns.errorCode"),
-              render: (item) => formatErrorCode(item.error_code, "—"),
-            },
-            {
-              key: "one_time_result_available",
-              header: t("governance.tasks.columns.oneTimeResult"),
-              render: (item) =>
-                item.one_time_result_available ? (
-                  <RowAction
-                    loading={claimingExecution === item.execution_id}
-                    onClick={() => void claimOneTimeResult(item)}
+      <QueryBoundary query={executions}>
+        {executions.isPending ? (
+          <Spinner label={t("common.loading")} />
+        ) : items.length === 0 ? (
+          <EmptyState
+            description={t("governance.tasks.emptyDescription")}
+            title={t("governance.tasks.emptyTitle")}
+          />
+        ) : (
+          <DataTable<Execution & Record<string, unknown>>
+            columns={[
+              {
+                key: "execution_id",
+                header: t("governance.tasks.columns.executionId"),
+              },
+              {
+                key: "action_ref",
+                header: t("governance.tasks.columns.actionRef"),
+              },
+              {
+                key: "status",
+                header: t("governance.tasks.columns.status"),
+                render: (item) => (
+                  <StatusBadge
+                    pulse={item.status === "running"}
+                    tone={executionTone(item.status)}
                   >
-                    {t("governance.tasks.claimOneTimeResult")}
-                  </RowAction>
-                ) : (
-                  "—"
+                    {t(`governance.tasks.status.${item.status}`)}
+                  </StatusBadge>
                 ),
-            },
-            {
-              key: "updated_at",
-              header: t("governance.tasks.columns.startedAt"),
-              render: (item) => formatDateTime(item.updated_at, i18n.language),
-            },
-          ]}
-          data={items as Array<Execution & Record<string, unknown>>}
-          getRowKey={(item) => item.execution_id}
-        />
-      )}
+              },
+              {
+                key: "result_ref",
+                header: t("governance.tasks.columns.resultRef"),
+              },
+              {
+                key: "error_code",
+                header: t("governance.tasks.columns.errorCode"),
+                render: (item) => formatErrorCode(item.error_code, "—"),
+              },
+              {
+                key: "one_time_result_available",
+                header: t("governance.tasks.columns.oneTimeResult"),
+                render: (item) =>
+                  item.one_time_result_available ? (
+                    <RowAction
+                      isPending={claimingExecution === item.execution_id}
+                      onPress={() => void claimOneTimeResult(item)}
+                    >
+                      {t("governance.tasks.claimOneTimeResult")}
+                    </RowAction>
+                  ) : (
+                    "—"
+                  ),
+              },
+              {
+                key: "updated_at",
+                header: t("governance.tasks.columns.startedAt"),
+                render: (item) =>
+                  formatDateTime(item.updated_at, i18n.language),
+              },
+            ]}
+            data={items as Array<Execution & Record<string, unknown>>}
+            getRowKey={(item) => item.execution_id}
+          />
+        )}
+      </QueryBoundary>
       {claimError && (
         <Alert
           description={claimError}
@@ -226,7 +230,7 @@ function ExecutionsPage() {
             tone="warning"
           />
           <InstallInstructionPanel result={oneTimeResult} />
-          <Button onClick={() => setOneTimeResult(null)} variant="secondary">
+          <Button onPress={() => setOneTimeResult(null)} variant="secondary">
             {t("governance.tasks.dismissOneTimeResult")}
           </Button>
         </section>
@@ -389,16 +393,18 @@ function LegacyTasksPage() {
               key: "name",
               header: t("governance.tasks.columns.name"),
               render: (row) => (
-                <button
+                <Button
+                  variant="ghost"
+                  layout="content"
                   className="argus-task-name"
-                  onClick={() => setSelectedTaskId(row.task.id)}
+                  onPress={() => setSelectedTaskId(row.task.id)}
                   type="button"
                 >
                   <span>{taskDisplayTitle(row.task, t)}</span>
                   <span className="argus-task-name__type">
                     {t(`governance.tasks.type.${row.task.type}`)}
                   </span>
-                </button>
+                </Button>
               ),
             },
             {

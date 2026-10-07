@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { dashboardsZh } from "../src/i18n/dashboards";
 import { createMfaLogin } from "./helpers/mfa-login";
+import { selectTrigger } from "./helpers/select";
 import {
   confirmDashboardAction,
   dashboardAPI,
@@ -240,14 +241,14 @@ test("nonempty folders require published migration and preserve history across r
   await dialog
     .getByRole("textbox", { name: d.name, exact: true })
     .fill("Migrated dashboard");
-  await dialog.getByRole("combobox", { name: d.folder, exact: true }).click();
+  await selectTrigger(dialog, d.folder).click();
   await page.getByRole("option", { name, exact: true }).click();
   await dialog.getByRole("button", { name: d.done, exact: true }).click();
   await expect(page).toHaveURL(/dashboard-drafts/);
   await publish(page);
   const board = page.url().split("/").at(-1)!;
   await page.goto("/dashboards");
-  await page.getByRole("combobox", { name: d.folder, exact: true }).click();
+  await selectTrigger(page, d.folder).click();
   await page.getByRole("option", { name, exact: true }).click();
   const denied = page.waitForResponse((r) =>
     r.url().endsWith("/dashboard-folders/preview"),
@@ -261,7 +262,7 @@ test("nonempty folders require published migration and preserve history across r
   await expect(page).toHaveURL(/dashboard-drafts/);
   await page.getByRole("button", { name: d.metadata, exact: true }).click();
   dialog = page.getByRole("dialog", { name: d.metadata, exact: true });
-  await dialog.getByRole("combobox", { name: d.folder, exact: true }).click();
+  await selectTrigger(dialog, d.folder).click();
   await page.getByRole("option", { name: d.ungrouped, exact: true }).click();
   const saved = page.waitForResponse(
     (r) =>
@@ -276,7 +277,7 @@ test("nonempty folders require published migration and preserve history across r
       .folder_id ?? null,
   ).toBeNull();
   await page.goto("/dashboards");
-  await page.getByRole("combobox", { name: d.folder, exact: true }).click();
+  await selectTrigger(page, d.folder).click();
   await page.getByRole("option", { name, exact: true }).click();
   await page
     .getByRole("button", { name: d.archiveFolder, exact: true })
@@ -315,6 +316,7 @@ test("Host and Kubernetes shortcuts preselect resources without narrowing the da
     ["kubernetes", cluster],
   ]) {
     await page.goto(`/${route}/${id}`);
+    await page.getByRole("tab", { name: "仪表盘", exact: true }).click();
     const links = page.getByRole("region", {
       name: d.resourceLinks,
       exact: true,
@@ -327,13 +329,10 @@ test("Host and Kubernetes shortcuts preselect resources without narrowing the da
       exact: true,
     });
     await manage
-      .getByRole("combobox", { name: d.chooseDashboard, exact: true })
-      .click();
-    await page
-      .getByRole("option", { name: "PlanV2 real Metrics gallery", exact: true })
-      .click();
-    await manage
-      .getByRole("button", { name: d.attachBinding, exact: true })
+      .getByRole("button", {
+        name: "关联 PlanV2 real Metrics gallery",
+        exact: true,
+      })
       .click();
     const review = page.getByRole("dialog", {
       name: d.bindingPreviewTitle,
@@ -341,7 +340,8 @@ test("Host and Kubernetes shortcuts preselect resources without narrowing the da
     });
     await review.getByRole("button", { name: "确认执行", exact: true }).click();
     await expect(review).not.toBeVisible();
-    await page.keyboard.press("Escape");
+    await manage.getByRole("button", { name: d.close, exact: true }).click();
+    await expect(manage).not.toBeVisible();
     const result = page.waitForResponse(
       (r) =>
         r.url().endsWith(`/dashboards/${board}/execute`) && r.status() === 200,
@@ -372,11 +372,15 @@ test("Host and Kubernetes shortcuts preselect resources without narrowing the da
       fullPage: true,
     });
     await page.goto(`/${route}/${id}`);
+    await page.getByRole("tab", { name: "仪表盘", exact: true }).click();
     await links
       .getByRole("button", { name: d.manageBindings, exact: true })
       .click();
     await manage
-      .getByRole("button", { name: d.detachBinding, exact: true })
+      .getByRole("button", {
+        name: "解除关联 PlanV2 real Metrics gallery",
+        exact: true,
+      })
       .click();
     await review.getByRole("button", { name: "确认执行", exact: true }).click();
     await expect(review).not.toBeVisible();

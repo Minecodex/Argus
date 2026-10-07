@@ -18,7 +18,7 @@ Argus 主应用统一使用：
 | 路由         | TanStack Router                   | 路由必须区分 setup、platform 和 enterprise 身份上下文                                                                               |
 | 服务端状态   | TanStack Query                    | API 缓存、游标分页、失效和重试；不能作为业务状态事实来源                                                                            |
 | 本地 UI 状态 | Zustand                           | 只保存草稿、布局和临时交互状态，不保存权限、Pending Action 或 Run 唯一状态                                                          |
-| UI 基础      | Radix UI + Tailwind CSS + CVA     | 所有颜色、字号、间距、圆角和状态样式来自统一 Design Token                                                                           |
+| UI 基础      | HeroUI v3 + Tailwind CSS v4       | `@heroui/react` / `@heroui/styles` 固定 3.2.6；只经 `@argus/ui` 使用；所有颜色、字号、间距、圆角和状态来自统一 Design Token              |
 | 表格         | TanStack Table + TanStack Virtual | 远程过滤、排序和翻页必须走相应业务查询 API；Tool 模板翻页或换时间需发起新会话消息                                                                                      |
 | 表单         | React Hook Form + Zod             | 前端校验只改善交互，服务端仍执行最终 Schema 和业务校验                                                                              |
 | 图表         | Apache ECharts                    | 用于 Metrics、Trace、拓扑和时间序列；查询必须经过 Telemetry Query                                                                   |
@@ -28,7 +28,9 @@ Argus 主应用统一使用：
 
 不使用 Next.js 作为第一版主框架。Argus 是登录后的控制平面，不依赖 SEO 或服务端页面渲染；Vite 静态构建可以减少运行时和部署复杂度。
 
-引入顺序固定为“核心栈先锁定，功能到达时再启用对应库”：React/TypeScript/Vite/pnpm、Router、Query、Zustand、Radix/Tailwind/CVA 和 i18next 属于前端基座；TanStack Table/Virtual 在资源大列表阶段启用，React Hook Form/Zod 在真实写表单阶段启用，ECharts 在遥测阶段启用，xterm.js 在远程访问阶段启用，MSW 与 axe-core 在真实 API 和可访问性门禁阶段启用。不得为了“技术栈完整”在尚无业务使用点时提前铺空封装。
+引入顺序固定为“核心栈先锁定，功能到达时再启用对应库”：React/TypeScript/Vite/pnpm、Router、Query、Zustand、HeroUI/Tailwind 和 i18next 属于前端基座；TanStack Table/Virtual 在资源大列表阶段启用，React Hook Form/Zod 在真实写表单阶段启用，ECharts 在遥测阶段启用，xterm.js 在远程访问阶段启用，MSW 与 axe-core 在真实 API 和可访问性门禁阶段启用。不得为了“技术栈完整”在尚无业务使用点时提前铺空封装。
+
+2026-10-06 用户确认将前端基础从 Radix 迁移到 HeroUI v3：目的是统一各门户控件、选项弹层、紧凑尺寸与可访问性行为。应用仍只使用 `@argus/ui`，React/Vite、领域 API、权限和 Template Runtime 安全边界不变。迁移与验收见[全门户重设计](./plans/frontend-redesign/README.md)。
 
 ### 2.1 UI 包边界
 
@@ -50,8 +52,8 @@ web/
 - `enterprise` 包含 Chatbox 和企业管理后台。
 - `template-runtime` 承载独立 Origin 的模板 iframe，不接入门户认证状态或业务路由。
 - `ui` 是唯一通用组件实现，业务应用不得维护平行组件库。
-- 列表/表格/卡片栅格的行内操作统一使用 `@argus/ui` 的 `ActionGroup`（容器）+ `RowAction`（文字型操作按钮）组合；`RowAction` 固定为 ghost + sm 的纯文字形态，破坏性或不可逆操作（删除、卸载、终止、停用企业等）传 `danger` 以红色文字呈现，不得再混用 `Button` 的 secondary/primary/danger 边框按钮形态。页面级主操作（如"新建"）、表单与对话框底部按钮、面板头部动作仍使用 `Button`。
-- 日期与日期时间输入统一使用 `@argus/ui` 的 `DateTimePicker`。组件基于开源 `react-datepicker`，对外保留表单契约使用的 `yyyy-MM-dd` / `yyyy-MM-ddTHH:mm` 本地值格式，并由 Argus Design Token 覆盖日历、时间列表和输入框样式；输入框文字与日历图标都必须打开同一面板。
+- 记录列表的行内操作使用 `ActionGroup` + `RowAction`（ghost + sm）。资源卡片使用 `ResourceCard`：独立标题入口、摘要与常用动作，编辑/归档/停用等次要动作收进共享操作菜单。破坏性动作通过 `danger` 标记；页面主操作和表单底部使用 `Button`。这是本轮全门户重设计对旧卡片行内按钮规范的更新。
+- 日期与日期时间输入统一使用 `@argus/ui` 的 `DateTimePicker`。组件基于 HeroUI DatePicker / DateField / Calendar 和 `@internationalized/date`，对外保留 `yyyy-MM-dd` / `yyyy-MM-ddTHH:mm` 本地值格式。日历、分段输入和时间编辑共享 Argus token；日期输入区和图标打开同一面板，键盘可直接编辑分段值。
 - `api-client` 由 OpenAPI 生成基础类型，在其上提供领域 Port、mock/real Adapter 以及 HTTP/SSE/WebSocket Transport；客户端上下文不能替代服务端资源归属检查。两个门户必须显式设置 `VITE_API_MODE=mock|real`，未知模式、real 缺少 Base URL 或调用尚未冻结的领域操作都 fail closed，禁止隐式回退 mock。
 - `@argus/ui` 的 Template Host 实现 iframe 生命周期、Hash 校验与引用白名单；运行时执行固定模板并消费版本化 Bridge 契约。
 

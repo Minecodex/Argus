@@ -34,8 +34,9 @@ type DoctorReport struct {
 }
 
 type doctorOptions struct {
-	KubeContext string
-	E2ESuite    string
+	KubeContext      string
+	E2ESuite         string
+	SharedController *argusctl.SharedSandboxController
 }
 
 func (a *App) runDoctor(ctx context.Context, args []string) error {
@@ -133,7 +134,7 @@ func (a *App) doctorWithOptions(ctx context.Context, scope string, options docto
 				} else {
 					add("kubernetes-architecture", "pass", architecture)
 				}
-				if conflicts, err := dedicatedClusterConflictsWithTimeout(ctx, kube, a.root); err != nil {
+				if conflicts, err := dedicatedClusterConflictsPinnedWithTimeout(ctx, kube, a.root, options.SharedController); err != nil {
 					add("kubernetes-dedicated-cluster", "fail", err.Error())
 				} else if len(conflicts) != 0 {
 					add("kubernetes-dedicated-cluster", "fail", "full E2E requires a dedicated cluster; conflicting resources: "+strings.Join(conflicts, ", "))
@@ -195,22 +196,43 @@ func nodeArchitectureWithTimeout(ctx context.Context, kube *E2EKube) (string, er
 }
 
 func dedicatedClusterConflictsWithTimeout(ctx context.Context, kube *E2EKube, roots ...string) ([]string, error) {
+	root := ""
+	if len(roots) > 0 {
+		root = roots[0]
+	}
+	return dedicatedClusterConflictsPinnedWithTimeout(ctx, kube, root, nil)
+}
+
+func dedicatedClusterConflictsPinnedWithTimeout(ctx context.Context, kube *E2EKube, root string, pin *argusctl.SharedSandboxController) ([]string, error) {
 	probeCtx, cancel := context.WithTimeout(ctx, doctorProbeTimeout)
 	defer cancel()
 	conflicts, err := kube.DedicatedClusterConflicts(probeCtx)
-	if err != nil || len(roots) == 0 {
+	if err != nil || root == "" {
 		return conflicts, err
 	}
+	owners := []string{"", ""}
 	for _, conflict := range conflicts {
 		if strings.HasPrefix(conflict, "ClusterRole/opensandbox-") {
-			owner, err := argusctl.CompatibleOpenSandboxOwner(probeCtx, kube.Context, roots[0])
+			if owners[0] != "" {
+				continue
+			}
+			if pin == nil {
+				owners[0], err = argusctl.CompatibleOpenSandboxOwner(probeCtx, kube.Context, root)
+			} else {
+				owners[0], err = argusctl.CompatibleOpenSandboxOwner(probeCtx, kube.Context, root, pin)
+			}
 			if err != nil {
 				return nil, fmt.Errorf("shared OpenSandbox preflight: %w", err)
 			}
-			return kube.DedicatedClusterConflicts(probeCtx, owner)
+		}
+		if strings.HasPrefix(conflict, "ClusterRole/strimzi-") {
+			owners[1], err = argusctl.CompatibleStrimziOwner(probeCtx, kube.Context, root)
+			if err != nil {
+				return nil, fmt.Errorf("shared Strimzi preflight: %w", err)
+			}
 		}
 	}
-	return conflicts, nil
+	return kube.DedicatedClusterConflicts(probeCtx, owners...)
 }
 
 func kubectlContextArgs(contextName string, args ...string) []string {

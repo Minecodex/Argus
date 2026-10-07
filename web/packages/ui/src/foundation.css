@@ -1,0 +1,606 @@
+/* HeroUI is the only primitive renderer. Argus tokens define its visual identity. */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  --background: var(--bg-canvas);
+  --foreground: var(--text-primary);
+  --surface: var(--bg-surface);
+  --surface-foreground: var(--text-primary);
+  --surface-secondary: var(--bg-elevated);
+  --surface-secondary-foreground: var(--text-secondary);
+  --surface-tertiary: var(--bg-muted);
+  --surface-tertiary-foreground: var(--text-secondary);
+  --overlay: var(--bg-surface);
+  --overlay-foreground: var(--text-primary);
+  --muted: var(--text-tertiary);
+  --border: var(--border-default);
+  --separator: var(--border-subtle);
+  --default: var(--bg-elevated);
+  --default-foreground: var(--text-primary);
+  --accent-foreground: var(--text-inverse);
+  --accent-soft-foreground: var(--accent-text);
+  --danger-foreground: var(--bg-canvas);
+  --success-foreground: var(--bg-canvas);
+  --warning-foreground: var(--bg-canvas);
+  --field-background: var(--bg-canvas);
+  --field-foreground: var(--text-primary);
+  --field-placeholder: var(--text-disabled);
+  --field-border: var(--border-default);
+  --field-border-focus: var(--control-focus-border);
+  --field-hover: var(--bg-hover);
+  --focus: var(--control-focus-border);
+  --radius: var(--control-radius);
+  --field-radius: var(--control-radius);
+  --scrollbar-thumb: var(--border-strong);
+}
+.argus-control--sm {
+  --control-height: var(--control-sm);
+}
+.argus-control--md {
+  --control-height: var(--control-md);
+}
+.argus-control--lg {
+  --control-height: var(--control-lg);
+}
+.argus-button {
+  height: var(--control-height);
+  min-height: var(--control-height);
+  min-width: 0;
+  padding: 0 var(--control-padding);
+  gap: var(--action-gap);
+  border-radius: var(--control-radius);
+  font: 600 var(--text-body)/1 var(--font-sans);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.argus-button.button--icon-only {
+  width: var(--control-height);
+  padding: 0;
+  flex-shrink: 0;
+}
+.argus-button > svg {
+  width: var(--control-icon);
+  height: var(--control-icon);
+  flex-shrink: 0;
+}
+.argus-button__spinner {
+  width: var(--control-icon);
+  height: var(--control-icon);
+}
+.argus-button.argus-button--content {
+  height: auto;
+  min-height: var(--control-height);
+  justify-content: flex-start;
+  align-items: stretch;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+  flex-shrink: 0;
+}
+.argus-button--content {
+  padding: var(--card-padding);
+}
+.argus-row-action {
+  padding: 0 var(--space-1);
+}
+.argus-row-action--danger {
+  color: var(--danger);
+}
+.argus-input,
+.argus-textarea {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-primary);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  font: 400 var(--text-body)/var(--line-height-normal) var(--font-sans);
+}
+.argus-input {
+  height: var(--control-height);
+  padding: 0 var(--control-padding);
+}
+.argus-input.argus-input--title {
+  font-size: var(--text-heading);
+  font-weight: 650;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.argus-input--title:hover,
+.argus-input--title:focus-visible {
+  border-color: var(--border-default);
+  background: var(--bg-surface);
+}
+.argus-textarea {
+  min-height: var(--space-px-80);
+  padding: var(--space-2) var(--control-padding);
+  resize: vertical;
+}
+.argus-input::placeholder,
+.argus-textarea::placeholder {
+  color: var(--text-disabled);
+}
+/* Field focus follows SearchInput; replace the vendor ring to avoid double outlines. */
+:is(.argus-input, .argus-textarea, .argus-select__trigger):is(
+  :focus,
+  [data-focused="true"],
+  [data-focus-visible="true"]
+),
+:is(
+  .argus-search-input,
+  .argus-combobox__control,
+  .argus-date-time-picker__control
+):focus-within {
+  border-color: var(--control-focus-border);
+  outline: var(--control-focus-width) solid var(--control-focus-ring);
+  outline-offset: 0;
+  box-shadow: none;
+}
+.argus-input[aria-invalid="true"],
+.argus-textarea[aria-invalid="true"],
+.argus-select[data-invalid="true"] .argus-select__trigger,
+.argus-combobox[data-invalid="true"] .argus-combobox__control,
+.argus-date-time-picker[data-invalid="true"] .argus-date-time-picker__control {
+  border-color: var(--danger);
+}
+.argus-input:disabled,
+.argus-textarea:disabled {
+  color: var(--text-disabled);
+  background: var(--bg-muted);
+}
+.argus-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-label-gap);
+  min-width: 0;
+}
+.argus-field__label {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+  font-weight: 600;
+}
+.argus-field__required,
+.argus-field__hint.is-error {
+  color: var(--danger);
+}
+.argus-field__hint {
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+  line-height: var(--line-height-normal);
+}
+.argus-select {
+  width: 100%;
+  min-width: 0;
+  gap: var(--field-label-gap);
+}
+.argus-select__trigger,
+.argus-combobox__control,
+.argus-date-time-picker__control {
+  min-height: var(--control-height);
+  height: var(--control-height);
+  min-width: 0;
+  padding: 0 var(--control-padding);
+  border: 1px solid var(--border-default);
+  background: var(--bg-canvas);
+  border-radius: var(--control-radius);
+  box-shadow: none;
+  color: var(--text-primary);
+  font: 400 var(--text-body)/var(--line-height-normal) var(--font-sans);
+}
+.argus-select__value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: 100%;
+  font: inherit;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.argus-filter-popover {
+  z-index: var(--layer-popover);
+  width: var(--popover-filter-width);
+  max-width: calc(100vw - var(--page-padding));
+  padding: 0;
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--card-radius);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+.argus-filter-popover--lg {
+  width: var(--dialog-width-md);
+}
+.argus-filter-popover__dialog {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  outline: none;
+  max-height: calc(100dvh - var(--header-height) - var(--page-padding) * 2);
+}
+.argus-filter-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--action-gap);
+  padding: var(--space-3) var(--card-padding);
+  border-bottom: var(--space-px-1) solid var(--border-subtle);
+}
+.argus-filter-popover__title {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-strong);
+}
+.argus-filter-popover__body {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--card-padding);
+}
+.argus-filter-popover__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--action-gap);
+  padding: var(--space-3) var(--card-padding);
+  border-top: var(--space-px-1) solid var(--border-subtle);
+}
+.argus-value-selector-summary {
+  min-width: 0;
+  max-width: var(--field-width-compact);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.argus-value-selector-hint {
+  margin: 0;
+  font-size: var(--text-help);
+  color: var(--text-secondary);
+}
+.argus-select__trigger {
+  display: inline-flex;
+  align-items: center;
+}
+.argus-select__value [data-slot="description"] {
+  display: none;
+}
+.argus-select__value .argus-select__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.argus-select__content,
+.argus-dropdown,
+.argus-combobox__popover,
+.argus-date-time-picker__calendar {
+  z-index: var(--layer-popover);
+  border: 1px solid var(--border-default);
+  border-radius: var(--card-radius);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  max-width: calc(100vw - var(--page-padding));
+  overflow: auto;
+}
+.argus-select__content {
+  min-width: var(--trigger-width);
+}
+.argus-select__viewport {
+  padding: var(--space-1);
+  max-height: var(--popover-max-height);
+  overflow: auto;
+}
+.argus-select__item,
+.argus-dropdown__item {
+  min-height: var(--control-md);
+  padding: var(--space-1) var(--space-2);
+  gap: var(--action-gap);
+  border-radius: var(--control-radius);
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+}
+.argus-select__item[data-focused],
+.argus-select__item[data-hovered],
+.argus-dropdown__item[data-focused],
+.argus-dropdown__item[data-hovered] {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.argus-select__item[data-selected] {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+.argus-select__item[data-disabled] {
+  color: var(--text-disabled);
+}
+.argus-select__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.argus-select__label > [data-slot="label"] {
+  color: inherit;
+  font: inherit;
+}
+.argus-dropdown__item.is-danger {
+  color: var(--danger);
+}
+.argus-date-time-picker {
+  width: 100%;
+}
+.argus-date-time-picker__control {
+  display: flex;
+  align-items: center;
+}
+.argus-date-time-picker__calendar {
+  padding: var(--card-padding);
+}
+.argus-checkbox {
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+}
+.argus-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.argus-choice-list__item {
+  min-height: var(--control-md);
+  font-size: var(--text-body);
+}
+.argus-segments {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: flex-start;
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--space-px-1);
+  gap: var(--space-px-2);
+  background: var(--bg-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--control-radius);
+}
+.argus-segments__item {
+  min-width: 0;
+  color: var(--text-secondary);
+  border-radius: var(--control-radius);
+}
+.argus-segments__control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--text-body);
+  border-radius: var(--control-radius);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.argus-segments__control[data-hovered] {
+  background: var(--bg-hover);
+}
+.argus-segments__control[data-selected] {
+  background: var(--bg-surface);
+  color: var(--brand-highlight);
+  box-shadow: var(--shadow-sm);
+}
+.argus-segments__control[data-focus-visible] {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.argus-combobox {
+  min-width: 0;
+  width: 100%;
+}
+.argus-combobox__control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.argus-combobox__control > input {
+  border: 0;
+  background: transparent;
+  min-width: 0;
+  padding: 0;
+  height: 100%;
+  box-shadow: none;
+  font-size: var(--text-body);
+}
+.argus-switch {
+  flex-shrink: 0;
+}
+.argus-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  min-width: 0;
+}
+.argus-tabs__trigger {
+  min-height: var(--control-md);
+  padding: 0 var(--space-3);
+  font-size: var(--text-body);
+  border-radius: var(--control-radius);
+  flex-shrink: 0;
+  width: auto;
+}
+.argus-tabs__trigger [data-slot="tabs-indicator"] {
+  border-radius: var(--control-radius);
+  box-shadow: none;
+}
+.argus-tabs__trigger[data-selected] {
+  color: var(--brand-highlight);
+}
+.argus-tabs__content {
+  padding-top: var(--card-padding);
+  min-width: 0;
+}
+.argus-dialog__overlay {
+  z-index: var(--layer-overlay);
+  background: color-mix(in srgb, var(--overlay-black) 40%, transparent);
+}
+.argus-dialog-container {
+  flex: 0 1 auto;
+  padding: 0;
+  height: auto;
+  width: min(
+    var(--argus-dialog-width, var(--dialog-width-md)),
+    calc(100vw - var(--page-padding))
+  );
+  max-width: none;
+}
+.argus-dialog-container:has(.argus-dialog--lg) {
+  width: min(
+    var(--argus-dialog-width, var(--dialog-width-lg)),
+    calc(100vw - var(--page-padding))
+  );
+}
+.argus-dialog {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  flex-direction: column;
+  min-width: 0;
+  max-height: calc(100dvh - var(--page-padding));
+  padding: 0;
+  gap: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--card-radius);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.argus-dialog__top,
+.argus-drawer__top {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--field-gap);
+  padding: var(--card-padding);
+  border-bottom: 1px solid var(--border-subtle);
+  margin: 0;
+}
+.argus-overlay-heading {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.argus-overlay-close {
+  margin-left: auto;
+  align-self: flex-start;
+}
+.argus-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  min-width: 0;
+}
+.argus-dialog__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-16);
+  font-weight: 650;
+}
+.argus-dialog__description {
+  margin-top: var(--space-1);
+  font-size: var(--text-help);
+  color: var(--text-tertiary);
+}
+.argus-dialog__body,
+.argus-drawer__body {
+  min-height: 0;
+  min-width: 0;
+  margin: 0;
+  padding: var(--card-padding);
+  overflow: auto;
+}
+.argus-dialog__footer,
+.argus-drawer__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--action-gap);
+  padding: var(--card-padding);
+  border-top: 1px solid var(--border-subtle);
+}
+.argus-drawer-content {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+}
+.argus-drawer {
+  width: min(var(--argus-drawer-width, var(--drawer-width)), 100vw);
+  flex: 0 0 auto;
+  margin: 0;
+}
+.argus-drawer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+.argus-drawer__body {
+  flex: 1;
+}
+.argus-drawer__fields {
+  display: grid;
+  gap: var(--field-gap);
+  min-width: 0;
+}
+.argus-tooltip {
+  z-index: var(--layer-tooltip);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: var(--text-help);
+  border-radius: var(--control-radius);
+}
+.argus-avatar {
+  font-size: var(--text-help);
+}
+.argus-search-input {
+  height: var(--control-md);
+  min-height: var(--control-md);
+  padding: 0 var(--control-padding);
+  border-radius: var(--control-radius);
+}
+.argus-search-input > input {
+  font-size: var(--text-body);
+}
+.argus-action-group {
+  gap: var(--action-gap);
+}
+.argus-button.argus-scenario-card {
+  height: auto;
+  min-height: var(--control-height);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.argus-range-slider {
+  min-width: 0;
+  flex: 1;
+  height: var(--control-height);
+  display: flex;
+  align-items: center;
+}
+.argus-range-slider__track {
+  width: 100%;
+}

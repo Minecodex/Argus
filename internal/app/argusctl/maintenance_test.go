@@ -56,6 +56,14 @@ func TestRestoreTargetMustBeDistinct(t *testing.T) {
 	if err := ensureDistinctRestoreTarget(cfg, manifest); err == nil {
 		t.Fatal("source namespace reuse was accepted")
 	}
+	cfg.Spec.Namespaces = Namespaces{System: "target-system", Sandbox: "target-sandbox", Observability: "target-system"}
+	if err := ensureDistinctRestoreTarget(cfg, manifest); err != nil {
+		t.Fatalf("consolidated target rejected: %v", err)
+	}
+	cfg.Spec.Namespaces.System = manifest.Namespaces.Observability
+	if err := ensureDistinctRestoreTarget(cfg, manifest); err == nil {
+		t.Fatal("cross-role source namespace reuse was accepted")
+	}
 }
 
 func TestOpenBaoMaintenanceCommandsSelectUnsealContainer(t *testing.T) {

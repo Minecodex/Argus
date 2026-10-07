@@ -213,7 +213,7 @@ export function TerminalEmulator({
         </span>
         <Button
           aria-label={clearLabel ?? text("清屏", "Clear")}
-          onClick={() => {
+          onPress={() => {
             setCleared(lines.length);
             setTyped([]);
             if (mode === "pty") {
@@ -221,7 +221,7 @@ export function TerminalEmulator({
               writtenChunksRef.current = lines.length;
             }
           }}
-          size="icon"
+          isIconOnly
           variant="ghost"
         >
           <Ban size={13} />

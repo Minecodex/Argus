@@ -49,15 +49,23 @@ export function CollectorSettlementPanel({
 
   const snapshot = settlementQuery.data;
   const timedOut = Date.now() - startedAt.current > SETTLEMENT_TIMEOUT_MS;
-  const terminal = snapshot?.status && !TRANSITIONAL_STATUSES.includes(snapshot.status);
+  const terminal =
+    snapshot?.status && !TRANSITIONAL_STATUSES.includes(snapshot.status);
   const failed =
-    Boolean(terminal && snapshot?.status !== "converged" && snapshot?.status !== "uninstalled") ||
+    Boolean(
+      terminal &&
+      snapshot?.status !== "converged" &&
+      snapshot?.status !== "uninstalled",
+    ) ||
     (timedOut && !terminal);
 
   useEffect(() => {
     if (!terminal || settledRef.current) return;
     settledRef.current = true;
-    if (snapshot?.status === "converged" || snapshot?.status === "uninstalled") {
+    if (
+      snapshot?.status === "converged" ||
+      snapshot?.status === "uninstalled"
+    ) {
       onSettled();
     }
   }, [terminal, snapshot?.status, onSettled]);
@@ -102,7 +110,7 @@ export function CollectorSettlementPanel({
         </div>
       )}
       <div className="argus-form-actions">
-        <Button onClick={onClose} variant="secondary">
+        <Button onPress={onClose} variant="secondary">
           {t("common.collectorSettlement.close")}
         </Button>
       </div>

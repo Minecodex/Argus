@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { QueryBoundary } from "@argus/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -136,7 +137,7 @@ export function BackendsTab() {
   return (
     <div className="argus-platform-stack">
       <div className="argus-tab-toolbar">
-        <Button onClick={() => setForm(EMPTY_FORM)} variant="primary">
+        <Button onPress={() => setForm(EMPTY_FORM)} variant="primary">
           {t("sandbox.backends.add")}
         </Button>
       </div>
@@ -160,94 +161,95 @@ export function BackendsTab() {
         />
       )}
 
-      {backends.isPending ? (
-        <Spinner />
-      ) : (
-        <DataTable<BackendRow>
-          columns={[
-            { key: "name", header: t("sandbox.backends.table.name") },
-            {
-              key: "endpoint",
-              header: t("sandbox.backends.table.endpoint"),
-              render: (row) => (
-                <code className="argus-mono">{row.endpoint}</code>
-              ),
-            },
-            {
-              key: "credentialRef",
-              header: t("sandbox.backends.table.credential"),
-              render: (row) => (
-                <code className="argus-mono">{row.credentialRef}</code>
-              ),
-            },
-            {
-              key: "tlsVerify",
-              header: t("sandbox.backends.table.tls"),
-              render: (row) => t(row.tlsVerify ? "common.yes" : "common.no"),
-            },
-            {
-              key: "defaultStorage",
-              header: t("sandbox.backends.table.storage"),
-              render: (row) => (
-                <code className="argus-mono">{row.defaultStorage}</code>
-              ),
-            },
-            {
-              key: "healthStatus",
-              header: t("sandbox.backends.table.health"),
-              render: (row) => (
-                <StatusBadge tone={healthTone(row.healthStatus)}>
-                  {t(`sandbox.backends.health.${row.healthStatus}`)}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "enabled",
-              header: t("common.status"),
-              render: (row) => (
-                <Switch
-                  checked={row.enabled}
-                  label={t("common.status")}
-                  onChange={(checked) =>
-                    toggle.mutate({ id: row.id, enabled: checked })
-                  }
-                />
-              ),
-            },
-            {
-              key: "id",
-              header: t("common.actions"),
-              render: (row) => (
-                <ActionGroup>
-                  <RowAction
-                    onClick={() =>
-                      setForm({
-                        id: row.id,
-                        name: row.name,
-                        endpoint: row.endpoint,
-                        credentialRef: row.credentialRef,
-                        tlsVerify: row.tlsVerify,
-                        defaultStorage: row.defaultStorage,
-                      })
+      <QueryBoundary query={backends}>
+        {backends.isPending ? (
+          <Spinner />
+        ) : (
+          <DataTable<BackendRow>
+            columns={[
+              { key: "name", header: t("sandbox.backends.table.name") },
+              {
+                key: "endpoint",
+                header: t("sandbox.backends.table.endpoint"),
+                render: (row) => (
+                  <code className="argus-mono">{row.endpoint}</code>
+                ),
+              },
+              {
+                key: "credentialRef",
+                header: t("sandbox.backends.table.credential"),
+                render: (row) => (
+                  <code className="argus-mono">{row.credentialRef}</code>
+                ),
+              },
+              {
+                key: "tlsVerify",
+                header: t("sandbox.backends.table.tls"),
+                render: (row) => t(row.tlsVerify ? "common.yes" : "common.no"),
+              },
+              {
+                key: "defaultStorage",
+                header: t("sandbox.backends.table.storage"),
+                render: (row) => (
+                  <code className="argus-mono">{row.defaultStorage}</code>
+                ),
+              },
+              {
+                key: "healthStatus",
+                header: t("sandbox.backends.table.health"),
+                render: (row) => (
+                  <StatusBadge tone={healthTone(row.healthStatus)}>
+                    {t(`sandbox.backends.health.${row.healthStatus}`)}
+                  </StatusBadge>
+                ),
+              },
+              {
+                key: "enabled",
+                header: t("common.status"),
+                render: (row) => (
+                  <Switch
+                    checked={row.enabled}
+                    label={t("common.status")}
+                    onChange={(checked) =>
+                      toggle.mutate({ id: row.id, enabled: checked })
                     }
-                  >
-                    {t("common.edit")}
-                  </RowAction>
-                  <RowAction
-                    loading={test.isPending && test.variables === row.id}
-                    onClick={() => test.mutate(row.id)}
-                  >
-                    {t("sandbox.backends.test")}
-                  </RowAction>
-                </ActionGroup>
-              ),
-            },
-          ]}
-          data={rows}
-          getRowKey={(row) => row.id}
-        />
-      )}
-
+                  />
+                ),
+              },
+              {
+                key: "id",
+                header: t("common.actions"),
+                render: (row) => (
+                  <ActionGroup>
+                    <RowAction
+                      onPress={() =>
+                        setForm({
+                          id: row.id,
+                          name: row.name,
+                          endpoint: row.endpoint,
+                          credentialRef: row.credentialRef,
+                          tlsVerify: row.tlsVerify,
+                          defaultStorage: row.defaultStorage,
+                        })
+                      }
+                    >
+                      {t("common.edit")}
+                    </RowAction>
+                    <RowAction
+                      isPending={test.isPending && test.variables === row.id}
+                      onPress={() => test.mutate(row.id)}
+                    >
+                      {t("sandbox.backends.test")}
+                    </RowAction>
+                  </ActionGroup>
+                ),
+              },
+            ]}
+            data={rows}
+            getRowKey={(row) => row.id}
+          />
+        )}
+      </QueryBoundary>
       {form && (
         <BackendFormDrawer
           initial={form}

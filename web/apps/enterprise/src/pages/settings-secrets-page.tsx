@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { QueryBoundary } from "@argus/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -246,7 +247,7 @@ export function SettingsSecretsPage() {
       actions={
         <div className="argus-settings-create-actions">
           <Button
-            onClick={currentCreateAction.onSelect}
+            onPress={currentCreateAction.onSelect}
             size="sm"
             variant="primary"
           >
@@ -261,7 +262,7 @@ export function SettingsSecretsPage() {
             trigger={
               <Button
                 aria-label={t("settings.secrets.createMenu")}
-                size="icon"
+                isIconOnly
                 variant="secondary"
               >
                 <ChevronDown aria-hidden size={16} />
@@ -288,142 +289,151 @@ export function SettingsSecretsPage() {
         </TabsList>
 
         <TabsContent value="secrets">
-          <div className="argus-settings-stack">
-            <Alert
-              description={t("settings.secrets.alertDescription")}
-              title={t("settings.secrets.alertTitle")}
-              tone="info"
-            />
-            {secrets.isPending ? (
-              <Spinner />
-            ) : rows.length === 0 ? (
-              <EmptyState description="" title={t("settings.secrets.empty")} />
-            ) : (
-              <DataTable<SecretRow>
-                columns={[
-                  { key: "name", header: t("settings.secrets.name") },
-                  {
-                    key: "type",
-                    header: t("settings.secrets.type"),
-                    render: (row) => (
-                      <Badge tone="info">
-                        {t(`settings.secrets.types.${row.type}`)}
-                      </Badge>
-                    ),
-                  },
-                  {
-                    key: "reference_count",
-                    header: t("settings.secrets.referenceCount"),
-                    render: (row) =>
-                      row.reference_count > 0 ? (
-                        <Badge tone="warning">{row.reference_count}</Badge>
-                      ) : (
-                        "0"
+          <QueryBoundary query={secrets}>
+            <div className="argus-settings-stack">
+              <Alert
+                description={t("settings.secrets.alertDescription")}
+                title={t("settings.secrets.alertTitle")}
+                tone="info"
+              />
+              {secrets.isPending ? (
+                <Spinner />
+              ) : rows.length === 0 ? (
+                <EmptyState
+                  description=""
+                  title={t("settings.secrets.empty")}
+                />
+              ) : (
+                <DataTable<SecretRow>
+                  columns={[
+                    { key: "name", header: t("settings.secrets.name") },
+                    {
+                      key: "type",
+                      header: t("settings.secrets.type"),
+                      render: (row) => (
+                        <Badge tone="info">
+                          {t(`settings.secrets.types.${row.type}`)}
+                        </Badge>
                       ),
-                  },
-                  {
-                    key: "createdBy",
-                    header: t("settings.secrets.createdBy"),
-                  },
-                  {
-                    key: "updated_at",
-                    header: t("settings.common.updatedAt"),
-                    render: (row) => formatDateTime(row.updated_at),
-                  },
-                  {
-                    key: "actions",
-                    header: t("settings.common.actions"),
-                    render: (row) => (
-                      <ActionGroup>
+                    },
+                    {
+                      key: "reference_count",
+                      header: t("settings.secrets.referenceCount"),
+                      render: (row) =>
+                        row.reference_count > 0 ? (
+                          <Badge tone="warning">{row.reference_count}</Badge>
+                        ) : (
+                          "0"
+                        ),
+                    },
+                    {
+                      key: "createdBy",
+                      header: t("settings.secrets.createdBy"),
+                    },
+                    {
+                      key: "updated_at",
+                      header: t("settings.common.updatedAt"),
+                      render: (row) => formatDateTime(row.updated_at),
+                    },
+                    {
+                      key: "actions",
+                      header: t("settings.common.actions"),
+                      render: (row) => (
+                        <ActionGroup>
+                          <RowAction
+                            onPress={() => {
+                              setEditing(
+                                secrets.data?.items.find(
+                                  (secret) => secret.id === row.id,
+                                ) ?? null,
+                              );
+                              setDrawerOpen(true);
+                            }}
+                          >
+                            {t("settings.common.edit")}
+                          </RowAction>
+                          <RowAction
+                            danger
+                            onPress={() =>
+                              setDeleting(
+                                secrets.data?.items.find(
+                                  (secret) => secret.id === row.id,
+                                ) ?? null,
+                              )
+                            }
+                          >
+                            {t("settings.common.delete")}
+                          </RowAction>
+                        </ActionGroup>
+                      ),
+                    },
+                  ]}
+                  data={rows}
+                  getRowKey={(row) => row.id}
+                />
+              )}
+            </div>
+          </QueryBoundary>
+        </TabsContent>
+
+        <TabsContent value="credentials">
+          <QueryBoundary query={credentials}>
+            <section
+              aria-label={t("settings.secrets.credentialsTitle")}
+              className="argus-settings-section"
+            >
+              <p className="argus-settings-section__hint">
+                {t("settings.secrets.credentialsDescription")}
+              </p>
+              {credentials.isPending ? (
+                <Spinner />
+              ) : (credentials.data ?? []).length === 0 ? (
+                <EmptyState
+                  description=""
+                  title={t("settings.secrets.credentialsEmpty")}
+                />
+              ) : (
+                <DataTable<Credential>
+                  columns={[
+                    { key: "name", header: t("settings.secrets.name") },
+                    {
+                      key: "protocol",
+                      header: t("settings.secrets.protocol"),
+                      render: (row) => (
+                        <Badge tone="info">{row.protocol}</Badge>
+                      ),
+                    },
+                    {
+                      key: "username",
+                      header: t("settings.secrets.username"),
+                      render: (row) => row.username ?? "-",
+                    },
+                    {
+                      key: "secret_id",
+                      header: t("settings.secrets.secretRef"),
+                      render: (row) => secretLabel(row.secret_id),
+                    },
+                    {
+                      key: "actions",
+                      header: t("settings.common.actions"),
+                      render: (row) => (
                         <RowAction
-                          onClick={() => {
-                            setEditing(
-                              secrets.data?.items.find(
-                                (secret) => secret.id === row.id,
-                              ) ?? null,
-                            );
-                            setDrawerOpen(true);
+                          onPress={() => {
+                            setEditingCredential(row);
+                            setCredentialDrawerOpen(true);
                           }}
                         >
                           {t("settings.common.edit")}
                         </RowAction>
-                        <RowAction
-                          danger
-                          onClick={() =>
-                            setDeleting(
-                              secrets.data?.items.find(
-                                (secret) => secret.id === row.id,
-                              ) ?? null,
-                            )
-                          }
-                        >
-                          {t("settings.common.delete")}
-                        </RowAction>
-                      </ActionGroup>
-                    ),
-                  },
-                ]}
-                data={rows}
-                getRowKey={(row) => row.id}
-              />
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="credentials">
-          <section
-            aria-label={t("settings.secrets.credentialsTitle")}
-            className="argus-settings-section"
-          >
-            <p className="argus-settings-section__hint">
-              {t("settings.secrets.credentialsDescription")}
-            </p>
-            {credentials.isPending ? (
-              <Spinner />
-            ) : (credentials.data ?? []).length === 0 ? (
-              <EmptyState
-                description=""
-                title={t("settings.secrets.credentialsEmpty")}
-              />
-            ) : (
-              <DataTable<Credential>
-                columns={[
-                  { key: "name", header: t("settings.secrets.name") },
-                  {
-                    key: "protocol",
-                    header: t("settings.secrets.protocol"),
-                    render: (row) => <Badge tone="info">{row.protocol}</Badge>,
-                  },
-                  {
-                    key: "username",
-                    header: t("settings.secrets.username"),
-                    render: (row) => row.username ?? "-",
-                  },
-                  {
-                    key: "secret_id",
-                    header: t("settings.secrets.secretRef"),
-                    render: (row) => secretLabel(row.secret_id),
-                  },
-                  {
-                    key: "actions",
-                    header: t("settings.common.actions"),
-                    render: (row) => (
-                      <RowAction
-                        onClick={() => {
-                          setEditingCredential(row);
-                          setCredentialDrawerOpen(true);
-                        }}
-                      >
-                        {t("settings.common.edit")}
-                      </RowAction>
-                    ),
-                  },
-                ]}
-                data={credentials.data ?? []}
-                getRowKey={(row) => row.id}
-              />
-            )}
-          </section>
+                      ),
+                    },
+                  ]}
+                  data={credentials.data ?? []}
+                  getRowKey={(row) => row.id}
+                />
+              )}
+            </section>
+          </QueryBoundary>
         </TabsContent>
 
         <TabsContent value="managed_accounts">
@@ -440,9 +450,7 @@ export function SettingsSecretsPage() {
           setDrawerOpen(open);
           if (!open) setEditing(null);
         }}
-        onSubmit={(input) =>
-          save.mutateAsync({ ...input, id: editing?.id })
-        }
+        onSubmit={(input) => save.mutateAsync({ ...input, id: editing?.id })}
         open={drawerOpen}
         secret={editing}
       />
@@ -589,7 +597,11 @@ function CredentialDrawer({
             (requestId) => t("common.requestReference", { requestId }),
           );
           if (formField) {
-            setError(formField, { message, type: "server" }, { shouldFocus: true });
+            setError(
+              formField,
+              { message, type: "server" },
+              { shouldFocus: true },
+            );
           } else {
             setError("root", { message, type: "server" });
           }
@@ -606,33 +618,66 @@ function CredentialDrawer({
             tone="danger"
           />
         )}
-        <Field requirement="required" error={errors.name?.message} label={t("settings.secrets.name")}>
-          <Input {...register("name")} maxLength={credentialConstraints.name.maxLength} required />
+        <Field
+          requirement="required"
+          error={errors.name?.message}
+          label={t("settings.secrets.name")}
+        >
+          <Input
+            {...register("name")}
+            maxLength={credentialConstraints.name.maxLength}
+            required
+          />
         </Field>
         <Field requirement="required" label={t("settings.secrets.protocol")}>
-          <Controller control={control} name="protocol" render={({ field }) => (
-            <Select
-              disabled={credential !== null}
-              onValueChange={(value) => {
-                field.onChange(value as Credential["protocol"]);
-                setValue("secretId", "", { shouldValidate: true });
-              }}
-              options={CREDENTIAL_PROTOCOLS.map((item) => ({ value: item, label: item }))}
-              value={field.value}
-            />
-          )} />
+          <Controller
+            control={control}
+            name="protocol"
+            render={({ field }) => (
+              <Select
+                disabled={credential !== null}
+                onValueChange={(value) => {
+                  field.onChange(value as Credential["protocol"]);
+                  setValue("secretId", "", { shouldValidate: true });
+                }}
+                options={CREDENTIAL_PROTOCOLS.map((item) => ({
+                  value: item,
+                  label: item,
+                }))}
+                value={field.value}
+              />
+            )}
+          />
         </Field>
-        <Field requirement="optional" error={errors.username?.message} label={t("settings.secrets.username")}>
-          <Input {...register("username")} maxLength={credentialConstraints.username.maxLength} />
+        <Field
+          requirement="optional"
+          error={errors.username?.message}
+          label={t("settings.secrets.username")}
+        >
+          <Input
+            {...register("username")}
+            maxLength={credentialConstraints.username.maxLength}
+          />
         </Field>
-        <Field requirement="required" error={errors.secretId?.message} label={t("settings.secrets.secretRef")}>
-          <Controller control={control} name="secretId" render={({ field }) => (
-            <Select
-              onValueChange={field.onChange}
-              options={compatibleSecrets.map((secret) => ({ value: secret.id, label: secret.name }))}
-              value={field.value}
-            />
-          )} />
+        <Field
+          requirement="required"
+          error={errors.secretId?.message}
+          label={t("settings.secrets.secretRef")}
+        >
+          <Controller
+            control={control}
+            name="secretId"
+            render={({ field }) => (
+              <Select
+                onValueChange={field.onChange}
+                options={compatibleSecrets.map((secret) => ({
+                  value: secret.id,
+                  label: secret.name,
+                }))}
+                value={field.value}
+              />
+            )}
+          />
         </Field>
       </div>
     </FormDrawer>
@@ -738,7 +783,11 @@ function SecretDrawer({
             (requestId) => t("common.requestReference", { requestId }),
           );
           if (formField) {
-            setError(formField, { message, type: "server" }, { shouldFocus: true });
+            setError(
+              formField,
+              { message, type: "server" },
+              { shouldFocus: true },
+            );
           } else {
             setError("root", { message, type: "server" });
           }
@@ -759,7 +808,11 @@ function SecretDrawer({
             tone="danger"
           />
         )}
-        <Field requirement="required" error={errors.name?.message} label={t("settings.secrets.name")}>
+        <Field
+          requirement="required"
+          error={errors.name?.message}
+          label={t("settings.secrets.name")}
+        >
           <Input
             {...register("name")}
             autoComplete="off"
@@ -768,22 +821,34 @@ function SecretDrawer({
           />
         </Field>
         <Field requirement="required" label={t("settings.secrets.type")}>
-          <Controller control={control} name="type" render={({ field }) => (
-            <Select
-              disabled={secret !== null}
-              onValueChange={field.onChange}
-              options={SECRET_TYPES.map((item) => ({ value: item, label: t(`settings.secrets.types.${item}`) }))}
-              value={field.value}
-            />
-          )} />
+          <Controller
+            control={control}
+            name="type"
+            render={({ field }) => (
+              <Select
+                disabled={secret !== null}
+                onValueChange={field.onChange}
+                options={SECRET_TYPES.map((item) => ({
+                  value: item,
+                  label: t(`settings.secrets.types.${item}`),
+                }))}
+                value={field.value}
+              />
+            )}
+          />
         </Field>
-        <Field requirement="optional" error={errors.description?.message} label={t("settings.common.description")}>
+        <Field
+          requirement="optional"
+          error={errors.description?.message}
+          label={t("settings.common.description")}
+        >
           <Input
             {...register("description")}
             maxLength={secretConstraints.description.maxLength}
           />
         </Field>
-        <Field requirement={secret ? "optional" : "required"}
+        <Field
+          requirement={secret ? "optional" : "required"}
           error={errors.value?.message}
           hint={
             secret

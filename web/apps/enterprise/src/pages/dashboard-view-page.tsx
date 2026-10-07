@@ -15,7 +15,6 @@ import {
   Button,
   DashboardGrid,
   Dialog,
-  Field,
   Input,
   ObservationPanel,
   PageShell,
@@ -24,10 +23,14 @@ import {
 import { usePermission } from "../lib/permissions";
 import { PanelTile } from "../components/dashboards/panel-tile";
 import { DrilldownViewer } from "../components/dashboards/drilldown-viewer";
-import { DashboardBindingSummary } from "../components/dashboards/dashboard-binding-summary";
+import { DashboardLinkedResources } from "../components/dashboards/dashboard-linked-resources";
+import { DashboardEntrySource } from "../components/dashboards/dashboard-entry-source";
 import "../styles/dashboards.css";
-import { TimeRangePicker } from "../components/dashboards/time-range-picker";
-import { candidateFilters } from "../components/dashboards/candidate-filters";
+import { DashboardControls } from "../components/dashboards/dashboard-controls";
+import {
+  candidateContext,
+  candidateRequest,
+} from "../components/dashboards/candidate-filters";
 import {
   SourceSummary,
   sourceValueLabels,
@@ -68,9 +71,7 @@ export function DashboardViewPage() {
   const [history, setHistory] = useState<DashboardRevision[] | null>(null),
     [historical, setHistorical] = useState<DashboardRevision | null>(null),
     [queryPanel, setQueryPanel] = useState<DashboardPanel>(),
-    [expanded, setExpanded] = useState<DashboardPanel>(),
-    [resourcesOpen, setResourcesOpen] = useState(false),
-    [resourcesDraft, setResourcesDraft] = useState<string[]>([]);
+    [expanded, setExpanded] = useState<DashboardPanel>();
   const [drill, setDrill] = useState<{
     panel: DashboardPanel;
     row: Record<string, unknown>;
@@ -90,6 +91,8 @@ export function DashboardViewPage() {
     run,
     apply,
     applyVariable,
+    refreshSeconds,
+    setRefreshSeconds,
   } = useDashboardExecution({
     dashboardId,
     revision: detail.data?.revision,
@@ -122,6 +125,13 @@ export function DashboardViewPage() {
     ]).values(),
   );
   const view = historical ?? detail.data?.revision;
+  const entryType =
+    search.resource_type ??
+    (hosts.data?.items.some((h) => h.id === search.resource)
+      ? "host"
+      : clusters.data?.items.some((c) => c.id === search.resource)
+        ? "kubernetes_cluster"
+        : observed.find((r) => r.id === search.resource)?.type);
   if (!canRead)
     return (
       <PageShell title={t("dashboards.title")}>
@@ -179,16 +189,24 @@ export function DashboardViewPage() {
                 : "dashboards.published",
             )}
           </Badge>{" "}
-          · R{view.revision_number} · {view.description}
+          · R{view.revision_number}
+          {view.description && <> · {view.description}</>}
+          {search.resource && (
+            <DashboardEntrySource
+              key={search.resource}
+              id={search.resource}
+              type={entryType}
+            />
+          )}
         </>
       }
       actions={
         <div className="argus-dashboard-inline">
-          <Button onClick={() => void navigate({ to: "/dashboards" })}>
+          <Button onPress={() => void navigate({ to: "/dashboards" })}>
             {t("dashboards.back")}
           </Button>
           <Button
-            onClick={() =>
+            onPress={() =>
               void api.dashboards
                 .revisions(dashboardId)
                 .then(setHistory)
@@ -206,12 +224,13 @@ export function DashboardViewPage() {
           {canManage && (
             <Button
               variant="primary"
-              disabled={detail.data.dashboard.lifecycle !== "active"}
-              onClick={() => void edit()}
+              isDisabled={detail.data.dashboard.lifecycle !== "active"}
+              onPress={() => void edit()}
             >
               {t("dashboards.edit")}
             </Button>
           )}
+          {!historical && <DashboardLinkedResources id={dashboardId} />}
         </div>
       }
     >
@@ -230,91 +249,27 @@ export function DashboardViewPage() {
         />
       )}
       {historical ? (
-        <Button onClick={() => setHistorical(null)}>
+        <Button onPress={() => setHistorical(null)}>
           {t("dashboards.currentVersion")}
         </Button>
       ) : (
-        <div className="argus-dashboard-toolbar">
-          <TimeRangePicker
-            label={t("dashboards.time")}
-            value={timeRange}
-            onChange={(range) => {
-              void run(latest.current, undefined, range);
-            }}
-          />
-          <Button
-            onClick={() => {
-              setResourcesDraft(
-                input.resource_ids?.length
-                  ? input.resource_ids
-                  : resourceOptions.map((r) => r.id),
-              );
-              setResourcesOpen(true);
-            }}
-          >
-            {t("dashboards.resources")}:{" "}
-            {input.resource_ids?.length || t("dashboards.all")}
-          </Button>
-          <Button disabled={busy} onClick={() => void run(latest.current)}>
-            {t(busy ? "dashboards.refreshing" : "dashboards.refresh")}
-          </Button>
-        </div>
-      )}
-      {!historical && view.spec.variables.length > 0 && (
-        <div className="argus-dashboard-filters">
-          {view.spec.variables.map((variable) => {
-            const selection =
-              input.variables?.[variable.name] ?? variable.default;
-            const candidates = execution?.variable_candidates[variable.name];
-            return (
-              <Field
-                key={variable.id}
-                label={variable.label}
-                requirement="optional"
-              >
-                <ValueSelector
-                  label={variable.label}
-                  disabled={busy}
-                  contextKey={JSON.stringify([
-                    bounds.current,
-                    input.resource_ids,
-                    input.variables,
-                  ])}
-                  value={selection}
-                  multiple={variable.multiple}
-                  candidates={candidates?.values ?? []}
-                  onChange={(value) => applyVariable(variable.name, value)}
-                  fetchValues={async (search, cursor, signal) => {
-                    const filters = candidateFilters(
-                      variable.query,
-                      latest.current.variables ?? {},
-                    );
-                    const result = await api.dashboards.catalog(
-                      {
-                        source_binding: variable.query.source_binding,
-                        signal: variable.query.signal as
-                          "metrics" | "logs" | "traces",
-                        kind: "values",
-                        field: variable.query.field,
-                        metric: variable.query.metric,
-                        resource_ids: latest.current.resource_ids ?? [],
-                        selected_values: selection.values,
-                        filters,
-                        from: bounds.current!.from,
-                        to: bounds.current!.to,
-                        search,
-                        cursor,
-                        limit: 100,
-                      },
-                      signal,
-                    );
-                    return result;
-                  }}
-                />
-              </Field>
-            );
-          })}
-        </div>
+        <DashboardControls
+          spec={view.spec}
+          input={input}
+          time={timeRange}
+          bounds={bounds.current}
+          execution={execution}
+          resources={resourceOptions}
+          busy={busy}
+          refreshSeconds={refreshSeconds}
+          onRefreshSeconds={setRefreshSeconds}
+          onTime={(range) => void run(latest.current, undefined, range)}
+          onResources={(resource_ids) =>
+            apply({ ...latest.current, resource_ids })
+          }
+          onVariable={applyVariable}
+          onRefresh={() => void run(latest.current)}
+        />
       )}
       {!historical && hasUnverifiedCandidates(execution) && (
         <Alert
@@ -358,7 +313,7 @@ export function DashboardViewPage() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => setQueryPanel(panel)}
+                onPress={() => setQueryPanel(panel)}
               >
                 {t("dashboards.readQuery")}
               </Button>
@@ -399,12 +354,12 @@ export function DashboardViewPage() {
                     <ValueSelector
                       key={filter.id}
                       label={`${panel.title} ${filter.label}`}
-                      contextKey={JSON.stringify([
-                        bounds.current,
-                        input.resource_ids,
-                        input.variables,
-                        input.local_values?.[panel.id],
-                      ])}
+                      contextKey={candidateContext(filter.query, {
+                        time: bounds.current,
+                        resource_ids: input.resource_ids,
+                        variables: input.variables,
+                        locals: input.local_values?.[panel.id],
+                      })}
                       disabled={busy}
                       value={selection}
                       multiple={filter.multiple}
@@ -430,26 +385,18 @@ export function DashboardViewPage() {
                         );
                         if (!resourceIds.length) return { values: [] };
                         return api.dashboards.catalog(
-                          {
-                            signal: query.signal as
-                              "metrics" | "logs" | "traces",
-                            source_binding: query.source_binding,
-                            kind: "values",
-                            field: query.field,
-                            metric: query.metric,
-                            resource_ids: resourceIds,
-                            from: bounds.current!.from,
-                            to: bounds.current!.to,
-                            filters: candidateFilters(
-                              query,
-                              latest.current.variables ?? {},
-                              latest.current.local_values?.[panel.id] ?? {},
-                            ),
-                            selected_values: selection.values,
+                          candidateRequest(
+                            query,
+                            {
+                              ...bounds.current!,
+                              resource_ids: resourceIds,
+                              variables: latest.current.variables,
+                              locals: latest.current.local_values?.[panel.id],
+                            },
+                            selection,
                             search,
                             cursor,
-                            limit: 100,
-                          },
+                          ),
                           signal,
                         );
                       }}
@@ -469,59 +416,12 @@ export function DashboardViewPage() {
           </>
         )}
       </DashboardGrid>
-      {!historical && <DashboardBindingSummary id={dashboardId} />}
       {!view.spec.panels.length && (
         <div className="argus-dashboard-empty">
           <h2>{t("dashboards.noPanels")}</h2>
           <p>{t("dashboards.noPanelsHint")}</p>
         </div>
       )}
-      <Dialog
-        open={resourcesOpen}
-        onOpenChange={setResourcesOpen}
-        title={t("dashboards.chooseResources")}
-        footer={
-          <>
-            <Button
-              onClick={() => {
-                apply({ ...latest.current, resource_ids: [] });
-                setResourcesOpen(false);
-              }}
-            >
-              {t("dashboards.all")}
-            </Button>
-            <Button
-              variant="primary"
-              disabled={!resourcesDraft.length}
-              onClick={() => {
-                apply({ ...latest.current, resource_ids: resourcesDraft });
-                setResourcesOpen(false);
-              }}
-            >
-              {t("dashboards.apply")}
-            </Button>
-          </>
-        }
-      >
-        <div className="argus-dashboard-form-stack">
-          {resourceOptions.map((r) => (
-            <label className="argus-dashboard-check" key={r.id}>
-              <input
-                type="checkbox"
-                checked={resourcesDraft.includes(r.id)}
-                onChange={(e) =>
-                  setResourcesDraft(
-                    e.target.checked
-                      ? [...resourcesDraft, r.id]
-                      : resourcesDraft.filter((id) => id !== r.id),
-                  )
-                }
-              />
-              {r.label}
-            </label>
-          ))}
-        </div>
-      </Dialog>
       <Dialog
         open={Boolean(history)}
         onOpenChange={(open) => !open && setHistory(null)}
@@ -535,7 +435,7 @@ export function DashboardViewPage() {
               </span>
               <Button
                 size="sm"
-                onClick={() => {
+                onPress={() => {
                   setHistorical(r);
                   tokens.current.clear();
                   setDrill(undefined);

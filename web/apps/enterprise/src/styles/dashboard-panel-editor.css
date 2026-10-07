@@ -1,0 +1,212 @@
+.argus-panel-editor {
+  gap: var(--field-gap);
+  container-type: inline-size;
+}
+.argus-panel-editor > .argus-page__header {
+  position: sticky;
+  top: calc(var(--page-padding) * -1);
+  z-index: 20;
+  padding: var(--space-3) 0;
+  background: var(--bg-canvas);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.argus-panel-editor > .argus-page__content {
+  gap: var(--field-gap);
+}
+.argus-panel-editor__title {
+  display: flex;
+  align-items: center;
+  gap: var(--field-gap);
+}
+.argus-panel-editor__title > span {
+  white-space: nowrap;
+}
+.argus-panel-editor__title > input {
+  min-width: 0;
+  max-width: var(--dialog-width-md);
+}
+.argus-panel-editor__save-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--action-gap);
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+}
+.argus-panel-editor__scope {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--action-gap);
+}
+.argus-panel-editor__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--dashboard-settings-width);
+  gap: var(--field-gap);
+  align-items: start;
+}
+.argus-panel-editor__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  min-width: 0;
+}
+.argus-panel-editor__preview,
+.argus-panel-editor__queries,
+.argus-panel-editor__settings {
+  border: 1px solid var(--border-default);
+  border-radius: var(--card-radius);
+  background: var(--bg-surface);
+  min-width: 0;
+}
+.argus-panel-editor__preview > header,
+.argus-panel-editor__queries > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: var(--card-padding);
+  gap: var(--action-gap);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.argus-panel-editor__visual {
+  display: flex;
+  flex-direction: column;
+  height: clamp(
+    var(--dashboard-preview-min-height),
+    25dvh,
+    var(--dashboard-preview-height)
+  );
+  min-height: var(--dashboard-preview-min-height);
+  padding: var(--card-padding);
+  overflow: auto;
+}
+.argus-panel-editor__preview > footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--action-gap);
+  padding: var(--space-2) var(--card-padding);
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+  border-top: 1px solid var(--border-subtle);
+}
+.argus-panel-editor__preview > header > strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.argus-panel-editor__queries .argus-select {
+  min-width: var(--space-px-100);
+}
+.argus-panel-editor__queries > header .argus-action-group {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.argus-panel-editor__queries > header .argus-select {
+  width: var(--space-px-100);
+  flex-shrink: 0;
+}
+.argus-panel-editor__queries > header .argus-segments {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+.argus-panel-editor__query-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  border: 0;
+  margin: 0;
+  padding: var(--card-padding);
+  min-width: 0;
+}
+.argus-panel-editor__query-toolbar,
+.argus-panel-editor__basics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--field-gap);
+}
+.argus-panel-editor__query-toolbar {
+  grid-template-columns: minmax(0, var(--field-width-compact)) minmax(0, 1fr);
+  align-items: center;
+}
+.argus-panel-editor__basics {
+  grid-template-columns: minmax(0, 1.65fr) repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+.argus-panel-editor__settings {
+  position: sticky;
+  top: var(--card-padding);
+  padding: var(--card-padding);
+  max-height: calc(100dvh - var(--header-height) - var(--page-padding));
+  overflow: auto;
+}
+.argus-panel-editor__settings .argus-tabs {
+  width: 100%;
+}
+.argus-panel-editor__settings .argus-tabs__trigger {
+  flex: 1;
+}
+.argus-panel-editor__settings .argus-tabs__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+}
+.argus-panel-editor__settings .argus-tabs__content[hidden] {
+  display: none;
+}
+.argus-panel-editor__auto-unit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--action-gap);
+  padding: var(--space-2) 0;
+  border-block: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-panel-editor__filter-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--action-gap);
+}
+.argus-panel-editor__filter-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--bg-elevated);
+}
+.argus-panel-editor__advanced {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+.argus-panel-editor__advanced > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+  margin-bottom: var(--space-2);
+}
+.argus-panel-editor__advanced[open] {
+  display: block;
+}
+.argus-panel-editor__advanced .argus-value-selector-summary {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Desktop browser zoom may reduce the available CSS width. Keep the desktop
+   navigation and stack editor tasks instead of obscuring the preview controls. */
+@container (max-width: 820px) {
+  .argus-panel-editor__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .argus-panel-editor__settings {
+    position: static;
+    max-height: none;
+  }
+}

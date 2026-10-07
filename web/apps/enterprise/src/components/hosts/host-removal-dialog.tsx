@@ -475,12 +475,12 @@ function HostRemovalDialogSession({
       footer={
         notInstalled && !action ? (
           <>
-            <Button onClick={close} variant="secondary">
+            <Button onPress={close} variant="secondary">
               {t("hostRemoval.incomplete.backToResource")}
             </Button>
             <Button
-              disabled={busy}
-              onClick={() => void previewIncompleteDelete()}
+              isDisabled={busy}
+              onPress={() => void previewIncompleteDelete()}
               variant="danger"
             >
               {busy
@@ -494,11 +494,11 @@ function HostRemovalDialogSession({
           </>
         ) : !action && !operationId ? (
           <>
-            <Button onClick={close} variant="secondary">
+            <Button onPress={close} variant="secondary">
               {t("common.cancel")}
             </Button>
             <Button
-              disabled={
+              isDisabled={
                 busy ||
                 (needsSSH && (defaultsQuery.isPending || defaultsQuery.isError))
               }
@@ -621,7 +621,7 @@ function HostRemovalDialogSession({
                       )}
                     />
                     <Button
-                      onClick={() => void defaultsQuery.refetch()}
+                      onPress={() => void defaultsQuery.refetch()}
                       variant="secondary"
                     >
                       {t("hosts.removal.retryConnectionDefaults")}
@@ -642,7 +642,7 @@ function HostRemovalDialogSession({
                       tone="info"
                     />
                     <Button
-                      onClick={() => setEditingSSH(true)}
+                      onPress={() => setEditingSSH(true)}
                       variant="secondary"
                     >
                       {t("hosts.removal.changeConnection")}
@@ -752,7 +752,7 @@ function HostRemovalDialogSession({
                   ))}
                 </ul>
                 <Button
-                  onClick={() => {
+                  onPress={() => {
                     void api.approvals.cancel(action.action_ref);
                     setAction(null);
                   }}
@@ -796,8 +796,8 @@ function HostRemovalDialogSession({
               operation.status,
             ) && (
               <Button
-                disabled={busy}
-                onClick={() => void regenerate()}
+                isDisabled={busy}
+                onPress={() => void regenerate()}
                 variant="secondary"
               >
                 {t("hosts.removal.regenerate")}
@@ -816,7 +816,7 @@ function HostRemovalDialogSession({
             )}
           {operation?.status === "succeeded" && (
             <Button
-              onClick={() => {
+              onPress={() => {
                 onChanged();
                 close();
               }}
@@ -827,7 +827,7 @@ function HostRemovalDialogSession({
           )}
           {oneTimeResult && !operation && (
             <Button
-              onClick={() => {
+              onPress={() => {
                 onChanged();
                 close();
               }}

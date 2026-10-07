@@ -74,7 +74,7 @@ type DraftSample struct {
 	Sample       json.RawMessage  `json:"sample"`
 }
 
-func (runtime Runtime) SampleDraft(ctx context.Context, actor Actor, id uuid.UUID, version int64) (DraftSample, error) {
+func (runtime Runtime) SampleDraft(ctx context.Context, actor Actor, id uuid.UUID, version int64, parameters ...ExecutionInput) (DraftSample, error) {
 	draft, err := (Service{Store: runtime.Store}).Draft(ctx, actor, id)
 	if err != nil {
 		return DraftSample{}, err
@@ -82,11 +82,25 @@ func (runtime Runtime) SampleDraft(ctx context.Context, actor Actor, id uuid.UUI
 	if draft.Status != "editing" || draft.DraftVersion != version {
 		return DraftSample{}, ErrConflict
 	}
+	if err := runtime.checkPreviewLifecycle(ctx, actor, draft); err != nil {
+		return DraftSample{}, err
+	}
 	spec, err := DecodeSpec(draft.Spec)
 	if err != nil {
 		return DraftSample{}, err
 	}
-	validation, sample, err := runtime.Verify(ctx, actor, spec)
+	input := ExecutionInput{}
+	if len(parameters) > 1 {
+		return DraftSample{}, ErrInvalid
+	}
+	if len(parameters) == 1 {
+		input = parameters[0]
+	}
+	spec, input, err = scopedPreviewSpec(spec, input)
+	if err != nil {
+		return DraftSample{}, err
+	}
+	validation, sample, err := runtime.verifySample(ctx, actor, spec, input)
 	result := DraftSample{DraftID: id, DraftVersion: version, Validation: validation, Sample: sample}
 	// Invalid configuration is the result of a validation request, not a lost
 	// transport error. Publication still treats the same Verify error as a gate.
@@ -95,6 +109,9 @@ func (runtime Runtime) SampleDraft(ctx context.Context, actor Actor, id uuid.UUI
 			result.Sample = json.RawMessage(`{"status":"not_executed","reason":"configuration_invalid"}`)
 		}
 		return result, nil
+	}
+	if err == nil {
+		err = runtime.freezeDraftSample(ctx, actor, draft, spec, &result)
 	}
 	return result, err
 }
@@ -389,6 +406,10 @@ func panelStatus(targets []TargetExecution) string {
 }
 
 func (runtime Runtime) Verify(ctx context.Context, actor Actor, spec Spec) (ValidationReport, json.RawMessage, error) {
+	return runtime.verifySample(ctx, actor, spec, ExecutionInput{})
+}
+
+func (runtime Runtime) verifySample(ctx context.Context, actor Actor, spec Spec, input ExecutionInput) (ValidationReport, json.RawMessage, error) {
 	report := Validate(spec)
 	if !report.Valid {
 		return report, nil, ErrInvalid
@@ -415,7 +436,7 @@ func (runtime Runtime) Verify(ctx context.Context, actor Actor, spec Spec) (Vali
 	if !report.Valid {
 		return report, nil, ErrInvalid
 	}
-	sample, err := runtime.executeSpec(ctx, actor, spec, ExecutionInput{})
+	sample, err := runtime.executeSpec(ctx, actor, spec, input)
 	if errors.Is(err, errNoResources) {
 		return report, json.RawMessage(`{"status":"unavailable","reason":"no_authorized_resources"}`), nil
 	}

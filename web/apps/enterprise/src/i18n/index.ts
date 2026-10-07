@@ -1,4 +1,7 @@
 import { dashboardsZh, dashboardsEn } from "./dashboards";
+import { dashboardPresetsZh, dashboardPresetsEn } from "./dashboard-presets";
+import { dashboardControlsZh, dashboardControlsEn } from "./dashboard-controls";
+import { dashboardLinksZh, dashboardLinksEn } from "./dashboard-links";
 import { planv5Zh, planv5En } from "./planv5";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
@@ -31,6 +34,9 @@ import { errorsEn, errorsZh } from "./errors";
  */
 const modulesZh = [
   dashboardsZh,
+  dashboardPresetsZh,
+  dashboardControlsZh,
+  dashboardLinksZh,
   planv5Zh,
   connectionChecksZh,
   commonZh,
@@ -53,6 +59,9 @@ const modulesZh = [
 ];
 const modulesEn = [
   dashboardsEn,
+  dashboardPresetsEn,
+  dashboardControlsEn,
+  dashboardLinksEn,
   planv5En,
   connectionChecksEn,
   commonEn,

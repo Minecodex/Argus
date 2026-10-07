@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { I18nProvider } from "react-aria-components";
 
 export type SupportedLocale = "zh-CN" | "en-US";
 
@@ -50,7 +51,9 @@ export function LocaleProvider({
   );
 
   return (
-    <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
+    <LocaleContext.Provider value={value}>
+      <I18nProvider locale={locale}>{children}</I18nProvider>
+    </LocaleContext.Provider>
   );
 }
 
@@ -61,6 +64,12 @@ export function useLocale() {
 }
 
 export function useUiText() {
-  const { locale } = useLocale();
+  const context = useContext(LocaleContext);
+  const locale =
+    context?.locale ??
+    (typeof document !== "undefined" &&
+    document.documentElement.lang === "en-US"
+      ? "en-US"
+      : "zh-CN");
   return (zhCN: string, enUS: string) => (locale === "zh-CN" ? zhCN : enUS);
 }

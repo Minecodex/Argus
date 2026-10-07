@@ -26,7 +26,12 @@ export function WizardProgress({
     <nav aria-label={label ?? text("向导进度", "Wizard progress")}>
       <ol className="argus-wizard__steps">
         {steps.map((item, index) => {
-          const status = index < current ? "done" : index === current ? "current" : "pending";
+          const status =
+            index < current
+              ? "done"
+              : index === current
+                ? "current"
+                : "pending";
           return (
             <li
               aria-current={status === "current" ? "step" : undefined}
@@ -99,30 +104,30 @@ export function Wizard({
 
       <footer className="argus-wizard__footer">
         <Button
-          disabled={current <= 0 || submitting}
-          onClick={onBack}
+          isDisabled={current <= 0 || submitting}
+          onPress={onBack}
           variant="secondary"
         >
           {backLabel ?? text("上一步", "Back")}
         </Button>
         <div className="argus-wizard__footer-right">
           {step?.optional && onSkip && (
-            <Button disabled={submitting} onClick={onSkip} variant="ghost">
+            <Button isDisabled={submitting} onPress={onSkip} variant="ghost">
               {skipLabel ?? text("跳过", "Skip")}
             </Button>
           )}
           {isLast ? (
             <Button
-              disabled={!canNext}
-              loading={submitting}
-              onClick={onSubmit}
+              isDisabled={!canNext}
+              isPending={submitting}
+              onPress={onSubmit}
               type={submitType}
               variant="primary"
             >
               {submitLabel ?? text("提交", "Submit")}
             </Button>
           ) : (
-            <Button disabled={!canNext} onClick={onNext} variant="primary">
+            <Button isDisabled={!canNext} onPress={onNext} variant="primary">
               {nextLabel ?? text("下一步", "Next")}
             </Button>
           )}

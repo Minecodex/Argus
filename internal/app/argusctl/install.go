@@ -99,6 +99,9 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 			"limits":   map[string]any{"cpu": "1", "memory": "768Mi"},
 		},
 	}
+	if _, err := configureSharedStrimzi(ctx, cfg, clients, strimzi, strimziValues); err != nil {
+		return fmt.Errorf("Strimzi shared definitions: %w", err)
+	}
 	if err := helm.installOrUpgrade(ctx, cfg.upstreamReleaseName("st"), cfg.Spec.Namespaces.Observability, strimzi, strimziValues); err != nil {
 		return err
 	}
@@ -107,10 +110,19 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 		return err
 	}
 	altinityValues := map[string]any{
+		"watchNamespaces": []any{cfg.Spec.Namespaces.Observability},
+		"rbac":            map[string]any{"namespaceScoped": true},
 		"operator": map[string]any{"resources": map[string]any{
 			"requests": map[string]any{"cpu": "100m", "memory": "256Mi"},
 			"limits":   map[string]any{"cpu": "1", "memory": "768Mi"},
 		}},
+	}
+	sharedCRDs, err := configureSharedDataCRDs(ctx, cfg, clients, altinity)
+	if err != nil {
+		return err
+	}
+	if sharedCRDs {
+		altinityValues["crdHook"] = map[string]any{"enabled": false}
 	}
 	if err := helm.installOrUpgrade(ctx, cfg.upstreamReleaseName("ch"), cfg.Spec.Namespaces.Observability, altinity, altinityValues); err != nil {
 		return err
@@ -415,7 +427,7 @@ func platformValues(cfg *InstallConfig, credentials map[string]string, setupSecr
 	enterpriseHost := cfg.Spec.Exposure.EnterpriseHost
 	platformHost := cfg.Spec.Exposure.PlatformHost
 	connectorHost := cfg.Spec.Exposure.ConnectorHost
-	templatesHost := "templates." + parentDomain(enterpriseHost)
+	templatesHost := cfg.templateHost()
 	artifactHost := cfg.Spec.Exposure.ArtifactHost
 	if artifactHost == "" {
 		artifactHost = "artifacts." + parentDomain(enterpriseHost)

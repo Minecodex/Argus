@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/skywalking"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -17,6 +19,20 @@ import (
 )
 
 const apmTestFields = `basis status limited percentileMethod coverage{observedSpanCount requestSampleCount missingServiceCount missingInstanceCount missingOperationCount} rows{sourceId resourceId serviceName instanceId instanceName operationName timestamp intervalSeconds observedSpanCount sampleCount errorCount errorRate samplesPerSecond durationMeanMs durationP50Ms durationP95Ms durationP99Ms}`
+
+type apmScanCounter struct {
+	driver.Conn
+	statements int
+}
+
+func (c *apmScanCounter) Query(ctx context.Context, query string, args ...any) (driver.Rows, error) {
+	c.statements++
+	return c.Conn.Query(ctx, query, args...)
+}
+func (c *apmScanCounter) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
+	c.statements++
+	return c.Conn.QueryRow(ctx, query, args...)
+}
 
 func TestAPMClickHouseReceivedSamples(t *testing.T) {
 	conn := sourceTestClickHouse(t)
@@ -53,7 +69,8 @@ func TestAPMClickHouseReceivedSamples(t *testing.T) {
 	send(host, source, "api", "instance-1", 2, first) // replay in a different Kafka record
 	send(host, otherSource, "api", "instance-1", 3, makeSpan("server01", 1, 5000, tracepb.Span_SPAN_KIND_SERVER, tracepb.Status_STATUS_CODE_ERROR))
 	send(hiddenHost, source, "api", "instance-1", 4, makeSpan("hidden01", 1, 5000, tracepb.Span_SPAN_KIND_SERVER, tracepb.Status_STATUS_CODE_ERROR))
-	engine := skywalking.Engine{Conn: conn, Router: router}
+	scans := &apmScanCounter{Conn: conn}
+	engine := skywalking.Engine{Conn: scans, Router: router}
 	request := skywalking.Request{Start: at, End: at.Add(15 * time.Second), Scope: skywalking.Scope{EnterpriseID: tenant, ResourceIDs: []uuid.UUID{host}, SourceKeys: []string{source.String() + ":1"}}, Budget: skywalking.Budget{MaxRows: 100, MaxScanBytes: 256 << 20, Timeout: 10 * time.Second}}
 	query := func(root string) map[string]any {
 		t.Helper()
@@ -65,6 +82,9 @@ func TestAPMClickHouseReceivedSamples(t *testing.T) {
 		return result.Data["result"].(map[string]any)
 	}
 	services := query("queryAPMServices")
+	if scans.statements != 1 {
+		t.Fatalf("coverage and rows performed %d scans, expected one", scans.statements)
+	}
 	if empty := query(`queryAPMServices(serviceName:"")`); len(empty["rows"].([]any)) != 0 || empty["status"] != "no_data" {
 		t.Fatal("literal empty service filter broadened to All")
 	}

@@ -1,5 +1,7 @@
+import { ResourceCard } from "@argus/ui";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { QueryBoundary } from "@argus/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Pencil, RefreshCw, TerminalSquare, Trash2 } from "lucide-react";
@@ -150,12 +152,16 @@ function HostTile({
     address: `${host.address}:${host.port}`,
   });
   return (
-    <div className="argus-host-tile">
-      <div className="argus-host-tile__top">
-        <span className="argus-host-tile__name">
-          <Link params={{ hostId: host.id }} to="/hosts/$hostId">
-            {host.name}
-          </Link>
+    <ResourceCard
+      className="argus-host-tile"
+      title={
+        <Link params={{ hostId: host.id }} to="/hosts/$hostId">
+          {host.name}
+        </Link>
+      }
+      subtitle={`${host.address}:${host.port}`}
+      status={
+        <>
           <StatusBadge
             pulse={host.connection_status === "online"}
             tone={
@@ -179,22 +185,16 @@ function HostTile({
               {t(`hosts.removal.resourceStatus.${host.status}`)}
             </StatusBadge>
           )}
-        </span>
-        <span className="argus-host-tile__addr">
-          {host.address}:{host.port}
-        </span>
-      </div>
-      <div className="argus-host-tile__path" title={path}>
-        {path}
-      </div>
-      <HostOnboardingProgress host={host} />
-      <div className="argus-host-tile__footer">
-        <span className="argus-host-tile__tags">
+        </>
+      }
+      labels={
+        <>
           <Badge tone={environmentTone(host.environment)}>
             {t(`hosts.env.${host.environment}`)}
           </Badge>
           {onCollectorAction && (
-            <button
+            <Button
+              variant="ghost"
               aria-label={t(
                 collectorStatusOf(host) === "not_installed"
                   ? "hosts.row.installCollector"
@@ -202,47 +202,41 @@ function HostTile({
                 { name: host.name },
               )}
               className="argus-collector-status-action"
-              onClick={() => onCollectorAction(host)}
+              onPress={() => onCollectorAction(host)}
               type="button"
             >
               <StatusBadge tone={collectorTone(collectorStatusOf(host))}>
                 {t(`hosts.collectorStatus.${collectorStatusOf(host)}`)}
               </StatusBadge>
-            </button>
+            </Button>
           )}
-        </span>
-        <span className="argus-host-tile__actions">
-          <Button
-            aria-label={t("hosts.row.edit")}
-            onClick={() => onEdit(host)}
-            size="icon"
-            title={t("hosts.row.edit")}
-            variant="ghost"
-          >
-            <Pencil aria-hidden size={14} />
+        </>
+      }
+      menuItems={[
+        { label: t("hosts.row.edit"), onSelect: () => onEdit(host) },
+        ...(host.status === "uninstalled"
+          ? [
+              {
+                label: t("hosts.row.delete"),
+                onSelect: () => onDelete(host),
+                danger: true,
+              },
+            ]
+          : []),
+      ]}
+      actions={
+        host.status !== "uninstalled" && (
+          <Button onPress={() => onRemove(host)} variant="ghost">
+            {t("hosts.removal.action")}
           </Button>
-          <Button
-            aria-label={t(
-              host.status === "uninstalled"
-                ? "hosts.row.delete"
-                : "hosts.removal.action",
-            )}
-            onClick={() =>
-              host.status === "uninstalled" ? onDelete(host) : onRemove(host)
-            }
-            size="icon"
-            title={t(
-              host.status === "uninstalled"
-                ? "hosts.row.delete"
-                : "hosts.removal.action",
-            )}
-            variant="ghost"
-          >
-            <Trash2 aria-hidden size={14} />
-          </Button>
-        </span>
+        )
+      }
+    >
+      <div className="argus-resource-card__subtitle" title={path}>
+        {path}
       </div>
-    </div>
+      <HostOnboardingProgress host={host} />
+    </ResourceCard>
   );
 }
 
@@ -472,10 +466,10 @@ export function HostsPage() {
     <PageShell
       actions={
         <>
-          <Button onClick={() => setAddBastionOpen(true)} variant="secondary">
+          <Button onPress={() => setAddBastionOpen(true)} variant="secondary">
             {t("hosts.addBastion")}
           </Button>
-          <Button onClick={() => setAddHostOpen(true)} variant="primary">
+          <Button onPress={() => setAddHostOpen(true)} variant="primary">
             {t("hosts.addHost")}
           </Button>
         </>
@@ -516,299 +510,312 @@ export function HostsPage() {
           }}
         />
 
-        {sortedScopes.map((scope) => {
-          const members = membersOf(scope);
-          const bastionHost = bastionHostOf(scope);
-          const connector = connectorOf(scope);
-          const pendingPresentation = pendingScopePresentation(
-            scope.onboarding.state,
-          );
-          const sessionCount = activeSessions.filter((session) =>
-            members.some((host) => host.id === session.host_id),
-          ).length;
+        <QueryBoundary query={hostsQuery}>
+          {sortedScopes.map((scope) => {
+            const members = membersOf(scope);
+            const bastionHost = bastionHostOf(scope);
+            const connector = connectorOf(scope);
+            const pendingPresentation = pendingScopePresentation(
+              scope.onboarding.state,
+            );
+            const sessionCount = activeSessions.filter((session) =>
+              members.some((host) => host.id === session.host_id),
+            ).length;
 
-          if (scope.status === "pending") {
+            if (scope.status === "pending") {
+              return (
+                <Card
+                  className="argus-scope-card argus-scope-card--pending"
+                  key={scope.id}
+                >
+                  <div className="argus-scope-card__head">
+                    <span className="argus-scope-card__title">
+                      {scope.name}
+                      <Badge tone={environmentTone(scope.environment)}>
+                        {t(`hosts.env.${scope.environment}`)}
+                      </Badge>
+                      <StatusBadge
+                        pulse={pendingPresentation.pulse}
+                        tone={pendingPresentation.tone}
+                      >
+                        {t(pendingPresentation.label)}
+                      </StatusBadge>
+                    </span>
+                  </div>
+                  <div className="argus-scope-card__body">
+                    <p className="argus-muted">
+                      {t(pendingPresentation.description)}
+                    </p>
+                    <PendingScopeActions scope={scope} />
+                    <div className="argus-scope-card__actions">
+                      {simulate && (
+                        <Button
+                          onPress={() => simulateRegister(scope.id)}
+                          variant="ghost"
+                        >
+                          <TerminalSquare aria-hidden size={14} />
+                          {t("hosts.scope.simulateOnline")}（
+                          {t("hosts.scope.demoOnly")}）
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              );
+            }
+
             return (
-              <Card
-                className="argus-scope-card argus-scope-card--pending"
-                key={scope.id}
-              >
+              <Card className="argus-scope-card" key={scope.id}>
                 <div className="argus-scope-card__head">
                   <span className="argus-scope-card__title">
-                    {scope.name}
+                    {bastionHost ? (
+                      <Link
+                        params={{ hostId: bastionHost.id }}
+                        to="/hosts/$hostId"
+                      >
+                        {scope.name}
+                      </Link>
+                    ) : (
+                      scope.name
+                    )}
                     <Badge tone={environmentTone(scope.environment)}>
                       {t(`hosts.env.${scope.environment}`)}
                     </Badge>
+                    <Badge tone="info">{t("hosts.scope.bastionHost")}</Badge>
+                    {connector && (
+                      <StatusBadge
+                        pulse={connector.status === "online"}
+                        tone={
+                          connector.status === "online" ? "success" : "danger"
+                        }
+                      >
+                        {connector.status === "online"
+                          ? t("hosts.scope.connectorOnline")
+                          : connector.status === "uninstalled"
+                            ? t("hosts.scope.connectorUninstalled")
+                            : t("hosts.scope.connectorOffline")}
+                      </StatusBadge>
+                    )}
                     <StatusBadge
-                      pulse={pendingPresentation.pulse}
-                      tone={pendingPresentation.tone}
+                      pulse={scope.relay_status === "ready"}
+                      title={
+                        scope.relay_address
+                          ? `${scope.relay_address}:${scope.relay_https_port} / ${scope.relay_gateway_port}${scope.relay_error_code ? ` · ${scope.relay_error_code}` : ""}`
+                          : t("hosts.scope.relayEndpointPending")
+                      }
+                      tone={
+                        scope.relay_status === "ready"
+                          ? "success"
+                          : scope.relay_status === "degraded"
+                            ? "warning"
+                            : "danger"
+                      }
                     >
-                      {t(pendingPresentation.label)}
+                      {t("hosts.scope.tlsRelay")} ·{" "}
+                      {t(`hosts.scope.relayStatus.${scope.relay_status}`)}
                     </StatusBadge>
+                    {scope.control_tunnel_status && (
+                      <StatusBadge
+                        pulse={
+                          scope.control_tunnel_status === "establishing" ||
+                          scope.control_tunnel_status === "established"
+                        }
+                        tone={
+                          scope.control_tunnel_status === "established"
+                            ? "success"
+                            : scope.control_tunnel_status === "degraded"
+                              ? "warning"
+                              : scope.control_tunnel_status === "down" ||
+                                  scope.control_tunnel_status === "removed"
+                                ? "danger"
+                                : "info"
+                        }
+                      >
+                        {t("hosts.scope.controlTunnel")} ·{" "}
+                        {t(
+                          `hosts.components.installed.tunnelStatus.${scope.control_tunnel_status}`,
+                        )}
+                      </StatusBadge>
+                    )}
+                    {scope.status === "uninstalled" && (
+                      <StatusBadge tone="warning">
+                        {t("hosts.scope.connectorUninstalled")}
+                      </StatusBadge>
+                    )}
+                    {scope.status === "uninstalling" && (
+                      <StatusBadge pulse tone="warning">
+                        {t("hosts.scope.connectorUninstalling")}
+                      </StatusBadge>
+                    )}
+                    {bastionHost && (
+                      <>
+                        {!realMode && (
+                          <Button
+                            variant="ghost"
+                            aria-label={t(
+                              collectorStatusOf(bastionHost) === "not_installed"
+                                ? "hosts.row.installCollector"
+                                : "hosts.row.openCollector",
+                              { name: bastionHost.name },
+                            )}
+                            className="argus-collector-status-action"
+                            onPress={() => openCollector(bastionHost)}
+                            type="button"
+                          >
+                            <StatusBadge
+                              tone={collectorTone(
+                                collectorStatusOf(bastionHost),
+                              )}
+                            >
+                              {t(
+                                `hosts.collectorStatus.${collectorStatusOf(bastionHost)}`,
+                              )}
+                            </StatusBadge>
+                          </Button>
+                        )}
+                        <span className="argus-scope-card__title-actions">
+                          {[
+                            "active",
+                            "suspected_offline",
+                            "offline",
+                            "uninstalled",
+                          ].includes(scope.status) && (
+                            <Button
+                              aria-label={t(
+                                "hosts.bastionForm.replaceConnector",
+                              )}
+                              onPress={() =>
+                                setReplaceBastion({ scope, host: bastionHost })
+                              }
+                              isIconOnly
+                              title={t("hosts.bastionForm.replaceConnector")}
+                              variant="ghost"
+                            >
+                              <RefreshCw aria-hidden size={14} />
+                            </Button>
+                          )}
+                          <Button
+                            aria-label={t("hosts.row.edit")}
+                            onPress={() => setEditBastion(scope)}
+                            isIconOnly
+                            title={t("hosts.row.edit")}
+                            variant="ghost"
+                          >
+                            <Pencil aria-hidden size={14} />
+                          </Button>
+                          <Button
+                            aria-label={t(
+                              scope.status === "uninstalled"
+                                ? "hosts.bastionDelete.action"
+                                : "hosts.removal.action",
+                            )}
+                            onPress={() => {
+                              if (scope.status === "uninstalled") {
+                                setDeleteBastionError("");
+                                setDeleteBastion(scope);
+                              } else {
+                                removeBastion(scope, bastionHost, connector);
+                              }
+                            }}
+                            isIconOnly
+                            title={t(
+                              scope.status === "uninstalled"
+                                ? "hosts.bastionDelete.action"
+                                : "hosts.removal.action",
+                            )}
+                            variant="ghost"
+                          >
+                            <Trash2 aria-hidden size={14} />
+                          </Button>
+                        </span>
+                      </>
+                    )}
+                  </span>
+                  <span className="argus-scope-card__meta">
+                    <span>
+                      {t("hosts.scope.members", { count: members.length })}
+                    </span>
+                    {!realMode && (
+                      <span>
+                        {t("hosts.scope.activeSessions", {
+                          count: sessionCount,
+                        })}
+                      </span>
+                    )}
+                    {!realMode && (
+                      <span>
+                        {t("hosts.scope.collectorSummary", {
+                          summary: collectorSummary(members),
+                        })}
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div className="argus-scope-card__body">
-                  <p className="argus-muted">
-                    {t(pendingPresentation.description)}
-                  </p>
-                  <PendingScopeActions scope={scope} />
-                  <div className="argus-scope-card__actions">
-                    {simulate && (
-                      <Button
-                        onClick={() => simulateRegister(scope.id)}
-                        variant="ghost"
-                      >
-                        <TerminalSquare aria-hidden size={14} />
-                        {t("hosts.scope.simulateOnline")}（
-                        {t("hosts.scope.demoOnly")}）
-                      </Button>
-                    )}
-                  </div>
+                  {members.length > 0 ? (
+                    <div className="argus-host-grid">
+                      {members.map((host) => (
+                        <HostTile
+                          host={host}
+                          key={host.id}
+                          onCollectorAction={
+                            realMode ? undefined : openCollector
+                          }
+                          onDelete={setDeleteTarget}
+                          onRemove={removeHost}
+                          onEdit={setEditHost}
+                          scopes={scopes}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="argus-muted">
+                      {t("hosts.scope.members", { count: 0 })}
+                    </span>
+                  )}
                 </div>
               </Card>
             );
-          }
+          })}
 
-          return (
-            <Card className="argus-scope-card" key={scope.id}>
+          {standaloneHosts.length > 0 && (
+            <Card className="argus-scope-card">
               <div className="argus-scope-card__head">
                 <span className="argus-scope-card__title">
-                  {bastionHost ? (
-                    <Link
-                      params={{ hostId: bastionHost.id }}
-                      to="/hosts/$hostId"
-                    >
-                      {scope.name}
-                    </Link>
-                  ) : (
-                    scope.name
-                  )}
-                  <Badge tone={environmentTone(scope.environment)}>
-                    {t(`hosts.env.${scope.environment}`)}
-                  </Badge>
-                  <Badge tone="info">{t("hosts.scope.bastionHost")}</Badge>
-                  {connector && (
-                    <StatusBadge
-                      pulse={connector.status === "online"}
-                      tone={
-                        connector.status === "online" ? "success" : "danger"
-                      }
-                    >
-                      {connector.status === "online"
-                        ? t("hosts.scope.connectorOnline")
-                        : connector.status === "uninstalled"
-                          ? t("hosts.scope.connectorUninstalled")
-                          : t("hosts.scope.connectorOffline")}
-                    </StatusBadge>
-                  )}
-                  <StatusBadge
-                    pulse={scope.relay_status === "ready"}
-                    title={
-                      scope.relay_address
-                        ? `${scope.relay_address}:${scope.relay_https_port} / ${scope.relay_gateway_port}${scope.relay_error_code ? ` · ${scope.relay_error_code}` : ""}`
-                        : t("hosts.scope.relayEndpointPending")
-                    }
-                    tone={
-                      scope.relay_status === "ready"
-                        ? "success"
-                        : scope.relay_status === "degraded"
-                          ? "warning"
-                          : "danger"
-                    }
-                  >
-                    {t("hosts.scope.tlsRelay")} ·{" "}
-                    {t(`hosts.scope.relayStatus.${scope.relay_status}`)}
-                  </StatusBadge>
-                  {scope.control_tunnel_status && (
-                    <StatusBadge
-                      pulse={
-                        scope.control_tunnel_status === "establishing" ||
-                        scope.control_tunnel_status === "established"
-                      }
-                      tone={
-                        scope.control_tunnel_status === "established"
-                          ? "success"
-                          : scope.control_tunnel_status === "degraded"
-                            ? "warning"
-                            : scope.control_tunnel_status === "down" ||
-                                scope.control_tunnel_status === "removed"
-                              ? "danger"
-                              : "info"
-                      }
-                    >
-                      {t("hosts.scope.controlTunnel")} ·{" "}
-                      {t(
-                        `hosts.components.installed.tunnelStatus.${scope.control_tunnel_status}`,
-                      )}
-                    </StatusBadge>
-                  )}
-                  {scope.status === "uninstalled" && (
-                    <StatusBadge tone="warning">
-                      {t("hosts.scope.connectorUninstalled")}
-                    </StatusBadge>
-                  )}
-                  {scope.status === "uninstalling" && (
-                    <StatusBadge pulse tone="warning">
-                      {t("hosts.scope.connectorUninstalling")}
-                    </StatusBadge>
-                  )}
-                  {bastionHost && (
-                    <>
-                      {!realMode && (
-                        <button
-                          aria-label={t(
-                            collectorStatusOf(bastionHost) === "not_installed"
-                              ? "hosts.row.installCollector"
-                              : "hosts.row.openCollector",
-                            { name: bastionHost.name },
-                          )}
-                          className="argus-collector-status-action"
-                          onClick={() => openCollector(bastionHost)}
-                          type="button"
-                        >
-                          <StatusBadge
-                            tone={collectorTone(collectorStatusOf(bastionHost))}
-                          >
-                            {t(
-                              `hosts.collectorStatus.${collectorStatusOf(bastionHost)}`,
-                            )}
-                          </StatusBadge>
-                        </button>
-                      )}
-                      <span className="argus-scope-card__title-actions">
-                        {[
-                          "active",
-                          "suspected_offline",
-                          "offline",
-                          "uninstalled",
-                        ].includes(scope.status) && (
-                          <Button
-                            aria-label={t("hosts.bastionForm.replaceConnector")}
-                            onClick={() =>
-                              setReplaceBastion({ scope, host: bastionHost })
-                            }
-                            size="icon"
-                            title={t("hosts.bastionForm.replaceConnector")}
-                            variant="ghost"
-                          >
-                            <RefreshCw aria-hidden size={14} />
-                          </Button>
-                        )}
-                        <Button
-                          aria-label={t("hosts.row.edit")}
-                          onClick={() => setEditBastion(scope)}
-                          size="icon"
-                          title={t("hosts.row.edit")}
-                          variant="ghost"
-                        >
-                          <Pencil aria-hidden size={14} />
-                        </Button>
-                        <Button
-                          aria-label={t(
-                            scope.status === "uninstalled"
-                              ? "hosts.bastionDelete.action"
-                              : "hosts.removal.action",
-                          )}
-                          onClick={() => {
-                            if (scope.status === "uninstalled") {
-                              setDeleteBastionError("");
-                              setDeleteBastion(scope);
-                            } else {
-                              removeBastion(scope, bastionHost, connector);
-                            }
-                          }}
-                          size="icon"
-                          title={t(
-                            scope.status === "uninstalled"
-                              ? "hosts.bastionDelete.action"
-                              : "hosts.removal.action",
-                          )}
-                          variant="ghost"
-                        >
-                          <Trash2 aria-hidden size={14} />
-                        </Button>
-                      </span>
-                    </>
-                  )}
+                  {t("hosts.standalone.title")}
+                  <Badge tone="accent">{t(standaloneModeKey)}</Badge>
                 </span>
-                <span className="argus-scope-card__meta">
-                  <span>
-                    {t("hosts.scope.members", { count: members.length })}
-                  </span>
-                  {!realMode && (
-                    <span>
-                      {t("hosts.scope.activeSessions", { count: sessionCount })}
-                    </span>
-                  )}
-                  {!realMode && (
-                    <span>
-                      {t("hosts.scope.collectorSummary", {
-                        summary: collectorSummary(members),
-                      })}
-                    </span>
-                  )}
+                <span className="argus-standalone__hint">
+                  {t("hosts.standalone.egressHint", { ip: egressDisplay })}
                 </span>
               </div>
               <div className="argus-scope-card__body">
-                {members.length > 0 ? (
-                  <div className="argus-host-grid">
-                    {members.map((host) => (
-                      <HostTile
-                        host={host}
-                        key={host.id}
-                        onCollectorAction={realMode ? undefined : openCollector}
-                        onDelete={setDeleteTarget}
-                        onRemove={removeHost}
-                        onEdit={setEditHost}
-                        scopes={scopes}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <span className="argus-muted">
-                    {t("hosts.scope.members", { count: 0 })}
-                  </span>
-                )}
+                <div className="argus-host-grid">
+                  {standaloneHosts.map((host) => (
+                    <HostTile
+                      host={host}
+                      key={host.id}
+                      onCollectorAction={realMode ? undefined : openCollector}
+                      onDelete={setDeleteTarget}
+                      onRemove={removeHost}
+                      onEdit={setEditHost}
+                      scopes={scopes}
+                    />
+                  ))}
+                </div>
               </div>
             </Card>
-          );
-        })}
+          )}
 
-        {standaloneHosts.length > 0 && (
-          <Card className="argus-scope-card">
-            <div className="argus-scope-card__head">
-              <span className="argus-scope-card__title">
-                {t("hosts.standalone.title")}
-                <Badge tone="accent">{t(standaloneModeKey)}</Badge>
-              </span>
-              <span className="argus-standalone__hint">
-                {t("hosts.standalone.egressHint", { ip: egressDisplay })}
-              </span>
-            </div>
-            <div className="argus-scope-card__body">
-              <div className="argus-host-grid">
-                {standaloneHosts.map((host) => (
-                  <HostTile
-                    host={host}
-                    key={host.id}
-                    onCollectorAction={realMode ? undefined : openCollector}
-                    onDelete={setDeleteTarget}
-                    onRemove={removeHost}
-                    onEdit={setEditHost}
-                    scopes={scopes}
-                  />
-                ))}
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {!hostsQuery.isLoading && hosts.length === 0 && scopes.length === 0 && (
-          <EmptyState
-            description={t("hosts.empty.description")}
-            title={t("hosts.empty.title")}
-          />
-        )}
+          {!hostsQuery.isLoading &&
+            hosts.length === 0 &&
+            scopes.length === 0 && (
+              <EmptyState
+                description={t("hosts.empty.description")}
+                title={t("hosts.empty.title")}
+              />
+            )}
+        </QueryBoundary>
       </div>
 
       <AddBastionDialog
@@ -904,16 +911,16 @@ export function HostsPage() {
         footer={
           <>
             <Button
-              disabled={deletingBastion}
-              onClick={() => setDeleteBastion(null)}
+              isDisabled={deletingBastion}
+              onPress={() => setDeleteBastion(null)}
               variant="secondary"
             >
               {t("hosts.cancel")}
             </Button>
             <Button
-              disabled={deleteBastionMembers.length > 0}
-              loading={deletingBastion}
-              onClick={() => void confirmDeleteBastion()}
+              isDisabled={deleteBastionMembers.length > 0}
+              isPending={deletingBastion}
+              onPress={() => void confirmDeleteBastion()}
               variant="danger"
             >
               {t("hosts.bastionDelete.confirm")}

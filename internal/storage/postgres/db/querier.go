@@ -441,6 +441,8 @@ type Querier interface {
 	GetPendingActionPlan(ctx context.Context, arg GetPendingActionPlanParams) (PendingActionPlan, error)
 	GetPendingActionTokenForUpdate(ctx context.Context, arg GetPendingActionTokenForUpdateParams) (PendingActionToken, error)
 	GetPersistedToolResult(ctx context.Context, arg GetPersistedToolResultParams) (ToolResult, error)
+	GetPlatformMonthlySandboxUsage(ctx context.Context, arg GetPlatformMonthlySandboxUsageParams) ([]GetPlatformMonthlySandboxUsageRow, error)
+	GetPlatformOverviewCounts(ctx context.Context) (GetPlatformOverviewCountsRow, error)
 	GetPlatformSettings(ctx context.Context) (PlatformSetting, error)
 	GetPlatformState(ctx context.Context) (GetPlatformStateRow, error)
 	GetPlatformUser(ctx context.Context, id uuid.UUID) (PlatformUser, error)

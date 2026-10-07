@@ -70,9 +70,14 @@ export interface DashboardDomains {
     ): Promise<DashboardSchemas["DashboardValidationReport"]>;
     sample(
       id: string,
-      version: number,
+      input: DashboardSchemas["DashboardDraftSampleInput"],
       signal?: AbortSignal,
     ): Promise<DashboardSchemas["DashboardDraftSample"]>;
+    draftDrilldown(
+      id: string,
+      input: DashboardSchemas["DashboardDraftDrilldownInput"],
+      signal?: AbortSignal,
+    ): Promise<DashboardSchemas["DashboardDraftDrilldownExecution"]>;
     preview(id: string, version: number): Promise<PendingActionPublic>;
     execute(
       id: string,

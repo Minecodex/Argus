@@ -1,5 +1,5 @@
 releaseId: argus
-namespace: argus-observability
+namespace: argus-system
 images:
   clickhouse: clickhouse/clickhouse-server:26.3.17.110-alpine
 clickhouse:

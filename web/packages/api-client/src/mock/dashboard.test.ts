@@ -14,7 +14,9 @@ describe("dashboard mock contract", () => {
       spec,
       proposed_bindings: [],
     });
-    const result = await api.dashboards.sample(draft.id, draft.draft_version);
+    const result = await api.dashboards.sample(draft.id, {
+      expected_version: draft.draft_version,
+    });
     expect(result.validation.valid).toBe(false);
     expect(result.validation.issues.length).toBeGreaterThan(0);
     expect(result.sample).toEqual({

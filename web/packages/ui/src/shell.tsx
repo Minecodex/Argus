@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { useUiText } from "./locale";
 import { Avatar, Dropdown, Tooltip } from "./primitives";
 import { Button, type ButtonProps } from "./button";
 import { cx } from "./lib";
@@ -12,6 +13,31 @@ export type UserMenuItem =
       onSelect?: () => void;
     }
   | "separator";
+
+export function SidebarToggle({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const text = useUiText();
+  return (
+    <Button
+      isIconOnly
+      variant="ghost"
+      className="argus-sidebar__collapse"
+      aria-label={
+        collapsed
+          ? text("展开导航", "Expand navigation")
+          : text("收起导航", "Collapse navigation")
+      }
+      onPress={onToggle}
+    >
+      {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+    </Button>
+  );
+}
 
 /** Where a persistent dock panel attaches to the shell grid. */
 export type AppShellDockPlacement = {
@@ -58,7 +84,7 @@ export function AppShell({
       {sidebar}
       <div className="argus-app-main">
         {header}
-        <main className="argus-page-content" ref={mainRef}>
+        <main className="argus-page-content" ref={mainRef} tabIndex={0}>
           <div className="argus-app-workspace">{children}</div>
         </main>
       </div>
@@ -81,14 +107,19 @@ export function PortalUserMenu({
     <Dropdown
       items={items}
       trigger={
-        <button className="argus-user-menu" type="button">
+        <Button
+          variant="ghost"
+          className="argus-user-menu"
+          type="button"
+          aria-label={`${displayName} ${username}`}
+        >
           <Avatar fallback={displayName.slice(0, 1)} />
           <span>
             <b>{displayName}</b>
             <small>{username}</small>
           </span>
           <ChevronDown aria-hidden size={13} />
-        </button>
+        </Button>
       }
     />
   );
@@ -104,7 +135,7 @@ export function IconButton({
 }) {
   return (
     <Tooltip content={label}>
-      <Button aria-label={label} size="icon" {...props}>
+      <Button aria-label={label} isIconOnly {...props}>
         {children}
       </Button>
     </Tooltip>

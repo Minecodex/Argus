@@ -159,7 +159,7 @@ test("chat shell lists conversations and links to the admin console", async ({
           actions.getBoundingClientRect().right,
       );
     });
-  expect(accountRightGap).toBe(20);
+  expect(accountRightGap).toBe(24);
   await page.getByRole("link", { name: "进入管理后台" }).click();
   await expect(page).toHaveURL(/\/hosts$/);
   await expect(page.getByRole("link", { name: /审批中心/ })).toBeVisible();
@@ -520,15 +520,15 @@ test("approvals inbox: desktop tabs preserve scope deep links", async ({
     "aria-selected",
     "true",
   );
-  await expect(page.getByRole("tab", { name: "我发起的" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(page.getByRole("radio", { name: "我发起的" })).toBeChecked();
   await expect(
     page.getByRole("button", { name: /升级遥测收集器/ }),
   ).toBeVisible();
 
-  await page.getByRole("tab", { name: "已处理" }).click();
+  await page
+    .getByRole("radio", { name: "已处理" })
+    .locator('xpath=ancestor::*[@data-slot="radio-content"]')
+    .click();
   await expect(page).toHaveURL(/scope=done/);
   await expect(
     page.getByRole("button", { name: /新增主机 host-web-12/ }),
@@ -568,6 +568,7 @@ test("ai settings: test and create a model in one step", async ({ page }) => {
   await drawer.getByLabel("API 地址").fill("https://llm-gw.internal/v1");
   await drawer.getByLabel("API Key").fill("sk-e2e-test");
   await drawer.getByLabel("模型 ID").fill("e2e-chat");
+  await drawer.getByText("容量与计费设置", { exact: true }).click();
   await drawer.getByLabel("每百万输入 Token 金额").fill("1.25");
   await drawer.getByLabel("每百万输出 Token 金额").fill("3.50");
   await drawer.getByRole("button", { name: "测试并创建" }).click();
@@ -600,8 +601,8 @@ test("host and bastion collector statuses expose contract-backed actions", async
     .click();
   await expect(page).toHaveURL(/\/hosts\/host-cache-bj-01#otlp-collector$/);
   await expect(page.getByRole("tab", { name: "组件与采集" })).toHaveAttribute(
-    "data-state",
-    "active",
+    "aria-selected",
+    "true",
   );
   await page.goto("/hosts");
 
@@ -628,8 +629,8 @@ test("host and bastion collector statuses expose contract-backed actions", async
     .click();
   await expect(page).toHaveURL(/\/hosts\/host-gw-sh-01#otlp-collector$/);
   await expect(page.getByRole("tab", { name: "组件与采集" })).toHaveAttribute(
-    "data-state",
-    "active",
+    "aria-selected",
+    "true",
   );
 });
 
@@ -756,8 +757,8 @@ test("kubernetes collector statuses install or open monitoring directly", async 
     .click();
   await expect(page).toHaveURL(/\/kubernetes\/k8s-prod-east#otlp-collector$/);
   await expect(page.getByRole("tab", { name: "OTLP 收集器" })).toHaveAttribute(
-    "data-state",
-    "active",
+    "aria-selected",
+    "true",
   );
 });
 
@@ -799,8 +800,8 @@ test("telemetry query builder and DSL editor execute all three language models",
 
   await page.getByRole("tab", { name: "指标", exact: true }).click();
   await expect(page.getByRole("tab", { name: "查询构建器" })).toHaveAttribute(
-    "data-state",
-    "active",
+    "aria-selected",
+    "true",
   );
   await page.getByLabel("指标名").fill("http_requests_total");
   await expect(
@@ -995,7 +996,7 @@ test("remote access governance supports CRUD, lifecycle, details, validation, an
   await expect(
     drawer.getByText("请至少选择一个处理效果或会话策略"),
   ).toBeVisible();
-  await drawer.getByLabel("会话策略").click();
+  await drawer.getByRole("button", { name: "会话策略", exact: true }).click();
   await page.getByRole("option", { name: /生产会话策略/ }).click();
   await drawer.getByRole("button", { name: "保存" }).click();
   row = page.getByRole("row").filter({ hasText: "生产 SSH 规则" });

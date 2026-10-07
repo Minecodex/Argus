@@ -8,7 +8,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: argus-pki-controller-trust-source
+  name: {{ .Values.releaseId }}-pki-controller-trust-source
   namespace: cert-manager
   labels: {app.kubernetes.io/part-of: argus, argus.io/release-id: {{ .Values.releaseId | quote }}}
 rules:
@@ -20,12 +20,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: argus-pki-controller-trust-source
+  name: {{ .Values.releaseId }}-pki-controller-trust-source
   namespace: cert-manager
   labels: {app.kubernetes.io/part-of: argus, argus.io/release-id: {{ .Values.releaseId | quote }}}
 subjects:
   - {kind: ServiceAccount, name: argus-pki-controller, namespace: {{ .Values.namespaces.system }}}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: argus-pki-controller-trust-source}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ .Values.releaseId }}-pki-controller-trust-source}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -46,7 +46,7 @@ metadata:
 subjects:
   - {kind: ServiceAccount, name: argus-pki-controller, namespace: {{ .Values.namespaces.system }}}
 roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ .Values.releaseId }}-pki-target-issuer-reader}
-{{- range $namespace := list .Values.namespaces.system .Values.namespaces.observability .Values.namespaces.sandbox }}
+{{- range $namespace := uniq (list .Values.namespaces.system .Values.namespaces.observability .Values.namespaces.sandbox) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -113,7 +113,7 @@ spec:
             - {name: ARGUS_PKI_MODE, value: {{ .Values.pki.mode | quote }}}
             - {name: ARGUS_PKI_TRUST_SOURCE_NAME, value: {{ .Values.pki.trustSourceName | quote }}}
             - {name: ARGUS_PKI_TRUST_BUNDLE_NAME, value: {{ .Values.pki.bundleName | quote }}}
-            - {name: ARGUS_PKI_TARGET_NAMESPACES, value: {{ join "," (list .Values.namespaces.system .Values.namespaces.observability .Values.namespaces.sandbox) | quote }}}
+            - {name: ARGUS_PKI_TARGET_NAMESPACES, value: {{ join "," (uniq (list .Values.namespaces.system .Values.namespaces.observability .Values.namespaces.sandbox)) | quote }}}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: {drop: [ALL]}

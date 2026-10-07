@@ -124,7 +124,7 @@ export function FilterFields({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onChange(filters.filter((_, n) => n !== i))}
+            onPress={() => onChange(filters.filter((_, n) => n !== i))}
           >
             {t("dashboards.delete")}
           </Button>
@@ -132,7 +132,7 @@ export function FilterFields({
       ))}
       <Button
         size="sm"
-        onClick={() =>
+        onPress={() =>
           onChange([...filters, { field: "", operator: "=", value: "" }])
         }
       >

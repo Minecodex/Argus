@@ -1,7 +1,7 @@
 .argus-ai-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--field-gap);
 }
 
 .argus-ai-toolbar {
@@ -9,7 +9,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-ai-model-name {
@@ -45,20 +45,20 @@
   display: grid;
   grid-template-columns: minmax(190px, 0.7fr) minmax(320px, 1.3fr) auto;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--section-gap);
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .argus-ic-row__meta {
   min-width: 0;
   display: grid;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 
 .argus-ic-row__meta > div {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 
 .argus-ic-row__meta p {
@@ -76,7 +76,7 @@
 .argus-ic-row__actions {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   color: var(--text-tertiary);
 }
 
@@ -110,7 +110,7 @@
 .argus-ic-validation {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-ic-validation small {
@@ -120,18 +120,16 @@
 
 .argus-ic-slots {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 
 .argus-ic-slots button {
-  min-height: 44px;
-  padding: 0 var(--space-3);
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+
   background: var(--bg-surface);
   color: var(--text-secondary);
   text-align: left;

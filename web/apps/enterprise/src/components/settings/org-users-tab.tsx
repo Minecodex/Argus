@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { QueryBoundary } from "@argus/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -132,11 +133,12 @@ export function CheckList({
   return (
     <div className="argus-settings-check-list">
       {options.map((option) => (
-        <button
+        <Button
+          variant="ghost"
           className="argus-settings-check-option"
-          disabled={disabled}
+          isDisabled={disabled}
           key={option.id}
-          onClick={() => {
+          onPress={() => {
             const next = new Set(selected);
             if (next.has(option.id)) next.delete(option.id);
             else next.add(option.id);
@@ -147,7 +149,7 @@ export function CheckList({
           <CheckItem checked={selected.has(option.id)}>
             {option.label}
           </CheckItem>
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -246,85 +248,87 @@ export function OrgUsersTab() {
         <h2 className="argus-settings-section__title">
           {t("settings.org.tabs.users")}
         </h2>
-        <Button onClick={() => setInviteOpen(true)} size="sm" variant="primary">
+        <Button onPress={() => setInviteOpen(true)} size="sm" variant="primary">
           {t("settings.org.users.invite")}
         </Button>
       </div>
-      {users.isPending ? (
-        <Spinner />
-      ) : (users.data ?? []).length === 0 ? (
-        <EmptyState description="" title={t("settings.org.users.empty")} />
-      ) : (
-        <DataTable<UserRow>
-          columns={[
-            {
-              key: "displayName",
-              header: t("settings.common.name"),
-              render: (row) => (
-                <span>
-                  {row.displayName} <small>@{row.username}</small>
-                </span>
-              ),
-            },
-            {
-              key: "department_id",
-              header: t("settings.org.users.department"),
-              render: (row) => departmentName(row.department_id),
-            },
-            {
-              key: "role_ids",
-              header: t("settings.org.users.roles"),
-              render: (row) => (
-                <span className="argus-settings-inline-actions">
-                  {row.role_ids.map((id) => (
-                    <Badge key={id}>{roleName(id, roles.data)}</Badge>
-                  ))}
-                </span>
-              ),
-            },
-            {
-              key: "status",
-              header: t("settings.common.status"),
-              render: (row) => (
-                <StatusBadge
-                  tone={row.status === "active" ? "success" : "neutral"}
-                >
-                  {t(`settings.common.${row.status}`)}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "lastLoginAt",
-              header: t("settings.org.users.lastActive"),
-              render: (row) =>
-                row.lastLoginAt
-                  ? formatDateTime(row.lastLoginAt)
-                  : t("settings.common.never"),
-            },
-            {
-              key: "actions",
-              header: t("settings.common.actions"),
-              render: (row) => (
-                <ActionGroup>
-                  <RowAction onClick={() => setEditing(row)}>
-                    {t("settings.common.edit")}
-                  </RowAction>
-                  <RowAction onClick={() => setAuthorizationTarget(row)}>
-                    {t("settings.org.dataAuthorization.action")}
-                  </RowAction>
-                  <RowAction onClick={() => setStatusTarget(row)}>
-                    {row.status === "disabled"
-                      ? t("settings.org.users.enable")
-                      : t("settings.org.users.disable")}
-                  </RowAction>
-                </ActionGroup>
-              ),
-            },
-          ]}
-          data={users.data ?? []}
-          getRowKey={(row) => row.id}
-        />
-      )}
+      <QueryBoundary query={users}>
+        {users.isPending ? (
+          <Spinner />
+        ) : (users.data ?? []).length === 0 ? (
+          <EmptyState description="" title={t("settings.org.users.empty")} />
+        ) : (
+          <DataTable<UserRow>
+            columns={[
+              {
+                key: "displayName",
+                header: t("settings.common.name"),
+                render: (row) => (
+                  <span>
+                    {row.displayName} <small>@{row.username}</small>
+                  </span>
+                ),
+              },
+              {
+                key: "department_id",
+                header: t("settings.org.users.department"),
+                render: (row) => departmentName(row.department_id),
+              },
+              {
+                key: "role_ids",
+                header: t("settings.org.users.roles"),
+                render: (row) => (
+                  <span className="argus-settings-inline-actions">
+                    {row.role_ids.map((id) => (
+                      <Badge key={id}>{roleName(id, roles.data)}</Badge>
+                    ))}
+                  </span>
+                ),
+              },
+              {
+                key: "status",
+                header: t("settings.common.status"),
+                render: (row) => (
+                  <StatusBadge
+                    tone={row.status === "active" ? "success" : "neutral"}
+                  >
+                    {t(`settings.common.${row.status}`)}
+                  </StatusBadge>
+                ),
+              },
+              {
+                key: "lastLoginAt",
+                header: t("settings.org.users.lastActive"),
+                render: (row) =>
+                  row.lastLoginAt
+                    ? formatDateTime(row.lastLoginAt)
+                    : t("settings.common.never"),
+              },
+              {
+                key: "actions",
+                header: t("settings.common.actions"),
+                render: (row) => (
+                  <ActionGroup>
+                    <RowAction onPress={() => setEditing(row)}>
+                      {t("settings.common.edit")}
+                    </RowAction>
+                    <RowAction onPress={() => setAuthorizationTarget(row)}>
+                      {t("settings.org.dataAuthorization.action")}
+                    </RowAction>
+                    <RowAction onPress={() => setStatusTarget(row)}>
+                      {row.status === "disabled"
+                        ? t("settings.org.users.enable")
+                        : t("settings.org.users.disable")}
+                    </RowAction>
+                  </ActionGroup>
+                ),
+              },
+            ]}
+            data={users.data ?? []}
+            getRowKey={(row) => row.id}
+          />
+        )}
+      </QueryBoundary>
       <EnterpriseUserDrawer
         departments={departments.data ?? []}
         loading={invite.isPending}
@@ -335,7 +339,7 @@ export function OrgUsersTab() {
       />
       <FormDrawer
         footer={
-          <Button onClick={() => setCreated(null)} variant="primary">
+          <Button onPress={() => setCreated(null)} variant="primary">
             {t("settings.common.close")}
           </Button>
         }

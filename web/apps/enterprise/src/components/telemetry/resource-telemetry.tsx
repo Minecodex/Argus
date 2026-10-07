@@ -544,9 +544,9 @@ export function ResourceTelemetry({
         </Field>
         <div className="argus-telemetry-run-action">
           <Button
-            disabled={!currentQuery.trim()}
-            loading={query.isFetching}
-            onClick={run}
+            isDisabled={!currentQuery.trim()}
+            isPending={query.isFetching}
+            onPress={run}
             variant="primary"
           >
             <Play aria-hidden size={15} />

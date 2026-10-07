@@ -1,3 +1,4 @@
+import { Button } from "@argus/ui";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cx } from "@argus/ui";
@@ -43,18 +44,18 @@ export function SessionTab({
       <span className="argus-terminal-tab__label" title={label}>
         {label}
       </span>
-      <button
+      <Button
+        variant="ghost"
         className="argus-terminal-tab__close"
-        onClick={(e) => {
-          e.stopPropagation();
+        onPress={() => {
           if (!isTerminating) onClose();
         }}
-        disabled={isTerminating}
+        isDisabled={isTerminating}
         aria-label={t("hosts.terminal.closeSession", "关闭会话")}
         title={t("hosts.terminal.closeSession", "关闭会话")}
       >
         <X size={12} />
-      </button>
+      </Button>
     </div>
   );
 }

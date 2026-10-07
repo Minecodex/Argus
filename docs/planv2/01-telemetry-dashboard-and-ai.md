@@ -364,6 +364,8 @@ DashboardBinding
 
 绑定由 Host/Kubernetes Cluster 页面配置，负责快捷入口与打开时预选资源。Dashboard 可以被多个资源关联，未绑定也可以从目录打开或在 Chat 中分析。
 
+界面采用已确认的资源入口重构：绑定管理组织在 Host/K8s 详情“仪表盘”页签，逐项预览确认；Dashboard 从标题区“更多 → 关联资源”只读反查并跳转资源详情，正文不保留通栏关联块。由资源快捷打开时，标题旁显示原入口来源，顶部资源范围预选对象；后续筛选改变不改写来源。关联查询按需加载，失败/未加载不能显示为零关联。实施与验收见[正式记录](../plans/frontend-redesign/resource-links-20261007.md)。
+
 绑定不限制 Dashboard 的可查询资源全集，不参与运行时有效资源集合的求交；不保留 all_bound_targets 作为默认查询或权限边界。改变绑定不修改统计图查询。
 
 资源删除或关联失效使入口不可用；当前用户撤权只影响该用户的可见性，不能把其他人仍有效的全局绑定改为 revoked。查看入口时同时检查目标资源和 Dashboard 对象权限。
@@ -840,7 +842,7 @@ Task 2 依赖 Task 1 真实人工闭环，不根据历史 M0-M10 验收推定当
 - [x] P2V-E2E-04：Host/Cluster 快捷入口与无绑定独立访问。证据：[资源入口及解绑后仍可查询](../../web/apps/enterprise/e2e/planv2-collaboration-real.spec.ts)，[无绑定工作台创建和查看](../../web/apps/enterprise/e2e/planv2-workbench-real.spec.ts)，[最新回归](./audit-lifecycle-20260927.md)。
 - [x] P2V-E2E-05：对象/数据双层授权、跨企业、相同授权版本不同主体、统一数据安全处理。
 - [x] P2V-E2E-06：Redis 清空、重启、重复确认、版本变化、partial 和失败恢复。
-- [ ] P2V-RELEASE-01：官方 Harness 的归属清理与发布门禁。历史归属清理通过；当前前端类型门禁失败，重新打开，见 [本轮复核](./current-code-review-20260928.md)。
+- [ ] P2V-RELEASE-01：官方 Harness 的归属清理与发布门禁。历史归属清理通过；复核发现的前端类型错误已在本地安装时修正，当前整版联合回归及新版分析提示仍待复验，见 [本轮复核](./current-code-review-20260928.md)。
 
 ## 13. 关键验收场景
 

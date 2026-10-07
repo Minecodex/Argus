@@ -1,140 +1,134 @@
-import { CalendarDays } from "lucide-react";
-import { forwardRef, lazy, Suspense, type InputHTMLAttributes } from "react";
-import "react-datepicker/dist/react-datepicker.css";
-import { Input } from "./form";
+import { Calendar } from "@heroui/react/calendar";
+import { DateField } from "@heroui/react/date-field";
+import { DatePicker as HeroDatePicker } from "@heroui/react/date-picker";
+import {
+  parseDate,
+  parseDateTime,
+  type DateValue,
+} from "@internationalized/date";
+import { forwardRef, useState, type InputHTMLAttributes } from "react";
 import { cx } from "./lib";
+import { mergeAriaIds, useFieldContext } from "./form";
 import { useUiText } from "./locale";
-
 export type DateTimePickerType = "date" | "datetime-local";
-
-function parseLocalValue(value?: string): Date | null {
-  if (!value) return null;
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
-  if (!match) return null;
-  const [, year, month, day, hours = "0", minutes = "0"] = match;
-  const date = new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hours),
-    Number(minutes),
-  );
-  return Number.isNaN(date.getTime()) ? null : date;
+export function parsePickerValue(
+  value: string | undefined,
+  type: DateTimePickerType,
+): DateValue | null {
+  try {
+    return value
+      ? type === "date"
+        ? parseDate(value.slice(0, 10))
+        : parseDateTime(value)
+      : null;
+  } catch {
+    return null;
+  }
 }
-
-function pad(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-function formatLocalValue(date: Date, type: DateTimePickerType) {
-  const value = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  return type === "date"
-    ? value
-    : `${value}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function toDate(value?: string) {
-  return parseLocalValue(value) ?? undefined;
-}
-
-function toDateFromAttribute(value?: string | number) {
-  return typeof value === "string" ? toDate(value) : undefined;
-}
-
-export const DateTimePicker = /* @__PURE__ */ (() => {
-  const DatePicker = lazy(() => import("react-datepicker"));
-  const PickerInput = forwardRef<
-    HTMLInputElement,
-    InputHTMLAttributes<HTMLInputElement>
-  >((props, ref) => <Input {...props} ref={ref} />);
-  PickerInput.displayName = "DateTimePickerInput";
-
-  const Component = forwardRef<
-    HTMLInputElement,
-    Omit<
-      InputHTMLAttributes<HTMLInputElement>,
-      "onChange" | "type" | "value"
-    > & {
-      onChange?: (value: string) => void;
-      type?: DateTimePickerType;
-      value?: string;
-    }
-  >(
-    (
-      {
-        className,
-        disabled,
-        id,
-        max,
-        min,
-        name,
-        onBlur,
-        onChange,
-        placeholder,
-        required,
-        type = "datetime-local",
-        value,
-        ...props
-      },
-      ref,
-    ) => {
-      const text = useUiText();
-      const selected = parseLocalValue(value);
-      const displayFormat = type === "date" ? "yyyy/MM/dd" : "yyyy/MM/dd HH:mm";
-      return (
-        <div className={cx("argus-date-time-picker", className)}>
-          <Suspense
-            fallback={
-              <Input
-                disabled
-                aria-busy="true"
-                aria-label={props["aria-label"]}
-                id={id}
-                value={value ?? ""}
-              />
-            }
-          >
-            <DatePicker
-              calendarClassName="argus-date-time-picker__calendar"
-              dateFormat={displayFormat}
-              disabled={disabled}
-              isClearable={!required}
-              minDate={toDateFromAttribute(min)}
-              maxDate={toDateFromAttribute(max)}
-              name={name}
-              onBlur={onBlur}
-              onChange={(date: Date | null) =>
-                onChange?.(date ? formatLocalValue(date, type) : "")
-              }
-              placeholderText={placeholder}
-              popperClassName="argus-date-time-picker__popper"
-              selected={selected}
-              showTimeSelect={type === "datetime-local"}
-              timeCaption={text("时间", "Time")}
-              timeFormat="HH:mm"
-              timeIntervals={1}
-              wrapperClassName="argus-date-time-picker__control"
-              customInput={
-                <PickerInput
-                  {...props}
-                  aria-label={props["aria-label"]}
-                  id={id}
-                  ref={ref}
-                  required={required}
-                  value={value}
-                />
-              }
-            />
-          </Suspense>
-          <CalendarDays
-            aria-hidden
-            className="argus-date-time-picker__icon"
-            size={18}
-          />
-        </div>
-      );
+/** CalendarDateTime keeps the local wall-clock contract; no implicit UTC conversion. */
+export const DateTimePicker = forwardRef<
+  HTMLDivElement,
+  Omit<
+    InputHTMLAttributes<HTMLInputElement>,
+    "onChange" | "type" | "value" | "onBlur"
+  > & {
+    value?: string;
+    type?: DateTimePickerType;
+    onChange?: (value: string) => void;
+    onBlur?: () => void;
+  }
+>(
+  (
+    {
+      className,
+      value,
+      type = "datetime-local",
+      onChange,
+      onBlur,
+      min,
+      max,
+      id,
+      name,
+      required,
+      disabled,
+      ...props
     },
-  );
-  Component.displayName = "DateTimePicker";
-  return Component;
-})();
+    ref,
+  ) => {
+    const field = useFieldContext(),
+      text = useUiText();
+    const [open, setOpen] = useState(false);
+    return (
+      <HeroDatePicker
+        ref={ref}
+        id={id ?? field?.controlId}
+        className={cx("argus-date-time-picker", className)}
+        value={parsePickerValue(value, type)}
+        isOpen={open}
+        onOpenChange={setOpen}
+        granularity={type === "date" ? "day" : "minute"}
+        hourCycle={24}
+        hideTimeZone
+        minValue={
+          parsePickerValue(typeof min === "string" ? min : undefined, type) ??
+          undefined
+        }
+        maxValue={
+          parsePickerValue(typeof max === "string" ? max : undefined, type) ??
+          undefined
+        }
+        name={name}
+        isRequired={required ?? field?.required}
+        isDisabled={disabled}
+        isInvalid={field?.invalid}
+        aria-label={props["aria-label"]}
+        aria-labelledby={mergeAriaIds(props["aria-labelledby"], field?.labelId)}
+        aria-describedby={mergeAriaIds(
+          props["aria-describedby"],
+          field?.descriptionId,
+        )}
+        onBlur={onBlur}
+        onChange={(next) =>
+          onChange?.(next?.toString().slice(0, type === "date" ? 10 : 16) ?? "")
+        }
+      >
+        <DateField.Group
+          className="argus-date-time-picker__control"
+          onClick={() => !disabled && setOpen(true)}
+        >
+          <DateField.Input>
+            {(segment) => <DateField.Segment segment={segment} />}
+          </DateField.Input>
+          <DateField.Suffix>
+            <HeroDatePicker.Trigger
+              aria-label={text("打开日历", "Open calendar")}
+            >
+              <HeroDatePicker.TriggerIndicator />
+            </HeroDatePicker.Trigger>
+          </DateField.Suffix>
+        </DateField.Group>
+        <HeroDatePicker.Popover className="argus-date-time-picker__calendar">
+          <Calendar aria-label={text("选择日期", "Choose date")}>
+            <Calendar.Header>
+              <Calendar.YearPickerTrigger>
+                <Calendar.YearPickerTriggerHeading />
+                <Calendar.YearPickerTriggerIndicator />
+              </Calendar.YearPickerTrigger>
+              <Calendar.NavButton slot="previous" />
+              <Calendar.NavButton slot="next" />
+            </Calendar.Header>
+            <Calendar.Grid>
+              <Calendar.GridHeader>
+                {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+              </Calendar.GridHeader>
+              <Calendar.GridBody>
+                {(date) => <Calendar.Cell date={date} />}
+              </Calendar.GridBody>
+            </Calendar.Grid>
+          </Calendar>
+        </HeroDatePicker.Popover>
+      </HeroDatePicker>
+    );
+  },
+);
+DateTimePicker.displayName = "DateTimePicker";

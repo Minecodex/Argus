@@ -98,11 +98,11 @@ export function TaskDetailDrawer({
       footer={
         <>
           {active && (
-            <Button onClick={() => setCancelConfirmOpen(true)} variant="danger">
+            <Button onPress={() => setCancelConfirmOpen(true)} variant="danger">
               {t("governance.tasks.detail.cancelTask")}
             </Button>
           )}
-          <Button onClick={() => onOpenChange(false)} variant="secondary">
+          <Button onPress={() => onOpenChange(false)} variant="secondary">
             {t("governance.tasks.detail.close")}
           </Button>
         </>

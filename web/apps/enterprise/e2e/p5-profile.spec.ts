@@ -45,10 +45,8 @@ for (const locale of ["zh-CN", "en-US"] as const) {
         })
         .click();
       const drawer = page.getByRole("dialog");
-      await drawer
-        .getByLabel(zh ? "名称" : "Name")
-        .fill("P5 offline profile");
-      await drawer.getByRole("combobox").click();
+      await drawer.getByLabel(zh ? "名称" : "Name").fill("P5 offline profile");
+      await drawer.getByRole("button").click();
       await page.getByRole("option").first().click();
       await drawer.getByLabel(zh ? "CPU（核）" : "CPU (cores)").fill("2");
       await drawer.getByLabel(zh ? "内存（MB）" : "Memory (MB)").fill("1536");

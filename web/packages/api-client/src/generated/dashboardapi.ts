@@ -488,6 +488,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard-drafts/{id}/drilldown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview a registered drilldown from the owned draft and its frozen sample. */
+        post: operations["executeDashboardDraftDrilldown"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1094,6 +1113,11 @@ export interface components {
             /** Format: date-time */
             context_expires_at?: string;
         };
+        DashboardDraftSampleInput: {
+            /** Format: int64 */
+            expected_version: number;
+            parameters?: components["schemas"]["DashboardExecutionInput"];
+        };
         DashboardDraftSample: {
             /** Format: uuid */
             draft_id: string;
@@ -1301,6 +1325,24 @@ export interface components {
         DashboardQueryResumeInput: {
             /** Format: int64 */
             expected_version: number;
+        };
+        DashboardDraftDrilldownInput: {
+            context_token: string;
+            panel_id: string;
+            drilldown_id: string;
+            values: {
+                [key: string]: string;
+            };
+            expand_authorized_resources: boolean;
+            /** Format: int64 */
+            expected_version: number;
+        };
+        DashboardDraftDrilldownExecution: {
+            /** Format: uuid */
+            draft_id: string;
+            /** Format: int64 */
+            draft_version: number;
+            execution: components["schemas"]["DashboardDrilldownExecution"];
         };
         DashboardConditionPatch: {
             reset_all?: boolean;

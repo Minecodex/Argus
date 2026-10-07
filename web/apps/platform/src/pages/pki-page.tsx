@@ -105,8 +105,8 @@ export function PKIPage() {
                 action={
                   <Button
                     aria-label={t("pki.refresh")}
-                    loading={status.isFetching}
-                    onClick={() => void status.refetch()}
+                    isPending={status.isFetching}
+                    onPress={() => void status.refetch()}
                     size="sm"
                     variant="secondary"
                   >

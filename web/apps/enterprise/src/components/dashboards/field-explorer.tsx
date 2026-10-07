@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useApi,
@@ -6,6 +6,7 @@ import {
   type DashboardSpec,
 } from "@argus/api-client";
 import { TelemetryFieldExplorer } from "@argus/ui";
+import { useDashboardQueryScope, queryScopeBounds } from "./query-scope";
 
 export function DashboardFieldExplorer({
   signal,
@@ -22,18 +23,16 @@ export function DashboardFieldExplorer({
   onUse?: (field: string, value: string) => void;
   canUse?: (field: string) => boolean;
 }) {
+  const scope = useDashboardQueryScope();
   const api = useApi(),
     { t, i18n } = useTranslation();
   // Freeze relative time across all pages. The parent keys this component by
   // source, metric and authored time so stale pages cannot cross scope changes.
-  const [range] = useState(() => {
-    const to = time.kind === "absolute" ? new Date(time.to!) : new Date();
-    const from =
-      time.kind === "absolute"
-        ? new Date(time.from!)
-        : new Date(to.getTime() - (time.seconds ?? 3600) * 1000);
-    return { from: from.toISOString(), to: to.toISOString() };
-  });
+  const { kind, from, to, seconds } = scope?.time ?? time;
+  const range = useMemo(
+    () => queryScopeBounds({ kind, from, to, seconds }),
+    [kind, from, to, seconds],
+  );
   return (
     <TelemetryFieldExplorer
       scope={t("dashboards.fieldScope", {
@@ -52,7 +51,7 @@ export function DashboardFieldExplorer({
             source_binding: source,
             metric,
             filters: [],
-            resource_ids: [],
+            resource_ids: scope?.resources ?? [],
             selected_values: [],
             limit: 25,
           },

@@ -13,7 +13,11 @@ type FallbackProps = {
  * Place it once at the app shell; finer-grained boundaries can nest inside.
  */
 class ErrorBoundary extends Component<
-  { children: ReactNode; fallback?: (props: FallbackProps) => ReactNode; onReset?: () => void },
+  {
+    children: ReactNode;
+    fallback?: (props: FallbackProps) => ReactNode;
+    onReset?: () => void;
+  },
   { error: unknown }
 > {
   state = { error: undefined as unknown };
@@ -23,7 +27,11 @@ class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[ErrorBoundary] Uncaught render error:", error, info.componentStack);
+    console.error(
+      "[ErrorBoundary] Uncaught render error:",
+      error,
+      info.componentStack,
+    );
   }
 
   reset = () => {
@@ -33,7 +41,11 @@ class ErrorBoundary extends Component<
 
   render() {
     if (this.state.error !== undefined) {
-      if (this.props.fallback) return this.props.fallback({ error: this.state.error, onReset: this.reset });
+      if (this.props.fallback)
+        return this.props.fallback({
+          error: this.state.error,
+          onReset: this.reset,
+        });
       return <DefaultFallback error={this.state.error} onReset={this.reset} />;
     }
     return this.props.children;
@@ -45,13 +57,18 @@ function DefaultFallback({ error, onReset }: FallbackProps) {
   return (
     <main className="argus-error-boundary" role="alert">
       <h1>{text("界面出现异常", "Something went wrong")}</h1>
-      <p>{text("页面渲染遇到未处理的错误，你可以重试或刷新页面。", "The page hit an unhandled error while rendering. Retry or reload.")}</p>
+      <p>
+        {text(
+          "页面渲染遇到未处理的错误，你可以重试或刷新页面。",
+          "The page hit an unhandled error while rendering. Retry or reload.",
+        )}
+      </p>
       {error instanceof Error && <pre>{error.message}</pre>}
       <div className="argus-error-boundary__actions">
-        <Button onClick={onReset} variant="primary">
+        <Button onPress={onReset} variant="primary">
           {text("重试", "Retry")}
         </Button>
-        <Button onClick={() => window.location.reload()} variant="secondary">
+        <Button onPress={() => window.location.reload()} variant="secondary">
           {text("刷新页面", "Reload page")}
         </Button>
       </div>

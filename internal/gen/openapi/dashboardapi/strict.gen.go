@@ -40,6 +40,9 @@ type StrictServerInterface interface {
 	// SaveDashboardDraft saveDashboardDraft.
 	// (PATCH /dashboard-drafts/{id})
 	SaveDashboardDraft(ctx context.Context, request SaveDashboardDraftRequestObject) (SaveDashboardDraftResponseObject, error)
+	// ExecuteDashboardDraftDrilldown Preview a registered drilldown from the owned draft and its frozen sample.
+	// (POST /dashboard-drafts/{id}/drilldown)
+	ExecuteDashboardDraftDrilldown(ctx context.Context, request ExecuteDashboardDraftDrilldownRequestObject) (ExecuteDashboardDraftDrilldownResponseObject, error)
 	// GenerateDashboardDrilldowns generateDashboardDrilldowns.
 	// (POST /dashboard-drafts/{id}/drilldowns/generate)
 	GenerateDashboardDrilldowns(ctx context.Context, request GenerateDashboardDrilldownsRequestObject) (GenerateDashboardDrilldownsResponseObject, error)
@@ -409,6 +412,39 @@ func (sh *strictHandler) SaveDashboardDraft(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SaveDashboardDraftResponseObject); ok {
 		if err := validResponse.VisitSaveDashboardDraftResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ExecuteDashboardDraftDrilldown operation middleware
+func (sh *strictHandler) ExecuteDashboardDraftDrilldown(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request ExecuteDashboardDraftDrilldownRequestObject
+
+	request.Id = id
+
+	var body ExecuteDashboardDraftDrilldownJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExecuteDashboardDraftDrilldown(ctx, request.(ExecuteDashboardDraftDrilldownRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExecuteDashboardDraftDrilldown")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExecuteDashboardDraftDrilldownResponseObject); ok {
+		if err := validResponse.VisitExecuteDashboardDraftDrilldownResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

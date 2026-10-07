@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState } from "react";
@@ -125,7 +126,7 @@ export function OrgAccessTab() {
           </p>
         </div>
         <Button
-          onClick={() => {
+          onPress={() => {
             setEditing(null);
             setDrawerOpen(true);
           }}
@@ -135,106 +136,111 @@ export function OrgAccessTab() {
           {t("settings.org.accessTab.createSa")}
         </Button>
       </div>
-      {serviceAccounts.isPending ? (
-        <Spinner />
-      ) : rows.length === 0 ? (
-        <EmptyState description="" title={t("settings.org.accessTab.empty")} />
-      ) : (
-        <DataTable<ServiceAccountRow>
-          columns={[
-            { key: "name", header: t("settings.common.name") },
-            { key: "description", header: t("settings.common.description") },
-            {
-              key: "allowed_tool_ids",
-              header: t("settings.org.accessTab.allowedTools"),
-              render: (row) =>
-                row.allowed_tool_ids.length === 0 ? (
-                  "—"
-                ) : (
-                  <span className="argus-settings-inline-actions">
-                    {row.allowed_tool_ids.map((id) => (
-                      <Badge key={id}>{id}</Badge>
-                    ))}
-                  </span>
-                ),
-            },
-            {
-              key: "status",
-              header: t("settings.common.status"),
-              render: (row) => (
-                <StatusBadge
-                  tone={row.status === "active" ? "success" : "neutral"}
-                >
-                  {row.status === "active"
-                    ? t("settings.common.active")
-                    : t("settings.common.disabled")}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "updated_at",
-              header: t("settings.org.accessTab.updatedAt"),
-              render: (row) => formatDateTime(row.updated_at),
-            },
-            {
-              key: "actions",
-              header: t("settings.common.actions"),
-              render: (row) => (
-                <ActionGroup>
-                  <RowAction
-                    onClick={() =>
-                      setAuthorizationTarget(
-                        serviceAccounts.data?.find(
-                          (account) => account.id === row.id,
-                        ) ?? null,
-                      )
-                    }
-                  >
-                    {t("settings.org.dataAuthorization.action")}
-                  </RowAction>
-                  <RowAction
-                    onClick={() => {
-                      setEditing(
-                        serviceAccounts.data?.find(
-                          (account) => account.id === row.id,
-                        ) ?? null,
-                      );
-                      setDrawerOpen(true);
-                    }}
-                  >
-                    {t("settings.common.edit")}
-                  </RowAction>
-                  <RowAction
-                    onClick={() =>
-                      setKeysFor(
-                        serviceAccounts.data?.find(
-                          (account) => account.id === row.id,
-                        ) ?? null,
-                      )
-                    }
-                  >
-                    {t("settings.org.accessTab.apiKeys")}
-                  </RowAction>
-                  <RowAction
-                    onClick={() => {
-                      const account = serviceAccounts.data?.find(
-                        (entry) => entry.id === row.id,
-                      );
-                      if (account) toggleStatus.mutate(account);
-                    }}
+      <QueryBoundary query={serviceAccounts}>
+        {serviceAccounts.isPending ? (
+          <Spinner />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            description=""
+            title={t("settings.org.accessTab.empty")}
+          />
+        ) : (
+          <DataTable<ServiceAccountRow>
+            columns={[
+              { key: "name", header: t("settings.common.name") },
+              { key: "description", header: t("settings.common.description") },
+              {
+                key: "allowed_tool_ids",
+                header: t("settings.org.accessTab.allowedTools"),
+                render: (row) =>
+                  row.allowed_tool_ids.length === 0 ? (
+                    "—"
+                  ) : (
+                    <span className="argus-settings-inline-actions">
+                      {row.allowed_tool_ids.map((id) => (
+                        <Badge key={id}>{id}</Badge>
+                      ))}
+                    </span>
+                  ),
+              },
+              {
+                key: "status",
+                header: t("settings.common.status"),
+                render: (row) => (
+                  <StatusBadge
+                    tone={row.status === "active" ? "success" : "neutral"}
                   >
                     {row.status === "active"
-                      ? t("settings.org.accessTab.disableSa")
-                      : t("settings.org.accessTab.enableSa")}
-                  </RowAction>
-                </ActionGroup>
-              ),
-            },
-          ]}
-          data={rows}
-          getRowKey={(row) => row.id}
-        />
-      )}
+                      ? t("settings.common.active")
+                      : t("settings.common.disabled")}
+                  </StatusBadge>
+                ),
+              },
+              {
+                key: "updated_at",
+                header: t("settings.org.accessTab.updatedAt"),
+                render: (row) => formatDateTime(row.updated_at),
+              },
+              {
+                key: "actions",
+                header: t("settings.common.actions"),
+                render: (row) => (
+                  <ActionGroup>
+                    <RowAction
+                      onPress={() =>
+                        setAuthorizationTarget(
+                          serviceAccounts.data?.find(
+                            (account) => account.id === row.id,
+                          ) ?? null,
+                        )
+                      }
+                    >
+                      {t("settings.org.dataAuthorization.action")}
+                    </RowAction>
+                    <RowAction
+                      onPress={() => {
+                        setEditing(
+                          serviceAccounts.data?.find(
+                            (account) => account.id === row.id,
+                          ) ?? null,
+                        );
+                        setDrawerOpen(true);
+                      }}
+                    >
+                      {t("settings.common.edit")}
+                    </RowAction>
+                    <RowAction
+                      onPress={() =>
+                        setKeysFor(
+                          serviceAccounts.data?.find(
+                            (account) => account.id === row.id,
+                          ) ?? null,
+                        )
+                      }
+                    >
+                      {t("settings.org.accessTab.apiKeys")}
+                    </RowAction>
+                    <RowAction
+                      onPress={() => {
+                        const account = serviceAccounts.data?.find(
+                          (entry) => entry.id === row.id,
+                        );
+                        if (account) toggleStatus.mutate(account);
+                      }}
+                    >
+                      {row.status === "active"
+                        ? t("settings.org.accessTab.disableSa")
+                        : t("settings.org.accessTab.enableSa")}
+                    </RowAction>
+                  </ActionGroup>
+                ),
+              },
+            ]}
+            data={rows}
+            getRowKey={(row) => row.id}
+          />
+        )}
+      </QueryBoundary>
 
       <ServiceAccountDrawer
         account={editing}
@@ -502,48 +508,50 @@ function ApiKeysDrawer({
             <CodeBlock code={created.secret} language="apikey" />
           </div>
         )}
-        {keys.isPending ? (
-          <Spinner />
-        ) : activeKeys.length === 0 ? (
-          <p className="argus-settings-section__hint">
-            {t("settings.org.accessTab.noKeys")}
-          </p>
-        ) : (
-          <div className="argus-settings-key-list">
-            {activeKeys.map((key) => (
-              <div className="argus-settings-key-row" key={key.id}>
-                <div className="argus-settings-key-row__meta">
-                  <span>
-                    {key.name} <Badge tone="accent">{key.prefix}…</Badge>
-                  </span>
-                  <small>
-                    {t("settings.org.accessTab.lastUsedAt")}:{" "}
-                    {key.last_used_at
-                      ? formatDateTime(key.last_used_at)
-                      : t("settings.common.never")}
-                    {key.expires_at
-                      ? ` · ${t("settings.org.accessTab.expiresAt")}: ${formatDateTime(key.expires_at)}`
-                      : ""}
-                  </small>
+        <QueryBoundary query={keys}>
+          {keys.isPending ? (
+            <Spinner />
+          ) : activeKeys.length === 0 ? (
+            <p className="argus-settings-section__hint">
+              {t("settings.org.accessTab.noKeys")}
+            </p>
+          ) : (
+            <div className="argus-settings-key-list">
+              {activeKeys.map((key) => (
+                <div className="argus-settings-key-row" key={key.id}>
+                  <div className="argus-settings-key-row__meta">
+                    <span>
+                      {key.name} <Badge tone="accent">{key.prefix}…</Badge>
+                    </span>
+                    <small>
+                      {t("settings.org.accessTab.lastUsedAt")}:{" "}
+                      {key.last_used_at
+                        ? formatDateTime(key.last_used_at)
+                        : t("settings.common.never")}
+                      {key.expires_at
+                        ? ` · ${t("settings.org.accessTab.expiresAt")}: ${formatDateTime(key.expires_at)}`
+                        : ""}
+                    </small>
+                  </div>
+                  <Button
+                    onPress={() => setRotating(key.id)}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    {t("settings.org.accessTab.rotate")}
+                  </Button>
+                  <Button
+                    onPress={() => setRevoking(key.id)}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    {t("settings.org.accessTab.revoke")}
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => setRotating(key.id)}
-                  size="sm"
-                  variant="ghost"
-                >
-                  {t("settings.org.accessTab.rotate")}
-                </Button>
-                <Button
-                  onClick={() => setRevoking(key.id)}
-                  size="sm"
-                  variant="ghost"
-                >
-                  {t("settings.org.accessTab.revoke")}
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </QueryBoundary>
         <Field
           requirement="required"
           error={errors.name?.message}
@@ -571,7 +579,7 @@ function ApiKeysDrawer({
             )}
           />
         </Field>
-        <Button loading={create.isPending} type="submit" variant="primary">
+        <Button isPending={create.isPending} type="submit" variant="primary">
           {t("settings.org.accessTab.createKey")}
         </Button>
       </div>

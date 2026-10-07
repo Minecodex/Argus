@@ -4,6 +4,12 @@
 
 ## Layout
 
+Default profiles co-locate telemetry and the Workspace CSI driver in `argus-system`, keep untrusted sandbox workloads/PVCs in `argus-sandbox`, and use an optional `argus-ingress` controller. Existing ingress controllers can be reused. Components retain separate workloads and service accounts. `namespaces.observability` and `workspace.storageNamespace` resolve to `namespaces.system` by default. Existing split installations require an explicit relocation/rebuild; changing names alone does not move PVCs or an installed CSI driver.
+
+The Docker Desktop installation has been rebuilt into this layout and verified; see [namespace consolidation evidence](../docs/namespace-consolidation-20260928.md).
+
+2026-09-28 local manual-test deployment: see [Docker Desktop installation record](../docs/docker-desktop-install-20260928.md) for the current `docker-desktop` namespaces, portal URLs, initialization and verification boundaries. The earlier independent kind cluster is no longer used.
+
 ```text
 deploy/
 ├── docker/                 backend, web and patched MinIO images
@@ -26,11 +32,13 @@ argus-telemetry-pipeline
 
 Strimzi, Altinity and OpenSandbox upstream charts are installed by `argusctl` between the Argus-owned releases. Stage state is stored in `<release-id>-install-status` in the system namespace.
 
+When another release owns the cluster-wide OpenSandbox controller, Argus keeps its CRDs and Deployment externally owned and installs only its own Server/Workspace resources. Default reuse still requires the locked v0.2.0 controller. For an independently validated external build, `spec.openSandbox.sharedController` can explicitly pin `namespace` and the running manager container's immutable `imageDigest` (`sha256:...`). The installer checks CRD compatibility, Helm ownership, Deployment rollout, Pod/ReplicaSet ownership and every running manager digest; a mutable tag alone never authorizes reuse. Run the real sandbox lifecycle verification after installation. An external controller upgrade requires renewed compatibility validation; the pin is not an automatic upgrade policy.
+
 ## Evaluation
 
-Evaluation targets a disposable single-node cluster. It deploys one replica of every Argus runtime role, PostgreSQL, Redis, MinIO, Strimzi/Kafka, Altinity/ClickHouse, Keeper, OpenSandbox and the OTel ClickHouse writer. The three web applications continue to use the built-in mock API; the backend deployment validates process roles, configuration, health and lifecycle, not completed domain APIs.
+Evaluation targets single-node local evaluation, including persistent manual-test deployments. It deploys one replica of every Argus runtime role, PostgreSQL, Redis, MinIO, Strimzi/Kafka, Altinity/ClickHouse, Keeper and OpenSandbox. Normal `argusctl images build` packages the real API frontend and actual backend services; mock builds are development fixtures. This profile does not provide production HA or hardened sandbox certification.
 
-Create a run-specific config from `profiles/evaluation.yaml`; do not reuse the default namespace names for concurrent runs. A normal local flow is:
+For temporary E2E, create a run-specific config from `profiles/evaluation.yaml`; do not reuse the default namespace names for concurrent runs. Persistent local installations can start from `profiles/local-formal.yaml`, with verified Collector artifact metadata. A normal local flow is:
 
 ```bash
 go run ./cmd/argusctl preflight --config deploy/.cache/evaluation-<run-id>.yaml
@@ -65,6 +73,8 @@ Docker and local real frontend builds use the same `scripts/build-web.mjs real` 
 Chart or runtime configuration changes require `argusctl install` after image loading. Each install recreates the idempotent ClickHouse migration Job so an old Job's TTL cannot delete it between deployment readiness checks.
 
 Portals are exposed through the ingress with mandatory TLS; map the install-config hosts to the ingress load-balancer address (for example in `/etc/hosts` on Docker Desktop):
+
+`spec.exposure.templateHost` optionally sets the isolated Tool Template Host domain. It defaults to `templates.<enterprise parent domain>`. Set it to `cards.argus.dev` when that is the existing local DNS mapping; the installer uses the same value for Ingress, certificates, allowed origins, frontend runtime configuration and verification. It must remain separate from Enterprise, Platform and Artifact origins.
 
 - Enterprise (terminal WSS is same-origin: `wss://argus.dev/v1/sessions`): `https://argus.dev`
 - Platform and first-time setup: `https://platform.argus.dev`

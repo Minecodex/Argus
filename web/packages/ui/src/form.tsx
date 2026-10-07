@@ -8,6 +8,10 @@ import {
   useId,
 } from "react";
 import { cx } from "./lib";
+import type { ControlSize } from "./button";
+import { Input as HeroInput } from "@heroui/react/input";
+import { TextArea as HeroTextarea } from "@heroui/react/textarea";
+import { Switch as HeroSwitch } from "@heroui/react/switch";
 
 export type FieldRequirement = "required" | "optional" | "none";
 
@@ -32,31 +36,44 @@ export function useFieldContext() {
   return useContext(FieldContext);
 }
 
-export const Input = forwardRef<
-  HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement>
->(({ className, ...props }, ref) => {
-  const field = useContext(FieldContext);
-  return (
-    <input
-      ref={ref}
-      {...props}
-      aria-describedby={mergeAriaIds(
-        props["aria-describedby"],
-        field?.descriptionId,
-      )}
-      aria-invalid={props["aria-invalid"] ?? (field?.invalid || undefined)}
-      aria-labelledby={mergeAriaIds(
-        props["aria-labelledby"],
-        field?.controlId ? undefined : field?.labelId,
-      )}
-      aria-required={props["aria-required"] ?? (field?.required || undefined)}
-      className={cx("argus-input", className)}
-      id={props.id ?? field?.controlId}
-      required={props.required ?? field?.required}
-    />
-  );
-});
+/** Overlay inputs belong to their own fields, never the trigger's field. */
+export function FieldBoundary({ children }: { children: ReactNode }) {
+  return <FieldContext.Provider value={null}>{children}</FieldContext.Provider>;
+}
+
+export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
+  size?: ControlSize;
+  appearance?: "field" | "title";
+};
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ className, size = "md", appearance = "field", ...props }, ref) => {
+    const field = useContext(FieldContext);
+    return (
+      <HeroInput
+        ref={ref}
+        {...props}
+        aria-describedby={mergeAriaIds(
+          props["aria-describedby"],
+          field?.descriptionId,
+        )}
+        aria-invalid={props["aria-invalid"] ?? (field?.invalid || undefined)}
+        aria-labelledby={mergeAriaIds(
+          props["aria-labelledby"],
+          field?.controlId ? undefined : field?.labelId,
+        )}
+        aria-required={props["aria-required"] ?? (field?.required || undefined)}
+        className={cx(
+          "argus-input",
+          `argus-control--${size}`,
+          appearance === "title" && "argus-input--title",
+          className,
+        )}
+        id={props.id ?? field?.controlId}
+        required={props.required ?? field?.required}
+      />
+    );
+  },
+);
 Input.displayName = "Input";
 
 export const Textarea = forwardRef<
@@ -65,7 +82,7 @@ export const Textarea = forwardRef<
 >(({ className, ...props }, ref) => {
   const field = useContext(FieldContext);
   return (
-    <textarea
+    <HeroTextarea
       ref={ref}
       {...props}
       aria-describedby={mergeAriaIds(
@@ -159,16 +176,19 @@ export function Switch({
   disabled?: boolean;
 }) {
   return (
-    <button
-      aria-checked={checked}
-      className={cx("argus-switch", checked && "is-on")}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      role="switch"
-      type="button"
+    <HeroSwitch
+      aria-label={label}
+      className="argus-switch"
+      isSelected={checked}
+      isDisabled={disabled}
+      onChange={onChange}
     >
-      <span aria-hidden />
-      <span className="sr-only">{label}</span>
-    </button>
+      <HeroSwitch.Content aria-label={label}>
+        <HeroSwitch.Control>
+          <HeroSwitch.Thumb />
+        </HeroSwitch.Control>
+        <span className="sr-only">{label}</span>
+      </HeroSwitch.Content>
+    </HeroSwitch>
   );
 }

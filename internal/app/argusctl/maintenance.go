@@ -304,14 +304,21 @@ func (a *App) runRestore(ctx context.Context, operation string, args []string) e
 }
 
 func ensureDistinctRestoreTarget(cfg *InstallConfig, manifest backupManifest) error {
-	if cfg.Spec.ReleaseID == manifest.ReleaseID || cfg.Spec.Namespaces.System == manifest.Namespaces.System || cfg.Spec.Namespaces.Sandbox == manifest.Namespaces.Sandbox || cfg.Spec.Namespaces.Observability == manifest.Namespaces.Observability {
-		return errors.New("restore target must use a unique release ID and three new namespaces")
+	if cfg.Spec.ReleaseID == manifest.ReleaseID {
+		return errors.New("restore target must use a unique release ID and new namespaces")
+	}
+	for _, target := range cfg.applicationNamespaces() {
+		for _, source := range []string{manifest.Namespaces.System, manifest.Namespaces.Sandbox, manifest.Namespaces.Observability} {
+			if target == source {
+				return errors.New("restore target must use a unique release ID and new namespaces")
+			}
+		}
 	}
 	return nil
 }
 
 func (a *App) ensureRestoreNamespacesAbsent(ctx context.Context, cfg *InstallConfig) error {
-	for _, namespace := range []string{cfg.Spec.Namespaces.System, cfg.Spec.Namespaces.Sandbox, cfg.Spec.Namespaces.Observability} {
+	for _, namespace := range cfg.applicationNamespaces() {
 		if _, err := a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "get", "namespace", namespace); err == nil {
 			return fmt.Errorf("restore target namespace %s already exists", namespace)
 		}

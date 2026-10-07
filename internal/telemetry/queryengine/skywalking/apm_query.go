@@ -42,34 +42,8 @@ func (state *executionState) apmSamples(args apmArgs) (string, []any) {
 
 func (state *executionState) queryAPM(ctx context.Context, group string, args apmArgs, bucket int32) (*apmResultResolver, error) {
 	result := &apmResultResolver{group: group, start: state.request.Start, end: state.request.End, rows: []*apmRowResolver{}, status: "available"}
-	base, values := state.apmSamples(args)
-	coverageSQL := base + "SELECT count(),countIf(" + entrySpan + "),countIf(service_name=''),countIf(resource_attributes['service.instance.id']=''),countIf(operation=''),countIf(source_id=toUUID('00000000-0000-0000-0000-000000000000') OR source_type IN ('','unknown')),maxOrNull(start_time) FROM samples"
-	c := &result.coverage
-	var latestSample *time.Time
-	if err := state.engine.Conn.QueryRow(queryContext(ctx, state.request.Budget), coverageSQL, values...).Scan(&c.observed, &c.requests, &c.missingService, &c.missingInstance, &c.missingOperation, &c.unknownSource, &latestSample); err != nil {
-		return nil, err
-	}
-	if latestSample != nil {
-		state.request.Budget.progress.ObserveEvent(*latestSample)
-	}
-	if err := state.recordRows(1); err != nil {
-		return nil, err
-	}
-	if c.observed == 0 {
-		result.status = "no_data"
-		return result, nil
-	}
-	if c.requests == 0 {
-		result.status = "insufficient_request_samples"
-	}
-	if c.missingService > 0 || group == "instances" && c.missingInstance > 0 || group == "endpoints" && c.missingOperation > 0 {
-		result.status = "incomplete_dimensions"
-	}
-	if c.unknownSource > 0 {
-		result.status = "unknown_source"
-	}
 	state.mu.Lock()
-	remaining := state.request.Budget.MaxRows - state.rows - state.relations
+	remaining := state.request.Budget.MaxRows - state.rows - state.relations - 1
 	state.mu.Unlock()
 	limit := remaining
 	if args.Limit != nil {
@@ -78,49 +52,36 @@ func (state *executionState) queryAPM(ctx context.Context, group string, args ap
 	if limit < 1 || limit > remaining {
 		return nil, ErrBudget
 	}
-	instance, instanceName, operation := "''", "''", "''"
-	groups := "resource_id,source_id,service_name"
-	conditions := "service_name!=''"
-	if group == "instances" {
-		instance = "resource_attributes['service.instance.id']"
-		instanceName = "argMax(resource_attributes['service.instance.name'],tuple(start_time,span_id))"
-		groups += ",resource_attributes['service.instance.id']"
-		conditions += " AND resource_attributes['service.instance.id']!=''"
-	}
-	if group == "endpoints" {
-		operation = "operation"
-		groups += ",operation"
-		conditions += " AND operation!=''"
-	}
-	bucketSQL := "toDateTime64(?,9,'UTC')"
-	rowArgs := append(append([]any{}, values...), state.request.Start)
-	if group == "red" {
-		bucketSQL = "fromUnixTimestamp64Nano(toUnixTimestamp64Nano(toDateTime64(?,9,'UTC'))+intDiv(toUnixTimestamp64Nano(start_time)-toUnixTimestamp64Nano(toDateTime64(?,9,'UTC')),?)*?, 'UTC')"
-		bucketNanos := int64(bucket) * int64(time.Second)
-		rowArgs = append(rowArgs, state.request.Start, bucketNanos, bucketNanos)
-		groups += ",bucket_start"
-	}
-	query := base + `SELECT resource_id,source_id,service_name,` + instance + `,` + instanceName + `,` + operation + `,` + bucketSQL + ` AS bucket_start,
- count(),countIf(` + entrySpan + `),countIf((` + entrySpan + `) AND status='error'),
- avgIf(toFloat64(duration_ns)/1e6,` + entrySpan + `),quantilesTDigestIf(0.5,0.95,0.99)(toFloat64(duration_ns)/1e6,` + entrySpan + `)
- FROM samples WHERE ` + conditions + ` GROUP BY ` + groups + ` ORDER BY bucket_start,source_id,resource_id,service_name,` + instance + `,` + operation + ` LIMIT ?`
-	rows, err := state.engine.Conn.Query(queryContext(ctx, state.request.Budget), query, append(rowArgs, limit+1)...)
+	base, values := state.apmSamples(args)
+	query, arguments := apmWindowQuery(base, group, bucket, state.request.Start)
+	values = append(values, arguments...)
+	rows, err := state.engine.Conn.Query(queryContext(ctx, state.request.Budget), query, append(values, limit)...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	c := &result.coverage
 	for rows.Next() {
-		if len(result.rows) == limit {
+		var r apmRowResolver
+		var resource, source uuid.UUID
+		var latestSample *time.Time
+		var count uint64
+		var visible uint8
+		if err := rows.Scan(&resource, &source, &r.service, &r.instanceID, &r.instanceName, &r.operation, &r.at, &r.observed, &r.samples, &r.errors, &r.mean, &r.quantiles,
+			&c.observed, &c.requests, &c.missingService, &c.missingInstance, &c.missingOperation, &c.unknownSource, &latestSample, &count, &visible); err != nil {
+			return nil, err
+		}
+		if latestSample != nil {
+			state.request.Budget.progress.ObserveEvent(*latestSample)
+		}
+		if count > uint64(limit) {
 			if args.Limit == nil {
 				return nil, ErrBudget
 			}
 			result.limited = true
-			break
 		}
-		var r apmRowResolver
-		var resource, source uuid.UUID
-		if err := rows.Scan(&resource, &source, &r.service, &r.instanceID, &r.instanceName, &r.operation, &r.at, &r.observed, &r.samples, &r.errors, &r.mean, &r.quantiles); err != nil {
-			return nil, err
+		if visible == 0 {
+			continue
 		}
 		r.sourceID, r.resourceID = source.String(), resource.String()
 		r.seconds = state.request.End.Sub(state.request.Start).Seconds()
@@ -135,8 +96,19 @@ func (state *executionState) queryAPM(ctx context.Context, group string, args ap
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if err := state.recordRows(len(result.rows)); err != nil {
+	if err := state.recordRows(len(result.rows) + 1); err != nil {
 		return nil, err
+	}
+	if c.observed == 0 {
+		result.status = "no_data"
+	} else if c.requests == 0 {
+		result.status = "insufficient_request_samples"
+	}
+	if c.missingService > 0 || group == "instances" && c.missingInstance > 0 || group == "endpoints" && c.missingOperation > 0 {
+		result.status = "incomplete_dimensions"
+	}
+	if c.unknownSource > 0 {
+		result.status = "unknown_source"
 	}
 	return result, nil
 }

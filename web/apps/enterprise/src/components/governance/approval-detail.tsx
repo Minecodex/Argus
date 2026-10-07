@@ -464,14 +464,14 @@ export function ApprovalDetail({
             </Field>
             <div className="argus-approval-actions__buttons">
               <Button
-                disabled={busy}
-                onClick={() => setRejectOpen(true)}
+                isDisabled={busy}
+                onPress={() => setRejectOpen(true)}
                 variant="secondary"
               >
                 {t("governance.approvals.detail.reject")}
               </Button>
               <Button
-                loading={approveMutation.isPending}
+                isPending={approveMutation.isPending}
                 type="submit"
                 variant="primary"
               >
@@ -531,8 +531,8 @@ export function ApprovalDetail({
         footer={
           <>
             <Button
-              disabled={rejectMutation.isPending}
-              onClick={() => setRejectOpen(false)}
+              isDisabled={rejectMutation.isPending}
+              onPress={() => setRejectOpen(false)}
               type="button"
               variant="secondary"
             >
@@ -540,7 +540,7 @@ export function ApprovalDetail({
             </Button>
             <Button
               form="approval-rejection-form"
-              loading={rejectMutation.isPending}
+              isPending={rejectMutation.isPending}
               type="submit"
               variant="danger"
             >

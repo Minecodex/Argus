@@ -41,3 +41,52 @@ export function candidateFilters(
     ];
   });
 }
+
+type CandidateScope = {
+  time: unknown;
+  resource_ids?: string[];
+  variables?: Record<string, DashboardSelection>;
+  locals?: Record<string, DashboardSelection>;
+};
+
+/** Only referenced values invalidate this candidate query. Its own selection does not. */
+export function candidateContext(
+  query: DashboardSchemas["DashboardCandidateQuery"],
+  scope: CandidateScope,
+) {
+  const names = (kind: "variable" | "local_parameter") =>
+    [
+      ...new Set(query.filters.flatMap((f) => (f[kind] ? [f[kind]!] : []))),
+    ].sort();
+  return JSON.stringify([
+    query,
+    scope.time,
+    scope.resource_ids ?? [],
+    names("variable").map((name) => [name, scope.variables?.[name]]),
+    names("local_parameter").map((name) => [name, scope.locals?.[name]]),
+  ]);
+}
+
+export function candidateRequest(
+  query: DashboardSchemas["DashboardCandidateQuery"],
+  scope: Omit<CandidateScope, "time"> & { from: string; to: string },
+  selection: DashboardSelection,
+  search: string,
+  cursor?: string,
+): DashboardSchemas["DashboardCatalogInput"] {
+  return {
+    signal: query.signal,
+    source_binding: query.source_binding,
+    metric: query.metric,
+    kind: "values",
+    field: query.field,
+    from: scope.from,
+    to: scope.to,
+    resource_ids: scope.resource_ids ?? [],
+    filters: candidateFilters(query, scope.variables ?? {}, scope.locals ?? {}),
+    selected_values: selection.all ? [] : selection.values,
+    search,
+    cursor,
+    limit: 100,
+  };
+}

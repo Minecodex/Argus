@@ -47,7 +47,9 @@ function createWrapper(client: MockApiClient) {
       <LocaleProvider>
         <ApiProvider client={client}>
           <TerminalSessionProvider>
-            <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+            <QueryClientProvider client={queryClient}>
+              {children}
+            </QueryClientProvider>
           </TerminalSessionProvider>
         </ApiProvider>
       </LocaleProvider>
@@ -82,9 +84,9 @@ async function renderTerminal() {
     hasMore: false,
   });
   render(<RealTerminalTab host={host} />, { wrapper: createWrapper(client) });
-  await screen.findByRole("combobox", { name: "登录账号" });
+  await screen.findByRole("button", { name: "登录账号" });
   await waitFor(() => expect(listManagedAccounts).toHaveBeenCalled());
-  fireEvent.click(screen.getByRole("combobox", { name: "登录账号" }));
+  fireEvent.click(screen.getByRole("button", { name: "登录账号" }));
   fireEvent.click(await screen.findByRole("option", { name: "argus" }));
   fireEvent.change(screen.getByRole("textbox", { name: "事由" }), {
     target: { value: "investigate incident" },

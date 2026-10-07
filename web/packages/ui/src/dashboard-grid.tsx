@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { GripHorizontal, MoveDiagonal2 } from "lucide-react";
-import { Button } from "./button";
+import { DashboardHandle } from "./dashboard-handle";
 import { useUiText } from "./locale";
 import { arrangeDashboard, type DashboardLayoutItem } from "./dashboard-layout";
 
@@ -170,10 +170,8 @@ export function DashboardGrid<
           }}
         >
           {editable && (
-            <Button
+            <DashboardHandle
               className="argus-dashboard-move"
-              size="sm"
-              variant="ghost"
               aria-label={`${text("移动统计图", "Move panel")} ${item.title}`}
               title={text(
                 "方向键移动，Shift + 方向键缩放",
@@ -187,14 +185,12 @@ export function DashboardGrid<
               onKeyDown={(e) => keyboard(e, item, false)}
             >
               <GripHorizontal size={16} />
-            </Button>
+            </DashboardHandle>
           )}
           {children(item)}
           {editable && (
-            <Button
+            <DashboardHandle
               className="argus-dashboard-resize"
-              size="icon"
-              variant="ghost"
               aria-label={`${text("调整统计图尺寸", "Resize panel")} ${item.title}`}
               onPointerDown={(e) => start(e, item, "resize")}
               onPointerMove={move}
@@ -204,7 +200,7 @@ export function DashboardGrid<
               onKeyDown={(e) => keyboard(e, item, true)}
             >
               <MoveDiagonal2 size={14} />
-            </Button>
+            </DashboardHandle>
           )}
         </section>
       ))}

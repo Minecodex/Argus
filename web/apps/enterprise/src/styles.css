@@ -1,4 +1,3 @@
-@import "tailwindcss";
 @source "../../../packages/ui/src";
 
 * {
@@ -47,30 +46,6 @@ kbd,
   background-clip: padding-box;
 }
 
-.argus-app-shell {
-  --sidebar-width: 242px;
-  height: 100dvh;
-  display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
-  overflow: hidden;
-  transition: grid-template-columns var(--motion-normal);
-}
-.argus-app-shell.is-collapsed {
-  --sidebar-width: 70px;
-}
-.argus-app-main {
-  grid-area: 1 / 2;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.argus-page-content {
-  min-height: 0;
-  flex: 1;
-  overflow-y: auto;
-}
 /* 远程终端 Dock 参与外壳网格切分（非遮罩）；尺寸由 --terminal-dock-size 控制。
    Chrome DevTools 语义：Dock 与整个界面平分屏幕——底部模式横跨全宽，
    侧栏与页面内容一起收缩到分栏线上方；左右模式 Dock 占据整高的一侧。 */
@@ -86,7 +61,8 @@ kbd,
 }
 .argus-app-shell[data-terminal-dock="left"] {
   grid-template-columns:
-    var(--terminal-dock-size, 40%) var(--sidebar-width) minmax(0, 1fr);
+    var(--terminal-dock-size, 40%) var(--sidebar-width)
+    minmax(0, 1fr);
 }
 .argus-app-shell[data-terminal-dock="left"] .argus-app-main {
   grid-column: 3;
@@ -98,65 +74,15 @@ kbd,
   left: var(--terminal-dock-size, 40%);
 }
 .argus-app-shell[data-terminal-dock="right"] {
-  grid-template-columns:
-    var(--sidebar-width) minmax(0, 1fr) var(--terminal-dock-size, 40%);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(
+      --terminal-dock-size,
+      40%
+    );
 }
 .argus-app-shell[data-terminal-dock="right"] .argus-terminal-dock {
   grid-area: 1 / 3;
 }
-.argus-sidebar {
-  position: fixed;
-  z-index: 40;
-  inset: 0 auto 0 0;
-  width: var(--sidebar-width);
-  padding: 0 var(--space-px-10);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-subtle);
-  transition:
-    width var(--motion-normal),
-    transform var(--motion-normal);
-  overflow: hidden;
-}
-.argus-sidebar__head {
-  height: 62px;
-  padding: 0 var(--space-px-7);
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-.argus-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-px-9);
-  min-width: 0;
-}
-.argus-brand__mark {
-  width: 29px;
-  height: 29px;
-  flex: 0 0 29px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-9);
-  background: linear-gradient(145deg, var(--brand-start), var(--brand-end));
-  color: var(--text-inverse);
-  font-size: var(--font-size-13);
-  box-shadow: 0 5px 15px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-.argus-brand__name {
-  display: grid;
-  color: var(--text-primary);
-  font-size: var(--font-size-14);
-  font-weight: 720;
-  letter-spacing: -0.01em;
-}
-.argus-brand__name small {
-  color: var(--text-disabled);
-  font: var(--font-size-8)/1.2 var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
+
 .argus-enterprise-picker {
   width: 100%;
   height: 50px;
@@ -206,66 +132,7 @@ kbd,
 .argus-enterprise-picker svg {
   margin-left: auto;
 }
-.argus-sidebar__nav {
-  flex: 1;
-  padding: var(--space-px-14) 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-.argus-nav-section + .argus-nav-section {
-  margin-top: var(--space-px-13);
-}
-.argus-nav-section__label {
-  padding: 0 var(--space-px-9) var(--space-px-6);
-  color: var(--text-disabled);
-  font-size: var(--font-size-9-5);
-  font-weight: 650;
-  letter-spacing: 0.06em;
-}
-.argus-nav-item {
-  min-height: 36px;
-  padding: 0 var(--space-px-9);
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-10);
-  border-radius: var(--radius-8);
-  color: var(--text-tertiary);
-  font-size: var(--font-size-12);
-  transition: var(--motion-fast);
-  position: relative;
-}
-.argus-nav-item + .argus-nav-item {
-  margin-top: var(--space-px-2);
-}
-.argus-nav-item > svg {
-  flex: 0 0 17px;
-}
-.argus-nav-item > span {
-  flex: 1;
-}
-.argus-nav-item > small {
-  color: var(--text-disabled);
-  font: var(--font-size-9-5) var(--font-mono);
-}
-.argus-nav-item:hover {
-  color: var(--text-secondary);
-  background: var(--bg-elevated);
-}
-.argus-nav-item.active {
-  color: var(--text-primary);
-  background: var(--bg-muted);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--overlay-white) 2%, transparent)
-    inset;
-}
-.argus-nav-item.active::before {
-  content: "";
-  position: absolute;
-  left: -10px;
-  width: 2px;
-  height: 17px;
-  border-radius: 0 var(--radius-2) var(--radius-2) 0;
-  background: var(--accent);
-}
+
 .argus-nav-alert {
   width: 6px;
   height: 6px;
@@ -288,10 +155,7 @@ kbd,
 .is-collapsed .argus-nav-item.active::before {
   left: -10px;
 }
-.argus-sidebar__footer {
-  padding: var(--space-px-9) 0 var(--space-px-13);
-  border-top: 1px solid var(--border-subtle);
-}
+
 .argus-collapse-button {
   width: 100%;
   height: 32px;
@@ -318,30 +182,6 @@ kbd,
   justify-content: center;
 }
 
-.argus-topbar {
-  position: sticky;
-  z-index: 30;
-  top: 0;
-  height: 62px;
-  padding: 0 var(--space-px-20);
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-16);
-  background: color-mix(in srgb, var(--bg-canvas) 88%, transparent);
-  border-bottom: 1px solid var(--border-subtle);
-  backdrop-filter: blur(16px);
-}
-.argus-topbar__title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-10);
-  min-width: 190px;
-}
-.argus-topbar__title > span {
-  color: var(--text-secondary);
-  font-weight: 650;
-  font-size: var(--font-size-12-5);
-}
 .argus-search-trigger {
   width: min(360px, 34vw);
   height: 34px;
@@ -371,14 +211,7 @@ kbd,
   border-radius: var(--radius-4);
   font-size: var(--font-size-9);
 }
-.argus-topbar__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-5);
-}
-.argus-topbar__actions .argus-button {
-  position: relative;
-}
+
 .argus-unread-dot {
   position: absolute;
   top: 7px;
@@ -389,36 +222,7 @@ kbd,
   border-radius: var(--radius-round);
   background: var(--danger);
 }
-.argus-user-menu {
-  height: 42px;
-  margin-left: var(--space-px-3);
-  padding: var(--space-px-4) var(--space-px-4) var(--space-px-4)
-    var(--space-px-6);
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-8);
-  border: 0;
-  border-radius: var(--radius-9);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-.argus-user-menu:hover {
-  background: var(--bg-surface);
-}
-.argus-user-menu > span:nth-child(2) {
-  display: grid;
-  min-width: 70px;
-  text-align: left;
-}
-.argus-user-menu b {
-  font-size: var(--font-size-11);
-}
-.argus-user-menu small {
-  color: var(--text-disabled);
-  font-size: var(--font-size-9);
-  margin-top: var(--space-px-2);
-}
+
 .argus-mobile-menu,
 .argus-mobile-close,
 .argus-mobile-primary,
@@ -440,7 +244,6 @@ kbd,
 .argus-command-search .argus-input {
   border: 0;
   background: transparent;
-  font-size: var(--font-size-14);
 }
 .argus-command-list {
   display: grid;
@@ -472,7 +275,7 @@ kbd,
   color: var(--text-disabled);
 }
 .argus-bot-line {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Conversation */
@@ -511,8 +314,6 @@ kbd,
 }
 .argus-session-list__head .argus-button {
   margin-left: auto;
-  width: 28px;
-  height: 28px;
 }
 .argus-new-chat {
   min-height: 35px;
@@ -523,7 +324,7 @@ kbd,
   border: 1px dashed var(--border-default);
   border-radius: var(--radius-8);
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--font-size-11-5);
   cursor: pointer;
 }
@@ -643,7 +444,7 @@ kbd,
   border-radius: var(--radius-8);
   display: grid;
   place-items: center;
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-soft);
   flex-shrink: 0;
 }
@@ -872,8 +673,6 @@ kbd,
 }
 .argus-composer__tools .argus-button {
   margin-left: auto;
-  width: 30px;
-  height: 30px;
 }
 .argus-composer-note {
   display: block;
@@ -990,7 +789,7 @@ kbd,
   min-width: 0;
 }
 .argus-page-header span:first-child {
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--font-size-9-5);
   font-weight: 700;
   text-transform: uppercase;
@@ -1048,7 +847,6 @@ kbd,
   color: var(--text-disabled);
 }
 .argus-filter-search .argus-input {
-  height: 30px;
   border: 0;
   background: transparent;
 }
@@ -1268,7 +1066,7 @@ kbd,
   place-items: center;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-9);
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-soft);
 }
 .argus-role-card {
@@ -1277,7 +1075,7 @@ kbd,
   gap: var(--space-px-12);
 }
 .argus-role-card > svg {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .argus-role-card b {
   color: var(--text-primary);
@@ -1389,7 +1187,7 @@ kbd,
   gap: var(--space-px-10);
 }
 .argus-demo-section > header span {
-  color: var(--accent);
+  color: var(--accent-text);
   font: var(--font-size-9) var(--font-mono);
 }
 .argus-demo-section h2 {
@@ -1484,7 +1282,7 @@ kbd,
   font-size: var(--font-size-10);
 }
 .argus-type-scale code {
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--font-size-9-5);
 }
 .argus-demo-row {
@@ -1623,20 +1421,6 @@ kbd,
   }
 }
 @media (max-width: 760px) {
-  .argus-app-shell,
-  .argus-app-shell.is-collapsed {
-    display: block;
-    height: auto;
-    overflow: visible;
-  }
-  .argus-app-main {
-    grid-column: auto;
-    min-height: 100vh;
-    padding-bottom: var(--space-px-58);
-  }
-  .argus-page-content {
-    overflow: visible;
-  }
   /* 桌面端专属：窄屏下终端 Dock 与启动按钮不参与降级布局，侧栏定位还原。 */
   .argus-terminal-dock,
   .argus-terminal-dock-launcher {
@@ -1647,37 +1431,7 @@ kbd,
     bottom: 0;
     left: 0;
   }
-  .argus-sidebar {
-    width: min(285px, 86vw);
-    transform: translateX(-105%);
-    box-shadow: var(--shadow-lg);
-  }
-  .argus-sidebar.is-mobile-open {
-    transform: translateX(0);
-  }
-  .argus-sidebar.is-collapsed {
-    width: min(285px, 86vw);
-  }
-  .argus-sidebar.is-collapsed .argus-brand__name,
-  .argus-sidebar.is-collapsed .argus-nav-section__label,
-  .argus-sidebar.is-collapsed .argus-nav-item span,
-  .argus-sidebar.is-collapsed .argus-nav-item small,
-  .argus-sidebar.is-collapsed .argus-enterprise-picker > span:nth-child(2),
-  .argus-sidebar.is-collapsed .argus-enterprise-picker svg {
-    display: initial;
-  }
-  .argus-sidebar.is-collapsed .argus-brand__name,
-  .argus-sidebar.is-collapsed .argus-enterprise-picker > span:nth-child(2) {
-    display: grid;
-  }
-  .argus-sidebar.is-collapsed .argus-nav-item {
-    justify-content: flex-start;
-    padding: 0 var(--space-px-9);
-  }
-  .argus-sidebar.is-collapsed .argus-enterprise-picker {
-    justify-content: flex-start;
-    padding: var(--space-px-6) var(--space-px-8);
-  }
+
   .argus-collapse-button {
     display: none;
   }
@@ -1699,19 +1453,11 @@ kbd,
     pointer-events: auto;
     opacity: 1;
   }
-  .argus-topbar {
-    height: 56px;
-    padding: 0 var(--space-px-12);
-  }
+
   .argus-mobile-menu {
     display: inline-flex;
   }
-  .argus-topbar__title {
-    min-width: 0;
-  }
-  .argus-topbar__title .argus-badge {
-    display: none;
-  }
+
   .argus-search-trigger {
     width: 34px;
     margin-left: auto;
@@ -1722,16 +1468,7 @@ kbd,
   .argus-search-trigger kbd {
     display: none;
   }
-  .argus-user-menu > span:nth-child(2),
-  .argus-user-menu > svg {
-    display: none;
-  }
-  .argus-user-menu {
-    padding: var(--space-px-3);
-  }
-  .argus-topbar__actions > .argus-button {
-    display: none;
-  }
+
   .argus-mobile-primary {
     position: fixed;
     z-index: 35;
@@ -1753,7 +1490,7 @@ kbd,
     font-size: var(--font-size-8-5);
   }
   .argus-mobile-primary a.is-active {
-    color: var(--accent);
+    color: var(--accent-text);
   }
   .argus-home-page {
     height: calc(100vh - 114px);
@@ -1875,11 +1612,6 @@ kbd,
   .argus-page-header p {
     max-width: 280px;
   }
-  .argus-page-header__action .argus-button {
-    width: 35px;
-    padding: 0;
-    font-size: 0;
-  }
   .argus-page-header__action .argus-button svg {
     margin: 0;
   }
@@ -1896,11 +1628,7 @@ kbd,
 .argus-chat-shell {
   --sidebar-width: 272px;
 }
-.argus-sidebar__action {
-  padding: var(--space-px-2) var(--space-px-7) var(--space-px-10);
-  display: grid;
-  gap: var(--space-px-8);
-}
+
 .argus-chat-new-button {
   width: 100%;
   justify-content: center;

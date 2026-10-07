@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -115,13 +116,18 @@ export function GrantsTab() {
     queryFn: () => api.secrets.listManagedAccounts(),
   });
   const [grantOpen, setGrantOpen] = useState(false);
-  const [selectedGrant, setSelectedGrant] = useState<RemoteAccessGrant | null>(null);
+  const [selectedGrant, setSelectedGrant] = useState<RemoteAccessGrant | null>(
+    null,
+  );
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["remote-access"] });
   const createGrant = useMutation({
     mutationFn: (input: RemoteAccessGrantWrite | RemoteAccessGrantUpdate) =>
       selectedGrant
-        ? api.remoteAccess.updateGrant(selectedGrant.id, input as RemoteAccessGrantUpdate)
+        ? api.remoteAccess.updateGrant(
+            selectedGrant.id,
+            input as RemoteAccessGrantUpdate,
+          )
         : api.remoteAccess.createGrant(input as RemoteAccessGrantWrite),
     onSuccess: () => {
       setGrantOpen(false);
@@ -159,7 +165,10 @@ export function GrantsTab() {
       row.subject_id,
     ),
   }));
-  const lifecycle = async (operation: (id: string) => Promise<unknown>, id: string) => {
+  const lifecycle = async (
+    operation: (id: string) => Promise<unknown>,
+    id: string,
+  ) => {
     await operation(id);
     await invalidate();
   };
@@ -170,57 +179,76 @@ export function GrantsTab() {
         <h2 className="argus-settings-section__title">
           {t("remoteAccess.grants")}
         </h2>
-        <Button onClick={() => { setSelectedGrant(null); setGrantOpen(true); }} size="sm" variant="primary">
+        <Button
+          onPress={() => {
+            setSelectedGrant(null);
+            setGrantOpen(true);
+          }}
+          size="sm"
+          variant="primary"
+        >
           {t("remoteAccess.newGrant")}
         </Button>
       </div>
-      {(grants.data?.items.length ?? 0) === 0 ? (
-        <EmptyState description="" title={t("remoteAccess.noGrants")} />
-      ) : (
-        <GovernanceList
-          extraColumns={[
-            {
-              key: "hosts",
-              header: t("remoteAccess.hosts"),
-              render: (row) =>
-                row.host_ids.map((id) => lookup(hostOptions, id)).join(", ") ||
-                t("remoteAccess.labelSelector"),
-            },
-            {
-              key: "accounts",
-              header: t("remoteAccess.accounts"),
-              render: (row) =>
-                row.managed_account_ids
-                  .map((id) => lookup(accountOptions, id))
-                  .join(", "),
-            },
-            {
-              key: "protocols",
-              header: t("remoteAccess.protocols"),
-              render: (row) => row.protocols.join(", "),
-            },
-            {
-              key: "valid_until",
-              header: t("remoteAccess.validUntil"),
-              render: (row) => new Date(row.valid_until).toLocaleString(),
-            },
-          ]}
-          items={items}
-          onArchive={(id) => lifecycle(api.remoteAccess.archiveGrant, id)}
-          onDisable={(id) => lifecycle(api.remoteAccess.disableGrant, id)}
-          onEdit={(row) => { setSelectedGrant(row); setGrantOpen(true); }}
-          onEnable={(id) => lifecycle(api.remoteAccess.enableGrant, id)}
-          onRestore={(id) => lifecycle(api.remoteAccess.restoreGrant, id)}
-          references={api.remoteAccess.getGrantReferences}
-        />
-      )}
+      <QueryBoundary
+        query={grants}
+        dependencies={[users, departments, hosts, accounts]}
+      >
+        {(grants.data?.items.length ?? 0) === 0 ? (
+          <EmptyState description="" title={t("remoteAccess.noGrants")} />
+        ) : (
+          <GovernanceList
+            extraColumns={[
+              {
+                key: "hosts",
+                header: t("remoteAccess.hosts"),
+                render: (row) =>
+                  row.host_ids
+                    .map((id) => lookup(hostOptions, id))
+                    .join(", ") || t("remoteAccess.labelSelector"),
+              },
+              {
+                key: "accounts",
+                header: t("remoteAccess.accounts"),
+                render: (row) =>
+                  row.managed_account_ids
+                    .map((id) => lookup(accountOptions, id))
+                    .join(", "),
+              },
+              {
+                key: "protocols",
+                header: t("remoteAccess.protocols"),
+                render: (row) => row.protocols.join(", "),
+              },
+              {
+                key: "valid_until",
+                header: t("remoteAccess.validUntil"),
+                render: (row) => new Date(row.valid_until).toLocaleString(),
+              },
+            ]}
+            items={items}
+            onArchive={(id) => lifecycle(api.remoteAccess.archiveGrant, id)}
+            onDisable={(id) => lifecycle(api.remoteAccess.disableGrant, id)}
+            onEdit={(row) => {
+              setSelectedGrant(row);
+              setGrantOpen(true);
+            }}
+            onEnable={(id) => lifecycle(api.remoteAccess.enableGrant, id)}
+            onRestore={(id) => lifecycle(api.remoteAccess.restoreGrant, id)}
+            references={api.remoteAccess.getGrantReferences}
+          />
+        )}
+      </QueryBoundary>
 
       <GrantDrawer
         accountOptions={accountOptions}
         departmentOptions={departmentOptions}
         hostOptions={hostOptions}
         loading={createGrant.isPending}
-        onOpenChange={(open) => { setGrantOpen(open); if (!open) setSelectedGrant(null); }}
+        onOpenChange={(open) => {
+          setGrantOpen(open);
+          if (!open) setSelectedGrant(null);
+        }}
         onSubmit={(value) => createGrant.mutateAsync(value)}
         open={grantOpen}
         grant={selectedGrant}
@@ -233,18 +261,34 @@ export function GrantsTab() {
 export function OrgRemoteAccessTab() {
   const { t } = useTranslation();
   const [tab, setTab] = useState("grants");
-  return <Tabs onValueChange={setTab} value={tab}>
-    <TabsList>
-      <TabsTrigger value="grants">{t("remoteAccess.tabs.grants")}</TabsTrigger>
-      <TabsTrigger value="rules">{t("remoteAccess.tabs.rules")}</TabsTrigger>
-      <TabsTrigger value="workflows">{t("remoteAccess.tabs.workflows")}</TabsTrigger>
-      <TabsTrigger value="profiles">{t("remoteAccess.tabs.profiles")}</TabsTrigger>
-    </TabsList>
-    <TabsContent value="grants"><GrantsTab /></TabsContent>
-    <TabsContent value="rules"><RulesTab /></TabsContent>
-    <TabsContent value="workflows"><WorkflowsTab /></TabsContent>
-    <TabsContent value="profiles"><SessionProfilesTab /></TabsContent>
-  </Tabs>;
+  return (
+    <Tabs onValueChange={setTab} value={tab}>
+      <TabsList>
+        <TabsTrigger value="grants">
+          {t("remoteAccess.tabs.grants")}
+        </TabsTrigger>
+        <TabsTrigger value="rules">{t("remoteAccess.tabs.rules")}</TabsTrigger>
+        <TabsTrigger value="workflows">
+          {t("remoteAccess.tabs.workflows")}
+        </TabsTrigger>
+        <TabsTrigger value="profiles">
+          {t("remoteAccess.tabs.profiles")}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="grants">
+        <GrantsTab />
+      </TabsContent>
+      <TabsContent value="rules">
+        <RulesTab />
+      </TabsContent>
+      <TabsContent value="workflows">
+        <WorkflowsTab />
+      </TabsContent>
+      <TabsContent value="profiles">
+        <SessionProfilesTab />
+      </TabsContent>
+    </Tabs>
+  );
 }
 
 function GrantDrawer({
@@ -260,7 +304,9 @@ function GrantDrawer({
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
-  onSubmit(input: RemoteAccessGrantWrite | RemoteAccessGrantUpdate): Promise<unknown>;
+  onSubmit(
+    input: RemoteAccessGrantWrite | RemoteAccessGrantUpdate,
+  ): Promise<unknown>;
   loading: boolean;
   userOptions: Option[];
   departmentOptions: Option[];
@@ -319,7 +365,9 @@ function GrantDrawer({
         host_ids: grant?.host_ids ?? [],
         account_ids: grant?.managed_account_ids ?? [],
         protocol: grant?.protocols[0] ?? "ssh",
-        valid_until: grant ? new Date(grant.valid_until).toISOString().slice(0, 16) : "",
+        valid_until: grant
+          ? new Date(grant.valid_until).toISOString().slice(0, 16)
+          : "",
       });
   }, [grant, open, reset]);
   const submit = handleSubmit(async (formValue) => {
@@ -338,7 +386,7 @@ function GrantDrawer({
       await onSubmit(
         grant
           ? { ...input, expected_version: grant.version }
-          : { ...input, status: "draft" } satisfies RemoteAccessGrantWrite,
+          : ({ ...input, status: "draft" } satisfies RemoteAccessGrantWrite),
       );
     } catch (error) {
       presentApiFormError(error, {

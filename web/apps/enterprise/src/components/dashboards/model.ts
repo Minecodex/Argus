@@ -5,19 +5,8 @@ import type {
   DashboardDraft,
   DashboardSchemas,
 } from "@argus/api-client";
-export const metricCharts = [
-  "timeseries",
-  "stat",
-  "gauge",
-  "bar_gauge",
-  "bar",
-  "pie",
-  "histogram",
-  "heatmap",
-  "state_timeline",
-  "scatter",
-  "table",
-];
+import { metricChartTypes } from "@argus/ui";
+export const metricCharts = [...metricChartTypes];
 export const traceCharts = [
   "trace_list",
   "trace_detail",

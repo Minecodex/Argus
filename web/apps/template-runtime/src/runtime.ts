@@ -1,3 +1,4 @@
+import { baseStyle } from "./runtime-style";
 import {
   TEMPLATE_PROTOCOL,
   TEMPLATE_MAX_BYTES,
@@ -35,7 +36,6 @@ export function trustedHello(
 export function csp(nonce: string) {
   return `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; worker-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'`;
 }
-const baseStyle = `.argus-template-resource{font:inherit;color:var(--text-primary);background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xs);padding:var(--space-2);margin:var(--space-1);cursor:pointer}:root{color:var(--text-primary);background:var(--bg-surface);font:var(--font-size-13)/var(--line-height-normal) var(--font-sans)}body{margin:0;padding:var(--space-3)}h3{font-size:var(--font-size-13);margin:0 0 var(--space-3)}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid var(--border-subtle);padding:var(--space-2);vertical-align:top;overflow-wrap:anywhere}th{color:var(--text-secondary)}dl{display:grid;grid-template-columns:minmax(8rem,1fr) 3fr;gap:var(--space-2)}dt{color:var(--text-secondary)}dd{margin:0;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--font-mono)}svg{display:block;width:100%;max-height:20rem}p{color:var(--text-secondary)}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}`;
 
 export async function startRuntime(
   hello: TemplateMessage,
@@ -82,6 +82,7 @@ export async function startRuntime(
   const applyContext = () => {
     document.documentElement.lang = context.locale;
     document.documentElement.style.colorScheme = context.color_scheme;
+    document.documentElement.dataset.theme = context.color_scheme;
     for (const [key, value] of Object.entries(context.tokens)) {
       if (
         /^--[a-z0-9-]+$/.test(key) &&

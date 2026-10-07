@@ -11,7 +11,12 @@ import {
   dashboardFailure as fail,
   dashboardState,
   dashboardObjectGrant,
+  mockDraft,
 } from "./dashboard-state";
+import {
+  dashboardPreviewDefinition,
+  previewPanelIds,
+} from "../dashboard-preview";
 
 const contexts = new Map<
   string,
@@ -22,6 +27,8 @@ const contexts = new Map<
     spec: DashboardSpec;
     execution: DashboardExecution;
     expires: number;
+    draft?: string;
+    definition?: string;
   }
 >();
 const rowData = (
@@ -155,7 +162,10 @@ const rowData = (
       },
     };
   }
-  const histogram = panel.type === "histogram" || panel.type === "heatmap";
+  const histogram = Boolean(
+    target.source_definition.builder?.metric?.endsWith("_bucket") ||
+    target.source_definition.dsl?.expression?.includes("_bucket"),
+  );
   return Array.from({ length: histogram ? 5 : 2 }, (_, series) => {
     const metric = {
       __name__:
@@ -166,7 +176,10 @@ const rowData = (
     const value = (i: number) =>
       histogram
         ? String((series + 1) * 12 + i)
-        : String(35 + series * 20 + Math.sin(i / 3) * 12);
+        : String(
+            (35 + series * 20 + Math.sin(i / 3) * 12) /
+              (metric.__name__ === "system_cpu_utilization" ? 100 : 1),
+          );
     return target.query_mode === "instant"
       ? { metric, value: [to / 1000, value(12)] }
       : {
@@ -184,6 +197,7 @@ export function mockDashboardExecution(
   input: DashboardSchemas["DashboardExecutionInput"],
   id = "mock-draft",
   revision = "mock-unpublished",
+  draft?: string,
 ): DashboardExecution {
   const to = input.to ? Date.parse(input.to) : Date.now(),
     from = input.from
@@ -306,6 +320,10 @@ export function mockDashboardExecution(
     spec: copy(spec),
     execution: copy(result),
     expires: Date.now() + 900000,
+    draft,
+    definition: draft
+      ? dashboardPreviewDefinition(spec, previewPanelIds(result))
+      : undefined,
   });
   return result;
 }
@@ -346,7 +364,7 @@ export function mockDashboardDrilldown(
   const prior = contexts.get(input.context_token);
   if (!prior || prior.expires < Date.now())
     fail("DASHBOARD_CONTEXT_EXPIRED", 409);
-  if (prior.actor !== ctx.actor().id || prior.dashboard !== id)
+  if (prior.draft || prior.actor !== ctx.actor().id || prior.dashboard !== id)
     fail("DASHBOARD_DENIED", 403);
   const panel =
     prior.spec.panels.find((p) => p.id === input.panel_id) ?? fail();
@@ -392,5 +410,109 @@ export function mockDashboardDrilldown(
     context_token: input.context_token,
     context_expires_at: prior.execution.context_expires_at!,
     execution_hash: crypto.randomUUID(),
+  };
+}
+
+export function mockDraftDrilldown(
+  ctx: BaseContext,
+  id: string,
+  input: DashboardSchemas["DashboardDraftDrilldownInput"],
+): DashboardSchemas["DashboardDraftDrilldownExecution"] {
+  const draft = mockDraft(ctx, id),
+    prior = contexts.get(input.context_token);
+  if (
+    draft.status !== "editing" ||
+    draft.draft_version !== input.expected_version
+  )
+    fail("DASHBOARD_VERSION_CONFLICT", 409);
+  if (!prior || prior.expires < Date.now())
+    fail("DASHBOARD_CONTEXT_EXPIRED", 409);
+  if (prior.draft !== id || prior.actor !== ctx.actor().id)
+    fail("DASHBOARD_DENIED", 403);
+  if (
+    prior.definition !==
+    dashboardPreviewDefinition(draft.spec, previewPanelIds(prior.execution))
+  )
+    fail("DASHBOARD_VERSION_CONFLICT", 409);
+  const panel =
+      prior.spec.panels.find((p) => p.id === input.panel_id) ?? fail(),
+    drill = panel.drilldowns.find((d) => d.id === input.drilldown_id) ?? fail();
+  const target =
+    panel.detail_query_targets.find((t) => t.id === drill.detail_query_ref) ??
+    fail();
+  if (
+    (drill.scope_policy === "authorized_trace") !==
+    input.expand_authorized_resources
+  )
+    fail();
+  for (const [key, path] of Object.entries(drill.inputs)) {
+    const original =
+      panel.targets.find((t) => t.id === drill.origin_query_ref) ?? fail();
+    const rows = rowData(
+      panel,
+      original,
+      Date.parse(prior.execution.from),
+      Date.parse(prior.execution.to),
+      prior.execution.resources[0]?.id ?? "",
+    );
+    const valueAt = (row: unknown) =>
+      path
+        .slice(1)
+        .split("/")
+        .reduce<unknown>(
+          (value, key) =>
+            value && typeof value === "object"
+              ? (value as Record<string, unknown>)[key]
+              : undefined,
+          row,
+        );
+    if (
+      !Array.isArray(rows) ||
+      !rows.some((row) => String(valueAt(row)) === input.values[key])
+    )
+      fail("DASHBOARD_SELECTION_STALE", 409);
+  }
+  const result: DashboardSchemas["DashboardDrilldownExecution"] = {
+    dashboard_id: prior.dashboard,
+    revision_id: prior.revision,
+    parent_execution_id: prior.execution.execution_id,
+    panel_id: panel.id,
+    drilldown_id: drill.id,
+    scope_policy:
+      drill.scope_policy === "authorized_trace"
+        ? "authorized_trace"
+        : "inherit",
+    from: prior.execution.from,
+    to: prior.execution.to,
+    resources: prior.execution.resources,
+    sources:
+      prior.execution.panels.find((p) => p.id === panel.id)?.sources ?? [],
+    result: {
+      id: target.id,
+      status: "success",
+      query_hash: "mock-detail",
+      result_type:
+        target.signal === "logs"
+          ? "log_entries"
+          : target.signal === "traces"
+            ? "traces"
+            : "matrix",
+      data: rowData(
+        panel,
+        target,
+        Date.parse(prior.execution.from),
+        Date.parse(prior.execution.to),
+        prior.execution.resources[0]?.id ?? "mock-resource",
+      ),
+      meta: { engine: "mock-dashboard", warnings: ["MOCK_DATA"] },
+    },
+    context_token: input.context_token,
+    context_expires_at: new Date(prior.expires).toISOString(),
+    execution_hash: crypto.randomUUID(),
+  };
+  return {
+    draft_id: id,
+    draft_version: draft.draft_version,
+    execution: result,
   };
 }

@@ -1,3 +1,4 @@
+import { Checkbox } from "./checkbox";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "./button";
 
@@ -136,29 +137,27 @@ export function ResourceAuthorizationDualList({
     );
 
   const renderItem = (item: DualListItem, side: Side) => (
-    <label className="argus-dual-list__item" key={item.id}>
-      <input
-        checked={selected[tab][side].includes(item.id)}
-        disabled={item.inherited}
-        onChange={(event) =>
-          updateSelection(side, item.id, event.target.checked)
-        }
-        type="checkbox"
-      />
+    <Checkbox
+      className="argus-dual-list__item"
+      key={item.id}
+      isSelected={selected[tab][side].includes(item.id)}
+      isDisabled={item.inherited}
+      onChange={(selected) => updateSelection(side, item.id, selected)}
+    >
       <span className="argus-dual-list__item-label">{item.label}</span>
       {item.inherited ? (
         <small className="argus-dual-list__item-source">
           {item.source || labels.inherited}
         </small>
       ) : null}
-    </label>
+    </Checkbox>
   );
 
   const pager = (count: number) => (
     <div className="argus-dual-list__pager">
       <Button
-        disabled={page <= 1}
-        onClick={() => setPage((current) => current - 1)}
+        isDisabled={page <= 1}
+        onPress={() => setPage((current) => current - 1)}
         size="sm"
         variant="ghost"
       >
@@ -168,8 +167,8 @@ export function ResourceAuthorizationDualList({
         {page} / {count}
       </span>
       <Button
-        disabled={page >= count}
-        onClick={() => setPage((current) => current + 1)}
+        isDisabled={page >= count}
+        onPress={() => setPage((current) => current + 1)}
         size="sm"
         variant="ghost"
       >
@@ -188,16 +187,16 @@ export function ResourceAuthorizationDualList({
           </span>
           <span>
             <Button
-              disabled={!selected[tab][side].length}
-              onClick={() => move(selected[tab][side], add)}
+              isDisabled={!selected[tab][side].length}
+              onPress={() => move(selected[tab][side], add)}
               size="sm"
               variant="ghost"
             >
               {add ? labels.moveSelected : labels.removeSelected}
             </Button>
             <Button
-              disabled={!list.some((item) => !item.inherited)}
-              onClick={() => moveAll(add)}
+              isDisabled={!list.some((item) => !item.inherited)}
+              onPress={() => moveAll(add)}
               size="sm"
               variant="ghost"
             >
@@ -215,14 +214,14 @@ export function ResourceAuthorizationDualList({
     <div className="argus-dual-list" data-resource-type={tab}>
       <div className="argus-dual-list__tabs">
         <Button
-          onClick={() => setTab("host")}
+          onPress={() => setTab("host")}
           size="sm"
           variant={tab === "host" ? "secondary" : "ghost"}
         >
           {labels.host}
         </Button>
         <Button
-          onClick={() => setTab("kubernetes_cluster")}
+          onPress={() => setTab("kubernetes_cluster")}
           size="sm"
           variant={tab === "kubernetes_cluster" ? "secondary" : "ghost"}
         >
@@ -230,7 +229,7 @@ export function ResourceAuthorizationDualList({
         </Button>
         {dashboards !== undefined && (
           <Button
-            onClick={() => setTab("dashboard")}
+            onPress={() => setTab("dashboard")}
             size="sm"
             variant={tab === "dashboard" ? "secondary" : "ghost"}
           >

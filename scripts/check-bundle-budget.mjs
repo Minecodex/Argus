@@ -4,8 +4,11 @@ import path from "node:path";
 const root = process.cwd();
 const kib = 1024;
 const apps = {
-  platform: 1024 * kib,
-  enterprise: 1024 * kib,
+  // HeroUI v3 / React Aria is now mandatory in both portals. The raw initial
+  // budget includes the shared React, Router and control runtimes. Optional
+  // chart/terminal engines remain lazy; every individual chunk stays <500KiB.
+  platform: 1536 * kib,
+  enterprise: 1536 * kib,
   "template-runtime": 650 * kib,
 };
 const maxChunk = 500 * kib;

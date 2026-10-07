@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo } from "react";
@@ -77,90 +78,92 @@ export function OrgDepartmentsTab() {
         <h2 className="argus-settings-section__title">
           {t("settings.org.tabs.departments")}
         </h2>
-        <Button onClick={() => setEditing(null)} size="sm" variant="primary">
+        <Button onPress={() => setEditing(null)} size="sm" variant="primary">
           {t("settings.org.departments.create")}
         </Button>
       </div>
-      <DataTable<DepartmentRow>
-        columns={[
-          {
-            key: "name",
-            header: t("settings.common.name"),
-            render: (row) => (
-              <span>
-                {row.name}{" "}
-                {row.is_default && (
-                  <Badge>{t("settings.org.departments.default")}</Badge>
-                )}
-              </span>
-            ),
-          },
-          { key: "description", header: t("settings.common.description") },
-          { key: "member_count", header: t("settings.common.members") },
-          {
-            key: "status",
-            header: t("settings.common.status"),
-            render: (row) => (
-              <StatusBadge
-                tone={row.status === "active" ? "success" : "neutral"}
-              >
-                {t(`settings.common.${row.status}`)}
-              </StatusBadge>
-            ),
-          },
-          {
-            key: "actions",
-            header: t("settings.common.actions"),
-            render: (row) => (
-              <ActionGroup>
-                <RowAction onClick={() => setAuthorizationTarget(row)}>
-                  {t("settings.org.dataAuthorization.action")}
-                </RowAction>
-                <RowAction
-                  onClick={() =>
-                    setEditing(
-                      departments.data?.find(
-                        (department) => department.id === row.id,
-                      ) ?? null,
-                    )
-                  }
+      <QueryBoundary query={departments} dependencies={[users]}>
+        <DataTable<DepartmentRow>
+          columns={[
+            {
+              key: "name",
+              header: t("settings.common.name"),
+              render: (row) => (
+                <span>
+                  {row.name}{" "}
+                  {row.is_default && (
+                    <Badge>{t("settings.org.departments.default")}</Badge>
+                  )}
+                </span>
+              ),
+            },
+            { key: "description", header: t("settings.common.description") },
+            { key: "member_count", header: t("settings.common.members") },
+            {
+              key: "status",
+              header: t("settings.common.status"),
+              render: (row) => (
+                <StatusBadge
+                  tone={row.status === "active" ? "success" : "neutral"}
                 >
-                  {t("settings.common.edit")}
-                </RowAction>
-                <RowAction
-                  disabled={
-                    row.status === "active" &&
-                    (row.is_default || row.member_count > 0)
-                  }
-                  onClick={() => setStatusTarget(row)}
-                  title={
-                    row.status === "active" && row.is_default
-                      ? t("settings.org.departments.defaultLocked")
-                      : row.status === "active" && row.member_count > 0
-                        ? t("settings.org.departments.membersLocked")
-                        : undefined
-                  }
-                >
-                  {row.status === "active"
-                    ? t("settings.org.departments.disable")
-                    : t("settings.org.departments.enable")}
-                </RowAction>
-              </ActionGroup>
-            ),
-          },
-        ]}
-        data={(departments.data ?? []).map((department) => ({
-          id: department.id,
-          name: department.name,
-          description: department.description ?? "",
-          is_default: department.is_default,
-          status: department.status,
-          member_count: (users.data ?? []).filter(
-            (user) => user.department_id === department.id,
-          ).length,
-        }))}
-        getRowKey={(row) => row.id}
-      />
+                  {t(`settings.common.${row.status}`)}
+                </StatusBadge>
+              ),
+            },
+            {
+              key: "actions",
+              header: t("settings.common.actions"),
+              render: (row) => (
+                <ActionGroup>
+                  <RowAction onPress={() => setAuthorizationTarget(row)}>
+                    {t("settings.org.dataAuthorization.action")}
+                  </RowAction>
+                  <RowAction
+                    onPress={() =>
+                      setEditing(
+                        departments.data?.find(
+                          (department) => department.id === row.id,
+                        ) ?? null,
+                      )
+                    }
+                  >
+                    {t("settings.common.edit")}
+                  </RowAction>
+                  <RowAction
+                    isDisabled={
+                      row.status === "active" &&
+                      (row.is_default || row.member_count > 0)
+                    }
+                    onPress={() => setStatusTarget(row)}
+                    title={
+                      row.status === "active" && row.is_default
+                        ? t("settings.org.departments.defaultLocked")
+                        : row.status === "active" && row.member_count > 0
+                          ? t("settings.org.departments.membersLocked")
+                          : undefined
+                    }
+                  >
+                    {row.status === "active"
+                      ? t("settings.org.departments.disable")
+                      : t("settings.org.departments.enable")}
+                  </RowAction>
+                </ActionGroup>
+              ),
+            },
+          ]}
+          data={(departments.data ?? []).map((department) => ({
+            id: department.id,
+            name: department.name,
+            description: department.description ?? "",
+            is_default: department.is_default,
+            status: department.status,
+            member_count: (users.data ?? []).filter(
+              (user) => user.department_id === department.id,
+            ).length,
+          }))}
+          getRowKey={(row) => row.id}
+        />
+      </QueryBoundary>
       {editing !== undefined && (
         <DepartmentDrawer
           department={editing}

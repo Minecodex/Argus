@@ -479,6 +479,46 @@ func (response SaveDashboardDraftdefaultJSONResponse) VisitSaveDashboardDraftRes
 	return err
 }
 
+type ExecuteDashboardDraftDrilldownRequestObject struct {
+	Id   openapi_types.UUID `json:"id"`
+	Body *ExecuteDashboardDraftDrilldownJSONRequestBody
+}
+
+type ExecuteDashboardDraftDrilldownResponseObject interface {
+	VisitExecuteDashboardDraftDrilldownResponse(w http.ResponseWriter) error
+}
+
+type ExecuteDashboardDraftDrilldown200JSONResponse DashboardDraftDrilldownExecution
+
+func (response ExecuteDashboardDraftDrilldown200JSONResponse) VisitExecuteDashboardDraftDrilldownResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExecuteDashboardDraftDrilldowndefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response ExecuteDashboardDraftDrilldowndefaultJSONResponse) VisitExecuteDashboardDraftDrilldownResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GenerateDashboardDrilldownsRequestObject struct {
 	Id     openapi_types.UUID `json:"id"`
 	Params GenerateDashboardDrilldownsParams

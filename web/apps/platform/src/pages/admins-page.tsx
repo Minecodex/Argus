@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { QueryBoundary } from "@argus/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -210,7 +211,7 @@ export function AdminsPage() {
     <PageShell
       actions={
         <Button
-          onClick={() => {
+          onPress={() => {
             reset({
               enterpriseId: activeEnterprises[0]?.id ?? "",
               username: "",
@@ -227,80 +228,82 @@ export function AdminsPage() {
       description={t("admins.description")}
       title={t("admins.title")}
     >
-      <div className="argus-platform-stack">
-        <Alert
-          description={t("admins.noImpersonation.description")}
-          title={t("admins.noImpersonation.title")}
-          tone="info"
-        />
+      <QueryBoundary query={admins}>
+        <div className="argus-platform-stack">
+          <Alert
+            description={t("admins.noImpersonation.description")}
+            title={t("admins.noImpersonation.title")}
+            tone="info"
+          />
 
-        {admins.isPending ? (
-          <Spinner />
-        ) : rows.length === 0 ? (
-          <EmptyState description="" title={t("admins.empty")} />
-        ) : (
-          <DataTable<AdminRow>
-            columns={[
-              { key: "displayName", header: t("admins.table.displayName") },
-              {
-                key: "username",
-                header: t("admins.table.username"),
-                render: (row) => (
-                  <code className="argus-mono">{row.username}</code>
-                ),
-              },
-              {
-                key: "email",
-                header: t("admins.table.email"),
-                render: (row) => row.email || t("common.none"),
-              },
-              { key: "enterpriseName", header: t("admins.table.enterprise") },
-              {
-                key: "credentialStatus",
-                header: t("admins.table.credentialStatus"),
-                render: (row) => (
-                  <StatusBadge tone={credentialTone(row.credentialStatus)}>
-                    {t(`admins.status.${row.credentialStatus}`)}
-                  </StatusBadge>
-                ),
-              },
-              {
-                key: "lastLoginAt",
-                header: t("admins.table.lastLogin"),
-                render: (row) => formatDateTime(row.lastLoginAt, i18n.language),
-              },
-              {
-                key: "id",
-                header: t("common.actions"),
-                render: (row) => (
-                  <ActionGroup>
-                    <RowAction
-                      onClick={() =>
-                        setPendingAction({ type: "resetAuth", admin: row })
-                      }
-                    >
-                      {t("admins.action.resetAuth")}
-                    </RowAction>
-                    {row.credentialStatus !== "disabled" && (
+          {admins.isPending ? (
+            <Spinner />
+          ) : rows.length === 0 ? (
+            <EmptyState description="" title={t("admins.empty")} />
+          ) : (
+            <DataTable<AdminRow>
+              columns={[
+                { key: "displayName", header: t("admins.table.displayName") },
+                {
+                  key: "username",
+                  header: t("admins.table.username"),
+                  render: (row) => (
+                    <code className="argus-mono">{row.username}</code>
+                  ),
+                },
+                {
+                  key: "email",
+                  header: t("admins.table.email"),
+                  render: (row) => row.email || t("common.none"),
+                },
+                { key: "enterpriseName", header: t("admins.table.enterprise") },
+                {
+                  key: "credentialStatus",
+                  header: t("admins.table.credentialStatus"),
+                  render: (row) => (
+                    <StatusBadge tone={credentialTone(row.credentialStatus)}>
+                      {t(`admins.status.${row.credentialStatus}`)}
+                    </StatusBadge>
+                  ),
+                },
+                {
+                  key: "lastLoginAt",
+                  header: t("admins.table.lastLogin"),
+                  render: (row) =>
+                    formatDateTime(row.lastLoginAt, i18n.language),
+                },
+                {
+                  key: "id",
+                  header: t("common.actions"),
+                  render: (row) => (
+                    <ActionGroup>
                       <RowAction
-                        danger
-                        onClick={() =>
-                          setPendingAction({ type: "disable", admin: row })
+                        onPress={() =>
+                          setPendingAction({ type: "resetAuth", admin: row })
                         }
                       >
-                        {t("admins.action.disable")}
+                        {t("admins.action.resetAuth")}
                       </RowAction>
-                    )}
-                  </ActionGroup>
-                ),
-              },
-            ]}
-            data={rows}
-            getRowKey={(row) => row.id}
-          />
-        )}
-      </div>
-
+                      {row.credentialStatus !== "disabled" && (
+                        <RowAction
+                          danger
+                          onPress={() =>
+                            setPendingAction({ type: "disable", admin: row })
+                          }
+                        >
+                          {t("admins.action.disable")}
+                        </RowAction>
+                      )}
+                    </ActionGroup>
+                  ),
+                },
+              ]}
+              data={rows}
+              getRowKey={(row) => row.id}
+            />
+          )}
+        </div>
+      </QueryBoundary>
       {/* 创建临时密码管理员 */}
       <FormDrawer
         description={t("admins.form.description")}
@@ -321,7 +324,8 @@ export function AdminsPage() {
             tone="danger"
           />
         )}
-        <Field requirement="required"
+        <Field
+          requirement="required"
           error={errors.enterpriseId?.message}
           label={t("admins.form.enterprise")}
         >
@@ -340,19 +344,33 @@ export function AdminsPage() {
             )}
           />
         </Field>
-        <Field requirement="required"
+        <Field
+          requirement="required"
           error={errors.displayName?.message}
           label={t("admins.form.displayName")}
         >
-          <Input {...register("displayName")} maxLength={adminCreateConstraints.displayName.maxLength} required />
+          <Input
+            {...register("displayName")}
+            maxLength={adminCreateConstraints.displayName.maxLength}
+            required
+          />
         </Field>
-        <Field requirement="required"
+        <Field
+          requirement="required"
           error={errors.username?.message}
           label={t("admins.form.username")}
         >
-          <Input {...register("username")} maxLength={adminCreateConstraints.username.maxLength} required />
+          <Input
+            {...register("username")}
+            maxLength={adminCreateConstraints.username.maxLength}
+            required
+          />
         </Field>
-        <Field requirement="optional" error={errors.email?.message} label={t("admins.form.email")}>
+        <Field
+          requirement="optional"
+          error={errors.email?.message}
+          label={t("admins.form.email")}
+        >
           <Input {...register("email")} type="email" />
         </Field>
       </FormDrawer>
@@ -360,7 +378,7 @@ export function AdminsPage() {
       {/* 创建或重置成功后只展示一次临时密码。 */}
       <FormDrawer
         footer={
-          <Button onClick={() => setCreated(null)} variant="primary">
+          <Button onPress={() => setCreated(null)} variant="primary">
             {t("common.close")}
           </Button>
         }

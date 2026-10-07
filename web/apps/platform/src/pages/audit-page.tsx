@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { QueryBoundary } from "@argus/ui";
 import {
   auditPresentationKey,
   humanizeAuditCode,
@@ -167,54 +168,57 @@ export function AuditPage() {
           }}
         />
 
-        {events.isPending ? (
-          <Spinner />
-        ) : rows.length === 0 ? (
-          <EmptyState description="" title={t("audit.empty")} />
-        ) : (
-          <div className="argus-platform-audit-table">
-            <DataTable<AuditRow>
-              columns={[
-                {
-                  key: "createdAt",
-                  header: t("audit.table.time"),
-                  render: (row) => formatDateTime(row.createdAt, i18n.language),
-                },
-                { key: "actorName", header: t("audit.table.actor") },
-                {
-                  key: "actionLabel",
-                  header: t("audit.table.action"),
-                },
-                { key: "resource", header: t("audit.table.resource") },
-                {
-                  key: "result",
-                  header: t("audit.table.result"),
-                  render: (row) => (
-                    <StatusBadge tone={resultTone(row.result)}>
-                      {t(`audit.results.${row.result}`)}
-                    </StatusBadge>
-                  ),
-                },
-                {
-                  key: "id",
-                  header: t("common.actions"),
-                  render: (row) => (
-                    <RowAction onClick={() => openDetail(row)}>
-                      {t("common.detail")}
-                    </RowAction>
-                  ),
-                },
-              ]}
-              data={rows}
-              getRowKey={(row) => row.id}
-            />
-          </div>
-        )}
+        <QueryBoundary query={events}>
+          {events.isPending ? (
+            <Spinner />
+          ) : rows.length === 0 ? (
+            <EmptyState description="" title={t("audit.empty")} />
+          ) : (
+            <div className="argus-platform-audit-table">
+              <DataTable<AuditRow>
+                columns={[
+                  {
+                    key: "createdAt",
+                    header: t("audit.table.time"),
+                    render: (row) =>
+                      formatDateTime(row.createdAt, i18n.language),
+                  },
+                  { key: "actorName", header: t("audit.table.actor") },
+                  {
+                    key: "actionLabel",
+                    header: t("audit.table.action"),
+                  },
+                  { key: "resource", header: t("audit.table.resource") },
+                  {
+                    key: "result",
+                    header: t("audit.table.result"),
+                    render: (row) => (
+                      <StatusBadge tone={resultTone(row.result)}>
+                        {t(`audit.results.${row.result}`)}
+                      </StatusBadge>
+                    ),
+                  },
+                  {
+                    key: "id",
+                    header: t("common.actions"),
+                    render: (row) => (
+                      <RowAction onPress={() => openDetail(row)}>
+                        {t("common.detail")}
+                      </RowAction>
+                    ),
+                  },
+                ]}
+                data={rows}
+                getRowKey={(row) => row.id}
+              />
+            </div>
+          )}
+        </QueryBoundary>
       </div>
 
       <FormDrawer
         footer={
-          <Button onClick={() => setSelected(null)} variant="secondary">
+          <Button onPress={() => setSelected(null)} variant="secondary">
             {t("common.close")}
           </Button>
         }

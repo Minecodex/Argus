@@ -304,7 +304,7 @@ export function SettingsAuditPage() {
                   key: "id",
                   header: t("settings.audit.table.requestId"),
                   render: (row) => (
-                    <RowAction onClick={() => openDetail(row)}>
+                    <RowAction onPress={() => openDetail(row)}>
                       <code className="argus-mono">{row.id}</code>
                     </RowAction>
                   ),
@@ -318,8 +318,8 @@ export function SettingsAuditPage() {
         <ActionGroup>
           <Button
             variant="secondary"
-            disabled={!previous.length || events.isFetching}
-            onClick={() => {
+            isDisabled={!previous.length || events.isFetching}
+            onPress={() => {
               setCursor(previous.at(-1));
               setPrevious(previous.slice(0, -1));
             }}
@@ -328,12 +328,12 @@ export function SettingsAuditPage() {
           </Button>
           <Button
             variant="secondary"
-            disabled={
+            isDisabled={
               !events.data?.hasMore ||
               !events.data.nextCursor ||
               events.isFetching
             }
-            onClick={() => {
+            onPress={() => {
               setPrevious([...previous, cursor]);
               setCursor(events.data!.nextCursor!);
             }}
@@ -345,7 +345,7 @@ export function SettingsAuditPage() {
 
       <FormDrawer
         footer={
-          <Button onClick={() => setSelected(null)} variant="secondary">
+          <Button onPress={() => setSelected(null)} variant="secondary">
             {t("settings.common.close")}
           </Button>
         }

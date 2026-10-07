@@ -24,7 +24,7 @@ databaseRoles:
   telemetryQueryPassword: ""
 namespaces:
   system: argus-system
-  observability: argus-observability
+  observability: argus-system
 storageClass: standard
 images:
   registry: host.docker.internal:5001

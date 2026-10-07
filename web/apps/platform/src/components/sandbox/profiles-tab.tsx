@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -97,7 +98,7 @@ export function ProfilesTab() {
       <div className="argus-tab-toolbar">
         <Button
           variant="primary"
-          onClick={() =>
+          onPress={() =>
             setForm({
               id: null,
               name: "",
@@ -111,80 +112,84 @@ export function ProfilesTab() {
           {t("sandbox.profiles.add")}
         </Button>
       </div>
-      {(profiles.isError || toggle.isError) && (
+      {toggle.isError && (
         <Alert
           tone="danger"
           title={t("sandbox.form.saveFailed")}
-          description={String(profiles.error ?? toggle.error)}
+          description={String(toggle.error)}
         />
       )}
-      {profiles.isPending ? (
-        <Spinner />
-      ) : (
-        <DataTable<ProfileRow>
-          columns={[
-            { key: "name", header: t("sandbox.profiles.table.name") },
-            {
-              key: "imageId",
-              header: t("sandbox.profiles.table.image"),
-              render: (row) =>
-                images.data?.find((image) => image.id === row.imageId)?.name ??
-                row.imageId,
-            },
-            {
-              key: "resources",
-              header: t("sandbox.profiles.table.resources"),
-              render: (row) =>
-                `${row.resources.cpu} CPU / ${row.resources.memoryMb} MiB`,
-            },
-            {
-              key: "timeoutSeconds",
-              header: t("sandbox.profiles.form.timeoutSeconds"),
-            },
-            {
-              key: "taskKinds",
-              header: t("sandbox.profiles.table.purpose"),
-              render: (row) =>
-                row.taskKinds
-                  .map((kind) => t(`sandbox.profiles.purpose.${kind}`))
-                  .join(", "),
-            },
-            {
-              key: "networkMode",
-              header: t("sandbox.profiles.table.network"),
-              render: (row) =>
-                t(
-                  row.networkMode === "none"
-                    ? "sandbox.profiles.network.deny_all"
-                    : "sandbox.profiles.network.allow_list",
+      <QueryBoundary query={profiles} dependencies={[images]}>
+        {profiles.isPending ? (
+          <Spinner />
+        ) : (
+          <DataTable<ProfileRow>
+            columns={[
+              { key: "name", header: t("sandbox.profiles.table.name") },
+              {
+                key: "imageId",
+                header: t("sandbox.profiles.table.image"),
+                render: (row) =>
+                  images.data?.find((image) => image.id === row.imageId)
+                    ?.name ?? row.imageId,
+              },
+              {
+                key: "resources",
+                header: t("sandbox.profiles.table.resources"),
+                render: (row) =>
+                  `${row.resources.cpu} CPU / ${row.resources.memoryMb} MiB`,
+              },
+              {
+                key: "timeoutSeconds",
+                header: t("sandbox.profiles.form.timeoutSeconds"),
+              },
+              {
+                key: "taskKinds",
+                header: t("sandbox.profiles.table.purpose"),
+                render: (row) =>
+                  row.taskKinds
+                    .map((kind) => t(`sandbox.profiles.purpose.${kind}`))
+                    .join(", "),
+              },
+              {
+                key: "networkMode",
+                header: t("sandbox.profiles.table.network"),
+                render: (row) =>
+                  t(
+                    row.networkMode === "none"
+                      ? "sandbox.profiles.network.deny_all"
+                      : "sandbox.profiles.network.allow_list",
+                  ),
+              },
+              {
+                key: "enabled",
+                header: t("sandbox.profiles.table.enabled"),
+                render: (row) => (
+                  <Switch
+                    checked={row.enabled}
+                    disabled={toggle.isPending}
+                    label={t("sandbox.profiles.table.enabled")}
+                    onChange={(enabled) =>
+                      toggle.mutate({ id: row.id, enabled })
+                    }
+                  />
                 ),
-            },
-            {
-              key: "enabled",
-              header: t("sandbox.profiles.table.enabled"),
-              render: (row) => (
-                <Switch
-                  checked={row.enabled}
-                  disabled={toggle.isPending}
-                  label={t("sandbox.profiles.table.enabled")}
-                  onChange={(enabled) => toggle.mutate({ id: row.id, enabled })}
-                />
-              ),
-            },
-            {
-              key: "id",
-              header: t("common.actions"),
-              render: (row) => (
-                <RowAction onClick={() => setForm(fromProfile(row))}>
-                  {t("common.edit")}
-                </RowAction>
-              ),
-            },
-          ]}
-          data={profiles.data ?? []}
-          getRowKey={(row) => row.id}
-        />
-      )}
+              },
+              {
+                key: "id",
+                header: t("common.actions"),
+                render: (row) => (
+                  <RowAction onPress={() => setForm(fromProfile(row))}>
+                    {t("common.edit")}
+                  </RowAction>
+                ),
+              },
+            ]}
+            data={profiles.data ?? []}
+            getRowKey={(row) => row.id}
+          />
+        )}
+      </QueryBoundary>
       {form && (
         <ProfileForm
           initial={form}

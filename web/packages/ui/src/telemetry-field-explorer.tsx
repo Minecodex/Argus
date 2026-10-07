@@ -111,7 +111,7 @@ export function TelemetryFieldExplorer({
             setFieldCursor(undefined);
           }}
         />
-        <Button disabled={busy} onClick={() => void query("fields")}>
+        <Button isDisabled={busy} onPress={() => void query("fields")}>
           {text("读取字段", "Load fields")}
         </Button>
       </div>
@@ -136,9 +136,9 @@ export function TelemetryFieldExplorer({
                 <Button
                   variant="ghost"
                   size="sm"
-                  disabled={busy}
+                  isDisabled={busy}
                   aria-pressed={field === item.name}
-                  onClick={() => {
+                  onPress={() => {
                     setValueSearch("");
                     void query("values", item.name, undefined, "");
                   }}
@@ -151,8 +151,8 @@ export function TelemetryFieldExplorer({
           </ul>
           {fieldCursor && (
             <Button
-              disabled={busy}
-              onClick={() => void query("fields", "", fieldCursor)}
+              isDisabled={busy}
+              onPress={() => void query("fields", "", fieldCursor)}
             >
               {text("更多字段", "More fields")}
             </Button>
@@ -171,7 +171,7 @@ export function TelemetryFieldExplorer({
                   setValueCursor(undefined);
                 }}
               />
-              <Button disabled={busy} onClick={() => void query("values")}>
+              <Button isDisabled={busy} onPress={() => void query("values")}>
                 {text("读取字段值", "Load field values")}
               </Button>
             </div>
@@ -186,12 +186,12 @@ export function TelemetryFieldExplorer({
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={busy}
+                      isDisabled={busy}
                       aria-label={text(
                         `添加条件 ${field} = ${value}`,
                         `Add filter ${field} = ${value}`,
                       )}
-                      onClick={() => onUse(field, value)}
+                      onPress={() => onUse(field, value)}
                     >
                       {text("添加条件", "Add filter")}
                     </Button>
@@ -201,8 +201,8 @@ export function TelemetryFieldExplorer({
             </ul>
             {valueCursor && (
               <Button
-                disabled={busy}
-                onClick={() => void query("values", field, valueCursor)}
+                isDisabled={busy}
+                onPress={() => void query("values", field, valueCursor)}
               >
                 {text("更多字段值", "More field values")}
               </Button>

@@ -252,6 +252,8 @@ OTLP 收集器详情使用：
 
 “采集能力”以卡片和草稿开关配置 `host-basic`、系统日志、文件日志、Docker、Prometheus、应用 OTLP 接收等 Collection Profile。开关不立即生效；保存必须执行 Schema 校验、配置 Diff、Preview/Confirm/Commit、目标版本配置校验、重启或热加载、健康检查和失败回滚。当前 Distribution 缺少组件时先引导升级，不能动态下载未经批准的插件。
 
+当前 `host-basic` 模板启用 CPU、内存、文件系统和网络 scraper，Linux 另启用 load，并显式开启上游默认关闭的 `system.cpu.utilization`、`system.memory.utilization`。磁盘读写所需的 disk scraper 尚未纳入当前 Profile；统计图场景可以提前配置，但不能将模板存在标记为采集已启用。存量主机需要通过配置预览确认或升级应用新模板。K8s 继续使用节点/容器、集群与采集器自身的 Profile；任意插件、scraper 或单指标开关的公共配置契约属于下一轮讨论范围，见[能力核对记录](./plans/frontend-redesign/dialogs-presets-20261007.md)。
+
 ### 5.2 数据推送选择矩阵
 
 | 源主机 | 直接 Argus | 所属堡垒机 Gateway | 其他 Bastion Scope | 独立 Gateway |

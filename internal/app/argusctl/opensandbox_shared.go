@@ -22,7 +22,7 @@ import (
 
 // CompatibleOpenSandboxOwner is a read-only ownership probe shared with the E2E
 // preflight. Installation repeats the checks before using the dependency.
-func CompatibleOpenSandboxOwner(ctx context.Context, contextName, root string) (string, error) {
+func CompatibleOpenSandboxOwner(ctx context.Context, contextName, root string, pins ...*SharedSandboxController) (string, error) {
 	clients, err := clientsFor(contextName)
 	if err != nil {
 		return "", err
@@ -34,6 +34,15 @@ func CompatibleOpenSandboxOwner(ctx context.Context, contextName, root string) (
 	cfg := &InstallConfig{}
 	cfg.Spec.ReleaseID = "argus-dependency-probe"
 	cfg.Spec.Namespaces.Sandbox = "argus-dependency-probe"
+	if len(pins) > 1 {
+		return "", fmt.Errorf("one shared controller identity is required")
+	}
+	if len(pins) == 1 {
+		cfg.Spec.OpenSandbox.SharedController = pins[0]
+		if err := pins[0].validate(); err != nil {
+			return "", err
+		}
+	}
 	shared, err := sharedOpenSandboxController(ctx, cfg, clients, ch)
 	if err != nil || shared == "" {
 		return "", err
@@ -87,6 +96,9 @@ func sharedOpenSandboxController(ctx context.Context, cfg *InstallConfig, client
 		}
 	}
 	if foreign == 0 {
+		if cfg.Spec.OpenSandbox.SharedController != nil {
+			return "", fmt.Errorf("configured shared OpenSandbox controller was not found")
+		}
 		return "", nil
 	}
 	if foreign != len(expected) || found != len(expected) {
@@ -96,8 +108,17 @@ func sharedOpenSandboxController(ctx context.Context, cfg *InstallConfig, client
 	if err != nil {
 		return "", fmt.Errorf("shared OpenSandbox controller unavailable: %w", err)
 	}
-	if deployment.DeletionTimestamp != nil || deployment.Labels["app.kubernetes.io/instance"] != ownerRelease || deployment.Labels["app.kubernetes.io/version"] != "0.2.0" || deployment.Status.AvailableReplicas < 1 || deployment.Status.ObservedGeneration < deployment.Generation {
+	if deployment.DeletionTimestamp != nil || deployment.Labels["app.kubernetes.io/instance"] != ownerRelease || deployment.Status.AvailableReplicas < 1 || deployment.Status.ObservedGeneration < deployment.Generation {
 		return "", fmt.Errorf("shared OpenSandbox controller owner/version/readiness mismatch")
+	}
+	if pin := cfg.Spec.OpenSandbox.SharedController; pin != nil {
+		if err := verifySharedSandboxController(ctx, clients, deployment, pin); err != nil {
+			return "", err
+		}
+		return ownerNS + "/" + deployment.Name, nil
+	}
+	if deployment.Labels["app.kubernetes.io/version"] != "0.2.0" {
+		return "", fmt.Errorf("shared OpenSandbox controller version does not match v0.2.0")
 	}
 	compatibleImage := false
 	for _, container := range deployment.Spec.Template.Spec.Containers {

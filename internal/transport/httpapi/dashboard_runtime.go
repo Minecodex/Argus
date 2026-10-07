@@ -54,7 +54,7 @@ func (handler DashboardHandler) SampleDashboardDraft(ctx context.Context, r api.
 	if r.Body == nil {
 		return api.SampleDashboardDraftdefaultJSONResponse{Body: dashboardError(ctx, dashboard.ErrInvalid), StatusCode: 400}, nil
 	}
-	result, err := handler.Runtime.SampleDraft(ctx, actor, r.Id, r.Body.ExpectedVersion)
+	result, err := handler.Runtime.SampleDraft(ctx, actor, r.Id, r.Body.ExpectedVersion, dashboardConvert[dashboard.ExecutionInput](r.Body.Parameters))
 	if err != nil {
 		return api.SampleDashboardDraftdefaultJSONResponse{Body: dashboardError(ctx, err), StatusCode: dashboardStatus(err)}, nil
 	}

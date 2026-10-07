@@ -115,7 +115,7 @@ export function QuotaEditor({
       }
       footer={
         !canEdit ? (
-          <Button onClick={onClose} variant="secondary">
+          <Button onPress={onClose} variant="secondary">
             {t("common.close")}
           </Button>
         ) : undefined

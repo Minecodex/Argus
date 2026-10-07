@@ -1,3 +1,4 @@
+import { Button } from "./button";
 import type { ReactNode } from "react";
 
 import { cx } from "./lib";
@@ -11,7 +12,8 @@ export type ScenarioLayout = "pair" | "member";
  * 竖线槽位 left(下行)/right(上行),横线槽位 h(堡垒机 → Argus)。
  */
 export type ScenarioSlot = "top" | "mid" | "bottom" | "left" | "right" | "h";
-export type ScenarioLinkDirection = "both" | "left" | "right" | "up" | "down" | "none";
+export type ScenarioLinkDirection =
+  "both" | "left" | "right" | "up" | "down" | "none";
 
 export type ScenarioLink = {
   mode: ScenarioLinkMode;
@@ -49,7 +51,11 @@ const LAYOUTS = {
   },
 } as const;
 
-const MODE_COLORS = { ok: "var(--success)", blocked: "var(--danger)", tunnel: "var(--warning)" } as const;
+const MODE_COLORS = {
+  ok: "var(--success)",
+  blocked: "var(--danger)",
+  tunnel: "var(--warning)",
+} as const;
 const MODE_DASHES = { ok: undefined, blocked: "5 4", tunnel: "5 4" } as const;
 
 /**
@@ -72,7 +78,14 @@ export function TopologyDiagram({
   const geometryHSlots = "hSlots" in geometry ? geometry.hSlots : undefined;
   const geometryVSlots = "vSlots" in geometry ? geometry.vSlots : undefined;
   const geometryHSlot = "hSlot" in geometry ? geometry.hSlot : undefined;
-  const line = (x1: number, y1: number, x2: number, y2: number, mode: ScenarioLinkMode, key: number) => (
+  const line = (
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    mode: ScenarioLinkMode,
+    key: number,
+  ) => (
     <line
       key={`l${key}`}
       stroke={MODE_COLORS[mode]}
@@ -101,12 +114,24 @@ export function TopologyDiagram({
             <g key={index}>
               {line(x1, y, x2, y, link.mode, index)}
               {(link.direction === "both" || link.direction === "left") && (
-                <path d={`M ${x1} ${y} L ${x1 + 6} ${y - 3.5} L ${x1 + 6} ${y + 3.5} Z`} fill={color} />
+                <path
+                  d={`M ${x1} ${y} L ${x1 + 6} ${y - 3.5} L ${x1 + 6} ${y + 3.5} Z`}
+                  fill={color}
+                />
               )}
               {(link.direction === "both" || link.direction === "right") && (
-                <path d={`M ${x2} ${y} L ${x2 - 6} ${y - 3.5} L ${x2 - 6} ${y + 3.5} Z`} fill={color} />
+                <path
+                  d={`M ${x2} ${y} L ${x2 - 6} ${y - 3.5} L ${x2 - 6} ${y + 3.5} Z`}
+                  fill={color}
+                />
               )}
-              <text fill={color} fontSize={9} textAnchor="middle" x={(x1 + x2) / 2} y={y - 6}>
+              <text
+                fill={color}
+                fontSize={9}
+                textAnchor="middle"
+                x={(x1 + x2) / 2}
+                y={y - 6}
+              >
                 {link.label}
               </text>
             </g>
@@ -120,9 +145,18 @@ export function TopologyDiagram({
             <g key={index}>
               {line(x1, y, x2, y, link.mode, index)}
               {(link.direction === "both" || link.direction === "right") && (
-                <path d={`M ${x2} ${y} L ${x2 - 6} ${y - 3.5} L ${x2 - 6} ${y + 3.5} Z`} fill={color} />
+                <path
+                  d={`M ${x2} ${y} L ${x2 - 6} ${y - 3.5} L ${x2 - 6} ${y + 3.5} Z`}
+                  fill={color}
+                />
               )}
-              <text fill={color} fontSize={9} textAnchor="middle" x={(x1 + x2) / 2} y={y - 6}>
+              <text
+                fill={color}
+                fontSize={9}
+                textAnchor="middle"
+                x={(x1 + x2) / 2}
+                y={y - 6}
+              >
                 {link.label}
               </text>
             </g>
@@ -136,10 +170,16 @@ export function TopologyDiagram({
           <g key={index}>
             {line(x, y1, x, y2, link.mode, index)}
             {link.direction === "down" && (
-              <path d={`M ${x} ${y2} L ${x - 3.5} ${y2 - 6} L ${x + 3.5} ${y2 - 6} Z`} fill={color} />
+              <path
+                d={`M ${x} ${y2} L ${x - 3.5} ${y2 - 6} L ${x + 3.5} ${y2 - 6} Z`}
+                fill={color}
+              />
             )}
             {link.direction === "up" && (
-              <path d={`M ${x} ${y1} L ${x - 3.5} ${y1 + 6} L ${x + 3.5} ${y1 + 6} Z`} fill={color} />
+              <path
+                d={`M ${x} ${y1} L ${x - 3.5} ${y1 + 6} L ${x + 3.5} ${y1 + 6} Z`}
+                fill={color}
+              />
             )}
             <text fill={color} fontSize={9} x={100} y={labelY}>
               {link.label}
@@ -156,7 +196,9 @@ export function TopologyDiagram({
               fill="var(--bg-surface)"
               height={NODE_H}
               rx={7}
-              stroke={node.kind === "argus" ? "var(--accent)" : "var(--border-strong)"}
+              stroke={
+                node.kind === "argus" ? "var(--accent)" : "var(--border-strong)"
+              }
               strokeWidth={1.1}
               width={NODE_W}
               x={position.x}
@@ -192,6 +234,8 @@ export function ScenarioCard({
   statusLabel,
   diagram,
   footer,
+  className,
+  ariaLabel,
 }: {
   title: string;
   /** 讨论场景编号徽章,如「场景 ①」;缺省不渲染。 */
@@ -201,22 +245,37 @@ export function ScenarioCard({
   onSelect: () => void;
   status?: "supported" | "planned" | "unavailable";
   statusLabel?: string;
-  diagram: ReactNode;
+  diagram?: ReactNode;
+  className?: string;
+  ariaLabel?: string;
   footer?: ReactNode;
 }) {
   const tone =
-    status === "supported" ? "success" : status === "planned" ? "warning" : "danger";
+    status === "supported"
+      ? "success"
+      : status === "planned"
+        ? "warning"
+        : "danger";
   return (
-    <button
+    <Button
+      variant="ghost"
+      layout="content"
       aria-pressed={selected}
-      className={cx("argus-scenario-card", selected && "is-selected")}
-      disabled={status !== "supported"}
-      onClick={onSelect}
+      className={cx(
+        "argus-scenario-card",
+        selected && "is-selected",
+        className,
+      )}
+      aria-label={ariaLabel}
+      isDisabled={status !== "supported"}
+      onPress={onSelect}
       type="button"
     >
       <span className="argus-scenario-card__head">
         <span className="argus-scenario-card__title">{title}</span>
-        {refLabel && <span className="argus-scenario-card__ref">{refLabel}</span>}
+        {refLabel && (
+          <span className="argus-scenario-card__ref">{refLabel}</span>
+        )}
         {statusLabel && (
           <Badge className="argus-scenario-card__badge" tone={tone}>
             {statusLabel}
@@ -226,7 +285,7 @@ export function ScenarioCard({
       <span className="argus-scenario-card__desc">{description}</span>
       {diagram}
       {footer}
-    </button>
+    </Button>
   );
 }
 

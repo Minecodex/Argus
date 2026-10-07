@@ -25,6 +25,10 @@ func suiteFixtureFeatures(suite string) fixtureFeatures {
 	features := fixtureFeatures{}
 	for _, dependency := range suiteDependencies[suite] {
 		switch dependency {
+		case "m2":
+			// The installer publishes Collector/Connector bundles for every
+			// release. M2 needs valid signed artifacts even without telemetry tests.
+			features.Artifact = true
 		case "p5":
 			features.Replay = true
 			// Installation publishes signed Collector/Connector artifacts even

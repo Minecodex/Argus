@@ -9,7 +9,7 @@ export function mockDashboardCatalog(
     {
       name: "system_cpu_utilization",
       type: "gauge",
-      unit: "%",
+      unit: "percent_ratio",
       labels: ["host", "state"],
     },
     {

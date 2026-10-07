@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -53,48 +54,50 @@ export function QuotasTab() {
 
   return (
     <div className="argus-platform-stack">
-      {isPending ? (
-        <Spinner />
-      ) : rows.length === 0 ? (
-        <EmptyState description="" title={t("sandbox.quotas.empty")} />
-      ) : (
-        <DataTable<QuotaRow>
-          columns={[
-            {
-              key: "enterpriseName",
-              header: t("sandbox.quotas.table.enterprise"),
-            },
-            {
-              key: "maxConcurrentSessions",
-              header: t("sandbox.quotas.table.concurrent"),
-              align: "right",
-            },
-            {
-              key: "monthlySessionSeconds",
-              header: t("sandbox.quotas.table.monthlySeconds"),
-              align: "right",
-            },
-            {
-              key: "enterpriseId",
-              header: t("common.actions"),
-              render: (row) => (
-                <RowAction
-                  onClick={() =>
-                    setEditing({
-                      id: row.enterpriseId,
-                      name: row.enterpriseName,
-                    })
-                  }
-                >
-                  {t("sandbox.quotas.edit")}
-                </RowAction>
-              ),
-            },
-          ]}
-          data={rows}
-          getRowKey={(row) => row.enterpriseId}
-        />
-      )}
+      <QueryBoundary query={enterprises} dependencies={[...quotas]}>
+        {isPending ? (
+          <Spinner />
+        ) : rows.length === 0 ? (
+          <EmptyState description="" title={t("sandbox.quotas.empty")} />
+        ) : (
+          <DataTable<QuotaRow>
+            columns={[
+              {
+                key: "enterpriseName",
+                header: t("sandbox.quotas.table.enterprise"),
+              },
+              {
+                key: "maxConcurrentSessions",
+                header: t("sandbox.quotas.table.concurrent"),
+                align: "right",
+              },
+              {
+                key: "monthlySessionSeconds",
+                header: t("sandbox.quotas.table.monthlySeconds"),
+                align: "right",
+              },
+              {
+                key: "enterpriseId",
+                header: t("common.actions"),
+                render: (row) => (
+                  <RowAction
+                    onPress={() =>
+                      setEditing({
+                        id: row.enterpriseId,
+                        name: row.enterpriseName,
+                      })
+                    }
+                  >
+                    {t("sandbox.quotas.edit")}
+                  </RowAction>
+                ),
+              },
+            ]}
+            data={rows}
+            getRowKey={(row) => row.enterpriseId}
+          />
+        )}
+      </QueryBoundary>
 
       {editing && (
         <QuotaEditor

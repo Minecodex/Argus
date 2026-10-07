@@ -77,8 +77,8 @@ export function MfaStepUpDialog({
       footer={
         <>
           <Button
-            disabled={form.formState.isSubmitting}
-            onClick={() => onOpenChange(false)}
+            isDisabled={form.formState.isSubmitting}
+            onPress={() => onOpenChange(false)}
             type="button"
             variant="secondary"
           >
@@ -86,7 +86,7 @@ export function MfaStepUpDialog({
           </Button>
           <Button
             form={formId}
-            loading={form.formState.isSubmitting}
+            isPending={form.formState.isSubmitting}
             type="submit"
             variant="primary"
           >

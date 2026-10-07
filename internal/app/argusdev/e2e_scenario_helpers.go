@@ -57,6 +57,20 @@ func (a *App) refreshEnterpriseLogin(ctx context.Context, env *E2EEnvironment) e
 	return nil
 }
 
+func (a *App) refreshPlatformLogin(ctx context.Context, env *E2EEnvironment) error {
+	client, err := scenarioHTTP(env)
+	if err != nil {
+		return err
+	}
+	mfa := scenarioMFA{Secret: env.State.Values["platform_mfa_secret"], LastCode: env.State.Values["platform_mfa_last"]}
+	csrf, err := completeScenarioMFALogin(ctx, client, "platform", "platform", env.PlatformOrigin(), env.State.Values["platform_username"], env.State.Values["platform_password"], &mfa)
+	if err != nil {
+		return err
+	}
+	env.State.Values["platform_csrf"], env.State.Values["platform_mfa_last"] = csrf, mfa.LastCode
+	return nil
+}
+
 func (a *App) stepUpEnterprise(ctx context.Context, env *E2EEnvironment) error {
 	client, err := scenarioHTTP(env)
 	if err != nil {

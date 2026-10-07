@@ -3,7 +3,7 @@ profile: evaluation
 namespaces:
   system: argus-system
   sandbox: argus-sandbox
-  observability: argus-observability
+  observability: argus-system
 hosts:
   enterprise: argus.example.com
   platform: platform.argus.example.com
@@ -92,10 +92,10 @@ runtime:
   # 外部 Collector(主机/外部集群)可达的 ingest 主机名;为空时仅用集群内
   # Service 地址(E2E 同集群目标)。设置后:证书追加该 SAN,并创建公网 LB。
   telemetryExternalIngestHost: ""
-  telemetryIngestGrpcEndpoint: grpcs://argus-telemetry-ingest.argus-observability.svc:4317
-  telemetryIngestHttpEndpoint: https://argus-telemetry-ingest.argus-observability.svc:4318
+  telemetryIngestGrpcEndpoint: grpcs://argus-telemetry-ingest.argus-system.svc:4317
+  telemetryIngestHttpEndpoint: https://argus-telemetry-ingest.argus-system.svc:4318
   telemetryIdentityForwardEndpoint: ""
-  telemetryEnrollmentEndpoint: https://argus-telemetry-ingest.argus-observability.svc:4318/v1/identity/enroll
+  telemetryEnrollmentEndpoint: https://argus-telemetry-ingest.argus-system.svc:4318/v1/identity/enroll
   telemetryToolCatalogEnabled: true
   otelcolVersion: 0.1.0-m7
   otelcolLinuxArm64Uri: ""

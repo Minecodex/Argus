@@ -247,7 +247,11 @@ func hostReceivers(profiles map[string]bool, platform string) map[string]any {
 		receivers["otlp"] = otlpReceiver("127.0.0.1")
 	}
 	if profiles["host-basic"] {
-		scrapers := map[string]any{"cpu": map[string]any{}, "memory": map[string]any{}, "filesystem": map[string]any{}, "network": map[string]any{}}
+		scrapers := map[string]any{
+			"cpu":        map[string]any{"metrics": map[string]any{"system.cpu.utilization": map[string]any{"enabled": true}}},
+			"memory":     map[string]any{"metrics": map[string]any{"system.memory.utilization": map[string]any{"enabled": true}}},
+			"filesystem": map[string]any{}, "network": map[string]any{},
+		}
 		if platform != "windows_amd64" {
 			scrapers["load"] = map[string]any{}
 		}

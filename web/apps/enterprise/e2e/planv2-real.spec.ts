@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { createMfaLogin } from "./helpers/mfa-login";
+import { setChoice } from "./helpers/choice";
 
 test.use({ actionTimeout: 10000, navigationTimeout: 30000 });
 
@@ -92,9 +93,12 @@ for (const locale of ["zh-CN", "en-US"])
           name: "Environment",
           exact: true,
         });
-        await choices
-          .getByRole("checkbox", { name: tx("全部", "All"), exact: true })
-          .check();
+        await setChoice(
+          choices.getByRole("checkbox", {
+            name: tx("全部", "All"),
+            exact: true,
+          }),
+        );
         const changed = page.waitForResponse(
           (r) =>
             r.url().includes(`/dashboards/${dashboardId}/execute`) &&

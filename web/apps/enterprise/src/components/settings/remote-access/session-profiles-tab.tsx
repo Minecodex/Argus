@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -189,7 +190,7 @@ export function SessionProfilesTab() {
           {t("remoteAccess.sessionProfiles")}
         </h2>
         <Button
-          onClick={() => {
+          onPress={() => {
             setEditing(null);
             setOpen(true);
           }}
@@ -199,47 +200,49 @@ export function SessionProfilesTab() {
           {t("remoteAccess.newSessionProfile")}
         </Button>
       </div>
-      {items.length === 0 ? (
-        <EmptyState
-          description=""
-          title={t("remoteAccess.noSessionProfiles")}
-        />
-      ) : (
-        <GovernanceList
-          extraColumns={[
-            {
-              key: "duration",
-              header: t("remoteAccess.limits"),
-              render: (row) =>
-                `${row.max_session_seconds / 60}m / ${row.idle_timeout_seconds / 60}m`,
-            },
-            {
-              key: "recording",
-              header: t("remoteAccess.recording"),
-              render: (row) =>
-                `${row.recording_mode} · ${row.command_audit_mode}`,
-            },
-          ]}
-          items={items}
-          onArchive={(id) =>
-            lifecycle(api.remoteAccess.archiveSessionProfile, id)
-          }
-          onDisable={(id) =>
-            lifecycle(api.remoteAccess.disableSessionProfile, id)
-          }
-          onEdit={(item) => {
-            setEditing(item);
-            setOpen(true);
-          }}
-          onEnable={(id) =>
-            lifecycle(api.remoteAccess.enableSessionProfile, id)
-          }
-          onRestore={(id) =>
-            lifecycle(api.remoteAccess.restoreSessionProfile, id)
-          }
-          references={api.remoteAccess.getSessionProfileReferences}
-        />
-      )}
+      <QueryBoundary query={query}>
+        {items.length === 0 ? (
+          <EmptyState
+            description=""
+            title={t("remoteAccess.noSessionProfiles")}
+          />
+        ) : (
+          <GovernanceList
+            extraColumns={[
+              {
+                key: "duration",
+                header: t("remoteAccess.limits"),
+                render: (row) =>
+                  `${row.max_session_seconds / 60}m / ${row.idle_timeout_seconds / 60}m`,
+              },
+              {
+                key: "recording",
+                header: t("remoteAccess.recording"),
+                render: (row) =>
+                  `${row.recording_mode} · ${row.command_audit_mode}`,
+              },
+            ]}
+            items={items}
+            onArchive={(id) =>
+              lifecycle(api.remoteAccess.archiveSessionProfile, id)
+            }
+            onDisable={(id) =>
+              lifecycle(api.remoteAccess.disableSessionProfile, id)
+            }
+            onEdit={(item) => {
+              setEditing(item);
+              setOpen(true);
+            }}
+            onEnable={(id) =>
+              lifecycle(api.remoteAccess.enableSessionProfile, id)
+            }
+            onRestore={(id) =>
+              lifecycle(api.remoteAccess.restoreSessionProfile, id)
+            }
+            references={api.remoteAccess.getSessionProfileReferences}
+          />
+        )}
+      </QueryBoundary>
       <FormDrawer
         description={t("remoteAccess.sessionProfileDescription")}
         loading={save.isPending}

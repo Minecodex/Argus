@@ -40,11 +40,7 @@ import {
  * 一次性系统初始化向导（docs/07 §2-4）。
  * 仅平台 `uninitialized` 状态可进入；提交为单事务，成功后向导永久关闭。
  */
-export function PlatformSetupGate({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function PlatformSetupGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
@@ -150,7 +146,7 @@ export function PlatformSetupGate({
               title={t("setup.statusError.title")}
               tone="danger"
             />
-            <Button onClick={() => statusQuery.refetch()} variant="secondary">
+            <Button onPress={() => statusQuery.refetch()} variant="secondary">
               {t("setup.statusError.retry")}
             </Button>
           </div>

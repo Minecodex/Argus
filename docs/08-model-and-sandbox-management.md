@@ -53,6 +53,8 @@ M4 通过 Lifecycle Adapter 管理 Backend、摘要固定的 Image、版本化 P
 
 Replay OpenSandbox 只用于 `m4e2e` build tag 的固定 Smoke，不向 Model Catalog 暴露执行、文件或任意代码 Tool。生产 Artifact 扫描必须证明 Replay Provider、测试私网放行和 mock seed 不在生产镜像中。
 
+平台概览与 Sandbox 用量页使用 `GET /platform/overview` 的完整计数和月度聚合，不通过分页明细累加平台总量。在同一只读数据库快照中，汇总当前 UTC 月及之前 11 个月的已记录 Session 数和时长；运行中时长与 CPU 消耗不推算。未提供的 CPU 指标显示未知，加载、失败、无权限和真实零结果分别呈现。该接口只允许平台管理员会话访问。
+
 ## 8. 测试要求
 
 API 测试覆盖创建成功、兼容性失败不落库、密钥不回显、Context Window/能力探测、Revision、价格快照、月金额、无限额度、部门池与个人上限组合、跨部门拒绝、普通推理与 Compaction 预留结算。Sandbox 测试覆盖 Profile 选择、并发/月度配额、重复创建对账、响应丢失、超时清理和 Usage 单次结算。E2E 覆盖双协议模型、额度配置、Chat 调用、平台 Sandbox 治理与固定 Smoke。

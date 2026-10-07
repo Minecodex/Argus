@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -93,81 +94,85 @@ export function SessionsTab() {
         tone="info"
       />
 
-      {sessions.isPending ? (
-        <Spinner />
-      ) : rows.length === 0 ? (
-        <EmptyState description="" title={t("sandbox.sessions.empty")} />
-      ) : (
-        <DataTable<SessionRow>
-          columns={[
-            {
-              key: "id",
-              header: t("sandbox.sessions.table.id"),
-              render: (row) => <code className="argus-mono">{row.id}</code>,
-            },
-            {
-              key: "enterpriseName",
-              header: t("sandbox.sessions.table.enterprise"),
-            },
-            {
-              key: "profileName",
-              header: t("sandbox.sessions.table.profile"),
-            },
-            {
-              key: "userId",
-              header: t("sandbox.sessions.table.user"),
-              render: (row) => (
-                <span title={row.userId}>
-                  {t("sandbox.sessions.enterpriseUser")} ·{" "}
-                  <code className="argus-mono">{shortReference(row.userId)}</code>
-                </span>
-              ),
-            },
-            {
-              key: "purpose",
-              header: t("sandbox.sessions.table.purpose"),
-              render: (row) => row.purpose || t("common.none"),
-            },
-            {
-              key: "status",
-              header: t("sandbox.sessions.table.status"),
-              render: (row) => (
-                <StatusBadge
-                  pulse={row.status === "running"}
-                  tone={statusTone(row.status)}
-                >
-                  {t(`sandbox.sessions.status.${row.status}`)}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "startedAt",
-              header: t("sandbox.sessions.table.startedAt"),
-              render: (row) => formatDateTime(row.startedAt, i18n.language),
-            },
-            {
-              key: "lastActivityAt",
-              header: t("sandbox.sessions.table.lastActivity"),
-              render: (row) =>
-                formatDateTime(row.lastActivityAt, i18n.language),
-            },
-            {
-              key: "terminate",
-              header: t("common.actions"),
-              render: (row) =>
-                isActive(row.status) ? (
-                  <RowAction danger onClick={() => setTerminating(row)}>
-                    {t("sandbox.sessions.terminate")}
-                  </RowAction>
-                ) : (
-                  t("common.none")
+      <QueryBoundary query={sessions} dependencies={[enterprises, profiles]}>
+        {sessions.isPending ? (
+          <Spinner />
+        ) : rows.length === 0 ? (
+          <EmptyState description="" title={t("sandbox.sessions.empty")} />
+        ) : (
+          <DataTable<SessionRow>
+            columns={[
+              {
+                key: "id",
+                header: t("sandbox.sessions.table.id"),
+                render: (row) => <code className="argus-mono">{row.id}</code>,
+              },
+              {
+                key: "enterpriseName",
+                header: t("sandbox.sessions.table.enterprise"),
+              },
+              {
+                key: "profileName",
+                header: t("sandbox.sessions.table.profile"),
+              },
+              {
+                key: "userId",
+                header: t("sandbox.sessions.table.user"),
+                render: (row) => (
+                  <span title={row.userId}>
+                    {t("sandbox.sessions.enterpriseUser")} ·{" "}
+                    <code className="argus-mono">
+                      {shortReference(row.userId)}
+                    </code>
+                  </span>
                 ),
-            },
-          ]}
-          data={rows}
-          getRowKey={(row) => row.id}
-        />
-      )}
+              },
+              {
+                key: "purpose",
+                header: t("sandbox.sessions.table.purpose"),
+                render: (row) => row.purpose || t("common.none"),
+              },
+              {
+                key: "status",
+                header: t("sandbox.sessions.table.status"),
+                render: (row) => (
+                  <StatusBadge
+                    pulse={row.status === "running"}
+                    tone={statusTone(row.status)}
+                  >
+                    {t(`sandbox.sessions.status.${row.status}`)}
+                  </StatusBadge>
+                ),
+              },
+              {
+                key: "startedAt",
+                header: t("sandbox.sessions.table.startedAt"),
+                render: (row) => formatDateTime(row.startedAt, i18n.language),
+              },
+              {
+                key: "lastActivityAt",
+                header: t("sandbox.sessions.table.lastActivity"),
+                render: (row) =>
+                  formatDateTime(row.lastActivityAt, i18n.language),
+              },
+              {
+                key: "terminate",
+                header: t("common.actions"),
+                render: (row) =>
+                  isActive(row.status) ? (
+                    <RowAction danger onPress={() => setTerminating(row)}>
+                      {t("sandbox.sessions.terminate")}
+                    </RowAction>
+                  ) : (
+                    t("common.none")
+                  ),
+              },
+            ]}
+            data={rows}
+            getRowKey={(row) => row.id}
+          />
+        )}
+      </QueryBoundary>
 
       <ConfirmDialog
         danger

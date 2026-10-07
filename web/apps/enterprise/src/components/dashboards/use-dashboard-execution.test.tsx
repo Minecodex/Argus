@@ -314,6 +314,22 @@ it("cancels a query when time changes, rejects revision drift, and aborts on his
   expect(f.pending[3]!.signal.aborted).toBe(true);
 });
 
+it("keeps viewer refresh overrides temporary and reschedules the timer", async () => {
+  const f = fixture();
+  await f.finish(0);
+  expect(f.result.current.refreshSeconds).toBe(5);
+  act(() => f.result.current.setRefreshSeconds(0));
+  await act(async () => vi.advanceTimersByTimeAsync(30000));
+  expect(f.execute).toHaveBeenCalledTimes(1);
+  act(() => f.result.current.setRefreshSeconds(10));
+  await act(async () => vi.advanceTimersByTimeAsync(9999));
+  expect(f.execute).toHaveBeenCalledTimes(1);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(f.execute).toHaveBeenCalledTimes(2);
+  expect(f.pending[1]!.input.panel_ids).toBeUndefined();
+  expect(f.spec.default_refresh_seconds).toBe(5);
+});
+
 it("retains selection on candidate failure instead of inventing an All fallback", async () => {
   const f = fixture();
   await f.finish(0);

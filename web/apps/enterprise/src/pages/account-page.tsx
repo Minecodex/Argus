@@ -398,7 +398,7 @@ export function AccountPage() {
               <p>{t("account.mfa.description")}</p>
               {session.mfa_state !== "enabled" ? (
                 <Button
-                  onClick={() => void beginEnrollment()}
+                  onPress={() => void beginEnrollment()}
                   variant="primary"
                 >
                   {t("account.mfa.enroll")}
@@ -427,14 +427,14 @@ export function AccountPage() {
                   </Field>
                   <div className="argus-account-security__actions">
                     <Button
-                      disabled={proofForm.formState.isSubmitting}
+                      isDisabled={proofForm.formState.isSubmitting}
                       type="submit"
                       value="step-up"
                     >
                       {t("account.mfa.stepUp")}
                     </Button>
                     <Button
-                      disabled={proofForm.formState.isSubmitting}
+                      isDisabled={proofForm.formState.isSubmitting}
                       type="submit"
                       value="regenerate"
                       variant="secondary"
@@ -442,7 +442,7 @@ export function AccountPage() {
                       {t("account.mfa.regenerate")}
                     </Button>
                     <Button
-                      disabled={proofForm.formState.isSubmitting}
+                      isDisabled={proofForm.formState.isSubmitting}
                       type="submit"
                       value="disable"
                       variant="danger"
@@ -507,7 +507,7 @@ export function AccountPage() {
                   />
                 </Field>
                 <Button
-                  disabled={breakGlassForm.formState.isSubmitting}
+                  isDisabled={breakGlassForm.formState.isSubmitting}
                   type="submit"
                   variant="danger"
                 >
@@ -530,7 +530,7 @@ export function AccountPage() {
                       </small>
                     </div>
                     <Button
-                      onClick={() => void revokeBreakGlass(item.id)}
+                      onPress={() => void revokeBreakGlass(item.id)}
                       variant="secondary"
                     >
                       {t("account.breakGlass.revoke")}
@@ -594,7 +594,7 @@ export function AccountPage() {
                 />
               </Field>
               <Button
-                disabled={passwordForm.formState.isSubmitting}
+                isDisabled={passwordForm.formState.isSubmitting}
                 type="submit"
                 variant="primary"
               >
@@ -609,7 +609,7 @@ export function AccountPage() {
         description={t("account.mfa.enrollmentDescription")}
         footer={
           <Button
-            disabled={enrollmentForm.formState.isSubmitting}
+            isDisabled={enrollmentForm.formState.isSubmitting}
             form="enterprise-mfa-enrollment-form"
             type="submit"
             variant="primary"
@@ -663,7 +663,7 @@ export function AccountPage() {
       <Dialog
         description={t("account.mfa.recoveryDescription")}
         footer={
-          <Button onClick={() => setRecoveryCodes(null)} variant="primary">
+          <Button onPress={() => setRecoveryCodes(null)} variant="primary">
             {t("common.close")}
           </Button>
         }

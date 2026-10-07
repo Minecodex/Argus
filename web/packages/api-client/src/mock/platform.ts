@@ -14,6 +14,65 @@ export function createPlatformDomain(
   };
 
   return {
+    overview: {
+      async get() {
+        await platformPause();
+        const sampled = new Date(ctx.nowIso());
+        const month = new Date(
+          Date.UTC(sampled.getUTCFullYear(), sampled.getUTCMonth(), 1),
+        );
+        const from = new Date(
+          Date.UTC(month.getUTCFullYear(), month.getUTCMonth() - 11, 1),
+        )
+          .toISOString()
+          .slice(0, 7);
+        const to = new Date(
+          Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1),
+        )
+          .toISOString()
+          .slice(0, 7);
+        const usage = new Map<
+          string,
+          { month: string; session_count: number; session_seconds: number }
+        >();
+        for (const point of db.sandboxUsage) {
+          const key = point.date.slice(0, 7);
+          if (key < from || key >= to) continue;
+          const value = usage.get(key) ?? {
+            month: key,
+            session_count: 0,
+            session_seconds: 0,
+          };
+          value.session_count += point.sessions;
+          value.session_seconds += point.sessionMinutes * 60;
+          usage.set(key, value);
+        }
+        return {
+          sampled_at: sampled.toISOString(),
+          enterprise_count: db.enterprises.length,
+          active_enterprise_count: db.enterprises.filter(
+            (item) => item.status === "active",
+          ).length,
+          active_sandbox_session_count: db.sandboxSessions.filter((item) =>
+            [
+              "requested",
+              "starting",
+              "running",
+              "idle",
+              "terminating",
+            ].includes(item.status),
+          ).length,
+          pending_admin_count: db.enterpriseAdmins.filter(
+            (item) => item.credentialStatus === "temporary_password",
+          ).length,
+          usage_from_month: from,
+          usage_to_month: to,
+          monthly_usage: [...usage.values()].sort((a, b) =>
+            a.month.localeCompare(b.month),
+          ),
+        };
+      },
+    },
     enterprises: {
       async list(query) {
         await platformPause();

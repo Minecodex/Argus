@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   formatApiError,
@@ -17,6 +17,7 @@ export function DrilldownViewer({
   initialRow,
   initialTarget,
   onClose,
+  draft,
 }: {
   dashboardId: string;
   panel: DashboardPanel;
@@ -24,6 +25,7 @@ export function DrilldownViewer({
   initialRow: Record<string, unknown>;
   initialTarget: string;
   onClose: () => void;
+  draft?: { id: string; version: number };
 }) {
   const api = useApi(),
     { t } = useTranslation();
@@ -37,6 +39,15 @@ export function DrilldownViewer({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const [origins, setOrigins] = useState<Array<typeof selected>>([]);
+  const request = useRef<AbortController | null>(null);
+  const generation = useRef(0);
+  useEffect(
+    () => () => {
+      request.current?.abort();
+      generation.current++;
+    },
+    [],
+  );
   const current = steps.at(-1);
   const target =
     current &&
@@ -51,6 +62,10 @@ export function DrilldownViewer({
       ),
   );
   const execute = async (d: DashboardSchemas["DashboardDrilldown"]) => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    const attempt = ++generation.current;
     setBusy(true);
     setError("");
     try {
@@ -60,24 +75,38 @@ export function DrilldownViewer({
           scalarPointer(selected.row, pointer)!,
         ]),
       );
-      const result = await api.dashboards.drilldown(dashboardId, {
+      const input = {
         context_token: current?.context_token ?? token,
         panel_id: panel.id,
         drilldown_id: d.id,
         values,
         expand_authorized_resources: d.scope_policy === "authorized_trace",
-      });
+      };
+      const result = draft
+        ? (
+            await api.dashboards.draftDrilldown(
+              draft.id,
+              {
+                ...input,
+                expected_version: draft.version,
+              },
+              controller.signal,
+            )
+          ).execution
+        : await api.dashboards.drilldown(dashboardId, input, controller.signal);
+      if (controller.signal.aborted || attempt !== generation.current) return;
       setSteps([...steps, result]);
       setOrigins([...origins, selected]);
       setSelected({ row: {}, target: result.result.id });
     } catch (e) {
+      if (controller.signal.aborted || attempt !== generation.current) return;
       setError(
         formatApiError(e, t("dashboards.failed"), (requestId) =>
           t("common.requestReference", { requestId }),
         ),
       );
     } finally {
-      setBusy(false);
+      if (attempt === generation.current) setBusy(false);
     }
   };
   const signal = target?.signal ?? panel.signal,
@@ -113,8 +142,8 @@ export function DrilldownViewer({
         <div className="argus-dashboard-inline">
           {steps.length > 0 && (
             <Button
-              disabled={busy}
-              onClick={() => {
+              isDisabled={busy}
+              onPress={() => {
                 setSteps(steps.slice(0, -1));
                 setSelected(origins.at(-1)!);
                 setOrigins(origins.slice(0, -1));
@@ -127,11 +156,11 @@ export function DrilldownViewer({
           {actions.map((d) => (
             <Button
               key={d.id}
-              disabled={busy}
+              isDisabled={busy}
               variant={
                 d.scope_policy === "authorized_trace" ? "primary" : "secondary"
               }
-              onClick={() => void execute(d)}
+              onPress={() => void execute(d)}
             >
               {d.title ||
                 (d.scope_policy === "authorized_trace"

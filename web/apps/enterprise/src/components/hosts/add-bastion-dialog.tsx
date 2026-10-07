@@ -903,7 +903,7 @@ function SelectedMode({
         <span>{t("hosts.wizard.selectedMode")}</span>
         <strong>{t(`hosts.bastionForm.titleOf.${mode}`)}</strong>
       </div>
-      <Button onClick={onChange} type="button" variant="ghost">
+      <Button onPress={onChange} type="button" variant="ghost">
         {t("hosts.wizard.changeMode")}
       </Button>
     </div>
@@ -1004,10 +1004,10 @@ function OperationProgress({
       )}
       {failed && !pendingAction && (
         <div className="argus-form-actions">
-          <Button onClick={onRetry} variant="primary">
+          <Button onPress={onRetry} variant="primary">
             {t("hosts.bastionForm.retryInstall")}
           </Button>
-          <Button onClick={onRetest} variant="secondary">
+          <Button onPress={onRetest} variant="secondary">
             {t("hosts.bastionForm.returnToTest")}
           </Button>
         </div>
@@ -1058,25 +1058,25 @@ function renderFooter({
             : t("hosts.bastionForm.footerInstallHint")}
       </span>
       {phase === "select_mode" && (
-        <Button onClick={() => close(false)} variant="secondary">
+        <Button onPress={() => close(false)} variant="secondary">
           {t("common.cancel")}
         </Button>
       )}
       {phase === "select_mode" && (
-        <Button onClick={next} variant="primary">
+        <Button onPress={next} variant="primary">
           {t("hosts.wizard.next")}
         </Button>
       )}
       {phase === "details" && (
-        <Button disabled={busy} onClick={back} variant="secondary">
+        <Button isDisabled={busy} onPress={back} variant="secondary">
           {t("hosts.wizard.back")}
         </Button>
       )}
       {phase === "details" && (
         <Button
-          disabled={!formValid}
+          isDisabled={!formValid}
           form={BASTION_FORM_ID}
-          loading={busy}
+          isPending={busy}
           type="submit"
           variant="primary"
         >
@@ -1084,12 +1084,12 @@ function renderFooter({
         </Button>
       )}
       {(phase === "verify" || phase === "confirm_command") && (
-        <Button onClick={previewBack} variant="secondary">
+        <Button onPress={previewBack} variant="secondary">
           {t("hosts.wizard.back")}
         </Button>
       )}
       {terminal && (
-        <Button onClick={() => close(false)} variant="primary">
+        <Button onPress={() => close(false)} variant="primary">
           {phase === "command_result"
             ? t("hosts.wizard.commandSaved")
             : t("common.close")}

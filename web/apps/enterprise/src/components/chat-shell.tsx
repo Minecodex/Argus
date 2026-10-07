@@ -102,7 +102,7 @@ function ConversationList() {
       <div className="argus-sidebar__action">
         <Button
           className="argus-chat-new-button"
-          onClick={() => openConversation()}
+          onPress={() => openConversation()}
           variant="primary"
         >
           <MessageSquarePlus size={16} />
@@ -129,15 +129,16 @@ function ConversationList() {
             </div>
             <div className="argus-sessions">
               {group.items.map((item) => (
-                <button
+                <Button
+                  variant="ghost"
                   className={item.id === search.c ? "is-active" : ""}
                   key={item.id}
-                  onClick={() => openConversation(item.id)}
+                  onPress={() => openConversation(item.id)}
                   type="button"
                 >
                   <span>{item.title}</span>
                   <small>{formatTime(item.updated_at, i18n.language)}</small>
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -165,8 +166,8 @@ function Sidebar() {
           <Button
             aria-label={t("shell.closeNavigation")}
             className="argus-mobile-close"
-            onClick={() => setMobileNavOpen(false)}
-            size="icon"
+            onPress={() => setMobileNavOpen(false)}
+            isIconOnly
             variant="ghost"
           >
             <X size={17} />
@@ -192,8 +193,8 @@ function Header() {
       <Button
         aria-label={t("shell.openNavigation")}
         className="argus-mobile-menu"
-        onClick={() => setMobileNavOpen(true)}
-        size="icon"
+        onPress={() => setMobileNavOpen(true)}
+        isIconOnly
         variant="ghost"
       >
         <Menu size={18} />

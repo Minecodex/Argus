@@ -66,6 +66,9 @@ func (h helmManager) installOrUpgrade(ctx context.Context, releaseName, namespac
 		// set of Helm-owned fields. The values passed to this upgrade have first
 		// preserved that live PKI state, so reclaim ownership instead of failing
 		// every post-rotation upgrade with an SSA field-manager conflict.
+		// Pin SSA explicitly: Helm 3 releases otherwise resolve "auto" to CSA,
+		// which cannot be combined with ForceConflicts.
+		upgrade.ServerSideApply = "true"
 		upgrade.ForceConflicts = true
 		if _, err := upgrade.RunWithContext(ctx, releaseName, ch, values); err != nil {
 			if !strings.Contains(strings.ToLower(err.Error()), "another operation") {

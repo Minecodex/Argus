@@ -83,8 +83,8 @@ export function ChatContextPanel({ messages }: { messages: ChatMessage[] }) {
         <span>{t("chat.context.title")}</span>
         <Button
           aria-label={t("chat.context.collapse")}
-          onClick={toggleContextPanel}
-          size="icon"
+          onPress={toggleContextPanel}
+          isIconOnly
           variant="ghost"
         >
           <PanelRightClose size={15} />

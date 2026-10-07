@@ -34,7 +34,7 @@ func (value *WorkspaceInstall) validate() error {
 		return nil
 	}
 	if value.StorageNamespace == "" {
-		value.StorageNamespace = "argus-workspace-storage"
+		value.StorageNamespace = "argus-system"
 	}
 	if value.StorageClass == "" {
 		value.StorageClass = "argus-workspace"
@@ -83,6 +83,9 @@ func (a *App) installWorkspaceStorage(ctx context.Context, cfg *InstallConfig, c
 	}
 	driver, driverErr := clients.typed.StorageV1().CSIDrivers().Get(ctx, "rawfile.csi.openebs.io", metav1.GetOptions{})
 	if driverErr == nil {
+		if driver.Annotations["meta.helm.sh/release-name"] == cfg.upstreamReleaseName("workspace-storage") && driver.Annotations["meta.helm.sh/release-namespace"] != settings.StorageNamespace {
+			return fmt.Errorf("owned Workspace driver must be relocated before changing storageNamespace")
+		}
 		if err := validateExistingRawfileDriver(ctx, clients.typed, driver); err != nil {
 			return err
 		}
@@ -150,6 +153,13 @@ func removeWorkspaceStorage(ctx context.Context, cfg *InstallConfig, clients *ku
 	if namespace.Labels["argus.io/release-id"] != cfg.Spec.ReleaseID {
 		return nil
 	}
+	driver, driverErr := clients.typed.StorageV1().CSIDrivers().Get(ctx, "rawfile.csi.openebs.io", metav1.GetOptions{})
+	if driverErr != nil && !apierrors.IsNotFound(driverErr) {
+		return driverErr
+	}
+	if driverErr == nil && (driver.Annotations["meta.helm.sh/release-name"] != cfg.upstreamReleaseName("workspace-storage") || driver.Annotations["meta.helm.sh/release-namespace"] != cfg.Spec.Workspace.StorageNamespace) {
+		return nil
+	}
 	for {
 		volumes, err := clients.typed.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -183,11 +193,7 @@ func removeWorkspaceStorage(ctx context.Context, cfg *InstallConfig, clients *ku
 	if err := helm.uninstall(cfg.upstreamReleaseName("workspace-storage"), cfg.Spec.Workspace.StorageNamespace); err != nil {
 		return err
 	}
-	err = clients.typed.CoreV1().Namespaces().Delete(ctx, namespace.Name, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &namespace.UID}})
-	if apierrors.IsNotFound(err) {
-		return nil
-	}
-	return err
+	return removeDedicatedWorkspaceNamespace(ctx, clients.typed, cfg, namespace)
 }
 
 func createWorkspaceStorageClass(ctx context.Context, cfg *InstallConfig, clients *kubeClients) error {

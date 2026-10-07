@@ -1,3 +1,4 @@
+import { Checkbox } from "@argus/ui";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -16,6 +17,7 @@ import {
 } from "@argus/ui";
 import { QueryTargetEditor } from "./query-target-editor";
 import { isDashboardSignal, newTarget, sources } from "./model";
+import { useDefinitionForm } from "./use-definition-form";
 
 export function removeDrilldownGraph(panel: DashboardPanel, id: string) {
   const removed = panel.drilldowns.find((d) => d.id === id);
@@ -173,7 +175,7 @@ export function DrilldownsEditor({
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() =>
+                    onPress={() =>
                       patch(drill.id, {
                         inputs: Object.fromEntries(
                           Object.entries(drill.inputs).filter(
@@ -191,7 +193,7 @@ export function DrilldownsEditor({
             <div className="argus-dashboard-inline">
               <Button
                 size="sm"
-                onClick={() =>
+                onPress={() =>
                   patch(drill.id, {
                     inputs: {
                       ...drill.inputs,
@@ -204,34 +206,33 @@ export function DrilldownsEditor({
               </Button>
               <Button
                 size="sm"
-                onClick={() => setEditing(drill.detail_query_ref)}
+                onPress={() => setEditing(drill.detail_query_ref)}
               >
                 {t("dashboards.editDetailQuery")}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => setRemoving(drill.id)}
+                onPress={() => setRemoving(drill.id)}
               >
                 {t("dashboards.delete")}
               </Button>
             </div>
             <details>
               <summary>{t("dashboards.detailWindow")}</summary>
-              <label className="argus-dashboard-check">
-                <input
-                  type="checkbox"
-                  checked={Boolean(drill.time_window)}
-                  onChange={(e) =>
-                    patch(drill.id, {
-                      time_window: e.target.checked
-                        ? { input: "timestamp", seconds: 60 }
-                        : undefined,
-                    })
-                  }
-                />
+              <Checkbox
+                className="argus-dashboard-check"
+                isSelected={Boolean(drill.time_window)}
+                onChange={(selected) =>
+                  patch(drill.id, {
+                    time_window: selected
+                      ? { input: "timestamp", seconds: 60 }
+                      : undefined,
+                  })
+                }
+              >
                 {t("dashboards.narrowWindow")}
-              </label>
+              </Checkbox>
               {drill.time_window && (
                 <div className="argus-dashboard-form-grid">
                   <Field
@@ -293,11 +294,11 @@ export function DrilldownsEditor({
         ))}
         <Button
           size="sm"
-          disabled={
+          isDisabled={
             panel.detail_query_targets.length >= 16 ||
             panel.drilldowns.length >= 64
           }
-          onClick={() => {
+          onPress={() => {
             const id = `detail_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
             const target = {
               ...structuredClone(panel.targets[0]!),
@@ -373,6 +374,14 @@ function DetailTargetEditor({
     [target, setTarget] = useState(() => structuredClone(initial)),
     [signal, setSignal] = useState<string>();
   const detailSignal = target.signal ?? panel.signal;
+  const form = useDefinitionForm(
+    target,
+    (value) =>
+      Boolean(value.id) &&
+      Boolean(value.source_binding?.source_type) &&
+      Boolean(value.source_definition.builder || value.source_definition.dsl),
+    t("dashboards.editor.invalidForm"),
+  );
   const context = {
     ...panel,
     signal: isDashboardSignal(detailSignal) ? detailSignal : panel.signal,
@@ -392,7 +401,7 @@ function DetailTargetEditor({
       title={t("dashboards.editDetailQuery")}
       onOpenChange={(open) => !open && onClose()}
       submitLabel={t("dashboards.done")}
-      onSubmit={() => onSave(target)}
+      onSubmit={form.handleSubmit(onSave)}
     >
       <div className="argus-dashboard-form-stack">
         <p className="argus-dashboard-muted">

@@ -98,7 +98,7 @@ export function ParameterBindingsEditor({
               />
               <Button
                 variant="ghost"
-                onClick={() => onChange(value.filter((_, i) => i !== index))}
+                onPress={() => onChange(value.filter((_, i) => i !== index))}
               >
                 {t("dashboards.delete")}
               </Button>
@@ -135,7 +135,7 @@ export function ParameterBindingsEditor({
                     />
                     <Button
                       variant="ghost"
-                      onClick={() =>
+                      onPress={() =>
                         patch(index, {
                           value_map: Object.fromEntries(
                             Object.entries(binding.value_map!).filter(
@@ -151,7 +151,7 @@ export function ParameterBindingsEditor({
                 ))}
                 <Button
                   size="sm"
-                  onClick={() =>
+                  onPress={() =>
                     patch(index, {
                       value_map: {
                         ...binding.value_map,
@@ -169,8 +169,8 @@ export function ParameterBindingsEditor({
         ))}
         <Button
           size="sm"
-          disabled={!variables.length && !locals.length && !rowInputs.length}
-          onClick={() =>
+          isDisabled={!variables.length && !locals.length && !rowInputs.length}
+          onPress={() =>
             onChange([
               ...value,
               {

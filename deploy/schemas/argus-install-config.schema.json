@@ -44,11 +44,11 @@
         "namespaces": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["system", "sandbox", "observability"],
+          "required": ["system", "sandbox"],
           "properties": {
             "system": { "type": "string", "minLength": 1 },
             "sandbox": { "type": "string", "minLength": 1 },
-            "observability": { "type": "string", "minLength": 1 }
+            "observability": { "type": "string", "minLength": 1, "description": "Defaults to namespaces.system; telemetry remains an independent workload." }
           }
         },
         "storageClass": { "type": "string", "minLength": 1 },
@@ -72,6 +72,7 @@
             "ingressClassName": { "type": "string" },
             "enterpriseHost": { "type": "string", "minLength": 1 },
             "platformHost": { "type": "string", "minLength": 1 },
+            "templateHost": { "type": "string", "minLength": 1, "description": "Optional isolated Template Host DNS name; defaults to templates.<enterprise parent domain>." },
             "connectorHost": { "type": "string", "minLength": 1 },
             "artifactHost": { "type": "string" },
             "httpsInternalAddress": { "type": "string", "minLength": 1 }
@@ -153,8 +154,32 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "enabled": { "type": "boolean" },
+            "sharedController": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["namespace", "imageDigest"],
+              "properties": {
+                "namespace": { "type": "string", "minLength": 1, "maxLength": 63 },
+                "imageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+              }
+            },
             "runtimeClassName": { "type": "string" },
             "allowSharedRuntime": { "type": "boolean" }
+          }
+        },
+        "workspace": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "storageNamespace": { "type": "string", "minLength": 1, "description": "Defaults to namespaces.system; the privileged CSI driver stays separate from sandbox Pods." },
+            "storageClass": { "type": "string", "minLength": 1 },
+            "dataDirectory": { "type": "string", "minLength": 1 },
+            "metadataDirectory": { "type": "string", "minLength": 1 },
+            "defaultBytes": { "type": "integer", "minimum": 1 },
+            "enterpriseBytes": { "type": "integer", "minimum": 1 },
+            "maxFileBytes": { "type": "integer", "minimum": 1 }
           }
         },
         "telemetry": {

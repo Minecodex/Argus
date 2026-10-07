@@ -1,3 +1,4 @@
+import { Checkbox } from "@argus/ui";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -107,35 +108,34 @@ export function ConversationWorkspace({
         <p>{t("planv5.mcp.selectionHint")}</p>
         {granted.length === 0 && <p>{t("planv5.mcp.empty")}</p>}
         {granted.map((item) => (
-          <label className="argus-planv5-connection" key={item.id}>
-            <input
-              type="checkbox"
-              checked={selected.includes(item.id)}
-              disabled={
-                disabled ||
-                busy ||
-                (item.status === "disabled" && !selected.includes(item.id))
-              }
-              onChange={(event) =>
-                void setSelection(item.id, event.target.checked)
-              }
-            />
-            {item.name} · {item.tool_count} {t("planv5.mcp.tools")}
+          <Checkbox
+            className="argus-planv5-connection"
+            key={item.id}
+            isSelected={selected.includes(item.id)}
+            isDisabled={
+              disabled ||
+              busy ||
+              (item.status === "disabled" && !selected.includes(item.id))
+            }
+            onChange={(selected) => void setSelection(item.id, selected)}
+          >
+            {item.name}· {item.tool_count}
+            {t("planv5.mcp.tools")}
             {item.status === "disabled" && ` · ${t("planv5.mcp.disabled")}`}
-          </label>
+          </Checkbox>
         ))}
         {selected
           .filter((id) => !granted.some((item) => item.id === id))
           .map((id) => (
-            <label className="argus-planv5-connection" key={id}>
-              <input
-                type="checkbox"
-                checked
-                disabled={disabled || busy}
-                onChange={() => void setSelection(id, false)}
-              />
+            <Checkbox
+              className="argus-planv5-connection"
+              key={id}
+              isSelected
+              isDisabled={disabled || busy}
+              onChange={() => void setSelection(id, false)}
+            >
               {t("planv5.mcp.disabled")}
-            </label>
+            </Checkbox>
           ))}
       </details>
       <details>
@@ -163,7 +163,7 @@ export function ConversationWorkspace({
         <Button
           variant="ghost"
           size="sm"
-          disabled={
+          isDisabled={
             busy ||
             disabled ||
             workspace.isError ||
@@ -171,7 +171,7 @@ export function ConversationWorkspace({
             workspace.data.status === "deleted" ||
             workspace.data.status === "deleting"
           }
-          onClick={() => setRemove(true)}
+          onPress={() => setRemove(true)}
         >
           {t("planv5.files.delete")}
         </Button>

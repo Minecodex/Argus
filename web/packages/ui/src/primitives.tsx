@@ -1,12 +1,23 @@
-import * as AvatarPrimitive from "@radix-ui/react-avatar";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import * as DropdownPrimitive from "@radix-ui/react-dropdown-menu";
-import * as TabsPrimitive from "@radix-ui/react-tabs";
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { Avatar as HeroAvatar } from "@heroui/react/avatar";
+import { Tabs as HeroTabs } from "@heroui/react/tabs";
+import { Tooltip as HeroTooltip } from "@heroui/react/tooltip";
+import { Dropdown as HeroDropdown } from "@heroui/react/dropdown";
+import { FieldBoundary } from "./form";
+import { Modal } from "@heroui/react/modal";
+import { Label } from "@heroui/react/label";
+import { Separator } from "@heroui/react/separator";
 import { Check, ChevronRight, X } from "lucide-react";
-import { type ReactNode } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  type ReactNode,
+  type ReactElement,
+  type CSSProperties,
+  type HTMLAttributes,
+} from "react";
 import { cx } from "./lib";
 import { useUiText } from "./locale";
+import { Button } from "./button";
 
 export function Avatar({
   fallback,
@@ -18,22 +29,41 @@ export function Avatar({
   size?: "sm" | "md" | "lg";
 }) {
   return (
-    <AvatarPrimitive.Root
+    <HeroAvatar
+      aria-label={fallback}
       className={cx("argus-avatar", `argus-avatar--${size}`)}
+      size={size}
     >
-      <AvatarPrimitive.Image alt="" className="argus-avatar__image" src={src} />
-      <AvatarPrimitive.Fallback
-        className="argus-avatar__fallback"
-        delayMs={200}
-      >
-        {fallback}
-      </AvatarPrimitive.Fallback>
-    </AvatarPrimitive.Root>
+      {src && <HeroAvatar.Image alt="" src={src} />}
+      <HeroAvatar.Fallback>{fallback}</HeroAvatar.Fallback>
+    </HeroAvatar>
   );
 }
-
-export const Tabs = TabsPrimitive.Root;
-
+export function Tabs({
+  children,
+  value,
+  defaultValue,
+  onValueChange,
+  className,
+}: {
+  children: ReactNode;
+  value?: string;
+  defaultValue?: string;
+  onValueChange?: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <HeroTabs
+      variant="secondary"
+      className={className}
+      selectedKey={value}
+      defaultSelectedKey={defaultValue}
+      onSelectionChange={(key) => onValueChange?.(String(key))}
+    >
+      {children}
+    </HeroTabs>
+  );
+}
 export function TabsList({
   children,
   className,
@@ -41,13 +71,18 @@ export function TabsList({
   children: ReactNode;
   className?: string;
 }) {
+  const text = useUiText();
   return (
-    <TabsPrimitive.List className={cx("argus-tabs", className)}>
-      {children}
-    </TabsPrimitive.List>
+    <HeroTabs.ListContainer>
+      <HeroTabs.List
+        aria-label={text("页面分区", "Page sections")}
+        className={cx("argus-tabs", className)}
+      >
+        {children}
+      </HeroTabs.List>
+    </HeroTabs.ListContainer>
   );
 }
-
 export function TabsTrigger({
   value,
   children,
@@ -56,12 +91,12 @@ export function TabsTrigger({
   children: ReactNode;
 }) {
   return (
-    <TabsPrimitive.Trigger className="argus-tabs__trigger" value={value}>
+    <HeroTabs.Tab id={value} className="argus-tabs__trigger">
       {children}
-    </TabsPrimitive.Trigger>
+      <HeroTabs.Indicator />
+    </HeroTabs.Tab>
   );
 }
-
 export function TabsContent({
   value,
   children,
@@ -72,15 +107,11 @@ export function TabsContent({
   className?: string;
 }) {
   return (
-    <TabsPrimitive.Content
-      className={cx("argus-tabs__content", className)}
-      value={value}
-    >
+    <HeroTabs.Panel id={value} className={cx("argus-tabs__content", className)}>
       {children}
-    </TabsPrimitive.Content>
+    </HeroTabs.Panel>
   );
 }
-
 export function Tooltip({
   children,
   content,
@@ -88,21 +119,34 @@ export function Tooltip({
   children: ReactNode;
   content: ReactNode;
 }) {
+  const trigger = isValidElement(children) ? (
+    children
+  ) : (
+    <Button>{children}</Button>
+  );
+  const element = trigger as ReactElement<HTMLAttributes<HTMLDivElement>>;
   return (
-    <TooltipPrimitive.Provider delayDuration={350}>
-      <TooltipPrimitive.Root>
-        <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
-        <TooltipPrimitive.Portal>
-          <TooltipPrimitive.Content className="argus-tooltip" sideOffset={7}>
-            {content}
-            <TooltipPrimitive.Arrow className="argus-tooltip__arrow" />
-          </TooltipPrimitive.Content>
-        </TooltipPrimitive.Portal>
-      </TooltipPrimitive.Root>
-    </TooltipPrimitive.Provider>
+    <HeroTooltip delay={350}>
+      <HeroTooltip.Trigger
+        role={undefined}
+        render={(props) =>
+          cloneElement(
+            element,
+            {
+              ...props,
+              className: cx(element.props.className, props.className),
+            },
+            element.props.children,
+          )
+        }
+      />
+      <HeroTooltip.Content className="argus-tooltip">
+        <HeroTooltip.Arrow />
+        {content}
+      </HeroTooltip.Content>
+    </HeroTooltip>
   );
 }
-
 export function Dialog({
   trigger,
   title,
@@ -114,6 +158,7 @@ export function Dialog({
   size = "md",
   width,
   className,
+  dismissable = true,
 }: {
   trigger?: ReactNode;
   title: string;
@@ -122,100 +167,125 @@ export function Dialog({
   footer?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  /** md keeps the default 520px; lg widens for detail/read-only layouts. */
   size?: "md" | "lg";
-  /** 显式像素宽度(与 viewport 边距取小),优先于 size。 */
   width?: number;
   className?: string;
+  dismissable?: boolean;
 }) {
   const text = useUiText();
-  return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      {trigger && (
-        <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
-      )}
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="argus-dialog__overlay" />
-        <DialogPrimitive.Content
-          className={cx("argus-dialog", size !== "md" && `argus-dialog--${size}`, className)}
-          style={width ? { width: `min(${width}px, calc(100vw - 40px))` } : undefined}
+  const body = (
+    <Modal.Backdrop
+      isOpen={trigger ? undefined : open}
+      onOpenChange={trigger ? undefined : onOpenChange}
+      className="argus-dialog__overlay"
+      isDismissable={dismissable}
+      isKeyboardDismissDisabled={!dismissable}
+      style={
+        width
+          ? ({ "--argus-dialog-width": `${width}px` } as CSSProperties)
+          : undefined
+      }
+    >
+      <Modal.Container size={size} className="argus-dialog-container">
+        <Modal.Dialog
+          className={cx(
+            "argus-dialog",
+            size === "lg" && "argus-dialog--lg",
+            className,
+          )}
         >
-          <div className="argus-dialog__top">
-            <div>
-              <DialogPrimitive.Title className="argus-dialog__title">
+          <Modal.Header className="argus-dialog__top">
+            <div className="argus-overlay-heading">
+              <Modal.Heading className="argus-dialog__title">
                 {title}
-              </DialogPrimitive.Title>
+              </Modal.Heading>
               {description && (
-                <DialogPrimitive.Description className="argus-dialog__description">
-                  {description}
-                </DialogPrimitive.Description>
+                <p className="argus-dialog__description">{description}</p>
               )}
             </div>
-            <DialogPrimitive.Close
-              className="argus-dialog__close"
+            <Button
+              slot="close"
+              className="argus-overlay-close"
+              isDisabled={!dismissable}
+              isIconOnly
+              variant="ghost"
               aria-label={text("关闭", "Close")}
             >
-              <X size={17} />
-            </DialogPrimitive.Close>
-          </div>
-          <div className="argus-dialog__body">{children}</div>
-          {footer && <div className="argus-dialog__footer">{footer}</div>}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+              <X aria-hidden />
+            </Button>
+          </Modal.Header>
+          <Modal.Body className="argus-dialog__body">
+            <FieldBoundary>{children}</FieldBoundary>
+          </Modal.Body>
+          {footer && (
+            <Modal.Footer className="argus-dialog__footer">
+              {footer}
+            </Modal.Footer>
+          )}
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
+  );
+  return trigger ? (
+    <Modal isOpen={open} onOpenChange={onOpenChange}>
+      {trigger}
+      {body}
+    </Modal>
+  ) : (
+    body
   );
 }
-
+export type DropdownItem =
+  | {
+      label: string;
+      shortcut?: string;
+      danger?: boolean;
+      onSelect?: () => void;
+    }
+  | "separator";
 export function Dropdown({
   trigger,
   items,
 }: {
   trigger: ReactNode;
-  items: Array<
-    | {
-        label: string;
-        shortcut?: string;
-        danger?: boolean;
-        onSelect?: () => void;
-      }
-    | "separator"
-  >;
+  items: DropdownItem[];
 }) {
+  const text = useUiText();
   return (
-    <DropdownPrimitive.Root>
-      <DropdownPrimitive.Trigger asChild>{trigger}</DropdownPrimitive.Trigger>
-      <DropdownPrimitive.Portal>
-        <DropdownPrimitive.Content
-          className="argus-dropdown"
-          sideOffset={6}
-          align="end"
+    <HeroDropdown>
+      {trigger}
+      <HeroDropdown.Popover className="argus-dropdown" placement="bottom end">
+        <HeroDropdown.Menu
+          aria-label={text("操作", "Actions")}
+          onAction={(key) => {
+            const item = items[Number(key)];
+            if (item && item !== "separator") item.onSelect?.();
+          }}
         >
           {items.map((item, index) =>
             item === "separator" ? (
-              <DropdownPrimitive.Separator
-                className="argus-dropdown__separator"
-                key={index}
-              />
+              <Separator key={index} />
             ) : (
-              <DropdownPrimitive.Item
+              <HeroDropdown.Item
+                id={String(index)}
+                key={index}
+                textValue={item.label}
                 className={cx(
                   "argus-dropdown__item",
                   item.danger && "is-danger",
                 )}
-                key={item.label}
-                onSelect={item.onSelect}
+                variant={item.danger ? "danger" : undefined}
               >
-                <span>{item.label}</span>
+                <Label>{item.label}</Label>
                 {item.shortcut && <kbd>{item.shortcut}</kbd>}
-              </DropdownPrimitive.Item>
+              </HeroDropdown.Item>
             ),
           )}
-        </DropdownPrimitive.Content>
-      </DropdownPrimitive.Portal>
-    </DropdownPrimitive.Root>
+        </HeroDropdown.Menu>
+      </HeroDropdown.Popover>
+    </HeroDropdown>
   );
 }
-
 export function MenuItem({
   active,
   children,
@@ -232,7 +302,6 @@ export function MenuItem({
     </div>
   );
 }
-
 export function CheckItem({
   checked,
   children,

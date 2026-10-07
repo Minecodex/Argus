@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useParams, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { useApi } from "@argus/api-client";
 import {
@@ -20,6 +20,8 @@ import { connectionStatusTone } from "../components/kubernetes/status";
 import { WorkloadExplorer } from "../components/kubernetes/workload-explorer";
 import { ResourceTelemetry } from "../components/telemetry/resource-telemetry";
 import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
+import { useResourceDashboardTab } from "../components/dashboards/use-resource-dashboard-tab";
+import { usePermission } from "../lib/permissions";
 import "../styles/kubernetes.css";
 
 /** Kubernetes 集群详情：资源查询 + Collector 安装/管理。 */
@@ -27,6 +29,8 @@ export function KubernetesClusterPage() {
   const { t } = useTranslation();
   const api = useApi();
   const { clusterId } = useParams({ strict: false });
+  const search = useSearch({ from: "/authed/admin/kubernetes/$clusterId" });
+  const canReadDashboards = usePermission("telemetry.dashboard.read");
   const id = clusterId ?? "";
 
   const clusterQuery = useQuery({
@@ -52,6 +56,12 @@ export function KubernetesClusterPage() {
     typeof window !== "undefined" && window.location.hash === "#otlp-collector"
       ? "collector"
       : "resources";
+  const [tab, setTab] = useResourceDashboardTab(
+    id,
+    initialTab === "collector" ? undefined : search.tab,
+    initialTab,
+    canReadDashboards,
+  );
 
   if (clusterQuery.isLoading) {
     return (
@@ -99,12 +109,16 @@ export function KubernetesClusterPage() {
         </span>
       }
     >
-      <ResourceDashboardLinks type="kubernetes_cluster" id={id} />
-      <Tabs defaultValue={initialTab}>
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="resources">
             {t("kubernetes.detail.resourcesTab")}
           </TabsTrigger>
+          {canReadDashboards && (
+            <TabsTrigger value="dashboards">
+              {t("dashboardLinks.resourceTab")}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="collector">
             {t("kubernetes.detail.collectorTab")}
           </TabsTrigger>
@@ -115,6 +129,11 @@ export function KubernetesClusterPage() {
         <TabsContent value="resources">
           <WorkloadExplorer cluster={cluster} />
         </TabsContent>
+        {canReadDashboards && (
+          <TabsContent value="dashboards">
+            <ResourceDashboardLinks type="kubernetes_cluster" id={id} />
+          </TabsContent>
+        )}
         <TabsContent value="collector">
           <div id="otlp-collector">
             {collectorQuery.isLoading ? (

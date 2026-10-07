@@ -21,8 +21,8 @@ export function CodeBlock({
         {copyable && (
           <Button
             aria-label={text("复制代码", "Copy code")}
-            onClick={() => navigator.clipboard?.writeText(code)}
-            size="icon"
+            onPress={() => navigator.clipboard?.writeText(code)}
+            isIconOnly
             variant="ghost"
           >
             <Copy size={13} />
@@ -67,7 +67,10 @@ export function Alert({
   icon?: ReactNode;
 }) {
   return (
-    <div className={cx("argus-alert", `is-${tone}`)}>
+    <div
+      className={cx("argus-alert", `is-${tone}`)}
+      role={tone === "danger" ? "alert" : "status"}
+    >
       {icon && <span className="argus-alert__icon">{icon}</span>}
       <div>
         <b>{title}</b>

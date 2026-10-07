@@ -1951,6 +1951,85 @@
             }
           }
         }
+      },
+      "DashboardDraftSampleInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/DashboardExecutionInput"
+          }
+        },
+        "required": [
+          "expected_version"
+        ]
+      },
+      "DashboardDraftDrilldownInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_token": {
+            "type": "string",
+            "maxLength": 1048576
+          },
+          "panel_id": {
+            "type": "string"
+          },
+          "drilldown_id": {
+            "type": "string"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "maxProperties": 16
+          },
+          "expand_authorized_resources": {
+            "type": "boolean"
+          },
+          "expected_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "context_token",
+          "panel_id",
+          "drilldown_id",
+          "values",
+          "expand_authorized_resources",
+          "expected_version"
+        ]
+      },
+      "DashboardDraftDrilldownExecution": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "draft_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draft_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "execution": {
+            "$ref": "#/components/schemas/DashboardDrilldownExecution"
+          }
+        },
+        "required": [
+          "draft_id",
+          "draft_version",
+          "execution"
+        ]
       }
     }
   }

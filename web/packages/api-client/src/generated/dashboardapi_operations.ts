@@ -398,7 +398,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DashboardVersionInput"];
+                "application/json": components["schemas"]["DashboardDraftSampleInput"];
             };
         };
         responses: {
@@ -766,6 +766,33 @@ export interface operations {
             };
             403: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    executeDashboardDraftDrilldown: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardDraftDrilldownInput"];
+            };
+        };
+        responses: {
+            /** @description Draft drilldown execution. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardDraftDrilldownExecution"];
+                };
+            };
             default: components["responses"]["Error"];
         };
     };

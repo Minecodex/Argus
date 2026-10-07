@@ -60,6 +60,7 @@ export const kubernetesZh = {
       failed: "失败",
     },
     card: {
+      dataUnavailable: "暂不可用",
       version: "版本",
       nodes: "节点",
       connectionMode: "接入方式",
@@ -324,6 +325,7 @@ export const kubernetesEn = {
       failed: "Failed",
     },
     card: {
+      dataUnavailable: "Unavailable",
       version: "Version",
       nodes: "Nodes",
       connectionMode: "Connection",

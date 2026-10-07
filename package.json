@@ -14,7 +14,7 @@
     "smoke:web": "go run ./cmd/argus-dev check web-entrypoints",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
     "check:i18n": "node scripts/check-i18n-keys.mjs",
-    "check:styles": "node scripts/check-web-styles.mjs",
+    "check:styles": "node --test scripts/css-variable-contract.test.mjs && node scripts/check-web-styles.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test && pnpm check:i18n",
     "lint": "eslint web --max-warnings=0 && node --test scripts/check-form-semantics.test.mjs && node scripts/check-form-semantics.mjs && pnpm check:styles",

@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -59,10 +60,12 @@ export function ManagedAccountsSection({
         !credential ||
         (credential.protocol !== "ssh" && credential.protocol !== "windows")
       ) {
-		throw new Error("managed account credential must use SSH or Windows credentials");
+        throw new Error(
+          "managed account credential must use SSH or Windows credentials",
+        );
       }
-		const allowed_protocols: Array<"shell" | "ssh" | "rdp"> =
-			credential.protocol === "windows" ? ["shell", "rdp"] : ["shell", "ssh"];
+      const allowed_protocols: Array<"shell" | "ssh" | "rdp"> =
+        credential.protocol === "windows" ? ["shell", "rdp"] : ["shell", "ssh"];
       return editing
         ? api.secrets.updateManagedAccount(editing.id, {
             username: values.username,
@@ -98,68 +101,70 @@ export function ManagedAccountsSection({
       <p className="argus-settings-section__hint">
         {t("settings.secrets.managedAccountsDescription")}
       </p>
-      {accounts.isPending ? (
-        <Spinner />
-      ) : (accounts.data ?? []).length === 0 ? (
-        <EmptyState
-          description=""
-          title={t("settings.secrets.managedAccountsEmpty")}
-        />
-      ) : (
-        <DataTable<ManagedAccount>
-          columns={[
-            {
-              key: "host_id",
-              header: t("settings.secrets.host"),
-              render: (row) =>
-                hostNames.get(row.host_id) ??
-                t("settings.secrets.unavailableHost"),
-            },
-            { key: "username", header: t("settings.secrets.username") },
-            {
-              key: "privilege_level",
-              header: t("settings.secrets.privilegeLevel"),
-              render: (row) =>
-                t(`settings.secrets.privileges.${row.privilege_level}`),
-            },
-            {
-              key: "allowed_protocols",
-              header: t("settings.secrets.protocol"),
-              render: (row) =>
-                row.allowed_protocols.map((value) => (
-                  <Badge key={value} tone="info">
-                    {value}
+      <QueryBoundary query={accounts} dependencies={[hosts, credentials]}>
+        {accounts.isPending ? (
+          <Spinner />
+        ) : (accounts.data ?? []).length === 0 ? (
+          <EmptyState
+            description=""
+            title={t("settings.secrets.managedAccountsEmpty")}
+          />
+        ) : (
+          <DataTable<ManagedAccount>
+            columns={[
+              {
+                key: "host_id",
+                header: t("settings.secrets.host"),
+                render: (row) =>
+                  hostNames.get(row.host_id) ??
+                  t("settings.secrets.unavailableHost"),
+              },
+              { key: "username", header: t("settings.secrets.username") },
+              {
+                key: "privilege_level",
+                header: t("settings.secrets.privilegeLevel"),
+                render: (row) =>
+                  t(`settings.secrets.privileges.${row.privilege_level}`),
+              },
+              {
+                key: "allowed_protocols",
+                header: t("settings.secrets.protocol"),
+                render: (row) =>
+                  row.allowed_protocols.map((value) => (
+                    <Badge key={value} tone="info">
+                      {value}
+                    </Badge>
+                  )),
+              },
+              {
+                key: "status",
+                header: t("settings.common.status"),
+                render: (row) => (
+                  <Badge tone={row.status === "active" ? "success" : "neutral"}>
+                    {t(`settings.common.${row.status}`)}
                   </Badge>
-                )),
-            },
-            {
-              key: "status",
-              header: t("settings.common.status"),
-              render: (row) => (
-                <Badge tone={row.status === "active" ? "success" : "neutral"}>
-                  {t(`settings.common.${row.status}`)}
-                </Badge>
-              ),
-            },
-            {
-              key: "actions",
-              header: t("settings.common.actions"),
-              render: (row) => (
-                <RowAction
-                  onClick={() => {
-                    onCreateOpenChange(false);
-                    setEditing(row);
-                  }}
-                >
-                  {t("settings.common.edit")}
-                </RowAction>
-              ),
-            },
-          ]}
-          data={accounts.data ?? []}
-          getRowKey={(row) => row.id}
-        />
-      )}
+                ),
+              },
+              {
+                key: "actions",
+                header: t("settings.common.actions"),
+                render: (row) => (
+                  <RowAction
+                    onPress={() => {
+                      onCreateOpenChange(false);
+                      setEditing(row);
+                    }}
+                  >
+                    {t("settings.common.edit")}
+                  </RowAction>
+                ),
+              },
+            ]}
+            data={accounts.data ?? []}
+            getRowKey={(row) => row.id}
+          />
+        )}
+      </QueryBoundary>
       <ManagedAccountDrawer
         account={editing}
         credentials={credentials.data ?? []}

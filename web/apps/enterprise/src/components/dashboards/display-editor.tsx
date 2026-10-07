@@ -1,3 +1,4 @@
+import { Checkbox } from "@argus/ui";
 import { useTranslation } from "react-i18next";
 import type { DashboardPanel, DashboardSchemas } from "@argus/api-client";
 import { Button, Field, Input, Select } from "@argus/ui";
@@ -137,15 +138,15 @@ export function DisplayEditor({
         )}
         {panel.type === "timeseries" &&
           (["stack", "smooth"] as const).map((key) => (
-            <label key={key} className="argus-dashboard-check">
-              <input
-                type="checkbox"
-                checked={display[key] ?? false}
-                disabled={key === "smooth" && display.draw_style === "bar"}
-                onChange={(e) => patch({ [key]: e.target.checked })}
-              />
+            <Checkbox
+              key={key}
+              className="argus-dashboard-check"
+              isSelected={display[key] ?? false}
+              isDisabled={key === "smooth" && display.draw_style === "bar"}
+              onChange={(selected) => patch({ [key]: selected })}
+            >
               {t(`dashboards.display.${key}`)}
-            </label>
+            </Checkbox>
           ))}
         {display.min !== undefined &&
           display.max !== undefined &&
@@ -207,7 +208,7 @@ export function DisplayEditor({
                 </Field>
                 <Button
                   variant="ghost"
-                  onClick={() =>
+                  onPress={() =>
                     onChange({
                       thresholds: panel.thresholds.filter(
                         (_, i) => i !== index,
@@ -223,8 +224,8 @@ export function DisplayEditor({
               (v, i) => i > 0 && v.value <= panel.thresholds[i - 1]!.value,
             ) && <p role="alert">{t("dashboards.display.thresholdOrder")}</p>}
             <Button
-              disabled={panel.thresholds.length >= 16}
-              onClick={() =>
+              isDisabled={panel.thresholds.length >= 16}
+              onPress={() =>
                 onChange({
                   thresholds: [
                     ...panel.thresholds,

@@ -117,7 +117,7 @@ func (a *App) runM2Scenario(ctx context.Context, env *E2EEnvironment) error {
 	if env.Options.Suite != "p4" && !suiteHas(env.Options.Suite, "tls") {
 		platformProof := platformMFA.RecoveryCodes[0]
 		enterpriseProof := enterpriseMFA.RecoveryCodes[0]
-		if err := a.runPlaywright(ctx, env, "e2e/m2-real.spec.ts", map[string]string{
+		if err := a.runPlaywright(ctx, env, "e2e/m2(-dashboard-dialogs)?-real.spec.ts", map[string]string{
 			"ARGUS_M2_E2E": "1", "ARGUS_M2_PLATFORM_USERNAME": platformUsername, "ARGUS_M2_PLATFORM_PASSWORD": platformPassword,
 			"ARGUS_M2_PLATFORM_MFA_CODE": platformProof, "ARGUS_M2_ENTERPRISE_USERNAME": enterpriseUsername, "ARGUS_M2_ENTERPRISE_PASSWORD": enterprisePassword,
 			"ARGUS_M2_ENTERPRISE_MFA_CODE": enterpriseProof,

@@ -44,6 +44,9 @@ type ServerInterface interface {
 	// ChangeEnterpriseState changeEnterpriseState.
 	// (POST /platform/enterprises/{id}/{state_action})
 	ChangeEnterpriseState(w http.ResponseWriter, r *http.Request, id ResourceId, stateAction string, params ChangeEnterpriseStateParams)
+	// GetPlatformOverview Complete platform counts and recorded monthly Sandbox usage.
+	// (GET /platform/overview)
+	GetPlatformOverview(w http.ResponseWriter, r *http.Request)
 	// GetPlatformPKIStatus Read versioned Argus Trust Bundle rotation and node acknowledgement status.
 	// (GET /platform/pki)
 	GetPlatformPKIStatus(w http.ResponseWriter, r *http.Request)
@@ -104,6 +107,12 @@ func (_ Unimplemented) UpdateEnterprise(w http.ResponseWriter, r *http.Request, 
 // ChangeEnterpriseState changeEnterpriseState.
 // (POST /platform/enterprises/{id}/{state_action})
 func (_ Unimplemented) ChangeEnterpriseState(w http.ResponseWriter, r *http.Request, id ResourceId, stateAction string, params ChangeEnterpriseStateParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPlatformOverview Complete platform counts and recorded monthly Sandbox usage.
+// (GET /platform/overview)
+func (_ Unimplemented) GetPlatformOverview(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -663,6 +672,20 @@ func (siw *ServerInterfaceWrapper) ChangeEnterpriseState(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// GetPlatformOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetPlatformOverview(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlatformOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPlatformPKIStatus operation middleware
 func (siw *ServerInterfaceWrapper) GetPlatformPKIStatus(w http.ResponseWriter, r *http.Request) {
 
@@ -790,6 +813,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/platform/overview", wrapper.GetPlatformOverview)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/platform/enterprises", wrapper.ListEnterprises)
 	})
@@ -1185,6 +1211,44 @@ func (response ChangeEnterpriseStatedefaultJSONResponse) VisitChangeEnterpriseSt
 	return err
 }
 
+type GetPlatformOverviewRequestObject struct {
+}
+
+type GetPlatformOverviewResponseObject interface {
+	VisitGetPlatformOverviewResponse(w http.ResponseWriter) error
+}
+
+type GetPlatformOverview200JSONResponse PlatformOverview
+
+func (response GetPlatformOverview200JSONResponse) VisitGetPlatformOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlatformOverviewdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response GetPlatformOverviewdefaultJSONResponse) VisitGetPlatformOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPlatformPKIStatusRequestObject struct {
 }
 
@@ -1252,6 +1316,9 @@ type StrictServerInterface interface {
 	// ChangeEnterpriseState changeEnterpriseState.
 	// (POST /platform/enterprises/{id}/{state_action})
 	ChangeEnterpriseState(ctx context.Context, request ChangeEnterpriseStateRequestObject) (ChangeEnterpriseStateResponseObject, error)
+	// GetPlatformOverview Complete platform counts and recorded monthly Sandbox usage.
+	// (GET /platform/overview)
+	GetPlatformOverview(ctx context.Context, request GetPlatformOverviewRequestObject) (GetPlatformOverviewResponseObject, error)
 	// GetPlatformPKIStatus Read versioned Argus Trust Bundle rotation and node acknowledgement status.
 	// (GET /platform/pki)
 	GetPlatformPKIStatus(ctx context.Context, request GetPlatformPKIStatusRequestObject) (GetPlatformPKIStatusResponseObject, error)
@@ -1549,6 +1616,30 @@ func (sh *strictHandler) ChangeEnterpriseState(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ChangeEnterpriseStateResponseObject); ok {
 		if err := validResponse.VisitChangeEnterpriseStateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPlatformOverview operation middleware
+func (sh *strictHandler) GetPlatformOverview(w http.ResponseWriter, r *http.Request) {
+	var request GetPlatformOverviewRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlatformOverview(ctx, request.(GetPlatformOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlatformOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPlatformOverviewResponseObject); ok {
+		if err := validResponse.VisitGetPlatformOverviewResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

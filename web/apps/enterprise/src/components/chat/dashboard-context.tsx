@@ -108,11 +108,12 @@ export function DashboardChatContextBar({
             <span className="argus-chat-chip" key={id}>
               {items.find((item) => item.id === id)?.name ??
                 t("chat.dashboard.unavailable")}
-              <button
+              <Button
+                variant="ghost"
                 type="button"
-                disabled={disabled}
+                isDisabled={disabled}
                 aria-label={t("chat.dashboard.remove")}
-                onClick={() =>
+                onPress={() =>
                   onChange(
                     selection.mode,
                     selection.dashboard_ids.filter((value) => value !== id),
@@ -120,7 +121,7 @@ export function DashboardChatContextBar({
                 }
               >
                 <X size={11} />
-              </button>
+              </Button>
             </span>
           ))}
           {!selection.dashboard_ids.length && selection.mode === "analyze" && (
@@ -129,15 +130,20 @@ export function DashboardChatContextBar({
           <Button
             variant="ghost"
             size="sm"
-            disabled={disabled}
-            onClick={() => onChange("none", [])}
+            isDisabled={disabled}
+            onPress={() => onChange("none", [])}
           >
             {t("chat.dashboard.exit")}
           </Button>
         </>
       )}
       {failed && <span role="alert">{t("chat.dashboard.failed")}</span>}
-      <Button variant="ghost" size="sm" disabled={disabled} onClick={onReload}>
+      <Button
+        variant="ghost"
+        size="sm"
+        isDisabled={disabled}
+        onPress={onReload}
+      >
         {t("chat.dashboard.reload")}
       </Button>
     </div>

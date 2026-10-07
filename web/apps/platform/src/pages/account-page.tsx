@@ -324,7 +324,7 @@ export function AccountPage() {
               <p>{t("account.mfa.description")}</p>
               {session.mfa_state !== "enabled" ? (
                 <Button
-                  onClick={() => void beginEnrollment()}
+                  onPress={() => void beginEnrollment()}
                   variant="primary"
                 >
                   {t("account.mfa.enroll")}
@@ -350,14 +350,14 @@ export function AccountPage() {
                   </Field>
                   <div className="argus-account-mfa__actions">
                     <Button
-                      disabled={proofForm.formState.isSubmitting}
+                      isDisabled={proofForm.formState.isSubmitting}
                       type="submit"
                       value="step-up"
                     >
                       {t("account.mfa.stepUp")}
                     </Button>
                     <Button
-                      disabled={proofForm.formState.isSubmitting}
+                      isDisabled={proofForm.formState.isSubmitting}
                       type="submit"
                       value="regenerate"
                       variant="secondary"
@@ -429,7 +429,7 @@ export function AccountPage() {
                   type="password"
                 />
               </Field>
-              <Button disabled={isSubmitting} type="submit" variant="primary">
+              <Button isDisabled={isSubmitting} type="submit" variant="primary">
                 {t("account.password.submit")}
               </Button>
             </form>
@@ -487,7 +487,7 @@ export function AccountPage() {
         title={t("account.mfa.enrollmentTitle")}
         footer={
           <Button
-            disabled={enrollmentForm.formState.isSubmitting}
+            isDisabled={enrollmentForm.formState.isSubmitting}
             form="platform-mfa-enrollment-form"
             type="submit"
             variant="primary"
@@ -538,7 +538,7 @@ export function AccountPage() {
         open={Boolean(recoveryCodes)}
         title={t("account.mfa.recoveryTitle")}
         footer={
-          <Button onClick={() => setRecoveryCodes(null)} variant="primary">
+          <Button onPress={() => setRecoveryCodes(null)} variant="primary">
             {t("common.close")}
           </Button>
         }

@@ -1,4 +1,5 @@
 import type { DashboardDomains } from "./dashboard";
+import type { PlatformOverview } from "./types/platform";
 import type { PlanV5Domains, ConversationPreflight } from "./planv5";
 import type {
   AIModel,
@@ -733,6 +734,7 @@ export interface ArgusApiClient extends PlanV5Domains, DashboardDomains {
 
   /** Platform super admin domain (docs/07). */
   platform: {
+    overview: { get(signal?: AbortSignal): Promise<PlatformOverview> };
     enterprises: {
       list(query?: ListQuery): Promise<Page<Enterprise>>;
       get(id: string): Promise<Enterprise>;

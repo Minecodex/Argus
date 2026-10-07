@@ -1,4 +1,8 @@
-{{- range $key, $namespace := .Values.namespaces }}
+{{- $seen := dict }}
+{{- range $key := list "system" "sandbox" "observability" }}
+{{- $namespace := index $.Values.namespaces $key }}
+{{- if not (hasKey $seen $namespace) }}
+{{- $_ := set $seen $namespace true }}
 ---
 apiVersion: v1
 kind: LimitRange
@@ -71,5 +75,6 @@ spec:
           port: 443
         - protocol: TCP
           port: 6443
+{{- end }}
 {{- end }}
 {{- end }}

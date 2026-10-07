@@ -223,7 +223,7 @@ export function PendingActionConfirm({
               {t("hosts.preview.awaitingApprovalHint")}
             </span>
             <Button
-              onClick={() => (onDismiss ?? onCancel)?.()}
+              onPress={() => (onDismiss ?? onCancel)?.()}
               variant="secondary"
             >
               {t("hosts.preview.close")}

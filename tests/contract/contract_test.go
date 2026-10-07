@@ -1485,6 +1485,7 @@ func schemaString(node map[string]any, mode fixtureMode) string {
 		{"^[a-z0-9]", "production"},
 		{"^[A-Z2-7]{16,128}$", "JBSWY3DPEHPK3PXP"},
 		{"^[0-9]{6}$", "123456"},
+		{"^[0-9]{4}-(0[1-9]|1[0-2])$", "2026-10"},
 		{"^\\$", "$.items"},
 		{"^[A-Za-z0-9_-]+$", strings.Repeat("a", 32)},
 		{"^[A-Za-z0-9", "request_00000001"},

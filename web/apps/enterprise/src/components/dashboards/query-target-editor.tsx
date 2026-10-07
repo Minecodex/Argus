@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useApi,
@@ -9,6 +9,7 @@ import {
 } from "@argus/api-client";
 import {
   Button,
+  ComboBox,
   Field,
   Input,
   Select,
@@ -18,6 +19,14 @@ import {
 import { FilterFields } from "./filter-fields";
 import { ParameterBindingsEditor } from "./parameter-bindings-editor";
 import { DashboardFieldExplorer } from "./field-explorer";
+import { useDashboardQueryScope, queryScopeBounds } from "./query-scope";
+import { useMetricMetadata } from "./use-metric-metadata";
+import {
+  knownMetricType,
+  metricOperationCompatible,
+  requiredMetricType,
+  selectMetric,
+} from "./metric-metadata";
 export function QueryTargetEditor({
   panel,
   spec,
@@ -25,6 +34,7 @@ export function QueryTargetEditor({
   onChange,
   rowInputs = [],
   detail = false,
+  compactMetrics = false,
 }: {
   panel: DashboardPanel;
   spec: DashboardSpec;
@@ -32,10 +42,12 @@ export function QueryTargetEditor({
   onChange: (target: DashboardTarget) => void;
   rowInputs?: string[];
   detail?: boolean;
+  compactMetrics?: boolean;
 }) {
   const api = useApi(),
-    { t } = useTranslation(),
-    listId = useId();
+    { t } = useTranslation();
+  const scope = useDashboardQueryScope(),
+    time = scope?.time ?? spec.default_time_range;
   const [catalog, setCatalog] = useState<
       DashboardSchemas["DashboardMetricDescriptor"][]
     >([]),
@@ -43,6 +55,12 @@ export function QueryTargetEditor({
   const patchTarget = (patch: Partial<DashboardTarget>) =>
     onChange({ ...target, ...patch });
   const builder = target.source_definition.builder;
+  const { metadata } = useMetricMetadata(
+    panel,
+    target,
+    { time, resources: scope?.resources ?? [] },
+    onChange,
+  );
   const patchBuilder = (patch: Partial<DashboardSchemas["DashboardBuilder"]>) =>
     patchTarget({ source_definition: { builder: { ...builder!, ...patch } } });
   const operations =
@@ -104,126 +122,180 @@ export function QueryTargetEditor({
         builder={
           builder && (
             <div className="argus-dashboard-form-stack">
-              <Field label={t("dashboards.operation")} requirement="required">
-                <Select
-                  value={builder.operation}
-                  options={operations.map((value) => ({
-                    value,
-                    label: t(`dashboards.operations.${value}`),
-                  }))}
-                  onValueChange={(operation) =>
-                    patchBuilder({
-                      operation:
-                        operation as DashboardSchemas["DashboardBuilder"]["operation"],
-                      window_seconds: ["rate", "p95", "error_rate"].includes(
-                        operation,
-                      )
-                        ? (builder.window_seconds ?? 300)
-                        : undefined,
-                      error_filters:
-                        operation === "error_rate"
-                          ? (builder.error_filters ?? [
-                              { field: "status", operator: "=~", value: "5.." },
-                            ])
+              {!compactMetrics && (
+                <Field label={t("dashboards.operation")} requirement="required">
+                  <Select
+                    value={builder.operation}
+                    options={operations.map((value) => ({
+                      value,
+                      label: t(`dashboards.operations.${value}`),
+                      disabled:
+                        panel.signal === "metrics" &&
+                        !metricOperationCompatible(value, metadata),
+                      description:
+                        panel.signal === "metrics" && requiredMetricType(value)
+                          ? t("dashboards.editor.metricRequirement", {
+                              type: requiredMetricType(value),
+                            })
                           : undefined,
-                      metric_type: ["rate", "error_rate"].includes(operation)
-                        ? "counter"
-                        : operation === "p95"
-                          ? "histogram"
-                          : builder.metric_type,
-                      bucket_seconds: ["count_over_time", "apm_red"].includes(
-                        operation,
-                      )
-                        ? (builder.bucket_seconds ?? 60)
-                        : undefined,
-                      top_n:
-                        operation === "topk"
-                          ? (builder.top_n ?? 10)
+                    }))}
+                    onValueChange={(operation) =>
+                      patchBuilder({
+                        operation:
+                          operation as DashboardSchemas["DashboardBuilder"]["operation"],
+                        window_seconds: ["rate", "p95", "error_rate"].includes(
+                          operation,
+                        )
+                          ? (builder.window_seconds ?? 300)
                           : undefined,
-                      context_before:
-                        operation === "log_context"
-                          ? (builder.context_before ?? 20)
+                        error_filters:
+                          operation === "error_rate"
+                            ? (builder.error_filters ?? [
+                                {
+                                  field: "status",
+                                  operator: "=~",
+                                  value: "5..",
+                                },
+                              ])
+                            : undefined,
+                        bucket_seconds: ["count_over_time", "apm_red"].includes(
+                          operation,
+                        )
+                          ? (builder.bucket_seconds ?? 60)
                           : undefined,
-                      context_after:
-                        operation === "log_context"
-                          ? (builder.context_after ?? 20)
-                          : undefined,
-                      trace_id:
-                        operation === "detail" ? builder.trace_id : undefined,
-                      limit:
-                        (panel.signal === "logs" &&
-                          operation !== "log_context") ||
-                        operation === "list" ||
-                        operation.startsWith("apm_")
-                          ? builder.limit
-                          : undefined,
-                      group_by: [
-                        "sum",
-                        "avg",
-                        "min",
-                        "max",
-                        "p95",
-                        "error_rate",
-                        "count_by",
-                        "count_over_time",
-                      ].includes(operation)
-                        ? builder.group_by
-                        : [],
-                    })
-                  }
-                />
-              </Field>
+                        top_n:
+                          operation === "topk"
+                            ? (builder.top_n ?? 10)
+                            : undefined,
+                        context_before:
+                          operation === "log_context"
+                            ? (builder.context_before ?? 20)
+                            : undefined,
+                        context_after:
+                          operation === "log_context"
+                            ? (builder.context_after ?? 20)
+                            : undefined,
+                        trace_id:
+                          operation === "detail" ? builder.trace_id : undefined,
+                        limit:
+                          (panel.signal === "logs" &&
+                            operation !== "log_context") ||
+                          operation === "list" ||
+                          operation.startsWith("apm_")
+                            ? builder.limit
+                            : undefined,
+                        group_by: [
+                          "sum",
+                          "avg",
+                          "min",
+                          "max",
+                          "p95",
+                          "error_rate",
+                          "count_by",
+                          "count_over_time",
+                        ].includes(operation)
+                          ? builder.group_by
+                          : [],
+                      })
+                    }
+                  />
+                </Field>
+              )}
               {panel.signal === "metrics" && (
                 <>
-                  <div className="argus-dashboard-inline">
-                    <Field
-                      label={t("dashboards.metric")}
-                      requirement="required"
-                    >
-                      <Input
-                        value={builder.metric ?? ""}
-                        list={listId}
-                        onChange={(e) =>
-                          patchBuilder({ metric: e.target.value })
-                        }
-                      />
-                    </Field>
-                    <Button
-                      onClick={() => {
-                        const to = new Date(),
-                          from = new Date(to.getTime() - 3600000);
-                        void api.dashboards
-                          .catalog({
-                            from: from.toISOString(),
-                            to: to.toISOString(),
-                            resource_ids: [],
-                            selected_values: [],
-                            filters: [],
-                            signal: "metrics",
-                            source_binding: panel.source_binding,
-                            kind: "metrics",
-                            limit: 100,
-                          })
-                          .then((result) => setCatalog(result.metrics))
-                          .catch(() => setError(t("dashboards.failed")));
-                      }}
-                    >
-                      {t("dashboards.candidates")}
-                    </Button>
-                  </div>
-                  <datalist id={listId}>
-                    {catalog.map((m) => (
-                      <option key={m.name} value={m.name}>
-                        {m.unit}
-                      </option>
-                    ))}
-                  </datalist>
+                  {!compactMetrics && (
+                    <div className="argus-dashboard-inline">
+                      <Field
+                        label={t("dashboards.metric")}
+                        requirement="required"
+                      >
+                        <ComboBox
+                          value={builder.metric ?? ""}
+                          allowCustom
+                          options={catalog.map((metric) => ({
+                            value: metric.name,
+                            label: metric.name,
+                            description: [metric.type, metric.unit]
+                              .filter(Boolean)
+                              .join(" · "),
+                          }))}
+                          contextKey={JSON.stringify([
+                            panel.source_binding,
+                            time,
+                            scope?.resources,
+                          ])}
+                          fetchOptions={async (search, cursor, signal) => {
+                            const range = queryScopeBounds(time);
+                            const result = await api.dashboards.catalog(
+                              {
+                                ...range,
+                                resource_ids: scope?.resources ?? [],
+                                selected_values: [],
+                                filters: [],
+                                signal: "metrics",
+                                source_binding: panel.source_binding,
+                                kind: "metrics",
+                                limit: 100,
+                                search,
+                                cursor,
+                              },
+                              signal,
+                            );
+                            setCatalog((previous) => {
+                              const all = new Map(
+                                previous.map((item) => [item.name, item]),
+                              );
+                              for (const item of result.metrics)
+                                all.set(item.name, item);
+                              return [...all.values()];
+                            });
+                            return {
+                              options: result.metrics.map((metric) => ({
+                                value: metric.name,
+                                label: metric.name,
+                                description: [metric.type, metric.unit]
+                                  .filter(Boolean)
+                                  .join(" · "),
+                              })),
+                              next_cursor: result.next_cursor,
+                            };
+                          }}
+                          onValueChange={(metric) =>
+                            patchBuilder(selectMetric(builder, metric))
+                          }
+                        />
+                      </Field>
+                      <Button
+                        onPress={() => {
+                          const to = new Date(),
+                            from = new Date(to.getTime() - 3600000);
+                          void api.dashboards
+                            .catalog({
+                              from: from.toISOString(),
+                              to: to.toISOString(),
+                              resource_ids: [],
+                              selected_values: [],
+                              filters: [],
+                              signal: "metrics",
+                              source_binding: panel.source_binding,
+                              kind: "metrics",
+                              limit: 100,
+                            })
+                            .then((result) => setCatalog(result.metrics))
+                            .catch(() => setError(t("dashboards.failed")));
+                        }}
+                      >
+                        {t("dashboards.candidates")}
+                      </Button>
+                    </div>
+                  )}
                   <Field
                     label={t("dashboards.metricType")}
                     requirement="optional"
                   >
                     <Select
                       value={builder.metric_type ?? ""}
+                      disabled={!!knownMetricType(metadata)}
                       options={[
                         { value: "", label: "—" },
                         {
@@ -248,30 +320,31 @@ export function QueryTargetEditor({
                   </Field>
                 </>
               )}
-              {[
-                "sum",
-                "avg",
-                "min",
-                "max",
-                "p95",
-                "error_rate",
-                "count_by",
-                "count_over_time",
-              ].includes(builder.operation) && (
-                <Field label={t("dashboards.groupBy")} requirement="optional">
-                  <Input
-                    value={builder.group_by.join(", ")}
-                    onChange={(e) =>
-                      patchBuilder({
-                        group_by: e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                  />
-                </Field>
-              )}
+              {!compactMetrics &&
+                [
+                  "sum",
+                  "avg",
+                  "min",
+                  "max",
+                  "p95",
+                  "error_rate",
+                  "count_by",
+                  "count_over_time",
+                ].includes(builder.operation) && (
+                  <Field label={t("dashboards.groupBy")} requirement="optional">
+                    <Input
+                      value={builder.group_by.join(", ")}
+                      onChange={(e) =>
+                        patchBuilder({
+                          group_by: e.target.value
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        })
+                      }
+                    />
+                  </Field>
+                )}
               {["rate", "p95", "error_rate"].includes(builder.operation) && (
                 <Field label={t("dashboards.window")} requirement="required">
                   <Input
@@ -342,13 +415,15 @@ export function QueryTargetEditor({
                     />
                   </Field>
                 )}
-              <FilterFields
-                filters={builder.filters}
-                onChange={(filters) => patchBuilder({ filters })}
-                variables={spec.variables}
-                rowInputs={rowInputs}
-                locals={panel.local_filters.map((f) => f.id)}
-              />
+              {!compactMetrics && (
+                <FilterFields
+                  filters={builder.filters}
+                  onChange={(filters) => patchBuilder({ filters })}
+                  variables={spec.variables}
+                  rowInputs={rowInputs}
+                  locals={panel.local_filters.map((f) => f.id)}
+                />
+              )}
               {builder.operation === "error_rate" && (
                 <section aria-label={t("dashboards.errorFilters")}>
                   <strong>{t("dashboards.errorFilters")}</strong>

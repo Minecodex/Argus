@@ -42,14 +42,15 @@ function Welcome({ onExample }: { onExample: (text: string) => void }) {
       </p>
       <div className="argus-chat-welcome__examples">
         {EXAMPLE_KEYS.map((key) => (
-          <button
+          <Button
+            variant="ghost"
             className="argus-chat-welcome__example"
             key={key}
-            onClick={() => onExample(t(`chat.welcome.examples.${key}`))}
+            onPress={() => onExample(t(`chat.welcome.examples.${key}`))}
             type="button"
           >
             {t(`chat.welcome.examples.${key}`)}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -119,16 +120,16 @@ function ConversationHeader({
           />
           <Button
             aria-label={t("chat.header.save")}
-            onClick={saveTitle}
-            size="icon"
+            onPress={saveTitle}
+            isIconOnly
             variant="ghost"
           >
             <Check size={15} />
           </Button>
           <Button
             aria-label={t("chat.header.cancel")}
-            onClick={() => setEditing(false)}
-            size="icon"
+            onPress={() => setEditing(false)}
+            isIconOnly
             variant="ghost"
           >
             <X size={15} />
@@ -139,11 +140,11 @@ function ConversationHeader({
           <span>{title}</span>
           <Button
             aria-label={t("chat.header.rename")}
-            onClick={() => {
+            onPress={() => {
               setDraft(title);
               setEditing(true);
             }}
-            size="icon"
+            isIconOnly
             variant="ghost"
           >
             <Pencil size={13} />
@@ -173,9 +174,9 @@ function ConversationHeader({
         />
         <Button
           aria-label={t("planv5.files.deleteConversation")}
-          size="icon"
+          isIconOnly
           variant="ghost"
-          onClick={() => setDeleting(true)}
+          onPress={() => setDeleting(true)}
         >
           <Trash2 size={15} />
         </Button>
@@ -212,9 +213,9 @@ function ConversationHeader({
         </ConfirmDialog>
         <Button
           aria-label={t("chat.header.archive")}
-          loading={archiving}
-          onClick={archive}
-          size="icon"
+          isPending={archiving}
+          onPress={archive}
+          isIconOnly
           variant="ghost"
         >
           <Archive size={15} />
@@ -222,8 +223,8 @@ function ConversationHeader({
         <Button
           aria-label={t("chat.header.toggleContext")}
           className={contextPanelOpen ? "is-active" : ""}
-          onClick={toggleContextPanel}
-          size="icon"
+          onPress={toggleContextPanel}
+          isIconOnly
           variant="ghost"
         >
           <PanelRight size={15} />
@@ -394,7 +395,7 @@ export function ConversationPage() {
         )}
         {sending && activeRunId && (
           <div className="argus-chat-composer__note" role="status">
-            <Button onClick={compact} size="sm" variant="ghost">
+            <Button onPress={compact} size="sm" variant="ghost">
               <Minimize2 size={14} />
               {t("chat.compaction.request")}
             </Button>

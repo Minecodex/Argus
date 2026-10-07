@@ -47,6 +47,13 @@ func TestSharedOpenSandboxIsReadOnlyAndRejectsSchemaDrift(t *testing.T) {
 			t.Fatalf("shared dependency was mutated: %s", action.GetVerb())
 		}
 	}
+	deployment.Spec.Template.Spec.Containers[0].Image = "mirror.example/opensandbox/controller:latest"
+	_, _ = typed.AppsV1().Deployments(deployment.Namespace).Update(context.Background(), deployment, metav1.UpdateOptions{})
+	if _, err := sharedOpenSandboxController(context.Background(), cfg, clients, ch); err == nil {
+		t.Fatal("unconfigured mutable controller tag accepted")
+	}
+	deployment.Spec.Template.Spec.Containers[0].Image = "mirror.example/opensandbox/controller:v0.2.0"
+	_, _ = typed.AppsV1().Deployments(deployment.Namespace).Update(context.Background(), deployment, metav1.UpdateOptions{})
 	gvr := schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
 	live, _ := dynamic.Resource(gvr).Get(context.Background(), "pools.sandbox.opensandbox.io", metav1.GetOptions{})
 	_ = unstructured.SetNestedField(live.Object, "Cluster", "spec", "scope")
@@ -56,7 +63,7 @@ func TestSharedOpenSandboxIsReadOnlyAndRejectsSchemaDrift(t *testing.T) {
 	}
 }
 
-// This opt-in live check performs only GETs; it never adopts external CRDs.
+// This opt-in live check performs only reads; it never adopts external CRDs.
 func TestSharedOpenSandboxLiveCompatibility(t *testing.T) {
 	contextName := os.Getenv("ARGUS_SHARED_OPENSANDBOX_TEST_CONTEXT")
 	if contextName == "" {
@@ -72,6 +79,13 @@ func TestSharedOpenSandboxLiveCompatibility(t *testing.T) {
 	}
 	cfg.Spec.ReleaseID = "argus-compatibility-check"
 	cfg.Spec.Namespaces.Sandbox = "argus-compatibility-check"
+	if path := os.Getenv("ARGUS_SHARED_OPENSANDBOX_TEST_CONFIG"); path != "" {
+		configured, e := LoadConfig(path)
+		if e != nil {
+			t.Fatal(e)
+		}
+		cfg.Spec.OpenSandbox.SharedController = configured.Spec.OpenSandbox.SharedController
+	}
 	clients, err := clientsFor(contextName)
 	if err != nil {
 		t.Fatal(err)

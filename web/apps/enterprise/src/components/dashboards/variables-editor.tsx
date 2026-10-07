@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  useApi,
-  type DashboardSpec,
-  type DashboardVariable,
-} from "@argus/api-client";
-import { Button, Field, FormDrawer, Input, Select } from "@argus/ui";
-import { isDashboardSignal, sources } from "./model";
-import { FilterFields } from "./filter-fields";
-import { ParameterBindingsEditor } from "./parameter-bindings-editor";
-import { TimeRangePicker } from "./time-range-picker";
-import { candidateFilters } from "./candidate-filters";
+import { Plus, Trash2 } from "lucide-react";
+import type { DashboardSpec, DashboardVariable } from "@argus/api-client";
+import { Badge, Button, Field, FormDrawer, Input } from "@argus/ui";
+import { useDefinitionForm } from "./use-definition-form";
+import { dependentPanels } from "./execution-dependencies";
+import { VariableQueryEditor } from "./variable-query-editor";
+import "../../styles/dashboard-variables.css";
 
 export function VariablesEditor({
   spec,
@@ -21,293 +17,164 @@ export function VariablesEditor({
   onClose: () => void;
   onSave: (spec: DashboardSpec) => void;
 }) {
-  const { t } = useTranslation(),
-    api = useApi();
+  const { t } = useTranslation();
   const [value, setValue] = useState(() => structuredClone(spec));
-  const [candidates, setCandidates] = useState<Record<string, string[]>>({});
-  const [errors, setErrors] = useState<Record<string, boolean>>({});
-  const update = (id: string, patch: Partial<DashboardVariable>) =>
+  const [activeId, setActiveId] = useState(spec.variables[0]?.id);
+  const active = value.variables.find((v) => v.id === activeId);
+  const form = useDefinitionForm(
+    value,
+    (s) =>
+      s.variables.every(
+        (v) =>
+          /^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(v.name) &&
+          Boolean(v.label.trim()) &&
+          Boolean(v.query.field.trim()) &&
+          (v.default.all || v.default.values.length > 0),
+      ) && new Set(s.variables.map((v) => v.name)).size === s.variables.length,
+    t("dashboards.editor.invalidForm"),
+  );
+  const update = (patch: Partial<DashboardVariable>) =>
     setValue((s) => ({
       ...s,
-      variables: s.variables.map((v) => (v.id === id ? { ...v, ...patch } : v)),
+      variables: s.variables.map((v) =>
+        v.id === activeId ? { ...v, ...patch } : v,
+      ),
     }));
+  const add = () => {
+    let index = value.variables.length + 1;
+    while (value.variables.some((v) => v.name === `variable_${index}`)) index++;
+    const variable: DashboardVariable = {
+      id: crypto.randomUUID(),
+      name: `variable_${index}`,
+      label: `variable_${index}`,
+      multiple: false,
+      include_all: true,
+      default: { all: true, values: [] },
+      query: {
+        signal: "metrics",
+        source_binding: {
+          source_type: "hostmetrics",
+          capability_version: "v1",
+        },
+        field: "",
+        filters: [],
+      },
+    };
+    setValue({ ...value, variables: [...value.variables, variable] });
+    setActiveId(variable.id);
+  };
+  const affected = active ? dependentPanels(value, [active.name]) : [];
   return (
     <FormDrawer
       open
-      width={860}
-      onOpenChange={(open) => !open && onClose()}
-      title={t("dashboards.filtersTab")}
+      width={960}
+      title={t("dashboardControls.filterManager")}
+      description={t("dashboardControls.variablesHint")}
       submitLabel={t("dashboards.done")}
-      onSubmit={() => onSave(value)}
+      onOpenChange={(open) => !open && onClose()}
+      onSubmit={form.handleSubmit(onSave)}
     >
-      <div className="argus-dashboard-form-stack">
-        <div className="argus-dashboard-form-grid">
-          <TimeRangePicker
-            label={t("dashboards.defaultTime")}
-            value={value.default_time_range}
-            onChange={(default_time_range) =>
-              setValue({ ...value, default_time_range })
-            }
-          />
-          <Field label={t("dashboards.defaultRefresh")} requirement="required">
-            <Input
-              type="number"
-              min={0}
-              step={5}
-              value={value.default_refresh_seconds}
-              onChange={(e) =>
-                setValue({
-                  ...value,
-                  default_refresh_seconds: Number(e.target.value),
-                })
-              }
-            />
-          </Field>
-        </div>
-        {value.variables.map((v) => (
-          <section className="argus-dashboard-editor-section" key={v.id}>
-            <div className="argus-dashboard-form-grid">
-              <Field
-                label={t("dashboards.variableName")}
-                requirement="required"
-              >
-                <Input
-                  value={v.name}
-                  pattern="[A-Za-z_][A-Za-z0-9_]{0,63}"
-                  onChange={(e) => update(v.id, { name: e.target.value })}
-                />
-              </Field>
-              <Field label={t("dashboards.label")} requirement="required">
-                <Input
-                  value={v.label}
-                  onChange={(e) => update(v.id, { label: e.target.value })}
-                />
-              </Field>
-              <Field label={t("dashboards.signal")} requirement="required">
-                <Select
-                  value={v.query.signal}
-                  onValueChange={(signal) =>
-                    isDashboardSignal(signal) &&
-                    update(v.id, {
-                      query: {
-                        ...v.query,
-                        signal,
-                        source_binding: {
-                          source_type:
-                            sources[signal as keyof typeof sources][0]!,
-                          capability_version: "v1",
-                        },
-                      },
-                    })
-                  }
-                  options={["metrics", "logs", "traces"].map((value) => ({
-                    value,
-                    label: value,
-                  }))}
-                />
-              </Field>
-              <Field label={t("dashboards.source")} requirement="required">
-                <Select
-                  value={v.query.source_binding.source_type}
-                  onValueChange={(source_type) =>
-                    update(v.id, {
-                      query: {
-                        ...v.query,
-                        source_binding: {
-                          source_type,
-                          capability_version: "v1",
-                        },
-                      },
-                    })
-                  }
-                  options={sources[v.query.signal as keyof typeof sources].map(
-                    (value) => ({ value, label: value }),
-                  )}
-                />
-              </Field>
-            </div>
-            <Field
-              label={t("dashboards.field")}
-              requirement="required"
-              hint={t("dashboards.fieldHelp")}
-            >
-              <Input
-                value={v.query.field}
-                onChange={(e) =>
-                  update(v.id, { query: { ...v.query, field: e.target.value } })
-                }
-              />
-            </Field>
-            {v.query.signal === "metrics" && (
-              <Field label={t("dashboards.metric")} requirement="optional">
-                <Input
-                  value={v.query.metric ?? ""}
-                  onChange={(e) =>
-                    update(v.id, {
-                      query: { ...v.query, metric: e.target.value },
-                    })
-                  }
-                />
-              </Field>
-            )}
-            <div className="argus-dashboard-inline">
-              <label className="argus-dashboard-check">
-                <input
-                  type="checkbox"
-                  checked={v.multiple}
-                  onChange={(e) => update(v.id, { multiple: e.target.checked })}
-                />
-                {t("dashboards.multiple")}
-              </label>
-              <label className="argus-dashboard-check">
-                <input
-                  type="checkbox"
-                  checked={v.default.all}
-                  onChange={(e) =>
-                    update(v.id, {
-                      default: { all: e.target.checked, values: [] },
-                      include_all: true,
-                    })
-                  }
-                />
-                {t("dashboards.defaultAll")}
-              </label>
-            </div>
-            {!v.default.all && (
-              <Field
-                label={t("dashboards.defaultValues")}
-                requirement="required"
-              >
-                <Input
-                  value={v.default.values.join(", ")}
-                  onChange={(e) =>
-                    update(v.id, {
-                      default: {
-                        all: false,
-                        values: e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      },
-                    })
-                  }
-                />
-              </Field>
-            )}
-            <FilterFields
-              filters={v.query.filters}
-              variables={value.variables.filter((other) => other.id !== v.id)}
-              onChange={(filters) =>
-                update(v.id, { query: { ...v.query, filters } })
-              }
-            />
-            <div className="argus-dashboard-inline">
-              <Button
-                size="sm"
-                onClick={async () => {
-                  setErrors((previous) => ({ ...previous, [v.id]: false }));
-                  try {
-                    const to = new Date();
-                    await api.dashboards
-                      .catalog({
-                        source_binding: v.query.source_binding,
-                        signal: v.query.signal as "metrics" | "logs" | "traces",
-                        kind: "values",
-                        field: v.query.field,
-                        metric: v.query.metric,
-                        from: new Date(
-                          to.getTime() -
-                            (value.default_time_range.seconds ?? 3600) * 1000,
-                        ).toISOString(),
-                        to: to.toISOString(),
-                        selected_values: v.default.values,
-                        filters: candidateFilters(
-                          v.query,
-                          Object.fromEntries(
-                            value.variables.map((variable) => [
-                              variable.name,
-                              variable.default,
-                            ]),
-                          ),
-                        ),
-                        resource_ids: [],
-                        limit: 100,
-                      })
-                      .then((data) =>
-                        setCandidates((previous) => ({
-                          ...previous,
-                          [v.id]: data.values,
-                        })),
-                      );
-                  } catch {
-                    setErrors((previous) => ({ ...previous, [v.id]: true }));
-                  }
-                }}
-              >
-                {t("dashboards.candidates")}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  setValue({
-                    ...value,
-                    variables: value.variables.filter(
-                      (entry) => entry.id !== v.id,
-                    ),
-                  })
-                }
-              >
-                {t("dashboards.delete")}
-              </Button>
-            </div>
-            <ParameterBindingsEditor
-              value={v.query.parameter_bindings ?? []}
-              variables={value.variables.filter((other) => other.id !== v.id)}
-              locals={[]}
-              onChange={(parameter_bindings) =>
-                update(v.id, { query: { ...v.query, parameter_bindings } })
-              }
-            />
-            {errors[v.id] && (
-              <p role="alert">{t("dashboards.candidateFailed")}</p>
-            )}
-            {candidates[v.id] && (
-              <p className="argus-dashboard-muted">
-                {candidates[v.id]!.join(" · ") || t("dashboards.noCandidate")}
-              </p>
-            )}
-          </section>
-        ))}
-        <Button
-          onClick={() =>
-            setValue({
-              ...value,
-              variables: [
-                ...value.variables,
-                {
-                  id: crypto.randomUUID(),
-                  name: `variable_${value.variables.length + 1}`,
-                  label: `variable_${value.variables.length + 1}`,
-                  multiple: false,
-                  include_all: true,
-                  default: { all: true, values: [] },
-                  query: {
-                    signal: "metrics",
-                    source_binding: {
-                      source_type: "hostmetrics",
-                      capability_version: "v1",
-                    },
-                    field: "host",
-                    filters: [],
-                  },
-                },
-              ],
-            })
-          }
+      {form.error && (
+        <p role="alert" className="argus-field__hint is-error">
+          {form.error}
+        </p>
+      )}
+      <div className="argus-variable-workspace">
+        <aside
+          className="argus-variable-list"
+          aria-label={t("dashboardControls.variableList")}
         >
-          {t("dashboards.addVariable")}
-        </Button>
+          <div className="argus-variable-list__heading">
+            <strong>{t("dashboardControls.filterManager")}</strong>
+            <Badge>{value.variables.length}</Badge>
+          </div>
+          {value.variables.map((v) => (
+            <Button
+              key={v.id}
+              layout="content"
+              className="argus-variable-list__item"
+              aria-pressed={v.id === activeId}
+              onPress={() => setActiveId(v.id)}
+            >
+              <span>
+                <strong>{v.label || v.name}</strong>
+                <small>${v.name}</small>
+              </span>
+            </Button>
+          ))}
+          <Button onPress={add}>
+            <Plus aria-hidden />
+            {t("dashboards.addVariable")}
+          </Button>
+        </aside>
+        <div className="argus-variable-editor">
+          {active ? (
+            <>
+              <div className="argus-variable-editor__heading">
+                <strong>{t("dashboardControls.editVariable")}</strong>
+                <Button
+                  isIconOnly
+                  variant="ghost"
+                  aria-label={t("dashboardControls.removeVariable")}
+                  onPress={() => {
+                    const variables = value.variables.filter(
+                      (v) => v.id !== activeId,
+                    );
+                    setValue({ ...value, variables });
+                    setActiveId(variables[0]?.id);
+                  }}
+                >
+                  <Trash2 aria-hidden />
+                </Button>
+              </div>
+              <div className="argus-dashboard-form-grid">
+                <Field label={t("dashboards.label")} requirement="required">
+                  <Input
+                    value={active.label}
+                    onChange={(e) => update({ label: e.target.value })}
+                  />
+                </Field>
+                <Field
+                  label={t("dashboards.variableName")}
+                  requirement="required"
+                >
+                  <Input
+                    value={active.name}
+                    pattern="[A-Za-z_][A-Za-z0-9_]{0,63}"
+                    onChange={(e) => update({ name: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <VariableQueryEditor
+                key={active.id}
+                value={active}
+                spec={value}
+                onChange={update}
+              />
+              <section className="argus-variable-consumers">
+                <strong>{t("dashboardControls.consumers")}</strong>
+                <p className="argus-dashboard-muted">
+                  {t(
+                    affected.length
+                      ? "dashboardControls.consumersHint"
+                      : "dashboardControls.noConsumers",
+                  )}
+                </p>
+                <div className="argus-dashboard-inline">
+                  {value.panels
+                    .filter((p) => affected.includes(p.id))
+                    .map((p) => (
+                      <Badge key={p.id}>{p.title}</Badge>
+                    ))}
+                </div>
+              </section>
+            </>
+          ) : (
+            <p className="argus-dashboard-muted">
+              {t("dashboardControls.emptyVariables")}
+            </p>
+          )}
+        </div>
       </div>
     </FormDrawer>
   );

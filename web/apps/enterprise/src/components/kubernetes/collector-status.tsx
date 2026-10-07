@@ -302,8 +302,8 @@ export function CollectorStatusPanel({
           ) : (
             <div className="argus-form-actions">
               <Button
-                loading={testRoute.isPending}
-                onClick={() => testRoute.mutate()}
+                isPending={testRoute.isPending}
+                onPress={() => testRoute.mutate()}
                 variant="secondary"
               >
                 {t("kubernetes.collector.status.testRoute")}
@@ -314,24 +314,24 @@ export function CollectorStatusPanel({
                 </StatusBadge>
               )}
               <Button
-                disabled={imageInvalid || imagePullSecretsInvalid}
-                loading={previewLifecycle.isPending}
-                onClick={() => previewLifecycle.mutate("upgrade")}
+                isDisabled={imageInvalid || imagePullSecretsInvalid}
+                isPending={previewLifecycle.isPending}
+                onPress={() => previewLifecycle.mutate("upgrade")}
                 variant="secondary"
               >
                 {t("kubernetes.collector.status.upgrade")}
               </Button>
               <Button
-                disabled={imageInvalid || imagePullSecretsInvalid}
-                loading={previewLifecycle.isPending}
-                onClick={() => previewLifecycle.mutate("repair")}
+                isDisabled={imageInvalid || imagePullSecretsInvalid}
+                isPending={previewLifecycle.isPending}
+                onPress={() => previewLifecycle.mutate("repair")}
                 variant="secondary"
               >
                 {t("kubernetes.collector.status.repair")}
               </Button>
               <Button
-                loading={previewLifecycle.isPending}
-                onClick={() => previewLifecycle.mutate("uninstall")}
+                isPending={previewLifecycle.isPending}
+                onPress={() => previewLifecycle.mutate("uninstall")}
                 variant="danger"
               >
                 {t("kubernetes.collector.status.uninstall")}
@@ -490,9 +490,11 @@ export function CollectorStatusPanel({
             ) : (
               <div>
                 <Button
-                  disabled={!changed || imageInvalid || imagePullSecretsInvalid}
-                  loading={previewChange.isPending}
-                  onClick={() => previewChange.mutate()}
+                  isDisabled={
+                    !changed || imageInvalid || imagePullSecretsInvalid
+                  }
+                  isPending={previewChange.isPending}
+                  onPress={() => previewChange.mutate()}
                   variant="primary"
                 >
                   {t("kubernetes.collector.status.previewChange")}

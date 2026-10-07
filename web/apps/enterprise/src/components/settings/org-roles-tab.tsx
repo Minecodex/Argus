@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState } from "react";
@@ -104,7 +105,7 @@ export function OrgRolesTab() {
           {t("settings.org.tabs.roles")}
         </h2>
         <Button
-          onClick={() => {
+          onPress={() => {
             setEditing(null);
             setDrawerOpen(true);
           }}
@@ -114,94 +115,101 @@ export function OrgRolesTab() {
           {t("settings.org.rolesTab.create")}
         </Button>
       </div>
-      {roles.isPending ? (
-        <Spinner />
-      ) : rows.length === 0 ? (
-        <EmptyState description="" title={t("settings.org.rolesTab.empty")} />
-      ) : (
-        <DataTable<RoleRow>
-          columns={[
-            {
-              key: "name",
-              header: t("settings.common.name"),
-              render: (row) => (
-                <span className="argus-settings-inline-actions">
-                  {row.name}
-                  {row.builtin && (
-                    <Badge tone="accent">{t("settings.common.builtin")}</Badge>
-                  )}
-                </span>
-              ),
-            },
-            { key: "description", header: t("settings.common.description") },
-            {
-              key: "permissionCount",
-              header: t("settings.org.rolesTab.permissions"),
-              render: (row) =>
-                row.permissionCount < 0 ? "*" : String(row.permissionCount),
-            },
-            {
-              key: "createdAt",
-              header: t("settings.common.createdAt"),
-              render: (row) => formatDateTime(row.createdAt),
-            },
-            {
-              key: "actions",
-              header: t("settings.common.actions"),
-              render: (row) => (
-                <ActionGroup>
-                  <RowAction
-                    onClick={() =>
-                      setAuthorizationTarget(
-                        roles.data?.find((role) => role.id === row.id) ?? null,
-                      )
-                    }
-                  >
-                    {t("settings.org.dataAuthorization.action")}
-                  </RowAction>
-                  {!row.builtin && (
-                    <>
-                      <RowAction
-                        onClick={() => {
-                          setEditing(
-                            roles.data?.find((role) => role.id === row.id) ??
-                              null,
-                          );
-                          setDrawerOpen(true);
-                        }}
-                      >
-                        {t("settings.common.edit")}
-                      </RowAction>
-                      <RowAction
-                        danger
-                        onClick={() =>
-                          setDeleting(
-                            roles.data?.find((role) => role.id === row.id) ??
-                              null,
-                          )
-                        }
-                      >
-                        {t("settings.common.delete")}
-                      </RowAction>
-                    </>
-                  )}
-                  {row.builtin && (
-                    <Tooltip content={t("settings.org.rolesTab.builtinLocked")}>
-                      <span>
-                        <RowAction disabled danger>
+      <QueryBoundary query={roles}>
+        {roles.isPending ? (
+          <Spinner />
+        ) : rows.length === 0 ? (
+          <EmptyState description="" title={t("settings.org.rolesTab.empty")} />
+        ) : (
+          <DataTable<RoleRow>
+            columns={[
+              {
+                key: "name",
+                header: t("settings.common.name"),
+                render: (row) => (
+                  <span className="argus-settings-inline-actions">
+                    {row.name}
+                    {row.builtin && (
+                      <Badge tone="accent">
+                        {t("settings.common.builtin")}
+                      </Badge>
+                    )}
+                  </span>
+                ),
+              },
+              { key: "description", header: t("settings.common.description") },
+              {
+                key: "permissionCount",
+                header: t("settings.org.rolesTab.permissions"),
+                render: (row) =>
+                  row.permissionCount < 0 ? "*" : String(row.permissionCount),
+              },
+              {
+                key: "createdAt",
+                header: t("settings.common.createdAt"),
+                render: (row) => formatDateTime(row.createdAt),
+              },
+              {
+                key: "actions",
+                header: t("settings.common.actions"),
+                render: (row) => (
+                  <ActionGroup>
+                    <RowAction
+                      onPress={() =>
+                        setAuthorizationTarget(
+                          roles.data?.find((role) => role.id === row.id) ??
+                            null,
+                        )
+                      }
+                    >
+                      {t("settings.org.dataAuthorization.action")}
+                    </RowAction>
+                    {!row.builtin && (
+                      <>
+                        <RowAction
+                          onPress={() => {
+                            setEditing(
+                              roles.data?.find((role) => role.id === row.id) ??
+                                null,
+                            );
+                            setDrawerOpen(true);
+                          }}
+                        >
+                          {t("settings.common.edit")}
+                        </RowAction>
+                        <RowAction
+                          danger
+                          onPress={() =>
+                            setDeleting(
+                              roles.data?.find((role) => role.id === row.id) ??
+                                null,
+                            )
+                          }
+                        >
                           {t("settings.common.delete")}
                         </RowAction>
-                      </span>
-                    </Tooltip>
-                  )}
-                </ActionGroup>
-              ),
-            },
-          ]}
-          data={rows}
-          getRowKey={(row) => row.id}
-        />
-      )}
+                      </>
+                    )}
+                    {row.builtin && (
+                      <Tooltip
+                        content={t("settings.org.rolesTab.builtinLocked")}
+                      >
+                        <span>
+                          <RowAction isDisabled danger>
+                            {t("settings.common.delete")}
+                          </RowAction>
+                        </span>
+                      </Tooltip>
+                    )}
+                  </ActionGroup>
+                ),
+              },
+            ]}
+            data={rows}
+            getRowKey={(row) => row.id}
+          />
+        )}
+      </QueryBoundary>
       <DataAuthorizationDialog
         open={authorizationTarget !== null}
         onOpenChange={(open) => !open && setAuthorizationTarget(null)}

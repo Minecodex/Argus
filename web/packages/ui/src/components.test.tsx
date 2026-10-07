@@ -88,7 +88,7 @@ describe("FilterBar", () => {
       target: { value: "web" },
     });
     expect(onSearch).toHaveBeenCalledWith("web");
-    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(screen.getByRole("button", { name: /All/ }));
     fireEvent.click(screen.getByRole("option", { name: "Online" }));
     expect(onFilter).toHaveBeenCalledWith("online");
     fireEvent.click(screen.getByRole("button", { name: "刷新" }));
@@ -106,7 +106,7 @@ describe("SearchInput", () => {
 describe("DateTimePicker", () => {
   it("opens when the input text is clicked and keeps the local value format", async () => {
     const onChange = vi.fn();
-    const { container } = render(
+    render(
       <DateTimePicker
         aria-label="Expires at"
         onChange={onChange}
@@ -117,12 +117,12 @@ describe("DateTimePicker", () => {
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("textbox", { name: "Expires at" }),
+        screen.getByRole("group", { name: "Expires at" }),
       ).not.toBeDisabled(),
     );
-    const input = screen.getByRole("textbox", { name: "Expires at" });
+    const input = screen.getByRole("group", { name: "Expires at" });
     fireEvent.click(input);
-    expect(container.querySelector(".react-datepicker")).toBeInTheDocument();
+    expect(screen.getByRole("grid")).toBeInTheDocument();
   });
 });
 
@@ -163,8 +163,14 @@ describe("ConfirmDialog", () => {
     trigger.focus();
     fireEvent.click(trigger);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(
+        true,
+      ),
+    );
     fireEvent.keyDown(document.activeElement ?? document.body, {
       key: "Escape",
+      keyCode: 27,
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(trigger).toHaveFocus());
@@ -196,7 +202,7 @@ describe("FormDrawer", () => {
       </FormDrawer>,
       { wrapper: Wrapper },
     );
-    fireEvent.submit(screen.getByRole("dialog", { name: "New host" }));
+    fireEvent.submit(screen.getByRole("form", { name: "New host" }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 });
@@ -323,9 +329,15 @@ describe("Field", () => {
       </Field>,
       { wrapper: Wrapper },
     );
-    const select = screen.getByRole("combobox", { name: "Environment" });
-    expect(select).toHaveAttribute("aria-required", "true");
-    expect(select).toHaveAttribute("aria-invalid", "true");
+    const select = screen.getByRole("button", { name: /Environment/ });
+    expect(select.closest(".argus-select")).toHaveAttribute(
+      "data-required",
+      "true",
+    );
+    expect(select.closest(".argus-select")).toHaveAttribute(
+      "data-invalid",
+      "true",
+    );
     expect(
       document.getElementById(select.getAttribute("aria-describedby")!),
     ).toHaveTextContent("Choose an environment");

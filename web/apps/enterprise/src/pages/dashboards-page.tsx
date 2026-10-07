@@ -1,7 +1,10 @@
+import { ResourceCard, ActionGroup } from "@argus/ui";
+import { useDefinitionForm } from "../components/dashboards/use-definition-form";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { QueryBoundary } from "@argus/ui";
 import {
   emptyDashboardSpec,
   formatApiError,
@@ -14,7 +17,7 @@ import {
   Badge,
   Button,
   Field,
-  FormDrawer,
+  FormDialog,
   Input,
   PageShell,
   Select,
@@ -63,6 +66,14 @@ export function DashboardsPage() {
       cache.invalidateQueries({ queryKey: ["dashboard-folders"] }),
     ]);
   };
+  const form = useDefinitionForm(
+    { name, description },
+    (v) =>
+      Boolean(v.name.trim()) &&
+      v.name.length <= 180 &&
+      v.description.length <= 2048,
+    t("dashboards.editor.invalidForm"),
+  );
   const failure = (e: unknown) =>
     setError(
       formatApiError(e, t("dashboards.failed"), (requestId) =>
@@ -139,7 +150,7 @@ export function DashboardsPage() {
         canManage && (
           <div className="argus-dashboard-inline">
             <Button
-              onClick={() => {
+              onPress={() => {
                 setName("");
                 setDescription("");
                 setCreating("folder");
@@ -149,7 +160,7 @@ export function DashboardsPage() {
             </Button>
             <Button
               variant="primary"
-              onClick={() => {
+              onPress={() => {
                 setName("");
                 setDescription("");
                 setCreating("dashboard");
@@ -162,15 +173,14 @@ export function DashboardsPage() {
       }
     >
       <div className="argus-dashboard-toolbar">
-        <div role="tablist" aria-label={t("dashboards.title")}>
+        <div role="group" aria-label={t("dashboards.title")}>
           {["published", ...(canManage ? ["drafts"] : []), "archived"].map(
             (key) => (
               <Button
-                role="tab"
-                aria-selected={tab === key}
+                aria-pressed={tab === key}
                 key={key}
                 variant={tab === key ? "primary" : "ghost"}
-                onClick={() => setTab(key)}
+                onPress={() => setTab(key)}
               >
                 {t(`dashboards.${key}`)}
               </Button>
@@ -205,7 +215,7 @@ export function DashboardsPage() {
             return (
               f && (
                 <Button
-                  onClick={() =>
+                  onPress={() =>
                     void api.dashboards
                       .previewFolder({
                         id: f.id,
@@ -233,88 +243,104 @@ export function DashboardsPage() {
           })()}
         </div>
       )}
-      <div className="argus-dashboard-directory">
-        {tab === "drafts"
-          ? (drafts.data ?? []).map((d) => (
-              <article className="argus-dashboard-directory-card" key={d.id}>
-                <Badge>{t("dashboards.draft")}</Badge>
-                <h2>{d.name}</h2>
-                <p>{d.description}</p>
-                <Button
-                  onClick={() =>
+      <QueryBoundary query={tab === "drafts" ? drafts : items}>
+        <div className="argus-dashboard-directory">
+          {tab === "drafts"
+            ? (drafts.data ?? []).map((d) => (
+                <ResourceCard
+                  key={d.id}
+                  title={d.name}
+                  subtitle={d.description}
+                  onOpen={() =>
                     void navigate({
                       to: "/dashboard-drafts/$draftId",
                       params: { draftId: d.id },
                     })
                   }
-                >
-                  {t("dashboards.resume")}
-                </Button>
-              </article>
-            ))
-          : visible.map((item) => (
-              <article className="argus-dashboard-directory-card" key={item.id}>
-                <div className="argus-dashboard-inline">
-                  <Badge>
-                    {t(
-                      `dashboards.${item.lifecycle === "active" ? "published" : "archived"}`,
-                    )}
-                  </Badge>
-                  <span>
-                    {folders.data?.find((f) => f.id === item.folder_id)?.name ??
-                      t("dashboards.ungrouped")}
-                  </span>
-                </div>
-                <h2>
-                  <button
-                    className="argus-dashboard-link"
-                    onClick={() =>
-                      void navigate({
-                        to: "/dashboards/$dashboardId",
-                        params: { dashboardId: item.id },
-                      })
-                    }
-                  >
-                    {item.name}
-                  </button>
-                </h2>
-                <p>{item.description}</p>
-                <div className="argus-dashboard-inline">
-                  <Button
-                    onClick={() =>
-                      void navigate({
-                        to: "/dashboards/$dashboardId",
-                        params: { dashboardId: item.id },
-                      })
-                    }
-                  >
-                    {t("dashboards.open")}
-                  </Button>
-                  {canManage && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => void lifecycle(item)}
-                    >
+                  status={<Badge>{t("dashboards.draft")}</Badge>}
+                  labels={undefined}
+                  actions={
+                    <ActionGroup>
+                      <Button
+                        onPress={() =>
+                          void navigate({
+                            to: "/dashboard-drafts/$draftId",
+                            params: { draftId: d.id },
+                          })
+                        }
+                      >
+                        {t("dashboards.resume")}
+                      </Button>
+                    </ActionGroup>
+                  }
+                />
+              ))
+            : visible.map((item) => (
+                <ResourceCard
+                  key={item.id}
+                  title={item.name}
+                  subtitle={item.description}
+                  onOpen={() =>
+                    void navigate({
+                      to: "/dashboards/$dashboardId",
+                      params: { dashboardId: item.id },
+                    })
+                  }
+                  status={
+                    <Badge>
                       {t(
                         item.lifecycle === "active"
-                          ? "dashboards.archive"
-                          : "dashboards.restore",
+                          ? "dashboards.published"
+                          : "dashboards.archived",
                       )}
-                    </Button>
-                  )}
-                </div>
-              </article>
-            ))}
-      </div>
-      {(tab === "drafts" ? !drafts.data?.length : !visible.length) &&
-        !items.isLoading && (
-          <div className="argus-dashboard-empty">
-            <h2>{t("dashboards.empty")}</h2>
-            <p>{t("dashboards.emptyHint")}</p>
-          </div>
-        )}
+                    </Badge>
+                  }
+                  menuItems={
+                    canManage
+                      ? [
+                          {
+                            label: t(
+                              item.lifecycle === "active"
+                                ? "dashboards.archive"
+                                : "dashboards.restore",
+                            ),
+                            onSelect: () => void lifecycle(item),
+                            danger: item.lifecycle === "active",
+                          },
+                        ]
+                      : []
+                  }
+                  labels={
+                    folders.data?.find((f) => f.id === item.folder_id)?.name ??
+                    t("dashboards.ungrouped")
+                  }
+                  actions={
+                    <ActionGroup>
+                      <Button
+                        onPress={() =>
+                          void navigate({
+                            to: "/dashboards/$dashboardId",
+                            params: { dashboardId: item.id },
+                          })
+                        }
+                      >
+                        {t("dashboards.open")}
+                      </Button>
+                    </ActionGroup>
+                  }
+                />
+              ))}
+        </div>
+        {(tab === "drafts" ? !drafts.data?.length : !visible.length) &&
+          !items.isLoading && (
+            <div className="argus-dashboard-empty">
+              <h2>{t("dashboards.empty")}</h2>
+              <p>{t("dashboards.emptyHint")}</p>
+            </div>
+          )}
+      </QueryBoundary>
       {creating && (
-        <FormDrawer
+        <FormDialog
           open
           onOpenChange={(open) => !open && setCreating(null)}
           title={t(
@@ -324,7 +350,7 @@ export function DashboardsPage() {
           )}
           submitLabel={t("dashboards.done")}
           loading={busy}
-          onSubmit={() => void create()}
+          onSubmit={form.handleSubmit(() => void create())}
         >
           <div className="argus-dashboard-form-stack">
             <Field label={t("dashboards.name")} requirement="required">
@@ -359,7 +385,7 @@ export function DashboardsPage() {
             )}
             {error && <p role="alert">{error}</p>}
           </div>
-        </FormDrawer>
+        </FormDialog>
       )}
       {action && (
         <DashboardActionDialog

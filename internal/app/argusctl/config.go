@@ -35,6 +35,7 @@ type InstallConfig struct {
 	Spec           InstallSpec `json:"spec"`
 	path           string
 	resolvedImages map[string]string
+	sharedDataCRDs map[string]bool
 }
 
 type InstallSpec struct {
@@ -50,13 +51,21 @@ type InstallSpec struct {
 	PKI            PKIConfig              `json:"pki"`
 	DirectExecutor DirectExecutorCapacity `json:"directExecutor"`
 	OpenSandbox    struct {
-		Enabled            bool   `json:"enabled"`
-		RuntimeClassName   string `json:"runtimeClassName"`
-		AllowSharedRuntime bool   `json:"allowSharedRuntime"`
+		Enabled            bool                     `json:"enabled"`
+		RuntimeClassName   string                   `json:"runtimeClassName"`
+		AllowSharedRuntime bool                     `json:"allowSharedRuntime"`
+		SharedController   *SharedSandboxController `json:"sharedController,omitempty"`
 	} `json:"openSandbox"`
 	Workspace   WorkspaceInstall   `json:"workspace"`
 	Telemetry   TelemetryArtifacts `json:"telemetry"`
 	Persistence Persistence        `json:"persistence"`
+}
+
+// SharedSandboxController pins an externally managed controller without
+// adopting its CRDs or modifying its Deployment.
+type SharedSandboxController struct {
+	Namespace   string `json:"namespace"`
+	ImageDigest string `json:"imageDigest"`
 }
 
 // DirectExecutorCapacity is explicit in production because tunnel ownership
@@ -127,6 +136,7 @@ type Exposure struct {
 	IngressClassName     string `json:"ingressClassName"`
 	EnterpriseHost       string `json:"enterpriseHost"`
 	PlatformHost         string `json:"platformHost"`
+	TemplateHost         string `json:"templateHost,omitempty"`
 	ConnectorHost        string `json:"connectorHost"`
 	// ArtifactHost 为 Collector 产物下载源的主机名;留空时按
 	// artifacts.<enterprise 父域名> 派生。
@@ -193,6 +203,18 @@ func LoadConfig(path string) (*InstallConfig, error) {
 }
 
 func (c *InstallConfig) Validate() error {
+	if c.Spec.Namespaces.Observability == "" {
+		c.Spec.Namespaces.Observability = c.Spec.Namespaces.System
+	}
+	if c.Spec.Workspace.Enabled && c.Spec.Workspace.StorageNamespace == "" {
+		c.Spec.Workspace.StorageNamespace = c.Spec.Namespaces.System
+	}
+	if c.Spec.Namespaces.System != "" && (c.Spec.Namespaces.Sandbox == c.Spec.Namespaces.System || c.Spec.Namespaces.Sandbox == c.Spec.Namespaces.Observability || (c.Spec.Workspace.Enabled && c.Spec.Workspace.StorageNamespace == c.Spec.Namespaces.Sandbox)) {
+		return fmt.Errorf("sandbox namespace must remain separate from platform, telemetry and privileged storage workloads")
+	}
+	if err := c.Spec.OpenSandbox.SharedController.validate(); err != nil {
+		return err
+	}
 	if err := c.Spec.Workspace.validate(); err != nil {
 		return err
 	}
@@ -295,6 +317,18 @@ func (c *InstallConfig) Validate() error {
 	if !validHostname(c.Spec.Exposure.EnterpriseHost) || !validHostname(c.Spec.Exposure.PlatformHost) {
 		return fmt.Errorf("spec.exposure enterpriseHost and platformHost must be DNS hostnames")
 	}
+	if !validHostname(c.templateHost()) {
+		return fmt.Errorf("spec.exposure.templateHost must be a DNS hostname")
+	}
+	artifactHost := c.Spec.Exposure.ArtifactHost
+	if artifactHost == "" {
+		artifactHost = "artifacts." + parentDomain(c.Spec.Exposure.EnterpriseHost)
+	}
+	for _, host := range []string{c.Spec.Exposure.EnterpriseHost, c.Spec.Exposure.PlatformHost, artifactHost} {
+		if strings.EqualFold(c.templateHost(), host) {
+			return fmt.Errorf("spec.exposure.templateHost must use an origin separate from portals and artifacts")
+		}
+	}
 	if c.Spec.Exposure.ConnectorHost == "" {
 		return fmt.Errorf("spec.exposure.connectorHost is required for domain-based exposure")
 	}
@@ -372,6 +406,13 @@ func (c *InstallConfig) collectorKubernetesImage() string {
 		return image
 	}
 	return c.Image("argus-otelcol")
+}
+
+func (c *InstallConfig) templateHost() string {
+	if c.Spec.Exposure.TemplateHost != "" {
+		return c.Spec.Exposure.TemplateHost
+	}
+	return "templates." + parentDomain(c.Spec.Exposure.EnterpriseHost)
 }
 
 // collectorArtifactCA returns the single public trust bundle distributed by

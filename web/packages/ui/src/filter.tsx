@@ -77,8 +77,8 @@ export function FilterBar({
         <Button
           aria-label={refreshLabel ?? text("刷新", "Refresh")}
           className="argus-filter-bar__refresh"
-          onClick={onRefresh}
-          size="icon"
+          onPress={onRefresh}
+          isIconOnly
           variant="ghost"
         >
           <RefreshCw

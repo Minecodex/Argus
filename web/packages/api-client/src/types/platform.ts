@@ -1,6 +1,9 @@
 import type { AuditEvent } from "./audit";
 import type { ISODateString as Iso } from "./common";
 
+export type PlatformOverview =
+  import("../generated/platform").components["schemas"]["PlatformOverview"];
+
 export type EnterpriseStatus = "active" | "suspended" | "disabled";
 
 export interface Enterprise {

@@ -337,7 +337,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DashboardVersionInput'
+              $ref: '#/components/schemas/DashboardDraftSampleInput'
       responses:
         '200':
           description: Operation result.
@@ -701,6 +701,32 @@ paths:
           $ref: '#/components/responses/Error'
         '409':
           $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboard-drafts/{id}/drilldown:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: executeDashboardDraftDrilldown
+      summary: Preview a registered drilldown from the owned draft and its frozen sample.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardDraftDrilldownInput'
+      responses:
+        '200':
+          description: Draft drilldown execution.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardDraftDrilldownExecution'
         default:
           $ref: '#/components/responses/Error'
 components:
@@ -2141,6 +2167,18 @@ components:
         - variable_candidates
         - local_candidates
         - execution_id
+    DashboardDraftSampleInput:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        parameters:
+          $ref: '#/components/schemas/DashboardExecutionInput'
+      required:
+        - expected_version
     DashboardDraftSample:
       type: object
       additionalProperties: false
@@ -2701,6 +2739,52 @@ components:
           type: integer
           format: int64
           minimum: 1
+    DashboardDraftDrilldownInput:
+      type: object
+      additionalProperties: false
+      properties:
+        context_token:
+          type: string
+          maxLength: 1048576
+        panel_id:
+          type: string
+        drilldown_id:
+          type: string
+        values:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 4096
+          maxProperties: 16
+        expand_authorized_resources:
+          type: boolean
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+      required:
+        - context_token
+        - panel_id
+        - drilldown_id
+        - values
+        - expand_authorized_resources
+        - expected_version
+    DashboardDraftDrilldownExecution:
+      type: object
+      additionalProperties: false
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        draft_version:
+          type: integer
+          format: int64
+        execution:
+          $ref: '#/components/schemas/DashboardDrilldownExecution'
+      required:
+        - draft_id
+        - draft_version
+        - execution
     DashboardConditionPatch:
       type: object
       additionalProperties: false

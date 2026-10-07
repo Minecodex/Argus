@@ -149,7 +149,7 @@ function ConnectorCard({
           !rotating && (
             <ActionGroup>
               <Button
-                onClick={() => {
+                onPress={() => {
                   setRotating(true);
                   setRotateStatus("pending");
                 }}
@@ -416,24 +416,26 @@ export function CollectorInstallWizard({
           {step === 0 ? (
             <div className="argus-choice-list">
               {COLLECTOR_PROFILES.map((item, index) => (
-                <button
+                <Button
+                  variant="ghost"
                   className={`argus-choice ${profile === item ? "is-selected" : ""}`}
                   key={item}
-                  onClick={() => setProfile(item)}
+                  onPress={() => setProfile(item)}
                   type="button"
                 >
                   <span className="argus-choice__text">
                     <b>{profileLabels[index]}</b>
                     <small className="argus-mono">{item}</small>
                   </span>
-                </button>
+                </Button>
               ))}
             </div>
           ) : (
             <div className="argus-choice-list">
-              <button
+              <Button
+                variant="ghost"
                 className={`argus-choice ${route === "direct_argus" ? "is-selected" : ""}`}
-                onClick={() => {
+                onPress={() => {
                   setRoute("direct_argus");
                 }}
                 type="button"
@@ -444,14 +446,15 @@ export function CollectorInstallWizard({
                     {t("hosts.components.installWizard.routeDirectDesc")}
                   </small>
                 </span>
-              </button>
+              </Button>
               {gatewayScopes.map((gatewayScope) => {
                 const value = gatewayScope.connector_host_id ?? gatewayScope.id;
                 return (
-                  <button
+                  <Button
+                    variant="ghost"
                     className={`argus-choice ${route === value ? "is-selected" : ""}`}
                     key={gatewayScope.id}
-                    onClick={() => {
+                    onPress={() => {
                       setRoute(value);
                     }}
                     type="button"
@@ -464,12 +467,13 @@ export function CollectorInstallWizard({
                         })}
                       </small>
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
-              <button
+              <Button
+                variant="ghost"
                 className={`argus-choice ${transport !== "direct" ? "is-selected" : ""}`}
-                onClick={() => {
+                onPress={() => {
                   setTransport(
                     host.control_path === "bastion_relay"
                       ? "bastion_tunnel"
@@ -491,7 +495,7 @@ export function CollectorInstallWizard({
                     {t("hosts.components.installWizard.transportTunnelDesc")}
                   </small>
                 </span>
-              </button>
+              </Button>
               {transport !== "direct" && (
                 <div className="argus-form-row">
                   <Field
@@ -506,7 +510,7 @@ export function CollectorInstallWizard({
                     />
                   </Field>
                   <Button
-                    onClick={() => setTransport("direct")}
+                    onPress={() => setTransport("direct")}
                     variant="secondary"
                   >
                     {t("hosts.components.installWizard.transportDirectBack")}
@@ -767,7 +771,7 @@ function CollectorCard({
       <Card>
         <CardHeader
           action={
-            <Button onClick={() => setInstallOpen(true)} variant="primary">
+            <Button onPress={() => setInstallOpen(true)} variant="primary">
               {t("hosts.components.installCollector")}
             </Button>
           }
@@ -878,13 +882,13 @@ function CollectorCard({
               <DiffViewer lines={diffLines} />
               <div className="argus-form-actions">
                 <Button
-                  loading={previewing}
-                  onClick={() => void previewConfig()}
+                  isPending={previewing}
+                  onPress={() => void previewConfig()}
                   variant="primary"
                 >
                   {t("hosts.components.installed.previewChanges")}
                 </Button>
-                <Button onClick={() => setDraft(null)} variant="ghost">
+                <Button onPress={() => setDraft(null)} variant="ghost">
                   {t("hosts.reset")}
                 </Button>
               </div>
@@ -947,7 +951,7 @@ function CollectorCard({
           {!routeEditing && !routeAction && (
             <div className="argus-form-actions">
               <Button
-                onClick={() => {
+                onPress={() => {
                   setRouteEditing(true);
                   setRouteTested(false);
                   setRouteChoice(
@@ -959,8 +963,8 @@ function CollectorCard({
                 {t("hosts.components.installed.changeRoute")}
               </Button>
               <Button
-                loading={routeTesting}
-                onClick={() => void testCurrentRoute()}
+                isPending={routeTesting}
+                onPress={() => void testCurrentRoute()}
                 variant="secondary"
               >
                 {t("hosts.components.installed.routeTest")}
@@ -1013,13 +1017,13 @@ function CollectorCard({
               </Field>
               <div className="argus-form-actions">
                 <Button
-                  loading={previewing}
-                  onClick={() => void previewRoute()}
+                  isPending={previewing}
+                  onPress={() => void previewRoute()}
                   variant="primary"
                 >
                   {t("hosts.components.installed.previewChanges")}
                 </Button>
-                <Button onClick={() => setRouteEditing(false)} variant="ghost">
+                <Button onPress={() => setRouteEditing(false)} variant="ghost">
                   {t("hosts.cancel")}
                 </Button>
               </div>
@@ -1053,22 +1057,22 @@ function CollectorCard({
           ) : (
             <div className="argus-form-actions">
               <Button
-                loading={previewing}
-                onClick={() => void previewLifecycle("upgrade")}
+                isPending={previewing}
+                onPress={() => void previewLifecycle("upgrade")}
                 variant="secondary"
               >
                 {t("hosts.components.installed.upgrade")}
               </Button>
               <Button
-                loading={previewing}
-                onClick={() => void previewLifecycle("repair")}
+                isPending={previewing}
+                onPress={() => void previewLifecycle("repair")}
                 variant="secondary"
               >
                 {t("hosts.components.installed.repair")}
               </Button>
               <Button
-                loading={previewing}
-                onClick={() => void previewLifecycle("uninstall")}
+                isPending={previewing}
+                onPress={() => void previewLifecycle("uninstall")}
                 variant="danger"
               >
                 {t("hosts.components.installed.uninstall")}

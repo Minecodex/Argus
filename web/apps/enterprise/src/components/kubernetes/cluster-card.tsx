@@ -1,14 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useApi, type KubernetesCluster } from "@argus/api-client";
-import { Badge, Card, CardContent, RowAction, StatusBadge } from "@argus/ui";
+import { useApi, ApiError, type KubernetesCluster } from "@argus/api-client";
+import {
+  ActionGroup,
+  Badge,
+  Button,
+  ResourceCard,
+  RowAction,
+  StatusBadge,
+} from "@argus/ui";
 import {
   bindingCoverage,
   collectorStatusTone,
   connectionStatusTone,
 } from "./status";
-
-/** 单个集群卡片：概览指标、Collector/绑定徽标、连接测试与卡片操作。 */
 export function ClusterCard({
   cluster,
   onOpen,
@@ -24,96 +29,108 @@ export function ClusterCard({
   onInstallCollector?: () => void;
   onOpenCollector?: () => void;
 }) {
-  const { t } = useTranslation();
-  const api = useApi();
-
-  const collectorQuery = useQuery({
+  const { t } = useTranslation(),
+    api = useApi(),
+    showCollector = Boolean(onInstallCollector || onOpenCollector);
+  const collector = useQuery({
     queryKey: ["kubernetes", "collector", cluster.id],
     queryFn: () => api.kubernetes.getCollector(cluster.id),
-    enabled: Boolean(onInstallCollector || onOpenCollector),
+    enabled: showCollector,
   });
-  const bindingsQuery = useQuery({
+  const bindings = useQuery({
     queryKey: ["kubernetes", "nodeBindings", cluster.id],
     queryFn: () => api.kubernetes.listNodeBindings(cluster.id),
-    enabled: Boolean(onInstallCollector || onOpenCollector),
+    enabled: showCollector,
   });
-
-  const collectorStatus = collectorQuery.data?.status ?? "not_installed";
-  const coverage = bindingCoverage(cluster, bindingsQuery.data);
-
+  const state =
+      collector.data?.status ??
+      ((collector.isSuccess && collector.data === null) ||
+      (collector.error instanceof ApiError && collector.error.status === 404)
+        ? "not_installed"
+        : undefined),
+    coverage = bindings.data
+      ? bindingCoverage(cluster, bindings.data)
+      : undefined;
+  const unavailable = t("kubernetes.card.dataUnavailable"),
+    loading = t("common.loading");
   return (
-    <Card>
-      <CardContent>
-        <div className="argus-k8s-cluster-card__head">
-          <span className="argus-k8s-cluster-card__name">{cluster.name}</span>
-          <Badge tone="accent">
-            {t(`kubernetes.environment.${cluster.environment}`)}
-          </Badge>
-          <StatusBadge tone={connectionStatusTone(cluster.connection_status)}>
-            {t(`kubernetes.status.${cluster.connection_status}`)}
-          </StatusBadge>
-        </div>
-        <div className="argus-k8s-cluster-card__server">
-          {cluster.api_server}
-        </div>
-        <dl className="argus-k8s-kv">
-          <div className="argus-k8s-kv__item">
-            <dt>{t("kubernetes.card.version")}</dt>
-            <dd>{cluster.kubernetes_version}</dd>
-          </div>
-          <div className="argus-k8s-kv__item">
-            <dt>{t("kubernetes.card.nodes")}</dt>
-            <dd>
-              {cluster.ready_node_count}/{cluster.node_count}
-            </dd>
-          </div>
-          <div className="argus-k8s-kv__item">
-            <dt>{t("kubernetes.card.connectionMode")}</dt>
-            <dd>{t(`kubernetes.mode.${cluster.connection_mode}`)}</dd>
-          </div>
-          {(onInstallCollector || onOpenCollector) && (
-            <>
-              <div className="argus-k8s-kv__item">
-                <dt>{t("kubernetes.card.collector")}</dt>
-                <dd>
-                  <button
+    <ResourceCard
+      title={cluster.name}
+      subtitle={cluster.api_server}
+      onOpen={onOpen}
+      status={
+        <StatusBadge tone={connectionStatusTone(cluster.connection_status)}>
+          {t(`kubernetes.status.${cluster.connection_status}`)}
+        </StatusBadge>
+      }
+      labels={
+        <Badge tone="accent">
+          {t(`kubernetes.environment.${cluster.environment}`)}
+        </Badge>
+      }
+      facts={[
+        {
+          label: t("kubernetes.card.version"),
+          value: cluster.kubernetes_version || "—",
+        },
+        {
+          label: t("kubernetes.card.nodes"),
+          value: `${cluster.ready_node_count}/${cluster.node_count}`,
+        },
+        ...(showCollector
+          ? [
+              {
+                label: t("kubernetes.card.collector"),
+                value: state ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     aria-label={t(
-                      collectorStatus === "not_installed"
+                      state === "not_installed"
                         ? "kubernetes.card.installCollector"
                         : "kubernetes.card.openCollector",
                       { name: cluster.name },
                     )}
-                    className="argus-k8s-collector-action"
-                    onClick={
-                      collectorStatus === "not_installed"
+                    onPress={
+                      state === "not_installed"
                         ? onInstallCollector
                         : onOpenCollector
                     }
-                    type="button"
                   >
-                    <StatusBadge tone={collectorStatusTone(collectorStatus)}>
-                      {t(`kubernetes.collectorStatus.${collectorStatus}`)}
+                    <StatusBadge tone={collectorStatusTone(state)}>
+                      {t(`kubernetes.collectorStatus.${state}`)}
                     </StatusBadge>
-                  </button>
-                </dd>
-              </div>
-              <div className="argus-k8s-kv__item">
-                <dt>{t("kubernetes.card.bindingCoverage")}</dt>
-                <dd>
-                  {coverage.verified}/{coverage.total} ({coverage.percent}%)
-                </dd>
-              </div>
-            </>
-          )}
-        </dl>
-        <div className="argus-k8s-card-actions">
-          <RowAction onClick={onOpen}>{t("kubernetes.card.open")}</RowAction>
-          <RowAction onClick={onEdit}>{t("kubernetes.card.edit")}</RowAction>
-          <RowAction danger onClick={onDelete}>
-            {t("kubernetes.card.delete")}
-          </RowAction>
-        </div>
-      </CardContent>
-    </Card>
+                  </Button>
+                ) : collector.isPending ? (
+                  loading
+                ) : (
+                  unavailable
+                ),
+              },
+              {
+                label: t("kubernetes.card.bindingCoverage"),
+                value: coverage
+                  ? `${coverage.verified}/${coverage.total} (${coverage.percent}%)`
+                  : bindings.isPending
+                    ? loading
+                    : unavailable,
+              },
+            ]
+          : []),
+      ]}
+      actions={
+        <ActionGroup>
+          <RowAction onPress={onOpen}>{t("kubernetes.card.open")}</RowAction>
+        </ActionGroup>
+      }
+      menuItems={[
+        { label: t("kubernetes.card.edit"), onSelect: onEdit },
+        {
+          label: t("kubernetes.card.delete"),
+          onSelect: onDelete,
+          danger: true,
+        },
+      ]}
+    />
   );
 }

@@ -3,6 +3,7 @@ info: {title: Argus Platform Administration API, version: 1.0.0, license: {name:
 servers: [{url: /api/v1}]
 security: [{sessionCookie: []}]
 paths:
+  /platform/overview: {$ref: ../argus.yaml#/paths/~1platform~1overview}
   /platform/enterprises: {$ref: ../argus.yaml#/paths/~1platform~1enterprises}
   "/platform/enterprises/{id}":
     $ref: "../argus.yaml#/paths/~1platform~1enterprises~1{id}"
@@ -18,6 +19,7 @@ components:
   securitySchemes:
     sessionCookie: {$ref: ../argus.yaml#/components/securitySchemes/sessionCookie}
   schemas:
+    PlatformOverview: {$ref: ../components/m2.yaml#/components/schemas/PlatformOverview}
     EnterpriseCreate: {$ref: ../components/m2.yaml#/components/schemas/EnterpriseCreate}
     EnterpriseUpdate: {$ref: ../components/m2.yaml#/components/schemas/EnterpriseUpdate}
     EnterprisePage: {$ref: ../components/m2.yaml#/components/schemas/EnterprisePage}

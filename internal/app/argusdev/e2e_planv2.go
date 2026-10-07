@@ -165,11 +165,18 @@ func (a *App) runPlanV2Scenario(ctx context.Context, env *E2EEnvironment) error 
 		return err
 	}
 	var browserErr error
+	if err := a.refreshPlatformLogin(ctx, env); err != nil {
+		return err
+	}
+	if err := a.verifyPlatformOverview(ctx, env); err != nil {
+		return err
+	}
 	if env.Options.PlanV2RuntimeOnly {
 		browserErr = writePrivate(filepath.Join(env.Options.Artifacts, "planv2-browser-status.json"), []byte("{\"executed\":false,\"reason\":\"runtime_protocol_faults_scope\"}\n"))
 	} else {
 		browserErr = a.runPlaywright(ctx, env, `e2e/planv2-.*\.spec\.ts`, map[string]string{
 			"ARGUS_PLANV2_E2E": "1", "ARGUS_PLANV2_USERNAME": env.State.Values["enterprise_username"], "ARGUS_PLANV2_PASSWORD": env.State.Values["enterprise_password"],
+			"ARGUS_PLANV2_PLATFORM_USERNAME": env.State.Values["platform_username"], "ARGUS_PLANV2_PLATFORM_PASSWORD": env.State.Values["platform_password"],
 			"ARGUS_PLANV2_DASHBOARD_ID": dashboardID, "ARGUS_PLANV2_CLUSTER_ID": env.State.Values["m3_cluster_id"], "ARGUS_PLANV2_GALLERY_ID": env.State.Values["p2_gallery_id"],
 			"ARGUS_PLANV2_DISPOSABLE_CLUSTER_ID": env.State.Values["p2_disposable_cluster_id"],
 			"ARGUS_PLANV2_PARAMETERS_ID":         env.State.Values["p2_parameters_id"],
@@ -185,6 +192,9 @@ func (a *App) runPlanV2Scenario(ctx context.Context, env *E2EEnvironment) error 
 	// These checks use independent dashboards/conversations. Preserve both
 	// outcomes so one UI assertion does not hide file-delivery regressions.
 	if err := a.refreshEnterpriseLogin(ctx, env); err != nil {
+		return errors.Join(browserErr, err)
+	}
+	if err := a.refreshPlatformLogin(ctx, env); err != nil {
 		return errors.Join(browserErr, err)
 	}
 	filesErr := a.runPlanV2Files(ctx, env)

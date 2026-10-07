@@ -57,6 +57,13 @@ type E2EArtifactSigning struct {
 }
 
 func (a *App) prepareE2EArtifactServer(env *E2EEnvironment) error {
+	// Every suite publishes Connector artifacts during install, even when it
+	// does not need Collector download fixtures. Keep the signing root isolated.
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+	env.ArtifactSigning = &E2EArtifactSigning{KeyID: "argus-e2e-" + env.Options.RunID, PublicKey: publicKey, PrivateKey: privateKey}
 	if !suiteFixtureFeatures(env.Options.Suite).Artifact {
 		return nil
 	}
@@ -74,11 +81,6 @@ func (a *App) prepareE2EArtifactServer(env *E2EEnvironment) error {
 		return err
 	}
 	env.ArtifactTLS = tls
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return err
-	}
-	env.ArtifactSigning = &E2EArtifactSigning{KeyID: "argus-e2e-" + env.Options.RunID, PublicKey: publicKey, PrivateKey: privateKey}
 	return nil
 }
 

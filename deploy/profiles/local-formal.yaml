@@ -9,7 +9,7 @@ spec:
   namespaces:
     system: argus-system
     sandbox: argus-sandbox
-    observability: argus-observability
+    observability: argus-system
   storageClass: standard
   images:
     mode: local-registry
@@ -20,6 +20,7 @@ spec:
     ingressClassName: nginx
     enterpriseHost: argus.dev
     platformHost: platform.argus.dev
+    templateHost: cards.argus.dev
     connectorHost: connector.argus.dev
   pki:
     mode: managed
@@ -48,7 +49,7 @@ spec:
   workspace:
     enabled: true
     storageClass: argus-workspace
-    storageNamespace: argus-workspace-storage
+    storageNamespace: argus-system
     dataDirectory: /var/local/argus-workspaces/data
     metadataDirectory: /var/local/argus-workspaces/meta
   persistence:

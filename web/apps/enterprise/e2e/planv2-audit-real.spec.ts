@@ -5,6 +5,7 @@ import { createMfaLogin } from "./helpers/mfa-login";
 import { dashboardAPI } from "./helpers/planv2-api";
 
 const login = createMfaLogin("enterprise");
+test.use({ actionTimeout: 15000 });
 for (const english of [false, true]) {
   test(`real audit filters, paging and immutable facts ${english ? "en dark" : "zh light"}`, async ({
     page,
@@ -172,7 +173,12 @@ for (const english of [false, true]) {
   });
 }
 async function choose(page: Page, label: string, value: string) {
-  await page.getByRole("combobox", { name: label, exact: true }).click();
+  // HeroUI includes the selected value before the field label in the trigger's name.
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await page
+    .locator(".argus-filter-bar")
+    .getByRole("button", { name: new RegExp(`${escaped}$`) })
+    .click();
   await page.getByRole("option", { name: value, exact: true }).click();
 }
 async function save(

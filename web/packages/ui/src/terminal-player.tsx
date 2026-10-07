@@ -1,3 +1,4 @@
+import { RangeSlider } from "./range-slider";
 import { Pause, Play, RotateCcw } from "lucide-react";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -31,11 +32,20 @@ export function normalizeTerminalPlayerEvents(
   const events: TerminalPlayerEvent[] = [];
   for (const item of raw) {
     if (typeof item !== "object" || item === null) continue;
-    const candidate = item as { time?: unknown; type?: unknown; data?: unknown };
+    const candidate = item as {
+      time?: unknown;
+      type?: unknown;
+      data?: unknown;
+    };
     const time = Number(candidate.time);
     if (!Number.isFinite(time) || time < 0) continue;
-    if (typeof candidate.type !== "string" || !VALID_TYPES.has(candidate.type)) continue;
-    events.push({ time, type: candidate.type as TerminalPlayerEvent["type"], data: candidate.data });
+    if (typeof candidate.type !== "string" || !VALID_TYPES.has(candidate.type))
+      continue;
+    events.push({
+      time,
+      type: candidate.type as TerminalPlayerEvent["type"],
+      data: candidate.data,
+    });
   }
   events.sort((a, b) => a.time - b.time);
   return events;
@@ -164,10 +174,17 @@ export function TerminalPlayer({
     const tick = (now: number) => {
       const terminal = terminalRef.current;
       const list = eventsRef.current;
-      const next = Math.min(duration, positionRef.current + ((now - last) / 1000) * speedRef.current);
+      const next = Math.min(
+        duration,
+        positionRef.current + ((now - last) / 1000) * speedRef.current,
+      );
       last = now;
       if (terminal) {
-        for (let event = list[cursorRef.current]; event !== undefined && event.time <= next; event = list[cursorRef.current]) {
+        for (
+          let event = list[cursorRef.current];
+          event !== undefined && event.time <= next;
+          event = list[cursorRef.current]
+        ) {
           emit(event);
           cursorRef.current++;
         }
@@ -191,7 +208,11 @@ export function TerminalPlayer({
       terminal.reset();
       cursorRef.current = 0;
       const list = eventsRef.current;
-      for (let event = list[cursorRef.current]; event !== undefined && event.time <= clamped; event = list[cursorRef.current]) {
+      for (
+        let event = list[cursorRef.current];
+        event !== undefined && event.time <= clamped;
+        event = list[cursorRef.current]
+      ) {
         emit(event);
         cursorRef.current++;
       }
@@ -225,8 +246,16 @@ export function TerminalPlayer({
   );
 
   return (
-    <div className={cx("argus-terminal-player", className)} onKeyDown={onKeyDown} tabIndex={0}>
-      <div className="argus-terminal-player__screen" ref={screenRef} style={{ height }} />
+    <div
+      className={cx("argus-terminal-player", className)}
+      onKeyDown={onKeyDown}
+      tabIndex={0}
+    >
+      <div
+        className="argus-terminal-player__screen"
+        ref={screenRef}
+        style={{ height }}
+      />
       {(loading || (!loading && events.length === 0)) && (
         <div className="argus-terminal-player__overlay" role="status">
           {loading
@@ -237,46 +266,58 @@ export function TerminalPlayer({
       <div className="argus-terminal-player__controls">
         <Button
           aria-label={playing ? text("暂停", "Pause") : text("播放", "Play")}
-          onClick={toggle}
-          size="icon"
+          onPress={toggle}
+          isIconOnly
           variant="secondary"
         >
           {playing ? <Pause size={16} /> : <Play size={16} />}
         </Button>
         <Button
           aria-label={text("从头播放", "Restart")}
-          onClick={() => { setPlaying(false); seek(0); }}
-          size="icon"
+          onPress={() => {
+            setPlaying(false);
+            seek(0);
+          }}
+          isIconOnly
           variant="ghost"
         >
           <RotateCcw size={16} />
         </Button>
-        <input
-          aria-label={text("录像进度", "Recording position")}
-          aria-valuetext={summary}
+        <RangeSlider
+          label={text("录像进度", "Recording position")}
+          valueText={summary}
           max={Math.max(duration, 0.1)}
           min={0}
-          onChange={(event) => seek(Number(event.target.value))}
+          onChange={seek}
           step={0.1}
-          type="range"
           value={position}
         />
         <span className="argus-terminal-player__clock">{summary}</span>
-        <div aria-label={text("倍速", "Speed")} className="argus-terminal-player__speeds" role="group">
+        <div
+          aria-label={text("倍速", "Speed")}
+          className="argus-terminal-player__speeds"
+          role="group"
+        >
           {SPEEDS.map((value) => (
-            <button
+            <Button
+              variant="ghost"
               aria-pressed={speed === value}
-              className={cx("argus-terminal-player__speed", speed === value && "is-active")}
+              className={cx(
+                "argus-terminal-player__speed",
+                speed === value && "is-active",
+              )}
               key={value}
-              onClick={() => setSpeed(value)}
+              onPress={() => setSpeed(value)}
               type="button"
             >
               {value}x
-            </button>
+            </Button>
           ))}
         </div>
         {position >= duration && duration > 0 && (
-          <span className="argus-terminal-player__ended">{text("回放结束", "Replay ended")}</span>
+          <span className="argus-terminal-player__ended">
+            {text("回放结束", "Replay ended")}
+          </span>
         )}
       </div>
     </div>

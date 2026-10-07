@@ -82,10 +82,16 @@ export function createDashboardDomains(
           csrf: true,
           body,
         }),
-      sample: (id, expected_version, signal) =>
+      sample: (id, input, signal) =>
         http.request(`${draft(id)}/sample`, {
           method: "POST",
-          body: { expected_version },
+          body: input,
+          signal,
+        }),
+      draftDrilldown: (id, input, signal) =>
+        http.request(`${draft(id)}/drilldown`, {
+          method: "POST",
+          body: input,
           signal,
         }),
       preview: (id, expected_version) =>

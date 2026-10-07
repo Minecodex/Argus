@@ -61,7 +61,7 @@ export function TraceWaterfall({
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setSelected(node.key)}
+                    onPress={() => setSelected(node.key)}
                   >
                     <span
                       style={{
@@ -85,11 +85,12 @@ export function TraceWaterfall({
                     : "—"}
                 </td>
                 <td className="argus-trace-timeline">
-                  <button
+                  <Button
+                    variant="ghost"
                     type="button"
                     className="argus-trace-bar-track"
                     aria-label={`${String(node.row.operationName)} ${node.duration} ms`}
-                    onClick={() => setSelected(node.key)}
+                    onPress={() => setSelected(node.key)}
                   >
                     {Number.isFinite(node.start) &&
                       Number.isFinite(node.duration) && (
@@ -101,7 +102,7 @@ export function TraceWaterfall({
                           }}
                         />
                       )}
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -116,7 +117,7 @@ export function TraceWaterfall({
           <div className="argus-observation-pagination">
             <strong>{String(span.operationName)}</strong>
             {onSelect && (
-              <Button size="sm" onClick={() => onSelect(span)}>
+              <Button size="sm" onPress={() => onSelect(span)}>
                 {text("关联查询", "Related queries")}
               </Button>
             )}

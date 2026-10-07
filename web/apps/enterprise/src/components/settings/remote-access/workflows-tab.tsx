@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -49,10 +50,11 @@ function RoleChecks({
       {options.map((role) => {
         const checked = value.includes(role.id);
         return (
-          <button
+          <Button
+            variant="ghost"
             aria-pressed={checked}
             key={role.id}
-            onClick={() =>
+            onPress={() =>
               onChange(
                 checked
                   ? value.filter((id) => id !== role.id)
@@ -62,7 +64,7 @@ function RoleChecks({
             type="button"
           >
             <CheckItem checked={checked}>{role.name}</CheckItem>
-          </button>
+          </Button>
         );
       })}
     </div>
@@ -229,7 +231,7 @@ export function WorkflowsTab() {
           {t("remoteAccess.workflows")}
         </h2>
         <Button
-          onClick={() => {
+          onPress={() => {
             setEditing(null);
             setOpen(true);
           }}
@@ -239,43 +241,45 @@ export function WorkflowsTab() {
           {t("remoteAccess.newWorkflow")}
         </Button>
       </div>
-      {items.length === 0 ? (
-        <EmptyState description="" title={t("remoteAccess.noWorkflows")} />
-      ) : (
-        <GovernanceList
-          extraColumns={[
-            {
-              key: "approvals",
-              header: t("remoteAccess.minimumApprovals"),
-              render: (row) => row.minimum_approvals,
-            },
-            {
-              key: "timeout",
-              header: t("remoteAccess.approvalTimeout"),
-              render: (row) =>
-                `${row.approval_timeout_seconds}s / ${row.timeout_effect}`,
-            },
-          ]}
-          items={items}
-          onArchive={(id) =>
-            lifecycle(api.remoteAccess.archiveApprovalWorkflow, id)
-          }
-          onDisable={(id) =>
-            lifecycle(api.remoteAccess.disableApprovalWorkflow, id)
-          }
-          onEdit={(item) => {
-            setEditing(item);
-            setOpen(true);
-          }}
-          onEnable={(id) =>
-            lifecycle(api.remoteAccess.enableApprovalWorkflow, id)
-          }
-          onRestore={(id) =>
-            lifecycle(api.remoteAccess.restoreApprovalWorkflow, id)
-          }
-          references={api.remoteAccess.getApprovalWorkflowReferences}
-        />
-      )}
+      <QueryBoundary query={query} dependencies={[roles]}>
+        {items.length === 0 ? (
+          <EmptyState description="" title={t("remoteAccess.noWorkflows")} />
+        ) : (
+          <GovernanceList
+            extraColumns={[
+              {
+                key: "approvals",
+                header: t("remoteAccess.minimumApprovals"),
+                render: (row) => row.minimum_approvals,
+              },
+              {
+                key: "timeout",
+                header: t("remoteAccess.approvalTimeout"),
+                render: (row) =>
+                  `${row.approval_timeout_seconds}s / ${row.timeout_effect}`,
+              },
+            ]}
+            items={items}
+            onArchive={(id) =>
+              lifecycle(api.remoteAccess.archiveApprovalWorkflow, id)
+            }
+            onDisable={(id) =>
+              lifecycle(api.remoteAccess.disableApprovalWorkflow, id)
+            }
+            onEdit={(item) => {
+              setEditing(item);
+              setOpen(true);
+            }}
+            onEnable={(id) =>
+              lifecycle(api.remoteAccess.enableApprovalWorkflow, id)
+            }
+            onRestore={(id) =>
+              lifecycle(api.remoteAccess.restoreApprovalWorkflow, id)
+            }
+            references={api.remoteAccess.getApprovalWorkflowReferences}
+          />
+        )}
+      </QueryBoundary>
       <FormDrawer
         description={t("remoteAccess.workflowDescription")}
         loading={save.isPending}

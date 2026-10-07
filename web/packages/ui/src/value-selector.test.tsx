@@ -7,154 +7,177 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
-import { LocaleProvider } from "./locale";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ValueSelector } from "./value-selector";
-afterEach(cleanup);
-it("labels source identities without submitting their presentation labels", async () => {
+import { LocaleProvider } from "./locale";
+import { Field } from "./form";
+beforeEach(() => {
   localStorage.setItem("argus.locale", "en-US");
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    },
+  );
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+it("keeps popover fields separate from the trigger field and cancels without applying", async () => {
   const change = vi.fn();
   render(
     <LocaleProvider>
-      <ValueSelector
-        label="Source"
-        value={{ all: false, values: ["old-id"] }}
-        candidates={["old-id", "new-id"]}
-        valueLabels={{
-          "old-id": "Historical installation",
-          "new-id": "Current installation",
-        }}
-        onChange={change}
-      />
-    </LocaleProvider>,
-  );
-  expect(
-    screen.getByRole("button", { name: "Source" }),
-  ).toHaveAccessibleDescription("Source: Historical installation");
-  fireEvent.click(screen.getByRole("button", { name: "Source" }));
-  fireEvent.click(screen.getByRole("radio", { name: "Current installation" }));
-  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-  expect(change).toHaveBeenCalledWith({ all: false, values: ["new-id"] });
-});
-it.each([false, true])(
-  "does not reset selected values after an incomplete page or a failed lookup (%s)",
-  async (failure) => {
-    localStorage.setItem("argus.locale", "en-US");
-    const change = vi.fn();
-    const fetchValues = vi.fn(async () => {
-      if (failure) throw new Error("unavailable");
-      return { values: ["another"], next_cursor: "next" };
-    });
-    render(
-      <LocaleProvider>
+      <Field label="Parent resource" requirement="required">
         <ValueSelector
+          presentation="popover"
           label="Environment"
-          value={{ all: false, values: ["production"] }}
-          candidates={[]}
-          fetchValues={fetchValues}
+          value={{ all: true, values: [] }}
+          candidates={["production"]}
           onChange={change}
         />
-      </LocaleProvider>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Environment" }));
-    await waitFor(() => expect(fetchValues).toHaveBeenCalled());
-    if (failure)
-      expect(await screen.findByRole("alert")).toHaveTextContent("unchanged");
-    else await screen.findByRole("radio", { name: "another" });
-    expect(screen.getByRole("radio", { name: "production" })).toBeChecked();
-    expect(change).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    expect(change).toHaveBeenCalledWith({ all: false, values: ["production"] });
-  },
-);
-
-it("reloads an open selector after scope changes and ignores the old page", async () => {
-  localStorage.setItem("argus.locale", "en-US");
-  const change = vi.fn();
-  let oldResolve!: (page: { values: string[] }) => void;
-  let oldSignal!: AbortSignal;
-  const oldFetch = vi.fn(
-    (_search: string, _cursor: string | undefined, signal: AbortSignal) => {
-      oldSignal = signal;
-      return new Promise<{ values: string[] }>((resolve) => {
-        oldResolve = resolve;
-      });
-    },
-  );
-  const props = {
-    label: "Environment",
-    value: { all: false, values: ["production"] },
-    candidates: [],
-    onChange: change,
-  };
-  const view = render(
-    <LocaleProvider>
-      <ValueSelector {...props} contextKey="first" fetchValues={oldFetch} />
+      </Field>
     </LocaleProvider>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Environment" }));
-  await waitFor(() => expect(oldFetch).toHaveBeenCalledTimes(1));
-  view.rerender(
-    <LocaleProvider>
-      <ValueSelector
-        {...props}
-        contextKey="second"
-        fetchValues={async () => ({ values: ["new-scope"] })}
-      />
-    </LocaleProvider>,
-  );
-  expect(oldSignal.aborted).toBe(true);
-  await screen.findByRole("radio", { name: "new-scope" });
-  oldResolve({ values: ["stale-scope"] });
+  await screen.findByRole("dialog", { name: "Environment" });
+  const search = screen.getByRole("textbox", {
+    name: "Search candidates",
+  });
+  expect(search).not.toHaveAttribute("aria-labelledby");
+  expect(search).not.toHaveAttribute("required");
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   await waitFor(() =>
-    expect(screen.queryByRole("radio", { name: "stale-scope" })).toBeNull(),
+    expect(
+      screen.queryByRole("dialog", { name: "Environment" }),
+    ).not.toBeInTheDocument(),
   );
-  expect(screen.getByRole("radio", { name: "production" })).toBeChecked();
   expect(change).not.toHaveBeenCalled();
 });
 
-it("uses the reconciled selection after an upstream change while the selector is open", async () => {
-  localStorage.setItem("argus.locale", "en-US");
+it("adds directory candidates that arrive after opening without clearing selection", async () => {
   const change = vi.fn();
   const props = {
-    label: "Member",
-    candidates: [],
+    presentation: "popover" as const,
+    label: "Resources",
+    multiple: true,
+    value: { all: false, values: ["first"] },
     onChange: change,
-    fetchValues: async () => ({ values: ["new-member"] }),
   };
   const view = render(
     <LocaleProvider>
-      <ValueSelector
-        {...props}
-        contextKey="blue"
-        value={{ all: false, values: ["old-member"] }}
-      />
+      <ValueSelector {...props} candidates={[]} />
     </LocaleProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Member" }));
+  fireEvent.click(screen.getByRole("button", { name: "Resources" }));
+  await screen.findByRole("checkbox", { name: "first" });
   view.rerender(
     <LocaleProvider>
-      <ValueSelector
-        {...props}
-        contextKey="green"
-        value={{ all: true, values: [] }}
-        disabled
-      />
+      <ValueSelector {...props} candidates={["first", "second"]} />
     </LocaleProvider>,
   );
-  expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
-  view.rerender(
+  expect(
+    await screen.findByRole("checkbox", { name: "second" }),
+  ).not.toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "first" })).toBeChecked();
+  expect(change).not.toHaveBeenCalled();
+});
+
+it("preserves saved values on paging/failure and resets on exact disappearance", async () => {
+  const change = vi.fn(),
+    fetchValues = vi
+      .fn()
+      .mockResolvedValueOnce({
+        values: ["first"],
+        next_cursor: "page2",
+        complete: false,
+      })
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        values: [],
+        complete: false,
+        selected_exists: { saved: false },
+      });
+  render(
     <LocaleProvider>
       <ValueSelector
-        {...props}
-        contextKey="green"
-        value={{ all: true, values: [] }}
+        label="Service"
+        value={{ all: false, values: ["saved"] }}
+        candidates={[]}
+        onChange={change}
+        fetchValues={fetchValues}
       />
     </LocaleProvider>,
   );
-  await screen.findByRole("radio", { name: "new-member" });
-  expect(screen.queryByRole("radio", { name: "old-member" })).toBeNull();
-  expect(screen.getByRole("checkbox", { name: "All" })).toBeChecked();
-  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-  expect(change).toHaveBeenCalledWith({ all: true, values: [] });
+  fireEvent.click(screen.getByRole("button", { name: "Service" }));
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "More candidates" }),
+    ).toBeEnabled(),
+  );
+  expect(screen.getByRole("radio", { name: "saved" })).toBeChecked();
+  expect(change).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "More candidates" }));
+  await waitFor(() =>
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "selection is unchanged",
+    ),
+  );
+  expect(change).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() =>
+    expect(change).toHaveBeenCalledWith({ all: true, values: [] }),
+  );
+});
+it("aborts an old scope and ignores its late candidate response", async () => {
+  let release!: (value: {
+    values: string[];
+    selected_exists: Record<string, boolean>;
+  }) => void;
+  const delayed = new Promise<{
+    values: string[];
+    selected_exists: Record<string, boolean>;
+  }>((resolve) => {
+    release = resolve;
+  });
+  const change = vi.fn(),
+    fetchValues = vi
+      .fn()
+      .mockReturnValueOnce(delayed)
+      .mockResolvedValue({
+        values: ["saved"],
+        selected_exists: { saved: true },
+      });
+  const props = {
+    label: "Service",
+    value: { all: false, values: ["saved"] },
+    candidates: [],
+    onChange: change,
+    fetchValues,
+  };
+  const { rerender } = render(
+    <LocaleProvider>
+      <ValueSelector {...props} contextKey="old" />
+    </LocaleProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Service" }));
+  await waitFor(() => expect(fetchValues).toHaveBeenCalledTimes(1));
+  const signal = fetchValues.mock.calls[0]![2] as AbortSignal;
+  rerender(
+    <LocaleProvider>
+      <ValueSelector {...props} contextKey="new" />
+    </LocaleProvider>,
+  );
+  expect(signal.aborted).toBe(true);
+  await waitFor(() => expect(fetchValues).toHaveBeenCalledTimes(2));
+  release({ values: ["stale"], selected_exists: { saved: false } });
+  await waitFor(() =>
+    expect(screen.getByRole("radio", { name: "saved" })).toBeChecked(),
+  );
+  expect(
+    screen.queryByRole("radio", { name: "stale" }),
+  ).not.toBeInTheDocument();
+  expect(change).not.toHaveBeenCalled();
 });

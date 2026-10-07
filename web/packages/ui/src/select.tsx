@@ -1,16 +1,36 @@
-import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, ChevronDown } from "lucide-react";
+import { Select as HeroSelect } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
+import { Label } from "@heroui/react/label";
+import { Description } from "@heroui/react/description";
 import { type AriaAttributes, type ReactNode } from "react";
 import { mergeAriaIds, useFieldContext } from "./form";
 import { cx } from "./lib";
-
-const EMPTY_VALUE = "__argus_empty_value__";
+import type { ControlSize } from "./button";
+import { useUiText } from "./locale";
 
 export type SelectOption = {
   value: string;
   label: ReactNode;
+  textValue?: string;
+  description?: string;
   disabled?: boolean;
 };
+export type SelectProps = {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: SelectOption[];
+  placeholder?: string;
+  ariaLabel?: string;
+  className?: string;
+  disabled?: boolean;
+  id?: string;
+  name?: string;
+  required?: boolean;
+  size?: ControlSize;
+} & Pick<
+  AriaAttributes,
+  "aria-describedby" | "aria-invalid" | "aria-labelledby" | "aria-required"
+>;
 
 export function Select({
   value,
@@ -21,87 +41,91 @@ export function Select({
   className,
   disabled,
   id,
+  name,
   required,
-  ...ariaProps
-}: {
-  value: string;
-  onValueChange: (value: string) => void;
-  options: SelectOption[];
-  placeholder?: string;
-  ariaLabel?: string;
-  className?: string;
-  disabled?: boolean;
-  id?: string;
-  required?: boolean;
-} & Pick<
-  AriaAttributes,
-  "aria-describedby" | "aria-invalid" | "aria-labelledby" | "aria-required"
->) {
+  size = "md",
+  ...aria
+}: SelectProps) {
   const field = useFieldContext();
-  const normalizedValue = value === "" ? EMPTY_VALUE : value;
+  const text = useUiText();
+  const encode = (value: string) => `argus-option:${value}`;
   return (
-    <SelectPrimitive.Root
-      disabled={disabled}
-      onValueChange={(next) => {
-        const decoded = next === EMPTY_VALUE ? "" : next;
-        // Radix's native form proxy can emit an empty change while dynamic options
-        // are being replaced. Only an actual option is a user selection.
-        if (options.some((option) => option.value === decoded))
+    <HeroSelect
+      aria-label={ariaLabel}
+      aria-labelledby={mergeAriaIds(aria["aria-labelledby"], field?.labelId)}
+      aria-describedby={mergeAriaIds(
+        aria["aria-describedby"],
+        field?.descriptionId,
+      )}
+      validationBehavior="aria"
+      isInvalid={Boolean(aria["aria-invalid"] ?? field?.invalid)}
+      isRequired={required ?? field?.required}
+      isDisabled={disabled || !options.length}
+      name={name}
+      value={
+        value === "" && !options.some((o) => o.value === "")
+          ? null
+          : encode(value)
+      }
+      disabledKeys={options
+        .filter((o) => o.disabled)
+        .map((o) => encode(o.value))}
+      className={cx("argus-select", `argus-control--${size}`, className)}
+      placeholder={
+        placeholder ??
+        (options.length
+          ? text("请选择", "Select an option")
+          : text("没有可用选项", "No options available"))
+      }
+      onChange={(next) => {
+        const decoded = String(next ?? "").slice("argus-option:".length);
+        if (options.some((o) => o.value === decoded && !o.disabled))
           onValueChange(decoded);
       }}
-      required={required ?? field?.required}
-      value={normalizedValue}
     >
-      <SelectPrimitive.Trigger
-        {...ariaProps}
+      <HeroSelect.Trigger
+        id={id ?? field?.controlId}
+        className="argus-select__trigger"
+        aria-label={ariaLabel}
+        aria-labelledby={field?.labelId}
         aria-describedby={mergeAriaIds(
-          ariaProps["aria-describedby"],
+          aria["aria-describedby"],
           field?.descriptionId,
         )}
-        aria-invalid={
-          ariaProps["aria-invalid"] ?? (field?.invalid || undefined)
-        }
-        aria-label={ariaLabel}
-        aria-labelledby={mergeAriaIds(
-          ariaProps["aria-labelledby"],
-          field?.labelId,
-        )}
+        aria-invalid={aria["aria-invalid"] ?? (field?.invalid || undefined)}
         aria-required={
-          ariaProps["aria-required"] ?? (field?.required || undefined)
+          aria["aria-required"] ?? ((required ?? field?.required) || undefined)
         }
-        className={cx("argus-select", className)}
-        id={id ?? field?.controlId}
       >
-        <SelectPrimitive.Value placeholder={placeholder} />
-        <SelectPrimitive.Icon className="argus-select__icon">
-          <ChevronDown aria-hidden size={14} />
-        </SelectPrimitive.Icon>
-      </SelectPrimitive.Trigger>
-      <SelectPrimitive.Portal>
-        <SelectPrimitive.Content
-          className="argus-select__content"
-          position="popper"
-          sideOffset={5}
-        >
-          <SelectPrimitive.Viewport className="argus-select__viewport">
-            {options.map((option) => (
-              <SelectPrimitive.Item
-                className="argus-select__item"
-                disabled={option.disabled}
-                key={option.value}
-                value={option.value === "" ? EMPTY_VALUE : option.value}
-              >
-                <SelectPrimitive.ItemIndicator className="argus-select__check">
-                  <Check aria-hidden size={14} />
-                </SelectPrimitive.ItemIndicator>
-                <SelectPrimitive.ItemText>
-                  {option.label}
-                </SelectPrimitive.ItemText>
-              </SelectPrimitive.Item>
-            ))}
-          </SelectPrimitive.Viewport>
-        </SelectPrimitive.Content>
-      </SelectPrimitive.Portal>
-    </SelectPrimitive.Root>
+        <HeroSelect.Value className="argus-select__value" />
+        <HeroSelect.Indicator />
+      </HeroSelect.Trigger>
+      <HeroSelect.Popover
+        className="argus-select__content"
+        placement="bottom start"
+      >
+        <ListBox className="argus-select__viewport">
+          {options.map((option) => (
+            <ListBox.Item
+              key={encode(option.value)}
+              id={encode(option.value)}
+              textValue={
+                option.textValue ??
+                (typeof option.label === "string" ? option.label : option.value)
+              }
+              className="argus-select__item"
+            >
+              <div className="argus-select__label">
+                <Label>{option.label}</Label>
+                {option.description && (
+                  <Description>{option.description}</Description>
+                )}
+              </div>
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </HeroSelect.Popover>
+    </HeroSelect>
   );
 }

@@ -142,14 +142,15 @@ export const sandboxZh = {
   "sandbox.sessions.status.failed": "失败",
   "sandbox.sessions.status.rejected": "已拒绝",
 
-  "sandbox.usage.totalSessions": "近 14 天会话总数",
-  "sandbox.usage.totalMinutes": "近 14 天会话总时长（分钟）",
-  "sandbox.usage.totalCpu": "近 14 天 CPU 总时长（分钟）",
+  "sandbox.usage.totalSessions": "近 12 个月已记录会话数",
+  "sandbox.usage.totalMinutes": "近 12 个月已记录时长（分钟）",
+  "sandbox.usage.totalCpu": "CPU 时长（分钟）",
+  "sandbox.usage.cpuUnavailable": "当前用量接口未提供 CPU 消耗。",
   "sandbox.usage.activeNow": "当前活动会话",
   "sandbox.usage.chart.sessions": "会话数",
   "sandbox.usage.chart.minutes": "会话时长（分钟）",
   "sandbox.usage.chart.cpu": "CPU 时长（分钟）",
-  "sandbox.usage.chart.title": "平台 Sandbox 用量（近 14 天）",
+  "sandbox.usage.chart.title": "平台 Sandbox 用量（按月）",
 };
 
 export const sandboxEn = {
@@ -299,12 +300,14 @@ export const sandboxEn = {
   "sandbox.sessions.status.failed": "Failed",
   "sandbox.sessions.status.rejected": "Rejected",
 
-  "sandbox.usage.totalSessions": "Sessions (14d)",
-  "sandbox.usage.totalMinutes": "Session minutes (14d)",
-  "sandbox.usage.totalCpu": "CPU minutes (14d)",
+  "sandbox.usage.totalSessions": "Recorded sessions (12 months)",
+  "sandbox.usage.totalMinutes": "Recorded session minutes (12 months)",
+  "sandbox.usage.totalCpu": "CPU minutes",
+  "sandbox.usage.cpuUnavailable":
+    "The usage API does not provide CPU consumption.",
   "sandbox.usage.activeNow": "Active now",
   "sandbox.usage.chart.sessions": "Sessions",
   "sandbox.usage.chart.minutes": "Session minutes",
   "sandbox.usage.chart.cpu": "CPU minutes",
-  "sandbox.usage.chart.title": "Platform sandbox usage (last 14 days)",
+  "sandbox.usage.chart.title": "Platform sandbox usage (monthly)",
 };

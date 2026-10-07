@@ -1,3 +1,4 @@
+import { Button } from "./button";
 import { ChevronRight } from "lucide-react";
 import { type ReactNode } from "react";
 import { cx } from "./lib";
@@ -14,6 +15,7 @@ export function PageShell({
   title,
   description,
   actions,
+  leading,
   children,
   className,
 }: {
@@ -21,6 +23,7 @@ export function PageShell({
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
+  leading?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
@@ -37,9 +40,7 @@ export function PageShell({
               const isLast = index === breadcrumbs.length - 1;
               return (
                 <span className="argus-breadcrumb__item" key={index}>
-                  {index > 0 && (
-                    <ChevronRight aria-hidden size={12} />
-                  )}
+                  {index > 0 && <ChevronRight aria-hidden size={12} />}
                   {isLast || (!item.href && !item.onClick) ? (
                     <span
                       aria-current={isLast ? "page" : undefined}
@@ -50,9 +51,13 @@ export function PageShell({
                   ) : item.href ? (
                     <a href={item.href}>{item.label}</a>
                   ) : (
-                    <button onClick={item.onClick} type="button">
+                    <Button
+                      variant="ghost"
+                      onPress={item.onClick}
+                      type="button"
+                    >
                       {item.label}
-                    </button>
+                    </Button>
                   )}
                 </span>
               );
@@ -60,6 +65,7 @@ export function PageShell({
           </nav>
         )}
         <div className="argus-page__titlebar">
+          {leading}
           <div className="argus-page__heading">
             <h1 className="argus-page__title">{title}</h1>
             {description && (

@@ -1,5 +1,84 @@
 export const dashboardsZh = {
   dashboards: {
+    editor: {
+      invalidForm: "请检查必填字段、名称及重复项。",
+      pendingRun: "待运行",
+      lastResult: "最近运行结果",
+      previewTitle: "统计图预览",
+      backToDashboard: "返回仪表盘",
+      inheritedScope: "继承顶部时间 / 资源范围",
+      queryFilters: "查询筛选条件",
+      removeFilter: "移除 {{field}} 条件",
+      dataTable: "数据表格",
+      backToChart: "返回图形",
+      suggestedCharts: "推荐图型",
+      chartSuggestionHint: "根据查询结果推荐；不兼容原因可在图型上查看。",
+      previewOnly: "仅调整预览条件",
+      run: "运行查询",
+      runHint: "查询修改后运行；样式立即应用。Ctrl / ⌘ + Enter",
+      settings: "统计图设置",
+      style: "样式",
+      interaction: "交互",
+      calculation: "跨资源计算",
+      split: "拆分曲线",
+      noSplit: "不拆分",
+      metadataUnverified:
+        "指标元数据尚未确认。可继续配置，运行后查看验证状态。",
+      unknownUnit: "单位未提供",
+      metricRequirement: "需要 {{type}} 类型的指标",
+      metricMismatch:
+        "当前指标是 {{type}}，此计算需要 {{required}}。请调整计算方式。",
+      recommended: "推荐",
+      chartReasons: {
+        runFirst: "运行当前查询后判定兼容性，查询配置保持不变。",
+        noData: "当前没有可验证样本，可提前配置。",
+        incomplete: "部分查询未完成，暂不能确认整张图的兼容性。",
+        numericRequired: "需要数值结果，当前查询返回非数值数据。",
+        rangeRequired:
+          "需要包含多个时间点的范围查询；请在查询中调整模式后运行。",
+        bucketRequired:
+          "需要同一标签组、同一时刻的累计 le 分桶，且计数单调递增。",
+        negativeSlices: "饼图不能承载当前显示计算产生的负值。",
+        logRecords: "日志明细适用于检索和表格；统计图需要聚合查询。",
+        logAggregates: "日志统计结果适用于数值图型；检索需要明细查询。",
+        traceShape: "需要与此专用图型一致的链路结果，所有查询都须兼容。",
+        rangeResult: "当前结果包含时间序列，适合比较变化趋势。",
+        snapshotResult: "当前结果是数值快照，适合展示当前值或跨序列比较。",
+        bucketResult: "当前结果已确认是可展示的累计分桶。",
+        compatible: "当前结果可由此图型展示。",
+      },
+      advancedQuery: "高级查询与过滤",
+      chartHint: "图型只改变展示，保留当前查询。",
+      incompatibleChart:
+        "灰色图型与当前结果形状不兼容。直方图需要累计分桶数据；热力图按时间和序列展示矩阵数据。",
+      drilldownHint: "平台生成标准下钻；可以编辑完整定义，随统计图统一发布。",
+      regenerate: "补充标准下钻",
+      panelMissing: "该统计图已不在当前个人草稿中，请返回仪表盘。",
+      presetHint:
+        "从常见场景开始，再选择真实数据来源并调整查询。模板需要运行验证。",
+      presets: {
+        cpu: "CPU 使用率",
+        memory: "内存占用",
+        errors: "错误日志趋势",
+        logs: "日志检索",
+        traces: "链路列表",
+        services: "应用服务",
+        custom: "自定义统计图",
+      },
+      signals: { metrics: "指标", logs: "日志", traces: "链路" },
+      sources: {
+        hostmetrics: "主机系统指标",
+        prometheus: "Prometheus 指标",
+        otlp: "OpenTelemetry",
+        kubeletstats: "Kubelet 指标",
+        k8s_cluster: "Kubernetes 集群指标",
+        filelog: "文件日志",
+        journald: "系统日志",
+        windowseventlog: "Windows 事件日志",
+        skywalking: "SkyWalking 链路",
+        jaeger: "Jaeger 链路",
+      },
+    },
     display: {
       title: "显示配置",
       hint: "仅改变展示；不会改写查询、时间步长或 AI 获取的查询结果。范围和阈值使用查询原始单位，比例百分比请填写 0–1。",
@@ -180,7 +259,7 @@ export const dashboardsZh = {
     sampleRun: "运行样本",
     sampleHint: "配置校验与数据验证分别显示。无数据不代表运行正常。",
     mock: "模拟模式 · 图表为测试数据，查询正确性须由真实服务验证",
-    variables: "查询变量",
+    variables: "管理过滤项",
     addVariable: "添加变量",
     variableName: "变量名",
     label: "显示名称",
@@ -289,7 +368,7 @@ export const dashboardsZh = {
     readOnlyHistory: "历史版本只读",
     currentVersion: "当前版本",
     showHistory: "查看此版本",
-    filtersTab: "变量与默认值",
+    filtersTab: "管理过滤项",
     panelsTab: "统计图",
     resourcesNote: "绑定入口只预选资源；实际查询仍按当前用户授权。",
     resourceLinks: "关联仪表盘",
@@ -368,6 +447,98 @@ export const dashboardsZh = {
 
 export const dashboardsEn = {
   dashboards: {
+    editor: {
+      invalidForm: "Check required fields, names and duplicate entries.",
+      pendingRun: "Run to update",
+      lastResult: "Latest query result",
+      previewTitle: "Panel preview",
+      backToDashboard: "Back to dashboard",
+      inheritedScope: "Uses preview time / resource scope",
+      queryFilters: "Query filters",
+      removeFilter: "Remove {{field}} filter",
+      dataTable: "Data table",
+      backToChart: "Back to chart",
+      suggestedCharts: "Suggested charts",
+      chartSuggestionHint:
+        "Suggested for the result shape; each chart explains its compatibility.",
+      previewOnly: "Preview conditions only",
+      run: "Run query",
+      runHint:
+        "Run after changing data. Style changes apply immediately. Ctrl / ⌘ + Enter",
+      settings: "Panel settings",
+      style: "Style",
+      interaction: "Interaction",
+      calculation: "Across resources",
+      split: "Split series",
+      noSplit: "No grouping",
+      metadataUnverified:
+        "Metric metadata is unverified. Continue configuring and run to check the validation state.",
+      unknownUnit: "No unit provided",
+      metricRequirement: "Requires a {{type}} metric",
+      metricMismatch:
+        "This metric is {{type}}; the calculation requires {{required}}. Choose a compatible calculation.",
+      recommended: "Recommended",
+      chartReasons: {
+        runFirst:
+          "Run the current query to check compatibility. Query definitions are preserved.",
+        noData:
+          "No samples to verify. You can configure this chart in advance.",
+        incomplete:
+          "Some queries are incomplete; compatibility of the entire panel is unverified.",
+        numericRequired:
+          "Numeric results are required; the query returned nonnumeric data.",
+        rangeRequired:
+          "Requires a range query with multiple timestamps. Change the query mode and run again.",
+        bucketRequired:
+          "Requires monotonic cumulative le buckets with one label identity and timestamp.",
+        negativeSlices:
+          "Pie charts cannot display negative values from the current reduction.",
+        logRecords:
+          "Log records support search and tables. Numeric charts require aggregation.",
+        logAggregates:
+          "Log aggregates support numeric charts. Search requires record queries.",
+        traceShape:
+          "Every query must return the shape required by this dedicated trace chart.",
+        rangeResult: "Time series results suit trend comparisons.",
+        snapshotResult:
+          "Numeric snapshots suit current values and comparisons across series.",
+        bucketResult: "The result contains verified cumulative buckets.",
+        compatible: "This chart can display the current result.",
+      },
+      advancedQuery: "Advanced query and filters",
+      chartHint: "Change the visualization while preserving the query.",
+      incompatibleChart:
+        "Disabled charts are incompatible with the result shape. Histograms require cumulative buckets; heatmaps display matrices by time and series.",
+      drilldownHint:
+        "Standard navigation is generated by the platform. Edit full definitions when needed and publish with the panel.",
+      regenerate: "Add standard drilldowns",
+      panelMissing:
+        "This panel is no longer in your personal draft. Return to the dashboard.",
+      presetHint:
+        "Start with a common scenario, then select a real source and adjust its query. Templates require validation.",
+      presets: {
+        cpu: "CPU utilization",
+        memory: "Memory usage",
+        errors: "Error log trend",
+        logs: "Log search",
+        traces: "Trace list",
+        services: "Application services",
+        custom: "Custom panel",
+      },
+      signals: { metrics: "Metrics", logs: "Logs", traces: "Traces" },
+      sources: {
+        hostmetrics: "Host system metrics",
+        prometheus: "Prometheus metrics",
+        otlp: "OpenTelemetry",
+        kubeletstats: "Kubelet metrics",
+        k8s_cluster: "Kubernetes cluster metrics",
+        filelog: "File logs",
+        journald: "System journal",
+        windowseventlog: "Windows event logs",
+        skywalking: "SkyWalking traces",
+        jaeger: "Jaeger traces",
+      },
+    },
     display: {
       title: "Display options",
       hint: "Changes presentation only, never the query, step or results delivered to AI. Bounds and thresholds use raw query units; enter 0–1 for ratio percentages.",
@@ -563,7 +734,7 @@ export const dashboardsEn = {
     sampleHint:
       "Configuration validity and data verification are separate. No data does not mean healthy.",
     mock: "Mock mode · Charts use test data. Real query validation requires the service.",
-    variables: "Query variables",
+    variables: "Manage filters",
     addVariable: "Add variable",
     variableName: "Variable name",
     label: "Display label",
@@ -674,7 +845,7 @@ export const dashboardsEn = {
     readOnlyHistory: "Read-only historical revision",
     currentVersion: "Current version",
     showHistory: "View this revision",
-    filtersTab: "Variables and defaults",
+    filtersTab: "Manage filters",
     panelsTab: "Panels",
     resourceLinks: "Linked dashboards",
     boundResources: "Resource shortcuts",

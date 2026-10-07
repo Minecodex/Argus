@@ -33,7 +33,8 @@ test("command-installed host is uninstalled before its record can be deleted", a
 
   tile = page.locator(".argus-host-tile").filter({ hasText: "public-web-01" });
   await expect(tile.getByText("已卸载", { exact: true })).toBeVisible();
-  await tile.getByRole("button", { name: "删除", exact: true }).click();
+  await tile.getByRole("button", { name: "更多操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "删除", exact: true }).click();
   await page
     .getByRole("dialog", { name: "删除主机" })
     .getByRole("button", { name: "确认删除", exact: true })
@@ -464,6 +465,8 @@ async function expectFocusRingUnclipped(input: Locator) {
       parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset),
     );
     const rect = element.getBoundingClientRect();
+    const elementScaleX = rect.width / element.offsetWidth;
+    const elementScaleY = rect.height / element.offsetHeight;
     const clipped: string[] = [];
     for (
       let parent = element.parentElement;
@@ -472,19 +475,25 @@ async function expectFocusRingUnclipped(input: Locator) {
     ) {
       const parentStyle = getComputedStyle(parent);
       const bounds = parent.getBoundingClientRect();
-      const left = bounds.left + parent.clientLeft;
-      const top = bounds.top + parent.clientTop;
+      const scaleX = parent.offsetWidth ? bounds.width / parent.offsetWidth : 1;
+      const scaleY = parent.offsetHeight
+        ? bounds.height / parent.offsetHeight
+        : 1;
+      const left = bounds.left + parent.clientLeft * scaleX;
+      const top = bounds.top + parent.clientTop * scaleY;
       if (
         parentStyle.overflowX !== "visible" &&
-        (rect.left - extent < left - 0.5 ||
-          rect.right + extent > left + parent.clientWidth + 0.5)
+        (rect.left - extent * elementScaleX < left - 0.5 ||
+          rect.right + extent * elementScaleX >
+            left + parent.clientWidth * scaleX + 0.5)
       ) {
         clipped.push(`${parent.className}: horizontal focus ring`);
       }
       if (
         parentStyle.overflowY !== "visible" &&
-        (rect.top - extent < top - 0.5 ||
-          rect.bottom + extent > top + parent.clientHeight + 0.5)
+        (rect.top - extent * elementScaleY < top - 0.5 ||
+          rect.bottom + extent * elementScaleY >
+            top + parent.clientHeight * scaleY + 0.5)
       ) {
         clipped.push(`${parent.className}: vertical focus ring`);
       }

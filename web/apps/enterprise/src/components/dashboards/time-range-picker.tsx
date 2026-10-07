@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { CalendarClock, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DashboardSchemas } from "@argus/api-client";
 import {
   Button,
   DateTimePicker,
-  Dialog,
+  FilterPopover,
   Field,
   Input,
   Select,
@@ -51,127 +52,135 @@ export function TimeRangePicker({
         ? t(`dashboards.${presets.get(value.seconds!)}`)
         : t("dashboards.relativeSeconds", { count: value.seconds });
   return (
-    <>
-      <Button
-        aria-label={label}
-        onClick={() => {
-          setDraft(value);
-          setOpen(true);
-        }}
-      >
-        {label}: {display}
-      </Button>
-      <Dialog
-        title={label}
-        open={open}
-        onOpenChange={setOpen}
-        footer={
+    <FilterPopover
+      size="lg"
+      title={label}
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          aria-label={label}
+          title={
+            value.kind === "absolute"
+              ? `${local(value.from)} — ${local(value.to)}`
+              : display
+          }
+          onPress={() => {
+            setDraft(value);
+            setOpen(true);
+          }}
+        >
+          <CalendarClock aria-hidden />
+          {display}
+          <ChevronDown aria-hidden />
+        </Button>
+      }
+      footer={
+        <>
+          <Button onPress={() => setOpen(false)}>{t("common.cancel")}</Button>
+          <Button
+            variant="primary"
+            isDisabled={!valid}
+            onPress={() => {
+              onChange(draft);
+              setOpen(false);
+            }}
+          >
+            {t("dashboards.apply")}
+          </Button>
+        </>
+      }
+    >
+      <div className="argus-dashboard-form-stack">
+        <Select
+          ariaLabel={t("dashboards.timeKind")}
+          value={draft.kind}
+          options={[
+            { value: "relative", label: t("dashboards.relativeTime") },
+            { value: "absolute", label: t("dashboards.absoluteTime") },
+          ]}
+          onValueChange={(kind) =>
+            setDraft(
+              kind === "relative"
+                ? { kind, seconds: 3600 }
+                : {
+                    kind: "absolute",
+                    from: new Date(Date.now() - 3600000).toISOString(),
+                    to: new Date().toISOString(),
+                  },
+            )
+          }
+        />
+        {draft.kind === "relative" ? (
           <>
-            <Button onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
-            <Button
-              variant="primary"
-              disabled={!valid}
-              onClick={() => {
-                onChange(draft);
-                setOpen(false);
-              }}
-            >
-              {t("dashboards.apply")}
-            </Button>
-          </>
-        }
-      >
-        <div className="argus-dashboard-form-stack">
-          <Select
-            ariaLabel={t("dashboards.timeKind")}
-            value={draft.kind}
-            options={[
-              { value: "relative", label: t("dashboards.relativeTime") },
-              { value: "absolute", label: t("dashboards.absoluteTime") },
-            ]}
-            onValueChange={(kind) =>
-              setDraft(
-                kind === "relative"
-                  ? { kind, seconds: 3600 }
-                  : {
-                      kind: "absolute",
-                      from: new Date(Date.now() - 3600000).toISOString(),
-                      to: new Date().toISOString(),
-                    },
-              )
-            }
-          />
-          {draft.kind === "relative" ? (
-            <>
-              <Select
-                ariaLabel={t("dashboards.timePresets")}
-                value={String(draft.seconds ?? 3600)}
-                options={[...presets]
-                  .map(([seconds, key]) => ({
-                    value: String(seconds),
-                    label: t(`dashboards.${key}`),
-                  }))
-                  .concat(
-                    presets.has(draft.seconds ?? 0)
-                      ? []
-                      : [
-                          {
-                            value: String(draft.seconds),
-                            label: t("dashboards.relativeSeconds", {
-                              count: draft.seconds,
-                            }),
-                          },
-                        ],
-                  )}
-                onValueChange={(seconds) =>
-                  setDraft({ kind: "relative", seconds: Number(seconds) })
+            <Select
+              ariaLabel={t("dashboards.timePresets")}
+              value={String(draft.seconds ?? 3600)}
+              options={[...presets]
+                .map(([seconds, key]) => ({
+                  value: String(seconds),
+                  label: t(`dashboards.${key}`),
+                }))
+                .concat(
+                  presets.has(draft.seconds ?? 0)
+                    ? []
+                    : [
+                        {
+                          value: String(draft.seconds),
+                          label: t("dashboards.relativeSeconds", {
+                            count: draft.seconds,
+                          }),
+                        },
+                      ],
+                )}
+              onValueChange={(seconds) =>
+                setDraft({ kind: "relative", seconds: Number(seconds) })
+              }
+            />
+            <Field label={t("dashboards.timeSeconds")} requirement="required">
+              <Input
+                type="number"
+                min={1}
+                value={draft.seconds ?? 3600}
+                onChange={(e) =>
+                  setDraft({
+                    kind: "relative",
+                    seconds: Number(e.target.value),
+                  })
                 }
               />
-              <Field label={t("dashboards.timeSeconds")} requirement="required">
-                <Input
-                  type="number"
-                  min={1}
-                  value={draft.seconds ?? 3600}
-                  onChange={(e) =>
-                    setDraft({
-                      kind: "relative",
-                      seconds: Number(e.target.value),
-                    })
-                  }
-                />
-              </Field>
-            </>
-          ) : (
-            <>
-              <Field label={t("dashboards.timeFrom")} requirement="required">
-                <DateTimePicker
-                  value={local(draft.from)}
-                  onChange={(value) =>
-                    setDraft({
-                      ...draft,
-                      from: value ? new Date(value).toISOString() : undefined,
-                    })
-                  }
-                />
-              </Field>
-              <Field label={t("dashboards.timeTo")} requirement="required">
-                <DateTimePicker
-                  value={local(draft.to)}
-                  onChange={(value) =>
-                    setDraft({
-                      ...draft,
-                      to: value ? new Date(value).toISOString() : undefined,
-                    })
-                  }
-                />
-              </Field>
-              <p className="argus-dashboard-muted">
-                {t("dashboards.localTimeHint")}
-              </p>
-            </>
-          )}
-        </div>
-      </Dialog>
-    </>
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label={t("dashboards.timeFrom")} requirement="required">
+              <DateTimePicker
+                value={local(draft.from)}
+                onChange={(value) =>
+                  setDraft({
+                    ...draft,
+                    from: value ? new Date(value).toISOString() : undefined,
+                  })
+                }
+              />
+            </Field>
+            <Field label={t("dashboards.timeTo")} requirement="required">
+              <DateTimePicker
+                value={local(draft.to)}
+                onChange={(value) =>
+                  setDraft({
+                    ...draft,
+                    to: value ? new Date(value).toISOString() : undefined,
+                  })
+                }
+              />
+            </Field>
+            <p className="argus-dashboard-muted">
+              {t("dashboards.localTimeHint")}
+            </p>
+          </>
+        )}
+      </div>
+    </FilterPopover>
   );
 }

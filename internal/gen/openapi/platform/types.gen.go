@@ -393,6 +393,33 @@ type PartialMetadata struct {
 // PartialMetadataReasons defines model for PartialMetadata.Reasons.
 type PartialMetadataReasons string
 
+// PlatformMonthlySandboxUsage defines model for PlatformMonthlySandboxUsage.
+type PlatformMonthlySandboxUsage struct {
+	Month          string `json:"month"`
+	SessionCount   int64  `json:"session_count"`
+	SessionSeconds int64  `json:"session_seconds"`
+}
+
+// PlatformOverview defines model for PlatformOverview.
+type PlatformOverview struct {
+	ActiveEnterpriseCount int64 `json:"active_enterprise_count"`
+
+	// ActiveSandboxSessionCount Creating, running, terminating or unknown sessions that still occupy capacity.
+	ActiveSandboxSessionCount int64                         `json:"active_sandbox_session_count"`
+	EnterpriseCount           int64                         `json:"enterprise_count"`
+	MonthlyUsage              []PlatformMonthlySandboxUsage `json:"monthly_usage"`
+
+	// PendingAdminCount Active directly bound enterprise administrators who have never logged in.
+	PendingAdminCount int64     `json:"pending_admin_count"`
+	SampledAt         time.Time `json:"sampled_at"`
+
+	// UsageFromMonth Inclusive UTC month.
+	UsageFromMonth string `json:"usage_from_month"`
+
+	// UsageToMonth Exclusive UTC month.
+	UsageToMonth string `json:"usage_to_month"`
+}
+
 // RequestId defines model for RequestId.
 type RequestId = string
 

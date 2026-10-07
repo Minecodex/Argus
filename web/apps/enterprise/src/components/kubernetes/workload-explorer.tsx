@@ -106,7 +106,7 @@ function ResourceDetailDrawer({
   return (
     <FormDrawer
       footer={
-        <Button onClick={onClose} variant="secondary">
+        <Button onPress={onClose} variant="secondary">
           {t("kubernetes.drawer.close")}
         </Button>
       }
@@ -214,13 +214,14 @@ export function WorkloadExplorer({ cluster }: { cluster: KubernetesCluster }) {
       key: "name",
       header: t("kubernetes.table.name"),
       render: (row) => (
-        <button
+        <Button
+          variant="ghost"
           className="argus-k8s-link-button"
-          onClick={() => setDetail(row)}
+          onPress={() => setDetail(row)}
           type="button"
         >
           {row.name}
-        </button>
+        </Button>
       ),
     },
     {
@@ -250,11 +251,11 @@ export function WorkloadExplorer({ cluster }: { cluster: KubernetesCluster }) {
       header: t("kubernetes.table.actions"),
       render: (row) => (
         <ActionGroup>
-          <RowAction onClick={() => setDetail(row)}>
+          <RowAction onPress={() => setDetail(row)}>
             {t("kubernetes.table.detail")}
           </RowAction>
           {row.resource_type === "pod" && row.namespace && (
-            <RowAction onClick={() => setLogPod(row)}>
+            <RowAction onPress={() => setLogPod(row)}>
               {t("kubernetes.table.logs")}
             </RowAction>
           )}

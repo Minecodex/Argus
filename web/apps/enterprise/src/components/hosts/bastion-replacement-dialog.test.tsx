@@ -74,7 +74,12 @@ it.each([
     fireEvent.change(screen.getByRole("textbox", { name: "登录账号" }), {
       target: { value: "root" },
     });
-    fireEvent.click(screen.getByRole("combobox", { name: "SSH 凭据" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "SSH 凭据" }),
+      ).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "SSH 凭据" }));
     fireEvent.click(
       await screen.findByRole("option", { name: "SSH test key" }),
     );

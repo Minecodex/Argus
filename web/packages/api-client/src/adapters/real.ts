@@ -1,6 +1,7 @@
 import { createDashboardDomains } from "./real/dashboard";
 import type { DashboardDomains } from "../dashboard";
 import type { ArgusApiClient } from "../client";
+import type { PlatformOverview } from "../types/platform";
 import type {
   AuditEvent as AuditEventContract,
   ResourceNameAvailability,
@@ -434,6 +435,10 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
     },
   };
 
+  client.platform.overview = {
+    get: (signal) =>
+      http.request<PlatformOverview>("platform/overview", { signal }),
+  };
   client.platform.enterprises = {
     async list() {
       const value = await http.request<{
@@ -1795,6 +1800,7 @@ function createUnavailableClient(
     },
     audit: { list: () => unavailable("audit.list") },
     platform: {
+      overview: { get: () => unavailable("platform.overview.get") },
       enterprises: {
         list: () => unavailable("platform.enterprises.list"),
         get: () => unavailable("platform.enterprises.get"),

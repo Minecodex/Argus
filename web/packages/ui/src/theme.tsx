@@ -43,6 +43,8 @@ export function initializeTheme() {
   if (typeof window === "undefined") return;
   const resolved = resolvePreference(storedPreference());
   document.documentElement.dataset.theme = resolved;
+  document.documentElement.classList.remove("light", "dark");
+  document.documentElement.classList.add(resolved);
   document.documentElement.style.colorScheme = resolved;
 }
 
@@ -61,6 +63,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       const resolved = resolvePreference(preference);
       setResolvedTheme(resolved);
       document.documentElement.dataset.theme = resolved;
+      document.documentElement.classList.remove("light", "dark");
+      document.documentElement.classList.add(resolved);
       document.documentElement.style.colorScheme = resolved;
     };
     apply();

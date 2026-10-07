@@ -41,10 +41,10 @@ export function PanelTile({
           )}
           {onExpand && (
             <Button
-              size="icon"
+              isIconOnly
               variant="ghost"
               aria-label={`${t("dashboards.expand")} ${panel.title}`}
-              onClick={onExpand}
+              onPress={onExpand}
             >
               <Maximize2 size={15} />
             </Button>
@@ -52,18 +52,18 @@ export function PanelTile({
           {editable && (
             <>
               <Button
-                size="icon"
+                isIconOnly
                 variant="ghost"
                 aria-label={`${t("dashboards.editPanel")} ${panel.title}`}
-                onClick={onEdit}
+                onPress={onEdit}
               >
                 <Pencil size={15} />
               </Button>
               <Button
-                size="icon"
+                isIconOnly
                 variant="ghost"
                 aria-label={`${t("dashboards.removePanel")} ${panel.title}`}
-                onClick={onRemove}
+                onPress={onRemove}
               >
                 <Trash2 size={15} />
               </Button>

@@ -3,7 +3,7 @@ import { createConfiguredApiClient } from "../../factory";
 
 afterEach(() => vi.unstubAllGlobals());
 it("preserves audit facts and forwards filters together with the signed page cursor", async () => {
-  const fetcher = vi.fn(
+  const fetcher = vi.fn<typeof fetch>(
     async () =>
       new Response(
         JSON.stringify({

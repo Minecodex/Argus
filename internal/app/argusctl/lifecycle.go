@@ -45,12 +45,9 @@ func (a *App) uninstall(ctx context.Context, cfg *InstallConfig, deleteCRDs bool
 		if err := deletePKICleanupRBAC(ctx, clients.typed, cfg.Spec.ReleaseID); err != nil {
 			return err
 		}
-		for _, namespace := range []string{cfg.Spec.Namespaces.System, cfg.Spec.Namespaces.Sandbox, cfg.Spec.Namespaces.Observability} {
-			if current, getErr := clients.typed.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{}); getErr == nil && current.Labels["argus.io/release-id"] == cfg.Spec.ReleaseID {
-				_ = clients.typed.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
-			}
-		}
-		if err := removeWorkspaceStorage(ctx, cfg, clients, helm); err != nil {
+		if err := teardownNamespaces(ctx, clients.typed, cfg, func() error {
+			return removeWorkspaceStorage(ctx, cfg, clients, helm)
+		}); err != nil {
 			return err
 		}
 	}
@@ -161,6 +158,9 @@ func (a *App) markOwnedCRDs(ctx context.Context, cfg *InstallConfig) error {
 			continue
 		}
 		for _, resource := range strings.Fields(resources) {
+			if cfg.sharedDataCRDs[strings.TrimPrefix(resource, "customresourcedefinition.apiextensions.k8s.io/")] {
+				continue
+			}
 			if _, err := a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "label", resource, "argus.io/owner-release="+cfg.Spec.ReleaseID, "--overwrite"); err != nil {
 				return err
 			}

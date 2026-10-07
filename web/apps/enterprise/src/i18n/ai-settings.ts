@@ -3,6 +3,7 @@ export const aiSettingsZh = {
     description: "一步完成模型接入，并按部门与用户治理月金额额度。",
     tabs: { models: "模型", governance: "治理仪表盘" },
     model: {
+      advanced: "容量与计费设置",
       add: "添加模型",
       createTitle: "添加 OpenAI Compatible 模型",
       editTitle: "编辑模型",
@@ -82,6 +83,7 @@ export const aiSettingsEn = {
       "Connect a model in one step and govern monthly amount budgets by department and user.",
     tabs: { models: "Models", governance: "Governance dashboard" },
     model: {
+      advanced: "Capacity and pricing settings",
       add: "Add model",
       createTitle: "Add OpenAI Compatible model",
       editTitle: "Edit model",

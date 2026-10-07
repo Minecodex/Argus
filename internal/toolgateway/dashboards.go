@@ -113,7 +113,7 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 		{"convert", "DashboardConvertPanelInput", "", "read", "使用与 UI 相同的无损构建器/语句转换。Convert through the shared server compiler; reject lossy conversions."},
 		{"draft.create", "DashboardDraftInput", "", "write", "创建或恢复个人草稿，不发布；编辑已有仪表盘必须先选中它。Create a personal draft; existing dashboard opens its published baseline, then use draft.save to edit."},
 		{"draft.get", "EmptyInput", "draft_id", "read", "读取当前编辑者个人草稿。Read an owned draft and its version."},
-		{"draft.validate", "DashboardVersionInput", "draft_id", "read", "复用人工编辑器校验草稿和样本，返回 validation.issues 的路径与原因；修正硬错误后再发布预览。Validate the owned draft version with the same compiler/runtime as the editor. valid=false is repair feedback; no_data/unavailable sample states do not mean verified healthy data."},
+		{"draft.validate", "DashboardDraftSampleInput", "draft_id", "read", "复用人工编辑器校验草稿和样本，返回 validation.issues 的路径与原因；修正硬错误后再发布预览。Validate the owned draft version with the same compiler/runtime as the editor. valid=false is repair feedback; no_data/unavailable sample states do not mean verified healthy data."},
 		{"draft.save", "DashboardDraftInput", "draft_id", "write", "按草稿版本保存修改，不弹发布确认。Save draft with expected_version; never silently overwrite conflicts."},
 		{"publish.preview", "DashboardVersionInput", "draft_id", "write", "统一校验草稿并生成宿主发布确认。Validate the draft and create host confirmation. No data is a warning, not verified data health; model cannot confirm."},
 	} {
@@ -392,7 +392,13 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 			if tools.Jobs == nil {
 				return mcp.Result{}, dashboard.ErrUnavailable
 			}
-			value, e := tools.Jobs.Runtime.SampleDraft(ctx, c.actor, id, intValue(call.Input, "expected_version"))
+			input, e := dashboardToolDecode[struct {
+				Parameters dashboard.ExecutionInput `json:"parameters"`
+			}](call.Input)
+			if e != nil {
+				return mcp.Result{}, e
+			}
+			value, e := tools.Jobs.Runtime.SampleDraft(ctx, c.actor, id, intValue(call.Input, "expected_version"), input.Parameters)
 			return dashboardToolResult(value, e)
 		}
 		if name == "draft.drilldowns" {

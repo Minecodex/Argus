@@ -1,4 +1,24 @@
 export interface paths {
+    "/platform/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Complete platform counts and recorded monthly Sandbox usage.
+         * @description Platform administrator only. Counts are independent of list pagination. Usage aggregates all enterprises over the current UTC month and previous eleven months, from recorded Sandbox usage; it does not estimate CPU consumption or running-session duration.
+         */
+        get: operations["getPlatformOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/enterprises": {
         parameters: {
             query?: never;
@@ -134,6 +154,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        PlatformOverview: {
+            /** Format: date-time */
+            sampled_at: string;
+            /** Format: int64 */
+            enterprise_count: number;
+            /** Format: int64 */
+            active_enterprise_count: number;
+            /**
+             * Format: int64
+             * @description Creating, running, terminating or unknown sessions that still occupy capacity.
+             */
+            active_sandbox_session_count: number;
+            /**
+             * Format: int64
+             * @description Active directly bound enterprise administrators who have never logged in.
+             */
+            pending_admin_count: number;
+            /** @description Inclusive UTC month. */
+            usage_from_month: string;
+            /** @description Exclusive UTC month. */
+            usage_to_month: string;
+            monthly_usage: components["schemas"]["PlatformMonthlySandboxUsage"][];
+        };
         EnterpriseCreate: {
             name: string;
             code: string;
@@ -191,6 +234,13 @@ export interface components {
             trace_id?: string;
             /** @default false */
             retryable: boolean;
+        };
+        PlatformMonthlySandboxUsage: {
+            month: string;
+            /** Format: int64 */
+            session_count: number;
+            /** Format: int64 */
+            session_seconds: number;
         };
         Enterprise: {
             id: string;
@@ -306,6 +356,27 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getPlatformOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Read-only platform snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listEnterprises: {
         parameters: {
             query?: {

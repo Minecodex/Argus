@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { DashboardDraft } from "@argus/api-client";
 import { dashboardsEn, dashboardsZh } from "../src/i18n/dashboards";
 import { createMfaLogin } from "./helpers/mfa-login";
+import { selectTrigger } from "./helpers/select";
 
 test.use({ actionTimeout: 15000, navigationTimeout: 30000 });
 const login = createMfaLogin("enterprise");
@@ -41,14 +42,17 @@ for (const english of [false, true]) {
 
     for (const signal of ["metrics", "logs", "traces"]) {
       await button(page, d.addPanel).first().click();
-      const editor = page.getByRole("dialog", {
-        name: d.addPanel,
-        exact: true,
-      });
+      const preset =
+        signal === "metrics" ? "custom" : signal === "logs" ? "logs" : "traces";
+      await button(
+        page.getByRole("dialog", { name: d.addPanel, exact: true }),
+        d.editor.presets[preset],
+      ).click();
+      await expect(page).toHaveURL(/\/panels\//);
+      const editor = page.locator(".argus-panel-editor");
       await editor.getByLabel(d.panelTitle).fill(`Observed ${signal}`);
-      if (signal !== "metrics") await select(page, editor, d.signal, signal);
       if (signal === "metrics") {
-        await select(page, editor, d.source, "otlp");
+        await select(page, editor, d.source, d.editor.sources.otlp);
         await editor
           .getByRole("combobox", { name: d.metric, exact: true })
           .fill("argus_m7_e2e_gauge_planv2");
@@ -68,9 +72,9 @@ for (const english of [false, true]) {
           editor.getByRole("combobox", { name: d.metric, exact: true }),
         ).toHaveValue("argus_m7_e2e_gauge_planv2");
       }
-      const saved = saveResponse(page);
       await button(editor, d.done).click();
-      expect((await saved).status()).toBe(200);
+      await expect(page).toHaveURL(/\/dashboard-drafts\/[^/]+$/);
+      await expect(page.getByText(d.saved, { exact: false })).toBeVisible();
     }
     const resized = saveResponse(page);
     await button(
@@ -168,19 +172,27 @@ for (const english of [false, true]) {
     await expect(page).toHaveURL(/dashboard-drafts/);
     await description(page, "Unpublished draft survives archive", 200);
     await reader.goto("/dashboards");
-    const card = reader.locator("article").filter({
+    const card = reader.locator(".argus-resource-card").filter({
       has: reader.getByRole("heading", { name: title, exact: true }),
     });
-    await button(card, d.archive).click();
+    await button(card, english ? "More actions" : "更多操作").click();
+    await reader
+      .getByRole("menuitem", { name: d.archive, exact: true })
+      .click();
     await change(reader);
-    await reader.getByRole("tab", { name: d.archived, exact: true }).click();
+    await reader.getByRole("button", { name: d.archived, exact: true }).click();
     await expect(card).toBeVisible();
     const rejected = page.waitForResponse((r) => r.url().endsWith("/preview"));
     await button(page, d.preview).click();
     expect((await (await rejected).json()).code).toBe("DASHBOARD_ARCHIVED");
-    await button(card, d.restore).click();
+    await button(card, english ? "More actions" : "更多操作").click();
+    await reader
+      .getByRole("menuitem", { name: d.restore, exact: true })
+      .click();
     await change(reader);
-    await reader.getByRole("tab", { name: d.published, exact: true }).click();
+    await reader
+      .getByRole("button", { name: d.published, exact: true })
+      .click();
     await expect(card).toContainText("First tab wins");
     await page.reload();
     await expect(button(page, d.metadata)).toBeVisible();
@@ -258,6 +270,6 @@ async function select(
   name: string,
   value: string,
 ) {
-  await editor.getByRole("combobox", { name, exact: true }).click();
+  await selectTrigger(editor, name).click();
   await page.getByRole("option", { name: value, exact: true }).click();
 }

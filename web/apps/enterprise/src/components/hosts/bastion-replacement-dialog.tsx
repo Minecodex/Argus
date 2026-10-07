@@ -204,10 +204,10 @@ export function BastionReplacementDialog({
       footer={
         !pending && !command ? (
           <>
-            <Button onClick={() => onOpenChange(false)} variant="secondary">
+            <Button onPress={() => onOpenChange(false)} variant="secondary">
               {t("common.cancel")}
             </Button>
-            <Button form={FORM_ID} loading={busy} type="submit">
+            <Button form={FORM_ID} isPending={busy} type="submit">
               {t("hosts.bastionForm.replaceConnector")}
             </Button>
           </>
@@ -290,7 +290,7 @@ export function BastionReplacementDialog({
         {command && (
           <>
             <InstallInstructionPanel result={command} />
-            <Button onClick={() => onOpenChange(false)} variant="primary">
+            <Button onPress={() => onOpenChange(false)} variant="primary">
               {t("hosts.done")}
             </Button>
           </>

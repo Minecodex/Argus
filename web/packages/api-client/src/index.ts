@@ -186,6 +186,7 @@ export type { AuditPresentationKind } from "./audit-presentation";
 export type * from "./planv5";
 
 export * from "./dashboard";
+export * from "./dashboard-preview";
 
 export type {
   DashboardChatSelection,

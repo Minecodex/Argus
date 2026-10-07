@@ -3,14 +3,14 @@
 .argus-hosts-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--field-gap);
 }
 
 .argus-remote-session-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   padding-block: var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -29,7 +29,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -40,7 +40,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   min-width: 0;
   font-weight: 650;
 }
@@ -48,18 +48,18 @@
   color: var(--text-primary);
 }
 .argus-scope-card__title > a:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .argus-scope-card__title-actions {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-px-2);
+  gap: var(--space-1);
 }
 .argus-scope-card__meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   color: var(--text-secondary);
   font-size: var(--font-size-12);
 }
@@ -67,12 +67,12 @@
   padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-scope-card__token {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 .argus-scope-card__token-meta {
   color: var(--text-tertiary);
@@ -81,97 +81,25 @@
 .argus-scope-card__actions {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   flex-wrap: wrap;
 }
 
 /* ---- 成员主机紧凑卡片 ---- */
 .argus-host-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-2);
-}
-.argus-host-tile {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-px-6);
-  padding: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  transition: var(--motion-fast);
-}
-.argus-host-tile:hover {
-  border-color: var(--border-default);
-  background: var(--bg-elevated);
-}
-.argus-host-tile__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.argus-host-tile__name {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  font-weight: 620;
-}
-.argus-host-tile__name a {
-  color: var(--text-primary);
-}
-.argus-host-tile__name a:hover {
-  color: var(--accent);
-}
-.argus-host-tile__addr {
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-12);
-}
-.argus-host-tile__path {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-12);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.argus-host-tile__tags {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-px-4);
-}
-.argus-collector-status-action {
-  display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-.argus-collector-status-action:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
-.argus-host-tile__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.argus-host-tile__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-2);
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--resource-card-min-width), 1fr)
+  );
+  gap: var(--action-gap);
 }
 
 /* ---- 独立主机区 ---- */
 .argus-standalone__hint {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   color: var(--text-secondary);
   font-size: var(--font-size-12);
 }
@@ -188,11 +116,11 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   line-height: 1.2;
 }
 .argus-host-detail-page .argus-page__content {
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-host-detail-page .argus-tabs {
   max-width: 100%;
@@ -201,12 +129,12 @@
 .argus-stat-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-detail-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-detail-section__title {
   margin: 0;
@@ -217,23 +145,23 @@
 .argus-telemetry-query-head {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-telemetry-query-head .argus-tabs__content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   padding-top: var(--space-3);
 }
 .argus-telemetry-builder-grid {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   align-items: end;
 }
 .argus-telemetry-execution-grid {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   grid-template-columns: repeat(4, minmax(130px, 1fr)) auto;
   align-items: end;
 }
@@ -242,17 +170,16 @@
   align-items: center;
 }
 .argus-telemetry-run-action .argus-button {
-  width: 100%;
 }
 .argus-telemetry-inline-filter {
   display: grid;
   grid-template-columns: minmax(82px, auto) minmax(0, 1fr);
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 .argus-telemetry-query-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
+  gap: var(--action-gap) var(--field-gap);
   margin-bottom: var(--space-3);
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
@@ -274,12 +201,12 @@
 .argus-session-confirm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-session-confirm form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-session-confirm form > .argus-button {
   align-self: flex-start;
@@ -287,17 +214,17 @@
 .argus-session-confirm__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-form-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 
 @media (max-width: 720px) {
@@ -309,7 +236,7 @@
 .argus-bastion-command {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
 }
@@ -317,7 +244,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-bastion-command__head h3 {
   margin: 0;
@@ -334,7 +261,7 @@
 .argus-bastion-command__code {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 .argus-bastion-command__code > span {
   color: var(--text-tertiary);
@@ -345,12 +272,12 @@
 .argus-choice-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 .argus-choice {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -376,7 +303,7 @@
 .argus-choice__text {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-2);
+  gap: var(--space-1);
 }
 .argus-choice__text b {
   font-weight: 620;
@@ -390,7 +317,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -406,7 +333,7 @@
 .argus-inline-note {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   color: var(--text-secondary);
   font-size: var(--font-size-12);
 }
@@ -424,7 +351,7 @@
 .argus-task-detail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -434,7 +361,7 @@
   min-height: 500px;
   overflow: hidden;
   background: var(--surface-terminal);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   outline: none;
 }
@@ -446,17 +373,17 @@
 .argus-removal-connection {
   display: grid;
   align-content: start;
-  gap: var(--space-4);
+  gap: var(--field-gap);
 }
 
 .argus-removal-connection {
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-removal-modes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-removal-layout > .argus-button,
@@ -467,7 +394,7 @@
 .argus-removal-dependencies,
 .argus-removal-progress ol {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -478,21 +405,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--field-gap);
   padding: var(--space-3);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
+  background: var(--bg-elevated);
 }
 
 .argus-removal-dependencies li span,
 .argus-removal-progress li span:last-child {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  font-size: var(--text-body);
 }
 
 .argus-removal-dependencies__link {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
 }
 
@@ -503,11 +430,11 @@
 
 .argus-removal-progress {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-removal-progress > div {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }

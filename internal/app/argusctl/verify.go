@@ -121,7 +121,12 @@ func (a *App) verify(ctx context.Context, cfg *InstallConfig, output, artifactPa
 		ingressAddress = selectIngressProbeAddress(ctx, cfg, ingressAddress)
 	}
 	add("ingress-certificates", ingressCertificatesReady(ctx, clients, cfg, ingressHosts))
-	add("connector-lb", connectorLoadBalancerReady(ctx, clients, cfg))
+	if forward := strings.TrimSpace(os.Getenv("ARGUSCTL_CONNECTOR_FORWARD_ADDRESS")); forward != "" {
+		report.Degradations = append(report.Degradations, "EXTERNAL_CONNECTOR_LB_NOT_EVALUATED_LOCAL_FORWARD")
+		add("connector-forward-tls", verifyOwnedConnectorForward(ctx, clients, cfg, forward, trustBundlePath))
+	} else {
+		add("connector-lb", connectorLoadBalancerReady(ctx, clients, cfg))
+	}
 	add("https-endpoint/enterprise", a.httpsProbe(ctx, cfg, cfg.Spec.Exposure.EnterpriseHost, ingressAddress, trustBundlePath))
 	add("https-endpoint/platform", a.httpsProbe(ctx, cfg, cfg.Spec.Exposure.PlatformHost, ingressAddress, trustBundlePath))
 	add("cors-origin", a.corsOriginProbe(ctx, cfg, cfg.Spec.Exposure.PlatformHost, ingressAddress, trustBundlePath))
@@ -232,7 +237,7 @@ func webIngressHosts(cfg *InstallConfig) []string {
 	return []string{
 		cfg.Spec.Exposure.EnterpriseHost,
 		cfg.Spec.Exposure.PlatformHost,
-		"templates." + parentDomain(cfg.Spec.Exposure.EnterpriseHost),
+		cfg.templateHost(),
 		artifactHost,
 	}
 }
@@ -727,7 +732,7 @@ func (a *App) collectArtifacts(ctx context.Context, cfg *InstallConfig, director
 		output, _ := a.runner.quiet(ctx, "kubectl", command.args...)
 		_ = os.WriteFile(filepath.Join(directory, command.name), []byte(output), 0o600)
 	}
-	for _, namespace := range []string{cfg.Spec.Namespaces.System, cfg.Spec.Namespaces.Sandbox, cfg.Spec.Namespaces.Observability} {
+	for _, namespace := range cfg.applicationNamespaces() {
 		logs, _ := a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", namespace, "logs", "--selector", "app.kubernetes.io/part-of=argus", "--all-containers=true", "--prefix=true", "--tail=1000")
 		_ = os.WriteFile(filepath.Join(directory, "logs-"+namespace+".txt"), []byte(logs), 0o600)
 	}

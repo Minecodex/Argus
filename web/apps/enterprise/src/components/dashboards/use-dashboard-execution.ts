@@ -42,6 +42,7 @@ export function useDashboardExecution(options: Options) {
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshSeconds, setRefreshSeconds] = useState(0);
   const latest = useRef(input),
     rangeRef = useRef(timeRange);
   const bounds = useRef<{ from: string; to: string } | undefined>(undefined);
@@ -216,6 +217,7 @@ export function useDashboardExecution(options: Options) {
     setBusy(false);
     const opts = current.current;
     if (opts.enabled && opts.revision) {
+      setRefreshSeconds(opts.revision.spec.default_refresh_seconds);
       const initial: ViewInput = {
         resource_ids: opts.resourceId ? [opts.resourceId] : [],
         variables: Object.fromEntries(
@@ -239,7 +241,7 @@ export function useDashboardExecution(options: Options) {
   ]);
 
   useEffect(() => {
-    const seconds = options.revision?.spec.default_refresh_seconds ?? 0;
+    const seconds = refreshSeconds;
     if (!options.enabled || seconds < 5) return;
     let timer: ReturnType<typeof setInterval> | undefined;
     const schedule = () => {
@@ -257,7 +259,7 @@ export function useDashboardExecution(options: Options) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", schedule);
     };
-  }, [options.enabled, options.revision?.spec.default_refresh_seconds, run]);
+  }, [options.enabled, refreshSeconds, run]);
 
   const apply = useCallback(
     (next: ViewInput, panels?: string[]) => {
@@ -278,6 +280,8 @@ export function useDashboardExecution(options: Options) {
     [run],
   );
   return {
+    refreshSeconds,
+    setRefreshSeconds,
     execution,
     input,
     timeRange,

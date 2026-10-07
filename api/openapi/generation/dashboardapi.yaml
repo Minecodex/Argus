@@ -96,6 +96,9 @@
     },
     "/conversations/{id}/dashboard-queries/{job_id}/resume": {
       "$ref": "../argus.yaml#/paths/~1conversations~1{id}~1dashboard-queries~1{job_id}~1resume"
+    },
+    "/dashboard-drafts/{id}/drilldown": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-drafts~1{id}~1drilldown"
     }
   },
   "components": {

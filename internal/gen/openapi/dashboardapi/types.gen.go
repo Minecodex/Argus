@@ -919,6 +919,23 @@ type DashboardDraft struct {
 	UpdatedAt         time.Time           `json:"updated_at"`
 }
 
+// DashboardDraftDrilldownExecution defines model for DashboardDraftDrilldownExecution.
+type DashboardDraftDrilldownExecution struct {
+	DraftId      openapi_types.UUID          `json:"draft_id"`
+	DraftVersion int64                       `json:"draft_version"`
+	Execution    DashboardDrilldownExecution `json:"execution"`
+}
+
+// DashboardDraftDrilldownInput defines model for DashboardDraftDrilldownInput.
+type DashboardDraftDrilldownInput struct {
+	ContextToken              string            `json:"context_token"`
+	DrilldownId               string            `json:"drilldown_id"`
+	ExpandAuthorizedResources bool              `json:"expand_authorized_resources"`
+	ExpectedVersion           int64             `json:"expected_version"`
+	PanelId                   string            `json:"panel_id"`
+	Values                    map[string]string `json:"values"`
+}
+
 // DashboardDraftInput defines model for DashboardDraftInput.
 type DashboardDraftInput struct {
 	DashboardId      *openapi_types.UUID `json:"dashboard_id,omitempty"`
@@ -936,6 +953,12 @@ type DashboardDraftSample struct {
 	DraftVersion int64                     `json:"draft_version"`
 	Sample       map[string]interface{}    `json:"sample"`
 	Validation   DashboardValidationReport `json:"validation"`
+}
+
+// DashboardDraftSampleInput defines model for DashboardDraftSampleInput.
+type DashboardDraftSampleInput struct {
+	ExpectedVersion int64                    `json:"expected_version"`
+	Parameters      *DashboardExecutionInput `json:"parameters,omitempty"`
 }
 
 // DashboardDrilldown defines model for DashboardDrilldown.
@@ -1589,6 +1612,9 @@ type DiscardDashboardDraftJSONRequestBody = DashboardVersionInput
 // SaveDashboardDraftJSONRequestBody defines body for SaveDashboardDraft for application/json ContentType.
 type SaveDashboardDraftJSONRequestBody = DashboardDraftInput
 
+// ExecuteDashboardDraftDrilldownJSONRequestBody defines body for ExecuteDashboardDraftDrilldown for application/json ContentType.
+type ExecuteDashboardDraftDrilldownJSONRequestBody = DashboardDraftDrilldownInput
+
 // GenerateDashboardDrilldownsJSONRequestBody defines body for GenerateDashboardDrilldowns for application/json ContentType.
 type GenerateDashboardDrilldownsJSONRequestBody = DashboardGenerateDrilldownsInput
 
@@ -1599,7 +1625,7 @@ type PreviewDashboardPublicationJSONRequestBody = DashboardVersionInput
 type RebaseDashboardDraftJSONRequestBody = DashboardRebaseInput
 
 // SampleDashboardDraftJSONRequestBody defines body for SampleDashboardDraft for application/json ContentType.
-type SampleDashboardDraftJSONRequestBody = DashboardVersionInput
+type SampleDashboardDraftJSONRequestBody = DashboardDraftSampleInput
 
 // PreviewDashboardFolderJSONRequestBody defines body for PreviewDashboardFolder for application/json ContentType.
 type PreviewDashboardFolderJSONRequestBody = DashboardLifecycleInput

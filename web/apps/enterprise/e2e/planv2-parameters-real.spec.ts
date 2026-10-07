@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { dashboardsZh } from "../src/i18n/dashboards";
 import { createMfaLogin } from "./helpers/mfa-login";
 import { dashboardAPI } from "./helpers/planv2-api";
+import { selectTrigger } from "./helpers/select";
 
 const login = createMfaLogin("enterprise"),
   d = dashboardsZh.dashboards;
@@ -87,14 +88,17 @@ test("real candidate absence resets All while search and request failures preser
 
   await page.getByRole("button", { name: d.time, exact: true }).click();
   const time = page.getByRole("dialog", { name: d.time, exact: true });
-  await time.getByRole("combobox", { name: d.timeKind, exact: true }).click();
+  await selectTrigger(time, d.timeKind).click();
   await page.getByRole("option", { name: d.absoluteTime, exact: true }).click();
-  await time
-    .getByRole("textbox", { name: d.timeFrom, exact: true })
-    .fill("2000/01/01 00:00");
-  await time
-    .getByRole("textbox", { name: d.timeTo, exact: true })
-    .fill("2000/01/01 01:00");
+  // Keep the existing valid one-hour interval, but move both endpoints before retention.
+  for (const label of [d.timeFrom, d.timeTo]) {
+    const year = time.getByRole("spinbutton", {
+      name: `年, ${label}`,
+      exact: true,
+    });
+    await year.focus();
+    await year.pressSequentially("2000");
+  }
   await time.getByRole("heading", { name: d.time, exact: true }).click();
   const absent = page.waitForResponse(
     (r) =>

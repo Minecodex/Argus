@@ -231,9 +231,11 @@ export function CollectorWizard({
       render: (row) =>
         row.status === "proposed" ? (
           <RowAction
-            disabled={row.host === "—"}
-            loading={verify.isPending && verify.variables?.bindingId === row.id}
-            onClick={() =>
+            isDisabled={row.host === "—"}
+            isPending={
+              verify.isPending && verify.variables?.bindingId === row.id
+            }
+            onPress={() =>
               verify.mutate({
                 bindingId: row.id,
                 hostId: row.host,

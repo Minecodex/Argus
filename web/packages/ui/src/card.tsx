@@ -1,8 +1,17 @@
 import { type HTMLAttributes, type ReactNode } from "react";
 import { cx } from "./lib";
+import { Card as HeroCard } from "@heroui/react/card";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <section className={cx("argus-card", className)} {...props} />;
+export function Card({
+  className,
+  children,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <HeroCard className={cx("argus-card", className)} {...props}>
+      {children}
+    </HeroCard>
+  );
 }
 
 export function CardHeader({

@@ -40,6 +40,7 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 30. [Windows Server 主机接入实机验收](./20-windows-host-e2e.md)
 31. [主机与堡垒机幂等卸载](./21-host-and-bastion-removal.md)
 32. [Connector 跨集群接管](./22-cross-cluster-connector-takeover.md)
+33. [全门户重设计与仪表盘编辑器重构](./plans/frontend-redesign/README.md)
 
 PlanV5 已于 2026-09-13 同步 [已确认决策与待决问题](./planv5/02-confirmed-decisions-and-open-questions.md) Q1～Q16：自有 Registry 经三个元工具使用并保留 Preview/Commit 与模板，宿主统一确认；客户 MCP 首期仅 Remote Streamable HTTP，由企业管理员配置/授权、用户按会话选择；工具超容量运行前明确提示；离线镜像预装依赖，每会话持久目录支持业务文件上传和产物下载。首期产品边界已收敛，代码和设计正在按新基线切换；验收状态与未通过门禁统一记录在 [实施状态](./planv5/implementation-status.md)，未通过的任务不视为完成。
 

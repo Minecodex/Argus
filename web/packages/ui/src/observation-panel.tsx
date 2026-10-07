@@ -383,7 +383,7 @@ export function ObservationTable({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => onSelect(row, target)}
+                        onPress={() => onSelect(row, target)}
                       >
                         {text("打开详情", "Open details")}
                       </Button>
@@ -403,8 +403,8 @@ export function ObservationTable({
         <div className="argus-observation-pagination">
           <Button
             size="sm"
-            disabled={currentPage === 0}
-            onClick={() => setPage(currentPage - 1)}
+            isDisabled={currentPage === 0}
+            onPress={() => setPage(currentPage - 1)}
           >
             {text("上一页", "Previous")}
           </Button>
@@ -414,8 +414,8 @@ export function ObservationTable({
           </span>
           <Button
             size="sm"
-            disabled={currentPage + 1 === pages}
-            onClick={() => setPage(currentPage + 1)}
+            isDisabled={currentPage + 1 === pages}
+            onPress={() => setPage(currentPage + 1)}
           >
             {text("下一页", "Next")}
           </Button>

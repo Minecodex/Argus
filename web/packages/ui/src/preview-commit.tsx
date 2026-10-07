@@ -8,11 +8,7 @@ import { useUiText } from "./locale";
 export type PreviewRiskLevel = "read" | "write" | "dangerous" | "critical";
 
 export type PreviewCommitStatus =
-  | "pending"
-  | "success"
-  | "failed"
-  | "cancelled"
-  | "expired";
+  "pending" | "success" | "failed" | "cancelled" | "expired";
 
 export type PreviewAffectedItem = {
   name: string;
@@ -82,13 +78,15 @@ export function PreviewCommitCard({
     ? "expired"
     : status;
 
-  const defaultResult: Record<Exclude<PreviewCommitStatus, "pending">, string> =
-    {
-      success: text("执行成功", "Executed successfully"),
-      failed: text("执行失败", "Execution failed"),
-      cancelled: text("操作已取消", "Operation cancelled"),
-      expired: text("预览已过期", "Preview expired"),
-    };
+  const defaultResult: Record<
+    Exclude<PreviewCommitStatus, "pending">,
+    string
+  > = {
+    success: text("执行成功", "Executed successfully"),
+    failed: text("执行失败", "Execution failed"),
+    cancelled: text("操作已取消", "Operation cancelled"),
+    expired: text("预览已过期", "Preview expired"),
+  };
 
   return (
     <section
@@ -131,26 +129,22 @@ export function PreviewCommitCard({
         </ul>
       )}
 
-
       {effectiveStatus === "pending" ? (
         <footer className="argus-preview-card__footer">
           <Button
-            disabled={confirming}
-            onClick={onCancel}
+            isDisabled={confirming}
+            onPress={onCancel}
             variant="secondary"
           >
             {cancelLabel ?? text("取消", "Cancel")}
           </Button>
-          <Button loading={confirming} onClick={onConfirm} variant="primary">
+          <Button isPending={confirming} onPress={onConfirm} variant="primary">
             {confirmLabel ?? text("确认执行", "Confirm")}
           </Button>
         </footer>
       ) : (
         <footer
-          className={cx(
-            "argus-preview-card__result",
-            `is-${effectiveStatus}`,
-          )}
+          className={cx("argus-preview-card__result", `is-${effectiveStatus}`)}
         >
           {effectiveStatus === "success" ? (
             <CheckCircle2 aria-hidden size={15} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useBlocker, useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,7 +7,6 @@ import {
   formatApiError,
   useApi,
   type DashboardExecution,
-  type DashboardPanel,
   type DashboardRevision,
   type DashboardDraft,
   type DashboardItem,
@@ -29,11 +28,14 @@ import {
 } from "@argus/ui";
 import { usePermission } from "../lib/permissions";
 import { DashboardActionDialog } from "../components/dashboards/action-dialog";
-import { PanelEditor } from "../components/dashboards/panel-editor";
+
 import { PanelTile } from "../components/dashboards/panel-tile";
 import { VariablesEditor } from "../components/dashboards/variables-editor";
-import { useDashboardDraft } from "../components/dashboards/use-dashboard-draft";
-import { draftInput, newPanel } from "../components/dashboards/model";
+import { DashboardSettingsEditor } from "../components/dashboards/dashboard-settings-editor";
+import { useDashboardDraftWorkspace } from "../components/dashboards/draft-workspace-context";
+import { draftInput } from "../components/dashboards/model";
+import { PanelPresetPicker } from "../components/dashboards/panel-preset-picker";
+import { useDefinitionForm } from "../components/dashboards/use-definition-form";
 import "../styles/dashboards.css";
 
 export function DashboardEditorPage() {
@@ -44,18 +46,16 @@ export function DashboardEditorPage() {
     { t } = useTranslation(),
     navigate = useNavigate();
   const canManage = usePermission("telemetry.dashboard.manage");
-  const editor = useDashboardDraft(draftId);
+  const editor = useDashboardDraftWorkspace();
   const folders = useQuery({
     queryKey: ["dashboard-folders"],
     queryFn: () => api.dashboards.folders(),
     enabled: canManage,
   });
-  const [panel, setPanel] = useState<{
-      value: DashboardPanel;
-      fresh: boolean;
-    } | null>(null),
+  const [addingPanel, setAddingPanel] = useState(false),
     [variables, setVariables] = useState(false),
     [metadata, setMetadata] = useState(false),
+    [settings, setSettings] = useState(false),
     [sample, setSample] = useState<DashboardExecution>(),
     [sampleStatus, setSampleStatus] = useState("");
   const [sampleVersion, setSampleVersion] = useState<number>();
@@ -68,18 +68,6 @@ export function DashboardEditorPage() {
     [conflictObject, setConflictObject] = useState<DashboardItem>(),
     [message, setMessage] = useState("");
   const draft = editor.draft;
-  useBlocker({
-    shouldBlockFn: async () => {
-      if (!editor.dirty) return false;
-      try {
-        await editor.save();
-        return false;
-      } catch {
-        return true;
-      }
-    },
-    enableBeforeUnload: () => editor.dirty,
-  });
   const handle = (e: unknown) => {
     editor.setError(e);
     if (e instanceof ApiError && e.code === "DASHBOARD_VERSION_CONFLICT") {
@@ -95,10 +83,9 @@ export function DashboardEditorPage() {
       if (kind === "preview")
         setAction(await api.dashboards.preview(draftId, saved.draft_version));
       else if (kind === "sample") {
-        const result = await api.dashboards.sample(
-          draftId,
-          saved.draft_version,
-        );
+        const result = await api.dashboards.sample(draftId, {
+          expected_version: saved.draft_version,
+        });
         setSample(result.sample.execution as DashboardExecution | undefined);
         setSampleVersion(saved.draft_version);
         setSampleStatus(String(result.sample.status ?? "unavailable"));
@@ -109,13 +96,17 @@ export function DashboardEditorPage() {
               .join("\n"),
           );
       } else {
-        const generated = await api.dashboards.generateDrilldowns(draftId, {
-          expected_version: saved.draft_version,
-          panel_id: id!,
-          signal_sources: {},
+        let messages: string[] = [];
+        await editor.mutate(async (stored) => {
+          const generated = await api.dashboards.generateDrilldowns(draftId, {
+            expected_version: stored.draft_version,
+            panel_id: id!,
+            signal_sources: {},
+          });
+          messages = generated.issues.map((i) => i.message);
+          return generated.draft;
         });
-        editor.install(generated.draft);
-        setMessage(generated.issues.map((i) => i.message).join("\n"));
+        setMessage(messages.join("\n"));
       }
     } catch (e) {
       handle(e);
@@ -212,8 +203,8 @@ export function DashboardEditorPage() {
       actions={
         <div className="argus-dashboard-inline">
           <Button
-            disabled={busy}
-            onClick={() => {
+            isDisabled={busy}
+            onPress={() => {
               void editor
                 .save()
                 .then(() => navigate({ to: "/dashboards" }))
@@ -223,15 +214,15 @@ export function DashboardEditorPage() {
             {t("dashboards.back")}
           </Button>
           <Button
-            disabled={busy}
-            onClick={() => void editor.save().catch(handle)}
+            isDisabled={busy}
+            onPress={() => void editor.save().catch(handle)}
           >
             {t("dashboards.save")}
           </Button>
           <Button
             variant="primary"
-            disabled={busy || editor.conflict}
-            onClick={() => void run("preview")}
+            isDisabled={busy || editor.conflict}
+            onPress={() => void run("preview")}
           >
             {t("dashboards.preview")}
           </Button>
@@ -265,34 +256,29 @@ export function DashboardEditorPage() {
       )}
       <div className="argus-dashboard-toolbar">
         <div className="argus-dashboard-inline">
-          <Button disabled={busy} onClick={() => setMetadata(true)}>
+          <Button isDisabled={busy} onPress={() => setMetadata(true)}>
             {t("dashboards.metadata")}
           </Button>
-          <Button disabled={busy} onClick={() => setVariables(true)}>
-            {t("dashboards.variables")}
+          <Button isDisabled={busy} onPress={() => setVariables(true)}>
+            {t("dashboardControls.filterManager")}
           </Button>
-          <Button
-            disabled={busy}
-            onClick={() =>
-              setPanel({
-                value: newPanel(draft.spec, t("dashboards.addPanel")),
-                fresh: true,
-              })
-            }
-          >
+          <Button isDisabled={busy} onPress={() => setSettings(true)}>
+            {t("dashboardControls.settings")}
+          </Button>
+          <Button isDisabled={busy} onPress={() => setAddingPanel(true)}>
             {t("dashboards.addPanel")}
           </Button>
           <Button
-            disabled={busy || editor.conflict}
-            onClick={() => void run("sample")}
+            isDisabled={busy || editor.conflict}
+            onPress={() => void run("sample")}
           >
             {t("dashboards.sampleRun")}
           </Button>
         </div>
         <Button
           variant="ghost"
-          disabled={busy}
-          onClick={() => setDiscard(true)}
+          isDisabled={busy}
+          onPress={() => setDiscard(true)}
         >
           {t("dashboards.discard")}
         </Button>
@@ -327,15 +313,20 @@ export function DashboardEditorPage() {
                   : undefined
               }
               editable={!busy}
-              onEdit={() => setPanel({ value: p, fresh: false })}
+              onEdit={() =>
+                void navigate({
+                  to: "/dashboard-drafts/$draftId/panels/$panelId",
+                  params: { draftId, panelId: p.id },
+                })
+              }
               onRemove={() => setRemove(p.id)}
             />
             <div className="argus-dashboard-panel-footer">
               <Button
                 size="sm"
                 variant="ghost"
-                disabled={busy}
-                onClick={() => void run("generate", p.id)}
+                isDisabled={busy}
+                onPress={() => void run("generate", p.id)}
               >
                 {t("dashboards.generate")}
               </Button>
@@ -350,38 +341,30 @@ export function DashboardEditorPage() {
         <div className="argus-dashboard-empty">
           <h2>{t("dashboards.noPanels")}</h2>
           <p>{t("dashboards.noPanelsHint")}</p>
-          <Button
-            variant="primary"
-            onClick={() =>
-              setPanel({
-                value: newPanel(draft.spec, t("dashboards.addPanel")),
-                fresh: true,
-              })
-            }
-          >
+          <Button variant="primary" onPress={() => setAddingPanel(true)}>
             {t("dashboards.addPanel")}
           </Button>
         </div>
       )}
-      {panel && (
-        <PanelEditor
-          initial={panel.value}
+      {addingPanel && (
+        <PanelPresetPicker
           spec={draft.spec}
-          isNew={panel.fresh}
-          onClose={() => setPanel(null)}
-          onSave={(value) => {
+          onClose={() => setAddingPanel(false)}
+          onChoose={(value) => {
+            setAddingPanel(false);
             editor.update({
               ...draft,
-              spec: {
-                ...draft.spec,
-                panels: panel.fresh
-                  ? [...draft.spec.panels, value]
-                  : draft.spec.panels.map((p) =>
-                      p.id === value.id ? value : p,
-                    ),
-              },
+              spec: { ...draft.spec, panels: [...draft.spec.panels, value] },
             });
-            setPanel(null);
+            void editor
+              .save()
+              .then(() =>
+                navigate({
+                  to: "/dashboard-drafts/$draftId/panels/$panelId",
+                  params: { draftId, panelId: value.id },
+                }),
+              )
+              .catch(handle);
           }}
         />
       )}
@@ -403,6 +386,16 @@ export function DashboardEditorPage() {
           onSave={(value) => {
             editor.update(value);
             setMetadata(false);
+          }}
+        />
+      )}
+      {settings && (
+        <DashboardSettingsEditor
+          spec={draft.spec}
+          onClose={() => setSettings(false)}
+          onSave={(spec) => {
+            editor.update({ ...draft, spec });
+            setSettings(false);
           }}
         />
       )}
@@ -445,7 +438,7 @@ export function DashboardEditorPage() {
         footer={
           <>
             <Button
-              onClick={() =>
+              onPress={() =>
                 void api.dashboards
                   .draft(draftId)
                   .then(editor.install)
@@ -456,8 +449,8 @@ export function DashboardEditorPage() {
             </Button>
             <Button
               variant="primary"
-              disabled={busy || !conflictDraft}
-              onClick={() => void resolve()}
+              isDisabled={busy || !conflictDraft}
+              onPress={() => void resolve()}
             >
               {t("dashboards.acknowledge")}
             </Button>
@@ -532,16 +525,28 @@ function MetadataEditor({
 }) {
   const { t } = useTranslation();
   const [value, setValue] = useState(draft);
+  const form = useDefinitionForm(
+    value,
+    (d) =>
+      Boolean(d.name.trim()) &&
+      d.name.length <= 180 &&
+      d.description.length <= 2048,
+    t("dashboards.editor.invalidForm"),
+  );
   return (
     <FormDrawer
       open
       title={t("dashboards.metadata")}
       onOpenChange={(open) => !open && onClose()}
       submitLabel={t("dashboards.done")}
-      onSubmit={() => onSave(value)}
+      onSubmit={form.handleSubmit(onSave)}
     >
       <div className="argus-dashboard-form-stack">
-        <Field label={t("dashboards.name")} requirement="required">
+        <Field
+          label={t("dashboards.name")}
+          requirement="required"
+          error={form.error}
+        >
           <Input
             value={value.name}
             maxLength={120}

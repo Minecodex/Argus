@@ -17,13 +17,18 @@ export function HostRemovalActions({
 }) {
   return (
     <div className="argus-form-actions">
-      <Button disabled={busy} onClick={onRetry} type="button" variant="primary">
+      <Button
+        isDisabled={busy}
+        onPress={onRetry}
+        type="button"
+        variant="primary"
+      >
         {retryLabel}
       </Button>
       {manual && (
         <Button
-          disabled={busy}
-          onClick={onRegenerate}
+          isDisabled={busy}
+          onPress={onRegenerate}
           type="button"
           variant="secondary"
         >

@@ -89,7 +89,7 @@ function buildSections(
     {
       groupKey: "shell.groups.resources",
       items: [
-        {key:"dashboards.title",to:"/dashboards",icon:LayoutDashboard},
+        { key: "dashboards.title", to: "/dashboards", icon: LayoutDashboard },
         {
           key: "shell.nav.hosts",
           to: "/hosts",
@@ -173,8 +173,8 @@ function Sidebar() {
           <Button
             aria-label={t("shell.closeNavigation")}
             className="argus-mobile-close"
-            onClick={() => setMobileNavOpen(false)}
-            size="icon"
+            onPress={() => setMobileNavOpen(false)}
+            isIconOnly
             variant="ghost"
           >
             <X size={17} />
@@ -192,12 +192,17 @@ function Sidebar() {
                 </div>
               )}
               {section.items
-                .filter((item) => (item.to !== "/settings/mcp" || canManageMCP) && (item.to !== "/dashboards" || canReadDashboards))
+                .filter(
+                  (item) =>
+                    (item.to !== "/settings/mcp" || canManageMCP) &&
+                    (item.to !== "/dashboards" || canReadDashboards),
+                )
                 .map((item) => (
                   <Tooltip content={t(item.key)} key={item.key}>
                     <Link
                       activeProps={{ className: "active" }}
                       className="argus-nav-item"
+                      aria-label={t(item.key)}
                       onClick={() => setMobileNavOpen(false)}
                       to={item.to}
                     >
@@ -218,9 +223,10 @@ function Sidebar() {
           ))}
         </nav>
         <div className="argus-sidebar__footer">
-          <button
+          <Button
+            variant="ghost"
             className="argus-collapse-button"
-            onClick={toggleSidebar}
+            onPress={toggleSidebar}
             type="button"
           >
             {sidebarCollapsed ? (
@@ -232,7 +238,7 @@ function Sidebar() {
                 <kbd>⌘ B</kbd>
               </>
             )}
-          </button>
+          </Button>
         </div>
       </aside>
     </>
@@ -299,23 +305,33 @@ function Header() {
   });
   const titleKey =
     pageTitles[pathname] ??
-    (pathname.startsWith("/hosts/")
-      ? "shell.nav.hostDetail"
-      : pathname.startsWith("/kubernetes/")
-        ? "shell.nav.clusterDetail"
-        : undefined);
+    (pathname.startsWith("/dashboard-drafts/")
+      ? pathname.includes("/panels/")
+        ? "dashboards.editPanel"
+        : "dashboards.draft"
+      : pathname.startsWith("/dashboards")
+        ? "dashboards.title"
+        : pathname.startsWith("/hosts/")
+          ? "shell.nav.hostDetail"
+          : pathname.startsWith("/kubernetes/")
+            ? "shell.nav.clusterDetail"
+            : undefined);
   return (
     <header className="argus-topbar">
       <Button
         aria-label={t("shell.openNavigation")}
         className="argus-mobile-menu"
-        onClick={() => setMobileNavOpen(true)}
-        size="icon"
+        onPress={() => setMobileNavOpen(true)}
+        isIconOnly
         variant="ghost"
       >
         <Menu size={18} />
       </Button>
-      <Link className="argus-back-to-chat" to="/">
+      <Link
+        className="argus-back-to-chat"
+        to="/"
+        aria-label={t("shell.backToChat")}
+      >
         <ArrowLeft size={14} />
         <span>{t("shell.backToChat")}</span>
       </Link>
@@ -325,21 +341,23 @@ function Header() {
           {t("shell.healthy")}
         </Badge>
       </div>
-      <button
+      <Button
+        variant="ghost"
         className="argus-search-trigger"
-        onClick={() => setCommandOpen(true)}
+        aria-label={t("shell.search")}
+        onPress={() => setCommandOpen(true)}
         type="button"
       >
         <Search size={15} />
         <span>{t("shell.search")}</span>
         <kbd>⌘ K</kbd>
-      </button>
+      </Button>
       <div className="argus-topbar__actions">
         <AccountActions />
         <Tooltip content={t("shell.notifications")}>
           <Button
             aria-label={t("shell.notifications")}
-            size="icon"
+            isIconOnly
             variant="ghost"
           >
             <Bell size={17} />

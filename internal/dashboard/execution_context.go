@@ -16,14 +16,21 @@ const contextVersion = "argus.dashboard_execution/v1"
 const maxContextBytes = 512 << 10
 
 type executionContext struct {
-	Version     string         `json:"version"`
-	Enterprise  uuid.UUID      `json:"enterprise"`
-	Subject     uuid.UUID      `json:"subject"`
-	SubjectType string         `json:"subject_type"`
-	ExpiresAt   time.Time      `json:"expires_at"`
-	Scope       Execution      `json:"scope"`
-	Leaf        *detailContext `json:"leaf,omitempty"`
-	Depth       int            `json:"depth"`
+	Version     string                 `json:"version"`
+	Enterprise  uuid.UUID              `json:"enterprise"`
+	Subject     uuid.UUID              `json:"subject"`
+	SubjectType string                 `json:"subject_type"`
+	ExpiresAt   time.Time              `json:"expires_at"`
+	Scope       Execution              `json:"scope"`
+	Leaf        *detailContext         `json:"leaf,omitempty"`
+	Depth       int                    `json:"depth"`
+	Draft       *draftExecutionContext `json:"draft,omitempty"`
+}
+
+type draftExecutionContext struct {
+	ID             uuid.UUID `json:"id"`
+	Version        int64     `json:"version"`
+	DefinitionHash string    `json:"definition_hash"`
 }
 type detailContext struct {
 	PanelID       string                      `json:"panel_id"`

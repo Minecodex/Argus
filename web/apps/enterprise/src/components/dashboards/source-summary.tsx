@@ -44,7 +44,7 @@ export function SourceSummary({
         size="sm"
         variant="ghost"
         aria-label={`${title} ${t("dashboards.resolvedSources")}`}
-        onClick={() => setOpen(true)}
+        onPress={() => setOpen(true)}
       >
         {t("dashboards.resolvedSources")} · {groups.size}
       </Button>

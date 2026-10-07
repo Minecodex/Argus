@@ -188,11 +188,18 @@ describe("creation name checks", () => {
         target: { value: "root" },
       });
       if (path === "bastion_relay") {
-        fireEvent.click(screen.getByRole("combobox", { name: "所属堡垒机" }));
+        fireEvent.click(screen.getByRole("button", { name: "所属堡垒机" }));
         fireEvent.click(await screen.findByRole("option", { name: /bastion/ }));
       }
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", {
+            name: kind === "host" ? "SSH 凭据" : "登录凭据或密钥",
+          }),
+        ).not.toBeDisabled(),
+      );
       fireEvent.click(
-        screen.getByRole("combobox", {
+        screen.getByRole("button", {
           name: kind === "host" ? "SSH 凭据" : "登录凭据或密钥",
         }),
       );

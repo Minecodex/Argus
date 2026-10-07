@@ -1,3 +1,13 @@
+platform_overview:
+  get:
+    operationId: getPlatformOverview
+    summary: Complete platform counts and recorded monthly Sandbox usage.
+    description: Platform administrator only. Counts are independent of list pagination. Usage aggregates all enterprises over the current UTC month and previous eleven months, from recorded Sandbox usage; it does not estimate CPU consumption or running-session duration.
+    responses:
+      "200":
+        description: Read-only platform snapshot.
+        content: {application/json: {schema: {$ref: "../components/m2.yaml#/components/schemas/PlatformOverview"}}}
+      default: {$ref: "#/components/responses/Error"}
 setup_status:
   get:
     operationId: getSetupStatus

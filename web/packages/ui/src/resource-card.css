@@ -1,0 +1,88 @@
+.argus-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--resource-card-min-width), 1fr)
+  );
+  gap: var(--card-gap);
+  align-items: stretch;
+}
+.argus-resource-card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--card-padding);
+  gap: var(--field-gap);
+  min-width: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--card-radius);
+  background: var(--bg-surface);
+  box-shadow: none;
+}
+.argus-resource-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--action-gap);
+}
+.argus-resource-card__identity {
+  flex: 1;
+  min-width: 0;
+}
+.argus-resource-card__heading {
+  margin: 0;
+  min-width: 0;
+}
+.argus-resource-card__title {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  font-weight: 650;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.argus-resource-card__subtitle {
+  font-size: var(--text-help);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.argus-resource-card__status,
+.argus-resource-card__tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.argus-resource-card__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--field-gap);
+  margin: 0;
+}
+.argus-resource-card__facts dt {
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+}
+.argus-resource-card__facts dd {
+  margin: var(--space-1) 0 0;
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  overflow-wrap: anywhere;
+}
+.argus-resource-card__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--action-gap);
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}

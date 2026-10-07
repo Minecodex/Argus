@@ -9,7 +9,7 @@ spec:
   namespaces:
     system: argus-m8-local-system
     sandbox: argus-m8-local-sandbox
-    observability: argus-m8-local-observability
+    observability: argus-m8-local-system
   storageClass: standard
   images:
     mode: local-registry
@@ -48,7 +48,7 @@ spec:
   workspace:
     enabled: true
     storageClass: argus-workspace
-    storageNamespace: argus-workspace-storage
+    storageNamespace: argus-m8-local-system
     dataDirectory: /var/local/argus-workspaces/data
     metadataDirectory: /var/local/argus-workspaces/meta
   persistence:

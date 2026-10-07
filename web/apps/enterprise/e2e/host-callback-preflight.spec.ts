@@ -80,7 +80,7 @@ for (const [language, theme] of [
       })
       .fill("root");
     await dialog
-      .getByRole("combobox", {
+      .getByRole("button", {
         name: zh ? "SSH 凭据" : "SSH credential",
         exact: true,
       })

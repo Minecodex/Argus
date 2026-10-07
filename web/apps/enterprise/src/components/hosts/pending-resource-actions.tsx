@@ -239,8 +239,8 @@ export function PendingScopeActions({ scope }: { scope: BastionScope }) {
       )}
       {onboarding.state === "command_available" && (
         <Button
-          disabled={busy || !onboarding.execution_id}
-          onClick={() => void claimExisting()}
+          isDisabled={busy || !onboarding.execution_id}
+          onPress={() => void claimExisting()}
           variant="secondary"
         >
           {t("hosts.pendingActions.claimCommand")}
@@ -250,8 +250,8 @@ export function PendingScopeActions({ scope }: { scope: BastionScope }) {
         onboarding.state === "command_expired") &&
         scope.onboarding_mode === "command" && (
           <Button
-            disabled={busy}
-            onClick={() => void preview("rotate")}
+            isDisabled={busy}
+            onPress={() => void preview("rotate")}
             variant="secondary"
           >
             {t("hosts.pendingActions.rotateCommand")}
@@ -267,27 +267,27 @@ export function PendingScopeActions({ scope }: { scope: BastionScope }) {
         </Link>
       )}
       {onboarding.state === "installing" && (
-        <Button onClick={() => setOperationOpen(true)} variant="secondary">
+        <Button onPress={() => setOperationOpen(true)} variant="secondary">
           {t("hosts.pendingActions.viewProgress")}
         </Button>
       )}
       {onboarding.state === "install_failed" && (
         <>
           <Button
-            disabled={busy || !onboarding.operation_id}
-            onClick={() => void preview("retry")}
+            isDisabled={busy || !onboarding.operation_id}
+            onPress={() => void preview("retry")}
             variant="primary"
           >
             {t("hosts.bastionForm.retryInstall")}
           </Button>
-          <Button onClick={() => setOperationOpen(true)} variant="secondary">
+          <Button onPress={() => setOperationOpen(true)} variant="secondary">
             {t("hosts.pendingActions.viewFailure")}
           </Button>
         </>
       )}
       <Button
-        disabled={busy}
-        onClick={() => void preview("delete")}
+        isDisabled={busy}
+        onPress={() => void preview("delete")}
         variant="ghost"
       >
         {t(

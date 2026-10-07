@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Argus · 资源关联入口交互提案</title>
+    <link
+      rel="stylesheet"
+      href="../../../web/packages/design-tokens/src/tokens.css"
+    />
+    <link rel="stylesheet" href="./demo.css" />
+    <script defer src="./demo.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="menu" class="argus-menu" role="menu" popover="auto"></div>
+    <dialog
+      id="drawer"
+      class="argus-links-drawer"
+      aria-labelledby="drawer-title"
+    ></dialog>
+    <dialog
+      id="modal"
+      class="argus-links-modal"
+      aria-labelledby="modal-title"
+    ></dialog>
+    <div
+      id="toast"
+      class="argus-links-toast"
+      role="status"
+      aria-live="polite"
+    ></div>
+    <noscript>此交互原型需要启用 JavaScript。</noscript>
+  </body>
+</html>

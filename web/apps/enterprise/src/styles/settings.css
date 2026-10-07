@@ -4,13 +4,13 @@
 .argus-settings-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-16);
+  gap: var(--field-gap);
 }
 
 .argus-settings-create-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
 }
 
 .argus-settings-resource-tabs {
@@ -25,14 +25,14 @@
 .argus-settings-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-10);
+  gap: var(--action-gap);
 }
 
 .argus-settings-section__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-px-12);
+  gap: var(--field-gap);
 }
 
 .argus-settings-section__title {
@@ -51,19 +51,19 @@
 .argus-settings-stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-px-12);
+  gap: var(--field-gap);
 }
 
 .argus-settings-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-14);
+  gap: var(--field-gap);
 }
 
 .argus-settings-check-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
   max-height: 220px;
   overflow: auto;
   padding: var(--space-px-8);
@@ -87,7 +87,7 @@
 .argus-settings-check-row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-px-10) var(--space-px-18);
+  gap: var(--action-gap) var(--field-gap);
 }
 
 .argus-settings-check-row .argus-check-item {
@@ -98,12 +98,12 @@
 .argus-settings-inline-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
 }
 
 .argus-settings-selector-list {
   display: grid;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
 }
 
 .argus-settings-selector-row {
@@ -111,7 +111,7 @@
   grid-template-columns:
     minmax(0, 1fr) minmax(140px, 0.45fr) minmax(0, 1fr)
     auto;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   align-items: center;
 }
 
@@ -158,7 +158,7 @@
 .argus-perm-matrix__row {
   display: grid;
   grid-template-columns: 180px 1fr;
-  gap: var(--space-px-12);
+  gap: var(--field-gap);
   padding: var(--space-px-10) var(--space-px-12);
   align-items: start;
 }
@@ -177,7 +177,7 @@
 .argus-perm-matrix__cells {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-px-6) var(--space-px-16);
+  gap: var(--action-gap) var(--field-gap);
 }
 
 .argus-perm-matrix__cells .argus-check-item {
@@ -196,14 +196,14 @@
 .argus-settings-key-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
 }
 
 .argus-settings-key-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-px-10);
+  gap: var(--action-gap);
   padding: var(--space-px-8) var(--space-px-10);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
@@ -212,7 +212,7 @@
 .argus-settings-key-row__meta {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-2);
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -232,19 +232,92 @@
     color-mix(in srgb, var(--overlay-white) 3%, transparent)
   );
 }
-.argus-governance-actions { display: flex; flex-wrap: wrap; gap: var(--space-px-6); align-items: center; }
-.argus-governance-references { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-px-12); margin: 0; }
-.argus-governance-references dt { color: var(--color-text-secondary); font-size: var(--font-size-xs); }
-.argus-governance-references dd { margin: var(--space-1) 0 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); }
-.argus-profile-switch { display: flex; justify-content: space-between; gap: var(--space-px-16); align-items: center; padding: var(--space-px-12) 0; border-bottom: 1px solid var(--color-border); }
-.argus-profile-switch p { margin: var(--space-1) 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
-.argus-profile-switch small { color: var(--color-text-tertiary); }
-.argus-governance-checks { display: flex; flex-wrap: wrap; gap: var(--space-px-8); }
-.argus-governance-checks button { padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
-.argus-rule-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-px-8); margin: 0; padding: 0; list-style-position: inside; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
-.argus-rule-steps li { padding: var(--space-px-8); border-bottom: 2px solid var(--color-border); }
-.argus-rule-simulator { display: grid; gap: var(--space-px-12); margin-top: var(--space-px-20); padding-top: var(--space-px-16); border-top: 1px solid var(--color-border); }
-.argus-rule-simulator__form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-px-12); align-items: end; }
-.argus-rule-simulator__form .argus-profile-switch { grid-column: span 2; }
-.argus-rule-simulator__result { display: grid; gap: var(--space-px-8); padding: var(--space-px-12); border: 1px solid var(--color-border); background: var(--color-surface-subtle); }
-.argus-rule-simulator__result p, .argus-rule-simulator__result small { margin: 0; }
+.argus-governance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--action-gap);
+  align-items: center;
+}
+.argus-governance-references {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--field-gap);
+  margin: 0;
+}
+.argus-governance-references dt {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-governance-references dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-heading);
+  font-weight: var(--font-weight-strong);
+}
+.argus-profile-switch {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--field-gap);
+  align-items: center;
+  padding: var(--space-px-12) 0;
+  border-bottom: 1px solid var(--border-default);
+}
+.argus-profile-switch p {
+  margin: var(--space-1) 0;
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+}
+.argus-profile-switch small {
+  color: var(--text-tertiary);
+}
+.argus-governance-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--action-gap);
+}
+.argus-governance-checks button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.argus-rule-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--action-gap);
+  margin: 0;
+  padding: 0;
+  list-style-position: inside;
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-rule-steps li {
+  padding: var(--space-px-8);
+  border-bottom: 2px solid var(--border-default);
+}
+.argus-rule-simulator {
+  display: grid;
+  gap: var(--field-gap);
+  margin-top: var(--space-px-20);
+  padding-top: var(--space-px-16);
+  border-top: 1px solid var(--border-default);
+}
+.argus-rule-simulator__form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--field-gap);
+  align-items: end;
+}
+.argus-rule-simulator__form .argus-profile-switch {
+  grid-column: span 2;
+}
+.argus-rule-simulator__result {
+  display: grid;
+  gap: var(--action-gap);
+  padding: var(--space-px-12);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+.argus-rule-simulator__result p,
+.argus-rule-simulator__result small {
+  margin: 0;
+}

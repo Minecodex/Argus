@@ -56,7 +56,7 @@ func (runtime Runtime) Drilldown(ctx context.Context, actor Actor, id uuid.UUID,
 	if err != nil {
 		return output, err
 	}
-	if frozen.Scope.DashboardID != id {
+	if frozen.Draft != nil || frozen.Scope.DashboardID != id {
 		return output, ErrDenied
 	}
 	service := Service{Store: runtime.Store}
@@ -76,7 +76,20 @@ func (runtime Runtime) Drilldown(ctx context.Context, actor Actor, id uuid.UUID,
 	if err != nil {
 		return output, err
 	}
-	runtime.cacheDashboard, runtime.cacheRevision = id, revision.ID
+	return runtime.runDrilldown(ctx, actor, spec, frozen, input, func(ctx context.Context) error {
+		current, _, err := service.Get(ctx, actor, id)
+		if err != nil {
+			return err
+		}
+		if current.Lifecycle != "active" {
+			return ErrArchived
+		}
+		return nil
+	})
+}
+
+func (runtime Runtime) runDrilldown(ctx context.Context, actor Actor, spec Spec, frozen executionContext, input DrilldownInput, recheck func(context.Context) error) (output DrilldownExecution, err error) {
+	runtime.cacheDashboard, runtime.cacheRevision = frozen.Scope.DashboardID, frozen.Scope.RevisionID
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	prepared, err := runtime.prepareDrilldown(ctx, actor, spec, frozen, input, func(ctx context.Context, drill Drilldown, origin Target, base queryScope, originInputs map[string]string, ledger *executionBudget) (any, error) {
@@ -99,12 +112,8 @@ func (runtime Runtime) Drilldown(ctx context.Context, actor Actor, id uuid.UUID,
 	if err != nil {
 		return output, err
 	}
-	current, _, err := service.Get(ctx, actor, id)
-	if err != nil {
+	if err := recheck(ctx); err != nil {
 		return output, err
-	}
-	if current.Lifecycle != "active" {
-		return output, ErrArchived
 	}
 	if err := runtime.checkQueryScope(ctx, actor, scope); err != nil {
 		return output, err
@@ -115,7 +124,7 @@ func (runtime Runtime) Drilldown(ctx context.Context, actor Actor, id uuid.UUID,
 	if err != nil {
 		return output, err
 	}
-	output = DrilldownExecution{DashboardID: id, RevisionID: revision.ID, ParentExecutionID: frozen.Scope.ExecutionID, PanelID: panel.ID, DrilldownID: drill.ID, ScopePolicy: drill.ScopePolicy, From: scope.From, To: scope.To, Resources: scope.Resources, Sources: scope.Sources, Result: result, ContextToken: token, ContextExpiresAt: frozen.ExpiresAt}
+	output = DrilldownExecution{DashboardID: frozen.Scope.DashboardID, RevisionID: frozen.Scope.RevisionID, ParentExecutionID: frozen.Scope.ExecutionID, PanelID: panel.ID, DrilldownID: drill.ID, ScopePolicy: drill.ScopePolicy, From: scope.From, To: scope.To, Resources: scope.Resources, Sources: scope.Sources, Result: result, ContextToken: token, ContextExpiresAt: frozen.ExpiresAt}
 	identity, _ := json.Marshal(struct {
 		Context       executionContext
 		Drill         string

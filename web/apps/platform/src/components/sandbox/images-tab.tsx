@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -168,70 +169,74 @@ export function ImagesTab() {
   return (
     <div className="argus-platform-stack">
       <div className="argus-tab-toolbar">
-        <Button onClick={() => setCreateOpen(true)} variant="primary">
+        <Button onPress={() => setCreateOpen(true)} variant="primary">
           {t("sandbox.images.add")}
         </Button>
       </div>
 
-      {images.isPending ? (
-        <Spinner />
-      ) : (
-        <DataTable<ImageRow>
-          columns={[
-            { key: "name", header: t("sandbox.images.table.name") },
-            {
-              key: "reference",
-              header: t("sandbox.images.table.reference"),
-              render: (row) => (
-                <code className="argus-mono">{row.reference}</code>
-              ),
-            },
-            {
-              key: "digest",
-              header: t("sandbox.images.table.digest"),
-              render: (row) => <code className="argus-mono">{row.digest}</code>,
-            },
-            {
-              key: "languages",
-              header: t("sandbox.images.table.languages"),
-              render: (row) => <Badge>{row.languages}</Badge>,
-            },
-            {
-              key: "scanStatus",
-              header: t("sandbox.images.table.scan"),
-              render: (row) => (
-                <StatusBadge tone={scanTone(row.scanStatus)}>
-                  {t(`sandbox.images.scan.${row.scanStatus}`)}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "signatureStatus",
-              header: t("sandbox.images.table.signature"),
-              render: (row) => (
-                <StatusBadge tone={signatureTone(row.signatureStatus)}>
-                  {t(`sandbox.images.signature.${row.signatureStatus}`)}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "enabled",
-              header: t("sandbox.images.table.enabled"),
-              render: (row) => (
-                <Switch
-                  checked={row.enabled}
-                  label={t("sandbox.images.table.enabled")}
-                  onChange={(checked) =>
-                    setEnabled.mutate({ id: row.id, enabled: checked })
-                  }
-                />
-              ),
-            },
-          ]}
-          data={rows}
-          getRowKey={(row) => row.id}
-        />
-      )}
+      <QueryBoundary query={images}>
+        {images.isPending ? (
+          <Spinner />
+        ) : (
+          <DataTable<ImageRow>
+            columns={[
+              { key: "name", header: t("sandbox.images.table.name") },
+              {
+                key: "reference",
+                header: t("sandbox.images.table.reference"),
+                render: (row) => (
+                  <code className="argus-mono">{row.reference}</code>
+                ),
+              },
+              {
+                key: "digest",
+                header: t("sandbox.images.table.digest"),
+                render: (row) => (
+                  <code className="argus-mono">{row.digest}</code>
+                ),
+              },
+              {
+                key: "languages",
+                header: t("sandbox.images.table.languages"),
+                render: (row) => <Badge>{row.languages}</Badge>,
+              },
+              {
+                key: "scanStatus",
+                header: t("sandbox.images.table.scan"),
+                render: (row) => (
+                  <StatusBadge tone={scanTone(row.scanStatus)}>
+                    {t(`sandbox.images.scan.${row.scanStatus}`)}
+                  </StatusBadge>
+                ),
+              },
+              {
+                key: "signatureStatus",
+                header: t("sandbox.images.table.signature"),
+                render: (row) => (
+                  <StatusBadge tone={signatureTone(row.signatureStatus)}>
+                    {t(`sandbox.images.signature.${row.signatureStatus}`)}
+                  </StatusBadge>
+                ),
+              },
+              {
+                key: "enabled",
+                header: t("sandbox.images.table.enabled"),
+                render: (row) => (
+                  <Switch
+                    checked={row.enabled}
+                    label={t("sandbox.images.table.enabled")}
+                    onChange={(checked) =>
+                      setEnabled.mutate({ id: row.id, enabled: checked })
+                    }
+                  />
+                ),
+              },
+            ]}
+            data={rows}
+            getRowKey={(row) => row.id}
+          />
+        )}
+      </QueryBoundary>
 
       <FormDrawer
         loading={create.isPending}

@@ -1,3 +1,4 @@
+import { Checkbox } from "@argus/ui";
 import { useTranslation } from "react-i18next";
 import type {
   DashboardPanel,
@@ -69,7 +70,7 @@ export function LocalFiltersEditor({
               />
               <Button
                 variant="ghost"
-                onClick={() =>
+                onPress={() =>
                   onChange(
                     panel.local_filters.filter((f) => f.id !== filter.id),
                   )
@@ -126,28 +127,24 @@ export function LocalFiltersEditor({
                 />
               </>
             )}
-            <label className="argus-dashboard-check">
-              <input
-                type="checkbox"
-                checked={filter.multiple ?? false}
-                onChange={(e) =>
-                  patch(filter.id, { multiple: e.target.checked })
-                }
-              />
+            <Checkbox
+              className="argus-dashboard-check"
+              isSelected={filter.multiple ?? false}
+              onChange={(selected) => patch(filter.id, { multiple: selected })}
+            >
               {t("dashboards.multiple")}
-            </label>
-            <label className="argus-dashboard-check">
-              <input
-                type="checkbox"
-                checked={filter.default.all}
-                onChange={(e) =>
-                  patch(filter.id, {
-                    default: { all: e.target.checked, values: [] },
-                  })
-                }
-              />
+            </Checkbox>
+            <Checkbox
+              className="argus-dashboard-check"
+              isSelected={filter.default.all}
+              onChange={(selected) =>
+                patch(filter.id, {
+                  default: { all: selected, values: [] },
+                })
+              }
+            >
               {t("dashboards.defaultAll")}
-            </label>
+            </Checkbox>
             {!filter.default.all && (
               <Field
                 label={t("dashboards.defaultValues")}
@@ -173,7 +170,7 @@ export function LocalFiltersEditor({
         ))}
         <Button
           size="sm"
-          onClick={() => {
+          onPress={() => {
             const id = `local_${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
             onChange([
               ...panel.local_filters,

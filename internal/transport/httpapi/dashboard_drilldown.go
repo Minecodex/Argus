@@ -7,6 +7,24 @@ import (
 	api "github.com/kakj-go/Argus/internal/gen/openapi/dashboardapi"
 )
 
+func (handler DashboardHandler) ExecuteDashboardDraftDrilldown(ctx context.Context, r api.ExecuteDashboardDraftDrilldownRequestObject) (api.ExecuteDashboardDraftDrilldownResponseObject, error) {
+	actor, failure := handler.auth(ctx, false, "")
+	if failure != nil {
+		return api.ExecuteDashboardDraftDrilldowndefaultJSONResponse{Body: *failure, StatusCode: 403}, nil
+	}
+	if handler.Runtime == nil {
+		return api.ExecuteDashboardDraftDrilldowndefaultJSONResponse{Body: dashboardError(ctx, dashboard.ErrUnavailable), StatusCode: 503}, nil
+	}
+	if r.Body == nil {
+		return api.ExecuteDashboardDraftDrilldowndefaultJSONResponse{Body: dashboardError(ctx, dashboard.ErrInvalid), StatusCode: 400}, nil
+	}
+	result, err := handler.Runtime.DrilldownDraft(ctx, actor, r.Id, dashboardConvert[dashboard.DraftDrilldownInput](r.Body))
+	if err != nil {
+		return api.ExecuteDashboardDraftDrilldowndefaultJSONResponse{Body: dashboardError(ctx, err), StatusCode: dashboardStatus(err)}, nil
+	}
+	return api.ExecuteDashboardDraftDrilldown200JSONResponse(dashboardConvert[api.DashboardDraftDrilldownExecution](result)), nil
+}
+
 func (handler DashboardHandler) ExecuteDashboardDrilldown(ctx context.Context, r api.ExecuteDashboardDrilldownRequestObject) (api.ExecuteDashboardDrilldownResponseObject, error) {
 	actor, failure := handler.auth(ctx, false, "")
 	if failure != nil {

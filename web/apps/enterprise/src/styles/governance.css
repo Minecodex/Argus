@@ -8,12 +8,12 @@
 .argus-gov-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-gov-one-time-result {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   max-width: 52rem;
 }
 
@@ -31,7 +31,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-px-3);
+  gap: var(--space-1);
   padding: 0;
   border: 0;
   background: none;
@@ -41,7 +41,7 @@
   font: 600 var(--font-size-13)/1.35 var(--font-sans);
 }
 .argus-task-name:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .argus-task-name__type {
   font: 500 var(--font-size-11)/1 var(--font-sans);
@@ -51,13 +51,13 @@
 .argus-task-resources {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-px-4);
+  gap: var(--space-1);
 }
 
 .argus-task-detail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--section-gap);
 }
 .argus-task-detail__error {
   padding: var(--space-3);
@@ -81,7 +81,7 @@
 .argus-approvals-layout {
   display: grid;
   grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
-  gap: var(--space-4);
+  gap: var(--field-gap);
   align-items: start;
 }
 
@@ -104,18 +104,18 @@
 .argus-approval-inbox {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--field-gap);
 }
 
 .argus-approval-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 .argus-approval-group__header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   padding: 0 var(--space-1);
   font: 600 var(--font-size-12)/1.4 var(--font-sans);
   letter-spacing: 0.03em;
@@ -163,7 +163,7 @@
 .argus-approval-item {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
   width: 100%;
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
@@ -171,6 +171,7 @@
   background: var(--bg-surface);
   cursor: pointer;
   text-align: left;
+  align-items: stretch;
   color: var(--text-primary);
   transition: var(--motion-fast);
 }
@@ -184,12 +185,13 @@
 }
 .argus-approval-item.is-expired,
 .argus-approval-item.is-closed {
-  opacity: 0.55;
+  background: var(--bg-canvas);
 }
 .argus-approval-item__top {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
+  flex-wrap: wrap;
 }
 .argus-approval-item__title {
   flex: 1;
@@ -198,6 +200,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font: 600 var(--font-size-13)/1.4 var(--font-sans);
+  flex-basis: 100%;
 }
 .argus-approval-item__summary {
   margin: 0;
@@ -212,14 +215,14 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   color: var(--text-tertiary);
   font: 500 var(--font-size-11-5)/1.4 var(--font-sans);
 }
 .argus-approval-item__countdown {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-px-3);
+  gap: var(--space-1);
   font-family: var(--font-mono);
   color: var(--warning);
 }
@@ -232,7 +235,7 @@
   top: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--field-gap);
 }
 
 /* 非确认态的卡片底部由页面自绘操作区替代，隐藏卡片自带 footer。 */
@@ -247,20 +250,20 @@
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-approval-block__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-approval-decisions {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -268,19 +271,19 @@
 
 .argus-approval-requirements {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-approval-requirement {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   padding-block: var(--space-3);
   border-block-start: 1px solid var(--border-subtle);
 }
 .argus-approval-decisions__item {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   font: 500 var(--font-size-12-5)/1.5 var(--font-sans);
 }
 .argus-approval-decisions__reason {
@@ -291,11 +294,11 @@
 .argus-approval-actions {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 .argus-approval-actions__buttons {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   justify-content: flex-end;
 }
 .argus-approval-actions__error {
@@ -305,13 +308,13 @@
 }
 .argus-remote-approval-list {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--field-gap);
 }
 
 .argus-remote-approval {
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   display: grid;
-  gap: var(--space-2);
+  gap: var(--action-gap);
   padding-bottom: var(--space-3);
 }
 
@@ -320,11 +323,11 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 
 .argus-remote-approval__requirement {
-  background: var(--color-surface-subtle);
+  background: var(--bg-elevated);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
 }

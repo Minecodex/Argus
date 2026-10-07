@@ -103,6 +103,8 @@ paths:
     $ref: ./paths/m8.yaml#/break_glass_collection
   /enterprise/break-glass-sessions/{id}/revoke:
     $ref: ./paths/m8.yaml#/break_glass_revoke
+  /platform/overview:
+    $ref: ./paths/m2.yaml#/platform_overview
   /platform/enterprises:
     $ref: ./paths/m2.yaml#/platform_enterprises
   /platform/enterprises/{id}:
@@ -479,6 +481,8 @@ paths:
                 $ref: "#/components/schemas/ApiError"
   /dashboards/{id}/drilldown:
     $ref: ./paths/dashboard.yaml#/drilldown
+  /dashboard-drafts/{id}/drilldown:
+    $ref: ./paths/dashboard.yaml#/draftDrilldown
   /dashboard-drafts/{id}/drilldowns/generate:
     $ref: ./paths/dashboard.yaml#/generateDrilldowns
   /hosts/{id}/dashboard-bindings:

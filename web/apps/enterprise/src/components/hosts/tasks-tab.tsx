@@ -66,7 +66,7 @@ function TaskCard({ task }: { task: TaskViewModel }) {
       <CardHeader
         action={
           <Button
-            onClick={() => setExpanded((value) => !value)}
+            onPress={() => setExpanded((value) => !value)}
             size="sm"
             variant="ghost"
           >

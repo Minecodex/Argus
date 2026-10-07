@@ -1,5 +1,8 @@
+import { SegmentedControl } from "@argus/ui";
+import { Button } from "@argus/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { QueryBoundary } from "@argus/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock } from "lucide-react";
 import type {
@@ -143,23 +146,20 @@ export function ApprovalsPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="remote">
-          <Tabs
+          <SegmentedControl
             className="argus-approval-scope-tabs"
-            onValueChange={(value) => setScope(value as ScopeFilter)}
+            onChange={(value) => setScope(value as ScopeFilter)}
             value={scope}
-          >
-            <TabsList>
-              <TabsTrigger value="mine">
-                {t("governance.approvals.scope.mine")}
-              </TabsTrigger>
-              <TabsTrigger value="created">
-                {t("governance.approvals.scope.created")}
-              </TabsTrigger>
-              <TabsTrigger value="done">
-                {t("governance.approvals.scope.done")}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+            label={t("governance.approvals.title")}
+            options={[
+              { value: "mine", label: t("governance.approvals.scope.mine") },
+              {
+                value: "created",
+                label: t("governance.approvals.scope.created"),
+              },
+              { value: "done", label: t("governance.approvals.scope.done") },
+            ]}
+          />
           <RemoteAccessApprovals scope={scope} />
         </TabsContent>
         <TabsContent value="operation">
@@ -190,23 +190,20 @@ export function ApprovalsPage() {
             />
           </div>
 
-          <Tabs
+          <SegmentedControl
             className="argus-approval-scope-tabs"
-            onValueChange={(value) => setScope(value as ScopeFilter)}
+            onChange={(value) => setScope(value as ScopeFilter)}
             value={scope}
-          >
-            <TabsList>
-              <TabsTrigger value="mine">
-                {t("governance.approvals.scope.mine")}
-              </TabsTrigger>
-              <TabsTrigger value="created">
-                {t("governance.approvals.scope.created")}
-              </TabsTrigger>
-              <TabsTrigger value="done">
-                {t("governance.approvals.scope.done")}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+            label={t("governance.approvals.title")}
+            options={[
+              { value: "mine", label: t("governance.approvals.scope.mine") },
+              {
+                value: "created",
+                label: t("governance.approvals.scope.created"),
+              },
+              { value: "done", label: t("governance.approvals.scope.done") },
+            ]}
+          />
 
           <FilterBar
             filters={[
@@ -234,39 +231,41 @@ export function ApprovalsPage() {
 
           <div className="argus-approvals-layout">
             <div className="argus-approval-inbox">
-              {listQuery.isPending ? (
-                <Spinner label={t("common.loading")} />
-              ) : actions.length === 0 ? (
-                <EmptyState
-                  description={t("governance.approvals.emptyDescription")}
-                  title={t("governance.approvals.emptyTitle")}
-                />
-              ) : (
-                groups.map((group) => (
-                  <section
-                    className={`argus-approval-group is-${group.riskLevel}`}
-                    key={group.riskLevel}
-                  >
-                    <header className="argus-approval-group__header">
-                      <i aria-hidden className="argus-approval-group__dot" />
-                      {t(`governance.approvals.risk.${group.riskLevel}`)}
-                      <span className="argus-approval-group__count">
-                        {group.items.length}
-                      </span>
-                    </header>
-                    {group.items.map((action) => (
-                      <ApprovalInboxItem
-                        action={action}
-                        key={action.action_ref}
-                        locale={locale}
-                        now={now}
-                        onSelect={() => setSelectedRef(action.action_ref)}
-                        selected={selectedRef === action.action_ref}
-                      />
-                    ))}
-                  </section>
-                ))
-              )}
+              <QueryBoundary query={listQuery}>
+                {listQuery.isPending ? (
+                  <Spinner label={t("common.loading")} />
+                ) : actions.length === 0 ? (
+                  <EmptyState
+                    description={t("governance.approvals.emptyDescription")}
+                    title={t("governance.approvals.emptyTitle")}
+                  />
+                ) : (
+                  groups.map((group) => (
+                    <section
+                      className={`argus-approval-group is-${group.riskLevel}`}
+                      key={group.riskLevel}
+                    >
+                      <header className="argus-approval-group__header">
+                        <i aria-hidden className="argus-approval-group__dot" />
+                        {t(`governance.approvals.risk.${group.riskLevel}`)}
+                        <span className="argus-approval-group__count">
+                          {group.items.length}
+                        </span>
+                      </header>
+                      {group.items.map((action) => (
+                        <ApprovalInboxItem
+                          action={action}
+                          key={action.action_ref}
+                          locale={locale}
+                          now={now}
+                          onSelect={() => setSelectedRef(action.action_ref)}
+                          selected={selectedRef === action.action_ref}
+                        />
+                      ))}
+                    </section>
+                  ))
+                )}
+              </QueryBoundary>
             </div>
 
             <div>
@@ -309,7 +308,9 @@ function ApprovalInboxItem({
   const presented = presentPendingAction(action, t);
 
   return (
-    <button
+    <Button
+      variant="ghost"
+      layout="content"
       className={[
         "argus-approval-item",
         selected ? "is-selected" : "",
@@ -318,7 +319,7 @@ function ApprovalInboxItem({
       ]
         .filter(Boolean)
         .join(" ")}
-      onClick={onSelect}
+      onPress={onSelect}
       type="button"
     >
       <span className="argus-approval-item__top">
@@ -347,6 +348,6 @@ function ApprovalInboxItem({
           </>
         )}
       </span>
-    </button>
+    </Button>
   );
 }

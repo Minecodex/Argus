@@ -1,3 +1,4 @@
+import { Button } from "../button";
 import { useEffect, useRef, useState } from "react";
 import { createTemplateHost } from "./host";
 import type {
@@ -44,7 +45,11 @@ export function ToolPresentationFrame({
     const computed = getComputedStyle(document.documentElement);
     const tokens: Record<string, string> = {};
     for (const key of Array.from(computed))
-      if (key.startsWith("--"))
+      if (
+        /^--(?:bg|text|font|space|radius|shadow|accent|success|warning|danger|info|border|brand|surface|control|card|field|action|page|section|record|line-height)(?:-|$)/.test(
+          key,
+        )
+      )
         tokens[key] = computed.getPropertyValue(key).trim();
     return { locale, color_scheme: colorScheme, tokens };
   };
@@ -87,14 +92,15 @@ export function ToolPresentationFrame({
         style={{ height: expanded ? height : Math.min(height, 480) }}
       />
       {status === "ready" && height > 480 && (
-        <button
+        <Button
+          variant="ghost"
           className="argus-tool-presentation__toggle"
           type="button"
-          onClick={() => setExpanded(!expanded)}
+          onPress={() => setExpanded(!expanded)}
           aria-expanded={expanded}
         >
           {expanded ? collapseLabel : expandLabel}
-        </button>
+        </Button>
       )}
     </section>
   );

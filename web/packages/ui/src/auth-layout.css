@@ -1,0 +1,77 @@
+.argus-login-page {
+  min-height: 100dvh;
+  padding: var(--page-padding);
+  display: grid;
+  place-items: center;
+  background: var(--bg-canvas);
+}
+.argus-login-page__controls {
+  position: fixed;
+  top: var(--card-padding);
+  right: var(--card-padding);
+}
+.argus-login-card {
+  width: min(var(--auth-card-width), 100%);
+  padding: var(--page-padding);
+  display: grid;
+  gap: var(--field-gap);
+  border: 1px solid var(--border-default);
+  border-radius: var(--card-radius);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+.argus-login-card h1 {
+  font-size: var(--text-heading);
+  color: var(--text-primary);
+  margin: 0;
+  text-align: center;
+}
+.argus-login-card__subtitle {
+  margin: 0;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+}
+.argus-login-card__brand {
+  justify-content: center;
+}
+.argus-login-card__error {
+  color: var(--danger);
+  font-size: var(--text-help);
+}
+.argus-login-card__submit {
+  width: 100%;
+}
+.argus-login-card__hint {
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+  text-align: center;
+}
+.argus-setup-shell {
+  min-height: 100dvh;
+  padding: var(--page-padding);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--section-gap);
+}
+.argus-setup-header {
+  max-width: var(--dialog-width-lg);
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--field-gap);
+}
+.argus-setup-header h1 {
+  margin: 0;
+  font-size: var(--text-heading);
+}
+.argus-setup-fields,
+.argus-setup-grid-2 {
+  gap: var(--field-gap);
+}
+.argus-setup-card {
+  width: min(var(--dialog-width-lg), 100%);
+  border-radius: var(--card-radius);
+}

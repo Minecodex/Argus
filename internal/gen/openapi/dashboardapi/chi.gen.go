@@ -40,6 +40,9 @@ type ServerInterface interface {
 	// SaveDashboardDraft saveDashboardDraft.
 	// (PATCH /dashboard-drafts/{id})
 	SaveDashboardDraft(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params SaveDashboardDraftParams)
+	// ExecuteDashboardDraftDrilldown Preview a registered drilldown from the owned draft and its frozen sample.
+	// (POST /dashboard-drafts/{id}/drilldown)
+	ExecuteDashboardDraftDrilldown(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// GenerateDashboardDrilldowns generateDashboardDrilldowns.
 	// (POST /dashboard-drafts/{id}/drilldowns/generate)
 	GenerateDashboardDrilldowns(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GenerateDashboardDrilldownsParams)
@@ -157,6 +160,12 @@ func (_ Unimplemented) GetDashboardDraft(w http.ResponseWriter, r *http.Request,
 // SaveDashboardDraft saveDashboardDraft.
 // (PATCH /dashboard-drafts/{id})
 func (_ Unimplemented) SaveDashboardDraft(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params SaveDashboardDraftParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExecuteDashboardDraftDrilldown Preview a registered drilldown from the owned draft and its frozen sample.
+// (POST /dashboard-drafts/{id}/drilldown)
+func (_ Unimplemented) ExecuteDashboardDraftDrilldown(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -711,6 +720,32 @@ func (siw *ServerInterfaceWrapper) SaveDashboardDraft(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SaveDashboardDraft(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExecuteDashboardDraftDrilldown operation middleware
+func (siw *ServerInterfaceWrapper) ExecuteDashboardDraftDrilldown(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExecuteDashboardDraftDrilldown(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1743,6 +1778,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/conversations/{id}/dashboard-queries/{job_id}/resume", wrapper.ResumeDashboardQueryJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/dashboard-drafts/{id}/drilldown", wrapper.ExecuteDashboardDraftDrilldown)
 	})
 
 	return r

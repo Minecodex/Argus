@@ -572,7 +572,7 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardVersionInput"
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraftSampleInput"
             }
           }
         }
@@ -951,6 +951,48 @@
             "application/json": {
               "schema": {
                 "$ref": "../components/dashboard.yaml#/components/schemas/DashboardConvertedPanel"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "draftDrilldown": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "executeDashboardDraftDrilldown",
+      "summary": "Preview a registered drilldown from the owned draft and its frozen sample.",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraftDrilldownInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Draft drilldown execution.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardDraftDrilldownExecution"
               }
             }
           }

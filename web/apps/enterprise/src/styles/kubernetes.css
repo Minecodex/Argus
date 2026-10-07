@@ -1,35 +1,17 @@
 /* Kubernetes 模块局部样式：集群列表卡片、详情页、Collector 向导。 */
 .argus-k8s-cluster-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: var(--space-px-12);
-}
-
-.argus-k8s-cluster-card__head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-8);
-  flex-wrap: wrap;
-}
-
-.argus-k8s-cluster-card__name {
-  font-size: var(--font-size-14);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.argus-k8s-cluster-card__server {
-  margin-top: var(--space-px-2);
-  font-size: var(--font-size-11);
-  color: var(--text-tertiary);
-  font-family: var(--font-mono, monospace);
-  word-break: break-all;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--resource-card-min-width), 1fr)
+  );
+  gap: var(--field-gap);
 }
 
 .argus-k8s-kv {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-px-8) var(--space-px-12);
+  gap: var(--action-gap) var(--field-gap);
   margin: var(--space-px-12) 0;
 }
 
@@ -44,25 +26,12 @@
   color: var(--text-primary);
   display: flex;
   align-items: center;
-  gap: var(--space-px-6);
-}
-.argus-k8s-collector-action {
-  display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-.argus-k8s-collector-action:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  gap: var(--action-gap);
 }
 
 .argus-k8s-card-actions {
   display: flex;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   flex-wrap: wrap;
   padding-top: var(--space-px-10);
   border-top: 1px solid var(--border-subtle);
@@ -76,13 +45,13 @@
   background: var(--bg-muted);
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
 }
 
 .argus-k8s-test-result__summary {
   display: flex;
   align-items: center;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   font-size: var(--font-size-12);
   color: var(--text-secondary);
 }
@@ -90,7 +59,7 @@
 .argus-k8s-test-result__checks {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-4);
+  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -99,7 +68,7 @@
 .argus-k8s-test-result__checks li {
   display: flex;
   align-items: center;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   font-size: var(--font-size-11);
   color: var(--text-secondary);
 }
@@ -111,21 +80,20 @@
 .argus-k8s-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-12);
+  gap: var(--field-gap);
 }
 
 .argus-k8s-stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-px-12);
+  gap: var(--field-gap);
 }
 
 .argus-k8s-link-button {
   background: none;
   border: 0;
-  padding: 0;
-  font: inherit;
-  color: var(--accent);
+
+  color: var(--accent-text);
   cursor: pointer;
 }
 
@@ -146,13 +114,13 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
 }
 
 .argus-k8s-events li {
   display: flex;
   align-items: center;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   font-size: var(--font-size-12);
   color: var(--text-secondary);
 }
@@ -160,14 +128,14 @@
 .argus-k8s-profile-switches {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-10);
+  gap: var(--action-gap);
 }
 
 .argus-k8s-profile-switches__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-px-12);
+  gap: var(--field-gap);
   padding: var(--space-px-8) var(--space-px-12);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-10);

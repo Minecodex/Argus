@@ -437,11 +437,11 @@ export function AddHostWizard({
             </span>
             {wizard.phase === "select_mode" && (
               <>
-                <Button onClick={() => close(false)} variant="secondary">
+                <Button onPress={() => close(false)} variant="secondary">
                   {t("hosts.cancel")}
                 </Button>
                 <Button
-                  onClick={() =>
+                  onPress={() =>
                     dispatch({
                       type: "next",
                       terminal:
@@ -459,14 +459,14 @@ export function AddHostWizard({
             {wizard.phase === "details" && (
               <>
                 <Button
-                  onClick={() => dispatch({ type: "back" })}
+                  onPress={() => dispatch({ type: "back" })}
                   variant="secondary"
                 >
                   {t("hosts.wizard.back")}
                 </Button>
                 <Button
                   form={FORM_ID}
-                  loading={busy}
+                  isPending={busy}
                   type="submit"
                   variant="primary"
                 >
@@ -477,7 +477,7 @@ export function AddHostWizard({
               </>
             )}
             {terminalPhase && (
-              <Button onClick={() => close(false)} variant="primary">
+              <Button onPress={() => close(false)} variant="primary">
                 {t("hosts.done")}
               </Button>
             )}
@@ -954,7 +954,7 @@ function SelectedHostMode({
         <span>{t("hosts.wizard.selectedMode")}</span>
         <strong>{t(`hosts.hostMode.titleOf.${mode}`)}</strong>
       </div>
-      <Button onClick={onChange} type="button" variant="ghost">
+      <Button onPress={onChange} type="button" variant="ghost">
         {t("hosts.wizard.changeMode")}
       </Button>
     </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Guacamole from "guacamole-common-js";
 
-import { Button, type TerminalPlayerEvent } from "@argus/ui";
+import { Button, RangeSlider, type TerminalPlayerEvent } from "@argus/ui";
 
 export function guacamoleRecordingStream(
   events: readonly TerminalPlayerEvent[],
@@ -87,8 +87,8 @@ export function RDPRecordingPlayer({
       {error && <div className="argus-rdp-recording__error">{error}</div>}
       <div className="argus-rdp-recording__controls">
         <Button
-          disabled={!ready}
-          onClick={() => {
+          isDisabled={!ready}
+          onPress={() => {
             const player = playerRef.current;
             if (!player) return;
             if (player.isPlaying()) player.pause();
@@ -101,18 +101,16 @@ export function RDPRecordingPlayer({
             ? t("remoteSessions.rdpReplayPause")
             : t("remoteSessions.rdpReplayPlay")}
         </Button>
-        <input
-          aria-label={t("remoteSessions.rdpReplayPosition")}
+        <RangeSlider
+          label={t("remoteSessions.rdpReplayPosition")}
           disabled={!ready || duration <= 0}
           max={Math.max(1, duration)}
           min={0}
-          onChange={(event) => {
-            const next = Number(event.currentTarget.value);
+          onChange={(next) => {
             setPosition(next);
             playerRef.current?.seek(next);
           }}
           step={100}
-          type="range"
           value={Math.min(position, Math.max(1, duration))}
         />
         <span>

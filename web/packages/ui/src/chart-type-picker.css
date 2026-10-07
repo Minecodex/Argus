@@ -1,0 +1,44 @@
+.argus-chart-type-picker {
+  display: grid;
+  gap: var(--action-gap);
+}
+.argus-chart-type-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--action-gap);
+}
+.argus-button.argus-chart-type-picker__option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--action-gap);
+  width: 100%;
+  min-height: var(--chart-option-height);
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-weight: 500;
+  line-height: var(--line-height-normal);
+}
+.argus-button.argus-chart-type-picker__option > svg {
+  align-self: flex-start;
+  width: var(--space-6);
+  height: var(--space-6);
+}
+.argus-chart-type-picker__option[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--brand-highlight);
+}
+.argus-chart-type-picker__option:not(:disabled):hover {
+  border-color: var(--accent);
+}
+.argus-chart-type-picker__option small {
+  color: var(--info);
+  font-size: var(--text-help);
+}
+.argus-chart-type-picker__more {
+  justify-self: start;
+}

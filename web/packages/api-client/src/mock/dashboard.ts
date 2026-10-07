@@ -21,7 +21,12 @@ import {
   mockDashboardCatalog,
   mockDashboardDrilldown,
   mockGenerateDrilldowns,
+  mockDraftDrilldown,
 } from "./dashboard-runtime";
+import {
+  dashboardPreviewSpec,
+  dashboardPreviewParameters,
+} from "../dashboard-preview";
 import {
   createDashboardBindingMethods,
   commitDashboardBinding,
@@ -182,11 +187,20 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
         dashboardPermission(ctx, true);
         return validateMockDashboard(spec);
       },
-      async sample(id, version) {
+      async sample(id, input) {
+        const version = input.expected_version;
         const d = mockDraft(ctx, id);
         if (d.draft_version !== version)
           fail("DASHBOARD_VERSION_CONFLICT", 409);
-        const validation = validateMockDashboard(d.spec);
+        const scoped = dashboardPreviewSpec(
+          d.spec,
+          input.parameters?.panel_ids,
+        );
+        const parameters = dashboardPreviewParameters(
+          scoped,
+          input.parameters ?? {},
+        );
+        const validation = validateMockDashboard(scoped);
         if (!validation.valid)
           return {
             draft_id: id,
@@ -202,13 +216,17 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
             status: "mock",
             execution: mockDashboardExecution(
               ctx,
-              d.spec,
-              {},
+              scoped,
+              parameters,
               d.dashboard_id,
               d.base_revision_id,
+              d.id,
             ),
           },
         };
+      },
+      async draftDrilldown(id, input) {
+        return mockDraftDrilldown(ctx, id, input);
       },
       async preview(id, version) {
         const d = mockDraft(ctx, id);

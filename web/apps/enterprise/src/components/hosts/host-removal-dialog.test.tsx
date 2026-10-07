@@ -317,7 +317,7 @@ describe("removal choices", () => {
         await screen.findByRole("textbox", { name: /SSH 账号/ }),
       ).toHaveValue("install-admin");
       expect(
-        screen.getByRole("combobox", { name: /SSH 凭据/ }),
+        screen.getByRole("button", { name: /SSH 凭据/ }),
       ).toBeInTheDocument();
     },
   );
@@ -331,7 +331,7 @@ describe("removal choices", () => {
       "install-admin",
     );
     expect(
-      screen.getByRole("combobox", { name: /SSH 凭据/ }),
+      screen.getByRole("button", { name: /SSH 凭据/ }),
     ).toBeInTheDocument();
   });
 
@@ -513,7 +513,9 @@ describe("removal choices", () => {
     );
     show();
     await startSSH();
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    fireEvent.click(
+      screen.getByRole("dialog").querySelector("button[slot='close']")!,
+    );
     await act(async () => finish({ id: "test-1", status: "succeeded" }));
     expect(api.hosts.getConnectionTest).not.toHaveBeenCalled();
     expect(api.hosts.previewRemoval).not.toHaveBeenCalled();

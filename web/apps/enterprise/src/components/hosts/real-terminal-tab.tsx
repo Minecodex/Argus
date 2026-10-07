@@ -262,7 +262,7 @@ export function RealTerminalTab({ host }: { host: Host }) {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() =>
+                onPress={() =>
                   void api.hosts
                     .previewEnableWindowsRDP(host.id, host.resource_version)
                     .then(setRDPEnableAction)
@@ -299,8 +299,8 @@ export function RealTerminalTab({ host }: { host: Host }) {
           action={
             <Button
               aria-label={t("hosts.terminal.refreshList")}
-              loading={sessions.isFetching}
-              onClick={() =>
+              isPending={sessions.isFetching}
+              onPress={() =>
                 void queryClient.invalidateQueries({
                   queryKey: ["remote-access", "sessions"],
                 })

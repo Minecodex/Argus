@@ -1,5 +1,29 @@
 components:
   schemas:
+    PlatformMonthlySandboxUsage:
+      type: object
+      additionalProperties: false
+      required: [month, session_count, session_seconds]
+      properties:
+        month: {type: string, pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"}
+        session_count: {type: integer, format: int64, minimum: 0}
+        session_seconds: {type: integer, format: int64, minimum: 0}
+    PlatformOverview:
+      type: object
+      additionalProperties: false
+      required: [sampled_at, enterprise_count, active_enterprise_count, active_sandbox_session_count, pending_admin_count, usage_from_month, usage_to_month, monthly_usage]
+      properties:
+        sampled_at: {type: string, format: date-time}
+        enterprise_count: {type: integer, format: int64, minimum: 0}
+        active_enterprise_count: {type: integer, format: int64, minimum: 0}
+        active_sandbox_session_count: {type: integer, format: int64, minimum: 0, description: "Creating, running, terminating or unknown sessions that still occupy capacity."}
+        pending_admin_count: {type: integer, format: int64, minimum: 0, description: Active directly bound enterprise administrators who have never logged in.}
+        usage_from_month: {type: string, pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$", description: Inclusive UTC month.}
+        usage_to_month: {type: string, pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$", description: Exclusive UTC month.}
+        monthly_usage:
+          type: array
+          maxItems: 12
+          items: {$ref: "#/components/schemas/PlatformMonthlySandboxUsage"}
     PlatformState:
       type: string
       enum: [uninitialized, initializing, initialized]

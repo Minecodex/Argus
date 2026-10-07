@@ -1,3 +1,4 @@
+import { Checkbox } from "./checkbox";
 import { useMemo, useState } from "react";
 import { Badge } from "./badge";
 import { Button } from "./button";
@@ -65,20 +66,19 @@ export function ObservationLogs({
               )}
             </legend>
             {available.map((key) => (
-              <label key={key}>
-                <input
-                  type="checkbox"
-                  checked={fields.includes(key)}
-                  onChange={(event) =>
-                    setFields((previous) =>
-                      event.target.checked
-                        ? [...previous, key]
-                        : previous.filter((value) => value !== key),
-                    )
-                  }
-                />
+              <Checkbox
+                key={key}
+                isSelected={fields.includes(key)}
+                onChange={(selected) =>
+                  setFields((previous) =>
+                    selected
+                      ? [...previous, key]
+                      : previous.filter((value) => value !== key),
+                  )
+                }
+              >
                 {key}
-              </label>
+              </Checkbox>
             ))}
           </fieldset>
         </details>
@@ -125,7 +125,7 @@ export function ObservationLogs({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => onSelect(row, target)}
+                      onPress={() => onSelect(row, target)}
                     >
                       {text("关联查询", "Related queries")}
                     </Button>
@@ -173,8 +173,8 @@ export function ObservationLogs({
         {pages > 1 && (
           <Button
             size="sm"
-            disabled={current === 0}
-            onClick={() => setPage(current - 1)}
+            isDisabled={current === 0}
+            onPress={() => setPage(current - 1)}
           >
             {text("上一页", "Previous")}
           </Button>
@@ -186,8 +186,8 @@ export function ObservationLogs({
         {pages > 1 && (
           <Button
             size="sm"
-            disabled={current + 1 === pages}
-            onClick={() => setPage(current + 1)}
+            isDisabled={current + 1 === pages}
+            onPress={() => setPage(current + 1)}
           >
             {text("下一页", "Next")}
           </Button>

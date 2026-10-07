@@ -9,7 +9,7 @@ spec:
   namespaces:
     system: argus-system
     sandbox: argus-sandbox
-    observability: argus-observability
+    observability: argus-system
   storageClass: fast-ssd
   images:
     mode: oci-registry
@@ -53,7 +53,7 @@ spec:
   workspace:
     enabled: true
     storageClass: argus-workspace
-    storageNamespace: argus-workspace-storage
+    storageNamespace: argus-system
     dataDirectory: /var/local/argus-workspaces/data
     metadataDirectory: /var/local/argus-workspaces/meta
   persistence:

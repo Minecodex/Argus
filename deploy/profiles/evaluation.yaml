@@ -9,7 +9,7 @@ spec:
   namespaces:
     system: argus-e2e-local-system
     sandbox: argus-e2e-local-sandbox
-    observability: argus-e2e-local-observability
+    observability: argus-e2e-local-system
   storageClass: standard
   images:
     mode: local-registry
@@ -53,7 +53,7 @@ spec:
   workspace:
     enabled: true
     storageClass: argus-workspace
-    storageNamespace: argus-workspace-storage
+    storageNamespace: argus-e2e-local-system
     dataDirectory: /var/local/argus-workspaces/data
     metadataDirectory: /var/local/argus-workspaces/meta
   persistence:

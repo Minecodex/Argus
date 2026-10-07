@@ -1,3 +1,5 @@
+import { ResourceGrid, ResourceCard } from "@argus/ui";
+import { QueryBoundary } from "@argus/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
@@ -16,7 +18,6 @@ import {
   Alert,
   Button,
   ConfirmDialog,
-  DataTable,
   EmptyState,
   Field,
   FormDrawer,
@@ -233,7 +234,7 @@ export function EnterprisesPage() {
     <PageShell
       actions={
         <Button
-          onClick={() => {
+          onPress={() => {
             reset();
             setCreateOpen(true);
           }}
@@ -245,83 +246,93 @@ export function EnterprisesPage() {
       description={t("enterprises.description")}
       title={t("enterprises.title")}
     >
-      {enterprises.isPending ? (
-        <Spinner />
-      ) : rows.length === 0 ? (
-        <EmptyState description="" title={t("enterprises.empty")} />
-      ) : (
-        <DataTable<EnterpriseRow>
-          columns={[
-            { key: "name", header: t("enterprises.table.name") },
-            {
-              key: "code",
-              header: t("enterprises.table.code"),
-              render: (row) => <code className="argus-mono">{row.code}</code>,
-            },
-            { key: "timezone", header: t("enterprises.table.timezone") },
-            {
-              key: "status",
-              header: t("enterprises.table.status"),
-              render: (row) => (
-                <StatusBadge tone={statusTone(row.status)}>
-                  {t(`enterprises.status.${row.status}`)}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "createdAt",
-              header: t("enterprises.table.createdAt"),
-              render: (row) => formatDateTime(row.createdAt, i18n.language),
-            },
-            {
-              key: "id",
-              header: t("common.actions"),
-              render: (row) => (
-                <ActionGroup>
-                  <RowAction onClick={() => setDetail(findEnterprise(row.id))}>
-                    {t("common.detail")}
-                  </RowAction>
-                  <RowAction onClick={() => setEditing(findEnterprise(row.id))}>
-                    {t("common.edit")}
-                  </RowAction>
-                  {row.status !== "active" && row.status !== "disabled" && (
+      <QueryBoundary query={enterprises}>
+        {enterprises.isPending ? (
+          <Spinner />
+        ) : rows.length === 0 ? (
+          <EmptyState description="" title={t("enterprises.empty")} />
+        ) : (
+          <ResourceGrid>
+            {rows.map((row) => (
+              <ResourceCard
+                key={row.id}
+                title={row.name}
+                subtitle={row.code}
+                onOpen={() => setDetail(findEnterprise(row.id))}
+                status={
+                  <StatusBadge tone={statusTone(row.status)}>
+                    {t(`enterprises.status.${row.status}`)}
+                  </StatusBadge>
+                }
+                facts={[
+                  {
+                    label: t("enterprises.table.timezone"),
+                    value: row.timezone,
+                  },
+                  {
+                    label: t("enterprises.table.createdAt"),
+                    value: formatDateTime(row.createdAt, i18n.language),
+                  },
+                ]}
+                actions={
+                  <ActionGroup>
                     <RowAction
-                      onClick={() =>
-                        setPendingAction({ type: "activate", enterprise: row })
-                      }
+                      onPress={() => setDetail(findEnterprise(row.id))}
                     >
-                      {t("enterprises.action.activate")}
+                      {t("common.detail")}
                     </RowAction>
-                  )}
-                  {row.status === "active" && (
-                    <RowAction
-                      onClick={() =>
-                        setPendingAction({ type: "suspend", enterprise: row })
-                      }
-                    >
-                      {t("enterprises.action.suspend")}
-                    </RowAction>
-                  )}
-                  {row.status !== "disabled" && (
-                    <RowAction
-                      danger
-                      onClick={() =>
-                        setPendingAction({ type: "disable", enterprise: row })
-                      }
-                    >
-                      {t("enterprises.action.disable")}
-                    </RowAction>
-                  )}
-                </ActionGroup>
-              ),
-            },
-          ]}
-          data={rows}
-          getRowKey={(row) => row.id}
-        />
-      )}
+                  </ActionGroup>
+                }
+                menuItems={[
+                  {
+                    label: t("common.edit"),
+                    onSelect: () => setEditing(findEnterprise(row.id)),
+                  },
+                  ...(row.status !== "active" && row.status !== "disabled"
+                    ? [
+                        {
+                          label: t("enterprises.action.activate"),
+                          onSelect: () =>
+                            setPendingAction({
+                              type: "activate",
+                              enterprise: row,
+                            }),
+                        },
+                      ]
+                    : []),
+                  ...(row.status === "active"
+                    ? [
+                        {
+                          label: t("enterprises.action.suspend"),
+                          onSelect: () =>
+                            setPendingAction({
+                              type: "suspend",
+                              enterprise: row,
+                            }),
+                        },
+                      ]
+                    : []),
+                  ...(row.status !== "disabled"
+                    ? [
+                        {
+                          label: t("enterprises.action.disable"),
+                          onSelect: () =>
+                            setPendingAction({
+                              type: "disable",
+                              enterprise: row,
+                            }),
+                          danger: true,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            ))}
+          </ResourceGrid>
+        )}
 
-      {/* 创建企业 */}
+        {/* 创建企业 */}
+      </QueryBoundary>
       <FormDrawer
         description={t("enterprises.form.create.description")}
         loading={create.isPending}
@@ -341,17 +352,31 @@ export function EnterprisesPage() {
             tone="danger"
           />
         )}
-        <Field requirement="required" error={errors.name?.message} label={t("enterprises.form.name")}>
-          <Input {...register("name")} maxLength={enterpriseCreateConstraints.name.maxLength} required />
+        <Field
+          requirement="required"
+          error={errors.name?.message}
+          label={t("enterprises.form.name")}
+        >
+          <Input
+            {...register("name")}
+            maxLength={enterpriseCreateConstraints.name.maxLength}
+            required
+          />
         </Field>
-        <Field requirement="required"
+        <Field
+          requirement="required"
           hint={t("enterprises.form.codeHint")}
           error={errors.code?.message}
           label={t("enterprises.form.code")}
         >
-          <Input {...register("code")} maxLength={enterpriseCreateConstraints.code.maxLength} required />
+          <Input
+            {...register("code")}
+            maxLength={enterpriseCreateConstraints.code.maxLength}
+            required
+          />
         </Field>
-        <Field requirement="required"
+        <Field
+          requirement="required"
           error={errors.timezone?.message}
           label={t("enterprises.form.timezone")}
         >
@@ -370,8 +395,16 @@ export function EnterprisesPage() {
             )}
           />
         </Field>
-        <Field requirement="optional" error={errors.remark?.message} label={t("enterprises.form.remark")}>
-          <Textarea {...register("remark")} maxLength={enterpriseCreateConstraints.remark.maxLength} rows={3} />
+        <Field
+          requirement="optional"
+          error={errors.remark?.message}
+          label={t("enterprises.form.remark")}
+        >
+          <Textarea
+            {...register("remark")}
+            maxLength={enterpriseCreateConstraints.remark.maxLength}
+            rows={3}
+          />
         </Field>
       </FormDrawer>
 
@@ -380,9 +413,7 @@ export function EnterprisesPage() {
           enterprise={editing}
           loading={update.isPending}
           onClose={() => setEditing(null)}
-          onSubmit={(input) =>
-            update.mutateAsync({ id: editing.id, ...input })
-          }
+          onSubmit={(input) => update.mutateAsync({ id: editing.id, ...input })}
         />
       )}
 
@@ -416,7 +447,7 @@ export function EnterprisesPage() {
       {/* 详情抽屉 */}
       <FormDrawer
         footer={
-          <Button onClick={() => setDetail(null)} variant="secondary">
+          <Button onPress={() => setDetail(null)} variant="secondary">
             {t("common.close")}
           </Button>
         }
@@ -564,7 +595,11 @@ function EnterpriseEditDrawer({
             (requestId) => t("common.requestReference", { requestId }),
           );
           if (formField) {
-            setError(formField, { message, type: "server" }, { shouldFocus: true });
+            setError(
+              formField,
+              { message, type: "server" },
+              { shouldFocus: true },
+            );
           } else {
             setError("root", { message, type: "server" });
           }
@@ -580,10 +615,19 @@ function EnterpriseEditDrawer({
           tone="danger"
         />
       )}
-      <Field requirement="required" error={errors.name?.message} label={t("enterprises.form.name")}>
-        <Input {...register("name")} maxLength={enterpriseCreateConstraints.name.maxLength} required />
+      <Field
+        requirement="required"
+        error={errors.name?.message}
+        label={t("enterprises.form.name")}
+      >
+        <Input
+          {...register("name")}
+          maxLength={enterpriseCreateConstraints.name.maxLength}
+          required
+        />
       </Field>
-      <Field requirement="required"
+      <Field
+        requirement="required"
         error={errors.timezone?.message}
         label={t("enterprises.form.timezone")}
       >
@@ -599,8 +643,16 @@ function EnterpriseEditDrawer({
           )}
         />
       </Field>
-      <Field requirement="optional" error={errors.remark?.message} label={t("enterprises.form.remark")}>
-        <Textarea {...register("remark")} maxLength={enterpriseCreateConstraints.remark.maxLength} rows={3} />
+      <Field
+        requirement="optional"
+        error={errors.remark?.message}
+        label={t("enterprises.form.remark")}
+      >
+        <Textarea
+          {...register("remark")}
+          maxLength={enterpriseCreateConstraints.remark.maxLength}
+          rows={3}
+        />
       </Field>
     </FormDrawer>
   );

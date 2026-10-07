@@ -80,6 +80,9 @@ func (k *E2EKube) DedicatedClusterConflicts(ctx context.Context, compatibleOpenS
 		if strings.HasPrefix(name, "opensandbox-") && len(compatibleOpenSandboxOwner) > 0 && compatibleOpenSandboxOwner[0] != "" && ownerNamespace+"/"+owner == compatibleOpenSandboxOwner[0] {
 			continue
 		}
+		if strings.HasPrefix(name, "strimzi-") && len(compatibleOpenSandboxOwner) > 1 && compatibleOpenSandboxOwner[1] != "" && ownerNamespace+"/"+owner == compatibleOpenSandboxOwner[1] {
+			continue
+		}
 		description := "ClusterRole/" + name
 		if owner != "" {
 			description += " owned by Helm release " + owner

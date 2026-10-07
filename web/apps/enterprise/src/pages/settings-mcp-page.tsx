@@ -1,3 +1,5 @@
+import { Checkbox } from "@argus/ui";
+import { QueryBoundary } from "@argus/ui";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -73,7 +75,7 @@ export function SettingsMCPPage() {
       ) : (
         <>
           <div className="argus-planv5-toolbar">
-            <Button onClick={() => setEditing("new")}>
+            <Button onPress={() => setEditing("new")}>
               {t("planv5.mcp.create")}
             </Button>
           </div>
@@ -84,72 +86,74 @@ export function SettingsMCPPage() {
               tone="danger"
             />
           )}
-          <DataTable<MCPConnection & Record<string, unknown>>
-            getRowKey={(item) => item.id}
-            data={query.data ?? []}
-            columns={[
-              {
-                key: "name",
-                header: t("planv5.mcp.name"),
-                render: (item) => (
-                  <div>
-                    <b>{item.name}</b>
-                    <p>{item.endpoint}</p>
-                  </div>
-                ),
-              },
-              {
-                key: "status",
-                header: t("planv5.mcp.status"),
-                render: (item) => (
-                  <span>
-                    {t(`planv5.mcp.${item.status}`)} ·{" "}
-                    {t(`planv5.mcp.${item.health_status}`)}
-                  </span>
-                ),
-              },
-              {
-                key: "tool_count",
-                header: t("planv5.mcp.tools"),
-                render: (item) => item.tool_count,
-              },
-              {
-                key: "actions",
-                header: t("planv5.mcp.actions"),
-                render: (item) => (
-                  <div className="argus-planv5-toolbar">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setEditing(item)}
-                    >
-                      {t("planv5.mcp.edit")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy === item.id}
-                      onClick={() => void perform(item, "test")}
-                    >
-                      {t("planv5.mcp.test")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy === item.id}
-                      onClick={() => void perform(item, "toggle")}
-                    >
-                      {t(
-                        item.status === "enabled"
-                          ? "planv5.mcp.disable"
-                          : "planv5.mcp.enable",
-                      )}
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
-          />
+          <QueryBoundary query={query}>
+            <DataTable<MCPConnection & Record<string, unknown>>
+              getRowKey={(item) => item.id}
+              data={query.data ?? []}
+              columns={[
+                {
+                  key: "name",
+                  header: t("planv5.mcp.name"),
+                  render: (item) => (
+                    <div>
+                      <b>{item.name}</b>
+                      <p>{item.endpoint}</p>
+                    </div>
+                  ),
+                },
+                {
+                  key: "status",
+                  header: t("planv5.mcp.status"),
+                  render: (item) => (
+                    <span>
+                      {t(`planv5.mcp.${item.status}`)} ·{" "}
+                      {t(`planv5.mcp.${item.health_status}`)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "tool_count",
+                  header: t("planv5.mcp.tools"),
+                  render: (item) => item.tool_count,
+                },
+                {
+                  key: "actions",
+                  header: t("planv5.mcp.actions"),
+                  render: (item) => (
+                    <div className="argus-planv5-toolbar">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onPress={() => setEditing(item)}
+                      >
+                        {t("planv5.mcp.edit")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        isDisabled={busy === item.id}
+                        onPress={() => void perform(item, "test")}
+                      >
+                        {t("planv5.mcp.test")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        isDisabled={busy === item.id}
+                        onPress={() => void perform(item, "toggle")}
+                      >
+                        {t(
+                          item.status === "enabled"
+                            ? "planv5.mcp.disable"
+                            : "planv5.mcp.enable",
+                        )}
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </QueryBoundary>
           {editing && (
             <ConnectionEditor
               value={editing === "new" ? undefined : editing}
@@ -360,21 +364,20 @@ function ConnectionEditor({
           {members.data
             ?.filter((member) => member.status !== "disabled")
             .map((member) => (
-              <label key={member.id}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(member.id)}
-                  onChange={(event) =>
-                    setValue(
-                      "member_ids",
-                      event.target.checked
-                        ? [...selected, member.id]
-                        : selected.filter((id) => id !== member.id),
-                    )
-                  }
-                />
+              <Checkbox
+                key={member.id}
+                isSelected={selected.includes(member.id)}
+                onChange={(nextChecked) =>
+                  setValue(
+                    "member_ids",
+                    nextChecked
+                      ? [...selected, member.id]
+                      : selected.filter((id) => id !== member.id),
+                  )
+                }
+              >
                 {member.displayName}
-              </label>
+              </Checkbox>
             ))}
         </fieldset>
       </div>

@@ -4,13 +4,13 @@
 .argus-account-enrollment,
 .argus-account-break-glass {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--field-gap);
 }
 
 .argus-account-password-form,
 .argus-account-break-glass__form {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   max-width: 480px;
 }
 
@@ -19,7 +19,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 
 .argus-account-secret {
@@ -34,7 +34,7 @@
 .argus-account-recovery-codes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
+  gap: var(--action-gap);
 }
 
 .argus-account-recovery-codes code {
@@ -47,7 +47,7 @@
 .argus-account-break-glass__item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-3);
+  gap: var(--field-gap);
   align-items: center;
   padding-block: var(--space-3);
   border-bottom: 1px solid var(--border-subtle);

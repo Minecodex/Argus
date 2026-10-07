@@ -154,7 +154,7 @@ export function RDPViewer({
     <Card className="argus-rdp-viewer">
       <CardHeader
         action={
-          <Button onClick={onClose} size="sm" variant="secondary">
+          <Button onPress={onClose} size="sm" variant="secondary">
             {t("hosts.terminal.rdpClose")}
           </Button>
         }

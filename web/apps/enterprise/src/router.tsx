@@ -10,9 +10,26 @@ import { useEnterpriseAuthStore } from "@argus/auth";
 import { AdminShell } from "./components/admin-shell";
 import { ChatShell } from "./components/chat-shell";
 
-const DashboardsPage = lazyRouteComponent(() => import("./pages/dashboards-page"), "DashboardsPage");
-const DashboardViewPage = lazyRouteComponent(() => import("./pages/dashboard-view-page"), "DashboardViewPage");
-const DashboardEditorPage = lazyRouteComponent(() => import("./pages/dashboard-editor-page"), "DashboardEditorPage");
+const DashboardsPage = lazyRouteComponent(
+  () => import("./pages/dashboards-page"),
+  "DashboardsPage",
+);
+const DashboardViewPage = lazyRouteComponent(
+  () => import("./pages/dashboard-view-page"),
+  "DashboardViewPage",
+);
+const DashboardDraftWorkspace = lazyRouteComponent(
+  () => import("./components/dashboards/draft-workspace"),
+  "DashboardDraftWorkspace",
+);
+const DashboardEditorPage = lazyRouteComponent(
+  () => import("./pages/dashboard-editor-page"),
+  "DashboardEditorPage",
+);
+const DashboardPanelEditorPage = lazyRouteComponent(
+  () => import("./pages/dashboard-panel-editor-page"),
+  "DashboardPanelEditorPage",
+);
 const LoginPage = lazyRouteComponent(
   () => import("./pages/login-page"),
   "LoginPage",
@@ -131,9 +148,41 @@ const adminRoute = createRoute({
   id: "admin",
   component: AdminShell,
 });
-const dashboardsRoute = createRoute({getParentRoute:()=>adminRoute,path:"/dashboards",component:DashboardsPage});
-const dashboardViewRoute = createRoute({getParentRoute:()=>adminRoute,path:"/dashboards/$dashboardId",component:DashboardViewPage,validateSearch:(search:Record<string,unknown>):{resource?:string}=>({resource:typeof search.resource==="string"?search.resource:undefined})});
-const dashboardEditorRoute = createRoute({getParentRoute:()=>adminRoute,path:"/dashboard-drafts/$draftId",component:DashboardEditorPage});
+const dashboardsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/dashboards",
+  component: DashboardsPage,
+});
+const dashboardViewRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/dashboards/$dashboardId",
+  component: DashboardViewPage,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { resource?: string; resource_type?: "host" | "kubernetes_cluster" } => ({
+    resource: typeof search.resource === "string" ? search.resource : undefined,
+    resource_type:
+      search.resource_type === "host" ||
+      search.resource_type === "kubernetes_cluster"
+        ? search.resource_type
+        : undefined,
+  }),
+});
+const dashboardEditorRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/dashboard-drafts/$draftId",
+  component: DashboardDraftWorkspace,
+});
+const dashboardPanelEditorRoute = createRoute({
+  getParentRoute: () => dashboardEditorRoute,
+  path: "/panels/$panelId",
+  component: DashboardPanelEditorPage,
+});
+const dashboardDraftIndexRoute = createRoute({
+  getParentRoute: () => dashboardEditorRoute,
+  path: "/",
+  component: DashboardEditorPage,
+});
 const hostsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/hosts",
@@ -143,6 +192,11 @@ const hostDetailRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/hosts/$hostId",
   component: HostDetailPage,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: "dashboards" } => ({
+    tab: search.tab === "dashboards" ? "dashboards" : undefined,
+  }),
 });
 const kubernetesRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -153,6 +207,11 @@ const kubernetesClusterRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/kubernetes/$clusterId",
   component: KubernetesClusterPage,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: "dashboards" } => ({
+    tab: search.tab === "dashboards" ? "dashboards" : undefined,
+  }),
 });
 const tasksRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -222,7 +281,10 @@ const routeTree = rootRoute.addChildren([
     adminRoute.addChildren([
       dashboardsRoute,
       dashboardViewRoute,
-      dashboardEditorRoute,
+      dashboardEditorRoute.addChildren([
+        dashboardDraftIndexRoute,
+        dashboardPanelEditorRoute,
+      ]),
       hostsRoute,
       hostDetailRoute,
       kubernetesRoute,

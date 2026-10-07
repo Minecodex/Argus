@@ -178,28 +178,30 @@ export function TerminalDock() {
     const hiddenSession = Array.from(sessions.values())[0];
     if (!hiddenSession) return null;
     return (
-      <button
+      <Button
+        variant="ghost"
         aria-label={t("hosts.terminal.openDock")}
         className="argus-terminal-dock-launcher"
-        onClick={() => showSession(hiddenSession.id)}
+        onPress={() => showSession(hiddenSession.id)}
         type="button"
       >
         {t("hosts.terminal.openDock")}
-      </button>
+      </Button>
     );
   }
   if (!dockOpen) {
     const firstSession = visibleSessions[0];
     if (!firstSession) return null;
     return (
-      <button
+      <Button
+        variant="ghost"
         aria-label={t("hosts.terminal.openDock")}
         className="argus-terminal-dock-launcher"
-        onClick={() => openDock(firstSession.id)}
+        onPress={() => openDock(firstSession.id)}
         type="button"
       >
         {t("hosts.terminal.openDock")}
-      </button>
+      </Button>
     );
   }
 
@@ -265,8 +267,8 @@ export function TerminalDock() {
                   dockPosition === value ? "is-active-position" : undefined
                 }
                 key={value}
-                onClick={() => setTerminalDockPosition(value)}
-                size="icon"
+                onPress={() => setTerminalDockPosition(value)}
+                isIconOnly
                 title={t(labelKey)}
                 variant="ghost"
               >
@@ -276,9 +278,9 @@ export function TerminalDock() {
           </div>
           <Button
             aria-label={t("hosts.terminal.terminate")}
-            disabled={!activeSession || terminatingIds.has(activeSession.id)}
-            onClick={() => activeSession && void terminate(activeSession.id)}
-            size="icon"
+            isDisabled={!activeSession || terminatingIds.has(activeSession.id)}
+            onPress={() => activeSession && void terminate(activeSession.id)}
+            isIconOnly
             title={t("hosts.terminal.terminate")}
             variant="ghost"
           >
@@ -286,8 +288,8 @@ export function TerminalDock() {
           </Button>
           <Button
             aria-label={t("hosts.terminal.collapseDock")}
-            onClick={closeDock}
-            size="icon"
+            onPress={closeDock}
+            isIconOnly
             title={t("hosts.terminal.collapseDock")}
             variant="ghost"
           >

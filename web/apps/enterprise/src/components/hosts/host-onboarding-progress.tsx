@@ -45,7 +45,7 @@ export function HostOnboardingProgress({ host }: { host: Host }) {
           )}
         </p>
       )}
-      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="secondary" onPress={() => setOpen(true)}>
         {t("hosts.onboardingProgress.view")}
       </Button>
       {host.onboarding.state === "install_failed" &&
@@ -55,7 +55,7 @@ export function HostOnboardingProgress({ host }: { host: Host }) {
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => {
+            onPress={() => {
               setOpen(false);
               setRetryOpen(true);
             }}

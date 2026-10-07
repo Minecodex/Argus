@@ -1,0 +1,314 @@
+/* One desktop shell language for both portals; Chat retains its own task area. */
+.argus-app-shell {
+  --sidebar-width: var(--sidebar-expanded);
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100dvh;
+  overflow: hidden;
+  font-size: var(--text-body);
+}
+.argus-app-shell:has(.argus-sidebar.is-collapsed) {
+  --sidebar-width: var(--sidebar-compact);
+}
+.argus-app-main {
+  grid-area: 1 / 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.argus-page__title {
+  overflow-wrap: anywhere;
+}
+.argus-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 30;
+  width: var(--sidebar-width);
+  padding: 0 var(--space-3);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.argus-sidebar__head {
+  height: var(--header-height);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--action-gap);
+}
+.argus-sidebar__nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3) 0;
+}
+.argus-sidebar__footer {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: auto;
+}
+.argus-sidebar__action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--action-gap);
+  padding: var(--space-3) 0;
+}
+.argus-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+  color: var(--text-primary);
+  text-decoration: none;
+  min-width: 0;
+}
+.argus-brand__mark {
+  width: var(--control-sm);
+  height: var(--control-sm);
+  display: grid;
+  place-items: center;
+  border-radius: var(--control-radius);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.argus-brand__mark--platform {
+  background: var(--info);
+}
+.argus-brand__name {
+  font-size: var(--font-size-16);
+  font-weight: 650;
+  line-height: 1;
+}
+.argus-brand__name small {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-10);
+  font-weight: 400;
+}
+.argus-nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+.argus-nav-section__label {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-help);
+  color: var(--text-tertiary);
+}
+.argus-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+  min-height: var(--control-md);
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+  border-radius: var(--control-radius);
+  text-decoration: none;
+}
+.argus-nav-item > span {
+  flex: 1;
+  min-width: 0;
+}
+.argus-nav-item:hover,
+.argus-nav-item.active,
+.argus-nav-item.is-active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.argus-nav-item.active,
+.argus-nav-item.is-active {
+  background: var(--accent-soft);
+  color: var(--brand-highlight);
+}
+.argus-sidebar.is-collapsed .argus-brand__name,
+.argus-sidebar.is-collapsed .argus-nav-section__label,
+.argus-sidebar.is-collapsed .argus-nav-item > span,
+.argus-sidebar.is-collapsed .argus-nav-item > .argus-badge {
+  display: none;
+}
+.argus-sidebar.is-collapsed .argus-nav-item {
+  justify-content: center;
+  padding: 0;
+}
+.argus-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+  min-height: var(--header-height);
+  height: var(--header-height);
+  padding: 0 var(--page-padding);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-canvas);
+}
+.argus-topbar__title {
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+  min-width: 0;
+}
+.argus-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+  margin-left: auto;
+}
+.argus-page-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--page-padding);
+  overflow-y: auto;
+}
+.argus-chat-shell .argus-page-content {
+  padding: 0;
+}
+.argus-page {
+  gap: var(--section-gap);
+}
+.argus-page__header {
+  gap: var(--space-2);
+}
+.argus-page__titlebar {
+  align-items: center;
+  gap: var(--field-gap);
+}
+.argus-page__title {
+  font-size: var(--text-heading);
+  font-weight: 650;
+}
+.argus-page__description {
+  margin-top: var(--space-1);
+  font-size: var(--text-help);
+}
+.argus-page__actions {
+  gap: var(--action-gap);
+  flex-wrap: wrap;
+}
+.argus-page__content {
+  gap: var(--section-gap);
+}
+.argus-user-menu {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+  padding: 0 var(--space-2);
+  border: 0;
+  color: var(--text-primary);
+  background: transparent;
+}
+.argus-user-menu > span {
+  min-width: 0;
+  text-align: left;
+  line-height: 1.15;
+}
+.argus-user-menu b {
+  display: block;
+  font-size: var(--text-help);
+  font-weight: 600;
+}
+.argus-user-menu small {
+  display: block;
+  font-size: var(--font-size-10);
+  color: var(--text-tertiary);
+}
+.argus-sidebar__collapse {
+  margin-left: auto;
+}
+.argus-sidebar.is-collapsed .argus-sidebar__head {
+  justify-content: center;
+}
+.argus-sidebar.is-collapsed .argus-sidebar__collapse {
+  margin-left: 0;
+}
+.argus-sidebar.is-collapsed .argus-platform-isolation {
+  display: none;
+}
+.argus-chat-history {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.argus-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.argus-sessions > .argus-button {
+  justify-content: space-between;
+  text-align: left;
+  gap: var(--space-1);
+}
+.argus-sessions > .argus-button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.argus-sessions small {
+  font-size: var(--font-size-10);
+  color: var(--text-tertiary);
+}
+.argus-sessions .is-active {
+  background: var(--accent-soft);
+  color: var(--brand-highlight);
+}
+.argus-chat-admin-link {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+  min-height: var(--control-md);
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-secondary);
+  border-radius: var(--control-radius);
+}
+.argus-chat-admin-link:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.argus-table th,
+.argus-table td {
+  min-height: var(--record-height);
+  height: var(--record-height);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-body);
+}
+.argus-table th {
+  font-size: var(--text-help);
+  color: var(--text-tertiary);
+  background: var(--bg-elevated);
+}
+.argus-table-wrap {
+  border-radius: var(--card-radius);
+  border-color: var(--border-default);
+}
+.argus-card {
+  border-radius: var(--card-radius);
+  border-color: var(--border-default);
+  box-shadow: none;
+}
+.argus-card__header,
+.argus-card__content,
+.argus-card__footer {
+  padding: var(--card-padding);
+}
+.argus-card__header + .argus-card__content {
+  padding-top: 0;
+}
+.argus-filter-bar {
+  gap: var(--action-gap);
+  align-items: center;
+}
+.argus-mobile-menu,
+.argus-mobile-close,
+.argus-mobile-scrim {
+  display: none;
+}

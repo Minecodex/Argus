@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { QueryBoundary } from "@argus/ui";
 import {
   useApi,
   type KubernetesCluster,
@@ -34,9 +35,12 @@ export function KubernetesPage() {
   const queryClient = useQueryClient();
   const [formState, setFormState] = useState<ClusterFormState | null>(null);
   const [deleting, setDeleting] = useState<KubernetesCluster | null>(null);
-  const [deleteAction, setDeleteAction] =
-    useState<PendingActionPublic | null>(null);
-  const [installTarget, setInstallTarget] = useState<KubernetesCluster | null>(null);
+  const [deleteAction, setDeleteAction] = useState<PendingActionPublic | null>(
+    null,
+  );
+  const [installTarget, setInstallTarget] = useState<KubernetesCluster | null>(
+    null,
+  );
 
   const clustersQuery = useQuery({
     queryKey: ["kubernetes", "clusters"],
@@ -62,7 +66,7 @@ export function KubernetesPage() {
     <PageShell
       actions={
         <Button
-          onClick={() => setFormState({ mode: "create" })}
+          onPress={() => setFormState({ mode: "create" })}
           variant="primary"
         >
           {t("kubernetes.addCluster")}
@@ -71,72 +75,80 @@ export function KubernetesPage() {
       description={t("kubernetes.subtitle")}
       title={t("kubernetes.title")}
     >
-      {clustersQuery.isLoading ? (
-        <Spinner label={t("common.loading")} />
-      ) : clustersQuery.isError ? (
-        <EmptyState
-          description={t("kubernetes.loadFailed")}
-          kind="error"
-          title={t("kubernetes.title")}
-        />
-      ) : clusters.length === 0 ? (
-        <EmptyState
-          action={
-            <Button
-              onClick={() => setFormState({ mode: "create" })}
-              variant="primary"
-            >
-              {t("kubernetes.addCluster")}
-            </Button>
-          }
-          description={t("kubernetes.empty.description")}
-          title={t("kubernetes.empty.title")}
-        />
-      ) : (
-        <div className="argus-k8s-cluster-grid">
-          {clusters.map((cluster) => (
-            <ClusterCard
-              cluster={cluster}
-              key={cluster.id}
-              onDelete={() => setDeleting(cluster)}
-              onEdit={() => setFormState({ mode: "edit", cluster })}
-              onInstallCollector={realMode ? undefined : () => setInstallTarget(cluster)}
-              onOpen={() =>
-                void navigate({
-                  to: "/kubernetes/$clusterId",
-                  params: { clusterId: cluster.id },
-                })
-              }
-              onOpenCollector={realMode ? undefined : () =>
-                void navigate({
-                  to: "/kubernetes/$clusterId",
-                  params: { clusterId: cluster.id },
-                  hash: "otlp-collector",
-                })
-              }
-            />
-          ))}
-        </div>
-      )}
-
+      <QueryBoundary query={clustersQuery}>
+        {clustersQuery.isLoading ? (
+          <Spinner label={t("common.loading")} />
+        ) : clustersQuery.isError ? (
+          <EmptyState
+            description={t("kubernetes.loadFailed")}
+            kind="error"
+            title={t("kubernetes.title")}
+          />
+        ) : clusters.length === 0 ? (
+          <EmptyState
+            action={
+              <Button
+                onPress={() => setFormState({ mode: "create" })}
+                variant="primary"
+              >
+                {t("kubernetes.addCluster")}
+              </Button>
+            }
+            description={t("kubernetes.empty.description")}
+            title={t("kubernetes.empty.title")}
+          />
+        ) : (
+          <div className="argus-k8s-cluster-grid">
+            {clusters.map((cluster) => (
+              <ClusterCard
+                cluster={cluster}
+                key={cluster.id}
+                onDelete={() => setDeleting(cluster)}
+                onEdit={() => setFormState({ mode: "edit", cluster })}
+                onInstallCollector={
+                  realMode ? undefined : () => setInstallTarget(cluster)
+                }
+                onOpen={() =>
+                  void navigate({
+                    to: "/kubernetes/$clusterId",
+                    params: { clusterId: cluster.id },
+                  })
+                }
+                onOpenCollector={
+                  realMode
+                    ? undefined
+                    : () =>
+                        void navigate({
+                          to: "/kubernetes/$clusterId",
+                          params: { clusterId: cluster.id },
+                          hash: "otlp-collector",
+                        })
+                }
+              />
+            ))}
+          </div>
+        )}
+      </QueryBoundary>
       <ClusterFormDrawer onClose={() => setFormState(null)} state={formState} />
 
-      {!realMode && <FormDrawer
-        footer={<></>}
-        onOpenChange={(open) => {
-          if (!open) setInstallTarget(null);
-        }}
-        open={installTarget !== null}
-        title={`${t("kubernetes.collector.startInstall")} · ${installTarget?.name ?? ""}`}
-        width={720}
-      >
-        {installTarget && (
-          <CollectorWizard
-            cluster={installTarget}
-            onInstalled={() => setInstallTarget(null)}
-          />
-        )}
-      </FormDrawer>}
+      {!realMode && (
+        <FormDrawer
+          footer={<></>}
+          onOpenChange={(open) => {
+            if (!open) setInstallTarget(null);
+          }}
+          open={installTarget !== null}
+          title={`${t("kubernetes.collector.startInstall")} · ${installTarget?.name ?? ""}`}
+          width={720}
+        >
+          {installTarget && (
+            <CollectorWizard
+              cluster={installTarget}
+              onInstalled={() => setInstallTarget(null)}
+            />
+          )}
+        </FormDrawer>
+      )}
 
       <ConfirmDialog
         confirmLabel={t("kubernetes.deleteDialog.confirm")}

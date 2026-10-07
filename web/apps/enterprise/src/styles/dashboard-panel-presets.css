@@ -1,0 +1,52 @@
+.argus-panel-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--field-gap);
+}
+.argus-panel-preset-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--field-gap);
+  padding-top: var(--field-gap);
+}
+.argus-panel-preset-toolbar > .argus-search-input {
+  width: var(--field-width-compact);
+}
+.argus-panel-preset-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--action-gap);
+  margin: 0;
+  background: var(--bg-surface);
+}
+.argus-panel-preset-card > svg {
+  width: var(--space-6);
+  height: var(--space-6);
+}
+.argus-panel-preset-card .argus-scenario-card__desc {
+  margin: 0;
+  font-weight: 400;
+}
+.argus-panel-preset-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--action-gap);
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+  font-weight: 400;
+  margin-top: auto;
+}
+.argus-panel-preset-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--field-gap);
+  width: 100%;
+}
+.argus-panel-preset-footer > p {
+  flex: 1;
+}

@@ -9,7 +9,7 @@ for (const [locale, theme] of [
   ["zh-CN", "light"],
   ["en-US", "dark"],
 ]) {
-  test(`eleven real Metrics charts preserve values, units and histogram buckets ${locale} ${theme}`, async ({
+  test(`PlanV2 redesign real: eleven Metrics charts preserve values, units and histogram buckets ${locale} ${theme}`, async ({
     page,
   }, info) => {
     test.skip(

@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   auditPresentationKey,
@@ -13,13 +12,13 @@ import {
   CardHeader,
   DataTable,
   EmptyState,
-  MetricChart,
   PageShell,
-  Spinner,
+  QueryBoundary,
   StatCard,
   StatusBadge,
 } from "@argus/ui";
-import { formatDateTime, platformUsageSeries } from "../lib/format";
+import { formatDateTime } from "../lib/format";
+import { PlatformUsageChart } from "../components/platform-usage-chart";
 
 type AuditRow = {
   id: string;
@@ -45,43 +44,15 @@ export function DashboardPage() {
       defaultValue: humanizeAuditCode(item.action),
     });
 
-  const enterprises = useQuery({
-    queryKey: ["platform", "enterprises"],
-    queryFn: () => api.platform.enterprises.list(),
-  });
-  const sessions = useQuery({
-    queryKey: ["platform", "sessions"],
-    queryFn: () => api.platform.sessions.list(),
-  });
-  const images = useQuery({
-    queryKey: ["platform", "images"],
-    queryFn: () => api.platform.images.list(),
-  });
-  const admins = useQuery({
-    queryKey: ["platform", "admins"],
-    queryFn: () => api.platform.admins.list(),
+  const overview = useQuery({
+    queryKey: ["platform", "overview"],
+    queryFn: ({ signal }) => api.platform.overview.get(signal),
   });
   const audit = useQuery({
     queryKey: ["platform", "audit", "recent"],
     queryFn: () => api.platform.audit.list(),
   });
 
-  const enterpriseItems = enterprises.data?.items ?? [];
-  const activeEnterprises = enterpriseItems.filter(
-    (item) => item.status === "active",
-  ).length;
-  const activeSessions = (sessions.data ?? []).filter((item) =>
-    ["requested", "starting", "running", "idle"].includes(item.status),
-  ).length;
-  const pendingInvites = (admins.data ?? []).filter(
-    (item) => item.credentialStatus === "temporary_password",
-  ).length;
-  const pendingImages = (images.data ?? []).filter(
-    (item) =>
-      item.scanStatus !== "passed" || item.signatureStatus !== "verified",
-  ).length;
-
-  const usage = useMemo(() => platformUsageSeries(14), []);
   const recentEvents: AuditRow[] = (audit.data?.items ?? [])
     .slice(0, 8)
     .map((item) => ({
@@ -104,90 +75,81 @@ export function DashboardPage() {
       title={t("dashboard.title")}
     >
       <div className="argus-platform-stack">
-        <div className="argus-stat-row">
-          <StatCard
-            label={t("dashboard.stats.enterprises")}
-            tone="accent"
-            value={enterpriseItems.length}
-          />
-          <StatCard
-            label={t("dashboard.stats.activeEnterprises")}
-            tone="success"
-            value={activeEnterprises}
-          />
-          <StatCard
-            label={t("dashboard.stats.activeSessions")}
-            tone="info"
-            value={activeSessions}
-          />
-          <StatCard
-            detail={t("dashboard.pendingDetail", {
-              invites: pendingInvites,
-              images: pendingImages,
-            })}
-            label={t("dashboard.stats.pending")}
-            tone={pendingInvites + pendingImages > 0 ? "warning" : "neutral"}
-            value={pendingInvites + pendingImages}
-          />
-        </div>
+        <QueryBoundary query={overview}>
+          {overview.data && (
+            <>
+              <div className="argus-stat-row">
+                <StatCard
+                  label={t("dashboard.stats.enterprises")}
+                  tone="accent"
+                  value={overview.data.enterprise_count}
+                />
+                <StatCard
+                  label={t("dashboard.stats.activeEnterprises")}
+                  tone="success"
+                  value={overview.data.active_enterprise_count}
+                />
+                <StatCard
+                  label={t("dashboard.stats.activeSessions")}
+                  tone="info"
+                  value={overview.data.active_sandbox_session_count}
+                />
+                <StatCard
+                  detail={t("dashboard.pendingDetail")}
+                  label={t("dashboard.stats.pending")}
+                  tone={
+                    overview.data.pending_admin_count > 0
+                      ? "warning"
+                      : "neutral"
+                  }
+                  value={overview.data.pending_admin_count}
+                />
+              </div>
 
-        <Card>
-          <CardHeader title={t("dashboard.usage.title")} />
-          <CardContent>
-            <MetricChart
-              labels={usage.map((point) => point.label)}
-              series={[
-                {
-                  name: t("dashboard.usage.sessions"),
-                  points: usage.map((point) => point.sessions),
-                },
-                {
-                  name: t("dashboard.usage.minutes"),
-                  points: usage.map((point) => point.sessionMinutes),
-                },
-              ]}
-              showLegend
-              type="area"
-            />
-          </CardContent>
-        </Card>
+              <PlatformUsageChart overview={overview.data} />
+            </>
+          )}
+        </QueryBoundary>
 
         <Card>
           <CardHeader title={t("dashboard.recent.title")} />
           <CardContent>
-            {audit.isPending ? (
-              <Spinner />
-            ) : recentEvents.length === 0 ? (
-              <EmptyState description="" title={t("dashboard.recent.empty")} />
-            ) : (
-              <DataTable<AuditRow>
-                columns={[
-                  {
-                    key: "createdAt",
-                    header: t("dashboard.recent.time"),
-                    render: (row) =>
-                      formatDateTime(row.createdAt, i18n.language),
-                  },
-                  { key: "actorName", header: t("dashboard.recent.actor") },
-                  {
-                    key: "actionLabel",
-                    header: t("dashboard.recent.action"),
-                  },
-                  { key: "summary", header: t("dashboard.recent.summary") },
-                  {
-                    key: "result",
-                    header: t("dashboard.recent.result"),
-                    render: (row) => (
-                      <StatusBadge tone={resultTone(row.result)}>
-                        {t(`audit.results.${row.result}`)}
-                      </StatusBadge>
-                    ),
-                  },
-                ]}
-                data={recentEvents}
-                getRowKey={(row) => row.id}
-              />
-            )}
+            <QueryBoundary query={audit}>
+              {recentEvents.length === 0 ? (
+                <EmptyState
+                  description=""
+                  title={t("dashboard.recent.empty")}
+                />
+              ) : (
+                <DataTable<AuditRow>
+                  columns={[
+                    {
+                      key: "createdAt",
+                      header: t("dashboard.recent.time"),
+                      render: (row) =>
+                        formatDateTime(row.createdAt, i18n.language),
+                    },
+                    { key: "actorName", header: t("dashboard.recent.actor") },
+                    {
+                      key: "actionLabel",
+                      header: t("dashboard.recent.action"),
+                    },
+                    { key: "summary", header: t("dashboard.recent.summary") },
+                    {
+                      key: "result",
+                      header: t("dashboard.recent.result"),
+                      render: (row) => (
+                        <StatusBadge tone={resultTone(row.result)}>
+                          {t(`audit.results.${row.result}`)}
+                        </StatusBadge>
+                      ),
+                    },
+                  ]}
+                  data={recentEvents}
+                  getRowKey={(row) => row.id}
+                />
+              )}
+            </QueryBoundary>
           </CardContent>
         </Card>
       </div>

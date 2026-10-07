@@ -461,6 +461,15 @@ func assertDeploymentSecret(t *testing.T, deployment *unstructured.Unstructured,
 
 func TestPKIControllerRBACSupportsStagedLeafCutover(t *testing.T) {
 	resources := renderPlatformResources(t, "evaluation")
+	trustSource := requireResource(t, resourcesByKind(resources, "Role"), "argus-e2e-local-pki-controller-trust-source")
+	if trustSource.GetNamespace() != "cert-manager" {
+		t.Fatal("trust-source role left cert-manager namespace")
+	}
+	trustBinding := requireResource(t, resourcesByKind(resources, "RoleBinding"), "argus-e2e-local-pki-controller-trust-source")
+	name, _, _ := unstructured.NestedString(trustBinding.Object, "roleRef", "name")
+	if name != trustSource.GetName() {
+		t.Fatal("trust-source binding does not point to its own release role")
+	}
 	runtimeConfig := requireResource(t, resourcesByKind(resources, "ConfigMap"), "argus-runtime-config")
 	if runtimeConfig.GetLabels()["argus.io/release-id"] != "argus-e2e-local" {
 		t.Fatal("runtime issuer ConfigMap is not protected by release ownership metadata")
@@ -480,9 +489,8 @@ func TestPKIControllerRBACSupportsStagedLeafCutover(t *testing.T) {
 	}
 
 	wantNamespaces := map[string]bool{
-		"argus-e2e-local-system":        false,
-		"argus-e2e-local-observability": false,
-		"argus-e2e-local-sandbox":       false,
+		"argus-e2e-local-system":  false,
+		"argus-e2e-local-sandbox": false,
 	}
 	for _, resource := range resources {
 		if resource.GetKind() != "Role" || resource.GetName() != "argus-pki-controller-material" {
@@ -770,7 +778,7 @@ func TestSplitWorkerNetworkPoliciesRemainProfileSpecific(t *testing.T) {
 	}
 }
 
-func renderPlatformResources(t *testing.T, profile string) []*unstructured.Unstructured {
+func renderPlatformResources(t *testing.T, profile string, configure ...func(*InstallConfig)) []*unstructured.Unstructured {
 	t.Helper()
 	root, err := findRepoRoot(".")
 	if err != nil {
@@ -779,6 +787,9 @@ func renderPlatformResources(t *testing.T, profile string) []*unstructured.Unstr
 	cfg, err := LoadConfig(filepath.Join(root, "deploy", "profiles", profile+".yaml"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, apply := range configure {
+		apply(cfg)
 	}
 	loaded, err := loadLocalChart(root, "argus-platform")
 	if err != nil {

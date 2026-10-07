@@ -2,9 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { dashboardsEn, dashboardsZh } from "../src/i18n/dashboards";
 import { createMfaLogin } from "./helpers/mfa-login";
 import { dashboardAPI } from "./helpers/planv2-api";
+import { setChoice } from "./helpers/choice";
 
 const login = createMfaLogin("enterprise");
-test.use({ viewport: { width: 1440, height: 1100 } });
+test.use({ viewport: { width: 1440, height: 1100 }, actionTimeout: 15000 });
 for (const english of [false, true]) {
   test(`real candidate pagination, cascades, local scope and explicit mapping ${english ? "en dark" : "zh light"}`, async ({
     page,
@@ -86,10 +87,10 @@ for (const english of [false, true]) {
     ).toHaveCount(0);
     await member
       .getByRole("checkbox", { name: "blue-220", exact: true })
-      .uncheck();
+      .press("Space");
     await member
       .getByRole("checkbox", { name: "blue-229", exact: true })
-      .check();
+      .press("Space");
     const selected = execution(page, id);
     await member.getByRole("button", { name: d.apply, exact: true }).click();
     const selectionResponse = await selected;
@@ -118,7 +119,9 @@ for (const english of [false, true]) {
       name: "local Instance",
       exact: true,
     });
-    await local.getByRole("radio", { name: "blue-005", exact: true }).check();
+    await setChoice(
+      local.getByRole("radio", { name: "blue-005", exact: true }),
+    );
     const locally = execution(page, id);
     await local.getByRole("button", { name: d.apply, exact: true }).click();
     const localResponse = await locally;
@@ -142,7 +145,7 @@ for (const english of [false, true]) {
 
     await page.getByRole("button", { name: "Pool", exact: true }).click();
     const pool = page.getByRole("dialog", { name: "Pool", exact: true });
-    await pool.getByRole("radio", { name: "green", exact: true }).check();
+    await setChoice(pool.getByRole("radio", { name: "green", exact: true }));
     const changed = execution(page, id);
     await pool.getByRole("button", { name: d.apply, exact: true }).click();
     const changedResponse = await changed;
@@ -226,7 +229,8 @@ for (const english of [false, true]) {
     // Top-level All can contain Hosts and Clusters. Local Catalog must still
     // send only the resolved resources applicable to this Panel.
     const resourcesButton = page.getByRole("button", {
-      name: new RegExp(`^${d.resources}:`),
+      name: d.resources,
+      exact: true,
     });
     const resources = page.getByRole("dialog", {
       name: d.chooseResources,
@@ -234,7 +238,10 @@ for (const english of [false, true]) {
     });
     await resourcesButton.click();
     const allExecution = execution(page, id);
-    await resources.getByRole("button", { name: d.all, exact: true }).click();
+    await setChoice(
+      resources.getByRole("checkbox", { name: d.all, exact: true }),
+    );
+    await resources.getByRole("button", { name: d.apply, exact: true }).click();
     const allScope = await (await allExecution).json();
     expect(
       allScope.resources.some((r: { type: string }) => r.type === "host"),
@@ -262,10 +269,10 @@ for (const english of [false, true]) {
     await resourcesButton.click();
     // Keep locator positions stable while changing checked state.
     for (const checkbox of await resources.getByRole("checkbox").all())
-      await checkbox.uncheck();
-    await resources
-      .getByRole("checkbox", { name: host.name, exact: true })
-      .check();
+      await setChoice(checkbox, false);
+    await setChoice(
+      resources.getByRole("checkbox", { name: host.name, exact: true }),
+    );
     const switched = execution(page, id);
     await resources.getByRole("button", { name: d.apply, exact: true }).click();
     const hostScope = await (await switched).json();

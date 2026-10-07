@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/app/argusctl"
 	"io"
 	"net"
 	"os"
@@ -25,6 +26,7 @@ import (
 )
 
 type E2EOptions struct {
+	SharedController    *argusctl.SharedSandboxController
 	Suite               string
 	KubeContext         string
 	RunID               string
@@ -106,6 +108,7 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	artifacts := flags.String("artifacts", envOr("ARGUS_E2E_ARTIFACTS", ""), "artifact directory")
 	unitOnly := flags.Bool("unit-only", envBool("ARGUS_E2E_UNIT_ONLY"), "run the suite's non-cluster gate only")
 	argusctl := flags.String("argusctl", envOr("ARGUS_E2E_ARGUSCTL", envOr("ARGUSCTL_BIN", "")), "existing argusctl binary")
+	sharedControllerConfig := flags.String("shared-controller-config", "", "existing trusted Argus install config containing the shared controller namespace and immutable image digest; never modifies that controller")
 	realModelPath := flags.String("real-model-config", "", "P5 or PlanV2 real-model benchmark JSON configuration (API key from named environment variable)")
 	runtimeOnly := flags.Bool("planv2-runtime-only", false, "PlanV2 runtime/protocol/fault acceptance without browser tests; reported as partial scope")
 	browserGrep := flags.String("planv2-browser-grep", "", "run matching PlanV2 browser cases plus runtime; records the selected scope")
@@ -150,6 +153,13 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 		*artifacts = filepath.Join(a.root, *artifacts)
 	}
 	options := E2EOptions{Suite: *suite, KubeContext: *kubeContext, RunID: *runID, Artifacts: *artifacts, UnitOnly: *unitOnly, Argusctl: *argusctl, PlanV2RuntimeOnly: *runtimeOnly}
+	if *sharedControllerConfig != "" {
+		cfg, err := loadE2ESharedController(*sharedControllerConfig)
+		if err != nil {
+			return err
+		}
+		options.SharedController = cfg
+	}
 	options.PlanV2BrowserGrep = *browserGrep
 	options.PlanV2RealModelOnly = *realModelOnly
 	if *modelGroups != "" {
@@ -201,7 +211,7 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 		}
 		options.KubeContext = contextName
 	}
-	if report := a.doctorWithOptions(ctx, "e2e", doctorOptions{KubeContext: options.KubeContext, E2ESuite: options.Suite}); !report.Ready {
+	if report := a.doctorWithOptions(ctx, "e2e", doctorOptions{KubeContext: options.KubeContext, E2ESuite: options.Suite, SharedController: options.SharedController}); !report.Ready {
 		_ = writeDoctor(a.stderr, "text", report)
 		return fmt.Errorf("%w: doctor e2e found missing requirements", errCapability)
 	}
@@ -385,11 +395,16 @@ func (a *App) writeE2EConfig(env *E2EEnvironment, profile string) (string, error
 	spec["releaseId"] = env.ReleaseID
 	spec["namespaces"] = map[string]any{"system": env.SystemNS, "sandbox": env.SandboxNS, "observability": env.ObservNS}
 	workspace := nestedMap(spec, "workspace")
+	workspace["storageNamespace"] = env.SystemNS
 	workspace["storageClass"] = "argus-workspace"
 	workspace["defaultBytes"] = int64(256 << 20)
 	workspace["maxFileBytes"] = int64(100 << 20)
 	if env.Options.Suite == "p5" {
 		nestedMap(spec, "openSandbox")["enabled"] = false
+	}
+	if env.Options.SharedController != nil {
+		nestedMap(spec, "openSandbox")["sharedController"] = env.Options.SharedController
+		nestedMap(spec, "openSandbox")["allowSharedRuntime"] = true
 	}
 	// Ingress-nginx rejects duplicate host/path pairs across namespaces. Give
 	// every E2E release its own DNS suffix so a suite can coexist with a local
@@ -420,6 +435,11 @@ func (a *App) writeE2EConfig(env *E2EEnvironment, profile string) (string, error
 	}
 	images := nestedMap(spec, "images")
 	images["tag"] = env.ImageTag
+	if env.ArtifactSigning != nil {
+		telemetry := nestedMap(spec, "telemetry")
+		telemetry["signingKeyId"] = env.ArtifactSigning.KeyID
+		telemetry["signingPublicKey"] = base64.RawStdEncoding.EncodeToString(env.ArtifactSigning.PublicKey)
+	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return "", err
@@ -468,6 +488,9 @@ func (a *App) invokeArgusctl(ctx context.Context, env *E2EEnvironment, args ...s
 	variables := map[string]string{}
 	if env.Endpoints != nil {
 		variables["ARGUSCTL_HTTPS_PROBE_ADDRESS"] = env.Endpoints.IngressDialAddress
+		if env.IngressNS != "" {
+			variables["ARGUSCTL_CONNECTOR_FORWARD_ADDRESS"] = env.Endpoints.ConnectorDialAddress
+		}
 	}
 	if env.ArtifactSigning != nil && len(env.ArtifactSigning.PrivateKey) == ed25519.PrivateKeySize {
 		variables["ARGUS_OTELCOL_SIGNING_PRIVATE_KEY"] = base64.RawStdEncoding.EncodeToString(env.ArtifactSigning.PrivateKey)
@@ -511,6 +534,9 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 		record("delete remote E2E image tags", a.removeRemoteE2EImages(cleanupCtx, env))
 	}
 	if env.installAttempted && env.Argusctl != "" && env.ConfigPath != "" {
+		if env.IngressNS != "" && env.Kube != nil {
+			record("clean unallocated local gateway service", env.Kube.CleanupUnallocatedLocalService(cleanupCtx, env.SystemNS, "argus-connector-gateway-public", env.ReleaseID))
+		}
 		record("uninstall Argus", a.invokeArgusctl(cleanupCtx, env, "uninstall", "--config", env.ConfigPath, "--delete-data", "--delete-owned-crds", "--yes"))
 	} else if env.imagesAttempted && env.Argusctl != "" && env.ConfigPath != "" {
 		record("clean E2E images", a.invokeArgusctl(cleanupCtx, env, "images", "clean", "--config", env.ConfigPath))

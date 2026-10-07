@@ -67,6 +67,7 @@ func (a *App) pauseFormalWorkloads(ctx context.Context, env *E2EEnvironment) err
 }
 func restoreFormalWorkloads(ctx context.Context, env *E2EEnvironment) error {
 	var failures []error
+	var waiting []pausedWorkload
 	for _, item := range env.Paused {
 		if !item.Applied {
 			continue
@@ -84,9 +85,14 @@ func restoreFormalWorkloads(ctx context.Context, env *E2EEnvironment) error {
 			continue
 		}
 		if item.Kind == "Deployment" {
-			if err := env.Kube.WaitDeployment(ctx, item.Namespace, item.Name, 5*time.Minute); err != nil {
-				failures = append(failures, err)
-			}
+			waiting = append(waiting, item)
+		}
+	}
+	// Restore all replica counts before waiting: applications need PostgreSQL,
+	// Kafka and ClickHouse, which may appear after them in the recorded list.
+	for _, item := range waiting {
+		if err := env.Kube.WaitDeployment(ctx, item.Namespace, item.Name, 5*time.Minute); err != nil {
+			failures = append(failures, err)
 		}
 	}
 	return errors.Join(failures...)

@@ -46,7 +46,7 @@ func (a *App) status(ctx context.Context, cfg *InstallConfig, output string) err
 		profile := discoverNetworkProfile(ctx, clients, cfg)
 		report.Network = &profile
 	}
-	for _, namespace := range []string{cfg.Spec.Namespaces.System, cfg.Spec.Namespaces.Sandbox, cfg.Spec.Namespaces.Observability} {
+	for _, namespace := range cfg.applicationNamespaces() {
 		pods, listErr := clients.typed.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 		if listErr != nil {
 			report.Ready = false

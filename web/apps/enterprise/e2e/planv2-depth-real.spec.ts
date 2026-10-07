@@ -2,9 +2,11 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { dashboardsEn, dashboardsZh } from "../src/i18n/dashboards";
 import { createMfaLogin } from "./helpers/mfa-login";
+import { setChoice } from "./helpers/choice";
 import { dashboardAPI, objectGrant } from "./helpers/planv2-api";
 
 const login = createMfaLogin("enterprise");
+test.use({ actionTimeout: 15000 });
 const editorLogin = createMfaLogin("enterprise", "EDITOR");
 const board = process.env.ARGUS_PLANV2_DEPTH_ID!;
 const cluster = process.env.ARGUS_PLANV2_CLUSTER_ID!;
@@ -137,9 +139,9 @@ for (const [locale, theme] of [
     await expect(
       dialog.getByRole("checkbox", { name: "source_id", exact: true }),
     ).toBeVisible();
-    await dialog
-      .getByRole("checkbox", { name: "source_id", exact: true })
-      .check();
+    await setChoice(
+      dialog.getByRole("checkbox", { name: "source_id", exact: true }),
+    );
     await dialog.screenshot({
       path: info.outputPath("log-context-fields.png"),
     });
@@ -177,10 +179,11 @@ for (const [locale, theme] of [
       name: "Cross-resource trace Collection source",
       exact: true,
     });
-    await chooser
-      .getByRole("checkbox", { name: tx("全部", "All"), exact: true })
-      .uncheck();
-    await chooser.locator(`input[value="${oldSource}"]`).check();
+    await setChoice(
+      chooser.getByRole("checkbox", { name: tx("全部", "All"), exact: true }),
+      false,
+    );
+    await setChoice(chooser.locator(`input[value="${oldSource}"]`));
     const changed = page.waitForResponse(
       (r) =>
         r.url().endsWith(`/dashboards/${board}/execute`) && r.status() === 200,
@@ -239,8 +242,8 @@ for (const [locale, theme] of [
     await page.getByRole("button", { name: "Pool", exact: true }).click();
     const chooser = page.getByRole("dialog", { name: "Pool", exact: true });
     for (const checkbox of await chooser.getByRole("checkbox").all())
-      await checkbox.uncheck();
-    await chooser.getByRole("radio", { name: "green", exact: true }).check();
+      await setChoice(checkbox, false);
+    await setChoice(chooser.getByRole("radio", { name: "green", exact: true }));
     const changed = page.waitForResponse(
       (r) =>
         r.url().endsWith(`/dashboards/${id}/execute`) && r.status() === 200,

@@ -24,7 +24,7 @@
   padding: 0 var(--space-px-18);
   display: flex;
   align-items: center;
-  gap: var(--space-px-10);
+  gap: var(--action-gap);
   flex-shrink: 0;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -32,7 +32,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   font-size: var(--font-size-13);
   font-weight: 650;
   color: var(--text-primary);
@@ -45,7 +45,7 @@
 .argus-chat__title-edit {
   display: flex;
   align-items: center;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
 }
 .argus-chat__title-edit .argus-input {
   width: 260px;
@@ -54,14 +54,14 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
 }
 .argus-chat__model-select {
   width: min(240px, 32vw);
   height: 32px;
 }
 .argus-chat__header-actions .argus-button.is-active {
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-soft);
 }
 
@@ -74,7 +74,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-px-10);
+  gap: var(--action-gap);
   padding: var(--space-px-32) var(--space-px-24);
   text-align: center;
 }
@@ -106,7 +106,7 @@
   margin-top: var(--space-px-18);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-px-10);
+  gap: var(--action-gap);
   width: min(640px, 100%);
 }
 .argus-chat-welcome__example {
@@ -140,23 +140,23 @@
   outline-offset: -2px;
 }
 .argus-chat-stream__inner {
-  width: min(820px, 100%);
+  width: min(var(--chat-content-width), 100%);
   margin: 0 auto;
   padding: 0 var(--space-px-24);
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-20);
+  gap: var(--section-gap);
 }
 
 .argus-chat-message {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-7);
+  gap: var(--action-gap);
 }
 .argus-chat-message__who {
   display: flex;
   align-items: center;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   font-size: var(--font-size-12);
 }
 .argus-chat-message__who b {
@@ -173,7 +173,7 @@
   place-items: center;
   border-radius: var(--radius-8);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .argus-chat-message__body {
   margin-left: var(--space-px-32);
@@ -184,7 +184,7 @@
   word-break: break-word;
 }
 .argus-chat-message__card-link {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 .argus-chat-message--user .argus-chat-message__body {
@@ -201,7 +201,7 @@
 }
 .argus-chat-message__caret::after {
   content: "▍";
-  color: var(--accent);
+  color: var(--accent-text);
   animation: argus-chat-blink 1s steps(2) infinite;
 }
 @keyframes argus-chat-blink {
@@ -213,7 +213,7 @@
   margin-left: var(--space-px-32);
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-10);
+  gap: var(--action-gap);
 }
 
 /* ---------- 工具调用 trace ---------- */
@@ -227,7 +227,7 @@
   padding: var(--space-px-7) var(--space-px-11);
   display: flex;
   align-items: center;
-  gap: var(--space-px-7);
+  gap: var(--action-gap);
   border: 0;
   background: transparent;
   color: var(--text-tertiary);
@@ -248,12 +248,12 @@
   padding: var(--space-px-2) var(--space-px-11) var(--space-px-9);
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
 }
 .argus-chat-trace__row {
   display: flex;
   align-items: center;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   font-size: var(--font-size-12);
 }
 .argus-chat-trace__row code {
@@ -294,7 +294,7 @@
 }
 .argus-chat-action__task-link {
   margin-left: var(--space-px-8);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 .argus-chat-action__task-link:hover {
@@ -307,21 +307,21 @@
   padding: var(--space-px-10) var(--space-px-24) var(--space-px-14);
 }
 .argus-chat-composer__inner {
-  width: min(820px, 100%);
+  width: min(var(--chat-content-width), 100%);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
 }
 .argus-chat-composer__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
 }
 .argus-chat-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-px-5);
+  gap: var(--action-gap);
   padding: var(--space-px-3) var(--space-px-6) var(--space-px-3)
     var(--space-px-9);
   border: 1px solid var(--border-default);
@@ -337,8 +337,7 @@
   display: grid;
   place-items: center;
   border: 0;
-  padding: var(--space-px-1);
-  border-radius: var(--radius-round);
+
   background: transparent;
   color: var(--text-disabled);
   cursor: pointer;
@@ -372,7 +371,7 @@
   padding: var(--space-px-4) var(--space-px-8) var(--space-px-8);
   display: flex;
   align-items: center;
-  gap: var(--space-px-4);
+  gap: var(--space-1);
 }
 .argus-chat-composer__toolbar > span {
   margin-left: var(--space-px-6);
@@ -417,12 +416,12 @@
   padding: 0 var(--space-px-6) var(--space-px-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-1);
+  gap: var(--space-1);
 }
 .argus-chat-picker__item {
   display: flex;
   align-items: center;
-  gap: var(--space-px-9);
+  gap: var(--action-gap);
   padding: var(--space-px-7) var(--space-px-9);
   border: 0;
   border-radius: var(--radius-sm);
@@ -456,14 +455,14 @@
   padding: var(--space-px-16) var(--space-px-14);
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-12);
+  gap: var(--field-gap);
   border-left: 1px solid var(--border-subtle);
   background: color-mix(in srgb, var(--bg-sidebar) 45%, transparent);
 }
 .argus-chat-context__head {
   display: flex;
   align-items: center;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   color: var(--text-tertiary);
   font-size: var(--font-size-10);
   font-weight: 650;
@@ -476,7 +475,7 @@
 .argus-chat-context__section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px-7);
+  gap: var(--action-gap);
 }
 .argus-chat-context__label {
   color: var(--text-tertiary);
@@ -492,7 +491,7 @@
 .argus-chat-context__ref {
   display: flex;
   align-items: center;
-  gap: var(--space-px-8);
+  gap: var(--action-gap);
   padding: var(--space-px-7) var(--space-px-10);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -500,7 +499,7 @@
   font-size: var(--font-size-12);
 }
 .argus-chat-context__ref svg {
-  color: var(--accent);
+  color: var(--accent-text);
   flex-shrink: 0;
 }
 .argus-chat-context__ref small {
@@ -511,7 +510,7 @@
 .argus-chat-context__roles {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-px-6);
+  gap: var(--action-gap);
 }
 
 @media (max-width: 1080px) {

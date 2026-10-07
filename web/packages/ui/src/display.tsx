@@ -12,6 +12,7 @@ export function Progress({
   tone?: "accent" | "success" | "warning" | "danger";
   label?: string;
 }) {
+  const text = useUiText();
   return (
     <div className="argus-progress-wrap">
       {label && (
@@ -21,7 +22,7 @@ export function Progress({
         </div>
       )}
       <div
-        aria-label={label}
+        aria-label={label ?? text("进度", "Progress")}
         aria-valuemax={100}
         aria-valuemin={0}
         aria-valuenow={value}
@@ -155,8 +156,8 @@ export function Skeleton({
 export function Spinner({ label }: { label?: string }) {
   const text = useUiText();
   return (
-    <span className="argus-spinner">
-      <LoaderCircle className="argus-spin" size={16} />
+    <span className="argus-spinner" role="status" aria-live="polite">
+      <LoaderCircle aria-hidden className="argus-spin" size={16} />
       <span>{label ?? text("加载中", "Loading")}</span>
     </span>
   );

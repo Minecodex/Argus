@@ -1,3 +1,4 @@
+import { QueryBoundary } from "@argus/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState } from "react";
@@ -94,7 +95,8 @@ export function OrgPoliciesTab() {
           {t("settings.org.tabs.policies")}
         </h2>
         <Button
-          onClick={() => {
+          isDisabled={policies.isPending || policies.isError}
+          onPress={() => {
             setEditing(null);
             setDrawerOpen(true);
           }}
@@ -104,86 +106,88 @@ export function OrgPoliciesTab() {
           {t("settings.org.policiesTab.create")}
         </Button>
       </div>
-      {policies.isPending ? (
-        <Spinner />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          description=""
-          title={t("settings.org.policiesTab.empty")}
-        />
-      ) : (
-        <DataTable<PolicyRow>
-          columns={[
-            { key: "name", header: t("settings.common.name") },
-            {
-              key: "riskLevels",
-              header: t("settings.org.policiesTab.matchRiskLevels"),
-              render: (row) =>
-                row.riskLevels.length === 0 ? (
-                  t("settings.common.all")
-                ) : (
-                  <span className="argus-settings-inline-actions">
-                    {row.riskLevels.map((level) => (
-                      <Badge
-                        key={level}
-                        tone={
-                          level === "critical"
-                            ? "danger"
-                            : level === "dangerous"
-                              ? "warning"
-                              : "neutral"
-                        }
-                      >
-                        {t(`settings.org.policiesTab.riskLevels.${level}`)}
-                      </Badge>
-                    ))}
-                  </span>
+      <QueryBoundary query={policies} dependencies={[roles]}>
+        {policies.isPending ? (
+          <Spinner />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            description=""
+            title={t("settings.org.policiesTab.empty")}
+          />
+        ) : (
+          <DataTable<PolicyRow>
+            columns={[
+              { key: "name", header: t("settings.common.name") },
+              {
+                key: "riskLevels",
+                header: t("settings.org.policiesTab.matchRiskLevels"),
+                render: (row) =>
+                  row.riskLevels.length === 0 ? (
+                    t("settings.common.all")
+                  ) : (
+                    <span className="argus-settings-inline-actions">
+                      {row.riskLevels.map((level) => (
+                        <Badge
+                          key={level}
+                          tone={
+                            level === "critical"
+                              ? "danger"
+                              : level === "dangerous"
+                                ? "warning"
+                                : "neutral"
+                          }
+                        >
+                          {t(`settings.org.policiesTab.riskLevels.${level}`)}
+                        </Badge>
+                      ))}
+                    </span>
+                  ),
+              },
+              {
+                key: "minApprovers",
+                header: t("settings.org.policiesTab.minApprovers"),
+                render: (row) => String(row.minApprovers),
+              },
+              {
+                key: "approverRoleIds",
+                header: t("settings.org.policiesTab.approverRoles"),
+                render: (row) =>
+                  row.approverRoleIds.map(roleName).join(", ") || "—",
+              },
+              {
+                key: "enabled",
+                header: t("settings.common.status"),
+                render: (row) => (
+                  <StatusBadge tone={row.enabled ? "success" : "neutral"}>
+                    {row.enabled
+                      ? t("settings.common.enabled")
+                      : t("settings.common.disabled")}
+                  </StatusBadge>
                 ),
-            },
-            {
-              key: "minApprovers",
-              header: t("settings.org.policiesTab.minApprovers"),
-              render: (row) => String(row.minApprovers),
-            },
-            {
-              key: "approverRoleIds",
-              header: t("settings.org.policiesTab.approverRoles"),
-              render: (row) =>
-                row.approverRoleIds.map(roleName).join(", ") || "—",
-            },
-            {
-              key: "enabled",
-              header: t("settings.common.status"),
-              render: (row) => (
-                <StatusBadge tone={row.enabled ? "success" : "neutral"}>
-                  {row.enabled
-                    ? t("settings.common.enabled")
-                    : t("settings.common.disabled")}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "actions",
-              header: t("settings.common.actions"),
-              render: (row) => (
-                <RowAction
-                  onClick={() => {
-                    setEditing(
-                      policies.data?.find((policy) => policy.id === row.id) ??
-                        null,
-                    );
-                    setDrawerOpen(true);
-                  }}
-                >
-                  {t("settings.common.edit")}
-                </RowAction>
-              ),
-            },
-          ]}
-          data={rows}
-          getRowKey={(row) => row.id}
-        />
-      )}
+              },
+              {
+                key: "actions",
+                header: t("settings.common.actions"),
+                render: (row) => (
+                  <RowAction
+                    onPress={() => {
+                      setEditing(
+                        policies.data?.find((policy) => policy.id === row.id) ??
+                          null,
+                      );
+                      setDrawerOpen(true);
+                    }}
+                  >
+                    {t("settings.common.edit")}
+                  </RowAction>
+                ),
+              },
+            ]}
+            data={rows}
+            getRowKey={(row) => row.id}
+          />
+        )}
+      </QueryBoundary>
 
       <PolicyDrawer
         loading={save.isPending}

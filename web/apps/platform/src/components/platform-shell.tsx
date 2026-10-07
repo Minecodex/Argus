@@ -12,9 +12,16 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 import { useApi } from "@argus/api-client";
 import { usePlatformAuthStore } from "@argus/auth";
-import { AppShell, AppearanceControls, Badge, PortalUserMenu } from "@argus/ui";
+import {
+  AppShell,
+  AppearanceControls,
+  Badge,
+  PortalUserMenu,
+  SidebarToggle,
+} from "@argus/ui";
 
 type NavItem = {
   key: string;
@@ -91,6 +98,9 @@ function UserMenu() {
  */
 export function PlatformShell() {
   const { t } = useTranslation();
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("argus.platform.sidebar") === "collapsed",
+  );
   return (
     <AppShell
       className="argus-platform-shell"
@@ -107,9 +117,21 @@ export function PlatformShell() {
         </header>
       }
       sidebar={
-        <aside className="argus-sidebar">
+        <aside className={`argus-sidebar ${collapsed ? "is-collapsed" : ""}`}>
           <div className="argus-sidebar__head">
-            <Brand />
+            {!collapsed && <Brand />}
+            <SidebarToggle
+              collapsed={collapsed}
+              onToggle={() =>
+                setCollapsed((value) => {
+                  localStorage.setItem(
+                    "argus.platform.sidebar",
+                    value ? "expanded" : "collapsed",
+                  );
+                  return !value;
+                })
+              }
+            />
           </div>
           <nav
             aria-label={t("shell.group.platform")}
@@ -124,6 +146,7 @@ export function PlatformShell() {
                   activeOptions={{ exact: item.exact ?? false }}
                   activeProps={{ className: "active" }}
                   className="argus-nav-item"
+                  aria-label={t(item.key)}
                   key={item.key}
                   to={item.to}
                 >

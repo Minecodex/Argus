@@ -345,7 +345,7 @@ export function ClusterFormDrawer({
             })}
           </p>
           <div className="argus-form-actions">
-            <Button onClick={resetAndClose} variant="primary">
+            <Button onPress={resetAndClose} variant="primary">
               {t("kubernetes.form.enrollmentClose")}
             </Button>
           </div>

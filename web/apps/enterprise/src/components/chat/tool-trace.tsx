@@ -1,3 +1,4 @@
+import { Button } from "@argus/ui";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, LoaderCircle, Wrench, X } from "lucide-react";
@@ -40,19 +41,20 @@ export function ToolTrace({ toolCalls }: { toolCalls: ToolCallTrace[] }) {
 
   return (
     <div className="argus-chat-trace" data-testid="tool-trace">
-      <button
+      <Button
+        variant="ghost"
         aria-expanded={expanded}
         aria-label={
           expanded ? t("chat.trace.collapse") : t("chat.trace.expand")
         }
         className="argus-chat-trace__toggle"
-        onClick={() => setExpanded((value) => !value)}
+        onPress={() => setExpanded((value) => !value)}
         type="button"
       >
         <Wrench aria-hidden size={12} />
         <span>{t("chat.trace.title", { count: toolCalls.length })}</span>
         <ChevronDown aria-hidden size={13} />
-      </button>
+      </Button>
       {expanded && (
         <div className="argus-chat-trace__list">
           {toolCalls.map((call) => (

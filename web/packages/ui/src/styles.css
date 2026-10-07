@@ -1,8 +1,17 @@
+@import "tailwindcss";
+@import "@heroui/styles";
 @import "@argus/design-tokens/tokens.css";
 @import "./components.css";
 @import "./dashboard.css";
+@import "./foundation.css";
+@import "./resource-card.css";
+@import "./portal-shell.css";
+@import "./auth-layout.css";
+@import "./control-showcase.css";
+@import "./chart-type-picker.css";
 
-.sr-only {
+.sr-only,
+.argus-sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -20,89 +29,17 @@
   gap: var(--space-px-2);
 }
 
-.argus-button {
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-px-7);
-  font: 600 var(--font-size-13)/1 var(--font-sans);
-  cursor: pointer;
-  transition: var(--motion-fast);
-  white-space: nowrap;
-}
-.argus-button:focus-visible,
-.argus-input:focus-visible,
-.argus-textarea:focus-visible,
-.argus-observation-stats:focus-visible,
-.argus-switch:focus-visible {
+.argus-observation-stats:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.argus-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-.argus-button--primary {
-  background: var(--accent);
-  color: var(--text-inverse);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--overlay-white) 12%, transparent)
-    inset;
-}
-.argus-button--primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
-.argus-button--secondary {
-  background: var(--bg-elevated);
-  border-color: var(--border-default);
-  color: var(--text-primary);
-}
-.argus-button--secondary:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--border-strong);
-}
-.argus-button--ghost {
-  background: transparent;
-  color: var(--text-secondary);
-}
-.argus-button--ghost:hover:not(:disabled) {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-.argus-button--danger {
-  background: var(--danger-soft);
-  border-color: color-mix(in srgb, var(--danger) 25%, transparent);
-  color: var(--danger);
-}
-.argus-button--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--danger) 17%, transparent);
-}
+
 /* RowAction：行内文字操作，danger 仅以红色文字区分 */
 .argus-row-action--danger {
   color: var(--danger);
 }
 .argus-row-action--danger:hover:not(:disabled) {
   color: var(--danger);
-}
-.argus-button--sm {
-  min-height: 30px;
-  padding: 0 var(--space-px-11);
-  font-size: var(--font-size-12);
-}
-.argus-button--md {
-  min-height: 36px;
-  padding: 0 var(--space-px-15);
-}
-.argus-button--lg {
-  min-height: 42px;
-  padding: 0 var(--space-px-18);
-}
-.argus-button--icon {
-  width: 34px;
-  height: 34px;
-  padding: 0;
 }
 
 .argus-badge {
@@ -199,250 +136,6 @@
   gap: var(--space-px-9);
 }
 
-.argus-input,
-.argus-textarea {
-  width: 100%;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-canvas);
-  color: var(--text-primary);
-  font: 400 var(--font-size-13)/1.5 var(--font-sans);
-  transition: var(--motion-fast);
-}
-.argus-input {
-  height: 38px;
-  padding: 0 var(--space-px-11);
-}
-.argus-textarea {
-  padding: var(--space-px-10) var(--space-px-11);
-  min-height: 88px;
-  resize: vertical;
-}
-.argus-input::placeholder,
-.argus-textarea::placeholder {
-  color: var(--text-disabled);
-}
-.argus-input:hover,
-.argus-textarea:hover {
-  border-color: var(--border-strong);
-}
-.argus-date-time-picker {
-  position: relative;
-  width: 100%;
-}
-.argus-date-time-picker__control,
-.argus-date-time-picker__control .react-datepicker__input-container,
-.argus-date-time-picker__control .argus-input {
-  display: block;
-  width: 100%;
-}
-.argus-date-time-picker__control .argus-input {
-  padding-right: var(--space-px-36);
-}
-.argus-date-time-picker__icon {
-  position: absolute;
-  top: 50%;
-  right: var(--space-px-11);
-  color: var(--text-tertiary);
-  pointer-events: none;
-  transform: translateY(-50%);
-}
-.argus-date-time-picker__popper {
-  z-index: 1000;
-}
-.argus-date-time-picker__calendar {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-lg);
-  font-family: var(--font-sans);
-}
-.argus-date-time-picker__calendar .react-datepicker__header {
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-muted);
-}
-.argus-date-time-picker__calendar .react-datepicker__day,
-.argus-date-time-picker__calendar .react-datepicker__time-list-item {
-  border-radius: var(--radius-xs);
-  color: var(--text-secondary);
-}
-.argus-date-time-picker__calendar .react-datepicker__day:hover,
-.argus-date-time-picker__calendar .react-datepicker__time-list-item:hover {
-  background: var(--bg-hover);
-}
-.argus-date-time-picker__calendar .react-datepicker__day--selected,
-.argus-date-time-picker__calendar .react-datepicker__day--keyboard-selected,
-.argus-date-time-picker__calendar .react-datepicker__time-list-item--selected {
-  background: var(--accent);
-  color: var(--text-inverse);
-}
-.argus-date-time-picker__calendar .react-datepicker__day--disabled {
-  color: var(--text-disabled);
-}
-.argus-date-time-picker__calendar .react-datepicker__current-month,
-.argus-date-time-picker__calendar .react-datepicker-time__header,
-.argus-date-time-picker__calendar .react-datepicker__day-name {
-  color: var(--text-primary);
-}
-.argus-date-time-picker__calendar .react-datepicker__triangle {
-  display: none;
-}
-.argus-field {
-  display: grid;
-  gap: var(--space-px-7);
-}
-.argus-field__label {
-  color: var(--text-secondary);
-  font-size: var(--font-size-12);
-  font-weight: 600;
-}
-.argus-field__required {
-  color: var(--danger);
-  margin-left: var(--space-px-3);
-}
-.argus-field__hint {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-11);
-}
-.argus-field__hint.is-error {
-  color: var(--danger);
-}
-.argus-switch {
-  width: 36px;
-  height: 20px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--bg-muted);
-  position: relative;
-  cursor: pointer;
-  transition: var(--motion-fast);
-}
-.argus-switch > span:first-child {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: var(--radius-round);
-  left: 3px;
-  top: 3px;
-  background: var(--text-tertiary);
-  transition: var(--motion-fast);
-}
-.argus-switch.is-on {
-  background: var(--accent);
-}
-.argus-switch.is-on > span:first-child {
-  transform: translateX(16px);
-  background: var(--text-inverse);
-}
-
-.argus-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: var(--radius-round);
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  flex-shrink: 0;
-}
-.argus-avatar--sm {
-  width: 26px;
-  height: 26px;
-  font-size: var(--font-size-10);
-}
-.argus-avatar--md {
-  width: 32px;
-  height: 32px;
-  font-size: var(--font-size-11);
-}
-.argus-avatar--lg {
-  width: 42px;
-  height: 42px;
-  font-size: var(--font-size-14);
-}
-.argus-avatar__image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.argus-avatar__fallback {
-  color: var(--brand-highlight);
-  font-weight: 700;
-}
-
-.argus-tabs {
-  display: inline-flex;
-  gap: var(--space-px-3);
-  padding: var(--space-px-3);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-10);
-}
-.argus-tabs__trigger {
-  border: 0;
-  border-radius: var(--radius-7);
-  padding: var(--space-px-7) var(--space-px-12);
-  background: transparent;
-  color: var(--text-tertiary);
-  font: 600 var(--font-size-12) var(--font-sans);
-  cursor: pointer;
-}
-.argus-tabs__trigger:hover {
-  color: var(--text-secondary);
-}
-.argus-tabs__trigger[data-state="active"] {
-  color: var(--text-primary);
-  background: var(--bg-muted);
-  box-shadow: var(--shadow-sm);
-}
-.argus-tabs__content {
-  outline: none;
-  margin-top: var(--space-px-15);
-}
-
-.argus-tooltip {
-  z-index: 100;
-  max-width: 260px;
-  padding: var(--space-px-7) var(--space-px-9);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-7);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-lg);
-  color: var(--text-secondary);
-  font-size: var(--font-size-11);
-}
-.argus-tooltip__arrow {
-  fill: var(--bg-elevated);
-}
-
-.argus-dialog__overlay {
-  position: fixed;
-  z-index: 80;
-  inset: 0;
-  background: color-mix(in srgb, var(--overlay-black) 60%, transparent);
-  backdrop-filter: blur(4px);
-  animation: argus-fade-in var(--motion-normal);
-}
-.argus-dialog {
-  position: fixed;
-  z-index: 81;
-  top: 50%;
-  left: 50%;
-  width: min(520px, calc(100vw - 30px));
-  transform: translate(-50%, -50%);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  animation: argus-dialog-in var(--motion-normal);
-  overflow: hidden;
-}
-.argus-dialog--lg {
-  width: min(960px, calc(100vw - 48px));
-}
-
 /* ErrorBoundary */
 .argus-error-boundary {
   display: grid;
@@ -478,90 +171,6 @@
 .argus-error-boundary__actions {
   display: flex;
   gap: var(--space-px-9);
-}
-.argus-dialog__top {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-px-16);
-  padding: var(--space-px-19) var(--space-px-20) var(--space-px-16);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.argus-dialog__title {
-  color: var(--text-primary);
-  font-size: var(--font-size-16);
-  font-weight: 680;
-}
-.argus-dialog__description {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-12);
-  line-height: 1.55;
-  margin-top: var(--space-px-5);
-}
-.argus-dialog__close {
-  margin-left: auto;
-  border: 0;
-  border-radius: var(--radius-7);
-  padding: var(--space-px-5);
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-}
-.argus-dialog__close:hover {
-  color: var(--text-primary);
-  background: var(--bg-muted);
-}
-.argus-dialog__body {
-  padding: var(--space-px-20);
-  max-height: calc(100dvh - 220px);
-  overflow-y: auto;
-}
-.argus-dialog__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-px-9);
-  padding: var(--space-px-13) var(--space-px-20);
-  border-top: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--overlay-black) 8%, transparent);
-}
-
-.argus-dropdown {
-  z-index: 100;
-  min-width: 190px;
-  padding: var(--space-px-5);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-10);
-  box-shadow: var(--shadow-lg);
-  animation: argus-fade-in var(--motion-fast);
-}
-.argus-dropdown__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-20);
-  min-height: 32px;
-  padding: 0 var(--space-px-9);
-  border-radius: var(--radius-6);
-  color: var(--text-secondary);
-  font-size: var(--font-size-12);
-  cursor: pointer;
-  outline: none;
-}
-.argus-dropdown__item > kbd {
-  margin-left: auto;
-  color: var(--text-disabled);
-  font: var(--font-size-10) var(--font-mono);
-}
-.argus-dropdown__item[data-highlighted] {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-.argus-dropdown__item.is-danger {
-  color: var(--danger);
-}
-.argus-dropdown__separator {
-  height: 1px;
-  margin: var(--space-px-5);
-  background: var(--border-subtle);
 }
 
 .argus-menu-item {
