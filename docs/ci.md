@@ -23,3 +23,5 @@ git push -u origin feature/your-change
 CI 失败会阻止合并。修复失败后在同一个功能分支继续提交，重新运行检查；不要通过删除必需检查或设置管理员绕过来把失败当作通过。
 
 首次 CI 发现查询引擎锁清单引用的 THIRD_PARTY_NOTICES.md 缺失；现按锁定的上游版本和原始许可说明补齐该文件，不更改解析器版本或验证规则。
+
+Sandbox Chart 的 TOML 配置由 argusctl 根据安装配置生成，裸 Chart 没有有效默认 serverConfig。CI 使用相同的安装 Values 执行真实 Helm lint，并验证缺少配置的直接 Helm 安装会被明确拒绝；不提供与实际安装路径不同的占位 TOML。

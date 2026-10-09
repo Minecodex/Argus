@@ -70,7 +70,8 @@ jobs:
       - run: helm lint deploy/helm/argus-foundation
       - run: helm lint deploy/helm/argus-data-operators
       - run: helm lint deploy/helm/argus-data
-      - run: helm lint deploy/helm/argus-sandbox
+      - name: Lint sandbox with authoritative argusctl install values
+        run: go test ./internal/app/argusctl -run '^TestSandboxChartLint$' -count=1
       - run: helm lint deploy/helm/argus-platform
       - run: helm lint deploy/helm/argus-telemetry-pipeline
       - run: helm lint tests/e2e/helm/argus-e2e-fixtures
