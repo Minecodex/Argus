@@ -28,12 +28,6 @@ jobs:
       matrix:
         include:
           - {
-              suite: m8,
-              os: ubuntu-24.04,
-              arch: amd64,
-              minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4,
-            }
-          - {
               suite: planv2,
               os: ubuntu-24.04,
               arch: amd64,

@@ -166,6 +166,9 @@ func (a *App) buildCollectorArtifact(ctx context.Context, platform, destination 
 		return nil
 	}
 	builderConfig := filepath.Join("deploy", "otelcol", "builder-"+platform+".yaml")
+	if err := os.MkdirAll(filepath.Dir(dist), 0o755); err != nil {
+		return err
+	}
 	if err := a.runner.Run(ctx, nil, "go", "run", "go.opentelemetry.io/collector/cmd/builder@"+collectorBuilderVersion, "--skip-compilation", "--config", builderConfig); err != nil {
 		return err
 	}
