@@ -1,0 +1,136 @@
+name: Release acceptance
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+    types: [labeled, synchronize, reopened]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-ci:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:release')
+    uses: ./.github/workflows/portable-development.yml
+  contracts:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:release')
+    uses: ./.github/workflows/contracts.yml
+  kubernetes:
+    needs: [source-ci, contracts]
+    name: ${{ matrix.suite }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - {suite: m8, os: ubuntu-24.04, arch: amd64, minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4}
+          - {suite: planv2, os: ubuntu-24.04, arch: amd64, minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4}
+          - {suite: p4, os: ubuntu-24.04, arch: amd64, minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4}
+          - {suite: tls, os: ubuntu-24.04, arch: amd64, minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4}
+          - {suite: m8, os: ubuntu-24.04-arm, arch: arm64, minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3}
+          - {suite: planv2, os: ubuntu-24.04-arm, arch: arm64, minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3}
+          - {suite: p4, os: ubuntu-24.04-arm, arch: arm64, minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3}
+          - {suite: tls, os: ubuntu-24.04-arm, arch: arm64, minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.1.0
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.36.1
+      - run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Create a clean isolated Kubernetes context
+        env:
+          MINIKUBE_SHA: ${{ matrix.minikube_sha }}
+        run: |
+          curl --fail --location --retry 3 -o /tmp/minikube https://github.com/kubernetes/minikube/releases/download/v1.39.0/minikube-linux-${{ matrix.arch }}
+          echo "$MINIKUBE_SHA  /tmp/minikube" | sha256sum --check
+          sudo install /tmp/minikube /usr/local/bin/minikube
+          minikube start -p argus-ci-${{ github.run_id }}-${{ matrix.suite }} --driver=docker --cpus=4 --memory=12000 --cni=calico --kubernetes-version=v1.36.1
+      - name: Run the complete real deployment and business suite
+        run: >-
+          go run ./cmd/argus-dev e2e run --suite ${{ matrix.suite }}
+          --kube-context argus-ci-${{ github.run_id }}-${{ matrix.suite }}
+          --run-id ci-${{ github.run_id }}-${{ matrix.suite }}-${{ matrix.arch }}
+          --artifacts .cache/ci/${{ matrix.suite }}-${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: argus-${{ matrix.suite }}-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            .cache/ci/**/manifest.json
+            .cache/ci/**/*.png
+          include-hidden-files: true
+      - name: Delete only this run's disposable cluster
+        if: always()
+        run: minikube delete -p argus-ci-${{ github.run_id }}-${{ matrix.suite }}
+  windows-host:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [source-ci, contracts]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Require protected real Windows host configuration
+        env:
+          CONFIG_TEXT: ${{ secrets.ARGUS_WINDOWS_HOST_CONFIG }}
+          ENV_BUNDLE: ${{ secrets.ARGUS_WINDOWS_HOST_ENV }}
+        shell: python
+        run: |
+          import json, os, re, subprocess
+          from pathlib import Path
+          if not os.environ['CONFIG_TEXT'] or not os.environ['ENV_BUNDLE']:
+              raise SystemExit('Configure ARGUS_WINDOWS_HOST_CONFIG and ARGUS_WINDOWS_HOST_ENV for actual Windows Server 2019/2022 acceptance; missing infrastructure cannot pass release certification')
+          values = json.loads(os.environ['ENV_BUNDLE'])
+          if not isinstance(values, dict) or not values or any(not re.fullmatch('ARGUS_WINDOWS_[A-Z0-9_]+', k) or not isinstance(v, str) for k,v in values.items()):
+              raise SystemExit('invalid Windows fixture environment bundle')
+          for value in values.values():
+              print('::add-mask::' + value.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          directory = Path('.cache/ci/windows-private')
+          directory.mkdir(parents=True, mode=0o700)
+          config = directory / 'hosts.yaml'
+          config.write_text(os.environ['CONFIG_TEXT'])
+          config.chmod(0o600)
+          try:
+              subprocess.run(['go','run','./cmd/argus-dev','e2e','windows-host','--config',str(config),'--run-id','ci-windows-'+os.environ['GITHUB_RUN_ID'],'--artifacts','.cache/ci/windows-evidence'], env={**os.environ, **values}, check=True)
+          finally:
+              config.unlink(missing_ok=True)
+  release-gate:
+    name: Release CI
+    if: (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:release')) && always()
+    needs: [source-ci, contracts, kubernetes, windows-host]
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        shell: python
+        run: |
+          import json, os
+          failed = {k:v['result'] for k,v in json.loads(os.environ['RESULTS']).items() if v['result'] != 'success'}
+          if failed:
+              raise SystemExit(f'Complete release certification did not pass: {failed}')

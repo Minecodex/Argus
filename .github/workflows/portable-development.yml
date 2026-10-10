@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -78,10 +79,53 @@ jobs:
       - run: helm template argus-e2e tests/e2e/helm/argus-e2e-fixtures
       - run: git diff --check
 
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: argus_ci
+          POSTGRES_PASSWORD: ci-only-public-password
+          POSTGRES_DB: argus_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U argus_ci" --health-interval=5s --health-timeout=5s --health-retries=12
+    env:
+      ARGUS_DATABASE_URL: postgres://argus_ci:ci-only-public-password@127.0.0.1:5432/argus_ci?sslmode=disable
+      ARGUS_TEST_DATABASE_URL: postgres://argus_ci:ci-only-public-password@127.0.0.1:5432/argus_ci?sslmode=disable
+      ARGUS_P5_TEST_DATABASE_URL: postgres://argus_ci:ci-only-public-password@127.0.0.1:5432/argus_ci?sslmode=disable
+      ARGUS_DASHBOARD_TEST_DATABASE_URL: postgres://argus_ci:ci-only-public-password@127.0.0.1:5432/argus_ci?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify actual PostgreSQL migration and generated statements
+        run: |
+          go test ./tests/postgres -run '^TestMigrations$' -count=1 -timeout=15m
+          go run ./cmd/argus-migrate up
+          go test ./tests/postgres -run '^TestGeneratedQueriesPrepareAgainstMigratedBaseline$' -count=1
+      - name: Verify persisted Agent, authorization and dashboard behavior
+        run: go test -p 1 ./internal/agent ./internal/conversation ./internal/dashboard ./internal/authorization -count=1 -timeout=20m
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Verify shared portal browser behavior
+        run: pnpm e2e
+
   ci-gate:
     name: CI
     if: ${{ always() }}
-    needs: ["portable"]
+    needs: ["portable", "integration"]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
