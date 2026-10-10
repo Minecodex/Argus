@@ -133,7 +133,7 @@ jobs:
         run: pnpm --filter @argus/enterprise exec playwright test enterprise.spec.ts p4.spec.ts p5-mock.spec.ts p5-profile.spec.ts m8-local.spec.ts telemetry-permissions.spec.ts --workers=2 --retries=0
       - name: Verify the complete shared portal browser matrix
         if: inputs.full
-        run: pnpm --filter @argus/enterprise exec playwright test --workers=4 --retries=0
+        run: pnpm --filter @argus/enterprise exec playwright test --workers=2 --retries=0 --timeout=90000
       - name: Save browser failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

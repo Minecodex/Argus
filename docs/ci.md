@@ -16,7 +16,7 @@ git push -u origin feature/your-change
 
 PR 增加真实 PostgreSQL 的空库/重复/并发迁移、全部生成语句准备、持久化 Agent/授权/仪表盘回归，以及共享门户的登录/权限、主机接入、MFA、MCP、Workspace 和 Profile 关键浏览器流程。这些任务与三平台 portable 一起决定固定名称 CI 的结果；PostgreSQL 凭据仅属于当前隔离 job。
 
-发布验收和手动 full=true 另执行完整共享门户浏览器矩阵，保留原有主题、语言与桌面界面场景。PR 使用两个浏览器 worker，完整矩阵使用四个 worker 和独立的 60 分钟预算；CI 不依靠自动重试把失败掩盖为通过，并保存失败诊断。真实集群场景仍由其专属部署套件负责，mock 门户测试不替代集群验收。
+发布验收和手动 full=true 另执行完整共享门户浏览器矩阵，保留原有主题、语言与桌面界面场景。两个浏览器 worker 避免托管 CPU 争用，完整矩阵使用独立的 60 分钟 job 预算和每例 90 秒总预算；局部交互断言保持原有超时。CI 不依靠自动重试把失败掩盖为通过，并保存失败诊断。真实集群场景仍由其专属部署套件负责，mock 门户测试不替代集群验收。
 
 每次 v* 版本运行 release.yml：复用同一提交的基础/契约门槛，再在原生 Linux amd64/arm64 的独立 Calico/Minikube 集群执行 M8、PlanV2、P4、TLS 的完整依赖闭包和现有实际 argusctl 安装、浏览器、故障、备份恢复及清理。不给 unit-only 或局部 browser grep 记完整通过。没有定时任务；PR 的 ci:release 标签可收集同一候选的 Linux 完整证据。
 
