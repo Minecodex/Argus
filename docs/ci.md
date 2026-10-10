@@ -18,7 +18,11 @@ PR 增加真实 PostgreSQL 的空库/重复/并发迁移、全部生成语句准
 
 发布验收和手动 full=true 另执行完整共享门户浏览器矩阵，保留原有主题、语言与桌面界面场景。两个浏览器 worker 避免托管 CPU 争用，完整矩阵使用独立的 60 分钟 job 预算和每例 90 秒总预算；局部交互断言保持原有超时。CI 不依靠自动重试把失败掩盖为通过，并保存失败诊断。真实集群场景仍由其专属部署套件负责，mock 门户测试不替代集群验收。
 
-每次 v* 版本运行 release.yml：复用同一提交的基础/契约门槛，再在原生 Linux amd64/arm64 的独立 Calico/Minikube 集群执行 M8、PlanV2、P4、TLS 的完整依赖闭包和现有实际 argusctl 安装、浏览器、故障、备份恢复及清理。不给 unit-only 或局部 browser grep 记完整通过。没有定时任务；PR 的 ci:release 标签可收集同一候选的 Linux 完整证据。
+每次 v* 版本运行 release.yml：复用同一提交的基础/契约门槛，再在独立 Calico/Minikube 集群执行 M8 ARM64、PlanV2/P4/TLS AMD64 和 ARM64 的完整依赖闭包与实际 argusctl 安装、浏览器、故障、备份恢复及清理。不给 unit-only 或局部 browser grep 记完整通过。没有定时任务；PR 的 ci:release 标签可收集同一候选的 Linux 完整证据。
+
+完整部署的现有安装预检要求集群至少 10 核 CPU、15 GiB 可分配内存。GitHub 标准托管 Runner 的 4 核不足，不能用于声明此部署验收通过。完整矩阵先检查原生架构、10 核 CPU 和 18 GiB 可用主机内存，再以 10 核/16 GiB 创建临时集群，为 Runner 和构建保留内存；不修改安装器门槛。可通过仓库 Actions Variable `ARGUS_CI_AMD64_RUNNER`、`ARGUS_CI_ARM64_RUNNER` 配置独立临时 Runner，值为 runs-on 标签 JSON 数组，例如 `["self-hosted","linux","x64","argus-release"]` 与 `["self-hosted","linux","arm64","argus-release"]`。这些 Runner 必须能够创建一次性 Docker/Minikube 集群，不能指向业务部署环境；磁盘仍需满足安装器至少 25 GiB 空闲和构建实际占用。未配置时标准 Runner 会在构建前明确失败，Release CI 不接受缺失或跳过的完整矩阵。
+
+集群启动后等待 Calico node/controller 就绪，套件启用既有 `ARGUS_E2E_ISOLATED_INGRESS`，创建属于当前 run 的 IngressClass/controller，不依赖开发机器原有的 nginx addon。清理只删除本次临时集群及套件拥有的资源。
 
 M8 保持现有 ARM64 本地硬化契约，不增加 AMD64 的 local_hardening_complete 声明；PlanV2/P4/TLS 的运行器按现有能力在 AMD64/ARM64 上验证。托管 CI 证据不解除 Production Profile 阻断，也不代替 ARM64 Docker Desktop 的既有最终硬化验收。全新 checkout 会由共享 Collector 构建路径先创建输出父目录，再调用 OCB，不依赖开发机器残留的 build 目录。
 

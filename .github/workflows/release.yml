@@ -20,8 +20,10 @@ jobs:
   kubernetes:
     needs: [source-ci, contracts]
     name: ${{ matrix.suite }} ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ fromJSON(matrix.arch == 'arm64' && (vars.ARGUS_CI_ARM64_RUNNER || '["ubuntu-24.04-arm"]') || (vars.ARGUS_CI_AMD64_RUNNER || '["ubuntu-24.04"]')) }}
     timeout-minutes: 240
+    env:
+      ARGUS_E2E_ISOLATED_INGRESS: "true"
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -70,6 +72,18 @@ jobs:
               minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3,
             }
     steps:
+      - name: Require adequate native release infrastructure before building
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        shell: python
+        run: |
+          import os, platform
+          from pathlib import Path
+          arch = {'aarch64': 'arm64', 'x86_64': 'amd64'}.get(platform.machine())
+          cpu = len(os.sched_getaffinity(0))
+          memory = {line.split(':')[0]: int(line.split()[1]) * 1024 for line in Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemAvailable:')}
+          if arch != os.environ['EXPECTED_ARCH'] or cpu < 10 or memory['MemAvailable'] < 18 * 1024**3:
+              raise SystemExit(f'Release infrastructure unavailable: arch={arch}, CPU={cpu}, available memory={memory["MemAvailable"] // 1024**2} MiB. Configure ARGUS_CI_AMD64_RUNNER / ARGUS_CI_ARM64_RUNNER with independent native runners (10 CPU, 18 GiB free RAM). The installer requires 10 CPU and 15 GiB allocatable; standard hosted runners cannot certify this deployment.')
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -100,7 +114,9 @@ jobs:
           curl --fail --location --retry 3 -o /tmp/minikube https://github.com/kubernetes/minikube/releases/download/v1.39.0/minikube-linux-${{ matrix.arch }}
           echo "$MINIKUBE_SHA  /tmp/minikube" | sha256sum --check
           sudo install /tmp/minikube /usr/local/bin/minikube
-          minikube start -p argus-ci-${{ github.run_id }}-${{ matrix.suite }} --driver=docker --cpus=4 --memory=12000 --cni=calico --kubernetes-version=v1.36.1
+          minikube start -p argus-ci-${{ github.run_id }}-${{ matrix.suite }} --driver=docker --cpus=10 --memory=16384 --cni=calico --kubernetes-version=v1.36.1
+          kubectl --context argus-ci-${{ github.run_id }}-${{ matrix.suite }} -n kube-system rollout status daemonset/calico-node --timeout=180s
+          kubectl --context argus-ci-${{ github.run_id }}-${{ matrix.suite }} -n kube-system rollout status deployment/calico-kube-controllers --timeout=180s
       - name: Run the complete real deployment and business suite
         run: >-
           go run ./cmd/argus-dev e2e run --suite ${{ matrix.suite }}
@@ -117,7 +133,10 @@ jobs:
           include-hidden-files: true
       - name: Delete only this run's disposable cluster
         if: always()
-        run: minikube delete -p argus-ci-${{ github.run_id }}-${{ matrix.suite }}
+        run: |
+          if command -v minikube >/dev/null; then
+            minikube delete -p argus-ci-${{ github.run_id }}-${{ matrix.suite }}
+          fi
   windows-host:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: [source-ci, contracts]
