@@ -1,7 +1,7 @@
 name: Release acceptance
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   pull_request:
     branches: [main]
     types: [labeled, synchronize, reopened]
@@ -12,6 +12,8 @@ jobs:
   source-ci:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:release')
     uses: ./.github/workflows/portable-development.yml
+    with:
+      full: true
   contracts:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:release')
     uses: ./.github/workflows/contracts.yml
@@ -25,14 +27,54 @@ jobs:
       max-parallel: 2
       matrix:
         include:
-          - {suite: m8, os: ubuntu-24.04, arch: amd64, minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4}
-          - {suite: planv2, os: ubuntu-24.04, arch: amd64, minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4}
-          - {suite: p4, os: ubuntu-24.04, arch: amd64, minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4}
-          - {suite: tls, os: ubuntu-24.04, arch: amd64, minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4}
-          - {suite: m8, os: ubuntu-24.04-arm, arch: arm64, minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3}
-          - {suite: planv2, os: ubuntu-24.04-arm, arch: arm64, minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3}
-          - {suite: p4, os: ubuntu-24.04-arm, arch: arm64, minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3}
-          - {suite: tls, os: ubuntu-24.04-arm, arch: arm64, minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3}
+          - {
+              suite: m8,
+              os: ubuntu-24.04,
+              arch: amd64,
+              minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4,
+            }
+          - {
+              suite: planv2,
+              os: ubuntu-24.04,
+              arch: amd64,
+              minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4,
+            }
+          - {
+              suite: p4,
+              os: ubuntu-24.04,
+              arch: amd64,
+              minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4,
+            }
+          - {
+              suite: tls,
+              os: ubuntu-24.04,
+              arch: amd64,
+              minikube_sha: b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4,
+            }
+          - {
+              suite: m8,
+              os: ubuntu-24.04-arm,
+              arch: arm64,
+              minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3,
+            }
+          - {
+              suite: planv2,
+              os: ubuntu-24.04-arm,
+              arch: arm64,
+              minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3,
+            }
+          - {
+              suite: p4,
+              os: ubuntu-24.04-arm,
+              arch: arm64,
+              minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3,
+            }
+          - {
+              suite: tls,
+              os: ubuntu-24.04-arm,
+              arch: arm64,
+              minikube_sha: 202f331cb677761c5aec81c58472d16d65707358b9f66226210be3fe3275b1c3,
+            }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,7 +137,7 @@ jobs:
           cache: true
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: "3.13"
       - name: Require protected real Windows host configuration
         env:
           CONFIG_TEXT: ${{ secrets.ARGUS_WINDOWS_HOST_CONFIG }}
