@@ -18,7 +18,9 @@ PR 增加真实 PostgreSQL 的空库/重复/并发迁移、全部生成语句准
 
 每次 v* 版本运行 release.yml：复用同一提交的基础/契约门槛，再在原生 Linux amd64/arm64 的独立 Calico/Minikube 集群执行 M8、PlanV2、P4、TLS 的完整依赖闭包和现有实际 argusctl 安装、浏览器、故障、备份恢复及清理。不给 unit-only 或局部 browser grep 记完整通过。没有定时任务；PR 的 ci:release 标签可收集同一候选的 Linux 完整证据。
 
-正式 Release CI 还要求实际 Windows Server 2019/2022 接入验收。受信任 Tag/手动运行读取 ARGUS_WINDOWS_HOST_CONFIG 和 ARGUS_WINDOWS_HOST_ENV 两个 Actions Secret：前者使用 tests/e2e/windows-host.example.yaml 的配置合同，后者是该配置引用的 ARGUS_WINDOWS_* 环境值 JSON。凭据不会上传，缺少环境明确失败。公开 PR 不执行带这些凭据的远程主机操作；PR 的 Linux 完整证据不代表 Windows 门槛已通过，Release CI 不会将缺项算成功。工作流不创建公开版本。
+正式 Release CI 还要求实际 Windows Server 2019/2022 接入验收。受信任 Tag/手动运行读取 ARGUS_WINDOWS_HOST_CONFIG 和 ARGUS_WINDOWS_HOST_ENV 两个 Actions Secret：前者使用 tests/e2e/windows-host.example.yaml 的配置合同，后者是该配置引用的 ARGUS_WINDOWS_* 环境值 JSON。凭据不会上传，缺少环境明确失败。公开 PR 不执行带这些凭据的远程主机操作；标签候选的 Linux 证据单独汇总为 Linux candidate CI，不代表正式 Release CI 或 Windows 验收通过。工作流不创建公开版本。
+
+当前缺少独立的 Windows Server 2019/2022 测试 VM，因此正式发布验收尚不能完成。需补齐该配置合同中的实际主机、接入和清理条件，并将凭据放入上述 Actions Secret 后，重新运行同一发布候选的完整门槛。不会用 GitHub Windows 桌面 Runner 或模拟测试代替 Server 接入验收。
 
 `CI` 汇总 Ubuntu / Windows / macOS 全部 portable 开发门禁；`contracts` 始终检查契约 lint、生成一致性、breaking change、Go 生成包和 TypeScript 客户端。契约工作流取消 PR 路径过滤，确保必需检查总会报告。
 

@@ -120,9 +120,24 @@ jobs:
               subprocess.run(['go','run','./cmd/argus-dev','e2e','windows-host','--config',str(config),'--run-id','ci-windows-'+os.environ['GITHUB_RUN_ID'],'--artifacts','.cache/ci/windows-evidence'], env={**os.environ, **values}, check=True)
           finally:
               config.unlink(missing_ok=True)
+  linux-candidate-gate:
+    name: Linux candidate CI
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:release') && always()
+    needs: [source-ci, contracts, kubernetes]
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        shell: python
+        run: |
+          import json, os
+          failed = {k:v['result'] for k,v in json.loads(os.environ['RESULTS']).items() if v['result'] != 'success'}
+          if failed:
+              raise SystemExit(f'Linux release candidate acceptance failed: {failed}')
+          print('Linux candidate passed; real Windows Server certification is required separately for formal release')
   release-gate:
     name: Release CI
-    if: (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:release')) && always()
+    if: github.event_name != 'pull_request' && always()
     needs: [source-ci, contracts, kubernetes, windows-host]
     runs-on: ubuntu-24.04
     steps:
