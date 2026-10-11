@@ -1,3 +1,4 @@
+{{- $serverConfig := required "serverConfig is required; deploy this chart through argusctl" .Values.serverConfig -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -5,7 +6,7 @@ metadata:
   labels: {app.kubernetes.io/part-of: argus, argus.io/release-id: {{ .Values.releaseId | quote }}}
 data:
   config.toml: |
-    {{- .Values.serverConfig | nindent 4 }}
+    {{- $serverConfig | nindent 4 }}
   batchsandbox.yaml: |
     apiVersion: sandbox.opensandbox.io/v1alpha1
     kind: BatchSandbox
@@ -62,7 +63,7 @@ spec:
   template:
     metadata:
       labels: {app.kubernetes.io/name: opensandbox-server, app.kubernetes.io/part-of: argus}
-      annotations: {checksum/config: {{ .Values.serverConfig | sha256sum | quote }}}
+      annotations: {checksum/config: {{ $serverConfig | sha256sum | quote }}}
     spec:
       serviceAccountName: opensandbox-server
       containers:
