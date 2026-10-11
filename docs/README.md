@@ -126,3 +126,8 @@ PlanV5 已于 2026-09-13 同步 [已确认决策与待决问题](./planv5/02-con
 - 第一版后端固定使用 Go；外部 API 使用 REST/OpenAPI，内部服务与 Connector 使用 gRPC/protobuf。
 - ClickHouse 在 M10 按 Enterprise UUID 创建 Metrics、Logs、Traces 租户物理表；表名由 `TenantTableRouter` 生成，企业内部仍通过 `ResourceId` 和 explicit resource authorization 裁剪。
 - Telemetry Query 在 `EnterpriseId` 之外还必须执行授权 Resource ID、用户筛选条件、Signal、字段脱敏、时间范围和预算约束；标签筛选不能扩大授权范围；用户、AI 和模板 复用同一裁剪结果。
+
+
+## 提交与自动检查
+
+主分支保护、功能分支、PR 和必需检查见 [PR 与 CI 合并规则](ci.md)。

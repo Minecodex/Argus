@@ -24,7 +24,11 @@ test("enterprise MCP grants, write-only Basic credentials and remembered convers
   await page.getByRole("option", { name: "Basic", exact: true }).click();
   await drawer.getByLabel("用户名").fill("report-user");
   await drawer.getByLabel("密码").fill("p5-test-password");
-  await drawer.getByRole("checkbox", { name: "企业超级管理员" }).check();
+  const administrator = drawer.getByRole("checkbox", {
+    name: "企业超级管理员",
+  });
+  await administrator.press("Space");
+  await expect(administrator).toBeChecked();
   await drawer.getByRole("button", { name: "保存", exact: true }).click();
   await expect(drawer).not.toBeVisible();
   const row = page.getByRole("row").filter({ hasText: "Business reports" });
@@ -39,7 +43,8 @@ test("enterprise MCP grants, write-only Basic credentials and remembered convers
   await page.getByText(/会话 MCP 连接 ·/).click();
   const selected = page.getByRole("checkbox", { name: /Business reports/ });
   await expect(selected).not.toBeChecked();
-  await selected.click();
+  await expect(selected).toBeEnabled({ timeout: 15_000 });
+  await selected.press("Space");
   await expect(page.getByText("会话 MCP 连接 · 1")).toBeVisible();
   await page.reload();
   await page.getByText("会话 MCP 连接 · 1").click();
@@ -52,13 +57,11 @@ test("uploaded bytes survive reload and explicit Workspace deletion removes the 
   await login(page);
 
   await expect(page.getByRole("button", { name: "上传文件" })).toBeEnabled();
-  await page
-    .locator('input[type="file"]')
-    .setInputFiles({
-      name: "business.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from("value\n10\n20\n"),
-    });
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "business.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("value\n10\n20\n"),
+  });
   await expect(
     page.locator(".argus-chat-chip").filter({ hasText: "business.csv" }),
   ).toBeVisible();

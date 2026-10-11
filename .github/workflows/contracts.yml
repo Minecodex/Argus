@@ -2,22 +2,10 @@ name: Contracts
 
 on:
   pull_request:
-    paths:
-      - "api/**"
-      - "docs/**"
-      - "internal/gen/**"
-      - "scripts/**"
-      - "tests/contract/**"
-      - "web/packages/api-client/**"
-      - ".github/workflows/contracts.yml"
-      - "Makefile"
-      - "go.mod"
-      - "go.sum"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
   push:
     branches: [main]
+  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -29,6 +17,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Keep the checkout stable during local Git clones
+        run: |
+          git config --local gc.auto 0
+          git config --local maintenance.auto false
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod

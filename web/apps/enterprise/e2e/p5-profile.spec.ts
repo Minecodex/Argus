@@ -44,9 +44,17 @@ for (const locale of ["zh-CN", "en-US"] as const) {
           exact: true,
         })
         .click();
-      const drawer = page.getByRole("dialog");
+      const drawer = page.getByRole("dialog", {
+        name: zh ? "新建 Profile" : "New profile",
+        exact: true,
+      });
       await drawer.getByLabel(zh ? "名称" : "Name").fill("P5 offline profile");
-      await drawer.getByRole("button").click();
+      const imageSelect = drawer.getByRole("button", {
+        name: zh ? "镜像" : "Image",
+        exact: true,
+      });
+      await expect(imageSelect).toBeEnabled();
+      await imageSelect.click();
       await page.getByRole("option").first().click();
       await drawer.getByLabel(zh ? "CPU（核）" : "CPU (cores)").fill("2");
       await drawer.getByLabel(zh ? "内存（MB）" : "Memory (MB)").fill("1536");
@@ -74,7 +82,7 @@ for (const locale of ["zh-CN", "en-US"] as const) {
       await expect(row).toContainText(
         zh ? "离线业务分析" : "Offline business analysis",
       );
-      await row.getByRole("switch").click();
+      await row.getByRole("switch").press("Space");
       await expect(row.getByRole("switch")).not.toBeChecked();
     });
   }

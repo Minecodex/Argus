@@ -1,0 +1,33 @@
+name: Release acceptance
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: argus-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  source-ci:
+    uses: ./.github/workflows/portable-development.yml
+    with:
+      full: true
+  contracts:
+    uses: ./.github/workflows/contracts.yml
+  release-gate:
+    name: Release CI
+    if: always()
+    needs: [source-ci, contracts]
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        shell: python
+        run: |
+          import json, os
+          failed = {name: job["result"] for name, job in json.loads(os.environ["RESULTS"]).items() if job["result"] != "success"}
+          if failed:
+              raise SystemExit(f"Automated release acceptance failed: {failed}")
+          print("Portable, PostgreSQL, contract and complete portal checks passed.")
+          print("Large-cluster deployment and real Windows Server acceptance are independent environment checks; they are not certified by Actions.")

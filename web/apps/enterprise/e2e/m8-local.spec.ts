@@ -26,7 +26,10 @@ test("M8 account assurance flow keeps one-time material in dialogs", async ({
 
   const recovery = page.getByRole("dialog", { name: "恢复码" });
   await expect(recovery.getByRole("listitem")).toHaveCount(10);
-  await recovery.getByRole("button", { name: "OK" }).click();
+  await recovery
+    .getByRole("button", { name: "关闭", exact: true })
+    .last()
+    .click();
   await expect(recovery).toBeHidden();
   await expect(page.getByText("JBSWY3DPEHPK3PXP")).toHaveCount(0);
 
