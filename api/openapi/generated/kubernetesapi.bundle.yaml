@@ -294,6 +294,10 @@ components:
         kubernetes_version:
           type: string
           maxLength: 128
+        statistics_observed_at:
+          type: string
+          format: date-time
+          readOnly: true
         node_count:
           type: integer
           minimum: 0

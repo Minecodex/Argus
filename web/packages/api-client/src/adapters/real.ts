@@ -1,4 +1,6 @@
+import { createAlertDomains } from "./real/alerts";
 import { createDashboardDomains } from "./real/dashboard";
+import type { AlertDomains } from "../alerts";
 import type { DashboardDomains } from "../dashboard";
 import type { ArgusApiClient } from "../client";
 import type { PlatformOverview } from "../types/platform";
@@ -264,6 +266,7 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
   const client = createUnavailableClient({
     ...createPlanV5Domains(http, idempotencyKey),
     ...createDashboardDomains(http, idempotencyKey),
+ ...createAlertDomains(http,idempotencyKey),
   });
   const domainContext: RealDomainContext = {
     client,
@@ -855,6 +858,8 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
           headers: { "Idempotency-Key": idempotencyKey() },
         },
       ),
+    previewReconnect: (id, version) => http.request<PendingActionPublic>(`enterprise/hosts/${id}/actions/preview-reconnect`, {method: "POST", csrf: true, headers: {"Idempotency-Key": idempotencyKey()}, body: {expected_version: version}}),
+    refreshInventory: (id) => http.request<Host>(`enterprise/hosts/${id}/inventory/actions/refresh`, {method: "POST", csrf: true, headers: {"Idempotency-Key": idempotencyKey()}}),
     previewEnableWindowsRDP: (id, version) =>
       http.request<PendingActionPublic>(
         `enterprise/hosts/${id}/windows-rdp/actions/preview-enable`,
@@ -1511,7 +1516,7 @@ function createOrganizationClient(
 }
 
 function createUnavailableClient(
-  planv5: PlanV5Domains & DashboardDomains,
+  planv5: PlanV5Domains & DashboardDomains & AlertDomains,
 ): ArgusApiClient {
   return {
     ...planv5,
@@ -1562,6 +1567,8 @@ function createUnavailableClient(
       checkNameAvailability: () => unavailable("hosts.checkNameAvailability"),
       list: () => unavailable("hosts.list"),
       get: () => unavailable("hosts.get"),
+      refreshInventory: () => unavailable("hosts.refreshInventory"),
+      previewReconnect: () => unavailable("hosts.previewReconnect"),
       createConnectionTest: () => unavailable("hosts.createConnectionTest"),
       getConnectionTest: () => unavailable("hosts.getConnectionTest"),
       previewCreateResource: () => unavailable("hosts.previewCreateResource"),

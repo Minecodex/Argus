@@ -225,6 +225,44 @@ func (q *Queries) GetDashboardRunUserMessage(ctx context.Context, arg GetDashboa
 	return i, err
 }
 
+const listDashboardRunParameters = `-- name: ListDashboardRunParameters :many
+SELECT run_id, enterprise_id, conversation_id, dashboard_id, owner_user_id, version, state FROM dashboard_run_parameters WHERE run_id=$1 AND enterprise_id=$2 AND owner_user_id=$3 ORDER BY dashboard_id
+`
+
+type ListDashboardRunParametersParams struct {
+	RunID        uuid.UUID `json:"run_id"`
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	OwnerUserID  uuid.UUID `json:"owner_user_id"`
+}
+
+func (q *Queries) ListDashboardRunParameters(ctx context.Context, arg ListDashboardRunParametersParams) ([]DashboardRunParameter, error) {
+	rows, err := q.db.Query(ctx, listDashboardRunParameters, arg.RunID, arg.EnterpriseID, arg.OwnerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DashboardRunParameter{}
+	for rows.Next() {
+		var i DashboardRunParameter
+		if err := rows.Scan(
+			&i.RunID,
+			&i.EnterpriseID,
+			&i.ConversationID,
+			&i.DashboardID,
+			&i.OwnerUserID,
+			&i.Version,
+			&i.State,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockDashboardRunParameters = `-- name: LockDashboardRunParameters :one
 SELECT run_id, enterprise_id, conversation_id, dashboard_id, owner_user_id, version, state FROM dashboard_run_parameters WHERE run_id=$1 AND dashboard_id=$2 AND enterprise_id=$3 AND owner_user_id=$4 FOR UPDATE
 `

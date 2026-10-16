@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { enterpriseOrigin } from "./origins";
 import { createMfaLogin } from "./helpers/mfa-login";
+import { openToolResults } from "./helpers/tool-results";
 
 const login = createMfaLogin("enterprise");
 test.describe("P5 real tools and workspace", () => {
@@ -72,6 +73,7 @@ test.describe("P5 real tools and workspace", () => {
     await page.goto(
       `${enterpriseOrigin}/?c=${process.env.ARGUS_P5_NATIVE_CONVERSATION}`,
     );
+    await openToolResults(page);
     const frame = page.locator(".argus-tool-presentation__frame").first();
     await expect(frame).toBeVisible();
     const detail = page.frameLocator(".argus-tool-presentation__frame").first();
@@ -175,8 +177,8 @@ test.describe("P5 real tools and workspace", () => {
     await page.goto(
       `${enterpriseOrigin}/?c=${process.env.ARGUS_P5_MODEL_ONLY_CONVERSATION}`,
     );
+    await page.getByRole("button", { name: /置顶摘要|Pinned summary/ }).click();
     const files = page.locator(".argus-conversation-workspace details").last();
-    await files.locator("summary").click();
     await expect(files.locator("summary")).toContainText("0");
     const remove = files.getByRole("button", {
       name: /删除 Workspace|Delete Workspace/,

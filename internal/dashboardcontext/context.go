@@ -1,5 +1,5 @@
-// Package dashboardcontext owns user-selected Dashboard references and their
-// immutable Run scope. It depends on object authorization, not query engines.
+// Package dashboardcontext owns Dashboard admission hints, authorized model
+// discoveries and Run conditions. It depends on authorization, not query engines.
 package dashboardcontext
 
 import (
@@ -8,6 +8,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -103,6 +104,14 @@ func Prepare(ctx context.Context, q *db.Queries, p toolruntime.Principal, input 
 		if result.Changed {
 			result.Snapshot.Version++
 		}
+	} else if current.Mode == "analyze" {
+		// Manual analysis hints apply to their admission only. A new ordinary
+		// message discovers its own objects, so old revoked hints cannot block a
+		// correction or an unrelated question after the scope editor is removed.
+		result.Snapshot.Mode = "none"
+		result.Snapshot.DashboardIDs = []uuid.UUID{}
+		result.Snapshot.Version++
+		result.Changed = true
 	}
 	return result, Validate(ctx, q, p, result.Snapshot)
 }
@@ -154,6 +163,10 @@ func ForRun(ctx context.Context, q *db.Queries, p toolruntime.Principal, run uui
 	if json.Unmarshal(row.Selection, &result) != nil || result.Version != row.ContextVersion {
 		return result, invalid()
 	}
+	result, err = discoveredSnapshot(ctx, q, p, run, result)
+	if err != nil {
+		return result, err
+	}
 	return result, Validate(ctx, q, p, result)
 }
 
@@ -194,13 +207,19 @@ func Facts(ctx context.Context, q *db.Queries, p toolruntime.Principal, s Snapsh
 		}
 		refs = append(refs, map[string]any{"id": id, "name": d.Name, "conditions": conditions})
 	}
-	facts := map[string]any{"schema_version": s.Schema, "mode": s.Mode, "version": s.Version, "selected_dashboards": refs, "selection_required": s.Mode == "analyze" && len(refs) == 0}
+	facts := map[string]any{"schema_version": s.Schema, "mode": s.Mode, "version": s.Version, "selected_dashboards": refs, "selection_policy": "automatic", "selection_required": false}
 	if len(runs) > 0 && runs[0] != uuid.Nil {
 		budget, err := q.GetDashboardRunBudget(ctx, db.GetDashboardRunBudgetParams{RunID: runs[0], EnterpriseID: p.EnterpriseID, OwnerUserID: p.UserID})
 		if err == nil {
 			facts["run_budget"] = map[string]any{"scan_bytes_remaining": budget.ScanRemaining, "result_bytes_remaining": budget.BytesRemaining, "rows_remaining": budget.RowsRemaining, "samples_remaining": budget.SamplesRemaining, "calls_remaining": budget.CallsRemaining}
+			facts["run_budget_status"] = "ready"
+			facts["run_budget_observed_at"] = time.Now().UTC().Format(time.RFC3339Nano)
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return nil, err
+		} else {
+			// No reservations exist yet. Do not fabricate a measured balance.
+			facts["run_budget_status"] = "not_started"
+			facts["run_budget_observed_at"] = time.Now().UTC().Format(time.RFC3339Nano)
 		}
 	}
 	return facts, nil

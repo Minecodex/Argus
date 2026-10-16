@@ -38,9 +38,9 @@ func formalDiscoveryGateway(t *testing.T) (*Gateway, *toolruntime.Set) {
 	return g, set
 }
 
-func TestFormalDiscoveryCoversEveryToolAndBusinessQuery(t *testing.T) {
+func TestFormalDiscoveryListsEveryCategoryAndRetainsBusinessDetails(t *testing.T) {
 	g, set := formalDiscoveryGateway(t)
-	if len(g.manifests) != 52 {
+	if len(g.manifests) != 50 {
 		t.Fatalf("formal tools=%d", len(g.manifests))
 	}
 	for _, m := range g.manifests {
@@ -52,46 +52,32 @@ func TestFormalDiscoveryCoversEveryToolAndBusinessQuery(t *testing.T) {
 		}
 	}
 	p := toolruntime.Principal{EnterpriseID: uuid.New(), UserID: uuid.New(), Permissions: []string{"*"}}
-	for _, tc := range []struct{ category, query, want string }{
-		{"host", "创建", "create.preview"}, {"host", "新增主机", "create.preview"}, {"host", "create", "create.preview"}, {"host", "列表", "list"}, {"host", "list", "list"}, {"host", "删除", "delete.preview"}, {"host", "delete", "delete.preview"},
-		{"host", "主机 删除", "delete.preview"}, {"host", "采集器 升级", "collector.upgrade.preview"}, {"host", "install", "collector.install.preview"}, {"host", "uninstall", "collector.uninstall.preview"},
-		{"k8s", "命名空间", "namespace.list"}, {"k8s", "容器 日志", "pod.logs"}, {"metric", "CPU", "query"}, {"log", "错误日志", "query"}, {"trace", "慢调用", "query"}, {"connector", "清单", "list"}, {"workflow", "发布 下载", "publish_file"},
-	} {
-		t.Run(tc.category+"/"+tc.query, func(t *testing.T) {
-			call := toolruntime.Invocation{Principal: p, Arguments: map[string]any{"category": tc.category, "query": tc.query}}
-			got, err := set.Invoke(t.Context(), "tool.search", call)
-			if err != nil {
-				t.Fatal(err)
+	for _, category := range Categories {
+		value, err := set.Invoke(t.Context(), "tool.search", toolruntime.Invocation{Principal: p, Arguments: map[string]any{"category": category}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := []string{}
+		for _, manifest := range g.manifests {
+			if manifest.Category == category {
+				expected = append(expected, manifest.Name)
 			}
-			items := got.Data["items"].([]map[string]any)
-			found := false
-			for _, item := range items {
-				if item["name"] == tc.want {
-					found = true
-				}
-			}
-			if !found {
-				t.Fatalf("missing %s in %+v", tc.want, items)
-			}
-			if tc.query == "install" {
-				for _, item := range items {
-					if strings.Contains(item["name"].(string), "uninstall") {
-						t.Fatal("install matched uninstall")
-					}
-				}
-			}
-			if tc.query == "主机 删除" && (len(items) != 1 || items[0]["name"] != "delete.preview") {
-				t.Fatalf("unrelated category hits: %+v", items)
-			}
-		})
+		}
+		actual := []string{}
+		for _, item := range value.Data["items"].([]map[string]any) {
+			actual = append(actual, item["name"].(string))
+		}
+		if !reflect.DeepEqual(expected, actual) || value.Data["complete"] != true {
+			t.Fatalf("%s incomplete: %v / %v", category, actual, expected)
+		}
 	}
-	call := toolruntime.Invocation{Principal: p, Arguments: map[string]any{"category": "host", "query": "创建"}}
+	call := toolruntime.Invocation{Principal: p, Arguments: map[string]any{"category": "host"}}
 	if _, err := set.Invoke(t.Context(), "tool.search", call); err != nil {
 		t.Fatal(err)
 	}
 	call.Principal.Permissions = []string{"host.read"}
 	got, err := set.Invoke(t.Context(), "tool.search", call)
-	if err != nil || len(got.Data["items"].([]map[string]any)) != 0 {
+	if err != nil || len(got.Data["items"].([]map[string]any)) != 2 {
 		t.Fatal("cached privileged discovery leaked after revocation")
 	}
 	call.Arguments = map[string]any{"category": "host", "name": "create.preview"}
@@ -135,7 +121,7 @@ func discoveryFixtureGateway(t *testing.T, doc mcp.Discovery, reverse bool) *Gat
 	return g
 }
 
-func TestDiscoveryRevisionRankingPagingAndRestore(t *testing.T) {
+func TestDiscoveryRevisionOrderingAndRestore(t *testing.T) {
 	doc := fixtureDiscovery("stable")
 	a := discoveryFixtureGateway(t, doc, false)
 	shuffled := doc
@@ -145,7 +131,7 @@ func TestDiscoveryRevisionRankingPagingAndRestore(t *testing.T) {
 		t.Fatal("keyword or registration order changed catalog")
 	}
 	p := toolruntime.Principal{EnterpriseID: uuid.New(), UserID: uuid.New()}
-	call := toolruntime.Invocation{Principal: p, Arguments: map[string]any{"category": "host", "query": "检查", "limit": float64(1)}}
+	call := toolruntime.Invocation{Principal: p, Arguments: map[string]any{"category": "host"}}
 	first, err := a.search(call, "host")
 	if err != nil {
 		t.Fatal(err)
@@ -153,11 +139,9 @@ func TestDiscoveryRevisionRankingPagingAndRestore(t *testing.T) {
 	if first.Data["items"].([]map[string]any)[0]["name"] != "alpha" {
 		t.Fatal("unstable tie ranking")
 	}
-	cursor := first.Data["next_cursor"]
-	call.Arguments["cursor"] = cursor
 	second, err := b.search(call, "host")
-	if err != nil || second.Data["items"].([]map[string]any)[0]["name"] != "beta" {
-		t.Fatalf("unstable cursor: %v", err)
+	if err != nil || !reflect.DeepEqual(first.Data, second.Data) {
+		t.Fatalf("registration order changed complete listing: %v", err)
 	}
 	for _, change := range []func(*mcp.Discovery){func(d *mcp.Discovery) { d.Title += " changed" }, func(d *mcp.Discovery) { d.Description += " changed" }, func(d *mcp.Discovery) { d.Keywords = append(d.Keywords, "新增词") }, func(d *mcp.Discovery) { d.ResultDescription += " changed" }, func(d *mcp.Discovery) { d.Preconditions = []string{"New prerequisite"} }, func(d *mcp.Discovery) { d.Revision = "2" }, func(d *mcp.Discovery) {
 		d.Examples = []mcp.DiscoveryExample{{Request: "changed", Guidance: "new guidance"}}
@@ -167,9 +151,6 @@ func TestDiscoveryRevisionRankingPagingAndRestore(t *testing.T) {
 		c := discoveryFixtureGateway(t, changed, false)
 		if c.Revision == a.Revision || c.manifests[0].Version == a.manifests[0].Version {
 			t.Fatal("metadata edit did not invalidate versions")
-		}
-		if _, err := c.search(call, "host"); err == nil {
-			t.Fatal("old cursor accepted by new metadata revision")
 		}
 		original, _ := (toolruntime.CompositeFactory{Providers: []toolruntime.Provider{a}}).Build(t.Context(), p)
 		restored, err := (toolruntime.CompositeFactory{Providers: []toolruntime.Provider{c}}).Restore(t.Context(), p, original.Snapshot)
@@ -205,24 +186,6 @@ func TestGatewayRejectsIncompleteBusinessMetadata(t *testing.T) {
 	}
 }
 
-func TestDiscoveryExactKeywordBeatsIncidentalDescription(t *testing.T) {
-	exact := Manifest{Name: "alpha", Discovery: mcp.Discovery{Title: "Other action", Description: "Other business documentation", Keywords: []string{"a needle phrase", "needle"}}}
-	incidental := Manifest{Name: "beta", Discovery: mcp.Discovery{Title: "Other action", Description: "needle", Keywords: []string{"other"}}}
-	a, matched := discoveryScore(exact, "needle")
-	b, _ := discoveryScore(incidental, "needle")
-	if !matched || a <= b {
-		t.Fatal("authored keyword did not outrank incidental description")
-	}
-	exact.Keywords = []string{"needle", "a needle phrase"}
-	reordered, _ := discoveryScore(exact, "needle")
-	if reordered != a {
-		t.Fatal("keyword order changed relevance")
-	}
-	if _, matched := discoveryScore(exact, "needle absent"); matched {
-		t.Fatal("partial multi-term query accepted")
-	}
-}
-
 func TestSearchBoundsSummaryAndDescribeRetainsDocumentation(t *testing.T) {
 	doc := fixtureDiscovery("long")
 	doc.Description = strings.Repeat("业务说明 ", 300)
@@ -231,7 +194,7 @@ func TestSearchBoundsSummaryAndDescribeRetainsDocumentation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	call := toolruntime.Invocation{Arguments: map[string]any{"category": "host", "query": "inspect"}}
+	call := toolruntime.Invocation{Arguments: map[string]any{"category": "host"}}
 	result, err := set.Invoke(t.Context(), "tool.search", call)
 	if err != nil {
 		t.Fatal(err)

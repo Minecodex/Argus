@@ -1,0 +1,29 @@
+<section id="dashboard-view"></section>
+<style>
+.argus-dashboard-grid{display:grid;gap:var(--space-4);min-width:0;max-height:var(--template-dashboard-max-height);overflow:auto;scrollbar-gutter:stable}.argus-dashboard-panel{border:var(--template-border-width) solid var(--border-subtle);border-radius:var(--card-radius);padding:var(--space-3);min-width:0;overflow:auto}.argus-dashboard-panel h4{font-size:var(--text-body);margin:0 0 var(--space-2);overflow-wrap:anywhere}.argus-dashboard-panel--expanded{grid-column:1 / -1!important;grid-row:auto!important}.argus-dashboard-panel .argus-observation-chart{height:var(--template-chart-height)}
+</style>
+<script>
+ArgusView.mount(document.getElementById('dashboard-view'),(root,data)=>{
+ const v=ArgusView,t=(a,b)=>v.text(a,b);
+ const resourceNames=new Map((data.resources||[]).map(resource=>[resource.id,resource.name]));
+ const readable=value=>{if(Array.isArray(value))return value.map(readable);if(!value||typeof value!=='object')return value;
+  if(value.metric&&typeof value.metric==='object'){const labels=value.metric,id=labels.argus_resource_id||labels.resource_id;
+   const identity=id?(resourceNames.get(id)||t('资源未识别','Unknown resource')+' ('+String(id).slice(0,4)+'…'+String(id).slice(-6)+')'):'';
+   const dimensions=Object.entries(labels).filter(([key])=>key!=='__name__'&&!key.startsWith('argus_')&&!['resource_id','source_id','source_key','unit','resource_type'].includes(key)).map(([key,label])=>['database','database_name','db_name','service_name','hostname','host','device','mountpoint'].includes(key)?String(label):key+'='+label);
+   return {...value,display_name:value.display_name||[identity,...dimensions].filter(Boolean).join(' · ')||labels.__name__};
+  }return Object.fromEntries(Object.entries(value).map(([key,child])=>[key,readable(child)]));};
+ v.header(root,data.name||t('仪表盘查询','Dashboard query'),t('封存的查询结果','Sealed query result')+' · '+data.job_id);
+ const parameters=v.node('div',undefined,'argus-template-parameters');v.fields(parameters,[[t('实际资源','Effective resources'),(data.resources||[]).map(item=>item.name||item.id).join(' · ')],[t('时间范围','Time range'),v.time(data.from)+' – '+v.time(data.to)],[t('时区','Time zone'),data.timezone],[t('冻结版本 / Attempt','Frozen revision / attempt'),String(data.revision_number)+' / '+String(data.attempt_id||'—')]]);root.append(parameters);
+ const filters=v.section(parameters,t('实际筛选参数','Effective filters'));v.fields(filters,Object.entries(data.variables||{}));for(const [panel,values]of Object.entries(data.local_values||{})){v.note(filters,panel);v.fields(filters,Object.entries(values||{}));}
+ if(['failed','cancelled'].includes(data.status)){v.note(root,(data.status==='failed'?t('查询失败','Query failed'):t('查询已取消','Query cancelled'))+' · '+(data.error_code||''),'error');const retry=v.node('button',t('重新加载','Reload'),'argus-template-button');retry.addEventListener('click',()=>void v.reload());root.append(retry);return;}
+ const grid=v.node('div',undefined,'argus-dashboard-grid'),columns=Math.max(1,Math.min(24,data.layout?.columns||12));grid.style.gridTemplateColumns='repeat('+columns+',minmax(0,1fr))';root.append(grid);
+ for(const panel of data.panels||[]){const cell=v.node('section',undefined,'argus-dashboard-panel'),heading=v.node('h4',panel.name||panel.id),layout=panel.layout||{x:0,y:0,w:columns,h:1};cell.style.gridColumn=(Math.max(0,layout.x)+1)+' / span '+Math.min(columns,Math.max(1,layout.w));cell.style.gridRow=(Math.max(0,layout.y)+1)+' / span '+Math.max(1,layout.h);cell.append(heading);
+  const expand=v.node('button',t('展开面板','Expand panel'),'argus-template-button');expand.setAttribute('aria-expanded','false');expand.addEventListener('click',()=>{const expanded=cell.classList.toggle('argus-dashboard-panel--expanded');expand.setAttribute('aria-expanded',String(expanded));expand.textContent=expanded?t('还原布局','Restore layout'):t('展开面板','Expand panel');window.dispatchEvent(new Event('resize'));});cell.append(expand);
+  if(panel.description)v.note(cell,panel.description);const chart=v.node('div',undefined,'argus-template-chart');cell.append(chart);grid.append(cell);
+  ArgusTemplate.observation(chart,{title:panel.name||panel.id,type:panel.type,signal:panel.signal,unit:panel.unit,decimals:panel.decimals,legend:panel.legend,display:panel.display,thresholds:panel.thresholds,range:{from:data.from,to:data.to},targets:(panel.targets||[]).map(target=>({...target,data:readable(target.data)}))});
+  const facts=v.section(cell,t('面板参数与执行信息','Panel parameters and execution'));v.fields(facts,[[t('图型 / 信号','Chart type / signal'),panel.type+' / '+panel.signal],[t('单位 / 小数位','Unit / decimals'),(panel.unit||t('未识别','Unknown'))+' / '+panel.decimals],[t('阈值','Thresholds'),panel.thresholds],[t('展示规则','Display rules'),panel.display]]);
+  for(const target of panel.targets||[]){v.fields(facts,[[t('目标 / 状态','Target / status'),target.id+' / '+target.status],[t('采样步长秒','Step seconds'),target.step_seconds],[t('错误','Error'),target.code]]);if(target.preview_omitted||target.preview_truncated)v.note(facts,t('图表采用有界预览；完整封存数据可通过会话文件读取。','Chart uses a bounded preview; full sealed data is available in conversation files.'),'warning');}
+ }
+ if(!data.panels?.length)v.note(root,t('本次没有可展示的面板结果','No panel results for this query'));
+},'dashboard.result');
+</script>

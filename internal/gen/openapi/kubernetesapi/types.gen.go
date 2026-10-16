@@ -440,26 +440,27 @@ type IdempotencyKey = string
 
 // KubernetesCluster defines model for KubernetesCluster.
 type KubernetesCluster struct {
-	ApiServer         string                            `json:"api_server"`
-	BastionScopeId    *openapi_types.UUID               `json:"bastion_scope_id,omitempty"`
-	ConnectionMode    KubernetesConnectionMode          `json:"connection_mode"`
-	ConnectionStatus  KubernetesClusterConnectionStatus `json:"connection_status"`
-	ConnectorId       *openapi_types.UUID               `json:"connector_id,omitempty"`
-	CreatedAt         time.Time                         `json:"created_at"`
-	CredentialId      *openapi_types.UUID               `json:"credential_id,omitempty"`
-	DefaultNamespace  *string                           `json:"default_namespace,omitempty"`
-	EnterpriseId      *openapi_types.UUID               `json:"enterprise_id,omitempty"`
-	Environment       Environment                       `json:"environment"`
-	Id                openapi_types.UUID                `json:"id"`
-	KubernetesVersion *string                           `json:"kubernetes_version,omitempty"`
-	Labels            Labels                            `json:"labels"`
-	LabelsVersion     int64                             `json:"labels_version"`
-	Name              string                            `json:"name"`
-	NodeCount         *int                              `json:"node_count,omitempty"`
-	ReadyNodeCount    *int                              `json:"ready_node_count,omitempty"`
-	ResourceVersion   int64                             `json:"resource_version"`
-	Status            KubernetesClusterStatus           `json:"status"`
-	UpdatedAt         time.Time                         `json:"updated_at"`
+	ApiServer            string                            `json:"api_server"`
+	BastionScopeId       *openapi_types.UUID               `json:"bastion_scope_id,omitempty"`
+	ConnectionMode       KubernetesConnectionMode          `json:"connection_mode"`
+	ConnectionStatus     KubernetesClusterConnectionStatus `json:"connection_status"`
+	ConnectorId          *openapi_types.UUID               `json:"connector_id,omitempty"`
+	CreatedAt            time.Time                         `json:"created_at"`
+	CredentialId         *openapi_types.UUID               `json:"credential_id,omitempty"`
+	DefaultNamespace     *string                           `json:"default_namespace,omitempty"`
+	EnterpriseId         *openapi_types.UUID               `json:"enterprise_id,omitempty"`
+	Environment          Environment                       `json:"environment"`
+	Id                   openapi_types.UUID                `json:"id"`
+	KubernetesVersion    *string                           `json:"kubernetes_version,omitempty"`
+	Labels               Labels                            `json:"labels"`
+	LabelsVersion        int64                             `json:"labels_version"`
+	Name                 string                            `json:"name"`
+	NodeCount            *int                              `json:"node_count,omitempty"`
+	ReadyNodeCount       *int                              `json:"ready_node_count,omitempty"`
+	ResourceVersion      int64                             `json:"resource_version"`
+	StatisticsObservedAt *time.Time                        `json:"statistics_observed_at,omitempty"`
+	Status               KubernetesClusterStatus           `json:"status"`
+	UpdatedAt            time.Time                         `json:"updated_at"`
 }
 
 // KubernetesClusterConnectionStatus defines model for KubernetesCluster.ConnectionStatus.

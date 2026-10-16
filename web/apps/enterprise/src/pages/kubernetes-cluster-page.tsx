@@ -156,13 +156,13 @@ export function KubernetesClusterPage() {
           </div>
         </TabsContent>
         <TabsContent value="metrics">
-          <ResourceTelemetry resourceId={cluster.id} signal="metrics" />
+          <ResourceTelemetry resourceId={cluster.id} signal="metrics" resourceType="kubernetes_cluster" />
         </TabsContent>
         <TabsContent value="logs">
-          <ResourceTelemetry resourceId={cluster.id} signal="logs" />
+          <ResourceTelemetry resourceId={cluster.id} signal="logs" resourceType="kubernetes_cluster" />
         </TabsContent>
         <TabsContent value="traces">
-          <ResourceTelemetry resourceId={cluster.id} signal="traces" />
+          <ResourceTelemetry resourceId={cluster.id} signal="traces" resourceType="kubernetes_cluster" />
         </TabsContent>
       </Tabs>
     </PageShell>

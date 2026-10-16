@@ -517,12 +517,22 @@ export interface components {
             /** Format: int64 */
             expected_version: number;
             changes: components["schemas"]["DashboardConditionPatch"];
-            evidence: {
+            evidence: ({
                 /** @description JSON pointer for each changed condition; / for reset_all */
                 path: string;
                 /** @description Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness */
-                quote: string;
-            }[];
+                quote?: string;
+                /**
+                 * @default message_interpretation
+                 * @enum {string}
+                 */
+                origin: "message_interpretation" | "ai_selection";
+                /** @description Explanation of an AI-selected parameter; cannot replace an explicit user condition */
+                reason?: string;
+            } | unknown | {
+                /** @constant */
+                origin: "ai_selection";
+            })[];
         };
         DashboardAnalysisQueryInput: {
             /** Format: uuid */
@@ -915,6 +925,21 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        DashboardDraftPanelConversion: {
+            panel_id: string;
+            /** @enum {string} */
+            mode: "builder" | "dsl";
+        };
+        DashboardDraftPanelDrilldowns: {
+            panel_id: string;
+            signal_sources: {
+                [key: string]: components["schemas"]["DashboardSourceBinding"];
+            };
+        };
+        DashboardDraftPreparation: {
+            conversions?: components["schemas"]["DashboardDraftPanelConversion"][];
+            drilldowns?: components["schemas"]["DashboardDraftPanelDrilldowns"][];
+        };
         DashboardDraftInput: {
             /** Format: uuid */
             dashboard_id?: string;
@@ -926,6 +951,8 @@ export interface components {
             proposed_bindings: components["schemas"]["DashboardBinding"][];
             /** Format: int64 */
             expected_version?: number;
+            /** @description Optional deterministic lossless conversions and standard drilldowns, applied atomically with the version-checked draft save. Omission does not modify the supplied definition. */
+            preparation?: components["schemas"]["DashboardDraftPreparation"];
         };
         DashboardVersionInput: {
             /** Format: int64 */

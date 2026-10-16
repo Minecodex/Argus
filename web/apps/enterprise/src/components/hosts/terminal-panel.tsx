@@ -1,7 +1,6 @@
 import { forwardRef, useCallback, useImperativeHandle, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  formatApiError,
   useApi,
   useTerminalSessions,
   type AccessRequest,
@@ -14,7 +13,10 @@ import { MfaStepUpDialog } from "../security/mfa-step-up-dialog";
 type TerminalPanelProps = {
   host: Host;
   protocol: "shell" | "ssh" | "rdp";
-  onRDPReady: (session: RemoteAccessSession, ticket: SessionTicketResult) => void;
+  onRDPReady: (
+    session: RemoteAccessSession,
+    ticket: SessionTicketResult,
+  ) => void;
 };
 
 export type TerminalPanelHandle = {
@@ -67,13 +69,13 @@ export const TerminalPanel = forwardRef<
         terminal_rows: 30,
       });
       const ticket = await api.remoteAccess.createTicket(session.id);
-		if (session.protocol === "rdp") {
-			onRDPReady(session, ticket);
-			return;
-		}
+      if (session.protocol === "rdp") {
+        onRDPReady(session, ticket);
+        return;
+      }
       await attachSession(session.id, session, ticket, host.name, accountName);
     },
-		[api, attachSession, host.name, onRDPReady, t],
+    [api, attachSession, host.name, onRDPReady, t],
   );
 
   useImperativeHandle(
@@ -97,10 +99,10 @@ export const TerminalPanel = forwardRef<
         session: RemoteAccessSession,
         ticket: SessionTicketResult,
       ) => {
-			if (session.protocol === "rdp") {
-				onRDPReady(session, ticket);
-				return;
-			}
+        if (session.protocol === "rdp") {
+          onRDPReady(session, ticket);
+          return;
+        }
         if (sessions.has(session.id)) {
           const current = sessions.get(session.id)!;
           await attachSession(
@@ -131,7 +133,7 @@ export const TerminalPanel = forwardRef<
       host.id,
       host.name,
       protocol,
-		onRDPReady,
+      onRDPReady,
       sessions,
       showSession,
     ],
@@ -139,18 +141,10 @@ export const TerminalPanel = forwardRef<
 
   const retryAfterStepUp = async () => {
     if (!pendingRequestId) return;
-    try {
-      await continueRequest(
-        await api.remoteAccess.resumeRequest(pendingRequestId),
-        pendingAccountName,
-      );
-    } catch (error) {
-      throw new Error(
-        formatApiError(error, t("hosts.terminal.failed"), (requestId) =>
-          t("common.requestReference", { requestId }),
-        ),
-      );
-    }
+    await continueRequest(
+      await api.remoteAccess.resumeRequest(pendingRequestId),
+      pendingAccountName,
+    );
   };
 
   return (

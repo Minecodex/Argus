@@ -91,6 +91,14 @@ message ConnectorHeartbeat {
   repeated string trust_bundle_ca_fingerprints = 8;
   BastionRelayStatus bastion_relay = 9;
   HostRuntimeObservation host_runtime = 10;
+  KubernetesRuntimeObservation kubernetes_runtime = 11;
+}
+
+message KubernetesRuntimeObservation {
+  string server_version = 1;
+  uint32 node_count = 2;
+  uint32 ready_node_count = 3;
+  google.protobuf.Timestamp observed_at = 4;
 }
 
 message BastionRelayStatus {
@@ -120,6 +128,7 @@ message HostRuntimeObservation {
   bool rdp_firewall_enabled = 5;
   bool rdp_service_running = 6;
   google.protobuf.Timestamp observed_at = 7;
+  bytes inventory_json = 8;
 }
 
 message ClientAcknowledge {

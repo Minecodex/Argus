@@ -3,6 +3,7 @@
 package connector
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -17,5 +18,5 @@ func observeHostRuntime() *connectorv1.HostRuntimeObservation {
 		status = "available"
 		_ = connection.Close()
 	}
-	return &connectorv1.HostRuntimeObservation{Platform: "linux", OpensshStatus: status, RdpStatus: "unavailable", ObservedAt: timestamppb.Now()}
+	return &connectorv1.HostRuntimeObservation{Platform: "linux", OpensshStatus: status, RdpStatus: "unavailable", ObservedAt: timestamppb.Now(), InventoryJson: observeInventory(context.Background(), false)}
 }

@@ -146,6 +146,40 @@ export class HttpTransport {
     });
   }
 
+  /** Read authorized preview bytes with a hard cap, including chunked responses. */
+  async preview(path: string, signal?: AbortSignal, limit = 2 * 1024 * 1024): Promise<Blob> {
+    const response = await this.raw(path, { signal });
+    if (!response.ok) {
+      const error = new ApiError(await readError(response), response.status);
+      if (["AUTHORIZATION_VERSION_STALE", "SESSION_EXPIRED", "SESSION_REVOKED", "ENTERPRISE_SUSPENDED", "ENTERPRISE_DISABLED"].includes(error.code)) this.options.on_authentication_invalidated?.(error);
+      throw error;
+    }
+    const tooLarge = () => new ApiError({ code: "WORKSPACE_PREVIEW_TOO_LARGE", message_key: "planv5.files.previewTooLarge", request_id: response.headers.get("x-request-id") ?? "unknown", retryable: false }, 413);
+    if (Number(response.headers.get("content-length")) > limit) {
+      await response.body?.cancel();
+      throw tooLarge();
+    }
+    const chunks: ArrayBuffer[] = [];
+    let size = 0;
+    const reader = response.body?.getReader();
+    if (reader) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          size += value.byteLength;
+          if (size > limit) { await reader.cancel(); throw tooLarge(); }
+          const copy = new Uint8Array(value.byteLength); copy.set(value); chunks.push(copy.buffer);
+        }
+      } finally { reader.releaseLock(); }
+    } else {
+      const value = await response.arrayBuffer();
+      if (value.byteLength > limit) throw tooLarge();
+      chunks.push(value);
+    }
+    return new Blob(chunks, { type: response.headers.get("content-type") ?? "application/octet-stream" });
+  }
+
   async request<T>(path: string, options: HttpRequestOptions = {}): Promise<T> {
     const headers = new Headers(options.headers);
     headers.set("accept", "application/json");

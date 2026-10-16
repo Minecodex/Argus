@@ -1,0 +1,137 @@
+{
+  "provenance": {
+    "run": "plan6-host-20261012-h08",
+    "tool_sha256": "f86037f37d91bf84cd3620b0e0803354a3599728476627579bdc34457c1c58a9",
+    "reply_sha256": "05d59acdcceaf8206cbb2b84cbe2d572b66562cc1a0b622fcdabb71c0cc83138"
+  },
+  "host_id": "01a12c32-9c69-7005-ad10-b48b26bb65f0",
+  "policy_id": "7ebaf754-d0b9-52ec-9a72-b11bb21d73e6",
+  "phase": "active",
+  "reply": "```json\n{\n  \"host_id\": \"01a12c32-9c69-7005-ad10-b48b26bb65f0\",\n  \"instances\": [\n    {\"id\": \"7698719f-0ce2-420e-8b6e-f0fba2934916\", \"lifecycle\": \"firing\", \"value\": 17.53833898967292},\n    {\"id\": \"505b8f31-db01-40c8-9c4a-d0c5182ced0f\", \"lifecycle\": \"firing\", \"value\": 17.53833898967292},\n    {\"id\": \"e2b41786-8b36-4873-8133-9fb5acbc52f4\", \"lifecycle\": \"resolved\", \"value\": null}\n  ]\n}\n```",
+  "calls": [
+    {
+      "tool": "tool.invoke",
+      "status": "succeeded",
+      "input": {
+        "name": "event.query",
+        "category": "alert",
+        "arguments": {
+          "limit": 200,
+          "resource_id": "01a12c32-9c69-7005-ad10-b48b26bb65f0"
+        }
+      },
+      "output": {
+        "page": {
+          "items": [
+            {
+              "id": "7698719f-0ce2-420e-8b6e-f0fba2934916",
+              "policy_id": "7ebaf754-d0b9-52ec-9a72-b11bb21d73e6",
+              "resource_ids": [
+                "01a12c32-9c69-7005-ad10-b48b26bb65f0"
+              ],
+              "lifecycle": "firing",
+              "state": {
+                "kind": "condition",
+                "value": 17.533696608386272
+              }
+            },
+            {
+              "id": "505b8f31-db01-40c8-9c4a-d0c5182ced0f",
+              "policy_id": "7ebaf754-d0b9-52ec-9a72-b11bb21d73e6",
+              "resource_ids": [
+                "01a12c32-9c69-7005-ad10-b48b26bb65f0"
+              ],
+              "lifecycle": "firing",
+              "state": {
+                "kind": "condition",
+                "value": 17.533696608386272
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "tool": "tool.invoke",
+      "status": "succeeded",
+      "input": {
+        "name": "history.query",
+        "category": "alert",
+        "arguments": {
+          "to": "2026-10-11T18:24:57Z",
+          "from": "2026-10-04T18:24:57Z",
+          "limit": 200,
+          "resource_id": "01a12c32-9c69-7005-ad10-b48b26bb65f0"
+        }
+      },
+      "output": {
+        "page": {
+          "items": [
+            {
+              "id": "e2b41786-8b36-4873-8133-9fb5acbc52f4",
+              "policy_id": "7ebaf754-d0b9-52ec-9a72-b11bb21d73e6",
+              "resource_ids": [
+                "01a12c32-9c69-7005-ad10-b48b26bb65f0"
+              ],
+              "lifecycle": "resolved",
+              "state": {
+                "kind": "health",
+                "value": null
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "tool": "tool.invoke",
+      "status": "succeeded",
+      "input": {
+        "name": "event.get",
+        "category": "alert",
+        "arguments": {
+          "id": "7698719f-0ce2-420e-8b6e-f0fba2934916"
+        }
+      },
+      "output": {
+        "instance": {
+          "id": "7698719f-0ce2-420e-8b6e-f0fba2934916",
+          "policy_id": "7ebaf754-d0b9-52ec-9a72-b11bb21d73e6",
+          "resource_ids": [
+            "01a12c32-9c69-7005-ad10-b48b26bb65f0"
+          ],
+          "lifecycle": "firing",
+          "state": {
+            "kind": "condition",
+            "value": 17.53833898967292
+          }
+        }
+      }
+    },
+    {
+      "tool": "tool.invoke",
+      "status": "succeeded",
+      "input": {
+        "name": "event.get",
+        "category": "alert",
+        "arguments": {
+          "id": "505b8f31-db01-40c8-9c4a-d0c5182ced0f"
+        }
+      },
+      "output": {
+        "instance": {
+          "id": "505b8f31-db01-40c8-9c4a-d0c5182ced0f",
+          "policy_id": "7ebaf754-d0b9-52ec-9a72-b11bb21d73e6",
+          "resource_ids": [
+            "01a12c32-9c69-7005-ad10-b48b26bb65f0"
+          ],
+          "lifecycle": "firing",
+          "state": {
+            "kind": "condition",
+            "value": 17.53833898967292
+          }
+        }
+      }
+    }
+  ]
+}

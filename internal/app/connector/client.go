@@ -169,6 +169,7 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 	var rotationKey []byte
 	var stopAfterAcknowledgement uint64
 	var runtimeObservation *connectorv1.HostRuntimeObservation
+	var kubernetesObservation *connectorv1.KubernetesRuntimeObservation
 	if identity.Role == "host" || identity.Role == "bastion" {
 		runtimeObservation = observeHostRuntime()
 	}
@@ -203,6 +204,9 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 			if identity.Role == "host" || identity.Role == "bastion" {
 				runtimeObservation = observeHostRuntime()
 			}
+			if identity.Role == "kubernetes" {
+				kubernetesObservation = observeKubernetesRuntime(ctx)
+			}
 			// A Connector control stream can remain open longer than the 24-hour
 			// client certificate lifetime. Re-evaluate rotation on every heartbeat
 			// so a long-lived stream moves to the next issuer during CA overlap
@@ -217,7 +221,7 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 				ConnectionEpoch: epoch, SentAt: timestamppb.Now(), ActiveCommands: uint32(active.Load()),
 				ActiveRemoteAccessStreams: uint32(activeRemote.Load()), TelemetryTunnels: tunnels.Snapshot(),
 				TrustBundleEpoch: uint64(identity.TrustBundleEpoch), TrustBundleSha256: identity.TrustBundleSHA256,
-				TrustBundleCaFingerprints: identity.TrustCAFingerprints, BastionRelay: client.relay.snapshot(), HostRuntime: runtimeObservation}}}}); err != nil {
+				TrustBundleCaFingerprints: identity.TrustCAFingerprints, BastionRelay: client.relay.snapshot(), HostRuntime: runtimeObservation, KubernetesRuntime: kubernetesObservation}}}}); err != nil {
 				return err
 			}
 		case item := <-outgoingChannel:

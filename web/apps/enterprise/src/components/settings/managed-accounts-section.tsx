@@ -1,24 +1,13 @@
-import { QueryBoundary } from "@argus/ui";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
-import { z } from "zod";
-import { presentApiFormError, useApi } from "@argus/api-client";
-import type { Credential, ManagedAccount } from "@argus/api-client/contracts";
-import {
-  Alert,
-  Badge,
-  DataTable,
-  EmptyState,
-  Field,
-  FormDrawer,
-  Input,
-  RowAction,
-  Select,
-  Spinner,
-} from "@argus/ui";
+import {ActionMenu,QueryBoundary} from "@argus/ui";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
+import {useEffect,useMemo,useState} from "react";
+import {Controller,useForm} from "react-hook-form";
+import {useTranslation} from "react-i18next";
+import {z} from "zod";
+import {presentApiFormError,useApi} from "@argus/api-client";
+import type {Credential,ManagedAccount} from "@argus/api-client/contracts";
+import {Alert,Badge,DataTable,EmptyState,Field,FormDrawer,Input,Select,Spinner} from "@argus/ui";
 
 type ManagedAccountForm = {
   host_id: string;
@@ -148,16 +137,10 @@ export function ManagedAccountsSection({
               {
                 key: "actions",
                 header: t("settings.common.actions"),
-                render: (row) => (
-                  <RowAction
-                    onPress={() => {
+                render: (row) => (<ActionMenu items={[{label: t("settings.common.edit"),onSelect: () => {
                       onCreateOpenChange(false);
                       setEditing(row);
-                    }}
-                  >
-                    {t("settings.common.edit")}
-                  </RowAction>
-                ),
+                    }}]} />),
               },
             ]}
             data={accounts.data ?? []}

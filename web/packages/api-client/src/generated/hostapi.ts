@@ -1,4 +1,42 @@
 export interface paths {
+    "/enterprise/hosts/{id}/actions/preview-reconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify the current existing SSH target and preview tunnel reauthorization. */
+        post: operations["previewHostReconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enterprise/hosts/{id}/inventory/actions/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Collect a fresh local host inventory through the current Connector. */
+        post: operations["refreshHostInventory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/enterprise/hosts/name-availability": {
         parameters: {
             query?: never;
@@ -333,6 +371,7 @@ export interface components {
             bastion_scope_id?: string;
             /** Format: uuid */
             connector_id?: string;
+            inventory?: components["schemas"]["HostInventory"];
             readonly runtime?: components["schemas"]["HostRuntimeObservation"];
             environment: components["schemas"]["Environment"];
             labels: components["schemas"]["Labels"];
@@ -582,6 +621,11 @@ export interface components {
             /** Format: date-time */
             observed_at: string;
         };
+        IdempotencyKey: string;
+        ResourcePreviewDelete: {
+            /** Format: int64 */
+            expected_version: number;
+        };
         RequestId: string;
         ApiError: {
             code: string;
@@ -594,53 +638,6 @@ export interface components {
             trace_id?: string;
             /** @default false */
             retryable: boolean;
-        };
-        ResourceNameAvailability: {
-            /** @description Whether the name can currently be used for creation in the authenticated enterprise. This does not reserve the name. */
-            available: boolean;
-        };
-        /** @enum {string} */
-        HostControlPath: "direct" | "bastion_relay" | "executor_tunnel";
-        /** @enum {string} */
-        HostRole: "managed_host" | "bastion";
-        /** @enum {string} */
-        Environment: "development" | "staging" | "production";
-        UserLabelKey: string;
-        SystemLabelKey: string;
-        LabelValue: string;
-        Labels: {
-            [key: string]: components["schemas"]["LabelValue"];
-        };
-        /** @enum {string} */
-        HostInstallMethod: "manual" | "ssh";
-        /** @enum {string} */
-        HostSSHPath: "none" | "direct_executor" | "bastion_connector";
-        OnboardingProjection: {
-            /** @enum {string} */
-            state: "command_available" | "command_consumed" | "command_expired" | "awaiting_approval" | "installing" | "install_failed" | "registered";
-            pending_action_ref?: string;
-            /** Format: uuid */
-            execution_id?: string;
-            /** Format: uuid */
-            operation_id?: string;
-            error_code?: string;
-            readonly install_method?: components["schemas"]["HostInstallMethod"];
-            readonly ssh_path?: components["schemas"]["HostSSHPath"];
-            /** Format: date-time */
-            updated_at: string;
-        };
-        PartialMetadata: {
-            partial: boolean;
-            reasons: ("authorization_filtered" | "budget_truncated" | "source_timeout" | "source_unavailable")[];
-        };
-        CursorPage: {
-            next_cursor: string | null;
-            has_more: boolean;
-            partial: components["schemas"]["PartialMetadata"];
-        };
-        IdempotencyKey: string;
-        UserLabels: {
-            [key: string]: components["schemas"]["LabelValue"];
         };
         PublicJsonValue: unknown;
         PublicJsonObject: unknown;
@@ -679,9 +676,119 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
-        ResourcePreviewDelete: {
-            /** Format: int64 */
-            expected_version: number;
+        /** @enum {string} */
+        HostRole: "managed_host" | "bastion";
+        /** @enum {string} */
+        HostControlPath: "direct" | "bastion_relay" | "executor_tunnel";
+        HostInventory: {
+            /** @constant */
+            schema_version: "argus.host_inventory/v1";
+            /** Format: date-time */
+            collected_at: string;
+            hostname: string;
+            os: string;
+            os_version: string;
+            kernel_version: string;
+            architecture: string;
+            machine_id: string;
+            hardware_uuid: string;
+            virtualization_system: string;
+            virtualization_role: string;
+            /** @enum {string} */
+            scope: "machine" | "container";
+            /** Format: date-time */
+            boot_time?: string;
+            cpu?: {
+                model: string;
+                logical_cores: number;
+                physical_cores: number;
+            };
+            memory?: {
+                /** Format: int64 */
+                total_bytes: number;
+                /** Format: int64 */
+                swap_bytes: number;
+            };
+            disks: {
+                device: string;
+                mountpoint: string;
+                filesystem: string;
+                /** Format: int64 */
+                total_bytes: number;
+                /** Format: int64 */
+                used_bytes: number;
+                /** Format: int64 */
+                free_bytes: number;
+            }[];
+            networks: {
+                name: string;
+                mac: string;
+                mtu: number;
+                addresses: string[];
+                /** @enum {string} */
+                state: "up" | "down";
+            }[];
+            gpus: {
+                name: string;
+                vendor: string;
+                device_id: string;
+                /** Format: int64 */
+                memory_bytes: number;
+            }[];
+            cloud: {
+                /** @enum {string} */
+                status: "available" | "not_detected";
+                provider: string;
+                instance_id: string;
+                region: string;
+                zone: string;
+            };
+            issues: {
+                section: string;
+                code: string;
+            }[];
+        };
+        /** @enum {string} */
+        Environment: "development" | "staging" | "production";
+        UserLabelKey: string;
+        SystemLabelKey: string;
+        LabelValue: string;
+        Labels: {
+            [key: string]: components["schemas"]["LabelValue"];
+        };
+        /** @enum {string} */
+        HostInstallMethod: "manual" | "ssh";
+        /** @enum {string} */
+        HostSSHPath: "none" | "direct_executor" | "bastion_connector";
+        OnboardingProjection: {
+            /** @enum {string} */
+            state: "command_available" | "command_consumed" | "command_expired" | "awaiting_approval" | "installing" | "install_failed" | "registered";
+            pending_action_ref?: string;
+            /** Format: uuid */
+            execution_id?: string;
+            /** Format: uuid */
+            operation_id?: string;
+            error_code?: string;
+            readonly install_method?: components["schemas"]["HostInstallMethod"];
+            readonly ssh_path?: components["schemas"]["HostSSHPath"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ResourceNameAvailability: {
+            /** @description Whether the name can currently be used for creation in the authenticated enterprise. This does not reserve the name. */
+            available: boolean;
+        };
+        PartialMetadata: {
+            partial: boolean;
+            reasons: ("authorization_filtered" | "budget_truncated" | "source_timeout" | "source_unavailable")[];
+        };
+        CursorPage: {
+            next_cursor: string | null;
+            has_more: boolean;
+            partial: components["schemas"]["PartialMetadata"];
+        };
+        UserLabels: {
+            [key: string]: components["schemas"]["LabelValue"];
         };
         HostConnectionTestCreate: {
             address: string;
@@ -769,11 +876,11 @@ export interface components {
         };
     };
     parameters: {
-        Cursor: string;
-        Limit: number;
         ResourceId: string;
         IdempotencyKey: components["schemas"]["IdempotencyKey"];
         CsrfToken: string;
+        Cursor: string;
+        Limit: number;
     };
     requestBodies: never;
     headers: never;
@@ -781,6 +888,62 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    previewHostReconnect: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourcePreviewDelete"];
+            };
+        };
+        responses: {
+            /** @description Verified tunnel reauthorization preview. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["pending-action-public.schema"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    refreshHostInventory: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fresh inventory collected. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Host"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     checkHostNameAvailability: {
         parameters: {
             query: {

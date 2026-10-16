@@ -1,27 +1,13 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
-import {
-  formatApiError,
-  useApi,
-  type DashboardResourceType,
-  type DashboardBindingView,
-  type DashboardItem,
-  type PendingActionPublic,
-} from "@argus/api-client";
-import {
-  Alert,
-  Badge,
-  Button,
-  Dialog,
-  EmptyState,
-  ResourceCard,
-  ResourceGrid,
-  SearchInput,
-} from "@argus/ui";
-import { usePermission } from "../../lib/permissions";
-import { DashboardActionDialog } from "./action-dialog";
+import {formatDateTime} from "../hosts/host-utils";
+import "../../styles/resource-lists.css";
+import {useState} from "react";
+import {useQuery,useQueryClient} from "@tanstack/react-query";
+import {Link,useNavigate} from "@tanstack/react-router";
+import {useTranslation} from "react-i18next";
+import {formatApiError,useApi,type DashboardResourceType,type DashboardBindingView,type DashboardItem,type PendingActionPublic} from "@argus/api-client";
+import {ActionMenu,Alert,Badge,Button,Dialog,EmptyState,DataTable,SearchInput} from "@argus/ui";
+import {usePermission} from "../../lib/permissions";
+import {DashboardActionDialog} from "./action-dialog";
 import "../../styles/dashboards.css";
 
 export function ResourceDashboardLinks({
@@ -158,30 +144,48 @@ export function ResourceDashboardLinks({
         </>
       ) : bindings.data ? (
         linked.length ? (
-          <ResourceGrid>
-            {linked.map((binding) => (
-              <ResourceCard
-                key={binding.id}
-                title={
-                  <Link
-                    className="argus-dashboard-resource-title"
-                    to="/dashboards/$dashboardId"
-                    params={{ dashboardId: binding.dashboard.id }}
-                    search={{ resource: id, resource_type: type }}
-                  >
-                    {binding.dashboard.name}
-                  </Link>
-                }
-                subtitle={binding.dashboard.description || undefined}
-                status={<Badge>{t("dashboardLinks.published")}</Badge>}
-                actions={
-                  <Button onPress={() => openDashboard(binding.dashboard.id)}>
-                    {t("dashboardLinks.openDashboard")}
-                  </Button>
-                }
-              />
-            ))}
-          </ResourceGrid>
+          <DataTable
+            data={linked}
+            getRowKey={(binding) => binding.id}
+            columns={[
+              {
+                key: "dashboard",
+                header: t("resourceList.name"),
+                render: (binding) => (
+                  <div className="argus-resource-list__identity">
+                    <Link
+                      className="argus-dashboard-resource-title"
+                      to="/dashboards/$dashboardId"
+                      params={{ dashboardId: binding.dashboard.id }}
+                      search={{ resource: id, resource_type: type }}
+                    >
+                      {binding.dashboard.name}
+                    </Link>
+                    <span className="argus-muted">
+                      {binding.dashboard.description || "—"}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                key: "status",
+                header: t("resourceList.status"),
+                render: () => <Badge>{t("dashboardLinks.published")}</Badge>,
+              },
+              {
+                key: "updated",
+                header: t("resourceList.updated"),
+                render: (binding) =>
+                  formatDateTime(binding.dashboard.updated_at),
+              },
+              {
+                key: "actions",
+                header: t("resourceList.actions"),
+                align: "right",
+                render: (binding) => (<ActionMenu items={[{label: t("dashboardLinks.openDashboard"),onSelect: () => openDashboard(binding.dashboard.id)}]} />),
+              },
+            ]}
+          />
         ) : (
           <EmptyState
             title={t("dashboardLinks.noDashboards")}

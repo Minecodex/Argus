@@ -3,6 +3,8 @@ info: {title: Argus Host API, version: 1.0.0, license: {name: Proprietary, ident
 servers: [{url: /api/v1}]
 security: [{sessionCookie: []}]
 paths:
+  "/enterprise/hosts/{id}/actions/preview-reconnect": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}~1actions~1preview-reconnect"}
+  "/enterprise/hosts/{id}/inventory/actions/refresh": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}~1inventory~1actions~1refresh"}
   /enterprise/hosts/name-availability: {$ref: ../argus.yaml#/paths/~1enterprise~1hosts~1name-availability}
   /enterprise/hosts: {$ref: ../argus.yaml#/paths/~1enterprise~1hosts}
   "/enterprise/hosts/{id}": {$ref: "../argus.yaml#/paths/~1enterprise~1hosts~1{id}"}

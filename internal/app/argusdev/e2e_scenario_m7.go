@@ -2,6 +2,7 @@ package argusdev
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -223,14 +224,18 @@ func (a *App) applyM7CollectorAction(ctx context.Context, env *E2EEnvironment, r
 
 // applyM7CollectorActionWithImage 允许 kubernetes 安装显式携带 kubernetes_image
 // 覆盖(空串走服务端默认),验证按次镜像配置从 preview 到 DaemonSet 的完整链路。
-func (a *App) applyM7CollectorActionWithImage(ctx context.Context, env *E2EEnvironment, resourceType, resourceID, action, distributionID string, profiles []string, kubernetesImage string) error {
+func (a *App) applyM7CollectorActionWithImage(ctx context.Context, env *E2EEnvironment, resourceType, resourceID, action, distributionID string, profiles []string, kubernetesImage string, keyPrefixes ...string) error {
 	client, _ := scenarioHTTP(env)
 	base := "/enterprise/hosts/" + resourceID + "/collector"
 	if resourceType == "kubernetes-cluster" {
 		base = "/enterprise/kubernetes-clusters/" + resourceID + "/collector"
 	}
 	body := m7CollectorPreviewBody(distributionID, profiles, kubernetesImage)
-	idempotencyKey := "m7-collector-" + resourceType + "-" + resourceID + "-" + action
+	prefix := "m7"
+	if len(keyPrefixes) == 1 && keyPrefixes[0] != "" {
+		prefix = keyPrefixes[0]
+	}
+	idempotencyKey := prefix + "-collector-" + resourceType + "-" + resourceID + "-" + action
 	if action != "install" {
 		current, err := client.JSON(ctx, "m7-collector-current-"+action, "enterprise", http.MethodGet, base, http.StatusOK, nil, map[string]string{"Origin": env.EnterpriseOrigin()})
 		if err != nil {
@@ -249,8 +254,14 @@ func (a *App) applyM7CollectorActionWithImage(ctx context.Context, env *E2EEnvir
 		nativeInput[key] = value
 	}
 	nativeInput[idField] = resourceID
-	if err := a.verifyNativePreview(ctx, env, idempotencyKey, category, "collector."+action+".preview", nativeInput); err != nil {
+	httpFixture, err := plan6HTTPCollectorFixture(env, resourceType, resourceID, action, keyPrefixes)
+	if err != nil {
 		return err
+	}
+	if !httpFixture {
+		if err := a.verifyNativePreview(ctx, env, idempotencyKey, category, "collector."+action+".preview", nativeInput); err != nil {
+			return err
+		}
 	}
 	preview, err := client.JSON(ctx, "m7-collector-preview-"+action, "enterprise", http.MethodPost, base+"/actions/preview-"+action, http.StatusCreated, body, enterpriseHeaders(env, idempotencyKey))
 	if err != nil {
@@ -260,7 +271,13 @@ func (a *App) applyM7CollectorActionWithImage(ctx context.Context, env *E2EEnvir
 	if err != nil {
 		return err
 	}
-	_, err = a.confirmPendingAction(ctx, env, idempotencyKey+"-confirm", actionRef)
+	confirmed, err := a.confirmPendingAction(ctx, env, idempotencyKey+"-confirm", actionRef)
+	if err == nil && httpFixture {
+		raw, _ := json.MarshalIndent(map[string]any{"scope": "owned real-source identity fixture", "model_acceptance": false,
+			"mode": "HTTP Preview and host confirmation", "action": action, "resource_id": resourceID,
+			"action_ref": actionRef, "execution": confirmed["execution"], "passed": true}, "", "  ")
+		err = writePrivate(filepath.Join(env.Options.Artifacts, "plan6-identity-collector-"+action+".json"), raw)
+	}
 	return err
 }
 
@@ -333,6 +350,10 @@ func (a *App) runM7Generator(ctx context.Context, env *E2EEnvironment, marker st
 }
 
 func (a *App) runM7GeneratorWithIdentity(ctx context.Context, env *E2EEnvironment, marker, resourceID, serverCollectorID, secretName string) error {
+	image := env.State.FixtureImages["backend"]
+	if env.State.Values["p6_backend_build"] == "production" {
+		image = env.State.FixtureImages["systemd"]
+	}
 	defaultMode := int32(0o440)
 	backoff := int32(3)
 	job := &batchv1.Job{
@@ -340,7 +361,7 @@ func (a *App) runM7GeneratorWithIdentity(ctx context.Context, env *E2EEnvironmen
 		Spec: batchv1.JobSpec{BackoffLimit: &backoff, Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
 			RestartPolicy:   corev1.RestartPolicyNever,
 			SecurityContext: &corev1.PodSecurityContext{RunAsNonRoot: boolPointer(true), RunAsUser: int64PointerValue(65532), RunAsGroup: int64PointerValue(65532), FSGroup: int64PointerValue(65532)},
-			Containers: []corev1.Container{{Name: "generator", Image: env.State.FixtureImages["backend"], ImagePullPolicy: corev1.PullNever,
+			Containers: []corev1.Container{{Name: "generator", Image: image, ImagePullPolicy: corev1.PullNever,
 				Command: []string{"/usr/local/bin/argus-telemetry-e2e"}, Args: []string{
 					"--endpoint=argus-otelcol-gateway." + m7CollectorNamespace + ".svc.cluster.local:4317", "--resource-id=" + resourceID, "--marker=" + marker,
 					"--tls-ca=/var/run/argus-telemetry-client/ca.pem", "--tls-cert=/var/run/argus-telemetry-client/client.pem", "--tls-key=/var/run/argus-telemetry-client/client-key.pem",

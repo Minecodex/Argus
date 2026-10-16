@@ -2,7 +2,7 @@
 
 ## 原生工具
 
-业务能力由 `internal/toolgateway` 和对应业务包注册到自有 Registry。模型只获得 `tool.search`、`tool.describe`、`tool.invoke`；Provider 边界转换为合法函数名。分类固定为 `host/k8s/metric/trace/log/connector/workflow`。
+业务能力由 `internal/toolgateway` 和对应业务包注册到自有 Registry。模型只获得 `tool.search`、`tool.describe`、`tool.invoke`；Provider 边界转换为合法函数名。当前分类为 `host/k8s/metric/trace/log/connector/workflow/dashboard/alert`，完整业务目录为 103 个工具。管理配置及草稿内部操作的移除边界见[模型工具目录收敛](./tool-catalog-pruning-20261014.md)。
 
 Manifest 必须提供稳定 ID、输入输出版本、严格 Input Schema、风险和权限。每个模型可见的自有工具还须在所属业务包提供 `mcp.Discovery`，包含中英文业务标题、用途、关键词、结果语义、前件和意图/参数获取示例；禁止由 Tool ID 临时拼接代替。查询执行时重新检查当前主体和资源范围，不能信任参数中的企业、用户或调用方身份。Search 默认 10 项、最大 20 项；缓存包含企业、用户、权限版本、权限集合、CatalogRevision 和查询参数。
 
@@ -97,6 +97,6 @@ SQLC 命令会运行声明级拆分器，使生成的 Go 文件保持在 2000 �
 
 关键词大小写归一、去重和排序后计算内容 Hash；业务说明、前件、示例、结果语义的变化同样改变 Manifest Version 和 CatalogRevision。代码实现版本仍参与目录身份。旧 Run 与旧游标不能静默使用新版目录。元数据校验会复制切片，调用方修改注册输入不能改变已经建立的目录。
 
-Search 在名称、标题、描述和关键词中确定性评分；空白分隔的所有查询词都须命中，结果按得分和规范名称稳定排序。英文按词边界匹配，`install` 不匹配 `uninstall`；中文按已维护短语匹配，常用无空格短语应在工具关键词中明确维护。它不是任意中文自然语言分词器，不在 Agent 内恢复业务关键词选择器。Search 摘要最多 256 个 Unicode 字符；Describe 以 `argus.tool_manifest/v1` 返回完整业务说明、严格输入 Schema、权限与风险，以及元数据 Hash。示例解释业务意图和参数获取方式，不提供可能被误用的虚构生产资源 ID。
+Search 仅接收 category，按当前授权和 Run 范围返回该分类全部工具，名称稳定排序，不接受 query、limit、cursor。每项摘要最多 256 个 Unicode 字符；模型从列表选择 name，再由 Describe 以 `argus.tool_manifest/v1` 取得完整业务说明、严格 Schema、权限、风险及元数据 Hash。九分类导航由 toolruntime 的同一份定义进入系统提示和搜索描述。详情见[分类发现](./category-only-discovery-20261014.md)。
 
-新增工具须补充目录覆盖、中英文词与同义词、权限/缓存、Manifest 变更和 Schema 预算回归。P5 的 `p5-business-discovery.json` 通过真实 Agent/持久化结果验证七类工具的九组检索与描述，不能替代真实模型评测。
+新增工具须补充分类完整列表、可理解的中英文用途、权限/范围、Manifest 变更和 Schema/上下文容量回归。P5 的 `p5-business-discovery.json` 通过真实 Agent/持久化结果验证七类工具的九组检索与描述，不能替代真实模型评测。

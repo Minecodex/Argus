@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -55,6 +56,11 @@ func (commandExecutor) execute(parent context.Context, command *connectorv1.Conn
 	var value proto.Message
 	var err error
 	switch command.GetCommandType() {
+	case "host_inventory_probe":
+		inventory := observeInventory(ctx, true)
+		value = observeHostRuntime()
+		value.(*connectorv1.HostRuntimeObservation).InventoryJson = inventory
+		value.(*connectorv1.HostRuntimeObservation).ObservedAt = timestamppb.Now()
 	case "host_connection_probe":
 		value, err = executeHostProbe(ctx, command.GetTypedPayload(), credential)
 	case "kubernetes_connection_probe":

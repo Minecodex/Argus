@@ -55,3 +55,4 @@ export const collectorComponents = {
     "windowseventlog"
   ]
 } as const;
+export const kubernetesCollectorNamespace = "argus-telemetry";

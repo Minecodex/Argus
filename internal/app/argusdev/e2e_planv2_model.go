@@ -29,7 +29,7 @@ func (a *App) runPlanV2RealModel(ctx context.Context, env *E2EEnvironment) (fail
 	}
 	planned := 0
 	for _, g := range groups {
-		planned += map[string]int{"core": 4, "authoring": 1, "conditions": 4, "failures": 4}[g]
+		planned += map[string]int{"core": 4, "authoring": 1, "conditions": 4, "failures": 4, "automatic": 2}[g]
 	}
 	report := p5BenchmarkReport{Kind: "planv2-real-model-functional/v3", Model: cfg.ModelID, Protocol: cfg.Protocol, Groups: groups, Planned: planned, Samples: []p5BenchmarkSample{}}
 	defer func() {
@@ -74,7 +74,7 @@ func (a *App) runPlanV2RealModel(ctx context.Context, env *E2EEnvironment) (fail
 	for _, suite := range []struct {
 		name string
 		run  func(context.Context, *E2EEnvironment) ([]p5BenchmarkSample, error)
-	}{{"authoring", a.planV2ModelAuthoring}, {"conditions", a.planV2ModelConditions}, {"failures", a.planV2ModelFailures}} {
+	}{{"authoring", a.planV2ModelAuthoring}, {"conditions", a.planV2ModelConditions}, {"failures", a.planV2ModelFailures}, {"automatic", a.planV2ModelAutomatic}} {
 		if !slices.Contains(groups, suite.name) {
 			continue
 		}
@@ -143,7 +143,7 @@ func planV2ParseModelGroups(value string) ([]string, error) {
 	groups := strings.Split(value, ",")
 	seen := map[string]bool{}
 	for _, g := range groups {
-		if !slices.Contains([]string{"core", "authoring", "conditions", "failures"}, g) || seen[g] {
+		if !slices.Contains([]string{"core", "authoring", "conditions", "failures", "automatic"}, g) || seen[g] {
 			return nil, fmt.Errorf("%w: invalid or duplicate PlanV2 model group", errUsage)
 		}
 		seen[g] = true

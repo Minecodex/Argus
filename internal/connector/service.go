@@ -26,6 +26,7 @@ import (
 	"github.com/kakj-go/Argus/internal/artifactcheck"
 	"github.com/kakj-go/Argus/internal/audit"
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
+	"github.com/kakj-go/Argus/internal/hostinventory"
 	"github.com/kakj-go/Argus/internal/hostonboarding"
 	"github.com/kakj-go/Argus/internal/hostremoval"
 	"github.com/kakj-go/Argus/internal/installation"
@@ -897,10 +898,13 @@ func (service Service) UpdateHostRuntimeObservation(ctx context.Context, identit
 		time.Since(observation.GetObservedAt().AsTime()) > 5*time.Minute || observation.GetObservedAt().AsTime().After(time.Now().Add(time.Minute)) {
 		return ErrCommandState
 	}
+	if _, err := hostinventory.Decode(observation.GetInventoryJson()); err != nil {
+		return ErrCommandState
+	}
 	_, err = service.Store.Queries.UpsertHostRuntimeObservation(ctx, db.UpsertHostRuntimeObservationParams{ID: identity.ConnectorID,
 		EnterpriseID: identity.EnterpriseID, Platform: observation.GetPlatform(), OpensshStatus: observation.GetOpensshStatus(), RdpStatus: observation.GetRdpStatus(),
 		RdpNlaEnabled: observation.GetRdpNlaEnabled(), RdpFirewallEnabled: observation.GetRdpFirewallEnabled(), RdpServiceRunning: observation.GetRdpServiceRunning(),
-		ObservedAt: pgtype.Timestamptz{Time: observation.GetObservedAt().AsTime(), Valid: true}})
+		ObservedAt: pgtype.Timestamptz{Time: observation.GetObservedAt().AsTime(), Valid: true}, InventoryJson: observation.GetInventoryJson()})
 	if err != nil {
 		return ErrCommandState
 	}
@@ -1050,6 +1054,17 @@ func (service Service) TransitionCommand(ctx context.Context, identity TrustedId
 				return ErrCommandState
 			}
 			return (hostremoval.Service{Store: service.Store}).FinalizeTrustedWithQueries(ctx, q, operation, outcome.GetCleanupEvidenceJson(), outcome.GetCleanupHash())
+		}
+		if current.CommandType == "host_inventory_probe" && next == "succeeded" {
+			var observation connectorv1.HostRuntimeObservation
+			if protojson.Unmarshal(result, &observation) != nil || observation.GetObservedAt() == nil {
+				return ErrCommandState
+			}
+			if snapshot, err := hostinventory.Decode(observation.GetInventoryJson()); err != nil || snapshot == nil {
+				return ErrCommandState
+			}
+			_, err := q.UpsertHostRuntimeObservation(ctx, db.UpsertHostRuntimeObservationParams{ID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID, Platform: observation.GetPlatform(), OpensshStatus: observation.GetOpensshStatus(), RdpStatus: observation.GetRdpStatus(), RdpNlaEnabled: observation.GetRdpNlaEnabled(), RdpFirewallEnabled: observation.GetRdpFirewallEnabled(), RdpServiceRunning: observation.GetRdpServiceRunning(), ObservedAt: pgtype.Timestamptz{Time: observation.GetObservedAt().AsTime(), Valid: true}, InventoryJson: observation.GetInventoryJson()})
+			return err
 		}
 		if current.CommandType == "host_windows_rdp_configure" && next == "succeeded" {
 			return finalizeWindowsRDPChangeJournal(ctx, q, current, result)

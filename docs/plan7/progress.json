@@ -1,0 +1,164 @@
+{
+  "plan": "Plan7",
+  "created_at": "2026-10-15",
+  "updated_at": "2026-10-15",
+  "status": "planned",
+  "documentation": {
+    "status": "recorded",
+    "entry": "README.md",
+    "baseline": "01-decisions-and-qa.md",
+    "initial_checks": {
+      "utf8": "passed",
+      "new_local_links_checked": 60,
+      "task_graph": "passed",
+      "existing_documents_additive": 8
+    },
+    "checks_after_q16_q18": {
+      "utf8": "passed",
+      "plan7_files": 9,
+      "plan7_local_links_checked": 45,
+      "task_graph": "passed",
+      "only_open_question": "Q15"
+    }
+  },
+  "open_questions": [],
+  "confirmed_execution_decisions": {
+    "Q15": "shared_resource_shell_or_powershell_across_plan_and_connect_command_batches",
+    "Q16": "serial_only",
+    "Q17": [
+      "linux",
+      "kubernetes",
+      "windows_powershell"
+    ],
+    "Q18": "background_continue_explicit_stop_with_submit_button_execution_state",
+    "Q19": "share_within_conversation_resource_identity_interpreter_isolate_other_scopes",
+    "Q20": "dedicated_workspace_input_auto_snapshot_upload_and_remote_output_auto_collect",
+    "Q21": "pause_remote_dispatch_analyze_context_recovery_confirm_new_recovery_plan_validate_then_continue",
+    "Q22": "idle_reclamation_allowed_no_active_execution_reaping_preserve_results",
+    "Q23": "cross_conversation_same_resource_concurrent_without_resource_queue",
+    "Q24": "parallel_activity_model_context_only_no_chat_message_or_ui_preserve_actor_authorization"
+  },
+  "production_tasks": [
+    {
+      "id": "P7-T01",
+      "name": "领域与契约",
+      "status": "todo",
+      "file": "03-development-plan.md",
+      "depends_on": [],
+      "decision_dependencies": [],
+      "evidence": []
+    },
+    {
+      "id": "P7-T02",
+      "name": "Agent 执行场景与恢复",
+      "status": "todo",
+      "file": "03-development-plan.md",
+      "depends_on": [
+        "P7-T01"
+      ],
+      "decision_dependencies": [],
+      "evidence": []
+    },
+    {
+      "id": "P7-T03",
+      "name": "资源适配与共享执行会话",
+      "status": "todo",
+      "file": "03-development-plan.md",
+      "depends_on": [
+        "P7-T01"
+      ],
+      "decision_dependencies": [],
+      "evidence": []
+    },
+    {
+      "id": "P7-T04",
+      "name": "connect 批次确认闭环",
+      "status": "todo",
+      "file": "03-development-plan.md",
+      "depends_on": [
+        "P7-T02",
+        "P7-T03"
+      ],
+      "decision_dependencies": [],
+      "evidence": []
+    },
+    {
+      "id": "P7-T05",
+      "name": "计划批准与逐步执行",
+      "status": "todo",
+      "file": "03-development-plan.md",
+      "depends_on": [
+        "P7-T04"
+      ],
+      "decision_dependencies": [],
+      "evidence": []
+    },
+    {
+      "id": "P7-T06",
+      "name": "文件传输与 Workspace 证据分析",
+      "status": "todo",
+      "file": "03-development-plan.md",
+      "depends_on": [
+        "P7-T01",
+        "P7-T02",
+        "P7-T03"
+      ],
+      "decision_dependencies": [],
+      "evidence": []
+    },
+    {
+      "id": "P7-T07",
+      "name": "Chatbox 与共享 UI",
+      "status": "todo",
+      "file": "03-development-plan.md",
+      "depends_on": [
+        "P7-T04",
+        "P7-T05",
+        "P7-T06"
+      ],
+      "decision_dependencies": [],
+      "evidence": []
+    },
+    {
+      "id": "P7-T08",
+      "name": "权限安全与审计验收",
+      "status": "todo",
+      "file": "03-development-plan.md",
+      "depends_on": [
+        "P7-T01",
+        "P7-T03",
+        "P7-T04",
+        "P7-T05",
+        "P7-T06"
+      ],
+      "decision_dependencies": [],
+      "evidence": []
+    },
+    {
+      "id": "P7-T09",
+      "name": "真实模型与端到端验收",
+      "status": "todo",
+      "file": "03-development-plan.md",
+      "depends_on": [
+        "P7-T02",
+        "P7-T03",
+        "P7-T04",
+        "P7-T05",
+        "P7-T06",
+        "P7-T07",
+        "P7-T08"
+      ],
+      "decision_dependencies": [],
+      "evidence": []
+    }
+  ],
+  "validation": {
+    "contracts": "not_run",
+    "runtime_security": "not_run",
+    "real_model": "not_run",
+    "real_resources": "not_run",
+    "browser_real_api": "not_run",
+    "deployment": "not_started"
+  },
+  "design_status": "confirmed"
+}

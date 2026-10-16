@@ -85,6 +85,7 @@ export function ObservationLogs({
       </div>
       <div
         className="argus-observation-logs"
+        tabIndex={0}
         aria-label={text("日志结果", "Log results")}
         role="region"
       >

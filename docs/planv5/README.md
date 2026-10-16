@@ -1,5 +1,9 @@
 # PlanV5：小内核 Agent、自有 Tool Gateway、客户 MCP 与持久 Workspace
 
+2026-10-15 新增 [Plan7 开发计划](../plan7/README.md)：保留本文平台三元工具、Workspace 与客户 MCP 基线，增加按次确认的 connect 和固定计划执行，并调整执行后的能力恢复。Plan7 尚未实现；本文工具数量与任务验收仍表示 PlanV5 范围，不能当作新增远程执行已完成的证据。
+
+2026-10-14 模型业务目录已收敛为九类、103 个工具，移除 19 个管理配置或内部流程入口，保留门户 API 并补齐草稿准备与预算事实替代能力。见[模型工具目录收敛](./tool-catalog-pruning-20261014.md)。
+
 ## 目标
 
 PlanV5 重构当前工作台 Agent、Tool 发现机制和 Card Skill。Agent Harness 保持单循环小内核，通过通用工具调度接口使用三类能力：Argus 自有工具的三个元工具、离线 Sandbox 的四个基础工具、直接提供给模型的客户 MCP 工具。业务治理、MCP 传输、持久 Workspace 和界面渲染由独立边界承担。
@@ -34,7 +38,7 @@ PlanV5 重构当前工作台 Agent、Tool 发现机制和 Card Skill。Agent Har
 
 运行前检查所选模型的工具/上下文容量；不足时明确提示用户减少所选连接或更换模型，不执行本次 Agent Run，不静默丢弃工具、不自动更换模型。错误提示保留当前输入、文件和连接选择。
 
-每个需要富展示的自有 Tool 自己保存并发布模板。平台删除 Card Skill、Card Catalog、Card 列表、Card Slot、Card Binding、`card.render` 和会话创建卡片功能。Agent 不读取、选择或生成模板。查询翻页、改变时间范围等重新取数操作由用户再发消息触发新 Tool Call，不建设模板查询刷新/分页 Bridge。
+每个需要富展示的自有 Tool 自己保存并发布模板。平台删除 Card Skill、Card Catalog、Card 列表、Card Slot、Card Binding、`card.render` 和会话创建卡片功能。Agent 不读取、选择或生成模板。改变时间或资源范围由用户再发消息触发新 Tool Call；2026-10-13 的 v2 允许通过限定通道读取同一次封存结果的分页和分片，不在模板中发起新的业务查询。范围、协议与当前验收状态见[模板 v2 实施记录](./template-v2-implementation.md)。
 
 自有模板只展示业务详情；宿主统一提供影响范围、确认/取消按钮与审批执行状态，用户只确认一次。模板不拥有最终确认入口，也不能通过 iframe 消息触发确认/取消。离线镜像预装常用语言和分析库，本期不增加用户上传依赖包的安装流程，不因缺依赖自动给 Sandbox 开网。
 
@@ -143,3 +147,7 @@ PlanV5 明确替换以下既有架构：
 - [复核后的补齐记录](./fixes-2026-09-21.md)
 - [开发手册](./developer-guide.md)
 - [运维手册](./operations-guide.md)
+
+## 2026-10-14 按分类列出工具
+
+tool.search 只传 category，一次返回该分类完整授权列表，不再接受 query/limit/cursor；模型选择 name 后获取详情。九分类用途同时进入系统提示和搜索描述，见[分类发现](./category-only-discovery-20261014.md)。

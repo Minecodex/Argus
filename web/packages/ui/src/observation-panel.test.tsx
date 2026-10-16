@@ -15,6 +15,137 @@ vi.mock("./observation-chart", () => ({
 afterEach(cleanup);
 
 it.each(["zh-CN", "en-US"])(
+  "explains omitted metric curves while retaining exact statistics in %s",
+  (locale) => {
+    localStorage.setItem("argus.locale", locale);
+    const targets = [
+      {
+        id: "main",
+        status: "success",
+        result_type: "matrix",
+        data: {
+          result: [
+            {
+              metric: { __name__: "cpu" },
+              values: [],
+              argus_sample_preview: {
+                state: "omitted_gap_budget",
+                total: 600,
+                shown: 0,
+              },
+              argus_statistics: {
+                max: 10000,
+                last: null,
+                count: 300,
+                sample_count: 600,
+              },
+            },
+          ],
+        },
+      },
+    ];
+    const tree = (type: string, reducer: "max" | "last" = "max") => (
+      <LocaleProvider>
+        <ObservationPanel
+          title="Metric"
+          type={type}
+          signal="metrics"
+          display={{ reducer }}
+          targets={targets}
+        />
+      </LocaleProvider>
+    );
+    const { rerender } = render(tree("timeseries"));
+    expect(
+      screen.getByText(
+        locale === "zh-CN"
+          ? /缺测边界超过预览点数预算/
+          : /Missing boundaries exceed/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        locale === "zh-CN" ? /曲线预览不可用/ : /Chart preview unavailable/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(
+        locale === "zh-CN" ? "当前范围没有数据" : "No data in this range",
+      ),
+    ).not.toBeInTheDocument();
+    rerender(tree("stat"));
+    expect(screen.getByText("10000.00")).toBeVisible();
+    rerender(tree("stat", "last"));
+    expect(screen.getByText("—")).toBeVisible();
+    expect(
+      screen.queryByText(
+        locale === "zh-CN" ? "当前范围没有数据" : "No data in this range",
+      ),
+    ).not.toBeInTheDocument();
+  },
+);
+
+it.each(["zh-CN", "en-US"])(
+  "shows trace entry names, duration units and full cell tooltips in %s",
+  (locale) => {
+    localStorage.setItem("argus.locale", locale);
+    const onSelect = vi.fn();
+    const row = {
+      rootService: "orders-api",
+      rootOperation: "POST /orders/with/a/long/entry/path",
+      duration: 12.345,
+      status: "error",
+      startTime: "2026-10-14T00:00:00Z",
+      spanCount: 3,
+      errorCount: 1,
+      traceId: "trace-full-identity",
+      sourceId: "source-full-identity",
+    };
+    render(
+      <LocaleProvider>
+        <ObservationPanel
+          title="Traces"
+          type="trace_list"
+          signal="traces"
+          targets={[
+            {
+              id: "main",
+              status: "success",
+              result_type: "trace_list",
+              data: { queryTraces: { traces: [row] } },
+            },
+          ]}
+          onSelect={onSelect}
+        />
+      </LocaleProvider>,
+    );
+    const headings = screen.getAllByRole("columnheader");
+    expect(headings[0]).toHaveTextContent(
+      locale === "zh-CN" ? "入口服务" : "Entry service",
+    );
+    expect(screen.getByText("12.35 ms")).toBeVisible();
+    expect(
+      screen.getByRole("region", {
+        name: locale === "zh-CN" ? "查询结果表格" : "Query result table",
+      }),
+    ).toHaveAttribute("tabindex", "0");
+    expect(screen.getByText(row.rootOperation)).toHaveAttribute(
+      "title",
+      row.rootOperation,
+    );
+    expect(
+      screen.queryByRole("columnheader", { name: "sourceId" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: locale === "zh-CN" ? "打开详情" : "Open details",
+      }),
+    );
+    expect(onSelect).toHaveBeenCalledWith(row, "main");
+  },
+);
+
+it.each(["zh-CN", "en-US"])(
   "presents APM sample statistics in %s without losing drilldown identities",
   (locale) => {
     localStorage.setItem("argus.locale", locale);

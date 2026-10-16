@@ -3,6 +3,7 @@ export type { components as McpapiComponents, paths as McpapiPaths } from "./mcp
 export type { components as WorkspaceapiComponents, paths as WorkspaceapiPaths } from "./workspaceapi.js";
 export type { components as PresentationapiComponents, paths as PresentationapiPaths } from "./presentationapi.js";
 export type { components as DashboardapiComponents, paths as DashboardapiPaths } from "./dashboardapi.js";
+export type { components as AlertsapiComponents, paths as AlertsapiPaths } from "./alertsapi.js";
 export type { components as CommonComponents, paths as CommonPaths } from "./common.js";
 export type { components as IdentityComponents, paths as IdentityPaths } from "./identity.js";
 export type { components as AuthorizationComponents, paths as AuthorizationPaths } from "./authorization.js";

@@ -1,0 +1,19 @@
+=== RUN   TestPostgresAlertPreviewAtomicScopeAndConfirmation
+2026/10/08 10:52:42 OK   00001_argus_baseline.sql (1.39s)
+2026/10/08 10:52:42 OK   00002_cancel_unregistered_onboarding.sql (14.6ms)
+2026/10/08 10:52:42 OK   00003_dashboards.sql (52.62ms)
+2026/10/08 10:52:42 OK   00004_telemetry_sources.sql (18.92ms)
+2026/10/08 10:52:42 OK   00005_dashboard_query_jobs.sql (36.18ms)
+2026/10/08 10:52:42 OK   00006_dashboard_chat_context.sql (17.77ms)
+2026/10/08 10:52:42 OK   00007_dashboard_analysis_conditions.sql (18.73ms)
+2026/10/08 10:52:42 OK   00008_dashboard_run_budgets.sql (14.16ms)
+2026/10/08 10:52:42 OK   00009_telemetry_object_permissions.sql (11.49ms)
+2026/10/08 10:52:42 OK   00010_alert_center.sql (69.91ms)
+2026/10/08 10:52:42 goose: successfully migrated database to version: 10
+    postgres_integration_test.go:148: confirmation: action invalidated
+--- PASS: TestPostgresAlertPreviewAtomicScopeAndConfirmation (2.15s)
+=== RUN   TestPostgresAlertLifecycleFenceNoDataHistoryAndRevocation
+2026/10/08 10:52:42 goose: no migrations to run. current version: 10
+--- PASS: TestPostgresAlertLifecycleFenceNoDataHistoryAndRevocation (0.59s)
+PASS
+ok  	github.com/kakj-go/Argus/internal/alerting	4.471s

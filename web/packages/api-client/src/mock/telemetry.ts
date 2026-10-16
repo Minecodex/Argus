@@ -287,12 +287,26 @@ export function createTelemetryDomain(
       const now = new Date(input.time_range.to).getTime();
       const partial = input.resource_ids.includes("k8s-prod-east");
       const result = input.resource_ids.map((resource_id, index) => ({
-        metric: { __name__: "system_cpu_utilization", resource_id },
-        values: [
-          [(now - 120_000) / 1000, String(38 + index)],
-          [(now - 60_000) / 1000, String(40 + index)],
-          [now / 1000, String(42 + index)],
-        ],
+        metric: {
+          __name__:
+            input.query === "host_cpu_usage_percent"
+              ? input.query
+              : "system_cpu_utilization",
+          resource_id,
+        },
+        values:
+          input.query === "host_cpu_usage_percent"
+            ? [43, 54, 48, 61, 53, 69, 64, 75, 86, 91, 88, 95].map(
+                (value, i) => [
+                  (now - ((11 - i) * 1920000) / 11) / 1000,
+                  String(value),
+                ],
+              )
+            : [
+                [(now - 120_000) / 1000, String(38 + index)],
+                [(now - 60_000) / 1000, String(40 + index)],
+                [now / 1000, String(42 + index)],
+              ],
       }));
       return {
         status: "success",
@@ -309,6 +323,19 @@ export function createTelemetryDomain(
     async queryLogs(input: KQLQuery): Promise<KQLQueryResponse> {
       requireTelemetryResources(ctx, input.resource_ids);
       await ctx.pause();
+      if (
+        input.query === "*" &&
+        /^stats count\(\)(?: \| limit \d+)?$/.test(input.pipeline ?? "")
+      ) {
+        return {
+          schema_version: "argus.kql_result/v1",
+          result_type: "table",
+          data: [{ count: input.resource_ids.length * 12 }],
+          warnings: [],
+          partial: false,
+          meta: queryMeta("b", false),
+        };
+      }
       const now = new Date(input.time_range.to).toISOString();
       const data = input.resource_ids.slice(0, 3).map((resource_id, index) => ({
         timestamp: now,

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageShell, Tabs, TabsContent, TabsList, TabsTrigger } from "@argus/ui";
 import "../styles/settings.css";
+import { OrgAlertsTab } from "../components/settings/org-alerts-tab";
 import { OrgAccessTab } from "../components/settings/org-access-tab";
 import { OrgDepartmentsTab } from "../components/settings/org-departments-tab";
 import { OrgPoliciesTab } from "../components/settings/org-policies-tab";
@@ -19,6 +20,8 @@ const TAB_KEYS = [
   "access",
   "remote_access",
   "telemetry",
+  "alerts",
+  "alert_audit",
 ] as const;
 
 /** 组织设置：用户、部门、角色、审批策略和资源接入。 */
@@ -39,7 +42,11 @@ export function SettingsOrgPage() {
         <TabsList>
           {tabs.map((key) => (
             <TabsTrigger key={key} value={key}>
-              {t(`settings.org.tabs.${key}`)}
+              {key === "alerts"
+                ? t("alerts.settingsTab")
+                : key === "alert_audit"
+                  ? t("alerts.auditTab")
+                  : t(`settings.org.tabs.${key}`)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -65,6 +72,12 @@ export function SettingsOrgPage() {
         )}
         <TabsContent value="telemetry">
           <OrgTelemetryTab />
+        </TabsContent>
+        <TabsContent value="alerts">
+          <OrgAlertsTab />
+        </TabsContent>
+        <TabsContent value="alert_audit" className="argus-tabs__content--flush">
+          <OrgAlertsTab audit />
         </TabsContent>
       </Tabs>
     </PageShell>

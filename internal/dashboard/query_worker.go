@@ -38,7 +38,7 @@ func (jobs QueryJobs) Handle(ctx context.Context, task runtime.Task) error {
 		return runtime.Error{ErrorCode: "QUERY_INVALID", Permanent: true}
 	}
 	if terminalQueryJob(job.Status) {
-		return nil
+		return jobs.PublishPresentations(ctx, job.EnterpriseID, job.ID)
 	}
 	user, err := jobs.Runtime.Store.Queries.GetEnterpriseUser(ctx, db.GetEnterpriseUserParams{ID: job.OwnerUserID, EnterpriseID: job.EnterpriseID})
 	if err != nil {
@@ -68,13 +68,13 @@ func (jobs QueryJobs) Handle(ctx context.Context, task runtime.Task) error {
 	defer func() { cancel(); <-done }()
 	err = work.run(ctx)
 	if err == nil {
-		return nil
+		return jobs.PublishPresentations(ctx, job.EnterpriseID, job.ID)
 	}
 	cleanup, stopCleanup := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer stopCleanup()
 	current, e := jobs.Runtime.Store.Queries.GetDashboardQueryJob(cleanup, db.GetDashboardQueryJobParams{ID: job.ID, EnterpriseID: job.EnterpriseID})
 	if e == nil && current.Status == "cancelled" {
-		return nil
+		return jobs.PublishPresentations(cleanup, job.EnterpriseID, job.ID)
 	}
 	if job.RunID.Valid {
 		run, e := jobs.Runtime.Store.Queries.GetRun(cleanup, db.GetRunParams{ID: job.RunID.UUID, EnterpriseID: job.EnterpriseID})
@@ -97,6 +97,7 @@ func (jobs QueryJobs) Handle(ctx context.Context, task runtime.Task) error {
 	}
 	if permanent {
 		_ = work.fail(cleanup, code)
+		_ = jobs.PublishPresentations(cleanup, job.EnterpriseID, job.ID)
 	} else {
 		_ = work.transaction(cleanup, func(q *db.Queries, j db.DashboardQueryJob) error {
 			_, e := q.SetDashboardQueryJobState(cleanup, db.SetDashboardQueryJobStateParams{ID: j.ID, EnterpriseID: j.EnterpriseID, Status: j.Status, AttemptID: j.AttemptID, ErrorCode: code})

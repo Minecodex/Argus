@@ -219,16 +219,6 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-.argus-terminal-dock__tab-list::-webkit-scrollbar {
-  height: 6px;
-}
-.argus-terminal-dock__tab-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.argus-terminal-dock__tab-list::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border-radius: var(--radius-pill);
-}
 @keyframes argus-pulse {
   0%,
   100% {

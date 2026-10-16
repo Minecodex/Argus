@@ -23,10 +23,6 @@ import { useApi, formatApiError, type WorkspaceFile } from "@argus/api-client";
 import { Button, Tooltip } from "@argus/ui";
 import { usePermission } from "../../lib/permissions";
 import { mentionQuery } from "./mention-query";
-import {
-  DashboardChatContextBar,
-  useDashboardChatContext,
-} from "./dashboard-context";
 
 type Mention = {
   kind: "host" | "connector" | "dashboard";
@@ -54,7 +50,6 @@ export function ChatComposer({
 }) {
   const { t } = useTranslation();
   const api = useApi();
-  const dashboard = useDashboardChatContext(conversationId);
   const canReadDashboard = usePermission("telemetry.dashboard.read");
   const canCreateDashboard = usePermission("telemetry.dashboard.manage");
   const queries = useQueryClient();
@@ -102,8 +97,7 @@ export function ChatComposer({
   const dashboards = useQuery({
     queryKey: ["dashboards", "chat-picker"],
     queryFn: () => api.dashboards.list(),
-    enabled:
-      canReadDashboard && (!!picker || dashboard.selection.mode !== "none"),
+    enabled: canReadDashboard && !!picker,
   });
   const items: Mention[] = [
     ...(dashboards.data ?? [])
@@ -132,33 +126,15 @@ export function ChatComposer({
   };
   const choose = (item: Mention) => {
     if (!picker) return;
-    if (item.kind === "dashboard") {
-      if (
-        !dashboard.selection.dashboard_ids.includes(item.id) &&
-        dashboard.selection.dashboard_ids.length < 20
-      )
-        dashboard.change(
-          dashboard.selection.mode === "create" ? "create" : "analyze",
-          [...dashboard.selection.dashboard_ids, item.id],
-        );
-    } else
-      setMentions((current) =>
-        current.some((x) => x.id === item.id) ? current : [...current, item],
-      );
+    setMentions((current) =>
+      current.some((x) => x.id === item.id) ? current : [...current, item],
+    );
     setText(text.slice(0, picker.start) + text.slice(picker.end));
     setPicker(null);
     area.current?.focus();
   };
   const submit = async () => {
-    if (
-      !text.trim() ||
-      sending ||
-      disabled ||
-      submitting ||
-      upload ||
-      !dashboard.ready
-    )
-      return;
+    if (!text.trim() || sending || disabled || submitting || upload) return;
     setSubmitting(true);
     setError(null);
     const value = [
@@ -170,12 +146,8 @@ export function ChatComposer({
         await onSend(
           value,
           files.map((file) => file.id),
-          /^\/(?:创建仪表盘|create-dashboard)(?:\s|$)/.test(text.trim())
-            ? { ...dashboard.selection, mode: "create" }
-            : dashboard.selection,
         )
       ) {
-        dashboard.accepted();
         setText("");
         setMentions([]);
         setFiles([]);
@@ -239,28 +211,13 @@ export function ChatComposer({
   return (
     <div className="argus-chat-composer">
       <div className="argus-chat-composer__inner">
-        <DashboardChatContextBar
-          selection={dashboard.selection}
-          items={dashboards.data ?? []}
-          disabled={sending || submitting}
-          failed={dashboard.failed}
-          onChange={(mode, ids) => {
-            dashboard.change(mode, ids);
-            if (mode === "none")
-              setText(
-                text.replace(
-                  /^\s*\/(?:创建仪表盘|create-dashboard)(?:\s|$)/,
-                  "",
-                ),
-              );
-          }}
-          onReload={() => void dashboard.reload()}
-        />
         <div className="argus-chat-composer__chips">
           {mentions.map((item) => (
             <span className="argus-chat-chip" key={item.id}>
               {item.kind === "host" ? (
                 <Server size={12} />
+              ) : item.kind === "dashboard" ? (
+                <LayoutDashboard size={12} />
               ) : (
                 <Cable size={12} />
               )}{" "}
@@ -346,6 +303,7 @@ export function ChatComposer({
             </div>
           )}
           <Textarea
+            appearance="embedded"
             ref={area}
             aria-label={t("chat.composer.send")}
             value={text}
@@ -388,7 +346,8 @@ export function ChatComposer({
                 isIconOnly
                 isDisabled={disabled || sending}
                 onPress={() => {
-                  updateText(text + "@", text.length + 1);
+                  const value = text + (text && !/\s$/.test(text) ? " @" : "@");
+                  updateText(value, value.length);
                   area.current?.focus();
                 }}
               >
@@ -398,11 +357,8 @@ export function ChatComposer({
             <Button
               variant="ghost"
               size="sm"
-              isDisabled={
-                disabled || sending || !dashboard.ready || !canCreateDashboard
-              }
+              isDisabled={disabled || sending || !canCreateDashboard}
               onPress={() => {
-                dashboard.change("create", []);
                 setText(t("chat.dashboard.command") + " ");
                 area.current?.focus();
               }}
@@ -423,13 +379,7 @@ export function ChatComposer({
               <Button
                 aria-label={t("chat.composer.send")}
                 onPress={() => void submit()}
-                isDisabled={
-                  disabled ||
-                  !text.trim() ||
-                  submitting ||
-                  !!upload ||
-                  !dashboard.ready
-                }
+                isDisabled={disabled || !text.trim() || submitting || !!upload}
                 isIconOnly
               >
                 <ArrowUp size={16} />

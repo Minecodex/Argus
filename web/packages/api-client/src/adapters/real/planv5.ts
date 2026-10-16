@@ -81,6 +81,13 @@ export function createPlanV5Domains(
           signal,
         );
       },
+      readContent: (id, file, kind, signal) =>
+        http.preview(
+          kind === "file"
+            ? `${workspace(id)}/files/${encodeURIComponent(file)}/content`
+            : `conversations/${encodeURIComponent(id)}/deliveries/${encodeURIComponent(file)}/content`,
+          signal,
+        ),
       downloadUrl: (id, file, kind) =>
         http
           .resolve(
@@ -91,6 +98,11 @@ export function createPlanV5Domains(
           .toString(),
     },
     presentations: {
+      read: (id, call, input) =>
+        http.request(
+          `conversations/${encodeURIComponent(id)}/tool-presentations/${encodeURIComponent(call)}/read`,
+          { method: "POST", csrf: true, body: input },
+        ),
       result: (ref) => http.request(`tool-results/${encodeURIComponent(ref)}`),
       get: (id, call) =>
         http.request<ToolPresentation>(

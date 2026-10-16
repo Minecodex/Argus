@@ -25,7 +25,10 @@ func (tools ResourceTools) presentationMetadata(metadata mcp.Metadata) mcp.Metad
 		name = "logs"
 	}
 	source, _ := templates.ReadFile("templates/" + name + ".html")
-	asset := presentation.Asset(string(source), metadata.ID+"/v1")
+	asset := presentation.ToolAsset(metadata.ID, string(source))
+	if asset == nil {
+		return metadata
+	}
 	metadata.Template = asset
 	metadata.Present = func(ctx context.Context, call mcp.Call, result mcp.Result) (*toolruntime.Presentation, error) {
 		enterprise, err := uuid.Parse(call.Enterprise)
@@ -36,16 +39,19 @@ func (tools ResourceTools) presentationMetadata(metadata mcp.Metadata) mcp.Metad
 		if err != nil {
 			return nil, err
 		}
-		scope, err := presentation.Scope(ctx, tools.Store, enterprise, user)
+		access, err := presentation.CurrentAccess(ctx, tools.Store, enterprise, user)
 		if err != nil {
 			return nil, err
 		}
-		data := presentation.Details(result.Structured)
-		data["tool"] = call.ToolID
+		data := presentation.BindData(call.ToolID, metadata.Discovery.Title, result.Structured)
+		data["request_context"] = presentation.PublicSnapshot(call.Input)
 		data["partial"] = result.Partial
 		refs := resourcePresentationRefs(metadata.ID, metadata.Risk, data, call.Input)
-		data["_resource_refs"] = refs
-		return &toolruntime.Presentation{Template: asset.Source, Hash: asset.Hash, Version: asset.Version, Data: data, AuthorizationScope: scope, Status: "ready", Resources: refs}, nil
+		refs, err = tools.bindPresentationResources(ctx, enterprise, metadata.ID, data, refs, access)
+		if err != nil {
+			return nil, err
+		}
+		return presentation.Bound(asset, data, access.Scope, refs), nil
 	}
 	return metadata
 }

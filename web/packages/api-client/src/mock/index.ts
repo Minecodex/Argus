@@ -1,3 +1,4 @@
+import { createAlertDomains } from "./alerts";
 import { createDashboardDomains } from "./dashboard";
 import type { ArgusApiClient } from "../client";
 import type {
@@ -347,6 +348,7 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
     models: createModelsDomain(ctx),
     ...createPlanV5Domains(ctx),
     ...createDashboardDomains(ctx),
+ ...createAlertDomains(ctx),
     org: createOrgDomain(ctx),
     secrets: secretsDomain,
     audit: createAuditDomain(ctx),

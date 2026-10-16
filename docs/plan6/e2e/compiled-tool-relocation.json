@@ -1,0 +1,191 @@
+[
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-collector-runtime.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-collector-runtime.exe",
+    "bytes": 87870976,
+    "sha256": "7B932A896B44BA1128D029F63F8BCBDD1AF2219B712C7398AEDED9A48ABCBE92",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-conversation.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-conversation.exe",
+    "bytes": 87873536,
+    "sha256": "D0C8727B388F366AF8D5BBAAF1C35696616038D9D39F1A1B7828D96CC0F857C4",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-final-b.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-final-b.exe",
+    "bytes": 87898112,
+    "sha256": "1E0DF1EA6364305B0CDD89C9005150C2D96151C91937F06629D68BB7E3EF6EBD",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-final-c.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-final-c.exe",
+    "bytes": 87898112,
+    "sha256": "72BF21DF81A06A7211EA65FA703F40138FA05409585CAF677D31613E6E1FDD8C",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-final-d.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-final-d.exe",
+    "bytes": 87901184,
+    "sha256": "F7B84D4B1FA308F97A1AC1F923CCB65243CF0AB615AF67058F483508070821C4",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-final.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-final.exe",
+    "bytes": 87956992,
+    "sha256": "AECA3F3666C45F66A0783CED27FB549F8CB20CC36504731D9EFF07F3D91D4BBC",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-fixes-b.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-fixes-b.exe",
+    "bytes": 87917056,
+    "sha256": "9BBCFF8D42E8D2E5B33C8328717B013236E146E8DE59E306B0D681B10D6596A4",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-fixes-c.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-fixes-c.exe",
+    "bytes": 87944192,
+    "sha256": "F2C91D23A44D446A8AEFF4FB7130F85EDF87BCCE39AE17DFB3FE22ABF876C5A9",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-fixes-d.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-fixes-d.exe",
+    "bytes": 87951360,
+    "sha256": "D4B634FA30D02F428805BBFEDB599E03F3A4260610123A5ACB7300F9EEE519EB",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-fixes.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-fixes.exe",
+    "bytes": 87917056,
+    "sha256": "7466C8ACC63763FD5AF7C26688A54F893B50611FFAE5947D2445A4B9D77E13EE",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-hash.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-hash.exe",
+    "bytes": 87854080,
+    "sha256": "B8AFFA5CDDEBBF2BC446993D302F92F6A270EBA28EC526C4DAC818F9D1CC64B8",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-kube-platform.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-kube-platform.exe",
+    "bytes": 87863296,
+    "sha256": "6A4EB176BDA7701B5910ABECB4D9F854BDD18649576627249AF59B87B03B0B80",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-leases.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-leases.exe",
+    "bytes": 87853056,
+    "sha256": "5771AC831AC8ACDE54545B5B6357BFD93CCA4597BE0198ADE975020E9CA91ED9",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-m10.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-m10.exe",
+    "bytes": 87863808,
+    "sha256": "526B3A498DD68239AACF5A93D2F213719EE54108361EC3D417E12CF41B0984F9",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-m7.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-m7.exe",
+    "bytes": 87863296,
+    "sha256": "6A4EB176BDA7701B5910ABECB4D9F854BDD18649576627249AF59B87B03B0B80",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-matrix.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-matrix.exe",
+    "bytes": 87898112,
+    "sha256": "1E0DF1EA6364305B0CDD89C9005150C2D96151C91937F06629D68BB7E3EF6EBD",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-native-preview.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-native-preview.exe",
+    "bytes": 87928320,
+    "sha256": "993CDF5C1920423AE23D2D7B9C1CF5AE2459DD7FEAE50FB4363D9B91E5F607DC",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-next.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-next.exe",
+    "bytes": 87854080,
+    "sha256": "B57B53243AD7F8B1E9C05A254876F747751267BFEB1F28AAD9D46BE742A8FCD2",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-removal.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-removal.exe",
+    "bytes": 87854080,
+    "sha256": "B8AFFA5CDDEBBF2BC446993D302F92F6A270EBA28EC526C4DAC818F9D1CC64B8",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-route.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-route.exe",
+    "bytes": 87863808,
+    "sha256": "0309D654FD2150BCA14295321905793ABC6EA5F5E26CA0D24E3102C213CBC29A",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5-verified.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5-verified.exe",
+    "bytes": 87886848,
+    "sha256": "6DA6CF8416446CF6E52190A446BCBC7239A8AED78DA8ED9E1E68ADADE75BFDFD",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev-planv5.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev-planv5.exe",
+    "bytes": 87848448,
+    "sha256": "82512DDD97728C5970D9E55D4D24636FF62E176E32D42A691D73C456EAE9ABA7",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argus-dev.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argus-dev.exe",
+    "bytes": 88099328,
+    "sha256": "532129DE3004229BB01E32749DA49D0CE1DB017EEA52B87AF93A27BBA415C3F9",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argusctl-consolidated.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argusctl-consolidated.exe",
+    "bytes": 86415872,
+    "sha256": "2FBF9909CCBDA328DC92AEA96A78DEFD8A1968EEB2AA54A3E36DCB00F902676A",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argusctl-planv5.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argusctl-planv5.exe",
+    "bytes": 86391296,
+    "sha256": "3A9025769F02D4B70BE9B925BC1A2E592D3707F1BE6987D85440AAC7B61621E2",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\argusctl.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\argusctl.exe",
+    "bytes": 86415872,
+    "sha256": "2FBF9909CCBDA328DC92AEA96A78DEFD8A1968EEB2AA54A3E36DCB00F902676A",
+    "original_path_preserved": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\p5-docker-pipe-probe.exe",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\compiled-tools\\p5-docker-pipe-probe.exe",
+    "bytes": 8946176,
+    "sha256": "EF73211E9BA2E3232060E0B355EE638919BF2C670DBEEEA87E489ED4D5AF4873",
+    "original_path_preserved": true
+  }
+]

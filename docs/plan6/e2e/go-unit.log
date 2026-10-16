@@ -1,0 +1,240 @@
+?   	github.com/kakj-go/Argus/api/openapi	[no test files]
+?   	github.com/kakj-go/Argus/api/schemas	[no test files]
+# github.com/kakj-go/Argus/artifacts/local-install-20260928
+artifacts\local-install-20260928\cleanup-probe.go:3:6: main redeclared in this block
+	artifacts\local-install-20260928\cleanup-loader.go:3:6: other declaration of main
+artifacts\local-install-20260928\cleanup-probe.go:14:6: must redeclared in this block
+	artifacts\local-install-20260928\cleanup-loader.go:4:6: other declaration of must
+?   	github.com/kakj-go/Argus/artifacts/callback-recovery-20260912	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/docker-recovery-20260925	[no test files]
+FAIL	github.com/kakj-go/Argus/artifacts/local-install-20260928 [build failed]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/action	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/actionapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/agent	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/audit	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/authorization	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/common	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/connectionapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/connectorapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/conversationapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/dashboardapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/enterpriseauthz	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/enterpriseidentity	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/hostapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/identity	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/kubernetesapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/labels	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/m8api	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/machine	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/mcpapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/modelapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/passwordpolicy	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/platform	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/presentationapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/remoteaccessapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/sandboxapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/secretapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/setup	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/stream	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/telemetryapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/workflowapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/openapi/workspaceapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/proto/argus/common/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/proto/argus/connector/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/proto/argus/directexecutor/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/proto/argus/remoteaccess/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/proto/argus/telemetry/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-native-contracts-before/go/proto/argus/workspace/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-real-20260928	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-real-20260928/probe	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-real-20260928/schema-probe	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/action	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/actionapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/agent	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/audit	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/authorization	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/common	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/connectionapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/connectorapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/conversationapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/dashboardapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/enterpriseauthz	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/enterpriseidentity	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/hostapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/identity	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/kubernetesapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/labels	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/m8api	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/machine	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/mcpapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/modelapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/passwordpolicy	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/platform	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/presentationapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/remoteaccessapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/sandboxapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/secretapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/setup	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/stream	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/telemetryapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/workflowapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/openapi/workspaceapi	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/proto/argus/common/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/proto/argus/connector/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/proto/argus/directexecutor/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/proto/argus/remoteaccess/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/proto/argus/telemetry/v1	[no test files]
+?   	github.com/kakj-go/Argus/artifacts/planv2-runtime-20260925/generated-before-check/go/proto/argus/workspace/v1	[no test files]
+?   	github.com/kakj-go/Argus/build/sign	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-connector	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-connector-gateway	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-dev	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-migrate	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-pki-controller	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-sandbox-smoke	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-server	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-telemetry	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-telemetry-catalog-sync	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-telemetry-dlq-replay	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-worker	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-workspace-supervisor	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argusctl	[no test files]
+ok  	github.com/kakj-go/Argus/internal/action	1.491s
+ok  	github.com/kakj-go/Argus/internal/agent	1.937s
+ok  	github.com/kakj-go/Argus/internal/alerting	2.216s
+ok  	github.com/kakj-go/Argus/internal/app/argusctl	3.161s
+--- FAIL: TestSuiteDependencies (0.00s)
+    portable_test.go:214: suite dependencies = map[string][]string{"m10-query":[]string{"m2", "m3", "m4", "p5-native", "m7", "m10-query"}, "m2":[]string{"m2"}, "m3":[]string{"m2", "m3"}, "m4":[]string{"m2", "m4"}, "m6":[]string{"m2", "m3", "m6"}, "m7":[]string{"m2", "m3", "m4", "p5-native", "m7"}, "m8":[]string{"m6", "m7", "m8"}, "p4":[]string{"m2", "p4"}, "p5":[]string{"m2", "p5"}, "plan6":[]string{"m2", "m3", "m7", "plan6"}, "planv2":[]string{"m2", "m3", "m4", "p5-native", "m7", "m10-query", "planv2"}, "tls":[]string{"m2", "tls"}, "tls-existing-strict":[]string{"m2", "tls"}, "tls-managed-strict":[]string{"m2", "tls"}}
+FAIL
+FAIL	github.com/kakj-go/Argus/internal/app/argusdev	12.671s
+ok  	github.com/kakj-go/Argus/internal/app/component	2.507s
+ok  	github.com/kakj-go/Argus/internal/app/connector	5.942s
+?   	github.com/kakj-go/Argus/internal/app/connectorgateway	[no test files]
+?   	github.com/kakj-go/Argus/internal/app/pkicontroller	[no test files]
+ok  	github.com/kakj-go/Argus/internal/app/sandboxsmoke	2.311s
+?   	github.com/kakj-go/Argus/internal/app/server	[no test files]
+?   	github.com/kakj-go/Argus/internal/app/telemetry	[no test files]
+ok  	github.com/kakj-go/Argus/internal/app/worker	3.378s
+ok  	github.com/kakj-go/Argus/internal/artifactcheck	2.211s
+ok  	github.com/kakj-go/Argus/internal/artifacthttp	2.283s
+ok  	github.com/kakj-go/Argus/internal/audit	2.168s
+--- FAIL: TestPermissionRegistryVersionAndBuiltinRolesIncludeM7 (0.00s)
+    registry_test.go:7: permission registry version = 12, want 11
+FAIL
+FAIL	github.com/kakj-go/Argus/internal/authorization	3.090s
+?   	github.com/kakj-go/Argus/internal/buildinfo	[no test files]
+ok  	github.com/kakj-go/Argus/internal/collectormanager	2.561s
+ok  	github.com/kakj-go/Argus/internal/config	2.499s
+ok  	github.com/kakj-go/Argus/internal/connector	2.703s
+?   	github.com/kakj-go/Argus/internal/connectorprotocol	[no test files]
+ok  	github.com/kakj-go/Argus/internal/containerimage	1.347s
+ok  	github.com/kakj-go/Argus/internal/conversation	2.615s
+ok  	github.com/kakj-go/Argus/internal/dashboard	3.247s
+?   	github.com/kakj-go/Argus/internal/dashboardaccess	[no test files]
+ok  	github.com/kakj-go/Argus/internal/dashboardcontext	0.480s
+?   	github.com/kakj-go/Argus/internal/dashboardparams	[no test files]
+ok  	github.com/kakj-go/Argus/internal/directexecutor	11.916s
+ok  	github.com/kakj-go/Argus/internal/enterprisemcp	0.891s
+?   	github.com/kakj-go/Argus/internal/gen/openapi/action	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/actionapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/agent	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/alertsapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/audit	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/authorization	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/common	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/connectionapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/connectorapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/conversationapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/dashboardapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/enterpriseauthz	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/enterpriseidentity	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/hostapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/identity	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/kubernetesapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/labels	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/m8api	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/machine	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/mcpapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/modelapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/passwordpolicy	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/platform	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/presentationapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/remoteaccessapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/sandboxapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/secretapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/setup	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/stream	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/telemetryapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/workflowapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/workspaceapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/common/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/directexecutor/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/remoteaccess/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/telemetry/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/workspace/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/hostonboarding	[no test files]
+ok  	github.com/kakj-go/Argus/internal/hostremoval	2.081s
+ok  	github.com/kakj-go/Argus/internal/identity	1.503s
+ok  	github.com/kakj-go/Argus/internal/installation	0.783s
+ok  	github.com/kakj-go/Argus/internal/installinstruction	1.020s
+?   	github.com/kakj-go/Argus/internal/integration/kubernetes	[no test files]
+ok  	github.com/kakj-go/Argus/internal/integration/modelprovider	1.576s
+ok  	github.com/kakj-go/Argus/internal/integration/opensandbox	0.575s
+ok  	github.com/kakj-go/Argus/internal/integration/remotemcp	1.874s
+ok  	github.com/kakj-go/Argus/internal/keywrap	0.898s
+ok  	github.com/kakj-go/Argus/internal/kubernetesreader	2.367s
+ok  	github.com/kakj-go/Argus/internal/mcp	1.984s
+?   	github.com/kakj-go/Argus/internal/model	[no test files]
+?   	github.com/kakj-go/Argus/internal/operationsecret	[no test files]
+ok  	github.com/kakj-go/Argus/internal/otelcol/configbundle	(cached)
+?   	github.com/kakj-go/Argus/internal/outbox	[no test files]
+ok  	github.com/kakj-go/Argus/internal/pagination	1.319s
+ok  	github.com/kakj-go/Argus/internal/pkirotation	1.629s
+ok  	github.com/kakj-go/Argus/internal/platform	0.501s
+ok  	github.com/kakj-go/Argus/internal/presentation	0.741s
+ok  	github.com/kakj-go/Argus/internal/remoteaccess	2.310s
+?   	github.com/kakj-go/Argus/internal/remoteaccess/revocation	[no test files]
+ok  	github.com/kakj-go/Argus/internal/resource	1.170s
+ok  	github.com/kakj-go/Argus/internal/runtime	1.625s
+ok  	github.com/kakj-go/Argus/internal/sandbox	1.585s
+ok  	github.com/kakj-go/Argus/internal/secret	(cached)
+ok  	github.com/kakj-go/Argus/internal/selfmonitor	2.100s
+ok  	github.com/kakj-go/Argus/internal/sshtarget	2.412s
+?   	github.com/kakj-go/Argus/internal/storage/clickhouse	[no test files]
+?   	github.com/kakj-go/Argus/internal/storage/kafka	[no test files]
+ok  	github.com/kakj-go/Argus/internal/storage/objectstore	2.260s
+?   	github.com/kakj-go/Argus/internal/storage/postgres	[no test files]
+?   	github.com/kakj-go/Argus/internal/storage/postgres/db	[no test files]
+?   	github.com/kakj-go/Argus/internal/storage/redis	[no test files]
+ok  	github.com/kakj-go/Argus/internal/telemetry	2.409s
+ok  	github.com/kakj-go/Argus/internal/telemetry/datapolicy	0.478s
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine	1.705s
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine/chstats	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine/kql	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine/promql	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine/skywalking	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetrybinding	1.599s
+ok  	github.com/kakj-go/Argus/internal/tlsmaterial	0.660s
+ok  	github.com/kakj-go/Argus/internal/toolgateway	2.680s
+?   	github.com/kakj-go/Argus/internal/toolruntime	[no test files]
+?   	github.com/kakj-go/Argus/internal/transport/grpcapi	[no test files]
+ok  	github.com/kakj-go/Argus/internal/transport/httpapi	2.512s
+?   	github.com/kakj-go/Argus/internal/transport/mcpapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/transport/sse	[no test files]
+ok  	github.com/kakj-go/Argus/internal/trustbundle	2.071s
+?   	github.com/kakj-go/Argus/internal/tunnelaudit	[no test files]
+ok  	github.com/kakj-go/Argus/internal/tunnelruntime	1.875s
+ok  	github.com/kakj-go/Argus/internal/workspace	3.881s
+ok  	github.com/kakj-go/Argus/internal/workspacefs	1.873s
+ok  	github.com/kakj-go/Argus/internal/workspaceio	0.818s
+ok  	github.com/kakj-go/Argus/internal/workspacelease	0.362s
+?   	github.com/kakj-go/Argus/internal/workspacesupervisor	[no test files]
+?   	github.com/kakj-go/Argus/scripts/collector-registry	[no test files]
+?   	github.com/kakj-go/Argus/scripts/permission-registry	[no test files]
+?   	github.com/kakj-go/Argus/scripts/sqlc-split	[no test files]
+ok  	github.com/kakj-go/Argus/tests/contract	4.558s
+?   	github.com/kakj-go/Argus/tests/e2e/remoteclient	[no test files]
+?   	github.com/kakj-go/Argus/tests/e2e/sshserver	[no test files]
+ok  	github.com/kakj-go/Argus/tests/postgres	1.720s
+FAIL

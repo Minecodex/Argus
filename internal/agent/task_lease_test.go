@@ -66,9 +66,34 @@ func TestRunQueueSerializesTasksAndFencesAnExpiredWorker(t *testing.T) {
 	if err := assertTaskLease(oldCtx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Queries.ClaimRuntimeTask(ctx, db.ClaimRuntimeTaskParams{Queue: "agent", LeaseOwner: pgtype.Text{String: "overlap", Valid: true}, Column3: pgtype.Interval{Microseconds: 60_000_000, Valid: true}}); !errors.Is(err, pgx.ErrNoRows) {
-		t.Fatalf("overlapping Run task claimed: %v", err)
-	}
+	// A shared integration database can contain claimable work for other Runs.
+	// Exhaust eligible candidates in a rollback-only probe, and reject any claim
+	// for our still-leased Run without consuming unrelated fixtures' attempts.
+	func() {
+		tx, err := store.Pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(context.Background())
+		queries := store.Queries.WithTx(tx)
+		seen := map[uuid.UUID]bool{}
+		for {
+			other, err := queries.ClaimRuntimeTask(ctx, db.ClaimRuntimeTaskParams{Queue: "agent", LeaseOwner: pgtype.Text{String: "overlap", Valid: true}, Column3: pgtype.Interval{Microseconds: 60_000_000, Valid: true}})
+			if errors.Is(err, pgx.ErrNoRows) {
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if other.RunID.Valid && other.RunID.UUID == run {
+				t.Fatalf("overlapping Run task claimed: task=%s run=%v expected_run=%s", other.ID, other.RunID, run)
+			}
+			if seen[other.ID] {
+				t.Fatalf("queue repeated a still-leased candidate: %s", other.ID)
+			}
+			seen[other.ID] = true
+		}
+	}()
 	exec("UPDATE runtime_tasks SET lease_until=now()-interval '1 second' WHERE id=$1", first)
 	taken := claim("replacement-worker")
 	if taken.ID != first || taken.Attempt <= taken.MaxAttempts || taken.FenceToken <= old.FenceToken {

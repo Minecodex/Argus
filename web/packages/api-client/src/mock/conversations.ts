@@ -47,12 +47,16 @@ function serializeMessage(message: ChatMessage): Record<string, unknown> {
     tool_calls: (message.toolCalls ?? []).map((call) => ({
       call_id: call.callId,
       tool_name: call.toolName,
+      ...(call.source ? { source: call.source } : {}),
       status: call.status,
       ...(call.summary ? { summary: call.summary } : {}),
+      ...(call.display ? { display: call.display } : {}),
       ...(call.durationMs !== undefined
         ? { duration_ms: call.durationMs }
         : {}),
       started_at: call.startedAt,
+      ...(call.input !== undefined ? { input: call.input } : {}),
+      ...(call.output !== undefined ? { output: call.output } : {}),
     })),
     presentations: message.presentations ?? [],
     pending_action_refs: message.pendingActionRefs ?? [],
@@ -121,6 +125,7 @@ function agentEvent(
       status: source.status,
       duration_ms: source.durationMs,
       ...(source.summary ? { summary: source.summary } : {}),
+      ...(source.display ? { display: source.display } : {}),
     };
   } else if (source.type === "presentation") {
     event_type = "tool_presentation";

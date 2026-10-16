@@ -77,6 +77,7 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mcp", remoteMCP)
+	mux.HandleFunc("/fixtures/notifications/", notificationReceiver)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	mux.HandleFunc("/v1/chat/completions", chatCompletions)
 	mux.HandleFunc("/v1/responses", responses)
@@ -96,6 +97,11 @@ func main() {
 	if certificate == "" || privateKey == "" {
 		log.Fatal("ARGUS_REPLAY_TLS_CERT and ARGUS_REPLAY_TLS_KEY are required")
 	}
+	go func() {
+		if err := runNotificationSMTP(certificate, privateKey); err != nil {
+			log.Printf("notification SMTP receiver: %v", err)
+		}
+	}()
 	log.Fatal(server.ListenAndServeTLS(certificate, privateKey))
 }
 

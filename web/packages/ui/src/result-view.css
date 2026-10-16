@@ -1,0 +1,66 @@
+.argus-result-filters {
+  margin-block: var(--space-px-12);
+}
+.argus-result-filters__caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--action-gap);
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+  margin-bottom: var(--space-px-8);
+}
+.argus-result-filters .argus-filter-bar {
+  flex-wrap: wrap;
+}
+.argus-result-cell {
+  display: block;
+  max-width: var(--template-cell-max-width);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.argus-result-name {
+  color: var(--accent-text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.argus-result-name:hover {
+  text-decoration: underline;
+}
+.argus-result-name:focus-visible {
+  outline: var(--control-focus-width) solid var(--accent);
+  outline-offset: var(--space-px-2);
+}
+.argus-result-detail {
+  padding: var(--space-px-16);
+  background: var(--bg-muted);
+  border-radius: var(--card-radius);
+}
+.argus-table__detail > td {
+  padding: var(--space-px-8);
+}
+.argus-result-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.argus-result-value-tree summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.argus-result-value-tree dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-px-8);
+  margin-block: var(--space-px-8);
+}
+.argus-result-value-tree dt {
+  font-size: var(--text-help);
+  color: var(--text-tertiary);
+}
+.argus-result-value-tree dd {
+  margin: 0;
+  min-width: 0;
+}
+.argus-template-record-fields {
+  margin-block: var(--space-px-12);
+}

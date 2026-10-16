@@ -23,7 +23,7 @@ var telemetryDiscovery = map[string]mcp.Discovery{
 	},
 	"telemetry.promql.query": {
 		SchemaVersion: "argus.tool_discovery/v1", Revision: "1",
-		Title:             "查询 PromQL 指标 / Query PromQL metrics",
+		Title:             "指标查询 / Metric query",
 		Description:       "在已授权资源和明确时间范围内执行受控 PromQL 指标查询，支持采样步长、序列数和扫描预算。 Execute bounded PromQL over authorized resources and an explicit time range.",
 		Keywords:          []string{"指标", "监控", "CPU", "内存", "时间序列", "趋势", "promql", "metrics", "query", "memory"},
 		ResultDescription: "返回 Prometheus 语义的 data、warnings 与 argus_meta，可能包含部分结果和预算信息。 Returns Prometheus data, warnings and Argus execution metadata, including partial/budget information.",

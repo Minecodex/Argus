@@ -1,9 +1,4 @@
-import {
-  type MouseEvent,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 import { cx } from "./lib";
 
 export type MetricChartType = "line" | "area" | "bar";
@@ -39,6 +34,9 @@ export function MetricChart({
   showLegend,
   className,
   ariaLabel,
+  appearance = "default",
+  threshold,
+  domain,
 }: {
   type?: MetricChartType;
   series: MetricChartSeries[];
@@ -48,6 +46,9 @@ export function MetricChart({
   showLegend?: boolean;
   className?: string;
   ariaLabel?: string;
+  appearance?: "default" | "compact";
+  threshold?: { value: number; label: string };
+  domain?: [number, number];
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(600);
@@ -69,10 +70,18 @@ export function MetricChart({
     ...series.map((item) => item.points.length),
     0,
   );
-  const allValues = series.flatMap((item) => item.points);
+  const allValues = [
+    ...series.flatMap((item) => item.points),
+    ...(threshold ? [threshold.value] : []),
+  ];
+  const pad =
+    appearance === "compact"
+      ? { top: 20, right: 15, bottom: 20, left: 35 }
+      : PAD;
+  const plotWidth = appearance === "compact" ? 420 : width;
 
-  const plotW = Math.max(1, width - PAD.left - PAD.right);
-  const plotH = Math.max(1, height - PAD.top - PAD.bottom);
+  const plotW = Math.max(1, plotWidth - pad.left - pad.right);
+  const plotH = Math.max(1, height - pad.top - pad.bottom);
 
   let yMin = allValues.length > 0 ? Math.min(0, ...allValues) : 0;
   let yMax = allValues.length > 0 ? Math.max(...allValues) : 1;
@@ -80,15 +89,18 @@ export function MetricChart({
   const headroom = (yMax - yMin) * 0.06;
   if (type !== "bar" || yMin < 0) yMin -= type === "bar" ? 0 : headroom;
   yMax += headroom;
+  if (domain) [yMin, yMax] = domain;
 
   const xAt = (index: number) =>
-    PAD.left + (count <= 1 ? plotW / 2 : (plotW * index) / (count - 1));
+    pad.left + (count <= 1 ? plotW / 2 : (plotW * index) / (count - 1));
   const yAt = (value: number) =>
-    PAD.top + plotH - ((value - yMin) / (yMax - yMin)) * plotH;
+    pad.top + plotH - ((value - yMin) / (yMax - yMin)) * plotH;
 
   const ticks = Array.from(
-    { length: TICKS },
-    (_, index) => yMin + ((yMax - yMin) * index) / (TICKS - 1),
+    { length: appearance === "compact" ? 4 : TICKS },
+    (_, index) =>
+      yMin +
+      ((yMax - yMin) * index) / ((appearance === "compact" ? 4 : TICKS) - 1),
   );
 
   const colorOf = (item: MetricChartSeries, index: number) =>
@@ -97,27 +109,39 @@ export function MetricChart({
   const onMove = (event: MouseEvent<SVGSVGElement>) => {
     if (count === 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    const relative = event.clientX - rect.left - PAD.left;
-    const index = Math.round(
-      (relative / plotW) * (count <= 1 ? 0 : count - 1),
-    );
+    const scale =
+      appearance === "compact"
+        ? Math.min(rect.width / 420, rect.height / height)
+        : 1;
+    const inset = appearance === "compact" ? (rect.width - 420 * scale) / 2 : 0;
+    const relative = (event.clientX - rect.left - inset) / scale - pad.left;
+    const index = Math.round((relative / plotW) * (count <= 1 ? 0 : count - 1));
     setHoverIndex(Math.max(0, Math.min(count - 1, index)));
   };
 
-  const xLabelIndexes = Array.from({ length: Math.min(count, 6) }, (_, i) =>
-    Math.round((i * (count - 1)) / Math.max(1, Math.min(count, 6) - 1)),
+  const labelCount = Math.min(count, appearance === "compact" ? 2 : 6);
+  const xLabelIndexes = Array.from({ length: labelCount }, (_, i) =>
+    Math.round((i * (count - 1)) / Math.max(1, labelCount - 1)),
   ).filter((value, index, arr) => arr.indexOf(value) === index);
 
   const zeroY = yAt(Math.max(yMin, Math.min(yMax, 0)));
 
   return (
-    <div className={cx("argus-chart", className)} ref={wrapRef}>
+    <div
+      className={cx(
+        "argus-chart",
+        appearance === "compact" && "argus-chart--compact",
+        className,
+      )}
+      ref={wrapRef}
+    >
       {count === 0 ? (
         <div className="argus-chart__empty" style={{ height }} />
       ) : (
         <div className="argus-chart__plot">
           <svg
-            height={height}
+            viewBox={appearance === "compact" ? `0 0 420 ${height}` : undefined}
+            height={appearance === "compact" ? height - 2 : height}
             onMouseLeave={() => setHoverIndex(null)}
             onMouseMove={onMove}
             role="img"
@@ -130,27 +154,46 @@ export function MetricChart({
               <g key={index}>
                 <line
                   className="argus-chart__grid"
-                  x1={PAD.left}
-                  x2={width - PAD.right}
+                  x1={pad.left}
+                  x2={plotWidth - pad.right}
                   y1={yAt(tick)}
                   y2={yAt(tick)}
                 />
-                <text
-                  className="argus-chart__tick"
-                  textAnchor="end"
-                  x={PAD.left - 7}
-                  y={yAt(tick) + 3}
-                >
-                  {formatValue(tick)}
-                </text>
+                {appearance !== "compact" && (
+                  <text
+                    className="argus-chart__tick"
+                    textAnchor="end"
+                    x={PAD.left - 7}
+                    y={yAt(tick) + 3}
+                  >
+                    {formatValue(tick)}
+                  </text>
+                )}
               </g>
             ))}
+            {threshold && (
+              <g className="argus-chart__threshold">
+                <line
+                  x1={pad.left}
+                  x2={plotWidth - pad.right}
+                  y1={yAt(threshold.value)}
+                  y2={yAt(threshold.value)}
+                />
+                <text x={pad.left + 7} y={yAt(threshold.value) - 7}>
+                  {threshold.label}
+                </text>
+              </g>
+            )}
             {xLabelIndexes.map((index) => (
               <text
                 className="argus-chart__tick"
                 key={index}
-                textAnchor="middle"
-                x={xAt(index)}
+                textAnchor={appearance === "compact" ? "start" : "middle"}
+                x={
+                  appearance === "compact" && index === count - 1
+                    ? plotWidth - pad.right - 40
+                    : xAt(index)
+                }
                 y={height - 7}
               >
                 {labels[index] ?? index + 1}
@@ -161,13 +204,9 @@ export function MetricChart({
               const color = colorOf(item, seriesIndex);
               if (type === "bar") {
                 const groupW = plotW / count;
-                const barW = Math.max(
-                  2,
-                  (groupW / series.length) * 0.72,
-                );
+                const barW = Math.max(2, (groupW / series.length) * 0.72);
                 const gap = (groupW / series.length) * 0.14;
-                const blockW =
-                  series.length * barW + (series.length - 1) * gap;
+                const blockW = series.length * barW + (series.length - 1) * gap;
                 return (
                   <g key={item.name}>
                     {item.points.map((value, pointIndex) => {

@@ -295,6 +295,7 @@ func toAgentStreamEnvelope(value db.ConversationEvent, authorizationVersion int6
 		}
 	case "assistant_message":
 		eventType = "message_completed"
+		agentPayload["tool_calls"] = payload["tool_calls"]
 		agentPayload["message"] = map[string]any{
 			"message_id":      value.ID.String(),
 			"conversation_id": value.ConversationID.String(),

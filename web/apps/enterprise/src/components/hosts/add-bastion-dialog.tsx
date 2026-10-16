@@ -787,6 +787,7 @@ function BastionModeStep({
         <h3>{t(`hosts.bastionForm.titleOf.${mode}`)}</h3>
         <p>{t(`hosts.bastionForm.summaryOf.${mode}`)}</p>
         <ModeGrid items={bastionModeGrid(mode, t)} />
+        <BastionTopology mode={mode} t={t} />
       </div>
     </div>
   );

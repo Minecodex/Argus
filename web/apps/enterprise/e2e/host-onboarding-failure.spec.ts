@@ -1,3 +1,4 @@
+import { openActionMenu, selectRowAction } from "./helpers/action-menu";
 import { expect, test } from "@playwright/test";
 
 test("failed onboarding callback shows a safe diagnosis and offers retry", async ({
@@ -28,7 +29,7 @@ test("failed onboarding callback shows a safe diagnosis and offers retry", async
   });
   await page.goto("/hosts");
   const tile = page
-    .locator(".argus-host-tile")
+    .locator(".argus-table tbody tr")
     .filter({ hasText: "public-web-01" });
   await expect(tile.getByText("安装失败", { exact: true })).toBeVisible();
   await expect(tile.getByText("接入中", { exact: true })).toHaveCount(0);
@@ -38,8 +39,10 @@ test("failed onboarding callback shows a safe diagnosis and offers retry", async
   await expect(
     tile.getByText("错误码：HOST_ONBOARDING_CALLBACK_TLS_FAILED"),
   ).toBeVisible();
-  await expect(tile.getByRole("button", { name: "重新安装" })).toBeVisible();
-  await tile.getByRole("button", { name: "查看安装进度" }).click();
+  const menu = await openActionMenu(tile);
+  await expect(menu.getByRole("menuitem", { name: "重新安装" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await selectRowAction(tile, "查看安装进度");
   const dialog = page.getByRole("dialog", { name: "查看安装进度" });
   await expect(dialog.getByText("下载并传输安装文件").first()).toBeVisible();
   await expect(
@@ -49,6 +52,6 @@ test("failed onboarding callback shows a safe diagnosis and offers retry", async
     dialog.getByText("错误码：HOST_ONBOARDING_CALLBACK_TLS_FAILED"),
   ).toHaveCount(2);
   await page.keyboard.press("Escape");
-  await tile.getByRole("button", { name: "重新安装" }).click();
+  await selectRowAction(tile, "重新安装");
   await expect(page.getByRole("dialog", { name: "重新安装" })).toBeVisible();
 });

@@ -21,7 +21,7 @@ func (a *App) verifyM7OverviewPresentation(ctx context.Context, env *E2EEnvironm
 	if err != nil {
 		return err
 	}
-	call, err := a.postgresQuery(ctx, env, "SELECT p.tool_call_id::text FROM tool_presentations p JOIN tool_calls t ON t.id=p.tool_call_id WHERE t.run_id='"+run+"' AND t.status='succeeded' AND p.tool_version='telemetry.overview/v1';")
+	call, err := a.postgresQuery(ctx, env, "SELECT p.tool_call_id::text FROM tool_presentations p JOIN tool_calls t ON t.id=p.tool_call_id WHERE t.run_id='"+run+"' AND t.status='succeeded' AND p.result_binding->>'tool_id'='telemetry.overview';")
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (a *App) verifyM7OverviewPresentation(ctx context.Context, env *E2EEnvironm
 	if err != nil {
 		return err
 	}
-	if view["runtime"] != "argus-template/v1" || view["template_source"] == "" {
+	if view["runtime"] != "argus-template/v2" || view["template_source"] == "" {
 		return fmt.Errorf("M7 overview template is unavailable")
 	}
 	return nil

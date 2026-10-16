@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { metricCharts } from "../src/components/dashboards/model";
+import { selectRowAction } from "./helpers/action-menu";
 test.use({ actionTimeout: 15000 });
 async function createDashboard(page: Page, name: string, english = false) {
   await page.addInitScript(
@@ -213,7 +214,7 @@ test("dashboard access is granted and removed through the existing authorization
   await expect(page).toHaveURL(/\/dashboards\//);
   await page.goto("/settings/org");
   const user = page.getByRole("row").filter({ hasText: "@chenxi" });
-  await user.getByRole("button", { name: "数据授权", exact: true }).click();
+  await selectRowAction(user, "数据授权");
   const drawer = page.getByRole("dialog", { name: /^数据授权/ });
   await drawer.getByRole("button", { name: "仪表盘", exact: true }).click();
   await drawer
@@ -226,7 +227,7 @@ test("dashboard access is granted and removed through the existing authorization
   await drawer.getByRole("button", { name: "批量移动", exact: true }).click();
   await drawer.getByRole("button", { name: "保存", exact: true }).click();
   await expect(drawer).not.toBeVisible();
-  await user.getByRole("button", { name: "数据授权", exact: true }).click();
+  await selectRowAction(user, "数据授权");
   await drawer.getByRole("button", { name: "仪表盘", exact: true }).click();
   const authorized = drawer
     .locator(".argus-dual-list__columns > section")
@@ -242,7 +243,7 @@ test("dashboard access is granted and removed through the existing authorization
   await drawer.getByRole("button", { name: "批量移除", exact: true }).click();
   await drawer.getByRole("button", { name: "保存", exact: true }).click();
   await expect(drawer).not.toBeVisible();
-  await user.getByRole("button", { name: "数据授权", exact: true }).click();
+  await selectRowAction(user, "数据授权");
   await drawer.getByRole("button", { name: "仪表盘", exact: true }).click();
   await expect(authorized).not.toContainText("Shared application dashboard");
 });

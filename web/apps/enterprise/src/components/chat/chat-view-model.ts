@@ -1,16 +1,30 @@
 import type { ConversationEvent } from "@argus/api-client/contracts";
+import { timelineFromEvents } from "./chat-timeline";
+import { parseToolDisplay, type ToolDisplay } from "./tool-display";
 export type MessageRole = "user" | "assistant" | "system";
 
 export interface ToolCallTrace {
+  display?: ToolDisplay;
   callId: string;
   toolName: string;
+  source?: string;
   status: "running" | "success" | "failed";
   summary?: string;
   durationMs?: number;
   startedAt: string;
+  input?: unknown;
+  output?: unknown;
+  resultRef?: string;
+  completedAt?: string;
 }
 
 export interface ChatMessage {
+  kind?: "message" | "tool" | "presentation" | "file" | "action";
+  sequence?: number;
+  runId?: string;
+  fileGroup?: string;
+  streamEntries?: ChatMessage[];
+  isStreaming?: boolean;
   dashboardContext?: import("@argus/api-client").DashboardChatSelection;
   id: string;
   conversationId: string;
@@ -96,10 +110,14 @@ export function chatMessageFromPublic(value: unknown): ChatMessage | null {
           {
             callId,
             toolName,
+            source: stringValue(item.source),
             status,
             startedAt,
             summary: stringValue(item.summary),
+            display: parseToolDisplay(item.display),
             durationMs: numberValue(item.duration_ms),
+            ...(item.input !== undefined ? { input: item.input } : {}),
+            ...(item.output !== undefined ? { output: item.output } : {}),
           },
         ];
       })
@@ -135,6 +153,8 @@ export type ChatFile = {
   name: string;
   byte_size: number;
   content_hash?: string;
+  media_type?: string;
+  path?: string;
 };
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -154,6 +174,8 @@ function fileArray(value: unknown): ChatFile[] {
                 name: item.name,
                 byte_size: Number(item.byte_size) || 0,
                 content_hash: stringValue(item.content_hash),
+                media_type: stringValue(item.media_type),
+                path: stringValue(item.path),
               },
             ]
           : [];
@@ -161,100 +183,6 @@ function fileArray(value: unknown): ChatFile[] {
     : [];
 }
 
-export function chatMessagesFromEvents(
-  events: readonly ConversationEvent[],
-): ChatMessage[] {
-  const messages: ChatMessage[] = [];
-  const assistants = new Map<string, ChatMessage>();
-  for (const event of [...events].sort((a, b) => a.sequence - b.sequence)) {
-    const payload = record(event.payload) ?? {};
-    const explicit = chatMessageFromPublic(payload.message);
-    if (explicit) {
-      messages.push(explicit);
-      continue;
-    }
-    if (event.event_type === "user_message") {
-      messages.push({
-        id: event.event_id,
-        conversationId: event.conversation_id,
-        role: "user",
-        content: stringValue(payload.content) ?? "",
-        dashboardContext: dashboardReference(payload.dashboard_context),
-        createdAt: event.occurred_at,
-        files: fileArray(payload.files),
-      });
-      continue;
-    }
-    if (!event.run_id) {
-      if (event.event_type === "workspace_file_added")
-        messages.push({
-          id: event.event_id,
-          conversationId: event.conversation_id,
-          role: "user",
-          content: "",
-          createdAt: event.occurred_at,
-          files: fileArray([payload.file]),
-        });
-      continue;
-    }
-    if (
-      ![
-        "assistant_message",
-        "tool_call_result",
-        "tool_presentation",
-        "pending_action_created",
-        "artifact_published",
-      ].includes(event.event_type)
-    )
-      continue;
-    let message = assistants.get(event.run_id);
-    if (!message) {
-      message = {
-        id: `run-${event.run_id}`,
-        conversationId: event.conversation_id,
-        role: "assistant",
-        content: "",
-        createdAt: event.occurred_at,
-        toolCalls: [],
-        presentations: [],
-        pendingActionRefs: [],
-        artifacts: [],
-      };
-      assistants.set(event.run_id, message);
-      messages.push(message);
-    }
-    if (event.event_type === "assistant_message") {
-      const content = stringValue(payload.content);
-      if (content)
-        message.content += [message.content ? "\n\n" : "", content].join("");
-    }
-    if (
-      event.event_type === "tool_call_result" &&
-      typeof payload.tool_call_id === "string"
-    )
-      message.toolCalls?.push({
-        callId: payload.tool_call_id,
-        toolName:
-          stringValue(payload.target_tool_id) ??
-          stringValue(payload.tool_id) ??
-          "tool",
-        status: payload.status === "succeeded" ? "success" : "failed",
-        summary:
-          payload.status === "result_unknown" ? "result_unknown" : undefined,
-        startedAt: event.occurred_at,
-      });
-    if (
-      event.event_type === "tool_presentation" &&
-      typeof payload.tool_call_id === "string"
-    )
-      message.presentations?.push(payload.tool_call_id);
-    if (
-      event.event_type === "pending_action_created" &&
-      typeof payload.action_ref === "string"
-    )
-      message.pendingActionRefs?.push(payload.action_ref);
-    if (event.event_type === "artifact_published")
-      message.artifacts?.push(...fileArray([payload.artifact]));
-  }
-  return messages;
+export function chatMessagesFromEvents(events: readonly ConversationEvent[]): ChatMessage[] {
+  return timelineFromEvents(events, chatMessageFromPublic);
 }

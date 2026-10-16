@@ -1,0 +1,86 @@
+.argus-policy-form {
+  display: grid;
+  gap: var(--card-gap);
+}
+.argus-policy-basics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.argus-policy-form .argus-field {
+  margin: 0;
+}
+.argus-policy-form .argus-card__header {
+  background: var(--bg-elevated);
+}
+.argus-policy-advanced {
+  margin-top: var(--space-4);
+}
+.argus-policy-advanced > summary {
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-help);
+  padding-block: var(--space-2);
+}
+.argus-policy-advanced[open] > summary {
+  margin-bottom: var(--space-3);
+}
+.argus-policy-rule {
+  display: grid;
+  gap: var(--field-gap);
+  padding: var(--card-padding);
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--bg-canvas);
+}
+.argus-policy-rule__header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--action-gap);
+}
+.argus-policy-rule__header > strong {
+  margin-right: auto;
+}
+.argus-policy-rule__conditions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--field-gap);
+}
+.argus-policy-rule__summary {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+  overflow-wrap: anywhere;
+}
+.argus-policy-trial {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.argus-policy-channels {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(var(--form-field-min-width), 1fr)
+  );
+  gap: var(--field-gap);
+}
+.argus-policy-channel {
+  padding: var(--space-3);
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--bg-canvas);
+}
+.argus-policy-channels small {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-help);
+  color: var(--text-tertiary);
+}
+.argus-alert-form .argus-alert-grid {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(var(--form-field-min-width), 1fr)
+  );
+}

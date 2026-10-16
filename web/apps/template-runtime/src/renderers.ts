@@ -92,7 +92,7 @@ export function timeseries(
   series: Record<string, unknown>[],
   label: string,
 ) {
-  const lines = series
+  const plotted = series
     .slice(0, 20)
     .map((item) => {
       const values = Array.isArray(item.values)
@@ -100,12 +100,34 @@ export function timeseries(
         : Array.isArray(item.value)
           ? [item.value]
           : [];
-      return values
+      const points = values
         .filter(Array.isArray)
         .map((value) => [Number(value[0]), Number(value[1])] as const)
         .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+      const metric =
+        item.metric && typeof item.metric === "object"
+          ? (item.metric as Record<string, unknown>)
+          : {};
+      const labels = Object.entries(metric)
+        .filter(
+          ([key]) =>
+            ![
+              "__name__",
+              "resource_id",
+              "argus_resource_id",
+              "source_key",
+            ].includes(key),
+        )
+        .map(([key, value]) => `${key}=${text(value)}`)
+        .join(", ");
+      return {
+        points,
+        name: text(metric.__name__ ?? (labels || label)),
+        labels,
+      };
     })
-    .filter((line) => line.length > 0);
+    .filter((line) => line.points.length > 0);
+  const lines = plotted.map((line) => line.points);
   if (!lines.length) {
     empty(root);
     return;
@@ -124,9 +146,40 @@ export function timeseries(
       maxY = Math.max(maxY, y);
     }
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 800 220");
+  svg.setAttribute("viewBox", "0 0 800 240");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", label);
+  const format = (value: number) =>
+    value.toLocaleString(document.documentElement.lang, {
+      maximumFractionDigits: 3,
+    });
+  const caption = (x: number, y: number, value: string, anchor = "start") => {
+    const node = document.createElementNS(svg.namespaceURI, "text");
+    node.setAttribute("x", String(x));
+    node.setAttribute("y", String(y));
+    node.setAttribute("text-anchor", anchor);
+    node.setAttribute("fill", "var(--text-secondary)");
+    node.setAttribute("font-size", "var(--font-size-12)");
+    node.textContent = value;
+    svg.append(node);
+  };
+  caption(4, 16, format(maxY));
+  caption(4, 196, format(minY));
+  caption(
+    64,
+    232,
+    new Date(minX * 1000).toLocaleTimeString(document.documentElement.lang, {
+      hour12: false,
+    }),
+  );
+  caption(
+    780,
+    232,
+    new Date(maxX * 1000).toLocaleTimeString(document.documentElement.lang, {
+      hour12: false,
+    }),
+    "end",
+  );
   for (const [index, line] of lines.entries()) {
     const polyline = document.createElementNS(svg.namespaceURI, "polyline");
     polyline.setAttribute(
@@ -134,7 +187,7 @@ export function timeseries(
       line
         .map(
           ([x, y]) =>
-            `${20 + ((x - minX) / (maxX - minX || 1)) * 760},${200 - ((y - minY) / (maxY - minY || 1)) * 180}`,
+            `${64 + ((x - minX) / (maxX - minX || 1)) * 716},${200 - ((y - minY) / (maxY - minY || 1)) * 180}`,
         )
         .join(" "),
     );
@@ -145,8 +198,30 @@ export function timeseries(
     );
     polyline.setAttribute("stroke-width", "2");
     svg.append(polyline);
+    if (line.length === 1) {
+      const marker = document.createElementNS(svg.namespaceURI, "circle");
+      marker.setAttribute("cx", "64");
+      marker.setAttribute("cy", "200");
+      marker.setAttribute("r", "4");
+      marker.setAttribute("fill", polyline.getAttribute("stroke")!);
+      svg.append(marker);
+    }
   }
   root.append(svg);
+  const legend = document.createElement("ul");
+  legend.className = "argus-template-legend";
+  for (const [index, line] of plotted.entries()) {
+    const item = document.createElement("li"),
+      swatch = document.createElement("span");
+    swatch.textContent = "● ";
+    swatch.style.color = `var(${["--accent", "--info", "--success", "--warning"][index % 4]})`;
+    item.append(
+      swatch,
+      `${line.name}${line.labels && line.labels !== line.name ? ` · ${line.labels}` : ""}`,
+    );
+    legend.append(item);
+  }
+  root.append(legend);
   if (series.length > 20) truncated(root, 20, series.length);
   note(
     root,

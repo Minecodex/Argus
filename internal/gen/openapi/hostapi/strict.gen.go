@@ -48,12 +48,18 @@ type StrictServerInterface interface {
 	// PreviewDeleteHost Freeze a Host logical deletion plan.
 	// (POST /enterprise/hosts/{id}/actions/preview-delete)
 	PreviewDeleteHost(ctx context.Context, request PreviewDeleteHostRequestObject) (PreviewDeleteHostResponseObject, error)
+	// PreviewHostReconnect Verify the current existing SSH target and preview tunnel reauthorization.
+	// (POST /enterprise/hosts/{id}/actions/preview-reconnect)
+	PreviewHostReconnect(ctx context.Context, request PreviewHostReconnectRequestObject) (PreviewHostReconnectResponseObject, error)
 	// PreviewRetryHost Preview a new SSH installation attempt for a failed unregistered Host.
 	// (POST /enterprise/hosts/{id}/actions/preview-retry)
 	PreviewRetryHost(ctx context.Context, request PreviewRetryHostRequestObject) (PreviewRetryHostResponseObject, error)
 	// PreviewUpdateHost Freeze a Host metadata, labels, or path update.
 	// (POST /enterprise/hosts/{id}/actions/preview-update)
 	PreviewUpdateHost(ctx context.Context, request PreviewUpdateHostRequestObject) (PreviewUpdateHostResponseObject, error)
+	// RefreshHostInventory Collect a fresh local host inventory through the current Connector.
+	// (POST /enterprise/hosts/{id}/inventory/actions/refresh)
+	RefreshHostInventory(ctx context.Context, request RefreshHostInventoryRequestObject) (RefreshHostInventoryResponseObject, error)
 	// PreviewEnableHostWindowsRDP Preview the registry, NLA, service, and firewall changes required to enable RDP.
 	// (POST /enterprise/hosts/{id}/windows-rdp/actions/preview-enable)
 	PreviewEnableHostWindowsRDP(ctx context.Context, request PreviewEnableHostWindowsRDPRequestObject) (PreviewEnableHostWindowsRDPResponseObject, error)
@@ -447,6 +453,40 @@ func (sh *strictHandler) PreviewDeleteHost(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// PreviewHostReconnect operation middleware
+func (sh *strictHandler) PreviewHostReconnect(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewHostReconnectParams) {
+	var request PreviewHostReconnectRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body PreviewHostReconnectJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewHostReconnect(ctx, request.(PreviewHostReconnectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewHostReconnect")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewHostReconnectResponseObject); ok {
+		if err := validResponse.VisitPreviewHostReconnectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PreviewRetryHost operation middleware
 func (sh *strictHandler) PreviewRetryHost(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewRetryHostParams) {
 	var request PreviewRetryHostRequestObject
@@ -508,6 +548,33 @@ func (sh *strictHandler) PreviewUpdateHost(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PreviewUpdateHostResponseObject); ok {
 		if err := validResponse.VisitPreviewUpdateHostResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefreshHostInventory operation middleware
+func (sh *strictHandler) RefreshHostInventory(w http.ResponseWriter, r *http.Request, id ResourceId, params RefreshHostInventoryParams) {
+	var request RefreshHostInventoryRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefreshHostInventory(ctx, request.(RefreshHostInventoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefreshHostInventory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefreshHostInventoryResponseObject); ok {
+		if err := validResponse.VisitRefreshHostInventoryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

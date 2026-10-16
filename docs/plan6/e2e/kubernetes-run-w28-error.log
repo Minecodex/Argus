@@ -1,0 +1,1439 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from backend.Dockerfile
+#1 transferring dockerfile: 1.98kB 0.0s done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 1.2s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.1s done
+#3 DONE 0.1s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 ...
+
+#5 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#5 DONE 1.2s
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 1.4s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [build  1/11] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#8 DONE 0.1s
+
+#9 [stage-1 1/3] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#9 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#9 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 13.74MB 1.0s done
+#7 DONE 1.0s
+
+#10 [build  2/11] WORKDIR /src
+#10 CACHED
+
+#11 [build  3/11] COPY go.mod go.sum ./
+#11 CACHED
+
+#12 [build  4/11] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#12 CACHED
+
+#13 [build  5/11] COPY api/openapi ./api/openapi
+#13 CACHED
+
+#14 [build  6/11] COPY api/schemas ./api/schemas
+#14 CACHED
+
+#15 [build  7/11] COPY cmd ./cmd
+#15 CACHED
+
+#16 [build  8/11] COPY internal ./internal
+#16 DONE 0.2s
+
+#17 [build  9/11] COPY migrations ./migrations
+#17 DONE 0.1s
+
+#18 [build 10/11] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     set -eu;     mkdir -p /out &&     for name in argus-server argus-worker argus-connector-gateway argus-telemetry argus-telemetry-dlq-replay argus-connector argus-pki-controller argusctl argus-migrate argus-telemetry-catalog-sync argus-sandbox-smoke; do       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build 		-tags ""         -trimpath         -ldflags "-s -w -X github.com/kakj-go/Argus/internal/buildinfo.Version=dev -X github.com/kakj-go/Argus/internal/buildinfo.Commit=unknown -X github.com/kakj-go/Argus/internal/buildinfo.Date=unknown"         -o /out/$name ./cmd/$name;     done
+#18 DONE 14.7s
+
+#19 [build 11/11] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     if [ -n "" ]; then       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build 		-tags "" -trimpath -ldflags "-s -w" 		-o /out/argus-telemetry-e2e ./cmd/argus-telemetry-e2e;     fi
+#19 DONE 0.3s
+
+#9 [stage-1 1/3] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#9 CACHED
+
+#20 [stage-1 2/3] COPY --from=build /out/ /usr/local/bin/
+#20 DONE 0.7s
+
+#21 [stage-1 3/3] COPY --from=build /src/migrations/ /usr/local/share/argus/migrations/
+#21 DONE 0.1s
+
+#22 exporting to image
+#22 exporting layers
+#22 exporting layers 10.9s done
+#22 exporting manifest sha256:bdac1034327e9a3a44d44c5beeaaef73941e0bb5862fa5896ed24045443b9d95 0.0s done
+#22 exporting config sha256:e30a630f764f523e0eec7e00d487921ff0a1a836b79fb66afa2811b55aa42072 0.0s done
+#22 exporting attestation manifest sha256:6edc990550d7dc55e36531cfb870f9a14dffc23fdd71d68e3114fc8cedac01f7
+#22 exporting attestation manifest sha256:6edc990550d7dc55e36531cfb870f9a14dffc23fdd71d68e3114fc8cedac01f7 0.0s done
+#22 exporting manifest list sha256:f8e78ed021206be14d1caacfee930e457353a62800be12a6cc085c6888c82651 0.0s done
+#22 naming to localhost:58938/argus/argus-backend:e2e-plan6-20261011-w28 done
+#22 DONE 11.1s
+
+#22 exporting to image
+#22 pushing layers
+#22 pushing layers 1.2s done
+#22 pushing manifest for localhost:58938/argus/argus-backend:e2e-plan6-20261011-w28@sha256:f8e78ed021206be14d1caacfee930e457353a62800be12a6cc085c6888c82651
+#22 pushing manifest for localhost:58938/argus/argus-backend:e2e-plan6-20261011-w28@sha256:f8e78ed021206be14d1caacfee930e457353a62800be12a6cc085c6888c82651 0.1s done
+#22 DONE 12.4s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from web.Dockerfile
+#1 transferring dockerfile: 2.29kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#4 ...
+
+#5 [internal] load metadata for mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+#5 DONE 1.2s
+
+#4 [internal] load metadata for mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#4 DONE 1.2s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [stage-1 1/5] FROM mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#8 resolve mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e 0.1s done
+#8 DONE 0.1s
+
+#9 [build  1/16] FROM mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+#9 resolve mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+#9 resolve mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 5.37MB 0.4s done
+#7 DONE 0.4s
+
+#10 CACHED
+
+#11 [build  2/16] WORKDIR /src
+#11 CACHED
+
+#12 [build  3/16] RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
+#12 CACHED
+
+#13 [build  4/16] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+#13 CACHED
+
+#14 [build  7/16] COPY web/apps/template-runtime/package.json ./web/apps/template-runtime/
+#14 CACHED
+
+#15 [build 12/16] COPY web/packages/ui/package.json ./web/packages/ui/
+#15 CACHED
+
+#16 [build  5/16] COPY web/apps/enterprise/package.json ./web/apps/enterprise/
+#16 CACHED
+
+#17 [build  6/16] COPY web/apps/platform/package.json ./web/apps/platform/
+#17 CACHED
+
+#18 [build  8/16] COPY web/packages/api-client/package.json ./web/packages/api-client/
+#18 CACHED
+
+#19 [build  9/16] COPY web/packages/auth/package.json ./web/packages/auth/
+#19 CACHED
+
+#20 [build 11/16] COPY web/packages/observability/package.json ./web/packages/observability/
+#20 CACHED
+
+#21 [build 13/16] RUN --mount=type=cache,id=argus-pnpm-store,target=/pnpm/store     pnpm install --store-dir /pnpm/store --frozen-lockfile --fetch-retries 5 --fetch-timeout 300000
+#21 CACHED
+
+#22 [build 14/16] COPY scripts ./scripts/
+#22 DONE 0.1s
+
+#23 [build 15/16] COPY web ./web
+#23 DONE 0.1s
+
+#24 [build 16/16] RUN VITE_API_MODE=real     VITE_API_BASE_URL=/     VITE_TEMPLATE_ORIGIN=     VITE_PLATFORM_URL=     VITE_DIRECT_EGRESS_ADDRESSES=     node scripts/build-web.mjs "real"
+#24 1.074 Scope: 8 of 9 workspace projects
+#24 1.081 web/apps/enterprise build$ tsc -b && vite build
+#24 1.082 web/apps/platform build$ tsc -b && vite build
+#24 1.083 web/apps/template-runtime build$ vite build
+#24 1.345 web/apps/template-runtime build: vite v7.3.6 building client environment for production...
+#24 1.419 web/apps/template-runtime build: transforming...
+#24 1.503 web/apps/template-runtime build: ✓ 7 modules transformed.
+#24 1.525 web/apps/template-runtime build: rendering chunks...
+#24 1.531 web/apps/template-runtime build: computing gzip size...
+#24 1.538 web/apps/template-runtime build: dist/.vite/manifest.json       0.13 kB │ gzip: 0.12 kB
+#24 1.538 web/apps/template-runtime build: dist/index.html                0.31 kB │ gzip: 0.22 kB
+#24 1.538 web/apps/template-runtime build: dist/assets/index-DykFNpPO.js  9.98 kB │ gzip: 4.22 kB
+#24 1.539 web/apps/template-runtime build: ✓ built in 165ms
+#24 1.552 web/apps/template-runtime build: Done
+#24 8.338 web/apps/platform build: vite v7.3.6 building client environment for production...
+#24 8.379 web/apps/platform build: transforming...
+#24 12.01 web/apps/enterprise build: vite v7.3.6 building client environment for production...
+#24 12.06 web/apps/enterprise build: transforming...
+#24 13.95 web/apps/platform build: ✓ 4242 modules transformed.
+#24 13.99 web/apps/platform build: Circular chunk: vendor-collections -> vendor-controls -> vendor-collections. Please adjust the manual chunk logic for these chunks.
+#24 14.16 web/apps/platform build: Generated an empty chunk: "vendor-zrender".
+#24 14.18 web/apps/platform build: Generated an empty chunk: "vendor-echarts".
+#24 14.18 web/apps/platform build: Generated an empty chunk: "vendor-echarts-charts".
+#24 14.21 web/apps/platform build: Generated an empty chunk: "vendor-terminal".
+#24 14.27 web/apps/platform build: rendering chunks...
+#24 14.38 web/apps/platform build: computing gzip size...
+#24 14.39 web/apps/platform build: dist/index.html                                  1.51 kB │ gzip:  0.53 kB
+#24 14.39 web/apps/platform build: dist/.vite/manifest.json                        12.35 kB │ gzip:  1.38 kB
+#24 14.39 web/apps/platform build: dist/assets/index-sfoFul_-.css                 515.95 kB │ gzip: 54.22 kB
+#24 14.39 web/apps/platform build: dist/assets/vendor-zrender-l0sNRNKZ.js           0.00 kB │ gzip:  0.02 kB
+#24 14.39 web/apps/platform build: dist/assets/vendor-echarts-l0sNRNKZ.js           0.00 kB │ gzip:  0.02 kB
+#24 14.39 web/apps/platform build: dist/assets/vendor-echarts-charts-l0sNRNKZ.js    0.00 kB │ gzip:  0.02 kB
+#24 14.39 web/apps/platform build: dist/assets/vendor-terminal-l0sNRNKZ.js          0.00 kB │ gzip:  0.02 kB
+#24 14.39 web/apps/platform build: dist/assets/vendor-color-Ba7ZKk1-.js             0.04 kB │ gzip:  0.06 kB
+#24 14.39 web/apps/platform build: dist/assets/_commonjsHelpers-CqkleIqs.js         0.12 kB │ gzip:  0.13 kB
+#24 14.39 web/apps/platform build: dist/assets/audit-presentation-D7w72HnQ.js       0.24 kB │ gzip:  0.19 kB
+#24 14.39 web/apps/platform build: dist/assets/stat-card-BRm-_8zg.js                0.84 kB │ gzip:  0.38 kB
+#24 14.39 web/apps/platform build: dist/assets/index-hGx2qtAB.js                    0.91 kB │ gzip:  0.48 kB
+#24 14.39 web/apps/platform build: dist/assets/with-selector-BvAAvWEn.js            1.00 kB │ gzip:  0.56 kB
+#24 14.39 web/apps/platform build: dist/assets/table-DXr79knf.js                    1.13 kB │ gzip:  0.50 kB
+#24 14.39 web/apps/platform build: dist/assets/status-badge-DoeRCpYl.js             1.32 kB │ gzip:  0.60 kB
+#24 14.39 web/apps/platform build: dist/assets/format-Chym6Ioy.js                   1.48 kB │ gzip:  0.70 kB
+#24 14.39 web/apps/platform build: dist/assets/query-boundary-BouqFUmi.js           1.71 kB │ gzip:  1.12 kB
+#24 14.39 web/apps/platform build: dist/assets/dashboard-page-DvMTiDf7.js           2.91 kB │ gzip:  1.22 kB
+#24 14.39 web/apps/platform build: dist/assets/overlays-DuE85wTo.js                 2.98 kB │ gzip:  1.18 kB
+#24 14.39 web/apps/platform build: dist/assets/vendor-collections-Brq-R0nX.js       4.67 kB │ gzip:  1.56 kB
+#24 14.39 web/apps/platform build: dist/assets/login-page-PqpK3hws.js               4.76 kB │ gzip:  1.76 kB
+#24 14.39 web/apps/platform build: dist/assets/pki-page-BEipaCrY.js                 4.77 kB │ gzip:  1.63 kB
+#24 14.39 web/apps/platform build: dist/assets/platform-usage-chart-Dn-LFAbo.js     4.79 kB │ gzip:  2.12 kB
+#24 14.39 web/apps/platform build: dist/assets/audit-page-CyxhabuS.js               4.82 kB │ gzip:  1.82 kB
+#24 14.39 web/apps/platform build: dist/assets/admins-page-CWYEuE5U.js              6.34 kB │ gzip:  2.33 kB
+#24 14.39 web/apps/platform build: dist/assets/NumberParser-jS1Y7UkJ.js             8.28 kB │ gzip:  2.82 kB
+#24 14.39 web/apps/platform build: dist/assets/account-page-D5dyAhWG.js             8.69 kB │ gzip:  2.76 kB
+#24 14.39 web/apps/platform build: dist/assets/enterprises-page-BdvUuxE0.js         9.82 kB │ gzip:  3.12 kB
+#24 14.39 web/apps/platform build: dist/assets/vendor-icons-CNIc7kPg.js            10.45 kB │ gzip:  3.95 kB
+#24 14.39 web/apps/platform build: dist/assets/sandbox-page-CqPcEMJf.js            23.82 kB │ gzip:  6.33 kB
+#24 14.40 web/apps/platform build: dist/assets/vendor-dates-ClXnoCa3.js            28.90 kB │ gzip:  9.93 kB
+#24 14.40 web/apps/platform build: dist/assets/index-BjtB5mol.js                   50.14 kB │ gzip: 16.64 kB
+#24 14.40 web/apps/platform build: dist/assets/vendor-forms-DQ0_a9um.js           103.98 kB │ gzip: 30.87 kB
+#24 14.40 web/apps/platform build: dist/assets/vendor-tanstack-Bfp3z3YR.js        114.99 kB │ gzip: 37.80 kB
+#24 14.40 web/apps/platform build: dist/assets/vendor-calendar-BV59tWbc.js        117.82 kB │ gzip: 35.90 kB
+#24 14.40 web/apps/platform build: dist/assets/vendor-react-BQLMog7w.js           192.88 kB │ gzip: 60.53 kB
+#24 14.40 web/apps/platform build: dist/assets/vendor-controls-dfniXPmQ.js        256.75 kB │ gzip: 79.57 kB
+#24 14.40 web/apps/platform build: dist/assets/index-CLARkBN9.js                  408.80 kB │ gzip: 92.91 kB
+#24 14.40 web/apps/platform build: ✓ built in 6.04s
+#24 14.46 web/apps/platform build: Done
+#24 18.69 web/apps/enterprise build: ✓ 4400 modules transformed.
+#24 18.75 web/apps/enterprise build: Circular chunk: vendor-collections -> vendor-controls -> vendor-collections. Please adjust the manual chunk logic for these chunks.
+#24 19.14 web/apps/enterprise build: rendering chunks...
+#24 19.34 web/apps/enterprise build: computing gzip size...
+#24 19.38 web/apps/enterprise build: dist/index.html                                         1.48 kB │ gzip:   0.54 kB
+#24 19.38 web/apps/enterprise build: dist/.vite/manifest.json                               46.02 kB │ gzip:   4.31 kB
+#24 19.38 web/apps/enterprise build: dist/assets/login-page-tn0RQdqM.css                     0.00 kB │ gzip:   0.02 kB
+#24 19.38 web/apps/enterprise build: dist/assets/planv5-BXkVABHU.css                         0.87 kB │ gzip:   0.31 kB
+#24 19.38 web/apps/enterprise build: dist/assets/account-page-8wR5onFh.css                   1.16 kB │ gzip:   0.41 kB
+#24 19.38 web/apps/enterprise build: dist/assets/session-table-5fnvdcAj.css                  1.67 kB │ gzip:   0.60 kB
+#24 19.38 web/apps/enterprise build: dist/assets/settings-ai-page-DVxAaWNQ.css               2.44 kB │ gzip:   0.76 kB
+#24 19.38 web/apps/enterprise build: dist/assets/dashboard-editor-page-an79bxMB.css          2.66 kB │ gzip:   0.76 kB
+#24 19.38 web/apps/enterprise build: dist/assets/kubernetes-Dkyezrhp.css                     2.69 kB │ gzip:   0.67 kB
+#24 19.38 web/apps/enterprise build: dist/assets/xterm-DDGTF8rc.css                          3.62 kB │ gzip:   0.99 kB
+#24 19.38 web/apps/enterprise build: dist/assets/dashboard-panel-editor-page-bWI1pQog.css    4.53 kB │ gzip:   1.06 kB
+#24 19.38 web/apps/enterprise build: dist/assets/settings-DlwAaRRY.css                       5.70 kB │ gzip:   1.25 kB
+#24 19.38 web/apps/enterprise build: dist/assets/utils-DUv7MiT3.css                          6.29 kB │ gzip:   1.46 kB
+#24 19.38 web/apps/enterprise build: dist/assets/dashboards-D8xCOTYz.css                     6.34 kB │ gzip:   1.28 kB
+#24 19.38 web/apps/enterprise build: dist/assets/host-removal-target-C77jJ6-R.css            7.85 kB │ gzip:   1.56 kB
+#24 19.38 web/apps/enterprise build: dist/assets/conversation-page-CqqqNQQp.css             10.42 kB │ gzip:   2.14 kB
+#24 19.38 web/apps/enterprise build: dist/assets/action-preview-Bv1zz-I-.css                16.42 kB │ gzip:   2.81 kB
+#24 19.38 web/apps/enterprise build: dist/assets/index-BexWsWuz.css                        551.52 kB │ gzip:  59.26 kB
+#24 19.38 web/apps/enterprise build: dist/assets/vendor-color-Ba7ZKk1-.js                    0.04 kB │ gzip:   0.06 kB
+#24 19.38 web/apps/enterprise build: dist/assets/_commonjsHelpers-CqkleIqs.js                0.12 kB │ gzip:   0.13 kB
+#24 19.38 web/apps/enterprise build: dist/assets/draft-workspace-context-CL5ryrWM.js         0.21 kB │ gzip:   0.19 kB
+#24 19.38 web/apps/enterprise build: dist/assets/use-definition-form-CH6sbp_A.js             0.33 kB │ gzip:   0.24 kB
+#24 19.38 web/apps/enterprise build: dist/assets/key-value-grid-DiGXFEJx.js                  0.37 kB │ gzip:   0.25 kB
+#24 19.38 web/apps/enterprise build: dist/assets/action-group-ClfAafKd.js                    0.40 kB │ gzip:   0.26 kB
+#24 19.38 web/apps/enterprise build: dist/assets/tslib.es6-Cg4x8ZAA.js                       0.47 kB │ gzip:   0.30 kB
+#24 19.38 web/apps/enterprise build: dist/assets/segmented-control-BTV_vieP.js               0.57 kB │ gzip:   0.35 kB
+#24 19.38 web/apps/enterprise build: dist/assets/role-presentation-CTufQ8vO.js               0.63 kB │ gzip:   0.24 kB
+#24 19.38 web/apps/enterprise build: dist/assets/status-badge-mtSgVlLK.js                    0.73 kB │ gzip:   0.36 kB
+#24 19.38 web/apps/enterprise build: dist/assets/card-C-4JbcPY.js                            0.84 kB │ gzip:   0.34 kB
+#24 19.38 web/apps/enterprise build: dist/assets/stat-card-BvRgHcW-.js                       0.84 kB │ gzip:   0.38 kB
+#24 19.38 web/apps/enterprise build: dist/assets/index-hGx2qtAB.js                           0.91 kB │ gzip:   0.48 kB
+#24 19.38 web/apps/enterprise build: dist/assets/with-selector-BvAAvWEn.js                   1.00 kB │ gzip:   0.56 kB
+#24 19.38 web/apps/enterprise build: dist/assets/code-BMzSqbOO.js                            1.15 kB │ gzip:   0.59 kB
+#24 19.38 web/apps/enterprise build: dist/assets/page-CIk6AW5K.js                            1.26 kB │ gzip:   0.58 kB
+#24 19.38 web/apps/enterprise build: dist/assets/checkbox-BK7G7RzB.js                        1.31 kB │ gzip:   0.62 kB
+#24 19.38 web/apps/enterprise build: dist/assets/install-instruction-panel-B27jSGdk.js       1.36 kB │ gzip:   0.54 kB
+#24 19.38 web/apps/enterprise build: dist/assets/resource-card-DNZW4hc8.js                   1.48 kB │ gzip:   0.61 kB
+#24 19.38 web/apps/enterprise build: dist/assets/drawer-panel-CMIJRJZR.js                    1.56 kB │ gzip:   0.72 kB
+#24 19.38 web/apps/enterprise build: dist/assets/host-utils-DUIhl3Mi.js                      1.65 kB │ gzip:   0.86 kB
+#24 19.38 web/apps/enterprise build: dist/assets/mfa-step-up-dialog-CxfiLkSY.js              1.73 kB │ gzip:   0.89 kB
+#24 19.38 web/apps/enterprise build: dist/assets/query-boundary-Cgb0WRox.js                  1.73 kB │ gzip:   1.14 kB
+#24 19.39 web/apps/enterprise build: dist/assets/table-dhDF_Pi0.js                           1.76 kB │ gzip:   0.79 kB
+#24 19.39 web/apps/enterprise build: dist/assets/wizard-CP9wyR06.js                          1.83 kB │ gzip:   0.87 kB
+#24 19.39 web/apps/enterprise build: dist/assets/utils-Bplz6TMF.js                           1.84 kB │ gzip:   0.78 kB
+#24 19.39 web/apps/enterprise build: dist/assets/overlays-ChEF-aUD.js                        1.90 kB │ gzip:   0.69 kB
+#24 19.39 web/apps/enterprise build: dist/assets/shared-053lrnli.js                          2.07 kB │ gzip:   0.98 kB
+#24 19.39 web/apps/enterprise build: dist/assets/log-viewer-CZuvPm0q.js                      2.21 kB │ gzip:   1.04 kB
+#24 19.39 web/apps/enterprise build: dist/assets/display-BOVuy17K.js                         2.38 kB │ gzip:   0.91 kB
+#24 19.39 web/apps/enterprise build: dist/assets/kubernetes-CX3x5bWE.js                      2.70 kB │ gzip:   1.29 kB
+#24 19.39 web/apps/enterprise build: dist/assets/combobox-DnOcnjDj.js                        2.86 kB │ gzip:   1.44 kB
+#24 19.39 web/apps/enterprise build: dist/assets/action-dialog-DebLoG41.js                   3.13 kB │ gzip:   1.26 kB
+#24 19.39 web/apps/enterprise build: dist/assets/preview-commit-DzXr1CAO.js                  3.24 kB │ gzip:   1.45 kB
+#24 19.39 web/apps/enterprise build: dist/assets/pending-action-confirm-Dv3jf42p.js          3.25 kB │ gzip:   1.44 kB
+#24 19.39 web/apps/enterprise build: dist/assets/scenario-CaMpRcSW.js                        3.48 kB │ gzip:   1.37 kB
+#24 19.39 web/apps/enterprise build: dist/assets/tasks-page-C4qzQe9J.js                      4.08 kB │ gzip:   1.62 kB
+#24 19.39 web/apps/enterprise build: dist/assets/chart-CeBuXtco.js                           4.18 kB │ gzip:   1.88 kB
+#24 19.39 web/apps/enterprise build: dist/assets/draft-workspace-oeOKnT-o.js                 4.44 kB │ gzip:   1.93 kB
+#24 19.39 web/apps/enterprise build: dist/assets/audit-presentation-BOOgdu3c.js              4.59 kB │ gzip:   1.19 kB
+#24 19.39 web/apps/enterprise build: dist/assets/vendor-collections-D5DbHGnB.js              4.67 kB │ gzip:   1.56 kB
+#24 19.39 web/apps/enterprise build: dist/assets/drilldown-viewer-Bb7J70xQ.js                4.90 kB │ gzip:   2.11 kB
+#24 19.39 web/apps/enterprise build: dist/assets/value-selector-DrgK0gGa.js                  4.94 kB │ gzip:   2.12 kB
+#24 19.39 web/apps/enterprise build: dist/assets/login-page-JiijJ8UL.js                      4.94 kB │ gzip:   1.85 kB
+#24 19.39 web/apps/enterprise build: dist/assets/pending-action-presentation-DZYQ9g7r.js     5.12 kB │ gzip:   1.70 kB
+#24 19.39 web/apps/enterprise build: dist/assets/NumberParser-6sWiznqS.js                    5.64 kB │ gzip:   2.02 kB
+#24 19.39 web/apps/enterprise build: dist/assets/remote-sessions-page-BncGbY2e.js            5.65 kB │ gzip:   2.11 kB
+#24 19.39 web/apps/enterprise build: dist/assets/execution-dependencies-DyAQld-9.js          5.80 kB │ gzip:   2.49 kB
+#24 19.39 web/apps/enterprise build: dist/assets/action-preview-CKR9Pgfm.js                  5.96 kB │ gzip:   2.33 kB
+#24 19.39 web/apps/enterprise build: dist/assets/settings-mcp-page-Bl6_wckw.js               6.39 kB │ gzip:   2.39 kB
+#24 19.39 web/apps/enterprise build: dist/assets/dashboards-page-jmunGQ5-.js                 7.09 kB │ gzip:   2.55 kB
+#24 19.39 web/apps/enterprise build: dist/assets/settings-audit-page-B4FIA-iS.js             7.65 kB │ gzip:   2.65 kB
+#24 19.39 web/apps/enterprise build: dist/assets/query-scope-Bi_3CMJo.js                     7.96 kB │ gzip:   2.81 kB
+#24 19.39 web/apps/enterprise build: dist/assets/model-DxUvILgX.js                           7.96 kB │ gzip:   3.36 kB
+#24 19.39 web/apps/enterprise build: dist/assets/account-page-DWyMDKz7.js                   11.34 kB │ gzip:   3.22 kB
+#24 19.39 web/apps/enterprise build: dist/assets/kubernetes-page-ZdRHd-He.js                12.34 kB │ gzip:   4.22 kB
+#24 19.39 web/apps/enterprise build: dist/assets/host-removal-target-BXCGjd25.js            14.76 kB │ gzip:   4.63 kB
+#24 19.39 web/apps/enterprise build: dist/assets/settings-ai-page-Cv3nosOK.js               15.77 kB │ gzip:   4.60 kB
+#24 19.39 web/apps/enterprise build: dist/assets/org-users-tab-DgeY8LFD.js                  17.32 kB │ gzip:   5.33 kB
+#24 19.39 web/apps/enterprise build: dist/assets/dashboard-view-page-C32k2NwD.js            18.17 kB │ gzip:   6.07 kB
+#24 19.39 web/apps/enterprise build: dist/assets/approvals-page-CmcrE0ki.js                 20.15 kB │ gzip:   5.94 kB
+#24 19.39 web/apps/enterprise build: dist/assets/vendor-icons-xTkrXgq1.js                   22.17 kB │ gzip:   7.53 kB
+#24 19.39 web/apps/enterprise build: dist/assets/kubernetes-cluster-page-BANGc2-B.js        23.48 kB │ gzip:   6.69 kB
+#24 19.39 web/apps/enterprise build: dist/assets/dashboard-editor-page-CyU33wgJ.js          24.13 kB │ gzip:   6.82 kB
+#24 19.39 web/apps/enterprise build: dist/assets/use-resource-dashboard-tab-egBXFSGg.js     25.79 kB │ gzip:   7.53 kB
+#24 19.39 web/apps/enterprise build: dist/assets/candidate-filters-BR_b2Ckf.js              27.65 kB │ gzip:  10.13 kB
+#24 19.39 web/apps/enterprise build: dist/assets/vendor-dates-ClXnoCa3.js                   28.90 kB │ gzip:   9.93 kB
+#24 19.39 web/apps/enterprise build: dist/assets/demo-page-XU4BbHaR.js                      29.29 kB │ gzip:  10.99 kB
+#24 19.39 web/apps/enterprise build: dist/assets/host-detail-page-PAgq6Mdf.js               30.65 kB │ gzip:   9.52 kB
+#24 19.39 web/apps/enterprise build: dist/assets/conversation-page-CVxB_589.js              42.59 kB │ gzip:  13.35 kB
+#24 19.39 web/apps/enterprise build: dist/assets/dashboard-panel-editor-page-dw2Z9WdG.js    49.37 kB │ gzip:  13.51 kB
+#24 19.39 web/apps/enterprise build: dist/assets/index-CuWEkOPc.js                          52.85 kB │ gzip:  17.57 kB
+#24 19.39 web/apps/enterprise build: dist/assets/alerts-page-D-BwK4ce.js                    56.24 kB │ gzip:  15.19 kB
+#24 19.39 web/apps/enterprise build: dist/assets/hosts-page-BsuuVeDv.js                     61.80 kB │ gzip:  15.02 kB
+#24 19.39 web/apps/enterprise build: dist/assets/settings-org-page-BpF7O7rQ.js              67.29 kB │ gzip:  14.80 kB
+#24 19.39 web/apps/enterprise build: dist/assets/session-table-Bq3RAFTt.js                  89.87 kB │ gzip:  27.82 kB
+#24 19.39 web/apps/enterprise build: dist/assets/vendor-echarts-charts-BHFkw3xo.js          93.27 kB │ gzip:  32.95 kB
+#24 19.39 web/apps/enterprise build: dist/assets/vendor-forms-Ce7nU-Ax.js                  104.99 kB │ gzip:  31.10 kB
+#24 19.39 web/apps/enterprise build: dist/assets/vendor-tanstack-BeF1ooda.js               116.55 kB │ gzip:  38.29 kB
+#24 19.39 web/apps/enterprise build: dist/assets/vendor-calendar-C12rZfRy.js               117.82 kB │ gzip:  35.90 kB
+#24 19.40 web/apps/enterprise build: dist/assets/form-constraints-N_4qkq2G.js              149.50 kB │ gzip:  18.53 kB
+#24 19.40 web/apps/enterprise build: dist/assets/vendor-zrender-D1n67eJb.js                176.64 kB │ gzip:  58.54 kB
+#24 19.40 web/apps/enterprise build: dist/assets/vendor-react-BQLMog7w.js                  192.88 kB │ gzip:  60.53 kB
+#24 19.40 web/apps/enterprise build: dist/assets/vendor-controls-Ds8fyHvJ.js               326.65 kB │ gzip:  97.12 kB
+#24 19.40 web/apps/enterprise build: dist/assets/vendor-terminal-V0cDJOzQ.js               330.73 kB │ gzip:  83.46 kB
+#24 19.40 web/apps/enterprise build: dist/assets/vendor-echarts-gh48495o.js                460.06 kB │ gzip: 155.98 kB
+#24 19.40 web/apps/enterprise build: dist/assets/index-ZfMYHaeF.js                         526.14 kB │ gzip: 164.89 kB
+#24 19.40 web/apps/enterprise build: ✓ built in 7.36s
+#24 19.40 web/apps/enterprise build: (!) Some chunks are larger than 500 kB after minification. Consider:
+#24 19.40 web/apps/enterprise build: - Using dynamic import() to code-split the application
+#24 19.40 web/apps/enterprise build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+#24 19.40 web/apps/enterprise build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#24 19.54 web/apps/enterprise build: Done
+#24 19.59 Real frontend bundles contain no mock seed markers or placeholder endpoints
+#24 DONE 19.7s
+
+#25 [stage-1 4/5] COPY --from=build /src/web/apps/platform/dist /srv/platform
+#25 CACHED
+
+#26 [stage-1 2/5] COPY deploy/docker/nginx.conf /etc/nginx/nginx.conf
+#26 CACHED
+
+#27 [stage-1 3/5] COPY --from=build /src/web/apps/enterprise/dist /srv/enterprise
+#27 CACHED
+
+#28 [stage-1 5/5] COPY --from=build /src/web/apps/template-runtime/dist /srv/template-runtime
+#28 CACHED
+
+#29 exporting to image
+#29 exporting layers done
+#29 exporting manifest sha256:0aa2651a7c597e6b9afee5255c2f39b6b0218ae14566563d694b3059aa11bcbf 0.0s done
+#29 exporting config sha256:ed1e451d2f63b4a5beae2f1f7c1a70126868549adbcc694e9f385307fe4a95c5 done
+#29 exporting attestation manifest sha256:a290ce03d4e17827c1a8bb64a24e78198cfe43fd145411830287d6c773abc3da
+#29 exporting attestation manifest sha256:a290ce03d4e17827c1a8bb64a24e78198cfe43fd145411830287d6c773abc3da 0.0s done
+#29 exporting manifest list sha256:0dadb992e0ecd2e9449b8627ed05f2a880d6956f35571b1485480f2d0631aff3 0.0s done
+#29 naming to localhost:58938/argus/argus-web:e2e-plan6-20261011-w28 done
+#29 DONE 0.2s
+
+#29 exporting to image
+#29 pushing layers
+#29 pushing layers 1.0s done
+#29 pushing manifest for localhost:58938/argus/argus-web:e2e-plan6-20261011-w28@sha256:0dadb992e0ecd2e9449b8627ed05f2a880d6956f35571b1485480f2d0631aff3
+#29 pushing manifest for localhost:58938/argus/argus-web:e2e-plan6-20261011-w28@sha256:0dadb992e0ecd2e9449b8627ed05f2a880d6956f35571b1485480f2d0631aff3 0.1s done
+#29 DONE 1.3s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from minio.Dockerfile
+#1 transferring dockerfile: 2.09kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.0s
+
+#5 [internal] load metadata for mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+#5 DONE 1.2s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [mc-build 1/5] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#7 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#7 DONE 0.1s
+
+#8 [stage-2 1/4] FROM mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+#8 resolve mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 0.1s done
+#8 DONE 0.1s
+
+#9 [build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -tags kqueue -ldflags "-s -w" -o /out/minio .
+#9 CACHED
+
+#10 [stage-2 3/4] COPY --from=build /out/minio /usr/local/bin/minio
+#10 CACHED
+
+#11 [mc-build 2/5] RUN apk add --no-cache ca-certificates git
+#11 CACHED
+
+#12 [mc-build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     ldflags="$(MC_RELEASE=RELEASE go run buildscripts/gen-ldflags.go "2025-08-13T08-35-41Z")" &&     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$ldflags" -o /out/mc .
+#12 CACHED
+
+#13 [mc-build 3/5] WORKDIR /src/mc
+#13 CACHED
+
+#14 [mc-build 4/5] RUN git clone --depth 1 --branch "RELEASE.2025-08-13T08-35-41Z" https://github.com/minio/mc.git . &&     test "$(git rev-parse HEAD)" = "7394ce0dd2a80935aded936b09fa12cbb3cb8096"
+#14 CACHED
+
+#15 [build 2/5] RUN apk add --no-cache ca-certificates git
+#15 CACHED
+
+#16 [build 3/5] WORKDIR /src
+#16 CACHED
+
+#17 [build 4/5] RUN --mount=type=cache,target=/root/.cache/git     git clone --depth 1 --branch "RELEASE.2025-10-15T17-29-55Z" https://github.com/minio/minio.git .
+#17 CACHED
+
+#18 [stage-2 2/4] RUN apk add --no-cache ca-certificates && addgroup -S minio && adduser -S -G minio minio
+#18 CACHED
+
+#19 [stage-2 4/4] COPY --from=mc-build /out/mc /usr/local/bin/mc
+#19 CACHED
+
+#20 exporting to image
+#20 exporting layers done
+#20 exporting manifest sha256:1d2773b7a1a7522388143cb015cce0437b60dfced7f39eac2531b7141075f368 done
+#20 exporting config sha256:99e79e709ec80ead294dbfde2214107d3d02ecdad34205a358f7e899df2394ea done
+#20 exporting attestation manifest sha256:4620f7299a18f5b76588b99efe68691acca9427e633b960baeb7d6504fcfeaa3 0.0s done
+#20 exporting manifest list sha256:6ecc989638490760d71c6ba454db98b82085ab8aafac7c5e8393fca66f063477 0.0s done
+#20 naming to localhost:58938/argus/minio:e2e-plan6-20261011-w28
+#20 naming to localhost:58938/argus/minio:e2e-plan6-20261011-w28 done
+#20 pushing layers
+#20 pushing layers 0.8s done
+#20 pushing manifest for localhost:58938/argus/minio:e2e-plan6-20261011-w28@sha256:6ecc989638490760d71c6ba454db98b82085ab8aafac7c5e8393fca66f063477
+#20 pushing manifest for localhost:58938/argus/minio:e2e-plan6-20261011-w28@sha256:6ecc989638490760d71c6ba454db98b82085ab8aafac7c5e8393fca66f063477 0.1s done
+#20 DONE 1.0s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from workspace.Dockerfile
+#1 transferring dockerfile: 1.99kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
+#5 ...
+
+#6 DONE 0.0s
+
+#7 DONE 0.0s
+
+#8 [internal] load metadata for docker.io/library/python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c
+#8 DONE 2.7s
+
+#5 [internal] load metadata for docker.io/library/node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
+#5 DONE 2.7s
+
+#9 [internal] load .dockerignore
+#9 transferring context: 216B done
+#9 DONE 0.0s
+
+#10 [internal] load build context
+#10 DONE 0.0s
+
+#11 [stage-2 1/7] FROM docker.io/library/python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c
+#11 resolve docker.io/library/python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c 0.1s done
+#11 DONE 0.1s
+
+#12 [supervisor 1/8] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#12 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#12 DONE 0.1s
+
+#13 [node 1/1] FROM docker.io/library/node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
+#13 resolve docker.io/library/node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e 0.1s done
+#13 DONE 0.1s
+
+#10 [internal] load build context
+#10 transferring context: 13.56MB 0.8s done
+#10 DONE 0.8s
+
+#14 [supervisor 2/8] WORKDIR /src
+#14 CACHED
+
+#15 [supervisor 3/8] COPY go.mod go.sum ./
+#15 CACHED
+
+#16 [supervisor 4/8] RUN --mount=type=cache,target=/go/pkg/mod go mod download
+#16 CACHED
+
+#17 [supervisor 5/8] COPY api ./api
+#17 CACHED
+
+#18 [supervisor 6/8] COPY internal ./internal
+#18 DONE 0.2s
+
+#19 [supervisor 7/8] COPY cmd/argus-workspace-supervisor ./cmd/argus-workspace-supervisor
+#19 DONE 0.1s
+
+#20 [supervisor 8/8] RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '-s -w' -o /out/supervisor ./cmd/argus-workspace-supervisor
+#20 DONE 0.7s
+
+#21 [stage-2 2/7] COPY --from=node /usr/local/bin/node /usr/local/bin/node
+#21 CACHED
+
+#22 [stage-2 3/7] COPY deploy/workspace/requirements.lock /opt/argus/requirements.lock
+#22 CACHED
+
+#23 [stage-2 4/7] RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r /opt/argus/requirements.lock     && python -c 'import numpy,pandas,scipy,matplotlib,openpyxl,pyarrow'     && node --version && bash --version     && mkdir -p /workspace /home/argus && chmod 1777 /workspace /home/argus
+#23 CACHED
+
+#24 [stage-2 5/7] COPY --from=supervisor /out/supervisor /usr/local/bin/argus-workspace-supervisor
+#24 CACHED
+
+#25 [stage-2 6/7] RUN mkdir -p /var/run/argus/manager/tls && chown 10001:10001 /var/run/argus/manager && chmod 0700 /var/run/argus/manager     && python -c "import os; os.setxattr('/usr/local/bin/argus-workspace-supervisor', 'security.capability', bytes.fromhex('01000002e0000000000000000000000000000000'))"
+#25 CACHED
+
+#26 [stage-2 7/7] WORKDIR /workspace
+#26 CACHED
+
+#27 exporting to image
+#27 exporting layers done
+#27 exporting manifest sha256:5b69f11bdf672100aac5f4c42206a7fb076a50c2a4db938338bbe2ee11cfc0fe done
+#27 exporting config sha256:dfb70d66ea7c0e73fc36d3bfe0beff35e58c86793c967d418ff28ddb6e9287a7 done
+#27 exporting attestation manifest sha256:dba5b6d838bc6feaf74f9ea1966ef062c53ea1f3923629ee3c989139a4457d6d 0.0s done
+#27 exporting manifest list sha256:416fcf1da38eaf3f797fb350de72c5b633ba395da702ecd3bcf7242dc78340e5
+#27 exporting manifest list sha256:416fcf1da38eaf3f797fb350de72c5b633ba395da702ecd3bcf7242dc78340e5 0.0s done
+#27 naming to localhost:58938/argus/argus-workspace:e2e-plan6-20261011-w28 done
+#27 pushing layers
+#27 pushing layers 1.5s done
+#27 pushing manifest for localhost:58938/argus/argus-workspace:e2e-plan6-20261011-w28@sha256:416fcf1da38eaf3f797fb350de72c5b633ba395da702ecd3bcf7242dc78340e5
+#27 pushing manifest for localhost:58938/argus/argus-workspace:e2e-plan6-20261011-w28@sha256:416fcf1da38eaf3f797fb350de72c5b633ba395da702ecd3bcf7242dc78340e5 0.0s done
+#27 DONE 1.7s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from workspace-egress.Dockerfile
+#1 transferring dockerfile: 379B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/opensandbox/egress:v1.1.6@sha256:014d36e4a862c4a466c670b9df3f7516940b4b2aa440062438f09d1d8f9c9403
+#2 ...
+
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/opensandbox/egress:v1.1.6@sha256:014d36e4a862c4a466c670b9df3f7516940b4b2aa440062438f09d1d8f9c9403
+#2 DONE 2.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 216B done
+#4 DONE 0.0s
+
+#5 [1/2] FROM docker.io/opensandbox/egress:v1.1.6@sha256:014d36e4a862c4a466c670b9df3f7516940b4b2aa440062438f09d1d8f9c9403
+#5 resolve docker.io/opensandbox/egress:v1.1.6@sha256:014d36e4a862c4a466c670b9df3f7516940b4b2aa440062438f09d1d8f9c9403 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 138B 0.0s done
+#6 DONE 0.1s
+
+#7 [2/2] COPY deploy/workspace/deny.always /var/egress/rules/deny.always
+#7 CACHED
+
+#8 exporting to image
+#8 exporting layers done
+#8 exporting manifest sha256:148dd4c79ced738331bcd65ca150b4d93df952cf324c0e59b2925f1312fb8940 done
+#8 exporting config sha256:f21beda88f180c00b6c3f78f03da4ee736b8650227ccc607258380a776678207 done
+#8 exporting attestation manifest sha256:fe5d0bcfa8fb8e814cb6ff0500bd3a13aa6c180370ade7cc413f2879859c97c6 0.0s done
+#8 exporting manifest list sha256:af33070a71b5f7f0142cd011b7960a4108f2f157a9aa01adca228b294fde69d9 0.0s done
+#8 naming to localhost:58938/argus/argus-workspace-egress:e2e-plan6-20261011-w28
+#8 naming to localhost:58938/argus/argus-workspace-egress:e2e-plan6-20261011-w28 0.0s done
+#8 pushing layers
+#8 pushing layers 1.2s done
+#8 pushing manifest for localhost:58938/argus/argus-workspace-egress:e2e-plan6-20261011-w28@sha256:af33070a71b5f7f0142cd011b7960a4108f2f157a9aa01adca228b294fde69d9
+#8 pushing manifest for localhost:58938/argus/argus-workspace-egress:e2e-plan6-20261011-w28@sha256:af33070a71b5f7f0142cd011b7960a4108f2f157a9aa01adca228b294fde69d9 0.0s done
+#8 DONE 1.4s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from backend.Dockerfile
+#1 transferring dockerfile: 1.98kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.0s
+
+#5 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#5 DONE 1.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [build  1/11] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#8 DONE 0.1s
+
+#9 [stage-1 1/3] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#9 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 13.89MB 0.9s done
+#7 DONE 1.0s
+
+#10 [build  2/11] WORKDIR /src
+#10 CACHED
+
+#11 [build  3/11] COPY go.mod go.sum ./
+#11 CACHED
+
+#12 [build  7/11] COPY cmd ./cmd
+#12 CACHED
+
+#13 [build  6/11] COPY api/schemas ./api/schemas
+#13 CACHED
+
+#14 [build  8/11] COPY internal ./internal
+#14 CACHED
+
+#15 [build  4/11] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#15 CACHED
+
+#16 [build  5/11] COPY api/openapi ./api/openapi
+#16 CACHED
+
+#17 [build  9/11] COPY migrations ./migrations
+#17 CACHED
+
+#18 [build 10/11] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     set -eu;     mkdir -p /out &&     for name in argus-server argus-worker argus-connector-gateway argus-telemetry argus-telemetry-dlq-replay argus-connector argus-pki-controller argusctl argus-migrate argus-telemetry-catalog-sync argus-sandbox-smoke; do       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build 		-tags "m4e2e"         -trimpath         -ldflags "-s -w -X github.com/kakj-go/Argus/internal/buildinfo.Version=dev -X github.com/kakj-go/Argus/internal/buildinfo.Commit=unknown -X github.com/kakj-go/Argus/internal/buildinfo.Date=unknown"         -o /out/$name ./cmd/$name;     done
+#18 DONE 10.6s
+
+#19 [build 11/11] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     if [ -n "m4e2e" ]; then       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build 		-tags "m4e2e" -trimpath -ldflags "-s -w" 		-o /out/argus-telemetry-e2e ./cmd/argus-telemetry-e2e;     fi
+#19 DONE 0.6s
+
+#9 [stage-1 1/3] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#9 CACHED
+
+#20 [stage-1 2/3] COPY --from=build /out/ /usr/local/bin/
+#20 DONE 1.1s
+
+#21 [stage-1 3/3] COPY --from=build /src/migrations/ /usr/local/share/argus/migrations/
+#21 DONE 0.1s
+
+#22 exporting to image
+#22 exporting layers
+#22 exporting layers 11.6s done
+#22 exporting manifest sha256:2d84a8edf34d39bdc997a501229977a2576baf55cbc9d526c8ae1372cc4df9c5 0.0s done
+#22 exporting config sha256:7b215462567c84c6c0492dfbe80fa8d4cc51c757360a388ac9f53be4d50317ca 0.0s done
+#22 exporting attestation manifest sha256:91b1019d8295c353aae8742ed92aaf13691f7885a00d4d50e9f79b9e33b36d81 0.0s done
+#22 exporting manifest list sha256:0d32c2980bb6711b735a3828d07df0eef6f4ef3a68640cb947b6b380e60312da
+#22 exporting manifest list sha256:0d32c2980bb6711b735a3828d07df0eef6f4ef3a68640cb947b6b380e60312da 0.0s done
+#22 naming to localhost:58938/argus/argus-backend:e2e-plan6-20261011-w28 done
+#22 pushing layers
+#22 pushing layers 1.4s done
+#22 pushing manifest for localhost:58938/argus/argus-backend:e2e-plan6-20261011-w28@sha256:0d32c2980bb6711b735a3828d07df0eef6f4ef3a68640cb947b6b380e60312da
+#22 pushing manifest for localhost:58938/argus/argus-backend:e2e-plan6-20261011-w28@sha256:0d32c2980bb6711b735a3828d07df0eef6f4ef3a68640cb947b6b380e60312da 0.1s done
+#22 DONE 13.2s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from web.Dockerfile
+#1 transferring dockerfile: 2.29kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+#4 DONE 0.1s
+
+#5 [internal] load metadata for mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#5 DONE 0.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [stage-1 1/5] FROM mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#7 resolve mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e 0.1s done
+#7 DONE 0.1s
+
+#8 [build  1/16] FROM mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+#8 resolve mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 0.1s done
+#8 DONE 0.1s
+
+#9 [internal] load build context
+#9 transferring context: 5.37MB 0.3s done
+#9 DONE 0.4s
+
+#10 [build  7/16] COPY web/apps/template-runtime/package.json ./web/apps/template-runtime/
+#10 CACHED
+
+#11 [build  8/16] COPY web/packages/api-client/package.json ./web/packages/api-client/
+#11 CACHED
+
+#12 [build 14/16] COPY scripts ./scripts/
+#12 CACHED
+
+#13 [build  9/16] COPY web/packages/auth/package.json ./web/packages/auth/
+#13 CACHED
+
+#14 [build  3/16] RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
+#14 CACHED
+
+#15 [build 13/16] RUN --mount=type=cache,id=argus-pnpm-store,target=/pnpm/store     pnpm install --store-dir /pnpm/store --frozen-lockfile --fetch-retries 5 --fetch-timeout 300000
+#15 CACHED
+
+#16 [build 11/16] COPY web/packages/observability/package.json ./web/packages/observability/
+#16 CACHED
+
+#17 [build 12/16] COPY web/packages/ui/package.json ./web/packages/ui/
+#17 CACHED
+
+#18 [build  2/16] WORKDIR /src
+#18 CACHED
+
+#19 [build  4/16] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+#19 CACHED
+
+#20 [build 10/16] COPY web/packages/design-tokens/package.json ./web/packages/design-tokens/
+#20 CACHED
+
+#21 [build  5/16] COPY web/apps/enterprise/package.json ./web/apps/enterprise/
+#21 CACHED
+
+#22 [build  6/16] COPY web/apps/platform/package.json ./web/apps/platform/
+#22 CACHED
+
+#23 [build 15/16] COPY web ./web
+#23 CACHED
+
+#24 [build 16/16] RUN VITE_API_MODE=real     VITE_API_BASE_URL=/     VITE_TEMPLATE_ORIGIN=     VITE_PLATFORM_URL=     VITE_DIRECT_EGRESS_ADDRESSES=127.0.0.1     node scripts/build-web.mjs "real"
+#24 0.661 Scope: 8 of 9 workspace projects
+#24 0.668 web/apps/enterprise build$ tsc -b && vite build
+#24 0.668 web/apps/platform build$ tsc -b && vite build
+#24 0.669 web/apps/template-runtime build$ vite build
+#24 0.855 web/apps/template-runtime build: vite v7.3.6 building client environment for production...
+#24 0.911 web/apps/template-runtime build: transforming...
+#24 0.986 web/apps/template-runtime build: ✓ 7 modules transformed.
+#24 1.008 web/apps/template-runtime build: rendering chunks...
+#24 1.014 web/apps/template-runtime build: computing gzip size...
+#24 1.017 web/apps/template-runtime build: dist/.vite/manifest.json       0.13 kB │ gzip: 0.12 kB
+#24 1.017 web/apps/template-runtime build: dist/index.html                0.31 kB │ gzip: 0.22 kB
+#24 1.017 web/apps/template-runtime build: dist/assets/index-DykFNpPO.js  9.98 kB │ gzip: 4.22 kB
+#24 1.018 web/apps/template-runtime build: ✓ built in 143ms
+#24 1.030 web/apps/template-runtime build: Done
+#24 7.090 web/apps/platform build: vite v7.3.6 building client environment for production...
+#24 7.130 web/apps/platform build: transforming...
+#24 10.81 web/apps/enterprise build: vite v7.3.6 building client environment for production...
+#24 10.85 web/apps/enterprise build: transforming...
+#24 12.43 web/apps/platform build: ✓ 4242 modules transformed.
+#24 12.48 web/apps/platform build: Circular chunk: vendor-collections -> vendor-controls -> vendor-collections. Please adjust the manual chunk logic for these chunks.
+#24 12.63 web/apps/platform build: Generated an empty chunk: "vendor-zrender".
+#24 12.66 web/apps/platform build: Generated an empty chunk: "vendor-echarts".
+#24 12.66 web/apps/platform build: Generated an empty chunk: "vendor-echarts-charts".
+#24 12.68 web/apps/platform build: Generated an empty chunk: "vendor-terminal".
+#24 12.76 web/apps/platform build: rendering chunks...
+#24 12.87 web/apps/platform build: computing gzip size...
+#24 12.89 web/apps/platform build: dist/index.html                                  1.51 kB │ gzip:  0.53 kB
+#24 12.89 web/apps/platform build: dist/.vite/manifest.json                        12.35 kB │ gzip:  1.38 kB
+#24 12.89 web/apps/platform build: dist/assets/index-sfoFul_-.css                 515.95 kB │ gzip: 54.22 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-zrender-l0sNRNKZ.js           0.00 kB │ gzip:  0.02 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-echarts-l0sNRNKZ.js           0.00 kB │ gzip:  0.02 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-echarts-charts-l0sNRNKZ.js    0.00 kB │ gzip:  0.02 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-terminal-l0sNRNKZ.js          0.00 kB │ gzip:  0.02 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-color-Ba7ZKk1-.js             0.04 kB │ gzip:  0.06 kB
+#24 12.89 web/apps/platform build: dist/assets/_commonjsHelpers-CqkleIqs.js         0.12 kB │ gzip:  0.13 kB
+#24 12.89 web/apps/platform build: dist/assets/audit-presentation-D7w72HnQ.js       0.24 kB │ gzip:  0.19 kB
+#24 12.89 web/apps/platform build: dist/assets/stat-card-BRm-_8zg.js                0.84 kB │ gzip:  0.38 kB
+#24 12.89 web/apps/platform build: dist/assets/index-hGx2qtAB.js                    0.91 kB │ gzip:  0.48 kB
+#24 12.89 web/apps/platform build: dist/assets/with-selector-BvAAvWEn.js            1.00 kB │ gzip:  0.56 kB
+#24 12.89 web/apps/platform build: dist/assets/table-DXr79knf.js                    1.13 kB │ gzip:  0.50 kB
+#24 12.89 web/apps/platform build: dist/assets/status-badge-DoeRCpYl.js             1.32 kB │ gzip:  0.60 kB
+#24 12.89 web/apps/platform build: dist/assets/format-Chym6Ioy.js                   1.48 kB │ gzip:  0.70 kB
+#24 12.89 web/apps/platform build: dist/assets/query-boundary-BouqFUmi.js           1.71 kB │ gzip:  1.12 kB
+#24 12.89 web/apps/platform build: dist/assets/dashboard-page-DvMTiDf7.js           2.91 kB │ gzip:  1.22 kB
+#24 12.89 web/apps/platform build: dist/assets/overlays-DuE85wTo.js                 2.98 kB │ gzip:  1.18 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-collections-Brq-R0nX.js       4.67 kB │ gzip:  1.56 kB
+#24 12.89 web/apps/platform build: dist/assets/login-page-PqpK3hws.js               4.76 kB │ gzip:  1.76 kB
+#24 12.89 web/apps/platform build: dist/assets/pki-page-BEipaCrY.js                 4.77 kB │ gzip:  1.63 kB
+#24 12.89 web/apps/platform build: dist/assets/platform-usage-chart-Dn-LFAbo.js     4.79 kB │ gzip:  2.12 kB
+#24 12.89 web/apps/platform build: dist/assets/audit-page-CyxhabuS.js               4.82 kB │ gzip:  1.82 kB
+#24 12.89 web/apps/platform build: dist/assets/admins-page-CWYEuE5U.js              6.34 kB │ gzip:  2.33 kB
+#24 12.89 web/apps/platform build: dist/assets/NumberParser-jS1Y7UkJ.js             8.28 kB │ gzip:  2.82 kB
+#24 12.89 web/apps/platform build: dist/assets/account-page-D5dyAhWG.js             8.69 kB │ gzip:  2.76 kB
+#24 12.89 web/apps/platform build: dist/assets/enterprises-page-BdvUuxE0.js         9.82 kB │ gzip:  3.12 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-icons-CNIc7kPg.js            10.45 kB │ gzip:  3.95 kB
+#24 12.89 web/apps/platform build: dist/assets/sandbox-page-CqPcEMJf.js            23.82 kB │ gzip:  6.33 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-dates-ClXnoCa3.js            28.90 kB │ gzip:  9.93 kB
+#24 12.89 web/apps/platform build: dist/assets/index-BjtB5mol.js                   50.14 kB │ gzip: 16.64 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-forms-DQ0_a9um.js           103.98 kB │ gzip: 30.87 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-tanstack-Bfp3z3YR.js        114.99 kB │ gzip: 37.80 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-calendar-BV59tWbc.js        117.82 kB │ gzip: 35.90 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-react-BQLMog7w.js           192.88 kB │ gzip: 60.53 kB
+#24 12.89 web/apps/platform build: dist/assets/vendor-controls-dfniXPmQ.js        256.75 kB │ gzip: 79.57 kB
+#24 12.89 web/apps/platform build: dist/assets/index-CLARkBN9.js                  408.80 kB │ gzip: 92.91 kB
+#24 12.89 web/apps/platform build: ✓ built in 5.79s
+#24 12.97 web/apps/platform build: Done
+#24 17.67 web/apps/enterprise build: ✓ 4400 modules transformed.
+#24 17.74 web/apps/enterprise build: Circular chunk: vendor-collections -> vendor-controls -> vendor-collections. Please adjust the manual chunk logic for these chunks.
+#24 18.12 web/apps/enterprise build: rendering chunks...
+#24 18.31 web/apps/enterprise build: computing gzip size...
+#24 18.34 web/apps/enterprise build: dist/index.html                                         1.48 kB │ gzip:   0.53 kB
+#24 18.34 web/apps/enterprise build: dist/.vite/manifest.json                               46.02 kB │ gzip:   4.32 kB
+#24 18.34 web/apps/enterprise build: dist/assets/login-page-tn0RQdqM.css                     0.00 kB │ gzip:   0.02 kB
+#24 18.34 web/apps/enterprise build: dist/assets/planv5-BXkVABHU.css                         0.87 kB │ gzip:   0.31 kB
+#24 18.34 web/apps/enterprise build: dist/assets/account-page-8wR5onFh.css                   1.16 kB │ gzip:   0.41 kB
+#24 18.35 web/apps/enterprise build: dist/assets/session-table-5fnvdcAj.css                  1.67 kB │ gzip:   0.60 kB
+#24 18.35 web/apps/enterprise build: dist/assets/settings-ai-page-DVxAaWNQ.css               2.44 kB │ gzip:   0.76 kB
+#24 18.35 web/apps/enterprise build: dist/assets/dashboard-editor-page-an79bxMB.css          2.66 kB │ gzip:   0.76 kB
+#24 18.35 web/apps/enterprise build: dist/assets/kubernetes-Dkyezrhp.css                     2.69 kB │ gzip:   0.67 kB
+#24 18.35 web/apps/enterprise build: dist/assets/xterm-DDGTF8rc.css                          3.62 kB │ gzip:   0.99 kB
+#24 18.35 web/apps/enterprise build: dist/assets/dashboard-panel-editor-page-bWI1pQog.css    4.53 kB │ gzip:   1.06 kB
+#24 18.35 web/apps/enterprise build: dist/assets/settings-DlwAaRRY.css                       5.70 kB │ gzip:   1.25 kB
+#24 18.35 web/apps/enterprise build: dist/assets/utils-DUv7MiT3.css                          6.29 kB │ gzip:   1.46 kB
+#24 18.35 web/apps/enterprise build: dist/assets/dashboards-D8xCOTYz.css                     6.34 kB │ gzip:   1.28 kB
+#24 18.35 web/apps/enterprise build: dist/assets/host-removal-target-C77jJ6-R.css            7.85 kB │ gzip:   1.56 kB
+#24 18.35 web/apps/enterprise build: dist/assets/conversation-page-CqqqNQQp.css             10.42 kB │ gzip:   2.14 kB
+#24 18.35 web/apps/enterprise build: dist/assets/action-preview-Bv1zz-I-.css                16.42 kB │ gzip:   2.81 kB
+#24 18.35 web/apps/enterprise build: dist/assets/index-BexWsWuz.css                        551.52 kB │ gzip:  59.26 kB
+#24 18.35 web/apps/enterprise build: dist/assets/vendor-color-Ba7ZKk1-.js                    0.04 kB │ gzip:   0.06 kB
+#24 18.35 web/apps/enterprise build: dist/assets/_commonjsHelpers-CqkleIqs.js                0.12 kB │ gzip:   0.13 kB
+#24 18.35 web/apps/enterprise build: dist/assets/draft-workspace-context-CL5ryrWM.js         0.21 kB │ gzip:   0.19 kB
+#24 18.35 web/apps/enterprise build: dist/assets/use-definition-form-CH6sbp_A.js             0.33 kB │ gzip:   0.24 kB
+#24 18.35 web/apps/enterprise build: dist/assets/key-value-grid-Be6nNd6i.js                  0.37 kB │ gzip:   0.25 kB
+#24 18.35 web/apps/enterprise build: dist/assets/action-group-rfAyeuVE.js                    0.40 kB │ gzip:   0.26 kB
+#24 18.35 web/apps/enterprise build: dist/assets/tslib.es6-Cg4x8ZAA.js                       0.47 kB │ gzip:   0.30 kB
+#24 18.35 web/apps/enterprise build: dist/assets/segmented-control-BTV_vieP.js               0.57 kB │ gzip:   0.35 kB
+#24 18.35 web/apps/enterprise build: dist/assets/role-presentation-CTufQ8vO.js               0.63 kB │ gzip:   0.24 kB
+#24 18.35 web/apps/enterprise build: dist/assets/status-badge-C-WZnTG4.js                    0.73 kB │ gzip:   0.35 kB
+#24 18.35 web/apps/enterprise build: dist/assets/card-CAiTIZy6.js                            0.84 kB │ gzip:   0.34 kB
+#24 18.35 web/apps/enterprise build: dist/assets/stat-card-D8UO_rjK.js                       0.84 kB │ gzip:   0.37 kB
+#24 18.35 web/apps/enterprise build: dist/assets/index-hGx2qtAB.js                           0.91 kB │ gzip:   0.48 kB
+#24 18.35 web/apps/enterprise build: dist/assets/with-selector-BvAAvWEn.js                   1.00 kB │ gzip:   0.56 kB
+#24 18.35 web/apps/enterprise build: dist/assets/code-DjKmODD_.js                            1.15 kB │ gzip:   0.59 kB
+#24 18.35 web/apps/enterprise build: dist/assets/page-Dx72zY3I.js                            1.26 kB │ gzip:   0.57 kB
+#24 18.35 web/apps/enterprise build: dist/assets/checkbox-B2iEVc3Q.js                        1.31 kB │ gzip:   0.62 kB
+#24 18.35 web/apps/enterprise build: dist/assets/install-instruction-panel-kPapgQyv.js       1.36 kB │ gzip:   0.54 kB
+#24 18.35 web/apps/enterprise build: dist/assets/resource-card-P_Hr1Vru.js                   1.48 kB │ gzip:   0.61 kB
+#24 18.35 web/apps/enterprise build: dist/assets/drawer-panel-ByMuAREE.js                    1.56 kB │ gzip:   0.72 kB
+#24 18.35 web/apps/enterprise build: dist/assets/host-utils-C1-0TEh1.js                      1.66 kB │ gzip:   0.87 kB
+#24 18.35 web/apps/enterprise build: dist/assets/mfa-step-up-dialog-tf7PI2-t.js              1.73 kB │ gzip:   0.89 kB
+#24 18.35 web/apps/enterprise build: dist/assets/query-boundary-CVqcopIL.js                  1.73 kB │ gzip:   1.13 kB
+#24 18.35 web/apps/enterprise build: dist/assets/table-CHLOMJfK.js                           1.76 kB │ gzip:   0.79 kB
+#24 18.35 web/apps/enterprise build: dist/assets/wizard-BIWGmm2Q.js                          1.83 kB │ gzip:   0.87 kB
+#24 18.35 web/apps/enterprise build: dist/assets/utils-Bplz6TMF.js                           1.84 kB │ gzip:   0.78 kB
+#24 18.35 web/apps/enterprise build: dist/assets/overlays-BlyNPnXW.js                        1.90 kB │ gzip:   0.69 kB
+#24 18.35 web/apps/enterprise build: dist/assets/shared-BnKoKDTf.js                          2.07 kB │ gzip:   0.97 kB
+#24 18.35 web/apps/enterprise build: dist/assets/log-viewer-D4BNk0Am.js                      2.21 kB │ gzip:   1.04 kB
+#24 18.35 web/apps/enterprise build: dist/assets/display-DVh5CC7O.js                         2.38 kB │ gzip:   0.91 kB
+#24 18.35 web/apps/enterprise build: dist/assets/kubernetes-GLIj_h_W.js                      2.70 kB │ gzip:   1.29 kB
+#24 18.35 web/apps/enterprise build: dist/assets/combobox-DW059aPC.js                        2.86 kB │ gzip:   1.44 kB
+#24 18.35 web/apps/enterprise build: dist/assets/action-dialog-DmyFXMKt.js                   3.13 kB │ gzip:   1.26 kB
+#24 18.35 web/apps/enterprise build: dist/assets/preview-commit-B1Pz5_QB.js                  3.24 kB │ gzip:   1.45 kB
+#24 18.35 web/apps/enterprise build: dist/assets/pending-action-confirm-BG07djuj.js          3.25 kB │ gzip:   1.44 kB
+#24 18.35 web/apps/enterprise build: dist/assets/scenario-H1MourS3.js                        3.48 kB │ gzip:   1.37 kB
+#24 18.35 web/apps/enterprise build: dist/assets/tasks-page-CYVAqFJF.js                      4.08 kB │ gzip:   1.62 kB
+#24 18.35 web/apps/enterprise build: dist/assets/chart-DEBFuQS2.js                           4.18 kB │ gzip:   1.88 kB
+#24 18.35 web/apps/enterprise build: dist/assets/draft-workspace-Cwod50Sh.js                 4.44 kB │ gzip:   1.93 kB
+#24 18.35 web/apps/enterprise build: dist/assets/audit-presentation-BOOgdu3c.js              4.59 kB │ gzip:   1.19 kB
+#24 18.35 web/apps/enterprise build: dist/assets/vendor-collections-D5DbHGnB.js              4.67 kB │ gzip:   1.56 kB
+#24 18.35 web/apps/enterprise build: dist/assets/drilldown-viewer-BmCjlEcy.js                4.90 kB │ gzip:   2.11 kB
+#24 18.35 web/apps/enterprise build: dist/assets/value-selector-DTs_S_4E.js                  4.94 kB │ gzip:   2.11 kB
+#24 18.35 web/apps/enterprise build: dist/assets/login-page-D1O3diwo.js                      4.94 kB │ gzip:   1.85 kB
+#24 18.35 web/apps/enterprise build: dist/assets/pending-action-presentation-DZYQ9g7r.js     5.12 kB │ gzip:   1.70 kB
+#24 18.35 web/apps/enterprise build: dist/assets/NumberParser-6sWiznqS.js                    5.64 kB │ gzip:   2.02 kB
+#24 18.35 web/apps/enterprise build: dist/assets/remote-sessions-page-GJXgqVjl.js            5.65 kB │ gzip:   2.11 kB
+#24 18.35 web/apps/enterprise build: dist/assets/execution-dependencies-BF0-TIPl.js          5.80 kB │ gzip:   2.49 kB
+#24 18.35 web/apps/enterprise build: dist/assets/action-preview-DrAgjx3x.js                  5.96 kB │ gzip:   2.33 kB
+#24 18.35 web/apps/enterprise build: dist/assets/settings-mcp-page-Cc_PL344.js               6.39 kB │ gzip:   2.39 kB
+#24 18.35 web/apps/enterprise build: dist/assets/dashboards-page-pZ2VPC-q.js                 7.09 kB │ gzip:   2.56 kB
+#24 18.35 web/apps/enterprise build: dist/assets/settings-audit-page-CuKH_NCu.js             7.65 kB │ gzip:   2.65 kB
+#24 18.35 web/apps/enterprise build: dist/assets/query-scope-bF7E_ulb.js                     7.96 kB │ gzip:   2.81 kB
+#24 18.35 web/apps/enterprise build: dist/assets/model-hRglLYn5.js                           7.96 kB │ gzip:   3.35 kB
+#24 18.35 web/apps/enterprise build: dist/assets/account-page-DTBbKcau.js                   11.34 kB │ gzip:   3.22 kB
+#24 18.35 web/apps/enterprise build: dist/assets/kubernetes-page-D_td_5fL.js                12.34 kB │ gzip:   4.22 kB
+#24 18.35 web/apps/enterprise build: dist/assets/host-removal-target-w6ajfKhQ.js            14.76 kB │ gzip:   4.63 kB
+#24 18.35 web/apps/enterprise build: dist/assets/settings-ai-page-CgJx_HwE.js               15.77 kB │ gzip:   4.61 kB
+#24 18.35 web/apps/enterprise build: dist/assets/org-users-tab-CGarFEOV.js                  17.32 kB │ gzip:   5.34 kB
+#24 18.35 web/apps/enterprise build: dist/assets/settings-secrets-page-vuCWDH2b.js          17.62 kB │ gzip:   4.90 kB
+#24 18.35 web/apps/enterprise build: dist/assets/dashboard-view-page-nRQosy9p.js            18.17 kB │ gzip:   6.07 kB
+#24 18.35 web/apps/enterprise build: dist/assets/approvals-page-BZKFJOl4.js                 20.15 kB │ gzip:   5.95 kB
+#24 18.35 web/apps/enterprise build: dist/assets/vendor-icons-xTkrXgq1.js                   22.17 kB │ gzip:   7.53 kB
+#24 18.35 web/apps/enterprise build: dist/assets/kubernetes-cluster-page-C9f5soWX.js        23.48 kB │ gzip:   6.69 kB
+#24 18.35 web/apps/enterprise build: dist/assets/dashboard-editor-page-C0tMnU9X.js          24.13 kB │ gzip:   6.82 kB
+#24 18.35 web/apps/enterprise build: dist/assets/use-resource-dashboard-tab-LvMTaTYj.js     25.79 kB │ gzip:   7.54 kB
+#24 18.35 web/apps/enterprise build: dist/assets/candidate-filters-uyaeiY49.js              27.65 kB │ gzip:  10.13 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-dates-ClXnoCa3.js                   28.90 kB │ gzip:   9.93 kB
+#24 18.36 web/apps/enterprise build: dist/assets/demo-page-CYSXD09e.js                      29.29 kB │ gzip:  10.99 kB
+#24 18.36 web/apps/enterprise build: dist/assets/host-detail-page-Btz7DFzQ.js               30.65 kB │ gzip:   9.53 kB
+#24 18.36 web/apps/enterprise build: dist/assets/conversation-page-UPEMUoX2.js              42.59 kB │ gzip:  13.35 kB
+#24 18.36 web/apps/enterprise build: dist/assets/dashboard-panel-editor-page-L55EAdYN.js    49.37 kB │ gzip:  13.51 kB
+#24 18.36 web/apps/enterprise build: dist/assets/index-CuWEkOPc.js                          52.85 kB │ gzip:  17.57 kB
+#24 18.36 web/apps/enterprise build: dist/assets/alerts-page-C3wrgym2.js                    56.24 kB │ gzip:  15.18 kB
+#24 18.36 web/apps/enterprise build: dist/assets/hosts-page-XgjHqVL_.js                     61.80 kB │ gzip:  15.02 kB
+#24 18.36 web/apps/enterprise build: dist/assets/settings-org-page-BYSU_sE7.js              67.29 kB │ gzip:  14.80 kB
+#24 18.36 web/apps/enterprise build: dist/assets/session-table-B8XW5jkb.js                  89.87 kB │ gzip:  27.82 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-echarts-charts-BHFkw3xo.js          93.27 kB │ gzip:  32.95 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-forms-Ce7nU-Ax.js                  104.99 kB │ gzip:  31.10 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-tanstack-BeF1ooda.js               116.55 kB │ gzip:  38.29 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-calendar-C12rZfRy.js               117.82 kB │ gzip:  35.90 kB
+#24 18.36 web/apps/enterprise build: dist/assets/form-constraints-N_4qkq2G.js              149.50 kB │ gzip:  18.53 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-zrender-D1n67eJb.js                176.64 kB │ gzip:  58.54 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-react-BQLMog7w.js                  192.88 kB │ gzip:  60.53 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-controls-Ds8fyHvJ.js               326.65 kB │ gzip:  97.12 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-terminal-V0cDJOzQ.js               330.73 kB │ gzip:  83.46 kB
+#24 18.36 web/apps/enterprise build: dist/assets/vendor-echarts-gh48495o.js                460.06 kB │ gzip: 155.98 kB
+#24 18.36 web/apps/enterprise build: dist/assets/index-BgweWBRj.js                         526.14 kB │ gzip: 164.90 kB
+#24 18.36 web/apps/enterprise build: ✓ built in 7.53s
+#24 18.36 web/apps/enterprise build: (!) Some chunks are larger than 500 kB after minification. Consider:
+#24 18.36 web/apps/enterprise build: - Using dynamic import() to code-split the application
+#24 18.36 web/apps/enterprise build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+#24 18.36 web/apps/enterprise build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#24 18.53 web/apps/enterprise build: Done
+#24 18.58 Real frontend bundles contain no mock seed markers or placeholder endpoints
+#24 DONE 18.7s
+
+#25 [stage-1 3/5] COPY --from=build /src/web/apps/enterprise/dist /srv/enterprise
+#25 CACHED
+
+#26 [stage-1 4/5] COPY --from=build /src/web/apps/platform/dist /srv/platform
+#26 CACHED
+
+#27 [stage-1 2/5] COPY deploy/docker/nginx.conf /etc/nginx/nginx.conf
+#27 CACHED
+
+#28 [stage-1 5/5] COPY --from=build /src/web/apps/template-runtime/dist /srv/template-runtime
+#28 CACHED
+
+#29 exporting to image
+#29 exporting layers done
+#29 exporting manifest sha256:7fb35c7ebc1ac3c87251caffa6be420e94f5b535557e7563ac778107741f28a4 0.0s done
+#29 exporting config sha256:d9fc248cdf1a6be7fec343cd2af5178f1c0dda736ea6ac0ce2a9b7d98974aab5 0.0s done
+#29 exporting attestation manifest sha256:8df5fd401ffee0efc7d056822b9bf70ba0505d74333f95f18e6a6f8e51c1c1c1 0.0s done
+#29 exporting manifest list sha256:a3c5aaee51aaffa5c9d8dd3fbcfe938437b3ebd1d7ac398019a97fda2881eee8 0.0s done
+#29 naming to localhost:58938/argus/argus-web:e2e-plan6-20261011-w28 done
+#29 pushing layers
+#29 pushing layers 0.8s done
+#29 pushing manifest for localhost:58938/argus/argus-web:e2e-plan6-20261011-w28@sha256:a3c5aaee51aaffa5c9d8dd3fbcfe938437b3ebd1d7ac398019a97fda2881eee8
+#29 pushing manifest for localhost:58938/argus/argus-web:e2e-plan6-20261011-w28@sha256:a3c5aaee51aaffa5c9d8dd3fbcfe938437b3ebd1d7ac398019a97fda2881eee8 0.1s done
+#29 DONE 1.0s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from minio.Dockerfile
+#1 transferring dockerfile: 2.09kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.1s
+
+#5 [internal] load metadata for mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+#5 DONE 0.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [mc-build 1/5] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#7 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#7 DONE 0.1s
+
+#8 [stage-2 1/4] FROM mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+#8 resolve mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 0.1s done
+#8 DONE 0.1s
+
+#9 [mc-build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     ldflags="$(MC_RELEASE=RELEASE go run buildscripts/gen-ldflags.go "2025-08-13T08-35-41Z")" &&     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$ldflags" -o /out/mc .
+#9 CACHED
+
+#10 [build 3/5] WORKDIR /src
+#10 CACHED
+
+#11 [stage-2 3/4] COPY --from=build /out/minio /usr/local/bin/minio
+#11 CACHED
+
+#12 [mc-build 2/5] RUN apk add --no-cache ca-certificates git
+#12 CACHED
+
+#13 [build 2/5] RUN apk add --no-cache ca-certificates git
+#13 CACHED
+
+#14 [build 4/5] RUN --mount=type=cache,target=/root/.cache/git     git clone --depth 1 --branch "RELEASE.2025-10-15T17-29-55Z" https://github.com/minio/minio.git .
+#14 CACHED
+
+#15 [build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -tags kqueue -ldflags "-s -w" -o /out/minio .
+#15 CACHED
+
+#16 [mc-build 3/5] WORKDIR /src/mc
+#16 CACHED
+
+#17 [mc-build 4/5] RUN git clone --depth 1 --branch "RELEASE.2025-08-13T08-35-41Z" https://github.com/minio/mc.git . &&     test "$(git rev-parse HEAD)" = "7394ce0dd2a80935aded936b09fa12cbb3cb8096"
+#17 CACHED
+
+#18 [stage-2 2/4] RUN apk add --no-cache ca-certificates && addgroup -S minio && adduser -S -G minio minio
+#18 CACHED
+
+#19 [stage-2 4/4] COPY --from=mc-build /out/mc /usr/local/bin/mc
+#19 CACHED
+
+#20 exporting to image
+#20 exporting layers done
+#20 exporting manifest sha256:c34f2a9c0d97a169d2f3e4fe155d6b09ae47711fe70149b56743c65395694d9e 0.0s done
+#20 exporting config sha256:9ecbb1ad05c05f2a93bcdf4fdff1c92ab881f1d5b16f2d9be35173013099dec7
+#20 exporting config sha256:9ecbb1ad05c05f2a93bcdf4fdff1c92ab881f1d5b16f2d9be35173013099dec7 0.0s done
+#20 exporting attestation manifest sha256:b59b05e79b955dc41d0e78388cafa4c634b0e1f8cbf6570bd8bce6ed4c25eb7b 0.0s done
+#20 exporting manifest list sha256:ebb94f3535934cb007b22aa4968d1b1655fd3ef6aa396beb02056ca964ce346d 0.0s done
+#20 naming to localhost:58938/argus/minio:e2e-plan6-20261011-w28
+#20 naming to localhost:58938/argus/minio:e2e-plan6-20261011-w28 done
+#20 pushing layers
+#20 pushing layers 0.7s done
+#20 pushing manifest for localhost:58938/argus/minio:e2e-plan6-20261011-w28@sha256:ebb94f3535934cb007b22aa4968d1b1655fd3ef6aa396beb02056ca964ce346d
+#20 pushing manifest for localhost:58938/argus/minio:e2e-plan6-20261011-w28@sha256:ebb94f3535934cb007b22aa4968d1b1655fd3ef6aa396beb02056ca964ce346d 0.1s done
+#20 DONE 1.0s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from e2e-ssh.Dockerfile
+#1 transferring dockerfile: 1.30kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
+#4 DONE 0.1s
+
+#5 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#5 DONE 0.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [build 1/7] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#8 DONE 0.1s
+
+#9 [stage-1 1/4] FROM mirror.gcr.io/library/alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
+#9 resolve mirror.gcr.io/library/alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 127.51kB 0.0s done
+#7 DONE 0.0s
+
+#10 [build 4/7] RUN --mount=type=cache,target=/go/pkg/mod go mod download
+#10 CACHED
+
+#11 [build 5/7] COPY tests/e2e/sshserver ./tests/e2e/sshserver
+#11 CACHED
+
+#12 [build 7/7] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o /out/argus-e2e-ssh ./tests/e2e/sshserver &&     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o /out/argus-e2e-remoteclient ./tests/e2e/remoteclient
+#12 CACHED
+
+#13 [build 2/7] WORKDIR /src
+#13 CACHED
+
+#14 [build 3/7] COPY go.mod go.sum ./
+#14 CACHED
+
+#15 [build 6/7] COPY tests/e2e/remoteclient ./tests/e2e/remoteclient
+#15 CACHED
+
+#16 [stage-1 3/4] COPY --from=build /out/argus-e2e-ssh /usr/local/bin/argus-e2e-ssh
+#16 CACHED
+
+#17 [stage-1 2/4] RUN apk add --no-cache iproute2
+#17 CACHED
+
+#18 [stage-1 4/4] COPY --from=build /out/argus-e2e-remoteclient /usr/local/bin/argus-e2e-remoteclient
+#18 CACHED
+
+#19 exporting to image
+#19 exporting layers done
+#19 exporting manifest sha256:453d1a358533cb3b73b2dc2b4764b304d47dc60a355fb4a7f8cbce3432475185 0.0s done
+#19 exporting config sha256:ab67f3d033373f6834d865a2f1b1c715caec73ec5b3e373fe05afbb754ac6769 0.0s done
+#19 exporting attestation manifest sha256:e054d80bdd1afdf085583eda8df7d2adef3a095d373b1a45cd1fa90987847f77 0.1s done
+#19 exporting manifest list sha256:22cfa0f7e7c5d3a6667cc1b256555f42f2475f4e386d138806dbacd583a46c37 0.0s done
+#19 naming to localhost:58938/argus/argus-e2e-ssh:e2e-plan6-20261011-w28
+#19 naming to localhost:58938/argus/argus-e2e-ssh:e2e-plan6-20261011-w28 done
+#19 pushing layers
+#19 pushing layers 0.8s done
+#19 pushing manifest for localhost:58938/argus/argus-e2e-ssh:e2e-plan6-20261011-w28@sha256:22cfa0f7e7c5d3a6667cc1b256555f42f2475f4e386d138806dbacd583a46c37
+#19 pushing manifest for localhost:58938/argus/argus-e2e-ssh:e2e-plan6-20261011-w28@sha256:22cfa0f7e7c5d3a6667cc1b256555f42f2475f4e386d138806dbacd583a46c37 0.1s done
+#19 DONE 1.1s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from replay-model.Dockerfile
+#1 transferring dockerfile: 876B done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#4 ...
+
+#5 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#5 DONE 0.0s
+
+#4 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#4 DONE 1.2s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [build 1/5] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#8 DONE 0.1s
+
+#9 [stage-1 1/2] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#9 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#9 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 44.11kB done
+#7 DONE 0.0s
+
+#10 [build 4/5] COPY cmd/argus-replay-model ./cmd/argus-replay-model
+#10 CACHED
+
+#11 [build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags=m4e2e -trimpath -ldflags "-s -w" -o /out/argus-replay-model ./cmd/argus-replay-model
+#11 CACHED
+
+#12 [build 2/5] WORKDIR /src
+#12 CACHED
+
+#13 [build 3/5] COPY go.mod go.sum ./
+#13 CACHED
+
+#14 [stage-1 2/2] COPY --from=build /out/argus-replay-model /usr/local/bin/argus-replay-model
+#14 CACHED
+
+#15 exporting to image
+#15 exporting layers done
+#15 exporting manifest sha256:0ed9b6e3952eb16ca5fff8230df7de928c305a75099963c018266fa58d72bfd6 0.0s done
+#15 exporting config sha256:a3fa68f5d3259b0ee7b13409373a214caa4f073a361761530d91bb90a332154b 0.0s done
+#15 exporting attestation manifest sha256:e5d88851f7e464b128fbf25f49f4aca4aacf5a82df803745683fc6361cc84fb7 0.0s done
+#15 exporting manifest list sha256:48c82d69c1cb07dfa81f3c6ba2e2195e0b24b6b9bec19cfafa186b97737ce3d0 0.0s done
+#15 naming to localhost:58938/argus/argus-e2e-replay:e2e-plan6-20261011-w28
+#15 naming to localhost:58938/argus/argus-e2e-replay:e2e-plan6-20261011-w28 done
+#15 pushing layers
+#15 pushing layers 1.1s done
+#15 pushing manifest for localhost:58938/argus/argus-e2e-replay:e2e-plan6-20261011-w28@sha256:48c82d69c1cb07dfa81f3c6ba2e2195e0b24b6b9bec19cfafa186b97737ce3d0
+#15 pushing manifest for localhost:58938/argus/argus-e2e-replay:e2e-plan6-20261011-w28@sha256:48c82d69c1cb07dfa81f3c6ba2e2195e0b24b6b9bec19cfafa186b97737ce3d0 0.1s done
+#15 DONE 1.3s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from otelcol.Dockerfile
+#1 transferring dockerfile: 633B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 216B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 ...
+
+#5 [1/2] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#5 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab 0.0s done
+#5 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 75.94MB 5.1s
+#4 transferring context: 148.08MB 10.1s
+#4 transferring context: 174.67MB 11.9s done
+#4 DONE 11.9s
+
+#6 [2/2] COPY build/otelcol/dist/linux-amd64/argus-otelcol /usr/local/bin/argus-otelcol
+#6 CACHED
+
+#7 exporting to image
+#7 exporting layers done
+#7 exporting manifest sha256:fa83d1fdf437b4a5c424b0bb0e11982140ace97899a1a3d1dafbd69788388a8f 0.0s done
+#7 exporting config sha256:6f39fe484f4d34b77516c22a01bd823aec15633f648329af4051e10e35324712 0.0s done
+#7 exporting attestation manifest sha256:e9eeaaa4b2127f1c527ebf63f7319c2be7f6815cffedf45c4111c50ccc1e6fe6 0.0s done
+#7 exporting manifest list sha256:7f280e7211684c910cfe47497d1c5fc331c5e63266e1019adad4d9df3beed954
+#7 exporting manifest list sha256:7f280e7211684c910cfe47497d1c5fc331c5e63266e1019adad4d9df3beed954 0.0s done
+#7 naming to localhost:58938/argus/argus-otelcol:e2e-plan6-20261011-w28 done
+#7 pushing layers
+#7 pushing layers 1.1s done
+#7 pushing manifest for localhost:58938/argus/argus-otelcol:e2e-plan6-20261011-w28@sha256:7f280e7211684c910cfe47497d1c5fc331c5e63266e1019adad4d9df3beed954
+#7 pushing manifest for localhost:58938/argus/argus-otelcol:e2e-plan6-20261011-w28@sha256:7f280e7211684c910cfe47497d1c5fc331c5e63266e1019adad4d9df3beed954 0.1s done
+#7 DONE 1.4s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from e2e-artifact-server.Dockerfile
+#1 transferring dockerfile: 437B done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
+#4 DONE 0.1s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 216B done
+#5 DONE 0.0s
+
+#6 [1/3] FROM mirror.gcr.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
+#6 resolve mirror.gcr.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 70.67MB 4.9s
+#7 transferring context: 129.03MB 8.9s done
+#7 DONE 8.9s
+
+#8 [2/3] COPY build/e2e-artifacts/ /usr/share/nginx/html/
+#8 CACHED
+
+#9 [3/3] COPY deploy/docker/e2e-artifact-server.conf /etc/nginx/conf.d/default.conf
+#9 CACHED
+
+#10 exporting to image
+#10 exporting layers done
+#10 exporting manifest sha256:0a93916abbf08bd6b8fb6af88113b319dc28da03de13d10179e273a0d98988c6 0.0s done
+#10 exporting config sha256:5eb2cd50b6a25feccc4dbae5e5448957d14c69afa03804edb96719ca4e0d1816 0.0s done
+#10 exporting attestation manifest sha256:7f5747e53945fab622feaf09dec79ac183a0c5561e7e5d32bbcf475ab0ee40d3 0.0s done
+#10 exporting manifest list sha256:35d8f75c9bbbb849be265d07ff4994a0e4777f7916486829d51a8e7ac26acea5 0.0s done
+#10 naming to localhost:58938/argus/argus-e2e-artifact:e2e-plan6-20261011-w28 done
+#10 DONE 0.2s
+
+#10 exporting to image
+#10 pushing layers
+#10 pushing layers 1.6s done
+#10 pushing manifest for localhost:58938/argus/argus-e2e-artifact:e2e-plan6-20261011-w28@sha256:35d8f75c9bbbb849be265d07ff4994a0e4777f7916486829d51a8e7ac26acea5
+#10 pushing manifest for localhost:58938/argus/argus-e2e-artifact:e2e-plan6-20261011-w28@sha256:35d8f75c9bbbb849be265d07ff4994a0e4777f7916486829d51a8e7ac26acea5 0.1s done
+#10 DONE 1.9s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from e2e-systemd-host.Dockerfile
+#1 transferring dockerfile: 2.16kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+#5 ...
+
+#6 [auth] library/ubuntu:pull token for registry-1.docker.io
+#6 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+#5 DONE 2.4s
+
+#7 [internal] load .dockerignore
+#7 transferring context: 216B done
+#7 DONE 0.0s
+
+#8 [stage-1 1/4] FROM docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+#8 resolve docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 0.1s done
+#8 DONE 0.1s
+
+#9 [generator 1/6] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#9 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#9 DONE 0.1s
+
+#10 [internal] load build context
+#10 transferring context: 150.11kB 0.0s done
+#10 DONE 0.0s
+
+#11 [generator 6/6] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags m4e2e -trimpath -ldflags "-s -w"       -o /out/argus-telemetry-e2e ./cmd/argus-telemetry-e2e
+#11 CACHED
+
+#12 [stage-1 3/4] RUN sed -i 's|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g;s|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources &&     apt-get -o Acquire::Retries=3 update && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 install -y --no-install-recommends       ca-certificates curl iproute2 iptables openssh-client openssh-server openssl socat sudo systemd systemd-sysv &&     useradd --create-home --shell /bin/bash argus &&     echo 'argus:M3-e2e-ssh-password' | chpasswd && 	echo 'root:M3-e2e-ssh-password' | chpasswd &&     mkdir -p /run/sshd && 	mkdir -p /var/log/journal && 	printf 'PasswordAuthentication yes\nPermitRootLogin yes\n' >/etc/ssh/sshd_config.d/argus-e2e.conf &&     systemctl enable ssh.service &&     apt-get clean && rm -rf /var/lib/apt/lists/*
+#12 CACHED
+
+#13 [generator 2/6] WORKDIR /src
+#13 CACHED
+
+#14 [generator 3/6] COPY go.mod go.sum ./
+#14 CACHED
+
+#15 [generator 4/6] RUN --mount=type=cache,target=/go/pkg/mod go mod download
+#15 CACHED
+
+#16 [generator 5/6] COPY cmd/argus-telemetry-e2e ./cmd/argus-telemetry-e2e
+#16 CACHED
+
+#17 [stage-1 2/4] COPY --from=generator /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+#17 CACHED
+
+#18 [stage-1 4/4] COPY --from=generator /out/argus-telemetry-e2e /usr/local/bin/argus-telemetry-e2e
+#18 CACHED
+
+#19 exporting to image
+#19 exporting layers done
+#19 exporting manifest sha256:e0a70f389b4fc4808de5fdb46e78e667cfc7a2fc1410f2f80da39965eb413643 0.0s done
+#19 exporting config sha256:a7627cc7f2376c3f83c13402cf86f0453fcc94f914f8711988bc50d2c9ebb04c 0.0s done
+#19 exporting attestation manifest sha256:1303a5fd9aa408f5c0f9e40f95b8897981e4a463cb199ff4117a0a36538553ad
+#19 exporting attestation manifest sha256:1303a5fd9aa408f5c0f9e40f95b8897981e4a463cb199ff4117a0a36538553ad 0.0s done
+#19 exporting manifest list sha256:d837b6e12176c06efedeccd1a990afb063f7a744842b25a628005a89998e84e2 0.0s done
+#19 naming to localhost:58938/argus/argus-e2e-systemd:e2e-plan6-20261011-w28 done
+#19 pushing layers
+#19 pushing layers 1.0s done
+#19 pushing manifest for localhost:58938/argus/argus-e2e-systemd:e2e-plan6-20261011-w28@sha256:d837b6e12176c06efedeccd1a990afb063f7a744842b25a628005a89998e84e2
+#19 pushing manifest for localhost:58938/argus/argus-e2e-systemd:e2e-plan6-20261011-w28@sha256:d837b6e12176c06efedeccd1a990afb063f7a744842b25a628005a89998e84e2 0.0s done
+#19 DONE 1.2s
+I1011 06:52:43.786219   43184 warnings.go:107] "Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice"
+I1011 06:55:00.196024    8272 warnings.go:107] "Warning: spec.template.spec.hostAliases[1].ip: duplicate ip \"10.96.110.96\""
+E1011 06:57:04.733505    8272 portforward.go:404] "Unhandled Error" err="error copying from local connection to remote stream: writeto tcp4 127.0.0.1:57976->127.0.0.1:54591: read tcp4 127.0.0.1:57976->127.0.0.1:54591: wsarecv: An existing connection was forcibly closed by the remote host." logger="UnhandledError"
+I1011 06:57:30.274445    8272 warnings.go:107] "Warning: spec.externalIPs is deprecated and may no longer be implemented in some clusters"
+E2E failed before cleanup: plan6: p6-stale-preview-version-conflict: expected HTTP 202, got 400: {
+  "code": "ALERT_INVALID",
+  "message_key": "errors.alerts.invalid",
+  "request_id": "78b93b9f302d37b961fb5bde3a386554",
+  "retryable": false
+}
+warning: no CRDs were marked as owned; refusing broad CRD deletion
+argus-dev: plan6: p6-stale-preview-version-conflict: expected HTTP 202, got 400: {
+  "code": "ALERT_INVALID",
+  "message_key": "errors.alerts.invalid",
+  "request_id": "78b93b9f302d37b961fb5bde3a386554",
+  "retryable": false
+}
+exit status 1

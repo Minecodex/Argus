@@ -37,7 +37,12 @@ export function TraceWaterfall({
           .map(([k, v]) => `${k}: ${String(v)}`)
           .join(" · ")}
       </p>
-      <div className="argus-observation-table">
+      <div
+        className="argus-observation-table"
+        tabIndex={0}
+        role="region"
+        aria-label={text("Span 详情", "Span details")}
+      >
         <table>
           <thead>
             <tr>

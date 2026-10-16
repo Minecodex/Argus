@@ -97,7 +97,6 @@ func (a *App) runPlanV2Tools(ctx context.Context, env *E2EEnvironment) (failure 
 		index := len(steps)
 		steps = append(steps, dashboardReplayStep("context.resolve", map[string]any{"dashboard_id": id, "expected_version": 0, "changes": map[string]any{}, "evidence": []any{}}), dashboardReplayStep("query", map[string]any{"dashboard_id": id, "context_ref": replayResult(index, "context_ref")}))
 	}
-	steps = append(steps, dashboardReplayStep("budget.get", map[string]any{}))
 	run, err := a.planV2ToolRun(ctx, env, convo, "selected-files", "analyze", ids, steps)
 	if err != nil {
 		return err

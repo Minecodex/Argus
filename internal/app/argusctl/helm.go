@@ -71,15 +71,7 @@ func (h helmManager) installOrUpgrade(ctx context.Context, releaseName, namespac
 		upgrade.ServerSideApply = "true"
 		upgrade.ForceConflicts = true
 		if _, err := upgrade.RunWithContext(ctx, releaseName, ch, values); err != nil {
-			if !strings.Contains(strings.ToLower(err.Error()), "another operation") {
-				return fmt.Errorf("upgrade Helm release %s: %w", releaseName, err)
-			}
-			uninstall := action.NewUninstall(configuration)
-			uninstall.Timeout = 2 * time.Minute
-			uninstall.WaitStrategy = kube.StatusWatcherStrategy
-			if _, uninstallErr := uninstall.Run(releaseName); uninstallErr != nil {
-				return fmt.Errorf("remove pending Helm release %s: %w", releaseName, uninstallErr)
-			}
+			return fmt.Errorf("upgrade Helm release %s (existing resources preserved; resolve any pending operation before retrying): %w", releaseName, err)
 		} else {
 			return nil
 		}

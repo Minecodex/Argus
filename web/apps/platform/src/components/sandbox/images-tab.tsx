@@ -13,6 +13,7 @@ import {
 } from "@argus/api-client";
 import {
   Alert,
+  ActionMenu,
   Badge,
   Button,
   DataTable,
@@ -21,7 +22,6 @@ import {
   Input,
   Spinner,
   StatusBadge,
-  Switch,
 } from "@argus/ui";
 
 type ImageRow = {
@@ -222,12 +222,31 @@ export function ImagesTab() {
                 key: "enabled",
                 header: t("sandbox.images.table.enabled"),
                 render: (row) => (
-                  <Switch
-                    checked={row.enabled}
-                    label={t("sandbox.images.table.enabled")}
-                    onChange={(checked) =>
-                      setEnabled.mutate({ id: row.id, enabled: checked })
-                    }
+                  <StatusBadge tone={row.enabled ? "success" : "neutral"}>
+                    {t(row.enabled ? "common.enabled" : "common.disabled")}
+                  </StatusBadge>
+                ),
+              },
+              {
+                key: "actions",
+                header: t("common.actions"),
+                align: "right",
+                render: (row) => (
+                  <ActionMenu
+                    name={row.name}
+                    items={[
+                      {
+                        label: t(
+                          row.enabled ? "common.disable" : "common.enable",
+                        ),
+                        disabled: setEnabled.isPending,
+                        onSelect: () =>
+                          setEnabled.mutate({
+                            id: row.id,
+                            enabled: !row.enabled,
+                          }),
+                      },
+                    ]}
                   />
                 ),
               },

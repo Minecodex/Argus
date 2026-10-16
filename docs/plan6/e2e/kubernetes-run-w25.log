@@ -1,0 +1,140 @@
+serviceaccount/argus-e2e-ingress created
+clusterrole.rbac.authorization.k8s.io/plan6-plan6-20261011-w25-nginx created
+clusterrolebinding.rbac.authorization.k8s.io/plan6-plan6-20261011-w25-nginx created
+ingressclass.networking.k8s.io/plan6-plan6-20261011-w25-nginx created
+configmap/argus-e2e-ingress created
+service/argus-e2e-ingress created
+deployment.apps/argus-e2e-ingress created
+Preflight plan6-plan6-20261011-w25 on docker-desktop
+[PASS] kubernetes-api: v1.36.1
+[PASS] network-profile: NetworkPolicy=unverified; EgressGateway=absent; posture=degraded
+[WARN] network-security: NetworkPolicy probe did not observe an enforced deny: job argus-network-probe-1791662193011154600/probe-denied failed
+[WARN] network-security: no external Egress Gateway was detected; Direct Executor uses the cluster default route
+[PASS] node-architecture: amd64
+[PASS] cluster-capacity: allocatable cpu=16000m memory=15911100Ki pods=110
+[WARN] storage-class: standard (volume expansion unavailable; accepted for local profiles)
+[PASS] ingress-class: plan6-plan6-20261011-w25-nginx
+[PASS] pki: managed
+[PASS] host-disk: 76.5Gi free
+[WARN] network-policy: NetworkPolicy enforcement was not positively verified
+[WARN] sandbox-runtime: shared ordinary-container runtime explicitly accepted for the local profile
+[PASS] host-architecture: amd64
+Estimate: 22 pods, 6 PVCs, 19Gi requested storage
+Argus plan6-plan6-20261011-w25 plan (evaluation)
+1. foundation
+2. data-operators
+3. data
+4. sandbox
+5. telemetry-pipeline
+6. platform
+WARN: NETWORK_POLICY_ENFORCEMENT_UNVERIFIED
+WARN: SHARED_CONTAINER_SANDBOX_RUNTIME
+Bootstrap TLS: insecure-first-fetch
+Building Connector distribution for linux/amd64
+Building Connector distribution for linux/arm64
+Building Connector distribution for windows/amd64
+3e18aa3794caa133245ac1cc52f000b1b9028ded2cb18a0a5b8aaa644aa38620
+Building argus-backend for linux/amd64
+Building argus-web for linux/amd64
+Building minio for linux/amd64
+Building argus-workspace for linux/amd64
+Building argus-workspace-egress for linux/amd64
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w25 created
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w25 restarted
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w25" rollout to finish: 0 out of 1 new pods have been updated...
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w25" rollout to finish: 0 of 1 updated pods are available...
+daemon set "argus-image-loader-plan6-plan6-20261011-w25" successfully rolled out
+Artifact Store synchronized: Collector distributions and Connector release e2e-plan6-20261011-w25-5303a89f0a981a80
+Reusing compatible OpenSandbox controller judex/opensandbox-controller-manager; preserving external ownership
+deployment.apps/argus-web restarted
+deployment.apps/argus-server restarted
+deployment.apps/argus-worker restarted
+deployment.apps/argus-direct-executor restarted
+deployment.apps/argus-connector-gateway restarted
+deployment.apps/argus-pki-controller restarted
+deployment.apps/argus-telemetry-ingest restarted
+deployment.apps/argus-telemetry-writer restarted
+deployment.apps/argus-telemetry-query restarted
+Argus evaluation plan6-plan6-20261011-w25 installed successfully
+Platform initialization URL (copy and open it now; shown only once):
+Expires at: 2026-10-11T20:01:03Z
+Baseline browser e2e/m2(-dashboard-dialogs)?-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 started
+{"time":"2026-10-11T04:05:35.2434815+08:00","level":"INFO","msg":"Connector enrolled","connector_id":"01a1276a-c4b2-7c77-a0bf-11933dbf6a3c","role":"kubernetes","gateway":"grpcs://connector.plan6-plan6-20261011-w25.argus.test:9443"}
+Baseline browser e2e/m3-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 passed
+E2E phase m4 started
+Baseline browser e2e/m4-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m4 passed
+E2E phase p5-native started
+Native host.create.preview Preview/template/Run binding passed
+E2E phase p5-native passed
+E2E phase m7 started
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.repair.preview Preview/template/Run binding passed
+Native host.collector.upgrade.preview Preview/template/Run binding passed
+Native k8s.collector.install.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Baseline browser e2e/m7-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+E2E phase m7 passed
+E2E phase plan6 started
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+Scope: all 9 workspace projects
+✓ Lockfile passes supply-chain policies (verified 4d ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 588ms using pnpm v11.25.0
+
+Running 9 tests using 1 worker
+
+  ok 1 [chromium] › e2e\plan6-real.spec.ts:64:3 › Plan6 real portal › six live tabs, immutable history and organization entry (5.0s)
+  ok 2 [chromium] › e2e\plan6-real.spec.ts:142:3 › Plan6 real portal › real policy draft cancellation and atomic host confirmation (32.6s)
+  ok 3 [chromium] › e2e\plan6-real.spec.ts:214:3 › Plan6 real portal › concurrent policy confirmation rejects the old review and retains its draft (29.7s)
+  ok 4 [chromium] › e2e\plan6-real.spec.ts:301:3 › Plan6 real portal › real multi-rule create, trial, cancel, lifecycle, handling, silence and authorized export (48.9s)
+  ok 5 [chromium] › e2e\plan6-real.spec.ts:570:3 › Plan6 real portal › real model query and cancelled host card remain visible in the existing workspace (7.1s)
+  ok 6 [chromium] › e2e\plan6-real.spec.ts:623:3 › Plan6 real portal › ordinary Chinese conversation commits through the workspace host card once (52.1s)
+  ok 7 [chromium] › e2e\plan6-real.spec.ts:733:3 › Plan6 real portal › notification details and reviewed resend preserve the original Unknown fact (9.9s)
+  ok 8 [chromium] › e2e\plan6-real.spec.ts:806:3 › Plan6 real portal › notification pagination, filters and scroll survive details and tab returns (28.0s)
+  ok 9 [chromium] › e2e\plan6-real.spec.ts:863:3 › Plan6 real portal › stale review denial preserves drafts after evaluator revocation and expiry (32.3s)
+
+  9 passed (4.1m)
+E2E phase plan6 passed
+Argus plan6-plan6-20261011-w25 verification passed=true
+[PASS] clickhouse-write-read: ok
+[PASS] connector-forward-tls: ok
+[PASS] cors-origin: ok
+[PASS] health/argus-connector-gateway: ok
+[PASS] health/argus-direct-executor: ok
+[PASS] health/argus-server: ok
+[PASS] health/argus-telemetry-ingest: ok
+[PASS] health/argus-telemetry-query: ok
+[PASS] health/argus-worker: ok
+[PASS] https-endpoint/enterprise: ok
+[PASS] https-endpoint/platform: ok
+[PASS] ingress-certificates: ok
+[PASS] ingress-ready: ok
+[PASS] kafka-produce-consume: ok
+[PASS] minio-object-roundtrip: ok
+[PASS] opensandbox-lifecycle: ok
+[PASS] pki/trust-bundle: ok
+[PASS] postgresql-write-read: ok
+[PASS] redis-write-read: ok
+[PASS] workload-readiness: ok
+Artifacts: D:\workspace\go\Argus\artifacts\plan6-e2e\plan6-20261011-w25\verify
+Untagged: localhost:59812/argus/argus-e2e-ssh:e2e-plan6-20261011-w25
+Deleted: sha256:40a08e880eb8631f965177f12b7bd6515554e2505eb69cb32bd80a57ea3bffea
+Untagged: localhost:59812/argus/argus-e2e-replay:e2e-plan6-20261011-w25
+Deleted: sha256:085a90225e04cdcd69f5e8f283f0e5f72d8402585bf1297b6404893ee3819985
+Untagged: localhost:59812/argus/argus-e2e-artifact:e2e-plan6-20261011-w25
+Deleted: sha256:12bc1953bbba6715369a8a34a870038c5612c5d7711177abe73be61177eacb7d
+Untagged: localhost:59812/argus/argus-e2e-systemd:e2e-plan6-20261011-w25
+Deleted: sha256:9695678531b07355f622f07454a3a787e0039baabde9d846173f86681d7d82f5
+Untagged: localhost:59812/argus/argus-otelcol:e2e-plan6-20261011-w25
+Deleted: sha256:5529f0d9fe45c34e4bca52a9413b364a34c045a290ef557a394914513c314d96
+Argus plan6-plan6-20261011-w25 removed

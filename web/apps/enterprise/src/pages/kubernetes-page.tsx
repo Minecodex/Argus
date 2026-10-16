@@ -16,8 +16,8 @@ import {
   PageShell,
   Spinner,
 } from "@argus/ui";
-import { ClusterCard } from "../components/kubernetes/cluster-card";
-import { CollectorWizard } from "../components/kubernetes/collector-wizard";
+import { ClusterList } from "../components/kubernetes/cluster-list";
+import "../styles/resource-lists.css";
 import {
   ClusterFormDrawer,
   type ClusterFormState,
@@ -25,9 +25,7 @@ import {
 import { PendingActionCard } from "../components/kubernetes/pending-action-card";
 import "../styles/kubernetes.css";
 
-const realMode = import.meta.env.VITE_API_MODE === "real";
-
-/** Kubernetes 集群列表：卡片网格 + 接入/编辑/删除/连接测试。 */
+/** Kubernetes 集群列表与真实接入、采集管理。 */
 export function KubernetesPage() {
   const { t } = useTranslation();
   const api = useApi();
@@ -36,9 +34,6 @@ export function KubernetesPage() {
   const [formState, setFormState] = useState<ClusterFormState | null>(null);
   const [deleting, setDeleting] = useState<KubernetesCluster | null>(null);
   const [deleteAction, setDeleteAction] = useState<PendingActionPublic | null>(
-    null,
-  );
-  const [installTarget, setInstallTarget] = useState<KubernetesCluster | null>(
     null,
   );
 
@@ -98,57 +93,21 @@ export function KubernetesPage() {
             title={t("kubernetes.empty.title")}
           />
         ) : (
-          <div className="argus-k8s-cluster-grid">
-            {clusters.map((cluster) => (
-              <ClusterCard
-                cluster={cluster}
-                key={cluster.id}
-                onDelete={() => setDeleting(cluster)}
-                onEdit={() => setFormState({ mode: "edit", cluster })}
-                onInstallCollector={
-                  realMode ? undefined : () => setInstallTarget(cluster)
-                }
-                onOpen={() =>
-                  void navigate({
-                    to: "/kubernetes/$clusterId",
-                    params: { clusterId: cluster.id },
-                  })
-                }
-                onOpenCollector={
-                  realMode
-                    ? undefined
-                    : () =>
-                        void navigate({
-                          to: "/kubernetes/$clusterId",
-                          params: { clusterId: cluster.id },
-                          hash: "otlp-collector",
-                        })
-                }
-              />
-            ))}
-          </div>
+          <ClusterList
+            clusters={clusters}
+            onDelete={setDeleting}
+            onEdit={(cluster) => setFormState({ mode: "edit", cluster })}
+            onOpenCollector={(cluster) =>
+              void navigate({
+                to: "/kubernetes/$clusterId",
+                params: { clusterId: cluster.id },
+                hash: "otlp-collector",
+              })
+            }
+          />
         )}
       </QueryBoundary>
       <ClusterFormDrawer onClose={() => setFormState(null)} state={formState} />
-
-      {!realMode && (
-        <FormDrawer
-          footer={<></>}
-          onOpenChange={(open) => {
-            if (!open) setInstallTarget(null);
-          }}
-          open={installTarget !== null}
-          title={`${t("kubernetes.collector.startInstall")} · ${installTarget?.name ?? ""}`}
-          width={720}
-        >
-          {installTarget && (
-            <CollectorWizard
-              cluster={installTarget}
-              onInstalled={() => setInstallTarget(null)}
-            />
-          )}
-        </FormDrawer>
-      )}
 
       <ConfirmDialog
         confirmLabel={t("kubernetes.deleteDialog.confirm")}

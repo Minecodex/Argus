@@ -10,7 +10,11 @@
     ".": "./src/index.ts",
     "./telemetry": "./src/telemetry.tsx",
     "./styles.css": "./src/styles.css",
-    "./template": "./src/template/protocol.ts"
+    "./template-styles.css": "./src/template-styles.css",
+    "./template-foundation.css": "./src/template-foundation.css",
+    "./template": "./src/template/protocol.ts",
+    "./observation": "./src/template/observation-exports.ts",
+    "./result": "./src/result-exports.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -33,6 +37,8 @@
     "react-aria": "3.52.1",
     "react-aria-components": "1.21.1",
     "react-dom": "^19.1.1",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {

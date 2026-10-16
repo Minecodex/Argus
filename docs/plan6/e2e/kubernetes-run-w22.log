@@ -1,0 +1,209 @@
+serviceaccount/argus-e2e-ingress created
+clusterrole.rbac.authorization.k8s.io/plan6-plan6-20261011-w22-nginx created
+clusterrolebinding.rbac.authorization.k8s.io/plan6-plan6-20261011-w22-nginx created
+ingressclass.networking.k8s.io/plan6-plan6-20261011-w22-nginx created
+configmap/argus-e2e-ingress created
+service/argus-e2e-ingress created
+deployment.apps/argus-e2e-ingress created
+Preflight plan6-plan6-20261011-w22 on docker-desktop
+[PASS] kubernetes-api: v1.36.1
+[PASS] network-profile: NetworkPolicy=unverified; EgressGateway=absent; posture=degraded
+[WARN] network-security: NetworkPolicy probe did not observe an enforced deny: job argus-network-probe-1791653853619970900/probe-denied failed
+[WARN] network-security: no external Egress Gateway was detected; Direct Executor uses the cluster default route
+[PASS] node-architecture: amd64
+[PASS] cluster-capacity: allocatable cpu=16000m memory=15911100Ki pods=110
+[WARN] storage-class: standard (volume expansion unavailable; accepted for local profiles)
+[PASS] ingress-class: plan6-plan6-20261011-w22-nginx
+[PASS] pki: managed
+[PASS] host-disk: 76.7Gi free
+[WARN] network-policy: NetworkPolicy enforcement was not positively verified
+[WARN] sandbox-runtime: shared ordinary-container runtime explicitly accepted for the local profile
+[PASS] host-architecture: amd64
+Estimate: 22 pods, 6 PVCs, 19Gi requested storage
+Argus plan6-plan6-20261011-w22 plan (evaluation)
+1. foundation
+2. data-operators
+3. data
+4. sandbox
+5. telemetry-pipeline
+6. platform
+WARN: NETWORK_POLICY_ENFORCEMENT_UNVERIFIED
+WARN: SHARED_CONTAINER_SANDBOX_RUNTIME
+Bootstrap TLS: insecure-first-fetch
+Building Connector distribution for linux/amd64
+Building Connector distribution for linux/arm64
+Building Connector distribution for windows/amd64
+6f08c00b27b98c28c7c1e6c3b68c1a53f95df9174aac9a8f42b175aa8112dfa8
+Building argus-backend for linux/amd64
+Building argus-web for linux/amd64
+Building minio for linux/amd64
+Building argus-workspace for linux/amd64
+Building argus-workspace-egress for linux/amd64
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w22 created
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w22 restarted
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w22" rollout to finish: 0 out of 1 new pods have been updated...
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w22" rollout to finish: 0 of 1 updated pods are available...
+daemon set "argus-image-loader-plan6-plan6-20261011-w22" successfully rolled out
+Artifact Store synchronized: Collector distributions and Connector release e2e-plan6-20261011-w22-41ac599eff21c0ea
+Reusing compatible OpenSandbox controller judex/opensandbox-controller-manager; preserving external ownership
+deployment.apps/argus-web restarted
+deployment.apps/argus-server restarted
+deployment.apps/argus-worker restarted
+deployment.apps/argus-direct-executor restarted
+deployment.apps/argus-connector-gateway restarted
+deployment.apps/argus-pki-controller restarted
+deployment.apps/argus-telemetry-ingest restarted
+deployment.apps/argus-telemetry-writer restarted
+deployment.apps/argus-telemetry-query restarted
+Argus evaluation plan6-plan6-20261011-w22 installed successfully
+Platform initialization URL (copy and open it now; shown only once):
+Expires at: 2026-10-11T17:41:45Z
+Baseline browser e2e/m2(-dashboard-dialogs)?-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 started
+{"time":"2026-10-11T01:46:05.5571242+08:00","level":"INFO","msg":"Connector enrolled","connector_id":"01a126eb-0c59-78ab-b586-669bd880b9e8","role":"kubernetes","gateway":"grpcs://connector.plan6-plan6-20261011-w22.argus.test:9443"}
+Baseline browser e2e/m3-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 passed
+E2E phase m4 started
+Baseline browser e2e/m4-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m4 passed
+E2E phase p5-native started
+Native host.create.preview Preview/template/Run binding passed
+E2E phase p5-native passed
+E2E phase m7 started
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.repair.preview Preview/template/Run binding passed
+Native host.collector.upgrade.preview Preview/template/Run binding passed
+Native k8s.collector.install.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Baseline browser e2e/m7-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+E2E phase m7 passed
+E2E phase plan6 started
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+Scope: all 9 workspace projects
+✓ Lockfile passes supply-chain policies (verified 4d ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 539ms using pnpm v11.25.0
+
+Running 9 tests using 1 worker
+
+  ok 1 [chromium] › e2e\plan6-real.spec.ts:64:3 › Plan6 real portal › six live tabs, immutable history and organization entry (3.0s)
+  ok 2 [chromium] › e2e\plan6-real.spec.ts:142:3 › Plan6 real portal › real policy draft cancellation and atomic host confirmation (26.0s)
+  ok 3 [chromium] › e2e\plan6-real.spec.ts:214:3 › Plan6 real portal › concurrent policy confirmation rejects the old review and retains its draft (30.8s)
+  ok 4 [chromium] › e2e\plan6-real.spec.ts:301:3 › Plan6 real portal › real multi-rule create, trial, cancel, lifecycle, handling, silence and authorized export (47.5s)
+  x  5 [chromium] › e2e\plan6-real.spec.ts:570:3 › Plan6 real portal › real model query and cancelled host card remain visible in the existing workspace (2.0m)
+  x  6 [chromium] › e2e\plan6-real.spec.ts:570:3 › Plan6 real portal › real model query and cancelled host card remain visible in the existing workspace (retry #1) (2.0m)
+  x  7 [chromium] › e2e\plan6-real.spec.ts:570:3 › Plan6 real portal › real model query and cancelled host card remain visible in the existing workspace (retry #2) (2.0m)
+  ok 8 [chromium] › e2e\plan6-real.spec.ts:607:3 › Plan6 real portal › ordinary Chinese conversation commits through the workspace host card once (25.2s)
+  ok 9 [chromium] › e2e\plan6-real.spec.ts:717:3 › Plan6 real portal › notification details and reviewed resend preserve the original Unknown fact (3.5s)
+  ok 10 [chromium] › e2e\plan6-real.spec.ts:790:3 › Plan6 real portal › notification pagination, filters and scroll survive details and tab returns (7.6s)
+  ok 11 [chromium] › e2e\plan6-real.spec.ts:847:3 › Plan6 real portal › stale review denial preserves drafts after evaluator revocation and expiry (32.1s)
+
+
+  1) [chromium] › e2e\plan6-real.spec.ts:570:3 › Plan6 real portal › real model query and cancelled host card remain visible in the existing workspace 
+
+    Test timeout of 120000ms exceeded.
+
+    Error: locator.click: Test timeout of 120000ms exceeded.
+    Call log:
+      - waiting for locator('.argus-tool-presentation__frame').last().contentFrame().locator('#scope')
+
+
+      588 |     ).toBeVisible();
+      589 |     const result = page.frameLocator(".argus-tool-presentation__frame").last();
+    > 590 |     await result.locator("#scope").click();
+          |                                    ^
+      591 |     await expect(result.locator("#scope-facts")).toContainText("最近评估");
+      592 |     await expect(result.locator("#completeness")).toContainText(/完整|下一页/);
+      593 |     await page.screenshot({
+        at D:\workspace\go\Argus\web\apps\enterprise\e2e\plan6-real.spec.ts:590:36
+
+    Error Context: ..\..\..\artifacts\plan6-e2e\plan6-20261011-w22\playwright-plan6\plan6-real-Plan6-real-port-a4942-e-in-the-existing-workspace-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\..\artifacts\plan6-e2e\plan6-20261011-w22\playwright-plan6\plan6-real-Plan6-real-port-a4942-e-in-the-existing-workspace-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ..\..\..\artifacts\plan6-e2e\plan6-20261011-w22\playwright-plan6\plan6-real-Plan6-real-port-a4942-e-in-the-existing-workspace-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 120000ms exceeded.
+
+    Error: locator.click: Test timeout of 120000ms exceeded.
+    Call log:
+      - waiting for locator('.argus-tool-presentation__frame').last().contentFrame().locator('#scope')
+
+
+      588 |     ).toBeVisible();
+      589 |     const result = page.frameLocator(".argus-tool-presentation__frame").last();
+    > 590 |     await result.locator("#scope").click();
+          |                                    ^
+      591 |     await expect(result.locator("#scope-facts")).toContainText("最近评估");
+      592 |     await expect(result.locator("#completeness")).toContainText(/完整|下一页/);
+      593 |     await page.screenshot({
+        at D:\workspace\go\Argus\web\apps\enterprise\e2e\plan6-real.spec.ts:590:36
+
+    Error Context: ..\..\..\artifacts\plan6-e2e\plan6-20261011-w22\playwright-plan6\plan6-real-Plan6-real-port-a4942-e-in-the-existing-workspace-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\..\artifacts\plan6-e2e\plan6-20261011-w22\playwright-plan6\plan6-real-Plan6-real-port-a4942-e-in-the-existing-workspace-chromium-retry1\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ..\..\..\artifacts\plan6-e2e\plan6-20261011-w22\playwright-plan6\plan6-real-Plan6-real-port-a4942-e-in-the-existing-workspace-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 120000ms exceeded.
+
+    Error: locator.click: Test timeout of 120000ms exceeded.
+    Call log:
+      - waiting for locator('.argus-tool-presentation__frame').last().contentFrame().locator('#scope')
+
+
+      588 |     ).toBeVisible();
+      589 |     const result = page.frameLocator(".argus-tool-presentation__frame").last();
+    > 590 |     await result.locator("#scope").click();
+          |                                    ^
+      591 |     await expect(result.locator("#scope-facts")).toContainText("最近评估");
+      592 |     await expect(result.locator("#completeness")).toContainText(/完整|下一页/);
+      593 |     await page.screenshot({
+        at D:\workspace\go\Argus\web\apps\enterprise\e2e\plan6-real.spec.ts:590:36
+
+    Error Context: ..\..\..\artifacts\plan6-e2e\plan6-20261011-w22\playwright-plan6\plan6-real-Plan6-real-port-a4942-e-in-the-existing-workspace-chromium-retry2\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\..\artifacts\plan6-e2e\plan6-20261011-w22\playwright-plan6\plan6-real-Plan6-real-port-a4942-e-in-the-existing-workspace-chromium-retry2\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ..\..\..\artifacts\plan6-e2e\plan6-20261011-w22\playwright-plan6\plan6-real-Plan6-real-port-a4942-e-in-the-existing-workspace-chromium-retry2\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e\plan6-real.spec.ts:570:3 › Plan6 real portal › real model query and cancelled host card remain visible in the existing workspace 
+  8 passed (9.0m)
+undefined
+D:\workspace\go\Argus\web\apps\enterprise:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test e2e/plan6-real.spec.ts "--workers=1"
+Untagged: localhost:57464/argus/argus-e2e-ssh:e2e-plan6-20261011-w22
+Deleted: sha256:ab983aae4abd74b554adb4fb4b43cf4e7e7085cfd0ed45c9c3eeab2fbad7d73d
+Untagged: localhost:57464/argus/argus-e2e-replay:e2e-plan6-20261011-w22
+Deleted: sha256:a2ccfb2382929b6cad3c2cfd2aefe036fdcc98dea38c908f5f74040ff9eccee9
+Untagged: localhost:57464/argus/argus-e2e-artifact:e2e-plan6-20261011-w22
+Deleted: sha256:95c137e21e426ed277e1219e19f574bc8738fdec49754ae68564515293d1dce2
+Untagged: localhost:57464/argus/argus-e2e-systemd:e2e-plan6-20261011-w22
+Deleted: sha256:e5300e3f7dd7b6b3ba60566bcdb5019d088e1d92fb7ce1059eeed87a22b9b306
+Untagged: localhost:57464/argus/argus-otelcol:e2e-plan6-20261011-w22
+Deleted: sha256:063189290cee18be306f2eb253a19a0f38a032c8204c89b86a504f740fd3cc34
+Argus plan6-plan6-20261011-w22 removed

@@ -16,11 +16,11 @@ import (
 func TestNativeGatewayLatencyBaseline(t *testing.T) {
 	for _, size := range []int{500, 1000} {
 		_, set := testGateway(t, size)
-		for _, operation := range []string{"search_cold", "search_warm", "describe", "invoke"} {
+		for _, operation := range []string{"category_list", "describe", "invoke"} {
 			t.Run(fmt.Sprintf("%d/%s", size, operation), func(t *testing.T) {
 				principal := toolruntime.Principal{EnterpriseID: uuid.New(), UserID: uuid.New(), Permissions: []string{"host.read"}}
 				tool := "tool.search"
-				args := map[string]any{"category": "host", "query": "inspect"}
+				args := map[string]any{"category": "host"}
 				if operation == "describe" || operation == "invoke" {
 					tool = "tool." + operation
 					args = map[string]any{"category": "host", "name": "inspect_0000"}
@@ -30,7 +30,7 @@ func TestNativeGatewayLatencyBaseline(t *testing.T) {
 				}
 				samples := make([]time.Duration, 100)
 				for index := range samples {
-					if operation == "search_cold" {
+					if operation == "category_list" {
 						principal.AuthorizationVersion = int64(index + 1)
 					}
 					started := time.Now()

@@ -257,7 +257,7 @@ func (a *App) planV2VerifyUnknownConclusion(ctx context.Context, env *E2EEnviron
 	return nil
 }
 
-const planV2FailureConclusionPrompt = `实际取数并等待终态，用 read/bash 核对可交付文件及清单，不能把服务端查询 success 当成文件已交付或已经分析。说明时间、资源、样本口径及未检查部分。最后再次 budget.get，区分失败原因与失败后的各维余额，不能只看剩余调用次数声称预算充足。
+const planV2FailureConclusionPrompt = `实际取数并等待终态，用 read/bash 核对可交付文件及清单，不能把服务端查询 success 当成文件已交付或已经分析。说明时间、资源、样本口径及未检查部分。最后核对本轮服务端事实中刷新后的累计预算，区分失败原因与失败后的各维余额，不能只看剩余调用次数声称预算充足。
 末尾只用以下一个完整 JSON 代码块汇总（数值来自实际读取或最新工具结果）：
 {"overall":"observed_issues 或 no_observed_issues 或 unknown","panels":[{"dashboard_id":"仪表盘ID","panel_id":"图ID","query_status":"manifest.execution.panels 中该图的 status，没有清单则 not_checked","delivery_status":"查询任务顶层 status，没有任务则 not_started","records":实际读到的遥测记录数,"metric_sum":实际指标和或null,"error_logs":实际ERROR日志数或null}],"limitations":["实际限制"],"budget_after":{"scan_bytes":剩余扫描字节,"result_bytes":剩余结果字节,"rows":剩余行数,"samples":剩余样本数,"calls":剩余调用数}}
 未读到数据时 records 为 0，metric_sum/error_logs 为 null；每张应检查的图恰好一项。`

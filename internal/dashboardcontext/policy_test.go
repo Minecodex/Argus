@@ -2,6 +2,12 @@ package dashboardcontext
 
 import "testing"
 
+func TestOrdinaryDashboardGuidanceFitsSmallContextProfiles(t *testing.T) {
+	if len(referenceInstructions) > 2048 {
+		t.Fatal("ordinary conversations must not preload the complete dashboard analysis skill")
+	}
+}
+
 func TestStructuredModesDoNotGrantUnrelatedCapabilities(t *testing.T) {
 	for _, id := range []string{"telemetry.promql.query", "telemetry.kql.query", "telemetry.skywalking.trace", "host.get", "host.update.preview"} {
 		if !AllowsBusiness(None(), id) {

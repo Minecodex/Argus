@@ -10,6 +10,24 @@ import (
 	"github.com/google/uuid"
 )
 
+func TestAlertAuditScopeAndActionLinksSurviveSanitization(t *testing.T) {
+	ids := []uuid.UUID{uuid.New(), uuid.New()}
+	pending, run, tool, execution := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	input := map[string]any{"resource_ids": ids, "pending_action_id": pending, "pending_action_ref": "act_public_reference", "run_id": run, "tool_call_id": tool, "execution_id": execution, "kind": "policy", "handling_version": int64(2), "private_token": "must-drop", "spec": map[string]any{"password": "must-drop"}}
+	raw, err := json.Marshal(sanitizeDetails(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []uuid.UUID{ids[0], ids[1], pending, run, tool, execution} {
+		if !strings.Contains(string(raw), id.String()) {
+			t.Fatalf("audit lost alert scope/action identity %s", id)
+		}
+	}
+	if strings.Contains(string(raw), "must-drop") || strings.Contains(string(raw), "spec") {
+		t.Fatal("audit retained private input")
+	}
+}
+
 func TestSanitizeDetailsDropsSensitiveFieldsAtEveryDepth(t *testing.T) {
 	input := map[string]any{
 		"summary":  "user credential rotated",

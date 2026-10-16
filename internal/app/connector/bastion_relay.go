@@ -71,6 +71,7 @@ type sourceRateLimiter struct {
 func startBastionRelay(ctx context.Context, store localStore, identity identityState, logger *slog.Logger) (*bastionRelay, error) {
 	return startBastionRelayWithOptions(ctx, store, identity, logger, bastionRelayOptions{
 		httpsStartPort: defaultRelayHTTPSPort, gatewayStartPort: defaultRelayGatewayPort, portAttempts: defaultRelayPortAttempts,
+		advertiseAddress: strings.TrimSpace(os.Getenv("ARGUS_BASTION_RELAY_ADVERTISE_ADDRESS")),
 	})
 }
 
@@ -118,6 +119,9 @@ func startBastionRelayWithOptions(ctx context.Context, store localStore, identit
 	} else {
 		state.Generation = 1
 		state.AdvertiseAddress = strings.TrimSpace(options.advertiseAddress)
+		if state.AdvertiseAddress != "" && !validRelayAdvertiseAddress(state.AdvertiseAddress) {
+			return nil, errors.New("configured Bastion relay advertise address is invalid")
+		}
 		if state.AdvertiseAddress == "" {
 			state.AdvertiseAddress = discoverRelayAdvertiseAddress()
 		}

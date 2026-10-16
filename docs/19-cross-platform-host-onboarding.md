@@ -37,6 +37,8 @@ Operation 同时冻结目标平台、ConnectionTest、SSH Host Key、Credential 
 
 企业门户的普通主机向导先展示五种网络场景，再进入主机信息。场景分别对应“命令直连、Direct Executor SSH 直连、Direct Executor SSH + 控制隧道、命令经 Bastion Relay、Bastion Connector SSH + Relay”；页面由场景唯一派生安装方式、SSH 执行者和控制路径，不要求用户理解或组合内部枚举。Linux/Windows 选择、SSH 地址和凭据放在第二步，第三步执行真实连接测试与 Preview/Commit。
 
+主机和堡垒机的每张场景卡片下方均展示网络示意图，选中场景的说明区也展示完整链路；图形不受普通按钮图标尺寸限制。当前 UI 回归和采集/查询布局见[2026-10-12 资源配置记录](plans/frontend-redesign/resource-config-ui-20261012.md)。
+
 | 目标 | 一行命令 | 平台 Direct SSH | Bastion Connector SSH | Executor 控制隧道 | Bastion TLS 中继 |
 | --- | --- | --- | --- | --- | --- |
 | Linux Host | 是 | 是 | 是 | 是 | 是 |
@@ -68,6 +70,8 @@ Linux 使用 `/usr/local/bin/argus-connector`、`/var/lib/argus-connector`、`/e
 ## 4. 堡垒机固定 TLS 中继
 
 Linux Bastion Connector 内置两个 TLS 密文 Listener。创建和安装堡垒机时不要求用户填写绑定地址或端口：
+
+多网卡堡垒机可在首次启动前通过 Connector 服务的 `ARGUS_BASTION_RELAY_ADVERTISE_ADDRESS` 设置成员可达的 IP 或 DNS 名；未设置时沿用自动发现。地址不能包含协议、路径或端口，非法配置直接拒绝启动，不回退到其他接口。该值与端口、代数一起持久化；后续仅修改环境变量不会改变既有成员的冻结路由。网络路由和访问控制仍由客户负责，TLS 校验和上游约束保持原有契约。
 
 - HTTPS 从 `8445` 起向上尝试最多 20 个端口：Enrollment、Bootstrap 和 Artifact HTTPS 密文
 - Connector Gateway 从 `9445` 起向上尝试最多 20 个端口：Connector Gateway gRPC/TLS 密文
@@ -143,3 +147,16 @@ TLS 专项运行 `20260906-tls-complete4` 已完成 `managed + strict` 与 `exis
 Windows Server 2019/2022 专用 VM 使用 `argus-dev e2e windows-host`：配置只引用环境变量和私钥文件，固定 OpenSSH Host Key，并自动验证 PowerShell 安装、SCM、服务恢复、ACL、MachineGuid、升级/卸载、CA epoch、ConPTY、OpenSSH 和 RDP 就绪证据。在该实体矩阵通过前，Windows Collector Catalog 保持 `validation_pending`，不得向用户宣称已完成正式支持验收。
 
 本次切换不兼容旧数据和旧 API。PostgreSQL 只保留 `00001_argus_baseline.sql`，直接创建当前结构，不包含 `TRUNCATE/ALTER` 兼容迁移。部署前清空开发数据库，旧命令全部作废，所有 Host/Bastion 必须重新生成命令并注册。
+
+## 本地 Docker Linux 主机（2026-10-12）
+
+按用户要求重新启动常驻容器 `argus-test-host`，复用 `argus-host-loop-os:20261011-01` 镜像（构建来源为 `deploy/docker/e2e-systemd-host.Dockerfile`）。当前运行 Ubuntu 24.04.5 LTS、systemd 和 OpenSSH；分配 2 CPU、1.5 GiB 内存，使用独立 cgroup namespace，重启策略为 `unless-stopped`。SSH 仅映射本机 `127.0.0.1:2222`，root 密码由用户指定，通过标准输入配置，不写入文档或启动证据。
+
+```powershell
+ssh root@127.0.0.1 -p 2222
+docker exec -it argus-test-host bash
+docker stop argus-test-host
+docker start argus-test-host
+```
+
+已验证真实 SSH 密码登录、固定 Host Key、root 身份及 SSH 服务 active。容器配置和验证证据分别为 `artifacts/local-linux-host-20261012/host.json`、`ssh-verification.json`；启动脚本 `start-host.py` 通过标准输入接收密码，已有同名容器时停止以保护内容。随后通过正式预检/Preview/确认接入当前 Argus，平台拨号地址为 `host.docker.internal:2222`、控制与遥测均使用 Executor Tunnel，Collector 已 converged，仪表盘、实际告警及GLM会话完成。详细范围和持续运行配置见[正式主机监控记录](plan6/formal-host-monitoring-20261012.md)；`127.0.0.1:2222`仍为Windows本机SSH入口。

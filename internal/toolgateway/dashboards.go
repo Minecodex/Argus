@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/conversation"
 	"github.com/kakj-go/Argus/internal/dashboard"
@@ -63,7 +64,7 @@ func (tools DashboardTools) scope(ctx context.Context, call mcp.Call) (dashboard
 }
 func (c dashboardCall) selected(id uuid.UUID) error {
 	if id == uuid.Nil || !slices.Contains(c.selection.DashboardIDs, id) {
-		return toolruntime.Error{Kind: "DASHBOARD_SELECTION_REQUIRED", Message: "Select this dashboard in Chat before querying or editing it."}
+		return toolruntime.Error{Kind: "DASHBOARD_SELECTION_REQUIRED", Message: "Read this authorized dashboard with dashboard.get before querying or editing it."}
 	}
 	return nil
 }
@@ -98,20 +99,17 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 	}
 	type operation struct{ name, schema, id, risk, description string }
 	for _, op := range []operation{
-		{"list", "EmptyInput", "", "read", "列出当前用户有权查看的已发布仪表盘，供用户选择。List authorized published dashboards; never auto-select."},
-		{"budget.get", "EmptyInput", "", "read", "读取当前 Run 的累计查询预算，目录、候选、统计图和下钻共用；新分页或恢复不重置。Read persistent remaining scan/result bytes, rows, samples and calls for this Run."},
+		{"list", "EmptyInput", "", "read", "检索有权查看的已发布仪表盘，按用户问题自动选择相关对象，再 get 读取定义。Discover authorized published dashboards and choose relevant candidates for the user's question; manual selection is not required."},
 		{"context.candidates", "DashboardAnalysisCandidateInput", "", "read", "读取已发布变量/局部筛选及其依赖的真实候选，不修改条件、不执行统计图。Discover candidates from a resolved context and published filter name only. Partial lists do not prove absence; candidate reconciliation is a preview until the query is queued."},
-		{"get", "EmptyInput", "dashboard_id", "read", "读取用户所选仪表盘的最新发布定义和默认条件。Read selected latest published definition and defaults, without executing queries."},
+		{"get", "EmptyInput", "dashboard_id", "read", "读取授权仪表盘的最新发布定义、继承条件和服务端时钟，并记录本轮分析对象。Read a discovered authorized dashboard and its inherited conditions; no manual selection or query execution."},
 		{"context.resolve", "DashboardAnalysisResolveInput", "", "read", "继承已保存条件，仅用本轮用户原话解释明确变更；无变更时 changes={} evidence=[]。Resolve inherited conditions against latest revision; cite the current user message for every change. Returns immutable context_ref; never persist inferred panel strategy or implicit defaults."},
 		{"query", "DashboardAnalysisQueryInput", "", "read", "使用 context.resolve 返回的 context_ref 建立已发布查询文件任务，或沿已发布下钻继续。Query using the resolved context in this Run; no free-form parameters. Root query checks the latest revision; drilldown retains its parent scope."},
 		{"query.get", "EmptyInput", "job_id", "read", "查询取数进度、文件和完整性，完成不等于已分析。Read job progress and delivered files; analyze with offline read/bash, report unchecked panels."},
-		{"query.cancel", "EmptyInput", "job_id", "write", "取消本会话所选仪表盘的取数任务。Cancel a selected dashboard query job."},
+		{"query.cancel", "EmptyInput", "job_id", "write", "取消本会话已采用的仪表盘取数任务。Cancel a query job for a dashboard acquired in this conversation."},
 		{"query.resume", "DashboardQueryResumeInput", "job_id", "write", "按版本恢复失败任务。Resume sealed file delivery or a new execution attempt; never merge different attempts."},
 		{"catalog", "DashboardCatalogInput", "", "read", "创建模式下发现已接收数据的指标/字段/候选。Discover real metric metadata, fields and values; installed plugins are not proof of received data."},
 		{"catalog.resources", "EmptyInput", "", "read", "列出当前有权资源及注册来源能力，再用 catalog 验证实际数据。List authorized resource names and registered source capabilities; data_state not_sampled is not evidence of received data."},
-		{"draft.drilldowns", "DashboardGenerateDrilldownsInput", "draft_id", "write", "按来源和图型生成标准下钻，并按草稿版本保存。Generate standard drilldowns using the same platform definitions as the editor; publish together with the panel."},
-		{"convert", "DashboardConvertPanelInput", "", "read", "使用与 UI 相同的无损构建器/语句转换。Convert through the shared server compiler; reject lossy conversions."},
-		{"draft.create", "DashboardDraftInput", "", "write", "创建或恢复个人草稿，不发布；编辑已有仪表盘必须先选中它。Create a personal draft; existing dashboard opens its published baseline, then use draft.save to edit."},
+		{"draft.create", "DashboardDraftInput", "", "write", "创建或恢复个人草稿，不发布；编辑已有仪表盘必须先 get 读取其定义。Create a personal draft; existing dashboard opens its published baseline, then use draft.save to edit."},
 		{"draft.get", "EmptyInput", "draft_id", "read", "读取当前编辑者个人草稿。Read an owned draft and its version."},
 		{"draft.validate", "DashboardDraftSampleInput", "draft_id", "read", "复用人工编辑器校验草稿和样本，返回 validation.issues 的路径与原因；修正硬错误后再发布预览。Validate the owned draft version with the same compiler/runtime as the editor. valid=false is repair feedback; no_data/unavailable sample states do not mean verified healthy data."},
 		{"draft.save", "DashboardDraftInput", "draft_id", "write", "按草稿版本保存修改，不弹发布确认。Save draft with expected_version; never silently overwrite conflicts."},
@@ -128,6 +126,10 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 			schema = object([]string{}, map[string]any{"offset": map[string]any{"type": "integer", "minimum": 0}, "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 100}})
 		}
 		name := op.name
+		title, found := dashboardToolTitles[name]
+		if !found {
+			return fmt.Errorf("dashboard tool %s has no business title", name)
+		}
 		required := []string{"telemetry.dashboard.read"}
 		if strings.HasPrefix(name, "draft.") || name == "publish.preview" {
 			required = append(required, "telemetry.dashboard.manage")
@@ -136,17 +138,17 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 			required = append(required, "workspace.use")
 		}
 		metadata := mcp.Metadata{ID: "telemetry.dashboard." + name, Risk: op.risk, Visibility: mcp.Visible, ExecutionMode: mcp.Sequential, Required: required, InputVersion: "argus.dashboard." + name + "/v1", OutputVersion: "argus.dashboard." + name + "/v1", ProjectionSchema: "argus.tool_result_projection/v1", MaxResultBytes: 2 << 20, InputSchema: schema,
-			Discovery: mcp.Discovery{SchemaVersion: "argus.tool_discovery/v1", Revision: "1", Title: "Dashboard " + name, Description: op.description, Keywords: []string{"仪表盘", "dashboard", name}, ResultDescription: op.description, Preconditions: []string{"User-owned active conversation and immutable Run context; current object permissions are rechecked."}, Examples: []mcp.DiscoveryExample{{Request: op.description, Guidance: "Use IDs from structured user selection or preceding tool results. Never invent IDs, queries or confirmation."}}},
+			Discovery: mcp.Discovery{SchemaVersion: "argus.tool_discovery/v1", Revision: "2", Title: title, Description: op.description, Keywords: []string{"仪表盘", "dashboard", name}, ResultDescription: op.description, Preconditions: []string{"User-owned active conversation and immutable Run context; current object permissions are rechecked."}, Examples: []mcp.DiscoveryExample{{Request: op.description, Guidance: "Use IDs from authorized discovery or optional user references. Never invent IDs, queries or confirmation."}}},
 			Execute: func(ctx context.Context, call mcp.Call) (mcp.Result, error) {
 				value, err := tools.execute(ctx, call, name)
 				return value, dashboardToolFailure(err)
 			},
 		}
 		if name == "context.resolve" {
+			metadata.InputVersion = "argus.dashboard.context.resolve/v2"
+			metadata.Discovery.Revision = "4"
+			metadata.Discovery.Description = "Resolve inherited conditions. Cite the current user message for explicit changes; use origin=ai_selection with a reason for AI-chosen conditions. AI choices cannot replace explicit user constraints. Returns an immutable context_ref; corrections require a new query."
 			metadata.Discovery.Keywords = append(metadata.Discovery.Keywords, "条件", "追问", "继承", "参数")
-		}
-		if name == "budget.get" {
-			metadata.Discovery.Keywords = append(metadata.Discovery.Keywords, "预算", "额度", "budget")
 		}
 		if name == "query" {
 			metadata.InputVersion = "argus.dashboard.query/v2"
@@ -164,7 +166,17 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 		if strings.HasPrefix(name, "query") {
 			metadata.OutputVersion = "argus.dashboard." + name + "/v2"
 			metadata.Discovery.Revision = "3"
-			metadata.Discovery.Description += " The response includes the current run_budget and observation time. Failed acquisition can consume its reserved budget; distinguish the failure cause from remaining capacity. Read budget.get after file analysis before claiming capacity remains."
+			metadata.Discovery.Description += " The response includes the current run_budget and observation time. Failed acquisition can consume its reserved budget; distinguish the failure cause from remaining capacity. The server refreshes authoritative Run budget facts before every model round; use those facts after file analysis."
+		}
+		if name == "draft.create" || name == "draft.save" {
+			metadata.InputVersion = "argus.dashboard." + name + "/v2"
+			metadata.Discovery.Revision = "2"
+			metadata.Discovery.Description += " Optional preparation performs server-owned lossless panel conversions and standard drilldown generation atomically with this save. Specify panel IDs and sources explicitly; omission preserves the supplied spec. Unsupported preparation fails without changing the draft."
+		}
+		if name == "query" || name == "query.get" {
+			metadata = tools.queryPresentation(metadata)
+		} else {
+			metadata = tools.definitionPresentation(metadata)
 		}
 		if name == "publish.preview" {
 			metadata.OutputVersion = "argus.pending_action/v1"
@@ -214,14 +226,11 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 	if err != nil {
 		return mcp.Result{}, err
 	}
-	create := strings.HasPrefix(name, "draft.") || name == "publish.preview" || name == "catalog" || name == "convert"
+	create := strings.HasPrefix(name, "draft.") || name == "publish.preview" || name == "catalog"
 	if create && c.selection.Mode != "create" {
 		return mcp.Result{}, mcp.ErrPermissionDenied
 	}
 	switch name {
-	case "budget.get":
-		value, e := tools.Service.RunBudget(ctx, c.actor)
-		return dashboardToolResult(value, e)
 	case "list":
 		rows, e := tools.Service.List(ctx, c.actor)
 		if e != nil {
@@ -242,14 +251,14 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 		offset := max(0, int(intValue(call.Input, "offset")))
 		offset = min(offset, len(items))
 		end := min(len(items), offset+limit)
-		value := map[string]any{"items": items[offset:end], "has_more": end < len(items), "next_offset": end, "selection_required": len(c.selection.DashboardIDs) == 0}
+		value := map[string]any{"items": items[offset:end], "has_more": end < len(items), "next_offset": end, "selection_required": false, "selection_policy": "automatic"}
 		return dashboardToolResult(value, tools.Service.ChargeCatalog(ctx, c.actor, value, int64(end-offset)))
 	case "get":
 		id, e := callID(call, "dashboard_id")
 		if e != nil {
 			return mcp.Result{}, e
 		}
-		if e = c.selected(id); e != nil {
+		if c.selection, e = dashboardcontext.Acquire(ctx, tools.Service.Store, c.principal, c.run, id); e != nil {
 			return mcp.Result{}, e
 		}
 		item, rev, e := tools.Service.Get(ctx, c.actor, id)
@@ -349,12 +358,6 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 			e = tools.Service.ChargeCatalog(ctx, c.actor, value, int64(len(value["resources"].([]map[string]any))))
 		}
 		return dashboardToolResult(value, e)
-	case "convert":
-		input, e := dashboardToolDecode[dashboard.ConvertPanelInput](call.Input)
-		if e != nil {
-			return mcp.Result{}, e
-		}
-		return dashboardToolResult(dashboard.ConvertPanel(input), nil)
 	case "draft.create":
 		input, e := dashboardToolDecode[dashboard.DraftInput](call.Input)
 		if e != nil {
@@ -400,14 +403,6 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 			}
 			value, e := tools.Jobs.Runtime.SampleDraft(ctx, c.actor, id, intValue(call.Input, "expected_version"), input.Parameters)
 			return dashboardToolResult(value, e)
-		}
-		if name == "draft.drilldowns" {
-			input, e := dashboardToolDecode[dashboard.GenerateDrilldownsInput](call.Input)
-			if e != nil {
-				return mcp.Result{}, e
-			}
-			value, e := tools.Service.GenerateDrilldowns(ctx, c.actor, id, input)
-			return dashboardToolResult(map[string]any{"draft": toolDraft(value.Draft), "added": value.Added, "issues": value.Issues}, e)
 		}
 		if name == "draft.save" {
 			input, e := dashboardToolDecode[dashboard.DraftInput](call.Input)

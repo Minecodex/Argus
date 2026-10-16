@@ -1,0 +1,95 @@
+.argus-definition-view {
+  min-width: 0;
+}
+.argus-definition-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-px-12);
+  padding-block: var(--space-px-12);
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-definition-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-px-12);
+  align-items: start;
+}
+.argus-definition-workspace.has-inspector {
+  grid-template-columns: minmax(0, 1fr) minmax(
+      0,
+      var(--dashboard-settings-width)
+    );
+}
+.argus-definition-empty {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-px-8);
+  padding: var(--space-px-12);
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+  overflow: auto;
+}
+.argus-definition-empty > svg {
+  flex-shrink: 0;
+}
+.argus-definition-inspector {
+  padding: var(--space-px-12);
+  background: var(--bg-muted);
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--card-radius);
+  min-width: 0;
+}
+.argus-definition-inspector > header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--action-gap);
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+.argus-definition-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-px-16);
+}
+.argus-definition-fields > div {
+  min-width: 0;
+}
+.argus-definition-inspector .argus-definition-fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+.argus-definition-fields dt {
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+}
+.argus-definition-fields dd {
+  margin: 0;
+}
+.argus-definition-view pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: var(--text-help) var(--font-mono);
+  max-height: var(--template-code-max-height);
+  overflow: auto;
+  padding: var(--space-px-12);
+  background: var(--bg-muted);
+  border-radius: var(--control-radius);
+}
+.argus-definition-query {
+  margin-block: var(--space-px-12);
+}
+.argus-definition-source {
+  margin-top: var(--space-px-16);
+  padding: var(--space-px-12);
+  border: var(--space-px-1) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+}
+.argus-definition-source summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}

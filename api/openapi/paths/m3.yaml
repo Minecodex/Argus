@@ -606,3 +606,24 @@ components:
     Error:
       description: Stable Argus API error.
       content: {application/json: {schema: {$ref: "../components/common.yaml#/components/schemas/ApiError"}}}
+
+host_inventory_refresh:
+  parameters: [{$ref: "#/components/parameters/ResourceId"}]
+  post:
+    operationId: refreshHostInventory
+    summary: Collect a fresh local host inventory through the current Connector.
+    parameters: [{$ref: "#/components/parameters/IdempotencyKey"}, {$ref: "#/components/parameters/CsrfToken"}]
+    responses:
+      "200": {description: Fresh inventory collected., content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/Host"}}}}
+      default: {$ref: "#/components/responses/Error"}
+
+host_reconnect_preview:
+  parameters: [{$ref: "#/components/parameters/ResourceId"}]
+  post:
+    operationId: previewHostReconnect
+    summary: Verify the current existing SSH target and preview tunnel reauthorization.
+    parameters: [{$ref: "#/components/parameters/IdempotencyKey"}, {$ref: "#/components/parameters/CsrfToken"}]
+    requestBody: {required: true, content: {application/json: {schema: {$ref: "../components/m3.yaml#/components/schemas/ResourcePreviewDelete"}}}}
+    responses:
+      "201": {description: Verified tunnel reauthorization preview., content: {application/json: {schema: {$ref: "../../schemas/action/pending-action-public.schema.json"}}}}
+      default: {$ref: "#/components/responses/Error"}

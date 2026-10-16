@@ -1,0 +1,8 @@
+<section id="discovery-view"></section>
+<script>
+ArgusView.mount(document.getElementById('discovery-view'),(root,data)=>{
+ const v=ArgusView,t=(a,b)=>v.text(a,b),title=value=>{const parts=String(value||'').split(' / ');return parts.length===2?(v.locale==='en-US'?parts[1]:parts[0]):value;};
+ const detail=(target,item)=>{v.header(target,title(item.discovery?.title)||item.title||item.name,item.discovery?.description||item.description);v.fields(target,[[t('分类','Category'),item.category],[t('工具标识','Tool ID'),item.tool_id||item.name],[t('风险','Risk'),item.risk],[t('版本','Version'),item.version]]);for(const [label,value]of [[t('输入参数','Input parameters'),item.input_schema],[t('返回结果','Result contract'),item.output_schema],[t('使用示例','Examples'),item.discovery?.examples],[t('前置条件','Preconditions'),item.discovery?.preconditions]])if(value){const body=v.section(target,label);v.note(body,v.value(value));}};
+ if(v.entry==='tool-description')detail(root,data);else{v.header(root,t('工具搜索','Tool search'),data.category);const rows=data.items||data.tools||data.results||[];v.table(root,rows,[[t('工具','Tool'),row=>title(row.title||row.discovery?.title)||row.name],[t('说明','Description'),row=>row.summary||row.description||row.discovery?.description],[t('风险','Risk'),'risk']],detail);}
+});
+</script>

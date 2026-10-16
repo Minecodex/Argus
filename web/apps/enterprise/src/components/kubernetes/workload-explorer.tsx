@@ -1,30 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
-import {
-  useApi,
-  type KubernetesCluster,
-  type KubernetesResource,
-} from "@argus/api-client";
-import {
-  ActionGroup,
-  Button,
-  DataTable,
-  Dialog,
-  EmptyState,
-  FormDrawer,
-  KeyValueGrid,
-  LogViewer,
-  RowAction,
-  Spinner,
-  StatusBadge,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  type Column,
-  type LogLine,
-} from "@argus/ui";
+import {useQuery} from "@tanstack/react-query";
+import {useState,type ReactNode} from "react";
+import {useTranslation} from "react-i18next";
+import {useApi,type KubernetesCluster,type KubernetesResource} from "@argus/api-client";
+import {ActionMenu,Button,DataTable,Dialog,EmptyState,FormDrawer,KeyValueGrid,LogViewer,Spinner,StatusBadge,Tabs,TabsContent,TabsList,TabsTrigger,type Column,type LogLine} from "@argus/ui";
 
 type KindKey = KubernetesResource["resource_type"];
 
@@ -249,18 +227,7 @@ export function WorkloadExplorer({ cluster }: { cluster: KubernetesCluster }) {
     {
       key: "actions",
       header: t("kubernetes.table.actions"),
-      render: (row) => (
-        <ActionGroup>
-          <RowAction onPress={() => setDetail(row)}>
-            {t("kubernetes.table.detail")}
-          </RowAction>
-          {row.resource_type === "pod" && row.namespace && (
-            <RowAction onPress={() => setLogPod(row)}>
-              {t("kubernetes.table.logs")}
-            </RowAction>
-          )}
-        </ActionGroup>
-      ),
+      render: (row) => (<ActionMenu items={[{label: t("kubernetes.table.detail"),onSelect: () => setDetail(row)},...(row.resource_type === "pod" && row.namespace ? [{label: t("kubernetes.table.logs"),onSelect: () => setLogPod(row)}] : [])]} />),
     },
   ];
 

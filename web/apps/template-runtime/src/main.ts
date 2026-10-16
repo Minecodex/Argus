@@ -1,4 +1,3 @@
-import { TEMPLATE_PROTOCOL } from "@argus/ui/template";
 import { startRuntime, trustedHello } from "./runtime";
 let connected = false;
 window.addEventListener("message", (event: MessageEvent<unknown>) => {
@@ -15,7 +14,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
   const port = event.ports[0]!;
   void startRuntime(event.data, port).catch(() =>
     port.postMessage({
-      version: TEMPLATE_PROTOCOL,
+      version: event.data.version,
       nonce: event.data.nonce,
       sequence: 1,
       request_id: crypto.randomUUID(),

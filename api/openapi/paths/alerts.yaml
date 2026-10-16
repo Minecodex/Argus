@@ -1,0 +1,842 @@
+{
+  "summary": {
+    "get": {
+      "operationId": "getAlertSummary",
+      "summary": "getAlertSummary",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertSummary"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "configurations": {
+    "get": {
+      "operationId": "listAlertConfigurations",
+      "summary": "listAlertConfigurations",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "../components/alerts.yaml#/components/schemas/AlertConfiguration"
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "name": "kind",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "$ref": "../components/alerts.yaml#/components/schemas/AlertKind"
+          }
+        }
+      ]
+    }
+  },
+  "configuration": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getAlertConfiguration",
+      "summary": "getAlertConfiguration",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertConfiguration"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "preview": {
+    "post": {
+      "operationId": "previewAlertConfiguration",
+      "summary": "previewAlertConfiguration",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "202": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/PendingActionPublic"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/alerts.yaml#/components/schemas/AlertMutation"
+            }
+          }
+        }
+      }
+    }
+  },
+  "commands": {
+    "post": {
+      "operationId": "previewAlertCommand",
+      "summary": "previewAlertCommand",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "202": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/PendingActionPublic"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/alerts.yaml#/components/schemas/AlertCommand"
+            }
+          }
+        }
+      }
+    }
+  },
+  "trial": {
+    "post": {
+      "operationId": "trialAlertPolicy",
+      "summary": "trialAlertPolicy",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertEvaluation"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/alerts.yaml#/components/schemas/AlertPolicySpec"
+            }
+          }
+        }
+      }
+    }
+  },
+  "instances": {
+    "get": {
+      "operationId": "listAlertInstances",
+      "summary": "listAlertInstances",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertInstancePage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "name": "query",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "severity",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "warning",
+              "info"
+            ]
+          }
+        },
+        {
+          "name": "lifecycle",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "notification_state",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "policy_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "resource_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "metric",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        {
+          "name": "from",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        {
+          "name": "to",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        {
+          "name": "acknowledged",
+          "in": "query",
+          "schema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "rule_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ]
+    }
+  },
+  "history": {
+    "get": {
+      "operationId": "listAlertHistory",
+      "summary": "listAlertHistory",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertInstancePage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "name": "query",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "severity",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "warning",
+              "info"
+            ]
+          }
+        },
+        {
+          "name": "lifecycle",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "notification_state",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "policy_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "resource_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "metric",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        {
+          "name": "from",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        {
+          "name": "to",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        {
+          "name": "acknowledged",
+          "in": "query",
+          "schema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "rule_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ]
+    }
+  },
+  "deliveries": {
+    "get": {
+      "operationId": "listAlertDeliveries",
+      "summary": "listAlertDeliveries",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertDeliveryPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "name": "query",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "notification_state",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "policy_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "resource_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "from",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        {
+          "name": "to",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "channel_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ]
+    }
+  },
+  "instance": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getAlertInstance",
+      "summary": "getAlertInstance",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertInstanceDetail"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "delivery": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getAlertDelivery",
+      "summary": "getAlertDelivery",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertDeliveryDetail"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "handle": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "handleAlertInstance",
+      "summary": "handleAlertInstance",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertInstance"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "./dashboard.yaml#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/alerts.yaml#/components/schemas/AlertHandleInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "export": {
+    "get": {
+      "operationId": "exportAlertHistory",
+      "summary": "exportAlertHistory",
+      "tags": [
+        "Alerts"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized alert result. Mutation previews use the existing host confirmation workflow.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/AlertExport"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "parameters": [
+        {
+          "name": "query",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "severity",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "warning",
+              "info"
+            ]
+          }
+        },
+        {
+          "name": "lifecycle",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "notification_state",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "policy_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "resource_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "metric",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        {
+          "name": "from",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        {
+          "name": "to",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        {
+          "name": "acknowledged",
+          "in": "query",
+          "schema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "rule_id",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ]
+    }
+  }
+}

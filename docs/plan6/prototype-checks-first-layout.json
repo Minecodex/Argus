@@ -1,0 +1,1025 @@
+{
+  "date": "2026-10-07",
+  "scope": "local interactive prototype",
+  "functional_checks": [
+    {
+      "name": "initial eight tabs",
+      "pass": true
+    },
+    {
+      "name": "D07 acknowledgment preserves firing state",
+      "pass": true,
+      "note": "Verified with a full state snapshot."
+    },
+    {
+      "name": "D07 assignment",
+      "pass": true
+    },
+    {
+      "name": "D07 comment timeline",
+      "pass": true
+    },
+    {
+      "name": "multi-metric editor retains draft and AND mode",
+      "pass": true
+    },
+    {
+      "name": "rule trial is explicitly sample data",
+      "pass": true
+    },
+    {
+      "name": "preview has not created policy",
+      "pass": true
+    },
+    {
+      "name": "one confirmation commits policy and rules",
+      "pass": true
+    },
+    {
+      "name": "four notification providers",
+      "pass": true
+    },
+    {
+      "name": "notification test previews sample payload",
+      "pass": true
+    },
+    {
+      "name": "simulated failure retained in delivery history",
+      "pass": true
+    },
+    {
+      "name": "controlled resend updates attempts",
+      "pass": true
+    },
+    {
+      "name": "D04 AI prepare shows two conditions",
+      "pass": true
+    },
+    {
+      "name": "AI prepare does not commit",
+      "pass": true
+    },
+    {
+      "name": "AI cancellation leaves policy count unchanged",
+      "pass": true
+    },
+    {
+      "name": "AI confirmation creates one policy",
+      "pass": true
+    },
+    {
+      "name": "repeat confirmation disabled",
+      "pass": true
+    },
+    {
+      "name": "D05 policy existence query",
+      "pass": true
+    },
+    {
+      "name": "D06 AI silence preview has resource and expiry",
+      "pass": true
+    },
+    {
+      "name": "D06 AI update identifies policy and new threshold",
+      "pass": true
+    },
+    {
+      "name": "D06 AI ends temporary silence",
+      "pass": true
+    },
+    {
+      "name": "D02 retains all events after silencing",
+      "pass": true
+    },
+    {
+      "name": "D02 date filter",
+      "pass": true
+    },
+    {
+      "name": "D08 audit records model mutations",
+      "pass": true
+    },
+    {
+      "name": "D08 viewer cannot create policies",
+      "pass": true
+    },
+    {
+      "name": "D08 viewer cannot read audit",
+      "pass": true
+    },
+    {
+      "name": "D08 model mutation checks current role",
+      "pass": true
+    },
+    {
+      "name": "D05 existence query preserves unhealthy evaluation",
+      "pass": true
+    },
+    {
+      "name": "notification grouping preserves event members",
+      "pass": true
+    },
+    {
+      "name": "D01 resource search",
+      "pass": true
+    },
+    {
+      "name": "D01 pagination and unknown state",
+      "pass": true
+    },
+    {
+      "name": "keyboard tab navigation",
+      "pass": true
+    },
+    {
+      "name": "D08 permission changes affect available operations",
+      "pass": true
+    },
+    {
+      "name": "SMTP configuration includes port TLS sender recipient",
+      "pass": true
+    },
+    {
+      "name": "demo reset restores initial policy count",
+      "pass": true
+    },
+    {
+      "name": "Ctrl+Home keeps selected tab",
+      "pass": true
+    },
+    {
+      "name": "AI confirmation remains in the viewport",
+      "pass": true
+    }
+  ],
+  "layout_checks": [
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "light",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "light",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "light",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "light",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "light",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "light",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "light",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "light",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "light",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "light",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "light",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "light",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "light",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "light",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "light",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "light",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "light",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "light",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "light",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "light",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "light",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "light",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "light",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "light",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "active",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "history",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "deliveries",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "policies",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "noise",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "channels",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "ai",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "security",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "light",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "light",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "light",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "zh",
+      "theme": "dark",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "light",
+      "tab": "ai-confirmation",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "locale": "en",
+      "theme": "dark",
+      "tab": "ai-confirmation",
+      "pass": true
+    }
+  ],
+  "console_errors": [],
+  "production_backend": false,
+  "real_model": false,
+  "external_notifications": false
+}

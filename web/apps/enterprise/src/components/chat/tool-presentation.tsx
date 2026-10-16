@@ -3,15 +3,21 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useApi } from "@argus/api-client";
-import { Dialog, ToolPresentationFrame, useTheme } from "@argus/ui";
+import { Button, Dialog, ToolPresentationFrame, useTheme } from "@argus/ui";
+import { LoaderCircle } from "lucide-react";
 import { runtimeConfig } from "../../lib/runtime-config";
+import { toolDisplayName } from "./tool-name";
 
 export function ConversationPresentation({
   conversationId,
   toolCallId,
+  toolName,
+  source,
 }: {
   conversationId: string;
   toolCallId: string;
+  toolName?: string;
+  source?: string;
 }) {
   const navigate = useNavigate();
   const [opened, setOpened] = useState<{
@@ -24,7 +30,7 @@ export function ConversationPresentation({
   const query = useQuery({
     queryKey: ["tool-presentation", conversationId, toolCallId],
     queryFn: () => api.presentations.get(conversationId, toolCallId),
-    staleTime: 0,
+    staleTime: 15_000,
   });
   const detail = useQuery<unknown>({
     queryKey: ["stored-tool-detail", opened],
@@ -34,19 +40,42 @@ export function ConversationPresentation({
         : api.presentations.result(opened!.ref),
     enabled: !!opened,
   });
-  if (query.isError) return <p role="alert">{t("planv5.template.failed")}</p>;
-  if (!query.data) return <p role="status">{t("planv5.template.loading")}</p>;
+  if (query.isError)
+    return (
+      <div className="argus-tool-presentation__placeholder" role="alert">
+        <p>{t("planv5.template.failed")}</p>
+        <Button onPress={() => void query.refetch()}>
+          {t("planv5.template.retry")}
+        </Button>
+      </div>
+    );
+  if (!query.data)
+    return (
+      <div className="argus-tool-presentation__placeholder" role="status">
+        <LoaderCircle className="argus-spin" aria-hidden size={24} />
+        <p>{t("planv5.template.loading")}</p>
+      </div>
+    );
   const origin =
     runtimeConfig().templateOrigin ?? import.meta.env.VITE_TEMPLATE_ORIGIN;
   if (!origin) return <p role="alert">{t("planv5.template.failed")}</p>;
+  const displayName = toolName
+    ? toolDisplayName(t, toolName, source)
+    : t("planv5.template.title");
   return (
     <>
       <ToolPresentationFrame
+        layout="document"
         origin={origin}
         presentation={query.data}
         locale={i18n.language === "en-US" ? "en-US" : "zh-CN"}
         colorScheme={resolvedTheme}
-        title={t("planv5.template.title")}
+        title={displayName}
+        onRead={(input) =>
+          api.presentations.read(conversationId, toolCallId, input)
+        }
+        dataVersion={query.dataUpdatedAt}
+        retryLabel={t("planv5.template.retry")}
         loadingLabel={t("planv5.template.loading")}
         failureLabel={t("planv5.template.failed")}
         expandLabel={t("planv5.template.expand")}

@@ -49,12 +49,18 @@ type ServerInterface interface {
 	// PreviewDeleteHost Freeze a Host logical deletion plan.
 	// (POST /enterprise/hosts/{id}/actions/preview-delete)
 	PreviewDeleteHost(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewDeleteHostParams)
+	// PreviewHostReconnect Verify the current existing SSH target and preview tunnel reauthorization.
+	// (POST /enterprise/hosts/{id}/actions/preview-reconnect)
+	PreviewHostReconnect(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewHostReconnectParams)
 	// PreviewRetryHost Preview a new SSH installation attempt for a failed unregistered Host.
 	// (POST /enterprise/hosts/{id}/actions/preview-retry)
 	PreviewRetryHost(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewRetryHostParams)
 	// PreviewUpdateHost Freeze a Host metadata, labels, or path update.
 	// (POST /enterprise/hosts/{id}/actions/preview-update)
 	PreviewUpdateHost(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewUpdateHostParams)
+	// RefreshHostInventory Collect a fresh local host inventory through the current Connector.
+	// (POST /enterprise/hosts/{id}/inventory/actions/refresh)
+	RefreshHostInventory(w http.ResponseWriter, r *http.Request, id ResourceId, params RefreshHostInventoryParams)
 	// PreviewEnableHostWindowsRDP Preview the registry, NLA, service, and firewall changes required to enable RDP.
 	// (POST /enterprise/hosts/{id}/windows-rdp/actions/preview-enable)
 	PreviewEnableHostWindowsRDP(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewEnableHostWindowsRDPParams)
@@ -142,6 +148,12 @@ func (_ Unimplemented) PreviewDeleteHost(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// PreviewHostReconnect Verify the current existing SSH target and preview tunnel reauthorization.
+// (POST /enterprise/hosts/{id}/actions/preview-reconnect)
+func (_ Unimplemented) PreviewHostReconnect(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewHostReconnectParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // PreviewRetryHost Preview a new SSH installation attempt for a failed unregistered Host.
 // (POST /enterprise/hosts/{id}/actions/preview-retry)
 func (_ Unimplemented) PreviewRetryHost(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewRetryHostParams) {
@@ -151,6 +163,12 @@ func (_ Unimplemented) PreviewRetryHost(w http.ResponseWriter, r *http.Request, 
 // PreviewUpdateHost Freeze a Host metadata, labels, or path update.
 // (POST /enterprise/hosts/{id}/actions/preview-update)
 func (_ Unimplemented) PreviewUpdateHost(w http.ResponseWriter, r *http.Request, id ResourceId, params PreviewUpdateHostParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RefreshHostInventory Collect a fresh local host inventory through the current Connector.
+// (POST /enterprise/hosts/{id}/inventory/actions/refresh)
+func (_ Unimplemented) RefreshHostInventory(w http.ResponseWriter, r *http.Request, id ResourceId, params RefreshHostInventoryParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -884,6 +902,83 @@ func (siw *ServerInterfaceWrapper) PreviewDeleteHost(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// PreviewHostReconnect operation middleware
+func (siw *ServerInterfaceWrapper) PreviewHostReconnect(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewHostReconnectParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewHostReconnect(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PreviewRetryHost operation middleware
 func (siw *ServerInterfaceWrapper) PreviewRetryHost(w http.ResponseWriter, r *http.Request) {
 
@@ -1029,6 +1124,83 @@ func (siw *ServerInterfaceWrapper) PreviewUpdateHost(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PreviewUpdateHost(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshHostInventory operation middleware
+func (siw *ServerInterfaceWrapper) RefreshHostInventory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RefreshHostInventoryParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshHostInventory(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1331,6 +1503,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/enterprise/hosts/{id}/actions/preview-reconnect", wrapper.PreviewHostReconnect)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/enterprise/hosts/{id}/inventory/actions/refresh", wrapper.RefreshHostInventory)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/enterprise/hosts/name-availability", wrapper.CheckHostNameAvailability)
 	})

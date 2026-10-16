@@ -1,6 +1,7 @@
 import { CheckCircle2, CircleSlash, Clock, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "./button";
+import { StatusBadge } from "./status-badge";
 import { DiffViewer } from "./code";
 import { cx } from "./lib";
 import { useUiText } from "./locale";
@@ -42,6 +43,7 @@ export function PreviewCommitCard({
   onConfirm,
   onCancel,
   className,
+  layout = "card",
 }: {
   title: ReactNode;
   risk: PreviewRiskLevel;
@@ -61,6 +63,7 @@ export function PreviewCommitCard({
   onConfirm?: () => void;
   onCancel?: () => void;
   className?: string;
+  layout?: "card" | "dialog" | "workspace";
 }) {
   const text = useUiText();
   const expiresAtMs = expiresAt !== undefined ? toMs(expiresAt) : undefined;
@@ -92,23 +95,49 @@ export function PreviewCommitCard({
     <section
       className={cx(
         "argus-preview-card",
+        layout === "dialog" && "argus-preview-card--dialog",
+        layout === "workspace" && "argus-preview-card--workspace",
         effectiveStatus !== "pending" &&
           `is-${effectiveStatus === "success" ? "success" : "muted"}`,
         className,
       )}
     >
-      <header className="argus-preview-card__header">
-        <span className={cx("argus-risk-badge", `is-${risk}`)}>
-          {riskLabel ?? risk}
-        </span>
-        <strong className="argus-preview-card__title">{title}</strong>
-        {expiresAtMs !== undefined && effectiveStatus === "pending" && (
-          <span className="argus-preview-card__countdown">
-            <Clock aria-hidden size={12} />
-            {formatRemaining(expiresAtMs - now)}
-          </span>
-        )}
-      </header>
+      {layout !== "dialog" && (
+        <header className="argus-preview-card__header">
+          {layout !== "workspace" && (
+            <span className={cx("argus-risk-badge", `is-${risk}`)}>
+              {riskLabel ?? risk}
+            </span>
+          )}
+          <strong className="argus-preview-card__title">{title}</strong>
+          {layout === "workspace" && (
+            <StatusBadge
+              appearance="flat"
+              tone="accent"
+              title={
+                expiresAtMs !== undefined && effectiveStatus === "pending"
+                  ? `${riskLabel ?? risk} · ${formatRemaining(expiresAtMs - now)}`
+                  : (riskLabel ?? risk)
+              }
+            >
+              {effectiveStatus === "pending"
+                ? text("等待用户确认", "Awaiting your confirmation")
+                : defaultResult[effectiveStatus]}
+            </StatusBadge>
+          )}
+          {expiresAtMs !== undefined && effectiveStatus === "pending" && (
+            <span
+              className={cx(
+                "argus-preview-card__countdown",
+                layout === "workspace" && "sr-only",
+              )}
+            >
+              <Clock aria-hidden size={12} />
+              {formatRemaining(expiresAtMs - now)}
+            </span>
+          )}
+        </header>
+      )}
 
       {children && <div className="argus-preview-card__body">{children}</div>}
 
@@ -131,14 +160,32 @@ export function PreviewCommitCard({
 
       {effectiveStatus === "pending" ? (
         <footer className="argus-preview-card__footer">
+          {layout !== "card" && (
+            <span className="argus-preview-card__hint">
+              {text(
+                "请先核对范围与变更，再确认提交。",
+                "Review the scope and changes before confirming.",
+              )}
+            </span>
+          )}
           <Button
+            className="argus-preview-card__cancel"
+            density={layout !== "card" ? "compact" : "default"}
+            size={layout !== "card" ? "lg" : "md"}
             isDisabled={confirming}
             onPress={onCancel}
             variant="secondary"
           >
             {cancelLabel ?? text("取消", "Cancel")}
           </Button>
-          <Button isPending={confirming} onPress={onConfirm} variant="primary">
+          <Button
+            className="argus-preview-card__confirm"
+            density={layout !== "card" ? "compact" : "default"}
+            size={layout !== "card" ? "lg" : "md"}
+            isPending={confirming}
+            onPress={onConfirm}
+            variant="primary"
+          >
             {confirmLabel ?? text("确认执行", "Confirm")}
           </Button>
         </footer>

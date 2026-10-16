@@ -1,5 +1,7 @@
 # Agent、自有 Tool Discovery、客户 MCP、Tool Template 与持久 Workspace
 
+2026-10-15 的 [Plan7](../plan7/README.md)在本基线上新增模型入口 connect、按次远程确认与固定计划批准，并将执行后能力按场景治理。它不取消平台 Preview／Confirm、不为 Workspace 开放生产直连、不改变客户 MCP 独立规则。本文下面的工具集合和验收条目仍是 PlanV5 基线；Plan7 实现启用且 connect 可用时额外计入一个入口，完整自有集合为 8＋N。新增部分当前均未实现，状态见 [Plan7 实施状态](../plan7/implementation-status.md)。
+
 本架构已于 2026-09-13 同步 [已确认决策](./02-confirmed-decisions-and-open-questions.md) Q1～Q16。首期客户 MCP 仅 Remote Streamable HTTP，超容量运行前拒绝，业务文件上传/产物下载纳入正式范围。当前运行链路已按新基线切换；最新 R12/R13 修复和 P5 验收见 [修复记录](./fixes-r12-r13-2026-09-22.md)。真实中文模型评测仍未运行，整体不能标为全量完成。
 
 ## 1. 背景（立项时状态）
@@ -257,44 +259,25 @@ Manifest 不向模型暴露 executor 内部地址、命令、Secret、镜像、P
 
 ### 5.3 `tool.search`
 
-输入：
+2026-10-14 改为按分类返回完整授权工具列表，替代关键词和分页查询。新契约见[分类发现](./category-only-discovery-20261014.md)。
+
+输入固定为：
 
 ```json
-{
-  "category": "metric",
-  "query": "错误率 时间序列",
-  "limit": 10,
-  "cursor": ""
-}
+{"category":"metric"}
 ```
 
-约束：
+- 仅接受已知的必填 `category`；不接受 `query/limit/cursor`。
+- 返回当前企业、用户权限和 Run 范围内该分类的全部工具，按名称稳定排序。
+- 每项含名称、中英标题、用途摘要、风险、确认标记及版本，完整 Schema 由 Describe 提供。
+- 返回 `complete=true` 和 `catalog_revision`，没有游标；空列表表示当前范围没有可用工具。
+- 系统提示和搜索工具描述由同一份九分类导航生成，模型据此选择分类与工具。
+- Agent 保留发现列表完整性；上下文容量不足沿既有门禁处理，不静默裁剪列表。
 
-- `category` 必填且必须是已知枚举。
-- `query` 可以为空；为空表示列出分类内最相关的一页。
-- `limit` 默认 10，最大 20。
-- 只返回当前企业、用户权限和本 Run Capability Snapshot 可用的 Tool。
-- 搜索匹配 Manifest 的名称、标题、描述和关键词，不搜索完整 Schema 或模板源码。
-- 排序必须确定性，相同目录版本和输入产生相同结果与 Hash。
-
-输出只包含发现所需摘要：
+输出示意：
 
 ```json
-{
-  "category": "metric",
-  "items": [
-    {
-      "name": "query_range",
-      "title": "查询指标时间序列",
-      "summary": "按资源和时间范围查询指标",
-      "risk": "read",
-      "requires_confirmation": false,
-      "version": 1
-    }
-  ],
-  "next_cursor": null,
-  "catalog_revision": "..."
-}
+{"category":"metric","items":[{"name":"query","title":"指标查询 / Metric query","summary":"查询授权资源的指标。","risk":"read","requires_confirmation":false,"version":"..."}],"complete":true,"catalog_revision":"..."}
 ```
 
 ### 5.4 `tool.describe`

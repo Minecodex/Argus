@@ -1,3 +1,5 @@
+import { collectorReplicaStatus } from "./collector-replicas";
+import { kubernetesCollectorNamespace } from "@argus/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,45 +21,16 @@ import {
   Progress,
   StatCard,
   StatusBadge,
-  Switch,
+  SettingCard,
 } from "@argus/ui";
 import { PendingActionCard } from "./pending-action-card";
 import { bindingCoverage, collectorStatusTone } from "./status";
-
-type ProfileKey = "nodeMetrics" | "containerLogs" | "clusterTraces";
-
-const PROFILE_TOKEN: Record<ProfileKey, string> = {
-  nodeMetrics: "node-metrics",
-  containerLogs: "container-logs",
-  clusterTraces: "cluster-traces",
-};
-const PROFILE_KEYS: ProfileKey[] = [
-  "nodeMetrics",
-  "containerLogs",
-  "clusterTraces",
-];
-
-/** 依据当前 profile 推导开关初始态：DaemonSet 默认负责节点/容器指标与容器日志。 */
-function initialProfiles(profile: string): Record<ProfileKey, boolean> {
-  const tokens = profile.split(",").map((token) => token.trim());
-  return {
-    nodeMetrics:
-      tokens.includes(PROFILE_TOKEN.nodeMetrics) ||
-      tokens.includes("k8s-daemonset"),
-    containerLogs:
-      tokens.includes(PROFILE_TOKEN.containerLogs) ||
-      tokens.includes("k8s-daemonset"),
-    clusterTraces: tokens.includes(PROFILE_TOKEN.clusterTraces),
-  };
-}
-
-function toProfileString(enabled: Record<ProfileKey, boolean>): string {
-  const tokens = ["k8s-daemonset"];
-  for (const key of PROFILE_KEYS) {
-    if (enabled[key]) tokens.push(PROFILE_TOKEN[key]);
-  }
-  return tokens.join(",");
-}
+import {
+  CLUSTER_PROFILE_KEYS as PROFILE_KEYS,
+  clusterProfileBaseline,
+  clusterProfileIds,
+  type ClusterProfileKey as ProfileKey,
+} from "./collector-profile-draft";
 
 /** 已安装 OTLP 收集器：状态面板（副本/覆盖率/冲突/出口）+ Profile 开关配置。 */
 export function CollectorStatusPanel({
@@ -79,6 +52,16 @@ export function CollectorStatusPanel({
     queryKey: ["kubernetes", "collectionClaims", cluster.id],
     queryFn: () => api.kubernetes.listCollectionClaims(cluster.id),
   });
+  const workloadQuery = useQuery({
+    queryKey: ["kubernetes", "collector-workload", cluster.id, collector.id],
+    queryFn: () =>
+      api.kubernetes.listResources(cluster.id, {
+        resource_type: "daemonset",
+        namespace: kubernetesCollectorNamespace,
+        limit: 200,
+      }),
+    refetchInterval: 15_000,
+  });
   const profilesQuery = useQuery({
     queryKey: ["telemetry", "profiles"],
     queryFn: () => api.telemetry.listProfiles(),
@@ -88,16 +71,24 @@ export function CollectorStatusPanel({
     queryFn: () => api.telemetry.listDistributions(),
   });
 
-  const [profiles, setProfiles] = useState(() =>
-    initialProfiles("k8s-daemonset"),
-  );
+  const [draft, setDraft] = useState<Record<ProfileKey, boolean> | null>(null);
   const [pendingAction, setPendingAction] =
     useState<PendingActionPublic | null>(null);
   const [routeTested, setRouteTested] = useState(false);
   const [customImage, setCustomImage] = useState("");
   const [imagePullSecretInput, setImagePullSecretInput] = useState("");
 
-  const baseline = useMemo(() => initialProfiles("k8s-daemonset"), []);
+  const baseline = useMemo(
+    () =>
+      clusterProfileBaseline(
+        collector.id,
+        claimsQuery.data ?? [],
+        profilesQuery.data ?? [],
+      ),
+    [collector.id, claimsQuery.data, profilesQuery.data],
+  );
+  const profiles = draft ?? baseline;
+  const hasProfiles = PROFILE_KEYS.some((key) => profiles[key]);
 
   const diffLines = useMemo(() => {
     const lines: Array<{
@@ -113,7 +104,7 @@ export function CollectorStatusPanel({
       if (profiles[key] === baseline[key]) continue;
       lines.push({
         type: profiles[key] ? "add" : "remove",
-        content: `${t(`kubernetes.collector.status.profiles.${key}`)}: ${
+        content: `${t(`collectionUi.clusterTitle.${key}`)}: ${
           profiles[key] ? "on" : "off"
         }`,
       });
@@ -149,17 +140,8 @@ export function CollectorStatusPanel({
       if (!collector.route) {
         throw new Error("COLLECTOR_ROUTE_TRANSPORT_INVALID");
       }
-      const keys = toProfileString(profiles).split(",");
-      const catalogKeys = new Set<string>();
-      if (keys.includes("k8s-daemonset") || keys.includes("node-metrics")) {
-        catalogKeys.add("k8s-node-container");
-      }
-      if (keys.includes("cluster-traces")) {
-        catalogKeys.add("k8s-otlp-gateway");
-      }
-      const profileIds = (profilesQuery.data ?? [])
-        .filter((profile) => catalogKeys.has(profile.key))
-        .map((profile) => profile.id);
+      const profileIds = clusterProfileIds(profiles, profilesQuery.data ?? []);
+      if (!profileIds.length) throw new Error("COLLECTOR_PROFILE_INVALID");
       return api.kubernetes.previewCollectorAction(cluster.id, "configure", {
         distribution_version_id: collector.distribution_version_id,
         profile_ids: profileIds,
@@ -223,7 +205,17 @@ export function CollectorStatusPanel({
     onSuccess: (result) => setRouteTested(result.status === "succeeded"),
   });
 
-  const coverage = bindingCoverage(cluster, bindingsQuery.data);
+  const coverage =
+    bindingsQuery.isSuccess && cluster.node_count !== undefined
+      ? bindingCoverage(cluster, bindingsQuery.data)
+      : undefined;
+  const replicas = workloadQuery.isSuccess
+    ? collectorReplicaStatus(workloadQuery.data.items, collector.id)
+    : undefined;
+  const unavailable = t("kubernetes.card.dataUnavailable");
+  const distribution = distributionsQuery.data?.find(
+    (entry) => entry.id === collector.distribution_version_id,
+  );
   const conflicts = (claimsQuery.data ?? []).filter(
     (claim) => claim.status === "conflict",
   );
@@ -247,34 +239,44 @@ export function CollectorStatusPanel({
           }
         />
         <StatCard
-          detail={`${coverage.verified}/${coverage.total}`}
+          detail={
+            coverage ? `${coverage.verified}/${coverage.total}` : unavailable
+          }
           label={t("kubernetes.collector.status.bindingCoverage")}
-          tone={coverage.percent >= 100 ? "success" : "warning"}
-          value={`${coverage.percent}%`}
+          tone={coverage && coverage.percent >= 100 ? "success" : "warning"}
+          value={coverage ? `${coverage.percent}%` : unavailable}
         />
         <StatCard
           label={t("kubernetes.collector.status.claimConflicts")}
           tone={conflicts.length > 0 ? "danger" : "success"}
           value={
-            conflicts.length > 0
-              ? String(conflicts.length)
-              : t("kubernetes.collector.status.noConflicts")
+            !claimsQuery.isSuccess
+              ? unavailable
+              : conflicts.length > 0
+                ? String(conflicts.length)
+                : t("kubernetes.collector.status.noConflicts")
           }
         />
         <StatCard
           label={t("kubernetes.collector.status.version")}
-          value={collector.platform}
+          value={distribution?.collector_version || unavailable}
         />
       </div>
 
       <Card>
         <CardHeader title={t("kubernetes.collector.status.readyReplicas")} />
         <CardContent>
-          <Progress
-            label={collector.status === "converged" ? "100%" : "60%"}
-            tone={collector.status === "converged" ? "success" : "accent"}
-            value={collector.status === "converged" ? 100 : 60}
-          />
+          {replicas ? (
+            <Progress
+              label={`${replicas.ready}/${replicas.desired} (${replicas.percent}%)`}
+              tone={replicas.ready === replicas.desired ? "success" : "accent"}
+              value={replicas.percent}
+            />
+          ) : (
+            <p className="argus-muted">
+              {workloadQuery.isPending ? t("common.loading") : unavailable}
+            </p>
+          )}
           {collector.status === "degraded" &&
             collector.last_operation_error_code && (
               <p className="argus-mono">
@@ -446,29 +448,29 @@ export function CollectorStatusPanel({
         />
         <CardContent>
           <div className="argus-k8s-stack">
-            <div className="argus-k8s-profile-switches">
+            <div className="argus-collection-capabilities">
               {PROFILE_KEYS.map((key) => (
-                <div className="argus-k8s-profile-switches__row" key={key}>
-                  <span>
-                    {t(`kubernetes.collector.status.profiles.${key}`)}
-                  </span>
-                  <Switch
-                    checked={profiles[key]}
-                    label={t(`kubernetes.collector.status.profiles.${key}`)}
-                    onChange={(checked) =>
-                      setProfiles((current) => ({
-                        ...current,
-                        [key]: checked,
-                      }))
-                    }
-                  />
-                </div>
+                <SettingCard
+                  key={key}
+                  checked={profiles[key]}
+                  title={t(`collectionUi.clusterTitle.${key}`)}
+                  description={t(`collectionUi.cluster.${key}`)}
+                  onChange={(checked) =>
+                    setDraft(() => ({
+                      ...profiles,
+                      [key]: checked,
+                    }))
+                  }
+                />
               ))}
             </div>
             <div>
               <h3 className="argus-k8s-section-title">
                 {t("kubernetes.collector.status.diffTitle")}
               </h3>
+              {changed && !hasProfiles && (
+                <p role="alert">{t("collectionUi.emptyCapabilities")}</p>
+              )}
               {changed ? (
                 <DiffViewer lines={diffLines} />
               ) : (
@@ -482,6 +484,7 @@ export function CollectorStatusPanel({
                 action={pendingAction}
                 onSettled={() => {
                   setPendingAction(null);
+                  setDraft(null);
                   void queryClient.invalidateQueries({
                     queryKey: ["kubernetes"],
                   });
@@ -491,7 +494,10 @@ export function CollectorStatusPanel({
               <div>
                 <Button
                   isDisabled={
-                    !changed || imageInvalid || imagePullSecretsInvalid
+                    !changed ||
+                    !hasProfiles ||
+                    imageInvalid ||
+                    imagePullSecretsInvalid
                   }
                   isPending={previewChange.isPending}
                   onPress={() => previewChange.mutate()}

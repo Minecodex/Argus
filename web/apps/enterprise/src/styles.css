@@ -32,19 +32,6 @@ kbd,
   color: var(--text-inverse);
   background: color-mix(in srgb, var(--accent) 45%, transparent);
 }
-::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border: 2px solid transparent;
-  border-radius: var(--radius-pill);
-  background-clip: padding-box;
-}
 
 /* 远程终端 Dock 参与外壳网格切分（非遮罩）；尺寸由 --terminal-dock-size 控制。
    Chrome DevTools 语义：Dock 与整个界面平分屏幕——底部模式横跨全宽，

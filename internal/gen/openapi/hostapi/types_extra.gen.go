@@ -11,9 +11,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// ConnectionTestArchitecture defines model for ConnectionTest.Architecture.
-type ConnectionTestArchitecture string
-
 // ConnectionTestChecksStatus defines model for ConnectionTest.Checks.Status.
 type ConnectionTestChecksStatus string
 
@@ -58,6 +55,7 @@ type Host struct {
 	Environment        Environment             `json:"environment"`
 	Hostname           *string                 `json:"hostname,omitempty"`
 	Id                 openapi_types.UUID      `json:"id"`
+	Inventory          *HostInventory          `json:"inventory,omitempty"`
 	Labels             Labels                  `json:"labels"`
 	LabelsVersion      int64                   `json:"labels_version"`
 	LastSeenAt         *time.Time              `json:"last_seen_at,omitempty"`
@@ -119,6 +117,76 @@ type HostControlPath string
 
 // HostInstallMethod defines model for HostInstallMethod.
 type HostInstallMethod string
+
+// HostInventory defines model for HostInventory.
+type HostInventory struct {
+	Architecture string     `json:"architecture"`
+	BootTime     *time.Time `json:"boot_time,omitempty"`
+	Cloud        struct {
+		InstanceId string                   `json:"instance_id"`
+		Provider   string                   `json:"provider"`
+		Region     string                   `json:"region"`
+		Status     HostInventoryCloudStatus `json:"status"`
+		Zone       string                   `json:"zone"`
+	} `json:"cloud"`
+	CollectedAt time.Time `json:"collected_at"`
+	Cpu         *struct {
+		LogicalCores  int    `json:"logical_cores"`
+		Model         string `json:"model"`
+		PhysicalCores int    `json:"physical_cores"`
+	} `json:"cpu,omitempty"`
+	Disks []struct {
+		Device     string `json:"device"`
+		Filesystem string `json:"filesystem"`
+		FreeBytes  int64  `json:"free_bytes"`
+		Mountpoint string `json:"mountpoint"`
+		TotalBytes int64  `json:"total_bytes"`
+		UsedBytes  int64  `json:"used_bytes"`
+	} `json:"disks"`
+	Gpus []struct {
+		DeviceId    string `json:"device_id"`
+		MemoryBytes int64  `json:"memory_bytes"`
+		Name        string `json:"name"`
+		Vendor      string `json:"vendor"`
+	} `json:"gpus"`
+	HardwareUuid string `json:"hardware_uuid"`
+	Hostname     string `json:"hostname"`
+	Issues       []struct {
+		Code    string `json:"code"`
+		Section string `json:"section"`
+	} `json:"issues"`
+	KernelVersion string `json:"kernel_version"`
+	MachineId     string `json:"machine_id"`
+	Memory        *struct {
+		SwapBytes  int64 `json:"swap_bytes"`
+		TotalBytes int64 `json:"total_bytes"`
+	} `json:"memory,omitempty"`
+	Networks []struct {
+		Addresses []string                   `json:"addresses"`
+		Mac       string                     `json:"mac"`
+		Mtu       int                        `json:"mtu"`
+		Name      string                     `json:"name"`
+		State     HostInventoryNetworksState `json:"state"`
+	} `json:"networks"`
+	Os                   string                     `json:"os"`
+	OsVersion            string                     `json:"os_version"`
+	SchemaVersion        HostInventorySchemaVersion `json:"schema_version"`
+	Scope                HostInventoryScope         `json:"scope"`
+	VirtualizationRole   string                     `json:"virtualization_role"`
+	VirtualizationSystem string                     `json:"virtualization_system"`
+}
+
+// HostInventoryCloudStatus defines model for HostInventory.Cloud.Status.
+type HostInventoryCloudStatus string
+
+// HostInventoryNetworksState defines model for HostInventory.Networks.State.
+type HostInventoryNetworksState string
+
+// HostInventorySchemaVersion defines model for HostInventory.SchemaVersion.
+type HostInventorySchemaVersion string
+
+// HostInventoryScope defines model for HostInventory.Scope.
+type HostInventoryScope string
 
 // HostOnboardingOperation defines model for HostOnboardingOperation.
 type HostOnboardingOperation struct {
@@ -577,6 +645,12 @@ type PreviewDeleteHostParams struct {
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
 }
 
+// PreviewHostReconnectParams defines parameters for PreviewHostReconnect.
+type PreviewHostReconnectParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+}
+
 // PreviewRetryHostParams defines parameters for PreviewRetryHost.
 type PreviewRetryHostParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
@@ -585,6 +659,12 @@ type PreviewRetryHostParams struct {
 
 // PreviewUpdateHostParams defines parameters for PreviewUpdateHost.
 type PreviewUpdateHostParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+}
+
+// RefreshHostInventoryParams defines parameters for RefreshHostInventory.
+type RefreshHostInventoryParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
 }
@@ -617,6 +697,9 @@ type CreateHostConnectionTestJSONRequestBody = HostConnectionTestCreate
 
 // PreviewDeleteHostJSONRequestBody defines body for PreviewDeleteHost for application/json ContentType.
 type PreviewDeleteHostJSONRequestBody = ResourcePreviewDelete
+
+// PreviewHostReconnectJSONRequestBody defines body for PreviewHostReconnect for application/json ContentType.
+type PreviewHostReconnectJSONRequestBody = ResourcePreviewDelete
 
 // PreviewRetryHostJSONRequestBody defines body for PreviewRetryHost for application/json ContentType.
 type PreviewRetryHostJSONRequestBody = HostPreviewCreate

@@ -13,6 +13,10 @@ deploy/.cache/
 *.out
 coverage.*
 
+# Python helper caches
+__pycache__/
+*.py[cod]
+
 # Local configuration
 .env
 .env.*
@@ -28,3 +32,4 @@ build/otelcol/artifacts/
 /.commandcode/
 /.claude/
 /.zcode/
+/.cache/

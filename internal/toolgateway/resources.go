@@ -32,7 +32,6 @@ func (tools ResourceTools) Register(registry *mcp.Registry) error {
 		tools.query("kubernetes.cluster.get", true, "kubernetes.read", idSchema("cluster_id"), requireID("cluster_id"), tools.getCluster),
 		tools.query("connector.list", true, "connector.read", emptyObjectSchema(), noFields, tools.listConnectors),
 		tools.query("connector.get", true, "connector.read", idSchema("connector_id"), requireID("connector_id"), tools.getConnector),
-		tools.query("pending_action.list", true, "pending_action.read", emptyObjectSchema(), noFields, tools.listPendingActions),
 		tools.query("pending_action.get", true, "pending_action.read", stringIDSchema("action_ref"), requireString("action_ref"), tools.getPendingAction),
 		tools.mutation("pending_action.cancel", "pending_action.confirm", stringIDSchema("action_ref"), requireString("action_ref"), tools.cancelPendingAction),
 		tools.preview("host.create.preview", "host.manage", hostCreateSchema(), validateHostCreate, tools.previewHostCreate),
@@ -484,7 +483,11 @@ func (tools ResourceTools) getHost(ctx context.Context, call mcp.Call) (mcp.Resu
 		return mcp.Result{}, err
 	}
 	labels, _ := resource.DecodeLabels(item.Labels)
-	return mcp.Result{Structured: map[string]any{"id": item.ID, "name": item.Name, "hostname": item.Hostname, "address": item.Address, "platform": item.Platform, "labels": labels, "resource_version": item.ResourceVersion}}, nil
+	inventory, err := tools.Resources.GetHostInventory(ctx, enterpriseID, hostID, subject.AuthorizedResourceIDs)
+	if err != nil {
+		return mcp.Result{}, err
+	}
+	return mcp.Result{Structured: map[string]any{"id": item.ID, "name": item.Name, "hostname": item.Hostname, "address": item.Address.String, "platform": item.Platform, "role": item.Role, "control_path": item.ControlPath, "connection_status": item.ConnectionStatus, "labels": labels, "resource_version": item.ResourceVersion, "inventory": inventory}}, nil
 }
 func (tools ResourceTools) listClusters(ctx context.Context, call mcp.Call) (mcp.Result, error) {
 	subject, enterpriseID, err := tools.subject(ctx, call)
@@ -516,7 +519,7 @@ func (tools ResourceTools) getCluster(ctx context.Context, call mcp.Call) (mcp.R
 		return mcp.Result{}, err
 	}
 	labels, _ := resource.DecodeLabels(item.Labels)
-	return mcp.Result{Structured: map[string]any{"id": item.ID, "name": item.Name, "api_server": item.ApiServer, "connection_mode": item.ConnectionMode, "labels": labels, "resource_version": item.ResourceVersion}}, nil
+	return mcp.Result{Structured: map[string]any{"id": item.ID, "name": item.Name, "api_server": item.ApiServer, "connection_mode": item.ConnectionMode, "status": item.Status, "labels": labels, "resource_version": item.ResourceVersion}}, nil
 }
 func (tools ResourceTools) listKubernetesResource(resourceType string) func(context.Context, mcp.Call) (mcp.Result, error) {
 	return func(ctx context.Context, call mcp.Call) (mcp.Result, error) {
@@ -578,7 +581,7 @@ func (tools ResourceTools) listConnectors(ctx context.Context, call mcp.Call) (m
 	}
 	result := make([]map[string]any, 0, len(items))
 	for _, item := range items {
-		result = append(result, map[string]any{"id": item.ID, "name": item.Name, "role": item.Role, "status": item.Status, "connection_epoch": item.ConnectionEpoch, "last_heartbeat_at": item.LastHeartbeatAt})
+		result = append(result, connectorToolResult(item))
 	}
 	return mcp.Result{Structured: map[string]any{"items": result}}, nil
 }
@@ -595,22 +598,11 @@ func (tools ResourceTools) getConnector(ctx context.Context, call mcp.Call) (mcp
 	if err != nil {
 		return mcp.Result{}, err
 	}
-	return mcp.Result{Structured: map[string]any{"id": item.ID, "name": item.Name, "role": item.Role, "status": item.Status, "connection_epoch": item.ConnectionEpoch}}, nil
+	return mcp.Result{Structured: connectorToolResult(item)}, nil
 }
-func (tools ResourceTools) listPendingActions(ctx context.Context, call mcp.Call) (mcp.Result, error) {
-	_, enterpriseID, err := tools.subject(ctx, call)
-	if err != nil {
-		return mcp.Result{}, err
-	}
-	items, err := tools.Store.Queries.ListPendingActions(ctx, enterpriseID)
-	if err != nil {
-		return mcp.Result{}, err
-	}
-	result := make([]map[string]any, 0, len(items))
-	for _, item := range items {
-		result = append(result, pendingProjection(item))
-	}
-	return mcp.Result{Structured: map[string]any{"items": result}}, nil
+
+func connectorToolResult(item db.Connector) map[string]any {
+	return map[string]any{"id": item.ID, "name": item.Name, "role": item.Role, "status": item.Status, "connection_epoch": item.ConnectionEpoch, "software_version": item.SoftwareVersion, "last_heartbeat_at": item.LastHeartbeatAt, "capabilities": item.Capabilities, "host_id": item.HostID, "kubernetes_cluster_id": item.KubernetesClusterID}
 }
 func (tools ResourceTools) getPendingAction(ctx context.Context, call mcp.Call) (mcp.Result, error) {
 	_, enterpriseID, err := tools.subject(ctx, call)

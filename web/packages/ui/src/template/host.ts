@@ -6,7 +6,11 @@ import {
   type TemplateContext,
   type TemplatePresentation,
   type TemplateResource,
+  type TemplateReadInput,
+  type TemplateReadResult,
+  type TemplateReadOperation,
 } from "./protocol";
+import { scheduleTemplateLoad } from "./load-queue";
 
 export type TemplateHostOptions = {
   origin: string;
@@ -17,6 +21,7 @@ export type TemplateHostOptions = {
   onResize(height: number): void;
   onResource?(ref: TemplateResource): void;
   onResult?(ref: string): void;
+  onRead?(input: TemplateReadInput): Promise<TemplateReadResult>;
 };
 
 export function createTemplateHost(
@@ -32,16 +37,23 @@ export function createTemplateHost(
   )
     throw new Error("Template runtime requires its own HTTP origin");
   const nonce = crypto.randomUUID();
+  const version = options.presentation.runtime ?? TEMPLATE_PROTOCOL;
   let outgoing = 0,
     incoming = 0,
     destroyed = false;
   let port: MessagePort | undefined;
   let context = options.context;
-  const envelope = (type: string, payload: Record<string, unknown>) => ({
-    version: TEMPLATE_PROTOCOL,
+  const requests = new Set<string>();
+  let activeReads = 0;
+  const envelope = (
+    type: string,
+    payload: Record<string, unknown>,
+    requestId?: string,
+  ) => ({
+    version,
     nonce,
     sequence: ++outgoing,
-    request_id: crypto.randomUUID(),
+    request_id: requestId ?? crypto.randomUUID(),
     type,
     payload,
   });
@@ -52,10 +64,8 @@ export function createTemplateHost(
     options.onError("TEMPLATE_PROTOCOL_REJECTED");
     destroy();
   };
-  const timeout = window.setTimeout(() => {
-    options.onError("TEMPLATE_LOAD_TIMEOUT");
-    destroy();
-  }, 15_000);
+  let timeout: number | undefined;
+  let releaseLoad: (() => void) | undefined;
   const connect = () => {
     if (destroyed || port || !iframe.contentWindow) return;
     const channel = new MessageChannel();
@@ -65,6 +75,7 @@ export function createTemplateHost(
       if (
         !isTemplateMessage(event.data) ||
         event.data.nonce !== nonce ||
+        event.data.version !== version ||
         event.data.sequence <= incoming
       ) {
         reject();
@@ -74,17 +85,19 @@ export function createTemplateHost(
       incoming = sequence;
       if (type === "ready") {
         window.clearTimeout(timeout);
+        releaseLoad?.();
         options.onReady();
       } else if (type === "resize") {
         if (
           typeof payload.height !== "number" ||
           !Number.isFinite(payload.height) ||
+          !Number.isSafeInteger(Math.ceil(payload.height)) ||
           payload.height < 1
         ) {
           reject();
           return;
         }
-        options.onResize(Math.min(Math.ceil(payload.height), 2000));
+        options.onResize(Math.ceil(payload.height));
       } else if (type === "open_resource") {
         const ref = options.presentation.resource_refs?.find(
           (ref) => ref.id === payload.id && ref.type === payload.type,
@@ -103,6 +116,62 @@ export function createTemplateHost(
           return;
         }
         options.onResult?.(payload.ref);
+      } else if (type === "data_request") {
+        if (
+          !options.onRead ||
+          !options.presentation.read_operations?.includes(
+            String(payload.operation),
+          )
+        ) {
+          reject();
+          return;
+        }
+        const requestId = event.data.request_id;
+        if (
+          requests.has(requestId) ||
+          requests.size >= 2048 ||
+          activeReads >= 8
+        ) {
+          reject();
+          return;
+        }
+        requests.add(requestId);
+        activeReads++;
+        void options
+          .onRead({
+            operation: payload.operation as TemplateReadOperation,
+            parameters: payload.parameters as Record<string, unknown>,
+          })
+          .then(
+            (result) => {
+              if (destroyed || !port) return;
+              const reply = envelope("data_response", { result }, requestId);
+              if (messageBytes(reply) > TEMPLATE_MAX_BYTES) {
+                port.postMessage(
+                  envelope(
+                    "data_response",
+                    { error: "PRESENTATION_RESPONSE_TOO_LARGE" },
+                    requestId,
+                  ),
+                );
+                return;
+              }
+              port.postMessage(reply);
+            },
+            () => {
+              if (!destroyed)
+                port?.postMessage(
+                  envelope(
+                    "data_response",
+                    { error: "PRESENTATION_READ_FAILED" },
+                    requestId,
+                  ),
+                );
+            },
+          )
+          .finally(() => {
+            activeReads--;
+          });
       } else if (type === "error") {
         options.onError("TEMPLATE_RENDER_FAILED");
         destroy();
@@ -123,6 +192,7 @@ export function createTemplateHost(
     send("destroy", {});
     destroyed = true;
     window.clearTimeout(timeout);
+    releaseLoad?.();
     iframe.removeEventListener("load", connect);
     port?.close();
     port = undefined;
@@ -130,14 +200,24 @@ export function createTemplateHost(
   }
   iframe.setAttribute("sandbox", "allow-scripts");
   iframe.referrerPolicy = "no-referrer";
-  iframe.addEventListener("load", connect, { once: true });
   target.pathname = "/";
   target.search = "";
   target.hash = "";
   target.searchParams.set("parent_origin", window.location.origin);
-  iframe.src = target.toString();
+  releaseLoad = scheduleTemplateLoad((release) => {
+    releaseLoad = release;
+    iframe.addEventListener("load", connect, { once: true });
+    timeout = window.setTimeout(() => {
+      options.onError("TEMPLATE_LOAD_TIMEOUT");
+      destroy();
+    }, 15_000);
+    iframe.src = target.toString();
+  });
   return {
     destroy,
+    notifyData() {
+      if (version === "argus-template/v2") send("data_available", {});
+    },
     setContext(value: TemplateContext) {
       context = value;
       send("context", value);

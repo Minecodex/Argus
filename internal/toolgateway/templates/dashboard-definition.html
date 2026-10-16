@@ -1,0 +1,27 @@
+<section id="definition-view"></section>
+<script>
+(() => {
+ const v=ArgusView,t=(a,b)=>v.text(a,b);
+ const catalog=(root,data)=>{const kind=data.catalog_kind,context=data.catalog_context||{},titles={metrics:t('指标目录','Metric catalog'),fields:t('字段目录','Field catalog'),values:t('取值目录','Value catalog'),resources:t('资源与采集能力','Resources and source capabilities')};root.dataset.catalogKind=kind;v.header(root,titles[kind]||t('遥测目录','Telemetry catalog'));v.fields(root,[[t('信号 / 字段','Signal / field'),[context.signal,context.metric,context.field].filter(Boolean).join(' · ')],[t('实际时间','Effective time'),v.time(context.from)+' – '+v.time(context.to)],[t('搜索','Search'),context.search]]);
+  const columns=kind==='metrics'?[[t('指标','Metric'),'name'],[t('类型','Type'),'type'],[t('单位','Unit'),row=>row.unit||t('未识别','Unknown')],[t('标签','Labels'),'labels']]:kind==='fields'?[[t('字段','Field'),'name'],[t('类型','Type'),'type']]:kind==='values'?[[t('候选值','Value'),'value']]:[[t('名称','Name'),row=>v.name(row)],[t('资源类型','Resource type'),row=>row.type||row.resource_type]];
+  void v.pages(root,data,(target,rows)=>v.table(target,rows,columns));
+  if(kind==='values'&&Object.keys(data.selected_exists||{}).length){const target=v.section(root,t('已选值存在性','Selected value presence'),true);v.table(target,Object.entries(data.selected_exists).map(([value,exists])=>({value,exists})),[[t('已选值','Selected value'),'value'],[t('本次范围存在','Exists in query scope'),row=>row.exists?t('存在','Present'):t('不存在','Absent')]]);}
+  if(data.source_capabilities?.length){const target=v.section(root,t('注册采集能力','Registered source capabilities'),true);v.table(target,data.source_capabilities,[[t('来源','Source'),'source_type'],[t('信号','Signal'),'signal'],[t('能力版本','Capability version'),'capability_version'],[t('资源','Resources'),row=>(row.resource_ids||[]).map(id=>(data.resources||[]).find(item=>item.id===id)?.name||id).join(' · ')],[t('数据状态','Data state'),row=>row.data_state==='not_sampled'?t('尚未采样验证','Not sampled'):row.data_state]]);}
+  if(data.has_more||data.complete===false)v.note(root,t('当前仅展示本次工具已查询的业务页；让 AI 继续检索可获取后续结果。','This card contains the queried business page; ask AI to retrieve additional results.'));
+  if(data.meta){const target=v.section(root,t('检索执行信息','Catalog execution details'));v.fields(target,Object.entries(data.meta));}
+ };
+ const detail=(root,data)=>{
+  const definition=data.spec||data.definition||data.revision?.spec||data.draft?.spec||{},item=data.dashboard||data.draft||data;
+  v.header(root,v.name(item)||t('仪表盘定义','Dashboard definition'),item.description);
+  const target=v.node('div');root.append(target);
+  ArgusTemplate.dashboardDefinition(target,{definition,metadata:item});
+ };
+
+ v.mount(document.getElementById('definition-view'),(root,data)=>{
+  if(v.entry==='telemetry-catalog')catalog(root,data);
+  else if(v.entry==='dashboard-list'){v.header(root,t('仪表盘目录','Dashboard catalog'));void v.pages(root,data,(target,rows)=>v.table(target,rows,[[t('名称','Name'),row=>v.name(row)],[t('说明 / 类型','Description / type'),row=>row.description||row.resource_type||row.metric_type||row.type],[t('版本','Revision'),row=>row.revision_number||row.version],[t('更新时间','Updated'),row=>v.time(row.updated_at)]],detail));}
+  else if(v.entry==='dashboard-draft-validation'){v.header(root,t('草稿校验','Draft validation'));v.fields(root,[[t('状态','Status'),data.status||data.valid],[t('样本状态','Sample status'),data.sample_status||data.sample?.status||t('未提供样本','No sample provided')]]);const issues=data.issues||data.validation?.issues||[];v.table(root,issues,[[t('问题路径','Issue path'),row=>row.path||row.field],[t('级别','Severity'),'severity'],[t('原因','Reason'),row=>row.message||row.code]]);if(data.sample){const target=v.section(root,t('样本执行信息','Sample execution'));v.note(target,v.value(data.sample));}}
+  else detail(root,data);
+ });
+})();
+</script>

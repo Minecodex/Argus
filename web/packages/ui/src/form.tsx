@@ -44,9 +44,19 @@ export function FieldBoundary({ children }: { children: ReactNode }) {
 export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
   size?: ControlSize;
   appearance?: "field" | "title";
+  density?: "default" | "compact";
 };
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, size = "md", appearance = "field", ...props }, ref) => {
+  (
+    {
+      className,
+      size = "md",
+      appearance = "field",
+      density = "default",
+      ...props
+    },
+    ref,
+  ) => {
     const field = useContext(FieldContext);
     return (
       <HeroInput
@@ -65,6 +75,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         className={cx(
           "argus-input",
           `argus-control--${size}`,
+          density === "compact" && "argus-input--compact",
           appearance === "title" && "argus-input--title",
           className,
         )}
@@ -76,31 +87,39 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 );
 Input.displayName = "Input";
 
-export const Textarea = forwardRef<
-  HTMLTextAreaElement,
-  TextareaHTMLAttributes<HTMLTextAreaElement>
->(({ className, ...props }, ref) => {
-  const field = useContext(FieldContext);
-  return (
-    <HeroTextarea
-      ref={ref}
-      {...props}
-      aria-describedby={mergeAriaIds(
-        props["aria-describedby"],
-        field?.descriptionId,
-      )}
-      aria-invalid={props["aria-invalid"] ?? (field?.invalid || undefined)}
-      aria-labelledby={mergeAriaIds(
-        props["aria-labelledby"],
-        field?.controlId ? undefined : field?.labelId,
-      )}
-      aria-required={props["aria-required"] ?? (field?.required || undefined)}
-      className={cx("argus-textarea", className)}
-      id={props.id ?? field?.controlId}
-      required={props.required ?? field?.required}
-    />
-  );
-});
+export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  /** The enclosing composite control supplies the border and focus indicator. */
+  appearance?: "field" | "embedded";
+};
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, appearance = "field", ...props }, ref) => {
+    const field = useContext(FieldContext);
+    return (
+      <HeroTextarea
+        ref={ref}
+        {...props}
+        aria-describedby={mergeAriaIds(
+          props["aria-describedby"],
+          field?.descriptionId,
+        )}
+        aria-invalid={props["aria-invalid"] ?? (field?.invalid || undefined)}
+        aria-labelledby={mergeAriaIds(
+          props["aria-labelledby"],
+          field?.controlId ? undefined : field?.labelId,
+        )}
+        aria-required={props["aria-required"] ?? (field?.required || undefined)}
+        className={cx(
+          "argus-textarea",
+          appearance === "embedded" && "argus-textarea--embedded",
+          className,
+        )}
+        id={props.id ?? field?.controlId}
+        required={props.required ?? field?.required}
+      />
+    );
+  },
+);
 Textarea.displayName = "Textarea";
 
 export function Field({
@@ -112,6 +131,7 @@ export function Field({
   controlId: providedControlId,
   controlMode = "single",
   requirement,
+  density = "default",
 }: {
   label: string;
   requirement: FieldRequirement;
@@ -121,6 +141,7 @@ export function Field({
   className?: string;
   controlId?: string;
   controlMode?: "single" | "group";
+  density?: "default" | "compact";
 }) {
   const generatedId = useId();
   const controlId =
@@ -140,7 +161,11 @@ export function Field({
   return (
     <div
       aria-labelledby={controlMode === "group" ? labelId : undefined}
-      className={cx("argus-field", className)}
+      className={cx(
+        "argus-field",
+        density === "compact" && "argus-field--compact",
+        className,
+      )}
       role={controlMode === "group" ? "group" : undefined}
     >
       <label className="argus-field__label" htmlFor={controlId} id={labelId}>
@@ -169,15 +194,18 @@ export function Switch({
   onChange,
   label,
   disabled = false,
+  descriptionId,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
   disabled?: boolean;
+  descriptionId?: string;
 }) {
   return (
     <HeroSwitch
       aria-label={label}
+      aria-describedby={descriptionId}
       className="argus-switch"
       isSelected={checked}
       isDisabled={disabled}

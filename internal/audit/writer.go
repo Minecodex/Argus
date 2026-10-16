@@ -54,6 +54,9 @@ var allowedDetailKeys = map[string]bool{
 	"result_type": true, "partial": true, "step_seconds": true, "cache_hit": true, "query_completed_at": true,
 	"files": true, "file_id": true, "content_hash": true, "byte_size": true, "file_kind": true,
 	"source_ref": true, "analysis_status": true, "complete": true,
+	"resource_ids": true, "pending_action_id": true, "pending_action_ref": true, "tool_call_id": true,
+	"kind": true, "policy_id": true, "rule_id": true, "channel_id": true, "delivery_id": true, "batch_id": true,
+	"handling_version": true, "owner_user_id": true, "attempt": true, "operation": true,
 	"drilldown_id": true, "scope_policy": true, "parent_execution_id": true,
 	"variables": true, "local_filters": true, "variable_id": true, "all": true, "value_count": true, "selection_hash": true,
 }

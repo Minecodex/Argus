@@ -1,6 +1,10 @@
 export interface MockToolCallTrace {
+  display?: Record<string, unknown>;
+  input?: unknown;
+  output?: unknown;
   callId: string;
   toolName: string;
+  source?: string;
   status: "running" | "success" | "failed";
   summary?: string;
   durationMs?: number;
@@ -36,6 +40,7 @@ export type MockChatStreamEvent =
       status: "success" | "failed";
       durationMs: number;
       summary?: string;
+      display?: Record<string, unknown>;
     }
   | { type: "presentation"; messageId: string; toolCallId: string }
   | { type: "pending_action"; messageId: string; actionRef: string }

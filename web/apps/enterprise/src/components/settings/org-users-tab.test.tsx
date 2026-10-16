@@ -95,7 +95,8 @@ describe("OrgUsersTab", () => {
     const row = await screen.findByRole("row", {
       name: /企业超级管理员.*企业管理员/,
     });
-    fireEvent.click(within(row).getByRole("button", { name: "编辑" }));
+    fireEvent.click(within(row).getByRole("button", { name: /更多操作/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "编辑" }));
 
     const drawer = await screen.findByRole("dialog", { name: "编辑成员" });
     const viewerRole = await within(drawer).findByRole("button", {

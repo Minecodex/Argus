@@ -1,25 +1,17 @@
-import { ConversationWorkspace } from "../components/chat/conversation-workspace";
+import { ConversationSummary } from "../components/chat/conversation-summary";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Archive,
-  Check,
-  Minimize2,
-  PanelRight,
-  Pencil,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Archive, Check, Minimize2, Pencil, Trash2, X } from "lucide-react";
 import type { AIModel, ModelAvailability } from "@argus/api-client";
 import { formatApiError, useApi } from "@argus/api-client";
 import { Button, ConfirmDialog, Input, Select } from "@argus/ui";
 import { ChatComposer } from "../components/chat/composer";
-import { ChatContextPanel } from "../components/chat/context-panel";
 import { ChatMessageList } from "../components/chat/message-list";
 import { chatMessagesFromEvents } from "../components/chat/chat-view-model";
 import { useChatStream } from "../components/chat/use-chat-stream";
+import { createConversationRefresh } from "../components/chat/conversation-refresh";
 import { useUiStore } from "../store/ui";
 import "../styles/chat.css";
 
@@ -57,7 +49,7 @@ function Welcome({ onExample }: { onExample: (text: string) => void }) {
   );
 }
 
-/** 会话头部：标题（点击重命名，内联 input）、归档、上下文面板开关。 */
+/** 会话头部：标题、模型选择和会话生命周期操作。 */
 function ConversationHeader({
   conversationId,
   title,
@@ -65,6 +57,8 @@ function ConversationHeader({
   models,
   availability,
   onModelChange,
+  selectedConnections,
+  sending,
 }: {
   conversationId: string;
   title: string;
@@ -72,13 +66,14 @@ function ConversationHeader({
   models: AIModel[];
   availability: ModelAvailability[];
   onModelChange: (modelId: string) => void;
+  selectedConnections: string[];
+  sending: boolean;
 }) {
   const { t } = useTranslation();
   const api = useApi();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { contextPanelOpen, toggleContextPanel, renameConversation } =
-    useUiStore();
+  const renameConversation = useUiStore((state) => state.renameConversation);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
   const [archiving, setArchiving] = useState(false);
@@ -152,26 +147,30 @@ function ConversationHeader({
         </div>
       )}
       <div className="argus-chat__header-actions">
-        <Select
-          ariaLabel={t("chat.model.select")}
-          className="argus-input argus-chat__model-select"
-          onValueChange={onModelChange}
-          options={models.map((model) => {
-            const state = availability.find(
-              (entry) => entry.modelId === model.id,
-            );
-            return {
-              value: model.id,
-              disabled: !state?.available,
-              label: `${model.name}${
-                state?.available
-                  ? ""
-                  : ` · ${t(`chat.model.reason.${state?.reason ?? "unavailable"}`)}`
-              }`,
-            };
-          })}
-          value={selectedModelId}
-        />
+        <div className="argus-chat__model-field">
+          <span>{t("chat.model.label")}</span>
+          <Select
+            ariaLabel={t("chat.model.select")}
+            className="argus-chat__model-select"
+            size="sm"
+            onValueChange={onModelChange}
+            options={models.map((model) => {
+              const state = availability.find(
+                (entry) => entry.modelId === model.id,
+              );
+              return {
+                value: model.id,
+                disabled: !state?.available,
+                label: `${model.name}${
+                  state?.available
+                    ? ""
+                    : ` · ${t(`chat.model.reason.${state?.reason ?? "unavailable"}`)}`
+                }`,
+              };
+            })}
+            value={selectedModelId}
+          />
+        </div>
         <Button
           aria-label={t("planv5.files.deleteConversation")}
           isIconOnly
@@ -220,15 +219,12 @@ function ConversationHeader({
         >
           <Archive size={15} />
         </Button>
-        <Button
-          aria-label={t("chat.header.toggleContext")}
-          className={contextPanelOpen ? "is-active" : ""}
-          onPress={toggleContextPanel}
-          isIconOnly
-          variant="ghost"
-        >
-          <PanelRight size={15} />
-        </Button>
+        <ConversationSummary
+          key={conversationId}
+          conversationId={conversationId}
+          selected={selectedConnections}
+          disabled={sending}
+        />
       </div>
     </header>
   );
@@ -245,7 +241,6 @@ export function ConversationPage() {
   const queryClient = useQueryClient();
   const search = useSearch({ strict: false }) as { c?: string };
   const conversationId = search.c;
-  const contextPanelOpen = useUiStore((state) => state.contextPanelOpen);
   const titleOverride = useUiStore((state) =>
     conversationId ? state.conversationTitles[conversationId] : undefined,
   );
@@ -293,11 +288,15 @@ export function ConversationPage() {
   // 会话追加事件到达后刷新消息列表。
   useEffect(() => {
     if (!conversationId) return;
-    return api.conversations.subscribe(conversationId, () => {
-      void queryClient.invalidateQueries({
-        queryKey: ["conversations", conversationId, "events"],
-      });
-    });
+    const refresh = createConversationRefresh(queryClient, conversationId);
+    const unsubscribe = api.conversations.subscribe(
+      conversationId,
+      refresh.event,
+    );
+    return () => {
+      unsubscribe();
+      refresh.dispose();
+    };
   }, [api, conversationId, queryClient]);
 
   const creating = useRef<Promise<string> | null>(null);
@@ -339,9 +338,7 @@ export function ConversationPage() {
     titleOverride ?? conversation?.title ?? t("chat.header.untitled");
 
   return (
-    <div
-      className={`argus-chat ${contextPanelOpen ? "" : "is-context-collapsed"}`}
-    >
+    <div className="argus-chat">
       <div className="argus-chat__main">
         {conversationId && (
           <ConversationHeader
@@ -353,13 +350,10 @@ export function ConversationPage() {
               conversation?.selected_model_id ?? preferredModelId ?? ""
             }
             title={title}
-          />
-        )}
-        {conversationId && (
-          <ConversationWorkspace
-            conversationId={conversationId}
-            selected={conversation?.selected_mcp_connection_ids ?? []}
-            disabled={sending}
+            selectedConnections={
+              conversation?.selected_mcp_connection_ids ?? []
+            }
+            sending={sending}
           />
         )}
         {conversationId ? (
@@ -414,7 +408,6 @@ export function ConversationPage() {
           sending={sending}
         />
       </div>
-      {contextPanelOpen && <ChatContextPanel messages={messages} />}
     </div>
   );
 }

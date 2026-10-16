@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useApi, type Host } from "@argus/api-client";
-import { Alert, Badge, Button, Dialog } from "@argus/ui";
+import { ActionMenu, Alert, Badge, Dialog, type DropdownItem } from "@argus/ui";
 import { AddHostWizard } from "./add-host-wizard";
 import { onboardingFailureMessageKey as failureMessageKey } from "./onboarding-errors";
 
-export function HostOnboardingProgress({ host }: { host: Host }) {
+export function HostOnboardingProgress({
+  host,
+  renderActions,
+  showSummary = true,
+  showActions = true,
+}: {
+  host: Host;
+  renderActions?: (items: DropdownItem[]) => ReactNode;
+  showSummary?: boolean;
+  showActions?: boolean;
+}) {
   const { t } = useTranslation();
   const api = useApi();
   const [open, setOpen] = useState(false);
@@ -31,13 +41,33 @@ export function HostOnboardingProgress({ host }: { host: Host }) {
         ? 2000
         : false,
   });
-  if (!active || !id) return null;
+  if (!active || !id) return renderActions?.([]) ?? null;
   const operation = query.data;
   const code = operation?.error_code ?? host.onboarding.error_code;
   const failureMessage = t(failureMessageKey(code));
+  const actions: DropdownItem[] = [
+    {
+      label: t("hosts.onboardingProgress.view"),
+      onSelect: () => setOpen(true),
+    },
+    ...(host.onboarding.state === "install_failed" &&
+    !host.connector_id &&
+    (operation?.install_method === "ssh" ||
+      host.onboarding.install_method === "ssh")
+      ? [
+          {
+            label: t("hosts.onboardingProgress.retry"),
+            onSelect: () => {
+              setOpen(false);
+              setRetryOpen(true);
+            },
+          },
+        ]
+      : []),
+  ];
   return (
     <>
-      {host.onboarding.state === "install_failed" && (
+      {showSummary && host.onboarding.state === "install_failed" && (
         <p className="argus-muted">
           <span>{failureMessage}</span>{" "}
           {code && (
@@ -45,24 +75,12 @@ export function HostOnboardingProgress({ host }: { host: Host }) {
           )}
         </p>
       )}
-      <Button size="sm" variant="secondary" onPress={() => setOpen(true)}>
-        {t("hosts.onboardingProgress.view")}
-      </Button>
-      {host.onboarding.state === "install_failed" &&
-        !host.connector_id &&
-        (operation?.install_method === "ssh" ||
-          host.onboarding.install_method === "ssh") && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onPress={() => {
-              setOpen(false);
-              setRetryOpen(true);
-            }}
-          >
-            {t("hosts.onboardingProgress.retry")}
-          </Button>
-        )}
+      {showActions &&
+        (renderActions ? (
+          renderActions(actions)
+        ) : (
+          <ActionMenu name={host.name} items={actions} />
+        ))}
       {retryOpen && (
         <AddHostWizard
           open={retryOpen}

@@ -1,0 +1,69 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Argus alertsapi",
+    "version": "1.0.0",
+    "license": {
+      "name": "Proprietary",
+      "identifier": "LicenseRef-Proprietary"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "sessionCookie": []
+    }
+  ],
+  "paths": {
+    "/alerts/summary": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1summary"
+    },
+    "/alerts/configurations": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1configurations"
+    },
+    "/alerts/configurations/{id}": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1configurations~1{id}"
+    },
+    "/alerts/configurations/preview": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1configurations~1preview"
+    },
+    "/alerts/commands/preview": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1commands~1preview"
+    },
+    "/alerts/trial": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1trial"
+    },
+    "/alerts/instances": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1instances"
+    },
+    "/alerts/history": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1history"
+    },
+    "/alerts/deliveries": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1deliveries"
+    },
+    "/alerts/instances/{id}": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1instances~1{id}"
+    },
+    "/alerts/deliveries/{id}": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1deliveries~1{id}"
+    },
+    "/alerts/instances/{id}/handle": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1instances~1{id}~1handle"
+    },
+    "/alerts/history/export": {
+      "$ref": "../argus.yaml#/paths/~1alerts~1history~1export"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "$ref": "../argus.yaml#/components/securitySchemes/sessionCookie"
+      }
+    }
+  }
+}

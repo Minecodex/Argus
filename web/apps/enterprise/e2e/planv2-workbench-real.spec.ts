@@ -172,7 +172,7 @@ for (const english of [false, true]) {
     await expect(page).toHaveURL(/dashboard-drafts/);
     await description(page, "Unpublished draft survives archive", 200);
     await reader.goto("/dashboards");
-    const card = reader.locator(".argus-resource-card").filter({
+    const card = reader.locator(".argus-resource-card, .argus-table tbody tr").filter({
       has: reader.getByRole("heading", { name: title, exact: true }),
     });
     await button(card, english ? "More actions" : "更多操作").click();

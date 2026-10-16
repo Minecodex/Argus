@@ -87,8 +87,8 @@ func (service Service) InspectAnalysis(ctx context.Context, actor Actor, convers
 	return map[string]any{"condition_version": row.Version, "conditions": state, "incompatible_paths": inheritedConflicts(state, conditionContracts(spec)), "revision_id": revision.ID, "server_time": time.Now().UTC(), "timezone": enterprise.Timezone}, nil
 }
 
-// ResolveAnalysis saves only message-attributed overrides. The immutable context
-// materializes their time range; model strategy (which panels to check) is not
+// ResolveAnalysis records message interpretations and attributed AI choices.
+// The immutable context materializes their time range; panel strategy is not
 // persisted as an explicit user condition.
 func (service Service) ResolveAnalysis(ctx context.Context, actor Actor, conversation uuid.UUID, input AnalysisResolveInput, invocation uuid.UUID) (AnalysisContextView, error) {
 	var result AnalysisContextView

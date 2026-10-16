@@ -84,10 +84,15 @@ export function PermissionMatrix({
         }
       >
         {PERMISSION_CATALOG.map((group) => (
-          <div className="argus-perm-matrix__row" key={group.resource}>
+          <div
+            className={`argus-perm-matrix__row${group.resource.startsWith("alert") ? " argus-perm-matrix__row--alert" : ""}`}
+            key={group.resource}
+          >
             <span className="argus-perm-matrix__resource">
               {t(
-                `settings.org.rolesTab.permissionResources.${labelKey(group.resource)}`,
+                group.resource.startsWith("alert")
+                  ? `alerts.permission_${labelKey(group.resource)}`
+                  : `settings.org.rolesTab.permissionResources.${labelKey(group.resource)}`,
               )}
             </span>
             <div className="argus-perm-matrix__cells">
@@ -109,7 +114,9 @@ export function PermissionMatrix({
                   >
                     <CheckItem checked={selected.has(permission)}>
                       {t(
-                        `settings.org.rolesTab.permissionActions.${labelKey(action)}`,
+                        group.resource === "alert" && action === "handle"
+                          ? "alerts.handlePermission"
+                          : `settings.org.rolesTab.permissionActions.${labelKey(action)}`,
                       )}
                     </CheckItem>
                   </span>

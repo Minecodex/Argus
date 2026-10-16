@@ -15,6 +15,8 @@
         {
           "$ref": "../argus.yaml#/paths/~1conversations~1{conversation_id}~1tool-presentations~1{tool_call_id}",
         },
+      "/conversations/{conversation_id}/tool-presentations/{tool_call_id}/read":
+        {"$ref": "../argus.yaml#/paths/~1conversations~1{conversation_id}~1tool-presentations~1{tool_call_id}~1read"},
     },
   "components":
     {

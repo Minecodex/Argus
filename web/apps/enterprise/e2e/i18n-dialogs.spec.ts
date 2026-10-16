@@ -1,3 +1,4 @@
+import { selectFirstRowAction } from "./helpers/action-menu";
 import { enterpriseOrigin, platformOrigin } from "./origins";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -58,7 +59,7 @@ test("Platform quota drawer resolves shared keys and persists exact seconds with
   await page.getByRole("link", { name: "OpenSandbox" }).click();
   await expect(page).toHaveURL(`${platformOrigin}/sandbox`);
   await page.getByRole("tab", { name: "企业配额" }).click();
-  await page.getByRole("button", { name: "编辑配额" }).first().click();
+  await selectFirstRowAction(page, "编辑配额");
 
   const drawer = page.getByRole("dialog");
   await expect(drawer).toBeVisible();
@@ -75,7 +76,7 @@ test("Platform quota drawer resolves shared keys and persists exact seconds with
     .click();
   await page.reload();
   await page.getByRole("tab", { name: "企业配额" }).click();
-  await page.getByRole("button", { name: "编辑配额" }).first().click();
+  await selectFirstRowAction(page, "编辑配额");
   await expect(
     page.getByRole("dialog").getByLabel("月度计算时长（秒）"),
   ).toHaveValue("125");

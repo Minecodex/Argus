@@ -1,0 +1,93 @@
+$ vitest run src
+
+ RUN  v3.2.7 D:/workspace/go/Argus/web/apps/enterprise
+
+ ✓ src/components/hosts/terminal-session-context.test.tsx (2 tests) 157ms
+ ✓ src/lib/permissions.test.tsx (1 test) 121ms
+ ✓ src/components/chat/message-list.test.tsx (1 test) 53ms
+ ✓ src/i18n/i18n.test.ts (15 tests) 32ms
+ ✓ src/store/ui.test.ts (4 tests) 4ms
+ ✓ src/components/pending-action-presentation.test.ts (5 tests) 9ms
+ ✓ src/components/dashboards/candidate-filters.test.ts (3 tests) 5ms
+ ✓ src/components/chat/event-reducer.test.ts (8 tests) 4ms
+ ✓ src/components/hosts/host-removal-target.test.ts (4 tests) 4ms
+ ✓ src/components/dashboards/use-dashboard-execution.test.tsx (11 tests) 43ms
+stdout | src/components/hosts/real-terminal-tab.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/settings/org-users-tab.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/hosts/pending-action-confirm.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/settings/data-authorization-dialog.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/hosts/host-onboarding-progress.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/hosts/bastion-replacement-dialog.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/hosts/host-removal-dialog.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/hosts/name-availability.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/hosts/install-instruction-panel.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/chat/conversation-workspace.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/components/chat/chat.test.tsx
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+ ✓ src/components/dashboards/use-metric-metadata.test.tsx (2 tests) 126ms
+ ✓ src/lib/role-presentation.test.ts (3 tests) 3ms
+ ✓ src/components/dashboards/use-dashboard-draft.test.tsx (3 tests) 317ms
+ ✓ src/components/hosts/install-instruction-panel.test.tsx (3 tests) 149ms
+ ✓ src/components/chat/mention-query.test.ts (3 tests) 3ms
+ ✓ src/components/hosts/onboarding-wizard-state.test.ts (2 tests) 2ms
+ ✓ src/i18n/hosts.test.ts (2 tests) 3ms
+ ✓ src/components/chat/conversation-workspace.test.tsx (6 tests) 447ms
+ ✓ src/components/settings/data-authorization-dialog.test.tsx (1 test) 568ms
+   ✓ adds a dashboard grant without converting inherited resource grants into direct grants  568ms
+ ✓ src/components/hosts/pending-action-confirm.test.tsx (3 tests) 502ms
+ ✓ src/components/settings/org-users-tab.test.tsx (2 tests) 760ms
+   ✓ OrgUsersTab > updates direct roles from the member edit drawer  459ms
+ ✓ src/components/hosts/host-onboarding-progress.test.tsx (7 tests) 651ms
+ ✓ src/components/hosts/bastion-replacement-dialog.test.tsx (2 tests) 857ms
+   ✓ requires direct_install callback proof before replacing the Connector  522ms
+   ✓ requires direct_install_tunnel callback proof before replacing the Connector  334ms
+ ✓ src/components/hosts/real-terminal-tab.test.tsx (2 tests) 938ms
+   ✓ RealTerminalTab step-up > opens MFA step-up and resumes the existing request after verification  662ms
+ ✓ src/components/chat/chat.test.tsx (5 tests) 1352ms
+   ✓ PendingActionCard > [确认执行] 直接调 approvals.confirm，状态原地流转到成功  1103ms
+ ✓ src/components/remote-sessions/rdp-recording-player.test.ts (1 test) 2ms
+ ✓ src/components/dashboards/source-summary.test.ts (1 test) 2ms
+ ✓ src/components/hosts/terminal-dock.test.tsx (1 test) 2ms
+ ✓ src/components/dashboards/panel-presets.test.ts (3 tests) 4ms
+ ✓ src/components/dashboards/execution-status.test.ts (1 test) 3ms
+ ✓ src/components/dashboards/drilldowns-editor.test.ts (1 test) 2ms
+ ✓ src/components/hosts/name-availability.test.tsx (27 tests) 3921ms
+   ✓ creation name checks > blocks host callback failure and freezes 平台可 SSH · 主机可访问 Argus path (direct, retry false)  899ms
+   ✓ creation name checks > blocks host callback failure and freezes 平台可 SSH · 主机无出站 path (executor_tunnel, retry false)  438ms
+   ✓ creation name checks > blocks host callback failure and freezes 堡垒机可 SSH 成员主机 path (bastion_relay, retry false)  392ms
+ ✓ src/components/hosts/host-removal-dialog.test.tsx (29 tests) 8493ms
+   ✓ removal choices > clears a preview when switching to another target  923ms
+   ✓ removal choices > clears a preview when the target resource version changes  896ms
+   ✓ removal choices > explains TIMEOUT and does not create an uninstall preview  860ms
+   ✓ removal choices > explains AUTH_FAILED and does not create an uninstall preview  850ms
+   ✓ removal choices > explains CONNECTION_REFUSED and does not create an uninstall preview  853ms
+   ✓ removal choices > explains TARGET_UNROUTABLE and does not create an uninstall preview  874ms
+   ✓ removal choices > requires fresh SSH evidence before normal uninstall  864ms
+   ✓ removal choices > stops polling and ignores a late SSH failure after changing the choice  891ms
+
+ Test Files  33 passed (33)
+      Tests  164 passed (164)
+   Start at  11:02:12
+   Duration  15.95s (transform 4.76s, setup 0ms, collect 96.22s, tests 19.54s, environment 20.04s, prepare 4.00s)
+

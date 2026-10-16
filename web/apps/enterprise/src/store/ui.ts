@@ -42,10 +42,7 @@ function loadTerminalDockPreference(): TerminalDockPreference {
 
 function persistTerminalDockPreference(value: TerminalDockPreference) {
   try {
-    window.localStorage.setItem(
-      terminalDockStorageKey,
-      JSON.stringify(value),
-    );
+    window.localStorage.setItem(terminalDockStorageKey, JSON.stringify(value));
   } catch {
     // Persistence is best-effort; the in-memory placement still applies.
   }
@@ -55,8 +52,6 @@ type UiState = {
   sidebarCollapsed: boolean;
   mobileNavOpen: boolean;
   commandOpen: boolean;
-  /** Chatbox 右侧上下文面板（会话页）是否展开。 */
-  contextPanelOpen: boolean;
   /** 远程终端 Dock 的停靠位置与尺寸，持久化在 localStorage。 */
   terminalDock: TerminalDockPreference;
   /**
@@ -67,7 +62,6 @@ type UiState = {
   toggleSidebar: () => void;
   setMobileNavOpen: (open: boolean) => void;
   setCommandOpen: (open: boolean) => void;
-  toggleContextPanel: () => void;
   renameConversation: (id: string, title: string) => void;
   setTerminalDockPosition: (position: TerminalDockPosition) => void;
   setTerminalDockSize: (sizePercent: number) => void;
@@ -78,15 +72,12 @@ export const useUiStore = create<UiState>((set) => ({
   sidebarCollapsed: false,
   mobileNavOpen: false,
   commandOpen: false,
-  contextPanelOpen: true,
   terminalDock: loadTerminalDockPreference(),
   conversationTitles: {},
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
   setCommandOpen: (commandOpen) => set({ commandOpen }),
-  toggleContextPanel: () =>
-    set((state) => ({ contextPanelOpen: !state.contextPanelOpen })),
   renameConversation: (id, title) =>
     set((state) => ({
       conversationTitles: { ...state.conversationTitles, [id]: title },

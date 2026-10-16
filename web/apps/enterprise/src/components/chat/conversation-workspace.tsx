@@ -6,15 +6,18 @@ import { useApi, formatApiError, ApiError } from "@argus/api-client";
 import { useEnterpriseAuthStore } from "@argus/auth";
 import { Button, ConfirmDialog } from "@argus/ui";
 import "../../styles/planv5.css";
+import { ConversationFile } from "./conversation-file";
 
 export function ConversationWorkspace({
   conversationId,
   selected,
   disabled,
+  expanded = false,
 }: {
   conversationId: string;
   selected: string[];
   disabled: boolean;
+  expanded?: boolean;
 }) {
   const api = useApi();
   const { t } = useTranslation();
@@ -101,7 +104,7 @@ export function ConversationWorkspace({
   );
   return (
     <div className="argus-conversation-workspace">
-      <details className="argus-planv5-selector">
+      <details className="argus-planv5-selector" open={expanded}>
         <summary>
           {t("planv5.mcp.select")} · {selected.length}
         </summary>
@@ -138,20 +141,13 @@ export function ConversationWorkspace({
             </Checkbox>
           ))}
       </details>
-      <details>
+      <details open={expanded}>
         <summary>
           {t("planv5.files.workspace")} · {files.data?.length ?? 0}
         </summary>
         <p>{t("planv5.files.retention")}</p>
         {(files.data ?? []).map((file) => (
-          <a
-            className="argus-chat-file"
-            href={api.workspace.downloadUrl(conversationId, file.id, "file")}
-            download={file.name}
-            key={file.id}
-          >
-            {file.name}
-          </a>
+          <ConversationFile key={file.id} file={file} conversationId={conversationId} />
         ))}
         {!files.data?.length && <p>{t("planv5.files.empty")}</p>}
         {workspace.isError && (

@@ -1,31 +1,15 @@
-import { QueryBoundary } from "@argus/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo } from "react";
-import { useForm } from "react-hook-form";
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { z } from "zod";
-import {
-  presentApiFormError,
-  useApi,
-  type Department,
-} from "@argus/api-client";
-import {
-  ActionGroup,
-  Alert,
-  Badge,
-  Button,
-  ConfirmDialog,
-  DataTable,
-  Field,
-  FormDrawer,
-  Input,
-  RowAction,
-  StatusBadge,
-} from "@argus/ui";
-import { useOrgDepartments, useOrgUsers } from "./org-users-tab";
-import { DataAuthorizationDialog } from "./data-authorization-dialog";
+import {ActionMenu,QueryBoundary} from "@argus/ui";
+import {useMutation,useQueryClient} from "@tanstack/react-query";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {useMemo} from "react";
+import {useForm} from "react-hook-form";
+import {useState} from "react";
+import {useTranslation} from "react-i18next";
+import {z} from "zod";
+import {presentApiFormError,useApi,type Department} from "@argus/api-client";
+import {Alert,Badge,Button,ConfirmDialog,DataTable,Field,FormDrawer,Input,StatusBadge} from "@argus/ui";
+import {useOrgDepartments,useOrgUsers} from "./org-users-tab";
+import {DataAuthorizationDialog} from "./data-authorization-dialog";
 
 type DepartmentRow = {
   id: string;
@@ -113,42 +97,19 @@ export function OrgDepartmentsTab() {
             {
               key: "actions",
               header: t("settings.common.actions"),
-              render: (row) => (
-                <ActionGroup>
-                  <RowAction onPress={() => setAuthorizationTarget(row)}>
-                    {t("settings.org.dataAuthorization.action")}
-                  </RowAction>
-                  <RowAction
-                    onPress={() =>
+              render: (row) => (<ActionMenu items={[{label: t("settings.org.dataAuthorization.action"),onSelect: () => setAuthorizationTarget(row)},{label: t("settings.common.edit"),onSelect: () =>
                       setEditing(
                         departments.data?.find(
                           (department) => department.id === row.id,
                         ) ?? null,
-                      )
-                    }
-                  >
-                    {t("settings.common.edit")}
-                  </RowAction>
-                  <RowAction
-                    isDisabled={
-                      row.status === "active" &&
-                      (row.is_default || row.member_count > 0)
-                    }
-                    onPress={() => setStatusTarget(row)}
-                    title={
-                      row.status === "active" && row.is_default
+                      )},{label: row.status === "active"
+                      ? t("settings.org.departments.disable")
+                      : t("settings.org.departments.enable"),onSelect: () => setStatusTarget(row),disabled: (row.status === "active" &&
+                      (row.is_default || row.member_count > 0)),description: row.status === "active" && row.is_default
                         ? t("settings.org.departments.defaultLocked")
                         : row.status === "active" && row.member_count > 0
                           ? t("settings.org.departments.membersLocked")
-                          : undefined
-                    }
-                  >
-                    {row.status === "active"
-                      ? t("settings.org.departments.disable")
-                      : t("settings.org.departments.enable")}
-                  </RowAction>
-                </ActionGroup>
-              ),
+                          : undefined}]} />),
             },
           ]}
           data={(departments.data ?? []).map((department) => ({

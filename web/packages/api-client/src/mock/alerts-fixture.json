@@ -1,0 +1,664 @@
+{
+  "version": 1,
+  "seq": 20,
+  "policies": [
+    {
+      "id": "p1",
+      "name": [
+        "主机高负载",
+        "Host resource pressure"
+      ],
+      "resource": "all",
+      "mode": "independent",
+      "interval": 30,
+      "duration": 5,
+      "recovery": 3,
+      "enabled": true,
+      "revision": 3,
+      "health": "normal",
+      "noData": "report",
+      "error": "keep",
+      "channels": [
+        "c3",
+        "c4"
+      ],
+      "lastEval": "10:32:00",
+      "rules": [
+        {
+          "metric": "host_cpu_usage_percent",
+          "op": ">",
+          "threshold": 85,
+          "recovery": 75,
+          "severity": "critical"
+        },
+        {
+          "metric": "host_memory_usage_percent",
+          "op": ">",
+          "threshold": 80,
+          "recovery": 70,
+          "severity": "warning"
+        }
+      ]
+    },
+    {
+      "id": "p2",
+      "name": [
+        "磁盘容量不足",
+        "Disk capacity low"
+      ],
+      "resource": "db-prod-01",
+      "mode": "independent",
+      "interval": 60,
+      "duration": 3,
+      "recovery": 3,
+      "enabled": true,
+      "revision": 2,
+      "health": "normal",
+      "noData": "report",
+      "error": "keep",
+      "channels": [
+        "c2"
+      ],
+      "lastEval": "10:32:00",
+      "rules": [
+        {
+          "metric": "host_disk_usage_percent",
+          "op": ">",
+          "threshold": 90,
+          "recovery": 85,
+          "severity": "critical"
+        }
+      ]
+    },
+    {
+      "id": "p3",
+      "name": [
+        "API 错误率过高",
+        "High API error rate"
+      ],
+      "resource": "k8s-production",
+      "mode": "any",
+      "interval": 30,
+      "duration": 2,
+      "recovery": 2,
+      "enabled": true,
+      "revision": 1,
+      "health": "normal",
+      "noData": "report",
+      "error": "keep",
+      "channels": [
+        "c1",
+        "c3"
+      ],
+      "lastEval": "10:32:00",
+      "rules": [
+        {
+          "metric": "http_error_ratio_percent",
+          "op": ">",
+          "threshold": 3,
+          "recovery": 1,
+          "severity": "critical"
+        }
+      ]
+    },
+    {
+      "id": "p4",
+      "name": [
+        "采集器心跳异常",
+        "Collector heartbeat"
+      ],
+      "resource": "web-prod-02",
+      "mode": "independent",
+      "interval": 30,
+      "duration": 2,
+      "recovery": 2,
+      "enabled": true,
+      "revision": 1,
+      "health": "error",
+      "noData": "report",
+      "error": "keep",
+      "channels": [
+        "c1"
+      ],
+      "lastEval": "10:29:00",
+      "rules": [
+        {
+          "metric": "collector_up",
+          "op": "<",
+          "threshold": 1,
+          "recovery": 1,
+          "severity": "warning"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "e1",
+      "name": [
+        "CPU 使用率持续过高",
+        "Sustained high CPU usage"
+      ],
+      "policy": "p1",
+      "resource": "web-prod-01",
+      "service": "checkout",
+      "metric": "host_cpu_usage_percent",
+      "value": 94.7,
+      "threshold": 85,
+      "op": ">",
+      "severity": "critical",
+      "notification": "received",
+      "baseNotification": "received",
+      "owner": "none",
+      "ack": false,
+      "duration": 12,
+      "status": "firing",
+      "started": "2026-10-07 10:20:00",
+      "resolvedAt": null,
+      "revision": 3,
+      "timeline": [
+        {
+          "time": "10:20:00",
+          "text": [
+            "规则持续命中，生成告警事件",
+            "Condition sustained; alert event created"
+          ],
+          "actor": "system"
+        }
+      ]
+    },
+    {
+      "id": "e2",
+      "name": [
+        "内存使用率超过阈值",
+        "Memory usage above threshold"
+      ],
+      "policy": "p1",
+      "resource": "web-prod-01",
+      "service": "checkout",
+      "metric": "host_memory_usage_percent",
+      "value": 89.2,
+      "threshold": 80,
+      "op": ">",
+      "severity": "warning",
+      "notification": "inhibited",
+      "baseNotification": "received",
+      "owner": "han",
+      "ack": true,
+      "duration": 10,
+      "status": "firing",
+      "started": "2026-10-07 10:22:00",
+      "resolvedAt": null,
+      "revision": 3,
+      "timeline": [
+        {
+          "time": "10:22:00",
+          "text": [
+            "规则持续命中，生成告警事件",
+            "Condition sustained; alert event created"
+          ],
+          "actor": "system"
+        }
+      ]
+    },
+    {
+      "id": "e3",
+      "name": [
+        "数据盘剩余空间不足",
+        "Database volume running low"
+      ],
+      "policy": "p2",
+      "resource": "db-prod-01",
+      "service": "database",
+      "metric": "host_disk_usage_percent",
+      "value": 96.1,
+      "threshold": 90,
+      "op": ">",
+      "severity": "critical",
+      "notification": "muted",
+      "baseNotification": "received",
+      "owner": "lin",
+      "ack": true,
+      "duration": 42,
+      "status": "firing",
+      "started": "2026-10-07 09:50:00",
+      "resolvedAt": null,
+      "revision": 1,
+      "timeline": [
+        {
+          "time": "09:50:00",
+          "text": [
+            "规则持续命中，生成告警事件",
+            "Condition sustained; alert event created"
+          ],
+          "actor": "system"
+        }
+      ]
+    },
+    {
+      "id": "e4",
+      "name": [
+        "支付接口错误率升高",
+        "Payment API error rate high"
+      ],
+      "policy": "p3",
+      "resource": "k8s-production",
+      "service": "payment",
+      "metric": "http_error_ratio_percent",
+      "value": 4.8,
+      "threshold": 3,
+      "op": ">",
+      "severity": "critical",
+      "notification": "failed",
+      "baseNotification": "failed",
+      "owner": "none",
+      "ack": false,
+      "duration": 7,
+      "status": "firing",
+      "started": "2026-10-07 10:25:00",
+      "resolvedAt": null,
+      "revision": 1,
+      "timeline": [
+        {
+          "time": "10:25:00",
+          "text": [
+            "规则持续命中，生成告警事件",
+            "Condition sustained; alert event created"
+          ],
+          "actor": "system"
+        }
+      ]
+    },
+    {
+      "id": "e5",
+      "name": [
+        "CPU 使用率超过阈值",
+        "CPU usage above threshold"
+      ],
+      "policy": "p1",
+      "resource": "web-prod-02",
+      "service": "checkout",
+      "metric": "host_cpu_usage_percent",
+      "value": 88.3,
+      "threshold": 85,
+      "op": ">",
+      "severity": "critical",
+      "notification": "received",
+      "baseNotification": "received",
+      "owner": "none",
+      "ack": false,
+      "duration": 5,
+      "status": "firing",
+      "started": "2026-10-07 10:27:00",
+      "resolvedAt": null,
+      "revision": 3,
+      "timeline": [
+        {
+          "time": "10:27:00",
+          "text": [
+            "规则持续命中，生成告警事件",
+            "Condition sustained; alert event created"
+          ],
+          "actor": "system"
+        }
+      ]
+    },
+    {
+      "id": "e6",
+      "name": [
+        "采集器查询暂不可用",
+        "Collector query unavailable"
+      ],
+      "policy": "p4",
+      "resource": "web-prod-02",
+      "service": "collector",
+      "metric": "collector_up",
+      "value": null,
+      "threshold": 1,
+      "op": "<",
+      "severity": "warning",
+      "notification": "unknown",
+      "baseNotification": "unknown",
+      "owner": "none",
+      "ack": false,
+      "duration": 3,
+      "status": "pending",
+      "started": "2026-10-07 10:29:00",
+      "resolvedAt": null,
+      "revision": 1,
+      "timeline": [
+        {
+          "time": "10:29:00",
+          "text": [
+            "规则持续命中，生成告警事件",
+            "Condition sustained; alert event created"
+          ],
+          "actor": "system"
+        }
+      ]
+    },
+    {
+      "id": "e7",
+      "name": [
+        "数据盘容量告警已恢复",
+        "Volume capacity recovered"
+      ],
+      "policy": "p2",
+      "resource": "db-prod-01",
+      "service": "database",
+      "metric": "host_disk_usage_percent",
+      "value": 76.4,
+      "threshold": 90,
+      "op": ">",
+      "severity": "warning",
+      "notification": "received",
+      "baseNotification": "received",
+      "owner": "lin",
+      "ack": true,
+      "duration": 52,
+      "status": "resolved",
+      "started": "2026-10-07 08:20:00",
+      "resolvedAt": "2026-10-07 09:12:00",
+      "revision": 1,
+      "timeline": [
+        {
+          "time": "08:20:00",
+          "text": [
+            "规则持续命中，生成告警事件",
+            "Condition sustained; alert event created"
+          ],
+          "actor": "system"
+        }
+      ]
+    },
+    {
+      "id": "e8",
+      "name": [
+        "主机 CPU 使用率已恢复",
+        "Host CPU usage recovered"
+      ],
+      "policy": "p1",
+      "resource": "web-prod-02",
+      "service": "checkout",
+      "metric": "host_cpu_usage_percent",
+      "value": 64.2,
+      "threshold": 85,
+      "op": ">",
+      "severity": "warning",
+      "notification": "received",
+      "baseNotification": "received",
+      "owner": "han",
+      "ack": true,
+      "duration": 21,
+      "status": "resolved",
+      "started": "2026-10-07 08:51:00",
+      "resolvedAt": "2026-10-07 09:12:00",
+      "revision": 3,
+      "timeline": [
+        {
+          "time": "08:51:00",
+          "text": [
+            "规则持续命中，生成告警事件",
+            "Condition sustained; alert event created"
+          ],
+          "actor": "system"
+        }
+      ]
+    }
+  ],
+  "silences": [
+    {
+      "id": "s1",
+      "name": [
+        "数据库磁盘扩容",
+        "Database volume expansion"
+      ],
+      "resource": "db-prod-01",
+      "policy": "p2",
+      "reason": [
+        "维护窗口内扩容数据盘",
+        "Volume expansion during maintenance"
+      ],
+      "until": "2026-10-08T02:00:00+08:00",
+      "enabled": true,
+      "revision": 1
+    }
+  ],
+  "inhibitions": [
+    {
+      "id": "i1",
+      "name": [
+        "严重告警抑制警告",
+        "Critical suppresses warning"
+      ],
+      "source": "critical",
+      "target": "warning",
+      "equal": "resource_id, policy_id",
+      "reason": [
+        "同资源同策略只通知最高等级",
+        "Notify the highest severity for the same resource and policy"
+      ],
+      "enabled": true,
+      "revision": 1
+    }
+  ],
+  "channels": [
+    {
+      "id": "c1",
+      "name": [
+        "运维告警群",
+        "Operations alerts"
+      ],
+      "provider": "dingtalk",
+      "endpoint": "https://example.invalid/dingtalk/operations",
+      "credential": "demo-secret-01",
+      "enabled": true,
+      "revision": 1,
+      "defaultForNewPolicies": false
+    },
+    {
+      "id": "c2",
+      "name": [
+        "数据库值守群",
+        "Database operations"
+      ],
+      "provider": "wecom",
+      "endpoint": "https://example.invalid/wecom/database",
+      "credential": "demo-secret-02",
+      "enabled": true,
+      "revision": 1,
+      "defaultForNewPolicies": false
+    },
+    {
+      "id": "c3",
+      "name": [
+        "生产事件群",
+        "Production incidents"
+      ],
+      "provider": "feishu",
+      "endpoint": "https://example.invalid/feishu/production",
+      "credential": "demo-secret-03",
+      "enabled": true,
+      "revision": 1,
+      "defaultForNewPolicies": true
+    },
+    {
+      "id": "c4",
+      "name": [
+        "基础设施邮件",
+        "Infrastructure email"
+      ],
+      "provider": "email",
+      "endpoint": "operations@example.invalid",
+      "smtp": "smtp.example.invalid",
+      "credential": "demo-secret-04",
+      "enabled": true,
+      "revision": 1,
+      "defaultForNewPolicies": false
+    }
+  ],
+  "routes": [
+    {
+      "id": "r1",
+      "name": [
+        "严重告警通知",
+        "Critical notifications"
+      ],
+      "severity": "critical",
+      "channels": [
+        "c3",
+        "c4"
+      ],
+      "revision": 1
+    },
+    {
+      "id": "r2",
+      "name": [
+        "常规运维通知",
+        "Operations notifications"
+      ],
+      "severity": "warning",
+      "channels": [
+        "c1",
+        "c2"
+      ],
+      "revision": 1
+    }
+  ],
+  "grouping": {
+    "by": "service",
+    "wait": 30,
+    "interval": 300,
+    "repeat": 3600,
+    "timing": [
+      "first",
+      "repeat",
+      "recovery",
+      "severity"
+    ],
+    "revision": 1
+  },
+  "template": "[{{severity}}] {{policy}}\n{{resource}} · {{metric}} = {{value}}\n{{threshold}} · {{duration}}\n{{detail_url}}",
+  "deliveries": [
+    {
+      "id": "d1",
+      "event": "e1",
+      "channel": "c3",
+      "status": "received",
+      "attempts": 1,
+      "time": "10:20:30",
+      "reason": "acceptedReason"
+    },
+    {
+      "id": "d2",
+      "event": "e1",
+      "channel": "c4",
+      "status": "received",
+      "attempts": 1,
+      "time": "10:20:31",
+      "reason": "acceptedReason"
+    },
+    {
+      "id": "d3",
+      "event": "e4",
+      "channel": "c1",
+      "status": "failed",
+      "attempts": 3,
+      "time": "10:27:30",
+      "reason": "signatureError"
+    },
+    {
+      "id": "d4",
+      "event": "e3",
+      "channel": "c2",
+      "status": "muted",
+      "attempts": 0,
+      "time": "10:22:00",
+      "reason": "mutedReason"
+    },
+    {
+      "id": "d5",
+      "event": "e2",
+      "channel": "c2",
+      "status": "inhibited",
+      "attempts": 0,
+      "time": "10:22:00",
+      "reason": "inhibitedReason"
+    },
+    {
+      "id": "d6",
+      "event": "e5",
+      "channel": "c1",
+      "status": "received",
+      "attempts": 1,
+      "time": "10:27:30",
+      "reason": "acceptedReason"
+    },
+    {
+      "id": "d7",
+      "event": "e7",
+      "channel": "c4",
+      "status": "received",
+      "attempts": 1,
+      "time": "09:12:30",
+      "reason": "recoveredReason"
+    }
+  ],
+  "permissions": {
+    "admin": [
+      "read",
+      "policy",
+      "silence",
+      "channel",
+      "handle",
+      "audit",
+      "iam"
+    ],
+    "editor": [
+      "read",
+      "policy",
+      "silence",
+      "handle",
+      "audit"
+    ],
+    "viewer": [
+      "read"
+    ]
+  },
+  "audit": [
+    {
+      "id": "a1",
+      "time": "10:24:12",
+      "action": [
+        "确认磁盘告警并认领",
+        "Acknowledged and assigned disk alert"
+      ],
+      "object": "db-prod-01",
+      "actor": "lin",
+      "origin": "manual"
+    },
+    {
+      "id": "a2",
+      "time": "10:18:02",
+      "action": [
+        "创建数据库临时屏蔽",
+        "Created temporary database silence"
+      ],
+      "object": "s1",
+      "actor": "chen",
+      "origin": "manual"
+    },
+    {
+      "id": "a3",
+      "time": "09:40:22",
+      "action": [
+        "通过会话创建双指标策略",
+        "Created two-metric policy from conversation"
+      ],
+      "object": "p1 · revision 3",
+      "actor": "chen",
+      "origin": "model"
+    }
+  ],
+  "completed": []
+}

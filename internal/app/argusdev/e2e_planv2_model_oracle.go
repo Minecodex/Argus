@@ -2,6 +2,7 @@ package argusdev
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -19,7 +20,7 @@ import (
 
 // Structured conclusions are authored by the real model in Chat. The harness
 // computes expected facts independently from immutable files, not from its text.
-const planV2ConclusionPrompt = `实际取数，等待任务完成后用 read/bash 读取并分析本轮文件及清单。不得修改已发布查询。说明结论、各图的时间/资源范围、样本口径与未检查部分，不推断全量。在回答末尾用一个 JSON 代码块汇总，结构为 {"overall":"observed_issues 或 no_observed_issues 或 unknown","panels":[{"dashboard_id":"仪表盘ID","panel_id":"图ID","status":"清单中的状态；未能执行时为 not_checked","records":实际记录数,"metric_sum":指标 instant vector 的 value 数值总和或 null,"error_logs":日志 severity_text 为 ERROR 的记录数或 null}],"limitations":["实际限制说明"]}。每张本轮应检查的图恰好一项；未拿到数据时 records 为 0，metric_sum/error_logs 为 null。不要把未查询或未读取的数据说成已检查。`
+const planV2ConclusionPrompt = `实际取数，等待任务完成后用 read/bash 读取并分析本轮文件及清单。不得修改已发布查询。说明结论、各图的时间/资源范围、样本口径与未检查部分，不推断全量。在回答末尾用一个 JSON 代码块汇总，结构为 {"overall":"observed_issues 或 no_observed_issues 或 unknown","panels":[{"dashboard_id":"仪表盘ID","panel_id":"图ID","status":"清单中的状态；未能执行时为 not_checked","records":实际记录数,"metric_sum":指标 instant vector 的 value 数值总和或 null,"error_logs":日志 severity_text 为 ERROR 的记录数或 null}],"limitations":["实际限制说明"]}。range/matrix 图的 metric_sum 为 null，并在该 panel 项追加 samples/min/max/last：从实际文件 values 计算点数、最小值、最大值和最新时间对应的数值，保留实际计算精度；不要把引擎 loaded_samples 当作文件点数，也不要把时间戳计入数值。每张本轮应检查的图恰好一项；未拿到数据时 records 为 0，metric_sum/error_logs 为 null。不要把未查询或未读取的数据说成已检查。`
 
 type planV2ConclusionPanel struct {
 	DashboardID    string   `json:"dashboard_id"`
@@ -31,6 +32,10 @@ type planV2ConclusionPanel struct {
 	Records        int      `json:"records"`
 	MetricSum      *float64 `json:"metric_sum"`
 	ErrorLogs      *int     `json:"error_logs"`
+	Samples        *int     `json:"samples,omitempty"`
+	Min            *float64 `json:"min,omitempty"`
+	Max            *float64 `json:"max,omitempty"`
+	Last           *float64 `json:"last,omitempty"`
 }
 type planV2Conclusion struct {
 	Overall     string                  `json:"overall"`
@@ -178,7 +183,7 @@ func (a *App) planV2VerifyConclusion(ctx context.Context, env *E2EEnvironment, c
 	}
 	want := map[string]planV2ConclusionPanel{}
 	client, _ := scenarioHTTP(env)
-	issues, unknown := false, false
+	issues, unknown, hasMatrix := false, false, false
 	for _, job := range jobs {
 		if job.Manifest == nil {
 			return fmt.Errorf("missing query manifest")
@@ -199,6 +204,9 @@ func (a *App) planV2VerifyConclusion(ctx context.Context, env *E2EEnvironment, c
 				if err != nil {
 					return err
 				}
+				if int64(len(body)) != f.Bytes || fmt.Sprintf("%x", sha256.Sum256(body)) != f.Hash {
+					return fmt.Errorf("analysis file differs from its immutable query hash")
+				}
 				var data any
 				if err = json.Unmarshal(body, &data); err != nil {
 					return err
@@ -209,6 +217,19 @@ func (a *App) planV2VerifyConclusion(ctx context.Context, env *E2EEnvironment, c
 						continue
 					}
 					if def.Signal == "metrics" {
+						matrix := false
+						for _, target := range p.Targets {
+							matrix = matrix || target.ID == f.TargetID && target.ResultType == "matrix"
+						}
+						if matrix {
+							stats, err := planV2MatrixStats(data)
+							if err != nil {
+								return err
+							}
+							w.Samples, w.Min, w.Max, w.Last = &stats.Samples, &stats.Min, &stats.Max, &stats.Last
+							hasMatrix = true
+							continue
+						}
 						sum, ok := planV2MetricSum(data)
 						if !ok && w.Records > 0 {
 							return fmt.Errorf("unsupported numeric fixture shape")
@@ -231,7 +252,7 @@ func (a *App) planV2VerifyConclusion(ctx context.Context, env *E2EEnvironment, c
 	for _, got := range conclusion.Panels {
 		key := got.DashboardID + "/" + got.PanelID
 		w, ok := want[key]
-		if !ok || got.Status != w.Status || got.Records != w.Records || !planV2OptionalNumber(got.MetricSum, w.MetricSum) || !planV2OptionalInt(got.ErrorLogs, w.ErrorLogs) {
+		if !ok || got.Status != w.Status || got.Records != w.Records || !planV2OptionalNumber(got.MetricSum, w.MetricSum) || !planV2OptionalInt(got.ErrorLogs, w.ErrorLogs) || !planV2OptionalInt(got.Samples, w.Samples) || !planV2OptionalNumber(got.Min, w.Min) || !planV2OptionalNumber(got.Max, w.Max) || !planV2OptionalNumber(got.Last, w.Last) {
 			return fmt.Errorf("Chat facts disagree with immutable data for %s: got=%+v want=%+v", key, got, w)
 		}
 		delete(want, key)
@@ -242,7 +263,7 @@ func (a *App) planV2VerifyConclusion(ctx context.Context, env *E2EEnvironment, c
 	if !issues && unknown && conclusion.Overall != "unknown" {
 		return fmt.Errorf("unknown coverage claimed healthy")
 	}
-	if !issues && !unknown && conclusion.Overall != "no_observed_issues" {
+	if !issues && !unknown && conclusion.Overall != "no_observed_issues" && !(hasMatrix && conclusion.Overall == "unknown" && len(conclusion.Limitations) > 0) {
 		return fmt.Errorf("invented issue in known fixture")
 	}
 	if unknown && len(conclusion.Limitations) == 0 {

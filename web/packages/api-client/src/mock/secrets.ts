@@ -8,12 +8,12 @@ export function createSecretsDomain(
   ctx: MockContext,
 ): ArgusApiClient["secrets"] {
   const { db } = ctx;
-  const credentials: Credential[] = db.secrets.map((item) => ({
+  const credentials: Credential[] = db.secretCredentials ??= db.secrets.map((item) => ({
     id: `cred-${item.id}`,
     enterprise_id: item.enterprise_id,
     name: item.name,
     protocol:
-      item.type === "kubeconfig"
+      item.type === "notification" ? "notification" : item.type === "kubeconfig"
         ? "kubernetes"
         : item.type === "windows_password"
 			? "windows"

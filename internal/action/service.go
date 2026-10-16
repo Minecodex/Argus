@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kakj-go/Argus/internal/audit"
@@ -229,10 +230,16 @@ func (service Service) Decide(ctx context.Context, actorID string, enterpriseID,
 
 func (service Service) lockAndRevalidate(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, actionRef, status string, authorizationVersion int64) (db.PendingAction, db.PendingActionPlan, error) {
 	action, err := q.GetPendingActionForUpdate(ctx, db.GetPendingActionForUpdateParams{ActionRef: actionRef, EnterpriseID: enterpriseID})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return db.PendingAction{}, db.PendingActionPlan{}, fmt.Errorf("confirm pending action: lock action: %w", err)
+	}
 	if err != nil || action.Status != status || time.Now().UTC().After(action.ExpiresAt.Time) || (authorizationVersion > 0 && action.AuthorizationVersion != authorizationVersion) {
 		return db.PendingAction{}, db.PendingActionPlan{}, ErrInvalidated
 	}
 	plan, err := q.GetPendingActionPlan(ctx, db.GetPendingActionPlanParams{ActionRef: actionRef, EnterpriseID: enterpriseID})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return db.PendingAction{}, db.PendingActionPlan{}, fmt.Errorf("confirm pending action: load plan: %w", err)
+	}
 	if err != nil || (authorizationVersion > 0 && plan.AuthorizationVersion != authorizationVersion) || !validPlan(plan) {
 		return db.PendingAction{}, db.PendingActionPlan{}, ErrInvalidated
 	}
@@ -240,6 +247,9 @@ func (service Service) lockAndRevalidate(ctx context.Context, q *db.Queries, ent
 		return db.PendingAction{}, db.PendingActionPlan{}, ErrUnavailable
 	}
 	impactHash, err := service.Resources.RevalidatePendingAction(ctx, q, action, plan.ImmutablePlan)
+	if postgres.IsRetryableTransactionError(err) {
+		return action, plan, fmt.Errorf("confirm pending action: revalidate: %w", err)
+	}
 	if resource.ActionValidationCode(err) != "" {
 		return action, plan, errors.Join(ErrInvalidated, err)
 	}
@@ -250,6 +260,9 @@ func (service Service) lockAndRevalidate(ctx context.Context, q *db.Queries, ent
 }
 
 func confirmationAccessError(action db.PendingAction, actor uuid.UUID, cause error) error {
+	if cause != nil && !errors.Is(cause, ErrInvalidated) {
+		return cause
+	}
 	if action.CreatorSubjectType != "user" || action.CreatorSubjectID != actor {
 		return ErrInvalidated
 	}
@@ -350,9 +363,17 @@ func hashPolicy(policy db.ApprovalPolicy) []byte {
 }
 
 func (service Service) audit(ctx context.Context, q *db.Queries, actorID string, enterpriseID uuid.UUID, actionName string, action db.PendingAction, result string) error {
-	_, err := audit.Append(ctx, q, audit.Entry{Domain: "enterprise", EnterpriseID: uuid.NullUUID{UUID: enterpriseID, Valid: true},
-		ActorType: "enterprise_user", ActorID: actorID, Action: actionName, ResourceType: "pending_action", ResourceID: action.ID.String(),
-		Result: "success", Details: map[string]any{"status": result, "action_ref": action.ActionRef}})
+	details, err := resource.PendingExecutionAuditDetails(ctx, q, action, map[string]any{"status": result, "action_ref": action.ActionRef})
+	if err != nil {
+		return err
+	}
+	resourceType := "pending_action"
+	if _, alertScope := details["resource_ids"]; alertScope {
+		resourceType = action.ResourceType
+	}
+	_, err = audit.Append(ctx, q, audit.Entry{Domain: "enterprise", EnterpriseID: uuid.NullUUID{UUID: enterpriseID, Valid: true},
+		ActorType: "enterprise_user", ActorID: actorID, Action: actionName, ResourceType: resourceType, ResourceID: action.ID.String(),
+		Result: "success", Details: details})
 	return err
 }
 

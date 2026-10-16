@@ -1,0 +1,163 @@
+serviceaccount/argus-e2e-ingress created
+clusterrole.rbac.authorization.k8s.io/plan6-plan6-20261008-e-nginx created
+clusterrolebinding.rbac.authorization.k8s.io/plan6-plan6-20261008-e-nginx created
+ingressclass.networking.k8s.io/plan6-plan6-20261008-e-nginx created
+configmap/argus-e2e-ingress created
+service/argus-e2e-ingress created
+deployment.apps/argus-e2e-ingress created
+Preflight plan6-plan6-20261008-e on docker-desktop
+[PASS] kubernetes-api: v1.36.1
+[PASS] network-profile: NetworkPolicy=unverified; EgressGateway=absent; posture=degraded
+[WARN] network-security: NetworkPolicy probe did not observe an enforced deny: job argus-network-probe-1791474612372437600/probe-denied failed
+[WARN] network-security: no external Egress Gateway was detected; Direct Executor uses the cluster default route
+[PASS] node-architecture: amd64
+[PASS] cluster-capacity: allocatable cpu=16000m memory=15911100Ki pods=110
+[WARN] storage-class: standard (volume expansion unavailable; accepted for local profiles)
+[PASS] ingress-class: plan6-plan6-20261008-e-nginx
+[PASS] pki: managed
+[PASS] host-disk: 122.4Gi free
+[WARN] network-policy: NetworkPolicy enforcement was not positively verified
+[WARN] sandbox-runtime: shared ordinary-container runtime explicitly accepted for the local profile
+[PASS] host-architecture: amd64
+Estimate: 22 pods, 6 PVCs, 19Gi requested storage
+Argus plan6-plan6-20261008-e plan (evaluation)
+1. foundation
+2. data-operators
+3. data
+4. sandbox
+5. telemetry-pipeline
+6. platform
+WARN: NETWORK_POLICY_ENFORCEMENT_UNVERIFIED
+WARN: SHARED_CONTAINER_SANDBOX_RUNTIME
+Bootstrap TLS: insecure-first-fetch
+Building Connector distribution for linux/amd64
+Building Connector distribution for linux/arm64
+Building Connector distribution for windows/amd64
+80c861df5f486809a90da9c121917d42b042821494598fdbbbbb7f954690dd18
+Building argus-backend for linux/amd64
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from backend.Dockerfile
+#1 transferring dockerfile: 1.80kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#2 ...
+
+#3 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#2 DONE 25.8s
+
+#4 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#4 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#4 ...
+
+#5 DONE 0.0s
+
+#4 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#4 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 7.1s done
+#4 CACHED
+
+#6 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#6 DONE 5.8s
+
+#7 [internal] load metadata for docker.io/library/golang:1.25.8-alpine
+#7 ERROR: unexpected status from HEAD request to https://registry-1.docker.io/v2/library/golang/manifests/1.25.8-alpine: 401 Unauthorized
+------
+ > [internal] load metadata for docker.io/library/golang:1.25.8-alpine:
+------
+backend.Dockerfile:2
+--------------------
+   1 |     # syntax=docker/dockerfile:1.7
+   2 | >>> FROM --platform=$BUILDPLATFORM golang:1.25.8-alpine AS build
+   3 |     
+   4 |     ARG TARGETOS
+--------------------
+ERROR: failed to build: failed to solve: golang:1.25.8-alpine: unexpected status from HEAD request to https://registry-1.docker.io/v2/library/golang/manifests/1.25.8-alpine: 401 Unauthorized
+argusctl: docker buildx build --platform linux/amd64 --file D:\workspace\go\Argus\deploy\docker\backend.Dockerfile --tag localhost:63870/argus/argus-backend:e2e-plan6-20261008-e --push D:\workspace\go\Argus: exit status 1
+Argus images failed on attempt 1; retrying in 2s: C:\Users\23574\AppData\Local\Temp\argus-dev-e2e-785519845\argusctl.exe images build --config D:\workspace\go\Argus\artifacts\plan6-e2e\plan6-20261008-e\install-config.yaml --platform linux/amd64: exit status 1
+Building Connector distribution for linux/amd64
+Building Connector distribution for linux/arm64
+Building Connector distribution for windows/amd64
+Building argus-backend for linux/amd64
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from backend.Dockerfile
+#1 transferring dockerfile: 1.80kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#2 DONE 1.1s
+
+#3 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#4 ...
+
+#5 DONE 0.0s
+
+#6 [internal] load metadata for docker.io/library/golang:1.25.8-alpine
+#6 ...
+
+#4 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#4 DONE 1.0s
+
+#6 [internal] load metadata for docker.io/library/golang:1.25.8-alpine
+------
+ > [internal] load metadata for docker.io/library/golang:1.25.8-alpine:
+------
+backend.Dockerfile:2
+--------------------
+   1 |     # syntax=docker/dockerfile:1.7
+   2 | >>> FROM --platform=$BUILDPLATFORM golang:1.25.8-alpine AS build
+   3 |     
+   4 |     ARG TARGETOS
+--------------------
+argusctl: docker buildx build --platform linux/amd64 --file D:\workspace\go\Argus\deploy\docker\backend.Dockerfile --tag localhost:63870/argus/argus-backend:e2e-plan6-20261008-e --push D:\workspace\go\Argus: exit status 1
+Argus images failed on attempt 2; retrying in 5s: C:\Users\23574\AppData\Local\Temp\argus-dev-e2e-785519845\argusctl.exe images build --config D:\workspace\go\Argus\artifacts\plan6-e2e\plan6-20261008-e\install-config.yaml --platform linux/amd64: exit status 1
+Building Connector distribution for linux/amd64
+Building Connector distribution for linux/arm64
+Building Connector distribution for windows/amd64
+Building argus-backend for linux/amd64
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from backend.Dockerfile
+#1 transferring dockerfile: 1.80kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#2 DONE 0.5s
+
+#3 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#4 ...
+
+#5 DONE 0.0s
+
+#6 [internal] load metadata for docker.io/library/golang:1.25.8-alpine
+#6 ...
+
+#4 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#4 DONE 0.6s
+
+#6 [internal] load metadata for docker.io/library/golang:1.25.8-alpine
+------
+ > [internal] load metadata for docker.io/library/golang:1.25.8-alpine:
+------
+backend.Dockerfile:2
+--------------------
+   1 |     # syntax=docker/dockerfile:1.7
+   2 | >>> FROM --platform=$BUILDPLATFORM golang:1.25.8-alpine AS build
+   3 |     
+   4 |     ARG TARGETOS
+--------------------
+argusctl: docker buildx build --platform linux/amd64 --file D:\workspace\go\Argus\deploy\docker\backend.Dockerfile --tag localhost:63870/argus/argus-backend:e2e-plan6-20261008-e --push D:\workspace\go\Argus: exit status 1
+E2E failed before cleanup: image build failed after 3 attempts: C:\Users\23574\AppData\Local\Temp\argus-dev-e2e-785519845\argusctl.exe images build --config D:\workspace\go\Argus\artifacts\plan6-e2e\plan6-20261008-e\install-config.yaml --platform linux/amd64: exit status 1
+argus-dev: image build failed after 3 attempts: C:\Users\23574\AppData\Local\Temp\argus-dev-e2e-785519845\argusctl.exe images build --config D:\workspace\go\Argus\artifacts\plan6-e2e\plan6-20261008-e\install-config.yaml --platform linux/amd64: exit status 1
+exit status 1

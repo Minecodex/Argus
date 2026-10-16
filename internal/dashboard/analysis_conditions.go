@@ -221,13 +221,32 @@ func mergeConditions(old dashboardparams.State, patch dashboardparams.Patch, evi
 	}
 	seen := map[string]bool{}
 	for _, ref := range evidence {
-		if !slices.Contains(paths, ref.Path) || seen[ref.Path] || strings.TrimSpace(ref.Quote) == "" || len(ref.Quote) > 2048 || !strings.Contains(message, ref.Quote) {
+		if !slices.Contains(paths, ref.Path) || seen[ref.Path] || len(ref.Quote) > 2048 || len(ref.Reason) > 2048 {
 			return state, toolruntime.Error{Kind: "DASHBOARD_CONDITION_EVIDENCE_REQUIRED"}
 		}
+		origin := ref.Origin
+		if origin == "" {
+			origin = "message_interpretation"
+		}
+		switch origin {
+		case "message_interpretation":
+			if strings.TrimSpace(ref.Quote) == "" || !strings.Contains(message, ref.Quote) {
+				return state, toolruntime.Error{Kind: "DASHBOARD_CONDITION_EVIDENCE_REQUIRED"}
+			}
+		case "ai_selection":
+			if strings.TrimSpace(ref.Reason) == "" || ref.Quote != "" && !strings.Contains(message, ref.Quote) {
+				return state, toolruntime.Error{Kind: "DASHBOARD_CONDITION_EVIDENCE_REQUIRED"}
+			}
+			for path, prior := range old.Evidence {
+				if (path == ref.Path || ref.Path == "/") && prior.Origin != "ai_selection" {
+					return state, toolruntime.Error{Kind: "DASHBOARD_CONDITION_EVIDENCE_REQUIRED", Message: "A user-defined condition can only be changed using the current user's correction.", Details: map[string]any{"path": path}}
+				}
+			}
+		default:
+			return state, ErrInvalid
+		}
 		seen[ref.Path] = true
-		// This records an auditable model interpretation of a current user message,
-		// not a claim that lexical containment proves semantic correctness.
-		state.Evidence[ref.Path] = dashboardparams.Reference{EventID: eventID, Quote: ref.Quote, Origin: "message_interpretation"}
+		state.Evidence[ref.Path] = dashboardparams.Reference{EventID: eventID, Quote: ref.Quote, Origin: origin, Reason: ref.Reason}
 	}
 	if conflicts := inheritedConflicts(state, contracts); len(conflicts) > 0 {
 		return state, toolruntime.Error{Kind: "DASHBOARD_CONDITIONS_INCOMPATIBLE", Message: "Published parameter meanings changed; ask the user to replace or reset the listed overrides.", Details: map[string]any{"paths": strings.Join(conflicts, ",")}}

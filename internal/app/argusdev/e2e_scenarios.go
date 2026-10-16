@@ -2,6 +2,7 @@ package argusdev
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -14,6 +15,31 @@ import (
 func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 	if err := a.runM2Scenario(ctx, env); err != nil {
 		return err
+	}
+	if env.Options.Suite == "tool-templates" {
+		if err := a.templateReadIntegration(ctx, env); err != nil {
+			return err
+		}
+	}
+	if env.Options.Suite == "plan6" && env.Options.Plan6Phase == "host" {
+		// This additional gate installs its own real Docker resources. Only
+		// M4's sandbox setup is needed; full Plan6 keeps its legacy baselines.
+		_, _ = fmt.Fprintln(a.stdout, "Docker Host prerequisite m4 started")
+		if err := a.runM4Scenario(ctx, env); err != nil {
+			return fmt.Errorf("host prerequisite m4: %w", err)
+		}
+		if err := a.configureP5Workspace(ctx, env); err != nil {
+			return fmt.Errorf("host offline Workspace prerequisite: %w", err)
+		}
+		env.State.Values["host_prerequisites_ready"] = "true"
+		coverage, _ := json.MarshalIndent(map[string]any{"scope": "additional_real_docker_host", "core_plan6_complete": false, "required_prerequisites": []string{"m2", "m4", "real offline Workspace profile/quota", "production backend"}, "legacy_baselines_not_executed": []string{"m3", "p5-native", "m7", "self-monitoring baseline"}}, "", "  ")
+		if err := writePrivate(filepath.Join(env.Options.Artifacts, "host-prerequisite-coverage.json"), coverage); err != nil {
+			return err
+		}
+		if err := a.usePlan6ProductionBackend(ctx, env); err != nil {
+			return err
+		}
+		return a.runPlan6HostLoop(ctx, env)
 	}
 	if env.Options.Suite == "m8" {
 		return a.runM8Scenario(ctx, env)
@@ -40,8 +66,25 @@ func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 			err = a.runM7Scenario(ctx, env)
 		case "m10-query":
 			err = a.runM10QueryScenario(ctx, env)
+		case "plan6":
+			// Self-monitoring includes the legacy Collector Replay Preview
+			// prerequisite. Complete it before activating the normal binary.
+			err = a.configurePlanV2SelfMonitoring(ctx, env)
+			if err == nil {
+				env.State.Values["p6_selfmonitor_ready"] = "true"
+				err = a.usePlan6ProductionBackend(ctx, env)
+			}
+			if err == nil {
+				if env.Options.Plan6Phase == "host" {
+					err = a.runPlan6HostLoop(ctx, env)
+				} else {
+					err = a.runPlan6Scenario(ctx, env)
+				}
+			}
 		case "planv2":
 			err = a.runPlanV2Scenario(ctx, env)
+		case "tool-templates":
+			err = a.runToolTemplateScenario(ctx, env)
 		case "p4":
 			err = a.runP4Scenario(ctx, env)
 		case "tls":
@@ -60,7 +103,7 @@ func (a *App) runPlaywright(ctx context.Context, env *E2EEnvironment, spec strin
 	// PlanV2 depends on the setup/API checks from these suites, while its own
 	// real browser cases exercise the dashboard. Baseline portal UI stays in
 	// m2/m3/m4/m7 so focused runs do not repeat all MFA-driven browser flows.
-	if env.Options.Suite == "planv2" && !planV2BrowserSelector(spec) {
+	if (env.Options.Suite == "planv2" && !planV2BrowserSelector(spec)) || (env.Options.Suite == "tool-templates" && !strings.HasPrefix(path.Base(spec), "tool-template-v2-real")) || (env.Options.Suite == "plan6" && !strings.HasPrefix(path.Base(spec), "plan6-")) {
 		_, _ = fmt.Fprintf(a.stdout, "Baseline browser %s belongs to its own suite; PlanV2 retains the setup/API checks\n", spec)
 		return nil
 	}

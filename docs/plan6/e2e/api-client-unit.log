@@ -1,0 +1,32 @@
+$ vitest run
+
+ RUN  v3.2.7 D:/workspace/go/Argus/web/packages/api-client
+
+ ✓ src/adapters/real/dashboard.test.ts (1 test) 36ms
+ ✓ src/adapters/real/audit.test.ts (1 test) 12ms
+ ✓ src/adapters/real/platform-overview.test.ts (1 test) 14ms
+ ✓ src/adapters/real/sandbox.test.ts (2 tests) 20ms
+ ✓ src/adapters/real/planv5.test.ts (1 test) 28ms
+ ✓ src/mock/telemetry-access.test.ts (2 tests) 11ms
+ ✓ src/error-presentation.test.ts (6 tests) 5ms
+ ✓ src/password-policy.test.ts (8 tests) 4ms
+ ✓ src/audit-presentation.test.ts (2 tests) 3ms
+ ✓ src/mock/dashboard-context.test.ts (1 test) 26ms
+ ✓ src/mock/dashboard-bindings.test.ts (1 test) 24ms
+ ✓ src/mock/dashboard-display.test.ts (2 tests) 24ms
+ ✓ src/mock/dashboard.test.ts (2 tests) 21ms
+ ✓ src/mock/dashboard-queries.test.ts (1 test) 33ms
+ ✓ src/name-availability.test.ts (6 tests) 33ms
+ ✓ src/form-constraints.test.ts (3 tests) 5ms
+ ✓ src/transport/transport.test.ts (22 tests) 49ms
+ ✓ src/mock/host-callback-preflight.test.ts (3 tests) 133ms
+ ✓ src/transport/remote-access.test.ts (2 tests) 6ms
+ ✓ src/mock/store.test.ts (2 tests) 7ms
+ ✓ src/mock/mock.test.ts (30 tests) 2793ms
+   ✓ hosts CRUD > tests connections and manages collector install wizard  2607ms
+
+ Test Files  21 passed (21)
+      Tests  99 passed (99)
+   Start at  11:10:01
+   Duration  4.06s (transform 2.44s, setup 0ms, collect 9.63s, tests 3.29s, environment 1.69s, prepare 3.51s)
+

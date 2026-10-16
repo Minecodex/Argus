@@ -72,9 +72,6 @@ func (tools LifecycleTools) Register(registry *mcp.Registry) error {
 			}
 			return tools.Removal.Preview(ctx, s, e, hostremoval.PreviewInput{TargetType: stringValue(in, "target_type"), TargetID: target, ExpectedVersion: intValue(in, "expected_version"), Mode: stringValue(in, "mode"), CredentialID: nullID(in, "credential_id"), ConnectionTestID: nullID(in, "connection_test_id"), ConfirmationName: stringValue(in, "confirmation_name")}, key)
 		}},
-		{"host.windows_rdp.enable.preview", "host.manage", "ResourcePreviewDelete", "host_id", func(ctx context.Context, s resource.Subject, e, id uuid.UUID, in map[string]any, key string) (db.PendingAction, error) {
-			return tools.Bastion.PreviewWindowsRDPEnable(ctx, s, e, id, intValue(in, "expected_version"), key)
-		}},
 	} {
 		if err := registerNativePreview(registry, tools.Base, hostDocument, item); err != nil {
 			return err

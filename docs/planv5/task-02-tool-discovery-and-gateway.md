@@ -8,7 +8,7 @@
 
 ## 当前实施状态
 
-三元 Gateway、七分类、主体感知缓存、独立鉴权、固定目录版本及 27 个正式 Preview 已接入。Kubernetes 的模型分类按约定使用 `k8s`；内部 Tool ID 仍以 `kubernetes.` 开头。二者不混用，不增加分类兼容别名。目录/Schema 和真实数据库调用已有证据，新增 Collector 模型入口已在 M10 g 轮通过。2026-09-23 的 R17 发现缺项现已补齐：52 个正式工具的版本化业务描述、关键词、结果语义、前件和示例均进入 Catalog，确定性检索及 Schema/版本/缓存回归通过，完整 P5 b 验证七分类九组模型投影。见 [R17 修复与验收](./fixes-r17-2026-09-23.md)。真实模型检索质量评测仍归 Task 06 待执行。
+当前三元 Gateway 使用九分类、103 个业务工具和分类完整列表；Describe 保留主体感知缓存，权限与版本继续独立校验。以下 R17/52 工具记录为 2026-09-23 历史验收。Kubernetes 的模型分类按约定使用 `k8s`；内部 Tool ID 仍以 `kubernetes.` 开头。二者不混用，不增加分类兼容别名。目录/Schema 和真实数据库调用已有证据，新增 Collector 模型入口已在 M10 g 轮通过。2026-09-23 的 R17 发现缺项现已补齐：52 个正式工具的版本化业务描述、关键词、结果语义、前件和示例均进入 Catalog，确定性检索及 Schema/版本/缓存回归通过，完整 P5 b 验证七分类九组模型投影。见 [R17 修复与验收](./fixes-r17-2026-09-23.md)。真实模型检索质量评测仍归 Task 06 待执行。
 
 ## 交付内容
 
@@ -32,13 +32,14 @@
 
 ### P5-T03：`tool.search`
 
-- [ ] 实现必填 `category`，可选 `query/limit/cursor` 的固定输入 Schema。
-- [ ] 在名称、标题、描述和关键词上执行确定性相关性排序。
-- [ ] 搜索前应用企业、用户、ServiceAccount、Tool Visibility 和 Capability Snapshot 过滤。
-- [ ] 默认 10 项，最大 20 项；返回稳定 Cursor 和 Catalog Revision。
-- [ ] 结果只含名称、标题、短摘要、风险、是否需要确认和版本，不含完整 Schema。
-- [ ] 同一输入和权限/能力快照产生相同规范化结果与 Projection Hash。
-- [ ] Catalog 即使有 500～1000 个 Tool，Search 输出仍受固定上限约束。
+2026-10-14 最新契约见[分类发现](./category-only-discovery-20261014.md)。此前 AND 关键词/游标方案为历史设计。
+
+- [x] 输入仅必填 `category`，拒绝 query、limit、cursor。
+- [x] 按当前主体权限、可见性与 Run 业务范围裁剪后，一次返回分类完整列表。
+- [x] 名称稳定排序；摘要、风险、确认标记与版本保留，完整 Schema 通过 Describe 获取。
+- [x] 输出 complete 和 Catalog Revision，无分页游标。
+- [x] Agent 保留全部发现元数据，模型上下文容量门禁继续生效。
+- [x] 九类导航由同一份定义进入系统提示、搜索描述和枚举。
 
 ### P5-T04：`tool.describe`
 

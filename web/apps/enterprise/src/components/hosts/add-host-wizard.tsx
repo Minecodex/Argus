@@ -816,6 +816,7 @@ function HostModeStep({
         <h3>{t(`hosts.hostMode.titleOf.${mode}`)}</h3>
         <p>{t(`hosts.hostMode.summaryOf.${mode}`)}</p>
         <ModeGrid items={hostModeGrid(mode, t)} />
+        <HostTopology mode={mode} t={t} />
       </div>
     </div>
   );

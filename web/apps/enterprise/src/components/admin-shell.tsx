@@ -90,6 +90,7 @@ function buildSections(
       groupKey: "shell.groups.resources",
       items: [
         { key: "dashboards.title", to: "/dashboards", icon: LayoutDashboard },
+ { key:"alerts.center",to:"/alerts",icon:Bell },
         {
           key: "shell.nav.hosts",
           to: "/hosts",

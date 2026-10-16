@@ -82,6 +82,16 @@ Bastion Scope、Telemetry Group 或标签关系都不能跨企业传播权限。
 - 产生安装命令等敏感结果的 Execution 公开对象只返回 `one_time_result_available`。结果使用 `execution_one_time_results` AES-GCM 加密、短时保存并由原发起人通过独立幂等接口原子领取；同一 Idempotency-Key 可以重放同一响应，新 Key 二次领取稳定失败。明文不得进入 PendingAction、Execution、普通资源 DTO、浏览器持久化、日志、审计或 Redis。
 - 领取已有一次性结果不是令牌轮换。待注册主机/堡垒机的 `host.enrollment.rotate`/`bastion.enrollment.rotate`、统一 `host.removal.uninstall|forget` 和 `bastion.connector.replace` 是不同的写动作，必须分别定义前件、风险、审计和 Preview/Commit；服务端不能依赖前端入口区分它们。
 
+### 4.1 Plan7 远程请求与计划扩展（目标契约，待实现）
+
+2026-10-15 确认的 [Plan7](./plan7/README.md)按 Workspace、平台业务、远程资源三种自有执行场景治理，不建设工具／参数等级或会话 24 小时免确认体系。平台业务变更保留本节 Preview／Confirm；Workspace 继续离线免逐次确认，客户 MCP 继续 PlanV5 独立规则。
+
+新增模型入口 connect 只准备一次完整远程请求的预览，真实执行由宿主批准后的确定性执行器派发。一次计划批准仅覆盖固定版本中列明的目标、命令和输入；不授予连接上的后续任意命令，不向模型暴露提交 Token 或人工会话票据。命令解析与 AI 风险说明不构成安全证明或免确认依据。
+
+Q15 进一步确认完整请求可包含一批指令，整计划及连续 connect 复用同一资源的 shell／PowerShell 会话。共享解释器状态不产生持续授权；会话、命令批次、隧道和文件传输采用独立状态与监督回执，具体共享／文件批准／失效语义见 [Plan7 补充设计](./plan7/07-shared-sessions-and-file-transfer.md)。
+
+该目标扩展 Connector 命令类型和执行后的 Agent 能力判断，不表示当前代码已经具备。实施任务、身份适配缺口和待决执行细节见 [Plan7 架构契约](./plan7/02-architecture-and-contracts.md)及[实施状态](./plan7/implementation-status.md)。
+
 ## 5. AI、模板和 Sandbox 不变量
 
 - AI 负责理解、规划和选择，不是权限、审批、Secret 或唯一状态的边界。

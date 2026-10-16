@@ -904,6 +904,10 @@
           "expected_version": {
             "type": "integer",
             "format": "int64"
+          },
+          "preparation": {
+            "$ref": "#/components/schemas/DashboardDraftPreparation",
+            "description": "Optional deterministic lossless conversions and standard drilldowns, applied atomically with the version-checked draft save. Omission does not modify the supplied definition."
           }
         },
         "required": [
@@ -2030,6 +2034,67 @@
           "draft_version",
           "execution"
         ]
+      },
+      "DashboardDraftPreparation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "conversions": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/DashboardDraftPanelConversion"
+            }
+          },
+          "drilldowns": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/DashboardDraftPanelDrilldowns"
+            }
+          }
+        }
+      },
+      "DashboardDraftPanelConversion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "panel_id",
+          "mode"
+        ],
+        "properties": {
+          "panel_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "builder",
+              "dsl"
+            ]
+          }
+        }
+      },
+      "DashboardDraftPanelDrilldowns": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "panel_id",
+          "signal_sources"
+        ],
+        "properties": {
+          "panel_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "signal_sources": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DashboardSourceBinding"
+            }
+          }
+        }
       }
     }
   }

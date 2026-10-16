@@ -121,6 +121,10 @@ func (h *ScenarioHTTP) jsonValue(ctx context.Context, name, clientName, method, 
 		_ = json.Unmarshal(data, &result)
 	}
 	if response.StatusCode != expected {
+		// Record proxy/non-JSON failures as facts too. Never persist cookies,
+		// authorization headers, response bodies or URL query parameters here.
+		facts, _ := json.MarshalIndent(map[string]any{"stage": name, "method": method, "path": request.URL.EscapedPath(), "expected_status": expected, "actual_status": response.StatusCode, "request_id": response.Header.Get("X-Request-ID"), "at": time.Now().UTC()}, "", "  ")
+		_ = writePrivate(filepath.Join(h.Artifacts, name+"-http-status.json"), append(facts, '\n'))
 		redacted := redactJSON(result)
 		detail := "response body omitted"
 		if encoded, marshalErr := json.MarshalIndent(redacted, "", "  "); marshalErr == nil {

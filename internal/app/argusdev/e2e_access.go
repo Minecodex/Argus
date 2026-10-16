@@ -138,6 +138,7 @@ func (a *App) resolveE2EAccess(ctx context.Context, env *E2EEnvironment) error {
 			return err
 		}
 		env.Forwards = append(env.Forwards, gateway)
+		env.ConnectorForward = gateway
 		connectorDialIP = "127.0.0.1"
 		gatewayPort = strconv.Itoa(int(gateway.Ports[0].Local))
 	}

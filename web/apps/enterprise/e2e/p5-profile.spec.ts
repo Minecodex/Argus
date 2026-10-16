@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { platformOrigin } from "./origins";
+import { selectRowAction } from "./helpers/action-menu";
 
 for (const locale of ["zh-CN", "en-US"] as const) {
   for (const theme of ["light", "dark"] as const) {
@@ -32,6 +33,47 @@ for (const locale of ["zh-CN", "en-US"] as const) {
       await expect(page).not.toHaveURL(/\/login/);
       await page.goto(`${platformOrigin}/sandbox`);
       const zh = locale === "zh-CN";
+      // A freshly initialized platform starts with no registered images.
+      // Establish this fixture through the same governed UI as its profile.
+      await page
+        .getByRole("tab", { name: zh ? "镜像" : "Images", exact: true })
+        .click();
+      await page
+        .getByRole("button", {
+          name: zh ? "登记镜像" : "Register image",
+          exact: true,
+        })
+        .click();
+      const imageDrawer = page.getByRole("dialog", {
+        name: zh ? "登记镜像" : "Register image",
+        exact: true,
+      });
+      await imageDrawer
+        .getByRole("textbox", { name: zh ? "名称" : "Name", exact: true })
+        .fill("P5 owned offline image");
+      await imageDrawer
+        .getByRole("textbox", {
+          name: zh ? "镜像引用" : "Image reference",
+          exact: true,
+        })
+        .fill("registry.fixture.test/workspace:fixed");
+      await imageDrawer
+        .getByRole("textbox", { name: /Digest/ })
+        .fill("sha256:" + "a".repeat(64));
+      await imageDrawer
+        .getByRole("textbox", {
+          name: zh ? "语言版本" : "Languages",
+          exact: true,
+        })
+        .fill("python:3.13");
+      await imageDrawer
+        .getByRole("button", { name: zh ? "创建" : "Create", exact: true })
+        .click();
+      await expect(imageDrawer).not.toBeVisible();
+      await selectRowAction(
+        page.getByRole("row").filter({ hasText: "P5 owned offline image" }),
+        zh ? "启用" : "Enable",
+      );
       await page
         .getByRole("tab", {
           name: zh ? "Sandbox Profile" : "Sandbox Profiles",
@@ -55,7 +97,9 @@ for (const locale of ["zh-CN", "en-US"] as const) {
       });
       await expect(imageSelect).toBeEnabled();
       await imageSelect.click();
-      await page.getByRole("option").first().click();
+      await page
+        .getByRole("option", { name: "P5 owned offline image", exact: true })
+        .click();
       await drawer.getByLabel(zh ? "CPU（核）" : "CPU (cores)").fill("2");
       await drawer.getByLabel(zh ? "内存（MB）" : "Memory (MB)").fill("1536");
       await drawer
@@ -82,8 +126,8 @@ for (const locale of ["zh-CN", "en-US"] as const) {
       await expect(row).toContainText(
         zh ? "离线业务分析" : "Offline business analysis",
       );
-      await row.getByRole("switch").press("Space");
-      await expect(row.getByRole("switch")).not.toBeChecked();
+      await selectRowAction(row, zh ? "停用" : "Disable");
+      await expect(row).toContainText(zh ? "已停用" : "Disabled");
     });
   }
 }

@@ -14,6 +14,9 @@ INSERT INTO dashboard_run_parameters(run_id,enterprise_id,conversation_id,dashbo
 -- name: GetDashboardRunParameters :one
 SELECT * FROM dashboard_run_parameters WHERE run_id=$1 AND dashboard_id=$2 AND enterprise_id=$3 AND owner_user_id=$4;
 
+-- name: ListDashboardRunParameters :many
+SELECT * FROM dashboard_run_parameters WHERE run_id=$1 AND enterprise_id=$2 AND owner_user_id=$3 ORDER BY dashboard_id;
+
 -- name: LockDashboardRunParameters :one
 SELECT * FROM dashboard_run_parameters WHERE run_id=$1 AND dashboard_id=$2 AND enterprise_id=$3 AND owner_user_id=$4 FOR UPDATE;
 

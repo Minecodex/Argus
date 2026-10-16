@@ -29,6 +29,7 @@ type HostHandler struct {
 	Service    resource.Service
 	Queries    *db.Queries
 	WindowsRDP HostWindowsRDPActionService
+	Reconnect  HostReconnectActionService
 	Removal    hostremoval.Service
 }
 
@@ -386,6 +387,12 @@ func toHost(value db.Host, runtimeState db.HostRuntimeObservation, onboarding on
 		id := openapi_types.UUID(onboarding.RemovalOperationID.UUID)
 		result.RemovalOperationId = &id
 	}
+	if len(runtimeState.InventoryJson) > 0 {
+		var inventory hostapi.HostInventory
+		if json.Unmarshal(runtimeState.InventoryJson, &inventory) == nil {
+			result.Inventory = &inventory
+		}
+	}
 	if runtimeState.HostID != uuid.Nil {
 		result.Runtime = &hostapi.HostRuntimeObservation{Platform: hostapi.HostRuntimeObservationPlatform(runtimeState.Platform),
 			OpensshStatus: hostapi.HostRuntimeObservationOpensshStatus(runtimeState.OpensshStatus), RdpStatus: hostapi.HostRuntimeObservationRdpStatus(runtimeState.RdpStatus),
@@ -644,7 +651,7 @@ func hostErrorBase(ctx context.Context, err error) hostapi.ApiError {
 		base.Code, base.MessageKey = "INVALID_ARGUMENT", "errors.common.invalid_argument"
 	case errors.Is(err, telemetryservice.ErrDistributionPending):
 		base.Code, base.MessageKey = "COLLECTOR_DISTRIBUTION_VALIDATION_PENDING", "errors.telemetry.distribution_validation_pending"
-	case errors.Is(err, telemetryservice.ErrCollectorArtifactUnavailable):
+	case errors.Is(err, resource.ErrInventoryUnavailable), errors.Is(err, telemetryservice.ErrCollectorArtifactUnavailable):
 		base.Code, base.MessageKey = "COLLECTOR_ARTIFACT_UNAVAILABLE", "errors.telemetry.artifact_unavailable"
 		base.Retryable = retryablePointer(true)
 	case errors.Is(err, hostremoval.ErrDependenciesExist):
@@ -697,7 +704,7 @@ func resourceStatus(err error) int {
 		return http.StatusForbidden
 	case errors.Is(err, resource.ErrConnectionTestNeeded), errors.Is(err, resource.ErrHostOnboardingUnsupported):
 		return http.StatusUnprocessableEntity
-	case errors.Is(err, telemetryservice.ErrCollectorArtifactUnavailable):
+	case errors.Is(err, resource.ErrInventoryUnavailable), errors.Is(err, telemetryservice.ErrCollectorArtifactUnavailable):
 		return http.StatusServiceUnavailable
 	default:
 		return http.StatusConflict

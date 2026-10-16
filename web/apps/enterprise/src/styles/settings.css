@@ -55,9 +55,17 @@
 }
 
 .argus-settings-form {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(var(--form-field-min-width), 1fr)
+  );
   gap: var(--field-gap);
+}
+.argus-settings-form > :not(.argus-field),
+.argus-settings-form > .argus-field[role="group"],
+.argus-settings-form > .argus-field:has(.argus-textarea) {
+  grid-column: 1 / -1;
 }
 
 .argus-settings-check-list {

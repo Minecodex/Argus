@@ -1,0 +1,28 @@
+/* Document results grow with their content; the surrounding chat owns vertical
+   navigation. These shared rules also apply to immutable historical templates. */
+:root[data-template-layout="document"]
+  :is(
+    .argus-template-code,
+    .argus-definition-view pre,
+    .argus-definition-empty,
+    .argus-observation-table,
+    .argus-observation-stats,
+    .argus-observation-logs,
+    .argus-observation-log-body,
+    .argus-trace-view,
+    .argus-dashboard-panel
+  ) {
+  max-height: none;
+  min-height: min-content;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+}
+:root[data-template-layout="document"] .argus-dashboard-grid {
+  max-height: none;
+  overflow: visible;
+  grid-auto-rows: minmax(var(--argus-dashboard-row, 0px), auto);
+}
+:root[data-template-layout="document"] .argus-dashboard-tile {
+  min-height: min-content;
+}

@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
@@ -14,9 +15,9 @@ test("command-installed host is uninstalled before its record can be deleted", a
 }) => {
   await seedRegisteredHost(page);
   let tile = page
-    .locator(".argus-host-tile")
+    .locator(".argus-table tbody tr")
     .filter({ hasText: "public-web-01" });
-  await tile.getByRole("button", { name: "卸载", exact: true }).click();
+  await selectRowAction(tile, "卸载主机");
 
   const dialog = page.getByRole("dialog", { name: "卸载 Argus 软件" });
   await expect(dialog.getByText("命令卸载", { exact: true })).toBeVisible();
@@ -31,9 +32,11 @@ test("command-installed host is uninstalled before its record can be deleted", a
   expect(command).not.toContain("--insecure");
   await dialog.getByRole("button", { name: "完成", exact: true }).click();
 
-  tile = page.locator(".argus-host-tile").filter({ hasText: "public-web-01" });
+  tile = page
+    .locator(".argus-table tbody tr")
+    .filter({ hasText: "public-web-01" });
   await expect(tile.getByText("已卸载", { exact: true })).toBeVisible();
-  await tile.getByRole("button", { name: "更多操作", exact: true }).click();
+  await tile.getByRole("button", { name: /更多操作/ }).click();
   await page.getByRole("menuitem", { name: "删除", exact: true }).click();
   await page
     .getByRole("dialog", { name: "删除主机" })
@@ -50,7 +53,7 @@ test("command-installed host is uninstalled before its record can be deleted", a
       .first(),
   ).toBeVisible();
   await expect(
-    page.locator(".argus-host-tile").filter({ hasText: "public-web-01" }),
+    page.locator(".argus-table tbody tr").filter({ hasText: "public-web-01" }),
   ).toBeVisible();
 });
 
@@ -58,12 +61,9 @@ test("bastion removal is blocked by linked member resources", async ({
   page,
 }) => {
   const scope = page
-    .locator(".argus-scope-card")
+    .locator(".argus-scope-card, .argus-table tbody tr")
     .filter({ hasText: "上海机房堡垒机-01" });
-  await scope
-    .locator(".argus-scope-card__head")
-    .getByRole("button", { name: "卸载", exact: true })
-    .click();
+  await selectRowAction(scope.locator(".argus-scope-card__head"), "卸载");
 
   const dialog = page.getByRole("dialog", { name: "卸载 Argus 软件" });
   await dialog
@@ -83,12 +83,12 @@ test("command-mode bastion exposes a governed Connector takeover", async ({
   page,
 }) => {
   const scope = page
-    .locator(".argus-scope-card")
+    .locator(".argus-scope-card, .argus-table tbody tr")
     .filter({ hasText: "上海机房堡垒机-01" });
-  await scope
-    .locator(".argus-scope-card__head")
-    .getByRole("button", { name: "替换 Connector", exact: true })
-    .click();
+  await selectRowAction(
+    scope.locator(".argus-scope-card__head"),
+    "替换 Connector",
+  );
 
   const dialog = page.getByRole("dialog", { name: "Connector 替换" });
   await dialog
@@ -120,11 +120,16 @@ for (const scenario of [
     const launcher =
       scenario === "bastion"
         ? page
-            .locator(".argus-scope-card")
+            .locator(".argus-scope-card, .argus-table tbody tr")
             .filter({ hasText: "上海机房堡垒机-01" })
             .locator(".argus-scope-card__head")
-        : page.locator(".argus-host-tile").filter({ hasText: "public-web-01" });
-    await launcher.getByRole("button", { name: "卸载", exact: true }).click();
+        : page
+            .locator(".argus-table tbody tr")
+            .filter({ hasText: "public-web-01" });
+    await selectRowAction(
+      launcher,
+      scenario === "bastion" ? "卸载" : "卸载主机",
+    );
     const dialog = page.getByRole("dialog", { name: "卸载 Argus 软件" });
     await expect(
       dialog.getByText("使用已保存的 SSH 连接", { exact: true }),
@@ -166,9 +171,9 @@ for (const scenario of [
   }) => {
     await seedNeverRegisteredHost(page, scenario);
     const tile = page
-      .locator(".argus-host-tile")
+      .locator(".argus-table tbody tr")
       .filter({ hasText: "public-web-01" });
-    await tile.getByRole("button", { name: "卸载", exact: true }).click();
+    await selectRowAction(tile, "卸载主机");
     const dialog = page.getByRole("dialog", {
       name: "删除未完成的安装记录",
     });
@@ -180,21 +185,25 @@ for (const scenario of [
   });
 }
 
-test("failed Host can delete its unfinished record from detail", async ({
+test("failed Host returns to its list menu to delete its unfinished record", async ({
   page,
 }) => {
   const hostId = await seedNeverRegisteredHost(page, "linux");
   await page.goto(`/hosts/${hostId}`);
-  await page
-    .locator("main")
-    .getByRole("button", { name: "卸载", exact: true })
-    .click();
+  await expect(
+    page.locator("main").getByRole("button", { name: /卸载/ }),
+  ).toHaveCount(0);
+  await page.goto("/hosts");
+  const row = page.getByRole("row").filter({
+    has: page.getByRole("link", { name: "public-web-01", exact: true }),
+  });
+  await selectRowAction(row, "卸载主机");
   const dialog = page.getByRole("dialog", {
     name: "删除未完成的安装记录",
   });
   await dialog.getByRole("button", { name: "删除记录", exact: true }).click();
   await dialog.getByRole("button", { name: "确认删除", exact: true }).click();
-  await expect(page.getByText("主机不存在或已被删除")).toBeVisible();
+  await expect(row).toHaveCount(0);
 });
 
 test("cancelling an unfinished Host deletion keeps the record", async ({
@@ -202,9 +211,9 @@ test("cancelling an unfinished Host deletion keeps the record", async ({
 }) => {
   await seedNeverRegisteredHost(page, "linux");
   const tile = page
-    .locator(".argus-host-tile")
+    .locator(".argus-table tbody tr")
     .filter({ hasText: "public-web-01" });
-  await tile.getByRole("button", { name: "卸载", exact: true }).click();
+  await selectRowAction(tile, "卸载主机");
   const dialog = page.getByRole("dialog", {
     name: "删除未完成的安装记录",
   });
@@ -220,11 +229,10 @@ test("stale registered Host can delete after defaults rejects it", async ({
   page,
 }) => {
   await seedStaleRegisteredHost(page);
-  await page
-    .locator(".argus-host-tile")
-    .filter({ hasText: "public-web-01" })
-    .getByRole("button", { name: "卸载", exact: true })
-    .click();
+  await selectRowAction(
+    page.locator(".argus-table tbody tr").filter({ hasText: "public-web-01" }),
+    "卸载主机",
+  );
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByText("删除未完成的安装记录", { exact: true }).first(),
@@ -245,7 +253,7 @@ test("stale registered Host can delete after defaults rejects it", async ({
   await dialog.getByRole("button", { name: "删除记录", exact: true }).click();
   await dialog.getByRole("button", { name: "确认删除", exact: true }).click();
   await expect(
-    page.locator(".argus-host-tile").filter({ hasText: "public-web-01" }),
+    page.locator(".argus-table tbody tr").filter({ hasText: "public-web-01" }),
   ).toHaveCount(0);
 });
 
@@ -255,28 +263,30 @@ for (const [name, deleteLabel] of [
   ["P4 命令已领取", "删除记录"],
 ] as const) {
   test(`unfinished Bastion ${name} can be deleted`, async ({ page }) => {
-    const card = page.locator(".argus-scope-card").filter({ hasText: name });
-    await card.getByRole("button", { name: deleteLabel, exact: true }).click();
+    const card = page
+      .locator(".argus-scope-card, .argus-table tbody tr")
+      .filter({ hasText: name });
+    await selectRowAction(card, deleteLabel);
     await expect(card.getByText(/目标机可能保留安装残留/)).toBeVisible();
     await card.getByRole("button", { name: "确认删除", exact: true }).click();
     await expect(card).toHaveCount(0);
   });
 }
 
-test("failed Bastion root can be deleted from Host detail", async ({
+test("failed Bastion root returns to its list menu for deletion", async ({
   page,
 }) => {
   const hostId = await seedFailedBastionRoot(page);
   await page.goto(`/hosts/${hostId}`);
-  await page
-    .locator("main")
-    .getByRole("button", { name: "卸载", exact: true })
-    .click();
-  const dialog = page.getByRole("dialog", {
-    name: "删除未完成的安装记录",
-  });
-  await dialog.getByRole("button", { name: "删除记录", exact: true }).click();
-  await dialog.getByRole("button", { name: "确认删除", exact: true }).click();
+  await expect(
+    page.locator("main").getByRole("button", { name: /卸载/ }),
+  ).toHaveCount(0);
+  await page.goto("/hosts");
+  const row = page.getByRole("row").filter({ hasText: "P4 隧道代装失败" });
+  await selectRowAction(row, "删除记录");
+  await row.getByRole("button", { name: "确认删除", exact: true }).click();
+  await expect(row).toHaveCount(0);
+  await page.goto(`/hosts/${hostId}`);
   await expect(page.getByText("主机不存在或已被删除")).toBeVisible();
 });
 
@@ -285,15 +295,15 @@ test("saved SSH account can be changed and resets when reopening", async ({
 }) => {
   await seedSSHRemoval(page, "linux");
   const tile = page
-    .locator(".argus-host-tile")
+    .locator(".argus-table tbody tr")
     .filter({ hasText: "public-web-01" });
-  await tile.getByRole("button", { name: "卸载", exact: true }).click();
+  await selectRowAction(tile, "卸载主机");
   let dialog = page.getByRole("dialog", { name: "卸载 Argus 软件" });
   await dialog.getByRole("button", { name: "更换账号或凭据" }).click();
   await expect(dialog.getByLabel("SSH 账号")).toHaveValue("install-admin");
   await dialog.getByLabel("SSH 账号").fill("changed-admin");
   await dialog.getByRole("button", { name: "取消", exact: true }).click();
-  await tile.getByRole("button", { name: "卸载", exact: true }).click();
+  await selectRowAction(tile, "卸载主机");
   dialog = page.getByRole("dialog", { name: "卸载 Argus 软件" });
   await expect(
     dialog.getByText(/账号：install-admin；凭据：prod-ssh-key/),
@@ -305,11 +315,10 @@ test("missing installation credential preserves account and requests replacement
   page,
 }) => {
   await seedSSHRemoval(page, "linux", true);
-  await page
-    .locator(".argus-host-tile")
-    .filter({ hasText: "public-web-01" })
-    .getByRole("button", { name: "卸载", exact: true })
-    .click();
+  await selectRowAction(
+    page.locator(".argus-table tbody tr").filter({ hasText: "public-web-01" }),
+    "卸载主机",
+  );
   const dialog = page.getByRole("dialog", { name: "卸载 Argus 软件" });
   await expect(
     dialog.getByText("请确认 SSH 连接信息", { exact: true }),
@@ -332,11 +341,10 @@ test("saved SSH connection is available in English dark mode", async ({
     localStorage.setItem("argus.theme", "dark");
   });
   await page.reload();
-  await page
-    .locator(".argus-host-tile")
-    .filter({ hasText: "public-web-01" })
-    .getByRole("button", { name: "Uninstall", exact: true })
-    .click();
+  await selectRowAction(
+    page.locator(".argus-table tbody tr").filter({ hasText: "public-web-01" }),
+    "Uninstall host",
+  );
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByText("Use saved SSH connection", { exact: true }),
@@ -367,11 +375,9 @@ for (const locale of ["zh-CN", "en-US"] as const) {
     await page.reload();
     const zh = locale === "zh-CN";
     const tile = page
-      .locator(".argus-host-tile")
+      .locator(".argus-table tbody tr")
       .filter({ hasText: "public-web-01" });
-    await tile
-      .getByRole("button", { name: zh ? "卸载" : "Uninstall", exact: true })
-      .click();
+    await selectRowAction(tile, zh ? "卸载主机" : "Uninstall host");
     let dialog = page.getByRole("dialog");
     const choices = dialog.getByRole("group", {
       name: zh ? "选择处理方式" : "Choose an action",
@@ -441,11 +447,10 @@ test("online SSH hosts explain why record-only removal is unavailable", async ({
   page,
 }, testInfo) => {
   await seedSSHRemoval(page, "windows");
-  await page
-    .locator(".argus-host-tile")
-    .filter({ hasText: "public-web-01" })
-    .getByRole("button", { name: "卸载", exact: true })
-    .click();
+  await selectRowAction(
+    page.locator(".argus-table tbody tr").filter({ hasText: "public-web-01" }),
+    "卸载主机",
+  );
   const dialog = page.getByRole("dialog", { name: "卸载 Argus 软件" });
   await expect(
     dialog.getByRole("button", { name: /^仅从 Argus 移除/ }),

@@ -1,10 +1,13 @@
 import { Button } from "../button";
 import { useEffect, useRef, useState } from "react";
+import { LoaderCircle } from "lucide-react";
 import { createTemplateHost } from "./host";
 import type {
   TemplateContext,
   TemplatePresentation,
   TemplateResource,
+  TemplateReadInput,
+  TemplateReadResult,
 } from "./protocol";
 
 export function ToolPresentationFrame({
@@ -19,6 +22,10 @@ export function ToolPresentationFrame({
   collapseLabel,
   onResource,
   onResult,
+  onRead,
+  dataVersion,
+  retryLabel,
+  layout = "preview",
 }: {
   origin: string;
   presentation: TemplatePresentation;
@@ -31,6 +38,11 @@ export function ToolPresentationFrame({
   collapseLabel: string;
   onResource?(ref: TemplateResource): void;
   onResult?(ref: string): void;
+  onRead?(input: TemplateReadInput): Promise<TemplateReadResult>;
+  dataVersion?: number;
+  retryLabel?: string;
+  /** Document layouts grow to the measured content height without a viewport cap. */
+  layout?: "preview" | "document";
 }) {
   const iframe = useRef<HTMLIFrameElement>(null);
   const host = useRef<ReturnType<typeof createTemplateHost> | undefined>(
@@ -39,19 +51,20 @@ export function ToolPresentationFrame({
   const [status, setStatus] = useState("loading");
   const [height, setHeight] = useState(240);
   const [expanded, setExpanded] = useState(false);
-  const callbacks = useRef({ onResource, onResult });
-  callbacks.current = { onResource, onResult };
+  const [retry, setRetry] = useState(0);
+  const callbacks = useRef({ onResource, onResult, onRead });
+  callbacks.current = { onResource, onResult, onRead };
   const context = (): TemplateContext => {
     const computed = getComputedStyle(document.documentElement);
     const tokens: Record<string, string> = {};
     for (const key of Array.from(computed))
       if (
-        /^--(?:bg|text|font|space|radius|shadow|accent|success|warning|danger|info|border|brand|surface|control|card|field|action|page|section|record|line-height)(?:-|$)/.test(
+        /^--(?:bg|text|font|space|radius|shadow|accent|success|warning|danger|info|border|brand|surface|control|card|field|action|page|section|record|line-height|template|chart|dashboard|scrollbar)(?:-|$)/.test(
           key,
         )
       )
         tokens[key] = computed.getPropertyValue(key).trim();
-    return { locale, color_scheme: colorScheme, tokens };
+    return { locale, color_scheme: colorScheme, layout, tokens };
   };
   const currentContext = useRef(context());
   currentContext.current = context();
@@ -68,6 +81,9 @@ export function ToolPresentationFrame({
         onResize: setHeight,
         onResource: (ref) => callbacks.current.onResource?.(ref),
         onResult: (ref) => callbacks.current.onResult?.(ref),
+        onRead: (input) =>
+          callbacks.current.onRead?.(input) ??
+          Promise.reject(new Error("PRESENTATION_READ_UNAVAILABLE")),
       });
     } catch {
       setStatus("failed");
@@ -76,22 +92,42 @@ export function ToolPresentationFrame({
       host.current?.destroy();
       host.current = undefined;
     };
-  }, [origin, presentation]);
+  }, [origin, presentation, retry]);
   useEffect(() => {
     host.current?.setContext(currentContext.current);
-  }, [locale, colorScheme]);
+  }, [locale, colorScheme, layout]);
+  useEffect(() => {
+    host.current?.notifyData();
+  }, [dataVersion]);
   return (
     <section className="argus-tool-presentation" aria-label={title}>
-      {status === "loading" && <p role="status">{loadingLabel}</p>}
-      {status === "failed" && <p role="alert">{failureLabel}</p>}
+      {status === "loading" && (
+        <div className="argus-tool-presentation__placeholder" role="status">
+          <LoaderCircle className="argus-spin" aria-hidden size={24} />
+          <p>{loadingLabel}</p>
+        </div>
+      )}
+      {status === "failed" && (
+        <div className="argus-tool-presentation__placeholder" role="alert">
+          <p>{failureLabel}</p>
+          {retryLabel && (
+            <Button onPress={() => setRetry((value) => value + 1)}>
+              {retryLabel}
+            </Button>
+          )}
+        </div>
+      )}
       <iframe
         ref={iframe}
         title={title}
         className="argus-tool-presentation__frame"
-        hidden={status === "failed"}
-        style={{ height: expanded ? height : Math.min(height, 480) }}
+        hidden={status !== "ready"}
+        style={{
+          height:
+            layout === "document" || expanded ? height : Math.min(height, 480),
+        }}
       />
-      {status === "ready" && height > 480 && (
+      {layout === "preview" && status === "ready" && height > 480 && (
         <Button
           variant="ghost"
           className="argus-tool-presentation__toggle"

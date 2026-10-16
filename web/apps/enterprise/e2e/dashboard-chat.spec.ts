@@ -1,12 +1,30 @@
 import { expect, test } from "@playwright/test";
+import { openToolResults } from "./helpers/tool-results";
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-for (const english of [false, true])
+const catalog = JSON.parse(
+  readFileSync(
+    resolve(process.cwd(), "../template-runtime/src/fixtures.generated.json"),
+    "utf8",
+  ),
+);
+const binding = catalog.bindings.find(
+  (row: { Tool: string }) => row.Tool === "telemetry.dashboard.query",
+);
+const template = catalog.assets[binding.Hash] as string;
+const checksum = binding.Hash as string;
+
+for (const english of [false, true]) {
   test(
-    "Chat dashboard selection persists and exits " +
+    "Chat automatic entry and frozen query parameter presentations (mock UI) " +
       (english ? "English dark" : "Chinese light"),
     async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: 1600, height: 1000 });
       await page.addInitScript(
         ({ english }) => {
+          if (window !== window.top) return;
           localStorage.setItem("argus.locale", english ? "en-US" : "zh-CN");
           localStorage.setItem("argus.theme", english ? "dark" : "light");
         },
@@ -22,85 +40,172 @@ for (const english of [false, true])
         })
         .click();
       await expect(page).not.toHaveURL(/\/login/);
-      await page.goto("/dashboards");
-      await page
-        .getByRole("button", {
-          name: english ? "Create dashboard" : "新建仪表盘",
-          exact: true,
-        })
-        .click();
-      const dialog = page.getByRole("dialog");
-      await dialog
-        .getByRole("textbox", { name: english ? "Name" : "名称", exact: true })
-        .fill("Chat overview");
-      await dialog
-        .getByRole("button", { name: english ? "Done" : "完成", exact: true })
-        .click();
-      await page
-        .getByRole("button", {
-          name: english ? "Preview and publish" : "预览并发布",
-        })
-        .click();
-      await page
-        .getByRole("dialog")
-        .getByRole("button", {
-          name: english ? "Confirm publication" : "确认发布",
-          exact: true,
-        })
-        .click();
-      await expect(page).toHaveURL(/\/dashboards\//);
-      await page.goto("/");
+      await expect(page.getByTestId("chat-context-panel")).toHaveCount(0);
+      await expect(
+        page.getByRole("button", {
+          name: english ? "Manage analysis scope" : "管理分析范围",
+        }),
+      ).toHaveCount(0);
       const composer = page.locator(".argus-chat-composer");
       const text = composer.getByRole("textbox");
-      await text.fill("@Chat");
-      await page.getByRole("option", { name: "Chat overview" }).click();
-      await expect(composer).toContainText("Chat overview");
-      await text.fill(english ? "Check all panels" : "检查所有统计图");
-      const send = composer.getByRole("button", {
-        name: english ? "Send" : "发送",
-        exact: true,
-      });
-      await send.click();
+      await text.fill(
+        english
+          ? "Analyze this host for the last half hour"
+          : "分析这台主机最近半小时的指标",
+      );
+      await composer
+        .getByRole("button", { name: english ? "Send" : "发送", exact: true })
+        .click();
       await expect(page).toHaveURL(/c=/);
       await expect(text).toHaveValue("", { timeout: 20000 });
-      await expect(page.getByTestId("chat-message-user").first()).toContainText(
-        "Chat overview",
+      const conversation = new URL(page.url()).searchParams.get("c")!;
+      // The fixture supplies immutable server presentation data; it does not
+      // simulate model quality or assert that mock telemetry is real.
+      await page.evaluate(
+        ({ conversation, template, checksum, calls, reads }) => {
+          const key = "argus-mock:db-v14";
+          const db = JSON.parse(localStorage.getItem(key)!);
+          db.messages = db.messages.filter(
+            (message: { conversationId: string; role: string }) =>
+              message.conversationId !== conversation ||
+              message.role === "user",
+          );
+          const base = {
+            name: "Host overview",
+            revision_number: 3,
+            status: "complete",
+            timezone: "Asia/Shanghai",
+            to: "2026-10-13T01:30:00Z",
+            resources: [
+              { id: "host-1", type: "host", name: "argus-test-host" },
+            ],
+            variables: { env: { all: false, values: ["prod"] } },
+            panels: [
+              {
+                id: "cpu",
+                name: "CPU",
+                signal: "metrics",
+                type: "timeseries",
+                unit: "%",
+                decimals: 1,
+                legend: true,
+                layout: { x: 0, y: 0, w: 12, h: 4 },
+                targets: [
+                  {
+                    id: "q",
+                    status: "success",
+                    data: {
+                      resultType: "matrix",
+                      result: [
+                        {
+                          metric: { __name__: "cpu" },
+                          values: [
+                            [1791853200, "2"],
+                            [1791853230, "4"],
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          };
+          const times = ["2026-10-13T01:00:00Z", "2026-10-13T00:30:00Z"];
+          for (const [index, call] of calls.entries()) {
+            db.planv5.presentations[call] = {
+              conversationId: conversation,
+              value: {
+                tool_call_id: call,
+                runtime: "argus-template/v2",
+                read_operations: reads,
+                status: "ready",
+                template_source: template,
+                template_hash: checksum,
+                detail_data: { ...base, job_id: call, from: times[index] },
+              },
+            };
+            db.messages.push({
+              id: call,
+              conversationId: conversation,
+              role: "assistant",
+              content: "",
+              createdAt: new Date(Date.now() + index * 1000).toISOString(),
+              toolCalls: [
+                {
+                  callId: call,
+                  toolName: "telemetry.dashboard.query.get",
+                  source: "argus",
+                  status: "success",
+                  startedAt: new Date().toISOString(),
+                },
+              ],
+              presentations: [call],
+            });
+          }
+          localStorage.setItem(key, JSON.stringify(db));
+        },
+        {
+          conversation,
+          template,
+          checksum,
+          calls: [randomUUID(), randomUUID()],
+          reads: binding.Reads as string[],
+        },
       );
       await page.reload();
-      await expect(composer).toContainText("Chat overview");
-      await text.fill(english ? "Continue" : "继续");
-      await send.click();
-      await expect(text).toHaveValue("", { timeout: 20000 });
-      await expect(composer).toContainText("Chat overview");
+      await openToolResults(page);
+      const frames = page.locator(".argus-tool-presentation__frame");
+      await expect(frames).toHaveCount(2);
+      await expect(page.locator(".argus-tool-result__title")).toHaveText([
+        english ? "Get dashboard query result" : "仪表盘查询结果",
+        english ? "Get dashboard query result" : "仪表盘查询结果",
+      ]);
+      await expect(frames.first()).toHaveAttribute(
+        "title",
+        english ? "Get dashboard query result" : "仪表盘查询结果",
+      );
+      const original = frames.nth(0).contentFrame();
+      const corrected = frames.nth(1).contentFrame();
+      await expect(
+        original.locator(".argus-template-parameters"),
+      ).toContainText("argus-test-host");
+      await expect(
+        original.locator(".argus-template-parameters"),
+      ).toContainText("9:00:00");
+      await expect(
+        corrected.locator(".argus-template-parameters"),
+      ).toContainText("8:30:00");
+      await expect(
+        original.locator(".argus-template-parameters"),
+      ).toContainText("Asia/Shanghai");
+      await expect(
+        original.locator(".argus-dashboard-grid canvas"),
+      ).toBeVisible();
+      await original
+        .locator(".argus-template-parameters > details > summary")
+        .click();
+      await expect(
+        original.locator(".argus-template-parameters"),
+      ).toContainText("prod");
+      const header = await original
+        .locator(".argus-template-parameters")
+        .boundingBox();
+      const chart = await original
+        .locator(".argus-dashboard-grid")
+        .boundingBox();
+      expect(header!.y + header!.height).toBeLessThanOrEqual(chart!.y);
+      const main = await page.locator(".argus-chat__main").boundingBox();
+      const shell = await page.locator(".argus-chat").boundingBox();
+      expect(main!.width).toBeCloseTo(shell!.width, 0);
+      await original
+        .locator(".argus-template-parameters > details > summary")
+        .click();
+      await frames.nth(0).scrollIntoViewIfNeeded();
       await page.screenshot({
-        path: testInfo.outputPath("chat-dashboard-context.png"),
+        path: testInfo.outputPath("automatic-analysis-parameters.png"),
         fullPage: true,
       });
-      await composer
-        .getByRole("button", {
-          name: english ? "Exit dashboard mode" : "退出仪表盘模式",
-        })
-        .click();
-      await text.fill(english ? "General chat" : "普通会话");
-      await send.click();
-      await expect(text).toHaveValue("", { timeout: 20000 });
-      await page.reload();
-      await expect(composer).not.toContainText("Chat overview");
-      await composer
-        .getByRole("button", {
-          name: english ? "Create dashboard" : "创建仪表盘",
-          exact: true,
-        })
-        .click();
-      await expect(text).toHaveValue(
-        english ? "/create-dashboard " : "/创建仪表盘 ",
-      );
-      await text.fill("/创建仪表盘 New dashboard");
-      await send.click();
-      await expect(text).toHaveValue("", { timeout: 20000 });
-      await page.reload();
-      await expect(composer).toContainText(
-        english ? "Create / edit dashboards" : "创建 / 编辑仪表盘",
-      );
     },
   );
+}

@@ -1,4 +1,5 @@
 export * from "./action-group";
+export * from "./action-menu";
 export * from "./badge";
 export * from "./appearance";
 export * from "./button";
@@ -16,6 +17,7 @@ export { default as ErrorBoundary } from "./error-boundary";
 export * from "./filter";
 export * from "./filter-popover";
 export * from "./form";
+export * from "./setting-card";
 export * from "./key-value-grid";
 export * from "./lib";
 export * from "./locale";
@@ -32,12 +34,14 @@ export * from "./shell";
 export * from "./stat-card";
 export * from "./status-badge";
 export * from "./table";
+export * from "./result-view";
 export * from "./terminal";
 export * from "./terminal-player";
 export * from "./theme";
 export * from "./wizard";
 
 export { ToolPresentationFrame } from "./template/frame";
+export { ToolResultDisclosure } from "./template/disclosure";
 export type {
   TemplatePresentation,
   TemplateResource,
@@ -45,6 +49,8 @@ export type {
 } from "./template/protocol";
 
 export * from "./dashboard-grid";
+export * from "./dashboard-panel-header";
+export * from "./dashboard-definition-view";
 export * from "./dashboard-layout";
 export * from "./query-editor";
 export * from "./telemetry-field-explorer";
@@ -59,3 +65,7 @@ export * from "./query-boundary";
 export * from "./value-selector";
 export * from "./control-showcase";
 export * from "./range-slider";
+export * from "./markdown";
+export * from "./file-card";
+export * from "./conversation-list-item";
+export * from "./content-popover";

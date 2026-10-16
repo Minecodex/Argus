@@ -104,7 +104,7 @@ for (const english of [false, true])
             r.status() === 200,
         );
         await region
-          .locator(".argus-resource-card")
+          .locator(".argus-resource-card, .argus-table tbody tr")
           .filter({ hasText: boardName })
           .getByRole("button", { name: l.openDashboard, exact: true })
           .click();

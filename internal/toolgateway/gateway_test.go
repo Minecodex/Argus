@@ -42,7 +42,7 @@ func testGateway(t *testing.T, count int) (*Gateway, *toolruntime.Set) {
 	return g, s
 }
 
-func TestNativeDiscoveryBoundedAuthorizedAndConstantSchemas(t *testing.T) {
+func TestNativeDiscoveryCompleteAuthorizedAndConstantSchemas(t *testing.T) {
 	var schemaBytes int
 	for _, size := range []int{1, 500, 1000} {
 		g, set := testGateway(t, size)
@@ -58,8 +58,8 @@ func TestNativeDiscoveryBoundedAuthorizedAndConstantSchemas(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if count := len(result.Data["items"].([]map[string]any)); count != min(size, 10) {
-			t.Fatalf("unbounded results: %d", count)
+		if count := len(result.Data["items"].([]map[string]any)); count != size {
+			t.Fatalf("incomplete category list: %d", count)
 		}
 		call.Principal.Permissions = nil
 		result, err = set.Invoke(context.Background(), "tool.search", call)

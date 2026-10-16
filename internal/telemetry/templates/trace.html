@@ -1,21 +1,49 @@
-<section><h3 id="title"></h3><div id="traces"></div></section>
+<section id="trace-view"></section>
 <script>
-ArgusTemplate.onData((data, context) => {
-  const zh = context.locale === 'zh-CN';
-  document.getElementById('title').textContent = zh ? '调用链' : 'Traces';
-  const root = document.getElementById('traces'); root.replaceChildren();
-  const payload = data.data || data;
-  // GraphQL aliases may rename the root field; the schema of its value is stable.
-  const roots = Array.isArray(payload) ? payload : Object.values(payload).filter((value) => value && typeof value === 'object');
-  const traces = payload.traceId ? [payload] : roots.flatMap((value) => Array.isArray(value.traces) ? value.traces : value.traceId ? [value] : []);
-  ArgusTemplate.table(root, traces, ['traceId','rootService','rootOperation','startTime','duration','durationMs','isError']);
-  for (const trace of traces) {
-    if (Array.isArray(trace.spans) && trace.spans.length) {
-      ArgusTemplate.note(root, (zh ? '跨度 · ' : 'Spans · ') + trace.traceId);
-      ArgusTemplate.table(root, trace.spans, ['spanId','parentSpanId','serviceName','operationName','startTime','duration','durationMs','isError']);
-    }
+ArgusView.mount(document.getElementById('trace-view'),(root,data)=>{
+ const v=ArgusView,t=(a,b)=>v.text(a,b),query=data.query_context||{};
+ v.header(root,t('调用链查询','Trace query'),(data.resources||[]).map(item=>item.name||item.id).join(' · '));
+ v.fields(root,[[t('入口 / 查询','Entry / query'),query.document],[t('时间','Time'),v.time(query.from)+' – '+v.time(query.to)]]);
+ if(data.presentation_error){v.note(root,t('无法识别本次查询的结果结构，请重新查询。','Unable to identify this query result. Run the query again.'),'error');return;}
+ if(data.preview_omitted){v.note(root,t('展示预览超过预算，请读取封存结果或让 AI 缩小查询范围。','The preview exceeds its display budget. Read the sealed result or ask AI to narrow the query.'),'warning');return;}
+ const resources=id=>(data.resources||[]).find(item=>item.id===id)?.name||id;
+ const spanColumns=[[t('服务','Service'),'serviceName'],[t('操作','Operation'),'operationName'],[t('耗时 ms','Duration ms'),row=>row.durationMs??row.duration],[t('状态','Status'),row=>row.status??row.isError]];
+ const detail=(target,trace)=>{
+  v.fields(target,[[t('Trace ID','Trace ID'),trace.traceId||trace.trace_id],[t('服务 / 入口','Service / entry'),[trace.rootService||trace.serviceName,trace.rootOperation||trace.operationName].filter(Boolean).join(' / ')],[t('完整性','Completeness'),trace.completeness],[t('错误 / Span 数','Errors / span count'),String(trace.errorCount??'—')+' / '+String(trace.spanCount??trace.spans?.length??'—')]]);
+  if(trace.spans?.length){const chart=v.node('div',undefined,'argus-template-chart');target.append(chart);ArgusTemplate.observation(chart,{title:t('调用瀑布与 Span 详情','Waterfall and span details'),signal:'traces',type:'trace_detail',targets:[{id:'trace',status:'success',result_type:trace.kind==='trace_graph'?'trace_graph':'trace_detail',data:trace}]});}
+  else v.note(target,t('没有 Span 明细；不能据此推断完整调用关系。','No span details; full call relationships are unknown.'));
+ };
+ const traceColumns=[[t('服务 / 入口','Service / entry'),row=>[row.rootService||row.serviceName,row.rootOperation||row.operationName].filter(Boolean).join(' / ')],[t('开始时间','Started'),row=>v.time(row.startTime||row.start_time)],[t('耗时 ms','Duration ms'),row=>row.durationMs??row.duration],[t('错误数','Errors'),row=>row.errorCount??row.isError],[t('Trace ID','Trace ID'),row=>row.traceId||row.trace_id]];
+ const titles={traces:t('调用列表','Traces'),trace_detail:t('调用详情','Trace details'),trace_graph:t('调用关系与 Span','Trace graph and spans'),apm_services:t('服务摘要','Service summary'),apm_instances:t('实例摘要','Instance summary'),apm_endpoints:t('入口摘要','Endpoint summary'),apm_red:t('请求速率、错误和耗时','Rate, errors and duration'),apm_topology:t('服务拓扑','Service topology')};
+ const views=data.result||[];
+ if(!views.length)v.note(root,t('当前范围没有数据','No data in this range'));
+ views.forEach((view,index)=>{
+  const section=v.section(root,(titles[view.kind]||view.kind)+' · '+view.key,true);section.dataset.traceResultKind=view.kind;section.dataset.traceResultKey=view.key;
+  if(view.kind.startsWith('apm_')){
+   const limited=view.limited===true?'true':view.limited===false?'false':'unknown';section.dataset.apmLimited=limited;
+   v.fields(section,[[t('业务结果限量','Business result limit'),limited==='true'?t('已受业务限量截断','Limited by the business query'):limited==='false'?t('未被业务限量截断','Not truncated by the business limit'):t('未提供，是否受限未知','Not provided; business limit unknown')],[t('本结果时间窗口','Result time window'),(view.windowStart?v.time(view.windowStart):'—')+' – '+(view.windowEnd?v.time(view.windowEnd):'—')]]);
+   if(limited==='true')v.note(section,t('查询达到业务限量；卡片翻页仅遍历已封存记录，更多业务结果需要让 AI 继续查询。','The query reached its business limit. Card pages only read sealed records; ask AI to query additional business results.'),'warning');
   }
-  if (!traces.length && Object.keys(payload).length) ArgusTemplate.details(root, payload);
-  if (data.partial || data.extensions?.argus?.partial) ArgusTemplate.note(root, zh ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
+  const page=(field,rows,render)=>v.pages(section,{items:rows||[]},render,{collection:'result',index,field});
+  if(view.kind==='traces'){void page('rows',view.rows,(target,rows)=>v.table(target,rows,traceColumns,(cell,row)=>{detail(cell,row);if(row.spans?.length)v.table(cell,row.spans,spanColumns,(body,span)=>v.fields(body,Object.entries(span)));}));}
+  else if(['trace_detail','trace_graph'].includes(view.kind)){if(!view.traceId&&!view.spans?.length){v.note(section,t('当前范围没有数据','No data in this range'));return;}detail(section,view);void page('spans',view.spans,(target,rows)=>v.table(target,rows,spanColumns,(body,span)=>v.fields(body,Object.entries(span))));}
+  else if(view.kind==='apm_topology'){
+   if(view.nodes?.length){const chart=v.node('div',undefined,'argus-template-chart');section.append(chart);ArgusTemplate.observation(chart,{title:titles.apm_topology,signal:'traces',type:'apm_topology',targets:[{id:'topology',status:'success',result_type:'apm_topology',data:view}]});}
+   void page('nodes',view.nodes,(target,rows)=>v.table(target,rows,[[t('服务','Service'),'serviceName'],[t('资源','Resource'),row=>resources(row.resourceId)],[t('节点 ID','Node ID'),'id']],(cell,row)=>v.fields(cell,Object.entries(row))));
+   void page('edges',view.edges,(target,rows)=>v.table(target,rows,[[t('来源节点','Source node'),'sourceNodeId'],[t('目标节点','Target node'),'targetNodeId'],[t('请求样本','Request samples'),'sampleCount'],[t('错误数','Errors'),'errorCount'],[t('P95 耗时 ms','P95 duration ms'),'durationP95Ms']],(cell,row)=>v.fields(cell,Object.entries(row))));
+  }else if(view.kind.startsWith('apm_')){
+   v.fields(section,[[t('统计依据','Basis'),view.basis],[t('百分位方法','Percentile method'),view.percentileMethod],[t('覆盖与缺失','Coverage and missing data'),view.coverage],[t('状态','Status'),view.status]]);
+   const plot=view.chart_preview?{...view,rows:(view.chart_preview.series||[]).flatMap(series=>series.points||[])}:view;
+   if(view.kind==='apm_red'&&(plot.rows||[]).some(row=>row.timestamp&&[row.samplesPerSecond,row.errorRate,row.durationP95Ms].some(value=>typeof value==='number'&&Number.isFinite(value)))){const chart=v.node('div',undefined,'argus-template-chart');section.append(chart);ArgusTemplate.observation(chart,{title:titles.apm_red,signal:'traces',type:'apm_red',legend:true,targets:[{id:'red',status:'success',result_type:'apm_red',data:plot}]});}
+   else if(view.kind==='apm_red'&&view.chart_preview?.returned_rows)v.note(section,t('曲线预览不可用；请查看下方完整封存表格或让 AI 缩小范围。','Chart preview unavailable; inspect the sealed table below or ask AI to narrow the scope.'),'warning');
+   const columns=[[t('服务','Service'),'serviceName'],[t('资源','Resource'),row=>resources(row.resourceId)]];
+   if(view.kind==='apm_instances')columns.push([t('实例','Instance'),row=>row.instanceName||row.instanceId]);
+   if(view.kind==='apm_endpoints')columns.push([t('入口','Endpoint'),'operationName']);
+   if(view.kind==='apm_red')columns.push([t('时间','Time'),row=>v.time(row.timestamp)],[t('样本/秒','Samples/s'),'samplesPerSecond']);
+   columns.push([t('请求样本','Request samples'),'sampleCount'],[t('错误数','Errors'),'errorCount'],[t('错误率','Error rate'),row=>row.errorRate==null?'—':v.number(row.errorRate*100,'%')],[t('P95 耗时 ms','P95 duration ms'),row=>v.number(row.durationP95Ms,'ms')]);
+   void page('rows',view.rows,(target,rows)=>v.table(target,rows,columns,(cell,row)=>v.fields(cell,Object.entries(row))));
+  }else v.note(section,t('未识别结果类型','Unknown result type'));
+ });
+ const execution=v.section(root,t('执行信息','Execution details'));v.fields(execution,Object.entries(data.extensions?.argus||{}));
 });
 </script>

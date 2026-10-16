@@ -1,44 +1,18 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { QueryBoundary } from "@argus/ui";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
-import { ChevronDown, Plus } from "lucide-react";
-import { z } from "zod";
-import {
-  apiErrorField,
-  formConstraint,
-  formatApiError,
-  useApi,
-} from "@argus/api-client";
-import type { Secret, SecretType } from "@argus/api-client";
-import type { Credential } from "@argus/api-client/contracts";
-import {
-  ActionGroup,
-  Alert,
-  Badge,
-  Button,
-  ConfirmDialog,
-  DataTable,
-  Dropdown,
-  EmptyState,
-  Field,
-  FormDrawer,
-  Input,
-  PageShell,
-  RowAction,
-  Select,
-  Spinner,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Textarea,
-} from "@argus/ui";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
+import {ActionMenu,QueryBoundary} from "@argus/ui";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {useEffect,useMemo,useState} from "react";
+import {Controller,useForm} from "react-hook-form";
+import {useTranslation} from "react-i18next";
+import {ChevronDown,Plus} from "lucide-react";
+import {z} from "zod";
+import {apiErrorField,formConstraint,formatApiError,useApi} from "@argus/api-client";
+import type {Secret,SecretType} from "@argus/api-client";
+import type {Credential} from "@argus/api-client/contracts";
+import {Alert,Badge,Button,ConfirmDialog,DataTable,Dropdown,EmptyState,Field,FormDrawer,Input,PageShell,Select,Spinner,Tabs,TabsContent,TabsList,TabsTrigger,Textarea} from "@argus/ui";
 import "../styles/settings.css";
-import { formatDateTime } from "../components/settings/shared";
-import { ManagedAccountsSection } from "../components/settings/managed-accounts-section";
+import {formatDateTime} from "../components/settings/shared";
+import {ManagedAccountsSection} from "../components/settings/managed-accounts-section";
 
 const SECRET_TYPES: SecretType[] = [
   "ssh_password",
@@ -46,13 +20,13 @@ const SECRET_TYPES: SecretType[] = [
   "windows_password",
   "kubeconfig",
   "api_token",
-  "basic_auth",
+  "basic_auth", "notification",
 ];
 const CREDENTIAL_PROTOCOLS: Credential["protocol"][] = [
   "ssh",
   "windows",
   "kubernetes",
-  "http",
+  "http", "notification",
 ];
 
 const credentialConstraints = {
@@ -338,34 +312,19 @@ export function SettingsSecretsPage() {
                     {
                       key: "actions",
                       header: t("settings.common.actions"),
-                      render: (row) => (
-                        <ActionGroup>
-                          <RowAction
-                            onPress={() => {
+                      render: (row) => (<ActionMenu items={[{label: t("settings.common.edit"),onSelect: () => {
                               setEditing(
                                 secrets.data?.items.find(
                                   (secret) => secret.id === row.id,
                                 ) ?? null,
                               );
                               setDrawerOpen(true);
-                            }}
-                          >
-                            {t("settings.common.edit")}
-                          </RowAction>
-                          <RowAction
-                            danger
-                            onPress={() =>
+                            }},{label: t("settings.common.delete"),onSelect: () =>
                               setDeleting(
                                 secrets.data?.items.find(
                                   (secret) => secret.id === row.id,
                                 ) ?? null,
-                              )
-                            }
-                          >
-                            {t("settings.common.delete")}
-                          </RowAction>
-                        </ActionGroup>
-                      ),
+                              ),danger: true}]} />),
                     },
                   ]}
                   data={rows}
@@ -416,16 +375,10 @@ export function SettingsSecretsPage() {
                     {
                       key: "actions",
                       header: t("settings.common.actions"),
-                      render: (row) => (
-                        <RowAction
-                          onPress={() => {
+                      render: (row) => (<ActionMenu items={[{label: t("settings.common.edit"),onSelect: () => {
                             setEditingCredential(row);
                             setCredentialDrawerOpen(true);
-                          }}
-                        >
-                          {t("settings.common.edit")}
-                        </RowAction>
-                      ),
+                          }}]} />),
                     },
                   ]}
                   data={credentials.data ?? []}
@@ -523,7 +476,7 @@ function CredentialDrawer({
           .trim()
           .min(1, t("settings.common.required"))
           .max(credentialConstraints.name.maxLength ?? 128),
-        protocol: z.enum(["ssh", "windows", "kubernetes", "http"]),
+        protocol: z.enum(["ssh", "windows", "kubernetes", "http", "notification"]),
         username: z
           .string()
           .trim()
@@ -567,6 +520,7 @@ function CredentialDrawer({
     if (protocol === "ssh") {
       return ["ssh_password", "ssh_private_key"].includes(secret.type);
     }
+    if(protocol==="notification")return secret.type==="notification";
     return ["api_token", "basic_auth"].includes(secret.type);
   });
   return (
@@ -717,7 +671,7 @@ function SecretDrawer({
           "windows_password",
           "kubeconfig",
           "api_token",
-          "basic_auth",
+          "basic_auth", "notification",
         ]),
         description: z
           .string()

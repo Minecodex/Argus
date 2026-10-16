@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -26,26 +27,30 @@ import (
 )
 
 type E2EOptions struct {
-	SharedController    *argusctl.SharedSandboxController
-	Suite               string
-	KubeContext         string
-	RunID               string
-	Artifacts           string
-	UnitOnly            bool
-	Argusctl            string
-	BaselinesRun        bool
-	PKIMode             string
-	BootstrapTLS        string
-	RealModel           *p5RealModelConfig
-	PlanV2RuntimeOnly   bool
-	PlanV2BrowserGrep   string
-	PlanV2RealModelOnly bool
-	PlanV2ModelGroups   []string
+	SharedController       *argusctl.SharedSandboxController
+	Suite                  string
+	KubeContext            string
+	RunID                  string
+	Artifacts              string
+	UnitOnly               bool
+	Argusctl               string
+	BaselinesRun           bool
+	PKIMode                string
+	BootstrapTLS           string
+	RealModel              *p5RealModelConfig
+	PlanV2RuntimeOnly      bool
+	PlanV2BrowserGrep      string
+	PlanV2RealModelOnly    bool
+	PlanV2ModelGroups      []string
+	Plan6Phase             string
+	Plan6CandidateRegistry string
+	Plan6HostFixtures      string
 }
 
 type E2EEnvironment struct {
 	IngressNS, IngressClass string
 	Forwards                []*KubeForward
+	ConnectorForward        *KubeForward
 	Paused                  []pausedWorkload
 	Options                 E2EOptions
 	Root                    string
@@ -86,6 +91,8 @@ var suiteDependencies = map[string][]string{
 	"m7":                  {"m2", "m3", "m4", "p5-native", "m7"},
 	"m10-query":           {"m2", "m3", "m4", "p5-native", "m7", "m10-query"},
 	"planv2":              {"m2", "m3", "m4", "p5-native", "m7", "m10-query", "planv2"},
+	"tool-templates":      {"m2", "m3", "m4", "p5-native", "m7", "m10-query", "tool-templates"},
+	"plan6":               {"m2", "m3", "m4", "p5-native", "m7", "plan6"},
 	"m8":                  {"m6", "m7", "m8"},
 	"p4":                  {"m2", "p4"},
 	"tls":                 {"m2", "tls"},
@@ -113,12 +120,18 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	runtimeOnly := flags.Bool("planv2-runtime-only", false, "PlanV2 runtime/protocol/fault acceptance without browser tests; reported as partial scope")
 	browserGrep := flags.String("planv2-browser-grep", "", "run matching PlanV2 browser cases plus runtime; records the selected scope")
 	realModelOnly := flags.Bool("planv2-real-model-only", false, "run real model tasks with deployed telemetry and file prerequisites; excludes browser and fault suites")
-	modelGroups := flags.String("planv2-model-groups", "", "explicit PlanV2 real-model groups: core,authoring,conditions,failures; omitted runs all")
+	modelGroups := flags.String("planv2-model-groups", "", "explicit PlanV2 real-model groups: core,authoring,conditions,failures,automatic; omitted runs the original groups")
+	plan6Phase := flags.String("plan6-phase", "all", "Plan6 all, runtime, model, browser, or host gate; selected gates are reported as partial")
+	plan6HostFixtures := flags.String("plan6-host-fixtures", "", "owned Docker Linux Host/Bastion fixture manifest; required by the host gate")
+	plan6CandidateRegistry := flags.String("plan6-candidate-registry", "", "copy the exact passing Plan6 all-suite image manifests to this local registry before temporary cleanup; does not deploy")
 	if err := flags.Parse(args[1:]); err != nil {
 		return fmt.Errorf("%w: %v", errUsage, err)
 	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("%w: unexpected E2E arguments", errUsage)
+	}
+	if *plan6CandidateRegistry != "" && (*suite != "plan6" || *plan6Phase != "all" || *unitOnly || (!strings.HasPrefix(*plan6CandidateRegistry, "localhost:") && !strings.HasPrefix(*plan6CandidateRegistry, "127.0.0.1:")) || strings.ContainsAny(*plan6CandidateRegistry, "@?# \\")) {
+		return fmt.Errorf("%w: candidate copying requires the Plan6 all gate and an explicit local registry repository", errUsage)
 	}
 	if _, exists := suiteDependencies[*suite]; !exists {
 		return fmt.Errorf("%w: unsupported suite %q", errUsage, *suite)
@@ -152,7 +165,18 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	} else if !filepath.IsAbs(*artifacts) {
 		*artifacts = filepath.Join(a.root, *artifacts)
 	}
-	options := E2EOptions{Suite: *suite, KubeContext: *kubeContext, RunID: *runID, Artifacts: *artifacts, UnitOnly: *unitOnly, Argusctl: *argusctl, PlanV2RuntimeOnly: *runtimeOnly}
+	options := E2EOptions{Suite: *suite, KubeContext: *kubeContext, RunID: *runID, Artifacts: *artifacts, UnitOnly: *unitOnly, Argusctl: *argusctl, PlanV2RuntimeOnly: *runtimeOnly, Plan6CandidateRegistry: *plan6CandidateRegistry}
+	if *plan6Phase != "all" && (*suite != "plan6" || !slices.Contains([]string{"runtime", "model", "browser", "host"}, *plan6Phase)) {
+		return fmt.Errorf("%w: invalid Plan6 phase", errUsage)
+	}
+	options.Plan6Phase = *plan6Phase
+	if (*plan6Phase == "host") != (*plan6HostFixtures != "") {
+		return fmt.Errorf("%w: Plan6 host gate requires --plan6-host-fixtures; other phases do not accept it", errUsage)
+	}
+	options.Plan6HostFixtures = *plan6HostFixtures
+	if *suite == "plan6" && !*unitOnly && (*plan6Phase == "all" || *plan6Phase == "model" || *plan6Phase == "host") && *realModelPath == "" {
+		return fmt.Errorf("%w: Plan6 all/model requires --real-model-config before cluster preparation", errUsage)
+	}
 	if *sharedControllerConfig != "" {
 		cfg, err := loadE2ESharedController(*sharedControllerConfig)
 		if err != nil {
@@ -166,8 +190,8 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 		options.PlanV2ModelGroups = groups
 	}
 	if *realModelPath != "" {
-		if (*suite != "p5" && *suite != "planv2") || *unitOnly {
-			return fmt.Errorf("%w: --real-model-config requires the P5 or PlanV2 cluster suite", errUsage)
+		if (*suite != "p5" && *suite != "planv2" && *suite != "plan6") || *unitOnly {
+			return fmt.Errorf("%w: --real-model-config requires the P5, PlanV2 or Plan6 cluster suite", errUsage)
 		}
 		var err error
 		options.RealModel, err = loadP5RealModelConfig(*realModelPath)
@@ -263,6 +287,13 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 		return err
 	}
 	env.imagesAttempted = true
+	if options.Suite == "plan6" {
+		fingerprint, err := a.plan6Source(ctx, env, "before-build")
+		if err != nil {
+			return err
+		}
+		env.State.Values["p6_source_fingerprint"] = fingerprint
+	}
 	if err := a.prepareE2EImages(ctx, env); err != nil {
 		return err
 	}
@@ -287,13 +318,33 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 	if err := a.resolveE2EAccess(ctx, env); err != nil {
 		return err
 	}
+	if options.Suite == "plan6" {
+		if err := a.plan6Images(ctx, env, ""); err != nil {
+			return err
+		}
+	}
 	if err := a.runE2EScenarios(ctx, env); err != nil {
 		return err
 	}
 	if err := a.invokeArgusctl(ctx, env, "verify", "--config", env.ConfigPath, "--artifacts", filepath.Join(options.Artifacts, "verify")); err != nil {
 		return err
 	}
+	if options.Suite == "plan6" {
+		fingerprint, err := a.plan6Source(ctx, env, "after-acceptance")
+		if err != nil {
+			return err
+		}
+		if fingerprint != env.State.Values["p6_source_fingerprint"] && (options.Plan6Phase == "all" || options.Plan6Phase == "host") {
+			return fmt.Errorf("Plan6 source changed during acceptance; rebuild and repeat the full gate")
+		}
+		if err = a.plan6Images(ctx, env, options.Plan6CandidateRegistry); err != nil {
+			return err
+		}
+	}
 	result := fmt.Sprintf("{\"run_id\":%q,\"suite\":%q,\"status\":\"passed\"}\n", options.RunID, options.Suite)
+	if options.Suite == "plan6" && options.Plan6Phase != "all" {
+		result = fmt.Sprintf("{\"run_id\":%q,\"suite\":\"plan6\",\"scope\":%q,\"complete\":false,\"status\":\"passed\"}\n", options.RunID, options.Plan6Phase)
+	}
 	if options.PlanV2RealModelOnly {
 		result = fmt.Sprintf("{\"run_id\":%q,\"suite\":%q,\"scope\":\"real_model_with_telemetry_and_files\",\"browser_executed\":false,\"status\":\"passed\"}\n", options.RunID, options.Suite)
 		if len(options.PlanV2ModelGroups) > 0 {
@@ -337,7 +388,7 @@ func (a *App) prepareE2EEnvironment(ctx context.Context, env *E2EEnvironment) er
 	env.SystemNS = kubernetesNameForDev(release + "-system")
 	env.SandboxNS = kubernetesNameForDev(release + "-sandbox")
 	env.ObservNS = kubernetesNameForDev(release + "-observability")
-	if envBool("ARGUS_E2E_ISOLATED_INGRESS") {
+	if env.Options.Suite == "plan6" || env.Options.Suite == "tool-templates" || envBool("ARGUS_E2E_ISOLATED_INGRESS") {
 		env.IngressNS = kubernetesNameForDev(release + "-ingress")
 		env.IngressClass = kubernetesNameForDev(release + "-nginx")
 	}
@@ -501,7 +552,7 @@ func (a *App) invokeArgusctl(ctx context.Context, env *E2EEnvironment, args ...s
 	return errors.Join(err, stdout.Flush(), stderr.Flush())
 }
 
-func (a *App) cleanupE2E(env *E2EEnvironment) error {
+func (a *App) cleanupE2E(env *E2EEnvironment) (returnErr error) {
 	env.clearArtifactSigningPrivateKey()
 	var cleanupErrors []error
 	record := func(operation string, err error) {
@@ -509,6 +560,18 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("%s: %w", operation, err))
 		}
 	}
+	defer func() {
+		if env.Kube != nil && env.leaseAcquired {
+			restoreCtx, cancelRestore := context.WithTimeout(context.Background(), 6*time.Minute)
+			defer cancelRestore()
+			if err := restoreFormalWorkloads(restoreCtx, env); err != nil {
+				returnErr = errors.Join(returnErr, fmt.Errorf("restore original replicas: %w", err))
+			}
+			if err := env.Kube.ReleaseLease(restoreCtx, "argus-global-e2e", env.Options.RunID); err != nil {
+				returnErr = errors.Join(returnErr, fmt.Errorf("release E2E Lease: %w", err))
+			}
+		}
+	}()
 	for index := len(env.Processes) - 1; index >= 0; index-- {
 		record("stop local process", env.Processes[index].Stop(5*time.Second))
 	}
@@ -523,6 +586,10 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 	}
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
+	if env.Options.Plan6HostFixtures != "" {
+		record("collect owned Docker diagnostics", a.plan6DockerDiagnostics(cleanupCtx, env))
+		record("clean owned Docker Host/Bastion", a.cleanupPlan6DockerFixture(cleanupCtx, env))
+	}
 	if env.Kube != nil && env.fixtureAttempted {
 		record("clean E2E fixtures", a.cleanupE2EFixtures(cleanupCtx, env))
 	} else if env.imagesAttempted {
@@ -534,6 +601,7 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 		record("delete remote E2E image tags", a.removeRemoteE2EImages(cleanupCtx, env))
 	}
 	if env.installAttempted && env.Argusctl != "" && env.ConfigPath != "" {
+		record("delete owned installation probe topic before Kafka teardown", cleanupInstallationTopic(cleanupCtx, env))
 		if env.IngressNS != "" && env.Kube != nil {
 			record("clean unallocated local gateway service", env.Kube.CleanupUnallocatedLocalService(cleanupCtx, env.SystemNS, "argus-connector-gateway-public", env.ReleaseID))
 		}
@@ -542,6 +610,13 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 		record("clean E2E images", a.invokeArgusctl(cleanupCtx, env, "images", "clean", "--config", env.ConfigPath))
 	}
 	if env.Kube != nil {
+		// Restore after the isolated installation is removed, before waiting on
+		// remaining namespace/RBAC garbage collection. Use a fresh deadline.
+		if env.leaseAcquired {
+			restoreCtx, cancelRestore := context.WithTimeout(context.Background(), 6*time.Minute)
+			record("restore original replicas", restoreFormalWorkloads(restoreCtx, env))
+			cancelRestore()
+		}
 		record("delete managed Collector RBAC", cleanupManagedCollectorRBAC(cleanupCtx, env))
 		for _, namespace := range env.ManagedNamespaces {
 			if namespace != "" {
@@ -568,10 +643,6 @@ func (a *App) cleanupE2E(env *E2EEnvironment) error {
 			if err != nil && !apierrors.IsNotFound(err) {
 				record("delete E2E IngressClass", err)
 			}
-		}
-		if env.leaseAcquired {
-			record("restore original replicas", restoreFormalWorkloads(cleanupCtx, env))
-			record("release E2E Lease", env.Kube.ReleaseLease(cleanupCtx, "argus-global-e2e", env.Options.RunID))
 		}
 		if env.ExternalPKI != nil {
 			record("delete external E2E ClusterIssuer", a.deleteE2EExternalIssuer(cleanupCtx, env))

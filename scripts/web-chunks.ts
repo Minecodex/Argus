@@ -4,7 +4,14 @@ export function webVendorChunk(rawId: string) {
   // CSS is imported by the shared theme. Grouping it with an optional engine
   // would turn that engine into a static dependency of every portal.
   if (/\.(css|scss)(?:\?|$)/.test(id)) return;
+  // The shared API runtime and generated catalogs are used across portal routes.
+  // Keep them in a cacheable chunk as the business pages and catalogs grow.
+  if (id.includes("/web/packages/api-client/src/")) return "argus-api";
   if (!id.includes("node_modules")) return;
+  // tslib is shared by zrender and ECharts at initialization time. Letting
+  // Rollup absorb it into ECharts makes zrender depend back on ECharts before
+  // the helper is initialized. Keep helpers independent, preserving budgets.
+  if (id.includes("/tslib/")) return "vendor-helpers";
   if (id.includes("/echarts/")) {
     if (id.endsWith("/customSeriesRegister.js")) return "vendor-echarts";
     if (
@@ -22,17 +29,26 @@ export function webVendorChunk(rawId: string) {
 
   // Split optional date/color/table engines from the primitives used at login.
   // A single accessibility chunk eagerly pulled every optional control in.
-  if (/\/(?:@heroui|react-aria|react-aria-components|react-stately|@react-aria|@react-stately)\//.test(id)) {
-    if (/(?:Calendar|DatePicker|DateField|DateInput|DateRange|TimeField|\/date(?:picker)?\/|\/calendar\/|\/components\/(?:calendar|date-|time-))/i.test(id)) return "vendor-calendar";
+  if (
+    /\/(?:@heroui|react-aria|react-aria-components|react-stately|@react-aria|@react-stately)\//.test(
+      id,
+    )
+  ) {
+    if (
+      /(?:Calendar|DatePicker|DateField|DateInput|DateRange|TimeField|\/date(?:picker)?\/|\/calendar\/|\/components\/(?:calendar|date-|time-))/i.test(
+        id,
+      )
+    )
+      return "vendor-calendar";
     if (/(?:Color|color-|color\/)/.test(id)) return "vendor-color";
-    if (/(?:Table|Tree|GridList|\/table\/)/.test(id)) return "vendor-collections";
+    if (/(?:Table|Tree|GridList|\/table\/)/.test(id))
+      return "vendor-collections";
     return "vendor-controls";
   }
 
   if (id.includes("/lucide-react/")) return "vendor-icons";
   if (id.includes("/@xterm/")) return "vendor-terminal";
-  if (id.includes("/@internationalized/date/"))
-    return "vendor-dates";
+  if (id.includes("/@internationalized/date/")) return "vendor-dates";
   if (
     id.includes("/react-hook-form/") ||
     id.includes("/@hookform/") ||

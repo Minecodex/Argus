@@ -135,7 +135,7 @@ for (const viewport of [
           ).toHaveCount(0);
           await page.goto("/dashboards");
           await expect(
-            page.locator(".argus-resource-card").first(),
+            page.locator(".argus-resource-card, .argus-table tbody tr").first(),
           ).toBeVisible();
           await page.screenshot({
             path: info.outputPath("dashboard-directory.png"),
@@ -168,7 +168,7 @@ for (const viewport of [
             ).toBeVisible();
             if (["/hosts", "/kubernetes"].includes(route)) {
               await expect(
-                page.locator(".argus-resource-card").first(),
+                page.locator(".argus-resource-card, .argus-table tbody tr").first(),
               ).toBeVisible();
             }
             await a11y(page);
@@ -216,7 +216,7 @@ for (const viewport of [
         await login(page);
         await page.goto("/kubernetes");
         await expect(
-          page.locator(".argus-resource-card").first(),
+          page.locator(".argus-resource-card, .argus-table tbody tr").first(),
         ).toBeVisible();
         const sizes = await page
           .locator(
@@ -321,7 +321,7 @@ for (const viewport of [
             ).toBeVisible();
             if (route === "/enterprises")
               await expect(
-                page.locator(".argus-resource-card").first(),
+                page.locator(".argus-resource-card, .argus-table tbody tr").first(),
               ).toBeVisible();
             await a11y(page);
             expect(
@@ -350,7 +350,7 @@ for (const viewport of [
       await page.getByRole("button", { name: "登录", exact: true }).click();
       await expect(page).not.toHaveURL(/login/);
       await page.goto(`${platformOrigin}/enterprises`);
-      await expect(page.locator(".argus-resource-card").first()).toBeVisible();
+      await expect(page.locator(".argus-resource-card, .argus-table tbody tr").first()).toBeVisible();
       await a11y(page);
       await page.getByRole("button", { name: "收起导航", exact: true }).click();
       expect(

@@ -1,0 +1,6 @@
+{
+  "source": "D:\\workspace\\go\\Argus\\build\\otelcol",
+  "restored_to_physical_directory": true,
+  "sha256_verified": true,
+  "reason": "Docker build context must directly include DIST_PATH"
+}

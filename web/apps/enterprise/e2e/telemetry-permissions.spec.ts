@@ -33,13 +33,11 @@ for (const english of [false, true])
         })
         .click();
       const drawer = page.getByRole("dialog");
-      const dashboard = drawer
-        .locator(".argus-perm-matrix__row")
-        .filter({
-          has: page.locator(".argus-perm-matrix__resource", {
-            hasText: english ? "Telemetry Dashboard" : "仪表盘",
-          }),
-        });
+      const dashboard = drawer.locator(".argus-perm-matrix__row").filter({
+        has: page.locator(".argus-perm-matrix__resource", {
+          hasText: english ? "Telemetry Dashboard" : "仪表盘",
+        }),
+      });
       await expect(
         dashboard.getByRole("checkbox", {
           name: english ? "Read" : "查看",
@@ -73,7 +71,7 @@ for (const english of [false, true])
         .click();
       await expect(drawer).not.toBeVisible();
       await expect(
-        page.getByText("Object reader", { exact: true }),
+        page.getByRole("columnheader", { name: "Object reader", exact: true }),
       ).toBeVisible();
       await page.screenshot({
         path: testInfo.outputPath("object-telemetry-permissions.png"),

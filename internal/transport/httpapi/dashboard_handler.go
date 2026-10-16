@@ -29,8 +29,8 @@ func (handler DashboardHandler) auth(ctx context.Context, mutation bool, csrf st
 	return handler.authPermission(ctx, mutation, csrf, permission)
 }
 
-func (handler DashboardHandler) authPermission(ctx context.Context, mutation bool, csrf, permission string) (dashboard.Actor, *api.ApiError) {
-	principal, failure := handler.Identity.enterprisePrincipal(ctx, mutation, csrf, permission)
+func (handler DashboardHandler) authPermission(ctx context.Context, mutation bool, csrf string, permissions ...string) (dashboard.Actor, *api.ApiError) {
+	principal, failure := handler.Identity.enterprisePrincipalAny(ctx, mutation, csrf, permissions...)
 	if failure != nil {
 		converted := dashboardConvert[api.ApiError](failure)
 		return dashboard.Actor{}, &converted
@@ -290,7 +290,9 @@ func (handler DashboardHandler) ValidateDashboardSpec(ctx context.Context, r api
 }
 
 func (handler DashboardHandler) ConvertDashboardPanel(ctx context.Context, r api.ConvertDashboardPanelRequestObject) (api.ConvertDashboardPanelResponseObject, error) {
-	_, failure := handler.auth(ctx, true, r.Params.XCSRFToken)
+	// Conversion only parses the supplied definition. It reads no telemetry,
+	// persists nothing, and is also used by temporary Host/Cluster queries.
+	_, failure := handler.authPermission(ctx, true, r.Params.XCSRFToken, "host.read", "kubernetes.read", "telemetry.dashboard.manage")
 	if failure != nil {
 		return api.ConvertDashboardPaneldefaultJSONResponse{Body: *failure, StatusCode: 403}, nil
 	}

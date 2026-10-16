@@ -1,21 +1,12 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import type { RemoteAccessSession } from "@argus/api-client";
-import { useApi } from "@argus/api-client";
-import {
-  ActionGroup,
-  Button,
-  DataTable,
-  Dialog,
-  Field,
-  Input,
-  RowAction,
-  StatusBadge,
-} from "@argus/ui";
+import {useState} from "react";
+import {useMutation,useQueryClient} from "@tanstack/react-query";
+import {useTranslation} from "react-i18next";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {useForm} from "react-hook-form";
+import {z} from "zod";
+import type {RemoteAccessSession} from "@argus/api-client";
+import {useApi} from "@argus/api-client";
+import {ActionMenu,Button,DataTable,Dialog,Field,Input,StatusBadge} from "@argus/ui";
 // 组件被会话中心与主机页共用，样式随组件引入，避免依赖具体页面的 CSS 导入。
 import "../../styles/remote-sessions.css";
 
@@ -179,30 +170,9 @@ export function SessionTable({
           {
             key: "actions",
             header: t("remoteSessions.columns.actions"),
-            render: (row) => (
-              <ActionGroup>
-                <RowAction onPress={() => setDetail(row)}>
-                  {t("remoteSessions.detail")}
-                </RowAction>
-                {onAttach &&
+            render: (row) => (<ActionMenu items={[{label: t("remoteSessions.detail"),onSelect: () => setDetail(row)},...(onAttach &&
                   isActiveSession(row) &&
-                  row.status !== "terminating" && (
-                    <RowAction onPress={() => onAttach(row)}>
-                      {t("remoteSessions.enter")}
-                    </RowAction>
-                  )}
-                {row.recording_id && (
-                  <RowAction onPress={() => onRecording(row.recording_id!)}>
-                    {t("remoteSessions.viewRecording")}
-                  </RowAction>
-                )}
-                {allowTerminate && isActiveSession(row) && (
-                  <RowAction danger onPress={() => setTerminating(row)}>
-                    {t("remoteSessions.terminate")}
-                  </RowAction>
-                )}
-              </ActionGroup>
-            ),
+                  row.status !== "terminating" ? [{label: t("remoteSessions.enter"),onSelect: () => onAttach(row)}] : []),...(row.recording_id ? [{label: t("remoteSessions.viewRecording"),onSelect: () => onRecording(row.recording_id!)}] : []),...(allowTerminate && isActiveSession(row) ? [{label: t("remoteSessions.terminate"),onSelect: () => setTerminating(row),danger: true}] : [])]} />),
           },
         ]}
         data={sessions}

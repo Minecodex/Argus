@@ -11,7 +11,9 @@
     "test": "vitest run src"
   },
   "dependencies": {
-    "@argus/ui": "workspace:*"
+    "@argus/ui": "workspace:*",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

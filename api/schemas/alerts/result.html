@@ -1,0 +1,55 @@
+<section class="argus-alert-result" aria-live="polite">
+  <header class="argus-alert-result__header"><h3 id="title"></h3><details id="scope-details"><summary id="scope" class="argus-alert-result__scope"></summary><div id="scope-facts"></div><p id="completeness" class="argus-alert-result__meta"></p></details></header>
+  <div class="argus-alert-result__note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg><span id="health"></span></div>
+  <div id="result"></div>
+</section>
+<style>
+body{padding:0}
+.argus-alert-result{border:var(--space-px-1) solid var(--border-default);border-radius:var(--card-radius);padding:var(--space-px-16);background:var(--bg-surface);font-family:var(--font-sans);font-size:var(--text-body);line-height:var(--line-height-normal)}
+.argus-alert-result__header{display:flex;align-items:center;justify-content:space-between;gap:var(--space-px-12);margin-bottom:var(--space-px-16)}
+.argus-alert-result h3{margin:0;font-size:var(--text-body);font-weight:var(--font-weight-strong)}
+.argus-alert-result__scope{color:var(--info);background:var(--info-soft);border-radius:var(--radius-5);padding:var(--space-px-4) var(--space-px-8);font-size:var(--font-size-11);line-height:1.2}
+.argus-alert-result__note{display:flex;align-items:flex-start;gap:var(--space-2);margin:0 0 var(--space-px-16);border:var(--space-px-1) solid color-mix(in srgb,var(--info) 20%,transparent);padding:var(--space-px-12);border-radius:var(--control-radius);background:var(--info-soft);color:var(--info);font-size:var(--text-help)}
+.argus-alert-result__note svg{flex:none;width:var(--space-4);height:var(--space-4)}
+.argus-alert-result__row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-px-12);padding:var(--space-px-12) 0;border-bottom:var(--space-px-1) solid var(--border-subtle)}
+.argus-alert-result__row:last-child{border-bottom:0}
+.argus-alert-result__name{margin:0;width:fit-content;color:var(--text-primary);font-weight:var(--font-weight-semibold)}
+.argus-alert-result__meta{color:var(--text-tertiary);font-size:var(--font-size-12);margin:var(--space-px-4) 0 0}
+.argus-alert-result__badge{display:inline-flex;align-items:center;gap:var(--space-1);white-space:nowrap;font-size:var(--font-size-11);line-height:1.2;color:var(--text-secondary);background:var(--bg-muted);border-radius:var(--radius-5);padding:var(--space-px-4) var(--space-px-8)}
+.argus-alert-result__badge::before,.argus-alert-result__scope::before{content:"";display:inline-block;width:var(--space-px-5);height:var(--space-px-5);border-radius:var(--radius-round);background:currentColor}
+.argus-alert-result__scope{display:inline-flex;align-items:center;gap:var(--space-1)}
+.argus-alert-result__scope{display:flex;list-style:none;cursor:pointer}
+.argus-alert-result__scope::-webkit-details-marker{display:none}
+.argus-alert-result__scope:focus-visible{outline:var(--space-px-2) solid var(--brand-highlight);outline-offset:var(--space-px-2)}
+#scope-details[open]{flex:1}
+#scope-details[open] summary{margin-bottom:var(--space-3)}
+.argus-alert-result__badge[data-state=accepted],.argus-alert-result__badge[data-state=normal],.argus-alert-result__badge[data-state=resolved]{color:var(--success);background:var(--success-soft)}
+.argus-alert-result__badge[data-state=muted],.argus-alert-result__badge[data-state=inhibited]{color:var(--info);background:var(--info-soft)}
+.argus-alert-result__badge[data-state=unknown],.argus-alert-result__badge[data-state=no_data]{color:var(--warning);background:var(--warning-soft)}
+.argus-alert-result__badge[data-state=failed],.argus-alert-result__badge[data-state=error]{color:var(--danger);background:var(--danger-soft)}
+.argus-alert-result__badge[data-state=firing]{color:var(--danger);background:var(--danger-soft)}
+.argus-alert-result__badge[data-state=recovering],.argus-alert-result__badge[data-state=pending]{color:var(--warning);background:var(--warning-soft)}
+</style>
+<script>
+ArgusTemplate.onData((data,context)=>{
+ const zh=context.locale==='zh-CN',text=(a,b)=>zh?a:b;
+ const names={accepted:['已受理','Accepted'],muted:['已屏蔽','Muted'],inhibited:['已抑制','Inhibited'],unknown:['结果未知','Unknown'],failed:['发送失败','Failed'],normal:['正常','Normal'],no_data:['无数据','No data'],error:['评估失败','Evaluation error'],not_evaluated:['尚未评估','Not evaluated'],firing:['活跃告警','Firing'],recovering:['恢复防抖中','Recovering'],resolved:['已恢复','Resolved'],pending:['待触发','Pending'],closed:['已关闭','Closed']};
+ const label=v=>names[v]?text(...names[v]):String(v||'—');
+ const notificationNames={pending:['待发送','Queued'],sending:['发送中','Sending'],accepted:['已受理','Accepted'],unknown:['结果未知','Unknown'],failed:['发送失败','Failed'],suppressed:['已抑制','Suppressed']};
+ const notificationLabel=v=>notificationNames[v]?text(...notificationNames[v]):label(v);
+ const root=document.getElementById('result');root.replaceChildren();
+ const page=data.page||{},items=Array.isArray(page.items)?page.items:Array.isArray(data.items)?data.items:[];
+ document.getElementById('title').textContent=text('只读查询结果','Read-only result');
+ document.getElementById('scope').textContent=text('生效范围','Resource scope');
+ document.getElementById('health').textContent=text('无活跃事件仍须核对评估健康与最近成功时间。','Check evaluation health and freshness even when no event is firing.');
+ const facts=document.getElementById('scope-facts');facts.replaceChildren();
+ document.getElementById('scope-details').open=!items.length;
+ const scope=document.createElement('p');scope.className='argus-alert-result__meta';scope.textContent=text('资源范围','Resources')+' · '+(page.resource_ids||[]).join(', ');facts.append(scope);
+ const row=(name,meta,status,target=root)=>{const line=document.createElement('div');line.className='argus-alert-result__row';const body=document.createElement('div'),title=document.createElement('p'),detail=document.createElement('p'),badge=document.createElement('span');title.className='argus-alert-result__name';title.textContent=String(name||'—');detail.className='argus-alert-result__meta';detail.textContent=meta;badge.className='argus-alert-result__badge';badge.dataset.state=status;badge.textContent=String(data.tool||'').startsWith('alert.notification.')?notificationLabel(status):label(status);body.append(title,detail);line.append(body,badge);target.append(line);};
+ for(const item of items){const s=item.state||{},labels=s.labels||{},spec=item.spec||{};const name=s.name||item.name||item.message?.subject||s.metric||text('告警事件','Alert event');const status=item.lifecycle||item.health||item.status;const value=s.value===undefined?'':(Number.isFinite(Number(s.value))?Number(s.value).toLocaleString(zh?'zh-CN':'en-US',{maximumFractionDigits:2}):String(s.value))+(s.unit||'');const resource=labels.resource_name||(data.resources||[]).filter(r=>(item.resource_ids||[]).includes(r.id)).map(r=>r.name).join(', ');const meta=item.kind?`${Array.isArray(spec.rules)?spec.rules.length:0} ${text('条规则','rules')} · ${label(item.health)}`:[resource,value,s.notification_state?text('通知：','Notification: ')+notificationLabel(s.notification_state):'',item.lifecycle?(item.acknowledged?text('已确认','Acknowledged'):text('未确认','Unacknowledged')):''].filter(Boolean).join(' · ');row(name,meta,status);}
+ for(const e of page.evaluations||[]){row(e.name,[text('最近评估','Last evaluation'),e.last_evaluated_at||text('尚未评估','Not evaluated'),text('最近成功','Last success'),e.last_successful_at||text('尚未成功','No successful evaluation'),e.error_code].filter(Boolean).join(' · '),e.health,facts);}
+ if(!items.length&&!page.evaluations?.length){const empty=document.createElement('p');empty.textContent=text('当前范围无结果；请同时核对评估状态和数据完整性。','No results in the current scope; also check evaluation status and data completeness.');root.append(empty);}
+ if(data.preview){root.replaceChildren();ArgusTemplate.details(root,data.preview);}
+ const complete=document.getElementById('completeness');complete.textContent=typeof page.complete==='boolean'?text(`已返回 ${items.length} / ${page.total} 项 · ${page.complete?'完整':'还有下一页'}`,`${items.length} / ${page.total} items · ${page.complete?'complete':'more pages'}`):'';
+});
+</script>

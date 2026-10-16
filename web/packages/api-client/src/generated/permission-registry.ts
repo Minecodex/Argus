@@ -1,6 +1,11 @@
 /** Generated from internal/authorization. DO NOT EDIT. */
-export const permissionRegistryVersion = 11;
+export const permissionRegistryVersion = 12;
 export const permissionIDs = [
+  "alert.handle",
+  "alert.notification.manage",
+  "alert.policy.manage",
+  "alert.read",
+  "alert.silence.manage",
   "approval.decide",
   "approval.read",
   "approval_policy.manage",
@@ -66,6 +71,11 @@ export const permissionIDs = [
 ] as const;
 export const builtinRolePermissions: Record<string, readonly string[]> = {
   "enterprise_admin": [
+    "alert.handle",
+    "alert.notification.manage",
+    "alert.policy.manage",
+    "alert.read",
+    "alert.silence.manage",
     "approval.decide",
     "approval.read",
     "approval_policy.manage",
@@ -142,6 +152,11 @@ export const builtinRolePermissions: Record<string, readonly string[]> = {
     "service_account.read"
   ],
   "resource_admin": [
+    "alert.handle",
+    "alert.notification.manage",
+    "alert.policy.manage",
+    "alert.read",
+    "alert.silence.manage",
     "approval.decide",
     "approval.read",
     "approval_policy.read",
@@ -197,6 +212,10 @@ export const builtinRolePermissions: Record<string, readonly string[]> = {
     "secret.read"
   ],
   "resource_operator": [
+    "alert.handle",
+    "alert.policy.manage",
+    "alert.read",
+    "alert.silence.manage",
     "approval.decide",
     "approval.read",
     "approval_policy.read",
@@ -214,6 +233,7 @@ export const builtinRolePermissions: Record<string, readonly string[]> = {
     "kubernetes.read",
     "managed_account.read",
     "model.read",
+    "pending_action.confirm",
     "pending_action.read",
     "remote_access.request",
     "remote_access.session.create",
@@ -224,6 +244,7 @@ export const builtinRolePermissions: Record<string, readonly string[]> = {
     "workspace.use"
   ],
   "resource_viewer": [
+    "alert.read",
     "bastion_scope.read",
     "connector.read",
     "conversation.read",

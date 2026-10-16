@@ -8,7 +8,7 @@ import {
   ConfirmDialog,
   DataTable,
   EmptyState,
-  RowAction,
+  ActionMenu,
   Spinner,
   StatusBadge,
 } from "@argus/ui";
@@ -160,9 +160,16 @@ export function SessionsTab() {
                 header: t("common.actions"),
                 render: (row) =>
                   isActive(row.status) ? (
-                    <RowAction danger onPress={() => setTerminating(row)}>
-                      {t("sandbox.sessions.terminate")}
-                    </RowAction>
+                    <ActionMenu
+                      name={row.id}
+                      items={[
+                        {
+                          label: t("sandbox.sessions.terminate"),
+                          danger: true,
+                          onSelect: () => setTerminating(row),
+                        },
+                      ]}
+                    />
                   ) : (
                     t("common.none")
                   ),

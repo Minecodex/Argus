@@ -431,7 +431,7 @@ func (q *Queries) CreateHost(ctx context.Context, arg CreateHostParams) (Host, e
 
 const createKubernetesCluster = `-- name: CreateKubernetesCluster :one
 INSERT INTO kubernetes_clusters (id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, credential_id, default_namespace, environment, labels, labels_hash, connection_status)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at, statistics_observed_at
 `
 
 type CreateKubernetesClusterParams struct {
@@ -488,6 +488,7 @@ func (q *Queries) CreateKubernetesCluster(ctx context.Context, arg CreateKuberne
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StatisticsObservedAt,
 	)
 	return i, err
 }
@@ -716,7 +717,7 @@ func (q *Queries) DeleteBastionRootHost(ctx context.Context, arg DeleteBastionRo
 
 const deleteKubernetesCluster = `-- name: DeleteKubernetesCluster :one
 UPDATE kubernetes_clusters SET status = 'deleted', deleted_at = now(), resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND resource_version = $3 RETURNING id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at
+WHERE id = $1 AND enterprise_id = $2 AND resource_version = $3 RETURNING id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at, statistics_observed_at
 `
 
 type DeleteKubernetesClusterParams struct {
@@ -751,6 +752,7 @@ func (q *Queries) DeleteKubernetesCluster(ctx context.Context, arg DeleteKuberne
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StatisticsObservedAt,
 	)
 	return i, err
 }
@@ -925,7 +927,7 @@ func (q *Queries) GetHost(ctx context.Context, arg GetHostParams) (Host, error) 
 }
 
 const getKubernetesCluster = `-- name: GetKubernetesCluster :one
-SELECT id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at FROM kubernetes_clusters WHERE id = $1 AND enterprise_id = $2 AND status <> 'deleted'
+SELECT id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at, statistics_observed_at FROM kubernetes_clusters WHERE id = $1 AND enterprise_id = $2 AND status <> 'deleted'
 `
 
 type GetKubernetesClusterParams struct {
@@ -959,6 +961,7 @@ func (q *Queries) GetKubernetesCluster(ctx context.Context, arg GetKubernetesClu
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StatisticsObservedAt,
 	)
 	return i, err
 }
@@ -1184,7 +1187,7 @@ func (q *Queries) ListHosts(ctx context.Context, enterpriseID uuid.UUID) ([]Host
 }
 
 const listKubernetesClusters = `-- name: ListKubernetesClusters :many
-SELECT id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at FROM kubernetes_clusters WHERE enterprise_id = $1 AND status <> 'deleted' ORDER BY created_at, id
+SELECT id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at, statistics_observed_at FROM kubernetes_clusters WHERE enterprise_id = $1 AND status <> 'deleted' ORDER BY created_at, id
 `
 
 func (q *Queries) ListKubernetesClusters(ctx context.Context, enterpriseID uuid.UUID) ([]KubernetesCluster, error) {
@@ -1219,6 +1222,7 @@ func (q *Queries) ListKubernetesClusters(ctx context.Context, enterpriseID uuid.
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.StatisticsObservedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1592,7 +1596,7 @@ UPDATE kubernetes_clusters SET name = COALESCE($4, name), environment = COALESCE
  labels = COALESCE($14, labels), labels_hash = COALESCE($15, labels_hash),
  labels_version = CASE WHEN $14::jsonb IS NULL THEN labels_version ELSE labels_version + 1 END,
  resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND resource_version = $3 AND status <> 'deleted' RETURNING id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at
+WHERE id = $1 AND enterprise_id = $2 AND resource_version = $3 AND status <> 'deleted' RETURNING id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at, statistics_observed_at
 `
 
 type UpdateKubernetesClusterParams struct {
@@ -1655,6 +1659,7 @@ func (q *Queries) UpdateKubernetesCluster(ctx context.Context, arg UpdateKuberne
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StatisticsObservedAt,
 	)
 	return i, err
 }

@@ -13,6 +13,8 @@
 
 资源查询复用同一个 ResourceQueryActor，检查企业/主体/部门状态、授权版本、读取能力和显式授权并集。持有 host.read 不能读取仅有数据授权但缺少 kubernetes.read 的集群，反之亦然。请求包含未授权资源时整体拒绝，不把剩余子集表现为完整结果；空集合不变为全部。
 
+主机/Kubernetes 的临时查询与仪表盘共用查询编辑组件和无损转换编译器。纯定义转换不读取数据或写入业务配置，允许具备 `host.read`、`kubernetes.read` 或 `telemetry.dashboard.manage` 的企业主体使用，浏览器会话仍校验 CSRF。执行继续遵循上述对象授权；指标/字段目录保留既有 Dashboard 读取能力门禁。临时查询不创建 Dashboard 草稿或发布状态，详见[资源配置交互](../plans/frontend-redesign/resource-config-ui-20261012.md)。
+
 HTTP 查询支持用户会话以及服务账户 API Key；服务账户仍须通过现有 allowed_tool_ids 白名单。普通 Chat 的三个元工具使用相同校验。查询返回前再次核对权限和对象范围，执行中撤权不返回已取到的数据。
 
 Dashboard 关联仍只是快捷入口，不授予资源访问权。Dashboard 查询不额外要求各资源页面的功能权限，但必须有明确资源数据授权。Collector 管理与用量等独立运维能力保持其原有权限边界。

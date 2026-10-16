@@ -95,6 +95,39 @@ async function renderTerminal() {
 }
 
 describe("RealTerminalTab step-up", () => {
+  it("keeps a failed continuation visible with its request ID after successful MFA", async () => {
+    const client = await renderTerminal();
+    vi.spyOn(client.remoteAccess, "createRequest").mockResolvedValueOnce({
+      id: "request-step-up-required",
+      status: "awaiting_mfa",
+    } as never);
+    vi.spyOn(client.auth, "stepUp").mockResolvedValueOnce({
+      amr: ["password", "totp"],
+      expires_at: new Date(Date.now() + 300000).toISOString(),
+    });
+    vi.spyOn(client.remoteAccess, "resumeRequest").mockRejectedValueOnce(
+      new ApiError(
+        {
+          code: "CONTINUATION_FAILED",
+          message_key: "errors.continuation_failed",
+          request_id: "continuation-request-id",
+          retryable: false,
+        },
+        503,
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "建立会话" }));
+    await screen.findByRole("dialog", { name: "验证后建立远程会话" });
+    fireEvent.change(screen.getByLabelText(/验证码或恢复码/), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "验证并继续" }));
+    expect(await screen.findByText(/验证后无法继续操作/)).toBeVisible();
+    expect(screen.getByText(/continuation-request-id/)).toBeVisible();
+    expect(
+      screen.getByRole("dialog", { name: "验证后建立远程会话" }),
+    ).toBeVisible();
+  });
   it("opens MFA step-up and resumes the existing request after verification", async () => {
     const client = await renderTerminal();
     const createRequest = vi

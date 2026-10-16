@@ -1,0 +1,224 @@
+serviceaccount/argus-e2e-ingress created
+clusterrole.rbac.authorization.k8s.io/plan6-plan6-20261011-w21-nginx created
+clusterrolebinding.rbac.authorization.k8s.io/plan6-plan6-20261011-w21-nginx created
+ingressclass.networking.k8s.io/plan6-plan6-20261011-w21-nginx created
+configmap/argus-e2e-ingress created
+service/argus-e2e-ingress created
+deployment.apps/argus-e2e-ingress created
+Preflight plan6-plan6-20261011-w21 on docker-desktop
+[PASS] kubernetes-api: v1.36.1
+[PASS] network-profile: NetworkPolicy=unverified; EgressGateway=absent; posture=degraded
+[WARN] network-security: NetworkPolicy probe did not observe an enforced deny: job argus-network-probe-1791650303934304900/probe-denied failed
+[WARN] network-security: no external Egress Gateway was detected; Direct Executor uses the cluster default route
+[PASS] node-architecture: amd64
+[PASS] cluster-capacity: allocatable cpu=16000m memory=15911100Ki pods=110
+[WARN] storage-class: standard (volume expansion unavailable; accepted for local profiles)
+[PASS] ingress-class: plan6-plan6-20261011-w21-nginx
+[PASS] pki: managed
+[PASS] host-disk: 76.9Gi free
+[WARN] network-policy: NetworkPolicy enforcement was not positively verified
+[WARN] sandbox-runtime: shared ordinary-container runtime explicitly accepted for the local profile
+[PASS] host-architecture: amd64
+Estimate: 22 pods, 6 PVCs, 19Gi requested storage
+Argus plan6-plan6-20261011-w21 plan (evaluation)
+1. foundation
+2. data-operators
+3. data
+4. sandbox
+5. telemetry-pipeline
+6. platform
+WARN: NETWORK_POLICY_ENFORCEMENT_UNVERIFIED
+WARN: SHARED_CONTAINER_SANDBOX_RUNTIME
+Bootstrap TLS: insecure-first-fetch
+Building Connector distribution for linux/amd64
+Building Connector distribution for linux/arm64
+Building Connector distribution for windows/amd64
+4e7bbedd3e30e97cfefd29f98d75a82083740638f553eaed19c58e2567b1ffc5
+Building argus-backend for linux/amd64
+Building argus-web for linux/amd64
+Building minio for linux/amd64
+Building argus-workspace for linux/amd64
+Building argus-workspace-egress for linux/amd64
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w21 created
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w21 restarted
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w21" rollout to finish: 0 out of 1 new pods have been updated...
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w21" rollout to finish: 0 of 1 updated pods are available...
+daemon set "argus-image-loader-plan6-plan6-20261011-w21" successfully rolled out
+Artifact Store synchronized: Collector distributions and Connector release e2e-plan6-20261011-w21-dfb3a0415ceb1f6b
+Reusing compatible OpenSandbox controller judex/opensandbox-controller-manager; preserving external ownership
+deployment.apps/argus-web restarted
+deployment.apps/argus-server restarted
+deployment.apps/argus-worker restarted
+deployment.apps/argus-direct-executor restarted
+deployment.apps/argus-connector-gateway restarted
+deployment.apps/argus-pki-controller restarted
+deployment.apps/argus-telemetry-ingest restarted
+deployment.apps/argus-telemetry-writer restarted
+deployment.apps/argus-telemetry-query restarted
+Argus evaluation plan6-plan6-20261011-w21 installed successfully
+Platform initialization URL (copy and open it now; shown only once):
+Expires at: 2026-10-11T16:42:41Z
+Baseline browser e2e/m2(-dashboard-dialogs)?-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 started
+{"time":"2026-10-11T00:47:05.7074593+08:00","level":"INFO","msg":"Connector enrolled","connector_id":"01a126b5-0790-7218-93fc-2316cdb163df","role":"kubernetes","gateway":"grpcs://connector.plan6-plan6-20261011-w21.argus.test:9443"}
+Baseline browser e2e/m3-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 passed
+E2E phase m4 started
+Baseline browser e2e/m4-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m4 passed
+E2E phase p5-native started
+Native host.create.preview Preview/template/Run binding passed
+E2E phase p5-native passed
+E2E phase m7 started
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.repair.preview Preview/template/Run binding passed
+Native host.collector.upgrade.preview Preview/template/Run binding passed
+Native k8s.collector.install.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Baseline browser e2e/m7-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+E2E phase m7 passed
+E2E phase plan6 started
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+
+Running 9 tests using 1 worker
+
+  ok 1 [chromium] › e2e\plan6-real.spec.ts:64:3 › Plan6 real portal › six live tabs, immutable history and organization entry (3.3s)
+  ok 2 [chromium] › e2e\plan6-real.spec.ts:142:3 › Plan6 real portal › real policy draft cancellation and atomic host confirmation (26.6s)
+  ok 3 [chromium] › e2e\plan6-real.spec.ts:214:3 › Plan6 real portal › concurrent policy confirmation rejects the old review and retains its draft (30.1s)
+  ok 4 [chromium] › e2e\plan6-real.spec.ts:301:3 › Plan6 real portal › real multi-rule create, trial, cancel, lifecycle, handling, silence and authorized export (48.4s)
+  ok 5 [chromium] › e2e\plan6-real.spec.ts:570:3 › Plan6 real portal › real model query and cancelled host card remain visible in the existing workspace (8.1s)
+  x  6 [chromium] › e2e\plan6-real.spec.ts:607:3 › Plan6 real portal › ordinary Chinese conversation commits through the workspace host card once (57.6s)
+  x  7 [chromium] › e2e\plan6-real.spec.ts:607:3 › Plan6 real portal › ordinary Chinese conversation commits through the workspace host card once (retry #1) (26.1s)
+  x  8 [chromium] › e2e\plan6-real.spec.ts:607:3 › Plan6 real portal › ordinary Chinese conversation commits through the workspace host card once (retry #2) (41.5s)
+  ok 9 [chromium] › e2e\plan6-real.spec.ts:715:3 › Plan6 real portal › notification details and reviewed resend preserve the original Unknown fact (3.3s)
+  ok 10 [chromium] › e2e\plan6-real.spec.ts:788:3 › Plan6 real portal › notification pagination, filters and scroll survive details and tab returns (19.5s)
+  ok 11 [chromium] › e2e\plan6-real.spec.ts:845:3 › Plan6 real portal › stale review denial preserves drafts after evaluator revocation and expiry (32.4s)
+
+
+  1) [chromium] › e2e\plan6-real.spec.ts:607:3 › Plan6 real portal › ordinary Chinese conversation commits through the workspace host card once 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: '停止生成', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for getByRole('button', { name: '停止生成', exact: true })
+        14 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      644 |     await expect(
+      645 |       page.getByRole("button", { name: "停止生成", exact: true }),
+    > 646 |     ).toHaveCount(0);
+          |       ^
+      647 |     const pendingPolicy = (await configs(page)).find(
+      648 |       (item) => item.id === policy!.id,
+      649 |     )!;
+        at D:\workspace\go\Argus\web\apps\enterprise\e2e\plan6-real.spec.ts:646:7
+
+    Error Context: ..\..\..\artifacts\plan6-e2e\plan6-20261011-w21\playwright-plan6\plan6-real-Plan6-real-port-9a02e-he-workspace-host-card-once-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\..\artifacts\plan6-e2e\plan6-20261011-w21\playwright-plan6\plan6-real-Plan6-real-port-9a02e-he-workspace-host-card-once-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ..\..\..\artifacts\plan6-e2e\plan6-20261011-w21\playwright-plan6\plan6-real-Plan6-real-port-9a02e-he-workspace-host-card-once-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: '停止生成', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for getByRole('button', { name: '停止生成', exact: true })
+        14 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      644 |     await expect(
+      645 |       page.getByRole("button", { name: "停止生成", exact: true }),
+    > 646 |     ).toHaveCount(0);
+          |       ^
+      647 |     const pendingPolicy = (await configs(page)).find(
+      648 |       (item) => item.id === policy!.id,
+      649 |     )!;
+        at D:\workspace\go\Argus\web\apps\enterprise\e2e\plan6-real.spec.ts:646:7
+
+    Error Context: ..\..\..\artifacts\plan6-e2e\plan6-20261011-w21\playwright-plan6\plan6-real-Plan6-real-port-9a02e-he-workspace-host-card-once-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\..\artifacts\plan6-e2e\plan6-20261011-w21\playwright-plan6\plan6-real-Plan6-real-port-9a02e-he-workspace-host-card-once-chromium-retry1\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ..\..\..\artifacts\plan6-e2e\plan6-20261011-w21\playwright-plan6\plan6-real-Plan6-real-port-9a02e-he-workspace-host-card-once-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: '停止生成', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for getByRole('button', { name: '停止生成', exact: true })
+        14 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      644 |     await expect(
+      645 |       page.getByRole("button", { name: "停止生成", exact: true }),
+    > 646 |     ).toHaveCount(0);
+          |       ^
+      647 |     const pendingPolicy = (await configs(page)).find(
+      648 |       (item) => item.id === policy!.id,
+      649 |     )!;
+        at D:\workspace\go\Argus\web\apps\enterprise\e2e\plan6-real.spec.ts:646:7
+
+    Error Context: ..\..\..\artifacts\plan6-e2e\plan6-20261011-w21\playwright-plan6\plan6-real-Plan6-real-port-9a02e-he-workspace-host-card-once-chromium-retry2\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\..\artifacts\plan6-e2e\plan6-20261011-w21\playwright-plan6\plan6-real-Plan6-real-port-9a02e-he-workspace-host-card-once-chromium-retry2\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ..\..\..\artifacts\plan6-e2e\plan6-20261011-w21\playwright-plan6\plan6-real-Plan6-real-port-9a02e-he-workspace-host-card-once-chromium-retry2\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e\plan6-real.spec.ts:607:3 › Plan6 real portal › ordinary Chinese conversation commits through the workspace host card once 
+  8 passed (5.0m)
+undefined
+D:\workspace\go\Argus\web\apps\enterprise:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test e2e/plan6-real.spec.ts "--workers=1"
+Untagged: localhost:54123/argus/argus-e2e-ssh:e2e-plan6-20261011-w21
+Deleted: sha256:f9374d67ee8d26ffa82a7763adc8425181861c9cf531fca87e662ad3af59269a
+Untagged: localhost:54123/argus/argus-e2e-replay:e2e-plan6-20261011-w21
+Deleted: sha256:95a05f5f3a98ee9a17d665d60cfdb047fdad65afdb416d1fd8f0917ad7c49790
+Untagged: localhost:54123/argus/argus-e2e-artifact:e2e-plan6-20261011-w21
+Deleted: sha256:22b6f827a95cfb5e195c3a776ca52ad48c1f65a856a3433e7d869ad1459b0f30
+Untagged: localhost:54123/argus/argus-e2e-systemd:e2e-plan6-20261011-w21
+Deleted: sha256:5d49af96988bab8acadee1c68b5bf163fc45bb24f6776675bff027aa14195010
+Untagged: localhost:54123/argus/argus-otelcol:e2e-plan6-20261011-w21
+Deleted: sha256:4766c1f9c1edd61d509c168614e45aa4d6b6d5ba4f45d5625eae2f3b0743293c
+Argus plan6-plan6-20261011-w21 removed

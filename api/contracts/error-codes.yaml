@@ -227,6 +227,8 @@ codes:
   MODEL_TOOL_CAPACITY_EXCEEDED: {http_status: 422, message_key: errors.planv5.model_tool_capacity_exceeded, retryable: false}
   PRESENTATION_FORBIDDEN: {http_status: 403, message_key: errors.planv5.presentation_forbidden, retryable: false}
   PRESENTATION_INVALID: {http_status: 422, message_key: errors.planv5.presentation_invalid, retryable: false}
+  PRESENTATION_READ_INVALID: {http_status: 422, message_key: errors.planv5.presentation_read_invalid, retryable: false}
+  PRESENTATION_ROW_TOO_LARGE: {http_status: 422, message_key: errors.planv5.presentation_row_too_large, retryable: false}
   SANDBOX_COMMAND_RESULT_UNKNOWN: {http_status: 422, message_key: errors.planv5.sandbox_command_result_unknown, retryable: false}
   SANDBOX_UNAVAILABLE: {http_status: 503, message_key: errors.planv5.sandbox_unavailable, retryable: false}
   SKILL_CONTEXT_INVALID: {http_status: 422, message_key: errors.planv5.skill_context_invalid, retryable: false}
@@ -266,3 +268,9 @@ codes:
   WORKSPACE_UPLOAD_CONFLICT: {http_status: 409, message_key: errors.planv5.workspace_upload_conflict, retryable: false}
   WORKSPACE_UPLOAD_EXPIRED: {http_status: 422, message_key: errors.planv5.workspace_upload_expired, retryable: false}
   WORKSPACE_UPLOAD_FAILED: {http_status: 422, message_key: errors.planv5.workspace_upload_failed, retryable: false}
+  ALERT_INVALID: {http_status: 400, message_key: errors.alerts.invalid, safe_params: []}
+  ALERT_DENIED: {http_status: 403, message_key: errors.alerts.denied, safe_params: []}
+  ALERT_NOT_FOUND: {http_status: 404, message_key: errors.alerts.not_found, safe_params: []}
+  ALERT_VERSION_CONFLICT: {http_status: 409, message_key: errors.alerts.version_conflict, safe_params: []}
+  ALERT_EVALUATOR_UNAVAILABLE: {http_status: 503, message_key: errors.alerts.evaluator_unavailable, safe_params: []}
+  ALERT_UNAVAILABLE: {http_status: 503, message_key: errors.alerts.unavailable, safe_params: []}

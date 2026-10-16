@@ -36,6 +36,44 @@ paths:
                 $ref: '#/components/schemas/ToolPresentation'
         default:
           $ref: '#/components/responses/Error'
+  /conversations/{conversation_id}/tool-presentations/{tool_call_id}/read:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: tool_call_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: readToolPresentation
+      summary: Read a capability bound to this authorized presentation.
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresentationReadInput'
+      responses:
+        '200':
+          description: Bound public presentation data. A result.page response includes matched total, original source_total, offset, complete and low-cardinality public facets. Counts describe this sealed result, not unqueried business data. Filters never execute a new business query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresentationReadResult'
+        default:
+          $ref: '#/components/responses/Error'
 components:
   securitySchemes:
     sessionCookie:
@@ -97,6 +135,11 @@ components:
           type: string
           enum:
             - argus-template/v1
+            - argus-template/v2
+        read_operations:
+          type: array
+          items:
+            type: string
         template_hash:
           type: string
           pattern: ^[a-f0-9]{64}$
@@ -121,6 +164,7 @@ components:
                   - host
                   - kubernetes_cluster
                   - connector
+                  - dashboard
               id:
                 type: string
                 format: uuid
@@ -133,6 +177,75 @@ components:
           enum:
             - ready
             - failed
+    PresentationReadInput:
+      type: object
+      additionalProperties: false
+      required:
+        - operation
+        - parameters
+      properties:
+        operation:
+          type: string
+          enum:
+            - resources.context
+            - metric.context
+            - alert.details
+            - dashboard.result
+            - result.page
+            - runtime.status
+            - result.detail
+        parameters:
+          type: object
+          additionalProperties: true
+          description: result.page reads sealed data only. Search, exact scalar filters and ordering apply before pagination to the entire bound collection; the cursor binds these conditions and the original presentation/attempt/authorization version. Nested sample slices do not accept filtering. Other operations retain their own parameter allowlists.
+          properties:
+            search:
+              type: string
+              maxLength: 256
+            filters:
+              type: object
+              additionalProperties:
+                type: string
+                maxLength: 256
+              description: 'Allowed fields: status, connection_status, severity, level, environment, namespace, resource_type, service_name, signal, type.'
+            sort:
+              type: string
+              enum:
+                - ''
+                - name
+                - title
+                - hostname
+                - id
+                - status
+                - severity
+                - namespace
+                - environment
+                - updated_at
+                - created_at
+                - started_at
+                - timestamp
+            direction:
+              type: string
+              enum:
+                - asc
+                - desc
+    PresentationReadResult:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum:
+            - ready
+            - pending
+        data:
+          type: object
+          additionalProperties: true
+        next_cursor:
+          type: string
   responses:
     Error:
       description: Stable Argus error.

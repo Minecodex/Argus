@@ -1,0 +1,23 @@
+[
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\otelcol",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\build\\otelcol",
+    "files": 28,
+    "bytes": 728715832.0,
+    "sha256_verified": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\verify",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\build\\verify",
+    "files": 3,
+    "bytes": 218141736.0,
+    "sha256_verified": true
+  },
+  {
+    "source": "D:\\workspace\\go\\Argus\\build\\connector",
+    "target": "C:\\Users\\23574\\.codex\\plan6-acceptance-archives\\20261009-v\\build\\connector",
+    "files": 5,
+    "bytes": 157677517.0,
+    "sha256_verified": true
+  }
+]

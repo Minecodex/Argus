@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { ResolvedAlertActionPreview } from "../alerts/resolved-action-preview";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
@@ -33,7 +34,7 @@ function toPreviewStatus(action: PendingActionPublic): PreviewCommitStatus {
  * 预览摘要、风险、Diff、影响对象、计划哈希、过期倒计时；
  * [确认执行] 直接调 approvals.confirm（不经过模型），状态原地流转。
  */
-export function PendingActionCard({ actionRef }: { actionRef: string }) {
+export function PendingActionCard({ actionRef, children }: { actionRef: string; children?: ReactNode }) {
   const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
@@ -81,6 +82,7 @@ export function PendingActionCard({ actionRef }: { actionRef: string }) {
       ? (action.preview as Record<string, unknown>)
       : {};
   const presented = presentPendingAction(action, t);
+  const alertAction = action.action_type.startsWith("alert.");
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["approvals", actionRef] });
@@ -140,30 +142,47 @@ export function PendingActionCard({ actionRef }: { actionRef: string }) {
 
   return (
     <div
-      className="argus-chat-action"
+      className={
+        alertAction
+          ? "argus-chat-action argus-chat-action--expanded"
+          : "argus-chat-action"
+      }
       data-fetched={dataUpdatedAt}
       data-testid="pending-action-card"
     >
       <PreviewCommitCard
-        affected={[
-          {
-            name: affectedName,
-            detail: affectedDetail || presented.summary,
-          },
-        ]}
+        layout={alertAction ? "workspace" : "card"}
+        affected={
+          alertAction
+            ? []
+            : [
+                {
+                  name: affectedName,
+                  detail: affectedDetail || presented.summary,
+                },
+              ]
+        }
         confirming={busy}
         confirmLabel={
-          awaitingApproval ? t("chat.action.awaitingApproval") : undefined
+          awaitingApproval
+            ? t("chat.action.awaitingApproval")
+            : alertAction
+              ? t("alerts.confirm")
+              : undefined
         }
-        diff={presented.diff.map((line) => ({
-          type:
-            line.kind === "add"
-              ? "add"
-              : line.kind === "remove"
-                ? "remove"
-                : "context",
-          content: line.text,
-        }))}
+        diff={
+          alertAction
+            ? undefined
+            : presented.diff.map((line) => ({
+                type:
+                  line.kind === "add"
+                    ? "add"
+                    : line.kind === "remove"
+                      ? "remove"
+                      : "context",
+                content: line.text,
+              }))
+        }
         expiresAt={action.expires_at}
         onCancel={
           action.status === "awaiting_confirmation" ? cancel : undefined
@@ -177,9 +196,13 @@ export function PendingActionCard({ actionRef }: { actionRef: string }) {
         risk={action.risk}
         riskLabel={t(`chat.action.risk.${action.risk}`)}
         status={status}
-        title={presented.title}
+        title={alertAction ? t("alerts.preview") : presented.title}
       >
-        <p className="argus-chat-action__summary">{presented.summary}</p>
+        {!alertAction && (
+          <p className="argus-chat-action__summary">{presented.summary}</p>
+        )}
+        <ResolvedAlertActionPreview action={action} />
+        {children}
       </PreviewCommitCard>
     </div>
   );

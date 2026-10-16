@@ -127,6 +127,15 @@ export function createHostsDomain(
       }
       return hostPage(items, filter?.limit);
     },
+    async previewReconnect() {
+      throw new ApiError({code:"CAPABILITY_UNAVAILABLE",message_key:"errors.capabilityUnavailable",request_id:"mock",retryable:false},409);
+    },
+    async refreshInventory(id) {
+      await ctx.pause();
+      const value = db.hosts.find((entry) => entry.id === id);
+      if (!value) throw new ApiError({code: "NOT_FOUND", message_key: "errors.notFound", request_id: "mock", retryable: false}, 404);
+      return hostContract(value);
+    },
     async get(id) {
       await ctx.pause();
       return hostContract(

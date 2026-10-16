@@ -1,0 +1,1365 @@
+[
+  {
+    "Tool": "alert.channel.list",
+    "Entry": "alert-settings-list",
+    "Mode": "template",
+    "Hash": "c86beb71a3464c37bd362116e2af6f396e824127b427307c61adc775878c878e",
+    "Version": "argus.alert-settings-list/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.event.acknowledge.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.event.assign.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.event.comment.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.event.get",
+    "Entry": "alert-event-detail",
+    "Mode": "template",
+    "Hash": "a4273a69f755d1ae7e2683cfafaeefa5b6fe9baf55d29a52f4ca99b027c09aa6",
+    "Version": "argus.alert-event-detail/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.event.query",
+    "Entry": "alert-events",
+    "Mode": "template",
+    "Hash": "08502cc2fe76168ba268d7d65b916772d86dabac66393d7f520af6d29466c91c",
+    "Version": "argus.alert-events/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.grouping.list",
+    "Entry": "alert-settings-list",
+    "Mode": "template",
+    "Hash": "c86beb71a3464c37bd362116e2af6f396e824127b427307c61adc775878c878e",
+    "Version": "argus.alert-settings-list/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.history.query",
+    "Entry": "alert-history",
+    "Mode": "template",
+    "Hash": "783006699b4146f0c0e6de9259591e836cce774a6f597af9b87a367a3a345093",
+    "Version": "argus.alert-history/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.inhibition.create.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.inhibition.delete.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.inhibition.disable.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.inhibition.enable.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.inhibition.list",
+    "Entry": "alert-settings-list",
+    "Mode": "template",
+    "Hash": "c86beb71a3464c37bd362116e2af6f396e824127b427307c61adc775878c878e",
+    "Version": "argus.alert-settings-list/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.inhibition.update.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.notification.query",
+    "Entry": "alert-notifications",
+    "Mode": "template",
+    "Hash": "e1da8cecfd4604eaf94a038dfe51f0ad702d45b6f5afdaec9a620072007995eb",
+    "Version": "argus.alert-notifications/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.notification.resend.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.notification.test.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.policy.create.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.policy.delete.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.policy.disable.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.policy.enable.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.policy.get",
+    "Entry": "alert-policy-detail",
+    "Mode": "template",
+    "Hash": "30464c44f4c96b869b1c655f3ec607aacc344e0216b1f5bd086f094e697a056b",
+    "Version": "argus.alert-policy-detail/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.policy.list",
+    "Entry": "alert-policy-list",
+    "Mode": "template",
+    "Hash": "616790ebb584fafd61f7d1b743481515bbf886623b47723a3e9d20e1c82db5d8",
+    "Version": "argus.alert-policy-list/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.policy.update.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.route.create.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.route.delete.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.route.disable.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.route.enable.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.route.list",
+    "Entry": "alert-settings-list",
+    "Mode": "template",
+    "Hash": "c86beb71a3464c37bd362116e2af6f396e824127b427307c61adc775878c878e",
+    "Version": "argus.alert-settings-list/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.route.update.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.settings.list",
+    "Entry": "alert-settings-list",
+    "Mode": "template",
+    "Hash": "c86beb71a3464c37bd362116e2af6f396e824127b427307c61adc775878c878e",
+    "Version": "argus.alert-settings-list/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.silence.create.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.silence.delete.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.silence.disable.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.silence.enable.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.silence.list",
+    "Entry": "alert-settings-list",
+    "Mode": "template",
+    "Hash": "c86beb71a3464c37bd362116e2af6f396e824127b427307c61adc775878c878e",
+    "Version": "argus.alert-settings-list/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "alert.silence.update.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "338f409423e9bf00b1445dbd87206272f00e0771718d4794928aa4424dc6b541",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "alert.template.list",
+    "Entry": "alert-settings-list",
+    "Mode": "template",
+    "Hash": "c86beb71a3464c37bd362116e2af6f396e824127b427307c61adc775878c878e",
+    "Version": "argus.alert-settings-list/v2",
+    "DataType": "argus.alert_result/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "alert.details"
+    ]
+  },
+  {
+    "Tool": "connector.bastion.create.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "connector.bastion.delete.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "connector.bastion.enrollment_rotate.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "connector.bastion.replacement.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "connector.bastion.update.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "connector.get",
+    "Entry": "connector-detail",
+    "Mode": "template",
+    "Hash": "54ff05a797c62387b8cc5e633049e100b7847a7deef8705689236f3970b46585",
+    "Version": "argus.connector-detail/v2",
+    "DataType": "connector.get/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "runtime.status"
+    ]
+  },
+  {
+    "Tool": "connector.install.retry.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "connector.list",
+    "Entry": "connector-list",
+    "Mode": "template",
+    "Hash": "cca8bf597887d28dff9741363cf934e876141b9d4aae8c877ed5cff3d7221259",
+    "Version": "argus.connector-list/v2",
+    "DataType": "connector.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "runtime.status"
+    ]
+  },
+  {
+    "Tool": "connector.uninstall.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.collector.configure.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.collector.install.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.collector.repair.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.collector.uninstall.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.collector.upgrade.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.create.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.delete.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.get",
+    "Entry": "host-detail",
+    "Mode": "template",
+    "Hash": "d45984bbca460edb3621b09b27c4e0b9b35a8a4e3673ecaca0453f34987d226b",
+    "Version": "argus.host-detail/v2",
+    "DataType": "host.get/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.install.retry.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.list",
+    "Entry": "host-list",
+    "Mode": "template",
+    "Hash": "0585dd8d67ecea44be259a880aeb2f9975dcbaf2d4b26222f97d9eec89f82766",
+    "Version": "argus.host-list/v2",
+    "DataType": "host.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.removal.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "host.update.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.cluster.create.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.cluster.delete.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.cluster.get",
+    "Entry": "cluster-detail",
+    "Mode": "template",
+    "Hash": "598434cd9eb01334d7f82c40afff2561d4ace3c4329e147e193e3467a6c55ae7",
+    "Version": "argus.cluster-detail/v2",
+    "DataType": "kubernetes.cluster.get/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.cluster.list",
+    "Entry": "cluster-list",
+    "Mode": "template",
+    "Hash": "59270e74dc2c2b8569c062bcd7226da6133b6544b7127b05c75bcc9e9aca0adf",
+    "Version": "argus.cluster-list/v2",
+    "DataType": "kubernetes.cluster.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.cluster.update.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.collector.configure.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.collector.install.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.collector.repair.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.collector.uninstall.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.collector.upgrade.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.daemonset.list",
+    "Entry": "kubernetes-resource-list",
+    "Mode": "template",
+    "Hash": "5fa45053b7c3c9ecbeceb797c8e78ada33a07100cb4c4b01c350264ad147d17f",
+    "Version": "argus.kubernetes-resource-list/v2",
+    "DataType": "kubernetes.daemonset.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.deployment.list",
+    "Entry": "kubernetes-resource-list",
+    "Mode": "template",
+    "Hash": "5fa45053b7c3c9ecbeceb797c8e78ada33a07100cb4c4b01c350264ad147d17f",
+    "Version": "argus.kubernetes-resource-list/v2",
+    "DataType": "kubernetes.deployment.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.namespace.list",
+    "Entry": "kubernetes-resource-list",
+    "Mode": "template",
+    "Hash": "5fa45053b7c3c9ecbeceb797c8e78ada33a07100cb4c4b01c350264ad147d17f",
+    "Version": "argus.kubernetes-resource-list/v2",
+    "DataType": "kubernetes.namespace.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.node.list",
+    "Entry": "kubernetes-resource-list",
+    "Mode": "template",
+    "Hash": "5fa45053b7c3c9ecbeceb797c8e78ada33a07100cb4c4b01c350264ad147d17f",
+    "Version": "argus.kubernetes-resource-list/v2",
+    "DataType": "kubernetes.node.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.node_host_binding.confirm.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.pod.list",
+    "Entry": "kubernetes-resource-list",
+    "Mode": "template",
+    "Hash": "5fa45053b7c3c9ecbeceb797c8e78ada33a07100cb4c4b01c350264ad147d17f",
+    "Version": "argus.kubernetes-resource-list/v2",
+    "DataType": "kubernetes.pod.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.pod.logs",
+    "Entry": "pod-logs",
+    "Mode": "template",
+    "Hash": "aacc5ee2eb332f2c063e5c881b4881cd944d2897f4de6b3ebb4395279d91c0e4",
+    "Version": "argus.pod-logs/v2",
+    "DataType": "kubernetes.pod.logs/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.service.list",
+    "Entry": "kubernetes-resource-list",
+    "Mode": "template",
+    "Hash": "5fa45053b7c3c9ecbeceb797c8e78ada33a07100cb4c4b01c350264ad147d17f",
+    "Version": "argus.kubernetes-resource-list/v2",
+    "DataType": "kubernetes.service.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "kubernetes.statefulset.list",
+    "Entry": "kubernetes-resource-list",
+    "Mode": "template",
+    "Hash": "5fa45053b7c3c9ecbeceb797c8e78ada33a07100cb4c4b01c350264ad147d17f",
+    "Version": "argus.kubernetes-resource-list/v2",
+    "DataType": "kubernetes.statefulset.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "pending_action.cancel",
+    "Entry": "",
+    "Mode": "trace",
+    "Hash": "",
+    "Version": "",
+    "DataType": "pending_action.cancel/v1",
+    "Reads": null
+  },
+  {
+    "Tool": "pending_action.get",
+    "Entry": "action-detail",
+    "Mode": "template",
+    "Hash": "6f6a85681caf8be401bdfc73bed05925f66e084312a87cfc3b1bddd9b58766ef",
+    "Version": "argus.action-detail/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.collector.get",
+    "Entry": "collector-detail",
+    "Mode": "template",
+    "Hash": "6451edfa3438ee46e5096abfa5476b9b492af39c5968b6dcba9772bd76026397",
+    "Version": "argus.collector-detail/v2",
+    "DataType": "telemetry.collector.get/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "runtime.status"
+    ]
+  },
+  {
+    "Tool": "telemetry.collector.list",
+    "Entry": "collector-list",
+    "Mode": "template",
+    "Hash": "30ef61e5e140a39e31ce439ed824a2f1a9dcbc28da394338a78924ddca2f907c",
+    "Version": "argus.collector-list/v2",
+    "DataType": "telemetry.collector.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "runtime.status"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.catalog",
+    "Entry": "telemetry-catalog",
+    "Mode": "template",
+    "Hash": "9367024826e05befa1365e31bbc6777e6d8338c6d4ff392e6f743db226491619",
+    "Version": "argus.telemetry-catalog/v2",
+    "DataType": "argus.dashboard.catalog/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.catalog.resources",
+    "Entry": "telemetry-catalog",
+    "Mode": "template",
+    "Hash": "9367024826e05befa1365e31bbc6777e6d8338c6d4ff392e6f743db226491619",
+    "Version": "argus.telemetry-catalog/v2",
+    "DataType": "argus.dashboard.catalog.resources/v2",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.context.candidates",
+    "Entry": "",
+    "Mode": "trace",
+    "Hash": "",
+    "Version": "",
+    "DataType": "argus.dashboard.context.candidates/v1",
+    "Reads": null
+  },
+  {
+    "Tool": "telemetry.dashboard.context.resolve",
+    "Entry": "",
+    "Mode": "trace",
+    "Hash": "",
+    "Version": "",
+    "DataType": "argus.dashboard.context.resolve/v1",
+    "Reads": null
+  },
+  {
+    "Tool": "telemetry.dashboard.draft.create",
+    "Entry": "dashboard-definition",
+    "Mode": "template",
+    "Hash": "da794a8b26cc6384ff63121ce2d5dee72a7d5e285e46e86a8ffb6f20a54b453e",
+    "Version": "argus.dashboard-definition/v2",
+    "DataType": "argus.dashboard.draft.create/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.draft.get",
+    "Entry": "dashboard-definition",
+    "Mode": "template",
+    "Hash": "da794a8b26cc6384ff63121ce2d5dee72a7d5e285e46e86a8ffb6f20a54b453e",
+    "Version": "argus.dashboard-definition/v2",
+    "DataType": "argus.dashboard.draft.get/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.draft.save",
+    "Entry": "",
+    "Mode": "trace",
+    "Hash": "",
+    "Version": "",
+    "DataType": "argus.dashboard.draft.save/v1",
+    "Reads": null
+  },
+  {
+    "Tool": "telemetry.dashboard.draft.validate",
+    "Entry": "dashboard-draft-validation",
+    "Mode": "template",
+    "Hash": "5ebe4b2a4560613b3f473fd24f4fc4bacad51daa2bb5cc68df657fa64332fef5",
+    "Version": "argus.dashboard-draft-validation/v2",
+    "DataType": "argus.dashboard.draft.validate/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.get",
+    "Entry": "dashboard-definition",
+    "Mode": "template",
+    "Hash": "da794a8b26cc6384ff63121ce2d5dee72a7d5e285e46e86a8ffb6f20a54b453e",
+    "Version": "argus.dashboard-definition/v2",
+    "DataType": "argus.dashboard.get/v2",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.list",
+    "Entry": "dashboard-list",
+    "Mode": "template",
+    "Hash": "f84d263495d5561af324a1e573fa46425f5cf0c3f4bdc90d2b86462bd4a6d390",
+    "Version": "argus.dashboard-list/v2",
+    "DataType": "argus.dashboard.list/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.publish.preview",
+    "Entry": "change-preview",
+    "Mode": "template",
+    "Hash": "adb173c67e8cb2445d254bea57dcff77b666004c65038b8b83d0d09ab21a569e",
+    "Version": "argus.change-preview/v2",
+    "DataType": "argus.pending_action/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.query",
+    "Entry": "dashboard-result",
+    "Mode": "template",
+    "Hash": "a5c0529ca0142385e26ac85d26928d0cd3f54f23c001c6d6607f59d4c0a10cb7",
+    "Version": "argus.dashboard-result/v2",
+    "DataType": "argus.dashboard.query/v2",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "dashboard.result"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.query.cancel",
+    "Entry": "",
+    "Mode": "trace",
+    "Hash": "",
+    "Version": "",
+    "DataType": "argus.dashboard.query.cancel/v2",
+    "Reads": null
+  },
+  {
+    "Tool": "telemetry.dashboard.query.get",
+    "Entry": "dashboard-result",
+    "Mode": "template",
+    "Hash": "a5c0529ca0142385e26ac85d26928d0cd3f54f23c001c6d6607f59d4c0a10cb7",
+    "Version": "argus.dashboard-result/v2",
+    "DataType": "argus.dashboard.query.get/v2",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "dashboard.result"
+    ]
+  },
+  {
+    "Tool": "telemetry.dashboard.query.resume",
+    "Entry": "",
+    "Mode": "trace",
+    "Hash": "",
+    "Version": "",
+    "DataType": "argus.dashboard.query.resume/v2",
+    "Reads": null
+  },
+  {
+    "Tool": "telemetry.kql.query",
+    "Entry": "log-query",
+    "Mode": "template",
+    "Hash": "76f5d6e381e4cda07e17bd2947200b1a48fa784b2ca14f670f31b281bf7bfa55",
+    "Version": "argus.log-query/v2",
+    "DataType": "telemetry.kql.query/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.overview",
+    "Entry": "telemetry-summary",
+    "Mode": "template",
+    "Hash": "7872f68b34b4d6db1ca005d0a9fbb1b96350a04f07d3001d369d61e60de177c8",
+    "Version": "argus.telemetry-summary/v2",
+    "DataType": "telemetry.overview/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "runtime.status"
+    ]
+  },
+  {
+    "Tool": "telemetry.promql.query",
+    "Entry": "metric-query",
+    "Mode": "template",
+    "Hash": "fd06fe328c4ee919c8a89fee1311c14472e48326b05255643cc6dc54068138f6",
+    "Version": "argus.metric-query/v2",
+    "DataType": "telemetry.promql.query/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context",
+      "metric.context"
+    ]
+  },
+  {
+    "Tool": "telemetry.skywalking.trace",
+    "Entry": "trace-result",
+    "Mode": "template",
+    "Hash": "b3c5dd2726214c445b9f68ce802fce6b9622c7f4de23cc32fdf26fd295b516f6",
+    "Version": "argus.trace-result/v2",
+    "DataType": "telemetry.skywalking.trace/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "workflow.import_result",
+    "Entry": "",
+    "Mode": "file",
+    "Hash": "",
+    "Version": "",
+    "DataType": "argus.workspace_file/v1",
+    "Reads": null
+  },
+  {
+    "Tool": "workflow.publish_file",
+    "Entry": "",
+    "Mode": "file",
+    "Hash": "",
+    "Version": "",
+    "DataType": "argus.workspace_file/v1",
+    "Reads": null
+  },
+  {
+    "Tool": "tool.search",
+    "Entry": "tool-search",
+    "Mode": "template",
+    "Hash": "d8a8ce1908232c7c390db31ffb1fe0da4cfc9e824fa9f98a5c3fc04f032dae66",
+    "Version": "argus.tool-search/v2",
+    "DataType": "tool.search/v2",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "tool.describe",
+    "Entry": "tool-description",
+    "Mode": "template",
+    "Hash": "1b76b3fd55c9952d27793381b4a82fa2c74b7f4d27839ad75be34fc873c92dbd",
+    "Version": "argus.tool-description/v2",
+    "DataType": "argus.tool_manifest/v1",
+    "Reads": [
+      "result.detail",
+      "result.page",
+      "resources.context"
+    ]
+  },
+  {
+    "Tool": "tool.invoke",
+    "Entry": "",
+    "Mode": "trace",
+    "Hash": "",
+    "Version": "",
+    "DataType": "tool.invoke/v2",
+    "Reads": null
+  }
+]

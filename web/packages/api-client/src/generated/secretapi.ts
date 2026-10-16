@@ -188,7 +188,7 @@ export interface components {
             readonly enterprise_id: string;
             name: string;
             /** @enum {string} */
-            protocol: "ssh" | "windows" | "kubernetes" | "http";
+            protocol: "ssh" | "windows" | "kubernetes" | "http" | "notification";
             username?: string;
             /** Format: uuid */
             secret_id: string;
@@ -204,7 +204,7 @@ export interface components {
         CredentialCreate: {
             name: string;
             /** @enum {string} */
-            protocol: "ssh" | "windows" | "kubernetes" | "http";
+            protocol: "ssh" | "windows" | "kubernetes" | "http" | "notification";
             username?: string;
             /** Format: uuid */
             secret_id: string;
@@ -285,7 +285,7 @@ export interface components {
             retryable: boolean;
         };
         /** @enum {string} */
-        SecretType: "ssh_password" | "ssh_private_key" | "windows_password" | "kubeconfig" | "api_token" | "basic_auth";
+        SecretType: "ssh_password" | "ssh_private_key" | "windows_password" | "kubeconfig" | "api_token" | "basic_auth" | "notification";
         PartialMetadata: {
             partial: boolean;
             reasons: ("authorization_filtered" | "budget_truncated" | "source_timeout" | "source_unavailable")[];

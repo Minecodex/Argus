@@ -161,10 +161,10 @@ INSERT INTO tool_presentations (id,enterprise_id,conversation_id,tool_call_id,to
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *;
 
 -- name: CreateTemplateAsset :exec
-INSERT INTO template_assets (hash,source,runtime) VALUES($1,$2,'argus-template/v1') ON CONFLICT DO NOTHING;
+INSERT INTO template_assets (hash,source,runtime) VALUES($1,$2,$3) ON CONFLICT DO NOTHING;
 
 -- name: GetToolPresentation :one
-SELECT p.*,a.source AS template_source FROM tool_presentations p JOIN template_assets a ON a.hash=p.template_hash
+SELECT p.*,a.source AS template_source,a.runtime AS template_runtime FROM tool_presentations p JOIN template_assets a ON a.hash=p.template_hash
 WHERE p.tool_call_id=$1 AND p.enterprise_id=$2 AND p.conversation_id=$3;
 
 -- name: SetRunToolSnapshot :one

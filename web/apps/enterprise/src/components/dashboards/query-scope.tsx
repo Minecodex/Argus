@@ -3,6 +3,7 @@ import type { DashboardSchemas } from "@argus/api-client";
 export type DashboardQueryScope = {
   time: DashboardSchemas["DashboardTimeRange"];
   resources: string[];
+  catalog?: boolean;
 };
 const Context = createContext<DashboardQueryScope | null>(null);
 export function DashboardQueryScopeProvider({

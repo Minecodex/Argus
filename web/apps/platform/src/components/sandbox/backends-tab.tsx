@@ -13,14 +13,13 @@ import {
   type SandboxBackend,
 } from "@argus/api-client";
 import {
-  ActionGroup,
+  ActionMenu,
   Alert,
   Button,
   DataTable,
   Field,
   FormDrawer,
   Input,
-  RowAction,
   Spinner,
   StatusBadge,
   Switch,
@@ -207,41 +206,45 @@ export function BackendsTab() {
                 key: "enabled",
                 header: t("common.status"),
                 render: (row) => (
-                  <Switch
-                    checked={row.enabled}
-                    label={t("common.status")}
-                    onChange={(checked) =>
-                      toggle.mutate({ id: row.id, enabled: checked })
-                    }
-                  />
+                  <StatusBadge tone={row.enabled ? "success" : "neutral"}>
+                    {t(row.enabled ? "common.enabled" : "common.disabled")}
+                  </StatusBadge>
                 ),
               },
               {
                 key: "id",
                 header: t("common.actions"),
                 render: (row) => (
-                  <ActionGroup>
-                    <RowAction
-                      onPress={() =>
-                        setForm({
-                          id: row.id,
-                          name: row.name,
-                          endpoint: row.endpoint,
-                          credentialRef: row.credentialRef,
-                          tlsVerify: row.tlsVerify,
-                          defaultStorage: row.defaultStorage,
-                        })
-                      }
-                    >
-                      {t("common.edit")}
-                    </RowAction>
-                    <RowAction
-                      isPending={test.isPending && test.variables === row.id}
-                      onPress={() => test.mutate(row.id)}
-                    >
-                      {t("sandbox.backends.test")}
-                    </RowAction>
-                  </ActionGroup>
+                  <ActionMenu
+                    name={row.name}
+                    items={[
+                      {
+                        label: t("common.edit"),
+                        onSelect: () =>
+                          setForm({
+                            id: row.id,
+                            name: row.name,
+                            endpoint: row.endpoint,
+                            credentialRef: row.credentialRef,
+                            tlsVerify: row.tlsVerify,
+                            defaultStorage: row.defaultStorage,
+                          }),
+                      },
+                      {
+                        label: t("sandbox.backends.test"),
+                        disabled: test.isPending && test.variables === row.id,
+                        onSelect: () => test.mutate(row.id),
+                      },
+                      {
+                        label: t(
+                          row.enabled ? "common.disable" : "common.enable",
+                        ),
+                        disabled: toggle.isPending,
+                        onSelect: () =>
+                          toggle.mutate({ id: row.id, enabled: !row.enabled }),
+                      },
+                    ]}
+                  />
                 ),
               },
             ]}

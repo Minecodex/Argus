@@ -23,7 +23,7 @@ func (tools Tools) Register(registry *mcp.Registry) error {
 	}
 	registrations := []mcp.Metadata{
 		tools.metadata("telemetry.collector.list", "telemetry.collector.read", collectorListInputSchema(), collectorListOutputSchema(), tools.collectors),
-		tools.metadata("telemetry.collector.get", "telemetry.collector.read", idInputSchema("collector_id"), collectorOutputSchema(), tools.collector),
+		tools.metadata("telemetry.collector.get", "telemetry.collector.read", idInputSchema("collector_id"), map[string]any{"type": "object", "properties": map[string]any{"collector": collectorOutputSchema()}, "required": []string{"collector"}}, tools.collector),
 		tools.metadata("telemetry.promql.query", "", dslQueryInputSchema("promql", "metrics"), promQLOutputSchema(), func(ctx context.Context, call mcp.Call) (mcp.Result, error) {
 			return tools.dslQuery(ctx, call, queryengine.LanguagePromQL)
 		}),
