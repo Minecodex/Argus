@@ -1,8 +1,10 @@
-import { ResourceCard, ActionGroup } from "@argus/ui";
+import { ActionMenu, DataTable } from "@argus/ui";
+import { formatDateTime } from "../components/hosts/host-utils";
+import "../styles/resource-lists.css";
 import { useDefinitionForm } from "../components/dashboards/use-definition-form";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { QueryBoundary } from "@argus/ui";
 import {
@@ -244,93 +246,147 @@ export function DashboardsPage() {
         </div>
       )}
       <QueryBoundary query={tab === "drafts" ? drafts : items}>
-        <div className="argus-dashboard-directory">
-          {tab === "drafts"
-            ? (drafts.data ?? []).map((d) => (
-                <ResourceCard
-                  key={d.id}
-                  title={d.name}
-                  subtitle={d.description}
-                  onOpen={() =>
-                    void navigate({
-                      to: "/dashboard-drafts/$draftId",
-                      params: { draftId: d.id },
-                    })
-                  }
-                  status={<Badge>{t("dashboards.draft")}</Badge>}
-                  labels={undefined}
-                  actions={
-                    <ActionGroup>
-                      <Button
-                        onPress={() =>
+        {tab === "drafts" ? (
+          <DataTable
+            data={drafts.data ?? []}
+            getRowKey={(d) => d.id}
+            columns={[
+              {
+                key: "name",
+                header: t("resourceList.name"),
+                render: (d) => (
+                  <div className="argus-resource-list__identity">
+                    <Link
+                      to="/dashboard-drafts/$draftId"
+                      params={{ draftId: d.id }}
+                    >
+                      {d.name}
+                    </Link>
+                    <span className="argus-muted">{d.description}</span>
+                  </div>
+                ),
+              },
+              {
+                key: "status",
+                header: t("resourceList.status"),
+                render: () => <Badge>{t("dashboards.draft")}</Badge>,
+              },
+              {
+                key: "folder_id",
+                header: t("resourceList.folder"),
+                render: (d) =>
+                  folders.isSuccess
+                    ? (folders.data.find((f) => f.id === d.folder_id)?.name ??
+                      t("dashboards.ungrouped"))
+                    : t("resourceList.unavailable"),
+              },
+              {
+                key: "updated_at",
+                header: t("resourceList.updated"),
+                render: (d) => formatDateTime(d.updated_at),
+              },
+              {
+                key: "actions",
+                header: t("resourceList.actions"),
+                align: "right",
+                render: (d) => (
+                  <ActionMenu
+                    items={[
+                      {
+                        label: t("dashboards.resume"),
+                        onSelect: () =>
                           void navigate({
                             to: "/dashboard-drafts/$draftId",
                             params: { draftId: d.id },
-                          })
-                        }
-                      >
-                        {t("dashboards.resume")}
-                      </Button>
-                    </ActionGroup>
-                  }
-                />
-              ))
-            : visible.map((item) => (
-                <ResourceCard
-                  key={item.id}
-                  title={item.name}
-                  subtitle={item.description}
-                  onOpen={() =>
-                    void navigate({
-                      to: "/dashboards/$dashboardId",
-                      params: { dashboardId: item.id },
-                    })
-                  }
-                  status={
-                    <Badge>
-                      {t(
-                        item.lifecycle === "active"
-                          ? "dashboards.published"
-                          : "dashboards.archived",
-                      )}
-                    </Badge>
-                  }
-                  menuItems={
-                    canManage
-                      ? [
-                          {
-                            label: t(
-                              item.lifecycle === "active"
-                                ? "dashboards.archive"
-                                : "dashboards.restore",
-                            ),
-                            onSelect: () => void lifecycle(item),
-                            danger: item.lifecycle === "active",
-                          },
-                        ]
-                      : []
-                  }
-                  labels={
-                    folders.data?.find((f) => f.id === item.folder_id)?.name ??
-                    t("dashboards.ungrouped")
-                  }
-                  actions={
-                    <ActionGroup>
-                      <Button
-                        onPress={() =>
+                          }),
+                      },
+                    ]}
+                  />
+                ),
+              },
+            ]}
+          />
+        ) : (
+          <DataTable
+            data={visible}
+            getRowKey={(d) => d.id}
+            columns={[
+              {
+                key: "name",
+                header: t("resourceList.name"),
+                render: (d) => (
+                  <div className="argus-resource-list__identity">
+                    <Link
+                      to="/dashboards/$dashboardId"
+                      params={{ dashboardId: d.id }}
+                    >
+                      {d.name}
+                    </Link>
+                    <span className="argus-muted">{d.description}</span>
+                  </div>
+                ),
+              },
+              {
+                key: "lifecycle",
+                header: t("resourceList.status"),
+                render: (d) => (
+                  <Badge>
+                    {t(
+                      d.lifecycle === "active"
+                        ? "dashboards.published"
+                        : "dashboards.archived",
+                    )}
+                  </Badge>
+                ),
+              },
+              {
+                key: "folder_id",
+                header: t("resourceList.folder"),
+                render: (d) =>
+                  folders.isSuccess
+                    ? (folders.data.find((f) => f.id === d.folder_id)?.name ??
+                      t("dashboards.ungrouped"))
+                    : t("resourceList.unavailable"),
+              },
+              {
+                key: "updated_at",
+                header: t("resourceList.updated"),
+                render: (d) => formatDateTime(d.updated_at),
+              },
+              {
+                key: "actions",
+                header: t("resourceList.actions"),
+                align: "right",
+                render: (d) => (
+                  <ActionMenu
+                    items={[
+                      {
+                        label: t("dashboards.open"),
+                        onSelect: () =>
                           void navigate({
                             to: "/dashboards/$dashboardId",
-                            params: { dashboardId: item.id },
-                          })
-                        }
-                      >
-                        {t("dashboards.open")}
-                      </Button>
-                    </ActionGroup>
-                  }
-                />
-              ))}
-        </div>
+                            params: { dashboardId: d.id },
+                          }),
+                      },
+                      ...(canManage
+                        ? [
+                            {
+                              label: t(
+                                d.lifecycle === "active"
+                                  ? "dashboards.archive"
+                                  : "dashboards.restore",
+                              ),
+                              onSelect: () => void lifecycle(d),
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                ),
+              },
+            ]}
+          />
+        )}
         {(tab === "drafts" ? !drafts.data?.length : !visible.length) &&
           !items.isLoading && (
             <div className="argus-dashboard-empty">

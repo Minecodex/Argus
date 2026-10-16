@@ -150,19 +150,6 @@ kbd,
 .argus-mono {
   font-family: var(--font-mono);
 }
-::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border: 2px solid transparent;
-  border-radius: var(--radius-pill);
-  background-clip: padding-box;
-}
 
 /* ---------- 外壳：左侧菜单 + 顶栏（与企业门户同款布局，平台域标识区隔） ---------- */
 

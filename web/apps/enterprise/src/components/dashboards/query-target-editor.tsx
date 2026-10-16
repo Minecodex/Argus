@@ -35,6 +35,7 @@ export function QueryTargetEditor({
   rowInputs = [],
   detail = false,
   compactMetrics = false,
+  transient = false,
 }: {
   panel: DashboardPanel;
   spec: DashboardSpec;
@@ -43,6 +44,7 @@ export function QueryTargetEditor({
   rowInputs?: string[];
   detail?: boolean;
   compactMetrics?: boolean;
+  transient?: boolean;
 }) {
   const api = useApi(),
     { t } = useTranslation();
@@ -58,7 +60,7 @@ export function QueryTargetEditor({
   const { metadata } = useMetricMetadata(
     panel,
     target,
-    { time, resources: scope?.resources ?? [] },
+    { time, resources: scope?.resources ?? [], catalog: scope?.catalog },
     onChange,
   );
   const patchBuilder = (patch: Partial<DashboardSchemas["DashboardBuilder"]>) =>
@@ -224,56 +226,58 @@ export function QueryTargetEditor({
                             time,
                             scope?.resources,
                           ])}
-                          fetchOptions={async (search, cursor, signal) => {
-                            const range = queryScopeBounds(time);
-                            const result = await api.dashboards.catalog(
-                              {
-                                ...range,
-                                resource_ids: scope?.resources ?? [],
-                                selected_values: [],
-                                filters: [],
-                                signal: "metrics",
-                                source_binding: panel.source_binding,
-                                kind: "metrics",
-                                limit: 100,
-                                search,
-                                cursor,
-                              },
-                              signal,
-                            );
-                            setCatalog((previous) => {
-                              const all = new Map(
-                                previous.map((item) => [item.name, item]),
-                              );
-                              for (const item of result.metrics)
-                                all.set(item.name, item);
-                              return [...all.values()];
-                            });
-                            return {
-                              options: result.metrics.map((metric) => ({
-                                value: metric.name,
-                                label: metric.name,
-                                description: [metric.type, metric.unit]
-                                  .filter(Boolean)
-                                  .join(" · "),
-                              })),
-                              next_cursor: result.next_cursor,
-                            };
-                          }}
+                          fetchOptions={
+                            scope?.catalog === false
+                              ? undefined
+                              : async (search, cursor, signal) => {
+                                  const range = queryScopeBounds(time);
+                                  const result = await api.dashboards.catalog(
+                                    {
+                                      ...range,
+                                      resource_ids: scope?.resources ?? [],
+                                      selected_values: [],
+                                      filters: [],
+                                      signal: "metrics",
+                                      source_binding: panel.source_binding,
+                                      kind: "metrics",
+                                      limit: 100,
+                                      search,
+                                      cursor,
+                                    },
+                                    signal,
+                                  );
+                                  setCatalog((previous) => {
+                                    const all = new Map(
+                                      previous.map((item) => [item.name, item]),
+                                    );
+                                    for (const item of result.metrics)
+                                      all.set(item.name, item);
+                                    return [...all.values()];
+                                  });
+                                  return {
+                                    options: result.metrics.map((metric) => ({
+                                      value: metric.name,
+                                      label: metric.name,
+                                      description: [metric.type, metric.unit]
+                                        .filter(Boolean)
+                                        .join(" · "),
+                                    })),
+                                    next_cursor: result.next_cursor,
+                                  };
+                                }
+                          }
                           onValueChange={(metric) =>
                             patchBuilder(selectMetric(builder, metric))
                           }
                         />
                       </Field>
                       <Button
+                        isDisabled={scope?.catalog === false}
                         onPress={() => {
-                          const to = new Date(),
-                            from = new Date(to.getTime() - 3600000);
                           void api.dashboards
                             .catalog({
-                              from: from.toISOString(),
-                              to: to.toISOString(),
-                              resource_ids: [],
+                              ...queryScopeBounds(time),
+                              resource_ids: scope?.resources ?? [],
                               selected_values: [],
                               filters: [],
                               signal: "metrics",
@@ -442,59 +446,67 @@ export function QueryTargetEditor({
           )
         }
       />
-      <details>
-        <summary>{t("dashboards.fieldExplorer")}</summary>
-        <DashboardFieldExplorer
-          key={JSON.stringify([
-            panel.source_binding,
-            panel.signal,
-            builder?.metric,
-            spec.default_time_range,
-          ])}
-          signal={panel.signal as "metrics" | "logs" | "traces"}
-          source={panel.source_binding}
-          time={spec.default_time_range}
-          metric={builder?.metric}
-          canUse={(field) =>
-            panel.signal !== "traces" ||
-            field.startsWith("attributes.") ||
-            field.startsWith("resource_attributes.") ||
-            [
-              "service_name",
-              "operation",
-              ...(builder?.operation === "list" ? ["status", "trace_id"] : []),
-            ].includes(field)
-          }
-          onUse={
-            builder
-              ? (field, value) => {
-                  const names: Record<string, string> = {
-                    service_name: "serviceName",
-                    operation: "operationName",
-                    trace_id: "traceId",
-                  };
-                  const name =
-                    panel.signal === "traces" ? (names[field] ?? field) : field;
-                  patchBuilder({
-                    filters: [
-                      ...builder.filters.filter(
-                        (f) => f.field !== name || f.operator !== "=",
-                      ),
-                      { field: name, operator: "=", value },
-                    ],
-                  });
-                }
-              : undefined
-          }
+      {scope?.catalog !== false && (
+        <details>
+          <summary>{t("dashboards.fieldExplorer")}</summary>
+          <DashboardFieldExplorer
+            key={JSON.stringify([
+              panel.source_binding,
+              panel.signal,
+              builder?.metric,
+              spec.default_time_range,
+            ])}
+            signal={panel.signal as "metrics" | "logs" | "traces"}
+            source={panel.source_binding}
+            time={spec.default_time_range}
+            metric={builder?.metric}
+            canUse={(field) =>
+              panel.signal !== "traces" ||
+              field.startsWith("attributes.") ||
+              field.startsWith("resource_attributes.") ||
+              [
+                "service_name",
+                "operation",
+                ...(builder?.operation === "list"
+                  ? ["status", "trace_id"]
+                  : []),
+              ].includes(field)
+            }
+            onUse={
+              builder
+                ? (field, value) => {
+                    const names: Record<string, string> = {
+                      service_name: "serviceName",
+                      operation: "operationName",
+                      trace_id: "traceId",
+                    };
+                    const name =
+                      panel.signal === "traces"
+                        ? (names[field] ?? field)
+                        : field;
+                    patchBuilder({
+                      filters: [
+                        ...builder.filters.filter(
+                          (f) => f.field !== name || f.operator !== "=",
+                        ),
+                        { field: name, operator: "=", value },
+                      ],
+                    });
+                  }
+                : undefined
+            }
+          />
+        </details>
+      )}
+      {!transient && (
+        <ParameterBindingsEditor
+          value={target.parameter_bindings}
+          onChange={(parameter_bindings) => patchTarget({ parameter_bindings })}
+          variables={spec.variables}
+          rowInputs={rowInputs}
+          locals={panel.local_filters.map((f) => f.id)}
         />
-      </details>
-      <ParameterBindingsEditor
-        value={target.parameter_bindings}
-        onChange={(parameter_bindings) => patchTarget({ parameter_bindings })}
-        variables={spec.variables}
-        rowInputs={rowInputs}
-        locals={panel.local_filters.map((f) => f.id)}
-      />
+      )}
       {panel.signal === "metrics" && (
         <div className="argus-dashboard-form-grid">
           <Field label={t("dashboards.queryMode")} requirement="required">

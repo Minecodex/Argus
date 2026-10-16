@@ -1,0 +1,21 @@
+read:
+  parameters:
+    - {name: conversation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    - {name: tool_call_id, in: path, required: true, schema: {type: string, format: uuid}}
+  post:
+    operationId: readToolPresentation
+    summary: Read a capability bound to this authorized presentation.
+    parameters:
+      - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: ../components/planv5.yaml#/components/schemas/PresentationReadInput}
+    responses:
+      '200':
+        description: Bound public presentation data. A result.page response includes matched total, original source_total, offset, complete and low-cardinality public facets. Counts describe this sealed result, not unqueried business data. Filters never execute a new business query.
+        content:
+          application/json:
+            schema: {$ref: ../components/planv5.yaml#/components/schemas/PresentationReadResult}
+      default: {$ref: ./planv5.yaml#/components/responses/Error}

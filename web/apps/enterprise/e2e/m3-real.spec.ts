@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { expect, test, type Page } from "@playwright/test";
 import { createMfaLogin } from "./helpers/mfa-login";
 
@@ -71,7 +72,7 @@ test.describe("M3 real resource flow", () => {
 
     const row = section.getByRole("row").filter({ hasText: "m3-ui-account" });
     await expect(row).toBeVisible();
-    await row.getByRole("button", { name: /编辑|Edit/i }).click();
+    await selectRowAction(row, /编辑|Edit/i);
     drawer = page.getByRole("dialog", {
       name: /编辑托管账号|Edit managed account/i,
     });
@@ -90,9 +91,7 @@ test.describe("M3 real resource flow", () => {
     await expect(row).toContainText(/禁用|Disabled/i);
   });
 
-  test("renders only the authorized real host inventory", async ({
-    page,
-  }) => {
+  test("renders only the authorized real host inventory", async ({ page }) => {
     await page.goto("/hosts");
     await expect(
       page.getByText("m3-direct-host", { exact: true }),
@@ -116,9 +115,9 @@ test.describe("M3 real resource flow", () => {
     test.setTimeout(120_000);
     await page.goto("/hosts");
     const tile = page
-      .locator(".argus-host-tile")
+      .locator(".argus-table tbody tr")
       .filter({ hasText: "m3-direct-host" });
-    await tile.getByRole("button", { name: /编辑|Edit/i }).click();
+    await selectRowAction(tile, /编辑|Edit/i);
     const drawer = page.getByRole("dialog", {
       name: /编辑资源元数据|Edit resource metadata/i,
     });

@@ -14,6 +14,7 @@ import type { ChatMessage, ToolCallTrace } from "./chat-view-model";
 import {
   ApiProvider,
   createMockApiClient,
+  type AlertPolicySpec,
   type MockApiClient,
 } from "@argus/api-client";
 import { LocaleProvider } from "@argus/ui";
@@ -129,6 +130,90 @@ describe("ChatMessageItem", () => {
 });
 
 describe("ChatMessageList", () => {
+  it("shows one assistant identity across consecutive prose and tool steps, then starts a reply after user input", () => {
+    const wrapper = createWrapper(
+      createMockApiClient({ persist: false, delay: 0 }),
+    );
+    const { container, rerender } = render(
+      <ChatMessageList
+        messages={[
+          makeMessage({ id: "user-1", role: "user", content: "检查主机" }),
+          makeMessage({ id: "planning", content: "先搜索工具。" }),
+          makeMessage({
+            id: "tool",
+            kind: "tool",
+            toolCalls: [TOOL_CALLS[0]!],
+          }),
+          makeMessage({
+            id: "continuation",
+            content: "继续核对状态。",
+            runId: "another-run",
+          }),
+        ]}
+        pendingUser={null}
+        streaming={makeMessage({
+          id: "live",
+          content: "当前指标正常。",
+          isStreaming: true,
+        })}
+      />,
+      { wrapper },
+    );
+    expect(screen.getAllByTestId("chat-assistant-heading")).toHaveLength(1);
+    expect(screen.getAllByTestId("chat-assistant-reply")).toHaveLength(1);
+    const body = screen.getByTestId("chat-assistant-reply");
+    expect(body.textContent).toMatch(
+      /先搜索工具。[\s\S]*host.resolve_context[\s\S]*继续核对状态。[\s\S]*当前指标正常。/,
+    );
+    expect(
+      container.querySelectorAll(".argus-chat-message__avatar"),
+    ).toHaveLength(1);
+    rerender(
+      <ChatMessageList
+        messages={[
+          makeMessage({ id: "user-1", role: "user", content: "检查主机" }),
+          makeMessage({ id: "planning", content: "先搜索工具。" }),
+          makeMessage({ id: "user-2", role: "user", content: "继续查告警" }),
+          makeMessage({ id: "answer", content: "正在查询告警。" }),
+        ]}
+        pendingUser={null}
+        streaming={null}
+      />,
+    );
+    expect(screen.getAllByTestId("chat-assistant-heading")).toHaveLength(2);
+  });
+
+  it("places optimistic user input before streamed output and begins a new reply", () => {
+    const wrapper = createWrapper(
+      createMockApiClient({ persist: false, delay: 0 }),
+    );
+    const { container } = render(
+      <ChatMessageList
+        messages={[makeMessage({ id: "old", content: "上次结果" })]}
+        pendingUser={makeMessage({
+          id: "local-user",
+          role: "user",
+          content: "新的问题",
+          createdAt: new Date(Date.parse(NOW) + 1000).toISOString(),
+        })}
+        streaming={makeMessage({
+          id: "new",
+          content: "新的回答",
+          createdAt: new Date(Date.parse(NOW) + 2000).toISOString(),
+        })}
+      />,
+      { wrapper },
+    );
+    expect(
+      Array.from(
+        container.querySelector(".argus-chat-stream__inner")!.children,
+      ).map((element) => element.getAttribute("data-testid")),
+    ).toEqual([
+      "chat-assistant-reply",
+      "chat-message-user",
+      "chat-assistant-reply",
+    ]);
+  });
   it("查询数据落地时不重复显示乐观消息和流式消息", () => {
     const userMessage = makeMessage({
       id: "msg-user-persisted",
@@ -154,6 +239,30 @@ describe("ChatMessageList", () => {
 });
 
 describe("PendingActionCard", () => {
+  it("告警确认前展示已授权渠道名称，业务配置保持不变", async () => {
+    const client = createMockApiClient({ persist: false, delay: 0 });
+    await login(client);
+    const before = structuredClone(
+      await client.alerts.configurations("policy"),
+    );
+    const action = await client.alerts.preview({
+      kind: "policy",
+      operation: "create",
+      expected_version: 0,
+      name: "待确认双指标策略",
+      spec: structuredClone(before[0]!.spec) as AlertPolicySpec,
+    });
+
+    render(<PendingActionCard actionRef={action.action_ref} />, {
+      wrapper: createWrapper(client),
+    });
+
+    await screen.findByText("生产事件群 · 基础设施邮件");
+    expect(screen.queryByText("c3 · c4")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "确认提交" })).toBeEnabled();
+    expect(await client.alerts.configurations("policy")).toEqual(before);
+  });
+
   it("[确认执行] 直接调 approvals.confirm，状态原地流转到成功", async () => {
     const client = createMockApiClient({
       persist: false,

@@ -11,7 +11,7 @@ components:
       enum: [development, staging, production]
     SecretType:
       type: string
-      enum: [ssh_password, ssh_private_key, windows_password, kubeconfig, api_token, basic_auth]
+      enum: [ssh_password, ssh_private_key, windows_password, kubeconfig, api_token, basic_auth, notification]
     Secret:
       type: object
       additionalProperties: false
@@ -70,7 +70,7 @@ components:
         id: {type: string, format: uuid}
         enterprise_id: {type: string, format: uuid, readOnly: true}
         name: {type: string, minLength: 1, maxLength: 128}
-        protocol: {type: string, enum: [ssh, windows, kubernetes, http]}
+        protocol: {type: string, enum: [ssh, windows, kubernetes, http, notification]}
         username: {type: string, maxLength: 256}
         secret_id: {type: string, format: uuid}
         status: {type: string, enum: [active, disabled]}
@@ -83,7 +83,7 @@ components:
       required: [name, protocol, secret_id]
       properties:
         name: {type: string, minLength: 1, maxLength: 128}
-        protocol: {type: string, enum: [ssh, windows, kubernetes, http]}
+        protocol: {type: string, enum: [ssh, windows, kubernetes, http, notification]}
         username: {type: string, maxLength: 256}
         secret_id: {type: string, format: uuid}
     CredentialUpdate:
@@ -180,6 +180,7 @@ components:
         control_path: {$ref: "#/components/schemas/HostControlPath"}
         bastion_scope_id: {type: string, format: uuid}
         connector_id: {type: string, format: uuid}
+        inventory: {$ref: "./host-inventory.yaml#/components/schemas/HostInventory"}
         runtime: {$ref: "#/components/schemas/HostRuntimeObservation", readOnly: true}
         environment: {$ref: "#/components/schemas/Environment"}
         labels: {$ref: "../../schemas/labels/labels.schema.json#/$defs/Labels"}
@@ -348,6 +349,7 @@ components:
         resource_version: {type: integer, format: int64, minimum: 1}
         connection_status: {type: string, enum: [pending_connector, connected, degraded, disconnected]}
         kubernetes_version: {type: string, maxLength: 128}
+        statistics_observed_at: {type: string, format: date-time, readOnly: true}
         node_count: {type: integer, minimum: 0}
         ready_node_count: {type: integer, minimum: 0}
         status: {type: string, enum: [active, disabled, deleted]}

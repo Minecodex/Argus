@@ -14,7 +14,7 @@ import (
 )
 
 var contractDomains = []string{
-	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi",
+	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi", "alertsapi",
 	"common", "identity", "authorization", "labels", "action", "agent", "stream", "setup", "m8api", "platform",
 	"enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi", "kubernetesapi", "connectionapi",
 	"actionapi", "connectorapi", "conversationapi", "modelapi", "workflowapi", "sandboxapi",
@@ -22,7 +22,7 @@ var contractDomains = []string{
 }
 
 var contractServerDomains = []string{
-	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi",
+	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi", "alertsapi",
 	"setup", "m8api", "platform", "enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi",
 	"kubernetesapi", "connectionapi", "actionapi", "connectorapi", "conversationapi", "modelapi", "workflowapi",
 	"sandboxapi", "remoteaccessapi", "telemetryapi",
@@ -30,7 +30,7 @@ var contractServerDomains = []string{
 
 var splitServerDomains = []string{
 	"conversationapi",
-	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi",
+	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi", "alertsapi",
 	"enterpriseauthz", "secretapi", "hostapi", "kubernetesapi", "connectionapi", "actionapi", "connectorapi", "sandboxapi",
 	"remoteaccessapi", "telemetryapi",
 }
@@ -133,6 +133,9 @@ func (a *App) contractGenerate(ctx context.Context) error {
 		"web/packages/api-client/src/generated/form-constraints.ts"); err != nil {
 		return err
 	}
+	if err := a.runner.Run(ctx, nil, "node", "scripts/generate-alert-schema.mjs"); err != nil {
+		return err
+	}
 	for _, domain := range contractDomains {
 		bundle := "api/openapi/generated/" + domain + ".bundle.yaml"
 		if err := a.runner.Run(ctx, nil, "node", "node_modules/@redocly/cli/bin/cli.js", "bundle", "api/openapi/generation/"+domain+".yaml", "--output", bundle, "--ext", "yaml"); err != nil {
@@ -170,7 +173,10 @@ func (a *App) contractGenerate(ctx context.Context) error {
 	if err := a.runner.Run(ctx, nil, "node", indexArgs...); err != nil {
 		return err
 	}
-	return a.runner.Run(ctx, nil, "go", "tool", "buf", "generate", "api/proto", "--template", "api/proto/buf.gen.yaml")
+	if err := a.runner.Run(ctx, nil, "go", "tool", "buf", "generate", "api/proto", "--template", "api/proto/buf.gen.yaml"); err != nil {
+		return err
+	}
+	return a.runner.Run(ctx, nil, "go", "run", "./scripts/tool-labels")
 }
 
 func (a *App) contractCheck(ctx context.Context) error {

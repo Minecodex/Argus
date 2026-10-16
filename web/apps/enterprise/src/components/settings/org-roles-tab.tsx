@@ -1,31 +1,18 @@
-import { QueryBoundary } from "@argus/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
-import { z } from "zod";
-import { presentApiFormError, useApi } from "@argus/api-client";
-import type { Role } from "@argus/api-client";
-import {
-  ActionGroup,
-  Alert,
-  Badge,
-  Button,
-  ConfirmDialog,
-  DataTable,
-  EmptyState,
-  Field,
-  FormDrawer,
-  Input,
-  RowAction,
-  Spinner,
-  Tooltip,
-} from "@argus/ui";
-import { roleDisplayName } from "../../lib/role-presentation";
-import { formatDateTime, PermissionMatrix } from "./shared";
-import { useOrgRoles } from "./org-users-tab";
-import { DataAuthorizationDialog } from "./data-authorization-dialog";
+import {ActionMenu,QueryBoundary} from "@argus/ui";
+import {useMutation,useQueryClient} from "@tanstack/react-query";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {useEffect,useMemo,useState} from "react";
+import {Controller,useForm} from "react-hook-form";
+import {useTranslation} from "react-i18next";
+import {z} from "zod";
+import {presentApiFormError,useApi} from "@argus/api-client";
+import type {Role} from "@argus/api-client";
+import {Alert,Badge,Button,ConfirmDialog,DataTable,EmptyState,Field,FormDrawer,Input,Spinner} from "@argus/ui";
+import {roleDisplayName} from "../../lib/role-presentation";
+import {formatDateTime,PermissionMatrix} from "./shared";
+import {useOrgRoles} from "./org-users-tab";
+import {DataAuthorizationDialog} from "./data-authorization-dialog";
+import {OrgAlertPermissions} from "./org-alert-permissions";
 
 type RoleRow = {
   id: string;
@@ -152,57 +139,21 @@ export function OrgRolesTab() {
               {
                 key: "actions",
                 header: t("settings.common.actions"),
-                render: (row) => (
-                  <ActionGroup>
-                    <RowAction
-                      onPress={() =>
+                render: (row) => (<ActionMenu items={[{label: t("settings.org.dataAuthorization.action"),onSelect: () =>
                         setAuthorizationTarget(
                           roles.data?.find((role) => role.id === row.id) ??
                             null,
-                        )
-                      }
-                    >
-                      {t("settings.org.dataAuthorization.action")}
-                    </RowAction>
-                    {!row.builtin && (
-                      <>
-                        <RowAction
-                          onPress={() => {
+                        )},...(!row.builtin ? [{label: t("settings.common.edit"),onSelect: () => {
                             setEditing(
                               roles.data?.find((role) => role.id === row.id) ??
                                 null,
                             );
                             setDrawerOpen(true);
-                          }}
-                        >
-                          {t("settings.common.edit")}
-                        </RowAction>
-                        <RowAction
-                          danger
-                          onPress={() =>
+                          }},{label: t("settings.common.delete"),onSelect: () =>
                             setDeleting(
                               roles.data?.find((role) => role.id === row.id) ??
                                 null,
-                            )
-                          }
-                        >
-                          {t("settings.common.delete")}
-                        </RowAction>
-                      </>
-                    )}
-                    {row.builtin && (
-                      <Tooltip
-                        content={t("settings.org.rolesTab.builtinLocked")}
-                      >
-                        <span>
-                          <RowAction isDisabled danger>
-                            {t("settings.common.delete")}
-                          </RowAction>
-                        </span>
-                      </Tooltip>
-                    )}
-                  </ActionGroup>
-                ),
+                            ),danger: true}] : []),...(row.builtin ? [{label: t("settings.common.delete"),disabled: (true),danger: true,description: t("settings.org.rolesTab.builtinLocked")}] : [])]} />),
               },
             ]}
             data={rows}
@@ -210,6 +161,9 @@ export function OrgRolesTab() {
           />
         )}
       </QueryBoundary>
+      {!roles.isPending && !roles.isError && (
+        <OrgAlertPermissions roles={roles.data ?? []} />
+      )}
       <DataAuthorizationDialog
         open={authorizationTarget !== null}
         onOpenChange={(open) => !open && setAuthorizationTarget(null)}

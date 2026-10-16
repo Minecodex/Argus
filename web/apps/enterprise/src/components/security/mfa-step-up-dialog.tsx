@@ -67,8 +67,18 @@ export function MfaStepUpDialog({
       );
       return;
     }
-    onOpenChange(false);
-    void onComplete();
+    try {
+      await onComplete();
+      onOpenChange(false);
+    } catch (value) {
+      setError(
+        formatApiError(
+          value,
+          t("remoteAccess.stepUp.continueFailed"),
+          (requestId) => t("common.requestReference", { requestId }),
+        ),
+      );
+    }
   });
 
   return (

@@ -1,0 +1,28 @@
+.argus-resource-query {
+  display: grid;
+  gap: var(--card-gap);
+}
+.argus-resource-query__toolbar {
+  display: grid;
+  grid-template-columns: repeat(
+      2,
+      minmax(var(--form-field-min-width), 1fr)
+    ) auto;
+  gap: var(--field-gap);
+  align-items: end;
+}
+.argus-resource-query .argus-dashboard-form-stack {
+  min-width: 0;
+}
+.argus-resource-query__compiled {
+  margin-top: var(--space-4);
+}
+.argus-resource-query__compiled pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-help);
+  padding: var(--card-padding);
+  border-radius: var(--control-radius);
+  background: var(--bg-elevated);
+}

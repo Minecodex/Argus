@@ -266,7 +266,7 @@ function findForbiddenKeys(value: unknown, path = "$"): string[] {
 }
 
 function scopeCard(page: Page, name: string): Locator {
-  return page.locator(".argus-scope-card").filter({ hasText: name }).first();
+  return page.locator(".argus-scope-card, .argus-table tbody tr").filter({ hasText: name }).first();
 }
 
 async function expectNoSeriousAccessibilityViolations(page: Page) {

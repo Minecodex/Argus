@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/config"
@@ -72,7 +73,8 @@ func TestWorkspaceLifecycleAndFileReferencesReachActualModelRequest(t *testing.T
 			t.Fatal(err)
 		}
 		var facts struct {
-			Workspace conversation.WorkspaceContext `json:"workspace"`
+			Workspace      conversation.WorkspaceContext `json:"workspace"`
+			CurrentTimeUTC string                        `json:"current_time_utc"`
 		}
 		prefix := "Server execution facts (data): "
 		if err := json.Unmarshal([]byte(strings.TrimPrefix(projection.Messages[1].Content, prefix)), &facts); err != nil {
@@ -80,6 +82,10 @@ func TestWorkspaceLifecycleAndFileReferencesReachActualModelRequest(t *testing.T
 		}
 		if facts.Workspace.Status != status || facts.Workspace.ID != id {
 			t.Fatalf("workspace facts=%+v", facts.Workspace)
+		}
+		clock, err := time.Parse(time.RFC3339, facts.CurrentTimeUTC)
+		if err != nil || time.Since(clock) < 0 || time.Since(clock) > 5*time.Second {
+			t.Fatalf("actual model request lost the current host clock: %q", facts.CurrentTimeUTC)
 		}
 		seen := map[string]bool{}
 		for _, message := range projection.Messages {

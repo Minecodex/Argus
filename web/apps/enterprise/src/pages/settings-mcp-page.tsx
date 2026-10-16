@@ -1,28 +1,14 @@
-import { Checkbox } from "@argus/ui";
-import { QueryBoundary } from "@argus/ui";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import {
-  useApi,
-  formatApiError,
-  type MCPConnection,
-  type MCPConnectionWrite,
-} from "@argus/api-client";
-import {
-  Alert,
-  Button,
-  DataTable,
-  Field,
-  FormDrawer,
-  Input,
-  PageShell,
-  Select,
-} from "@argus/ui";
-import { usePermission } from "../lib/permissions";
+import {ActionMenu,Checkbox} from "@argus/ui";
+import {QueryBoundary} from "@argus/ui";
+import {Controller,useForm} from "react-hook-form";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {z} from "zod";
+import {useState} from "react";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
+import {useTranslation} from "react-i18next";
+import {useApi,formatApiError,type MCPConnection,type MCPConnectionWrite} from "@argus/api-client";
+import {Alert,Button,DataTable,Field,FormDrawer,Input,PageShell,Select} from "@argus/ui";
+import {usePermission} from "../lib/permissions";
 import "../styles/planv5.css";
 
 export function SettingsMCPPage() {
@@ -119,37 +105,11 @@ export function SettingsMCPPage() {
                 {
                   key: "actions",
                   header: t("planv5.mcp.actions"),
-                  render: (item) => (
-                    <div className="argus-planv5-toolbar">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onPress={() => setEditing(item)}
-                      >
-                        {t("planv5.mcp.edit")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        isDisabled={busy === item.id}
-                        onPress={() => void perform(item, "test")}
-                      >
-                        {t("planv5.mcp.test")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        isDisabled={busy === item.id}
-                        onPress={() => void perform(item, "toggle")}
-                      >
-                        {t(
+                  render: (item) => (<ActionMenu items={[{label: t("planv5.mcp.edit"),onSelect: () => setEditing(item)},{label: t("planv5.mcp.test"),onSelect: () => void perform(item, "test"),disabled: (busy === item.id)},{label: t(
                           item.status === "enabled"
                             ? "planv5.mcp.disable"
                             : "planv5.mcp.enable",
-                        )}
-                      </Button>
-                    </div>
-                  ),
+                        ),onSelect: () => void perform(item, "toggle"),disabled: (busy === item.id)}]} />),
                 },
               ]}
             />

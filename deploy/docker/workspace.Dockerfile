@@ -1,6 +1,6 @@
-# syntax=docker/dockerfile:1.7
+# syntax=mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS node
-FROM --platform=$BUILDPLATFORM golang:1.25.8-alpine AS supervisor
+FROM --platform=$BUILDPLATFORM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa AS supervisor
 ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src

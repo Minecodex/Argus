@@ -17,12 +17,18 @@ func Asset(source, version string) *toolruntime.TemplateAsset {
 	hash := sha256.Sum256([]byte(source))
 	return &toolruntime.TemplateAsset{Source: source, Hash: hex.EncodeToString(hash[:]), Version: version, Runtime: "argus-template/v1"}
 }
+func AssetV2(source, version string, reads ...string) *toolruntime.TemplateAsset {
+	asset := Asset(source, version)
+	asset.Runtime = "argus-template/v2"
+	asset.ReadOperations = append([]string{}, reads...)
+	return asset
+}
 func Validate(asset *toolruntime.TemplateAsset) error {
 	if asset == nil {
 		return nil
 	}
 	hash := sha256.Sum256([]byte(asset.Source))
-	if asset.Runtime != "argus-template/v1" || asset.Version == "" || len(asset.Source) == 0 || len(asset.Source) > 256<<10 || !utf8.ValidString(asset.Source) || asset.Hash != hex.EncodeToString(hash[:]) {
+	if (asset.Runtime != "argus-template/v1" && asset.Runtime != "argus-template/v2") || asset.Version == "" || len(asset.Source) == 0 || len(asset.Source) > 256<<10 || !utf8.ValidString(asset.Source) || asset.Hash != hex.EncodeToString(hash[:]) {
 		return errors.New("invalid immutable Tool template")
 	}
 	lower := strings.ToLower(asset.Source)

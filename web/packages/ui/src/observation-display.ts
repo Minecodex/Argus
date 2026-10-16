@@ -19,6 +19,14 @@ export function reduceObservation(
   series: ObservationSeries,
   reducer: ObservationDisplay["reducer"] = "last",
 ): number | null {
+  const sealed = series.row.argus_statistics;
+  if (sealed && typeof sealed === "object" && !Array.isArray(sealed)) {
+    const statistics = sealed as Record<string, unknown>;
+    if (reducer in statistics) {
+      const value = statistics[reducer];
+      return typeof value === "number" && Number.isFinite(value) ? value : null;
+    }
+  }
   if (reducer === "last") return series.points.at(-1)?.[1] ?? null;
   let count = 0,
     total = 0,

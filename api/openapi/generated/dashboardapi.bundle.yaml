@@ -762,7 +762,6 @@ components:
             additionalProperties: false
             required:
               - path
-              - quote
             properties:
               path:
                 type: string
@@ -774,6 +773,26 @@ components:
                 minLength: 1
                 maxLength: 2048
                 description: Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness
+              origin:
+                type: string
+                enum:
+                  - message_interpretation
+                  - ai_selection
+                default: message_interpretation
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 2048
+                description: Explanation of an AI-selected parameter; cannot replace an explicit user condition
+            anyOf:
+              - required:
+                  - quote
+              - required:
+                  - origin
+                  - reason
+                properties:
+                  origin:
+                    const: ai_selection
     DashboardAnalysisQueryInput:
       type: object
       additionalProperties: false
@@ -1642,6 +1661,49 @@ components:
         - spec
         - proposed_bindings
         - updated_at
+    DashboardDraftPanelConversion:
+      type: object
+      additionalProperties: false
+      required:
+        - panel_id
+        - mode
+      properties:
+        panel_id:
+          type: string
+          minLength: 1
+        mode:
+          type: string
+          enum:
+            - builder
+            - dsl
+    DashboardDraftPanelDrilldowns:
+      type: object
+      additionalProperties: false
+      required:
+        - panel_id
+        - signal_sources
+      properties:
+        panel_id:
+          type: string
+          minLength: 1
+        signal_sources:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DashboardSourceBinding'
+    DashboardDraftPreparation:
+      type: object
+      additionalProperties: false
+      properties:
+        conversions:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/DashboardDraftPanelConversion'
+        drilldowns:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/DashboardDraftPanelDrilldowns'
     DashboardDraftInput:
       type: object
       additionalProperties: false
@@ -1668,6 +1730,9 @@ components:
         expected_version:
           type: integer
           format: int64
+        preparation:
+          $ref: '#/components/schemas/DashboardDraftPreparation'
+          description: Optional deterministic lossless conversions and standard drilldowns, applied atomically with the version-checked draft save. Omission does not modify the supplied definition.
       required:
         - name
         - description

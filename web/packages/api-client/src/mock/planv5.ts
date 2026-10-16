@@ -8,6 +8,8 @@ import type {
 import type { BaseContext, MockContext } from "./context";
 import { ApiError } from "../transport/errors";
 import { assertDashboardQuerySources } from "./dashboard-queries";
+import { alertResultTemplate } from "../generated/alert-result-template";
+import { filterStoredRows } from "./presentation-filter";
 
 export type MockPlanV5 = {
   dashboardContexts?: Record<
@@ -37,8 +39,9 @@ export async function publishMockPresentation(
   toolCallId: string,
   data: Record<string, unknown>,
 ) {
-  const source =
-    '<section id="result"></section><script>ArgusTemplate.onData((data)=>{const root=document.getElementById("result");root.replaceChildren();ArgusTemplate.table(root,data.items||[],["name","status","hostname"]);});</script>';
+  const source = data.page
+    ? alertResultTemplate
+    : '<section id="result"></section><script>ArgusTemplate.onData((data)=>{const root=document.getElementById("result");root.replaceChildren();ArgusTemplate.table(root,data.items||[],["name","status","hostname"]);});</script>';
   ctx.db.planv5.presentations[toolCallId] = {
     conversationId,
     value: {
@@ -215,6 +218,43 @@ export function createPlanV5Domains(ctx: MockContext): PlanV5Domains {
         progress(100);
         return copy(value);
       },
+      async readContent(id, file, _kind, signal) {
+        conversation(id);
+        assertDashboardQuerySources(ctx, id);
+        if (signal?.aborted)
+          throw new DOMException("Preview cancelled", "AbortError");
+        const value = (state.files[id] ?? []).find((item) => item.id === file);
+        if (!value)
+          throw new ApiError(
+            {
+              code: "WORKSPACE_FILE_NOT_FOUND",
+              message_key: "planv5.files.unavailable",
+              request_id: "mock-preview",
+              retryable: false,
+            },
+            404,
+          );
+        const encoded = state.contents[file];
+        const bytes = encoded
+          ? Uint8Array.from(
+              atob(encoded.slice(encoded.indexOf(",") + 1)),
+              (char) => char.charCodeAt(0),
+            )
+          : new TextEncoder().encode(value.name);
+        if (bytes.byteLength > 2 * 1024 * 1024)
+          throw new ApiError(
+            {
+              code: "WORKSPACE_PREVIEW_TOO_LARGE",
+              message_key: "planv5.files.previewTooLarge",
+              request_id: "mock-preview",
+              retryable: false,
+            },
+            413,
+          );
+        return new Blob([bytes], {
+          type: value.media_type || "application/octet-stream",
+        });
+      },
       downloadUrl(id, file) {
         conversation(id);
         assertDashboardQuerySources(ctx, id);
@@ -224,6 +264,90 @@ export function createPlanV5Domains(ctx: MockContext): PlanV5Domains {
       },
     },
     presentations: {
+      async read(id, call, input) {
+        conversation(id);
+        const stored = state.presentations[call];
+        if (
+          !stored ||
+          stored.conversationId !== id ||
+          !stored.value.read_operations?.includes(input.operation)
+        )
+          throw new Error("PRESENTATION_READ_FORBIDDEN");
+        const data = copy(stored.value.detail_data);
+        if (data._fixture_read_error)
+          throw new Error("PRESENTATION_READ_FAILED");
+        if (
+          typeof data._fixture_pending_until === "number" &&
+          Date.now() < data._fixture_pending_until
+        )
+          return { status: "pending", data: { status: "pending" } };
+        if (input.operation === "result.page") {
+          let offset = 0;
+          const selector = JSON.stringify([
+            input.parameters.collection ?? "items",
+            input.parameters.index ?? null,
+            input.parameters.field ?? null,
+            input.parameters.search ?? "",
+            input.parameters.filters ?? {},
+            input.parameters.sort ?? "",
+            input.parameters.direction ?? "asc",
+          ]);
+          const prefix = call + ":" + selector + ":";
+          const raw = input.parameters.cursor;
+          if (raw !== undefined) {
+            if (typeof raw !== "string" || !raw.startsWith(prefix))
+              throw new Error("PRESENTATION_CURSOR_INVALID");
+            offset = Number(raw.slice(prefix.length));
+          }
+          const result =
+            input.parameters.collection === "result" ? data.result : undefined;
+          const selected =
+            Array.isArray(result) && typeof input.parameters.index === "number"
+              ? (result[input.parameters.index] as
+                  Record<string, unknown> | undefined)
+              : undefined;
+          const value =
+            selected && typeof input.parameters.field === "string"
+              ? selected[input.parameters.field]
+              : data.items;
+          const sourceRows = Array.isArray(value) ? value : [];
+          const filterable =
+            !input.parameters.field &&
+            !input.parameters.panel_id &&
+            (!input.parameters.collection ||
+              input.parameters.collection === "items" ||
+              input.parameters.collection === "page.items");
+          const filtered = filterable
+            ? filterStoredRows(sourceRows, input.parameters)
+            : { items: sourceRows, facets: {} };
+          const rows = filtered.items;
+          const limit = Number(input.parameters.limit ?? 25);
+          if (
+            !Number.isInteger(offset) ||
+            offset < 0 ||
+            offset > rows.length ||
+            !Number.isInteger(limit) ||
+            limit < 1 ||
+            limit > 100
+          )
+            throw new Error("PRESENTATION_CURSOR_INVALID");
+          const end = Math.min(offset + limit, rows.length);
+          return {
+            status: "ready",
+            data: {
+              items: rows.slice(offset, end),
+              offset,
+              total: rows.length,
+              source_total: sourceRows.length,
+              filterable,
+              facets: filtered.facets,
+              complete: end === rows.length,
+            },
+            next_cursor: end < rows.length ? prefix + end : undefined,
+          };
+        }
+        return { status: "ready", data };
+      },
       async result(ref) {
         const call = ref.replace(/^result_/, "");
         const stored = state.presentations[call];

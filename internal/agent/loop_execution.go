@@ -161,6 +161,11 @@ func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.T
 			status = "cancelled"
 		}
 		result.Data = map[string]any{"error_code": errorCode, "message": "Tool invocation failed."}
+		var descriptionError toolruntime.Error
+		if errorCode == "TOOL_DESCRIPTION_REQUIRED" && errors.As(invokeErr, &descriptionError) {
+			result.Data["message"] = descriptionError.Message
+			result.Data["details"] = descriptionError.Details
+		}
 	}
 	if result.Unknown {
 		status, errorCode = "result_unknown", "TOOL_RESULT_UNKNOWN"
@@ -217,14 +222,18 @@ func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.T
 		}
 		event, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true},
 			StepID: uuid.NullUUID{UUID: record.StepID, Valid: true}, Type: "tool_call_result", ActorType: "service", Payload: map[string]any{"tool_call_id": record.ID.String(), "tool_id": record.ToolID,
-				"authorization_scope": scope, "target_tool_id": target, "source": record.Source, "status": status, "result_ref": resultRef, "projection": json.RawMessage(projection)}, ArtifactRef: resultRef, Classification: "internal"})
+				"authorization_scope": scope, "target_tool_id": target, "source": record.Source, "status": status, "result_ref": resultRef, "projection": json.RawMessage(projection), "display": result.Display}, ArtifactRef: resultRef, Classification: "internal"})
 		if err != nil {
 			return err
 		}
 		through = event.Sequence
 		if result.Presentation != nil && status == "succeeded" {
 			p := result.Presentation
-			if err := q.CreateTemplateAsset(ctx, db.CreateTemplateAssetParams{Hash: p.Hash, Source: p.Template}); err != nil {
+			runtime := p.Runtime
+			if runtime == "" {
+				runtime = "argus-template/v1"
+			}
+			if err := q.CreateTemplateAsset(ctx, db.CreateTemplateAssetParams{Hash: p.Hash, Source: p.Template, Runtime: runtime}); err != nil {
 				return err
 			}
 			data, _ := json.Marshal(p.Data)
@@ -233,6 +242,15 @@ func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.T
 				ToolCallID: record.ID, ToolVersion: p.Version, AuthorizationScope: scope, TemplateHash: p.Hash, DetailData: data, ResourceRefs: refs, Status: "ready"})
 			if err != nil {
 				return err
+			}
+			if runtime == "argus-template/v2" {
+				binding, e := json.Marshal(p.Binding)
+				if e != nil {
+					return e
+				}
+				if e = q.SetPresentationReadBinding(ctx, db.SetPresentationReadBindingParams{ID: presentation.ID, EnterpriseID: run.EnterpriseID, ReadOperations: p.ReadOperations, ResultBinding: binding}); e != nil {
+					return e
+				}
 			}
 			_, err = conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true},
 				StepID: uuid.NullUUID{UUID: record.StepID, Valid: true}, Type: "tool_presentation", ActorType: "service", Payload: map[string]any{"tool_call_id": record.ID.String(), "presentation_id": presentation.ID.String(), "template_hash": p.Hash, "status": "ready"}, Classification: "internal"})

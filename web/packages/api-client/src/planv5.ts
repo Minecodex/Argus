@@ -28,6 +28,7 @@ export interface PlanV5Domains {
     ): Promise<MCPConnection>;
   };
   workspace: {
+    readContent(conversationId: string, id: string, kind: "file" | "delivery", signal?: AbortSignal): Promise<Blob>;
     get(conversationId: string): Promise<Workspace>;
     remove(conversationId: string): Promise<Workspace>;
     listFiles(conversationId: string): Promise<WorkspaceFile[]>;
@@ -44,6 +45,7 @@ export interface PlanV5Domains {
     ): string;
   };
   presentations: {
+    read(conversationId: string, toolCallId: string, input: Presentation["schemas"]["PresentationReadInput"]): Promise<Presentation["schemas"]["PresentationReadResult"]>;
     get(conversationId: string, toolCallId: string): Promise<ToolPresentation>;
     result(ref: string): Promise<import("./generated/contracts").ToolResult>;
   };

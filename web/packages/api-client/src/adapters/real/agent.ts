@@ -156,10 +156,20 @@ export function installAgentDomains(context: RealDomainContext): void {
       );
     },
     async listEvents(id) {
-      const value = await http.request<ConversationEventPage>(
-        `conversations/${id}/ledger?limit=200`,
-      );
-      return value.items;
+      const events: ConversationEventPage["items"] = [];
+      let sequence = 0;
+      for (;;) {
+        const value = await http.request<ConversationEventPage>(
+          `conversations/${id}/ledger?${sequence ? `cursor=${sequence}&` : ""}limit=200`,
+        );
+        if (!value.items.length) return events;
+        const next = value.items[value.items.length - 1]!.sequence;
+        if (!Number.isSafeInteger(next) || next <= sequence)
+          throw new Error("CONVERSATION_LEDGER_CURSOR_INVALID");
+        events.push(...value.items);
+        sequence = next;
+        if (value.items.length < 200) return events;
+      }
     },
     async *sendMessage(id, input, streamOptions) {
       const accepted = await http.request<{

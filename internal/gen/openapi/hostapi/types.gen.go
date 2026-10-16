@@ -391,6 +391,75 @@ func (e HostInstallMethod) Valid() bool {
 	}
 }
 
+// Defines values for HostInventoryCloudStatus.
+const (
+	HostInventoryCloudStatusAvailable   HostInventoryCloudStatus = "available"
+	HostInventoryCloudStatusNotDetected HostInventoryCloudStatus = "not_detected"
+)
+
+// Valid indicates whether the value is a known member of the HostInventoryCloudStatus enum.
+func (e HostInventoryCloudStatus) Valid() bool {
+	switch e {
+	case HostInventoryCloudStatusAvailable:
+		return true
+	case HostInventoryCloudStatusNotDetected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostInventoryNetworksState.
+const (
+	Down HostInventoryNetworksState = "down"
+	Up   HostInventoryNetworksState = "up"
+)
+
+// Valid indicates whether the value is a known member of the HostInventoryNetworksState enum.
+func (e HostInventoryNetworksState) Valid() bool {
+	switch e {
+	case Down:
+		return true
+	case Up:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostInventorySchemaVersion.
+const (
+	ArgusHostInventoryv1 HostInventorySchemaVersion = "argus.host_inventory/v1"
+)
+
+// Valid indicates whether the value is a known member of the HostInventorySchemaVersion enum.
+func (e HostInventorySchemaVersion) Valid() bool {
+	switch e {
+	case ArgusHostInventoryv1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostInventoryScope.
+const (
+	Container HostInventoryScope = "container"
+	Machine   HostInventoryScope = "machine"
+)
+
+// Valid indicates whether the value is a known member of the HostInventoryScope enum.
+func (e HostInventoryScope) Valid() bool {
+	switch e {
+	case Container:
+		return true
+	case Machine:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HostOnboardingOperationInstallMethod.
 const (
 	HostOnboardingOperationInstallMethodManual HostOnboardingOperationInstallMethod = "manual"
@@ -1179,3 +1248,6 @@ type ConnectionTest struct {
 	TargetType          ConnectionTestTargetType      `json:"target_type"`
 	UpdatedAt           time.Time                     `json:"updated_at"`
 }
+
+// ConnectionTestArchitecture defines model for ConnectionTest.Architecture.
+type ConnectionTestArchitecture string

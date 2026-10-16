@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -12,7 +12,7 @@ import {
   type ConfirmActionResult,
   type PendingActionPublic,
 } from "@argus/api-client";
-import { Alert, Badge, Button, Dialog } from "@argus/ui";
+import { ActionMenu, Alert, Badge, Dialog, type DropdownItem } from "@argus/ui";
 
 import { formatDateTime } from "../settings/shared";
 import { PendingActionConfirm } from "./pending-action-confirm";
@@ -149,8 +149,12 @@ function ScopeOperationDialog({
 }
 
 /** Pending Bastion Scope actions are derived only from the server projection. */
-export function PendingScopeActions({ scope }: { scope: BastionScope }) {
+export function PendingScopeActions({ scope, extraItems = [] }: {
+  scope: BastionScope;
+  extraItems?: DropdownItem[];
+}) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const api = useApi();
   const invalidate = useInvalidateResources();
   const [actionKind, setActionKind] = useState<
@@ -237,65 +241,31 @@ export function PendingScopeActions({ scope }: { scope: BastionScope }) {
           tone="danger"
         />
       )}
-      {onboarding.state === "command_available" && (
-        <Button
-          isDisabled={busy || !onboarding.execution_id}
-          onPress={() => void claimExisting()}
-          variant="secondary"
-        >
-          {t("hosts.pendingActions.claimCommand")}
-        </Button>
-      )}
-      {(onboarding.state === "command_consumed" ||
-        onboarding.state === "command_expired") &&
-        scope.onboarding_mode === "command" && (
-          <Button
-            isDisabled={busy}
-            onPress={() => void preview("rotate")}
-            variant="secondary"
-          >
-            {t("hosts.pendingActions.rotateCommand")}
-          </Button>
-        )}
-      {onboarding.state === "awaiting_approval" && (
-        <Link
-          className="argus-button argus-button--secondary"
-          search={{ approval: "operation", scope: "mine" }}
-          to="/approvals"
-        >
-          {t("hosts.pendingActions.viewApproval")}
-        </Link>
-      )}
-      {onboarding.state === "installing" && (
-        <Button onPress={() => setOperationOpen(true)} variant="secondary">
-          {t("hosts.pendingActions.viewProgress")}
-        </Button>
-      )}
-      {onboarding.state === "install_failed" && (
-        <>
-          <Button
-            isDisabled={busy || !onboarding.operation_id}
-            onPress={() => void preview("retry")}
-            variant="primary"
-          >
-            {t("hosts.bastionForm.retryInstall")}
-          </Button>
-          <Button onPress={() => setOperationOpen(true)} variant="secondary">
-            {t("hosts.pendingActions.viewFailure")}
-          </Button>
-        </>
-      )}
-      <Button
-        isDisabled={busy}
-        onPress={() => void preview("delete")}
-        variant="ghost"
-      >
-        {t(
-          onboarding.state === "installing"
-            ? "hostRemoval.incomplete.cancelAndDelete"
-            : "hostRemoval.incomplete.deleteRecord",
-        )}
-      </Button>
+      <ActionMenu name={scope.name} isDisabled={busy} items={[
+        ...(onboarding.state === "command_available" ? [{
+          label: t("hosts.pendingActions.claimCommand"),
+          disabled: !onboarding.execution_id,
+          onSelect: () => void claimExisting(),
+        }] : []),
+        ...(["command_consumed", "command_expired"].includes(onboarding.state) && scope.onboarding_mode === "command" ? [{
+          label: t("hosts.pendingActions.rotateCommand"), onSelect: () => void preview("rotate"),
+        }] : []),
+        ...(onboarding.state === "awaiting_approval" ? [{
+          label: t("hosts.pendingActions.viewApproval"),
+          onSelect: () => void navigate({ to: "/approvals", search: { approval: "operation", scope: "mine" } }),
+        }] : []),
+        ...(onboarding.state === "installing" ? [{
+          label: t("hosts.pendingActions.viewProgress"), onSelect: () => setOperationOpen(true),
+        }] : []),
+        ...(onboarding.state === "install_failed" ? [
+          { label: t("hosts.bastionForm.retryInstall"), disabled: !onboarding.operation_id, onSelect: () => void preview("retry") },
+          { label: t("hosts.pendingActions.viewFailure"), onSelect: () => setOperationOpen(true) },
+        ] : []),
+        ...extraItems,
+        "separator",
+        { label: t(onboarding.state === "installing" ? "hostRemoval.incomplete.cancelAndDelete" : "hostRemoval.incomplete.deleteRecord"),
+          danger: true, onSelect: () => void preview("delete") },
+      ]} />
       {pendingAction && actionKind === "delete" && (
         <Alert
           title={t(

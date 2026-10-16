@@ -6,7 +6,7 @@ import { dashboardAPI } from "./helpers/planv2-api";
 const login = createMfaLogin("enterprise");
 test.use({ actionTimeout: 15000, navigationTimeout: 30000 });
 for (const english of [false, true])
-  test(`real Chat selection and creation mode ${english ? "English dark" : "Chinese light"}`, async ({
+  test(`real Chat optional mentions and creation entry ${english ? "English dark" : "Chinese light"}`, async ({
     page,
   }, info) => {
     test.skip(process.env.ARGUS_PLANV2_E2E !== "1", "Requires deployed PlanV2");
@@ -71,29 +71,26 @@ for (const english of [false, true])
     };
     // Replay emits no tool calls. These assertions cover persisted user intent,
     // transport and UI only, never model interpretation or conclusion quality.
-    const selected = await send("检查所选仪表盘 argus_e2e_plan_b64:W10");
-    expect(selected.dashboard_context.mode).toBe("analyze");
-    expect(selected.dashboard_context.dashboard_ids).toEqual([
+    const selected = await send("检查该仪表盘 argus_e2e_plan_b64:W10");
+    expect(selected.dashboard_context).toBeUndefined();
+    expect(selected.content).toContain(
       process.env.ARGUS_PLANV2_NATIVE_MAPPING_ID,
-    ]);
-    await page.reload();
-    await expect(composer).toContainText("PlanV2 native source mapping");
-    await send("继续 argus_e2e_plan_b64:W10");
-    await page.screenshot({
-      path: info.outputPath("persistent-selected-dashboard.png"),
-      fullPage: true,
-    });
-    await composer
-      .getByRole("button", {
-        name: tx("退出仪表盘模式", "Exit dashboard mode"),
-        exact: true,
-      })
-      .click();
-    expect(
-      (await send("普通会话 argus_e2e_plan_b64:W10")).dashboard_context.mode,
-    ).toBe("none");
+    );
     await page.reload();
     await expect(composer).not.toContainText("PlanV2 native source mapping");
+    await expect(page.getByTestId("chat-context-panel")).toHaveCount(0);
+    await expect(
+      composer.getByRole("button", {
+        name: tx("管理分析范围", "Manage analysis scope"),
+      }),
+    ).toHaveCount(0);
+    expect(
+      (await send("继续 argus_e2e_plan_b64:W10")).dashboard_context,
+    ).toBeUndefined();
+    await page.screenshot({
+      path: info.outputPath("automatic-chat-entry.png"),
+      fullPage: true,
+    });
     await composer
       .getByRole("button", {
         name: tx("创建仪表盘", "Create dashboard"),
@@ -102,12 +99,18 @@ for (const english of [false, true])
       .click();
     await expect(text).toHaveValue(tx("/创建仪表盘 ", "/create-dashboard "));
     expect(
-      (await send("/创建仪表盘 argus_e2e_plan_b64:W10")).dashboard_context.mode,
-    ).toBe("create");
+      (await send("/创建仪表盘 argus_e2e_plan_b64:W10")).dashboard_context,
+    ).toBeUndefined();
+    const context = await (
+      await dashboardAPI(page, `/conversations/${convo.id}/dashboard-context`)
+    ).json();
+    expect(context.mode).toBe("create");
     await page.reload();
-    await expect(composer).toContainText(
-      tx("创建 / 编辑仪表盘", "Create / edit dashboards"),
-    );
+    await expect(
+      composer.getByRole("button", {
+        name: tx("管理分析范围", "Manage analysis scope"),
+      }),
+    ).toHaveCount(0);
     const history = page.getByRole("region", {
       name: tx("会话消息", "Conversation messages"),
       exact: true,

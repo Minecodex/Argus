@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { selectRowAction } from "./helpers/action-menu";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -19,7 +20,9 @@ async function login(page: Page, username = "root") {
   await expect(page).not.toHaveURL(/\/login/);
 }
 
-test("recordings: wide detail dialog replays the session and exposes raw events", async ({ page }) => {
+test("recordings: wide detail dialog replays the session and exposes raw events", async ({
+  page,
+}) => {
   await login(page);
   await page.goto("/remote-sessions");
   await page.getByRole("tab", { name: "会话录像" }).click();
@@ -27,7 +30,7 @@ test("recordings: wide detail dialog replays the session and exposes raw events"
   // mock 种子录像（available）出现在列表中。
   const row = page.getByRole("row", { name: /ras-seed-1/ });
   await expect(row).toBeVisible();
-  await row.getByRole("button", { name: "查看录像" }).click();
+  await selectRowAction(row, "查看录像");
 
   // 详情弹框为宽版（--lg），不再被 520px 默认宽度裁剪。
   const dialog = page.locator(".argus-dialog--lg");
@@ -39,6 +42,18 @@ test("recordings: wide detail dialog replays the session and exposes raw events"
   // 事件自动翻页拉全后进入回放视图：终端画面 + 视频式控制条。
   const player = dialog.locator(".argus-terminal-player");
   await expect(player).toBeVisible({ timeout: 15_000 });
+  const scrollbar = player.locator(
+    ".xterm-scrollable-element > .scrollbar.vertical",
+  );
+  await expect(scrollbar).toHaveCount(1);
+  expect(
+    await scrollbar.evaluate((element) => getComputedStyle(element).width),
+  ).toBe("9px");
+  expect(
+    await scrollbar
+      .locator(".slider")
+      .evaluate((element) => getComputedStyle(element).width),
+  ).toBe("9px");
   await expect(player.getByRole("slider", { name: "录像进度" })).toBeVisible();
   await expect(player.getByText(/^00:00 \/ 00:10$/)).toBeVisible();
   await expect(player.getByRole("button", { name: "4x" })).toBeVisible();
@@ -57,6 +72,10 @@ test("recordings: wide detail dialog replays the session and exposes raw events"
 
   // 原始事件视图保留审计用的明文事件流。
   await dialog.getByRole("tab", { name: "原始事件" }).click();
-  await expect(dialog.locator(".argus-recording-events")).toContainText("uptime");
-  await expect(dialog.locator(".argus-recording-events")).toContainText("120x30");
+  await expect(dialog.locator(".argus-recording-events")).toContainText(
+    "uptime",
+  );
+  await expect(dialog.locator(".argus-recording-events")).toContainText(
+    "120x30",
+  );
 });

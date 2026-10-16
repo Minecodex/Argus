@@ -496,6 +496,47 @@ func (response PreviewDeleteHostdefaultJSONResponse) VisitPreviewDeleteHostRespo
 	return err
 }
 
+type PreviewHostReconnectRequestObject struct {
+	Id     ResourceId `json:"id"`
+	Params PreviewHostReconnectParams
+	Body   *PreviewHostReconnectJSONRequestBody
+}
+
+type PreviewHostReconnectResponseObject interface {
+	VisitPreviewHostReconnectResponse(w http.ResponseWriter) error
+}
+
+type PreviewHostReconnect201JSONResponse PendingActionPublicSchema
+
+func (response PreviewHostReconnect201JSONResponse) VisitPreviewHostReconnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewHostReconnectdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response PreviewHostReconnectdefaultJSONResponse) VisitPreviewHostReconnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PreviewRetryHostRequestObject struct {
 	Id     ResourceId `json:"id"`
 	Params PreviewRetryHostParams
@@ -567,6 +608,46 @@ type PreviewUpdateHostdefaultJSONResponse struct {
 }
 
 func (response PreviewUpdateHostdefaultJSONResponse) VisitPreviewUpdateHostResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshHostInventoryRequestObject struct {
+	Id     ResourceId `json:"id"`
+	Params RefreshHostInventoryParams
+}
+
+type RefreshHostInventoryResponseObject interface {
+	VisitRefreshHostInventoryResponse(w http.ResponseWriter) error
+}
+
+type RefreshHostInventory200JSONResponse Host
+
+func (response RefreshHostInventory200JSONResponse) VisitRefreshHostInventoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshHostInventorydefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response RefreshHostInventorydefaultJSONResponse) VisitRefreshHostInventoryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {

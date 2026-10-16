@@ -54,6 +54,7 @@ type Metadata struct {
 	FieldTypes               map[string]string
 	Template                 *toolruntime.TemplateAsset
 	Present                  func(context.Context, Call, Result) (*toolruntime.Presentation, error)
+	Project                  func(Result) map[string]any
 	Authorize                func(context.Context, Call) error
 	Validate                 func(map[string]any) error
 	Execute                  func(context.Context, Call) (Result, error)

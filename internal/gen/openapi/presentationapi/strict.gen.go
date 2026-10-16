@@ -5,6 +5,7 @@ package presentationapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"net/http"
@@ -15,6 +16,9 @@ type StrictServerInterface interface {
 	// GetToolPresentation getToolPresentation.
 	// (GET /conversations/{conversation_id}/tool-presentations/{tool_call_id})
 	GetToolPresentation(ctx context.Context, request GetToolPresentationRequestObject) (GetToolPresentationResponseObject, error)
+	// ReadToolPresentation Read a capability bound to this authorized presentation.
+	// (POST /conversations/{conversation_id}/tool-presentations/{tool_call_id}/read)
+	ReadToolPresentation(ctx context.Context, request ReadToolPresentationRequestObject) (ReadToolPresentationResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -76,6 +80,41 @@ func (sh *strictHandler) GetToolPresentation(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetToolPresentationResponseObject); ok {
 		if err := validResponse.VisitGetToolPresentationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReadToolPresentation operation middleware
+func (sh *strictHandler) ReadToolPresentation(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID, toolCallId openapi_types.UUID, params ReadToolPresentationParams) {
+	var request ReadToolPresentationRequestObject
+
+	request.ConversationId = conversationId
+	request.ToolCallId = toolCallId
+	request.Params = params
+
+	var body ReadToolPresentationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReadToolPresentation(ctx, request.(ReadToolPresentationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReadToolPresentation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReadToolPresentationResponseObject); ok {
+		if err := validResponse.VisitReadToolPresentationResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

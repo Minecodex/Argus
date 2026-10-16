@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -98,7 +99,10 @@ func (service PendingActionService) ExecuteReady(ctx context.Context, q *db.Quer
 		return ActionCommitResult{}, ErrActionUnavailable
 	}
 	plan, err := q.GetPendingActionPlan(ctx, db.GetPendingActionPlanParams{ActionRef: action.ActionRef, EnterpriseID: action.EnterpriseID})
-	if err != nil || plan.AuthorizationVersion != action.AuthorizationVersion {
+	if err != nil {
+		return ActionCommitResult{}, pendingActionStorageError("load immutable plan", err, ErrActionInvalidated)
+	}
+	if plan.AuthorizationVersion != action.AuthorizationVersion {
 		return ActionCommitResult{}, ErrActionInvalidated
 	}
 	canonicalPlan, err := CanonicalJSON(plan.ImmutablePlan)
@@ -110,7 +114,10 @@ func (service PendingActionService) ExecuteReady(ctx context.Context, q *db.Quer
 		return ActionCommitResult{}, ErrActionInvalidated
 	}
 	token, err := q.GetPendingActionTokenForUpdate(ctx, db.GetPendingActionTokenForUpdateParams{ActionRef: action.ActionRef, EnterpriseID: action.EnterpriseID})
-	if err != nil || token.Status != "active" || time.Now().UTC().After(token.ExpiresAt.Time) {
+	if err != nil {
+		return ActionCommitResult{}, pendingActionStorageError("lock private token", err, ErrActionUnavailable)
+	}
+	if token.Status != "active" || time.Now().UTC().After(token.ExpiresAt.Time) {
 		return ActionCommitResult{}, ErrActionUnavailable
 	}
 	plaintext, err := (actionCipher{key: service.Key}).decrypt(token.Nonce, token.Ciphertext, actionAAD(action.EnterpriseID.String(), action.ID.String()))
@@ -124,18 +131,33 @@ func (service PendingActionService) ExecuteReady(ctx context.Context, q *db.Quer
 		if ActionValidationCode(err) != "" {
 			return ActionCommitResult{}, err
 		}
+		if postgres.IsRetryableTransactionError(err) {
+			return ActionCommitResult{}, fmt.Errorf("pending action revalidate: %w", err)
+		}
 		if err != nil || !subtleEqual(impactHash, action.ImpactHash) {
 			return ActionCommitResult{}, ErrActionInvalidated
 		}
 	}
 	rows, err := q.ConsumePendingActionToken(ctx, db.ConsumePendingActionTokenParams{PendingActionID: action.ID, EnterpriseID: action.EnterpriseID})
-	if err != nil || rows != 1 {
+	if err != nil {
+		return ActionCommitResult{}, pendingActionStorageError("consume private token", err, ErrActionUnavailable)
+	}
+	if rows != 1 {
 		return ActionCommitResult{}, ErrActionUnavailable
 	}
 	if _, err := q.MarkPendingActionExecutingM4(ctx, db.MarkPendingActionExecutingM4Params{ID: action.ID, EnterpriseID: action.EnterpriseID}); err != nil {
-		return ActionCommitResult{}, ErrActionUnavailable
+		return ActionCommitResult{}, pendingActionStorageError("mark executing", err, ErrActionUnavailable)
 	}
 	return commit(ctx, q, action, canonicalPlan)
+}
+
+// Missing rows are business state failures. Storage errors retain their cause
+// and SQLSTATE so the surrounding database transaction can safely retry them.
+func pendingActionStorageError(stage string, err, missing error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return missing
+	}
+	return fmt.Errorf("pending action %s: %w", stage, err)
 }
 
 func (service PendingActionService) Prepare(ctx context.Context, actorID string, enterpriseID uuid.UUID, input PrepareActionInput, idempotencyKey string) (db.PendingAction, error) {
@@ -218,7 +240,7 @@ func (service PendingActionService) PrepareForSubject(ctx context.Context, subje
 		}
 		clear([]byte(token))
 		if err := appendResourceAudit(ctx, q, subject.ID, enterpriseID, input.ActionType+".preview", input.ResourceType, input.ResourceID.UUID,
-			map[string]any{"summary": "resource action prepared", "authorization_version": subject.AuthorizationVersion, "subject_type": subject.Type}); err != nil {
+			pendingAuditDetails(action, map[string]any{"summary": "resource action prepared", "authorization_version": subject.AuthorizationVersion, "subject_type": subject.Type})); err != nil {
 			return db.PendingAction{}, err
 		}
 		return action, nil
@@ -271,7 +293,7 @@ func (service PendingActionService) Cancel(ctx context.Context, actorID string, 
 		if err != nil {
 			return db.PendingAction{}, err
 		}
-		if err := appendResourceAudit(ctx, q, actorID, enterpriseID, "pending_action.cancel", result.ResourceType, result.ResourceID.UUID, map[string]any{"status": "cancelled"}); err != nil {
+		if err := appendResourceAudit(ctx, q, actorID, enterpriseID, "pending_action.cancel", result.ResourceType, result.ResourceID.UUID, pendingAuditDetails(result, map[string]any{"status": "cancelled"})); err != nil {
 			return db.PendingAction{}, err
 		}
 		if result.RunID.Valid {
@@ -363,7 +385,7 @@ func (service PendingActionService) Confirm(ctx context.Context, actorID string,
 		if err != nil {
 			return ActionConfirmation{}, err
 		}
-		if err := appendResourceAudit(ctx, q, actorID, enterpriseID, "pending_action.confirm", action.ResourceType, action.ResourceID.UUID, map[string]any{"status": status}); err != nil {
+		if err := appendResourceAudit(ctx, q, actorID, enterpriseID, "pending_action.confirm", action.ResourceType, action.ResourceID.UUID, pendingAuditDetails(action, map[string]any{"status": status})); err != nil {
 			return ActionConfirmation{}, err
 		}
 		return ActionConfirmation{PendingAction: result}, nil

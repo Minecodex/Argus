@@ -13,6 +13,7 @@ const statusBadgeVariants = cva("argus-status-badge", {
       info: "argus-status-badge--info",
     },
     pulse: { true: "argus-status-badge--pulse" },
+    appearance: { flat: "argus-status-badge--flat" },
   },
   defaultVariants: { tone: "neutral" },
 });
@@ -24,12 +25,16 @@ export function StatusBadge({
   className,
   tone,
   pulse,
+  appearance,
   children,
   ...props
 }: StatusBadgeProps) {
   return (
     <span
-      className={cx(statusBadgeVariants({ tone, pulse }), className)}
+      className={cx(
+        statusBadgeVariants({ tone, pulse, appearance }),
+        className,
+      )}
       {...props}
     >
       <i aria-hidden className="argus-status-badge__dot" />

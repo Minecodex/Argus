@@ -89,7 +89,6 @@
 .argus-approval-scope-tabs > [role="tablist"] {
   overflow-x: auto;
   justify-content: flex-start;
-  scrollbar-width: thin;
 }
 
 .argus-approval-scope-tabs {

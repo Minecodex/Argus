@@ -1,51 +1,16 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { QueryBoundary } from "@argus/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
-import { z } from "zod";
-import {
-  Activity,
-  CircleDollarSign,
-  Gauge,
-  Plus,
-  RefreshCw,
-} from "lucide-react";
-import {
-  apiErrorPresentation,
-  formConstraint,
-  formatApiError,
-  useApi,
-  type AIModel,
-  type ModelQuota,
-} from "@argus/api-client";
-import { useEnterpriseAuthStore } from "@argus/auth";
-import {
-  Badge,
-  Alert,
-  Button,
-  DataTable,
-  EmptyState,
-  Field,
-  FormDrawer,
-  Input,
-  PageShell,
-  RowAction,
-  Select,
-  StatCard,
-  StatusBadge,
-  Switch,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@argus/ui";
-import {
-  useOrgDepartments,
-  useOrgUsers,
-} from "../components/settings/org-users-tab";
-import { usePermission } from "../lib/permissions";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {ActionMenu,QueryBoundary} from "@argus/ui";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
+import {useEffect,useMemo,useState} from "react";
+import {Controller,useForm} from "react-hook-form";
+import {useTranslation} from "react-i18next";
+import {z} from "zod";
+import {Activity,CircleDollarSign,Gauge,Plus} from "lucide-react";
+import {apiErrorPresentation,formConstraint,formatApiError,useApi,type AIModel,type ModelQuota} from "@argus/api-client";
+import {useEnterpriseAuthStore} from "@argus/auth";
+import {Badge,Alert,Button,DataTable,EmptyState,Field,FormDrawer,Input,PageShell,Select,StatCard,StatusBadge,Tabs,TabsContent,TabsList,TabsTrigger} from "@argus/ui";
+import {useOrgDepartments,useOrgUsers} from "../components/settings/org-users-tab";
+import {usePermission} from "../lib/permissions";
 import "../styles/ai-settings.css";
 
 type ModelDrawerState =
@@ -216,42 +181,12 @@ function ModelsView({ onDashboard }: { onDashboard: (id: string) => void }) {
               {
                 key: "actions",
                 header: t("settings.common.actions"),
-                render: (model) => (
-                  <span className="argus-ai-actions">
-                    <RowAction
-                      onPress={() =>
+                render: (model) => (<ActionMenu items={[{label: t("aiSettings.model.test"),onSelect: () =>
                         void api.models
                           .test(model.id)
-                          .then(() => models.refetch())
-                      }
-                    >
-                      <RefreshCw size={14} />
-                      {t("aiSettings.model.test")}
-                    </RowAction>
-                    <RowAction
-                      onPress={() => setDrawer({ mode: "edit", model })}
-                    >
-                      {t("aiSettings.model.edit")}
-                    </RowAction>
-                    <RowAction onPress={() => setQuotaModel(model)}>
-                      {t("aiSettings.model.quota")}
-                    </RowAction>
-                    <RowAction onPress={() => onDashboard(model.id)}>
-                      {t("aiSettings.model.dashboard")}
-                    </RowAction>
-                    <Switch
-                      checked={model.enabled}
-                      label={
-                        model.enabled
-                          ? t("aiSettings.model.disable")
-                          : t("aiSettings.model.enable")
-                      }
-                      onChange={(enabled) =>
-                        update.mutate({ id: model.id, patch: { enabled } })
-                      }
-                    />
-                  </span>
-                ),
+                          .then(() => models.refetch())},{label: t("aiSettings.model.edit"),onSelect: () => setDrawer({ mode: "edit", model })},{label: t("aiSettings.model.quota"),onSelect: () => setQuotaModel(model)},{label: t("aiSettings.model.dashboard"),onSelect: () => onDashboard(model.id)},{label: model.enabled
+                        ? t("aiSettings.model.disable")
+                        : t("aiSettings.model.enable"),onSelect: () => update.mutate({ id: model.id, patch: { enabled: !model.enabled } }),disabled: (update.isPending)}]} />),
               },
             ]}
             data={

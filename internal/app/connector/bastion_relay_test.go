@@ -77,6 +77,47 @@ func relayPort(status *connectorv1.BastionRelayStatus, kind string) uint32 {
 	return 0
 }
 
+func TestConfiguredBastionRelayAddressIsFrozenAcrossRestart(t *testing.T) {
+	t.Setenv("ARGUS_BASTION_RELAY_ADVERTISE_ADDRESS", "10.0.0.8")
+	store := localStore{directory: t.TempDir()}
+	identity := identityState{Role: "bastion", EnrollmentEndpoint: "https://argus.example.test", GatewayEndpoint: "grpcs://connector.argus.example.test:9443"}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	relay, err := startBastionRelay(ctx, store, identity, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := relay.snapshot()
+	if first.GetStatus() != "ready" || first.GetAdvertiseAddress() != "10.0.0.8" {
+		t.Fatalf("configured member interface not used: %v", first)
+	}
+	relay.Close()
+	t.Setenv("ARGUS_BASTION_RELAY_ADVERTISE_ADDRESS", "10.0.0.9")
+	restarted, err := startBastionRelay(ctx, store, identity, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restarted.Close()
+	second := restarted.snapshot()
+	if second.GetStatus() != "ready" || second.GetAdvertiseAddress() != first.GetAdvertiseAddress() || second.GetGeneration() != first.GetGeneration() || relayPort(second, "https") != relayPort(first, "https") || relayPort(second, "gateway") != relayPort(first, "gateway") {
+		t.Fatalf("restart changed frozen member route: first=%v second=%v", first, second)
+	}
+}
+
+func TestInvalidConfiguredBastionRelayAddressFailsClosed(t *testing.T) {
+	t.Setenv("ARGUS_BASTION_RELAY_ADVERTISE_ADDRESS", "https://10.0.0.8")
+	store := localStore{directory: t.TempDir()}
+	identity := identityState{Role: "bastion", EnrollmentEndpoint: "https://argus.example.test", GatewayEndpoint: "grpcs://connector.argus.example.test:9443"}
+	relay, err := startBastionRelay(context.Background(), store, identity, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err == nil || relay != nil {
+		t.Fatalf("invalid explicit address fell back to discovery: %v", err)
+	}
+	if _, exists, err := store.loadRelayPortState(); err != nil || exists {
+		t.Fatalf("invalid address left a persistent route: exists=%v err=%v", exists, err)
+	}
+}
+
 func TestReadTLSClientHelloExtractsPinnedSNIAndALPN(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()

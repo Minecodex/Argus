@@ -1,21 +1,13 @@
-import { useMemo, useState } from "react";
+import { HostOverview } from "../components/hosts/host-overview";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useSearch } from "@tanstack/react-router";
-import { Cpu, HardDrive, MemoryStick, Timer } from "lucide-react";
-import { useApi, type Host } from "@argus/api-client";
+import { useApi } from "@argus/api-client";
 import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
   EmptyState,
-  KeyValueGrid,
-  MetricChart,
   PageShell,
   Spinner,
-  StatCard,
   StatusBadge,
   Tabs,
   TabsContent,
@@ -24,12 +16,6 @@ import {
 } from "@argus/ui";
 import "../styles/hosts.css";
 import { ComponentsTab } from "../components/hosts/components-tab";
-import { HostRemovalDialog } from "../components/hosts/host-removal-dialog";
-import {
-  removalTargetForBastion,
-  removalTargetForHost,
-  type RemovalTarget,
-} from "../components/hosts/host-removal-target";
 import { TasksTab } from "../components/hosts/tasks-tab";
 import { RealTerminalTab } from "../components/hosts/real-terminal-tab";
 import { ResourceTelemetry } from "../components/telemetry/resource-telemetry";
@@ -39,198 +25,11 @@ import { usePermission } from "../lib/permissions";
 import {
   collectorTone,
   collectorStatusOf,
-  connectionPathKey,
-  environmentTone,
-  formatDateTime,
-  formatUptime,
-  hostStatusTone,
-  scopeOf,
-  seededNumber,
-  seededSeries,
-  telemetryRouteOf,
+  hostConnectionPresentation,
 } from "../components/hosts/host-utils";
 
 const realMode = import.meta.env.VITE_API_MODE === "real";
 
-/** 概览 Tab：StatCard 行 + KeyValueGrid + 24h 指标面积图（演示数据按主机 ID 确定性生成）。 */
-function OverviewTab({ host }: { host: Host }) {
-  const { t } = useTranslation();
-  const api = useApi();
-
-  const scopesQuery = useQuery({
-    queryKey: ["bastion-scopes"],
-    queryFn: () => api.connectors.listBastionScopes(),
-  });
-  const scopes = useMemo(
-    () => scopesQuery.data?.items ?? [],
-    [scopesQuery.data],
-  );
-  const scope = scopeOf(host, scopes);
-  const accountsQuery = useQuery({
-    queryKey: ["managed-accounts"],
-    queryFn: () => api.secrets.listManagedAccounts(),
-  });
-  const managedAccounts = (accountsQuery.data ?? []).filter(
-    (account) => account.host_id === host.id && account.status === "active",
-  );
-
-  const metrics = useMemo(() => {
-    const labels: string[] = [];
-    const now = new Date();
-    for (let index = 23; index >= 0; index -= 1) {
-      const point = new Date(now.getTime() - index * 3_600_000);
-      labels.push(`${String(point.getHours()).padStart(2, "0")}:00`);
-    }
-    return {
-      labels,
-      cpu: seededSeries(`${host.id}:cpu`, 24, 34, 18),
-      memory: seededSeries(`${host.id}:mem`, 24, 52, 10),
-    };
-  }, [host.id]);
-
-  const path = t(`hosts.path.${connectionPathKey(host)}`, {
-    scope: scope?.name ?? host.bastion_scope_id ?? "",
-    address: `${host.address}:${host.port}`,
-  });
-
-  return (
-    <div className="argus-hosts-stack">
-      {!realMode && (
-        <div className="argus-stat-row">
-          <StatCard
-            detail={t("hosts.overview.metrics24h")}
-            icon={<Cpu aria-hidden size={16} />}
-            label={t("hosts.overview.cpu")}
-            tone="accent"
-            value={`${Math.round(seededNumber(`${host.id}:cpu:now`, 18, 82))}%`}
-          />
-          <StatCard
-            icon={<MemoryStick aria-hidden size={16} />}
-            label={t("hosts.overview.memory")}
-            tone="info"
-            value={`${Math.round(seededNumber(`${host.id}:mem:now`, 30, 88))}%`}
-          />
-          <StatCard
-            icon={<HardDrive aria-hidden size={16} />}
-            label={t("hosts.overview.disk")}
-            tone="warning"
-            value={`${Math.round(seededNumber(`${host.id}:disk:now`, 35, 92))}%`}
-          />
-          <StatCard
-            icon={<Timer aria-hidden size={16} />}
-            label={t("hosts.overview.uptime")}
-            value={formatUptime(host.created_at)}
-          />
-        </div>
-      )}
-
-      {!realMode && (
-        <Card>
-          <CardHeader title={t("hosts.overview.basicInfo")} />
-          <CardContent>
-            <KeyValueGrid
-              columns={3}
-              items={[
-                {
-                  label: t("hosts.overview.kv.hostname"),
-                  value: <span className="argus-mono">{host.hostname}</span>,
-                },
-                {
-                  label: t("hosts.overview.kv.address"),
-                  value: (
-                    <span className="argus-mono">
-                      {host.address}:{host.port}
-                    </span>
-                  ),
-                },
-                {
-                  label: t("hosts.overview.kv.platform"),
-                  value: host.platform === "linux" ? "Linux" : "Windows",
-                },
-                {
-                  label: t("hosts.overview.kv.environment"),
-                  value: (
-                    <Badge tone={environmentTone(host.environment)}>
-                      {t(`hosts.env.${host.environment}`)}
-                    </Badge>
-                  ),
-                },
-                {
-                  label: t("hosts.overview.kv.connectionMode"),
-                  value: t(`hosts.controlPath.${host.control_path}`),
-                },
-                { label: t("hosts.overview.kv.connectionPath"), value: path },
-                {
-                  label: t("hosts.overview.kv.credential"),
-                  value:
-                    managedAccounts.length > 0 ? (
-                      <span className="argus-mono">
-                        {managedAccounts
-                          .map((account) => account.username)
-                          .join(", ")}
-                      </span>
-                    ) : (
-                      "—"
-                    ),
-                },
-                {
-                  label: t("hosts.overview.kv.telemetryRoute"),
-                  value: telemetryRouteOf(host) ? (
-                    <span className="argus-mono">{telemetryRouteOf(host)}</span>
-                  ) : (
-                    "—"
-                  ),
-                },
-                {
-                  label: t("hosts.overview.kv.lastSeen"),
-                  value: formatDateTime(host.last_seen_at ?? host.updated_at),
-                },
-                {
-                  label: t("hosts.overview.kv.createdAt"),
-                  value: formatDateTime(host.created_at),
-                },
-                {
-                  label: t("hosts.overview.kv.labels"),
-                  value:
-                    Object.keys(host.labels).length > 0 ? (
-                      <span className="argus-host-tile__tags">
-                        {Object.entries(host.labels).map(([key, value]) => (
-                          <Badge key={key} tone="neutral">
-                            {key}={value}
-                          </Badge>
-                        ))}
-                      </span>
-                    ) : (
-                      "—"
-                    ),
-                },
-              ]}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {!realMode && (
-        <Card>
-          <CardHeader title={t("hosts.overview.metrics24h")} />
-          <CardContent>
-            <MetricChart
-              formatValue={(value) => `${Math.round(value)}%`}
-              height={240}
-              labels={metrics.labels}
-              series={[
-                { name: "CPU", points: metrics.cpu },
-                { name: t("hosts.overview.memory"), points: metrics.memory },
-              ]}
-              showLegend
-              type="area"
-            />
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
 /** 主机详情页：概览 | 终端与会话 | 已安装组件 | 任务与审计。 */
 export function HostDetailPage() {
   const { t } = useTranslation();
@@ -239,13 +38,13 @@ export function HostDetailPage() {
   const { hostId } = useParams({ strict: false });
   const search = useSearch({ from: "/authed/admin/hosts/$hostId" });
   const canReadDashboards = usePermission("telemetry.dashboard.read");
-  const [removalOpen, setRemovalOpen] = useState(false);
 
   const hostQuery = useQuery({
     queryKey: ["hosts", "detail", hostId],
     queryFn: () => api.hosts.get(hostId ?? ""),
     enabled: Boolean(hostId),
     retry: false,
+    refetchInterval: 30_000,
   });
   const scopesQuery = useQuery({
     queryKey: ["bastion-scopes"],
@@ -257,15 +56,6 @@ export function HostDetailPage() {
     () => scopesQuery.data?.items ?? [],
     [scopesQuery.data],
   );
-  const removalTarget = useMemo<RemovalTarget | null>(() => {
-    if (!host) return null;
-    if (host.role === "bastion") {
-      const scope = scopes.find((entry) => entry.id === host.bastion_scope_id);
-      if (!scope) return null;
-      return removalTargetForBastion(scope, host);
-    }
-    return removalTargetForHost(host);
-  }, [host, scopes]);
   const initialTab =
     typeof window !== "undefined" && window.location.hash === "#otlp-collector"
       ? "components"
@@ -282,6 +72,7 @@ export function HostDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ["bastion-scopes"] });
     void queryClient.invalidateQueries({ queryKey: ["connectors"] });
     void queryClient.invalidateQueries({ queryKey: ["host-collector"] });
+    void queryClient.invalidateQueries({ queryKey: ["telemetry"] });
     void queryClient.invalidateQueries({
       queryKey: ["remote-access", "sessions"],
     });
@@ -291,13 +82,6 @@ export function HostDetailPage() {
 
   return (
     <PageShell
-      actions={
-        removalTarget && removalTarget.status !== "uninstalled" ? (
-          <Button onPress={() => setRemovalOpen(true)} variant="danger">
-            {t("hosts.removal.action")}
-          </Button>
-        ) : undefined
-      }
       className="argus-host-detail-page"
       breadcrumbs={[
         { label: t("hosts.detail.backToList"), href: "/hosts" },
@@ -308,10 +92,10 @@ export function HostDetailPage() {
           <>
             {host.name}{" "}
             <StatusBadge
-              pulse={host.connection_status === "online"}
-              tone={hostStatusTone(host.connection_status)}
+              pulse={hostConnectionPresentation(host).pulse}
+              tone={hostConnectionPresentation(host).tone}
             >
-              {t(`hosts.status.${host.connection_status}`)}
+              {t(hostConnectionPresentation(host).key)}
             </StatusBadge>{" "}
             {!realMode && (
               <StatusBadge tone={collectorTone(collectorStatusOf(host))}>
@@ -362,7 +146,7 @@ export function HostDetailPage() {
               )}
             </TabsList>
             <TabsContent value="overview">
-              <OverviewTab host={host} />
+              <HostOverview host={host} />
             </TabsContent>
             {canReadDashboards && (
               <TabsContent value="dashboards">
@@ -405,11 +189,6 @@ export function HostDetailPage() {
           </Tabs>
         </>
       )}
-      <HostRemovalDialog
-        onChanged={invalidateAll}
-        onOpenChange={setRemovalOpen}
-        target={removalOpen ? removalTarget : null}
-      />
     </PageShell>
   );
 }

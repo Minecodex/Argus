@@ -1,6 +1,6 @@
-import { useTranslation } from "react-i18next";
-import type { RemoteAccessRecording } from "@argus/api-client";
-import { DataTable, EmptyState, RowAction, StatusBadge } from "@argus/ui";
+import {useTranslation} from "react-i18next";
+import type {RemoteAccessRecording} from "@argus/api-client";
+import {ActionMenu,DataTable,EmptyState,StatusBadge} from "@argus/ui";
 
 export function Recordings({
   recordings,
@@ -49,11 +49,7 @@ export function Recordings({
         {
           key: "actions",
           header: t("remoteSessions.columns.actions"),
-          render: (row) => (
-            <RowAction onPress={() => onSelect(row)}>
-              {t("remoteSessions.viewRecording")}
-            </RowAction>
-          ),
+          render: (row) => (<ActionMenu items={[{label: t("remoteSessions.viewRecording"),onSelect: () => onSelect(row)}]} />),
         },
       ]}
       data={recordings}

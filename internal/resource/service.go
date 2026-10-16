@@ -459,7 +459,7 @@ func (service Service) PreviewUpdateHost(ctx context.Context, subject Subject, e
 	plan := hostActionPlan{Operation: "update", HostID: hostID, Input: input, PinnedKey: current.PinnedHostKey, Arch: hostArchitecture(current.Architecture)}
 	return service.prepareAction(ctx, subject, enterpriseID, PrepareActionInput{ActionType: "host.update", Title: "Update host", Summary: "Apply validated host changes",
 		Risk: "write", ResourceType: "host", ResourceID: uuid.NullUUID{UUID: hostID, Valid: true}, ExpectedResourceVersion: pgtype.Int8{Int64: input.ExpectedVersion, Valid: true},
-		AuthorizationVersion: subject.AuthorizationVersion, Preview: map[string]any{"host_id": hostID, "name": current.Name},
+		AuthorizationVersion: subject.AuthorizationVersion, Preview: map[string]any{"host_id": hostID, "name": current.Name, "changes": hostUpdateChanges(current.Name, current.Hostname, current.Environment, current.Address.String, current.Port, current.Labels, input)},
 		Diff: []map[string]string{{"kind": "change", "text": "Update host " + current.Name}}, ImmutablePlan: plan, ResourceScopeSnapshot: snapshot, CommitHandler: "argus.host.update.commit"}, idempotencyKey)
 }
 
@@ -504,7 +504,7 @@ func (service Service) ExecutePendingAction(ctx context.Context, q *db.Queries, 
 }
 
 func (service Service) revalidateAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) ([]byte, error) {
-	if (strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate") && service.Extension != nil {
+	if (strings.HasPrefix(action.ActionType, "alert.") || strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.control_tunnel.reconnect") && service.Extension != nil {
 		return service.Extension.RevalidateAction(ctx, q, action, raw)
 	}
 	switch action.ResourceType {
@@ -574,7 +574,7 @@ func hostConnectionEvidenceMatches(plan hostActionPlan, result ConnectionTestRes
 }
 
 func (service Service) commitAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) (ActionCommitResult, error) {
-	if (strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate") && service.Extension != nil {
+	if (strings.HasPrefix(action.ActionType, "alert.") || strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.control_tunnel.reconnect") && service.Extension != nil {
 		return service.Extension.CommitAction(ctx, q, action, raw)
 	}
 	if action.ResourceType == "host" {

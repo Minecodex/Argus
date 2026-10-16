@@ -135,7 +135,8 @@ components:
       required: [tool_call_id, runtime, template_hash, template_source, detail_data, status]
       properties:
         tool_call_id: {type: string, format: uuid}
-        runtime: {type: string, enum: [argus-template/v1]}
+        runtime: {type: string, enum: [argus-template/v1, argus-template/v2]}
+        read_operations: {type: array, items: {type: string}}
         template_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
         template_source: {type: string, maxLength: 262144}
         detail_data: {type: object, additionalProperties: true}
@@ -146,7 +147,30 @@ components:
             additionalProperties: false
             required: [type, id]
             properties:
-              type: {type: string, enum: [host, kubernetes_cluster, connector]}
+              type: {type: string, enum: [host, kubernetes_cluster, connector, dashboard]}
               id: {type: string, format: uuid}
         result_refs: {type: array, items: {type: string}}
         status: {type: string, enum: [ready, failed]}
+    PresentationReadInput:
+      type: object
+      additionalProperties: false
+      required: [operation, parameters]
+      properties:
+        operation: {type: string, enum: [resources.context, metric.context, alert.details, dashboard.result, result.page, runtime.status, result.detail]}
+        parameters:
+          type: object
+          additionalProperties: true
+          description: result.page reads sealed data only. Search, exact scalar filters and ordering apply before pagination to the entire bound collection; the cursor binds these conditions and the original presentation/attempt/authorization version. Nested sample slices do not accept filtering. Other operations retain their own parameter allowlists.
+          properties:
+            search: {type: string, maxLength: 256}
+            filters: {type: object, additionalProperties: {type: string, maxLength: 256}, description: "Allowed fields: status, connection_status, severity, level, environment, namespace, resource_type, service_name, signal, type."}
+            sort: {type: string, enum: ['', name, title, hostname, id, status, severity, namespace, environment, updated_at, created_at, started_at, timestamp]}
+            direction: {type: string, enum: [asc, desc]}
+    PresentationReadResult:
+      type: object
+      additionalProperties: false
+      required: [status, data]
+      properties:
+        status: {type: string, enum: [ready, pending]}
+        data: {type: object, additionalProperties: true}
+        next_cursor: {type: string}

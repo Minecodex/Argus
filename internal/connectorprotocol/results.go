@@ -13,6 +13,8 @@ import (
 // factory was registered on only one side of the stream.
 func Result(command string) (proto.Message, error) {
 	switch command {
+	case "host_inventory_probe":
+		return &connectorv1.HostRuntimeObservation{}, nil
 	case "host_connection_probe":
 		return &connectorv1.HostConnectionProbeResult{}, nil
 	case "kubernetes_connection_probe":

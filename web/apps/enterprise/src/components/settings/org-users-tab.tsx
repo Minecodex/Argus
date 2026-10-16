@@ -1,40 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { QueryBoundary } from "@argus/ui";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
-import { z } from "zod";
-import {
-  presentApiFormError,
-  useApi,
-  type Role,
-  type RoleBinding,
-  type User,
-} from "@argus/api-client";
-import type { EnterpriseUser } from "@argus/api-client/contracts";
-import {
-  ActionGroup,
-  Alert,
-  Badge,
-  Button,
-  CheckItem,
-  CodeBlock,
-  ConfirmDialog,
-  DataTable,
-  EmptyState,
-  Field,
-  FormDrawer,
-  Input,
-  RowAction,
-  Select,
-  Spinner,
-  StatusBadge,
-} from "@argus/ui";
-import { roleDisplayName } from "../../lib/role-presentation";
-import { usePermission } from "../../lib/permissions";
-import { formatDateTime } from "./shared";
-import { DataAuthorizationDialog } from "./data-authorization-dialog";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
+import {ActionMenu,QueryBoundary} from "@argus/ui";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {useEffect,useMemo,useState} from "react";
+import {Controller,useForm} from "react-hook-form";
+import {useTranslation} from "react-i18next";
+import {z} from "zod";
+import {presentApiFormError,useApi,type Role,type RoleBinding,type User} from "@argus/api-client";
+import type {EnterpriseUser} from "@argus/api-client/contracts";
+import {Alert,Badge,Button,CheckItem,CodeBlock,ConfirmDialog,DataTable,EmptyState,Field,FormDrawer,Input,Select,Spinner,StatusBadge} from "@argus/ui";
+import {roleDisplayName} from "../../lib/role-presentation";
+import {usePermission} from "../../lib/permissions";
+import {formatDateTime} from "./shared";
+import {DataAuthorizationDialog} from "./data-authorization-dialog";
 
 export type UserRow = {
   id: string;
@@ -307,21 +284,9 @@ export function OrgUsersTab() {
               {
                 key: "actions",
                 header: t("settings.common.actions"),
-                render: (row) => (
-                  <ActionGroup>
-                    <RowAction onPress={() => setEditing(row)}>
-                      {t("settings.common.edit")}
-                    </RowAction>
-                    <RowAction onPress={() => setAuthorizationTarget(row)}>
-                      {t("settings.org.dataAuthorization.action")}
-                    </RowAction>
-                    <RowAction onPress={() => setStatusTarget(row)}>
-                      {row.status === "disabled"
+                render: (row) => (<ActionMenu items={[{label: t("settings.common.edit"),onSelect: () => setEditing(row)},{label: t("settings.org.dataAuthorization.action"),onSelect: () => setAuthorizationTarget(row)},{label: row.status === "disabled"
                         ? t("settings.org.users.enable")
-                        : t("settings.org.users.disable")}
-                    </RowAction>
-                  </ActionGroup>
-                ),
+                        : t("settings.org.users.disable"),onSelect: () => setStatusTarget(row)}]} />),
               },
             ]}
             data={users.data ?? []}

@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -36,6 +38,42 @@ func TestToolResultProjectionBoundsListsAndTracksPartialState(t *testing.T) {
 	summary := projection["summary"].(map[string]any)
 	if len(summary["items"].([]any)) != maxProjectedItems {
 		t.Fatalf("projected items = %d", len(summary["items"].([]any)))
+	}
+}
+
+func TestCompleteDiscoveryMetadataSurvivesModelProjection(t *testing.T) {
+	items := make([]map[string]any, 0, 300)
+	for i := range 300 {
+		items = append(items, map[string]any{"name": fmt.Sprintf("inspect_%04d", i), "summary": strings.Repeat("用途", 120)})
+	}
+	data := map[string]any{"category": "host", "items": items, "complete": true, "api_key": "private"}
+	full, _ := json.Marshal(data)
+	encoded, partial, err := encodeToolResultProjection("catalog", "call", full, toolruntime.Result{Data: data, DataIsDiscovery: true})
+	if err != nil || partial || len(encoded) <= maxProjectionBytes || strings.Contains(string(encoded), "private") {
+		t.Fatal("complete discovery metadata was clipped or bypassed sanitization", err)
+	}
+	var projection map[string]any
+	if err = json.Unmarshal(encoded, &projection); err != nil {
+		t.Fatal(err)
+	}
+	summary := projection["summary"].(map[string]any)
+	if len(summary["items"].([]any)) != 300 || summary["complete"] != true {
+		t.Fatal("model did not receive the full category list")
+	}
+}
+
+func TestDomainModelViewRetainsCompleteArtifactHashAndSanitization(t *testing.T) {
+	data := map[string]any{"complete": strings.Repeat("history", 10000)}
+	full, _ := json.Marshal(data)
+	view := map[string]any{"resource_ids": []any{"host"}, "value": 12.5, "api_key": "private"}
+	encoded, _, err := encodeToolResultProjection("result_full", "call", full, toolruntime.Result{Data: data, ModelSummary: view})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	_ = json.Unmarshal(encoded, &got)
+	if got["result_hash"] != fmt.Sprintf("%x", sha256.Sum256(full)) || got["original_bytes"] != float64(len(full)) || got["result_ref"] != "result_full" || strings.Contains(string(encoded), "private") || got["summary"].(map[string]any)["value"] != float64(12.5) {
+		t.Fatal("domain view lost artifact integrity or leaked sensitive fields")
 	}
 }
 

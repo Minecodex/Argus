@@ -72,6 +72,9 @@ type LeaseRequest struct {
 	RecipientID        string
 	Protocol           string
 	TTL                time.Duration
+	RuntimeTaskID      uuid.UUID
+	LeaseOwner         string
+	FenceToken         int64
 }
 
 type IssuedLease struct {
@@ -383,14 +386,23 @@ func (service Service) IssueLease(ctx context.Context, actorID string, enterpris
 		}
 		version, err := q.GetSecretVersionByID(ctx, db.GetSecretVersionByIDParams{ID: lease.SecretVersionID, EnterpriseID: enterpriseID})
 		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("credential lease secret version: %w", err)
+			}
 			return ErrCredentialUnavailable
 		}
 		credential, err := q.GetCredential(ctx, db.GetCredentialParams{ID: lease.CredentialID, EnterpriseID: enterpriseID})
 		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("credential lease credential: %w", err)
+			}
 			return ErrCredentialUnavailable
 		}
 		secretRecord, err := q.GetSecret(ctx, db.GetSecretParams{ID: credential.SecretID, EnterpriseID: enterpriseID})
-		if err != nil || secretRecord.Status != "active" {
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("credential lease secret: %w", err)
+		}
+		if errors.Is(err, pgx.ErrNoRows) || secretRecord.Status != "active" {
 			return ErrCredentialUnavailable
 		}
 		value, err := service.Keyring.DecryptContext(ctx, Envelope{Provider: version.Provider, KeyID: version.KeyID, KeyVersion: int(version.KeyVersion), WrappedDEK: version.WrappedDek,
@@ -434,19 +446,28 @@ func (service Service) RenewLease(
 // Callers use it when the recipient will redeem the lease over an authenticated channel.
 func (service Service) PrepareLeaseWithQueries(ctx context.Context, q *db.Queries, actorID string, enterpriseID uuid.UUID, request LeaseRequest) (db.CredentialLease, error) {
 	if request.TTL <= 0 || request.TTL > MaxLeaseTTL || request.OperationRef == "" || request.TargetResourceID == uuid.Nil ||
-		(request.RecipientType != "connector" && request.RecipientType != "direct_executor" && request.RecipientType != "connector_gateway" && request.RecipientType != "mcp_adapter") || request.RecipientID == "" {
+		(request.RecipientType != "connector" && request.RecipientType != "direct_executor" && request.RecipientType != "connector_gateway" && request.RecipientType != "mcp_adapter" && request.RecipientType != "notification_worker") || request.RecipientID == "" {
 		return db.CredentialLease{}, ErrInvalidLease
 	}
 	credential, err := q.GetCredential(ctx, db.GetCredentialParams{ID: request.CredentialID, EnterpriseID: enterpriseID})
-	if err != nil || credential.Status != "active" || credential.Protocol != request.Protocol {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return db.CredentialLease{}, fmt.Errorf("credential lease credential: %w", err)
+	}
+	if errors.Is(err, pgx.ErrNoRows) || credential.Status != "active" || credential.Protocol != request.Protocol {
 		return db.CredentialLease{}, ErrCredentialUnavailable
 	}
 	version, err := q.GetCurrentSecretVersion(ctx, db.GetCurrentSecretVersionParams{SecretID: credential.SecretID, EnterpriseID: enterpriseID})
 	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return db.CredentialLease{}, fmt.Errorf("credential lease current version: %w", err)
+		}
 		return db.CredentialLease{}, ErrCredentialUnavailable
 	}
 	secretRecord, err := q.GetSecret(ctx, db.GetSecretParams{ID: credential.SecretID, EnterpriseID: enterpriseID})
-	if err != nil || secretRecord.Status != "active" {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return db.CredentialLease{}, fmt.Errorf("credential lease secret: %w", err)
+	}
+	if errors.Is(err, pgx.ErrNoRows) || secretRecord.Status != "active" {
 		return db.CredentialLease{}, ErrCredentialUnavailable
 	}
 	if request.RecipientType == "mcp_adapter" {
@@ -456,7 +477,11 @@ func (service Service) PrepareLeaseWithQueries(ctx context.Context, q *db.Querie
 		if err := validateMCPLease(ctx, q, enterpriseID, actorID, request, credential); err != nil {
 			return db.CredentialLease{}, err
 		}
-	} else if secretRecord.OwnerType == "mcp_connection" {
+	} else if request.RecipientType == "notification_worker" {
+		if err := validateNotificationLease(ctx, q, enterpriseID, request, credential); err != nil {
+			return db.CredentialLease{}, err
+		}
+	} else if secretRecord.OwnerType == "mcp_connection" || credential.Protocol == "notification" {
 		return db.CredentialLease{}, ErrInvalidLease
 	}
 	lease, err := q.CreateCredentialLease(ctx, db.CreateCredentialLeaseParams{ID: newUUID(), EnterpriseID: enterpriseID, CredentialID: credential.ID,
@@ -498,10 +523,11 @@ func secretAAD(enterpriseID, secretID uuid.UUID, version int32, secretType strin
 
 func protocolSupportsSecret(protocol, secretType string) bool {
 	supported := map[string]map[string]bool{
-		"ssh":        {"ssh_password": true, "ssh_private_key": true},
-		"windows":    {"windows_password": true},
-		"kubernetes": {"kubeconfig": true},
-		"http":       {"api_token": true, "basic_auth": true},
+		"ssh":          {"ssh_password": true, "ssh_private_key": true},
+		"windows":      {"windows_password": true},
+		"kubernetes":   {"kubeconfig": true},
+		"http":         {"api_token": true, "basic_auth": true},
+		"notification": {"notification": true},
 	}
 	return supported[protocol][secretType]
 }

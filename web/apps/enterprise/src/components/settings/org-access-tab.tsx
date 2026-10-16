@@ -1,37 +1,14 @@
-import { QueryBoundary } from "@argus/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
-import { z } from "zod";
-import {
-  presentApiFormError,
-  useApi,
-  type CreatedApiKey,
-  type CreateServiceAccountInput,
-  type ServiceAccount,
-} from "@argus/api-client";
-import {
-  ActionGroup,
-  Alert,
-  Badge,
-  Button,
-  CodeBlock,
-  ConfirmDialog,
-  DataTable,
-  DateTimePicker,
-  EmptyState,
-  Field,
-  FormDrawer,
-  Input,
-  RowAction,
-  Spinner,
-  StatusBadge,
-  Textarea,
-} from "@argus/ui";
-import { formatDateTime } from "./shared";
-import { DataAuthorizationDialog } from "./data-authorization-dialog";
+import {ActionMenu,QueryBoundary} from "@argus/ui";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {useEffect,useMemo,useState} from "react";
+import {Controller,useForm} from "react-hook-form";
+import {useTranslation} from "react-i18next";
+import {z} from "zod";
+import {presentApiFormError,useApi,type CreatedApiKey,type CreateServiceAccountInput,type ServiceAccount} from "@argus/api-client";
+import {Alert,Badge,Button,CodeBlock,ConfirmDialog,DataTable,DateTimePicker,EmptyState,Field,FormDrawer,Input,Spinner,StatusBadge,Textarea} from "@argus/ui";
+import {formatDateTime} from "./shared";
+import {DataAuthorizationDialog} from "./data-authorization-dialog";
 
 type ServiceAccountRow = {
   id: string;
@@ -184,56 +161,31 @@ export function OrgAccessTab() {
               {
                 key: "actions",
                 header: t("settings.common.actions"),
-                render: (row) => (
-                  <ActionGroup>
-                    <RowAction
-                      onPress={() =>
+                render: (row) => (<ActionMenu items={[{label: t("settings.org.dataAuthorization.action"),onSelect: () =>
                         setAuthorizationTarget(
                           serviceAccounts.data?.find(
                             (account) => account.id === row.id,
                           ) ?? null,
-                        )
-                      }
-                    >
-                      {t("settings.org.dataAuthorization.action")}
-                    </RowAction>
-                    <RowAction
-                      onPress={() => {
+                        )},{label: t("settings.common.edit"),onSelect: () => {
                         setEditing(
                           serviceAccounts.data?.find(
                             (account) => account.id === row.id,
                           ) ?? null,
                         );
                         setDrawerOpen(true);
-                      }}
-                    >
-                      {t("settings.common.edit")}
-                    </RowAction>
-                    <RowAction
-                      onPress={() =>
+                      }},{label: t("settings.org.accessTab.apiKeys"),onSelect: () =>
                         setKeysFor(
                           serviceAccounts.data?.find(
                             (account) => account.id === row.id,
                           ) ?? null,
-                        )
-                      }
-                    >
-                      {t("settings.org.accessTab.apiKeys")}
-                    </RowAction>
-                    <RowAction
-                      onPress={() => {
+                        )},{label: row.status === "active"
+                        ? t("settings.org.accessTab.disableSa")
+                        : t("settings.org.accessTab.enableSa"),onSelect: () => {
                         const account = serviceAccounts.data?.find(
                           (entry) => entry.id === row.id,
                         );
                         if (account) toggleStatus.mutate(account);
-                      }}
-                    >
-                      {row.status === "active"
-                        ? t("settings.org.accessTab.disableSa")
-                        : t("settings.org.accessTab.enableSa")}
-                    </RowAction>
-                  </ActionGroup>
-                ),
+                      }}]} />),
               },
             ]}
             data={rows}

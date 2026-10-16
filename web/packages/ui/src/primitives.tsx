@@ -5,6 +5,7 @@ import { Dropdown as HeroDropdown } from "@heroui/react/dropdown";
 import { FieldBoundary } from "./form";
 import { Modal } from "@heroui/react/modal";
 import { Label } from "@heroui/react/label";
+import { Description } from "@heroui/react/description";
 import { Separator } from "@heroui/react/separator";
 import { Check, ChevronRight, X } from "lucide-react";
 import {
@@ -45,17 +46,23 @@ export function Tabs({
   defaultValue,
   onValueChange,
   className,
+  density = "default",
 }: {
   children: ReactNode;
   value?: string;
   defaultValue?: string;
   onValueChange?: (value: string) => void;
   className?: string;
+  density?: "default" | "compact" | "segmented";
 }) {
   return (
     <HeroTabs
       variant="secondary"
-      className={className}
+      className={cx(
+        className,
+        density === "compact" && "argus-tabs-root--compact",
+        density === "segmented" && "argus-tabs-root--segmented",
+      )}
       selectedKey={value}
       defaultSelectedKey={defaultValue}
       onSelectionChange={(key) => onValueChange?.(String(key))}
@@ -73,7 +80,7 @@ export function TabsList({
 }) {
   const text = useUiText();
   return (
-    <HeroTabs.ListContainer>
+    <HeroTabs.ListContainer className="argus-tabs__list-container">
       <HeroTabs.List
         aria-label={text("页面分区", "Page sections")}
         className={cx("argus-tabs", className)}
@@ -93,7 +100,7 @@ export function TabsTrigger({
   return (
     <HeroTabs.Tab id={value} className="argus-tabs__trigger">
       {children}
-      <HeroTabs.Indicator />
+      <HeroTabs.Indicator className="argus-tabs__indicator" />
     </HeroTabs.Tab>
   );
 }
@@ -101,13 +108,24 @@ export function TabsContent({
   value,
   children,
   className,
+  keepMounted = false,
 }: {
   value: string;
   children: ReactNode;
   className?: string;
+  keepMounted?: boolean;
 }) {
   return (
-    <HeroTabs.Panel id={value} className={cx("argus-tabs__content", className)}>
+    <HeroTabs.Panel
+      id={value}
+      shouldForceMount={keepMounted}
+      style={
+        keepMounted
+          ? ({ isInert }) => ({ display: isInert ? "none" : undefined })
+          : undefined
+      }
+      className={cx("argus-tabs__content", className)}
+    >
       {children}
     </HeroTabs.Panel>
   );
@@ -159,6 +177,7 @@ export function Dialog({
   width,
   className,
   dismissable = true,
+  density = "default",
 }: {
   trigger?: ReactNode;
   title: string;
@@ -167,10 +186,11 @@ export function Dialog({
   footer?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "cover";
   width?: number;
   className?: string;
   dismissable?: boolean;
+  density?: "default" | "compact";
 }) {
   const text = useUiText();
   const body = (
@@ -191,6 +211,8 @@ export function Dialog({
           className={cx(
             "argus-dialog",
             size === "lg" && "argus-dialog--lg",
+            size === "cover" && "argus-dialog--cover",
+            density === "compact" && "argus-dialog--compact",
             className,
           )}
         >
@@ -207,11 +229,14 @@ export function Dialog({
               slot="close"
               className="argus-overlay-close"
               isDisabled={!dismissable}
-              isIconOnly
+              isIconOnly={density !== "compact"}
+              density={density}
+              size={density === "compact" ? "sm" : "md"}
               variant="ghost"
               aria-label={text("关闭", "Close")}
             >
               <X aria-hidden />
+              {density === "compact" && text("关闭", "Close")}
             </Button>
           </Modal.Header>
           <Modal.Body className="argus-dialog__body">
@@ -240,6 +265,8 @@ export type DropdownItem =
       label: string;
       shortcut?: string;
       danger?: boolean;
+      disabled?: boolean;
+      description?: string;
       onSelect?: () => void;
     }
   | "separator";
@@ -259,7 +286,8 @@ export function Dropdown({
           aria-label={text("操作", "Actions")}
           onAction={(key) => {
             const item = items[Number(key)];
-            if (item && item !== "separator") item.onSelect?.();
+            if (item && item !== "separator" && !item.disabled)
+              item.onSelect?.();
           }}
         >
           {items.map((item, index) =>
@@ -270,13 +298,19 @@ export function Dropdown({
                 id={String(index)}
                 key={index}
                 textValue={item.label}
+                isDisabled={item.disabled}
                 className={cx(
                   "argus-dropdown__item",
                   item.danger && "is-danger",
                 )}
                 variant={item.danger ? "danger" : undefined}
               >
-                <Label>{item.label}</Label>
+                <div className="argus-dropdown__content">
+                  <Label>{item.label}</Label>
+                  {item.description && (
+                    <Description>{item.description}</Description>
+                  )}
+                </div>
                 {item.shortcut && <kbd>{item.shortcut}</kbd>}
               </HeroDropdown.Item>
             ),

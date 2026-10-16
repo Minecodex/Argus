@@ -51,6 +51,9 @@ func selectM7CollectorPod(pods []corev1.Pod, id string, read func(string) (strin
 }
 
 func (a *App) execM7Host(ctx context.Context, env *E2EEnvironment, container string, command ...string) (string, error) {
+	if env.State.Values["p6_backend_build"] == "production" && len(command) > 0 && command[0] == "/usr/local/bin/argus-telemetry-e2e" {
+		container = "argus-e2e-systemd-host"
+	}
 	pod, err := a.m7HostCollectorPod(ctx, env)
 	if err != nil {
 		return "", err

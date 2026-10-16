@@ -1,3 +1,5 @@
+import { openActionMenu, selectRowAction } from "./helpers/action-menu";
+import { setChoice } from "./helpers/choice";
 import { platformOrigin } from "./origins";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -400,7 +402,9 @@ test("add host wizard walks three steps to the confirm card", async ({
   await expect(drawer.getByText("主机创建完成")).toBeVisible();
   await drawer.getByRole("button", { name: "完成", exact: true }).click();
   await expect(drawer).not.toBeVisible();
-  await expect(page.getByText("web-e2e-01")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "web-e2e-01", exact: true }),
+  ).toBeVisible();
 });
 
 test("add host wizard supports direct enrollment and SSH network scenarios", async ({
@@ -525,10 +529,11 @@ test("approvals inbox: desktop tabs preserve scope deep links", async ({
     page.getByRole("button", { name: /升级遥测收集器/ }),
   ).toBeVisible();
 
-  await page
-    .getByRole("radio", { name: "已处理" })
-    .locator('xpath=ancestor::*[@data-slot="radio-content"]')
-    .click();
+  await setChoice(
+    page
+      .getByRole("radio", { name: "已处理" })
+      .locator('xpath=ancestor::*[@data-slot="radio-content"]'),
+  );
   await expect(page).toHaveURL(/scope=done/);
   await expect(
     page.getByRole("button", { name: /新增主机 host-web-12/ }),
@@ -577,7 +582,7 @@ test("ai settings: test and create a model in one step", async ({ page }) => {
   const row = page.getByRole("row", { name: /e2e-推理模型/ });
   await expect(row).toBeVisible();
   await expect(row.getByText("健康")).toBeVisible();
-  await row.getByRole("button", { name: "编辑" }).click();
+  await selectRowAction(row, "编辑");
   const editDrawer = page.getByRole("dialog", { name: "编辑模型" });
   await expect(
     fieldFor(editDrawer.getByLabel("API Key")).locator(
@@ -595,10 +600,13 @@ test("host and bastion collector statuses expose contract-backed actions", async
   await page.goto("/hosts");
 
   // 种子里 cache-bj-01 已是「监控中」，主机安装路径由 kubernetes 用例覆盖；
-  // 这里验证主机行的收集器状态入口直达详情页「组件与采集」。
-  await page
-    .getByRole("button", { name: "查看 cache-bj-01 的 OTLP 收集器" })
-    .click();
+  // 主机行菜单直达详情页「组件与采集」，采集状态只展示真实状态。
+  await selectRowAction(
+    page.getByRole("row").filter({
+      has: page.getByRole("link", { name: "cache-bj-01", exact: true }),
+    }),
+    "组件与采集",
+  );
   await expect(page).toHaveURL(/\/hosts\/host-cache-bj-01#otlp-collector$/);
   await expect(page.getByRole("tab", { name: "组件与采集" })).toHaveAttribute(
     "aria-selected",
@@ -607,7 +615,7 @@ test("host and bastion collector statuses expose contract-backed actions", async
   await page.goto("/hosts");
 
   const shanghaiScope = page
-    .locator(".argus-scope-card")
+    .locator(".argus-scope-card, .argus-table tbody tr")
     .filter({ hasText: "上海机房堡垒机-01" })
     .first();
   const scopeHeader = shanghaiScope.locator(".argus-scope-card__head");
@@ -616,17 +624,22 @@ test("host and bastion collector statuses expose contract-backed actions", async
   ).toHaveAttribute("href", "/hosts/host-gw-sh-01");
   await expect(scopeHeader.getByText("堡垒机", { exact: true })).toBeVisible();
   await expect(scopeHeader.getByText("监控中", { exact: true })).toBeVisible();
-  await expect(scopeHeader.getByRole("button", { name: "编辑" })).toBeVisible();
-  await expect(scopeHeader.getByRole("button", { name: "删除" })).toHaveCount(
-    0,
-  );
+  const scopeMenu = await openActionMenu(scopeHeader);
+  await expect(scopeMenu.getByRole("menuitem", { name: "编辑" })).toBeVisible();
+  await expect(
+    scopeMenu.getByRole("menuitem", { name: "删除", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await expect(shanghaiScope.locator(".argus-scope-card__bastion")).toHaveCount(
     0,
   );
 
-  await page
-    .getByRole("button", { name: "查看 gw-sh-01 的 OTLP 收集器" })
-    .click();
+  await selectRowAction(
+    page.getByRole("row").filter({
+      has: page.getByRole("link", { name: "gw-sh-01", exact: true }),
+    }),
+    "组件与采集",
+  );
   await expect(page).toHaveURL(/\/hosts\/host-gw-sh-01#otlp-collector$/);
   await expect(page.getByRole("tab", { name: "组件与采集" })).toHaveAttribute(
     "aria-selected",
@@ -640,13 +653,10 @@ test("online Bastion metadata changes require confirmation and preserve its memb
   await login(page);
   await page.goto("/hosts");
   const scope = page
-    .locator(".argus-scope-card")
+    .locator(".argus-scope-card, .argus-table tbody tr")
     .filter({ hasText: "上海机房堡垒机-01" })
     .first();
-  await scope
-    .locator(".argus-scope-card__head")
-    .getByRole("button", { name: "编辑" })
-    .click();
+  await selectRowAction(scope.locator(".argus-scope-card__head"), "编辑");
   const drawer = page.getByRole("dialog", { name: "编辑资源元数据" });
   await expect(drawer.getByLabel("主机名")).toHaveValue("上海机房堡垒机-01");
   await expect(drawer.getByLabel("地址", { exact: true })).toHaveCount(0);
@@ -657,7 +667,7 @@ test("online Bastion metadata changes require confirmation and preserve its memb
   await drawer.getByRole("button", { name: "确认执行" }).click();
   await expect(drawer).not.toBeVisible();
   const updated = page
-    .locator(".argus-scope-card")
+    .locator(".argus-scope-card, .argus-table tbody tr")
     .filter({ hasText: "上海核心堡垒机-E2E" })
     .first();
   await expect(updated.getByText("成员 3")).toBeVisible();
@@ -711,14 +721,18 @@ test("new Bastion shows one-time enrollment and can register", async ({
   await addDrawer.getByRole("button", { name: "我已保存，关闭" }).click();
 
   const pendingScope = page
-    .locator(".argus-scope-card")
+    .locator(".argus-scope-card, .argus-table tbody tr")
     .filter({ hasText: "新堡垒机-E2E" })
     .first();
   await expect(pendingScope.getByText("安装命令已领取")).toBeVisible();
-  await pendingScope.getByRole("button", { name: /模拟堡垒机上线/ }).click();
-  await expect(pendingScope.getByText("堡垒机在线")).toBeVisible();
+  await selectRowAction(pendingScope, /模拟堡垒机上线/);
+  const registered = page
+    .locator(".argus-scope-card, .argus-table tbody tr")
+    .filter({ hasText: "新堡垒机-E2E" })
+    .first();
+  await expect(registered.getByText("堡垒机在线")).toBeVisible();
   await expect(
-    pendingScope.getByRole("button", { name: /模拟堡垒机上线/ }),
+    registered.getByRole("button", { name: /模拟堡垒机上线/ }),
   ).toHaveCount(0);
 });
 
@@ -728,11 +742,15 @@ test("kubernetes collector statuses install or open monitoring directly", async 
   await login(page);
   await page.goto("/kubernetes");
 
-  await page
-    .getByRole("button", { name: "为 k8s-staging 安装 OTLP 收集器" })
-    .click();
-  const dialog = page.getByRole("dialog", {
-    name: /安装 OTLP 收集器.*k8s-staging/,
+  await selectRowAction(
+    page.getByRole("row").filter({
+      has: page.getByRole("link", { name: "k8s-staging", exact: true }),
+    }),
+    "OTLP 收集器",
+  );
+  const dialog = page.getByRole("tabpanel", {
+    name: "OTLP 收集器",
+    exact: true,
   });
   await expect(dialog).toBeVisible();
 
@@ -748,13 +766,19 @@ test("kubernetes collector statuses install or open monitoring directly", async 
   await dialog.getByRole("button", { name: "生成安装预览" }).click();
   await dialog.getByRole("button", { name: "确认执行" }).click();
 
-  // 确认后进入收敛面板:先呈现安装中,再自动收敛关闭。
+  // 确认后详情中的向导切换到收敛状态面板。
   await expect(dialog.getByText("安装中")).toBeVisible();
-  await expect(dialog).toHaveCount(0, { timeout: 15_000 });
+  await expect(dialog.getByText("监控中", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.goto("/kubernetes");
 
-  await page
-    .getByRole("button", { name: "查看 k8s-prod-east 的 OTLP 收集器" })
-    .click();
+  await selectRowAction(
+    page.getByRole("row").filter({
+      has: page.getByRole("link", { name: "k8s-prod-east", exact: true }),
+    }),
+    "OTLP 收集器",
+  );
   await expect(page).toHaveURL(/\/kubernetes\/k8s-prod-east#otlp-collector$/);
   await expect(page.getByRole("tab", { name: "OTLP 收集器" })).toHaveAttribute(
     "aria-selected",
@@ -762,25 +786,30 @@ test("kubernetes collector statuses install or open monitoring directly", async 
   );
 });
 
-test("telemetry views expose accessible Metrics, Logs, Traces, usage, and partial states", async ({
+test("telemetry views expose Metrics, Logs, Traces, usage, and partial states", async ({
   page,
 }) => {
   await login(page);
   await page.goto("/kubernetes/k8s-prod-east");
-
-  await page.getByRole("tab", { name: "指标" }).click();
-  await expect(page.getByText("结果已裁剪")).toBeVisible();
-  await expect(page.getByRole("img", { name: /指标时间序列/ })).toBeVisible();
-  await page.getByText("查看数据表").click();
-  await expect(page.getByRole("columnheader", { name: "序列" })).toBeVisible();
-
-  await page.getByRole("tab", { name: "日志" }).click();
-  await expect(page.getByRole("region", { name: /条日志/ })).toBeVisible();
-  await expect(page.getByText("credential=[REDACTED]")).toBeVisible();
-
-  await page.getByRole("tab", { name: "链路" }).click();
-  await expect(page.getByRole("list", { name: /条 Trace/ })).toBeVisible();
-
+  await page.getByRole("tab", { name: "指标", exact: true }).click();
+  await expect(page.getByText("设置查询条件后执行查询").first()).toBeVisible();
+  await page.getByRole("button", { name: "执行查询", exact: true }).click();
+  await expect(page.getByText("结果已裁剪", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /^指标 · .*绘制样本/ }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "日志", exact: true }).click();
+  await page.getByRole("button", { name: "执行查询", exact: true }).click();
+  await expect(
+    page
+      .locator(".argus-observation-log-body")
+      .getByText("credential=[REDACTED]", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "链路", exact: true }).click();
+  await page.getByRole("button", { name: "执行查询", exact: true }).click();
+  await expect(
+    page.getByRole("columnheader", { name: "调用链 ID", exact: true }),
+  ).toBeVisible();
   await page.goto("/settings/org");
   await page.getByRole("tab", { name: "遥测" }).click();
   await expect(page.getByText("Evaluation 保留期")).toBeVisible();
@@ -797,46 +826,42 @@ test("telemetry query builder and DSL editor execute all three language models",
 }) => {
   await login(page);
   await page.goto("/kubernetes/k8s-prod-east");
-
   await page.getByRole("tab", { name: "指标", exact: true }).click();
-  await expect(page.getByRole("tab", { name: "查询构建器" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await page.getByLabel("指标名").fill("http_requests_total");
   await expect(
-    page.locator(".argus-telemetry-query-head textarea[readonly]"),
-  ).toHaveValue(/http_requests_total/);
-  await page.getByRole("button", { name: "执行查询" }).click();
+    page.getByRole("radio", { name: "查询构建器", exact: true }),
+  ).toBeChecked();
+  await page
+    .getByRole("combobox", { name: "指标", exact: true })
+    .fill("http_requests_total");
+  await page.getByRole("button", { name: "执行查询", exact: true }).click();
   await expect(page.locator(".argus-telemetry-query-meta")).toContainText(
     "matrix",
   );
-
-  await page.getByRole("tab", { name: "DSL 编辑器" }).click();
+  await setChoice(page.getByRole("radio", { name: "DSL 编辑器", exact: true }));
   await page
-    .getByLabel("PROMQL DSL")
+    .getByRole("textbox", { name: "查询语句", exact: true })
     .fill('sum by (service) (rate(http_requests_total{status=~"5.."}[5m]))');
-  await page.getByRole("button", { name: "执行查询" }).click();
+  await page.getByRole("button", { name: "执行查询", exact: true }).click();
   await expect(page.locator(".argus-telemetry-query-meta")).toContainText(
-    "aaaaaaaaaaaa",
+    "matrix",
   );
-
   await page.getByRole("tab", { name: "日志", exact: true }).click();
-  await page.getByRole("tab", { name: "DSL 编辑器" }).click();
+  await setChoice(page.getByRole("radio", { name: "DSL 编辑器", exact: true }));
   await page
-    .getByLabel("KQL DSL")
-    .fill('{service_name="argus-demo"} |= "error" | json');
-  await page.getByRole("button", { name: "执行查询" }).click();
+    .getByRole("textbox", { name: "查询语句", exact: true })
+    .fill('service_name:"argus-demo" AND body:"error"');
+  await page.getByRole("button", { name: "执行查询", exact: true }).click();
   await expect(page.locator(".argus-telemetry-query-meta")).toContainText(
     "log_entries",
   );
-
   await page.getByRole("tab", { name: "链路", exact: true }).click();
-  await page.getByRole("tab", { name: "DSL 编辑器" }).click();
+  await setChoice(page.getByRole("radio", { name: "DSL 编辑器", exact: true }));
   await page
-    .getByLabel("SKYWALKING_GRAPHQL DSL")
-    .fill('{service.name="argus-demo"} > {service.name="database"}');
-  await page.getByRole("button", { name: "执行查询" }).click();
+    .getByRole("textbox", { name: "查询语句", exact: true })
+    .fill(
+      'query { queryTraces(serviceName:"argus-demo",pageSize:20) { total traces { traceId rootService rootOperation } } }',
+    );
+  await page.getByRole("button", { name: "执行查询", exact: true }).click();
   await expect(page.locator(".argus-telemetry-query-meta")).toContainText(
     "traces",
   );
@@ -931,7 +956,7 @@ test("org users remain renderable after the raw user directory is cached", async
   });
   await expect(userRow).toBeVisible();
 
-  await userRow.getByRole("button", { name: "编辑" }).click();
+  await selectRowAction(userRow, "编辑");
   const drawer = page.getByRole("dialog", { name: "编辑成员" });
   await drawer.getByRole("button", { name: "资源查看者" }).click();
   await drawer.getByRole("button", { name: "提交" }).click();
@@ -955,9 +980,9 @@ test("remote access governance supports CRUD, lifecycle, details, validation, an
   await drawer.getByRole("button", { name: "保存" }).click();
   let row = page.getByRole("row").filter({ hasText: "生产会话策略" });
   await expect(row).toBeVisible();
-  await row.getByRole("button", { name: "启用" }).click();
+  await selectRowAction(row, "启用");
   await expect(row.getByText("已启用")).toBeVisible();
-  await row.getByRole("button", { name: "详情" }).click();
+  await selectRowAction(row, "详情");
   await expect(
     page.getByRole("dialog", { name: "生产会话策略" }).getByText("v2"),
   ).toBeVisible();
@@ -973,7 +998,7 @@ test("remote access governance supports CRUD, lifecycle, details, validation, an
   await drawer.getByRole("button", { name: "保存" }).click();
   row = page.getByRole("row").filter({ hasText: "生产审批流程" });
   await expect(row).toBeVisible();
-  await row.getByRole("button", { name: "启用" }).click();
+  await selectRowAction(row, "启用");
 
   await page.getByRole("tab", { name: "访问规则" }).click();
   const simulator = page.locator(".argus-rule-simulator");
@@ -1001,7 +1026,7 @@ test("remote access governance supports CRUD, lifecycle, details, validation, an
   await drawer.getByRole("button", { name: "保存" }).click();
   row = page.getByRole("row").filter({ hasText: "生产 SSH 规则" });
   await expect(row).toBeVisible();
-  await row.getByRole("button", { name: "启用" }).click();
+  await selectRowAction(row, "启用");
 
   await simulator.getByRole("button", { name: "运行模拟" }).click();
   await expect(
@@ -1011,19 +1036,19 @@ test("remote access governance supports CRUD, lifecycle, details, validation, an
   ).toBeVisible();
 
   row = page.getByRole("row").filter({ hasText: "生产 SSH 规则" });
-  await row.getByRole("button", { name: "停用" }).click();
+  await selectRowAction(row, "停用");
   await page
     .getByRole("dialog", { name: "确认配置变更" })
     .getByRole("button", { name: "停用" })
     .click();
   await expect(row.getByText("已停用")).toBeVisible();
-  await row.getByRole("button", { name: "归档" }).click();
+  await selectRowAction(row, "归档");
   await page
     .getByRole("dialog", { name: "确认配置变更" })
     .getByRole("button", { name: "归档" })
     .click();
   await expect(row.getByText("已归档")).toBeVisible();
-  await row.getByRole("button", { name: "恢复为草稿" }).click();
+  await selectRowAction(row, "恢复为草稿");
   await expect(row.getByText("草稿")).toBeVisible();
 });
 
@@ -1066,8 +1091,15 @@ test("active host must be uninstalled before its record can be deleted", async (
   await page.goto("/hosts");
 
   // 选取一个已知独立主机,确认初始可见。
-  const target = page.locator(".argus-host-tile", { hasText: "public-web-01" });
+  const target = page.locator(".argus-table tbody tr", {
+    hasText: "public-web-01",
+  });
   await expect(target).toBeVisible();
-  await expect(target.getByRole("button", { name: "删除" })).toHaveCount(0);
-  await expect(target.getByRole("button", { name: "卸载" })).toBeVisible();
+  const menu = await openActionMenu(target);
+  await expect(
+    menu.getByRole("menuitem", { name: "删除", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    menu.getByRole("menuitem", { name: "卸载主机", exact: true }),
+  ).toBeVisible();
 });

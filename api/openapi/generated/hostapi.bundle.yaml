@@ -10,6 +10,48 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /enterprise/hosts/{id}/actions/preview-reconnect:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      operationId: previewHostReconnect
+      summary: Verify the current existing SSH target and preview tunnel reauthorization.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourcePreviewDelete'
+      responses:
+        '201':
+          description: Verified tunnel reauthorization preview.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/hosts/{id}/inventory/actions/refresh:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      operationId: refreshHostInventory
+      summary: Collect a fresh local host inventory through the current Connector.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Fresh inventory collected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+        default:
+          $ref: '#/components/responses/Error'
   /enterprise/hosts/name-availability:
     get:
       operationId: checkHostNameAvailability
@@ -482,6 +524,8 @@ components:
         connector_id:
           type: string
           format: uuid
+        inventory:
+          $ref: '#/components/schemas/HostInventory'
         runtime:
           $ref: '#/components/schemas/HostRuntimeObservation'
           readOnly: true
@@ -1125,6 +1169,21 @@ components:
         observed_at:
           type: string
           format: date-time
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]+$
+    ResourcePreviewDelete:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_version
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
     RequestId:
       type: string
       minLength: 16
@@ -1161,153 +1220,6 @@ components:
         retryable:
           type: boolean
           default: false
-    ResourceNameAvailability:
-      type: object
-      additionalProperties: false
-      required:
-        - available
-      properties:
-        available:
-          type: boolean
-          description: Whether the name can currently be used for creation in the authenticated enterprise. This does not reserve the name.
-    HostControlPath:
-      type: string
-      enum:
-        - direct
-        - bastion_relay
-        - executor_tunnel
-    HostRole:
-      type: string
-      enum:
-        - managed_host
-        - bastion
-    Environment:
-      type: string
-      enum:
-        - development
-        - staging
-        - production
-    UserLabelKey:
-      type: string
-      minLength: 1
-      maxLength: 63
-      pattern: ^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$
-    SystemLabelKey:
-      type: string
-      maxLength: 72
-      pattern: ^argus\.io/[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$
-      readOnly: true
-    LabelValue:
-      type: string
-      minLength: 1
-      maxLength: 63
-      pattern: ^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$
-    Labels:
-      type: object
-      maxProperties: 64
-      propertyNames:
-        anyOf:
-          - $ref: '#/components/schemas/UserLabelKey'
-          - $ref: '#/components/schemas/SystemLabelKey'
-      additionalProperties:
-        $ref: '#/components/schemas/LabelValue'
-    HostInstallMethod:
-      type: string
-      enum:
-        - manual
-        - ssh
-    HostSSHPath:
-      type: string
-      enum:
-        - none
-        - direct_executor
-        - bastion_connector
-    OnboardingProjection:
-      type: object
-      additionalProperties: false
-      required:
-        - state
-        - updated_at
-      properties:
-        state:
-          type: string
-          enum:
-            - command_available
-            - command_consumed
-            - command_expired
-            - awaiting_approval
-            - installing
-            - install_failed
-            - registered
-        pending_action_ref:
-          type: string
-          minLength: 1
-          maxLength: 128
-        execution_id:
-          type: string
-          format: uuid
-        operation_id:
-          type: string
-          format: uuid
-        error_code:
-          type: string
-          pattern: ^[A-Z][A-Z0-9_]*$
-        install_method:
-          $ref: '#/components/schemas/HostInstallMethod'
-          readOnly: true
-        ssh_path:
-          $ref: '#/components/schemas/HostSSHPath'
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-    PartialMetadata:
-      type: object
-      additionalProperties: false
-      required:
-        - partial
-        - reasons
-      properties:
-        partial:
-          type: boolean
-        reasons:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            enum:
-              - authorization_filtered
-              - budget_truncated
-              - source_timeout
-              - source_unavailable
-    CursorPage:
-      type: object
-      additionalProperties: false
-      required:
-        - next_cursor
-        - has_more
-        - partial
-      properties:
-        next_cursor:
-          type:
-            - string
-            - 'null'
-        has_more:
-          type: boolean
-        partial:
-          $ref: '#/components/schemas/PartialMetadata'
-    IdempotencyKey:
-      type: string
-      minLength: 16
-      maxLength: 128
-      pattern: ^[A-Za-z0-9._:-]+$
-    UserLabels:
-      type: object
-      maxProperties: 64
-      propertyNames:
-        $ref: '#/components/schemas/UserLabelKey'
-      additionalProperties:
-        $ref: '#/components/schemas/LabelValue'
     PublicJsonValue:
       x-argus-typescript-type: unknown
       oneOf:
@@ -1453,16 +1365,352 @@ components:
         updated_at:
           type: string
           format: date-time
-    ResourcePreviewDelete:
+    HostRole:
+      type: string
+      enum:
+        - managed_host
+        - bastion
+    HostControlPath:
+      type: string
+      enum:
+        - direct
+        - bastion_relay
+        - executor_tunnel
+    HostInventory:
       type: object
       additionalProperties: false
       required:
-        - expected_version
+        - schema_version
+        - collected_at
+        - hostname
+        - os
+        - os_version
+        - kernel_version
+        - architecture
+        - machine_id
+        - hardware_uuid
+        - virtualization_system
+        - virtualization_role
+        - scope
+        - disks
+        - networks
+        - gpus
+        - cloud
+        - issues
       properties:
-        expected_version:
-          type: integer
-          format: int64
-          minimum: 1
+        schema_version:
+          type: string
+          const: argus.host_inventory/v1
+        collected_at:
+          type: string
+          format: date-time
+        hostname:
+          type: string
+        os:
+          type: string
+        os_version:
+          type: string
+        kernel_version:
+          type: string
+        architecture:
+          type: string
+        machine_id:
+          type: string
+        hardware_uuid:
+          type: string
+        virtualization_system:
+          type: string
+        virtualization_role:
+          type: string
+        scope:
+          type: string
+          enum:
+            - machine
+            - container
+        boot_time:
+          type: string
+          format: date-time
+        cpu:
+          type: object
+          additionalProperties: false
+          required:
+            - model
+            - logical_cores
+            - physical_cores
+          properties:
+            model:
+              type: string
+            logical_cores:
+              type: integer
+              minimum: 0
+            physical_cores:
+              type: integer
+              minimum: 0
+        memory:
+          type: object
+          additionalProperties: false
+          required:
+            - total_bytes
+            - swap_bytes
+          properties:
+            total_bytes:
+              type: integer
+              format: int64
+              minimum: 0
+            swap_bytes:
+              type: integer
+              format: int64
+              minimum: 0
+        disks:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - device
+              - mountpoint
+              - filesystem
+              - total_bytes
+              - used_bytes
+              - free_bytes
+            properties:
+              device:
+                type: string
+              mountpoint:
+                type: string
+              filesystem:
+                type: string
+              total_bytes:
+                type: integer
+                format: int64
+                minimum: 0
+              used_bytes:
+                type: integer
+                format: int64
+                minimum: 0
+              free_bytes:
+                type: integer
+                format: int64
+                minimum: 0
+        networks:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - name
+              - mac
+              - mtu
+              - addresses
+              - state
+            properties:
+              name:
+                type: string
+              mac:
+                type: string
+              mtu:
+                type: integer
+              addresses:
+                type: array
+                maxItems: 32
+                items:
+                  type: string
+              state:
+                type: string
+                enum:
+                  - up
+                  - down
+        gpus:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - name
+              - vendor
+              - device_id
+              - memory_bytes
+            properties:
+              name:
+                type: string
+              vendor:
+                type: string
+              device_id:
+                type: string
+              memory_bytes:
+                type: integer
+                format: int64
+                minimum: 0
+        cloud:
+          type: object
+          additionalProperties: false
+          required:
+            - status
+            - provider
+            - instance_id
+            - region
+            - zone
+          properties:
+            status:
+              type: string
+              enum:
+                - available
+                - not_detected
+            provider:
+              type: string
+            instance_id:
+              type: string
+            region:
+              type: string
+            zone:
+              type: string
+        issues:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - section
+              - code
+            properties:
+              section:
+                type: string
+              code:
+                type: string
+    Environment:
+      type: string
+      enum:
+        - development
+        - staging
+        - production
+    UserLabelKey:
+      type: string
+      minLength: 1
+      maxLength: 63
+      pattern: ^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$
+    SystemLabelKey:
+      type: string
+      maxLength: 72
+      pattern: ^argus\.io/[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$
+      readOnly: true
+    LabelValue:
+      type: string
+      minLength: 1
+      maxLength: 63
+      pattern: ^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$
+    Labels:
+      type: object
+      maxProperties: 64
+      propertyNames:
+        anyOf:
+          - $ref: '#/components/schemas/UserLabelKey'
+          - $ref: '#/components/schemas/SystemLabelKey'
+      additionalProperties:
+        $ref: '#/components/schemas/LabelValue'
+    HostInstallMethod:
+      type: string
+      enum:
+        - manual
+        - ssh
+    HostSSHPath:
+      type: string
+      enum:
+        - none
+        - direct_executor
+        - bastion_connector
+    OnboardingProjection:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - updated_at
+      properties:
+        state:
+          type: string
+          enum:
+            - command_available
+            - command_consumed
+            - command_expired
+            - awaiting_approval
+            - installing
+            - install_failed
+            - registered
+        pending_action_ref:
+          type: string
+          minLength: 1
+          maxLength: 128
+        execution_id:
+          type: string
+          format: uuid
+        operation_id:
+          type: string
+          format: uuid
+        error_code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+        install_method:
+          $ref: '#/components/schemas/HostInstallMethod'
+          readOnly: true
+        ssh_path:
+          $ref: '#/components/schemas/HostSSHPath'
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+    ResourceNameAvailability:
+      type: object
+      additionalProperties: false
+      required:
+        - available
+      properties:
+        available:
+          type: boolean
+          description: Whether the name can currently be used for creation in the authenticated enterprise. This does not reserve the name.
+    PartialMetadata:
+      type: object
+      additionalProperties: false
+      required:
+        - partial
+        - reasons
+      properties:
+        partial:
+          type: boolean
+        reasons:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - authorization_filtered
+              - budget_truncated
+              - source_timeout
+              - source_unavailable
+    CursorPage:
+      type: object
+      additionalProperties: false
+      required:
+        - next_cursor
+        - has_more
+        - partial
+      properties:
+        next_cursor:
+          type:
+            - string
+            - 'null'
+        has_more:
+          type: boolean
+        partial:
+          $ref: '#/components/schemas/PartialMetadata'
+    UserLabels:
+      type: object
+      maxProperties: 64
+      propertyNames:
+        $ref: '#/components/schemas/UserLabelKey'
+      additionalProperties:
+        $ref: '#/components/schemas/LabelValue'
     HostConnectionTestCreate:
       type: object
       additionalProperties: false
@@ -1672,31 +1920,7 @@ components:
         observed_at:
           type: string
           format: date-time
-  responses:
-    Error:
-      description: Stable Argus API error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ApiError'
   parameters:
-    Cursor:
-      name: cursor
-      in: query
-      required: false
-      schema:
-        type: string
-        minLength: 1
-        maxLength: 4096
-    Limit:
-      name: limit
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 200
-        default: 50
     ResourceId:
       name: id
       in: path
@@ -1718,3 +1942,27 @@ components:
         type: string
         minLength: 32
         maxLength: 256
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 4096
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+  responses:
+    Error:
+      description: Stable Argus API error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'

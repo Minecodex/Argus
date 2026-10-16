@@ -402,22 +402,23 @@ func (q *Queries) CreateModelToolCall(ctx context.Context, arg CreateModelToolCa
 }
 
 const createTemplateAsset = `-- name: CreateTemplateAsset :exec
-INSERT INTO template_assets (hash,source,runtime) VALUES($1,$2,'argus-template/v1') ON CONFLICT DO NOTHING
+INSERT INTO template_assets (hash,source,runtime) VALUES($1,$2,$3) ON CONFLICT DO NOTHING
 `
 
 type CreateTemplateAssetParams struct {
-	Hash   string `json:"hash"`
-	Source string `json:"source"`
+	Hash    string `json:"hash"`
+	Source  string `json:"source"`
+	Runtime string `json:"runtime"`
 }
 
 func (q *Queries) CreateTemplateAsset(ctx context.Context, arg CreateTemplateAssetParams) error {
-	_, err := q.db.Exec(ctx, createTemplateAsset, arg.Hash, arg.Source)
+	_, err := q.db.Exec(ctx, createTemplateAsset, arg.Hash, arg.Source, arg.Runtime)
 	return err
 }
 
 const createToolPresentation = `-- name: CreateToolPresentation :one
 INSERT INTO tool_presentations (id,enterprise_id,conversation_id,tool_call_id,tool_version,authorization_scope,template_hash,detail_data,resource_refs,status)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, enterprise_id, conversation_id, tool_call_id, tool_version, authorization_scope, template_hash, detail_data, resource_refs, status, created_at
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, enterprise_id, conversation_id, tool_call_id, tool_version, authorization_scope, template_hash, detail_data, resource_refs, status, created_at, read_operations, result_binding
 `
 
 type CreateToolPresentationParams struct {
@@ -459,6 +460,8 @@ func (q *Queries) CreateToolPresentation(ctx context.Context, arg CreateToolPres
 		&i.ResourceRefs,
 		&i.Status,
 		&i.CreatedAt,
+		&i.ReadOperations,
+		&i.ResultBinding,
 	)
 	return i, err
 }
@@ -1051,7 +1054,7 @@ func (q *Queries) GetRunForUpdate(ctx context.Context, arg GetRunForUpdateParams
 }
 
 const getToolPresentation = `-- name: GetToolPresentation :one
-SELECT p.id, p.enterprise_id, p.conversation_id, p.tool_call_id, p.tool_version, p.authorization_scope, p.template_hash, p.detail_data, p.resource_refs, p.status, p.created_at,a.source AS template_source FROM tool_presentations p JOIN template_assets a ON a.hash=p.template_hash
+SELECT p.id, p.enterprise_id, p.conversation_id, p.tool_call_id, p.tool_version, p.authorization_scope, p.template_hash, p.detail_data, p.resource_refs, p.status, p.created_at, p.read_operations, p.result_binding,a.source AS template_source,a.runtime AS template_runtime FROM tool_presentations p JOIN template_assets a ON a.hash=p.template_hash
 WHERE p.tool_call_id=$1 AND p.enterprise_id=$2 AND p.conversation_id=$3
 `
 
@@ -1073,7 +1076,10 @@ type GetToolPresentationRow struct {
 	ResourceRefs       []byte             `json:"resource_refs"`
 	Status             string             `json:"status"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ReadOperations     []string           `json:"read_operations"`
+	ResultBinding      []byte             `json:"result_binding"`
 	TemplateSource     string             `json:"template_source"`
+	TemplateRuntime    string             `json:"template_runtime"`
 }
 
 func (q *Queries) GetToolPresentation(ctx context.Context, arg GetToolPresentationParams) (GetToolPresentationRow, error) {
@@ -1091,7 +1097,10 @@ func (q *Queries) GetToolPresentation(ctx context.Context, arg GetToolPresentati
 		&i.ResourceRefs,
 		&i.Status,
 		&i.CreatedAt,
+		&i.ReadOperations,
+		&i.ResultBinding,
 		&i.TemplateSource,
+		&i.TemplateRuntime,
 	)
 	return i, err
 }
@@ -1795,9 +1804,4 @@ UPDATE runs SET verification_only=true,updated_at=now() WHERE id=$1 AND enterpri
 type MarkRunVerificationOnlyParams struct {
 	ID           uuid.UUID `json:"id"`
 	EnterpriseID uuid.UUID `json:"enterprise_id"`
-}
-
-func (q *Queries) MarkRunVerificationOnly(ctx context.Context, arg MarkRunVerificationOnlyParams) error {
-	_, err := q.db.Exec(ctx, markRunVerificationOnly, arg.ID, arg.EnterpriseID)
-	return err
 }

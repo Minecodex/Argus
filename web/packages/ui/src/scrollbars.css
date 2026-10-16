@@ -1,0 +1,53 @@
+/* One scrollbar geometry for portals, overlays and the isolated template runtime. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-default) transparent;
+  }
+}
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border: var(--scrollbar-inset) solid transparent;
+  border-radius: var(--radius-pill);
+  background-clip: padding-box;
+}
+/* Xterm draws its own bars with inline dimensions instead of native scrollbars. */
+:is(.argus-terminal, .argus-terminal-player)
+  .xterm-scrollable-element
+  > .scrollbar.vertical {
+  width: var(--scrollbar-size) !important;
+}
+:is(.argus-terminal, .argus-terminal-player)
+  .xterm-scrollable-element
+  > .scrollbar.vertical
+  > .slider {
+  width: 100% !important;
+}
+:is(.argus-terminal, .argus-terminal-player)
+  .xterm-scrollable-element
+  > .scrollbar.horizontal {
+  height: var(--scrollbar-size) !important;
+}
+:is(.argus-terminal, .argus-terminal-player)
+  .xterm-scrollable-element
+  > .scrollbar.horizontal
+  > .slider {
+  height: 100% !important;
+}
+:is(.argus-terminal, .argus-terminal-player)
+  .xterm-scrollable-element
+  > .scrollbar
+  > .slider {
+  border: var(--scrollbar-inset) solid transparent;
+  border-radius: var(--radius-pill);
+  background-color: var(--border-default);
+  background-clip: padding-box;
+}

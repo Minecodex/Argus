@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import { Card } from "./card";
 import { Button } from "./button";
-import { Dropdown, type DropdownItem } from "./primitives";
-import { useUiText } from "./locale";
-import { MoreHorizontal } from "lucide-react";
+import { type DropdownItem } from "./primitives";
+import { ActionMenu } from "./action-menu";
 import { cx } from "./lib";
 /** Entity identity and navigation stay separate from secondary/destructive actions. */
 export function ResourceCard({
@@ -29,7 +28,6 @@ export function ResourceCard({
   className?: string;
   children?: ReactNode;
 }) {
-  const text = useUiText();
   return (
     <Card className={cx("argus-resource-card", className)}>
       <header className="argus-resource-card__header">
@@ -54,18 +52,7 @@ export function ResourceCard({
         <div className="argus-resource-card__status">
           {status}
           {!!menuItems?.length && (
-            <Dropdown
-              items={menuItems}
-              trigger={
-                <Button
-                  isIconOnly
-                  variant="ghost"
-                  aria-label={text("更多操作", "More actions")}
-                >
-                  <MoreHorizontal />
-                </Button>
-              }
-            />
+            <ActionMenu items={menuItems} />
           )}
         </div>
       </header>

@@ -103,9 +103,13 @@ Kubernetes Connector 保持独立 `role=kubernetes`，用于集群资源查询�
 
 Host/Bastion 卸载使用独立 `host_removal_operations` 状态机。命令安装生成严格 TLS 的一次性卸载命令；SSH 安装重新建立独立 SSH 会话并在 Connector 停止后继续验证。正常卸载后资源保留为 `uninstalled`，只有再次确认才删除记录。堡垒机依赖、失联强制移除和本机 Journal 见 [21-host-and-bastion-removal.md](21-host-and-bastion-removal.md)。
 
-同一台机器执行另一套 Argus 新生成的安装命令或 SSH Operation 时，后一套系统自动接管。新身份先在私有暂存目录完成 enrollment，成功后才停止旧 Connector/Collector、提升二进制和 CA 并启动新服务；前一套系统按连接超时转为离线。堡垒机卡片提供“替换 Connector”入口，不要求用户先登录机器手工清理。完整事务和一次性命令边界见 [22-cross-cluster-connector-takeover.md](22-cross-cluster-connector-takeover.md)。
+同一台机器执行另一套 Argus 新生成的安装命令或 SSH Operation 时，后一套系统自动接管。新身份先在私有暂存目录完成 enrollment，成功后才停止旧 Connector/Collector、提升二进制和 CA 并启动新服务；前一套系统按连接超时转为离线。堡垒机分组操作提供“替换 Connector”入口，不要求用户先登录机器手工清理。完整事务和一次性命令边界见 [22-cross-cluster-connector-takeover.md](22-cross-cluster-connector-takeover.md)。
 
 ConnectorCommand 只接收版本化 protobuf 负载。Host Connector 支持本机 Collector 管理、运行状态探测、Windows RDP 启用和受控本机命令；任意 Shell 字符串不作为后台命令协议。
+
+**Plan7 目标扩展（2026-10-15，待实现）：** 新增绑定当前资源、接入身份、完整命令 Hash、批准执行 ID、Connector 代次和有效期的类型化远程执行请求。只有宿主按次确认或批准固定计划后，确定性执行器才能派发其命令内容；不放宽既有命令类型，也不复用人工终端票据。连接复用不产生后续命令授权。主机沿接入账号、K8s 沿接入身份执行，manual 缺少账号与 in-cluster 身份等差异须由适配器明确处理，不能自动改用 root 或服务账号。新增协议、凭据代用与未知结果规则见 [Plan7](./plan7/02-architecture-and-contracts.md)。
+
+Plan7 的 Q15 进一步要求同资源共享解释器会话，支持命令批次及可靠文件传输。现有 mTLS Connect 流、人工终端字节流和安装 Artifact 通道不能直接视为该能力已实现；需新增共享会话代次／上下文、可信批次完成、文件源与目标／覆盖／完整性契约，且文件重传不得触发命令重跑。见[共享会话与文件设计](./plan7/07-shared-sessions-and-file-transfer.md)。
 
 人工会话协议：
 
@@ -122,3 +126,7 @@ RDP Credential Lease 只由 Gateway 领取并送入同 Pod guacd。浏览器和 
 本次切换不保留旧字段、API、Mock、页面和 WinRM 适配器。开发部署清空业务数据后运行新迁移；已有命令作废，所有 Host/Bastion 重新注册。删除 Host 会撤销 Connector 身份、进行中的命令、会话和 Collector 管理关系；Bastion 有成员时不能删除。
 
 详细安装、TLS、RDP 和验收矩阵见 [跨平台主机接入设计](./19-cross-platform-host-onboarding.md)。
+
+## 10. 资源列表与主机资产
+
+管理门户默认列表模式；主机资产信息通过本机 Connector 类型化采集与刷新，遥测继续由独立 Collector 负责。字段、权限、真实数据和验收规则见[资源列表与主机资产概览](./plans/frontend-redesign/resource-lists-and-host-inventory.md)。

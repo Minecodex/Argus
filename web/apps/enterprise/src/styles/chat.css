@@ -4,11 +4,8 @@
   height: calc(100vh - 62px);
   min-height: 480px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  overflow: hidden;
-}
-.argus-chat.is-context-collapsed {
   grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .argus-chat__main {
@@ -57,8 +54,16 @@
   gap: var(--action-gap);
 }
 .argus-chat__model-select {
-  width: min(240px, 32vw);
-  height: 32px;
+  width: var(--chat-model-select-width);
+}
+.argus-chat__model-field {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+}
+.argus-chat__model-field > span {
+  font-size: var(--font-size-12);
+  color: var(--text-tertiary);
 }
 .argus-chat__header-actions .argus-button.is-active {
   color: var(--accent-text);
@@ -140,7 +145,7 @@
   outline-offset: -2px;
 }
 .argus-chat-stream__inner {
-  width: min(var(--chat-content-width), 100%);
+  width: min(var(--chat-result-width), 100%);
   margin: 0 auto;
   padding: 0 var(--space-px-24);
   display: flex;
@@ -153,7 +158,19 @@
   flex-direction: column;
   gap: var(--action-gap);
 }
+.argus-chat-reply,
+.argus-chat-reply__content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--action-gap);
+}
+.argus-chat-reply__content {
+  gap: var(--space-px-12);
+}
 .argus-chat-message__who {
+  width: min(var(--chat-text-width), 100%);
+  align-self: center;
   display: flex;
   align-items: center;
   gap: var(--action-gap);
@@ -176,11 +193,12 @@
   color: var(--accent-text);
 }
 .argus-chat-message__body {
-  margin-left: var(--space-px-32);
+  width: min(var(--chat-text-width), 100%);
+  align-self: center;
   color: var(--text-primary);
   font-size: var(--font-size-13);
   line-height: 1.75;
-  white-space: pre-wrap;
+  white-space: normal;
   word-break: break-word;
 }
 .argus-chat-message__card-link {
@@ -188,6 +206,8 @@
   font-weight: 600;
 }
 .argus-chat-message--user .argus-chat-message__body {
+  width: auto;
+  white-space: pre-wrap;
   align-self: flex-end;
   max-width: 78%;
   margin-left: 0;
@@ -210,10 +230,83 @@
   }
 }
 .argus-chat-message__extras {
-  margin-left: var(--space-px-32);
   display: flex;
   flex-direction: column;
   gap: var(--action-gap);
+}
+.argus-chat-activity {
+  min-width: 0;
+}
+.argus-chat-message--user,
+.argus-chat-message__extras > :not(.argus-tool-result),
+.argus-chat-activity > :not(.argus-tool-result),
+.argus-chat__stream .argus-tool-result:not([data-open="true"]) {
+  width: min(var(--chat-text-width), 100%);
+  margin-inline: auto;
+}
+.argus-chat__stream .argus-tool-result__body > .argus-chat-trace {
+  margin-top: var(--space-px-12);
+}
+.argus-chat-files {
+  display: grid;
+  gap: var(--space-px-10);
+}
+.argus-chat-files-group {
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-px-12);
+  background: var(--bg-surface);
+}
+.argus-chat-files-group > summary {
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-12);
+}
+.argus-chat-files-group[open] > summary {
+  margin-bottom: var(--space-px-12);
+}
+.argus-chat-trace__step {
+  padding-block: var(--space-px-8);
+}
+.argus-chat-trace__step > details {
+  margin-top: var(--space-px-8);
+  font-size: var(--font-size-12);
+  color: var(--text-secondary);
+}
+.argus-chat-trace__step summary {
+  cursor: pointer;
+}
+.argus-chat-trace__step pre {
+  padding: var(--space-px-12);
+  border-radius: var(--radius-md);
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  font: var(--font-size-11-5) var(--font-mono);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.argus-chat-result-data {
+  min-width: 0;
+  padding: var(--card-padding);
+  border: var(--space-px-1) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  color: var(--text-secondary);
+}
+.argus-chat-result-data__tool {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-help);
+  overflow-wrap: anywhere;
+}
+.argus-chat-result-data pre {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--control-radius);
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  font: var(--text-body)/var(--line-height-normal) var(--font-mono);
+  white-space: pre;
+  overflow-x: auto;
 }
 
 /* ---------- 工具调用 trace ---------- */
@@ -250,6 +343,19 @@
   flex-direction: column;
   gap: var(--action-gap);
 }
+.argus-chat-trace__summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-help);
+  color: var(--text-tertiary);
+}
+.argus-chat__stream
+  .argus-chat-action:has(.argus-tool-result[data-open="true"]) {
+  width: 100%;
+  max-width: none;
+}
 .argus-chat-trace__row {
   display: flex;
   align-items: center;
@@ -262,6 +368,11 @@
 }
 .argus-chat-trace__row small {
   color: var(--text-tertiary);
+}
+.argus-chat-trace__identifier {
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+  overflow-wrap: anywhere;
 }
 .argus-chat-trace__row time {
   margin-left: auto;
@@ -285,6 +396,9 @@
 /* ---------- Pending Action 确认卡片 ---------- */
 .argus-chat-action {
   max-width: 560px;
+}
+.argus-chat-action--expanded {
+  max-width: var(--space-full);
 }
 .argus-chat-action__summary {
   margin: 0;
@@ -353,7 +467,9 @@
   transition: border-color var(--motion-fast);
 }
 .argus-chat-composer__box:focus-within {
-  border-color: var(--accent);
+  border-color: var(--control-focus-border);
+  outline: var(--control-focus-width) solid var(--control-focus-ring);
+  outline-offset: 0;
 }
 .argus-chat-composer__box textarea {
   width: 100%;
@@ -365,7 +481,6 @@
   font-size: var(--font-size-13);
   line-height: 1.6;
   resize: none;
-  outline: none;
 }
 .argus-chat-composer__toolbar {
   padding: var(--space-px-4) var(--space-px-8) var(--space-px-8);
@@ -446,78 +561,4 @@
   color: var(--text-disabled);
   font-size: var(--font-size-12);
   text-align: center;
-}
-
-/* ---------- 右侧上下文面板 ---------- */
-.argus-chat-context {
-  min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-px-16) var(--space-px-14);
-  display: flex;
-  flex-direction: column;
-  gap: var(--field-gap);
-  border-left: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-sidebar) 45%, transparent);
-}
-.argus-chat-context__head {
-  display: flex;
-  align-items: center;
-  gap: var(--action-gap);
-  color: var(--text-tertiary);
-  font-size: var(--font-size-10);
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.argus-chat-context__head .argus-button {
-  margin-left: auto;
-}
-.argus-chat-context__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--action-gap);
-}
-.argus-chat-context__label {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-10-5);
-  font-weight: 650;
-}
-.argus-chat-context__empty {
-  margin: 0;
-  color: var(--text-disabled);
-  font-size: var(--font-size-11-5);
-  line-height: 1.6;
-}
-.argus-chat-context__ref {
-  display: flex;
-  align-items: center;
-  gap: var(--action-gap);
-  padding: var(--space-px-7) var(--space-px-10);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  font-size: var(--font-size-12);
-}
-.argus-chat-context__ref svg {
-  color: var(--accent-text);
-  flex-shrink: 0;
-}
-.argus-chat-context__ref small {
-  margin-left: auto;
-  color: var(--text-disabled);
-  font: var(--font-size-10) var(--font-mono);
-}
-.argus-chat-context__roles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--action-gap);
-}
-
-@media (max-width: 1080px) {
-  .argus-chat {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .argus-chat-context {
-    display: none;
-  }
 }

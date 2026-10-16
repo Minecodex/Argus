@@ -29,13 +29,14 @@ type PublicationVerifier interface {
 }
 
 type DraftInput struct {
-	DashboardID      uuid.UUID       `json:"dashboard_id,omitempty"`
-	Name             string          `json:"name"`
-	Description      string          `json:"description"`
-	FolderID         uuid.UUID       `json:"folder_id,omitempty"`
-	Spec             json.RawMessage `json:"spec"`
-	ProposedBindings []Binding       `json:"proposed_bindings"`
-	ExpectedVersion  int64           `json:"expected_version,omitempty"`
+	DashboardID      uuid.UUID         `json:"dashboard_id,omitempty"`
+	Name             string            `json:"name"`
+	Description      string            `json:"description"`
+	FolderID         uuid.UUID         `json:"folder_id,omitempty"`
+	Spec             json.RawMessage   `json:"spec"`
+	ProposedBindings []Binding         `json:"proposed_bindings"`
+	ExpectedVersion  int64             `json:"expected_version,omitempty"`
+	Preparation      *DraftPreparation `json:"preparation,omitempty"`
 }
 
 func (service Service) List(ctx context.Context, actor Actor) ([]db.Dashboard, error) {
@@ -143,6 +144,11 @@ func (service Service) createDraft(ctx context.Context, actor Actor, input Draft
 		if len(input.Spec) == 0 {
 			input.Spec, _ = json.Marshal(EmptySpec())
 		}
+		var preparationErr error
+		input, preparationErr = prepareDraftInput(input)
+		if preparationErr != nil {
+			return preparationErr
+		}
 		if err := validateDraftInput(input); err != nil {
 			return err
 		}
@@ -195,10 +201,15 @@ func loadDraft(ctx context.Context, q *db.Queries, actor Actor, id uuid.UUID, lo
 
 func (service Service) SaveDraft(ctx context.Context, actor Actor, id uuid.UUID, input DraftInput) (db.DashboardDraft, error) {
 	var result db.DashboardDraft
+	var err error
+	input, err = prepareDraftInput(input)
+	if err != nil {
+		return result, err
+	}
 	if err := validateDraftInput(input); err != nil {
 		return result, err
 	}
-	err := service.draftTransaction(ctx, func(q *db.Queries) error {
+	err = service.draftTransaction(ctx, func(q *db.Queries) error {
 		draft, err := loadDraft(ctx, q, actor, id, true)
 		if err != nil {
 			return err

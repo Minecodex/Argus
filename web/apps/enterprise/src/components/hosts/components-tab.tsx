@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   useApi,
+  formatApiError,
   type BastionScope,
   type CollectorInstance,
   type Host,
@@ -14,11 +15,14 @@ import {
 import {
   Badge,
   ActionGroup,
+  ActionMenu,
+  Alert,
   Button,
   Card,
   CardContent,
   CardHeader,
   DiffViewer,
+  Dialog,
   Field,
   FormDrawer,
   Input,
@@ -26,12 +30,14 @@ import {
   PreviewCommitCard,
   Select,
   StatusBadge,
-  Switch,
+  SettingCard,
+  Spinner,
   Wizard,
   type PreviewCommitStatus,
 } from "@argus/ui";
 import { PendingActionConfirm } from "./pending-action-confirm";
 import { CollectorSettlementPanel } from "../telemetry/collector-settlement";
+import { activeCollectorProfileIds } from "../telemetry/collector-profiles";
 import {
   collectorTone,
   formatDateTime,
@@ -72,7 +78,7 @@ function profileFromCapabilities(caps: Record<CapabilityKey, boolean>): string {
   if (caps.collectorSelf) parts.push("collector-self");
   if (caps.prometheus) parts.push("prometheus-endpoint");
   if (caps.otlp) parts.push("otlp-receiver");
-  return parts.join(",") || "host-basic";
+  return parts.join(",");
 }
 
 const COLLECTOR_PROFILES = [
@@ -360,7 +366,7 @@ export function CollectorInstallWizard({
       onSubmit={collectorForm.handleSubmit(submit)}
       open={open}
       title={t("hosts.components.installWizard.title", { name: host.name })}
-      width={560}
+      width={760}
     >
       {settling ? (
         <CollectorSettlementPanel
@@ -547,11 +553,12 @@ function CollectorCard({
   const [routeAction, setRouteAction] = useState<PendingActionPublic | null>(
     null,
   );
-  const [lifecycleAction, setLifecycleAction] =
-    useState<PendingActionPublic | null>(null);
   const [routeChoice, setRouteChoice] = useState("direct_argus");
   const [routeTested, setRouteTested] = useState(false);
   const [routeTesting, setRouteTesting] = useState(false);
+  const [routeOpen, setRouteOpen] = useState(false);
+  const [routeError, setRouteError] = useState("");
+  const [configError, setConfigError] = useState("");
   const [routeEditing, setRouteEditing] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
@@ -570,10 +577,6 @@ function CollectorCard({
   const profilesQuery = useQuery({
     queryKey: ["telemetry", "profiles"],
     queryFn: () => api.telemetry.listProfiles(),
-  });
-  const distributionsQuery = useQuery({
-    queryKey: ["telemetry", "distributions"],
-    queryFn: () => api.telemetry.listDistributions(),
   });
   const claimsQuery = useQuery({
     queryKey: ["telemetry", "claims", host.id],
@@ -606,17 +609,7 @@ function CollectorCard({
       : [];
 
   const activeProfileIds = useMemo(
-    () => [
-      ...new Set(
-        (claimsQuery.data ?? [])
-          .filter(
-            (claim) =>
-              claim.collector_id === collector?.id && claim.status === "active",
-          )
-          .map((claim) => claim.profile_id)
-          .filter((id): id is string => Boolean(id)),
-      ),
-    ],
+    () => activeCollectorProfileIds(claimsQuery.data ?? [], collector?.id),
     [claimsQuery.data, collector?.id],
   );
   const activeProfileKeys = useMemo(
@@ -654,6 +647,7 @@ function CollectorCard({
       .filter((profile) => keys.includes(profile.key))
       .map((profile) => profile.id);
     if (profileIds.length === 0) return;
+    setConfigError("");
     setPreviewing(true);
     try {
       setConfigAction(
@@ -666,6 +660,14 @@ function CollectorCard({
           gateway_collector_id: currentRoute.gateway_collector_id,
           expected_version: collector.version,
         }),
+      );
+    } catch (cause) {
+      setConfigError(
+        formatApiError(
+          cause,
+          t("resourceList.collectorActionFailed"),
+          (requestId) => t("common.requestReference", { requestId }),
+        ),
       );
     } finally {
       setPreviewing(false);
@@ -688,6 +690,7 @@ function CollectorCard({
         : !gatewayCollectorId && currentRoute.transport === "executor_tunnel"
           ? "executor_tunnel"
           : "direct";
+    setRouteError("");
     setPreviewing(true);
     try {
       setRouteAction(
@@ -703,6 +706,14 @@ function CollectorCard({
           expected_version: collector.version,
         }),
       );
+    } catch (cause) {
+      setRouteError(
+        formatApiError(
+          cause,
+          t("resourceList.routePreviewFailed"),
+          (requestId) => t("common.requestReference", { requestId }),
+        ),
+      );
     } finally {
       setPreviewing(false);
     }
@@ -712,6 +723,7 @@ function CollectorCard({
     if (!collector || !currentRoute || routeTesting) return;
     setRouteTesting(true);
     setRouteTested(false);
+    setRouteError("");
     try {
       const result = await api.telemetry.testRoute({
         collector_id: collector.id,
@@ -720,47 +732,12 @@ function CollectorCard({
         gateway_collector_id: currentRoute.gateway_collector_id,
       });
       setRouteTested(result.status === "succeeded");
+      if (result.status !== "succeeded")
+        setRouteError(t("resourceList.routeTestFailed"));
+    } catch {
+      setRouteError(t("resourceList.routeTestFailed"));
     } finally {
       setRouteTesting(false);
-    }
-  };
-
-  const previewLifecycle = async (
-    action: "upgrade" | "repair" | "uninstall",
-  ) => {
-    if (
-      !collector ||
-      !currentRoute ||
-      activeProfileIds.length === 0 ||
-      previewing
-    )
-      return;
-    const distribution =
-      action === "upgrade"
-        ? distributionsQuery.data?.find(
-            (item) =>
-              item.support_status === "supported" &&
-              item.artifacts.some(
-                (artifact) => artifact.platform === collector.platform,
-              ),
-          )
-        : undefined;
-    setPreviewing(true);
-    try {
-      setLifecycleAction(
-        await api.hosts.previewCollectorAction(host.id, action, {
-          distribution_version_id:
-            distribution?.id ?? collector.distribution_version_id,
-          profile_ids: activeProfileIds,
-          route_kind: currentRoute.kind,
-          transport: currentRoute.transport,
-          loopback_port: currentRoute.loopback_port,
-          gateway_collector_id: currentRoute.gateway_collector_id,
-          expected_version: collector.version,
-        }),
-      );
-    } finally {
-      setPreviewing(false);
     }
   };
 
@@ -801,116 +778,22 @@ function CollectorCard({
   }
 
   return (
-    <Card>
-      <CardHeader
-        title={
-          <>
-            {t("hosts.components.collectorTitle")}{" "}
-            <StatusBadge
-              pulse={collector.status === "converged"}
-              tone={collectorTone(collector.status)}
-            >
-              {t(`hosts.collectorStatus.${collector.status}`)}
-            </StatusBadge>
-          </>
-        }
-      />
-      <CardContent className="argus-detail-section">
-        {collector.status === "degraded" &&
-          collector.last_operation_error_code && (
-            <p className="argus-detail-section__title argus-mono">
-              {t("hosts.components.lastFailure", {
-                code: collector.last_operation_error_code,
-              })}
-            </p>
-          )}
-        <KeyValueGrid
-          columns={3}
-          items={[
-            {
-              label: t("hosts.components.installed.profile"),
-              value: (
-                <span className="argus-mono">
-                  {collector.distribution_version_id}
-                </span>
-              ),
-            },
-            {
-              label: t("hosts.components.version", {
-                version: collector.platform,
-              }),
-              value: collector.role,
-            },
-            {
-              label: t("hosts.components.installed.revision"),
-              value: t("hosts.components.installed.revisionValue", {
-                effective: collector.effective_revision,
-                desired: collector.desired_revision,
-              }),
-            },
-          ]}
-        />
-
+    <>
+      <Dialog
+        open={routeOpen}
+        onOpenChange={(open) => {
+          if (!previewing && !routeTesting) {
+            setRouteOpen(open);
+            if (!open) {
+              setRouteEditing(false);
+              setRouteAction(null);
+            }
+          }
+        }}
+        dismissable={!previewing && !routeTesting}
+        title={t("hosts.components.installed.route")}
+      >
         <section className="argus-detail-section">
-          <h3 className="argus-detail-section__title">
-            {t("hosts.components.installed.capabilities")}
-          </h3>
-          <p className="argus-muted">
-            {t("hosts.components.installed.capabilitiesDesc")}
-          </p>
-          <div>
-            {CAPABILITY_KEYS.map((key) => (
-              <div className="argus-capability" key={key}>
-                <span className="argus-capability__label">
-                  {t(`hosts.components.installed.cap.${key}`)}
-                </span>
-                <Switch
-                  checked={Boolean(effective?.[key])}
-                  label={t(`hosts.components.installed.cap.${key}`)}
-                  onChange={(checked) =>
-                    setDraft({
-                      ...(effective ?? capabilitiesFromProfile("")),
-                      [key]: checked,
-                    })
-                  }
-                />
-              </div>
-            ))}
-          </div>
-          {dirty && diffLines.length > 0 && (
-            <>
-              <DiffViewer lines={diffLines} />
-              <div className="argus-form-actions">
-                <Button
-                  isPending={previewing}
-                  onPress={() => void previewConfig()}
-                  variant="primary"
-                >
-                  {t("hosts.components.installed.previewChanges")}
-                </Button>
-                <Button onPress={() => setDraft(null)} variant="ghost">
-                  {t("hosts.reset")}
-                </Button>
-              </div>
-            </>
-          )}
-          {configAction && (
-            <PendingActionConfirm
-              action={configAction}
-              onCancel={() => setConfigAction(null)}
-              onDone={() => {
-                setConfigAction(null);
-                setDraft(null);
-                onChanged();
-              }}
-            />
-          )}
-        </section>
-
-        <section className="argus-detail-section">
-          <h3 className="argus-detail-section__title">
-            {t("hosts.components.installed.route")}
-          </h3>
           <p className="argus-form-actions">
             {telemetryRouteOf(host) &&
             telemetryRouteOf(host) !== "direct_argus" ? (
@@ -950,31 +833,24 @@ function CollectorCard({
           </p>
           {!routeEditing && !routeAction && (
             <div className="argus-form-actions">
-              <Button
-                onPress={() => {
-                  setRouteEditing(true);
-                  setRouteTested(false);
-                  setRouteChoice(
-                    currentRoute?.gateway_collector_id ?? "direct_argus",
-                  );
-                }}
-                variant="secondary"
-              >
-                {t("hosts.components.installed.changeRoute")}
-              </Button>
-              <Button
-                isPending={routeTesting}
-                onPress={() => void testCurrentRoute()}
-                variant="secondary"
-              >
-                {t("hosts.components.installed.routeTest")}
-              </Button>
+              {routeTesting && <Spinner />}
               {routeTested && (
                 <StatusBadge tone="success">
                   {t("hosts.components.installed.routeOk")}
                 </StatusBadge>
               )}
             </div>
+          )}
+          {routeError && (
+            <Alert
+              tone="danger"
+              title={t(
+                routeEditing
+                  ? "resourceList.routePreviewFailed"
+                  : "resourceList.routeTestFailed",
+              )}
+              description={routeError}
+            />
           )}
           {routeEditing && !routeAction && (
             <>
@@ -1023,7 +899,7 @@ function CollectorCard({
                 >
                   {t("hosts.components.installed.previewChanges")}
                 </Button>
-                <Button onPress={() => setRouteEditing(false)} variant="ghost">
+                <Button onPress={() => setRouteOpen(false)} variant="ghost">
                   {t("hosts.cancel")}
                 </Button>
               </div>
@@ -1032,56 +908,173 @@ function CollectorCard({
           {routeAction && (
             <PendingActionConfirm
               action={routeAction}
-              onCancel={() => setRouteAction(null)}
+              onCancel={() => {
+                setRouteAction(null);
+                setRouteOpen(false);
+              }}
               onDone={() => {
                 setRouteAction(null);
                 setRouteEditing(false);
+                setRouteOpen(false);
                 onChanged();
               }}
             />
           )}
         </section>
-        <section className="argus-detail-section">
-          <h3 className="argus-detail-section__title">
-            {t("hosts.components.installed.lifecycle")}
-          </h3>
-          {lifecycleAction ? (
-            <PendingActionConfirm
-              action={lifecycleAction}
-              onCancel={() => setLifecycleAction(null)}
-              onDone={() => {
-                setLifecycleAction(null);
-                onChanged();
-              }}
+      </Dialog>
+      <Card>
+        <CardHeader
+          action={
+            <ActionMenu
+              name={t("hosts.components.collectorTitle")}
+              isDisabled={previewing || routeTesting}
+              items={[
+                {
+                  label: t("hosts.components.installed.changeRoute"),
+                  disabled: !currentRoute || activeProfileIds.length === 0,
+                  onSelect: () => {
+                    setRouteEditing(true);
+                    setRouteTested(false);
+                    setRouteError("");
+                    setRouteChoice(
+                      currentRoute?.gateway_collector_id ?? "direct_argus",
+                    );
+                    setRouteOpen(true);
+                  },
+                },
+                {
+                  label: t("hosts.components.installed.routeTest"),
+                  disabled: !currentRoute,
+                  onSelect: () => {
+                    setRouteEditing(false);
+                    setRouteOpen(true);
+                    void testCurrentRoute();
+                  },
+                },
+              ]}
             />
-          ) : (
-            <div className="argus-form-actions">
-              <Button
-                isPending={previewing}
-                onPress={() => void previewLifecycle("upgrade")}
-                variant="secondary"
+          }
+          title={
+            <>
+              {t("hosts.components.collectorTitle")}{" "}
+              <StatusBadge
+                pulse={collector.status === "converged"}
+                tone={collectorTone(collector.status)}
               >
-                {t("hosts.components.installed.upgrade")}
-              </Button>
-              <Button
-                isPending={previewing}
-                onPress={() => void previewLifecycle("repair")}
-                variant="secondary"
-              >
-                {t("hosts.components.installed.repair")}
-              </Button>
-              <Button
-                isPending={previewing}
-                onPress={() => void previewLifecycle("uninstall")}
-                variant="danger"
-              >
-                {t("hosts.components.installed.uninstall")}
-              </Button>
+                {t(`hosts.collectorStatus.${collector.status}`)}
+              </StatusBadge>
+            </>
+          }
+        />
+        <CardContent className="argus-detail-section">
+          {collector.status === "degraded" &&
+            collector.last_operation_error_code && (
+              <p className="argus-detail-section__title argus-mono">
+                {t("hosts.components.lastFailure", {
+                  code: collector.last_operation_error_code,
+                })}
+              </p>
+            )}
+          <KeyValueGrid
+            columns={3}
+            items={[
+              {
+                label: t("hosts.components.installed.profile"),
+                value: (
+                  <span className="argus-mono">
+                    {collector.distribution_version_id}
+                  </span>
+                ),
+              },
+              {
+                label: t("hosts.components.version", {
+                  version: collector.platform,
+                }),
+                value: collector.role,
+              },
+              {
+                label: t("hosts.components.installed.revision"),
+                value: t("hosts.components.installed.revisionValue", {
+                  effective: collector.effective_revision,
+                  desired: collector.desired_revision,
+                }),
+              },
+            ]}
+          />
+
+          <section className="argus-detail-section">
+            <h3 className="argus-detail-section__title">
+              {t("hosts.components.installed.capabilities")}
+            </h3>
+            {configError && (
+              <Alert
+                tone="danger"
+                title={t("resourceList.collectorActionFailed")}
+                description={configError}
+              />
+            )}
+            <p className="argus-muted">
+              {t("hosts.components.installed.capabilitiesDesc")}
+            </p>
+            <div className="argus-collection-capabilities">
+              {CAPABILITY_KEYS.map((key) => (
+                <SettingCard
+                  key={key}
+                  checked={Boolean(effective?.[key])}
+                  title={t(`hosts.components.installed.cap.${key}`)}
+                  description={t(`collectionUi.host.${key}`)}
+                  onChange={(checked) =>
+                    setDraft({
+                      ...(effective ?? capabilitiesFromProfile("")),
+                      [key]: checked,
+                    })
+                  }
+                />
+              ))}
             </div>
-          )}
-        </section>
-      </CardContent>
-    </Card>
+            {dirty && diffLines.length > 0 && (
+              <>
+                <DiffViewer lines={diffLines} />
+                <div className="argus-form-actions">
+                  <Button
+                    isDisabled={
+                      !effective ||
+                      !CAPABILITY_KEYS.some((key) => effective[key])
+                    }
+                    isPending={previewing}
+                    onPress={() => void previewConfig()}
+                    variant="primary"
+                  >
+                    {t("hosts.components.installed.previewChanges")}
+                  </Button>
+                  <Button onPress={() => setDraft(null)} variant="ghost">
+                    {t("hosts.reset")}
+                  </Button>
+                </div>
+              </>
+            )}
+            {dirty &&
+              effective &&
+              !CAPABILITY_KEYS.some((key) => effective[key]) && (
+                <p role="alert" className="argus-muted">
+                  {t("collectionUi.emptyCapabilities")}
+                </p>
+              )}
+            {configAction && (
+              <PendingActionConfirm
+                action={configAction}
+                onCancel={() => setConfigAction(null)}
+                onDone={() => {
+                  setConfigAction(null);
+                  setDraft(null);
+                  onChanged();
+                }}
+              />
+            )}
+          </section>
+        </CardContent>
+      </Card>
+    </>
   );
 }
 

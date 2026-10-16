@@ -1,9 +1,16 @@
-<section aria-live="polite"><h3 id="title"></h3><div id="details"></div></section>
+<section id="operation-view"></section>
 <script>
-ArgusTemplate.onData((data, context) => {
-  const zh = context.locale === 'zh-CN';
-  document.getElementById('title').textContent = zh ? '变更详情' : 'Change details';
-  const root = document.getElementById('details'); root.replaceChildren();
-  ArgusTemplate.details(root, data.preview || data.diff || data.summary || data);
-});
+(() => {
+ const v=ArgusView,t=(a,b)=>v.text(a,b);
+ const detail=(root,data)=>{
+  v.header(root,data.title||t('变更预览','Change preview'),data.summary);
+  v.fields(root,[[t('操作','Operation'),data.action_type||data.tool],[t('目标','Target'),data.preview?.name||data.preview?.target||data.target||t('以确认卡片为准','See confirmation card')],[t('风险','Risk'),data.risk],[t('状态','Status'),data.status],[t('有效期','Expires'),v.time(data.expires_at)]]);
+  v.changes(root,data);
+  if(data.preview){const target=v.section(root,t('变更详情与影响','Changes and impact'),true);v.fields(target,Object.entries(data.preview).filter(([key])=>key!=='changes'));}
+  if(data.validation||data.issues){const target=v.section(root,t('校验结果','Validation'),true);v.note(target,v.value(data.validation||data.issues));}
+  if(data.execution||data.result){const target=v.section(root,t('执行结果','Execution result'),true);v.fields(target,Object.entries(data.execution||data.result));}
+  v.note(root,t('确认、审批和提交请使用会话中的操作确认卡片。','Use the conversation confirmation card for confirmation, approval and submission.'));
+ };
+ v.mount(document.getElementById('operation-view'),(root,data)=>{if(v.entry==='action-list'){v.header(root,t('待处理操作','Pending actions'));void v.pages(root,data,(target,rows)=>v.table(target,rows,[[t('标题','Title'),'title'],[t('状态','Status'),'status'],[t('风险','Risk'),'risk'],[t('创建时间','Created'),row=>v.time(row.created_at)]],detail));}else detail(root,data);});
+})();
 </script>

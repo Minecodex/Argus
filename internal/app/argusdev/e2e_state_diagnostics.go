@@ -13,12 +13,21 @@ func (a *App) collectScenarioState(ctx context.Context, env *E2EEnvironment) {
 		return
 	}
 	queries := map[string]string{
-		"connection-tests": `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,status,error_code,result->>'architecture' AS architecture,result->>'callback_verified' AS callback_verified,result->>'callback_control_path' AS callback_control_path,created_at,updated_at FROM connection_tests ORDER BY created_at DESC LIMIT 100) t`,
-		"runs":             `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,conversation_id,status,stop_reason,error_code,created_at,updated_at FROM runs ORDER BY created_at DESC LIMIT 100) t`,
-		"model-calls":      `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,run_id,step_id,call_kind,status,error_code,stop_reason,input_tokens,output_tokens,input_usage_source,output_usage_source,cached_input_tokens,cached_input_usage_source,latency_ms,created_at,completed_at FROM model_calls ORDER BY created_at DESC LIMIT 200) t`,
-		"runtime-tasks":    `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,run_id,queue,status,attempt,max_attempts,last_error_code,lease_until,fence_token,created_at,updated_at FROM runtime_tasks ORDER BY created_at DESC LIMIT 200) t`,
-		"tool-calls":       `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,run_id,tool_id,source,status,error_code,created_at FROM tool_calls ORDER BY created_at DESC LIMIT 100) t`,
-		"workspaces":       `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,conversation_id,status,capacity_bytes,fence_token,lease_owner,lease_until,last_used_at,active_pod_name,active_sandbox_id,created_at,updated_at FROM workspaces ORDER BY created_at DESC LIMIT 100) t`,
+		"pending-actions":       `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,action_ref,enterprise_id,creator_subject_id,action_type,status,created_at,updated_at,expires_at FROM pending_actions ORDER BY created_at DESC LIMIT 200) t`,
+		"pending-action-tokens": `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,pending_action_id,enterprise_id,status,consumed_at,expires_at,created_at,updated_at FROM pending_action_tokens ORDER BY created_at DESC LIMIT 200) t`,
+		"executions":            `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,pending_action_id,status,error_code,created_at,updated_at FROM executions ORDER BY created_at DESC LIMIT 200) t`,
+		"connection-tests":      `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,status,error_code,result->>'architecture' AS architecture,result->>'callback_verified' AS callback_verified,result->>'callback_control_path' AS callback_control_path,created_at,updated_at FROM connection_tests ORDER BY created_at DESC LIMIT 100) t`,
+		"runs":                  `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,conversation_id,status,stop_reason,error_code,created_at,updated_at FROM runs ORDER BY created_at DESC LIMIT 100) t`,
+		"model-calls":           `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,run_id,step_id,call_kind,status,error_code,stop_reason,input_tokens,output_tokens,input_usage_source,output_usage_source,cached_input_tokens,cached_input_usage_source,latency_ms,created_at,completed_at FROM model_calls ORDER BY created_at DESC LIMIT 200) t`,
+		"runtime-tasks":         `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,run_id,queue,status,attempt,max_attempts,last_error_code,lease_until,fence_token,created_at,updated_at FROM runtime_tasks ORDER BY created_at DESC LIMIT 200) t`,
+		"tool-calls":            `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,run_id,tool_id,source,status,error_code,created_at FROM tool_calls ORDER BY created_at DESC LIMIT 100) t`,
+		"workspaces":            `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,conversation_id,status,capacity_bytes,fence_token,lease_owner,lease_until,last_used_at,active_pod_name,active_sandbox_id,created_at,updated_at FROM workspaces ORDER BY created_at DESC LIMIT 100) t`,
+		"alert-configurations":  `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,kind,name,status,version,generation,evaluation_health,evaluation_error,last_evaluated_at,last_successful_at FROM alert_configurations ORDER BY updated_at DESC LIMIT 100) t`,
+		"alert-instances":       `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,policy_id,policy_version,resource_ids,source_ids,lifecycle,health,severity,acknowledged,handling_version,version,started_at,resolved_at,last_evaluated_at FROM alert_instances ORDER BY updated_at DESC LIMIT 200) t`,
+		"alert-evaluations":     `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,policy_id,policy_version,slot,evaluator_id,authorization_version,scope,health,error_code,fence FROM alert_evaluations ORDER BY slot DESC LIMIT 200) t`,
+		"alert-deliveries":      `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,instance_id,channel_id,channel_version,batch_id,resend_of_id,status,attempt,last_error,available_at,retry_until FROM alert_deliveries ORDER BY updated_at DESC LIMIT 200) t`,
+		"alert-batches":         `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,channel_id,channel_version,owner_task_id,fence,status,send_started_at,finished_at FROM alert_delivery_batches ORDER BY created_at DESC LIMIT 200) t`,
+		"alert-attempts":        `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,delivery_id,attempt,status,result_code,error_code,started_at,finished_at FROM alert_delivery_attempts ORDER BY started_at DESC LIMIT 200) t`,
 	}
 	for name, query := range queries {
 		value, err := a.postgresQuery(ctx, env, query)

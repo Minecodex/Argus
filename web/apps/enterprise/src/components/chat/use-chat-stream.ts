@@ -126,15 +126,18 @@ export function useChatStream(): ChatStreamState {
           setCompaction(projection.compaction);
           const completed = projection.completed_message;
           setStreaming(
-            completed ?? {
+            {
+              ...(completed ?? {}),
               id: projection.message_id ?? `stream-${conversationId}`,
               conversationId,
+              runId: runRef.current ?? undefined,
               role: "assistant",
               content: projection.message_text,
               createdAt: envelope.occurred_at,
               toolCalls: [...projection.tool_calls.values()],
               presentations: [...projection.presentations],
               pendingActionRefs: [...projection.pending_action_refs],
+              streamEntries: [...projection.live_entries],
             },
           );
           if (projection.stop_reason) setStopReason(projection.stop_reason);

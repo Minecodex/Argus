@@ -48,13 +48,16 @@ type Patch struct {
 	LocalValues map[string]map[string]*Value `json:"local_values,omitempty"`
 }
 type Evidence struct {
-	Path  string `json:"path"`
-	Quote string `json:"quote"`
+	Path   string `json:"path"`
+	Quote  string `json:"quote,omitempty"`
+	Origin string `json:"origin,omitempty"`
+	Reason string `json:"reason,omitempty"`
 }
 type Reference struct {
 	EventID uuid.UUID `json:"event_id"`
 	Quote   string    `json:"quote,omitempty"`
 	Origin  string    `json:"origin"`
+	Reason  string    `json:"reason,omitempty"`
 }
 type State struct {
 	Schema    string               `json:"schema_version"`

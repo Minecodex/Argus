@@ -1,3 +1,4 @@
+import { selectFirstRowAction } from "./helpers/action-menu";
 import { enterpriseOrigin, platformOrigin } from "./origins";
 import { expect, test, type Page } from "@playwright/test";
 import { createMfaLogin } from "./helpers/mfa-login";
@@ -80,10 +81,7 @@ test.describe("M4 real Agent and governance flow", () => {
     await page.getByRole("tab", { name: "Sandbox Profiles" }).click();
     await expect(page.getByText("M4 smoke", { exact: true })).toBeVisible();
     await page.getByRole("tab", { name: "Enterprise quotas" }).click();
-    await page
-      .getByRole("button", { name: "Edit quota", exact: true })
-      .first()
-      .click();
+    await selectFirstRowAction(page, "Edit quota");
     const quota = page.getByRole("dialog");
     await expect(page.locator("form form")).toHaveCount(0);
     await expect(quota.getByRole("checkbox")).toHaveCount(0);
@@ -97,10 +95,7 @@ test.describe("M4 real Agent and governance flow", () => {
     expect((await saved).status()).toBe(200);
     await page.reload();
     await page.getByRole("tab", { name: "Enterprise quotas" }).click();
-    await page
-      .getByRole("button", { name: "Edit quota", exact: true })
-      .first()
-      .click();
+    await selectFirstRowAction(page, "Edit quota");
     await expect(
       page.getByRole("dialog").getByLabel("Monthly compute time (seconds)"),
     ).toHaveValue("125");

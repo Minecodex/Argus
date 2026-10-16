@@ -1,0 +1,1974 @@
+openapi: 3.1.0
+info:
+  title: Argus alertsapi
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+paths:
+  /alerts/summary:
+    get:
+      operationId: getAlertSummary
+      summary: getAlertSummary
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertSummary'
+        default:
+          $ref: '#/components/responses/Error'
+  /alerts/configurations:
+    get:
+      operationId: listAlertConfigurations
+      summary: listAlertConfigurations
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlertConfiguration'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/AlertKind'
+  /alerts/configurations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getAlertConfiguration
+      summary: getAlertConfiguration
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertConfiguration'
+        default:
+          $ref: '#/components/responses/Error'
+  /alerts/configurations/preview:
+    post:
+      operationId: previewAlertConfiguration
+      summary: previewAlertConfiguration
+      tags:
+        - Alerts
+      responses:
+        '202':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertMutation'
+  /alerts/commands/preview:
+    post:
+      operationId: previewAlertCommand
+      summary: previewAlertCommand
+      tags:
+        - Alerts
+      responses:
+        '202':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertCommand'
+  /alerts/trial:
+    post:
+      operationId: trialAlertPolicy
+      summary: trialAlertPolicy
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertEvaluation'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertPolicySpec'
+  /alerts/instances:
+    get:
+      operationId: listAlertInstances
+      summary: listAlertInstances
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertInstancePage'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum:
+              - critical
+              - warning
+              - info
+        - name: lifecycle
+          in: query
+          schema:
+            type: string
+        - name: notification_state
+          in: query
+          schema:
+            type: string
+        - name: policy_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: resource_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: metric
+          in: query
+          schema:
+            type: string
+            maxLength: 8192
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: acknowledged
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 500
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 4096
+        - name: rule_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+  /alerts/history:
+    get:
+      operationId: listAlertHistory
+      summary: listAlertHistory
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertInstancePage'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum:
+              - critical
+              - warning
+              - info
+        - name: lifecycle
+          in: query
+          schema:
+            type: string
+        - name: notification_state
+          in: query
+          schema:
+            type: string
+        - name: policy_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: resource_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: metric
+          in: query
+          schema:
+            type: string
+            maxLength: 8192
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: acknowledged
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 500
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 4096
+        - name: rule_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+  /alerts/deliveries:
+    get:
+      operationId: listAlertDeliveries
+      summary: listAlertDeliveries
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertDeliveryPage'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: notification_state
+          in: query
+          schema:
+            type: string
+        - name: policy_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: resource_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 500
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 4096
+        - name: channel_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+  /alerts/instances/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getAlertInstance
+      summary: getAlertInstance
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertInstanceDetail'
+        default:
+          $ref: '#/components/responses/Error'
+  /alerts/deliveries/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getAlertDelivery
+      summary: getAlertDelivery
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertDeliveryDetail'
+        default:
+          $ref: '#/components/responses/Error'
+  /alerts/instances/{id}/handle:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: handleAlertInstance
+      summary: handleAlertInstance
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertInstance'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertHandleInput'
+  /alerts/history/export:
+    get:
+      operationId: exportAlertHistory
+      summary: exportAlertHistory
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Authorized alert result. Mutation previews use the existing host confirmation workflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertExport'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum:
+              - critical
+              - warning
+              - info
+        - name: lifecycle
+          in: query
+          schema:
+            type: string
+        - name: notification_state
+          in: query
+          schema:
+            type: string
+        - name: policy_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: resource_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: metric
+          in: query
+          schema:
+            type: string
+            maxLength: 8192
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: acknowledged
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 500
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 4096
+        - name: rule_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argus_session
+  schemas:
+    RequestId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._-]+$
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message_key
+        - request_id
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+        message_key:
+          type: string
+          pattern: ^errors\.[a-z0-9_.]+$
+        params:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        message:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+        trace_id:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+          default: false
+    AlertSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        active:
+          type: integer
+          format: int64
+        unacknowledged:
+          type: integer
+          format: int64
+        policies:
+          type: integer
+          format: int64
+        failed_deliveries:
+          type: integer
+          format: int64
+        last_evaluated_at:
+          type: string
+          format: date-time
+        current_total:
+          type: integer
+          format: int64
+      required:
+        - active
+        - unacknowledged
+        - policies
+        - failed_deliveries
+    AlertKind:
+      type: string
+      enum:
+        - policy
+        - silence
+        - inhibition
+        - channel
+        - route
+        - settings
+        - template
+        - grouping
+    AlertMatcher:
+      type: object
+      additionalProperties: false
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 128
+        operator:
+          type: string
+          enum:
+            - '='
+            - '!='
+            - '=~'
+            - '!~'
+        value:
+          type: string
+          maxLength: 512
+      required:
+        - key
+        - operator
+        - value
+    AlertResourceSelector:
+      type: object
+      description: Named hosts or clusters must first be resolved with the existing resource tools, then selected by their explicit UUIDs. Dynamic selection evaluates resource LABELS inside the evaluator's existing grants; the resource name field is not a label. 指定某台主机或集群时先查询实际 UUID 并使用 explicit + ids；dynamic 的 matchers 只匹配资源 labels，不匹配资源名称字段。
+      additionalProperties: false
+      properties:
+        mode:
+          type: string
+          description: Use explicit for concrete requested resources; dynamic is for intentionally changing label-selected authorized sets.
+          enum:
+            - dynamic
+            - explicit
+        types:
+          type: array
+          items:
+            type: string
+            enum:
+              - host
+              - kubernetes_cluster
+          uniqueItems: true
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        matchers:
+          type: array
+          description: Resource labels only. Do not use name as a matcher to select a named resource unless that exact label was read from the resource.
+          items:
+            $ref: '#/components/schemas/AlertMatcher'
+          maxItems: 32
+        source_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+      required:
+        - mode
+        - types
+    AlertRule:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        expression:
+          type: string
+          minLength: 1
+          maxLength: 8192
+        query_mode:
+          type: string
+          enum:
+            - numeric
+            - predicate
+        presence_expression:
+          type: string
+          maxLength: 8192
+        operator:
+          type: string
+          enum:
+            - '>'
+            - '>='
+            - <
+            - <=
+            - '=='
+            - '!='
+        threshold:
+          type: number
+          format: double
+        recovery_threshold:
+          type: number
+          format: double
+        severity:
+          type: string
+          enum:
+            - critical
+            - warning
+            - info
+        unit:
+          type: string
+          maxLength: 32
+      required:
+        - name
+        - expression
+        - query_mode
+        - operator
+        - threshold
+        - recovery_threshold
+        - severity
+    AlertPolicySpec:
+      type: object
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+          maxLength: 4096
+        enabled:
+          type: boolean
+        resources:
+          $ref: '#/components/schemas/AlertResourceSelector'
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRule'
+          minItems: 1
+          maxItems: 32
+        mode:
+          type: string
+          enum:
+            - independent
+            - every
+            - any
+        match_by:
+          type: array
+          items:
+            type: string
+          maxItems: 12
+        interval_seconds:
+          type: integer
+          format: int64
+          minimum: 10
+          maximum: 3600
+        for_seconds:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 86400
+        recovery_seconds:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 86400
+        no_data_behavior:
+          type: string
+          enum:
+            - report
+            - keep
+        error_behavior:
+          type: string
+          enum:
+            - report
+            - keep
+        channel_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        route_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 512
+      required:
+        - enabled
+        - resources
+        - rules
+        - mode
+        - interval_seconds
+        - for_seconds
+        - recovery_seconds
+        - no_data_behavior
+        - error_behavior
+    AlertSilenceSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+          description: Explicit resource identity selection. For a named host/cluster resolve its actual UUID and include it here; label matchers do not match resource names. An explicit empty array selects all evaluator-authorized resources only when that full scope is requested. Omitted or null selection is invalid. 指定资源使用真实 UUID；明确选择全部授权范围时才传空数组。
+        policy_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        metric:
+          type: string
+          maxLength: 8192
+        matchers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertMatcher'
+          maxItems: 32
+          description: Filters actual observed metric labels within resource_ids; never substitute a named host or cluster for its UUID using a guessed cluster/name label.
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+        - enabled
+        - starts_at
+        - ends_at
+        - reason
+        - resource_ids
+    AlertInhibitionSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+          description: Explicit resource identity selection. For a named host/cluster resolve its actual UUID and include it here; label matchers do not match resource names. An explicit empty array selects all evaluator-authorized resources only when that full scope is requested. Omitted or null selection is invalid. 指定资源使用真实 UUID；明确选择全部授权范围时才传空数组。
+        source:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertMatcher'
+          maxItems: 32
+        target:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertMatcher'
+          maxItems: 32
+        equal:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 12
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+        - enabled
+        - source
+        - target
+        - equal
+        - reason
+        - resource_ids
+    AlertChannelSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        provider:
+          type: string
+          enum:
+            - dingtalk
+            - wecom
+            - feishu
+            - smtp
+        credential_id:
+          type: string
+          format: uuid
+        display_address:
+          type: string
+          maxLength: 200
+        mention_ids:
+          type: array
+          items:
+            type: string
+            maxLength: 256
+          maxItems: 100
+        mention_all:
+          type: boolean
+        template:
+          type: string
+          maxLength: 16384
+        default_for_new_policies:
+          type: boolean
+          description: Preselect this enabled channel in new portal policy drafts. Existing policies and explicit API/tool targets remain unchanged.
+      required:
+        - enabled
+        - provider
+        - credential_id
+    AlertRouteSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        matchers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertMatcher'
+          maxItems: 32
+        channel_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        continue:
+          type: boolean
+        priority:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000
+      required:
+        - enabled
+        - matchers
+        - channel_ids
+        - continue
+        - priority
+    AlertSettingsSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        evaluator_id:
+          type: string
+          format: uuid
+      required:
+        - evaluator_id
+    AlertGroupingSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        group_by:
+          type: array
+          items:
+            type: string
+          maxItems: 12
+        wait_seconds:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 3600
+        interval_seconds:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 86400
+        repeat_seconds:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 604800
+        timing:
+          type: array
+          items:
+            type: string
+            enum:
+              - first
+              - repeat
+              - recovery
+              - severity
+          uniqueItems: true
+      required:
+        - group_by
+        - wait_seconds
+        - interval_seconds
+        - repeat_seconds
+        - timing
+    AlertTemplateSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 16384
+      required:
+        - content
+    AlertSpec:
+      oneOf:
+        - $ref: '#/components/schemas/AlertPolicySpec'
+        - $ref: '#/components/schemas/AlertSilenceSpec'
+        - $ref: '#/components/schemas/AlertInhibitionSpec'
+        - $ref: '#/components/schemas/AlertChannelSpec'
+        - $ref: '#/components/schemas/AlertRouteSpec'
+        - $ref: '#/components/schemas/AlertSettingsSpec'
+        - $ref: '#/components/schemas/AlertGroupingSpec'
+        - $ref: '#/components/schemas/AlertTemplateSpec'
+    AlertConfiguration:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/AlertKind'
+        name:
+          type: string
+        spec:
+          $ref: '#/components/schemas/AlertSpec'
+        version:
+          type: integer
+          format: int64
+        generation:
+          type: integer
+          format: int64
+        health:
+          type: string
+        error_code:
+          type: string
+        last_evaluated_at:
+          type: string
+          format: date-time
+        last_successful_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        matched_instances:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+        - id
+        - kind
+        - name
+        - spec
+        - version
+        - generation
+        - health
+        - created_at
+        - updated_at
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]+$
+    AlertMutation:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          $ref: '#/components/schemas/AlertKind'
+        operation:
+          type: string
+          enum:
+            - create
+            - update
+            - delete
+            - enable
+            - disable
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        spec:
+          $ref: '#/components/schemas/AlertSpec'
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+        - kind
+        - operation
+    PublicJsonValue:
+      x-argus-typescript-type: unknown
+      oneOf:
+        - type: 'null'
+        - type: boolean
+        - type: number
+        - type: string
+        - type: array
+          items:
+            $ref: '#/components/schemas/PublicJsonValue'
+        - $ref: '#/components/schemas/PublicJsonObject'
+    PublicJsonObject:
+      x-argus-typescript-type: unknown
+      type: object
+      propertyNames:
+        allOf:
+          - pattern: ^[a-z][a-z0-9_]*$
+          - not:
+              pattern: (^|_)(argus__token|token|secret|credential|private_params?|commit_tool|remote_access_ticket)($|_)
+      additionalProperties:
+        $ref: '#/components/schemas/PublicJsonValue'
+    pending-action-public.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://argus.io/schemas/v1/action/pending-action-public.schema.json
+      title: PendingActionPublic
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - action_ref
+        - action_type
+        - title
+        - summary
+        - risk
+        - preview
+        - diff
+        - status
+        - available_actions
+        - expires_at
+        - created_at
+        - updated_at
+      properties:
+        schema_version:
+          const: argus.pending_action/v1
+        action_ref:
+          type: string
+          minLength: 1
+        action_type:
+          type: string
+          minLength: 3
+          maxLength: 128
+        title:
+          type: string
+          minLength: 1
+          maxLength: 256
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        risk:
+          enum:
+            - read
+            - write
+            - dangerous
+            - critical
+        preview:
+          $ref: '#/components/schemas/PublicJsonObject'
+        diff:
+          type: array
+          maxItems: 256
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - kind
+              - text
+            properties:
+              kind:
+                enum:
+                  - add
+                  - remove
+                  - change
+                  - note
+              text:
+                type: string
+                maxLength: 2048
+        status:
+          enum:
+            - prepared
+            - awaiting_confirmation
+            - awaiting_approval
+            - ready
+            - executing
+            - succeeded
+            - failed
+            - result_unknown
+            - cancelled
+            - expired
+            - rejected
+            - invalidated
+        available_actions:
+          type: array
+          uniqueItems: true
+          items:
+            enum:
+              - confirm
+              - cancel
+              - approve
+              - reject
+        approval:
+          type: object
+          additionalProperties: false
+          required:
+            - required
+            - minimum_approvers
+            - approved_count
+            - separation_of_duty
+          properties:
+            required:
+              type: boolean
+            policy_ref:
+              type: string
+            minimum_approvers:
+              type: integer
+              minimum: 0
+            approved_count:
+              type: integer
+              minimum: 0
+            separation_of_duty:
+              type: boolean
+        execution_ref:
+          type: string
+          minLength: 1
+        result_summary:
+          type: string
+          maxLength: 4096
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AlertHandleInput:
+      type: object
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum:
+            - acknowledge
+            - assign
+            - comment
+        owner_id:
+          type: string
+          format: uuid
+        comment:
+          type: string
+          maxLength: 4000
+        expected_handling_version:
+          type: integer
+          format: int64
+          minimum: 1
+      required:
+        - operation
+        - expected_handling_version
+    AlertCommand:
+      type: object
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum:
+            - notification.test
+            - notification.resend
+            - event.acknowledge
+            - event.assign
+            - event.comment
+        id:
+          type: string
+          format: uuid
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        handling:
+          $ref: '#/components/schemas/AlertHandleInput'
+        expected_handling_version:
+          type: integer
+          format: int64
+          minimum: 1
+      required:
+        - operation
+        - id
+    AlertMemberValue:
+      type: object
+      additionalProperties: false
+      required:
+        - rule_id
+        - name
+        - expression
+        - value
+        - threshold
+        - recovery_threshold
+        - severity
+        - firing
+        - recovering
+        - unit
+      properties:
+        rule_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        expression:
+          type: string
+        value:
+          type: number
+          format: double
+        threshold:
+          type: number
+          format: double
+        recovery_threshold:
+          type: number
+          format: double
+        severity:
+          type: string
+        firing:
+          type: boolean
+        recovering:
+          type: boolean
+        unit:
+          type: string
+    AlertObservation:
+      type: object
+      additionalProperties: false
+      properties:
+        key:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 512
+        value:
+          type: number
+          format: double
+        rule_id:
+          type: string
+          format: uuid
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        source_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        firing:
+          type: boolean
+        recovering:
+          type: boolean
+        severity:
+          type: string
+        rule:
+          $ref: '#/components/schemas/AlertRule'
+        members:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/AlertMemberValue'
+      required:
+        - key
+        - labels
+        - value
+        - rule_id
+        - resource_ids
+        - source_ids
+        - firing
+        - recovering
+        - severity
+        - rule
+    AlertEvaluationOutcome:
+      type: object
+      additionalProperties: false
+      properties:
+        rule_id:
+          type: string
+          format: uuid
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        source_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        health:
+          type: string
+        error_code:
+          type: string
+        complete:
+          type: boolean
+      required:
+        - rule_id
+        - resource_ids
+        - source_ids
+        - health
+        - complete
+    AlertEvaluation:
+      type: object
+      additionalProperties: false
+      properties:
+        observations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertObservation'
+        health:
+          type: string
+        error_code:
+          type: string
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        slot:
+          type: string
+          format: date-time
+        outcomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertEvaluationOutcome'
+        sources_captured:
+          type: boolean
+      required:
+        - observations
+        - health
+        - error_code
+        - resource_ids
+        - slot
+    AlertInstanceState:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        policy_name:
+          type: string
+        rule_id:
+          type: string
+          format: uuid
+        metric:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 512
+        value:
+          type: number
+          format: double
+        threshold:
+          type: number
+          format: double
+        recovery_threshold:
+          type: number
+          format: double
+        unit:
+          type: string
+        pending_since:
+          type: string
+          format: date-time
+        recovering_since:
+          type: string
+          format: date-time
+        last_slot:
+          type: string
+          format: date-time
+        policy_snapshot:
+          $ref: '#/components/schemas/AlertPolicySpec'
+        notification_state:
+          type: string
+        noise_reasons:
+          type: array
+          items:
+            type: string
+        last_notification_at:
+          type: string
+          format: date-time
+        closure_reason:
+          type: string
+        kind:
+          type: string
+        members:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/AlertMemberValue'
+        evaluator_id:
+          type: string
+          format: uuid
+        authorization_version:
+          type: integer
+          format: int64
+          minimum: 0
+        source_snapshot:
+          type:
+            - array
+            - 'null'
+          items:
+            type: object
+            additionalProperties: true
+        latest_source_snapshot:
+          type:
+            - array
+            - 'null'
+          items:
+            type: object
+            additionalProperties: true
+        last_successful_at:
+          type: string
+          format: date-time
+          description: Time of the last successful evaluation that produced the retained value and members. Unchanged on failed evaluations; absent when unknown. This is not the telemetry sample timestamp.
+      required:
+        - name
+        - policy_name
+        - rule_id
+        - metric
+        - labels
+        - threshold
+        - recovery_threshold
+        - unit
+        - last_slot
+        - policy_snapshot
+        - notification_state
+        - noise_reasons
+        - kind
+    AlertInstance:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        policy_id:
+          type: string
+          format: uuid
+        policy_version:
+          type: integer
+          format: int64
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        source_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        state:
+          $ref: '#/components/schemas/AlertInstanceState'
+        lifecycle:
+          type: string
+          enum:
+            - normal
+            - pending
+            - firing
+            - recovering
+            - resolved
+            - closed
+        health:
+          type: string
+        severity:
+          type: string
+          enum:
+            - critical
+            - warning
+            - info
+        acknowledged:
+          type: boolean
+        owner_id:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+        last_evaluated_at:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+        handling_version:
+          type: integer
+          format: int64
+          minimum: 1
+      required:
+        - id
+        - policy_id
+        - policy_version
+        - resource_ids
+        - source_ids
+        - state
+        - lifecycle
+        - health
+        - severity
+        - acknowledged
+        - last_evaluated_at
+        - version
+        - handling_version
+    AlertEvaluationStatus:
+      type: object
+      additionalProperties: false
+      properties:
+        policy_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        health:
+          type: string
+        error_code:
+          type: string
+        last_evaluated_at:
+          type: string
+          format: date-time
+        last_successful_at:
+          type: string
+          format: date-time
+      required:
+        - policy_id
+        - name
+        - health
+        - last_evaluated_at
+        - last_successful_at
+    AlertInstancePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertInstance'
+        total:
+          type: integer
+          format: int64
+        next_cursor:
+          type:
+            - string
+            - 'null'
+        complete:
+          type: boolean
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        evaluations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertEvaluationStatus'
+      required:
+        - items
+        - total
+        - next_cursor
+        - complete
+    AlertMessage:
+      type: object
+      additionalProperties: false
+      properties:
+        subject:
+          type: string
+        text:
+          type: string
+        event_type:
+          type: string
+        instance_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        policy_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 512
+        test:
+          type: boolean
+        routing_snapshot:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            minimum: 1
+        batch_id:
+          type: string
+          format: uuid
+      required:
+        - subject
+        - text
+        - event_type
+        - instance_ids
+        - policy_ids
+        - labels
+        - test
+    AlertDelivery:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        instance_id:
+          type: string
+          format: uuid
+        channel_id:
+          type: string
+          format: uuid
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        message:
+          $ref: '#/components/schemas/AlertMessage'
+        status:
+          type: string
+          enum:
+            - pending
+            - sending
+            - accepted
+            - failed
+            - unknown
+            - muted
+            - inhibited
+            - canceled
+        attempt:
+          type: integer
+          format: int64
+        last_error:
+          type: string
+        last_attempt_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+        batch_id:
+          type: string
+          format: uuid
+        resend_of_id:
+          type: string
+          format: uuid
+      required:
+        - id
+        - channel_id
+        - resource_ids
+        - message
+        - status
+        - attempt
+        - last_error
+        - created_at
+        - version
+    AlertDeliveryPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertDelivery'
+        total:
+          type: integer
+          format: int64
+        next_cursor:
+          type:
+            - string
+            - 'null'
+        complete:
+          type: boolean
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        evaluations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertEvaluationStatus'
+      required:
+        - items
+        - total
+        - next_cursor
+        - complete
+    AlertEvent:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        instance_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        actor_id:
+          type: string
+          format: uuid
+        origin:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - instance_id
+        - event_type
+        - payload
+        - origin
+        - created_at
+    AlertInstanceDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        instance:
+          $ref: '#/components/schemas/AlertInstance'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertEvent'
+      required:
+        - instance
+        - events
+    AlertDeliveryAttempt:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        attempt:
+          type: integer
+          format: int64
+        status:
+          type: string
+        result_code:
+          type: string
+        error_code:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - attempt
+        - status
+        - result_code
+        - error_code
+        - started_at
+        - finished_at
+    AlertDeliveryDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        delivery:
+          $ref: '#/components/schemas/AlertDelivery'
+        attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertDeliveryAttempt'
+      required:
+        - delivery
+        - attempts
+    AlertExport:
+      type: object
+      additionalProperties: false
+      properties:
+        filename:
+          type: string
+        content_type:
+          type: string
+        content:
+          type: string
+        count:
+          type: integer
+          format: int64
+      required:
+        - filename
+        - content_type
+        - content
+        - count
+  responses:
+    Error:
+      description: Operation result.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 256
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'

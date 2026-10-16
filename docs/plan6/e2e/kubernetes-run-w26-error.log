@@ -1,0 +1,1042 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from backend.Dockerfile
+#1 transferring dockerfile: 1.98kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 1.2s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 ...
+
+#5 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#5 DONE 1.3s
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 1.3s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [build  1/11] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#8 DONE 0.1s
+
+#9 [stage-1 1/3] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#9 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 13.74MB 1.0s done
+#7 DONE 1.0s
+
+#10 [stage-1 2/3] COPY --from=build /out/ /usr/local/bin/
+#10 CACHED
+
+#11 [build  4/11] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#11 CACHED
+
+#12 [build  5/11] COPY api/openapi ./api/openapi
+#12 CACHED
+
+#13 [build  8/11] COPY internal ./internal
+#13 CACHED
+
+#14 [build  9/11] COPY migrations ./migrations
+#14 CACHED
+
+#15 [build 11/11] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     if [ -n "" ]; then       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build 		-tags "" -trimpath -ldflags "-s -w" 		-o /out/argus-telemetry-e2e ./cmd/argus-telemetry-e2e;     fi
+#15 CACHED
+
+#16 [build  6/11] COPY api/schemas ./api/schemas
+#16 CACHED
+
+#17 [build  7/11] COPY cmd ./cmd
+#17 CACHED
+
+#18 [build  2/11] WORKDIR /src
+#18 CACHED
+
+#19 [build 10/11] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     set -eu;     mkdir -p /out &&     for name in argus-server argus-worker argus-connector-gateway argus-telemetry argus-telemetry-dlq-replay argus-connector argus-pki-controller argusctl argus-migrate argus-telemetry-catalog-sync argus-sandbox-smoke; do       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build 		-tags ""         -trimpath         -ldflags "-s -w -X github.com/kakj-go/Argus/internal/buildinfo.Version=dev -X github.com/kakj-go/Argus/internal/buildinfo.Commit=unknown -X github.com/kakj-go/Argus/internal/buildinfo.Date=unknown"         -o /out/$name ./cmd/$name;     done
+#19 CACHED
+
+#20 [build  3/11] COPY go.mod go.sum ./
+#20 CACHED
+
+#21 [stage-1 3/3] COPY --from=build /src/migrations/ /usr/local/share/argus/migrations/
+#21 CACHED
+
+#22 exporting to image
+#22 exporting layers done
+#22 exporting manifest sha256:a6e3ee62c74c1adb0596722d0b0317f8780e2042974abe146ac4013f3c000a9e 0.0s done
+#22 exporting config sha256:8ae8e1965be341f30448818e215c824ec799537f79a3866f48868d76294b8ff2 0.0s done
+#22 exporting attestation manifest sha256:0d2af564bdf4e5c590b0f4a664d43d2d177610cb3cd0a9db132fbb889b4f8a08 0.0s done
+#22 exporting manifest list sha256:13b8574eb94942079deb59d2f790a2f80e4a7e5efbd446f953034677e78b4178 0.0s done
+#22 naming to localhost:49174/argus/argus-backend:e2e-plan6-20261011-w26
+#22 naming to localhost:49174/argus/argus-backend:e2e-plan6-20261011-w26 done
+#22 pushing layers
+#22 pushing layers 1.4s done
+#22 pushing manifest for localhost:49174/argus/argus-backend:e2e-plan6-20261011-w26@sha256:13b8574eb94942079deb59d2f790a2f80e4a7e5efbd446f953034677e78b4178
+#22 pushing manifest for localhost:49174/argus/argus-backend:e2e-plan6-20261011-w26@sha256:13b8574eb94942079deb59d2f790a2f80e4a7e5efbd446f953034677e78b4178 0.0s done
+#22 DONE 1.7s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from web.Dockerfile
+#1 transferring dockerfile: 2.29kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#4 DONE 1.2s
+
+#5 [internal] load metadata for mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+#5 DONE 1.2s
+
+#6 [internal] load .dockerignore
+#6 transferring context:
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [stage-1 1/5] FROM mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#8 resolve mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e 0.1s done
+#8 DONE 0.1s
+
+#9 [build  1/16] FROM mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+#9 resolve mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 5.34MB 0.4s done
+#7 DONE 0.5s
+
+#10 [build  8/16] COPY web/packages/api-client/package.json ./web/packages/api-client/
+#10 CACHED
+
+#11 [stage-1 4/5] COPY --from=build /src/web/apps/platform/dist /srv/platform
+#11 CACHED
+
+#12 [build  3/16] RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
+#12 CACHED
+
+#13 [build 12/16] COPY web/packages/ui/package.json ./web/packages/ui/
+#13 CACHED
+
+#14 [build 15/16] COPY web ./web
+#14 CACHED
+
+#15 [build 16/16] RUN VITE_API_MODE=real     VITE_API_BASE_URL=/     VITE_TEMPLATE_ORIGIN=     VITE_PLATFORM_URL=     VITE_DIRECT_EGRESS_ADDRESSES=     node scripts/build-web.mjs "real"
+#15 CACHED
+
+#16 [build  5/16] COPY web/apps/enterprise/package.json ./web/apps/enterprise/
+#16 CACHED
+
+#17 [build  7/16] COPY web/apps/template-runtime/package.json ./web/apps/template-runtime/
+#17 CACHED
+
+#18 [build 14/16] COPY scripts ./scripts/
+#18 CACHED
+
+#19 [stage-1 3/5] COPY --from=build /src/web/apps/enterprise/dist /srv/enterprise
+#19 CACHED
+
+#20 [build 13/16] RUN --mount=type=cache,id=argus-pnpm-store,target=/pnpm/store     pnpm install --store-dir /pnpm/store --frozen-lockfile --fetch-retries 5 --fetch-timeout 300000
+#20 CACHED
+
+#21 CACHED
+
+#22 [build 11/16] COPY web/packages/observability/package.json ./web/packages/observability/
+#22 CACHED
+
+#23 [build  6/16] COPY web/apps/platform/package.json ./web/apps/platform/
+#23 CACHED
+
+#24 [build  9/16] COPY web/packages/auth/package.json ./web/packages/auth/
+#24 CACHED
+
+#25 [stage-1 2/5] COPY deploy/docker/nginx.conf /etc/nginx/nginx.conf
+#25 CACHED
+
+#26 [build  4/16] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+#26 CACHED
+
+#27 [build  2/16] WORKDIR /src
+#27 CACHED
+
+#28 [stage-1 5/5] COPY --from=build /src/web/apps/template-runtime/dist /srv/template-runtime
+#28 CACHED
+
+#29 exporting to image
+#29 exporting layers done
+#29 exporting manifest sha256:0aa2651a7c597e6b9afee5255c2f39b6b0218ae14566563d694b3059aa11bcbf 0.0s done
+#29 exporting config sha256:ed1e451d2f63b4a5beae2f1f7c1a70126868549adbcc694e9f385307fe4a95c5 0.0s done
+#29 exporting attestation manifest sha256:94e54184260b92b45dc25ade497f0e842c9d687fef7d00ef0510664648ff219b 0.0s done
+#29 exporting manifest list sha256:d4e375aafd935017c73441d299837c56c06c52ac37758d08486e293e9384e82e 0.0s done
+#29 naming to localhost:49174/argus/argus-web:e2e-plan6-20261011-w26
+#29 naming to localhost:49174/argus/argus-web:e2e-plan6-20261011-w26 done
+#29 pushing layers
+#29 pushing layers 1.1s done
+#29 pushing manifest for localhost:49174/argus/argus-web:e2e-plan6-20261011-w26@sha256:d4e375aafd935017c73441d299837c56c06c52ac37758d08486e293e9384e82e
+#29 pushing manifest for localhost:49174/argus/argus-web:e2e-plan6-20261011-w26@sha256:d4e375aafd935017c73441d299837c56c06c52ac37758d08486e293e9384e82e 0.1s done
+#29 DONE 1.3s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from minio.Dockerfile
+#1 transferring dockerfile: 2.09kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.1s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.0s
+
+#5 [internal] load metadata for mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+#5 DONE 1.2s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [stage-2 1/4] FROM mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+#7 resolve mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 0.1s done
+#7 DONE 0.1s
+
+#8 [mc-build 1/5] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#8 DONE 0.1s
+
+#9 [build 2/5] RUN apk add --no-cache ca-certificates git
+#9 CACHED
+
+#10 [build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -tags kqueue -ldflags "-s -w" -o /out/minio .
+#10 CACHED
+
+#11 [build 4/5] RUN --mount=type=cache,target=/root/.cache/git     git clone --depth 1 --branch "RELEASE.2025-10-15T17-29-55Z" https://github.com/minio/minio.git .
+#11 CACHED
+
+#12 [stage-2 3/4] COPY --from=build /out/minio /usr/local/bin/minio
+#12 CACHED
+
+#13 [mc-build 4/5] RUN git clone --depth 1 --branch "RELEASE.2025-08-13T08-35-41Z" https://github.com/minio/mc.git . &&     test "$(git rev-parse HEAD)" = "7394ce0dd2a80935aded936b09fa12cbb3cb8096"
+#13 CACHED
+
+#14 [build 3/5] WORKDIR /src
+#14 CACHED
+
+#15 [mc-build 2/5] RUN apk add --no-cache ca-certificates git
+#15 CACHED
+
+#16 [mc-build 3/5] WORKDIR /src/mc
+#16 CACHED
+
+#17 [mc-build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     ldflags="$(MC_RELEASE=RELEASE go run buildscripts/gen-ldflags.go "2025-08-13T08-35-41Z")" &&     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$ldflags" -o /out/mc .
+#17 CACHED
+
+#18 [stage-2 2/4] RUN apk add --no-cache ca-certificates && addgroup -S minio && adduser -S -G minio minio
+#18 CACHED
+
+#19 [stage-2 4/4] COPY --from=mc-build /out/mc /usr/local/bin/mc
+#19 CACHED
+
+#20 exporting to image
+#20 exporting layers done
+#20 exporting manifest sha256:1d2773b7a1a7522388143cb015cce0437b60dfced7f39eac2531b7141075f368 done
+#20 exporting config sha256:99e79e709ec80ead294dbfde2214107d3d02ecdad34205a358f7e899df2394ea done
+#20 exporting attestation manifest sha256:0055d823a6f5f459c9519c8f4524033e65e9f99dfee5a454ea69c7b83493337f 0.0s done
+#20 exporting manifest list sha256:6fe89a1178fe8134e9c011c4b0067769b88238a66de70976c9c035a750b93608 0.0s done
+#20 naming to localhost:49174/argus/minio:e2e-plan6-20261011-w26
+#20 naming to localhost:49174/argus/minio:e2e-plan6-20261011-w26 done
+#20 pushing layers
+#20 pushing layers 0.9s done
+#20 pushing manifest for localhost:49174/argus/minio:e2e-plan6-20261011-w26@sha256:6fe89a1178fe8134e9c011c4b0067769b88238a66de70976c9c035a750b93608
+#20 pushing manifest for localhost:49174/argus/minio:e2e-plan6-20261011-w26@sha256:6fe89a1178fe8134e9c011c4b0067769b88238a66de70976c9c035a750b93608 0.1s done
+#20 DONE 1.1s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from workspace.Dockerfile
+#1 transferring dockerfile: 1.99kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
+#5 ...
+
+#6 DONE 0.0s
+
+#7 DONE 0.0s
+
+#8 [internal] load metadata for docker.io/library/python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c
+#8 DONE 2.4s
+
+#5 [internal] load metadata for docker.io/library/node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
+#5 DONE 2.4s
+
+#9 [internal] load .dockerignore
+#9 transferring context: 216B done
+#9 DONE 0.0s
+
+#10 [internal] load build context
+#10 DONE 0.0s
+
+#11 [node 1/1] FROM docker.io/library/node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
+#11 resolve docker.io/library/node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e 0.1s done
+#11 DONE 0.1s
+
+#12 [stage-2 1/7] FROM docker.io/library/python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c
+#12 resolve docker.io/library/python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c 0.1s done
+#12 DONE 0.1s
+
+#13 [supervisor 1/8] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#13 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#13 DONE 0.1s
+
+#10 [internal] load build context
+#10 transferring context: 13.56MB 0.9s done
+#10 DONE 0.9s
+
+#14 [supervisor 7/8] COPY cmd/argus-workspace-supervisor ./cmd/argus-workspace-supervisor
+#14 CACHED
+
+#15 [supervisor 6/8] COPY internal ./internal
+#15 CACHED
+
+#16 [supervisor 2/8] WORKDIR /src
+#16 CACHED
+
+#17 [supervisor 3/8] COPY go.mod go.sum ./
+#17 CACHED
+
+#18 [stage-2 5/7] COPY --from=supervisor /out/supervisor /usr/local/bin/argus-workspace-supervisor
+#18 CACHED
+
+#19 [supervisor 4/8] RUN --mount=type=cache,target=/go/pkg/mod go mod download
+#19 CACHED
+
+#20 [supervisor 5/8] COPY api ./api
+#20 CACHED
+
+#21 [supervisor 8/8] RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '-s -w' -o /out/supervisor ./cmd/argus-workspace-supervisor
+#21 CACHED
+
+#22 [stage-2 6/7] RUN mkdir -p /var/run/argus/manager/tls && chown 10001:10001 /var/run/argus/manager && chmod 0700 /var/run/argus/manager     && python -c "import os; os.setxattr('/usr/local/bin/argus-workspace-supervisor', 'security.capability', bytes.fromhex('01000002e0000000000000000000000000000000'))"
+#22 CACHED
+
+#23 [stage-2 2/7] COPY --from=node /usr/local/bin/node /usr/local/bin/node
+#23 CACHED
+
+#24 [stage-2 4/7] RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r /opt/argus/requirements.lock     && python -c 'import numpy,pandas,scipy,matplotlib,openpyxl,pyarrow'     && node --version && bash --version     && mkdir -p /workspace /home/argus && chmod 1777 /workspace /home/argus
+#24 CACHED
+
+#25 [stage-2 3/7] COPY deploy/workspace/requirements.lock /opt/argus/requirements.lock
+#25 CACHED
+
+#26 [stage-2 7/7] WORKDIR /workspace
+#26 CACHED
+
+#27 exporting to image
+#27 exporting layers
+#27 exporting layers done
+#27 exporting manifest sha256:5b69f11bdf672100aac5f4c42206a7fb076a50c2a4db938338bbe2ee11cfc0fe done
+#27 exporting config sha256:dfb70d66ea7c0e73fc36d3bfe0beff35e58c86793c967d418ff28ddb6e9287a7 done
+#27 exporting attestation manifest sha256:470566ba8ac6ad5b42ff3ae32e863ab429b01b22a588bf5eaaa743d28a714262 0.0s done
+#27 exporting manifest list sha256:d14f163884522174dba38c340e560c2350d73eca375d517859759fc88f284f11 0.0s done
+#27 naming to localhost:49174/argus/argus-workspace:e2e-plan6-20261011-w26
+#27 naming to localhost:49174/argus/argus-workspace:e2e-plan6-20261011-w26 done
+#27 pushing layers
+#27 pushing layers 1.4s done
+#27 pushing manifest for localhost:49174/argus/argus-workspace:e2e-plan6-20261011-w26@sha256:d14f163884522174dba38c340e560c2350d73eca375d517859759fc88f284f11
+#27 pushing manifest for localhost:49174/argus/argus-workspace:e2e-plan6-20261011-w26@sha256:d14f163884522174dba38c340e560c2350d73eca375d517859759fc88f284f11 0.1s done
+#27 DONE 1.6s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from workspace-egress.Dockerfile
+#1 transferring dockerfile: 379B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/opensandbox/egress:v1.1.6@sha256:014d36e4a862c4a466c670b9df3f7516940b4b2aa440062438f09d1d8f9c9403
+#2 ...
+
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/opensandbox/egress:v1.1.6@sha256:014d36e4a862c4a466c670b9df3f7516940b4b2aa440062438f09d1d8f9c9403
+#2 DONE 2.3s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 216B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 138B 0.0s done
+#5 DONE 0.1s
+
+#6 [1/2] FROM docker.io/opensandbox/egress:v1.1.6@sha256:014d36e4a862c4a466c670b9df3f7516940b4b2aa440062438f09d1d8f9c9403
+#6 resolve docker.io/opensandbox/egress:v1.1.6@sha256:014d36e4a862c4a466c670b9df3f7516940b4b2aa440062438f09d1d8f9c9403 0.0s done
+#6 DONE 0.1s
+
+#7 [2/2] COPY deploy/workspace/deny.always /var/egress/rules/deny.always
+#7 CACHED
+
+#8 exporting to image
+#8 exporting layers done
+#8 exporting manifest sha256:148dd4c79ced738331bcd65ca150b4d93df952cf324c0e59b2925f1312fb8940 done
+#8 exporting config sha256:f21beda88f180c00b6c3f78f03da4ee736b8650227ccc607258380a776678207 done
+#8 exporting attestation manifest sha256:98266f25c1c21a93c270d6673905599b325fb8f71f69d6e37042e2a4b45ac6f8 0.0s done
+#8 exporting manifest list sha256:33fbebd7b743c4190915d5391a76c7520c816b5715b832657d43b9d6ca801a48 0.0s done
+#8 naming to localhost:49174/argus/argus-workspace-egress:e2e-plan6-20261011-w26
+#8 naming to localhost:49174/argus/argus-workspace-egress:e2e-plan6-20261011-w26 done
+#8 pushing layers
+#8 pushing layers 1.2s done
+#8 pushing manifest for localhost:49174/argus/argus-workspace-egress:e2e-plan6-20261011-w26@sha256:33fbebd7b743c4190915d5391a76c7520c816b5715b832657d43b9d6ca801a48
+#8 pushing manifest for localhost:49174/argus/argus-workspace-egress:e2e-plan6-20261011-w26@sha256:33fbebd7b743c4190915d5391a76c7520c816b5715b832657d43b9d6ca801a48 0.0s done
+#8 DONE 1.4s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from backend.Dockerfile
+#1 transferring dockerfile: 1.98kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.0s
+
+#5 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#5 DONE 0.5s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [stage-1 1/3] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#8 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab 0.1s done
+#8 DONE 0.1s
+
+#9 [build  1/11] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#9 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#9 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 13.89MB 1.1s done
+#7 DONE 1.1s
+
+#10 [build 11/11] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     if [ -n "m4e2e" ]; then       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build 		-tags "m4e2e" -trimpath -ldflags "-s -w" 		-o /out/argus-telemetry-e2e ./cmd/argus-telemetry-e2e;     fi
+#10 CACHED
+
+#11 [build  2/11] WORKDIR /src
+#11 CACHED
+
+#12 [build  5/11] COPY api/openapi ./api/openapi
+#12 CACHED
+
+#13 [build  6/11] COPY api/schemas ./api/schemas
+#13 CACHED
+
+#14 [build  8/11] COPY internal ./internal
+#14 CACHED
+
+#15 [build  9/11] COPY migrations ./migrations
+#15 CACHED
+
+#16 [stage-1 2/3] COPY --from=build /out/ /usr/local/bin/
+#16 CACHED
+
+#17 [build  3/11] COPY go.mod go.sum ./
+#17 CACHED
+
+#18 [build  4/11] RUN --mount=type=cache,target=/go/pkg/mod     go mod download
+#18 CACHED
+
+#19 [build  7/11] COPY cmd ./cmd
+#19 CACHED
+
+#20 [build 10/11] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     set -eu;     mkdir -p /out &&     for name in argus-server argus-worker argus-connector-gateway argus-telemetry argus-telemetry-dlq-replay argus-connector argus-pki-controller argusctl argus-migrate argus-telemetry-catalog-sync argus-sandbox-smoke; do       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build 		-tags "m4e2e"         -trimpath         -ldflags "-s -w -X github.com/kakj-go/Argus/internal/buildinfo.Version=dev -X github.com/kakj-go/Argus/internal/buildinfo.Commit=unknown -X github.com/kakj-go/Argus/internal/buildinfo.Date=unknown"         -o /out/$name ./cmd/$name;     done
+#20 CACHED
+
+#21 [stage-1 3/3] COPY --from=build /src/migrations/ /usr/local/share/argus/migrations/
+#21 CACHED
+
+#22 exporting to image
+#22 exporting layers done
+#22 exporting manifest sha256:69ab413d47c12481f297131e7c0c6522f1121d4374490f1337a1ed49cf891535 0.0s done
+#22 exporting config sha256:5e102a36caabd60438720dc5aa7b0d8d48f67d3e34aa6522f053ec36afc1589e 0.0s done
+#22 exporting attestation manifest sha256:af7d323599317c912affbd7cd322588c2e7cb6c1ee3f190667a66d4955538a40
+#22 exporting attestation manifest sha256:af7d323599317c912affbd7cd322588c2e7cb6c1ee3f190667a66d4955538a40 0.0s done
+#22 exporting manifest list sha256:522c873b5973949ac3a9d5d0971dedc7f2e903a69631c6bce04dcfe3e650ed55 0.0s done
+#22 naming to localhost:49174/argus/argus-backend:e2e-plan6-20261011-w26 done
+#22 pushing layers
+#22 pushing layers 1.1s done
+#22 pushing manifest for localhost:49174/argus/argus-backend:e2e-plan6-20261011-w26@sha256:522c873b5973949ac3a9d5d0971dedc7f2e903a69631c6bce04dcfe3e650ed55
+#22 pushing manifest for localhost:49174/argus/argus-backend:e2e-plan6-20261011-w26@sha256:522c873b5973949ac3a9d5d0971dedc7f2e903a69631c6bce04dcfe3e650ed55 0.0s done
+#22 DONE 1.3s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from web.Dockerfile
+#1 transferring dockerfile: 2.29kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#4 DONE 0.1s
+
+#5 [internal] load metadata for mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+#5 DONE 0.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [build  1/16] FROM mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+#8 resolve mirror.gcr.io/library/node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 0.1s done
+#8 DONE 0.1s
+
+#9 [stage-1 1/5] FROM mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#9 resolve mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e
+#9 resolve mirror.gcr.io/nginxinc/nginx-unprivileged:1.29.4-alpine@sha256:a6c4f61f456b85b8fdf7ec7ab28cc3e299440e6fb4a9dea520e5fd8fd440025e 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 5.34MB 0.5s done
+#7 DONE 0.5s
+
+#10 [build 10/16] COPY web/packages/design-tokens/package.json ./web/packages/design-tokens/
+#10 CACHED
+
+#11 [build  2/16] WORKDIR /src
+#11 CACHED
+
+#12 [build  7/16] COPY web/apps/template-runtime/package.json ./web/apps/template-runtime/
+#12 CACHED
+
+#13 [build 13/16] RUN --mount=type=cache,id=argus-pnpm-store,target=/pnpm/store     pnpm install --store-dir /pnpm/store --frozen-lockfile --fetch-retries 5 --fetch-timeout 300000
+#13 CACHED
+
+#14 [stage-1 2/5] COPY deploy/docker/nginx.conf /etc/nginx/nginx.conf
+#14 CACHED
+
+#15 [build  4/16] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+#15 CACHED
+
+#16 [stage-1 3/5] COPY --from=build /src/web/apps/enterprise/dist /srv/enterprise
+#16 CACHED
+
+#17 [stage-1 4/5] COPY --from=build /src/web/apps/platform/dist /srv/platform
+#17 CACHED
+
+#18 [build 11/16] COPY web/packages/observability/package.json ./web/packages/observability/
+#18 CACHED
+
+#19 [build  5/16] COPY web/apps/enterprise/package.json ./web/apps/enterprise/
+#19 CACHED
+
+#20 [build  9/16] COPY web/packages/auth/package.json ./web/packages/auth/
+#20 CACHED
+
+#21 [build  3/16] RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
+#21 CACHED
+
+#22 [build  6/16] COPY web/apps/platform/package.json ./web/apps/platform/
+#22 CACHED
+
+#23 [build 12/16] COPY web/packages/ui/package.json ./web/packages/ui/
+#23 CACHED
+
+#24 [build  8/16] COPY web/packages/api-client/package.json ./web/packages/api-client/
+#24 CACHED
+
+#25 [build 16/16] RUN VITE_API_MODE=real     VITE_API_BASE_URL=/     VITE_TEMPLATE_ORIGIN=     VITE_PLATFORM_URL=     VITE_DIRECT_EGRESS_ADDRESSES=127.0.0.1     node scripts/build-web.mjs "real"
+#25 CACHED
+
+#26 [build 14/16] COPY scripts ./scripts/
+#26 CACHED
+
+#27 [build 15/16] COPY web ./web
+#27 CACHED
+
+#28 [stage-1 5/5] COPY --from=build /src/web/apps/template-runtime/dist /srv/template-runtime
+#28 CACHED
+
+#29 exporting to image
+#29 exporting layers done
+#29 exporting manifest sha256:3f30cd7d1538f6f3883b60670d0f0e01041e0b99b883b8f34a5c1fa36d435f9e 0.0s done
+#29 exporting config sha256:114d4648ed96fab65b853bf460bd641f04e228c595263e5a49747a249f12b653 0.0s done
+#29 exporting attestation manifest sha256:61c8d9fe16fbd4ec99a7553779e1004b282f44091f8d5f09c512d5728c564690 0.0s done
+#29 exporting manifest list sha256:f0339a56c95627ddefd0bb0e1daa9e84318b9359eb9fbb9e3296ff1f02c2d323 0.0s done
+#29 naming to localhost:49174/argus/argus-web:e2e-plan6-20261011-w26
+#29 naming to localhost:49174/argus/argus-web:e2e-plan6-20261011-w26 done
+#29 pushing layers
+#29 pushing layers 0.8s done
+#29 pushing manifest for localhost:49174/argus/argus-web:e2e-plan6-20261011-w26@sha256:f0339a56c95627ddefd0bb0e1daa9e84318b9359eb9fbb9e3296ff1f02c2d323
+#29 pushing manifest for localhost:49174/argus/argus-web:e2e-plan6-20261011-w26@sha256:f0339a56c95627ddefd0bb0e1daa9e84318b9359eb9fbb9e3296ff1f02c2d323 0.0s done
+#29 DONE 1.0s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from minio.Dockerfile
+#1 transferring dockerfile: 2.09kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.1s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.1s done
+#3 DONE 0.1s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.1s
+
+#5 [internal] load metadata for mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+#5 DONE 0.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [stage-2 1/4] FROM mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+#7 resolve mirror.gcr.io/library/alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 0.1s done
+#7 DONE 0.1s
+
+#8 [mc-build 1/5] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#8 DONE 0.1s
+
+#9 [build 3/5] WORKDIR /src
+#9 CACHED
+
+#10 [build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -tags kqueue -ldflags "-s -w" -o /out/minio .
+#10 CACHED
+
+#11 [build 2/5] RUN apk add --no-cache ca-certificates git
+#11 CACHED
+
+#12 [stage-2 3/4] COPY --from=build /out/minio /usr/local/bin/minio
+#12 CACHED
+
+#13 [mc-build 3/5] WORKDIR /src/mc
+#13 CACHED
+
+#14 [stage-2 2/4] RUN apk add --no-cache ca-certificates && addgroup -S minio && adduser -S -G minio minio
+#14 CACHED
+
+#15 [mc-build 4/5] RUN git clone --depth 1 --branch "RELEASE.2025-08-13T08-35-41Z" https://github.com/minio/mc.git . &&     test "$(git rev-parse HEAD)" = "7394ce0dd2a80935aded936b09fa12cbb3cb8096"
+#15 CACHED
+
+#16 [build 4/5] RUN --mount=type=cache,target=/root/.cache/git     git clone --depth 1 --branch "RELEASE.2025-10-15T17-29-55Z" https://github.com/minio/minio.git .
+#16 CACHED
+
+#17 [mc-build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     ldflags="$(MC_RELEASE=RELEASE go run buildscripts/gen-ldflags.go "2025-08-13T08-35-41Z")" &&     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$ldflags" -o /out/mc .
+#17 CACHED
+
+#18 [mc-build 2/5] RUN apk add --no-cache ca-certificates git
+#18 CACHED
+
+#19 [stage-2 4/4] COPY --from=mc-build /out/mc /usr/local/bin/mc
+#19 CACHED
+
+#20 exporting to image
+#20 exporting layers done
+#20 exporting manifest sha256:4d9eeb36543711db50cde16710ae93870ec0f409bc28cf69ac7ef092093e4d77 0.0s done
+#20 exporting config sha256:8d04bae1c17e06c2cc9b84105e503127a9531fb03d15cc9568f122ca9f91a015 0.0s done
+#20 exporting attestation manifest sha256:5f57c4f054cf7bafaa0931b4f036584efcd0e2e542b158ce77464e6e6a7dce5f
+#20 exporting attestation manifest sha256:5f57c4f054cf7bafaa0931b4f036584efcd0e2e542b158ce77464e6e6a7dce5f 0.0s done
+#20 exporting manifest list sha256:785b3311ccded224a5b84791c025d9cb494a1fb3e2dafeb2cbf9e76a90f8d1dd 0.0s done
+#20 naming to localhost:49174/argus/minio:e2e-plan6-20261011-w26 done
+#20 pushing layers
+#20 pushing layers 0.7s done
+#20 pushing manifest for localhost:49174/argus/minio:e2e-plan6-20261011-w26@sha256:785b3311ccded224a5b84791c025d9cb494a1fb3e2dafeb2cbf9e76a90f8d1dd
+#20 pushing manifest for localhost:49174/argus/minio:e2e-plan6-20261011-w26@sha256:785b3311ccded224a5b84791c025d9cb494a1fb3e2dafeb2cbf9e76a90f8d1dd 0.1s done
+#20 DONE 0.9s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from e2e-ssh.Dockerfile
+#1 transferring dockerfile: 1.30kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
+#4 DONE 0.1s
+
+#5 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#5 DONE 0.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [stage-1 1/4] FROM mirror.gcr.io/library/alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
+#7 resolve mirror.gcr.io/library/alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1 0.1s done
+#7 DONE 0.1s
+
+#8 [build 1/7] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#8 DONE 0.1s
+
+#9 [internal] load build context
+#9 transferring context: 127.51kB 0.0s done
+#9 DONE 0.0s
+
+#10 [build 3/7] COPY go.mod go.sum ./
+#10 CACHED
+
+#11 [build 4/7] RUN --mount=type=cache,target=/go/pkg/mod go mod download
+#11 CACHED
+
+#12 [build 6/7] COPY tests/e2e/remoteclient ./tests/e2e/remoteclient
+#12 CACHED
+
+#13 [build 7/7] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o /out/argus-e2e-ssh ./tests/e2e/sshserver &&     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o /out/argus-e2e-remoteclient ./tests/e2e/remoteclient
+#13 CACHED
+
+#14 [build 5/7] COPY tests/e2e/sshserver ./tests/e2e/sshserver
+#14 CACHED
+
+#15 [stage-1 3/4] COPY --from=build /out/argus-e2e-ssh /usr/local/bin/argus-e2e-ssh
+#15 CACHED
+
+#16 [build 2/7] WORKDIR /src
+#16 CACHED
+
+#17 [stage-1 2/4] RUN apk add --no-cache iproute2
+#17 CACHED
+
+#18 [stage-1 4/4] COPY --from=build /out/argus-e2e-remoteclient /usr/local/bin/argus-e2e-remoteclient
+#18 CACHED
+
+#19 exporting to image
+#19 exporting layers done
+#19 exporting manifest sha256:d7b99ce8dde7fa30da0116628a7b945edc2a89f66d8ec77fe999b54cb3f053fd 0.0s done
+#19 exporting config sha256:256213481ed8c416ce86a829da4c68de62236254cd6b37a1d056d288c2e806dd 0.0s done
+#19 exporting attestation manifest sha256:0087e58cb6f801ad296a82d218a690784a54add6462535a0ad7a2a552e0476e0
+#19 exporting attestation manifest sha256:0087e58cb6f801ad296a82d218a690784a54add6462535a0ad7a2a552e0476e0 0.1s done
+#19 exporting manifest list sha256:8baf89043ddf9a1d8affe86813a2c82e381c71659e508fef57f233f55d916682 0.0s done
+#19 naming to localhost:49174/argus/argus-e2e-ssh:e2e-plan6-20261011-w26 0.0s done
+#19 pushing layers
+#19 pushing layers 0.8s done
+#19 pushing manifest for localhost:49174/argus/argus-e2e-ssh:e2e-plan6-20261011-w26@sha256:8baf89043ddf9a1d8affe86813a2c82e381c71659e508fef57f233f55d916682
+#19 pushing manifest for localhost:49174/argus/argus-e2e-ssh:e2e-plan6-20261011-w26@sha256:8baf89043ddf9a1d8affe86813a2c82e381c71659e508fef57f233f55d916682 0.0s done
+#19 DONE 1.1s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from replay-model.Dockerfile
+#1 transferring dockerfile: 876B done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.0s
+
+#5 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#5 DONE 0.5s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 216B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [build 1/5] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#8 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#8 DONE 0.1s
+
+#9 [stage-1 1/2] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#9 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 44.11kB done
+#7 DONE 0.0s
+
+#10 [build 3/5] COPY go.mod go.sum ./
+#10 CACHED
+
+#11 [build 4/5] COPY cmd/argus-replay-model ./cmd/argus-replay-model
+#11 CACHED
+
+#12 [build 2/5] WORKDIR /src
+#12 CACHED
+
+#13 [build 5/5] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags=m4e2e -trimpath -ldflags "-s -w" -o /out/argus-replay-model ./cmd/argus-replay-model
+#13 CACHED
+
+#14 [stage-1 2/2] COPY --from=build /out/argus-replay-model /usr/local/bin/argus-replay-model
+#14 CACHED
+
+#15 exporting to image
+#15 exporting layers done
+#15 exporting manifest sha256:48fc9928d5a739602c6d4effa97dc3bc622af54c70663680c4a23a02d6b99d78 0.0s done
+#15 exporting config sha256:5273ca347fbdbf0824e1b60a52872a2d0c10cbf196559373bfccaf62e62b7fbe 0.0s done
+#15 exporting attestation manifest sha256:bcea4f70512e1fb29010f8c673eb776c1c749f07686fbd2eeff826fe258f3fe0 0.0s done
+#15 exporting manifest list sha256:2dc4ce63deefd08a2be3c07cd66dd26508c92718b418a9dd05380ea7dead9121 0.0s done
+#15 naming to localhost:49174/argus/argus-e2e-replay:e2e-plan6-20261011-w26 done
+#15 DONE 0.2s
+
+#15 exporting to image
+#15 pushing layers
+#15 pushing layers 1.0s done
+#15 pushing manifest for localhost:49174/argus/argus-e2e-replay:e2e-plan6-20261011-w26@sha256:2dc4ce63deefd08a2be3c07cd66dd26508c92718b418a9dd05380ea7dead9121
+#15 pushing manifest for localhost:49174/argus/argus-e2e-replay:e2e-plan6-20261011-w26@sha256:2dc4ce63deefd08a2be3c07cd66dd26508c92718b418a9dd05380ea7dead9121 0.1s done
+#15 DONE 1.3s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from otelcol.Dockerfile
+#1 transferring dockerfile: 633B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for gcr.io/distroless/static-debian12:nonroot
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 216B done
+#3 DONE 0.0s
+
+#4 [1/2] FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+#4 resolve gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab 0.0s done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 72.76MB 5.0s
+#5 transferring context: 146.54MB 10.0s
+#5 transferring context: 174.67MB 12.0s done
+#5 DONE 12.0s
+
+#6 [2/2] COPY build/otelcol/dist/linux-amd64/argus-otelcol /usr/local/bin/argus-otelcol
+#6 CACHED
+
+#7 exporting to image
+#7 exporting layers
+#7 exporting layers done
+#7 exporting manifest sha256:a7b6b5cbb2453d8cc322e394df05e812bba25820f080e586390902dde81fea6d 0.0s done
+#7 exporting config sha256:f9940812add6551487f600cf2272a566007b0426b7ad2919b82fce2697bd1620 0.0s done
+#7 exporting attestation manifest sha256:e2e1b93175274145f17dd1b0c45616b7c5751ad533895883bade88f55ae99df8 0.0s done
+#7 exporting manifest list sha256:27c7f66ea160a7cf297f61abe1d758fcfb5b8774d7a839a694d87f6cb6836a17
+#7 exporting manifest list sha256:27c7f66ea160a7cf297f61abe1d758fcfb5b8774d7a839a694d87f6cb6836a17 0.0s done
+#7 naming to localhost:49174/argus/argus-otelcol:e2e-plan6-20261011-w26 done
+#7 pushing layers
+#7 pushing layers 0.9s done
+#7 pushing manifest for localhost:49174/argus/argus-otelcol:e2e-plan6-20261011-w26@sha256:27c7f66ea160a7cf297f61abe1d758fcfb5b8774d7a839a694d87f6cb6836a17
+#7 pushing manifest for localhost:49174/argus/argus-otelcol:e2e-plan6-20261011-w26@sha256:27c7f66ea160a7cf297f61abe1d758fcfb5b8774d7a839a694d87f6cb6836a17 0.0s done
+#7 DONE 1.1s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from e2e-artifact-server.Dockerfile
+#1 transferring dockerfile: 437B done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
+#4 DONE 0.0s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 216B done
+#5 DONE 0.0s
+
+#6 [1/3] FROM mirror.gcr.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
+#6 resolve mirror.gcr.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 68.37MB 4.9s
+#7 transferring context: 129.03MB 9.2s done
+#7 DONE 9.2s
+
+#8 [2/3] COPY build/e2e-artifacts/ /usr/share/nginx/html/
+#8 CACHED
+
+#9 [3/3] COPY deploy/docker/e2e-artifact-server.conf /etc/nginx/conf.d/default.conf
+#9 CACHED
+
+#10 exporting to image
+#10 exporting layers done
+#10 exporting manifest sha256:c76a7f822452d86bdd29bc93f0028bac369989631f9983d341c1d3deb081fa09
+#10 exporting manifest sha256:c76a7f822452d86bdd29bc93f0028bac369989631f9983d341c1d3deb081fa09 0.0s done
+#10 exporting config sha256:4d5771c2d94642759867d6ecb0d61672b38c33c29f910e7bd348b2942a52fa8b 0.0s done
+#10 exporting attestation manifest sha256:17d972a9e831186bfcb78d11de3a50a80ff7290b23b6962857ccc6348e5b0a4f 0.0s done
+#10 exporting manifest list sha256:37eb1ec86152d61337b20fb6ca415a7872b95b57bd15127b1c62fcf539f57414
+#10 exporting manifest list sha256:37eb1ec86152d61337b20fb6ca415a7872b95b57bd15127b1c62fcf539f57414 0.0s done
+#10 naming to localhost:49174/argus/argus-e2e-artifact:e2e-plan6-20261011-w26 done
+#10 pushing layers
+#10 pushing layers 1.3s done
+#10 pushing manifest for localhost:49174/argus/argus-e2e-artifact:e2e-plan6-20261011-w26@sha256:37eb1ec86152d61337b20fb6ca415a7872b95b57bd15127b1c62fcf539f57414
+#10 pushing manifest for localhost:49174/argus/argus-e2e-artifact:e2e-plan6-20261011-w26@sha256:37eb1ec86152d61337b20fb6ca415a7872b95b57bd15127b1c62fcf539f57414 0.1s done
+#10 DONE 1.6s
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from e2e-systemd-host.Dockerfile
+#1 transferring dockerfile: 2.16kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#2 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 DONE 0.0s
+
+#3 docker-image://mirror.gcr.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 CACHED
+
+#4 [internal] load metadata for mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+#5 ...
+
+#6 [auth] library/ubuntu:pull token for registry-1.docker.io
+#6 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+#5 DONE 2.5s
+
+#7 [internal] load .dockerignore
+#7 transferring context: 216B done
+#7 DONE 0.0s
+
+#8 [internal] load build context
+#8 DONE 0.0s
+
+#9 [generator 1/6] FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#9 resolve mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.1s done
+#9 DONE 0.1s
+
+#10 [stage-1 1/4] FROM docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+#10 resolve docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 0.1s done
+#10 DONE 0.1s
+
+#8 [internal] load build context
+#8 transferring context: 150.11kB 0.0s done
+#8 DONE 0.0s
+
+#11 [stage-1 2/4] COPY --from=generator /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+#11 CACHED
+
+#12 [generator 2/6] WORKDIR /src
+#12 CACHED
+
+#13 [stage-1 3/4] RUN sed -i 's|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g;s|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources &&     apt-get -o Acquire::Retries=3 update && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 install -y --no-install-recommends       ca-certificates curl iproute2 iptables openssh-client openssh-server openssl socat sudo systemd systemd-sysv &&     useradd --create-home --shell /bin/bash argus &&     echo 'argus:M3-e2e-ssh-password' | chpasswd && 	echo 'root:M3-e2e-ssh-password' | chpasswd &&     mkdir -p /run/sshd && 	mkdir -p /var/log/journal && 	printf 'PasswordAuthentication yes\nPermitRootLogin yes\n' >/etc/ssh/sshd_config.d/argus-e2e.conf &&     systemctl enable ssh.service &&     apt-get clean && rm -rf /var/lib/apt/lists/*
+#13 CACHED
+
+#14 [generator 4/6] RUN --mount=type=cache,target=/go/pkg/mod go mod download
+#14 CACHED
+
+#15 [generator 5/6] COPY cmd/argus-telemetry-e2e ./cmd/argus-telemetry-e2e
+#15 CACHED
+
+#16 [generator 3/6] COPY go.mod go.sum ./
+#16 CACHED
+
+#17 [generator 6/6] RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags m4e2e -trimpath -ldflags "-s -w"       -o /out/argus-telemetry-e2e ./cmd/argus-telemetry-e2e
+#17 CACHED
+
+#18 [stage-1 4/4] COPY --from=generator /out/argus-telemetry-e2e /usr/local/bin/argus-telemetry-e2e
+#18 CACHED
+
+#19 exporting to image
+#19 exporting layers done
+#19 exporting manifest sha256:e2454865e02a90521f62792041200cb0144d7ae9b311736a2949b6b8017cab2a 0.0s done
+#19 exporting config sha256:4f023662690e049130ff2aeee405e9123038b4d6e9699c8cd491bef4a6ba2ea9
+#19 exporting config sha256:4f023662690e049130ff2aeee405e9123038b4d6e9699c8cd491bef4a6ba2ea9 0.0s done
+#19 exporting attestation manifest sha256:c2ffd37d72b4329d1e2a494dc91f863a895d05032574966b58b967a6aabdf071 0.1s done
+#19 exporting manifest list sha256:82538e4ffd8ee55dc530ed708d5c62f54fcb52b80766c51ed456e6ab83fd4b00
+#19 exporting manifest list sha256:82538e4ffd8ee55dc530ed708d5c62f54fcb52b80766c51ed456e6ab83fd4b00 0.0s done
+#19 naming to localhost:49174/argus/argus-e2e-systemd:e2e-plan6-20261011-w26 done
+#19 pushing layers
+#19 pushing layers 0.9s done
+#19 pushing manifest for localhost:49174/argus/argus-e2e-systemd:e2e-plan6-20261011-w26@sha256:82538e4ffd8ee55dc530ed708d5c62f54fcb52b80766c51ed456e6ab83fd4b00
+#19 pushing manifest for localhost:49174/argus/argus-e2e-systemd:e2e-plan6-20261011-w26@sha256:82538e4ffd8ee55dc530ed708d5c62f54fcb52b80766c51ed456e6ab83fd4b00 0.1s done
+#19 DONE 1.2s
+I1011 04:57:39.279285   46416 warnings.go:107] "Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice"
+I1011 05:00:00.266746   10332 warnings.go:107] "Warning: spec.template.spec.hostAliases[1].ip: duplicate ip \"10.96.50.143\""
+E1011 05:02:05.225969   10332 portforward.go:404] "Unhandled Error" err="error copying from local connection to remote stream: writeto tcp4 127.0.0.1:52620->127.0.0.1:57149: read tcp4 127.0.0.1:52620->127.0.0.1:57149: wsarecv: An existing connection was forcibly closed by the remote host." logger="UnhandledError"
+I1011 05:02:30.652832   10332 warnings.go:107] "Warning: spec.externalIPs is deprecated and may no longer be implemented in some clusters"
+E1011 05:19:17.485297   10332 portforward.go:404] "Unhandled Error" err="error copying from local connection to remote stream: writeto tcp4 127.0.0.1:58843->127.0.0.1:58844: read tcp4 127.0.0.1:58843->127.0.0.1:58844: wsarecv: An existing connection was forcibly closed by the remote host." logger="UnhandledError"
+E1011 05:20:14.945652   10332 portforward.go:404] "Unhandled Error" err="error copying from local connection to remote stream: writeto tcp4 127.0.0.1:52620->127.0.0.1:52639: read tcp4 127.0.0.1:52620->127.0.0.1:52639: wsarecv: An existing connection was forcibly closed by the remote host." logger="UnhandledError"
+E2E failed before cleanup: plan6: real model omitted required scope/evaluation/mute/empty facts for 171757d3-def0-5ddf-a025-34e49211b306
+warning: no CRDs were marked as owned; refusing broad CRD deletion
+argus-dev: plan6: real model omitted required scope/evaluation/mute/empty facts for 171757d3-def0-5ddf-a025-34e49211b306
+exit status 1

@@ -1,0 +1,12 @@
+{
+  "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "model_id": "glm-5.3",
+  "api_protocol": "chat_completions",
+  "api_key_env": "GLM_API_KEY",
+  "context_window_tokens": 200000,
+  "max_output_tokens": 16384,
+  "input_price_per_million": 0,
+  "output_price_per_million": 0,
+  "monthly_amount": 1000,
+  "endpoint_ip": "39.108.52.113"
+}

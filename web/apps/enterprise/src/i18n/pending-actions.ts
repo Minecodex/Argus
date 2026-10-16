@@ -17,6 +17,7 @@ export const pendingActionsZh = {
       connection_mode: "连接方式",
       protocol: "协议",
       username: "用户名",
+      credential_version: "凭据版本",
       resource_type: "资源类型",
       resource_name: "资源名称",
       target: "目标",
@@ -131,6 +132,12 @@ export const pendingActionsZh = {
         result: "分组已恢复",
       },
 
+      host_control_tunnel_reconnect: {
+        title: "恢复主机连接：{{name}}",
+        summary: "使用已验证的当前绑定凭据恢复现有控制与采集隧道。",
+        diff: "重新授权 {{name}} 的现有隧道连接",
+        result: "主机 {{name}} 的隧道恢复已提交",
+      },
       host_create: {
         title: "新增主机 {{name}}",
         summary: "创建已验证的主机资源",
@@ -287,6 +294,7 @@ export const pendingActionsEn = {
       connection_mode: "Connection mode",
       protocol: "Protocol",
       username: "Username",
+      credential_version: "Credential version",
       resource_type: "Resource type",
       resource_name: "Resource name",
       target: "Target",
@@ -401,6 +409,13 @@ export const pendingActionsEn = {
         result: "Folder restored",
       },
 
+      host_control_tunnel_reconnect: {
+        title: "Restore host connection: {{name}}",
+        summary:
+          "Restore existing control and collection tunnels with the verified current credential.",
+        diff: "Reauthorize existing tunnels for {{name}}",
+        result: "Tunnel reconnection for {{name}} was submitted",
+      },
       host_create: {
         title: "Add host {{name}}",
         summary: "Create a validated host resource",

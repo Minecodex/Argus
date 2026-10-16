@@ -1,0 +1,156 @@
+serviceaccount/argus-e2e-ingress created
+clusterrole.rbac.authorization.k8s.io/plan6-plan6-20261011-w32-nginx created
+clusterrolebinding.rbac.authorization.k8s.io/plan6-plan6-20261011-w32-nginx created
+ingressclass.networking.k8s.io/plan6-plan6-20261011-w32-nginx created
+configmap/argus-e2e-ingress created
+service/argus-e2e-ingress created
+deployment.apps/argus-e2e-ingress created
+Preflight plan6-plan6-20261011-w32 on docker-desktop
+[PASS] kubernetes-api: v1.36.1
+[PASS] network-profile: NetworkPolicy=unverified; EgressGateway=absent; posture=degraded
+[WARN] network-security: NetworkPolicy probe did not observe an enforced deny: job argus-network-probe-1791679442804379100/probe-denied failed
+[WARN] network-security: no external Egress Gateway was detected; Direct Executor uses the cluster default route
+[PASS] node-architecture: amd64
+[PASS] cluster-capacity: allocatable cpu=16000m memory=15911100Ki pods=110
+[WARN] storage-class: standard (volume expansion unavailable; accepted for local profiles)
+[PASS] ingress-class: plan6-plan6-20261011-w32-nginx
+[PASS] pki: managed
+[PASS] host-disk: 75.9Gi free
+[WARN] network-policy: NetworkPolicy enforcement was not positively verified
+[WARN] sandbox-runtime: shared ordinary-container runtime explicitly accepted for the local profile
+[PASS] host-architecture: amd64
+Estimate: 22 pods, 6 PVCs, 19Gi requested storage
+Argus plan6-plan6-20261011-w32 plan (evaluation)
+1. foundation
+2. data-operators
+3. data
+4. sandbox
+5. telemetry-pipeline
+6. platform
+WARN: NETWORK_POLICY_ENFORCEMENT_UNVERIFIED
+WARN: SHARED_CONTAINER_SANDBOX_RUNTIME
+Bootstrap TLS: insecure-first-fetch
+Building Connector distribution for linux/amd64
+Building Connector distribution for linux/arm64
+Building Connector distribution for windows/amd64
+932a169e91d933ce0efa332547041af4ee9c4d8e0906a93b1e641f689a6e9a72
+Building argus-backend for linux/amd64
+Building argus-web for linux/amd64
+Building minio for linux/amd64
+Building argus-workspace for linux/amd64
+Building argus-workspace-egress for linux/amd64
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w32 created
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w32 restarted
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w32" rollout to finish: 0 out of 1 new pods have been updated...
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w32" rollout to finish: 0 of 1 updated pods are available...
+daemon set "argus-image-loader-plan6-plan6-20261011-w32" successfully rolled out
+Artifact Store synchronized: Collector distributions and Connector release e2e-plan6-20261011-w32-a05967c724090fad
+Reusing compatible OpenSandbox controller judex/opensandbox-controller-manager; preserving external ownership
+deployment.apps/argus-web restarted
+deployment.apps/argus-server restarted
+deployment.apps/argus-worker restarted
+deployment.apps/argus-direct-executor restarted
+deployment.apps/argus-connector-gateway restarted
+deployment.apps/argus-pki-controller restarted
+deployment.apps/argus-telemetry-ingest restarted
+deployment.apps/argus-telemetry-writer restarted
+deployment.apps/argus-telemetry-query restarted
+Argus evaluation plan6-plan6-20261011-w32 installed successfully
+Platform initialization URL (copy and open it now; shown only once):
+Expires at: 2026-10-12T00:49:01Z
+Baseline browser e2e/m2(-dashboard-dialogs)?-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 started
+{"time":"2026-10-11T08:53:36.108381+08:00","level":"INFO","msg":"Connector enrolled","connector_id":"01a12872-6e15-75a6-8974-1c7a402f6e8a","role":"kubernetes","gateway":"grpcs://connector.plan6-plan6-20261011-w32.argus.test:9443"}
+Baseline browser e2e/m3-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 passed
+E2E phase m4 started
+Baseline browser e2e/m4-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m4 passed
+E2E phase p5-native started
+Native host.create.preview Preview/template/Run binding passed
+E2E phase p5-native passed
+E2E phase m7 started
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.repair.preview Preview/template/Run binding passed
+Native host.collector.upgrade.preview Preview/template/Run binding passed
+Native k8s.collector.install.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Baseline browser e2e/m7-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+E2E phase m7 passed
+E2E phase plan6 started
+host.docker.internal:58160/argus/argus b	fetching image content	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Pulling from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.0 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:58160/argus/argus b	fetching image content	
+└──index (713af2bc9679)                 	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Pulling from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.0 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:58160/argus/argus b	fetching image content	
+└──index (713af2bc9679)                 	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (2e8b7f0c7890)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Pulling from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.1 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:58160/argus/argus b	fetching image content	
+└──index (713af2bc9679)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (2e8b7f0c7890)           	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (dd35f0023046)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Pulling from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.1 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:58160/argus/argus b	fetching image content	
+└──index (713af2bc9679)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (2e8b7f0c7890)           	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (dd35f0023046)           	waiting    	|[32m[0m--------------------------------------|	
+      └──config (da5ba6869286)          	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Pulling from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.1 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:58160/argus/argus b	saved	
+└──index (713af2bc9679)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (2e8b7f0c7890)           	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (dd35f0023046)           	waiting    	|[32m[0m--------------------------------------|	
+      └──config (da5ba6869286)          	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Pulling from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.3 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:58160/argus/argus b	saved	
+└──index (713af2bc9679)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (2e8b7f0c7890)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (dd35f0023046)           	waiting    	|[32m[0m--------------------------------------|	
+      └──config (da5ba6869286)          	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Completed pull from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.3 s	total:  837.0 	(3.3 KiB/s)	
+host.docker.internal:58160/argus/argus b	saved	
+└──index (713af2bc9679)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (2e8b7f0c7890)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (dd35f0023046)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──config (da5ba6869286)          	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Completed pull from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.3 s	total:  3.7 Ki	(14.7 KiB/s)	
+host.docker.internal:58160/argus/argus b	saved	
+└──index (713af2bc9679)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (2e8b7f0c7890)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (dd35f0023046)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──config (da5ba6869286)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Completed pull from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.3 s	total:  6.8 Ki	(27.0 KiB/s)	
+host.docker.internal:58160/argus/argus b	saved	
+└──index (713af2bc9679)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (2e8b7f0c7890)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (dd35f0023046)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──config (da5ba6869286)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+application/vnd.oci.image.index.v1+json sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Completed pull from OCI Registry (host.docker.internal:58160/argus/argus-backend:e2e-plan6-20261011-w32@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d)	elapsed: 0.3 s	total:  7.6 Ki	(30.3 KiB/s)	
+host.docker.internal:58160/argus/argus-backend@sha256:713af2bc96798e55fc7c3fb169d2e2ad6e08fd5d78080b4fa7d57978cefda61d
+Plan6 normal production backend active; Replay prerequisites completed
+Untagged: localhost:58160/argus/argus-e2e-ssh:e2e-plan6-20261011-w32
+Deleted: sha256:74fbb06480f85e41d47cd6b4e51079e8e38325880480ba50a4c0484af3d3f3d5
+Untagged: localhost:58160/argus/argus-e2e-replay:e2e-plan6-20261011-w32
+Deleted: sha256:3a7193435b94a5d0fb6d1882538097fb2d5c76f062ccf8446fdbfbcd26032763
+Untagged: localhost:58160/argus/argus-e2e-artifact:e2e-plan6-20261011-w32
+Deleted: sha256:4f9659304c145f6f0a67e4cedf147c59261a42eb23ac2b3d8a5de25c8153e5e5
+Untagged: localhost:58160/argus/argus-e2e-systemd:e2e-plan6-20261011-w32
+Deleted: sha256:01efbd94d9d237fa2ef195702ac258cb41f12552547c5fd5818d6fb2766cced2
+Untagged: localhost:58160/argus/argus-otelcol:e2e-plan6-20261011-w32
+Deleted: sha256:0033118eef92f28ffa01f9c503e59ba3962f23e8bd5f389ac09529f7205176b8
+Argus plan6-plan6-20261011-w32 removed

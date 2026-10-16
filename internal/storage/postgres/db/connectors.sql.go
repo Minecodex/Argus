@@ -62,7 +62,7 @@ func (q *Queries) ActivateBastionConnector(ctx context.Context, arg ActivateBast
 
 const activateKubernetesConnector = `-- name: ActivateKubernetesConnector :one
 UPDATE kubernetes_clusters SET connector_id = $3, connection_status = 'connected', resource_version = resource_version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 RETURNING id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at
+WHERE id = $1 AND enterprise_id = $2 RETURNING id, enterprise_id, name, api_server, connection_mode, bastion_scope_id, connector_id, credential_id, default_namespace, environment, labels, labels_hash, labels_version, resource_version, connection_status, kubernetes_version, node_count, ready_node_count, status, deleted_at, created_at, updated_at, statistics_observed_at
 `
 
 type ActivateKubernetesConnectorParams struct {
@@ -97,6 +97,7 @@ func (q *Queries) ActivateKubernetesConnector(ctx context.Context, arg ActivateK
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StatisticsObservedAt,
 	)
 	return i, err
 }

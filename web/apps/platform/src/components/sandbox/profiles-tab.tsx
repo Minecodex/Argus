@@ -20,10 +20,10 @@ import {
   Field,
   FormDrawer,
   Input,
-  RowAction,
+  ActionMenu,
   Select,
   Spinner,
-  Switch,
+  StatusBadge,
 } from "@argus/ui";
 
 const constraints = {
@@ -165,23 +165,32 @@ export function ProfilesTab() {
                 key: "enabled",
                 header: t("sandbox.profiles.table.enabled"),
                 render: (row) => (
-                  <Switch
-                    checked={row.enabled}
-                    disabled={toggle.isPending}
-                    label={t("sandbox.profiles.table.enabled")}
-                    onChange={(enabled) =>
-                      toggle.mutate({ id: row.id, enabled })
-                    }
-                  />
+                  <StatusBadge tone={row.enabled ? "success" : "neutral"}>
+                    {t(row.enabled ? "common.enabled" : "common.disabled")}
+                  </StatusBadge>
                 ),
               },
               {
                 key: "id",
                 header: t("common.actions"),
                 render: (row) => (
-                  <RowAction onPress={() => setForm(fromProfile(row))}>
-                    {t("common.edit")}
-                  </RowAction>
+                  <ActionMenu
+                    name={row.name}
+                    items={[
+                      {
+                        label: t("common.edit"),
+                        onSelect: () => setForm(fromProfile(row)),
+                      },
+                      {
+                        label: t(
+                          row.enabled ? "common.disable" : "common.enable",
+                        ),
+                        disabled: toggle.isPending,
+                        onSelect: () =>
+                          toggle.mutate({ id: row.id, enabled: !row.enabled }),
+                      },
+                    ]}
+                  />
                 ),
               },
             ]}

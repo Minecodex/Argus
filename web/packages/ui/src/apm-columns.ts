@@ -15,6 +15,21 @@ export function apmColumns(
   type: string,
   text: (zh: string, en: string) => string,
 ): ObservationColumn[] | undefined {
+  if (type === "trace_list")
+    return [
+      { key: "rootService", label: text("入口服务", "Entry service") },
+      { key: "rootOperation", label: text("入口操作", "Entry operation") },
+      {
+        key: "duration",
+        label: text("耗时", "Duration"),
+        format: (value) => number(value, 1, " ms"),
+      },
+      { key: "status", label: text("状态", "Status") },
+      { key: "startTime", label: text("开始时间", "Start time") },
+      { key: "spanCount", label: text("Span 数", "Spans") },
+      { key: "errorCount", label: text("错误数", "Errors") },
+      { key: "traceId", label: text("调用链 ID", "Trace ID") },
+    ];
   if (!["apm_services", "apm_instances", "apm_endpoints"].includes(type))
     return undefined;
   const columns: ObservationColumn[] = [

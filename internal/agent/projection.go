@@ -17,13 +17,25 @@ const (
 
 func encodeToolResultProjection(resultRef, toolCallID string, full []byte, result toolruntime.Result) ([]byte, bool, error) {
 	clean, _ := sanitize(result.Data).(map[string]any)
+	if result.ModelSummary != nil && !result.DataIsSchema {
+		clean, _ = sanitize(result.ModelSummary).(map[string]any)
+	}
 	// Trusted Schema documents describe fields, including credential references;
 	// redacting property names would silently corrupt their validation contract.
 	if result.DataIsSchema {
 		encoded, _ := json.Marshal(result.Data)
 		_ = json.Unmarshal(encoded, &clean)
 	}
-	summary, refs, partial := projectStructuredResult(clean)
+	var summary any
+	var refs []any
+	partial := false
+	if result.DataIsDiscovery || result.DataIsSchema {
+		// Discovery and validation contracts cannot lose tools, enum members,
+		// required fields or examples. Context assembly enforces model capacity.
+		summary, refs = clean, resourceRefs(clean)
+	} else {
+		summary, refs, partial = projectStructuredResult(clean)
+	}
 	partial = partial || result.Partial
 	payload := map[string]any{
 		"schema_version":            "argus.tool_result_projection/v1",
@@ -41,7 +53,7 @@ func encodeToolResultProjection(resultRef, toolCallID string, full []byte, resul
 	if err != nil {
 		return nil, false, err
 	}
-	if len(encoded) <= maxProjectionBytes {
+	if result.DataIsDiscovery || result.DataIsSchema || len(encoded) <= maxProjectionBytes {
 		return encoded, partial, nil
 	}
 	payload["partial"] = true

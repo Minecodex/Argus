@@ -62,3 +62,5 @@ PromQL 查询预算包含独立的 `MaxSamples` 与 `MaxSeries`，后者默认 1
 ## 未覆盖
 
 Recording/Alert Rule 管理、Thanos 特殊能力、完整 KQL、完整 SkyWalking OAP / Query Protocol 兼容、任意 SQL 和旧查询协议不属于本 ADR 范围；PlanV2 的受控 APM 查询不代表完整厂商后端兼容。
+
+2026-10-07 新增的 [Plan6 告警中心](../plan6/README.md) 独立规划告警策略、通知、历史与会话工具，评估复用本 ADR 的授权查询链路；本轮计划与原型不表示正式告警能力已实施。

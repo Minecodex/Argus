@@ -1,27 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import {
-  useApi,
-  type KubernetesCluster,
-  type PendingActionPublic,
-} from "@argus/api-client";
-import {
-  Alert,
-  DataTable,
-  EmptyState,
-  Field,
-  Input,
-  KeyValueGrid,
-  RowAction,
-  Spinner,
-  StatusBadge,
-  Wizard,
-  type Column,
-} from "@argus/ui";
-import { PendingActionCard } from "./pending-action-card";
-import { CollectorSettlementPanel } from "../telemetry/collector-settlement";
-import { bindingStatusTone } from "./status";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
+import {useMemo,useState} from "react";
+import {useTranslation} from "react-i18next";
+import {useApi,type KubernetesCluster,type PendingActionPublic} from "@argus/api-client";
+import {ActionMenu,Alert,DataTable,EmptyState,Field,Input,KeyValueGrid,Spinner,StatusBadge,Wizard,type Column} from "@argus/ui";
+import {PendingActionCard} from "./pending-action-card";
+import {CollectorSettlementPanel} from "../telemetry/collector-settlement";
+import {bindingStatusTone} from "./status";
 
 type ClaimStateKey =
   "none" | "takeover" | "closeHostProfile" | "unbound" | "temporary";
@@ -229,23 +213,12 @@ export function CollectorWizard({
       key: "actions",
       header: t("kubernetes.table.actions"),
       render: (row) =>
-        row.status === "proposed" ? (
-          <RowAction
-            isDisabled={row.host === "—"}
-            isPending={
-              verify.isPending && verify.variables?.bindingId === row.id
-            }
-            onPress={() =>
+        (<ActionMenu items={[...(row.status === "proposed" ? [{label: t("kubernetes.collector.wizard.verify"),onSelect: () =>
               verify.mutate({
                 bindingId: row.id,
                 hostId: row.host,
                 version: row.version,
-              })
-            }
-          >
-            {t("kubernetes.collector.wizard.verify")}
-          </RowAction>
-        ) : null,
+              }),disabled: (row.host === "—") || (verify.isPending && verify.variables?.bindingId === row.id)}] : [])]} />),
     },
   ];
 

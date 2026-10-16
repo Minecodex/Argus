@@ -1,14 +1,25 @@
-<section><h3 id="title"></h3><div id="chart"></div><div id="detail"></div></section>
+<section id="metric-view"></section>
 <script>
-ArgusTemplate.onData((data, context) => {
-  const zh = context.locale === 'zh-CN';
-  document.getElementById('title').textContent = zh ? '指标查询' : 'Metrics';
-  const root = document.getElementById('chart'); root.replaceChildren();
-  const detail = document.getElementById('detail'); detail.replaceChildren();
-  const payload = data.data || data.result || data;
-  const series = payload.series || payload.result || data.series || [];
-  ArgusTemplate.timeseries(root, Array.isArray(series) ? series : [], zh ? '时间序列' : 'Time series');
-  if (payload.metadata) ArgusTemplate.details(detail, payload.metadata);
-  if (data.partial) ArgusTemplate.note(detail, zh ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
-});
+(() => {
+ const v=ArgusView,t=(a,b)=>v.text(a,b);
+ v.mount(document.getElementById('metric-view'),(root,data)=>{
+  const query=data.query_context||{},payload=data.data||{},raw=data.items||payload.result||data.series||[];
+  const series=payload.resultType==='scalar'&&raw.length===2&&!raw[0]?.metric?[{metric:{},value:raw}]:Array.isArray(raw)?raw:[],resources=data.resources||[];
+  v.header(root,t('指标查询','Metric query'),resources.map(item=>item.name||item.id).join(' · ')||t('授权资源范围','Authorized resource scope'));
+  const parameters=v.node('div',undefined,'argus-template-parameters');v.fields(parameters,[[t('表达式','Expression'),query.query],[t('实际时间','Effective time'),v.time(query.from)+' – '+v.time(query.to)],[t('采样步长','Sample step'),query.step_seconds?query.step_seconds+' s':t('即时查询','Instant query')]]);root.append(parameters);
+  const draw=(target,items)=>{
+   const rows=items.map((item,index)=>{
+    const metric=item.metric||{},info=item.presentation_context||{},points=(Array.isArray(item.values)?item.values:Array.isArray(item.value)?[item.value]:[]).filter(point=>Array.isArray(point)&&point[1]!==null&&point[1]!==''&&Number.isFinite(Number(point[1]))),numbers=points.map(point=>Number(point[1]));
+    const resource=resources.find(resource=>resource.id===(metric.resource_id||metric.argus_resource_id)),object=info.business_object||['db_name','database','db.system','service_name','service','device','mountpoint','instance'].filter(key=>metric[key]).map(key=>key+'='+metric[key]).join(' · '),unit=info.unit||metric.unit||'',name=info.metric_name||metric.__name__||t('表达式结果','Expression result'),scope=resource?.name||info.resource_name||(info.scope==='aggregate'?t('聚合范围','Aggregate scope'):t('资源关联未识别','Resource relationship unknown'));
+    const statistics=item.argus_statistics||{};return {item,scope,object,name,unit,samples:statistics.sample_count??points.length,latest:statistics.last===undefined?(numbers.length?numbers[numbers.length-1]:null):statistics.last,min:statistics.min??(numbers.length?numbers.reduce((a,b)=>Math.min(a,b),Infinity):null),max:statistics.max??(numbers.length?numbers.reduce((a,b)=>Math.max(a,b),-Infinity):null),mean:statistics.mean??(numbers.length?numbers.reduce((a,b)=>a+b,0)/numbers.length:null),at:points[points.length-1]?.[0],legend:scope+' · '+(object?object+' · ':'')+name+' #'+(index+1)};
+   });
+   const groups=new Map();for(const row of rows){if(row.samples>1){const group=groups.get(row.unit)||[];group.push({...row.item,display_name:row.legend});groups.set(row.unit,group);}}
+   for(const [unit,items]of groups){const chart=v.node('div',undefined,'argus-template-chart');target.append(chart);ArgusTemplate.observation(chart,{title:t('趋势','Trend')+' · '+(unit||t('单位未识别','Unit unknown')),signal:'metrics',type:'timeseries',unit,decimals:3,legend:true,range:{from:query.from,to:query.to},targets:[{id:'query',status:'success',result_type:'matrix',data:{result:items}}]});}
+   if(rows.some(row=>row.samples===1))v.note(target,t('单点仅表示采样值，不代表时间趋势。','A single sample does not describe a time trend.'));
+   v.table(target,rows,[[t('资源 / 聚合范围','Resource / aggregate scope'),'scope'],[t('业务对象','Business object'),row=>row.object||t('未识别','Unknown')],[t('指标','Metric'),'name'],[t('最新值','Latest'),row=>v.number(row.latest,row.unit)],[t('单位','Unit'),row=>row.unit||t('未识别','Unknown')],[t('采样','Samples'),'samples']],(cell,row)=>{v.fields(cell,[[t('最小 / 最大','Min / max'),v.number(row.min,row.unit)+' / '+v.number(row.max,row.unit)],[t('平均值','Mean'),v.number(row.mean,row.unit)],[t('最近采样','Latest sample'),v.time(row.at)],[t('关联范围','Relationship scope'),row.item.presentation_context?.scope],[t('标签','Labels'),row.item.metric],[t('来源','Source'),row.item.presentation_context?.source||row.item.metric?.source_key]]);});
+  };
+  void v.pages(root,{...data,items:series},draw);
+  const execution=v.section(root,t('执行与完整性','Execution and completeness'));v.fields(execution,Object.entries(data.argus_meta||payload.metadata||{}));
+ },'metric.context');
+})();
 </script>

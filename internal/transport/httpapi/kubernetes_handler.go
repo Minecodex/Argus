@@ -235,7 +235,10 @@ func toKubernetesCluster(value db.KubernetesCluster) kubernetesapi.KubernetesClu
 		result.KubernetesVersion = &value.KubernetesVersion
 	}
 	nodeCount, readyCount := int(value.NodeCount), int(value.ReadyNodeCount)
-	result.NodeCount, result.ReadyNodeCount = &nodeCount, &readyCount
+	if value.StatisticsObservedAt.Valid {
+		result.NodeCount, result.ReadyNodeCount = &nodeCount, &readyCount
+		result.StatisticsObservedAt = &value.StatisticsObservedAt.Time
+	}
 	return result
 }
 

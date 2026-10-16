@@ -1,3 +1,4 @@
+import { commitAlertAction, createAlertDomains } from "./alerts";
 import { commitDashboardAction } from "./dashboard";
 import { publishMockPresentation } from "./planv5";
 import type {
@@ -353,6 +354,8 @@ export function createEngine(ctx: BaseContext): Engine {
   function commitResourceAction(
     action: PendingActionPublic,
   ): ConfirmActionResult | undefined {
+    const alertResult = commitAlertAction(ctx, action);
+    if (alertResult) return alertResult;
     const dashboardResult = commitDashboardAction(ctx, action);
     if (dashboardResult) return dashboardResult;
     const plan = db.actionPlans[action.action_ref];
@@ -1434,9 +1437,30 @@ export function createEngine(ctx: BaseContext): Engine {
 
     const wantsHostCreate =
       /(新增|添加|add|create)/i.test(text) && /(主机|host)/i.test(text);
-    const toolNames = wantsHostCreate
-      ? ["host.resolve_context", "host.test_connection", "host.create.preview"]
-      : ["telemetry.promql.query"];
+    const wantsAlert = /(告警|alert)/i.test(text);
+    const wantsAlertCreate = wantsAlert && /(新增|创建|create)/i.test(text);
+    const alertApi = wantsAlert
+      ? createAlertDomains({
+          ...ctx,
+          createPendingAction: (input) =>
+            createPendingAction({ ...input, conversation_id: conversationId }),
+          getAction,
+          ensureNotExpired,
+          commitResourceAction,
+          startExecution,
+          streamReply,
+        }).alerts
+      : undefined;
+    const alertResult = alertApi ? await alertApi.instances() : undefined;
+    const toolNames = wantsAlert
+      ? ["tool.search", "tool.describe", "tool.invoke"]
+      : wantsHostCreate
+        ? [
+            "host.resolve_context",
+            "host.test_connection",
+            "host.create.preview",
+          ]
+        : ["telemetry.promql.query"];
     const traces: ToolCallTrace[] = [];
     for (const toolName of toolNames) {
       const callId = nextId(db, "call");
@@ -1447,7 +1471,9 @@ export function createEngine(ctx: BaseContext): Engine {
         toolCall: { callId, toolName, status: "running", startedAt },
       };
       await ctx.pause(Math.min(ctx.options.delay ?? 200, 200));
-      const durationMs = 300 + Math.round(Math.random() * 900);
+      const durationMs = wantsAlert
+        ? 420
+        : 300 + Math.round(Math.random() * 900);
       const summary =
         toolName === "host.create.preview" ? "预览已生成" : "调用成功";
       yield {
@@ -1468,9 +1494,20 @@ export function createEngine(ctx: BaseContext): Engine {
       });
     }
 
-    const answer = wantsHostCreate
-      ? "已完成目标解析与连接测试，新增主机的不可变预览已生成。请在下方卡片确认或取消；确认后将创建主机并开始安装 OTLP 收集器。"
-      : "已完成查询与分析。各项指标整体正常，近一小时未发现新的异常重启；详细数据已渲染在下方卡片中。";
+    const alertEnglish =
+      typeof localStorage !== "undefined" &&
+      localStorage.getItem("argus.locale") === "en-US";
+    const answer = wantsAlert
+      ? wantsAlertCreate
+        ? alertEnglish
+          ? "The CPU and memory alert preview is ready for host confirmation. Business configuration remains unchanged until confirmation; cancellation makes no change."
+          : "已生成包含 CPU 和内存规则的告警预览，等待宿主确认。确认前业务配置不变，取消不会提交。"
+        : alertEnglish
+          ? "Authorized alert results include scope, last evaluation and health. No events alone does not imply health; no data and evaluation failures are reported separately."
+          : "已按当前授权查询告警。结果包含范围、最近评估和健康状态；零事件不代表健康，无数据和评估失败分别显示。"
+      : wantsHostCreate
+        ? "已完成目标解析与连接测试，新增主机的不可变预览已生成。请在下方卡片确认或取消；确认后将创建主机并开始安装 OTLP 收集器。"
+        : "已完成查询与分析。各项指标整体正常，近一小时未发现新的异常重启；详细数据已渲染在下方卡片中。";
     for (const delta of chunkText(answer)) {
       await ctx.pause(Math.min(ctx.options.delay ?? 60, 60));
       yield { type: "token", messageId, delta };
@@ -1478,7 +1515,38 @@ export function createEngine(ctx: BaseContext): Engine {
 
     const pendingActionRefs: string[] = [];
     const presentations: string[] = [];
-    if (wantsHostCreate) {
+    if (wantsAlertCreate && alertApi) {
+      const base = (await alertApi.configurations("policy"))[0];
+      if (base) {
+        const action = await alertApi.preview({
+          kind: "policy",
+          operation: "create",
+          name: alertEnglish
+            ? "Production host multi-metric alert"
+            : "生产主机双指标告警",
+          spec: {
+            ...structuredClone(base.spec),
+            channel_ids: ["c3"],
+            mode: /同时|全部|both|all conditions|\bAND\b/i.test(text)
+              ? "every"
+              : "independent",
+          },
+          expected_version: 0,
+        });
+        action.preview = {
+          ...(action.preview as Record<string, unknown>),
+          tool_call_id: traces.at(-1)?.callId,
+        };
+        ctx.save();
+        pendingActionRefs.push(action.action_ref);
+        yield {
+          type: "pending_action",
+          messageId,
+          actionRef: action.action_ref,
+        };
+      }
+    }
+    if (wantsHostCreate && !wantsAlert) {
       const ipMatch = /\b(?:\d{1,3}\.){3}\d{1,3}\b/.exec(text);
       const action = createPendingAction({
         tool: "host.create",
@@ -1501,11 +1569,22 @@ export function createEngine(ctx: BaseContext): Engine {
       yield { type: "pending_action", messageId, actionRef: action.action_ref };
     }
     const toolCallId = traces.at(-1)?.callId ?? crypto.randomUUID();
-    await publishMockPresentation(ctx, conversationId, toolCallId, {
-      items: db.hosts
-        .filter((host) => host.enterpriseId === ctx.enterpriseId())
-        .slice(0, 20),
-    });
+    await publishMockPresentation(
+      ctx,
+      conversationId,
+      toolCallId,
+      alertResult
+        ? {
+            page: alertResult,
+            fixture:
+              "deterministic alert visual fixture; not real model evidence",
+          }
+        : {
+            items: db.hosts
+              .filter((host) => host.enterpriseId === ctx.enterpriseId())
+              .slice(0, 20),
+          },
+    );
     presentations.push(toolCallId);
     yield { type: "presentation", messageId, toolCallId };
 

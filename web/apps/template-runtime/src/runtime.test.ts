@@ -1,8 +1,18 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { trustedHello, csp } from "./runtime";
+import { trustedHello, csp, intrinsicTemplateHeight } from "./runtime";
 import { TEMPLATE_PROTOCOL } from "@argus/ui/template";
 describe("Template bootstrap", () => {
+  it("reports intrinsic content instead of feeding the host viewport back into sizing", () => {
+    const root = document.createElement("section");
+    document.body.append(root);
+    document.body.style.padding = "16px";
+    Object.defineProperty(root, "scrollHeight", { value: 560 });
+    root.getBoundingClientRect = () => ({ height: 560 }) as DOMRect;
+    expect(intrinsicTemplateHeight(root)).toBe(592);
+    root.remove();
+    document.body.style.padding = "";
+  });
   it("requires the exact parent origin, source, nonce and transferred port", () => {
     const parent = {} as Window;
     const data = {

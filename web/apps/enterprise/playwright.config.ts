@@ -55,6 +55,7 @@ export default defineConfig({
         {
           command: `node ../../../scripts/run-vite.mjs enterprise ${port(enterpriseOrigin)} mock`,
           url: enterpriseOrigin,
+          env: { VITE_TEMPLATE_ORIGIN: templateOrigin },
           reuseExistingServer: !process.env.CI,
         },
         {

@@ -10,7 +10,7 @@ import { House, Menu, MessageSquarePlus, Settings2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApi, type Conversation } from "@argus/api-client";
-import { AppShell, Button, SearchInput } from "@argus/ui";
+import { AppShell, Button, ConversationListItem, SearchInput } from "@argus/ui";
 import { useUiStore } from "../store/ui";
 import { AccountActions } from "./account-actions";
 
@@ -129,16 +129,7 @@ function ConversationList() {
             </div>
             <div className="argus-sessions">
               {group.items.map((item) => (
-                <Button
-                  variant="ghost"
-                  className={item.id === search.c ? "is-active" : ""}
-                  key={item.id}
-                  onPress={() => openConversation(item.id)}
-                  type="button"
-                >
-                  <span>{item.title}</span>
-                  <small>{formatTime(item.updated_at, i18n.language)}</small>
-                </Button>
+                <ConversationListItem key={item.id} title={item.title} meta={formatTime(item.updated_at, i18n.language)} selected={item.id === search.c} onPress={() => openConversation(item.id)} />
               ))}
             </div>
           </div>

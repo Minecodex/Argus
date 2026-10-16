@@ -131,7 +131,8 @@ describe("HostOnboardingProgress callback failures", () => {
 
       expect(screen.getByText(message)).toBeVisible();
       expect(screen.getByText(`错误码：${code}`)).toBeVisible();
-      fireEvent.click(screen.getByRole("button", { name: "查看安装进度" }));
+      fireEvent.click(screen.getByRole("button", { name: /更多操作/ }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "查看安装进度" }));
 
       const dialog = await screen.findByRole("dialog", {
         name: "查看安装进度",

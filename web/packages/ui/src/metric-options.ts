@@ -19,7 +19,10 @@ export function metricOption(
   decimals = 2,
   display: ObservationDisplay = {},
   thresholds: ObservationThreshold[] = [],
+  range?: { from: string; to: string },
 ): EChartsOption | undefined {
+  const from = range ? Date.parse(range.from) : NaN;
+  const to = range ? Date.parse(range.to) : NaN;
   const formatted = (value: number) => formatObservation(value, unit, decimals);
   const valueColor = (value: number | null) => {
     const tone = observationTone(value, thresholds);
@@ -41,7 +44,13 @@ export function metricOption(
     : undefined;
   const base: EChartsOption = {
     legend: { show: legend, type: "scroll" },
-    xAxis: { type: "time", axisLabel: { hideOverlap: true } },
+    xAxis: {
+      type: "time",
+      axisLabel: { hideOverlap: true },
+      ...(Number.isFinite(from) && Number.isFinite(to) && from < to
+        ? { min: from, max: to }
+        : {}),
+    },
     yAxis: {
       type: "value",
       scale: true,
@@ -73,6 +82,7 @@ export function metricOption(
       else min = max - Math.max(1, Math.abs(max) * 0.1);
     }
     return {
+      legend: { show: legend, type: "scroll" },
       series: values.map((v, index) => ({
         type: "gauge",
         center: [`${((index + 0.5) * 100) / values.length}%`, "55%"],
@@ -142,7 +152,10 @@ export function metricOption(
                 data: thresholds.map((t) => ({
                   xAxis: t.value,
                   lineStyle: { color: `var(--${t.tone})` },
-                  label: { formatter: formatted(t.value) },
+                  label: {
+                    formatter: formatted(t.value),
+                    position: "insideEndTop" as const,
+                  },
                 })),
               }
             : undefined,
@@ -235,7 +248,7 @@ export function metricOption(
             : "line",
       name: s.name,
       data: s.points,
-      showSymbol: false,
+      showSymbol: s.points.filter((point) => point[1] !== null).length === 1,
       connectNulls: false,
       smooth: display.smooth ?? false,
       stack: display.stack ? "samples" : undefined,

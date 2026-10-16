@@ -26,6 +26,12 @@ MCP Tool 和领域服务负责：
 
 Conversation 和 Run 只绑定服务端确认的 `enterprise_id`。模型生成的企业、标签过滤条件、Host 或 Kubernetes ID 只是候选参数，不能切换当前身份域或扩大显式资源授权；每个 ToolCall、Run、PendingAction 和 Execution 保存实际目标资源引用和授权版本快照。
 
+### Plan7 远程执行扩展（待实现）
+
+[Plan7](./plan7/README.md)新增排查／计划模式和模型入口 connect。Workspace 内离线分析免逐次确认；平台业务继续下述 Preview／Confirm；每次完整远程请求等待宿主批准，固定计划可一次批准全部列明步骤。Q15 确认请求支持一批指令，整计划与连续 connect 复用同资源 shell／PowerShell 状态。模型入口只创建预览，真实执行仍由确定性 Action／Plan Executor 完成，不向模型开放隐藏 Commit、未经批准的自由终端输入或自带 approved 参数的派发路径。
+
+该设计不再引入同工具／同参数的 24 小时授权。模型工具的执行场景和批准事实由服务端判断。执行后允许 Workspace 继续分析，新平台变更继续 Preview，新远程请求再次确认；当前 VerificationOnly 的一刀切限制需要在实施中调整。详见[执行与恢复契约](./plan7/02-architecture-and-contracts.md)。
+
 ## 2. 自有 Tool 设计
 
 Tool 分成两类：
@@ -263,7 +269,9 @@ MCP 核心协议提供 `structuredContent` 和可选 `outputSchema`，但不定�
 
 ## 8. 模型工具与容量
 
-自有业务能力通过 `tool.search/describe/invoke` 暴露，固定七个分类。模型不直接接收自有完整目录。启用且健康的 Sandbox 提供 `read/write/edit/bash`；用户为会话选择的客户 MCP 工具直接追加为模型工具。因此工具数是 `3 + 可选 4 + N`。
+自有业务能力通过 `tool.search/describe/invoke` 暴露，当前有 `host/k8s/metric/trace/log/connector/workflow/dashboard/alert` 九个分类和 103 个业务工具；移除范围与替代能力见[模型工具目录收敛](./planv5/tool-catalog-pruning-20261014.md)。模型不直接接收自有完整目录。启用且健康的 Sandbox 提供 `read/write/edit/bash`；用户为会话选择的客户 MCP 工具直接追加为模型工具。因此模型初始工具数是 `3 + 可选 4 + N`。
+
+上述是 PlanV5 当前基线。Plan7 实现并启用 connect 后，再增加一个按当前主体／运行可用性提供的核心入口；全部自有入口可用时为 8＋N，容量预检必须据实际集合计算。Plan7 尚未实现，不将该目标记为当前已发布数量。
 
 运行前及消息接受事务前检查完整工具集合、必要上下文和输出预留。容量不足返回 422 `MODEL_TOOL_CAPACITY_EXCEEDED`，不创建 Run/Task、不裁剪工具、不切换模型，保留输入与附件。执行时再次校验当前授权，不把预检当作授权票据。
 

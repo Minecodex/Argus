@@ -1,0 +1,549 @@
+{
+  "attempt_id": "6b5882b6-0a56-452c-b577-d51111a5da0c",
+  "dashboard_id": "6313f0d0-5708-455d-ab6f-8594bb0d6d8c",
+  "error_code": "",
+  "from": "2026-10-14T02:58:04.110594943Z",
+  "job_id": "f7c81393-8839-4271-96d6-4c3ff9b51874",
+  "layout": { "columns": 12, "row_height": 8 },
+  "local_values": { "logs": {}, "metrics": {}, "traces": {} },
+  "name": "Tool template three signals",
+  "panels": [
+    {
+      "decimals": 0,
+      "description": "",
+      "display": null,
+      "id": "metrics",
+      "layout": { "h": 48, "min_h": 8, "min_w": 3, "w": 12, "x": 0, "y": 0 },
+      "legend": false,
+      "name": "metrics",
+      "signal": "metrics",
+      "status": "success",
+      "targets": [
+        {
+          "code": "",
+          "data": [
+            {
+              "display_name": "m3-in-cluster \u00b7 argus_m7_e2e_gauge_planv2",
+              "metric": {
+                "__name__": "argus_m7_e2e_gauge_planv2",
+                "argus_resource_id": "01a13888-0407-702c-aa8d-ca3891d09015",
+                "argus_source_id": "39dce69e-eb55-5437-a252-17ac629702fa",
+                "argus_source_revision": "4"
+              },
+              "presentation_context": {
+                "business_object": "",
+                "metric_name": "argus_m7_e2e_gauge_planv2",
+                "resource_name": "m3-in-cluster",
+                "scope": "resource",
+                "source": null
+              },
+              "values": [[1791950284.11, "7"]]
+            }
+          ],
+          "id": "main",
+          "result_type": "matrix",
+          "status": "success",
+          "step_seconds": 12
+        }
+      ],
+      "thresholds": [],
+      "type": "timeseries",
+      "unit": ""
+    },
+    {
+      "decimals": 0,
+      "description": "",
+      "display": null,
+      "id": "logs",
+      "layout": { "h": 48, "min_h": 8, "min_w": 3, "w": 12, "x": 0, "y": 52 },
+      "legend": false,
+      "name": "logs",
+      "signal": "logs",
+      "status": "success",
+      "targets": [
+        {
+          "code": "",
+          "data": [
+            {
+              "body": "planv2 selection blue",
+              "event_id": "1c52d96b0c68e4a0c8fd8bddf53d5516d8852e3d4354c05203e71c371b918001",
+              "resource_id": "01a13888-0407-702c-aa8d-ca3891d09015",
+              "service_name": "argus-m7-e2e",
+              "severity_number": 0,
+              "severity_text": "INFO",
+              "source_id": "39dce69e-eb55-5437-a252-17ac629702fa",
+              "source_revision": 4,
+              "source_type": "otlp",
+              "span_id": "",
+              "timestamp": "2026-10-14T03:57:56.353648856Z",
+              "trace_id": ""
+            },
+            {
+              "body": "argus m7 e2e log.planv2",
+              "event_id": "6d91a9c55ad1a209409b2df9dc02aa94a0e13578f54329e44ee870ae6b7eee1e",
+              "resource_id": "01a13888-0407-702c-aa8d-ca3891d09015",
+              "service_name": "argus-m7-e2e",
+              "severity_number": 0,
+              "severity_text": "INFO",
+              "source_id": "39dce69e-eb55-5437-a252-17ac629702fa",
+              "source_revision": 4,
+              "source_type": "otlp",
+              "span_id": "",
+              "timestamp": "2026-10-14T03:57:56.353648856Z",
+              "trace_id": ""
+            },
+            {
+              "body": "planv2 selection green",
+              "event_id": "7dfc6978b7a949f878c9591edd4c5d54a90e601905d93d50da1e74c4c006420f",
+              "resource_id": "01a13888-0407-702c-aa8d-ca3891d09015",
+              "service_name": "argus-m7-e2e",
+              "severity_number": 0,
+              "severity_text": "ERROR",
+              "source_id": "39dce69e-eb55-5437-a252-17ac629702fa",
+              "source_revision": 4,
+              "source_type": "otlp",
+              "span_id": "",
+              "timestamp": "2026-10-14T03:57:56.353648856Z",
+              "trace_id": ""
+            }
+          ],
+          "id": "main",
+          "result_type": "log_entries",
+          "status": "success",
+          "step_seconds": 0
+        }
+      ],
+      "thresholds": [],
+      "type": "logs",
+      "unit": ""
+    },
+    {
+      "decimals": 0,
+      "description": "",
+      "display": null,
+      "id": "traces",
+      "layout": { "h": 48, "min_h": 8, "min_w": 3, "w": 12, "x": 0, "y": 104 },
+      "legend": false,
+      "name": "traces",
+      "signal": "traces",
+      "status": "success",
+      "targets": [
+        {
+          "code": "",
+          "data": {
+            "queryTraces": {
+              "total": 32,
+              "traces": [
+                {
+                  "duration": 6.003817,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/runs/{run_id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:03.686390986Z",
+                  "status": "unset",
+                  "traceId": "f0fbd976e83cad6d4ce68e734be6ef4e"
+                },
+                {
+                  "duration": 27.95029,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/conversations/{conversation_id}/messages",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:03.656239459Z",
+                  "status": "unset",
+                  "traceId": "e5177fed453aa123ceb4abfc5e1fb564"
+                },
+                {
+                  "duration": 6.584129,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/runs/{run_id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:03.647168879Z",
+                  "status": "unset",
+                  "traceId": "bbbb302a324793cf5123157c2fc10845"
+                },
+                {
+                  "duration": 6.736119,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/runs/{run_id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:02.637556982Z",
+                  "status": "unset",
+                  "traceId": "ef0b89694883d6b4d0480940ab005acc"
+                },
+                {
+                  "duration": 5.346497,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/runs/{run_id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:01.629171097Z",
+                  "status": "unset",
+                  "traceId": "2bde76f97efb500e6c5bfbb9ec2a8ea7"
+                },
+                {
+                  "duration": 26.263175,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/conversations/{conversation_id}/messages",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:01.600819006Z",
+                  "status": "unset",
+                  "traceId": "afe573f154f9b5c698ed9aab79df12fb"
+                },
+                {
+                  "duration": 6.444168,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/runs/{run_id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:01.592175071Z",
+                  "status": "unset",
+                  "traceId": "9519d2229a59ef6d5dbe467284f00335"
+                },
+                {
+                  "duration": 20.307694,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "/argus.telemetry.v1.TelemetryQueryService/ExecuteQueryV2",
+                  "rootService": "argus-telemetry-query",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:00.655902645Z",
+                  "status": "unset",
+                  "traceId": "24b77896b13aa9b6fb0c3100d2d60a40"
+                },
+                {
+                  "duration": 6.570407,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/runs/{run_id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:00.582950318Z",
+                  "status": "unset",
+                  "traceId": "313e1b4615e23b69c890cff8f5b01027"
+                },
+                {
+                  "duration": 12.589123,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "/argus.telemetry.v1.TelemetryQueryService/ExecuteQueryV2",
+                  "rootService": "argus-telemetry-query",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:00.56661018Z",
+                  "status": "unset",
+                  "traceId": "607f76677178bf9e15110c3344280bb1"
+                },
+                {
+                  "duration": 14.633734,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "/argus.telemetry.v1.TelemetryQueryService/ExecuteQueryV2",
+                  "rootService": "argus-telemetry-query",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:58:00.475512357Z",
+                  "status": "unset",
+                  "traceId": "d0542d71c11a1e17f7ae7ae57c0614a2"
+                },
+                {
+                  "duration": 6.388131,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/runs/{run_id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:59.573446223Z",
+                  "status": "unset",
+                  "traceId": "4960baa7c0d9bcf75fb3512c672ee71d"
+                },
+                {
+                  "duration": 38.334682,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/conversations/{conversation_id}/messages",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:59.532829956Z",
+                  "status": "unset",
+                  "traceId": "5b375adc2233e14fd07dcf9e3916345d"
+                },
+                {
+                  "duration": 11.825965,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/conversations",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:59.518251596Z",
+                  "status": "unset",
+                  "traceId": "676a6ce5b1fe67ffed3bb6051adde0cc"
+                },
+                {
+                  "duration": 8.603851,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/dashboard-drafts/{id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:59.401830008Z",
+                  "status": "unset",
+                  "traceId": "802143d70424f5b88ac9e29f834a05e0"
+                },
+                {
+                  "duration": 20.725286,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/enterprise/pending-actions/{action_ref}/confirm",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:58.231149235Z",
+                  "status": "unset",
+                  "traceId": "29bee916a801ca09a78ac1f4e638f107"
+                },
+                {
+                  "duration": 215.927366,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/dashboard-drafts/{id}/preview",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 23,
+                  "startTime": "2026-10-14T03:57:58.011668018Z",
+                  "status": "unset",
+                  "traceId": "19167e92f805075dd361abce52589a85"
+                },
+                {
+                  "duration": 13.106364,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/dashboard-drafts",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:57.996011862Z",
+                  "status": "unset",
+                  "traceId": "283f4623876c338632ded3fd6520c7f2"
+                },
+                {
+                  "duration": 7.070798,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/dashboard-drafts/{id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:57.986039807Z",
+                  "status": "unset",
+                  "traceId": "bd0c0a7130ffa11a737c2ef4a5b06e96"
+                },
+                {
+                  "duration": 24.013423,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/enterprise/pending-actions/{action_ref}/confirm",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.753205637Z",
+                  "status": "unset",
+                  "traceId": "3575123c2619961df6d744525e758230"
+                },
+                {
+                  "duration": 130.371894,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/dashboard-drafts/{id}/preview",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 7,
+                  "startTime": "2026-10-14T03:57:56.620108293Z",
+                  "status": "unset",
+                  "traceId": "91d8d365484bd3c14a027c6de886fab4"
+                },
+                {
+                  "duration": 22.733925,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/dashboard-drafts",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.594300966Z",
+                  "status": "unset",
+                  "traceId": "57a52e1a06093f1a3d15614ea820b2e7"
+                },
+                {
+                  "duration": 11.023774,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/enterprise/model-quotas",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.570904937Z",
+                  "status": "unset",
+                  "traceId": "1e62bbd661b927b00e8b85b18338fc1f"
+                },
+                {
+                  "duration": 26.21095,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/enterprise/ai-models/test-and-create",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.541856451Z",
+                  "status": "unset",
+                  "traceId": "5c5c18885ef3984feb40facc2e47577c"
+                },
+                {
+                  "duration": 16.229361,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "PUT /api/v1/platform/sandbox/enterprise-quotas/{enterprise_id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.523322237Z",
+                  "status": "unset",
+                  "traceId": "071a7cb91a09c67f7ff9c24c1210cb55"
+                },
+                {
+                  "duration": 4.794574,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "GET /api/v1/platform/sandbox/enterprise-quotas/{enterprise_id}",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.516034139Z",
+                  "status": "unset",
+                  "traceId": "4fdfd220d25c18e47b9c7a8263b2133e"
+                },
+                {
+                  "duration": 7.828427,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/platform/sandbox/profiles",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.506106495Z",
+                  "status": "unset",
+                  "traceId": "0ec36b7b71f9356e2ba89cac669c571a"
+                },
+                {
+                  "duration": 6.91643,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/platform/sandbox/images",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.497012643Z",
+                  "status": "unset",
+                  "traceId": "5b6c9773c92791237188b8e4535b98be"
+                },
+                {
+                  "duration": 12.665187,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/platform/sandbox/backends/{id}/test",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.477559695Z",
+                  "status": "unset",
+                  "traceId": "ef37a504d1353e5cee0741ec9fa60a3e"
+                },
+                {
+                  "duration": 8.919623,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/platform/sandbox/backends",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.4661257Z",
+                  "status": "unset",
+                  "traceId": "6f3bd8a110850017fa44b96b9e25d216"
+                },
+                {
+                  "duration": 95.827962,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "POST /api/v1/enterprise/metrics/query",
+                  "rootService": "argus-server",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 3,
+                  "startTime": "2026-10-14T03:57:56.364127398Z",
+                  "status": "unset",
+                  "traceId": "edf13ba6d5bfbffc93dbd55a06d6ae49"
+                },
+                {
+                  "duration": 1,
+                  "errorCount": 0,
+                  "resourceId": "01a13888-0407-702c-aa8d-ca3891d09015",
+                  "rootOperation": "argus-m7-e2e.planv2",
+                  "rootService": "argus-m7-e2e",
+                  "sourceId": "39dce69e-eb55-5437-a252-17ac629702fa",
+                  "spanCount": 1,
+                  "startTime": "2026-10-14T03:57:56.353648856Z",
+                  "status": "unset",
+                  "traceId": "30313233343536373839616263646566"
+                }
+              ]
+            }
+          },
+          "id": "main",
+          "result_type": "traces",
+          "status": "success",
+          "step_seconds": 0
+        }
+      ],
+      "thresholds": [],
+      "type": "trace_list",
+      "unit": ""
+    }
+  ],
+  "partial": false,
+  "resources": [
+    {
+      "id": "01a13888-0407-702c-aa8d-ca3891d09015",
+      "name": "m3-in-cluster",
+      "type": "kubernetes_cluster"
+    }
+  ],
+  "revision_number": 1,
+  "status": "complete",
+  "timezone": "Asia/Shanghai",
+  "to": "2026-10-14T03:58:04.110594943Z",
+  "variables": {},
+  "view": "dashboard-result"
+}

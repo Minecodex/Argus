@@ -19,6 +19,9 @@ type ServerInterface interface {
 	// GetToolPresentation getToolPresentation.
 	// (GET /conversations/{conversation_id}/tool-presentations/{tool_call_id})
 	GetToolPresentation(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID, toolCallId openapi_types.UUID)
+	// ReadToolPresentation Read a capability bound to this authorized presentation.
+	// (POST /conversations/{conversation_id}/tool-presentations/{tool_call_id}/read)
+	ReadToolPresentation(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID, toolCallId openapi_types.UUID, params ReadToolPresentationParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -28,6 +31,12 @@ type Unimplemented struct{}
 // GetToolPresentation getToolPresentation.
 // (GET /conversations/{conversation_id}/tool-presentations/{tool_call_id})
 func (_ Unimplemented) GetToolPresentation(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID, toolCallId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReadToolPresentation Read a capability bound to this authorized presentation.
+// (POST /conversations/{conversation_id}/tool-presentations/{tool_call_id}/read)
+func (_ Unimplemented) ReadToolPresentation(w http.ResponseWriter, r *http.Request, conversationId openapi_types.UUID, toolCallId openapi_types.UUID, params ReadToolPresentationParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -66,6 +75,69 @@ func (siw *ServerInterfaceWrapper) GetToolPresentation(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetToolPresentation(w, r, conversationId, toolCallId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReadToolPresentation operation middleware
+func (siw *ServerInterfaceWrapper) ReadToolPresentation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "conversation_id" -------------
+	var conversationId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "conversation_id", chi.URLParam(r, "conversation_id"), &conversationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "conversation_id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tool_call_id" -------------
+	var toolCallId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tool_call_id", chi.URLParam(r, "tool_call_id"), &toolCallId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tool_call_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReadToolPresentationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReadToolPresentation(w, r, conversationId, toolCallId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -191,6 +263,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/conversations/{conversation_id}/tool-presentations/{tool_call_id}", wrapper.GetToolPresentation)
 	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/conversations/{conversation_id}/tool-presentations/{tool_call_id}/read", wrapper.ReadToolPresentation)
+	})
 
 	return r
 }
@@ -226,6 +301,48 @@ type GetToolPresentationdefaultJSONResponse struct {
 }
 
 func (response GetToolPresentationdefaultJSONResponse) VisitGetToolPresentationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadToolPresentationRequestObject struct {
+	ConversationId openapi_types.UUID `json:"conversation_id"`
+	ToolCallId     openapi_types.UUID `json:"tool_call_id"`
+	Params         ReadToolPresentationParams
+	Body           *ReadToolPresentationJSONRequestBody
+}
+
+type ReadToolPresentationResponseObject interface {
+	VisitReadToolPresentationResponse(w http.ResponseWriter) error
+}
+
+type ReadToolPresentation200JSONResponse PresentationReadResult
+
+func (response ReadToolPresentation200JSONResponse) VisitReadToolPresentationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadToolPresentationdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response ReadToolPresentationdefaultJSONResponse) VisitReadToolPresentationResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {

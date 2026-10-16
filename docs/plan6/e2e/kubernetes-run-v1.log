@@ -1,0 +1,19 @@
+Preflight plan6-plan6-20261009-v1 on docker-desktop
+argusctl: preflight failed
+[PASS] kubernetes-api: v1.36.1
+[PASS] network-profile: NetworkPolicy=unverified; EgressGateway=absent; posture=degraded
+[WARN] network-security: NetworkPolicy probe did not observe an enforced deny: job argus-network-probe-1791512739774819400/probe-denied failed
+[WARN] network-security: no external Egress Gateway was detected; Direct Executor uses the cluster default route
+[PASS] node-architecture: amd64
+[PASS] cluster-capacity: allocatable cpu=16000m memory=15911100Ki pods=110
+[WARN] storage-class: standard (volume expansion unavailable; accepted for local profiles)
+[FAIL] ingress-class: IngressClass nginx is not available: ingressclasses.networking.k8s.io "nginx" not found; domain-based exposure requires an ingress controller
+[PASS] pki: managed
+[PASS] host-disk: 61.0Gi free
+[WARN] network-policy: NetworkPolicy enforcement was not positively verified
+[WARN] sandbox-runtime: shared ordinary-container runtime explicitly accepted for the local profile
+[PASS] host-architecture: amd64
+Estimate: 22 pods, 6 PVCs, 19Gi requested storage
+E2E failed before cleanup: C:\Users\23574\AppData\Local\Temp\argus-dev-e2e-1420124791\argusctl.exe preflight --config D:\workspace\go\Argus\artifacts\plan6-e2e\plan6-20261009-v1\install-config.yaml: exit status 1
+argus-dev: C:\Users\23574\AppData\Local\Temp\argus-dev-e2e-1420124791\argusctl.exe preflight --config D:\workspace\go\Argus\artifacts\plan6-e2e\plan6-20261009-v1\install-config.yaml: exit status 1
+exit status 1

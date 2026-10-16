@@ -218,7 +218,7 @@
 }
 .argus-form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(var(--form-field-min-width), 1fr));
   gap: var(--field-gap);
 }
 .argus-form-actions {

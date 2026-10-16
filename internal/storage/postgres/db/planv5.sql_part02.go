@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+func (q *Queries) MarkRunVerificationOnly(ctx context.Context, arg MarkRunVerificationOnlyParams) error {
+	_, err := q.db.Exec(ctx, markRunVerificationOnly, arg.ID, arg.EnterpriseID)
+	return err
+}
+
 const markToolDispatched = `-- name: MarkToolDispatched :execrows
 UPDATE tool_calls SET status='dispatched',dispatched_at=now(),updated_at=now()
 WHERE tool_calls.id=$1 AND tool_calls.enterprise_id=$2 AND tool_calls.status='prepared'

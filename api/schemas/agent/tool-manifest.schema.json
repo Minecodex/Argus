@@ -108,7 +108,8 @@
         "log",
         "connector",
         "workflow",
-        "dashboard"
+        "dashboard",
+        "alert"
       ]
     },
     "name": {

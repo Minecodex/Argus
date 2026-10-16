@@ -45,6 +45,21 @@ export function hostStatusTone(status: HostConnectionStatus): Tone {
   }
 }
 
+export function hostConnectionPresentation(host: Host) {
+  if (host.status === "active" && host.onboarding.state === "install_failed") {
+    return {
+      key: "hosts.onboardingProgress.failed",
+      tone: "danger" as const,
+      pulse: false,
+    };
+  }
+  return {
+    key: `hosts.status.${host.connection_status}`,
+    tone: hostStatusTone(host.connection_status),
+    pulse: host.connection_status === "online",
+  };
+}
+
 export function collectorTone(status: CollectorStatus): Tone {
   switch (status) {
     case "converged":

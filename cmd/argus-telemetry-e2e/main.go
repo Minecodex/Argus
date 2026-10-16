@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"flag"
 	"log"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -46,6 +47,10 @@ func main() {
 	traceRole := flag.String("planv2-trace-role", "", "frontend or backend trace boundary fixture")
 	traceTime := flag.String("planv2-trace-time", "", "shared RFC3339Nano event time for out-of-order spans")
 	traceGeneration := flag.String("planv2-trace-generation", "old", "fixture body distinguishing installation generations")
+	alertValue := flag.Float64("plan6-alert-value", math.NaN(), "real alert CPU fixture gauge; memory is five points lower")
+	memoryValue := flag.Float64("plan6-memory-value", math.NaN(), "optional independent memory gauge for real inhibition recovery")
+	memberSplit := flag.Bool("plan6-member-split", false, "emit additional gauges with distinct member labels")
+	templateRED := flag.Bool("template-red-fixture", false, "emit isolated tool-template RED acceptance observations")
 	flag.Parse()
 	if *kafkaPassword == "" {
 		*kafkaPassword = os.Getenv("ARGUS_E2E_KAFKA_PASSWORD")
@@ -76,6 +81,12 @@ func main() {
 		}
 		return
 	}
+	if *templateRED {
+		if err := emitTemplateRED(ctx, *endpoint, transport, *resourceID); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	now := uint64(time.Now().UTC().UnixNano())
 	resource := &resourcepb.Resource{Attributes: []*commonpb.KeyValue{
 		{Key: "service.name", Value: stringValue("argus-m7-e2e")},
@@ -92,6 +103,18 @@ func main() {
 	for _, export := range []func(grpc.ClientConnInterface) error{
 		func(connection grpc.ClientConnInterface) error {
 			request := metricsRequest(resource, now, suffix)
+			if !math.IsNaN(*alertValue) {
+				gauges := plan6Metrics(now, *alertValue)
+				if !math.IsNaN(*memoryValue) {
+					gauges[1].GetGauge().DataPoints[0].Value = &metricspb.NumberDataPoint_AsDouble{AsDouble: *memoryValue}
+				}
+				if *memberSplit {
+					for index, name := range []string{"argus_plan6_member_cpu_percent", "argus_plan6_member_memory_percent"} {
+						gauges = append(gauges, &metricspb.Metric{Name: name, Data: &metricspb.Metric_Gauge{Gauge: &metricspb.Gauge{DataPoints: []*metricspb.NumberDataPoint{{TimeUnixNano: now, Attributes: []*commonpb.KeyValue{{Key: "plan6_member", Value: stringValue([]string{"cpu", "memory"}[index])}}, Value: &metricspb.NumberDataPoint_AsDouble{AsDouble: 95}}}}}})
+					}
+				}
+				request.ResourceMetrics[0].ScopeMetrics[0].Metrics = append(request.ResourceMetrics[0].ScopeMetrics[0].Metrics, gauges...)
+			}
 			if suffix == ".planv2" {
 				request.ResourceMetrics[0].ScopeMetrics[0].Metrics = append(request.ResourceMetrics[0].ScopeMetrics[0].Metrics, planV2SelectionMetric(now))
 			}
@@ -226,4 +249,20 @@ func producePermanentRecord(ctx context.Context, brokers []string, username, pas
 
 func stringValue(value string) *commonpb.AnyValue {
 	return &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: value}}
+}
+
+func plan6Metrics(now uint64, value float64) []*metricspb.Metric {
+	out := []*metricspb.Metric{}
+	for _, item := range []struct {
+		name  string
+		value float64
+	}{{"argus_plan6_cpu_percent", value}, {"argus_plan6_memory_percent", value - 5}} {
+		out = append(out, &metricspb.Metric{Name: item.name, Data: &metricspb.Metric_Gauge{Gauge: &metricspb.Gauge{DataPoints: []*metricspb.NumberDataPoint{{TimeUnixNano: now, Value: &metricspb.NumberDataPoint_AsDouble{AsDouble: item.value}}}}}})
+	}
+	points := []*metricspb.NumberDataPoint{}
+	for index, sample := range []float64{100, 110, 5, 15} {
+		points = append(points, &metricspb.NumberDataPoint{StartTimeUnixNano: now - uint64(time.Minute), TimeUnixNano: now - uint64(time.Duration(3-index)*10*time.Second), Value: &metricspb.NumberDataPoint_AsDouble{AsDouble: sample}})
+	}
+	out = append(out, &metricspb.Metric{Name: "argus.plan6.counter.total", Data: &metricspb.Metric_Sum{Sum: &metricspb.Sum{AggregationTemporality: metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_CUMULATIVE, IsMonotonic: true, DataPoints: points}}})
+	return out
 }

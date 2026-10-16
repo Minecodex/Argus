@@ -11,10 +11,10 @@ import (
 // Drive native discovery through the real Agent, persisted ToolResults and
 // model-facing projections. No business mutation is needed for these checks.
 func (a *App) verifyP5BusinessDiscovery(ctx context.Context, env *E2EEnvironment) error {
-	cases := []struct{ category, query, name string }{
-		{"host", "创建", "create.preview"}, {"host", "列表", "list"}, {"host", "删除", "delete.preview"},
-		{"k8s", "命名空间", "namespace.list"}, {"metric", "CPU", "query"}, {"log", "错误日志", "query"}, {"trace", "慢调用", "query"},
-		{"connector", "清单", "list"}, {"workflow", "发布 下载", "publish_file"},
+	cases := []struct{ category, name string }{
+		{"host", "create.preview"}, {"host", "list"}, {"host", "delete.preview"},
+		{"k8s", "namespace.list"}, {"metric", "query"}, {"log", "query"}, {"trace", "query"},
+		{"connector", "list"}, {"workflow", "publish_file"},
 	}
 	for i, tc := range cases {
 		convo, err := a.p5Conversation(ctx, env, fmt.Sprintf("business-discovery-%d", i))
@@ -22,7 +22,7 @@ func (a *App) verifyP5BusinessDiscovery(ctx context.Context, env *E2EEnvironment
 			return err
 		}
 		run, err := a.p5Run(ctx, env, convo, fmt.Sprintf("discovery-%d", i), []p5ToolStep{
-			{"tool.search", map[string]any{"category": tc.category, "query": tc.query}},
+			{"tool.search", map[string]any{"category": tc.category}},
 			{"tool.describe", map[string]any{"category": tc.category, "name": tc.name}},
 		}, []string{})
 		if err != nil {
@@ -45,9 +45,9 @@ func (a *App) verifyP5BusinessDiscovery(ctx context.Context, env *E2EEnvironment
 			return err
 		}
 		if proof.Searches != 1 || proof.Descriptions != 1 || proof.Mutations != 0 {
-			return fmt.Errorf("P5 business discovery %s/%s: %s", tc.category, tc.query, value)
+			return fmt.Errorf("P5 business discovery %s/%s: %s", tc.category, tc.name, value)
 		}
 	}
-	data, _ := json.Marshal(map[string]any{"categories": 7, "business_queries": len(cases), "persisted_search_hits": len(cases), "complete_descriptions": len(cases), "business_mutations": 0, "fixture": "deterministic replay; not real model evaluation"})
+	data, _ := json.Marshal(map[string]any{"categories": 7, "category_list_cases": len(cases), "persisted_search_hits": len(cases), "complete_descriptions": len(cases), "business_mutations": 0, "fixture": "deterministic replay; not real model evaluation"})
 	return writePrivate(filepath.Join(env.Options.Artifacts, "p5-business-discovery.json"), append(data, '\n'))
 }

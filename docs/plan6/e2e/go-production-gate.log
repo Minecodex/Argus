@@ -1,0 +1,147 @@
+ok  	github.com/kakj-go/Argus/internal/action	(cached)
+ok  	github.com/kakj-go/Argus/internal/agent	(cached)
+ok  	github.com/kakj-go/Argus/internal/alerting	(cached)
+ok  	github.com/kakj-go/Argus/internal/app/argusctl	3.102s
+ok  	github.com/kakj-go/Argus/internal/app/argusdev	11.730s
+ok  	github.com/kakj-go/Argus/internal/app/component	(cached)
+ok  	github.com/kakj-go/Argus/internal/app/connector	(cached)
+?   	github.com/kakj-go/Argus/internal/app/connectorgateway	[no test files]
+?   	github.com/kakj-go/Argus/internal/app/pkicontroller	[no test files]
+ok  	github.com/kakj-go/Argus/internal/app/sandboxsmoke	(cached)
+?   	github.com/kakj-go/Argus/internal/app/server	[no test files]
+?   	github.com/kakj-go/Argus/internal/app/telemetry	[no test files]
+ok  	github.com/kakj-go/Argus/internal/app/worker	(cached)
+ok  	github.com/kakj-go/Argus/internal/artifactcheck	(cached)
+ok  	github.com/kakj-go/Argus/internal/artifacthttp	(cached)
+ok  	github.com/kakj-go/Argus/internal/audit	(cached)
+ok  	github.com/kakj-go/Argus/internal/authorization	0.759s
+?   	github.com/kakj-go/Argus/internal/buildinfo	[no test files]
+ok  	github.com/kakj-go/Argus/internal/collectormanager	(cached)
+ok  	github.com/kakj-go/Argus/internal/config	(cached)
+ok  	github.com/kakj-go/Argus/internal/connector	(cached)
+?   	github.com/kakj-go/Argus/internal/connectorprotocol	[no test files]
+ok  	github.com/kakj-go/Argus/internal/containerimage	(cached)
+ok  	github.com/kakj-go/Argus/internal/conversation	(cached)
+ok  	github.com/kakj-go/Argus/internal/dashboard	(cached)
+?   	github.com/kakj-go/Argus/internal/dashboardaccess	[no test files]
+ok  	github.com/kakj-go/Argus/internal/dashboardcontext	(cached)
+?   	github.com/kakj-go/Argus/internal/dashboardparams	[no test files]
+ok  	github.com/kakj-go/Argus/internal/directexecutor	(cached)
+ok  	github.com/kakj-go/Argus/internal/enterprisemcp	(cached)
+?   	github.com/kakj-go/Argus/internal/gen/openapi/action	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/actionapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/agent	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/alertsapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/audit	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/authorization	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/common	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/connectionapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/connectorapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/conversationapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/dashboardapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/enterpriseauthz	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/enterpriseidentity	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/hostapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/identity	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/kubernetesapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/labels	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/m8api	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/machine	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/mcpapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/modelapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/passwordpolicy	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/platform	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/presentationapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/remoteaccessapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/sandboxapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/secretapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/setup	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/stream	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/telemetryapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/workflowapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/openapi/workspaceapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/common/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/directexecutor/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/remoteaccess/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/telemetry/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/gen/proto/argus/workspace/v1	[no test files]
+?   	github.com/kakj-go/Argus/internal/hostonboarding	[no test files]
+ok  	github.com/kakj-go/Argus/internal/hostremoval	(cached)
+ok  	github.com/kakj-go/Argus/internal/identity	(cached)
+ok  	github.com/kakj-go/Argus/internal/installation	(cached)
+ok  	github.com/kakj-go/Argus/internal/installinstruction	(cached)
+?   	github.com/kakj-go/Argus/internal/integration/kubernetes	[no test files]
+ok  	github.com/kakj-go/Argus/internal/integration/modelprovider	(cached)
+ok  	github.com/kakj-go/Argus/internal/integration/opensandbox	(cached)
+ok  	github.com/kakj-go/Argus/internal/integration/remotemcp	(cached)
+ok  	github.com/kakj-go/Argus/internal/keywrap	(cached)
+ok  	github.com/kakj-go/Argus/internal/kubernetesreader	(cached)
+ok  	github.com/kakj-go/Argus/internal/mcp	(cached)
+?   	github.com/kakj-go/Argus/internal/model	[no test files]
+?   	github.com/kakj-go/Argus/internal/operationsecret	[no test files]
+ok  	github.com/kakj-go/Argus/internal/otelcol/configbundle	(cached)
+?   	github.com/kakj-go/Argus/internal/outbox	[no test files]
+ok  	github.com/kakj-go/Argus/internal/pagination	(cached)
+ok  	github.com/kakj-go/Argus/internal/pkirotation	(cached)
+ok  	github.com/kakj-go/Argus/internal/platform	(cached)
+ok  	github.com/kakj-go/Argus/internal/presentation	(cached)
+ok  	github.com/kakj-go/Argus/internal/remoteaccess	(cached)
+?   	github.com/kakj-go/Argus/internal/remoteaccess/revocation	[no test files]
+ok  	github.com/kakj-go/Argus/internal/resource	(cached)
+ok  	github.com/kakj-go/Argus/internal/runtime	(cached)
+ok  	github.com/kakj-go/Argus/internal/sandbox	(cached)
+ok  	github.com/kakj-go/Argus/internal/secret	(cached)
+ok  	github.com/kakj-go/Argus/internal/selfmonitor	(cached)
+ok  	github.com/kakj-go/Argus/internal/sshtarget	(cached)
+?   	github.com/kakj-go/Argus/internal/storage/clickhouse	[no test files]
+?   	github.com/kakj-go/Argus/internal/storage/kafka	[no test files]
+ok  	github.com/kakj-go/Argus/internal/storage/objectstore	(cached)
+?   	github.com/kakj-go/Argus/internal/storage/postgres	[no test files]
+?   	github.com/kakj-go/Argus/internal/storage/postgres/db	[no test files]
+?   	github.com/kakj-go/Argus/internal/storage/redis	[no test files]
+ok  	github.com/kakj-go/Argus/internal/telemetry	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetry/datapolicy	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine/chstats	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine/kql	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine/promql	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetry/queryengine/skywalking	(cached)
+ok  	github.com/kakj-go/Argus/internal/telemetrybinding	(cached)
+ok  	github.com/kakj-go/Argus/internal/tlsmaterial	(cached)
+ok  	github.com/kakj-go/Argus/internal/toolgateway	(cached)
+?   	github.com/kakj-go/Argus/internal/toolruntime	[no test files]
+?   	github.com/kakj-go/Argus/internal/transport/grpcapi	[no test files]
+ok  	github.com/kakj-go/Argus/internal/transport/httpapi	(cached)
+?   	github.com/kakj-go/Argus/internal/transport/mcpapi	[no test files]
+?   	github.com/kakj-go/Argus/internal/transport/sse	[no test files]
+ok  	github.com/kakj-go/Argus/internal/trustbundle	(cached)
+?   	github.com/kakj-go/Argus/internal/tunnelaudit	[no test files]
+ok  	github.com/kakj-go/Argus/internal/tunnelruntime	(cached)
+ok  	github.com/kakj-go/Argus/internal/workspace	(cached)
+ok  	github.com/kakj-go/Argus/internal/workspacefs	(cached)
+ok  	github.com/kakj-go/Argus/internal/workspaceio	(cached)
+ok  	github.com/kakj-go/Argus/internal/workspacelease	(cached)
+?   	github.com/kakj-go/Argus/internal/workspacesupervisor	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-connector	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-connector-gateway	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-dev	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-migrate	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-pki-controller	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-sandbox-smoke	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-server	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-telemetry	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-telemetry-catalog-sync	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-telemetry-dlq-replay	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-worker	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argus-workspace-supervisor	[no test files]
+?   	github.com/kakj-go/Argus/cmd/argusctl	[no test files]
+?   	github.com/kakj-go/Argus/api/openapi	[no test files]
+?   	github.com/kakj-go/Argus/api/schemas	[no test files]
+ok  	github.com/kakj-go/Argus/tests/contract	3.633s
+?   	github.com/kakj-go/Argus/tests/e2e/remoteclient	[no test files]
+?   	github.com/kakj-go/Argus/tests/e2e/sshserver	[no test files]
+ok  	github.com/kakj-go/Argus/tests/postgres	(cached)
+?   	github.com/kakj-go/Argus/scripts/collector-registry	[no test files]
+?   	github.com/kakj-go/Argus/scripts/permission-registry	[no test files]
+?   	github.com/kakj-go/Argus/scripts/sqlc-split	[no test files]

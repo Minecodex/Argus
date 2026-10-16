@@ -1,5 +1,7 @@
 # Task 02：AI 创建仪表盘与 Chat 内分析
 
+2026-10-13 自动发现与结果参数展示替代旧手动选择前件，本轮实现和独立验证见[专项记录](./automatic-analysis-20261013.md)。下述 2026-09-28 关闭状态保留历史范围，不作为新流程的通过证明。
+
 2026-09-28 收尾：Task 02 首期检查已关闭，主清单 37/37。h/i/o/p 的 13 个代表性真实 GLM 场景有分轮通过证据；p 轮异常组 4/4、部署检查 20/20、退出码 0。未声称一次最新镜像全量重跑或任意问题质量保证，详见 [真实模型验收记录](./real-model-validation-20260928.md)。下文的“暂不执行”保留此前非模型收尾阶段的决定。
 
 2026-09-28：Chat 选择、条件状态、builder/DSL 工具协议、宿主确认、后台任务、真实文件/PVC、来源授权及故障恢复的非模型实现与功能验收完成，最终环境清理与原有资源核对通过；见 [验收结论](./completion-review-20260928.md)。实际模型的生成、条件理解、策略与结论质量按用户要求暂不执行，原始模型质量门禁不标为通过。实现契约见 [Chat 上下文与工具](./chat-context.md)。
@@ -17,7 +19,7 @@
 → 发布 Dashboard/Revision
 
 Chat 中 @具体仪表盘
-或未指定对象时列出授权仪表盘，由用户明确选择
+或由 AI 根据目标自动检索相关授权仪表盘
 → 获取已发布统计图查询定义
 → 按默认条件和用户问题确定时间、资源、变量
 → 泛问检查所有适用图，具体问题按需查询
@@ -42,7 +44,7 @@ AI 分析不依赖 Dashboard 页面是否打开，不获取页面“当前视图
 
 ### 2.2 非目标
 
-- 未经用户选择自动挑选仪表盘。
+- 越过授权、用户明确条件或预算自动扩大范围。
 - AI 临时改写查询、自动去掉聚合/limit、还原原始点或展开未发布 Trace 字段；额外明细必须有明确的已发布查询，文件交付由 AI 工具内部处理，不是仪表盘功能。
 - 模型直接提交 Commit、读取私有提交 Token 或代替服务端宣称验证通过。
 - 把摘要写回 Dashboard 当作业务事实。
@@ -125,7 +127,6 @@ proposed_bindings[]                 # 仅 Host/Cluster，可选
 
 ~~~text
 telemetry.dashboard.draft.create / draft.get / draft.save
-telemetry.dashboard.draft.drilldowns
 telemetry.dashboard.publish.preview
 telemetry.dashboard.publish.commit # 仅内部 Action Executor
 ~~~
@@ -141,30 +142,11 @@ telemetry.dashboard.publish.commit # 仅内部 Action Executor
 - 创建者对象授权与 Dashboard/Revision 在同一事务产生。
 - Commit 原子消费仍为 editing 的草稿版本，一个新建草稿最多产生一个 Dashboard；跨 Action 的旧创建预览也不能重复创建。
 
-### T2.5 授权列表、用户选择与 @
+### T2.5 授权目录、自动发现与 @
 
-实现 telemetry.dashboard.list，并让它与 @ resolver 复用同一个授权搜索服务。
+用户描述目标 → AI list 检索授权候选 → get 读取相关定义并由服务端记录本 Run 对象 → context.resolve 解析条件 → query/query.get 取数 → Workspace 文件分析。@ 是可选对象提示，不是执行前件。AI 根据问题与已发布配置选择对象，不机械选择第一项或全部；资源身份存在歧义时澄清。
 
-~~~text
-用户：有没有问题？
-→ 列出当前用户可访问的仪表盘候选
-→ 用户选择一个或多个
-→ 保存稳定 ID 的明确选择事实
-→ 开始分析
-
-用户：@支付服务健康度 最近一小时有没有问题？
-→ 直接保存稳定 ID 的引用
-→ 开始分析，不再重复要求选择
-~~~
-
-要求：
-
-- 未指定对象时不能自动选第一个、全部或相似名称的 Dashboard。
-- 已在对话中明确选择对象时可以继续使用，不要求每次重新 @。
-- ID 是执行事实，名称只是显示值；歧义时澄清。
-- 列表分页、过滤、读取、选择、Run 恢复、查询/导出和文件来源均重新检查对象授权。
-- 被归档、撤权或不可见的 Dashboard 返回明确不可用结果，不泄漏未授权对象信息。
-- 用户选择来源、Conversation、Run 和分析上下文绑定，模型不能自行增加未选择的 Dashboard。
+列表、读取、发现、恢复、查询和文件来源均重新校验企业、主体、对象生命周期及当前授权。接受消息的 Run 提示保持不可变，已授权发现独立记录；每次执行冻结实际条件。新规则覆盖旧手动选择前件，见[自动分析专项](./automatic-analysis-20261013.md)。
 
 ### T2.6 已发布来源、默认参数、追问与覆盖
 
@@ -247,7 +229,7 @@ provenance 关联 Dashboard/Revision/Panel/Target、实际来源及查询哈希�
 
 ### T2.9 Chat 与创建预览展示
 
-- Chat 支持授权列表、明确选择、稳定 Mention 和自然语言问题。
+- Chat 支持自动检索与自然语言问题，Mention 可作为提示；无常驻右侧面板或输入区范围管理。查询结果顶部展示实际执行参数，纠正通过新消息重新取数。
 - AI 创建使用 Tool 自有预览详情及宿主单次确认。
 - AI 文件分析默认输出 Chat 文字结论，不强制展示图表或专用分析卡片；复用现有会话文件和任务状态。
 - 不创建 Dashboard 页面分析工作台，不读取或同步修改页面筛选。
@@ -263,20 +245,17 @@ provenance 关联 Dashboard/Revision/Panel/Target、实际来源及查询哈希�
   telemetry.dashboard.get
   telemetry.dashboard.context.resolve
   telemetry.dashboard.context.candidates
-  telemetry.dashboard.budget.get
   telemetry.dashboard.query
   telemetry.dashboard.query.get
   telemetry.dashboard.query.cancel
   telemetry.dashboard.catalog.resources
   telemetry.dashboard.catalog # 创建模式的完整配置 Catalog
-  telemetry.dashboard.convert
 
 个人草稿（不发布）：
   telemetry.dashboard.draft.create
   telemetry.dashboard.draft.get
   telemetry.dashboard.draft.validate
   telemetry.dashboard.draft.save
-  telemetry.dashboard.draft.drilldowns
 
 模型可见的发布预览：
   telemetry.dashboard.publish.preview
@@ -304,7 +283,7 @@ Dashboard 功能权限收敛为 read/manage，与 Dashboard/Host/Cluster 对象�
 ### 5.2 选择、查询与结论
 
 - 未指定对象时先列授权清单并等待用户选择，不能先查询。
-- @ 或明确选择后不重复询问对象；持久化和重放使用稳定 ID。
+- AI 自动发现相关授权对象，持久化和重放使用稳定 ID，不要求用户点击选择。
 - 多个仪表盘分别检查对象授权，伪造选择或上下文被拒绝。
 - 默认时间/变量、用户覆盖条件、未指定资源范围及连续追问继承正确；当前选值在新候选中消失则自动回退 All，并保持授权和系统资源边界。
 - 泛问覆盖全部适用图，具体问题按需查询。
@@ -331,7 +310,7 @@ Dashboard 功能权限收敛为 read/manage，与 Dashboard/Host/Cluster 对象�
 ## 6. 退出标准
 
 - AI 能用与人工相同的 builder/DSL 能力创建 Dashboard，经服务端验证和用户确认才发布。
-- 用户可通过 @ 或授权列表明确选择一个或多个 Dashboard，AI 不猜测目标。
+- 用户描述目标，AI 自动选择相关授权 Dashboard；实际查询参数随结果展示，用户可用对话纠正。
 - Dashboard 没有导出功能；AI 数据查询工具在内部将已发布查询完整结果写入 Workspace，额外明细来自明确的已发布查询，再由 AI 使用文件工具分析。
 - 泛问全覆盖、具体问题按需，证据不足不被总结为正常。
 - 内部可追溯 Dashboard、Revision、Panel、来源查询哈希、资源/时间、export_id、文件 Hash 和完整性。
@@ -341,3 +320,7 @@ Dashboard 功能权限收敛为 read/manage，与 Dashboard/Host/Cluster 对象�
 ## 7. 主计划映射
 
 对应 P2V-TOOL、AI-01～AI-07、E2E-02/03/05/06，以及共用的 EXEC、EXPORT、AUTH、ACTION、AUDIT 和 RELEASE 门禁。
+
+## 2026-10-14 模型入口收敛
+
+独立转换、下钻生成和预算查询工具已移除。草稿 create/save 的 preparation 选项复用平台转换及标准下钻；每轮模型请求由服务端刷新预算状态和观察时间。门户的独立转换/生成 API 保留，发布仍走宿主确认。见[模型目录收敛](../planv5/tool-catalog-pruning-20261014.md)。

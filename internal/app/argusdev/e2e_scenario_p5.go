@@ -162,7 +162,7 @@ func (a *App) verifyP5Native(ctx context.Context, env *E2EEnvironment) error {
 		return err
 	}
 	run, err := a.p5Run(ctx, env, conversation, "native", []p5ToolStep{
-		{"tool.search", map[string]any{"category": "host", "query": "list"}},
+		{"tool.search", map[string]any{"category": "host"}},
 		{"tool.describe", map[string]any{"category": "host", "name": "list"}},
 		{"tool.invoke", map[string]any{"category": "host", "name": "list", "arguments": map[string]any{}}},
 	}, []string{})
@@ -182,7 +182,7 @@ func (a *App) verifyP5Native(ctx context.Context, env *E2EEnvironment) error {
 	if err != nil {
 		return err
 	}
-	if first["runtime"] != "argus-template/v1" || first["template_source"] == "" {
+	if first["runtime"] != "argus-template/v2" || first["template_source"] == "" {
 		return fmt.Errorf("P5 native template missing")
 	}
 	check, err := a.postgresQuery(ctx, env, "SELECT count(*) FROM model_calls WHERE run_id='"+run+"' AND status='succeeded' AND (tool_snapshot_hash='' OR dispatched_at IS NULL OR octet_length(projection_hash)<>32);")

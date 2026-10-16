@@ -37,10 +37,10 @@ func TestAllFormalPreviewFamiliesHaveStrictTemplatesAndHiddenCommits(t *testing.
 			t.Fatalf("missing hidden commit for %s", item.ID)
 		}
 	}
-	if count != 27 {
-		t.Fatalf("got %d Previews; want all 27 formal operation variants", count)
+	if count != 26 {
+		t.Fatalf("got %d Previews; want all 26 formal operation variants", count)
 	}
-	for _, id := range []string{"host.removal.preview", "host.install.retry.preview", "host.windows_rdp.enable.preview", "connector.bastion.enrollment_rotate.preview", "connector.bastion.replacement.preview", "connector.install.retry.preview", "connector.uninstall.preview", "host.collector.install.preview", "kubernetes.collector.uninstall.preview", "kubernetes.node_host_binding.confirm.preview"} {
+	for _, id := range []string{"host.removal.preview", "host.install.retry.preview", "connector.bastion.enrollment_rotate.preview", "connector.bastion.replacement.preview", "connector.install.retry.preview", "connector.uninstall.preview", "host.collector.install.preview", "kubernetes.collector.uninstall.preview", "kubernetes.node_host_binding.confirm.preview"} {
 		if _, exists := registry.Lookup(id); !exists {
 			t.Fatalf("missing %s", id)
 		}

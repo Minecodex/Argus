@@ -14,7 +14,7 @@ export function mockConvertPanel(
         path: id,
         code: "MOCK_CONVERSION_UNSUPPORTED",
         message:
-          "Mock conversion covers only simple unparameterized metric fixtures. Use the real service for native query conversion.",
+          "Mock conversion covers only simple unparameterized fixtures. Use the real service for native query conversion.",
       },
     ],
   });
@@ -24,8 +24,44 @@ export function mockConvertPanel(
       (input.mode === "dsl" && target.source_definition.dsl)
     )
       continue;
-    if (target.language !== "promql" || target.parameter_bindings.length)
+    if (target.parameter_bindings.length) return unsupported(target.id);
+    if (target.language !== "promql") {
+      // Explicit empty-filter fixtures allow resource-query UI tests. Rich native
+      // queries still require the Go compiler rather than a browser parser.
+      const builder = target.source_definition.builder;
+      if (
+        input.mode === "dsl" &&
+        builder &&
+        !builder.filters.length &&
+        !builder.group_by.length
+      ) {
+        const limit = builder.limit ?? 200;
+        if (
+          target.language === "kql" &&
+          ["records", "count"].includes(builder.operation)
+        ) {
+          target.source_definition = {
+            dsl: {
+              expression: "*",
+              pipeline: `${builder.operation === "count" ? "stats count() | " : ""}limit ${limit}`,
+            },
+          };
+          continue;
+        }
+        if (
+          target.language === "skywalking_graphql" &&
+          builder.operation === "list"
+        ) {
+          target.source_definition = {
+            dsl: {
+              expression: `query { queryTraces(pageSize:${limit}) { total traces { traceId sourceId resourceId rootService rootOperation startTime duration status spanCount errorCount } } }`,
+            },
+          };
+          continue;
+        }
+      }
       return unsupported(target.id);
+    }
     if (input.mode === "dsl") {
       const builder = target.source_definition.builder!;
       if (

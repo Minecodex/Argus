@@ -33,7 +33,9 @@ import {
 } from "./dashboard-bindings";
 
 import { mockConvertPanel } from "./dashboard-conversion";
+import { prepareMockDraftSpec } from "./dashboard-preparation";
 import { createMockDashboardQueries } from "./dashboard-queries";
+import { resolvePermissions } from "./permissions";
 
 export function createDashboardDomains(ctx: MockContext): DashboardDomains {
   const revision = (id: string) =>
@@ -49,7 +51,23 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
     dashboardQueries: createMockDashboardQueries(ctx),
     dashboards: {
       async convertPanel(input) {
-        dashboardPermission(ctx, true);
+        const permissions = resolvePermissions(
+          ctx.db,
+          ctx.enterpriseId(),
+          ctx.actor().id,
+          ctx.nowIso(),
+        );
+        if (
+          ![...permissions].some((p) =>
+            [
+              "*",
+              "host.read",
+              "kubernetes.read",
+              "telemetry.dashboard.manage",
+            ].includes(p),
+          )
+        )
+          fail("AUTHORIZATION_DENIED", 403);
         return mockConvertPanel(input);
       },
       ...createDashboardBindingMethods(ctx),
@@ -126,7 +144,10 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
           name: item?.name ?? input.name,
           description: item?.description ?? input.description,
           folder_id: item?.folder_id ?? input.folder_id,
-          spec: copy(published?.spec ?? input.spec),
+          spec: prepareMockDraftSpec(
+            published?.spec ?? input.spec,
+            input.preparation,
+          ),
           proposed_bindings: copy(input.proposed_bindings),
           updated_at: ctx.nowIso(),
         };
@@ -151,7 +172,7 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
             name: input.name,
             description: input.description,
             folder_id: input.folder_id,
-            spec: input.spec,
+            spec: prepareMockDraftSpec(input.spec, input.preparation),
             proposed_bindings: input.proposed_bindings,
           }),
           { draft_version: d.draft_version + 1, updated_at: ctx.nowIso() },

@@ -1,3 +1,6 @@
+import { hostInventoryZh, hostInventoryEn } from "./host-inventory";
+import { resourceListsZh, resourceListsEn } from "./resource-lists";
+import { alertsZh, alertsEn } from "./alerts";
 import { dashboardsZh, dashboardsEn } from "./dashboards";
 import { dashboardPresetsZh, dashboardPresetsEn } from "./dashboard-presets";
 import { dashboardControlsZh, dashboardControlsEn } from "./dashboard-controls";
@@ -8,6 +11,7 @@ import { initReactI18next } from "react-i18next";
 import { aiSettingsEn, aiSettingsZh } from "./ai-settings";
 import { accountEn, accountZh } from "./account";
 import { chatEn, chatZh } from "./chat";
+import { toolNamesEn, toolNamesZh } from "./tool-names";
 import { commonEn, commonZh } from "./common";
 import { connectionChecksEn, connectionChecksZh } from "./connection-checks";
 import { hostsEn, hostsZh } from "./hosts";
@@ -22,6 +26,7 @@ import { governanceEn, governanceZh } from "./governance";
 import { settingsEn, settingsZh } from "./settings";
 import { shellEn, shellZh } from "./shell";
 import { telemetryEn, telemetryZh } from "./telemetry";
+import { collectionUiEn, collectionUiZh } from "./collection-ui";
 import { errorsEn, errorsZh } from "./errors";
 
 /**
@@ -33,6 +38,9 @@ import { errorsEn, errorsZh } from "./errors";
  * - 通用/跨模块文案放 `common.ts`，外壳与导航文案放 `shell.ts`。
  */
 const modulesZh = [
+  hostInventoryZh,
+  resourceListsZh,
+  alertsZh,
   dashboardsZh,
   dashboardPresetsZh,
   dashboardControlsZh,
@@ -44,6 +52,7 @@ const modulesZh = [
   shellZh,
   loginZh,
   chatZh,
+  toolNamesZh,
   hostsZh,
   resourceNamesZh,
   hostRemovalZh,
@@ -52,12 +61,16 @@ const modulesZh = [
   remoteAccessZh,
   remoteSessionsZh,
   telemetryZh,
+  collectionUiZh,
   settingsZh,
   governanceZh,
   pendingActionsZh,
   errorsZh,
 ];
 const modulesEn = [
+  hostInventoryEn,
+  resourceListsEn,
+  alertsEn,
   dashboardsEn,
   dashboardPresetsEn,
   dashboardControlsEn,
@@ -69,6 +82,7 @@ const modulesEn = [
   shellEn,
   loginEn,
   chatEn,
+  toolNamesEn,
   hostsEn,
   resourceNamesEn,
   hostRemovalEn,
@@ -77,6 +91,7 @@ const modulesEn = [
   remoteAccessEn,
   remoteSessionsEn,
   telemetryEn,
+  collectionUiEn,
   settingsEn,
   governanceEn,
   pendingActionsEn,

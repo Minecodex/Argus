@@ -16,7 +16,10 @@ import {
   metricObservations,
   logAggregateObservations,
   observationEnvelope,
+  observationEnvelopes,
+  observationChartRows,
   observationRows,
+  observationObject,
 } from "./observation-data";
 import {
   observationTone,
@@ -33,6 +36,15 @@ export type ObservationTarget = {
   code?: string;
   meta?: Record<string, unknown>;
 };
+function ObservationStatValue({ value }: { value: string }) {
+  const separator = value.indexOf(" ");
+  if (separator < 0) return <>{value}</>;
+  return (
+    <>
+      {value.slice(0, separator)} <small>{value.slice(separator + 1)}</small>
+    </>
+  );
+}
 function ObservationContent({
   type,
   signal,
@@ -43,6 +55,7 @@ function ObservationContent({
   legend = true,
   display,
   thresholds = [],
+  range,
   onSelect,
 }: {
   type: string;
@@ -54,6 +67,7 @@ function ObservationContent({
   legend?: boolean;
   display?: ObservationDisplay;
   thresholds?: ObservationThreshold[];
+  range?: { from: string; to: string };
   onSelect?: (row: Record<string, unknown>, target: string) => void;
 }) {
   const text = useUiText();
@@ -73,9 +87,12 @@ function ObservationContent({
   const rows = useMemo(
     () =>
       targets.flatMap((target) =>
-        observationRows(target.data).map((row) => ({ row, target: target.id })),
+        (type === "apm_red"
+          ? observationChartRows(target.data)
+          : observationRows(target.data)
+        ).map((row) => ({ row, target: target.id })),
       ),
-    [targets],
+    [targets, type],
   );
   const envelope = targets
     .map((t) => observationEnvelope(t.data))
@@ -91,9 +108,10 @@ function ObservationContent({
             decimals,
             display,
             thresholds,
+            range,
           )
         : undefined,
-    [signal, type, series, legend, unit, decimals, display, thresholds],
+    [signal, type, series, legend, unit, decimals, display, thresholds, range],
   );
   const negativeSlices =
     type === "pie"
@@ -122,9 +140,39 @@ function ObservationContent({
     signal === "metrics" ||
     (signal === "logs" && !["table", "logs"].includes(type))
   ) {
+    const omitted = series.filter(
+      (s) =>
+        observationObject(s.row.argus_sample_preview)?.state ===
+        "omitted_gap_budget",
+    ).length;
+    const curve = [
+      "timeseries",
+      "line",
+      "area",
+      "scatter",
+      "state_timeline",
+      "status_history",
+      "heatmap",
+    ].includes(type);
+    if (curve && omitted > 0 && omitted === series.length)
+      return (
+        <div className="argus-observation-empty" role="status">
+          {text(
+            "曲线预览不可用，请查阅完整封存数据或缩小查询范围。",
+            "Chart preview unavailable; inspect the sealed data or narrow the query.",
+          )}
+        </div>
+      );
     if (
       !series.length ||
-      series.every((s) => s.points.every((point) => point[1] === null))
+      series.every(
+        (s) =>
+          s.points.every((point) => point[1] === null) &&
+          (curve ||
+            (Number(observationObject(s.row.argus_statistics)?.count ?? 0) ===
+              0 &&
+              reduceObservation(s, display?.reducer) === null)),
+      )
     )
       return (
         <div className="argus-observation-empty">
@@ -141,18 +189,20 @@ function ObservationContent({
         >
           {series.map((s, i) => (
             <div className="argus-observation-stat" key={i}>
-              <span>{s.name}</span>
+              <span title={s.name}>{s.name}</span>
               <strong
                 data-tone={observationTone(
                   reduceObservation(s, display?.reducer),
                   thresholds,
                 )}
               >
-                {formatObservation(
-                  reduceObservation(s, display?.reducer),
-                  unit,
-                  decimals,
-                )}
+                <ObservationStatValue
+                  value={formatObservation(
+                    reduceObservation(s, display?.reducer),
+                    unit,
+                    decimals,
+                  )}
+                />
               </strong>
             </div>
           ))}
@@ -196,7 +246,18 @@ function ObservationContent({
           </p>
         )}
         <ObservationChart
-          label={title}
+          label={
+            curve
+              ? `${title} · ${series
+                  .map((s) => {
+                    const numbers = s.points.flatMap((p) =>
+                      p[1] === null ? [] : [p[1]],
+                    );
+                    return `${s.name}: ${text("绘制样本", "Plotted samples")} ${s.points.length}, ${text("缺测标记", "Missing markers")} ${s.points.length - numbers.length}, ${text("最小 / 最大", "Min / max")} ${formatObservation(numbers.length ? numbers.reduce((a, b) => Math.min(a, b), Infinity) : null, unit, decimals)} / ${formatObservation(numbers.length ? numbers.reduce((a, b) => Math.max(a, b), -Infinity) : null, unit, decimals)}`;
+                  })
+                  .join("; ")}`
+              : title
+          }
           option={option}
           onSelect={
             onSelect
@@ -273,6 +334,26 @@ function ObservationContent({
         legend={legend}
         onSelect={onSelect}
       />
+    );
+  if (
+    type === "apm_red" &&
+    targets.some((target) =>
+      observationEnvelopes(target.data).some(
+        (item) =>
+          Number(
+            (item.chart_preview as Record<string, unknown> | undefined)
+              ?.returned_rows,
+          ) > 0,
+      ),
+    )
+  )
+    return (
+      <p className="argus-observation-empty" role="status">
+        {text(
+          "曲线预览不可用；请查看完整封存表格，或缩小查询范围。",
+          "Chart preview unavailable; inspect the sealed table or narrow the query.",
+        )}
+      </p>
     );
   if (signal === "logs" && type === "logs")
     return <ObservationLogs rows={rows} onSelect={onSelect} />;
@@ -356,7 +437,12 @@ export function ObservationTable({
           />
         )}
       </div>
-      <div className="argus-observation-table">
+      <div
+        className="argus-observation-table"
+        tabIndex={0}
+        role="region"
+        aria-label={text("查询结果表格", "Query result table")}
+      >
         <table>
           <thead>
             <tr>
@@ -374,7 +460,12 @@ export function ObservationTable({
               .map(({ row, target }, i) => (
                 <tr key={i}>
                   {columns.map((c) => (
-                    <td key={c.key}>
+                    <td
+                      key={c.key}
+                      title={
+                        c.format ? c.format(row[c.key]) : display(row[c.key])
+                      }
+                    >
                       {c.format ? c.format(row[c.key]) : display(row[c.key])}
                     </td>
                   ))}
@@ -436,34 +527,81 @@ export function ObservationPanel(
   const currentTarget =
     props.targets.find((t) => t.id === selectedTarget) ?? props.targets[0];
   const notes = props.targets.flatMap((target) => {
-    const envelope = observationEnvelope(target.data);
-    const coverage =
-      envelope?.coverage && typeof envelope.coverage === "object"
-        ? Object.entries(envelope.coverage)
-        : [];
-    const missing = coverage.filter(
-      ([key, value]) =>
-        /missing|ambiguous|unknown|cyclic|excluded/i.test(key) &&
-        Number(value) > 0,
-    );
-    return [
-      ...(["success", "no_data"].includes(target.status)
-        ? []
-        : [`${target.id}: ${target.status} ${target.code ?? ""}`]),
-      ...(envelope?.limited
-        ? [
-            text(
-              "查询定义显式限制了结果数量",
-              "The query explicitly limits the result count",
-            ),
-          ]
-        : []),
-      ...(envelope?.status && envelope.status !== "available"
-        ? [String(envelope.status)]
-        : []),
-      ...missing.map(([k, v]) => `${k}: ${String(v)}`),
-    ];
+    return observationEnvelopes(target.data).flatMap((envelope) => {
+      const coverage =
+        envelope?.coverage && typeof envelope.coverage === "object"
+          ? Object.entries(envelope.coverage)
+          : [];
+      const missing = coverage.filter(
+        ([key, value]) =>
+          /missing|ambiguous|unknown|cyclic|excluded/i.test(key) &&
+          Number(value) > 0,
+      );
+      const preview = envelope.chart_preview as
+        Record<string, unknown> | undefined;
+      return [
+        ...(["success", "no_data"].includes(target.status)
+          ? []
+          : [`${target.id}: ${target.status} ${target.code ?? ""}`]),
+        ...(envelope?.limited
+          ? [
+              text(
+                "查询定义显式限制了结果数量",
+                "The query explicitly limits the result count",
+              ),
+            ]
+          : []),
+        ...(envelope?.status && envelope.status !== "available"
+          ? [String(envelope.status)]
+          : []),
+        ...missing.map(([k, v]) => `${k}: ${String(v)}`),
+        ...(preview?.sampled
+          ? [
+              `${text("已展示序列按全时间窗口采样", "Shown series sample the full time window")}: ${preview.shown_rows}/${preview.returned_rows} · ${text("序列", "Series")}: ${preview.shown_series}/${preview.returned_series}`,
+            ]
+          : []),
+        ...(Number(preview?.unrenderable_rows) > 0
+          ? [
+              text(
+                "部分记录缺少序列身份或时间，未绘制。",
+                "Some records lack series identity or time and were not plotted.",
+              ),
+            ]
+          : []),
+        ...(Number(preview?.omitted_series) > 0
+          ? [
+              text(
+                "部分序列未绘制，请缩小范围或查阅完整封存数据。",
+                "Some series were not plotted; narrow the scope or inspect the sealed data.",
+              ),
+            ]
+          : []),
+      ];
+    });
   });
+  if (props.signal === "metrics") {
+    const previews = props.targets
+      .flatMap((target) => metricObservations(target.data))
+      .map((s) => observationObject(s.row.argus_sample_preview))
+      .filter((p) => p !== undefined);
+    const omitted = previews.filter(
+      (p) => p.state === "omitted_gap_budget",
+    ).length;
+    if (previews.some((p) => p.state === "sampled"))
+      notes.push(
+        text(
+          "曲线为全窗口采样预览，保留端点、极值和缺测边界；统计值基于完整封存样本。",
+          "Curves preview the full window with endpoints, extrema and missing boundaries preserved; statistics use the sealed samples.",
+        ),
+      );
+    if (omitted > 0)
+      notes.push(
+        `${text(
+          "缺测边界超过预览点数预算，未绘制序列；请查阅完整封存数据或缩小查询范围",
+          "Missing boundaries exceed the preview point budget; inspect the sealed data or narrow the query. Omitted series",
+        )}: ${omitted}`,
+      );
+  }
   return (
     <>
       {props.display?.reducer && props.display.reducer !== "last" && (

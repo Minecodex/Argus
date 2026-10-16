@@ -29,7 +29,12 @@ function systemTheme(): ResolvedTheme {
 
 function storedPreference(): ThemePreference {
   if (typeof window === "undefined") return "system";
-  const value = window.localStorage.getItem(THEME_STORAGE_KEY);
+  let value: string | null = null;
+  try {
+    value = window.localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    /* Opaque template frames use a controlled theme. */
+  }
   return value === "light" || value === "dark" || value === "system"
     ? value
     : "system";
@@ -48,7 +53,15 @@ export function initializeTheme() {
   document.documentElement.style.colorScheme = resolved;
 }
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+export function ThemeProvider({
+  children,
+  theme,
+  persist = true,
+}: {
+  children: ReactNode;
+  theme?: ResolvedTheme;
+  persist?: boolean;
+}) {
   const [preference, setPreferenceState] =
     useState<ThemePreference>(storedPreference);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
@@ -60,7 +73,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: light)");
     const apply = () => {
-      const resolved = resolvePreference(preference);
+      const resolved = theme ?? resolvePreference(preference);
       setResolvedTheme(resolved);
       document.documentElement.dataset.theme = resolved;
       document.documentElement.classList.remove("light", "dark");
@@ -70,23 +83,33 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     apply();
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
-  }, [preference]);
+  }, [preference, theme]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({
       preference,
-      resolvedTheme,
+      resolvedTheme: theme ?? resolvedTheme,
       setPreference: (next) => {
-        window.localStorage.setItem(THEME_STORAGE_KEY, next);
+        if (persist)
+          try {
+            window.localStorage.setItem(THEME_STORAGE_KEY, next);
+          } catch {
+            /* Storage is optional. */
+          }
         setPreferenceState(next);
       },
       toggleTheme: () => {
         const next = resolvedTheme === "dark" ? "light" : "dark";
-        window.localStorage.setItem(THEME_STORAGE_KEY, next);
+        if (persist)
+          try {
+            window.localStorage.setItem(THEME_STORAGE_KEY, next);
+          } catch {
+            /* Storage is optional. */
+          }
         setPreferenceState(next);
       },
     }),
-    [preference, resolvedTheme],
+    [preference, resolvedTheme, theme, persist],
   );
 
   return (

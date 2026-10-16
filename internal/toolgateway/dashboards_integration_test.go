@@ -127,6 +127,24 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	if !bytes.Contains(general.Run.ToolSnapshot, []byte("customer_query")) {
 		t.Fatal("general Run lost direct customer MCP")
 	}
+	var generalSnapshot toolruntime.Snapshot
+	if err = json.Unmarshal(general.Run.ToolSnapshot, &generalSnapshot); err != nil {
+		t.Fatal(err)
+	}
+	generalTools, err := factory.Restore(ctx, p, generalSnapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	automatic, err := generalTools.Invoke(ctx, "tool.invoke", toolruntime.Invocation{ID: uuid.New(), RunID: general.Run.ID, Principal: p, Arguments: map[string]any{"category": "dashboard", "name": "get", "arguments": map[string]any{"dashboard_id": a.String()}}})
+	if err != nil || automatic.Data["analysis"] == nil {
+		t.Fatalf("ordinary Run did not automatically acquire analysis conditions: %v", err)
+	}
+	if _, err = generalTools.Invoke(ctx, "tool.describe", toolruntime.Invocation{RunID: general.Run.ID, Principal: p, Arguments: map[string]any{"category": "metric", "name": "query"}}); err == nil {
+		t.Fatal("automatic analysis left raw telemetry discovery open")
+	}
+	if _, err = generalTools.Invoke(ctx, "customer_query", toolruntime.Invocation{RunID: general.Run.ID, Principal: p, Arguments: map[string]any{}}); err == nil {
+		t.Fatal("automatic analysis left external MCP open")
+	}
 	finish(general.Run.ID)
 	zero := int64(0)
 	selected, err := send(&dashboardcontext.Selection{Mode: "analyze", DashboardIDs: []uuid.UUID{a}, ExpectedVersion: &zero}, "Check this dashboard for the last 30 minutes")
@@ -181,6 +199,24 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	if budgetNow["scan_bytes"] != float64(0) || status.Data["id"] != job.Data["id"] {
 		t.Fatal("query status retained stale accounting or changed query identity")
 	}
+	selectionFacts, err := dashboardcontext.ForRun(ctx, store.Queries, p, selected.Run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts, err := dashboardcontext.Facts(ctx, store.Queries, p, selectionFacts, selected.Run.ID)
+	if err != nil || facts["run_budget_status"] != "ready" || facts["run_budget_observed_at"] == nil {
+		t.Fatal("model context omitted authoritative current budget", err)
+	}
+	if facts["run_budget"].(map[string]any)["scan_bytes_remaining"] != int64(0) {
+		t.Fatal("model context used an old balance after acquisition")
+	}
+	if _, err = invoke(restored, selected.Run.ID, "query", map[string]any{"dashboard_id": a.String(), "context_ref": uuid.NewString()}); err == nil {
+		t.Fatal("fixture needs a failed invocation")
+	}
+	factsAfterFailure, err := dashboardcontext.Facts(ctx, store.Queries, p, selectionFacts, selected.Run.ID)
+	if err != nil || factsAfterFailure["run_budget"].(map[string]any)["scan_bytes_remaining"] != int64(0) {
+		t.Fatal("failed invocation lost current budget facts", err)
+	}
 	exec("UPDATE dashboard_run_budgets SET scan_remaining=$2 WHERE run_id=$1", selected.Run.ID, int64(remainingBefore))
 	if _, err = invoke(restored, selected.Run.ID, "context.resolve", map[string]any{"dashboard_id": a.String(), "expected_version": float64(1), "changes": map[string]any{"reset_time": true}, "evidence": []any{map[string]any{"path": "/time", "quote": "invented user instruction"}}}); err == nil {
 		t.Fatal("invented condition evidence accepted")
@@ -188,8 +224,8 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	if _, err = store.Pool.Exec(ctx, "UPDATE dashboard_analysis_contexts SET condition_version=condition_version+1 WHERE id=$1", uuid.MustParse(ref)); err == nil {
 		t.Fatal("resolved context mutable")
 	}
-	if _, err = invoke(restored, selected.Run.ID, "get", map[string]any{"dashboard_id": b.String()}); err == nil {
-		t.Fatal("model changed selected dashboard")
+	if _, err = invoke(restored, selected.Run.ID, "get", map[string]any{"dashboard_id": uuid.NewString()}); err == nil {
+		t.Fatal("model read an unauthorized or invented dashboard")
 	}
 	if _, err = invoke(restored, selected.Run.ID, "query", map[string]any{"dashboard_id": b.String(), "parameters": map[string]any{}}); err == nil {
 		t.Fatal("query bypassed structured selection")
@@ -206,6 +242,9 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	finish(selected.Run.ID)
 	follow, err := send(nil, "And this time?")
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = invoke(restored, follow.Run.ID, "get", map[string]any{"dashboard_id": a.String()}); err != nil {
 		t.Fatal(err)
 	}
 	inherited, err := invoke(restored, follow.Run.ID, "context.resolve", map[string]any{"dashboard_id": a.String(), "expected_version": float64(1), "changes": map[string]any{}, "evidence": []any{}})
@@ -237,7 +276,11 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	if _, err = send(&dashboardcontext.Selection{Mode: "analyze", DashboardIDs: []uuid.UUID{b}, ExpectedVersion: &zero}, "stale tab"); err == nil {
 		t.Fatal("old tab silently replaced selection")
 	}
-	one := int64(1)
+	currentHints, err := dashboardcontext.Current(ctx, store.Queries, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	one := currentHints.Version
 	second, err := send(&dashboardcontext.Selection{Mode: "analyze", DashboardIDs: []uuid.UUID{b}, ExpectedVersion: &one}, "switch")
 	if err != nil {
 		t.Fatal(err)
@@ -254,9 +297,14 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 		t.Fatal("foreign owner read Run context")
 	}
 	exec("UPDATE data_authorization_grants SET status='disabled' WHERE enterprise_id=$1 AND resource_id=$2", e, b)
-	if _, err = send(nil, "revoked follow-up"); err == nil {
-		t.Fatal("revoked dashboard admitted")
+	automaticFollow, err := send(nil, "revoked follow-up")
+	if err != nil {
+		t.Fatalf("obsolete hints blocked an ordinary message: %v", err)
 	}
+	if _, err = invoke(restored, automaticFollow.Run.ID, "get", map[string]any{"dashboard_id": b.String()}); err == nil {
+		t.Fatal("automatic discovery bypassed revocation")
+	}
+	finish(automaticFollow.Run.ID)
 	if _, err = invoke(restored, second.Run.ID, "get", map[string]any{"dashboard_id": b.String()}); err == nil {
 		t.Fatal("revoked selection continued using frozen tools")
 	}
@@ -354,6 +402,33 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	}
 	if _, err = invoke(createSet, created.Run.ID, "draft.save", map[string]any{"draft_id": draftID, "name": "Changed", "description": "", "spec": map[string]any{}, "proposed_bindings": []any{}, "expected_version": float64(0)}); err == nil {
 		t.Fatal("invalid or stale draft was accepted")
+	}
+	var savedSpec map[string]any
+	if err = json.Unmarshal(row.Spec, &savedSpec); err != nil {
+		t.Fatal(err)
+	}
+	preparedInput := map[string]any{"draft_id": draftID, "name": row.Name, "description": row.Description, "spec": savedSpec, "proposed_bindings": []any{}, "expected_version": float64(row.DraftVersion), "preparation": map[string]any{}}
+	preparedSave, err := invoke(createSet, created.Run.ID, "draft.save", preparedInput)
+	var preparedVersion struct {
+		DraftVersion int64 `json:"draft_version"`
+	}
+	versionJSON, _ := json.Marshal(preparedSave.Data)
+	versionErr := json.Unmarshal(versionJSON, &preparedVersion)
+	if err != nil || versionErr != nil || preparedVersion.DraftVersion != row.DraftVersion+1 {
+		t.Fatal("native schema/decode path rejected explicit draft preparation", err)
+	}
+	beforeInvalidPreparation, err := service.Draft(ctx, dashboard.Actor{EnterpriseID: e, SubjectID: u, SubjectType: "user", AuthorizationVersion: 1}, uuid.MustParse(draftID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparedInput["expected_version"] = float64(beforeInvalidPreparation.DraftVersion)
+	preparedInput["preparation"] = map[string]any{"conversions": []any{map[string]any{"panel_id": "missing", "mode": "dsl"}}}
+	if _, err = invoke(createSet, created.Run.ID, "draft.save", preparedInput); !errors.Is(err, dashboard.ErrInvalid) {
+		t.Fatal("native save ignored an invalid preparation request", err)
+	}
+	afterInvalidPreparation, err := service.Draft(ctx, dashboard.Actor{EnterpriseID: e, SubjectID: u, SubjectType: "user", AuthorizationVersion: 1}, uuid.MustParse(draftID))
+	if err != nil || afterInvalidPreparation.DraftVersion != beforeInvalidPreparation.DraftVersion || !bytes.Equal(afterInvalidPreparation.Spec, beforeInvalidPreparation.Spec) {
+		t.Fatal("invalid native preparation changed the persisted draft", err)
 	}
 	finish(created.Run.ID)
 	edit, err := send(&dashboardcontext.Selection{Mode: "create", DashboardIDs: []uuid.UUID{a}}, "Edit the selected dashboard")

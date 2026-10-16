@@ -165,10 +165,28 @@ func (service Service) PreviewUpdateKubernetesCluster(ctx context.Context, subje
 	}
 	snapshot := NewResourceAuthorizationSnapshot("kubernetes_cluster", clusterID)
 	plan := kubernetesActionPlan{Operation: "update", ClusterID: clusterID, Input: input, Version: version}
+	beforeLabels, _ := DecodeLabels(current.Labels)
+	before := map[string]any{"name": current.Name, "environment": current.Environment, "api_server": current.ApiServer, "default_namespace": current.DefaultNamespace, "connection_mode": current.ConnectionMode, "bastion_scope_id": current.BastionScopeID, "labels": beforeLabels}
+	after := map[string]any{}
+	for field, value := range map[string]string{"name": input.Name, "environment": input.Environment, "api_server": input.APIServer, "default_namespace": input.DefaultNamespace, "connection_mode": input.ConnectionMode} {
+		if value != "" {
+			after[field] = value
+		}
+	}
+	if input.ConnectionMode != "" {
+		after["bastion_scope_id"] = input.BastionScopeID
+		if input.CredentialID != current.CredentialID {
+			after["authentication_changed"] = true
+			before["authentication_changed"] = false
+		}
+	}
+	if input.Labels != nil {
+		after["labels"] = MergeSystemLabels(input.Labels, beforeLabels)
+	}
 	return service.prepareAction(ctx, subject, enterpriseID, PrepareActionInput{ActionType: "kubernetes.update", Title: "Update Kubernetes cluster",
 		Summary: "Apply validated Kubernetes cluster changes", Risk: "write", ResourceType: "kubernetes_cluster", ResourceID: uuid.NullUUID{UUID: clusterID, Valid: true},
 		ExpectedResourceVersion: pgtype.Int8{Int64: input.ExpectedVersion, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,
-		Preview: map[string]any{"cluster_id": clusterID, "name": current.Name},
+		Preview: map[string]any{"cluster_id": clusterID, "name": current.Name, "changes": PublicChanges(before, after)},
 		Diff:    []map[string]string{{"kind": "change", "text": "Update Kubernetes cluster " + current.Name}}, ImmutablePlan: plan,
 		ResourceScopeSnapshot: snapshot, CommitHandler: "argus.kubernetes.update.commit"}, idempotencyKey)
 }

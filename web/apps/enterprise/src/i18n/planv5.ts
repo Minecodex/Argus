@@ -2,7 +2,8 @@ export const planv5Zh = {
   planv5: {
     template: {
       title: "工具详情",
-      loading: "正在加载详情…",
+      loading: "正在渲染中",
+      retry: "重新加载",
       failed: "详情暂时无法显示。操作状态仍由会话中的确认面板提供。",
       expand: "展开详情",
       collapse: "收起详情",
@@ -55,6 +56,7 @@ export const planv5Zh = {
       remove: "移除附件",
       download: "下载",
       workspace: "会话文件",
+      previewTooLarge: "文件超过在线预览限制，请下载查看。",
       empty: "没有文件",
       delete: "删除 Workspace",
       deleting: "正在删除 Workspace",
@@ -73,7 +75,8 @@ export const planv5En = {
   planv5: {
     template: {
       title: "Tool details",
-      loading: "Loading details…",
+      loading: "Rendering…",
+      retry: "Reload",
       failed:
         "Details are unavailable. Use the conversation confirmation panel for operation status.",
       expand: "Expand details",
@@ -129,6 +132,7 @@ export const planv5En = {
       remove: "Remove attachment",
       download: "Download",
       workspace: "Conversation files",
+      previewTooLarge: "The file exceeds the preview limit. Download it to view the content.",
       empty: "No files",
       delete: "Delete Workspace",
       deleting: "Deleting Workspace",

@@ -1,0 +1,17 @@
+argus-dev doctor scope=e2e ready=false os=windows arch=amd64
+argus-dev: required capability unavailable: e2e doctor found missing requirements
+[PASS] docker-buildx: github.com/docker/buildx v0.36.1-desktop.1 83d819cf8237b52ef45a2a9857eeb83a7b10977f
+[PASS] docker-engine: 29.7.2
+[PASS] host-disk: 138.3Gi free
+[PASS] kubernetes-architecture: amd64
+[PASS] kubernetes-context: docker-desktop
+[FAIL] kubernetes-dedicated-cluster: shared OpenSandbox preflight: shared OpenSandbox controller image does not match v0.2.0
+[PASS] kubernetes-storage: storageclass.storage.k8s.io/argus-workspace, storageclass.storage.k8s.io/hostpath, storageclass.storage.k8s.io/seaweedfs-storage, storageclass.storage.k8s.io/standard
+[PASS] tool/docker: C:\Program Files\Docker\Docker\resources\bin\docker.exe
+[PASS] tool/git: D:\Git\cmd\git.exe
+[PASS] tool/go: D:\gocache\pkg\mod\golang.org\toolchain@v0.0.1-go1.25.8.windows-amd64\bin\go.exe
+[PASS] tool/kubectl: C:\Program Files\Docker\Docker\resources\bin\kubectl.exe
+[PASS] tool/node: D:\nodejs\node.exe
+[PASS] tool/pnpm: C:\Users\23574\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\fallback\pnpm.cmd
+[PASS] workspace-write: D:\workspace\go\Argus
+exit status 2

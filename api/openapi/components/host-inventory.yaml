@@ -1,0 +1,93 @@
+components:
+  schemas:
+    HostInventory:
+      type: object
+      additionalProperties: false
+      required: [schema_version, collected_at, hostname, os, os_version, kernel_version, architecture, machine_id, hardware_uuid, virtualization_system, virtualization_role, scope, disks, networks, gpus, cloud, issues]
+      properties:
+        schema_version: {type: string, const: argus.host_inventory/v1}
+        collected_at: {type: string, format: date-time}
+        hostname: {type: string}
+        os: {type: string}
+        os_version: {type: string}
+        kernel_version: {type: string}
+        architecture: {type: string}
+        machine_id: {type: string}
+        hardware_uuid: {type: string}
+        virtualization_system: {type: string}
+        virtualization_role: {type: string}
+        scope: {type: string, enum: [machine, container]}
+        boot_time: {type: string, format: date-time}
+        cpu:
+          type: object
+          additionalProperties: false
+          required: [model, logical_cores, physical_cores]
+          properties:
+            model: {type: string}
+            logical_cores: {type: integer, minimum: 0}
+            physical_cores: {type: integer, minimum: 0}
+        memory:
+          type: object
+          additionalProperties: false
+          required: [total_bytes, swap_bytes]
+          properties:
+            total_bytes: {type: integer, format: int64, minimum: 0}
+            swap_bytes: {type: integer, format: int64, minimum: 0}
+        disks:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            additionalProperties: false
+            required: [device, mountpoint, filesystem, total_bytes, used_bytes, free_bytes]
+            properties:
+              device: {type: string}
+              mountpoint: {type: string}
+              filesystem: {type: string}
+              total_bytes: {type: integer, format: int64, minimum: 0}
+              used_bytes: {type: integer, format: int64, minimum: 0}
+              free_bytes: {type: integer, format: int64, minimum: 0}
+        networks:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            additionalProperties: false
+            required: [name, mac, mtu, addresses, state]
+            properties:
+              name: {type: string}
+              mac: {type: string}
+              mtu: {type: integer}
+              addresses: {type: array, maxItems: 32, items: {type: string}}
+              state: {type: string, enum: [up, down]}
+        gpus:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            additionalProperties: false
+            required: [name, vendor, device_id, memory_bytes]
+            properties:
+              name: {type: string}
+              vendor: {type: string}
+              device_id: {type: string}
+              memory_bytes: {type: integer, format: int64, minimum: 0}
+        cloud:
+          type: object
+          additionalProperties: false
+          required: [status, provider, instance_id, region, zone]
+          properties:
+            status: {type: string, enum: [available, not_detected]}
+            provider: {type: string}
+            instance_id: {type: string}
+            region: {type: string}
+            zone: {type: string}
+        issues:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [section, code]
+            properties:
+              section: {type: string}
+              code: {type: string}

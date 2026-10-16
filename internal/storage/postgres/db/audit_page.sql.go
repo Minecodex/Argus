@@ -19,31 +19,38 @@ WHERE domain = $1::text
     OR (domain = 'enterprise' AND enterprise_id = $2::uuid))
   AND ($3::text IS NULL OR action = $3::text)
   AND ($4::text IS NULL OR actor_id = $4::text)
-  AND ($5::text IS NULL OR resource_type = $5::text)
-  AND ($6::text IS NULL OR resource_id = $6::text)
-  AND ($7::text IS NULL OR result = $7::text)
-  AND ($8::timestamptz IS NULL OR created_at >= $8::timestamptz)
-  AND ($9::timestamptz IS NULL OR created_at < $9::timestamptz)
-  AND ($10::text IS NULL OR position(lower(btrim($10::text)) IN lower(concat_ws(' ', action, actor_id, resource_type, resource_id, details::text))) > 0)
-  AND ($11::timestamptz IS NULL OR (created_at,id) < ($11::timestamptz,$12::uuid))
+  AND ($5::text IS NULL OR resource_type = $5::text
+    OR ($5::text='alert' AND (resource_type LIKE 'alert\_%' ESCAPE '\' OR action LIKE 'alert.%')))
+  AND ($6::uuid[] IS NULL OR domain<>'enterprise'
+    OR (COALESCE(resource_type,'') NOT LIKE 'alert%' AND action NOT LIKE 'alert.%')
+    OR (details ? 'resource_ids' AND NOT EXISTS(
+      SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(details->'resource_ids')='array' THEN details->'resource_ids' ELSE '[]'::jsonb END) resource
+      WHERE NOT (resource::uuid=ANY($6::uuid[])))))
+  AND ($7::text IS NULL OR resource_id = $7::text)
+  AND ($8::text IS NULL OR result = $8::text)
+  AND ($9::timestamptz IS NULL OR created_at >= $9::timestamptz)
+  AND ($10::timestamptz IS NULL OR created_at < $10::timestamptz)
+  AND ($11::text IS NULL OR position(lower(btrim($11::text)) IN lower(concat_ws(' ', action, actor_id, resource_type, resource_id, details::text))) > 0)
+  AND ($12::timestamptz IS NULL OR (created_at,id) < ($12::timestamptz,$13::uuid))
 ORDER BY created_at DESC, id DESC
-LIMIT $13::int
+LIMIT $14::int
 `
 
 type ListAuditEventsPageParams struct {
-	Domain       string             `json:"domain"`
-	EnterpriseID uuid.NullUUID      `json:"enterprise_id"`
-	Action       pgtype.Text        `json:"action"`
-	ActorID      pgtype.Text        `json:"actor_id"`
-	ResourceType pgtype.Text        `json:"resource_type"`
-	ResourceID   pgtype.Text        `json:"resource_id"`
-	Result       pgtype.Text        `json:"result"`
-	Since        pgtype.Timestamptz `json:"since"`
-	Until        pgtype.Timestamptz `json:"until"`
-	Search       pgtype.Text        `json:"search"`
-	BeforeTime   pgtype.Timestamptz `json:"before_time"`
-	BeforeID     uuid.NullUUID      `json:"before_id"`
-	PageSize     int32              `json:"page_size"`
+	Domain         string             `json:"domain"`
+	EnterpriseID   uuid.NullUUID      `json:"enterprise_id"`
+	Action         pgtype.Text        `json:"action"`
+	ActorID        pgtype.Text        `json:"actor_id"`
+	ResourceType   pgtype.Text        `json:"resource_type"`
+	AlertResources []uuid.UUID        `json:"alert_resources"`
+	ResourceID     pgtype.Text        `json:"resource_id"`
+	Result         pgtype.Text        `json:"result"`
+	Since          pgtype.Timestamptz `json:"since"`
+	Until          pgtype.Timestamptz `json:"until"`
+	Search         pgtype.Text        `json:"search"`
+	BeforeTime     pgtype.Timestamptz `json:"before_time"`
+	BeforeID       uuid.NullUUID      `json:"before_id"`
+	PageSize       int32              `json:"page_size"`
 }
 
 func (q *Queries) ListAuditEventsPage(ctx context.Context, arg ListAuditEventsPageParams) ([]AuditEvent, error) {
@@ -53,6 +60,7 @@ func (q *Queries) ListAuditEventsPage(ctx context.Context, arg ListAuditEventsPa
 		arg.Action,
 		arg.ActorID,
 		arg.ResourceType,
+		arg.AlertResources,
 		arg.ResourceID,
 		arg.Result,
 		arg.Since,

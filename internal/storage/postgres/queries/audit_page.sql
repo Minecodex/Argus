@@ -5,7 +5,13 @@ WHERE domain = sqlc.arg(domain)::text
     OR (domain = 'enterprise' AND enterprise_id = sqlc.narg(enterprise_id)::uuid))
   AND (sqlc.narg(action)::text IS NULL OR action = sqlc.narg(action)::text)
   AND (sqlc.narg(actor_id)::text IS NULL OR actor_id = sqlc.narg(actor_id)::text)
-  AND (sqlc.narg(resource_type)::text IS NULL OR resource_type = sqlc.narg(resource_type)::text)
+  AND (sqlc.narg(resource_type)::text IS NULL OR resource_type = sqlc.narg(resource_type)::text
+    OR (sqlc.narg(resource_type)::text='alert' AND (resource_type LIKE 'alert\_%' ESCAPE '\' OR action LIKE 'alert.%')))
+  AND (sqlc.narg(alert_resources)::uuid[] IS NULL OR domain<>'enterprise'
+    OR (COALESCE(resource_type,'') NOT LIKE 'alert%' AND action NOT LIKE 'alert.%')
+    OR (details ? 'resource_ids' AND NOT EXISTS(
+      SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(details->'resource_ids')='array' THEN details->'resource_ids' ELSE '[]'::jsonb END) resource
+      WHERE NOT (resource::uuid=ANY(sqlc.narg(alert_resources)::uuid[])))))
   AND (sqlc.narg(resource_id)::text IS NULL OR resource_id = sqlc.narg(resource_id)::text)
   AND (sqlc.narg(result)::text IS NULL OR result = sqlc.narg(result)::text)
   AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)

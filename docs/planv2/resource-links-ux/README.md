@@ -1,3 +1,5 @@
+> 2026-10-12 更新：资源关联仪表盘改为共享 DataTable 列表；以下卡片实现描述仅记录历史。现行规则见 [资源列表与主机资产概览](../../plans/frontend-redesign/resource-lists-and-host-inventory.md)。
+
 # 资源关联入口位置交互提案
 
 日期：2026-10-07。状态：推荐方案已获用户确认并完成正式组件重构，本地正式 r7 已交付；实现与验收见[正式记录](../../plans/frontend-redesign/resource-links-20261007.md)。以下保留原型说明与原型证据，不作为正式产品验收。

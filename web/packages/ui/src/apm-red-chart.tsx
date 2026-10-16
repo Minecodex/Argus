@@ -9,6 +9,7 @@ export function apmObservationGroups(
   for (const item of rows) {
     const key = JSON.stringify([
       item.target,
+      item.row._presentation_root ?? "",
       ...[
         "sourceId",
         "resourceId",
@@ -41,8 +42,20 @@ export function APMRedChart({
   onSelect?: (row: Record<string, unknown>, target: string) => void;
 }) {
   const text = useUiText(),
-    [metric, setMetric] = useState("samplesPerSecond");
+    [metric, setMetric] = useState(
+      () =>
+        ["samplesPerSecond", "errorRate", "durationP95Ms"].find((field) =>
+          rows.some(
+            ({ row }) =>
+              row[field] != null && Number.isFinite(Number(row[field])),
+          ),
+        ) || "samplesPerSecond",
+    );
   const groups = useMemo(() => apmObservationGroups(rows), [rows]);
+  const times = rows
+    .map(({ row }) => String(row.timestamp))
+    .filter((value) => Number.isFinite(Date.parse(value)))
+    .sort((a, b) => Date.parse(a) - Date.parse(b));
   const label =
     metric === "samplesPerSecond"
       ? text("样本速率", "Sample rate")
@@ -58,6 +71,8 @@ export function APMRedChart({
   return (
     <>
       <Select
+        sizing="content"
+        density="compact"
         ariaLabel={text("RED 指标", "RED metric")}
         value={metric}
         onValueChange={setMetric}
@@ -71,7 +86,7 @@ export function APMRedChart({
         ]}
       />
       <ObservationChart
-        label={`${title} · ${label}`}
+        label={`${title} · ${label}${times.length ? ` · ${text("曲线样本", "Chart samples")}: ${rows.length} · ${times[0]} – ${times.at(-1)}` : ""}`}
         option={{
           legend: { show: legend, type: "scroll" },
           xAxis: { type: "time" },
@@ -79,8 +94,13 @@ export function APMRedChart({
           series: groups.map((group) => ({
             type: "line",
             connectNulls: false,
-            showSymbol: false,
+            showSymbol:
+              group.filter(
+                ({ row }) =>
+                  row[metric] != null && Number.isFinite(Number(row[metric])),
+              ).length <= 1,
             name: [
+              group[0]!.row._presentation_root,
               group[0]!.row.serviceName,
               group[0]!.row.instanceId,
               group[0]!.row.operationName,

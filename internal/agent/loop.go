@@ -358,6 +358,9 @@ func (loop Loop) context(ctx context.Context, run db.Run, revision db.AiModelRev
 	if err != nil {
 		return ContextProjection{}, err
 	}
+	// Relative user times must be anchored to a trusted host clock, rather
+	// than inferred from historical messages or a model's training date.
+	checkpoint["current_time_utc"] = time.Now().UTC().Format(time.RFC3339)
 	p, err := (conversation.Service{Store: loop.Store}).ToolPrincipal(ctx, run.EnterpriseID, run.ActorUserID, run.ConversationID)
 	if err != nil {
 		return ContextProjection{}, err

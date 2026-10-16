@@ -129,7 +129,7 @@ export function FormDrawer({
   loading,
   onSubmit,
   footer,
-  width = 480,
+  width,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;

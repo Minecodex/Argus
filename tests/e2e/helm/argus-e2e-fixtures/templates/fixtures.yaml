@@ -65,7 +65,7 @@ spec:
             - {name: ARGUS_REPLAY_PLAINTEXT_ADDRESS, value: ":8081"}
             - {name: ARGUS_REPLAY_TLS_CERT, value: /tls/tls.crt}
             - {name: ARGUS_REPLAY_TLS_KEY, value: /tls/tls.key}
-          ports: [{name: model, containerPort: 8080}, {name: sandbox, containerPort: 8081}]
+          ports: [{name: model, containerPort: 8080}, {name: sandbox, containerPort: 8081}, {name: smtp, containerPort: 2525}]
           volumeMounts: [{name: tls, mountPath: /tls, readOnly: true}]
           readinessProbe: {httpGet: {path: /healthz, port: sandbox}, initialDelaySeconds: 1, periodSeconds: 1}
       volumes: [{name: tls, secret: {secretName: argus-replay-model-tls}}]
@@ -75,7 +75,7 @@ kind: Service
 metadata: {name: argus-replay-model, namespace: {{ .Values.namespaces.replay }}}
 spec:
   selector: {app.kubernetes.io/name: argus-replay-model}
-  ports: [{name: model, port: 443, targetPort: model}, {name: sandbox, port: 8081, targetPort: sandbox}]
+  ports: [{name: model, port: 443, targetPort: model}, {name: sandbox, port: 8081, targetPort: sandbox}, {name: smtp, port: 465, targetPort: smtp}]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -89,7 +89,7 @@ spec:
     - to:
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: {{ .Values.namespaces.replay }}}}
           podSelector: {matchLabels: {app.kubernetes.io/name: argus-replay-model}}
-      ports: [{protocol: TCP, port: 8080}, {protocol: TCP, port: 8081}]
+      ports: [{protocol: TCP, port: 8080}, {protocol: TCP, port: 8081}, {protocol: TCP, port: 2525}]
 {{- end }}
 {{- if .Values.features.artifactServer }}
 ---

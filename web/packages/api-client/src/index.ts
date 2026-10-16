@@ -111,6 +111,7 @@ export type { RealAdapter } from "./adapters/real";
 export { createConfiguredApiClient } from "./factory";
 export type { ApiClientFactoryOptions } from "./factory";
 export { HttpTransport } from "./transport/http";
+export { kubernetesCollectorNamespace } from "./generated/collector-registry";
 export {
   apiErrorField,
   apiErrorPresentation,
@@ -197,3 +198,5 @@ export {
   permissionRegistryVersion,
   builtinRolePermissions,
 } from "./generated/permission-registry";
+
+export * from "./alerts";

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kakj-go/Argus/internal/collectormanager"
 	"github.com/kakj-go/Argus/internal/otelcol/configbundle"
 )
 
@@ -19,6 +20,7 @@ func main() {
 	}
 	raw, _ := json.MarshalIndent(components, "", "  ")
 	text := fmt.Sprintf("/** Generated from internal/otelcol/configbundle. DO NOT EDIT. */\nexport const collectorDistributionVersion = %q;\nexport const collectorVersion = %q;\nexport const collectorConfigSchemaVersion = %q;\nexport const collectorComponents = %s as const;\n", configbundle.DistributionVersion, configbundle.CollectorVersion, configbundle.CatalogConfigSchemaVersion, raw)
+	text += fmt.Sprintf("export const kubernetesCollectorNamespace = %q;\n", collectormanager.KubernetesNamespace)
 	if err := os.WriteFile(path, []byte(text), 0644); err != nil {
 		panic(err)
 	}

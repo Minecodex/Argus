@@ -18,21 +18,25 @@ const LocaleContext = createContext<{
 
 function initialLocale(): SupportedLocale {
   if (typeof window === "undefined") return "zh-CN";
-  const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  let stored: string | null = null;
+  try { stored = window.localStorage.getItem(LOCALE_STORAGE_KEY); } catch { /* Opaque template frames have no storage. */ }
   if (stored === "zh-CN" || stored === "en-US") return stored;
-  return window.navigator.language.toLowerCase().startsWith("en")
-    ? "en-US"
-    : "zh-CN";
+  return "zh-CN";
 }
 
 export function LocaleProvider({
   children,
   onLocaleChange,
+  locale: controlledLocale,
+  persist = true,
 }: {
   children: ReactNode;
   onLocaleChange?: (locale: SupportedLocale) => void;
+  locale?: SupportedLocale;
+  persist?: boolean;
 }) {
-  const [locale, setLocaleState] = useState<SupportedLocale>(initialLocale);
+  const [preferredLocale, setLocaleState] = useState<SupportedLocale>(initialLocale);
+  const locale = controlledLocale ?? preferredLocale;
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -43,11 +47,11 @@ export function LocaleProvider({
     () => ({
       locale,
       setLocale: (next: SupportedLocale) => {
-        window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
+        if (persist) { try { window.localStorage.setItem(LOCALE_STORAGE_KEY, next); } catch { /* Template locale is supplied by the host. */ } }
         setLocaleState(next);
       },
     }),
-    [locale],
+    [locale, persist],
   );
 
   return (

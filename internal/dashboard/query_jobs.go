@@ -389,6 +389,9 @@ func (jobs QueryJobs) Resume(ctx context.Context, actor Actor, conversation, id 
 	if err != nil {
 		return QueryJobView{}, err
 	}
+	if err = jobs.PublishPresentations(ctx, actor.EnterpriseID, id); err != nil {
+		return QueryJobView{}, err
+	}
 	var job db.DashboardQueryJob
 	err = jobs.Runtime.Store.InReadCommittedTx(ctx, func(q *db.Queries) error {
 		// Match the Worker's lock order: runtime task, then query job.

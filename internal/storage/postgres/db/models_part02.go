@@ -6,6 +6,152 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type RemoteAccessRequirementSnapshot struct {
+	ID                    uuid.UUID          `json:"id"`
+	RequestID             uuid.UUID          `json:"request_id"`
+	ApproverRoleIds       []uuid.UUID        `json:"approver_role_ids"`
+	MinimumApprovals      int32              `json:"minimum_approvals"`
+	SeparationOfDuties    bool               `json:"separation_of_duties"`
+	RequireMfa            bool               `json:"require_mfa"`
+	MaxSessionSeconds     int32              `json:"max_session_seconds"`
+	IdleTimeoutSeconds    int32              `json:"idle_timeout_seconds"`
+	Status                string             `json:"status"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	RuleID                uuid.NullUUID      `json:"rule_id"`
+	RuleVersion           pgtype.Int8        `json:"rule_version"`
+	WorkflowID            uuid.NullUUID      `json:"workflow_id"`
+	WorkflowVersion       pgtype.Int8        `json:"workflow_version"`
+	SessionProfileID      uuid.NullUUID      `json:"session_profile_id"`
+	SessionProfileVersion pgtype.Int8        `json:"session_profile_version"`
+	ApprovalSnapshot      []byte             `json:"approval_snapshot"`
+	DeadlineAt            pgtype.Timestamptz `json:"deadline_at"`
+	EscalatedAt           pgtype.Timestamptz `json:"escalated_at"`
+	TimeoutEffect         string             `json:"timeout_effect"`
+	EscalationRoleIds     []uuid.UUID        `json:"escalation_role_ids"`
+	EscalationAt          pgtype.Timestamptz `json:"escalation_at"`
+}
+
+type RemoteAccessRoute struct {
+	SessionID       uuid.UUID          `json:"session_id"`
+	GatewayInstance string             `json:"gateway_instance"`
+	ConnectorID     uuid.NullUUID      `json:"connector_id"`
+	ConnectorEpoch  pgtype.Int8        `json:"connector_epoch"`
+	SessionFence    int64              `json:"session_fence"`
+	LeaseExpiresAt  pgtype.Timestamptz `json:"lease_expires_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RemoteAccessRule struct {
+	ID                 uuid.UUID          `json:"id"`
+	EnterpriseID       uuid.UUID          `json:"enterprise_id"`
+	Name               string             `json:"name"`
+	Description        string             `json:"description"`
+	Priority           int32              `json:"priority"`
+	Protocols          []string           `json:"protocols"`
+	Actions            []string           `json:"actions"`
+	SourceCidrs        []string           `json:"source_cidrs"`
+	TimeWindows        []byte             `json:"time_windows"`
+	Effects            []string           `json:"effects"`
+	ApprovalWorkflowID uuid.NullUUID      `json:"approval_workflow_id"`
+	SessionProfileID   uuid.NullUUID      `json:"session_profile_id"`
+	Status             string             `json:"status"`
+	Version            int64              `json:"version"`
+	CreatedBy          uuid.UUID          `json:"created_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RemoteAccessSession struct {
+	ID                     uuid.UUID          `json:"id"`
+	EnterpriseID           uuid.UUID          `json:"enterprise_id"`
+	UserID                 uuid.UUID          `json:"user_id"`
+	HttpSessionID          uuid.UUID          `json:"http_session_id"`
+	LeaseID                uuid.UUID          `json:"lease_id"`
+	HostID                 uuid.UUID          `json:"host_id"`
+	ManagedAccountID       uuid.UUID          `json:"managed_account_id"`
+	Protocol               string             `json:"protocol"`
+	ControlPath            string             `json:"control_path"`
+	ConnectorID            uuid.NullUUID      `json:"connector_id"`
+	ConnectorEpoch         pgtype.Int8        `json:"connector_epoch"`
+	Status                 string             `json:"status"`
+	SessionFence           int64              `json:"session_fence"`
+	AuthorizationVersion   int64              `json:"authorization_version"`
+	IdleTimeoutSeconds     int32              `json:"idle_timeout_seconds"`
+	MaxDurationSeconds     int32              `json:"max_duration_seconds"`
+	ConnectBefore          pgtype.Timestamptz `json:"connect_before"`
+	ConnectedAt            pgtype.Timestamptz `json:"connected_at"`
+	TerminatedAt           pgtype.Timestamptz `json:"terminated_at"`
+	TerminationReason      pgtype.Text        `json:"termination_reason"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	DecisionSnapshot       []byte             `json:"decision_snapshot"`
+	SessionProfileSnapshot []byte             `json:"session_profile_snapshot"`
+	DecisionSnapshotHash   []byte             `json:"decision_snapshot_hash"`
+	RecordingMode          string             `json:"recording_mode"`
+	CommandAuditMode       string             `json:"command_audit_mode"`
+	ClipboardMode          string             `json:"clipboard_mode"`
+	FileUploadMode         string             `json:"file_upload_mode"`
+	FileDownloadMode       string             `json:"file_download_mode"`
+	PortForwardMode        string             `json:"port_forward_mode"`
+	SessionShareMode       string             `json:"session_share_mode"`
+	RetentionDays          int32              `json:"retention_days"`
+	GatewayInstance        pgtype.Text        `json:"gateway_instance"`
+	Reason                 string             `json:"reason"`
+}
+
+type RemoteAccessSessionProfile struct {
+	ID                 uuid.UUID          `json:"id"`
+	EnterpriseID       uuid.UUID          `json:"enterprise_id"`
+	Name               string             `json:"name"`
+	Description        string             `json:"description"`
+	MaxSessionSeconds  int32              `json:"max_session_seconds"`
+	IdleTimeoutSeconds int32              `json:"idle_timeout_seconds"`
+	RecordingMode      string             `json:"recording_mode"`
+	CommandAuditMode   string             `json:"command_audit_mode"`
+	ClipboardMode      string             `json:"clipboard_mode"`
+	FileUploadMode     string             `json:"file_upload_mode"`
+	FileDownloadMode   string             `json:"file_download_mode"`
+	PortForwardMode    string             `json:"port_forward_mode"`
+	SessionShareMode   string             `json:"session_share_mode"`
+	RetentionDays      int32              `json:"retention_days"`
+	Status             string             `json:"status"`
+	Version            int64              `json:"version"`
+	CreatedBy          uuid.UUID          `json:"created_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RemoteAccessTicket struct {
+	ID                   uuid.UUID          `json:"id"`
+	SessionID            uuid.UUID          `json:"session_id"`
+	TicketHash           []byte             `json:"ticket_hash"`
+	HttpSessionID        uuid.UUID          `json:"http_session_id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	UserID               uuid.UUID          `json:"user_id"`
+	HostID               uuid.UUID          `json:"host_id"`
+	ManagedAccountID     uuid.UUID          `json:"managed_account_id"`
+	Protocol             string             `json:"protocol"`
+	LeaseID              uuid.UUID          `json:"lease_id"`
+	AuthorizationVersion int64              `json:"authorization_version"`
+	SessionFence         int64              `json:"session_fence"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt           pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type Role struct {
+	ID           uuid.UUID          `json:"id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	IdentityKey  pgtype.Text        `json:"identity_key"`
+	Name         string             `json:"name"`
+	Description  string             `json:"description"`
+	Builtin      bool               `json:"builtin"`
+	Status       string             `json:"status"`
+	Version      int64              `json:"version"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type RoleBinding struct {
 	ID           uuid.UUID          `json:"id"`
 	EnterpriseID uuid.UUID          `json:"enterprise_id"`
@@ -444,6 +590,16 @@ type ToolPresentation struct {
 	ResourceRefs       []byte             `json:"resource_refs"`
 	Status             string             `json:"status"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ReadOperations     []string           `json:"read_operations"`
+	ResultBinding      []byte             `json:"result_binding"`
+}
+
+type ToolPresentationSnapshot struct {
+	PresentationID uuid.UUID          `json:"presentation_id"`
+	EnterpriseID   uuid.UUID          `json:"enterprise_id"`
+	SourceVersion  string             `json:"source_version"`
+	Data           []byte             `json:"data"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type ToolResult struct {

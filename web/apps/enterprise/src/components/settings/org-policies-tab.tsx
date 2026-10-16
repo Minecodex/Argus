@@ -1,29 +1,15 @@
-import { QueryBoundary } from "@argus/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
-import { z } from "zod";
-import { formConstraint, presentApiFormError, useApi } from "@argus/api-client";
-import type { ApprovalPolicy } from "@argus/api-client";
-import {
-  Alert,
-  Badge,
-  Button,
-  CheckItem,
-  DataTable,
-  EmptyState,
-  Field,
-  FormDrawer,
-  Input,
-  RowAction,
-  Spinner,
-  StatusBadge,
-  Switch,
-} from "@argus/ui";
-import { roleDisplayName } from "../../lib/role-presentation";
-import { useOrgRoles } from "./org-users-tab";
+import {ActionMenu,QueryBoundary} from "@argus/ui";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {useEffect,useMemo,useState} from "react";
+import {Controller,useForm} from "react-hook-form";
+import {useTranslation} from "react-i18next";
+import {z} from "zod";
+import {formConstraint,presentApiFormError,useApi} from "@argus/api-client";
+import type {ApprovalPolicy} from "@argus/api-client";
+import {Alert,Badge,Button,CheckItem,DataTable,EmptyState,Field,FormDrawer,Input,Spinner,StatusBadge,Switch} from "@argus/ui";
+import {roleDisplayName} from "../../lib/role-presentation";
+import {useOrgRoles} from "./org-users-tab";
 
 type ApprovalRiskLevel = ApprovalPolicy["matchRiskLevels"][number];
 
@@ -168,19 +154,13 @@ export function OrgPoliciesTab() {
               {
                 key: "actions",
                 header: t("settings.common.actions"),
-                render: (row) => (
-                  <RowAction
-                    onPress={() => {
+                render: (row) => (<ActionMenu items={[{label: t("settings.common.edit"),onSelect: () => {
                       setEditing(
                         policies.data?.find((policy) => policy.id === row.id) ??
                           null,
                       );
                       setDrawerOpen(true);
-                    }}
-                  >
-                    {t("settings.common.edit")}
-                  </RowAction>
-                ),
+                    }}]} />),
               },
             ]}
             data={rows}

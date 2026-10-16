@@ -1,15 +1,8 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import type { RemoteAccessReferences } from "@argus/api-client";
-import {
-  ActionGroup,
-  Button,
-  DataTable,
-  Dialog,
-  RowAction,
-  StatusBadge,
-} from "@argus/ui";
+import {useState} from "react";
+import {useQuery} from "@tanstack/react-query";
+import {useTranslation} from "react-i18next";
+import type {RemoteAccessReferences} from "@argus/api-client";
+import {ActionMenu,Button,DataTable,Dialog,StatusBadge} from "@argus/ui";
 
 export type GovernanceItem = {
   id: string;
@@ -97,60 +90,21 @@ export function GovernanceList<T extends GovernanceItem>({
           {
             key: "actions",
             header: t("remoteAccess.actions"),
-            render: (row) => (
-              <ActionGroup>
-                <RowAction onPress={() => onEdit(row)}>
-                  {t("remoteAccess.edit")}
-                </RowAction>
-                <RowAction onPress={() => setReferenceID(row.id)}>
-                  {t("remoteAccess.details")}
-                </RowAction>
-                {row.status === "draft" && (
-                  <RowAction onPress={() => void action(onEnable, row.id)}>
-                    {t("remoteAccess.enable")}
-                  </RowAction>
-                )}
-                {row.status === "enabled" && (
-                  <RowAction
-                    danger
-                    onPress={() => {
+            render: (row) => (<ActionMenu items={[{label: t("remoteAccess.edit"),onSelect: () => onEdit(row)},{label: t("remoteAccess.details"),onSelect: () => setReferenceID(row.id)},...(row.status === "draft" ? [{label: t("remoteAccess.enable"),onSelect: () => void action(onEnable, row.id)}] : []),...(row.status === "enabled" ? [{label: t("remoteAccess.disable"),onSelect: () => {
                       setReferenceID(row.id);
                       setPendingAction({
                         id: row.id,
                         label: t("remoteAccess.disable"),
                         run: onDisable,
                       });
-                    }}
-                  >
-                    {t("remoteAccess.disable")}
-                  </RowAction>
-                )}
-                {row.status === "disabled" && (
-                  <RowAction onPress={() => void action(onEnable, row.id)}>
-                    {t("remoteAccess.enable")}
-                  </RowAction>
-                )}
-                {row.status === "disabled" && (
-                  <RowAction
-                    onPress={() => {
+                    },danger: true}] : []),...(row.status === "disabled" ? [{label: t("remoteAccess.enable"),onSelect: () => void action(onEnable, row.id)}] : []),...(row.status === "disabled" ? [{label: t("remoteAccess.archive"),onSelect: () => {
                       setReferenceID(row.id);
                       setPendingAction({
                         id: row.id,
                         label: t("remoteAccess.archive"),
                         run: onArchive,
                       });
-                    }}
-                  >
-                    {t("remoteAccess.archive")}
-                  </RowAction>
-                )}
-                {row.status === "archived" && (
-                  <RowAction onPress={() => void action(onRestore, row.id)}>
-                    {t("remoteAccess.restore")}
-                  </RowAction>
-                )}
-              </ActionGroup>
-            ),
+                    }}] : []),...(row.status === "archived" ? [{label: t("remoteAccess.restore"),onSelect: () => void action(onRestore, row.id)}] : [])]} />),
           },
         ]}
         data={items}

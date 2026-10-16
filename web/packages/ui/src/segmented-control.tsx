@@ -7,6 +7,7 @@ export function SegmentedControl({
   onChange,
   className,
   disabled,
+  density = "default",
 }: {
   label: string;
   value: string;
@@ -14,6 +15,7 @@ export function SegmentedControl({
   onChange: (value: string) => void;
   className?: string;
   disabled?: boolean;
+  density?: "default" | "compact";
 }) {
   return (
     <RadioGroup
@@ -22,7 +24,13 @@ export function SegmentedControl({
       onChange={onChange}
       orientation="horizontal"
       isDisabled={disabled}
-      className={className ? `argus-segments ${className}` : "argus-segments"}
+      className={[
+        "argus-segments",
+        density === "compact" && "argus-segments--compact",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       {options.map((option) => (
         <Radio

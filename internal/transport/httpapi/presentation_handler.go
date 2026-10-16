@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/conversation"
 	api "github.com/kakj-go/Argus/internal/gen/openapi/presentationapi"
+	"github.com/kakj-go/Argus/internal/pagination"
 	"github.com/kakj-go/Argus/internal/presentation"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -15,8 +16,9 @@ import (
 )
 
 type PresentationHandler struct {
-	Identity EnterpriseIdentityHandler
-	Store    *postgres.Store
+	Identity     EnterpriseIdentityHandler
+	Store        *postgres.Store
+	CursorSigner pagination.Signer
 }
 
 func (handler PresentationHandler) GetToolPresentation(ctx context.Context, r api.GetToolPresentationRequestObject) (api.GetToolPresentationResponseObject, error) {
@@ -51,7 +53,7 @@ func (handler PresentationHandler) GetToolPresentation(ctx context.Context, r ap
 	if scope != value.AuthorizationScope {
 		return fail(toolruntime.Error{Kind: "PRESENTATION_FORBIDDEN"})
 	}
-	asset := &toolruntime.TemplateAsset{Source: value.TemplateSource, Hash: value.TemplateHash, Version: value.ToolVersion, Runtime: "argus-template/v1"}
+	asset := &toolruntime.TemplateAsset{Source: value.TemplateSource, Hash: value.TemplateHash, Version: value.ToolVersion, Runtime: value.TemplateRuntime}
 	if err := presentation.Validate(asset); err != nil {
 		return fail(toolruntime.Error{Kind: "PRESENTATION_INVALID"})
 	}
@@ -59,7 +61,8 @@ func (handler PresentationHandler) GetToolPresentation(ctx context.Context, r ap
 	if json.Unmarshal(value.DetailData, &details) != nil {
 		return fail(toolruntime.Error{Kind: "PRESENTATION_INVALID"})
 	}
-	response := api.GetToolPresentation200JSONResponse{ToolCallId: r.ToolCallId, Runtime: api.ArgusTemplatev1, Status: api.ToolPresentationStatus(value.Status), TemplateHash: value.TemplateHash, TemplateSource: value.TemplateSource, DetailData: details}
+	reads := value.ReadOperations
+	response := api.GetToolPresentation200JSONResponse{ToolCallId: r.ToolCallId, Runtime: api.ToolPresentationRuntime(value.TemplateRuntime), ReadOperations: &reads, Status: api.ToolPresentationStatus(value.Status), TemplateHash: value.TemplateHash, TemplateSource: value.TemplateSource, DetailData: details}
 	if err := json.Unmarshal(value.ResourceRefs, &response.ResourceRefs); err != nil {
 		return fail(toolruntime.Error{Kind: "PRESENTATION_INVALID"})
 	}

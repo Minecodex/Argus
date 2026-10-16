@@ -30,10 +30,28 @@
   font-size: var(--font-size-13);
 }
 .argus-conversation-workspace {
-  padding: var(--space-2) var(--space-5);
-  border-bottom: 1px solid var(--border-subtle);
+  display: grid;
+  gap: var(--section-gap);
+  min-width: 0;
   font-size: var(--font-size-13);
   color: var(--text-secondary);
+}
+.argus-conversation-workspace > details > summary {
+  cursor: pointer;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+.argus-conversation-workspace p {
+  margin-block: var(--space-3);
+  font-size: var(--text-help);
+  overflow-wrap: anywhere;
+}
+.argus-conversation-workspace .argus-planv5-connection {
+  overflow-wrap: anywhere;
+  justify-content: flex-start;
+}
+.argus-conversation-workspace .argus-file-card {
+  margin-block: var(--space-2);
 }
 .argus-planv5-connection {
   display: flex;

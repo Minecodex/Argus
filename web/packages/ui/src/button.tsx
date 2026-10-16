@@ -12,6 +12,7 @@ export type ButtonProps = Omit<HeroButtonProps, "className"> & {
   className?: string;
   /** Content actions (inbox rows, cards) grow with their content. Controls keep fixed sizes. */
   layout?: "control" | "content";
+  density?: "default" | "compact";
   title?: string;
   role?: AriaRole;
 };
@@ -22,6 +23,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     {
       className,
       layout = "control",
+      density = "default",
       variant = "secondary",
       size = "md",
       isPending,
@@ -44,6 +46,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             "argus-button",
             `argus-control--${size}`,
             layout === "content" && "argus-button--content",
+            density === "compact" &&
+              `argus-button--compact argus-button--compact-${variant}`,
             className,
           )}
           variant={variant}

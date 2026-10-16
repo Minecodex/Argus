@@ -1,3 +1,4 @@
+import { AlertActionPreview } from "../alerts/action-preview";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -36,6 +37,8 @@ export function PendingActionConfirm({
   onCancel,
   onDismiss,
   onError,
+  layout = "card",
+  alertReferences,
 }: {
   action: PendingActionPublic;
   claimOneTimeResult?: boolean;
@@ -46,6 +49,11 @@ export function PendingActionConfirm({
   onDismiss?: () => void;
   /** Return true when the owning form has handled the failure. */
   onError?: (error: unknown) => boolean;
+  layout?: "card" | "dialog";
+  alertReferences?: {
+    resources: Record<string, string>;
+    channels: Record<string, string>;
+  };
 }) {
   const { t } = useTranslation();
   const api = useApi();
@@ -203,10 +211,15 @@ export function PendingActionConfirm({
   return (
     <>
       <PreviewCommitCard
+        layout={layout}
         affected={[]}
         confirmLabel={confirmLabel}
         confirming={confirming}
-        diff={diffLinesOf({ ...action, diff: presented.diff })}
+        diff={
+          layout === "dialog"
+            ? undefined
+            : diffLinesOf({ ...action, diff: presented.diff })
+        }
         expiresAt={action.expires_at}
         onCancel={() => void cancel()}
         onConfirm={() => void confirm()}
@@ -216,7 +229,14 @@ export function PendingActionConfirm({
         status={status}
         title={presented.title}
       >
-        <p className="argus-muted">{presented.summary}</p>
+        {layout === "card" && (
+          <p className="argus-muted">{presented.summary}</p>
+        )}
+        <AlertActionPreview
+          action={action}
+          layout={layout}
+          references={alertReferences}
+        />
         {awaitingApproval && (
           <div className="argus-form-actions">
             <span className="argus-muted">

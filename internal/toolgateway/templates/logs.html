@@ -1,9 +1,8 @@
-<section><h3 id="title"></h3><pre id="logs"></pre><p id="notice"></p></section>
+<section id="pod-log-view"></section>
 <script>
-ArgusTemplate.onData((data, context) => {
-  const zh = context.locale === 'zh-CN';
-  document.getElementById('title').textContent = zh ? 'Pod 日志' : 'Pod logs';
-  document.getElementById('logs').textContent = String(data.content || data.logs || '');
-  document.getElementById('notice').textContent = data.truncated ? (zh ? '日志已截断。请发送新消息调整查询。' : 'Logs were truncated. Send another message to adjust the query.') : '';
+ArgusView.mount(document.getElementById('pod-log-view'),(root,data)=>{
+ const v=ArgusView,t=(a,b)=>v.text(a,b);v.header(root,t('Pod 日志','Pod logs'),[data.namespace,data.pod,data.container].filter(Boolean).join(' / '));
+ v.fields(root,[[t('集群','Cluster'),data.resources?.find(item=>item.id===data.cluster_id)?.name||data.cluster_id],[t('读取时间','Read time'),v.time(data.observed_at)],[t('字节数','Bytes'),data.bytes],[t('完整性','Completeness'),data.truncated?t('尾部有限结果','Bounded tail'):t('本次请求完整','Complete for this request')]]);
+ const lines=data.items||String(data.content||'').split('\n').map((body,index)=>({body,line:index+1}));void v.pages(root,{...data,items:lines},(target,rows)=>v.table(target,rows,[[t('行','Line'),'line'],[t('内容','Content'),'body']],(cell,row)=>cell.append(v.node('pre',row.body,'argus-template-code'))));
 });
 </script>

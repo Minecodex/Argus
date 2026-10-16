@@ -1,11 +1,13 @@
-<section><h3 id="title"></h3><div id="logs"></div></section>
+<section id="log-view"></section>
 <script>
-ArgusTemplate.onData((data, context) => {
-  document.getElementById('title').textContent = context.locale === 'zh-CN' ? '日志查询' : 'Logs';
-  const root = document.getElementById('logs'); root.replaceChildren();
-  const payload = data.data || data.result || data;
-  const rows = Array.isArray(payload) ? payload : payload.rows || payload.items || payload.hits || [];
-  ArgusTemplate.table(root, Array.isArray(rows) ? rows : [], ['timestamp','severity_text','service_name','body','trace_id','span_id']);
-  if (data.partial) ArgusTemplate.note(root, context.locale === 'zh-CN' ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
+ArgusView.mount(document.getElementById('log-view'),(root,data)=>{
+ const v=ArgusView,t=(a,b)=>v.text(a,b),payload=data.data||{};
+ v.header(root,t('日志查询','Log query'),(data.resources||[]).map(item=>item.name||item.id).join(' · '));
+ const query=data.query_context||{};v.fields(root,[[t('查询','Query'),query.query],[t('时间','Time'),v.time(query.from)+' – '+v.time(query.to)],[t('结果类型','Result type'),data.result_type]]);
+ const rows=data.items||payload.rows||(Array.isArray(payload)?payload:[]),aggregate=['table','timeseries'].includes(data.result_type),labels={timestamp:t('时间','Time'),group_value:t('分组','Group'),count:t('计数','Count'),value:t('聚合值','Aggregate value')};
+ const keys=[...new Set(rows.flatMap(row=>Object.keys(row||{})))];
+ const columns=aggregate?keys.map(key=>[labels[key]||key,row=>key==='timestamp'?v.time(row[key]):v.value(row[key])]):[[t('时间','Time'),row=>v.time(row.timestamp||row.time)],[t('级别','Severity'),row=>row.severity_text||row.severity||row.level],[t('资源 / 服务','Resource / service'),row=>[(data.resources||[]).find(item=>item.id===(row.resource_id||row.argus_resource_id))?.name,row.service_name].filter(Boolean).join(' · ')],[t('内容','Content'),row=>row.body??row.message??row.value]];
+ void v.pages(root,{...data,items:rows},(target,items)=>v.table(target,items,columns,(cell,row)=>{cell.append(v.node('pre',row.body??row.message??v.value(row),'argus-template-code'));v.fields(cell,Object.entries(row).filter(([key])=>!['body','message'].includes(key)));}));
+ const execution=v.section(root,t('查询执行信息','Query execution details'));v.fields(execution,Object.entries(data.meta||{}));
 });
 </script>

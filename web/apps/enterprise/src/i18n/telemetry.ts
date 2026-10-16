@@ -1,5 +1,20 @@
 export const telemetryZh = {
   telemetry: {
+    quickQuery: "临时快速查询",
+    reset: "重置查询",
+    quickQueryHint: "使用查询构建器或 DSL 查询当前资源；条件仅保留在本页。",
+    awaitingQuery: "设置查询条件后执行查询",
+    queryConfiguration: "查询条件",
+    executedDsl: "最近执行的查询语句",
+    conversionFailed: "当前查询无法无损转换，已保留原查询。",
+    resultView: "结果展示",
+    views: {
+      auto: "自动展示",
+      table: "表格",
+      timeseries: "趋势图",
+      stat: "统计值",
+      bar: "柱状图",
+    },
     collector: "Collector",
     metrics: "指标",
     logs: "日志",
@@ -54,15 +69,35 @@ export const telemetryZh = {
 
 export const telemetryEn = {
   telemetry: {
+    quickQuery: "Quick query",
+    reset: "Reset query",
+    quickQueryHint:
+      "Query this resource with the builder or DSL. Conditions stay on this page only.",
+    awaitingQuery: "Configure a query, then run it",
+    queryConfiguration: "Query conditions",
+    executedDsl: "Last executed query",
+    conversionFailed:
+      "This query cannot be converted losslessly. The original query is preserved.",
+    resultView: "Result view",
+    views: {
+      auto: "Automatic",
+      table: "Table",
+      timeseries: "Time series",
+      stat: "Statistics",
+      bar: "Bar chart",
+    },
     collector: "Collector",
     metrics: "Metrics",
     logs: "Logs",
     traces: "Traces",
-    lastHour: "Last hour. Results are filtered by explicit resource grants and field policy.",
+    lastHour:
+      "Last hour. Results are filtered by explicit resource grants and field policy.",
     partial: "Partial result",
-    partialDescription: "Some resources or rows were omitted by authorization, budget, or data lag.",
+    partialDescription:
+      "Some resources or rows were omitted by authorization, budget, or data lag.",
     queryFailed: "Telemetry query unavailable",
-    queryFailedDescription: "Check the Collector, telemetry pipeline, and query permission, then retry.",
+    queryFailedDescription:
+      "Check the Collector, telemetry pipeline, and query permission, then retry.",
     empty: "No data in this time range",
     metricsSummary: "Metric time series for this resource during the last hour",
     builder: "Query builder",

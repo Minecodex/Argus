@@ -1,5 +1,11 @@
 /** Stable API error-code translations. Keep this list aligned with api/contracts/error-codes.yaml. */
 export const ERROR_CODES = [
+  "ALERT_INVALID",
+  "ALERT_DENIED",
+  "ALERT_NOT_FOUND",
+  "ALERT_VERSION_CONFLICT",
+  "ALERT_EVALUATOR_UNAVAILABLE",
+  "ALERT_UNAVAILABLE",
   "DASHBOARD_CONDITION_EVIDENCE_REQUIRED",
   "DASHBOARD_CONDITIONS_INCOMPATIBLE",
   "DASHBOARD_SELECTION_REQUIRED",
@@ -227,6 +233,8 @@ export const ERROR_CODES = [
   "MODEL_USAGE_INVALID",
   "PRESENTATION_FORBIDDEN",
   "PRESENTATION_INVALID",
+  "PRESENTATION_READ_INVALID",
+  "PRESENTATION_ROW_TOO_LARGE",
   "SANDBOX_COMMAND_RESULT_UNKNOWN",
   "SANDBOX_UNAVAILABLE",
   "SKILL_CONTEXT_INVALID",
@@ -443,9 +451,19 @@ const errorTokenZhMap: Record<string, string> = {
 };
 
 const errorSpecialZhMap: Record<string, string> = {
-  DASHBOARD_SELECTION_REQUIRED: "请先在会话中选择需要查询或编辑的仪表盘。",
+  PRESENTATION_READ_INVALID: "展示读取参数或游标无效，请重新加载结果。",
+  PRESENTATION_ROW_TOO_LARGE:
+    "该条结果超出展示读取上限，请使用分片或完整会话文件。",
+  ALERT_INVALID: "请检查告警配置、指标表达式及恢复阈值。",
+  ALERT_DENIED: "没有操作权限或未获得相关资源授权。",
+  ALERT_NOT_FOUND: "告警记录不存在或已删除。",
+  ALERT_VERSION_CONFLICT: "配置或告警版本已变化，请刷新后重新预览。",
+  ALERT_EVALUATOR_UNAVAILABLE:
+    "后台评估账号未配置、停用或资源授权不足。请在组织与权限中检查。",
+  ALERT_UNAVAILABLE: "告警服务或查询引擎暂不可用。",
+  DASHBOARD_SELECTION_REQUIRED: "需要先读取仪表盘定义，才能继续查询或编辑。",
   DASHBOARD_CONDITION_EVIDENCE_REQUIRED:
-    "条件变更需要关联本轮用户消息中的明确要求。",
+    "参数变更需要关联用户消息，或记录 AI 自主选择的依据。",
   DASHBOARD_CONDITIONS_INCOMPATIBLE:
     "已发布参数的含义发生变化，请重新明确相关条件或恢复默认值。",
   DASHBOARD_SELECTION_STALE: "所选数据已变化，请刷新后再打开详情。",
@@ -562,12 +580,24 @@ const errorSpecialZhMap: Record<string, string> = {
 
 const errorTokenEnMap: Record<string, string> = {};
 const errorSpecialEnMap: Record<string, string> = {
+  PRESENTATION_READ_INVALID:
+    "Presentation parameters or cursor are invalid. Reload the result.",
+  PRESENTATION_ROW_TOO_LARGE:
+    "This result exceeds the presentation limit. Read a shard or the full conversation file.",
+  ALERT_INVALID:
+    "Check the alert configuration, expressions and recovery thresholds.",
+  ALERT_DENIED: "You lack permission or a resource grant.",
+  ALERT_NOT_FOUND: "The alert record is unavailable or deleted.",
+  ALERT_VERSION_CONFLICT: "The version changed. Refresh and preview again.",
+  ALERT_EVALUATOR_UNAVAILABLE:
+    "The evaluator is unconfigured, disabled or lacks resource grants. Check Organization & Access.",
+  ALERT_UNAVAILABLE: "The alert service or query engine is unavailable.",
   DASHBOARD_CONDITION_EVIDENCE_REQUIRED:
-    "Condition changes must reference the current user message.",
+    "Parameter changes require a user-message reference or a reason for the AI choice.",
   DASHBOARD_CONDITIONS_INCOMPATIBLE:
     "Published parameter meanings changed. Specify the affected conditions again or reset them to defaults.",
   DASHBOARD_SELECTION_REQUIRED:
-    "Select the dashboard in Chat before querying or editing it.",
+    "Read the dashboard definition before querying or editing it.",
   DASHBOARD_SELECTION_STALE:
     "The selected data has changed. Refresh before opening its details.",
   DASHBOARD_CONTEXT_EXPIRED:

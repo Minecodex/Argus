@@ -7,9 +7,26 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for DashboardAnalysisResolveInputEvidenceOrigin.
+const (
+	AiSelection           DashboardAnalysisResolveInputEvidenceOrigin = "ai_selection"
+	MessageInterpretation DashboardAnalysisResolveInputEvidenceOrigin = "message_interpretation"
+)
+
+// Valid indicates whether the value is a known member of the DashboardAnalysisResolveInputEvidenceOrigin enum.
+func (e DashboardAnalysisResolveInputEvidenceOrigin) Valid() bool {
+	switch e {
+	case AiSelection:
+		return true
+	case MessageInterpretation:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for DashboardBindingInputOperation.
 const (
@@ -302,6 +319,24 @@ func (e DashboardDisplayOptionsReducer) Valid() bool {
 	case DashboardDisplayOptionsReducerMin:
 		return true
 	case DashboardDisplayOptionsReducerSum:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardDraftPanelConversionMode.
+const (
+	DashboardDraftPanelConversionModeBuilder DashboardDraftPanelConversionMode = "builder"
+	DashboardDraftPanelConversionModeDsl     DashboardDraftPanelConversionMode = "dsl"
+)
+
+// Valid indicates whether the value is a known member of the DashboardDraftPanelConversionMode enum.
+func (e DashboardDraftPanelConversionMode) Valid() bool {
+	switch e {
+	case DashboardDraftPanelConversionModeBuilder:
+		return true
+	case DashboardDraftPanelConversionModeDsl:
 		return true
 	default:
 		return false
@@ -690,16 +725,36 @@ type DashboardAnalysisQueryInput struct {
 
 // DashboardAnalysisResolveInput defines model for DashboardAnalysisResolveInput.
 type DashboardAnalysisResolveInput struct {
-	Changes     DashboardConditionPatch `json:"changes"`
-	DashboardId openapi_types.UUID      `json:"dashboard_id"`
-	Evidence    []struct {
-		// Path JSON pointer for each changed condition; / for reset_all
-		Path string `json:"path"`
+	Changes         DashboardConditionPatch                       `json:"changes"`
+	DashboardId     openapi_types.UUID                            `json:"dashboard_id"`
+	Evidence        []DashboardAnalysisResolveInput_Evidence_Item `json:"evidence"`
+	ExpectedVersion int64                                         `json:"expected_version"`
+}
 
-		// Quote Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness
-		Quote string `json:"quote"`
-	} `json:"evidence"`
-	ExpectedVersion int64 `json:"expected_version"`
+// DashboardAnalysisResolveInputEvidenceOrigin defines model for DashboardAnalysisResolveInput.Evidence.Origin.
+type DashboardAnalysisResolveInputEvidenceOrigin string
+
+// DashboardAnalysisResolveInputEvidence0 defines model for DashboardAnalysisResolveInput.Evidence.0.
+type DashboardAnalysisResolveInputEvidence0 = interface{}
+
+// DashboardAnalysisResolveInputEvidence1 defines model for DashboardAnalysisResolveInput.Evidence.1.
+type DashboardAnalysisResolveInputEvidence1 struct {
+	Origin interface{} `json:"origin"`
+}
+
+// DashboardAnalysisResolveInput_Evidence_Item defines model for DashboardAnalysisResolveInput.evidence.Item.
+type DashboardAnalysisResolveInput_Evidence_Item struct {
+	Origin *DashboardAnalysisResolveInputEvidenceOrigin `json:"origin,omitempty"`
+
+	// Path JSON pointer for each changed condition; / for reset_all
+	Path string `json:"path"`
+
+	// Quote Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness
+	Quote *string `json:"quote,omitempty"`
+
+	// Reason Explanation of an AI-selected parameter; cannot replace an explicit user condition
+	Reason *string `json:"reason,omitempty"`
+	union  json.RawMessage
 }
 
 // DashboardBinding defines model for DashboardBinding.
@@ -938,13 +993,37 @@ type DashboardDraftDrilldownInput struct {
 
 // DashboardDraftInput defines model for DashboardDraftInput.
 type DashboardDraftInput struct {
-	DashboardId      *openapi_types.UUID `json:"dashboard_id,omitempty"`
-	Description      string              `json:"description"`
-	ExpectedVersion  *int64              `json:"expected_version,omitempty"`
-	FolderId         *openapi_types.UUID `json:"folder_id,omitempty"`
-	Name             string              `json:"name"`
-	ProposedBindings []DashboardBinding  `json:"proposed_bindings"`
-	Spec             DashboardSpec       `json:"spec"`
+	DashboardId     *openapi_types.UUID `json:"dashboard_id,omitempty"`
+	Description     string              `json:"description"`
+	ExpectedVersion *int64              `json:"expected_version,omitempty"`
+	FolderId        *openapi_types.UUID `json:"folder_id,omitempty"`
+	Name            string              `json:"name"`
+
+	// Preparation Optional deterministic lossless conversions and standard drilldowns, applied atomically with the version-checked draft save. Omission does not modify the supplied definition.
+	Preparation      *DashboardDraftPreparation `json:"preparation,omitempty"`
+	ProposedBindings []DashboardBinding         `json:"proposed_bindings"`
+	Spec             DashboardSpec              `json:"spec"`
+}
+
+// DashboardDraftPanelConversion defines model for DashboardDraftPanelConversion.
+type DashboardDraftPanelConversion struct {
+	Mode    DashboardDraftPanelConversionMode `json:"mode"`
+	PanelId string                            `json:"panel_id"`
+}
+
+// DashboardDraftPanelConversionMode defines model for DashboardDraftPanelConversion.Mode.
+type DashboardDraftPanelConversionMode string
+
+// DashboardDraftPanelDrilldowns defines model for DashboardDraftPanelDrilldowns.
+type DashboardDraftPanelDrilldowns struct {
+	PanelId       string                            `json:"panel_id"`
+	SignalSources map[string]DashboardSourceBinding `json:"signal_sources"`
+}
+
+// DashboardDraftPreparation defines model for DashboardDraftPreparation.
+type DashboardDraftPreparation struct {
+	Conversions *[]DashboardDraftPanelConversion `json:"conversions,omitempty"`
+	Drilldowns  *[]DashboardDraftPanelDrilldowns `json:"drilldowns,omitempty"`
 }
 
 // DashboardDraftSample defines model for DashboardDraftSample.
@@ -1027,857 +1106,4 @@ type DashboardExecution struct {
 	To                 time.Time                                     `json:"to"`
 	VariableCandidates map[string]DashboardCandidateState            `json:"variable_candidates"`
 	Variables          map[string]DashboardSelection                 `json:"variables"`
-}
-
-// DashboardExecutionInput defines model for DashboardExecutionInput.
-type DashboardExecutionInput struct {
-	// CandidatesOnly Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode.
-	CandidatesOnly *bool                                     `json:"candidates_only,omitempty"`
-	From           *time.Time                                `json:"from,omitempty"`
-	LocalValues    *map[string]map[string]DashboardSelection `json:"local_values,omitempty"`
-	PanelIds       *[]string                                 `json:"panel_ids,omitempty"`
-	ResourceIds    *[]openapi_types.UUID                     `json:"resource_ids,omitempty"`
-	To             *time.Time                                `json:"to,omitempty"`
-	Variables      *map[string]DashboardSelection            `json:"variables,omitempty"`
-}
-
-// DashboardFilter defines model for DashboardFilter.
-type DashboardFilter struct {
-	DrilldownInput *string   `json:"drilldown_input,omitempty"`
-	Field          string    `json:"field"`
-	LocalParameter *string   `json:"local_parameter,omitempty"`
-	Operator       string    `json:"operator"`
-	Value          *string   `json:"value,omitempty"`
-	Values         *[]string `json:"values,omitempty"`
-	Variable       *string   `json:"variable,omitempty"`
-}
-
-// DashboardFolder defines model for DashboardFolder.
-type DashboardFolder struct {
-	Description string                `json:"description"`
-	Id          openapi_types.UUID    `json:"id"`
-	Name        string                `json:"name"`
-	SortOrder   int32                 `json:"sort_order"`
-	Status      DashboardFolderStatus `json:"status"`
-	Version     int64                 `json:"version"`
-}
-
-// DashboardFolderStatus defines model for DashboardFolder.Status.
-type DashboardFolderStatus string
-
-// DashboardGenerateDrilldownsInput defines model for DashboardGenerateDrilldownsInput.
-type DashboardGenerateDrilldownsInput struct {
-	ExpectedVersion int64                             `json:"expected_version"`
-	PanelId         string                            `json:"panel_id"`
-	SignalSources   map[string]DashboardSourceBinding `json:"signal_sources"`
-}
-
-// DashboardGeneratedDrilldowns defines model for DashboardGeneratedDrilldowns.
-type DashboardGeneratedDrilldowns struct {
-	Added  []string         `json:"added"`
-	Draft  DashboardDraft   `json:"draft"`
-	Issues []DashboardIssue `json:"issues"`
-}
-
-// DashboardGrid defines model for DashboardGrid.
-type DashboardGrid struct {
-	// Columns The grid always has 12 columns.
-	Columns int64 `json:"columns"`
-
-	// RowHeight Grid row height, from 1 to 64; the editor default is 8.
-	RowHeight int64 `json:"row_height"`
-}
-
-// DashboardIssue defines model for DashboardIssue.
-type DashboardIssue struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Path    string `json:"path"`
-}
-
-// DashboardItem defines model for DashboardItem.
-type DashboardItem struct {
-	ActiveRevisionId openapi_types.UUID  `json:"active_revision_id"`
-	Description      string              `json:"description"`
-	FolderId         *openapi_types.UUID `json:"folder_id,omitempty"`
-	Id               openapi_types.UUID  `json:"id"`
-	Lifecycle        string              `json:"lifecycle"`
-	Name             string              `json:"name"`
-	UpdatedAt        time.Time           `json:"updated_at"`
-	Version          int64               `json:"version"`
-}
-
-// DashboardLifecycleInput defines model for DashboardLifecycleInput.
-type DashboardLifecycleInput struct {
-	Description     string                           `json:"description"`
-	ExpectedVersion int64                            `json:"expected_version"`
-	Id              *openapi_types.UUID              `json:"id,omitempty"`
-	Name            string                           `json:"name"`
-	Operation       DashboardLifecycleInputOperation `json:"operation"`
-	SortOrder       int32                            `json:"sort_order"`
-}
-
-// DashboardLifecycleInputOperation defines model for DashboardLifecycleInput.Operation.
-type DashboardLifecycleInputOperation string
-
-// DashboardLocalFilter defines model for DashboardLocalFilter.
-type DashboardLocalFilter struct {
-	Default  DashboardSelection       `json:"default"`
-	Id       string                   `json:"id"`
-	Kind     DashboardLocalFilterKind `json:"kind"`
-	Label    string                   `json:"label"`
-	Multiple *bool                    `json:"multiple,omitempty"`
-	Query    *DashboardCandidateQuery `json:"query,omitempty"`
-	Required *bool                    `json:"required,omitempty"`
-}
-
-// DashboardLocalFilterKind defines model for DashboardLocalFilter.Kind.
-type DashboardLocalFilterKind string
-
-// DashboardMetricDescriptor defines model for DashboardMetricDescriptor.
-type DashboardMetricDescriptor struct {
-	Labels []string `json:"labels"`
-	Name   string   `json:"name"`
-	Type   string   `json:"type"`
-	Unit   string   `json:"unit"`
-}
-
-// DashboardPanel defines model for DashboardPanel.
-type DashboardPanel struct {
-	ApplicableResourceTypes []string `json:"applicable_resource_types"`
-
-	// AuthoringMode All display and detail targets in a Panel use this single editing source.
-	AuthoringMode      DashboardPanelAuthoringMode `json:"authoring_mode"`
-	Decimals           int64                       `json:"decimals"`
-	Description        string                      `json:"description"`
-	DetailQueryTargets []DashboardTarget           `json:"detail_query_targets"`
-
-	// Display Presentation only. Reductions operate independently on each returned series; mean ignores missing samples and is not time weighted, sum is sample sum not counter increase. Last preserves a missing final sample. Bounds and thresholds use raw query units. Unset bounds are automatic. Draw style, stack and smooth apply only to time series. Does not change query mode, query hash or exported data.
-	Display       *DashboardDisplayOptions `json:"display,omitempty"`
-	Drilldowns    []DashboardDrilldown     `json:"drilldowns"`
-	Id            string                   `json:"id"`
-	Layout        DashboardRectangle       `json:"layout"`
-	Legend        bool                     `json:"legend"`
-	LocalFilters  []DashboardLocalFilter   `json:"local_filters"`
-	Signal        DashboardPanelSignal     `json:"signal"`
-	SourceBinding DashboardSourceBinding   `json:"source_binding"`
-	Targets       []DashboardTarget        `json:"targets"`
-	Thresholds    []DashboardThreshold     `json:"thresholds"`
-	Title         string                   `json:"title"`
-	Type          string                   `json:"type"`
-	Unit          string                   `json:"unit"`
-}
-
-// DashboardPanelAuthoringMode All display and detail targets in a Panel use this single editing source.
-type DashboardPanelAuthoringMode string
-
-// DashboardPanelSignal defines model for DashboardPanel.Signal.
-type DashboardPanelSignal string
-
-// DashboardPanelExecution defines model for DashboardPanelExecution.
-type DashboardPanelExecution struct {
-	DetailSources map[string][]DashboardResolvedSource `json:"detail_sources"`
-	Id            string                               `json:"id"`
-	Sources       []DashboardResolvedSource            `json:"sources"`
-	Status        string                               `json:"status"`
-	Targets       []DashboardTargetExecution           `json:"targets"`
-}
-
-// DashboardParameterBinding defines model for DashboardParameterBinding.
-type DashboardParameterBinding struct {
-	DrilldownInput  *string            `json:"drilldown_input,omitempty"`
-	IdentityMapping *bool              `json:"identity_mapping,omitempty"`
-	LocalParameter  *string            `json:"local_parameter,omitempty"`
-	Parameter       string             `json:"parameter"`
-	ValueMap        *map[string]string `json:"value_map,omitempty"`
-	Variable        *string            `json:"variable,omitempty"`
-}
-
-// DashboardQueryDrilldownInput defines model for DashboardQueryDrilldownInput.
-type DashboardQueryDrilldownInput struct {
-	DrilldownId               string             `json:"drilldown_id"`
-	ExpandAuthorizedResources bool               `json:"expand_authorized_resources"`
-	PanelId                   string             `json:"panel_id"`
-	ParentJobId               openapi_types.UUID `json:"parent_job_id"`
-	Values                    map[string]string  `json:"values"`
-}
-
-// DashboardQueryJobInput defines model for DashboardQueryJobInput.
-type DashboardQueryJobInput struct {
-	DashboardId openapi_types.UUID `json:"dashboard_id"`
-
-	// Drilldown Continue a sealed parent result with its published revision and effective parameters. parameters must have no overrides.
-	Drilldown  *DashboardQueryDrilldownInput `json:"drilldown,omitempty"`
-	Parameters DashboardExecutionInput       `json:"parameters"`
-	RunId      *openapi_types.UUID           `json:"run_id,omitempty"`
-}
-
-// DashboardQueryJobView defines model for DashboardQueryJobView.
-type DashboardQueryJobView struct {
-	DashboardId openapi_types.UUID `json:"dashboard_id"`
-	ErrorCode   *string            `json:"error_code,omitempty"`
-	Files       []struct {
-		Bytes           int64                          `json:"bytes"`
-		Id              openapi_types.UUID             `json:"id"`
-		Kind            DashboardQueryJobViewFilesKind `json:"kind"`
-		PanelId         string                         `json:"panel_id"`
-		Path            string                         `json:"path"`
-		Sha256          string                         `json:"sha256"`
-		SourceRef       string                         `json:"source_ref"`
-		TargetId        string                         `json:"target_id"`
-		WorkspaceFileId *openapi_types.UUID            `json:"workspace_file_id,omitempty"`
-		WorkspaceId     *openapi_types.UUID            `json:"workspace_id,omitempty"`
-	} `json:"files"`
-	Id         openapi_types.UUID          `json:"id"`
-	Manifest   *map[string]interface{}     `json:"manifest,omitempty"`
-	RevisionId openapi_types.UUID          `json:"revision_id"`
-	Status     DashboardQueryJobViewStatus `json:"status"`
-	Version    int64                       `json:"version"`
-}
-
-// DashboardQueryJobViewFilesKind defines model for DashboardQueryJobView.Files.Kind.
-type DashboardQueryJobViewFilesKind string
-
-// DashboardQueryJobViewStatus defines model for DashboardQueryJobView.Status.
-type DashboardQueryJobViewStatus string
-
-// DashboardQueryResumeInput defines model for DashboardQueryResumeInput.
-type DashboardQueryResumeInput struct {
-	ExpectedVersion int64 `json:"expected_version"`
-}
-
-// DashboardRebaseInput defines model for DashboardRebaseInput.
-type DashboardRebaseInput struct {
-	ExpectedVersion int64              `json:"expected_version"`
-	ObjectVersion   int64              `json:"object_version"`
-	RevisionId      openapi_types.UUID `json:"revision_id"`
-}
-
-// DashboardRectangle defines model for DashboardRectangle.
-type DashboardRectangle struct {
-	// H Height in grid rows; at least min_h, at most 1000.
-	H int64 `json:"h"`
-
-	// MinH Minimum height, at least 1.
-	MinH int64 `json:"min_h"`
-
-	// MinW Minimum width, at least 1.
-	MinW int64 `json:"min_w"`
-
-	// W Width in grid columns; at least min_w and x+w must be <=12.
-	W int64 `json:"w"`
-	X int64 `json:"x"`
-	Y int64 `json:"y"`
-}
-
-// DashboardResolvedSource defines model for DashboardResolvedSource.
-type DashboardResolvedSource struct {
-	CapabilityVersion string `json:"capability_version"`
-
-	// CurrentInstallation Whether this source belongs to the current installed generation when this execution was frozen; not proof of active collection.
-	CurrentInstallation *bool              `json:"current_installation,omitempty"`
-	Generation          openapi_types.UUID `json:"generation"`
-	Id                  openapi_types.UUID `json:"id"`
-
-	// RegisteredAt Registration time of this source configuration revision.
-	RegisteredAt *time.Time         `json:"registered_at,omitempty"`
-	ResourceId   openapi_types.UUID `json:"resource_id"`
-	Revision     int64              `json:"revision"`
-	Type         string             `json:"type"`
-}
-
-// DashboardResourceScope defines model for DashboardResourceScope.
-type DashboardResourceScope struct {
-	Id   openapi_types.UUID         `json:"id"`
-	Type DashboardResourceScopeType `json:"type"`
-}
-
-// DashboardResourceScopeType defines model for DashboardResourceScope.Type.
-type DashboardResourceScopeType string
-
-// DashboardRevision defines model for DashboardRevision.
-type DashboardRevision struct {
-	CreatedAt      time.Time                 `json:"created_at"`
-	DashboardId    openapi_types.UUID        `json:"dashboard_id"`
-	Description    string                    `json:"description"`
-	Id             openapi_types.UUID        `json:"id"`
-	Name           string                    `json:"name"`
-	RevisionNumber int64                     `json:"revision_number"`
-	Sample         map[string]interface{}    `json:"sample"`
-	Spec           DashboardSpec             `json:"spec"`
-	SpecHash       string                    `json:"spec_hash"`
-	Validation     DashboardValidationReport `json:"validation"`
-}
-
-// DashboardSelection defines model for DashboardSelection.
-type DashboardSelection struct {
-	All    bool     `json:"all"`
-	Values []string `json:"values"`
-}
-
-// DashboardSourceBinding defines model for DashboardSourceBinding.
-type DashboardSourceBinding struct {
-	// CapabilityVersion Use the capability version returned by catalog.resources; current supported sources use v1.
-	CapabilityVersion string `json:"capability_version"`
-
-	// SourceType Use a registered source type from catalog.resources, such as otlp, prometheus, hostmetrics, filelog, skywalking or jaeger; never a resource ID.
-	SourceType string `json:"source_type"`
-}
-
-// DashboardSpec defines model for DashboardSpec.
-type DashboardSpec struct {
-	// DefaultRefreshSeconds 0 disables refresh; otherwise 5..86400 seconds.
-	DefaultRefreshSeconds int64              `json:"default_refresh_seconds"`
-	DefaultTimeRange      DashboardTimeRange `json:"default_time_range"`
-	Layout                DashboardGrid      `json:"layout"`
-	Panels                []DashboardPanel   `json:"panels"`
-
-	// SchemaVersion Exact configuration version; do not abbreviate to v1.
-	SchemaVersion DashboardSpecSchemaVersion `json:"schema_version"`
-	Variables     []DashboardVariable        `json:"variables"`
-}
-
-// DashboardSpecSchemaVersion Exact configuration version; do not abbreviate to v1.
-type DashboardSpecSchemaVersion string
-
-// DashboardStepPolicy defines model for DashboardStepPolicy.
-type DashboardStepPolicy struct {
-	// Kind Metrics range queries require fixed or auto. fixed requires seconds=1..86400. auto requires target_points=1..10000 AND min_step_seconds>=1. Empty is only for targets that do not use a range step.
-	Kind DashboardStepPolicyKind `json:"kind"`
-
-	// MinStepSeconds Required for auto: minimum interval in seconds, at least 1.
-	MinStepSeconds *int64 `json:"min_step_seconds,omitempty"`
-
-	// Seconds Required for fixed: interval in seconds, from 1 to 86400.
-	Seconds *int64 `json:"seconds,omitempty"`
-
-	// TargetPoints Required for auto: target data points, from 1 to 10000.
-	TargetPoints *int64 `json:"target_points,omitempty"`
-}
-
-// DashboardStepPolicyKind Metrics range queries require fixed or auto. fixed requires seconds=1..86400. auto requires target_points=1..10000 AND min_step_seconds>=1. Empty is only for targets that do not use a range step.
-type DashboardStepPolicyKind string
-
-// DashboardTarget defines model for DashboardTarget.
-type DashboardTarget struct {
-	Id                string                      `json:"id"`
-	Language          DashboardTargetLanguage     `json:"language"`
-	ParameterBindings []DashboardParameterBinding `json:"parameter_bindings"`
-
-	// QueryMode PromQL uses instant or range; a metric timeseries uses range. Logs and Trace use an empty string.
-	QueryMode       DashboardTargetQueryMode `json:"query_mode"`
-	RangeStepPolicy DashboardStepPolicy      `json:"range_step_policy"`
-
-	// Signal Omit on display targets: they inherit Panel.signal. Required on a detail target.
-	Signal *string `json:"signal,omitempty"`
-
-	// SourceBinding Omit on display targets: they inherit Panel.source_binding. Required on a detail target, including cross-signal drilldowns.
-	SourceBinding *DashboardSourceBinding `json:"source_binding,omitempty"`
-
-	// SourceDefinition Exactly one of builder or dsl, matching the containing Panel.authoring_mode.
-	SourceDefinition DashboardDefinition `json:"source_definition"`
-}
-
-// DashboardTargetLanguage defines model for DashboardTarget.Language.
-type DashboardTargetLanguage string
-
-// DashboardTargetQueryMode PromQL uses instant or range; a metric timeseries uses range. Logs and Trace use an empty string.
-type DashboardTargetQueryMode string
-
-// DashboardTargetExecution defines model for DashboardTargetExecution.
-type DashboardTargetExecution struct {
-	Code       *string                `json:"code,omitempty"`
-	Data       interface{}            `json:"data"`
-	Id         string                 `json:"id"`
-	Meta       map[string]interface{} `json:"meta"`
-	QueryHash  string                 `json:"query_hash"`
-	ResultType string                 `json:"result_type"`
-	Status     string                 `json:"status"`
-
-	// StepSeconds Actual frozen PromQL range step in seconds.
-	StepSeconds *int `json:"step_seconds,omitempty"`
-}
-
-// DashboardThreshold defines model for DashboardThreshold.
-type DashboardThreshold struct {
-	Tone  DashboardThresholdTone `json:"tone"`
-	Value float64                `json:"value"`
-}
-
-// DashboardThresholdTone defines model for DashboardThreshold.Tone.
-type DashboardThresholdTone string
-
-// DashboardTimeRange defines model for DashboardTimeRange.
-type DashboardTimeRange struct {
-	From *time.Time `json:"from,omitempty"`
-
-	// Kind relative requires seconds (1..604800); absolute requires from and to with a positive interval no longer than seven days.
-	Kind    DashboardTimeRangeKind `json:"kind"`
-	Seconds *int64                 `json:"seconds,omitempty"`
-	To      *time.Time             `json:"to,omitempty"`
-}
-
-// DashboardTimeRangeKind relative requires seconds (1..604800); absolute requires from and to with a positive interval no longer than seven days.
-type DashboardTimeRangeKind string
-
-// DashboardValidationReport defines model for DashboardValidationReport.
-type DashboardValidationReport struct {
-	CompilerVersion string           `json:"compiler_version"`
-	Issues          []DashboardIssue `json:"issues"`
-	Valid           bool             `json:"valid"`
-}
-
-// DashboardVariable defines model for DashboardVariable.
-type DashboardVariable struct {
-	Default    DashboardSelection      `json:"default"`
-	Id         string                  `json:"id"`
-	IncludeAll bool                    `json:"include_all"`
-	Label      string                  `json:"label"`
-	Multiple   bool                    `json:"multiple"`
-	Name       string                  `json:"name"`
-	Query      DashboardCandidateQuery `json:"query"`
-}
-
-// DashboardVersionInput defines model for DashboardVersionInput.
-type DashboardVersionInput struct {
-	ExpectedVersion int64 `json:"expected_version"`
-}
-
-// IdempotencyKey defines model for IdempotencyKey.
-type IdempotencyKey = string
-
-// PublicJsonObject defines model for PublicJsonObject.
-type PublicJsonObject map[string]*PublicJsonValue
-
-// PublicJsonValue defines model for PublicJsonValue.
-type PublicJsonValue struct {
-	union json.RawMessage
-}
-
-// PublicJsonValue1 defines model for PublicJsonValue.1.
-type PublicJsonValue1 = bool
-
-// PublicJsonValue2 defines model for PublicJsonValue.2.
-type PublicJsonValue2 = float32
-
-// PublicJsonValue3 defines model for PublicJsonValue.3.
-type PublicJsonValue3 = string
-
-// PublicJsonValue4 defines model for PublicJsonValue.4.
-type PublicJsonValue4 = []*PublicJsonValue
-
-// RequestId defines model for RequestId.
-type RequestId = string
-
-// ResourceDashboardBindings defines model for ResourceDashboardBindings.
-type ResourceDashboardBindings struct {
-	Items           []DashboardBindingView                `json:"items"`
-	ResourceId      openapi_types.UUID                    `json:"resource_id"`
-	ResourceName    string                                `json:"resource_name"`
-	ResourceType    ResourceDashboardBindingsResourceType `json:"resource_type"`
-	ResourceVersion int64                                 `json:"resource_version"`
-}
-
-// ResourceDashboardBindingsResourceType defines model for ResourceDashboardBindings.ResourceType.
-type ResourceDashboardBindingsResourceType string
-
-// PendingActionPublicSchema defines model for pending-action-public.schema.
-type PendingActionPublicSchema struct {
-	ActionRef  string `json:"action_ref"`
-	ActionType string `json:"action_type"`
-	Approval   *struct {
-		ApprovedCount    int     `json:"approved_count"`
-		MinimumApprovers int     `json:"minimum_approvers"`
-		PolicyRef        *string `json:"policy_ref,omitempty"`
-		Required         bool    `json:"required"`
-		SeparationOfDuty bool    `json:"separation_of_duty"`
-	} `json:"approval,omitempty"`
-	AvailableActions []interface{} `json:"available_actions"`
-	CreatedAt        time.Time     `json:"created_at"`
-	Diff             []struct {
-		Kind interface{} `json:"kind"`
-		Text string      `json:"text"`
-	} `json:"diff"`
-	ExecutionRef  *string          `json:"execution_ref,omitempty"`
-	ExpiresAt     time.Time        `json:"expires_at"`
-	Preview       PublicJsonObject `json:"preview"`
-	ResultSummary *string          `json:"result_summary,omitempty"`
-	Risk          interface{}      `json:"risk"`
-	SchemaVersion interface{}      `json:"schema_version"`
-	Status        interface{}      `json:"status"`
-	Summary       string           `json:"summary"`
-	Title         string           `json:"title"`
-	UpdatedAt     time.Time        `json:"updated_at"`
-}
-
-// CsrfToken defines model for CsrfToken.
-type CsrfToken = string
-
-// Error defines model for Error.
-type Error = ApiError
-
-// StartDashboardQueryJobParams defines parameters for StartDashboardQueryJob.
-type StartDashboardQueryJobParams struct {
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
-// CancelDashboardQueryJobParams defines parameters for CancelDashboardQueryJob.
-type CancelDashboardQueryJobParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// ResumeDashboardQueryJobParams defines parameters for ResumeDashboardQueryJob.
-type ResumeDashboardQueryJobParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// CreateDashboardDraftParams defines parameters for CreateDashboardDraft.
-type CreateDashboardDraftParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// DiscardDashboardDraftParams defines parameters for DiscardDashboardDraft.
-type DiscardDashboardDraftParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// SaveDashboardDraftParams defines parameters for SaveDashboardDraft.
-type SaveDashboardDraftParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// GenerateDashboardDrilldownsParams defines parameters for GenerateDashboardDrilldowns.
-type GenerateDashboardDrilldownsParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// PreviewDashboardPublicationParams defines parameters for PreviewDashboardPublication.
-type PreviewDashboardPublicationParams struct {
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
-// RebaseDashboardDraftParams defines parameters for RebaseDashboardDraft.
-type RebaseDashboardDraftParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// PreviewDashboardFolderParams defines parameters for PreviewDashboardFolder.
-type PreviewDashboardFolderParams struct {
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
-// ConvertDashboardPanelParams defines parameters for ConvertDashboardPanel.
-type ConvertDashboardPanelParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// ValidateDashboardSpecParams defines parameters for ValidateDashboardSpec.
-type ValidateDashboardSpecParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// PreviewDashboardLifecycleParams defines parameters for PreviewDashboardLifecycle.
-type PreviewDashboardLifecycleParams struct {
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
-// PreviewHostDashboardBindingParams defines parameters for PreviewHostDashboardBinding.
-type PreviewHostDashboardBindingParams struct {
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
-// PreviewClusterDashboardBindingParams defines parameters for PreviewClusterDashboardBinding.
-type PreviewClusterDashboardBindingParams struct {
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
-// StartDashboardQueryJobJSONRequestBody defines body for StartDashboardQueryJob for application/json ContentType.
-type StartDashboardQueryJobJSONRequestBody = DashboardQueryJobInput
-
-// ResumeDashboardQueryJobJSONRequestBody defines body for ResumeDashboardQueryJob for application/json ContentType.
-type ResumeDashboardQueryJobJSONRequestBody = DashboardQueryResumeInput
-
-// CreateDashboardDraftJSONRequestBody defines body for CreateDashboardDraft for application/json ContentType.
-type CreateDashboardDraftJSONRequestBody = DashboardDraftInput
-
-// DiscardDashboardDraftJSONRequestBody defines body for DiscardDashboardDraft for application/json ContentType.
-type DiscardDashboardDraftJSONRequestBody = DashboardVersionInput
-
-// SaveDashboardDraftJSONRequestBody defines body for SaveDashboardDraft for application/json ContentType.
-type SaveDashboardDraftJSONRequestBody = DashboardDraftInput
-
-// ExecuteDashboardDraftDrilldownJSONRequestBody defines body for ExecuteDashboardDraftDrilldown for application/json ContentType.
-type ExecuteDashboardDraftDrilldownJSONRequestBody = DashboardDraftDrilldownInput
-
-// GenerateDashboardDrilldownsJSONRequestBody defines body for GenerateDashboardDrilldowns for application/json ContentType.
-type GenerateDashboardDrilldownsJSONRequestBody = DashboardGenerateDrilldownsInput
-
-// PreviewDashboardPublicationJSONRequestBody defines body for PreviewDashboardPublication for application/json ContentType.
-type PreviewDashboardPublicationJSONRequestBody = DashboardVersionInput
-
-// RebaseDashboardDraftJSONRequestBody defines body for RebaseDashboardDraft for application/json ContentType.
-type RebaseDashboardDraftJSONRequestBody = DashboardRebaseInput
-
-// SampleDashboardDraftJSONRequestBody defines body for SampleDashboardDraft for application/json ContentType.
-type SampleDashboardDraftJSONRequestBody = DashboardDraftSampleInput
-
-// PreviewDashboardFolderJSONRequestBody defines body for PreviewDashboardFolder for application/json ContentType.
-type PreviewDashboardFolderJSONRequestBody = DashboardLifecycleInput
-
-// ConvertDashboardPanelJSONRequestBody defines body for ConvertDashboardPanel for application/json ContentType.
-type ConvertDashboardPanelJSONRequestBody = DashboardConvertPanelInput
-
-// ValidateDashboardSpecJSONRequestBody defines body for ValidateDashboardSpec for application/json ContentType.
-type ValidateDashboardSpecJSONRequestBody = DashboardSpec
-
-// QueryDashboardCatalogJSONRequestBody defines body for QueryDashboardCatalog for application/json ContentType.
-type QueryDashboardCatalogJSONRequestBody = DashboardCatalogInput
-
-// PreviewDashboardLifecycleJSONRequestBody defines body for PreviewDashboardLifecycle for application/json ContentType.
-type PreviewDashboardLifecycleJSONRequestBody = DashboardLifecycleInput
-
-// ExecuteDashboardDrilldownJSONRequestBody defines body for ExecuteDashboardDrilldown for application/json ContentType.
-type ExecuteDashboardDrilldownJSONRequestBody = DashboardDrilldownInput
-
-// ExecuteDashboardJSONRequestBody defines body for ExecuteDashboard for application/json ContentType.
-type ExecuteDashboardJSONRequestBody = DashboardExecutionInput
-
-// PreviewHostDashboardBindingJSONRequestBody defines body for PreviewHostDashboardBinding for application/json ContentType.
-type PreviewHostDashboardBindingJSONRequestBody = DashboardBindingInput
-
-// PreviewClusterDashboardBindingJSONRequestBody defines body for PreviewClusterDashboardBinding for application/json ContentType.
-type PreviewClusterDashboardBindingJSONRequestBody = DashboardBindingInput
-
-// AsApiErrorParams0 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams0
-func (t ApiError_Params_AdditionalProperties) AsApiErrorParams0() (ApiErrorParams0, error) {
-	var body ApiErrorParams0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiErrorParams0 overwrites any union data inside the ApiError_Params_AdditionalProperties as the provided ApiErrorParams0
-func (t *ApiError_Params_AdditionalProperties) FromApiErrorParams0(v ApiErrorParams0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeApiErrorParams0 performs a merge with any union data inside the ApiError_Params_AdditionalProperties, using the provided ApiErrorParams0
-func (t *ApiError_Params_AdditionalProperties) MergeApiErrorParams0(v ApiErrorParams0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsApiErrorParams1 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams1
-func (t ApiError_Params_AdditionalProperties) AsApiErrorParams1() (ApiErrorParams1, error) {
-	var body ApiErrorParams1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiErrorParams1 overwrites any union data inside the ApiError_Params_AdditionalProperties as the provided ApiErrorParams1
-func (t *ApiError_Params_AdditionalProperties) FromApiErrorParams1(v ApiErrorParams1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeApiErrorParams1 performs a merge with any union data inside the ApiError_Params_AdditionalProperties, using the provided ApiErrorParams1
-func (t *ApiError_Params_AdditionalProperties) MergeApiErrorParams1(v ApiErrorParams1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsApiErrorParams2 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams2
-func (t ApiError_Params_AdditionalProperties) AsApiErrorParams2() (ApiErrorParams2, error) {
-	var body ApiErrorParams2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiErrorParams2 overwrites any union data inside the ApiError_Params_AdditionalProperties as the provided ApiErrorParams2
-func (t *ApiError_Params_AdditionalProperties) FromApiErrorParams2(v ApiErrorParams2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeApiErrorParams2 performs a merge with any union data inside the ApiError_Params_AdditionalProperties, using the provided ApiErrorParams2
-func (t *ApiError_Params_AdditionalProperties) MergeApiErrorParams2(v ApiErrorParams2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ApiError_Params_AdditionalProperties) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ApiError_Params_AdditionalProperties) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsPublicJsonValue1 returns the union data inside the PublicJsonValue as a PublicJsonValue1
-func (t PublicJsonValue) AsPublicJsonValue1() (PublicJsonValue1, error) {
-	var body PublicJsonValue1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue1 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue1
-func (t *PublicJsonValue) FromPublicJsonValue1(v PublicJsonValue1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue1 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue1
-func (t *PublicJsonValue) MergePublicJsonValue1(v PublicJsonValue1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonValue2 returns the union data inside the PublicJsonValue as a PublicJsonValue2
-func (t PublicJsonValue) AsPublicJsonValue2() (PublicJsonValue2, error) {
-	var body PublicJsonValue2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue2 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue2
-func (t *PublicJsonValue) FromPublicJsonValue2(v PublicJsonValue2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue2 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue2
-func (t *PublicJsonValue) MergePublicJsonValue2(v PublicJsonValue2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonValue3 returns the union data inside the PublicJsonValue as a PublicJsonValue3
-func (t PublicJsonValue) AsPublicJsonValue3() (PublicJsonValue3, error) {
-	var body PublicJsonValue3
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue3 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue3
-func (t *PublicJsonValue) FromPublicJsonValue3(v PublicJsonValue3) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue3 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue3
-func (t *PublicJsonValue) MergePublicJsonValue3(v PublicJsonValue3) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonValue4 returns the union data inside the PublicJsonValue as a PublicJsonValue4
-func (t PublicJsonValue) AsPublicJsonValue4() (PublicJsonValue4, error) {
-	var body PublicJsonValue4
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue4 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue4
-func (t *PublicJsonValue) FromPublicJsonValue4(v PublicJsonValue4) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue4 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue4
-func (t *PublicJsonValue) MergePublicJsonValue4(v PublicJsonValue4) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonObject returns the union data inside the PublicJsonValue as a PublicJsonObject
-func (t PublicJsonValue) AsPublicJsonObject() (PublicJsonObject, error) {
-	var body PublicJsonObject
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonObject overwrites any union data inside the PublicJsonValue as the provided PublicJsonObject
-func (t *PublicJsonValue) FromPublicJsonObject(v PublicJsonObject) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonObject performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonObject
-func (t *PublicJsonValue) MergePublicJsonObject(v PublicJsonObject) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t PublicJsonValue) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *PublicJsonValue) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
 }

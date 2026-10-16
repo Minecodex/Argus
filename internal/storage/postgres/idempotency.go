@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"io"
 	"time"
 
@@ -23,6 +24,11 @@ var (
 	ErrIdempotencyConflict = errors.New("idempotency key request mismatch or operation in progress")
 	ErrIdempotencyExpired  = errors.New("idempotency result expired")
 )
+
+func IsRetryableTransactionError(err error) bool {
+	var pg *pgconn.PgError
+	return errors.As(err, &pg) && (pg.Code == "40001" || pg.Code == "40P01")
+}
 
 type Idempotency struct {
 	Key      []byte
@@ -41,7 +47,7 @@ func ExecuteIdempotent[T any](ctx context.Context, store *Store, service Idempot
 	if err != nil {
 		return result, err
 	}
-	err = store.InTx(ctx, func(queries *db.Queries) error {
+	transaction := func(queries *db.Queries) error {
 		begin, err := service.Begin(ctx, queries, audience, subjectID, operation, key, requestBody)
 		if err != nil {
 			return err
@@ -58,7 +64,22 @@ func ExecuteIdempotent[T any](ctx context.Context, store *Store, service Idempot
 			return err
 		}
 		return service.Complete(ctx, queries, audience, subjectID, operation, key, status, responseBody)
-	})
+	}
+	// This callback accepts only transaction-bound queries. Serialization and
+	// deadlock retries retain the same request/key and never replay a network send.
+	for attempt := 0; ; attempt++ {
+		err = store.InTx(ctx, transaction)
+		if attempt >= 7 || !IsRetryableTransactionError(err) {
+			break
+		}
+		timer := time.NewTimer(time.Duration(20*(attempt+1)) * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return result, ctx.Err()
+		case <-timer.C:
+		}
+	}
 	return result, err
 }
 

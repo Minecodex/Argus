@@ -19,7 +19,7 @@ test("all Web origins serve deep links after refresh", async ({ page }) => {
     { url: `${platformOrigin}/sandbox`, root: "#root", populated: true },
     {
       url: `${templateOrigin}/runtime`,
-      root: "#card-root",
+      root: "#argus-template-root",
       populated: false,
     },
   ]) {

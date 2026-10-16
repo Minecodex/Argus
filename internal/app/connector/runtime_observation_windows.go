@@ -57,5 +57,6 @@ func observeHostRuntime() *connectorv1.HostRuntimeObservation {
 	if observation.RdpStatus == "enabled" && !observation.RdpServiceRunning {
 		observation.RdpStatus = "unavailable"
 	}
+	observation.InventoryJson = observeInventory(context.Background(), false)
 	return observation
 }

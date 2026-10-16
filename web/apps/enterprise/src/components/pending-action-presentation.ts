@@ -9,6 +9,7 @@ type ActionDefinition = {
 };
 
 export const PENDING_ACTION_TYPES = [
+  "host.control_tunnel.reconnect",
   "host.create",
   "host.update",
   "host.delete",
@@ -112,6 +113,7 @@ const previewFieldAliases: Record<string, string> = {
 
 const publicPreviewFields = new Set([
   "name",
+  "credential_version",
   "hostname",
   "address",
   "port",
@@ -268,6 +270,18 @@ export function presentPendingAction(
   action: PendingActionPublic,
   t: Translate,
 ): PresentedPendingAction {
+  if (action.action_type.startsWith("alert.")) {
+    return {
+      title: action.title,
+      summary: t("alerts.pendingHint"),
+      riskLabel: t(`governance.approvals.risk.${action.risk}`),
+      diff: action.diff,
+      affectedName: action.title,
+      resultSummary:
+        action.status === "succeeded" ? t("alerts.committed") : undefined,
+      known: true,
+    };
+  }
   const actionType = canonicalType(action.action_type);
   const definition = actionType ? definitions[actionType] : undefined;
   const name = displayName(action, t("common.unknown"));

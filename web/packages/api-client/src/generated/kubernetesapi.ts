@@ -174,6 +174,8 @@ export interface components {
             /** @enum {string} */
             connection_status: "pending_connector" | "connected" | "degraded" | "disconnected";
             kubernetes_version?: string;
+            /** Format: date-time */
+            readonly statistics_observed_at?: string;
             node_count?: number;
             ready_node_count?: number;
             /** @enum {string} */

@@ -17,6 +17,7 @@ import (
 
 	"github.com/kakj-go/Argus/internal/buildinfo"
 	actionapi "github.com/kakj-go/Argus/internal/gen/openapi/actionapi"
+	alertsapi "github.com/kakj-go/Argus/internal/gen/openapi/alertsapi"
 	auditapi "github.com/kakj-go/Argus/internal/gen/openapi/audit"
 	dashboardapi "github.com/kakj-go/Argus/internal/gen/openapi/dashboardapi"
 
@@ -84,6 +85,7 @@ type RouterOptions struct {
 	RemoteAccess   *RemoteAccessHandler
 	Telemetry      *TelemetryHandler
 	Dashboard      *DashboardHandler
+	Alerts         *AlertHandler
 	AllowedOrigins []string
 }
 
@@ -101,6 +103,14 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 	router.Get("/", serviceInfo)
 	router.Get("/healthz", health)
 	router.Get("/readyz", ready(options))
+	if options.Alerts != nil {
+		strict := alertsapi.NewStrictHandler(*options.Alerts, []alertsapi.StrictMiddlewareFunc{func(next alertsapi.StrictHandlerFunc, _ string) alertsapi.StrictHandlerFunc {
+			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, value any) (any, error) {
+				return next(WithRequestContext(ctx, w, r), w, r, value)
+			}
+		}})
+		alertsapi.HandlerFromMuxWithBaseURL(strict, router, "/api/v1")
+	}
 	if options.Dashboard != nil {
 		strict := dashboardapi.NewStrictHandler(*options.Dashboard, []dashboardapi.StrictMiddlewareFunc{func(next dashboardapi.StrictHandlerFunc, _ string) dashboardapi.StrictHandlerFunc {
 			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, value any) (any, error) {

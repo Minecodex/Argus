@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -108,7 +109,7 @@ func (reader Reader) listDirect(ctx context.Context, cluster db.KubernetesCluste
 	items := make([]resource.KubernetesObject, 0, len(list.Items))
 	for _, item := range list.Items {
 		items = append(items, resource.KubernetesObject{ResourceType: query.ResourceType, Namespace: item.GetNamespace(), Name: item.GetName(),
-			Labels: item.GetLabels(), Summary: map[string]any{"uid": string(item.GetUID()), "created_at": item.GetCreationTimestamp().Time}})
+			Labels: item.GetLabels(), Summary: resourceSummary(query.ResourceType, item)})
 	}
 	return items, nil
 }
@@ -313,18 +314,11 @@ func (reader Reader) connectorForCluster(ctx context.Context, cluster db.Kuberne
 }
 
 func objectFromJSON(encoded []byte, resourceType string) (resource.KubernetesObject, error) {
-	var value struct {
-		Metadata struct {
-			Name      string            `json:"name"`
-			Namespace string            `json:"namespace"`
-			Labels    map[string]string `json:"labels"`
-		} `json:"metadata"`
-	}
-	if json.Unmarshal(encoded, &value) != nil || value.Metadata.Name == "" {
+	var value unstructured.Unstructured
+	if value.UnmarshalJSON(encoded) != nil || value.GetName() == "" {
 		return resource.KubernetesObject{}, errors.New("invalid Kubernetes resource")
 	}
-	return resource.KubernetesObject{ResourceType: resourceType, Namespace: value.Metadata.Namespace, Name: value.Metadata.Name,
-		Labels: value.Metadata.Labels, Summary: map[string]any{}}, nil
+	return resource.KubernetesObject{ResourceType: resourceType, Namespace: value.GetNamespace(), Name: value.GetName(), Labels: value.GetLabels(), Summary: resourceSummary(resourceType, value)}, nil
 }
 
 func resourceMapping(resourceType string) (schema.GroupVersionResource, bool, bool) {

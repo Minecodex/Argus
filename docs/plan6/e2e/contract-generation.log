@@ -1,0 +1,352 @@
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\argus.yaml...
+📦 Created a bundle for api\openapi\argus.yaml at api\openapi\generated\argus.bundle.json 141ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\mcpapi.yaml...
+📦 Created a bundle for api\openapi\generation\mcpapi.yaml at api\openapi\generated\mcpapi.bundle.yaml 18ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\workspaceapi.yaml...
+📦 Created a bundle for api\openapi\generation\workspaceapi.yaml at api\openapi\generated\workspaceapi.bundle.yaml 19ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\presentationapi.yaml...
+📦 Created a bundle for api\openapi\generation\presentationapi.yaml at api\openapi\generated\presentationapi.bundle.yaml 17ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\dashboardapi.yaml...
+📦 Created a bundle for api\openapi\generation\dashboardapi.yaml at api\openapi\generated\dashboardapi.bundle.yaml 46ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\alertsapi.yaml...
+📦 Created a bundle for api\openapi\generation\alertsapi.yaml at api\openapi\generated\alertsapi.bundle.yaml 31ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\common.yaml...
+📦 Created a bundle for api\openapi\generation\common.yaml at api\openapi\generated\common.bundle.yaml 12ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\identity.yaml...
+📦 Created a bundle for api\openapi\generation\identity.yaml at api\openapi\generated\identity.bundle.yaml 18ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\authorization.yaml...
+📦 Created a bundle for api\openapi\generation\authorization.yaml at api\openapi\generated\authorization.bundle.yaml 13ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\labels.yaml...
+📦 Created a bundle for api\openapi\generation\labels.yaml at api\openapi\generated\labels.bundle.yaml 12ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\action.yaml...
+📦 Created a bundle for api\openapi\generation\action.yaml at api\openapi\generated\action.bundle.yaml 12ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\agent.yaml...
+📦 Created a bundle for api\openapi\generation\agent.yaml at api\openapi\generated\agent.bundle.yaml 19ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\stream.yaml...
+📦 Created a bundle for api\openapi\generation\stream.yaml at api\openapi\generated\stream.bundle.yaml 17ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\setup.yaml...
+📦 Created a bundle for api\openapi\generation\setup.yaml at api\openapi\generated\setup.bundle.yaml 22ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\m8api.yaml...
+📦 Created a bundle for api\openapi\generation\m8api.yaml at api\openapi\generated\m8api.bundle.yaml 19ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\platform.yaml...
+📦 Created a bundle for api\openapi\generation\platform.yaml at api\openapi\generated\platform.bundle.yaml 26ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\enterpriseidentity.yaml...
+📦 Created a bundle for api\openapi\generation\enterpriseidentity.yaml at api\openapi\generated\enterpriseidentity.bundle.yaml 20ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\enterpriseauthz.yaml...
+📦 Created a bundle for api\openapi\generation\enterpriseauthz.yaml at api\openapi\generated\enterpriseauthz.bundle.yaml 30ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\machine.yaml...
+📦 Created a bundle for api\openapi\generation\machine.yaml at api\openapi\generated\machine.bundle.yaml 23ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\audit.yaml...
+📦 Created a bundle for api\openapi\generation\audit.yaml at api\openapi\generated\audit.bundle.yaml 18ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\secretapi.yaml...
+📦 Created a bundle for api\openapi\generation\secretapi.yaml at api\openapi\generated\secretapi.bundle.yaml 23ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\hostapi.yaml...
+📦 Created a bundle for api\openapi\generation\hostapi.yaml at api\openapi\generated\hostapi.bundle.yaml 29ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\kubernetesapi.yaml...
+📦 Created a bundle for api\openapi\generation\kubernetesapi.yaml at api\openapi\generated\kubernetesapi.bundle.yaml 27ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\connectionapi.yaml...
+📦 Created a bundle for api\openapi\generation\connectionapi.yaml at api\openapi\generated\connectionapi.bundle.yaml 22ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\actionapi.yaml...
+📦 Created a bundle for api\openapi\generation\actionapi.yaml at api\openapi\generated\actionapi.bundle.yaml 23ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\connectorapi.yaml...
+📦 Created a bundle for api\openapi\generation\connectorapi.yaml at api\openapi\generated\connectorapi.bundle.yaml 33ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\conversationapi.yaml...
+📦 Created a bundle for api\openapi\generation\conversationapi.yaml at api\openapi\generated\conversationapi.bundle.yaml 31ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\modelapi.yaml...
+📦 Created a bundle for api\openapi\generation\modelapi.yaml at api\openapi\generated\modelapi.bundle.yaml 23ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\workflowapi.yaml...
+📦 Created a bundle for api\openapi\generation\workflowapi.yaml at api\openapi\generated\workflowapi.bundle.yaml 27ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\sandboxapi.yaml...
+📦 Created a bundle for api\openapi\generation\sandboxapi.yaml at api\openapi\generated\sandboxapi.bundle.yaml 28ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\remoteaccessapi.yaml...
+📦 Created a bundle for api\openapi\generation\remoteaccessapi.yaml at api\openapi\generated\remoteaccessapi.bundle.yaml 41ms.
+
+    ╔═══════════════════════════════════════════════════════╗
+    ║                                                       ║
+    ║  A new version of Redocly CLI (2.60.0) is available.  ║
+    ║  Update now: `npm i -g @redocly/cli@latest`.          ║
+    ║  Changelog: https://redocly.com/docs/cli/changelog/   ║
+    ║                                                       ║
+    ╚═══════════════════════════════════════════════════════╝
+
+bundling api\openapi\generation\telemetryapi.yaml...
+📦 Created a bundle for api\openapi\generation\telemetryapi.yaml at api\openapi\generated\telemetryapi.bundle.yaml 37ms.

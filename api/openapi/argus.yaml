@@ -73,6 +73,8 @@ paths:
     $ref: ./paths/planv5.yaml#/delivery_content
   "/conversations/{conversation_id}/tool-presentations/{tool_call_id}":
     $ref: ./paths/planv5.yaml#/tool_presentation
+  "/conversations/{conversation_id}/tool-presentations/{tool_call_id}/read":
+    $ref: ./paths/presentation-v2.yaml#/read
   "/conversations/{conversation_id}/preflight":
     $ref: ./paths/planv5.yaml#/conversation_preflight
   /setup/status:
@@ -169,6 +171,10 @@ paths:
     $ref: ./paths/m3.yaml#/host_collection
   /enterprise/hosts/name-availability:
     $ref: ./paths/m3.yaml#/host_name_availability
+  /enterprise/hosts/{id}/actions/preview-reconnect:
+    $ref: ./paths/m3.yaml#/host_reconnect_preview
+  /enterprise/hosts/{id}/inventory/actions/refresh:
+    $ref: ./paths/m3.yaml#/host_inventory_refresh
   /enterprise/hosts/{id}:
     $ref: ./paths/m3.yaml#/host_item
   /enterprise/hosts/actions/preview-create:
@@ -499,6 +505,32 @@ paths:
     $ref: ./paths/enterprise-data-authorization.yaml#/resources
   /dashboard-spec/convert-panel:
     $ref: ./paths/dashboard.yaml#/convertPanel
+  /alerts/summary:
+    $ref: ./paths/alerts.yaml#/summary
+  /alerts/configurations:
+    $ref: ./paths/alerts.yaml#/configurations
+  /alerts/configurations/{id}:
+    $ref: ./paths/alerts.yaml#/configuration
+  /alerts/configurations/preview:
+    $ref: ./paths/alerts.yaml#/preview
+  /alerts/commands/preview:
+    $ref: ./paths/alerts.yaml#/commands
+  /alerts/trial:
+    $ref: ./paths/alerts.yaml#/trial
+  /alerts/instances:
+    $ref: ./paths/alerts.yaml#/instances
+  /alerts/history:
+    $ref: ./paths/alerts.yaml#/history
+  /alerts/deliveries:
+    $ref: ./paths/alerts.yaml#/deliveries
+  /alerts/instances/{id}:
+    $ref: ./paths/alerts.yaml#/instance
+  /alerts/deliveries/{id}:
+    $ref: ./paths/alerts.yaml#/delivery
+  /alerts/instances/{id}/handle:
+    $ref: ./paths/alerts.yaml#/handle
+  /alerts/history/export:
+    $ref: ./paths/alerts.yaml#/export
 components:
   schemas:
     DashboardAnalysisCandidateInput:

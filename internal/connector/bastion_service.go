@@ -361,10 +361,22 @@ func (service BastionService) PreviewUpdate(ctx context.Context, subject resourc
 	}
 	snapshot := resource.NewResourceAuthorizationSnapshot("host", current.ConnectorHostID.UUID)
 	plan := bastionPlan{Operation: "update", ScopeID: scopeID, HostID: current.ConnectorHostID.UUID, Input: input}
+	beforeLabels, _ := resource.DecodeLabels(current.Labels)
+	before := map[string]any{"name": current.Name, "environment": current.Environment, "labels": beforeLabels}
+	after := map[string]any{}
+	if input.Name != "" {
+		after["name"] = input.Name
+	}
+	if input.Environment != "" {
+		after["environment"] = input.Environment
+	}
+	if input.Labels != nil {
+		after["labels"] = resource.MergeSystemLabels(input.Labels, beforeLabels)
+	}
 	return service.Actions.Prepare(ctx, subject.ActorID, enterpriseID, resource.PrepareActionInput{RunID: subject.RunID, ActionType: "bastion_scope.update", Title: "Update bastion",
 		Summary: "Update Bastion Scope metadata", Risk: "write", ResourceType: "bastion_scope", ResourceID: uuid.NullUUID{UUID: scopeID, Valid: true},
 		ExpectedResourceVersion: pgtype.Int8{Int64: input.ExpectedVersion, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,
-		Preview: map[string]any{"scope_id": scopeID, "name": current.Name},
+		Preview: map[string]any{"scope_id": scopeID, "name": current.Name, "changes": resource.PublicChanges(before, after)},
 		Diff:    []map[string]string{{"kind": "change", "text": "Update bastion " + current.Name}}, ImmutablePlan: plan,
 		ResourceScopeSnapshot: snapshot, CommitHandler: "argus.bastion_scope.update.commit"}, idempotencyKey)
 }
@@ -463,6 +475,14 @@ func (service BastionService) connectorUninstallState(ctx context.Context, q *db
 }
 
 func (service BastionService) RevalidateAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) ([]byte, error) {
+	if action.ActionType == "host.control_tunnel.reconnect" {
+		var plan hostReconnectPlan
+		if json.Unmarshal(raw, &plan) != nil || service.revalidateHostReconnect(ctx, q, action.EnterpriseID, plan) != nil {
+			return nil, resource.ErrActionInvalidated
+		}
+		return resource.HashResourceAuthorizationSnapshot("host", plan.HostID)
+	}
+
 	if action.ActionType == "host.windows_rdp.enable" {
 		var plan windowsRDPEnablePlan
 		if json.Unmarshal(raw, &plan) != nil || service.revalidateWindowsRDPEnable(ctx, q, action.EnterpriseID, plan) != nil {
@@ -553,6 +573,14 @@ func (service BastionService) RevalidateAction(ctx context.Context, q *db.Querie
 }
 
 func (service BastionService) CommitAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) (resource.ActionCommitResult, error) {
+	if action.ActionType == "host.control_tunnel.reconnect" {
+		var plan hostReconnectPlan
+		if json.Unmarshal(raw, &plan) != nil {
+			return resource.ActionCommitResult{}, resource.ErrActionInvalidated
+		}
+		return service.commitHostReconnect(ctx, q, action, plan)
+	}
+
 	if action.ActionType == "host.windows_rdp.enable" {
 		return service.commitWindowsRDPEnable(ctx, q, action, raw)
 	}

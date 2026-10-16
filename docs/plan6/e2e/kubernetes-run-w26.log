@@ -1,0 +1,98 @@
+serviceaccount/argus-e2e-ingress created
+clusterrole.rbac.authorization.k8s.io/plan6-plan6-20261011-w26-nginx created
+clusterrolebinding.rbac.authorization.k8s.io/plan6-plan6-20261011-w26-nginx created
+ingressclass.networking.k8s.io/plan6-plan6-20261011-w26-nginx created
+configmap/argus-e2e-ingress created
+service/argus-e2e-ingress created
+deployment.apps/argus-e2e-ingress created
+Preflight plan6-plan6-20261011-w26 on docker-desktop
+[PASS] kubernetes-api: v1.36.1
+[PASS] network-profile: NetworkPolicy=unverified; EgressGateway=absent; posture=degraded
+[WARN] network-security: NetworkPolicy probe did not observe an enforced deny: job argus-network-probe-1791665644823123200/probe-denied failed
+[WARN] network-security: no external Egress Gateway was detected; Direct Executor uses the cluster default route
+[PASS] node-architecture: amd64
+[PASS] cluster-capacity: allocatable cpu=16000m memory=15911100Ki pods=110
+[WARN] storage-class: standard (volume expansion unavailable; accepted for local profiles)
+[PASS] ingress-class: plan6-plan6-20261011-w26-nginx
+[PASS] pki: managed
+[PASS] host-disk: 76.2Gi free
+[WARN] network-policy: NetworkPolicy enforcement was not positively verified
+[WARN] sandbox-runtime: shared ordinary-container runtime explicitly accepted for the local profile
+[PASS] host-architecture: amd64
+Estimate: 22 pods, 6 PVCs, 19Gi requested storage
+Argus plan6-plan6-20261011-w26 plan (evaluation)
+1. foundation
+2. data-operators
+3. data
+4. sandbox
+5. telemetry-pipeline
+6. platform
+WARN: NETWORK_POLICY_ENFORCEMENT_UNVERIFIED
+WARN: SHARED_CONTAINER_SANDBOX_RUNTIME
+Bootstrap TLS: insecure-first-fetch
+Building Connector distribution for linux/amd64
+Building Connector distribution for linux/arm64
+Building Connector distribution for windows/amd64
+cde796b12f787a04452f3a52c7e5fb118a1afa643c715d23912061f6b5a3e57c
+Building argus-backend for linux/amd64
+Building argus-web for linux/amd64
+Building minio for linux/amd64
+Building argus-workspace for linux/amd64
+Building argus-workspace-egress for linux/amd64
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w26 created
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w26 restarted
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w26" rollout to finish: 0 out of 1 new pods have been updated...
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w26" rollout to finish: 0 out of 1 new pods have been updated...
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w26" rollout to finish: 0 of 1 updated pods are available...
+daemon set "argus-image-loader-plan6-plan6-20261011-w26" successfully rolled out
+Artifact Store synchronized: Collector distributions and Connector release e2e-plan6-20261011-w26-d5e99e1aa969e5ad
+Reusing compatible OpenSandbox controller judex/opensandbox-controller-manager; preserving external ownership
+deployment.apps/argus-web restarted
+deployment.apps/argus-server restarted
+deployment.apps/argus-worker restarted
+deployment.apps/argus-direct-executor restarted
+deployment.apps/argus-connector-gateway restarted
+deployment.apps/argus-pki-controller restarted
+deployment.apps/argus-telemetry-ingest restarted
+deployment.apps/argus-telemetry-writer restarted
+deployment.apps/argus-telemetry-query restarted
+Argus evaluation plan6-plan6-20261011-w26 installed successfully
+Platform initialization URL (copy and open it now; shown only once):
+Expires at: 2026-10-11T20:57:39Z
+Baseline browser e2e/m2(-dashboard-dialogs)?-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 started
+{"time":"2026-10-11T05:02:05.2140481+08:00","level":"INFO","msg":"Connector enrolled","connector_id":"01a1279e-7c79-7d79-bed4-ad1102106688","role":"kubernetes","gateway":"grpcs://connector.plan6-plan6-20261011-w26.argus.test:9443"}
+Baseline browser e2e/m3-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 passed
+E2E phase m4 started
+Baseline browser e2e/m4-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m4 passed
+E2E phase p5-native started
+Native host.create.preview Preview/template/Run binding passed
+E2E phase p5-native passed
+E2E phase m7 started
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.repair.preview Preview/template/Run binding passed
+Native host.collector.upgrade.preview Preview/template/Run binding passed
+Native k8s.collector.install.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Baseline browser e2e/m7-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+E2E phase m7 passed
+E2E phase plan6 started
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+Untagged: localhost:49174/argus/argus-e2e-ssh:e2e-plan6-20261011-w26
+Deleted: sha256:8baf89043ddf9a1d8affe86813a2c82e381c71659e508fef57f233f55d916682
+Untagged: localhost:49174/argus/argus-e2e-replay:e2e-plan6-20261011-w26
+Deleted: sha256:2dc4ce63deefd08a2be3c07cd66dd26508c92718b418a9dd05380ea7dead9121
+Untagged: localhost:49174/argus/argus-e2e-artifact:e2e-plan6-20261011-w26
+Deleted: sha256:37eb1ec86152d61337b20fb6ca415a7872b95b57bd15127b1c62fcf539f57414
+Untagged: localhost:49174/argus/argus-e2e-systemd:e2e-plan6-20261011-w26
+Deleted: sha256:82538e4ffd8ee55dc530ed708d5c62f54fcb52b80766c51ed456e6ab83fd4b00
+Untagged: localhost:49174/argus/argus-otelcol:e2e-plan6-20261011-w26
+Deleted: sha256:27c7f66ea160a7cf297f61abe1d758fcfb5b8774d7a839a694d87f6cb6836a17
+Argus plan6-plan6-20261011-w26 removed

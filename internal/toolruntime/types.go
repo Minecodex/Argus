@@ -46,6 +46,9 @@ type Invocation struct {
 }
 
 type Presentation struct {
+	Runtime            string
+	ReadOperations     []string
+	Binding            map[string]any
 	AuthorizationScope string
 	Status             string
 	Template           string
@@ -56,10 +59,11 @@ type Presentation struct {
 }
 
 type TemplateAsset struct {
-	Source  string `json:"-"`
-	Hash    string `json:"hash"`
-	Version string `json:"version"`
-	Runtime string `json:"runtime"`
+	ReadOperations []string `json:"read_operations,omitempty"`
+	Source         string   `json:"-"`
+	Hash           string   `json:"hash"`
+	Version        string   `json:"version"`
+	Runtime        string   `json:"runtime"`
 }
 
 type ResourceRef struct {
@@ -68,13 +72,31 @@ type ResourceRef struct {
 }
 
 type Result struct {
+	Display      *ToolDisplay
 	DataIsSchema bool
-	Data         map[string]any
+	// A complete native discovery list must reach the model without list clipping.
+	DataIsDiscovery bool
+	Data            map[string]any
+	// Optional domain-authored model view; Data remains the complete artifact.
+	ModelSummary map[string]any
 	Partial      bool
 	ActionRef    string
 	ToolID       string
 	Presentation *Presentation
 	Unknown      bool
+}
+
+// Display is authored by the provider and recorded with the call, outside model data.
+type ToolDisplay struct {
+	ResultKey string           `json:"result_key,omitempty"`
+	Mode      string           `json:"mode"`
+	ActionRef string           `json:"action_ref,omitempty"`
+	Facts     []DisplayFact    `json:"facts,omitempty"`
+	Issues    []map[string]any `json:"issues,omitempty"`
+}
+type DisplayFact struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type Definition struct {

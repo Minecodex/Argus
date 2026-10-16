@@ -50,7 +50,10 @@ export function metricObservations(value: unknown): ObservationSeries[] {
       .join(", ");
     return [
       {
-        name: dimensions || labels.__name__ || String(index + 1),
+        name:
+          typeof row.display_name === "string"
+            ? row.display_name
+            : dimensions || labels.__name__ || String(index + 1),
         labels,
         points,
         row,
@@ -124,20 +127,65 @@ export function logAggregateObservations(value: unknown): ObservationSeries[] {
 export function observationEnvelope(
   value: unknown,
 ): Record<string, unknown> | undefined {
+  return observationEnvelopes(value)[0];
+}
+export function observationEnvelopes(
+  value: unknown,
+): Record<string, unknown>[] {
   const root = observationObject(value);
-  if (!root) return undefined;
+  if (Array.isArray(value)) return value.flatMap(observationEnvelopes);
+  if (!root) return [];
   if (
     "basis" in root ||
     "completeness" in root ||
     "nodes" in root ||
-    "spans" in root
+    "spans" in root ||
+    "chart_preview" in root
   )
-    return root;
-  for (const child of Object.values(root)) {
-    const result = observationEnvelope(child);
-    if (result) return result;
-  }
-  return undefined;
+    return [root];
+  return Object.entries(root).flatMap(([key, child]) =>
+    ["rows", "traces", "points", "chart_preview"].includes(key)
+      ? []
+      : observationEnvelopes(child),
+  );
+}
+
+// The provider's bounded chart projection is independent of exact table pages.
+// Multiple GraphQL roots retain separate identities even for the same service.
+export function observationChartRows(
+  value: unknown,
+): Record<string, unknown>[] {
+  const found: { path: string; rows: Record<string, unknown>[] }[] = [];
+  const visit = (value: unknown, path: string) => {
+    if (Array.isArray(value)) {
+      value.forEach((child, index) => visit(child, `${path}.${index}`));
+      return;
+    }
+    const item = observationObject(value);
+    if (!item) return;
+    const preview = observationObject(item.chart_preview);
+    if (preview) {
+      const series = Array.isArray(preview.series) ? preview.series : [];
+      found.push({
+        path,
+        rows: series.flatMap((group) =>
+          observationRows(observationObject(group)?.points),
+        ),
+      });
+      return;
+    }
+    for (const [key, child] of Object.entries(item))
+      if (!["rows", "traces", "spans", "points"].includes(key))
+        visit(child, path ? `${path}.${key}` : key);
+  };
+  visit(value, "");
+  return found.length
+    ? found.flatMap((root) =>
+        root.rows.map((row) =>
+          found.length > 1 ? { ...row, _presentation_root: root.path } : row,
+        ),
+      )
+    : observationRows(value);
 }
 export function histogramObservations(
   series: ObservationSeries[],

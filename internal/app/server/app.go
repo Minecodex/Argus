@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kakj-go/Argus/internal/action"
+	"github.com/kakj-go/Argus/internal/alerting"
 	"github.com/kakj-go/Argus/internal/app/component"
 	"github.com/kakj-go/Argus/internal/artifactcheck"
 	"github.com/kakj-go/Argus/internal/authorization"
@@ -161,7 +162,9 @@ func (a *App) Run(ctx context.Context) error {
 			EnrollmentEndpoint: a.config.TelemetryEnrollment, IngestGRPCEndpoint: a.config.TelemetryIngestGRPC,
 			IngestHTTPEndpoint: a.config.TelemetryIngestHTTP, TrustBundles: bundles}
 	}
-	actionExtension = dashboard.ActionExtension{Next: actionExtension}
+	actionExtension = alerting.ActionExtension{Next: dashboard.ActionExtension{Next: actionExtension}}
+	alertDomain := alerting.Service{Store: postgresStore, Actions: actionDomain, Secrets: secretDomain}
+	alertHandler := httpapi.AlertHandler{Identity: enterpriseIdentityHandler, Service: alertDomain}
 	dashboardHandler := httpapi.DashboardHandler{Identity: enterpriseIdentityHandler, Service: dashboard.Service{Store: postgresStore, Actions: actionDomain}}
 	resourceDomain := resource.Service{Store: postgresStore, Actions: actionDomain, Access: resource.AccessService{},
 		Direct: resource.DirectTargetValidator{DeniedCIDRs: deniedCIDRs}, Commands: connectorDomain, DirectCommands: directDispatcher, Extension: actionExtension,
@@ -173,7 +176,7 @@ func (a *App) Run(ctx context.Context) error {
 	workflowDomain := action.Service{Store: postgresStore, Idempotency: idempotency, Resources: resourceDomain,
 		OneTimeResultKey: a.config.PendingActionKey}
 	secretHandler := httpapi.SecretHandler{Identity: enterpriseIdentityHandler, Service: secretDomain}
-	hostHandler := httpapi.HostHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain, Queries: postgresStore.Queries, WindowsRDP: bastionDomain, Removal: removalDomain}
+	hostHandler := httpapi.HostHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain, Queries: postgresStore.Queries, WindowsRDP: bastionDomain, Reconnect: bastionDomain, Removal: removalDomain}
 	kubernetesHandler := httpapi.KubernetesHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain}
 	connectionHandler := httpapi.ConnectionHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain}
 	actionHandler := httpapi.ResourceActionHandler{Identity: enterpriseIdentityHandler, Service: resourceDomain, Workflow: workflowDomain, Cursor: cursorSigner}
@@ -214,6 +217,8 @@ func (a *App) Run(ctx context.Context) error {
 		defer telemetryQuery.Close()
 		platformHandler.Enterprise.Telemetry = telemetryQuery
 		telemetryDomain := component.TelemetryDomain(a.config, postgresStore, actionDomain, telemetryQuery)
+		alertDomain.Telemetry = telemetryDomain
+		alertHandler.Service = alertDomain
 		dashboardRuntime := &dashboard.Runtime{Store: postgresStore, Backend: telemetryQuery, ContextKey: actionDomain.Key}
 		dashboardHandler.Runtime = dashboardRuntime
 		dashboardHandler.Service.Verifier = dashboardRuntime
@@ -247,12 +252,15 @@ func (a *App) Run(ctx context.Context) error {
 		dashboardHandler.Queries = &dashboard.QueryJobs{Runtime: *dashboardHandler.Runtime, Objects: workspaceDomain.Objects}
 	}
 	workspaceHandler := httpapi.WorkspaceHandler{Identity: enterpriseIdentityHandler, Service: workspaceDomain}
-	presentationHandler := httpapi.PresentationHandler{Identity: enterpriseIdentityHandler, Store: postgresStore}
+	presentationHandler := httpapi.PresentationHandler{Identity: enterpriseIdentityHandler, Store: postgresStore, CursorSigner: cursorSigner}
 	admissionErrors, err := component.StartWorkspaceAdmission(ctx, workspaceDomain)
 	if err != nil {
 		return err
 	}
 	if err := (toolgateway.DashboardTools{Service: dashboardHandler.Service, Jobs: dashboardHandler.Queries}).Register(toolRegistry); err != nil {
+		return err
+	}
+	if err := (alerting.Tools{Service: alertDomain}).Register(toolRegistry); err != nil {
 		return err
 	}
 	nativeGateway, err := toolgateway.New(toolRegistry, a.config.ToolImplementationRevision)
@@ -261,6 +269,8 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	dashboardPolicy := dashboardcontext.Policy{Store: postgresStore}
 	nativeGateway.Scope = dashboardPolicy.BusinessScope
+	nativeGateway.BindPresentations(postgresStore)
+	nativeGateway.RequireDescription = toolgateway.RequireAlertDescription(postgresStore.Queries)
 	mcpDomain := enterprisemcp.Service{Store: postgresStore, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: deniedCIDRs}}
 	mcpHandler := httpapi.MCPHandler{Identity: enterpriseIdentityHandler, Service: mcpDomain}
 	conversationHandler.Service.Tools = toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, mcpDomain}, ContextSources: []toolruntime.SkillContextSource{dashboardPolicy}, Filter: dashboardPolicy.Filter, AuthorizeTool: dashboardPolicy.AuthorizeTool, Validate: conversationHandler.Service.ValidateToolPrincipal}
@@ -279,6 +289,7 @@ func (a *App) Run(ctx context.Context) error {
 			RemoteAccess: &remoteAccessHandler,
 			Telemetry:    telemetryHandler,
 			Dashboard:    &dashboardHandler,
+			Alerts:       &alertHandler,
 			MCP:          &mcpHandler,
 			Workspace:    &workspaceHandler,
 			Presentation: &presentationHandler,

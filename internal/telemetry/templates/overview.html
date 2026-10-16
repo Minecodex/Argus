@@ -1,10 +1,10 @@
-<section><h3 id="title"></h3><div id="overview"></div></section>
+<section id="overview-view"></section>
 <script>
-ArgusTemplate.onData((data, context) => {
-  document.getElementById('title').textContent = context.locale === 'zh-CN' ? '可观测数据详情' : 'Observability details';
-  const root = document.getElementById('overview'); root.replaceChildren();
-  if (Array.isArray(data.items)) ArgusTemplate.table(root, data.items, ['name','status','resource_type','last_seen_at']);
-  else ArgusTemplate.details(root, data);
-  if (data.partial) ArgusTemplate.note(root, context.locale === 'zh-CN' ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
-});
+ArgusView.mount(document.getElementById('overview-view'),(root,data)=>{
+ const v=ArgusView,t=(a,b)=>v.text(a,b),collector=data.collector;
+ v.header(root,v.entry==='collector-detail'?t('Collector 详情','Collector details'):v.entry==='collector-list'?t('Collector 列表','Collectors'):t('遥测采集概况','Telemetry overview'),(data.resources||[]).map(item=>item.name||item.id).join(' · '));
+ const revision=row=>v.value(row.desired_revision)+' / '+v.value(row.effective_revision),convergence=row=>Number.isInteger(row.desired_revision)&&Number.isInteger(row.effective_revision)?(row.desired_revision===row.effective_revision?t('已收敛','Converged'):t('待收敛','Pending convergence')):t('未识别','Unknown');
+ const detail=(target,row)=>{v.fields(target,[[t('名称 / ID','Name / ID'),v.name(row)],[t('资源','Resource'),(data.resources||[]).find(item=>item.id===row.resource_id)?.name||row.resource_id],[t('状态','Status'),row.status],[t('发行版本 ID','Distribution version ID'),row.distribution_version_id],[t('数据版本','Record version'),row.version],[t('期望 / 生效修订','Desired / effective revision'),revision(row)],[t('最近采集','Last seen'),v.time(row.last_seen_at)],[t('收敛状态','Convergence'),convergence(row)]]);const extra=v.section(target,t('采集范围与完整字段','Collection scope and full fields'));v.fields(extra,Object.entries(row));};
+ if(v.entry==='collector-detail'){if(collector)detail(root,collector);else v.note(root,t('当前范围没有数据','No data in this range'));}else if(data.items)void v.pages(root,data,(target,items)=>v.table(target,items,[[t('名称 / ID','Name / ID'),row=>v.name(row)],[t('状态','Status'),'status'],[t('关联资源','Resource'),row=>(data.resources||[]).find(item=>item.id===row.resource_id)?.name||row.resource_id],[t('期望 / 生效修订','Desired / effective revision'),revision],[t('收敛状态','Convergence'),convergence],[t('最近采集','Last seen'),row=>v.time(row.last_seen_at)]],detail));else{const grid=v.node('div',undefined,'argus-template-grid');for(const [key,label]of [['resource_count',t('资源','Resources')],['healthy_collectors',t('健康采集器','Healthy collectors')],['degraded_collectors',t('降级采集器','Degraded collectors')],['metric_points',t('指标采样','Metric samples')],['log_records',t('日志记录','Log records')],['spans',t('Span','Spans')]]){const card=v.node('div',label,'argus-template-metric');card.append(v.node('strong',v.number(data[key])));grid.append(card);}root.append(grid);v.fields(root,[[t('统计窗口秒','Window seconds'),data.window_seconds],[t('观测时间','Observed'),v.time(data.observed_at)]]);}
+},'runtime.status');
 </script>

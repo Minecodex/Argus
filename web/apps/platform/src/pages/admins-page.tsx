@@ -13,7 +13,7 @@ import {
   type EnterpriseAdmin,
 } from "@argus/api-client";
 import {
-  ActionGroup,
+  ActionMenu,
   Alert,
   Button,
   CodeBlock,
@@ -24,7 +24,6 @@ import {
   FormDrawer,
   Input,
   PageShell,
-  RowAction,
   Select,
   Spinner,
   StatusBadge,
@@ -276,25 +275,29 @@ export function AdminsPage() {
                   key: "id",
                   header: t("common.actions"),
                   render: (row) => (
-                    <ActionGroup>
-                      <RowAction
-                        onPress={() =>
-                          setPendingAction({ type: "resetAuth", admin: row })
-                        }
-                      >
-                        {t("admins.action.resetAuth")}
-                      </RowAction>
-                      {row.credentialStatus !== "disabled" && (
-                        <RowAction
-                          danger
-                          onPress={() =>
-                            setPendingAction({ type: "disable", admin: row })
-                          }
-                        >
-                          {t("admins.action.disable")}
-                        </RowAction>
-                      )}
-                    </ActionGroup>
+                    <ActionMenu
+                      name={row.username}
+                      items={[
+                        {
+                          label: t("admins.action.resetAuth"),
+                          onSelect: () =>
+                            setPendingAction({ type: "resetAuth", admin: row }),
+                        },
+                        ...(row.credentialStatus !== "disabled"
+                          ? [
+                              {
+                                label: t("admins.action.disable"),
+                                danger: true,
+                                onSelect: () =>
+                                  setPendingAction({
+                                    type: "disable" as const,
+                                    admin: row,
+                                  }),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
                   ),
                 },
               ]}

@@ -1,0 +1,523 @@
+serviceaccount/argus-e2e-ingress created
+clusterrole.rbac.authorization.k8s.io/plan6-plan6-20261011-w29-nginx created
+clusterrolebinding.rbac.authorization.k8s.io/plan6-plan6-20261011-w29-nginx created
+ingressclass.networking.k8s.io/plan6-plan6-20261011-w29-nginx created
+configmap/argus-e2e-ingress created
+service/argus-e2e-ingress created
+deployment.apps/argus-e2e-ingress created
+Preflight plan6-plan6-20261011-w29 on docker-desktop
+[PASS] kubernetes-api: v1.36.1
+[PASS] network-profile: NetworkPolicy=unverified; EgressGateway=absent; posture=degraded
+[WARN] network-security: NetworkPolicy probe did not observe an enforced deny: job argus-network-probe-1791674118448043200/probe-denied failed
+[WARN] network-security: no external Egress Gateway was detected; Direct Executor uses the cluster default route
+[PASS] node-architecture: amd64
+[PASS] cluster-capacity: allocatable cpu=16000m memory=15911100Ki pods=110
+[WARN] storage-class: standard (volume expansion unavailable; accepted for local profiles)
+[PASS] ingress-class: plan6-plan6-20261011-w29-nginx
+[PASS] pki: managed
+[PASS] host-disk: 76.0Gi free
+[WARN] network-policy: NetworkPolicy enforcement was not positively verified
+[WARN] sandbox-runtime: shared ordinary-container runtime explicitly accepted for the local profile
+[PASS] host-architecture: amd64
+Estimate: 22 pods, 6 PVCs, 19Gi requested storage
+Argus plan6-plan6-20261011-w29 plan (evaluation)
+1. foundation
+2. data-operators
+3. data
+4. sandbox
+5. telemetry-pipeline
+6. platform
+WARN: NETWORK_POLICY_ENFORCEMENT_UNVERIFIED
+WARN: SHARED_CONTAINER_SANDBOX_RUNTIME
+Bootstrap TLS: insecure-first-fetch
+Building Connector distribution for linux/amd64
+Building Connector distribution for linux/arm64
+Building Connector distribution for windows/amd64
+4361adae932857c3d9cc16131ecef7c376bac34f4ec82eb39c5bc97925fcf54f
+Building argus-backend for linux/amd64
+Building argus-web for linux/amd64
+Building minio for linux/amd64
+Building argus-workspace for linux/amd64
+Building argus-workspace-egress for linux/amd64
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w29 created
+daemonset.apps/argus-image-loader-plan6-plan6-20261011-w29 restarted
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w29" rollout to finish: 0 out of 1 new pods have been updated...
+Waiting for daemon set "argus-image-loader-plan6-plan6-20261011-w29" rollout to finish: 0 of 1 updated pods are available...
+daemon set "argus-image-loader-plan6-plan6-20261011-w29" successfully rolled out
+Artifact Store synchronized: Collector distributions and Connector release e2e-plan6-20261011-w29-7c4f16bc2d9a6c82
+Reusing compatible OpenSandbox controller judex/opensandbox-controller-manager; preserving external ownership
+deployment.apps/argus-web restarted
+deployment.apps/argus-server restarted
+deployment.apps/argus-worker restarted
+deployment.apps/argus-direct-executor restarted
+deployment.apps/argus-connector-gateway restarted
+deployment.apps/argus-pki-controller restarted
+deployment.apps/argus-telemetry-ingest restarted
+deployment.apps/argus-telemetry-writer restarted
+deployment.apps/argus-telemetry-query restarted
+Argus evaluation plan6-plan6-20261011-w29 installed successfully
+Platform initialization URL (copy and open it now; shown only once):
+Expires at: 2026-10-11T23:19:34Z
+Baseline browser e2e/m2(-dashboard-dialogs)?-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 started
+{"time":"2026-10-11T07:24:05.0561167+08:00","level":"INFO","msg":"Connector enrolled","connector_id":"01a12820-7eae-721a-b4da-6940eec2fa86","role":"kubernetes","gateway":"grpcs://connector.plan6-plan6-20261011-w29.argus.test:9443"}
+Baseline browser e2e/m3-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m3 passed
+E2E phase m4 started
+Baseline browser e2e/m4-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+E2E phase m4 passed
+E2E phase p5-native started
+Native host.create.preview Preview/template/Run binding passed
+E2E phase p5-native passed
+E2E phase m7 started
+Native host.collector.install.preview Preview/template/Run binding passed
+Native host.collector.configure.preview Preview/template/Run binding passed
+Native host.collector.repair.preview Preview/template/Run binding passed
+Native host.collector.upgrade.preview Preview/template/Run binding passed
+Native k8s.collector.install.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Native k8s.collector.configure.preview Preview/template/Run binding passed
+Baseline browser e2e/m7-real.spec.ts belongs to its own suite; PlanV2 retains the setup/API checks
+Native host.collector.uninstall.preview Preview/template/Run binding passed
+E2E phase m7 passed
+E2E phase plan6 started
+host.docker.internal:60556/argus/argus b	fetching image content	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.0 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.0 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (c2751d78f768)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.1 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (c2751d78f768)           	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (fe0b4d4d2d69)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.1 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (c2751d78f768)           	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (fe0b4d4d2d69)           	waiting    	|[32m[0m--------------------------------------|	
+      └──config (2792985f6d8e)          	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.1 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (c2751d78f768)           	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (fe0b4d4d2d69)           	waiting    	|[32m[0m--------------------------------------|	
+      ├──config (2792985f6d8e)          	waiting    	|[32m[0m--------------------------------------|	
+      └──layer (0c098e34307d)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.2 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (c2751d78f768)           	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (fe0b4d4d2d69)           	waiting    	|[32m[0m--------------------------------------|	
+      ├──config (2792985f6d8e)          	waiting    	|[32m[0m--------------------------------------|	
+      ├──layer (0c098e34307d)           	waiting    	|[32m[0m--------------------------------------|	
+      └──layer (afff3ef4fa18)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.2 s	total:   0.0 B	(0.0 B/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	waiting    	|[32m[0m--------------------------------------|	
+   ├──manifest (c2751d78f768)           	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (fe0b4d4d2d69)           	waiting    	|[32m[0m--------------------------------------|	
+      ├──config (2792985f6d8e)          	waiting    	|[32m[0m--------------------------------------|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.3 s	total:  40.8 K	(130.5 KiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	waiting    	|[32m[0m--------------------------------------|	
+   └──manifest (fe0b4d4d2d69)           	waiting    	|[32m[0m--------------------------------------|	
+      ├──config (2792985f6d8e)          	waiting    	|[32m[0m--------------------------------------|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.3 s	total:  41.6 K	(133.1 KiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	waiting    	|[32m[0m--------------------------------------|	
+      ├──config (2792985f6d8e)          	waiting    	|[32m[0m--------------------------------------|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.3 s	total:  42.4 K	(135.8 KiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	waiting    	|[32m[0m--------------------------------------|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.3 s	total:  45.3 K	(144.9 KiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	waiting    	|[32m[0m--------------------------------------|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.3 s	total:  48.3 K	(154.4 KiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+[0m-------------------------------------|	 6.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.6 s	total:  6.0 Mi	(9.9 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++[0m------------------------------------|	12.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 0.9 s	total:  12.0 M	(13.2 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++[0m----------------------------------|	18.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 1.2 s	total:  18.0 M	(14.9 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++[0m---------------------------------|	23.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 1.5 s	total:  23.0 M	(15.2 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++++[0m--------------------------------|	29.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 1.8 s	total:  29.0 M	(16.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++[0m-------------------------------|	35.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 2.1 s	total:  35.0 M	(16.6 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++[0m-----------------------------|	43.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 2.4 s	total:  43.0 M	(17.8 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++++++++[0m----------------------------|	48.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 2.7 s	total:  48.0 M	(17.7 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++++++++++[0m--------------------------|	54.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 3.0 s	total:  54.0 M	(17.9 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++[0m-------------------------|	61.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 3.3 s	total:  61.0 M	(18.4 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++[0m-----------------------|	66.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 3.6 s	total:  66.0 M	(18.3 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++++++++++++++[0m----------------------|	72.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 3.9 s	total:  72.0 M	(18.4 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++[0m---------------------|	77.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 4.2 s	total:  77.0 M	(18.3 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++++++++++++++++[0m--------------------|	81.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 4.5 s	total:  81.0 M	(18.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++[0m-------------------|	87.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 4.8 s	total:  87.0 M	(18.1 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++[0m-----------------|	92.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 5.1 s	total:  92.0 M	(18.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++[0m-----------------|	96.0 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 5.4 s	total:  96.0 M	(17.7 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++++[0m---------------|	103.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 5.7 s	total:  103.0 	(18.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++++++++++++++++++++++[0m--------------|	108.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 6.0 s	total:  108.0 	(18.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++++++[0m-------------|	113.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 6.3 s	total:  113.0 	(17.9 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++++++++[0m-----------|	119.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 6.6 s	total:  119.0 	(18.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++++++++++++++++++++++++++[0m----------|	124.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 6.9 s	total:  124.0 	(17.9 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++++++++++[0m---------|	130.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 7.2 s	total:  130.0 	(18.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++++++++++++++++++++++++++++[0m--------|	135.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 7.5 s	total:  135.0 	(18.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++++++++++++[0m-------|	140.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 7.8 s	total:  140.0 	(17.9 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++++++++++++++[0m-----|	146.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 8.1 s	total:  146.0 	(18.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m++++++++++++++++++++++++++++++++++[0m----|	152.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 8.4 s	total:  152.0 	(18.1 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++++++++++++++++[0m---|	157.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 8.7 s	total:  157.0 	(18.0 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	downloading	|[32m+++++++++++++++++++++++++++++++++++++[0m-|	163.0 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 9.0 s	total:  163.0 	(18.1 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	extracting 	|[32m++[0m------------------------------------|	10.1 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 9.3 s	total:  10.1 M	(1.1 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	extracting 	|[32m++++++++[0m------------------------------|	39.2 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 9.6 s	total:  39.2 M	(4.1 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	extracting 	|[32m+++++++++++++++[0m-----------------------|	66.4 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 9.9 s	total:  66.5 M	(6.7 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	extracting 	|[32m+++++++++++++++++++++[0m-----------------|	95.3 MiB/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 10.2s	total:  95.4 M	(9.3 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	extracting 	|[32m++++++++++++++++++++++++++++[0m----------|	123.5 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 10.5s	total:  123.5 	(11.7 MiB/s)	
+host.docker.internal:60556/argus/argus b	fetching image content	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	extracting 	|[32m++++++++++++++++++++++++++++++++++[0m----|	150.7 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 10.8s	total:  150.7 	(13.9 MiB/s)	
+host.docker.internal:60556/argus/argus b	saved	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	extracting 	|[32m++++++++++++++++++++++++++++++++++[0m----|	150.7 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Pulling from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 11.1s	total:  150.7 	(13.6 MiB/s)	
+host.docker.internal:60556/argus/argus b	saved	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	extracted  	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	extracting 	|[32m++++++++++++++++++++++++++++++++++[0m----|	150.7 Mi/166.4 MiB	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Completed pull from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 11.1s	total:  150.7 	(13.6 MiB/s)	
+host.docker.internal:60556/argus/argus b	saved	
+└──index (a7f44821857c)                 	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   ├──manifest (c2751d78f768)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+   └──manifest (fe0b4d4d2d69)           	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──config (2792985f6d8e)          	complete   	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      ├──layer (0c098e34307d)           	extracted  	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+      └──layer (afff3ef4fa18)           	extracted  	|[32m++++++++++++++++++++++++++++++++++++++[0m|	
+application/vnd.oci.image.index.v1+json sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5
+Completed pull from OCI Registry (host.docker.internal:60556/argus/argus-backend:e2e-plan6-20261011-w29@sha256:a7f44821857c2552993a1e80bd054ca8a20daae4fcc61ec73d7db1cc3c68f2d5)	elapsed: 11.1s	total:  166.4 	(15.0 MiB/s)	
+Untagged: localhost:60556/argus/argus-e2e-ssh:e2e-plan6-20261011-w29
+Deleted: sha256:38e09881d21975317f8f20a422bd2bc17290cfc9245599373f90aca1b1ad3ddd
+Untagged: localhost:60556/argus/argus-e2e-replay:e2e-plan6-20261011-w29
+Deleted: sha256:e82cfb62e057a3798b90a13ee4309c99162c5ff280fadc3d89a440bc46b89c5b
+Untagged: localhost:60556/argus/argus-e2e-artifact:e2e-plan6-20261011-w29
+Deleted: sha256:bc33a9d8a437e9487edd759b98f38dc928e06722293f398fc6ab53080cfdab2b
+Untagged: localhost:60556/argus/argus-e2e-systemd:e2e-plan6-20261011-w29
+Deleted: sha256:feae28e924ad2bccb73a2bca244a389a57755e983e9e40ba7f5dcfc6b16cea45
+Untagged: localhost:60556/argus/argus-otelcol:e2e-plan6-20261011-w29
+Deleted: sha256:be7b652826ca337558fd310ce410be9d40d473aad4d20117a1dc38f35a3dd77c
+Argus plan6-plan6-20261011-w29 removed

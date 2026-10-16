@@ -55,6 +55,7 @@ import type {
 /** Whole in-memory database backing the mock client. */
 export interface MockDb {
   schemaVersion: 15;
+ alerts?: Record<string,import("./alerts").MockAlertState>;
   dashboards?: import("./dashboard-state").MockDashboards;
   seq: Record<string, number>;
   platformState: { state: PlatformState; name: string };
@@ -86,6 +87,7 @@ export interface MockDb {
   serviceAccounts: ServiceAccount[];
   apiKeys: ApiKey[];
   secrets: Secret[];
+ secretCredentials?: import("../types").Credential[];
   hosts: MockHost[];
   connectors: MockConnector[];
   bastionScopes: MockBastionScope[];

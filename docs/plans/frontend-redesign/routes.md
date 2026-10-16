@@ -10,12 +10,12 @@
 | --- | --- | --- |
 | Enterprise | `/login` | 公共认证表单；登录、MFA、回跳及门户隔离回归 |
 | Enterprise | `/` | Chat 双区外壳、消息宽度、输入、引用、工具卡片；流式/一次确认回归 |
-| Enterprise | `/dashboards` | Folder、资源卡片、草稿、历史、归档和恢复；中英×明暗、发布目录截图 |
+| Enterprise | `/dashboards` | Folder、共享列表及操作菜单、草稿、历史、归档和恢复；中英×明暗、发布目录截图 |
 | Enterprise | `/dashboards/:id` | 图型、时间/资源、变量/局部筛选和详情；十一图型、三信号与资源入口回归 |
 | Enterprise | `/dashboard-drafts/:id` | 个人画布、模板、过滤项管理、预览发布；恢复、指针/键盘布局和发布隔离 |
 | Enterprise | `/dashboard-drafts/:id/panels/:id` | 独立预览/查询/设置、按图运行和下钻；中英×明暗、样式不查询、刷新、长标题和放大 |
-| Enterprise | `/hosts`、`/hosts/:id` | 卡片/菜单、接入/采集状态、分区详情、资源关联；中英×明暗、卸载/取消/重试 |
-| Enterprise | `/kubernetes`、`/kubernetes/:id` | 卡片、节点/采集/绑定状态、安装向导与分区详情；中英×明暗、三种尺寸与关联流程 |
+| Enterprise | `/hosts`、`/hosts/:id` | 共享列表及生命周期菜单、接入/采集状态、分区详情、收集器路由菜单、资源关联；中英×明暗、卸载/取消/重试 |
+| Enterprise | `/kubernetes`、`/kubernetes/:id` | 共享列表及操作菜单、节点/采集/绑定状态、安装向导与分区详情；中英×明暗、三种尺寸与关联流程 |
 | Enterprise | `/tasks`、`/approvals` | 紧凑记录/详情；审批域 Tabs 和单选范围；中英×明暗、深链接、拒绝和确认 |
 | Enterprise | `/remote-sessions` | 会话/终端/RDP 详情和共享播放滑轨；中英×明暗、播放器单元检查 |
 | Enterprise | `/settings/org` | 用户、部门、角色、对象授权、治理表单；中英×明暗及 CRUD/授权回归 |

@@ -144,7 +144,7 @@ for (const viewport of [
             animations: "disabled",
           });
           await region
-            .getByRole("button", { name: l.openDashboard, exact: true })
+            .getByRole("link", { name: "Resource navigation", exact: true })
             .click();
           await expect(page).toHaveURL(/resource=/);
           const origin = page.locator(".argus-dashboard-entry-source");
@@ -179,6 +179,22 @@ for (const viewport of [
           await expect(
             drawer.locator(".argus-dashboard-linked-resource"),
           ).toHaveCount(1);
+          // Contrast is evaluated on the settled drawer. Sampling its native
+          // entering fade blends text with the backdrop during the animation.
+          await expect
+            .poll(() =>
+              drawer.evaluate((element) => {
+                for (
+                  let node: Element | null = element;
+                  node;
+                  node = node.parentElement
+                )
+                  if (Number(getComputedStyle(node).opacity) !== 1)
+                    return false;
+                return !element.closest('[data-entering="true"]');
+              }),
+            )
+            .toBe(true);
           const axe = await new AxeBuilder({ page }).analyze();
           expect(
             axe.violations.filter((v) =>

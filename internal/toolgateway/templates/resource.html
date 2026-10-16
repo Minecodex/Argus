@@ -1,21 +1,32 @@
-<section aria-live="polite"><h3 id="title"></h3><div id="result"></div></section>
+<section id="resource-view"></section>
 <script>
-ArgusTemplate.onData((data, context) => {
-  const zh = context.locale === 'zh-CN';
-  document.getElementById('title').textContent = zh ? '资源详情' : 'Resource details';
-  const root = document.getElementById('result'); root.replaceChildren();
-  const items = Array.isArray(data.items) ? data.items : [data.host || data.cluster || data.connector || data];
-  if (!items.length) { root.textContent = zh ? '没有可显示的资源' : 'No resources to display'; }
-  const rows = items.map((item) => ({...item, ...(item.summary && typeof item.summary === 'object' ? item.summary : {})}));
-  if (rows.length) ArgusTemplate.table(root, rows, ['name', 'status', 'connection_status', 'address', 'api_server', 'namespace', 'phase', 'ready', 'platform', 'role', 'resource_version']);
-  if (!Array.isArray(data.items)) ArgusTemplate.details(root, data.host || data.cluster || data.connector || data);
-  for (const ref of data._resource_refs || []) {
-    const button = document.createElement('button'); button.type = 'button';
-    button.className = 'argus-template-resource';
-    const row = items.find((item) => item.id === ref.id);
-    button.textContent = (zh ? '打开资源 ' : 'Open resource ') + (row?.name || '');
-    button.addEventListener('click', () => ArgusTemplate.openResource(ref.type, ref.id)); root.append(button);
+(() => {
+ const v=ArgusView,t=(a,b)=>v.text(a,b);
+ const related=(root,item,data)=>{
+  if(!v.entry.startsWith('connector-'))return;
+  const target=v.section(root,t('关联资源','Related resources'),true),relations=item.related_resources||[];target.dataset.relatedResources='true';
+  if(!relations.length){v.note(target,t('未关联主机或集群','No associated host or cluster'));return;}
+  v.table(target,relations,[[t('资源类型','Resource type'),row=>row.type==='host'?t('主机','Host'):t('Kubernetes 集群','Kubernetes cluster')],[t('名称 / ID','Name / ID'),row=>row.name||row.id],[t('可用状态','Availability'),row=>row.status==='available'?t('可访问','Accessible'):t('未授权或已删除','Not authorized or deleted')]]);
+  const refs=(data._resource_refs||[]).filter(ref=>relations.some(row=>row.status==='available'&&row.id===ref.id&&row.type===ref.type));v.links(target,refs,data.resources);
+ };
+ const detail=(root,item,data={})=>{
+  v.fields(root,[[t('名称','Name'),v.name(item)],[t('状态','Status'),item.status||item.connection_status||item.health],[t('资源 ID','Resource ID'),item.id],[t('地址','Address'),item.address||item.api_server],[t('平台 / 版本','Platform / version'),[item.platform,item.software_version,item.version,item.resource_version].filter(value=>value!==undefined).join(' · ')],[t('最近采集 / 心跳','Last collection / heartbeat'),v.time(item.last_seen_at||item.last_heartbeat_at||item.inventory?.collected_at||item.updated_at)]]);
+  const sections=[['labels',t('标签','Labels')],['inventory',t('资产与采集范围','Inventory and collection scope')],['runtime',t('运行与收敛','Runtime and convergence')],['summary',t('对象摘要','Object summary')],['desired',t('期望配置','Desired configuration')],['observed',t('观测配置','Observed configuration')],['capabilities',t('采集能力','Collection capabilities')],['resource_ids',t('关联资源','Related resources')]];
+  for(const [key,title]of sections)if(item[key]!==undefined){const body=v.section(root,title);if(typeof item[key]==='object'&&!Array.isArray(item[key]))v.fields(body,Object.entries(item[key]).map(([field,value])=>[field,value]));else v.note(body,v.value(item[key]));}
+  related(root,item,data);
+  const extra=v.section(root,t('完整公开字段','All public fields'));v.fields(extra,Object.entries(item));
+ };
+ v.mount(document.getElementById('resource-view'),(root,data)=>{
+  const titles={'host-list':t('主机列表','Hosts'),'host-detail':t('主机详情','Host details'),'cluster-list':t('Kubernetes 集群','Kubernetes clusters'),'cluster-detail':t('集群详情','Cluster details'),'connector-list':t('Connector 列表','Connectors'),'connector-detail':t('Connector 详情','Connector details'),'collector-list':t('Collector 列表','Collectors'),'collector-detail':t('Collector 详情','Collector details'),'kubernetes-resource-list':t('Kubernetes 资源','Kubernetes resources'),'telemetry-summary':t('采集概况','Telemetry summary')};
+  v.header(root,titles[v.entry]||t('资源结果','Resource result'),t('查询时观测','Observed at query time')+' · '+v.time(data.observed_at));
+  if(v.entry.endsWith('-detail')){const item=data.host||data.cluster||data.connector||data.collector||data;if(item.id||item.name)detail(root,item,data);else v.note(root,t('当前范围没有数据','No data in this range'));}
+  else{const columns=[[t('名称','Name'),row=>v.name(row)],[t('状态','Status'),row=>row.status||row.connection_status||row.summary?.phase||row.health],[t('类型 / 位置','Type / location'),row=>[row.resource_type||row.platform||row.role,row.namespace||row.address||row.api_server].filter(Boolean).join(' · ')],[t('版本 / 收敛','Version / convergence'),row=>row.resource_version||row.version||row.convergence_status||row.summary?.ready],[t('最近采集','Last observed'),row=>v.time(row.last_seen_at||row.last_heartbeat_at||row.updated_at)]];
+   if(v.entry==='host-list')columns.splice(0,columns.length,[t('名称 / 主机名','Name / hostname'),row=>[v.name(row),row.hostname].filter(Boolean).join(' · ')],[t('地址','Address'),row=>row.address?(row.address+(row.port?':'+row.port:'')):undefined],[t('连接状态','Connection status'),row=>row.connection_status||row.status,'status'],[t('环境','Environment'),'environment'],[t('系统 / 架构','System / architecture'),row=>[row.platform,row.architecture].filter(Boolean).join(' / ')],[t('控制路径','Control path'),row=>row.connection_path||row.control_path],[t('最近在线','Last seen'),row=>v.time(row.last_seen_at)]);
+   if(v.entry==='cluster-list')columns.splice(0,columns.length,[t('名称','Name'),row=>v.name(row)],[t('API 地址','API address'),'api_server'],[t('连接状态','Connection status'),row=>row.connection_status||row.status,'status'],[t('环境','Environment'),'environment'],[t('版本','Version'),row=>row.kubernetes_version||row.version],[t('就绪节点 / 总数','Ready nodes / total'),row=>row.ready_nodes!==undefined&&row.node_count!==undefined?row.ready_nodes+' / '+row.node_count:t('尚未观测','Not observed')]);
+   if(v.entry==='connector-list'){columns[3]=[t('软件版本','Software version'),row=>row.software_version||t('未知','Unknown')];columns.splice(2,0,[t('关联资源','Related resources'),row=>(row.related_resources||[]).map(item=>item.name||item.id).join(' · ')||t('未关联','Unassociated')]);}
+   if(Array.isArray(data.items)||Array.isArray(data.page?.items))void v.pages(root,data,(target,rows)=>v.table(target,rows,columns,(cell,row)=>detail(cell,row,data)));else detail(root,data,data);
   }
-  if (data.partial) ArgusTemplate.note(root, zh ? '结果不完整，请发送新消息继续查询。' : 'Partial results. Send another message to query further.');
-});
+  if(v.entry.endsWith('-detail'))v.links(root,data._resource_refs,data.resources);
+ });
+})();
 </script>

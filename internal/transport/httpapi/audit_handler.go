@@ -59,6 +59,7 @@ func (handler AuditHandler) ListAuditEvents(ctx context.Context, request auditap
 		}
 	}
 	var binding pagination.Binding
+	alertResources := []uuid.UUID{}
 	if audience == "platform" {
 		if principal.PlatformUser == nil {
 			return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, errors.New("authorization denied")), StatusCode: http.StatusForbidden}, nil
@@ -68,7 +69,11 @@ func (handler AuditHandler) ListAuditEvents(ctx context.Context, request auditap
 		if _, ok := principal.EnterpriseID(); !ok || (!slices.Contains(principal.Permissions, "*") && !slices.Contains(principal.Permissions, "audit.read")) {
 			return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, errors.New("authorization denied")), StatusCode: http.StatusForbidden}, nil
 		}
-		binding = enterpriseCursorBinding(principal, auditFilters(request.Params), "created_at_desc")
+		alertResources, err = alertAuditResources(ctx, handler.Store.Queries, principal)
+		if err != nil {
+			return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, err), StatusCode: http.StatusInternalServerError}, nil
+		}
+		binding = enterpriseCursorBinding(principal, []any{auditFilters(request.Params), alertResources}, "created_at_desc")
 	} else {
 		return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, errors.New("invalid audience")), StatusCode: http.StatusBadRequest}, nil
 	}
@@ -76,6 +81,9 @@ func (handler AuditHandler) ListAuditEvents(ctx context.Context, request auditap
 	if err != nil {
 		code, key, status := paginationError(err)
 		return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditapi.ApiError{Code: code, MessageKey: key, RequestId: requestID(ctx), Retryable: retryablePointer(code == "CURSOR_EXPIRED")}, StatusCode: status}, nil
+	}
+	if audience == "enterprise" {
+		query.AlertResources = alertResources
 	}
 	filtered, err := handler.Store.Queries.ListAuditEventsPage(ctx, query)
 	if err != nil {

@@ -350,6 +350,9 @@ func (gateway Gateway) handleFrame(ctx context.Context, identity TrustedIdentity
 		if err := gateway.Service.UpdateHostRuntimeObservation(ctx, identity, request.GetHeartbeat().GetHostRuntime()); err != nil {
 			return err
 		}
+		if err := gateway.Service.UpdateKubernetesRuntimeObservation(ctx, identity, epoch, request.GetHeartbeat().GetKubernetesRuntime()); err != nil {
+			return err
+		}
 		if err := gateway.Service.UpdateBastionRelayStatus(ctx, identity, request.GetHeartbeat().GetBastionRelay()); err != nil {
 			return err
 		}
@@ -660,6 +663,8 @@ func typedCommand(command db.ConnectorCommand) (*connectorv1.ConnectorCommand, e
 func (gateway Gateway) typedCommand(ctx context.Context, command db.ConnectorCommand) (*connectorv1.ConnectorCommand, error) {
 	var payload proto.Message
 	switch command.CommandType {
+	case "host_inventory_probe":
+		payload = &connectorv1.HostRuntimeObservation{}
 	case "host_connection_probe":
 		var plan struct {
 			Address    string                          `json:"address"`

@@ -20,7 +20,7 @@ func (a *App) verifyP5InvalidUsage(ctx context.Context, env *E2EEnvironment) err
 	if err != nil {
 		return err
 	}
-	steps, _ := json.Marshal([]p5ToolStep{{"tool.search", map[string]any{"category": "host", "query": "list"}}})
+	steps, _ := json.Marshal([]p5ToolStep{{"tool.search", map[string]any{"category": "host"}}})
 	post := func(convo, key, content string) (string, error) {
 		value, err := client.JSON(ctx, key, "enterprise", http.MethodPost, "/conversations/"+convo+"/messages", 202, map[string]any{"content": content, "file_ids": []string{}}, enterpriseHeaders(env, key))
 		if err != nil {

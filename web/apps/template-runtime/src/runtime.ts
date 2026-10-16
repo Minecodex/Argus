@@ -1,6 +1,5 @@
 import { baseStyle } from "./runtime-style";
 import {
-  TEMPLATE_PROTOCOL,
   TEMPLATE_MAX_BYTES,
   isTemplateMessage,
   messageBytes,
@@ -59,20 +58,45 @@ export async function startRuntime(
   )
     throw new Error("invalid context");
   const data = payload.detail_data;
+  // Load only version-locked, bundled primitives before installing connect-none
+  // CSP. Tool source executes after every dependency has finished loading.
+  const { observation, disposeObservations, componentStyles } =
+    await import("./observation");
+  const {
+    recordTable,
+    resultFilters,
+    resultPager,
+    recordFields,
+    dashboardDefinition,
+    clearViews,
+  } = await import("./views");
   if (!data || typeof data !== "object" || Array.isArray(data))
     throw new Error("invalid detail data");
   let outgoing = 0,
     incoming = hello.sequence,
     destroyed = false;
+  const waiting = new Map<
+    string,
+    {
+      resolve: (result: unknown) => void;
+      reject: (error: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
+  const changes = new Set<() => void>();
   let listener:
     ((value: unknown, context: TemplateContext) => void) | undefined;
-  const send = (type: string, payload: Record<string, unknown>) => {
+  const send = (
+    type: string,
+    payload: Record<string, unknown>,
+    requestId?: string,
+  ) => {
     if (destroyed) return;
     const message = {
-      version: TEMPLATE_PROTOCOL,
+      version: hello.version,
       nonce: hello.nonce,
       sequence: ++outgoing,
-      request_id: crypto.randomUUID(),
+      request_id: requestId ?? crypto.randomUUID(),
       type,
       payload,
     };
@@ -83,6 +107,8 @@ export async function startRuntime(
     document.documentElement.lang = context.locale;
     document.documentElement.style.colorScheme = context.color_scheme;
     document.documentElement.dataset.theme = context.color_scheme;
+    document.documentElement.dataset.templateLayout =
+      context.layout === "document" ? "document" : "preview";
     for (const [key, value] of Object.entries(context.tokens)) {
       if (
         /^--[a-z0-9-]+$/.test(key) &&
@@ -103,9 +129,42 @@ export async function startRuntime(
   };
   const api = Object.freeze({
     ...renderers,
+    observation,
+    recordTable,
+    resultFilters,
+    resultPager,
+    recordFields,
+    dashboardDefinition,
+    clearViews,
+    clearObservations: () => {
+      clearViews();
+      disposeObservations();
+    },
     onData(value: typeof listener) {
       listener = value;
       render();
+    },
+    onDataChange(callback: () => void) {
+      changes.add(callback);
+      return () => changes.delete(callback);
+    },
+    read(operation: string, parameters: Record<string, unknown> = {}) {
+      if (
+        destroyed ||
+        hello.version !== "argus-template/v2" ||
+        !Array.isArray(payload.read_operations) ||
+        !payload.read_operations.includes(operation)
+      )
+        return Promise.reject(new Error("PRESENTATION_READ_FORBIDDEN"));
+      return new Promise((resolve, reject) => {
+        const id = crypto.randomUUID();
+        const timer = setTimeout(() => {
+          waiting.delete(id);
+          reject(new Error("PRESENTATION_READ_TIMEOUT"));
+        }, 15_000);
+        waiting.set(id, { resolve, reject, timer });
+        send("data_request", { operation, parameters }, id);
+      });
     },
     openResource(type: string, id: string) {
       send("open_resource", { type, id });
@@ -124,7 +183,7 @@ export async function startRuntime(
   policy.content = csp(hello.nonce);
   document.head.append(policy);
   const styles = document.createElement("style");
-  styles.textContent = baseStyle;
+  styles.textContent = componentStyles + "\n" + baseStyle;
   document.head.append(styles);
   const parsed = new DOMParser().parseFromString(source, "text/html");
   if (
@@ -138,7 +197,12 @@ export async function startRuntime(
   const scripts = Array.from(parsed.querySelectorAll("script"));
   scripts.forEach((script) => script.remove());
   const root = document.getElementById("argus-template-root")!;
-  root.replaceChildren(...Array.from(parsed.body.childNodes));
+  // DOMParser places leading styles in <head>. Preserve those immutable styles
+  // as well as body styles; otherwise shared template geometry silently drops.
+  root.replaceChildren(
+    ...Array.from(parsed.head.querySelectorAll("style")),
+    ...Array.from(parsed.body.childNodes),
+  );
   applyContext();
   window.addEventListener("error", fail);
   window.addEventListener("unhandledrejection", fail);
@@ -153,7 +217,7 @@ export async function startRuntime(
   const observer = new ResizeObserver(() => {
     cancelAnimationFrame(pendingFrame);
     pendingFrame = requestAnimationFrame(() =>
-      send("resize", { height: document.documentElement.scrollHeight }),
+      send("resize", { height: intrinsicTemplateHeight(root) }),
     );
   });
   observer.observe(root);
@@ -162,6 +226,7 @@ export async function startRuntime(
     if (
       !isTemplateMessage(event.data) ||
       event.data.nonce !== hello.nonce ||
+      event.data.version !== hello.version ||
       event.data.sequence <= incoming
     ) {
       fail();
@@ -175,11 +240,42 @@ export async function startRuntime(
       observer.disconnect();
       cancelAnimationFrame(pendingFrame);
       destroyed = true;
+      disposeObservations();
+      clearViews();
+      for (const request of waiting.values()) {
+        clearTimeout(request.timer);
+        request.reject(new Error("PRESENTATION_DESTROYED"));
+      }
+      waiting.clear();
+      changes.clear();
       listener = undefined;
       port.close();
       root.replaceChildren();
+    } else if (event.data.type === "data_response") {
+      const request = waiting.get(event.data.request_id);
+      if (!request) {
+        fail();
+        return;
+      }
+      clearTimeout(request.timer);
+      waiting.delete(event.data.request_id);
+      if (event.data.payload.error)
+        request.reject(new Error(String(event.data.payload.error)));
+      else request.resolve(event.data.payload.result);
+    } else if (event.data.type === "data_available") {
+      for (const callback of changes) callback();
     } else fail();
   };
   port.start();
   send("ready", {});
+}
+
+export function intrinsicTemplateHeight(root: HTMLElement): number {
+  const body = root.ownerDocument.body;
+  const style = getComputedStyle(body);
+  return Math.ceil(
+    Math.max(root.scrollHeight, root.getBoundingClientRect().height) +
+      (parseFloat(style.paddingTop) || 0) +
+      (parseFloat(style.paddingBottom) || 0),
+  );
 }

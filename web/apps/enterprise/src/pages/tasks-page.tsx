@@ -25,7 +25,7 @@ import {
   IconButton,
   PageShell,
   Progress,
-  RowAction,
+  ActionMenu,
   Spinner,
   StatCard,
   StatusBadge,
@@ -193,12 +193,10 @@ function ExecutionsPage() {
                 header: t("governance.tasks.columns.oneTimeResult"),
                 render: (item) =>
                   item.one_time_result_available ? (
-                    <RowAction
-                      isPending={claimingExecution === item.execution_id}
-                      onPress={() => void claimOneTimeResult(item)}
-                    >
-                      {t("governance.tasks.claimOneTimeResult")}
-                    </RowAction>
+                    <ActionMenu isDisabled={claimingExecution === item.execution_id} items={[{
+                      label: t("governance.tasks.claimOneTimeResult"),
+                      onSelect: () => void claimOneTimeResult(item),
+                    }]} />
                   ) : (
                     "—"
                   ),

@@ -10,6 +10,8 @@ import {
   type ChatMessage,
   type ToolCallTrace,
 } from "./chat-view-model";
+import { parseToolDisplay } from "./tool-display";
+import { projectLiveTimeline } from "./live-timeline";
 
 export type ChatStopReason =
   "completed" | "cancelled" | "failed" | "output_limit";
@@ -27,8 +29,13 @@ export type ConversationProjection = {
   run?: Run;
   checkpoint?: RunCheckpoint;
   message_text: string;
+  live_entries: readonly ChatMessage[];
   message_id?: string;
   tool_calls: ReadonlyMap<string, ToolCallTrace>;
+  requested_calls: ReadonlyMap<
+    string,
+    { name: string; input: unknown; requestedAt: string }
+  >;
   presentations: readonly string[];
   completed_message?: ChatMessage;
   pending_action_refs: readonly string[];
@@ -42,7 +49,9 @@ export const initialConversationProjection: ConversationProjection = {
   event_ids: new Set(),
   events: [],
   message_text: "",
+  live_entries: [],
   tool_calls: new Map(),
+  requested_calls: new Map(),
   presentations: [],
   pending_action_refs: [],
   execution_refs: [],
@@ -74,6 +83,7 @@ export function reduceAgentEvent(
   const payload = objectPayload(event.payload);
   const event_ids = new Set(state.event_ids).add(event.event_id);
   const tool_calls = new Map(state.tool_calls);
+  const requested_calls = new Map(state.requested_calls);
   let message_text = state.message_text;
   let message_id = state.message_id;
   let presentations = state.presentations;
@@ -85,7 +95,13 @@ export function reduceAgentEvent(
 
   if (event.event_type === "message_started") {
     message_id = stringField(payload, "message_id") ?? event.message_id;
+    message_text = "";
+    completed_message = undefined;
   } else if (event.event_type === "message_delta") {
+    if (completed_message) {
+      message_text = "";
+      completed_message = undefined;
+    }
     message_text += stringField(payload, "delta") ?? "";
   } else if (event.event_type === "tool_call_started") {
     const ref = stringField(payload, "tool_call_id");
@@ -93,31 +109,44 @@ export function reduceAgentEvent(
       tool_calls.set(ref, {
         callId: ref,
         toolName: stringField(payload, "tool_name") ?? "tool",
+        source: stringField(payload, "source"),
         status: "running",
         startedAt: stringField(payload, "started_at") ?? event.occurred_at,
+        input: payload.arguments ?? payload.input,
       });
     }
   } else if (event.event_type === "tool_call_completed") {
     const ref = stringField(payload, "tool_call_id");
     const current = ref ? tool_calls.get(ref) : undefined;
+    const requested = ref ? requested_calls.get(ref) : undefined;
     if (ref) {
       tool_calls.set(ref, {
         callId: ref,
         toolName:
-          current?.toolName ??
           stringField(payload, "target_tool_id") ??
+          current?.toolName ??
           stringField(payload, "tool_id") ??
           "tool",
-        startedAt: current?.startedAt ?? event.occurred_at,
+        source: stringField(payload, "source") ?? current?.source,
+        startedAt:
+          current?.startedAt ?? requested?.requestedAt ?? event.occurred_at,
         status:
           payload.status === "succeeded" || payload.status === "success"
             ? "success"
             : "failed",
         summary: stringField(payload, "summary"),
+        display: parseToolDisplay(payload.display),
         durationMs:
           typeof payload.duration_ms === "number"
             ? payload.duration_ms
             : undefined,
+        input: current?.input ?? requested?.input,
+        output:
+          payload.projection && typeof payload.projection === "object"
+            ? (payload.projection as Record<string, unknown>).summary
+            : payload.output,
+        resultRef: stringField(payload, "result_ref"),
+        completedAt: event.occurred_at,
       });
     }
   } else if (event.event_type === "pending_action_created") {
@@ -154,11 +183,44 @@ export function reduceAgentEvent(
   }
   if (event.event_type === "tool_presentation") {
     const ref = stringField(payload, "tool_call_id");
+    const key = stringField(payload, "result_key");
+    const call = ref ? tool_calls.get(ref) : undefined;
+    if (ref && key && call)
+      tool_calls.set(ref, {
+        ...call,
+        display: {
+          ...(call.display ?? { mode: "template", facts: [], issues: [] }),
+          resultKey: key,
+        },
+      });
     if (ref && !presentations.includes(ref))
       presentations = [...presentations, ref];
   }
   if (event.event_type === "message_completed") {
     completed_message = chatMessageFromPublic(payload.message) ?? undefined;
+    message_text = completed_message?.content ?? "";
+    for (const raw of Array.isArray(payload.tool_calls)
+      ? payload.tool_calls
+      : []) {
+      const call = objectPayload(raw);
+      if (typeof call.id !== "string") continue;
+      let input: unknown = call.arguments;
+      if (typeof input === "string") {
+        try {
+          input = JSON.parse(input);
+        } catch {
+          /* Retain an incomplete argument string as evidence. */
+        }
+      }
+      requested_calls.set(call.id, {
+        name: String(call.name ?? "tool"),
+        input:
+          call.name === "tool.invoke"
+            ? (objectPayload(input).arguments ?? input)
+            : input,
+        requestedAt: event.occurred_at,
+      });
+    }
   }
   const execution_ref = stringField(payload, "execution_ref");
   if (execution_ref && !execution_refs.includes(execution_ref))
@@ -170,7 +232,15 @@ export function reduceAgentEvent(
     event_ids,
     message_text,
     message_id,
+    live_entries: projectLiveTimeline(
+      state.live_entries,
+      event,
+      message_text,
+      tool_calls,
+      completed_message,
+    ),
     tool_calls,
+    requested_calls,
     presentations,
     completed_message,
     pending_action_refs,

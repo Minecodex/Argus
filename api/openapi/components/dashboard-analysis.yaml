@@ -23,10 +23,17 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [path, quote]
+            required: [path]
             properties:
               path: {type: string, minLength: 1, maxLength: 512, description: JSON pointer for each changed condition; / for reset_all}
               quote: {type: string, minLength: 1, maxLength: 2048, description: "Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness"}
+              origin: {type: string, enum: [message_interpretation, ai_selection], default: message_interpretation}
+              reason: {type: string, minLength: 1, maxLength: 2048, description: Explanation of an AI-selected parameter; cannot replace an explicit user condition}
+            anyOf:
+              - required: [quote]
+              - required: [origin, reason]
+                properties:
+                  origin: {const: ai_selection}
     DashboardConditionPatch:
       type: object
       additionalProperties: false

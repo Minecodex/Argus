@@ -27,7 +27,7 @@ export function useMetricMetadata(
       scope.time,
       scope.resources,
     ],
-    enabled: panel?.signal === "metrics" && !!metric && !!builder,
+    enabled: scope.catalog !== false && panel?.signal === "metrics" && !!metric && !!builder,
     queryFn: ({ signal }) =>
       api.dashboards.catalog(
         {

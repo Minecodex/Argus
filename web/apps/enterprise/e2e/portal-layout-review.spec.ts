@@ -56,7 +56,7 @@ for (const viewport of [
           ).toBeChecked();
           await page.goto("/hosts");
           await expect(
-            page.locator(".argus-resource-card").first(),
+            page.locator(".argus-resource-card, .argus-table tbody tr").first(),
           ).toBeVisible();
           await assertFilterAlignment(page);
           await page

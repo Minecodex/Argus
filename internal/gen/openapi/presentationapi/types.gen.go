@@ -5,14 +5,136 @@ package presentationapi
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for PresentationReadInputOperation.
+const (
+	AlertDetails     PresentationReadInputOperation = "alert.details"
+	DashboardResult  PresentationReadInputOperation = "dashboard.result"
+	MetricContext    PresentationReadInputOperation = "metric.context"
+	ResourcesContext PresentationReadInputOperation = "resources.context"
+	ResultDetail     PresentationReadInputOperation = "result.detail"
+	ResultPage       PresentationReadInputOperation = "result.page"
+	RuntimeStatus    PresentationReadInputOperation = "runtime.status"
+)
+
+// Valid indicates whether the value is a known member of the PresentationReadInputOperation enum.
+func (e PresentationReadInputOperation) Valid() bool {
+	switch e {
+	case AlertDetails:
+		return true
+	case DashboardResult:
+		return true
+	case MetricContext:
+		return true
+	case ResourcesContext:
+		return true
+	case ResultDetail:
+		return true
+	case ResultPage:
+		return true
+	case RuntimeStatus:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PresentationReadInputParametersDirection.
+const (
+	Asc  PresentationReadInputParametersDirection = "asc"
+	Desc PresentationReadInputParametersDirection = "desc"
+)
+
+// Valid indicates whether the value is a known member of the PresentationReadInputParametersDirection enum.
+func (e PresentationReadInputParametersDirection) Valid() bool {
+	switch e {
+	case Asc:
+		return true
+	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PresentationReadInputParametersSort.
+const (
+	CreatedAt   PresentationReadInputParametersSort = "created_at"
+	Empty       PresentationReadInputParametersSort = ""
+	Environment PresentationReadInputParametersSort = "environment"
+	Hostname    PresentationReadInputParametersSort = "hostname"
+	Id          PresentationReadInputParametersSort = "id"
+	Name        PresentationReadInputParametersSort = "name"
+	Namespace   PresentationReadInputParametersSort = "namespace"
+	Severity    PresentationReadInputParametersSort = "severity"
+	StartedAt   PresentationReadInputParametersSort = "started_at"
+	Status      PresentationReadInputParametersSort = "status"
+	Timestamp   PresentationReadInputParametersSort = "timestamp"
+	Title       PresentationReadInputParametersSort = "title"
+	UpdatedAt   PresentationReadInputParametersSort = "updated_at"
+)
+
+// Valid indicates whether the value is a known member of the PresentationReadInputParametersSort enum.
+func (e PresentationReadInputParametersSort) Valid() bool {
+	switch e {
+	case CreatedAt:
+		return true
+	case Empty:
+		return true
+	case Environment:
+		return true
+	case Hostname:
+		return true
+	case Id:
+		return true
+	case Name:
+		return true
+	case Namespace:
+		return true
+	case Severity:
+		return true
+	case StartedAt:
+		return true
+	case Status:
+		return true
+	case Timestamp:
+		return true
+	case Title:
+		return true
+	case UpdatedAt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PresentationReadResultStatus.
+const (
+	PresentationReadResultStatusPending PresentationReadResultStatus = "pending"
+	PresentationReadResultStatusReady   PresentationReadResultStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the PresentationReadResultStatus enum.
+func (e PresentationReadResultStatus) Valid() bool {
+	switch e {
+	case PresentationReadResultStatusPending:
+		return true
+	case PresentationReadResultStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ToolPresentationResourceRefsType.
 const (
 	Connector         ToolPresentationResourceRefsType = "connector"
+	Dashboard         ToolPresentationResourceRefsType = "dashboard"
 	Host              ToolPresentationResourceRefsType = "host"
 	KubernetesCluster ToolPresentationResourceRefsType = "kubernetes_cluster"
 )
@@ -21,6 +143,8 @@ const (
 func (e ToolPresentationResourceRefsType) Valid() bool {
 	switch e {
 	case Connector:
+		return true
+	case Dashboard:
 		return true
 	case Host:
 		return true
@@ -34,12 +158,15 @@ func (e ToolPresentationResourceRefsType) Valid() bool {
 // Defines values for ToolPresentationRuntime.
 const (
 	ArgusTemplatev1 ToolPresentationRuntime = "argus-template/v1"
+	ArgusTemplatev2 ToolPresentationRuntime = "argus-template/v2"
 )
 
 // Valid indicates whether the value is a known member of the ToolPresentationRuntime enum.
 func (e ToolPresentationRuntime) Valid() bool {
 	switch e {
 	case ArgusTemplatev1:
+		return true
+	case ArgusTemplatev2:
 		return true
 	default:
 		return false
@@ -48,16 +175,16 @@ func (e ToolPresentationRuntime) Valid() bool {
 
 // Defines values for ToolPresentationStatus.
 const (
-	Failed ToolPresentationStatus = "failed"
-	Ready  ToolPresentationStatus = "ready"
+	ToolPresentationStatusFailed ToolPresentationStatus = "failed"
+	ToolPresentationStatusReady  ToolPresentationStatus = "ready"
 )
 
 // Valid indicates whether the value is a known member of the ToolPresentationStatus enum.
 func (e ToolPresentationStatus) Valid() bool {
 	switch e {
-	case Failed:
+	case ToolPresentationStatusFailed:
 		return true
-	case Ready:
+	case ToolPresentationStatusReady:
 		return true
 	default:
 		return false
@@ -89,13 +216,52 @@ type ApiError_Params_AdditionalProperties struct {
 	union json.RawMessage
 }
 
+// PresentationReadInput defines model for PresentationReadInput.
+type PresentationReadInput struct {
+	Operation PresentationReadInputOperation `json:"operation"`
+
+	// Parameters result.page reads sealed data only. Search, exact scalar filters and ordering apply before pagination to the entire bound collection; the cursor binds these conditions and the original presentation/attempt/authorization version. Nested sample slices do not accept filtering. Other operations retain their own parameter allowlists.
+	Parameters PresentationReadInput_Parameters `json:"parameters"`
+}
+
+// PresentationReadInputOperation defines model for PresentationReadInput.Operation.
+type PresentationReadInputOperation string
+
+// PresentationReadInputParametersDirection defines model for PresentationReadInput.Parameters.Direction.
+type PresentationReadInputParametersDirection string
+
+// PresentationReadInputParametersSort defines model for PresentationReadInput.Parameters.Sort.
+type PresentationReadInputParametersSort string
+
+// PresentationReadInput_Parameters result.page reads sealed data only. Search, exact scalar filters and ordering apply before pagination to the entire bound collection; the cursor binds these conditions and the original presentation/attempt/authorization version. Nested sample slices do not accept filtering. Other operations retain their own parameter allowlists.
+type PresentationReadInput_Parameters struct {
+	Direction *PresentationReadInputParametersDirection `json:"direction,omitempty"`
+
+	// Filters Allowed fields: status, connection_status, severity, level, environment, namespace, resource_type, service_name, signal, type.
+	Filters              *map[string]string                   `json:"filters,omitempty"`
+	Search               *string                              `json:"search,omitempty"`
+	Sort                 *PresentationReadInputParametersSort `json:"sort,omitempty"`
+	AdditionalProperties map[string]interface{}               `json:"-"`
+}
+
+// PresentationReadResult defines model for PresentationReadResult.
+type PresentationReadResult struct {
+	Data       map[string]interface{}       `json:"data"`
+	NextCursor *string                      `json:"next_cursor,omitempty"`
+	Status     PresentationReadResultStatus `json:"status"`
+}
+
+// PresentationReadResultStatus defines model for PresentationReadResult.Status.
+type PresentationReadResultStatus string
+
 // RequestId defines model for RequestId.
 type RequestId = string
 
 // ToolPresentation defines model for ToolPresentation.
 type ToolPresentation struct {
-	DetailData   map[string]interface{} `json:"detail_data"`
-	ResourceRefs *[]struct {
+	DetailData     map[string]interface{} `json:"detail_data"`
+	ReadOperations *[]string              `json:"read_operations,omitempty"`
+	ResourceRefs   *[]struct {
 		Id   openapi_types.UUID               `json:"id"`
 		Type ToolPresentationResourceRefsType `json:"type"`
 	} `json:"resource_refs,omitempty"`
@@ -118,6 +284,127 @@ type ToolPresentationStatus string
 
 // Error defines model for Error.
 type Error = ApiError
+
+// ReadToolPresentationParams defines parameters for ReadToolPresentation.
+type ReadToolPresentationParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ReadToolPresentationJSONRequestBody defines body for ReadToolPresentation for application/json ContentType.
+type ReadToolPresentationJSONRequestBody = PresentationReadInput
+
+// Getter for additional properties for PresentationReadInput_Parameters. Returns the specified
+// element and whether it was found
+func (a PresentationReadInput_Parameters) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for PresentationReadInput_Parameters
+func (a *PresentationReadInput_Parameters) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for PresentationReadInput_Parameters to handle AdditionalProperties
+func (a *PresentationReadInput_Parameters) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["direction"]; found {
+		err = json.Unmarshal(raw, &a.Direction)
+		if err != nil {
+			return fmt.Errorf("error reading 'direction': %w", err)
+		}
+		delete(object, "direction")
+	}
+
+	if raw, found := object["filters"]; found {
+		err = json.Unmarshal(raw, &a.Filters)
+		if err != nil {
+			return fmt.Errorf("error reading 'filters': %w", err)
+		}
+		delete(object, "filters")
+	}
+
+	if raw, found := object["search"]; found {
+		err = json.Unmarshal(raw, &a.Search)
+		if err != nil {
+			return fmt.Errorf("error reading 'search': %w", err)
+		}
+		delete(object, "search")
+	}
+
+	if raw, found := object["sort"]; found {
+		err = json.Unmarshal(raw, &a.Sort)
+		if err != nil {
+			return fmt.Errorf("error reading 'sort': %w", err)
+		}
+		delete(object, "sort")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for PresentationReadInput_Parameters to handle AdditionalProperties
+func (a PresentationReadInput_Parameters) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	if a.Direction != nil {
+		object["direction"], err = json.Marshal(a.Direction)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'direction': %w", err)
+		}
+	}
+
+	if a.Filters != nil {
+		object["filters"], err = json.Marshal(a.Filters)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'filters': %w", err)
+		}
+	}
+
+	if a.Search != nil {
+		object["search"], err = json.Marshal(a.Search)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'search': %w", err)
+		}
+	}
+
+	if a.Sort != nil {
+		object["sort"], err = json.Marshal(a.Sort)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'sort': %w", err)
+		}
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // AsApiErrorParams0 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams0
 func (t ApiError_Params_AdditionalProperties) AsApiErrorParams0() (ApiErrorParams0, error) {

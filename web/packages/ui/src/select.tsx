@@ -27,6 +27,8 @@ export type SelectProps = {
   name?: string;
   required?: boolean;
   size?: ControlSize;
+  density?: "default" | "compact";
+  sizing?: "field" | "content";
 } & Pick<
   AriaAttributes,
   "aria-describedby" | "aria-invalid" | "aria-labelledby" | "aria-required"
@@ -44,6 +46,8 @@ export function Select({
   name,
   required,
   size = "md",
+  density = "default",
+  sizing = "field",
   ...aria
 }: SelectProps) {
   const field = useFieldContext();
@@ -70,7 +74,13 @@ export function Select({
       disabledKeys={options
         .filter((o) => o.disabled)
         .map((o) => encode(o.value))}
-      className={cx("argus-select", `argus-control--${size}`, className)}
+      className={cx(
+        "argus-select",
+        `argus-control--${size}`,
+        density === "compact" && "argus-select--compact",
+        sizing === "content" && "argus-select--content",
+        className,
+      )}
       placeholder={
         placeholder ??
         (options.length
@@ -83,6 +93,18 @@ export function Select({
           onValueChange(decoded);
       }}
     >
+      {sizing === "content" && (
+        <span className="argus-select__sizer" aria-hidden>
+          {options.map((option) => (
+            <span key={option.value}>
+              {option.textValue ??
+                (typeof option.label === "string"
+                  ? option.label
+                  : option.value)}
+            </span>
+          ))}
+        </span>
+      )}
       <HeroSelect.Trigger
         id={id ?? field?.controlId}
         className="argus-select__trigger"
@@ -98,7 +120,7 @@ export function Select({
         }
       >
         <HeroSelect.Value className="argus-select__value" />
-        <HeroSelect.Indicator />
+        <HeroSelect.Indicator className="argus-select__indicator" />
       </HeroSelect.Trigger>
       <HeroSelect.Popover
         className="argus-select__content"

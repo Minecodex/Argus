@@ -13,8 +13,11 @@ export function DrawerPanel({
   description,
   children,
   footer,
-  width = 480,
+  width = "var(--drawer-width)",
   dismissable = true,
+  className,
+  density = "default",
+  headerLeading,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -22,8 +25,11 @@ export function DrawerPanel({
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
-  width?: number;
+  width?: number | string;
+  className?: string;
+  density?: "default" | "compact";
   dismissable?: boolean;
+  headerLeading?: ReactNode;
 }) {
   const text = useUiText();
   return (
@@ -33,11 +39,34 @@ export function DrawerPanel({
       className="argus-dialog__overlay"
       isDismissable={dismissable}
       isKeyboardDismissDisabled={!dismissable}
-      style={{ "--argus-drawer-width": `${width}px` } as CSSProperties}
+      style={
+        {
+          "--argus-drawer-width":
+            typeof width === "number" ? `${width}px` : width,
+        } as CSSProperties
+      }
     >
       <Drawer.Content placement="right" className="argus-drawer-content">
-        <Drawer.Dialog className="argus-drawer" aria-label={title}>
-          <Drawer.Header className="argus-drawer__top">
+        <Drawer.Dialog
+          className={[
+            "argus-drawer",
+            density === "compact" && "argus-drawer--compact",
+            className,
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          aria-label={title}
+        >
+          <Drawer.Header
+            className={
+              headerLeading
+                ? "argus-drawer__top argus-drawer__top--leading"
+                : "argus-drawer__top"
+            }
+          >
+            {headerLeading && (
+              <div className="argus-drawer__leading">{headerLeading}</div>
+            )}
             <div className="argus-overlay-heading">
               <Drawer.Heading className="argus-dialog__title">
                 {title}
@@ -49,12 +78,15 @@ export function DrawerPanel({
             <Button
               slot="close"
               className="argus-overlay-close"
-              isIconOnly
+              isIconOnly={density !== "compact"}
+              density={density}
+              size={density === "compact" ? "sm" : "md"}
               isDisabled={!dismissable}
               aria-label={text("关闭", "Close")}
               variant="ghost"
             >
               <X aria-hidden />
+              {density === "compact" && text("关闭", "Close")}
             </Button>
           </Drawer.Header>
           <Drawer.Body className="argus-drawer__body">

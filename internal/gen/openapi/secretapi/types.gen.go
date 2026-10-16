@@ -13,10 +13,11 @@ import (
 
 // Defines values for CredentialProtocol.
 const (
-	CredentialProtocolHttp       CredentialProtocol = "http"
-	CredentialProtocolKubernetes CredentialProtocol = "kubernetes"
-	CredentialProtocolSsh        CredentialProtocol = "ssh"
-	CredentialProtocolWindows    CredentialProtocol = "windows"
+	CredentialProtocolHttp         CredentialProtocol = "http"
+	CredentialProtocolKubernetes   CredentialProtocol = "kubernetes"
+	CredentialProtocolNotification CredentialProtocol = "notification"
+	CredentialProtocolSsh          CredentialProtocol = "ssh"
+	CredentialProtocolWindows      CredentialProtocol = "windows"
 )
 
 // Valid indicates whether the value is a known member of the CredentialProtocol enum.
@@ -25,6 +26,8 @@ func (e CredentialProtocol) Valid() bool {
 	case CredentialProtocolHttp:
 		return true
 	case CredentialProtocolKubernetes:
+		return true
+	case CredentialProtocolNotification:
 		return true
 	case CredentialProtocolSsh:
 		return true
@@ -55,10 +58,11 @@ func (e CredentialStatus) Valid() bool {
 
 // Defines values for CredentialCreateProtocol.
 const (
-	CredentialCreateProtocolHttp       CredentialCreateProtocol = "http"
-	CredentialCreateProtocolKubernetes CredentialCreateProtocol = "kubernetes"
-	CredentialCreateProtocolSsh        CredentialCreateProtocol = "ssh"
-	CredentialCreateProtocolWindows    CredentialCreateProtocol = "windows"
+	CredentialCreateProtocolHttp         CredentialCreateProtocol = "http"
+	CredentialCreateProtocolKubernetes   CredentialCreateProtocol = "kubernetes"
+	CredentialCreateProtocolNotification CredentialCreateProtocol = "notification"
+	CredentialCreateProtocolSsh          CredentialCreateProtocol = "ssh"
+	CredentialCreateProtocolWindows      CredentialCreateProtocol = "windows"
 )
 
 // Valid indicates whether the value is a known member of the CredentialCreateProtocol enum.
@@ -67,6 +71,8 @@ func (e CredentialCreateProtocol) Valid() bool {
 	case CredentialCreateProtocolHttp:
 		return true
 	case CredentialCreateProtocolKubernetes:
+		return true
+	case CredentialCreateProtocolNotification:
 		return true
 	case CredentialCreateProtocolSsh:
 		return true
@@ -301,28 +307,31 @@ func (e SecretStatus) Valid() bool {
 
 // Defines values for SecretType.
 const (
-	ApiToken        SecretType = "api_token"
-	BasicAuth       SecretType = "basic_auth"
-	Kubeconfig      SecretType = "kubeconfig"
-	SshPassword     SecretType = "ssh_password"
-	SshPrivateKey   SecretType = "ssh_private_key"
-	WindowsPassword SecretType = "windows_password"
+	SecretTypeApiToken        SecretType = "api_token"
+	SecretTypeBasicAuth       SecretType = "basic_auth"
+	SecretTypeKubeconfig      SecretType = "kubeconfig"
+	SecretTypeNotification    SecretType = "notification"
+	SecretTypeSshPassword     SecretType = "ssh_password"
+	SecretTypeSshPrivateKey   SecretType = "ssh_private_key"
+	SecretTypeWindowsPassword SecretType = "windows_password"
 )
 
 // Valid indicates whether the value is a known member of the SecretType enum.
 func (e SecretType) Valid() bool {
 	switch e {
-	case ApiToken:
+	case SecretTypeApiToken:
 		return true
-	case BasicAuth:
+	case SecretTypeBasicAuth:
 		return true
-	case Kubeconfig:
+	case SecretTypeKubeconfig:
 		return true
-	case SshPassword:
+	case SecretTypeNotification:
 		return true
-	case SshPrivateKey:
+	case SecretTypeSshPassword:
 		return true
-	case WindowsPassword:
+	case SecretTypeSshPrivateKey:
+		return true
+	case SecretTypeWindowsPassword:
 		return true
 	default:
 		return false

@@ -10,6 +10,7 @@ import { useEnterpriseAuthStore } from "@argus/auth";
 import { AdminShell } from "./components/admin-shell";
 import { ChatShell } from "./components/chat-shell";
 
+const AlertsPage=lazyRouteComponent(()=>import("./pages/alerts-page"),"AlertsPage");
 const DashboardsPage = lazyRouteComponent(
   () => import("./pages/dashboards-page"),
   "DashboardsPage",
@@ -148,6 +149,7 @@ const adminRoute = createRoute({
   id: "admin",
   component: AdminShell,
 });
+const alertsRoute=createRoute({getParentRoute:()=>adminRoute,path:"/alerts",component:AlertsPage});
 const dashboardsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/dashboards",
@@ -280,6 +282,7 @@ const routeTree = rootRoute.addChildren([
     chatRoute.addChildren([indexRoute]),
     adminRoute.addChildren([
       dashboardsRoute,
+      alertsRoute,
       dashboardViewRoute,
       dashboardEditorRoute.addChildren([
         dashboardDraftIndexRoute,
