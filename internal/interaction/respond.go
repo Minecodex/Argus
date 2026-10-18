@@ -3,7 +3,9 @@ package interaction
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/kakj-go/Argus/internal/audit"
 	"github.com/kakj-go/Argus/internal/conversation"
@@ -48,8 +50,13 @@ func (s Service) Respond(ctx context.Context, p toolruntime.Principal, id uuid.U
 	}
 	return postgres.ExecuteIdempotent(ctx, s.Store, s.Idempotency, "enterprise", p.UserID.String(), "interaction.respond", key, request, 200, func(q *db.Queries) (View, error) {
 		initial, e := q.GetConversationInteraction(ctx, db.GetConversationInteractionParams{ID: id, EnterpriseID: p.EnterpriseID, ConversationID: p.ConversationID, OwnerUserID: p.UserID})
-		if e != nil {
+		if errors.Is(e, pgx.ErrNoRows) {
 			return View{}, forbidden()
+		}
+		// Preserve serialization/deadlock errors so ExecuteIdempotent can retry
+		// this database-only transaction. They are not authorization failures.
+		if e != nil {
+			return View{}, e
 		}
 		run, e := q.GetOwnedRunForUpdate(ctx, db.GetOwnedRunForUpdateParams{ID: initial.RunID, EnterpriseID: p.EnterpriseID, ActorUserID: p.UserID})
 		if e != nil {

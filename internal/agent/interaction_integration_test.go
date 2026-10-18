@@ -164,18 +164,22 @@ func TestGuidancePlanRevisionsAndAtomicConcurrentImplementation(t *testing.T) {
 		t.Fatal("superseded draft was executable")
 	}
 	input := interaction.Response{Action: "confirm", Version: second.Version, ContentHash: second.ContentHash}
-	outputs := make(chan interaction.View, 2)
-	errs := make(chan error, 2)
+	const confirmations = 8
+	outputs := make(chan interaction.View, confirmations)
+	errs := make(chan error, confirmations)
+	start := make(chan struct{})
 	var wg sync.WaitGroup
-	for i := 0; i < 2; i++ {
+	for i := 0; i < confirmations; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			<-start
 			v, err := s.Respond(t.Context(), p, second.ID, input, uuid.NewString(), "zh-CN")
 			outputs <- v
 			errs <- err
 		}()
 	}
+	close(start)
 	wg.Wait()
 	close(outputs)
 	close(errs)
