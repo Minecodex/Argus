@@ -4,6 +4,8 @@
 
 同轮 macOS 原生 Bash 回归暴露输出采集和进程组校验中的 Linux 假设。非 Linux Unix 改用私有 FIFO 流式采集，Darwin 通过原生 `kern.proc.pgrp` 观察真实进程组并忽略已停止执行的僵尸；Linux 保留 `/proc` 实现。新增 FIFO 的实际重定向／大输出／EOF／清理测试，并将同一 Runner 测试前置到 Portable CI，完整 Go 门禁继续保留。生产受管主机的 Linux／Windows 产品范围不因本机开发验收适配而改变。
 
+macOS 首次复验进一步复现 Go 已记录的 [Darwin FIFO／kqueue EOF 限制](https://github.com/golang/go/issues/24164)：最后一个写端关闭不会产生读端事件。FIFO 改为受锁保护的非阻塞系统读取与可取消短等待，直接读取真实 EOF；关闭和读取互斥，避免文件描述符回收后误读其他文件。新增空闲读取可中断测试，原输出／超时／背景进程门禁保持不变。
+
 开始日期：2026-10-16。实施中，未验收完成。
 
 ## 本轮环境与已验证部分

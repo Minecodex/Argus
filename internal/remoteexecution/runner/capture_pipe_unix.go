@@ -3,18 +3,23 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
 
 type capturePipe struct {
-	read, write *os.File
-	endpoint    string
-	cleanup     func()
+	read     io.ReadCloser
+	write    *os.File
+	endpoint string
+	cleanup  func()
 }
 
 func openCapturePipe() (capturePipe, error) {
@@ -53,7 +58,63 @@ func openNamedCapturePipe() (capturePipe, error) {
 		cleanup()
 		return capturePipe{}, err
 	}
-	// NewFile recognizes the nonblocking descriptors and binds them to Go's
-	// runtime poller; do not switch them back to blocking after registration.
-	return capturePipe{read: os.NewFile(uintptr(readFD), fifo), write: os.NewFile(uintptr(writeFD), fifo), endpoint: fifo, cleanup: cleanup}, nil
+	// Darwin kqueue does not notify FIFO readers when the last writer closes
+	// (Go issue 24164). Read the nonblocking descriptor directly rather than
+	// registering it with Go's kqueue poller, which could wait forever for EOF.
+	reader := &fifoCaptureReader{fd: readFD, done: make(chan struct{})}
+	return capturePipe{read: reader, write: os.NewFile(uintptr(writeFD), fifo), endpoint: fifo, cleanup: cleanup}, nil
+}
+
+type fifoCaptureReader struct {
+	mu     sync.Mutex
+	fd     int
+	closed bool
+	done   chan struct{}
+}
+
+func (r *fifoCaptureReader) Read(buffer []byte) (int, error) {
+	if len(buffer) == 0 {
+		return 0, nil
+	}
+	for {
+		r.mu.Lock()
+		if r.closed {
+			r.mu.Unlock()
+			return 0, os.ErrClosed
+		}
+		n, err := unix.Read(r.fd, buffer)
+		r.mu.Unlock()
+		if n > 0 {
+			return n, nil
+		}
+		if err == nil {
+			return 0, io.EOF
+		}
+		if errors.Is(err, unix.EINTR) {
+			continue
+		}
+		if !errors.Is(err, unix.EAGAIN) && !errors.Is(err, unix.EWOULDBLOCK) {
+			return 0, err
+		}
+		timer := time.NewTimer(5 * time.Millisecond)
+		select {
+		case <-r.done:
+			timer.Stop()
+			return 0, os.ErrClosed
+		case <-timer.C:
+		}
+	}
+}
+
+func (r *fifoCaptureReader) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return nil
+	}
+	// Read never blocks inside the lock. Serialize close with each syscall so
+	// a recycled descriptor can never be read as though it were this FIFO.
+	r.closed = true
+	close(r.done)
+	return unix.Close(r.fd)
 }
