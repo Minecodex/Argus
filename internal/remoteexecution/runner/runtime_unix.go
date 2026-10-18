@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -78,25 +77,25 @@ func (b *bashRuntime) Version() string { return b.version }
 func quote(v string) string            { return "'" + strings.ReplaceAll(v, "'", "'\"'\"'") + "'" }
 
 type pipeCapture struct {
-	read, write *os.File
-	data        []byte
-	truncated   bool
-	err         error
-	done        chan struct{}
+	capturePipe
+	data      []byte
+	truncated bool
+	err       error
+	done      chan struct{}
 }
 
 func startCapture() (*pipeCapture, error) {
-	r, w, err := os.Pipe()
+	pipe, err := openCapturePipe()
 	if err != nil {
 		return nil, err
 	}
-	c := &pipeCapture{read: r, write: w, done: make(chan struct{})}
+	c := &pipeCapture{capturePipe: pipe, done: make(chan struct{})}
 	go func() {
 		defer close(c.done)
-		defer r.Close()
+		defer c.read.Close()
 		buffer := make([]byte, 32<<10)
 		for {
-			n, e := r.Read(buffer)
+			n, e := c.read.Read(buffer)
 			keep := min(n, maxOutput-len(c.data))
 			c.data = append(c.data, buffer[:keep]...)
 			c.truncated = c.truncated || n > keep
@@ -110,8 +109,11 @@ func startCapture() (*pipeCapture, error) {
 	}()
 	return c, nil
 }
-func (c *pipeCapture) path() string { return fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), c.write.Fd()) }
+func (c *pipeCapture) path() string { return c.endpoint }
 func (c *pipeCapture) finish() error {
+	if c.cleanup != nil {
+		defer c.cleanup()
+	}
 	c.write.Close()
 	select {
 	case <-c.done:

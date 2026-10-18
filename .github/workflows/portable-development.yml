@@ -60,6 +60,8 @@ jobs:
         with:
           version: v4.1.0
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify native remote runner portability before full CLI compilation
+        run: go test ./internal/remoteexecution/runner
       - run: go run ./cmd/argus-dev doctor portable --output json
       - run: go test ./internal/app/argusdev ./internal/app/argusctl ./cmd/argus-dev
       - run: go run ./cmd/argus-dev contracts lint

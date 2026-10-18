@@ -2,6 +2,8 @@
 
 2026-10-18 PR #3 跨平台编译修复：Windows 主机验收编排改名为 `e2e_plan7_windows_host.go`。原 `_windows.go` 后缀使 Go 在 Linux／macOS 自动排除该文件，而通用场景入口仍引用其中的方法，导致 Portable CI 编译失败。编排代码本身使用跨平台 API，实际 Windows 验收仍由 `runtime.GOOS` 明确检查；没有放宽实机前件或 CI 门禁。
 
+同轮 macOS 原生 Bash 回归暴露输出采集和进程组校验中的 Linux 假设。非 Linux Unix 改用私有 FIFO 流式采集，Darwin 通过原生 `kern.proc.pgrp` 观察真实进程组并忽略已停止执行的僵尸；Linux 保留 `/proc` 实现。新增 FIFO 的实际重定向／大输出／EOF／清理测试，并将同一 Runner 测试前置到 Portable CI，完整 Go 门禁继续保留。生产受管主机的 Linux／Windows 产品范围不因本机开发验收适配而改变。
+
 开始日期：2026-10-16。实施中，未验收完成。
 
 ## 本轮环境与已验证部分
