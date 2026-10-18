@@ -45,9 +45,9 @@ type commandOutcome struct {
 	stop   bool
 }
 
-type commandExecutor struct{}
+type commandExecutor struct{ Remote *remoteRuntimeHub }
 
-func (commandExecutor) execute(parent context.Context, command *connectorv1.ConnectorCommand, credential, operationSecret []byte) commandOutcome {
+func (executor commandExecutor) execute(parent context.Context, command *connectorv1.ConnectorCommand, credential, operationSecret []byte) commandOutcome {
 	ctx, cancel := context.WithTimeout(parent, timeoutForCommand(command.GetCommandType()))
 	defer cancel()
 	if command.GetTypedPayload() == nil || command.GetCommandId() == "" || command.GetExpiresAt() == nil || time.Now().After(command.GetExpiresAt().AsTime()) {
@@ -56,6 +56,27 @@ func (commandExecutor) execute(parent context.Context, command *connectorv1.Conn
 	var value proto.Message
 	var err error
 	switch command.GetCommandType() {
+	case "remote_execution_batch":
+		var request connectorv1.RemoteExecutionBatch
+		if executor.Remote == nil {
+			err = errors.New("REMOTE_ROUTE_UNAVAILABLE")
+		} else if err = command.GetTypedPayload().UnmarshalTo(&request); err == nil {
+			value, err = executor.Remote.call(ctx, command.GetCommandType(), &request, credential)
+		}
+	case "remote_execution_control":
+		var request connectorv1.RemoteExecutionControl
+		if executor.Remote == nil {
+			err = errors.New("REMOTE_ROUTE_UNAVAILABLE")
+		} else if err = command.GetTypedPayload().UnmarshalTo(&request); err == nil {
+			value, err = executor.Remote.call(ctx, command.GetCommandType(), &request, credential)
+		}
+	case "remote_execution_file":
+		var request connectorv1.RemoteExecutionFile
+		if executor.Remote == nil {
+			err = errors.New("REMOTE_ROUTE_UNAVAILABLE")
+		} else if err = command.GetTypedPayload().UnmarshalTo(&request); err == nil {
+			value, err = executor.Remote.call(ctx, command.GetCommandType(), &request, credential)
+		}
 	case "host_inventory_probe":
 		inventory := observeInventory(ctx, true)
 		value = observeHostRuntime()
@@ -90,6 +111,9 @@ func (commandExecutor) execute(parent context.Context, command *connectorv1.Conn
 	}
 	if err != nil {
 		code := "CONNECTOR_COMMAND_FAILED"
+		if strings.HasPrefix(command.GetCommandType(), "remote_execution_") && strings.HasPrefix(err.Error(), "REMOTE_") {
+			code = err.Error()
+		}
 		stage := ""
 		if command.GetCommandType() == "host_connection_probe" {
 			partial, _ := value.(*connectorv1.HostConnectionProbeResult)
@@ -128,6 +152,12 @@ func (commandExecutor) execute(parent context.Context, command *connectorv1.Conn
 }
 
 func timeoutForCommand(commandType string) time.Duration {
+	if commandType == "remote_execution_control" {
+		return 2 * time.Minute
+	}
+	if commandType == "remote_execution_batch" {
+		return 31 * time.Minute
+	}
 	if commandType == "collector_management" {
 		return collectorManagementTimeout
 	}
@@ -184,6 +214,7 @@ func executeHostProbe(ctx context.Context, payload *anypb.Any, credential []byte
 		result.Platform, result.Architecture = evidence.Platform, evidence.Architecture
 		result.DistributionVersion, result.ServiceManager = evidence.DistributionVersion, evidence.ServiceManager
 		result.Privileged, result.FreeDiskBytes = evidence.Privileged, evidence.FreeDiskBytes
+		result.IdentitySid = evidence.IdentitySID
 		result.RemoteVersion = string(connection.ServerVersion())
 		if frozen := request.GetOnboarding(); frozen != nil {
 			if frozen.GetControlPath() == "executor_tunnel" {

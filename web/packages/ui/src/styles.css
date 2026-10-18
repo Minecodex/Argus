@@ -1,3 +1,6 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 @import "./styles-core.css";
+@import "./composer-interactions.css";
+@import "./command-activity.css";
+@import "./file-tree.css";

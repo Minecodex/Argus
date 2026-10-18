@@ -107,6 +107,8 @@ type HostWizardForm = {
   port: string;
   username: string;
   credentialId: string;
+  executionUsername: string;
+  executionSID: string;
 };
 
 export function AddHostWizard({
@@ -179,6 +181,8 @@ export function AddHostWizard({
           port: z.string(),
           username: z.string(),
           credentialId: z.string(),
+          executionUsername: z.string().max(256),
+          executionSID: z.string().max(184),
         })
         .superRefine((value, context) => {
           const issue = (
@@ -189,6 +193,13 @@ export function AddHostWizard({
             issue("architecture");
           if (mode.controlPath === "bastion_relay" && !value.scopeId)
             issue("scopeId");
+          if (
+            mode.installMethod === "manual" &&
+            value.executionUsername.trim() &&
+            value.platform === "windows" &&
+            !/^S-1-[0-9]+(-[0-9]+)+$/.test(value.executionSID.trim())
+          )
+            issue("executionSID", t("plan7.executionSIDInvalid"));
           if (mode.installMethod === "ssh") {
             if (!value.address.trim()) issue("address");
             const port = Number(value.port);
@@ -213,6 +224,8 @@ export function AddHostWizard({
       port: String(retryHost?.port || 22),
       username: "",
       credentialId: "",
+      executionUsername: "",
+      executionSID: "",
     },
   });
   const values = form.watch();
@@ -355,6 +368,16 @@ export function AddHostWizard({
         credential_id:
           mode.installMethod === "ssh" ? input.credentialId : undefined,
         connection_test_id: test?.id,
+        execution_account:
+          mode.installMethod === "manual" && input.executionUsername.trim()
+            ? {
+                username: input.executionUsername.trim(),
+                sid:
+                  input.platform === "windows"
+                    ? input.executionSID.trim()
+                    : undefined,
+              }
+            : undefined,
       };
       const action = retryHost
         ? await api.hosts.previewRetryResource(retryHost.id, request)
@@ -625,6 +648,31 @@ export function AddHostWizard({
                       placeholder={t("hosts.wizard.selectScope")}
                     />
                   </Field>
+                )}
+                {mode.installMethod === "manual" && (
+                  <>
+                    <Field
+                      label={t("plan7.executionAccount")}
+                      requirement="optional"
+                      hint={t("plan7.executionAccountHint")}
+                      error={form.formState.errors.executionUsername?.message}
+                    >
+                      <Input {...form.register("executionUsername")} />
+                    </Field>
+                    {values.platform === "windows" && (
+                      <Field
+                        label={t("plan7.executionSID")}
+                        requirement={
+                          values.executionUsername.trim()
+                            ? "required"
+                            : "optional"
+                        }
+                        error={form.formState.errors.executionSID?.message}
+                      >
+                        <Input {...form.register("executionSID")} />
+                      </Field>
+                    )}
+                  </>
                 )}
                 {mode.installMethod === "ssh" && (
                   <>

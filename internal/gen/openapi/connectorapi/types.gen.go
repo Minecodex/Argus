@@ -862,10 +862,13 @@ type ConnectorEnrollRequest struct {
 	Capabilities      []string                           `json:"capabilities"`
 	CsrPem            *string                            `json:"csr_pem,omitempty"`
 	DeviceFingerprint string                             `json:"device_fingerprint"`
-	InstanceId        string                             `json:"instance_id"`
-	Name              string                             `json:"name"`
-	Platform          ConnectorEnrollRequestPlatform     `json:"platform"`
-	SoftwareVersion   string                             `json:"software_version"`
+
+	// ExecutionAccount Connector 当前真实账号观测；仅与已批准接入计划中的显式账号匹配时建立执行绑定。
+	ExecutionAccount *HostExecutionAccount          `json:"execution_account,omitempty"`
+	InstanceId       string                         `json:"instance_id"`
+	Name             string                         `json:"name"`
+	Platform         ConnectorEnrollRequestPlatform `json:"platform"`
+	SoftwareVersion  string                         `json:"software_version"`
 }
 
 // ConnectorEnrollRequestArchitecture defines model for ConnectorEnrollRequest.Architecture.
@@ -962,6 +965,12 @@ type CursorPage struct {
 
 // Environment defines model for Environment.
 type Environment string
+
+// HostExecutionAccount defines model for HostExecutionAccount.
+type HostExecutionAccount struct {
+	Sid      *string `json:"sid,omitempty"`
+	Username string  `json:"username"`
+}
 
 // HostInstallMethod defines model for HostInstallMethod.
 type HostInstallMethod string

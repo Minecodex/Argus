@@ -2,6 +2,7 @@ package modelprovider
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -30,7 +31,10 @@ func (policy PublicEndpointPolicy) Validate(ctx context.Context, rawURL string) 
 		return nil, ErrEndpointNotAllowed
 	}
 	addresses, err := policy.lookup(ctx, parsed.Hostname())
-	if err != nil || len(addresses) == 0 {
+	if err != nil {
+		return nil, &endpointResolutionError{cause: err}
+	}
+	if len(addresses) == 0 {
 		return nil, fmt.Errorf("%w: DNS resolution failed", ErrEndpointNotAllowed)
 	}
 	for _, address := range addresses {
@@ -42,24 +46,44 @@ func (policy PublicEndpointPolicy) Validate(ctx context.Context, rawURL string) 
 }
 
 func (policy PublicEndpointPolicy) Client() *http.Client {
+	return policy.client(false)
+}
+
+func (policy PublicEndpointPolicy) ModelClient() *http.Client {
+	return policy.client(true)
+}
+
+func (policy PublicEndpointPolicy) client(modelStream bool) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
+	// Model prefill may delay even the first response headers. Ordinary
+	// requests retain Client.Timeout; streams use their own context budget.
+	transport.ResponseHeaderTimeout = DefaultStreamTimeout
 	configureE2EReplayTLS(transport)
+	// Clone may retain h2 in TLS ALPN even after Protocols is changed. Clear
+	// every negotiation path, while preserving roots and hostname verification.
+	if modelStream {
+		transport.Protocols = new(http.Protocols)
+		transport.Protocols.SetHTTP1(true)
+		transport.ForceAttemptHTTP2 = false
+		transport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
+		if transport.TLSClientConfig == nil {
+			transport.TLSClientConfig = &tls.Config{}
+		}
+		transport.TLSClientConfig.NextProtos = []string{"http/1.1"}
+	}
 	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
 		host, port, err := net.SplitHostPort(address)
 		if err != nil {
 			return nil, err
 		}
 		addresses, err := policy.lookup(ctx, host)
-		if err != nil || len(addresses) == 0 {
-			return nil, ErrEndpointNotAllowed
+		if err != nil {
+			return nil, &endpointResolutionError{cause: err}
 		}
-		for _, candidate := range addresses {
-			if !policy.allowedHost(host, candidate) {
-				return nil, ErrEndpointNotAllowed
-			}
-		}
-		return policy.Dialer.DialContext(ctx, network, net.JoinHostPort(addresses[0].String(), port))
+		return policy.dialValidatedAddresses(ctx, network, host, port, addresses, policy.Dialer.DialContext)
 	}
 	return &http.Client{
 		Transport: transport,

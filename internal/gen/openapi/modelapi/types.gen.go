@@ -68,6 +68,30 @@ func (e AIModelProtocol) Valid() bool {
 	}
 }
 
+// Defines values for AIModelTestCreateReasoningEffort.
+const (
+	AIModelTestCreateReasoningEffortHigh            AIModelTestCreateReasoningEffort = "high"
+	AIModelTestCreateReasoningEffortLow             AIModelTestCreateReasoningEffort = "low"
+	AIModelTestCreateReasoningEffortMax             AIModelTestCreateReasoningEffort = "max"
+	AIModelTestCreateReasoningEffortProviderDefault AIModelTestCreateReasoningEffort = "provider_default"
+)
+
+// Valid indicates whether the value is a known member of the AIModelTestCreateReasoningEffort enum.
+func (e AIModelTestCreateReasoningEffort) Valid() bool {
+	switch e {
+	case AIModelTestCreateReasoningEffortHigh:
+		return true
+	case AIModelTestCreateReasoningEffortLow:
+		return true
+	case AIModelTestCreateReasoningEffortMax:
+		return true
+	case AIModelTestCreateReasoningEffortProviderDefault:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AIModelTestResultChecksName.
 const (
 	Basic            AIModelTestResultChecksName = "basic"
@@ -110,6 +134,30 @@ func (e AIModelTestResultChecksStatus) Valid() bool {
 	}
 }
 
+// Defines values for AIModelUpdateReasoningEffort.
+const (
+	AIModelUpdateReasoningEffortHigh            AIModelUpdateReasoningEffort = "high"
+	AIModelUpdateReasoningEffortLow             AIModelUpdateReasoningEffort = "low"
+	AIModelUpdateReasoningEffortMax             AIModelUpdateReasoningEffort = "max"
+	AIModelUpdateReasoningEffortProviderDefault AIModelUpdateReasoningEffort = "provider_default"
+)
+
+// Valid indicates whether the value is a known member of the AIModelUpdateReasoningEffort enum.
+func (e AIModelUpdateReasoningEffort) Valid() bool {
+	switch e {
+	case AIModelUpdateReasoningEffortHigh:
+		return true
+	case AIModelUpdateReasoningEffortLow:
+		return true
+	case AIModelUpdateReasoningEffortMax:
+		return true
+	case AIModelUpdateReasoningEffortProviderDefault:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AIModelUpdateStatus.
 const (
 	AIModelUpdateStatusDisabled AIModelUpdateStatus = "disabled"
@@ -122,6 +170,48 @@ func (e AIModelUpdateStatus) Valid() bool {
 	case AIModelUpdateStatusDisabled:
 		return true
 	case AIModelUpdateStatusEnabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelCapabilitiesOutputTokenParameter.
+const (
+	MaxCompletionTokens ModelCapabilitiesOutputTokenParameter = "max_completion_tokens"
+	MaxOutputTokens     ModelCapabilitiesOutputTokenParameter = "max_output_tokens"
+	MaxTokens           ModelCapabilitiesOutputTokenParameter = "max_tokens"
+)
+
+// Valid indicates whether the value is a known member of the ModelCapabilitiesOutputTokenParameter enum.
+func (e ModelCapabilitiesOutputTokenParameter) Valid() bool {
+	switch e {
+	case MaxCompletionTokens:
+		return true
+	case MaxOutputTokens:
+		return true
+	case MaxTokens:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelCapabilitiesReasoningEffort.
+const (
+	ModelCapabilitiesReasoningEffortHigh ModelCapabilitiesReasoningEffort = "high"
+	ModelCapabilitiesReasoningEffortLow  ModelCapabilitiesReasoningEffort = "low"
+	ModelCapabilitiesReasoningEffortMax  ModelCapabilitiesReasoningEffort = "max"
+)
+
+// Valid indicates whether the value is a known member of the ModelCapabilitiesReasoningEffort enum.
+func (e ModelCapabilitiesReasoningEffort) Valid() bool {
+	switch e {
+	case ModelCapabilitiesReasoningEffortHigh:
+		return true
+	case ModelCapabilitiesReasoningEffortLow:
+		return true
+	case ModelCapabilitiesReasoningEffortMax:
 		return true
 	default:
 		return false
@@ -235,7 +325,13 @@ type AIModelTestCreate struct {
 	ModelId               string          `json:"model_id"`
 	Name                  string          `json:"name"`
 	OutputPricePerMillion float32         `json:"output_price_per_million"`
+
+	// ReasoningEffort Optional Chat Completions reasoning strength; compatibility-tested and frozen per model revision.
+	ReasoningEffort *AIModelTestCreateReasoningEffort `json:"reasoning_effort,omitempty"`
 }
+
+// AIModelTestCreateReasoningEffort Optional Chat Completions reasoning strength; compatibility-tested and frozen per model revision.
+type AIModelTestCreateReasoningEffort string
 
 // AIModelTestResult defines model for AIModelTestResult.
 type AIModelTestResult struct {
@@ -256,18 +352,24 @@ type AIModelTestResultChecksStatus string
 
 // AIModelUpdate defines model for AIModelUpdate.
 type AIModelUpdate struct {
-	ApiKey                *string              `json:"api_key,omitempty"`
-	ApiProtocol           *AIModelProtocol     `json:"api_protocol,omitempty"`
-	BaseUrl               *string              `json:"base_url,omitempty"`
-	ContextWindowTokens   *int                 `json:"context_window_tokens,omitempty"`
-	ExpectedVersion       int64                `json:"expected_version"`
-	InputPricePerMillion  *float32             `json:"input_price_per_million,omitempty"`
-	MaxOutputTokens       *int                 `json:"max_output_tokens,omitempty"`
-	ModelId               *string              `json:"model_id,omitempty"`
-	Name                  *string              `json:"name,omitempty"`
-	OutputPricePerMillion *float32             `json:"output_price_per_million,omitempty"`
-	Status                *AIModelUpdateStatus `json:"status,omitempty"`
+	ApiKey                *string          `json:"api_key,omitempty"`
+	ApiProtocol           *AIModelProtocol `json:"api_protocol,omitempty"`
+	BaseUrl               *string          `json:"base_url,omitempty"`
+	ContextWindowTokens   *int             `json:"context_window_tokens,omitempty"`
+	ExpectedVersion       int64            `json:"expected_version"`
+	InputPricePerMillion  *float32         `json:"input_price_per_million,omitempty"`
+	MaxOutputTokens       *int             `json:"max_output_tokens,omitempty"`
+	ModelId               *string          `json:"model_id,omitempty"`
+	Name                  *string          `json:"name,omitempty"`
+	OutputPricePerMillion *float32         `json:"output_price_per_million,omitempty"`
+
+	// ReasoningEffort Omit to preserve the existing strength; provider_default clears the override in a new revision.
+	ReasoningEffort *AIModelUpdateReasoningEffort `json:"reasoning_effort,omitempty"`
+	Status          *AIModelUpdateStatus          `json:"status,omitempty"`
 }
+
+// AIModelUpdateReasoningEffort Omit to preserve the existing strength; provider_default clears the override in a new revision.
+type AIModelUpdateReasoningEffort string
 
 // AIModelUpdateStatus defines model for AIModelUpdate.Status.
 type AIModelUpdateStatus string
@@ -309,12 +411,21 @@ type IdempotencyKey = string
 
 // ModelCapabilities defines model for ModelCapabilities.
 type ModelCapabilities struct {
-	ContextWindowTokens          int         `json:"context_window_tokens"`
-	MaxOutputTokens              int         `json:"max_output_tokens"`
-	ProviderCompactionCapability interface{} `json:"provider_compaction_capability"`
-	SupportsStructuredOutput     bool        `json:"supports_structured_output"`
-	SupportsToolCalling          bool        `json:"supports_tool_calling"`
+	ContextWindowTokens          int                                    `json:"context_window_tokens"`
+	MaxOutputTokens              int                                    `json:"max_output_tokens"`
+	OutputTokenParameter         *ModelCapabilitiesOutputTokenParameter `json:"output_token_parameter,omitempty"`
+	ProviderCompactionCapability interface{}                            `json:"provider_compaction_capability"`
+	ReasoningEffort              *ModelCapabilitiesReasoningEffort      `json:"reasoning_effort,omitempty"`
+	SupportsStreaming            *bool                                  `json:"supports_streaming,omitempty"`
+	SupportsStructuredOutput     bool                                   `json:"supports_structured_output"`
+	SupportsToolCalling          bool                                   `json:"supports_tool_calling"`
 }
+
+// ModelCapabilitiesOutputTokenParameter defines model for ModelCapabilities.OutputTokenParameter.
+type ModelCapabilitiesOutputTokenParameter string
+
+// ModelCapabilitiesReasoningEffort defines model for ModelCapabilities.ReasoningEffort.
+type ModelCapabilitiesReasoningEffort string
 
 // ModelQuota defines model for ModelQuota.
 type ModelQuota struct {

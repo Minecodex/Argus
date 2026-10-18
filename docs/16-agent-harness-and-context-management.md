@@ -1,5 +1,7 @@
 # Agent Harness 与上下文管理
 
+> 2026-10-18：新增持久化 request_user_input 暂停点及 workflow.plan.propose。提问时停止后续工具派发并释放 Worker；答复后以同一工具调用记录恢复，撤销同批尚未派发的旧决策，再让 ReAct 消费真实答复。计划确认创建新的 execute Run，不可变 Markdown 计划、一次性步骤 ID 和执行事实随恢复与压缩重新注入；操作权限在每个 Preview 创建时冻结，切换不追溯旧请求。见 [Markdown 计划与命令授权](./plan7/18-markdown-plan-command-consent.md)。
+
 ## 1. 目标与模板选择
 
 Argus 第一版 Agent Harness 采用小内核设计，核心循环参考 Pi `agent-core`，上下文压缩参考 Pi Coding Agent 的 Compaction 模块，但不复制完整 Coding Agent、终端 UI、文件追踪或 Session Tree。
@@ -35,11 +37,11 @@ Agent Harness 不负责：
 - 把模型摘要当作授权、审批、执行计划或业务状态事实。
 - 用内存对话维持唯一 Run 状态。
 
-### Plan7 的执行场景与恢复扩展（待实现）
+### Plan7 的执行场景与恢复扩展（已实现并验收）
 
 [Plan7](./plan7/README.md)新增 connect 远程请求和固定计划批准，模型集合在可用时增加一个核心入口。Harness 仍不直接消费私有批准 Token 或执行 Commit，也不成为资源权限与凭据的最终边界。
 
-现有动作完成后的 VerificationOnly 限制会同时禁止 Workspace write/edit/bash，并阻断同一 Run 继续申请远程取证。Plan7 必须改成由持久执行阶段与服务端工具来源共同决定允许能力：Workspace 可继续离线分析；平台新变更继续 Preview；新远程请求只能生成待确认对象；获批计划由执行器推进固定步骤。
+原 VerificationOnly 一刀切限制已由持久执行阶段与服务端工具来源共同判断替代：Workspace 可继续离线分析；平台新变更继续 Preview；普通远程请求按创建时权限策略确认；已批准 Markdown 命令由 Harness 使用 approved_step_id 发起普通 connect，服务端加载冻结脚本并复核权限、前置步骤和上下文。执行记录按会话事件顺序展示，不挂载到计划卡片。真实模型、压缩恢复和并发上下文验收见 [Plan7 报告](./plan7/09-acceptance-report.md)。
 
 RunCheckpoint 应引用准确的请求、计划版本、步骤、批准状态和结果，不把模型摘要当授权或重试依据。远端结果未知不得自动重放；计划修订、取消与新 Run 的关系须显式持久化。任务与待决项见 [Plan7 开发计划](./plan7/03-development-plan.md)。
 
@@ -263,8 +265,9 @@ context_window_tokens - reserved_output_tokens - safety_margin_tokens
 
 - 使用 Provider Tokenizer 时优先精确计算；不可用时采用保守估算。
 - 按 Token 保留最近内容，不按固定消息条数。
-- 切点必须位于完整 Turn 边界，不能拆开 ToolCall/ToolResult、PendingAction 创建/确认或同一执行状态组。
-- 最新用户输入、当前等待事项、未完成 ToolCall 和活动 PendingAction 不进入旧历史摘要。
+- 软阈值及手动压缩优先采用完整用户 Turn 边界。硬阈值下旧轮次已不足以释放预算时，允许在当前长任务的完整 ToolCall/ToolResult 组之后截断；不能拆开并行调用组或越过仍活动的 PendingAction 创建事件。
+- 当前 Run 的原始用户要求和所有修改意见从不可变 Event Ledger 按原顺序重建为用户消息，不能用摘要中的转述代替。附件在重建时按当前 Workspace 和权限复验；其他 Run 的旧要求只保留历史语义，不重新变成当前指令。
+- 当前等待事项、未完成 ToolCall、活动 PendingAction 及执行结果仍由服务端事实投影重建；摘要不能产生批准、恢复权限或重放副作用。切点、原文来源范围及实际模型请求 Hash 共同记录来源。
 - 单个最新用户输入本身超过预算时返回稳定错误并引导使用文件/Artifact，不能静默截断用户请求。
 - 消息接受、Agent 与 Compactor 使用同一预算实现。不可压缩的工具/系统/当前输入必须严格小于 `floor(usable × 0.85)`；达到阈值时在创建 Run/Task 前返回 `MODEL_TOOL_CAPACITY_EXCEEDED`，不能接受后再因无历史可压缩而失败。
 - System Prompt、Tool Schema、Typed Checkpoint、摘要和最近历史分别记录预算占用。

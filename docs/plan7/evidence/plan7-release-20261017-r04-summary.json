@@ -1,0 +1,94 @@
+{
+  "plan": "Plan7",
+  "run_id": "plan7-release-20261017-r04",
+  "status": "completed",
+  "scope": "independent GLM-5.3 release regression and local deployment; APIMart acceptance remains failed",
+  "accepted_at": "2026-10-17T19:50:03.0875287+08:00",
+  "source_fingerprint": "1bfaa8486b974c54fc674920826677e2c855cebf1c25c294fef7c5ed3678a7e3",
+  "source_files": 2633,
+  "source_unchanged": true,
+  "artifact_root": "../../../build/plan7-evidence/plan7-release-20261017-r04",
+  "required_cases": 57,
+  "passed_cases": 57,
+  "named_go_checks": 104,
+  "verified_proof_files": 45,
+  "browser": {
+    "passed": 19,
+    "skipped": 0,
+    "flaky": 0,
+    "failed": 0
+  },
+  "model": {
+    "scope": "Independent release regression Agent inference and compaction; excludes registration probes and failed APIMart rounds",
+    "model": "glm-5.3",
+    "calls": 82,
+    "inference_calls": 80,
+    "compaction_calls": 2,
+    "succeeded": 82,
+    "failed": 0,
+    "input_tokens": 962545,
+    "output_tokens": 85378,
+    "cached_input_tokens": 289984,
+    "max_latency_ms": 97908,
+    "provider_usage_complete": true,
+    "quota_settled": true
+  },
+  "local_release": {
+    "original_pvcs": 9,
+    "helm": {
+      "data": 12,
+      "sandbox": 11,
+      "platform": 28
+    },
+    "business_tables": 12,
+    "runtime_bindings": 6,
+    "running_image_verified_workloads": 10,
+    "original_workloads": 27,
+    "manifest_verified": true,
+    "schema_version": 16,
+    "status": "completed",
+    "original_business_ids": 25,
+    "artifact_downloads_verified": 8,
+    "health_passed": true,
+    "health_checks": 20,
+    "business_secrets": 39
+  },
+  "apimart": {
+    "model": "glm-5.3-flash",
+    "workflow_verified": false,
+    "temporary_key_removed": true,
+    "attempts": 3,
+    "status": "failed"
+  },
+  "closed_findings": [
+    "P7-R01",
+    "P7-R02",
+    "P7-R03",
+    "P7-R04"
+  ],
+  "windows_scope": "Windows 11 Pro",
+  "windows_server_validation": "not_validated",
+  "hashes": {
+    "matrix": "c255467a94b7d501544c3069f797ba15861207c9750881f8b561e6d0b135888b",
+    "release_images": "16a172a4805bd65cc2cd96126e3c817105b042b5da0f8cbcb8c1de5bfffef5b3",
+    "runtime_proof": "957e4e85c20ca7ea92a9254f23523195b6743063e7b3765113e5692b9bdf8849",
+    "artifact_downloads": "542864c522c034f6d00efe1a0ea42db81806fec157c4865639b3bda5f394656c",
+    "source_after": "d4bafd47afa5cf42a3eb7e31b78e27e0714f132e6b7e307d728d641d42ba8152",
+    "preservation": "46fb64af3b5d7b79363090dfeb6bcbd276cd2fc5cbfcad014df1db0e0f9cfb0d",
+    "cleanup": "ca9cb6263e9a2ff988bf2eb38f96ce622b5a6fc74fc1664862d4d1a692161b6f",
+    "health": "ac9a50d6d3f37435b90ba9adbd85be62954054e67992da72fe66995b70b7dc14"
+  },
+  "documentation_validation": {
+    "checked_at": "2026-10-17T19:52:25.5261304+08:00",
+    "status": "passed",
+    "utf8_markdown_files": 17,
+    "local_links_checked": 182,
+    "completed_core_tasks": 9,
+    "apimart_status": "failed",
+    "accepted_source_files_rechecked": 2633,
+    "changed_code_files": 306,
+    "maximum_changed_source_lines": 1885,
+    "largest_changed_source_file": "web/packages/api-client/src/adapters/real.ts",
+    "issues": []
+  }
+}

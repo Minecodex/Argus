@@ -148,10 +148,14 @@ func (a *App) runM3Scenario(ctx context.Context, env *E2EEnvironment) error {
 	return a.refreshEnterpriseLogin(ctx, env)
 }
 
-func (a *App) createM3InCluster(ctx context.Context, env *E2EEnvironment) (string, error) {
+func (a *App) createM3InCluster(ctx context.Context, env *E2EEnvironment, namespaces ...string) (string, error) {
+	namespace := "default"
+	if len(namespaces) > 0 {
+		namespace = namespaces[0]
+	}
 	client, _ := scenarioHTTP(env)
 	preview, err := client.JSON(ctx, "m3-in-cluster-preview", "enterprise", http.MethodPost, "/enterprise/kubernetes-clusters/actions/preview-create", http.StatusCreated,
-		map[string]any{"name": "m3-in-cluster", "api_server": "https://kubernetes.default.svc", "connection_mode": "in_cluster", "default_namespace": "default", "environment": "production", "labels": map[string]string{"team": "m3", "route": "in-cluster"}}, enterpriseHeaders(env, "m3-in-cluster"))
+		map[string]any{"name": "m3-in-cluster", "api_server": "https://kubernetes.default.svc", "connection_mode": "in_cluster", "default_namespace": namespace, "environment": "production", "labels": map[string]string{"team": "m3", "route": "in-cluster"}}, enterpriseHeaders(env, "m3-in-cluster"))
 	if err != nil {
 		return "", err
 	}

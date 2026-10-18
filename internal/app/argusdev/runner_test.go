@@ -50,6 +50,9 @@ func TestProcessStopIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	first := process.Stop(2 * time.Second)
+	if first != nil {
+		t.Fatal("explicitly stopped process was reported as a crash", first)
+	}
 	started := time.Now()
 	second := process.Stop(2 * time.Second)
 	if time.Since(started) > 250*time.Millisecond {
@@ -57,6 +60,26 @@ func TestProcessStopIsIdempotent(t *testing.T) {
 	}
 	if fmt.Sprint(first) != fmt.Sprint(second) {
 		t.Fatalf("Process.Stop results differ: %v and %v", first, second)
+	}
+}
+
+func TestProcessStopPreservesObservedCrashWithoutWaitingTwice(t *testing.T) {
+	runner := Runner{Dir: t.TempDir(), Stdout: io.Discard, Stderr: io.Discard}
+	process, err := runner.Start(map[string]string{"ARGUS_DEV_HELPER_MODE": "crash"}, io.Discard, io.Discard, os.Args[0], "-test.run=TestRunnerHelperProcess")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = <-process.Done(); err == nil {
+		t.Fatal("helper should have failed")
+	}
+	// Stop must use cached completion even after a caller consumed Done.
+	<-process.exited
+	started := time.Now()
+	if err = process.Stop(time.Second); err == nil {
+		t.Fatal("pre-existing crash was hidden")
+	}
+	if time.Since(started) > 250*time.Millisecond {
+		t.Fatal("Stop waited for a consumed completion")
 	}
 }
 
@@ -80,6 +103,8 @@ func TestRunnerHelperProcess(t *testing.T) {
 	switch os.Getenv("ARGUS_DEV_HELPER_MODE") {
 	case "exit":
 		return
+	case "crash":
+		os.Exit(7)
 	case "wait":
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, os.Interrupt)

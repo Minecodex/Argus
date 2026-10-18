@@ -1,6 +1,6 @@
 # 验收矩阵
 
-日期：2026-10-15。状态：全部未运行。所有 required 项均需在实现版本上产生证据。Q15～Q24 已明确，包含跨聊天同资源并发不排队，以及只注入模型上下文、不进入聊天 UI 的并发事实。
+创建日期：2026-10-15。当前源码 plan7-release-20261017-r04 的独立 GLM-5.3 完整冻结回归通过全部 57 项矩阵、104 项具名检查及 19 项浏览器；本地发布完成。追加 APIMart 三轮未整体通过，不将其计作通过。见[当前结果](./13-local-release-result.md)及[最新矩阵](./evidence/plan7-release-20261017-r04-matrix.json)。原 F40 证据保留为历史基线。
 
 ## 功能、权限与恢复
 
@@ -76,5 +76,5 @@
 3. 成功链路必须关联 conversation/run/tool_call/action/plan_revision/step/execution/connector_command、批准主体、目标、命令 Hash、输出引用与真实状态。
 4. 模型限流、认证／网络失败、额度或上下文问题须按实际原因记录，不用模拟结果补通过，不隐式切换未授权模型。
 5. 临时 namespace 与测试主机／集群明确标注所有权；清理前核对 UID。停止既有服务前快照副本、PVC 和健康，结束后恢复核对。
-6. Linux、Kubernetes、Windows PowerShell 都是 required；Windows 使用真实 Windows Server 测试主机／VM，不能以 Linux fixture、交叉编译或「不支持」响应记为通过。远程效果不可撤回时，取消／超时结果不得伪装成已回滚。
-7. 当前没有任何 Plan7 通过证据。完成后更新 implementation-status.md 与 progress.json，并保存原始日志而非只有结论截图。
+6. Linux、Kubernetes、Windows PowerShell 都是 required。按 2026-10-16 用户确认，Linux 使用本地 Docker 内的真实 SSH/systemd 路径，Windows 使用本机 Windows 11 的独立测试 Connector/执行进程与临时目录；Windows Server 兼容性单独保留待验证。不能以交叉编译或「不支持」响应记为通过。远程效果不可撤回时，取消／超时结果不得伪装成已回滚。
+7. 当前独立发布冻结版本 R04 通过本页 57 项矩阵，45 份引用证据及源码指纹已复核；新增修复及 APIMart 未通过范围见当前结果。复查发现的文件类型标注和原环境前置快照存证两项问题已修复并在该轮闭环，见[复查记录](./10-completion-review.md)。

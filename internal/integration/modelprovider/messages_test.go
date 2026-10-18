@@ -56,7 +56,7 @@ func TestMalformedToolHistoryRejectedBeforeRequest(t *testing.T) {
 		{{Role: "tool", ToolCallID: "missing", Content: "{}"}},
 		{{Role: "assistant", ToolCalls: []ToolCall{{ID: "x", Name: "tool.invoke", Arguments: "{}"}}}},
 		{{Role: "user", ToolCalls: []ToolCall{{ID: "x", Name: "tool.invoke", Arguments: "{}"}}}},
-		{{Role: "assistant", ToolCalls: []ToolCall{{ID: "x", Name: "tool.invoke", Arguments: "{"}}}, {Role: "tool", ToolCallID: "x", Content: "{}"}},
+		{{Role: "assistant", ToolCalls: []ToolCall{{ID: "x", Name: "", Arguments: "{}"}}}, {Role: "tool", ToolCallID: "x", Content: "{}"}},
 	} {
 		if _, err := encodeMessages(ProtocolChatCompletions, messages); err == nil {
 			t.Fatalf("malformed history accepted: %#v", messages)

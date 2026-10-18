@@ -88,6 +88,20 @@ export function installAgentDomains(context: RealDomainContext): void {
     context;
 
   client.conversations = {
+    async updateAccessMode(id, access_mode) {
+      return remember(await http.request<ConversationContract>(`conversations/${id}`, {
+        method: "PUT", csrf: true, body: { access_mode, expected_version: expectedVersion(id) },
+      }));
+    },
+    async updateMode(id, mode) {
+      return remember(
+        await http.request<ConversationContract>(`conversations/${id}`, {
+          method: "PUT",
+          csrf: true,
+          body: { mode, expected_version: expectedVersion(id) },
+        }),
+      );
+    },
     dashboardContext: (id) =>
       http.request(`conversations/${id}/dashboard-context`),
     async remove(id) {

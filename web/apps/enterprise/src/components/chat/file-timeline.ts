@@ -30,6 +30,7 @@ export function fileEntryFromEvent(
   )
     return null;
   const payload = event.payload as Record<string, unknown>;
+  if (payload.metadata_index === true) return null;
   const delivery = event.event_type === "artifact_published";
   const file = fileFromPublic(delivery ? payload.artifact : payload.file);
   if (!file) return null;

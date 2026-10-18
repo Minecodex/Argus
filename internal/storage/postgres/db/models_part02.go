@@ -6,6 +6,64 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type RemoteAccessRecording struct {
+	ID             uuid.UUID          `json:"id"`
+	EnterpriseID   uuid.UUID          `json:"enterprise_id"`
+	SessionID      uuid.UUID          `json:"session_id"`
+	Status         string             `json:"status"`
+	Format         string             `json:"format"`
+	KeyProvider    string             `json:"key_provider"`
+	KeyID          string             `json:"key_id"`
+	KeyVersion     int32              `json:"key_version"`
+	WrappedDek     []byte             `json:"wrapped_dek"`
+	ChunkCount     int32              `json:"chunk_count"`
+	EventCount     int64              `json:"event_count"`
+	SizeBytes      int64              `json:"size_bytes"`
+	DurationMs     int64              `json:"duration_ms"`
+	FinalHash      []byte             `json:"final_hash"`
+	RetentionUntil pgtype.Timestamptz `json:"retention_until"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+}
+
+type RemoteAccessRecordingChunk struct {
+	RecordingID    uuid.UUID          `json:"recording_id"`
+	Sequence       int64              `json:"sequence"`
+	ObjectKey      string             `json:"object_key"`
+	Nonce          []byte             `json:"nonce"`
+	CiphertextSize int64              `json:"ciphertext_size"`
+	EventCount     int32              `json:"event_count"`
+	StartedAt      pgtype.Timestamptz `json:"started_at"`
+	EndedAt        pgtype.Timestamptz `json:"ended_at"`
+	PreviousHash   []byte             `json:"previous_hash"`
+	ChunkHash      []byte             `json:"chunk_hash"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type RemoteAccessRequest struct {
+	ID                    uuid.UUID          `json:"id"`
+	EnterpriseID          uuid.UUID          `json:"enterprise_id"`
+	RequesterID           uuid.UUID          `json:"requester_id"`
+	GrantID               uuid.UUID          `json:"grant_id"`
+	HostID                uuid.UUID          `json:"host_id"`
+	ManagedAccountID      uuid.UUID          `json:"managed_account_id"`
+	Protocol              string             `json:"protocol"`
+	Action                string             `json:"action"`
+	Reason                string             `json:"reason"`
+	Status                string             `json:"status"`
+	AuthorizationVersion  int64              `json:"authorization_version"`
+	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	DecisionOutcome       pgtype.Text        `json:"decision_outcome"`
+	DecisionReasonCodes   []byte             `json:"decision_reason_codes"`
+	DecisionSnapshot      []byte             `json:"decision_snapshot"`
+	DecisionSnapshotHash  []byte             `json:"decision_snapshot_hash"`
+	MatchedGrantSnapshots []byte             `json:"matched_grant_snapshots"`
+	MatchedRuleSnapshots  []byte             `json:"matched_rule_snapshots"`
+	DecisionAt            pgtype.Timestamptz `json:"decision_at"`
+}
+
 type RemoteAccessRequirementSnapshot struct {
 	ID                    uuid.UUID          `json:"id"`
 	RequestID             uuid.UUID          `json:"request_id"`
@@ -139,6 +197,147 @@ type RemoteAccessTicket struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
+type RemoteExecutionContextObservation struct {
+	ModelCallID          uuid.UUID          `json:"model_call_id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	RunID                uuid.UUID          `json:"run_id"`
+	AuthorizationVersion int64              `json:"authorization_version"`
+	ProjectionHash       []byte             `json:"projection_hash"`
+	Activity             []byte             `json:"activity"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type RemoteExecutionDirectCommand struct {
+	ID               uuid.UUID          `json:"id"`
+	CommandID        string             `json:"command_id"`
+	EnterpriseID     uuid.UUID          `json:"enterprise_id"`
+	IdentityID       uuid.UUID          `json:"identity_id"`
+	SessionID        uuid.UUID          `json:"session_id"`
+	Generation       uuid.UUID          `json:"generation"`
+	CommandType      string             `json:"command_type"`
+	Payload          []byte             `json:"payload"`
+	PayloadHash      []byte             `json:"payload_hash"`
+	Status           string             `json:"status"`
+	OwnerInstance    string             `json:"owner_instance"`
+	Result           []byte             `json:"result"`
+	ErrorCode        string             `json:"error_code"`
+	DispatchRejected bool               `json:"dispatch_rejected"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RemoteExecutionDirectWorker struct {
+	ID         string             `json:"id"`
+	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
+}
+
+type RemoteExecutionFile struct {
+	ID               uuid.UUID          `json:"id"`
+	EnterpriseID     uuid.UUID          `json:"enterprise_id"`
+	RequestID        uuid.UUID          `json:"request_id"`
+	SessionID        uuid.NullUUID      `json:"session_id"`
+	Direction        string             `json:"direction"`
+	Path             string             `json:"path"`
+	ByteSize         int64              `json:"byte_size"`
+	ContentHash      string             `json:"content_hash"`
+	ObjectKey        string             `json:"object_key"`
+	Status           string             `json:"status"`
+	TransferredBytes int64              `json:"transferred_bytes"`
+	SourceRef        string             `json:"source_ref"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type RemoteExecutionGeneration struct {
+	SessionID    uuid.UUID          `json:"session_id"`
+	Generation   uuid.UUID          `json:"generation"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	Status       string             `json:"status"`
+	LastActiveAt pgtype.Timestamptz `json:"last_active_at"`
+	DirectOwner  string             `json:"direct_owner"`
+}
+
+type RemoteExecutionIdentity struct {
+	ID                uuid.UUID          `json:"id"`
+	EnterpriseID      uuid.UUID          `json:"enterprise_id"`
+	ResourceType      string             `json:"resource_type"`
+	ResourceID        uuid.UUID          `json:"resource_id"`
+	Username          string             `json:"username"`
+	IdentitySid       string             `json:"identity_sid"`
+	Platform          string             `json:"platform"`
+	CredentialID      uuid.NullUUID      `json:"credential_id"`
+	CredentialVersion int64              `json:"credential_version"`
+	ConnectorID       uuid.NullUUID      `json:"connector_id"`
+	BindingSource     string             `json:"binding_source"`
+	ResourceVersion   int64              `json:"resource_version"`
+	Version           int64              `json:"version"`
+	Status            string             `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type RemoteExecutionRequest struct {
+	ID                   uuid.UUID          `json:"id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	ConversationID       uuid.UUID          `json:"conversation_id"`
+	OwnerUserID          uuid.UUID          `json:"owner_user_id"`
+	RunID                uuid.UUID          `json:"run_id"`
+	ToolCallID           uuid.UUID          `json:"tool_call_id"`
+	Kind                 string             `json:"kind"`
+	Revision             int32              `json:"revision"`
+	SupersedesID         uuid.NullUUID      `json:"supersedes_id"`
+	RecoveryOfID         uuid.NullUUID      `json:"recovery_of_id"`
+	ActionRef            string             `json:"action_ref"`
+	ContentHash          string             `json:"content_hash"`
+	Spec                 []byte             `json:"spec"`
+	Status               string             `json:"status"`
+	StopRequested        bool               `json:"stop_requested"`
+	StopStatus           string             `json:"stop_status"`
+	CurrentStep          int32              `json:"current_step"`
+	AuthorizationVersion int64              `json:"authorization_version"`
+	ErrorCode            string             `json:"error_code"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RemoteExecutionSession struct {
+	ID                 uuid.UUID          `json:"id"`
+	EnterpriseID       uuid.UUID          `json:"enterprise_id"`
+	ConversationID     uuid.UUID          `json:"conversation_id"`
+	OwnerUserID        uuid.UUID          `json:"owner_user_id"`
+	ResourceType       string             `json:"resource_type"`
+	ResourceID         uuid.UUID          `json:"resource_id"`
+	IdentityID         uuid.UUID          `json:"identity_id"`
+	IdentityVersion    int64              `json:"identity_version"`
+	Interpreter        string             `json:"interpreter"`
+	Target             []byte             `json:"target"`
+	TargetHash         string             `json:"target_hash"`
+	Generation         uuid.UUID          `json:"generation"`
+	ContextRevision    int64              `json:"context_revision"`
+	CompletedSequence  int64              `json:"completed_sequence"`
+	Status             string             `json:"status"`
+	KnownDirectory     string             `json:"known_directory"`
+	RuntimeAccount     string             `json:"runtime_account"`
+	InterpreterVersion string             `json:"interpreter_version"`
+	ActiveRequestID    uuid.NullUUID      `json:"active_request_id"`
+	LastActiveAt       pgtype.Timestamptz `json:"last_active_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type RemoteExecutionStep struct {
+	ID           uuid.UUID          `json:"id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	RequestID    uuid.UUID          `json:"request_id"`
+	SessionID    uuid.UUID          `json:"session_id"`
+	Generation   uuid.UUID          `json:"generation"`
+	Sequence     int32              `json:"sequence"`
+	Status       string             `json:"status"`
+	CommandID    string             `json:"command_id"`
+	Result       []byte             `json:"result"`
+	StartedAt    pgtype.Timestamptz `json:"started_at"`
+	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Role struct {
 	ID           uuid.UUID          `json:"id"`
 	EnterpriseID uuid.UUID          `json:"enterprise_id"`
@@ -191,6 +390,9 @@ type Run struct {
 	Version              int64              `json:"version"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	ModeSnapshot         string             `json:"mode_snapshot"`
+	AccessModeSnapshot   string             `json:"access_mode_snapshot"`
+	ApprovedPlanID       uuid.NullUUID      `json:"approved_plan_id"`
 }
 
 type RunStep struct {
@@ -621,6 +823,7 @@ type UserConfirmation struct {
 	ActorUserID          uuid.UUID          `json:"actor_user_id"`
 	AuthorizationVersion int64              `json:"authorization_version"`
 	ConfirmedAt          pgtype.Timestamptz `json:"confirmed_at"`
+	Source               string             `json:"source"`
 }
 
 type Workspace struct {
@@ -666,6 +869,16 @@ type WorkspaceQuota struct {
 	LimitBytes    int64              `json:"limit_bytes"`
 	ReservedBytes int64              `json:"reserved_bytes"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkspaceResultArtifact struct {
+	WorkspaceID     uuid.UUID          `json:"workspace_id"`
+	EnterpriseID    uuid.UUID          `json:"enterprise_id"`
+	ArtifactID      uuid.UUID          `json:"artifact_id"`
+	Path            string             `json:"path"`
+	Metadata        []byte             `json:"metadata"`
+	WorkspaceFileID uuid.NullUUID      `json:"workspace_file_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type WorkspaceUpload struct {

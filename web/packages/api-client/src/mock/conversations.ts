@@ -88,6 +88,8 @@ function publicConversation(value: MockConversationRecord): Conversation {
     id: value.id,
     title: value.title,
     selected_model_id: value.selectedModelId,
+    mode: value.mode ?? "execute",
+    access_mode: value.accessMode ?? "request_approval",
     selected_mcp_connection_ids: value.selectedMCPConnectionIds ?? [],
     status: value.status,
     version: value.version ?? 1,
@@ -208,6 +210,45 @@ export function createConversationsDomain(
   const { db } = ctx;
 
   return {
+    async updateAccessMode(id, mode) {
+      const c = ctx.mustFind(
+        db.conversations,
+        (item) =>
+          item.id === id &&
+          item.enterpriseId === ctx.enterpriseId() &&
+          item.createdBy === ctx.actor().id,
+        "conversation",
+      );
+      c.accessMode = mode;
+      c.version = (c.version ?? 1) + 1;
+      ctx.save();
+      return publicConversation(c);
+    },
+    async updateMode(id, mode) {
+      const c = ctx.mustFind(
+        db.conversations,
+        (item) =>
+          item.id === id &&
+          item.enterpriseId === ctx.enterpriseId() &&
+          item.createdBy === ctx.actor().id,
+        "conversation",
+      );
+      c.mode = mode;
+      c.version = (c.version ?? 1) + 1;
+      ctx.save();
+      return {
+        id: c.id,
+        title: c.title,
+        selected_model_id: c.selectedModelId,
+        selected_mcp_connection_ids: c.selectedMCPConnectionIds ?? [],
+        mode,
+        access_mode: c.accessMode ?? "request_approval",
+        status: c.status,
+        version: c.version,
+        created_at: c.createdAt,
+        updated_at: c.lastMessageAt,
+      };
+    },
     async remove(id) {
       const item = ctx.mustFind(
         db.conversations,
@@ -344,11 +385,35 @@ export function createConversationsDomain(
     },
     async listEvents(conversationId) {
       await ctx.pause();
-      return db.messages
+      const messages = db.messages
         .filter((entry) => entry.conversationId === conversationId)
         .map((message, index) =>
           conversationEvent(ctx.enterpriseId(), message, index + 1),
         );
+      const controls: ConversationEvent[] = (db.interactions ?? [])
+        .filter((item) => item.conversation_id === conversationId)
+        .map((item) => ({
+          schema_version: "argus.conversation_event/v1",
+          event_id: `interaction-${item.id}`,
+          sequence: 0,
+          enterprise_id: ctx.enterpriseId(),
+          conversation_id: conversationId,
+          run_id: item.run_id,
+          event_type: "interaction_requested",
+          actor_type: "service",
+          occurred_at: item.created_at,
+          content_hash: item.content_hash,
+          data_classification: "internal",
+          payload: {
+            interaction_id: item.id,
+            kind: item.kind,
+            family_id: item.family_id,
+            revision: item.revision,
+          },
+        }));
+      return [...messages, ...controls]
+        .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
+        .map((event, index) => ({ ...event, sequence: index + 1 }));
     },
     async updateModel(id, modelId) {
       await ctx.pause();

@@ -26,6 +26,7 @@ import (
 	"github.com/kakj-go/Argus/internal/hostremoval"
 	"github.com/kakj-go/Argus/internal/identity"
 	"github.com/kakj-go/Argus/internal/integration/remotemcp"
+	"github.com/kakj-go/Argus/internal/interaction"
 	"github.com/kakj-go/Argus/internal/keywrap"
 	"github.com/kakj-go/Argus/internal/kubernetesreader"
 	"github.com/kakj-go/Argus/internal/mcp"
@@ -34,6 +35,7 @@ import (
 	"github.com/kakj-go/Argus/internal/pagination"
 	"github.com/kakj-go/Argus/internal/platform"
 	remoteaccessservice "github.com/kakj-go/Argus/internal/remoteaccess"
+	"github.com/kakj-go/Argus/internal/remoteexecution"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/sandbox"
 	secretservice "github.com/kakj-go/Argus/internal/secret"
@@ -146,7 +148,8 @@ func (a *App) Run(ctx context.Context) error {
 		Artifacts:     artifactChecker,
 		Credentials:   secretDomain,
 		TrustConfig:   a.config.TrustConfig, TrustBundles: bundles,
-		KubernetesImage: a.config.ConnectorKubernetesImage,
+		KubernetesImage:    a.config.ConnectorKubernetesImage,
+		RemoteRuntimeImage: a.config.RemoteRuntimeImage,
 		Issuer: connectorservice.CertManagerIssuer{Client: kubernetesClient, Namespace: a.config.SystemNamespace,
 			IssuerName: a.config.ConnectorIssuerName, IssuerKind: "ClusterIssuer", IssuerGeneration: int32(activeBundle.Epoch)}}
 	bastionDomain, err := connectorservice.NewBastionService(postgresStore, actionDomain, connectorDomain,
@@ -163,6 +166,8 @@ func (a *App) Run(ctx context.Context) error {
 			IngestHTTPEndpoint: a.config.TelemetryIngestHTTP, TrustBundles: bundles}
 	}
 	actionExtension = alerting.ActionExtension{Next: dashboard.ActionExtension{Next: actionExtension}}
+	remoteDomain := &remoteexecution.Service{Store: postgresStore, Actions: actionDomain, Next: actionExtension}
+	actionExtension = remoteDomain
 	alertDomain := alerting.Service{Store: postgresStore, Actions: actionDomain, Secrets: secretDomain}
 	alertHandler := httpapi.AlertHandler{Identity: enterpriseIdentityHandler, Service: alertDomain}
 	dashboardHandler := httpapi.DashboardHandler{Identity: enterpriseIdentityHandler, Service: dashboard.Service{Store: postgresStore, Actions: actionDomain}}
@@ -240,7 +245,7 @@ func (a *App) Run(ctx context.Context) error {
 		telemetryHandler = &httpapi.TelemetryHandler{Identity: enterpriseIdentityHandler, Service: telemetryDomain, CollectorIdentity: telemetryIdentity,
 			IngestGRPCEndpoint: a.config.TelemetryIngestGRPC, IngestHTTPEndpoint: a.config.TelemetryIngestHTTP}
 	}
-	workspaceDomain, err := component.Workspace(ctx, a.config, postgresStore, idempotency, sandboxHandler.Service)
+	workspaceDomain, err := component.Workspace(ctx, a.config, postgresStore, idempotency, sandboxHandler.Service, remoteDomain.AuthorizeSource)
 	if err != nil {
 		return err
 	}
@@ -248,6 +253,11 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	}
 	conversationHandler.Service.Objects = workspaceDomain.Objects
+	remoteDomain.Files = workspaceDomain
+	remoteDomain.Objects = workspaceDomain.Objects
+	if err := remoteDomain.RegisterTools(toolRegistry); err != nil {
+		return err
+	}
 	if dashboardHandler.Runtime != nil {
 		dashboardHandler.Queries = &dashboard.QueryJobs{Runtime: *dashboardHandler.Runtime, Objects: workspaceDomain.Objects}
 	}
@@ -263,6 +273,10 @@ func (a *App) Run(ctx context.Context) error {
 	if err := (alerting.Tools{Service: alertDomain}).Register(toolRegistry); err != nil {
 		return err
 	}
+	interactionDomain := interaction.Service{Remote: remoteDomain, Store: postgresStore, Idempotency: idempotency, Conversations: conversationHandler.Service}
+	if err := interactionDomain.RegisterTools(toolRegistry); err != nil {
+		return err
+	}
 	nativeGateway, err := toolgateway.New(toolRegistry, a.config.ToolImplementationRevision)
 	if err != nil {
 		return err
@@ -273,12 +287,15 @@ func (a *App) Run(ctx context.Context) error {
 	nativeGateway.RequireDescription = toolgateway.RequireAlertDescription(postgresStore.Queries)
 	mcpDomain := enterprisemcp.Service{Store: postgresStore, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: deniedCIDRs}}
 	mcpHandler := httpapi.MCPHandler{Identity: enterpriseIdentityHandler, Service: mcpDomain}
-	conversationHandler.Service.Tools = toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, mcpDomain}, ContextSources: []toolruntime.SkillContextSource{dashboardPolicy}, Filter: dashboardPolicy.Filter, AuthorizeTool: dashboardPolicy.AuthorizeTool, Validate: conversationHandler.Service.ValidateToolPrincipal}
+	conversationHandler.Service.Tools = toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, remoteDomain, interactionDomain, mcpDomain}, ContextSources: []toolruntime.SkillContextSource{dashboardPolicy}, Filter: dashboardPolicy.Filter, AuthorizeTool: dashboardPolicy.AuthorizeTool, Validate: conversationHandler.Service.ValidateToolPrincipal}
+	interactionDomain.Conversations = conversationHandler.Service
 	go (outbox.Relay{Store: postgresStore, Redis: redisClient, Logger: a.logger}).Run(ctx)
 	server := &http.Server{
 		Addr: a.config.Address,
 		Handler: httpapi.NewRouterWithOptions(httpapi.RouterOptions{
 			Logger: a.logger, PostgreSQL: postgresStore, Redis: redisClient, Setup: &setupHandler, M8: &m8Handler, Platform: &platformHandler,
+			Interactions:       &httpapi.InteractionHandler{Identity: enterpriseIdentityHandler, Service: interactionDomain},
+			RemoteExecution:    &httpapi.RemoteExecutionHandler{Identity: enterpriseIdentityHandler, Service: remoteDomain},
 			EnterpriseIdentity: &enterpriseIdentityHandler, EnterpriseAuthorization: &enterpriseAuthorizationHandler,
 			Machine: &machineHandler, Audit: &auditHandler, Secret: &secretHandler, Host: &hostHandler, Kubernetes: &kubernetesHandler,
 			Connection: &connectionHandler, ResourceAction: &actionHandler, Workflow: &workflowHandler, Conversation: &conversationHandler, Model: &modelHandler,

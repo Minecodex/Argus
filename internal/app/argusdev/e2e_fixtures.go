@@ -42,6 +42,10 @@ func suiteFixtureFeatures(suite string) fixtureFeatures {
 		case "m4":
 			features.Replay = true
 			features.Artifact = true
+		case "plan7":
+			features.SSH = true
+			features.Replay = true
+			features.Artifact = true
 		case "m6":
 			features.SSH = true
 			features.Artifact = true

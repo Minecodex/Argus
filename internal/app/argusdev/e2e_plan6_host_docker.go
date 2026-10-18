@@ -17,8 +17,9 @@ import (
 )
 
 type plan6DockerFixture struct {
-	Owner    string `json:"owner"`
-	Networks []struct {
+	RuntimeImage string `json:"runtime_image,omitempty"`
+	Owner        string `json:"owner"`
+	Networks     []struct {
 		Name     string `json:"name"`
 		ID       string `json:"id"`
 		Internal bool   `json:"internal"`

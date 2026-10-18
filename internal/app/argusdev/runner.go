@@ -23,6 +23,8 @@ type Runner struct {
 type Process struct {
 	cmd      *exec.Cmd
 	done     chan error
+	exited   chan struct{}
+	waitErr  error
 	stopOnce sync.Once
 	stopDone chan struct{}
 	stopErr  error
@@ -35,8 +37,13 @@ func (r Runner) Start(env map[string]string, stdout, stderr io.Writer, name stri
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	process := &Process{cmd: cmd, done: make(chan error, 1), stopDone: make(chan struct{})}
-	go func() { process.done <- cmd.Wait() }()
+	process := &Process{cmd: cmd, done: make(chan error, 1), exited: make(chan struct{}), stopDone: make(chan struct{})}
+	go func() {
+		process.waitErr = cmd.Wait()
+		process.done <- process.waitErr
+		close(process.done)
+		close(process.exited)
+	}()
 	return process, nil
 }
 
@@ -46,14 +53,31 @@ func (p *Process) Stop(timeout time.Duration) error {
 	}
 	p.stopOnce.Do(func() {
 		defer close(p.stopDone)
-		_ = interruptProcess(p.cmd.Process)
+		select {
+		case <-p.exited:
+			p.stopErr = p.waitErr
+			return
+		default:
+		}
+		requested := interruptProcess(p.cmd.Process) == nil
 		timer := time.NewTimer(timeout)
 		defer timer.Stop()
 		select {
-		case p.stopErr = <-p.done:
+		case <-p.exited:
+			p.stopErr = p.waitErr
 		case <-timer.C:
-			_ = killProcessTree(p.cmd.Process)
-			p.stopErr = <-p.done
+			killErr := killProcessTree(p.cmd.Process)
+			requested = requested || killErr == nil
+			select {
+			case <-p.exited:
+				p.stopErr = p.waitErr
+			case <-time.After(5 * time.Second):
+				p.stopErr = errors.Join(killErr, errors.New("owned process did not exit after stop"))
+			}
+		}
+		var exitErr *exec.ExitError
+		if requested && errors.As(p.stopErr, &exitErr) {
+			p.stopErr = nil
 		}
 	})
 	<-p.stopDone

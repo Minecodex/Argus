@@ -1,0 +1,16 @@
+openapi: 3.1.0
+info: {title: Argus Remote Execution API, version: 1.0.0, license: {name: Proprietary, identifier: LicenseRef-Proprietary}}
+servers: [{url: /api/v1}]
+security: [{sessionCookie: []}]
+paths:
+  /conversations/{conversation_id}/remote-executions/{execution_id}/input-files/{file_id}: {$ref: ../paths/remote-execution.yaml#/inputFile}
+  /conversations/{conversation_id}/remote-executions: {$ref: ../paths/remote-execution.yaml#/conversationExecutions}
+  /conversations/{conversation_id}/remote-executions/{execution_id}: {$ref: ../paths/remote-execution.yaml#/execution}
+  /conversations/{conversation_id}/remote-executions/{execution_id}/stop: {$ref: ../paths/remote-execution.yaml#/stop}
+  /conversations/{conversation_id}/remote-executions/{execution_id}/feedback: {$ref: ../paths/remote-execution.yaml#/feedback}
+components:
+  securitySchemes: {sessionCookie: {$ref: ../argus.yaml#/components/securitySchemes/sessionCookie}}
+  schemas:
+    RemoteExecution: {$ref: ../components/remote-execution.yaml#/components/schemas/RemoteExecution}
+    RemoteExecutionPage: {$ref: ../components/remote-execution.yaml#/components/schemas/RemoteExecutionPage}
+    RemotePlanFeedback: {$ref: ../components/remote-execution.yaml#/components/schemas/RemotePlanFeedback}

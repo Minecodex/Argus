@@ -84,8 +84,20 @@ func (service Service) Create(ctx context.Context, actorID string, enterpriseID,
 		})
 }
 
-func (service Service) Update(ctx context.Context, enterpriseID, ownerID, conversationID uuid.UUID, expectedVersion int64, title, status *string, modelID *uuid.UUID, selectedConnections []uuid.UUID) (db.Conversation, error) {
+func (service Service) Update(ctx context.Context, enterpriseID, ownerID, conversationID uuid.UUID, expectedVersion int64, title, status *string, modelID *uuid.UUID, selectedConnections []uuid.UUID, modes ...*string) (db.Conversation, error) {
 	params := db.UpdateConversationParams{ID: conversationID, EnterpriseID: enterpriseID, OwnerUserID: ownerID, ExpectedVersion: expectedVersion}
+	if len(modes) > 0 && modes[0] != nil {
+		if *modes[0] != "execute" && *modes[0] != "plan" {
+			return db.Conversation{}, toolruntime.Error{Kind: "TOOL_INPUT_INVALID"}
+		}
+		params.Mode = pgtype.Text{String: *modes[0], Valid: true}
+	}
+	if len(modes) > 1 && modes[1] != nil {
+		if *modes[1] != "request_approval" && *modes[1] != "full_access" {
+			return db.Conversation{}, toolruntime.Error{Kind: "TOOL_INPUT_INVALID"}
+		}
+		params.AccessMode = pgtype.Text{String: *modes[1], Valid: true}
+	}
 	if title != nil {
 		params.Title = pgtype.Text{String: *title, Valid: true}
 	}
@@ -134,6 +146,9 @@ func (service Service) Update(ctx context.Context, enterpriseID, ownerID, conver
 		}
 		var err error
 		updated, err = q.UpdateConversation(ctx, params)
+		if err == nil && (params.Mode.Valid || params.AccessMode.Valid) {
+			_, err = AppendEvent(ctx, q, EventInput{EnterpriseID: enterpriseID, ConversationID: conversationID, Type: "conversation_settings_changed", ActorType: "user", ActorID: ownerID.String(), Payload: map[string]any{"mode": updated.Mode, "access_mode": updated.AccessMode, "version": updated.Version}, Classification: "internal"})
+		}
 		return err
 	})
 	return updated, err
@@ -175,74 +190,7 @@ func (service Service) AddMessage(ctx context.Context, actorID string, enterpris
 	}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "conversation.message.create", idempotencyKey, input, 202,
 		func(q *db.Queries) (MessageAccepted, error) {
-			conversation, err := q.LockConversation(ctx, db.LockConversationParams{ID: conversationID, EnterpriseID: enterpriseID, OwnerUserID: ownerID})
-			if err != nil {
-				return MessageAccepted{}, err
-			}
-			if conversation.Status != "active" {
-				return MessageAccepted{}, ErrConversationClosed
-			}
-			if conversation.Version != preflight.ConversationVersion {
-				return MessageAccepted{}, toolruntime.Error{Kind: "TOOL_CONFIGURATION_CHANGED"}
-			}
-			if err := validateFiles(ctx, q, enterpriseID, conversationID, fileIDs); err != nil {
-				return MessageAccepted{}, err
-			}
-			if err := validateSelectedConnections(ctx, q, enterpriseID, ownerID, conversationID, preflight.Snapshot); err != nil {
-				return MessageAccepted{}, err
-			}
-			if _, err := q.GetActiveRunForConversation(ctx, db.GetActiveRunForConversationParams{ConversationID: conversationID, EnterpriseID: enterpriseID}); err == nil {
-				return MessageAccepted{}, ErrRunAlreadyActive
-			} else if !errors.Is(err, pgx.ErrNoRows) {
-				return MessageAccepted{}, err
-			}
-			model, err := q.GetAIModel(ctx, db.GetAIModelParams{ID: conversation.SelectedModelID, EnterpriseID: enterpriseID})
-			if err != nil || model.Status != "enabled" || model.HealthStatus != "healthy" {
-				return MessageAccepted{}, ErrModelUnavailable
-			}
-			if int32(model.Revision) != preflight.ModelRevision {
-				return MessageAccepted{}, toolruntime.Error{Kind: "TOOL_CONFIGURATION_CHANGED"}
-			}
-			checkpoint, _ := json.Marshal(map[string]any{"schema_version": "argus.run_checkpoint/v1", "goal": content,
-				"authorization_version": authorizationVersion, "completed_step_ids": []string{}, "tool_call_refs": []string{},
-				"active_public_pending_action_refs": []string{}, "execution_refs": []string{}})
-			run, err := q.CreateRun(ctx, db.CreateRunParams{ID: newID(), ConversationID: conversationID, EnterpriseID: enterpriseID,
-				ActorUserID: ownerID, ModelID: model.ID, ModelRevision: int32(model.Revision), Locale: locale,
-				AuthorizationVersion: authorizationVersion, Checkpoint: checkpoint})
-			if err != nil {
-				return MessageAccepted{}, err
-			}
-			if err := dashboardcontext.Commit(ctx, q, preflight.Principal, run.ID, preflight.Dashboard); err != nil {
-				return MessageAccepted{}, err
-			}
-			snapshotBytes, _ := json.Marshal(preflight.Snapshot)
-			run, err = q.SetRunToolSnapshot(ctx, db.SetRunToolSnapshotParams{ID: run.ID, EnterpriseID: enterpriseID, ToolSnapshot: snapshotBytes, ToolSnapshotHash: preflight.SnapshotHash})
-			if err != nil {
-				return MessageAccepted{}, err
-			}
-			messagePayload := map[string]any{"content": content, "dashboard_context": preflight.Dashboard.Snapshot}
-			files := make([]map[string]any, 0, len(fileIDs))
-			for _, id := range fileIDs {
-				file, e := q.GetWorkspaceFile(ctx, db.GetWorkspaceFileParams{ID: id, EnterpriseID: enterpriseID})
-				if e != nil {
-					return MessageAccepted{}, e
-				}
-				files = append(files, FileReference(file))
-			}
-			messagePayload["files"] = files
-			event, err := AppendEvent(ctx, q, EventInput{EnterpriseID: enterpriseID, ConversationID: conversationID,
-				RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, Type: "user_message", ActorType: "user", ActorID: actorID,
-				Payload: messagePayload, Classification: "internal"})
-			if err != nil {
-				return MessageAccepted{}, err
-			}
-			payload, _ := json.Marshal(AgentTask{RunID: run.ID, EnterpriseID: enterpriseID, Reason: "user_message"})
-			if _, err := q.CreateRuntimeTask(ctx, db.CreateRuntimeTaskParams{ID: newID(), EnterpriseID: uuid.NullUUID{UUID: enterpriseID, Valid: true},
-				Queue: "agent", RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, Payload: payload, MaxAttempts: 5,
-				AvailableAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}}); err != nil {
-				return MessageAccepted{}, err
-			}
-			return MessageAccepted{Event: event, Run: run}, nil
+			return service.BeginPreparedRun(ctx, q, actorID, enterpriseID, ownerID, conversationID, authorizationVersion, locale, content, fileIDs, preflight)
 		})
 }
 
@@ -280,6 +228,9 @@ func (service Service) CancelRun(ctx context.Context, actorID string, enterprise
 			}
 			if run.Status != "pending" && run.Status != "running" && run.Status != "waiting_input" && run.Status != "waiting_approval" && run.Status != "waiting_system" {
 				return db.Run{}, ErrRunNotCancellable
+			}
+			if err := q.StopRunRemoteRequests(ctx, db.StopRunRemoteRequestsParams{EnterpriseID: enterpriseID, RunID: run.ID}); err != nil {
+				return db.Run{}, err
 			}
 			return CancelRunRecord(ctx, q, run, "user_cancelled", "user", actorID)
 		})

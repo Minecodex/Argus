@@ -1,4 +1,5 @@
-import { access, readFile, unlink, writeFile } from "node:fs/promises";
+import { access, readFile, unlink } from "node:fs/promises";
+import { writeGeneratedFile as writeFile } from "./write-generated-file.mjs";
 
 const [input] = process.argv.slice(2);
 if (!input) throw new Error("usage: split-generated-go-types.mjs <types.gen.go>");

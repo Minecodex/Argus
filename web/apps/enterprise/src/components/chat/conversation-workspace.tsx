@@ -1,10 +1,9 @@
-import { Checkbox } from "@argus/ui";
+import { Checkbox, FileTree } from "@argus/ui";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useApi, formatApiError, ApiError } from "@argus/api-client";
 import { useEnterpriseAuthStore } from "@argus/auth";
-import { Button, ConfirmDialog } from "@argus/ui";
 import "../../styles/planv5.css";
 import { ConversationFile } from "./conversation-file";
 
@@ -20,7 +19,7 @@ export function ConversationWorkspace({
   expanded?: boolean;
 }) {
   const api = useApi();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queries = useQueryClient();
   const userId = useEnterpriseAuthStore((state) => state.session?.user.id);
   const connections = useQuery({
@@ -29,28 +28,22 @@ export function ConversationWorkspace({
   });
   const files = useQuery({
     queryKey: ["workspace-files", conversationId],
-    queryFn: () => api.workspace.listFiles(conversationId),
-    retry: false,
-  });
-  const workspace = useQuery({
-    queryKey: ["workspace", conversationId],
     queryFn: async () => {
       try {
-        return await api.workspace.get(conversationId);
+        return await api.workspace.listFiles(conversationId);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 404) return null;
+        if (
+          error instanceof ApiError &&
+          error.status === 404 &&
+          error.code === "WORKSPACE_NOT_FOUND"
+        )
+          return [];
         throw error;
       }
     },
     retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.status === "deleting" ||
-      query.state.data?.status === "provisioning"
-        ? 1_000
-        : false,
   });
   const [busy, setBusy] = useState(false);
-  const [remove, setRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setSelection = async (id: string, checked: boolean) => {
     setBusy(true);
@@ -66,32 +59,6 @@ export function ConversationWorkspace({
     } catch (error) {
       setError(
         formatApiError(error, t("planv5.mcp.failed"), (requestId) =>
-          t("common.requestReference", { requestId }),
-        ),
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-  const deleteWorkspace = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const deleting = await api.workspace.remove(conversationId);
-      queries.setQueryData(["workspace", conversationId], deleting);
-      setRemove(false);
-      await queries.invalidateQueries({
-        queryKey: ["workspace-files", conversationId],
-      });
-      await queries.invalidateQueries({
-        queryKey: ["workspace", conversationId],
-      });
-      await queries.invalidateQueries({
-        queryKey: ["conversations", conversationId],
-      });
-    } catch (error) {
-      setError(
-        formatApiError(error, t("planv5.files.failed"), (requestId) =>
           t("common.requestReference", { requestId }),
         ),
       );
@@ -146,43 +113,29 @@ export function ConversationWorkspace({
           {t("planv5.files.workspace")} · {files.data?.length ?? 0}
         </summary>
         <p>{t("planv5.files.retention")}</p>
-        {(files.data ?? []).map((file) => (
-          <ConversationFile key={file.id} file={file} conversationId={conversationId} />
-        ))}
-        {!files.data?.length && <p>{t("planv5.files.empty")}</p>}
-        {workspace.isError && (
-          <p role="alert">{t("planv5.files.unavailable")}</p>
+        {!!files.data?.length && (
+          <FileTree
+            key={conversationId}
+            files={files.data}
+            label={t("planv5.files.workspace")}
+            locale={i18n.language}
+            renderFile={(file, name) => (
+              <ConversationFile
+                file={file}
+                conversationId={conversationId}
+                layout="row"
+                name={name}
+              />
+            )}
+          />
         )}
-        {workspace.data?.status === "deleting" && (
-          <p role="status">{t("planv5.files.deleting")}</p>
+        {files.isPending && <p role="status">{t("chat.files.loading")}</p>}
+        {files.isSuccess && !files.data.length && (
+          <p>{t("planv5.files.empty")}</p>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          isDisabled={
-            busy ||
-            disabled ||
-            workspace.isError ||
-            !workspace.data ||
-            workspace.data.status === "deleted" ||
-            workspace.data.status === "deleting"
-          }
-          onPress={() => setRemove(true)}
-        >
-          {t("planv5.files.delete")}
-        </Button>
+        {files.isError && <p role="alert">{t("planv5.files.unavailable")}</p>}
       </details>
       {error && <p role="alert">{error}</p>}
-      <ConfirmDialog
-        open={remove}
-        onOpenChange={setRemove}
-        title={t("planv5.files.delete")}
-        description={t("planv5.files.deleteConfirm")}
-        confirmLabel={t("planv5.files.delete")}
-        danger
-        loading={busy}
-        onConfirm={() => void deleteWorkspace()}
-      />
     </div>
   );
 }

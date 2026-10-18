@@ -15,6 +15,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/kakj-go/Argus/internal/integration/modelprovider"
 )
 
 type message struct {
@@ -36,12 +38,14 @@ type message struct {
 }
 
 type replayRequest struct {
-	Model          string         `json:"model"`
-	Messages       []message      `json:"messages"`
-	Input          []message      `json:"input"`
-	Tools          []replayTool   `json:"tools"`
-	ResponseFormat map[string]any `json:"response_format"`
-	Text           map[string]any `json:"text"`
+	MaxTokens           int            `json:"max_tokens"`
+	MaxCompletionTokens int            `json:"max_completion_tokens"`
+	Model               string         `json:"model"`
+	Messages            []message      `json:"messages"`
+	Input               []message      `json:"input"`
+	Tools               []replayTool   `json:"tools"`
+	ResponseFormat      map[string]any `json:"response_format"`
+	Text                map[string]any `json:"text"`
 }
 
 type replayTool struct {
@@ -190,6 +194,16 @@ func chatCompletions(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	startSSE(w)
+	if isOutputBudgetProbe(value) {
+		limit := value.MaxTokens
+		if limit == 0 {
+			limit = value.MaxCompletionTokens
+		}
+		writeSSE(w, chatChunk(map[string]any{}, "length"))
+		writeSSE(w, map[string]any{"choices": []any{}, "usage": map[string]any{"prompt_tokens": 32, "completion_tokens": limit}})
+		writeRawSSE(w, "[DONE]")
+		return
+	}
 	if inconsistentUsageFixture(value) {
 		writeSSE(w, map[string]any{"choices": []any{}, "usage": map[string]any{"prompt_tokens": 100, "prompt_tokens_details": map[string]any{"cached_tokens": 80}}})
 	}
@@ -379,6 +393,11 @@ func exampleValue(schema map[string]any) any {
 func missingUsageFixture(value replayRequest) bool {
 	data, _ := json.Marshal([]any{value.Messages, value.Input})
 	return strings.Contains(string(data), "argus_e2e_usage_missing")
+}
+
+func isOutputBudgetProbe(value replayRequest) bool {
+	data, _ := json.Marshal([]any{value.Messages, value.Input})
+	return strings.Contains(string(data), modelprovider.OutputBudgetProbeMarker)
 }
 
 func inconsistentUsageFixture(value replayRequest) bool {

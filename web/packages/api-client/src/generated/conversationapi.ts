@@ -210,6 +210,10 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         Conversation: {
+            /** @enum {string} */
+            mode?: "execute" | "plan";
+            /** @enum {string} */
+            access_mode?: "request_approval" | "full_access";
             /** Format: uuid */
             id: string;
             title: string;
@@ -231,6 +235,10 @@ export interface components {
             selected_model_id: string;
         };
         ConversationUpdate: {
+            /** @enum {string} */
+            mode?: "execute" | "plan";
+            /** @enum {string} */
+            access_mode?: "request_approval" | "full_access";
             title?: string;
             /** Format: uuid */
             selected_model_id?: string;
@@ -339,7 +347,7 @@ export interface components {
             run_id?: string;
             step_id?: string;
             /** @enum {unknown} */
-            event_type: "user_message" | "assistant_message" | "model_usage" | "tool_call_requested" | "tool_call_started" | "tool_call_result" | "pending_action_created" | "user_confirmation" | "approval_update" | "execution_update" | "run_state_changed" | "context_compacted" | "tool_presentation" | "workspace_file_added" | "artifact_published";
+            event_type: "user_message" | "assistant_message" | "model_usage" | "tool_call_requested" | "tool_call_started" | "tool_call_result" | "pending_action_created" | "user_confirmation" | "approval_update" | "execution_update" | "run_state_changed" | "context_compacted" | "tool_presentation" | "workspace_file_added" | "artifact_published" | "interaction_requested" | "interaction_resolved" | "conversation_settings_changed";
             /** @enum {unknown} */
             actor_type?: "user" | "model" | "service" | "worker" | "system";
             actor_id?: string;
@@ -352,6 +360,8 @@ export interface components {
             payload: components["schemas"]["PublicJsonObject"];
         };
         Run: {
+            /** @enum {string} */
+            mode_snapshot?: "execute" | "plan";
             run_id: string;
             conversation_id: string;
             enterprise_id: string;
@@ -370,6 +380,10 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** @enum {string} */
+            access_mode_snapshot?: "request_approval" | "full_access";
+            /** Format: uuid */
+            approved_plan_id?: string;
         };
         ResourceRef: {
             resource_type: string;

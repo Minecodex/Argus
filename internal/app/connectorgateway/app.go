@@ -19,6 +19,7 @@ import (
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 	remotev1 "github.com/kakj-go/Argus/internal/gen/proto/argus/remoteaccess/v1"
 	"github.com/kakj-go/Argus/internal/remoteaccess"
+	"github.com/kakj-go/Argus/internal/remoteexecution"
 	secretservice "github.com/kakj-go/Argus/internal/secret"
 	"github.com/kakj-go/Argus/internal/storage/objectstore"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
@@ -96,6 +97,7 @@ func Run(ctx context.Context, logger *slog.Logger) error {
 		logger.Warn("Trust Bundle acknowledgement failed", "error", err)
 	})
 	domain := connector.Service{Store: store, Redis: redisClient, GatewayInstance: cfg.InstanceID, RegistryTTL: 95 * time.Second, TrustBundles: bundles,
+		CommandDispatchGuard: remoteexecution.ValidateQueuedCommand,
 		Issuer: connector.CertManagerIssuer{Client: kubernetesClient, Namespace: cfg.SystemNamespace,
 			IssuerName: cfg.IssuerName, IssuerKind: "ClusterIssuer", IssuerGeneration: int32(activeBundle.Epoch)}}
 	dispatchHub := connector.NewDispatchHub()

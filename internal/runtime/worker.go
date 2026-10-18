@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -36,13 +37,14 @@ type HandlerFunc func(context.Context, Task) error
 func (handler HandlerFunc) Handle(ctx context.Context, task Task) error { return handler(ctx, task) }
 
 type Processor struct {
-	Store  *postgres.Store
-	Queue  string
-	Owner  string
-	Lease  time.Duration
-	Poll   time.Duration
-	Handle Handler
-	Logger *slog.Logger
+	Store       *postgres.Store
+	Queue       string
+	Owner       string
+	Lease       time.Duration
+	Poll        time.Duration
+	Handle      Handler
+	Logger      *slog.Logger
+	Concurrency int
 }
 
 func (processor Processor) Run(ctx context.Context) error {
@@ -58,6 +60,27 @@ func (processor Processor) Run(ctx context.Context) error {
 	if processor.Logger == nil {
 		processor.Logger = slog.Default()
 	}
+	if processor.Concurrency < 0 || processor.Concurrency > 64 {
+		return errors.New("runtime processor concurrency must be between 1 and 64")
+	}
+	if processor.Concurrency <= 1 {
+		return processor.runLoop(ctx)
+	}
+	var consumers sync.WaitGroup
+	for slot := 0; slot < processor.Concurrency; slot++ {
+		consumer := processor
+		consumer.Owner = fmt.Sprintf("%s:%d", processor.Owner, slot+1)
+		consumers.Add(1)
+		go func() {
+			defer consumers.Done()
+			_ = consumer.runLoop(ctx)
+		}()
+	}
+	consumers.Wait()
+	return nil
+}
+
+func (processor Processor) runLoop(ctx context.Context) error {
 	ticker := time.NewTicker(processor.Poll)
 	defer ticker.Stop()
 	for {

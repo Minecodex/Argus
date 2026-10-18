@@ -287,6 +287,12 @@ func hostCreateInput(value hostapi.HostPreviewCreate) resource.HostInput {
 	if value.Username != nil {
 		input.Username = *value.Username
 	}
+	if value.ExecutionAccount != nil {
+		input.ExecutionAccount = &resource.HostExecutionAccount{Username: value.ExecutionAccount.Username}
+		if value.ExecutionAccount.Sid != nil {
+			input.ExecutionAccount.SID = *value.ExecutionAccount.Sid
+		}
+	}
 	if value.ConnectionTestId != nil {
 		input.ConnectionTestID = uuid.NullUUID{UUID: uuid.UUID(*value.ConnectionTestId), Valid: true}
 	}

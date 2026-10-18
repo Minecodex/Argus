@@ -117,8 +117,9 @@ func (h *ScenarioHTTP) jsonValue(ctx context.Context, name, clientName, method, 
 		return nil, err
 	}
 	var result any
+	var decodeErr error
 	if len(bytes.TrimSpace(data)) > 0 {
-		_ = json.Unmarshal(data, &result)
+		decodeErr = json.Unmarshal(data, &result)
 	}
 	if response.StatusCode != expected {
 		// Record proxy/non-JSON failures as facts too. Never persist cookies,
@@ -133,7 +134,10 @@ func (h *ScenarioHTTP) jsonValue(ctx context.Context, name, clientName, method, 
 				detail = string(encoded)
 			}
 		}
-		return result, fmt.Errorf("%s: expected HTTP %d, got %d: %s", name, expected, response.StatusCode, detail)
+		return result, scenarioHTTPStatusError{Status: response.StatusCode, Message: fmt.Sprintf("%s: expected HTTP %d, got %d: %s", name, expected, response.StatusCode, detail)}
+	}
+	if decodeErr != nil {
+		return nil, fmt.Errorf("%s: invalid JSON response", name)
 	}
 	return result, nil
 }

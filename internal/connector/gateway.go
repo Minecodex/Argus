@@ -66,6 +66,7 @@ type CollectorEnrollmentMaterial struct {
 }
 
 type activeCommand struct {
+	stopControl  bool
 	acknowledged bool
 	expiresAt    time.Time
 }
@@ -150,6 +151,12 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 	defer gateway.markUncertain(identity, epoch, activeCommands)
 	dispatchCommands := func() error {
 		removeExpiredActiveCommands(time.Now(), activeCommands, pendingAcknowledgements)
+		ordinary := 0
+		for _, active := range activeCommands {
+			if !active.stopControl {
+				ordinary++
+			}
+		}
 		available := MaxInflightCommands - int32(len(activeCommands))
 		if available <= 0 {
 			return nil
@@ -159,6 +166,10 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 			return err
 		}
 		for _, command := range commands {
+			stopControl := isRemoteStopControl(command)
+			if !stopControl && ordinary >= int(MaxInflightCommands)-2 {
+				continue
+			}
 			ready, failureCode, gateErr := gateway.collectorTunnelDispatchGate(stream.Context(), command)
 			if gateErr != nil {
 				return gateErr
@@ -185,7 +196,10 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 				return err
 			}
 			pendingAcknowledgements[serverSequence] = command.CommandID
-			activeCommands[command.CommandID] = activeCommand{expiresAt: command.ExpiresAt.Time}
+			activeCommands[command.CommandID] = activeCommand{expiresAt: command.ExpiresAt.Time, stopControl: stopControl}
+			if !stopControl {
+				ordinary++
+			}
 			serverSequence++
 		}
 		return nil
@@ -603,7 +617,7 @@ func hostProbeConnectionTestResult(value *connectorv1.HostConnectionProbeResult)
 		ResolvedIPs: value.GetResolvedIps(), HostKeyFingerprint: value.GetHostKeyFingerprint(),
 		RemoteVersion: value.GetRemoteVersion(), LatencyMS: int64(value.GetLatencyMillis()),
 		Platform: value.GetPlatform(), Architecture: value.GetArchitecture(), DistributionVersion: value.GetDistributionVersion(),
-		ServiceManager: value.GetServiceManager(), Privileged: value.GetPrivileged(), FreeDiskBytes: value.GetFreeDiskBytes(),
+		ServiceManager: value.GetServiceManager(), Privileged: value.GetPrivileged(), FreeDiskBytes: value.GetFreeDiskBytes(), IdentitySID: value.GetIdentitySid(),
 		CallbackVerified: value.GetCallbackVerified(), CallbackControlPath: value.GetCallbackControlPath(),
 		Checks: sshtarget.ConnectionChecks(sshtarget.Evidence{Platform: value.GetPlatform(), Architecture: value.GetArchitecture(),
 			DistributionVersion: value.GetDistributionVersion(), ServiceManager: value.GetServiceManager(), Privileged: value.GetPrivileged(), FreeDiskBytes: value.GetFreeDiskBytes()}),
@@ -761,6 +775,24 @@ func (gateway Gateway) typedCommand(ctx context.Context, command db.ConnectorCom
 			request.EnrollmentEndpoint = material.EnrollmentEndpoint
 			request.IngestGrpcEndpoint = material.IngestGRPCEndpoint
 			request.IngestHttpEndpoint = material.IngestHTTPEndpoint
+		}
+		payload = &request
+	case "remote_execution_batch":
+		var request connectorv1.RemoteExecutionBatch
+		if protojson.Unmarshal(command.Payload, &request) != nil {
+			return nil, ErrCommandState
+		}
+		payload = &request
+	case "remote_execution_control":
+		var request connectorv1.RemoteExecutionControl
+		if protojson.Unmarshal(command.Payload, &request) != nil {
+			return nil, ErrCommandState
+		}
+		payload = &request
+	case "remote_execution_file":
+		var request connectorv1.RemoteExecutionFile
+		if protojson.Unmarshal(command.Payload, &request) != nil {
+			return nil, ErrCommandState
 		}
 		payload = &request
 	default:

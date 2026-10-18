@@ -187,13 +187,14 @@ func commonHostProperties() map[string]any {
 	return map[string]any{
 		"name": map[string]any{"type": "string"}, "hostname": map[string]any{"type": "string"}, "address": map[string]any{"type": "string"},
 		"port": map[string]any{"type": "integer", "minimum": 1, "maximum": 65535}, "platform": map[string]any{"type": "string", "enum": []string{"linux", "windows"}},
-		"architecture":   map[string]any{"type": "string", "enum": []string{"amd64", "arm64"}},
-		"role":           map[string]any{"type": "string", "const": "managed_host"},
-		"control_path":   map[string]any{"type": "string", "enum": []string{"direct", "bastion_relay", "executor_tunnel"}},
-		"install_method": map[string]any{"type": "string", "enum": []string{"manual", "ssh"}},
-		"ssh_path":       map[string]any{"type": "string", "enum": []string{"none", "direct_executor", "bastion_connector"}},
-		"environment":    map[string]any{"type": "string"},
-		"username":       map[string]any{"type": "string"}, "bastion_scope_id": map[string]any{"type": "string", "format": "uuid"},
+		"architecture":      map[string]any{"type": "string", "enum": []string{"amd64", "arm64"}},
+		"execution_account": objectSchema(map[string]any{"username": map[string]any{"type": "string", "minLength": 1, "maxLength": 256}, "sid": map[string]any{"type": "string", "pattern": "^S-1-[0-9]+(-[0-9]+)+$", "maxLength": 184}}, "username"),
+		"role":              map[string]any{"type": "string", "const": "managed_host"},
+		"control_path":      map[string]any{"type": "string", "enum": []string{"direct", "bastion_relay", "executor_tunnel"}},
+		"install_method":    map[string]any{"type": "string", "enum": []string{"manual", "ssh"}},
+		"ssh_path":          map[string]any{"type": "string", "enum": []string{"none", "direct_executor", "bastion_connector"}},
+		"environment":       map[string]any{"type": "string"},
+		"username":          map[string]any{"type": "string"}, "bastion_scope_id": map[string]any{"type": "string", "format": "uuid"},
 		"credential_id": map[string]any{"type": "string", "format": "uuid"}, "connection_test_id": map[string]any{"type": "string", "format": "uuid"},
 		"labels": labelSchema(), "request_id": map[string]any{"type": "string", "minLength": 1, "maxLength": 128},
 	}
@@ -282,6 +283,15 @@ func requireString(key string) func(map[string]any) error {
 func validateHostCreate(input map[string]any) error {
 	if err := validateFields(input, mapKeys(commonHostProperties()), []string{"name", "platform", "role", "control_path", "install_method", "ssh_path"}, "bastion_scope_id", "credential_id", "connection_test_id"); err != nil {
 		return err
+	}
+	if raw, exists := input["execution_account"]; exists {
+		account, ok := raw.(map[string]any)
+		if !ok {
+			return errors.New("execution_account must be an object")
+		}
+		if err := validateFields(account, []string{"username", "sid"}, []string{"username"}); err != nil {
+			return err
+		}
 	}
 	return validateHostOnboardingToolInput(hostInput(input))
 }
@@ -605,7 +615,7 @@ func connectorToolResult(item db.Connector) map[string]any {
 	return map[string]any{"id": item.ID, "name": item.Name, "role": item.Role, "status": item.Status, "connection_epoch": item.ConnectionEpoch, "software_version": item.SoftwareVersion, "last_heartbeat_at": item.LastHeartbeatAt, "capabilities": item.Capabilities, "host_id": item.HostID, "kubernetes_cluster_id": item.KubernetesClusterID}
 }
 func (tools ResourceTools) getPendingAction(ctx context.Context, call mcp.Call) (mcp.Result, error) {
-	_, enterpriseID, err := tools.subject(ctx, call)
+	subject, enterpriseID, err := tools.subject(ctx, call)
 	if err != nil {
 		return mcp.Result{}, err
 	}
@@ -613,12 +623,32 @@ func (tools ResourceTools) getPendingAction(ctx context.Context, call mcp.Call) 
 	if err != nil {
 		return mcp.Result{}, err
 	}
+	if value.ActionType == "remote_execution.execute" {
+		guard, ok := tools.Resources.Extension.(interface {
+			AuthorizeModelActionRead(context.Context, resource.Subject, db.PendingAction) error
+		})
+		if !ok || call.Caller != "model" {
+			return mcp.Result{}, mcp.ErrToolNotAvailable
+		}
+		if err = guard.AuthorizeModelActionRead(ctx, subject, value); err != nil {
+			return mcp.Result{}, err
+		}
+	}
 	return mcp.Result{Structured: pendingProjection(value)}, nil
 }
 func (tools ResourceTools) cancelPendingAction(ctx context.Context, call mcp.Call) (mcp.Result, error) {
 	subject, enterpriseID, err := tools.subject(ctx, call)
 	if err != nil {
 		return mcp.Result{}, err
+	}
+	if call.Caller == "model" {
+		action, e := tools.Store.Queries.GetPendingAction(ctx, db.GetPendingActionParams{ActionRef: stringValue(call.Input, "action_ref"), EnterpriseID: enterpriseID})
+		if e != nil {
+			return mcp.Result{}, e
+		}
+		if action.ActionType == "remote_execution.execute" {
+			return mcp.Result{}, mcp.ErrToolNotAvailable
+		}
 	}
 	value, err := tools.Resources.Actions.Cancel(ctx, subject.ActorID, enterpriseID, stringValue(call.Input, "action_ref"), idempotency(call))
 	if err != nil {
@@ -640,7 +670,11 @@ func pendingProjection(value db.PendingAction) map[string]any {
 }
 
 func hostInput(input map[string]any) resource.HostInput {
-	return resource.HostInput{Name: stringValue(input, "name"), Hostname: stringValue(input, "hostname"), Address: stringValue(input, "address"), Platform: stringValue(input, "platform"), Role: stringValue(input, "role"), ControlPath: stringValue(input, "control_path"), InstallMethod: stringValue(input, "install_method"), SSHPath: stringValue(input, "ssh_path"), Environment: stringValue(input, "environment"), Username: stringValue(input, "username"), Architecture: stringValue(input, "architecture"), Port: int32(intValue(input, "port")), BastionScopeID: nullID(input, "bastion_scope_id"), CredentialID: nullID(input, "credential_id"), ConnectionTestID: nullID(input, "connection_test_id"), Labels: labelsValue(input), ExpectedVersion: intValue(input, "expected_version")}
+	result := resource.HostInput{Name: stringValue(input, "name"), Hostname: stringValue(input, "hostname"), Address: stringValue(input, "address"), Platform: stringValue(input, "platform"), Role: stringValue(input, "role"), ControlPath: stringValue(input, "control_path"), InstallMethod: stringValue(input, "install_method"), SSHPath: stringValue(input, "ssh_path"), Environment: stringValue(input, "environment"), Username: stringValue(input, "username"), Architecture: stringValue(input, "architecture"), Port: int32(intValue(input, "port")), BastionScopeID: nullID(input, "bastion_scope_id"), CredentialID: nullID(input, "credential_id"), ConnectionTestID: nullID(input, "connection_test_id"), Labels: labelsValue(input), ExpectedVersion: intValue(input, "expected_version")}
+	if account, ok := input["execution_account"].(map[string]any); ok {
+		result.ExecutionAccount = &resource.HostExecutionAccount{Username: stringValue(account, "username"), SID: stringValue(account, "sid")}
+	}
+	return result
 }
 func clusterInput(input map[string]any) resource.KubernetesInput {
 	return resource.KubernetesInput{Name: stringValue(input, "name"), APIServer: stringValue(input, "api_server"), ConnectionMode: stringValue(input, "connection_mode"), DefaultNamespace: stringValue(input, "default_namespace"), Environment: stringValue(input, "environment"), BastionScopeID: nullID(input, "bastion_scope_id"), CredentialID: nullID(input, "credential_id"), ConnectionTestID: nullID(input, "connection_test_id"), Labels: labelsValue(input), ExpectedVersion: intValue(input, "expected_version")}

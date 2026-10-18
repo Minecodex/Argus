@@ -8,16 +8,18 @@ export function CodeBlock({
   code,
   language = "text",
   copyable = true,
+  label,
 }: {
   code: string;
   language?: string;
   copyable?: boolean;
+  label?: string;
 }) {
   const text = useUiText();
   return (
     <div className="argus-code">
       <div className="argus-code__head">
-        <span>{language}</span>
+        <span>{label ?? language}</span>
         {copyable && (
           <Button
             aria-label={text("复制代码", "Copy code")}

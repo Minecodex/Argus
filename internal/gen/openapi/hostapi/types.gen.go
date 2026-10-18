@@ -1251,3 +1251,6 @@ type ConnectionTest struct {
 
 // ConnectionTestArchitecture defines model for ConnectionTest.Architecture.
 type ConnectionTestArchitecture string
+
+// ConnectionTestChecksStatus defines model for ConnectionTest.Checks.Status.
+type ConnectionTestChecksStatus string

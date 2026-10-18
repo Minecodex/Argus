@@ -48,13 +48,15 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 38. [全部工具模板 v2 实施与 Chatbox 验收](./planv5/template-v2-implementation.md)
 39. [模型工具目录收敛与草稿替代能力](./planv5/tool-catalog-pruning-20261014.md)
 40. [按分类完整列出工具与模型导航](./planv5/category-only-discovery-20261014.md)
-41. [Plan7 Workspace 分析与按次确认的远程执行](./plan7/README.md)
+41. [Plan7 Workspace 分析、ReAct 实施与持久化交互](./plan7/README.md)
 42. [会话工具结果按需展开与业务视图方案](./plans/frontend-redesign/chat-tool-result-views-20261015.md)
 43. [会话业务视图与管理门户统一](./plans/frontend-redesign/chat-business-views-20261015.md)
 44. [会话置顶摘要与统一滚动](./plans/frontend-redesign/chat-summary-scroll-20261016.md)
 45. [工具卡片视图、返回内容与查询参数切换](./plans/frontend-redesign/chat-result-tabs-20261016.md)
+46. [会话文件目录树](./plans/frontend-redesign/chat-workspace-file-tree-20261018.md)
+47. [Workspace 业务结果目录与元数据](./plan7/19-workspace-results-and-metadata.md)
 
-2026-10-15 已记录 [Plan7 当前决定与 Q&A](./plan7/01-decisions-and-qa.md)：Workspace 离线分析免逐次确认，平台业务保留三个元工具与 Preview／Confirm，connect 按批次或固定计划批准。首期三类平台、共享会话、单计划串行、后台继续／手动停止、目录自动交换、失效恢复及空闲回收已明确。不同聊天同资源不排队，并发命令事实只放入 AI 上下文，不展示在聊天记录或并发提示 UI。Q1～Q24 已收敛；详见[会话与文件契约](./plan7/07-shared-sessions-and-file-transfer.md)。[开发任务](./plan7/03-development-plan.md)全部未开始；原工具等级／24 小时免确认方案已退出，客户 MCP 与人工会话保留各自边界。
+2026-10-18 [Markdown 计划、命令授权与普通会话执行](./plan7/18-markdown-plan-command-consent.md)完成并发布到本地 revision 40：计划文档一次批准，命令按普通会话工具执行；两种权限模式的修复和停止场景通过，最终 38 次模型调用用量完整。Go 2263、前端 1326、交互 E2E 12、真实历史页面 12 通过，健康 20/20。此前 [revision 36/37 交互与布局记录](./plan7/16-interaction-closure.md)和更早的固定计划矩阵保留各自适用范围。
 
 PlanV5 已于 2026-09-13 同步 [已确认决策与待决问题](./planv5/02-confirmed-decisions-and-open-questions.md) Q1～Q16：自有 Registry 经三个元工具使用并保留 Preview/Commit 与模板，宿主统一确认；客户 MCP 首期仅 Remote Streamable HTTP，由企业管理员配置/授权、用户按会话选择；工具超容量运行前明确提示；离线镜像预装依赖，每会话持久目录支持业务文件上传和产物下载。首期产品边界已收敛，代码和设计正在按新基线切换；验收状态与未通过门禁统一记录在 [实施状态](./planv5/implementation-status.md)，未通过的任务不视为完成。
 

@@ -476,6 +476,7 @@ func platformValues(cfg *InstallConfig, credentials map[string]string, setupSecr
 		"trustBundleConfigMapName":             cfg.trustBundleName(),
 		"trustBundleEpoch":                     1,
 		"connectorKubernetesImage":             cfg.Image("argus-backend"),
+		"remoteRuntimeImage":                   cfg.Image("argus-remote-runtime"),
 		"allowedOrigins":                       allowedOrigins, "secureCookies": true,
 		"keyWrappingMode": "local_test", "breakGlassEnabled": false, "platformMfaRequired": cfg.Spec.Security.PlatformMFARequired, "databaseRolesEnabled": false,
 

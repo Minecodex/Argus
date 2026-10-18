@@ -1,0 +1,108 @@
+.argus-file-tree,
+.argus-file-tree__children {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.argus-file-tree {
+  margin-block: var(--space-2);
+  font-size: var(--text-help);
+  color: var(--text-primary);
+}
+.argus-file-tree__directory {
+  min-width: 0;
+}
+.argus-file-tree__children {
+  padding-inline-start: var(--space-4);
+  margin-inline-start: var(--space-2);
+  border-inline-start: var(--space-px-1) solid var(--border-subtle);
+}
+.argus-file-tree__folder,
+.argus-file-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  height: var(--control-sm);
+  border-radius: var(--radius-xs);
+}
+.argus-file-tree__folder {
+  padding-inline: var(--space-1);
+  cursor: pointer;
+  list-style: none;
+}
+.argus-file-tree__folder::-webkit-details-marker {
+  display: none;
+}
+.argus-file-tree__folder:hover,
+.argus-file-row:hover {
+  background: var(--bg-hover);
+}
+.argus-file-tree svg,
+.argus-file-row svg {
+  width: var(--control-icon);
+  height: var(--control-icon);
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+.argus-file-tree__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.argus-file-tree__directory
+  > .argus-file-tree__folder
+  .argus-file-tree__open-icon,
+.argus-file-tree__directory[open]
+  > .argus-file-tree__folder
+  .argus-file-tree__closed-icon {
+  display: none;
+}
+.argus-file-tree__directory[open]
+  > .argus-file-tree__folder
+  .argus-file-tree__open-icon {
+  display: block;
+}
+.argus-file-tree__directory[open]
+  > .argus-file-tree__folder
+  .argus-file-tree__chevron {
+  transform: rotate(90deg);
+}
+.argus-file-row .argus-file-row__preview {
+  flex: 1;
+  justify-content: flex-start;
+  min-width: 0;
+  height: var(--control-sm);
+  min-height: var(--control-sm);
+  padding: 0 var(--space-1);
+  gap: var(--space-1);
+  font-size: inherit;
+  font-weight: var(--font-weight-normal);
+  border-radius: var(--radius-xs);
+  background: transparent;
+}
+.argus-file-row__size {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.argus-file-row__download {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border-radius: var(--radius-xs);
+}
+.argus-file-row__download:hover {
+  background: var(--bg-muted);
+}
+.argus-file-tree__folder:focus-visible,
+.argus-file-row__download:focus-visible {
+  outline: var(--control-focus-width) solid var(--control-focus-border);
+  outline-offset: calc(-1 * var(--control-focus-width));
+}

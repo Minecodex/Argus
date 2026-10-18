@@ -55,10 +55,14 @@ func (a *App) plan6DockerIngressBridge(ctx context.Context, env *E2EEnvironment,
 		return "", fmt.Errorf("desktop node IP/network does not match Kubernetes")
 	}
 	ports := map[int32]int32{}
+	ingressService := "argus-e2e-ingress"
+	if configured := env.State.Values["host_ingress_service"]; configured != "" {
+		ingressService = configured
+	}
 	for _, item := range []struct {
 		namespace, name string
 		port            int32
-	}{{env.IngressNS, "argus-e2e-ingress", 443}, {env.SystemNS, "argus-connector-gateway-public", 9443}, {env.ObservNS, "argus-telemetry-ingest", 4317}, {env.ObservNS, "argus-telemetry-ingest", 4318}} {
+	}{{env.IngressNS, ingressService, 443}, {env.SystemNS, "argus-connector-gateway-public", 9443}, {env.ObservNS, "argus-telemetry-ingest", 4317}, {env.ObservNS, "argus-telemetry-ingest", 4318}} {
 		original, err := env.Kube.Client.CoreV1().Services(item.namespace).Get(ctx, item.name, metav1.GetOptions{})
 		if err != nil {
 			return "", err
@@ -73,7 +77,8 @@ func (a *App) plan6DockerIngressBridge(ctx context.Context, env *E2EEnvironment,
 			return "", fmt.Errorf("temporary service port missing")
 		}
 		target.NodePort = 0
-		created, err := env.Kube.Client.CoreV1().Services(item.namespace).Create(ctx, &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("docker-host-%s-%d", item.name, item.port), Labels: map[string]string{"argus.io/release-id": env.ReleaseID}}, Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Selector: original.Spec.Selector, Ports: []corev1.ServicePort{target}}}, metav1.CreateOptions{})
+		name := kubernetesNameForDev(fmt.Sprintf("docker-host-%s-%s-%d", env.Options.RunID, item.name, item.port))
+		created, err := env.Kube.Client.CoreV1().Services(item.namespace).Create(ctx, &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"argus.io/release-id": env.ReleaseID}}, Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Selector: original.Spec.Selector, Ports: []corev1.ServicePort{target}}}, metav1.CreateOptions{})
 		if err != nil {
 			return "", err
 		}
@@ -85,7 +90,11 @@ func (a *App) plan6DockerIngressBridge(ctx context.Context, env *E2EEnvironment,
 		script += fmt.Sprintf("socat TCP-LISTEN:%d,fork,reuseaddr TCP:%s:%d & ", port, ip, ports[port])
 	}
 	script += "wait"
-	cid, err := a.runner.Output(ctx, nil, "docker", "run", "--detach", "--name", name, "--label", "io.argus.e2e.run="+f.Owner, "--network", outside, "argus-host-loop-os:20261011-01", "/bin/bash", "-lc", script)
+	image := f.RuntimeImage
+	if image == "" {
+		image = "argus-host-loop-os:20261011-01"
+	}
+	cid, err := a.runner.Output(ctx, nil, "docker", "run", "--detach", "--name", name, "--label", "io.argus.e2e.run="+f.Owner, "--network", outside, image, "/bin/bash", "-lc", script)
 	if err != nil {
 		return "", err
 	}

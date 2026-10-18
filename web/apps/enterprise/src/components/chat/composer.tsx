@@ -10,6 +10,8 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUp,
+  Plus,
+  Lightbulb,
   AtSign,
   Cable,
   FileText,
@@ -19,10 +21,18 @@ import {
   Square,
   X,
 } from "lucide-react";
-import { useApi, formatApiError, type WorkspaceFile } from "@argus/api-client";
-import { Button, Tooltip } from "@argus/ui";
+import {
+  useApi,
+  formatApiError,
+  type WorkspaceFile,
+  type ConversationInteraction,
+  type InteractionResponse,
+} from "@argus/api-client";
+import { Button, ComposerActions } from "@argus/ui";
 import { usePermission } from "../../lib/permissions";
 import { mentionQuery } from "./mention-query";
+import { ChatAccessSwitch, useConversationModes } from "./mode-switch";
+import { ComposerInteraction } from "./composer-interaction";
 
 type Mention = {
   kind: "host" | "connector" | "dashboard";
@@ -36,7 +46,11 @@ export function ChatComposer({
   onStop,
   conversationId,
   prepareConversation,
+  interaction,
+  onRespond,
 }: {
+  interaction?: ConversationInteraction;
+  onRespond?: (id: string, value: InteractionResponse) => Promise<void>;
   sending: boolean;
   disabled?: boolean;
   conversationId?: string;
@@ -50,6 +64,12 @@ export function ChatComposer({
 }) {
   const { t } = useTranslation();
   const api = useApi();
+  const modes = useConversationModes(conversationId, prepareConversation);
+  const [collapsedInteraction, setCollapsedInteraction] = useState<
+    string | null
+  >(null);
+  const showInteraction =
+    !!interaction && !!onRespond && collapsedInteraction !== interaction.id;
   const canReadDashboard = usePermission("telemetry.dashboard.read");
   const canCreateDashboard = usePermission("telemetry.dashboard.manage");
   const queries = useQueryClient();
@@ -67,10 +87,16 @@ export function ChatComposer({
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [focusRequest, setFocusRequest] = useState(0);
   const area = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const activeUpload = useRef<AbortController | null>(null);
   const previousConversation = useRef(conversationId);
+  useEffect(() => {
+    if (!focusRequest) return;
+    const frame = requestAnimationFrame(() => area.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [focusRequest]);
   useEffect(() => {
     if (
       previousConversation.current &&
@@ -131,7 +157,7 @@ export function ChatComposer({
     );
     setText(text.slice(0, picker.start) + text.slice(picker.end));
     setPicker(null);
-    area.current?.focus();
+    setFocusRequest((value) => value + 1);
   };
   const submit = async () => {
     if (!text.trim() || sending || disabled || submitting || upload) return;
@@ -267,7 +293,7 @@ export function ChatComposer({
             </span>
           )}
         </div>
-        {error && <p role="alert">{error}</p>}
+        {(error || modes.error) && <p role="alert">{error ?? modes.error}</p>}
         <div className="argus-chat-composer__box">
           {picker && (
             <div
@@ -302,21 +328,35 @@ export function ChatComposer({
               </div>
             </div>
           )}
-          <Textarea
-            appearance="embedded"
-            ref={area}
-            aria-label={t("chat.composer.send")}
-            value={text}
-            disabled={disabled || sending}
-            rows={2}
-            placeholder={t(
-              disabled ? "chat.composer.noModel" : "chat.composer.placeholder",
-            )}
-            onKeyDown={keyDown}
-            onChange={(event) =>
-              updateText(event.target.value, event.target.selectionStart)
-            }
-          />
+          {interaction && onRespond && (
+            <div hidden={!showInteraction}>
+              <ComposerInteraction
+                key={interaction.id}
+                interaction={interaction}
+                onRespond={onRespond}
+                onClose={() => setCollapsedInteraction(interaction.id)}
+              />
+            </div>
+          )}
+          {!showInteraction && (
+            <Textarea
+              appearance="embedded"
+              ref={area}
+              aria-label={t("chat.composer.send")}
+              value={text}
+              disabled={disabled || sending}
+              rows={2}
+              placeholder={t(
+                disabled
+                  ? "chat.composer.noModel"
+                  : "chat.composer.placeholder",
+              )}
+              onKeyDown={keyDown}
+              onChange={(event) =>
+                updateText(event.target.value, event.target.selectionStart)
+              }
+            />
+          )}
           <div className="argus-chat-composer__toolbar">
             <input
               hidden
@@ -326,45 +366,97 @@ export function ChatComposer({
               ref={fileInput}
               onChange={(event) => void pickFiles(event)}
             />
-            <Tooltip content={t("planv5.files.attach")}>
+            <ComposerActions
+              label={t("chatInteractions.add")}
+              trigger={
+                <Button
+                  aria-label={t("chatInteractions.add")}
+                  variant="ghost"
+                  isIconOnly
+                >
+                  <Plus size={17} />
+                </Button>
+              }
+              sections={[
+                {
+                  label: t("chatInteractions.additions"),
+                  items: [
+                    {
+                      id: "upload",
+                      label: t("planv5.files.attach"),
+                      icon: <Paperclip size={16} />,
+                      disabled: disabled || sending || !!upload,
+                      onSelect: () => fileInput.current?.click(),
+                    },
+                    {
+                      id: "reference",
+                      label: t("chat.composer.mention"),
+                      icon: <AtSign size={16} />,
+                      disabled: disabled || sending,
+                      onSelect: () => {
+                        const value =
+                          text + (text && !/\s$/.test(text) ? " @" : "@");
+                        updateText(value, value.length);
+                        setFocusRequest((value) => value + 1);
+                      },
+                    },
+                    {
+                      id: "plan",
+                      label: t("chatInteractions.enablePlan"),
+                      icon: <Lightbulb size={16} />,
+                      selected: modes.mode === "plan",
+                      disabled: modes.saving,
+                      onSelect: () =>
+                        void modes.changeMode(
+                          modes.mode === "plan" ? "execute" : "plan",
+                        ),
+                    },
+                  ],
+                },
+                {
+                  label: t("chatInteractions.skills"),
+                  items: [
+                    {
+                      id: "dashboard",
+                      label: t("chat.dashboard.createEntry"),
+                      icon: <LayoutDashboard size={16} />,
+                      disabled: disabled || sending || !canCreateDashboard,
+                      onSelect: () => {
+                        setText(t("chat.dashboard.command") + " ");
+                        area.current?.focus();
+                      },
+                    },
+                  ],
+                },
+              ]}
+            />
+            <ChatAccessSwitch
+              value={modes.access}
+              disabled={modes.saving}
+              onChange={(value) => void modes.changeAccess(value)}
+            />
+            {modes.mode === "plan" && (
               <Button
-                aria-label={t("planv5.files.attach")}
                 variant="ghost"
-                isIconOnly
-                isDisabled={
-                  (!conversationId && disabled) || sending || !!upload
-                }
-                onPress={() => fileInput.current?.click()}
+                size="sm"
+                aria-label={t("chatInteractions.exitPlan")}
+                isDisabled={modes.saving}
+                onPress={() => void modes.changeMode("execute")}
               >
-                <Paperclip size={15} />
+                <Lightbulb size={15} />
+                {t("chatInteractions.plan")}
+                <X size={12} />
               </Button>
-            </Tooltip>
-            <Tooltip content={t("chat.composer.mention")}>
+            )}
+            {interaction && !showInteraction && (
               <Button
-                aria-label={t("chat.composer.mention")}
                 variant="ghost"
-                isIconOnly
-                isDisabled={disabled || sending}
-                onPress={() => {
-                  const value = text + (text && !/\s$/.test(text) ? " @" : "@");
-                  updateText(value, value.length);
-                  area.current?.focus();
-                }}
+                size="sm"
+                onPress={() => setCollapsedInteraction(null)}
               >
-                <AtSign size={15} />
+                {t("chatInteractions.reopen")}
               </Button>
-            </Tooltip>
-            <Button
-              variant="ghost"
-              size="sm"
-              isDisabled={disabled || sending || !canCreateDashboard}
-              onPress={() => {
-                setText(t("chat.dashboard.command") + " ");
-                area.current?.focus();
-              }}
-            >
-              {t("chat.dashboard.createEntry")}
-            </Button>
+            )}
             <span>{t("chat.composer.hint")}</span>
             {sending ? (
               <Button

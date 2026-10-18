@@ -17,6 +17,7 @@ import (
 )
 
 type Evidence struct {
+	IdentitySID         string
 	Platform            string
 	Architecture        string
 	DistributionVersion string
@@ -49,11 +50,12 @@ func Probe(client *ssh.Client, expectedPlatform string) (Evidence, error) {
 		evidence.Platform = "linux"
 		return validateEvidence(evidence)
 	case "windows":
-		output, err := run(client, PowerShellCommand(`$ErrorActionPreference='Stop';$os=Get-CimInstance Win32_OperatingSystem;$disk=Get-CimInstance Win32_LogicalDisk -Filter ("DeviceID='"+$env:SystemDrive+"'");$principal=New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent());$admin=$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator);$serviceManager=$false;try{$null=Get-Service -Name EventLog -ErrorAction Stop;$serviceManager=$true}catch{};@{architecture=[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString();distribution_version=($os.Caption+':'+$os.Version);product_type=[int]$os.ProductType;build_number=[int]$os.BuildNumber;service_manager=$(if($serviceManager){'windows_scm'}else{'unavailable'});privileged=$admin;free_disk_bytes=[uint64]$disk.FreeSpace}|ConvertTo-Json -Compress`))
+		output, err := run(client, PowerShellCommand(`$ErrorActionPreference='Stop';$os=Get-CimInstance Win32_OperatingSystem;$disk=Get-CimInstance Win32_LogicalDisk -Filter ("DeviceID='"+$env:SystemDrive+"'");$identity=[Security.Principal.WindowsIdentity]::GetCurrent();$principal=New-Object Security.Principal.WindowsPrincipal($identity);$admin=$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator);$serviceManager=$false;try{$null=Get-Service -Name EventLog -ErrorAction Stop;$serviceManager=$true}catch{};@{architecture=[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString();distribution_version=($os.Caption+':'+$os.Version);product_type=[int]$os.ProductType;build_number=[int]$os.BuildNumber;service_manager=$(if($serviceManager){'windows_scm'}else{'unavailable'});privileged=$admin;free_disk_bytes=[uint64]$disk.FreeSpace;identity_sid=$identity.User.Value}|ConvertTo-Json -Compress`))
 		if err != nil {
 			return Evidence{}, fmt.Errorf("probe Windows target: %w", err)
 		}
 		var raw struct {
+			IdentitySID         string `json:"identity_sid"`
 			Architecture        string `json:"architecture"`
 			DistributionVersion string `json:"distribution_version"`
 			ServiceManager      string `json:"service_manager"`
@@ -66,7 +68,7 @@ func Probe(client *ssh.Client, expectedPlatform string) (Evidence, error) {
 			return Evidence{}, errors.New("Windows Server 2019 or newer is required")
 		}
 		evidence := Evidence{Platform: "windows", Architecture: strings.ToLower(raw.Architecture), DistributionVersion: raw.DistributionVersion,
-			ServiceManager: raw.ServiceManager, Privileged: raw.Privileged, FreeDiskBytes: raw.FreeDiskBytes}
+			ServiceManager: raw.ServiceManager, Privileged: raw.Privileged, FreeDiskBytes: raw.FreeDiskBytes, IdentitySID: raw.IdentitySID}
 		switch evidence.Architecture {
 		case "x64", "amd64":
 			evidence.Architecture = "amd64"

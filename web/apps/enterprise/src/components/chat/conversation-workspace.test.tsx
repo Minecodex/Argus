@@ -1,20 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   ApiError,
   ApiProvider,
   createMockApiClient,
-  type Workspace,
+  type WorkspaceFile,
 } from "@argus/api-client";
 import { LocaleProvider } from "@argus/ui";
 import "../../i18n";
@@ -22,40 +15,14 @@ import { ConversationWorkspace } from "./conversation-workspace";
 
 window.localStorage.setItem("argus.locale", "zh-CN");
 afterEach(cleanup);
-const value: Workspace = {
-  id: "workspace",
-  conversation_id: "conversation",
-  status: "ready",
-  capacity_bytes: 2147483648,
-  version: 1,
-  created_at: "2026-09-21T00:00:00Z",
-};
-const missing = () =>
-  new ApiError(
-    {
-      code: "WORKSPACE_NOT_FOUND",
-      message_key: "planv5.files.empty",
-      request_id: "test",
-      retryable: false,
-    },
-    404,
-  );
 
-async function setup(status: Workspace["status"] | null) {
+async function setup(files: WorkspaceFile[] = [], fileError?: ApiError) {
   const api = createMockApiClient({ persist: false, delay: 0 });
   await api.auth.login({ username: "root", password: "123456" });
-  let current = status;
-  vi.spyOn(api.workspace, "listFiles").mockResolvedValue([]);
-  vi.spyOn(api.workspace, "get").mockImplementation(async () => {
-    if (current === null) throw missing();
-    return { ...value, status: current };
-  });
-  const remove = vi
-    .spyOn(api.workspace, "remove")
-    .mockImplementation(async () => {
-      current = null;
-      return { ...value, status: "deleted" };
-    });
+  const listFiles = vi.spyOn(api.workspace, "listFiles");
+  if (fileError) listFiles.mockRejectedValue(fileError);
+  else listFiles.mockResolvedValue(files);
+  const remove = vi.spyOn(api.workspace, "remove");
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
@@ -67,53 +34,81 @@ async function setup(status: Workspace["status"] | null) {
             conversationId="conversation"
             selected={[]}
             disabled={false}
+            expanded
           />
         </QueryClientProvider>
       </ApiProvider>
     </LocaleProvider>,
   );
-  fireEvent.click(screen.getByText("会话文件 · 0"));
-  return { remove, api };
+  return { remove };
 }
 
-it("deletes an existing workspace with only generated files or deliveries", async () => {
-  const { remove } = await setup("ready");
-  const button = screen.getByRole("button", {
-    name: "删除 Workspace",
-  });
-  await waitFor(() => expect(button).toBeEnabled());
-  fireEvent.click(button);
-  fireEvent.click(
-    within(screen.getByRole("dialog")).getByRole("button", {
-      name: "删除 Workspace",
-    }),
-  );
-  await waitFor(() => expect(remove).toHaveBeenCalledWith("conversation"));
-  await waitFor(() =>
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-  );
-  await waitFor(() => expect(button).toBeDisabled());
+it("keeps existing files browsable without offering workspace deletion", async () => {
+  const { remove } = await setup([
+    {
+      id: "report",
+      name: "report.txt",
+      path: "/workspace/report.txt",
+      byte_size: 12,
+      media_type: "text/plain",
+      content_hash: "a".repeat(64),
+      created_at: "2026-10-18T00:00:00Z",
+    },
+  ]);
+  expect(
+    await screen.findByRole("button", { name: "预览 report.txt" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /删除 Workspace|Delete Workspace/ }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(
+    screen.getByText("文件随会话保留，永久删除会话时一并清理。"),
+  ).toBeInTheDocument();
+  expect(remove).not.toHaveBeenCalled();
 });
 
-it.each(["failed", "provisioning"] as const)(
-  "can explicitly clean an empty %s workspace",
-  async (status) => {
-    await setup(status);
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "删除 Workspace" }),
-      ).toBeEnabled(),
-    );
-  },
-);
+it("shows an empty file list without a deletion action", async () => {
+  const { remove } = await setup();
+  expect(await screen.findByText("没有文件")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /删除 Workspace|Delete Workspace/ }),
+  ).not.toBeInTheDocument();
+  expect(remove).not.toHaveBeenCalled();
+});
 
-it.each([null, "deleting", "deleted"] as const)(
-  "cannot delete an absent or terminal workspace (%s)",
-  async (status) => {
-    const { api } = await setup(status);
-    await waitFor(() => expect(api.workspace.get).toHaveBeenCalled());
-    expect(
-      screen.getByRole("button", { name: "删除 Workspace" }),
-    ).toBeDisabled();
-  },
-);
+it("shows an empty list when the workspace has not been created", async () => {
+  await setup(
+    [],
+    new ApiError(
+      {
+        code: "WORKSPACE_NOT_FOUND",
+        message_key: "planv5.files.empty",
+        request_id: "test",
+        retryable: false,
+      },
+      404,
+    ),
+  );
+  expect(await screen.findByText("没有文件")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it("reports file service failures instead of claiming the workspace is empty", async () => {
+  await setup(
+    [],
+    new ApiError(
+      {
+        code: "WORKSPACE_STORAGE_UNAVAILABLE",
+        message_key: "planv5.files.unavailable",
+        request_id: "test",
+        retryable: true,
+      },
+      503,
+    ),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "暂时无法读取会话文件",
+  );
+  expect(screen.queryByText("没有文件")).not.toBeInTheDocument();
+});

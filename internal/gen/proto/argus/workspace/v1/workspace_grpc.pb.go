@@ -25,6 +25,7 @@ const (
 	WorkspaceIOService_Download_FullMethodName     = "/argus.workspace.v1.WorkspaceIOService/Download"
 	WorkspaceIOService_Edit_FullMethodName         = "/argus.workspace.v1.WorkspaceIOService/Edit"
 	WorkspaceIOService_Delete_FullMethodName       = "/argus.workspace.v1.WorkspaceIOService/Delete"
+	WorkspaceIOService_ListFiles_FullMethodName    = "/argus.workspace.v1.WorkspaceIOService/ListFiles"
 )
 
 // WorkspaceIOServiceClient is the client API for WorkspaceIOService service.
@@ -37,6 +38,7 @@ type WorkspaceIOServiceClient interface {
 	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadResponse], error)
 	Edit(ctx context.Context, in *EditRequest, opts ...grpc.CallOption) (*EditResponse, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
+	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
 }
 
 type workspaceIOServiceClient struct {
@@ -119,6 +121,16 @@ func (c *workspaceIOServiceClient) Delete(ctx context.Context, in *DeleteRequest
 	return out, nil
 }
 
+func (c *workspaceIOServiceClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFilesResponse)
+	err := c.cc.Invoke(ctx, WorkspaceIOService_ListFiles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkspaceIOServiceServer is the server API for WorkspaceIOService service.
 // All implementations must embed UnimplementedWorkspaceIOServiceServer
 // for forward compatibility.
@@ -129,6 +141,7 @@ type WorkspaceIOServiceServer interface {
 	Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadResponse]) error
 	Edit(context.Context, *EditRequest) (*EditResponse, error)
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
+	ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
 	mustEmbedUnimplementedWorkspaceIOServiceServer()
 }
 
@@ -156,6 +169,9 @@ func (UnimplementedWorkspaceIOServiceServer) Edit(context.Context, *EditRequest)
 }
 func (UnimplementedWorkspaceIOServiceServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedWorkspaceIOServiceServer) ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListFiles not implemented")
 }
 func (UnimplementedWorkspaceIOServiceServer) mustEmbedUnimplementedWorkspaceIOServiceServer() {}
 func (UnimplementedWorkspaceIOServiceServer) testEmbeddedByValue()                            {}
@@ -268,6 +284,24 @@ func _WorkspaceIOService_Delete_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkspaceIOService_ListFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFilesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkspaceIOServiceServer).ListFiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkspaceIOService_ListFiles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkspaceIOServiceServer).ListFiles(ctx, req.(*ListFilesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkspaceIOService_ServiceDesc is the grpc.ServiceDesc for WorkspaceIOService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -290,6 +324,10 @@ var WorkspaceIOService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Delete",
 			Handler:    _WorkspaceIOService_Delete_Handler,
+		},
+		{
+			MethodName: "ListFiles",
+			Handler:    _WorkspaceIOService_ListFiles_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

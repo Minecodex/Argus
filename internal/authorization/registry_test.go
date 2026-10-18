@@ -3,8 +3,8 @@ package authorization
 import "testing"
 
 func TestPermissionRegistryVersionAndBuiltinRolesIncludeM7(t *testing.T) {
-	if PermissionRegistryVersion != 12 {
-		t.Fatalf("permission registry version = %d, want 12", PermissionRegistryVersion)
+	if PermissionRegistryVersion != 13 {
+		t.Fatalf("permission registry version = %d, want 13", PermissionRegistryVersion)
 	}
 
 	for _, permission := range []string{
@@ -12,6 +12,7 @@ func TestPermissionRegistryVersionAndBuiltinRolesIncludeM7(t *testing.T) {
 		"data_authorization.read", "data_authorization.manage",
 		"conversation.use", "model.manage", "model.quota.manage", "approval_policy.manage", "telemetry.dashboard.read", "telemetry.dashboard.manage",
 		"approval.decide", "execution.read", "mcp_connection.manage", "workspace.use",
+		"remote_execution.read", "remote_execution.execute", "remote_execution.stop",
 
 		"remote_access.grant.read", "remote_access.grant.manage",
 		"remote_access.rule.read", "remote_access.rule.manage", "remote_access.workflow.read", "remote_access.workflow.manage",

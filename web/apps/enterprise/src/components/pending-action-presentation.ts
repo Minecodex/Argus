@@ -230,8 +230,8 @@ function localizedDiff(
 ): PendingActionPublic["diff"] {
   const keys = definition?.diffKeys ?? ["pendingActions.fallback.diff"];
   return keys.map((key, index) => ({
-    kind: (action.diff[index]?.kind ??
-      action.diff[0]?.kind ??
+    kind: (action.diff?.[index]?.kind ??
+      action.diff?.[0]?.kind ??
       "change") as DiffKind,
     text: t(key, options),
   }));

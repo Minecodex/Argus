@@ -165,7 +165,7 @@ test.describe("P5 real tools and workspace", () => {
     expect(accepted).toBe(false);
   });
 
-  test("explicitly deletes a Workspace containing only model-created files", async ({
+  test("does not offer Workspace deletion for model-created files", async ({
     page,
   }) => {
     await login(
@@ -178,30 +178,20 @@ test.describe("P5 real tools and workspace", () => {
       `${enterpriseOrigin}/?c=${process.env.ARGUS_P5_MODEL_ONLY_CONVERSATION}`,
     );
     await page.getByRole("button", { name: /置顶摘要|Pinned summary/ }).click();
-    const files = page.locator(".argus-conversation-workspace details").last();
-    await expect(files.locator("summary")).toContainText("0");
-    const remove = files.getByRole("button", {
-      name: /删除 Workspace|Delete Workspace/,
-    });
-    await expect(remove).toBeEnabled();
-    await remove.click();
-    const dialog = page.getByRole("dialog", {
-      name: /删除 Workspace|Delete Workspace/,
-    });
-    const deleted = page.waitForResponse(
-      (response) =>
-        response.request().method() === "DELETE" &&
-        response.url().endsWith("/workspace"),
+    const files = page
+      .locator(".argus-conversation-workspace > details")
+      .last();
+    await expect(files.locator(":scope > summary")).toContainText(
+      /会话文件|Conversation files/,
     );
-    await dialog
-      .getByRole("button", { name: /删除 Workspace|Delete Workspace/ })
-      .click();
-    expect((await deleted).status()).toBe(202);
-    await expect(dialog).not.toBeVisible();
-    await expect(remove).toBeDisabled();
+    await expect(
+      files.getByRole("button", { name: /删除 Workspace|Delete Workspace/ }),
+    ).toHaveCount(0);
     await page.reload();
-    await files.locator("summary").click();
-    await expect(remove).toBeDisabled();
+    await page.getByRole("button", { name: /置顶摘要|Pinned summary/ }).click();
+    await expect(
+      files.getByRole("button", { name: /删除 Workspace|Delete Workspace/ }),
+    ).toHaveCount(0);
   });
 
   test("compaction failure publishes a terminal event and closes the browser stream", async ({

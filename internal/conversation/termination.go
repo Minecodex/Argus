@@ -22,6 +22,9 @@ func FinishRunRecord(ctx context.Context, q *db.Queries, run db.Run, status, rea
 	if TerminalRun(run.Status) {
 		return run, nil
 	}
+	if err := q.CancelRunInteractions(ctx, db.CancelRunInteractionsParams{RunID: run.ID, EnterpriseID: run.EnterpriseID}); err != nil {
+		return db.Run{}, err
+	}
 	updated, err := q.UpdateRunStatus(ctx, db.UpdateRunStatusParams{ID: run.ID, EnterpriseID: run.EnterpriseID, Status: status,
 		StopReason: pgtype.Text{String: reason, Valid: reason != ""}, ErrorCode: pgtype.Text{String: code, Valid: code != ""}, Version: run.Version})
 	if err != nil {

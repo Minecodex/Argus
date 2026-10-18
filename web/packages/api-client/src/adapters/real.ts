@@ -98,6 +98,8 @@ import { HttpTransport, type HttpTransportOptions } from "../transport/http";
 import { SseTransport } from "../transport/sse";
 import { WebSocketTransport } from "../transport/websocket";
 import { installAgentDomains } from "./real/agent";
+import { installRemoteExecutionDomains } from "./real/remote-execution";
+import { installInteractionDomains } from "./real/interactions";
 import { createPlanV5Domains } from "./real/planv5";
 import type { PlanV5Domains } from "../planv5";
 import type { RealDomainContext } from "./real/context";
@@ -266,7 +268,7 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
   const client = createUnavailableClient({
     ...createPlanV5Domains(http, idempotencyKey),
     ...createDashboardDomains(http, idempotencyKey),
- ...createAlertDomains(http,idempotencyKey),
+    ...createAlertDomains(http, idempotencyKey),
   });
   const domainContext: RealDomainContext = {
     client,
@@ -574,6 +576,8 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
   client.org = createOrganizationClient(http, versions, remember);
   installWorkflowDomains(domainContext);
   installAgentDomains(domainContext);
+  installRemoteExecutionDomains(domainContext);
+  installInteractionDomains(domainContext);
 
   installRemoteAccessDomains(domainContext);
 
@@ -858,8 +862,22 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
           headers: { "Idempotency-Key": idempotencyKey() },
         },
       ),
-    previewReconnect: (id, version) => http.request<PendingActionPublic>(`enterprise/hosts/${id}/actions/preview-reconnect`, {method: "POST", csrf: true, headers: {"Idempotency-Key": idempotencyKey()}, body: {expected_version: version}}),
-    refreshInventory: (id) => http.request<Host>(`enterprise/hosts/${id}/inventory/actions/refresh`, {method: "POST", csrf: true, headers: {"Idempotency-Key": idempotencyKey()}}),
+    previewReconnect: (id, version) =>
+      http.request<PendingActionPublic>(
+        `enterprise/hosts/${id}/actions/preview-reconnect`,
+        {
+          method: "POST",
+          csrf: true,
+          headers: { "Idempotency-Key": idempotencyKey() },
+          body: { expected_version: version },
+        },
+      ),
+    refreshInventory: (id) =>
+      http.request<Host>(`enterprise/hosts/${id}/inventory/actions/refresh`, {
+        method: "POST",
+        csrf: true,
+        headers: { "Idempotency-Key": idempotencyKey() },
+      }),
     previewEnableWindowsRDP: (id, version) =>
       http.request<PendingActionPublic>(
         `enterprise/hosts/${id}/windows-rdp/actions/preview-enable`,
@@ -1540,6 +1558,8 @@ function createUnavailableClient(
       me: () => unavailable("auth.me"),
     },
     conversations: {
+      updateMode: () => unavailable("conversations.updateMode"),
+      updateAccessMode: () => unavailable("conversations.updateAccessMode"),
       dashboardContext: () => unavailable("conversations.dashboardContext"),
       remove: () => unavailable("conversations.remove"),
       preflight: () => unavailable("conversations.preflight"),
@@ -1557,6 +1577,18 @@ function createUnavailableClient(
       get: () => unavailable("runs.get"),
       cancel: () => unavailable("runs.cancel"),
       compact: () => unavailable("runs.compact"),
+    },
+    interactions: {
+      list: () => unavailable("interactions.list"),
+      get: () => unavailable("interactions.get"),
+      respond: () => unavailable("interactions.respond"),
+    },
+    remoteExecutions: {
+      inputUrl: () => unavailableSync("remoteExecutions.inputUrl"),
+      list: () => unavailable("remoteExecutions.list"),
+      get: () => unavailable("remoteExecutions.get"),
+      stop: () => unavailable("remoteExecutions.stop"),
+      feedback: () => unavailable("remoteExecutions.feedback"),
     },
     executions: {
       list: () => unavailable("executions.list"),

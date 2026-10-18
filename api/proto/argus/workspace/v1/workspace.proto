@@ -11,6 +11,7 @@ service WorkspaceIOService {
   rpc Download(DownloadRequest) returns (stream DownloadResponse);
   rpc Edit(EditRequest) returns (EditResponse);
   rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
 }
 
 // Only implemented by the trusted supervisor in the offline compute image.
@@ -77,6 +78,17 @@ message DeleteRequest {
   string path = 2;
 }
 message DeleteResponse {}
+message ListFilesRequest {
+  Authority authority = 1;
+  string path = 2;
+  uint32 max_files = 3;
+  uint64 max_bytes = 4;
+}
+message ListFilesResponse { repeated WorkspaceFileInfo files = 1; }
+message WorkspaceFileInfo {
+  string path = 1;
+  int64 byte_size = 2;
+}
 message UploadResponse {
   string path = 1;
   int64 byte_size = 2;

@@ -1,0 +1,74 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Argus Conversation Interaction API",
+    "version": "1.0.0",
+    "license": {
+      "name": "Proprietary",
+      "identifier": "LicenseRef-Proprietary"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "sessionCookie": []
+    }
+  ],
+  "paths": {
+    "/conversations/{conversation_id}/interactions": {
+      "$ref": "../paths/interaction.yaml#/list"
+    },
+    "/conversations/{conversation_id}/interactions/{interaction_id}": {
+      "$ref": "../paths/interaction.yaml#/get"
+    },
+    "/conversations/{conversation_id}/interactions/{interaction_id}/respond": {
+      "$ref": "../paths/interaction.yaml#/respond"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "$ref": "../argus.yaml#/components/securitySchemes/sessionCookie"
+      }
+    },
+    "schemas": {
+      "InteractionOption": {
+        "$ref": "../components/interaction.yaml#/components/schemas/InteractionOption"
+      },
+      "InteractionQuestion": {
+        "$ref": "../components/interaction.yaml#/components/schemas/InteractionQuestion"
+      },
+      "UserInputQuestions": {
+        "$ref": "../components/interaction.yaml#/components/schemas/UserInputQuestions"
+      },
+      "GuidancePlanStep": {
+        "$ref": "../components/interaction.yaml#/components/schemas/GuidancePlanStep"
+      },
+      "GuidancePlan": {
+        "$ref": "../components/interaction.yaml#/components/schemas/GuidancePlan"
+      },
+      "InteractionContent": {
+        "$ref": "../components/interaction.yaml#/components/schemas/InteractionContent"
+      },
+      "InteractionAnswer": {
+        "$ref": "../components/interaction.yaml#/components/schemas/InteractionAnswer"
+      },
+      "InteractionResponse": {
+        "$ref": "../components/interaction.yaml#/components/schemas/InteractionResponse"
+      },
+      "ConversationInteraction": {
+        "$ref": "../components/interaction.yaml#/components/schemas/ConversationInteraction"
+      },
+      "ConversationInteractionPage": {
+        "$ref": "../components/interaction.yaml#/components/schemas/ConversationInteractionPage"
+      },
+      "PlanCommand": {
+        "$ref": "../components/interaction.yaml#/components/schemas/PlanCommand"
+      }
+    }
+  }
+}

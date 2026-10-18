@@ -20,30 +20,35 @@ import (
 )
 
 type hostConnectorOnboardingPlan struct {
-	HostID              uuid.UUID             `json:"host_id"`
-	TargetPlatform      installation.Platform `json:"target_platform"`
-	DistributionVersion string                `json:"distribution_version,omitempty"`
-	InstallMethod       string                `json:"install_method"`
-	SSHPath             string                `json:"ssh_path"`
-	ControlPath         string                `json:"control_path"`
-	BastionScopeID      uuid.NullUUID         `json:"bastion_scope_id,omitempty"`
-	Address             string                `json:"address,omitempty"`
-	Port                int32                 `json:"port,omitempty"`
-	Username            string                `json:"username,omitempty"`
-	CredentialID        uuid.NullUUID         `json:"credential_id,omitempty"`
-	CredentialVersion   int64                 `json:"credential_version,omitempty"`
-	ConnectionTestID    uuid.NullUUID         `json:"connection_test_id,omitempty"`
-	PinnedHostKey       string                `json:"pinned_host_key,omitempty"`
-	ReleaseVersionID    uuid.UUID             `json:"release_version_id"`
-	ReleaseManifestHash []byte                `json:"release_manifest_hash"`
-	EnrollDialAddress   string                `json:"enroll_dial_address,omitempty"`
-	GatewayDialAddress  string                `json:"gateway_dial_address,omitempty"`
-	RelayPortGeneration int64                 `json:"relay_port_generation,omitempty"`
+	IdentitySID         string                         `json:"identity_sid,omitempty"`
+	HostID              uuid.UUID                      `json:"host_id"`
+	TargetPlatform      installation.Platform          `json:"target_platform"`
+	DistributionVersion string                         `json:"distribution_version,omitempty"`
+	InstallMethod       string                         `json:"install_method"`
+	SSHPath             string                         `json:"ssh_path"`
+	ControlPath         string                         `json:"control_path"`
+	BastionScopeID      uuid.NullUUID                  `json:"bastion_scope_id,omitempty"`
+	Address             string                         `json:"address,omitempty"`
+	Port                int32                          `json:"port,omitempty"`
+	Username            string                         `json:"username,omitempty"`
+	CredentialID        uuid.NullUUID                  `json:"credential_id,omitempty"`
+	CredentialVersion   int64                          `json:"credential_version,omitempty"`
+	ConnectionTestID    uuid.NullUUID                  `json:"connection_test_id,omitempty"`
+	PinnedHostKey       string                         `json:"pinned_host_key,omitempty"`
+	ReleaseVersionID    uuid.UUID                      `json:"release_version_id"`
+	ReleaseManifestHash []byte                         `json:"release_manifest_hash"`
+	EnrollDialAddress   string                         `json:"enroll_dial_address,omitempty"`
+	GatewayDialAddress  string                         `json:"gateway_dial_address,omitempty"`
+	RelayPortGeneration int64                          `json:"relay_port_generation,omitempty"`
+	ExecutionAccount    *resource.HostExecutionAccount `json:"execution_account,omitempty"`
 }
 
 func (service BastionService) PrepareHostConnectorOnboarding(ctx context.Context, q *db.Queries, enterpriseID, hostID uuid.UUID, input resource.HostInput, targetPlatform string) (json.RawMessage, error) {
 	platform := installation.Platform(targetPlatform)
 	if !platform.Valid() || input.Role != "managed_host" || input.InstallMethod != "manual" && input.InstallMethod != "ssh" {
+		return nil, resource.ErrInvalidConnectionMode
+	}
+	if input.ExecutionAccount != nil && (input.InstallMethod != "manual" || !validExecutionAccount(input.Platform, *input.ExecutionAccount)) {
 		return nil, resource.ErrInvalidConnectionMode
 	}
 	release, err := q.GetActiveConnectorReleaseVersion(ctx)
@@ -64,7 +69,8 @@ func (service BastionService) PrepareHostConnectorOnboarding(ctx context.Context
 		}
 	}
 	plan := hostConnectorOnboardingPlan{HostID: hostID, TargetPlatform: platform, InstallMethod: input.InstallMethod, SSHPath: input.SSHPath,
-		ControlPath: input.ControlPath, BastionScopeID: input.BastionScopeID, Address: input.Address, Port: input.Port, Username: input.Username,
+		ExecutionAccount: input.ExecutionAccount,
+		ControlPath:      input.ControlPath, BastionScopeID: input.BastionScopeID, Address: input.Address, Port: input.Port, Username: input.Username,
 		CredentialID: input.CredentialID, ConnectionTestID: input.ConnectionTestID, ReleaseVersionID: release.ID, ReleaseManifestHash: bytes.Clone(release.ManifestHash)}
 	if input.InstallMethod == "ssh" {
 		test, err := q.GetConnectionTest(ctx, db.GetConnectionTestParams{ID: input.ConnectionTestID.UUID, EnterpriseID: enterpriseID})
@@ -79,6 +85,7 @@ func (service BastionService) PrepareHostConnectorOnboarding(ctx context.Context
 			return nil, err
 		}
 		plan.PinnedHostKey = result.HostKeyFingerprint
+		plan.IdentitySID = result.IdentitySID
 		plan.CredentialVersion = test.CredentialVersion.Int64
 		plan.DistributionVersion = result.DistributionVersion
 	}
@@ -201,7 +208,7 @@ func (service BastionService) CommitHostConnectorOnboarding(ctx context.Context,
 	if err := service.RevalidateHostConnectorOnboarding(ctx, q, action.EnterpriseID, raw); err != nil {
 		return resource.ActionCommitResult{}, err
 	}
-	policy, _ := json.Marshal(enrollmentPolicy{TargetPlatform: string(plan.TargetPlatform), ControlPath: plan.ControlPath,
+	policy, _ := json.Marshal(enrollmentPolicy{TargetPlatform: string(plan.TargetPlatform), ControlPath: plan.ControlPath, ExecutionAccount: plan.ExecutionAccount,
 		EnrollDialAddress: plan.EnrollDialAddress, GatewayDialAddress: plan.GatewayDialAddress})
 	enrollment, err := service.Enrollment.CreateEnrollment(ctx, q, action.CreatorSubjectID.String(), action.EnterpriseID, CreateEnrollmentInput{
 		Role: "host", Purpose: "host_registration", HostID: uuid.NullUUID{UUID: host.ID, Valid: true}, BastionScopeID: plan.BastionScopeID,

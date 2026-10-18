@@ -51,6 +51,23 @@ function agent(source: ConversationEvent): AgentEvent {
 }
 
 describe("file events in chat", () => {
+  it("keeps the platform metadata index out of business file activities", () => {
+    const entries = chatMessagesFromEvents([
+      event(1, "workspace_file_added", {
+        file: { ...file("meta"), path: "/workspace/results/meta.json" },
+        metadata_index: true,
+      }),
+      event(2, "workspace_file_added", {
+        file: {
+          ...file("status"),
+          path: "/workspace/results/nginx/status.json",
+        },
+      }),
+    ]);
+    expect(
+      entries.flatMap((entry) => entry.files ?? []).map((item) => item.id),
+    ).toEqual(["status"]);
+  });
   it.each([undefined, "run"])(
     "shows generated files with run_id=%s as file activities without user replies",
     (runId) => {

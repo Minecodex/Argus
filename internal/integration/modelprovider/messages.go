@@ -3,7 +3,6 @@ package modelprovider
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -86,7 +85,7 @@ func encodeMessages(protocol Protocol, messages []Message) ([]map[string]any, er
 		}
 		var calls []map[string]any
 		for _, call := range message.ToolCalls {
-			if call.ID == "" || call.Name == "" || !json.Valid([]byte(call.Arguments)) || pending[call.ID] {
+			if call.ID == "" || call.Name == "" || pending[call.ID] {
 				return nil, errors.New("invalid model tool call")
 			}
 			pending[call.ID] = true

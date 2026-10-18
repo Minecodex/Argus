@@ -60,7 +60,7 @@ func AllowsBusiness(s Snapshot, id string) bool {
 	if s.Mode == "none" {
 		return true
 	}
-	if id == "workflow.publish_file" || id == "pending_action.cancel" {
+	if id == "workflow.publish_file" || id == "pending_action.cancel" || id == "workflow.plan.propose" {
 		return true
 	}
 	if !strings.HasPrefix(id, "telemetry.dashboard.") {

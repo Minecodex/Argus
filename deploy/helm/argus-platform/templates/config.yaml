@@ -101,6 +101,10 @@ data:
   ARGUS_TRUST_BUNDLE_EPOCH: {{ .Values.runtime.trustBundleEpoch | quote }}
   ARGUS_BOOTSTRAP_TLS_MODE: {{ required "pki.bootstrapTLSMode is required" .Values.pki.bootstrapTLSMode | quote }}
   ARGUS_CONNECTOR_KUBERNETES_IMAGE: {{ required "runtime.connectorKubernetesImage is required" .Values.runtime.connectorKubernetesImage | quote }}
+  ARGUS_REMOTE_RUNTIME_IMAGE: {{ .Values.runtime.remoteRuntimeImage | quote }}
+  ARGUS_REMOTE_IDLE_SECONDS: {{ .Values.runtime.remoteIdleSeconds | quote }}
+  ARGUS_REMOTE_EXECUTION_WORKERS: {{ .Values.runtime.remoteExecutionWorkers | quote }}
+  ARGUS_REMOTE_CONTROL_WORKERS: {{ .Values.runtime.remoteControlWorkers | quote }}
   ARGUS_OTELCOL_ARTIFACT_CA_PATH: /var/run/secrets/argus/trust/ca.crt
   # Probe and download preserve public TLS identity while dialing the internal HTTPS entry.
   ARGUS_ARTIFACT_INTERNAL_ORIGIN: {{ printf "https://%s" .Values.hosts.artifact | quote }}

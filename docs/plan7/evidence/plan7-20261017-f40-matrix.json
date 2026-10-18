@@ -1,0 +1,1402 @@
+{
+  "cases": [
+    {
+      "id": "P7-A01",
+      "status": "passed",
+      "tests": [
+        "TestPathEscapeAndAmbiguousEditRejected",
+        "TestAtomicWriteKeepsOldFileOnFailure",
+        "TestWorkspaceLifecycleAndFileReferencesReachActualModelRequest",
+        "TestAdmissionHardensFileRoleAndRejectsUntrustedSources"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-linux-confirmations-and-files.json",
+          "hash": "c42bd3000c8c74647a64a3146a50761b2f0e04f29d587cbcc7006f5e763d7b5d"
+        }
+      ]
+    },
+    {
+      "id": "P7-A02",
+      "status": "passed",
+      "tests": [
+        "TestInterpreterDoesNotInheritConnectorSecrets"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-workspace-offline-boundary.json",
+          "hash": "74a3b1679f590dc0176d1ae94a0948223b3fb607fdb2ea977d24812ecb311a8a"
+        }
+      ]
+    },
+    {
+      "id": "P7-A03",
+      "status": "passed",
+      "tests": [
+        "TestCategoryListingAcceptsOnlyCategoryAndAppliesCurrentScope",
+        "TestNativeInvocationValidatesSchemaAndTrustedIdentity",
+        "TestCommitToolsAreHiddenAndCallerBound"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A04",
+      "status": "passed",
+      "tests": [
+        "TestLifecycleGatewayPreparesPublicTemplateAndKeepsRunForExecutor",
+        "TestAllFormalPreviewFamiliesHaveStrictTemplatesAndHiddenCommits"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-linux-onboarding-and-collector.json",
+          "hash": "bdbfc3bfce1f2bd4c21b756e926e69cb37d4bb6ca3d065edab8a16c73b8e12df"
+        }
+      ]
+    },
+    {
+      "id": "P7-A05",
+      "status": "passed",
+      "tests": [
+        "TestRemotePreviewPersistsArrayDiff"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-linux-confirmations-and-files.json",
+          "hash": "c42bd3000c8c74647a64a3146a50761b2f0e04f29d587cbcc7006f5e763d7b5d"
+        }
+      ]
+    },
+    {
+      "id": "P7-A06",
+      "status": "passed",
+      "tests": [
+        "TestExpiredPreviewCannotCreateExecution",
+        "TestStopBeforeDispatchAndUnknownStop",
+        "TestCurrentAuthorityAndContextAreRevalidatedAtConfirmationAndDispatch"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        }
+      ]
+    },
+    {
+      "id": "P7-A07",
+      "status": "passed",
+      "tests": [
+        "TestConnectorRemoteControlLeaseUsesRegisteredAuditActor",
+        "TestConfirmationSerialExecutionAndNextBatchApproval"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-linux-confirmations-and-files.json",
+          "hash": "c42bd3000c8c74647a64a3146a50761b2f0e04f29d587cbcc7006f5e763d7b5d"
+        },
+        {
+          "path": "plan7-phase-windows-enrollment-and-powershell.json",
+          "hash": "1af618fdb399e50e65f087e3dd9a1388ac55af5e77dbfd0fe1a0d16c6ae88a4b"
+        },
+        {
+          "path": "plan7-phase-kubernetes-client-and-exec.json",
+          "hash": "2ee65b15b3b3797c2ce0fdf3b311c3e1d0665887c5a9047180e2f1a2e369cdff"
+        }
+      ]
+    },
+    {
+      "id": "P7-A08",
+      "status": "passed",
+      "tests": [
+        "TestPreviewIdempotencyChecksOwnerAndContent",
+        "TestSharedStateNativeErrorsAndUntrustedOutput",
+        "TestOutputRetryNeverRepeatsKnownCommand"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-durable-worker-fault.json",
+          "hash": "7acde7e8b414af3cfedb3eb83cccfeded5920d6eb0a0450769d311e6d574e61b"
+        }
+      ]
+    },
+    {
+      "id": "P7-A09",
+      "status": "passed",
+      "tests": [
+        "TestConfirmationSerialExecutionAndNextBatchApproval",
+        "TestCrossConversationAndTenantIsolation"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-two-stage-evidence.json",
+          "hash": "13897c714cf3b2bd1e0f12bb9b61ce79990622b858ab2dad827ead976c00d3a5"
+        }
+      ]
+    },
+    {
+      "id": "P7-A10",
+      "status": "passed",
+      "tests": [
+        "TestConfirmationSerialExecutionAndNextBatchApproval",
+        "TestDispatchRejectsWrongConnectorAndOutOfOrderPlan"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-linux-confirmations-and-files.json",
+          "hash": "c42bd3000c8c74647a64a3146a50761b2f0e04f29d587cbcc7006f5e763d7b5d"
+        },
+        {
+          "path": "plan7-phase-kubernetes-client-and-exec.json",
+          "hash": "2ee65b15b3b3797c2ce0fdf3b311c3e1d0665887c5a9047180e2f1a2e369cdff"
+        }
+      ]
+    },
+    {
+      "id": "P7-A11",
+      "status": "passed",
+      "tests": [
+        "TestFeedbackInvalidatesOldApprovalAndCreatesNewRevision",
+        "TestCancellingOneRecoveredPreviewPreservesOtherActions",
+        "TestRevisingRecoveryPlanIncreasesRevisionAndPreservesOrigin"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-diagnosis-and-repair.json",
+          "hash": "a44479ea4f6cc9270a9b0a94aadc8d7cdc4d095216e4e4968114189373225a53"
+        }
+      ]
+    },
+    {
+      "id": "P7-A12",
+      "status": "passed",
+      "tests": [
+        "TestCurrentAuthorityAndContextAreRevalidatedAtConfirmationAndDispatch",
+        "TestFrozenInputTransfersAreBoundedDurableAndNotReapplied",
+        "TestReadProjectsChangedContextAsUnconfirmableWithoutRewritingHistory"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A13",
+      "status": "passed",
+      "tests": [
+        "TestFailureAndUnknownNeverDispatchRemainingSteps"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        },
+        {
+          "path": "plan7-phase-real-model-lost-context-recovery.json",
+          "hash": "9df1c2b4f2411aad6f0c66bd8ff34460146e7096bdb167612292152b46edcf4b"
+        }
+      ]
+    },
+    {
+      "id": "P7-A14",
+      "status": "passed",
+      "tests": [
+        "TestLateReceiptPreservesNewGenerationAndDoesNotResumeOldPlan",
+        "TestDirectQueuePreservesGenerationAffinityAndNeverReplaysLostWork",
+        "TestModelFactsDistinguishUnsentAndUnknownWithoutInventingExitCode",
+        "TestDispatchedMalformedArgumentsRemainUnknownWithoutReplay"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-lost-context-recovery.json",
+          "hash": "9df1c2b4f2411aad6f0c66bd8ff34460146e7096bdb167612292152b46edcf4b"
+        }
+      ]
+    },
+    {
+      "id": "P7-A15",
+      "status": "passed",
+      "tests": [
+        "TestFreshWorkerResumesPersistedCollectionWithoutRepeatingEffect",
+        "TestDirectQueuePreservesGenerationAffinityAndNeverReplaysLostWork"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-worker-fault.json",
+          "hash": "f3e0a8210330e0ef7db5070bd1a820347f3c590a84e9d38ef08e39a44dcee5a3"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-durable-worker-fault.json",
+          "hash": "7acde7e8b414af3cfedb3eb83cccfeded5920d6eb0a0450769d311e6d574e61b"
+        }
+      ]
+    },
+    {
+      "id": "P7-A16",
+      "status": "passed",
+      "tests": [
+        "TestCurrentAuthorityAndContextAreRevalidatedAtConfirmationAndDispatch"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A17",
+      "status": "passed",
+      "tests": [
+        "TestCrossConversationAndTenantIsolation",
+        "TestNativeActionReadCannotCrossConversationOrRetainRevokedAccess",
+        "TestRemoteInputSourceCyclesRemainBoundedAndRevocationIsRechecked",
+        "TestConfirmationConflictIsVisibleOnlyToItsCreator"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A18",
+      "status": "passed",
+      "tests": [
+        "TestReadPermissionPreservesOwnFactsWithoutGrantingExecution"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A19",
+      "status": "passed",
+      "tests": [
+        "TestManualHostHasNoImplicitExecutionAccount"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-windows-identity.json",
+          "hash": "50d713c86362cf3655bba13d9f67a59238a6790a88b6f744647308b018b9c6cd"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-linux-onboarding-and-collector.json",
+          "hash": "bdbfc3bfce1f2bd4c21b756e926e69cb37d4bb6ca3d065edab8a16c73b8e12df"
+        },
+        {
+          "path": "plan7-phase-windows-enrollment-and-powershell.json",
+          "hash": "1af618fdb399e50e65f087e3dd9a1388ac55af5e77dbfd0fe1a0d16c6ae88a4b"
+        }
+      ]
+    },
+    {
+      "id": "P7-A20",
+      "status": "passed",
+      "tests": [
+        "TestKubernetesProxyPinsServerAndKeepsCredentialsInConnector",
+        "TestPinnedConfigCannotForwardCredentialsOrChangeConnection"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-kubernetes-adapter-tests.log",
+          "hash": "1cbc76666b2e760056de76f1ec30d48363c66aaa2570a3c764bab5f3e51f665c"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-kubernetes-client-and-exec.json",
+          "hash": "2ee65b15b3b3797c2ce0fdf3b311c3e1d0665887c5a9047180e2f1a2e369cdff"
+        },
+        {
+          "path": "plan7-phase-kubernetes-direct-executor.json",
+          "hash": "af55c661face40ea35abff8435198c21ca48ac6fac2f504ede5a1aa456e0e123"
+        }
+      ]
+    },
+    {
+      "id": "P7-A21",
+      "status": "passed",
+      "tests": [
+        "TestInterpreterDoesNotInheritConnectorSecrets",
+        "TestConnectorRemoteControlLeaseUsesRegisteredAuditActor",
+        "TestAssembleContextIsStableAndRedactsPrivateFields"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-workspace-offline-boundary.json",
+          "hash": "74a3b1679f590dc0176d1ae94a0948223b3fb607fdb2ea977d24812ecb311a8a"
+        }
+      ]
+    },
+    {
+      "id": "P7-A22",
+      "status": "passed",
+      "tests": [
+        "TestTimeoutTerminatesInterpreterAndRejectsReuse",
+        "TestInteractiveInputCannotConsumeNextApprovedCommand",
+        "TestBackgroundChildCannotOutliveCompletedBatch",
+        "TestOutputLimitAndFunctionsSurvive"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-linux-runner-tests.log",
+          "hash": "4952e6193c7e2b9bde747c42fb3311919fff7a4578575a6fed235e761324e8f9"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A23",
+      "status": "passed",
+      "tests": [
+        "TestStopBeforeDispatchAndUnknownStop",
+        "TestUnknownExecutionCanBeStoppedWithoutReplayingCommand",
+        "TestModeSwitchKeepsRunSnapshotAndApprovedBatch",
+        "TestRemoteControlQueueCannotDispatchAnExecution"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        }
+      ]
+    },
+    {
+      "id": "P7-A24",
+      "status": "passed",
+      "tests": [
+        "TestMCPCredentialBoundaryProtectsCatalogArtifactAndModel"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A25",
+      "status": "passed",
+      "tests": [
+        "TestSharedStateNativeErrorsAndUntrustedOutput"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-model-evidence-sequence.json",
+          "hash": "c306a9c214814be8bf05e5430337e27f46b5cd54a35e87b3b16688802adfd780"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-two-stage-evidence.json",
+          "hash": "13897c714cf3b2bd1e0f12bb9b61ce79990622b858ab2dad827ead976c00d3a5"
+        }
+      ]
+    },
+    {
+      "id": "P7-A26",
+      "status": "passed",
+      "tests": [
+        "TestModelCannotSupplyApprovalOrFrozenContextFields",
+        "TestPlanRegistryPairRemainsHostOnly",
+        "TestInputFeedbackNamesMissingFieldsWithoutEchoingValues",
+        "TestModelReceivesSafeValidationPathsAndNotInternalErrors",
+        "TestMalformedArgumentsArePersistedRejectedAndRecoverable",
+        "TestMissingToolIdentityRemainsProtocolFailure"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A27",
+      "status": "passed",
+      "tests": [
+        "TestPowerShellNonTerminatingErrorRemainsFailure",
+        "TestSharedStateNativeErrorsAndUntrustedOutput",
+        "TestStopInvalidatesContext"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-windows-enrollment-and-powershell.json",
+          "hash": "1af618fdb399e50e65f087e3dd9a1388ac55af5e77dbfd0fe1a0d16c6ae88a4b"
+        },
+        {
+          "path": "plan7-phase-real-model-platforms.json",
+          "hash": "f422cef402b6a881380534ed66da18611279c5a5c5604ebd9723bf158ca9703e"
+        }
+      ]
+    },
+    {
+      "id": "P7-A28",
+      "status": "passed",
+      "tests": [
+        "TestDispatchRejectsWrongConnectorAndOutOfOrderPlan",
+        "TestFailureAndUnknownNeverDispatchRemainingSteps",
+        "TestStopBeforeDispatchAndUnknownStop"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        }
+      ]
+    },
+    {
+      "id": "P7-A29",
+      "status": "passed",
+      "tests": [
+        "TestSharedStateNativeErrorsAndUntrustedOutput",
+        "TestOutputLimitAndFunctionsSurvive",
+        "TestPreviewFreezesKnownLocationVersionAndPreviousBatch"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-linux-confirmations-and-files.json",
+          "hash": "c42bd3000c8c74647a64a3146a50761b2f0e04f29d587cbcc7006f5e763d7b5d"
+        },
+        {
+          "path": "plan7-phase-windows-enrollment-and-powershell.json",
+          "hash": "1af618fdb399e50e65f087e3dd9a1388ac55af5e77dbfd0fe1a0d16c6ae88a4b"
+        },
+        {
+          "path": "plan7-phase-real-model-platforms.json",
+          "hash": "f422cef402b6a881380534ed66da18611279c5a5c5604ebd9723bf158ca9703e"
+        }
+      ]
+    },
+    {
+      "id": "P7-A30",
+      "status": "passed",
+      "tests": [
+        "TestDifferentChatsExecuteConcurrentlyWithPrivateActivity",
+        "TestChangedContextAndRevocationInvalidateApproval",
+        "TestReadProjectsChangedContextAsUnconfirmableWithoutRewritingHistory"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A31",
+      "status": "passed",
+      "tests": [
+        "TestPrivateStreamMultiplexesStopWhileBatchIsRunning",
+        "TestFileTransferBackpressureDoesNotPreventStop",
+        "TestSharedStateNativeErrorsAndUntrustedOutput"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-linux-runtimewire-tests.log",
+          "hash": "f15171ab367e9e80aac24c16ee68be8e3459f0b330b7ef30fb9645e83e16cc18"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A32",
+      "status": "passed",
+      "tests": [
+        "TestFrozenInputTransfersAreBoundedDurableAndNotReapplied",
+        "TestQueryFileImportWithRealRPCAndDurableSources",
+        "TestFileClassificationSupportsUploadsAndRemoteOutputs",
+        "TestWarmWorkspaceRequiresCurrentFileHelperImage"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "storage-live/plan7-storage-nine-volumes.json",
+          "hash": "f7ebfe41343cdd96d17fa2f91c179944a8d6d473eabd2eefb017750140820881"
+        },
+        {
+          "path": "plan7-workspace-storage-tests.log",
+          "hash": "ba01c8e2b8dbb5a87ec156089c4a48b2b052f35f7c39b89e389e9339a7ec7ed2"
+        },
+        {
+          "path": "plan7-production-workspaces.json",
+          "hash": "ea49a3b9d5fe5cee0fdfafbdfa40668bd920386bc661860e9e6bf344e01876b1"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-linux-confirmations-and-files.json",
+          "hash": "c42bd3000c8c74647a64a3146a50761b2f0e04f29d587cbcc7006f5e763d7b5d"
+        },
+        {
+          "path": "plan7-phase-windows-enrollment-and-powershell.json",
+          "hash": "1af618fdb399e50e65f087e3dd9a1388ac55af5e77dbfd0fe1a0d16c6ae88a4b"
+        },
+        {
+          "path": "plan7-phase-kubernetes-client-and-exec.json",
+          "hash": "2ee65b15b3b3797c2ce0fdf3b311c3e1d0665887c5a9047180e2f1a2e369cdff"
+        },
+        {
+          "path": "plan7-phase-real-model-platforms.json",
+          "hash": "f422cef402b6a881380534ed66da18611279c5a5c5604ebd9723bf158ca9703e"
+        }
+      ]
+    },
+    {
+      "id": "P7-A33",
+      "status": "passed",
+      "tests": [
+        "TestFileIntegrityAndTraversal",
+        "TestAutomaticTransferRejectsLinks",
+        "TestExhaustedOutputTransferPreservesSuccessfulEffect",
+        "TestOutputRetryNeverRepeatsKnownCommand"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-kubernetes-adapter-tests.log",
+          "hash": "1cbc76666b2e760056de76f1ec30d48363c66aaa2570a3c764bab5f3e51f665c"
+        },
+        {
+          "path": "plan7-linux-runner-tests.log",
+          "hash": "4952e6193c7e2b9bde747c42fb3311919fff7a4578575a6fed235e761324e8f9"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A34",
+      "status": "passed",
+      "tests": [
+        "TestDirectoryRecoveryCannotReviveLostInterpreter",
+        "TestLateReceiptPreservesNewGenerationAndDoesNotResumeOldPlan"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-lost-context-recovery.json",
+          "hash": "9df1c2b4f2411aad6f0c66bd8ff34460146e7096bdb167612292152b46edcf4b"
+        }
+      ]
+    },
+    {
+      "id": "P7-A35",
+      "status": "passed",
+      "tests": [
+        "TestIdleReclamationProtectsExecutionAndUniqueOutputs",
+        "TestIdleCandidateCannotReclaimAfterNewActivity",
+        "TestReclaimRequiresOwnershipAndPreservesOtherDirectories",
+        "TestFormalPausePersistsHealthAndStorageBeforeMutation",
+        "TestFormalPauseSnapshotFailureLeavesReplicasUntouched",
+        "TestFormalRestoreRejectsReplacedStorageAndRecordsFailure",
+        "TestFormalRestorationDoesNotEquateReplicasWithHealth"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-kubernetes-adapter-tests.log",
+          "hash": "1cbc76666b2e760056de76f1ec30d48363c66aaa2570a3c764bab5f3e51f665c"
+        },
+        {
+          "path": "original-environment.json",
+          "hash": "43cceec74db99e69877be7c9f039dfab33199b345a259330d9b76ef881a35f12"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        }
+      ]
+    },
+    {
+      "id": "P7-A36",
+      "status": "passed",
+      "tests": [
+        "TestDifferentChatsExecuteConcurrentlyWithPrivateActivity",
+        "TestProcessorPoolOverlapsRemoteTasksAndKeepsControlAvailable",
+        "TestRemoteQueuesUseIndependentCapacityWithoutParallelizingAgentTurns",
+        "TestRemoteWorkerCapacityIsBoundedAndKeepsControlSlots"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-concurrent-context.json",
+          "hash": "4c31eb4314598ce5be83f6d14fff4a9ba8fd03b1282e7ba3bd0f88cad61faaf8"
+        }
+      ]
+    },
+    {
+      "id": "P7-A37",
+      "status": "passed",
+      "tests": [
+        "TestUnconfirmedTerminationRemainsVisibleInPrivateActivity"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-concurrent-context.json",
+          "hash": "4c31eb4314598ce5be83f6d14fff4a9ba8fd03b1282e7ba3bd0f88cad61faaf8"
+        }
+      ]
+    },
+    {
+      "id": "P7-A38",
+      "status": "passed",
+      "tests": [
+        "TestDifferentChatsExecuteConcurrentlyWithPrivateActivity",
+        "TestPrivateRemoteActivityEvidenceMatchesActualModelProjection",
+        "TestReadPermissionPreservesOwnFactsWithoutGrantingExecution"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-concurrent-context.json",
+          "hash": "4c31eb4314598ce5be83f6d14fff4a9ba8fd03b1282e7ba3bd0f88cad61faaf8"
+        }
+      ]
+    },
+    {
+      "id": "P7-M01",
+      "status": "passed",
+      "tests": [
+        "TestStatusPollingRecoversTransientReadAndPreservesAttempts",
+        "TestStatusPollingDoesNotRetryMutationsDenialsOrMalformedSuccess"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-telemetry-evidence.json",
+          "hash": "c6f1825269a593bcac79011604132e8b08c06e1b7eae9a20d524656522c82f65"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-diagnosis-and-repair.json",
+          "hash": "a44479ea4f6cc9270a9b0a94aadc8d7cdc4d095216e4e4968114189373225a53"
+        }
+      ]
+    },
+    {
+      "id": "P7-M02",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-model-diagnosis.json",
+          "hash": "5eaebba8731daf41da8cbcdda35f6e9519c898edce4a0441369dbbd5aae445c8"
+        },
+        {
+          "path": "plan7-phase-real-model-diagnosis-and-repair.json",
+          "hash": "a44479ea4f6cc9270a9b0a94aadc8d7cdc4d095216e4e4968114189373225a53"
+        }
+      ]
+    },
+    {
+      "id": "P7-M03",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-model-evidence-sequence.json",
+          "hash": "c306a9c214814be8bf05e5430337e27f46b5cd54a35e87b3b16688802adfd780"
+        },
+        {
+          "path": "plan7-phase-real-model-two-stage-evidence.json",
+          "hash": "13897c714cf3b2bd1e0f12bb9b61ce79990622b858ab2dad827ead976c00d3a5"
+        }
+      ]
+    },
+    {
+      "id": "P7-M04",
+      "status": "passed",
+      "tests": [
+        "TestRunModeGuidanceUsesSnapshotInActualModelRequest",
+        "TestStreamingResponseUsesSeparateBoundedDeadline",
+        "TestStreamingDeadlineAndCancellationStillAbortRead",
+        "TestEndpointPolicyRetainsBoundedConnectionHeadersAndOrdinaryRequests",
+        "TestStreamingPrefillAndBodyShareTheBoundedDeadline",
+        "TestTerminalModelEventDoesNotWaitForTransportEOF",
+        "TestStreamFailureDiagnosticsUseBoundedClasses",
+        "TestMalformedToolArgumentsRetainUsageAndCorrectionHistory"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-model-repair-plan-original-preview.json",
+          "hash": "4aece3790c627518ddb9bb05dabd30e01e061b46c51e47f671cba78b95eacb22"
+        },
+        {
+          "path": "plan7-model-repair-plan-revised-preview.json",
+          "hash": "763fa849f161433263e28609907601935223f5fe186428d125697e229764f678"
+        },
+        {
+          "path": "plan7-model-repair.json",
+          "hash": "55e50eacdb5d5f8194c36f7a245f4b424a8be818128d0a02d7ba040abe2846ab"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-diagnosis-and-repair.json",
+          "hash": "a44479ea4f6cc9270a9b0a94aadc8d7cdc4d095216e4e4968114189373225a53"
+        }
+      ]
+    },
+    {
+      "id": "P7-M05",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-model-repair.json",
+          "hash": "55e50eacdb5d5f8194c36f7a245f4b424a8be818128d0a02d7ba040abe2846ab"
+        },
+        {
+          "path": "plan7-service-recovery.json",
+          "hash": "ffd2afb5f63f2be86388c6891fa2542729133dd0f60a5e5789389f22ae4beb88"
+        },
+        {
+          "path": "plan7-phase-real-model-diagnosis-and-repair.json",
+          "hash": "a44479ea4f6cc9270a9b0a94aadc8d7cdc4d095216e4e4968114189373225a53"
+        }
+      ]
+    },
+    {
+      "id": "P7-M06",
+      "status": "passed",
+      "tests": [
+        "TestHardCompactionMeasuresRemoteFactsAndDoesNotResumeUnchangedOversizeInput",
+        "TestModelAccountingWaitsForBackgroundCompactionAndSettlement",
+        "TestP5UsageGateRequiresReportedSettledSuccessfulCalls"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-model-recovery.json",
+          "hash": "0fb8fb9f41c08a258113b26e2b261b9c46ee2373e8d1658ab8d09b3fa44e9474"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-lost-context-recovery.json",
+          "hash": "9df1c2b4f2411aad6f0c66bd8ff34460146e7096bdb167612292152b46edcf4b"
+        },
+        {
+          "path": "plan7-phase-durable-worker-fault.json",
+          "hash": "7acde7e8b414af3cfedb3eb83cccfeded5920d6eb0a0450769d311e6d574e61b"
+        }
+      ]
+    },
+    {
+      "id": "P7-M07",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-telemetry-evidence.json",
+          "hash": "c6f1825269a593bcac79011604132e8b08c06e1b7eae9a20d524656522c82f65"
+        },
+        {
+          "path": "plan7-model-evidence-sequence.json",
+          "hash": "c306a9c214814be8bf05e5430337e27f46b5cd54a35e87b3b16688802adfd780"
+        },
+        {
+          "path": "plan7-phase-real-model-diagnosis-and-repair.json",
+          "hash": "a44479ea4f6cc9270a9b0a94aadc8d7cdc4d095216e4e4968114189373225a53"
+        },
+        {
+          "path": "plan7-phase-real-model-two-stage-evidence.json",
+          "hash": "13897c714cf3b2bd1e0f12bb9b61ce79990622b858ab2dad827ead976c00d3a5"
+        }
+      ]
+    },
+    {
+      "id": "P7-M08",
+      "status": "passed",
+      "tests": [
+        "TestMatrixOracleAcceptsEmptyOnlyWithNoDataAndNoInventedNumbers",
+        "TestConclusionRejectsNonScalarLastValue",
+        "TestMatrixOracleTiedLatestUsesLastPointInOriginalFileOrder",
+        "TestBuiltinAvailabilityUsesActualCatalogAndExplainsSnapshotStatus"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-model-evidence-quality.json",
+          "hash": "b9f3a31257e3836229742645cdb813f9da0aba615112c7f80134ddda51ffd761"
+        },
+        {
+          "path": "plan7-no-data-evidence.json",
+          "hash": "b77c74a813bac9cc2e9938a3ec0aa0fa5a4d5e8f35060e03b41b3a9adf4b76b9"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-evidence-quality.json",
+          "hash": "f5d551af0bd40991b57fcf5b09ec893ac6c8ecdfa2598d093e0658c87e42395a"
+        }
+      ]
+    },
+    {
+      "id": "P7-M09",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-windows-state-2-result.json",
+          "hash": "365354f181f3fce01bb72a074a0ecfc25f8700759ab2a22d72c83659eb147413"
+        },
+        {
+          "path": "plan7-kubernetes-model-3-result.json",
+          "hash": "4b4941e0fe6c64b03722bf3838ed7a048cae6833011f84fc648df95593a2203a"
+        },
+        {
+          "path": "plan7-phase-real-model-platforms.json",
+          "hash": "f422cef402b6a881380534ed66da18611279c5a5c5604ebd9723bf158ca9703e"
+        },
+        {
+          "path": "plan7-phase-real-model-two-stage-evidence.json",
+          "hash": "13897c714cf3b2bd1e0f12bb9b61ce79990622b858ab2dad827ead976c00d3a5"
+        }
+      ]
+    },
+    {
+      "id": "P7-M10",
+      "status": "passed",
+      "tests": [
+        "TestModelFactsDistinguishUnsentAndUnknownWithoutInventingExitCode",
+        "TestLostInterpreterReturnsOwnedRecoveryReferenceWithoutDispatch"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-model-recovery.json",
+          "hash": "0fb8fb9f41c08a258113b26e2b261b9c46ee2373e8d1658ab8d09b3fa44e9474"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-lost-context-recovery.json",
+          "hash": "9df1c2b4f2411aad6f0c66bd8ff34460146e7096bdb167612292152b46edcf4b"
+        }
+      ]
+    },
+    {
+      "id": "P7-M11",
+      "status": "passed",
+      "tests": [
+        "TestPrivateRemoteActivityEvidenceMatchesActualModelProjection"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-model-activity.json",
+          "hash": "40afbcb2edd1e8446b9e9a652360ba9a4877a22369854358393c202363aaa61e"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-concurrent-context.json",
+          "hash": "4c31eb4314598ce5be83f6d14fff4a9ba8fd03b1282e7ba3bd0f88cad61faaf8"
+        }
+      ]
+    },
+    {
+      "id": "P7-U01",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "playwright-plan7/report.json",
+          "hash": "defb0fe3f17b0d5b52ac7825f9f393c3c80ac52482357fd62582af9d049b97a7"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        },
+        {
+          "path": "plan7-phase-real-model-diagnosis-and-repair.json",
+          "hash": "a44479ea4f6cc9270a9b0a94aadc8d7cdc4d095216e4e4968114189373225a53"
+        }
+      ]
+    },
+    {
+      "id": "P7-U02",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "playwright-plan7/report.json",
+          "hash": "defb0fe3f17b0d5b52ac7825f9f393c3c80ac52482357fd62582af9d049b97a7"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        }
+      ]
+    },
+    {
+      "id": "P7-U03",
+      "status": "passed",
+      "tests": [
+        "TestReadProjectsChangedContextAsUnconfirmableWithoutRewritingHistory",
+        "TestExhaustedOutputTransferPreservesSuccessfulEffect"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "playwright-plan7/report.json",
+          "hash": "defb0fe3f17b0d5b52ac7825f9f393c3c80ac52482357fd62582af9d049b97a7"
+        },
+        {
+          "path": "playwright-plan7-model/report.json",
+          "hash": "183185c949c055950062675694ac03dcb485a5d1735653eb2cb3df371734e690"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        },
+        {
+          "path": "plan7-phase-real-model-concurrent-context.json",
+          "hash": "4c31eb4314598ce5be83f6d14fff4a9ba8fd03b1282e7ba3bd0f88cad61faaf8"
+        }
+      ]
+    },
+    {
+      "id": "P7-U04",
+      "status": "passed",
+      "tests": [
+        "TestConversationSSESlowConsumersStayBoundedAndCancel"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "playwright-plan7/report.json",
+          "hash": "defb0fe3f17b0d5b52ac7825f9f393c3c80ac52482357fd62582af9d049b97a7"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        }
+      ]
+    },
+    {
+      "id": "P7-U05",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "plan7-web-test.log",
+          "hash": "734fa71f93eb6c8aa5827ed16e1672d81797a3653ca9bbfaac4019a1ba2fdd1d"
+        },
+        {
+          "path": "plan7-real-build.log",
+          "hash": "24be1ca928fe10109cd7ce042d9bc77b97ce13453b55860c6c001c712588d965"
+        },
+        {
+          "path": "plan7-phase-engineering.json",
+          "hash": "9a6e9ef9f00c3ac501114e79a215a023b334356b373c30de2a69c93991737cc3"
+        }
+      ]
+    },
+    {
+      "id": "P7-U06",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "playwright-plan7/report.json",
+          "hash": "defb0fe3f17b0d5b52ac7825f9f393c3c80ac52482357fd62582af9d049b97a7"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        }
+      ]
+    },
+    {
+      "id": "P7-U07",
+      "status": "passed",
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "playwright-plan7/report.json",
+          "hash": "defb0fe3f17b0d5b52ac7825f9f393c3c80ac52482357fd62582af9d049b97a7"
+        },
+        {
+          "path": "playwright-plan7-model/report.json",
+          "hash": "183185c949c055950062675694ac03dcb485a5d1735653eb2cb3df371734e690"
+        },
+        {
+          "path": "plan7-phase-real-browser.json",
+          "hash": "66f234bb736eba54650bf3af5899426e699f5ee471308e71aa558556649a83f4"
+        },
+        {
+          "path": "plan7-phase-real-model-concurrent-context.json",
+          "hash": "4c31eb4314598ce5be83f6d14fff4a9ba8fd03b1282e7ba3bd0f88cad61faaf8"
+        }
+      ]
+    },
+    {
+      "id": "P7-U08",
+      "status": "passed",
+      "tests": [
+        "TestPrivateRemoteActivityEvidenceMatchesActualModelProjection"
+      ],
+      "evidence": [
+        {
+          "path": "plan7-engineering.json",
+          "hash": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25"
+        },
+        {
+          "path": "playwright-plan7-model/report.json",
+          "hash": "183185c949c055950062675694ac03dcb485a5d1735653eb2cb3df371734e690"
+        },
+        {
+          "path": "plan7-go-test.log",
+          "hash": "ef00971338205c9caaad56cb8fa5a345a54a5e09f295d4bfd5753076f4d9fb62"
+        },
+        {
+          "path": "plan7-phase-real-model-concurrent-context.json",
+          "hash": "4c31eb4314598ce5be83f6d14fff4a9ba8fd03b1282e7ba3bd0f88cad61faaf8"
+        }
+      ]
+    }
+  ],
+  "run_id": "plan7-20261017-f40",
+  "source_fingerprint": "616ca4c3cf27e03a9d198d274c2324276ac3161e6d9a8df0f8651211c7c6c439"
+}

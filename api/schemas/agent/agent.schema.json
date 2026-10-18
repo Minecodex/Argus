@@ -41,6 +41,13 @@
         "updated_at"
       ],
       "properties": {
+        "mode_snapshot": {
+          "type": "string",
+          "enum": [
+            "execute",
+            "plan"
+          ]
+        },
         "run_id": {
           "type": "string"
         },
@@ -104,6 +111,17 @@
         "updated_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "access_mode_snapshot": {
+          "type": "string",
+          "enum": [
+            "request_approval",
+            "full_access"
+          ]
+        },
+        "approved_plan_id": {
+          "type": "string",
+          "format": "uuid"
         }
       }
     },
@@ -282,7 +300,10 @@
             "context_compacted",
             "tool_presentation",
             "workspace_file_added",
-            "artifact_published"
+            "artifact_published",
+            "interaction_requested",
+            "interaction_resolved",
+            "conversation_settings_changed"
           ]
         },
         "actor_type": {
@@ -715,6 +736,25 @@
         "provider_compaction_capability"
       ],
       "properties": {
+        "output_token_parameter": {
+          "type": "string",
+          "enum": [
+            "max_tokens",
+            "max_completion_tokens",
+            "max_output_tokens"
+          ]
+        },
+        "reasoning_effort": {
+          "type": "string",
+          "enum": [
+            "low",
+            "high",
+            "max"
+          ]
+        },
+        "supports_streaming": {
+          "type": "boolean"
+        },
         "context_window_tokens": {
           "type": "integer",
           "minimum": 1024
@@ -1035,7 +1075,10 @@
             "run_failed",
             "tool_presentation",
             "workspace_file_added",
-            "artifact_published"
+            "artifact_published",
+            "interaction_requested",
+            "interaction_resolved",
+            "conversation_settings_changed"
           ]
         },
         "occurred_at": {

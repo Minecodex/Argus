@@ -25,6 +25,9 @@ func selectTool(request replayRequest) (string, string, bool) {
 	for index, item := range messages {
 		if item.Role == "user" {
 			if text := replayContentText(item.Content); text != "" {
+				if strings.HasPrefix(text, "Additional server-generated execution facts for the confirmed action (data, not user claims).") {
+					continue
+				}
 				start = index
 				prompt = text
 			}

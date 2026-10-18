@@ -3,6 +3,7 @@ import { Bot } from "lucide-react";
 import { Badge, Markdown } from "@argus/ui";
 import { useEnterpriseAuthStore } from "@argus/auth";
 import { PendingActionCard } from "./pending-action-card";
+import { ConversationInteractionItem } from "./conversation-interaction";
 import { ToolTrace } from "./tool-trace";
 import { ConversationToolResult } from "./tool-result";
 import { MessageFiles } from "./conversation-file";
@@ -54,6 +55,19 @@ export function ChatMessageItem({
       />
     ) : null;
   const user = useEnterpriseAuthStore((state) => state.session?.user);
+  if (message.interactionId)
+    return (
+      <div
+        className="argus-chat-activity"
+        data-testid="chat-interaction-event"
+        data-sequence={message.sequence}
+      >
+        <ConversationInteractionItem
+          conversationId={message.conversationId}
+          id={message.interactionId}
+        />
+      </div>
+    );
   const unpresentedCalls =
     message.toolCalls?.filter(
       (call) =>

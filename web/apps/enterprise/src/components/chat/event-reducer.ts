@@ -10,7 +10,7 @@ import {
   type ChatMessage,
   type ToolCallTrace,
 } from "./chat-view-model";
-import { parseToolDisplay } from "./tool-display";
+import { parseToolEventDisplay } from "./tool-display";
 import { projectLiveTimeline } from "./live-timeline";
 
 export type ChatStopReason =
@@ -135,7 +135,7 @@ export function reduceAgentEvent(
             ? "success"
             : "failed",
         summary: stringField(payload, "summary"),
-        display: parseToolDisplay(payload.display),
+        display: parseToolEventDisplay(payload),
         durationMs:
           typeof payload.duration_ms === "number"
             ? payload.duration_ms

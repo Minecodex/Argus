@@ -115,6 +115,10 @@ runtime:
   otelcolKubernetesImage: ""
   otelcolArtifactCABundleConfigMapName: ""
   connectorKubernetesImage: ""
+  remoteRuntimeImage: ""
+  remoteIdleSeconds: 1800
+  remoteExecutionWorkers: 8
+  remoteControlWorkers: 2
   globalIssuerName: argus-ca
   globalIssuerGroup: cert-manager.io
   trustBundleConfigMapName: argus-trust-bundle

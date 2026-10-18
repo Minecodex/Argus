@@ -35,6 +35,33 @@ export function parseToolDisplay(value: unknown): ToolDisplay | undefined {
     }),
   };
 }
+
+/** Old native connect events recorded the authoritative action reference in
+ * resource_refs before their provider supplied explicit display metadata. */
+export function parseToolEventDisplay(
+  payload: Record<string, unknown>,
+): ToolDisplay | undefined {
+  const explicit = parseToolDisplay(payload.display);
+  if (explicit) return explicit;
+  if (
+    payload.source !== "argus" ||
+    (payload.target_tool_id ?? payload.tool_id) !== "connect"
+  )
+    return;
+  const projection = record(payload.projection);
+  const refs = (
+    Array.isArray(projection.resource_refs) ? projection.resource_refs : []
+  )
+    .map(record)
+    .filter((ref) => ref.kind === "action_ref" && typeof ref.ref === "string");
+  if (refs.length !== 1) return;
+  return {
+    mode: "action",
+    actionRef: refs[0]!.ref as string,
+    facts: [],
+    issues: [],
+  };
+}
 export function toolDisplaySummary(
   display: ToolDisplay | undefined,
   t: (key: string, options: { value: string }) => string,

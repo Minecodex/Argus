@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError, formatApiError, useApi } from "@argus/api-client";
-import { Dialog, FileCard, FileTextPreview } from "@argus/ui";
+import { Dialog, FileCard, FileRow, FileTextPreview } from "@argus/ui";
 import type { ChatFile } from "./chat-view-model";
 
 async function text(blob: Blob): Promise<string> {
@@ -19,10 +19,14 @@ export function ConversationFile({
   file,
   conversationId,
   kind = "file",
+  layout = "card",
+  name,
 }: {
   file: ChatFile;
   conversationId: string;
   kind?: "file" | "delivery";
+  layout?: "card" | "row";
+  name?: string;
 }) {
   const api = useApi();
   const { t } = useTranslation();
@@ -56,12 +60,16 @@ export function ConversationFile({
       ? `${t("chat.files.queryManifest")}.json`
       : `${panelTitle ?? storedFile.panel_id ?? t("chat.files.queryData")} · ${t("chat.files.queryData")}.json`
     : file.name;
-  const previewable =
-    /^text\//.test(file.media_type ?? "") ||
-    /\.(md|markdown|json|jsonl|txt|log|csv|tsv|yaml|yml|xml|html|sql|sh|ps1|py|js|ts)$/i.test(
-      file.name,
-    ) ||
-    /^application\/(json|xml)/.test(file.media_type ?? "");
+  const mediaType = file.media_type?.split(";")[0]?.trim().toLowerCase();
+  const previewable = mediaType
+    ? /^text\//.test(mediaType) ||
+      /^application\/(json|xml|x-ndjson|javascript|yaml|x-yaml)$/.test(
+        mediaType,
+      ) ||
+      /^application\/[\w.+-]+\+(json|xml)$/.test(mediaType)
+    : /\.(md|markdown|json|jsonl|txt|log|csv|tsv|yaml|yml|xml|html|sql|sh|ps1|py|js|ts)$/i.test(
+        file.name,
+      );
   const content = useQuery({
     queryKey: [
       "workspace-preview",
@@ -82,13 +90,25 @@ export function ConversationFile({
   const isQuery = file.path?.startsWith("/workspace/queries/");
   return (
     <>
-      <FileCard
-        name={displayName}
-        size={file.byte_size}
-        description={isQuery ? t("chat.files.queryData") : file.media_type}
-        downloadHref={href}
-        onPreview={() => setOpen(true)}
-      />
+      {layout === "row" ? (
+        <FileRow
+          name={name ?? file.name}
+          path={file.path}
+          size={file.byte_size}
+          description={isQuery ? displayName : file.media_type}
+          downloadHref={href}
+          downloadName={file.name}
+          onPreview={() => setOpen(true)}
+        />
+      ) : (
+        <FileCard
+          name={displayName}
+          size={file.byte_size}
+          description={isQuery ? t("chat.files.queryData") : file.media_type}
+          downloadHref={href}
+          onPreview={() => setOpen(true)}
+        />
+      )}
       <Dialog
         open={open}
         onOpenChange={setOpen}

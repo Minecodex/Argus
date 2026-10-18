@@ -19,7 +19,9 @@ export interface ToolCallTrace {
 }
 
 export interface ChatMessage {
-  kind?: "message" | "tool" | "presentation" | "file" | "action";
+  kind?:
+    "message" | "tool" | "presentation" | "file" | "action" | "interaction";
+  interactionId?: string;
   sequence?: number;
   runId?: string;
   fileGroup?: string;
@@ -183,6 +185,8 @@ function fileArray(value: unknown): ChatFile[] {
     : [];
 }
 
-export function chatMessagesFromEvents(events: readonly ConversationEvent[]): ChatMessage[] {
+export function chatMessagesFromEvents(
+  events: readonly ConversationEvent[],
+): ChatMessage[] {
   return timelineFromEvents(events, chatMessageFromPublic);
 }

@@ -5,6 +5,8 @@ components:
       additionalProperties: false
       required: [id, title, selected_model_id, selected_mcp_connection_ids, status, version, created_at, updated_at]
       properties:
+        mode: {type: string, enum: [execute, plan]}
+        access_mode: {type: string, enum: [request_approval, full_access]}
         id: {type: string, format: uuid}
         title: {type: string, minLength: 1, maxLength: 256}
         selected_model_id: {type: string, format: uuid}
@@ -25,6 +27,8 @@ components:
       additionalProperties: false
       required: [expected_version]
       properties:
+        mode: {type: string, enum: [execute, plan]}
+        access_mode: {type: string, enum: [request_approval, full_access]}
         title: {type: string, minLength: 1, maxLength: 256}
         selected_model_id: {type: string, format: uuid}
         selected_mcp_connection_ids: {type: array, uniqueItems: true, maxItems: 100, items: {type: string, format: uuid}}
@@ -112,6 +116,7 @@ components:
         base_url: {type: string, format: uri, maxLength: 2048}
         model_id: {type: string, minLength: 1, maxLength: 256}
         api_protocol: {$ref: '#/components/schemas/AIModelProtocol'}
+        reasoning_effort: {type: string, enum: [provider_default, low, high, max], description: 'Optional Chat Completions reasoning strength; compatibility-tested and frozen per model revision.'}
         api_key: {type: string, minLength: 1, maxLength: 8192, writeOnly: true}
         context_window_tokens: {type: integer, minimum: 8192}
         max_output_tokens: {type: integer, minimum: 1}
@@ -126,6 +131,7 @@ components:
         base_url: {type: string, format: uri, maxLength: 2048}
         model_id: {type: string, minLength: 1, maxLength: 256}
         api_protocol: {$ref: '#/components/schemas/AIModelProtocol'}
+        reasoning_effort: {type: string, enum: [provider_default, low, high, max], description: 'Omit to preserve the existing strength; provider_default clears the override in a new revision.'}
         api_key: {type: string, minLength: 1, maxLength: 8192, writeOnly: true}
         context_window_tokens: {type: integer, minimum: 8192}
         max_output_tokens: {type: integer, minimum: 1}

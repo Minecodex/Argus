@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type MarkRunVerificationOnlyParams struct {
+	ID           uuid.UUID `json:"id"`
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+}
+
 func (q *Queries) MarkRunVerificationOnly(ctx context.Context, arg MarkRunVerificationOnlyParams) error {
 	_, err := q.db.Exec(ctx, markRunVerificationOnly, arg.ID, arg.EnterpriseID)
 	return err
@@ -162,7 +167,7 @@ func (q *Queries) SelectConversationMCPConnection(ctx context.Context, arg Selec
 
 const setRunToolSnapshot = `-- name: SetRunToolSnapshot :one
 UPDATE runs SET tool_snapshot=$3, tool_snapshot_hash=$4, updated_at=now()
-WHERE id=$1 AND enterprise_id=$2 AND tool_snapshot_hash='' RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at
+WHERE id=$1 AND enterprise_id=$2 AND tool_snapshot_hash='' RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at, mode_snapshot, access_mode_snapshot, approved_plan_id
 `
 
 type SetRunToolSnapshotParams struct {
@@ -200,6 +205,9 @@ func (q *Queries) SetRunToolSnapshot(ctx context.Context, arg SetRunToolSnapshot
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ModeSnapshot,
+		&i.AccessModeSnapshot,
+		&i.ApprovedPlanID,
 	)
 	return i, err
 }

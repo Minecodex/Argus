@@ -665,6 +665,9 @@ components:
             - amd64
             - arm64
           description: manual 由用户选择；ssh 由连接测试探测
+        execution_account:
+          $ref: '#/components/schemas/HostExecutionAccount'
+          description: manual 可显式绑定 Connector 实际运行账号；Windows 必须同时指定 SID。未填写不自动开放远程执行。
         environment:
           $ref: '#/components/schemas/Environment'
         labels:
@@ -1704,6 +1707,21 @@ components:
           type: boolean
         partial:
           $ref: '#/components/schemas/PartialMetadata'
+    HostExecutionAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - username
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 256
+        sid:
+          type: string
+          minLength: 1
+          maxLength: 184
+          pattern: ^S-1-[0-9]+(-[0-9]+)+$
     UserLabels:
       type: object
       maxProperties: 64

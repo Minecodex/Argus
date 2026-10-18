@@ -124,6 +124,7 @@ func TestRemoteE2EImagesForCleanupIncludesCoreAndFixtures(t *testing.T) {
 	want := []string{
 		"host.docker.internal:5001/argus/argus-backend:e2e-run",
 		"host.docker.internal:5001/argus/argus-e2e-ssh:e2e-run",
+		"host.docker.internal:5001/argus/argus-remote-runtime:e2e-run",
 		"host.docker.internal:5001/argus/argus-web:e2e-run",
 		"host.docker.internal:5001/argus/argus-workspace-egress:e2e-run",
 		"host.docker.internal:5001/argus/argus-workspace:e2e-run",

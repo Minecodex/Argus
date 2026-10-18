@@ -34,6 +34,8 @@ const (
 )
 
 type Loop struct {
+	AutoConfirm    func(context.Context, db.Run) error
+	RemoteFacts    func(context.Context, db.Run) (map[string]any, error)
 	Objects        *objectstore.Client
 	Store          *postgres.Store
 	Models         modelservice.Service
@@ -47,9 +49,11 @@ type pendingToolCall struct {
 }
 
 type toolExecutionResult struct {
-	message string
-	unknown bool
-	through int64
+	paused      bool
+	controlKind string
+	message     string
+	unknown     bool
+	through     int64
 }
 
 func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
@@ -89,6 +93,15 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 	if err != nil || user.Status != "active" || user.AuthorizationVersion != run.AuthorizationVersion {
 		return loop.finishRun(ctx, run, "failed", "authorization_invalidated", "AUTHORIZATION_VERSION_STALE")
 	}
+	if loop.AutoConfirm != nil {
+		if err := loop.AutoConfirm(ctx, run); err != nil {
+			return err
+		}
+	}
+	pausedInput, err := loop.reconcileInteractions(ctx, run)
+	if err != nil || pausedInput {
+		return err
+	}
 	if current, paused, err := loop.reconcileActions(ctx, run); err != nil || paused {
 		return err
 	} else {
@@ -103,20 +116,20 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 		return err
 	}
 	defer clear(credential)
+	budgetParameter, err := modelprovider.BudgetParameterForCapabilities(modelprovider.Protocol(revision.ApiProtocol), revision.Capabilities)
+	if err != nil {
+		return loop.finishRun(ctx, run, "failed", "invalid_model_budget_profile", "MODEL_COMPATIBILITY_FAILED")
+	}
+	reasoningEffort, err := modelprovider.ReasoningEffortForCapabilities(modelprovider.Protocol(revision.ApiProtocol), revision.Capabilities)
+	if err != nil {
+		return loop.finishRun(ctx, run, "failed", "invalid_model_reasoning_profile", "MODEL_COMPATIBILITY_FAILED")
+	}
 
 	provider := modelprovider.Provider{Protocol: modelprovider.Protocol(revision.ApiProtocol), BaseURL: revision.BaseUrl,
-		APIKey: string(credential), Client: loop.EndpointPolicy.Client()}
+		APIKey: string(credential), Client: loop.EndpointPolicy.ModelClient()}
 	messages, currentInput, modelScope, source, err := loop.messages(ctx, run)
 	if err != nil {
 		return err
-	}
-	if run.VerificationOnly {
-		verification, verifyErr := loop.executionVerification(ctx, run)
-		if verifyErr != nil {
-			return verifyErr
-		}
-		messages = append(messages, modelprovider.Message{Role: "user", Content: verification})
-		currentInput = verification
 	}
 	principal, err := (conversation.Service{Store: loop.Store}).ToolPrincipal(ctx, run.EnterpriseID, run.ActorUserID, run.ConversationID)
 	if err != nil {
@@ -165,9 +178,12 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 		turnTools := toolSet.Models()
 		projection, err := loop.context(ctx, run, revision, messages, currentInput, turnTools, source)
 		if err != nil {
-			return loop.waitForCompaction(ctx, run, "CONTEXT_TOO_LARGE")
+			if errors.Is(err, ErrContextTooLarge) {
+				return loop.waitForCompaction(ctx, run, "CONTEXT_TOO_LARGE")
+			}
+			return err
 		}
-		request := modelprovider.Request{Model: revision.ProviderModelID, Messages: projection.Messages, Tools: turnTools, MaxTokens: int(revision.MaxOutputTokens)}
+		request := modelprovider.Request{Model: revision.ProviderModelID, Messages: projection.Messages, Tools: turnTools, MaxTokens: int(revision.MaxOutputTokens), OutputTokenParameter: budgetParameter, ReasoningEffort: reasoningEffort}
 		wireBytes, err := provider.RequestBytes(request)
 		if err != nil {
 			return err
@@ -311,10 +327,7 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 			return err
 		}
 		if len(calls) == 0 {
-			if err := loop.persistAssistant(ctx, run, step, text.String(), modelScope, usage); err != nil {
-				return err
-			}
-			return loop.finishRun(ctx, run, "succeeded", stopReason, "")
+			return loop.finishAssistantTurn(ctx, run, step, text.String(), modelScope, usage, stopReason)
 		}
 		if !allowsToolExecution(stopReason) {
 			if finishErr := persistStepStatus(ctx, loop.Store, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "failed"}); finishErr != nil {
@@ -327,6 +340,19 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 		if err != nil {
 			_ = loop.failStep(ctx, run, step)
 			return err
+		}
+		for _, result := range toolResults {
+			if result.paused {
+				if result.controlKind == "action" {
+					if loop.AutoConfirm != nil {
+						if err := loop.AutoConfirm(ctx, run); err != nil {
+							return err
+						}
+					}
+					_, _, err = loop.reconcileActions(ctx, run)
+				}
+				return err
+			}
 		}
 		assistant := modelprovider.Message{Role: "assistant", Content: text.String()}
 		for _, call := range ordered {
@@ -361,6 +387,26 @@ func (loop Loop) context(ctx context.Context, run db.Run, revision db.AiModelRev
 	// Relative user times must be anchored to a trusted host clock, rather
 	// than inferred from historical messages or a model's training date.
 	checkpoint["current_time_utc"] = time.Now().UTC().Format(time.RFC3339)
+	checkpoint["mode"] = run.ModeSnapshot
+	var toolSnapshot toolruntime.Snapshot
+	if err := json.Unmarshal(run.ToolSnapshot, &toolSnapshot); err != nil {
+		return ContextProjection{}, err
+	}
+	builtinNames := []string{}
+	for _, tool := range tools {
+		switch tool.Name {
+		case "read", "write", "edit", "bash", "connect":
+			builtinNames = append(builtinNames, tool.Name)
+		}
+	}
+	checkpoint["builtin_tool_availability"] = map[string]any{"workspace_status_at_run_start": toolSnapshot.SandboxStatus, "available": builtinNames}
+	if loop.RemoteFacts != nil {
+		facts, e := loop.RemoteFacts(ctx, run)
+		if e != nil {
+			return ContextProjection{}, e
+		}
+		checkpoint["remote_execution"] = facts
+	}
 	p, err := (conversation.Service{Store: loop.Store}).ToolPrincipal(ctx, run.EnterpriseID, run.ActorUserID, run.ConversationID)
 	if err != nil {
 		return ContextProjection{}, err
@@ -402,6 +448,9 @@ func (loop Loop) createModelCall(ctx context.Context, run db.Run, step db.RunSte
 	err = fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
 		var createErr error
 		call, createErr = q.CreateModelCall(ctx, db.CreateModelCallParams{ID: newAgentID(), EnterpriseID: run.EnterpriseID, RunID: run.ID, StepID: step.ID, ModelID: run.ModelID, ModelRevision: run.ModelRevision, CallKind: "inference", ContextSnapshotID: source.snapshotID(), ContextSnapshotHash: source.snapshotHash(), ContextFromSequence: source.FromSequence, ContextThroughSequence: source.ThroughSequence, ProjectionHash: hash, InputPriceSnapshot: revision.InputPricePerMillion, OutputPriceSnapshot: revision.OutputPricePerMillion})
+		if createErr == nil {
+			createErr = recordRemoteModelContext(ctx, q, call, run, projection)
+		}
 		return createErr
 	})
 	return
@@ -420,6 +469,9 @@ func (loop Loop) failStep(ctx context.Context, run db.Run, step db.RunStep) erro
 }
 
 func (loop Loop) persistAssistant(ctx context.Context, run db.Run, step db.RunStep, text, scope string, usage modelprovider.TokenUsage) error {
+	return loop.persistAssistantStatus(ctx, run, step, text, scope, usage, "succeeded")
+}
+func (loop Loop) persistAssistantStatus(ctx context.Context, run db.Run, step db.RunStep, text, scope string, usage modelprovider.TokenUsage, stepStatus string) error {
 	return fencedEventTransaction(ctx, loop.Store, func(q *db.Queries) error {
 		if _, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "assistant_message", ActorType: "model", ActorID: run.ModelID.String(), Payload: map[string]any{"content": text, "authorization_scope": scope}, Classification: "internal"}); err != nil {
 			return err
@@ -428,7 +480,7 @@ func (loop Loop) persistAssistant(ctx context.Context, run db.Run, step db.RunSt
 		if err != nil {
 			return err
 		}
-		_, err = q.FinishRunStep(ctx, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "succeeded"})
+		_, err = q.FinishRunStep(ctx, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: stepStatus})
 		return err
 	})
 }

@@ -34,6 +34,7 @@ import (
 const maxProbeResponseBytes = 64 * 1024
 
 type Executor struct {
+	RemoteRuntimeImage          string
 	Store                       *postgres.Store
 	Secrets                     secret.Service
 	Validator                   resource.DirectTargetValidator
@@ -91,6 +92,7 @@ func (executor *Executor) Run(ctx context.Context) error {
 	go executor.runHostOnboardingLoop(ctx)
 	go executor.runHostRemovalLoop(ctx)
 	go executor.runConnectorTunnelReconciler(ctx)
+	go executor.runRemoteExecutionSupervisor(ctx)
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -369,7 +371,7 @@ func (executor *Executor) probeSSH(ctx context.Context, plan connectionPlan, add
 	}
 	result := resource.ConnectionTestResult{ResolvedIPs: addressStrings(addresses), HostKeyFingerprint: fingerprint, RemoteVersion: string(clientConnection.ServerVersion()),
 		Platform: evidence.Platform, Architecture: evidence.Architecture, DistributionVersion: evidence.DistributionVersion,
-		ServiceManager: evidence.ServiceManager, Privileged: evidence.Privileged, FreeDiskBytes: evidence.FreeDiskBytes,
+		ServiceManager: evidence.ServiceManager, Privileged: evidence.Privileged, FreeDiskBytes: evidence.FreeDiskBytes, IdentitySID: evidence.IdentitySID,
 		Checks: sshtarget.ConnectionChecks(evidence)}
 	if plan.Onboarding != nil {
 		err := executor.probeOnboardingCallbacks(ctx, client, *plan.Onboarding)

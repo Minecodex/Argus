@@ -12,6 +12,55 @@ import { mergeTimeline } from "./live-timeline";
 
 const when = (sequence: number) =>
   `2026-10-12T13:40:${String(sequence).padStart(2, "0")}Z`;
+
+it("correlates historical native connect references in both ledger and SSE without a duplicate trace", () => {
+  const payload = {
+    tool_call_id: "native-connect",
+    tool_id: "connect",
+    target_tool_id: "connect",
+    source: "argus",
+    status: "succeeded",
+    display: null,
+    projection: {
+      summary: {},
+      resource_refs: [{ kind: "action_ref", ref: "action-one" }],
+    },
+  };
+  const history = chatMessagesFromEvents([
+    event(1, "tool_call_result", payload),
+    event(2, "pending_action_created", { action_ref: "action-one" }),
+    event(3, "interaction_requested", { interaction_id: "plan-one" }),
+  ]);
+  expect(history).toHaveLength(2);
+  expect(history[0]).toMatchObject({
+    kind: "action",
+    pendingActionRefs: ["action-one"],
+    toolCalls: [{ display: { mode: "action", actionRef: "action-one" } }],
+  });
+  expect(history[1]?.interactionId).toBe("plan-one");
+  let live = initialConversationProjection;
+  for (const source of [
+    event(1, "tool_call_completed", payload),
+    event(2, "pending_action_created", { action_ref: "action-one" }),
+  ])
+    live = reduceAgentEvent(live, source as unknown as AgentEvent);
+  expect(live.live_entries).toHaveLength(1);
+  expect(live.live_entries[0]?.pendingActionRefs).toEqual(["action-one"]);
+});
+
+it("does not treat customer MCP output references as native connect metadata", () => {
+  const history = chatMessagesFromEvents([
+    event(1, "tool_call_result", {
+      tool_call_id: "external",
+      tool_id: "connect",
+      source: "customer_mcp",
+      status: "succeeded",
+      projection: { resource_refs: [{ kind: "action_ref", ref: "untrusted" }] },
+    }),
+  ]);
+  expect(history[0]?.toolCalls?.[0]?.display).toBeUndefined();
+  expect(history[0]?.pendingActionRefs).toBeUndefined();
+});
 function event(
   sequence: number,
   event_type: string,

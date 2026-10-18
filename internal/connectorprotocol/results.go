@@ -13,6 +13,12 @@ import (
 // factory was registered on only one side of the stream.
 func Result(command string) (proto.Message, error) {
 	switch command {
+	case "remote_execution_batch":
+		return &connectorv1.RemoteExecutionBatchResult{}, nil
+	case "remote_execution_control":
+		return &connectorv1.RemoteExecutionControlResult{}, nil
+	case "remote_execution_file":
+		return &connectorv1.RemoteExecutionFileResult{}, nil
 	case "host_inventory_probe":
 		return &connectorv1.HostRuntimeObservation{}, nil
 	case "host_connection_probe":

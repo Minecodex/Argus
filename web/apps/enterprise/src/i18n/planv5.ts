@@ -58,12 +58,8 @@ export const planv5Zh = {
       workspace: "会话文件",
       previewTooLarge: "文件超过在线预览限制，请下载查看。",
       empty: "没有文件",
-      delete: "删除 Workspace",
-      deleting: "正在删除 Workspace",
-      unavailable: "暂时无法读取 Workspace 状态，请稍后重试。",
-      retention: "文件会保留到明确删除 Workspace 或永久删除会话。",
-      deleted: "Workspace 已删除",
-      deleteConfirm: "此操作会永久删除此会话的工作文件及已发布文件。",
+      unavailable: "暂时无法读取会话文件，请稍后重试。",
+      retention: "文件随会话保留，永久删除会话时一并清理。",
       cancel: "取消",
     },
     capacity: "模型容量不足。请减少所选 MCP 连接或更换模型，输入与附件已保留。",
@@ -132,16 +128,13 @@ export const planv5En = {
       remove: "Remove attachment",
       download: "Download",
       workspace: "Conversation files",
-      previewTooLarge: "The file exceeds the preview limit. Download it to view the content.",
+      previewTooLarge:
+        "The file exceeds the preview limit. Download it to view the content.",
       empty: "No files",
-      delete: "Delete Workspace",
-      deleting: "Deleting Workspace",
-      unavailable: "Workspace status is unavailable. Please try again later.",
+      unavailable:
+        "Conversation files are unavailable. Please try again later.",
       retention:
-        "Files remain until you explicitly delete the Workspace or permanently delete the conversation.",
-      deleted: "Workspace deleted",
-      deleteConfirm:
-        "This permanently deletes this conversation’s working files and published files.",
+        "Files stay with the conversation and are removed when you permanently delete it.",
       cancel: "Cancel",
     },
     capacity:

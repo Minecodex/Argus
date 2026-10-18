@@ -460,6 +460,7 @@ type HostConnectionProbeResult struct {
 	FreeDiskBytes       uint64 `protobuf:"varint,10,opt,name=free_disk_bytes,json=freeDiskBytes,proto3" json:"free_disk_bytes,omitempty"`
 	CallbackVerified    bool   `protobuf:"varint,11,opt,name=callback_verified,json=callbackVerified,proto3" json:"callback_verified,omitempty"`
 	CallbackControlPath string `protobuf:"bytes,12,opt,name=callback_control_path,json=callbackControlPath,proto3" json:"callback_control_path,omitempty"`
+	IdentitySid         string `protobuf:"bytes,13,opt,name=identity_sid,json=identitySid,proto3" json:"identity_sid,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -574,6 +575,13 @@ func (x *HostConnectionProbeResult) GetCallbackVerified() bool {
 func (x *HostConnectionProbeResult) GetCallbackControlPath() string {
 	if x != nil {
 		return x.CallbackControlPath
+	}
+	return ""
+}
+
+func (x *HostConnectionProbeResult) GetIdentitySid() string {
+	if x != nil {
+		return x.IdentitySid
 	}
 	return ""
 }
@@ -1531,7 +1539,7 @@ const file_argus_connector_v1_commands_proto_rawDesc = "" +
 	"\x14gateway_dial_address\x18\x05 \x01(\tR\x12gatewayDialAddress\x12(\n" +
 	"\x10trust_bundle_pem\x18\x06 \x01(\fR\x0etrustBundlePem\x12,\n" +
 	"\x12trust_bundle_epoch\x18\a \x01(\x03R\x10trustBundleEpoch\x122\n" +
-	"\x15relay_port_generation\x18\b \x01(\x03R\x13relayPortGeneration\"\x83\x04\n" +
+	"\x15relay_port_generation\x18\b \x01(\x03R\x13relayPortGeneration\"\xa6\x04\n" +
 	"\x19HostConnectionProbeResult\x12!\n" +
 	"\fresolved_ips\x18\x01 \x03(\tR\vresolvedIps\x120\n" +
 	"\x14host_key_fingerprint\x18\x02 \x01(\tR\x12hostKeyFingerprint\x12\x1a\n" +
@@ -1547,7 +1555,8 @@ const file_argus_connector_v1_commands_proto_rawDesc = "" +
 	"\x0ffree_disk_bytes\x18\n" +
 	" \x01(\x04R\rfreeDiskBytes\x12+\n" +
 	"\x11callback_verified\x18\v \x01(\bR\x10callbackVerified\x122\n" +
-	"\x15callback_control_path\x18\f \x01(\tR\x13callbackControlPath\"g\n" +
+	"\x15callback_control_path\x18\f \x01(\tR\x13callbackControlPath\x12!\n" +
+	"\fidentity_sid\x18\r \x01(\tR\videntitySid\"g\n" +
 	"\x19KubernetesConnectionProbe\x12\x1d\n" +
 	"\n" +
 	"api_server\x18\x01 \x01(\tR\tapiServer\x12+\n" +

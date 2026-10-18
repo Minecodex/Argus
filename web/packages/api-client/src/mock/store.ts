@@ -54,8 +54,11 @@ import type {
 
 /** Whole in-memory database backing the mock client. */
 export interface MockDb {
+  conversationRuns?: import("../generated/contracts").Run[];
+  interactions?: import("../interactions").ConversationInteraction[];
+  remoteExecutions?: import("../remote-execution").RemoteExecution[];
   schemaVersion: 15;
- alerts?: Record<string,import("./alerts").MockAlertState>;
+  alerts?: Record<string, import("./alerts").MockAlertState>;
   dashboards?: import("./dashboard-state").MockDashboards;
   seq: Record<string, number>;
   platformState: { state: PlatformState; name: string };
@@ -87,7 +90,7 @@ export interface MockDb {
   serviceAccounts: ServiceAccount[];
   apiKeys: ApiKey[];
   secrets: Secret[];
- secretCredentials?: import("../types").Credential[];
+  secretCredentials?: import("../types").Credential[];
   hosts: MockHost[];
   connectors: MockConnector[];
   bastionScopes: MockBastionScope[];

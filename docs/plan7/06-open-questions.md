@@ -161,9 +161,9 @@ Q16 已明确单份计划只串行，Q19 已明确不同聊天不共用 shell；
 - 当前四个本地工具是 read/write/edit/bash；不存在独立的 grep 工具。grep 由 bash 使用。
 - Linux SSH 安装预检要求有效 UID=0，正常 Connector 服务以 argus-connector 运行。安装账号和运行账号不是同一个概念。
 - manual 主机接入没有 SSH username/credential_id；in-cluster K8s 可能使用 Connector Pod 的 ServiceAccount，没有上传的 kubeconfig。
-- 当前通用 K8s 排查接口支持固定类型查询和日志；另有受控 Collector 生命周期写操作，尚无通用 kubectl 或 pods/exec。
+- 原有 K8s 查询／日志和 Collector 生命周期接口保留；Plan7 已增加受控 kubectl 与固定 Pod UID/container 的 exec，并完成本轮实机验收。
 - Windows 现有安装／终端路径使用 powershell.exe，Connector 服务身份与接入登录账号不等同；现有 ConPTY 是交互通道，不能作为单次请求退出码和完整进程树取消已实现的证据。
-- 当前动作完成后的 VerificationOnly 会禁止 Workspace bash/write/edit 和新的远程申请；必须调整能力判断。
+- 原 VerificationOnly 的一刀切限制已调整，执行后可继续 Workspace 分析；新增远程请求仍需重新确认。
 - 当前客户 MCP 不受自有 Preview／Confirm 约束，此产品边界已经确认保留。
 
-这些事实的源码入口见 [实现状态](./implementation-status.md)。沿用接入身份所需的关联、短期凭据代用和缺失身份的明确不可用状态属于 P7-T03；若适配确需改变已确认身份边界，再提出具体方案，不擅自创建新的账号管理产品或猜测 root。
+实现状态和本轮证据见[实施状态](./implementation-status.md)与[验收报告](./09-acceptance-report.md)。接入身份关联、短期凭据代用和缺失身份的明确不可用状态已纳入 P7-T03；没有新增账号管理产品或隐式猜测 root。

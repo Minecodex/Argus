@@ -1,5 +1,59 @@
 version: argus.error_codes/v1
 codes:
+  MODEL_OUTPUT_INCOMPLETE: {http_status: 409, message_key: errors.codes.MODEL_OUTPUT_INCOMPLETE, retryable: false}
+  REMOTE_EXECUTION_FORBIDDEN: {http_status: 403, message_key: errors.codes.REMOTE_EXECUTION_FORBIDDEN, retryable: false}
+  REMOTE_RESOURCE_FORBIDDEN: {http_status: 403, message_key: errors.codes.REMOTE_RESOURCE_FORBIDDEN, retryable: false}
+  REMOTE_NOT_APPROVED: {http_status: 403, message_key: errors.codes.REMOTE_NOT_APPROVED, retryable: false}
+  REMOTE_AUTHORIZATION_CHANGED: {http_status: 403, message_key: errors.codes.REMOTE_AUTHORIZATION_CHANGED, retryable: false}
+  REMOTE_BINDING_INVALID: {http_status: 400, message_key: errors.codes.REMOTE_BINDING_INVALID, retryable: false}
+  REMOTE_INPUT_INVALID: {http_status: 400, message_key: errors.codes.REMOTE_INPUT_INVALID, retryable: false}
+  REMOTE_PLAN_INVALID: {http_status: 400, message_key: errors.codes.REMOTE_PLAN_INVALID, retryable: false}
+  REMOTE_PLAN_TOO_LARGE: {http_status: 400, message_key: errors.codes.REMOTE_PLAN_TOO_LARGE, retryable: false}
+  REMOTE_FRAME_LIMIT: {http_status: 400, message_key: errors.codes.REMOTE_FRAME_LIMIT, retryable: false}
+  REMOTE_CONTEXT_CHANGED: {http_status: 409, message_key: errors.codes.REMOTE_CONTEXT_CHANGED, retryable: false}
+  REMOTE_CONTEXT_LOST: {http_status: 409, message_key: errors.codes.REMOTE_CONTEXT_LOST, retryable: false}
+  REMOTE_IDENTITY_CHANGED: {http_status: 409, message_key: errors.codes.REMOTE_IDENTITY_CHANGED, retryable: false}
+  REMOTE_IDENTITY_MISMATCH: {http_status: 409, message_key: errors.codes.REMOTE_IDENTITY_MISMATCH, retryable: false}
+  REMOTE_HOST_KEY_CHANGED: {http_status: 409, message_key: errors.codes.REMOTE_HOST_KEY_CHANGED, retryable: false}
+  REMOTE_POD_CHANGED: {http_status: 409, message_key: errors.codes.REMOTE_POD_CHANGED, retryable: false}
+  REMOTE_CONTROL_AUTHENTICATION_FAILED: {http_status: 409, message_key: errors.codes.REMOTE_CONTROL_AUTHENTICATION_FAILED, retryable: false}
+  REMOTE_RESULT_UNKNOWN: {http_status: 409, message_key: errors.codes.REMOTE_RESULT_UNKNOWN, retryable: false}
+  REMOTE_STOP_UNKNOWN: {http_status: 409, message_key: errors.codes.REMOTE_STOP_UNKNOWN, retryable: false}
+  REMOTE_COMPLETION_INVALID: {http_status: 409, message_key: errors.codes.REMOTE_COMPLETION_INVALID, retryable: false}
+  REMOTE_WORKER_INTERRUPTED: {http_status: 409, message_key: errors.codes.REMOTE_WORKER_INTERRUPTED, retryable: false}
+  REMOTE_DIRECTORY_OWNERSHIP_UNKNOWN: {http_status: 409, message_key: errors.codes.REMOTE_DIRECTORY_OWNERSHIP_UNKNOWN, retryable: false}
+  REMOTE_FILE_CHANGED: {http_status: 409, message_key: errors.codes.REMOTE_FILE_CHANGED, retryable: false}
+  REMOTE_FILE_CONFLICT: {http_status: 409, message_key: errors.codes.REMOTE_FILE_CONFLICT, retryable: false}
+  REMOTE_FILE_INTEGRITY: {http_status: 409, message_key: errors.codes.REMOTE_FILE_INTEGRITY, retryable: false}
+  REMOTE_FILE_LIMIT: {http_status: 409, message_key: errors.codes.REMOTE_FILE_LIMIT, retryable: false}
+  REMOTE_INPUT_INTEGRITY: {http_status: 409, message_key: errors.codes.REMOTE_INPUT_INTEGRITY, retryable: false}
+  REMOTE_INPUT_UNAVAILABLE: {http_status: 409, message_key: errors.codes.REMOTE_INPUT_UNAVAILABLE, retryable: false}
+  REMOTE_OUTPUT_COLLECTION_FAILED: {http_status: 409, message_key: errors.codes.REMOTE_OUTPUT_COLLECTION_FAILED, retryable: false}
+  REMOTE_OUTPUT_INTEGRITY: {http_status: 409, message_key: errors.codes.REMOTE_OUTPUT_INTEGRITY, retryable: false}
+  REMOTE_OUTPUT_LIMIT: {http_status: 409, message_key: errors.codes.REMOTE_OUTPUT_LIMIT, retryable: false}
+  REMOTE_OUTPUT_STILL_ACTIVE: {http_status: 409, message_key: errors.codes.REMOTE_OUTPUT_STILL_ACTIVE, retryable: false}
+  REMOTE_PATH_INVALID: {http_status: 409, message_key: errors.codes.REMOTE_PATH_INVALID, retryable: false}
+  REMOTE_TRANSFER_FAILED: {http_status: 409, message_key: errors.codes.REMOTE_TRANSFER_FAILED, retryable: false}
+  REMOTE_TRANSFER_OFFSET: {http_status: 409, message_key: errors.codes.REMOTE_TRANSFER_OFFSET, retryable: false}
+  REMOTE_EXECUTION_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_EXECUTION_UNAVAILABLE, retryable: false}
+  REMOTE_IDENTITY_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_IDENTITY_UNAVAILABLE, retryable: false}
+  REMOTE_INTERPRETER_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_INTERPRETER_UNAVAILABLE, retryable: false}
+  REMOTE_KUBECTL_ENVIRONMENT_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_KUBECTL_ENVIRONMENT_UNAVAILABLE, retryable: false}
+  REMOTE_NETWORK_ISOLATION_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_NETWORK_ISOLATION_UNAVAILABLE, retryable: false}
+  REMOTE_PLATFORM_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_PLATFORM_UNAVAILABLE, retryable: false}
+  REMOTE_POD_DEPENDENCY_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_POD_DEPENDENCY_UNAVAILABLE, retryable: false}
+  REMOTE_CONTAINER_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_CONTAINER_UNAVAILABLE, retryable: false}
+  REMOTE_ROUTE_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_ROUTE_UNAVAILABLE, retryable: false}
+  REMOTE_TRANSFER_UNAVAILABLE: {http_status: 503, message_key: errors.codes.REMOTE_TRANSFER_UNAVAILABLE, retryable: false}
+  REMOTE_CONNECTOR_UPGRADE_REQUIRED: {http_status: 503, message_key: errors.codes.REMOTE_CONNECTOR_UPGRADE_REQUIRED, retryable: false}
+  REMOTE_COMMAND_CONFLICT: {http_status: 409, message_key: errors.codes.REMOTE_COMMAND_CONFLICT, retryable: false}
+  REMOTE_PLAN_NOT_REVISABLE: {http_status: 409, message_key: errors.codes.REMOTE_PLAN_NOT_REVISABLE, retryable: false}
+  REMOTE_SESSION_BUSY: {http_status: 409, message_key: errors.codes.REMOTE_SESSION_BUSY, retryable: false}
+  REMOTE_STEP_INCOMPLETE: {http_status: 409, message_key: errors.codes.REMOTE_STEP_INCOMPLETE, retryable: false}
+  REMOTE_COMMAND_FAILED: {http_status: 409, message_key: errors.codes.REMOTE_COMMAND_FAILED, retryable: false}
+  REMOTE_EXECUTION_TIMEOUT: {http_status: 409, message_key: errors.codes.REMOTE_EXECUTION_TIMEOUT, retryable: false}
+  REMOTE_RUNTIME_FAILED: {http_status: 409, message_key: errors.codes.REMOTE_RUNTIME_FAILED, retryable: false}
+  REMOTE_STOPPED: {http_status: 409, message_key: errors.codes.REMOTE_STOPPED, retryable: false}
   DASHBOARD_SELECTION_REQUIRED: {http_status: 422, message_key: errors.dashboard.selection_required, retryable: false}
   DASHBOARD_CONDITION_EVIDENCE_REQUIRED: {http_status: 422, message_key: errors.dashboard.condition_evidence_required, retryable: false}
   DASHBOARD_CONDITIONS_INCOMPATIBLE: {http_status: 409, message_key: errors.dashboard.conditions_incompatible, retryable: false}

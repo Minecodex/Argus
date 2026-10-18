@@ -208,7 +208,7 @@ func (a *App) realModelTask(ctx context.Context, env *E2EEnvironment, conversati
 	deadline := time.NewTimer(10 * time.Minute)
 	defer deadline.Stop()
 	for {
-		state, err := client.JSON(ctx, "p5-real-wait-"+id, "enterprise", http.MethodGet, "/runs/"+run, 200, nil, enterpriseHeaders(env, ""))
+		state, err := client.PollJSON(ctx, "p5-real-wait-"+id, "enterprise", "/runs/"+run, enterpriseHeaders(env, ""))
 		if err != nil {
 			return p5BenchmarkSample{}, err
 		}

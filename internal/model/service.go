@@ -36,6 +36,10 @@ type Input struct {
 	APIKey          string
 	Status          string
 	ExpectedVersion int64
+	ReasoningEffort string
+	// Only TestExisting sets this from the immutable revision. Public create /
+	// update inputs cannot override protocol discovery.
+	OutputTokenParameter string `json:"-"`
 }
 
 type CompatibilityCheck struct {
@@ -45,8 +49,9 @@ type CompatibilityCheck struct {
 }
 
 type CompatibilityResult struct {
-	Compatible bool                 `json:"compatible"`
-	Checks     []CompatibilityCheck `json:"checks"`
+	Compatible           bool                 `json:"compatible"`
+	Checks               []CompatibilityCheck `json:"checks"`
+	OutputTokenParameter string               `json:"-"`
 }
 
 type Tester interface {
@@ -79,7 +84,7 @@ func (service Service) TestAndCreate(ctx context.Context, actorID string, enterp
 	modelValue, err := postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "model.create", idempotencyKey, publicInput(input), 201,
 		func(q *db.Queries) (db.AiModel, error) {
 			modelID, revisionID := newID(), newID()
-			capabilities := capabilitiesJSON(input)
+			capabilities := capabilitiesJSON(input, result)
 			created, err := q.CreateAIModel(ctx, db.CreateAIModelParams{ID: modelID, EnterpriseID: enterpriseID, Name: input.Name,
 				BaseUrl: input.BaseURL, ModelID: input.ProviderModelID, ApiProtocol: input.Protocol, ContextWindowTokens: input.ContextWindow,
 				MaxOutputTokens: input.MaxOutput, InputPricePerMillion: numeric(input.InputPrice), OutputPricePerMillion: numeric(input.OutputPrice), Capabilities: capabilities})
@@ -129,7 +134,7 @@ func (service Service) Update(ctx context.Context, actorID string, enterpriseID,
 	updated, err := postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "model.update", idempotencyKey, publicInput(merged), 200,
 		func(q *db.Queries) (db.AiModel, error) {
 			revisionNumber := current.Revision + 1
-			capabilities := capabilitiesJSON(merged)
+			capabilities := capabilitiesJSON(merged, result)
 			revision, err := q.CreateAIModelRevision(ctx, db.CreateAIModelRevisionParams{ID: newID(), ModelID: modelID, EnterpriseID: enterpriseID,
 				Revision: revisionNumber, BaseUrl: merged.BaseURL, ProviderModelID: merged.ProviderModelID, ApiProtocol: merged.Protocol,
 				ContextWindowTokens: merged.ContextWindow, MaxOutputTokens: merged.MaxOutput, InputPricePerMillion: numeric(merged.InputPrice),
@@ -172,6 +177,14 @@ func (service Service) TestExisting(ctx context.Context, enterpriseID, modelID u
 	}
 	defer clear(credential)
 	input := mergeInput(current, Input{APIKey: string(credential)})
+	input.OutputTokenParameter, err = modelprovider.BudgetParameterForCapabilities(modelprovider.Protocol(revision.ApiProtocol), revision.Capabilities)
+	if err != nil {
+		return CompatibilityResult{}, ErrCompatibilityFailed
+	}
+	input.ReasoningEffort, err = modelprovider.ReasoningEffortForCapabilities(modelprovider.Protocol(revision.ApiProtocol), revision.Capabilities)
+	if err != nil {
+		return CompatibilityResult{}, ErrCompatibilityFailed
+	}
 	result := service.test(ctx, input)
 	checks, _ := json.Marshal(result.Checks)
 	_, err = service.Store.Queries.CreateModelCompatibilityResult(ctx, db.CreateModelCompatibilityResultParams{ID: newID(), ModelRevisionID: revision.ID,
@@ -278,6 +291,14 @@ func mergeInput(current db.AiModel, patch Input) Input {
 	result := Input{Name: current.Name, BaseURL: current.BaseUrl, ProviderModelID: current.ModelID, Protocol: current.ApiProtocol,
 		ContextWindow: current.ContextWindowTokens, MaxOutput: current.MaxOutputTokens, InputPrice: numericFloat(current.InputPricePerMillion),
 		OutputPrice: numericFloat(current.OutputPricePerMillion), Status: current.Status, ExpectedVersion: patch.ExpectedVersion, APIKey: patch.APIKey}
+	var profile struct {
+		ReasoningEffort string `json:"reasoning_effort"`
+	}
+	_ = json.Unmarshal(current.Capabilities, &profile)
+	result.ReasoningEffort = profile.ReasoningEffort
+	if patch.ReasoningEffort != "" {
+		result.ReasoningEffort = patch.ReasoningEffort
+	}
 	if patch.Name != "" {
 		result.Name = patch.Name
 	}
@@ -309,9 +330,17 @@ func mergeInput(current db.AiModel, patch Input) Input {
 }
 
 func publicInput(input Input) any { value := input; value.APIKey = ""; return value }
-func capabilitiesJSON(input Input) []byte {
-	value, _ := json.Marshal(map[string]any{"supports_streaming": true, "supports_tool_calling": true,
-		"supports_structured_output": true, "provider_compaction_capability": false, "context_window_tokens": input.ContextWindow, "max_output_tokens": input.MaxOutput})
+func capabilitiesJSON(input Input, result CompatibilityResult) []byte {
+	parameter := result.OutputTokenParameter
+	if parameter == "" {
+		parameter, _ = modelprovider.BudgetParameterForCapabilities(modelprovider.Protocol(input.Protocol), nil)
+	}
+	profile := map[string]any{"supports_streaming": true, "supports_tool_calling": true,
+		"supports_structured_output": true, "provider_compaction_capability": "none", "context_window_tokens": input.ContextWindow, "max_output_tokens": input.MaxOutput, "output_token_parameter": parameter}
+	if effort, err := modelprovider.NormalizeReasoningEffort(modelprovider.Protocol(input.Protocol), input.ReasoningEffort); err == nil && effort != "" {
+		profile["reasoning_effort"] = effort
+	}
+	value, _ := json.Marshal(profile)
 	return value
 }
 

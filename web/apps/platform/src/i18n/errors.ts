@@ -1,5 +1,58 @@
 /** Stable API error-code translations. Keep this list aligned with api/contracts/error-codes.yaml. */
 export const ERROR_CODES = [
+  "REMOTE_EXECUTION_FORBIDDEN",
+  "REMOTE_RESOURCE_FORBIDDEN",
+  "REMOTE_NOT_APPROVED",
+  "REMOTE_AUTHORIZATION_CHANGED",
+  "REMOTE_BINDING_INVALID",
+  "REMOTE_INPUT_INVALID",
+  "REMOTE_PLAN_INVALID",
+  "REMOTE_PLAN_TOO_LARGE",
+  "REMOTE_FRAME_LIMIT",
+  "REMOTE_CONTEXT_CHANGED",
+  "REMOTE_CONTEXT_LOST",
+  "REMOTE_IDENTITY_CHANGED",
+  "REMOTE_IDENTITY_MISMATCH",
+  "REMOTE_HOST_KEY_CHANGED",
+  "REMOTE_POD_CHANGED",
+  "REMOTE_CONTROL_AUTHENTICATION_FAILED",
+  "REMOTE_RESULT_UNKNOWN",
+  "REMOTE_STOP_UNKNOWN",
+  "REMOTE_COMPLETION_INVALID",
+  "REMOTE_WORKER_INTERRUPTED",
+  "REMOTE_DIRECTORY_OWNERSHIP_UNKNOWN",
+  "REMOTE_FILE_CHANGED",
+  "REMOTE_FILE_CONFLICT",
+  "REMOTE_FILE_INTEGRITY",
+  "REMOTE_FILE_LIMIT",
+  "REMOTE_INPUT_INTEGRITY",
+  "REMOTE_INPUT_UNAVAILABLE",
+  "REMOTE_OUTPUT_COLLECTION_FAILED",
+  "REMOTE_OUTPUT_INTEGRITY",
+  "REMOTE_OUTPUT_LIMIT",
+  "REMOTE_OUTPUT_STILL_ACTIVE",
+  "REMOTE_PATH_INVALID",
+  "REMOTE_TRANSFER_FAILED",
+  "REMOTE_TRANSFER_OFFSET",
+  "REMOTE_EXECUTION_UNAVAILABLE",
+  "REMOTE_IDENTITY_UNAVAILABLE",
+  "REMOTE_INTERPRETER_UNAVAILABLE",
+  "REMOTE_KUBECTL_ENVIRONMENT_UNAVAILABLE",
+  "REMOTE_NETWORK_ISOLATION_UNAVAILABLE",
+  "REMOTE_PLATFORM_UNAVAILABLE",
+  "REMOTE_POD_DEPENDENCY_UNAVAILABLE",
+  "REMOTE_CONTAINER_UNAVAILABLE",
+  "REMOTE_ROUTE_UNAVAILABLE",
+  "REMOTE_TRANSFER_UNAVAILABLE",
+  "REMOTE_CONNECTOR_UPGRADE_REQUIRED",
+  "REMOTE_COMMAND_CONFLICT",
+  "REMOTE_PLAN_NOT_REVISABLE",
+  "REMOTE_SESSION_BUSY",
+  "REMOTE_STEP_INCOMPLETE",
+  "REMOTE_COMMAND_FAILED",
+  "REMOTE_EXECUTION_TIMEOUT",
+  "REMOTE_RUNTIME_FAILED",
+  "REMOTE_STOPPED",
   "TASK_RETRY_EXHAUSTED",
   "MODEL_RESPONSE_INTERRUPTED",
   "INTERNAL_ERROR",
@@ -340,6 +393,101 @@ const errorTokenZhMap: Record<string, string> = {
 };
 
 const errorSpecialZhMap: Record<string, string> = {
+  REMOTE_EXECUTION_FORBIDDEN: "当前账号没有此资源的远程执行权限。",
+  REMOTE_RESOURCE_FORBIDDEN: "当前账号没有此资源的远程执行权限。",
+  REMOTE_NOT_APPROVED: "当前账号没有此资源的远程执行权限。",
+  REMOTE_AUTHORIZATION_CHANGED: "当前账号没有此资源的远程执行权限。",
+  REMOTE_BINDING_INVALID: "远程请求内容无效，请重新生成预览。",
+  REMOTE_INPUT_INVALID: "远程请求内容无效，请重新生成预览。",
+  REMOTE_PLAN_INVALID: "远程请求内容无效，请重新生成预览。",
+  REMOTE_PLAN_TOO_LARGE: "远程请求内容无效，请重新生成预览。",
+  REMOTE_FRAME_LIMIT: "远程请求内容无效，请重新生成预览。",
+  REMOTE_CONTEXT_CHANGED:
+    "执行身份、目标实例或共享上下文已变化，请审查新的恢复计划。",
+  REMOTE_CONTEXT_LOST:
+    "执行身份、目标实例或共享上下文已变化，请审查新的恢复计划。",
+  REMOTE_IDENTITY_CHANGED:
+    "执行身份、目标实例或共享上下文已变化，请审查新的恢复计划。",
+  REMOTE_IDENTITY_MISMATCH:
+    "执行身份、目标实例或共享上下文已变化，请审查新的恢复计划。",
+  REMOTE_HOST_KEY_CHANGED:
+    "执行身份、目标实例或共享上下文已变化，请审查新的恢复计划。",
+  REMOTE_POD_CHANGED:
+    "执行身份、目标实例或共享上下文已变化，请审查新的恢复计划。",
+  REMOTE_CONTROL_AUTHENTICATION_FAILED:
+    "执行身份、目标实例或共享上下文已变化，请审查新的恢复计划。",
+  REMOTE_RESULT_UNKNOWN:
+    "无法确认远端执行结果。请先核对已有证据，勿重放已执行的修改。",
+  REMOTE_STOP_UNKNOWN:
+    "无法确认远端执行结果。请先核对已有证据，勿重放已执行的修改。",
+  REMOTE_COMPLETION_INVALID:
+    "无法确认远端执行结果。请先核对已有证据，勿重放已执行的修改。",
+  REMOTE_WORKER_INTERRUPTED:
+    "无法确认远端执行结果。请先核对已有证据，勿重放已执行的修改。",
+  REMOTE_DIRECTORY_OWNERSHIP_UNKNOWN:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_FILE_CHANGED:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_FILE_CONFLICT:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_FILE_INTEGRITY:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_FILE_LIMIT: "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_INPUT_INTEGRITY:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_INPUT_UNAVAILABLE:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_OUTPUT_COLLECTION_FAILED:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_OUTPUT_INTEGRITY:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_OUTPUT_LIMIT:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_OUTPUT_STILL_ACTIVE:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_PATH_INVALID:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_TRANSFER_FAILED:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_TRANSFER_OFFSET:
+    "文件传输未完成或完整性校验失败；已执行命令不会因此重跑。",
+  REMOTE_EXECUTION_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_IDENTITY_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_INTERPRETER_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_KUBECTL_ENVIRONMENT_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_NETWORK_ISOLATION_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_PLATFORM_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_POD_DEPENDENCY_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_CONTAINER_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_ROUTE_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_TRANSFER_UNAVAILABLE:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_CONNECTOR_UPGRADE_REQUIRED:
+    "远程执行环境、依赖或通道不可用，请检查资源接入配置。",
+  REMOTE_COMMAND_CONFLICT:
+    "执行状态已变化，或当前会话正在执行其他批次。请刷新执行记录。",
+  REMOTE_PLAN_NOT_REVISABLE:
+    "执行状态已变化，或当前会话正在执行其他批次。请刷新执行记录。",
+  REMOTE_SESSION_BUSY:
+    "执行状态已变化，或当前会话正在执行其他批次。请刷新执行记录。",
+  REMOTE_STEP_INCOMPLETE:
+    "执行状态已变化，或当前会话正在执行其他批次。请刷新执行记录。",
+  REMOTE_COMMAND_FAILED:
+    "远程命令已停止、超时或失败；请核对实际结果后生成新计划。",
+  REMOTE_EXECUTION_TIMEOUT:
+    "远程命令已停止、超时或失败；请核对实际结果后生成新计划。",
+  REMOTE_RUNTIME_FAILED:
+    "远程命令已停止、超时或失败；请核对实际结果后生成新计划。",
+  REMOTE_STOPPED: "远程命令已停止、超时或失败；请核对实际结果后生成新计划。",
   TASK_RETRY_EXHAUSTED: "任务重试已耗尽，已停止自动推进。",
   MODEL_RESPONSE_INTERRUPTED: "模型响应中断，该次输出未用于工具执行。",
   REMOTE_ACCESS_GRANT_REQUIRED:
@@ -367,12 +515,120 @@ const errorSpecialZhMap: Record<string, string> = {
 };
 
 const errorTokenEnMap: Record<string, string> = {};
+const errorSpecialEnMap: Record<string, string> = {
+  REMOTE_EXECUTION_FORBIDDEN:
+    "The current account cannot execute commands on this resource.",
+  REMOTE_RESOURCE_FORBIDDEN:
+    "The current account cannot execute commands on this resource.",
+  REMOTE_NOT_APPROVED:
+    "The current account cannot execute commands on this resource.",
+  REMOTE_AUTHORIZATION_CHANGED:
+    "The current account cannot execute commands on this resource.",
+  REMOTE_BINDING_INVALID:
+    "The remote request is invalid. Generate a new preview.",
+  REMOTE_INPUT_INVALID:
+    "The remote request is invalid. Generate a new preview.",
+  REMOTE_PLAN_INVALID: "The remote request is invalid. Generate a new preview.",
+  REMOTE_PLAN_TOO_LARGE:
+    "The remote request is invalid. Generate a new preview.",
+  REMOTE_FRAME_LIMIT: "The remote request is invalid. Generate a new preview.",
+  REMOTE_CONTEXT_CHANGED:
+    "The identity, target instance, or shared context changed. Review a new recovery plan.",
+  REMOTE_CONTEXT_LOST:
+    "The identity, target instance, or shared context changed. Review a new recovery plan.",
+  REMOTE_IDENTITY_CHANGED:
+    "The identity, target instance, or shared context changed. Review a new recovery plan.",
+  REMOTE_IDENTITY_MISMATCH:
+    "The identity, target instance, or shared context changed. Review a new recovery plan.",
+  REMOTE_HOST_KEY_CHANGED:
+    "The identity, target instance, or shared context changed. Review a new recovery plan.",
+  REMOTE_POD_CHANGED:
+    "The identity, target instance, or shared context changed. Review a new recovery plan.",
+  REMOTE_CONTROL_AUTHENTICATION_FAILED:
+    "The identity, target instance, or shared context changed. Review a new recovery plan.",
+  REMOTE_RESULT_UNKNOWN:
+    "The remote result is unknown. Check the existing evidence before repeating any change.",
+  REMOTE_STOP_UNKNOWN:
+    "The remote result is unknown. Check the existing evidence before repeating any change.",
+  REMOTE_COMPLETION_INVALID:
+    "The remote result is unknown. Check the existing evidence before repeating any change.",
+  REMOTE_WORKER_INTERRUPTED:
+    "The remote result is unknown. Check the existing evidence before repeating any change.",
+  REMOTE_DIRECTORY_OWNERSHIP_UNKNOWN:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_FILE_CHANGED:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_FILE_CONFLICT:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_FILE_INTEGRITY:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_FILE_LIMIT:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_INPUT_INTEGRITY:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_INPUT_UNAVAILABLE:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_OUTPUT_COLLECTION_FAILED:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_OUTPUT_INTEGRITY:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_OUTPUT_LIMIT:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_OUTPUT_STILL_ACTIVE:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_PATH_INVALID:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_TRANSFER_FAILED:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_TRANSFER_OFFSET:
+    "File delivery is incomplete or failed integrity checks. Executed commands will not be repeated.",
+  REMOTE_EXECUTION_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_IDENTITY_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_INTERPRETER_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_KUBECTL_ENVIRONMENT_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_NETWORK_ISOLATION_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_PLATFORM_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_POD_DEPENDENCY_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_CONTAINER_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_ROUTE_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_TRANSFER_UNAVAILABLE:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_CONNECTOR_UPGRADE_REQUIRED:
+    "The remote environment, dependencies, or connection is unavailable. Check resource enrollment.",
+  REMOTE_COMMAND_CONFLICT:
+    "Execution state changed or this session is already executing another batch. Refresh its record.",
+  REMOTE_PLAN_NOT_REVISABLE:
+    "Execution state changed or this session is already executing another batch. Refresh its record.",
+  REMOTE_SESSION_BUSY:
+    "Execution state changed or this session is already executing another batch. Refresh its record.",
+  REMOTE_STEP_INCOMPLETE:
+    "Execution state changed or this session is already executing another batch. Refresh its record.",
+  REMOTE_COMMAND_FAILED:
+    "The remote command stopped, timed out, or failed. Check its actual result before creating another plan.",
+  REMOTE_EXECUTION_TIMEOUT:
+    "The remote command stopped, timed out, or failed. Check its actual result before creating another plan.",
+  REMOTE_RUNTIME_FAILED:
+    "The remote command stopped, timed out, or failed. Check its actual result before creating another plan.",
+  REMOTE_STOPPED:
+    "The remote command stopped, timed out, or failed. Check its actual result before creating another plan.",
+};
 function englishToken(token: string): string {
   return token
     .toLowerCase()
     .replace(/(^|[-_])([a-z])/g, (_, p, c) => (p ? " " : "") + c.toUpperCase());
 }
 function humanize(code: string, locale: Locale): string {
+  if (locale === "en-US" && errorSpecialEnMap[code])
+    return errorSpecialEnMap[code];
   if (locale === "zh-CN" && errorSpecialZhMap[code])
     return errorSpecialZhMap[code];
   const tokens = code.split("_");

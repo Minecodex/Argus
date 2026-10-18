@@ -80,11 +80,11 @@ func (service Service) Confirm(ctx context.Context, actorID, requestID string, e
 	}{actionRef, authorizationVersion}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "pending_action.confirm", idempotencyKey, request, 200,
 		func(q *db.Queries) (Confirmation, error) {
-			return service.confirmWithQueries(ctx, q, actor, actorID, requestID, enterpriseID, authorizationVersion, stepUp, actionRef, idempotencyKey)
+			return service.confirmWithQueries(ctx, q, actor, actorID, requestID, enterpriseID, authorizationVersion, stepUp, actionRef, idempotencyKey, "user")
 		})
 }
 
-func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, actor uuid.UUID, actorID, requestID string, enterpriseID uuid.UUID, authorizationVersion int64, stepUp bool, actionRef, idempotencyKey string) (Confirmation, error) {
+func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, actor uuid.UUID, actorID, requestID string, enterpriseID uuid.UUID, authorizationVersion int64, stepUp bool, actionRef, idempotencyKey, source string) (Confirmation, error) {
 	action, plan, err := service.lockAndRevalidate(ctx, q, enterpriseID, actionRef, "awaiting_confirmation", authorizationVersion)
 	if err := confirmationAccessError(action, actor, err); err != nil {
 		return Confirmation{}, err
@@ -92,8 +92,18 @@ func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, ac
 	if action.Risk == "critical" && !stepUp {
 		return Confirmation{}, ErrStepUpRequired
 	}
+	auditAction := "pending_action.confirm"
+	if source == "access_mode_policy" {
+		if action.ConfirmationMode != "full_access" || !action.RunID.Valid || !action.ConfirmationPolicyVersion.Valid {
+			return Confirmation{}, ErrInvalidated
+		}
+		auditAction = "pending_action.auto_confirm"
+	}
 	if _, err := q.CreateUserConfirmation(ctx, db.CreateUserConfirmationParams{ID: newID(), PendingActionID: action.ID,
 		EnterpriseID: enterpriseID, ActorUserID: actor, AuthorizationVersion: authorizationVersion}); err != nil {
+		return Confirmation{}, err
+	}
+	if err := q.SetConfirmationSource(ctx, db.SetConfirmationSourceParams{PendingActionID: action.ID, EnterpriseID: enterpriseID, Source: source}); err != nil {
 		return Confirmation{}, err
 	}
 	{
@@ -132,7 +142,7 @@ func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, ac
 		if err != nil {
 			return Confirmation{}, err
 		}
-		return Confirmation{PendingAction: ready, Execution: &execution}, service.audit(ctx, q, actorID, enterpriseID, "pending_action.confirm", action, "ready")
+		return Confirmation{PendingAction: ready, Execution: &execution}, service.audit(ctx, q, actorID, enterpriseID, auditAction, action, "ready")
 	}
 	approval, err := service.createApprovalRequest(ctx, q, action, policies)
 	if err != nil {
@@ -145,7 +155,7 @@ func (service Service) confirmWithQueries(ctx context.Context, q *db.Queries, ac
 	if err := conversation.ScheduleActionRun(ctx, q, action, false); err != nil {
 		return Confirmation{}, err
 	}
-	return Confirmation{PendingAction: action, ApprovalRequest: &approval}, service.audit(ctx, q, actorID, enterpriseID, "pending_action.confirm", action, "awaiting_approval")
+	return Confirmation{PendingAction: action, ApprovalRequest: &approval}, service.audit(ctx, q, actorID, enterpriseID, auditAction, action, "awaiting_approval")
 }
 
 func (service Service) Decide(ctx context.Context, actorID string, enterpriseID, requestID uuid.UUID, decision, reason, idempotencyKey string) (Decision, error) {

@@ -458,6 +458,8 @@ export interface components {
             name: string;
             software_version: string;
             capabilities: string[];
+            /** @description Connector 当前真实账号观测；仅与已批准接入计划中的显式账号匹配时建立执行绑定。 */
+            execution_account?: components["schemas"]["HostExecutionAccount"];
         };
         ConnectorEnrollResult: {
             /** Format: uuid */
@@ -633,6 +635,10 @@ export interface components {
         };
         /** @enum {string} */
         ConnectorRole: "host" | "bastion" | "kubernetes";
+        HostExecutionAccount: {
+            username: string;
+            sid?: string;
+        };
         TrustBundleSnapshot: {
             /** Format: int64 */
             epoch: number;

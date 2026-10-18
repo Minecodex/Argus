@@ -153,7 +153,11 @@ for (const english of [false, true])
           exact: true,
         });
         await expect(popup).toBeVisible();
-        await expect(popup.locator("summary").last()).toContainText("24");
+        await expect(
+          popup
+            .locator(".argus-conversation-workspace > details > summary")
+            .last(),
+        ).toContainText("24");
         const connection = popup.getByRole("checkbox", {
           name: /Read-only MCP/,
         });

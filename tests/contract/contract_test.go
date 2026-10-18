@@ -1473,6 +1473,7 @@ func schemaString(node map[string]any, mode fixtureMode) string {
 		value    string
 	}{
 		{"errors\\.", "errors.contract.invalid"},
+		{"^S-1-", "S-1-5-21-1000-1000-1000-1001"},
 		{"\\.commit$", "host.update.commit"},
 		{"argus\\.io/", "argus.io/system"},
 		{"[A-Z]{3}", "USD"},

@@ -37,6 +37,15 @@ func resourceSummary(kind string, object unstructured.Unstructured) map[string]a
 			}
 		}
 	case "pod":
+		declared, _, _ := unstructured.NestedSlice(object.Object, "spec", "containers")
+		names := []string{}
+		for _, item := range declared {
+			container, _ := item.(map[string]any)
+			if name, ok := container["name"].(string); ok && name != "" {
+				names = append(names, name)
+			}
+		}
+		result["container_names"] = names
 		copyField("phase", "status", "phase")
 		copyField("podIP", "status", "podIP")
 		copyField("startTime", "status", "startTime")

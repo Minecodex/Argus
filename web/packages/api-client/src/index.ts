@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./remote-execution";
 export type {
   ArgusApiClient,
   CursorListQuery,
@@ -200,3 +201,4 @@ export {
 } from "./generated/permission-registry";
 
 export * from "./alerts";
+export * from "./interactions";

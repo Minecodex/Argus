@@ -11,6 +11,22 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /conversations/{conversation_id}/interactions:
+    $ref: ./paths/interaction.yaml#/list
+  /conversations/{conversation_id}/interactions/{interaction_id}:
+    $ref: ./paths/interaction.yaml#/get
+  /conversations/{conversation_id}/interactions/{interaction_id}/respond:
+    $ref: ./paths/interaction.yaml#/respond
+  /conversations/{conversation_id}/remote-executions/{execution_id}/input-files/{file_id}:
+    $ref: ./paths/remote-execution.yaml#/inputFile
+  /conversations/{conversation_id}/remote-executions:
+    $ref: ./paths/remote-execution.yaml#/conversationExecutions
+  /conversations/{conversation_id}/remote-executions/{execution_id}:
+    $ref: ./paths/remote-execution.yaml#/execution
+  /conversations/{conversation_id}/remote-executions/{execution_id}/stop:
+    $ref: ./paths/remote-execution.yaml#/stop
+  /conversations/{conversation_id}/remote-executions/{execution_id}/feedback:
+    $ref: ./paths/remote-execution.yaml#/feedback
   "/conversations/{conversation_id}/dashboard-context":
     $ref: ./paths/dashboard-chat.yaml#/context
   "/conversations/{id}/dashboard-queries":

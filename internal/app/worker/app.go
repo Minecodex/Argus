@@ -33,11 +33,13 @@ import (
 	directv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/directexecutor/v1"
 	"github.com/kakj-go/Argus/internal/hostremoval"
 	"github.com/kakj-go/Argus/internal/integration/remotemcp"
+	"github.com/kakj-go/Argus/internal/interaction"
 	"github.com/kakj-go/Argus/internal/keywrap"
 	"github.com/kakj-go/Argus/internal/kubernetesreader"
 	"github.com/kakj-go/Argus/internal/mcp"
 	modelservice "github.com/kakj-go/Argus/internal/model"
 	remoteaccessservice "github.com/kakj-go/Argus/internal/remoteaccess"
+	"github.com/kakj-go/Argus/internal/remoteexecution"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/runtime"
 	"github.com/kakj-go/Argus/internal/sandbox"
@@ -81,6 +83,10 @@ func Run(ctx context.Context, logger *slog.Logger, pool string) error {
 
 func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) error {
 	cfg := config.LoadServer()
+	workers, err := config.LoadRuntimeWorkers()
+	if err != nil {
+		return err
+	}
 	if cfg.DatabaseURL == "" || len(cfg.PendingActionKey) != 32 || cfg.SecretKEKPath == "" {
 		return errors.New("runtime worker requires PostgreSQL, pending-action key, and secret KEK")
 	}
@@ -140,7 +146,8 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	connectorDomain := connectorservice.Service{Store: store, Redis: redisClient, GatewayEndpoint: cfg.ConnectorGatewayAddress,
 		EnrollmentURL: cfg.ConnectorEnrollmentURL, Credentials: secretDomain, Artifacts: artifactChecker,
 		TrustConfig: cfg.TrustConfig, TrustBundles: bundles,
-		KubernetesImage: cfg.ConnectorKubernetesImage,
+		KubernetesImage:    cfg.ConnectorKubernetesImage,
+		RemoteRuntimeImage: cfg.RemoteRuntimeImage,
 		Issuer: connectorservice.CertManagerIssuer{Client: kubernetesClient, Namespace: cfg.SystemNamespace,
 			IssuerName: cfg.ConnectorIssuerName, IssuerKind: "ClusterIssuer", IssuerGeneration: int32(activeBundle.Epoch)}}
 	bastionDomain, err := connectorservice.NewBastionService(store, actionDomain, connectorDomain,
@@ -153,11 +160,13 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	telemetryActions := telemetryservice.ActionExtension{Next: removalDomain, Credentials: secretDomain,
 		EnrollmentEndpoint: cfg.TelemetryEnrollment, IngestGRPCEndpoint: cfg.TelemetryIngestGRPC,
 		IngestHTTPEndpoint: cfg.TelemetryIngestHTTP, TrustBundles: bundles}
+	remoteDomain := &remoteexecution.Service{Store: store, Actions: actionDomain, Next: alerting.ActionExtension{Next: dashboard.ActionExtension{Next: telemetryActions}}}
+	remoteDomain.Transport = remoteexecution.ConnectorTransport{Store: store, Secrets: secretDomain, Notifier: connectorDomain}
 	resourceDomain := resource.Service{Store: store, Actions: actionDomain, Access: resource.AccessService{},
 		Direct: resource.DirectTargetValidator{DeniedCIDRs: denied}, Commands: connectorDomain, DirectCommands: directDispatcher,
 		HostOnboarding:   bastionDomain,
 		OnboardingProbes: bastionDomain,
-		Extension:        alerting.ActionExtension{Next: dashboard.ActionExtension{Next: telemetryActions}}, ClusterEnrollment: connectorDomain,
+		Extension:        remoteDomain, ClusterEnrollment: connectorDomain,
 		Kubernetes: kubernetesreader.Reader{Store: store, Secrets: secretDomain, Validator: resource.DirectTargetValidator{DeniedCIDRs: denied}, Notifier: connectorDomain}}
 	registry := mcp.NewRegistry()
 	if err := (toolgateway.ResourceTools{Store: store, Resources: resourceDomain}).Register(registry); err != nil {
@@ -190,11 +199,16 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	}
 	modelDomain := modelservice.Service{Store: store, Keyring: keyring}
 
-	workspaceDomain, err := component.Workspace(ctx, cfg, store, idempotency, sandbox.Service{Store: store, Keyring: keyring})
+	workspaceDomain, err := component.Workspace(ctx, cfg, store, idempotency, sandbox.Service{Store: store, Keyring: keyring}, remoteDomain.AuthorizeSource)
 	if err != nil {
 		return err
 	}
 	if err := workspaceDomain.RegisterTools(registry); err != nil {
+		return err
+	}
+	remoteDomain.Files = workspaceDomain
+	remoteDomain.Objects = workspaceDomain.Objects
+	if err := remoteDomain.RegisterTools(registry); err != nil {
 		return err
 	}
 	if dashboardQueries != nil {
@@ -211,6 +225,10 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	if err := (alerting.Tools{Service: alertDomain}).Register(registry); err != nil {
 		return err
 	}
+	interactionDomain := interaction.Service{Remote: remoteDomain, Store: store, Idempotency: idempotency, Conversations: conversation.Service{Store: store, Idempotency: idempotency}}
+	if err := interactionDomain.RegisterTools(registry); err != nil {
+		return err
+	}
 	nativeGateway, err := toolgateway.New(registry, cfg.ToolImplementationRevision)
 	if err != nil {
 		return err
@@ -221,16 +239,23 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	nativeGateway.BindPresentations(store)
 	nativeGateway.RequireDescription = toolgateway.RequireAlertDescription(store.Queries)
 	mcpDomain := enterprisemcp.Service{Store: store, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: denied}}
-	toolFactory := toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, mcpDomain}, ContextSources: []toolruntime.SkillContextSource{dashboardPolicy}, Filter: dashboardPolicy.Filter, AuthorizeTool: dashboardPolicy.AuthorizeTool, Validate: conversationDomain.ValidateToolPrincipal}
+	toolFactory := toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, remoteDomain, interactionDomain, mcpDomain}, ContextSources: []toolruntime.SkillContextSource{dashboardPolicy}, Filter: dashboardPolicy.Filter, AuthorizeTool: dashboardPolicy.AuthorizeTool, Validate: conversationDomain.ValidateToolPrincipal}
 	handlers := map[string]runtime.Handler{
-		PoolAgent:      agent.Loop{Store: store, Models: modelDomain, Tools: toolFactory, Objects: workspaceDomain.Objects},
+		PoolAgent:      agent.Loop{AutoConfirm: (action.Service{Store: store, Idempotency: idempotency, Resources: resourceDomain}).AutoConfirmRun, Store: store, Models: modelDomain, Tools: toolFactory, Objects: workspaceDomain.Objects, RemoteFacts: remoteDomain.ModelFacts},
 		PoolAction:     action.Executor{Store: store, Resources: resourceDomain, OneTimeResultKey: cfg.PendingActionKey},
-		PoolCompaction: agent.Compactor{Store: store, Models: modelDomain},
+		PoolCompaction: agent.Compactor{Store: store, Models: modelDomain, RemoteFacts: remoteDomain.ModelFacts},
 		PoolSandbox:    sandbox.Runner{Service: sandbox.Service{Store: store, Keyring: keyring}},
 	}
 	queues := []string{pool}
+	if pool == PoolAction {
+		handlers[remoteexecution.Queue] = remoteDomain
+		handlers[remoteexecution.ControlQueue] = remoteDomain
+		queues = append(queues, remoteexecution.Queue, remoteexecution.ControlQueue)
+	}
 	if pool == PoolDefault {
-		queues = []string{PoolAgent, PoolAction, PoolCompaction, PoolSandbox, alerting.EvaluationQueue, alerting.NotificationQueue}
+		handlers[remoteexecution.Queue] = remoteDomain
+		handlers[remoteexecution.ControlQueue] = remoteDomain
+		queues = []string{PoolAgent, PoolAction, PoolCompaction, PoolSandbox, alerting.EvaluationQueue, alerting.NotificationQueue, remoteexecution.Queue, remoteexecution.ControlQueue}
 		handlers[alerting.EvaluationQueue] = alerting.Worker{Service: alertDomain, Logger: logger}
 		handlers[alerting.NotificationQueue] = alerting.NotificationWorker{Service: alertDomain, Transport: alerting.Transport{Policy: remotemcp.EndpointPolicy{DeniedCIDRs: denied}}}
 	}
@@ -258,7 +283,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		group.Add(1)
 		go func() {
 			defer group.Done()
-			errorsChannel <- (runtime.Processor{Store: store, Queue: queue, Owner: hostname + ":" + queue, Handle: handlers[queue], Logger: logger}).Run(workerCtx)
+			errorsChannel <- (runtime.Processor{Store: store, Queue: queue, Owner: hostname + ":" + queue, Handle: handlers[queue], Logger: logger, Concurrency: queueConcurrency(queue, workers)}).Run(workerCtx)
 		}()
 	}
 	if pool == PoolDefault || pool == PoolSandbox {
@@ -271,6 +296,8 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		}()
 	}
 	if pool == PoolDefault || pool == PoolAction {
+		group.Add(1)
+		go func() { defer group.Done(); errorsChannel <- remoteDomain.RunReconciler(workerCtx, logger) }()
 		group.Add(1)
 		go func() {
 			defer group.Done()
@@ -382,7 +409,8 @@ func runDirectExecutor(ctx context.Context, logger *slog.Logger) error {
 	}
 	defer listener.Close()
 	executor := &directexecutor.Executor{Store: store, Secrets: secretservice.Service{Store: store, Keyring: keyring},
-		Validator: resource.DirectTargetValidator{DeniedCIDRs: denied}, InstanceID: cfg.InstanceID, Concurrency: 8,
+		RemoteRuntimeImage: cfg.RemoteRuntimeImage,
+		Validator:          resource.DirectTargetValidator{DeniedCIDRs: denied}, InstanceID: cfg.InstanceID, Concurrency: 8,
 		CollectorIdentity: telemetryservice.IdentityService{Store: store}, TelemetryEnrollmentEndpoint: cfg.TelemetryEnrollmentEndpoint,
 		TelemetryIngestGRPCEndpoint: cfg.TelemetryIngestGRPCEndpoint, TelemetryIngestHTTPEndpoint: cfg.TelemetryIngestHTTPEndpoint,
 		TunnelForwardTarget:           cfg.TunnelForwardTarget,

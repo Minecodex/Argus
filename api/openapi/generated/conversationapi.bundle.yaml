@@ -347,6 +347,16 @@ components:
         - created_at
         - updated_at
       properties:
+        mode:
+          type: string
+          enum:
+            - execute
+            - plan
+        access_mode:
+          type: string
+          enum:
+            - request_approval
+            - full_access
         id:
           type: string
           format: uuid
@@ -399,6 +409,16 @@ components:
       required:
         - expected_version
       properties:
+        mode:
+          type: string
+          enum:
+            - execute
+            - plan
+        access_mode:
+          type: string
+          enum:
+            - request_approval
+            - full_access
         title:
           type: string
           minLength: 1
@@ -784,6 +804,9 @@ components:
             - tool_presentation
             - workspace_file_added
             - artifact_published
+            - interaction_requested
+            - interaction_resolved
+            - conversation_settings_changed
         actor_type:
           enum:
             - user
@@ -825,6 +848,11 @@ components:
         - created_at
         - updated_at
       properties:
+        mode_snapshot:
+          type: string
+          enum:
+            - execute
+            - plan
         run_id:
           type: string
         conversation_id:
@@ -873,6 +901,14 @@ components:
         updated_at:
           type: string
           format: date-time
+        access_mode_snapshot:
+          type: string
+          enum:
+            - request_approval
+            - full_access
+        approved_plan_id:
+          type: string
+          format: uuid
     ResourceRef:
       type: object
       additionalProperties: false

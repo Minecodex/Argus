@@ -430,6 +430,8 @@ export interface components {
              * @enum {string}
              */
             architecture?: "amd64" | "arm64";
+            /** @description manual 可显式绑定 Connector 实际运行账号；Windows 必须同时指定 SID。未填写不自动开放远程执行。 */
+            execution_account?: components["schemas"]["HostExecutionAccount"];
             environment: components["schemas"]["Environment"];
             labels: components["schemas"]["UserLabels"];
             /**
@@ -786,6 +788,10 @@ export interface components {
             next_cursor: string | null;
             has_more: boolean;
             partial: components["schemas"]["PartialMetadata"];
+        };
+        HostExecutionAccount: {
+            username: string;
+            sid?: string;
         };
         UserLabels: {
             [key: string]: components["schemas"]["LabelValue"];

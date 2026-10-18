@@ -44,9 +44,14 @@ func (state *streamState) remember(key string, value Event) error {
 func (state *streamState) finishCalls(sink func(Event) error) error {
 	for index, key := range state.order {
 		call := state.calls[key]
-		if call.ToolCallID == "" || call.ToolName == "" || !json.Valid([]byte(call.Arguments)) {
-			return errors.New("model returned an incomplete tool call")
+		if call.ToolCallID == "" {
+			return errors.New("model tool call lacks identity")
 		}
+		if call.ToolName == "" {
+			return errors.New("model tool call lacks name")
+		}
+		// Arguments are opaque protocol text. The execution boundary rejects
+		// malformed/non-object JSON without dispatch, after usage is collected.
 		call.Type, call.Index = "tool_call_done", index
 		if err := sink(call); err != nil {
 			return err

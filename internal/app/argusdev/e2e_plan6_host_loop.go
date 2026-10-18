@@ -146,7 +146,18 @@ func (a *App) plan6HostOnboarding(ctx context.Context, env *E2EEnvironment, h *p
 	if err = a.verifyP4HostOnboardingTimeline(ctx, env, h.HostID); err != nil {
 		return err
 	}
-	distribution, profiles, _, err := a.verifyM7Catalog(ctx, env)
+	return a.plan6HostCollector(ctx, env, h)
+}
+
+func (a *App) plan6HostCollector(ctx context.Context, env *E2EEnvironment, h *plan6HostLoop) error {
+	var distribution string
+	var profiles []string
+	var err error
+	if env.State.Values["existing_portal_account"] == "true" {
+		distribution, profiles, err = a.portalLinuxCollectorCatalog(ctx, env)
+	} else {
+		distribution, profiles, _, err = a.verifyM7Catalog(ctx, env)
+	}
 	if err != nil {
 		return err
 	}

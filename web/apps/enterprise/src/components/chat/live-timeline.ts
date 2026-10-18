@@ -1,6 +1,7 @@
 import type { AgentEvent } from "@argus/api-client/contracts";
 import type { ChatMessage, ToolCallTrace } from "./chat-view-model";
 import { hasChatContent } from "./chat-content";
+import { coalesceRemoteCommands } from "./remote-command-timeline";
 import { appendFileEntry, fileEntryFromEvent } from "./file-timeline";
 
 /** Keep separate assistant segments and activities while the Run is streaming. */
@@ -108,7 +109,7 @@ export function projectLiveTimeline(
     const entry = fileEntryFromEvent(event);
     if (entry) appendFileEntry(entries, entry);
   }
-  return entries;
+  return coalesceRemoteCommands(entries);
 }
 
 export function mergeTimeline(
@@ -177,5 +178,5 @@ export function mergeTimeline(
     if (index < 0) result.push(entry);
     else result.splice(index, 0, entry);
   }
-  return result;
+  return coalesceRemoteCommands(result);
 }

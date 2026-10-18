@@ -8,6 +8,7 @@ import (
 )
 
 type DirectExecutor struct {
+	RemoteRuntimeImage            string
 	GRPCAddress                   string
 	HealthAddress                 string
 	DatabaseURL                   string
@@ -53,8 +54,9 @@ func LoadDirectExecutor() DirectExecutor {
 	controlTunnelLimit, _ := strconv.Atoi(tunnelLimitValue(profile, "ARGUS_CONTROL_TUNNEL_LIMIT", "32"))
 	tunnelBytesPerSecond, _ := strconv.ParseInt(tunnelLimitValue(profile, "ARGUS_TUNNEL_BYTES_PER_SECOND", "67108864"), 10, 64)
 	return DirectExecutor{GRPCAddress: valueOrDefault("ARGUS_DIRECT_EXECUTOR_GRPC_ADDRESS", ":9444"), HealthAddress: LoadHealthAddress(), DatabaseURL: os.Getenv("ARGUS_DATABASE_URL"),
-		PendingActionKey: pendingActionKey,
-		SecretKEKPath:    valueOrDefault("ARGUS_SECRET_KEK_PATH", "/var/run/secrets/argus/secret-kek/keyring.json"), InstanceID: instanceID,
+		RemoteRuntimeImage: os.Getenv("ARGUS_REMOTE_RUNTIME_IMAGE"),
+		PendingActionKey:   pendingActionKey,
+		SecretKEKPath:      valueOrDefault("ARGUS_SECRET_KEK_PATH", "/var/run/secrets/argus/secret-kek/keyring.json"), InstanceID: instanceID,
 		KeyWrappingMode: valueOrDefault("ARGUS_KEY_WRAPPING_MODE", "local_test"), OpenBaoAddress: os.Getenv("ARGUS_OPENBAO_ADDRESS"),
 		OpenBaoToken: os.Getenv("ARGUS_OPENBAO_TOKEN"), OpenBaoTransitKey: valueOrDefault("ARGUS_OPENBAO_TRANSIT_KEY", "argus-local-hardening"),
 		DeploymentProfile: profile, AdvertisedEgress: splitList(os.Getenv("ARGUS_DIRECT_ADVERTISED_EGRESS")),

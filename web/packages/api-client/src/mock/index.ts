@@ -1,11 +1,7 @@
 import { createAlertDomains } from "./alerts";
 import { createDashboardDomains } from "./dashboard";
 import type { ArgusApiClient } from "../client";
-import type {
-  ApprovalRequestView,
-  Execution,
-  Run,
-} from "../generated/contracts";
+import type { ApprovalRequestView, Execution } from "../generated/contracts";
 import type { ListQuery, Page, User } from "../types";
 import type { TaskEvent, TaskViewModel } from "../provisional";
 import { createApprovalsDomain } from "./approvals";
@@ -15,6 +11,9 @@ import { createPlanV5Domains } from "./planv5";
 import { createConnectorsDomain } from "./connectors";
 import type { AuditEntry, BaseContext, MockContext } from "./context";
 import { createConversationsDomain } from "./conversations";
+import { createRemoteExecutionDomain } from "./remote-execution";
+import { createInteractionDomains } from "./interactions";
+import { createRunsDomain } from "./runs";
 import { createEngine } from "./engine";
 import { createHostsDomain } from "./hosts";
 import { createHostConnectionTests } from "./host-connection-tests";
@@ -244,17 +243,9 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
   return {
     auth: createAuthDomain(ctx),
     conversations: createConversationsDomain(ctx),
-    runs: {
-      async get(): Promise<Run> {
-        throw new Error("mock run lookup is unavailable");
-      },
-      async cancel(): Promise<Run> {
-        throw new Error("mock run cancellation is unavailable");
-      },
-      async compact(): Promise<Run> {
-        throw new Error("mock run compaction is unavailable");
-      },
-    },
+    remoteExecutions: createRemoteExecutionDomain(ctx),
+    interactions: createInteractionDomains(ctx),
+    runs: createRunsDomain(ctx),
     executions: {
       async list() {
         await pause();
@@ -348,7 +339,7 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
     models: createModelsDomain(ctx),
     ...createPlanV5Domains(ctx),
     ...createDashboardDomains(ctx),
- ...createAlertDomains(ctx),
+    ...createAlertDomains(ctx),
     org: createOrgDomain(ctx),
     secrets: secretsDomain,
     audit: createAuditDomain(ctx),

@@ -63,6 +63,8 @@ describe("localized conversation tool identity", () => {
     const tools = [
       ["tool.search", "工具搜索"],
       ["tool.describe", "工具详情"],
+      ["connect", "远程命令"],
+      ["workflow.remote_plan.preview", "远程修复计划"],
       ["telemetry.dashboard.get", "仪表盘获取"],
       ["telemetry.promql.query", "指标查询"],
       ["host.list", "主机列表"],

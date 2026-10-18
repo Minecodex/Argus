@@ -16,7 +16,7 @@ UPDATE pending_actions a SET status='expired',error_code='ACTION_INVALIDATED',up
 WHERE a.id=$1 AND a.enterprise_id=$2 AND a.status IN ('prepared','awaiting_confirmation','awaiting_approval','ready')
 AND (a.expires_at<=now() OR (a.status='awaiting_approval' AND EXISTS(
  SELECT 1 FROM approval_requests request WHERE request.pending_action_id=a.id AND request.status='pending' AND request.expires_at<=now())))
-RETURNING a.id, a.action_ref, a.enterprise_id, a.creator_subject_id, a.authorization_version, a.action_type, a.title, a.summary, a.risk, a.preview, a.diff, a.status, a.resource_type, a.resource_id, a.expected_resource_version, a.impact_hash, a.result_resource_type, a.result_resource_id, a.result_resource_version, a.result_summary, a.error_code, a.expires_at, a.created_at, a.updated_at, a.creator_subject_type, a.run_id, a.confirmation_required, a.policy_snapshot_hash
+RETURNING a.id, a.action_ref, a.enterprise_id, a.creator_subject_id, a.authorization_version, a.action_type, a.title, a.summary, a.risk, a.preview, a.diff, a.status, a.resource_type, a.resource_id, a.expected_resource_version, a.impact_hash, a.result_resource_type, a.result_resource_id, a.result_resource_version, a.result_summary, a.error_code, a.expires_at, a.created_at, a.updated_at, a.creator_subject_type, a.run_id, a.confirmation_required, a.policy_snapshot_hash, a.confirmation_mode, a.confirmation_policy_version, a.approved_plan_command_id
 `
 
 type ExpirePendingActionParams struct {
@@ -56,6 +56,9 @@ func (q *Queries) ExpirePendingAction(ctx context.Context, arg ExpirePendingActi
 		&i.RunID,
 		&i.ConfirmationRequired,
 		&i.PolicySnapshotHash,
+		&i.ConfirmationMode,
+		&i.ConfirmationPolicyVersion,
+		&i.ApprovedPlanCommandID,
 	)
 	return i, err
 }
@@ -83,7 +86,7 @@ func (q *Queries) GetConversationWorkspaceContext(ctx context.Context, arg GetCo
 }
 
 const getOwnedRun = `-- name: GetOwnedRun :one
-SELECT r.id, r.conversation_id, r.enterprise_id, r.actor_user_id, r.model_id, r.model_revision, r.locale, r.status, r.current_step_id, r.authorization_version, r.checkpoint, r.verification_only, r.tool_snapshot, r.tool_snapshot_hash, r.stop_reason, r.error_code, r.version, r.created_at, r.updated_at FROM runs r JOIN conversations c ON c.id=r.conversation_id AND c.enterprise_id=r.enterprise_id
+SELECT r.id, r.conversation_id, r.enterprise_id, r.actor_user_id, r.model_id, r.model_revision, r.locale, r.status, r.current_step_id, r.authorization_version, r.checkpoint, r.verification_only, r.tool_snapshot, r.tool_snapshot_hash, r.stop_reason, r.error_code, r.version, r.created_at, r.updated_at, r.mode_snapshot, r.access_mode_snapshot, r.approved_plan_id FROM runs r JOIN conversations c ON c.id=r.conversation_id AND c.enterprise_id=r.enterprise_id
 WHERE r.id=$1 AND r.enterprise_id=$2 AND r.actor_user_id=$3 AND c.owner_user_id=$3 AND c.status<>'deleted'
 `
 
@@ -116,12 +119,15 @@ func (q *Queries) GetOwnedRun(ctx context.Context, arg GetOwnedRunParams) (Run, 
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ModeSnapshot,
+		&i.AccessModeSnapshot,
+		&i.ApprovedPlanID,
 	)
 	return i, err
 }
 
 const getOwnedRunForUpdate = `-- name: GetOwnedRunForUpdate :one
-SELECT r.id, r.conversation_id, r.enterprise_id, r.actor_user_id, r.model_id, r.model_revision, r.locale, r.status, r.current_step_id, r.authorization_version, r.checkpoint, r.verification_only, r.tool_snapshot, r.tool_snapshot_hash, r.stop_reason, r.error_code, r.version, r.created_at, r.updated_at FROM runs r JOIN conversations c ON c.id=r.conversation_id AND c.enterprise_id=r.enterprise_id
+SELECT r.id, r.conversation_id, r.enterprise_id, r.actor_user_id, r.model_id, r.model_revision, r.locale, r.status, r.current_step_id, r.authorization_version, r.checkpoint, r.verification_only, r.tool_snapshot, r.tool_snapshot_hash, r.stop_reason, r.error_code, r.version, r.created_at, r.updated_at, r.mode_snapshot, r.access_mode_snapshot, r.approved_plan_id FROM runs r JOIN conversations c ON c.id=r.conversation_id AND c.enterprise_id=r.enterprise_id
 WHERE r.id=$1 AND r.enterprise_id=$2 AND r.actor_user_id=$3 AND c.owner_user_id=$3 AND c.status<>'deleted'
 FOR UPDATE OF c,r
 `
@@ -155,6 +161,9 @@ func (q *Queries) GetOwnedRunForUpdate(ctx context.Context, arg GetOwnedRunForUp
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ModeSnapshot,
+		&i.AccessModeSnapshot,
+		&i.ApprovedPlanID,
 	)
 	return i, err
 }
@@ -176,7 +185,7 @@ func (q *Queries) HasPendingAgentTask(ctx context.Context, arg HasPendingAgentTa
 }
 
 const listExpiredPendingActions = `-- name: ListExpiredPendingActions :many
-SELECT a.id, a.action_ref, a.enterprise_id, a.creator_subject_id, a.authorization_version, a.action_type, a.title, a.summary, a.risk, a.preview, a.diff, a.status, a.resource_type, a.resource_id, a.expected_resource_version, a.impact_hash, a.result_resource_type, a.result_resource_id, a.result_resource_version, a.result_summary, a.error_code, a.expires_at, a.created_at, a.updated_at, a.creator_subject_type, a.run_id, a.confirmation_required, a.policy_snapshot_hash FROM pending_actions a LEFT JOIN approval_requests request ON request.pending_action_id=a.id
+SELECT a.id, a.action_ref, a.enterprise_id, a.creator_subject_id, a.authorization_version, a.action_type, a.title, a.summary, a.risk, a.preview, a.diff, a.status, a.resource_type, a.resource_id, a.expected_resource_version, a.impact_hash, a.result_resource_type, a.result_resource_id, a.result_resource_version, a.result_summary, a.error_code, a.expires_at, a.created_at, a.updated_at, a.creator_subject_type, a.run_id, a.confirmation_required, a.policy_snapshot_hash, a.confirmation_mode, a.confirmation_policy_version, a.approved_plan_command_id FROM pending_actions a LEFT JOIN approval_requests request ON request.pending_action_id=a.id
 WHERE a.status IN ('prepared','awaiting_confirmation','awaiting_approval','ready')
 AND (a.expires_at<=now() OR (a.status='awaiting_approval' AND request.status='pending' AND request.expires_at<=now()))
 ORDER BY a.expires_at,a.id LIMIT $1
@@ -220,6 +229,9 @@ func (q *Queries) ListExpiredPendingActions(ctx context.Context, limit int32) ([
 			&i.RunID,
 			&i.ConfirmationRequired,
 			&i.PolicySnapshotHash,
+			&i.ConfirmationMode,
+			&i.ConfirmationPolicyVersion,
+			&i.ApprovedPlanCommandID,
 		); err != nil {
 			return nil, err
 		}

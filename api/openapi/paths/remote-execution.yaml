@@ -1,0 +1,77 @@
+conversationExecutions:
+  parameters:
+    - {name: conversation_id, in: path, required: true, schema: {type: string, format: uuid}}
+  get:
+    operationId: listRemoteExecutions
+    summary: List own conversation remote execution requests
+    tags: [Conversations]
+    responses:
+      '200':
+        description: Authoritative previews and execution state
+        content: {application/json: {schema: {$ref: ../components/remote-execution.yaml#/components/schemas/RemoteExecutionPage}}}
+      default: {$ref: ../argus.yaml#/components/responses/Error}
+inputFile:
+  parameters:
+    - {name: conversation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    - {name: execution_id, in: path, required: true, schema: {type: string, format: uuid}}
+    - {name: file_id, in: path, required: true, schema: {type: string, format: uuid}}
+  get:
+    operationId: readRemoteExecutionInput
+    summary: Review the actual immutable input bytes covered by confirmation
+    tags: [Conversations]
+    responses:
+      '200':
+        description: Frozen input file
+        headers:
+          Content-Disposition: {required: true, schema: {type: string}}
+          X-Content-SHA256: {required: true, schema: {type: string}}
+        content: {application/octet-stream: {schema: {type: string, format: binary}}}
+      default: {$ref: ../argus.yaml#/components/responses/Error}
+execution:
+  parameters:
+    - {name: conversation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    - {name: execution_id, in: path, required: true, schema: {type: string, format: uuid}}
+  get:
+    operationId: getRemoteExecution
+    summary: Read an authorized remote execution
+    tags: [Conversations]
+    responses:
+      '200':
+        description: Current remote execution
+        content: {application/json: {schema: {$ref: ../components/remote-execution.yaml#/components/schemas/RemoteExecution}}}
+      default: {$ref: ../argus.yaml#/components/responses/Error}
+stop:
+  parameters:
+    - {name: conversation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    - {name: execution_id, in: path, required: true, schema: {type: string, format: uuid}}
+  post:
+    operationId: stopRemoteExecution
+    summary: Explicitly stop own approved remote execution
+    tags: [Conversations]
+    parameters:
+      - {$ref: ../argus.yaml#/components/parameters/CsrfToken}
+      - {$ref: ../argus.yaml#/components/parameters/IdempotencyKey}
+    responses:
+      '200':
+        description: Stop intent and current authoritative state
+        content: {application/json: {schema: {$ref: ../components/remote-execution.yaml#/components/schemas/RemoteExecution}}}
+      default: {$ref: ../argus.yaml#/components/responses/Error}
+feedback:
+  parameters:
+    - {name: conversation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    - {name: execution_id, in: path, required: true, schema: {type: string, format: uuid}}
+  post:
+    operationId: reviseRemotePlan
+    summary: Supersede a pending plan and ask the Agent for a revised preview
+    tags: [Conversations]
+    parameters:
+      - {$ref: ../argus.yaml#/components/parameters/CsrfToken}
+      - {$ref: ../argus.yaml#/components/parameters/IdempotencyKey}
+    requestBody:
+      required: true
+      content: {application/json: {schema: {$ref: ../components/remote-execution.yaml#/components/schemas/RemotePlanFeedback}}}
+    responses:
+      '202':
+        description: Revision requested; no execution authorized
+        content: {application/json: {schema: {$ref: ../components/remote-execution.yaml#/components/schemas/RemoteExecution}}}
+      default: {$ref: ../argus.yaml#/components/responses/Error}

@@ -1,0 +1,38 @@
+[
+  {
+    "content": "error_count=2\n",
+    "file": {
+      "byte_size": 14,
+      "content_hash": "d06c02fc246239a46973afc73127ceab4e11a39e7156cf4a50dec46cfc4165dd",
+      "created_at": "2026-10-18T15:23:32.135083+08:00",
+      "id": "13bbb037-ad60-4bb2-a416-684354aadb97",
+      "media_type": "text/plain",
+      "name": "status.txt",
+      "path": "/workspace/results/nginx/after/status.txt"
+    }
+  },
+  {
+    "content": "{\n  \"schema_version\": \"argus.workspace_results/v1\",\n  \"workspace_id\": \"7b03a21a-8a93-4bdc-945e-943ebd484709\",\n  \"conversation_id\": \"79ce0a33-1ac1-4b9b-99b7-7e8c913fb006\",\n  \"files\": [\n    {\n      \"artifact_id\": \"ae13f589-5c3f-4e55-aadc-62d5fe53396d\",\n      \"request_id\": \"3be6209e-8faa-4bbb-a750-daa6bbb23a09\",\n      \"run_id\": \"c86c78af-9566-4fca-b1e5-df1a1e4db765\",\n      \"step_id\": \"56a58a7e-b0d4-4f53-8afa-7526c0db8619\",\n      \"session_id\": \"124a0ade-5cbb-4002-9a24-945d0f5f96df\",\n      \"resource\": {\n        \"name\": \"nginx\",\n        \"resource_type\": \"host\",\n        \"resource_id\": \"d7eedd44-330a-418d-9f3b-dbbde64b646a\"\n      },\n      \"request_title\": \"Compare nginx status\",\n      \"step_description\": \"Collect current evidence\",\n      \"source_path\": \"nginx/after/status.txt\",\n      \"byte_size\": 14,\n      \"content_hash\": \"d06c02fc246239a46973afc73127ceab4e11a39e7156cf4a50dec46cfc4165dd\",\n      \"collected_at\": \"2026-10-18T07:23:32.099845Z\",\n      \"path\": \"/workspace/results/nginx/after/status.txt\",\n      \"workspace_file_id\": \"13bbb037-ad60-4bb2-a416-684354aadb97\",\n      \"source_ref\": \"remote:3be6209e-8faa-4bbb-a750-daa6bbb23a09\"\n    },\n    {\n      \"artifact_id\": \"cd1ff0cb-81d1-4525-affc-c855ffcbd100\",\n      \"request_id\": \"3be6209e-8faa-4bbb-a750-daa6bbb23a09\",\n      \"run_id\": \"45393857-34b9-4c30-8c64-3732683a1f3e\",\n      \"step_id\": \"56a58a7e-b0d4-4f53-8afa-7526c0db8619\",\n      \"session_id\": \"124a0ade-5cbb-4002-9a24-945d0f5f96df\",\n      \"resource\": {\n        \"name\": \"nginx\",\n        \"resource_type\": \"host\",\n        \"resource_id\": \"d9b6f448-a602-4c4d-853e-28f4e585fb85\"\n      },\n      \"request_title\": \"Compare nginx status\",\n      \"step_description\": \"Collect current evidence\",\n      \"source_path\": \"nginx/before/status.txt\",\n      \"byte_size\": 14,\n      \"content_hash\": \"038db63af0ffaf56430000a8ce3bdc2a36a54df4a9ec7e56934c495192cc0acb\",\n      \"collected_at\": \"2026-10-18T07:23:32.179445Z\",\n      \"path\": \"/workspace/results/nginx/before/status.txt\",\n      \"workspace_file_id\": \"e568772a-41f9-4d33-961f-686dff4c0004\",\n      \"source_ref\": \"remote:3be6209e-8faa-4bbb-a750-daa6bbb23a09\"\n    }\n  ]\n}\n",
+    "file": {
+      "byte_size": 2115,
+      "content_hash": "ac503a1cea4849453d8be24c6e10710964bd7dbf1297676094e97f3eeee2e4f4",
+      "created_at": "2026-10-18T15:23:32.171049+08:00",
+      "id": "d9a28879-d3b9-4380-b148-b32b0a53299a",
+      "media_type": "application/json",
+      "name": "meta.json",
+      "path": "/workspace/results/meta.json"
+    }
+  },
+  {
+    "content": "error_count=7\n",
+    "file": {
+      "byte_size": 14,
+      "content_hash": "038db63af0ffaf56430000a8ce3bdc2a36a54df4a9ec7e56934c495192cc0acb",
+      "created_at": "2026-10-18T15:23:32.20486+08:00",
+      "id": "e568772a-41f9-4d33-961f-686dff4c0004",
+      "media_type": "text/plain",
+      "name": "status.txt",
+      "path": "/workspace/results/nginx/before/status.txt"
+    }
+  }
+]

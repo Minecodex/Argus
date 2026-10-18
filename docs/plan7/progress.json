@@ -1,10 +1,55 @@
 {
   "plan": "Plan7",
   "created_at": "2026-10-15",
-  "updated_at": "2026-10-15",
-  "status": "planned",
+  "updated_at": "2026-10-18",
+  "status": "completed",
+  "completion_review": {
+    "date": "2026-10-17",
+    "report": "10-completion-review.md",
+    "accepted_run": "plan7-release-20261017-r04",
+    "accepted_evidence_reverified": true,
+    "production_source_changed": true,
+    "latest_acceptance_run": "markdown-plans-20261018-r03",
+    "latest_acceptance_status": "passed_markdown_plan_workflows",
+    "open_findings": [],
+    "resolved_findings": [
+      {
+        "id": "P7-R01",
+        "task": "P7-T06",
+        "status": "resolved",
+        "summary": "Remote output imports hard-code application/json, including text and binary files",
+        "evidence": "11-follow-up-acceptance.md"
+      },
+      {
+        "id": "P7-R02",
+        "task": "P7-T09",
+        "status": "resolved",
+        "summary": "Pre-pause original environment health and PVC baseline are absent from automatic evidence",
+        "evidence": "11-follow-up-acceptance.md"
+      },
+      {
+        "id": "P7-R03",
+        "task": "P7-T02",
+        "status": "resolved",
+        "summary": "Active-turn hard compaction preserves complete groups and original Run instructions",
+        "evidence": "13-local-release-result.md"
+      },
+      {
+        "id": "P7-R04",
+        "task": "P7-T02",
+        "status": "resolved",
+        "summary": "Matrix series record count and timestamp-value sample count are explicitly distinguished",
+        "evidence": "13-local-release-result.md"
+      }
+    ],
+    "reviewed_baseline": "plan7-20261017-f33",
+    "latest_full_matrix_run": "plan7-release-20261017-r04",
+    "latest_patch_source_fingerprint": "2af0b00e7bc95b5a8b3dee0f7c3e0b7a56a03dc5956e366bdf473163e648a3ef",
+    "latest_patch_status": "passed",
+    "latest_patch_report": "18-markdown-plan-command-consent.md"
+  },
   "documentation": {
-    "status": "recorded",
+    "status": "verified",
     "entry": "README.md",
     "baseline": "01-decisions-and-qa.md",
     "initial_checks": {
@@ -19,6 +64,12 @@
       "plan7_local_links_checked": 45,
       "task_graph": "passed",
       "only_open_question": "Q15"
+    },
+    "final_checks": {
+      "scope": "Current UTF8, local links and JSON; historical full-matrix evidence remains separate",
+      "report": "../../build/plan7-kakj-docs-audit.json",
+      "status": "passed",
+      "checked_at": "2026-10-18T02:25:36.9136462+08:00"
     }
   },
   "open_questions": [],
@@ -42,61 +93,81 @@
     {
       "id": "P7-T01",
       "name": "领域与契约",
-      "status": "todo",
+      "status": "completed",
       "file": "03-development-plan.md",
       "depends_on": [],
       "decision_dependencies": [],
-      "evidence": []
+      "evidence": [
+        "13-local-release-result.md",
+        "evidence/plan7-release-20261017-r04-summary.json",
+        "evidence/plan7-release-20261017-r04-matrix.json"
+      ]
     },
     {
       "id": "P7-T02",
       "name": "Agent 执行场景与恢复",
-      "status": "todo",
+      "status": "completed",
       "file": "03-development-plan.md",
       "depends_on": [
         "P7-T01"
       ],
       "decision_dependencies": [],
-      "evidence": []
+      "evidence": [
+        "13-local-release-result.md",
+        "evidence/plan7-release-20261017-r04-summary.json",
+        "evidence/plan7-release-20261017-r04-matrix.json"
+      ]
     },
     {
       "id": "P7-T03",
       "name": "资源适配与共享执行会话",
-      "status": "todo",
+      "status": "completed",
       "file": "03-development-plan.md",
       "depends_on": [
         "P7-T01"
       ],
       "decision_dependencies": [],
-      "evidence": []
+      "evidence": [
+        "13-local-release-result.md",
+        "evidence/plan7-release-20261017-r04-summary.json",
+        "evidence/plan7-release-20261017-r04-matrix.json"
+      ]
     },
     {
       "id": "P7-T04",
       "name": "connect 批次确认闭环",
-      "status": "todo",
+      "status": "completed",
       "file": "03-development-plan.md",
       "depends_on": [
         "P7-T02",
         "P7-T03"
       ],
       "decision_dependencies": [],
-      "evidence": []
+      "evidence": [
+        "13-local-release-result.md",
+        "evidence/plan7-release-20261017-r04-summary.json",
+        "evidence/plan7-release-20261017-r04-matrix.json"
+      ]
     },
     {
       "id": "P7-T05",
       "name": "计划批准与逐步执行",
-      "status": "todo",
+      "status": "completed",
       "file": "03-development-plan.md",
       "depends_on": [
         "P7-T04"
       ],
       "decision_dependencies": [],
-      "evidence": []
+      "evidence": [
+        "13-local-release-result.md",
+        "evidence/plan7-release-20261017-r04-summary.json",
+        "evidence/plan7-release-20261017-r04-matrix.json"
+      ]
     },
     {
       "id": "P7-T06",
       "name": "文件传输与 Workspace 证据分析",
-      "status": "todo",
+      "status": "completed",
       "file": "03-development-plan.md",
       "depends_on": [
         "P7-T01",
@@ -104,12 +175,16 @@
         "P7-T03"
       ],
       "decision_dependencies": [],
-      "evidence": []
+      "evidence": [
+        "13-local-release-result.md",
+        "evidence/plan7-release-20261017-r04-summary.json",
+        "evidence/plan7-release-20261017-r04-matrix.json"
+      ]
     },
     {
       "id": "P7-T07",
       "name": "Chatbox 与共享 UI",
-      "status": "todo",
+      "status": "completed",
       "file": "03-development-plan.md",
       "depends_on": [
         "P7-T04",
@@ -117,12 +192,16 @@
         "P7-T06"
       ],
       "decision_dependencies": [],
-      "evidence": []
+      "evidence": [
+        "13-local-release-result.md",
+        "evidence/plan7-release-20261017-r04-summary.json",
+        "evidence/plan7-release-20261017-r04-matrix.json"
+      ]
     },
     {
       "id": "P7-T08",
       "name": "权限安全与审计验收",
-      "status": "todo",
+      "status": "completed",
       "file": "03-development-plan.md",
       "depends_on": [
         "P7-T01",
@@ -132,12 +211,16 @@
         "P7-T06"
       ],
       "decision_dependencies": [],
-      "evidence": []
+      "evidence": [
+        "13-local-release-result.md",
+        "evidence/plan7-release-20261017-r04-summary.json",
+        "evidence/plan7-release-20261017-r04-matrix.json"
+      ]
     },
     {
       "id": "P7-T09",
       "name": "真实模型与端到端验收",
-      "status": "todo",
+      "status": "completed",
       "file": "03-development-plan.md",
       "depends_on": [
         "P7-T02",
@@ -149,16 +232,397 @@
         "P7-T08"
       ],
       "decision_dependencies": [],
-      "evidence": []
+      "evidence": [
+        "13-local-release-result.md",
+        "evidence/plan7-release-20261017-r04-summary.json",
+        "evidence/plan7-release-20261017-r04-matrix.json"
+      ]
     }
   ],
   "validation": {
-    "contracts": "not_run",
-    "runtime_security": "not_run",
-    "real_model": "not_run",
-    "real_resources": "not_run",
-    "browser_real_api": "not_run",
-    "deployment": "not_started"
+    "contracts": "passed",
+    "runtime_security": "passed",
+    "real_model": "passed",
+    "real_resources": "passed",
+    "browser_real_api": "passed",
+    "deployment": "isolated_acceptance_passed_original_restored",
+    "latest_provider_workflow": "passed_linux_workflow",
+    "latest_cross_platform_matrix": "not_rerun"
   },
-  "design_status": "confirmed"
+  "design_status": "confirmed",
+  "execution_environment": {
+    "linux": "local_docker_ssh_systemd",
+    "kubernetes": "owned_temporary_namespace",
+    "windows": "local_windows_11_isolated_processes",
+    "windows_server": "not_validated",
+    "model": "glm-5.3",
+    "api_key_env": "GLM_API_KEY",
+    "idle_timeout_seconds": 1800
+  },
+  "acceptance": {
+    "run_id": "plan7-release-20261017-r04",
+    "source_fingerprint": "1bfaa8486b974c54fc674920826677e2c855cebf1c25c294fef7c5ed3678a7e3",
+    "model": "GLM-5.3",
+    "matrix": "evidence/plan7-release-20261017-r04-matrix.json",
+    "summary": "evidence/plan7-release-20261017-r04-summary.json",
+    "report": "13-local-release-result.md",
+    "cases": 57,
+    "passed": 57,
+    "named_go_checks": 104,
+    "browser_passed": 19,
+    "provider_call_count": 82,
+    "provider_all_succeeded": true,
+    "scope": "Historical complete GLM-5.3 Plan7 matrix; latest Flash Linux cases are separately recorded"
+  },
+  "additional_acceptance_attempts": [
+    {
+      "run_id": "plan7-apimart-20261017-r01",
+      "status": "failed",
+      "cause": "CONTEXT_COMPACTION_FAILED after approved repair; one preceding header transport failure",
+      "model_calls_succeeded": 29,
+      "model_calls_failed": 1
+    },
+    {
+      "run_id": "plan7-apimart-20261017-r02",
+      "status": "failed",
+      "cause": "Immutable-data conclusion check: matrix series count was confused with sample count",
+      "model_calls_succeeded": 16,
+      "model_calls_failed": 0
+    },
+    {
+      "run_id": "plan7-apimart-20261017-r03",
+      "status": "failed",
+      "source_fingerprint": "1bfaa8486b974c54fc674920826677e2c855cebf1c25c294fef7c5ed3678a7e3",
+      "cause": "Telemetry exceeded ten minutes following an HTTP200 stream/body or sink processing failure; APIMart workflow remains unverified"
+    },
+    {
+      "run_id": "plan7-release-20261017-r04",
+      "status": "passed",
+      "model": "GLM-5.3",
+      "scope": "independent release regression; APIMart failures remain failed",
+      "source_fingerprint": "1bfaa8486b974c54fc674920826677e2c855cebf1c25c294fef7c5ed3678a7e3"
+    }
+  ],
+  "additional_provider_validation": {
+    "input_tokens": 623865,
+    "full_cross_platform_matrix_rerun": false,
+    "browser_passed": 2,
+    "model_transport": "HTTP1 with explicit ALPN and standard TLS verification",
+    "accepted_call_count": 47,
+    "account": "kakj",
+    "temporary_password_copy_removed": true,
+    "status": "passed_linux_workflow",
+    "budget_parameter": "max_tokens",
+    "all_reported_and_settled": true,
+    "source_fingerprint": "7daac58ef2731e8e084bdaf6031ff92476e6e796ab8e9068eea47dfa981b2018",
+    "temporary_key_removed": true,
+    "encrypted_model_credential_retained": true,
+    "reasoning_effort": "high",
+    "report": "14-apimart-linux-chatbox.md",
+    "provider": "APIMart",
+    "max_output_tokens": 16384,
+    "earlier_failures_retained": true,
+    "case_ledger": "../../build/plan7-kakj-case-ledger.json",
+    "cases": {
+      "real-browser-diagnosis-and-repair": {
+        "repair_conversation": "01a14b0e-0d71-7760-88c9-796f4a5d35ed",
+        "at": "2026-10-18T02:15:03.4168524+08:00",
+        "run_id": "plan7-kakj-20261018-r13-core",
+        "exit_code": 0,
+        "telemetry_conversation": "01a14b0b-89ff-7d36-99b6-a55d0f237184",
+        "recovery_conversation": "",
+        "phase": "real-browser-diagnosis-and-repair",
+        "status": "passed",
+        "artifacts": "build/plan7-evidence/plan7-kakj-20261018-r13-core"
+      },
+      "lost-context-recovery": {
+        "repair_conversation": "",
+        "at": "2026-10-18T02:10:02.1484403+08:00",
+        "run_id": "plan7-kakj-20261018-r12-recovery",
+        "exit_code": 0,
+        "telemetry_conversation": "",
+        "recovery_conversation": "01a14b02-e71a-7b9d-b8c5-89701a932a91",
+        "phase": "lost-context-recovery",
+        "status": "passed",
+        "artifacts": "build/plan7-evidence/plan7-kakj-20261018-r12-recovery"
+      },
+      "private-concurrent-context": {
+        "repair_conversation": "01a14b0e-0d71-7760-88c9-796f4a5d35ed",
+        "at": "2026-10-18T02:17:38.7878606+08:00",
+        "run_id": "plan7-kakj-20261018-r14-activity",
+        "exit_code": 0,
+        "telemetry_conversation": "01a14b0b-89ff-7d36-99b6-a55d0f237184",
+        "recovery_conversation": "01a14b02-e71a-7b9d-b8c5-89701a932a91",
+        "phase": "private-concurrent-context",
+        "status": "passed",
+        "artifacts": "build/plan7-evidence/plan7-kakj-20261018-r14-activity"
+      },
+      "two-stage-evidence": {
+        "repair_conversation": "",
+        "at": "2026-10-18T02:02:01.3021651+08:00",
+        "run_id": "plan7-kakj-20261018-r11-sequence",
+        "exit_code": 0,
+        "telemetry_conversation": "",
+        "recovery_conversation": "",
+        "phase": "two-stage-evidence",
+        "status": "passed",
+        "artifacts": "build/plan7-evidence/plan7-kakj-20261018-r11-sequence"
+      }
+    },
+    "summary": "evidence/plan7-apimart-linux-20261018-summary.json",
+    "output_tokens": 29679,
+    "model_revision": 4,
+    "model": "glm-5.3-flash",
+    "inference_calls": 46,
+    "compaction_calls": 1,
+    "limitations": [
+      "Earlier provider transport failures remain failed and are not erased by this accepted cohort.",
+      "Recovery reports workspace quota_unavailable honestly; physical recovery assertions use actual remote effects.",
+      "Historical GLM-5.3 full 57-case matrix is separate; no fresh Windows/Kubernetes Flash matrix is claimed."
+    ],
+    "workflow_verified": true,
+    "credential_cleanup": "../../build/plan7-kakj-credential-cleanup.json",
+    "secret_scan": "../../build/plan7-kakj-secret-scan.json"
+  },
+  "previous_local_deployment": {
+    "source_fingerprint": "7daac58ef2731e8e084bdaf6031ff92476e6e796ab8e9068eea47dfa981b2018",
+    "status": "completed",
+    "business_data_preserved": true,
+    "enterprise_url": "https://argus.dev",
+    "helm_platform_revision": 33,
+    "health_checks": 20,
+    "owned_docker_host_retained": true,
+    "platform_url": "https://platform.argus.dev",
+    "release_run": "plan7-http1-20261018-r03",
+    "health_passed": true,
+    "report": "14-apimart-linux-chatbox.md",
+    "schema": 16
+  },
+  "previous_patch_engineering": {
+    "source_before_after": "identical",
+    "status": "passed",
+    "frontend": "passed",
+    "database_http": "passed",
+    "go_tests": 2169,
+    "real_build": "passed",
+    "contracts": "passed",
+    "go_packages": 73,
+    "source_files": 2652
+  },
+  "local_deployment": {
+    "status": "completed",
+    "source_fingerprint": "2af0b00e7bc95b5a8b3dee0f7c3e0b7a56a03dc5956e366bdf473163e648a3ef",
+    "acceptance_harness_fingerprint": "ffe1d5e80e0ae9f66e1eaa67db441879293c5d3eb701b97e00ad56a0c3b9f7f9",
+    "business_data_preserved": true,
+    "enterprise_url": "https://argus.dev",
+    "platform_url": "https://platform.argus.dev",
+    "helm_platform_revision": 40,
+    "schema": 19,
+    "release_run": "markdown-plans-20261018-r03",
+    "backend_release": "markdown-plans-20261018-r03",
+    "web_release": "markdown-plans-20261018-r03",
+    "report": "18-markdown-plan-command-consent.md",
+    "health_checks": 20,
+    "health_passed": true,
+    "preserved_original_conversations": 39,
+    "preserved_original_events": 5881,
+    "owned_docker_host_retained": true
+  },
+  "latest_patch_engineering": {
+    "status": "passed",
+    "source_before_after": "application_identical_only_historical_E2E_assertion_corrected",
+    "source_verification": "../../build/markdown-plans-20261018-r03/source-freeze-verification.json",
+    "go_tests": 2263,
+    "go_skipped": 98,
+    "frontend_tests": 1326,
+    "mock_browser_cases": 12,
+    "real_history_cases": 12,
+    "kubernetes_runtime_cases": 3,
+    "windows_powershell": "passed",
+    "real_build": "passed",
+    "contracts": "passed",
+    "source_files": 2718,
+    "evidence": "../../build/markdown-plans-20261018-r03/acceptance-summary.json",
+    "acceptance_release": "markdown-plans-20261018-r03"
+  },
+  "chatbox_interactions": {
+    "status": "completed",
+    "design": "18-markdown-plan-command-consent.md",
+    "foundation_design": "15-chatbox-interactions.md",
+    "mode_semantics": "execute_or_plan_independent_of_access",
+    "plan_semantics": "immutable_markdown_exact_once_commands_via_normal_connect",
+    "execution_timeline": "chronological_not_attached_to_plan",
+    "source_fingerprint": "2af0b00e7bc95b5a8b3dee0f7c3e0b7a56a03dc5956e366bdf473163e648a3ef",
+    "local_helm_revision": 40,
+    "schema": 19,
+    "actual_model": "passed",
+    "actual_model_calls": 38,
+    "actual_browser_cases": 4,
+    "actual_conversations": [
+      "01a14db8-f36e-7153-ac5e-0cc4a6e6f4f0",
+      "01a14db5-07db-718b-973c-e4fb83843404",
+      "01a14dbf-d935-7e56-8b3d-10b85e9ba7dc",
+      "01a14dc3-d802-73d5-b4eb-2e471b741039"
+    ],
+    "actual_model_acceptance_release": "markdown-plans-20261018-r03",
+    "published_reports": 2,
+    "ordinary_approvals_removed_after_confirmation": true,
+    "plan_controls_in_composer": true,
+    "known_limitations": [
+      {
+        "component": "Windows Server",
+        "status": "not_reverified"
+      }
+    ],
+    "historical_failures_preserved": true,
+    "evidence": "../../build/markdown-plans-20261018-r03/acceptance-summary.json"
+  },
+  "previous_chatbox_deployment": {
+    "source_fingerprint": "43d1193302c37863c153dddbfae780fb978b6dc9b0a50a31f1aba685b2232c51",
+    "status": "deployed",
+    "business_data_preserved": true,
+    "enterprise_url": "https://argus.dev",
+    "helm_platform_revision": 34,
+    "owned_docker_host_retained": true,
+    "platform_url": "https://platform.argus.dev",
+    "release_run": "chat-interactions-20261018-r01",
+    "report": "15-chatbox-interactions.md",
+    "schema": 18
+  },
+  "previous_deployment_before_layout": {
+    "source_fingerprint": "65d81c929b0a7efe469c01823cf8640bc4e1b40116cf506b330f2f33c0a68ead",
+    "status": "completed",
+    "business_data_preserved": true,
+    "enterprise_url": "https://argus.dev",
+    "helm_platform_revision": 36,
+    "owned_docker_host_retained": true,
+    "platform_url": "https://platform.argus.dev",
+    "release_run": "chat-interactions-20261018-r02",
+    "report": "16-interaction-closure.md",
+    "schema": 18,
+    "health_checks": 20,
+    "health_passed": true,
+    "preservation_checks": 54
+  },
+  "latest_frontend_layout_engineering": {
+    "acceptance_release": "chat-layout-20261018-r01",
+    "status": "passed",
+    "source_files": 2697,
+    "enterprise_tests": 234,
+    "shared_ui_tests": 120,
+    "browser_cases": 17,
+    "real_readonly_cases": 12,
+    "evidence": "../../build/chat-layout-20261018-r01/acceptance.json"
+  },
+  "previous_deployment_before_markdown_plans": {
+    "source_fingerprint": "4d6257920b2f4e68e5f86aab8fa12d04e126ef2f733914b4677dd0135074fb6a",
+    "status": "completed",
+    "business_data_preserved": true,
+    "enterprise_url": "https://argus.dev",
+    "helm_platform_revision": 37,
+    "owned_docker_host_retained": true,
+    "platform_url": "https://platform.argus.dev",
+    "release_run": "chat-layout-20261018-r01",
+    "report": "17-chat-reading-column.md",
+    "schema": 18,
+    "health_checks": 20,
+    "health_passed": true,
+    "preservation_checks": 54,
+    "backend_release": "chat-interactions-20261018-r02",
+    "web_release": "chat-layout-20261018-r01"
+  },
+  "previous_chatbox_interactions": {
+    "status": "completed",
+    "design": "15-chatbox-interactions.md",
+    "source_fingerprint": "65d81c929b0a7efe469c01823cf8640bc4e1b40116cf506b330f2f33c0a68ead",
+    "engineering": "passed",
+    "browser_cases": 17,
+    "go_passed": 2231,
+    "windows_powershell": "passed",
+    "kubernetes_pod_state_transfer_replacement": "passed",
+    "kubernetes_command_environment": "fail_closed_when_network_isolation_unavailable",
+    "local_helm_revision": 37,
+    "actual_model": "passed",
+    "previous_acceptance_scope": "Original frozen batch execution; retain historical evidence without applying its counts to the new ReAct plan flow",
+    "actual_model_calls": 45,
+    "actual_browser_cases": 4,
+    "actual_conversations": [
+      "01a14cfb-a4fa-7b93-9c0b-475f51c1bc33",
+      "01a14cec-648d-751c-b2d1-2718f9495f2c",
+      "01a14cea-3371-7f35-80b7-96d4b7a0ce8e",
+      "01a14cea-f84d-7a0f-853e-16eac6fa3782"
+    ],
+    "known_limitations": [
+      {
+        "component": "local kubectl network isolation",
+        "status": "unavailable_fail_closed"
+      },
+      {
+        "component": "Windows Server",
+        "status": "not_reverified"
+      }
+    ],
+    "completion_review": {
+      "date": "2026-10-18",
+      "report": "16-interaction-closure.md",
+      "source_files_rechecked": 2696,
+      "source_files_changed": 0,
+      "live_deployments_ready": 3,
+      "actual_conversations_preserved": 7,
+      "open_findings": [],
+      "accepted_conversations": 4,
+      "resolved_findings": [
+        {
+          "id": "CB-R01",
+          "status": "resolved",
+          "resolution": "Construct the complete source authorizer before registering Workspace tools; actual publication and downloaded hashes verified in both access modes"
+        },
+        {
+          "id": "CB-R02",
+          "status": "resolved",
+          "resolution": "Persist mock implementation Run status and cancellation; verify reload and stop in all desktop UI combinations and actual remote commands in both access modes"
+        }
+      ]
+    },
+    "prior_acceptance": {
+      "release": "chat-interactions-20261018-r01",
+      "source_fingerprint": "43d1193302c37863c153dddbfae780fb978b6dc9b0a50a31f1aba685b2232c51",
+      "report": "15-chatbox-interactions.md",
+      "actual_conversations": [
+        "01a14cb6-a29e-7de1-bab8-8e56e11cebe3",
+        "01a14cbb-4cd9-7d28-a43f-578de79a970c"
+      ]
+    },
+    "closure_report": "16-interaction-closure.md",
+    "published_reports": 2,
+    "attempt_records": {
+      "certificate_configuration_failure": "../../build/chat-interactions-20261018-r02/actual-model.log",
+      "provider_failed_calls": 3,
+      "provider_failures": "../../build/chat-interactions-20261018-r02/provider-failed-calls-r02.json",
+      "quota_failure": "../../build/chat-interactions-20261018-r02/actual-model-r04-retry.log",
+      "accepted_reports": "../../build/chat-interactions-20261018-r02/accepted-reports.json",
+      "all_failures_preserved": true
+    },
+    "local_workspace_quota_adjustment": {
+      "enterprise_id": "01a0e8a2-8ae9-7665-8f8a-670f8e54e7b2",
+      "old_limit_gib": 64,
+      "new_limit_gib": 80,
+      "reserved_gib_after_acceptance": 66,
+      "reason": "Preserve actual conversation files while admitting the final acceptance workspace",
+      "deleted_history": false
+    },
+    "actual_model_acceptance_release": "chat-interactions-20261018-r02",
+    "layout_fix": {
+      "status": "completed",
+      "report": "17-chat-reading-column.md",
+      "source_fingerprint": "4d6257920b2f4e68e5f86aab8fa12d04e126ef2f733914b4677dd0135074fb6a",
+      "browser_cases": 17,
+      "real_readonly_cases": 12,
+      "measured_items": 252,
+      "maximum_alignment_difference": 0,
+      "maximum_width_difference": 0,
+      "additional_model_calls": 0,
+      "backend_changed": false
+    }
+  }
 }

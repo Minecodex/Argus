@@ -14,7 +14,7 @@ import (
 
 const cancelConversationAgentRuns = `-- name: CancelConversationAgentRuns :many
 UPDATE runs SET status='cancelled',stop_reason='workspace_deleted',version=version+1,updated_at=now()
-WHERE conversation_id=$1 AND enterprise_id=$2 AND status NOT IN ('succeeded','failed','cancelled') RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at
+WHERE conversation_id=$1 AND enterprise_id=$2 AND status NOT IN ('succeeded','failed','cancelled') RETURNING id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at, mode_snapshot, access_mode_snapshot, approved_plan_id
 `
 
 type CancelConversationAgentRunsParams struct {
@@ -51,6 +51,9 @@ func (q *Queries) CancelConversationAgentRuns(ctx context.Context, arg CancelCon
 			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ModeSnapshot,
+			&i.AccessModeSnapshot,
+			&i.ApprovedPlanID,
 		); err != nil {
 			return nil, err
 		}
@@ -375,7 +378,7 @@ func (q *Queries) GetWorkspaceSandboxSession(ctx context.Context, arg GetWorkspa
 }
 
 const listDeletedConversationsForCleanup = `-- name: ListDeletedConversationsForCleanup :many
-SELECT files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at FROM conversations c WHERE status='deleted' AND files_cleaned_at IS NULL
+SELECT files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at, mode, access_mode FROM conversations c WHERE status='deleted' AND files_cleaned_at IS NULL
 AND NOT EXISTS(SELECT 1 FROM workspaces w WHERE w.conversation_id=c.id AND w.status<>'deleted')
 AND NOT EXISTS(SELECT 1 FROM dashboard_query_jobs j JOIN runtime_tasks t ON t.id=j.task_id
  WHERE j.conversation_id=c.id AND t.status IN ('leased','running') AND t.lease_until>now()) LIMIT $1
@@ -403,6 +406,8 @@ func (q *Queries) ListDeletedConversationsForCleanup(ctx context.Context, limit 
 			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Mode,
+			&i.AccessMode,
 		); err != nil {
 			return nil, err
 		}
@@ -505,7 +510,7 @@ func (q *Queries) ListWorkspaceSandboxSessions(ctx context.Context, arg ListWork
 
 const markConversationDeleted = `-- name: MarkConversationDeleted :one
 UPDATE conversations SET status='deleted',version=version+1,updated_at=now()
-WHERE id=$1 AND enterprise_id=$2 AND owner_user_id=$3 RETURNING files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at
+WHERE id=$1 AND enterprise_id=$2 AND owner_user_id=$3 RETURNING files_cleaned_at, id, enterprise_id, owner_user_id, title, selected_model_id, context_revision, event_sequence, status, version, created_at, updated_at, mode, access_mode
 `
 
 type MarkConversationDeletedParams struct {
@@ -530,6 +535,8 @@ func (q *Queries) MarkConversationDeleted(ctx context.Context, arg MarkConversat
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.AccessMode,
 	)
 	return i, err
 }

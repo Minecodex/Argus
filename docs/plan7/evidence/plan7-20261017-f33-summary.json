@@ -1,0 +1,55 @@
+{
+  "plan": "Plan7",
+  "run_id": "plan7-20261017-f33",
+  "status": "completed",
+  "accepted_at": "2026-10-17T10:32:40.3769768+08:00",
+  "source_fingerprint": "417b000a100b6c5742723d6e7b05e9d85b75e2c82466e75554ba68c92ad58fee",
+  "source_unchanged": true,
+  "artifact_root": "../../../build/plan7-evidence/plan7-20261017-f33",
+  "required_cases": 57,
+  "passed_cases": 57,
+  "verified_proof_files": 42,
+  "browser": {
+    "skipped": 0,
+    "flaky": 0,
+    "failed": 0,
+    "passed": 19
+  },
+  "model": {
+    "scope": "Agent inference and compaction in this acceptance run; excludes model-registration probes",
+    "calls": 75,
+    "inference_calls": 73,
+    "compaction_calls": 2,
+    "succeeded": 75,
+    "max_latency_ms": 100609,
+    "input_tokens": 868339,
+    "output_tokens": 81686,
+    "provider_usage_complete": true,
+    "quota_settled": true
+  },
+  "restored_original_workloads": 20,
+  "owned_test_namespaces_remaining": 0,
+  "windows_temp_removed": true,
+  "windows_owned_processes_remaining": 0,
+  "database_fixture_removed": true,
+  "windows_scope": "Windows 11 Pro on the local host",
+  "windows_server_validation": "not_validated",
+  "publication": "isolated acceptance deployment; original business deployment restored",
+  "hashes": {
+    "source_after": "75204d36c2f772d8122b7d3bd4edafe7ed66b2502ce664a176c2323d02dee5e9",
+    "cleanup": "788f29766b55844a3744bee257aae79216f60ab1e7fdf178022f5b6b961fcd13",
+    "matrix": "b899397259470b0ff6d5f53f76a05d53662706080cd97358acdddc1432b7f688",
+    "source_before": "770a4e0f7d679b660752c26bfd29ecaa8957720ea9b07dd2edcdc7a087f5af0d",
+    "result": "ba7acdb849bd7578e4b2989dce98635045e60d51f922b2d57ec87eee8c1bb92a"
+  },
+  "documentation_validation": {
+    "checked_at": "2026-10-17T10:38:29.5072272+08:00",
+    "utf8_markdown_files": 16,
+    "local_links_checked": 132,
+    "completed_tasks": 9,
+    "changed_source_files": 285,
+    "maximum_changed_source_lines": 1885,
+    "accepted_source_files_rechecked": 2617,
+    "status": "passed"
+  }
+}

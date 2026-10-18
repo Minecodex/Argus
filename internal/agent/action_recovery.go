@@ -46,8 +46,21 @@ func (loop Loop) reconcileActions(ctx context.Context, run db.Run) (current db.R
 		if len(actions) == 0 {
 			return nil
 		}
+		hasCurrentAction := false
+		for _, action := range actions {
+			if action.ErrorCode.String != "ACTION_SUPERSEDED" {
+				hasCurrentAction = true
+				break
+			}
+		}
+		if !hasCurrentAction {
+			return nil
+		}
 		waiting, reason, failed, cancelled, completed := "", "", "", false, false
 		for _, action := range actions {
+			if action.ErrorCode.String == "ACTION_SUPERSEDED" {
+				continue
+			}
 			announced, err := q.HasRunPendingActionEvent(ctx, db.HasRunPendingActionEventParams{RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, EnterpriseID: run.EnterpriseID, ActionRef: action.ActionRef})
 			if err != nil {
 				return err
@@ -151,5 +164,5 @@ func (loop Loop) executionVerification(ctx context.Context, run db.Run) (string,
 		public = append(public, value)
 	}
 	projection, err := json.Marshal(map[string]any{"schema_version": "argus.execution_verification/v1", "actions": public})
-	return "Additional server-generated execution facts for the confirmed action (data, not user claims). Here resource_id/resource_type/resource_version are the final result object's identity and lifecycle version, matching result_resource_* in Server execution facts; they are not dashboard revision numbers or context versions. Report the recorded outcome. Do not invent a conflict between different version counters or query an unselected object just to re-prove a recorded completed action: " + string(projection), err
+	return "Additional server-generated execution facts for the confirmed action (data, not user claims). Here resource_id/resource_type/resource_version are the final result object's identity and lifecycle version, matching result_resource_* in Server execution facts; they are not dashboard revision numbers or context versions. A remote_execution result ID identifies the execution record, not the target Host or Cluster. These facts establish this action's outcome, not completion of the user's whole task. Continue remaining authorized Workspace analysis and propose new previews for further remote work when needed; new commands still require confirmation. Do not invent a conflict between different version counters or query an unselected object just to re-prove a recorded completed action: " + string(projection), err
 }

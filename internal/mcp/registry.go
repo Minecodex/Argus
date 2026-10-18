@@ -73,6 +73,7 @@ type Call struct {
 }
 
 type Result struct {
+	Control    *toolruntime.Control
 	Structured map[string]any
 	Private    map[string]any
 	ResultRef  string
