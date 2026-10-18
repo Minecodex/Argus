@@ -46,7 +46,10 @@ export default defineConfig({
   outputDir: process.env.ARGUS_E2E_ARTIFACTS ?? "test-results",
   use: {
     baseURL: enterpriseOrigin,
-    trace: "retain-on-failure",
+    trace:
+      process.env.ARGUS_PLAN7_EXISTING_ACCOUNT === "1"
+        ? "off"
+        : "retain-on-failure",
     ignoreHTTPSErrors,
   },
   webServer: process.env.ARGUS_E2E_EXTERNAL

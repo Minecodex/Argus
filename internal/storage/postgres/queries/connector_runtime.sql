@@ -150,7 +150,7 @@ AND (
       AND gateway.status = 'converged'
   )
 )
-ORDER BY command.created_at LIMIT $3 FOR UPDATE SKIP LOCKED;
+ORDER BY CASE WHEN command.command_type='remote_execution_control' AND command.payload->>'operation'='stop' THEN 0 ELSE 1 END,command.created_at LIMIT $3 FOR UPDATE SKIP LOCKED;
 
 -- name: ExpireQueuedConnectorCommands :many
 UPDATE connector_commands SET status = 'expired', error_code = 'CONNECTOR_COMMAND_EXPIRED', completed_at = now(), updated_at = now()

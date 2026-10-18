@@ -22,6 +22,8 @@ import (
 	"github.com/kakj-go/Argus/internal/workspacesupervisor"
 )
 
+type SourceAuthorizer func(context.Context, toolruntime.Principal, string) (bool, error)
+
 type Service struct {
 	Store          *postgres.Store
 	Idempotency    postgres.Idempotency
@@ -29,7 +31,7 @@ type Service struct {
 	Kubernetes     Kubernetes
 	Config         config.Workspace
 	Objects        *objectstore.Client
-	ExternalSource func(context.Context, toolruntime.Principal, string) (bool, error)
+	ExternalSource SourceAuthorizer
 }
 
 // A tool operation is tied to its Run; user file operations are tied to the
@@ -39,11 +41,12 @@ type accessScope struct {
 	Runtime            *sandbox.WorkspaceIdentity
 	// Only trusted query-file imports set this. Model tool execution keeps the
 	// active-Run requirement; durable transfer may finish after its Run returns.
-	BackgroundTransfer bool
+	BackgroundTransfer    bool
+	CancelledRemoteOutput bool
 }
 
 func workspaceRunAllowed(run db.Run, p toolruntime.Principal, scope accessScope) bool {
-	if run.EnterpriseID != p.EnterpriseID || run.ConversationID != p.ConversationID || run.ActorUserID != p.UserID || run.Status == "cancelled" || run.Status == "timed_out" {
+	if run.EnterpriseID != p.EnterpriseID || run.ConversationID != p.ConversationID || run.ActorUserID != p.UserID || ((run.Status == "cancelled" || run.Status == "timed_out") && !scope.CancelledRemoteOutput) {
 		return false
 	}
 	return scope.BackgroundTransfer || (run.Status != "failed" && run.Status != "succeeded")

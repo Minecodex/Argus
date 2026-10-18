@@ -129,3 +129,35 @@ func TestReadingAnActionDoesNotCreateAnotherConfirmationWait(t *testing.T) {
 func fixtureDiscovery(name string) mcp.Discovery {
 	return mcp.Discovery{SchemaVersion: "argus.tool_discovery/v1", Revision: "1", Title: "Inspect fixture " + name, Description: "Inspect an authorized synthetic host for catalog scale testing.", Keywords: []string{"inspect", "检查", "测试主机"}, ResultDescription: "Returns the fixture enterprise and limit.", Preconditions: []string{"Requires the fixture read permission."}, Examples: []mcp.DiscoveryExample{{Request: "Inspect a test host", Guidance: "Use a limit from 1 to 10."}}}
 }
+
+func TestPostActionCanPrepareNewPlanButCannotInvokeUnconfirmedMutation(t *testing.T) {
+	r := mcp.NewRegistry()
+	for _, id := range []string{"workflow.remote_plan.preview", "workflow.unapproved_change"} {
+		id := id
+		if err := r.Register(mcp.Metadata{ID: id, Discovery: fixtureDiscovery(id), Risk: "write", Visibility: mcp.Visible, InputVersion: "1", OutputVersion: "1", MaxResultBytes: 1024, InputSchema: emptyObjectSchema(), Execute: func(context.Context, mcp.Call) (mcp.Result, error) {
+			if id != "workflow.remote_plan.preview" {
+				t.Fatal("unconfirmed mutation invoked")
+			}
+			return mcp.Result{Structured: map[string]any{"action_ref": "act_new_preview"}}, nil
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	g, err := New(r, "post-action-plan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := toolruntime.NewSet(toolruntime.Snapshot{NativeCatalog: g.Revision}, g.CoreTools())
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := toolruntime.Invocation{ReadOnly: true, Arguments: map[string]any{"category": "workflow", "name": "remote_plan.preview", "arguments": map[string]any{}}}
+	result, err := set.Invoke(t.Context(), "tool.invoke", call)
+	if err != nil || result.ActionRef != "act_new_preview" {
+		t.Fatalf("new preview blocked or consent lost: %#v %v", result, err)
+	}
+	call.Arguments["name"] = "unapproved_change"
+	if _, err = set.Invoke(t.Context(), "tool.invoke", call); err == nil {
+		t.Fatal("write bypass accepted")
+	}
+}

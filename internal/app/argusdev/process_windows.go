@@ -12,7 +12,7 @@ import (
 const createNewProcessGroup = 0x00000200
 
 func configureProcess(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNewProcessGroup}
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNewProcessGroup, HideWindow: true}
 }
 
 func interruptProcess(process *os.Process) error {

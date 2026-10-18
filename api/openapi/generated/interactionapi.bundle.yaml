@@ -1,0 +1,454 @@
+openapi: 3.1.0
+info:
+  title: Argus Conversation Interaction API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+paths:
+  /conversations/{conversation_id}/interactions:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listConversationInteractions
+      summary: List current question, latest drafts and confirmed plans
+      tags:
+        - Conversations
+      responses:
+        '200':
+          description: Durable conversation interaction state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationInteractionPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{conversation_id}/interactions/{interaction_id}:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: interaction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getConversationInteraction
+      summary: Read an owned question or guidance plan
+      tags:
+        - Conversations
+      responses:
+        '200':
+          description: Current interaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationInteraction'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{conversation_id}/interactions/{interaction_id}/respond:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: interaction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: respondConversationInteraction
+      summary: Answer, skip, revise or confirm the exact interaction version
+      tags:
+        - Conversations
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InteractionResponse'
+      responses:
+        '200':
+          description: Resolved interaction and implementation reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationInteraction'
+        default:
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argus_session
+  schemas:
+    InteractionOption:
+      type: object
+      additionalProperties: false
+      required:
+        - label
+        - description
+      properties:
+        label:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 2048
+    InteractionQuestion:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - header
+        - question
+        - options
+      properties:
+        id:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+        header:
+          type: string
+          maxLength: 128
+        question:
+          type: string
+          maxLength: 4096
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/InteractionOption'
+          maxItems: 4
+    UserInputQuestions:
+      type: object
+      additionalProperties: false
+      required:
+        - questions
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/InteractionQuestion'
+          minItems: 1
+          maxItems: 3
+    GuidancePlanStep:
+      type: object
+      additionalProperties: false
+      required:
+        - description
+      properties:
+        description:
+          type: string
+          maxLength: 8192
+        code:
+          type: string
+          maxLength: 32768
+        language:
+          type: string
+          maxLength: 64
+        target:
+          type: string
+          maxLength: 1024
+    GuidancePlan:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 32768
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuidancePlanStep'
+          minItems: 1
+          maxItems: 64
+        supersedes_id:
+          type: string
+          format: uuid
+        markdown:
+          type: string
+          maxLength: 262144
+        document_markdown:
+          type: string
+          maxLength: 1048576
+        commands:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/PlanCommand'
+    InteractionContent:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 32768
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuidancePlanStep'
+          minItems: 1
+          maxItems: 64
+        supersedes_id:
+          type: string
+          format: uuid
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/InteractionQuestion'
+          minItems: 1
+          maxItems: 3
+        markdown:
+          type: string
+          maxLength: 262144
+        document_markdown:
+          type: string
+          maxLength: 1048576
+        commands:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/PlanCommand'
+    InteractionAnswer:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        selected_option:
+          type: string
+          maxLength: 256
+        text:
+          type: string
+          maxLength: 16384
+        skipped:
+          type: boolean
+    InteractionResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+        - content_hash
+        - action
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        content_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        action:
+          type: string
+          enum:
+            - answer
+            - skip
+            - confirm
+            - revise
+        answers:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/InteractionAnswer'
+        feedback:
+          type: string
+          maxLength: 16384
+    ConversationInteraction:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - conversation_id
+        - run_id
+        - family_id
+        - kind
+        - revision
+        - status
+        - version
+        - content_hash
+        - content
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        family_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - plan
+            - user_input
+        revision:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum:
+            - pending
+            - answered
+            - skipped
+            - superseded
+            - confirmed
+            - cancelled
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        content_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        content:
+          $ref: '#/components/schemas/InteractionContent'
+        response:
+          $ref: '#/components/schemas/InteractionResponse'
+        implementation_run_id:
+          type: string
+          format: uuid
+        implementation_status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ConversationInteractionPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationInteraction'
+        active_run_id:
+          type: string
+          format: uuid
+        active_run_status:
+          type: string
+    PlanCommand:
+      type: object
+      additionalProperties: false
+      required:
+        - approved_step_id
+        - block_id
+        - target
+        - identity
+        - interpreter
+      properties:
+        approved_step_id:
+          type: string
+          format: uuid
+        block_id:
+          type: string
+          maxLength: 64
+        target:
+          type: string
+          maxLength: 4096
+        identity:
+          type: string
+          maxLength: 1024
+        interpreter:
+          type: string
+          maxLength: 64
+    RequestId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._-]+$
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message_key
+        - request_id
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+        message_key:
+          type: string
+          pattern: ^errors\.[a-z0-9_.]+$
+        params:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        message:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+        trace_id:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+          default: false
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]+$
+  responses:
+    Error:
+      description: Stable API error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 256
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'

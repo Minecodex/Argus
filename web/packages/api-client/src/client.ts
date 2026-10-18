@@ -1,4 +1,9 @@
 import type { AlertDomains } from "./alerts";
+import type { InteractionDomains, ConversationAccessMode } from "./interactions";
+import type {
+  RemoteExecutionDomains,
+  ConversationMode,
+} from "./remote-execution";
 import type { DashboardDomains } from "./dashboard";
 import type { PlatformOverview } from "./types/platform";
 import type { PlanV5Domains, ConversationPreflight } from "./planv5";
@@ -234,7 +239,12 @@ export interface KubernetesPodLogsQuery {
  * infrastructure goes through the Pending Action two-phase flow
  * (preview -> confirm -> optional approval -> execution Task).
  */
-export interface ArgusApiClient extends PlanV5Domains, DashboardDomains, AlertDomains {
+export interface ArgusApiClient
+  extends
+    PlanV5Domains,
+    DashboardDomains,
+    AlertDomains,
+    RemoteExecutionDomains, InteractionDomains {
   /** Session lifecycle and enterprise context. */
   auth: {
     login(input: LoginInput): Promise<SessionInfo>;
@@ -263,6 +273,8 @@ export interface ArgusApiClient extends PlanV5Domains, DashboardDomains, AlertDo
 
   /** Chatbox conversations and streaming assistant replies. */
   conversations: {
+    updateMode(id: string, mode: ConversationMode): Promise<Conversation>;
+    updateAccessMode(id: string, mode: ConversationAccessMode): Promise<Conversation>;
     dashboardContext(
       id: string,
     ): Promise<import("./generated/contracts").DashboardChatContext>;
@@ -315,7 +327,10 @@ export interface ArgusApiClient extends PlanV5Domains, DashboardDomains, AlertDo
     list(filter?: HostListFilter): Promise<HostPage>;
     get(id: string): Promise<Host>;
     refreshInventory(id: string): Promise<Host>;
-    previewReconnect(id: string, expectedVersion: number): Promise<PendingActionPublic>;
+    previewReconnect(
+      id: string,
+      expectedVersion: number,
+    ): Promise<PendingActionPublic>;
     createConnectionTest(
       input: HostConnectionTestCreate,
     ): Promise<ConnectionTest>;

@@ -27,6 +27,7 @@ import (
 	authzapi "github.com/kakj-go/Argus/internal/gen/openapi/enterpriseauthz"
 	enterpriseapi "github.com/kakj-go/Argus/internal/gen/openapi/enterpriseidentity"
 	hostapi "github.com/kakj-go/Argus/internal/gen/openapi/hostapi"
+	interactionapi "github.com/kakj-go/Argus/internal/gen/openapi/interactionapi"
 	kubernetesapi "github.com/kakj-go/Argus/internal/gen/openapi/kubernetesapi"
 	m8api "github.com/kakj-go/Argus/internal/gen/openapi/m8api"
 	machineapi "github.com/kakj-go/Argus/internal/gen/openapi/machine"
@@ -35,6 +36,7 @@ import (
 	platformapi "github.com/kakj-go/Argus/internal/gen/openapi/platform"
 	presentationapi "github.com/kakj-go/Argus/internal/gen/openapi/presentationapi"
 	remoteaccessapi "github.com/kakj-go/Argus/internal/gen/openapi/remoteaccessapi"
+	remoteexecutionapi "github.com/kakj-go/Argus/internal/gen/openapi/remoteexecutionapi"
 	sandboxapi "github.com/kakj-go/Argus/internal/gen/openapi/sandboxapi"
 	secretapi "github.com/kakj-go/Argus/internal/gen/openapi/secretapi"
 	setupapi "github.com/kakj-go/Argus/internal/gen/openapi/setup"
@@ -58,6 +60,8 @@ const DefaultLocale = "zh-CN"
 type Readiness interface{ Ready(context.Context) error }
 
 type RouterOptions struct {
+	Interactions            *InteractionHandler
+	RemoteExecution         *RemoteExecutionHandler
 	Logger                  *slog.Logger
 	PostgreSQL              Readiness
 	Redis                   Readiness
@@ -103,6 +107,22 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 	router.Get("/", serviceInfo)
 	router.Get("/healthz", health)
 	router.Get("/readyz", ready(options))
+	if options.Interactions != nil {
+		strict := interactionapi.NewStrictHandler(*options.Interactions, []interactionapi.StrictMiddlewareFunc{func(next interactionapi.StrictHandlerFunc, _ string) interactionapi.StrictHandlerFunc {
+			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, v any) (any, error) {
+				return next(WithRequestContext(ctx, w, r), w, r, v)
+			}
+		}})
+		interactionapi.HandlerFromMuxWithBaseURL(strict, router, "/api/v1")
+	}
+	if options.RemoteExecution != nil {
+		strict := remoteexecutionapi.NewStrictHandler(*options.RemoteExecution, []remoteexecutionapi.StrictMiddlewareFunc{func(next remoteexecutionapi.StrictHandlerFunc, _ string) remoteexecutionapi.StrictHandlerFunc {
+			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, v any) (any, error) {
+				return next(WithRequestContext(ctx, w, r), w, r, v)
+			}
+		}})
+		remoteexecutionapi.HandlerFromMuxWithBaseURL(strict, router, "/api/v1")
+	}
 	if options.Alerts != nil {
 		strict := alertsapi.NewStrictHandler(*options.Alerts, []alertsapi.StrictMiddlewareFunc{func(next alertsapi.StrictHandlerFunc, _ string) alertsapi.StrictHandlerFunc {
 			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, value any) (any, error) {

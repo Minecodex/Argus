@@ -1,5 +1,9 @@
 # 架构与执行契约
 
+> 2026-10-18 结果存储更新：Workspace 中的新远程结果按业务路径归入 `results`，请求／步骤 UUID 放入 `results/meta.json`。服务端可信映射、碰撞与恢复边界见[业务结果目录与元数据](./19-workspace-results-and-metadata.md)；远端临时目录隔离和原授权规则不变。
+
+> 2026-10-18：本页原冻结命令计划的完成记录保留历史范围。当前规则及独立验收见 [Markdown 计划、命令授权与普通会话执行](./18-markdown-plan-command-consent.md)。工作模式和持久化询问仍复用第 15 篇；其指导性计划授权规则已被第 18 篇替代。
+
 日期：2026-10-15。本文是 Plan7 的开发约束；字段名用于表达职责，正式 JSON Schema、OpenAPI、protobuf 和 SQL 由 P7-T01 固化。Q15～Q24 已明确：跨聊天同资源可并发，并发信息仅注入 AI 上下文，不进入聊天界面；单计划／同命令进程仍串行，现有权限边界不变。
 
 ## 1. 架构变化及复用范围
@@ -28,9 +32,15 @@ flowchart TD
   Agent --> External[客户 MCP 既有独立路径]
 ~~~
 
-Plan7 启用时模型集合为三个元工具＋可选四基础工具＋connect（如对本次主体与运行可用）＋N 个所选客户 MCP 工具。可用总数是 3＋W＋C＋N，W 为 0 或 4，C 为 0 或 1；全部自有能力可用时是 8＋N。当前代码仍是 PlanV5 的 3＋W＋N，不能把目标数量当作已经上线。
+Plan7 启用时模型集合为三个元工具＋可选四基础工具＋connect（如对本次主体与运行可用）＋N 个所选客户 MCP 工具。可用总数是 3＋W＋C＋N，W 为 0 或 4，C 为 0 或 1；全部自有能力可用时是 8＋N。当前实现已接入 connect；具体可用数量由本次主体／运行的实际工具集合决定，完成范围见验收报告。
 
 connect 是新的核心执行场景入口，模型调用只创建预览／待确认请求；真实远程执行只发生在服务端消费批准之后。它不是为每个 Linux 命令注册一个 Tool，也不让模型通过 approved=true、dry_run=false 或隐藏 Commit 直接派发。
+
+### 模型传输与工具参数校验的边界
+
+2026-10-17 校正：兼容协议中的函数 `arguments` 是模型生成的字符串，可能不是合法 JSON；[官方协议](https://developers.openai.com/api/reference/resources/chat)要求调用方在执行函数前验证。Provider 负责调用身份、名称、完整结束信号和用量，不把参数 JSON 语法错误提前当作传输失败。Agent 在任何派发前要求参数为一个 JSON 对象，之后仍执行原 Schema、权限与审批校验；不修补、解包或默认补成可执行参数。
+
+非法 JSON 作为 JSON 字符串写入已有 JSONB 调用账本，合法但非对象的 JSON 保留其原类型，原始协议参数同时保留在配对 assistant 事件中。结果记录为 `TOOL_INPUT_INVALID`，仅返回安全的字段／约束说明；重启恢复也先检查对象形状，不能把错误输入变成空参数执行。已派发但结果未明的记录保持 unknown，不重放。完整传输的真实用量正常记录，工具输入失败独立审计；缺少调用身份、缺少终止信号、无效用量等协议错误仍失败。公共 HTTP 参数 Schema、远程批准边界和未知结果规则不变。
 
 ## 2. 按执行场景判断能力
 
@@ -48,6 +58,12 @@ connect 是新的核心执行场景入口，模型调用只创建预览／待确
 模型返回的源类型、企业、资源名、确认说明和风险标签均不是可信授权事实。场景由服务端注册的工具来源确定；资源以当前主体有权访问的稳定 ID 解析，不接受任意 SSH 地址、代理地址或 kubeconfig 文本替换连接配置。
 
 在「计划」模式中可以进行平台读取和 Workspace 分析。远程取证如确有需要，也必须经过一次确认；模式本身不授予现场读取资格。平台业务修改继续其既有 Preview／Confirm，不因列入一段自然语言计划就获得提交权限。
+
+当前 Run 的模式快照同时进入系统指令和服务端事实。计划模式下，已经请求的修复必须通过 workflow 分类检索、详情、remote_plan.preview 形成固定计划，即使只有一步也不改为普通 connect；必要的额外远程取证仍可逐次确认。这个提示约束负责工具选择，不替代后端权限与确认校验，模式切换不改写已启动 Run。
+
+read／write／edit／bash 与 connect 是按实际可用性提供的顶层工具，不属于平台分类目录。模型上下文的 builtin_tool_availability 仅列当前提供商请求实际携带的内置工具名，并标注 Run 启动时的 Workspace 状态；quota_unavailable、unhealthy 等原因不等于用户没有权限。不得从平台分类里没有某个工具推断该内置能力未授权。
+
+模型流式生成的时限与获批命令的执行时限分离。模型端连接预算为 30 秒；普通 HTTP 请求总时限为 2 分钟，流式请求的预填充／响应头与正文共享最多 10 分钟总预算。父上下文取消或更短的流式截止时间优先，不会修改共享 HTTP Client 的超时设置。失败日志仅记录请求 Hash、阶段、HTTP 状态、超时标志和耗时，不记录地址、凭据、响应体或原始错误。验收中的模型预览等待对齐其他真实模型阶段的 10 分钟；目标命令仍严格使用冻结 Spec 的 timeout_seconds。
 
 ## 3. 远程执行请求
 
@@ -122,7 +138,9 @@ Q18 已确认：批准后后台继续，关闭页面、断线或切换模式不�
 
 主机使用接入账号的既有 OS 权限，K8s 使用资源接入身份的既有 API 权限。本计划不自动提权，不额外创建用户，也不因角色名看似普通就保证权限较低。公开预览应准确展示实际身份。
 
-### 当前实现差异
+### 实施前差异（历史基线）
+
+下列差异记录 Plan7 实施前的接入条件。T03 已新增持久化执行身份、SSH 接入事实解析、Windows SID 复验，以及 kubeconfig／ServiceAccount 身份绑定；缺少可靠账号绑定时仍返回不可用。当前实现入口为 `internal/remoteexecution/identity.go` 与 `runner/manager.go`，实机范围见[验收报告](./09-acceptance-report.md)。
 
 - SSH 安装账号保存在 Credential／接入 Operation 中，Host 稳定对象没有完整的执行身份绑定；正常 Connector 的服务身份与安装账号不同。
 - 当前 Linux SSH 接入预检要求有效 UID=0，因此通过现有预检的接入账号具备 root 级权限；执行时仍需复验实际身份，不得在预览中错误显示为受限账号。
@@ -138,6 +156,8 @@ T03 必须给出覆盖正式接入路径的解析契约；如果无法在已确�
 - Windows：首期新增 PowerShell 执行适配，探测并冻结解释器与版本，正确处理编码、脚本异常、非终止错误及原生程序退出码，验证超时／停止时进程树处理和真实回执。传输如采用 EncodedCommand，卡片仍展示获批的 PowerShell 源码，不只显示 Base64。不能自动切换成 cmd 或复用 ConPTY 冒充单次请求执行器。
 - 共享会话：新增受控 Bash／PowerShell session/runtime，保持获批批次之间的状态；普通 stdout 提示符不能作为可信完成消息，需命令批次身份、序号及执行监督端回执。
 - Kubernetes：区分 API／kubectl 执行上下文与进入 Pod 的 exec，冻结目标 Cluster 及必要子资源定位。现有只读 List/GetLogs 不自动成为通用执行能力。
+- 实施补充：in-cluster／via_bastion 沿已有 Connector 通道；direct-only kubeconfig 没有 Connector，因此复用现有 Direct Executor 承载同一类型化协议，不在 Agent 或 Workspace 中读取连接凭据。两条路径共用 Kubernetes 适配器。Direct Executor 的命令、执行实例归属和心跳保存在 PostgreSQL，同一解释器代次固定实例；实例失联后已派发命令进入结果未知，未派发命令明确失败，新代次重新确认，不将未知操作重新排队。此扩展补齐既有接入路径，不新增账号管理或脚本风险解析层。
+- 受控 kubectl 客户端从与项目依赖一致的上游源码编译。其 REST 配置固定为本会话的无凭据代理，拒绝 server、kubeconfig、context、impersonation 等连接覆盖；实际 API 凭据只由受信执行端代用。网络策略还需实测，不能把一个配置对象视为已经隔离。
 - Pod exec 存在两层身份：接入身份决定能否请求 pods/exec；容器内程序使用容器实际 UID/GID、capabilities、安全上下文及挂载资源。预览／派发需绑定 Pod UID 与 container 定位，复验实例是否变化；不能只固定可复用的 Pod 名称，也不能把 API 身份当作容器内用户。
 - 模型不能通过任意地址、context、server、kubeconfig、impersonation 等连接覆盖参数，把批准的资源改成其他资源。
 - 凭据由服务端／受信适配器代用；不得将长期 kubeconfig、SSH Secret 或私有确认 Token 放入 Workspace、模型、模板或公开结果。不能只把凭据文件交给任意脚本再声称它不可读取。
@@ -209,3 +229,7 @@ Workspace 是可编辑工作副本；封存原始证据保存在受控结果存�
 本计划扩展 PlanV5 模型工具组成、Connector 后台命令类型、执行后能力恢复和 Chatbox 模式。保留现有单 Agent 内核、平台 Preview／Commit、权限／审计、Workspace 离线、客户 MCP 独立和人工远程会话隔离。
 
 文档中的既有能力与 Plan7 目标必须分别标注；不把新增设计回填成 PlanV5 已完成验收。相关入口包括系统不变量、Connector、Agent 动作流程、安全基线、Agent Harness 和 PlanV5 架构。
+
+## 活动长任务的硬阈值压缩
+
+2026-10-17 P7-R03：软压缩保持完整用户轮次；硬阈值下允许选择同一 Run 内已配对完成的工具调用组。活动 PendingAction 创建事件以当前 PostgreSQL 状态保护，未完成工具组不得被截断。当前 Run 的原始用户要求和反馈按原顺序从事件记录恢复，附件按当前 Workspace／来源权限重新投影。摘要继续作为历史数据，不能代替用户原文、批准范围或执行事实。公共 API 和批准契约不变，新增的是内部事件查询及上下文组装规则。

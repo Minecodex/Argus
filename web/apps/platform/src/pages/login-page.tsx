@@ -294,7 +294,6 @@ export function LoginPage() {
                     : "login.submit",
               )}
         </Button>
-        <p className="argus-login-card__hint">{t("login.hint")}</p>
       </form>
     </div>
   );

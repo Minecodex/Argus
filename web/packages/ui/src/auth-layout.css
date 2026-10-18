@@ -42,11 +42,6 @@
 .argus-login-card__submit {
   width: 100%;
 }
-.argus-login-card__hint {
-  color: var(--text-tertiary);
-  font-size: var(--text-help);
-  text-align: center;
-}
 .argus-setup-shell {
   min-height: 100dvh;
   padding: var(--page-padding);

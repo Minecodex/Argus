@@ -1,0 +1,26 @@
+# Local shared controller after the explicitly authorized Judex decommission.
+# Existing CRD schemas are retained; their Helm owner is argus-shared-opensandbox.
+namespaceOverride: argus-sandbox
+crds:
+  install: false
+  keep: true
+controller:
+  replicaCount: 1
+  image:
+    repository: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/controller
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+  snapshot:
+    imageCommitterImage: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/image-committer:v0.1.1
+    commitJobTimeout: 10m
+  leaderElection:
+    enabled: true
+# Consumers must retain the configured running-image digest:
+# sha256:bf7f63852e772c910a7930cfba1b1d1d810d8613561d358830f7f5108b165c42

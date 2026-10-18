@@ -1,0 +1,89 @@
+{
+  "compaction_calls": 1,
+  "cases": {
+    "real-browser-diagnosis-and-repair": {
+      "repair_conversation": "01a14b0e-0d71-7760-88c9-796f4a5d35ed",
+      "at": "2026-10-18T02:15:03.4168524+08:00",
+      "run_id": "plan7-kakj-20261018-r13-core",
+      "exit_code": 0,
+      "telemetry_conversation": "01a14b0b-89ff-7d36-99b6-a55d0f237184",
+      "recovery_conversation": "",
+      "phase": "real-browser-diagnosis-and-repair",
+      "status": "passed",
+      "artifacts": "build/plan7-evidence/plan7-kakj-20261018-r13-core"
+    },
+    "lost-context-recovery": {
+      "repair_conversation": "",
+      "at": "2026-10-18T02:10:02.1484403+08:00",
+      "run_id": "plan7-kakj-20261018-r12-recovery",
+      "exit_code": 0,
+      "telemetry_conversation": "",
+      "recovery_conversation": "01a14b02-e71a-7b9d-b8c5-89701a932a91",
+      "phase": "lost-context-recovery",
+      "status": "passed",
+      "artifacts": "build/plan7-evidence/plan7-kakj-20261018-r12-recovery"
+    },
+    "private-concurrent-context": {
+      "repair_conversation": "01a14b0e-0d71-7760-88c9-796f4a5d35ed",
+      "at": "2026-10-18T02:17:38.7878606+08:00",
+      "run_id": "plan7-kakj-20261018-r14-activity",
+      "exit_code": 0,
+      "telemetry_conversation": "01a14b0b-89ff-7d36-99b6-a55d0f237184",
+      "recovery_conversation": "01a14b02-e71a-7b9d-b8c5-89701a932a91",
+      "phase": "private-concurrent-context",
+      "status": "passed",
+      "artifacts": "build/plan7-evidence/plan7-kakj-20261018-r14-activity"
+    },
+    "two-stage-evidence": {
+      "repair_conversation": "",
+      "at": "2026-10-18T02:02:01.3021651+08:00",
+      "run_id": "plan7-kakj-20261018-r11-sequence",
+      "exit_code": 0,
+      "telemetry_conversation": "",
+      "recovery_conversation": "",
+      "phase": "two-stage-evidence",
+      "status": "passed",
+      "artifacts": "build/plan7-evidence/plan7-kakj-20261018-r11-sequence"
+    }
+  },
+  "limitations": [
+    "Earlier provider transport failures remain failed and are not erased by this accepted cohort.",
+    "Recovery reports workspace quota_unavailable honestly; physical recovery assertions use actual remote effects.",
+    "Historical GLM-5.3 full 57-case matrix is separate; no fresh Windows/Kubernetes Flash matrix is claimed."
+  ],
+  "reasoning_effort": "high",
+  "model": "glm-5.3-flash",
+  "health_checks": 20,
+  "source_fingerprint": "7daac58ef2731e8e084bdaf6031ff92476e6e796ab8e9068eea47dfa981b2018",
+  "model_transport": "HTTP/1.1 with explicit ALPN and standard TLS verification",
+  "all_reported_and_settled": true,
+  "scope": "Actual kakj account and Docker Linux; four cases on same frozen source/model, failed cases rerun independently",
+  "inference_calls": 46,
+  "history_retained": true,
+  "output_tokens": 29679.0,
+  "fresh_full_cross_platform_matrix": false,
+  "call_count": 47,
+  "linux_workflow_complete": true,
+  "status": "passed",
+  "budget_parameter": "max_tokens",
+  "helm_revision": 33,
+  "docker_target_retained": true,
+  "browser": [
+    {
+      "failed": 0,
+      "suite": "linux-chatbox",
+      "duration_ms": 327522.309,
+      "passed": 1
+    },
+    {
+      "failed": 0,
+      "suite": "model",
+      "duration_ms": 1842.6639999999998,
+      "passed": 1
+    }
+  ],
+  "max_output_tokens": 16384,
+  "input_tokens": 623865.0,
+  "at": "2026-10-18T02:21:37.1569438+08:00",
+  "model_revision": 4
+}

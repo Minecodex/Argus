@@ -73,8 +73,12 @@ for (const english of [false, true]) {
 
       // @ still opens the resource picker and returns focus to the composer.
       await composer
-        .locator("button")
-        .filter({ has: page.locator("svg.lucide-at-sign") })
+        .getByRole("button", { name: english ? "Add" : "添加", exact: true })
+        .click();
+      await page
+        .getByRole("menuitem", {
+          name: english ? /^Reference a resource/ : /^引用资源/,
+        })
         .click();
       await expect(page.getByRole("listbox")).toBeVisible();
       await expect(area).toBeFocused();
@@ -114,9 +118,11 @@ test("upload and file preview survive reload without adding empty user replies",
   page,
 }, info) => {
   await login(page, false, "light");
+  await page.getByRole("button", { name: "添加", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "上传文件", exact: true }),
+    page.getByRole("menuitem", { name: "上传文件", exact: true }),
   ).toBeEnabled();
+  await page.keyboard.press("Escape");
   await page.locator('input[type="file"]').setInputFiles({
     name: "business.csv",
     mimeType: "text/csv",
@@ -139,7 +145,11 @@ test("upload and file preview survive reload without adding empty user replies",
   ).toHaveCount(0);
   await expect(page.locator(".argus-chat-message__body:empty")).toHaveCount(0);
   await page.getByRole("button", { name: "置顶摘要", exact: true }).click();
-  await page.getByRole("button", { name: "business.csv", exact: true }).click();
+  await page.locator('summary[title="/workspace/uploads"]').click();
+  await page.locator('summary[title^="/workspace/uploads/"]').click();
+  await page
+    .getByRole("button", { name: "预览 business.csv", exact: true })
+    .click();
   const preview = page.getByRole("dialog", { name: "business.csv" });
   await expect(preview).toContainText("value");
   await expect(preview).toContainText("20");

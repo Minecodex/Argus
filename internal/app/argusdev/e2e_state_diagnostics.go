@@ -29,6 +29,18 @@ func (a *App) collectScenarioState(ctx context.Context, env *E2EEnvironment) {
 		"alert-batches":         `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,channel_id,channel_version,owner_task_id,fence,status,send_started_at,finished_at FROM alert_delivery_batches ORDER BY created_at DESC LIMIT 200) t`,
 		"alert-attempts":        `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,delivery_id,attempt,status,result_code,error_code,started_at,finished_at FROM alert_delivery_attempts ORDER BY started_at DESC LIMIT 200) t`,
 	}
+	if env.Options.Suite == "plan7" {
+		queries["run-tools"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,mode_snapshot,tool_snapshot->>'sandbox_status' AS workspace_status,jsonb_path_query_array(tool_snapshot,'$.tools[*].model.name') AS tools FROM runs ORDER BY created_at DESC LIMIT 100) t`
+		queries["sandbox-capacity"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT enterprise_id,max_concurrent_sessions,monthly_session_seconds,version FROM sandbox_quotas) t`
+		queries["sandbox-sessions"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,enterprise_id,workspace_id,status,started_at,expires_at,updated_at FROM sandbox_sessions ORDER BY created_at DESC LIMIT 100) t`
+		queries["remote-requests"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,conversation_id,owner_user_id,run_id,action_ref,revision,status,stop_requested,stop_status,error_code,content_hash,created_at,updated_at FROM remote_execution_requests ORDER BY created_at DESC LIMIT 200) t`
+		queries["remote-steps"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,request_id,session_id,generation,sequence,status,command_id,result->>'error_code' AS error_code,result->>'exit_code' AS exit_code,result->>'terminated' AS terminated,result->>'outputs_collected' AS outputs_collected,started_at,completed_at,updated_at FROM remote_execution_steps ORDER BY updated_at DESC LIMIT 200) t`
+		queries["remote-sessions"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,conversation_id,resource_type,resource_id,identity_id,generation,status,context_revision,active_request_id,runtime_account,interpreter_version,last_active_at FROM remote_execution_sessions ORDER BY last_active_at DESC LIMIT 200) t`
+		queries["remote-connector-commands"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,command_id,connector_id,connection_epoch,command_type,status,error_code,dispatch_rejected,credential_lease_id,created_at,updated_at FROM connector_commands WHERE command_type LIKE 'remote_execution_%' ORDER BY created_at DESC LIMIT 200) t`
+		queries["remote-direct-commands"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,command_id,session_id,generation,owner_instance,command_type,status,error_code,dispatch_rejected,created_at,updated_at FROM remote_execution_direct_commands ORDER BY created_at DESC LIMIT 200) t`
+		queries["remote-transfers"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,request_id,session_id,direction,path,byte_size,content_hash,status,transferred_bytes,created_at FROM remote_execution_files ORDER BY created_at DESC LIMIT 200) t`
+		queries["remote-model-activity"] = `SELECT coalesce(json_agg(t),'[]') FROM (SELECT model_call_id,run_id,authorization_version,encode(projection_hash,'hex') AS projection_hash,activity,created_at FROM remote_execution_context_observations ORDER BY created_at DESC LIMIT 200) t`
+	}
 	for name, query := range queries {
 		value, err := a.postgresQuery(ctx, env, query)
 		if err == nil {

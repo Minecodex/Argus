@@ -1,0 +1,90 @@
+syntax = "proto3";
+package argus.connector.v1;
+option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1;connectorv1";
+
+// AI batches use a separate supervised runtime, never a human terminal ticket.
+message RemoteExecutionBatch {
+  string request_id = 1;
+  string session_id = 2;
+  string session_generation = 3;
+  uint64 context_revision = 4;
+  uint32 sequence = 5;
+  string approved_content_hash = 6;
+  string script = 7;
+  string script_sha256 = 8;
+  string interpreter = 9;
+  string username = 10;
+  string identity_sid = 11;
+  string identity_binding = 12;
+  uint32 timeout_seconds = 13;
+  uint64 max_output_bytes = 14;
+  string resource_id = 15;
+  string resource_type = 16;
+  string namespace = 17;
+  string pod = 18;
+  string pod_uid = 19;
+  string container = 20;
+  string action_ref = 21;
+  // Resolved by the control plane from the frozen access identity, never model input.
+  string ssh_address = 22;
+  uint32 ssh_port = 23;
+  string ssh_host_key = 24;
+  string kubernetes_api_server = 25;
+}
+message RemoteExecutionBatchResult {
+  string request_id = 1;
+  string session_id = 2;
+  string session_generation = 3;
+  uint64 context_revision = 4;
+  uint32 sequence = 5;
+  sint32 exit_code = 6;
+  bytes stdout = 7;
+  bytes stderr = 8;
+  bool truncated = 9;
+  bool session_lost = 10;
+  string working_directory = 11;
+  string error_code = 12;
+  bool terminated = 13;
+}
+message RemoteExecutionControl {
+  string session_id = 1;
+  string session_generation = 2;
+  string request_id = 3;
+  string operation = 4;
+  RemoteExecutionBatch binding = 5;
+}
+message RemoteExecutionControlResult {
+  string session_id = 1;
+  string session_generation = 2;
+  string status = 3;
+  uint64 context_revision = 4;
+  string username = 5;
+  string identity_sid = 6;
+  string interpreter_version = 7;
+  string input_directory = 8;
+  string output_directory = 9;
+  string runtime_account = 10;
+}
+message RemoteExecutionFile {
+  string session_id = 1;
+  string session_generation = 2;
+  string request_id = 3;
+  string operation = 4;
+  string path = 5;
+  uint64 offset = 6;
+  bytes data = 7;
+  uint64 byte_size = 8;
+  string sha256 = 9;
+}
+message RemoteExecutionFileInfo {
+  string path = 1;
+  uint64 byte_size = 2;
+  string sha256 = 3;
+}
+message RemoteExecutionFileResult {
+  repeated RemoteExecutionFileInfo files = 1;
+  bytes data = 2;
+  uint64 offset = 3;
+  bool complete = 4;
+  string error_code = 5;
+}

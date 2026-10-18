@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func Workspace(ctx context.Context, cfg config.Server, store *postgres.Store, idempotency postgres.Idempotency, runtime sandbox.Service) (workspace.Service, error) {
+func Workspace(ctx context.Context, cfg config.Server, store *postgres.Store, idempotency postgres.Idempotency, runtime sandbox.Service, remoteSource workspace.SourceAuthorizer) (workspace.Service, error) {
 	settings := config.LoadWorkspace()
 	service := workspace.Service{Store: store, Idempotency: idempotency, Config: settings, Sandbox: runtime, Kubernetes: workspace.Kubernetes{Config: settings}}
 	objects, err := objectstore.Open(ctx, cfg.ObjectStoreURL, settings.FilesBucket, cfg.ObjectStoreAccess, cfg.ObjectStoreSecret)
@@ -32,6 +32,14 @@ func Workspace(ctx context.Context, cfg config.Server, store *postgres.Store, id
 	service.Objects = objects
 	queries := dashboard.QueryJobs{Runtime: dashboard.Runtime{Store: store}}
 	service.ExternalSource = func(ctx context.Context, p toolruntime.Principal, ref string) (bool, error) {
+		// Finish source authorization before any provider or registered closure
+		// receives a copy of the service. Both HTTP and Worker use this constructor.
+		if remoteSource != nil {
+			handled, err := remoteSource(ctx, p, ref)
+			if handled || err != nil {
+				return handled, err
+			}
+		}
 		handled, err := queries.AuthorizeSource(ctx, p, ref)
 		if handled {
 			err = dashboardWorkspaceSourceError(err)

@@ -65,6 +65,8 @@ Argus 必须同时满足两个要求：用户能知道输入为什么失败，�
 
 ## 6. 门禁
 
+模型工具参数还包含协议内的 JSON 字符串边界：完整模型响应可以携带非法参数字符串，Provider 保留该字符串并收齐用量；Agent 在持久派发前拒绝非法 JSON／非对象参数，返回 `TOOL_INPUT_INVALID` 的安全约束提示。错误输入不会修补成 `{}`，重启后仍拒绝执行；原始参数按字符串留在受权限保护的历史中，已派发的未知结果不得改称未执行。参见 [Plan7 边界说明](./plan7/02-architecture-and-contracts.md)。
+
 - 密码契约版本、边界、规则顺序和弱密码列表唯一性由 Go contract test 检查。
 - 生成漂移由 `argus-dev contracts check` 检查。
 - `error-codes.yaml` 的错误码、消息键和 `safe_params` 形状由 contract test 检查。

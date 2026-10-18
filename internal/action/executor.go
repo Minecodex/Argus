@@ -82,6 +82,19 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 			}
 			return conversation.ScheduleActionRun(ctx, q, action, true)
 		}
+		if execution.RunID.Valid && action.Status == "ready" {
+			run, e := q.GetRunForUpdate(ctx, db.GetRunForUpdateParams{ID: execution.RunID.UUID, EnterpriseID: execution.EnterpriseID})
+			if e != nil {
+				return e
+			}
+			if run.Status == "cancelled" {
+				if _, e = q.CancelStoppedReadyAction(ctx, db.CancelStoppedReadyActionParams{ID: action.ID, EnterpriseID: action.EnterpriseID}); e != nil {
+					return e
+				}
+				_, e = q.FinishExecution(ctx, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID, Status: "cancelled", ErrorCode: pgtype.Text{String: "TOOL_CANCELLED", Valid: true}})
+				return e
+			}
+		}
 		if action.Status != "ready" || !authorizationCurrent(ctx, q, action) || !approvalCurrent(ctx, q, action) {
 			if _, err := q.InvalidatePendingActionM4(ctx, db.InvalidatePendingActionM4Params{ID: action.ID, EnterpriseID: action.EnterpriseID,
 				ErrorCode: pgtype.Text{String: "ACTION_INVALIDATED", Valid: true}}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -114,6 +127,10 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 			_, err = q.MarkExecutionResultUnknown(ctx, db.MarkExecutionResultUnknownParams{
 				ID: execution.ID, EnterpriseID: execution.EnterpriseID, ConnectorCommandID: result.ConnectorCommandID,
 			})
+			return err
+		}
+		if result.RemoteExecutionID.Valid {
+			_, err = q.MarkExecutionRemoteResultUnknown(ctx, db.MarkExecutionRemoteResultUnknownParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID, RemoteExecutionID: result.RemoteExecutionID})
 			return err
 		}
 		if result.TelemetryOperationID.Valid {
@@ -284,6 +301,22 @@ func resourceNameConflict(cause error) bool {
 }
 
 func (executor Executor) reconcileExecution(ctx context.Context, q *db.Queries, execution db.Execution) error {
+	if execution.RemoteExecutionID.Valid {
+		remote, err := q.GetRemoteRequest(ctx, db.GetRemoteRequestParams{ID: execution.RemoteExecutionID.UUID, EnterpriseID: execution.EnterpriseID})
+		if err != nil {
+			return err
+		}
+		switch remote.Status {
+		case "succeeded", "failed", "partial_failed", "cancelled", "result_unknown", "paused_for_recovery":
+			status := "failed"
+			if remote.Status == "succeeded" {
+				status = "succeeded"
+			}
+			return executor.finishReconciledExecution(ctx, q, execution, status, pgtype.Text{String: remote.ErrorCode, Valid: remote.ErrorCode != ""}, "Remote execution: "+remote.Status, "remote_execution", remote.ID, int64(remote.Revision))
+		default:
+			return nil
+		}
+	}
 	if execution.HostRemovalOperationID.Valid {
 		operation, err := q.GetHostRemovalOperation(ctx, db.GetHostRemovalOperationParams{ID: execution.HostRemovalOperationID.UUID, EnterpriseID: execution.EnterpriseID})
 		if err != nil {

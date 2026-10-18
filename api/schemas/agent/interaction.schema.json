@@ -1,0 +1,392 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argus.dev/schemas/agent/interaction/v1",
+  "$defs": {
+    "InteractionOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "description"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    },
+    "InteractionQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "header",
+        "question",
+        "options"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "header": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "question": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InteractionOption"
+          },
+          "maxItems": 4
+        }
+      }
+    },
+    "UserInputQuestions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "questions"
+      ],
+      "properties": {
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InteractionQuestion"
+          },
+          "minItems": 1,
+          "maxItems": 3
+        }
+      }
+    },
+    "GuidancePlanStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "language": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "target": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      }
+    },
+    "GuidancePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GuidancePlanStep"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "supersedes_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "markdown": {
+          "type": "string",
+          "maxLength": 262144
+        },
+        "document_markdown": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "commands": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/PlanCommand"
+          }
+        }
+      }
+    },
+    "InteractionContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GuidancePlanStep"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "supersedes_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InteractionQuestion"
+          },
+          "minItems": 1,
+          "maxItems": 3
+        },
+        "markdown": {
+          "type": "string",
+          "maxLength": 262144
+        },
+        "document_markdown": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "commands": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/PlanCommand"
+          }
+        }
+      }
+    },
+    "InteractionAnswer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "selected_option": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "skipped": {
+          "type": "boolean"
+        }
+      }
+    },
+    "InteractionResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "content_hash",
+        "action"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        },
+        "content_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "answer",
+            "skip",
+            "confirm",
+            "revise"
+          ]
+        },
+        "answers": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/InteractionAnswer"
+          }
+        },
+        "feedback": {
+          "type": "string",
+          "maxLength": 16384
+        }
+      }
+    },
+    "ConversationInteraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "conversation_id",
+        "run_id",
+        "family_id",
+        "kind",
+        "revision",
+        "status",
+        "version",
+        "content_hash",
+        "content",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "conversation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "family_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "plan",
+            "user_input"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "answered",
+            "skipped",
+            "superseded",
+            "confirmed",
+            "cancelled"
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        },
+        "content_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "content": {
+          "$ref": "#/$defs/InteractionContent"
+        },
+        "response": {
+          "$ref": "#/$defs/InteractionResponse"
+        },
+        "implementation_run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "implementation_status": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "ConversationInteractionPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConversationInteraction"
+          }
+        },
+        "active_run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "active_run_status": {
+          "type": "string"
+        }
+      }
+    },
+    "PlanCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved_step_id",
+        "block_id",
+        "target",
+        "identity",
+        "interpreter"
+      ],
+      "properties": {
+        "approved_step_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "block_id": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "target": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "identity": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "interpreter": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/ConversationInteraction"
+}

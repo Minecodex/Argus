@@ -5,6 +5,8 @@ export interface MockEnterpriseUserRecord {
 }
 
 export interface MockConversationRecord {
+  accessMode?: import("../interactions").ConversationAccessMode;
+  mode?: "execute" | "plan";
   id: string;
   enterpriseId: string;
   title: string;

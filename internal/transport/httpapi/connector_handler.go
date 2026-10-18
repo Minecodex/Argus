@@ -65,7 +65,14 @@ func (handler ConnectorHandler) EnrollConnector(ctx context.Context, request con
 	if token == "" || metadata.Request.Header.Get("Authorization") != "" || metadata.Request.Header.Get("Cookie") != "" {
 		return connectorapi.EnrollConnectordefaultJSONResponse{Body: connectorError(ctx, connector.ErrEnrollmentInvalid), StatusCode: http.StatusUnauthorized}, nil
 	}
-	result, err := handler.Service.Enroll(ctx, connector.EnrollInput{Token: token, CSRPem: *request.Body.CsrPem,
+	var account *resource.HostExecutionAccount
+	if request.Body.ExecutionAccount != nil {
+		account = &resource.HostExecutionAccount{Username: request.Body.ExecutionAccount.Username}
+		if request.Body.ExecutionAccount.Sid != nil {
+			account.SID = *request.Body.ExecutionAccount.Sid
+		}
+	}
+	result, err := handler.Service.Enroll(ctx, connector.EnrollInput{Token: token, CSRPem: *request.Body.CsrPem, ExecutionAccount: account,
 		DeviceFingerprint: request.Body.DeviceFingerprint, InstanceID: request.Body.InstanceId, Platform: string(request.Body.Platform), Architecture: string(request.Body.Architecture), Name: request.Body.Name,
 		SoftwareVersion: request.Body.SoftwareVersion, Capabilities: request.Body.Capabilities})
 	if err != nil {

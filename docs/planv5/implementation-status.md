@@ -20,7 +20,7 @@
 - 后端 Card 服务、命令、处理器、配置、权限注册已删除。通用 action_bindings 保留且解除 Card 依赖。
 - 自有 Resource/Telemetry Tool 已随包嵌入不可变模板，Presentation 独立保存，读取时核验当前授权范围；不会把模板传给模型。
 - 新 Template Host 在 @argus/ui，独立 template-runtime 应用；只支持 resize/open_resource/open_result，nonce/sequence/port 校验和无网络 CSP。原 Card Host/Runtime 跟踪源码已删除。
-- 前端已有 MCP 管理页、会话显式选择、真实上传进度/附件、文件列表、删除 Workspace、下载和通用模板组件；容量预检失败保留输入附件。
+- 前端已有 MCP 管理页、会话显式选择、真实上传进度/附件、会话文件目录树、预览、下载和通用模板组件；容量预检失败保留输入附件。2026-10-18 起文件区移除独立删除 Workspace 入口，文件随会话保留。
 - Enterprise、UI、Template Runtime 类型检查通过；API Client 83 个测试、Chat 8 个测试通过。Template Host 单元测试首次因 jsdom 导航替换 window 导致 spy 失效，已修正，10 个 Host 测试通过；Runtime 2 个测试通过。
 
 ## 仍需完成与重点复核

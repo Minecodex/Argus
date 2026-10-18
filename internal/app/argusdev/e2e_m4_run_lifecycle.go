@@ -58,6 +58,14 @@ func (a *App) verifyM4RunLifecycle(ctx context.Context, env *E2EEnvironment, hos
 	if err := a.refreshM4ApproverLogin(ctx, env); err != nil {
 		return err
 	}
+	// Legitimate automatic compaction may already exist for this terminal Run.
+	// Compare exact identities so foreign requests cannot create, replace or
+	// remove a task; a global zero count would reject unrelated prior work.
+	compactionTasksQuery := "SELECT coalesce(string_agg(id::text,',' ORDER BY id),'') FROM runtime_tasks WHERE run_id='" + run + "' AND queue='compaction';"
+	priorCompactionTasks, err := a.postgresQuery(ctx, env, compactionTasksQuery)
+	if err != nil {
+		return err
+	}
 	otherHeaders := map[string]string{"Origin": env.EnterpriseOrigin(), "X-CSRF-Token": env.State.Values["m4_approver_csrf"], "Idempotency-Key": p5RequestKey("m4-owned", run)}
 	if _, err := client.JSON(ctx, "m4-foreign-run-read", "m4-approver", http.MethodGet, "/runs/"+run, 404, nil, otherHeaders); err != nil {
 		return err
@@ -67,7 +75,7 @@ func (a *App) verifyM4RunLifecycle(ctx context.Context, env *E2EEnvironment, hos
 			return err
 		}
 	}
-	if err := a.waitPostgresValue(ctx, env, "SELECT count(*) FROM runtime_tasks WHERE run_id='"+run+"' AND queue='compaction';", "0", time.Second); err != nil {
+	if err := a.waitPostgresValue(ctx, env, compactionTasksQuery, strings.TrimSpace(priorCompactionTasks), time.Second); err != nil {
 		return err
 	}
 	if _, err := client.JSON(ctx, "m4-delete-private-conversation", "enterprise", http.MethodDelete, "/conversations/"+convo, 202, nil, enterpriseHeaders(env, "m4-delete-private-conversation")); err != nil {
@@ -144,7 +152,7 @@ func (a *App) verifyM4RunLifecycle(ctx context.Context, env *E2EEnvironment, hos
 	if _, err := a.p5Run(ctx, env, invalidConvo, "continue-after-invalidation", nil, []string{}); err != nil {
 		return err
 	}
-	evidence, _ := json.Marshal(map[string]any{"rejected_run": "failed", "rejected_terminal_events": 1, "invalidated_execution": "failed", "invalidated_business_changes": 0, "following_messages": "succeeded", "foreign_run_read_compact_cancel": "404", "deleted_run_read_compact": "404", "foreign_compaction_tasks": 0, "worker_replicas_restored": replicas})
+	evidence, _ := json.Marshal(map[string]any{"rejected_run": "failed", "rejected_terminal_events": 1, "invalidated_execution": "failed", "invalidated_business_changes": 0, "following_messages": "succeeded", "foreign_run_read_compact_cancel": "404", "deleted_run_read_compact": "404", "foreign_compaction_tasks": 0, "prior_compaction_task_ids": strings.FieldsFunc(strings.TrimSpace(priorCompactionTasks), func(r rune) bool { return r == ',' }), "compaction_task_ids_unchanged": true, "worker_replicas_restored": replicas})
 	return writePrivate(filepath.Join(env.Options.Artifacts, "m4-run-lifecycle.json"), append(evidence, '\n'))
 }
 

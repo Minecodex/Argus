@@ -821,6 +821,9 @@ components:
             type: string
             minLength: 2
             pattern: ^[a-z][a-z0-9_.-]+$
+        execution_account:
+          $ref: '#/components/schemas/HostExecutionAccount'
+          description: Connector 当前真实账号观测；仅与已批准接入计划中的显式账号匹配时建立执行绑定。
     ConnectorEnrollResult:
       type: object
       additionalProperties: false
@@ -1357,6 +1360,21 @@ components:
         - host
         - bastion
         - kubernetes
+    HostExecutionAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - username
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 256
+        sid:
+          type: string
+          minLength: 1
+          maxLength: 184
+          pattern: ^S-1-[0-9]+(-[0-9]+)+$
     TrustBundleSnapshot:
       type: object
       additionalProperties: false

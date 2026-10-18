@@ -1,0 +1,143 @@
+{
+  "list": {
+    "parameters": [
+      {
+        "name": "conversation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listConversationInteractions",
+      "summary": "List current question, latest drafts and confirmed plans",
+      "tags": [
+        "Conversations"
+      ],
+      "responses": {
+        "200": {
+          "description": "Durable conversation interaction state",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/interaction.yaml#/components/schemas/ConversationInteractionPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "../argus.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "get": {
+    "parameters": [
+      {
+        "name": "conversation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "interaction_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getConversationInteraction",
+      "summary": "Read an owned question or guidance plan",
+      "tags": [
+        "Conversations"
+      ],
+      "responses": {
+        "200": {
+          "description": "Current interaction",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/interaction.yaml#/components/schemas/ConversationInteraction"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "../argus.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "respond": {
+    "parameters": [
+      {
+        "name": "conversation_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "interaction_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "respondConversationInteraction",
+      "summary": "Answer, skip, revise or confirm the exact interaction version",
+      "tags": [
+        "Conversations"
+      ],
+      "parameters": [
+        {
+          "$ref": "../argus.yaml#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "../argus.yaml#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/interaction.yaml#/components/schemas/InteractionResponse"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Resolved interaction and implementation reference",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/interaction.yaml#/components/schemas/ConversationInteraction"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "../argus.yaml#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

@@ -12,7 +12,7 @@ export interface components {
             run_id?: string;
             step_id?: string;
             /** @enum {unknown} */
-            event_type: "user_message" | "assistant_message" | "model_usage" | "tool_call_requested" | "tool_call_started" | "tool_call_result" | "pending_action_created" | "user_confirmation" | "approval_update" | "execution_update" | "run_state_changed" | "context_compacted" | "tool_presentation" | "workspace_file_added" | "artifact_published";
+            event_type: "user_message" | "assistant_message" | "model_usage" | "tool_call_requested" | "tool_call_started" | "tool_call_result" | "pending_action_created" | "user_confirmation" | "approval_update" | "execution_update" | "run_state_changed" | "context_compacted" | "tool_presentation" | "workspace_file_added" | "artifact_published" | "interaction_requested" | "interaction_resolved" | "conversation_settings_changed";
             /** @enum {unknown} */
             actor_type?: "user" | "model" | "service" | "worker" | "system";
             actor_id?: string;
@@ -32,7 +32,7 @@ export interface components {
             run_id?: string;
             message_id?: string;
             /** @enum {unknown} */
-            event_type: "run_started" | "message_started" | "message_delta" | "message_completed" | "tool_call_started" | "tool_call_completed" | "pending_action_created" | "waiting_input" | "waiting_approval" | "context_compaction_started" | "context_compaction_completed" | "context_compaction_failed" | "run_completed" | "run_failed" | "tool_presentation" | "workspace_file_added" | "artifact_published";
+            event_type: "run_started" | "message_started" | "message_delta" | "message_completed" | "tool_call_started" | "tool_call_completed" | "pending_action_created" | "waiting_input" | "waiting_approval" | "context_compaction_started" | "context_compaction_completed" | "context_compaction_failed" | "run_completed" | "run_failed" | "tool_presentation" | "workspace_file_added" | "artifact_published" | "interaction_requested" | "interaction_resolved" | "conversation_settings_changed";
             /** Format: date-time */
             occurred_at: string;
             payload: components["schemas"]["PublicJsonObject"];
@@ -68,6 +68,8 @@ export interface components {
             version: number;
         };
         Run: {
+            /** @enum {string} */
+            mode_snapshot?: "execute" | "plan";
             run_id: string;
             conversation_id: string;
             enterprise_id: string;
@@ -86,6 +88,10 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** @enum {string} */
+            access_mode_snapshot?: "request_approval" | "full_access";
+            /** Format: uuid */
+            approved_plan_id?: string;
         };
         Step: {
             step_id: string;
@@ -172,6 +178,11 @@ export interface components {
             required_permissions: string[];
         } & (unknown & unknown);
         ModelCapabilities: {
+            /** @enum {string} */
+            output_token_parameter?: "max_tokens" | "max_completion_tokens" | "max_output_tokens";
+            /** @enum {string} */
+            reasoning_effort?: "low" | "high" | "max";
+            supports_streaming?: boolean;
             context_window_tokens: number;
             max_output_tokens: number;
             supports_tool_calling: boolean;

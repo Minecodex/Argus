@@ -104,7 +104,7 @@ export const chatZh = {
     composer: {
       placeholder: "询问资源状态，或描述你想完成的运维任务…",
       send: "发送",
-      stop: "停止生成",
+      stop: "停止任务",
       attach: "添加附件",
       mention: "引用资源（堡垒机 / 主机）",
       mentionTitle: "引用资源",
@@ -114,7 +114,7 @@ export const chatZh = {
       noMatch: "没有匹配项",
       hint: "Enter 发送 · Shift+Enter 换行 · @ 引用资源",
       disclaimer:
-        "Argus 可能会出错。生产变更始终需要确定性权限检查与人工确认。",
+        "Argus 可能会出错，请复核结果。远程操作按本聊天权限处理，客户 MCP 按其授权配置执行。",
     },
     model: {
       select: "选择模型",
@@ -250,7 +250,7 @@ export const chatEn = {
     composer: {
       placeholder: "Ask about resource health or describe an operations task…",
       send: "Send",
-      stop: "Stop generating",
+      stop: "Stop task",
       attach: "Attach file",
       mention: "Reference a resource (Connector / host)",
       mentionTitle: "Reference a resource",
@@ -261,7 +261,7 @@ export const chatEn = {
       noMatch: "No matches",
       hint: "Enter to send · Shift+Enter for newline · @ to reference",
       disclaimer:
-        "Argus can make mistakes. Production changes always require deterministic authorization and confirmation.",
+        "Argus can make mistakes; review its results. Remote operations follow this chat's permissions. Customer MCP tools follow their configured permissions.",
     },
     model: {
       select: "Select model",

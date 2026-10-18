@@ -28,6 +28,8 @@
 
 ## 3. Redis 的正确使用
 
+Plan7 的远程命令使用 PostgreSQL 持久任务和有界并行消费者：remote_execution 默认每个 Worker 8 个执行槽位，remote_execution_control 默认 2 个独立停止槽位，避免长命令阻塞其他会话或耗尽停止容量。每个消费者有独立 lease_owner，现有任务 Fence 和会话围栏不变；同一计划／解释器继续串行，资源本身不设置跨聊天独占队列。停止队列只接受 stop，不能执行命令。迁移 00016 扩展队列约束，并将尚未领取的旧停止任务迁入控制队列。
+
 Redis 可以用于状态转移相关的短期事务，但不能与 PostgreSQL 共同承担一个不可分割的业务提交。允许使用：
 
 - `SET NX PX` 或 Lua：短期互斥、幂等窗口和 Leader Lease 加速。

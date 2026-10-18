@@ -17,6 +17,9 @@ const softwareVersion = "0.1.0-m3"
 func Run(ctx context.Context, logger *slog.Logger) error {
 	command := "run"
 	args := os.Args[1:]
+	if len(args) > 0 && args[0] == "remote-runtime" {
+		return runRemoteRuntime(ctx, args[1:])
+	}
 	if len(args) > 0 && (args[0] == "run" || args[0] == "enroll" || args[0] == "repair" || args[0] == "repair-collector" || args[0] == "probe" || args[0] == "bootstrap-state" || args[0] == "collector-service" || args[0] == "privileged-helper" || args[0] == "verify-artifact" || args[0] == "self-test" || args[0] == "uninstall-local" || args[0] == "inventory") {
 		command, args = args[0], args[1:]
 	}

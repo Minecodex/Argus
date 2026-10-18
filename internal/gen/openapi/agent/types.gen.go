@@ -8,7 +8,86 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for ModelCapabilitiesOutputTokenParameter.
+const (
+	MaxCompletionTokens ModelCapabilitiesOutputTokenParameter = "max_completion_tokens"
+	MaxOutputTokens     ModelCapabilitiesOutputTokenParameter = "max_output_tokens"
+	MaxTokens           ModelCapabilitiesOutputTokenParameter = "max_tokens"
+)
+
+// Valid indicates whether the value is a known member of the ModelCapabilitiesOutputTokenParameter enum.
+func (e ModelCapabilitiesOutputTokenParameter) Valid() bool {
+	switch e {
+	case MaxCompletionTokens:
+		return true
+	case MaxOutputTokens:
+		return true
+	case MaxTokens:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelCapabilitiesReasoningEffort.
+const (
+	High ModelCapabilitiesReasoningEffort = "high"
+	Low  ModelCapabilitiesReasoningEffort = "low"
+	Max  ModelCapabilitiesReasoningEffort = "max"
+)
+
+// Valid indicates whether the value is a known member of the ModelCapabilitiesReasoningEffort enum.
+func (e ModelCapabilitiesReasoningEffort) Valid() bool {
+	switch e {
+	case High:
+		return true
+	case Low:
+		return true
+	case Max:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunAccessModeSnapshot.
+const (
+	FullAccess      RunAccessModeSnapshot = "full_access"
+	RequestApproval RunAccessModeSnapshot = "request_approval"
+)
+
+// Valid indicates whether the value is a known member of the RunAccessModeSnapshot enum.
+func (e RunAccessModeSnapshot) Valid() bool {
+	switch e {
+	case FullAccess:
+		return true
+	case RequestApproval:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunModeSnapshot.
+const (
+	Execute RunModeSnapshot = "execute"
+	Plan    RunModeSnapshot = "plan"
+)
+
+// Valid indicates whether the value is a known member of the RunModeSnapshot enum.
+func (e RunModeSnapshot) Valid() bool {
+	switch e {
+	case Execute:
+		return true
+	case Plan:
+		return true
+	default:
+		return false
+	}
+}
 
 // AgentEvent defines model for AgentEvent.
 type AgentEvent struct {
@@ -107,12 +186,21 @@ type ModelCall struct {
 
 // ModelCapabilities defines model for ModelCapabilities.
 type ModelCapabilities struct {
-	ContextWindowTokens          int         `json:"context_window_tokens"`
-	MaxOutputTokens              int         `json:"max_output_tokens"`
-	ProviderCompactionCapability interface{} `json:"provider_compaction_capability"`
-	SupportsStructuredOutput     bool        `json:"supports_structured_output"`
-	SupportsToolCalling          bool        `json:"supports_tool_calling"`
+	ContextWindowTokens          int                                    `json:"context_window_tokens"`
+	MaxOutputTokens              int                                    `json:"max_output_tokens"`
+	OutputTokenParameter         *ModelCapabilitiesOutputTokenParameter `json:"output_token_parameter,omitempty"`
+	ProviderCompactionCapability interface{}                            `json:"provider_compaction_capability"`
+	ReasoningEffort              *ModelCapabilitiesReasoningEffort      `json:"reasoning_effort,omitempty"`
+	SupportsStreaming            *bool                                  `json:"supports_streaming,omitempty"`
+	SupportsStructuredOutput     bool                                   `json:"supports_structured_output"`
+	SupportsToolCalling          bool                                   `json:"supports_tool_calling"`
 }
+
+// ModelCapabilitiesOutputTokenParameter defines model for ModelCapabilities.OutputTokenParameter.
+type ModelCapabilitiesOutputTokenParameter string
+
+// ModelCapabilitiesReasoningEffort defines model for ModelCapabilities.ReasoningEffort.
+type ModelCapabilitiesReasoningEffort string
 
 // PublicJsonObject defines model for PublicJsonObject.
 type PublicJsonObject map[string]*PublicJsonValue
@@ -143,21 +231,30 @@ type ResourceRef struct {
 
 // Run defines model for Run.
 type Run struct {
-	AuthorizationVersion int         `json:"authorization_version"`
-	ConversationId       string      `json:"conversation_id"`
-	CreatedAt            time.Time   `json:"created_at"`
-	CurrentStepId        *string     `json:"current_step_id,omitempty"`
-	EnterpriseId         string      `json:"enterprise_id"`
-	ErrorCode            *string     `json:"error_code,omitempty"`
-	Locale               interface{} `json:"locale"`
-	ModelId              string      `json:"model_id"`
-	ModelRevision        int         `json:"model_revision"`
-	RunId                string      `json:"run_id"`
-	Status               interface{} `json:"status"`
-	StopReason           *string     `json:"stop_reason,omitempty"`
-	UpdatedAt            time.Time   `json:"updated_at"`
-	Version              int         `json:"version"`
+	AccessModeSnapshot   *RunAccessModeSnapshot `json:"access_mode_snapshot,omitempty"`
+	ApprovedPlanId       *openapi_types.UUID    `json:"approved_plan_id,omitempty"`
+	AuthorizationVersion int                    `json:"authorization_version"`
+	ConversationId       string                 `json:"conversation_id"`
+	CreatedAt            time.Time              `json:"created_at"`
+	CurrentStepId        *string                `json:"current_step_id,omitempty"`
+	EnterpriseId         string                 `json:"enterprise_id"`
+	ErrorCode            *string                `json:"error_code,omitempty"`
+	Locale               interface{}            `json:"locale"`
+	ModeSnapshot         *RunModeSnapshot       `json:"mode_snapshot,omitempty"`
+	ModelId              string                 `json:"model_id"`
+	ModelRevision        int                    `json:"model_revision"`
+	RunId                string                 `json:"run_id"`
+	Status               interface{}            `json:"status"`
+	StopReason           *string                `json:"stop_reason,omitempty"`
+	UpdatedAt            time.Time              `json:"updated_at"`
+	Version              int                    `json:"version"`
 }
+
+// RunAccessModeSnapshot defines model for Run.AccessModeSnapshot.
+type RunAccessModeSnapshot string
+
+// RunModeSnapshot defines model for Run.ModeSnapshot.
+type RunModeSnapshot string
 
 // RunCheckpoint defines model for RunCheckpoint.
 type RunCheckpoint struct {

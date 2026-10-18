@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -36,6 +37,11 @@ func (a *App) p5BenchmarkSample(ctx context.Context, env *E2EEnvironment, id, ru
 	if _, err := uuid.Parse(run); err != nil {
 		return p5BenchmarkSample{}, fmt.Errorf("P5 benchmark received invalid run identity")
 	}
+	// A terminal Run may still have a soft-compaction call settling in the
+	// background. Read the complete accounting cohort, not an in-flight sample.
+	if err := a.waitPostgresValue(ctx, env, p5PendingModelAccountingSQL(run), "0", 3*time.Minute); err != nil {
+		return p5BenchmarkSample{}, fmt.Errorf("model accounting did not settle: %w", err)
+	}
 	value, err := a.postgresQuery(ctx, env, p5BenchmarkSampleSQL(run))
 	if err != nil {
 		return p5BenchmarkSample{}, err
@@ -46,6 +52,13 @@ func (a *App) p5BenchmarkSample(ctx context.Context, env *E2EEnvironment, id, ru
 	}
 	sample.ID = id
 	return sample, nil
+}
+
+func p5PendingModelAccountingSQL(run string) string {
+	return `SELECT
+ (SELECT count(*) FROM model_calls WHERE run_id='` + run + `' AND status IN ('reserved','running'))+
+ (SELECT count(*) FROM runtime_tasks WHERE run_id='` + run + `' AND queue='compaction' AND status IN ('pending','leased','running'))+
+ (SELECT count(*) FROM model_quota_reservations q JOIN model_calls c ON c.id=q.model_call_id WHERE c.run_id='` + run + `' AND c.status='succeeded' AND q.status='active');`
 }
 
 func p5BenchmarkSampleSQL(run string) string {

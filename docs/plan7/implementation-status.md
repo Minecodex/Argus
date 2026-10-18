@@ -1,72 +1,25 @@
 # 实施状态
 
-更新日期：2026-10-15。当前仅完成需求收敛、只读源码调查、官方产品资料核对和开发计划整理。未编写 Plan7 生产代码，未运行 Plan7 自动化测试，未连接资源执行命令，未部署或修改集群。
+> 2026-10-18：当前 Markdown 计划、一次性命令授权与普通会话展示已完成，见 [第 18 篇](./18-markdown-plan-command-consent.md)。本地 revision 40／schema 19，健康 20/20；4 个最终真实场景、38 次干净模型调用完整通过，原 39 个聊天和5881条事件保留。下文旧版本号、固定计划规则和通过数保留历史适用范围。
 
-最新确认：Q15～Q22 规则保留；Q23／Q24 明确不同聊天同资源不排队，并发执行事实仅注入 AI 上下文，不展示聊天消息或提示 UI。单计划／同 shell 仍串行。产品基线已明确，当前无待回答问题，生产任务尚未开始。
+更新日期：2026-10-18。**原 Plan7 范围的 P7-T01～T09 已完成历史验证；最新补丁也已完成本地部署和实际账号的 Docker Linux 四类业务验收。** 使用 APIMart `glm-5.3-flash`，同版本通过案例47/47次模型调用用量完整、浏览器2/2；早期失败保持。详见[实际账号实测](./14-apimart-linux-chatbox.md)。
 
-## 已有实现与新增工作
+历史完整发布为 plan7-release-20261017-r04、源码1bfaa848…，57项矩阵、104项具名检查、19项浏览器、GLM-5.3的82次调用通过。当前 Backend／Web 补丁为 plan7-http1-20261018-r03、源码7daac58…；2652份清单构建及验收前后一致，2169项Go检查、数据库／HTTP、契约、前端检查及real构建通过。最新Flash结果来自当前版本的实际调用，与旧跨平台矩阵分开记录。
 
-| 能力 | 当前源码事实 | Plan7 工作 |
+| 任务 | 状态 | 当前交付 |
 | --- | --- | --- |
-| Workspace | [四工具](../../internal/workspace/tools.go)；[离线网络配置](../../internal/sandbox/workspace.go) | 继续离线分析，补齐执行后分析与新策略验收 |
-| 平台元工具 | [Gateway](../../internal/toolgateway/gateway.go)；[分类定义](../../internal/toolruntime/categories.go) | 保留分类搜索契约、现有业务权限与确认 |
-| 待确认动作 | [PendingAction](../../internal/resource/pending_action.go)；[确认服务](../../internal/action/service.go)；[Executor](../../internal/action/executor.go) | 承载新的远程请求和计划批准，补逐步执行与恢复 |
-| 会话恢复 | [动作恢复](../../internal/agent/action_recovery.go)；[执行门禁](../../internal/agent/loop_execution.go)；[历史提示](../../internal/agent/loop_history.go) | 替换一刀切 VerificationOnly 约束，支持远程确认后继续 Workspace 分析与新申请 |
-| 当前确认 UI | [PendingActionCard](../../web/apps/enterprise/src/components/chat/pending-action-card.tsx)；[共享控件](../../web/packages/ui/src/preview-commit.tsx) | 新增排查／计划、命令预览、意见修订和逐步结果 |
-| 模式持久化 | 当前 Conversation 没有这两个产品模式契约 | 新增 OpenAPI、数据库、客户端、真实与 Mock 行为 |
-| 主机后台执行 | [Connector 固定分派](../../internal/app/connector/executor.go)；[受限 helper](../../internal/app/connector/privileged_helper_unix.go) | 新增类型化远程命令请求，不复用人工会话票据 |
-| 主机身份 | [SSH 预检](../../internal/sshtarget/probe.go)；[安装与运行账号](../../internal/directexecutor/host_onboarding.go)；[接入计划](../../internal/connector/host_onboarding.go) | 沿接入身份绑定实际执行，处理 manual 等没有可继承账号的路径 |
-| Windows PowerShell | [现有终端](../../internal/app/connector/local_terminal_windows.go)；[Windows 后台边界](../../internal/app/connector/privileged_helper_windows.go) | 现有 powershell.exe／ConPTY 不证明通用执行具备；补接入身份、版本、错误、进程树停止和完成回执 |
-| K8s 查询 | [查询与凭据租约](../../internal/kubernetesreader/reader.go)；[资源授权](../../internal/resource/kubernetes_service.go) | 既有 List/GetLogs 不能当作通用 kubectl/exec；新增有界执行适配 |
-| 遥测文件 | [查询封存](../../internal/dashboard/query_worker.go)；[文件分块](../../internal/dashboard/query_files.go)；[Workspace 导入](../../internal/workspace/import_query.go) | 复用来源／完整性链路，将远程结果按同类原则导入 |
-| 共享解释器／长连接 | [Connector 流](../../api/proto/argus/connector/v1/connector.proto)；[人工会话](../../internal/app/connector/remote_session.go)；[断线路由](../../internal/connector/remote_hub.go) | 可复用传输和进程组件；没有 AI 逐批批准、上下文版本和重启恢复契约 |
-| Workspace↔远端文件 | [文件交付](../../internal/workspace/files.go)；[来源授权](../../internal/workspace/source_authorization.go)；[安装协议](../../api/proto/argus/connector/v1/control.proto) | 已有封存交付及安装传输不等于通用远端文件能力；新增路径／批准／覆盖／完整性与完成状态 |
-| 生命周期与资源并发 | [人工会话策略](../../internal/remoteaccess/policy.go)；[命令派发](../../internal/connector/gateway.go) | 新增空闲回收和跨聊天并发活动感知；不新增资源独占排队，保留连接容量和单会话串行 |
-| 并发活动可见性 | [聊天归属](../../internal/storage/postgres/queries/runtime.sql)；[执行读取](../../internal/transport/httpapi/workflow_handler.go)；[动作 HTTP](../../internal/transport/httpapi/resource_action_handler.go)；[Native 动作读取](../../internal/toolgateway/resources.go) | 当前没有通用资源活动摘要；会话／执行／动作的读取范围不同，HTTP 与 Native 规则需核对统一，不能直接共享完整投影 |
+| P7-T01 领域与契约 | completed | 领域、模式快照、SQL、Schema、OpenAPI、protobuf、客户端与权限一致 |
+| P7-T02 Agent 场景与恢复 | completed | connect、连续确认、Workspace 分析、压缩／重启恢复；原始要求与修订保留、统计口径明确 |
+| P7-T03 资源适配与共享会话 | completed | Linux、Windows 11、Kubernetes 正式路径、身份、会话、控制／输出／文件通道及停止 |
+| P7-T04 connect 闭环 | completed | 冻结预览、确认及派发复验、幂等、结果与新批次再确认 |
+| P7-T05 固定计划 | completed | 一次批准、串行、修订、后台执行、停止与新版本恢复 |
+| P7-T06 文件与证据 | completed | 自动交换、Hash／来源／完整性、独立重传、正确媒体类型及二进制下载 |
+| P7-T07 Chatbox | completed | 两模式、计划／命令卡、进度／停止／恢复、双语主题、三个桌面视口；正式 Web 无测试出口覆盖 |
+| P7-T08 权限与审计 | completed | 企业／资源／会话隔离、撤权与失效、凭据保护、私有模型并发上下文 |
+| P7-T09 验收与交付 | completed | 历史完整矩阵57/57；当前同版本Linux四类案例47/47调用完整、2/2浏览器；20/20健康及原数据保留，跨平台Flash未重跑 |
 
-以上是源码调查，不是这些路径在当前部署中的实机安全验证。
+本地部署为 argus-data revision12、argus-sandbox revision11、argus-platform revision33，schema16；原27个工作负载、9个PVC和25个业务记录ID保留，健康20/20。9个Backend／Web运行容器匹配候选的Linux清单；Web缓存使用旧索引别名，但实际平台清单相同，已复核描述符链。独立临时数据库已清理；实际账号历史、专用Docker主机及正常加密的模型凭据留供用户审查。
 
-## 必须避免的误判
+早期压缩、统计、预算参数、截断状态、HTTP/2及ALPN问题和重跑记录单列。当前四类案例分别在同一冻结代码／模型配置通过，原断言与门槛不变；旧失败和未知用量没有改成成功。恢复案例如实记录了Workspace能力受限及工具错误，远端实际恢复与不重放验证通过；主流程和连续取证实际完成了Workspace分析。
 
-- 当前 24 小时审批请求有效期不是同会话同工具的免确认授权；该新授权需求已经退出 Plan7。
-- Connector 的 24 小时命令结果缓存是结果重放／去重，不是授权缓存，也不保证任意远端副作用 exactly-once。
-- 多个 PendingAction 属于同一 Run，不等于已有整份计划一次批准和逐步可靠执行。
-- 现有人工 SSH/PTY 入口不属于模型 connect 能力；不得将其票据交给 AI、模板或 Workspace。
-- 文档要求 Native 工具先 Describe，不代表当前所有分类都有硬门禁；[现有门禁](../../internal/toolgateway/description_history.go)主要针对 alert，不能把 Prompt 当授权凭据。
-- 配置了 default-deny 网络策略不等于本轮已验证隔离。需要真实环境证明 Workspace 不能绕过 connect。
-- 本次调研没有证明所有 K8s 都有上传的 kubeconfig，也没有证明所有 Host 都有可直接复用的登录账号。
-
-## 门禁状态
-
-| 项目 | 状态 |
-| --- | --- |
-| 当前产品主线与 Q1～Q14 记录 | 已记录 |
-| Q15～Q24 | 已明确并同步任务／验收，未实现 |
-| 待回答产品问题 | 无；接口／阈值／实现细节由开发任务固化 |
-| 生产任务 P7-T01～T09 | 全部 todo |
-| 领域／API／协议契约 | 未固化 |
-| 权限／恢复／沙箱隔离测试 | 未运行 |
-| 真实模型工具选择与长流程 | 未运行 |
-| Linux／K8s／Windows PowerShell 远程执行闭环 | 未运行 |
-| 真实 API 浏览器 E2E | 未运行 |
-| 本地／正式部署 | 未进行 |
-
-任务状态以 [progress.json](./progress.json) 为机读入口；只有完成任务列明门禁、记录不可变源码版本与实际证据后，才可将生产任务改为 completed。不能沿用 Plan6 或 PlanV5 的历史成功结论替代 Plan7 验收。
-
-## 本轮文档校验
-
-2026-10-15 首次落档：9 个新增文件通过严格 UTF-8 读取；60 处新增本地链接存在；9 个生产任务 ID、依赖顺序及当时的 Q15～Q18 引用一致，全部保持 todo。8 份既有文档相对编辑前快照均只有新增段落，保留原有工作区内容；git diff --check 通过。后续回答更新不改变这些历史检查的范围。
-
-Q16～Q18 初次更新时（历史）：Plan7 的 9 个文件通过 UTF-8、格式和 JSON 校验；目录内 45 处本地链接存在，9 项生产任务仍为 todo，任务依赖有效，当时待决问题仅 Q15；文档总索引 diff 检查通过。
-
-Q15 共享会话更新时（历史）：Plan7 的 10 个文件通过 UTF-8、格式和 JSON 校验；目录内 63 处本地链接存在，9 项任务仍为 todo，当时待决为 Q19～Q21；相关架构文档 diff 检查通过。
-
-Q19 确认及 Q20 目录提案更新时（历史）：10 个文件、63 处本地链接、任务依赖与格式校验通过；9 项生产任务仍为 todo，当时待决为 Q20／Q21，目录交换尚未定案。
-
-Q20／Q21 确认时（历史）：专用目录自动交换与暂停后分析恢复进入产品基线；10 个文件、65 处本地链接及 9 项任务依赖校验通过，生产任务全部 todo。当时待决为 Q22／Q23，没有产品代码或运行时验收。
-
-Q22／Q23 确认时（历史）：空闲回收与跨聊天并发感知进入基线，资源排队建议已移除；10 个文件、68 处本地链接、任务依赖及格式校验通过。9 项生产任务全部 todo，当时 Q24 尚待澄清，没有产品代码或运行时验收。
-
-Q24 澄清后：并发信息仅注入模型上下文，不进入聊天记录或并发提示 UI；产品基线收敛，待决问题为空。10 个文件、67 处本地链接、任务依赖及格式校验通过，已移除人类并发提示要求；9 项生产任务全部 todo，未修改业务代码。
-
-这些结果仅证明文档结构和链接有效，不计入上表任何产品、真实模型或运行时安全门禁。
+Windows 实机范围仍为 Windows 11，Windows Server 兼容性未验证；本地 Evaluation 的网络与共享 Sandbox 限制保留。客户 MCP 独立边界不变。

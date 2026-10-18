@@ -542,6 +542,7 @@ type ConnectorCommand struct {
 	CompletedAt          pgtype.Timestamptz `json:"completed_at"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	DispatchRejected     bool               `json:"dispatch_rejected"`
 }
 
 type ConnectorControlTunnel struct {
@@ -702,6 +703,8 @@ type Conversation struct {
 	Version         int64              `json:"version"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	Mode            string             `json:"mode"`
+	AccessMode      string             `json:"access_mode"`
 }
 
 type ConversationEvent struct {
@@ -719,6 +722,27 @@ type ConversationEvent struct {
 	ArtifactRef        pgtype.Text        `json:"artifact_ref"`
 	DataClassification string             `json:"data_classification"`
 	OccurredAt         pgtype.Timestamptz `json:"occurred_at"`
+}
+
+type ConversationInteraction struct {
+	ID                   uuid.UUID          `json:"id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	ConversationID       uuid.UUID          `json:"conversation_id"`
+	OwnerUserID          uuid.UUID          `json:"owner_user_id"`
+	RunID                uuid.UUID          `json:"run_id"`
+	ToolCallID           uuid.UUID          `json:"tool_call_id"`
+	Kind                 string             `json:"kind"`
+	FamilyID             uuid.UUID          `json:"family_id"`
+	Revision             int32              `json:"revision"`
+	Status               string             `json:"status"`
+	Content              []byte             `json:"content"`
+	ContentHash          string             `json:"content_hash"`
+	Response             []byte             `json:"response"`
+	ImplementationRunID  uuid.NullUUID      `json:"implementation_run_id"`
+	Version              int64              `json:"version"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	AuthorizationVersion int64              `json:"authorization_version"`
 }
 
 type ConversationMcpConnection struct {
@@ -1049,6 +1073,7 @@ type Execution struct {
 	ConnectorInstallOperationID   uuid.NullUUID      `json:"connector_install_operation_id"`
 	HostOnboardingOperationID     uuid.NullUUID      `json:"host_onboarding_operation_id"`
 	HostRemovalOperationID        uuid.NullUUID      `json:"host_removal_operation_id"`
+	RemoteExecutionID             uuid.NullUUID      `json:"remote_execution_id"`
 }
 
 type ExecutionOneTimeResult struct {
@@ -1522,34 +1547,37 @@ type PasswordCredential struct {
 }
 
 type PendingAction struct {
-	ID                      uuid.UUID          `json:"id"`
-	ActionRef               string             `json:"action_ref"`
-	EnterpriseID            uuid.UUID          `json:"enterprise_id"`
-	CreatorSubjectID        uuid.UUID          `json:"creator_subject_id"`
-	AuthorizationVersion    int64              `json:"authorization_version"`
-	ActionType              string             `json:"action_type"`
-	Title                   string             `json:"title"`
-	Summary                 string             `json:"summary"`
-	Risk                    string             `json:"risk"`
-	Preview                 []byte             `json:"preview"`
-	Diff                    []byte             `json:"diff"`
-	Status                  string             `json:"status"`
-	ResourceType            string             `json:"resource_type"`
-	ResourceID              uuid.NullUUID      `json:"resource_id"`
-	ExpectedResourceVersion pgtype.Int8        `json:"expected_resource_version"`
-	ImpactHash              []byte             `json:"impact_hash"`
-	ResultResourceType      pgtype.Text        `json:"result_resource_type"`
-	ResultResourceID        uuid.NullUUID      `json:"result_resource_id"`
-	ResultResourceVersion   pgtype.Int8        `json:"result_resource_version"`
-	ResultSummary           string             `json:"result_summary"`
-	ErrorCode               pgtype.Text        `json:"error_code"`
-	ExpiresAt               pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt               pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
-	CreatorSubjectType      string             `json:"creator_subject_type"`
-	RunID                   uuid.NullUUID      `json:"run_id"`
-	ConfirmationRequired    bool               `json:"confirmation_required"`
-	PolicySnapshotHash      []byte             `json:"policy_snapshot_hash"`
+	ID                        uuid.UUID          `json:"id"`
+	ActionRef                 string             `json:"action_ref"`
+	EnterpriseID              uuid.UUID          `json:"enterprise_id"`
+	CreatorSubjectID          uuid.UUID          `json:"creator_subject_id"`
+	AuthorizationVersion      int64              `json:"authorization_version"`
+	ActionType                string             `json:"action_type"`
+	Title                     string             `json:"title"`
+	Summary                   string             `json:"summary"`
+	Risk                      string             `json:"risk"`
+	Preview                   []byte             `json:"preview"`
+	Diff                      []byte             `json:"diff"`
+	Status                    string             `json:"status"`
+	ResourceType              string             `json:"resource_type"`
+	ResourceID                uuid.NullUUID      `json:"resource_id"`
+	ExpectedResourceVersion   pgtype.Int8        `json:"expected_resource_version"`
+	ImpactHash                []byte             `json:"impact_hash"`
+	ResultResourceType        pgtype.Text        `json:"result_resource_type"`
+	ResultResourceID          uuid.NullUUID      `json:"result_resource_id"`
+	ResultResourceVersion     pgtype.Int8        `json:"result_resource_version"`
+	ResultSummary             string             `json:"result_summary"`
+	ErrorCode                 pgtype.Text        `json:"error_code"`
+	ExpiresAt                 pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+	CreatorSubjectType        string             `json:"creator_subject_type"`
+	RunID                     uuid.NullUUID      `json:"run_id"`
+	ConfirmationRequired      bool               `json:"confirmation_required"`
+	PolicySnapshotHash        []byte             `json:"policy_snapshot_hash"`
+	ConfirmationMode          string             `json:"confirmation_mode"`
+	ConfirmationPolicyVersion pgtype.Int8        `json:"confirmation_policy_version"`
+	ApprovedPlanCommandID     uuid.NullUUID      `json:"approved_plan_command_id"`
 }
 
 type PendingActionPlan struct {
@@ -1635,6 +1663,21 @@ type PkiTrustBundle struct {
 	LastError             string             `json:"last_error"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PlanCommandAuthorization struct {
+	ID                  uuid.UUID          `json:"id"`
+	EnterpriseID        uuid.UUID          `json:"enterprise_id"`
+	ConversationID      uuid.UUID          `json:"conversation_id"`
+	OwnerUserID         uuid.UUID          `json:"owner_user_id"`
+	PlanID              uuid.UUID          `json:"plan_id"`
+	Sequence            int32              `json:"sequence"`
+	BlockID             string             `json:"block_id"`
+	Spec                []byte             `json:"spec"`
+	SpecHash            string             `json:"spec_hash"`
+	ImplementationRunID uuid.NullUUID      `json:"implementation_run_id"`
+	UsedRequestID       uuid.NullUUID      `json:"used_request_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
 type PlatformSetting struct {
@@ -1742,62 +1785,4 @@ type RemoteAccessLease struct {
 	DecisionSnapshot       []byte             `json:"decision_snapshot"`
 	SessionProfileSnapshot []byte             `json:"session_profile_snapshot"`
 	DecisionSnapshotHash   []byte             `json:"decision_snapshot_hash"`
-}
-
-type RemoteAccessRecording struct {
-	ID             uuid.UUID          `json:"id"`
-	EnterpriseID   uuid.UUID          `json:"enterprise_id"`
-	SessionID      uuid.UUID          `json:"session_id"`
-	Status         string             `json:"status"`
-	Format         string             `json:"format"`
-	KeyProvider    string             `json:"key_provider"`
-	KeyID          string             `json:"key_id"`
-	KeyVersion     int32              `json:"key_version"`
-	WrappedDek     []byte             `json:"wrapped_dek"`
-	ChunkCount     int32              `json:"chunk_count"`
-	EventCount     int64              `json:"event_count"`
-	SizeBytes      int64              `json:"size_bytes"`
-	DurationMs     int64              `json:"duration_ms"`
-	FinalHash      []byte             `json:"final_hash"`
-	RetentionUntil pgtype.Timestamptz `json:"retention_until"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
-}
-
-type RemoteAccessRecordingChunk struct {
-	RecordingID    uuid.UUID          `json:"recording_id"`
-	Sequence       int64              `json:"sequence"`
-	ObjectKey      string             `json:"object_key"`
-	Nonce          []byte             `json:"nonce"`
-	CiphertextSize int64              `json:"ciphertext_size"`
-	EventCount     int32              `json:"event_count"`
-	StartedAt      pgtype.Timestamptz `json:"started_at"`
-	EndedAt        pgtype.Timestamptz `json:"ended_at"`
-	PreviousHash   []byte             `json:"previous_hash"`
-	ChunkHash      []byte             `json:"chunk_hash"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-}
-
-type RemoteAccessRequest struct {
-	ID                    uuid.UUID          `json:"id"`
-	EnterpriseID          uuid.UUID          `json:"enterprise_id"`
-	RequesterID           uuid.UUID          `json:"requester_id"`
-	GrantID               uuid.UUID          `json:"grant_id"`
-	HostID                uuid.UUID          `json:"host_id"`
-	ManagedAccountID      uuid.UUID          `json:"managed_account_id"`
-	Protocol              string             `json:"protocol"`
-	Action                string             `json:"action"`
-	Reason                string             `json:"reason"`
-	Status                string             `json:"status"`
-	AuthorizationVersion  int64              `json:"authorization_version"`
-	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
-	DecisionOutcome       pgtype.Text        `json:"decision_outcome"`
-	DecisionReasonCodes   []byte             `json:"decision_reason_codes"`
-	DecisionSnapshot      []byte             `json:"decision_snapshot"`
-	DecisionSnapshotHash  []byte             `json:"decision_snapshot_hash"`
-	MatchedGrantSnapshots []byte             `json:"matched_grant_snapshots"`
-	MatchedRuleSnapshots  []byte             `json:"matched_rule_snapshots"`
-	DecisionAt            pgtype.Timestamptz `json:"decision_at"`
 }

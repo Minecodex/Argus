@@ -2,10 +2,12 @@ package argusdev
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -46,6 +48,7 @@ func (a *App) prepareE2EImages(ctx context.Context, env *E2EEnvironment) error {
 	env.State.FixtureImages["backend"] = clusterPrefix + "argus-backend:" + env.ImageTag
 	env.State.FixtureImages["web"] = clusterPrefix + "argus-web:" + env.ImageTag
 	env.State.FixtureImages["minio"] = clusterPrefix + "minio:" + env.ImageTag
+	env.State.FixtureImages["remote-runtime"] = clusterPrefix + "argus-remote-runtime:" + env.ImageTag
 	buildLabel := "io.argus.e2e.run=" + env.ImageTag
 	backendArgs := []string{"buildx", "build", "--platform", env.ImagePlatform, "--file", "deploy/docker/backend.Dockerfile", "--tag", localPrefix + "argus-backend:" + env.ImageTag, "--label", buildLabel, "--push"}
 	if suiteHas(env.Options.Suite, "m4") || suiteHas(env.Options.Suite, "p5") || suiteHas(env.Options.Suite, "m7") || env.Options.Suite == "m10-query" || env.Options.Suite == "p4" {
@@ -58,12 +61,33 @@ func (a *App) prepareE2EImages(ctx context.Context, env *E2EEnvironment) error {
 		return err
 	}
 	if err := a.retryE2EImageBuild(ctx, "E2E web image", func(buildCtx context.Context) error {
-		return a.runner.Run(buildCtx, nil, "docker", "buildx", "build", "--platform", env.ImagePlatform, "--file", "deploy/docker/web.Dockerfile",
-			"--tag", localPrefix+"argus-web:"+env.ImageTag, "--label", buildLabel, "--push",
-			"--build-arg", "VITE_API_MODE=real", "--build-arg", "VITE_API_BASE_URL=/",
-			"--build-arg", "VITE_DIRECT_EGRESS_ADDRESSES=127.0.0.1", ".")
+		args := []string{"buildx", "build", "--platform", env.ImagePlatform, "--file", "deploy/docker/web.Dockerfile",
+			"--tag", localPrefix + "argus-web:" + env.ImageTag, "--label", buildLabel, "--push",
+			"--build-arg", "VITE_API_MODE=real", "--build-arg", "VITE_API_BASE_URL=/"}
+		// Plan7 artifacts are also local release candidates. Fixture-only
+		// advertised egress must never enter that production Web build.
+		if env.Options.Suite != "plan7" {
+			args = append(args, "--build-arg", "VITE_DIRECT_EGRESS_ADDRESSES=127.0.0.1")
+		}
+		return a.runner.Run(buildCtx, nil, "docker", append(args, ".")...)
 	}); err != nil {
 		return err
+	}
+	if env.Options.Suite == "plan7" {
+		output, err := a.runner.Output(ctx, nil, "docker", "buildx", "imagetools", "inspect", strings.Replace(localPrefix+"argus-web:"+env.ImageTag, "localhost:", "127.0.0.1:", 1), "--format", "{{json .Manifest}}")
+		if err != nil {
+			return err
+		}
+		var descriptor struct {
+			Digest string `json:"digest"`
+		}
+		if json.Unmarshal([]byte(output), &descriptor) != nil || !validPlan6Digest(descriptor.Digest) {
+			return fmt.Errorf("Plan7 production Web build lacks an immutable manifest")
+		}
+		receipt, _ := json.MarshalIndent(map[string]any{"schema_version": "argus.plan7_web_build/v1", "run_id": env.Options.RunID, "source_fingerprint": env.State.Values["p6_source_fingerprint"], "profile": "production", "api_mode": "real", "api_base_url": "/", "direct_egress_addresses": "", "image_digest": descriptor.Digest, "image": env.State.FixtureImages["web"] + "@" + descriptor.Digest}, "", "  ")
+		if err = writePrivate(filepath.Join(env.Options.Artifacts, "web-build-config.json"), receipt); err != nil {
+			return err
+		}
 	}
 	if err := a.retryE2EImageBuild(ctx, "E2E MinIO image", func(buildCtx context.Context) error {
 		return a.runner.Run(buildCtx, nil, "docker", "buildx", "build", "--platform", env.ImagePlatform, "--file", "deploy/docker/minio.Dockerfile",

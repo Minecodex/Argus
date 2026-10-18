@@ -11,6 +11,7 @@ import {
   type PreviewCommitStatus,
 } from "@argus/ui";
 import { presentPendingAction } from "../pending-action-presentation";
+import { RemoteExecutionCard } from "./remote-execution-card";
 
 function toPreviewStatus(action: PendingActionPublic): PreviewCommitStatus {
   switch (action.status) {
@@ -34,7 +35,13 @@ function toPreviewStatus(action: PendingActionPublic): PreviewCommitStatus {
  * 预览摘要、风险、Diff、影响对象、计划哈希、过期倒计时；
  * [确认执行] 直接调 approvals.confirm（不经过模型），状态原地流转。
  */
-export function PendingActionCard({ actionRef, children }: { actionRef: string; children?: ReactNode }) {
+export function PendingActionCard({
+  actionRef,
+  children,
+}: {
+  actionRef: string;
+  children?: ReactNode;
+}) {
   const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
@@ -48,7 +55,9 @@ export function PendingActionCard({ actionRef, children }: { actionRef: string; 
     // 执行中/待审批时轮询，直到状态机进入终态（mock 侧 Task 步骤按定时器推进）。
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status === "executing" ||
+      return (status === "awaiting_confirmation" &&
+        query.state.data?.action_type === "remote_execution.execute") ||
+        status === "executing" ||
         status === "ready" ||
         status === "awaiting_approval"
         ? 1_000
@@ -69,6 +78,9 @@ export function PendingActionCard({ actionRef, children }: { actionRef: string; 
       </div>
     );
   }
+
+  if (action.action_type === "remote_execution.execute")
+    return <RemoteExecutionCard action={action} />;
 
   const status = failedMessage ? "failed" : toPreviewStatus(action);
   const awaitingApproval = action.status === "awaiting_approval";

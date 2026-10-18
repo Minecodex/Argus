@@ -30,7 +30,6 @@ export const loginZh = {
   "login.mfaCode": "验证码或恢复码",
   "login.mfaInvalid": "请输入有效的验证码或恢复码",
   "login.mfaSubmit": "验证并登录",
-  "login.hint": "演示账号：admin / 123456",
 };
 
 export const loginEn = {
@@ -66,5 +65,4 @@ export const loginEn = {
   "login.mfaCode": "Authenticator or recovery code",
   "login.mfaInvalid": "Enter a valid authenticator or recovery code",
   "login.mfaSubmit": "Verify and sign in",
-  "login.hint": "Demo account: admin / 123456",
 };

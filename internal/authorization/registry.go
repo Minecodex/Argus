@@ -1,6 +1,6 @@
 package authorization
 
-const PermissionRegistryVersion int32 = 12
+const PermissionRegistryVersion int32 = 13
 
 type BuiltinRole struct {
 	Key         string
@@ -60,6 +60,9 @@ var PermissionRegistry = map[string]string{
 	"approval.read":                            "Read approval requests",
 	"approval.decide":                          "Approve or reject eligible requests",
 	"execution.read":                           "Read deterministic execution state",
+	"remote_execution.read":                    "Read authorized remote execution state",
+	"remote_execution.execute":                 "Propose and execute explicitly approved remote batches and plans",
+	"remote_execution.stop":                    "Stop own remote execution",
 	"remote_access.grant.read":                 "Read remote access grants",
 	"remote_access.grant.manage":               "Manage remote access grants",
 	"remote_access.rule.read":                  "Read remote access rules",

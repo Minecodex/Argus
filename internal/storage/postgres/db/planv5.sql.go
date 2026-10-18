@@ -973,7 +973,7 @@ func (q *Queries) GetPersistedToolResult(ctx context.Context, arg GetPersistedTo
 }
 
 const getRunAwaitingPendingAction = `-- name: GetRunAwaitingPendingAction :one
-SELECT r.id, r.conversation_id, r.enterprise_id, r.actor_user_id, r.model_id, r.model_revision, r.locale, r.status, r.current_step_id, r.authorization_version, r.checkpoint, r.verification_only, r.tool_snapshot, r.tool_snapshot_hash, r.stop_reason, r.error_code, r.version, r.created_at, r.updated_at FROM runs r WHERE r.id=$1 AND r.enterprise_id=$2
+SELECT r.id, r.conversation_id, r.enterprise_id, r.actor_user_id, r.model_id, r.model_revision, r.locale, r.status, r.current_step_id, r.authorization_version, r.checkpoint, r.verification_only, r.tool_snapshot, r.tool_snapshot_hash, r.stop_reason, r.error_code, r.version, r.created_at, r.updated_at, r.mode_snapshot, r.access_mode_snapshot, r.approved_plan_id FROM runs r WHERE r.id=$1 AND r.enterprise_id=$2
 AND r.status='waiting_input' AND r.stop_reason='pending_action_confirmation'
 AND EXISTS(SELECT 1 FROM conversation_events e WHERE e.run_id=r.id
     AND e.enterprise_id=r.enterprise_id AND e.event_type='pending_action_created'
@@ -1013,12 +1013,15 @@ func (q *Queries) GetRunAwaitingPendingAction(ctx context.Context, arg GetRunAwa
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ModeSnapshot,
+		&i.AccessModeSnapshot,
+		&i.ApprovedPlanID,
 	)
 	return i, err
 }
 
 const getRunForUpdate = `-- name: GetRunForUpdate :one
-SELECT id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at FROM runs WHERE id=$1 AND enterprise_id=$2 FOR UPDATE
+SELECT id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, status, current_step_id, authorization_version, checkpoint, verification_only, tool_snapshot, tool_snapshot_hash, stop_reason, error_code, version, created_at, updated_at, mode_snapshot, access_mode_snapshot, approved_plan_id FROM runs WHERE id=$1 AND enterprise_id=$2 FOR UPDATE
 `
 
 type GetRunForUpdateParams struct {
@@ -1049,6 +1052,9 @@ func (q *Queries) GetRunForUpdate(ctx context.Context, arg GetRunForUpdateParams
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ModeSnapshot,
+		&i.AccessModeSnapshot,
+		&i.ApprovedPlanID,
 	)
 	return i, err
 }
@@ -1800,8 +1806,3 @@ func (q *Queries) MarkModelDispatched(ctx context.Context, arg MarkModelDispatch
 const markRunVerificationOnly = `-- name: MarkRunVerificationOnly :exec
 UPDATE runs SET verification_only=true,updated_at=now() WHERE id=$1 AND enterprise_id=$2
 `
-
-type MarkRunVerificationOnlyParams struct {
-	ID           uuid.UUID `json:"id"`
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
-}

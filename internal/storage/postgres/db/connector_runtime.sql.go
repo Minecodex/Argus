@@ -168,7 +168,7 @@ func (q *Queries) CreateConnectorCertificate(ctx context.Context, arg CreateConn
 
 const createConnectorCommand = `-- name: CreateConnectorCommand :one
 INSERT INTO connector_commands (id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, expires_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected
 `
 
 type CreateConnectorCommandParams struct {
@@ -227,6 +227,7 @@ func (q *Queries) CreateConnectorCommand(ctx context.Context, arg CreateConnecto
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DispatchRejected,
 	)
 	return i, err
 }
@@ -250,7 +251,7 @@ func (q *Queries) DeleteConnectorSessionsForReplacement(ctx context.Context, arg
 
 const expireQueuedConnectorCommands = `-- name: ExpireQueuedConnectorCommands :many
 UPDATE connector_commands SET status = 'expired', error_code = 'CONNECTOR_COMMAND_EXPIRED', completed_at = now(), updated_at = now()
-WHERE status = 'queued' AND expires_at <= now() RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at
+WHERE status = 'queued' AND expires_at <= now() RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected
 `
 
 func (q *Queries) ExpireQueuedConnectorCommands(ctx context.Context) ([]ConnectorCommand, error) {
@@ -285,6 +286,7 @@ func (q *Queries) ExpireQueuedConnectorCommands(ctx context.Context) ([]Connecto
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DispatchRejected,
 		); err != nil {
 			return nil, err
 		}
@@ -425,7 +427,7 @@ func (q *Queries) GetActiveConnectorCertificate(ctx context.Context, arg GetActi
 }
 
 const getConnectorCommand = `-- name: GetConnectorCommand :one
-SELECT id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at FROM connector_commands WHERE command_id = $1 AND connector_id = $2 AND connection_epoch = $3
+SELECT id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected FROM connector_commands WHERE command_id = $1 AND connector_id = $2 AND connection_epoch = $3
 `
 
 type GetConnectorCommandParams struct {
@@ -460,12 +462,13 @@ func (q *Queries) GetConnectorCommand(ctx context.Context, arg GetConnectorComma
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DispatchRejected,
 	)
 	return i, err
 }
 
 const getConnectorCommandByID = `-- name: GetConnectorCommandByID :one
-SELECT id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at FROM connector_commands WHERE id = $1
+SELECT id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected FROM connector_commands WHERE id = $1
 `
 
 func (q *Queries) GetConnectorCommandByID(ctx context.Context, id uuid.UUID) (ConnectorCommand, error) {
@@ -494,6 +497,7 @@ func (q *Queries) GetConnectorCommandByID(ctx context.Context, id uuid.UUID) (Co
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DispatchRejected,
 	)
 	return i, err
 }
@@ -526,7 +530,7 @@ func (q *Queries) GetConnectorSession(ctx context.Context, arg GetConnectorSessi
 }
 
 const getLatestConnectorCommandForOperation = `-- name: GetLatestConnectorCommandForOperation :one
-SELECT id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at FROM connector_commands WHERE enterprise_id=$1 AND operation_ref=$2 ORDER BY created_at DESC,id DESC LIMIT 1
+SELECT id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected FROM connector_commands WHERE enterprise_id=$1 AND operation_ref=$2 ORDER BY created_at DESC,id DESC LIMIT 1
 `
 
 type GetLatestConnectorCommandForOperationParams struct {
@@ -560,6 +564,7 @@ func (q *Queries) GetLatestConnectorCommandForOperation(ctx context.Context, arg
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DispatchRejected,
 	)
 	return i, err
 }
@@ -617,7 +622,7 @@ func (q *Queries) HeartbeatConnectorSession(ctx context.Context, arg HeartbeatCo
 }
 
 const listDispatchableConnectorCommands = `-- name: ListDispatchableConnectorCommands :many
-SELECT command.id, command.command_id, command.enterprise_id, command.connector_id, command.connection_epoch, command.operation_ref, command.credential_lease_id, command.command_type, command.payload_schema_version, command.payload, command.payload_hash, command.idempotency_key, command.status, command.result, command.result_hash, command.error_code, command.expires_at, command.acknowledged_at, command.started_at, command.completed_at, command.created_at, command.updated_at FROM connector_commands command
+SELECT command.id, command.command_id, command.enterprise_id, command.connector_id, command.connection_epoch, command.operation_ref, command.credential_lease_id, command.command_type, command.payload_schema_version, command.payload, command.payload_hash, command.idempotency_key, command.status, command.result, command.result_hash, command.error_code, command.expires_at, command.acknowledged_at, command.started_at, command.completed_at, command.created_at, command.updated_at, command.dispatch_rejected FROM connector_commands command
 WHERE command.connector_id = $1 AND command.connection_epoch = $2 AND command.status = 'queued' AND command.expires_at > now()
 AND (
   command.command_type <> 'collector_management' OR
@@ -641,7 +646,7 @@ AND (
       AND gateway.status = 'converged'
   )
 )
-ORDER BY command.created_at LIMIT $3 FOR UPDATE SKIP LOCKED
+ORDER BY CASE WHEN command.command_type='remote_execution_control' AND command.payload->>'operation'='stop' THEN 0 ELSE 1 END,command.created_at LIMIT $3 FOR UPDATE SKIP LOCKED
 `
 
 type ListDispatchableConnectorCommandsParams struct {
@@ -682,6 +687,7 @@ func (q *Queries) ListDispatchableConnectorCommands(ctx context.Context, arg Lis
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DispatchRejected,
 		); err != nil {
 			return nil, err
 		}
@@ -694,7 +700,7 @@ func (q *Queries) ListDispatchableConnectorCommands(ctx context.Context, arg Lis
 }
 
 const listUncertainConnectorCommands = `-- name: ListUncertainConnectorCommands :many
-SELECT id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at FROM connector_commands WHERE connector_id = $1 AND status IN ('delivery_unknown','result_unknown')
+SELECT id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected FROM connector_commands WHERE connector_id = $1 AND status IN ('delivery_unknown','result_unknown')
 ORDER BY created_at LIMIT $2
 `
 
@@ -735,6 +741,7 @@ func (q *Queries) ListUncertainConnectorCommands(ctx context.Context, arg ListUn
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DispatchRejected,
 		); err != nil {
 			return nil, err
 		}
@@ -969,7 +976,7 @@ func (q *Queries) StartConnectorUninstall(ctx context.Context, arg StartConnecto
 
 const timeoutActiveConnectorCommands = `-- name: TimeoutActiveConnectorCommands :many
 UPDATE connector_commands SET status = 'timed_out', error_code = 'CONNECTOR_COMMAND_TIMED_OUT', completed_at = now(), updated_at = now()
-WHERE status IN ('dispatched','acknowledged','running') AND expires_at <= now() RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at
+WHERE status IN ('dispatched','acknowledged','running') AND expires_at <= now() RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected
 `
 
 func (q *Queries) TimeoutActiveConnectorCommands(ctx context.Context) ([]ConnectorCommand, error) {
@@ -1004,6 +1011,7 @@ func (q *Queries) TimeoutActiveConnectorCommands(ctx context.Context) ([]Connect
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DispatchRejected,
 		); err != nil {
 			return nil, err
 		}
@@ -1022,7 +1030,7 @@ UPDATE connector_commands SET status = $4, result = COALESCE($5, result), result
  started_at = CASE WHEN $4 = 'running' THEN now() ELSE started_at END,
  completed_at = CASE WHEN $4 IN ('succeeded','failed','timed_out','expired') THEN now() ELSE completed_at END
 WHERE command_id = $1 AND connector_id = $2 AND connection_epoch = $3
-  AND status = $8 RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at
+  AND status = $8 RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected
 `
 
 type TransitionConnectorCommandParams struct {
@@ -1071,6 +1079,7 @@ func (q *Queries) TransitionConnectorCommand(ctx context.Context, arg Transition
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DispatchRejected,
 	)
 	return i, err
 }

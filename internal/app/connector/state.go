@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -200,7 +201,11 @@ func (store localStore) loadResults() (map[string]commandRecord, error) {
 	return values, nil
 }
 
+var commandResultsMu sync.Mutex
+
 func (store localStore) saveResult(value commandRecord) error {
+	commandResultsMu.Lock()
+	defer commandResultsMu.Unlock()
 	values, err := store.loadResults()
 	if err != nil {
 		return err

@@ -201,9 +201,9 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 		return toolruntime.Result{}, err
 	}
 	if err := g.schemas[key].Validate(args); err != nil {
-		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_INPUT_INVALID", Message: "arguments do not match the tool schema"}
+		return toolruntime.Result{}, toolruntime.InputValidationError(err, "/arguments")
 	}
-	if call.ReadOnly && manifest.Risk != "read" {
+	if call.ReadOnly && manifest.Risk != "read" && !manifest.RequiresConfirmation && !slices.Contains([]string{"workflow.import_result", "workflow.publish_file", "telemetry.dashboard.query.cancel", "telemetry.dashboard.query.resume", "telemetry.dashboard.draft.create", "telemetry.dashboard.draft.save"}, manifest.ToolID) {
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_READ_ONLY_REQUIRED"}
 	}
 	if g.RequireDescription != nil {
@@ -233,7 +233,7 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 	if manifest.RequiresConfirmation {
 		actionRef, _ = result.Structured["action_ref"].(string)
 	}
-	output := toolruntime.Result{Data: result.Structured, Partial: result.Partial, ActionRef: actionRef, ToolID: manifest.ToolID}
+	output := toolruntime.Result{Data: result.Structured, Partial: result.Partial, ActionRef: actionRef, ToolID: manifest.ToolID, Control: result.Control}
 	if metadata, ok := g.Registry.Lookup(manifest.ToolID); ok {
 		if metadata.Project != nil {
 			output.ModelSummary = metadata.Project(result)

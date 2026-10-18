@@ -14,6 +14,41 @@ beforeAll(async () => {
   await import("../../../../../packages/ui/src/markdown-content");
 });
 afterEach(cleanup);
+it.each(["archive.bin", "misleading.txt"])(
+  "keeps binary %s downloadable without fetching it as text",
+  async (name) => {
+    const api = createMockApiClient({ persist: false, delay: 0 });
+    vi.spyOn(api.workspace, "downloadUrl").mockReturnValue("/api/v1/binary");
+    const read = vi.spyOn(api.workspace, "readContent");
+    render(
+      <LocaleProvider>
+        <ApiProvider client={api}>
+          <QueryClientProvider client={new QueryClient()}>
+            <ConversationFile
+              conversationId="conversation"
+              file={{
+                id: "binary",
+                name,
+                byte_size: 4,
+                media_type: "application/octet-stream",
+              }}
+            />
+          </QueryClientProvider>
+        </ApiProvider>
+      </LocaleProvider>,
+    );
+    expect(screen.getByText(/application\/octet-stream/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("此格式暂不支持在线预览，请下载查看。")).toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+    expect(
+      screen
+        .getAllByRole("link", { name: /下载|Download/ })
+        .every((link) => link.getAttribute("href") === "/api/v1/binary"),
+    ).toBe(true);
+  },
+);
 it("previews authorized report content in a large modal and keeps the file link as an explicit download", async () => {
   const api = createMockApiClient({ persist: false, delay: 0 });
   vi.spyOn(api.workspace, "downloadUrl").mockReturnValue("/api/v1/file");

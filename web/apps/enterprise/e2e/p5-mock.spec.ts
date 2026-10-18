@@ -50,12 +50,16 @@ test("enterprise MCP grants, write-only Basic credentials and remembered convers
   await expect(selected).toBeChecked();
 });
 
-test("uploaded bytes survive reload and explicit Workspace deletion removes the file", async ({
+test("uploaded bytes survive reload without a Workspace deletion action", async ({
   page,
 }) => {
   await login(page);
 
-  await expect(page.getByRole("button", { name: "上传文件" })).toBeEnabled();
+  await page.getByRole("button", { name: "添加", exact: true }).click();
+  await expect(
+    page.getByRole("menuitem", { name: "上传文件", exact: true }),
+  ).toBeEnabled();
+  await page.keyboard.press("Escape");
   await page.locator('input[type="file"]').setInputFiles({
     name: "business.csv",
     mimeType: "text/csv",
@@ -66,8 +70,10 @@ test("uploaded bytes survive reload and explicit Workspace deletion removes the 
   ).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "置顶摘要", exact: true }).click();
+  await page.locator('summary[title="/workspace/uploads"]').click();
+  await page.locator('summary[title^="/workspace/uploads/"]').click();
   const file = page
-    .locator(".argus-file-card")
+    .locator(".argus-file-row")
     .filter({ hasText: "business.csv" })
     .getByRole("link", { name: "下载 business.csv", exact: true });
   await expect(file).toBeVisible();
@@ -76,15 +82,13 @@ test("uploaded bytes survive reload and explicit Workspace deletion removes the 
     (await file.getAttribute("href"))!,
   );
   expect(content).toBe("value\n10\n20\n");
-  await page
-    .getByRole("button", { name: "删除 Workspace", exact: true })
-    .click();
-  const confirm = page.getByRole("dialog", { name: "删除 Workspace" });
-  await confirm
-    .getByRole("button", { name: "删除 Workspace", exact: true })
-    .click();
-  await expect(file).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "删除 Workspace", exact: true }),
+  ).toHaveCount(0);
   await page.reload();
   await page.getByRole("button", { name: "置顶摘要", exact: true }).click();
-  await expect(page.getByText("会话文件 · 0")).toBeVisible();
+  await expect(page.getByText("会话文件 · 1")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "删除 Workspace", exact: true }),
+  ).toHaveCount(0);
 });

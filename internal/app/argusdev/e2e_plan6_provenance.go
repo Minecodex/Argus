@@ -106,7 +106,7 @@ func (a *App) plan6Images(ctx context.Context, env *E2EEnvironment, candidateReg
 	sort.Strings(names)
 	images := []plan6Image{}
 	for _, name := range names {
-		if name != "backend" && name != "web" && name != "minio" && name != "workspace" && name != "workspace-egress" && name != "otelcol" {
+		if name != "backend" && name != "web" && name != "minio" && name != "workspace" && name != "workspace-egress" && name != "otelcol" && name != "remote-runtime" {
 			continue
 		}
 		ref := refs[name]
@@ -173,8 +173,8 @@ func (a *App) plan6Images(ctx context.Context, env *E2EEnvironment, candidateReg
 		}
 		images = append(images, image)
 	}
-	if len(images) != 6 {
-		return fmt.Errorf("Plan6 core image set is incomplete")
+	if err = validateE2ECoreImageSet(images, env.Options.Suite == "plan7" || env.State.FixtureImages["remote-runtime"] != ""); err != nil {
+		return err
 	}
 	pods := []map[string]any{}
 	for _, namespace := range []string{env.SystemNS, env.SandboxNS, env.ObservNS} {

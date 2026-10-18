@@ -72,6 +72,8 @@ type ResourceRef struct {
 }
 
 type Result struct {
+	// Control is trusted provider metadata, never inferred from model/tool data.
+	Control      *Control
 	Display      *ToolDisplay
 	DataIsSchema bool
 	// A complete native discovery list must reach the model without list clipping.
@@ -84,6 +86,11 @@ type Result struct {
 	ToolID       string
 	Presentation *Presentation
 	Unknown      bool
+}
+
+type Control struct {
+	InteractionID uuid.UUID
+	Kind          string
 }
 
 // Display is authored by the provider and recorded with the call, outside model data.
@@ -100,6 +107,7 @@ type DisplayFact struct {
 }
 
 type Definition struct {
+	Scenario     string             `json:"scenario,omitempty"`
 	Model        modelprovider.Tool `json:"model"`
 	Source       string             `json:"source"`
 	Version      string             `json:"version"`
@@ -151,6 +159,16 @@ func NewSet(snapshot Snapshot, tools []Tool) (*Set, error) {
 		return tools[i].Model.Name < tools[j].Model.Name
 	})
 	for _, tool := range tools {
+		if tool.Scenario == "" {
+			switch tool.Source {
+			case "sandbox":
+				tool.Scenario = "workspace"
+			case "argus":
+				tool.Scenario = "platform"
+			default:
+				tool.Scenario = "external_mcp"
+			}
+		}
 		name := tool.Model.Name
 		wire := modelprovider.WireToolName(name)
 		if name == "" || tool.Invoke == nil || tool.Model.Schema == nil || wireNames[wire] {
@@ -204,13 +222,19 @@ func (set *Set) Invoke(ctx context.Context, name string, call Invocation) (Resul
 			return Result{}, err
 		}
 	}
-	if call.ReadOnly && !tool.ReadOnly {
+	if call.ReadOnly && !tool.AllowedDuringVerification() {
 		return Result{}, Error{Kind: "TOOL_READ_ONLY_REQUIRED"}
 	}
 	if err := set.schemas[name].Validate(call.Arguments); err != nil {
-		return Result{}, Error{Kind: "TOOL_INPUT_INVALID", Message: "arguments do not match the tool schema"}
+		return Result{}, InputValidationError(err, "")
 	}
 	return tool.Invoke(ctx, call)
+}
+
+// Server-registered scenarios, rather than a model-provided risk label, allow
+// offline analysis and new previews after a prior human-approved action.
+func (definition Definition) AllowedDuringVerification() bool {
+	return definition.ReadOnly || definition.Scenario == "workspace" || definition.Source == "sandbox"
 }
 
 func (snapshot Snapshot) Hash() string {

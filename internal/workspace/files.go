@@ -80,7 +80,8 @@ func (service Service) Upload(ctx context.Context, p toolruntime.Principal, id u
 		return db.WorkspaceFile{}, err
 	}
 	defer access.Close()
-	info, err := access.IO.Write(access.Context, upload.Path, io.LimitReader(reader, service.Config.MaxFileBytes+1), upload.ExpectedBytes, false)
+	var sample importMediaSample
+	info, err := access.IO.Write(access.Context, upload.Path, io.TeeReader(io.LimitReader(reader, service.Config.MaxFileBytes+1), &sample), upload.ExpectedBytes, false)
 	if err != nil {
 		service.failUpload(ctx, p.EnterpriseID, id)
 		return db.WorkspaceFile{}, err
@@ -101,10 +102,7 @@ func (service Service) Upload(ctx context.Context, p toolruntime.Principal, id u
 		if current.Status != "ready" || current.FenceToken != access.Workspace.FenceToken || current.LeaseOwner.String != access.owner {
 			return toolruntime.Error{Kind: "WORKSPACE_LEASE_LOST"}
 		}
-		media := mime.TypeByExtension(path.Ext(upload.Name))
-		if media == "" {
-			media = "application/octet-stream"
-		}
+		media := importedMediaType(upload.Path, sample.prefix)
 		file, err = q.CreateWorkspaceFile(ctx, db.CreateWorkspaceFileParams{ID: uuid.New(), EnterpriseID: p.EnterpriseID, WorkspaceID: workspace.ID, ConversationID: p.ConversationID,
 			Name: upload.Name, Path: upload.Path, ByteSize: info.ByteSize, ContentHash: info.ContentHash, MediaType: media, SourceResultRefs: []string{}})
 		if err != nil {

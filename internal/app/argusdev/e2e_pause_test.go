@@ -3,6 +3,8 @@ package argusdev
 import (
 	"testing"
 
+	"github.com/kakj-go/Argus/internal/app/argusctl"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,5 +81,24 @@ func TestFormalWorkloadRestoreAcceptsExactStateAlreadyRestoredByOperator(t *test
 		if action.GetVerb() == "patch" {
 			t.Fatal("already-restored workload was patched")
 		}
+	}
+}
+
+func TestFormalPausePreservesAcceptedSharedControllerDependency(t *testing.T) {
+	one := int32(1)
+	namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "argus-sandbox", UID: "formal-namespace", Labels: map[string]string{"argus.io/release-id": "argus", "app.kubernetes.io/part-of": "argus"}}}
+	controller := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "opensandbox-controller-manager", Namespace: namespace.Name, UID: "controller"}, Spec: appsv1.DeploymentSpec{Replicas: &one}}
+	server := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "opensandbox-server", Namespace: namespace.Name, UID: "server"}, Spec: appsv1.DeploymentSpec{Replicas: &one}}
+	client := fake.NewClientset(namespace, controller, server)
+	env := &E2EEnvironment{ReleaseID: "plan7-temporary", Options: E2EOptions{Artifacts: t.TempDir(), SharedController: &argusctl.SharedSandboxController{Namespace: namespace.Name}}, Kube: &E2EKube{Client: client}}
+	if err := (&App{}).pauseFormalWorkloads(t.Context(), env); err != nil {
+		t.Fatal(err)
+	}
+	if len(env.Paused) != 1 || env.Paused[0].Name != server.Name {
+		t.Fatalf("unexpected paused workload set: %+v", env.Paused)
+	}
+	got, err := client.AppsV1().Deployments(namespace.Name).Get(t.Context(), controller.Name, metav1.GetOptions{})
+	if err != nil || *got.Spec.Replicas != 1 {
+		t.Fatalf("shared controller paused: %v", err)
 	}
 }

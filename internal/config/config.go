@@ -69,6 +69,7 @@ type Server struct {
 	OtelcolArtifactCABundle       string
 	installinstruction.TrustConfig
 	ConnectorKubernetesImage string
+	RemoteRuntimeImage       string
 	TelemetryEnabled         bool
 	KeyWrappingMode          string
 	OpenBaoAddress           string
@@ -147,6 +148,7 @@ func LoadServer() Server {
 		OtelcolArtifactCABundle:       os.Getenv("ARGUS_OTELCOL_ARTIFACT_CA_PATH"),
 		TrustConfig:                   loadInstallationTrust(),
 		ConnectorKubernetesImage:      os.Getenv("ARGUS_CONNECTOR_KUBERNETES_IMAGE"),
+		RemoteRuntimeImage:            os.Getenv("ARGUS_REMOTE_RUNTIME_IMAGE"),
 		TelemetryEnabled:              telemetryEnabled,
 		KeyWrappingMode:               valueOrDefault("ARGUS_KEY_WRAPPING_MODE", "local_test"),
 		OpenBaoAddress:                os.Getenv("ARGUS_OPENBAO_ADDRESS"),

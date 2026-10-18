@@ -295,6 +295,14 @@ components:
           maxLength: 256
         api_protocol:
           $ref: '#/components/schemas/AIModelProtocol'
+        reasoning_effort:
+          type: string
+          enum:
+            - provider_default
+            - low
+            - high
+            - max
+          description: Optional Chat Completions reasoning strength; compatibility-tested and frozen per model revision.
         api_key:
           type: string
           minLength: 1
@@ -332,6 +340,14 @@ components:
           maxLength: 256
         api_protocol:
           $ref: '#/components/schemas/AIModelProtocol'
+        reasoning_effort:
+          type: string
+          enum:
+            - provider_default
+            - low
+            - high
+            - max
+          description: Omit to preserve the existing strength; provider_default clears the override in a new revision.
         api_key:
           type: string
           minLength: 1
@@ -582,6 +598,20 @@ components:
         - supports_structured_output
         - provider_compaction_capability
       properties:
+        output_token_parameter:
+          type: string
+          enum:
+            - max_tokens
+            - max_completion_tokens
+            - max_output_tokens
+        reasoning_effort:
+          type: string
+          enum:
+            - low
+            - high
+            - max
+        supports_streaming:
+          type: boolean
         context_window_tokens:
           type: integer
           minimum: 1024

@@ -1,0 +1,325 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "data": null,
+      "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "app.kubernetes.io/name": "argus-model-dns"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "kubectl.kubernetes.io/restartedAt": "2026-10-17T21:53:12+08:00"
+            },
+            "labels": {
+              "app.kubernetes.io/name": "argus-model-dns",
+              "argus.io/local-owner": "formal-host-onboarding-20261012"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "-conf",
+                  "/etc/coredns/Corefile"
+                ],
+                "image": "registry.k8s.io/coredns/coredns:v1.14.2",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "dns",
+                "ports": [
+                  {
+                    "containerPort": 5353,
+                    "name": "dns-udp",
+                    "protocol": "UDP"
+                  },
+                  {
+                    "containerPort": 5353,
+                    "name": "dns-tcp",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 8181,
+                    "name": "ready",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/ready",
+                    "port": "ready",
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 1,
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 1
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "96Mi"
+                  },
+                  "requests": {
+                    "cpu": "10m",
+                    "memory": "24Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "add": [
+                      "NET_BIND_SERVICE"
+                    ],
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "readOnlyRootFilesystem": true
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/etc/coredns",
+                    "name": "config",
+                    "readOnly": true
+                  }
+                ]
+              },
+              {
+                "args": [
+                  "--listen=0.0.0.0",
+                  "--port=5053",
+                  "--upstream=https://1.1.1.1/dns-query",
+                  "--upstream=https://1.0.0.1/dns-query",
+                  "--upstream-mode=parallel",
+                  "--timeout=4s",
+                  "--pending-requests-enabled",
+                  "--max-go-routines=64",
+                  "--refuse-any"
+                ],
+                "image": "host.docker.internal:5001/argus/argus-model-doh:v0.86.0-unprivileged-20261017-r02@sha256:538f28986769dabcbcaafcde7102f8826e931c2390ad1e0ba636dbf2f79b01a1",
+                "imagePullPolicy": "Never",
+                "name": "doh",
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "initialDelaySeconds": 1,
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "tcpSocket": {
+                    "port": 5053
+                  },
+                  "timeoutSeconds": 1
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "96Mi"
+                  },
+                  "requests": {
+                    "cpu": "10m",
+                    "memory": "24Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "readOnlyRootFilesystem": true
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File"
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {
+              "runAsGroup": 65532,
+              "runAsNonRoot": true,
+              "runAsUser": 65532
+            },
+            "terminationGracePeriodSeconds": 30,
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 420,
+                  "name": "argus-model-dns"
+                },
+                "name": "config"
+              }
+            ]
+          }
+        }
+      },
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "argus-model-dns",
+        "labels": {
+          "app.kubernetes.io/name": "argus-model-dns",
+          "argus.io/local-owner": "formal-host-onboarding-20261012"
+        },
+        "namespace": "argus-system"
+      }
+    },
+    {
+      "data": {
+        "Corefile": "api.apimart.ai:5353 {\n    errors\n    cache 30\n    forward . 127.0.0.1:5053 {\n        force_tcp\n    }\n}\nopen.bigmodel.cn:5353 {\n    errors\n    cache 5\n    forward . tls://223.5.5.5 tls://223.6.6.6 {\n        tls_servername dns.alidns.com\n        policy sequential\n    }\n}\n.:5353 {\n    errors\n    health :8080\n    ready :8181\n    cache 5\n    forward . 10.96.0.10\n}\n"
+      },
+      "spec": null,
+      "apiVersion": "v1",
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "argus-model-dns",
+        "labels": {
+          "app.kubernetes.io/name": "argus-model-dns",
+          "argus.io/local-owner": "formal-host-onboarding-20261012"
+        },
+        "namespace": "argus-system"
+      }
+    },
+    {
+      "data": null,
+      "spec": {
+        "egress": [
+          {
+            "ports": [
+              {
+                "port": 853,
+                "protocol": "TCP"
+              }
+            ],
+            "to": [
+              {
+                "ipBlock": {
+                  "cidr": "223.5.5.5/32"
+                }
+              },
+              {
+                "ipBlock": {
+                  "cidr": "223.6.6.6/32"
+                }
+              }
+            ]
+          },
+          {
+            "ports": [
+              {
+                "port": 53,
+                "protocol": "UDP"
+              },
+              {
+                "port": 53,
+                "protocol": "TCP"
+              }
+            ],
+            "to": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "kubernetes.io/metadata.name": "kube-system"
+                  }
+                },
+                "podSelector": {
+                  "matchLabels": {
+                    "k8s-app": "kube-dns"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "ports": [
+              {
+                "port": 443,
+                "protocol": "TCP"
+              }
+            ],
+            "to": [
+              {
+                "ipBlock": {
+                  "cidr": "1.1.1.1/32"
+                }
+              },
+              {
+                "ipBlock": {
+                  "cidr": "1.0.0.1/32"
+                }
+              }
+            ]
+          }
+        ],
+        "ingress": [
+          {
+            "from": [
+              {
+                "podSelector": {
+                  "matchExpressions": [
+                    {
+                      "key": "app.kubernetes.io/name",
+                      "operator": "In",
+                      "values": [
+                        "argus-server",
+                        "argus-worker",
+                        "argus-minio"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ],
+            "ports": [
+              {
+                "port": 5353,
+                "protocol": "UDP"
+              },
+              {
+                "port": 5353,
+                "protocol": "TCP"
+              }
+            ]
+          }
+        ],
+        "podSelector": {
+          "matchLabels": {
+            "app.kubernetes.io/name": "argus-model-dns"
+          }
+        },
+        "policyTypes": [
+          "Ingress",
+          "Egress"
+        ]
+      },
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {
+        "name": "argus-model-dns",
+        "labels": {
+          "app.kubernetes.io/name": "argus-model-dns",
+          "argus.io/local-owner": "formal-host-onboarding-20261012"
+        },
+        "namespace": "argus-system"
+      }
+    }
+  ]
+}

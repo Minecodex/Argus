@@ -35,6 +35,9 @@ func (service Service) tryReuse(a *Access, compute bool, scope accessScope) bool
 	if err != nil || !readyWorkspacePod(pod) || pod.Labels[workspaceLabel] != w.ID.String() {
 		return false
 	}
+	if !workspaceIOImageCurrent(pod, service.Config.IOImage) {
+		return false
+	}
 	generation, err := strconv.ParseInt(pod.Labels[fenceLabel], 10, 64)
 	if err != nil || generation <= 0 || generation > w.FenceToken {
 		return false
@@ -92,6 +95,25 @@ func readyWorkspacePod(pod *corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+// File helpers follow the configured control-plane image, including helpers
+// embedded in a compute Pod. Upgrade on the next fenced access; the ordinary
+// retire/recreate path preserves the PVC and cannot evict an active lease.
+func workspaceIOImageCurrent(pod *corev1.Pod, expected string) bool {
+	if pod == nil || expected == "" {
+		return false
+	}
+	matched := 0
+	for _, container := range pod.Spec.Containers {
+		if container.Name == "workspace-io" || container.Name == "argus-workspace-io" {
+			if container.Image != expected {
+				return false
+			}
+			matched++
+		}
+	}
+	return matched == 1
 }
 
 func (service Service) connectAccess(a *Access, pod *corev1.Pod, generation int64) error {

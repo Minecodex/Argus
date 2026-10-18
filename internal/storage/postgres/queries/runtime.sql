@@ -16,14 +16,16 @@ UPDATE conversations SET
     title = COALESCE(sqlc.narg('title'), title),
     selected_model_id = COALESCE(sqlc.narg('selected_model_id'), selected_model_id),
     status = COALESCE(sqlc.narg('status'), status),
+    mode = COALESCE(sqlc.narg('mode'), mode),
+    access_mode = COALESCE(sqlc.narg('access_mode'), access_mode),
     version = version + 1, updated_at = now()
 WHERE id = sqlc.arg('id') AND enterprise_id = sqlc.arg('enterprise_id')
   AND owner_user_id = sqlc.arg('owner_user_id') AND version = sqlc.arg('expected_version') AND status<>'deleted'
 RETURNING *;
 
 -- name: CreateRun :one
-INSERT INTO runs (id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, authorization_version, checkpoint)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO runs (id, conversation_id, enterprise_id, actor_user_id, model_id, model_revision, locale, authorization_version, checkpoint, mode_snapshot, access_mode_snapshot)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, (SELECT mode FROM conversations WHERE conversations.id=$2 AND conversations.enterprise_id=$3), (SELECT access_mode FROM conversations WHERE conversations.id=$2 AND conversations.enterprise_id=$3))
 RETURNING *;
 
 -- name: GetRun :one

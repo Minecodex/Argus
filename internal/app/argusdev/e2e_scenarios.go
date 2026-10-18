@@ -81,6 +81,8 @@ func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 					err = a.runPlan6Scenario(ctx, env)
 				}
 			}
+		case "plan7":
+			err = a.runPlan7Scenario(ctx, env)
 		case "planv2":
 			err = a.runPlanV2Scenario(ctx, env)
 		case "tool-templates":
@@ -103,12 +105,29 @@ func (a *App) runPlaywright(ctx context.Context, env *E2EEnvironment, spec strin
 	// PlanV2 depends on the setup/API checks from these suites, while its own
 	// real browser cases exercise the dashboard. Baseline portal UI stays in
 	// m2/m3/m4/m7 so focused runs do not repeat all MFA-driven browser flows.
-	if (env.Options.Suite == "planv2" && !planV2BrowserSelector(spec)) || (env.Options.Suite == "tool-templates" && !strings.HasPrefix(path.Base(spec), "tool-template-v2-real")) || (env.Options.Suite == "plan6" && !strings.HasPrefix(path.Base(spec), "plan6-")) {
+	if (env.Options.Suite == "planv2" && !planV2BrowserSelector(spec)) || (env.Options.Suite == "tool-templates" && !strings.HasPrefix(path.Base(spec), "tool-template-v2-real")) || (env.Options.Suite == "plan6" && !strings.HasPrefix(path.Base(spec), "plan6-")) || (env.Options.Suite == "plan7" && !strings.HasPrefix(path.Base(spec), "plan7-")) {
 		_, _ = fmt.Fprintf(a.stdout, "Baseline browser %s belongs to its own suite; PlanV2 retains the setup/API checks\n", spec)
 		return nil
 	}
 	variables["ARGUS_E2E_EXTERNAL"] = "1"
+	if env.State.Values["existing_portal_account"] == "true" {
+		cookies, err := existingPortalBrowserCookies(env)
+		if err != nil {
+			return err
+		}
+		variables["ARGUS_PLAN7_SESSION_COOKIES"] = cookies
+		variables["ARGUS_PLAN7_EXISTING_ACCOUNT"] = "1"
+		// The browser receives only the authorized session, never a real user's
+		// password. Failed Playwright traces must not capture login credentials.
+		delete(variables, "ARGUS_PLAN7_PASSWORD")
+	}
 	artifactDir := filepath.Join(env.Options.Artifacts, "playwright-"+env.Options.Suite)
+	if suffix := variables["ARGUS_E2E_ARTIFACT_SUFFIX"]; suffix != "" {
+		if suffix != kubernetesNameForDev(suffix) || strings.ContainsAny(suffix, "/\\.") {
+			return fmt.Errorf("invalid browser artifact suffix")
+		}
+		artifactDir += "-" + suffix
+	}
 	variables["ARGUS_E2E_ARTIFACTS"] = artifactDir
 	variables["ARGUS_E2E_ENTERPRISE_ORIGIN"] = env.Endpoints.EnterpriseOrigin
 	variables["ARGUS_E2E_PLATFORM_ORIGIN"] = env.Endpoints.PlatformOrigin
@@ -118,11 +137,19 @@ func (a *App) runPlaywright(ctx context.Context, env *E2EEnvironment, spec strin
 	variables["ARGUS_E2E_ENTERPRISE_TOTP_LAST_CODE"] = env.State.Values["enterprise_mfa_last"]
 	variables["ARGUS_E2E_PLATFORM_TOTP_SECRET"] = env.State.Values["platform_mfa_secret"]
 	variables["ARGUS_E2E_PLATFORM_TOTP_LAST_CODE"] = env.State.Values["platform_mfa_last"]
-	args := []string{"--filter", "@argus/enterprise", "exec", "playwright", "test", spec, "--workers=1"}
+	// Invoke the Node CLI directly: pnpm.cmd reinterprets regex metacharacters
+	// as Windows shell syntax instead of preserving the selector argument.
+	args := []string{filepath.Join(a.root, "node_modules", "@playwright", "test", "cli.js"), "test", "--config", filepath.Join(a.root, "web", "apps", "enterprise", "playwright.config.ts"), spec, "--workers=1"}
+	if env.Options.Suite == "plan7" {
+		// Stop on the first failure so cleanup can restore the original services.
+		// A successful gate still requires every selected browser case to pass.
+		args = append(args, "--max-failures=1", "--reporter=list,json")
+		variables["PLAYWRIGHT_JSON_OUTPUT_FILE"] = filepath.Join(artifactDir, "report.json")
+	}
 	if env.Options.Suite == "planv2" && env.Options.PlanV2BrowserGrep != "" {
 		args = append(args, "--grep", env.Options.PlanV2BrowserGrep)
 	}
-	err := a.runner.Run(ctx, variables, "pnpm", args...)
+	err := a.runner.Run(ctx, variables, "node", args...)
 	return errors.Join(err, syncPlaywrightMFAState(env, artifactDir))
 }
 

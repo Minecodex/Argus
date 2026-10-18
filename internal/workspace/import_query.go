@@ -25,22 +25,18 @@ import (
 // be asserted by a model. All delivery and replay goes through the same lease,
 // quota, atomic upload and durable directory source checks as other files.
 func (service Service) ImportQueryFile(ctx context.Context, p toolruntime.Principal, runID uuid.UUID, ref, filePath string, reader io.Reader, size int64, digest string) (file db.WorkspaceFile, failure error) {
+	if !strings.HasPrefix(filePath, "queries/") {
+		return file, toolruntime.Error{Kind: "WORKSPACE_FILE_INVALID"}
+	}
+	return service.importExternalFile(ctx, p, runID, ref, filePath, reader, size, digest)
+}
+
+func (service Service) importExternalFile(ctx context.Context, p toolruntime.Principal, runID uuid.UUID, ref, filePath string, reader io.Reader, size int64, digest string) (file db.WorkspaceFile, failure error) {
 	defer func() { failure = fileError(failure) }()
 	if service.ExternalSource == nil || size < 0 || size > service.Config.MaxFileBytes || len(digest) != 64 || !strings.HasPrefix(filePath, "queries/") {
 		return file, toolruntime.Error{Kind: "WORKSPACE_FILE_INVALID"}
 	}
-	access, err := waitQueryImportAccess(ctx, func() (*Access, error) {
-		// Each attempt revalidates the source; waiting must not preserve a grant
-		// revoked while another foreground tool owns the Workspace lease.
-		handled, err := service.ExternalSource(ctx, p, ref)
-		if err != nil {
-			return nil, err
-		}
-		if !handled {
-			return nil, toolruntime.Error{Kind: "WORKSPACE_FILE_FORBIDDEN"}
-		}
-		return service.access(ctx, p, false, uuid.Nil, accessScope{RunID: runID, BackgroundTransfer: true})
-	})
+	access, err := service.externalImportAccess(ctx, p, runID, ref, false)
 	if err != nil {
 		return file, err
 	}
@@ -50,6 +46,20 @@ func (service Service) ImportQueryFile(ctx context.Context, p toolruntime.Princi
 		return file, err
 	}
 	return file, access.Close()
+}
+
+func (service Service) externalImportAccess(ctx context.Context, p toolruntime.Principal, runID uuid.UUID, ref string, cancelledRemote bool) (*Access, error) {
+	return waitQueryImportAccess(ctx, func() (*Access, error) {
+		// Waiting for another writer must not retain a grant revoked meanwhile.
+		handled, err := service.ExternalSource(ctx, p, ref)
+		if err != nil {
+			return nil, err
+		}
+		if !handled {
+			return nil, toolruntime.Error{Kind: "WORKSPACE_FILE_FORBIDDEN"}
+		}
+		return service.access(ctx, p, false, uuid.Nil, accessScope{RunID: runID, BackgroundTransfer: true, CancelledRemoteOutput: cancelledRemote})
+	})
 }
 
 // Wait only before acquiring access, while no input bytes have been consumed.
@@ -94,10 +104,11 @@ func (service Service) importQueryFile(ctx context.Context, p toolruntime.Princi
 	}
 	// Handle a crash after the file was renamed but before metadata committed.
 	// A changed Workspace copy is never silently replaced on resume.
+	var sample importMediaSample
 	current, actual, readErr := access.IO.Read(access.Context, filePath, 0, 0)
 	if readErr == nil {
 		h := sha256.New()
-		n, copyErr := io.Copy(h, io.LimitReader(current, size+1))
+		n, copyErr := io.Copy(io.MultiWriter(h, &sample), io.LimitReader(current, size+1))
 		closeErr := current.Close()
 		if copyErr != nil {
 			return file, copyErr
@@ -109,7 +120,7 @@ func (service Service) importQueryFile(ctx context.Context, p toolruntime.Princi
 			return file, toolruntime.Error{Kind: "WORKSPACE_FILE_CONFLICT"}
 		}
 	} else if status.Code(readErr) == codes.NotFound {
-		checked := &queryImportReader{reader: io.LimitReader(reader, size+1), digest: sha256.New(), expected: digest, size: size}
+		checked := &queryImportReader{reader: io.TeeReader(io.LimitReader(reader, size+1), &sample), digest: sha256.New(), expected: digest, size: size}
 		info, err := access.IO.Write(access.Context, filePath, checked, size, false)
 		if err != nil {
 			return file, err
@@ -126,22 +137,8 @@ func (service Service) importQueryFile(ctx context.Context, p toolruntime.Princi
 	if e == nil {
 		return existing, nil
 	}
-	err = service.Store.InTx(ctx, func(q *db.Queries) error {
-		c, err := q.LockConversation(ctx, db.LockConversationParams{ID: p.ConversationID, EnterpriseID: p.EnterpriseID, OwnerUserID: p.UserID})
-		if err != nil {
-			return err
-		}
-		if c.Status != "active" {
-			return toolruntime.Error{Kind: "WORKSPACE_FILE_FORBIDDEN"}
-		}
-		w, err := q.LockWorkspace(ctx, db.LockWorkspaceParams{ID: access.Workspace.ID, EnterpriseID: p.EnterpriseID})
-		if err != nil {
-			return err
-		}
-		if w.Status != "ready" || w.FenceToken != access.Workspace.FenceToken || w.LeaseOwner.String != access.owner || !w.LeaseUntil.Valid || !w.LeaseUntil.Time.After(time.Now()) {
-			return toolruntime.Error{Kind: "WORKSPACE_LEASE_LOST"}
-		}
-		file, err = q.CreateWorkspaceFile(ctx, db.CreateWorkspaceFileParams{ID: uuid.New(), EnterpriseID: p.EnterpriseID, WorkspaceID: w.ID, ConversationID: p.ConversationID, Name: path.Base(filePath), Path: filePath, ByteSize: size, ContentHash: digest, MediaType: "application/json", SourceResultRefs: []string{ref}})
+	err = service.publishFile(ctx, p, access, func(q *db.Queries, w db.Workspace) error {
+		file, err = q.CreateWorkspaceFile(ctx, db.CreateWorkspaceFileParams{ID: uuid.New(), EnterpriseID: p.EnterpriseID, WorkspaceID: w.ID, ConversationID: p.ConversationID, Name: path.Base(filePath), Path: filePath, ByteSize: size, ContentHash: digest, MediaType: importedMediaType(filePath, sample.prefix), SourceResultRefs: []string{ref}})
 		if err != nil {
 			return err
 		}

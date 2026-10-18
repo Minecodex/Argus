@@ -157,20 +157,34 @@ func (a *App) startM3KubernetesConnector(ctx context.Context, env *E2EEnvironmen
 		{APIGroups: []string{"autoscaling"}, Resources: []string{"horizontalpodautoscalers"}, Verbs: []string{"get", "list", "watch"}},
 		{APIGroups: []string{"rbac.authorization.k8s.io"}, Resources: []string{"clusterroles", "clusterrolebindings"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 	}
-	if _, err := env.Kube.Client.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: rbacName, Labels: labels}, Rules: rules,
-	}, metav1.CreateOptions{}); err != nil {
-		return err
+	if env.Options.Suite == "plan7" {
+		namespace, namespaceErr := a.plan7TargetNamespace(ctx, env)
+		if namespaceErr != nil {
+			return namespaceErr
+		}
+		rules = []rbacv1.PolicyRule{{APIGroups: []string{""}, Resources: []string{"pods", "configmaps"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}}, {APIGroups: []string{""}, Resources: []string{"pods/exec"}, Verbs: []string{"create"}}, {APIGroups: []string{"networking.k8s.io"}, Resources: []string{"networkpolicies"}, Verbs: []string{"get", "list", "create", "update", "delete"}}}
+		if _, err = env.Kube.Client.RbacV1().Roles(namespace).Create(ctx, &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: rbacName, Namespace: namespace, Labels: labels}, Rules: rules}, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+		if _, err = env.Kube.Client.RbacV1().RoleBindings(namespace).Create(ctx, &rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: rbacName, Namespace: namespace, Labels: labels}, Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: serviceAccountName, Namespace: env.SystemNS}}, RoleRef: rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "Role", Name: rbacName}}, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+	} else {
+		if _, err := env.Kube.Client.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: rbacName, Labels: labels}, Rules: rules,
+		}, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+		if _, err := env.Kube.Client.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: rbacName, Labels: labels},
+			Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Name: serviceAccountName, Namespace: env.SystemNS}},
+			RoleRef:    rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: rbacName},
+		}, metav1.CreateOptions{}); err != nil {
+			_ = env.Kube.Client.RbacV1().ClusterRoles().Delete(ctx, rbacName, metav1.DeleteOptions{})
+			return err
+		}
+		env.ManagedClusterRBAC = append(env.ManagedClusterRBAC, rbacName)
 	}
-	if _, err := env.Kube.Client.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: rbacName, Labels: labels},
-		Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Name: serviceAccountName, Namespace: env.SystemNS}},
-		RoleRef:    rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: rbacName},
-	}, metav1.CreateOptions{}); err != nil {
-		_ = env.Kube.Client.RbacV1().ClusterRoles().Delete(ctx, rbacName, metav1.DeleteOptions{})
-		return err
-	}
-	env.ManagedClusterRBAC = append(env.ManagedClusterRBAC, rbacName)
 	mode := int32(0o444)
 	replicas := int32(1)
 	runAsUser := int64(65532)
@@ -195,6 +209,9 @@ func (a *App) startM3KubernetesConnector(ctx context.Context, env *E2EEnvironmen
 					{Name: "identity", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 			}},
 		},
+	}
+	if env.Options.Suite == "plan7" {
+		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "ARGUS_REMOTE_NAMESPACE", Value: env.State.Values["p7_target_namespace"]}, corev1.EnvVar{Name: "ARGUS_REMOTE_KUBECTL_IMAGE", Value: env.State.FixtureImages["remote-runtime"]})
 	}
 	if _, err := env.Kube.Client.AppsV1().Deployments(env.SystemNS).Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
 		return err

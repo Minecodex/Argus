@@ -41,6 +41,9 @@
   color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
 }
+.argus-conversation-workspace > details {
+  min-width: 0;
+}
 .argus-conversation-workspace p {
   margin-block: var(--space-3);
   font-size: var(--text-help);
@@ -49,9 +52,6 @@
 .argus-conversation-workspace .argus-planv5-connection {
   overflow-wrap: anywhere;
   justify-content: flex-start;
-}
-.argus-conversation-workspace .argus-file-card {
-  margin-block: var(--space-2);
 }
 .argus-planv5-connection {
   display: flex;

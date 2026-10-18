@@ -36,9 +36,11 @@ import (
 var errIdentityRotated = errors.New("Connector identity rotated")
 
 type connectorClient struct {
-	store  localStore
-	logger *slog.Logger
-	relay  *bastionRelay
+	remote           *remoteRuntimeHub
+	executionContext context.Context
+	store            localStore
+	logger           *slog.Logger
+	relay            *bastionRelay
 }
 
 type receivedFrame struct {
@@ -67,6 +69,9 @@ type pendingTunnelLease struct {
 }
 
 func (client connectorClient) run(ctx context.Context) error {
+	client.remote = newRemoteRuntimeHub()
+	client.executionContext = ctx
+	defer client.remote.Close()
 	if err := client.store.ensure(); err != nil {
 		return err
 	}
@@ -268,6 +273,11 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 			case message.GetClose() != nil:
 				return fmt.Errorf("Connector stream closed: %s", message.GetClose().GetError().GetCode())
 			case message.GetCommandReconcileRequest() != nil:
+				latestResults, loadErr := client.store.loadResults()
+				if loadErr != nil {
+					return loadErr
+				}
+				results = latestResults
 				outgoing <- outboundFrame{value: reconcileFrame(message.GetCommandReconcileRequest(), epoch, results)}
 			case message.GetCredentialLeaseGrant() != nil:
 				grant := message.GetCredentialLeaseGrant()
@@ -299,7 +309,7 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 					credential := append([]byte(nil), grant.GetCredentialPayload()...)
 					active.Add(1)
 					operationSecret := append([]byte(nil), grant.GetOperationSecretPayload()...)
-					go executeConnectorCommand(ctx, value.command, credential, operationSecret, completed)
+					go client.executeCommand(ctx, value.command, credential, operationSecret, completed)
 					continue
 				}
 				remote, ok := remotePending[grant.GetCommandId()]
@@ -353,7 +363,7 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 						HostOnboardingOperationId: hostOnboardingOperationID(command)}}}}
 				} else {
 					active.Add(1)
-					go executeConnectorCommand(ctx, command, nil, nil, completed)
+					go client.executeCommand(ctx, command, nil, nil, completed)
 				}
 			case message.GetTelemetryTunnelDesiredSet() != nil:
 				desiredSet := message.GetTelemetryTunnelDesiredSet()

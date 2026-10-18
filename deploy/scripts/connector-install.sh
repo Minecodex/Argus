@@ -16,6 +16,7 @@ CA_FILE=""
 ELEVATED=0
 KUBERNETES_NAMESPACE="argus-system"
 CONNECTOR_IMAGE=""
+REMOTE_RUNTIME_IMAGE=""
 IMAGE_PULL_SECRETS=""
 ENROLL_DIAL_ADDRESS=""
 GATEWAY_DIAL_ADDRESS=""
@@ -35,6 +36,7 @@ while [ $# -gt 0 ]; do
     --elevated) ELEVATED=1; shift ;;
     --kubernetes-namespace) KUBERNETES_NAMESPACE="${2-}"; shift 2 ;;
     --connector-image) CONNECTOR_IMAGE="${2-}"; shift 2 ;;
+    --remote-runtime-image) REMOTE_RUNTIME_IMAGE="${2-}"; shift 2 ;;
     --image-pull-secrets) IMAGE_PULL_SECRETS="${2-}"; shift 2 ;;
     --enroll-dial-address) ENROLL_DIAL_ADDRESS="${2-}"; shift 2 ;;
     --gateway-dial-address) GATEWAY_DIAL_ADDRESS="${2-}"; shift 2 ;;
@@ -153,6 +155,7 @@ if [ "$SCOPE" = "kubernetes" ]; then
   [ -n "$CONNECTOR_IMAGE" ] || die "--connector-image is required for Kubernetes installation"
   printf '%s' "$KUBERNETES_NAMESPACE" | grep -Eq '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$' || die "Kubernetes namespace is invalid"
   printf '%s' "$CONNECTOR_IMAGE" | grep -Eq '^[A-Za-z0-9._/:@-]+$' || die "Connector image reference is invalid"
+  [ -z "$REMOTE_RUNTIME_IMAGE" ] || { printf '%s' "$REMOTE_RUNTIME_IMAGE" | grep -Eq '^[A-Za-z0-9._/:@-]+$' || die "Remote runtime image reference is invalid"; }
   IMAGE_PULL_SECRETS_JSON='[]'
   if [ -n "$IMAGE_PULL_SECRETS" ]; then
     IMAGE_PULL_SECRETS_JSON='['
@@ -179,7 +182,7 @@ if [ "$SCOPE" = "kubernetes" ]; then
     --from-file=identity.json="$DATA/identity.json" --from-file=connector-key.pem="$DATA/connector-key.pem" \
     --from-file=connector-cert.pem="$DATA/connector-cert.pem" --from-file=connector-ca.pem="$DATA/connector-ca.pem" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-  sed -e "s|ARGUS_CONNECTOR_IMAGE|$CONNECTOR_IMAGE|g" -e "s|ARGUS_NAMESPACE|$KUBERNETES_NAMESPACE|g" <<'EOF' | kubectl apply -f - >/dev/null
+  sed -e "s|ARGUS_CONNECTOR_IMAGE|$CONNECTOR_IMAGE|g" -e "s|ARGUS_REMOTE_IMAGE_VALUE|$REMOTE_RUNTIME_IMAGE|g" -e "s|ARGUS_NAMESPACE|$KUBERNETES_NAMESPACE|g" <<'EOF' | kubectl apply -f - >/dev/null
 apiVersion: v1
 kind: ServiceAccount
 metadata: {name: argus-kubernetes-connector, namespace: ARGUS_NAMESPACE}
@@ -343,6 +346,7 @@ spec:
         args: [run, --data-dir=/var/lib/argus-connector]
         env:
         - {name: ARGUS_CONNECTOR_KUBERNETES_STATE, value: "1"}
+        - {name: ARGUS_REMOTE_KUBECTL_IMAGE, value: "ARGUS_REMOTE_IMAGE_VALUE"}
         - {name: ARGUS_OTELCOL_ARTIFACT_CA_PATH, value: /var/run/secrets/argus/trust/ca.crt}
         - name: ARGUS_CONNECTOR_KUBERNETES_NAMESPACE
           valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
@@ -362,6 +366,29 @@ spec:
       - name: trust
         configMap: {name: argus-trust-bundle, defaultMode: 0444}
 EOF
+  if [ -n "$REMOTE_RUNTIME_IMAGE" ]; then
+    sed -e "s|ARGUS_NAMESPACE|$KUBERNETES_NAMESPACE|g" <<'EOF' | kubectl apply -f - >/dev/null
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: argus-remote-runtime, namespace: ARGUS_NAMESPACE}
+rules:
+- apiGroups: [""]
+  resources: [pods]
+  verbs: [get,list,create,delete]
+- apiGroups: [""]
+  resources: [pods/exec]
+  verbs: [create]
+- apiGroups: [networking.k8s.io]
+  resources: [networkpolicies]
+  verbs: [get,list,create,update,delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: argus-remote-runtime, namespace: ARGUS_NAMESPACE}
+subjects: [{kind: ServiceAccount, name: argus-kubernetes-connector, namespace: ARGUS_NAMESPACE}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: argus-remote-runtime}
+EOF
+  fi
   if [ "$IMAGE_PULL_SECRETS_JSON" != '[]' ]; then
     kubectl -n "$KUBERNETES_NAMESPACE" patch deployment argus-kubernetes-connector --type merge \
       -p "{\"spec\":{\"template\":{\"spec\":{\"imagePullSecrets\":$IMAGE_PULL_SECRETS_JSON}}}}" >/dev/null

@@ -125,6 +125,11 @@ type HostInput struct {
 	BastionScopeID, CredentialID, ConnectionTestID                                                      uuid.NullUUID
 	Labels                                                                                              map[string]string
 	ExpectedVersion                                                                                     int64
+	ExecutionAccount                                                                                    *HostExecutionAccount `json:"execution_account,omitempty"`
+}
+type HostExecutionAccount struct {
+	Username string `json:"username"`
+	SID      string `json:"sid,omitempty"`
 }
 
 type KubernetesInput struct {
@@ -152,6 +157,7 @@ type connectionPlan struct {
 }
 
 type ConnectionTestResult struct {
+	IdentitySID         string              `json:"identity_sid,omitempty"`
 	Checks              []map[string]string `json:"checks"`
 	LatencyMS           int64               `json:"latency_ms,omitempty"`
 	ResolvedIPs         []string            `json:"resolved_ips,omitempty"`
@@ -359,7 +365,7 @@ func (service Service) PreviewCreateHost(ctx context.Context, subject Subject, e
 	snapshot := NewResourceAuthorizationSnapshot("host", hostID)
 	return service.prepareAction(ctx, subject, enterpriseID, PrepareActionInput{ActionType: "host.create", Title: "Create host", Summary: "Create a validated host resource",
 		Risk: "write", ResourceType: "host", ResourceID: uuid.NullUUID{UUID: hostID, Valid: true}, AuthorizationVersion: subject.AuthorizationVersion,
-		Preview: map[string]any{"host_id": hostID, "name": input.Name, "control_path": input.ControlPath, "install_method": input.InstallMethod, "connection_status": "onboarding"},
+		Preview: map[string]any{"host_id": hostID, "name": input.Name, "control_path": input.ControlPath, "install_method": input.InstallMethod, "connection_status": "onboarding", "execution_account": input.ExecutionAccount},
 		Diff:    []map[string]string{{"kind": "add", "text": "Create host " + input.Name}}, ImmutablePlan: plan, ResourceScopeSnapshot: snapshot, CommitHandler: "argus.host.create.commit"}, idempotencyKey)
 }
 

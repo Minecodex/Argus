@@ -11,6 +11,42 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for ConversationAccessMode.
+const (
+	ConversationAccessModeFullAccess      ConversationAccessMode = "full_access"
+	ConversationAccessModeRequestApproval ConversationAccessMode = "request_approval"
+)
+
+// Valid indicates whether the value is a known member of the ConversationAccessMode enum.
+func (e ConversationAccessMode) Valid() bool {
+	switch e {
+	case ConversationAccessModeFullAccess:
+		return true
+	case ConversationAccessModeRequestApproval:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConversationMode.
+const (
+	ConversationModeExecute ConversationMode = "execute"
+	ConversationModePlan    ConversationMode = "plan"
+)
+
+// Valid indicates whether the value is a known member of the ConversationMode enum.
+func (e ConversationMode) Valid() bool {
+	switch e {
+	case ConversationModeExecute:
+		return true
+	case ConversationModePlan:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ConversationStatus.
 const (
 	ConversationStatusActive   ConversationStatus = "active"
@@ -53,6 +89,42 @@ func (e ConversationPreflightSandboxStatus) Valid() bool {
 	case Ready:
 		return true
 	case Unhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConversationUpdateAccessMode.
+const (
+	ConversationUpdateAccessModeFullAccess      ConversationUpdateAccessMode = "full_access"
+	ConversationUpdateAccessModeRequestApproval ConversationUpdateAccessMode = "request_approval"
+)
+
+// Valid indicates whether the value is a known member of the ConversationUpdateAccessMode enum.
+func (e ConversationUpdateAccessMode) Valid() bool {
+	switch e {
+	case ConversationUpdateAccessModeFullAccess:
+		return true
+	case ConversationUpdateAccessModeRequestApproval:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConversationUpdateMode.
+const (
+	ConversationUpdateModeExecute ConversationUpdateMode = "execute"
+	ConversationUpdateModePlan    ConversationUpdateMode = "plan"
+)
+
+// Valid indicates whether the value is a known member of the ConversationUpdateMode enum.
+func (e ConversationUpdateMode) Valid() bool {
+	switch e {
+	case ConversationUpdateModeExecute:
+		return true
+	case ConversationUpdateModePlan:
 		return true
 	default:
 		return false
@@ -158,6 +230,42 @@ func (e PartialMetadataReasons) Valid() bool {
 	}
 }
 
+// Defines values for RunAccessModeSnapshot.
+const (
+	RunAccessModeSnapshotFullAccess      RunAccessModeSnapshot = "full_access"
+	RunAccessModeSnapshotRequestApproval RunAccessModeSnapshot = "request_approval"
+)
+
+// Valid indicates whether the value is a known member of the RunAccessModeSnapshot enum.
+func (e RunAccessModeSnapshot) Valid() bool {
+	switch e {
+	case RunAccessModeSnapshotFullAccess:
+		return true
+	case RunAccessModeSnapshotRequestApproval:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunModeSnapshot.
+const (
+	RunModeSnapshotExecute RunModeSnapshot = "execute"
+	RunModeSnapshotPlan    RunModeSnapshot = "plan"
+)
+
+// Valid indicates whether the value is a known member of the RunModeSnapshot enum.
+func (e RunModeSnapshot) Valid() bool {
+	switch e {
+	case RunModeSnapshotExecute:
+		return true
+	case RunModeSnapshotPlan:
+		return true
+	default:
+		return false
+	}
+}
+
 // ApiError defines model for ApiError.
 type ApiError struct {
 	Code       string                                           `json:"code"`
@@ -212,15 +320,23 @@ type ContextSnapshot struct {
 
 // Conversation defines model for Conversation.
 type Conversation struct {
-	CreatedAt                time.Time            `json:"created_at"`
-	Id                       openapi_types.UUID   `json:"id"`
-	SelectedMcpConnectionIds []openapi_types.UUID `json:"selected_mcp_connection_ids"`
-	SelectedModelId          openapi_types.UUID   `json:"selected_model_id"`
-	Status                   ConversationStatus   `json:"status"`
-	Title                    string               `json:"title"`
-	UpdatedAt                time.Time            `json:"updated_at"`
-	Version                  int64                `json:"version"`
+	AccessMode               *ConversationAccessMode `json:"access_mode,omitempty"`
+	CreatedAt                time.Time               `json:"created_at"`
+	Id                       openapi_types.UUID      `json:"id"`
+	Mode                     *ConversationMode       `json:"mode,omitempty"`
+	SelectedMcpConnectionIds []openapi_types.UUID    `json:"selected_mcp_connection_ids"`
+	SelectedModelId          openapi_types.UUID      `json:"selected_model_id"`
+	Status                   ConversationStatus      `json:"status"`
+	Title                    string                  `json:"title"`
+	UpdatedAt                time.Time               `json:"updated_at"`
+	Version                  int64                   `json:"version"`
 }
+
+// ConversationAccessMode defines model for Conversation.AccessMode.
+type ConversationAccessMode string
+
+// ConversationMode defines model for Conversation.Mode.
+type ConversationMode string
 
 // ConversationStatus defines model for Conversation.Status.
 type ConversationStatus string
@@ -287,12 +403,20 @@ type ConversationPreflightInput struct {
 
 // ConversationUpdate defines model for ConversationUpdate.
 type ConversationUpdate struct {
-	ExpectedVersion          int64                     `json:"expected_version"`
-	SelectedMcpConnectionIds *[]openapi_types.UUID     `json:"selected_mcp_connection_ids,omitempty"`
-	SelectedModelId          *openapi_types.UUID       `json:"selected_model_id,omitempty"`
-	Status                   *ConversationUpdateStatus `json:"status,omitempty"`
-	Title                    *string                   `json:"title,omitempty"`
+	AccessMode               *ConversationUpdateAccessMode `json:"access_mode,omitempty"`
+	ExpectedVersion          int64                         `json:"expected_version"`
+	Mode                     *ConversationUpdateMode       `json:"mode,omitempty"`
+	SelectedMcpConnectionIds *[]openapi_types.UUID         `json:"selected_mcp_connection_ids,omitempty"`
+	SelectedModelId          *openapi_types.UUID           `json:"selected_model_id,omitempty"`
+	Status                   *ConversationUpdateStatus     `json:"status,omitempty"`
+	Title                    *string                       `json:"title,omitempty"`
 }
+
+// ConversationUpdateAccessMode defines model for ConversationUpdate.AccessMode.
+type ConversationUpdateAccessMode string
+
+// ConversationUpdateMode defines model for ConversationUpdate.Mode.
+type ConversationUpdateMode string
 
 // ConversationUpdateStatus defines model for ConversationUpdate.Status.
 type ConversationUpdateStatus string
@@ -385,21 +509,30 @@ type ResourceRef struct {
 
 // Run defines model for Run.
 type Run struct {
-	AuthorizationVersion int         `json:"authorization_version"`
-	ConversationId       string      `json:"conversation_id"`
-	CreatedAt            time.Time   `json:"created_at"`
-	CurrentStepId        *string     `json:"current_step_id,omitempty"`
-	EnterpriseId         string      `json:"enterprise_id"`
-	ErrorCode            *string     `json:"error_code,omitempty"`
-	Locale               interface{} `json:"locale"`
-	ModelId              string      `json:"model_id"`
-	ModelRevision        int         `json:"model_revision"`
-	RunId                string      `json:"run_id"`
-	Status               interface{} `json:"status"`
-	StopReason           *string     `json:"stop_reason,omitempty"`
-	UpdatedAt            time.Time   `json:"updated_at"`
-	Version              int         `json:"version"`
+	AccessModeSnapshot   *RunAccessModeSnapshot `json:"access_mode_snapshot,omitempty"`
+	ApprovedPlanId       *openapi_types.UUID    `json:"approved_plan_id,omitempty"`
+	AuthorizationVersion int                    `json:"authorization_version"`
+	ConversationId       string                 `json:"conversation_id"`
+	CreatedAt            time.Time              `json:"created_at"`
+	CurrentStepId        *string                `json:"current_step_id,omitempty"`
+	EnterpriseId         string                 `json:"enterprise_id"`
+	ErrorCode            *string                `json:"error_code,omitempty"`
+	Locale               interface{}            `json:"locale"`
+	ModeSnapshot         *RunModeSnapshot       `json:"mode_snapshot,omitempty"`
+	ModelId              string                 `json:"model_id"`
+	ModelRevision        int                    `json:"model_revision"`
+	RunId                string                 `json:"run_id"`
+	Status               interface{}            `json:"status"`
+	StopReason           *string                `json:"stop_reason,omitempty"`
+	UpdatedAt            time.Time              `json:"updated_at"`
+	Version              int                    `json:"version"`
 }
+
+// RunAccessModeSnapshot defines model for Run.AccessModeSnapshot.
+type RunAccessModeSnapshot string
+
+// RunModeSnapshot defines model for Run.ModeSnapshot.
+type RunModeSnapshot string
 
 // RunCheckpoint defines model for RunCheckpoint.
 type RunCheckpoint struct {

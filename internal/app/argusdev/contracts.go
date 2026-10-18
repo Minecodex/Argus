@@ -14,6 +14,7 @@ import (
 )
 
 var contractDomains = []string{
+	"interactionapi", "remoteexecutionapi",
 	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi", "alertsapi",
 	"common", "identity", "authorization", "labels", "action", "agent", "stream", "setup", "m8api", "platform",
 	"enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi", "kubernetesapi", "connectionapi",
@@ -22,6 +23,7 @@ var contractDomains = []string{
 }
 
 var contractServerDomains = []string{
+	"interactionapi", "remoteexecutionapi",
 	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi", "alertsapi",
 	"setup", "m8api", "platform", "enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi",
 	"kubernetesapi", "connectionapi", "actionapi", "connectorapi", "conversationapi", "modelapi", "workflowapi",
@@ -29,6 +31,7 @@ var contractServerDomains = []string{
 }
 
 var splitServerDomains = []string{
+	"interactionapi", "remoteexecutionapi",
 	"conversationapi",
 	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi", "alertsapi",
 	"enterpriseauthz", "secretapi", "hostapi", "kubernetesapi", "connectionapi", "actionapi", "connectorapi", "sandboxapi",

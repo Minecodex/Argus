@@ -1,0 +1,71 @@
+{
+  "plan": "Plan7",
+  "run_id": "plan7-20261017-f40",
+  "status": "completed",
+  "accepted_at": "2026-10-17T15:46:41.9069738+08:00",
+  "source_fingerprint": "616ca4c3cf27e03a9d198d274c2324276ac3161e6d9a8df0f8651211c7c6c439",
+  "source_unchanged": true,
+  "source_files": 2627,
+  "artifact_root": "../../../build/plan7-evidence/plan7-20261017-f40",
+  "required_cases": 57,
+  "passed_cases": 57,
+  "named_go_checks": 99,
+  "verified_proof_files": 43,
+  "browser": {
+    "skipped": 0,
+    "flaky": 0,
+    "failed": 0,
+    "passed": 19
+  },
+  "model": {
+    "scope": "Agent inference and compaction for GLM-5.3 in this owned run; excludes model-registration probes",
+    "calls": 76,
+    "inference_calls": 74,
+    "compaction_calls": 2,
+    "succeeded": 76,
+    "input_tokens": 906749,
+    "output_tokens": 87262,
+    "max_latency_ms": 137162,
+    "provider_usage_complete": true,
+    "quota_settled": true
+  },
+  "restored_original_workloads": 20,
+  "preserved_original_pvcs": 9,
+  "owned_test_namespaces_remaining": 0,
+  "windows_temp_removed": true,
+  "windows_owned_processes_remaining": 0,
+  "database_fixture_removed": true,
+  "closed_findings": [
+    "P7-R01",
+    "P7-R02"
+  ],
+  "windows_scope": "Windows 11 Pro on the local host",
+  "windows_server_validation": "not_validated",
+  "publication": "isolated acceptance deployment; original business deployment restored",
+  "hashes": {
+    "source_after": "f9fce9c168ef18792f9485f80a2f2be75d0c8436c4c2458945b0f9251b2f3926",
+    "source_before": "43b1514fb210a88e0bb05ac25986625312017536282124d0d644723a50d09d24",
+    "engineering": "0e0db620625f4589939cd3cb5b9d0a48ed666339fadc3f86aca1936886466b25",
+    "result": "99b8cf96de4d76ca232f2aa7df81b986e0012f0d27db4b7cfdc6b4b023371d76",
+    "model_usage": "d49e28af743aa4c75948ed41c36f82ee1c836186087c2af539320fb269bfb8fc",
+    "cleanup": "be39ec8f70bdafb1362fab122556c54eb2d177e5338416ab710df85782727892",
+    "deployment_verify": "390baa120f1c7dc77aed554ba5dfa910380795cd0c707a2896553eef67fec216",
+    "matrix": "434a038b07e0ddb5b99f4313290169be53a9db5651242b80cdbad2c2ec8ed607",
+    "restored_environment": "929543378f03efc8fe8b0233a4e82bd06e6aa099b136a61f703c89475c722f50",
+    "original_environment": "43cceec74db99e69877be7c9f039dfab33199b345a259330d9b76ef881a35f12",
+    "database_cleanup": "bd6e3600be2b115d96ceeb6b5890e949138de4e67b161a0a29365617e3cd694c"
+  },
+  "documentation_validation": {
+    "checked_at": "2026-10-17T15:48:31.5146426+08:00",
+    "utf8_markdown_files": 19,
+    "local_links_checked": 178,
+    "completed_tasks": 9,
+    "open_findings": 0,
+    "changed_source_files": 306,
+    "maximum_changed_source_lines": 1885,
+    "largest_changed_source_file": "web/packages/api-client/src/adapters/real.ts",
+    "accepted_source_files_rechecked": 2627,
+    "issues": [],
+    "status": "passed"
+  }
+}

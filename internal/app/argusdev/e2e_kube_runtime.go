@@ -368,7 +368,7 @@ func (k *E2EKube) execPod(ctx context.Context, namespace, podName, container str
 	return strings.TrimSpace(stdout.String()), nil
 }
 
-func (k *E2EKube) DeleteNamespace(ctx context.Context, namespace, releaseID string) error {
+func (k *E2EKube) DeleteNamespace(ctx context.Context, namespace, releaseID string, expectedUID ...string) error {
 	current, err := k.Client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
@@ -378,6 +378,9 @@ func (k *E2EKube) DeleteNamespace(ctx context.Context, namespace, releaseID stri
 	}
 	if releaseID == "" || current.Labels["argus.io/release-id"] != releaseID {
 		return fmt.Errorf("refusing to delete namespace %s not owned by release %s", namespace, releaseID)
+	}
+	if len(expectedUID) > 0 && (expectedUID[0] == "" || string(current.UID) != expectedUID[0]) {
+		return fmt.Errorf("refusing to delete replaced namespace %s", namespace)
 	}
 	err = k.Client.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{
 		UID: &current.UID, ResourceVersion: &current.ResourceVersion,

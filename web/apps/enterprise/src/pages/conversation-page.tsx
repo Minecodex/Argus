@@ -11,6 +11,7 @@ import { ChatComposer } from "../components/chat/composer";
 import { ChatMessageList } from "../components/chat/message-list";
 import { chatMessagesFromEvents } from "../components/chat/chat-view-model";
 import { useChatStream } from "../components/chat/use-chat-stream";
+import { useConversationInteractions } from "../components/chat/use-conversation-interactions";
 import { createConversationRefresh } from "../components/chat/conversation-refresh";
 import { useUiStore } from "../store/ui";
 import "../styles/chat.css";
@@ -267,7 +268,37 @@ export function ConversationPage() {
     queryFn: () => api.conversations.listEvents(conversationId ?? ""),
     enabled: Boolean(conversationId),
   });
-  const messages = chatMessagesFromEvents(events ?? []);
+  const interactions = useConversationInteractions(conversationId);
+  const [stopError, setStopError] = useState<string | null>(null);
+  const serverRunId = interactions.data?.active_run_id;
+  const messages = chatMessagesFromEvents(events ?? []).filter(
+    (message) =>
+      !message.interactionId ||
+      interactions.data?.items.some(
+        (item) =>
+          item.id === message.interactionId &&
+          (item.kind === "plan" || item.status !== "pending"),
+      ),
+  );
+  const stopCurrent = async () => {
+    setStopError(null);
+    if (!serverRunId) {
+      stop();
+      return;
+    }
+    try {
+      await api.runs.cancel(serverRunId);
+      await queryClient.invalidateQueries({
+        queryKey: ["conversation-interactions", conversationId],
+      });
+    } catch (e) {
+      setStopError(
+        formatApiError(e, t("chatInteractions.failure"), (requestId) =>
+          t("common.requestReference", { requestId }),
+        ),
+      );
+    }
+  };
   const { data: models = [] } = useQuery({
     queryKey: ["models", "chat"],
     queryFn: () => api.models.list(),
@@ -365,6 +396,7 @@ export function ConversationPage() {
         ) : (
           <Welcome onExample={(text) => handleSend(text)} />
         )}
+        {stopError && <p role="alert">{stopError}</p>}
         {error && (
           <div className="argus-chat-composer__note" role="alert">
             {error}
@@ -404,8 +436,10 @@ export function ConversationPage() {
           onSend={handleSend}
           conversationId={conversationId}
           prepareConversation={prepareConversation}
-          onStop={stop}
-          sending={sending}
+          onStop={() => void stopCurrent()}
+          interaction={interactions.pending}
+          onRespond={interactions.respond}
+          sending={sending || !!serverRunId}
         />
       </div>
     </div>

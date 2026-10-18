@@ -1,0 +1,556 @@
+openapi: 3.1.0
+info:
+  title: Argus Remote Execution API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+paths:
+  /conversations/{conversation_id}/remote-executions/{execution_id}/input-files/{file_id}:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: execution_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: readRemoteExecutionInput
+      summary: Review the actual immutable input bytes covered by confirmation
+      tags:
+        - Conversations
+      responses:
+        '200':
+          description: Frozen input file
+          headers:
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+            X-Content-SHA256:
+              required: true
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{conversation_id}/remote-executions:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listRemoteExecutions
+      summary: List own conversation remote execution requests
+      tags:
+        - Conversations
+      responses:
+        '200':
+          description: Authoritative previews and execution state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteExecutionPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{conversation_id}/remote-executions/{execution_id}:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: execution_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getRemoteExecution
+      summary: Read an authorized remote execution
+      tags:
+        - Conversations
+      responses:
+        '200':
+          description: Current remote execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteExecution'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{conversation_id}/remote-executions/{execution_id}/stop:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: execution_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: stopRemoteExecution
+      summary: Explicitly stop own approved remote execution
+      tags:
+        - Conversations
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Stop intent and current authoritative state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteExecution'
+        default:
+          $ref: '#/components/responses/Error'
+  /conversations/{conversation_id}/remote-executions/{execution_id}/feedback:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: execution_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: reviseRemotePlan
+      summary: Supersede a pending plan and ask the Agent for a revised preview
+      tags:
+        - Conversations
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemotePlanFeedback'
+      responses:
+        '202':
+          description: Revision requested; no execution authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteExecution'
+        default:
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argus_session
+  schemas:
+    RemoteExecution:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - action_ref
+        - content_hash
+        - status
+        - stop_requested
+        - revision
+        - spec
+        - results
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        action_ref:
+          type: string
+        content_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        status:
+          type: string
+          enum:
+            - awaiting_confirmation
+            - ready
+            - running
+            - succeeded
+            - failed
+            - partial_failed
+            - result_unknown
+            - paused_for_recovery
+            - stopping
+            - cancelled
+            - superseded
+            - expired
+        stop_requested:
+          type: boolean
+        confirmation_required:
+          type: boolean
+        stop_status:
+          type: string
+          enum:
+            - ''
+            - requested
+            - confirmed
+            - unknown
+        revision:
+          type: integer
+          minimum: 1
+        spec:
+          $ref: '#/components/schemas/RemotePlan'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemoteStepResult'
+        error_code:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    RemoteExecutionPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemoteExecution'
+    RemotePlanFeedback:
+      type: object
+      additionalProperties: false
+      required:
+        - feedback
+      properties:
+        feedback:
+          type: string
+          minLength: 1
+          maxLength: 16384
+    RequestId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._-]+$
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message_key
+        - request_id
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+        message_key:
+          type: string
+          pattern: ^errors\.[a-z0-9_.]+$
+        params:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        message:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+        trace_id:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+          default: false
+    RemoteTarget:
+      type: object
+      additionalProperties: false
+      required:
+        - resource_type
+        - resource_id
+      properties:
+        name:
+          type: string
+        resource_version:
+          type: integer
+          format: int64
+        resource_type:
+          type: string
+          enum:
+            - host
+            - kubernetes_cluster
+        resource_id:
+          type: string
+          format: uuid
+        namespace:
+          type: string
+        pod:
+          type: string
+        pod_uid:
+          type: string
+        container:
+          type: string
+    RemoteIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - username
+        - version
+        - platform
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        sid:
+          type: string
+        version:
+          type: integer
+          format: int64
+        platform:
+          type: string
+          enum:
+            - linux
+            - windows
+            - kubernetes
+    RemoteStep:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - description
+        - target
+        - interpreter
+        - script
+        - timeout_seconds
+        - session_id
+        - session_generation
+        - context_revision
+        - identity
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        target:
+          $ref: '#/components/schemas/RemoteTarget'
+        interpreter:
+          type: string
+          enum:
+            - bash
+            - powershell
+            - kubectl
+            - pod_bash
+        script:
+          type: string
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 1800
+        session_id:
+          type: string
+          format: uuid
+        session_generation:
+          type: string
+          format: uuid
+        context_revision:
+          type: integer
+          format: int64
+        known_directory:
+          type: string
+          description: Last observed location at plan preparation; earlier steps in this plan may change it.
+        interpreter_version:
+          type: string
+          description: Last observed interpreter version; absent before approved initialization.
+        previous_request_id:
+          type: string
+          format: uuid
+        previous_sequence:
+          type: integer
+          minimum: 1
+        identity:
+          $ref: '#/components/schemas/RemoteIdentity'
+    RemoteFile:
+      type: object
+      additionalProperties: false
+      required:
+        - path
+        - byte_size
+        - content_hash
+      properties:
+        id:
+          type: string
+          format: uuid
+        content_preview:
+          type: string
+        workspace_id:
+          type: string
+          format: uuid
+        path:
+          type: string
+        byte_size:
+          type: integer
+          format: int64
+          minimum: 0
+        content_hash:
+          type: string
+        source_ref:
+          type: string
+    RemotePlan:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - id
+        - kind
+        - title
+        - description
+        - steps
+        - inputs
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        schema_version:
+          type: string
+          const: argus.remote_execution/v1
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - connect
+            - plan
+        title:
+          type: string
+        description:
+          type: string
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/RemoteStep'
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemoteFile'
+        supersedes_id:
+          type: string
+          format: uuid
+        recovery_of_id:
+          type: string
+          format: uuid
+    RemoteStepResult:
+      type: object
+      additionalProperties: false
+      required:
+        - sequence
+        - status
+        - exit_code
+        - stdout
+        - stderr
+        - truncated
+        - directory
+        - session_lost
+        - output_files
+        - observed_at
+      properties:
+        sequence:
+          type: integer
+        status:
+          type: string
+        exit_code:
+          type: integer
+        stdout:
+          type: string
+        stderr:
+          type: string
+        truncated:
+          type: boolean
+        directory:
+          type: string
+        session_lost:
+          type: boolean
+        error_code:
+          type: string
+        output_files:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemoteFile'
+        outputs_collected:
+          type: boolean
+        terminated:
+          type: boolean
+        observed_at:
+          type: string
+          format: date-time
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]+$
+  responses:
+    Error:
+      description: Stable API error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 256
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'

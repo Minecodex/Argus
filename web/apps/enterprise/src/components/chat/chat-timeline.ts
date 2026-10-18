@@ -1,7 +1,8 @@
 import type { ConversationEvent } from "@argus/api-client/contracts";
 import type { ChatFile, ChatMessage, ToolCallTrace } from "./chat-view-model";
 import { hasChatContent } from "./chat-content";
-import { parseToolDisplay } from "./tool-display";
+import { coalesceRemoteCommands } from "./remote-command-timeline";
+import { parseToolEventDisplay } from "./tool-display";
 import {
   appendFileEntry,
   fileEntryFromEvent,
@@ -62,6 +63,17 @@ export function timelineFromEvents(
       runId: event.run_id,
     };
     const explicit = parseMessage(payload.message);
+    if (
+      event.event_type === "interaction_requested" &&
+      typeof payload.interaction_id === "string"
+    ) {
+      result.push({
+        ...base,
+        kind: "interaction",
+        interactionId: payload.interaction_id,
+      });
+      continue;
+    }
     if (explicit) {
       explicit.presentations = explicit.presentations?.filter((id) => {
         if (presented.has(id)) return false;
@@ -112,9 +124,16 @@ export function timelineFromEvents(
       const id = payload.tool_call_id;
       const requested = calls.get(id);
       const input = object(requested?.input);
+      if (
+        requested?.name === "request_user_input" ||
+        (requested?.name === "tool.invoke" &&
+          input.category === "workflow" &&
+          input.name === "plan.propose")
+      )
+        continue;
       const trace: ToolCallTrace = {
         callId: id,
-        display: parseToolDisplay(payload.display),
+        display: parseToolEventDisplay(payload),
         source: string(payload.source),
         toolName:
           string(payload.target_tool_id) ??
@@ -179,5 +198,5 @@ export function timelineFromEvents(
       if (entry) appendFileEntry(result, entry);
     }
   }
-  return result;
+  return coalesceRemoteCommands(result);
 }

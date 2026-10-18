@@ -37,8 +37,6 @@ export const loginZh = {
     mfaCode: "验证码或恢复码",
     mfaInvalid: "请输入有效的验证码或恢复码",
     mfaSubmit: "验证并登录",
-    demoHint: "企业管理员演示账号：root / 123456",
-    platformPortal: "前往平台超级管理员门户",
   },
 };
 
@@ -78,7 +76,5 @@ export const loginEn = {
     mfaCode: "Authenticator or recovery code",
     mfaInvalid: "Enter a valid authenticator or recovery code",
     mfaSubmit: "Verify and sign in",
-    demoHint: "Enterprise admin demo account: root / 123456",
-    platformPortal: "Open the platform super admin portal",
   },
 };

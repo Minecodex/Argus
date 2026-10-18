@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -79,6 +80,13 @@ func enroll(ctx context.Context, options enrollOptions) (enrollResult, error) {
 	}
 	payload := map[string]any{"csr_pem": identity.CSRPEM, "device_fingerprint": deviceFingerprint(), "instance_id": localInstanceID, "platform": runtime.GOOS, "architecture": architecture,
 		"name": options.Name, "software_version": softwareVersion, "capabilities": capabilities}
+	if current, e := user.Current(); e == nil {
+		account := map[string]string{"username": current.Username}
+		if runtime.GOOS == "windows" {
+			account["sid"] = current.Uid
+		}
+		payload["execution_account"] = account
+	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return enrollResult{}, err
@@ -195,9 +203,9 @@ func enrollmentEndpoint(value string) (string, error) {
 
 func roleCapabilities(role string) []string {
 	if role == "host" {
-		return []string{"host.local_command", "host.local_shell", "host.collector_manage", "host.tcp_tunnel", "host.windows_rdp_manage", "connector.uninstall"}
+		return []string{"host.local_command", "host.local_shell", "host.collector_manage", "host.tcp_tunnel", "host.windows_rdp_manage", "connector.uninstall", "remote_execution.v1"}
 	}
-	values := []string{"kubernetes.connection_probe", "kubernetes.query", "credential.lease", "connector.uninstall"}
+	values := []string{"kubernetes.connection_probe", "kubernetes.query", "credential.lease", "connector.uninstall", "remote_execution.v1"}
 	if role == "bastion" {
 		values = append([]string{"host.connection_probe", "host.ssh_install", "bastion.tls_relay"}, values...)
 	}

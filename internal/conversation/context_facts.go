@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
@@ -29,7 +30,8 @@ func CurrentWorkspaceContext(ctx context.Context, q *db.Queries, enterprise, con
 
 // Admission and inference consume exactly the same public fact projection.
 func ContextFacts(ctx context.Context, q *db.Queries, enterprise, owner, conversation uuid.UUID) (map[string]any, WorkspaceContext, error) {
-	if _, err := q.GetConversation(ctx, db.GetConversationParams{ID: conversation, EnterpriseID: enterprise, OwnerUserID: owner}); err != nil {
+	c, err := q.GetConversation(ctx, db.GetConversationParams{ID: conversation, EnterpriseID: enterprise, OwnerUserID: owner})
+	if err != nil {
 		return nil, WorkspaceContext{}, err
 	}
 	workspace, err := CurrentWorkspaceContext(ctx, q, enterprise, conversation)
@@ -40,8 +42,56 @@ func ContextFacts(ctx context.Context, q *db.Queries, enterprise, owner, convers
 	if err != nil {
 		return nil, workspace, err
 	}
-	return map[string]any{"actions": actions, "workspace": workspace,
-		"action_result_semantics": "resource_id/resource_type describe the original target and may be null for creation. result_resource_id/result_resource_type identify the produced object. result_resource_version is its object lifecycle version, not a dashboard revision number or conversation context version."}, workspace, nil
+	facts := map[string]any{"actions": actions, "workspace": workspace, "access_mode": c.AccessMode,
+		"action_result_semantics": "resource_id/resource_type describe the original target and may be null for creation. result_resource_id/result_resource_type identify the produced object. result_resource_version is its object lifecycle version, not a dashboard revision number or conversation context version."}
+	run, e := q.GetActiveRunForConversation(ctx, db.GetActiveRunForConversationParams{ConversationID: conversation, EnterpriseID: enterprise})
+	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
+		return nil, workspace, e
+	}
+	if e == nil && run.ActorUserID == owner {
+		if run.ApprovedPlanID.Valid {
+			plan, e := q.GetConversationInteraction(ctx, db.GetConversationInteractionParams{ID: run.ApprovedPlanID.UUID, EnterpriseID: enterprise, ConversationID: conversation, OwnerUserID: owner})
+			if e != nil {
+				return nil, workspace, e
+			}
+			facts["approved_plan"] = map[string]any{"id": plan.ID, "revision": plan.Revision, "content": publicPlanContext(plan.Content), "semantics": "Continue the ordinary Harness conversation. Commands with approved_step_id are already authorized once for this implementation Run, in listed order: invoke connect with only that ID, never retype or modify the script. New or changed commands use normal connect arguments and current approval policy. Unmarked examples and legacy guidance have no command grant. Never replay failed or unknown effects."}
+			grants, e := q.ListPlanCommandAuthorizations(ctx, db.ListPlanCommandAuthorizationsParams{PlanID: plan.ID, EnterpriseID: enterprise})
+			if e != nil {
+				return nil, workspace, e
+			}
+			states := []map[string]any{}
+			for _, g := range grants {
+				state := map[string]any{"approved_step_id": g.ID, "block_id": g.BlockID, "status": "unused"}
+				if g.UsedRequestID.Valid {
+					execution, e := q.GetRemoteRequest(ctx, db.GetRemoteRequestParams{ID: g.UsedRequestID.UUID, EnterpriseID: enterprise})
+					if e != nil {
+						return nil, workspace, e
+					}
+					state["status"] = execution.Status
+					state["execution_id"] = execution.ID
+				}
+				states = append(states, state)
+			}
+			facts["plan_command_states"] = states
+		} else if plan, e := q.LatestRunPlan(ctx, db.LatestRunPlanParams{RunID: run.ID, EnterpriseID: enterprise}); e == nil {
+			facts["latest_plan"] = map[string]any{"id": plan.ID, "revision": plan.Revision, "status": plan.Status, "content": publicPlanContext(plan.Content)}
+		} else if !errors.Is(e, pgx.ErrNoRows) {
+			return nil, workspace, e
+		}
+	}
+	return facts, workspace, nil
+}
+
+func publicPlanContext(raw []byte) map[string]any {
+	var content map[string]any
+	_ = json.Unmarshal(raw, &content)
+	delete(content, "execution")
+	delete(content, "request_hash")
+	if rendered, ok := content["document_markdown"]; ok {
+		content["markdown"] = rendered
+		delete(content, "document_markdown")
+	}
+	return content
 }
 
 func FileReference(file db.WorkspaceFile) map[string]any {

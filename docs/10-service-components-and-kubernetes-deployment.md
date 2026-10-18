@@ -1,5 +1,7 @@
 # 服务组件与 Kubernetes 一键部署
 
+2026-10-16 本机运维移交：退役 Judex 后，共享 OpenSandbox 控制器由 `argus-sandbox/argus-shared-opensandbox` Helm Release 管理，消费者的 `openSandbox.sharedController.namespace` 使用 `argus-sandbox`，运行镜像摘要保持原值。三个 CRD 的 UID 和 Schema 保持，具体归属、复现参数及真实沙箱验证见 [共享控制器归属移交](./adr/20261016-shared-opensandbox-controller-ownership.md)。自动安装器仍遵守下述只读复用约束。
+
 OpenSandbox 共享依赖补充（2026-09-25）：v0.2.0 控制器监听整个集群并使用固定集群角色。安装器发现外部 Helm 拥有的三份 CRD 时，先只读核对 group/scope/names、所需版本和验证约束，以及外部控制器的所有者、v0.2.0 镜像和就绪状态；兼容时复用控制器，仅在本发布 Namespace 部署自己的 Server。允许可选字段和文档扩展，拒绝新增必填约束或隐式默认值；不兼容或混合所有权时停止，不接管、重标记或删除外部资源。卸载仅清理本发布资源。实现及验收见 [PlanV2 自监控记录](./planv2/self-monitoring-native-traces.md)。
 
 ## Schema Version 4 查询门禁
@@ -589,6 +591,8 @@ Production 默认 `retainData=true`。删除 PVC、对象存储数据、企业�
 Egress Gateway 不由 Argus 默认安装。用户可以自行使用 Cilium、Calico、Istio、云 NAT 或企业防火墙；`argusctl` 识别可选的出口 IP/验证 URL，Direct Executor 启动和运行期周期性复核。网关缺失或复核失败时，基础连接继续使用集群默认路由并告警；固定出口、统一审计和网关级防护不保证，运行期状态目前以日志/诊断为准。Direct Executor 始终拒绝集群、Argus、metadata、loopback 和 link-local 目标，但允许未命中保护集合的用户私网和自定义端口。
 
 ## 16. 参考
+
+Plan7 Worker 的远程执行容量可通过 Helm `runtime.remoteExecutionWorkers`（默认 8，1～64）与 `runtime.remoteControlWorkers`（默认 2，1～16）配置，对应环境变量 `ARGUS_REMOTE_EXECUTION_WORKERS` 与 `ARGUS_REMOTE_CONTROL_WORKERS`。非法值使 Worker 启动失败；停止容量独立于命令执行容量。共享远程命令进程仍使用 `runtime.remoteIdleSeconds`／`ARGUS_REMOTE_IDLE_SECONDS`，默认 1800 秒，运行任务及唯一未取回输出受保护。
 
 - [Altinity ClickHouse Operator](https://github.com/Altinity/clickhouse-operator)
 - [Strimzi Kafka Operator](https://strimzi.io/docs/operators/latest/overview.html)

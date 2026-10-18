@@ -853,6 +853,170 @@ func (*DeleteResponse) Descriptor() ([]byte, []int) {
 	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{15}
 }
 
+type ListFilesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Authority     *Authority             `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	MaxFiles      uint32                 `protobuf:"varint,3,opt,name=max_files,json=maxFiles,proto3" json:"max_files,omitempty"`
+	MaxBytes      uint64                 `protobuf:"varint,4,opt,name=max_bytes,json=maxBytes,proto3" json:"max_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFilesRequest) Reset() {
+	*x = ListFilesRequest{}
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFilesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFilesRequest) ProtoMessage() {}
+
+func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFilesRequest.ProtoReflect.Descriptor instead.
+func (*ListFilesRequest) Descriptor() ([]byte, []int) {
+	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ListFilesRequest) GetAuthority() *Authority {
+	if x != nil {
+		return x.Authority
+	}
+	return nil
+}
+
+func (x *ListFilesRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ListFilesRequest) GetMaxFiles() uint32 {
+	if x != nil {
+		return x.MaxFiles
+	}
+	return 0
+}
+
+func (x *ListFilesRequest) GetMaxBytes() uint64 {
+	if x != nil {
+		return x.MaxBytes
+	}
+	return 0
+}
+
+type ListFilesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Files         []*WorkspaceFileInfo   `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFilesResponse) Reset() {
+	*x = ListFilesResponse{}
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFilesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFilesResponse) ProtoMessage() {}
+
+func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFilesResponse.ProtoReflect.Descriptor instead.
+func (*ListFilesResponse) Descriptor() ([]byte, []int) {
+	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ListFilesResponse) GetFiles() []*WorkspaceFileInfo {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+type WorkspaceFileInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	ByteSize      int64                  `protobuf:"varint,2,opt,name=byte_size,json=byteSize,proto3" json:"byte_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkspaceFileInfo) Reset() {
+	*x = WorkspaceFileInfo{}
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkspaceFileInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkspaceFileInfo) ProtoMessage() {}
+
+func (x *WorkspaceFileInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkspaceFileInfo.ProtoReflect.Descriptor instead.
+func (*WorkspaceFileInfo) Descriptor() ([]byte, []int) {
+	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *WorkspaceFileInfo) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *WorkspaceFileInfo) GetByteSize() int64 {
+	if x != nil {
+		return x.ByteSize
+	}
+	return 0
+}
+
 type UploadResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
@@ -864,7 +1028,7 @@ type UploadResponse struct {
 
 func (x *UploadResponse) Reset() {
 	*x = UploadResponse{}
-	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[16]
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -876,7 +1040,7 @@ func (x *UploadResponse) String() string {
 func (*UploadResponse) ProtoMessage() {}
 
 func (x *UploadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[16]
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -889,7 +1053,7 @@ func (x *UploadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadResponse.ProtoReflect.Descriptor instead.
 func (*UploadResponse) Descriptor() ([]byte, []int) {
-	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{16}
+	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UploadResponse) GetPath() string {
@@ -923,7 +1087,7 @@ type DownloadResponse struct {
 
 func (x *DownloadResponse) Reset() {
 	*x = DownloadResponse{}
-	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[17]
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -935,7 +1099,7 @@ func (x *DownloadResponse) String() string {
 func (*DownloadResponse) ProtoMessage() {}
 
 func (x *DownloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[17]
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -948,7 +1112,7 @@ func (x *DownloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadResponse.ProtoReflect.Descriptor instead.
 func (*DownloadResponse) Descriptor() ([]byte, []int) {
-	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{17}
+	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DownloadResponse) GetData() []byte {
@@ -976,7 +1140,7 @@ type EditResponse struct {
 
 func (x *EditResponse) Reset() {
 	*x = EditResponse{}
-	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[18]
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -988,7 +1152,7 @@ func (x *EditResponse) String() string {
 func (*EditResponse) ProtoMessage() {}
 
 func (x *EditResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[18]
+	mi := &file_argus_workspace_v1_workspace_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1001,7 +1165,7 @@ func (x *EditResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditResponse.ProtoReflect.Descriptor instead.
 func (*EditResponse) Descriptor() ([]byte, []int) {
-	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{18}
+	return file_argus_workspace_v1_workspace_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *EditResponse) GetPath() string {
@@ -1084,7 +1248,17 @@ const file_argus_workspace_v1_workspace_proto_rawDesc = "" +
 	"\rDeleteRequest\x12;\n" +
 	"\tauthority\x18\x01 \x01(\v2\x1d.argus.workspace.v1.AuthorityR\tauthority\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\"\x10\n" +
-	"\x0eDeleteResponse\"d\n" +
+	"\x0eDeleteResponse\"\x9d\x01\n" +
+	"\x10ListFilesRequest\x12;\n" +
+	"\tauthority\x18\x01 \x01(\v2\x1d.argus.workspace.v1.AuthorityR\tauthority\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x1b\n" +
+	"\tmax_files\x18\x03 \x01(\rR\bmaxFiles\x12\x1b\n" +
+	"\tmax_bytes\x18\x04 \x01(\x04R\bmaxBytes\"P\n" +
+	"\x11ListFilesResponse\x12;\n" +
+	"\x05files\x18\x01 \x03(\v2%.argus.workspace.v1.WorkspaceFileInfoR\x05files\"D\n" +
+	"\x11WorkspaceFileInfo\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1b\n" +
+	"\tbyte_size\x18\x02 \x01(\x03R\bbyteSize\"d\n" +
 	"\x0eUploadResponse\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1b\n" +
 	"\tbyte_size\x18\x02 \x01(\x03R\bbyteSize\x12!\n" +
@@ -1096,14 +1270,15 @@ const file_argus_workspace_v1_workspace_proto_rawDesc = "" +
 	"\fEditResponse\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1b\n" +
 	"\tbyte_size\x18\x02 \x01(\x03R\bbyteSize\x12!\n" +
-	"\fcontent_hash\x18\x03 \x01(\tR\vcontentHash2\x99\x04\n" +
+	"\fcontent_hash\x18\x03 \x01(\tR\vcontentHash2\xf3\x04\n" +
 	"\x12WorkspaceIOService\x12X\n" +
 	"\tBindLease\x12$.argus.workspace.v1.BindLeaseRequest\x1a%.argus.workspace.v1.BindLeaseResponse\x12a\n" +
 	"\fReleaseLease\x12'.argus.workspace.v1.ReleaseLeaseRequest\x1a(.argus.workspace.v1.ReleaseLeaseResponse\x12Q\n" +
 	"\x06Upload\x12!.argus.workspace.v1.UploadRequest\x1a\".argus.workspace.v1.UploadResponse(\x01\x12W\n" +
 	"\bDownload\x12#.argus.workspace.v1.DownloadRequest\x1a$.argus.workspace.v1.DownloadResponse0\x01\x12I\n" +
 	"\x04Edit\x12\x1f.argus.workspace.v1.EditRequest\x1a .argus.workspace.v1.EditResponse\x12O\n" +
-	"\x06Delete\x12!.argus.workspace.v1.DeleteRequest\x1a\".argus.workspace.v1.DeleteResponse2\x97\x03\n" +
+	"\x06Delete\x12!.argus.workspace.v1.DeleteRequest\x1a\".argus.workspace.v1.DeleteResponse\x12X\n" +
+	"\tListFiles\x12$.argus.workspace.v1.ListFilesRequest\x1a%.argus.workspace.v1.ListFilesResponse2\x97\x03\n" +
 	"\x1aWorkspaceSupervisorService\x12\x8c\x01\n" +
 	"\tBindLease\x12>.argus.workspace.v1.WorkspaceSupervisorServiceBindLeaseRequest\x1a?.argus.workspace.v1.WorkspaceSupervisorServiceBindLeaseResponse\x12\x95\x01\n" +
 	"\fReleaseLease\x12A.argus.workspace.v1.WorkspaceSupervisorServiceReleaseLeaseRequest\x1aB.argus.workspace.v1.WorkspaceSupervisorServiceReleaseLeaseResponse\x12R\n" +
@@ -1121,7 +1296,7 @@ func file_argus_workspace_v1_workspace_proto_rawDescGZIP() []byte {
 	return file_argus_workspace_v1_workspace_proto_rawDescData
 }
 
-var file_argus_workspace_v1_workspace_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_argus_workspace_v1_workspace_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_argus_workspace_v1_workspace_proto_goTypes = []any{
 	(*BindLeaseRequest)(nil),                               // 0: argus.workspace.v1.BindLeaseRequest
 	(*ReleaseLeaseRequest)(nil),                            // 1: argus.workspace.v1.ReleaseLeaseRequest
@@ -1139,9 +1314,12 @@ var file_argus_workspace_v1_workspace_proto_goTypes = []any{
 	(*EditRequest)(nil),                                    // 13: argus.workspace.v1.EditRequest
 	(*DeleteRequest)(nil),                                  // 14: argus.workspace.v1.DeleteRequest
 	(*DeleteResponse)(nil),                                 // 15: argus.workspace.v1.DeleteResponse
-	(*UploadResponse)(nil),                                 // 16: argus.workspace.v1.UploadResponse
-	(*DownloadResponse)(nil),                               // 17: argus.workspace.v1.DownloadResponse
-	(*EditResponse)(nil),                                   // 18: argus.workspace.v1.EditResponse
+	(*ListFilesRequest)(nil),                               // 16: argus.workspace.v1.ListFilesRequest
+	(*ListFilesResponse)(nil),                              // 17: argus.workspace.v1.ListFilesResponse
+	(*WorkspaceFileInfo)(nil),                              // 18: argus.workspace.v1.WorkspaceFileInfo
+	(*UploadResponse)(nil),                                 // 19: argus.workspace.v1.UploadResponse
+	(*DownloadResponse)(nil),                               // 20: argus.workspace.v1.DownloadResponse
+	(*EditResponse)(nil),                                   // 21: argus.workspace.v1.EditResponse
 }
 var file_argus_workspace_v1_workspace_proto_depIdxs = []int32{
 	10, // 0: argus.workspace.v1.ReleaseLeaseRequest.authority:type_name -> argus.workspace.v1.Authority
@@ -1151,29 +1329,33 @@ var file_argus_workspace_v1_workspace_proto_depIdxs = []int32{
 	10, // 4: argus.workspace.v1.DownloadRequest.authority:type_name -> argus.workspace.v1.Authority
 	10, // 5: argus.workspace.v1.EditRequest.authority:type_name -> argus.workspace.v1.Authority
 	10, // 6: argus.workspace.v1.DeleteRequest.authority:type_name -> argus.workspace.v1.Authority
-	0,  // 7: argus.workspace.v1.WorkspaceIOService.BindLease:input_type -> argus.workspace.v1.BindLeaseRequest
-	1,  // 8: argus.workspace.v1.WorkspaceIOService.ReleaseLease:input_type -> argus.workspace.v1.ReleaseLeaseRequest
-	11, // 9: argus.workspace.v1.WorkspaceIOService.Upload:input_type -> argus.workspace.v1.UploadRequest
-	12, // 10: argus.workspace.v1.WorkspaceIOService.Download:input_type -> argus.workspace.v1.DownloadRequest
-	13, // 11: argus.workspace.v1.WorkspaceIOService.Edit:input_type -> argus.workspace.v1.EditRequest
-	14, // 12: argus.workspace.v1.WorkspaceIOService.Delete:input_type -> argus.workspace.v1.DeleteRequest
-	4,  // 13: argus.workspace.v1.WorkspaceSupervisorService.BindLease:input_type -> argus.workspace.v1.WorkspaceSupervisorServiceBindLeaseRequest
-	6,  // 14: argus.workspace.v1.WorkspaceSupervisorService.ReleaseLease:input_type -> argus.workspace.v1.WorkspaceSupervisorServiceReleaseLeaseRequest
-	8,  // 15: argus.workspace.v1.WorkspaceSupervisorService.Execute:input_type -> argus.workspace.v1.ExecuteRequest
-	2,  // 16: argus.workspace.v1.WorkspaceIOService.BindLease:output_type -> argus.workspace.v1.BindLeaseResponse
-	3,  // 17: argus.workspace.v1.WorkspaceIOService.ReleaseLease:output_type -> argus.workspace.v1.ReleaseLeaseResponse
-	16, // 18: argus.workspace.v1.WorkspaceIOService.Upload:output_type -> argus.workspace.v1.UploadResponse
-	17, // 19: argus.workspace.v1.WorkspaceIOService.Download:output_type -> argus.workspace.v1.DownloadResponse
-	18, // 20: argus.workspace.v1.WorkspaceIOService.Edit:output_type -> argus.workspace.v1.EditResponse
-	15, // 21: argus.workspace.v1.WorkspaceIOService.Delete:output_type -> argus.workspace.v1.DeleteResponse
-	5,  // 22: argus.workspace.v1.WorkspaceSupervisorService.BindLease:output_type -> argus.workspace.v1.WorkspaceSupervisorServiceBindLeaseResponse
-	7,  // 23: argus.workspace.v1.WorkspaceSupervisorService.ReleaseLease:output_type -> argus.workspace.v1.WorkspaceSupervisorServiceReleaseLeaseResponse
-	9,  // 24: argus.workspace.v1.WorkspaceSupervisorService.Execute:output_type -> argus.workspace.v1.ExecuteResponse
-	16, // [16:25] is the sub-list for method output_type
-	7,  // [7:16] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	10, // 7: argus.workspace.v1.ListFilesRequest.authority:type_name -> argus.workspace.v1.Authority
+	18, // 8: argus.workspace.v1.ListFilesResponse.files:type_name -> argus.workspace.v1.WorkspaceFileInfo
+	0,  // 9: argus.workspace.v1.WorkspaceIOService.BindLease:input_type -> argus.workspace.v1.BindLeaseRequest
+	1,  // 10: argus.workspace.v1.WorkspaceIOService.ReleaseLease:input_type -> argus.workspace.v1.ReleaseLeaseRequest
+	11, // 11: argus.workspace.v1.WorkspaceIOService.Upload:input_type -> argus.workspace.v1.UploadRequest
+	12, // 12: argus.workspace.v1.WorkspaceIOService.Download:input_type -> argus.workspace.v1.DownloadRequest
+	13, // 13: argus.workspace.v1.WorkspaceIOService.Edit:input_type -> argus.workspace.v1.EditRequest
+	14, // 14: argus.workspace.v1.WorkspaceIOService.Delete:input_type -> argus.workspace.v1.DeleteRequest
+	16, // 15: argus.workspace.v1.WorkspaceIOService.ListFiles:input_type -> argus.workspace.v1.ListFilesRequest
+	4,  // 16: argus.workspace.v1.WorkspaceSupervisorService.BindLease:input_type -> argus.workspace.v1.WorkspaceSupervisorServiceBindLeaseRequest
+	6,  // 17: argus.workspace.v1.WorkspaceSupervisorService.ReleaseLease:input_type -> argus.workspace.v1.WorkspaceSupervisorServiceReleaseLeaseRequest
+	8,  // 18: argus.workspace.v1.WorkspaceSupervisorService.Execute:input_type -> argus.workspace.v1.ExecuteRequest
+	2,  // 19: argus.workspace.v1.WorkspaceIOService.BindLease:output_type -> argus.workspace.v1.BindLeaseResponse
+	3,  // 20: argus.workspace.v1.WorkspaceIOService.ReleaseLease:output_type -> argus.workspace.v1.ReleaseLeaseResponse
+	19, // 21: argus.workspace.v1.WorkspaceIOService.Upload:output_type -> argus.workspace.v1.UploadResponse
+	20, // 22: argus.workspace.v1.WorkspaceIOService.Download:output_type -> argus.workspace.v1.DownloadResponse
+	21, // 23: argus.workspace.v1.WorkspaceIOService.Edit:output_type -> argus.workspace.v1.EditResponse
+	15, // 24: argus.workspace.v1.WorkspaceIOService.Delete:output_type -> argus.workspace.v1.DeleteResponse
+	17, // 25: argus.workspace.v1.WorkspaceIOService.ListFiles:output_type -> argus.workspace.v1.ListFilesResponse
+	5,  // 26: argus.workspace.v1.WorkspaceSupervisorService.BindLease:output_type -> argus.workspace.v1.WorkspaceSupervisorServiceBindLeaseResponse
+	7,  // 27: argus.workspace.v1.WorkspaceSupervisorService.ReleaseLease:output_type -> argus.workspace.v1.WorkspaceSupervisorServiceReleaseLeaseResponse
+	9,  // 28: argus.workspace.v1.WorkspaceSupervisorService.Execute:output_type -> argus.workspace.v1.ExecuteResponse
+	19, // [19:29] is the sub-list for method output_type
+	9,  // [9:19] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_argus_workspace_v1_workspace_proto_init() }
@@ -1187,7 +1369,7 @@ func file_argus_workspace_v1_workspace_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_argus_workspace_v1_workspace_proto_rawDesc), len(file_argus_workspace_v1_workspace_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

@@ -99,7 +99,17 @@ func (handler ConversationHandler) UpdateConversation(ctx context.Context, reque
 	if request.Body.SelectedMcpConnectionIds != nil {
 		selected = append(make([]uuid.UUID, 0), (*request.Body.SelectedMcpConnectionIds)...)
 	}
-	value, err := handler.Service.Update(ctx, p.EnterpriseIDValue(), uuid.MustParse(p.ActorID()), uuid.UUID(request.ConversationId), request.Body.ExpectedVersion, request.Body.Title, status, modelID, selected)
+	var mode *string
+	if request.Body.Mode != nil {
+		value := string(*request.Body.Mode)
+		mode = &value
+	}
+	var access *string
+	if request.Body.AccessMode != nil {
+		value := string(*request.Body.AccessMode)
+		access = &value
+	}
+	value, err := handler.Service.Update(ctx, p.EnterpriseIDValue(), uuid.MustParse(p.ActorID()), uuid.UUID(request.ConversationId), request.Body.ExpectedVersion, request.Body.Title, status, modelID, selected, mode, access)
 	if err != nil {
 		return conversationapi.UpdateConversationdefaultJSONResponse{Body: conversationError(ctx, err), StatusCode: conversationStatus(err)}, nil
 	}
@@ -309,8 +319,8 @@ func toAgentStreamEnvelope(value db.ConversationEvent, authorizationVersion int6
 	case "tool_presentation", "workspace_file_added", "artifact_published":
 		eventType = value.EventType
 		agentPayload = payload
-	case "pending_action_created":
-		eventType = "pending_action_created"
+	case "pending_action_created", "interaction_requested", "interaction_resolved", "conversation_settings_changed":
+		eventType = value.EventType
 		agentPayload = payload
 	case "context_compacted":
 		eventType = "context_compaction_completed"
@@ -365,18 +375,29 @@ func (handler ConversationHandler) auth(ctx context.Context, mutation bool, csrf
 }
 
 func toConversation(value db.Conversation) conversationapi.Conversation {
+	mode := conversationapi.ConversationMode(value.Mode)
+	access := conversationapi.ConversationAccessMode(value.AccessMode)
 	return conversationapi.Conversation{Id: value.ID, Title: value.Title, SelectedModelId: value.SelectedModelID,
+		Mode:                     &mode,
+		AccessMode:               &access,
 		SelectedMcpConnectionIds: []uuid.UUID{},
 		Status:                   conversationapi.ConversationStatus(value.Status), Version: value.Version, CreatedAt: value.CreatedAt.Time, UpdatedAt: value.UpdatedAt.Time}
 }
 
 func toConversationRun(value db.Run) conversationapi.Run {
+	mode := conversationapi.RunModeSnapshot(value.ModeSnapshot)
+	access := conversationapi.RunAccessModeSnapshot(value.AccessModeSnapshot)
 	result := conversationapi.Run{RunId: value.ID.String(), ConversationId: value.ConversationID.String(), EnterpriseId: value.EnterpriseID.String(),
-		ModelId: value.ModelID.String(), ModelRevision: int(value.ModelRevision), Locale: value.Locale, Status: value.Status,
+		ModeSnapshot:       &mode,
+		AccessModeSnapshot: &access,
+		ModelId:            value.ModelID.String(), ModelRevision: int(value.ModelRevision), Locale: value.Locale, Status: value.Status,
 		AuthorizationVersion: int(value.AuthorizationVersion), Version: int(value.Version), CreatedAt: value.CreatedAt.Time, UpdatedAt: value.UpdatedAt.Time}
 	if value.CurrentStepID.Valid {
 		step := value.CurrentStepID.UUID.String()
 		result.CurrentStepId = &step
+	}
+	if value.ApprovedPlanID.Valid {
+		result.ApprovedPlanId = &value.ApprovedPlanID.UUID
 	}
 	if value.StopReason.Valid {
 		result.StopReason = &value.StopReason.String

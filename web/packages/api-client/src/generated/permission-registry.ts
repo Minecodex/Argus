@@ -1,5 +1,5 @@
 /** Generated from internal/authorization. DO NOT EDIT. */
-export const permissionRegistryVersion = 12;
+export const permissionRegistryVersion = 13;
 export const permissionIDs = [
   "alert.handle",
   "alert.notification.manage",
@@ -56,6 +56,9 @@ export const permissionIDs = [
   "remote_access.session_profile.read",
   "remote_access.workflow.manage",
   "remote_access.workflow.read",
+  "remote_execution.execute",
+  "remote_execution.read",
+  "remote_execution.stop",
   "role.manage",
   "role.read",
   "secret.manage",
@@ -126,6 +129,9 @@ export const builtinRolePermissions: Record<string, readonly string[]> = {
     "remote_access.session_profile.read",
     "remote_access.workflow.manage",
     "remote_access.workflow.read",
+    "remote_execution.execute",
+    "remote_execution.read",
+    "remote_execution.stop",
     "role.manage",
     "role.read",
     "secret.manage",

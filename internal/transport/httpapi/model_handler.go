@@ -166,10 +166,17 @@ func modelCreateInput(value modelapi.AIModelTestCreate) modelservice.Input {
 	if value.ApiKey != nil {
 		key = *value.ApiKey
 	}
-	return modelservice.Input{Name: value.Name, BaseURL: value.BaseUrl, ProviderModelID: value.ModelId, Protocol: string(value.ApiProtocol), ContextWindow: int32(value.ContextWindowTokens), MaxOutput: int32(value.MaxOutputTokens), InputPrice: float64(value.InputPricePerMillion), OutputPrice: float64(value.OutputPricePerMillion), APIKey: key, Status: "enabled"}
+	effort := ""
+	if value.ReasoningEffort != nil {
+		effort = string(*value.ReasoningEffort)
+	}
+	return modelservice.Input{Name: value.Name, BaseURL: value.BaseUrl, ProviderModelID: value.ModelId, Protocol: string(value.ApiProtocol), ContextWindow: int32(value.ContextWindowTokens), MaxOutput: int32(value.MaxOutputTokens), InputPrice: float64(value.InputPricePerMillion), OutputPrice: float64(value.OutputPricePerMillion), APIKey: key, Status: "enabled", ReasoningEffort: effort}
 }
 func modelUpdateInput(value modelapi.AIModelUpdate) modelservice.Input {
 	result := modelservice.Input{ExpectedVersion: value.ExpectedVersion, InputPrice: -1, OutputPrice: -1}
+	if value.ReasoningEffort != nil {
+		result.ReasoningEffort = string(*value.ReasoningEffort)
+	}
 	if value.Name != nil {
 		result.Name = *value.Name
 	}
@@ -209,6 +216,11 @@ func toAIModel(value db.AiModel) modelapi.AIModel {
 	}
 	var capabilities modelapi.ModelCapabilities
 	if json.Unmarshal(value.Capabilities, &capabilities) == nil {
+		// Early stored revisions used false here. Public capabilities use the
+		// declared enum; normalizing the DTO never rewrites immutable history.
+		if capabilities.ProviderCompactionCapability != "none" && capabilities.ProviderCompactionCapability != "optional" {
+			capabilities.ProviderCompactionCapability = "none"
+		}
 		result.Capabilities = &capabilities
 	}
 	return result

@@ -52,6 +52,7 @@ func (a *App) imagesBuild(ctx context.Context, cfg *InstallConfig, platform stri
 		{"minio", "deploy/docker/minio.Dockerfile"},
 		{"argus-workspace", "deploy/docker/workspace.Dockerfile"},
 		{"argus-workspace-egress", "deploy/docker/workspace-egress.Dockerfile"},
+		{"argus-remote-runtime", "deploy/docker/remote-runtime.Dockerfile"},
 	}
 	for _, build := range builds {
 		image := cfg.Image(build.name)
@@ -144,7 +145,7 @@ func (a *App) imagesClean(ctx context.Context, cfg *InstallConfig) error {
 	}
 	for _, pod := range strings.Fields(podsOutput) {
 		inventory, _ := a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", "kube-system", "exec", pod, "--", "/host/ctr", "--address", "/run/containerd/containerd.sock", "--namespace", "k8s.io", "images", "list")
-		for _, image := range containerimage.RemovalReferences([]string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress")}, inventory, strings.Fields(activeImages)) {
+		for _, image := range containerimage.RemovalReferences([]string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress"), cfg.Image("argus-remote-runtime")}, inventory, strings.Fields(activeImages)) {
 			_, _ = a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", "kube-system", "exec", pod, "--", "/host/ctr", "--address", "/run/containerd/containerd.sock", "--namespace", "k8s.io", "images", "remove", image)
 		}
 	}
@@ -154,10 +155,10 @@ func (a *App) imagesClean(ctx context.Context, cfg *InstallConfig) error {
 	// E2E run, eventually exhausting the Docker Desktop disk.
 	_, _ = a.runner.quiet(ctx, "docker", "container", "rm", "--force", "--volumes", cfg.registryContainerName())
 	_, _ = a.runner.quiet(ctx, "docker", "buildx", "rm", "--force", buildxBuilderName(cfg))
-	for _, image := range []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress")} {
+	for _, image := range []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress"), cfg.Image("argus-remote-runtime")} {
 		_, _ = a.runner.quiet(ctx, "docker", "image", "rm", "--force", image)
 	}
-	for _, image := range []string{"argus-backend", "argus-web", "minio", "argus-workspace", "argus-workspace-egress"} {
+	for _, image := range []string{"argus-backend", "argus-web", "minio", "argus-workspace", "argus-workspace-egress", "argus-remote-runtime"} {
 		_, _ = a.runner.quiet(ctx, "docker", "image", "rm", "--force", localRegistryReference(cfg, image))
 	}
 	return nil
@@ -176,7 +177,7 @@ func localRegistryReference(cfg *InstallConfig, name string) string {
 }
 
 func imageLoaderManifest(name string, cfg *InstallConfig) string {
-	images := []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress")}
+	images := []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress"), cfg.Image("argus-remote-runtime")}
 	quoted := make([]string, 0, len(images))
 	for _, image := range images {
 		quoted = append(quoted, fmt.Sprintf("%q", image))

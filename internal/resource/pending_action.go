@@ -70,6 +70,7 @@ type ActionCommitResult struct {
 	ConnectorInstallOperationID uuid.NullUUID
 	HostOnboardingOperationID   uuid.NullUUID
 	HostRemovalOperationID      uuid.NullUUID
+	RemoteExecutionID           uuid.NullUUID
 	OneTimeResultKind           string
 }
 
@@ -172,79 +173,97 @@ func (service PendingActionService) PrepareForSubject(ctx context.Context, subje
 		return db.PendingAction{}, ErrActionUnavailable
 	}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", subject.ID, input.ActionType+".preview", idempotencyKey, input, 201, func(q *db.Queries) (db.PendingAction, error) {
-		actorUUID, err := uuid.Parse(subject.ID)
-		if err != nil {
-			return db.PendingAction{}, ErrActionUnavailable
-		}
-		planJSON, err := json.Marshal(input.ImmutablePlan)
-		if err != nil || len(planJSON) == 0 || string(planJSON) == "null" {
-			return db.PendingAction{}, ErrActionUnavailable
-		}
-		planJSON, err = CanonicalJSON(planJSON)
-		if err != nil {
-			return db.PendingAction{}, ErrActionUnavailable
-		}
-		previewJSON, err := json.Marshal(input.Preview)
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		diffJSON, err := json.Marshal(input.Diff)
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		snapshotJSON, err := json.Marshal(input.ResourceScopeSnapshot)
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		planHash := sha256.Sum256(planJSON)
-		impactHash := sha256.Sum256(snapshotJSON)
-		actionID := newResourceID()
-		actionRef, err := randomReference("act_", 18)
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		expiresAt := time.Now().UTC().Add(service.TTL)
-		status := "awaiting_approval"
-		if subject.ConfirmationRequired {
-			status = "awaiting_confirmation"
-		}
-		action, err := q.CreatePendingAction(ctx, db.CreatePendingActionParams{ID: actionID, ActionRef: actionRef, EnterpriseID: enterpriseID,
-			CreatorSubjectID: actorUUID, CreatorSubjectType: subject.Type, AuthorizationVersion: subject.AuthorizationVersion, ActionType: input.ActionType, Title: input.Title,
-			Summary: input.Summary, Risk: input.Risk, Preview: previewJSON, Diff: diffJSON, ResourceType: input.ResourceType,
-			ResourceID: input.ResourceID, ExpectedResourceVersion: input.ExpectedResourceVersion, ImpactHash: impactHash[:],
-			Status: status, ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true}, RunID: input.RunID})
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		previewCallID, err := randomReference("preview_", 16)
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		if _, err := q.CreatePendingActionPlan(ctx, db.CreatePendingActionPlanParams{ID: newResourceID(), PendingActionID: action.ID,
-			EnterpriseID: enterpriseID, PreviewCallID: previewCallID, CommitTool: input.CommitHandler, AuthorizationVersion: subject.AuthorizationVersion,
-			PlanSchemaVersion: "argus.resource_plan/v1", PlanHash: planHash[:], ImmutablePlan: planJSON, ResourceScopeSnapshot: snapshotJSON}); err != nil {
-			return db.PendingAction{}, err
-		}
-		token, tokenHash, err := newActionToken()
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		nonce, ciphertext, err := (actionCipher{key: service.Key}).encrypt([]byte(token), actionAAD(enterpriseID.String(), action.ID.String()))
-		if err != nil {
-			return db.PendingAction{}, err
-		}
-		if _, err := q.CreatePendingActionToken(ctx, db.CreatePendingActionTokenParams{ID: newResourceID(), PendingActionID: action.ID,
-			EnterpriseID: enterpriseID, TokenHash: tokenHash, KeyVersion: 1, Nonce: nonce, Ciphertext: ciphertext,
-			ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true}}); err != nil {
-			return db.PendingAction{}, err
-		}
-		clear([]byte(token))
-		if err := appendResourceAudit(ctx, q, subject.ID, enterpriseID, input.ActionType+".preview", input.ResourceType, input.ResourceID.UUID,
-			pendingAuditDetails(action, map[string]any{"summary": "resource action prepared", "authorization_version": subject.AuthorizationVersion, "subject_type": subject.Type})); err != nil {
-			return db.PendingAction{}, err
-		}
-		return action, nil
+		return service.PrepareWithQueries(ctx, q, subject, enterpriseID, input)
 	})
+}
+
+// PrepareWithQueries lets a domain persist its immutable request and the host
+// approval capability atomically. It is internal-only and never a model tool.
+func (service PendingActionService) PrepareWithQueries(ctx context.Context, q *db.Queries, subject ActionSubject, enterpriseID uuid.UUID, input PrepareActionInput) (db.PendingAction, error) {
+	if service.TTL <= 0 {
+		service.TTL = 15 * time.Minute
+	}
+	if subject.Type != "user" && subject.Type != "service_account" {
+		return db.PendingAction{}, ErrActionUnavailable
+	}
+	actorUUID, err := uuid.Parse(subject.ID)
+	if err != nil {
+		return db.PendingAction{}, ErrActionUnavailable
+	}
+	planJSON, err := json.Marshal(input.ImmutablePlan)
+	if err != nil || len(planJSON) == 0 || string(planJSON) == "null" {
+		return db.PendingAction{}, ErrActionUnavailable
+	}
+	planJSON, err = CanonicalJSON(planJSON)
+	if err != nil {
+		return db.PendingAction{}, ErrActionUnavailable
+	}
+	previewJSON, err := json.Marshal(input.Preview)
+	if err != nil {
+		return db.PendingAction{}, err
+	}
+	diffJSON, err := json.Marshal(input.Diff)
+	if err != nil {
+		return db.PendingAction{}, err
+	}
+	snapshotJSON, err := json.Marshal(input.ResourceScopeSnapshot)
+	if err != nil {
+		return db.PendingAction{}, err
+	}
+	planHash := sha256.Sum256(planJSON)
+	impactHash := sha256.Sum256(snapshotJSON)
+	actionID := newResourceID()
+	actionRef, err := randomReference("act_", 18)
+	if err != nil {
+		return db.PendingAction{}, err
+	}
+	expiresAt := time.Now().UTC().Add(service.TTL)
+	status := "awaiting_approval"
+	if subject.ConfirmationRequired {
+		status = "awaiting_confirmation"
+	}
+	action, err := q.CreatePendingAction(ctx, db.CreatePendingActionParams{ID: actionID, ActionRef: actionRef, EnterpriseID: enterpriseID,
+		CreatorSubjectID: actorUUID, CreatorSubjectType: subject.Type, AuthorizationVersion: subject.AuthorizationVersion, ActionType: input.ActionType, Title: input.Title,
+		Summary: input.Summary, Risk: input.Risk, Preview: previewJSON, Diff: diffJSON, ResourceType: input.ResourceType,
+		ResourceID: input.ResourceID, ExpectedResourceVersion: input.ExpectedResourceVersion, ImpactHash: impactHash[:],
+		Status: status, ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true}, RunID: input.RunID})
+	if err != nil {
+		return db.PendingAction{}, err
+	}
+	if input.RunID.Valid && subject.Type == "user" {
+		action, err = freezeConfirmationPolicy(ctx, q, action, subject, input.RunID.UUID)
+		if err != nil {
+			return db.PendingAction{}, err
+		}
+	}
+	previewCallID, err := randomReference("preview_", 16)
+	if err != nil {
+		return db.PendingAction{}, err
+	}
+	if _, err := q.CreatePendingActionPlan(ctx, db.CreatePendingActionPlanParams{ID: newResourceID(), PendingActionID: action.ID,
+		EnterpriseID: enterpriseID, PreviewCallID: previewCallID, CommitTool: input.CommitHandler, AuthorizationVersion: subject.AuthorizationVersion,
+		PlanSchemaVersion: "argus.resource_plan/v1", PlanHash: planHash[:], ImmutablePlan: planJSON, ResourceScopeSnapshot: snapshotJSON}); err != nil {
+		return db.PendingAction{}, err
+	}
+	token, tokenHash, err := newActionToken()
+	if err != nil {
+		return db.PendingAction{}, err
+	}
+	nonce, ciphertext, err := (actionCipher{key: service.Key}).encrypt([]byte(token), actionAAD(enterpriseID.String(), action.ID.String()))
+	if err != nil {
+		return db.PendingAction{}, err
+	}
+	if _, err := q.CreatePendingActionToken(ctx, db.CreatePendingActionTokenParams{ID: newResourceID(), PendingActionID: action.ID,
+		EnterpriseID: enterpriseID, TokenHash: tokenHash, KeyVersion: 1, Nonce: nonce, Ciphertext: ciphertext,
+		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true}}); err != nil {
+		return db.PendingAction{}, err
+	}
+	clear([]byte(token))
+	if err := appendResourceAudit(ctx, q, subject.ID, enterpriseID, input.ActionType+".preview", input.ResourceType, input.ResourceID.UUID,
+		pendingAuditDetails(action, map[string]any{"summary": "resource action prepared", "authorization_version": subject.AuthorizationVersion, "subject_type": subject.Type})); err != nil {
+		return db.PendingAction{}, err
+	}
+	return action, nil
 }
 
 func (service PendingActionService) List(ctx context.Context, enterpriseID uuid.UUID) ([]db.PendingAction, error) {

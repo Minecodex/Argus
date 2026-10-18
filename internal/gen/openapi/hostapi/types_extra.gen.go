@@ -11,9 +11,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// ConnectionTestChecksStatus defines model for ConnectionTest.Checks.Status.
-type ConnectionTestChecksStatus string
-
 // ConnectionTestPath defines model for ConnectionTest.Path.
 type ConnectionTestPath string
 
@@ -114,6 +111,12 @@ type HostConnectionTestCreateSshPath string
 
 // HostControlPath defines model for HostControlPath.
 type HostControlPath string
+
+// HostExecutionAccount defines model for HostExecutionAccount.
+type HostExecutionAccount struct {
+	Sid      *string `json:"sid,omitempty"`
+	Username string  `json:"username"`
+}
 
 // HostInstallMethod defines model for HostInstallMethod.
 type HostInstallMethod string
@@ -264,13 +267,16 @@ type HostPreviewCreate struct {
 	ControlPath      HostControlPath     `json:"control_path"`
 
 	// CredentialId ssh 模式必填
-	CredentialId  *openapi_types.UUID       `json:"credential_id,omitempty"`
-	Environment   Environment               `json:"environment"`
-	Hostname      *string                   `json:"hostname,omitempty"`
-	InstallMethod HostInstallMethod         `json:"install_method"`
-	Labels        UserLabels                `json:"labels"`
-	Name          string                    `json:"name"`
-	Platform      HostPreviewCreatePlatform `json:"platform"`
+	CredentialId *openapi_types.UUID `json:"credential_id,omitempty"`
+	Environment  Environment         `json:"environment"`
+
+	// ExecutionAccount manual 可显式绑定 Connector 实际运行账号；Windows 必须同时指定 SID。未填写不自动开放远程执行。
+	ExecutionAccount *HostExecutionAccount     `json:"execution_account,omitempty"`
+	Hostname         *string                   `json:"hostname,omitempty"`
+	InstallMethod    HostInstallMethod         `json:"install_method"`
+	Labels           UserLabels                `json:"labels"`
+	Name             string                    `json:"name"`
+	Platform         HostPreviewCreatePlatform `json:"platform"`
 
 	// Port manual 为 0；ssh 必填
 	Port    *int                  `json:"port,omitempty"`

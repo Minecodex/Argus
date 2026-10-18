@@ -203,6 +203,13 @@ components:
       properties:
         items: {type: array, items: {$ref: "#/components/schemas/Host"}}
         page: {$ref: "./common.yaml#/components/schemas/CursorPage"}
+    HostExecutionAccount:
+      type: object
+      additionalProperties: false
+      required: [username]
+      properties:
+        username: {type: string, minLength: 1, maxLength: 256}
+        sid: {type: string, minLength: 1, maxLength: 184, pattern: '^S-1-[0-9]+(-[0-9]+)+$'}
     HostPreviewCreate:
       type: object
       additionalProperties: false
@@ -221,6 +228,7 @@ components:
         credential_id: {type: string, format: uuid, description: 'ssh 模式必填'}
         username: {type: string, minLength: 0, maxLength: 256, description: 'ssh 模式必填'}
         architecture: {type: string, enum: [amd64, arm64], description: 'manual 由用户选择；ssh 由连接测试探测'}
+        execution_account: {$ref: '#/components/schemas/HostExecutionAccount', description: 'manual 可显式绑定 Connector 实际运行账号；Windows 必须同时指定 SID。未填写不自动开放远程执行。'}
         environment: {$ref: "#/components/schemas/Environment"}
         labels: {$ref: "../../schemas/labels/labels.schema.json#/$defs/UserLabels"}
         connection_test_id: {type: string, format: uuid, description: 'ssh 模式必填'}
@@ -738,6 +746,7 @@ components:
         name: {type: string, minLength: 1, maxLength: 128}
         software_version: {type: string, minLength: 1, maxLength: 128}
         capabilities: {type: array, maxItems: 64, uniqueItems: true, items: {type: string, minLength: 2, pattern: "^[a-z][a-z0-9_.-]+$"}}
+        execution_account: {$ref: '#/components/schemas/HostExecutionAccount', description: 'Connector 当前真实账号观测；仅与已批准接入计划中的显式账号匹配时建立执行绑定。'}
     ConnectorEnrollResult:
       type: object
       additionalProperties: false

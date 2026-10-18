@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -98,6 +99,34 @@ func TestQueryFileImportWithRealRPCAndDurableSources(t *testing.T) {
 	second, err := transfer("queries/value.json", body, digest(body))
 	if err != nil || first.ID != second.ID {
 		t.Fatalf("replay duplicated metadata: %+v %v", second, err)
+	}
+	if first.MediaType != "application/json" {
+		t.Fatalf("query artifact contract changed: %s", first.MediaType)
+	}
+	for _, tc := range []struct{ name, body, media string }{
+		{"report.txt", "remote output\n", "text/plain"},
+		{"table.csv", "cpu,value\nhost,42\n", "text/csv"},
+		{"archive.bin", "\x00\x01\xff\x02", "application/octet-stream"},
+		{"binary.txt", "\x00\x01\xff\x02", "application/octet-stream"},
+	} {
+		for _, orphan := range []bool{false, true} {
+			t.Run(tc.name+"/orphan="+strconv.FormatBool(orphan), func(t *testing.T) {
+				filePath := "results/" + strconv.FormatBool(orphan) + "/" + tc.name
+				if orphan {
+					if _, err := files.AtomicWrite(ctx, filePath, strings.NewReader(tc.body), int64(len(tc.body)), false); err != nil {
+						t.Fatal(err)
+					}
+				}
+				file, err := transfer(filePath, tc.body, digest(tc.body))
+				if err != nil || !strings.HasPrefix(file.MediaType, tc.media) || file.ContentHash != digest(tc.body) {
+					t.Fatalf("remote file metadata: %+v %v", file, err)
+				}
+				got, err := store.Queries.GetWorkspaceFileByPath(ctx, db.GetWorkspaceFileByPathParams{WorkspaceID: w, EnterpriseID: e, Path: filePath})
+				if err != nil || got.MediaType != file.MediaType {
+					t.Fatalf("persisted media type: %+v %v", got, err)
+				}
+			})
+		}
 	}
 	current, err = store.Queries.GetWorkspace(ctx, db.GetWorkspaceParams{ID: w, EnterpriseID: e})
 	if err != nil || !slices.Contains(current.SourceResultRefs, source) {

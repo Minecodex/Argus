@@ -43,7 +43,7 @@ func validatePlan6ProductionCoverage(env *E2EEnvironment, changed []plan6Product
 // Legacy prerequisites require the Replay test build. All Plan6 business
 // acceptance and release candidates use the normal production backend.
 func (a *App) usePlan6ProductionBackend(ctx context.Context, env *E2EEnvironment) error {
-	hostReady := env.Options.Suite == "plan6" && env.Options.Plan6Phase == "host" && env.State.Values["host_prerequisites_ready"] == "true"
+	hostReady := (env.Options.Suite == "plan6" && env.Options.Plan6Phase == "host" || env.Options.Suite == "plan7") && env.State.Values["host_prerequisites_ready"] == "true"
 	if env.State.Values["p6_selfmonitor_ready"] != "true" && !hostReady {
 		return fmt.Errorf("production switch requires the completed self-monitoring prerequisite")
 	}
@@ -200,7 +200,7 @@ func (a *App) usePlan6ProductionBackend(ctx context.Context, env *E2EEnvironment
 			if len(containers) == 0 {
 				continue
 			}
-			if deployment.Name == "argus-server" {
+			if deployment.Name == "argus-server" && env.State.Values["p6_selfmonitor_ready"] == "true" {
 				// The OTLP generator belongs to the test fixture, never to the
 				// production binary. It shares the self-monitoring Collector's
 				// network namespace without changing the real ingestion path.
@@ -231,9 +231,22 @@ func (a *App) usePlan6ProductionBackend(ctx context.Context, env *E2EEnvironment
 	if err = a.refreshPlan6ConnectorForward(ctx, env); err != nil {
 		return err
 	}
+	// Deployment readiness does not prove the browser's ingress/proxy route
+	// has converged after replacing the API Pods. Probe that actual read-only
+	// path before starting file or model operations; never retry mutations.
+	client, err := scenarioHTTP(env)
+	if err != nil {
+		return err
+	}
+	if err = waitHTTPSReady(ctx, client.Client("enterprise"), client.BaseURL+"/setup/status", `"state":`, 2*time.Minute); err != nil {
+		return fmt.Errorf("production API through ingress: %w", err)
+	}
+	if err = a.refreshPlan7ProductionWorkspaces(ctx, env); err != nil {
+		return err
+	}
 	env.State.Values["p6_backend_build"] = "production"
 	report, _ := json.MarshalIndent(map[string]any{"run_id": env.Options.RunID, "namespace_uid": ns.UID, "runtime_config_uid": runtimeConfig.UID,
-		"go_build_tags": "", "image": image, "digest": descriptor.Digest, "deployments": changed, "passed": true}, "", "  ")
+		"go_build_tags": "", "image": image, "digest": descriptor.Digest, "deployments": changed, "api_through_ingress_ready": true, "passed": true}, "", "  ")
 	if err = writePrivate(filepath.Join(env.Options.Artifacts, "plan6-production-backend.json"), report); err != nil {
 		return err
 	}

@@ -27,6 +27,7 @@ type Compactor struct {
 	Store          *postgres.Store
 	Models         modelservice.Service
 	EndpointPolicy modelprovider.PublicEndpointPolicy
+	RemoteFacts    func(context.Context, db.Run) (map[string]any, error)
 }
 
 func (compactor Compactor) Handle(ctx context.Context, task runtime.Task) error {
@@ -98,6 +99,12 @@ func (compactor Compactor) Handle(ctx context.Context, task runtime.Task) error 
 		}
 	}
 	through, firstKept, ok := ChooseCompactionBoundary(events)
+	if !ok && requiresCompactionResume(payload.Reason) {
+		through, firstKept, ok, err = compactor.activeTurnBoundary(ctx, run, events)
+		if err != nil {
+			return err
+		}
+	}
 	if !ok {
 		if requiresCompactionResume(payload.Reason) {
 			return compactor.fail(ctx, run, "CONTEXT_COMPACTION_FAILED")
@@ -165,7 +172,7 @@ func (compactor Compactor) Handle(ctx context.Context, task runtime.Task) error 
 		}
 		snapshot, createErr := q.CreateContextSnapshot(ctx, db.CreateContextSnapshotParams{ID: newAgentID(), EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: run.ID, Revision: int32(revision),
 			SourceFromSequence: events[0].Sequence, SourceThroughSequence: through, FirstKeptSequence: firstKept, TypedCheckpoint: typedCheckpoint, NarrativeSummary: summary,
-			CompactionModelID: run.ModelID, CompactionModelRevision: run.ModelRevision, PromptVersion: "argus.compaction/v2", EstimatedTokensBefore: int32((len(source) + 3) / 4),
+			CompactionModelID: run.ModelID, CompactionModelRevision: run.ModelRevision, PromptVersion: "argus.compaction/v3", EstimatedTokensBefore: int32((len(source) + 3) / 4),
 			ActualTokensAfter: int32(summaryTokens), SourceHash: sourceHash[:], SnapshotHash: snapshotHash[:], Status: "active"})
 		if errors.Is(createErr, pgx.ErrNoRows) {
 			return nil
@@ -255,15 +262,24 @@ func (compactor Compactor) generateSummary(ctx context.Context, run db.Run, even
 		return "", 0, err
 	}
 	inputEstimate := int64((len(safeEvents) + 3) / 4)
+	outputLimit := min(int(revision.MaxOutputTokens), 4096)
 	reservation, err := compactor.Models.ReserveQuota(ctx, call, user.DepartmentID, user.ID,
-		tokenAmount(inputEstimate, min(int64(revision.MaxOutputTokens), 2048), revision.InputPricePerMillion, revision.OutputPricePerMillion))
+		tokenAmount(inputEstimate, int64(outputLimit), revision.InputPricePerMillion, revision.OutputPricePerMillion))
 	if err != nil {
 		return "", 0, err
 	}
 	provider := modelprovider.Provider{Protocol: modelprovider.Protocol(revision.ApiProtocol), BaseURL: revision.BaseUrl,
-		APIKey: string(credential), Client: compactor.EndpointPolicy.Client()}
-	request := modelprovider.Request{Model: revision.ProviderModelID, MaxTokens: min(int(revision.MaxOutputTokens), 2048), Messages: []modelprovider.Message{
-		{Role: "system", Content: "Summarize the conversation facts for future context. Do not include credentials, private plans, tokens, prompts, or hidden tool data. Current workspace facts override historical availability claims. Preserve deleted/unavailable file reference status; never assert that files from an earlier workspace still exist."},
+		APIKey: string(credential), Client: compactor.EndpointPolicy.ModelClient()}
+	budgetParameter, err := modelprovider.BudgetParameterForCapabilities(modelprovider.Protocol(revision.ApiProtocol), revision.Capabilities)
+	if err != nil {
+		return "", 0, err
+	}
+	reasoningEffort, err := modelprovider.ReasoningEffortForCapabilities(modelprovider.Protocol(revision.ApiProtocol), revision.Capabilities)
+	if err != nil {
+		return "", 0, err
+	}
+	request := modelprovider.Request{Model: revision.ProviderModelID, MaxTokens: outputLimit, OutputTokenParameter: budgetParameter, ReasoningEffort: reasoningEffort, Messages: []modelprovider.Message{
+		{Role: "system", Content: "Summarize the conversation facts for future context concisely. Keep the visible factual checkpoint within 800 tokens. Preserve the goal, user revisions, completed/unknown/not-executed facts, relevant file paths and constraints; refer to commands by identity instead of copying full scripts. Do not include credentials, private plans, tokens, prompts, or hidden tool data. Current workspace facts override historical availability claims. Preserve deleted/unavailable file reference status; never assert that files from an earlier workspace still exist."},
 		{Role: "user", Content: string(safeEvents)},
 	}}
 	actualHash, err := provider.RequestHash(request)

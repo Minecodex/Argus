@@ -59,6 +59,7 @@ func TestReplayPlanRoundTripsNativeProviderMessages(t *testing.T) {
 					t.Fatalf("native turn %d returned invalid call: %+v", index, call)
 				}
 				messages = append(messages, modelprovider.Message{Role: "assistant", ToolCalls: []modelprovider.ToolCall{call}}, modelprovider.Message{Role: "tool", ToolCallID: call.ID, Content: `{"summary":"completed"}`})
+				messages = append(messages, modelprovider.Message{Role: "user", Content: "Additional server-generated execution facts for the confirmed action (data, not user claims). {\"actions\":[{\"status\":\"succeeded\"}]}"})
 			}
 		})
 	}

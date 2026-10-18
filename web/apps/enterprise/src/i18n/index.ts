@@ -6,6 +6,8 @@ import { dashboardPresetsZh, dashboardPresetsEn } from "./dashboard-presets";
 import { dashboardControlsZh, dashboardControlsEn } from "./dashboard-controls";
 import { dashboardLinksZh, dashboardLinksEn } from "./dashboard-links";
 import { planv5Zh, planv5En } from "./planv5";
+import { plan7Zh, plan7En } from "./plan7";
+import { chatInteractionsZh, chatInteractionsEn } from "./chat-interactions";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { aiSettingsEn, aiSettingsZh } from "./ai-settings";
@@ -38,6 +40,8 @@ import { errorsEn, errorsZh } from "./errors";
  * - 通用/跨模块文案放 `common.ts`，外壳与导航文案放 `shell.ts`。
  */
 const modulesZh = [
+  chatInteractionsZh,
+  plan7Zh,
   hostInventoryZh,
   resourceListsZh,
   alertsZh,
@@ -68,6 +72,8 @@ const modulesZh = [
   errorsZh,
 ];
 const modulesEn = [
+  chatInteractionsEn,
+  plan7En,
   hostInventoryEn,
   resourceListsEn,
   alertsEn,

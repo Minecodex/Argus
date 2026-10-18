@@ -15,6 +15,24 @@ type planV2MatrixSummary struct {
 
 // A range matrix is not an instant-vector sum. Validate and summarize actual
 // sample values, keeping timestamps out of the numeric calculation.
+func planV2SetMatrixStats(panel *planV2ConclusionPanel, data any) error {
+	if panel.Status == "no_data" {
+		rows, ok := data.([]any)
+		if !ok || len(rows) != 0 {
+			return fmt.Errorf("no_data matrix contains unexpected data")
+		}
+		zero := 0
+		panel.Samples = &zero
+		return nil
+	}
+	stats, err := planV2MatrixStats(data)
+	if err != nil {
+		return err
+	}
+	panel.Samples, panel.Min, panel.Max, panel.Last = &stats.Samples, &stats.Min, &stats.Max, &stats.Last
+	return nil
+}
+
 func planV2MatrixStats(data any) (planV2MatrixSummary, error) {
 	result := planV2MatrixSummary{}
 	rows, ok := data.([]any)

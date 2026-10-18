@@ -28,11 +28,7 @@ func (loop Loop) executeToolCalls(ctx context.Context, run db.Run, step db.RunSt
 	}
 	err = fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
 		for index, call := range calls {
-			var input map[string]any
-			if json.Unmarshal([]byte(call.Arguments), &input) != nil || input == nil {
-				return toolruntime.Error{Kind: "TOOL_INPUT_INVALID"}
-			}
-			encoded, _ := json.Marshal(input)
+			encoded := storedToolInput(call.Arguments)
 			hash := sha256.Sum256(encoded)
 			id := uuid.NewSHA1(modelCall.ID, []byte(call.ID))
 			tool, exists := set.Lookup(call.Name)
@@ -77,6 +73,19 @@ func (loop Loop) executeToolCalls(ctx context.Context, run db.Run, step db.RunSt
 			return nil, err
 		}
 		results[index] = result
+		if result.paused {
+			if result.controlKind == "plan" {
+				for _, remaining := range records[index+1:] {
+					if _, err := loop.persistToolOutcome(ctx, run, remaining, toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_CANCELLED"}); err != nil {
+						return nil, err
+					}
+				}
+				if err := persistStepStatus(ctx, loop.Store, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "succeeded"}); err != nil {
+					return nil, err
+				}
+			}
+			return results[:index+1], nil
+		}
 		stopped = stopped || result.unknown
 	}
 	return results, nil
@@ -100,15 +109,15 @@ func (loop Loop) executePersistedTool(ctx context.Context, run db.Run, set *tool
 		return toolExecutionResult{}, err
 	}
 	var arguments map[string]any
-	if err := json.Unmarshal(record.Input, &arguments); err != nil {
-		return toolExecutionResult{}, err
-	}
+	invalidArguments := json.Unmarshal(record.Input, &arguments) != nil || arguments == nil
 	tool, exists := set.Lookup(record.ToolID)
-	unknown := record.Status == "dispatched" && (record.Source == "external_mcp" || record.Source == "sandbox" && (!exists || !tool.ReadOnly))
+	unknown := record.Status == "dispatched" && (invalidArguments || record.Source == "external_mcp" || record.Source == "sandbox" && (!exists || !tool.ReadOnly))
 	var result toolruntime.Result
 	var invokeErr error
 	if unknown {
 		result = toolruntime.Result{Unknown: true, Data: map[string]any{"error_code": "TOOL_RESULT_UNKNOWN", "message": "The previous invocation was dispatched but its result is unknown. It was not replayed."}}
+	} else if invalidArguments {
+		return loop.persistToolOutcome(ctx, run, record, toolruntime.Result{}, invalidToolArgumentObject())
 	} else {
 		beforeDispatch := func(dispatchCtx context.Context) error {
 			if err := assertTaskLease(dispatchCtx); err != nil {
@@ -121,7 +130,7 @@ func (loop Loop) executePersistedTool(ctx context.Context, run db.Run, set *tool
 			if terminalRun(latest.Status) {
 				return toolruntime.Error{Kind: "TOOL_CANCELLED"}
 			}
-			if latest.VerificationOnly && (!exists || !tool.ReadOnly) {
+			if latest.VerificationOnly && (!exists || !tool.AllowedDuringVerification()) {
 				return toolruntime.Error{Kind: "TOOL_READ_ONLY_REQUIRED"}
 			}
 			if record.Status != "prepared" {
@@ -147,7 +156,21 @@ func (loop Loop) executePersistedTool(ctx context.Context, run db.Run, set *tool
 		result, invokeErr = set.Invoke(executionCtx, record.ToolID, toolruntime.Invocation{Principal: principal, RunID: run.ID, StepID: record.StepID, ModelCallID: record.ModelCallID.UUID,
 			ID: record.ID, CallID: record.ID.String(), Arguments: arguments, ReadOnly: readOnly, BeforeDispatch: beforeDispatch})
 	}
-	return loop.persistToolOutcome(ctx, run, record, result, invokeErr)
+	if invokeErr == nil && result.Control != nil && result.Control.Kind == "user_input" {
+		return toolExecutionResult{paused: true, controlKind: "user_input"}, nil
+	}
+	out, err := loop.persistToolOutcome(ctx, run, record, result, invokeErr)
+	if err == nil && invokeErr == nil {
+		if result.Control != nil {
+			out.paused = true
+			out.controlKind = result.Control.Kind
+		}
+		if result.ActionRef != "" {
+			out.paused = true
+			out.controlKind = "action"
+		}
+	}
+	return out, err
 }
 
 func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.ToolCall, result toolruntime.Result, invokeErr error) (toolExecutionResult, error) {
@@ -160,12 +183,7 @@ func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.T
 		if errorCode == "TOOL_CANCELLED" {
 			status = "cancelled"
 		}
-		result.Data = map[string]any{"error_code": errorCode, "message": "Tool invocation failed."}
-		var descriptionError toolruntime.Error
-		if errorCode == "TOOL_DESCRIPTION_REQUIRED" && errors.As(invokeErr, &descriptionError) {
-			result.Data["message"] = descriptionError.Message
-			result.Data["details"] = descriptionError.Details
-		}
+		result.Data = modelToolFailure(invokeErr, errorCode)
 	}
 	if result.Unknown {
 		status, errorCode = "result_unknown", "TOOL_RESULT_UNKNOWN"
@@ -262,6 +280,9 @@ func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.T
 }
 
 func (loop Loop) recoverToolCalls(ctx context.Context, run db.Run, set *toolruntime.Set, p toolruntime.Principal, readOnly bool) (bool, error) {
+	if err := loop.reconsiderQuestionTails(ctx, run); err != nil {
+		return true, err
+	}
 	calls, err := loop.Store.Queries.ListUnfinishedRunToolCalls(ctx, db.ListUnfinishedRunToolCallsParams{RunID: run.ID, EnterpriseID: run.EnterpriseID})
 	if err != nil || len(calls) == 0 {
 		return false, err
@@ -276,6 +297,17 @@ func (loop Loop) recoverToolCalls(ctx context.Context, run db.Run, set *toolrunt
 			result, err = loop.executePersistedTool(ctx, run, set, p, readOnly, call)
 		}
 		if err != nil {
+			return true, err
+		}
+		if result.paused {
+			if result.controlKind == "action" {
+				if loop.AutoConfirm != nil {
+					if err := loop.AutoConfirm(ctx, run); err != nil {
+						return true, err
+					}
+				}
+				_, _, err = loop.reconcileActions(ctx, run)
+			}
 			return true, err
 		}
 		unknown = unknown || result.unknown

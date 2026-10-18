@@ -61,24 +61,27 @@ type CertificateIssuer interface {
 }
 
 type Service struct {
-	Store           *postgres.Store
-	Redis           *redisstore.Client
-	Issuer          CertificateIssuer
-	EnrollmentURL   string
-	GatewayEndpoint string
-	GatewayInstance string
-	CertificateTTL  time.Duration
-	RegistryTTL     time.Duration
-	Credentials     secret.Service
-	Artifacts       artifactcheck.Checker
+	CommandDispatchGuard func(context.Context, *db.Queries, db.ConnectorCommand) error
+	Store                *postgres.Store
+	Redis                *redisstore.Client
+	Issuer               CertificateIssuer
+	EnrollmentURL        string
+	GatewayEndpoint      string
+	GatewayInstance      string
+	CertificateTTL       time.Duration
+	RegistryTTL          time.Duration
+	Credentials          secret.Service
+	Artifacts            artifactcheck.Checker
 	installinstruction.TrustConfig
-	KubernetesImage string
-	TrustBundles    trustbundle.Service
+	KubernetesImage    string
+	RemoteRuntimeImage string
+	TrustBundles       trustbundle.Service
 }
 
 type EnrollInput struct {
 	Token, CSRPem, DeviceFingerprint, InstanceID, Platform, Architecture, Name, SoftwareVersion string
 	Capabilities                                                                                []string
+	ExecutionAccount                                                                            *resource.HostExecutionAccount
 }
 
 type EnrollmentResult struct {
@@ -197,6 +200,9 @@ func (service Service) CreateEnrollment(ctx context.Context, q *db.Queries, acto
 				return CreatedEnrollment{}, ErrEnrollmentInvalid
 			}
 			arguments = append(arguments, "--connector-image", service.KubernetesImage)
+			if service.RemoteRuntimeImage != "" {
+				arguments = append(arguments, "--remote-runtime-image", service.RemoteRuntimeImage)
+			}
 			if len(input.ImagePullSecrets) != 0 {
 				arguments = append(arguments, "--image-pull-secrets", strings.Join(input.ImagePullSecrets, ","))
 			}
@@ -248,10 +254,11 @@ func (service Service) CreateEnrollment(ctx context.Context, q *db.Queries, acto
 }
 
 type enrollmentPolicy struct {
-	TargetPlatform     string `json:"target_platform"`
-	ControlPath        string `json:"control_path"`
-	EnrollDialAddress  string `json:"enroll_dial_address"`
-	GatewayDialAddress string `json:"gateway_dial_address"`
+	TargetPlatform     string                         `json:"target_platform"`
+	ControlPath        string                         `json:"control_path"`
+	EnrollDialAddress  string                         `json:"enroll_dial_address"`
+	GatewayDialAddress string                         `json:"gateway_dial_address"`
+	ExecutionAccount   *resource.HostExecutionAccount `json:"execution_account,omitempty"`
 }
 
 func connectorEnrollmentPolicy(raw json.RawMessage) enrollmentPolicy {
@@ -429,6 +436,11 @@ func (service Service) Enroll(ctx context.Context, input EnrollInput) (Enrollmen
 		if err != nil {
 			return ErrEnrollmentInvalid
 		}
+		if expected := connectorEnrollmentPolicy(token.Policy).ExecutionAccount; expected != nil {
+			if input.ExecutionAccount == nil || !validExecutionAccount(input.Platform, *expected) || !strings.EqualFold(expected.Username, input.ExecutionAccount.Username) || expected.SID != input.ExecutionAccount.SID {
+				return ErrEnrollmentInvalid
+			}
+		}
 		if token.Status == "consumed" {
 			if !subtleEqual(token.ConsumedDeviceHash, deviceHash[:]) || !token.RegisteredConnectorID.Valid {
 				return ErrEnrollmentConflict
@@ -589,6 +601,15 @@ func (service Service) Enroll(ctx context.Context, input EnrollInput) (Enrollmen
 			if _, err := q.ActivateHostConnector(ctx, db.ActivateHostConnectorParams{ID: token.PreallocatedHostID.UUID, EnterpriseID: token.EnterpriseID,
 				ConnectorID: uuid.NullUUID{UUID: connector.ID, Valid: true}, Hostname: input.Name, Architecture: input.Architecture}); err != nil {
 				return err
+			}
+			if expected := connectorEnrollmentPolicy(token.Policy).ExecutionAccount; expected != nil {
+				host, e := q.GetHost(ctx, db.GetHostParams{ID: token.PreallocatedHostID.UUID, EnterpriseID: token.EnterpriseID})
+				if e != nil {
+					return e
+				}
+				if _, e = q.BindVerifiedRemoteIdentity(ctx, db.BindVerifiedRemoteIdentityParams{ID: uuid.New(), EnterpriseID: host.EnterpriseID, ResourceID: host.ID, Username: expected.Username, IdentitySid: expected.SID, Platform: host.Platform, ConnectorID: host.ConnectorID, ResourceVersion: host.ResourceVersion}); e != nil {
+					return e
+				}
 			}
 		} else if !repair && token.Role == "bastion" {
 			rows, updateErr := q.ActivateBastionRootHost(ctx, db.ActivateBastionRootHostParams{
@@ -1003,7 +1024,25 @@ func (service Service) TransitionCommand(ctx context.Context, identity TrustedId
 		hash = sum[:]
 	}
 	var transitioned db.ConnectorCommand
+	var dispatchRejection error
 	err = service.Store.InTx(ctx, func(q *db.Queries) error {
+		if next == "dispatched" && strings.HasPrefix(current.CommandType, "remote_execution_") {
+			if service.CommandDispatchGuard == nil {
+				dispatchRejection = ErrCommandState
+			} else {
+				dispatchRejection = service.CommandDispatchGuard(ctx, q, current)
+			}
+			if dispatchRejection != nil {
+				code := "REMOTE_NOT_APPROVED"
+				var coded interface{ Code() string }
+				if errors.As(dispatchRejection, &coded) {
+					code = coded.Code()
+				}
+				var e error
+				transitioned, e = q.RejectRemoteCommandBeforeDispatch(ctx, db.RejectRemoteCommandBeforeDispatchParams{ID: current.ID, ErrorCode: pgtype.Text{String: code, Valid: true}})
+				return e
+			}
+		}
 		if next == "dispatched" && (current.CommandType == "host_connection_probe" || current.CommandType == "kubernetes_connection_probe") {
 			testID, parseErr := uuid.Parse(current.OperationRef)
 			if parseErr != nil {
@@ -1079,6 +1118,9 @@ func (service Service) TransitionCommand(ctx context.Context, identity TrustedId
 		if readErr == nil && cancelledHostInstallCommand(latest) {
 			return latest, nil
 		}
+	}
+	if err == nil && dispatchRejection != nil {
+		return transitioned, dispatchRejection
 	}
 	return transitioned, err
 }
@@ -1386,7 +1428,7 @@ func capabilitiesAllowed(role string, values []string) bool {
 	}
 	seen := map[string]bool{}
 	for _, value := range values {
-		if !allowed[role][value] || seen[value] {
+		if (!allowed[role][value] && !(allowed[role] != nil && value == "remote_execution.v1")) || seen[value] {
 			return false
 		}
 		seen[value] = true

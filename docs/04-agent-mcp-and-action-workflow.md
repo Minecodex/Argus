@@ -1,5 +1,7 @@
 # Agent、MCP 与两阶段操作
 
+> 当前 Chatbox 的工作模式为执行／计划，权限为请求审批／完全访问。普通 Preview 仍冻结实际操作；新操作创建时记录确认策略，完全访问由服务端自动确认，保留 RBAC、MFA、企业审批、幂等和审计。Markdown 计划在展示前提取明确绑定的代码块；用户确认后创建实施 Run，并为固定命令授予一次执行权限。Harness 通过 connect 的 approved_step_id 执行，新增或改变的操作按当前权限处理。计划实施与用户询问始终由真实用户答复。详见 [Markdown 计划与命令授权](./plan7/18-markdown-plan-command-consent.md)。
+
 > Agent 查询和操作复用主体的显式资源授权结果。创建工具不要求已有显式资源授权，提交成功后创建事务授予创建主体只读授权；读取、编辑、删除均要求功能权限、读取权限和目标资源授权。
 
 ## 1. 职责边界
@@ -26,11 +28,11 @@ MCP Tool 和领域服务负责：
 
 Conversation 和 Run 只绑定服务端确认的 `enterprise_id`。模型生成的企业、标签过滤条件、Host 或 Kubernetes ID 只是候选参数，不能切换当前身份域或扩大显式资源授权；每个 ToolCall、Run、PendingAction 和 Execution 保存实际目标资源引用和授权版本快照。
 
-### Plan7 远程执行扩展（待实现）
+### Plan7 远程执行扩展（已实现并验收）
 
-[Plan7](./plan7/README.md)新增排查／计划模式和模型入口 connect。Workspace 内离线分析免逐次确认；平台业务继续下述 Preview／Confirm；每次完整远程请求等待宿主批准，固定计划可一次批准全部列明步骤。Q15 确认请求支持一批指令，整计划与连续 connect 复用同资源 shell／PowerShell 状态。模型入口只创建预览，真实执行仍由确定性 Action／Plan Executor 完成，不向模型开放隐藏 Commit、未经批准的自由终端输入或自带 approved 参数的派发路径。
+[Plan7](./plan7/README.md)当前采用执行／计划两种工作模式，以及请求审批／完全访问两种权限策略。Workspace 离线分析和普通查询不逐次确认；平台变更与 connect 继续走 Preview／Confirm，新请求冻结其确认策略。请求审批由用户批准，完全访问由服务端自动确认，MFA 和企业审批要求保持。Markdown 计划确认冻结代码块对应的命令清单并创建新的 ReAct 执行 Run；一次性步骤授权绑定该 Run，实际操作仍由确定性 Action Executor 处理，授权来源记录为 plan_approval。连续 connect 仍复用同资源 shell／PowerShell 状态。模型无法调用隐藏 Commit 或通过自带 approved 参数授权。原冻结批次计划仅保留历史展示与已批准任务的执行事实。
 
-该设计不再引入同工具／同参数的 24 小时授权。模型工具的执行场景和批准事实由服务端判断。执行后允许 Workspace 继续分析，新平台变更继续 Preview，新远程请求再次确认；当前 VerificationOnly 的一刀切限制需要在实施中调整。详见[执行与恢复契约](./plan7/02-architecture-and-contracts.md)。
+该设计不再引入同工具／同参数的 24 小时授权。模型工具的执行场景和批准事实由服务端判断。执行后允许 Workspace 继续分析，新平台变更继续 Preview，新远程请求再次确认；原 VerificationOnly 的一刀切限制已按场景调整，客户 MCP 保留既有边界。详见[执行与恢复契约](./plan7/02-architecture-and-contracts.md)及[验收报告](./plan7/09-acceptance-report.md)。
 
 ## 2. 自有 Tool 设计
 
@@ -198,7 +200,7 @@ sequenceDiagram
     E->>A: 授权范围内只读验证与总结
 ```
 
-详情模板不持有确认入口。用户确认之后不再由模型决定是否提交，失败或过期需重新生成 Preview。模板失败不影响有效公开动作的宿主展示。
+详情模板不持有确认入口。人工或已记录的会话策略确认之后，由确定性执行器提交实际操作，失败或过期需重新生成 Preview。模板失败不影响有效公开动作的宿主展示。
 
 ## 6. Preview Tool 返回约定
 
@@ -271,7 +273,7 @@ MCP 核心协议提供 `structuredContent` 和可选 `outputSchema`，但不定�
 
 自有业务能力通过 `tool.search/describe/invoke` 暴露，当前有 `host/k8s/metric/trace/log/connector/workflow/dashboard/alert` 九个分类和 103 个业务工具；移除范围与替代能力见[模型工具目录收敛](./planv5/tool-catalog-pruning-20261014.md)。模型不直接接收自有完整目录。启用且健康的 Sandbox 提供 `read/write/edit/bash`；用户为会话选择的客户 MCP 工具直接追加为模型工具。因此模型初始工具数是 `3 + 可选 4 + N`。
 
-上述是 PlanV5 当前基线。Plan7 实现并启用 connect 后，再增加一个按当前主体／运行可用性提供的核心入口；全部自有入口可用时为 8＋N，容量预检必须据实际集合计算。Plan7 尚未实现，不将该目标记为当前已发布数量。
+上述是 PlanV5 基线。Plan7 已增加按当前主体／运行可用性提供的 connect 核心入口；全部自有入口可用时为 8＋N，容量预检据实际集合计算。该实现已完成[隔离环境验收](./plan7/09-acceptance-report.md)，实际已部署版本应以运行环境为准。
 
 运行前及消息接受事务前检查完整工具集合、必要上下文和输出预留。容量不足返回 422 `MODEL_TOOL_CAPACITY_EXCEEDED`，不创建 Run/Task、不裁剪工具、不切换模型，保留输入与附件。执行时再次校验当前授权，不把预检当作授权票据。
 
@@ -303,8 +305,8 @@ stateDiagram-v2
     Prepared --> AwaitingConfirmation
     AwaitingConfirmation --> Cancelled: 发起人取消
     AwaitingConfirmation --> Expired: 超时
-    AwaitingConfirmation --> AwaitingApproval: 用户确认且需要审批
-    AwaitingConfirmation --> Ready: 用户确认且无需额外审批
+    AwaitingConfirmation --> AwaitingApproval: 用户或会话策略确认且需要审批
+    AwaitingConfirmation --> Ready: 用户或会话策略确认且无需额外审批
     AwaitingApproval --> Rejected: 审批拒绝
     AwaitingApproval --> Ready: 审批策略满足
     AwaitingApproval --> Expired: 审批超时

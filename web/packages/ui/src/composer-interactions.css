@@ -1,0 +1,182 @@
+.argus-composer-actions {
+  width: var(--popover-document-width);
+  max-width: calc(100vw - var(--page-padding) * 2);
+  max-height: var(--popover-document-height);
+  overflow: auto;
+  padding: var(--space-2);
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--card-radius);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+.argus-composer-actions__heading {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--text-help);
+}
+.argus-composer-actions__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+}
+.argus-composer-actions__copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.argus-composer-actions__copy [data-slot="description"] {
+  color: var(--text-secondary);
+}
+.argus-composer-actions__check {
+  color: var(--accent);
+}
+.argus-composer-panel,
+.argus-question-summary,
+.argus-guidance-plan {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.argus-composer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+.argus-composer-panel__header,
+.argus-composer-panel__navigation,
+.argus-composer-panel__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+}
+.argus-composer-panel__header {
+  justify-content: space-between;
+}
+.argus-composer-panel__header > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-body);
+}
+.argus-composer-panel__navigation {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-composer-panel__footer {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.argus-composer-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+}
+.argus-question-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.argus-question-choices__option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--space-px-1) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.argus-question-choices__option:hover,
+.argus-question-choices__option.is-selected {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+.argus-question-choices__option input {
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  margin-top: var(--space-1);
+}
+.argus-question-choices__option > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.argus-question-choices__description,
+.argus-guidance-plan__target,
+.argus-guidance-plan__note {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-question-summary {
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+}
+.argus-question-summary summary {
+  cursor: pointer;
+}
+.argus-question-summary dl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin: 0;
+  border-inline-start: var(--space-px-2) solid var(--border-subtle);
+}
+.argus-question-summary dd {
+  margin: var(--space-1) 0 0;
+  color: var(--text-tertiary);
+  white-space: pre-wrap;
+}
+.argus-guidance-plan {
+  padding: var(--card-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--card-radius);
+  background: var(--bg-surface);
+}
+.argus-guidance-plan__header {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+  flex-wrap: wrap;
+}
+.argus-guidance-plan__header h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-size-16);
+}
+.argus-guidance-plan__header > span {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-guidance-plan__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+  padding-inline-start: var(--card-padding);
+  min-width: 0;
+}
+.argus-guidance-plan__steps li {
+  min-width: 0;
+}
+.argus-guidance-plan__note {
+  margin: 0;
+}
+.argus-plan-document__header {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-plan-document__header > [role="status"] {
+  margin-inline-start: auto;
+}

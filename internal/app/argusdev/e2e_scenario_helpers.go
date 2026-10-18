@@ -35,6 +35,17 @@ func (a *App) refreshEnterpriseLogin(ctx context.Context, env *E2EEnvironment) e
 	if err != nil {
 		return err
 	}
+	// A local acceptance run may use an existing account without an enrolled
+	// second factor. Follow the server's actual login result; never fabricate a
+	// challenge or change the account's MFA policy for the test.
+	if authenticated, ok := login["authenticated_session"].(map[string]any); ok && login["status"] == "authenticated" {
+		csrf, err := stringField(authenticated, "csrf_token")
+		if err != nil {
+			return err
+		}
+		env.State.Values["enterprise_csrf"] = csrf
+		return nil
+	}
 	challenge, err := stringField(login, "mfa_challenge", "challenge_id")
 	if err != nil {
 		return err

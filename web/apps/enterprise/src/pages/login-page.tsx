@@ -15,7 +15,6 @@ import {
 } from "@argus/api-client";
 import { useEnterpriseAuthStore } from "@argus/auth";
 import { AppearanceControls, Button, Field, Input } from "@argus/ui";
-import { runtimeConfig } from "../lib/runtime-config";
 import "../styles/auth.css";
 
 /** 企业用户登录页：只接受 enterprise audience 的身份。 */
@@ -109,11 +108,6 @@ export function LoginPage() {
       mfaCode: "",
     },
   });
-  const platformPortalUrl =
-    runtimeConfig().platformLoginUrl ??
-    import.meta.env.VITE_PLATFORM_URL ??
-    `${window.location.protocol}//${window.location.hostname}:4174/login`;
-
   const submit = async (values: LoginForm) => {
     if (submitting) return;
     setError(null);
@@ -293,11 +287,6 @@ export function LoginPage() {
                     : "login.submit",
               )}
         </Button>
-        <p className="argus-login-card__hint">
-          {t("login.demoHint")}
-          <br />
-          <a href={platformPortalUrl}>{t("login.platformPortal")}</a>
-        </p>
       </form>
     </div>
   );

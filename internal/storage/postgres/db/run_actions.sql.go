@@ -31,7 +31,7 @@ func (q *Queries) HasRunPendingActionEvent(ctx context.Context, arg HasRunPendin
 }
 
 const listRunPendingActions = `-- name: ListRunPendingActions :many
-SELECT id, action_ref, enterprise_id, creator_subject_id, authorization_version, action_type, title, summary, risk, preview, diff, status, resource_type, resource_id, expected_resource_version, impact_hash, result_resource_type, result_resource_id, result_resource_version, result_summary, error_code, expires_at, created_at, updated_at, creator_subject_type, run_id, confirmation_required, policy_snapshot_hash FROM pending_actions
+SELECT id, action_ref, enterprise_id, creator_subject_id, authorization_version, action_type, title, summary, risk, preview, diff, status, resource_type, resource_id, expected_resource_version, impact_hash, result_resource_type, result_resource_id, result_resource_version, result_summary, error_code, expires_at, created_at, updated_at, creator_subject_type, run_id, confirmation_required, policy_snapshot_hash, confirmation_mode, confirmation_policy_version, approved_plan_command_id FROM pending_actions
 WHERE run_id=$1 AND enterprise_id=$2 AND creator_subject_id=$3 AND creator_subject_type='user'
 ORDER BY created_at,id
 `
@@ -80,6 +80,9 @@ func (q *Queries) ListRunPendingActions(ctx context.Context, arg ListRunPendingA
 			&i.RunID,
 			&i.ConfirmationRequired,
 			&i.PolicySnapshotHash,
+			&i.ConfirmationMode,
+			&i.ConfirmationPolicyVersion,
+			&i.ApprovedPlanCommandID,
 		); err != nil {
 			return nil, err
 		}

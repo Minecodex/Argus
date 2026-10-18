@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -28,14 +29,17 @@ func (compactor Compactor) currentContextFits(ctx context.Context, run db.Run) (
 	if err != nil {
 		return false, err
 	}
-	loop := Loop{Store: compactor.Store}
+	loop := Loop{Store: compactor.Store, RemoteFacts: compactor.RemoteFacts}
 	messages, current, _, source, err := loop.messages(ctx, run)
 	if err != nil {
 		return false, err
 	}
 	projection, err := loop.context(ctx, run, revision, messages, current, tools, source)
 	if err != nil {
-		return false, nil
+		if errors.Is(err, ErrContextTooLarge) {
+			return false, nil
+		}
+		return false, err
 	}
 	size, err := (modelprovider.Provider{Protocol: modelprovider.Protocol(revision.ApiProtocol), BaseURL: revision.BaseUrl}).RequestBytes(modelprovider.Request{Model: revision.ProviderModelID, Messages: projection.Messages, Tools: tools, MaxTokens: int(revision.MaxOutputTokens)})
 	return size < projection.HardLimit, err
