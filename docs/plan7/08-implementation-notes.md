@@ -1,5 +1,7 @@
 # Plan7 实施记录
 
+2026-10-18 PR #3 跨平台编译修复：Windows 主机验收编排改名为 `e2e_plan7_windows_host.go`。原 `_windows.go` 后缀使 Go 在 Linux／macOS 自动排除该文件，而通用场景入口仍引用其中的方法，导致 Portable CI 编译失败。编排代码本身使用跨平台 API，实际 Windows 验收仍由 `runtime.GOOS` 明确检查；没有放宽实机前件或 CI 门禁。
+
 开始日期：2026-10-16。实施中，未验收完成。
 
 ## 本轮环境与已验证部分
