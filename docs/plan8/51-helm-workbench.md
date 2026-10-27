@@ -35,7 +35,7 @@ Helm 的 [hooks](https://helm.sh/docs/topics/charts_hooks/) 和 [CRD 行为](htt
 
 原生 Helm 的默认 Schema loader 可访问 file/http，值合并也可能打印原值，因此不在服务主进程中直接渲染。Server、Worker 与 Connector 使用同一程序的内部子进程入口；不增加独立服务或用户安装项，也不启动外部 Helm CLI、插件或 exporter。
 
-子进程仅收到 Chart、values、渲染所需的公开能力与 Release 信息；不继承平台环境、Kubeconfig、解密 Key 或 API 凭据。单进程一次渲染，限制约 128 MiB、5 秒 CPU、10 秒墙钟及有界输入输出；Windows 使用 Job Object，Linux 使用 rlimit。macOS 的 RLIMIT_DATA 包含共享可写映射，不能直接用作相同的内存占用预算，因此由系统 `/usr/bin/taskpolicy -m 128` 在 exec 前安装 active/inactive 致命内存上限，CPU 与文件大小仍由 rlimit 限制；工具或限制不可用时拒绝渲染，不回退到无约束进程。三平台 CI 在完整 CLI 编译前执行普通渲染、外部 Schema 拒绝、超量模板与取消回归；macOS 另验证触碰 256 MiB 内存的子进程被 SIGKILL，且不是父进程墙钟超时导致。SDK 日志在子进程中丢弃；Schema 保留校验但使用关闭外部加载的 compiler，支持 Schema 文档内的定义与标准 draft。模板的集群 lookup/DNS 不可用。
+子进程仅收到 Chart、values、渲染所需的公开能力与 Release 信息；不继承平台环境、Kubeconfig、解密 Key 或 API 凭据。单进程一次渲染，限制约 128 MiB、5 秒 CPU、10 秒墙钟及有界输入输出；Windows 使用 Job Object，Linux 使用 rlimit。macOS 的 RLIMIT_DATA 包含共享可写映射，不能直接用作相同的内存占用预算，因此由系统 `/usr/sbin/taskpolicy -m 128` 在 exec 前安装 active/inactive 致命内存上限，CPU 与文件大小仍由 rlimit 限制；工具或限制不可用时拒绝渲染，不回退到无约束进程。三平台 CI 在完整 CLI 编译前执行普通渲染、外部 Schema 拒绝、超量模板与取消回归；macOS 另验证触碰 256 MiB 内存的子进程被 SIGKILL，且不是父进程墙钟超时导致。SDK 日志在子进程中丢弃；Schema 保留校验但使用关闭外部加载的 compiler，支持 Schema 文档内的定义与标准 draft。模板的集群 lookup/DNS 不可用。
 
 macOS 机制依据：[Apple taskpolicy 源码](https://github.com/apple-oss-distributions/system_cmds/blob/main/taskpolicy/taskpolicy.c)，使用 `POSIX_SPAWN_SETEXEC` 及 active/inactive fatal memory flags；执行路径和参数单独传递，不经 shell 拼接。
 

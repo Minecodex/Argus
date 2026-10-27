@@ -7,6 +7,6 @@ func configureRenderCommand(command *exec.Cmd) {
 	// memory limits before the renderer starts. RLIMIT_DATA also counts shared
 	// writable mappings on Darwin and cannot enforce this footprint budget.
 	args := append([]string(nil), command.Args...)
-	command.Path = "/usr/bin/taskpolicy"
+	command.Path = "/usr/sbin/taskpolicy"
 	command.Args = append([]string{command.Path, "-m", "128"}, args...)
 }
