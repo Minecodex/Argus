@@ -1,5 +1,7 @@
 # 架构与执行契约
 
+2026-10-18 Plan8 讨论修订：[最新决策](../plan8/11-grilling-decisions-and-upstream.md)明确一应用一环境（生产/测试分别建应用）、SDK自动发现服务、Namespace独立授权及显式运维日志读取、完整K8s/Helm/CRD管理。监控仅采用可内置Collector的官方/成熟组件，不部署独立exporter或JMX采集服务；无合格专用内置采集方案的资源/模式留证暂缓，通用Prometheus抓取不算外部资源支持；默认仪表盘自动升级，全部支持范围统一发布。[身份与授权契约](../plan8/02-domain-data-and-authorization.md)扩展本页旧Host/Cluster范围；下述旧类型/流程与既有验收属于迁移前基线，不代表新增能力已实现。企业隔离、标签不授权、真实来源及现有确认边界保留。
+
 > 2026-10-18 结果存储更新：Workspace 中的新远程结果按业务路径归入 `results`，请求／步骤 UUID 放入 `results/meta.json`。服务端可信映射、碰撞与恢复边界见[业务结果目录与元数据](./19-workspace-results-and-metadata.md)；远端临时目录隔离和原授权规则不变。
 
 > 2026-10-18：本页原冻结命令计划的完成记录保留历史范围。当前规则及独立验收见 [Markdown 计划、命令授权与普通会话执行](./18-markdown-plan-command-consent.md)。工作模式和持久化询问仍复用第 15 篇；其指导性计划授权规则已被第 18 篇替代。

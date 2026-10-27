@@ -12,17 +12,134 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// DashboardDraftPanelDrilldowns defines model for DashboardDraftPanelDrilldowns.
+type DashboardDraftPanelDrilldowns struct {
+	PanelId       string                            `json:"panel_id"`
+	SignalSources map[string]DashboardSourceBinding `json:"signal_sources"`
+}
+
+// DashboardDraftPreparation defines model for DashboardDraftPreparation.
+type DashboardDraftPreparation struct {
+	Conversions *[]DashboardDraftPanelConversion `json:"conversions,omitempty"`
+	Drilldowns  *[]DashboardDraftPanelDrilldowns `json:"drilldowns,omitempty"`
+}
+
+// DashboardDraftSample defines model for DashboardDraftSample.
+type DashboardDraftSample struct {
+	DraftId      openapi_types.UUID        `json:"draft_id"`
+	DraftVersion int64                     `json:"draft_version"`
+	Sample       map[string]interface{}    `json:"sample"`
+	Validation   DashboardValidationReport `json:"validation"`
+}
+
+// DashboardDraftSampleInput defines model for DashboardDraftSampleInput.
+type DashboardDraftSampleInput struct {
+	ExpectedVersion int64                    `json:"expected_version"`
+	Parameters      *DashboardExecutionInput `json:"parameters,omitempty"`
+}
+
+// DashboardDrilldown defines model for DashboardDrilldown.
+type DashboardDrilldown struct {
+	DetailQueryRef string                        `json:"detail_query_ref"`
+	Id             string                        `json:"id"`
+	Inputs         map[string]string             `json:"inputs"`
+	Kind           *string                       `json:"kind,omitempty"`
+	OriginQueryRef string                        `json:"origin_query_ref"`
+	ScopePolicy    string                        `json:"scope_policy"`
+	TimeWindow     *DashboardDrilldownTimeWindow `json:"time_window,omitempty"`
+	Title          string                        `json:"title"`
+}
+
+// DashboardDrilldownExecution defines model for DashboardDrilldownExecution.
+type DashboardDrilldownExecution struct {
+	ContextExpiresAt  time.Time                              `json:"context_expires_at"`
+	ContextToken      string                                 `json:"context_token"`
+	DashboardId       openapi_types.UUID                     `json:"dashboard_id"`
+	DrilldownId       string                                 `json:"drilldown_id"`
+	ExecutionHash     string                                 `json:"execution_hash"`
+	From              time.Time                              `json:"from"`
+	PanelId           string                                 `json:"panel_id"`
+	ParentExecutionId openapi_types.UUID                     `json:"parent_execution_id"`
+	Resources         []DashboardResourceScope               `json:"resources"`
+	Result            DashboardTargetExecution               `json:"result"`
+	RevisionId        openapi_types.UUID                     `json:"revision_id"`
+	ScopePolicy       DashboardDrilldownExecutionScopePolicy `json:"scope_policy"`
+	Sources           []DashboardResolvedSource              `json:"sources"`
+	To                time.Time                              `json:"to"`
+}
+
+// DashboardDrilldownExecutionScopePolicy defines model for DashboardDrilldownExecution.ScopePolicy.
+type DashboardDrilldownExecutionScopePolicy string
+
+// DashboardDrilldownInput defines model for DashboardDrilldownInput.
+type DashboardDrilldownInput struct {
+	ContextToken              string            `json:"context_token"`
+	DrilldownId               string            `json:"drilldown_id"`
+	ExpandAuthorizedResources bool              `json:"expand_authorized_resources"`
+	PanelId                   string            `json:"panel_id"`
+	Values                    map[string]string `json:"values"`
+}
+
+// DashboardDrilldownTimeWindow defines model for DashboardDrilldownTimeWindow.
+type DashboardDrilldownTimeWindow struct {
+	DurationInput *string `json:"duration_input,omitempty"`
+	Input         string  `json:"input"`
+	Seconds       *int    `json:"seconds,omitempty"`
+}
+
+// DashboardExecution defines model for DashboardExecution.
+type DashboardExecution struct {
+	ContextExpiresAt *time.Time                                    `json:"context_expires_at,omitempty"`
+	ContextToken     *string                                       `json:"context_token,omitempty"`
+	DashboardId      openapi_types.UUID                            `json:"dashboard_id"`
+	ExecutionHash    string                                        `json:"execution_hash"`
+	ExecutionId      openapi_types.UUID                            `json:"execution_id"`
+	From             time.Time                                     `json:"from"`
+	LocalCandidates  map[string]map[string]DashboardCandidateState `json:"local_candidates"`
+	LocalValues      map[string]map[string]DashboardSelection      `json:"local_values"`
+	Panels           []DashboardPanelExecution                     `json:"panels"`
+	Partial          bool                                          `json:"partial"`
+	Resources        []DashboardResourceScope                      `json:"resources"`
+	RevisionId       openapi_types.UUID                            `json:"revision_id"`
+	ScopeEmpty       *bool                                         `json:"scope_empty,omitempty"`
+	ScopeSelection   *DashboardScopeSelection                      `json:"scope_selection,omitempty"`
+	ScopeSignature   *string                                       `json:"scope_signature,omitempty"`
+	ScopeVersions    *struct {
+		Relations map[string]int64 `json:"relations"`
+		Resources map[string]int64 `json:"resources"`
+	} `json:"scope_versions,omitempty"`
+	To                 time.Time                          `json:"to"`
+	VariableCandidates map[string]DashboardCandidateState `json:"variable_candidates"`
+	Variables          map[string]DashboardSelection      `json:"variables"`
+}
+
 // DashboardExecutionInput defines model for DashboardExecutionInput.
 type DashboardExecutionInput struct {
+	ApplicationIds  *[]openapi_types.UUID                   `json:"application_ids,omitempty"`
+	ApplicationMode *DashboardExecutionInputApplicationMode `json:"application_mode,omitempty"`
+
 	// CandidatesOnly Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode.
 	CandidatesOnly *bool                                     `json:"candidates_only,omitempty"`
 	From           *time.Time                                `json:"from,omitempty"`
 	LocalValues    *map[string]map[string]DashboardSelection `json:"local_values,omitempty"`
 	PanelIds       *[]string                                 `json:"panel_ids,omitempty"`
 	ResourceIds    *[]openapi_types.UUID                     `json:"resource_ids,omitempty"`
-	To             *time.Time                                `json:"to,omitempty"`
-	Variables      *map[string]DashboardSelection            `json:"variables,omitempty"`
+
+	// ResourceMode all_authorized selects current grants; explicit preserves an empty resource_ids set
+	ResourceMode  *DashboardExecutionInputResourceMode    `json:"resource_mode,omitempty"`
+	ResourceTypes *[]DashboardExecutionInputResourceTypes `json:"resource_types,omitempty"`
+	To            *time.Time                              `json:"to,omitempty"`
+	Variables     *map[string]DashboardSelection          `json:"variables,omitempty"`
 }
+
+// DashboardExecutionInputApplicationMode defines model for DashboardExecutionInput.ApplicationMode.
+type DashboardExecutionInputApplicationMode string
+
+// DashboardExecutionInputResourceMode all_authorized selects current grants; explicit preserves an empty resource_ids set
+type DashboardExecutionInputResourceMode string
+
+// DashboardExecutionInputResourceTypes defines model for DashboardExecutionInput.ResourceTypes.
+type DashboardExecutionInputResourceTypes string
 
 // DashboardFilter defines model for DashboardFilter.
 type DashboardFilter struct {
@@ -80,14 +197,16 @@ type DashboardIssue struct {
 
 // DashboardItem defines model for DashboardItem.
 type DashboardItem struct {
-	ActiveRevisionId openapi_types.UUID  `json:"active_revision_id"`
-	Description      string              `json:"description"`
-	FolderId         *openapi_types.UUID `json:"folder_id,omitempty"`
-	Id               openapi_types.UUID  `json:"id"`
-	Lifecycle        string              `json:"lifecycle"`
-	Name             string              `json:"name"`
-	UpdatedAt        time.Time           `json:"updated_at"`
-	Version          int64               `json:"version"`
+	ActiveRevisionId       openapi_types.UUID  `json:"active_revision_id"`
+	Description            string              `json:"description"`
+	FolderId               *openapi_types.UUID `json:"folder_id,omitempty"`
+	Id                     openapi_types.UUID  `json:"id"`
+	Lifecycle              string              `json:"lifecycle"`
+	ManagedTemplateKey     *string             `json:"managed_template_key,omitempty"`
+	ManagedTemplateVersion *int64              `json:"managed_template_version,omitempty"`
+	Name                   string              `json:"name"`
+	UpdatedAt              time.Time           `json:"updated_at"`
+	Version                int64               `json:"version"`
 }
 
 // DashboardLifecycleInput defines model for DashboardLifecycleInput.
@@ -127,7 +246,7 @@ type DashboardMetricDescriptor struct {
 
 // DashboardPanel defines model for DashboardPanel.
 type DashboardPanel struct {
-	ApplicableResourceTypes []string `json:"applicable_resource_types"`
+	ApplicableResourceTypes []DashboardPanelApplicableResourceTypes `json:"applicable_resource_types"`
 
 	// AuthoringMode All display and detail targets in a Panel use this single editing source.
 	AuthoringMode      DashboardPanelAuthoringMode `json:"authoring_mode"`
@@ -150,6 +269,9 @@ type DashboardPanel struct {
 	Type          string                   `json:"type"`
 	Unit          string                   `json:"unit"`
 }
+
+// DashboardPanelApplicableResourceTypes defines model for DashboardPanel.ApplicableResourceTypes.
+type DashboardPanelApplicableResourceTypes string
 
 // DashboardPanelAuthoringMode All display and detail targets in a Panel use this single editing source.
 type DashboardPanelAuthoringMode string
@@ -265,9 +387,18 @@ type DashboardResolvedSource struct {
 	// RegisteredAt Registration time of this source configuration revision.
 	RegisteredAt *time.Time         `json:"registered_at,omitempty"`
 	ResourceId   openapi_types.UUID `json:"resource_id"`
-	Revision     int64              `json:"revision"`
-	Type         string             `json:"type"`
+
+	// ResourceType Actual identity in telemetry storage; Namespace selection remains a separate authorization boundary.
+	ResourceType     *DashboardResolvedSourceResourceType `json:"resource_type,omitempty"`
+	Revision         int64                                `json:"revision"`
+	ScopeRelations   *map[string]int64                    `json:"scope_relations,omitempty"`
+	ScopeResourceIds *[]openapi_types.UUID                `json:"scope_resource_ids,omitempty"`
+	ScopeSignature   *string                              `json:"scope_signature,omitempty"`
+	Type             string                               `json:"type"`
 }
+
+// DashboardResolvedSourceResourceType Actual identity in telemetry storage; Namespace selection remains a separate authorization boundary.
+type DashboardResolvedSourceResourceType string
 
 // DashboardResourceScope defines model for DashboardResourceScope.
 type DashboardResourceScope struct {
@@ -291,6 +422,50 @@ type DashboardRevision struct {
 	SpecHash       string                    `json:"spec_hash"`
 	Validation     DashboardValidationReport `json:"validation"`
 }
+
+// DashboardScopeDirectoryItem defines model for DashboardScopeDirectoryItem.
+type DashboardScopeDirectoryItem struct {
+	Environment string                          `json:"environment"`
+	Id          openapi_types.UUID              `json:"id"`
+	Name        string                          `json:"name"`
+	ParentId    *openapi_types.UUID             `json:"parent_id,omitempty"`
+	ParentName  *string                         `json:"parent_name,omitempty"`
+	SourceUid   *string                         `json:"source_uid,omitempty"`
+	Type        DashboardScopeDirectoryItemType `json:"type"`
+}
+
+// DashboardScopeDirectoryItemType defines model for DashboardScopeDirectoryItem.Type.
+type DashboardScopeDirectoryItemType string
+
+// DashboardScopeDirectoryPage defines model for DashboardScopeDirectoryPage.
+type DashboardScopeDirectoryPage struct {
+	Items      []DashboardScopeDirectoryItem `json:"items"`
+	NextCursor *string                       `json:"next_cursor,omitempty"`
+}
+
+// DashboardScopeSelection defines model for DashboardScopeSelection.
+type DashboardScopeSelection struct {
+	Applications *struct {
+		Ids  []openapi_types.UUID                    `json:"ids"`
+		Mode DashboardScopeSelectionApplicationsMode `json:"mode"`
+	} `json:"applications,omitempty"`
+	Ids    []openapi_types.UUID           `json:"ids"`
+	Mode   DashboardScopeSelectionMode    `json:"mode"`
+	Signal DashboardScopeSelectionSignal  `json:"signal"`
+	Types  []DashboardScopeSelectionTypes `json:"types"`
+}
+
+// DashboardScopeSelectionApplicationsMode defines model for DashboardScopeSelection.Applications.Mode.
+type DashboardScopeSelectionApplicationsMode string
+
+// DashboardScopeSelectionMode defines model for DashboardScopeSelection.Mode.
+type DashboardScopeSelectionMode string
+
+// DashboardScopeSelectionSignal defines model for DashboardScopeSelection.Signal.
+type DashboardScopeSelectionSignal string
+
+// DashboardScopeSelectionTypes defines model for DashboardScopeSelection.Types.
+type DashboardScopeSelectionTypes string
 
 // DashboardSelection defines model for DashboardSelection.
 type DashboardSelection struct {
@@ -499,6 +674,12 @@ type CsrfToken = string
 // Error defines model for Error.
 type Error = ApiError
 
+// PreviewApplicationDashboardBindingParams defines parameters for PreviewApplicationDashboardBinding.
+type PreviewApplicationDashboardBindingParams struct {
+	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // StartDashboardQueryJobParams defines parameters for StartDashboardQueryJob.
 type StartDashboardQueryJobParams struct {
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
@@ -552,6 +733,17 @@ type PreviewDashboardFolderParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// ListDashboardScopeResourcesParams defines parameters for ListDashboardScopeResources.
+type ListDashboardScopeResourcesParams struct {
+	Kind   ListDashboardScopeResourcesParamsKind `form:"kind" json:"kind"`
+	Search *string                               `form:"search,omitempty" json:"search,omitempty"`
+	Cursor *string                               `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int                                  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListDashboardScopeResourcesParamsKind defines parameters for ListDashboardScopeResources.
+type ListDashboardScopeResourcesParamsKind string
+
 // ConvertDashboardPanelParams defines parameters for ConvertDashboardPanel.
 type ConvertDashboardPanelParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
@@ -579,6 +771,15 @@ type PreviewClusterDashboardBindingParams struct {
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
+
+// PreviewMonitoringTargetDashboardBindingParams defines parameters for PreviewMonitoringTargetDashboardBinding.
+type PreviewMonitoringTargetDashboardBindingParams struct {
+	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// PreviewApplicationDashboardBindingJSONRequestBody defines body for PreviewApplicationDashboardBinding for application/json ContentType.
+type PreviewApplicationDashboardBindingJSONRequestBody = DashboardBindingInput
 
 // StartDashboardQueryJobJSONRequestBody defines body for StartDashboardQueryJob for application/json ContentType.
 type StartDashboardQueryJobJSONRequestBody = DashboardQueryJobInput
@@ -636,6 +837,9 @@ type PreviewHostDashboardBindingJSONRequestBody = DashboardBindingInput
 
 // PreviewClusterDashboardBindingJSONRequestBody defines body for PreviewClusterDashboardBinding for application/json ContentType.
 type PreviewClusterDashboardBindingJSONRequestBody = DashboardBindingInput
+
+// PreviewMonitoringTargetDashboardBindingJSONRequestBody defines body for PreviewMonitoringTargetDashboardBinding for application/json ContentType.
+type PreviewMonitoringTargetDashboardBindingJSONRequestBody = DashboardBindingInput
 
 // AsApiErrorParams0 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams0
 func (t ApiError_Params_AdditionalProperties) AsApiErrorParams0() (ApiErrorParams0, error) {

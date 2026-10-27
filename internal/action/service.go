@@ -78,6 +78,10 @@ func (service Service) Confirm(ctx context.Context, actorID, requestID string, e
 		ActionRef            string `json:"action_ref"`
 		AuthorizationVersion int64  `json:"authorization_version"`
 	}{actionRef, authorizationVersion}
+	ctx, err = service.prepareConfirmation(ctx, actor, enterpriseID, actionRef, authorizationVersion)
+	if err != nil {
+		return Confirmation{}, err
+	}
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "pending_action.confirm", idempotencyKey, request, 200,
 		func(q *db.Queries) (Confirmation, error) {
 			return service.confirmWithQueries(ctx, q, actor, actorID, requestID, enterpriseID, authorizationVersion, stepUp, actionRef, idempotencyKey, "user")

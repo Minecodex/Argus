@@ -32,7 +32,7 @@ func TestApplyKubernetesUsesFixedTypedResources(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply Kubernetes Collector: %v", err)
 	}
-	if result.Status != "converged" {
+	if result.Status != "applying" || result.EffectiveRevision != 0 {
 		t.Fatalf("unexpected result: %#v", result)
 	}
 	daemonSet, err := client.AppsV1().DaemonSets(KubernetesNamespace).Get(context.Background(), "argus-otelcol-agent", metav1.GetOptions{})

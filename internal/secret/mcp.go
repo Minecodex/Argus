@@ -46,6 +46,9 @@ func (service Service) assertPublicSecret(ctx context.Context, enterpriseID, id 
 	if record.OwnerType == "mcp_connection" {
 		return ErrMCPManagedSecret
 	}
+	if record.OwnerType != "user" || record.Purpose != "platform" {
+		return ErrMonitoringManagedSecret
+	}
 	return nil
 }
 

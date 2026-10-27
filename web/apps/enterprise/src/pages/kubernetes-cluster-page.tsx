@@ -17,7 +17,7 @@ import {
 import { CollectorStatusPanel } from "../components/kubernetes/collector-status";
 import { CollectorWizard } from "../components/kubernetes/collector-wizard";
 import { connectionStatusTone } from "../components/kubernetes/status";
-import { WorkloadExplorer } from "../components/kubernetes/workload-explorer";
+import { KubernetesWorkbench } from "../components/kubernetes/workbench";
 import { ResourceTelemetry } from "../components/telemetry/resource-telemetry";
 import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
 import { useResourceDashboardTab } from "../components/dashboards/use-resource-dashboard-tab";
@@ -32,16 +32,22 @@ export function KubernetesClusterPage() {
   const search = useSearch({ from: "/authed/admin/kubernetes/$clusterId" });
   const canReadDashboards = usePermission("telemetry.dashboard.read");
   const id = clusterId ?? "";
+  const accessQuery = useQuery({
+    queryKey: ["kubernetes-workbench", id, "scope"],
+    queryFn: ({ signal }) => api.kubernetesWorkbench.scope(id, signal),
+    enabled: id.length > 0,
+    refetchInterval: 10000,
+  });
 
   const clusterQuery = useQuery({
     queryKey: ["kubernetes", "clusters", id],
     queryFn: () => api.kubernetes.getCluster(id),
-    enabled: id.length > 0,
+    enabled: id.length > 0 && accessQuery.data?.cluster_wide === true,
   });
   const collectorQuery = useQuery({
     queryKey: ["kubernetes", "collector", id],
     queryFn: () => api.kubernetes.getCollector(id),
-    enabled: id.length > 0,
+    enabled: id.length > 0 && accessQuery.data?.cluster_wide === true,
     refetchInterval: (query) =>
       query.state.data &&
       ["pending_install", "installing", "uninstalling"].includes(
@@ -63,15 +69,36 @@ export function KubernetesClusterPage() {
     canReadDashboards,
   );
 
-  if (clusterQuery.isLoading) {
+  if (accessQuery.isPending || clusterQuery.isLoading) {
     return (
       <PageShell title={t("shell.nav.clusterDetail")}>
         <Spinner label={t("common.loading")} />
       </PageShell>
     );
   }
+  if (
+    accessQuery.data &&
+    !accessQuery.error &&
+    !accessQuery.data.cluster_wide
+  ) {
+    return (
+      <PageShell
+        title={accessQuery.data.cluster_name}
+        breadcrumbs={[
+          { label: t("shell.nav.kubernetes"), href: "/kubernetes" },
+          { label: accessQuery.data.cluster_name },
+        ]}
+      >
+        <KubernetesWorkbench
+          key={id}
+          clusterId={id}
+          access={accessQuery.data}
+        />
+      </PageShell>
+    );
+  }
 
-  if (!cluster) {
+  if (!cluster || !accessQuery.data || accessQuery.error) {
     return (
       <PageShell
         breadcrumbs={[
@@ -127,7 +154,11 @@ export function KubernetesClusterPage() {
           <TabsTrigger value="traces">{t("telemetry.traces")}</TabsTrigger>
         </TabsList>
         <TabsContent value="resources">
-          <WorkloadExplorer cluster={cluster} />
+          <KubernetesWorkbench
+            key={id}
+            clusterId={id}
+            access={accessQuery.data}
+          />
         </TabsContent>
         {canReadDashboards && (
           <TabsContent value="dashboards">
@@ -156,13 +187,25 @@ export function KubernetesClusterPage() {
           </div>
         </TabsContent>
         <TabsContent value="metrics">
-          <ResourceTelemetry resourceId={cluster.id} signal="metrics" resourceType="kubernetes_cluster" />
+          <ResourceTelemetry
+            resourceId={cluster.id}
+            signal="metrics"
+            resourceType="kubernetes_cluster"
+          />
         </TabsContent>
         <TabsContent value="logs">
-          <ResourceTelemetry resourceId={cluster.id} signal="logs" resourceType="kubernetes_cluster" />
+          <ResourceTelemetry
+            resourceId={cluster.id}
+            signal="logs"
+            resourceType="kubernetes_cluster"
+          />
         </TabsContent>
         <TabsContent value="traces">
-          <ResourceTelemetry resourceId={cluster.id} signal="traces" resourceType="kubernetes_cluster" />
+          <ResourceTelemetry
+            resourceId={cluster.id}
+            signal="traces"
+            resourceType="kubernetes_cluster"
+          />
         </TabsContent>
       </Tabs>
     </PageShell>

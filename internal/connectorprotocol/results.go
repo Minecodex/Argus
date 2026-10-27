@@ -27,8 +27,14 @@ func Result(command string) (proto.Message, error) {
 		return &connectorv1.KubernetesConnectionProbeResult{}, nil
 	case "kubernetes_resource_query":
 		return &connectorv1.KubernetesResourceQueryResult{}, nil
+	case "kubernetes_resource_mutation":
+		return &connectorv1.KubernetesResourceMutationResult{}, nil
+	case "kubernetes_helm":
+		return &connectorv1.KubernetesHelmResult{}, nil
 	case "kubernetes_pod_logs":
 		return &connectorv1.KubernetesPodLogsResult{}, nil
+	case "kubernetes_pinned_pod_logs":
+		return &connectorv1.KubernetesPinnedPodLogsResult{}, nil
 	case "connector_uninstall":
 		return &connectorv1.ConnectorUninstallResult{}, nil
 	case "collector_management":

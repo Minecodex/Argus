@@ -76,9 +76,9 @@ export function MetricChart({
   ];
   const pad =
     appearance === "compact"
-      ? { top: 20, right: 15, bottom: 20, left: 35 }
+      ? { top: 20, right: 15, bottom: 20, left: 46 }
       : PAD;
-  const plotWidth = appearance === "compact" ? 420 : width;
+  const plotWidth = width;
 
   const plotW = Math.max(1, plotWidth - pad.left - pad.right);
   const plotH = Math.max(1, height - pad.top - pad.bottom);
@@ -109,12 +109,8 @@ export function MetricChart({
   const onMove = (event: MouseEvent<SVGSVGElement>) => {
     if (count === 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    const scale =
-      appearance === "compact"
-        ? Math.min(rect.width / 420, rect.height / height)
-        : 1;
-    const inset = appearance === "compact" ? (rect.width - 420 * scale) / 2 : 0;
-    const relative = (event.clientX - rect.left - inset) / scale - pad.left;
+    const relative =
+      (event.clientX - rect.left) * (width / rect.width) - pad.left;
     const index = Math.round((relative / plotW) * (count <= 1 ? 0 : count - 1));
     setHoverIndex(Math.max(0, Math.min(count - 1, index)));
   };
@@ -140,8 +136,8 @@ export function MetricChart({
       ) : (
         <div className="argus-chart__plot">
           <svg
-            viewBox={appearance === "compact" ? `0 0 420 ${height}` : undefined}
-            height={appearance === "compact" ? height - 2 : height}
+            viewBox={`0 0 ${width} ${height}`}
+            height={height}
             onMouseLeave={() => setHoverIndex(null)}
             onMouseMove={onMove}
             role="img"
@@ -159,16 +155,16 @@ export function MetricChart({
                   y1={yAt(tick)}
                   y2={yAt(tick)}
                 />
-                {appearance !== "compact" && (
+                {
                   <text
                     className="argus-chart__tick"
                     textAnchor="end"
-                    x={PAD.left - 7}
+                    x={pad.left - 7}
                     y={yAt(tick) + 3}
                   >
                     {formatValue(tick)}
                   </text>
-                )}
+                }
               </g>
             ))}
             {threshold && (

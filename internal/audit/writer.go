@@ -18,6 +18,11 @@ import (
 var allowedDetailKeys = map[string]bool{
 	"summary": true, "reason": true, "before": true, "after": true,
 	"affected_count": true, "status": true, "username": true,
+	"in_flight_batch_may_finish": true, "node_stays_cordoned": true,
+	"cluster_id": true, "namespace_id": true, "namespace_uid": true,
+	"pod": true, "pod_uid": true, "container": true, "restart_count": true,
+	"mode": true, "bytes_in": true, "bytes_out": true, "request_reason": true,
+	"target_port": true, "service": true, "service_uid": true, "service_port": true,
 	"enterprise_code": true, "authorization_version": true,
 	"language": true, "expression_hash": true, "plan_hash": true,
 	"resource_count": true, "elapsed_ms": true, "scanned_bytes": true,

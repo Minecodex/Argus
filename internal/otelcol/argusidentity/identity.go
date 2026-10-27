@@ -68,11 +68,12 @@ type trustBundleState struct {
 }
 
 type identityExtension struct {
-	config Config
-	logger *zap.Logger
-	cancel context.CancelFunc
-	done   chan struct{}
-	mu     sync.Mutex
+	config       Config
+	logger       *zap.Logger
+	cancel       context.CancelFunc
+	done         chan struct{}
+	deliveryDone chan struct{}
+	mu           sync.Mutex
 }
 
 type peerAuthData struct {
@@ -118,7 +119,7 @@ func (extension *identityExtension) Authenticate(ctx context.Context, _ map[stri
 }
 
 func newIdentityExtension(config Config, logger *zap.Logger) *identityExtension {
-	return &identityExtension{config: config, logger: logger, done: make(chan struct{})}
+	return &identityExtension{config: config, logger: logger, done: make(chan struct{}), deliveryDone: make(chan struct{})}
 }
 
 func (extension *identityExtension) Start(ctx context.Context, _ component.Host) error {
@@ -131,6 +132,7 @@ func (extension *identityExtension) Start(ctx context.Context, _ component.Host)
 	background, cancel := context.WithCancel(context.Background())
 	extension.cancel = cancel
 	go extension.rotationLoop(background)
+	go extension.deliveryLoop(background)
 	return nil
 }
 
@@ -140,6 +142,7 @@ func (extension *identityExtension) Shutdown(context.Context) error {
 	}
 	extension.cancel()
 	<-extension.done
+	<-extension.deliveryDone
 	return nil
 }
 
@@ -582,7 +585,7 @@ func writeAtomic(path string, value []byte, mode os.FileMode) error {
 	}
 	name := file.Name()
 	defer os.Remove(name)
-	if err = file.Chmod(mode); err == nil {
+	if err = protectPrivateFile(name); err == nil {
 		_, err = file.Write(value)
 	}
 	if err == nil {

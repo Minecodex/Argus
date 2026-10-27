@@ -507,6 +507,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/applications/{id}/dashboard-bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** List Application dashboard bindings */
+        get: operations["listApplicationDashboardBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/applications/{id}/dashboard-bindings/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Application dashboard bindings */
+        post: operations["previewApplicationDashboardBinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/monitoring/targets/{id}/dashboard-bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** List MonitoringTarget dashboard bindings */
+        get: operations["listMonitoringTargetDashboardBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/monitoring/targets/{id}/dashboard-bindings/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview MonitoringTarget dashboard bindings */
+        post: operations["previewMonitoringTargetDashboardBinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard-scope-resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List currently authorized query scope resources with search and signed pagination */
+        get: operations["listDashboardScopeResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -581,6 +674,9 @@ export interface components {
             lifecycle: string;
             /** Format: date-time */
             updated_at: string;
+            readonly managed_template_key?: string;
+            /** Format: int64 */
+            readonly managed_template_version?: number;
         };
         /** @example {
          *       "kind": "relative",
@@ -821,7 +917,7 @@ export interface components {
              * @enum {string}
              */
             authoring_mode: "builder" | "dsl";
-            applicable_resource_types: string[];
+            applicable_resource_types: ("host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace")[];
             source_binding: components["schemas"]["DashboardSourceBinding"];
             local_filters: components["schemas"]["DashboardLocalFilter"][];
             targets: components["schemas"]["DashboardTarget"][];
@@ -924,6 +1020,9 @@ export interface components {
             proposed_bindings: components["schemas"]["DashboardBinding"][];
             /** Format: date-time */
             updated_at: string;
+            readonly source_template_key?: string;
+            /** Format: int64 */
+            readonly source_template_version?: number;
         };
         DashboardDraftPanelConversion: {
             panel_id: string;
@@ -1045,12 +1144,21 @@ export interface components {
                     [key: string]: components["schemas"]["DashboardSelection"];
                 };
             };
+            /**
+             * @description all_authorized selects current grants; explicit preserves an empty resource_ids set
+             * @enum {string}
+             */
+            resource_mode?: "all_authorized" | "explicit";
+            resource_types?: ("host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace")[];
+            /** @enum {string} */
+            application_mode?: "all_authorized" | "explicit";
+            application_ids?: string[];
         };
         DashboardResourceScope: {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "host" | "kubernetes_cluster";
+            type: "host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace";
         };
         DashboardResolvedSource: {
             /** Format: uuid */
@@ -1070,6 +1178,16 @@ export interface components {
              * @description Registration time of this source configuration revision.
              */
             registered_at?: string;
+            /**
+             * @description Actual identity in telemetry storage; Namespace selection remains a separate authorization boundary.
+             * @enum {string}
+             */
+            resource_type?: "host" | "kubernetes_cluster" | "application" | "monitoring_target";
+            scope_resource_ids?: string[];
+            scope_signature?: string;
+            scope_relations?: {
+                [key: string]: number;
+            };
         };
         DashboardTargetExecution: {
             id: string;
@@ -1105,6 +1223,19 @@ export interface components {
             sources: components["schemas"]["DashboardResolvedSource"][];
             code?: string;
         };
+        DashboardScopeSelection: {
+            /** @enum {string} */
+            mode: "all_authorized" | "explicit";
+            ids: string[];
+            types: ("host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace")[];
+            /** @enum {string} */
+            signal: "metrics" | "logs" | "traces" | "catalog";
+            applications?: {
+                /** @enum {string} */
+                mode: "all_authorized" | "explicit";
+                ids: string[];
+            };
+        };
         DashboardExecution: {
             /** Format: uuid */
             dashboard_id: string;
@@ -1139,6 +1270,17 @@ export interface components {
             context_token?: string;
             /** Format: date-time */
             context_expires_at?: string;
+            scope_signature?: string;
+            scope_empty?: boolean;
+            scope_versions?: {
+                resources: {
+                    [key: string]: number;
+                };
+                relations: {
+                    [key: string]: number;
+                };
+            };
+            scope_selection?: components["schemas"]["DashboardScopeSelection"];
         };
         DashboardDraftSampleInput: {
             /** Format: int64 */
@@ -1179,6 +1321,15 @@ export interface components {
             to: string;
             limit: number;
             cursor?: string;
+            /**
+             * @description all_authorized selects current grants; explicit preserves an empty resource_ids set
+             * @enum {string}
+             */
+            resource_mode?: "all_authorized" | "explicit";
+            resource_types?: ("host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace")[];
+            /** @enum {string} */
+            application_mode?: "all_authorized" | "explicit";
+            application_ids?: string[];
         };
         DashboardMetricDescriptor: {
             name: string;
@@ -1255,7 +1406,7 @@ export interface components {
             /** Format: int64 */
             version: number;
             /** @enum {string} */
-            resource_type: "host" | "kubernetes_cluster";
+            resource_type: "host" | "kubernetes_cluster" | "application" | "monitoring_target";
             /** Format: uuid */
             resource_id: string;
             resource_name: string;
@@ -1265,7 +1416,7 @@ export interface components {
         };
         ResourceDashboardBindings: {
             /** @enum {string} */
-            resource_type: "host" | "kubernetes_cluster";
+            resource_type: "host" | "kubernetes_cluster" | "application" | "monitoring_target";
             /** Format: uuid */
             resource_id: string;
             resource_name: string;
@@ -1370,6 +1521,22 @@ export interface components {
             /** Format: int64 */
             draft_version: number;
             execution: components["schemas"]["DashboardDrilldownExecution"];
+        };
+        DashboardScopeDirectoryItem: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace";
+            name: string;
+            environment: string;
+            /** Format: uuid */
+            parent_id?: string;
+            parent_name?: string;
+            source_uid?: string;
+        };
+        DashboardScopeDirectoryPage: {
+            items: components["schemas"]["DashboardScopeDirectoryItem"][];
+            next_cursor?: string;
         };
         DashboardConditionPatch: {
             reset_all?: boolean;

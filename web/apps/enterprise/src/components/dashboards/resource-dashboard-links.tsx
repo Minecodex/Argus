@@ -1,20 +1,36 @@
-import {formatDateTime} from "../hosts/host-utils";
+import { formatDateTime } from "../hosts/host-utils";
 import "../../styles/resource-lists.css";
-import {useState} from "react";
-import {useQuery,useQueryClient} from "@tanstack/react-query";
-import {Link,useNavigate} from "@tanstack/react-router";
-import {useTranslation} from "react-i18next";
-import {formatApiError,useApi,type DashboardResourceType,type DashboardBindingView,type DashboardItem,type PendingActionPublic} from "@argus/api-client";
-import {ActionMenu,Alert,Badge,Button,Dialog,EmptyState,DataTable,SearchInput} from "@argus/ui";
-import {usePermission} from "../../lib/permissions";
-import {DashboardActionDialog} from "./action-dialog";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
+import {
+  formatApiError,
+  useApi,
+  type DashboardBindingResourceType,
+  type DashboardBindingView,
+  type DashboardItem,
+  type PendingActionPublic,
+} from "@argus/api-client";
+import {
+  ActionMenu,
+  Alert,
+  Badge,
+  Button,
+  Dialog,
+  EmptyState,
+  DataTable,
+  SearchInput,
+} from "@argus/ui";
+import { usePermission } from "../../lib/permissions";
+import { DashboardActionDialog } from "./action-dialog";
 import "../../styles/dashboards.css";
 
 export function ResourceDashboardLinks({
   type,
   id,
 }: {
-  type: DashboardResourceType;
+  type: DashboardBindingResourceType;
   id: string;
 }) {
   const api = useApi(),
@@ -23,7 +39,12 @@ export function ResourceDashboardLinks({
     navigate = useNavigate();
   const canRead = usePermission("telemetry.dashboard.read"),
     canManage = usePermission(
-      type === "host" ? "host.manage" : "kubernetes.manage",
+      {
+        host: "host.manage",
+        kubernetes_cluster: "kubernetes.manage",
+        application: "application.manage",
+        monitoring_target: "monitoring.manage",
+      }[type],
     );
   const [open, setOpen] = useState(false),
     [search, setSearch] = useState("");
@@ -182,7 +203,16 @@ export function ResourceDashboardLinks({
                 key: "actions",
                 header: t("resourceList.actions"),
                 align: "right",
-                render: (binding) => (<ActionMenu items={[{label: t("dashboardLinks.openDashboard"),onSelect: () => openDashboard(binding.dashboard.id)}]} />),
+                render: (binding) => (
+                  <ActionMenu
+                    items={[
+                      {
+                        label: t("dashboardLinks.openDashboard"),
+                        onSelect: () => openDashboard(binding.dashboard.id),
+                      },
+                    ]}
+                  />
+                ),
               },
             ]}
           />

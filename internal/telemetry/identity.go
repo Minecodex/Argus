@@ -20,6 +20,7 @@ import (
 	"github.com/kakj-go/Argus/internal/identity"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"github.com/kakj-go/Argus/internal/telemetrybinding"
 	"github.com/kakj-go/Argus/internal/trustbundle"
 )
 
@@ -55,7 +56,7 @@ func CollectorCertificateURI(collectorID uuid.UUID) string {
 }
 
 func CollectorCertificateDNSName(collectorID uuid.UUID) string {
-	return "collector-" + collectorID.String() + ".argus.telemetry"
+	return telemetrybinding.CollectorServerName(collectorID)
 }
 
 func CollectorServerCertificateURI(collectorID uuid.UUID) string {
@@ -77,7 +78,7 @@ func (service IdentityService) CreateEnrollmentToken(ctx context.Context, q *db.
 	}
 	_, err = queries.CreateTelemetryEnrollmentToken(ctx, db.CreateTelemetryEnrollmentTokenParams{
 		ID: newTelemetryID(), CollectorID: collectorID, TokenHash: hash[:],
-		ExpiresAt: pgtype.Timestamptz{Time: time.Now().UTC().Add(enrollmentTokenTTL), Valid: true},
+		LifetimeSeconds: int32(enrollmentTokenTTL / time.Second),
 	})
 	if err != nil {
 		return "", err
@@ -102,7 +103,7 @@ func (service IdentityService) Enroll(ctx context.Context, token, collectorIDVal
 	var result EnrollmentResult
 	err = service.Store.InTx(ctx, func(q *db.Queries) error {
 		record, err := q.GetTelemetryEnrollmentTokenForUpdate(ctx, tokenHash[:])
-		if err != nil || record.CollectorID != collectorID || record.ConsumedAt.Valid || !time.Now().UTC().Before(record.ExpiresAt.Time) {
+		if err != nil || record.CollectorID != collectorID || record.ConsumedAt.Valid {
 			return ErrEnrollmentInvalid
 		}
 		collector, err := q.GetCollectorInstanceByID(ctx, collectorID)

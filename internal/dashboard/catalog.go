@@ -5,24 +5,29 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/kakj-go/Argus/internal/telemetry"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 )
 
 type CatalogInput struct {
-	SourceBinding  SourceBinding             `json:"source_binding"`
-	Signal         string                    `json:"signal"`
-	Kind           string                    `json:"kind"`
-	Metric         string                    `json:"metric,omitempty"`
-	Field          string                    `json:"field,omitempty"`
-	Search         string                    `json:"search,omitempty"`
-	Cursor         string                    `json:"cursor,omitempty"`
-	SelectedValues []string                  `json:"selected_values"`
-	Filters        []telemetry.CatalogFilter `json:"filters"`
-	ResourceIDs    []uuid.UUID               `json:"resource_ids"`
-	From           time.Time                 `json:"from"`
-	To             time.Time                 `json:"to"`
-	Limit          int                       `json:"limit"`
+	SourceBinding   SourceBinding             `json:"source_binding"`
+	Signal          string                    `json:"signal"`
+	Kind            string                    `json:"kind"`
+	Metric          string                    `json:"metric,omitempty"`
+	Field           string                    `json:"field,omitempty"`
+	Search          string                    `json:"search,omitempty"`
+	Cursor          string                    `json:"cursor,omitempty"`
+	SelectedValues  []string                  `json:"selected_values"`
+	Filters         []telemetry.CatalogFilter `json:"filters"`
+	ResourceIDs     []uuid.UUID               `json:"resource_ids"`
+	ResourceMode    string                    `json:"resource_mode,omitempty"`
+	ResourceTypes   []string                  `json:"resource_types,omitempty"`
+	ApplicationMode string                    `json:"application_mode,omitempty"`
+	ApplicationIDs  []uuid.UUID               `json:"application_ids,omitempty"`
+	From            time.Time                 `json:"from"`
+	To              time.Time                 `json:"to"`
+	Limit           int                       `json:"limit"`
 }
 
 func (runtime Runtime) Catalog(ctx context.Context, actor Actor, input CatalogInput) (telemetry.DataCatalogResult, error) {
@@ -48,15 +53,15 @@ func (runtime Runtime) Catalog(ctx context.Context, actor Actor, input CatalogIn
 	if input.Kind != "values" && len(input.SelectedValues) > 0 || telemetry.ValidateCatalogFilters(input.Signal, input.Filters) != nil {
 		return empty, ErrInvalid
 	}
-	resources, err := resolveResources(ctx, runtime.Store.Queries, actor, input.ResourceIDs)
+	snapshot, err := resolveExecutionScope(ctx, runtime.Store.Queries, actor, ExecutionInput{ResourceIDs: input.ResourceIDs, ResourceMode: input.ResourceMode, ResourceTypes: input.ResourceTypes, ApplicationIDs: input.ApplicationIDs, ApplicationMode: input.ApplicationMode})
 	if err != nil {
 		return empty, err
 	}
 	ids := []uuid.UUID{}
-	for _, resource := range resources {
+	for _, resource := range snapshot.Resources {
 		ids = append(ids, resource.ID)
 	}
-	sources, err := resolveSources(ctx, runtime.Store.Queries, actor, input.SourceBinding, input.Signal, ids)
+	sources, err := resolveSources(ctx, runtime.Store.Queries, actor, input.SourceBinding, input.Signal, snapshot.Refs(), snapshot.Selection.Applications)
 	if err != nil {
 		return empty, err
 	}
@@ -70,7 +75,11 @@ func (runtime Runtime) Catalog(ctx context.Context, actor Actor, input CatalogIn
 	for _, source := range sources {
 		keys = append(keys, source.Key())
 	}
-	data, err := runtime.Backend.DiscoverData(ctx, telemetry.DataCatalogRequest{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: ids, SourceKeys: keys, AuthorizationVersion: actor.AuthorizationVersion, Signal: input.Signal, Kind: input.Kind, Metric: input.Metric, Field: input.Field, Search: input.Search, Cursor: input.Cursor, SelectedValues: input.SelectedValues, Filters: input.Filters, From: input.From, To: input.To, Limit: input.Limit, Budget: queryengine.Budget{MaxScanBytes: telemetry.DefaultMaxScanBytes, MaxRows: input.Limit + len(input.SelectedValues), MaxResultBytes: 8 << 20, Timeout: telemetry.DefaultTimeout}})
+	refs, err := dataResourcesForSources(sources)
+	if err != nil {
+		return empty, err
+	}
+	data, err := runtime.Backend.DiscoverData(ctx, telemetry.DataCatalogRequest{ScopeSignature: snapshot.Signature, Resources: refs, SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: resourceref.IDs(refs), SourceKeys: keys, AuthorizationVersion: actor.AuthorizationVersion, Signal: input.Signal, Kind: input.Kind, Metric: input.Metric, Field: input.Field, Search: input.Search, Cursor: input.Cursor, SelectedValues: input.SelectedValues, Filters: input.Filters, From: input.From, To: input.To, Limit: input.Limit, Budget: queryengine.Budget{MaxScanBytes: telemetry.DefaultMaxScanBytes, MaxRows: input.Limit + len(input.SelectedValues), MaxResultBytes: 8 << 20, Timeout: telemetry.DefaultTimeout}})
 	if err != nil {
 		return empty, err
 	}
@@ -78,6 +87,10 @@ func (runtime Runtime) Catalog(ctx context.Context, actor Actor, input CatalogIn
 		return empty, err
 	}
 	if _, err := resolveResources(ctx, runtime.Store.Queries, actor, ids); err != nil {
+		return empty, err
+	}
+	runtime.scopeApplications = snapshot.Selection.Applications
+	if err := runtime.checkQueryScope(ctx, actor, queryScope{Resources: snapshot.Refs(), Sources: sources}, input.Signal); err != nil {
 		return empty, err
 	}
 	return data, nil

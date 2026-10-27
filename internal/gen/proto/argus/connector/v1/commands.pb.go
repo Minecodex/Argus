@@ -707,17 +707,25 @@ func (x *KubernetesConnectionProbeResult) GetNamespaces() []string {
 }
 
 type KubernetesResourceQuery struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	ClusterId      string                 `protobuf:"bytes,1,opt,name=cluster_id,json=clusterId,proto3" json:"cluster_id,omitempty"`
-	ResourceType   string                 `protobuf:"bytes,2,opt,name=resource_type,json=resourceType,proto3" json:"resource_type,omitempty"`
-	Namespace      string                 `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	Name           string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	LabelSelector  string                 `protobuf:"bytes,5,opt,name=label_selector,json=labelSelector,proto3" json:"label_selector,omitempty"`
-	Limit          uint32                 `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
-	ContinueToken  string                 `protobuf:"bytes,7,opt,name=continue_token,json=continueToken,proto3" json:"continue_token,omitempty"`
-	MaxResultBytes uint32                 `protobuf:"varint,8,opt,name=max_result_bytes,json=maxResultBytes,proto3" json:"max_result_bytes,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ClusterId       string                 `protobuf:"bytes,1,opt,name=cluster_id,json=clusterId,proto3" json:"cluster_id,omitempty"`
+	ResourceType    string                 `protobuf:"bytes,2,opt,name=resource_type,json=resourceType,proto3" json:"resource_type,omitempty"`
+	Namespace       string                 `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name            string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	LabelSelector   string                 `protobuf:"bytes,5,opt,name=label_selector,json=labelSelector,proto3" json:"label_selector,omitempty"`
+	Limit           uint32                 `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
+	ContinueToken   string                 `protobuf:"bytes,7,opt,name=continue_token,json=continueToken,proto3" json:"continue_token,omitempty"`
+	MaxResultBytes  uint32                 `protobuf:"varint,8,opt,name=max_result_bytes,json=maxResultBytes,proto3" json:"max_result_bytes,omitempty"`
+	SchemaVersion   string                 `protobuf:"bytes,9,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	NamespaceUid    string                 `protobuf:"bytes,10,opt,name=namespace_uid,json=namespaceUid,proto3" json:"namespace_uid,omitempty"`
+	ObjectUid       string                 `protobuf:"bytes,11,opt,name=object_uid,json=objectUid,proto3" json:"object_uid,omitempty"`
+	GetOnly         bool                   `protobuf:"varint,12,opt,name=get_only,json=getOnly,proto3" json:"get_only,omitempty"`
+	AllNamespaces   bool                   `protobuf:"varint,13,opt,name=all_namespaces,json=allNamespaces,proto3" json:"all_namespaces,omitempty"`
+	ResourceVersion string                 `protobuf:"bytes,14,opt,name=resource_version,json=resourceVersion,proto3" json:"resource_version,omitempty"`
+	WatchOnly       bool                   `protobuf:"varint,15,opt,name=watch_only,json=watchOnly,proto3" json:"watch_only,omitempty"`
+	DefinitionsOnly bool                   `protobuf:"varint,16,opt,name=definitions_only,json=definitionsOnly,proto3" json:"definitions_only,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *KubernetesResourceQuery) Reset() {
@@ -806,13 +814,77 @@ func (x *KubernetesResourceQuery) GetMaxResultBytes() uint32 {
 	return 0
 }
 
+func (x *KubernetesResourceQuery) GetSchemaVersion() string {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return ""
+}
+
+func (x *KubernetesResourceQuery) GetNamespaceUid() string {
+	if x != nil {
+		return x.NamespaceUid
+	}
+	return ""
+}
+
+func (x *KubernetesResourceQuery) GetObjectUid() string {
+	if x != nil {
+		return x.ObjectUid
+	}
+	return ""
+}
+
+func (x *KubernetesResourceQuery) GetGetOnly() bool {
+	if x != nil {
+		return x.GetOnly
+	}
+	return false
+}
+
+func (x *KubernetesResourceQuery) GetAllNamespaces() bool {
+	if x != nil {
+		return x.AllNamespaces
+	}
+	return false
+}
+
+func (x *KubernetesResourceQuery) GetResourceVersion() string {
+	if x != nil {
+		return x.ResourceVersion
+	}
+	return ""
+}
+
+func (x *KubernetesResourceQuery) GetWatchOnly() bool {
+	if x != nil {
+		return x.WatchOnly
+	}
+	return false
+}
+
+func (x *KubernetesResourceQuery) GetDefinitionsOnly() bool {
+	if x != nil {
+		return x.DefinitionsOnly
+	}
+	return false
+}
+
 type KubernetesResourceQueryResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ResourcesJson [][]byte               `protobuf:"bytes,1,rep,name=resources_json,json=resourcesJson,proto3" json:"resources_json,omitempty"`
-	ContinueToken string                 `protobuf:"bytes,2,opt,name=continue_token,json=continueToken,proto3" json:"continue_token,omitempty"`
-	Truncated     bool                   `protobuf:"varint,3,opt,name=truncated,proto3" json:"truncated,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	ResourcesJson       [][]byte               `protobuf:"bytes,1,rep,name=resources_json,json=resourcesJson,proto3" json:"resources_json,omitempty"`
+	ContinueToken       string                 `protobuf:"bytes,2,opt,name=continue_token,json=continueToken,proto3" json:"continue_token,omitempty"`
+	Truncated           bool                   `protobuf:"varint,3,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	SchemaVersion       string                 `protobuf:"bytes,4,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	ResourceVersion     string                 `protobuf:"bytes,5,opt,name=resource_version,json=resourceVersion,proto3" json:"resource_version,omitempty"`
+	ObservedAt          *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	ErrorCode           string                 `protobuf:"bytes,7,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
+	ResultKind          string                 `protobuf:"bytes,8,opt,name=result_kind,json=resultKind,proto3" json:"result_kind,omitempty"`
+	More                bool                   `protobuf:"varint,9,opt,name=more,proto3" json:"more,omitempty"`
+	TypeCatalogComplete bool                   `protobuf:"varint,10,opt,name=type_catalog_complete,json=typeCatalogComplete,proto3" json:"type_catalog_complete,omitempty"`
+	UnavailableReason   string                 `protobuf:"bytes,11,opt,name=unavailable_reason,json=unavailableReason,proto3" json:"unavailable_reason,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *KubernetesResourceQueryResult) Reset() {
@@ -864,6 +936,62 @@ func (x *KubernetesResourceQueryResult) GetTruncated() bool {
 		return x.Truncated
 	}
 	return false
+}
+
+func (x *KubernetesResourceQueryResult) GetSchemaVersion() string {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return ""
+}
+
+func (x *KubernetesResourceQueryResult) GetResourceVersion() string {
+	if x != nil {
+		return x.ResourceVersion
+	}
+	return ""
+}
+
+func (x *KubernetesResourceQueryResult) GetObservedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ObservedAt
+	}
+	return nil
+}
+
+func (x *KubernetesResourceQueryResult) GetErrorCode() string {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ""
+}
+
+func (x *KubernetesResourceQueryResult) GetResultKind() string {
+	if x != nil {
+		return x.ResultKind
+	}
+	return ""
+}
+
+func (x *KubernetesResourceQueryResult) GetMore() bool {
+	if x != nil {
+		return x.More
+	}
+	return false
+}
+
+func (x *KubernetesResourceQueryResult) GetTypeCatalogComplete() bool {
+	if x != nil {
+		return x.TypeCatalogComplete
+	}
+	return false
+}
+
+func (x *KubernetesResourceQueryResult) GetUnavailableReason() string {
+	if x != nil {
+		return x.UnavailableReason
+	}
+	return ""
 }
 
 type KubernetesPodLogsQuery struct {
@@ -1568,7 +1696,7 @@ const file_argus_connector_v1_commands_proto_rawDesc = "" +
 	"\x10ready_node_count\x18\x03 \x01(\rR\x0ereadyNodeCount\x12\x1e\n" +
 	"\n" +
 	"namespaces\x18\x04 \x03(\tR\n" +
-	"namespaces\"\x9d\x02\n" +
+	"namespaces\"\xbf\x04\n" +
 	"\x17KubernetesResourceQuery\x12\x1d\n" +
 	"\n" +
 	"cluster_id\x18\x01 \x01(\tR\tclusterId\x12#\n" +
@@ -1578,11 +1706,34 @@ const file_argus_connector_v1_commands_proto_rawDesc = "" +
 	"\x0elabel_selector\x18\x05 \x01(\tR\rlabelSelector\x12\x14\n" +
 	"\x05limit\x18\x06 \x01(\rR\x05limit\x12%\n" +
 	"\x0econtinue_token\x18\a \x01(\tR\rcontinueToken\x12(\n" +
-	"\x10max_result_bytes\x18\b \x01(\rR\x0emaxResultBytes\"\x8b\x01\n" +
+	"\x10max_result_bytes\x18\b \x01(\rR\x0emaxResultBytes\x12%\n" +
+	"\x0eschema_version\x18\t \x01(\tR\rschemaVersion\x12#\n" +
+	"\rnamespace_uid\x18\n" +
+	" \x01(\tR\fnamespaceUid\x12\x1d\n" +
+	"\n" +
+	"object_uid\x18\v \x01(\tR\tobjectUid\x12\x19\n" +
+	"\bget_only\x18\f \x01(\bR\agetOnly\x12%\n" +
+	"\x0eall_namespaces\x18\r \x01(\bR\rallNamespaces\x12)\n" +
+	"\x10resource_version\x18\x0e \x01(\tR\x0fresourceVersion\x12\x1d\n" +
+	"\n" +
+	"watch_only\x18\x0f \x01(\bR\twatchOnly\x12)\n" +
+	"\x10definitions_only\x18\x10 \x01(\bR\x0fdefinitionsOnly\"\xd1\x03\n" +
 	"\x1dKubernetesResourceQueryResult\x12%\n" +
 	"\x0eresources_json\x18\x01 \x03(\fR\rresourcesJson\x12%\n" +
 	"\x0econtinue_token\x18\x02 \x01(\tR\rcontinueToken\x12\x1c\n" +
-	"\ttruncated\x18\x03 \x01(\bR\ttruncated\"\xce\x01\n" +
+	"\ttruncated\x18\x03 \x01(\bR\ttruncated\x12%\n" +
+	"\x0eschema_version\x18\x04 \x01(\tR\rschemaVersion\x12)\n" +
+	"\x10resource_version\x18\x05 \x01(\tR\x0fresourceVersion\x12;\n" +
+	"\vobserved_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"observedAt\x12\x1d\n" +
+	"\n" +
+	"error_code\x18\a \x01(\tR\terrorCode\x12\x1f\n" +
+	"\vresult_kind\x18\b \x01(\tR\n" +
+	"resultKind\x12\x12\n" +
+	"\x04more\x18\t \x01(\bR\x04more\x122\n" +
+	"\x15type_catalog_complete\x18\n" +
+	" \x01(\bR\x13typeCatalogComplete\x12-\n" +
+	"\x12unavailable_reason\x18\v \x01(\tR\x11unavailableReason\"\xce\x01\n" +
 	"\x16KubernetesPodLogsQuery\x12\x1d\n" +
 	"\n" +
 	"cluster_id\x18\x01 \x01(\tR\tclusterId\x12\x1c\n" +
@@ -1681,11 +1832,12 @@ var file_argus_connector_v1_commands_proto_depIdxs = []int32{
 	19, // 2: argus.connector.v1.CommandResult.error:type_name -> argus.common.v1.ErrorStatus
 	18, // 3: argus.connector.v1.CommandResult.typed_result:type_name -> google.protobuf.Any
 	3,  // 4: argus.connector.v1.HostConnectionProbe.onboarding:type_name -> argus.connector.v1.CallbackProbePlan
-	5,  // [5:5] is the sub-list for method output_type
-	5,  // [5:5] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	17, // 5: argus.connector.v1.KubernetesResourceQueryResult.observed_at:type_name -> google.protobuf.Timestamp
+	6,  // [6:6] is the sub-list for method output_type
+	6,  // [6:6] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_argus_connector_v1_commands_proto_init() }

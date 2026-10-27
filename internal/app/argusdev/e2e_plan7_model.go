@@ -51,7 +51,7 @@ func (a *App) plan7ModelConversation(ctx context.Context, env *E2EEnvironment, m
 	if err != nil {
 		return "", err
 	}
-	value, err := client.JSON(ctx, "p7-chat-"+title, "enterprise", http.MethodPost, "/conversations", 201, map[string]any{"title": "Plan7 " + title, "selected_model_id": model}, enterpriseHeaders(env, "p7-chat-"+title))
+	value, err := client.JSON(ctx, "p7-chat-"+title, "enterprise", http.MethodPost, "/conversations", 201, map[string]any{"title": "Plan7 " + title, "selected_model_id": model}, enterpriseHeaders(env, "p7-chat-"+uuid.NewString()))
 	if err != nil {
 		return "", err
 	}

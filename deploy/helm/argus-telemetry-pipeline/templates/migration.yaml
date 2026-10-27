@@ -16,7 +16,8 @@ metadata:
     argus.io/release-id: {{ .Values.releaseId | quote }}
 spec:
   backoffLimit: 10
-  ttlSecondsAfterFinished: 3600
+  # Retain completion until the installer replaces this named Job or the
+  # release is removed, including when later readiness checks are slow.
   template:
     metadata: {labels: {app.kubernetes.io/name: argus-clickhouse-telemetry-migration}}
     spec:

@@ -27,6 +27,8 @@ import (
 )
 
 type E2EOptions struct {
+	Plan8Phase             string
+	Plan8Integrations      []string
 	Plan7Phase             string
 	SharedController       *argusctl.SharedSandboxController
 	Suite                  string
@@ -96,6 +98,7 @@ var suiteDependencies = map[string][]string{
 	"tool-templates":      {"m2", "m3", "m4", "p5-native", "m7", "m10-query", "tool-templates"},
 	"plan6":               {"m2", "m3", "m4", "p5-native", "m7", "plan6"},
 	"plan7":               {"m2", "m4", "plan7"},
+	"plan8":               {"m2", "m4", "plan8"},
 	"m8":                  {"m6", "m7", "m8"},
 	"p4":                  {"m2", "p4"},
 	"tls":                 {"m2", "tls"},
@@ -126,6 +129,8 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	modelGroups := flags.String("planv2-model-groups", "", "explicit PlanV2 real-model groups: core,authoring,conditions,failures,automatic; omitted runs the original groups")
 	plan6Phase := flags.String("plan6-phase", "all", "Plan6 all, runtime, model, browser, or host gate; selected gates are reported as partial")
 	plan7Phase := flags.String("plan7-phase", "all", "Plan7 all gates, flow iteration, or linux-chatbox real-model workflow; selected flows do not complete the full matrix")
+	plan8Phase := flags.String("plan8-phase", "all", "Plan8 all, integrations, kubernetes, workspace or models; selected phases are partial acceptance")
+	plan8Integrations := flags.String("plan8-integrations", "", "comma-separated dedicated integration groups in partial integrations phase only")
 	plan6HostFixtures := flags.String("plan6-host-fixtures", "", "owned Docker Linux Host/Bastion fixture manifest; required by the host gate")
 	plan6CandidateRegistry := flags.String("plan6-candidate-registry", "", "copy the exact passing Plan6 all-suite image manifests to this local registry before temporary cleanup; does not deploy")
 	if err := flags.Parse(args[1:]); err != nil {
@@ -174,8 +179,16 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 		return fmt.Errorf("%w: invalid Plan7 phase", errUsage)
 	}
 	options.Plan7Phase = *plan7Phase
-	if *suite == "plan7" && !*unitOnly && *realModelPath == "" {
-		return fmt.Errorf("%w: Plan7 requires --real-model-config before preparing its environment", errUsage)
+	if *plan8Phase != "all" && (*suite != "plan8" || !slices.Contains([]string{"integrations", "kubernetes", "workspace", "models"}, *plan8Phase)) {
+		return fmt.Errorf("%w: invalid Plan8 phase", errUsage)
+	}
+	selectedIntegrations, err := plan8ParseIntegrationGroups(*plan8Integrations)
+	if err != nil || len(selectedIntegrations) > 0 && (*suite != "plan8" || *plan8Phase != "integrations") {
+		return fmt.Errorf("%w: integration selection requires the partial Plan8 integrations phase", errUsage)
+	}
+	options.Plan8Phase, options.Plan8Integrations = *plan8Phase, selectedIntegrations
+	if (*suite == "plan7" || *suite == "plan8") && !*unitOnly && *realModelPath == "" {
+		return fmt.Errorf("%w: Plan7/Plan8 requires --real-model-config before preparing its environment", errUsage)
 	}
 	if *plan6Phase != "all" && (*suite != "plan6" || !slices.Contains([]string{"runtime", "model", "browser", "host"}, *plan6Phase)) {
 		return fmt.Errorf("%w: invalid Plan6 phase", errUsage)
@@ -201,7 +214,7 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 		options.PlanV2ModelGroups = groups
 	}
 	if *realModelPath != "" {
-		if (*suite != "p5" && *suite != "planv2" && *suite != "plan6" && *suite != "plan7") || *unitOnly {
+		if (*suite != "p5" && *suite != "planv2" && *suite != "plan6" && *suite != "plan7" && *suite != "plan8") || *unitOnly {
 			return fmt.Errorf("%w: --real-model-config requires the P5, PlanV2 or Plan6 cluster suite", errUsage)
 		}
 		var err error
@@ -298,7 +311,7 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 		return err
 	}
 	env.imagesAttempted = true
-	if options.Suite == "plan6" || options.Suite == "plan7" {
+	if options.Suite == "plan6" || options.Suite == "plan7" || options.Suite == "plan8" {
 		fingerprint, err := a.plan6Source(ctx, env, "before-build")
 		if err != nil {
 			return err
@@ -329,7 +342,7 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 	if err := a.resolveE2EAccess(ctx, env); err != nil {
 		return err
 	}
-	if options.Suite == "plan6" || options.Suite == "plan7" {
+	if options.Suite == "plan6" || options.Suite == "plan7" || options.Suite == "plan8" {
 		if err := a.plan6Images(ctx, env, ""); err != nil {
 			return err
 		}
@@ -337,15 +350,21 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 	if err := a.runE2EScenarios(ctx, env); err != nil {
 		return err
 	}
+	// Fault scenarios may replace the Gateway Pod. Kubernetes port-forwards
+	// stay bound to the originally selected Pod, so renew the owned transport
+	// on the same local endpoint before checking its TLS identity.
+	if err := a.refreshPlan6ConnectorForward(ctx, env); err != nil {
+		return err
+	}
 	if err := a.invokeArgusctl(ctx, env, "verify", "--config", env.ConfigPath, "--artifacts", filepath.Join(options.Artifacts, "verify")); err != nil {
 		return err
 	}
-	if options.Suite == "plan6" || options.Suite == "plan7" {
+	if options.Suite == "plan6" || options.Suite == "plan7" || options.Suite == "plan8" {
 		fingerprint, err := a.plan6Source(ctx, env, "after-acceptance")
 		if err != nil {
 			return err
 		}
-		if fingerprint != env.State.Values["p6_source_fingerprint"] && (options.Plan6Phase == "all" || options.Plan6Phase == "host" || options.Suite == "plan7") {
+		if fingerprint != env.State.Values["p6_source_fingerprint"] && (options.Plan6Phase == "all" || options.Plan6Phase == "host" || options.Suite == "plan7" || options.Suite == "plan8") {
 			return fmt.Errorf("Plan6 source changed during acceptance; rebuild and repeat the full gate")
 		}
 		if err = a.plan6Images(ctx, env, options.Plan6CandidateRegistry); err != nil {
@@ -353,6 +372,12 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 		}
 	}
 	result := fmt.Sprintf("{\"run_id\":%q,\"suite\":%q,\"status\":\"passed\"}\n", options.RunID, options.Suite)
+	if options.Suite == "plan8" {
+		result = fmt.Sprintf("{\"run_id\":%q,\"suite\":\"plan8\",\"scope\":\"deployed_foundation\",\"status\":\"passed\",\"plan_complete\":false,\"release_eligible\":false}\n", options.RunID)
+		if options.Plan8Phase != "" && options.Plan8Phase != "all" {
+			result = fmt.Sprintf("{\"run_id\":%q,\"suite\":\"plan8\",\"scope\":%q,\"selected_integrations\":%q,\"status\":\"passed_selected_phase\",\"plan_complete\":false,\"release_eligible\":false}\n", options.RunID, options.Plan8Phase, strings.Join(options.Plan8Integrations, ","))
+		}
+	}
 	if options.Suite == "plan7" && options.Plan7Phase == "flow" {
 		result = fmt.Sprintf("{\"run_id\":%q,\"suite\":\"plan7\",\"status\":\"passed\",\"scope\":\"flow_iteration\",\"complete\":false}\n", options.RunID)
 	}
@@ -405,7 +430,7 @@ func (a *App) prepareE2EEnvironment(ctx context.Context, env *E2EEnvironment) er
 	env.SystemNS = kubernetesNameForDev(release + "-system")
 	env.SandboxNS = kubernetesNameForDev(release + "-sandbox")
 	env.ObservNS = kubernetesNameForDev(release + "-observability")
-	if env.Options.Suite == "plan6" || env.Options.Suite == "plan7" || env.Options.Suite == "tool-templates" || envBool("ARGUS_E2E_ISOLATED_INGRESS") {
+	if env.Options.Suite == "plan6" || env.Options.Suite == "plan7" || env.Options.Suite == "plan8" || env.Options.Suite == "tool-templates" || envBool("ARGUS_E2E_ISOLATED_INGRESS") {
 		env.IngressNS = kubernetesNameForDev(release + "-ingress")
 		env.IngressClass = kubernetesNameForDev(release + "-nginx")
 	}
@@ -640,6 +665,8 @@ func (a *App) cleanupE2E(env *E2EEnvironment) (returnErr error) {
 				var expectedUID []string
 				if env.State != nil && namespace == env.State.Values["p7_target_namespace"] {
 					expectedUID = []string{env.State.Values["p7_target_namespace_uid"]}
+				} else if env.State != nil && namespace == m7CollectorNamespace && env.State.Values["p8_collector_namespace_uid"] != "" {
+					expectedUID = []string{env.State.Values["p8_collector_namespace_uid"]}
 				}
 				record("delete namespace "+namespace, env.Kube.DeleteNamespace(cleanupCtx, namespace, env.ReleaseID, expectedUID...))
 			}

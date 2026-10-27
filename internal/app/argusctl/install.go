@@ -46,14 +46,14 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 	helm := helmManager{contextName: cfg.Spec.KubeContext, cacheDir: filepath.Join(root, "deploy", ".cache", "charts"), log: a.stderr}
 	{
 		resolved := map[string]string{}
-		names := []string{"argus-backend"}
+		names := []string{"argus-backend", "argus-remote-runtime", "argus-install-tools"}
 		if cfg.Spec.Workspace.Enabled {
 			names = append(names, "argus-workspace", "argus-workspace-egress")
 		}
 		for _, name := range names {
 			digest, err := a.imageManifestDigest(ctx, cfg, name)
 			if err != nil {
-				return fmt.Errorf("resolve Workspace image %s: %w", name, err)
+				return fmt.Errorf("resolve platform image %s: %w", name, err)
 			}
 			resolved[name] = cfg.Image(name) + "@" + digest
 		}
@@ -78,6 +78,11 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 	}
 	if err := ensureTrustManager(ctx, clients, helm); err != nil {
 		return err
+	}
+	if a.restoreRecovery != nil {
+		if err := installBackupRecoveryState(ctx, clients, cfg, a.restoreRecovery); err != nil {
+			return err
+		}
 	}
 	if err := ensurePKITrustSource(ctx, clients, cfg); err != nil {
 		return err
@@ -109,7 +114,12 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 	if err != nil {
 		return err
 	}
+	hookRepository, hookTag, err := pinnedCRDHookImage(cfg.resolvedImages["argus-install-tools"])
+	if err != nil {
+		return err
+	}
 	altinityValues := map[string]any{
+		"crdHook":         map[string]any{"image": map[string]any{"repository": hookRepository, "tag": hookTag, "pullPolicy": "IfNotPresent"}},
 		"watchNamespaces": []any{cfg.Spec.Namespaces.Observability},
 		"rbac":            map[string]any{"namespaceScoped": true},
 		"operator": map[string]any{"resources": map[string]any{
@@ -266,7 +276,16 @@ func (a *App) install(ctx context.Context, cfg *InstallConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := helm.installOrUpgrade(ctx, cfg.Spec.ReleaseID+"-platform", cfg.Spec.Namespaces.System, platformChart, platformValues); err != nil {
+	if a.restoreRecovery != nil {
+		runtimePKI = restoredRuntimePKIState(a.restoreRecovery, platformValues)
+	}
+	if err := helm.applyBeforeRuntimeBootstrap(ctx, cfg.Spec.ReleaseID+"-platform", cfg.Spec.Namespaces.System, platformChart, platformValues); err != nil {
+		return err
+	}
+	if err := waitForJob(ctx, clients, cfg.Spec.Namespaces.System, "argus-postgresql-migration", 10*time.Minute); err != nil {
+		return err
+	}
+	if err := a.reconcileInstallationRuntimeRoles(ctx, clients, cfg, credentials); err != nil {
 		return err
 	}
 	issuerMaterial, err := configuredIssuerMaterial(ctx, clients, cfg)
@@ -1029,7 +1048,7 @@ func (a *App) restartLocalRegistryWorkloads(ctx context.Context, cfg *InstallCon
 func waitForPlatform(ctx context.Context, clients *kubeClients, cfg *InstallConfig) error {
 	names := []string{"argus-web", "argus-server"}
 	names = append(names, expectedWorkerDeployments(cfg.Spec.Profile)...)
-	names = append(names, "argus-direct-executor", "argus-connector-gateway")
+	names = append(names, "argus-direct-executor", "argus-connector-gateway", "argus-pki-controller")
 	for _, name := range names {
 		if err := waitForDeployment(ctx, clients, cfg.Spec.Namespaces.System, name, 10*time.Minute); err != nil {
 			return err

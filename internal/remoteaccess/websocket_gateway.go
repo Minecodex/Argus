@@ -16,21 +16,11 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/interactive"
 )
 
-type BackendFrame struct {
-	Type   string
-	Stream string
-	Data   []byte
-	Status string
-	Reason string
-}
-
-type BackendSession interface {
-	Send(context.Context, ClientFrame) error
-	Receive(context.Context) (BackendFrame, error)
-	Close(context.Context, string) error
-}
+type BackendFrame = interactive.Frame
+type BackendSession = interactive.Session
 
 type BackendFactory interface {
 	Open(context.Context, ConnectionTarget, int, int) (BackendSession, error)

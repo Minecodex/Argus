@@ -16,7 +16,7 @@ afterEach(cleanup);
 
 it.each(["zh-CN", "en-US"])(
   "explains omitted metric curves while retaining exact statistics in %s",
-  (locale) => {
+  async (locale) => {
     localStorage.setItem("argus.locale", locale);
     const targets = [
       {
@@ -56,6 +56,8 @@ it.each(["zh-CN", "en-US"])(
       </LocaleProvider>
     );
     const { rerender } = render(tree("timeseries"));
+    fireEvent.click(screen.getByRole("button", { name: /Metric ·/ }));
+    await screen.findByRole("dialog");
     expect(
       screen.getByText(
         locale === "zh-CN"
@@ -158,6 +160,7 @@ it.each(["zh-CN", "en-US"])(
       durationMeanMs: 12.345,
       durationP95Ms: null,
       sourceId: "registered-source",
+      serviceNamespace: "payments",
       resourceId: "authorized-resource",
       timestamp: "2026-09-25T00:00:00Z",
     };
@@ -198,6 +201,7 @@ it.each(["zh-CN", "en-US"])(
       screen.queryByRole("columnheader", { name: "sourceId" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("25.00%")).toBeVisible();
+    expect(screen.getByText("payments")).toBeVisible();
     expect(screen.getByText("12.35 ms")).toBeVisible();
     expect(screen.getByText("—")).toBeVisible();
     fireEvent.click(
@@ -250,7 +254,7 @@ it("explains omitted negative pie slices and drills into the series selected by 
   expect(onSelect).toHaveBeenCalledWith(positive, "main");
 });
 
-it("keeps a missing last Stat uncolored and shows a sample-mean explanation only when explicitly selected", () => {
+it("keeps a missing last Stat uncolored and shows a sample-mean explanation only when explicitly selected", async () => {
   localStorage.setItem("argus.locale", "en-US");
   const targets = [
     {
@@ -301,5 +305,66 @@ it("keeps a missing last Stat uncolored and shows a sample-mean explanation only
     "data-tone",
     "danger",
   );
-  expect(screen.getByText(/Sample mean, not time weighted/)).toBeVisible();
+  expect(
+    screen.queryByText(/Sample mean, not time weighted/),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Stat · Query information" }),
+  );
+  expect(
+    await screen.findByText(/Sample mean, not time weighted/),
+  ).toBeVisible();
+});
+
+it("centers a single stat without exposing instrumentation labels and keeps query information on demand", async () => {
+  localStorage.setItem("argus.locale", "en-US");
+  const { container } = render(
+    <LocaleProvider>
+      <ObservationPanel
+        title="Uptime"
+        type="stat"
+        signal="metrics"
+        unit="s"
+        targets={[
+          {
+            id: "a",
+            status: "success",
+            result_type: "vector",
+            data: {
+              result: [
+                {
+                  metric: {
+                    otel_scope_name: "private.receiver",
+                    resource_service_instance_id: "private-instance",
+                  },
+                  value: [1, "2863.84"],
+                },
+              ],
+            },
+            meta: {
+              warnings: ["PromQL info: counter naming"],
+              latest_sample_at: "2026-10-26T12:00:00Z",
+              sample_time_basis: "observed_query_samples",
+            },
+          },
+        ]}
+      />
+    </LocaleProvider>,
+  );
+  expect(screen.getByText("2863.84")).toBeVisible();
+  expect(container.querySelector(".argus-observation-stat span")).toBeNull();
+  expect(
+    screen.queryByText(/private.receiver|private-instance|counter naming/),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Data time and completeness" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Uptime · Query information" }),
+  );
+  expect(await screen.findByText("PromQL info: counter naming")).toBeVisible();
+  expect(screen.getByRole("dialog").querySelector("time")).toHaveAttribute(
+    "dateTime",
+    "2026-10-26T12:00:00Z",
+  );
 });

@@ -1,0 +1,510 @@
+{
+  "inventory": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listKubernetesInventory",
+      "summary": "List authorized Kubernetes objects with server pagination",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "type",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        {
+          "name": "namespace_mode",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ],
+            "default": "all_authorized"
+          }
+        },
+        {
+          "name": "namespace_ids",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "style": "form",
+          "explode": false
+        },
+        {
+          "name": "name",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 253
+          }
+        },
+        {
+          "name": "labels",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1024
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 32768
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized UID-bound Kubernetes observation",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesInventoryPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "object": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getKubernetesInventoryObject",
+      "summary": "Read a projected object with frozen UID",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "type",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        {
+          "name": "name",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          }
+        },
+        {
+          "name": "uid",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        {
+          "name": "namespace_id",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized UID-bound Kubernetes observation",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesInventoryObject"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "scope": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getKubernetesInventoryScope",
+      "summary": "Read current Cluster and Namespace access",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "Authorized UID-bound Kubernetes observation",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesInventoryScope"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "types": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listKubernetesInventoryTypes",
+      "summary": "List object types available in the current access scope",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "Authorized UID-bound Kubernetes observation",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesInventoryTypes"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "watch": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "watchKubernetesInventory",
+      "summary": "Watch the current page with frozen UID scope and bounded batches",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "$ref": "../argus.yaml#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesInventoryWatchInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Bounded events and next authorized resume token",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesInventoryWatchResult"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "mutation": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "previewKubernetesMutation",
+      "summary": "Dry-run an authorized object change and prepare a confirmation",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "$ref": "../argus.yaml#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "../argus.yaml#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesMutationInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Existing PendingAction confirmation workflow",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/PendingActionPublic"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "operations": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listKubernetesOperations",
+      "summary": "List operations in the current authorized resource scope",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 32768
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized Kubernetes operation",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesOperationPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "operation": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "operationId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getKubernetesOperation",
+      "summary": "Read an authorized operation without its private execution plan",
+      "tags": [
+        "Kubernetes"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized Kubernetes operation",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesOperation"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    },
+    "post": {
+      "operationId": "cancelKubernetesDrain",
+      "summary": "Stop further batches of an authorized node drain; in-flight requests may finish and the node stays cordoned",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesDrainCancelInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Cancelled node drain",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesOperation"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

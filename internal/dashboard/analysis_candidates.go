@@ -57,10 +57,15 @@ func (runtime Runtime) AnalysisCandidates(ctx context.Context, actor Actor, conv
 	if err != nil {
 		return nil, err
 	}
-	execution.Resources, err = resolveResources(ctx, q, actor, view.Parameters.ResourceIDs)
+	snapshot, scopeErr := resolveExecutionScope(ctx, q, actor, view.Parameters)
+	err = scopeErr
 	if err != nil {
 		return nil, err
 	}
+	execution.Resources = scopeResources(snapshot)
+	execution.ScopeSelection = &snapshot.Selection
+	execution.ScopeSignature = snapshot.Signature
+	runtime.scopeApplications = snapshot.Selection.Applications
 	if err = prepareParameters(spec, view.Parameters, &execution); err != nil {
 		return nil, err
 	}

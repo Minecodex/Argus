@@ -11,9 +11,26 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kakj-go/Argus/internal/builtincollection"
 	"github.com/kakj-go/Argus/internal/dashboard"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 )
+
+func hostMetricIdentityMatches(labels map[string]any, host, source string) bool {
+	if labels["argus_resource_id"] != host {
+		return false
+	}
+	logical, _ := labels["argus_collection_id"].(string)
+	physical, _ := labels["argus_source_id"].(string)
+	if logical != "" {
+		id, err := uuid.Parse(host)
+		if err != nil {
+			return false
+		}
+		return logical == builtincollection.StableID("host", id, "host_metrics").String() && (physical == "" || physical == source)
+	}
+	return physical == source
+}
 
 func plan6HostObservedValues(v any, host, source string) ([]float64, error) {
 	values := []float64{}
@@ -28,7 +45,7 @@ func plan6HostObservedValues(v any, host, source string) ([]float64, error) {
 			}
 		case map[string]any:
 			if labels, ok := value["metric"].(map[string]any); ok {
-				if labels["argus_resource_id"] != host || labels["argus_source_id"] != source {
+				if !hostMetricIdentityMatches(labels, host, source) {
 					return fmt.Errorf("system metric escaped the selected Host/source")
 				}
 				pair, ok := value["value"].([]any)
@@ -62,6 +79,8 @@ func (a *App) plan6HostMetric(ctx context.Context, env *E2EEnvironment, h *plan6
 		}
 		values, err := plan6HostObservedValues(v, h.HostID, h.SourceID)
 		if err != nil {
+			raw, _ := json.MarshalIndent(redactJSON(v), "", "  ")
+			_ = writePrivate(filepath.Join(env.Options.Artifacts, "host-metric-"+name+"-unexpected.json"), raw)
 			return 0, err
 		}
 		if len(values) > 0 {
@@ -128,7 +147,7 @@ func (a *App) plan6HostMetricsDashboard(ctx context.Context, env *E2EEnvironment
 	if err != nil {
 		return err
 	}
-	raw, _ := json.MarshalIndent(execution, "", "  ")
+	raw, _ := json.MarshalIndent(redactJSON(execution), "", "  ")
 	if err = writePrivate(filepath.Join(env.Options.Artifacts, "host-dashboard-execution.json"), raw); err != nil {
 		return err
 	}
@@ -162,7 +181,7 @@ func plan6HostVerifyDashboard(execution map[string]any, host, source string) err
 			row, _ := rawSeries.(map[string]any)
 			labels, _ := row["metric"].(map[string]any)
 			points, _ := row["values"].([]any)
-			if labels["argus_resource_id"] != host || labels["argus_source_id"] != source || len(points) == 0 {
+			if !hostMetricIdentityMatches(labels, host, source) || len(points) == 0 {
 				return fmt.Errorf("Host matrix lacks scoped real samples")
 			}
 			for _, rawPoint := range points {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,7 +33,7 @@ type KubernetesOptions struct {
 	IdentityMaterial  *IdentityMaterial
 }
 
-func (manager Manager) ApplyKubernetes(ctx context.Context, command *connectorv1.CollectorManagementCommand, options KubernetesOptions) (Result, error) {
+func (manager Manager) ApplyKubernetes(ctx context.Context, command *connectorv1.CollectorManagementCommand, options KubernetesOptions) (result Result, resultErr error) {
 	if err := Validate(command); err != nil {
 		return Result{}, err
 	}
@@ -53,6 +54,16 @@ func (manager Manager) ApplyKubernetes(ctx context.Context, command *connectorv1
 	if err := applyNamespace(ctx, options.Client, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: KubernetesNamespace, Labels: labels}}); err != nil {
 		return Result{}, err
 	}
+	publication, err := acquireKubernetesPublish(ctx, options.Client, command.GetCollectorId(), command.GetDesiredRevision(), command.GetConfigSha256())
+	if err != nil {
+		return Result{}, err
+	}
+	defer publication.release()
+	ctx = publication.ctx
+	snapshot, err := snapshotKubernetesRuntime(ctx, options.Client, command.GetCollectorId())
+	if err != nil {
+		return Result{}, err
+	}
 	agentConfig, err := configbundle.Extract(command.GetRenderedConfig(), "kubernetes_agent")
 	if err != nil {
 		return Result{}, err
@@ -65,7 +76,22 @@ func (manager Manager) ApplyKubernetes(ctx context.Context, command *connectorv1
 	if err != nil {
 		return Result{}, err
 	}
-	configName := "argus-otelcol-config"
+	effectiveSlot := publication.annotations["argus.io/effective-slot"]
+	if effectiveSlot == "" {
+		effectiveSlot = snapshot.currentSlot()
+	}
+	configName := inactiveConfigSlot(effectiveSlot)
+	private, err := monitoringPrivateConfig(command)
+	if err != nil {
+		return Result{}, err
+	}
+	defer clear(private)
+	if len(private) > 512<<10 || len(agentConfig)+len(gatewayConfig)+len(trust.PEM) > 900<<10 {
+		return Result{}, ErrInvalidCommand
+	}
+	if err = applySecret(ctx, options.Client, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: privateSlot(configName), Namespace: KubernetesNamespace, Labels: labels}, Data: map[string][]byte{"config.json": private}}); err != nil {
+		return Result{}, err
+	}
 	if err := applyConfigMap(ctx, options.Client, &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: configName, Namespace: KubernetesNamespace, Labels: labels},
 		Data: map[string]string{"agent.yaml": string(agentConfig), "gateway.yaml": string(gatewayConfig), "server-ca.pem": string(trust.PEM),
 			"trust-bundle-epoch": strconv.FormatUint(command.GetTrustBundleEpoch(), 10), "trust-bundle-sha256": trust.SHA256}}); err != nil {
@@ -104,7 +130,7 @@ func (manager Manager) ApplyKubernetes(ctx context.Context, command *connectorv1
 	stateRole := &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: "argus-otelcol-identity", Namespace: KubernetesNamespace, Labels: labels},
 		Rules: []rbacv1.PolicyRule{
 			{APIGroups: []string{""}, Resources: []string{"secrets"}, ResourceNames: []string{collectorIdentitySecret}, Verbs: []string{"get", "update", "patch"}},
-			{APIGroups: []string{""}, Resources: []string{"configmaps"}, ResourceNames: []string{configName}, Verbs: []string{"get", "update", "patch"}},
+			{APIGroups: []string{""}, Resources: []string{"configmaps"}, ResourceNames: []string{configSlotBase, configSlotNext}, Verbs: []string{"get", "update", "patch"}},
 		}}
 	if err := applyRole(ctx, options.Client, stateRole); err != nil {
 		return Result{}, err
@@ -115,13 +141,53 @@ func (manager Manager) ApplyKubernetes(ctx context.Context, command *connectorv1
 	if err := applyRoleBinding(ctx, options.Client, stateBinding); err != nil {
 		return Result{}, err
 	}
-	if err := applyService(ctx, options.Client, collectorGatewayService(labels)); err != nil {
+	gatewayService := collectorGatewayService(labels)
+	for _, port := range configbundle.ApplicationPortsFromBundle(command.GetRenderedConfig()) {
+		gatewayService.Spec.Ports = append(gatewayService.Spec.Ports, corev1.ServicePort{Name: port.Name, Port: port.Port, TargetPort: intstr.FromString(port.Name)})
+	}
+	if err := applyService(ctx, options.Client, gatewayService); err != nil {
 		return Result{}, err
 	}
-	if err := applyDaemonSet(ctx, options.Client, collectorDaemonSet(command, image, configName, labels)); err != nil {
+	if options.WaitForEnrollment {
+		if err := validateKubernetesCandidate(ctx, options.Client, command, image, configName); err != nil {
+			return Result{}, err
+		}
+	}
+	if err := ensureKubernetesGatewayState(ctx, options.Client, command.GetCollectorId()); err != nil {
 		return Result{}, err
 	}
-	if err := applyDeployment(ctx, options.Client, collectorGatewayDeployment(command, image, configName, labels)); err != nil {
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		if snapshot.writtenGateway == nil && snapshot.writtenAgent == nil {
+			return
+		}
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), localCollectorReadyTimeout)
+		defer cancel()
+		if err := publication.mutate(rollbackCtx, func(value *coordinationv1.Lease) {
+			now := metav1.NewMicroTime(time.Now().UTC())
+			value.Spec.RenewTime = &now
+		}); err != nil {
+			resultErr = errors.Join(resultErr, ErrRollbackFailed)
+			return
+		}
+		if err := snapshot.rollback(rollbackCtx, options.Client); err != nil {
+			resultErr = errors.Join(resultErr, ErrRollbackFailed)
+			return
+		}
+		if options.WaitForEnrollment && snapshot.gateway != nil && snapshot.gateway.Status.ReadyReplicas > 0 {
+			if err := waitForGateway(rollbackCtx, options.Client); err != nil {
+				resultErr = errors.Join(resultErr, ErrRollbackFailed)
+			}
+		}
+		if options.WaitForEnrollment && snapshot.agent != nil && snapshot.agent.Status.NumberReady > 0 {
+			if err := waitForAgents(rollbackCtx, options.Client); err != nil {
+				resultErr = errors.Join(resultErr, ErrRollbackFailed)
+			}
+		}
+	}()
+	if err := snapshot.apply(ctx, options.Client, collectorGatewayDeployment(command, image, configName, labels), nil); err != nil {
 		return Result{}, err
 	}
 	if options.WaitForEnrollment {
@@ -129,40 +195,22 @@ func (manager Manager) ApplyKubernetes(ctx context.Context, command *connectorv1
 			return Result{}, err
 		}
 	}
-	return buildResult(command, "converged"), nil
-}
-
-func (manager Manager) uninstallKubernetes(ctx context.Context, command *connectorv1.CollectorManagementCommand, client kubernetes.Interface) (Result, error) {
-	propagation := metav1.DeletePropagationForeground
-	options := metav1.DeleteOptions{PropagationPolicy: &propagation}
-	for _, remove := range []func() error{
-		func() error {
-			return ignoreMissing(client.AppsV1().DaemonSets(KubernetesNamespace).Delete(ctx, "argus-otelcol-agent", options))
-		},
-		func() error {
-			return ignoreMissing(client.AppsV1().Deployments(KubernetesNamespace).Delete(ctx, "argus-otelcol-gateway", options))
-		},
-		func() error {
-			return ignoreMissing(client.CoreV1().Services(KubernetesNamespace).Delete(ctx, "argus-otelcol-gateway", options))
-		},
-		func() error {
-			return ignoreMissing(client.CoreV1().ConfigMaps(KubernetesNamespace).Delete(ctx, "argus-otelcol-config", options))
-		},
-		func() error {
-			return ignoreMissing(client.CoreV1().Secrets(KubernetesNamespace).Delete(ctx, collectorIdentitySecret, options))
-		},
-		func() error {
-			return ignoreMissing(client.RbacV1().RoleBindings(KubernetesNamespace).Delete(ctx, "argus-otelcol-identity", options))
-		},
-		func() error {
-			return ignoreMissing(client.RbacV1().Roles(KubernetesNamespace).Delete(ctx, "argus-otelcol-identity", options))
-		},
-	} {
-		if err := remove(); err != nil {
+	if err := snapshot.apply(ctx, options.Client, nil, collectorDaemonSet(command, image, configName, labels)); err != nil {
+		return Result{}, err
+	}
+	if options.WaitForEnrollment {
+		if err := waitForAgents(ctx, options.Client); err != nil {
 			return Result{}, err
 		}
+		if err := publication.finish(configName, command.GetDesiredRevision(), command.GetConfigSha256()); err != nil {
+			return Result{}, err
+		}
+	} else {
+		result := buildResult(command, "applying")
+		result.EffectiveRevision = 0
+		return result, nil
 	}
-	return buildResult(command, "uninstalled"), nil
+	return buildResult(command, "converged"), nil
 }
 
 func collectorDaemonSet(command *connectorv1.CollectorManagementCommand, image, configName string, labels map[string]string) *appsv1.DaemonSet {
@@ -182,6 +230,7 @@ func collectorGatewayDeployment(command *connectorv1.CollectorManagementCommand,
 	return &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "argus-otelcol-gateway", Namespace: KubernetesNamespace, Labels: workloadLabels,
 		Annotations: map[string]string{"argus.io/config-sha256": command.GetConfigSha256(), "argus.io/artifact-sha256": command.GetArtifact().GetSha256()}},
 		Spec: appsv1.DeploymentSpec{Replicas: &one, MinReadySeconds: minReadySeconds,
+			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
 			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "argus-otelcol-gateway"}},
 			Template: collectorPodTemplate(command, image, configName, "argus-otelcol-gateway")}}
 }
@@ -204,7 +253,7 @@ func collectorPodTemplate(command *connectorv1.CollectorManagementCommand, image
 			{Name: "identity-state", MountPath: "/var/lib/argus-otelcol/identity"}},
 		Resources: corev1.ResourceRequirements{}}
 	// Secret is bootstrap-only. The identity extension copies it into the
-	// writable emptyDir and atomically persists Gateway rotations back through
+	// writable per-Pod state (Gateway: dedicated PVC) and atomically persists Gateway rotations back through
 	// the fixed-name Role above.
 	identityMode := int32(0o440)
 	volumes := []corev1.Volume{
@@ -213,14 +262,43 @@ func collectorPodTemplate(command *connectorv1.CollectorManagementCommand, image
 		{Name: "identity-state", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
 	if isGateway {
+		for i := range volumes {
+			if volumes[i].Name == "identity-state" {
+				volumes[i].VolumeSource = corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: KubernetesGatewayStateClaim}}
+			}
+		}
 		container.Env = append(container.Env,
+			corev1.EnvVar{Name: "ARGUS_TELEMETRY_KUBERNETES_CONFIG_MAP", Value: configName},
+			corev1.EnvVar{Name: "ARGUS_MONITORING_CONFIG_VERSION", Value: strconv.FormatUint(command.GetDesiredRevision(), 10)},
 			corev1.EnvVar{Name: "ARGUS_TELEMETRY_KUBERNETES_MIRROR", Value: "1"},
 			corev1.EnvVar{Name: "ARGUS_TELEMETRY_KUBERNETES_NAMESPACE", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}}})
 		container.Ports = append(container.Ports, corev1.ContainerPort{Name: "health", ContainerPort: 13133})
+		for _, port := range configbundle.ApplicationPortsFromBundle(command.GetRenderedConfig()) {
+			container.Ports = append(container.Ports, corev1.ContainerPort{Name: port.Name, ContainerPort: port.Port})
+		}
+		container.Args = append(container.Args, "--config=/var/run/argus-monitoring/config.json")
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "monitoring-private", MountPath: "/var/run/argus-monitoring", ReadOnly: true})
+		volumes = append(volumes, corev1.Volume{Name: "monitoring-private", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: privateSlot(configName), DefaultMode: &identityMode}}})
 		container.StartupProbe = collectorHealthProbe(60, 2)
 		container.ReadinessProbe = collectorHealthProbe(3, 2)
 		container.LivenessProbe = collectorHealthProbe(3, 10)
 	} else {
+		if configbundle.HasKubernetesLogs(command.GetRenderedConfig()) {
+			// CRI files and the per-Collector HostPath are owned by kubelet/root.
+			// Only agents reading node logs need UID 0; every host mount except
+			// this exact checkpoint directory remains read-only.
+			nonRoot = false
+			runAsUser = 0
+			no, yes := false, true
+			container.SecurityContext = &corev1.SecurityContext{AllowPrivilegeEscalation: &no, ReadOnlyRootFilesystem: &yes, Capabilities: &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}}, SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}}
+			directory := corev1.HostPathDirectoryOrCreate
+			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "log-checkpoints", MountPath: "/var/lib/argus-otelcol/log-checkpoints"})
+			volumes = append(volumes, corev1.Volume{Name: "log-checkpoints", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/var/lib/argus-otelcol/" + command.GetCollectorId() + "/log-checkpoints", Type: &directory}}})
+		}
+		container.Ports = append(container.Ports, corev1.ContainerPort{Name: "health", ContainerPort: 13133})
+		container.StartupProbe = collectorHealthProbe(60, 2)
+		container.ReadinessProbe = collectorHealthProbe(3, 2)
+		container.LivenessProbe = collectorHealthProbe(3, 10)
 		container.Env = append(container.Env, corev1.EnvVar{Name: "K8S_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
@@ -238,7 +316,7 @@ func collectorPodTemplate(command *connectorv1.CollectorManagementCommand, image
 		imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: name})
 	}
 	return corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: labels, Annotations: map[string]string{"argus.io/config-sha256": command.GetConfigSha256()}},
-		Spec: corev1.PodSpec{ServiceAccountName: "argus-otelcol", SecurityContext: &corev1.PodSecurityContext{RunAsNonRoot: &nonRoot, RunAsUser: &runAsUser, FSGroup: &fsGroup},
+		Spec: corev1.PodSpec{ServiceAccountName: "argus-otelcol", NodeSelector: map[string]string{"kubernetes.io/os": "linux"}, SecurityContext: &corev1.PodSecurityContext{RunAsNonRoot: &nonRoot, RunAsUser: &runAsUser, FSGroup: &fsGroup},
 			ImagePullSecrets: imagePullSecrets, Containers: []corev1.Container{container}, Volumes: volumes}}
 }
 
@@ -262,6 +340,16 @@ func waitForGateway(ctx context.Context, client kubernetes.Interface) error {
 			deployment.Status.AvailableReplicas == 1 && deployment.Status.UnavailableReplicas == 0, nil
 	})
 	return err
+}
+
+func waitForAgents(ctx context.Context, client kubernetes.Interface) error {
+	return wait.PollUntilContextTimeout(ctx, time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		daemon, err := client.AppsV1().DaemonSets(KubernetesNamespace).Get(ctx, "argus-otelcol-agent", metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return daemon.Status.ObservedGeneration >= daemon.Generation && daemon.Status.DesiredNumberScheduled > 0 && daemon.Status.UpdatedNumberScheduled == daemon.Status.DesiredNumberScheduled && daemon.Status.NumberReady == daemon.Status.DesiredNumberScheduled, nil
+	})
 }
 
 func collectorGatewayService(labels map[string]string) *corev1.Service {

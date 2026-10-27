@@ -13,6 +13,7 @@ import (
 	"github.com/kakj-go/Argus/internal/mcp"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 type Tools struct{ Service Service }
@@ -56,7 +57,15 @@ func (tools Tools) metadata(id, permission string, input, output map[string]any,
 	})
 	if permission == "" {
 		metadata.Required = []string{}
-		metadata.AnyRequired = []string{"host.read", "kubernetes.read"}
+		metadata.AnyRequired = ResourceQueryPermissions()
+	}
+	if id == "telemetry.skywalking.trace" {
+		metadata.InputVersion = id + "/v2"
+	}
+	if slices.Contains([]string{"telemetry.promql.query", "telemetry.kql.query", "telemetry.skywalking.trace"}, id) {
+		// Agent query analysis requires the existing Workspace capability. This
+		// does not grant it implicitly or change portal/ServiceAccount queries.
+		metadata.Required = []string{"workspace.use"}
 	}
 	return metadata
 }
@@ -162,12 +171,22 @@ func (tools Tools) dslQuery(ctx context.Context, call mcp.Call, language queryen
 	if err != nil {
 		return mcp.Result{}, err
 	}
-	ids, partial, err := tools.Service.AuthorizedResources(ctx, actor, ids)
+	signal := "metrics"
+	if language == queryengine.LanguageKQL {
+		signal = "logs"
+	} else if language == queryengine.LanguageTrace {
+		signal = "traces"
+	}
+	snapshot, sourceKeys, err := tools.Service.ResolveQueryScope(ctx, actor, ids, signal)
 	if err != nil {
 		return mcp.Result{}, err
 	}
-	if partial {
-		return mcp.Result{}, ErrQueryScope
+	ids = snapshot.IDs()
+	if len(ids) == 0 || len(sourceKeys) == 0 {
+		if err := tools.Service.ValidateResolvedQueryScope(ctx, actor, snapshot); err != nil {
+			return mcp.Result{}, err
+		}
+		return mcp.Result{Structured: map[string]any{"status": "no_data", "reason": "no_authorized_sources", "signal": signal, "resource_refs": snapshot.Refs(), "scope_signature": snapshot.Signature}}, nil
 	}
 	maxScanBytes := int64(DefaultMaxScanBytes)
 	if value, ok := call.Input["max_scan_bytes"].(float64); ok && value > 0 {
@@ -201,16 +220,23 @@ func (tools Tools) dslQuery(ctx context.Context, call mcp.Call, language queryen
 		pipeline = value
 	}
 	expression := fmt.Sprint(call.Input["query"])
+	operation, variables := "", map[string]any(nil)
 	if language == queryengine.LanguageTrace {
-		expression = fmt.Sprint(call.Input["document"])
+		expression, operation, variables, err = traceToolQuery(call.Input, limit)
+		if err != nil {
+			return mcp.Result{}, err
+		}
 	}
-	result, err := tools.Service.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: language, Expression: expression, Pipeline: pipeline, Instant: language == queryengine.LanguagePromQL && step <= 0, Start: from, End: to, Step: step,
-		Scope: queryengine.Scope{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: ids, AuthorizationVersion: actor.AuthorizationVersion}, Budget: queryengine.Budget{MaxRows: limit, MaxSamples: maxSamples, MaxSeries: maxSeries, MaxScanBytes: maxScanBytes, MaxResultBytes: maxResultBytes, Timeout: timeout}})
+	result, err := tools.Service.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: language, Expression: expression, Pipeline: pipeline, Operation: operation, Variables: variables, Instant: language == queryengine.LanguagePromQL && step <= 0, Start: from, End: to, Step: step,
+		Scope: queryengine.Scope{Resources: snapshot.DataRefs(), Signature: snapshot.QuerySignature(), SourceKeys: sourceKeys, SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: snapshot.DataIDs(), AuthorizationVersion: actor.AuthorizationVersion}, Budget: queryengine.Budget{MaxRows: limit, MaxSamples: maxSamples, MaxSeries: maxSeries, MaxScanBytes: maxScanBytes, MaxResultBytes: maxResultBytes, Timeout: timeout}})
 	if err != nil {
+		if errors.Is(err, queryengine.ErrBudget) {
+			return mcp.Result{}, toolruntime.Error{Kind: "TOOL_QUERY_BUDGET_EXCEEDED", Message: "The query exceeded its execution budget. Narrow the time window or requested data; use the documented row and scan budgets. No result was delivered.", Details: map[string]any{"query_budget": true}}
+		}
 		return mcp.Result{}, err
 	}
 	output := protocolQueryOutput(result)
-	if err := tools.Service.ValidateQueryScope(ctx, actor, ids); err != nil {
+	if err := tools.Service.ValidateResolvedQueryScope(ctx, actor, snapshot); err != nil {
 		return mcp.Result{}, err
 	}
 	return mcp.Result{Structured: output, Partial: result.Meta.Partial}, nil
@@ -299,6 +325,11 @@ func dslQueryInputSchema(language, signal string) map[string]any {
 	if language == "promql" {
 		properties["max_samples"] = map[string]any{"type": "integer", "minimum": 1, "maximum": HardMaxSamples}
 		properties["max_series"] = map[string]any{"type": "integer", "minimum": 1, "maximum": HardMaxSeries}
+	}
+	if language == "skywalking_graphql" {
+		properties["operation_name"] = map[string]any{"type": "string", "maxLength": 256}
+		properties["variables"] = map[string]any{"type": []string{"object", "null"}, "maxProperties": 64}
+		return traceToolQuerySchema(map[string]any{"type": "object", "properties": properties, "additionalProperties": false})
 	}
 	return map[string]any{"type": "object", "properties": properties, "required": []string{queryField, "resource_ids", "from", "to"}, "additionalProperties": false}
 }

@@ -31,7 +31,7 @@
         "schema_version": {"const": "argus.tool_result_envelope/v1"},
         "tool_call_id": {"type": "string", "format": "uuid"},
         "source": {"enum": ["argus", "external_mcp", "sandbox"]},
-        "category": {"enum": ["host", "k8s", "metric", "trace", "log", "connector", "workflow", "dashboard", "alert"]},
+        "category": {"enum": ["application", "monitoring", "host", "k8s", "metric", "trace", "log", "connector", "workflow", "dashboard", "alert"]},
         "name": {"type": "string"}, "version": {"type": "string"},
         "status": {"enum": ["succeeded", "failed", "result_unknown", "cancelled"]},
         "model_result": {"$ref": "../agent/agent.schema.json#/$defs/ToolResultProjection"},

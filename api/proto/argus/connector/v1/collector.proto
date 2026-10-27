@@ -55,6 +55,9 @@ message CollectorManagementCommand {
   // enrollment request. The enrollment_endpoint hostname remains authoritative
   // for HTTP Host, TLS SNI, and CA verification.
   string enrollment_dial_address = 31;
+  // Ephemeral private overlay delivered only over the authenticated execution
+  // channel. Never persisted in a command, action, public bundle or audit.
+  bytes private_monitoring_config = 32;
 }
 
 message CollectorManagementResult {

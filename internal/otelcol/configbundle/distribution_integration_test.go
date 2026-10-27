@@ -2,11 +2,13 @@ package configbundle
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,9 +30,14 @@ func TestRenderedTargetsLoadRealCollectorDistribution(t *testing.T) {
 		name, resource, role, target string
 		profiles                     []string
 	}{
+		{"host_control_only", "host", "direct", "host", nil},
+		{"host_fixed_metrics", "host", "direct", "host", nil},
+		{"cluster_fixed_agent", "kubernetes_cluster", "direct", "kubernetes_agent", nil},
+		{"cluster_fixed_gateway", "kubernetes_cluster", "direct", "kubernetes_gateway", nil},
+		{"application_ingest", "host", "direct", "host", nil},
 		{"host_plugins", "host", "direct", "host", []string{"host-basic", "otlp-receiver", "file-log", "linux-journald", "prometheus-endpoint", "collector-self"}},
 		{"host_gateway", "host", "edge_gateway", "host", []string{"host-basic", "otlp-receiver"}},
-		{"native_traces", "host", "direct", "host", []string{"otlp-receiver", "skywalking-receiver", "jaeger-receiver"}},
+		{"native_traces", "host", "direct", "host", []string{"otlp-receiver", "jaeger-receiver"}},
 		{"cluster_agent", "kubernetes_cluster", "direct", "kubernetes_agent", []string{"k8s-node-container", "k8s-cluster", "k8s-otlp-gateway", "collector-self"}},
 		{"cluster_gateway", "kubernetes_cluster", "direct", "kubernetes_gateway", []string{"k8s-node-container", "k8s-cluster", "k8s-otlp-gateway", "collector-self"}},
 	} {
@@ -38,6 +45,20 @@ func TestRenderedTargetsLoadRealCollectorDistribution(t *testing.T) {
 			input := RenderInput{CollectorID: uuid.NewString(), ResourceID: uuid.NewString(), SourceGeneration: uuid.NewString(), ConfigRevision: 2,
 				ResourceType: scenario.resource, Role: scenario.role, Platform: "linux_amd64", RouteKind: "direct_argus", Transport: "direct", ProfileKeys: scenario.profiles,
 				EnrollmentEndpoint: "https://enterprise.example.test/enroll", IngestGRPCEndpoint: "grpcs://ingest.example.test:4317", IngestHTTPEndpoint: "https://ingest.example.test:4318"}
+			if scenario.name == "application_ingest" {
+				for _, protocol := range []string{"otlp", "jaeger"} {
+					input.ApplicationEndpoints = append(input.ApplicationEndpoints, ApplicationEndpoint{ID: uuid.NewString(), ApplicationID: uuid.NewString(), Protocol: protocol, Signals: []string{"traces"}, Version: 1})
+				}
+			}
+			if strings.Contains(scenario.name, "fixed") {
+				keys := []string{"collector_metrics", "host_metrics"}
+				if scenario.resource == "kubernetes_cluster" {
+					keys = []string{"collector_metrics", "kubernetes_node_metrics", "kubernetes_cluster_metrics"}
+				}
+				for _, key := range keys {
+					input.Collections = append(input.Collections, Collection{ID: uuid.NewString(), Integration: key, TargetType: scenario.resource, TargetID: input.ResourceID, Config: json.RawMessage(`{}`), Revision: 1, AssignmentEpoch: 1, Enabled: true})
+				}
+			}
 			bundle, err := Render(input)
 			if err != nil {
 				t.Fatal(err)
@@ -88,7 +109,7 @@ func TestRealCollectorComponentsMatchDistributionRegistry(t *testing.T) {
 		actual = append(actual, id)
 	}
 	slices.Sort(actual)
-	expected := DistributionComponents(runtime.GOOS + "_" + runtime.GOARCH)
+	expected := DistributionRuntimeComponents(runtime.GOOS + "_" + runtime.GOARCH)
 	if !slices.Equal(actual, expected) {
 		t.Fatalf("binary and advertised components differ: %v vs %v", actual, expected)
 	}

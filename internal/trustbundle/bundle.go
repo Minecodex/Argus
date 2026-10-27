@@ -463,6 +463,27 @@ func (service Service) Current(ctx context.Context) (Bundle, error) {
 	return fromRecord(record)
 }
 
+// AwaitCurrent is for runtime readers, which must not initialize or replace
+// trust authority. The control plane owns initialization; readers only wait
+// for its first committed bundle. Permission and validation errors fail now.
+func (service Service) AwaitCurrent(ctx context.Context) (Bundle, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		bundle, err := service.Current(ctx)
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return bundle, err
+		}
+		select {
+		case <-ctx.Done():
+			return Bundle{}, fmt.Errorf("wait for control-plane trust initialization: %w", ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
 func (service Service) Observe(ctx context.Context, node Node, observed Acknowledgement) (Bundle, bool, error) {
 	if err := validateNode(node); err != nil {
 		return Bundle{}, false, err

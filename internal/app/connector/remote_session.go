@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
+	"github.com/kakj-go/Argus/internal/kubernetesstream"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -27,8 +29,18 @@ type localRemoteSession struct {
 }
 
 func newLocalRemoteSession(open *connectorv1.RemoteAccessOpen) (*localRemoteSession, error) {
+	kubernetes := open.GetProtocol() == "kubernetes_exec" || open.GetProtocol() == "kubernetes_port_forward"
+	if !kubernetes && len(open.GetKubernetesTargetJson()) > 0 {
+		return nil, kubernetesstream.ErrProtocol
+	}
+	if kubernetes {
+		var target kubernetesstream.Target
+		if len(open.KubernetesTargetJson) > 16<<10 || json.Unmarshal(open.KubernetesTargetJson, &target) != nil || target.Validate() != nil || open.Protocol != "kubernetes_"+target.Mode {
+			return nil, kubernetesstream.ErrProtocol
+		}
+	}
 	if open.GetMaxFrameBytes() == 0 || open.GetMaxFrameBytes() > 64<<10 || open.GetSessionFence() == 0 ||
-		(open.GetProtocol() != "shell" && open.GetProtocol() != "ssh" && open.GetProtocol() != "rdp") || open.GetTerminalCols() < 20 || open.GetTerminalRows() < 5 {
+		(open.GetProtocol() != "shell" && open.GetProtocol() != "ssh" && open.GetProtocol() != "rdp" && !kubernetes) || open.GetTerminalCols() < 20 || open.GetTerminalRows() < 5 {
 		return nil, errors.New("invalid remote access session")
 	}
 	if open.GetProtocol() == "ssh" && open.GetTargetPort() == 0 {
@@ -95,12 +107,24 @@ func (session *localRemoteSession) run(parent context.Context, credential []byte
 		err = session.runSSH(ctx, credential, outgoing)
 	case "rdp":
 		err = session.runLocalTCP(ctx, "127.0.0.1:3389", outgoing)
+	case "kubernetes_exec", "kubernetes_port_forward":
+		err = session.runKubernetesStream(ctx, credential, outgoing)
 	}
 	status, reason := connectorv1.RemoteAccessStateValue_REMOTE_ACCESS_STATE_VALUE_TERMINATED, "remote_closed"
 	if err != nil {
 		status, reason = connectorv1.RemoteAccessStateValue_REMOTE_ACCESS_STATE_VALUE_CONNECTION_LOST, "REMOTE_ACCESS_CONNECTION_LOST"
 	}
-	outgoing <- outboundFrame{value: session.stateFrame(status, reason)}
+	var streamEnd *kubernetesStreamEnd
+	if errors.As(err, &streamEnd) {
+		reason = streamEnd.reason
+		if streamEnd.status == "closed" {
+			status = connectorv1.RemoteAccessStateValue_REMOTE_ACCESS_STATE_VALUE_TERMINATED
+		}
+	}
+	select {
+	case outgoing <- outboundFrame{value: session.stateFrame(status, reason)}:
+	case <-parent.Done():
+	}
 }
 
 func (session *localRemoteSession) runSSH(ctx context.Context, credential []byte, outgoing chan<- outboundFrame) error {

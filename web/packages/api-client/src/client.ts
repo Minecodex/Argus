@@ -1,5 +1,10 @@
+import type { MonitoringDomains } from "./monitoring";
+import type { KubernetesWorkbenchDomains } from "./kubernetes-workbench";
 import type { AlertDomains } from "./alerts";
-import type { InteractionDomains, ConversationAccessMode } from "./interactions";
+import type {
+  InteractionDomains,
+  ConversationAccessMode,
+} from "./interactions";
 import type {
   RemoteExecutionDomains,
   ConversationMode,
@@ -244,7 +249,10 @@ export interface ArgusApiClient
     PlanV5Domains,
     DashboardDomains,
     AlertDomains,
-    RemoteExecutionDomains, InteractionDomains {
+    MonitoringDomains,
+    KubernetesWorkbenchDomains,
+    RemoteExecutionDomains,
+    InteractionDomains {
   /** Session lifecycle and enterprise context. */
   auth: {
     login(input: LoginInput): Promise<SessionInfo>;
@@ -274,7 +282,10 @@ export interface ArgusApiClient
   /** Chatbox conversations and streaming assistant replies. */
   conversations: {
     updateMode(id: string, mode: ConversationMode): Promise<Conversation>;
-    updateAccessMode(id: string, mode: ConversationAccessMode): Promise<Conversation>;
+    updateAccessMode(
+      id: string,
+      mode: ConversationAccessMode,
+    ): Promise<Conversation>;
     dashboardContext(
       id: string,
     ): Promise<import("./generated/contracts").DashboardChatContext>;
@@ -690,6 +701,8 @@ export interface ArgusApiClient
       resourceType: DataAuthorizationResourceType,
       cursor?: string,
       limit?: number,
+      search?: string,
+      signal?: AbortSignal,
     ): Promise<DataAuthorizationPage>;
     updateDataAuthorization(
       subjectType: DataAuthorizationSubjectType,

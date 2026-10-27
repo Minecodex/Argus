@@ -8,21 +8,24 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/kakj-go/Argus/internal/integration/modelprovider"
 )
 
 // The configuration contains only a reference to a process environment secret.
 // Neither the config nor benchmark evidence carries the resolved API key.
 type p5RealModelConfig struct {
-	BaseURL       string  `json:"base_url"`
-	ModelID       string  `json:"model_id"`
-	Protocol      string  `json:"api_protocol"`
-	APIKeyEnv     string  `json:"api_key_env"`
-	EndpointIP    string  `json:"endpoint_ip,omitempty"`
-	ContextWindow int     `json:"context_window_tokens"`
-	MaxOutput     int     `json:"max_output_tokens"`
-	InputPrice    float64 `json:"input_price_per_million"`
-	OutputPrice   float64 `json:"output_price_per_million"`
-	MonthlyAmount float64 `json:"monthly_amount"`
+	BaseURL         string  `json:"base_url"`
+	ModelID         string  `json:"model_id"`
+	Protocol        string  `json:"api_protocol"`
+	ReasoningEffort string  `json:"reasoning_effort,omitempty"`
+	APIKeyEnv       string  `json:"api_key_env"`
+	EndpointIP      string  `json:"endpoint_ip,omitempty"`
+	ContextWindow   int     `json:"context_window_tokens"`
+	MaxOutput       int     `json:"max_output_tokens"`
+	InputPrice      float64 `json:"input_price_per_million"`
+	OutputPrice     float64 `json:"output_price_per_million"`
+	MonthlyAmount   float64 `json:"monthly_amount"`
 }
 
 func loadP5RealModelConfig(path string) (*p5RealModelConfig, error) {
@@ -61,6 +64,9 @@ func (c p5RealModelConfig) validate() error {
 	if strings.TrimSpace(c.ModelID) == "" || len(c.ModelID) > 256 || (c.Protocol != "chat_completions" && c.Protocol != "responses") {
 		return fmt.Errorf("%w: real-model model_id or api_protocol is invalid", errUsage)
 	}
+	if _, err := modelprovider.NormalizeReasoningEffort(modelprovider.Protocol(c.Protocol), c.ReasoningEffort); err != nil {
+		return fmt.Errorf("%w: real-model reasoning profile is invalid", errUsage)
+	}
 	if !regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`).MatchString(c.APIKeyEnv) || strings.TrimSpace(os.Getenv(c.APIKeyEnv)) == "" {
 		return fmt.Errorf("%w: real-model api_key_env must reference a populated environment variable", errUsage)
 	}
@@ -71,7 +77,11 @@ func (c p5RealModelConfig) validate() error {
 }
 
 func (c p5RealModelConfig) modelRequest() map[string]any {
-	return map[string]any{"name": "P5 real-model benchmark", "base_url": c.BaseURL, "model_id": c.ModelID,
+	request := map[string]any{"name": "P5 real-model benchmark", "base_url": c.BaseURL, "model_id": c.ModelID,
 		"api_protocol": c.Protocol, "api_key": os.Getenv(c.APIKeyEnv), "context_window_tokens": c.ContextWindow,
 		"max_output_tokens": c.MaxOutput, "input_price_per_million": c.InputPrice, "output_price_per_million": c.OutputPrice}
+	if c.ReasoningEffort != "" {
+		request["reasoning_effort"] = c.ReasoningEffort
+	}
+	return request
 }

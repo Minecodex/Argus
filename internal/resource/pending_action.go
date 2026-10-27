@@ -71,6 +71,7 @@ type ActionCommitResult struct {
 	HostOnboardingOperationID   uuid.NullUUID
 	HostRemovalOperationID      uuid.NullUUID
 	RemoteExecutionID           uuid.NullUUID
+	KubernetesOperationID       uuid.NullUUID
 	OneTimeResultKind           string
 }
 
@@ -96,23 +97,12 @@ type ActionRevalidateFunc func(context.Context, *db.Queries, db.PendingAction, j
 // must only be called by the internal Action Executor after confirmation and
 // all approval requirements have transitioned the action to ready.
 func (service PendingActionService) ExecuteReady(ctx context.Context, q *db.Queries, action db.PendingAction, revalidate ActionRevalidateFunc, commit ActionCommitFunc) (ActionCommitResult, error) {
-	if action.Status != "ready" || time.Now().UTC().After(action.ExpiresAt.Time) {
+	if action.Status != "ready" {
 		return ActionCommitResult{}, ErrActionUnavailable
 	}
-	plan, err := q.GetPendingActionPlan(ctx, db.GetPendingActionPlanParams{ActionRef: action.ActionRef, EnterpriseID: action.EnterpriseID})
+	canonicalPlan, err := service.VerifiedPlan(ctx, q, action)
 	if err != nil {
-		return ActionCommitResult{}, pendingActionStorageError("load immutable plan", err, ErrActionInvalidated)
-	}
-	if plan.AuthorizationVersion != action.AuthorizationVersion {
-		return ActionCommitResult{}, ErrActionInvalidated
-	}
-	canonicalPlan, err := CanonicalJSON(plan.ImmutablePlan)
-	if err != nil {
-		return ActionCommitResult{}, ErrActionInvalidated
-	}
-	planHash := sha256.Sum256(canonicalPlan)
-	if !subtleEqual(planHash[:], plan.PlanHash) {
-		return ActionCommitResult{}, ErrActionInvalidated
+		return ActionCommitResult{}, err
 	}
 	token, err := q.GetPendingActionTokenForUpdate(ctx, db.GetPendingActionTokenForUpdateParams{ActionRef: action.ActionRef, EnterpriseID: action.EnterpriseID})
 	if err != nil {
@@ -134,6 +124,9 @@ func (service PendingActionService) ExecuteReady(ctx context.Context, q *db.Quer
 		}
 		if postgres.IsRetryableTransactionError(err) {
 			return ActionCommitResult{}, fmt.Errorf("pending action revalidate: %w", err)
+		}
+		if errors.Is(err, ErrActionInvalidated) {
+			return ActionCommitResult{}, err
 		}
 		if err != nil || !subtleEqual(impactHash, action.ImpactHash) {
 			return ActionCommitResult{}, ErrActionInvalidated

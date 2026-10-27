@@ -278,14 +278,16 @@ type TelemetryQueryScope struct {
 	AuthorizedResources  []*v1.ResourceRef      `protobuf:"bytes,2,rep,name=authorized_resources,json=authorizedResources,proto3" json:"authorized_resources,omitempty"`
 	AuthorizationVersion uint64                 `protobuf:"varint,4,opt,name=authorization_version,json=authorizationVersion,proto3" json:"authorization_version,omitempty"`
 	ScopeHash            string                 `protobuf:"bytes,5,opt,name=scope_hash,json=scopeHash,proto3" json:"scope_hash,omitempty"`
-	// Frozen source UUID:configuration-revision keys. Empty is only for legacy native queries.
+	// Frozen source UUID:configuration-revision keys; an empty set never means all sources.
 	SourceKeys []string `protobuf:"bytes,7,rep,name=source_keys,json=sourceKeys,proto3" json:"source_keys,omitempty"`
 	// Routing identity, not a signal-specific permission.
-	Signal        string `protobuf:"bytes,8,opt,name=signal,proto3" json:"signal,omitempty"`
-	SubjectId     string `protobuf:"bytes,9,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"`
-	SubjectType   string `protobuf:"bytes,10,opt,name=subject_type,json=subjectType,proto3" json:"subject_type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Signal      string `protobuf:"bytes,8,opt,name=signal,proto3" json:"signal,omitempty"`
+	SubjectId   string `protobuf:"bytes,9,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"`
+	SubjectType string `protobuf:"bytes,10,opt,name=subject_type,json=subjectType,proto3" json:"subject_type,omitempty"`
+	// Frozen domain scope including resource and relationship revisions.
+	ScopeSignature string `protobuf:"bytes,11,opt,name=scope_signature,json=scopeSignature,proto3" json:"scope_signature,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *TelemetryQueryScope) Reset() {
@@ -370,6 +372,13 @@ func (x *TelemetryQueryScope) GetSubjectId() string {
 func (x *TelemetryQueryScope) GetSubjectType() string {
 	if x != nil {
 		return x.SubjectType
+	}
+	return ""
+}
+
+func (x *TelemetryQueryScope) GetScopeSignature() string {
+	if x != nil {
+		return x.ScopeSignature
 	}
 	return ""
 }
@@ -1496,7 +1505,7 @@ const file_argus_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\x0eschema_version\x18\x03 \x01(\tR\rschemaVersion\x12!\n" +
 	"\fpayload_hash\x18\x04 \x01(\tR\vpayloadHash\x12;\n" +
 	"\vreceived_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"receivedAt\"\x89\x03\n" +
+	"receivedAt\"\xb2\x03\n" +
 	"\x13TelemetryQueryScope\x12#\n" +
 	"\renterprise_id\x18\x01 \x01(\tR\fenterpriseId\x12O\n" +
 	"\x14authorized_resources\x18\x02 \x03(\v2\x1c.argus.common.v1.ResourceRefR\x13authorizedResources\x123\n" +
@@ -1509,7 +1518,8 @@ const file_argus_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\n" +
 	"subject_id\x18\t \x01(\tR\tsubjectId\x12!\n" +
 	"\fsubject_type\x18\n" +
-	" \x01(\tR\vsubjectTypeJ\x04\b\x03\x10\x04J\x04\b\x06\x10\aR\x0fallowed_signalsR\x10sensitive_fields\"\xa5\x02\n" +
+	" \x01(\tR\vsubjectType\x12'\n" +
+	"\x0fscope_signature\x18\v \x01(\tR\x0escopeSignatureJ\x04\b\x03\x10\x04J\x04\b\x06\x10\aR\x0fallowed_signalsR\x10sensitive_fields\"\xa5\x02\n" +
 	"\x14QueryOverviewRequest\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12=\n" +
 	"\x05scope\x18\x02 \x01(\v2'.argus.telemetry.v1.TelemetryQueryScopeR\x05scope\x12.\n" +

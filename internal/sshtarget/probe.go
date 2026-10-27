@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -17,6 +16,8 @@ import (
 )
 
 type Evidence struct {
+	WindowsProductType  int
+	WindowsBuildNumber  int
 	IdentitySID         string
 	Platform            string
 	Architecture        string
@@ -54,28 +55,7 @@ func Probe(client *ssh.Client, expectedPlatform string) (Evidence, error) {
 		if err != nil {
 			return Evidence{}, fmt.Errorf("probe Windows target: %w", err)
 		}
-		var raw struct {
-			IdentitySID         string `json:"identity_sid"`
-			Architecture        string `json:"architecture"`
-			DistributionVersion string `json:"distribution_version"`
-			ServiceManager      string `json:"service_manager"`
-			ProductType         int    `json:"product_type"`
-			BuildNumber         int    `json:"build_number"`
-			Privileged          bool   `json:"privileged"`
-			FreeDiskBytes       uint64 `json:"free_disk_bytes"`
-		}
-		if json.Unmarshal(output, &raw) != nil || raw.ProductType == 1 || raw.BuildNumber < 17763 {
-			return Evidence{}, errors.New("Windows Server 2019 or newer is required")
-		}
-		evidence := Evidence{Platform: "windows", Architecture: strings.ToLower(raw.Architecture), DistributionVersion: raw.DistributionVersion,
-			ServiceManager: raw.ServiceManager, Privileged: raw.Privileged, FreeDiskBytes: raw.FreeDiskBytes, IdentitySID: raw.IdentitySID}
-		switch evidence.Architecture {
-		case "x64", "amd64":
-			evidence.Architecture = "amd64"
-		default:
-			return Evidence{}, fmt.Errorf("unsupported Windows architecture %q", evidence.Architecture)
-		}
-		return validateEvidence(evidence)
+		return parseWindowsEvidence(output)
 	default:
 		return Evidence{}, errors.New("expected SSH target platform is required")
 	}

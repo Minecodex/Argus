@@ -89,3 +89,32 @@ func (handler DashboardHandler) PreviewClusterDashboardBinding(ctx context.Conte
 	}
 	return api.PreviewClusterDashboardBinding201JSONResponse(result), nil
 }
+
+func (handler DashboardHandler) ListApplicationDashboardBindings(ctx context.Context, r api.ListApplicationDashboardBindingsRequestObject) (api.ListApplicationDashboardBindingsResponseObject, error) {
+	result, failure, status := handler.resourceBindings(ctx, "application", r.Id)
+	if failure != nil {
+		return api.ListApplicationDashboardBindingsdefaultJSONResponse{Body: *failure, StatusCode: status}, nil
+	}
+	return api.ListApplicationDashboardBindings200JSONResponse(result), nil
+}
+func (handler DashboardHandler) PreviewApplicationDashboardBinding(ctx context.Context, r api.PreviewApplicationDashboardBindingRequestObject) (api.PreviewApplicationDashboardBindingResponseObject, error) {
+	result, failure, status := handler.previewResourceBinding(ctx, "application", r.Id, r.Params.XCSRFToken, r.Params.IdempotencyKey, r.Body)
+	if failure != nil {
+		return api.PreviewApplicationDashboardBindingdefaultJSONResponse{Body: *failure, StatusCode: status}, nil
+	}
+	return api.PreviewApplicationDashboardBinding201JSONResponse(result), nil
+}
+func (handler DashboardHandler) ListMonitoringTargetDashboardBindings(ctx context.Context, r api.ListMonitoringTargetDashboardBindingsRequestObject) (api.ListMonitoringTargetDashboardBindingsResponseObject, error) {
+	result, failure, status := handler.resourceBindings(ctx, "monitoring_target", r.Id)
+	if failure != nil {
+		return api.ListMonitoringTargetDashboardBindingsdefaultJSONResponse{Body: *failure, StatusCode: status}, nil
+	}
+	return api.ListMonitoringTargetDashboardBindings200JSONResponse(result), nil
+}
+func (handler DashboardHandler) PreviewMonitoringTargetDashboardBinding(ctx context.Context, r api.PreviewMonitoringTargetDashboardBindingRequestObject) (api.PreviewMonitoringTargetDashboardBindingResponseObject, error) {
+	result, failure, status := handler.previewResourceBinding(ctx, "monitoring_target", r.Id, r.Params.XCSRFToken, r.Params.IdempotencyKey, r.Body)
+	if failure != nil {
+		return api.PreviewMonitoringTargetDashboardBindingdefaultJSONResponse{Body: *failure, StatusCode: status}, nil
+	}
+	return api.PreviewMonitoringTargetDashboardBinding201JSONResponse(result), nil
+}

@@ -73,6 +73,14 @@ const serverImports = (body) => {
   return imports;
 };
 
+const chiImports = (body) => {
+  const imports = serverImports(body);
+  if (body.includes("errors.")) imports.push("errors");
+  if (body.includes("chi.")) imports.push("github.com/go-chi/chi/v5");
+  if (body.includes("runtime.")) imports.push("github.com/oapi-codegen/runtime");
+  return imports;
+};
+
 const chiPath = input.replace(/server\.gen\.go$/, "chi.gen.go");
 const strictPath = input.replace(/server\.gen\.go$/, "strict.gen.go");
 const responseMarker = /^type [A-Za-z0-9]+RequestObject struct \{/m;
@@ -122,7 +130,10 @@ if (chiSource.split("\n").length > 2000) {
   const extraPath = input.replace(/server\.gen\.go$/, "chi_extra.gen.go");
   const extraBody = chiSource.slice(split);
   chiSource = chiSource.slice(0, split).trimEnd() + "\n";
-  const chiImports = ["errors", "fmt", "net/http", "github.com/go-chi/chi/v5", "github.com/oapi-codegen/runtime", 'openapi_types "github.com/oapi-codegen/runtime/types"'];
+  const baseImportEnd = chiSource.indexOf(")\n\n");
+  if (baseImportEnd < 0) throw new Error(`imports not found in ${input}`);
+  const baseBody = chiSource.slice(baseImportEnd + 3);
+  chiSource = generatedHeader(chiImports(baseBody), baseBody);
   const extraMarkers = [...extraBody.matchAll(/^\/\/ .* operation middleware$/gm)];
   if (extraBody.split("\n").length > 2000 && extraMarkers.length > 1) {
     const extraSplit = extraMarkers.find((match) => match.index > extraBody.length / 2)?.index;
@@ -130,10 +141,10 @@ if (chiSource.split("\n").length > 2000) {
       throw new Error(`unable to split generated chi middleware ${input}`);
     }
     const extra2Path = extraPath.replace(/\.gen\.go$/, "2.gen.go");
-    await writeFile(extraPath, generatedHeader(chiImports, extraBody.slice(0, extraSplit)), "utf8");
-    await writeFile(extra2Path, generatedHeader(chiImports, extraBody.slice(extraSplit)), "utf8");
+    await writeFile(extraPath, generatedHeader(chiImports(extraBody.slice(0, extraSplit)), extraBody.slice(0, extraSplit)), "utf8");
+    await writeFile(extra2Path, generatedHeader(chiImports(extraBody.slice(extraSplit)), extraBody.slice(extraSplit)), "utf8");
   } else {
-    await writeFile(extraPath, generatedHeader(chiImports, extraBody), "utf8");
+    await writeFile(extraPath, generatedHeader(chiImports(extraBody), extraBody), "utf8");
   }
 }
 await writeFile(chiPath, chiSource, "utf8");

@@ -36,7 +36,9 @@
   gap: var(--space-px-2);
 }
 
-.argus-observation-stats:focus-visible {
+.argus-observation-stats:focus-visible,
+.argus-diff:focus-visible,
+.argus-code pre:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

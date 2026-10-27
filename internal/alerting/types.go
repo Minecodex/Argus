@@ -121,6 +121,7 @@ type TemplateSpec struct {
 }
 
 type Configuration struct {
+	ManagedBy        string          `json:"managed_by,omitempty"`
 	MatchedInstances int64           `json:"matched_instances,omitempty"`
 	ID               uuid.UUID       `json:"id"`
 	Kind             string          `json:"kind"`
@@ -197,13 +198,14 @@ type InstanceState struct {
 	LastSlot             time.Time         `json:"last_slot"`
 	// LastSuccessfulAt dates the successful evaluation that produced Value and
 	// Members. Failed evaluations retain it; it is not a telemetry sample time.
-	LastSuccessfulAt   *time.Time      `json:"last_successful_at,omitempty"`
-	PolicySnapshot     json.RawMessage `json:"policy_snapshot"`
-	NotificationState  string          `json:"notification_state"`
-	NoiseReasons       []string        `json:"noise_reasons"`
-	LastNotificationAt *time.Time      `json:"last_notification_at,omitempty"`
-	ClosureReason      string          `json:"closure_reason,omitempty"`
-	Kind               string          `json:"kind"`
+	LastSuccessfulAt   *time.Time                         `json:"last_successful_at,omitempty"`
+	PolicySnapshot     json.RawMessage                    `json:"policy_snapshot"`
+	NotificationState  string                             `json:"notification_state"`
+	NoiseReasons       []string                           `json:"noise_reasons"`
+	LastNotificationAt *time.Time                         `json:"last_notification_at,omitempty"`
+	ClosureReason      string                             `json:"closure_reason,omitempty"`
+	Kind               string                             `json:"kind"`
+	DeliveryGap        *telemetry.CollectorDeliveryReport `json:"delivery_gap,omitempty"`
 }
 type Instance struct {
 	HandlingVersion int64         `json:"handling_version"`

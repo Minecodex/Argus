@@ -1,0 +1,253 @@
+{
+  "create": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "createKubernetesStreamSession",
+      "summary": "Create a UID-bound terminal or TCP forwarding session",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "201": {
+          "description": "Create a UID-bound terminal or TCP forwarding session",
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-stream-sessions.yaml#/components/schemas/KubernetesStreamTicket"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-stream-sessions.yaml#/components/schemas/KubernetesStreamInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "get": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getKubernetesStreamSession",
+      "summary": "Read current Kubernetes session state",
+      "tags": [
+        "Kubernetes"
+      ],
+      "responses": {
+        "200": {
+          "description": "Read current Kubernetes session state",
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-stream-sessions.yaml#/components/schemas/KubernetesStreamSession"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "close": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "closeKubernetesStreamSession",
+      "summary": "Close a Kubernetes terminal or forwarding session",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Close a Kubernetes terminal or forwarding session",
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-stream-sessions.yaml#/components/schemas/KubernetesStreamSession"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "ticket": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "issueKubernetesStreamTicket",
+      "summary": "Replace the pending one-use Kubernetes stream ticket",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Replace the pending one-use Kubernetes stream ticket",
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-stream-sessions.yaml#/components/schemas/KubernetesStreamTicket"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

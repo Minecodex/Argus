@@ -24,6 +24,7 @@ func executeCollectorManagement(ctx context.Context, payload *anypb.Any, credent
 	if payload == nil || payload.UnmarshalTo(&command) != nil {
 		return nil, collectormanager.ErrInvalidCommand
 	}
+	defer clear(command.PrivateMonitoringConfig)
 	if command.GetResourceType() == "host" && command.GetTargetUsername() == "" && len(credential) == 0 && usePrivilegedCollectorHelper() {
 		return executePrivilegedCollector(ctx, payload)
 	}

@@ -363,13 +363,22 @@ func TestIngressRendersUnifiedHostsWithTLS(t *testing.T) {
 			continue
 		}
 		paths := rule["http"].(map[string]any)["paths"].([]any)
-		wss := paths[0].(map[string]any)
-		if wss["path"] != "/v1/sessions" {
-			t.Fatalf("enterprise host must route /v1/sessions to the gateway, got %#v", paths)
-		}
-		backend := wss["backend"].(map[string]any)["service"].(map[string]any)
-		if backend["name"] != "argus-connector-gateway" {
-			t.Fatalf("remote WSS backend must target argus-connector-gateway, got %#v", backend)
+		for _, endpoint := range []string{"/v1/sessions", "/v1/kubernetes/sessions"} {
+			found := false
+			for _, rawPath := range paths {
+				entry := rawPath.(map[string]any)
+				if entry["path"] != endpoint {
+					continue
+				}
+				found = true
+				backend := entry["backend"].(map[string]any)["service"].(map[string]any)
+				if backend["name"] != "argus-connector-gateway" || backend["port"].(map[string]any)["name"] != "remote-wss" {
+					t.Fatalf("invalid WSS backend for %s: %#v", endpoint, backend)
+				}
+			}
+			if !found {
+				t.Fatalf("enterprise host is missing %s", endpoint)
+			}
 		}
 	}
 	configMap := requireResource(t, resourcesByKind(resources, "ConfigMap"), "argus-web-runtime-config")

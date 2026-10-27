@@ -45,6 +45,7 @@ export function TerminalEmulator({
   onResize,
   sessionId,
   autoFocusKey,
+  chunkOffset = 0,
 }: {
   /** Full output buffer; the source of truth for playback and live output. */
   lines?: TerminalLine[];
@@ -71,6 +72,8 @@ export function TerminalEmulator({
   sessionId?: string;
   /** When this key changes the terminal is refocused (dock reopen, tab switch). */
   autoFocusKey?: string;
+  /** Number of output chunks evicted from a bounded PTY history. */
+  chunkOffset?: number;
 }) {
   const text = useUiText();
   const outputRef = useRef<HTMLDivElement>(null);
@@ -79,6 +82,8 @@ export function TerminalEmulator({
   const onDataRef = useRef(onData);
   const onResizeRef = useRef(onResize);
   const linesRef = useRef(lines);
+  const offsetRef = useRef(chunkOffset);
+  offsetRef.current = chunkOffset;
   const writtenChunksRef = useRef(0);
   const [typed, setTyped] = useState<TerminalLine[]>([]);
   const [draft, setDraft] = useState("");
@@ -135,7 +140,7 @@ export function TerminalEmulator({
       fit.fit();
       terminalRef.current = terminal as unknown as TerminalInstance;
       for (const line of linesRef.current) terminal.write(line.content);
-      writtenChunksRef.current = linesRef.current.length;
+      writtenChunksRef.current = linesRef.current.length + offsetRef.current;
       terminal.focus();
       const data = terminal.onData((value) => onDataRef.current?.(value));
       const resize = terminal.onResize(({ cols, rows }) =>
@@ -161,14 +166,17 @@ export function TerminalEmulator({
     if (mode !== "pty" || !terminalRef.current) return;
     const terminal = terminalRef.current;
     if (!terminal) return;
-    if (lines.length < writtenChunksRef.current) {
+    if (
+      lines.length + chunkOffset < writtenChunksRef.current ||
+      writtenChunksRef.current < chunkOffset
+    ) {
       terminal.clear();
-      writtenChunksRef.current = 0;
+      writtenChunksRef.current = chunkOffset;
     }
-    for (const line of lines.slice(writtenChunksRef.current))
+    for (const line of lines.slice(writtenChunksRef.current - chunkOffset))
       terminal.write(line.content);
-    writtenChunksRef.current = lines.length;
-  }, [lines, mode]);
+    writtenChunksRef.current = lines.length + chunkOffset;
+  }, [lines, mode, chunkOffset]);
 
   const stateText: Record<TerminalState, string> = {
     connected: text("已连接", "Connected"),
@@ -218,7 +226,7 @@ export function TerminalEmulator({
             setTyped([]);
             if (mode === "pty") {
               terminalRef.current?.clear();
-              writtenChunksRef.current = lines.length;
+              writtenChunksRef.current = lines.length + chunkOffset;
             }
           }}
           isIconOnly

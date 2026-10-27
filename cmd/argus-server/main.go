@@ -13,11 +13,15 @@ import (
 
 	serverapp "github.com/kakj-go/Argus/internal/app/server"
 	"github.com/kakj-go/Argus/internal/config"
+	"github.com/kakj-go/Argus/internal/kuberneteshelm"
 	"github.com/kakj-go/Argus/internal/platform"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 )
 
 func main() {
+	if kuberneteshelm.RunRenderCommand(os.Args[1:], os.Stdin, os.Stdout) {
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "admin-reset-password" {
 		os.Exit(runAdminResetPassword(os.Args[2:]))
 	}

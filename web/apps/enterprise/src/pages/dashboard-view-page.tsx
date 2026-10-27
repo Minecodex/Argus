@@ -17,6 +17,7 @@ import {
   Dialog,
   Input,
   ObservationPanel,
+  ObservationDetails,
   PageShell,
   ValueSelector,
 } from "@argus/ui";
@@ -97,6 +98,7 @@ export function DashboardViewPage() {
     dashboardId,
     revision: detail.data?.revision,
     resourceId: search.resource,
+    resourceType: search.resource_type,
     enabled: canRead && !historical,
     execute: (id, input, signal) => api.dashboards.execute(id, input, signal),
     onRevisionChanged: refetchDetail,
@@ -107,23 +109,13 @@ export function DashboardViewPage() {
       ),
   });
   const observed = execution?.resources ?? [];
-  const resourceOptions = Array.from(
-    new Map([
-      ...(hosts.data?.items ?? []).map(
-        (h) => [h.id, { id: h.id, label: h.name }] as const,
-      ),
-      ...(clusters.data?.items ?? []).map(
-        (c) => [c.id, { id: c.id, label: c.name }] as const,
-      ),
-      ...observed
-        .filter(
-          (r) =>
-            !hosts.data?.items.some((h) => h.id === r.id) &&
-            !clusters.data?.items.some((c) => c.id === r.id),
-        )
-        .map((r) => [r.id, { id: r.id, label: r.id }] as const),
-    ]).values(),
-  );
+  const resourceOptions = observed.map((row) => ({
+    id: row.id,
+    label:
+      hosts.data?.items.find((host) => host.id === row.id)?.name ??
+      clusters.data?.items.find((cluster) => cluster.id === row.id)?.name ??
+      row.id,
+  }));
   const view = historical ?? detail.data?.revision;
   const entryType =
     search.resource_type ??
@@ -227,7 +219,11 @@ export function DashboardViewPage() {
               isDisabled={detail.data.dashboard.lifecycle !== "active"}
               onPress={() => void edit()}
             >
-              {t("dashboards.edit")}
+              {t(
+                detail.data.dashboard.managed_template_key
+                  ? "managedDashboards.copy"
+                  : "dashboards.edit",
+              )}
             </Button>
           )}
           {!historical && <DashboardLinkedResources id={dashboardId} />}
@@ -248,6 +244,15 @@ export function DashboardViewPage() {
           description={error}
         />
       )}
+      {detail.data.dashboard.managed_template_key && (
+        <Alert
+          tone="info"
+          title={t("managedDashboards.version", {
+            version: detail.data.dashboard.managed_template_version,
+          })}
+          description={t("managedDashboards.hint")}
+        />
+      )}
       {historical ? (
         <Button onPress={() => setHistorical(null)}>
           {t("dashboards.currentVersion")}
@@ -259,14 +264,11 @@ export function DashboardViewPage() {
           time={timeRange}
           bounds={bounds.current}
           execution={execution}
-          resources={resourceOptions}
           busy={busy}
           refreshSeconds={refreshSeconds}
           onRefreshSeconds={setRefreshSeconds}
           onTime={(range) => void run(latest.current, undefined, range)}
-          onResources={(resource_ids) =>
-            apply({ ...latest.current, resource_ids })
-          }
+          onScope={(scope) => apply({ ...latest.current, ...scope })}
           onVariable={applyVariable}
           onRefresh={() => void run(latest.current)}
         />
@@ -287,7 +289,17 @@ export function DashboardViewPage() {
           </p>
         )}
       <DashboardGrid
-        items={view.spec.panels}
+        items={
+          detail.data.dashboard.managed_template_key
+            ? view.spec.panels.map((panel) => ({
+                ...panel,
+                title: t(
+                  `managedDashboards.metrics.${["host.processes", "host.systemd", "host.windows_services"].includes(detail.data.dashboard.managed_template_key!) ? detail.data.dashboard.managed_template_key!.replace(".", "_") : detail.data.dashboard.managed_template_key!.split(".")[0]}.${panel.id}`,
+                  { defaultValue: panel.title },
+                ),
+              }))
+            : view.spec.panels
+        }
         rowHeight={view.spec.layout.row_height}
       >
         {(panel) => (
@@ -508,11 +520,23 @@ export function DashboardViewPage() {
           open
           onOpenChange={(open) => !open && setExpanded(undefined)}
           title={expanded.title}
+          titleExtra={
+            <ObservationDetails
+              title={expanded.title}
+              targets={
+                execution?.panels.find((p) => p.id === expanded.id)?.targets ??
+                []
+              }
+              signal={expanded.signal}
+              display={expanded.display}
+            />
+          }
           width={1200}
         >
           <div className="argus-dashboard-detail-content">
             <ObservationPanel
               title={expanded.title}
+              details="external"
               type={expanded.type}
               signal={expanded.signal}
               unit={expanded.unit}

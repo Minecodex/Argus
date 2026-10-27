@@ -34,12 +34,14 @@ func (r *topologyCoverage) CyclicSpanCount() float64      { return float64(r.cyc
 func (r *topologyCoverage) MissingServiceCount() float64  { return float64(r.missingService) }
 func (r *topologyCoverage) UnknownSourceCount() float64   { return float64(r.unknownSource) }
 
-type topologyNode struct{ id, source, resource, service string }
+type topologyNode struct{ id, source, resource, service, serviceID, serviceNamespace string }
 
-func (r *topologyNode) ID() string          { return r.id }
-func (r *topologyNode) SourceID() string    { return r.source }
-func (r *topologyNode) ResourceID() string  { return r.resource }
-func (r *topologyNode) ServiceName() string { return r.service }
+func (r *topologyNode) ID() string               { return r.id }
+func (r *topologyNode) SourceID() string         { return r.source }
+func (r *topologyNode) ResourceID() string       { return r.resource }
+func (r *topologyNode) ServiceName() string      { return r.service }
+func (r *topologyNode) ServiceID() string        { return r.serviceID }
+func (r *topologyNode) ServiceNamespace() string { return r.serviceNamespace }
 
 type topologyEdge struct {
 	from, to  string
@@ -59,6 +61,7 @@ func (r *topologyEdge) DurationMeanMs() *float64   { return r.stats.DurationMean
 func (r *topologyEdge) DurationP95Ms() *float64    { return r.stats.DurationP95Ms() }
 
 type topologySpan struct {
+	serviceID, serviceNamespace                                                                           string
 	resource, source, sourceType, trace, id, parent, service, operation, status, instanceID, instanceName string
 	kind                                                                                                  uint8
 	duration                                                                                              uint64
@@ -67,6 +70,6 @@ type topologySpan struct {
 func (s topologySpan) key() string       { return s.resource + "/" + s.source + "/" + s.trace + "/" + s.id }
 func (s topologySpan) parentKey() string { return s.trace + "/" + s.parent }
 func (s topologySpan) node() *topologyNode {
-	hash := sha256.Sum256([]byte(s.resource + "\x00" + s.source + "\x00" + s.service))
-	return &topologyNode{id: hex.EncodeToString(hash[:]), resource: s.resource, source: s.source, service: s.service}
+	hash := sha256.Sum256([]byte(s.resource + "\x00" + s.source + "\x00" + s.serviceID + "\x00" + s.serviceNamespace + "\x00" + s.service))
+	return &topologyNode{id: hex.EncodeToString(hash[:]), resource: s.resource, source: s.source, service: s.service, serviceID: s.serviceID, serviceNamespace: s.serviceNamespace}
 }

@@ -216,36 +216,25 @@ test("dashboard access is granted and removed through the existing authorization
   const user = page.getByRole("row").filter({ hasText: "@chenxi" });
   await selectRowAction(user, "数据授权");
   const drawer = page.getByRole("dialog", { name: /^数据授权/ });
-  await drawer.getByRole("button", { name: "仪表盘", exact: true }).click();
-  await drawer
-    .getByRole("checkbox", {
-      name: "Shared application dashboard",
-      exact: true,
-    })
-    .locator('xpath=ancestor::*[@data-slot="checkbox-content"]')
-    .click();
-  await drawer.getByRole("button", { name: "批量移动", exact: true }).click();
+  await drawer.getByRole("tab", { name: "仪表盘", exact: true }).click();
+  const grantedRow = drawer.getByRole("row").filter({
+    has: page.getByText("Shared application dashboard", { exact: true }),
+  });
+  await grantedRow.getByRole("button", { name: "授予", exact: true }).click();
   await drawer.getByRole("button", { name: "保存", exact: true }).click();
   await expect(drawer).not.toBeVisible();
   await selectRowAction(user, "数据授权");
-  await drawer.getByRole("button", { name: "仪表盘", exact: true }).click();
-  const authorized = drawer
-    .locator(".argus-dual-list__columns > section")
-    .nth(1);
-  await expect(authorized).toContainText("Shared application dashboard");
-  await authorized
-    .getByRole("checkbox", {
-      name: "Shared application dashboard",
-      exact: true,
-    })
-    .locator('xpath=ancestor::*[@data-slot="checkbox-content"]')
+  await drawer.getByRole("tab", { name: "仪表盘", exact: true }).click();
+  await grantedRow
+    .getByRole("button", { name: "撤销直接授权", exact: true })
     .click();
-  await drawer.getByRole("button", { name: "批量移除", exact: true }).click();
   await drawer.getByRole("button", { name: "保存", exact: true }).click();
   await expect(drawer).not.toBeVisible();
   await selectRowAction(user, "数据授权");
-  await drawer.getByRole("button", { name: "仪表盘", exact: true }).click();
-  await expect(authorized).not.toContainText("Shared application dashboard");
+  await drawer.getByRole("tab", { name: "仪表盘", exact: true }).click();
+  await expect(
+    grantedRow.getByRole("button", { name: "授予", exact: true }),
+  ).toBeVisible();
 });
 
 for (const resource of [
@@ -299,24 +288,22 @@ for (const resource of [
       .click();
     await expect(page).toHaveURL(new RegExp(`resource=${resource.first}`));
     await expect(
-      page.getByRole("button", { name: "资源范围", exact: false }),
+      page.getByRole("button", { name: /^选择资源:/ }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "资源范围", exact: true }).click();
+    await page.getByRole("button", { name: /^选择资源:/ }).click();
     const scope = page.getByRole("dialog", { name: "选择资源" });
     await scope
-      .getByRole("checkbox", { name: resource.first, exact: true })
-      .locator('xpath=ancestor::*[@data-slot="checkbox-content"]')
+      .getByRole("button", { name: `选择 ${resource.first}`, exact: true })
       .click();
     await scope
-      .getByRole("checkbox", { name: resource.second, exact: true })
-      .locator('xpath=ancestor::*[@data-slot="checkbox-content"]')
+      .getByRole("button", { name: `选择 ${resource.second}`, exact: true })
       .click();
-    await scope.getByRole("button", { name: "应用", exact: true }).click();
+    await scope.getByRole("button", { name: /^确认选择/ }).click();
     await expect(
-      page.getByRole("button", { name: "资源范围", exact: true }),
-    ).toContainText(resource.second);
+      page.getByRole("button", { name: /^选择资源:/ }),
+    ).toContainText("已选 1 个资源");
     await expect(
-      page.getByRole("button", { name: "资源范围", exact: false }),
+      page.getByRole("button", { name: /^选择资源:/ }),
     ).toBeVisible();
     await page.goto(resource.path);
     await page.getByRole("tab", { name: "仪表盘", exact: true }).click();

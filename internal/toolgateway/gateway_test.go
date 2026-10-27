@@ -42,6 +42,44 @@ func testGateway(t *testing.T, count int) (*Gateway, *toolruntime.Set) {
 	return g, s
 }
 
+func TestNativeToolVersionFreezesSchemaPermissionsAndExecutionContract(t *testing.T) {
+	version := func(change func(*mcp.Metadata)) string {
+		t.Helper()
+		meta := mcp.Metadata{ID: "host.inspect_contract", Discovery: fixtureDiscovery("host.inspect_contract"), Risk: "read", Visibility: mcp.Visible, ExecutionMode: mcp.ParallelSafe, MaxResultBytes: 1024, Required: []string{"host.read"}, InputVersion: "1", OutputVersion: "1", InputSchema: object([]string{}, map[string]any{"limit": map[string]any{"type": "integer", "maximum": 10}}), OutputSchema: map[string]any{"type": "object"}, Execute: func(context.Context, mcp.Call) (mcp.Result, error) { return mcp.Result{}, nil }}
+		if change != nil {
+			change(&meta)
+		}
+		reg := mcp.NewRegistry()
+		if err := reg.Register(meta); err != nil {
+			t.Fatal(err)
+		}
+		gateway, err := New(reg, "same-implementation")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return gateway.manifests[0].Version
+	}
+	before := version(nil)
+	for _, change := range []func(*mcp.Metadata){
+		func(m *mcp.Metadata) {
+			m.InputSchema["properties"].(map[string]any)["limit"].(map[string]any)["maximum"] = 20
+		},
+		func(m *mcp.Metadata) {
+			m.OutputSchema = map[string]any{"type": "object", "required": []string{"items"}}
+		},
+		func(m *mcp.Metadata) { m.Required = []string{"host.manage"} },
+		func(m *mcp.Metadata) { m.AnyRequired = []string{"host.manage"} },
+		func(m *mcp.Metadata) { m.ExecutionMode = mcp.Sequential },
+	} {
+		if version(change) == before {
+			t.Fatal("changed contract reused a previously described tool version")
+		}
+	}
+	if version(nil) != before {
+		t.Fatal("unchanged contract hash was unstable")
+	}
+}
+
 func TestNativeDiscoveryCompleteAuthorizedAndConstantSchemas(t *testing.T) {
 	var schemaBytes int
 	for _, size := range []int{1, 500, 1000} {

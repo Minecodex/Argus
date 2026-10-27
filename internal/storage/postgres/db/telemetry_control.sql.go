@@ -262,8 +262,8 @@ func (q *Queries) ConfirmKubernetesNodeHostBinding(ctx context.Context, arg Conf
 }
 
 const consumeTelemetryEnrollmentToken = `-- name: ConsumeTelemetryEnrollmentToken :one
-UPDATE telemetry_enrollment_tokens SET consumed_at = now()
-WHERE id = $1 AND consumed_at IS NULL AND expires_at > now()
+UPDATE telemetry_enrollment_tokens SET consumed_at = statement_timestamp()
+WHERE id = $1 AND consumed_at IS NULL AND expires_at > statement_timestamp()
 RETURNING id, collector_id, token_hash, expires_at, consumed_at, created_at
 `
 
@@ -285,7 +285,7 @@ const createCollectionClaim = `-- name: CreateCollectionClaim :one
 INSERT INTO collection_claims (
   id, enterprise_id, physical_resource_ref, collector_id, profile_id,
   claim_type, signal, selector, selector_hash, ownership, status
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'primary','active') RETURNING id, enterprise_id, physical_resource_ref, collector_id, profile_id, claim_type, signal, selector, selector_hash, ownership, status, primary_claim_id, rollback_plan, expires_at, created_at
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'primary','active') RETURNING id, enterprise_id, physical_resource_ref, collector_id, profile_id, claim_type, signal, selector, selector_hash, ownership, status, primary_claim_id, rollback_plan, expires_at, created_at, collection_id, assignment_epoch, config_revision
 `
 
 type CreateCollectionClaimParams struct {
@@ -329,6 +329,9 @@ func (q *Queries) CreateCollectionClaim(ctx context.Context, arg CreateCollectio
 		&i.RollbackPlan,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.CollectionID,
+		&i.AssignmentEpoch,
+		&i.ConfigRevision,
 	)
 	return i, err
 }
@@ -379,7 +382,7 @@ INSERT INTO collection_claims (
   id, enterprise_id, physical_resource_ref, collector_id, profile_id,
   claim_type, signal, selector, selector_hash, ownership, status,
   primary_claim_id, rollback_plan, expires_at
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'migration','active',$10,$11,$12) RETURNING id, enterprise_id, physical_resource_ref, collector_id, profile_id, claim_type, signal, selector, selector_hash, ownership, status, primary_claim_id, rollback_plan, expires_at, created_at
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'migration','active',$10,$11,$12) RETURNING id, enterprise_id, physical_resource_ref, collector_id, profile_id, claim_type, signal, selector, selector_hash, ownership, status, primary_claim_id, rollback_plan, expires_at, created_at, collection_id, assignment_epoch, config_revision
 `
 
 type CreateMigrationCollectionClaimParams struct {
@@ -429,6 +432,9 @@ func (q *Queries) CreateMigrationCollectionClaim(ctx context.Context, arg Create
 		&i.RollbackPlan,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.CollectionID,
+		&i.AssignmentEpoch,
+		&i.ConfigRevision,
 	)
 	return i, err
 }
@@ -546,15 +552,18 @@ func (q *Queries) CreateTelemetryCollectorOperation(ctx context.Context, arg Cre
 }
 
 const createTelemetryEnrollmentToken = `-- name: CreateTelemetryEnrollmentToken :one
-INSERT INTO telemetry_enrollment_tokens (id, collector_id, token_hash, expires_at)
-VALUES ($1,$2,$3,$4) RETURNING id, collector_id, token_hash, expires_at, consumed_at, created_at
+INSERT INTO telemetry_enrollment_tokens (id, collector_id, token_hash, created_at, expires_at)
+SELECT $1,$2,$3,statement_timestamp(),
+       statement_timestamp()+($4::integer * interval '1 second')
+WHERE $4::integer BETWEEN 1 AND 600
+RETURNING id, collector_id, token_hash, expires_at, consumed_at, created_at
 `
 
 type CreateTelemetryEnrollmentTokenParams struct {
-	ID          uuid.UUID          `json:"id"`
-	CollectorID uuid.UUID          `json:"collector_id"`
-	TokenHash   []byte             `json:"token_hash"`
-	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	ID              uuid.UUID `json:"id"`
+	CollectorID     uuid.UUID `json:"collector_id"`
+	TokenHash       []byte    `json:"token_hash"`
+	LifetimeSeconds int32     `json:"lifetime_seconds"`
 }
 
 func (q *Queries) CreateTelemetryEnrollmentToken(ctx context.Context, arg CreateTelemetryEnrollmentTokenParams) (TelemetryEnrollmentToken, error) {
@@ -562,7 +571,7 @@ func (q *Queries) CreateTelemetryEnrollmentToken(ctx context.Context, arg Create
 		arg.ID,
 		arg.CollectorID,
 		arg.TokenHash,
-		arg.ExpiresAt,
+		arg.LifetimeSeconds,
 	)
 	var i TelemetryEnrollmentToken
 	err := row.Scan(
@@ -646,17 +655,49 @@ func (q *Queries) ExpireCollectionClaimMigrations(ctx context.Context) (int64, e
 	return result.RowsAffected(), nil
 }
 
-const expireTelemetryCollectorOperations = `-- name: ExpireTelemetryCollectorOperations :execrows
+const expireCollectorOperationsForProjection = `-- name: ExpireCollectorOperationsForProjection :many
 UPDATE telemetry_collector_operations SET status = 'expired', error_code = 'COLLECTOR_OPERATION_EXPIRED', completed_at = now(), updated_at = now()
-WHERE status = 'queued' AND expires_at <= now()
+WHERE status = 'queued' AND expires_at <= now() RETURNING id, enterprise_id, collector_id, pending_action_id, operation, executor_kind, status, plan, plan_hash, lease_owner, fence, lease_expires_at, result_hash, error_code, attempts, expires_at, created_at, updated_at, completed_at
 `
 
-func (q *Queries) ExpireTelemetryCollectorOperations(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, expireTelemetryCollectorOperations)
+func (q *Queries) ExpireCollectorOperationsForProjection(ctx context.Context) ([]TelemetryCollectorOperation, error) {
+	rows, err := q.db.Query(ctx, expireCollectorOperationsForProjection)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+	items := []TelemetryCollectorOperation{}
+	for rows.Next() {
+		var i TelemetryCollectorOperation
+		if err := rows.Scan(
+			&i.ID,
+			&i.EnterpriseID,
+			&i.CollectorID,
+			&i.PendingActionID,
+			&i.Operation,
+			&i.ExecutorKind,
+			&i.Status,
+			&i.Plan,
+			&i.PlanHash,
+			&i.LeaseOwner,
+			&i.Fence,
+			&i.LeaseExpiresAt,
+			&i.ResultHash,
+			&i.ErrorCode,
+			&i.Attempts,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const finalizeCollectorClaimMigrations = `-- name: FinalizeCollectorClaimMigrations :execrows
@@ -666,9 +707,12 @@ WITH migrations AS (
 ), released AS (
   UPDATE collection_claims AS primary_claim SET status = 'released'
   WHERE primary_claim.id IN (SELECT migration.primary_claim_id FROM migrations AS migration) AND primary_claim.status = 'active'
+  RETURNING primary_claim.id
 )
 UPDATE collection_claims AS migration_claim SET ownership = 'primary', primary_claim_id = NULL, rollback_plan = NULL, expires_at = NULL
 WHERE migration_claim.id IN (SELECT migration.id FROM migrations AS migration)
+ AND (migration_claim.primary_claim_id IN (SELECT id FROM released)
+  OR NOT EXISTS(SELECT 1 FROM collection_claims previous WHERE previous.id=migration_claim.primary_claim_id AND previous.status='active'))
 `
 
 type FinalizeCollectorClaimMigrationsParams struct {
@@ -738,7 +782,7 @@ func (q *Queries) FinishTelemetryCollectorOperation(ctx context.Context, arg Fin
 }
 
 const getActivePrimaryCollectionClaim = `-- name: GetActivePrimaryCollectionClaim :one
-SELECT id, enterprise_id, physical_resource_ref, collector_id, profile_id, claim_type, signal, selector, selector_hash, ownership, status, primary_claim_id, rollback_plan, expires_at, created_at FROM collection_claims
+SELECT id, enterprise_id, physical_resource_ref, collector_id, profile_id, claim_type, signal, selector, selector_hash, ownership, status, primary_claim_id, rollback_plan, expires_at, created_at, collection_id, assignment_epoch, config_revision FROM collection_claims
 WHERE enterprise_id = $1 AND physical_resource_ref = $2 AND claim_type = $3
   AND selector_hash = $4 AND ownership = 'primary' AND status = 'active'
 FOR UPDATE
@@ -775,6 +819,9 @@ func (q *Queries) GetActivePrimaryCollectionClaim(ctx context.Context, arg GetAc
 		&i.RollbackPlan,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.CollectionID,
+		&i.AssignmentEpoch,
+		&i.ConfigRevision,
 	)
 	return i, err
 }
@@ -1094,7 +1141,9 @@ func (q *Queries) GetTelemetryCollectorOperation(ctx context.Context, arg GetTel
 }
 
 const getTelemetryEnrollmentTokenForUpdate = `-- name: GetTelemetryEnrollmentTokenForUpdate :one
-SELECT id, collector_id, token_hash, expires_at, consumed_at, created_at FROM telemetry_enrollment_tokens WHERE token_hash = $1 FOR UPDATE
+SELECT id, collector_id, token_hash, expires_at, consumed_at, created_at FROM telemetry_enrollment_tokens
+WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > statement_timestamp()
+FOR UPDATE
 `
 
 func (q *Queries) GetTelemetryEnrollmentTokenForUpdate(ctx context.Context, tokenHash []byte) (TelemetryEnrollmentToken, error) {
@@ -1312,7 +1361,7 @@ func (q *Queries) LimitTelemetryCertificateOverlap(ctx context.Context, arg Limi
 }
 
 const listCollectionClaims = `-- name: ListCollectionClaims :many
-SELECT id, enterprise_id, physical_resource_ref, collector_id, profile_id, claim_type, signal, selector, selector_hash, ownership, status, primary_claim_id, rollback_plan, expires_at, created_at FROM collection_claims
+SELECT id, enterprise_id, physical_resource_ref, collector_id, profile_id, claim_type, signal, selector, selector_hash, ownership, status, primary_claim_id, rollback_plan, expires_at, created_at, collection_id, assignment_epoch, config_revision FROM collection_claims
 WHERE enterprise_id = $1
 	AND ($2::text IS NULL
 		OR physical_resource_ref = 'host:' || $2
@@ -1350,6 +1399,9 @@ func (q *Queries) ListCollectionClaims(ctx context.Context, arg ListCollectionCl
 			&i.RollbackPlan,
 			&i.ExpiresAt,
 			&i.CreatedAt,
+			&i.CollectionID,
+			&i.AssignmentEpoch,
+			&i.ConfigRevision,
 		); err != nil {
 			return nil, err
 		}
@@ -1521,17 +1573,19 @@ func (q *Queries) MarkCollectorConfigApplying(ctx context.Context, arg MarkColle
 }
 
 const markCollectorConfigEffective = `-- name: MarkCollectorConfigEffective :execrows
-UPDATE collector_config_revisions SET status = 'effective', applied_at = now()
-WHERE collector_id = $1 AND revision = $2 AND status IN ('prepared','applying')
+UPDATE collector_config_revisions SET status = 'effective', failure_code=NULL, applied_at = COALESCE(applied_at,now())
+WHERE collector_id = $1 AND revision = $2
+ AND (status IN ('prepared','applying','effective') OR ($3::boolean AND status='failed'))
 `
 
 type MarkCollectorConfigEffectiveParams struct {
 	CollectorID uuid.UUID `json:"collector_id"`
 	Revision    int64     `json:"revision"`
+	Reconciled  bool      `json:"reconciled"`
 }
 
 func (q *Queries) MarkCollectorConfigEffective(ctx context.Context, arg MarkCollectorConfigEffectiveParams) (int64, error) {
-	result, err := q.db.Exec(ctx, markCollectorConfigEffective, arg.CollectorID, arg.Revision)
+	result, err := q.db.Exec(ctx, markCollectorConfigEffective, arg.CollectorID, arg.Revision, arg.Reconciled)
 	if err != nil {
 		return 0, err
 	}
@@ -1707,101 +1761,48 @@ func (q *Queries) RecordTelemetryDLQ(ctx context.Context, arg RecordTelemetryDLQ
 	return i, err
 }
 
-const recoverTelemetryCollectorOperations = `-- name: RecoverTelemetryCollectorOperations :execrows
+const recoverCollectorOperationsForProjection = `-- name: RecoverCollectorOperationsForProjection :many
 UPDATE telemetry_collector_operations SET status = 'result_unknown', lease_owner = NULL,
   lease_expires_at = NULL, error_code = 'EXECUTION_RESULT_UNKNOWN', updated_at = now()
-WHERE status = 'running' AND lease_expires_at <= now()
+WHERE status = 'running' AND lease_expires_at <= now() RETURNING id, enterprise_id, collector_id, pending_action_id, operation, executor_kind, status, plan, plan_hash, lease_owner, fence, lease_expires_at, result_hash, error_code, attempts, expires_at, created_at, updated_at, completed_at
 `
 
-func (q *Queries) RecoverTelemetryCollectorOperations(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, recoverTelemetryCollectorOperations)
+func (q *Queries) RecoverCollectorOperationsForProjection(ctx context.Context) ([]TelemetryCollectorOperation, error) {
+	rows, err := q.db.Query(ctx, recoverCollectorOperationsForProjection)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
-}
-
-const releaseCollectorClaims = `-- name: ReleaseCollectorClaims :exec
-UPDATE collection_claims SET status = 'released'
-WHERE enterprise_id = $1 AND collector_id = $2 AND status IN ('active','conflict')
-`
-
-type ReleaseCollectorClaimsParams struct {
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
-	CollectorID  uuid.UUID `json:"collector_id"`
-}
-
-func (q *Queries) ReleaseCollectorClaims(ctx context.Context, arg ReleaseCollectorClaimsParams) error {
-	_, err := q.db.Exec(ctx, releaseCollectorClaims, arg.EnterpriseID, arg.CollectorID)
-	return err
-}
-
-const revokeCollectorCertificates = `-- name: RevokeCollectorCertificates :exec
-UPDATE telemetry_certificates SET revoked_at = now(), revoke_reason = $2
-WHERE collector_id = $1 AND revoked_at IS NULL
-`
-
-type RevokeCollectorCertificatesParams struct {
-	CollectorID  uuid.UUID   `json:"collector_id"`
-	RevokeReason pgtype.Text `json:"revoke_reason"`
-}
-
-func (q *Queries) RevokeCollectorCertificates(ctx context.Context, arg RevokeCollectorCertificatesParams) error {
-	_, err := q.db.Exec(ctx, revokeCollectorCertificates, arg.CollectorID, arg.RevokeReason)
-	return err
-}
-
-const rollbackCollectorClaimMigrations = `-- name: RollbackCollectorClaimMigrations :execrows
-UPDATE collection_claims SET status = 'expired'
-WHERE enterprise_id = $1 AND collector_id = $2 AND ownership = 'migration' AND status = 'active'
-`
-
-type RollbackCollectorClaimMigrationsParams struct {
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
-	CollectorID  uuid.UUID `json:"collector_id"`
-}
-
-func (q *Queries) RollbackCollectorClaimMigrations(ctx context.Context, arg RollbackCollectorClaimMigrationsParams) (int64, error) {
-	result, err := q.db.Exec(ctx, rollbackCollectorClaimMigrations, arg.EnterpriseID, arg.CollectorID)
-	if err != nil {
-		return 0, err
+	defer rows.Close()
+	items := []TelemetryCollectorOperation{}
+	for rows.Next() {
+		var i TelemetryCollectorOperation
+		if err := rows.Scan(
+			&i.ID,
+			&i.EnterpriseID,
+			&i.CollectorID,
+			&i.PendingActionID,
+			&i.Operation,
+			&i.ExecutorKind,
+			&i.Status,
+			&i.Plan,
+			&i.PlanHash,
+			&i.LeaseOwner,
+			&i.Fence,
+			&i.LeaseExpiresAt,
+			&i.ResultHash,
+			&i.ErrorCode,
+			&i.Attempts,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
-	return result.RowsAffected(), nil
-}
-
-const supersedeCollectorConfigRevisions = `-- name: SupersedeCollectorConfigRevisions :exec
-UPDATE collector_config_revisions SET status = 'superseded'
-WHERE collector_id = $1 AND status IN ('prepared','applying','effective')
-`
-
-func (q *Queries) SupersedeCollectorConfigRevisions(ctx context.Context, collectorID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, supersedeCollectorConfigRevisions, collectorID)
-	return err
-}
-
-const upsertCollectorForAction = `-- name: UpsertCollectorForAction :one
-INSERT INTO collector_instances (
-  id, enterprise_id, resource_type, resource_id, distribution_version_id,
-  platform, role, status, desired_revision, effective_revision
-) VALUES ($1,$2,$3,$4,$5,$6,$7,'installing',1,0)
-ON CONFLICT (enterprise_id, resource_type, resource_id) DO UPDATE SET
-  distribution_version_id = EXCLUDED.distribution_version_id,
-  platform = EXCLUDED.platform,
-  role = EXCLUDED.role,
-  source_generation = CASE WHEN collector_instances.status = 'uninstalled' THEN gen_random_uuid() ELSE collector_instances.source_generation END,
-  status = 'installing',
-  desired_revision = collector_instances.desired_revision + 1,
-  version = collector_instances.version + 1,
-  updated_at = now()
-RETURNING id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at, source_generation
-`
-
-type UpsertCollectorForActionParams struct {
-	ID                    uuid.UUID `json:"id"`
-	EnterpriseID          uuid.UUID `json:"enterprise_id"`
-	ResourceType          string    `json:"resource_type"`
-	ResourceID            uuid.UUID `json:"resource_id"`
-	DistributionVersionID uuid.UUID `json:"distribution_version_id"`
-	Platform              string    `json:"platform"`
-	Role                  string    `json:"role"`
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

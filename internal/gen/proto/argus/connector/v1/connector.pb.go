@@ -42,6 +42,7 @@ type ConnectRequest struct {
 	//	*ConnectRequest_RemoteAccessClose
 	//	*ConnectRequest_TelemetryTunnelStatusSet
 	//	*ConnectRequest_TrustBundleAcknowledge
+	//	*ConnectRequest_KubernetesHelmWriteRequest
 	Frame         isConnectRequest_Frame `protobuf_oneof:"frame"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -208,6 +209,15 @@ func (x *ConnectRequest) GetTrustBundleAcknowledge() *TrustBundleAcknowledge {
 	return nil
 }
 
+func (x *ConnectRequest) GetKubernetesHelmWriteRequest() *KubernetesHelmWriteRequest {
+	if x != nil {
+		if x, ok := x.Frame.(*ConnectRequest_KubernetesHelmWriteRequest); ok {
+			return x.KubernetesHelmWriteRequest
+		}
+	}
+	return nil
+}
+
 type isConnectRequest_Frame interface {
 	isConnectRequest_Frame()
 }
@@ -264,6 +274,10 @@ type ConnectRequest_TrustBundleAcknowledge struct {
 	TrustBundleAcknowledge *TrustBundleAcknowledge `protobuf:"bytes,15,opt,name=trust_bundle_acknowledge,json=trustBundleAcknowledge,proto3,oneof"`
 }
 
+type ConnectRequest_KubernetesHelmWriteRequest struct {
+	KubernetesHelmWriteRequest *KubernetesHelmWriteRequest `protobuf:"bytes,16,opt,name=kubernetes_helm_write_request,json=kubernetesHelmWriteRequest,proto3,oneof"`
+}
+
 func (*ConnectRequest_Hello) isConnectRequest_Frame() {}
 
 func (*ConnectRequest_Heartbeat) isConnectRequest_Frame() {}
@@ -290,6 +304,8 @@ func (*ConnectRequest_TelemetryTunnelStatusSet) isConnectRequest_Frame() {}
 
 func (*ConnectRequest_TrustBundleAcknowledge) isConnectRequest_Frame() {}
 
+func (*ConnectRequest_KubernetesHelmWriteRequest) isConnectRequest_Frame() {}
+
 type ConnectResponse struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Sequence uint64                 `protobuf:"varint,1,opt,name=sequence,proto3" json:"sequence,omitempty"`
@@ -310,6 +326,7 @@ type ConnectResponse struct {
 	//	*ConnectResponse_RemoteAccessState
 	//	*ConnectResponse_TelemetryTunnelDesiredSet
 	//	*ConnectResponse_TrustBundleUpdate
+	//	*ConnectResponse_KubernetesHelmWriteGrant
 	Frame         isConnectResponse_Frame `protobuf_oneof:"frame"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -494,6 +511,15 @@ func (x *ConnectResponse) GetTrustBundleUpdate() *TrustBundleUpdate {
 	return nil
 }
 
+func (x *ConnectResponse) GetKubernetesHelmWriteGrant() *KubernetesHelmWriteGrant {
+	if x != nil {
+		if x, ok := x.Frame.(*ConnectResponse_KubernetesHelmWriteGrant); ok {
+			return x.KubernetesHelmWriteGrant
+		}
+	}
+	return nil
+}
+
 type isConnectResponse_Frame interface {
 	isConnectResponse_Frame()
 }
@@ -558,6 +584,10 @@ type ConnectResponse_TrustBundleUpdate struct {
 	TrustBundleUpdate *TrustBundleUpdate `protobuf:"bytes,16,opt,name=trust_bundle_update,json=trustBundleUpdate,proto3,oneof"`
 }
 
+type ConnectResponse_KubernetesHelmWriteGrant struct {
+	KubernetesHelmWriteGrant *KubernetesHelmWriteGrant `protobuf:"bytes,17,opt,name=kubernetes_helm_write_grant,json=kubernetesHelmWriteGrant,proto3,oneof"`
+}
+
 func (*ConnectResponse_Welcome) isConnectResponse_Frame() {}
 
 func (*ConnectResponse_Command) isConnectResponse_Frame() {}
@@ -587,6 +617,8 @@ func (*ConnectResponse_RemoteAccessState) isConnectResponse_Frame() {}
 func (*ConnectResponse_TelemetryTunnelDesiredSet) isConnectResponse_Frame() {}
 
 func (*ConnectResponse_TrustBundleUpdate) isConnectResponse_Frame() {}
+
+func (*ConnectResponse_KubernetesHelmWriteGrant) isConnectResponse_Frame() {}
 
 type ConnectorHello struct {
 	state                          protoimpl.MessageState `protogen:"open.v1"`
@@ -1356,7 +1388,8 @@ var File_argus_connector_v1_connector_proto protoreflect.FileDescriptor
 
 const file_argus_connector_v1_connector_proto_rawDesc = "" +
 	"\n" +
-	"\"argus/connector/v1/connector.proto\x12\x12argus.connector.v1\x1a\x1cargus/common/v1/common.proto\x1a!argus/connector/v1/commands.proto\x1a argus/connector/v1/control.proto\x1a&argus/connector/v1/remote_access.proto\x1a)argus/connector/v1/telemetry_tunnel.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd5\t\n" +
+	"\"argus/connector/v1/connector.proto\x12\x12argus.connector.v1\x1a\x1cargus/common/v1/common.proto\x1a!argus/connector/v1/commands.proto\x1a argus/connector/v1/control.proto\x1a(argus/connector/v1/kubernetes_helm.proto\x1a&argus/connector/v1/remote_access.proto\x1a)argus/connector/v1/telemetry_tunnel.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xca\n" +
+	"\n" +
 	"\x0eConnectRequest\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x04R\bsequence\x12:\n" +
 	"\x05hello\x18\x02 \x01(\v2\".argus.connector.v1.ConnectorHelloH\x00R\x05hello\x12F\n" +
@@ -1372,9 +1405,9 @@ const file_argus_connector_v1_connector_proto_rawDesc = "" +
 	"\x13remote_access_state\x18\f \x01(\v2%.argus.connector.v1.RemoteAccessStateH\x00R\x11remoteAccessState\x12W\n" +
 	"\x13remote_access_close\x18\r \x01(\v2%.argus.connector.v1.RemoteAccessCloseH\x00R\x11remoteAccessClose\x12m\n" +
 	"\x1btelemetry_tunnel_status_set\x18\x0e \x01(\v2,.argus.connector.v1.TelemetryTunnelStatusSetH\x00R\x18telemetryTunnelStatusSet\x12f\n" +
-	"\x18trust_bundle_acknowledge\x18\x0f \x01(\v2*.argus.connector.v1.TrustBundleAcknowledgeH\x00R\x16trustBundleAcknowledgeB\a\n" +
-	"\x05frameJ\x04\b\v\x10\f\"\xd4\n" +
-	"\n" +
+	"\x18trust_bundle_acknowledge\x18\x0f \x01(\v2*.argus.connector.v1.TrustBundleAcknowledgeH\x00R\x16trustBundleAcknowledge\x12s\n" +
+	"\x1dkubernetes_helm_write_request\x18\x10 \x01(\v2..argus.connector.v1.KubernetesHelmWriteRequestH\x00R\x1akubernetesHelmWriteRequestB\a\n" +
+	"\x05frameJ\x04\b\v\x10\f\"\xc3\v\n" +
 	"\x0fConnectResponse\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x04R\bsequence\x12@\n" +
 	"\awelcome\x18\x02 \x01(\v2$.argus.connector.v1.ConnectorWelcomeH\x00R\awelcome\x12@\n" +
@@ -1392,7 +1425,8 @@ const file_argus_connector_v1_connector_proto_rawDesc = "" +
 	"\x14remote_access_resize\x18\r \x01(\v2&.argus.connector.v1.RemoteAccessResizeH\x00R\x12remoteAccessResize\x12W\n" +
 	"\x13remote_access_state\x18\x0e \x01(\v2%.argus.connector.v1.RemoteAccessStateH\x00R\x11remoteAccessState\x12p\n" +
 	"\x1ctelemetry_tunnel_desired_set\x18\x0f \x01(\v2-.argus.connector.v1.TelemetryTunnelDesiredSetH\x00R\x19telemetryTunnelDesiredSet\x12W\n" +
-	"\x13trust_bundle_update\x18\x10 \x01(\v2%.argus.connector.v1.TrustBundleUpdateH\x00R\x11trustBundleUpdateB\a\n" +
+	"\x13trust_bundle_update\x18\x10 \x01(\v2%.argus.connector.v1.TrustBundleUpdateH\x00R\x11trustBundleUpdate\x12m\n" +
+	"\x1bkubernetes_helm_write_grant\x18\x11 \x01(\v2,.argus.connector.v1.KubernetesHelmWriteGrantH\x00R\x18kubernetesHelmWriteGrantB\a\n" +
 	"\x05frame\"\xb8\x03\n" +
 	"\x0eConnectorHello\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12\x1f\n" +
@@ -1507,19 +1541,21 @@ var file_argus_connector_v1_connector_proto_goTypes = []any{
 	(*RemoteAccessClose)(nil),            // 18: argus.connector.v1.RemoteAccessClose
 	(*TelemetryTunnelStatusSet)(nil),     // 19: argus.connector.v1.TelemetryTunnelStatusSet
 	(*TrustBundleAcknowledge)(nil),       // 20: argus.connector.v1.TrustBundleAcknowledge
-	(*ConnectorCommand)(nil),             // 21: argus.connector.v1.ConnectorCommand
-	(*RemoteAccessOpen)(nil),             // 22: argus.connector.v1.RemoteAccessOpen
-	(*v1.StreamClose)(nil),               // 23: argus.common.v1.StreamClose
-	(*CredentialLeaseGrant)(nil),         // 24: argus.connector.v1.CredentialLeaseGrant
-	(*CommandReconcileRequest)(nil),      // 25: argus.connector.v1.CommandReconcileRequest
-	(*CertificateRotationGrant)(nil),     // 26: argus.connector.v1.CertificateRotationGrant
-	(*RemoteAccessInput)(nil),            // 27: argus.connector.v1.RemoteAccessInput
-	(*RemoteAccessResize)(nil),           // 28: argus.connector.v1.RemoteAccessResize
-	(*TelemetryTunnelDesiredSet)(nil),    // 29: argus.connector.v1.TelemetryTunnelDesiredSet
-	(*TrustBundleUpdate)(nil),            // 30: argus.connector.v1.TrustBundleUpdate
-	(*timestamppb.Timestamp)(nil),        // 31: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),          // 32: google.protobuf.Duration
-	(*TelemetryTunnelStatus)(nil),        // 33: argus.connector.v1.TelemetryTunnelStatus
+	(*KubernetesHelmWriteRequest)(nil),   // 21: argus.connector.v1.KubernetesHelmWriteRequest
+	(*ConnectorCommand)(nil),             // 22: argus.connector.v1.ConnectorCommand
+	(*RemoteAccessOpen)(nil),             // 23: argus.connector.v1.RemoteAccessOpen
+	(*v1.StreamClose)(nil),               // 24: argus.common.v1.StreamClose
+	(*CredentialLeaseGrant)(nil),         // 25: argus.connector.v1.CredentialLeaseGrant
+	(*CommandReconcileRequest)(nil),      // 26: argus.connector.v1.CommandReconcileRequest
+	(*CertificateRotationGrant)(nil),     // 27: argus.connector.v1.CertificateRotationGrant
+	(*RemoteAccessInput)(nil),            // 28: argus.connector.v1.RemoteAccessInput
+	(*RemoteAccessResize)(nil),           // 29: argus.connector.v1.RemoteAccessResize
+	(*TelemetryTunnelDesiredSet)(nil),    // 30: argus.connector.v1.TelemetryTunnelDesiredSet
+	(*TrustBundleUpdate)(nil),            // 31: argus.connector.v1.TrustBundleUpdate
+	(*KubernetesHelmWriteGrant)(nil),     // 32: argus.connector.v1.KubernetesHelmWriteGrant
+	(*timestamppb.Timestamp)(nil),        // 33: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),          // 34: google.protobuf.Duration
+	(*TelemetryTunnelStatus)(nil),        // 35: argus.connector.v1.TelemetryTunnelStatus
 }
 var file_argus_connector_v1_connector_proto_depIdxs = []int32{
 	2,  // 0: argus.connector.v1.ConnectRequest.hello:type_name -> argus.connector.v1.ConnectorHello
@@ -1535,38 +1571,40 @@ var file_argus_connector_v1_connector_proto_depIdxs = []int32{
 	18, // 10: argus.connector.v1.ConnectRequest.remote_access_close:type_name -> argus.connector.v1.RemoteAccessClose
 	19, // 11: argus.connector.v1.ConnectRequest.telemetry_tunnel_status_set:type_name -> argus.connector.v1.TelemetryTunnelStatusSet
 	20, // 12: argus.connector.v1.ConnectRequest.trust_bundle_acknowledge:type_name -> argus.connector.v1.TrustBundleAcknowledge
-	3,  // 13: argus.connector.v1.ConnectResponse.welcome:type_name -> argus.connector.v1.ConnectorWelcome
-	21, // 14: argus.connector.v1.ConnectResponse.command:type_name -> argus.connector.v1.ConnectorCommand
-	10, // 15: argus.connector.v1.ConnectResponse.acknowledge:type_name -> argus.connector.v1.ServerAcknowledge
-	22, // 16: argus.connector.v1.ConnectResponse.remote_access_open:type_name -> argus.connector.v1.RemoteAccessOpen
-	12, // 17: argus.connector.v1.ConnectResponse.remote_access_data:type_name -> argus.connector.v1.RemoteAccessData
-	18, // 18: argus.connector.v1.ConnectResponse.remote_access_close:type_name -> argus.connector.v1.RemoteAccessClose
-	23, // 19: argus.connector.v1.ConnectResponse.close:type_name -> argus.common.v1.StreamClose
-	24, // 20: argus.connector.v1.ConnectResponse.credential_lease_grant:type_name -> argus.connector.v1.CredentialLeaseGrant
-	25, // 21: argus.connector.v1.ConnectResponse.command_reconcile_request:type_name -> argus.connector.v1.CommandReconcileRequest
-	26, // 22: argus.connector.v1.ConnectResponse.certificate_rotation_grant:type_name -> argus.connector.v1.CertificateRotationGrant
-	27, // 23: argus.connector.v1.ConnectResponse.remote_access_input:type_name -> argus.connector.v1.RemoteAccessInput
-	28, // 24: argus.connector.v1.ConnectResponse.remote_access_resize:type_name -> argus.connector.v1.RemoteAccessResize
-	17, // 25: argus.connector.v1.ConnectResponse.remote_access_state:type_name -> argus.connector.v1.RemoteAccessState
-	29, // 26: argus.connector.v1.ConnectResponse.telemetry_tunnel_desired_set:type_name -> argus.connector.v1.TelemetryTunnelDesiredSet
-	30, // 27: argus.connector.v1.ConnectResponse.trust_bundle_update:type_name -> argus.connector.v1.TrustBundleUpdate
-	31, // 28: argus.connector.v1.ConnectorWelcome.server_time:type_name -> google.protobuf.Timestamp
-	32, // 29: argus.connector.v1.ConnectorWelcome.heartbeat_interval:type_name -> google.protobuf.Duration
-	31, // 30: argus.connector.v1.ConnectorHeartbeat.sent_at:type_name -> google.protobuf.Timestamp
-	33, // 31: argus.connector.v1.ConnectorHeartbeat.telemetry_tunnels:type_name -> argus.connector.v1.TelemetryTunnelStatus
-	6,  // 32: argus.connector.v1.ConnectorHeartbeat.bastion_relay:type_name -> argus.connector.v1.BastionRelayStatus
-	8,  // 33: argus.connector.v1.ConnectorHeartbeat.host_runtime:type_name -> argus.connector.v1.HostRuntimeObservation
-	5,  // 34: argus.connector.v1.ConnectorHeartbeat.kubernetes_runtime:type_name -> argus.connector.v1.KubernetesRuntimeObservation
-	31, // 35: argus.connector.v1.KubernetesRuntimeObservation.observed_at:type_name -> google.protobuf.Timestamp
-	7,  // 36: argus.connector.v1.BastionRelayStatus.listeners:type_name -> argus.connector.v1.BastionRelayListener
-	31, // 37: argus.connector.v1.HostRuntimeObservation.observed_at:type_name -> google.protobuf.Timestamp
-	0,  // 38: argus.connector.v1.ConnectorControlService.Connect:input_type -> argus.connector.v1.ConnectRequest
-	1,  // 39: argus.connector.v1.ConnectorControlService.Connect:output_type -> argus.connector.v1.ConnectResponse
-	39, // [39:40] is the sub-list for method output_type
-	38, // [38:39] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	21, // 13: argus.connector.v1.ConnectRequest.kubernetes_helm_write_request:type_name -> argus.connector.v1.KubernetesHelmWriteRequest
+	3,  // 14: argus.connector.v1.ConnectResponse.welcome:type_name -> argus.connector.v1.ConnectorWelcome
+	22, // 15: argus.connector.v1.ConnectResponse.command:type_name -> argus.connector.v1.ConnectorCommand
+	10, // 16: argus.connector.v1.ConnectResponse.acknowledge:type_name -> argus.connector.v1.ServerAcknowledge
+	23, // 17: argus.connector.v1.ConnectResponse.remote_access_open:type_name -> argus.connector.v1.RemoteAccessOpen
+	12, // 18: argus.connector.v1.ConnectResponse.remote_access_data:type_name -> argus.connector.v1.RemoteAccessData
+	18, // 19: argus.connector.v1.ConnectResponse.remote_access_close:type_name -> argus.connector.v1.RemoteAccessClose
+	24, // 20: argus.connector.v1.ConnectResponse.close:type_name -> argus.common.v1.StreamClose
+	25, // 21: argus.connector.v1.ConnectResponse.credential_lease_grant:type_name -> argus.connector.v1.CredentialLeaseGrant
+	26, // 22: argus.connector.v1.ConnectResponse.command_reconcile_request:type_name -> argus.connector.v1.CommandReconcileRequest
+	27, // 23: argus.connector.v1.ConnectResponse.certificate_rotation_grant:type_name -> argus.connector.v1.CertificateRotationGrant
+	28, // 24: argus.connector.v1.ConnectResponse.remote_access_input:type_name -> argus.connector.v1.RemoteAccessInput
+	29, // 25: argus.connector.v1.ConnectResponse.remote_access_resize:type_name -> argus.connector.v1.RemoteAccessResize
+	17, // 26: argus.connector.v1.ConnectResponse.remote_access_state:type_name -> argus.connector.v1.RemoteAccessState
+	30, // 27: argus.connector.v1.ConnectResponse.telemetry_tunnel_desired_set:type_name -> argus.connector.v1.TelemetryTunnelDesiredSet
+	31, // 28: argus.connector.v1.ConnectResponse.trust_bundle_update:type_name -> argus.connector.v1.TrustBundleUpdate
+	32, // 29: argus.connector.v1.ConnectResponse.kubernetes_helm_write_grant:type_name -> argus.connector.v1.KubernetesHelmWriteGrant
+	33, // 30: argus.connector.v1.ConnectorWelcome.server_time:type_name -> google.protobuf.Timestamp
+	34, // 31: argus.connector.v1.ConnectorWelcome.heartbeat_interval:type_name -> google.protobuf.Duration
+	33, // 32: argus.connector.v1.ConnectorHeartbeat.sent_at:type_name -> google.protobuf.Timestamp
+	35, // 33: argus.connector.v1.ConnectorHeartbeat.telemetry_tunnels:type_name -> argus.connector.v1.TelemetryTunnelStatus
+	6,  // 34: argus.connector.v1.ConnectorHeartbeat.bastion_relay:type_name -> argus.connector.v1.BastionRelayStatus
+	8,  // 35: argus.connector.v1.ConnectorHeartbeat.host_runtime:type_name -> argus.connector.v1.HostRuntimeObservation
+	5,  // 36: argus.connector.v1.ConnectorHeartbeat.kubernetes_runtime:type_name -> argus.connector.v1.KubernetesRuntimeObservation
+	33, // 37: argus.connector.v1.KubernetesRuntimeObservation.observed_at:type_name -> google.protobuf.Timestamp
+	7,  // 38: argus.connector.v1.BastionRelayStatus.listeners:type_name -> argus.connector.v1.BastionRelayListener
+	33, // 39: argus.connector.v1.HostRuntimeObservation.observed_at:type_name -> google.protobuf.Timestamp
+	0,  // 40: argus.connector.v1.ConnectorControlService.Connect:input_type -> argus.connector.v1.ConnectRequest
+	1,  // 41: argus.connector.v1.ConnectorControlService.Connect:output_type -> argus.connector.v1.ConnectResponse
+	41, // [41:42] is the sub-list for method output_type
+	40, // [40:41] is the sub-list for method input_type
+	40, // [40:40] is the sub-list for extension type_name
+	40, // [40:40] is the sub-list for extension extendee
+	0,  // [0:40] is the sub-list for field type_name
 }
 
 func init() { file_argus_connector_v1_connector_proto_init() }
@@ -1576,6 +1614,7 @@ func file_argus_connector_v1_connector_proto_init() {
 	}
 	file_argus_connector_v1_commands_proto_init()
 	file_argus_connector_v1_control_proto_init()
+	file_argus_connector_v1_kubernetes_helm_proto_init()
 	file_argus_connector_v1_remote_access_proto_init()
 	file_argus_connector_v1_telemetry_tunnel_proto_init()
 	file_argus_connector_v1_connector_proto_msgTypes[0].OneofWrappers = []any{
@@ -1592,6 +1631,7 @@ func file_argus_connector_v1_connector_proto_init() {
 		(*ConnectRequest_RemoteAccessClose)(nil),
 		(*ConnectRequest_TelemetryTunnelStatusSet)(nil),
 		(*ConnectRequest_TrustBundleAcknowledge)(nil),
+		(*ConnectRequest_KubernetesHelmWriteRequest)(nil),
 	}
 	file_argus_connector_v1_connector_proto_msgTypes[1].OneofWrappers = []any{
 		(*ConnectResponse_Welcome)(nil),
@@ -1609,6 +1649,7 @@ func file_argus_connector_v1_connector_proto_init() {
 		(*ConnectResponse_RemoteAccessState)(nil),
 		(*ConnectResponse_TelemetryTunnelDesiredSet)(nil),
 		(*ConnectResponse_TrustBundleUpdate)(nil),
+		(*ConnectResponse_KubernetesHelmWriteGrant)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

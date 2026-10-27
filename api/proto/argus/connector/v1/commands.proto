@@ -93,12 +93,28 @@ message KubernetesResourceQuery {
   uint32 limit = 6;
   string continue_token = 7;
   uint32 max_result_bytes = 8;
+  string schema_version = 9;
+  string namespace_uid = 10;
+  string object_uid = 11;
+  bool get_only = 12;
+  bool all_namespaces = 13;
+  string resource_version = 14;
+  bool watch_only = 15;
+  bool definitions_only = 16;
 }
 
 message KubernetesResourceQueryResult {
   repeated bytes resources_json = 1;
   string continue_token = 2;
   bool truncated = 3;
+  string schema_version = 4;
+  string resource_version = 5;
+  google.protobuf.Timestamp observed_at = 6;
+  string error_code = 7;
+  string result_kind = 8;
+  bool more = 9;
+  bool type_catalog_complete = 10;
+  string unavailable_reason = 11;
 }
 
 message KubernetesPodLogsQuery {

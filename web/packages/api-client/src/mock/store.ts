@@ -54,6 +54,11 @@ import type {
 
 /** Whole in-memory database backing the mock client. */
 export interface MockDb {
+  kubernetesInventory?: Record<
+    string,
+    import("./kubernetes-workbench").MockKubernetesInventory
+  >;
+  monitoring?: Record<string, import("./monitoring").MockMonitoringState>;
   conversationRuns?: import("../generated/contracts").Run[];
   interactions?: import("../interactions").ConversationInteraction[];
   remoteExecutions?: import("../remote-execution").RemoteExecution[];
@@ -74,7 +79,13 @@ export interface MockDb {
   dataAuthorizationGrants?: Array<{
     subject_type: "user" | "department" | "role" | "service_account";
     subject_id: string;
-    resource_type: "host" | "kubernetes_cluster" | "dashboard";
+    resource_type:
+      | "host"
+      | "kubernetes_cluster"
+      | "dashboard"
+      | "application"
+      | "monitoring_target"
+      | "kubernetes_namespace";
     resource_id: string;
     active: boolean;
   }>;
@@ -122,7 +133,7 @@ export interface MockDb {
   sandboxQuotas: EnterpriseSandboxQuota[];
   sandboxSessions: SandboxSessionMeta[];
   sandboxUsage: SandboxUsagePoint[];
-  session: { userId: string | null; enterpriseId: string | null };
+  session: { userId: string | null; enterpriseId: string | null; id?: string };
 }
 
 export const STORAGE_PREFIX = "argus-mock:";

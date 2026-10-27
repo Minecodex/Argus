@@ -1,12 +1,9 @@
 package dashboard
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"github.com/kakj-go/Argus/internal/observationscope"
 	"slices"
 	"time"
 )
@@ -23,50 +20,20 @@ func (service Service) CreationCatalog(ctx context.Context, actor Actor, offset,
 	}
 	// Directory pagination must not require admitting the entire enterprise as
 	// one execution scope. The selected page is bounded before loading metadata.
-	resources := []ResourceScope{}
-	for _, kind := range []string{"host", "kubernetes_cluster"} {
-		authorized, err := authorizedIDs(ctx, q, actor, kind)
-		if err != nil {
-			return nil, err
-		}
-		for _, id := range authorized {
-			resources = append(resources, ResourceScope{ID: id, Type: kind})
-		}
+	snapshot, err := (observationscope.Resolver{Queries: q, Permission: "telemetry.dashboard.read"}).Directory(ctx, actor, observationscope.Selection{Mode: observationscope.AllAuthorized, Signal: "catalog"})
+	if err != nil {
+		return nil, err
 	}
-	slices.SortFunc(resources, func(a, b ResourceScope) int { return bytes.Compare(a.ID[:], b.ID[:]) })
+	resources := snapshot.Resources
 	start := min(offset, len(resources))
 	end := min(start+limit, len(resources))
 	ids := []uuid.UUID{}
+	refs := []ResourceScope{}
 	items := []map[string]any{}
 	for _, r := range resources[start:end] {
-		name := ""
-		if r.Type == "host" {
-			row, e := q.GetHost(ctx, db.GetHostParams{ID: r.ID, EnterpriseID: actor.EnterpriseID})
-			if errors.Is(e, pgx.ErrNoRows) {
-				continue
-			}
-			if e != nil {
-				return nil, e
-			}
-			if row.Status != "active" {
-				continue
-			}
-			name = row.Name
-		} else {
-			row, e := q.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: r.ID, EnterpriseID: actor.EnterpriseID})
-			if errors.Is(e, pgx.ErrNoRows) {
-				continue
-			}
-			if e != nil {
-				return nil, e
-			}
-			if row.Status != "active" {
-				continue
-			}
-			name = row.Name
-		}
 		ids = append(ids, r.ID)
-		items = append(items, map[string]any{"id": r.ID, "type": r.Type, "name": name})
+		refs = append(refs, ResourceScope{Type: r.Kind, ID: r.ID})
+		items = append(items, map[string]any{"id": r.ID, "type": r.Kind, "name": r.Name, "environment": r.Environment})
 	}
 	capabilities := []map[string]any{}
 	types := []string{}
@@ -77,14 +44,16 @@ func (service Service) CreationCatalog(ctx context.Context, actor Actor, offset,
 	if len(ids) > 0 {
 		for _, kind := range types {
 			for _, signal := range sourceSignals[kind] {
-				sources, e := resolveSources(ctx, q, actor, SourceBinding{SourceType: kind, CapabilityVersion: "v1"}, signal, ids)
+				sources, e := resolveSources(ctx, q, actor, SourceBinding{SourceType: kind, CapabilityVersion: "v1"}, signal, refs)
 				if e != nil {
 					return nil, e
 				}
 				matched := []uuid.UUID{}
 				for _, s := range sources {
-					if !slices.Contains(matched, s.ResourceID) {
-						matched = append(matched, s.ResourceID)
+					for _, id := range s.ScopeResourceIDs {
+						if !slices.Contains(matched, id) {
+							matched = append(matched, id)
+						}
 					}
 				}
 				if len(matched) > 0 {

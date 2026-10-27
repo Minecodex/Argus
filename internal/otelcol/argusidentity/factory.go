@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -16,22 +17,26 @@ import (
 var componentType = component.MustNewType("argus_identity")
 
 type Config struct {
-	CollectorID           string        `mapstructure:"collector_id"`
-	EnrollmentEndpoint    string        `mapstructure:"enrollment_endpoint"`
-	RotationEndpoint      string        `mapstructure:"rotation_endpoint"`
-	TrustBundleEndpoint   string        `mapstructure:"trust_bundle_endpoint"`
-	DialAddress           string        `mapstructure:"dial_address"`
-	EnrollmentTokenFile   string        `mapstructure:"enrollment_token_file"`
-	CertificateFile       string        `mapstructure:"certificate_file"`
-	PrivateKeyFile        string        `mapstructure:"private_key_file"`
-	ServerCertificateFile string        `mapstructure:"server_certificate_file"`
-	ServerPrivateKeyFile  string        `mapstructure:"server_private_key_file"`
-	CABundleFile          string        `mapstructure:"ca_bundle_file"`
-	ServerCAFile          string        `mapstructure:"server_ca_file"`
-	TrustBundleStateFile  string        `mapstructure:"trust_bundle_state_file"`
-	BootstrapIdentityDir  string        `mapstructure:"bootstrap_identity_directory"`
-	RotateBefore          time.Duration `mapstructure:"rotate_before"`
-	CheckInterval         time.Duration `mapstructure:"check_interval"`
+	CollectorID                      string        `mapstructure:"collector_id"`
+	EnrollmentEndpoint               string        `mapstructure:"enrollment_endpoint"`
+	RotationEndpoint                 string        `mapstructure:"rotation_endpoint"`
+	TrustBundleEndpoint              string        `mapstructure:"trust_bundle_endpoint"`
+	ApplicationAuthorizationEndpoint string        `mapstructure:"application_authorization_endpoint"`
+	DialAddress                      string        `mapstructure:"dial_address"`
+	EnrollmentTokenFile              string        `mapstructure:"enrollment_token_file"`
+	CertificateFile                  string        `mapstructure:"certificate_file"`
+	PrivateKeyFile                   string        `mapstructure:"private_key_file"`
+	ServerCertificateFile            string        `mapstructure:"server_certificate_file"`
+	ServerPrivateKeyFile             string        `mapstructure:"server_private_key_file"`
+	CABundleFile                     string        `mapstructure:"ca_bundle_file"`
+	ServerCAFile                     string        `mapstructure:"server_ca_file"`
+	TrustBundleStateFile             string        `mapstructure:"trust_bundle_state_file"`
+	BootstrapIdentityDir             string        `mapstructure:"bootstrap_identity_directory"`
+	RotateBefore                     time.Duration `mapstructure:"rotate_before"`
+	CheckInterval                    time.Duration `mapstructure:"check_interval"`
+	DeliveryEndpoint                 string        `mapstructure:"delivery_endpoint"`
+	DeliveryStateFile                string        `mapstructure:"delivery_state_file"`
+	DeliveryInterval                 time.Duration `mapstructure:"delivery_interval"`
 }
 
 func (config *Config) Validate() error {
@@ -42,6 +47,16 @@ func (config *Config) Validate() error {
 	}
 	if config.RotateBefore <= 0 || config.CheckInterval <= 0 || config.RotateBefore < config.CheckInterval {
 		return errors.New("argus_identity rotation intervals are invalid")
+	}
+	if config.DeliveryEndpoint != "" {
+		delivery, deliveryErr := url.Parse(config.DeliveryEndpoint)
+		rotation, rotationErr := url.Parse(config.RotationEndpoint)
+		if deliveryErr != nil || rotationErr != nil || delivery.Scheme != "https" || delivery.Host == "" || delivery.Host != rotation.Host || delivery.User != nil || delivery.Fragment != "" || delivery.RawQuery != "" || delivery.ForceQuery || delivery.Path != strings.TrimSuffix(rotation.Path, "/v1/identity/rotate")+"/v1/collector-delivery" {
+			return errors.New("collector delivery endpoint must use its trusted identity HTTPS authority")
+		}
+	}
+	if config.DeliveryEndpoint != "" && (config.DeliveryStateFile == "" || config.DeliveryInterval < time.Second || config.DeliveryInterval > time.Minute) {
+		return errors.New("collector delivery reporting configuration is invalid")
 	}
 	if config.DialAddress != "" && !validIdentityDialAddress(config.DialAddress) {
 		return errors.New("argus_identity dial address must be a loopback endpoint")
@@ -80,6 +95,7 @@ func createDefaultConfig() component.Config {
 		TrustBundleStateFile:  "/var/lib/argus-otelcol/identity/trust-bundle.json",
 		RotateBefore:          8 * time.Hour,
 		CheckInterval:         5 * time.Minute,
+		DeliveryInterval:      15 * time.Second,
 	}
 }
 

@@ -1,0 +1,35 @@
+.argus-k8s-workbench,
+.argus-k8s-workbench-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.argus-k8s-workbench-toolbar,
+.argus-k8s-workbench-controls,
+.argus-k8s-workbench-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.argus-k8s-mutation-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.argus-k8s-workbench-toolbar {
+  flex-wrap: wrap;
+}
+.argus-k8s-type-select {
+  min-inline-size: var(--field-width-compact);
+}
+.argus-k8s-workbench-toolbar {
+  align-items: flex-end;
+}
+.argus-k8s-workbench-toolbar > .argus-input {
+  flex: 1;
+}
+.argus-k8s-workbench-footer {
+  justify-content: space-between;
+  color: var(--text-secondary);
+}

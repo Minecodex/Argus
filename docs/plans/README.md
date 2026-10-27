@@ -16,6 +16,7 @@
 | M10（已完成） | [单进程 PromQL/KQL/SkyWalking Query](./M10-query-engine.md) | Prometheus Engine、租户物理表、KQL、SkyWalking GraphQL 和单进程 Query Coordinator |
 | Frontend Redesign | [全门户与仪表盘重构](./frontend-redesign/README.md) | HeroUI 3.2.6、统一卡片/表单/弹层、专用编辑页与按图/下钻预览；验收状态见专项记录 |
 | Plan6（规划中） | [告警中心](../plan6/README.md) | D01–D08、规则评估、降噪、四类通知、会话两阶段工具、权限与全链路 E2E；本轮提供计划与原型 |
+| Plan8（计划已编制，未实施） | [应用、监控与 Kubernetes 工作台](../plan8/README.md) | 应用/目标身份、监控专用凭据、多实例采集、两批服务、日志/Trace、K8s 管理、仪表盘范围与完整验收 |
 
 截至 2026-08-22，M0-M7 和 M10 已完成，M9 已归档且不再提供可执行门禁。M10 最终真实 Kubernetes E2E 运行号为 `20260822031526-50529`，同步租户 readiness、PromQL 差分、严格 Schema 校验、三种查询、安全边界、故障恢复和清理均通过。完整 OAP/KQL 兼容不在 M10 承诺范围。M8 本地安全、恢复与发布基座已经进入最终门禁验证。M8 只允许在 arm64 Docker Desktop 标记 `local_hardening_complete`；Production Profile 继续阻断。
 

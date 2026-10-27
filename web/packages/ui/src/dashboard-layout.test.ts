@@ -88,8 +88,28 @@ it("keeps same-named APM services in different sources and resources in separate
     { target: "a", row: { ...row, sourceId: "s1", resourceId: "r1" } },
     { target: "a", row: { ...row, sourceId: "s2", resourceId: "r1" } },
     { target: "a", row: { ...row, sourceId: "s1", resourceId: "r2" } },
+    {
+      target: "a",
+      row: {
+        ...row,
+        sourceId: "s1",
+        resourceId: "r1",
+        serviceNamespace: "payments",
+        serviceId: "service-p",
+      },
+    },
+    {
+      target: "a",
+      row: {
+        ...row,
+        sourceId: "s1",
+        resourceId: "r1",
+        serviceNamespace: "inventory",
+        serviceId: "service-i",
+      },
+    },
   ]);
-  expect(groups).toHaveLength(3);
+  expect(groups).toHaveLength(5);
 });
 it("trace hierarchy follows explicit cross-resource edges without merging colliding Span IDs", () => {
   const span = {

@@ -86,11 +86,16 @@ export interface CreateApiKeyInput {
 
 export type DataAuthorizationSubjectType =
   "user" | "department" | "role" | "service_account";
-export type DataAuthorizationResourceType = "host" | "kubernetes_cluster" | "dashboard";
+export type DataAuthorizationResourceType =
+  import("../generated/enterpriseauthz").components["schemas"]["DataAuthorizationResourceType"];
 export interface DataAuthorizationResource {
   resource_type: DataAuthorizationResourceType;
   resource_id: string;
   name: string;
+  environment?: string;
+  parent_id?: string;
+  parent_name?: string;
+  source_uid?: string;
   direct: boolean;
   inherited: boolean;
   sources: string[];

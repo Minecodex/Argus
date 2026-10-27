@@ -198,6 +198,12 @@ func TestPostgresAlertLifecycleFenceNoDataHistoryAndRevocation(t *testing.T) {
 	obs := Observation{Key: "cpu:" + f.host.String(), Rule: p.Rules[0], RuleID: p.Rules[0].ID, Value: 95, ResourceIDs: []uuid.UUID{f.host}, SourceIDs: []uuid.UUID{}, Labels: map[string]string{"argus_resource_id": f.host.String()}, Firing: true, Severity: "critical"}
 	worker := Worker{Service: f.s}
 	result := Evaluation{Observations: []Observation{obs}, ResourceIDs: []uuid.UUID{f.host}, Sources: []db.AlertMetricSourcesRow{}, Evaluator: eval, Slot: at, Health: "normal"}
+	_, snapshot, scopeErr := metricSources(ctx, f.s.Store.Queries, eval, result.ResourceIDs, nil, p.Resources.Types)
+	if scopeErr != nil {
+		t.Fatal(scopeErr)
+	}
+	result.ResourceRefs = snapshot.Refs()
+	result.ScopeSignature = snapshot.Signature
 	stale := task
 	stale.FenceToken = 0
 	if e := worker.persistEvaluation(ctx, stale, row, p, result); !errors.Is(e, ErrConflict) {

@@ -9,6 +9,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chscope"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chstats"
 )
 
@@ -29,6 +30,12 @@ func Execute(ctx context.Context, conn driver.Conn, router TableRouter, request 
 	plan, err := CompileQuery(table, request)
 	if err != nil {
 		return Result{}, err
+	}
+	if len(request.Scope.SourceKeys) > 0 {
+		ctx, err = chscope.WithSources(ctx, request.Scope.SourceKeys)
+		if err != nil {
+			return Result{}, err
+		}
 	}
 	started := time.Now()
 	progress := &chstats.Tracker{}

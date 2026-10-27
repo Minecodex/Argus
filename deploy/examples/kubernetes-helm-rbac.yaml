@@ -1,0 +1,36 @@
+# Optional API permissions for simple ConfigMap/Secret/Deployment/Service/Job
+# charts in ONE namespace. Replace both namespaces and remove unused rules.
+# The installer remains read-only. This example does not grant Argus users
+# permissions, grant Cluster resources, or authorize RBAC/ServiceAccount use.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argus-helm-workbench
+  namespace: TARGET_NAMESPACE
+rules:
+  - apiGroups: [""]
+    resources: [secrets, configmaps, services]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argus-helm-workbench
+  namespace: TARGET_NAMESPACE
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: argus-helm-workbench
+subjects:
+  - kind: ServiceAccount
+    name: argus-kubernetes-connector
+    namespace: CONNECTOR_NAMESPACE

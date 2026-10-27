@@ -12,11 +12,13 @@ import (
 	"log/slog"
 	"net"
 	"reflect"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/prometheus/prometheus/promql"
 	promqlstats "github.com/prometheus/prometheus/util/stats"
 
@@ -38,6 +40,8 @@ const (
 )
 
 type Scope struct {
+	Resources            []resourceref.Ref
+	Signature            string
 	SubjectID            uuid.UUID
 	SubjectType          string
 	SourceKeys           []string
@@ -350,6 +354,9 @@ func (c *Coordinator) Execute(ctx context.Context, request Request) (Result, err
 	}
 	if result.Meta.Warnings == nil {
 		result.Meta.Warnings = []string{}
+	}
+	if request.Language == LanguagePromQL && namespaceFacetedScope(request.Scope.SourceKeys) && !slices.Contains(result.Meta.Warnings, NamespaceMetricQualification) {
+		result.Meta.Warnings = append(result.Meta.Warnings, NamespaceMetricQualification)
 	}
 	projected, redacted, projectionErr := datapolicy.Project(result.Data)
 	if projectionErr != nil {

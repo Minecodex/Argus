@@ -20,7 +20,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-const nativeDiscoveryVersion = "2"
+const nativeDiscoveryVersion = "4"
 
 var Categories = toolruntime.NativeCategoryNames()
 
@@ -58,6 +58,12 @@ func New(registry *mcp.Registry, implementationRevision string) (*Gateway, error
 			return nil, fmt.Errorf("tool %s discovery: %w", metadata.ID, err)
 		}
 		version := metadata.InputVersion + ":" + metadata.OutputVersion + ":" + discoveryHash
+		contract, err := json.Marshal([]any{metadata.InputSchema, metadata.OutputSchema, metadata.Required, metadata.AnyRequired, metadata.Risk, metadata.ExecutionMode, metadata.ProjectionSchema})
+		if err != nil {
+			return nil, fmt.Errorf("tool %s contract: %w", metadata.ID, err)
+		}
+		contractHash := sha256.Sum256(contract)
+		version += ":" + hex.EncodeToString(contractHash[:])
 		if metadata.Template != nil {
 			version += ":" + metadata.Template.Hash
 		}
@@ -106,6 +112,7 @@ func identity(id string) (string, string, bool) {
 		return "connector", "collector.get", true
 	}
 	for _, prefix := range []struct{ prefix, category string }{
+		{"application.", "application"}, {"monitoring.", "monitoring"},
 		{"alert.", "alert"},
 		{"telemetry.dashboard.", "dashboard"},
 		{"host.", "host"}, {"kubernetes.", "k8s"}, {"connector.", "connector"},
@@ -196,13 +203,6 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 		g.cache.put(key, value)
 		return value, nil
 	}
-	args, err := toolruntime.DecodeObject(call.Arguments["arguments"])
-	if err != nil {
-		return toolruntime.Result{}, err
-	}
-	if err := g.schemas[key].Validate(args); err != nil {
-		return toolruntime.Result{}, toolruntime.InputValidationError(err, "/arguments")
-	}
 	if call.ReadOnly && manifest.Risk != "read" && !manifest.RequiresConfirmation && !slices.Contains([]string{"workflow.import_result", "workflow.publish_file", "telemetry.dashboard.query.cancel", "telemetry.dashboard.query.resume", "telemetry.dashboard.draft.create", "telemetry.dashboard.draft.save"}, manifest.ToolID) {
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_READ_ONLY_REQUIRED"}
 	}
@@ -210,6 +210,13 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 		if err := g.RequireDescription(ctx, call, manifest); err != nil {
 			return toolruntime.Result{}, err
 		}
+	}
+	args, err := toolruntime.DecodeObject(call.Arguments["arguments"])
+	if err != nil {
+		return toolruntime.Result{}, err
+	}
+	if err := g.schemas[key].Validate(args); err != nil {
+		return toolruntime.Result{}, toolruntime.InputValidationError(err, "/arguments")
 	}
 	if manifest.Risk != "read" && !manifest.RequiresConfirmation && !slices.Contains([]string{"pending_action.cancel", "workflow.import_result", "workflow.publish_file", "telemetry.dashboard.query.cancel", "telemetry.dashboard.query.resume", "telemetry.dashboard.draft.create", "telemetry.dashboard.draft.save"}, manifest.ToolID) {
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_NOT_FOUND"}

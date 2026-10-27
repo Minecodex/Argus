@@ -18,7 +18,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kakj-go/Argus/internal/collectormanager"
+	"github.com/kakj-go/Argus/internal/collectorstate"
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
+	"github.com/kakj-go/Argus/internal/otelcol/configbundle"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/secret"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -42,9 +44,18 @@ func (executor *Executor) executeCollectorOperation(parent context.Context, oper
 	}
 	var command connectorv1.CollectorManagementCommand
 	if protojson.Unmarshal(canonicalPlan, &command) != nil || collectormanager.Validate(&command) != nil ||
-		command.GetCollectorId() != operation.CollectorID.String() || command.GetOperation() != operation.Operation {
+		command.GetCollectorId() != operation.CollectorID.String() || command.GetOperation() != operation.Operation || len(command.GetPrivateMonitoringConfig()) != 0 {
 		executor.finishCollectorOperation(ctx, operation, "failed", nil, "COLLECTOR_PLAN_INVALID")
 		return
+	}
+	if configbundle.RequiresMonitoringCredentials(command.GetRenderedConfig()) {
+		private, err := executor.Secrets.MonitoringConfigForCollector(secret.WithActorType(ctx, "direct_executor"), executor.InstanceID, operation.EnterpriseID, "direct_executor", executor.InstanceID, operation.ID.String(), int64(command.GetDesiredRevision()), command.GetRenderedConfig())
+		if err != nil {
+			executor.finishCollectorOperation(ctx, operation, "failed", nil, "CREDENTIAL_UNAVAILABLE")
+			return
+		}
+		defer clear(private)
+		command.PrivateMonitoringConfig = private
 	}
 	if command.GetTransport() == "executor_tunnel" && command.GetOperation() != "uninstall" {
 		ready, failureCode := executor.tunnelGateForCollector(ctx, operation.CollectorID)
@@ -55,8 +66,8 @@ func (executor *Executor) executeCollectorOperation(parent context.Context, oper
 				executor.finishCollectorOperation(ctx, operation, "failed", nil, failureCode)
 				return
 			}
-			// 隧道未就绪:放弃本轮执行,operation 保持 running,租约到期后
-			// 由 Recover 重新排队,隧道建立后再收敛。
+			// 未得到可验证结果时由租约恢复标记 unknown，等待复核或修复；
+			// 不把可能已执行的操作自动重放。
 			slog.Info("collector operation waiting for tunnel", "operation_id", operation.ID, "collector_id", operation.CollectorID)
 			return
 		}
@@ -160,25 +171,26 @@ func (executor *Executor) executeSSHCollector(ctx context.Context, command *conn
 }
 
 func (executor *Executor) finishCollectorOperation(ctx context.Context, operation db.TelemetryCollectorOperation, status string, resultHash []byte, errorCode string) {
-	_ = executor.Store.InTx(ctx, func(q *db.Queries) error {
+	finalize, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	ctx = finalize
+	var command connectorv1.CollectorManagementCommand
+	_ = protojson.Unmarshal(operation.Plan, &command)
+	err := executor.Store.InTx(ctx, func(q *db.Queries) error {
 		if _, err := q.FinishTelemetryCollectorOperation(ctx, db.FinishTelemetryCollectorOperationParams{ID: operation.ID,
 			EnterpriseID: operation.EnterpriseID, Fence: operation.Fence, Status: status, ResultHash: resultHash,
 			ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}}); err != nil {
 			return err
 		}
+		if command.GetDesiredRevision() == 0 {
+			return nil
+		}
+		current, err := collectorstate.Apply(ctx, q, operation.EnterpriseID, operation.CollectorID, int64(command.GetDesiredRevision()), operation.Operation, status == "succeeded", errorCode)
+		if err != nil || !current {
+			return err
+		}
 		if status == "succeeded" {
-			if _, err := q.ApplyCollectorOperationSuccess(ctx, db.ApplyCollectorOperationSuccessParams{ID: operation.CollectorID,
-				EnterpriseID: operation.EnterpriseID, Column3: operation.Operation}); err != nil {
-				return err
-			}
-			collector, err := q.GetCollectorInstance(ctx, db.GetCollectorInstanceParams{ID: operation.CollectorID, EnterpriseID: operation.EnterpriseID})
-			if err != nil {
-				return err
-			}
 			if operation.Operation != "uninstall" {
-				if _, err = q.MarkCollectorConfigEffective(ctx, db.MarkCollectorConfigEffectiveParams{CollectorID: operation.CollectorID, Revision: collector.DesiredRevision}); err != nil {
-					return err
-				}
 				if _, err = q.MarkTelemetryRouteActive(ctx, db.MarkTelemetryRouteActiveParams{CollectorID: operation.CollectorID, EnterpriseID: operation.EnterpriseID}); err != nil {
 					return err
 				}
@@ -186,17 +198,15 @@ func (executor *Executor) finishCollectorOperation(ctx context.Context, operatio
 			}
 			return err
 		}
-		if _, err := q.ApplyCollectorOperationFailure(ctx, db.ApplyCollectorOperationFailureParams{ID: operation.CollectorID,
-			EnterpriseID: operation.EnterpriseID, Status: "degraded"}); err != nil {
-			return err
+		if !collectorstate.OutcomeUnknown(errorCode) {
+			if _, err = q.RollbackCollectorClaimMigrations(ctx, db.RollbackCollectorClaimMigrationsParams{EnterpriseID: operation.EnterpriseID, CollectorID: operation.CollectorID}); err != nil {
+				return err
+			}
 		}
-		collector, err := q.GetCollectorInstance(ctx, db.GetCollectorInstanceParams{ID: operation.CollectorID, EnterpriseID: operation.EnterpriseID})
-		if err == nil && operation.Operation != "uninstall" {
-			_, _ = q.MarkCollectorConfigFailed(ctx, db.MarkCollectorConfigFailedParams{CollectorID: operation.CollectorID,
-				Revision: collector.DesiredRevision, FailureCode: pgtype.Text{String: errorCode, Valid: true}})
-		}
-		_, _ = q.RollbackCollectorClaimMigrations(ctx, db.RollbackCollectorClaimMigrationsParams{EnterpriseID: operation.EnterpriseID, CollectorID: operation.CollectorID})
-		_, err = q.MarkTelemetryRouteDegraded(ctx, db.MarkTelemetryRouteDegradedParams{CollectorID: operation.CollectorID, EnterpriseID: operation.EnterpriseID})
+		err = collectorstate.RouteAfterFailure(ctx, q, operation.EnterpriseID, operation.CollectorID, operation.Operation, errorCode)
 		return err
 	})
+	if err != nil {
+		slog.Error("Collector operation outcome was not persisted", "operation_id", operation.ID, "error", err)
+	}
 }

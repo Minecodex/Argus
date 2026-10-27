@@ -16,6 +16,7 @@ import (
 )
 
 const usage = `usage:
+  argusctl kubernetes port-forward --url URL --ticket-stdin --listen 127.0.0.1:PORT
   argusctl version
   argusctl preflight --config FILE [--output text|json]
   argusctl plan --config FILE [--output text|json]
@@ -60,10 +61,16 @@ type App struct {
 	stderr              io.Writer
 	runner              commandRunner
 	restoreOpenBaoToken string
+	restoreRecovery     *backupRecoveryState
 }
 
 func (a *App) run(ctx context.Context, args []string) error {
 	switch args[0] {
+	case "kubernetes":
+		if len(args) < 2 || args[1] != "port-forward" {
+			return errors.New("usage: argusctl kubernetes port-forward --url URL --ticket-stdin --listen 127.0.0.1:PORT")
+		}
+		return a.runKubernetesForward(ctx, args[2:])
 	case "preflight", "plan", "install", "status", "verify", "uninstall":
 		return a.runConfigCommand(ctx, args[0], args[1:])
 	case "images":

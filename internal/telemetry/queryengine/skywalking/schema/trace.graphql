@@ -131,12 +131,16 @@ type APMCoverage {
   missingInstanceCount: Float!
   missingOperationCount: Float!
   unknownSourceCount: Float!
+  duplicateObservationCount: Float!
 }
 
 type APMRow {
   sourceId: String!
+  sourceIds: [String!]!
   resourceId: String!
   serviceName: String!
+  serviceId: String!
+  serviceNamespace: String!
   instanceId: String!
   instanceName: String!
   operationName: String!
@@ -177,6 +181,8 @@ type APMTopologyNode {
   sourceId: String!
   resourceId: String!
   serviceName: String!
+  serviceId: String!
+  serviceNamespace: String!
 }
 type APMTopologyEdge {
   sourceNodeId: String!

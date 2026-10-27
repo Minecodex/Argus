@@ -59,8 +59,14 @@ ON CONFLICT (collector_id) DO UPDATE SET
   gateway_collector_id = EXCLUDED.gateway_collector_id,
   transport = EXCLUDED.transport,
   loopback_port = EXCLUDED.loopback_port,
-  status = 'pending',
-  version = telemetry_routes.version + 1,
+  status = CASE WHEN
+    ROW(telemetry_routes.kind,telemetry_routes.gateway_collector_id,telemetry_routes.transport,telemetry_routes.loopback_port)
+    IS NOT DISTINCT FROM ROW(EXCLUDED.kind,EXCLUDED.gateway_collector_id,EXCLUDED.transport,EXCLUDED.loopback_port)
+    THEN telemetry_routes.status ELSE 'pending' END,
+  version = CASE WHEN
+    ROW(telemetry_routes.kind,telemetry_routes.gateway_collector_id,telemetry_routes.transport,telemetry_routes.loopback_port)
+    IS NOT DISTINCT FROM ROW(EXCLUDED.kind,EXCLUDED.gateway_collector_id,EXCLUDED.transport,EXCLUDED.loopback_port)
+    THEN telemetry_routes.version ELSE telemetry_routes.version + 1 END,
   updated_at = now()
 RETURNING *;
 
@@ -110,14 +116,14 @@ WHERE id = $1 AND enterprise_id = $2 AND fence = $3 AND (
 )
 RETURNING *;
 
--- name: RecoverTelemetryCollectorOperations :execrows
+-- name: RecoverCollectorOperationsForProjection :many
 UPDATE telemetry_collector_operations SET status = 'result_unknown', lease_owner = NULL,
   lease_expires_at = NULL, error_code = 'EXECUTION_RESULT_UNKNOWN', updated_at = now()
-WHERE status = 'running' AND lease_expires_at <= now();
+WHERE status = 'running' AND lease_expires_at <= now() RETURNING *;
 
--- name: ExpireTelemetryCollectorOperations :execrows
+-- name: ExpireCollectorOperationsForProjection :many
 UPDATE telemetry_collector_operations SET status = 'expired', error_code = 'COLLECTOR_OPERATION_EXPIRED', completed_at = now(), updated_at = now()
-WHERE status = 'queued' AND expires_at <= now();
+WHERE status = 'queued' AND expires_at <= now() RETURNING *;
 
 -- name: ApplyCollectorOperationSuccess :execrows
 UPDATE collector_instances SET
@@ -135,8 +141,9 @@ UPDATE collector_config_revisions SET status = 'applying'
 WHERE collector_id = $1 AND revision = $2 AND status = 'prepared';
 
 -- name: MarkCollectorConfigEffective :execrows
-UPDATE collector_config_revisions SET status = 'effective', applied_at = now()
-WHERE collector_id = $1 AND revision = $2 AND status IN ('prepared','applying');
+UPDATE collector_config_revisions SET status = 'effective', failure_code=NULL, applied_at = COALESCE(applied_at,now())
+WHERE collector_id = $1 AND revision = $2
+ AND (status IN ('prepared','applying','effective') OR (sqlc.arg(reconciled)::boolean AND status='failed'));
 
 -- name: MarkCollectorConfigFailed :execrows
 UPDATE collector_config_revisions SET status = 'failed', failure_code = $3
@@ -180,9 +187,12 @@ WITH migrations AS (
 ), released AS (
   UPDATE collection_claims AS primary_claim SET status = 'released'
   WHERE primary_claim.id IN (SELECT migration.primary_claim_id FROM migrations AS migration) AND primary_claim.status = 'active'
+  RETURNING primary_claim.id
 )
 UPDATE collection_claims AS migration_claim SET ownership = 'primary', primary_claim_id = NULL, rollback_plan = NULL, expires_at = NULL
-WHERE migration_claim.id IN (SELECT migration.id FROM migrations AS migration);
+WHERE migration_claim.id IN (SELECT migration.id FROM migrations AS migration)
+ AND (migration_claim.primary_claim_id IN (SELECT id FROM released)
+  OR NOT EXISTS(SELECT 1 FROM collection_claims previous WHERE previous.id=migration_claim.primary_claim_id AND previous.status='active'));
 
 -- name: RollbackCollectorClaimMigrations :execrows
 UPDATE collection_claims SET status = 'expired'
@@ -227,15 +237,20 @@ UPDATE telemetry_certificates SET revoked_at = now(), revoke_reason = $2
 WHERE collector_id = $1 AND revoked_at IS NULL;
 
 -- name: CreateTelemetryEnrollmentToken :one
-INSERT INTO telemetry_enrollment_tokens (id, collector_id, token_hash, expires_at)
-VALUES ($1,$2,$3,$4) RETURNING *;
+INSERT INTO telemetry_enrollment_tokens (id, collector_id, token_hash, created_at, expires_at)
+SELECT sqlc.arg(id),sqlc.arg(collector_id),sqlc.arg(token_hash),statement_timestamp(),
+       statement_timestamp()+(sqlc.arg(lifetime_seconds)::integer * interval '1 second')
+WHERE sqlc.arg(lifetime_seconds)::integer BETWEEN 1 AND 600
+RETURNING *;
 
 -- name: GetTelemetryEnrollmentTokenForUpdate :one
-SELECT * FROM telemetry_enrollment_tokens WHERE token_hash = $1 FOR UPDATE;
+SELECT * FROM telemetry_enrollment_tokens
+WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > statement_timestamp()
+FOR UPDATE;
 
 -- name: ConsumeTelemetryEnrollmentToken :one
-UPDATE telemetry_enrollment_tokens SET consumed_at = now()
-WHERE id = $1 AND consumed_at IS NULL AND expires_at > now()
+UPDATE telemetry_enrollment_tokens SET consumed_at = statement_timestamp()
+WHERE id = $1 AND consumed_at IS NULL AND expires_at > statement_timestamp()
 RETURNING *;
 
 -- name: CreateTelemetryCertificate :one

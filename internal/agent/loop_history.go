@@ -22,7 +22,7 @@ func (loop Loop) messages(ctx context.Context, run db.Run) ([]modelprovider.Mess
 		return nil, "", "", source, err
 	}
 	after := int64(0)
-	messages := []modelprovider.Message{{Role: "system", Content: toolruntime.SystemInstructions + toolruntime.BuiltinToolInstructions + toolruntime.RemoteInstructions + toolruntime.RemoteModeInstructions(run.ModeSnapshot)}}
+	messages := []modelprovider.Message{{Role: "system", Content: toolruntime.ModelSystemInstructions(run.ModeSnapshot)}}
 	var toolSnapshot toolruntime.Snapshot
 	if err := json.Unmarshal(run.ToolSnapshot, &toolSnapshot); err != nil {
 		return nil, "", "", source, err

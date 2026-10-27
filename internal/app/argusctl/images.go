@@ -15,6 +15,30 @@ import (
 
 const localRegistryImage = "registry:3.0.0"
 
+// One catalogue drives build, import and owned-image cleanup. Installation
+// tooling has a separate image so its ServiceAccount-capable client never
+// becomes an alternate client in the restricted remote execution runtime.
+var builtImages = []struct {
+	name       string
+	dockerfile string
+}{
+	{"argus-backend", "deploy/docker/backend.Dockerfile"},
+	{"argus-web", "deploy/docker/web.Dockerfile"},
+	{"minio", "deploy/docker/minio.Dockerfile"},
+	{"argus-workspace", "deploy/docker/workspace.Dockerfile"},
+	{"argus-workspace-egress", "deploy/docker/workspace-egress.Dockerfile"},
+	{"argus-remote-runtime", "deploy/docker/remote-runtime.Dockerfile"},
+	{"argus-install-tools", "deploy/docker/install-tools.Dockerfile"},
+}
+
+func builtImageReferences(cfg *InstallConfig) []string {
+	references := make([]string, 0, len(builtImages))
+	for _, image := range builtImages {
+		references = append(references, cfg.Image(image.name))
+	}
+	return references
+}
+
 func (a *App) imagesBuild(ctx context.Context, cfg *InstallConfig, platform string) error {
 	if platform != "linux/arm64" && platform != "linux/amd64" && platform != "linux/arm64,linux/amd64" {
 		return fmt.Errorf("unsupported platform %q", platform)
@@ -43,18 +67,7 @@ func (a *App) imagesBuild(ctx context.Context, cfg *InstallConfig, platform stri
 	if err := os.MkdirAll(artifacts, 0o755); err != nil {
 		return err
 	}
-	builds := []struct {
-		name       string
-		dockerfile string
-	}{
-		{"argus-backend", "deploy/docker/backend.Dockerfile"},
-		{"argus-web", "deploy/docker/web.Dockerfile"},
-		{"minio", "deploy/docker/minio.Dockerfile"},
-		{"argus-workspace", "deploy/docker/workspace.Dockerfile"},
-		{"argus-workspace-egress", "deploy/docker/workspace-egress.Dockerfile"},
-		{"argus-remote-runtime", "deploy/docker/remote-runtime.Dockerfile"},
-	}
-	for _, build := range builds {
+	for _, build := range builtImages {
 		image := cfg.Image(build.name)
 		if cfg.Spec.Images.Mode == "local-registry" {
 			image = localRegistryReference(cfg, build.name)
@@ -145,7 +158,7 @@ func (a *App) imagesClean(ctx context.Context, cfg *InstallConfig) error {
 	}
 	for _, pod := range strings.Fields(podsOutput) {
 		inventory, _ := a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", "kube-system", "exec", pod, "--", "/host/ctr", "--address", "/run/containerd/containerd.sock", "--namespace", "k8s.io", "images", "list")
-		for _, image := range containerimage.RemovalReferences([]string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress"), cfg.Image("argus-remote-runtime")}, inventory, strings.Fields(activeImages)) {
+		for _, image := range containerimage.RemovalReferences(builtImageReferences(cfg), inventory, strings.Fields(activeImages)) {
 			_, _ = a.runner.quiet(ctx, "kubectl", "--context", cfg.Spec.KubeContext, "--namespace", "kube-system", "exec", pod, "--", "/host/ctr", "--address", "/run/containerd/containerd.sock", "--namespace", "k8s.io", "images", "remove", image)
 		}
 	}
@@ -155,11 +168,11 @@ func (a *App) imagesClean(ctx context.Context, cfg *InstallConfig) error {
 	// E2E run, eventually exhausting the Docker Desktop disk.
 	_, _ = a.runner.quiet(ctx, "docker", "container", "rm", "--force", "--volumes", cfg.registryContainerName())
 	_, _ = a.runner.quiet(ctx, "docker", "buildx", "rm", "--force", buildxBuilderName(cfg))
-	for _, image := range []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress"), cfg.Image("argus-remote-runtime")} {
+	for _, image := range builtImageReferences(cfg) {
 		_, _ = a.runner.quiet(ctx, "docker", "image", "rm", "--force", image)
 	}
-	for _, image := range []string{"argus-backend", "argus-web", "minio", "argus-workspace", "argus-workspace-egress", "argus-remote-runtime"} {
-		_, _ = a.runner.quiet(ctx, "docker", "image", "rm", "--force", localRegistryReference(cfg, image))
+	for _, image := range builtImages {
+		_, _ = a.runner.quiet(ctx, "docker", "image", "rm", "--force", localRegistryReference(cfg, image.name))
 	}
 	return nil
 }
@@ -177,7 +190,7 @@ func localRegistryReference(cfg *InstallConfig, name string) string {
 }
 
 func imageLoaderManifest(name string, cfg *InstallConfig) string {
-	images := []string{cfg.Image("argus-backend"), cfg.Image("argus-web"), cfg.Image("minio"), cfg.Image("argus-workspace"), cfg.Image("argus-workspace-egress"), cfg.Image("argus-remote-runtime")}
+	images := builtImageReferences(cfg)
 	quoted := make([]string, 0, len(images))
 	for _, image := range images {
 		quoted = append(quoted, fmt.Sprintf("%q", image))

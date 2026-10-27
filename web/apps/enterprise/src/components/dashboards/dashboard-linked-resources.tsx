@@ -2,7 +2,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { HardDrive, Layers3, MoreHorizontal } from "lucide-react";
+import {
+  HardDrive,
+  Layers3,
+  MoreHorizontal,
+  Component,
+  Database,
+} from "lucide-react";
 import { formatApiError, useApi } from "@argus/api-client";
 import {
   Alert,
@@ -20,7 +26,8 @@ export function DashboardLinkedResources({ id }: { id: string }) {
     navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const canReadHosts = usePermission("host.read"),
-    canReadClusters = usePermission("kubernetes.read");
+    canReadClusters = usePermission("kubernetes.read"),
+    canReadApplications = usePermission("application.read");
   const query = useQuery({
     queryKey: ["dashboard-bindings", "dashboard", id],
     queryFn: () => api.dashboards.bindings(id),
@@ -108,17 +115,24 @@ export function DashboardLinkedResources({ id }: { id: string }) {
                   <span className="argus-dashboard-linked-resource__icon">
                     {binding.resource_type === "host" ? (
                       <HardDrive aria-hidden />
-                    ) : (
+                    ) : binding.resource_type === "kubernetes_cluster" ? (
                       <Layers3 aria-hidden />
+                    ) : binding.resource_type === "application" ? (
+                      <Component aria-hidden />
+                    ) : (
+                      <Database aria-hidden />
                     )}
                   </span>
                   <div className="argus-dashboard-linked-resource__identity">
                     <strong>{binding.resource_name}</strong>
                     <span className="argus-dashboard-muted">
                       {t(
-                        binding.resource_type === "host"
-                          ? "dashboardLinks.host"
-                          : "dashboardLinks.cluster",
+                        {
+                          host: "dashboardLinks.host",
+                          kubernetes_cluster: "dashboardLinks.cluster",
+                          application: "dashboardLinks.application",
+                          monitoring_target: "dashboardLinks.monitoringTarget",
+                        }[binding.resource_type],
                       )}
                     </span>
                   </div>
@@ -134,7 +148,8 @@ export function DashboardLinkedResources({ id }: { id: string }) {
                           {t("dashboardLinks.openResource")}
                         </Link>
                       )
-                    : canReadClusters && (
+                    : binding.resource_type === "kubernetes_cluster" &&
+                      canReadClusters && (
                         <Link
                           className="argus-dashboard-resource-link"
                           to="/kubernetes/$clusterId"
@@ -145,6 +160,17 @@ export function DashboardLinkedResources({ id }: { id: string }) {
                           {t("dashboardLinks.openResource")}
                         </Link>
                       )}
+                  {binding.resource_type === "application" &&
+                    canReadApplications && (
+                      <Link
+                        className="argus-dashboard-resource-link"
+                        to="/applications/$applicationId"
+                        params={{ applicationId: binding.resource_id }}
+                        onClick={() => setOpen(false)}
+                      >
+                        {t("dashboardLinks.openResource")}
+                      </Link>
+                    )}
                 </div>
               ))}
               {!query.data.length && (

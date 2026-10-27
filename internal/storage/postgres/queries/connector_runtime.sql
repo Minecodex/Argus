@@ -86,6 +86,16 @@ WHERE connector_id=$1 AND connection_epoch=$2 AND draining=false
 UPDATE connector_sessions SET last_heartbeat_at = now()
 WHERE connector_id = $1 AND enterprise_id = $2 AND connection_epoch = $3;
 
+-- name: LockConnectorRuntime :one
+-- OpenSession and Disconnect use this same connector-before-session order.
+SELECT connector.id FROM connectors connector
+WHERE connector.id=$1 AND connector.enterprise_id=$2 AND connector.connection_epoch=$3
+ AND connector.status NOT IN ('revoked','uninstalled')
+ AND EXISTS(SELECT 1 FROM connector_sessions s
+   WHERE s.connector_id=connector.id AND s.enterprise_id=connector.enterprise_id
+    AND s.connection_epoch=$3 AND NOT s.draining)
+FOR UPDATE;
+
 -- name: CloseConnectorSession :execrows
 DELETE FROM connector_sessions WHERE connector_id = $1 AND enterprise_id = $2 AND connection_epoch = $3;
 
@@ -157,14 +167,21 @@ UPDATE connector_commands SET status = 'expired', error_code = 'CONNECTOR_COMMAN
 WHERE status = 'queued' AND expires_at <= now() RETURNING *;
 
 -- name: TimeoutActiveConnectorCommands :many
-UPDATE connector_commands SET status = 'timed_out', error_code = 'CONNECTOR_COMMAND_TIMED_OUT', completed_at = now(), updated_at = now()
+UPDATE connector_commands SET status = CASE WHEN command_type='collector_management' THEN 'result_unknown' ELSE 'timed_out' END,
+ error_code = 'CONNECTOR_COMMAND_TIMED_OUT', completed_at = CASE WHEN command_type='collector_management' THEN NULL ELSE now() END, updated_at = now()
 WHERE status IN ('dispatched','acknowledged','running') AND expires_at <= now() RETURNING *;
 
 -- name: TransitionConnectorCommand :one
 UPDATE connector_commands SET status = $4, result = COALESCE(sqlc.narg('result'), result), result_hash = COALESCE(sqlc.narg('result_hash'), result_hash),
- error_code = COALESCE(sqlc.narg('error_code'), error_code), updated_at = now(),
+ error_code = CASE WHEN $4='succeeded' THEN NULL ELSE COALESCE(sqlc.narg('error_code'), error_code) END, updated_at = now(),
  acknowledged_at = CASE WHEN $4 = 'acknowledged' THEN now() ELSE acknowledged_at END,
  started_at = CASE WHEN $4 = 'running' THEN now() ELSE started_at END,
  completed_at = CASE WHEN $4 IN ('succeeded','failed','timed_out','expired') THEN now() ELSE completed_at END
 WHERE command_id = $1 AND connector_id = $2 AND connection_epoch = $3
   AND status = sqlc.arg('expected_status') RETURNING *;
+
+-- name: RejectConnectorCommandBeforeDispatch :one
+UPDATE connector_commands SET status='failed',error_code=$5,completed_at=now(),updated_at=now()
+WHERE command_id=$1 AND enterprise_id=$2 AND connector_id=$3 AND connection_epoch=$4
+ AND status='queued' AND expires_at>now()
+RETURNING *;

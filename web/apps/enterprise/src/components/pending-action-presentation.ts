@@ -270,6 +270,38 @@ export function presentPendingAction(
   action: PendingActionPublic,
   t: Translate,
 ): PresentedPendingAction {
+  if (action.action_type.startsWith("kubernetes.helm.")) {
+    const operation = action.action_type.slice("kubernetes.helm.".length),
+      preview = previewOf(action),
+      name = String(preview.name ?? "");
+    return {
+      title: `${t(`kubernetesHelm.actions.${operation}`)} Helm · ${name}`,
+      summary: t("kubernetesHelm.previewHint"),
+      riskLabel: t(`governance.approvals.risk.${action.risk}`),
+      diff: action.diff,
+      affectedName: name,
+      known: true,
+    };
+  }
+  if (action.action_type.startsWith("kubernetes.object.")) {
+    const operation = action.action_type.slice("kubernetes.object.".length),
+      preview = previewOf(action),
+      name = String(preview.name ?? "");
+    const rollback = preview.rollback as
+      { revision?: number; name?: string } | undefined;
+    const cronJobSource = preview.cronjob_source as
+      { name?: string } | undefined;
+    return {
+      title: `${t(`kubernetesWorkbench.mutation.actions.${operation}`)} ${name}${operation === "rollback" && rollback ? ` · ${t("kubernetesWorkbench.mutation.revision")} ${rollback.revision} (${rollback.name})` : ""}`,
+      summary: cronJobSource
+        ? t("kubernetesWorkbench.jobRun.title", { name: cronJobSource.name })
+        : t("kubernetesWorkbench.mutation.previewHint"),
+      riskLabel: t(`governance.approvals.risk.${action.risk}`),
+      diff: action.diff,
+      affectedName: name,
+      known: true,
+    };
+  }
   if (action.action_type.startsWith("alert.")) {
     return {
       title: action.title,

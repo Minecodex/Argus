@@ -11,7 +11,6 @@ import (
 	"io"
 	"time"
 
-	commonv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/common/v1"
 	telemetryv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/telemetry/v1"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 	"google.golang.org/grpc/codes"
@@ -23,11 +22,14 @@ func (server *QueryRPCServer) DiscoverData(ctx context.Context, request *telemet
 	if !trustedRPCPeer(ctx) || server.Limiter == nil {
 		return nil, status.Error(codes.Unauthenticated, "telemetry catalog mTLS identity required")
 	}
+	if request != nil && request.SchemaVersion != CatalogProtocolVersion {
+		return nil, status.Error(codes.FailedPrecondition, "QUERY_PROTOCOL_VERSION_UNSUPPORTED")
+	}
 	backend, ok := server.Backend.(DataCatalogBackend)
 	if !ok {
 		return nil, status.Error(codes.Unavailable, "telemetry catalog unavailable")
 	}
-	if request == nil || request.Scope == nil || request.From == nil || request.To == nil || !request.From.IsValid() || !request.To.IsValid() || len(request.FiltersJson) > 65536 || len(request.Scope.SourceKeys) == 0 {
+	if request == nil || request.GetSchemaVersion() != CatalogProtocolVersion || request.Scope == nil || request.From == nil || request.To == nil || !request.From.IsValid() || !request.To.IsValid() || len(request.FiltersJson) > 65536 || len(request.Scope.SourceKeys) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "invalid catalog request")
 	}
 	enterprise, resources, err := scopeFromProto(request.Scope, request.Signal)
@@ -61,7 +63,8 @@ func (server *QueryRPCServer) DiscoverData(ctx context.Context, request *telemet
 	}
 	defer release()
 	started := time.Now()
-	result, err := backend.DiscoverData(ctx, DataCatalogRequest{SubjectID: uuid.MustParse(request.Scope.SubjectId), SubjectType: request.Scope.SubjectType, EnterpriseID: enterprise, ResourceIDs: resources, SourceKeys: request.Scope.SourceKeys, AuthorizationVersion: int64(request.Scope.AuthorizationVersion), Signal: request.Signal, Kind: request.Kind, Metric: request.Metric, Field: request.Field, Search: request.Search, Cursor: request.Cursor, SelectedValues: request.SelectedValues, Filters: filters, From: request.From.AsTime(), To: request.To.AsTime(), Limit: int(request.Limit), Budget: budget})
+	refs, _ := scopeRefsFromProto(request.Scope)
+	result, err := backend.DiscoverData(ctx, DataCatalogRequest{ScopeSignature: request.Scope.GetScopeSignature(), Resources: refs, SubjectID: uuid.MustParse(request.Scope.SubjectId), SubjectType: request.Scope.SubjectType, EnterpriseID: enterprise, ResourceIDs: resources, SourceKeys: request.Scope.SourceKeys, AuthorizationVersion: int64(request.Scope.AuthorizationVersion), Signal: request.Signal, Kind: request.Kind, Metric: request.Metric, Field: request.Field, Search: request.Search, Cursor: request.Cursor, SelectedValues: request.SelectedValues, Filters: filters, From: request.From.AsTime(), To: request.To.AsTime(), Limit: int(request.Limit), Budget: budget})
 	material, _ := json.Marshal(request)
 	digest := sha256.Sum256(material)
 	hash := hex.EncodeToString(digest[:])
@@ -82,7 +85,7 @@ func (server *QueryRPCServer) DiscoverData(ctx context.Context, request *telemet
 	if err != nil || int64(len(encoded)) > budget.MaxResultBytes {
 		return nil, status.Error(codes.ResourceExhausted, "QUERY_BUDGET_EXCEEDED")
 	}
-	return &telemetryv1.DiscoverDataResponse{SchemaVersion: "argus.telemetry_catalog/v1", ResultJson: encoded}, nil
+	return &telemetryv1.DiscoverDataResponse{SchemaVersion: CatalogProtocolVersion, ResultJson: encoded}, nil
 }
 
 func errorStringForCatalog(err error) string {
@@ -96,21 +99,20 @@ func (backend *GRPCQueryBackend) DiscoverData(ctx context.Context, input DataCat
 	if backend == nil || backend.connection == nil {
 		return DataCatalogResult{}, ErrQueryBackend
 	}
-	resources := []*commonv1.ResourceRef{}
-	for _, id := range input.ResourceIDs {
-		resources = append(resources, &commonv1.ResourceRef{ResourceType: "host", ResourceId: id.String()})
+	scope, err := queryProtoScope(input.EnterpriseID, input.SubjectID, input.SubjectType, input.Resources, input.ResourceIDs, input.AuthorizationVersion, input.Signal, input.SourceKeys, input.ScopeSignature)
+	if err != nil {
+		return DataCatalogResult{}, err
 	}
-	scope := queryProtoScope(input.EnterpriseID, input.SubjectID, input.SubjectType, resources, input.ResourceIDs, input.AuthorizationVersion, input.Signal, input.SourceKeys)
 	filters, err := json.Marshal(input.Filters)
 	if err != nil {
 		return DataCatalogResult{}, err
 	}
 	budget := &telemetryv1.QueryBudget{MaxScanBytes: uint64(input.Budget.MaxScanBytes), MaxRows: uint32(input.Budget.MaxRows), MaxResultBytes: uint64(input.Budget.MaxResultBytes), TimeoutMillis: uint32(input.Budget.Timeout.Milliseconds())}
-	response, err := telemetryv1.NewTelemetryCatalogServiceClient(backend.connection).DiscoverData(ctx, &telemetryv1.DiscoverDataRequest{Scope: scope, Signal: input.Signal, Kind: input.Kind, Metric: input.Metric, Field: input.Field, Search: input.Search, Cursor: input.Cursor, SelectedValues: input.SelectedValues, FiltersJson: filters, From: timestamppb.New(input.From), To: timestamppb.New(input.To), Budget: budget, Limit: uint32(input.Limit)})
+	response, err := telemetryv1.NewTelemetryCatalogServiceClient(backend.connection).DiscoverData(ctx, &telemetryv1.DiscoverDataRequest{SchemaVersion: CatalogProtocolVersion, Scope: scope, Signal: input.Signal, Kind: input.Kind, Metric: input.Metric, Field: input.Field, Search: input.Search, Cursor: input.Cursor, SelectedValues: input.SelectedValues, FiltersJson: filters, From: timestamppb.New(input.From), To: timestamppb.New(input.To), Budget: budget, Limit: uint32(input.Limit)})
 	if err != nil {
 		return DataCatalogResult{}, engineRPCError(err)
 	}
-	if response == nil || response.SchemaVersion != "argus.telemetry_catalog/v1" {
+	if response == nil || response.SchemaVersion != CatalogProtocolVersion {
 		return DataCatalogResult{}, ErrQueryBackend
 	}
 	var result DataCatalogResult

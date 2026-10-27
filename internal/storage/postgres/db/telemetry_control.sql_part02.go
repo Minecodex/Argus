@@ -8,6 +8,91 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const releaseCollectorClaims = `-- name: ReleaseCollectorClaims :exec
+UPDATE collection_claims SET status = 'released'
+WHERE enterprise_id = $1 AND collector_id = $2 AND status IN ('active','conflict')
+`
+
+type ReleaseCollectorClaimsParams struct {
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	CollectorID  uuid.UUID `json:"collector_id"`
+}
+
+func (q *Queries) ReleaseCollectorClaims(ctx context.Context, arg ReleaseCollectorClaimsParams) error {
+	_, err := q.db.Exec(ctx, releaseCollectorClaims, arg.EnterpriseID, arg.CollectorID)
+	return err
+}
+
+const revokeCollectorCertificates = `-- name: RevokeCollectorCertificates :exec
+UPDATE telemetry_certificates SET revoked_at = now(), revoke_reason = $2
+WHERE collector_id = $1 AND revoked_at IS NULL
+`
+
+type RevokeCollectorCertificatesParams struct {
+	CollectorID  uuid.UUID   `json:"collector_id"`
+	RevokeReason pgtype.Text `json:"revoke_reason"`
+}
+
+func (q *Queries) RevokeCollectorCertificates(ctx context.Context, arg RevokeCollectorCertificatesParams) error {
+	_, err := q.db.Exec(ctx, revokeCollectorCertificates, arg.CollectorID, arg.RevokeReason)
+	return err
+}
+
+const rollbackCollectorClaimMigrations = `-- name: RollbackCollectorClaimMigrations :execrows
+UPDATE collection_claims SET status = 'expired'
+WHERE enterprise_id = $1 AND collector_id = $2 AND ownership = 'migration' AND status = 'active'
+`
+
+type RollbackCollectorClaimMigrationsParams struct {
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	CollectorID  uuid.UUID `json:"collector_id"`
+}
+
+func (q *Queries) RollbackCollectorClaimMigrations(ctx context.Context, arg RollbackCollectorClaimMigrationsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, rollbackCollectorClaimMigrations, arg.EnterpriseID, arg.CollectorID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const supersedeCollectorConfigRevisions = `-- name: SupersedeCollectorConfigRevisions :exec
+UPDATE collector_config_revisions SET status = 'superseded'
+WHERE collector_id = $1 AND status IN ('prepared','applying','effective')
+`
+
+func (q *Queries) SupersedeCollectorConfigRevisions(ctx context.Context, collectorID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, supersedeCollectorConfigRevisions, collectorID)
+	return err
+}
+
+const upsertCollectorForAction = `-- name: UpsertCollectorForAction :one
+INSERT INTO collector_instances (
+  id, enterprise_id, resource_type, resource_id, distribution_version_id,
+  platform, role, status, desired_revision, effective_revision
+) VALUES ($1,$2,$3,$4,$5,$6,$7,'installing',1,0)
+ON CONFLICT (enterprise_id, resource_type, resource_id) DO UPDATE SET
+  distribution_version_id = EXCLUDED.distribution_version_id,
+  platform = EXCLUDED.platform,
+  role = EXCLUDED.role,
+  source_generation = CASE WHEN collector_instances.status = 'uninstalled' THEN gen_random_uuid() ELSE collector_instances.source_generation END,
+  status = 'installing',
+  desired_revision = collector_instances.desired_revision + 1,
+  version = collector_instances.version + 1,
+  updated_at = now()
+RETURNING id, enterprise_id, resource_type, resource_id, distribution_version_id, platform, role, status, desired_revision, effective_revision, authorization_version, last_seen_at, version, created_at, updated_at, source_generation
+`
+
+type UpsertCollectorForActionParams struct {
+	ID                    uuid.UUID `json:"id"`
+	EnterpriseID          uuid.UUID `json:"enterprise_id"`
+	ResourceType          string    `json:"resource_type"`
+	ResourceID            uuid.UUID `json:"resource_id"`
+	DistributionVersionID uuid.UUID `json:"distribution_version_id"`
+	Platform              string    `json:"platform"`
+	Role                  string    `json:"role"`
+}
+
 func (q *Queries) UpsertCollectorForAction(ctx context.Context, arg UpsertCollectorForActionParams) (CollectorInstance, error) {
 	row := q.db.QueryRow(ctx, upsertCollectorForAction,
 		arg.ID,
@@ -119,8 +204,14 @@ ON CONFLICT (collector_id) DO UPDATE SET
   gateway_collector_id = EXCLUDED.gateway_collector_id,
   transport = EXCLUDED.transport,
   loopback_port = EXCLUDED.loopback_port,
-  status = 'pending',
-  version = telemetry_routes.version + 1,
+  status = CASE WHEN
+    ROW(telemetry_routes.kind,telemetry_routes.gateway_collector_id,telemetry_routes.transport,telemetry_routes.loopback_port)
+    IS NOT DISTINCT FROM ROW(EXCLUDED.kind,EXCLUDED.gateway_collector_id,EXCLUDED.transport,EXCLUDED.loopback_port)
+    THEN telemetry_routes.status ELSE 'pending' END,
+  version = CASE WHEN
+    ROW(telemetry_routes.kind,telemetry_routes.gateway_collector_id,telemetry_routes.transport,telemetry_routes.loopback_port)
+    IS NOT DISTINCT FROM ROW(EXCLUDED.kind,EXCLUDED.gateway_collector_id,EXCLUDED.transport,EXCLUDED.loopback_port)
+    THEN telemetry_routes.version ELSE telemetry_routes.version + 1 END,
   updated_at = now()
 RETURNING id, enterprise_id, collector_id, kind, gateway_collector_id, status, version, last_tested_at, created_at, updated_at, transport, loopback_port
 `

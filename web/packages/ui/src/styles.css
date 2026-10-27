@@ -4,3 +4,6 @@
 @import "./composer-interactions.css";
 @import "./command-activity.css";
 @import "./file-tree.css";
+@import "./resource-picker.css";
+@import "./protected-textarea.css";
+@import "./structured-document.css";

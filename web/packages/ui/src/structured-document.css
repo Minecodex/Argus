@@ -1,0 +1,17 @@
+.argus-structured-document {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.argus-structured-document-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.argus-structured-document-code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-normal);
+  tab-size: 2;
+}

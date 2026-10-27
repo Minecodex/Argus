@@ -128,7 +128,7 @@ func TestLivePlan7ExistingPortal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	host := &plan6HostLoop{Docker: fixture, HostName: "AIOps Linux 实测 · glm-5.3-flash · " + runID, CPUExpression: `100 * (1 - avg by (argus_resource_id,argus_source_id) (system_cpu_utilization{state="idle"}))`, MemoryExpression: `100 * system_memory_utilization{state="used"}`}
+	host := &plan6HostLoop{Docker: fixture, HostName: "AIOps Linux 实测 · glm-5.3-flash · " + runID, CPUExpression: `100 * (1 - avg by (argus_resource_id,argus_source_id,argus_collection_id) (system_cpu_utilization{state="idle"}))`, MemoryExpression: `100 * system_memory_utilization{state="used"}`}
 	statePath := filepath.Join(artifacts, "portal-resource-state.json")
 	var saved struct {
 		Host    *plan6HostLoop `json:"host"`

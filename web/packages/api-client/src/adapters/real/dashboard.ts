@@ -7,6 +7,11 @@ export function createDashboardDomains(
 ): DashboardDomains {
   const draft = (id: string) => `dashboard-drafts/${encodeURIComponent(id)}`;
   const item = (id: string) => `dashboards/${encodeURIComponent(id)}`;
+  const resourcePath = (
+    type: import("../../dashboard").DashboardBindingResourceType,
+    id: string,
+  ) =>
+    `${{ host: "hosts", kubernetes_cluster: "kubernetes/clusters", application: "applications", monitoring_target: "monitoring/targets" }[type]}/${encodeURIComponent(id)}/dashboard-bindings`;
   const queries = (conversation: string, id?: string) =>
     `conversations/${encodeURIComponent(conversation)}/dashboard-queries${id ? `/${encodeURIComponent(id)}` : ""}`;
   const preview = <T>(path: string, body: unknown) =>
@@ -39,6 +44,12 @@ export function createDashboardDomains(
         }),
     },
     dashboards: {
+      scopeResources: (query, signal) => {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(query))
+          if (value !== undefined) params.set(key, String(value));
+        return http.request(`dashboard-scope-resources?${params}`, { signal });
+      },
       convertPanel: (body) =>
         http.request("dashboard-spec/convert-panel", {
           method: "POST",
@@ -46,15 +57,9 @@ export function createDashboardDomains(
           body,
         }),
       bindings: (id) => http.request(`${item(id)}/bindings`),
-      resourceBindings: (type, id) =>
-        http.request(
-          `${type === "host" ? "hosts" : "kubernetes/clusters"}/${encodeURIComponent(id)}/dashboard-bindings`,
-        ),
+      resourceBindings: (type, id) => http.request(resourcePath(type, id)),
       previewBinding: (type, id, body) =>
-        preview(
-          `${type === "host" ? "hosts" : "kubernetes/clusters"}/${encodeURIComponent(id)}/dashboard-bindings/preview`,
-          body,
-        ),
+        preview(`${resourcePath(type, id)}/preview`, body),
       list: () => http.request("dashboards"),
       get: (id) => http.request(item(id)),
       revisions: (id) => http.request(`${item(id)}/revisions`),

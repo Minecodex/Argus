@@ -1,16 +1,59 @@
-import {useState,useMemo} from "react";
-import {useQuery,useQueries,useQueryClient} from "@tanstack/react-query";
-import {Bell,Plus,Search,Download,List,Check,SlidersHorizontal,Info} from "lucide-react";
-import {useApi,formatApiError,type AlertKind,type AlertConfiguration,type AlertMutation,type AlertInstance,type AlertDelivery,type PendingActionPublic,type AlertFilter} from "@argus/api-client";
-import {ActionMenu,Button,Input,Select,Checkbox,Tabs,TabsList,TabsTrigger,TabsContent,Dialog,Skeleton,Field,type Column} from "@argus/ui";
-import {usePermission} from "../lib/permissions";
-import {PendingActionConfirm} from "../components/hosts/pending-action-confirm";
-import {AlertEditor} from "../components/alerts/editor";
-import {AlertDetails} from "../components/alerts/details";
-import {AlertSettings} from "../components/alerts/settings";
-import {AlertStatus,AlertTable,AlertCallout,SmallAction,useAlertText,policySpec,resourceName,clock,duration} from "../components/alerts/common";
+import { useState, useMemo } from "react";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
+import {
+  Bell,
+  Plus,
+  Search,
+  Download,
+  List,
+  Check,
+  SlidersHorizontal,
+  Info,
+} from "lucide-react";
+import {
+  useApi,
+  formatApiError,
+  type AlertKind,
+  type AlertConfiguration,
+  type AlertMutation,
+  type AlertInstance,
+  type AlertDelivery,
+  type PendingActionPublic,
+  type AlertFilter,
+} from "@argus/api-client";
+import {
+  ActionMenu,
+  Button,
+  Input,
+  Select,
+  Checkbox,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  Dialog,
+  Skeleton,
+  Field,
+  type Column,
+} from "@argus/ui";
+import { usePermission } from "../lib/permissions";
+import { PendingActionConfirm } from "../components/hosts/pending-action-confirm";
+import { AlertEditor } from "../components/alerts/editor";
+import { AlertDetails } from "../components/alerts/details";
+import { AlertSettings } from "../components/alerts/settings";
+import {
+  AlertStatus,
+  AlertTable,
+  AlertCallout,
+  SmallAction,
+  useAlertText,
+  policySpec,
+  resourceName,
+  clock,
+  duration,
+} from "../components/alerts/common";
 import "../styles/alerts.css";
-import {useAlertNavigation} from "../components/alerts/navigation";
+import { useAlertNavigation } from "../components/alerts/navigation";
 const TABS = [
   "active",
   "history",
@@ -187,7 +230,9 @@ export function AlertsPage() {
       render: (e) => (
         <Checkbox
           appearance="outline"
-          aria-label={e.state.name}
+          aria-label={
+            e.state.delivery_gap ? t("alerts.deliveryGapTitle") : e.state.name
+          }
           isSelected={selected.has(e.id)}
           onChange={(v) =>
             setSelected((old) => {
@@ -214,7 +259,7 @@ export function AlertsPage() {
             variant="ghost"
             onPress={() => setDetail({ type: "instance", id: e.id })}
           >
-            {e.state.name}
+            {e.state.delivery_gap ? t("alerts.deliveryGapTitle") : e.state.name}
           </Button>
         </div>
       ),
@@ -237,7 +282,10 @@ export function AlertsPage() {
       render: (e) => (
         <>
           {e.state.value === undefined ? (
-            <AlertStatus value={e.health} />
+            <AlertStatus
+              value={e.state.delivery_gap ? "delivery_fault" : e.health}
+              tone={e.state.delivery_gap ? "danger" : undefined}
+            />
           ) : (
             <>
               <div
@@ -304,7 +352,25 @@ export function AlertsPage() {
     {
       key: "action",
       header: t("alerts.action"),
-      render: (e) => (<ActionMenu items={[{label: t("alerts.details"),onSelect: () => setDetail({ type: "instance", id: e.id })},...(tab !== "history" ? [{label: t("alerts.ackShort"),onSelect: () => void handle(e),disabled: (!canHandle || e.acknowledged)}] : [])]} />),
+      render: (e) => (
+        <ActionMenu
+          items={[
+            {
+              label: t("alerts.details"),
+              onSelect: () => setDetail({ type: "instance", id: e.id }),
+            },
+            ...(tab !== "history"
+              ? [
+                  {
+                    label: t("alerts.ackShort"),
+                    onSelect: () => void handle(e),
+                    disabled: !canHandle || e.acknowledged,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ),
     },
   ];
   const deliveryColumns: Column<AlertDelivery>[] = [
@@ -377,8 +443,22 @@ export function AlertsPage() {
     {
       key: "action",
       header: t("alerts.action"),
-      render: (d) => (<ActionMenu items={[{label: t("alerts.details"),onSelect: () => setDetail({ type: "delivery", id: d.id })},{label: t("alerts.resend"),onSelect: () =>
-                void command("notification.resend", d.id, d.version),disabled: (!canNotify || !["failed", "unknown"].includes(d.status))}]} />),
+      render: (d) => (
+        <ActionMenu
+          items={[
+            {
+              label: t("alerts.details"),
+              onSelect: () => setDetail({ type: "delivery", id: d.id }),
+            },
+            {
+              label: t("alerts.resend"),
+              onSelect: () =>
+                void command("notification.resend", d.id, d.version),
+              disabled: !canNotify || !["failed", "unknown"].includes(d.status),
+            },
+          ]}
+        />
+      ),
     },
   ];
   const policyColumns: Column<AlertConfiguration>[] = [
@@ -393,11 +473,19 @@ export function AlertsPage() {
             variant="ghost"
             onPress={() => setDetail({ type: "policy", id: p.id })}
           >
-            {p.name}
+            {p.managed_by === "collector_delivery"
+              ? t("alerts.deliveryGapTitle")
+              : p.name}
           </Button>
           <div className="argus-alert-secondary">
-            {t(policySpec(p).enabled ? "alerts.enabled" : "alerts.disabled")} ·
-            v{p.version}
+            {t(
+              p.managed_by === "collector_delivery"
+                ? "alerts.deliveryManagedPolicyLabel"
+                : policySpec(p).enabled
+                  ? "alerts.enabled"
+                  : "alerts.disabled",
+            )}{" "}
+            · v{p.version}
           </div>
         </>
       ),
@@ -442,13 +530,30 @@ export function AlertsPage() {
     {
       key: "action",
       header: t("alerts.action"),
-      render: (p) => (<ActionMenu items={[{label: t("alerts.edit"),onSelect: () => setEditor({ kind: "policy", row: p }),disabled: (!canPolicy)},{label: t(policySpec(p).enabled ? "alerts.pause" : "alerts.resume"),onSelect: () =>
-              void prepare({
-                kind: "policy",
-                operation: policySpec(p).enabled ? "disable" : "enable",
-                id: p.id,
-                expected_version: p.version,
-              }),disabled: (!canPolicy)}]} />),
+      render: (p) => (
+        <ActionMenu
+          items={[
+            {
+              label: t("alerts.edit"),
+              onSelect: () => setEditor({ kind: "policy", row: p }),
+              disabled: !canPolicy || p.managed_by === "collector_delivery",
+            },
+            {
+              label: t(
+                policySpec(p).enabled ? "alerts.pause" : "alerts.resume",
+              ),
+              onSelect: () =>
+                void prepare({
+                  kind: "policy",
+                  operation: policySpec(p).enabled ? "disable" : "enable",
+                  id: p.id,
+                  expected_version: p.version,
+                }),
+              disabled: !canPolicy || p.managed_by === "collector_delivery",
+            },
+          ]}
+        />
+      ),
     },
   ];
   if (!canRead)

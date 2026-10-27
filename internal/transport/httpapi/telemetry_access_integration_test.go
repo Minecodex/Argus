@@ -75,6 +75,17 @@ func TestPostgresTelemetryObjectReadParityAndRevocation(t *testing.T) {
 	exec("INSERT INTO role_bindings(id,enterprise_id,subject_type,subject_id,role_id) VALUES($1,$2,'service_account',$3,$4)", uuid.New(), e, sa, role)
 	exec("INSERT INTO hosts(id,enterprise_id,name,address,port,platform,role,control_path,environment,labels_hash) VALUES($1,$2,'Host','127.0.0.1',22,'linux','managed_host','direct','development',decode(repeat('00',32),'hex'))", host, e)
 	exec("INSERT INTO kubernetes_clusters(id,enterprise_id,name,api_server,connection_mode,environment,labels_hash) VALUES($1,$2,'Cluster','https://cluster.invalid','in_cluster','development',decode(repeat('00',32),'hex'))", cluster, e)
+	// Scope parity still requires a registered origin. The query backend below
+	// is controlled; this fixture does not claim actual collection or ingestion.
+	distribution, collector, generation, source := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	exec("INSERT INTO collector_distribution_versions(id,name,version,collector_version,config_schema_version,support_status,artifact_manifest,catalog_revision) VALUES($1,$2,'fixture','fixture','fixture','supported','[]',1)", distribution, distribution.String())
+	exec("INSERT INTO collector_instances(id,enterprise_id,resource_type,resource_id,distribution_version_id,platform,role,status,source_generation,desired_revision,effective_revision) VALUES($1,$2,'host',$3,$4,'linux_amd64','direct','converged',$5,1,1)", collector, e, host, distribution, generation)
+	exec("INSERT INTO collector_config_revisions(id,collector_id,revision,profile_ids,rendered_config,config_hash,status) VALUES($1,$2,1,'{}','{}',decode(repeat('00',32),'hex'),'effective')", uuid.New(), collector)
+	exec("INSERT INTO telemetry_sources(id,enterprise_id,collector_id,generation,resource_type,resource_id,source_key,source_type,signals,config_revision,config_hash,capability_version) VALUES($1,$2,$3,$4,'host',$5,'fixture/otlp','otlp',ARRAY['metrics','logs','traces'],1,decode(repeat('00',32),'hex'),'v1')", source, e, collector, generation, host)
+	clusterCollector, clusterGeneration := uuid.New(), uuid.New()
+	exec("INSERT INTO collector_instances(id,enterprise_id,resource_type,resource_id,distribution_version_id,platform,role,status,source_generation,desired_revision,effective_revision) VALUES($1,$2,'kubernetes_cluster',$3,$4,'linux_amd64','direct','converged',$5,1,1)", clusterCollector, e, cluster, distribution, clusterGeneration)
+	exec("INSERT INTO collector_config_revisions(id,collector_id,revision,profile_ids,rendered_config,config_hash,status) VALUES($1,$2,1,'{}','{}',decode(repeat('00',32),'hex'),'effective')", uuid.New(), clusterCollector)
+	exec("INSERT INTO telemetry_sources(id,enterprise_id,collector_id,generation,resource_type,resource_id,source_key,source_type,signals,config_revision,config_hash,capability_version) VALUES($1,$2,$3,$4,'kubernetes_cluster',$5,'fixture/otlp','otlp',ARRAY['metrics','logs','traces'],1,decode(repeat('00',32),'hex'),'v1')", uuid.New(), e, clusterCollector, clusterGeneration, cluster)
 	for _, subject := range []struct {
 		kind string
 		id   uuid.UUID
@@ -133,7 +144,13 @@ func TestPostgresTelemetryObjectReadParityAndRevocation(t *testing.T) {
 			kind string
 			id   uuid.UUID
 		}{{"user", user}, {"service_account", sa}} {
-			call := mcp.Call{ToolID: scenario.tool, Subject: subject.id.String(), SubjectType: subject.kind, Enterprise: e.String(), Input: map[string]any{"resource_ids": []any{host.String()}, "from": now.Add(-time.Minute).Format(time.RFC3339), "to": now.Format(time.RFC3339), "query": "*", "document": "query { trace }"}}
+			input := map[string]any{"resource_ids": []any{host.String()}, "from": now.Add(-time.Minute).Format(time.RFC3339), "to": now.Format(time.RFC3339)}
+			if scenario.language == queryengine.LanguageTrace {
+				input["document"] = "query { queryTraces(pageSize:10) { total traces { traceId rootService rootOperation startTime duration spanCount errorCount } } }"
+			} else {
+				input["query"] = "*"
+			}
+			call := mcp.Call{ToolID: scenario.tool, Subject: subject.id.String(), SubjectType: subject.kind, Enterprise: e.String(), Input: input}
 			if _, err = registry.Call(ctx, call); err != nil {
 				t.Fatalf("native %s denied object read: %v", subject.kind, err)
 			}
@@ -146,7 +163,15 @@ func TestPostgresTelemetryObjectReadParityAndRevocation(t *testing.T) {
 				t.Fatal("host capability authorized a cluster")
 			}
 		}
-		_, err = tools.Invoke(ctx, "tool.describe", toolruntime.Invocation{Principal: toolruntime.Principal{EnterpriseID: e, UserID: user, Permissions: []string{"host.read"}}, Arguments: map[string]any{"category": scenario.category, "name": map[string]string{"metric": "query", "log": "query", "trace": "query"}[scenario.category]}})
+		// Native Agent query tools deliver results through Workspace. HTTP and
+		// ServiceAccount reads above retain object permissions; discovery must
+		// also require the separately granted Workspace capability.
+		invocation := toolruntime.Invocation{Principal: toolruntime.Principal{EnterpriseID: e, UserID: user, Permissions: []string{"host.read"}}, Arguments: map[string]any{"category": scenario.category, "name": "query"}}
+		if _, err = tools.Invoke(ctx, "tool.describe", invocation); err == nil {
+			t.Fatal("native query discovery implicitly granted Workspace")
+		}
+		invocation.Principal.Permissions = append(invocation.Principal.Permissions, "workspace.use")
+		_, err = tools.Invoke(ctx, "tool.describe", invocation)
 		if err != nil {
 			t.Fatal("native discovery hides a valid object reader", err)
 		}
@@ -171,6 +196,29 @@ func TestPostgresTelemetryObjectReadParityAndRevocation(t *testing.T) {
 	if _, err = registry.Call(ctx, mcp.Call{ToolID: "telemetry.kql.query", Subject: sa.String(), SubjectType: "service_account", Enterprise: e.String(), Input: map[string]any{}}); err == nil {
 		t.Fatal("service account allowlist bypassed")
 	}
+	application := uuid.New()
+	exec("INSERT INTO monitoring_applications(id,enterprise_id,application_key,name,environment,created_by) VALUES($1,$2,$3,'Application-only reader','production',$4)", application, e, application.String(), user)
+	exec("INSERT INTO data_authorization_grants(id,enterprise_id,subject_type,subject_id,resource_type,resource_id) VALUES($1,$2,'user',$3,'application',$4)", uuid.New(), e, user, application)
+	exec("INSERT INTO role_permissions(role_id,permission_id) VALUES($1,'application.read') ON CONFLICT DO NOTHING", role)
+	exec("DELETE FROM role_permissions WHERE role_id=$1 AND permission_id IN ('host.read','kubernetes.read')", role)
+	if _, err = handler.executeEngine(requestContext, "telemetry.skywalking.trace", queryengine.LanguageTrace, "query{queryAPMServices{status}}", "", "", nil, []uuid.UUID{application}, now.Add(-time.Minute), now, 0, nil, false); !errors.Is(err, telemetry.ErrQuerySourcesEmpty) {
+		t.Fatalf("application-only HTTP reader rejected before source resolution: %v", err)
+	}
+	call := mcp.Call{ToolID: "telemetry.skywalking.trace", Subject: user.String(), SubjectType: "user", Enterprise: e.String(), Input: map[string]any{"resource_ids": []any{application.String()}, "from": now.Add(-time.Minute).Format(time.RFC3339), "to": now.Format(time.RFC3339), "document": "query{queryAPMServices{status}}"}}
+	if result, e := registry.Call(ctx, call); e != nil || result.Structured["status"] != "no_data" {
+		t.Fatalf("application-only native reader: %v", e)
+	}
+	if _, err = tools.Invoke(ctx, "tool.describe", toolruntime.Invocation{Principal: toolruntime.Principal{EnterpriseID: e, UserID: user, Permissions: []string{"application.read", "workspace.use"}}, Arguments: map[string]any{"category": "trace", "name": "query"}}); err != nil {
+		t.Fatalf("application query discovery hidden: %v", err)
+	}
+	exec("UPDATE data_authorization_grants SET status='disabled' WHERE enterprise_id=$1 AND subject_id=$2 AND resource_type='application' AND resource_id=$3", e, user, application)
+	if _, err = handler.executeEngine(requestContext, "telemetry.skywalking.trace", queryengine.LanguageTrace, "query{queryAPMServices{status}}", "", "", nil, []uuid.UUID{application}, now.Add(-time.Minute), now, 0, nil, false); !errors.Is(err, telemetry.ErrDenied) {
+		t.Fatalf("application read bypassed revoked data grant: %v", err)
+	}
+	if _, err = registry.Call(ctx, call); !errors.Is(err, telemetry.ErrDenied) {
+		t.Fatalf("native app query bypassed revoked grant: %v", err)
+	}
+	exec("INSERT INTO role_permissions(role_id,permission_id) VALUES($1,'host.read'),($1,'kubernetes.read') ON CONFLICT DO NOTHING", role)
 	engine.during = func() {
 		exec("UPDATE data_authorization_grants SET status='disabled' WHERE enterprise_id=$1 AND subject_id=$2 AND resource_id=$3", e, user, host)
 	}

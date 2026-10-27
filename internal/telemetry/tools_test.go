@@ -1,10 +1,35 @@
 package telemetry
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 )
+
+func TestTraceToolParametersAcceptBoundedVariablesOnly(t *testing.T) {
+	variables := map[string]any{"serviceIds": []any{"stable-id"}, "traceId": "trace"}
+	operation, values, err := traceToolParameters(map[string]any{"operation_name": "ApplicationAPM", "variables": variables})
+	if err != nil || operation != "ApplicationAPM" || values["traceId"] != "trace" {
+		t.Fatal("parameterized Trace query lost its operation or variables")
+	}
+	for _, input := range []map[string]any{
+		{"operation_name": 123}, {"operation_name": strings.Repeat("x", 257)},
+		{"variables": []any{"not-an-object"}}, {"variables": map[string]any{"large": strings.Repeat("x", 65536)}},
+	} {
+		if _, _, err = traceToolParameters(input); err == nil {
+			t.Fatal("invalid or unbounded Trace variables accepted")
+		}
+	}
+	for _, language := range []string{"promql", "kql", "skywalking_graphql"} {
+		fields := schemaProperties(t, dslQueryInputSchema(language, "traces"))
+		_, hasVariables := fields["variables"]
+		_, hasOperation := fields["operation_name"]
+		if hasVariables != (language == "skywalking_graphql") || hasOperation != hasVariables {
+			t.Fatal("Trace-specific parameter schema crossed language boundaries")
+		}
+	}
+}
 
 func TestDSLQueryInputSchemaPromQLBudgets(t *testing.T) {
 	promQL := schemaProperties(t, dslQueryInputSchema("promql", "metrics"))

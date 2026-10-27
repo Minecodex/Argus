@@ -34,7 +34,7 @@ func TestResourceToolCatalogIsStrictAndComplete(t *testing.T) {
 		t.Fatalf("pending_action.cancel metadata = %#v", cancel)
 	}
 	logs, ok := registry.Lookup("kubernetes.pod.logs")
-	if !ok || !slices.Contains(logs.Required, "kubernetes.logs") || logs.Validate(map[string]any{"cluster_id": "bad", "namespace": "ns", "pod": "pod"}) == nil {
+	if !ok || !slices.Contains(logs.Required, "kubernetes.operational_logs.read") || logs.Validate(map[string]any{"cluster_id": "bad", "namespace": "ns", "pod": "pod"}) == nil {
 		t.Fatalf("pod logs metadata or validation is incomplete: %#v", logs)
 	}
 }

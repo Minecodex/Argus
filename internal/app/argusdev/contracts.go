@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -14,7 +15,7 @@ import (
 )
 
 var contractDomains = []string{
-	"interactionapi", "remoteexecutionapi",
+	"monitoringapi", "interactionapi", "remoteexecutionapi",
 	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi", "alertsapi",
 	"common", "identity", "authorization", "labels", "action", "agent", "stream", "setup", "m8api", "platform",
 	"enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi", "kubernetesapi", "connectionapi",
@@ -23,7 +24,7 @@ var contractDomains = []string{
 }
 
 var contractServerDomains = []string{
-	"interactionapi", "remoteexecutionapi",
+	"monitoringapi", "interactionapi", "remoteexecutionapi",
 	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi", "alertsapi",
 	"setup", "m8api", "platform", "enterpriseidentity", "enterpriseauthz", "machine", "audit", "secretapi", "hostapi",
 	"kubernetesapi", "connectionapi", "actionapi", "connectorapi", "conversationapi", "modelapi", "workflowapi",
@@ -31,7 +32,7 @@ var contractServerDomains = []string{
 }
 
 var splitServerDomains = []string{
-	"interactionapi", "remoteexecutionapi",
+	"monitoringapi", "interactionapi", "remoteexecutionapi",
 	"conversationapi",
 	"mcpapi", "workspaceapi", "presentationapi", "dashboardapi", "alertsapi",
 	"enterpriseauthz", "secretapi", "hostapi", "kubernetesapi", "connectionapi", "actionapi", "connectorapi", "sandboxapi",
@@ -116,6 +117,21 @@ func (a *App) contractGenerate(ctx context.Context) error {
 	if err := a.runner.Run(ctx, nil, "go", "run", "./scripts/collector-registry", "web/packages/api-client/src/generated/collector-registry.ts"); err != nil {
 		return err
 	}
+	if err := a.runner.Run(ctx, nil, "go", "run", "./scripts/monitoring-registry"); err != nil {
+		return err
+	}
+	if err := a.runner.Run(ctx, nil, "go", "run", "./scripts/builtin-registry"); err != nil {
+		return err
+	}
+	if err := a.runner.Run(ctx, nil, "go", "run", "./scripts/dashboard-template-registry"); err != nil {
+		return err
+	}
+	if err := a.runner.Run(ctx, nil, "go", "run", "./scripts/application-query-registry"); err != nil {
+		return err
+	}
+	if err := a.runner.Run(ctx, nil, "go", "run", "./scripts/kubernetes-inventory-registry"); err != nil {
+		return err
+	}
 	matches, err := filepath.Glob(filepath.Join(generatedBundles, "*.bundle.*"))
 	if err != nil {
 		return err
@@ -182,29 +198,40 @@ func (a *App) contractGenerate(ctx context.Context) error {
 	return a.runner.Run(ctx, nil, "go", "run", "./scripts/tool-labels")
 }
 
-func (a *App) contractCheck(ctx context.Context) error {
+func (a *App) contractCheck(ctx context.Context) (failure error) {
 	if err := a.contractLint(ctx); err != nil {
 		return err
 	}
-	roots := []string{"api/openapi/generated", "internal/gen", "web/packages/api-client/src/generated"}
+	roots := []string{"api/openapi/generated", "api/contracts/dashboard-templates.json", "api/contracts/application-apm-queries.json", "internal/gen", "web/packages/api-client/src/generated"}
 	before, err := hashTrees(a.root, roots)
 	if err != nil {
 		return err
 	}
-	if err := a.contractGenerate(ctx); err != nil {
-		return err
-	}
-	after, err := hashTrees(a.root, roots)
+	isolated, cleanup, err := a.stageContracts(ctx)
 	if err != nil {
 		return err
 	}
-	if difference := hashDifference(before, after); difference != "" {
+	defer func() { failure = errors.Join(failure, cleanup()) }()
+	if err = isolated.contractGenerate(ctx); err != nil {
+		return err
+	}
+	generated, err := hashTrees(isolated.root, roots)
+	if err != nil {
+		return err
+	}
+	current, err := hashTrees(a.root, roots)
+	if err != nil {
+		return err
+	}
+	if difference := hashDifference(before, current); difference != "" {
+		return fmt.Errorf("live generated inputs changed during read-only check:\n%s", difference)
+	}
+	if difference := hashDifference(before, generated); difference != "" {
 		return fmt.Errorf("generated contracts are stale:\n%s", difference)
 	}
-	_, _ = fmt.Fprintln(a.stdout, "generated contracts are current")
+	_, _ = fmt.Fprintln(a.stdout, "generated contracts are current (isolated generation)")
 	return nil
 }
-
 func (a *App) contractBreaking(ctx context.Context) error {
 	if err := a.runner.Run(ctx, nil, "go", "test", "./tests/contract"); err != nil {
 		return err

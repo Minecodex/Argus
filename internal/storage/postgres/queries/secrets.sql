@@ -101,6 +101,7 @@ FROM credentials AS credential
 WHERE lease.id = sqlc.arg('id')
   AND lease.enterprise_id = sqlc.arg('enterprise_id')
   AND lease.status = 'active'
+  AND lease.protocol <> 'monitoring'
   AND lease.expires_at > now()
   AND lease.recipient_type = sqlc.arg('recipient_type')
   AND lease.recipient_id = sqlc.arg('recipient_id')

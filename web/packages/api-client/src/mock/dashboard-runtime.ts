@@ -6,6 +6,7 @@ import type {
   DashboardTarget,
 } from "../dashboard";
 import type { BaseContext } from "./context";
+import { authorizationCatalog } from "./authorization-catalog";
 import {
   copyDashboard as copy,
   dashboardFailure as fail,
@@ -203,7 +204,7 @@ export function mockDashboardExecution(
     from = input.from
       ? Date.parse(input.from)
       : to - (spec.default_time_range.seconds ?? 3600) * 1000;
-  const available = [
+  const available: DashboardSchemas["DashboardResourceScope"][] = [
     ...ctx.db.hosts
       .filter(
         (r) =>
@@ -219,14 +220,61 @@ export function mockDashboardExecution(
           dashboardObjectGrant(ctx, "kubernetes_cluster", r.id),
       )
       .map((r) => ({ id: r.id, type: "kubernetes_cluster" as const })),
+    ...(
+      ["application", "monitoring_target", "kubernetes_namespace"] as const
+    ).flatMap((type) =>
+      authorizationCatalog(ctx, type)
+        .filter(
+          (row) =>
+            dashboardObjectGrant(ctx, type, row.id) ||
+            (type === "kubernetes_namespace" &&
+              !!row.parent_id &&
+              dashboardObjectGrant(ctx, "kubernetes_cluster", row.parent_id)),
+        )
+        .map((row) => ({ id: row.id, type })),
+    ),
   ];
   if (input.resource_ids?.some((id) => !available.some((r) => r.id === id)))
     fail("DASHBOARD_DENIED", 403);
-  const resources = input.resource_ids?.length
-    ? available.filter((r) => input.resource_ids!.includes(r.id))
-    : available;
-  if (!resources.length) fail("DASHBOARD_DENIED", 403);
-  const resource = resources[0]!.id;
+  let resources =
+    input.resource_mode === "explicit" || input.resource_ids?.length
+      ? available.filter((r) => input.resource_ids!.includes(r.id))
+      : available;
+  if (input.resource_types?.length)
+    resources = resources.filter((row) =>
+      input.resource_types!.includes(row.type),
+    );
+  if (input.application_mode) {
+    const apps = authorizationCatalog(ctx, "application")
+      .filter((row) => dashboardObjectGrant(ctx, "application", row.id))
+      .map((row) => row.id);
+    if (input.application_ids?.some((id) => !apps.includes(id)))
+      fail("DASHBOARD_DENIED", 403);
+    const selected =
+      input.application_mode === "explicit"
+        ? (input.application_ids ?? [])
+        : apps;
+    const bindings =
+      ctx.db.monitoring?.[ctx.enterpriseId()]?.bindings.filter(
+        (row) => row.active && selected.includes(row.application_id),
+      ) ?? [];
+    resources = resources.filter((row) =>
+      row.type === "application"
+        ? selected.includes(row.id)
+        : bindings.some(
+            (binding) =>
+              binding.target.id === row.id && binding.target.kind === row.type,
+          ),
+    );
+  }
+  if (
+    !resources.length &&
+    input.resource_mode !== "explicit" &&
+    !input.application_mode &&
+    !input.resource_types?.length
+  )
+    fail("DASHBOARD_DENIED", 403);
+  const resource = resources[0]?.id ?? "";
   for (const [key, value] of contexts)
     if (value.expires < Date.now()) contexts.delete(key);
   if (contexts.size >= 128) contexts.delete(contexts.keys().next().value!);
@@ -241,6 +289,7 @@ export function mockDashboardExecution(
     from: new Date(from).toISOString(),
     to: new Date(to).toISOString(),
     resources,
+    scope_empty: !resources.length,
     partial: false,
     variables: {},
     local_values: {},
@@ -282,21 +331,23 @@ export function mockDashboardExecution(
       continue;
     result.panels.push({
       id: panel.id,
-      status: "success",
-      sources: [
-        {
-          id: `mock-source-${resource}`,
-          resource_id: resource,
-          revision: 1,
-          generation: "mock-installation",
-          type: panel.source_binding.source_type,
-          capability_version: "v1",
-        },
-      ],
+      status: resources.length ? "success" : "no_data",
+      sources: resources.length
+        ? [
+            {
+              id: `mock-source-${resource}`,
+              resource_id: resource,
+              revision: 1,
+              generation: "mock-installation",
+              type: panel.source_binding.source_type,
+              capability_version: "v1",
+            },
+          ]
+        : [],
       detail_sources: {},
       targets: panel.targets.map((target) => ({
         id: target.id,
-        status: "success",
+        status: resources.length ? "success" : "no_data",
         query_hash: `mock-${target.id}`,
         result_type:
           panel.signal === "metrics"
@@ -308,7 +359,9 @@ export function mockDashboardExecution(
               : panel.type.startsWith("apm_")
                 ? panel.type
                 : "traces",
-        data: rowData(panel, target, from, to, resource),
+        data: resources.length
+          ? rowData(panel, target, from, to, resource)
+          : [],
         meta: { engine: "mock-dashboard", warnings: ["MOCK_DATA"] },
       })),
     });

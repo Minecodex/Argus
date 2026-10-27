@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/collectorstate"
 
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 	"github.com/kakj-go/Argus/internal/secret"
@@ -178,37 +179,52 @@ func (gateway Gateway) telemetryTunnelForwardTarget() string {
 	return gateway.TelemetryTunnelForwardTarget
 }
 
-func (gateway Gateway) applyTelemetryTunnelStatuses(
+func (gateway Gateway) applyTelemetryTunnelStatuses(ctx context.Context, identity TrustedIdentity, epoch int64, statuses []*connectorv1.TelemetryTunnelStatus) error {
+	var events []tunnelRuntimeEvent
+	err := gateway.withCurrentRuntimeSession(ctx, identity, epoch, func(q *db.Queries) error {
+		var applyErr error
+		events, applyErr = gateway.applyTelemetryTunnelStatusesWithQueries(ctx, q, identity, epoch, statuses)
+		return applyErr
+	})
+	if err != nil {
+		return err
+	}
+	gateway.auditRuntimeEvents(ctx, identity, events)
+	return nil
+}
+func (gateway Gateway) applyTelemetryTunnelStatusesWithQueries(
 	ctx context.Context,
+	q *db.Queries,
 	identity TrustedIdentity,
 	connectionEpoch int64,
 	statuses []*connectorv1.TelemetryTunnelStatus,
-) error {
+) ([]tunnelRuntimeEvent, error) {
+	events := []tunnelRuntimeEvent{}
 	if len(statuses) > gateway.telemetryTunnelLimit() {
-		return ErrCommandState
+		return nil, ErrCommandState
 	}
 	owner := connectorTunnelOwner(identity.ConnectorID, connectionEpoch)
 	for _, status := range statuses {
 		tunnelID, err := uuid.Parse(status.GetTunnelId())
 		if err != nil || status.GetEpoch() > math.MaxInt64 || status.GetFence() > math.MaxInt64 ||
 			status.GetBytesRelayed() > math.MaxInt64 || status.GetThrottledEvents() > math.MaxInt64 {
-			return ErrCommandState
+			return nil, ErrCommandState
 		}
 		state := status.GetStatus()
 		if state != "establishing" && state != "established" && state != "degraded" && state != "down" {
-			return ErrCommandState
+			return nil, ErrCommandState
 		}
 		reason := strings.TrimSpace(status.GetDropReason())
 		if len(reason) > 128 {
-			return ErrCommandState
+			return nil, ErrCommandState
 		}
-		before, beforeErr := gateway.Service.Store.Queries.GetTelemetryTunnel(ctx, db.GetTelemetryTunnelParams{
+		before, beforeErr := q.GetTelemetryTunnel(ctx, db.GetTelemetryTunnelParams{
 			ID: tunnelID, EnterpriseID: identity.EnterpriseID,
 		})
 		if beforeErr != nil {
-			return beforeErr
+			return nil, beforeErr
 		}
-		rows, heartbeatErr := gateway.Service.Store.Queries.HeartbeatConnectorTelemetryTunnel(ctx,
+		rows, heartbeatErr := q.HeartbeatConnectorTelemetryTunnel(ctx,
 			db.HeartbeatConnectorTelemetryTunnelParams{
 				ID: tunnelID, EnterpriseID: identity.EnterpriseID,
 				ConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true},
@@ -217,10 +233,15 @@ func (gateway Gateway) applyTelemetryTunnelStatuses(
 				ThrottledEvents: int64(status.GetThrottledEvents()), LastDropReason: reason,
 			})
 		if heartbeatErr != nil {
-			return heartbeatErr
+			return nil, heartbeatErr
 		}
 		if rows != 1 {
-			return ErrConnectorFenced
+			return nil, ErrConnectorFenced
+		}
+		if state == "established" {
+			if err := collectorstate.ActivateVerifiedTunnelRoute(ctx, q, before); err != nil {
+				return nil, err
+			}
 		}
 		if before.Status != state {
 			before.Status, before.LastDropReason = state, reason
@@ -229,11 +250,11 @@ func (gateway Gateway) applyTelemetryTunnelStatuses(
 				event = tunnelaudit.Establish
 			}
 			if state == "established" || state == "degraded" || state == "down" {
-				gateway.auditTelemetryTunnel(ctx, identity, event, before, state, reason)
+				events = append(events, tunnelRuntimeEvent{tunnel: before, event: event, status: state, reason: reason})
 			}
 		}
 	}
-	return nil
+	return events, nil
 }
 
 func (gateway Gateway) releaseTelemetryTunnels(

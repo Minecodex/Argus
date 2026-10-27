@@ -19,6 +19,7 @@ type preparedDrilldown struct {
 // time-window and authorization rules. Only the row evidence provider differs.
 func (runtime Runtime) prepareDrilldown(ctx context.Context, actor Actor, spec Spec, frozen executionContext, input DrilldownInput, proof drilldownProof) (preparedDrilldown, error) {
 	runtime = runtime.metered(actor)
+	if frozen.Scope.ScopeSelection!=nil{runtime.scopeApplications=frozen.Scope.ScopeSelection.Applications}
 	if frozen.Depth < 0 || frozen.Depth >= 16 {
 		return preparedDrilldown{}, ErrContextExpired
 	}

@@ -155,8 +155,11 @@ type CollectorManagementCommand struct {
 	// enrollment request. The enrollment_endpoint hostname remains authoritative
 	// for HTTP Host, TLS SNI, and CA verification.
 	EnrollmentDialAddress string `protobuf:"bytes,31,opt,name=enrollment_dial_address,json=enrollmentDialAddress,proto3" json:"enrollment_dial_address,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Ephemeral private overlay delivered only over the authenticated execution
+	// channel. Never persisted in a command, action, public bundle or audit.
+	PrivateMonitoringConfig []byte `protobuf:"bytes,32,opt,name=private_monitoring_config,json=privateMonitoringConfig,proto3" json:"private_monitoring_config,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *CollectorManagementCommand) Reset() {
@@ -404,6 +407,13 @@ func (x *CollectorManagementCommand) GetEnrollmentDialAddress() string {
 		return x.EnrollmentDialAddress
 	}
 	return ""
+}
+
+func (x *CollectorManagementCommand) GetPrivateMonitoringConfig() []byte {
+	if x != nil {
+		return x.PrivateMonitoringConfig
+	}
+	return nil
 }
 
 type CollectorManagementResult struct {
@@ -817,8 +827,7 @@ const file_argus_connector_v1_collector_proto_rawDesc = "" +
 	"\x06sha256\x18\x04 \x01(\tR\x06sha256\x12\x1c\n" +
 	"\tsignature\x18\x05 \x01(\tR\tsignature\x12$\n" +
 	"\x0esigning_key_id\x18\x06 \x01(\tR\fsigningKeyId\x12\x1b\n" +
-	"\tbyte_size\x18\a \x01(\x04R\bbyteSize\"\xd9\n" +
-	"\n" +
+	"\tbyte_size\x18\a \x01(\x04R\bbyteSize\"\x95\v\n" +
 	"\x1aCollectorManagementCommand\x12!\n" +
 	"\fcollector_id\x18\x01 \x01(\tR\vcollectorId\x12\x1c\n" +
 	"\toperation\x18\x02 \x01(\tR\toperation\x12\x1f\n" +
@@ -854,7 +863,8 @@ const file_argus_connector_v1_collector_proto_rawDesc = "" +
 	"\x13trust_bundle_sha256\x18\x1c \x01(\tR\x11trustBundleSha256\x12?\n" +
 	"\x1ctrust_bundle_ca_fingerprints\x18\x1d \x03(\tR\x19trustBundleCaFingerprints\x12,\n" +
 	"\x12image_pull_secrets\x18\x1e \x03(\tR\x10imagePullSecrets\x126\n" +
-	"\x17enrollment_dial_address\x18\x1f \x01(\tR\x15enrollmentDialAddress\"\xe8\x02\n" +
+	"\x17enrollment_dial_address\x18\x1f \x01(\tR\x15enrollmentDialAddress\x12:\n" +
+	"\x19private_monitoring_config\x18  \x01(\fR\x17privateMonitoringConfig\"\xe8\x02\n" +
 	"\x19CollectorManagementResult\x12!\n" +
 	"\fcollector_id\x18\x01 \x01(\tR\vcollectorId\x12-\n" +
 	"\x12effective_revision\x18\x02 \x01(\x04R\x11effectiveRevision\x122\n" +

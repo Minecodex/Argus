@@ -1,0 +1,28 @@
+syntax = "proto3";
+package argus.remoteaccess.v1;
+option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/remoteaccess/v1;remoteaccessv1";
+import "argus/remoteaccess/v1/gateway.proto";
+
+// Independent domain authorization; only the byte-stream envelope is shared.
+service KubernetesStreamPeerService {
+  rpc OpenKubernetesStream(stream OpenKubernetesStreamRequest) returns (stream OpenKubernetesStreamResponse);
+}
+
+message OpenKubernetesStreamRequest {
+  uint64 sequence = 1;
+  oneof frame {
+    GatewayPeerOpen open = 2;
+    GatewayPeerInput input = 3;
+    GatewayPeerResize resize = 4;
+    GatewayPeerClose close = 5;
+  }
+}
+
+message OpenKubernetesStreamResponse {
+  uint64 sequence = 1;
+  oneof frame {
+    GatewayPeerReady ready = 2;
+    GatewayPeerOutput output = 3;
+    GatewayPeerState state = 4;
+  }
+}

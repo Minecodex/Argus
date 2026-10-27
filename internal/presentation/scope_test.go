@@ -23,3 +23,20 @@ func TestRelatedResourceAccessRequiresPermissionAndTypedGrant(t *testing.T) {
 		t.Fatal("missing authorization or invalid resource accepted")
 	}
 }
+
+func TestMonitoringPresentationReferencesRequireTheirOwnTypedGrant(t *testing.T) {
+	id := uuid.New()
+	access := Access{Permissions: []string{"application.read", "monitoring.read", "kubernetes.read"}, ResourceIDs: map[string][]uuid.UUID{"application": {id}}}
+	if !access.AllowsResource(toolruntime.ResourceRef{Type: "application", ID: id.String()}) {
+		t.Fatal("authorized application rejected")
+	}
+	for _, kind := range []string{"monitoring_target", "kubernetes_namespace", "kubernetes_cluster"} {
+		if access.AllowsResource(toolruntime.ResourceRef{Type: kind, ID: id.String()}) {
+			t.Fatalf("application grant crossed to %s", kind)
+		}
+	}
+	access.Permissions = []string{"monitoring.read"}
+	if access.AllowsResource(toolruntime.ResourceRef{Type: "application", ID: id.String()}) {
+		t.Fatal("unrelated directory permission exposed application")
+	}
+}

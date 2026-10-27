@@ -20,7 +20,7 @@ func TestResourceSummaryCarriesActualReadyStateWithoutSpecSecrets(t *testing.T) 
 	}
 }
 func TestConnectorAndDirectResourceProjectionShareObservedStatus(t *testing.T) {
-	object, err := objectFromJSON([]byte(`{"apiVersion":"apps/v1","kind":"DaemonSet","metadata":{"name":"collector","labels":{"argus.io/collector-id":"observed"}},"status":{"desiredNumberScheduled":3,"numberReady":2}}`), "daemonset")
+	object, err := objectFromJSON([]byte(`{"apiVersion":"apps/v1","kind":"DaemonSet","metadata":{"name":"collector","namespace":"monitoring","uid":"collector-uid","resourceVersion":"1","labels":{"argus.io/collector-id":"observed"}},"status":{"desiredNumberScheduled":3,"numberReady":2}}`), "daemonset")
 	if err != nil {
 		t.Fatal(err)
 	}

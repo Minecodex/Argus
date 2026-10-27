@@ -143,7 +143,7 @@ func TestApplyLocalVerifiesArtifactAndWritesAtomicState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply local Collector: %v", err)
 	}
-	if result.Status != "converged" || result.EffectiveRevision != command.DesiredRevision {
+	if result.Status != "staged" || result.EffectiveRevision != 0 {
 		t.Fatalf("unexpected Collector result: %#v", result)
 	}
 	directory := filepath.Join(root, command.CollectorId)

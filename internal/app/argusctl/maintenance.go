@@ -100,7 +100,7 @@ func (a *App) createBackup(ctx context.Context, cfg *InstallConfig, root string)
 	if err := a.captureBackupComponents(ctx, cfg, stage); err != nil {
 		return err
 	}
-	manifest := backupManifest{FormatVersion: 1, RunID: runID, CreatedAt: time.Now().UTC(), Profile: cfg.Spec.Profile, ReleaseID: cfg.Spec.ReleaseID, Namespaces: cfg.Spec.Namespaces, Files: map[string]string{}}
+	manifest := backupManifest{FormatVersion: backupFormatVersion, RunID: runID, CreatedAt: time.Now().UTC(), Profile: cfg.Spec.Profile, ReleaseID: cfg.Spec.ReleaseID, Namespaces: cfg.Spec.Namespaces, Files: map[string]string{}}
 	entries, err := os.ReadDir(stage)
 	if err != nil {
 		return err
@@ -139,16 +139,12 @@ func (a *App) createBackup(ctx context.Context, cfg *InstallConfig, root string)
 }
 
 func (a *App) captureBackupComponents(ctx context.Context, cfg *InstallConfig, stage string) error {
-	kube := []string{"--context", cfg.Spec.KubeContext, "--namespace", cfg.Spec.Namespaces.System}
-	passwordEncoded, err := a.runner.quiet(ctx, "kubectl", append(kube, "get", "secret", "argus-data-credentials", "-o", "jsonpath={.data.postgresql-password}")...)
+	recovery, err := a.captureBackupRecoveryState(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	password, err := base64.StdEncoding.DecodeString(strings.TrimSpace(passwordEncoded))
-	if err != nil {
-		return fmt.Errorf("decode PostgreSQL credential: %w", err)
-	}
-	postgres, err := a.runner.quiet(ctx, "kubectl", append(kube, "exec", "statefulset/argus-postgresql", "--", "env", "PGPASSWORD="+string(password), "pg_dump", "-U", "argus", "-d", "argus", "--format=custom")...)
+	kube := []string{"--context", cfg.Spec.KubeContext, "--namespace", cfg.Spec.Namespaces.System}
+	postgres, err := a.runner.quiet(ctx, "kubectl", append(kube, "exec", "statefulset/argus-postgresql", "--", "sh", "-ec", `export PGPASSWORD="$POSTGRES_PASSWORD"; exec pg_dump -U argus -d argus --format=custom`)...)
 	if err != nil {
 		return err
 	}
@@ -156,11 +152,25 @@ func (a *App) captureBackupComponents(ctx context.Context, cfg *InstallConfig, s
 		return err
 	}
 	openBaoSnapshot := "/tmp/argus-m8.snap"
+	bootstrap, err := a.readOpenBaoBootstrap(ctx, kube)
+	if err != nil {
+		return err
+	}
 	openBaoCommand := openBaoSnapshotSaveCommand(openBaoSnapshot)
 	if _, err := a.runner.quiet(ctx, "kubectl", openBaoExecArgs(kube, openBaoCommand)...); err != nil {
 		return err
 	}
-	if _, err := a.runner.quiet(ctx, "kubectl", openBaoCopyArgs(kube, "argus-openbao-0:"+openBaoSnapshot, filepath.Join(stage, "openbao.snap"))...); err != nil {
+	if err := a.transferPodFile(ctx, kube, podFileTransfer{Pod: "argus-openbao-0", Container: openBaoMaintenanceContainer, RemotePath: openBaoSnapshot, LocalPath: filepath.Join(stage, "openbao.snap")}); err != nil {
+		return err
+	}
+	after, err := a.readOpenBaoBootstrap(ctx, kube)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(bootstrap, after) {
+		return errors.New("OpenBao recovery material changed during backup; retry from a stable source")
+	}
+	if err := writePrivate(filepath.Join(stage, openBaoBootstrapFile), bootstrap); err != nil {
 		return err
 	}
 	if err := a.capturePodArchive(ctx, kube, "argus-minio-0", "/data", filepath.Join(stage, "minio.tgz")); err != nil {
@@ -196,7 +206,17 @@ func (a *App) captureBackupComponents(ctx context.Context, cfg *InstallConfig, s
 	if err != nil {
 		return err
 	}
-	return writePrivate(filepath.Join(stage, "install-config.yaml"), configData)
+	if err := writePrivate(filepath.Join(stage, "install-config.yaml"), configData); err != nil {
+		return err
+	}
+	afterRecovery, err := a.captureBackupRecoveryState(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(recovery, afterRecovery) {
+		return errors.New("PKI or runtime encryption material changed during backup; retry from a stable source")
+	}
+	return writePrivate(filepath.Join(stage, backupRecoveryFile), recovery)
 }
 
 func (a *App) capturePodArchive(ctx context.Context, kube []string, pod, source, target string) error {
@@ -204,8 +224,7 @@ func (a *App) capturePodArchive(ctx context.Context, kube []string, pod, source,
 	if _, err := a.runner.quiet(ctx, "kubectl", append(kube, "exec", pod, "--", "tar", "-czf", remote, "-C", source, ".")...); err != nil {
 		return err
 	}
-	_, err := a.runner.quiet(ctx, "kubectl", append(kube, "cp", pod+":"+remote, target)...)
-	return err
+	return a.transferPodFile(ctx, kube, podFileTransfer{Pod: pod, RemotePath: remote, LocalPath: target})
 }
 
 func (a *App) verifyBackup(backupPath, keyPath string, print bool) error {
@@ -274,6 +293,13 @@ func (a *App) runRestore(ctx context.Context, operation string, args []string) e
 		return err
 	}
 	defer os.RemoveAll(stage)
+	recovery, err := readBackupRecoveryState(stage)
+	if err != nil {
+		return err
+	}
+	if recovery.SourceReleaseID != manifest.ReleaseID || recovery.Mode != cfg.Spec.PKI.Mode {
+		return errors.New("restore target PKI mode or backup source identity differs")
+	}
 	if err := ensureDistinctRestoreTarget(cfg, manifest); err != nil {
 		return err
 	}
@@ -292,7 +318,8 @@ func (a *App) runRestore(ctx context.Context, operation string, args []string) e
 		return errors.New("backup does not contain a valid OpenBao client token")
 	}
 	a.restoreOpenBaoToken = strings.TrimSpace(string(openBaoToken))
-	defer func() { a.restoreOpenBaoToken = "" }()
+	a.restoreRecovery = recovery
+	defer func() { a.restoreOpenBaoToken = ""; a.restoreRecovery = nil }()
 	if err := a.install(ctx, cfg); err != nil {
 		return err
 	}
@@ -328,12 +355,11 @@ func (a *App) ensureRestoreNamespacesAbsent(ctx context.Context, cfg *InstallCon
 
 func (a *App) applyRestore(ctx context.Context, cfg *InstallConfig, stage string) error {
 	kube := []string{"--context", cfg.Spec.KubeContext, "--namespace", cfg.Spec.Namespaces.System}
-	passwordEncoded, err := a.runner.quiet(ctx, "kubectl", append(kube, "get", "secret", "argus-data-credentials", "-o", "jsonpath={.data.postgresql-password}")...)
+	bootstrap, err := os.ReadFile(filepath.Join(stage, openBaoBootstrapFile))
 	if err != nil {
-		return err
+		return errors.New("backup OpenBao recovery material is missing")
 	}
-	password, err := base64.StdEncoding.DecodeString(strings.TrimSpace(passwordEncoded))
-	if err != nil {
+	if err := validateOpenBaoBootstrap(bootstrap); err != nil {
 		return err
 	}
 	dump, err := os.Open(filepath.Join(stage, "postgres.dump"))
@@ -341,14 +367,16 @@ func (a *App) applyRestore(ctx context.Context, cfg *InstallConfig, stage string
 		return err
 	}
 	defer dump.Close()
-	if _, err := a.runner.quietInput(ctx, dump, "kubectl", append(kube, "exec", "-i", "statefulset/argus-postgresql", "--", "env", "PGPASSWORD="+string(password), "pg_restore", "-U", "argus", "-d", "argus", "--clean", "--if-exists", "--no-owner")...); err != nil {
+	if _, err := a.runner.quietInput(ctx, dump, "kubectl", append(kube, "exec", "-i", "statefulset/argus-postgresql", "--", "sh", "-ec", `export PGPASSWORD="$POSTGRES_PASSWORD"; exec pg_restore -U argus -d argus --clean --if-exists --no-owner`)...); err != nil {
 		return err
 	}
-	if _, err := a.runner.quiet(ctx, "kubectl", openBaoCopyArgs(kube, filepath.Join(stage, "openbao.snap"), "argus-openbao-0:/tmp/argus-m8-restore.snap")...); err != nil {
+	if err := a.transferPodFile(ctx, kube, podFileTransfer{Pod: "argus-openbao-0", Container: openBaoMaintenanceContainer, RemotePath: "/tmp/argus-m8-restore.snap", LocalPath: filepath.Join(stage, "openbao.snap"), ToPod: true}); err != nil {
 		return err
 	}
-	openBaoCommand := `state=/openbao/data/argus-bootstrap.json; root=$(sed -n 's/.*"root_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$state"); BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$root" bao operator raft snapshot restore -force /tmp/argus-m8-restore.snap`
-	if _, err := a.runner.quiet(ctx, "kubectl", openBaoExecArgs(kube, openBaoCommand)...); err != nil {
+	if _, err := a.runner.quiet(ctx, "kubectl", openBaoExecArgs(kube, openBaoSnapshotRestoreCommand())...); err != nil {
+		return err
+	}
+	if err := a.installOpenBaoBootstrap(ctx, kube, bootstrap); err != nil {
 		return err
 	}
 	if err := a.restoreMinIOArchive(ctx, cfg, filepath.Join(stage, "minio.tgz")); err != nil {
@@ -386,14 +414,9 @@ func openBaoSnapshotSaveCommand(snapshot string) string {
 	return `state=/openbao/data/argus-bootstrap.json; root=$(sed -n 's/.*"root_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$state"); rm -f ` + snapshot + `; BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$root" bao operator raft snapshot save ` + snapshot
 }
 
-func openBaoCopyArgs(kube []string, source, destination string) []string {
-	args := append([]string{}, kube...)
-	return append(args, "cp", source, destination, "--container", openBaoMaintenanceContainer)
-}
-
 func (a *App) restorePodArchive(ctx context.Context, kube []string, pod, source, target string) error {
 	remote := "/tmp/argus-m8-restore.tgz"
-	if _, err := a.runner.quiet(ctx, "kubectl", append(kube, "cp", source, pod+":"+remote)...); err != nil {
+	if err := a.transferPodFile(ctx, kube, podFileTransfer{Pod: pod, RemotePath: remote, LocalPath: source, ToPod: true}); err != nil {
 		return err
 	}
 	_, err := a.runner.quiet(ctx, "kubectl", append(kube, "exec", pod, "--", "tar", "-xzf", remote, "-C", target)...)
@@ -663,9 +686,13 @@ func openBackup(backupPath, keyPath string) (string, backupManifest, error) {
 		os.RemoveAll(stage)
 		return "", manifest, err
 	}
-	if err := json.Unmarshal(data, &manifest); err != nil || manifest.FormatVersion != 1 {
+	if err := json.Unmarshal(data, &manifest); err != nil || manifest.FormatVersion != backupFormatVersion {
 		os.RemoveAll(stage)
 		return "", manifest, errors.New("backup manifest is invalid or unsupported")
+	}
+	if err := validateBackupStage(stage, manifest); err != nil {
+		os.RemoveAll(stage)
+		return "", manifest, err
 	}
 	return stage, manifest, nil
 }

@@ -54,7 +54,7 @@ func verifyPlan6ProtocolCertificate(ca, leaf []byte, hostname string) error {
 }
 
 func (a *App) preparePlan6ProtocolTrust(ctx context.Context, env *E2EEnvironment) (string, error) {
-	if env.Options.Suite != "plan6" && env.Options.Suite != "plan7" {
+	if env.Options.Suite != "plan6" && env.Options.Suite != "plan7" && env.Options.Suite != "plan8" {
 		return "", fmt.Errorf("protocol trust belongs only to the isolated Plan6 or Plan7 suites")
 	}
 	system, err := env.Kube.Client.CoreV1().Namespaces().Get(ctx, env.SystemNS, metav1.GetOptions{})

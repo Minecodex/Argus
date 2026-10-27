@@ -44,6 +44,17 @@ func TestRenderRejectsMissingTransport(t *testing.T) {
 	}
 }
 
+func TestDeferredSkyWalkingCannotUseLegacyProfile(t *testing.T) {
+	for _, key := range []string{"skywalking-receiver", "skywalking-receiver@1"} {
+		if _, err := normalizeProfiles("host", []string{key}); err == nil {
+			t.Fatal("deferred receiver activated by old profile")
+		}
+		if _, err := normalizeProfiles("kubernetes_cluster", []string{key}); err == nil {
+			t.Fatal("deferred receiver activated in cluster")
+		}
+	}
+}
+
 func TestRenderRejectsCleartextEndpoints(t *testing.T) {
 	_, err := Render(RenderInput{CollectorID: "collector", ResourceID: "resource", ResourceType: "host", Role: "direct",
 		RouteKind: "direct_argus", Transport: "direct", ProfileKeys: []string{"host-basic"}, EnrollmentEndpoint: "http://api.example.com/enroll",

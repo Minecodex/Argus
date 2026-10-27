@@ -20,6 +20,9 @@ func TestTargetCacheNamespaceIsolatesPublishedSourceAndParameterContracts(t *tes
 	for _, change := range []func(*Runtime, *Panel, *Target, *queryScope){
 		func(r *Runtime, _ *Panel, _ *Target, _ *queryScope) { r.cacheDashboard = uuid.New() },
 		func(r *Runtime, _ *Panel, _ *Target, _ *queryScope) { r.cacheRevision = uuid.New() },
+		func(r *Runtime, _ *Panel, _ *Target, _ *queryScope) {
+			r.cacheScopeSignature = "changed-application-relation"
+		},
 		func(_ *Runtime, p *Panel, _ *Target, _ *queryScope) { p.ID = "other" },
 		func(_ *Runtime, p *Panel, _ *Target, _ *queryScope) { p.SourceBinding.CapabilityVersion = "v2" },
 		func(_ *Runtime, _ *Panel, t *Target, _ *queryScope) { t.ID = "detail" },

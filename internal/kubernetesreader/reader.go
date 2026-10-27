@@ -24,9 +24,10 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
+	"github.com/kakj-go/Argus/internal/kubernetesaccess"
+	"github.com/kakj-go/Argus/internal/kubernetesinventory"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/secret"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
@@ -108,8 +109,11 @@ func (reader Reader) listDirect(ctx context.Context, cluster db.KubernetesCluste
 	}
 	items := make([]resource.KubernetesObject, 0, len(list.Items))
 	for _, item := range list.Items {
-		items = append(items, resource.KubernetesObject{ResourceType: query.ResourceType, Namespace: item.GetNamespace(), Name: item.GetName(),
-			Labels: item.GetLabels(), Summary: resourceSummary(query.ResourceType, item)})
+		projected, err := projectLegacyObject(query.ResourceType, item)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, projected)
 	}
 	return items, nil
 }
@@ -145,12 +149,15 @@ func (reader Reader) logsDirect(ctx context.Context, cluster db.KubernetesCluste
 }
 
 func (reader Reader) directConfig(ctx context.Context, cluster db.KubernetesCluster) (*rest.Config, *http.Client, func(), error) {
+	return reader.directConfigTTL(ctx, cluster, time.Minute)
+}
+func (reader Reader) directConfigTTL(ctx context.Context, cluster db.KubernetesCluster, ttl time.Duration) (*rest.Config, *http.Client, func(), error) {
 	if !cluster.CredentialID.Valid {
 		return nil, nil, func() {}, resource.ErrKubernetesUnavailable
 	}
 	issued, err := reader.Secrets.IssueLease(secret.WithActorType(ctx, "direct_executor"), "kubernetes-reader", cluster.EnterpriseID, secret.LeaseRequest{
 		CredentialID: cluster.CredentialID.UUID, OperationRef: "kubernetes.query/" + uuid.NewString(), TargetResourceType: "kubernetes_cluster",
-		TargetResourceID: cluster.ID, RecipientType: "direct_executor", RecipientID: "kubernetes-reader", Protocol: "kubernetes", TTL: time.Minute})
+		TargetResourceID: cluster.ID, RecipientType: "direct_executor", RecipientID: "kubernetes-reader", Protocol: "kubernetes", TTL: ttl})
 	if err != nil {
 		return nil, nil, func() {}, resource.ErrKubernetesUnavailable
 	}
@@ -158,7 +165,7 @@ func (reader Reader) directConfig(ctx context.Context, cluster db.KubernetesClus
 		clear(issued.Value)
 		_ = reader.Secrets.ConsumeLease(context.Background(), cluster.EnterpriseID, issued.Lease.ID)
 	}
-	config, err := clientcmd.RESTConfigFromKubeConfig(issued.Value)
+	config, err := kubernetesaccess.Config(issued.Value, cluster.ApiServer)
 	if err != nil || config.Insecure || config.ExecProvider != nil || config.AuthProvider != nil || config.Proxy != nil || config.WrapTransport != nil {
 		cleanup()
 		return nil, nil, func() {}, resource.ErrKubernetesUnavailable
@@ -225,15 +232,25 @@ func rejectRedirect(_ *http.Request, _ []*http.Request) error {
 }
 
 func (reader Reader) connectorCommand(ctx context.Context, cluster db.KubernetesCluster, commandType string, payload any, result proto.Message) error {
+	duration := reader.timeout()
+	if request, ok := payload.(*connectorv1.KubernetesHelmCommand); ok && request.Mode == "apply" {
+		var input struct {
+			TimeoutSeconds int `json:"timeout_seconds"`
+		}
+		if json.Unmarshal(request.RequestJson, &input) != nil || input.TimeoutSeconds < 10 || input.TimeoutSeconds > 240 {
+			return resource.ErrActionInvalidated
+		}
+		duration = time.Duration(input.TimeoutSeconds+30) * time.Second
+	}
 	connectorRecord, err := reader.connectorForCluster(ctx, cluster)
 	if err != nil {
 		return err
 	}
 	var leaseID uuid.NullUUID
 	if cluster.CredentialID.Valid {
-		issued, err := reader.Secrets.IssueLease(secret.WithActorType(ctx, "connector_gateway"), connectorRecord.ID.String(), cluster.EnterpriseID, secret.LeaseRequest{
+		issued, err := reader.Secrets.IssueLease(secret.WithActorType(ctx, "system"), connectorRecord.ID.String(), cluster.EnterpriseID, secret.LeaseRequest{
 			CredentialID: cluster.CredentialID.UUID, OperationRef: "kubernetes.query/" + uuid.NewString(), TargetResourceType: "kubernetes_cluster", TargetResourceID: cluster.ID,
-			RecipientType: "connector", RecipientID: connectorRecord.ID.String(), Protocol: "kubernetes", TTL: time.Minute})
+			RecipientType: "connector", RecipientID: connectorRecord.ID.String(), Protocol: "kubernetes", TTL: max(time.Minute, duration)})
 		if err != nil {
 			return resource.ErrKubernetesUnavailable
 		}
@@ -246,10 +263,51 @@ func (reader Reader) connectorCommand(ctx context.Context, cluster db.Kubernetes
 	}
 	hash := sha256.Sum256(encoded)
 	commandID := "cmd_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	command, err := reader.Store.Queries.CreateConnectorCommand(ctx, db.CreateConnectorCommandParams{ID: uuid.New(), CommandID: commandID,
+	params := db.CreateConnectorCommandParams{ID: uuid.New(), CommandID: commandID,
 		EnterpriseID: cluster.EnterpriseID, ConnectorID: connectorRecord.ID, ConnectionEpoch: connectorRecord.ConnectionEpoch,
 		OperationRef: cluster.ID.String(), CredentialLeaseID: leaseID, CommandType: commandType, PayloadSchemaVersion: "argus.connector_command/v1",
-		Payload: encoded, PayloadHash: hash[:], IdempotencyKey: uuid.NewString(), ExpiresAt: pgtype.Timestamptz{Time: time.Now().UTC().Add(reader.timeout()), Valid: true}})
+		Payload: encoded, PayloadHash: hash[:], IdempotencyKey: uuid.NewString(), ExpiresAt: pgtype.Timestamptz{Time: time.Now().UTC().Add(duration), Valid: true}}
+	var command db.ConnectorCommand
+	err = reader.Store.InTx(ctx, func(q *db.Queries) error {
+		var createErr error
+		command, createErr = q.CreateConnectorCommand(ctx, params)
+		if createErr != nil {
+			return createErr
+		}
+		if mutation, ok := payload.(*connectorv1.KubernetesResourceMutation); ok && !mutation.DryRun && !mutation.ObserveOnly {
+			id, parseErr := uuid.Parse(mutation.OperationId)
+			if parseErr != nil {
+				return resource.ErrActionInvalidated
+			}
+			var count int64
+			var bindErr error
+			if mutation.AdvanceDrain {
+				count, bindErr = q.BindKubernetesDrainCommand(ctx, db.BindKubernetesDrainCommandParams{EnterpriseID: cluster.EnterpriseID, ID: id, ConnectorCommandID: uuid.NullUUID{UUID: command.ID, Valid: true}})
+			} else {
+				count, bindErr = q.BindKubernetesOperationCommand(ctx, db.BindKubernetesOperationCommandParams{EnterpriseID: cluster.EnterpriseID, ID: id, ConnectorCommandID: uuid.NullUUID{UUID: command.ID, Valid: true}})
+			}
+			if bindErr != nil {
+				return bindErr
+			}
+			if count != 1 {
+				return resource.ErrActionInvalidated
+			}
+		}
+		if helm, ok := payload.(*connectorv1.KubernetesHelmCommand); ok && helm.Mode == "apply" {
+			id, parseErr := uuid.Parse(helm.OperationId)
+			if parseErr != nil {
+				return resource.ErrActionInvalidated
+			}
+			n, bindErr := q.BindKubernetesOperationCommand(ctx, db.BindKubernetesOperationCommandParams{EnterpriseID: cluster.EnterpriseID, ID: id, ConnectorCommandID: uuid.NullUUID{UUID: command.ID, Valid: true}})
+			if bindErr != nil {
+				return bindErr
+			}
+			if n != 1 {
+				return resource.ErrActionInvalidated
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return resource.ErrKubernetesUnavailable
 	}
@@ -258,7 +316,7 @@ func (reader Reader) connectorCommand(ctx context.Context, cluster db.Kubernetes
 	}
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
-	timeout := time.NewTimer(reader.timeout())
+	timeout := time.NewTimer(duration)
 	defer timeout.Stop()
 	for {
 		select {
@@ -318,7 +376,23 @@ func objectFromJSON(encoded []byte, resourceType string) (resource.KubernetesObj
 	if value.UnmarshalJSON(encoded) != nil || value.GetName() == "" {
 		return resource.KubernetesObject{}, errors.New("invalid Kubernetes resource")
 	}
-	return resource.KubernetesObject{ResourceType: resourceType, Namespace: value.GetNamespace(), Name: value.GetName(), Labels: value.GetLabels(), Summary: resourceSummary(resourceType, value)}, nil
+	return projectLegacyObject(resourceType, value)
+}
+
+func projectLegacyObject(kind string, value unstructured.Unstructured) (resource.KubernetesObject, error) {
+	definition, ok := kubernetesinventory.Lookup(kind)
+	if !ok {
+		return resource.KubernetesObject{}, kubernetesinventory.ErrUnsupported
+	}
+	projected, err := kubernetesinventory.Project(definition, value, "", time.Now().UTC())
+	if err != nil {
+		return resource.KubernetesObject{}, err
+	}
+	var clean unstructured.Unstructured
+	if err = clean.UnmarshalJSON(projected.Data); err != nil {
+		return resource.KubernetesObject{}, err
+	}
+	return resource.KubernetesObject{ResourceType: kind, Namespace: clean.GetNamespace(), Name: clean.GetName(), Labels: clean.GetLabels(), Summary: resourceSummary(kind, clean)}, nil
 }
 
 func resourceMapping(resourceType string) (schema.GroupVersionResource, bool, bool) {

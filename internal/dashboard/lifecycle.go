@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -100,6 +102,11 @@ func validateLifecycle(ctx context.Context, q *db.Queries, actor Actor, input Li
 			}
 		}
 	case "archive", "restore":
+		if _, err := q.GetManagedDashboardByID(ctx, db.GetManagedDashboardByIDParams{EnterpriseID: actor.EnterpriseID, DashboardID: input.ID}); err == nil {
+			return ErrDenied
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
 		if err := requireObject(ctx, q, actor, "dashboard", input.ID); err != nil {
 			return err
 		}

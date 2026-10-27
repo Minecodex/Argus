@@ -146,8 +146,12 @@ func TestCollectorArtifactInputFingerprintInvalidatesCachedArtifact(t *testing.T
 		}
 	}
 	write("deploy/otelcol/builder-linux-arm64.yaml", "dist:\n  version: test\n")
+	write("deploy/otelcol/runtime-defaults.go.tmpl", "package main\n")
 	write("internal/otelcol/argusidentity/factory.go", "package argusidentity\n")
 	write("internal/otelcol/argusgatewayidentity/processor.go", "package argusgatewayidentity\n")
+	write("internal/otelcol/argusapplicationauth/auth.go", "package argusapplicationauth\n")
+	write("internal/otelcol/argusapplicationidentity/processor.go", "package argusapplicationidentity\n")
+	write("internal/otelcol/arguslogidentity/processor.go", "package arguslogidentity\n")
 	app := App{root: root}
 	first, err := app.collectorArtifactInputFingerprint("linux-arm64")
 	if err != nil {
@@ -160,6 +164,11 @@ func TestCollectorArtifactInputFingerprintInvalidatesCachedArtifact(t *testing.T
 	}
 	if first == second {
 		t.Fatal("Collector source change did not invalidate the artifact input fingerprint")
+	}
+	write("deploy/otelcol/runtime-defaults.go.tmpl", "package main\n// changed default\n")
+	third, err := app.collectorArtifactInputFingerprint("linux-arm64")
+	if err != nil || third == second {
+		t.Fatal("runtime defaults did not invalidate the artifact input fingerprint")
 	}
 
 	artifact := filepath.Join(root, "build/otelcol/artifacts/collector.tar.gz")

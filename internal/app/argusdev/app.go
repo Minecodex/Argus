@@ -24,6 +24,7 @@ const usage = `usage:
   argus-dev web build --api-mode mock|real
   argus-dev e2e run --suite m2|m3|m4|p5|m6|m7|m8|m10-query|planv2|p4|tls [options]
   argus-dev e2e windows-host --config FILE [--run-id ID] [--artifacts DIR]
+  argus-dev e2e-plan8 --suite engineering|domain|host|sdk|k8s|drain|control-positive|pod-logs|streams|helm|helm-sources|resources|cache-web|brokers|network-probes|kafka|databases|namespace|completion-core|assignment|csi|backup|operations|runtime-behavior|context|reconnect|components|full [--run-id ID] [--list]
   argus-dev release local [--version VERSION] [--output DIR]`
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -87,6 +88,8 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return a.runWeb(ctx, args[1:])
 	case "e2e":
 		return a.runE2E(ctx, args[1:])
+	case "e2e-plan8":
+		return a.runPlan8(ctx, args[1:])
 	case "release":
 		return a.runRelease(ctx, args[1:])
 	default:

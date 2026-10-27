@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/builtincollection"
 	"net"
 	"net/netip"
 	"net/url"
@@ -11,15 +12,17 @@ import (
 	"strings"
 )
 
-const SchemaVersion = "argus.otelcol/v2"
+const SchemaVersion = "argus.otelcol/v3"
 
 type Bundle struct {
-	SchemaVersion     string          `json:"schema_version"`
-	CollectorID       string          `json:"collector_id"`
-	Host              json.RawMessage `json:"host"`
-	KubernetesAgent   json.RawMessage `json:"kubernetes_agent"`
-	KubernetesGateway json.RawMessage `json:"kubernetes_gateway"`
-	Sources           []Source        `json:"sources"`
+	SchemaVersion        string                `json:"schema_version"`
+	CollectorID          string                `json:"collector_id"`
+	Host                 json.RawMessage       `json:"host"`
+	KubernetesAgent      json.RawMessage       `json:"kubernetes_agent"`
+	KubernetesGateway    json.RawMessage       `json:"kubernetes_gateway"`
+	Sources              []Source              `json:"sources"`
+	Collections          []Collection          `json:"collections"`
+	ApplicationEndpoints []ApplicationEndpoint `json:"application_endpoints"`
 }
 
 type RenderInput struct {
@@ -42,6 +45,8 @@ type RenderInput struct {
 	EnrollmentDialAddress string
 	IngestGRPCEndpoint    string
 	IngestHTTPEndpoint    string
+	Collections           []Collection
+	ApplicationEndpoints  []ApplicationEndpoint
 }
 
 func Render(input RenderInput) ([]byte, error) {
@@ -103,7 +108,21 @@ func Render(input RenderInput) ([]byte, error) {
 		}
 		exportEndpoint = fmt.Sprintf("127.0.0.1:%d", input.TunnelLoopbackPort)
 	}
-	profiles, err := normalizeProfiles(input.ResourceType, input.ProfileKeys)
+	profileKeys := []string{}
+	for _, profile := range input.ProfileKeys {
+		key, _, _ := strings.Cut(profile, "@")
+		replaced := false
+		for _, collection := range input.Collections {
+			if definition, ok := builtincollection.Lookup(collection.Integration); ok && definition.LegacyProfile == key {
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			profileKeys = append(profileKeys, profile)
+		}
+	}
+	profiles, err := normalizeProfiles(input.ResourceType, profileKeys)
 	if err != nil {
 		return nil, err
 	}
@@ -112,10 +131,40 @@ func Render(input RenderInput) ([]byte, error) {
 	hostConfigValue := hostConfig(input, profiles, identity, enrollment.String(), rotation, trustBundle, exportEndpoint, exportServerName)
 	agentConfigValue := kubernetesAgentConfig(input, profiles, identity, enrollment.String(), rotation, trustBundle)
 	gatewayConfigValue := kubernetesGatewayConfig(input, profiles, identity, enrollment.String(), rotation, trustBundle, exportEndpoint, exportServerName)
+	collectionConfig := hostConfigValue
+	collectionInput := input
+	if input.ResourceType == "kubernetes_cluster" {
+		collectionConfig = gatewayConfigValue
+		collectionInput.Collections = nil
+		agentInput := input
+		agentInput.Collections = nil
+		for _, collection := range input.Collections {
+			if collection.Integration == "k8slog" || builtinPlacement(collection, "kubernetes_agent") {
+				agentInput.Collections = append(agentInput.Collections, collection)
+			}
+			if collection.Integration != "k8slog" && (!builtinPlacement(collection, "kubernetes_agent") || builtinPlacement(collection, "kubernetes_gateway")) {
+				collectionInput.Collections = append(collectionInput.Collections, collection)
+			}
+		}
+		if err := addCollections(agentConfigValue, agentInput); err != nil {
+			return nil, err
+		}
+	}
+	if err := addCollections(collectionConfig, collectionInput); err != nil {
+		return nil, err
+	}
+	applicationSources, err := addApplicationEndpoints(collectionConfig, input)
+	if err != nil {
+		return nil, err
+	}
 	if profiles["collector-self"] {
 		for _, config := range []map[string]any{hostConfigValue, agentConfigValue, gatewayConfigValue} {
 			addSelfMonitoring(config)
 		}
+	}
+	for _, config := range []map[string]any{hostConfigValue, agentConfigValue, gatewayConfigValue} {
+		addMandatoryDeliveryHealth(config)
+		addControlOnlyPipeline(config)
 	}
 	hostSources := bindSources(hostConfigValue, "host", input)
 	agentSources := bindSources(agentConfigValue, "kubernetes_agent", input)
@@ -124,6 +173,7 @@ func Render(input RenderInput) ([]byte, error) {
 	if input.ResourceType == "kubernetes_cluster" {
 		sources = append(agentSources, gatewaySources...)
 	}
+	sources = append(sources, applicationSources...)
 	host, err := json.Marshal(hostConfigValue)
 	if err != nil {
 		return nil, err
@@ -137,7 +187,7 @@ func Render(input RenderInput) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(Bundle{SchemaVersion: SchemaVersion, CollectorID: input.CollectorID, Host: host,
-		KubernetesAgent: agent, KubernetesGateway: gateway, Sources: sources})
+		KubernetesAgent: agent, KubernetesGateway: gateway, Sources: sources, Collections: input.Collections, ApplicationEndpoints: input.ApplicationEndpoints})
 }
 
 func Extract(value []byte, target string) ([]byte, error) {
@@ -189,8 +239,8 @@ func outboundConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBund
 				"endpoint": ingestEndpoint,
 				"tls": map[string]any{"ca_file": targetPath(identityDirectory, "ca.pem"), "cert_file": targetPath(identityDirectory, "client.pem"),
 					"key_file": targetPath(identityDirectory, "client-key.pem"), "reload_interval": "1m", "server_name_override": serverName},
-				"sending_queue":    map[string]any{"enabled": true, "storage": "file_storage", "queue_size": 4096},
-				"retry_on_failure": map[string]any{"enabled": true, "initial_interval": "1s", "max_interval": "30s", "max_elapsed_time": "0s"},
+				"sending_queue":    map[string]any{"enabled": true, "storage": "file_storage", "queue_size": 4096, "block_on_overflow": true},
+				"retry_on_failure": map[string]any{"enabled": true, "initial_interval": "1s", "max_interval": "30s", "max_elapsed_time": "5m"},
 			},
 		},
 		"service": map[string]any{
@@ -250,10 +300,11 @@ func hostReceivers(profiles map[string]bool, platform string) map[string]any {
 		scrapers := map[string]any{
 			"cpu":        map[string]any{"metrics": map[string]any{"system.cpu.utilization": map[string]any{"enabled": true}}},
 			"memory":     map[string]any{"metrics": map[string]any{"system.memory.utilization": map[string]any{"enabled": true}}},
-			"filesystem": map[string]any{}, "network": map[string]any{},
+			"filesystem": map[string]any{"include_virtual_filesystems": true, "exclude_fs_types": map[string]any{"match_type": "strict", "fs_types": []string{"proc", "procfs", "sysfs", "devfs", "devtmpfs", "debugfs", "tracefs", "securityfs", "cgroup", "cgroup2", "pstore", "fusectl", "configfs", "mqueue", "hugetlbfs", "squashfs", "binfmt_misc"}}}, "network": map[string]any{},
 		}
 		if platform != "windows_amd64" {
 			scrapers["load"] = map[string]any{}
+			scrapers["disk"] = map[string]any{}
 		}
 		receivers["hostmetrics"] = map[string]any{"collection_interval": "30s", "scrapers": scrapers}
 	}
@@ -261,7 +312,7 @@ func hostReceivers(profiles map[string]bool, platform string) map[string]any {
 		receivers["journald"] = map[string]any{"directory": "/var/log/journal"}
 	}
 	if profiles["file-log"] {
-		receivers["filelog"] = map[string]any{"include": []string{"/var/log/*.log"}, "exclude": []string{"/var/log/argus-otelcol*.log"}, "start_at": "end"}
+		receivers["filelog"] = map[string]any{"include": []string{"/var/log/*.log"}, "exclude": protectedLogExclusions([]string{"/var/log/argus-otelcol*.log"}, platform), "start_at": "end", "include_file_path": true, "include_file_path_resolved": true, "operators": []map[string]any{protectedLogOperator()}}
 	}
 	if profiles["prometheus-endpoint"] {
 		receivers["prometheus"] = map[string]any{"config": map[string]any{"scrape_configs": []map[string]any{{
@@ -277,17 +328,13 @@ func kubernetesAgentConfig(input RenderInput, profiles map[string]bool, identity
 	if profiles["k8s-node-container"] {
 		receivers["kubeletstats"] = map[string]any{"collection_interval": "30s", "auth_type": "serviceAccount", "endpoint": "https://${env:K8S_NODE_NAME}:10250",
 			"ca_file": "/var/run/argus-kubelet/pki/kubelet.crt", "insecure_skip_verify": false}
-		receivers["filelog"] = map[string]any{"include": []string{"/var/log/pods/*/*/*.log"}, "start_at": "end", "include_file_path": true}
 	}
 	if profiles["otlp-receiver"] || profiles["k8s-otlp-gateway"] {
 		receivers["otlp"] = otlpReceiver("127.0.0.1")
 	}
-	if len(receivers) == 0 && !profiles["collector-self"] {
-		receivers["hostmetrics"] = map[string]any{"collection_interval": "30s", "root_path": "/hostfs", "scrapers": map[string]any{"cpu": map[string]any{}, "memory": map[string]any{}}}
-	}
 	identityDirectory := "/var/lib/argus-otelcol/identity"
 	return map[string]any{
-		"extensions": map[string]any{"argus_identity": identityConfig(input.CollectorID, enrollment, rotation, trustBundle, input.EnrollmentDialAddress,
+		"extensions": map[string]any{"health_check": map[string]any{"endpoint": "0.0.0.0:13133"}, "argus_identity": identityConfig(input.CollectorID, enrollment, rotation, trustBundle, input.EnrollmentDialAddress,
 			identityDirectory+"/enrollment-token", identityDirectory, "/etc/argus-otelcol/server-ca.pem", "/var/run/argus-bootstrap/identity")},
 		"receivers": receivers,
 		"processors": map[string]any{
@@ -295,11 +342,11 @@ func kubernetesAgentConfig(input RenderInput, profiles map[string]bool, identity
 			"resource/argus": resourceProcessor(identity),
 			"batch":          map[string]any{"timeout": "1s", "send_batch_size": 1024},
 		},
-		"exporters": map[string]any{"otlp/gateway": map[string]any{"endpoint": "argus-otelcol-gateway.argus-telemetry.svc.cluster.local:4317", "tls": map[string]any{
+		"exporters": map[string]any{"otlp/gateway": map[string]any{"retry_on_failure": map[string]any{"enabled": true, "initial_interval": "1s", "max_interval": "30s", "max_elapsed_time": "5m"}, "endpoint": "argus-otelcol-gateway.argus-telemetry.svc.cluster.local:4317", "tls": map[string]any{
 			"ca_file": targetPath(identityDirectory, "ca.pem"), "cert_file": targetPath(identityDirectory, "client.pem"), "key_file": targetPath(identityDirectory, "client-key.pem"),
 			"reload_interval": "1m", "server_name_override": collectorServerName(input.CollectorID),
 		}}},
-		"service": map[string]any{"extensions": []string{"argus_identity"}, "pipelines": pipelineConfig(receivers, []string{"memory_limiter", "resource/argus", "batch"}, "otlp/gateway")},
+		"service": map[string]any{"extensions": []string{"argus_identity", "health_check"}, "pipelines": pipelineConfig(receivers, []string{"memory_limiter", "resource/argus", "batch"}, "otlp/gateway")},
 	}
 }
 
@@ -327,8 +374,12 @@ func identityConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBund
 	bootstrapDirectory ...string) map[string]any {
 	result := map[string]any{
 		"collector_id": collectorID, "enrollment_endpoint": enrollmentEndpoint, "rotation_endpoint": rotationEndpoint,
-		"trust_bundle_endpoint": trustBundleEndpoint,
-		"enrollment_token_file": tokenFile, "certificate_file": targetPath(identityDirectory, "client.pem"),
+		"trust_bundle_endpoint":              trustBundleEndpoint,
+		"delivery_endpoint":                  strings.TrimSuffix(rotationEndpoint, "/v1/identity/rotate") + "/v1/collector-delivery",
+		"delivery_state_file":                targetPath(identityDirectory, "delivery-state.json"),
+		"delivery_interval":                  "15s",
+		"application_authorization_endpoint": strings.TrimSuffix(rotationEndpoint, "/v1/identity/rotate") + "/v1/application-ingest/authorize",
+		"enrollment_token_file":              tokenFile, "certificate_file": targetPath(identityDirectory, "client.pem"),
 		"private_key_file": targetPath(identityDirectory, "client-key.pem"), "ca_bundle_file": targetPath(identityDirectory, "ca.pem"),
 		"server_certificate_file": targetPath(identityDirectory, "server.pem"), "server_private_key_file": targetPath(identityDirectory, "server-key.pem"),
 		"trust_bundle_state_file": targetPath(identityDirectory, "trust-bundle.json"),
@@ -403,6 +454,9 @@ func normalizeProfiles(resourceType string, values []string) (map[string]bool, e
 	result := map[string]bool{}
 	for _, value := range values {
 		key, version, versioned := strings.Cut(value, "@")
+		if key == "skywalking-receiver" {
+			return nil, errors.New("SkyWalking receiver is deferred because upstream acknowledgement and payload logging failed admission")
+		}
 		if versioned && (version == "" || strings.Contains(version, "@")) {
 			return nil, fmt.Errorf("Collection Profile %q has an invalid version", value)
 		}
@@ -410,9 +464,6 @@ func normalizeProfiles(resourceType string, values []string) (map[string]bool, e
 			return nil, fmt.Errorf("Collection Profile %q is not valid for %s", value, resourceType)
 		}
 		result[key] = true
-	}
-	if len(result) == 0 {
-		return nil, errors.New("at least one Collection Profile is required")
 	}
 	return result, nil
 }

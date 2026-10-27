@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -29,8 +30,9 @@ type RemoteAccessHub struct {
 }
 
 type remoteConnectorConnection struct {
-	epoch    int64
-	outbound chan<- *connectorv1.ConnectResponse
+	epoch        int64
+	outbound     chan<- *connectorv1.ConnectResponse
+	capabilities map[string]bool
 }
 
 type connectorRemoteSession struct {
@@ -48,9 +50,13 @@ func NewRemoteAccessHub() *RemoteAccessHub {
 	return &RemoteAccessHub{connections: map[uuid.UUID]remoteConnectorConnection{}, streams: map[string]*connectorRemoteSession{}}
 }
 
-func (hub *RemoteAccessHub) Register(connectorID uuid.UUID, epoch int64, outbound chan<- *connectorv1.ConnectResponse) func() {
+func (hub *RemoteAccessHub) Register(connectorID uuid.UUID, epoch int64, outbound chan<- *connectorv1.ConnectResponse, capabilities ...string) func() {
+	available := make(map[string]bool, len(capabilities))
+	for _, capability := range capabilities {
+		available[capability] = true
+	}
 	hub.mu.Lock()
-	hub.connections[connectorID] = remoteConnectorConnection{epoch: epoch, outbound: outbound}
+	hub.connections[connectorID] = remoteConnectorConnection{epoch: epoch, outbound: outbound, capabilities: available}
 	hub.mu.Unlock()
 	return func() {
 		hub.mu.Lock()
@@ -73,34 +79,43 @@ func (hub *RemoteAccessHub) Register(connectorID uuid.UUID, epoch int64, outboun
 }
 
 func (hub *RemoteAccessHub) Open(ctx context.Context, target remoteaccess.ConnectionTarget, cols, rows int) (remoteaccess.BackendSession, error) {
-	if !target.ConnectorID.Valid || target.ConnectionEpoch < 1 {
-		return nil, remoteaccess.ErrSessionUnavailable
-	}
-	streamID := uuid.NewString()
-	hub.mu.Lock()
-	connection, ok := hub.connections[target.ConnectorID.UUID]
-	if !ok || connection.epoch != target.ConnectionEpoch {
-		hub.mu.Unlock()
-		return nil, remoteaccess.ErrSessionUnavailable
-	}
-	session := &connectorRemoteSession{hub: hub, connectorID: target.ConnectorID.UUID, epoch: target.ConnectionEpoch, streamID: streamID,
-		events: make(chan remoteaccess.BackendFrame, 16)}
-	hub.streams[streamID] = session
-	hub.mu.Unlock()
-	open := &connectorv1.RemoteAccessOpen{StreamId: streamID, SessionId: target.Session.ID.String(), ManagedAccountId: target.ManagedAccountID.String(),
+	open := &connectorv1.RemoteAccessOpen{SessionId: target.Session.ID.String(), ManagedAccountId: target.ManagedAccountID.String(),
 		Protocol: target.Protocol, ExpiresAt: timestamppb.New(target.LeaseExpiresAt), MaxFrameBytes: remoteaccess.MaxFrameBytes,
 		ConnectionEpoch: uint64(target.ConnectionEpoch), SessionFence: uint64(target.Session.SessionFence), TargetHost: target.Address, TargetPort: uint32(target.Port),
 		HostKeyFingerprint: target.PinnedHostKey, CredentialLeaseId: target.CredentialLeaseID.String(), TerminalCols: uint32(cols), TerminalRows: uint32(rows),
 		IdleTimeout: durationpb.New(target.IdleTimeout), MaxDuration: durationpb.New(target.MaxDuration)}
 	open.Username = target.Username
+	return hub.OpenPrepared(ctx, target.ConnectorID.UUID, target.ConnectionEpoch, open)
+}
+
+// OpenPrepared shares only transport mechanics. Authorization and durable
+// bindings are provided by each independent host/Kubernetes session service.
+func (hub *RemoteAccessHub) OpenPrepared(ctx context.Context, connectorID uuid.UUID, epoch int64, request *connectorv1.RemoteAccessOpen) (remoteaccess.BackendSession, error) {
+	if connectorID == uuid.Nil || epoch < 1 || request == nil || request.SessionId == "" || request.SessionFence < 1 {
+		return nil, remoteaccess.ErrSessionUnavailable
+	}
+	open := proto.Clone(request).(*connectorv1.RemoteAccessOpen)
+	streamID := uuid.NewString()
+	open.StreamId = streamID
+	open.ConnectionEpoch = uint64(epoch)
+	hub.mu.Lock()
+	connection, ok := hub.connections[connectorID]
+	if !ok || connection.epoch != epoch {
+		hub.mu.Unlock()
+		return nil, remoteaccess.ErrSessionUnavailable
+	}
+	if len(open.KubernetesTargetJson) != 0 && !connection.capabilities["argus.kubernetes_stream/v1"] {
+		hub.mu.Unlock()
+		return nil, remoteaccess.ErrProtocol
+	}
+	session := &connectorRemoteSession{hub: hub, connectorID: connectorID, epoch: epoch, streamID: streamID, events: make(chan remoteaccess.BackendFrame, 16)}
+	hub.streams[streamID] = session
+	hub.mu.Unlock()
 	if err := hub.enqueue(ctx, connection, &connectorv1.ConnectResponse{Frame: &connectorv1.ConnectResponse_RemoteAccessOpen{RemoteAccessOpen: open}}); err != nil {
 		hub.remove(streamID)
 		return nil, err
 	}
 	if err := hub.awaitActive(ctx, session); err != nil {
-		// Tell the Connector to stop the remote session; Close is a no-op when
-		// the Connector already reported a terminal state, and any frames it
-		// still emits for the removed stream are dropped by Deliver.
 		_ = session.Close(context.Background(), "handshake_failed")
 		return nil, remoteaccess.ErrSessionUnavailable
 	}

@@ -173,8 +173,8 @@ func TestEnrollmentCreatesLocalIdentityAndConsumesToken(t *testing.T) {
 		t.Fatalf("enrollment token remains after successful use: %v", err)
 	}
 	for _, path := range []string{config.CertificateFile, config.PrivateKeyFile, config.ServerCertificateFile, config.ServerPrivateKeyFile, config.CABundleFile, config.TrustBundleStateFile} {
-		info, err := os.Stat(path)
-		if err != nil || info.Mode().Perm() != 0o600 {
+		err := verifyPrivateFile(path)
+		if err != nil {
 			t.Fatalf("identity file %s is missing or has unsafe mode: %v", path, err)
 		}
 	}

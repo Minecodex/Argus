@@ -394,6 +394,9 @@ type CollectionClaim struct {
 	RollbackPlan        []byte             `json:"rollback_plan"`
 	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	CollectionID        uuid.NullUUID      `json:"collection_id"`
+	AssignmentEpoch     pgtype.Int8        `json:"assignment_epoch"`
+	ConfigRevision      pgtype.Int8        `json:"config_revision"`
 }
 
 type CollectionProfile struct {
@@ -424,6 +427,25 @@ type CollectorConfigRevision struct {
 	RollbackRevision pgtype.Int8        `json:"rollback_revision"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	AppliedAt        pgtype.Timestamptz `json:"applied_at"`
+}
+
+type CollectorDeliveryPolicy struct {
+	PolicyID     uuid.UUID `json:"policy_id"`
+	CollectorID  uuid.UUID `json:"collector_id"`
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+}
+
+type CollectorDeliveryReport struct {
+	ID               uuid.UUID          `json:"id"`
+	EnterpriseID     uuid.UUID          `json:"enterprise_id"`
+	CollectorID      uuid.UUID          `json:"collector_id"`
+	InstanceID       uuid.UUID          `json:"instance_id"`
+	Sequence         int64              `json:"sequence"`
+	Report           []byte             `json:"report"`
+	NotifiedSequence int64              `json:"notified_sequence"`
+	NotifiedReport   []byte             `json:"notified_report"`
+	PendingAlert     bool               `json:"pending_alert"`
+	ReceivedAt       pgtype.Timestamptz `json:"received_at"`
 }
 
 type CollectorDistributionVersion struct {
@@ -844,23 +866,25 @@ type DashboardConversationContext struct {
 }
 
 type DashboardDraft struct {
-	ID                  uuid.UUID          `json:"id"`
-	EnterpriseID        uuid.UUID          `json:"enterprise_id"`
-	DashboardID         uuid.NullUUID      `json:"dashboard_id"`
-	EditorSubjectType   string             `json:"editor_subject_type"`
-	EditorSubjectID     uuid.UUID          `json:"editor_subject_id"`
-	BaseRevisionID      uuid.NullUUID      `json:"base_revision_id"`
-	BaseObjectVersion   int64              `json:"base_object_version"`
-	DraftVersion        int64              `json:"draft_version"`
-	Status              string             `json:"status"`
-	PublishedRevisionID uuid.NullUUID      `json:"published_revision_id"`
-	Name                string             `json:"name"`
-	Description         string             `json:"description"`
-	FolderID            uuid.NullUUID      `json:"folder_id"`
-	Spec                []byte             `json:"spec"`
-	ProposedBindings    []byte             `json:"proposed_bindings"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ID                    uuid.UUID          `json:"id"`
+	EnterpriseID          uuid.UUID          `json:"enterprise_id"`
+	DashboardID           uuid.NullUUID      `json:"dashboard_id"`
+	EditorSubjectType     string             `json:"editor_subject_type"`
+	EditorSubjectID       uuid.UUID          `json:"editor_subject_id"`
+	BaseRevisionID        uuid.NullUUID      `json:"base_revision_id"`
+	BaseObjectVersion     int64              `json:"base_object_version"`
+	DraftVersion          int64              `json:"draft_version"`
+	Status                string             `json:"status"`
+	PublishedRevisionID   uuid.NullUUID      `json:"published_revision_id"`
+	Name                  string             `json:"name"`
+	Description           string             `json:"description"`
+	FolderID              uuid.NullUUID      `json:"folder_id"`
+	Spec                  []byte             `json:"spec"`
+	ProposedBindings      []byte             `json:"proposed_bindings"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	SourceTemplateKey     pgtype.Text        `json:"source_template_key"`
+	SourceTemplateVersion pgtype.Int8        `json:"source_template_version"`
 }
 
 type DashboardFolder struct {
@@ -990,6 +1014,25 @@ type DashboardRunParameter struct {
 	State          []byte    `json:"state"`
 }
 
+type DashboardTemplateHead struct {
+	TemplateKey string             `json:"template_key"`
+	Version     int64              `json:"version"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DashboardTemplateVersion struct {
+	TemplateKey     string             `json:"template_key"`
+	Version         int64              `json:"version"`
+	RuntimeVersion  int32              `json:"runtime_version"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	IntegrationKeys []string           `json:"integration_keys"`
+	Spec            []byte             `json:"spec"`
+	SpecHash        string             `json:"spec_hash"`
+	ReferencesJson  []byte             `json:"references_json"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type DataAuthorizationGrant struct {
 	ID           uuid.UUID          `json:"id"`
 	EnterpriseID uuid.UUID          `json:"enterprise_id"`
@@ -1074,6 +1117,7 @@ type Execution struct {
 	HostOnboardingOperationID     uuid.NullUUID      `json:"host_onboarding_operation_id"`
 	HostRemovalOperationID        uuid.NullUUID      `json:"host_removal_operation_id"`
 	RemoteExecutionID             uuid.NullUUID      `json:"remote_execution_id"`
+	KubernetesOperationID         uuid.NullUUID      `json:"kubernetes_operation_id"`
 }
 
 type ExecutionOneTimeResult struct {
@@ -1337,6 +1381,90 @@ type KubernetesCluster struct {
 	StatisticsObservedAt pgtype.Timestamptz `json:"statistics_observed_at"`
 }
 
+type KubernetesHelmInput struct {
+	ID                   uuid.UUID          `json:"id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	OperationID          uuid.UUID          `json:"operation_id"`
+	ClusterID            uuid.UUID          `json:"cluster_id"`
+	NamespaceID          uuid.UUID          `json:"namespace_id"`
+	NamespaceUid         string             `json:"namespace_uid"`
+	ActorID              uuid.UUID          `json:"actor_id"`
+	ActorType            string             `json:"actor_type"`
+	AuthorizationVersion int64              `json:"authorization_version"`
+	RequestHash          []byte             `json:"request_hash"`
+	Envelope             []byte             `json:"envelope"`
+	Status               string             `json:"status"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type KubernetesHelmLock struct {
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	ClusterID    uuid.UUID          `json:"cluster_id"`
+	NamespaceUid string             `json:"namespace_uid"`
+	ReleaseName  string             `json:"release_name"`
+	OperationID  uuid.UUID          `json:"operation_id"`
+	Fence        int64              `json:"fence"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type KubernetesLogSession struct {
+	ID                   uuid.UUID          `json:"id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	ClusterID            uuid.UUID          `json:"cluster_id"`
+	NamespaceID          uuid.UUID          `json:"namespace_id"`
+	NamespaceUid         string             `json:"namespace_uid"`
+	ActorID              uuid.UUID          `json:"actor_id"`
+	HttpSessionID        uuid.UUID          `json:"http_session_id"`
+	AuthorizationVersion int64              `json:"authorization_version"`
+	ClusterVersion       int64              `json:"cluster_version"`
+	Binding              []byte             `json:"binding"`
+	TicketHash           []byte             `json:"ticket_hash"`
+	TicketExpiresAt      pgtype.Timestamptz `json:"ticket_expires_at"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	Status               string             `json:"status"`
+	Version              int64              `json:"version"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type KubernetesNamespaceObjectIdentity struct {
+	EnterpriseID  uuid.UUID          `json:"enterprise_id"`
+	ClusterID     uuid.UUID          `json:"cluster_id"`
+	ObjectUid     string             `json:"object_uid"`
+	ObjectType    string             `json:"object_type"`
+	NamespaceName string             `json:"namespace_name"`
+	NamespaceUid  string             `json:"namespace_uid"`
+	ObservedAt    pgtype.Timestamptz `json:"observed_at"`
+}
+
+type KubernetesNamespaceResource struct {
+	ID              uuid.UUID          `json:"id"`
+	EnterpriseID    uuid.UUID          `json:"enterprise_id"`
+	ClusterID       uuid.UUID          `json:"cluster_id"`
+	NamespaceUid    string             `json:"namespace_uid"`
+	Name            string             `json:"name"`
+	Status          string             `json:"status"`
+	ResourceVersion string             `json:"resource_version"`
+	ObservedAt      pgtype.Timestamptz `json:"observed_at"`
+	Version         int64              `json:"version"`
+}
+
+type KubernetesNamespaceSyncState struct {
+	ClusterID               uuid.UUID          `json:"cluster_id"`
+	EnterpriseID            uuid.UUID          `json:"enterprise_id"`
+	LeaseToken              uuid.NullUUID      `json:"lease_token"`
+	LeaseExpiresAt          pgtype.Timestamptz `json:"lease_expires_at"`
+	LastAttemptAt           pgtype.Timestamptz `json:"last_attempt_at"`
+	LastSuccessAt           pgtype.Timestamptz `json:"last_success_at"`
+	SnapshotStartedAt       pgtype.Timestamptz `json:"snapshot_started_at"`
+	SnapshotResourceVersion string             `json:"snapshot_resource_version"`
+	ObservedClusterVersion  int64              `json:"observed_cluster_version"`
+	Status                  string             `json:"status"`
+	ErrorCode               string             `json:"error_code"`
+	NamespaceCount          int32              `json:"namespace_count"`
+}
+
 type KubernetesNodeHostBinding struct {
 	ID                  uuid.UUID          `json:"id"`
 	EnterpriseID        uuid.UUID          `json:"enterprise_id"`
@@ -1354,6 +1482,84 @@ type KubernetesNodeHostBinding struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
+type KubernetesOperation struct {
+	ID                      uuid.UUID          `json:"id"`
+	EnterpriseID            uuid.UUID          `json:"enterprise_id"`
+	ClusterID               uuid.UUID          `json:"cluster_id"`
+	NamespaceID             uuid.NullUUID      `json:"namespace_id"`
+	NamespaceUid            string             `json:"namespace_uid"`
+	ActorID                 uuid.UUID          `json:"actor_id"`
+	ActorType               string             `json:"actor_type"`
+	AuthorizationVersion    int64              `json:"authorization_version"`
+	ClusterVersion          int64              `json:"cluster_version"`
+	PendingActionID         uuid.NullUUID      `json:"pending_action_id"`
+	Status                  string             `json:"status"`
+	Operation               string             `json:"operation"`
+	TypeKey                 string             `json:"type_key"`
+	TargetName              string             `json:"target_name"`
+	TargetUid               string             `json:"target_uid"`
+	ExpectedResourceVersion string             `json:"expected_resource_version"`
+	PrivatePlan             []byte             `json:"private_plan"`
+	Result                  []byte             `json:"result"`
+	ErrorCode               string             `json:"error_code"`
+	ConnectorCommandID      uuid.NullUUID      `json:"connector_command_id"`
+	Version                 int64              `json:"version"`
+	StartedAt               pgtype.Timestamptz `json:"started_at"`
+	FinishedAt              pgtype.Timestamptz `json:"finished_at"`
+	HeartbeatAt             pgtype.Timestamptz `json:"heartbeat_at"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+}
+
+type KubernetesPrivateInput struct {
+	ID                   uuid.UUID          `json:"id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	OperationID          uuid.UUID          `json:"operation_id"`
+	ClusterID            uuid.UUID          `json:"cluster_id"`
+	NamespaceID          uuid.UUID          `json:"namespace_id"`
+	NamespaceUid         string             `json:"namespace_uid"`
+	ActorID              uuid.UUID          `json:"actor_id"`
+	ActorType            string             `json:"actor_type"`
+	AuthorizationVersion int64              `json:"authorization_version"`
+	MutationHash         []byte             `json:"mutation_hash"`
+	Envelope             []byte             `json:"envelope"`
+	Status               string             `json:"status"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type KubernetesStreamSession struct {
+	ID                   uuid.UUID          `json:"id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	ClusterID            uuid.UUID          `json:"cluster_id"`
+	NamespaceID          uuid.UUID          `json:"namespace_id"`
+	NamespaceUid         string             `json:"namespace_uid"`
+	ActorID              uuid.UUID          `json:"actor_id"`
+	HttpSessionID        uuid.UUID          `json:"http_session_id"`
+	AuthorizationVersion int64              `json:"authorization_version"`
+	ClusterVersion       int64              `json:"cluster_version"`
+	Mode                 string             `json:"mode"`
+	Binding              []byte             `json:"binding"`
+	TicketHash           []byte             `json:"ticket_hash"`
+	TicketExpiresAt      pgtype.Timestamptz `json:"ticket_expires_at"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	Status               string             `json:"status"`
+	OwnerGateway         string             `json:"owner_gateway"`
+	ExecutionGateway     string             `json:"execution_gateway"`
+	ConnectorID          uuid.NullUUID      `json:"connector_id"`
+	ConnectorEpoch       pgtype.Int8        `json:"connector_epoch"`
+	CredentialLeaseID    uuid.NullUUID      `json:"credential_lease_id"`
+	Fence                int64              `json:"fence"`
+	Version              int64              `json:"version"`
+	ConnectedAt          pgtype.Timestamptz `json:"connected_at"`
+	EndedAt              pgtype.Timestamptz `json:"ended_at"`
+	EndReason            string             `json:"end_reason"`
+	BytesIn              int64              `json:"bytes_in"`
+	BytesOut             int64              `json:"bytes_out"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ManagedAccount struct {
 	ID               uuid.UUID          `json:"id"`
 	EnterpriseID     uuid.UUID          `json:"enterprise_id"`
@@ -1366,6 +1572,15 @@ type ManagedAccount struct {
 	Version          int64              `json:"version"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ManagedDashboardInstance struct {
+	EnterpriseID   uuid.UUID          `json:"enterprise_id"`
+	TemplateKey    string             `json:"template_key"`
+	DashboardID    uuid.UUID          `json:"dashboard_id"`
+	AppliedVersion int64              `json:"applied_version"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type McpConnection struct {
@@ -1519,270 +1734,56 @@ type ModelQuotaReservation struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
-type OutboxEvent struct {
+type MonitoringApplication struct {
+	ID             uuid.UUID          `json:"id"`
+	EnterpriseID   uuid.UUID          `json:"enterprise_id"`
+	ApplicationKey string             `json:"application_key"`
+	Name           string             `json:"name"`
+	Environment    string             `json:"environment"`
+	Description    string             `json:"description"`
+	OwnerName      string             `json:"owner_name"`
+	Status         string             `json:"status"`
+	Version        int64              `json:"version"`
+	CreatedBy      uuid.UUID          `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MonitoringApplicationBinding struct {
 	ID            uuid.UUID          `json:"id"`
-	Topic         string             `json:"topic"`
-	AggregateType string             `json:"aggregate_type"`
-	AggregateID   string             `json:"aggregate_id"`
-	Payload       []byte             `json:"payload"`
-	Attempts      int32              `json:"attempts"`
-	AvailableAt   pgtype.Timestamptz `json:"available_at"`
-	ClaimedAt     pgtype.Timestamptz `json:"claimed_at"`
-	PublishedAt   pgtype.Timestamptz `json:"published_at"`
-	LastError     pgtype.Text        `json:"last_error"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-}
-
-type PasswordCredential struct {
-	ID          uuid.UUID          `json:"id"`
-	Audience    string             `json:"audience"`
-	SubjectID   uuid.UUID          `json:"subject_id"`
-	EncodedHash string             `json:"encoded_hash"`
-	Status      string             `json:"status"`
-	Temporary   bool               `json:"temporary"`
-	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
-	Version     int64              `json:"version"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-}
-
-type PendingAction struct {
-	ID                        uuid.UUID          `json:"id"`
-	ActionRef                 string             `json:"action_ref"`
-	EnterpriseID              uuid.UUID          `json:"enterprise_id"`
-	CreatorSubjectID          uuid.UUID          `json:"creator_subject_id"`
-	AuthorizationVersion      int64              `json:"authorization_version"`
-	ActionType                string             `json:"action_type"`
-	Title                     string             `json:"title"`
-	Summary                   string             `json:"summary"`
-	Risk                      string             `json:"risk"`
-	Preview                   []byte             `json:"preview"`
-	Diff                      []byte             `json:"diff"`
-	Status                    string             `json:"status"`
-	ResourceType              string             `json:"resource_type"`
-	ResourceID                uuid.NullUUID      `json:"resource_id"`
-	ExpectedResourceVersion   pgtype.Int8        `json:"expected_resource_version"`
-	ImpactHash                []byte             `json:"impact_hash"`
-	ResultResourceType        pgtype.Text        `json:"result_resource_type"`
-	ResultResourceID          uuid.NullUUID      `json:"result_resource_id"`
-	ResultResourceVersion     pgtype.Int8        `json:"result_resource_version"`
-	ResultSummary             string             `json:"result_summary"`
-	ErrorCode                 pgtype.Text        `json:"error_code"`
-	ExpiresAt                 pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
-	CreatorSubjectType        string             `json:"creator_subject_type"`
-	RunID                     uuid.NullUUID      `json:"run_id"`
-	ConfirmationRequired      bool               `json:"confirmation_required"`
-	PolicySnapshotHash        []byte             `json:"policy_snapshot_hash"`
-	ConfirmationMode          string             `json:"confirmation_mode"`
-	ConfirmationPolicyVersion pgtype.Int8        `json:"confirmation_policy_version"`
-	ApprovedPlanCommandID     uuid.NullUUID      `json:"approved_plan_command_id"`
-}
-
-type PendingActionPlan struct {
-	ID                    uuid.UUID          `json:"id"`
-	PendingActionID       uuid.UUID          `json:"pending_action_id"`
-	EnterpriseID          uuid.UUID          `json:"enterprise_id"`
-	PreviewCallID         string             `json:"preview_call_id"`
-	CommitTool            string             `json:"commit_tool"`
-	AuthorizationVersion  int64              `json:"authorization_version"`
-	PlanSchemaVersion     string             `json:"plan_schema_version"`
-	PlanHash              []byte             `json:"plan_hash"`
-	ImmutablePlan         []byte             `json:"immutable_plan"`
-	ResourceScopeSnapshot []byte             `json:"resource_scope_snapshot"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-}
-
-type PendingActionToken struct {
-	ID              uuid.UUID          `json:"id"`
-	PendingActionID uuid.UUID          `json:"pending_action_id"`
-	EnterpriseID    uuid.UUID          `json:"enterprise_id"`
-	TokenHash       []byte             `json:"token_hash"`
-	KeyVersion      int32              `json:"key_version"`
-	Nonce           []byte             `json:"nonce"`
-	Ciphertext      []byte             `json:"ciphertext"`
-	Status          string             `json:"status"`
-	ConsumedAt      pgtype.Timestamptz `json:"consumed_at"`
-	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-}
-
-type Permission struct {
-	ID              string             `json:"id"`
-	Description     string             `json:"description"`
-	RegistryVersion int32              `json:"registry_version"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-}
-
-type PkiCertificateIdentity struct {
-	SerialNumber      string             `json:"serial_number"`
-	SubjectKind       string             `json:"subject_kind"`
-	SubjectID         string             `json:"subject_id"`
-	EnterpriseID      uuid.NullUUID      `json:"enterprise_id"`
-	UriSan            string             `json:"uri_san"`
-	DnsSans           []string           `json:"dns_sans"`
-	ExtendedKeyUsage  string             `json:"extended_key_usage"`
-	IssuerGeneration  int32              `json:"issuer_generation"`
-	CertificateSha256 string             `json:"certificate_sha256"`
-	Status            string             `json:"status"`
-	NotBefore         pgtype.Timestamptz `json:"not_before"`
-	NotAfter          pgtype.Timestamptz `json:"not_after"`
-	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
-	RevocationReason  string             `json:"revocation_reason"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-}
-
-type PkiNodeTrustAck struct {
-	NodeKind           string             `json:"node_kind"`
-	NodeID             string             `json:"node_id"`
-	EnterpriseID       uuid.NullUUID      `json:"enterprise_id"`
-	Epoch              int64              `json:"epoch"`
-	BundleSha256       string             `json:"bundle_sha256"`
-	CaFingerprints     []string           `json:"ca_fingerprints"`
-	Status             string             `json:"status"`
-	RequiredForCutover bool               `json:"required_for_cutover"`
-	Error              string             `json:"error"`
-	FirstSeenAt        pgtype.Timestamptz `json:"first_seen_at"`
-	AcknowledgedAt     pgtype.Timestamptz `json:"acknowledged_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
-}
-
-type PkiTrustBundle struct {
-	Epoch                 int64              `json:"epoch"`
-	State                 string             `json:"state"`
-	Direction             string             `json:"direction"`
-	BundlePem             string             `json:"bundle_pem"`
-	BundleSha256          string             `json:"bundle_sha256"`
-	CurrentCaFingerprints []string           `json:"current_ca_fingerprints"`
-	NextCaFingerprints    []string           `json:"next_ca_fingerprints"`
-	StartedAt             pgtype.Timestamptz `json:"started_at"`
-	RetireAt              pgtype.Timestamptz `json:"retire_at"`
-	LastError             string             `json:"last_error"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
-}
-
-type PlanCommandAuthorization struct {
-	ID                  uuid.UUID          `json:"id"`
-	EnterpriseID        uuid.UUID          `json:"enterprise_id"`
-	ConversationID      uuid.UUID          `json:"conversation_id"`
-	OwnerUserID         uuid.UUID          `json:"owner_user_id"`
-	PlanID              uuid.UUID          `json:"plan_id"`
-	Sequence            int32              `json:"sequence"`
-	BlockID             string             `json:"block_id"`
-	Spec                []byte             `json:"spec"`
-	SpecHash            string             `json:"spec_hash"`
-	ImplementationRunID uuid.NullUUID      `json:"implementation_run_id"`
-	UsedRequestID       uuid.NullUUID      `json:"used_request_id"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-}
-
-type PlatformSetting struct {
-	Singleton     bool               `json:"singleton"`
-	PlatformName  string             `json:"platform_name"`
-	DefaultLocale string             `json:"default_locale"`
-	Timezone      string             `json:"timezone"`
-	ExternalUrl   string             `json:"external_url"`
+	EnterpriseID  uuid.UUID          `json:"enterprise_id"`
+	ApplicationID uuid.UUID          `json:"application_id"`
+	ServiceID     uuid.NullUUID      `json:"service_id"`
+	TargetType    string             `json:"target_type"`
+	TargetID      uuid.UUID          `json:"target_id"`
 	Version       int64              `json:"version"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ValidFrom     pgtype.Timestamptz `json:"valid_from"`
+	ValidTo       pgtype.Timestamptz `json:"valid_to"`
 }
 
-type PlatformState struct {
-	Singleton     bool               `json:"singleton"`
-	State         string             `json:"state"`
-	InitializedAt pgtype.Timestamptz `json:"initialized_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+type MonitoringApplicationService struct {
+	ID               uuid.UUID          `json:"id"`
+	EnterpriseID     uuid.UUID          `json:"enterprise_id"`
+	ApplicationID    uuid.UUID          `json:"application_id"`
+	ServiceNamespace string             `json:"service_namespace"`
+	ServiceName      string             `json:"service_name"`
+	Runtime          string             `json:"runtime"`
+	Status           string             `json:"status"`
+	Version          int64              `json:"version"`
+	FirstSeenAt      pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt       pgtype.Timestamptz `json:"last_seen_at"`
 }
 
-type PlatformUser struct {
-	ID          uuid.UUID          `json:"id"`
-	Username    string             `json:"username"`
-	DisplayName string             `json:"display_name"`
-	Email       pgtype.Text        `json:"email"`
-	Role        string             `json:"role"`
-	Status      string             `json:"status"`
-	MfaEnabled  bool               `json:"mfa_enabled"`
-	Version     int64              `json:"version"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-}
-
-type RemoteAccessApprovalWorkflow struct {
-	ID                     uuid.UUID          `json:"id"`
-	EnterpriseID           uuid.UUID          `json:"enterprise_id"`
-	Name                   string             `json:"name"`
-	Description            string             `json:"description"`
-	ApproverRoleIds        []uuid.UUID        `json:"approver_role_ids"`
-	MinimumApprovals       int32              `json:"minimum_approvals"`
-	SeparationOfDuties     bool               `json:"separation_of_duties"`
-	ApprovalTimeoutSeconds int32              `json:"approval_timeout_seconds"`
-	TimeoutEffect          string             `json:"timeout_effect"`
-	EscalationRoleIds      []uuid.UUID        `json:"escalation_role_ids"`
-	Status                 string             `json:"status"`
-	Version                int64              `json:"version"`
-	CreatedBy              uuid.UUID          `json:"created_by"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	EscalationAfterSeconds int32              `json:"escalation_after_seconds"`
-}
-
-type RemoteAccessCommandEvent struct {
-	ID          uuid.UUID          `json:"id"`
-	SessionID   uuid.UUID          `json:"session_id"`
-	Sequence    int64              `json:"sequence"`
-	EventType   string             `json:"event_type"`
-	CommandHash []byte             `json:"command_hash"`
-	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
-}
-
-type RemoteAccessDecision struct {
-	ID            uuid.UUID          `json:"id"`
-	RequestID     uuid.UUID          `json:"request_id"`
-	RequirementID uuid.UUID          `json:"requirement_id"`
-	Decision      string             `json:"decision"`
-	Comment       string             `json:"comment"`
-	DecidedBy     uuid.UUID          `json:"decided_by"`
-	DecidedAt     pgtype.Timestamptz `json:"decided_at"`
-}
-
-type RemoteAccessGrant struct {
-	ID                uuid.UUID          `json:"id"`
-	EnterpriseID      uuid.UUID          `json:"enterprise_id"`
-	SubjectType       string             `json:"subject_type"`
-	SubjectID         uuid.UUID          `json:"subject_id"`
-	HostIds           []uuid.UUID        `json:"host_ids"`
-	ManagedAccountIds []uuid.UUID        `json:"managed_account_ids"`
-	Protocols         []string           `json:"protocols"`
-	Actions           []string           `json:"actions"`
-	ValidFrom         pgtype.Timestamptz `json:"valid_from"`
-	ValidUntil        pgtype.Timestamptz `json:"valid_until"`
-	Version           int64              `json:"version"`
-	CreatedBy         uuid.UUID          `json:"created_by"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	Status            string             `json:"status"`
-}
-
-type RemoteAccessLease struct {
-	ID                     uuid.UUID          `json:"id"`
-	RequestID              uuid.UUID          `json:"request_id"`
-	EnterpriseID           uuid.UUID          `json:"enterprise_id"`
-	UserID                 uuid.UUID          `json:"user_id"`
-	GrantID                uuid.UUID          `json:"grant_id"`
-	HostID                 uuid.UUID          `json:"host_id"`
-	ManagedAccountID       uuid.UUID          `json:"managed_account_id"`
-	Protocol               string             `json:"protocol"`
-	Action                 string             `json:"action"`
-	AuthorizationVersion   int64              `json:"authorization_version"`
-	IssuedAt               pgtype.Timestamptz `json:"issued_at"`
-	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
-	RevokedAt              pgtype.Timestamptz `json:"revoked_at"`
-	RevokeReason           pgtype.Text        `json:"revoke_reason"`
-	DecisionSnapshot       []byte             `json:"decision_snapshot"`
-	SessionProfileSnapshot []byte             `json:"session_profile_snapshot"`
-	DecisionSnapshotHash   []byte             `json:"decision_snapshot_hash"`
+type MonitoringAssignmentRetirement struct {
+	ID                   uuid.UUID          `json:"id"`
+	EnterpriseID         uuid.UUID          `json:"enterprise_id"`
+	CollectionID         uuid.UUID          `json:"collection_id"`
+	AssignmentEpoch      int64              `json:"assignment_epoch"`
+	PreviousCollectorID  uuid.UUID          `json:"previous_collector_id"`
+	ApprovedActionID     uuid.UUID          `json:"approved_action_id"`
+	Status               string             `json:"status"`
+	ErrorCode            string             `json:"error_code"`
+	CollectorOperationID uuid.NullUUID      `json:"collector_operation_id"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }

@@ -87,7 +87,9 @@ metadata:
     app.kubernetes.io/part-of: argus
 spec:
   backoffLimit: 6
-  ttlSecondsAfterFinished: 300
+  # Helm and the installer observe completion after the other data services
+  # become ready. Keep this bounded, named Job until the next install replaces
+  # it or the release is removed; an independent TTL races slow image pulls.
   template:
     metadata:
       labels:

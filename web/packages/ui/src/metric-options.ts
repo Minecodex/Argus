@@ -54,6 +54,7 @@ export function metricOption(
     yAxis: {
       type: "value",
       scale: true,
+      splitNumber: 4,
       min: display.min,
       max: display.max,
       axisLabel: {

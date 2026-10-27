@@ -114,7 +114,7 @@ func Validate(spec Spec) ValidationReport {
 			issue(path, "resource applicability is required")
 		}
 		for _, kind := range panel.ApplicableResourceTypes {
-			if kind != "host" && kind != "kubernetes_cluster" {
+			if kind != "host" && kind != "kubernetes_cluster" && kind != "application" && kind != "monitoring_target" && kind != "kubernetes_namespace" {
 				issue(path, "unsupported resource type")
 			}
 		}

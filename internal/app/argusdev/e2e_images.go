@@ -49,6 +49,7 @@ func (a *App) prepareE2EImages(ctx context.Context, env *E2EEnvironment) error {
 	env.State.FixtureImages["web"] = clusterPrefix + "argus-web:" + env.ImageTag
 	env.State.FixtureImages["minio"] = clusterPrefix + "minio:" + env.ImageTag
 	env.State.FixtureImages["remote-runtime"] = clusterPrefix + "argus-remote-runtime:" + env.ImageTag
+	env.State.FixtureImages["install-tools"] = clusterPrefix + "argus-install-tools:" + env.ImageTag
 	buildLabel := "io.argus.e2e.run=" + env.ImageTag
 	backendArgs := []string{"buildx", "build", "--platform", env.ImagePlatform, "--file", "deploy/docker/backend.Dockerfile", "--tag", localPrefix + "argus-backend:" + env.ImageTag, "--label", buildLabel, "--push"}
 	if suiteHas(env.Options.Suite, "m4") || suiteHas(env.Options.Suite, "p5") || suiteHas(env.Options.Suite, "m7") || env.Options.Suite == "m10-query" || env.Options.Suite == "p4" {
@@ -66,14 +67,14 @@ func (a *App) prepareE2EImages(ctx context.Context, env *E2EEnvironment) error {
 			"--build-arg", "VITE_API_MODE=real", "--build-arg", "VITE_API_BASE_URL=/"}
 		// Plan7 artifacts are also local release candidates. Fixture-only
 		// advertised egress must never enter that production Web build.
-		if env.Options.Suite != "plan7" {
+		if env.Options.Suite != "plan7" && env.Options.Suite != "plan8" {
 			args = append(args, "--build-arg", "VITE_DIRECT_EGRESS_ADDRESSES=127.0.0.1")
 		}
 		return a.runner.Run(buildCtx, nil, "docker", append(args, ".")...)
 	}); err != nil {
 		return err
 	}
-	if env.Options.Suite == "plan7" {
+	if env.Options.Suite == "plan7" || env.Options.Suite == "plan8" {
 		output, err := a.runner.Output(ctx, nil, "docker", "buildx", "imagetools", "inspect", strings.Replace(localPrefix+"argus-web:"+env.ImageTag, "localhost:", "127.0.0.1:", 1), "--format", "{{json .Manifest}}")
 		if err != nil {
 			return err

@@ -14,6 +14,7 @@ import (
 	graphgophers "github.com/graph-gophers/graphql-go"
 	graphqlparser "github.com/graphql-go/graphql/language/parser"
 
+	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chscope"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chstats"
 )
 
@@ -130,6 +131,12 @@ func (e Engine) Execute(ctx context.Context, request Request) (Result, error) {
 	tables, err := e.tables(request.Scope.EnterpriseID)
 	if err != nil {
 		return Result{}, err
+	}
+	if len(request.Scope.SourceKeys) > 0 {
+		ctx, err = chscope.WithSources(ctx, request.Scope.SourceKeys)
+		if err != nil {
+			return Result{}, err
+		}
 	}
 	state := &executionState{engine: e, request: request, tables: tables}
 	started := time.Now()

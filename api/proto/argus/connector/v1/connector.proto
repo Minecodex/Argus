@@ -7,6 +7,7 @@ option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/connector
 import "argus/common/v1/common.proto";
 import "argus/connector/v1/commands.proto";
 import "argus/connector/v1/control.proto";
+import "argus/connector/v1/kubernetes_helm.proto";
 import "argus/connector/v1/remote_access.proto";
 import "argus/connector/v1/telemetry_tunnel.proto";
 import "google/protobuf/duration.proto";
@@ -32,6 +33,7 @@ message ConnectRequest {
     RemoteAccessClose remote_access_close = 13;
     TelemetryTunnelStatusSet telemetry_tunnel_status_set = 14;
     TrustBundleAcknowledge trust_bundle_acknowledge = 15;
+    KubernetesHelmWriteRequest kubernetes_helm_write_request = 16;
   }
   reserved 11;
 }
@@ -54,6 +56,7 @@ message ConnectResponse {
     RemoteAccessState remote_access_state = 14;
     TelemetryTunnelDesiredSet telemetry_tunnel_desired_set = 15;
     TrustBundleUpdate trust_bundle_update = 16;
+    KubernetesHelmWriteGrant kubernetes_helm_write_grant = 17;
   }
 }
 

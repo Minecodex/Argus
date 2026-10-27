@@ -1,17 +1,21 @@
 package collectormanager
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
@@ -87,59 +91,63 @@ func (manager Manager) ApplySSH(ctx context.Context, command *connectorv1.Collec
 	if _, err = artifactFile.Seek(0, io.SeekStart); err != nil {
 		return Result{}, err
 	}
-	prepare := "umask 077; install -d -m 0700 " + directory + "/release /etc/argus-otelcol; cat > " + directory + "/artifact.tar.gz"
+	directory += "/candidate-" + strconv.FormatUint(command.GetDesiredRevision(), 10) + "-" + uuid.NewString()
+	prepare := "umask 077; install -d -m 0700 " + directory + "/release; cat > " + directory + "/artifact.tar.gz"
 	if err = runSSHReader(client, prepare, artifactFile); err != nil {
 		return Result{}, err
 	}
+	defer func() { _ = runSSH(client, "rm -rf "+directory, nil) }()
 	runtimeConfig, err := configbundle.Extract(command.GetRenderedConfig(), "host")
 	if err != nil {
 		return Result{}, err
 	}
-	if err = runSSH(client, "umask 077; cat > /etc/argus-otelcol/config.yaml", runtimeConfig); err != nil {
+	private, err := monitoringPrivateConfig(command)
+	if err != nil {
 		return Result{}, err
 	}
+	defer clear(private)
 	trust, err := commandTrustBundle(command)
 	if err != nil {
 		return Result{}, err
 	}
-	if err = runSSH(client, "umask 077; cat > /etc/argus-otelcol/server-ca.pem", trust.PEM); err != nil {
-		return Result{}, err
-	}
-	prepareIdentity := "active=''; [ -f /var/lib/argus-otelcol/.active-collector-id ] && active=$(cat /var/lib/argus-otelcol/.active-collector-id); " +
-		"if [ \"$active\" != '" + command.GetCollectorId() + "' ]; then systemctl disable --now argus-otelcol.service >/dev/null 2>&1 || true; rm -rf /var/lib/argus-otelcol/identity; fi; " +
-		"install -d -m 0700 /var/lib/argus-otelcol/identity; printf '%s' '" + command.GetCollectorId() + "' > /var/lib/argus-otelcol/.active-collector-id"
-	if err = runSSH(client, prepareIdentity, nil); err != nil {
-		return Result{}, err
-	}
-	if len(command.GetEnrollmentToken()) > 0 {
-		writeToken := "umask 077; if [ -s /var/lib/argus-otelcol/identity/client.pem ]; then cat >/dev/null; rm -f /etc/argus-otelcol/enrollment-token; else cat > /etc/argus-otelcol/enrollment-token; fi"
-		if err = runSSH(client, writeToken, command.GetEnrollmentToken()); err != nil {
+	files := map[string][]byte{"config.json": runtimeConfig, "server-ca.pem": trust.PEM, "service.unit": []byte(localCollectorSystemdUnit(command, "/var/lib/argus-otelcol")), "revision": []byte(strconv.FormatUint(command.GetDesiredRevision(), 10) + "\n"), "config-hash": []byte(command.GetConfigSha256() + "\n"), "collector-id": []byte(command.GetCollectorId() + "\n")}
+	for name, value := range files {
+		if err = runSSH(client, "umask 077; cat > "+directory+"/"+name, value); err != nil {
 			return Result{}, err
 		}
 	}
-	environment := "Environment=ARGUS_TELEMETRY_ENROLLMENT_TOKEN_FILE=/etc/argus-otelcol/enrollment-token\n" +
-		"Environment=ARGUS_TELEMETRY_ENROLLMENT_ENDPOINT=" + command.GetEnrollmentEndpoint() + "\n" +
-		"Environment=ARGUS_TELEMETRY_INGEST_GRPC_ENDPOINT=" + command.GetIngestGrpcEndpoint() + "\n" +
-		"Environment=ARGUS_TELEMETRY_INGEST_HTTP_ENDPOINT=" + command.GetIngestHttpEndpoint() + "\n"
-	unit := []byte("[Unit]\nDescription=Argus managed OpenTelemetry Collector\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\n" + environment + "ExecStart=/usr/local/bin/argus-otelcol --config=/etc/argus-otelcol/config.yaml\nRestart=always\nRestartSec=5\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nReadWritePaths=/var/lib/argus-otelcol /etc/argus-otelcol\n\n[Install]\nWantedBy=multi-user.target\n")
-	if err = runSSH(client, "umask 077; cat > /etc/systemd/system/argus-otelcol.service", unit); err != nil {
+	var payload bytes.Buffer
+	archive := tar.NewWriter(&payload)
+	for _, file := range []struct {
+		name  string
+		value []byte
+	}{{"private.json", private}, {"enrollment-token", command.GetEnrollmentToken()}} {
+		if err = archive.WriteHeader(&tar.Header{Name: file.name, Mode: 0600, Size: int64(len(file.value)), Typeflag: tar.TypeReg}); err != nil {
+			return Result{}, err
+		}
+		if _, err = archive.Write(file.value); err != nil {
+			return Result{}, err
+		}
+	}
+	if err = archive.Close(); err != nil {
 		return Result{}, err
 	}
-	activate := sshActivateCommand(directory)
-	if err = runSSH(client, activate, nil); err != nil {
+	defer clear(payload.Bytes())
+	if err = runSSH(client, sshActivateCommand(directory), payload.Bytes()); err != nil {
+		var remote *ssh.ExitError
+		if errors.As(err, &remote) {
+			switch remote.ExitStatus() {
+			case 85:
+				return Result{}, ErrInvalidCommand
+			case 86:
+				return Result{}, ErrConfigInvalid
+			case 87:
+				return Result{}, ErrRollbackFailed
+			}
+		}
 		return Result{}, err
 	}
 	return sshResult(command, "converged"), nil
-}
-
-func sshActivateCommand(directory string) string {
-	return "rm -rf " + directory + "/release/*; tar -xzf " + directory + "/artifact.tar.gz -C " + directory +
-		"/release; test -x " + directory + "/release/argus-otelcol; install -m 0755 " + directory +
-		"/release/argus-otelcol /usr/local/bin/argus-otelcol; systemctl daemon-reload; systemctl enable --now argus-otelcol.service; " +
-		"i=0; while [ \"$i\" -lt 90 ]; do if systemctl is-active --quiet argus-otelcol.service && " +
-		"test -s /var/lib/argus-otelcol/identity/client.pem && test -s /var/lib/argus-otelcol/identity/client-key.pem && " +
-		"test -s /var/lib/argus-otelcol/identity/ca.pem && test ! -e /etc/argus-otelcol/enrollment-token; then exit 0; fi; " +
-		"i=$((i+1)); sleep 1; done; exit 1"
 }
 
 func sshAuthentication(value []byte) (ssh.AuthMethod, error) {

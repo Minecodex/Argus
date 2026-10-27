@@ -16,6 +16,9 @@ ORDER BY p.created_at;
 -- name: ResolvePresentationResources :many
 SELECT h.id,h.name,'host'::text AS resource_type FROM hosts h WHERE h.enterprise_id=$1 AND h.deleted_at IS NULL AND h.id=ANY(sqlc.arg(ids)::uuid[])
 UNION ALL SELECT k.id,k.name,'kubernetes_cluster'::text AS resource_type FROM kubernetes_clusters k WHERE k.enterprise_id=$1 AND k.deleted_at IS NULL AND k.id=ANY(sqlc.arg(ids)::uuid[])
+UNION ALL SELECT a.id,a.name,'application'::text AS resource_type FROM monitoring_applications a WHERE a.enterprise_id=$1 AND a.status='active' AND a.id=ANY(sqlc.arg(ids)::uuid[])
+UNION ALL SELECT t.id,t.name,'monitoring_target'::text AS resource_type FROM monitoring_targets t WHERE t.enterprise_id=$1 AND t.status='active' AND t.id=ANY(sqlc.arg(ids)::uuid[])
+UNION ALL SELECT n.id,n.name,'kubernetes_namespace'::text AS resource_type FROM kubernetes_namespace_resources n WHERE n.enterprise_id=$1 AND n.status='active' AND n.id=ANY(sqlc.arg(ids)::uuid[])
 ORDER BY id;
 
 -- name: ListUnsealedPresentationJobs :many

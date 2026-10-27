@@ -41,7 +41,7 @@ func createMetrics(ctx context.Context, set processor.Settings, config component
 			overwrite(resources.At(index).Resource().Attributes(), identity)
 		}
 		return value, nil
-	})
+	}, processorhelper.WithCapabilities(consumer.Capabilities{MutatesData: true}))
 }
 
 func createLogs(ctx context.Context, set processor.Settings, config component.Config, next consumer.Logs) (processor.Logs, error) {
@@ -55,7 +55,7 @@ func createLogs(ctx context.Context, set processor.Settings, config component.Co
 			overwrite(resources.At(index).Resource().Attributes(), identity)
 		}
 		return value, nil
-	})
+	}, processorhelper.WithCapabilities(consumer.Capabilities{MutatesData: true}))
 }
 
 func createTraces(ctx context.Context, set processor.Settings, config component.Config, next consumer.Traces) (processor.Traces, error) {
@@ -69,7 +69,7 @@ func createTraces(ctx context.Context, set processor.Settings, config component.
 			overwrite(resources.At(index).Resource().Attributes(), identity)
 		}
 		return value, nil
-	})
+	}, processorhelper.WithCapabilities(consumer.Capabilities{MutatesData: true}))
 }
 
 type downstreamIdentity struct{ collectorID, serial string }
@@ -116,6 +116,11 @@ func telemetryCollectorID(certificate *x509.Certificate) (string, bool) {
 }
 
 func overwrite(attributes pcommon.Map, identity downstreamIdentity) {
+	keyReference, hasKey := attributes.Get("argus.application.key.id")
+	keyID := ""
+	if hasKey && keyReference.Type() == pcommon.ValueTypeStr {
+		keyID = keyReference.Str()
+	}
 	sourceID, hasSource := attributes.Get("argus.source.id")
 	sourceRevision, hasRevision := attributes.Get("argus.source.revision")
 	id, revision := "", ""
@@ -144,5 +149,8 @@ func overwrite(attributes pcommon.Map, identity downstreamIdentity) {
 	}
 	if revision != "" {
 		attributes.PutStr("argus.source.revision", revision)
+	}
+	if keyID != "" {
+		attributes.PutStr("argus.application.key.id", keyID)
 	}
 }

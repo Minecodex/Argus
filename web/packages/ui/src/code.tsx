@@ -31,7 +31,11 @@ export function CodeBlock({
           </Button>
         )}
       </div>
-      <pre>
+      <pre
+        tabIndex={0}
+        role="region"
+        aria-label={label ?? text("代码", "Code")}
+      >
         <code>{code}</code>
       </pre>
     </div>
@@ -43,8 +47,14 @@ export function DiffViewer({
 }: {
   lines: Array<{ type: "add" | "remove" | "context"; content: string }>;
 }) {
+  const text = useUiText();
   return (
-    <div className="argus-diff">
+    <div
+      className="argus-diff"
+      tabIndex={0}
+      role="region"
+      aria-label={text("变更差异", "Change diff")}
+    >
       {lines.map((line, index) => (
         <div className={cx(`is-${line.type}`)} key={index}>
           <span>

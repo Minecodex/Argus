@@ -172,6 +172,13 @@ func (a *App) buildCollectorArtifact(ctx context.Context, platform, destination 
 	if err := a.runner.Run(ctx, nil, "go", "run", "go.opentelemetry.io/collector/cmd/builder@"+collectorBuilderVersion, "--skip-compilation", "--config", builderConfig); err != nil {
 		return err
 	}
+	runtimeDefaults, err := os.ReadFile(filepath.Join(a.root, "deploy", "otelcol", "runtime-defaults.go.tmpl"))
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(filepath.Join(dist, "argus_runtime_defaults.go"), runtimeDefaults, 0o644); err != nil {
+		return err
+	}
 	runner := a.runner
 	runner.Dir = dist
 	env := map[string]string{"CGO_ENABLED": "0"}
@@ -208,10 +215,13 @@ func (a *App) buildCollectorArtifact(ctx context.Context, platform, destination 
 // used as freshness evidence.
 func (a *App) collectorArtifactInputFingerprint(platform string) (string, error) {
 	config := filepath.Join(a.root, "deploy", "otelcol", "builder-"+platform+".yaml")
-	inputs := []string{config}
+	inputs := []string{config, filepath.Join(a.root, "deploy", "otelcol", "runtime-defaults.go.tmpl")}
 	for _, directory := range []string{
 		filepath.Join(a.root, "internal", "otelcol", "argusidentity"),
 		filepath.Join(a.root, "internal", "otelcol", "argusgatewayidentity"),
+		filepath.Join(a.root, "internal", "otelcol", "argusapplicationauth"),
+		filepath.Join(a.root, "internal", "otelcol", "argusapplicationidentity"),
+		filepath.Join(a.root, "internal", "otelcol", "arguslogidentity"),
 	} {
 		err := filepath.WalkDir(directory, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {

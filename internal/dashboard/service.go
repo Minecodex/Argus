@@ -10,15 +10,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/kakj-go/Argus/internal/builtincollection"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
 type Service struct {
-	Store    *postgres.Store
-	Actions  resource.PendingActionService
-	Verifier PublicationVerifier
+	ProvideDefaults bool
+	Store           *postgres.Store
+	Actions         resource.PendingActionService
+	Verifier        PublicationVerifier
 }
 
 // PublicationVerifier supplies current source/catalog/type/permission/budget
@@ -43,6 +46,44 @@ func (service Service) List(ctx context.Context, actor Actor) ([]db.Dashboard, e
 	if err := authorize(ctx, service.Store.Queries, actor, "telemetry.dashboard.read"); err != nil {
 		return nil, err
 	}
+	managedIDs := []uuid.UUID{}
+	if service.ProvideDefaults {
+		targets, err := authorizedIDs(ctx, service.Store.Queries, actor, "monitoring_target")
+		if err != nil {
+			return nil, err
+		}
+		engines, err := service.Store.Queries.ListManagedTemplateEnginesForTargets(ctx, db.ListManagedTemplateEnginesForTargetsParams{EnterpriseID: actor.EnterpriseID, TargetIds: targets})
+		if err != nil {
+			return nil, err
+		}
+		hosts, err := authorizedIDs(ctx, service.Store.Queries, actor, "host")
+		if err != nil {
+			return nil, err
+		}
+		clusters, err := authorizedIDs(ctx, service.Store.Queries, actor, "kubernetes_cluster")
+		if err != nil {
+			return nil, err
+		}
+		builtinKeys := []string{}
+		for _, definition := range builtincollection.All() {
+			builtinKeys = append(builtinKeys, definition.Key)
+		}
+		own, err := service.Store.Queries.ListManagedTemplateOwnKeys(ctx, db.ListManagedTemplateOwnKeysParams{EnterpriseID: actor.EnterpriseID, HostIds: hosts, ClusterIds: clusters, BuiltinKeys: builtinKeys})
+		if err != nil {
+			return nil, err
+		}
+		engines = append(engines, own...)
+		for _, definition := range BuiltinTemplates() {
+			if !slices.ContainsFunc(definition.IntegrationKeys, func(key string) bool { return slices.Contains(engines, key) }) {
+				continue
+			}
+			item, err := service.ApplyManagedTemplate(ctx, actor.EnterpriseID, definition.Key)
+			if err != nil {
+				return nil, err
+			}
+			managedIDs = append(managedIDs, item.ID)
+		}
+	}
 	ids, err := authorizedIDs(ctx, service.Store.Queries, actor, "dashboard")
 	if err != nil {
 		return nil, err
@@ -53,7 +94,7 @@ func (service Service) List(ctx context.Context, actor Actor) ([]db.Dashboard, e
 	}
 	result := []db.Dashboard{}
 	for _, row := range rows {
-		if slices.Contains(ids, row.ID) {
+		if slices.Contains(ids, row.ID) || slices.Contains(managedIDs, row.ID) {
 			result = append(result, row)
 		}
 	}
@@ -66,6 +107,14 @@ func (service Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (db.D
 	}
 	if err := requireObject(ctx, service.Store.Queries, actor, "dashboard", id); err != nil {
 		return db.Dashboard{}, db.DashboardRevision{}, err
+	}
+	instance, managedErr := service.Store.Queries.GetManagedDashboardByID(ctx, db.GetManagedDashboardByIDParams{EnterpriseID: actor.EnterpriseID, DashboardID: id})
+	if managedErr == nil {
+		if _, err := service.ApplyManagedTemplate(ctx, actor.EnterpriseID, instance.TemplateKey); err != nil {
+			return db.Dashboard{}, db.DashboardRevision{}, err
+		}
+	} else if !errors.Is(managedErr, pgx.ErrNoRows) {
+		return db.Dashboard{}, db.DashboardRevision{}, managedErr
 	}
 	item, err := service.Store.Queries.GetDashboard(ctx, db.GetDashboardParams{ID: id, EnterpriseID: actor.EnterpriseID})
 	if err != nil {
@@ -109,6 +158,7 @@ func (service Service) createDraft(ctx context.Context, actor Actor, input Draft
 			}
 		}
 		params := db.CreateDashboardDraftParams{ID: draftID, EnterpriseID: actor.EnterpriseID, DashboardID: nullID(input.DashboardID), EditorSubjectType: actor.SubjectType, EditorSubjectID: actor.SubjectID}
+		var copyOrigin *db.ManagedDashboardInstance
 		if input.DashboardID != uuid.Nil {
 			if err := requireObject(ctx, q, actor, "dashboard", input.DashboardID); err != nil {
 				return err
@@ -140,6 +190,19 @@ func (service Service) createDraft(ctx context.Context, actor Actor, input Draft
 			input.Description = item.Description
 			input.FolderID = item.FolderID.UUID
 			input.Spec = revision.Spec
+			origin, managedErr := q.GetManagedDashboardByID(ctx, db.GetManagedDashboardByIDParams{EnterpriseID: actor.EnterpriseID, DashboardID: input.DashboardID})
+			if managedErr == nil {
+				copyOrigin = &origin
+				params.DashboardID = uuid.NullUUID{}
+				params.BaseRevisionID = uuid.NullUUID{}
+				params.BaseObjectVersion = 0
+				input.DashboardID = uuid.Nil
+				input.Name += " copy"
+				input.FolderID = uuid.Nil
+				input.ProposedBindings = nil
+			} else if !errors.Is(managedErr, pgx.ErrNoRows) {
+				return managedErr
+			}
 		}
 		if len(input.Spec) == 0 {
 			input.Spec, _ = json.Marshal(EmptySpec())
@@ -167,6 +230,13 @@ func (service Service) createDraft(ctx context.Context, actor Actor, input Draft
 		result, err = q.CreateDashboardDraft(ctx, params)
 		if err != nil {
 			return err
+		}
+		if copyOrigin != nil {
+			if err = q.SetDraftTemplateOrigin(ctx, db.SetDraftTemplateOriginParams{EnterpriseID: actor.EnterpriseID, ID: result.ID, EditorSubjectType: actor.SubjectType, EditorSubjectID: actor.SubjectID, SourceTemplateKey: pgtype.Text{String: copyOrigin.TemplateKey, Valid: true}, SourceTemplateVersion: pgtype.Int8{Int64: copyOrigin.AppliedVersion, Valid: true}}); err != nil {
+				return err
+			}
+			result.SourceTemplateKey = pgtype.Text{String: copyOrigin.TemplateKey, Valid: true}
+			result.SourceTemplateVersion = pgtype.Int8{Int64: copyOrigin.AppliedVersion, Valid: true}
 		}
 		return recordDraft(ctx, q, actor, result, "dashboard.draft.created")
 	})
@@ -244,7 +314,7 @@ func validateDraftInput(input DraftInput) error {
 		return err
 	}
 	for _, binding := range input.ProposedBindings {
-		if binding.ResourceID == uuid.Nil || binding.ResourceType != "host" && binding.ResourceType != "kubernetes_cluster" {
+		if binding.ResourceID == uuid.Nil || binding.ResourceType != "host" && binding.ResourceType != "kubernetes_cluster" && binding.ResourceType != "application" && binding.ResourceType != "monitoring_target" {
 			return ErrInvalid
 		}
 	}

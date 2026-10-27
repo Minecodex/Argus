@@ -1,8 +1,10 @@
+import { BuiltinCollections } from "../monitoring/builtin-collections";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { z } from "zod";
 import {
   useApi,
@@ -21,7 +23,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  DiffViewer,
   Dialog,
   Field,
   FormDrawer,
@@ -30,7 +31,6 @@ import {
   PreviewCommitCard,
   Select,
   StatusBadge,
-  SettingCard,
   Spinner,
   Wizard,
   type PreviewCommitStatus,
@@ -46,40 +46,6 @@ import {
 } from "./host-utils";
 
 /** 采集能力开关键（docs/09 §5.1 的 Collection Profile 草稿开关）。 */
-const CAPABILITY_KEYS = [
-  "hostBasic",
-  "systemLogs",
-  "fileLogs",
-  "collectorSelf",
-  "prometheus",
-  "otlp",
-] as const;
-type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
-
-function capabilitiesFromProfile(
-  profile: string,
-): Record<CapabilityKey, boolean> {
-  const parts = profile.split(",").map((part) => part.trim());
-  return {
-    hostBasic: parts.includes("host-basic"),
-    systemLogs: parts.includes("linux-journald"),
-    fileLogs: parts.includes("file-log"),
-    collectorSelf: parts.includes("collector-self"),
-    prometheus: parts.includes("prometheus-endpoint"),
-    otlp: parts.includes("otlp-receiver"),
-  };
-}
-
-function profileFromCapabilities(caps: Record<CapabilityKey, boolean>): string {
-  const parts: string[] = [];
-  if (caps.hostBasic) parts.push("host-basic");
-  if (caps.systemLogs) parts.push("linux-journald");
-  if (caps.fileLogs) parts.push("file-log");
-  if (caps.collectorSelf) parts.push("collector-self");
-  if (caps.prometheus) parts.push("prometheus-endpoint");
-  if (caps.otlp) parts.push("otlp-receiver");
-  return parts.join(",");
-}
 
 const COLLECTOR_PROFILES = [
   "host-basic",
@@ -544,12 +510,7 @@ function CollectorCard({
   const { t } = useTranslation();
   const api = useApi();
   const [installOpen, setInstallOpen] = useState(false);
-  const [draft, setDraft] = useState<Record<CapabilityKey, boolean> | null>(
-    null,
-  );
-  const [configAction, setConfigAction] = useState<PendingActionPublic | null>(
-    null,
-  );
+
   const [routeAction, setRouteAction] = useState<PendingActionPublic | null>(
     null,
   );
@@ -558,7 +519,7 @@ function CollectorCard({
   const [routeTesting, setRouteTesting] = useState(false);
   const [routeOpen, setRouteOpen] = useState(false);
   const [routeError, setRouteError] = useState("");
-  const [configError, setConfigError] = useState("");
+
   const [routeEditing, setRouteEditing] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
@@ -574,10 +535,7 @@ function CollectorCard({
         : false,
   });
   const collector: CollectorInstance | null = collectorQuery.data ?? null;
-  const profilesQuery = useQuery({
-    queryKey: ["telemetry", "profiles"],
-    queryFn: () => api.telemetry.listProfiles(),
-  });
+
   const claimsQuery = useQuery({
     queryKey: ["telemetry", "claims", host.id],
     queryFn: () => api.telemetry.listClaims(host.id),
@@ -612,76 +570,9 @@ function CollectorCard({
     () => activeCollectorProfileIds(claimsQuery.data ?? [], collector?.id),
     [claimsQuery.data, collector?.id],
   );
-  const activeProfileKeys = useMemo(
-    () =>
-      (profilesQuery.data ?? [])
-        .filter((profile) => activeProfileIds.includes(profile.id))
-        .map((profile) => profile.key),
-    [profilesQuery.data, activeProfileIds],
-  );
-  const current = useMemo(
-    () =>
-      collector ? capabilitiesFromProfile(activeProfileKeys.join(",")) : null,
-    [collector, activeProfileKeys],
-  );
-  const effective = draft ?? current;
-  const dirty =
-    current !== null &&
-    effective !== null &&
-    CAPABILITY_KEYS.some((key) => current[key] !== effective[key]);
-
-  const diffLines =
-    current && effective
-      ? CAPABILITY_KEYS.filter((key) => current[key] !== effective[key]).map(
-          (key) => ({
-            type: effective[key] ? ("add" as const) : ("remove" as const),
-            content: `${effective[key] ? "+" : "-"} ${t(`hosts.components.installed.cap.${key}`)}`,
-          }),
-        )
-      : [];
-
-  const previewConfig = async () => {
-    if (!effective || !collector || !currentRoute || previewing) return;
-    const keys = profileFromCapabilities(effective).split(",");
-    const profileIds = (profilesQuery.data ?? [])
-      .filter((profile) => keys.includes(profile.key))
-      .map((profile) => profile.id);
-    if (profileIds.length === 0) return;
-    setConfigError("");
-    setPreviewing(true);
-    try {
-      setConfigAction(
-        await api.hosts.previewCollectorAction(host.id, "configure", {
-          distribution_version_id: collector.distribution_version_id,
-          profile_ids: profileIds,
-          route_kind: currentRoute.kind,
-          transport: currentRoute.transport,
-          loopback_port: currentRoute.loopback_port,
-          gateway_collector_id: currentRoute.gateway_collector_id,
-          expected_version: collector.version,
-        }),
-      );
-    } catch (cause) {
-      setConfigError(
-        formatApiError(
-          cause,
-          t("resourceList.collectorActionFailed"),
-          (requestId) => t("common.requestReference", { requestId }),
-        ),
-      );
-    } finally {
-      setPreviewing(false);
-    }
-  };
 
   const previewRoute = async () => {
-    if (
-      previewing ||
-      !collector ||
-      !currentRoute ||
-      activeProfileIds.length === 0
-    )
-      return;
+    if (previewing || !collector || !currentRoute) return;
     const gatewayCollectorId =
       routeChoice === "direct_argus" ? undefined : routeChoice;
     const nextTransport =
@@ -931,7 +822,7 @@ function CollectorCard({
               items={[
                 {
                   label: t("hosts.components.installed.changeRoute"),
-                  disabled: !currentRoute || activeProfileIds.length === 0,
+                  disabled: !currentRoute,
                   onSelect: () => {
                     setRouteEditing(true);
                     setRouteTested(false);
@@ -1002,76 +893,14 @@ function CollectorCard({
             ]}
           />
 
-          <section className="argus-detail-section">
-            <h3 className="argus-detail-section__title">
-              {t("hosts.components.installed.capabilities")}
-            </h3>
-            {configError && (
-              <Alert
-                tone="danger"
-                title={t("resourceList.collectorActionFailed")}
-                description={configError}
-              />
-            )}
+          <>
+            <BuiltinCollections kind="host" id={host.id} />
             <p className="argus-muted">
-              {t("hosts.components.installed.capabilitiesDesc")}
+              {t("monitoring.applicationEndpointHint")}{" "}
+              <Link to="/applications">{t("monitoring.applications")}</Link> ·{" "}
+              <Link to="/monitoring">{t("builtinCollections.logsLink")}</Link>
             </p>
-            <div className="argus-collection-capabilities">
-              {CAPABILITY_KEYS.map((key) => (
-                <SettingCard
-                  key={key}
-                  checked={Boolean(effective?.[key])}
-                  title={t(`hosts.components.installed.cap.${key}`)}
-                  description={t(`collectionUi.host.${key}`)}
-                  onChange={(checked) =>
-                    setDraft({
-                      ...(effective ?? capabilitiesFromProfile("")),
-                      [key]: checked,
-                    })
-                  }
-                />
-              ))}
-            </div>
-            {dirty && diffLines.length > 0 && (
-              <>
-                <DiffViewer lines={diffLines} />
-                <div className="argus-form-actions">
-                  <Button
-                    isDisabled={
-                      !effective ||
-                      !CAPABILITY_KEYS.some((key) => effective[key])
-                    }
-                    isPending={previewing}
-                    onPress={() => void previewConfig()}
-                    variant="primary"
-                  >
-                    {t("hosts.components.installed.previewChanges")}
-                  </Button>
-                  <Button onPress={() => setDraft(null)} variant="ghost">
-                    {t("hosts.reset")}
-                  </Button>
-                </div>
-              </>
-            )}
-            {dirty &&
-              effective &&
-              !CAPABILITY_KEYS.some((key) => effective[key]) && (
-                <p role="alert" className="argus-muted">
-                  {t("collectionUi.emptyCapabilities")}
-                </p>
-              )}
-            {configAction && (
-              <PendingActionConfirm
-                action={configAction}
-                onCancel={() => setConfigAction(null)}
-                onDone={() => {
-                  setConfigAction(null);
-                  setDraft(null);
-                  onChanged();
-                }}
-              />
-            )}
-          </section>
+          </>
         </CardContent>
       </Card>
     </>

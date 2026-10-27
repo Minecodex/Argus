@@ -1,5 +1,7 @@
 # PlanV2 决策记录：Q1～Q42
 
+2026-10-18 Plan8 讨论修订：[最新决策](../plan8/11-grilling-decisions-and-upstream.md)明确一应用一环境（生产/测试分别建应用）、SDK自动发现服务、Namespace独立授权及显式运维日志读取、完整K8s/Helm/CRD管理。监控仅采用可内置Collector的官方/成熟组件，不部署独立exporter或JMX采集服务；无合格专用内置采集方案的资源/模式留证暂缓，通用Prometheus抓取不算外部资源支持；默认仪表盘自动升级，全部支持范围统一发布。[身份与授权契约](../plan8/02-domain-data-and-authorization.md)扩展本页旧Host/Cluster范围；下述旧类型/流程与既有验收属于迁移前基线，不代表新增能力已实现。企业隔离、标签不授权、真实来源及现有确认边界保留。
+
 ## 2026-09-28 验收范围调整
 
 后续决定：用户提供 GLM Coding Plan Key，经官方 OpenAI 兼容端点验证可连通后，明确要求启动剩余真实模型测试。该要求恢复下段暂缓项的验收；模型业务是否通过以 [实际执行记录](./real-model-validation-20260928.md) 为准，不能用连通性或确定性 Replay 代替。

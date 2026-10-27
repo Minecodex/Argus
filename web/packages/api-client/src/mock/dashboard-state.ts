@@ -6,6 +6,7 @@ import type {
   DashboardSpec,
   DashboardExecution,
   DashboardSchemas,
+  DashboardBindingResourceType,
 } from "../dashboard";
 import type { BaseContext } from "./context";
 import { ApiError } from "../transport/errors";
@@ -33,7 +34,7 @@ export interface MockDashboards {
     id: string;
     version: number;
     dashboard_id: string;
-    resource_type: "host" | "kubernetes_cluster";
+    resource_type: DashboardBindingResourceType;
     resource_id: string;
   }>;
 }
@@ -74,6 +75,10 @@ export function dashboardAccess(ctx: BaseContext, id: string) {
     (r) => r.enterprise === ctx.enterpriseId() && r.value.id === id,
   );
   if (!record) return false;
+  if (record.value.managed_template_key) {
+    dashboardPermission(ctx);
+    return true;
+  }
   return dashboardObjectGrant(ctx, "dashboard", id);
 }
 export function dashboardObjectGrant(

@@ -1,0 +1,75 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Argus monitoringapi",
+    "version": "1.0.0",
+    "license": {
+      "name": "Proprietary",
+      "identifier": "LicenseRef-Proprietary"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "sessionCookie": []
+    }
+  ],
+  "paths": {
+    "/applications": {
+      "$ref": "../argus.yaml#/paths/~1applications"
+    },
+    "/applications/{id}": {
+      "$ref": "../argus.yaml#/paths/~1applications~1{id}"
+    },
+    "/applications/services": {
+      "$ref": "../argus.yaml#/paths/~1applications~1services"
+    },
+    "/monitoring/commands/preview": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1commands~1preview"
+    },
+    "/monitoring/collections": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1collections"
+    },
+    "/monitoring/collections/{id}": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1collections~1{id}"
+    },
+    "/monitoring/targets": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1targets"
+    },
+    "/monitoring/integrations": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1integrations"
+    },
+    "/monitoring/collectors": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1collectors"
+    },
+    "/applications/{id}/ingest-endpoints": {
+      "$ref": "../argus.yaml#/paths/~1applications~1{id}~1ingest-endpoints"
+    },
+    "/monitoring/ingest-endpoints/{id}/keys": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1ingest-endpoints~1{id}~1keys"
+    },
+    "/monitoring/ingest-keys/{id}/reveal": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1ingest-keys~1{id}~1reveal"
+    },
+    "/monitoring/builtins": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1builtins"
+    },
+    "/monitoring/builtins/preview": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1builtins~1preview"
+    },
+    "/monitoring/ingest-endpoints/{id}/connection": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1ingest-endpoints~1{id}~1connection"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "$ref": "../argus.yaml#/components/securitySchemes/sessionCookie"
+      }
+    }
+  }
+}

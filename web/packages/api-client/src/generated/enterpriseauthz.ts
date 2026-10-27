@@ -201,12 +201,17 @@ export interface components {
         /** @enum {string} */
         DataAuthorizationSubjectType: "user" | "department" | "role" | "service_account";
         /** @enum {string} */
-        DataAuthorizationResourceType: "host" | "kubernetes_cluster" | "dashboard";
+        DataAuthorizationResourceType: "host" | "kubernetes_cluster" | "dashboard" | "application" | "monitoring_target" | "kubernetes_namespace";
         DataAuthorizationResource: {
             resource_type: components["schemas"]["DataAuthorizationResourceType"];
             /** Format: uuid */
             resource_id: string;
             name: string;
+            environment?: string;
+            /** Format: uuid */
+            parent_id?: string;
+            parent_name?: string;
+            source_uid?: string;
             direct: boolean;
             inherited: boolean;
             sources: string[];
@@ -626,6 +631,7 @@ export interface operations {
         parameters: {
             query: {
                 resource_type: components["schemas"]["DataAuthorizationResourceType"];
+                search?: string;
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["parameters-Limit"];
             };

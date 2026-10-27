@@ -5,6 +5,7 @@ import {
   Badge,
   Button,
   ObservationPanel,
+  ObservationDetails,
   DashboardPanelHeader,
 } from "@argus/ui";
 export function PanelTile({
@@ -29,7 +30,14 @@ export function PanelTile({
     <>
       <DashboardPanelHeader
         title={panel.title}
-        subtitle={`${panel.source_binding.source_type} · ${panel.signal}`}
+        info={
+          <ObservationDetails
+            title={panel.title}
+            targets={execution?.targets ?? []}
+            signal={panel.signal}
+            display={panel.display}
+          />
+        }
         editing={editable}
       >
         {execution && execution.status !== "success" && (
@@ -76,6 +84,7 @@ export function PanelTile({
       <div className="argus-dashboard-panel-content">
         <ObservationPanel
           title={panel.title}
+          details="external"
           type={panel.type}
           signal={panel.signal}
           targets={execution?.targets ?? []}

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/kakj-go/Argus/internal/alerting"
 	"github.com/kakj-go/Argus/internal/dashboard"
+	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/mcp"
+	"github.com/kakj-go/Argus/internal/monitoring"
 	"github.com/kakj-go/Argus/internal/presentation"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/telemetry"
@@ -32,6 +34,9 @@ func Build() (Catalog, error) {
 	registry := mcp.NewRegistry()
 	store := &postgres.Store{}
 	base := toolgateway.ResourceTools{Store: store}
+	if err := (toolgateway.MonitoringTools{Base: base, Monitoring: monitoring.Service{Store: store}, Kubernetes: kubernetesworkbench.Service{Store: store}}).Register(registry); err != nil {
+		return Catalog{}, err
+	}
 	for _, register := range []func(*mcp.Registry) error{base.Register, (toolgateway.LifecycleTools{Base: base}).Register, (toolgateway.CollectorPreviewTools{Base: base}).Register, (telemetry.Tools{Service: telemetry.Service{Store: store}}).Register, (workspace.Service{}).RegisterTools, (toolgateway.DashboardTools{Service: dashboard.Service{Store: store}}).Register, (alerting.Tools{Service: alerting.Service{Store: store}}).Register} {
 		if err := register(registry); err != nil {
 			return Catalog{}, err

@@ -9,6 +9,7 @@ import (
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chscope"
 	promqlengine "github.com/kakj-go/Argus/internal/telemetry/queryengine/promql"
 )
 
@@ -30,6 +31,10 @@ func boundedOverviewContext(ctx context.Context, request OverviewRequest) contex
 }
 
 func (query ClickHouseQuery) Overview(ctx context.Context, request OverviewRequest) (Overview, error) {
+	result := Overview{ResourceCount: len(request.ResourceIDs), WindowSeconds: int(request.To.Sub(request.From).Seconds())}
+	if len(request.ResourceIDs) == 0 || len(request.SourceKeys) == 0 {
+		return result, nil
+	}
 	if query.Conn == nil {
 		return Overview{}, ErrQueryBackend
 	}
@@ -37,13 +42,24 @@ func (query ClickHouseQuery) Overview(ctx context.Context, request OverviewReque
 	if err != nil {
 		return Overview{}, err
 	}
-	result := Overview{ResourceCount: len(request.ResourceIDs), WindowSeconds: int(request.To.Sub(request.From).Seconds())}
+	ctx, err = chscope.WithSources(ctx, request.SourceKeys)
+	if err != nil {
+		return result, err
+	}
 	var metricPoints, logRecords, spans uint64
+	metricWhere := "resource_id IN (?) AND " + chscope.BasePredicate("source_key") + " AND timestamp >= fromUnixTimestamp64Nano(?, 'UTC') AND timestamp < fromUnixTimestamp64Nano(?, 'UTC')"
+	metricArgs := []any{request.ResourceIDs, request.From.UnixNano(), request.To.UnixNano()}
+	if strings.Contains(strings.Join(request.SourceKeys, ","), "@") {
+		predicate := chscope.FacetedPredicate("source_key", "resource_attributes['argus.namespace.uid']")
+		metricWhere += " AND series_id IN (SELECT series_id FROM " + quoteIdentifier(tables.MetricSeries) + " FINAL WHERE resource_id IN (?) AND " + predicate + ")"
+		metricArgs = append(metricArgs, request.ResourceIDs)
+	}
 	sql := fmt.Sprintf(`SELECT
-(SELECT count() FROM %s FINAL WHERE resource_id IN (?) AND timestamp >= ? AND timestamp < ?),
-(SELECT count() FROM %s FINAL WHERE resource_id IN (?) AND timestamp >= ? AND timestamp < ?),
-(SELECT count() FROM %s FINAL WHERE resource_id IN (?) AND start_time >= ? AND start_time < ?)`, quoteIdentifier(tables.MetricSamples), quoteIdentifier(tables.Logs), quoteIdentifier(tables.Traces))
-	if err := query.Conn.QueryRow(boundedOverviewContext(ctx, request), sql, request.ResourceIDs, request.From, request.To, request.ResourceIDs, request.From, request.To, request.ResourceIDs, request.From, request.To).Scan(&metricPoints, &logRecords, &spans); err != nil {
+(SELECT count() FROM %s FINAL WHERE %s),
+(SELECT count() FROM %s FINAL WHERE resource_id IN (?) AND %s AND timestamp >= fromUnixTimestamp64Nano(?, 'UTC') AND timestamp < fromUnixTimestamp64Nano(?, 'UTC')),
+(SELECT count() FROM %s FINAL WHERE resource_id IN (?) AND %s AND start_time >= fromUnixTimestamp64Nano(?, 'UTC') AND start_time < fromUnixTimestamp64Nano(?, 'UTC'))`, quoteIdentifier(tables.MetricSamples), metricWhere, quoteIdentifier(tables.Logs), chscope.ExactPredicate("source_key"), quoteIdentifier(tables.Traces), chscope.ExactPredicate("source_key"))
+	args := append(metricArgs, request.ResourceIDs, request.From.UnixNano(), request.To.UnixNano(), request.ResourceIDs, request.From.UnixNano(), request.To.UnixNano())
+	if err := query.Conn.QueryRow(boundedOverviewContext(ctx, request), sql, args...).Scan(&metricPoints, &logRecords, &spans); err != nil {
 		return Overview{}, err
 	}
 	if result.MetricPoints, err = checkedInt64FromUInt64(metricPoints); err != nil {

@@ -20,6 +20,7 @@ import (
 	alertsapi "github.com/kakj-go/Argus/internal/gen/openapi/alertsapi"
 	auditapi "github.com/kakj-go/Argus/internal/gen/openapi/audit"
 	dashboardapi "github.com/kakj-go/Argus/internal/gen/openapi/dashboardapi"
+	monitoringapi "github.com/kakj-go/Argus/internal/gen/openapi/monitoringapi"
 
 	connectionapi "github.com/kakj-go/Argus/internal/gen/openapi/connectionapi"
 	connectorapi "github.com/kakj-go/Argus/internal/gen/openapi/connectorapi"
@@ -60,6 +61,7 @@ const DefaultLocale = "zh-CN"
 type Readiness interface{ Ready(context.Context) error }
 
 type RouterOptions struct {
+	Monitoring              *MonitoringHandler
 	Interactions            *InteractionHandler
 	RemoteExecution         *RemoteExecutionHandler
 	Logger                  *slog.Logger
@@ -107,6 +109,14 @@ func NewRouterWithOptions(options RouterOptions) http.Handler {
 	router.Get("/", serviceInfo)
 	router.Get("/healthz", health)
 	router.Get("/readyz", ready(options))
+	if options.Monitoring != nil {
+		strict := monitoringapi.NewStrictHandler(*options.Monitoring, []monitoringapi.StrictMiddlewareFunc{func(next monitoringapi.StrictHandlerFunc, _ string) monitoringapi.StrictHandlerFunc {
+			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, v any) (any, error) {
+				return next(WithRequestContext(ctx, w, r), w, r, v)
+			}
+		}})
+		monitoringapi.HandlerFromMuxWithBaseURL(strict, router, "/api/v1")
+	}
 	if options.Interactions != nil {
 		strict := interactionapi.NewStrictHandler(*options.Interactions, []interactionapi.StrictMiddlewareFunc{func(next interactionapi.StrictHandlerFunc, _ string) interactionapi.StrictHandlerFunc {
 			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, v any) (any, error) {

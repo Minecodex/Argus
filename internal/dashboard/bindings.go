@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"slices"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -56,13 +55,11 @@ func (service Service) ResourceBindings(ctx context.Context, actor Actor, kind s
 	if err != nil {
 		return result, err
 	}
-	ids, err := authorizedIDs(ctx, q, actor, "dashboard")
-	if err != nil {
-		return result, err
-	}
 	for _, row := range rows {
-		if !slices.Contains(ids, row.DashboardID) {
+		if e := requireObject(ctx, q, actor, "dashboard", row.DashboardID); errors.Is(e, ErrDenied) || errors.Is(e, ErrNotFound) {
 			continue
+		} else if e != nil {
+			return result, e
 		}
 		item, e := q.GetDashboard(ctx, db.GetDashboardParams{ID: row.DashboardID, EnterpriseID: actor.EnterpriseID})
 		if e != nil {
@@ -117,6 +114,16 @@ func bindingResource(ctx context.Context, q *db.Queries, actor Actor, kind strin
 		if manage {
 			permission = "kubernetes.manage"
 		}
+	case "application":
+		permission = "application.read"
+		if manage {
+			permission = "application.manage"
+		}
+	case "monitoring_target":
+		permission = "monitoring.read"
+		if manage {
+			permission = "monitoring.manage"
+		}
 	default:
 		return "", 0, ErrInvalid
 	}
@@ -139,7 +146,7 @@ func bindingResource(ctx context.Context, q *db.Queries, actor Actor, kind strin
 			row, err = q.GetHost(ctx, db.GetHostParams{ID: id, EnterpriseID: actor.EnterpriseID})
 			name, status, version = row.Name, row.Status, row.ResourceVersion
 		}
-	} else {
+	} else if kind == "kubernetes_cluster" {
 		if lock {
 			var row db.LockDashboardBindingClusterRow
 			row, err = q.LockDashboardBindingCluster(ctx, db.LockDashboardBindingClusterParams{ID: id, EnterpriseID: actor.EnterpriseID})
@@ -149,6 +156,22 @@ func bindingResource(ctx context.Context, q *db.Queries, actor Actor, kind strin
 			row, err = q.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: id, EnterpriseID: actor.EnterpriseID})
 			name, status, version = row.Name, row.Status, row.ResourceVersion
 		}
+	} else if kind == "application" {
+		var row db.MonitoringApplication
+		if lock {
+			row, err = q.LockMonitoringApplication(ctx, db.LockMonitoringApplicationParams{EnterpriseID: actor.EnterpriseID, ID: id})
+		} else {
+			row, err = q.GetMonitoringApplication(ctx, db.GetMonitoringApplicationParams{EnterpriseID: actor.EnterpriseID, ID: id})
+		}
+		name, status, version = row.Name, row.Status, row.Version
+	} else {
+		var row db.MonitoringTarget
+		if lock {
+			row, err = q.LockMonitoringTarget(ctx, db.LockMonitoringTargetParams{EnterpriseID: actor.EnterpriseID, ID: id})
+		} else {
+			row, err = q.GetMonitoringTarget(ctx, db.GetMonitoringTargetParams{EnterpriseID: actor.EnterpriseID, ID: id})
+		}
+		name, status, version = row.Name, row.Status, row.Version
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", 0, ErrNotFound

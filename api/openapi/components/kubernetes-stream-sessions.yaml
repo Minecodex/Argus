@@ -1,0 +1,226 @@
+{
+  "components": {
+    "schemas": {
+      "KubernetesStreamInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "pod",
+              "service"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "uid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "container": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "exec",
+              "port_forward"
+            ]
+          },
+          "shell": {
+            "type": "string",
+            "enum": [
+              "sh",
+              "bash",
+              "powershell",
+              "cmd"
+            ]
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "namespace_id",
+          "type",
+          "name",
+          "uid",
+          "mode",
+          "reason"
+        ]
+      },
+      "KubernetesStreamSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cluster_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "namespace_uid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "pod": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "pod_uid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "container": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "restart_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "connecting",
+              "active",
+              "closing",
+              "closed",
+              "invalidated",
+              "connection_lost"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "exec",
+              "port_forward"
+            ]
+          },
+          "shell": {
+            "type": "string",
+            "enum": [
+              "sh",
+              "bash",
+              "powershell",
+              "cmd"
+            ]
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "service": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "bytes_in": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "bytes_out": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "cluster_id",
+          "namespace_id",
+          "namespace",
+          "namespace_uid",
+          "pod",
+          "pod_uid",
+          "container",
+          "restart_count",
+          "status",
+          "version",
+          "expires_at",
+          "mode",
+          "bytes_in",
+          "bytes_out"
+        ]
+      },
+      "KubernetesStreamTicket": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/KubernetesStreamSession"
+          },
+          "ticket": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "ticket_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "protocol_version": {
+            "type": "string",
+            "enum": [
+              "argus.kubernetes_stream/v1"
+            ]
+          },
+          "websocket_url": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "session",
+          "ticket",
+          "ticket_expires_at",
+          "protocol_version",
+          "websocket_url"
+        ]
+      }
+    }
+  }
+}

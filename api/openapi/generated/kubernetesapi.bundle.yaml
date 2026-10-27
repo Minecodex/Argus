@@ -10,6 +10,820 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /enterprise/kubernetes-clusters/{id}/helm/releases:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listKubernetesHelmReleases
+      summary: List safe Helm release metadata in an explicitly selected authorized Namespace
+      tags:
+        - Kubernetes
+      parameters:
+        - name: namespace_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Release metadata without chart, values, manifests or hook output
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesHelmReleases'
+          headers:
+            Cache-Control:
+              description: Protected enterprise response is never stored by shared or browser caches
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/helm/releases/{releaseName}/history:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: releaseName
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 53
+    get:
+      operationId: listKubernetesHelmHistory
+      summary: List safe revision metadata for a Helm release
+      tags:
+        - Kubernetes
+      parameters:
+        - name: namespace_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Revision metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesHelmReleases'
+          headers:
+            Cache-Control:
+              description: Protected enterprise response is never stored by shared or browser caches
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/helm/actions/preview:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: previewKubernetesHelm
+      summary: Render, authorize and dry-run Helm objects before preparing an immutable approval
+      tags:
+        - Kubernetes
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KubernetesHelmPreviewInput'
+      responses:
+        '201':
+          description: Protected Helm PendingAction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+          headers:
+            Cache-Control:
+              description: Protected enterprise response is never stored by shared or browser caches
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/stream-sessions:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: createKubernetesStreamSession
+      summary: Create a UID-bound terminal or TCP forwarding session
+      tags:
+        - Kubernetes
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Create a UID-bound terminal or TCP forwarding session
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesStreamTicket'
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KubernetesStreamInput'
+  /enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getKubernetesStreamSession
+      summary: Read current Kubernetes session state
+      tags:
+        - Kubernetes
+      responses:
+        '200':
+          description: Read current Kubernetes session state
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesStreamSession'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}/close:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: closeKubernetesStreamSession
+      summary: Close a Kubernetes terminal or forwarding session
+      tags:
+        - Kubernetes
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Close a Kubernetes terminal or forwarding session
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesStreamSession'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}/ticket:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: issueKubernetesStreamTicket
+      summary: Replace the pending one-use Kubernetes stream ticket
+      tags:
+        - Kubernetes
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Replace the pending one-use Kubernetes stream ticket
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesStreamTicket'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getKubernetesLogSession
+      summary: Check the current authorization of the owning Pod log session
+      tags:
+        - Kubernetes
+      responses:
+        '200':
+          description: Close the owning Pod log session
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesLogSession'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/log-sessions:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: createKubernetesLogSession
+      summary: Create a UID-bound Pod log session and a one-use attach ticket
+      tags:
+        - Kubernetes
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Create a UID-bound Pod log session and a one-use attach ticket
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesLogSessionTicket'
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KubernetesLogSessionInput'
+  /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/attach:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: attachKubernetesLogSession
+      summary: Consume the short-lived ticket in the owning HTTP session
+      tags:
+        - Kubernetes
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Consume the short-lived ticket in the owning HTTP session
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesLogSession'
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KubernetesLogSessionAttachInput'
+  /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/read:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: readKubernetesLogSession
+      summary: Read a bounded authorized log increment with a signed continuity cursor
+      tags:
+        - Kubernetes
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Read a bounded authorized log increment with a signed continuity cursor
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesLogSessionBatch'
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KubernetesLogSessionReadInput'
+  /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/close:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: closeKubernetesLogSession
+      summary: Close the owning Pod log session
+      tags:
+        - Kubernetes
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Close the owning Pod log session
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesLogSession'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/operations/{operationId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getKubernetesOperation
+      summary: Read an authorized operation without its private execution plan
+      tags:
+        - Kubernetes
+      responses:
+        '200':
+          description: Authorized Kubernetes operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesOperation'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: cancelKubernetesDrain
+      summary: Stop further batches of an authorized node drain; in-flight requests may finish and the node stays cordoned
+      tags:
+        - Kubernetes
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KubernetesDrainCancelInput'
+      responses:
+        '200':
+          description: Cancelled node drain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesOperation'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/operations:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listKubernetesOperations
+      summary: List operations in the current authorized resource scope
+      tags:
+        - Kubernetes
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 32768
+      responses:
+        '200':
+          description: Authorized Kubernetes operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesOperationPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/inventory/actions/preview-mutation:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: previewKubernetesMutation
+      summary: Dry-run an authorized object change and prepare a confirmation
+      tags:
+        - Kubernetes
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KubernetesMutationInput'
+      responses:
+        '201':
+          description: Existing PendingAction confirmation workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/inventory/watch:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: watchKubernetesInventory
+      summary: Watch the current page with frozen UID scope and bounded batches
+      tags:
+        - Kubernetes
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KubernetesInventoryWatchInput'
+      responses:
+        '200':
+          description: Bounded events and next authorized resume token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesInventoryWatchResult'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/inventory/types:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listKubernetesInventoryTypes
+      summary: List object types available in the current access scope
+      tags:
+        - Kubernetes
+      parameters: []
+      responses:
+        '200':
+          description: Authorized UID-bound Kubernetes observation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesInventoryTypes'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/inventory/scope:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getKubernetesInventoryScope
+      summary: Read current Cluster and Namespace access
+      tags:
+        - Kubernetes
+      parameters: []
+      responses:
+        '200':
+          description: Authorized UID-bound Kubernetes observation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesInventoryScope'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/inventory/object:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getKubernetesInventoryObject
+      summary: Read a projected object with frozen UID
+      tags:
+        - Kubernetes
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 1024
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 253
+        - name: uid
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - name: namespace_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Authorized UID-bound Kubernetes observation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesInventoryObject'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/inventory:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listKubernetesInventory
+      summary: List authorized Kubernetes objects with server pagination
+      tags:
+        - Kubernetes
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 1024
+        - name: namespace_mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - all_authorized
+              - explicit
+            default: all_authorized
+        - name: namespace_ids
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 1000
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: false
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 253
+        - name: labels
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 1024
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 32768
+      responses:
+        '200':
+          description: Authorized UID-bound Kubernetes observation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesInventoryPage'
+        default:
+          $ref: '#/components/responses/Error'
   /enterprise/kubernetes-clusters:
     get:
       operationId: listKubernetesClusters
@@ -25,7 +839,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/KubernetesClusterPage'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /enterprise/kubernetes-clusters/{id}:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -40,14 +854,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/KubernetesCluster'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /enterprise/kubernetes-clusters/actions/preview-create:
     post:
       operationId: previewCreateKubernetesCluster
       summary: Freeze a Kubernetes cluster creation plan.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/parameters-CsrfToken'
       requestBody:
         required: true
         content:
@@ -62,7 +876,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/pending-action-public.schema'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /enterprise/kubernetes-clusters/{id}/actions/preview-update:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -71,7 +885,7 @@ paths:
       summary: Freeze a Kubernetes cluster update.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/parameters-CsrfToken'
       requestBody:
         required: true
         content:
@@ -86,7 +900,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/pending-action-public.schema'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /enterprise/kubernetes-clusters/{id}/actions/preview-delete:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -95,7 +909,7 @@ paths:
       summary: Freeze a Kubernetes cluster logical deletion.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/parameters-CsrfToken'
       requestBody:
         required: true
         content:
@@ -110,14 +924,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/pending-action-public.schema'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /enterprise/kubernetes-clusters/connection-tests:
     post:
       operationId: createKubernetesConnectionTest
       summary: Start a bounded Kubernetes connection test.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/parameters-CsrfToken'
       requestBody:
         required: true
         content:
@@ -132,7 +946,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConnectionTest'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /enterprise/kubernetes-clusters/{id}/resources:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -175,7 +989,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/KubernetesResourcePage'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
   /enterprise/kubernetes-clusters/{id}/pod-logs:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -217,7 +1031,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PodLogs'
         default:
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/responses-Error'
 components:
   securitySchemes:
     sessionCookie:
@@ -225,6 +1039,177 @@ components:
       in: cookie
       name: argus_session
   schemas:
+    KubernetesStreamInput:
+      type: object
+      additionalProperties: false
+      properties:
+        namespace_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - pod
+            - service
+        name:
+          type: string
+          minLength: 1
+          maxLength: 253
+        uid:
+          type: string
+          minLength: 1
+          maxLength: 128
+        container:
+          type: string
+        mode:
+          type: string
+          enum:
+            - exec
+            - port_forward
+        shell:
+          type: string
+          enum:
+            - sh
+            - bash
+            - powershell
+            - cmd
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+        - namespace_id
+        - type
+        - name
+        - uid
+        - mode
+        - reason
+    KubernetesStreamSession:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        cluster_id:
+          type: string
+          format: uuid
+        namespace_id:
+          type: string
+          format: uuid
+        namespace:
+          type: string
+          minLength: 1
+          maxLength: 253
+        namespace_uid:
+          type: string
+          minLength: 1
+          maxLength: 253
+        pod:
+          type: string
+          minLength: 1
+          maxLength: 253
+        pod_uid:
+          type: string
+          minLength: 1
+          maxLength: 253
+        container:
+          type: string
+          minLength: 1
+          maxLength: 253
+        restart_count:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum:
+            - pending
+            - connecting
+            - active
+            - closing
+            - closed
+            - invalidated
+            - connection_lost
+        version:
+          type: integer
+          format: int64
+        expires_at:
+          type: string
+          format: date-time
+        mode:
+          type: string
+          enum:
+            - exec
+            - port_forward
+        shell:
+          type: string
+          enum:
+            - sh
+            - bash
+            - powershell
+            - cmd
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        service:
+          type: string
+        reason:
+          type: string
+        bytes_in:
+          type: integer
+          format: int64
+          minimum: 0
+        bytes_out:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+        - id
+        - cluster_id
+        - namespace_id
+        - namespace
+        - namespace_uid
+        - pod
+        - pod_uid
+        - container
+        - restart_count
+        - status
+        - version
+        - expires_at
+        - mode
+        - bytes_in
+        - bytes_out
+    KubernetesStreamTicket:
+      type: object
+      additionalProperties: false
+      properties:
+        session:
+          $ref: '#/components/schemas/KubernetesStreamSession'
+        ticket:
+          type: string
+          minLength: 43
+          maxLength: 43
+        ticket_expires_at:
+          type: string
+          format: date-time
+        protocol_version:
+          type: string
+          enum:
+            - argus.kubernetes_stream/v1
+        websocket_url:
+          type: string
+          format: uri
+      required:
+        - session
+        - ticket
+        - ticket_expires_at
+        - protocol_version
+        - websocket_url
     KubernetesCluster:
       type: object
       additionalProperties: false
@@ -643,89 +1628,160 @@ components:
         retryable:
           type: boolean
           default: false
-    KubernetesConnectionMode:
-      type: string
-      enum:
-        - via_bastion
-        - direct
-        - in_cluster
-    Environment:
-      type: string
-      enum:
-        - development
-        - staging
-        - production
-    UserLabelKey:
-      type: string
-      minLength: 1
-      maxLength: 63
-      pattern: ^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$
-    SystemLabelKey:
-      type: string
-      maxLength: 72
-      pattern: ^argus\.io/[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$
-      readOnly: true
-    LabelValue:
-      type: string
-      minLength: 1
-      maxLength: 63
-      pattern: ^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$
-    Labels:
+    KubernetesHelmRelease:
       type: object
-      maxProperties: 64
-      propertyNames:
-        anyOf:
-          - $ref: '#/components/schemas/UserLabelKey'
-          - $ref: '#/components/schemas/SystemLabelKey'
-      additionalProperties:
-        $ref: '#/components/schemas/LabelValue'
-    PartialMetadata:
-      type: object
-      additionalProperties: false
       required:
-        - partial
-        - reasons
+        - name
+        - namespace
+        - revision
+        - status
+        - chart
+        - chart_version
+        - updated_at
       properties:
-        partial:
-          type: boolean
-        reasons:
+        name:
+          type: string
+        namespace:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+        chart:
+          type: string
+        chart_version:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    KubernetesHelmReleases:
+      type: object
+      required:
+        - items
+      properties:
+        items:
           type: array
-          uniqueItems: true
+          maxItems: 200
           items:
-            type: string
-            enum:
-              - authorization_filtered
-              - budget_truncated
-              - source_timeout
-              - source_unavailable
-    CursorPage:
-      type: object
-      additionalProperties: false
-      required:
-        - next_cursor
-        - has_more
-        - partial
-      properties:
-        next_cursor:
-          type:
-            - string
-            - 'null'
-        has_more:
-          type: boolean
-        partial:
-          $ref: '#/components/schemas/PartialMetadata'
+            $ref: '#/components/schemas/KubernetesHelmRelease'
     IdempotencyKey:
       type: string
       minLength: 16
       maxLength: 128
       pattern: ^[A-Za-z0-9._:-]+$
-    UserLabels:
+    KubernetesHelmChartSource:
       type: object
-      maxProperties: 64
-      propertyNames:
-        $ref: '#/components/schemas/UserLabelKey'
-      additionalProperties:
-        $ref: '#/components/schemas/LabelValue'
+      additionalProperties: false
+      required:
+        - kind
+        - url
+        - version
+      properties:
+        kind:
+          type: string
+          enum:
+            - repository
+            - oci
+        url:
+          type: string
+          maxLength: 2048
+          description: Repository base URL or oci://registry/path/chart; no user info, query or fragment
+        chart:
+          type: string
+          maxLength: 128
+        version:
+          type: string
+          maxLength: 128
+          description: Exact semantic Chart version
+        digest:
+          type: string
+          pattern: ^sha256:[a-f0-9]{64}$
+          description: Optional expected archive SHA256 for repository or manifest SHA256 for OCI
+        plain_http:
+          type: boolean
+          description: Explicitly permit HTTP for this source; TLS redirects/downgrades remain rejected
+        auth_url:
+          type: string
+          maxLength: 2048
+          description: Explicit trusted cross-origin OCI token service URL, without query or fragment
+    KubernetesHelmSourceCredentials:
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          maxLength: 256
+          writeOnly: true
+        password:
+          type: string
+          maxLength: 4096
+          writeOnly: true
+        token:
+          type: string
+          maxLength: 16384
+          writeOnly: true
+        ca_pem:
+          type: string
+          maxLength: 32768
+          writeOnly: true
+          description: Additional CA certificates only; no private keys or disabled TLS validation
+    KubernetesHelmPreviewInput:
+      type: object
+      additionalProperties: false
+      required:
+        - namespace_id
+        - operation
+        - name
+        - expected_revision
+        - timeout_seconds
+        - reason
+      properties:
+        namespace_id:
+          type: string
+          format: uuid
+        operation:
+          type: string
+          enum:
+            - install
+            - upgrade
+            - rollback
+            - uninstall
+        name:
+          type: string
+          minLength: 1
+          maxLength: 53
+          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+        expected_revision:
+          type: integer
+          minimum: 0
+        rollback_revision:
+          type: integer
+          minimum: 1
+        timeout_seconds:
+          type: integer
+          minimum: 10
+          maximum: 240
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        chart_archive:
+          type: string
+          format: byte
+          maxLength: 524288
+          writeOnly: true
+          description: Protected packaged .tgz chart; never a URL or shell command
+        source:
+          $ref: '#/components/schemas/KubernetesHelmChartSource'
+        source_credentials:
+          $ref: '#/components/schemas/KubernetesHelmSourceCredentials'
+          writeOnly: true
+        values:
+          type: string
+          maxLength: 98304
+          writeOnly: true
+          description: Protected YAML/JSON values; not included in public previews or model context
     PublicJsonValue:
       x-argus-typescript-type: unknown
       oneOf:
@@ -871,6 +1927,857 @@ components:
         updated_at:
           type: string
           format: date-time
+    KubernetesLogSession:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        cluster_id:
+          type: string
+          format: uuid
+        namespace_id:
+          type: string
+          format: uuid
+        namespace:
+          type: string
+          minLength: 1
+          maxLength: 253
+        namespace_uid:
+          type: string
+          minLength: 1
+          maxLength: 253
+        pod:
+          type: string
+          minLength: 1
+          maxLength: 253
+        pod_uid:
+          type: string
+          minLength: 1
+          maxLength: 253
+        container:
+          type: string
+          minLength: 1
+          maxLength: 253
+        restart_count:
+          type: integer
+          minimum: 0
+        previous:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - pending
+            - active
+            - closed
+            - invalidated
+        version:
+          type: integer
+          format: int64
+        expires_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - cluster_id
+        - namespace_id
+        - namespace
+        - namespace_uid
+        - pod
+        - pod_uid
+        - container
+        - restart_count
+        - previous
+        - status
+        - version
+        - expires_at
+    KubernetesLogSessionInput:
+      type: object
+      additionalProperties: false
+      properties:
+        namespace_id:
+          type: string
+          format: uuid
+        pod:
+          type: string
+          minLength: 1
+          maxLength: 253
+        pod_uid:
+          type: string
+          minLength: 1
+          maxLength: 253
+        container:
+          type: string
+          minLength: 1
+          maxLength: 253
+        previous:
+          type: boolean
+        tail_lines:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        since_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+      required:
+        - namespace_id
+        - pod
+        - pod_uid
+        - container
+        - previous
+        - tail_lines
+        - since_seconds
+    KubernetesLogSessionTicket:
+      type: object
+      additionalProperties: false
+      properties:
+        session:
+          $ref: '#/components/schemas/KubernetesLogSession'
+        ticket:
+          type: string
+          minLength: 43
+          maxLength: 43
+        ticket_expires_at:
+          type: string
+          format: date-time
+      required:
+        - session
+        - ticket
+        - ticket_expires_at
+    KubernetesLogSessionAttachInput:
+      type: object
+      additionalProperties: false
+      properties:
+        ticket:
+          type: string
+          minLength: 43
+          maxLength: 43
+      required:
+        - ticket
+    KubernetesLogSessionReadInput:
+      type: object
+      additionalProperties: false
+      properties:
+        cursor:
+          type: string
+          minLength: 1
+          maxLength: 4096
+      required: []
+    KubernetesLogSessionBatch:
+      type: object
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+          minLength: 0
+          maxLength: 524288
+        next_cursor:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        observed_at:
+          type: string
+          format: date-time
+        truncated:
+          type: boolean
+        pending_line:
+          type: boolean
+        redacted:
+          type: boolean
+        complete:
+          type: boolean
+      required:
+        - content
+        - next_cursor
+        - observed_at
+        - truncated
+        - pending_line
+        - redacted
+        - complete
+    KubernetesDrainVolume:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - kind
+        - local
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+        local:
+          type: boolean
+        claim:
+          type: string
+        claim_uid:
+          type: string
+        volume:
+          type: string
+        volume_uid:
+          type: string
+    KubernetesDrainBudget:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - uid
+        - disruptions_allowed
+      properties:
+        name:
+          type: string
+        uid:
+          type: string
+        disruptions_allowed:
+          type: integer
+          format: int64
+    KubernetesDrainPod:
+      type: object
+      additionalProperties: false
+      required:
+        - namespace
+        - namespace_uid
+        - name
+        - uid
+        - state
+        - volumes
+        - budgets
+      properties:
+        namespace:
+          type: string
+        namespace_uid:
+          type: string
+        name:
+          type: string
+        uid:
+          type: string
+        reason:
+          type: string
+        state:
+          type: string
+          enum:
+            - pending
+            - gone
+            - terminating
+            - eviction_requested
+            - blocked
+            - skipped
+        volumes:
+          type: array
+          items:
+            $ref: '#/components/schemas/KubernetesDrainVolume'
+        budgets:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/KubernetesDrainBudget'
+    KubernetesDrainProgress:
+      type: object
+      additionalProperties: false
+      required:
+        - phase
+        - pods
+      properties:
+        phase:
+          type: string
+          enum:
+            - draining
+            - blocked
+            - complete
+        pods:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/KubernetesDrainPod'
+    KubernetesOperation:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        cluster_id:
+          type: string
+          format: uuid
+        namespace_id:
+          type: string
+          format: uuid
+        namespace_uid:
+          type: string
+          minLength: 0
+          maxLength: 128
+        status:
+          type: string
+          enum:
+            - awaiting_confirmation
+            - queued
+            - running
+            - observing
+            - succeeded
+            - failed
+            - cancelled
+            - result_unknown
+        operation:
+          type: string
+          minLength: 1
+          maxLength: 32
+        type:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        name:
+          type: string
+          minLength: 1
+          maxLength: 253
+        uid:
+          type: string
+          minLength: 0
+          maxLength: 128
+        error_code:
+          type: string
+          minLength: 0
+          maxLength: 128
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        result:
+          type: object
+          additionalProperties: true
+          properties:
+            drain:
+              $ref: '#/components/schemas/KubernetesDrainProgress'
+        pending_action_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - cluster_id
+        - namespace_uid
+        - status
+        - operation
+        - type
+        - name
+        - uid
+        - error_code
+        - version
+        - result
+        - created_at
+        - updated_at
+    KubernetesDrainCancelInput:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_version
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    KubernetesOperationPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/KubernetesOperation'
+        next_cursor:
+          type: string
+          minLength: 0
+          maxLength: 32768
+      required:
+        - items
+    KubernetesRollbackReference:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - uid
+        - resource_version
+        - revision
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 253
+        uid:
+          type: string
+          minLength: 1
+          maxLength: 128
+        resource_version:
+          type: string
+          minLength: 1
+          maxLength: 256
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+    KubernetesObjectVersionReference:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - uid
+        - resource_version
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 253
+        uid:
+          type: string
+          minLength: 1
+          maxLength: 128
+        resource_version:
+          type: string
+          minLength: 1
+          maxLength: 256
+    KubernetesMutationInput:
+      type: object
+      additionalProperties: false
+      properties:
+        namespace_id:
+          type: string
+          format: uuid
+        operation:
+          type: string
+          enum:
+            - create
+            - patch
+            - delete
+            - scale
+            - restart
+            - rollback
+            - cordon
+            - uncordon
+            - drain
+        type:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        name:
+          type: string
+          minLength: 1
+          maxLength: 253
+        uid:
+          type: string
+          minLength: 0
+          maxLength: 128
+        expected_resource_version:
+          type: string
+          minLength: 0
+          maxLength: 256
+        object:
+          type: object
+          additionalProperties: true
+        replicas:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000
+        rollback:
+          $ref: '#/components/schemas/KubernetesRollbackReference'
+        cronjob_source:
+          $ref: '#/components/schemas/KubernetesObjectVersionReference'
+        secret_values:
+          type: object
+          maxProperties: 128
+          additionalProperties:
+            type: string
+            maxLength: 65536
+          writeOnly: true
+          description: Protected Secret values; excluded from public manifests, action plans and Agent inputs.
+      required:
+        - operation
+        - type
+        - name
+    KubernetesInventoryWatchInput:
+      type: object
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 32768
+      required:
+        - token
+    KubernetesInventoryDefinition:
+      type: object
+      additionalProperties: false
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        group:
+          type: string
+          minLength: 0
+          maxLength: 253
+        version:
+          type: string
+          minLength: 1
+          maxLength: 64
+        resource:
+          type: string
+          minLength: 1
+          maxLength: 253
+        kind:
+          type: string
+          minLength: 1
+          maxLength: 100
+        namespaced:
+          type: boolean
+        category:
+          type: string
+          minLength: 0
+          maxLength: 40
+        manage_permission:
+          type: string
+          minLength: 0
+          maxLength: 100
+      required:
+        - key
+        - group
+        - version
+        - resource
+        - kind
+        - namespaced
+        - category
+        - manage_permission
+    KubernetesInventoryObject:
+      type: object
+      additionalProperties: false
+      properties:
+        definition:
+          $ref: '#/components/schemas/KubernetesInventoryDefinition'
+        uid:
+          type: string
+          minLength: 1
+          maxLength: 128
+        namespace:
+          type: string
+          minLength: 0
+          maxLength: 253
+        namespace_uid:
+          type: string
+          minLength: 0
+          maxLength: 128
+        name:
+          type: string
+          minLength: 1
+          maxLength: 253
+        resource_version:
+          type: string
+          minLength: 1
+          maxLength: 128
+        generation:
+          type: integer
+          format: int64
+          minimum: 0
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        owners:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              apiVersion:
+                type: string
+                minLength: 0
+                maxLength: 253
+              kind:
+                type: string
+                minLength: 0
+                maxLength: 100
+              name:
+                type: string
+                minLength: 0
+                maxLength: 253
+              uid:
+                type: string
+                minLength: 0
+                maxLength: 128
+              controller:
+                type: boolean
+              blockOwnerDeletion:
+                type: boolean
+            required:
+              - apiVersion
+              - kind
+              - name
+              - uid
+        created_at:
+          type: string
+          format: date-time
+        observed_at:
+          type: string
+          format: date-time
+        redacted:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: true
+      required:
+        - definition
+        - uid
+        - namespace
+        - name
+        - resource_version
+        - generation
+        - labels
+        - owners
+        - created_at
+        - observed_at
+        - redacted
+        - data
+    KubernetesInventoryWatchEvent:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum:
+            - ADDED
+            - MODIFIED
+            - DELETED
+        object:
+          $ref: '#/components/schemas/KubernetesInventoryObject'
+      required:
+        - type
+        - object
+    KubernetesInventoryWatchResult:
+      type: object
+      additionalProperties: false
+      properties:
+        events:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/KubernetesInventoryWatchEvent'
+        watch_token:
+          type: string
+          minLength: 1
+          maxLength: 32768
+        scope_signature:
+          type: string
+          minLength: 64
+          maxLength: 64
+        observed_at:
+          type: string
+          format: date-time
+        more:
+          type: boolean
+      required:
+        - events
+        - watch_token
+        - scope_signature
+        - observed_at
+        - more
+    KubernetesInventoryTypes:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/KubernetesInventoryDefinition'
+        complete:
+          type: boolean
+        unavailable_reason:
+          type: string
+          minLength: 0
+          maxLength: 100
+      required:
+        - items
+        - complete
+    KubernetesNamespaceReference:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 253
+        uid:
+          type: string
+          minLength: 1
+          maxLength: 128
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+      required:
+        - id
+        - name
+        - uid
+        - version
+    KubernetesInventoryScope:
+      type: object
+      additionalProperties: false
+      properties:
+        cluster_id:
+          type: string
+          format: uuid
+        cluster_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        cluster_version:
+          type: integer
+          format: int64
+          minimum: 1
+        cluster_wide:
+          type: boolean
+        namespaces:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/KubernetesNamespaceReference'
+      required:
+        - cluster_id
+        - cluster_name
+        - cluster_version
+        - cluster_wide
+        - namespaces
+    KubernetesInventoryPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/KubernetesInventoryObject'
+        next_cursor:
+          type: string
+          minLength: 0
+          maxLength: 32768
+        complete:
+          type: boolean
+        observed_at:
+          type: string
+          format: date-time
+        scope_signature:
+          type: string
+          minLength: 64
+          maxLength: 64
+        namespace_references:
+          type: object
+          additionalProperties:
+            type: string
+            format: uuid
+        watch_token:
+          type: string
+          minLength: 1
+          maxLength: 32768
+      required:
+        - items
+        - complete
+        - observed_at
+        - scope_signature
+        - namespace_references
+    KubernetesConnectionMode:
+      type: string
+      enum:
+        - via_bastion
+        - direct
+        - in_cluster
+    Environment:
+      type: string
+      enum:
+        - development
+        - staging
+        - production
+    UserLabelKey:
+      type: string
+      minLength: 1
+      maxLength: 63
+      pattern: ^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$
+    SystemLabelKey:
+      type: string
+      maxLength: 72
+      pattern: ^argus\.io/[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$
+      readOnly: true
+    LabelValue:
+      type: string
+      minLength: 1
+      maxLength: 63
+      pattern: ^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$
+    Labels:
+      type: object
+      maxProperties: 64
+      propertyNames:
+        anyOf:
+          - $ref: '#/components/schemas/UserLabelKey'
+          - $ref: '#/components/schemas/SystemLabelKey'
+      additionalProperties:
+        $ref: '#/components/schemas/LabelValue'
+    PartialMetadata:
+      type: object
+      additionalProperties: false
+      required:
+        - partial
+        - reasons
+      properties:
+        partial:
+          type: boolean
+        reasons:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - authorization_filtered
+              - budget_truncated
+              - source_timeout
+              - source_unavailable
+    CursorPage:
+      type: object
+      additionalProperties: false
+      required:
+        - next_cursor
+        - has_more
+        - partial
+      properties:
+        next_cursor:
+          type:
+            - string
+            - 'null'
+        has_more:
+          type: boolean
+        partial:
+          $ref: '#/components/schemas/PartialMetadata'
+    UserLabels:
+      type: object
+      maxProperties: 64
+      propertyNames:
+        $ref: '#/components/schemas/UserLabelKey'
+      additionalProperties:
+        $ref: '#/components/schemas/LabelValue'
     ResourcePreviewDelete:
       type: object
       additionalProperties: false
@@ -903,7 +2810,34 @@ components:
         credential_id:
           type: string
           format: uuid
+  responses:
+    Error:
+      description: Operation result.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    responses-Error:
+      description: Stable Argus API error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 256
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'
     Cursor:
       name: cursor
       in: query
@@ -928,13 +2862,7 @@ components:
       schema:
         type: string
         format: uuid
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: true
-      schema:
-        $ref: '#/components/schemas/IdempotencyKey'
-    CsrfToken:
+    parameters-CsrfToken:
       name: X-CSRF-Token
       in: header
       required: true
@@ -942,10 +2870,3 @@ components:
         type: string
         minLength: 32
         maxLength: 256
-  responses:
-    Error:
-      description: Stable Argus API error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ApiError'

@@ -11,7 +11,9 @@ import (
 
 	"github.com/kakj-go/Argus/internal/alerting"
 	"github.com/kakj-go/Argus/internal/dashboard"
+	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/mcp"
+	"github.com/kakj-go/Argus/internal/monitoring"
 	"github.com/kakj-go/Argus/internal/presentation"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/telemetry"
@@ -70,6 +72,7 @@ func publicCatalog() ([]mcp.Metadata, error) {
 	store := &postgres.Store{}
 	base := toolgateway.ResourceTools{Store: store}
 	registers := []func(*mcp.Registry) error{
+		(toolgateway.MonitoringTools{Base: base, Monitoring: monitoring.Service{Store: store}, Kubernetes: kubernetesworkbench.Service{Store: store}}).Register,
 		base.Register,
 		(toolgateway.LifecycleTools{Base: base}).Register,
 		(toolgateway.CollectorPreviewTools{Base: base}).Register,

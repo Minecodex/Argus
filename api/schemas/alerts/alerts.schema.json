@@ -47,7 +47,7 @@
     },
     "AlertResourceSelector": {
       "type": "object",
-      "description": "Named hosts or clusters must first be resolved with the existing resource tools, then selected by their explicit UUIDs. Dynamic selection evaluates resource LABELS inside the evaluator's existing grants; the resource name field is not a label. 指定某台主机或集群时先查询实际 UUID 并使用 explicit + ids；dynamic 的 matchers 只匹配资源 labels，不匹配资源名称字段。",
+      "description": "Resolve hosts, clusters, applications or monitoring targets with the resource tools before selecting their explicit UUIDs. Dynamic selection evaluates resource LABELS inside the evaluator's existing grants; the resource name field is not a label. 指定主机、集群、应用或监控目标时先查询实际 UUID 并使用 explicit + ids；dynamic 的 matchers 只匹配资源 labels，不匹配资源名称字段。",
       "additionalProperties": false,
       "properties": {
         "mode": {
@@ -64,7 +64,9 @@
             "type": "string",
             "enum": [
               "host",
-              "kubernetes_cluster"
+              "kubernetes_cluster",
+              "application",
+              "monitoring_target"
             ]
           },
           "uniqueItems": true
@@ -641,6 +643,12 @@
           "type": "integer",
           "format": "int64",
           "minimum": 0
+        },
+        "managed_by": {
+          "type": "string",
+          "enum": [
+            "collector_delivery"
+          ]
         }
       },
       "required": [
@@ -808,6 +816,9 @@
           "type": "string",
           "format": "date-time",
           "description": "Time of the last successful evaluation that produced the retained value and members. Unchanged on failed evaluations; absent when unknown. This is not the telemetry sample timestamp."
+        },
+        "delivery_gap": {
+          "$ref": "#/$defs/CollectorDeliveryReport"
         }
       },
       "required": [
@@ -1654,6 +1665,100 @@
         "health",
         "last_evaluated_at",
         "last_successful_at"
+      ]
+    },
+    "CollectorDeliveryCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "log_records": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "spans": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "metric_points": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "log_records",
+        "spans",
+        "metric_points"
+      ]
+    },
+    "CollectorDeliveryReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "argus.collector_delivery/v1"
+          ]
+        },
+        "instance_id": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 36
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        },
+        "observed_since": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_failure_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "terminal_failures": {
+          "$ref": "#/$defs/CollectorDeliveryCounts"
+        },
+        "receiver_refusals": {
+          "$ref": "#/$defs/CollectorDeliveryCounts"
+        },
+        "enqueue_failures": {
+          "$ref": "#/$defs/CollectorDeliveryCounts"
+        },
+        "retry_limit_seconds": {
+          "type": "integer",
+          "format": "int64",
+          "enum": [
+            300
+          ]
+        },
+        "attribution": {
+          "type": "string",
+          "enum": [
+            "collector_shared_pipeline_exact_targets_unknown"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "instance_id",
+        "sequence",
+        "observed_since",
+        "observed_at",
+        "terminal_failures",
+        "receiver_refusals",
+        "enqueue_failures",
+        "retry_limit_seconds",
+        "attribution"
       ]
     }
   }

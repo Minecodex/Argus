@@ -31,8 +31,8 @@ func TestBootstrapIdentityCopiesSecretProjectionIntoWritableState(t *testing.T) 
 		if err != nil || len(value) == 0 {
 			t.Fatalf("bootstrap file %s is unavailable: %v", path, err)
 		}
-		info, err := os.Stat(path)
-		if err != nil || info.Mode().Perm() != 0o600 {
+		err = verifyPrivateFile(path)
+		if err != nil {
 			t.Fatalf("bootstrap file %s has unsafe permissions: %v", path, err)
 		}
 	}

@@ -13,19 +13,28 @@ import (
 
 // Defines values for DataAuthorizationResourceType.
 const (
-	Dashboard         DataAuthorizationResourceType = "dashboard"
-	Host              DataAuthorizationResourceType = "host"
-	KubernetesCluster DataAuthorizationResourceType = "kubernetes_cluster"
+	Application         DataAuthorizationResourceType = "application"
+	Dashboard           DataAuthorizationResourceType = "dashboard"
+	Host                DataAuthorizationResourceType = "host"
+	KubernetesCluster   DataAuthorizationResourceType = "kubernetes_cluster"
+	KubernetesNamespace DataAuthorizationResourceType = "kubernetes_namespace"
+	MonitoringTarget    DataAuthorizationResourceType = "monitoring_target"
 )
 
 // Valid indicates whether the value is a known member of the DataAuthorizationResourceType enum.
 func (e DataAuthorizationResourceType) Valid() bool {
 	switch e {
+	case Application:
+		return true
 	case Dashboard:
 		return true
 	case Host:
 		return true
 	case KubernetesCluster:
+		return true
+	case KubernetesNamespace:
+		return true
+	case MonitoringTarget:
 		return true
 	default:
 		return false
@@ -260,10 +269,14 @@ type DataAuthorizationPage struct {
 // DataAuthorizationResource defines model for DataAuthorizationResource.
 type DataAuthorizationResource struct {
 	Direct       bool                          `json:"direct"`
+	Environment  *string                       `json:"environment,omitempty"`
 	Inherited    bool                          `json:"inherited"`
 	Name         string                        `json:"name"`
+	ParentId     *openapi_types.UUID           `json:"parent_id,omitempty"`
+	ParentName   *string                       `json:"parent_name,omitempty"`
 	ResourceId   openapi_types.UUID            `json:"resource_id"`
 	ResourceType DataAuthorizationResourceType `json:"resource_type"`
+	SourceUid    *string                       `json:"source_uid,omitempty"`
 	Sources      []string                      `json:"sources"`
 }
 
@@ -447,6 +460,7 @@ type ResponsesError = ApiError
 // ListDataAuthorizationResourcesParams defines parameters for ListDataAuthorizationResources.
 type ListDataAuthorizationResourcesParams struct {
 	ResourceType DataAuthorizationResourceType `form:"resource_type" json:"resource_type"`
+	Search       *string                       `form:"search,omitempty" json:"search,omitempty"`
 	Cursor       *Cursor                       `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit        *ParametersLimit              `form:"limit,omitempty" json:"limit,omitempty"`
 }

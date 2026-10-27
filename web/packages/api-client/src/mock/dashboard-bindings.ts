@@ -1,6 +1,6 @@
 import type {
   DashboardDomains,
-  DashboardResourceType,
+  DashboardBindingResourceType,
   DashboardSchemas,
   DashboardBindingView,
 } from "../dashboard";
@@ -18,7 +18,7 @@ import { resolvePermissions } from "./permissions";
 const bindings = (ctx: BaseContext) => (dashboardState(ctx).bindings ??= []);
 function resource(
   ctx: BaseContext,
-  type: DashboardResourceType,
+  type: DashboardBindingResourceType,
   id: string,
   manage = false,
 ) {
@@ -28,17 +28,25 @@ function resource(
     ctx.actor().id,
     ctx.nowIso(),
   );
-  const permission =
-    type === "host"
-      ? manage
-        ? "host.manage"
-        : "host.read"
-      : manage
-        ? "kubernetes.manage"
-        : "kubernetes.read";
+  const domain = {
+    host: "host",
+    kubernetes_cluster: "kubernetes",
+    application: "application",
+    monitoring_target: "monitoring",
+  }[type];
+  const permission = `${domain}.${manage ? "manage" : "read"}`;
   if (!permissions.has("*") && !permissions.has(permission))
     fail("DASHBOARD_DENIED", 403);
   if (!dashboardObjectGrant(ctx, type, id)) fail("DASHBOARD_DENIED", 403);
+  if (type === "application" || type === "monitoring_target") {
+    const data = ctx.db.monitoring?.[ctx.enterpriseId()];
+    const row =
+      type === "application"
+        ? data?.applications.find((item) => item.id === id)
+        : data?.targets?.find((item) => item.id === id);
+    if (!row || row.status !== "active") fail("DASHBOARD_NOT_FOUND", 404);
+    return { id: row.id, name: row.name, resourceVersion: row.version };
+  }
   const row =
     type === "host"
       ? ctx.db.hosts.find(
@@ -52,13 +60,18 @@ function resource(
   return row;
 }
 type BindingPlan = DashboardSchemas["DashboardBindingInput"] & {
-  resource_type: DashboardResourceType;
+  resource_type: DashboardBindingResourceType;
   resource_id: string;
   id: string;
 };
 function validate(ctx: BaseContext, plan: BindingPlan) {
   if (
-    !["host", "kubernetes_cluster"].includes(plan.resource_type) ||
+    ![
+      "host",
+      "kubernetes_cluster",
+      "application",
+      "monitoring_target",
+    ].includes(plan.resource_type) ||
     !["attach", "detach"].includes(plan.operation) ||
     (plan.operation === "attach" &&
       (plan.binding_id || plan.expected_binding_version)) ||

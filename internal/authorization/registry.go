@@ -1,6 +1,6 @@
 package authorization
 
-const PermissionRegistryVersion int32 = 13
+const PermissionRegistryVersion int32 = 17
 
 type BuiltinRole struct {
 	Key         string
@@ -10,6 +10,28 @@ type BuiltinRole struct {
 }
 
 var PermissionRegistry = map[string]string{
+	"application.read":                         "Read explicitly authorized applications and their telemetry",
+	"application.manage":                       "Create and manage applications, service bindings and application ingest",
+	"monitoring.read":                          "Read authorized monitoring targets and collection instances",
+	"monitoring.manage":                        "Manage collection instances and their private monitoring credentials",
+	"collector.use":                            "Assign collection instances to an authorized Collector",
+	"kubernetes.workload.manage":               "Manage authorized Kubernetes workloads, Jobs, CronJobs and HPA",
+	"kubernetes.network.manage":                "Manage authorized Services, Ingress and NetworkPolicy",
+	"kubernetes.configuration.manage":          "Manage authorized ConfigMaps and protected Secret inputs",
+	"kubernetes.storage.manage":                "Manage authorized persistent volume claims",
+	"kubernetes.namespace.manage":              "Create and manage Kubernetes namespaces",
+	"kubernetes.node.manage":                   "Perform explicitly authorized node maintenance",
+	"kubernetes.node.drain":                    "Drain an authorized node using UID-bound, PDB-respecting pod evictions",
+	"kubernetes.rbac.manage":                   "Manage Kubernetes roles and bindings without implicit escalation",
+	"kubernetes.rbac.escalate":                 "Explicitly delegate Kubernetes API permissions within an authorized cluster",
+	"kubernetes.workload.privileged":           "Run host-privileged workloads within an authorized cluster",
+	"kubernetes.service_account.use":           "Run workloads with service account API identities in an authorized namespace",
+	"kubernetes.custom_resource.manage":        "Manage explicitly authorized custom resource types",
+	"kubernetes.crd.manage":                    "Manage cluster-wide custom resource definitions",
+	"kubernetes.helm.manage":                   "Manage Helm releases subject to each rendered object's authorization",
+	"kubernetes.exec":                          "Open an authorized container terminal",
+	"kubernetes.port_forward":                  "Open an authorized Kubernetes port forwarding session",
+	"kubernetes.operational_logs.read":         "Read business logs within explicitly authorized infrastructure scope",
 	"alert.read":                               "Read authorized alert events and histories",
 	"alert.policy.manage":                      "Manage alert policies and rules",
 	"alert.silence.manage":                     "Manage alert silences and inhibitions",

@@ -33,7 +33,16 @@ export function apmColumns(
   if (!["apm_services", "apm_instances", "apm_endpoints"].includes(type))
     return undefined;
   const columns: ObservationColumn[] = [
+    {
+      key: "serviceNamespace",
+      label: text("服务命名空间", "Service namespace"),
+    },
     { key: "serviceName", label: text("服务", "Service") },
+    {
+      key: "sourceId",
+      label: text("采集来源", "Collection source"),
+      format: (value) => (typeof value === "string" ? value.slice(0, 8) : "—"),
+    },
   ];
   if (type === "apm_instances")
     columns.push({ key: "instanceId", label: text("实例", "Instance") });

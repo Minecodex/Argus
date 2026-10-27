@@ -13,6 +13,8 @@ export function apmObservationGroups(
       ...[
         "sourceId",
         "resourceId",
+        "serviceId",
+        "serviceNamespace",
         "serviceName",
         "instanceId",
         "operationName",
@@ -101,6 +103,7 @@ export function APMRedChart({
               ).length <= 1,
             name: [
               group[0]!.row._presentation_root,
+              group[0]!.row.serviceNamespace,
               group[0]!.row.serviceName,
               group[0]!.row.instanceId,
               group[0]!.row.operationName,

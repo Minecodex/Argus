@@ -157,7 +157,7 @@ func (jobs QueryJobs) checkJob(ctx context.Context, actor Actor, conversation uu
 	for _, r := range plan.Scope.Resources {
 		ids = append(ids, r.ID)
 	}
-	if len(ids) == 0 && len(plan.Scope.Panels) > 0 {
+	if len(ids) == 0 && len(plan.Scope.Panels) > 0 && !plan.Scope.ScopeEmpty {
 		return ErrDenied
 	}
 	if len(ids) > 0 {

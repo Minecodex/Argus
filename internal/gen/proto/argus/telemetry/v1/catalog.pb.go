@@ -37,6 +37,7 @@ type DiscoverDataRequest struct {
 	Budget         *QueryBudget           `protobuf:"bytes,11,opt,name=budget,proto3" json:"budget,omitempty"`
 	Limit          uint32                 `protobuf:"varint,12,opt,name=limit,proto3" json:"limit,omitempty"`
 	Cursor         string                 `protobuf:"bytes,13,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	SchemaVersion  string                 `protobuf:"bytes,15,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -162,6 +163,13 @@ func (x *DiscoverDataRequest) GetCursor() string {
 	return ""
 }
 
+func (x *DiscoverDataRequest) GetSchemaVersion() string {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return ""
+}
+
 type DiscoverDataResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SchemaVersion string                 `protobuf:"bytes,1,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
@@ -218,7 +226,7 @@ var File_argus_telemetry_v1_catalog_proto protoreflect.FileDescriptor
 
 const file_argus_telemetry_v1_catalog_proto_rawDesc = "" +
 	"\n" +
-	" argus/telemetry/v1/catalog.proto\x12\x12argus.telemetry.v1\x1a\"argus/telemetry/v1/telemetry.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd5\x03\n" +
+	" argus/telemetry/v1/catalog.proto\x12\x12argus.telemetry.v1\x1a\"argus/telemetry/v1/telemetry.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x93\x04\n" +
 	"\x13DiscoverDataRequest\x12=\n" +
 	"\x05scope\x18\x01 \x01(\v2'.argus.telemetry.v1.TelemetryQueryScopeR\x05scope\x12\x16\n" +
 	"\x06signal\x18\x02 \x01(\tR\x06signal\x12\x12\n" +
@@ -233,7 +241,8 @@ const file_argus_telemetry_v1_catalog_proto_rawDesc = "" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\x02to\x127\n" +
 	"\x06budget\x18\v \x01(\v2\x1f.argus.telemetry.v1.QueryBudgetR\x06budget\x12\x14\n" +
 	"\x05limit\x18\f \x01(\rR\x05limit\x12\x16\n" +
-	"\x06cursor\x18\r \x01(\tR\x06cursor\"^\n" +
+	"\x06cursor\x18\r \x01(\tR\x06cursor\x12%\n" +
+	"\x0eschema_version\x18\x0f \x01(\tR\rschemaVersionJ\x04\b\x0e\x10\x0fR\x0fscope_signature\"^\n" +
 	"\x14DiscoverDataResponse\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12\x1f\n" +
 	"\vresult_json\x18\x02 \x01(\fR\n" +

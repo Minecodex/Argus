@@ -201,7 +201,10 @@ func (m ClickHouseTenantSchemaManager) EnsureTenant(ctx context.Context, enterpr
 			return err
 		}
 	}
-	return m.upgradeSourceColumns(ctx, tables)
+	if err := m.upgradeSourceColumns(ctx, tables); err != nil {
+		return err
+	}
+	return m.upgradeSampleProjection(ctx, tables)
 }
 
 func (m ClickHouseTenantSchemaManager) VerifyTenant(ctx context.Context, enterpriseID uuid.UUID) error {
@@ -253,7 +256,7 @@ func (m ClickHouseTenantSchemaManager) VerifyTenant(ctx context.Context, enterpr
 			return fmt.Errorf("telemetry tenant table %s has %d columns, want %d", table, len(actual), len(expectation.Columns))
 		}
 	}
-	return nil
+	return m.verifySampleProjection(ctx, tables)
 }
 
 type tenantTableExpectation struct {

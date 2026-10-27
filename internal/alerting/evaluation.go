@@ -13,12 +13,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/observationscope"
+	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"github.com/kakj-go/Argus/internal/telemetry"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 )
 
 type Evaluation struct {
+	ResourceRefs    []resourceref.Ref          `json:"resource_refs"`
+	ScopeSignature  string                     `json:"scope_signature"`
 	SourcesCaptured bool                       `json:"sources_captured"`
 	Outcomes        []EvaluationOutcome        `json:"outcomes"`
 	Observations    []Observation              `json:"observations"`
@@ -65,17 +69,27 @@ func (s Service) Trial(ctx context.Context, a Actor, p PolicySpec) (Evaluation, 
 }
 func (s Service) evaluate(ctx context.Context, a Actor, p PolicySpec, ids []uuid.UUID, slot time.Time) (Evaluation, error) {
 	result := Evaluation{Observations: []Observation{}, Outcomes: []EvaluationOutcome{}, Sources: []db.AlertMetricSourcesRow{}, Health: "normal", ResourceIDs: ids, Evaluator: a, Slot: slot}
+	sources, snapshot, err := metricSources(ctx, s.Store.Queries, a, ids, p.Resources.SourceIDs, p.Resources.Types)
+	if err != nil {
+		return Evaluation{}, err
+	}
+	result.Sources = sources
+	result.ResourceRefs = snapshot.Refs()
+	result.ScopeSignature = snapshot.Signature
+	result.SourcesCaptured = true
 	if len(ids) == 0 {
 		result.Health = "no_data"
 		result.ErrorCode = "ALERT_SCOPE_EMPTY"
 		return result, nil
 	}
-	sources, err := metricSources(ctx, s.Store.Queries, a.EnterpriseID, ids, p.Resources.SourceIDs)
+	stopped, err := metricScopeExplicitlyStopped(ctx, s.Store.Queries, a, snapshot)
 	if err != nil {
 		return Evaluation{}, err
 	}
-	result.Sources = sources
-	result.SourcesCaptured = true
+	if stopped {
+		result.Health, result.ErrorCode = "not_evaluated", "ALERT_COLLECTION_DISABLED"
+		return result, nil
+	}
 	if len(sources) == 0 {
 		result.Health = "no_data"
 		result.ErrorCode = "ALERT_SOURCES_EMPTY"
@@ -95,7 +109,7 @@ func (s Service) evaluate(ctx context.Context, a Actor, p PolicySpec, ids []uuid
 				result.Outcomes = append(result.Outcomes, EvaluationOutcome{RuleID: rule.ID, ResourceIDs: []uuid.UUID{id}, SourceIDs: []uuid.UUID{}, Health: "no_data", ErrorCode: "ALERT_RESOURCE_SOURCES_EMPTY", Complete: false})
 			}
 		}
-		observations, err := s.queryRule(ctx, a, rule, p.MatchBy, ids, sourceKeys(sources), slot)
+		observations, err := s.queryRule(ctx, a, rule, p.MatchBy, snapshot, sourceKeys(sources), slot)
 		if err != nil {
 			result.Health = "error"
 			result.ErrorCode = "ALERT_QUERY_FAILED"
@@ -156,12 +170,13 @@ func (s Service) evaluate(ctx context.Context, a Actor, p PolicySpec, ids []uuid
 	}
 	return result, nil
 }
-func (s Service) queryRule(ctx context.Context, a Actor, r Rule, matchBy []string, ids []uuid.UUID, sources []string, slot time.Time) ([]Observation, error) {
+func (s Service) queryRule(ctx context.Context, a Actor, r Rule, matchBy []string, snapshot observationscope.Snapshot, sources []string, slot time.Time) ([]Observation, error) {
+	ids := snapshot.IDs()
 	if s.Telemetry.Engine == nil {
 		return nil, ErrUnavailable
 	}
 	query := func(expression string) ([]Observation, error) {
-		value, err := s.Telemetry.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: queryengine.LanguagePromQL, Expression: expression, Instant: true, Start: slot.Add(-5 * time.Minute), End: slot, Scope: queryengine.Scope{EnterpriseID: a.EnterpriseID, SubjectID: a.SubjectID, SubjectType: a.SubjectType, AuthorizationVersion: a.AuthorizationVersion, ResourceIDs: ids, SourceKeys: sources}, Budget: queryengine.Budget{MaxRows: 10000, MaxSeries: 10000, MaxSamples: 1000000, MaxScanBytes: telemetry.DefaultMaxScanBytes, MaxResultBytes: 8 << 20, Timeout: 10 * time.Second}})
+		value, err := s.Telemetry.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: queryengine.LanguagePromQL, Expression: expression, Instant: true, Start: slot.Add(-5 * time.Minute), End: slot, Scope: queryengine.Scope{Resources: snapshot.Refs(), Signature: snapshot.Signature, EnterpriseID: a.EnterpriseID, SubjectID: a.SubjectID, SubjectType: a.SubjectType, AuthorizationVersion: a.AuthorizationVersion, ResourceIDs: ids, SourceKeys: sources}, Budget: queryengine.Budget{MaxRows: 10000, MaxSeries: 10000, MaxSamples: 1000000, MaxScanBytes: telemetry.DefaultMaxScanBytes, MaxResultBytes: 8 << 20, Timeout: 10 * time.Second}})
 		if err != nil || value.Meta.Partial {
 			return nil, ErrUnavailable
 		}

@@ -11,7 +11,7 @@ func modelToolFailure(cause error, code string) map[string]any {
 	if !errors.As(cause, &safe) {
 		return data
 	}
-	permitted := code == "TOOL_DESCRIPTION_REQUIRED" || code == "TOOL_INPUT_INVALID" && safe.Details["schema_validation"] == true || code == "REMOTE_CONTEXT_LOST" && safe.Details["requires_recovery"] == true
+	permitted := code == "TOOL_DESCRIPTION_REQUIRED" || code == "TOOL_INPUT_INVALID" && safe.Details["schema_validation"] == true || code == "REMOTE_CONTEXT_LOST" && safe.Details["requires_recovery"] == true || code == "TOOL_QUERY_BUDGET_EXCEEDED" && safe.Details["query_budget"] == true
 	if permitted {
 		data["message"], data["details"] = safe.Message, safe.Details
 	}

@@ -27,6 +27,12 @@ func prepareM7CollectorNamespace(ctx context.Context, env *E2EEnvironment) error
 	if _, err := env.Kube.Client.RbacV1().Roles(m7CollectorNamespace).Create(ctx, &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{Name: managerName, Namespace: m7CollectorNamespace, Labels: labels},
 		Rules: []rbacv1.PolicyRule{
+			{APIGroups: []string{""}, Resources: []string{"configmaps"}, ResourceNames: []string{"argus-otelcol-config", "argus-otelcol-config-next"}, Verbs: []string{"get", "update", "patch", "delete"}},
+			{APIGroups: []string{""}, Resources: []string{"secrets"}, ResourceNames: []string{"argus-otelcol-identity", "argus-otelcol-monitoring", "argus-otelcol-monitoring-next"}, Verbs: []string{"get", "update", "patch", "delete"}},
+			{APIGroups: []string{"batch"}, Resources: []string{"jobs"}, ResourceNames: []string{"argus-otelcol-validate"}, Verbs: []string{"get", "delete"}},
+			{APIGroups: []string{"batch"}, Resources: []string{"jobs"}, Verbs: []string{"create"}},
+			{APIGroups: []string{"coordination.k8s.io"}, Resources: []string{"leases"}, ResourceNames: []string{"argus-otelcol-publish"}, Verbs: []string{"get", "update", "patch", "delete"}},
+			{APIGroups: []string{"coordination.k8s.io"}, Resources: []string{"leases"}, Verbs: []string{"create"}},
 			{APIGroups: []string{rbacv1.GroupName}, Resources: []string{"roles", "rolebindings"}, ResourceNames: []string{"argus-otelcol-identity"}, Verbs: []string{"get", "update", "patch", "delete"}},
 			{APIGroups: []string{rbacv1.GroupName}, Resources: []string{"roles", "rolebindings"}, Verbs: []string{"create"}},
 		},
@@ -44,7 +50,9 @@ func prepareM7CollectorNamespace(ctx context.Context, env *E2EEnvironment) error
 	if _, err := env.Kube.Client.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: readerName, Labels: labels},
 		Rules: []rbacv1.PolicyRule{
-			{APIGroups: []string{""}, Resources: []string{"nodes", "nodes/proxy", "nodes/stats", "namespaces", "pods", "services", "endpoints", "replicationcontrollers", "resourcequotas"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{""}, Resources: []string{"nodes", "nodes/spec", "namespaces", "namespaces/status", "pods", "pods/status", "services", "endpoints", "replicationcontrollers", "replicationcontrollers/status", "resourcequotas", "persistentvolumes", "persistentvolumeclaims", "events"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{""}, Resources: []string{"nodes/stats", "nodes/metrics"}, Verbs: []string{"get"}},
+			{APIGroups: []string{"discovery.k8s.io"}, Resources: []string{"endpointslices"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"apps"}, Resources: []string{"deployments", "statefulsets", "daemonsets", "replicasets"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"batch"}, Resources: []string{"jobs", "cronjobs"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"autoscaling"}, Resources: []string{"horizontalpodautoscalers"}, Verbs: []string{"get", "list", "watch"}},

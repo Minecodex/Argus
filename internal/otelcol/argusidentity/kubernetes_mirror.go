@@ -94,7 +94,14 @@ func mirrorKubernetesIdentity(ctx context.Context, config Config) error {
 	if err != nil {
 		return fmt.Errorf("mirror Collector identity Secret: %w", err)
 	}
-	configPath := baseURL + "/api/v1/namespaces/" + namespace + "/configmaps/" + kubernetesConfigMap
+	configMap := os.Getenv("ARGUS_TELEMETRY_KUBERNETES_CONFIG_MAP")
+	if configMap == "" {
+		configMap = kubernetesConfigMap
+	}
+	if configMap != kubernetesConfigMap && configMap != "argus-otelcol-config-next" {
+		return errors.New("telemetry Kubernetes config slot is invalid")
+	}
+	configPath := baseURL + "/api/v1/namespaces/" + namespace + "/configmaps/" + configMap
 	err = updateKubernetesObject(operationCtx, client, token, configPath, func(object *kubernetesObject) {
 		if object.Data == nil {
 			object.Data = map[string]string{}

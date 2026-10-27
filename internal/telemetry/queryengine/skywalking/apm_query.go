@@ -21,7 +21,7 @@ func (state *executionState) apmSamples(args apmArgs) (string, []any) {
 		where += " AND resource_id=?"
 		values = append(values, value)
 	}
-	query := "WITH facts AS (" + state.spanFacts(where) + "), samples AS (SELECT * FROM facts WHERE 1"
+	query := "WITH facts AS (" + state.apmFacts(where) + "), samples AS (SELECT * FROM facts WHERE 1"
 	for _, f := range []struct {
 		column string
 		value  *string
@@ -67,8 +67,8 @@ func (state *executionState) queryAPM(ctx context.Context, group string, args ap
 		var latestSample *time.Time
 		var count uint64
 		var visible uint8
-		if err := rows.Scan(&resource, &source, &r.service, &r.instanceID, &r.instanceName, &r.operation, &r.at, &r.observed, &r.samples, &r.errors, &r.mean, &r.quantiles,
-			&c.observed, &c.requests, &c.missingService, &c.missingInstance, &c.missingOperation, &c.unknownSource, &latestSample, &count, &visible); err != nil {
+		if err := rows.Scan(&resource, &source, &r.service, &r.serviceID, &r.serviceNamespace, &r.instanceID, &r.instanceName, &r.operation, &r.at, &r.observed, &r.samples, &r.errors, &r.mean, &r.quantiles,
+			&c.observed, &c.requests, &c.missingService, &c.missingInstance, &c.missingOperation, &c.unknownSource, &latestSample, &count, &visible, &r.sourceIDs, &c.duplicates); err != nil {
 			return nil, err
 		}
 		if latestSample != nil {

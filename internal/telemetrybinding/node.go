@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/kakj-go/Argus/internal/collectionclaim"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
@@ -129,7 +130,7 @@ func Upsert(ctx context.Context, q *db.Queries, enterpriseID, clusterID uuid.UUI
 			return err
 		}
 	}
-	return nil
+	return collectionclaim.RefreshBinding(ctx, q, enterpriseID, clusterID)
 }
 
 func normalize(value NodeEvidence) NodeEvidence {

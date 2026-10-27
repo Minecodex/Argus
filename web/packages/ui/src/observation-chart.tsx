@@ -92,8 +92,14 @@ export function ObservationChart({
         grid: {
           left: size("--space-3"),
           right: size("--space-4"),
-          top: size("--space-6"),
-          bottom: size("--chart-legend-space"),
+          top: size("--space-3"),
+          bottom:
+            option.legend &&
+            (Array.isArray(option.legend)
+              ? option.legend[0]?.show
+              : option.legend.show) !== false
+              ? size("--chart-legend-space")
+              : size("--space-3"),
           containLabel: true,
         },
         ...themeObservation(arranged, color),

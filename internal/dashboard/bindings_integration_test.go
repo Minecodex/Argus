@@ -156,6 +156,32 @@ func TestPostgresResourceDashboardBindings(t *testing.T) {
 	if err != nil || len(visible) != 2 {
 		t.Fatalf("summary scope: %v %v", visible, err)
 	}
+	// Application and monitoring-target shortcuts use their own management
+	// capabilities and explicit grants, with the same preview/version contract.
+	for _, permission := range []string{"application.read", "application.manage", "monitoring.read", "monitoring.manage"} {
+		exec("INSERT INTO permissions(id,description,registry_version) VALUES($1,$2,$3) ON CONFLICT(id) DO NOTHING", permission, authorization.PermissionRegistry[permission], authorization.PermissionRegistryVersion)
+		exec("INSERT INTO role_permissions(role_id,permission_id) VALUES($1,$2)", managerRole, permission)
+	}
+	application, target := uuid.New(), uuid.New()
+	exec("INSERT INTO monitoring_applications(id,enterprise_id,application_key,name,environment,created_by) VALUES($1,$2,$3,'Bound application','production',$4)", application, enterprise, application.String(), user)
+	exec("INSERT INTO monitoring_targets(id,enterprise_id,name,kind,engine,identity_config,created_by) VALUES($1,$2,'Bound database','database','mysql','{\"endpoint\":\"mysql:3306\"}',$3)", target, enterprise, user)
+	for kind, id := range map[string]uuid.UUID{"application": application, "monitoring_target": target} {
+		grant(manager, kind, id)
+		if _, err = confirm(preview(managerActor, kind, id, inputFor(managerActor, kind, id))); err != nil {
+			t.Fatalf("%s attach: %v", kind, err)
+		}
+		links, e := service.ResourceBindings(ctx, managerActor, kind, id)
+		if e != nil || len(links.Items) != 1 {
+			t.Fatalf("%s shortcut: %+v %v", kind, links, e)
+		}
+		input := inputFor(managerActor, kind, id)
+		input.Operation = "detach"
+		input.BindingID = links.Items[0].Binding.ID
+		input.ExpectedBindingVersion = links.Items[0].Binding.Version
+		if _, err = confirm(preview(managerActor, kind, id, input)); err != nil {
+			t.Fatalf("%s detach: %v", kind, err)
+		}
+	}
 
 	// Revoking one subject only hides their entry. Other readers retain access.
 	exec(`UPDATE data_authorization_grants SET status='disabled' WHERE enterprise_id=$1 AND subject_id=$2 AND resource_type='dashboard'`, enterprise, manager)
@@ -314,7 +340,7 @@ func TestPostgresResourceDashboardBindings(t *testing.T) {
 	if err := authz.UpdateGrantBatch(ctx, user.String(), enterprise, batch); !errors.Is(err, authorization.ErrInheritedGrant) {
 		t.Fatalf("inherited grant could be removed at user: %v", err)
 	}
-	catalog, err := authz.ListGrantResources(ctx, enterprise, viewer, "user", "dashboard")
+	catalog, err := authz.GrantCatalogPage(ctx, enterprise, viewer, "user", "dashboard", "", uuid.Nil, 201)
 	if err != nil || len(catalog) != 1 || !catalog[0].Inherited || catalog[0].Direct {
 		t.Fatalf("dashboard catalog inheritance: %v %v", catalog, err)
 	}

@@ -59,7 +59,7 @@ func (state *executionState) loadTopologySpans(ctx context.Context, args apmArgs
 	}
 	attributes, filterValues := apmAttributeSQL(args.Filters)
 	values = append(values, filterValues...)
-	query := "SELECT resource_id,source_id,source_type,trace_id,span_id,parent_span_id,service_name,operation,status,span_kind,duration_ns,resource_attributes['service.instance.id'],resource_attributes['service.instance.name'],start_time FROM (" + state.spanFacts(where) + ") WHERE 1" + attributes + " ORDER BY resource_id,source_id,trace_id,span_id LIMIT ?"
+	query := "SELECT resource_id,source_id,source_type,trace_id,span_id,parent_span_id,service_name,operation,status,span_kind,duration_ns,resource_attributes['service.instance.id'],resource_attributes['service.instance.name'],start_time,resource_attributes['argus.service.id'],resource_attributes['service.namespace'] FROM (" + state.spanFacts(where) + ") WHERE 1" + attributes + " ORDER BY resource_id,source_id,trace_id,span_id LIMIT ?"
 	rows, err := state.engine.Conn.Query(queryContext(ctx, state.request.Budget), query, append(values, remaining+1)...)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func (state *executionState) loadTopologySpans(ctx context.Context, args apmArgs
 		var span topologySpan
 		var sampleTime time.Time
 		var resource, source uuid.UUID
-		if err := rows.Scan(&resource, &source, &span.sourceType, &span.trace, &span.id, &span.parent, &span.service, &span.operation, &span.status, &span.kind, &span.duration, &span.instanceID, &span.instanceName, &sampleTime); err != nil {
+		if err := rows.Scan(&resource, &source, &span.sourceType, &span.trace, &span.id, &span.parent, &span.service, &span.operation, &span.status, &span.kind, &span.duration, &span.instanceID, &span.instanceName, &sampleTime, &span.serviceID, &span.serviceNamespace); err != nil {
 			return nil, err
 		}
 		state.request.Budget.progress.ObserveEvent(sampleTime)

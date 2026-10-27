@@ -10,9 +10,13 @@ import (
 	"syscall"
 
 	connectorapp "github.com/kakj-go/Argus/internal/app/connector"
+	"github.com/kakj-go/Argus/internal/kuberneteshelm"
 )
 
 func main() {
+	if kuberneteshelm.RunRenderCommand(os.Args[1:], os.Stdin, os.Stdout) {
+		return
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))

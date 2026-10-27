@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/kakj-go/Argus/internal/collectorstate"
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/util/validation"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/kakj-go/Argus/internal/hostremoval"
 	"github.com/kakj-go/Argus/internal/installation"
 	"github.com/kakj-go/Argus/internal/installinstruction"
+	"github.com/kakj-go/Argus/internal/kuberneteshelm"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/secret"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
@@ -698,6 +700,15 @@ func (service Service) OpenSession(ctx context.Context, identity TrustedIdentity
 		if err != nil {
 			return err
 		}
+		uncertain, err := q.MarkPreviousCollectorCommandsUncertain(ctx, db.MarkPreviousCollectorCommandsUncertainParams{ConnectorID: connector.ID, EnterpriseID: connector.EnterpriseID, ConnectionEpoch: connector.ConnectionEpoch})
+		if err != nil {
+			return err
+		}
+		for _, command := range uncertain {
+			if err = finalizeCollectorCommandFailure(ctx, q, command, "CONNECTOR_DISCONNECTED"); err != nil {
+				return err
+			}
+		}
 		switch connector.Role {
 		case "host":
 			if _, err = q.RestoreHostConnectorOnline(ctx, db.RestoreHostConnectorOnlineParams{EnterpriseID: connector.EnterpriseID,
@@ -804,23 +815,8 @@ func (service Service) RotateCertificate(ctx context.Context, identity TrustedId
 	return certificate, err
 }
 
-func (service Service) Heartbeat(ctx context.Context, identity TrustedIdentity, epoch int64) error {
-	rows, err := service.Store.Queries.HeartbeatConnectorSession(ctx, db.HeartbeatConnectorSessionParams{ConnectorID: identity.ConnectorID,
-		EnterpriseID: identity.EnterpriseID, ConnectionEpoch: epoch})
-	if err != nil || rows != 1 {
-		return ErrConnectorFenced
-	}
-	_, _ = service.Store.Queries.RestoreHostConnectorOnline(ctx, db.RestoreHostConnectorOnlineParams{EnterpriseID: identity.EnterpriseID,
-		ConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true}})
-	if service.Redis != nil {
-		_ = service.Redis.SetConnectorRegistry(ctx, identity.ConnectorID.String(), redisstore.ConnectorRegistryEntry{GatewayInstanceID: service.GatewayInstance,
-			ConnectionEpoch: epoch}, service.registryTTL())
-	}
-	return nil
-}
-
-func (service Service) UpdateBastionRelayStatus(ctx context.Context, identity TrustedIdentity, status *connectorv1.BastionRelayStatus) error {
-	connector, err := service.Store.Queries.GetConnector(ctx, db.GetConnectorParams{ID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID})
+func updateBastionRelayStatus(ctx context.Context, q *db.Queries, identity TrustedIdentity, status *connectorv1.BastionRelayStatus) error {
+	connector, err := q.GetConnector(ctx, db.GetConnectorParams{ID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID})
 	if err != nil {
 		return ErrConnectorFenced
 	}
@@ -834,7 +830,7 @@ func (service Service) UpdateBastionRelayStatus(ctx context.Context, identity Tr
 	if err != nil {
 		return ErrCommandState
 	}
-	rows, err := service.Store.Queries.SetBastionRelayStatus(ctx, db.SetBastionRelayStatusParams{EnterpriseID: identity.EnterpriseID,
+	rows, err := q.SetBastionRelayStatus(ctx, db.SetBastionRelayStatusParams{EnterpriseID: identity.EnterpriseID,
 		ActiveConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true}, RelayStatus: status.GetStatus(), RelayAddress: address,
 		RelayHttpsPort: httpsPort, RelayGatewayPort: gatewayPort, RelayPortGeneration: generation, RelayErrorCode: status.GetErrorCode()})
 	if err != nil || rows != 1 {
@@ -901,8 +897,8 @@ func validBastionRelayAddress(value string) bool {
 	return len(validation.IsDNS1123Subdomain(strings.ToLower(value))) == 0
 }
 
-func (service Service) UpdateHostRuntimeObservation(ctx context.Context, identity TrustedIdentity, observation *connectorv1.HostRuntimeObservation) error {
-	connector, err := service.Store.Queries.GetConnector(ctx, db.GetConnectorParams{ID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID})
+func updateHostRuntimeObservation(ctx context.Context, q *db.Queries, identity TrustedIdentity, observation *connectorv1.HostRuntimeObservation) error {
+	connector, err := q.GetConnector(ctx, db.GetConnectorParams{ID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID})
 	if err != nil {
 		return ErrConnectorFenced
 	}
@@ -922,7 +918,7 @@ func (service Service) UpdateHostRuntimeObservation(ctx context.Context, identit
 	if _, err := hostinventory.Decode(observation.GetInventoryJson()); err != nil {
 		return ErrCommandState
 	}
-	_, err = service.Store.Queries.UpsertHostRuntimeObservation(ctx, db.UpsertHostRuntimeObservationParams{ID: identity.ConnectorID,
+	_, err = q.UpsertHostRuntimeObservation(ctx, db.UpsertHostRuntimeObservationParams{ID: identity.ConnectorID,
 		EnterpriseID: identity.EnterpriseID, Platform: observation.GetPlatform(), OpensshStatus: observation.GetOpensshStatus(), RdpStatus: observation.GetRdpStatus(),
 		RdpNlaEnabled: observation.GetRdpNlaEnabled(), RdpFirewallEnabled: observation.GetRdpFirewallEnabled(), RdpServiceRunning: observation.GetRdpServiceRunning(),
 		ObservedAt: pgtype.Timestamptz{Time: observation.GetObservedAt().AsTime(), Valid: true}, InventoryJson: observation.GetInventoryJson()})
@@ -933,22 +929,29 @@ func (service Service) UpdateHostRuntimeObservation(ctx context.Context, identit
 }
 
 func (service Service) Disconnect(ctx context.Context, identity TrustedIdentity, epoch int64) {
-	_, _ = service.Store.Queries.CloseConnectorSession(ctx, db.CloseConnectorSessionParams{ConnectorID: identity.ConnectorID,
-		EnterpriseID: identity.EnterpriseID, ConnectionEpoch: epoch})
-	rows, _ := service.Store.Queries.MarkConnectorDisconnected(ctx, db.MarkConnectorDisconnectedParams{ID: identity.ConnectorID,
-		EnterpriseID: identity.EnterpriseID, ConnectionEpoch: epoch})
-	if rows == 1 {
-		_, _ = service.Store.Queries.MarkHostConnectorOffline(ctx, db.MarkHostConnectorOfflineParams{EnterpriseID: identity.EnterpriseID,
-			ConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true}})
-		_, _ = service.Store.Queries.MarkBastionScopeConnectorSuspectedOffline(ctx, db.MarkBastionScopeConnectorSuspectedOfflineParams{
-			EnterpriseID: identity.EnterpriseID, ActiveConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true},
-		})
-	}
-	if service.Redis != nil {
-		_ = service.Redis.DeleteConnectorRegistry(ctx, identity.ConnectorID.String())
+	// Same connector-before-session lock order as OpenSession. Dependent
+	// projections commit before another connection can restore this identity.
+	err := service.Store.InReadCommittedTx(ctx, func(q *db.Queries) error {
+		rows, err := q.MarkConnectorDisconnected(ctx, db.MarkConnectorDisconnectedParams{ID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID, ConnectionEpoch: epoch})
+		if err != nil {
+			return err
+		}
+		if _, err = q.CloseConnectorSession(ctx, db.CloseConnectorSessionParams{ConnectorID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID, ConnectionEpoch: epoch}); err != nil {
+			return err
+		}
+		if rows != 1 {
+			return nil
+		}
+		if _, err = q.MarkHostConnectorOffline(ctx, db.MarkHostConnectorOfflineParams{EnterpriseID: identity.EnterpriseID, ConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true}}); err != nil {
+			return err
+		}
+		_, err = q.MarkBastionScopeConnectorSuspectedOffline(ctx, db.MarkBastionScopeConnectorSuspectedOfflineParams{EnterpriseID: identity.EnterpriseID, ActiveConnectorID: uuid.NullUUID{UUID: identity.ConnectorID, Valid: true}})
+		return err
+	})
+	if err == nil && service.Redis != nil {
+		_ = service.Redis.DeleteConnectorRegistryEpoch(ctx, identity.ConnectorID.String(), epoch)
 	}
 }
-
 func (service Service) EnqueueConnectionTest(ctx context.Context, q *db.Queries, test db.ConnectionTest) error {
 	if !test.ConnectorID.Valid {
 		return nil
@@ -1026,6 +1029,11 @@ func (service Service) TransitionCommand(ctx context.Context, identity TrustedId
 	var transitioned db.ConnectorCommand
 	var dispatchRejection error
 	err = service.Store.InTx(ctx, func(q *db.Queries) error {
+		if current.CommandType == "collector_management" && next != "delivery_unknown" && next != "result_unknown" {
+			if _, err := q.LockConnectorRuntime(ctx, db.LockConnectorRuntimeParams{ID: identity.ConnectorID, EnterpriseID: identity.EnterpriseID, ConnectionEpoch: epoch}); err != nil {
+				return ErrConnectorFenced
+			}
+		}
 		if next == "dispatched" && strings.HasPrefix(current.CommandType, "remote_execution_") {
 			if service.CommandDispatchGuard == nil {
 				dispatchRejection = ErrCommandState
@@ -1071,6 +1079,13 @@ func (service Service) TransitionCommand(ctx context.Context, identity TrustedId
 					return stageErr
 				}
 			}
+		}
+		if current.CommandType == "collector_management" && (next == "delivery_unknown" || next == "result_unknown") {
+			code := errorCode
+			if !collectorstate.OutcomeUnknown(code) {
+				code = "EXECUTION_RESULT_UNKNOWN"
+			}
+			return finalizeCollectorCommandFailure(ctx, q, transitioned, code)
 		}
 		if current.CommandType == "collector_management" && (next == "succeeded" || next == "failed") {
 			return finalizeCollectorManagement(ctx, q, current, next, result, errorCode)
@@ -1178,8 +1193,9 @@ func finalizeCollectorManagement(ctx context.Context, q *db.Queries, command db.
 			!strings.EqualFold(result.AppliedConfigSHA256, request.ConfigSHA256)) {
 			return ErrCommandState
 		}
-		if _, err = q.ApplyCollectorOperationSuccess(ctx, db.ApplyCollectorOperationSuccessParams{ID: collectorID, EnterpriseID: command.EnterpriseID, Column3: request.Operation}); err != nil {
-			return err
+		current, applyErr := collectorstate.Apply(ctx, q, command.EnterpriseID, collectorID, int64(request.DesiredRevision), request.Operation, true, "")
+		if applyErr != nil || !current {
+			return applyErr
 		}
 		// Tunnel health is reported by the long-lived supervisor heartbeat. A
 		// successful Collector install must not fabricate an established tunnel.
@@ -1195,9 +1211,6 @@ func finalizeCollectorManagement(ctx context.Context, q *db.Queries, command db.
 				if parseErr != nil || telemetrybinding.Upsert(ctx, q, command.EnterpriseID, clusterID, result.KubernetesNodes) != nil {
 					return ErrCommandState
 				}
-			}
-			if _, err = q.MarkCollectorConfigEffective(ctx, db.MarkCollectorConfigEffectiveParams{CollectorID: collectorID, Revision: int64(request.DesiredRevision)}); err != nil {
-				return err
 			}
 			ready, readyErr := collectorTelemetryTunnelReady(ctx, q, command.EnterpriseID, collectorID, request.Transport)
 			if readyErr != nil {
@@ -1215,14 +1228,16 @@ func finalizeCollectorManagement(ctx context.Context, q *db.Queries, command db.
 	if errorCode == "" {
 		errorCode = "COLLECTOR_MANAGEMENT_FAILED"
 	}
-	if _, err = q.ApplyCollectorOperationFailure(ctx, db.ApplyCollectorOperationFailureParams{ID: collectorID, EnterpriseID: command.EnterpriseID, Status: "degraded"}); err != nil {
-		return err
+	current, applyErr := collectorstate.Apply(ctx, q, command.EnterpriseID, collectorID, int64(request.DesiredRevision), request.Operation, false, errorCode)
+	if applyErr != nil || !current {
+		return applyErr
 	}
-	if request.Operation != "uninstall" {
-		_, _ = q.MarkCollectorConfigFailed(ctx, db.MarkCollectorConfigFailedParams{CollectorID: collectorID, Revision: int64(request.DesiredRevision), FailureCode: pgtype.Text{String: errorCode, Valid: true}})
+	if !collectorstate.OutcomeUnknown(errorCode) {
+		if _, err = q.RollbackCollectorClaimMigrations(ctx, db.RollbackCollectorClaimMigrationsParams{EnterpriseID: command.EnterpriseID, CollectorID: collectorID}); err != nil {
+			return err
+		}
 	}
-	_, _ = q.RollbackCollectorClaimMigrations(ctx, db.RollbackCollectorClaimMigrationsParams{EnterpriseID: command.EnterpriseID, CollectorID: collectorID})
-	_, err = q.MarkTelemetryRouteDegraded(ctx, db.MarkTelemetryRouteDegradedParams{CollectorID: collectorID, EnterpriseID: command.EnterpriseID})
+	err = collectorstate.RouteAfterFailure(ctx, q, command.EnterpriseID, collectorID, request.Operation, errorCode)
 	return err
 }
 
@@ -1338,6 +1353,12 @@ func (service Service) SweepCommandTimeouts(ctx context.Context) error {
 					return err
 				}
 			}
+			if command.CommandType == "collector_management" {
+				if err := finalizeCollectorCommandFailure(ctx, q, command, command.ErrorCode.String); err != nil {
+					return err
+				}
+				continue
+			}
 			if command.CommandType != "host_connection_probe" && command.CommandType != "kubernetes_connection_probe" {
 				continue
 			}
@@ -1423,8 +1444,8 @@ func validateCertificate(value Certificate, connectorID uuid.UUID, publicKeyHash
 func capabilitiesAllowed(role string, values []string) bool {
 	allowed := map[string]map[string]bool{
 		"host":       {"host.local_command": true, "host.local_shell": true, "host.collector_manage": true, "host.tcp_tunnel": true, "host.windows_rdp_manage": true, "connector.uninstall": true},
-		"bastion":    {"host.connection_probe": true, "host.ssh_install": true, "bastion.tls_relay": true, "kubernetes.connection_probe": true, "kubernetes.query": true, "credential.lease": true, "connector.uninstall": true},
-		"kubernetes": {"kubernetes.connection_probe": true, "kubernetes.query": true, "credential.lease": true, "connector.uninstall": true},
+		"bastion":    {"host.connection_probe": true, "host.ssh_install": true, "bastion.tls_relay": true, "kubernetes.connection_probe": true, "kubernetes.query": true, "credential.lease": true, "connector.uninstall": true, "argus.kubernetes_stream/v1": true, kuberneteshelm.SchemaVersion: true},
+		"kubernetes": {"kubernetes.connection_probe": true, "kubernetes.query": true, "credential.lease": true, "connector.uninstall": true, "argus.kubernetes_stream/v1": true, kuberneteshelm.SchemaVersion: true},
 	}
 	seen := map[string]bool{}
 	for _, value := range values {

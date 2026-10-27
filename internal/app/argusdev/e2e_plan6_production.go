@@ -43,7 +43,7 @@ func validatePlan6ProductionCoverage(env *E2EEnvironment, changed []plan6Product
 // Legacy prerequisites require the Replay test build. All Plan6 business
 // acceptance and release candidates use the normal production backend.
 func (a *App) usePlan6ProductionBackend(ctx context.Context, env *E2EEnvironment) error {
-	hostReady := (env.Options.Suite == "plan6" && env.Options.Plan6Phase == "host" || env.Options.Suite == "plan7") && env.State.Values["host_prerequisites_ready"] == "true"
+	hostReady := (env.Options.Suite == "plan6" && env.Options.Plan6Phase == "host" || env.Options.Suite == "plan7" || env.Options.Suite == "plan8") && env.State.Values["host_prerequisites_ready"] == "true"
 	if env.State.Values["p6_selfmonitor_ready"] != "true" && !hostReady {
 		return fmt.Errorf("production switch requires the completed self-monitoring prerequisite")
 	}

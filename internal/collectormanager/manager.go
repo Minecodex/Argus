@@ -76,6 +76,8 @@ type persistedState struct {
 	ResourceID        string `json:"resource_id"`
 	ResourceType      string `json:"resource_type"`
 	EffectiveRevision uint64 `json:"effective_revision"`
+	DesiredRevision   uint64 `json:"desired_revision"`
+	ApplyStatus       string `json:"apply_status"`
 	ConfigSHA256      string `json:"config_sha256"`
 	ArtifactSHA256    string `json:"artifact_sha256"`
 	RouteKind         string `json:"route_kind"`
@@ -204,7 +206,24 @@ func (manager Manager) ApplyLocal(ctx context.Context, command *connectorv1.Coll
 	if root == "" {
 		root = "/var/lib/argus-otelcol"
 	}
+	unlock, err := lockRuntime(ctx, root)
+	if err != nil {
+		return Result{}, withStage("runtime_lock", err)
+	}
+	defer unlock()
 	directory := filepath.Join(root, command.GetCollectorId())
+	if command.GetOperation() != "uninstall" {
+		previous, readErr := os.ReadFile(filepath.Join(directory, "state.json"))
+		if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+			return Result{}, readErr
+		}
+		if readErr == nil {
+			var state persistedState
+			if json.Unmarshal(previous, &state) != nil || state.CollectorID != command.GetCollectorId() || state.ResourceID != command.GetResourceId() || state.EffectiveRevision > command.GetDesiredRevision() || (state.EffectiveRevision == command.GetDesiredRevision() && state.ConfigSHA256 != strings.ToLower(command.GetConfigSha256())) {
+				return Result{}, ErrInvalidCommand
+			}
+		}
+	}
 	if command.GetOperation() == "uninstall" {
 		if manager.ManageLocalService {
 			if err := uninstallLocalCollectorService(ctx, root); err != nil {
@@ -229,6 +248,17 @@ func (manager Manager) ApplyLocal(ctx context.Context, command *connectorv1.Coll
 	if err = writeAtomic(filepath.Join(directory, "collector-config.yaml"), runtimeConfig, 0o600); err != nil {
 		return Result{}, withStage("config_prepare", err)
 	}
+	private, err := monitoringPrivateConfig(command)
+	if err != nil {
+		return Result{}, withStage("config_prepare", err)
+	}
+	defer clear(private)
+	if err = writeAtomic(filepath.Join(directory, "monitoring-private.json"), private, 0o600); err != nil {
+		return Result{}, withStage("config_prepare", err)
+	}
+	if manager.ManageLocalService {
+		defer os.Remove(filepath.Join(directory, "monitoring-private.json"))
+	}
 	trust, err := commandTrustBundle(command)
 	if err != nil {
 		return Result{}, withStage("trust_prepare", err)
@@ -246,26 +276,99 @@ func (manager Manager) ApplyLocal(ctx context.Context, command *connectorv1.Coll
 		ArtifactSHA256: strings.ToLower(command.GetArtifact().GetSha256()), RouteKind: command.GetRouteKind(),
 		TrustBundleEpoch: command.GetTrustBundleEpoch(), TrustBundleSHA256: strings.ToLower(command.GetTrustBundleSha256()),
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	state.DesiredRevision = command.GetDesiredRevision()
+	state.ApplyStatus = "effective"
+	if !manager.ManageLocalService {
+		state.EffectiveRevision = 0
+		state.ApplyStatus = "staged"
+	}
 	encoded, err := json.Marshal(state)
 	if err != nil {
 		return Result{}, withStage("state_prepare", err)
 	}
 	if manager.ManageLocalService {
-		if err = activateLocalCollectorService(ctx, command, root, directory); err != nil {
+		if err = activateLocalCollectorService(ctx, command, root, directory, func() error { return writeAtomic(filepath.Join(directory, "state.json"), encoded, 0600) }); err != nil {
 			return Result{}, withStage("service_activate", err)
 		}
-	}
-	if err = writeAtomic(filepath.Join(directory, "state.json"), encoded, 0o600); err != nil {
+	} else if err = writeAtomic(filepath.Join(directory, "state.json"), encoded, 0o600); err != nil {
 		return Result{}, withStage("state_persist", err)
+	}
+	if !manager.ManageLocalService {
+		result := buildResult(command, "staged")
+		result.EffectiveRevision = 0
+		return result, nil
 	}
 	return buildResult(command, "converged"), nil
 }
 
-func activateLocalCollectorService(ctx context.Context, command *connectorv1.CollectorManagementCommand, root, directory string) error {
+func activateLocalCollectorService(ctx context.Context, command *connectorv1.CollectorManagementCommand, root, directory string, commit func() error) (resultErr error) {
 	if os.Geteuid() != 0 || root != localCollectorRoot || !validLocalCollectorRoot(root) {
 		return ErrInvalidCommand
 	}
-	if err := installCollectorArchive(filepath.Join(directory, "collector.artifact"), "/usr/local/bin/argus-otelcol"); err != nil {
+	candidate := filepath.Join(directory, "candidate-binary")
+	if err := installCollectorArchive(filepath.Join(directory, "collector.artifact"), candidate); err != nil {
+		return err
+	}
+	defer os.Remove(candidate)
+	validate := exec.CommandContext(ctx, candidate, "validate", "--config="+filepath.Join(directory, "collector-config.yaml"), "--config="+filepath.Join(directory, "monitoring-private.json"))
+	if err := validate.Run(); err != nil {
+		return withStage("config_validation", ErrConfigInvalid)
+	}
+	saved, err := saveRuntimeFiles("/etc/argus-otelcol/config.yaml", "/etc/argus-otelcol/monitoring-private.json", "/etc/argus-otelcol/server-ca.pem", "/etc/systemd/system/argus-otelcol.service")
+	if err != nil {
+		return err
+	}
+	defer clearRuntimeFiles(saved)
+	runningErr := exec.CommandContext(ctx, "systemctl", "is-active", "--quiet", "argus-otelcol.service").Run()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if runningErr != nil {
+		var exit *exec.ExitError
+		if !errors.As(runningErr, &exit) || (exit.ExitCode() != 3 && exit.ExitCode() != 4) {
+			return runningErr
+		}
+	}
+	wasRunning := runningErr == nil
+	backup := filepath.Join(directory, "previous-binary")
+	_ = os.Remove(backup)
+	hadBinary := false
+	if _, err := os.Lstat("/usr/local/bin/argus-otelcol"); err == nil {
+		if err = copyRuntimeFile("/usr/local/bin/argus-otelcol", backup, 0755); err != nil {
+			return err
+		}
+		hadBinary = true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	defer os.Remove(backup)
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), localCollectorReadyTimeout)
+		defer cancel()
+		_ = exec.CommandContext(rollbackCtx, "systemctl", "stop", "argus-otelcol.service").Run()
+		restoreErr := restoreRuntimeFiles(saved)
+		if hadBinary {
+			restoreErr = errors.Join(restoreErr, copyRuntimeFile(backup, "/usr/local/bin/argus-otelcol", 0755))
+		} else {
+			if e := os.Remove("/usr/local/bin/argus-otelcol"); e != nil && !errors.Is(e, os.ErrNotExist) {
+				restoreErr = errors.Join(restoreErr, e)
+			}
+		}
+		restoreErr = errors.Join(restoreErr, exec.CommandContext(rollbackCtx, "systemctl", "daemon-reload").Run())
+		if wasRunning {
+			restoreErr = errors.Join(restoreErr, exec.CommandContext(rollbackCtx, "systemctl", "restart", "argus-otelcol.service").Run())
+			if restoreErr == nil {
+				restoreErr = waitLocalCollectorReady(rollbackCtx, root, command.GetCollectorId())
+			}
+		}
+		if restoreErr != nil {
+			resultErr = errors.Join(resultErr, withStage("rollback", ErrRollbackFailed))
+		}
+	}()
+	if err = copyRuntimeFile(candidate, "/usr/local/bin/argus-otelcol", 0755); err != nil {
 		return err
 	}
 	runtimeConfig, err := configbundle.Extract(command.GetRenderedConfig(), "host")
@@ -280,6 +383,14 @@ func activateLocalCollectorService(ctx context.Context, command *connectorv1.Col
 		return err
 	}
 	if err = writeAtomic("/etc/argus-otelcol/config.yaml", runtimeConfig, 0o600); err != nil {
+		return err
+	}
+	private, err := monitoringPrivateConfig(command)
+	if err != nil {
+		return err
+	}
+	defer clear(private)
+	if err = writeAtomic("/etc/argus-otelcol/monitoring-private.json", private, 0o600); err != nil {
 		return err
 	}
 	if err = writeAtomic("/etc/argus-otelcol/server-ca.pem", trust.PEM, 0o600); err != nil {
@@ -302,12 +413,15 @@ func activateLocalCollectorService(ctx context.Context, command *connectorv1.Col
 	if err = writeAtomic("/etc/systemd/system/argus-otelcol.service", []byte(unit), 0o644); err != nil {
 		return err
 	}
-	for _, arguments := range [][]string{{"daemon-reload"}, {"enable", "--now", "argus-otelcol.service"}, {"is-active", "--quiet", "argus-otelcol.service"}} {
+	for _, arguments := range [][]string{{"daemon-reload"}, {"enable", "argus-otelcol.service"}, {"restart", "argus-otelcol.service"}, {"is-active", "--quiet", "argus-otelcol.service"}} {
 		if output, commandErr := exec.CommandContext(ctx, "systemctl", arguments...).CombinedOutput(); commandErr != nil {
 			return fmt.Errorf("collector systemd %s: %w: %s", arguments[0], commandErr, strings.TrimSpace(string(output)))
 		}
 	}
-	return waitLocalCollectorReady(ctx, root, command.GetCollectorId())
+	if err = waitLocalCollectorReady(ctx, root, command.GetCollectorId()); err != nil {
+		return err
+	}
+	return commit()
 }
 
 func prepareLocalCollectorIdentity(ctx context.Context, root, collectorID string) error {
@@ -420,7 +534,7 @@ func uninstallLocalCollectorService(ctx context.Context, root string) error {
 	if err := clearDirectory("/etc/argus-otelcol", 0o755); err != nil {
 		return withStage("service_files_remove", err)
 	}
-	if err := clearDirectory(root, 0o700); err != nil {
+	if err := clearDirectory(root, 0o700, runtimeLockFile); err != nil {
 		return withStage("state_remove", err)
 	}
 	if output, err := exec.CommandContext(ctx, "systemctl", "daemon-reload").CombinedOutput(); err != nil {
@@ -432,12 +546,15 @@ func uninstallLocalCollectorService(ctx context.Context, root string) error {
 	return nil
 }
 
-func clearDirectory(path string, mode os.FileMode) error {
+func clearDirectory(path string, mode os.FileMode, keep ...string) error {
 	entries, err := os.ReadDir(path)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	for _, entry := range entries {
+		if slices.Contains(keep, entry.Name()) {
+			continue
+		}
 		if err = os.RemoveAll(filepath.Join(path, entry.Name())); err != nil {
 			return err
 		}
@@ -454,6 +571,18 @@ func localCollectorSystemdUnit(command *connectorv1.CollectorManagementCommand, 
 	environment := func(name, value string) string {
 		return "Environment=" + strconv.Quote(name+"="+value) + "\n"
 	}
+	privateTmp := "true"
+	// A file receiver must see the host's declared /tmp and /var/tmp paths.
+	// ProtectSystem keeps them read-only; internal temp files have a separate
+	// private RuntimeDirectory instead of replacing the observed filesystem.
+	if sources, err := configbundle.Sources(command.GetRenderedConfig()); err == nil {
+		for _, source := range sources {
+			if source.Type == "filelog" {
+				privateTmp = "false"
+				break
+			}
+		}
+	}
 	return `[Unit]
 Description=Argus managed OpenTelemetry Collector
 After=network-online.target
@@ -461,17 +590,20 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-` + environment("ARGUS_TELEMETRY_ENROLLMENT_TOKEN_FILE", "/etc/argus-otelcol/enrollment-token") +
+RuntimeDirectory=argus-otelcol-tmp
+RuntimeDirectoryMode=0700
+` + environment("TMPDIR", "/run/argus-otelcol-tmp") +
+		environment("ARGUS_TELEMETRY_ENROLLMENT_TOKEN_FILE", "/etc/argus-otelcol/enrollment-token") +
 		environment("ARGUS_TELEMETRY_ENROLLMENT_ENDPOINT", command.GetEnrollmentEndpoint()) +
 		environment("ARGUS_TELEMETRY_INGEST_GRPC_ENDPOINT", command.GetIngestGrpcEndpoint()) +
 		environment("ARGUS_TELEMETRY_INGEST_HTTP_ENDPOINT", command.GetIngestHttpEndpoint()) +
-		`ExecStart=/usr/local/bin/argus-otelcol --config=/etc/argus-otelcol/config.yaml
+		`ExecStart=/usr/local/bin/argus-otelcol --config=/etc/argus-otelcol/config.yaml --config=/etc/argus-otelcol/monitoring-private.json
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-PrivateTmp=true
+PrivateTmp=` + privateTmp + `
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

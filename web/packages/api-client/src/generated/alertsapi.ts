@@ -267,14 +267,14 @@ export interface components {
             operator: "=" | "!=" | "=~" | "!~";
             value: string;
         };
-        /** @description Named hosts or clusters must first be resolved with the existing resource tools, then selected by their explicit UUIDs. Dynamic selection evaluates resource LABELS inside the evaluator's existing grants; the resource name field is not a label. 指定某台主机或集群时先查询实际 UUID 并使用 explicit + ids；dynamic 的 matchers 只匹配资源 labels，不匹配资源名称字段。 */
+        /** @description Resolve hosts, clusters, applications or monitoring targets with the resource tools before selecting their explicit UUIDs. Dynamic selection evaluates resource LABELS inside the evaluator's existing grants; the resource name field is not a label. 指定主机、集群、应用或监控目标时先查询实际 UUID 并使用 explicit + ids；dynamic 的 matchers 只匹配资源 labels，不匹配资源名称字段。 */
         AlertResourceSelector: {
             /**
              * @description Use explicit for concrete requested resources; dynamic is for intentionally changing label-selected authorized sets.
              * @enum {string}
              */
             mode: "dynamic" | "explicit";
-            types: ("host" | "kubernetes_cluster")[];
+            types: ("host" | "kubernetes_cluster" | "application" | "monitoring_target")[];
             ids?: string[];
             /** @description Resource labels only. Do not use name as a matcher to select a named resource unless that exact label was read from the resource. */
             matchers?: components["schemas"]["AlertMatcher"][];
@@ -406,6 +406,8 @@ export interface components {
             updated_at: string;
             /** Format: int64 */
             matched_instances?: number;
+            /** @enum {string} */
+            managed_by?: "collector_delivery";
         };
         IdempotencyKey: string;
         AlertMutation: {
@@ -528,6 +530,37 @@ export interface components {
             outcomes?: components["schemas"]["AlertEvaluationOutcome"][];
             sources_captured?: boolean;
         };
+        CollectorDeliveryCounts: {
+            /** Format: int64 */
+            log_records: number;
+            /** Format: int64 */
+            spans: number;
+            /** Format: int64 */
+            metric_points: number;
+        };
+        CollectorDeliveryReport: {
+            /** @enum {string} */
+            schema_version: "argus.collector_delivery/v1";
+            instance_id: string;
+            /** Format: int64 */
+            sequence: number;
+            /** Format: date-time */
+            observed_since: string;
+            /** Format: date-time */
+            observed_at: string;
+            /** Format: date-time */
+            last_failure_at?: string;
+            terminal_failures: components["schemas"]["CollectorDeliveryCounts"];
+            receiver_refusals: components["schemas"]["CollectorDeliveryCounts"];
+            enqueue_failures: components["schemas"]["CollectorDeliveryCounts"];
+            /**
+             * Format: int64
+             * @enum {integer}
+             */
+            retry_limit_seconds: 300;
+            /** @enum {string} */
+            attribution: "collector_shared_pipeline_exact_targets_unknown";
+        };
         AlertInstanceState: {
             name: string;
             policy_name: string;
@@ -573,6 +606,7 @@ export interface components {
              * @description Time of the last successful evaluation that produced the retained value and members. Unchanged on failed evaluations; absent when unknown. This is not the telemetry sample timestamp.
              */
             last_successful_at?: string;
+            delivery_gap?: components["schemas"]["CollectorDeliveryReport"];
         };
         AlertInstance: {
             /** Format: uuid */

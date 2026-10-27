@@ -49,6 +49,9 @@ func encodeToolResultProjection(resultRef, toolCallID string, full []byte, resul
 		"resource_refs":             refs,
 		"summary":                   summary,
 	}
+	if result.QueryFile != "" {
+		payload["workspace_file"] = map[string]any{"path": "/workspace/" + result.QueryFile, "source_result_ref": resultRef, "delivery": "required_before_next_model_round", "instructions": "Read the actual JSON file with read or bash before analysis. Source permissions are rechecked on every file operation."}
+	}
 	encoded, err := marshalProjection(payload)
 	if err != nil {
 		return nil, false, err

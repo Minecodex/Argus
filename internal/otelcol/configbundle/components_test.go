@@ -38,6 +38,13 @@ func TestDistributionInventoryMatchesLockedOCBManifests(t *testing.T) {
 			for _, component := range group {
 				module := filepath.Base(strings.Fields(component.GoMod)[0])
 				aliases := map[string]string{"argusidentity": "argus_identity", "argusgatewayidentity": "argus_gateway_identity", "k8sclusterreceiver": "k8s_cluster", "memorylimiterprocessor": "memory_limiter", "filestorage": "file_storage", "healthcheckextension": "health_check"}
+				aliases["argusapplicationauth"] = "argus_application_auth"
+				aliases["argusapplicationidentity"] = "argus_application_identity"
+				aliases["arguslogidentity"] = "argus_log_identity"
+				aliases["windowsservicereceiver"] = "windows_service"
+				for module, runtime := range map[string]string{"kafkametricsreceiver": "kafka_metrics", "httpcheckreceiver": "http_check", "tcpcheckreceiver": "tcp_check", "tlscheckreceiver": "tls_check", "dnscheckreceiver": "dns_check", "icmpcheckreceiver": "icmpcheckreceiver"} {
+					aliases[module] = runtime
+				}
 				id := aliases[module]
 				if id == "" {
 					id = strings.TrimSuffix(strings.TrimSuffix(strings.TrimSuffix(module, "receiver"), "processor"), "exporter")

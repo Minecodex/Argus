@@ -58,7 +58,7 @@ func (q *Queries) ActivateDashboardRevision(ctx context.Context, arg ActivateDas
 
 const consumeDashboardDraft = `-- name: ConsumeDashboardDraft :one
 UPDATE dashboard_drafts SET status='published',dashboard_id=$3,published_revision_id=$4,updated_at=now()
-WHERE id=$1 AND enterprise_id=$2 AND draft_version=$5 AND status='editing' RETURNING id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at
+WHERE id=$1 AND enterprise_id=$2 AND draft_version=$5 AND status='editing' RETURNING id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at, source_template_key, source_template_version
 `
 
 type ConsumeDashboardDraftParams struct {
@@ -96,6 +96,8 @@ func (q *Queries) ConsumeDashboardDraft(ctx context.Context, arg ConsumeDashboar
 		&i.ProposedBindings,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceTemplateKey,
+		&i.SourceTemplateVersion,
 	)
 	return i, err
 }
@@ -196,7 +198,7 @@ func (q *Queries) CreateDashboardBinding(ctx context.Context, arg CreateDashboar
 
 const createDashboardDraft = `-- name: CreateDashboardDraft :one
 INSERT INTO dashboard_drafts(id,enterprise_id,dashboard_id,editor_subject_type,editor_subject_id,base_revision_id,base_object_version,name,description,folder_id,spec,proposed_bindings)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at, source_template_key, source_template_version
 `
 
 type CreateDashboardDraftParams struct {
@@ -248,6 +250,8 @@ func (q *Queries) CreateDashboardDraft(ctx context.Context, arg CreateDashboardD
 		&i.ProposedBindings,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceTemplateKey,
+		&i.SourceTemplateVersion,
 	)
 	return i, err
 }
@@ -456,7 +460,7 @@ func (q *Queries) GetDashboard(ctx context.Context, arg GetDashboardParams) (Das
 }
 
 const getDashboardDraft = `-- name: GetDashboardDraft :one
-SELECT id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at FROM dashboard_drafts WHERE id=$1 AND enterprise_id=$2 AND editor_subject_type=$3 AND editor_subject_id=$4
+SELECT id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at, source_template_key, source_template_version FROM dashboard_drafts WHERE id=$1 AND enterprise_id=$2 AND editor_subject_type=$3 AND editor_subject_id=$4
 `
 
 type GetDashboardDraftParams struct {
@@ -492,6 +496,8 @@ func (q *Queries) GetDashboardDraft(ctx context.Context, arg GetDashboardDraftPa
 		&i.ProposedBindings,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceTemplateKey,
+		&i.SourceTemplateVersion,
 	)
 	return i, err
 }
@@ -594,7 +600,7 @@ func (q *Queries) ListDashboardBindings(ctx context.Context, arg ListDashboardBi
 }
 
 const listDashboardDrafts = `-- name: ListDashboardDrafts :many
-SELECT id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at FROM dashboard_drafts WHERE enterprise_id=$1 AND editor_subject_type=$2 AND editor_subject_id=$3 AND status='editing' ORDER BY updated_at DESC,id
+SELECT id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at, source_template_key, source_template_version FROM dashboard_drafts WHERE enterprise_id=$1 AND editor_subject_type=$2 AND editor_subject_id=$3 AND status='editing' ORDER BY updated_at DESC,id
 `
 
 type ListDashboardDraftsParams struct {
@@ -630,6 +636,8 @@ func (q *Queries) ListDashboardDrafts(ctx context.Context, arg ListDashboardDraf
 			&i.ProposedBindings,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SourceTemplateKey,
+			&i.SourceTemplateVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -883,7 +891,7 @@ func (q *Queries) LockDashboardBindingHost(ctx context.Context, arg LockDashboar
 }
 
 const lockDashboardDraft = `-- name: LockDashboardDraft :one
-SELECT id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at FROM dashboard_drafts WHERE id=$1 AND enterprise_id=$2 AND editor_subject_type=$3 AND editor_subject_id=$4 FOR UPDATE
+SELECT id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at, source_template_key, source_template_version FROM dashboard_drafts WHERE id=$1 AND enterprise_id=$2 AND editor_subject_type=$3 AND editor_subject_id=$4 FOR UPDATE
 `
 
 type LockDashboardDraftParams struct {
@@ -919,6 +927,8 @@ func (q *Queries) LockDashboardDraft(ctx context.Context, arg LockDashboardDraft
 		&i.ProposedBindings,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceTemplateKey,
+		&i.SourceTemplateVersion,
 	)
 	return i, err
 }
@@ -953,7 +963,7 @@ func (q *Queries) LockDashboardFolder(ctx context.Context, arg LockDashboardFold
 
 const rebaseDashboardDraft = `-- name: RebaseDashboardDraft :one
 UPDATE dashboard_drafts SET base_revision_id=$5,base_object_version=$6,draft_version=draft_version+1,updated_at=now()
-WHERE id=$1 AND enterprise_id=$2 AND editor_subject_type=$3 AND editor_subject_id=$4 AND draft_version=$7 AND status='editing' RETURNING id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at
+WHERE id=$1 AND enterprise_id=$2 AND editor_subject_type=$3 AND editor_subject_id=$4 AND draft_version=$7 AND status='editing' RETURNING id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at, source_template_key, source_template_version
 `
 
 type RebaseDashboardDraftParams struct {
@@ -995,13 +1005,15 @@ func (q *Queries) RebaseDashboardDraft(ctx context.Context, arg RebaseDashboardD
 		&i.ProposedBindings,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceTemplateKey,
+		&i.SourceTemplateVersion,
 	)
 	return i, err
 }
 
 const saveDashboardDraft = `-- name: SaveDashboardDraft :one
 UPDATE dashboard_drafts SET name=$5,description=$6,folder_id=$7,spec=$8,proposed_bindings=$9,draft_version=draft_version+1,updated_at=now()
-WHERE id=$1 AND enterprise_id=$2 AND editor_subject_type=$3 AND editor_subject_id=$4 AND draft_version=$10 AND status='editing' RETURNING id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at
+WHERE id=$1 AND enterprise_id=$2 AND editor_subject_type=$3 AND editor_subject_id=$4 AND draft_version=$10 AND status='editing' RETURNING id, enterprise_id, dashboard_id, editor_subject_type, editor_subject_id, base_revision_id, base_object_version, draft_version, status, published_revision_id, name, description, folder_id, spec, proposed_bindings, created_at, updated_at, source_template_key, source_template_version
 `
 
 type SaveDashboardDraftParams struct {
@@ -1049,6 +1061,8 @@ func (q *Queries) SaveDashboardDraft(ctx context.Context, arg SaveDashboardDraft
 		&i.ProposedBindings,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SourceTemplateKey,
+		&i.SourceTemplateVersion,
 	)
 	return i, err
 }

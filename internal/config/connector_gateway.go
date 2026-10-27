@@ -37,6 +37,7 @@ type ConnectorGateway struct {
 	HeartbeatInterval           time.Duration
 	RemoteOrigin                string
 	RemoteAllowedOrigins        []string
+	DirectDeniedCIDRs           []string
 	GuacdAddress                string
 	ObjectStoreURL              string
 	ObjectStoreBucket           string
@@ -92,6 +93,7 @@ func LoadConnectorGateway() ConnectorGateway {
 		HeartbeatInterval:           30 * time.Second,
 		RemoteOrigin:                os.Getenv("ARGUS_REMOTE_ORIGIN"),
 		RemoteAllowedOrigins:        splitList(os.Getenv("ARGUS_ALLOWED_ORIGINS")),
+		DirectDeniedCIDRs:           splitList(os.Getenv("ARGUS_DIRECT_DENIED_CIDRS")),
 		GuacdAddress:                valueOrDefault("ARGUS_GUACD_ADDRESS", "127.0.0.1:4822"),
 		ObjectStoreURL:              os.Getenv("ARGUS_OBJECT_STORE_URL"),
 		ObjectStoreBucket:           os.Getenv("ARGUS_OBJECT_STORE_BUCKET"),

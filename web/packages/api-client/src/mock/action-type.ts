@@ -10,6 +10,7 @@ const ACTION_TYPE_ALIASES: Record<string, string> = {
 
 /** Keep mock execution tool names independent from the public domain action type. */
 export function publicActionType(tool: string): string {
+  if(tool.startsWith("monitoring.application."))return tool.slice("monitoring.".length);
   const collectorMatch = tool.match(
     /^telemetry\.(?:host|kubernetes)\.(install|configure|upgrade|repair|uninstall)$/,
   );

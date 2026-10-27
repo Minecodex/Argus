@@ -271,6 +271,12 @@ func toActionExecution(value actionservice.ExecutionView) actionapi.Execution {
 			Kind interface{}        `json:"kind"`
 		}{Id: execution.HostRemovalOperationID.UUID, Kind: "host_removal"}
 	}
+	if execution.KubernetesOperationID.Valid {
+		result.OperationRef = &struct {
+			Id   openapi_types.UUID `json:"id"`
+			Kind interface{}        `json:"kind"`
+		}{Id: execution.KubernetesOperationID.UUID, Kind: "kubernetes_operation"}
+	}
 	if execution.ResultRef.Valid {
 		result.ResultRef = &execution.ResultRef.String
 	}

@@ -24,6 +24,9 @@ message DiscoverDataRequest {
   QueryBudget budget = 11;
   uint32 limit = 12;
   string cursor = 13;
+  reserved 14;
+  reserved "scope_signature";
+  string schema_version = 15;
 }
 message DiscoverDataResponse {
   string schema_version = 1;

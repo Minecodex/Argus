@@ -1,0 +1,66 @@
+{
+  "components": {
+    "schemas": {
+      "KubernetesHelmChartSource": {
+        "type": "object", "additionalProperties": false,
+        "required": ["kind", "url", "version"],
+        "properties": {
+          "kind": {"type": "string", "enum": ["repository", "oci"]},
+          "url": {"type": "string", "maxLength": 2048, "description": "Repository base URL or oci://registry/path/chart; no user info, query or fragment"},
+          "chart": {"type": "string", "maxLength": 128},
+          "version": {"type": "string", "maxLength": 128, "description": "Exact semantic Chart version"},
+          "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$", "description": "Optional expected archive SHA256 for repository or manifest SHA256 for OCI"},
+          "plain_http": {"type": "boolean", "description": "Explicitly permit HTTP for this source; TLS redirects/downgrades remain rejected"},
+          "auth_url": {"type": "string", "maxLength": 2048, "description": "Explicit trusted cross-origin OCI token service URL, without query or fragment"}
+        }
+      },
+      "KubernetesHelmSourceCredentials": {
+        "type": "object", "additionalProperties": false,
+        "properties": {
+          "username": {"type": "string", "maxLength": 256, "writeOnly": true},
+          "password": {"type": "string", "maxLength": 4096, "writeOnly": true},
+          "token": {"type": "string", "maxLength": 16384, "writeOnly": true},
+          "ca_pem": {"type": "string", "maxLength": 32768, "writeOnly": true, "description": "Additional CA certificates only; no private keys or disabled TLS validation"}
+        }
+      },
+      "KubernetesHelmRelease": {
+        "type": "object",
+        "required": ["name", "namespace", "revision", "status", "chart", "chart_version", "updated_at"],
+        "properties": {
+          "name": {"type": "string"},
+          "namespace": {"type": "string"},
+          "revision": {"type": "integer", "minimum": 1},
+          "status": {"type": "string"},
+          "chart": {"type": "string"},
+          "chart_version": {"type": "string"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "KubernetesHelmReleases": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {"type": "array", "maxItems": 200, "items": {"$ref": "#/components/schemas/KubernetesHelmRelease"}}
+        }
+      },
+      "KubernetesHelmPreviewInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["namespace_id", "operation", "name", "expected_revision", "timeout_seconds", "reason"],
+        "properties": {
+          "namespace_id": {"type": "string", "format": "uuid"},
+          "operation": {"type": "string", "enum": ["install", "upgrade", "rollback", "uninstall"]},
+          "name": {"type": "string", "minLength": 1, "maxLength": 53, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"},
+          "expected_revision": {"type": "integer", "minimum": 0},
+          "rollback_revision": {"type": "integer", "minimum": 1},
+          "timeout_seconds": {"type": "integer", "minimum": 10, "maximum": 240},
+          "reason": {"type": "string", "minLength": 1, "maxLength": 500},
+          "chart_archive": {"type": "string", "format": "byte", "maxLength": 524288, "writeOnly": true, "description": "Protected packaged .tgz chart; never a URL or shell command"},
+          "source": {"$ref": "#/components/schemas/KubernetesHelmChartSource"},
+          "source_credentials": {"$ref": "#/components/schemas/KubernetesHelmSourceCredentials", "writeOnly": true},
+          "values": {"type": "string", "maxLength": 98304, "writeOnly": true, "description": "Protected YAML/JSON values; not included in public previews or model context"}
+        }
+      }
+    }
+  }
+}

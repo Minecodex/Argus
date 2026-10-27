@@ -200,6 +200,9 @@ rules:
 - apiGroups: [""]
   resources: [namespaces,nodes,pods,pods/log,services,endpoints,events]
   verbs: [get,list,watch]
+- apiGroups: [discovery.k8s.io]
+  resources: [endpointslices]
+  verbs: [get,list,watch]
 - apiGroups: [apps]
   resources: [deployments,daemonsets,statefulsets,replicasets]
   verbs: [get,list,watch]
@@ -235,11 +238,11 @@ metadata: {name: argus-kubernetes-connector-collector-repair, namespace: argus-t
 rules:
 - apiGroups: [""]
   resources: [configmaps]
-  resourceNames: [argus-otelcol-config]
+  resourceNames: [argus-otelcol-config,argus-otelcol-config-next]
   verbs: [get,update,patch]
 - apiGroups: [""]
   resources: [secrets]
-  resourceNames: [argus-otelcol-identity]
+  resourceNames: [argus-otelcol-identity,argus-otelcol-monitoring,argus-otelcol-monitoring-next]
   verbs: [get,update,patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -254,11 +257,11 @@ metadata: {name: argus-kubernetes-connector-collector-manager, namespace: argus-
 rules:
 - apiGroups: [""]
   resources: [configmaps]
-  resourceNames: [argus-otelcol-config]
+  resourceNames: [argus-otelcol-config,argus-otelcol-config-next]
   verbs: [get,update,patch,delete]
 - apiGroups: [""]
   resources: [secrets]
-  resourceNames: [argus-otelcol-identity]
+  resourceNames: [argus-otelcol-identity,argus-otelcol-monitoring,argus-otelcol-monitoring-next]
   verbs: [get,update,patch,delete]
 - apiGroups: [""]
   resources: [serviceaccounts]
@@ -281,13 +284,31 @@ rules:
   resourceNames: [argus-otelcol-identity]
   verbs: [get,update,patch,delete]
 - apiGroups: [""]
-  resources: [configmaps,secrets,serviceaccounts,services]
+  resources: [persistentvolumeclaims]
+  resourceNames: [argus-otelcol-gateway-state]
+  verbs: [get,delete]
+- apiGroups: [""]
+  resources: [configmaps,secrets,serviceaccounts,services,persistentvolumeclaims]
   verbs: [create]
 - apiGroups: [apps]
   resources: [deployments,daemonsets]
   verbs: [create]
 - apiGroups: [rbac.authorization.k8s.io]
   resources: [roles,rolebindings]
+  verbs: [create]
+- apiGroups: [batch]
+  resources: [jobs]
+  resourceNames: [argus-otelcol-validate]
+  verbs: [get,delete]
+- apiGroups: [batch]
+  resources: [jobs]
+  verbs: [create]
+- apiGroups: [coordination.k8s.io]
+  resources: [leases]
+  resourceNames: [argus-otelcol-publish]
+  verbs: [get,update,patch,delete]
+- apiGroups: [coordination.k8s.io]
+  resources: [leases]
   verbs: [create]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -301,7 +322,13 @@ kind: ClusterRole
 metadata: {name: argus-otelcol-reader}
 rules:
 - apiGroups: [""]
-  resources: [nodes,nodes/proxy,nodes/stats,namespaces,pods,services,endpoints,replicationcontrollers,resourcequotas]
+  resources: [nodes,nodes/spec,namespaces,namespaces/status,pods,pods/status,services,endpoints,replicationcontrollers,replicationcontrollers/status,resourcequotas,persistentvolumes,persistentvolumeclaims,events]
+  verbs: [get,list,watch]
+- apiGroups: [""]
+  resources: [nodes/stats,nodes/metrics]
+  verbs: [get]
+- apiGroups: [discovery.k8s.io]
+  resources: [endpointslices]
   verbs: [get,list,watch]
 - apiGroups: [apps]
   resources: [deployments,statefulsets,daemonsets,replicasets]
@@ -312,12 +339,31 @@ rules:
 - apiGroups: [autoscaling]
   resources: [horizontalpodautoscalers]
   verbs: [get,list,watch]
+- apiGroups: [policy]
+  resources: [poddisruptionbudgets]
+  verbs: [get,list,watch]
+- nonResourceURLs: ["/metrics"]
+  verbs: [get]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata: {name: argus-otelcol-reader}
 subjects: [{kind: ServiceAccount, name: argus-otelcol, namespace: argus-telemetry}]
 roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: argus-otelcol-reader}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: argus-otelcol-component-proxy, namespace: kube-system}
+rules:
+- apiGroups: [""]
+  resources: [pods/proxy]
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: argus-otelcol-component-proxy, namespace: kube-system}
+subjects: [{kind: ServiceAccount, name: argus-otelcol, namespace: argus-telemetry}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: argus-otelcol-component-proxy}
 ---
 apiVersion: apps/v1
 kind: Deployment

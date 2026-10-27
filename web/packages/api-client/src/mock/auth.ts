@@ -26,7 +26,7 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
     if (user.platformRole) {
       return withStepUp({
         session: {
-          id: `session-${user.id}`,
+          id: db.session.id ?? `session-${user.id}`,
           audience: "platform",
           user_id: user.id,
           locale: "zh-CN",
@@ -57,7 +57,7 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
     ];
     return withStepUp({
       session: {
-        id: `session-${user.id}`,
+        id: db.session.id ?? `session-${user.id}`,
         audience: "enterprise",
         user_id: user.id,
         enterprise_id: enterpriseUser.enterpriseId,
@@ -102,6 +102,7 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
         throw new Error("invalid credentials");
       }
       db.session.userId = user.id;
+      db.session.id = crypto.randomUUID();
       stepUpExpiresAt = undefined;
       const enterpriseUser = db.enterpriseUsers.find(
         (m) => m.userId === user.id,
@@ -124,6 +125,7 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
       if (!user) throw new Error("invalid password change challenge");
       db.credentials[user.id] = input.new_password;
       db.session.userId = user.id;
+      db.session.id = crypto.randomUUID();
       const enterpriseUser = db.enterpriseUsers.find(
         (entry) => entry.userId === user.id,
       );
@@ -218,6 +220,7 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
       db.credentials[user.id] = input.new_password;
       db.session.userId = null;
       db.session.enterpriseId = null;
+      delete db.session.id;
       stepUpExpiresAt = undefined;
       ctx.audit("auth.password_change", {
         summary: `${user.displayName} 修改密码`,
@@ -230,6 +233,7 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
       ctx.audit("auth.logout", { summary: "登出" });
       db.session.userId = null;
       db.session.enterpriseId = null;
+      delete db.session.id;
       stepUpExpiresAt = undefined;
       ctx.save();
     },

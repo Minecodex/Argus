@@ -143,7 +143,11 @@ export function createApprovalsDomain(
       });
       if (action.approval.approved_count >= action.approval.minimum_approvers) {
         action.status = "ready";
-        ctx.startExecution(action);
+        const committed =
+          (plan.tool.startsWith("kubernetes.object.") ||
+            plan.tool.startsWith("kubernetes.helm.")) &&
+          ctx.commitResourceAction(action);
+        if (!committed) ctx.startExecution(action);
       } else {
         action.updated_at = ctx.nowIso();
         ctx.save();

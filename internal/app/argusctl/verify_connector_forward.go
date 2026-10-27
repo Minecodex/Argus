@@ -15,8 +15,12 @@ import (
 // The local E2E runner explicitly proves its port-forward TLS route. This is
 // reported separately and never represents external LoadBalancer acceptance.
 func verifyConnectorForward(ctx context.Context, cfg *InstallConfig, address, caPath string, certificates ...tls.Certificate) error {
-	if cfg.Spec.Profile == "production" || cfg.Spec.KubeContext != "docker-desktop" || cfg.Spec.Images.Mode != "local-registry" {
-		return fmt.Errorf("connector forward verification is restricted to local Docker Desktop profiles")
+	// Kubeconfig context names are user-selected aliases. A local kind cluster
+	// (or a renamed Docker Desktop context) has the same explicit forwarding
+	// boundary: a local profile, loopback transport, and verified mTLS identity.
+	// This check never substitutes for production LoadBalancer reachability.
+	if (cfg.Spec.Profile != "evaluation" && cfg.Spec.Profile != "local-hardening") || cfg.Spec.Images.Mode != "local-registry" {
+		return fmt.Errorf("connector forward verification requires an evaluation or local-hardening profile with local-registry images")
 	}
 	host, _, err := net.SplitHostPort(address)
 	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {

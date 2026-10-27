@@ -2,6 +2,7 @@ package kql
 
 import (
 	"fmt"
+	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chscope"
 	"strings"
 )
 
@@ -47,11 +48,10 @@ func CompileQuery(table string, request Request) (QueryPlan, error) {
 	if err != nil {
 		return plan, err
 	}
-	where := "timestamp >= ? AND timestamp < ? AND resource_id IN (?)"
-	whereArgs := []any{request.Start, request.End, request.Scope.ResourceIDs}
+	where := "timestamp >= fromUnixTimestamp64Nano(?, 'UTC') AND timestamp < fromUnixTimestamp64Nano(?, 'UTC') AND resource_id IN (?)"
+	whereArgs := []any{request.Start.UnixNano(), request.End.UnixNano(), request.Scope.ResourceIDs}
 	if len(request.Scope.SourceKeys) > 0 {
-		where += " AND source_key IN (?)"
-		whereArgs = append(whereArgs, request.Scope.SourceKeys)
+		where += " AND " + chscope.ExactPredicate("source_key")
 	}
 	if stages[0] != "*" {
 		expr, err := Parse(stages[0])

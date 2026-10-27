@@ -101,8 +101,9 @@ func (executor *Executor) Run(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			_, _ = executor.Store.Queries.ExpireQueuedConnectionTests(ctx)
-			_, _ = executor.Store.Queries.RecoverTelemetryCollectorOperations(ctx)
-			_, _ = executor.Store.Queries.ExpireTelemetryCollectorOperations(ctx)
+			if err := executor.SweepCollectorOperations(ctx); err != nil {
+				return err
+			}
 			_, _ = executor.Store.Queries.ExpireCollectionClaimMigrations(ctx)
 			reserved := executor.reserveAvailable()
 			if reserved == 0 {

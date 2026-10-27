@@ -33,14 +33,16 @@ type draftExecutionContext struct {
 	DefinitionHash string    `json:"definition_hash"`
 }
 type detailContext struct {
-	PanelID       string                      `json:"panel_id"`
-	TargetID      string                      `json:"target_id"`
-	Inputs        map[string]string           `json:"inputs"`
-	From          time.Time                   `json:"from"`
-	To            time.Time                   `json:"to"`
-	Resources     []ResourceScope             `json:"resources"`
-	Sources       []ResolvedSource            `json:"sources"`
-	DetailSources map[string][]ResolvedSource `json:"detail_sources"`
+	ScopeSignature string                      `json:"scope_signature"`
+	ScopeVersions  ScopeVersions               `json:"scope_versions"`
+	PanelID        string                      `json:"panel_id"`
+	TargetID       string                      `json:"target_id"`
+	Inputs         map[string]string           `json:"inputs"`
+	From           time.Time                   `json:"from"`
+	To             time.Time                   `json:"to"`
+	Resources      []ResourceScope             `json:"resources"`
+	Sources        []ResolvedSource            `json:"sources"`
+	DetailSources  map[string][]ResolvedSource `json:"detail_sources"`
 }
 
 func (runtime Runtime) attachExecutionContext(actor Actor, result *Execution) error {

@@ -720,9 +720,11 @@ type CollectorPreview struct {
 	KubernetesImage *string `json:"kubernetes_image,omitempty"`
 
 	// LoopbackPort 隧道形态的 OTLP 回环端口;缺省 14317,相邻端口保留给身份注册与轮换;4317 保留给本机 OTLP receiver
-	LoopbackPort *int                 `json:"loopback_port,omitempty"`
-	ProfileIds   []openapi_types.UUID `json:"profile_ids"`
-	RouteKind    TelemetryRouteKind   `json:"route_kind"`
+	LoopbackPort *int `json:"loopback_port,omitempty"`
+
+	// ProfileIds 空集合表示不启用固定采集；Collector 身份、健康与独立采集实例继续保留。
+	ProfileIds []openapi_types.UUID `json:"profile_ids"`
+	RouteKind  TelemetryRouteKind   `json:"route_kind"`
 
 	// Transport 遥测字节的物理路径,与路由 kind 正交;隧道形态见 PlanV4
 	Transport TelemetryRouteTransport `json:"transport"`

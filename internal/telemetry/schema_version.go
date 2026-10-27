@@ -7,7 +7,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
-const TelemetrySchemaVersion uint32 = 4
+const TelemetrySchemaVersion uint32 = 5
 
 func RequireTelemetrySchemaVersion(ctx context.Context, conn driver.Conn) error {
 	if conn == nil {

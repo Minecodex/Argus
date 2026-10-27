@@ -538,6 +538,7 @@ export interface components {
         CollectorPreview: {
             /** Format: uuid */
             distribution_version_id: string;
+            /** @description 空集合表示不启用固定采集；Collector 身份、健康与独立采集实例继续保留。 */
             profile_ids: string[];
             route_kind: components["schemas"]["TelemetryRouteKind"];
             transport: components["schemas"]["TelemetryRouteTransport"];

@@ -5,19 +5,23 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	kubernetesapi "github.com/kakj-go/Argus/internal/gen/openapi/kubernetesapi"
 	"github.com/kakj-go/Argus/internal/identity"
+	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
 type KubernetesHandler struct {
-	Identity EnterpriseIdentityHandler
-	Service  resource.Service
+	Identity     EnterpriseIdentityHandler
+	Service      resource.Service
+	Workbench    kubernetesworkbench.Service
+	WebsocketURL string
 }
 
 func (handler KubernetesHandler) ListKubernetesClusters(ctx context.Context, _ kubernetesapi.ListKubernetesClustersRequestObject) (kubernetesapi.ListKubernetesClustersResponseObject, error) {
@@ -25,13 +29,26 @@ func (handler KubernetesHandler) ListKubernetesClusters(ctx context.Context, _ k
 	if apiError != nil {
 		return kubernetesapi.ListKubernetesClustersdefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
 	}
-	items, err := handler.Service.ListKubernetesClusters(ctx, p.EnterpriseIDValue(), p.AuthorizedResourceIDs)
+	directoryIDs := p.AuthorizedResourceIDs
+	if handler.Workbench.Store != nil {
+		a, denied := handler.inventoryActor(ctx)
+		if denied != nil {
+			return kubernetesapi.ListKubernetesClustersdefaultJSONResponse{Body: *denied, StatusCode: http.StatusForbidden}, nil
+		}
+		var err error
+		directoryIDs, err = handler.Workbench.DirectoryClusterIDs(ctx, a)
+		if err != nil {
+			body, status := inventoryError(ctx, err)
+			return kubernetesapi.ListKubernetesClustersdefaultJSONResponse{Body: body, StatusCode: status}, nil
+		}
+	}
+	items, err := handler.Service.ListKubernetesClusters(ctx, p.EnterpriseIDValue(), directoryIDs)
 	if err != nil {
 		return kubernetesapi.ListKubernetesClustersdefaultJSONResponse{Body: kubernetesError(ctx, err), StatusCode: resourceStatus(err)}, nil
 	}
 	converted := make([]kubernetesapi.KubernetesCluster, 0, len(items))
 	for _, item := range items {
-		converted = append(converted, toKubernetesCluster(item))
+		converted = append(converted, toKubernetesDirectoryCluster(item, slices.Contains(p.AuthorizedResourceIDs, item.ID)))
 	}
 	return kubernetesapi.ListKubernetesClusters200JSONResponse{Items: converted, Page: emptyKubernetesPage()}, nil
 }
@@ -153,7 +170,7 @@ func (handler KubernetesHandler) ListKubernetesResources(ctx context.Context, re
 }
 
 func (handler KubernetesHandler) GetKubernetesPodLogs(ctx context.Context, request kubernetesapi.GetKubernetesPodLogsRequestObject) (kubernetesapi.GetKubernetesPodLogsResponseObject, error) {
-	p, apiError := handler.auth(ctx, false, "", "kubernetes.logs")
+	p, apiError := handler.auth(ctx, false, "", "kubernetes.operational_logs.read")
 	if apiError != nil {
 		return kubernetesapi.GetKubernetesPodLogsdefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
 	}
@@ -238,6 +255,19 @@ func toKubernetesCluster(value db.KubernetesCluster) kubernetesapi.KubernetesClu
 	if value.StatisticsObservedAt.Valid {
 		result.NodeCount, result.ReadyNodeCount = &nodeCount, &readyCount
 		result.StatisticsObservedAt = &value.StatisticsObservedAt.Time
+	}
+	return result
+}
+
+func toKubernetesDirectoryCluster(value db.KubernetesCluster, clusterWide bool) kubernetesapi.KubernetesCluster {
+	result := toKubernetesCluster(value)
+	if !clusterWide {
+		result.CredentialId = nil
+		result.BastionScopeId = nil
+		result.ConnectorId = nil
+		result.NodeCount = nil
+		result.ReadyNodeCount = nil
+		result.StatisticsObservedAt = nil
 	}
 	return result
 }

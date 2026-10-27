@@ -157,12 +157,28 @@ func (a *App) startM3KubernetesConnector(ctx context.Context, env *E2EEnvironmen
 		{APIGroups: []string{"autoscaling"}, Resources: []string{"horizontalpodautoscalers"}, Verbs: []string{"get", "list", "watch"}},
 		{APIGroups: []string{"rbac.authorization.k8s.io"}, Resources: []string{"clusterroles", "clusterrolebindings"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 	}
-	if env.Options.Suite == "plan7" {
+	if env.Options.Suite == "plan7" || env.Options.Suite == "plan8" {
 		namespace, namespaceErr := a.plan7TargetNamespace(ctx, env)
 		if namespaceErr != nil {
 			return namespaceErr
 		}
 		rules = []rbacv1.PolicyRule{{APIGroups: []string{""}, Resources: []string{"pods", "configmaps"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}}, {APIGroups: []string{""}, Resources: []string{"pods/exec"}, Verbs: []string{"create"}}, {APIGroups: []string{"networking.k8s.io"}, Resources: []string{"networkpolicies"}, Verbs: []string{"get", "list", "create", "update", "delete"}}}
+		if env.Options.Suite == "plan8" {
+			rules = []rbacv1.PolicyRule{
+				{APIGroups: []string{""}, Resources: []string{"pods", "services", "endpoints", "configmaps", "events"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
+				{APIGroups: []string{""}, Resources: []string{"pods/log"}, Verbs: []string{"get"}},
+				{APIGroups: []string{""}, Resources: []string{"pods/exec", "pods/portforward"}, Verbs: []string{"create", "get"}},
+				{APIGroups: []string{"apps"}, Resources: []string{"deployments", "deployments/scale", "replicasets", "statefulsets", "statefulsets/scale", "daemonsets", "controllerrevisions"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
+			}
+			reader := kubernetesNameForDev(rbacName + "-metadata")
+			if _, err = env.Kube.Client.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: reader, Labels: labels}, Rules: []rbacv1.PolicyRule{{APIGroups: []string{""}, Resources: []string{"namespaces", "nodes"}, Verbs: []string{"get", "list", "watch"}}}}, metav1.CreateOptions{}); err != nil {
+				return err
+			}
+			env.ManagedClusterRBAC = append(env.ManagedClusterRBAC, reader)
+			if _, err = env.Kube.Client.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: reader, Labels: labels}, RoleRef: rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: reader}, Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: serviceAccountName, Namespace: env.SystemNS}}}, metav1.CreateOptions{}); err != nil {
+				return err
+			}
+		}
 		if _, err = env.Kube.Client.RbacV1().Roles(namespace).Create(ctx, &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: rbacName, Namespace: namespace, Labels: labels}, Rules: rules}, metav1.CreateOptions{}); err != nil {
 			return err
 		}
@@ -210,8 +226,20 @@ func (a *App) startM3KubernetesConnector(ctx context.Context, env *E2EEnvironmen
 			}},
 		},
 	}
-	if env.Options.Suite == "plan7" {
+	if env.Options.Suite == "plan7" || env.Options.Suite == "plan8" {
 		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "ARGUS_REMOTE_NAMESPACE", Value: env.State.Values["p7_target_namespace"]}, corev1.EnvVar{Name: "ARGUS_REMOTE_KUBECTL_IMAGE", Value: env.State.FixtureImages["remote-runtime"]})
+	}
+	if env.Options.Suite == "plan8" {
+		image := env.State.Values["p8_kubernetes_connector_image"]
+		if !strings.Contains(image, "@sha256:") {
+			return fmt.Errorf("Plan8 requires a frozen production Connector image")
+		}
+		deployment.Spec.Template.Spec.Containers[0].Image = image
+		initializer := env.State.FixtureImages["remote-runtime"]
+		if initializer == "" {
+			return fmt.Errorf("Plan8 requires the owned identity preparation utility image")
+		}
+		deployment.Spec.Template.Spec.InitContainers[0].Image = initializer
 	}
 	if _, err := env.Kube.Client.AppsV1().Deployments(env.SystemNS).Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
 		return err

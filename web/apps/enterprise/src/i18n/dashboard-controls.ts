@@ -1,5 +1,27 @@
 export const dashboardControlsZh = {
   dashboardControls: {
+    chooseApplications: "筛选应用",
+    applications: "应用",
+    name: "名称",
+    parentResource: "所属集群",
+    allAuthorized: "全部授权资源",
+    unrestrictedApplication: "不限制应用",
+    allApplications: "全部有权应用",
+    resourceCount: "已选 {{count}} 个资源",
+    applicationCount: "已选 {{count}} 个应用",
+    explicitCount: "当前选择 {{count}} 项",
+    clearSelection: "清空选择",
+    resourceType: "资源类型",
+    applicationHint:
+      "选择应用后自动筛选其业务数据及已关联的授权资源；生产、测试应用分别选择。清空选择表示无应用，不会扩大为全部。",
+    resourceKinds: {
+      all: "全部类型",
+      host: "主机",
+      kubernetes_cluster: "Kubernetes 集群",
+      kubernetes_namespace: "命名空间",
+      application: "应用",
+      monitoring_target: "监控资源",
+    },
     viewConditions: "仪表盘查询条件",
     refreshInterval: "刷新间隔",
     refreshOff: "自动刷新关闭",
@@ -10,7 +32,7 @@ export const dashboardControlsZh = {
     refreshHint: "0 表示关闭；开启时至少 5 秒。查看时可以临时更改。",
     invalidRefresh: "刷新间隔应为 0 或至少 5 秒的整数。",
     resourceHint:
-      "仅列出你有权限访问的主机和 Kubernetes 集群。“全部”使用当前授权全集，各统计图再按来源和适用类型匹配；选择不会授予权限。",
+      "按类型搜索、分页选择已授权的主机、集群、命名空间、应用和监控资源。全部授权资源使用当前范围；清空选择保持为空。选择不会授予权限。",
     defaultResourcesHint:
       "资源默认使用当前用户的授权范围；从主机或 K8s 快捷入口打开时预选对应资源。该范围不在变量编辑器配置。",
     variablesHint:
@@ -39,6 +61,28 @@ export const dashboardControlsZh = {
 };
 export const dashboardControlsEn = {
   dashboardControls: {
+    chooseApplications: "Filter applications",
+    applications: "Applications",
+    name: "Name",
+    parentResource: "Parent cluster",
+    allAuthorized: "All authorized resources",
+    unrestrictedApplication: "Any application",
+    allApplications: "All authorized applications",
+    resourceCount: "Selected resources: {{count}}",
+    applicationCount: "Selected applications: {{count}}",
+    explicitCount: "{{count}} items selected",
+    clearSelection: "Clear selection",
+    resourceType: "Resource type",
+    applicationHint:
+      "Filter business data and linked authorized resources by application. Production and test applications are separate. Clearing the selection matches no applications.",
+    resourceKinds: {
+      all: "All types",
+      host: "Hosts",
+      kubernetes_cluster: "Kubernetes clusters",
+      kubernetes_namespace: "Namespaces",
+      application: "Applications",
+      monitoring_target: "Monitored resources",
+    },
     viewConditions: "Dashboard query conditions",
     refreshInterval: "Refresh interval",
     refreshOff: "Auto refresh off",
@@ -50,7 +94,7 @@ export const dashboardControlsEn = {
       "0 disables refresh; otherwise use at least 5 seconds. Viewers can change it temporarily.",
     invalidRefresh: "Refresh must be 0 or an integer of at least 5 seconds.",
     resourceHint:
-      "Only authorized hosts and Kubernetes clusters are listed. All uses your current authorized scope; panels then match their source and resource types. Selection does not grant access.",
+      "Search and page through authorized hosts, clusters, Namespaces, applications and monitored resources. All uses your current grants; clearing remains empty. Selection does not grant access.",
     defaultResourcesHint:
       "Resources default to the current user's authorized scope. Host or K8s shortcuts preselect their resource. This scope is separate from custom variables.",
     variablesHint:

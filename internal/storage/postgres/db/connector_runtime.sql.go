@@ -753,6 +753,30 @@ func (q *Queries) ListUncertainConnectorCommands(ctx context.Context, arg ListUn
 	return items, nil
 }
 
+const lockConnectorRuntime = `-- name: LockConnectorRuntime :one
+SELECT connector.id FROM connectors connector
+WHERE connector.id=$1 AND connector.enterprise_id=$2 AND connector.connection_epoch=$3
+ AND connector.status NOT IN ('revoked','uninstalled')
+ AND EXISTS(SELECT 1 FROM connector_sessions s
+   WHERE s.connector_id=connector.id AND s.enterprise_id=connector.enterprise_id
+    AND s.connection_epoch=$3 AND NOT s.draining)
+FOR UPDATE
+`
+
+type LockConnectorRuntimeParams struct {
+	ID              uuid.UUID `json:"id"`
+	EnterpriseID    uuid.UUID `json:"enterprise_id"`
+	ConnectionEpoch int64     `json:"connection_epoch"`
+}
+
+// OpenSession and Disconnect use this same connector-before-session order.
+func (q *Queries) LockConnectorRuntime(ctx context.Context, arg LockConnectorRuntimeParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockConnectorRuntime, arg.ID, arg.EnterpriseID, arg.ConnectionEpoch)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const markBastionScopeConnectorSuspectedOffline = `-- name: MarkBastionScopeConnectorSuspectedOffline :execrows
 UPDATE bastion_scopes SET status = 'suspected_offline',relay_status='degraded', updated_at = now()
 WHERE enterprise_id = $1 AND active_connector_id = $2 AND status = 'active'
@@ -871,6 +895,58 @@ func (q *Queries) MarkStaleConnectorsOffline(ctx context.Context) (int64, error)
 	return result.RowsAffected(), nil
 }
 
+const rejectConnectorCommandBeforeDispatch = `-- name: RejectConnectorCommandBeforeDispatch :one
+UPDATE connector_commands SET status='failed',error_code=$5,completed_at=now(),updated_at=now()
+WHERE command_id=$1 AND enterprise_id=$2 AND connector_id=$3 AND connection_epoch=$4
+ AND status='queued' AND expires_at>now()
+RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected
+`
+
+type RejectConnectorCommandBeforeDispatchParams struct {
+	CommandID       string      `json:"command_id"`
+	EnterpriseID    uuid.UUID   `json:"enterprise_id"`
+	ConnectorID     uuid.UUID   `json:"connector_id"`
+	ConnectionEpoch int64       `json:"connection_epoch"`
+	ErrorCode       pgtype.Text `json:"error_code"`
+}
+
+func (q *Queries) RejectConnectorCommandBeforeDispatch(ctx context.Context, arg RejectConnectorCommandBeforeDispatchParams) (ConnectorCommand, error) {
+	row := q.db.QueryRow(ctx, rejectConnectorCommandBeforeDispatch,
+		arg.CommandID,
+		arg.EnterpriseID,
+		arg.ConnectorID,
+		arg.ConnectionEpoch,
+		arg.ErrorCode,
+	)
+	var i ConnectorCommand
+	err := row.Scan(
+		&i.ID,
+		&i.CommandID,
+		&i.EnterpriseID,
+		&i.ConnectorID,
+		&i.ConnectionEpoch,
+		&i.OperationRef,
+		&i.CredentialLeaseID,
+		&i.CommandType,
+		&i.PayloadSchemaVersion,
+		&i.Payload,
+		&i.PayloadHash,
+		&i.IdempotencyKey,
+		&i.Status,
+		&i.Result,
+		&i.ResultHash,
+		&i.ErrorCode,
+		&i.ExpiresAt,
+		&i.AcknowledgedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DispatchRejected,
+	)
+	return i, err
+}
+
 const requestConnectorCertificateRotation = `-- name: RequestConnectorCertificateRotation :one
 UPDATE connectors SET certificate_rotation_requested_at = now(), version = version + 1, updated_at = now()
 WHERE id = $1 AND enterprise_id = $2 AND version = $3
@@ -975,7 +1051,8 @@ func (q *Queries) StartConnectorUninstall(ctx context.Context, arg StartConnecto
 }
 
 const timeoutActiveConnectorCommands = `-- name: TimeoutActiveConnectorCommands :many
-UPDATE connector_commands SET status = 'timed_out', error_code = 'CONNECTOR_COMMAND_TIMED_OUT', completed_at = now(), updated_at = now()
+UPDATE connector_commands SET status = CASE WHEN command_type='collector_management' THEN 'result_unknown' ELSE 'timed_out' END,
+ error_code = 'CONNECTOR_COMMAND_TIMED_OUT', completed_at = CASE WHEN command_type='collector_management' THEN NULL ELSE now() END, updated_at = now()
 WHERE status IN ('dispatched','acknowledged','running') AND expires_at <= now() RETURNING id, command_id, enterprise_id, connector_id, connection_epoch, operation_ref, credential_lease_id, command_type, payload_schema_version, payload, payload_hash, idempotency_key, status, result, result_hash, error_code, expires_at, acknowledged_at, started_at, completed_at, created_at, updated_at, dispatch_rejected
 `
 
@@ -1025,7 +1102,7 @@ func (q *Queries) TimeoutActiveConnectorCommands(ctx context.Context) ([]Connect
 
 const transitionConnectorCommand = `-- name: TransitionConnectorCommand :one
 UPDATE connector_commands SET status = $4, result = COALESCE($5, result), result_hash = COALESCE($6, result_hash),
- error_code = COALESCE($7, error_code), updated_at = now(),
+ error_code = CASE WHEN $4='succeeded' THEN NULL ELSE COALESCE($7, error_code) END, updated_at = now(),
  acknowledged_at = CASE WHEN $4 = 'acknowledged' THEN now() ELSE acknowledged_at END,
  started_at = CASE WHEN $4 = 'running' THEN now() ELSE started_at END,
  completed_at = CASE WHEN $4 IN ('succeeded','failed','timed_out','expired') THEN now() ELSE completed_at END

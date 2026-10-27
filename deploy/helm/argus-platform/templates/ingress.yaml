@@ -29,6 +29,10 @@ spec:
     - host: {{ .Values.hosts.enterprise }}
       http:
         paths:
+          - path: /v1/kubernetes/sessions
+            pathType: Prefix
+            backend:
+              service: {name: argus-connector-gateway, port: {name: remote-wss}}
           - path: /v1/sessions
             pathType: Prefix
             backend:

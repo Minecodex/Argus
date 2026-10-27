@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kakj-go/Argus/internal/otelcol/configbundle"
 )
 
 func (a *App) runCheck(ctx context.Context, args []string) error {
@@ -294,9 +296,9 @@ func (a *App) validatePlanV4ArtifactPipeline() error {
 	}{
 		{path: "internal/app/argusdev/connector_publish.go", required: []string{"amd64", "arm64", "signCollectorArtifact", "immutable Connector artifact", "CreateConnectorReleaseVersion"}},
 		{path: "internal/app/argusdev/e2e_artifacts.go", required: []string{"collectorArtifactInputFingerprint", "deploy", "otelcol", "inputs.sha256"}},
-		{path: "deploy/otelcol/builder-linux-arm64.yaml", required: []string{"argusidentity", "argusgatewayidentity", "otelcol_version: 0.133.0"}},
-		{path: "deploy/otelcol/builder-linux-amd64.yaml", required: []string{"argusidentity", "argusgatewayidentity", "otelcol_version: 0.133.0"}},
-		{path: "deploy/otelcol/builder-windows-amd64.yaml", required: []string{"argusidentity", "otelcol_version: 0.133.0"}},
+		{path: "deploy/otelcol/builder-linux-arm64.yaml", required: []string{"argusidentity", "argusgatewayidentity", "otelcol_version: " + configbundle.CollectorVersion}},
+		{path: "deploy/otelcol/builder-linux-amd64.yaml", required: []string{"argusidentity", "argusgatewayidentity", "otelcol_version: " + configbundle.CollectorVersion}},
+		{path: "deploy/otelcol/builder-windows-amd64.yaml", required: []string{"argusidentity", "otelcol_version: " + configbundle.CollectorVersion}},
 		{path: "deploy/otelcol/install-windows.ps1", required: []string{"argus-otelcol.exe", "Assert-CABundle", "verify-artifact", "ExpectedByteSize", "TrustBundleEpoch", "No privileged filesystem or service mutation"}, forbid: []string{"openssl.exe"}},
 		{path: "deploy/scripts/connector-install.sh", required: []string{"artifact Ed25519 signature verification failed", "artifact sha256 mismatch", "--token-file"}},
 		{path: "deploy/scripts/connector-install.ps1", required: []string{"verify-artifact", "Ed25519 signature verification failed", "Connector artifact SHA-256 mismatch", "ArgusConnector"}, forbid: []string{"openssl.exe"}},

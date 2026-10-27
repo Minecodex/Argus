@@ -28,8 +28,15 @@ func TestLocalConnectorForwardVerifiesTLSIdentityWithoutWeakeningNormalExposure(
 	cfg.Spec.Images.Mode = "local-registry"
 	cfg.Spec.Exposure.ConnectorHost = "example.com"
 	address := strings.TrimPrefix(server.URL, "https://")
-	if err := verifyConnectorForward(context.Background(), cfg, address, path, server.TLS.Certificates[0]); err != nil {
-		t.Fatal(err)
+	for _, profile := range []string{"evaluation", "local-hardening"} {
+		for _, name := range []string{"docker-desktop", "kind-plan8-local", "renamed-local-lab"} {
+			t.Run(profile+"/"+name, func(t *testing.T) {
+				cfg.Spec.Profile, cfg.Spec.KubeContext = profile, name
+				if err := verifyConnectorForward(context.Background(), cfg, address, path, server.TLS.Certificates[0]); err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
 	}
 	if err := verifyConnectorForward(context.Background(), cfg, address, path); err == nil {
 		t.Fatal("server identity without client authentication accepted")
@@ -38,13 +45,21 @@ func TestLocalConnectorForwardVerifiesTLSIdentityWithoutWeakeningNormalExposure(
 	if err := verifyConnectorForward(context.Background(), cfg, address, path); err == nil {
 		t.Fatal("wrong service identity accepted")
 	}
-	cfg.Spec.Profile = "production"
-	if err := verifyConnectorForward(context.Background(), cfg, address, path); err == nil {
-		t.Fatal("production LB verification could be replaced by forwarding")
+	cfg.Spec.Exposure.ConnectorHost = "example.com"
+	for _, profile := range []string{"production", "", "unknown"} {
+		cfg.Spec.Profile = profile
+		if err := verifyConnectorForward(context.Background(), cfg, address, path, server.TLS.Certificates[0]); err == nil || !strings.Contains(err.Error(), "requires an evaluation or local-hardening profile") {
+			t.Fatalf("unsupported profile %q replaced normal exposure verification: %v", profile, err)
+		}
 	}
 	cfg.Spec.Profile = "evaluation"
-	if err := verifyConnectorForward(context.Background(), cfg, "192.0.2.1:9443", path); err == nil {
-		t.Fatal("non-local target accepted")
+	cfg.Spec.Images.Mode = "remote-registry"
+	if err := verifyConnectorForward(context.Background(), cfg, address, path, server.TLS.Certificates[0]); err == nil {
+		t.Fatal("non-local image mode accepted")
+	}
+	cfg.Spec.Images.Mode = "local-registry"
+	if err := verifyConnectorForward(context.Background(), cfg, "192.0.2.1:9443", path, server.TLS.Certificates[0]); err == nil || !strings.Contains(err.Error(), "loopback") {
+		t.Fatalf("non-local target accepted or rejected for the wrong reason: %v", err)
 	}
 }
 

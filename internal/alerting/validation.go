@@ -77,7 +77,7 @@ func normalizeMutation(m Mutation) (Mutation, error) {
 			return m, ErrInvalid
 		}
 		for _, kind := range p.Resources.Types {
-			if kind != "host" && kind != "kubernetes_cluster" {
+			if kind != "host" && kind != "kubernetes_cluster" && kind != "application" && kind != "monitoring_target" {
 				return m, ErrInvalid
 			}
 		}

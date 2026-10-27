@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"github.com/kakj-go/Argus/internal/selfmonitor"
 	"github.com/kakj-go/Argus/internal/telemetry/datapolicy"
+	"github.com/kakj-go/Argus/internal/telemetry/sourcekey"
 	"log/slog"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -26,12 +26,12 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	commonv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/common/v1"
 	telemetryv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/telemetry/v1"
+	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 )
 
-const overviewSchemaVersion = "argus.telemetry_overview/v1"
+const overviewSchemaVersion = "argus.telemetry_overview/v2"
 
 type QueryRPCServer struct {
 	telemetryv1.UnimplementedTelemetryQueryServiceServer
@@ -139,7 +139,10 @@ func (server *QueryRPCServer) ExecuteQueryV2(ctx context.Context, request *telem
 	if server.Coordinator == nil || server.Limiter == nil || !trustedRPCPeer(ctx) {
 		return nil, status.Error(codes.Unauthenticated, "telemetry query engine unavailable")
 	}
-	if request == nil || request.Scope == nil || request.Budget == nil || request.SchemaVersion != "argus.telemetry_query/v4" {
+	if request != nil && request.SchemaVersion != QueryProtocolVersion {
+		return nil, status.Error(codes.FailedPrecondition, "QUERY_PROTOCOL_VERSION_UNSUPPORTED")
+	}
+	if request == nil || request.Scope == nil || request.Budget == nil || request.SchemaVersion != QueryProtocolVersion {
 		return nil, status.Error(codes.InvalidArgument, "telemetry query request rejected")
 	}
 	budget, err := queryBudgetFromProto(request.Budget)
@@ -163,7 +166,8 @@ func (server *QueryRPCServer) ExecuteQueryV2(ctx context.Context, request *telem
 			return nil, status.Error(codes.Unavailable, "telemetry tenant is not ready")
 		}
 	}
-	input := queryengine.Request{CacheNamespace: request.CacheNamespace, Scope: queryengine.Scope{EnterpriseID: enterpriseID, ResourceIDs: resources, AuthorizationVersion: int64(request.Scope.AuthorizationVersion), SubjectID: uuid.MustParse(request.Scope.SubjectId), SubjectType: request.Scope.SubjectType, SourceKeys: request.Scope.SourceKeys}, Budget: budget}
+	refs, _ := scopeRefsFromProto(request.Scope)
+	input := queryengine.Request{CacheNamespace: request.CacheNamespace, Scope: queryengine.Scope{Resources: refs, Signature: request.Scope.ScopeSignature, EnterpriseID: enterpriseID, ResourceIDs: resources, AuthorizationVersion: int64(request.Scope.AuthorizationVersion), SubjectID: uuid.MustParse(request.Scope.SubjectId), SubjectType: request.Scope.SubjectType, SourceKeys: request.Scope.SourceKeys}, Budget: budget}
 	language := queryengine.LanguagePromQL
 	if value := request.GetPromql(); value != nil {
 		input.Expression = value.Expression
@@ -281,6 +285,9 @@ func (server *QueryRPCServer) QueryOverview(ctx context.Context, request *teleme
 	if server.Backend == nil || server.Limiter == nil || !trustedRPCPeer(ctx) {
 		return nil, status.Error(codes.Unauthenticated, "telemetry query mTLS identity required")
 	}
+	if request != nil && request.SchemaVersion != overviewSchemaVersion {
+		return nil, status.Error(codes.FailedPrecondition, "QUERY_PROTOCOL_VERSION_UNSUPPORTED")
+	}
 	if request == nil || request.Scope == nil || request.From == nil || request.To == nil || request.SchemaVersion != overviewSchemaVersion ||
 		!request.From.IsValid() || !request.To.IsValid() || request.MaxScanBytes < 1 || request.MaxScanBytes > uint64(HardMaxScanBytes) ||
 		request.TimeoutMillis < 1 || request.TimeoutMillis > uint32(HardTimeout/time.Millisecond) {
@@ -302,7 +309,8 @@ func (server *QueryRPCServer) QueryOverview(ctx context.Context, request *teleme
 	defer release()
 	queryCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	output, err := server.Backend.Overview(queryCtx, OverviewRequest{SubjectID: uuid.MustParse(request.Scope.SubjectId), SubjectType: request.Scope.SubjectType, EnterpriseID: enterpriseID, ResourceIDs: resources,
+	refs, _ := scopeRefsFromProto(request.Scope)
+	output, err := server.Backend.Overview(queryCtx, OverviewRequest{Resources: refs, SourceKeys: request.Scope.SourceKeys, ScopeSignature: request.Scope.ScopeSignature, SubjectID: uuid.MustParse(request.Scope.SubjectId), SubjectType: request.Scope.SubjectType, EnterpriseID: enterpriseID, ResourceIDs: resources,
 		AuthorizationVersion: int64(request.Scope.AuthorizationVersion), From: from, To: to, MaxScanBytes: int64(request.MaxScanBytes), Timeout: timeout})
 	if err != nil {
 		if server.Logger != nil {
@@ -331,7 +339,7 @@ func trustedRPCPeer(ctx context.Context) bool {
 }
 
 func scopeFromProto(value *telemetryv1.TelemetryQueryScope, signal string) (uuid.UUID, []uuid.UUID, error) {
-	if value == nil || value.Signal != signal || !slices.Contains([]string{"user", "service_account"}, value.SubjectType) || len(value.AuthorizedResources) == 0 || len(value.AuthorizedResources) > 1000 {
+	if value == nil || value.Signal != signal || !slices.Contains([]string{"user", "service_account"}, value.SubjectType) || len(value.AuthorizedResources) == 0 || len(value.AuthorizedResources) > 1000 || value.AuthorizationVersion == 0 || value.AuthorizationVersion > uint64(1<<63-1) || !validScopeSignature(value.ScopeSignature) {
 		return uuid.Nil, nil, ErrQueryInvalid
 	}
 	subject, subjectErr := uuid.Parse(value.SubjectId)
@@ -342,26 +350,21 @@ func scopeFromProto(value *telemetryv1.TelemetryQueryScope, signal string) (uuid
 	if err != nil || enterpriseID == uuid.Nil {
 		return uuid.Nil, nil, ErrQueryInvalid
 	}
-	resourceIDs := make([]uuid.UUID, 0, len(value.AuthorizedResources))
-	for _, resource := range value.AuthorizedResources {
-		id, parseErr := uuid.Parse(resource.ResourceId)
-		if parseErr != nil || id == uuid.Nil || (resource.ResourceType != "host" && resource.ResourceType != "kubernetes_cluster") {
-			return uuid.Nil, nil, ErrQueryInvalid
-		}
-		resourceIDs = append(resourceIDs, id)
+	refs, err := scopeRefsFromProto(value)
+	if err != nil {
+		return uuid.Nil, nil, err
 	}
-	if len(value.SourceKeys) > 10000 {
+	resourceIDs := resourceref.IDs(refs)
+	if len(value.SourceKeys) == 0 || len(value.SourceKeys) > 10000 {
 		return uuid.Nil, nil, ErrQueryInvalid
 	}
 	for _, key := range value.SourceKeys {
-		idText, revisionText, found := strings.Cut(key, ":")
-		id, e := uuid.Parse(idText)
-		revision, e2 := strconv.ParseInt(revisionText, 10, 64)
-		if !found || e != nil || e2 != nil || id == uuid.Nil || revision <= 0 {
+		_, _, namespace, valid := sourcekey.Parse(key)
+		if !valid || namespace != "" && signal != "metrics" && signal != "catalog" && signal != "overview" {
 			return uuid.Nil, nil, ErrQueryInvalid
 		}
 	}
-	if value.ScopeHash != scopeHash(enterpriseID, subject, value.SubjectType, resourceIDs, int64(value.AuthorizationVersion), signal, value.SourceKeys...) {
+	if value.ScopeHash != scopeHash(enterpriseID, subject, value.SubjectType, refs, int64(value.AuthorizationVersion), signal, value.ScopeSignature, value.SourceKeys...) {
 		return uuid.Nil, nil, ErrQueryInvalid
 	}
 	return enterpriseID, resourceIDs, nil
@@ -430,13 +433,12 @@ func (backend *GRPCQueryBackend) ExecuteEngineQuery(ctx context.Context, input q
 	} else if input.Language == queryengine.LanguageTrace {
 		signal = "traces"
 	}
-	resources := make([]*commonv1.ResourceRef, 0, len(input.Scope.ResourceIDs))
-	for _, id := range input.Scope.ResourceIDs {
-		resources = append(resources, &commonv1.ResourceRef{ResourceType: "host", ResourceId: id.String()})
+	scope, err := queryProtoScope(input.Scope.EnterpriseID, input.Scope.SubjectID, input.Scope.SubjectType, input.Scope.Resources, input.Scope.ResourceIDs, input.Scope.AuthorizationVersion, signal, input.Scope.SourceKeys, input.Scope.Signature)
+	if err != nil {
+		return queryengine.Result{}, err
 	}
-	scope := queryProtoScope(input.Scope.EnterpriseID, input.Scope.SubjectID, input.Scope.SubjectType, resources, input.Scope.ResourceIDs, input.Scope.AuthorizationVersion, signal, input.Scope.SourceKeys)
 	budget := &telemetryv1.QueryBudget{MaxScanBytes: uint64(input.Budget.MaxScanBytes), MaxRows: uint32(input.Budget.MaxRows), MaxSamples: uint32(input.Budget.MaxSamples), MaxSeries: uint32(input.Budget.MaxSeries), MaxResultBytes: uint64(input.Budget.MaxResultBytes), TimeoutMillis: uint32(input.Budget.Timeout.Milliseconds())}
-	request := &telemetryv1.ExecuteQueryV2Request{SchemaVersion: "argus.telemetry_query/v4", Scope: scope, Budget: budget, CacheNamespace: input.CacheNamespace}
+	request := &telemetryv1.ExecuteQueryV2Request{SchemaVersion: QueryProtocolVersion, Scope: scope, Budget: budget, CacheNamespace: input.CacheNamespace}
 	switch input.Language {
 	case queryengine.LanguagePromQL:
 		request.Query = &telemetryv1.ExecuteQueryV2Request_Promql{Promql: &telemetryv1.PromQLQuery{Expression: input.Expression, Start: timestamppb.New(input.Start), End: timestamppb.New(input.End), StepSeconds: uint64(input.Step.Seconds()), Instant: input.Instant}}
@@ -482,6 +484,8 @@ func engineRPCError(err error) error {
 		return nil
 	}
 	switch status.Convert(err).Message() {
+	case "QUERY_PROTOCOL_VERSION_UNSUPPORTED":
+		return ErrQueryProtocol
 	case "QUERY_BUDGET_EXCEEDED":
 		return queryengine.ErrBudget
 	case "QUERY_FEATURE_UNSUPPORTED":
@@ -508,14 +512,16 @@ func (backend *GRPCQueryBackend) Overview(ctx context.Context, input OverviewReq
 	if backend == nil || backend.client == nil {
 		return Overview{}, ErrQueryBackend
 	}
-	resources := make([]*commonv1.ResourceRef, 0, len(input.ResourceIDs))
-	for _, id := range input.ResourceIDs {
-		resources = append(resources, &commonv1.ResourceRef{ResourceType: "host", ResourceId: id.String()})
+	scope, err := queryProtoScope(input.EnterpriseID, input.SubjectID, input.SubjectType, input.Resources, input.ResourceIDs, input.AuthorizationVersion, "overview", input.SourceKeys, input.ScopeSignature)
+	if err != nil {
+		return Overview{}, err
 	}
-	scope := queryProtoScope(input.EnterpriseID, input.SubjectID, input.SubjectType, resources, input.ResourceIDs, input.AuthorizationVersion, "overview", nil)
 	response, err := backend.client.QueryOverview(ctx, &telemetryv1.QueryOverviewRequest{SchemaVersion: overviewSchemaVersion, Scope: scope,
 		From: timestamppb.New(input.From), To: timestamppb.New(input.To), MaxScanBytes: uint64(input.MaxScanBytes), TimeoutMillis: uint32(input.Timeout.Milliseconds())})
-	if err != nil || response == nil || response.Result == nil || response.Result.SchemaVersion != "argus.telemetry_overview_result/v1" {
+	if err != nil {
+		return Overview{}, engineRPCError(err)
+	}
+	if response == nil || response.Result == nil || response.Result.SchemaVersion != "argus.telemetry_overview_result/v1" {
 		return Overview{}, ErrQueryBackend
 	}
 	var output Overview
@@ -525,13 +531,13 @@ func (backend *GRPCQueryBackend) Overview(ctx context.Context, input OverviewReq
 	return output, nil
 }
 
-func scopeHash(enterpriseID, subjectID uuid.UUID, subjectType string, resourceIDs []uuid.UUID, authorizationVersion int64, signal string, sourceKeys ...string) string {
-	values := make([]string, 0, len(resourceIDs))
-	for _, id := range resourceIDs {
-		values = append(values, id.String())
+func scopeHash(enterpriseID, subjectID uuid.UUID, subjectType string, resources []resourceref.Ref, authorizationVersion int64, signal, signature string, sourceKeys ...string) string {
+	values := make([]string, 0, len(resources))
+	for _, ref := range resources {
+		values = append(values, ref.Type+":"+ref.ID.String())
 	}
 	slices.Sort(values)
-	material := enterpriseID.String() + "\n" + strings.Join(values, "\n") + "\n" + signal + "\n" + fmt.Sprintf("%d", authorizationVersion) + "\n" + subjectType + "\n" + subjectID.String() + "\n" + datapolicy.Version
+	material := "argus.typed_query_scope/v1\n" + enterpriseID.String() + "\n" + strings.Join(values, "\n") + "\n" + signal + "\n" + fmt.Sprintf("%d", authorizationVersion) + "\n" + subjectType + "\n" + subjectID.String() + "\n" + datapolicy.Version + "\n" + signature
 	if len(sourceKeys) > 0 {
 		keys := slices.Clone(sourceKeys)
 		slices.Sort(keys)

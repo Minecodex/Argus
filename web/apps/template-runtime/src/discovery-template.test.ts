@@ -9,5 +9,5 @@ it("keeps discovery and preparation in compact calls without allocating an ifram
     expect(binding.Hash).toBe("");
   }
   expect(fixtures.bindings.find(row => row.Tool === "pending_action.get")?.Mode).toBe("action");
-  expect(fixtures.bindings.filter(row => row.Mode === "template")).toHaveLength(90);
+  expect(fixtures.bindings.filter(row => row.Mode === "template")).toHaveLength(110);
 });

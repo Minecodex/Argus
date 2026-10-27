@@ -168,6 +168,7 @@ export function Tooltip({
 export function Dialog({
   trigger,
   title,
+  titleExtra,
   description,
   children,
   footer,
@@ -181,6 +182,7 @@ export function Dialog({
 }: {
   trigger?: ReactNode;
   title: string;
+  titleExtra?: ReactNode;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
@@ -208,6 +210,7 @@ export function Dialog({
     >
       <Modal.Container size={size} className="argus-dialog-container">
         <Modal.Dialog
+          aria-label={title}
           className={cx(
             "argus-dialog",
             size === "lg" && "argus-dialog--lg",
@@ -218,9 +221,12 @@ export function Dialog({
         >
           <Modal.Header className="argus-dialog__top">
             <div className="argus-overlay-heading">
-              <Modal.Heading className="argus-dialog__title">
-                {title}
-              </Modal.Heading>
+              <div className="argus-overlay-title-row">
+                <Modal.Heading className="argus-dialog__title">
+                  {title}
+                </Modal.Heading>
+                {titleExtra}
+              </div>
               {description && (
                 <p className="argus-dialog__description">{description}</p>
               )}

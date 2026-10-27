@@ -128,7 +128,9 @@ func (a *App) runM2Scenario(ctx context.Context, env *E2EEnvironment) error {
 	env.State.Values["platform_recovery_codes"] = strings.Join(platformMFA.RecoveryCodes[1:], ",")
 	env.State.Values["enterprise_recovery_codes"] = strings.Join(enterpriseMFA.RecoveryCodes[1:], ",")
 	if len(suiteDependencies[env.Options.Suite]) > 1 {
-		code, err := waitForNextTOTP(enterpriseMFA.Secret, enterpriseMFA.LastCode)
+		// Browser logins can consume newer codes after enrollment. Continue
+		// from the state synchronized by runPlaywright, not the old enrollment.
+		code, err := waitForNextTOTP(enterpriseMFA.Secret, env.State.Values["enterprise_mfa_last"])
 		if err != nil {
 			return err
 		}

@@ -29,7 +29,7 @@ func (q *Queries) AdvanceCredentialVersionsBySecret(ctx context.Context, arg Adv
 
 const advanceSecretVersion = `-- name: AdvanceSecretVersion :one
 UPDATE secrets SET current_version = current_version + 1, version = version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING id, owner_type, owner_id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at
+WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING id, owner_type, owner_id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at, purpose
 `
 
 type AdvanceSecretVersionParams struct {
@@ -56,6 +56,7 @@ func (q *Queries) AdvanceSecretVersion(ctx context.Context, arg AdvanceSecretVer
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Purpose,
 	)
 	return i, err
 }
@@ -214,7 +215,7 @@ func (q *Queries) CreateManagedAccount(ctx context.Context, arg CreateManagedAcc
 
 const createSecret = `-- name: CreateSecret :one
 INSERT INTO secrets (id, enterprise_id, name, type, description, created_by)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, owner_type, owner_id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, owner_type, owner_id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at, purpose
 `
 
 type CreateSecretParams struct {
@@ -251,6 +252,7 @@ func (q *Queries) CreateSecret(ctx context.Context, arg CreateSecretParams) (Sec
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Purpose,
 	)
 	return i, err
 }
@@ -460,7 +462,7 @@ func (q *Queries) GetManagedAccount(ctx context.Context, arg GetManagedAccountPa
 }
 
 const getSecret = `-- name: GetSecret :one
-SELECT s.id, s.owner_type, s.owner_id, s.enterprise_id, s.name, s.type, s.description, s.status, s.current_version, s.last_accessed_at, s.version, s.created_by, s.created_at, s.updated_at, (SELECT count(*) FROM credentials c WHERE c.secret_id = s.id AND c.status = 'active')::bigint AS reference_count
+SELECT s.id, s.owner_type, s.owner_id, s.enterprise_id, s.name, s.type, s.description, s.status, s.current_version, s.last_accessed_at, s.version, s.created_by, s.created_at, s.updated_at, s.purpose, (SELECT count(*) FROM credentials c WHERE c.secret_id = s.id AND c.status = 'active')::bigint AS reference_count
 FROM secrets s WHERE s.id = $1 AND s.enterprise_id = $2
 `
 
@@ -484,6 +486,7 @@ type GetSecretRow struct {
 	CreatedBy      uuid.UUID          `json:"created_by"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Purpose        string             `json:"purpose"`
 	ReferenceCount int64              `json:"reference_count"`
 }
 
@@ -505,6 +508,7 @@ func (q *Queries) GetSecret(ctx context.Context, arg GetSecretParams) (GetSecret
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Purpose,
 		&i.ReferenceCount,
 	)
 	return i, err
@@ -612,7 +616,7 @@ func (q *Queries) ListManagedAccounts(ctx context.Context, enterpriseID uuid.UUI
 }
 
 const listSecrets = `-- name: ListSecrets :many
-SELECT s.id, s.owner_type, s.owner_id, s.enterprise_id, s.name, s.type, s.description, s.status, s.current_version, s.last_accessed_at, s.version, s.created_by, s.created_at, s.updated_at, (SELECT count(*) FROM credentials c WHERE c.secret_id = s.id AND c.status = 'active')::bigint AS reference_count
+SELECT s.id, s.owner_type, s.owner_id, s.enterprise_id, s.name, s.type, s.description, s.status, s.current_version, s.last_accessed_at, s.version, s.created_by, s.created_at, s.updated_at, s.purpose, (SELECT count(*) FROM credentials c WHERE c.secret_id = s.id AND c.status = 'active')::bigint AS reference_count
 FROM secrets s WHERE s.enterprise_id = $1 AND s.owner_type='user' ORDER BY s.created_at, s.id
 `
 
@@ -631,6 +635,7 @@ type ListSecretsRow struct {
 	CreatedBy      uuid.UUID          `json:"created_by"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Purpose        string             `json:"purpose"`
 	ReferenceCount int64              `json:"reference_count"`
 }
 
@@ -658,6 +663,7 @@ func (q *Queries) ListSecrets(ctx context.Context, enterpriseID uuid.UUID) ([]Li
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Purpose,
 			&i.ReferenceCount,
 		); err != nil {
 			return nil, err
@@ -691,6 +697,7 @@ FROM credentials AS credential
 WHERE lease.id = $2
   AND lease.enterprise_id = $3
   AND lease.status = 'active'
+  AND lease.protocol <> 'monitoring'
   AND lease.expires_at > now()
   AND lease.recipient_type = $4
   AND lease.recipient_id = $5
@@ -884,7 +891,7 @@ UPDATE secrets SET
   description = COALESCE($5, description),
   status = COALESCE($6, status),
   version = version + 1, updated_at = now()
-WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING id, owner_type, owner_id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at
+WHERE id = $1 AND enterprise_id = $2 AND version = $3 RETURNING id, owner_type, owner_id, enterprise_id, name, type, description, status, current_version, last_accessed_at, version, created_by, created_at, updated_at, purpose
 `
 
 type UpdateSecretMetadataParams struct {
@@ -921,6 +928,7 @@ func (q *Queries) UpdateSecretMetadata(ctx context.Context, arg UpdateSecretMeta
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Purpose,
 	)
 	return i, err
 }

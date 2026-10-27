@@ -98,27 +98,33 @@ func (r *apmResultResolver) Limited() bool                  { return r.limited }
 func (r *apmResultResolver) Coverage() *apmCoverageResolver { return &r.coverage }
 func (r *apmResultResolver) Rows() []*apmRowResolver        { return r.rows }
 
-type apmCoverageResolver struct{ observed, requests, missingService, missingInstance, missingOperation, unknownSource uint64 }
+type apmCoverageResolver struct{ observed, requests, missingService, missingInstance, missingOperation, unknownSource, duplicates uint64 }
 
-func (r *apmCoverageResolver) ObservedSpanCount() float64     { return float64(r.observed) }
-func (r *apmCoverageResolver) RequestSampleCount() float64    { return float64(r.requests) }
-func (r *apmCoverageResolver) MissingServiceCount() float64   { return float64(r.missingService) }
-func (r *apmCoverageResolver) MissingInstanceCount() float64  { return float64(r.missingInstance) }
-func (r *apmCoverageResolver) MissingOperationCount() float64 { return float64(r.missingOperation) }
-func (r *apmCoverageResolver) UnknownSourceCount() float64    { return float64(r.unknownSource) }
+func (r *apmCoverageResolver) ObservedSpanCount() float64         { return float64(r.observed) }
+func (r *apmCoverageResolver) RequestSampleCount() float64        { return float64(r.requests) }
+func (r *apmCoverageResolver) MissingServiceCount() float64       { return float64(r.missingService) }
+func (r *apmCoverageResolver) MissingInstanceCount() float64      { return float64(r.missingInstance) }
+func (r *apmCoverageResolver) MissingOperationCount() float64     { return float64(r.missingOperation) }
+func (r *apmCoverageResolver) UnknownSourceCount() float64        { return float64(r.unknownSource) }
+func (r *apmCoverageResolver) DuplicateObservationCount() float64 { return float64(r.duplicates) }
 
 type apmRowResolver struct {
+	serviceID, serviceNamespace                                        string
 	sourceID, resourceID, service, instanceID, instanceName, operation string
 	at                                                                 time.Time
 	seconds                                                            float64
 	observed, samples, errors                                          uint64
 	mean                                                               float64
 	quantiles                                                          []float64
+	sourceIDs                                                          []string
 }
 
 func (r *apmRowResolver) SourceID() string           { return r.sourceID }
+func (r *apmRowResolver) SourceIDs() []string        { return r.sourceIDs }
 func (r *apmRowResolver) ResourceID() string         { return r.resourceID }
 func (r *apmRowResolver) ServiceName() string        { return r.service }
+func (r *apmRowResolver) ServiceID() string          { return r.serviceID }
+func (r *apmRowResolver) ServiceNamespace() string   { return r.serviceNamespace }
 func (r *apmRowResolver) InstanceID() string         { return r.instanceID }
 func (r *apmRowResolver) InstanceName() string       { return r.instanceName }
 func (r *apmRowResolver) OperationName() string      { return r.operation }

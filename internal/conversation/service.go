@@ -29,6 +29,7 @@ var (
 )
 
 type Service struct {
+	RemoteFacts func(context.Context, db.Run) (map[string]any, error)
 	Objects     *objectstore.Client
 	Store       *postgres.Store
 	Idempotency postgres.Idempotency

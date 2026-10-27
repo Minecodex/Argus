@@ -42,8 +42,14 @@ func TestRunQueueSerializesTasksAndFencesAnExpiredWorker(t *testing.T) {
 	defer func() {
 		_, _ = store.Pool.Exec(context.Background(), "UPDATE runtime_tasks SET status='cancelled',lease_owner=NULL,lease_until=NULL WHERE id=ANY($1::uuid[])", []uuid.UUID{first, second})
 	}()
+	// Schedule only these owned tasks ahead of the existing disposable backlog.
+	// Fixed wall-clock offsets become newer than old fixtures on a later run.
+	var available pgtype.Timestamptz
+	if err := store.Pool.QueryRow(ctx, "SELECT coalesce(min(available_at),now())-interval '1 hour' FROM runtime_tasks WHERE queue='agent'").Scan(&available); err != nil {
+		t.Fatal(err)
+	}
 	for index, id := range []uuid.UUID{first, second} {
-		exec("INSERT INTO runtime_tasks(id,enterprise_id,queue,run_id,payload,max_attempts,available_at) VALUES($1,$2,'agent',$3,'{}',1,now()-interval '1 hour'+$4*interval '1 second')", id, enterprise, run, index)
+		exec("INSERT INTO runtime_tasks(id,enterprise_id,queue,run_id,payload,max_attempts,available_at) VALUES($1,$2,'agent',$3,'{}',1,$4::timestamptz+$5*interval '1 second')", id, enterprise, run, available, index)
 	}
 	claim := func(owner string) db.RuntimeTask {
 		t.Helper()

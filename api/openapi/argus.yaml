@@ -11,6 +11,86 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /enterprise/kubernetes-clusters/{id}/helm/releases:
+    $ref: ./paths/kubernetes-helm.yaml#/releases
+  /enterprise/kubernetes-clusters/{id}/helm/releases/{releaseName}/history:
+    $ref: ./paths/kubernetes-helm.yaml#/history
+  /enterprise/kubernetes-clusters/{id}/helm/actions/preview:
+    $ref: ./paths/kubernetes-helm.yaml#/preview
+  /enterprise/kubernetes-clusters/{id}/stream-sessions:
+    $ref: ./paths/kubernetes-stream-sessions.yaml#/create
+  /enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}:
+    $ref: ./paths/kubernetes-stream-sessions.yaml#/get
+  /enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}/close:
+    $ref: ./paths/kubernetes-stream-sessions.yaml#/close
+  /enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}/ticket:
+    $ref: ./paths/kubernetes-stream-sessions.yaml#/ticket
+  /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}:
+    $ref: ./paths/kubernetes-log-sessions.yaml#/get
+  /enterprise/kubernetes-clusters/{id}/log-sessions:
+    $ref: ./paths/kubernetes-log-sessions.yaml#/create
+  /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/attach:
+    $ref: ./paths/kubernetes-log-sessions.yaml#/attach
+  /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/read:
+    $ref: ./paths/kubernetes-log-sessions.yaml#/read
+  /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/close:
+    $ref: ./paths/kubernetes-log-sessions.yaml#/close
+  /dashboard-scope-resources:
+    $ref: ./paths/dashboard.yaml#/scopeDirectory
+  /enterprise/kubernetes-clusters/{id}/operations/{operationId}:
+    $ref: ./paths/kubernetes-workbench.yaml#/operation
+  /enterprise/kubernetes-clusters/{id}/operations:
+    $ref: ./paths/kubernetes-workbench.yaml#/operations
+  /enterprise/kubernetes-clusters/{id}/inventory/actions/preview-mutation:
+    $ref: ./paths/kubernetes-workbench.yaml#/mutation
+  /enterprise/kubernetes-clusters/{id}/inventory/watch:
+    $ref: ./paths/kubernetes-workbench.yaml#/watch
+  /enterprise/kubernetes-clusters/{id}/inventory/types:
+    $ref: ./paths/kubernetes-workbench.yaml#/types
+  /enterprise/kubernetes-clusters/{id}/inventory/scope:
+    $ref: ./paths/kubernetes-workbench.yaml#/scope
+  /enterprise/kubernetes-clusters/{id}/inventory/object:
+    $ref: ./paths/kubernetes-workbench.yaml#/object
+  /enterprise/kubernetes-clusters/{id}/inventory:
+    $ref: ./paths/kubernetes-workbench.yaml#/inventory
+  /monitoring/ingest-keys/{id}/reveal:
+    $ref: ./paths/monitoring.yaml#/ingestKeyReveal
+  /monitoring/ingest-endpoints/{id}/connection:
+    $ref: ./paths/monitoring.yaml#/ingestConnection
+  /monitoring/ingest-endpoints/{id}/keys:
+    $ref: ./paths/monitoring.yaml#/ingestKeys
+  /applications/{id}/ingest-endpoints:
+    $ref: ./paths/monitoring.yaml#/ingestEndpoints
+  /monitoring/collectors:
+    $ref: ./paths/monitoring.yaml#/collectors
+  /applications/{id}/dashboard-bindings:
+    $ref: ./paths/dashboard.yaml#/applicationBindings
+  /applications/{id}/dashboard-bindings/preview:
+    $ref: ./paths/dashboard.yaml#/applicationBindingPreview
+  /monitoring/targets/{id}/dashboard-bindings:
+    $ref: ./paths/dashboard.yaml#/monitoringTargetBindings
+  /monitoring/targets/{id}/dashboard-bindings/preview:
+    $ref: ./paths/dashboard.yaml#/monitoringTargetBindingPreview
+  /monitoring/collections:
+    $ref: ./paths/monitoring.yaml#/collections
+  /monitoring/builtins:
+    $ref: ./paths/monitoring.yaml#/builtins
+  /monitoring/builtins/preview:
+    $ref: ./paths/monitoring.yaml#/builtinPreview
+  /monitoring/collections/{id}:
+    $ref: ./paths/monitoring.yaml#/collection
+  /monitoring/targets:
+    $ref: ./paths/monitoring.yaml#/targets
+  /monitoring/integrations:
+    $ref: ./paths/monitoring.yaml#/integrations
+  /applications:
+    $ref: ./paths/monitoring.yaml#/applications
+  /applications/{id}:
+    $ref: ./paths/monitoring.yaml#/application
+  /applications/services:
+    $ref: ./paths/monitoring.yaml#/services
+  /monitoring/commands/preview:
+    $ref: ./paths/monitoring.yaml#/preview
   /conversations/{conversation_id}/interactions:
     $ref: ./paths/interaction.yaml#/list
   /conversations/{conversation_id}/interactions/{interaction_id}:
@@ -549,6 +629,22 @@ paths:
     $ref: ./paths/alerts.yaml#/export
 components:
   schemas:
+    MonitoringResourceRef:
+      $ref: ./components/monitoring.yaml#/components/schemas/MonitoringResourceRef
+    MonitoringApplication:
+      $ref: ./components/monitoring.yaml#/components/schemas/MonitoringApplication
+    MonitoringApplicationInput:
+      $ref: ./components/monitoring.yaml#/components/schemas/MonitoringApplicationInput
+    MonitoringApplicationService:
+      $ref: ./components/monitoring.yaml#/components/schemas/MonitoringApplicationService
+    MonitoringApplicationPage:
+      $ref: ./components/monitoring.yaml#/components/schemas/MonitoringApplicationPage
+    MonitoringServicePage:
+      $ref: ./components/monitoring.yaml#/components/schemas/MonitoringServicePage
+    MonitoringBindingInput:
+      $ref: ./components/monitoring.yaml#/components/schemas/MonitoringBindingInput
+    MonitoringMutation:
+      $ref: ./components/monitoring.yaml#/components/schemas/MonitoringMutation
     DashboardAnalysisCandidateInput:
       $ref: ./components/dashboard-analysis.yaml#/components/schemas/DashboardAnalysisCandidateInput
     DashboardAnalysisResolveInput:

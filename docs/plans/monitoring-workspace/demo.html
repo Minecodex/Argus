@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Argus · 监控与应用工作台</title>
+    <link
+      rel="stylesheet"
+      href="../../../web/packages/design-tokens/src/tokens.css"
+    />
+    <link rel="stylesheet" href="demo.css" />
+    <script defer src="data.js"></script>
+    <script defer src="references.js"></script>
+    <script defer src="core.js"></script>
+    <script defer src="selection.js"></script>
+    <script defer src="monitor-inputs.js"></script>
+    <script defer src="dashboard.js"></script>
+    <script defer src="views.js"></script>
+    <script defer src="forms.js"></script>
+    <script defer src="events.js"></script>
+  </head>
+  <body>
+    <a class="argus-skip" href="#main">跳转到内容 / Skip to content</a>
+    <div id="app"></div>
+    <dialog
+      id="modal"
+      aria-labelledby="modal-title"
+      class="argus-modal"
+    ></dialog>
+    <dialog
+      id="drawer"
+      aria-labelledby="drawer-title"
+      class="argus-drawer"
+    ></dialog>
+    <div id="toast" class="argus-toast" role="status" aria-live="polite"></div>
+    <dialog
+      id="picker"
+      class="argus-modal argus-picker"
+      aria-labelledby="picker-title"
+    ></dialog>
+    <noscript
+      >此交互原型需要 JavaScript。This prototype requires JavaScript.</noscript
+    >
+  </body>
+</html>

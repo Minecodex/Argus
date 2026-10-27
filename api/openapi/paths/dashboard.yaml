@@ -1002,5 +1002,233 @@
         }
       }
     }
+  },
+  "applicationBindings": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listApplicationDashboardBindings",
+      "summary": "List Application dashboard bindings",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/ResourceDashboardBindings"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "applicationBindingPreview": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "previewApplicationDashboardBinding",
+      "summary": "Preview Application dashboard bindings",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardBindingInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../schemas/action/pending-action-public.schema.json"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "monitoringTargetBindings": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listMonitoringTargetDashboardBindings",
+      "summary": "List MonitoringTarget dashboard bindings",
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/ResourceDashboardBindings"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "monitoringTargetBindingPreview": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "previewMonitoringTargetDashboardBinding",
+      "summary": "Preview MonitoringTarget dashboard bindings",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/DashboardBindingInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../schemas/action/pending-action-public.schema.json"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "scopeDirectory": {
+    "get": {
+      "operationId": "listDashboardScopeResources",
+      "summary": "List currently authorized query scope resources with search and signed pagination",
+      "parameters": [
+        {
+          "name": "kind",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster",
+              "application",
+              "monitoring_target",
+              "kubernetes_namespace"
+            ]
+          }
+        },
+        {
+          "name": "search",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 30
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized scope page",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardScopeDirectoryPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
   }
 }

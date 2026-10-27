@@ -13,7 +13,9 @@ import (
 
 type Querier interface {
 	AbandonDashboardQueryAttempts(ctx context.Context, arg AbandonDashboardQueryAttemptsParams) error
+	AbortPendingMonitoringAssignments(ctx context.Context, arg AbortPendingMonitoringAssignmentsParams) error
 	AcknowledgeNodeTrustBundle(ctx context.Context, arg AcknowledgeNodeTrustBundleParams) (PkiNodeTrustAck, error)
+	AcquireKubernetesHelmLock(ctx context.Context, arg AcquireKubernetesHelmLockParams) (KubernetesHelmLock, error)
 	ActivateBastionConnector(ctx context.Context, arg ActivateBastionConnectorParams) (BastionScope, error)
 	// Connector enrollment is authoritative for command-mode roots; B/C report
 	// the architecture frozen by their Connection Test. Replacement atomically
@@ -22,8 +24,11 @@ type Querier interface {
 	ActivateDashboardRevision(ctx context.Context, arg ActivateDashboardRevisionParams) (Dashboard, error)
 	ActivateHostConnector(ctx context.Context, arg ActivateHostConnectorParams) (Host, error)
 	ActivateKubernetesConnector(ctx context.Context, arg ActivateKubernetesConnectorParams) (KubernetesCluster, error)
+	ActivateKubernetesStreamSession(ctx context.Context, arg ActivateKubernetesStreamSessionParams) (KubernetesStreamSession, error)
 	ActivateMfaCredential(ctx context.Context, id uuid.UUID) (MfaCredential, error)
+	ActivateMonitoringAssignment(ctx context.Context, arg ActivateMonitoringAssignmentParams) (int64, error)
 	ActivatePlanCommandAuthorizations(ctx context.Context, arg ActivatePlanCommandAuthorizationsParams) error
+	ActivateVerifiedTelemetryTunnelRoute(ctx context.Context, arg ActivateVerifiedTelemetryTunnelRouteParams) ([]uuid.UUID, error)
 	AddAlertConfigurationRevision(ctx context.Context, arg AddAlertConfigurationRevisionParams) error
 	AddAlertDeliveryAttempt(ctx context.Context, arg AddAlertDeliveryAttemptParams) error
 	AddAlertEvaluation(ctx context.Context, arg AddAlertEvaluationParams) error
@@ -44,21 +49,32 @@ type Querier interface {
 	AlertNotificationTaskOwned(ctx context.Context, arg AlertNotificationTaskOwnedParams) (bool, error)
 	AlertResourcesStillExist(ctx context.Context, arg AlertResourcesStillExistParams) (bool, error)
 	AlertRuntimeTaskOwned(ctx context.Context, arg AlertRuntimeTaskOwnedParams) (bool, error)
+	AllowManagedDashboardWrite(ctx context.Context, dashboardID uuid.UUID) error
 	ApplyCollectorOperationFailure(ctx context.Context, arg ApplyCollectorOperationFailureParams) (int64, error)
 	ApplyCollectorOperationSuccess(ctx context.Context, arg ApplyCollectorOperationSuccessParams) (int64, error)
+	ApplyCollectorRevisionOutcome(ctx context.Context, arg ApplyCollectorRevisionOutcomeParams) (int64, error)
+	ApplyMonitoringCollectionRevision(ctx context.Context, arg ApplyMonitoringCollectionRevisionParams) (int64, error)
 	AttachAlertDeliveryBatch(ctx context.Context, arg AttachAlertDeliveryBatchParams) error
 	// Creation is one transaction: link the preallocated root Host before the
 	// newly created Scope can become externally visible.
 	AttachBastionRootHost(ctx context.Context, arg AttachBastionRootHostParams) (BastionScope, error)
 	AttachInteractionImplementation(ctx context.Context, arg AttachInteractionImplementationParams) (ConversationInteraction, error)
+	AttachKubernetesLogSession(ctx context.Context, arg AttachKubernetesLogSessionParams) (KubernetesLogSession, error)
 	// A Bastion Scope and its Bastion Host share the user-visible
 	// name. Both live-name namespaces must therefore be free before preview.
 	BastionNameAvailable(ctx context.Context, arg BastionNameAvailableParams) (pgtype.Bool, error)
 	BindActionPlanCommand(ctx context.Context, arg BindActionPlanCommandParams) error
+	BindCollectorDeliveryPolicy(ctx context.Context, arg BindCollectorDeliveryPolicyParams) error
+	BindKubernetesDrainCommand(ctx context.Context, arg BindKubernetesDrainCommandParams) (int64, error)
+	BindKubernetesHelmInput(ctx context.Context, arg BindKubernetesHelmInputParams) (int64, error)
+	BindKubernetesOperationCommand(ctx context.Context, arg BindKubernetesOperationCommandParams) (int64, error)
+	BindKubernetesPrivateInput(ctx context.Context, arg BindKubernetesPrivateInputParams) (int64, error)
+	BindKubernetesStreamLease(ctx context.Context, arg BindKubernetesStreamLeaseParams) (KubernetesStreamSession, error)
 	BindRemoteDirectOwner(ctx context.Context, arg BindRemoteDirectOwnerParams) (int64, error)
 	BindRemoteDirectRecoveryOwner(ctx context.Context, arg BindRemoteDirectRecoveryOwnerParams) (int64, error)
 	BindVerifiedRemoteIdentity(ctx context.Context, arg BindVerifiedRemoteIdentityParams) (RemoteExecutionIdentity, error)
 	BumpAuthorizationVersionRecord(ctx context.Context, arg BumpAuthorizationVersionRecordParams) error
+	BumpBuiltinRoleRegistryVersion(ctx context.Context, arg BumpBuiltinRoleRegistryVersionParams) (uuid.UUID, error)
 	BumpDepartmentUsersAuthorizationVersion(ctx context.Context, arg BumpDepartmentUsersAuthorizationVersionParams) ([]uuid.UUID, error)
 	BumpEnterpriseServiceAccountsAuthorizationVersion(ctx context.Context, enterpriseID uuid.UUID) ([]uuid.UUID, error)
 	BumpEnterpriseUsersAuthorizationVersion(ctx context.Context, enterpriseID uuid.UUID) ([]uuid.UUID, error)
@@ -72,6 +88,7 @@ type Querier interface {
 	CancelConversationAgentRuns(ctx context.Context, arg CancelConversationAgentRunsParams) ([]Run, error)
 	CancelConversationDashboardQueryJobs(ctx context.Context, arg CancelConversationDashboardQueryJobsParams) error
 	CancelHostOnboardingOperationsByHost(ctx context.Context, arg CancelHostOnboardingOperationsByHostParams) (int64, error)
+	CancelKubernetesDrain(ctx context.Context, arg CancelKubernetesDrainParams) (KubernetesOperation, error)
 	CancelPendingAction(ctx context.Context, arg CancelPendingActionParams) (PendingAction, error)
 	CancelQueuedDashboardQueryTasks(ctx context.Context, arg CancelQueuedDashboardQueryTasksParams) error
 	CancelRunInteractions(ctx context.Context, arg CancelRunInteractionsParams) error
@@ -89,6 +106,10 @@ type Querier interface {
 	ClaimDirectHostRemovalOperations(ctx context.Context, arg ClaimDirectHostRemovalOperationsParams) ([]HostRemovalOperation, error)
 	ClaimExecution(ctx context.Context, arg ClaimExecutionParams) (Execution, error)
 	ClaimHostOnboardingOperations(ctx context.Context, arg ClaimHostOnboardingOperationsParams) ([]HostOnboardingOperation, error)
+	ClaimKubernetesNamespaceSync(ctx context.Context, leaseToken uuid.NullUUID) (KubernetesNamespaceSyncState, error)
+	ClaimKubernetesObservation(ctx context.Context, arg ClaimKubernetesObservationParams) (KubernetesOperation, error)
+	ClaimKubernetesStreamExecution(ctx context.Context, arg ClaimKubernetesStreamExecutionParams) (int64, error)
+	ClaimKubernetesStreamSession(ctx context.Context, arg ClaimKubernetesStreamSessionParams) (KubernetesStreamSession, error)
 	ClaimOutboxEvents(ctx context.Context, limit int32) ([]OutboxEvent, error)
 	ClaimRemoteDirectCommands(ctx context.Context, arg ClaimRemoteDirectCommandsParams) ([]RemoteExecutionDirectCommand, error)
 	ClaimRuntimeTask(ctx context.Context, arg ClaimRuntimeTaskParams) (RuntimeTask, error)
@@ -103,14 +124,17 @@ type Querier interface {
 	ClaimWorkspaceProvision(ctx context.Context, arg ClaimWorkspaceProvisionParams) (Workspace, error)
 	ClaimWorkspaceUpload(ctx context.Context, arg ClaimWorkspaceUploadParams) (WorkspaceUpload, error)
 	ClearConversationMCPConnections(ctx context.Context, arg ClearConversationMCPConnectionsParams) error
+	ClearRetiredCollectorCollectionExecution(ctx context.Context, arg ClearRetiredCollectorCollectionExecutionParams) error
 	ClearSubjectStepUp(ctx context.Context, arg ClearSubjectStepUpParams) error
 	CloseConnectorSession(ctx context.Context, arg CloseConnectorSessionParams) (int64, error)
+	CloseKubernetesLogSession(ctx context.Context, arg CloseKubernetesLogSessionParams) (KubernetesLogSession, error)
 	CompleteConnectionTest(ctx context.Context, arg CompleteConnectionTestParams) (ConnectionTest, error)
 	CompleteConnectorCertificateRotation(ctx context.Context, arg CompleteConnectorCertificateRotationParams) (Connector, error)
 	CompleteHostManagedChangeJournal(ctx context.Context, arg CompleteHostManagedChangeJournalParams) (int64, error)
 	CompleteHostOnboardingOperation(ctx context.Context, arg CompleteHostOnboardingOperationParams) (HostOnboardingOperation, error)
 	CompleteHostRemovalOperation(ctx context.Context, arg CompleteHostRemovalOperationParams) (HostRemovalOperation, error)
 	CompleteIdempotencyRecord(ctx context.Context, arg CompleteIdempotencyRecordParams) (int64, error)
+	CompleteMonitoringAssignmentRetirements(ctx context.Context, arg CompleteMonitoringAssignmentRetirementsParams) error
 	CompleteRemoteDirectCommand(ctx context.Context, arg CompleteRemoteDirectCommandParams) (int64, error)
 	CompleteRemoteSessionBatch(ctx context.Context, arg CompleteRemoteSessionBatchParams) (RemoteExecutionSession, error)
 	CompleteTelemetryRouteTest(ctx context.Context, arg CompleteTelemetryRouteTestParams) (TelemetryRouteTest, error)
@@ -127,6 +151,8 @@ type Querier interface {
 	ConsumeMfaChallenge(ctx context.Context, id uuid.UUID) (int64, error)
 	ConsumeMfaRecoveryCode(ctx context.Context, arg ConsumeMfaRecoveryCodeParams) (int64, error)
 	ConsumeMfaTotpCounter(ctx context.Context, arg ConsumeMfaTotpCounterParams) (int64, error)
+	ConsumeMonitoringCredentialDraft(ctx context.Context, arg ConsumeMonitoringCredentialDraftParams) (int64, error)
+	ConsumeMonitoringKeyReveal(ctx context.Context, arg ConsumeMonitoringKeyRevealParams) (MonitoringIngestKey, error)
 	ConsumePendingActionToken(ctx context.Context, arg ConsumePendingActionTokenParams) (int64, error)
 	ConsumeRemoteAccessTicket(ctx context.Context, arg ConsumeRemoteAccessTicketParams) (RemoteAccessTicket, error)
 	// status='authorized' 是首次接入；status='active' 允许浏览器断开后重接
@@ -136,15 +162,22 @@ type Querier interface {
 	ConsumeTemporaryCredential(ctx context.Context, id uuid.UUID) (int64, error)
 	ConvergeInvalidRemoteAccessSessions(ctx context.Context, limit int32) ([]RemoteAccessSession, error)
 	ConvergeStuckTerminatingRemoteAccessSessions(ctx context.Context, limit int32) ([]RemoteAccessSession, error)
+	CountActiveKubernetesLogSessions(ctx context.Context, arg CountActiveKubernetesLogSessionsParams) (int64, error)
+	CountActiveKubernetesStreamSessions(ctx context.Context, arg CountActiveKubernetesStreamSessionsParams) (int64, error)
 	CountActiveSandboxSessions(ctx context.Context, enterpriseID uuid.UUID) (int32, error)
 	CountActiveTunnelsByEnterprise(ctx context.Context, enterpriseID uuid.UUID) (int64, error)
 	CountAlertNoiseHits(ctx context.Context, arg CountAlertNoiseHitsParams) (int64, error)
+	CountApplicationCollectionDependencies(ctx context.Context, arg CountApplicationCollectionDependenciesParams) (int64, error)
 	CountDepartmentUsers(ctx context.Context, arg CountDepartmentUsersParams) (int64, error)
 	CountEligibleApprovalDecisions(ctx context.Context, arg CountEligibleApprovalDecisionsParams) (int32, error)
 	CountEnterpriseIAMManagers(ctx context.Context, enterpriseID uuid.UUID) (int64, error)
 	CountFilteredAlertDeliveries(ctx context.Context, arg CountFilteredAlertDeliveriesParams) (int64, error)
 	CountFilteredAlertInstances(ctx context.Context, arg CountFilteredAlertInstancesParams) (int64, error)
 	CountFolderDashboards(ctx context.Context, arg CountFolderDashboardsParams) (int64, error)
+	CountMonitoringEndpointKeys(ctx context.Context, arg CountMonitoringEndpointKeysParams) (int64, error)
+	CountMonitoringServiceInstances(ctx context.Context, arg CountMonitoringServiceInstancesParams) (int64, error)
+	CountMonitoringServices(ctx context.Context, arg CountMonitoringServicesParams) (int64, error)
+	CountMonitoringTargetDependencies(ctx context.Context, arg CountMonitoringTargetDependenciesParams) (int64, error)
 	CountOwnedConnectorControlTunnels(ctx context.Context, leaseOwner string) (int64, error)
 	CountRemoteAccessApprovalWorkflowReferences(ctx context.Context, approvalWorkflowID uuid.NullUUID) (CountRemoteAccessApprovalWorkflowReferencesRow, error)
 	CountRemoteAccessApprovals(ctx context.Context, requirementID uuid.UUID) (int32, error)
@@ -216,7 +249,13 @@ type Querier interface {
 	CreateHostRemovalOperation(ctx context.Context, arg CreateHostRemovalOperationParams) (HostRemovalOperation, error)
 	CreateHostRemovalToken(ctx context.Context, arg CreateHostRemovalTokenParams) (HostRemovalToken, error)
 	CreateIdempotencyRecord(ctx context.Context, arg CreateIdempotencyRecordParams) (int64, error)
+	CreateInstanceCollectionClaim(ctx context.Context, arg CreateInstanceCollectionClaimParams) (CollectionClaim, error)
 	CreateKubernetesCluster(ctx context.Context, arg CreateKubernetesClusterParams) (KubernetesCluster, error)
+	CreateKubernetesHelmInput(ctx context.Context, arg CreateKubernetesHelmInputParams) error
+	CreateKubernetesLogSession(ctx context.Context, arg CreateKubernetesLogSessionParams) (KubernetesLogSession, error)
+	CreateKubernetesOperation(ctx context.Context, arg CreateKubernetesOperationParams) (KubernetesOperation, error)
+	CreateKubernetesPrivateInput(ctx context.Context, arg CreateKubernetesPrivateInputParams) error
+	CreateKubernetesStreamSession(ctx context.Context, arg CreateKubernetesStreamSessionParams) (KubernetesStreamSession, error)
 	CreateMCPConnection(ctx context.Context, arg CreateMCPConnectionParams) (McpConnection, error)
 	CreateMCPConnectionRevision(ctx context.Context, arg CreateMCPConnectionRevisionParams) (McpConnectionRevision, error)
 	CreateMCPToolSnapshot(ctx context.Context, arg CreateMCPToolSnapshotParams) (McpToolSnapshot, error)
@@ -227,6 +266,16 @@ type Querier interface {
 	CreateModelCall(ctx context.Context, arg CreateModelCallParams) (ModelCall, error)
 	CreateModelCompatibilityResult(ctx context.Context, arg CreateModelCompatibilityResultParams) (ModelCompatibilityResult, error)
 	CreateModelToolCall(ctx context.Context, arg CreateModelToolCallParams) (ToolCall, error)
+	CreateMonitoringApplication(ctx context.Context, arg CreateMonitoringApplicationParams) (MonitoringApplication, error)
+	CreateMonitoringAssignment(ctx context.Context, arg CreateMonitoringAssignmentParams) error
+	CreateMonitoringAssignmentRetirement(ctx context.Context, arg CreateMonitoringAssignmentRetirementParams) (MonitoringAssignmentRetirement, error)
+	CreateMonitoringBinding(ctx context.Context, arg CreateMonitoringBindingParams) (MonitoringApplicationBinding, error)
+	CreateMonitoringCollection(ctx context.Context, arg CreateMonitoringCollectionParams) (MonitoringCollection, error)
+	CreateMonitoringCredentialDelivery(ctx context.Context, arg CreateMonitoringCredentialDeliveryParams) error
+	CreateMonitoringCredentialDraft(ctx context.Context, arg CreateMonitoringCredentialDraftParams) (MonitoringCredentialDraft, error)
+	CreateMonitoringIngestEndpoint(ctx context.Context, arg CreateMonitoringIngestEndpointParams) (MonitoringIngestEndpoint, error)
+	CreateMonitoringIngestKey(ctx context.Context, arg CreateMonitoringIngestKeyParams) (MonitoringIngestKey, error)
+	CreateMonitoringTarget(ctx context.Context, arg CreateMonitoringTargetParams) (MonitoringTarget, error)
 	CreatePKICertificateIdentity(ctx context.Context, arg CreatePKICertificateIdentityParams) (PkiCertificateIdentity, error)
 	CreatePasswordCredential(ctx context.Context, arg CreatePasswordCredentialParams) (PasswordCredential, error)
 	CreatePendingAction(ctx context.Context, arg CreatePendingActionParams) (PendingAction, error)
@@ -288,6 +337,8 @@ type Querier interface {
 	CreateWorkspaceFile(ctx context.Context, arg CreateWorkspaceFileParams) (WorkspaceFile, error)
 	CreateWorkspaceSandboxSession(ctx context.Context, arg CreateWorkspaceSandboxSessionParams) (SandboxSession, error)
 	CreateWorkspaceUpload(ctx context.Context, arg CreateWorkspaceUploadParams) (WorkspaceUpload, error)
+	CurrentPermissionRegistryRevision(ctx context.Context) (int32, error)
+	DeclareMonitoringService(ctx context.Context, arg DeclareMonitoringServiceParams) (MonitoringApplicationService, error)
 	DeleteAlertConfiguration(ctx context.Context, arg DeleteAlertConfigurationParams) (AlertConfiguration, error)
 	DeleteBastionRootHost(ctx context.Context, arg DeleteBastionRootHostParams) (Host, error)
 	DeleteBastionScope(ctx context.Context, arg DeleteBastionScopeParams) (BastionScope, error)
@@ -297,32 +348,52 @@ type Querier interface {
 	DeleteDashboardBinding(ctx context.Context, arg DeleteDashboardBindingParams) (int64, error)
 	DeleteHostOnboardingOperationSecretsByHost(ctx context.Context, arg DeleteHostOnboardingOperationSecretsByHostParams) (int64, error)
 	DeleteKubernetesCluster(ctx context.Context, arg DeleteKubernetesClusterParams) (KubernetesCluster, error)
+	DeleteKubernetesHelmInput(ctx context.Context, arg DeleteKubernetesHelmInputParams) error
+	DeleteKubernetesPrivateInput(ctx context.Context, arg DeleteKubernetesPrivateInputParams) error
 	DeleteMCPConnectionGrants(ctx context.Context, arg DeleteMCPConnectionGrantsParams) error
 	DeleteMfaRecoveryCodes(ctx context.Context, credentialID uuid.UUID) error
 	DeleteRemoteAccessRoute(ctx context.Context, arg DeleteRemoteAccessRouteParams) (int64, error)
+	DeleteRetiredKubernetesHelmInputs(ctx context.Context) error
+	DeleteRetiredKubernetesLogSessions(ctx context.Context) error
+	DeleteRetiredKubernetesPrivateInputs(ctx context.Context) error
+	DeleteRetiredKubernetesStreamSessions(ctx context.Context) error
 	DeleteRolePermissions(ctx context.Context, roleID uuid.UUID) error
 	DeleteUninstalledBastionHost(ctx context.Context, arg DeleteUninstalledBastionHostParams) (int64, error)
 	DeleteUninstalledBastionScope(ctx context.Context, arg DeleteUninstalledBastionScopeParams) (BastionScope, error)
 	DeleteUninstalledManagedHost(ctx context.Context, arg DeleteUninstalledManagedHostParams) (Host, error)
 	DeleteUnregisteredBastionRootHost(ctx context.Context, arg DeleteUnregisteredBastionRootHostParams) (Host, error)
 	DeleteUnregisteredManagedHost(ctx context.Context, arg DeleteUnregisteredManagedHostParams) (Host, error)
+	DeleteUnusedMonitoringCredentialDraft(ctx context.Context, arg DeleteUnusedMonitoringCredentialDraftParams) (int64, error)
+	DeleteUnusedMonitoringDraftSecret(ctx context.Context, arg DeleteUnusedMonitoringDraftSecretParams) (int64, error)
+	DeleteUnusedMonitoringDraftVersions(ctx context.Context, arg DeleteUnusedMonitoringDraftVersionsParams) error
 	DeleteWorkspaceDeliveryRecords(ctx context.Context, arg DeleteWorkspaceDeliveryRecordsParams) error
 	DeleteWorkspaceFileRecords(ctx context.Context, arg DeleteWorkspaceFileRecordsParams) error
+	DisableApplicationIngest(ctx context.Context, arg DisableApplicationIngestParams) error
 	DisableDataAuthorizationGrant(ctx context.Context, arg DisableDataAuthorizationGrantParams) error
 	DisableEnterpriseUser(ctx context.Context, arg DisableEnterpriseUserParams) (EnterpriseUser, error)
 	DisableMfaCredential(ctx context.Context, arg DisableMfaCredentialParams) (int64, error)
 	DisableSecret(ctx context.Context, arg DisableSecretParams) (int64, error)
 	DisableUserRoleBindingsExcept(ctx context.Context, arg DisableUserRoleBindingsExceptParams) error
 	DiscardDashboardDraft(ctx context.Context, arg DiscardDashboardDraftParams) (int64, error)
+	DiscoverMonitoringService(ctx context.Context, arg DiscoverMonitoringServiceParams) (MonitoringApplicationService, error)
 	DispatchRemoteStep(ctx context.Context, arg DispatchRemoteStepParams) (int64, error)
 	DropOwnedConnectorTelemetryTunnels(ctx context.Context, arg DropOwnedConnectorTelemetryTunnelsParams) (int64, error)
 	DueAlertPolicies(ctx context.Context) ([]AlertConfiguration, error)
+	DueCollectorDeliveryAlerts(ctx context.Context) ([]CollectorDeliveryReport, error)
+	EndKubernetesStreamSession(ctx context.Context, arg EndKubernetesStreamSessionParams) (KubernetesStreamSession, error)
+	EndMonitoringAssignment(ctx context.Context, arg EndMonitoringAssignmentParams) error
+	EndMonitoringBinding(ctx context.Context, arg EndMonitoringBindingParams) (int64, error)
+	EndOtherActiveMonitoringAssignments(ctx context.Context, arg EndOtherActiveMonitoringAssignmentsParams) error
+	EnqueueMonitoringAssignmentRetirement(ctx context.Context, arg EnqueueMonitoringAssignmentRetirementParams) error
+	EnsureCollectorDeliveryPolicy(ctx context.Context, arg EnsureCollectorDeliveryPolicyParams) (AlertConfiguration, error)
+	EnsureCollectorDeliveryReport(ctx context.Context, arg EnsureCollectorDeliveryReportParams) (CollectorDeliveryReport, error)
 	EnsureDashboardRunBudget(ctx context.Context, arg EnsureDashboardRunBudgetParams) error
 	EnsureRemoteGeneration(ctx context.Context, arg EnsureRemoteGenerationParams) error
 	EnsureTelemetryRetentionPolicy(ctx context.Context, enterpriseID uuid.UUID) (TelemetryRetentionPolicy, error)
 	EnsureWorkspaceQuota(ctx context.Context, arg EnsureWorkspaceQuotaParams) error
 	EscalateRemoteAccessRequirements(ctx context.Context, limit int32) ([]RemoteAccessRequirementSnapshot, error)
 	ExpireCollectionClaimMigrations(ctx context.Context) (int64, error)
+	ExpireCollectorOperationsForProjection(ctx context.Context) ([]TelemetryCollectorOperation, error)
 	ExpireConnectionTestsByCredential(ctx context.Context, arg ExpireConnectionTestsByCredentialParams) error
 	ExpireConnectorInstallOperations(ctx context.Context) (int64, error)
 	ExpireCredentialLeases(ctx context.Context) (int64, error)
@@ -336,7 +407,6 @@ type Querier interface {
 	ExpireQueuedConnectorCommands(ctx context.Context) ([]ConnectorCommand, error)
 	ExpireRemoteAccessRecordings(ctx context.Context, limit int32) ([]RemoteAccessRecording, error)
 	ExpireRemoteAccessRequirements(ctx context.Context, limit int32) ([]RemoteAccessRequirementSnapshot, error)
-	ExpireTelemetryCollectorOperations(ctx context.Context) (int64, error)
 	ExpireWorkspaceUploads(ctx context.Context) ([]WorkspaceUpload, error)
 	FailDeletedWorkspaceUploads(ctx context.Context, arg FailDeletedWorkspaceUploadsParams) error
 	FailHostOnboardingOperation(ctx context.Context, arg FailHostOnboardingOperationParams) (HostOnboardingOperation, error)
@@ -355,6 +425,8 @@ type Querier interface {
 	FinishConnectorInstallOperation(ctx context.Context, arg FinishConnectorInstallOperationParams) (ConnectorInstallOperation, error)
 	FinishConversationFileCleanup(ctx context.Context, id uuid.UUID) error
 	FinishExecution(ctx context.Context, arg FinishExecutionParams) (Execution, error)
+	FinishKubernetesNamespaceSync(ctx context.Context, arg FinishKubernetesNamespaceSyncParams) (int64, error)
+	FinishKubernetesOperation(ctx context.Context, arg FinishKubernetesOperationParams) (int64, error)
 	FinishModelCall(ctx context.Context, arg FinishModelCallParams) (ModelCall, error)
 	FinishPendingAction(ctx context.Context, arg FinishPendingActionParams) (PendingAction, error)
 	FinishRemoteAccessRecording(ctx context.Context, arg FinishRemoteAccessRecordingParams) (RemoteAccessRecording, error)
@@ -441,6 +513,8 @@ type Querier interface {
 	GetDashboardRunBudget(ctx context.Context, arg GetDashboardRunBudgetParams) (DashboardRunBudget, error)
 	GetDashboardRunParameters(ctx context.Context, arg GetDashboardRunParametersParams) (DashboardRunParameter, error)
 	GetDashboardRunUserMessage(ctx context.Context, arg GetDashboardRunUserMessageParams) (ConversationEvent, error)
+	GetDashboardTemplateHead(ctx context.Context, templateKey string) (DashboardTemplateVersion, error)
+	GetDashboardTemplateVersion(ctx context.Context, arg GetDashboardTemplateVersionParams) (DashboardTemplateVersion, error)
 	GetDefaultDepartment(ctx context.Context, enterpriseID uuid.UUID) (Department, error)
 	GetDepartment(ctx context.Context, arg GetDepartmentParams) (Department, error)
 	GetEffectiveRoleBindings(ctx context.Context, arg GetEffectiveRoleBindingsParams) ([]RoleBinding, error)
@@ -465,10 +539,20 @@ type Querier interface {
 	GetHostRuntimeObservation(ctx context.Context, arg GetHostRuntimeObservationParams) (HostRuntimeObservation, error)
 	GetIdempotencyRecord(ctx context.Context, arg GetIdempotencyRecordParams) (IdempotencyRecord, error)
 	GetKubernetesCluster(ctx context.Context, arg GetKubernetesClusterParams) (KubernetesCluster, error)
+	GetKubernetesHelmInput(ctx context.Context, arg GetKubernetesHelmInputParams) (KubernetesHelmInput, error)
+	GetKubernetesHelmLock(ctx context.Context, arg GetKubernetesHelmLockParams) (KubernetesHelmLock, error)
+	GetKubernetesLogSession(ctx context.Context, arg GetKubernetesLogSessionParams) (KubernetesLogSession, error)
+	GetKubernetesMetricObjectIdentity(ctx context.Context, arg GetKubernetesMetricObjectIdentityParams) (GetKubernetesMetricObjectIdentityRow, error)
+	GetKubernetesNamespaceResource(ctx context.Context, arg GetKubernetesNamespaceResourceParams) (KubernetesNamespaceResource, error)
+	GetKubernetesNamespaceSyncState(ctx context.Context, arg GetKubernetesNamespaceSyncStateParams) (KubernetesNamespaceSyncState, error)
 	GetKubernetesNodeHostBinding(ctx context.Context, arg GetKubernetesNodeHostBindingParams) (KubernetesNodeHostBinding, error)
+	GetKubernetesOperation(ctx context.Context, arg GetKubernetesOperationParams) (KubernetesOperation, error)
+	GetKubernetesPrivateInput(ctx context.Context, arg GetKubernetesPrivateInputParams) (KubernetesPrivateInput, error)
+	GetKubernetesStreamSession(ctx context.Context, id uuid.UUID) (KubernetesStreamSession, error)
 	GetLastRemoteGenerationRequest(ctx context.Context, arg GetLastRemoteGenerationRequestParams) (RemoteExecutionRequest, error)
 	GetLastRemoteSessionRequest(ctx context.Context, arg GetLastRemoteSessionRequestParams) (RemoteExecutionRequest, error)
 	GetLatestAIModelRevision(ctx context.Context, arg GetLatestAIModelRevisionParams) (AiModelRevision, error)
+	GetLatestCollectorManagementPayload(ctx context.Context, arg GetLatestCollectorManagementPayloadParams) ([]byte, error)
 	GetLatestCollectorOperation(ctx context.Context, arg GetLatestCollectorOperationParams) (TelemetryCollectorOperation, error)
 	GetLatestConnectorCommandForOperation(ctx context.Context, arg GetLatestConnectorCommandForOperationParams) (ConnectorCommand, error)
 	GetLatestConnectorInstallOperation(ctx context.Context, arg GetLatestConnectorInstallOperationParams) (ConnectorInstallOperation, error)
@@ -482,10 +566,28 @@ type Querier interface {
 	GetMCPConnectionRevision(ctx context.Context, arg GetMCPConnectionRevisionParams) (McpConnectionRevision, error)
 	GetMCPToolSnapshot(ctx context.Context, arg GetMCPToolSnapshotParams) (McpToolSnapshot, error)
 	GetManagedAccount(ctx context.Context, arg GetManagedAccountParams) (ManagedAccount, error)
+	GetManagedDashboardByID(ctx context.Context, arg GetManagedDashboardByIDParams) (ManagedDashboardInstance, error)
+	GetManagedDashboardInstance(ctx context.Context, arg GetManagedDashboardInstanceParams) (ManagedDashboardInstance, error)
 	GetMfaChallengeByHash(ctx context.Context, challengeHash []byte) (MfaChallenge, error)
 	GetMfaCredential(ctx context.Context, arg GetMfaCredentialParams) (MfaCredential, error)
 	GetMfaEnrollmentByHash(ctx context.Context, enrollmentHash []byte) (MfaCredential, error)
 	GetModelToolCall(ctx context.Context, arg GetModelToolCallParams) (ToolCall, error)
+	GetMonitoringApplication(ctx context.Context, arg GetMonitoringApplicationParams) (MonitoringApplication, error)
+	GetMonitoringAssignment(ctx context.Context, arg GetMonitoringAssignmentParams) (MonitoringCollectionAssignment, error)
+	GetMonitoringAssignmentApproval(ctx context.Context, arg GetMonitoringAssignmentApprovalParams) (PendingAction, error)
+	GetMonitoringAssignmentRetirement(ctx context.Context, arg GetMonitoringAssignmentRetirementParams) (MonitoringAssignmentRetirement, error)
+	GetMonitoringBinding(ctx context.Context, arg GetMonitoringBindingParams) (MonitoringApplicationBinding, error)
+	GetMonitoringCollection(ctx context.Context, arg GetMonitoringCollectionParams) (MonitoringCollection, error)
+	GetMonitoringCollectionForTarget(ctx context.Context, arg GetMonitoringCollectionForTargetParams) (MonitoringCollection, error)
+	GetMonitoringCollectionRevision(ctx context.Context, arg GetMonitoringCollectionRevisionParams) (MonitoringCollectionRevision, error)
+	GetMonitoringCredentialDelivery(ctx context.Context, arg GetMonitoringCredentialDeliveryParams) (MonitoringCredentialDelivery, error)
+	GetMonitoringDistribution(ctx context.Context, id uuid.UUID) (CollectorDistributionVersion, error)
+	GetMonitoringIngestEndpoint(ctx context.Context, arg GetMonitoringIngestEndpointParams) (MonitoringIngestEndpoint, error)
+	GetMonitoringIngestKey(ctx context.Context, arg GetMonitoringIngestKeyParams) (MonitoringIngestKey, error)
+	GetMonitoringInstanceByKey(ctx context.Context, arg GetMonitoringInstanceByKeyParams) (MonitoringRuntimeInstance, error)
+	GetMonitoringService(ctx context.Context, arg GetMonitoringServiceParams) (MonitoringApplicationService, error)
+	GetMonitoringServiceByName(ctx context.Context, arg GetMonitoringServiceByNameParams) (MonitoringApplicationService, error)
+	GetMonitoringTarget(ctx context.Context, arg GetMonitoringTargetParams) (MonitoringTarget, error)
 	GetOwnedRun(ctx context.Context, arg GetOwnedRunParams) (Run, error)
 	GetOwnedRunForUpdate(ctx context.Context, arg GetOwnedRunForUpdateParams) (Run, error)
 	GetPasswordCredential(ctx context.Context, arg GetPasswordCredentialParams) (PasswordCredential, error)
@@ -578,6 +680,7 @@ type Querier interface {
 	GetWorkspaceUpload(ctx context.Context, arg GetWorkspaceUploadParams) (WorkspaceUpload, error)
 	GrantMCPConnection(ctx context.Context, arg GrantMCPConnectionParams) error
 	HandleAlertInstance(ctx context.Context, arg HandleAlertInstanceParams) (AlertInstance, error)
+	HasCollectorMonitoringDependencies(ctx context.Context, arg HasCollectorMonitoringDependenciesParams) (pgtype.Bool, error)
 	HasEarlierNativeToolDescription(ctx context.Context, arg HasEarlierNativeToolDescriptionParams) (bool, error)
 	HasExecutionOneTimeResult(ctx context.Context, arg HasExecutionOneTimeResultParams) (bool, error)
 	HasMCPConnectionGrant(ctx context.Context, arg HasMCPConnectionGrantParams) (bool, error)
@@ -590,20 +693,25 @@ type Querier interface {
 	HeartbeatConnectorControlTunnel(ctx context.Context, arg HeartbeatConnectorControlTunnelParams) (int64, error)
 	HeartbeatConnectorSession(ctx context.Context, arg HeartbeatConnectorSessionParams) (int64, error)
 	HeartbeatConnectorTelemetryTunnel(ctx context.Context, arg HeartbeatConnectorTelemetryTunnelParams) (int64, error)
+	HeartbeatKubernetesOperation(ctx context.Context, arg HeartbeatKubernetesOperationParams) error
+	HeartbeatKubernetesStreamSession(ctx context.Context, arg HeartbeatKubernetesStreamSessionParams) (int64, error)
 	HeartbeatTelemetryTunnel(ctx context.Context, arg HeartbeatTelemetryTunnelParams) (int64, error)
 	HostNameAvailable(ctx context.Context, arg HostNameAvailableParams) (pgtype.Bool, error)
 	IncrementTelemetryUsage(ctx context.Context, arg IncrementTelemetryUsageParams) error
 	InitializeAuditChain(ctx context.Context, arg InitializeAuditChainParams) error
 	InitializeAuthorizationVersion(ctx context.Context, arg InitializeAuthorizationVersionParams) error
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (AuditEvent, error)
+	InsertDashboardTemplateVersion(ctx context.Context, arg InsertDashboardTemplateVersionParams) error
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) error
 	InvalidateHostTelemetryForRemoval(ctx context.Context, arg InvalidateHostTelemetryForRemovalParams) (int64, error)
+	InvalidateKubernetesLogSession(ctx context.Context, arg InvalidateKubernetesLogSessionParams) error
 	InvalidatePendingActionM4(ctx context.Context, arg InvalidatePendingActionM4Params) (PendingAction, error)
 	InvalidateRemoteAccessRequestsByEnterprise(ctx context.Context, enterpriseID uuid.UUID) error
 	InvalidateRemoteAccessRequestsByGovernanceSource(ctx context.Context, arg InvalidateRemoteAccessRequestsByGovernanceSourceParams) error
 	InvalidateRemoteAccessRequestsByGrant(ctx context.Context, arg InvalidateRemoteAccessRequestsByGrantParams) error
 	InvalidateRemoteAccessRequestsByUsers(ctx context.Context, arg InvalidateRemoteAccessRequestsByUsersParams) error
 	IsApprovalActorEligible(ctx context.Context, arg IsApprovalActorEligibleParams) (bool, error)
+	IsCollectorDeliveryPolicy(ctx context.Context, arg IsCollectorDeliveryPolicyParams) (bool, error)
 	IsRemoteAccessApproverEligible(ctx context.Context, arg IsRemoteAccessApproverEligibleParams) (bool, error)
 	IsRuntimeTaskLeaseCurrent(ctx context.Context, arg IsRuntimeTaskLeaseCurrentParams) (bool, error)
 	IsUserEnterpriseAdmin(ctx context.Context, arg IsUserEnterpriseAdminParams) (bool, error)
@@ -631,15 +739,23 @@ type Querier interface {
 	ListApprovalRequests(ctx context.Context, arg ListApprovalRequestsParams) ([]ApprovalRequest, error)
 	ListApprovalRequirements(ctx context.Context, arg ListApprovalRequirementsParams) ([]ApprovalRequirementSnapshot, error)
 	ListAuditEventsPage(ctx context.Context, arg ListAuditEventsPageParams) ([]AuditEvent, error)
+	ListAuthorizedKubernetesNamespaceResources(ctx context.Context, arg ListAuthorizedKubernetesNamespaceResourcesParams) ([]KubernetesNamespaceResource, error)
 	ListBastionOnboardingFacts(ctx context.Context, arg ListBastionOnboardingFactsParams) ([]ListBastionOnboardingFactsRow, error)
 	ListBastionRemovalDependencies(ctx context.Context, arg ListBastionRemovalDependenciesParams) ([]ListBastionRemovalDependenciesRow, error)
 	ListBastionScopes(ctx context.Context, enterpriseID uuid.UUID) ([]ListBastionScopesRow, error)
 	ListBreakGlassSessions(ctx context.Context, arg ListBreakGlassSessionsParams) ([]BreakGlassSession, error)
 	ListCandidateRemoteAccessGrants(ctx context.Context, arg ListCandidateRemoteAccessGrantsParams) ([]RemoteAccessGrant, error)
+	ListCatalogGrantsForResources(ctx context.Context, arg ListCatalogGrantsForResourcesParams) ([]DataAuthorizationGrant, error)
+	ListCatalogSourceRoles(ctx context.Context, arg ListCatalogSourceRolesParams) ([]ListCatalogSourceRolesRow, error)
+	ListClusterNamespaceInventory(ctx context.Context, arg ListClusterNamespaceInventoryParams) ([]KubernetesNamespaceResource, error)
 	ListCollectionClaims(ctx context.Context, arg ListCollectionClaimsParams) ([]CollectionClaim, error)
 	ListCollectionProfiles(ctx context.Context) ([]CollectionProfile, error)
+	ListCollectorApplicationEndpoints(ctx context.Context, arg ListCollectorApplicationEndpointsParams) ([]MonitoringIngestEndpoint, error)
+	ListCollectorDeliveryReports(ctx context.Context, arg ListCollectorDeliveryReportsParams) ([]CollectorDeliveryReport, error)
 	ListCollectorDistributionVersions(ctx context.Context) ([]CollectorDistributionVersion, error)
 	ListCollectorInstances(ctx context.Context, arg ListCollectorInstancesParams) ([]CollectorInstance, error)
+	ListCollectorLegacyLogProfiles(ctx context.Context, arg ListCollectorLegacyLogProfilesParams) ([]string, error)
+	ListCollectorMonitoringCollections(ctx context.Context, arg ListCollectorMonitoringCollectionsParams) ([]MonitoringCollection, error)
 	// User instructions remain authoritative ledger messages even when completed
 	// tool groups in the same Run have moved into a historical summary.
 	ListCompactedRunUserContextEvents(ctx context.Context, arg ListCompactedRunUserContextEventsParams) ([]ConversationEvent, error)
@@ -658,7 +774,9 @@ type Querier interface {
 	ListDashboardQueryFiles(ctx context.Context, arg ListDashboardQueryFilesParams) ([]DashboardQueryFile, error)
 	ListDashboardRevisions(ctx context.Context, arg ListDashboardRevisionsParams) ([]DashboardRevision, error)
 	ListDashboardRunParameters(ctx context.Context, arg ListDashboardRunParametersParams) ([]DashboardRunParameter, error)
+	ListDashboardTemplateHeads(ctx context.Context) ([]DashboardTemplateVersion, error)
 	ListDashboards(ctx context.Context, enterpriseID uuid.UUID) ([]Dashboard, error)
+	ListDataAuthorizationCatalogPage(ctx context.Context, arg ListDataAuthorizationCatalogPageParams) ([]ListDataAuthorizationCatalogPageRow, error)
 	ListDataAuthorizationGrants(ctx context.Context, arg ListDataAuthorizationGrantsParams) ([]DataAuthorizationGrant, error)
 	ListDeletedConversationsForCleanup(ctx context.Context, limit int32) ([]Conversation, error)
 	ListDeletingWorkspaces(ctx context.Context, limit int32) ([]Workspace, error)
@@ -691,14 +809,33 @@ type Querier interface {
 	ListIdleWorkspaces(ctx context.Context, arg ListIdleWorkspacesParams) ([]Workspace, error)
 	ListKubernetesClusters(ctx context.Context, enterpriseID uuid.UUID) ([]KubernetesCluster, error)
 	ListKubernetesNodeHostBindings(ctx context.Context, arg ListKubernetesNodeHostBindingsParams) ([]KubernetesNodeHostBinding, error)
+	ListKubernetesOperations(ctx context.Context, arg ListKubernetesOperationsParams) ([]KubernetesOperation, error)
+	ListKubernetesOperationsToRecover(ctx context.Context, limit int32) ([]KubernetesOperation, error)
 	ListLateRemoteReceipts(ctx context.Context) ([]ListLateRemoteReceiptsRow, error)
 	ListMCPConnectionMembers(ctx context.Context, arg ListMCPConnectionMembersParams) ([]uuid.UUID, error)
 	ListMCPConnections(ctx context.Context, enterpriseID uuid.UUID) ([]McpConnection, error)
 	ListManagedAccounts(ctx context.Context, enterpriseID uuid.UUID) ([]ManagedAccount, error)
+	ListManagedDashboardInstances(ctx context.Context, enterpriseID uuid.UUID) ([]ManagedDashboardInstance, error)
+	ListManagedTemplateEnginesForTargets(ctx context.Context, arg ListManagedTemplateEnginesForTargetsParams) ([]string, error)
+	ListManagedTemplateOwnKeys(ctx context.Context, arg ListManagedTemplateOwnKeysParams) ([]string, error)
 	ListMatchingApprovalPolicies(ctx context.Context, arg ListMatchingApprovalPoliciesParams) ([]ApprovalPolicy, error)
 	ListModelQuotas(ctx context.Context, enterpriseID uuid.UUID) ([]ModelQuota, error)
 	ListModelUsage(ctx context.Context, arg ListModelUsageParams) ([]ListModelUsageRow, error)
+	ListMonitoringApplications(ctx context.Context, arg ListMonitoringApplicationsParams) ([]MonitoringApplication, error)
+	ListMonitoringBindings(ctx context.Context, arg ListMonitoringBindingsParams) ([]MonitoringApplicationBinding, error)
+	ListMonitoringCollections(ctx context.Context, arg ListMonitoringCollectionsParams) ([]MonitoringCollection, error)
+	ListMonitoringCollectorChoices(ctx context.Context, arg ListMonitoringCollectorChoicesParams) ([]ListMonitoringCollectorChoicesRow, error)
+	ListMonitoringGrantResources(ctx context.Context, arg ListMonitoringGrantResourcesParams) ([]ListMonitoringGrantResourcesRow, error)
+	ListMonitoringIngestEndpoints(ctx context.Context, arg ListMonitoringIngestEndpointsParams) ([]MonitoringIngestEndpoint, error)
+	ListMonitoringIngestKeys(ctx context.Context, arg ListMonitoringIngestKeysParams) ([]ListMonitoringIngestKeysRow, error)
+	ListMonitoringInstances(ctx context.Context, arg ListMonitoringInstancesParams) ([]MonitoringRuntimeInstance, error)
+	ListMonitoringServices(ctx context.Context, arg ListMonitoringServicesParams) ([]MonitoringApplicationService, error)
+	ListMonitoringTargets(ctx context.Context, arg ListMonitoringTargetsParams) ([]MonitoringTarget, error)
+	ListNamespaceGrantCatalog(ctx context.Context, enterpriseID uuid.UUID) ([]ListNamespaceGrantCatalogRow, error)
 	ListNodeTrustAcks(ctx context.Context, epoch int64) ([]PkiNodeTrustAck, error)
+	ListObservationResourceDirectoryPage(ctx context.Context, arg ListObservationResourceDirectoryPageParams) ([]ObservationResourceDirectory, error)
+	ListObservationScopeResources(ctx context.Context, arg ListObservationScopeResourcesParams) ([]ListObservationScopeResourcesRow, error)
+	ListObservationSources(ctx context.Context, arg ListObservationSourcesParams) ([]ListObservationSourcesRow, error)
 	ListOwnedConnectorTelemetryTunnels(ctx context.Context, arg ListOwnedConnectorTelemetryTunnelsParams) ([]TelemetryTunnel, error)
 	ListPendingActions(ctx context.Context, enterpriseID uuid.UUID) ([]PendingAction, error)
 	ListPendingActionsByCreator(ctx context.Context, arg ListPendingActionsByCreatorParams) ([]PendingAction, error)
@@ -724,6 +861,7 @@ type Querier interface {
 	ListRemoteResourceActivity(ctx context.Context, arg ListRemoteResourceActivityParams) ([]ListRemoteResourceActivityRow, error)
 	ListRemoteSteps(ctx context.Context, arg ListRemoteStepsParams) ([]RemoteExecutionStep, error)
 	ListResourceDashboardBindings(ctx context.Context, arg ListResourceDashboardBindingsParams) ([]DashboardBinding, error)
+	ListResourceLogCollections(ctx context.Context, arg ListResourceLogCollectionsParams) ([]MonitoringCollection, error)
 	ListRoleBindings(ctx context.Context, enterpriseID uuid.UUID) ([]RoleBinding, error)
 	ListRolePermissions(ctx context.Context, roleID uuid.UUID) ([]string, error)
 	ListRoles(ctx context.Context, enterpriseID uuid.UUID) ([]Role, error)
@@ -744,12 +882,18 @@ type Querier interface {
 	ListTaskAlertBatches(ctx context.Context, arg ListTaskAlertBatchesParams) ([]AlertDeliveryBatch, error)
 	ListTelemetryRoutes(ctx context.Context, enterpriseID uuid.UUID) ([]TelemetryRoute, error)
 	ListTelemetrySources(ctx context.Context, arg ListTelemetrySourcesParams) ([]ListTelemetrySourcesRow, error)
+	ListTelemetrySourcesForScope(ctx context.Context, arg ListTelemetrySourcesForScopeParams) ([]ListTelemetrySourcesForScopeRow, error)
 	ListTelemetryTunnelsByHosts(ctx context.Context, dollar_1 []uuid.UUID) ([]TelemetryTunnel, error)
 	ListTrustBundles(ctx context.Context, limit int32) ([]PkiTrustBundle, error)
+	ListUncertainCollectorCommands(ctx context.Context, arg ListUncertainCollectorCommandsParams) ([]ConnectorCommand, error)
 	ListUncertainConnectorCommands(ctx context.Context, arg ListUncertainConnectorCommandsParams) ([]ConnectorCommand, error)
 	ListUncertainExecutions(ctx context.Context, limit int32) ([]Execution, error)
+	// The event's target_tool_id is provider-authored. Do not infer query identity
+	// from model-supplied arguments or untrusted result content.
+	ListUndeliveredNativeQueryResults(ctx context.Context, arg ListUndeliveredNativeQueryResultsParams) ([]ListUndeliveredNativeQueryResultsRow, error)
 	ListUnfinishedRunToolCalls(ctx context.Context, arg ListUnfinishedRunToolCallsParams) ([]ToolCall, error)
 	ListUnsealedPresentationJobs(ctx context.Context) ([]ListUnsealedPresentationJobsRow, error)
+	ListUnusedMonitoringCredentials(ctx context.Context, arg ListUnusedMonitoringCredentialsParams) ([]Credential, error)
 	ListUserAuthorizedResourceIDs(ctx context.Context, arg ListUserAuthorizedResourceIDsParams) ([]uuid.UUID, error)
 	ListUserIDsForDepartmentRole(ctx context.Context, arg ListUserIDsForDepartmentRoleParams) ([]uuid.UUID, error)
 	ListUserIDsForRole(ctx context.Context, arg ListUserIDsForRoleParams) ([]uuid.UUID, error)
@@ -762,6 +906,11 @@ type Querier interface {
 	LockAlertInstance(ctx context.Context, arg LockAlertInstanceParams) (AlertInstance, error)
 	LockAuditChain(ctx context.Context, chainKey string) (AuditChainHead, error)
 	LockBastionEnrollmentTokensForCancellation(ctx context.Context, arg LockBastionEnrollmentTokensForCancellationParams) ([]ConnectorEnrollmentToken, error)
+	LockCollectorDeliveryOwner(ctx context.Context, arg LockCollectorDeliveryOwnerParams) (uuid.UUID, error)
+	LockCollectorDeliveryReport(ctx context.Context, arg LockCollectorDeliveryReportParams) (CollectorDeliveryReport, error)
+	LockConnectorCommandForReconciliation(ctx context.Context, arg LockConnectorCommandForReconciliationParams) (ConnectorCommand, error)
+	// OpenSession and Disconnect use this same connector-before-session order.
+	LockConnectorRuntime(ctx context.Context, arg LockConnectorRuntimeParams) (uuid.UUID, error)
 	LockConversation(ctx context.Context, arg LockConversationParams) (Conversation, error)
 	LockConversationInteraction(ctx context.Context, arg LockConversationInteractionParams) (ConversationInteraction, error)
 	LockDashboard(ctx context.Context, arg LockDashboardParams) (Dashboard, error)
@@ -775,9 +924,23 @@ type Querier interface {
 	LockDashboardRunParameters(ctx context.Context, arg LockDashboardRunParametersParams) (DashboardRunParameter, error)
 	LockEnterpriseForAccessUpdate(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	LockEnterpriseUserForAccessUpdate(ctx context.Context, arg LockEnterpriseUserForAccessUpdateParams) (EnterpriseUser, error)
+	LockExpiredMonitoringCredentialDrafts(ctx context.Context, limit int32) ([]MonitoringCredentialDraft, error)
 	LockHostEnrollmentTokensForCancellation(ctx context.Context, arg LockHostEnrollmentTokensForCancellationParams) ([]ConnectorEnrollmentToken, error)
+	LockKubernetesLogSessionActor(ctx context.Context, id uuid.UUID) error
+	LockKubernetesOperation(ctx context.Context, arg LockKubernetesOperationParams) (KubernetesOperation, error)
+	LockLogCollectionClaims(ctx context.Context, arg LockLogCollectionClaimsParams) error
+	LockManagedDashboardTemplate(ctx context.Context, arg LockManagedDashboardTemplateParams) error
+	LockMonitoringApplication(ctx context.Context, arg LockMonitoringApplicationParams) (MonitoringApplication, error)
+	LockMonitoringAssignmentRetirement(ctx context.Context, arg LockMonitoringAssignmentRetirementParams) (MonitoringAssignmentRetirement, error)
+	LockMonitoringCollection(ctx context.Context, arg LockMonitoringCollectionParams) (MonitoringCollection, error)
+	LockMonitoringCredentialDraft(ctx context.Context, arg LockMonitoringCredentialDraftParams) (MonitoringCredentialDraft, error)
+	LockMonitoringDiscoveryScope(ctx context.Context, arg LockMonitoringDiscoveryScopeParams) error
+	LockMonitoringIngestEndpoint(ctx context.Context, arg LockMonitoringIngestEndpointParams) (MonitoringIngestEndpoint, error)
+	LockMonitoringTarget(ctx context.Context, arg LockMonitoringTargetParams) (MonitoringTarget, error)
+	LockNamespaceInventoryCluster(ctx context.Context, arg LockNamespaceInventoryClusterParams) (KubernetesCluster, error)
 	LockOptionalSessionsMissingRecording(ctx context.Context, limit int32) ([]RemoteAccessSession, error)
 	LockPKICertificateSubject(ctx context.Context, arg LockPKICertificateSubjectParams) error
+	LockPermissionRegistry(ctx context.Context) error
 	LockPlanCommandAuthorization(ctx context.Context, arg LockPlanCommandAuthorizationParams) (PlanCommandAuthorization, error)
 	LockPlatformState(ctx context.Context) (LockPlatformStateRow, error)
 	LockRemoteRequest(ctx context.Context, arg LockRemoteRequestParams) (RemoteExecutionRequest, error)
@@ -791,6 +954,7 @@ type Querier interface {
 	MarkCollectorConfigApplying(ctx context.Context, arg MarkCollectorConfigApplyingParams) (int64, error)
 	MarkCollectorConfigEffective(ctx context.Context, arg MarkCollectorConfigEffectiveParams) (int64, error)
 	MarkCollectorConfigFailed(ctx context.Context, arg MarkCollectorConfigFailedParams) (int64, error)
+	MarkCollectorDeliveryNotified(ctx context.Context, arg MarkCollectorDeliveryNotifiedParams) error
 	MarkCollectorUninstalling(ctx context.Context, arg MarkCollectorUninstallingParams) (CollectorInstance, error)
 	MarkConnectorCertificatesOverlap(ctx context.Context, arg MarkConnectorCertificatesOverlapParams) error
 	MarkConnectorConnectionTestRunning(ctx context.Context, arg MarkConnectorConnectionTestRunningParams) (ConnectionTest, error)
@@ -807,15 +971,18 @@ type Querier interface {
 	MarkExecutionConnectorInstallResultUnknown(ctx context.Context, arg MarkExecutionConnectorInstallResultUnknownParams) (Execution, error)
 	MarkExecutionHostOnboardingResultUnknown(ctx context.Context, arg MarkExecutionHostOnboardingResultUnknownParams) (Execution, error)
 	MarkExecutionHostRemovalResultUnknown(ctx context.Context, arg MarkExecutionHostRemovalResultUnknownParams) (Execution, error)
+	MarkExecutionKubernetesResultUnknown(ctx context.Context, arg MarkExecutionKubernetesResultUnknownParams) (Execution, error)
 	MarkExecutionRemoteResultUnknown(ctx context.Context, arg MarkExecutionRemoteResultUnknownParams) (Execution, error)
 	MarkExecutionResultUnknown(ctx context.Context, arg MarkExecutionResultUnknownParams) (Execution, error)
 	MarkExecutionTelemetryResultUnknown(ctx context.Context, arg MarkExecutionTelemetryResultUnknownParams) (Execution, error)
 	MarkHostConnectorOffline(ctx context.Context, arg MarkHostConnectorOfflineParams) (int64, error)
 	MarkHostControlTunnelsRemovedByHost(ctx context.Context, arg MarkHostControlTunnelsRemovedByHostParams) (int64, error)
 	MarkKubernetesConnectorUninstalling(ctx context.Context, arg MarkKubernetesConnectorUninstallingParams) (int64, error)
+	MarkKubernetesOperationUnknown(ctx context.Context, arg MarkKubernetesOperationUnknownParams) (int64, error)
 	MarkLostRemoteDirectSessions(ctx context.Context) error
 	MarkMCPManagedSecret(ctx context.Context, arg MarkMCPManagedSecretParams) error
 	MarkModelDispatched(ctx context.Context, arg MarkModelDispatchedParams) error
+	MarkMonitoringManagedSecret(ctx context.Context, arg MarkMonitoringManagedSecretParams) error
 	MarkOutboxPublished(ctx context.Context, id uuid.UUID) error
 	MarkOverdueConnectorControlTunnelQuota(ctx context.Context) (int64, error)
 	MarkOverdueTelemetryTunnelQuota(ctx context.Context) (int64, error)
@@ -827,6 +994,7 @@ type Querier interface {
 	MarkPlatformInitialized(ctx context.Context) error
 	MarkPlatformInitializing(ctx context.Context) (int64, error)
 	MarkPlatformLogin(ctx context.Context, id uuid.UUID) error
+	MarkPreviousCollectorCommandsUncertain(ctx context.Context, arg MarkPreviousCollectorCommandsUncertainParams) ([]ConnectorCommand, error)
 	MarkRemoteAccessSessionActive(ctx context.Context, arg MarkRemoteAccessSessionActiveParams) (RemoteAccessSession, error)
 	MarkRemoteAccessSessionConnecting(ctx context.Context, arg MarkRemoteAccessSessionConnectingParams) (RemoteAccessSession, error)
 	MarkRemoteSessionLost(ctx context.Context, arg MarkRemoteSessionLostParams) (int64, error)
@@ -850,13 +1018,26 @@ type Querier interface {
 	MarkTelemetryTunnelRemoved(ctx context.Context, arg MarkTelemetryTunnelRemovedParams) (int64, error)
 	MarkToolDispatched(ctx context.Context, arg MarkToolDispatchedParams) (int64, error)
 	MarkUnacknowledgedTrustExpired(ctx context.Context, epoch int64) (int64, error)
+	MonitoringEffectiveCredentialInUse(ctx context.Context, arg MonitoringEffectiveCredentialInUseParams) (bool, error)
+	MonitoringGrantResourceExists(ctx context.Context, arg MonitoringGrantResourceExistsParams) (bool, error)
 	NextContextSnapshotRevision(ctx context.Context, arg NextContextSnapshotRevisionParams) (int32, error)
 	NextConversationSequence(ctx context.Context, id uuid.UUID) (int64, error)
 	NextHostRemovalEventSequence(ctx context.Context, operationID uuid.UUID) (int32, error)
 	NextRunStepSequence(ctx context.Context, arg NextRunStepSequenceParams) (int32, error)
+	ObserveApplicationIngest(ctx context.Context, arg ObserveApplicationIngestParams) error
+	ObserveKubernetesNamespaceObjectIdentity(ctx context.Context, arg ObserveKubernetesNamespaceObjectIdentityParams) error
+	ObserveKubernetesOperation(ctx context.Context, arg ObserveKubernetesOperationParams) (int64, error)
+	ObserveMonitoringApplicationService(ctx context.Context, arg ObserveMonitoringApplicationServiceParams) error
+	ObserveMonitoringCollection(ctx context.Context, arg ObserveMonitoringCollectionParams) (int64, error)
+	ObserveMonitoringInstance(ctx context.Context, arg ObserveMonitoringInstanceParams) (MonitoringRuntimeInstance, error)
+	ObserveMonitoringSamples(ctx context.Context, arg ObserveMonitoringSamplesParams) (int64, error)
 	PageAlertDeliveries(ctx context.Context, arg PageAlertDeliveriesParams) ([]AlertDelivery, error)
 	PageAlertInstances(ctx context.Context, arg PageAlertInstancesParams) ([]AlertInstance, error)
 	PauseReconciledRemoteRequest(ctx context.Context, arg PauseReconciledRemoteRequestParams) error
+	PrepareMonitoringAssignment(ctx context.Context, arg PrepareMonitoringAssignmentParams) error
+	PromoteDashboardTemplateHead(ctx context.Context, arg PromoteDashboardTemplateHeadParams) error
+	PutManagedDashboardInstance(ctx context.Context, arg PutManagedDashboardInstanceParams) error
+	QueueKubernetesOperation(ctx context.Context, arg QueueKubernetesOperationParams) (int64, error)
 	ReadyRemoteRequest(ctx context.Context, arg ReadyRemoteRequestParams) (int64, error)
 	ReauthorizeHostControlTunnel(ctx context.Context, arg ReauthorizeHostControlTunnelParams) (ConnectorControlTunnel, error)
 	ReauthorizeHostTelemetryTunnels(ctx context.Context, arg ReauthorizeHostTelemetryTunnelsParams) (int64, error)
@@ -869,6 +1050,7 @@ type Querier interface {
 	RecordRemoteRuntimeIdentity(ctx context.Context, arg RecordRemoteRuntimeIdentityParams) (int64, error)
 	RecordRemoteStopReceipt(ctx context.Context, arg RecordRemoteStopReceiptParams) (int64, error)
 	RecordTelemetryDLQ(ctx context.Context, arg RecordTelemetryDLQParams) (TelemetryDlqRecord, error)
+	RecoverCollectorOperationsForProjection(ctx context.Context) ([]TelemetryCollectorOperation, error)
 	RecoverConnectorInstallOperations(ctx context.Context) (int64, error)
 	RecoverExpiredConnectorControlTunnels(ctx context.Context) (int64, error)
 	// 租约过期的 establishing/established 行回退为 down,等待重新认领。
@@ -876,11 +1058,14 @@ type Querier interface {
 	RecoverHostOnboardingOperations(ctx context.Context) (int64, error)
 	RecoverHostRemovalOperations(ctx context.Context) (int64, error)
 	RecoverLostRemoteDirectCommands(ctx context.Context) error
-	RecoverTelemetryCollectorOperations(ctx context.Context) (int64, error)
 	RefreshRemoteIdentity(ctx context.Context, arg RefreshRemoteIdentityParams) (RemoteExecutionIdentity, error)
+	RegisterApplicationTelemetrySource(ctx context.Context, arg RegisterApplicationTelemetrySourceParams) error
+	RegisterCollectionTelemetrySource(ctx context.Context, arg RegisterCollectionTelemetrySourceParams) error
 	RegisterRemoteDirectWorker(ctx context.Context, id string) error
 	RegisterTelemetrySource(ctx context.Context, arg RegisterTelemetrySourceParams) error
 	RegisterWorkspaceSource(ctx context.Context, arg RegisterWorkspaceSourceParams) (Workspace, error)
+	RejectApplicationIngest(ctx context.Context, arg RejectApplicationIngestParams) error
+	RejectConnectorCommandBeforeDispatch(ctx context.Context, arg RejectConnectorCommandBeforeDispatchParams) (ConnectorCommand, error)
 	RejectPendingAction(ctx context.Context, arg RejectPendingActionParams) (PendingAction, error)
 	RejectRemoteCommandBeforeDispatch(ctx context.Context, arg RejectRemoteCommandBeforeDispatchParams) (ConnectorCommand, error)
 	ReleaseCollectorClaims(ctx context.Context, arg ReleaseCollectorClaimsParams) error
@@ -893,6 +1078,8 @@ type Querier interface {
 	RenewHostRemovalOperationLease(ctx context.Context, arg RenewHostRemovalOperationLeaseParams) (int64, error)
 	RenewRuntimeTaskLease(ctx context.Context, arg RenewRuntimeTaskLeaseParams) (RuntimeTask, error)
 	RenewWorkspaceLease(ctx context.Context, arg RenewWorkspaceLeaseParams) (int64, error)
+	ReplaceKubernetesStreamTicket(ctx context.Context, arg ReplaceKubernetesStreamTicketParams) (KubernetesStreamSession, error)
+	RequestCloseKubernetesStreamSession(ctx context.Context, arg RequestCloseKubernetesStreamSessionParams) (KubernetesStreamSession, error)
 	RequestConnectorCertificateRotation(ctx context.Context, arg RequestConnectorCertificateRotationParams) (Connector, error)
 	RequeueConnectorInstallOperation(ctx context.Context, arg RequeueConnectorInstallOperationParams) (ConnectorInstallOperation, error)
 	RequeueRuntimeTask(ctx context.Context, arg RequeueRuntimeTaskParams) (RuntimeTask, error)
@@ -903,6 +1090,10 @@ type Querier interface {
 	ResetLostRemoteSession(ctx context.Context, arg ResetLostRemoteSessionParams) (RemoteExecutionSession, error)
 	ResetUnusedRemoteSession(ctx context.Context, arg ResetUnusedRemoteSessionParams) (RemoteExecutionSession, error)
 	ResolveConversationInteraction(ctx context.Context, arg ResolveConversationInteractionParams) (ConversationInteraction, error)
+	ResolveKubernetesHelmInput(ctx context.Context, arg ResolveKubernetesHelmInputParams) (int64, error)
+	ResolveKubernetesMetricObjectNamespace(ctx context.Context, arg ResolveKubernetesMetricObjectNamespaceParams) (string, error)
+	ResolveKubernetesNamespaceResource(ctx context.Context, arg ResolveKubernetesNamespaceResourceParams) (KubernetesNamespaceResource, error)
+	ResolveMonitoringIngestKey(ctx context.Context, id uuid.UUID) (ResolveMonitoringIngestKeyRow, error)
 	ResolvePresentationResources(ctx context.Context, arg ResolvePresentationResourcesParams) ([]ResolvePresentationResourcesRow, error)
 	ResolveTelemetrySource(ctx context.Context, arg ResolveTelemetrySourceParams) (TelemetrySource, error)
 	RestoreBastionConnectorOnline(ctx context.Context, arg RestoreBastionConnectorOnlineParams) (int64, error)
@@ -912,6 +1103,12 @@ type Querier interface {
 	ResumeBastionScopeRemoval(ctx context.Context, arg ResumeBastionScopeRemovalParams) (int64, error)
 	ResumeManagedHostRemoval(ctx context.Context, arg ResumeManagedHostRemovalParams) (int64, error)
 	ResumeRemoteAccessRequest(ctx context.Context, arg ResumeRemoteAccessRequestParams) (RemoteAccessRequest, error)
+	RetireKubernetesLogSessions(ctx context.Context) error
+	RetireKubernetesStreamSessions(ctx context.Context) error
+	RetireMissingKubernetesNamespaces(ctx context.Context, arg RetireMissingKubernetesNamespacesParams) error
+	RetireMonitoringCredential(ctx context.Context, arg RetireMonitoringCredentialParams) error
+	RetireReplacedKubernetesNamespace(ctx context.Context, arg RetireReplacedKubernetesNamespaceParams) error
+	RetireUnconfirmedKubernetesOperations(ctx context.Context) error
 	RetryDashboardQueryTask(ctx context.Context, arg RetryDashboardQueryTaskParams) (int64, error)
 	RetryHostOnboardingOperation(ctx context.Context, arg RetryHostOnboardingOperationParams) (HostOnboardingOperation, error)
 	RetryHostRemovalOperation(ctx context.Context, arg RetryHostRemovalOperationParams) (HostRemovalOperation, error)
@@ -934,6 +1131,7 @@ type Querier interface {
 	RevokeHostOnboardingCredentialLeasesByHost(ctx context.Context, arg RevokeHostOnboardingCredentialLeasesByHostParams) (int64, error)
 	RevokeHostRemovalCredentialLeases(ctx context.Context, arg RevokeHostRemovalCredentialLeasesParams) (int64, error)
 	RevokeHostRemovalTokens(ctx context.Context, arg RevokeHostRemovalTokensParams) (int64, error)
+	RevokeMonitoringIngestKey(ctx context.Context, arg RevokeMonitoringIngestKeyParams) (int64, error)
 	RevokeOtherSubjectSessions(ctx context.Context, arg RevokeOtherSubjectSessionsParams) error
 	RevokePKICertificateIdentity(ctx context.Context, arg RevokePKICertificateIdentityParams) (PkiCertificateIdentity, error)
 	RevokePKISubjectCertificates(ctx context.Context, arg RevokePKISubjectCertificatesParams) error
@@ -970,6 +1168,7 @@ type Querier interface {
 	SetDashboardQueryJobState(ctx context.Context, arg SetDashboardQueryJobStateParams) (DashboardQueryJob, error)
 	SetDashboardRunBudget(ctx context.Context, arg SetDashboardRunBudgetParams) error
 	SetDashboardRunParameters(ctx context.Context, arg SetDashboardRunParametersParams) (DashboardRunParameter, error)
+	SetDraftTemplateOrigin(ctx context.Context, arg SetDraftTemplateOriginParams) error
 	SetEnterpriseMfaEnabled(ctx context.Context, arg SetEnterpriseMfaEnabledParams) error
 	SetHostOnboardingRetryOf(ctx context.Context, arg SetHostOnboardingRetryOfParams) error
 	SetPendingActionPolicySnapshot(ctx context.Context, arg SetPendingActionPolicySnapshotParams) (PendingAction, error)
@@ -986,10 +1185,12 @@ type Querier interface {
 	SetWorkspaceStatus(ctx context.Context, arg SetWorkspaceStatusParams) (Workspace, error)
 	SettleQuotaReservation(ctx context.Context, arg SettleQuotaReservationParams) (ModelQuotaReservation, error)
 	SkipRemoteSteps(ctx context.Context, arg SkipRemoteStepsParams) error
+	SnapshotMonitoringCollection(ctx context.Context, arg SnapshotMonitoringCollectionParams) (MonitoringCollectionRevision, error)
 	SnapshotRunMode(ctx context.Context, arg SnapshotRunModeParams) error
 	StartBastionRootHostRemoval(ctx context.Context, arg StartBastionRootHostRemovalParams) (Host, error)
 	StartBastionScopeRemoval(ctx context.Context, arg StartBastionScopeRemovalParams) (BastionScope, error)
 	StartConnectorUninstall(ctx context.Context, arg StartConnectorUninstallParams) (Connector, error)
+	StartKubernetesOperation(ctx context.Context, arg StartKubernetesOperationParams) (KubernetesOperation, error)
 	StartManagedHostRemoval(ctx context.Context, arg StartManagedHostRemovalParams) (Host, error)
 	StartRemoteRequest(ctx context.Context, arg StartRemoteRequestParams) (int64, error)
 	StartRemoteStep(ctx context.Context, arg StartRemoteStepParams) (int64, error)
@@ -1004,6 +1205,7 @@ type Querier interface {
 	SupersedeHostRemovalCommands(ctx context.Context, arg SupersedeHostRemovalCommandsParams) (int64, error)
 	SupersedeHostRemovalOperations(ctx context.Context, arg SupersedeHostRemovalOperationsParams) (int64, error)
 	SupersedeRemoteRequest(ctx context.Context, arg SupersedeRemoteRequestParams) (int64, error)
+	TelemetrySourceAwaitingApply(ctx context.Context, arg TelemetrySourceAwaitingApplyParams) (bool, error)
 	TerminateRemoteAccessSession(ctx context.Context, arg TerminateRemoteAccessSessionParams) (RemoteAccessSession, error)
 	TerminateRemoteAccessSessionsByEnterprise(ctx context.Context, arg TerminateRemoteAccessSessionsByEnterpriseParams) ([]RemoteAccessSession, error)
 	TerminateRemoteAccessSessionsByGovernanceSource(ctx context.Context, arg TerminateRemoteAccessSessionsByGovernanceSourceParams) ([]RemoteAccessSession, error)
@@ -1013,6 +1215,7 @@ type Querier interface {
 	TerminateRemoteAccessSessionsByRequest(ctx context.Context, arg TerminateRemoteAccessSessionsByRequestParams) ([]RemoteAccessSession, error)
 	TerminateRemoteAccessSessionsByUsers(ctx context.Context, arg TerminateRemoteAccessSessionsByUsersParams) ([]RemoteAccessSession, error)
 	TimeoutActiveConnectorCommands(ctx context.Context) ([]ConnectorCommand, error)
+	TouchMonitoringIngestKey(ctx context.Context, arg TouchMonitoringIngestKeyParams) error
 	// pending(尚未注册)作用域的替换:撤销旧令牌并递增版本,不发生 fencing。
 	TouchPendingBastionScope(ctx context.Context, arg TouchPendingBastionScopeParams) (BastionScope, error)
 	TouchRemoteGeneration(ctx context.Context, arg TouchRemoteGenerationParams) error
@@ -1030,6 +1233,7 @@ type Querier interface {
 	UpdateApprovalRequestStatus(ctx context.Context, arg UpdateApprovalRequestStatusParams) (ApprovalRequest, error)
 	UpdateApprovalRequirementStatus(ctx context.Context, arg UpdateApprovalRequirementStatusParams) (ApprovalRequirementSnapshot, error)
 	UpdateBastionScope(ctx context.Context, arg UpdateBastionScopeParams) (BastionScope, error)
+	UpdateCollectorDeliveryReport(ctx context.Context, arg UpdateCollectorDeliveryReportParams) error
 	UpdateConversation(ctx context.Context, arg UpdateConversationParams) (Conversation, error)
 	UpdateCredential(ctx context.Context, arg UpdateCredentialParams) (Credential, error)
 	UpdateDashboardFolder(ctx context.Context, arg UpdateDashboardFolderParams) (DashboardFolder, error)
@@ -1039,9 +1243,15 @@ type Querier interface {
 	UpdateEnterpriseUser(ctx context.Context, arg UpdateEnterpriseUserParams) (EnterpriseUser, error)
 	UpdateHost(ctx context.Context, arg UpdateHostParams) (Host, error)
 	UpdateKubernetesCluster(ctx context.Context, arg UpdateKubernetesClusterParams) (KubernetesCluster, error)
+	UpdateKubernetesDrainProgress(ctx context.Context, arg UpdateKubernetesDrainProgressParams) (int64, error)
 	UpdateKubernetesRuntimeObservation(ctx context.Context, arg UpdateKubernetesRuntimeObservationParams) (int64, error)
 	UpdateMCPConnection(ctx context.Context, arg UpdateMCPConnectionParams) (McpConnection, error)
 	UpdateManagedAccount(ctx context.Context, arg UpdateManagedAccountParams) (ManagedAccount, error)
+	UpdateMonitoringApplication(ctx context.Context, arg UpdateMonitoringApplicationParams) (MonitoringApplication, error)
+	UpdateMonitoringAssignmentRetirement(ctx context.Context, arg UpdateMonitoringAssignmentRetirementParams) error
+	UpdateMonitoringCollection(ctx context.Context, arg UpdateMonitoringCollectionParams) (MonitoringCollection, error)
+	UpdateMonitoringIngestEndpoint(ctx context.Context, arg UpdateMonitoringIngestEndpointParams) (MonitoringIngestEndpoint, error)
+	UpdateMonitoringTarget(ctx context.Context, arg UpdateMonitoringTargetParams) (MonitoringTarget, error)
 	UpdatePasswordCredential(ctx context.Context, arg UpdatePasswordCredentialParams) (PasswordCredential, error)
 	UpdateRemoteAccessApprovalWorkflow(ctx context.Context, arg UpdateRemoteAccessApprovalWorkflowParams) (RemoteAccessApprovalWorkflow, error)
 	UpdateRemoteAccessGrant(ctx context.Context, arg UpdateRemoteAccessGrantParams) (RemoteAccessGrant, error)
@@ -1069,6 +1279,7 @@ type Querier interface {
 	UpsertHostManagedChangeJournal(ctx context.Context, arg UpsertHostManagedChangeJournalParams) (HostManagedChangeJournal, error)
 	UpsertHostRemovalStep(ctx context.Context, arg UpsertHostRemovalStepParams) (HostRemovalOperationStep, error)
 	UpsertHostRuntimeObservation(ctx context.Context, arg UpsertHostRuntimeObservationParams) (HostRuntimeObservation, error)
+	UpsertKubernetesNamespaceResource(ctx context.Context, arg UpsertKubernetesNamespaceResourceParams) (KubernetesNamespaceResource, error)
 	UpsertKubernetesNodeHostBindingProposal(ctx context.Context, arg UpsertKubernetesNodeHostBindingProposalParams) (KubernetesNodeHostBinding, error)
 	UpsertMfaEnrollment(ctx context.Context, arg UpsertMfaEnrollmentParams) (MfaCredential, error)
 	UpsertModelQuota(ctx context.Context, arg UpsertModelQuotaParams) (ModelQuota, error)
@@ -1081,6 +1292,7 @@ type Querier interface {
 	UpsertWorkspaceResultsMetadataFile(ctx context.Context, arg UpsertWorkspaceResultsMetadataFileParams) (WorkspaceFile, error)
 	UsePlanCommandAuthorization(ctx context.Context, arg UsePlanCommandAuthorizationParams) (int64, error)
 	ValidActionPlanCommand(ctx context.Context, arg ValidActionPlanCommandParams) (bool, error)
+	ValidateKubernetesLogHTTPSession(ctx context.Context, arg ValidateKubernetesLogHTTPSessionParams) (uuid.UUID, error)
 }
 
 var _ Querier = (*Queries)(nil)

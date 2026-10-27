@@ -2,21 +2,32 @@ package configbundle
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/builtincollection"
 )
 
 type Source struct {
-	ID                string   `json:"id"`
-	Generation        string   `json:"generation"`
-	Key               string   `json:"key"`
-	Type              string   `json:"type"`
-	Signals           []string `json:"signals"`
-	Revision          int64    `json:"revision"`
-	CapabilityVersion string   `json:"capability_version"`
+	ServiceID             string   `json:"service_id,omitempty"`
+	NamespaceUID          string   `json:"namespace_uid,omitempty"`
+	ID                    string   `json:"id"`
+	Generation            string   `json:"generation"`
+	Key                   string   `json:"key"`
+	Type                  string   `json:"type"`
+	Signals               []string `json:"signals"`
+	Revision              int64    `json:"revision"`
+	CapabilityVersion     string   `json:"capability_version"`
+	ResourceType          string   `json:"resource_type"`
+	ResourceID            string   `json:"resource_id"`
+	CollectionID          string   `json:"collection_id,omitempty"`
+	CollectionRevision    int64    `json:"collection_revision,omitempty"`
+	AssignmentEpoch       int64    `json:"assignment_epoch,omitempty"`
+	IngestEndpointID      string   `json:"ingest_endpoint_id,omitempty"`
+	IngestEndpointVersion int64    `json:"ingest_endpoint_version,omitempty"`
 }
 
 // bindSources stamps origin before batching. A forwarding receiver keeps the
@@ -36,7 +47,7 @@ func bindSources(config map[string]any, target string, input RenderInput) []Sour
 		pipeline := raw.(map[string]any)
 		receivers := pipeline["receivers"].([]string)
 		for _, receiver := range receivers {
-			if receiver == "otlp/downstream" {
+			if receiver == "otlp/downstream" || receiver == "nop/control" || strings.HasSuffix(receiver, "/application") {
 				bound[pipelineName] = pipeline
 				continue
 			}
@@ -45,6 +56,18 @@ func bindSources(config map[string]any, target string, input RenderInput) []Sour
 			if !ok {
 				typ, _, _ := strings.Cut(receiver, "/")
 				source = &Source{ID: uuid.NewSHA1(generation, []byte(key)).String(), Generation: generation.String(), Key: key, Type: typ, Revision: revision, CapabilityVersion: "v1"}
+				source.ResourceType, source.ResourceID = input.ResourceType, input.ResourceID
+				if collection := sourceCollection(receiver, input.Collections); collection != nil {
+					if definition, ok := builtincollection.Lookup(collection.Integration); ok {
+						source.Type = definition.SourceType
+					}
+					source.ResourceType, source.ResourceID = collection.TargetType, collection.TargetID
+					source.CollectionID, source.CollectionRevision, source.AssignmentEpoch = collection.ID, collection.Revision, collection.AssignmentEpoch
+					if collection.Service != nil {
+						source.ServiceID = collection.Service.ID
+					}
+					source.NamespaceUID = collection.NamespaceUID
+				}
 				indexed[key] = source
 			}
 			signal, _, _ := strings.Cut(pipelineName, "/")
@@ -99,6 +122,9 @@ func Sources(value []byte) ([]Source, error) {
 	var bundle Bundle
 	if err := json.Unmarshal(value, &bundle); err != nil {
 		return nil, err
+	}
+	if bundle.SchemaVersion != SchemaVersion {
+		return nil, fmt.Errorf("unsupported Collector bundle schema")
 	}
 	return bundle.Sources, nil
 }

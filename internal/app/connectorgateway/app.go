@@ -18,8 +18,11 @@ import (
 	"github.com/kakj-go/Argus/internal/connector"
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 	remotev1 "github.com/kakj-go/Argus/internal/gen/proto/argus/remoteaccess/v1"
+	"github.com/kakj-go/Argus/internal/kubernetesstreamgateway"
+	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/remoteaccess"
 	"github.com/kakj-go/Argus/internal/remoteexecution"
+	"github.com/kakj-go/Argus/internal/resource"
 	secretservice "github.com/kakj-go/Argus/internal/secret"
 	"github.com/kakj-go/Argus/internal/storage/objectstore"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
@@ -121,10 +124,39 @@ func Run(ctx context.Context, logger *slog.Logger) error {
 	remotev1.RegisterGatewayPeerServiceServer(peerGRPCServer, remoteaccess.GatewayPeerServer{Service: remoteService, Local: remoteHub, InstanceID: cfg.InstanceID, Logger: logger})
 	connectorBackends := remoteaccess.DistributedConnectorFactory{InstanceID: cfg.InstanceID, Local: remoteHub,
 		Resolver: remoteaccess.ConnectorOwnerResolver{Store: store, Redis: redisClient}, Peers: remotePeerDialer}
-	remoteServer := &http.Server{Addr: cfg.RemoteWSSAddress, Handler: remoteaccess.WebSocketGateway{Service: remoteService,
+	kubernetesStreams := kubernetesworkbench.Service{Store: store, Credentials: secretservice.Service{Store: store, Keyring: keyring}}
+	deniedCIDRs, err := resource.ParseDeniedCIDRs(cfg.DirectDeniedCIDRs)
+	if err != nil {
+		return err
+	}
+	kubernetesBackends := kubernetesstreamgateway.Factory{InstanceID: cfg.InstanceID, Service: kubernetesStreams, Credentials: kubernetesStreams.Credentials,
+		Validator: resource.DirectTargetValidator{DeniedCIDRs: deniedCIDRs},
+		Local:     remoteHub, Resolver: remoteaccess.ConnectorOwnerResolver{Store: store, Redis: redisClient}, Peers: kubernetesstreamgateway.PeerDialer{Transport: remotePeerDialer}}
+	remotev1.RegisterKubernetesStreamPeerServiceServer(peerGRPCServer, kubernetesstreamgateway.PeerServer{Service: kubernetesStreams, Factory: kubernetesBackends, InstanceID: cfg.InstanceID})
+	remoteMux := http.NewServeMux()
+	remoteMux.Handle("/v1/kubernetes/sessions/", kubernetesstreamgateway.WebSocketGateway{Service: kubernetesStreams, InstanceID: cfg.InstanceID, Backends: kubernetesBackends, AllowedOrigins: cfg.RemoteAllowedOrigins, Sessions: remoteSessions, RejectNew: rejectNewRemote, Drain: forceRemoteDrain, Logger: logger})
+	remoteMux.Handle("/", remoteaccess.WebSocketGateway{Service: remoteService,
 		Backends:    connectorBackends,
 		ObjectStore: objects, AllowedOrigins: cfg.RemoteAllowedOrigins, RejectNew: rejectNewRemote, Drain: forceRemoteDrain,
-		Sessions: remoteSessions, Terminations: terminationHub, Parks: remoteaccess.NewSessionParks(), GuacdAddress: cfg.GuacdAddress, Logger: logger}, ReadHeaderTimeout: 5 * time.Second}
+		Sessions: remoteSessions, Terminations: terminationHub, Parks: remoteaccess.NewSessionParks(), GuacdAddress: cfg.GuacdAddress, Logger: logger})
+	remoteServer := &http.Server{Addr: cfg.RemoteWSSAddress, Handler: remoteMux, ReadHeaderTimeout: 5 * time.Second}
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := store.Queries.RetireKubernetesStreamSessions(ctx); err != nil {
+					logger.Warn("retire Kubernetes stream sessions", "error", err)
+				}
+				if err := store.Queries.DeleteRetiredKubernetesStreamSessions(ctx); err != nil {
+					logger.Warn("prune Kubernetes stream sessions", "error", err)
+				}
+			}
+		}
+	}()
 	healthServer := &http.Server{Addr: cfg.HealthAddress, Handler: component.HealthHandler("argus-connector-gateway"), ReadHeaderTimeout: 5 * time.Second}
 	errorsChannel := make(chan error, 4)
 	go func() {

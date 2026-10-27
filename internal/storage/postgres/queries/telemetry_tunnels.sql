@@ -8,26 +8,33 @@ INSERT INTO telemetry_tunnels (
   pinned_host_key, initiator, transport, loopback_port, forward_target, status
 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'desired')
 ON CONFLICT (collector_id) DO UPDATE SET
-  connector_id = EXCLUDED.connector_id,
-  credential_id = EXCLUDED.credential_id,
-  credential_version = EXCLUDED.credential_version,
-  target_address = EXCLUDED.target_address,
-  target_port = EXCLUDED.target_port,
-  target_username = EXCLUDED.target_username,
-  pinned_host_key = EXCLUDED.pinned_host_key,
-  initiator = EXCLUDED.initiator,
-  transport = EXCLUDED.transport,
-  loopback_port = EXCLUDED.loopback_port,
-  forward_target = EXCLUDED.forward_target,
-  status = 'desired',
-  epoch = telemetry_tunnels.epoch + 1,
-  lease_owner = '',
-  owner_connection_epoch = 0,
-  lease_expires_at = NULL,
-  last_drop_reason = '',
-  reconnect_attempt = 0,
-  next_claim_at = NULL,
-  updated_at = now()
+  (host_id,connector_id,credential_id,credential_version,target_address,target_port,
+   target_username,pinned_host_key,initiator,transport,loopback_port,forward_target,
+   status,epoch,lease_owner,owner_connection_epoch,lease_expires_at,last_drop_reason,
+   reconnect_attempt,next_claim_at,updated_at) = (
+    SELECT EXCLUDED.host_id,EXCLUDED.connector_id,EXCLUDED.credential_id,EXCLUDED.credential_version,
+      EXCLUDED.target_address,EXCLUDED.target_port,EXCLUDED.target_username,EXCLUDED.pinned_host_key,
+      EXCLUDED.initiator,EXCLUDED.transport,EXCLUDED.loopback_port,EXCLUDED.forward_target,
+      CASE WHEN change.reset THEN 'desired' ELSE telemetry_tunnels.status END,
+      telemetry_tunnels.epoch + CASE WHEN change.reset THEN 1 ELSE 0 END,
+      CASE WHEN change.reset THEN '' ELSE telemetry_tunnels.lease_owner END,
+      CASE WHEN change.reset THEN 0 ELSE telemetry_tunnels.owner_connection_epoch END,
+      CASE WHEN change.reset THEN NULL ELSE telemetry_tunnels.lease_expires_at END,
+      CASE WHEN change.reset THEN '' ELSE telemetry_tunnels.last_drop_reason END,
+      CASE WHEN change.reset THEN 0 ELSE telemetry_tunnels.reconnect_attempt END,
+      CASE WHEN change.reset THEN NULL ELSE telemetry_tunnels.next_claim_at END,
+      now()
+    FROM (SELECT
+      ROW(telemetry_tunnels.host_id,telemetry_tunnels.connector_id,telemetry_tunnels.credential_id,
+          telemetry_tunnels.credential_version,telemetry_tunnels.target_address,telemetry_tunnels.target_port,
+          telemetry_tunnels.target_username,telemetry_tunnels.pinned_host_key,telemetry_tunnels.initiator,
+          telemetry_tunnels.transport,telemetry_tunnels.loopback_port,telemetry_tunnels.forward_target)
+      IS DISTINCT FROM
+      ROW(EXCLUDED.host_id,EXCLUDED.connector_id,EXCLUDED.credential_id,EXCLUDED.credential_version,
+          EXCLUDED.target_address,EXCLUDED.target_port,EXCLUDED.target_username,EXCLUDED.pinned_host_key,
+          EXCLUDED.initiator,EXCLUDED.transport,EXCLUDED.loopback_port,EXCLUDED.forward_target) AS reset
+    ) change
+  )
 RETURNING *;
 
 -- name: GetTelemetryTunnel :one

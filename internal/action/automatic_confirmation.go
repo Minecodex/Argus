@@ -32,7 +32,11 @@ func (s Service) AutoConfirmRun(ctx context.Context, run db.Run) error {
 			}
 		}
 		key := "auto:" + a.ActionRef
-		_, err = postgres.ExecuteIdempotent(ctx, s.Store, s.Idempotency, "enterprise", run.ActorUserID.String(), "pending_action.auto_confirm", key, map[string]any{"action_ref": a.ActionRef, "policy_version": a.ConfirmationPolicyVersion.Int64}, 200, func(q *db.Queries) (Confirmation, error) {
+		prepared, err := s.prepareConfirmation(ctx, run.ActorUserID, run.EnterpriseID, a.ActionRef, run.AuthorizationVersion)
+		if err != nil {
+			return err
+		}
+		_, err = postgres.ExecuteIdempotent(prepared, s.Store, s.Idempotency, "enterprise", run.ActorUserID.String(), "pending_action.auto_confirm", key, map[string]any{"action_ref": a.ActionRef, "policy_version": a.ConfirmationPolicyVersion.Int64}, 200, func(q *db.Queries) (Confirmation, error) {
 			current, e := q.GetRun(ctx, db.GetRunParams{ID: run.ID, EnterpriseID: run.EnterpriseID})
 			if e != nil {
 				return Confirmation{}, e
@@ -58,7 +62,7 @@ func (s Service) AutoConfirmRun(ctx context.Context, run db.Run) error {
 				}
 				source = "plan_approval"
 			}
-			return s.confirmWithQueries(ctx, q, run.ActorUserID, run.ActorUserID.String(), key, run.EnterpriseID, run.AuthorizationVersion, false, a.ActionRef, key, source)
+			return s.confirmWithQueries(prepared, q, run.ActorUserID, run.ActorUserID.String(), key, run.EnterpriseID, run.AuthorizationVersion, false, a.ActionRef, key, source)
 		})
 		if err != nil {
 			return err

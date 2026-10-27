@@ -67,7 +67,7 @@
           "additionalProperties": false,
           "required": ["kind", "id"],
           "properties": {
-            "kind": {"enum": ["connector_install", "host_onboarding", "host_removal"]},
+            "kind": {"enum": ["connector_install", "host_onboarding", "host_removal", "kubernetes_operation"]},
             "id": {"type": "string", "format": "uuid"}
           }
         },

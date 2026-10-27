@@ -99,6 +99,21 @@
     },
     "/dashboard-drafts/{id}/drilldown": {
       "$ref": "../argus.yaml#/paths/~1dashboard-drafts~1{id}~1drilldown"
+    },
+    "/applications/{id}/dashboard-bindings": {
+      "$ref": "../argus.yaml#/paths/~1applications~1{id}~1dashboard-bindings"
+    },
+    "/applications/{id}/dashboard-bindings/preview": {
+      "$ref": "../argus.yaml#/paths/~1applications~1{id}~1dashboard-bindings~1preview"
+    },
+    "/monitoring/targets/{id}/dashboard-bindings": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1targets~1{id}~1dashboard-bindings"
+    },
+    "/monitoring/targets/{id}/dashboard-bindings/preview": {
+      "$ref": "../argus.yaml#/paths/~1monitoring~1targets~1{id}~1dashboard-bindings~1preview"
+    },
+    "/dashboard-scope-resources": {
+      "$ref": "../argus.yaml#/paths/~1dashboard-scope-resources"
     }
   },
   "components": {

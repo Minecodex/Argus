@@ -20,6 +20,7 @@ import {
   Field,
   Input,
   ObservationPanel,
+  ObservationWarnings,
   SegmentedControl,
   Select,
   Spinner,
@@ -412,13 +413,7 @@ function QuickResourceQuery({
               tone="warning"
             />
           )}
-          {!!result?.warnings?.length && (
-            <Alert
-              title={t("telemetry.warnings")}
-              description={result.warnings.join("; ")}
-              tone="warning"
-            />
-          )}
+          <ObservationWarnings warnings={result?.warnings} />
           {pending && <Spinner label={t("common.loading")} />}
           {!submitted && !pending && (
             <EmptyState

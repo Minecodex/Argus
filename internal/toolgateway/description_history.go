@@ -16,11 +16,8 @@ type nativeDescriptionHistory interface {
 // Persisted successful descriptions are the authority across Worker restarts.
 // Prompt text, failed descriptions, another Run or the same model batch cannot
 // establish that the model received this exact authorized tool schema.
-func RequireAlertDescription(history nativeDescriptionHistory) func(context.Context, toolruntime.Invocation, Manifest) error {
+func RequireNativeDescription(history nativeDescriptionHistory) func(context.Context, toolruntime.Invocation, Manifest) error {
 	return func(ctx context.Context, call toolruntime.Invocation, manifest Manifest) error {
-		if manifest.Category != "alert" {
-			return nil
-		}
 		missing := toolruntime.Error{Kind: "TOOL_DESCRIPTION_REQUIRED", Message: "Call tool.describe for this exact category/name and wait for its successful schema response in an earlier model round before invoking it.", Details: map[string]any{"category": manifest.Category, "name": manifest.Name}}
 		if history == nil || call.RunID == uuid.Nil || call.StepID == uuid.Nil || call.ModelCallID == uuid.Nil {
 			return missing

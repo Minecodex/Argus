@@ -5,6 +5,7 @@ package kubernetesapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/oapi-codegen/runtime"
@@ -202,19 +203,19 @@ func (e KubernetesClusterConnectionStatus) Valid() bool {
 
 // Defines values for KubernetesClusterStatus.
 const (
-	Active   KubernetesClusterStatus = "active"
-	Deleted  KubernetesClusterStatus = "deleted"
-	Disabled KubernetesClusterStatus = "disabled"
+	KubernetesClusterStatusActive   KubernetesClusterStatus = "active"
+	KubernetesClusterStatusDeleted  KubernetesClusterStatus = "deleted"
+	KubernetesClusterStatusDisabled KubernetesClusterStatus = "disabled"
 )
 
 // Valid indicates whether the value is a known member of the KubernetesClusterStatus enum.
 func (e KubernetesClusterStatus) Valid() bool {
 	switch e {
-	case Active:
+	case KubernetesClusterStatusActive:
 		return true
-	case Deleted:
+	case KubernetesClusterStatusDeleted:
 		return true
-	case Disabled:
+	case KubernetesClusterStatusDisabled:
 		return true
 	default:
 		return false
@@ -260,6 +261,219 @@ func (e KubernetesConnectionTestCreateConnectionMode) Valid() bool {
 	}
 }
 
+// Defines values for KubernetesDrainPodState.
+const (
+	KubernetesDrainPodStateBlocked           KubernetesDrainPodState = "blocked"
+	KubernetesDrainPodStateEvictionRequested KubernetesDrainPodState = "eviction_requested"
+	KubernetesDrainPodStateGone              KubernetesDrainPodState = "gone"
+	KubernetesDrainPodStatePending           KubernetesDrainPodState = "pending"
+	KubernetesDrainPodStateSkipped           KubernetesDrainPodState = "skipped"
+	KubernetesDrainPodStateTerminating       KubernetesDrainPodState = "terminating"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesDrainPodState enum.
+func (e KubernetesDrainPodState) Valid() bool {
+	switch e {
+	case KubernetesDrainPodStateBlocked:
+		return true
+	case KubernetesDrainPodStateEvictionRequested:
+		return true
+	case KubernetesDrainPodStateGone:
+		return true
+	case KubernetesDrainPodStatePending:
+		return true
+	case KubernetesDrainPodStateSkipped:
+		return true
+	case KubernetesDrainPodStateTerminating:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesDrainProgressPhase.
+const (
+	KubernetesDrainProgressPhaseBlocked  KubernetesDrainProgressPhase = "blocked"
+	KubernetesDrainProgressPhaseComplete KubernetesDrainProgressPhase = "complete"
+	KubernetesDrainProgressPhaseDraining KubernetesDrainProgressPhase = "draining"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesDrainProgressPhase enum.
+func (e KubernetesDrainProgressPhase) Valid() bool {
+	switch e {
+	case KubernetesDrainProgressPhaseBlocked:
+		return true
+	case KubernetesDrainProgressPhaseComplete:
+		return true
+	case KubernetesDrainProgressPhaseDraining:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesHelmChartSourceKind.
+const (
+	Oci        KubernetesHelmChartSourceKind = "oci"
+	Repository KubernetesHelmChartSourceKind = "repository"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesHelmChartSourceKind enum.
+func (e KubernetesHelmChartSourceKind) Valid() bool {
+	switch e {
+	case Oci:
+		return true
+	case Repository:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesHelmPreviewInputOperation.
+const (
+	KubernetesHelmPreviewInputOperationInstall   KubernetesHelmPreviewInputOperation = "install"
+	KubernetesHelmPreviewInputOperationRollback  KubernetesHelmPreviewInputOperation = "rollback"
+	KubernetesHelmPreviewInputOperationUninstall KubernetesHelmPreviewInputOperation = "uninstall"
+	KubernetesHelmPreviewInputOperationUpgrade   KubernetesHelmPreviewInputOperation = "upgrade"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesHelmPreviewInputOperation enum.
+func (e KubernetesHelmPreviewInputOperation) Valid() bool {
+	switch e {
+	case KubernetesHelmPreviewInputOperationInstall:
+		return true
+	case KubernetesHelmPreviewInputOperationRollback:
+		return true
+	case KubernetesHelmPreviewInputOperationUninstall:
+		return true
+	case KubernetesHelmPreviewInputOperationUpgrade:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesInventoryWatchEventType.
+const (
+	ADDED    KubernetesInventoryWatchEventType = "ADDED"
+	DELETED  KubernetesInventoryWatchEventType = "DELETED"
+	MODIFIED KubernetesInventoryWatchEventType = "MODIFIED"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesInventoryWatchEventType enum.
+func (e KubernetesInventoryWatchEventType) Valid() bool {
+	switch e {
+	case ADDED:
+		return true
+	case DELETED:
+		return true
+	case MODIFIED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesLogSessionStatus.
+const (
+	KubernetesLogSessionStatusActive      KubernetesLogSessionStatus = "active"
+	KubernetesLogSessionStatusClosed      KubernetesLogSessionStatus = "closed"
+	KubernetesLogSessionStatusInvalidated KubernetesLogSessionStatus = "invalidated"
+	KubernetesLogSessionStatusPending     KubernetesLogSessionStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesLogSessionStatus enum.
+func (e KubernetesLogSessionStatus) Valid() bool {
+	switch e {
+	case KubernetesLogSessionStatusActive:
+		return true
+	case KubernetesLogSessionStatusClosed:
+		return true
+	case KubernetesLogSessionStatusInvalidated:
+		return true
+	case KubernetesLogSessionStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesMutationInputOperation.
+const (
+	KubernetesMutationInputOperationCordon   KubernetesMutationInputOperation = "cordon"
+	KubernetesMutationInputOperationCreate   KubernetesMutationInputOperation = "create"
+	KubernetesMutationInputOperationDelete   KubernetesMutationInputOperation = "delete"
+	KubernetesMutationInputOperationDrain    KubernetesMutationInputOperation = "drain"
+	KubernetesMutationInputOperationPatch    KubernetesMutationInputOperation = "patch"
+	KubernetesMutationInputOperationRestart  KubernetesMutationInputOperation = "restart"
+	KubernetesMutationInputOperationRollback KubernetesMutationInputOperation = "rollback"
+	KubernetesMutationInputOperationScale    KubernetesMutationInputOperation = "scale"
+	KubernetesMutationInputOperationUncordon KubernetesMutationInputOperation = "uncordon"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesMutationInputOperation enum.
+func (e KubernetesMutationInputOperation) Valid() bool {
+	switch e {
+	case KubernetesMutationInputOperationCordon:
+		return true
+	case KubernetesMutationInputOperationCreate:
+		return true
+	case KubernetesMutationInputOperationDelete:
+		return true
+	case KubernetesMutationInputOperationDrain:
+		return true
+	case KubernetesMutationInputOperationPatch:
+		return true
+	case KubernetesMutationInputOperationRestart:
+		return true
+	case KubernetesMutationInputOperationRollback:
+		return true
+	case KubernetesMutationInputOperationScale:
+		return true
+	case KubernetesMutationInputOperationUncordon:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesOperationStatus.
+const (
+	KubernetesOperationStatusAwaitingConfirmation KubernetesOperationStatus = "awaiting_confirmation"
+	KubernetesOperationStatusCancelled            KubernetesOperationStatus = "cancelled"
+	KubernetesOperationStatusFailed               KubernetesOperationStatus = "failed"
+	KubernetesOperationStatusObserving            KubernetesOperationStatus = "observing"
+	KubernetesOperationStatusQueued               KubernetesOperationStatus = "queued"
+	KubernetesOperationStatusResultUnknown        KubernetesOperationStatus = "result_unknown"
+	KubernetesOperationStatusRunning              KubernetesOperationStatus = "running"
+	KubernetesOperationStatusSucceeded            KubernetesOperationStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesOperationStatus enum.
+func (e KubernetesOperationStatus) Valid() bool {
+	switch e {
+	case KubernetesOperationStatusAwaitingConfirmation:
+		return true
+	case KubernetesOperationStatusCancelled:
+		return true
+	case KubernetesOperationStatusFailed:
+		return true
+	case KubernetesOperationStatusObserving:
+		return true
+	case KubernetesOperationStatusQueued:
+		return true
+	case KubernetesOperationStatusResultUnknown:
+		return true
+	case KubernetesOperationStatusRunning:
+		return true
+	case KubernetesOperationStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for KubernetesResourceResourceType.
 const (
 	KubernetesResourceResourceTypeDaemonset   KubernetesResourceResourceType = "daemonset"
@@ -293,6 +507,156 @@ func (e KubernetesResourceResourceType) Valid() bool {
 	}
 }
 
+// Defines values for KubernetesStreamInputMode.
+const (
+	KubernetesStreamInputModeExec        KubernetesStreamInputMode = "exec"
+	KubernetesStreamInputModePortForward KubernetesStreamInputMode = "port_forward"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesStreamInputMode enum.
+func (e KubernetesStreamInputMode) Valid() bool {
+	switch e {
+	case KubernetesStreamInputModeExec:
+		return true
+	case KubernetesStreamInputModePortForward:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesStreamInputShell.
+const (
+	KubernetesStreamInputShellBash       KubernetesStreamInputShell = "bash"
+	KubernetesStreamInputShellCmd        KubernetesStreamInputShell = "cmd"
+	KubernetesStreamInputShellPowershell KubernetesStreamInputShell = "powershell"
+	KubernetesStreamInputShellSh         KubernetesStreamInputShell = "sh"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesStreamInputShell enum.
+func (e KubernetesStreamInputShell) Valid() bool {
+	switch e {
+	case KubernetesStreamInputShellBash:
+		return true
+	case KubernetesStreamInputShellCmd:
+		return true
+	case KubernetesStreamInputShellPowershell:
+		return true
+	case KubernetesStreamInputShellSh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesStreamInputType.
+const (
+	KubernetesStreamInputTypePod     KubernetesStreamInputType = "pod"
+	KubernetesStreamInputTypeService KubernetesStreamInputType = "service"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesStreamInputType enum.
+func (e KubernetesStreamInputType) Valid() bool {
+	switch e {
+	case KubernetesStreamInputTypePod:
+		return true
+	case KubernetesStreamInputTypeService:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesStreamSessionMode.
+const (
+	KubernetesStreamSessionModeExec        KubernetesStreamSessionMode = "exec"
+	KubernetesStreamSessionModePortForward KubernetesStreamSessionMode = "port_forward"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesStreamSessionMode enum.
+func (e KubernetesStreamSessionMode) Valid() bool {
+	switch e {
+	case KubernetesStreamSessionModeExec:
+		return true
+	case KubernetesStreamSessionModePortForward:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesStreamSessionShell.
+const (
+	KubernetesStreamSessionShellBash       KubernetesStreamSessionShell = "bash"
+	KubernetesStreamSessionShellCmd        KubernetesStreamSessionShell = "cmd"
+	KubernetesStreamSessionShellPowershell KubernetesStreamSessionShell = "powershell"
+	KubernetesStreamSessionShellSh         KubernetesStreamSessionShell = "sh"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesStreamSessionShell enum.
+func (e KubernetesStreamSessionShell) Valid() bool {
+	switch e {
+	case KubernetesStreamSessionShellBash:
+		return true
+	case KubernetesStreamSessionShellCmd:
+		return true
+	case KubernetesStreamSessionShellPowershell:
+		return true
+	case KubernetesStreamSessionShellSh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesStreamSessionStatus.
+const (
+	KubernetesStreamSessionStatusActive         KubernetesStreamSessionStatus = "active"
+	KubernetesStreamSessionStatusClosed         KubernetesStreamSessionStatus = "closed"
+	KubernetesStreamSessionStatusClosing        KubernetesStreamSessionStatus = "closing"
+	KubernetesStreamSessionStatusConnecting     KubernetesStreamSessionStatus = "connecting"
+	KubernetesStreamSessionStatusConnectionLost KubernetesStreamSessionStatus = "connection_lost"
+	KubernetesStreamSessionStatusInvalidated    KubernetesStreamSessionStatus = "invalidated"
+	KubernetesStreamSessionStatusPending        KubernetesStreamSessionStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesStreamSessionStatus enum.
+func (e KubernetesStreamSessionStatus) Valid() bool {
+	switch e {
+	case KubernetesStreamSessionStatusActive:
+		return true
+	case KubernetesStreamSessionStatusClosed:
+		return true
+	case KubernetesStreamSessionStatusClosing:
+		return true
+	case KubernetesStreamSessionStatusConnecting:
+		return true
+	case KubernetesStreamSessionStatusConnectionLost:
+		return true
+	case KubernetesStreamSessionStatusInvalidated:
+		return true
+	case KubernetesStreamSessionStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesStreamTicketProtocolVersion.
+const (
+	ArgusKubernetesStreamv1 KubernetesStreamTicketProtocolVersion = "argus.kubernetes_stream/v1"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesStreamTicketProtocolVersion enum.
+func (e KubernetesStreamTicketProtocolVersion) Valid() bool {
+	switch e {
+	case ArgusKubernetesStreamv1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PartialMetadataReasons.
 const (
 	AuthorizationFiltered PartialMetadataReasons = "authorization_filtered"
@@ -311,6 +675,24 @@ func (e PartialMetadataReasons) Valid() bool {
 	case SourceTimeout:
 		return true
 	case SourceUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListKubernetesInventoryParamsNamespaceMode.
+const (
+	AllAuthorized ListKubernetesInventoryParamsNamespaceMode = "all_authorized"
+	Explicit      ListKubernetesInventoryParamsNamespaceMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the ListKubernetesInventoryParamsNamespaceMode enum.
+func (e ListKubernetesInventoryParamsNamespaceMode) Valid() bool {
+	switch e {
+	case AllAuthorized:
+		return true
+	case Explicit:
 		return true
 	default:
 		return false
@@ -489,6 +871,338 @@ type KubernetesConnectionTestCreate struct {
 // KubernetesConnectionTestCreateConnectionMode defines model for KubernetesConnectionTestCreate.ConnectionMode.
 type KubernetesConnectionTestCreateConnectionMode string
 
+// KubernetesDrainBudget defines model for KubernetesDrainBudget.
+type KubernetesDrainBudget struct {
+	DisruptionsAllowed int64  `json:"disruptions_allowed"`
+	Name               string `json:"name"`
+	Uid                string `json:"uid"`
+}
+
+// KubernetesDrainCancelInput defines model for KubernetesDrainCancelInput.
+type KubernetesDrainCancelInput struct {
+	ExpectedVersion int64 `json:"expected_version"`
+}
+
+// KubernetesDrainPod defines model for KubernetesDrainPod.
+type KubernetesDrainPod struct {
+	Budgets      []KubernetesDrainBudget `json:"budgets"`
+	Name         string                  `json:"name"`
+	Namespace    string                  `json:"namespace"`
+	NamespaceUid string                  `json:"namespace_uid"`
+	Reason       *string                 `json:"reason,omitempty"`
+	State        KubernetesDrainPodState `json:"state"`
+	Uid          string                  `json:"uid"`
+	Volumes      []KubernetesDrainVolume `json:"volumes"`
+}
+
+// KubernetesDrainPodState defines model for KubernetesDrainPod.State.
+type KubernetesDrainPodState string
+
+// KubernetesDrainProgress defines model for KubernetesDrainProgress.
+type KubernetesDrainProgress struct {
+	Phase KubernetesDrainProgressPhase `json:"phase"`
+	Pods  []KubernetesDrainPod         `json:"pods"`
+}
+
+// KubernetesDrainProgressPhase defines model for KubernetesDrainProgress.Phase.
+type KubernetesDrainProgressPhase string
+
+// KubernetesDrainVolume defines model for KubernetesDrainVolume.
+type KubernetesDrainVolume struct {
+	Claim     *string `json:"claim,omitempty"`
+	ClaimUid  *string `json:"claim_uid,omitempty"`
+	Kind      string  `json:"kind"`
+	Local     bool    `json:"local"`
+	Name      string  `json:"name"`
+	Volume    *string `json:"volume,omitempty"`
+	VolumeUid *string `json:"volume_uid,omitempty"`
+}
+
+// KubernetesHelmChartSource defines model for KubernetesHelmChartSource.
+type KubernetesHelmChartSource struct {
+	// AuthUrl Explicit trusted cross-origin OCI token service URL, without query or fragment
+	AuthUrl *string `json:"auth_url,omitempty"`
+	Chart   *string `json:"chart,omitempty"`
+
+	// Digest Optional expected archive SHA256 for repository or manifest SHA256 for OCI
+	Digest *string                       `json:"digest,omitempty"`
+	Kind   KubernetesHelmChartSourceKind `json:"kind"`
+
+	// PlainHttp Explicitly permit HTTP for this source; TLS redirects/downgrades remain rejected
+	PlainHttp *bool `json:"plain_http,omitempty"`
+
+	// Url Repository base URL or oci://registry/path/chart; no user info, query or fragment
+	Url string `json:"url"`
+
+	// Version Exact semantic Chart version
+	Version string `json:"version"`
+}
+
+// KubernetesHelmChartSourceKind defines model for KubernetesHelmChartSource.Kind.
+type KubernetesHelmChartSourceKind string
+
+// KubernetesHelmPreviewInput defines model for KubernetesHelmPreviewInput.
+type KubernetesHelmPreviewInput struct {
+	// ChartArchive Protected packaged .tgz chart; never a URL or shell command
+	ChartArchive      *[]byte                             `json:"chart_archive,omitempty"`
+	ExpectedRevision  int                                 `json:"expected_revision"`
+	Name              string                              `json:"name"`
+	NamespaceId       openapi_types.UUID                  `json:"namespace_id"`
+	Operation         KubernetesHelmPreviewInputOperation `json:"operation"`
+	Reason            string                              `json:"reason"`
+	RollbackRevision  *int                                `json:"rollback_revision,omitempty"`
+	Source            *KubernetesHelmChartSource          `json:"source,omitempty"`
+	SourceCredentials *KubernetesHelmSourceCredentials    `json:"source_credentials,omitempty"`
+	TimeoutSeconds    int                                 `json:"timeout_seconds"`
+
+	// Values Protected YAML/JSON values; not included in public previews or model context
+	Values *string `json:"values,omitempty"`
+}
+
+// KubernetesHelmPreviewInputOperation defines model for KubernetesHelmPreviewInput.Operation.
+type KubernetesHelmPreviewInputOperation string
+
+// KubernetesHelmRelease defines model for KubernetesHelmRelease.
+type KubernetesHelmRelease struct {
+	Chart        string    `json:"chart"`
+	ChartVersion string    `json:"chart_version"`
+	Name         string    `json:"name"`
+	Namespace    string    `json:"namespace"`
+	Revision     int       `json:"revision"`
+	Status       string    `json:"status"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// KubernetesHelmReleases defines model for KubernetesHelmReleases.
+type KubernetesHelmReleases struct {
+	Items []KubernetesHelmRelease `json:"items"`
+}
+
+// KubernetesHelmSourceCredentials defines model for KubernetesHelmSourceCredentials.
+type KubernetesHelmSourceCredentials struct {
+	// CaPem Additional CA certificates only; no private keys or disabled TLS validation
+	CaPem    *string `json:"ca_pem,omitempty"`
+	Password *string `json:"password,omitempty"`
+	Token    *string `json:"token,omitempty"`
+	Username *string `json:"username,omitempty"`
+}
+
+// KubernetesInventoryDefinition defines model for KubernetesInventoryDefinition.
+type KubernetesInventoryDefinition struct {
+	Category         string `json:"category"`
+	Group            string `json:"group"`
+	Key              string `json:"key"`
+	Kind             string `json:"kind"`
+	ManagePermission string `json:"manage_permission"`
+	Namespaced       bool   `json:"namespaced"`
+	Resource         string `json:"resource"`
+	Version          string `json:"version"`
+}
+
+// KubernetesInventoryObject defines model for KubernetesInventoryObject.
+type KubernetesInventoryObject struct {
+	CreatedAt    time.Time                     `json:"created_at"`
+	Data         map[string]interface{}        `json:"data"`
+	Definition   KubernetesInventoryDefinition `json:"definition"`
+	Generation   int64                         `json:"generation"`
+	Labels       map[string]string             `json:"labels"`
+	Name         string                        `json:"name"`
+	Namespace    string                        `json:"namespace"`
+	NamespaceUid *string                       `json:"namespace_uid,omitempty"`
+	ObservedAt   time.Time                     `json:"observed_at"`
+	Owners       []struct {
+		ApiVersion         string `json:"apiVersion"`
+		BlockOwnerDeletion *bool  `json:"blockOwnerDeletion,omitempty"`
+		Controller         *bool  `json:"controller,omitempty"`
+		Kind               string `json:"kind"`
+		Name               string `json:"name"`
+		Uid                string `json:"uid"`
+	} `json:"owners"`
+	Redacted        bool   `json:"redacted"`
+	ResourceVersion string `json:"resource_version"`
+	Uid             string `json:"uid"`
+}
+
+// KubernetesInventoryPage defines model for KubernetesInventoryPage.
+type KubernetesInventoryPage struct {
+	Complete            bool                          `json:"complete"`
+	Items               []KubernetesInventoryObject   `json:"items"`
+	NamespaceReferences map[string]openapi_types.UUID `json:"namespace_references"`
+	NextCursor          *string                       `json:"next_cursor,omitempty"`
+	ObservedAt          time.Time                     `json:"observed_at"`
+	ScopeSignature      string                        `json:"scope_signature"`
+	WatchToken          *string                       `json:"watch_token,omitempty"`
+}
+
+// KubernetesInventoryScope defines model for KubernetesInventoryScope.
+type KubernetesInventoryScope struct {
+	ClusterId      openapi_types.UUID             `json:"cluster_id"`
+	ClusterName    string                         `json:"cluster_name"`
+	ClusterVersion int64                          `json:"cluster_version"`
+	ClusterWide    bool                           `json:"cluster_wide"`
+	Namespaces     []KubernetesNamespaceReference `json:"namespaces"`
+}
+
+// KubernetesInventoryTypes defines model for KubernetesInventoryTypes.
+type KubernetesInventoryTypes struct {
+	Complete          bool                            `json:"complete"`
+	Items             []KubernetesInventoryDefinition `json:"items"`
+	UnavailableReason *string                         `json:"unavailable_reason,omitempty"`
+}
+
+// KubernetesInventoryWatchEvent defines model for KubernetesInventoryWatchEvent.
+type KubernetesInventoryWatchEvent struct {
+	Object KubernetesInventoryObject         `json:"object"`
+	Type   KubernetesInventoryWatchEventType `json:"type"`
+}
+
+// KubernetesInventoryWatchEventType defines model for KubernetesInventoryWatchEvent.Type.
+type KubernetesInventoryWatchEventType string
+
+// KubernetesInventoryWatchInput defines model for KubernetesInventoryWatchInput.
+type KubernetesInventoryWatchInput struct {
+	Token string `json:"token"`
+}
+
+// KubernetesInventoryWatchResult defines model for KubernetesInventoryWatchResult.
+type KubernetesInventoryWatchResult struct {
+	Events         []KubernetesInventoryWatchEvent `json:"events"`
+	More           bool                            `json:"more"`
+	ObservedAt     time.Time                       `json:"observed_at"`
+	ScopeSignature string                          `json:"scope_signature"`
+	WatchToken     string                          `json:"watch_token"`
+}
+
+// KubernetesLogSession defines model for KubernetesLogSession.
+type KubernetesLogSession struct {
+	ClusterId    openapi_types.UUID         `json:"cluster_id"`
+	Container    string                     `json:"container"`
+	ExpiresAt    time.Time                  `json:"expires_at"`
+	Id           openapi_types.UUID         `json:"id"`
+	Namespace    string                     `json:"namespace"`
+	NamespaceId  openapi_types.UUID         `json:"namespace_id"`
+	NamespaceUid string                     `json:"namespace_uid"`
+	Pod          string                     `json:"pod"`
+	PodUid       string                     `json:"pod_uid"`
+	Previous     bool                       `json:"previous"`
+	RestartCount int                        `json:"restart_count"`
+	Status       KubernetesLogSessionStatus `json:"status"`
+	Version      int64                      `json:"version"`
+}
+
+// KubernetesLogSessionStatus defines model for KubernetesLogSession.Status.
+type KubernetesLogSessionStatus string
+
+// KubernetesLogSessionAttachInput defines model for KubernetesLogSessionAttachInput.
+type KubernetesLogSessionAttachInput struct {
+	Ticket string `json:"ticket"`
+}
+
+// KubernetesLogSessionBatch defines model for KubernetesLogSessionBatch.
+type KubernetesLogSessionBatch struct {
+	Complete    bool      `json:"complete"`
+	Content     string    `json:"content"`
+	NextCursor  string    `json:"next_cursor"`
+	ObservedAt  time.Time `json:"observed_at"`
+	PendingLine bool      `json:"pending_line"`
+	Redacted    bool      `json:"redacted"`
+	Truncated   bool      `json:"truncated"`
+}
+
+// KubernetesLogSessionInput defines model for KubernetesLogSessionInput.
+type KubernetesLogSessionInput struct {
+	Container    string             `json:"container"`
+	NamespaceId  openapi_types.UUID `json:"namespace_id"`
+	Pod          string             `json:"pod"`
+	PodUid       string             `json:"pod_uid"`
+	Previous     bool               `json:"previous"`
+	SinceSeconds int                `json:"since_seconds"`
+	TailLines    int                `json:"tail_lines"`
+}
+
+// KubernetesLogSessionReadInput defines model for KubernetesLogSessionReadInput.
+type KubernetesLogSessionReadInput struct {
+	Cursor *string `json:"cursor,omitempty"`
+}
+
+// KubernetesLogSessionTicket defines model for KubernetesLogSessionTicket.
+type KubernetesLogSessionTicket struct {
+	Session         KubernetesLogSession `json:"session"`
+	Ticket          string               `json:"ticket"`
+	TicketExpiresAt time.Time            `json:"ticket_expires_at"`
+}
+
+// KubernetesMutationInput defines model for KubernetesMutationInput.
+type KubernetesMutationInput struct {
+	CronjobSource           *KubernetesObjectVersionReference `json:"cronjob_source,omitempty"`
+	ExpectedResourceVersion *string                           `json:"expected_resource_version,omitempty"`
+	Name                    string                            `json:"name"`
+	NamespaceId             *openapi_types.UUID               `json:"namespace_id,omitempty"`
+	Object                  *map[string]interface{}           `json:"object,omitempty"`
+	Operation               KubernetesMutationInputOperation  `json:"operation"`
+	Replicas                *int64                            `json:"replicas,omitempty"`
+	Rollback                *KubernetesRollbackReference      `json:"rollback,omitempty"`
+
+	// SecretValues Protected Secret values; excluded from public manifests, action plans and Agent inputs.
+	SecretValues *map[string]string `json:"secret_values,omitempty"`
+	Type         string             `json:"type"`
+	Uid          *string            `json:"uid,omitempty"`
+}
+
+// KubernetesMutationInputOperation defines model for KubernetesMutationInput.Operation.
+type KubernetesMutationInputOperation string
+
+// KubernetesNamespaceReference defines model for KubernetesNamespaceReference.
+type KubernetesNamespaceReference struct {
+	Id      openapi_types.UUID `json:"id"`
+	Name    string             `json:"name"`
+	Uid     string             `json:"uid"`
+	Version int64              `json:"version"`
+}
+
+// KubernetesObjectVersionReference defines model for KubernetesObjectVersionReference.
+type KubernetesObjectVersionReference struct {
+	Name            string `json:"name"`
+	ResourceVersion string `json:"resource_version"`
+	Uid             string `json:"uid"`
+}
+
+// KubernetesOperation defines model for KubernetesOperation.
+type KubernetesOperation struct {
+	ClusterId       openapi_types.UUID         `json:"cluster_id"`
+	CreatedAt       time.Time                  `json:"created_at"`
+	ErrorCode       string                     `json:"error_code"`
+	FinishedAt      *time.Time                 `json:"finished_at,omitempty"`
+	Id              openapi_types.UUID         `json:"id"`
+	Name            string                     `json:"name"`
+	NamespaceId     *openapi_types.UUID        `json:"namespace_id,omitempty"`
+	NamespaceUid    string                     `json:"namespace_uid"`
+	Operation       string                     `json:"operation"`
+	PendingActionId *openapi_types.UUID        `json:"pending_action_id,omitempty"`
+	Result          KubernetesOperation_Result `json:"result"`
+	StartedAt       *time.Time                 `json:"started_at,omitempty"`
+	Status          KubernetesOperationStatus  `json:"status"`
+	Type            string                     `json:"type"`
+	Uid             string                     `json:"uid"`
+	UpdatedAt       time.Time                  `json:"updated_at"`
+	Version         int64                      `json:"version"`
+}
+
+// KubernetesOperation_Result defines model for KubernetesOperation.Result.
+type KubernetesOperation_Result struct {
+	Drain                *KubernetesDrainProgress `json:"drain,omitempty"`
+	AdditionalProperties map[string]interface{}   `json:"-"`
+}
+
+// KubernetesOperationStatus defines model for KubernetesOperation.Status.
+type KubernetesOperationStatus string
+
+// KubernetesOperationPage defines model for KubernetesOperationPage.
+type KubernetesOperationPage struct {
+	Items      []KubernetesOperation `json:"items"`
+	NextCursor *string               `json:"next_cursor,omitempty"`
+}
+
 // KubernetesPreviewCreate defines model for KubernetesPreviewCreate.
 type KubernetesPreviewCreate struct {
 	ApiServer        string                   `json:"api_server"`
@@ -537,6 +1251,80 @@ type KubernetesResourcePage struct {
 	Items []KubernetesResource `json:"items"`
 	Page  CursorPage           `json:"page"`
 }
+
+// KubernetesRollbackReference defines model for KubernetesRollbackReference.
+type KubernetesRollbackReference struct {
+	Name            string `json:"name"`
+	ResourceVersion string `json:"resource_version"`
+	Revision        int64  `json:"revision"`
+	Uid             string `json:"uid"`
+}
+
+// KubernetesStreamInput defines model for KubernetesStreamInput.
+type KubernetesStreamInput struct {
+	Container   *string                     `json:"container,omitempty"`
+	Mode        KubernetesStreamInputMode   `json:"mode"`
+	Name        string                      `json:"name"`
+	NamespaceId openapi_types.UUID          `json:"namespace_id"`
+	Port        *int                        `json:"port,omitempty"`
+	Reason      string                      `json:"reason"`
+	Shell       *KubernetesStreamInputShell `json:"shell,omitempty"`
+	Type        KubernetesStreamInputType   `json:"type"`
+	Uid         string                      `json:"uid"`
+}
+
+// KubernetesStreamInputMode defines model for KubernetesStreamInput.Mode.
+type KubernetesStreamInputMode string
+
+// KubernetesStreamInputShell defines model for KubernetesStreamInput.Shell.
+type KubernetesStreamInputShell string
+
+// KubernetesStreamInputType defines model for KubernetesStreamInput.Type.
+type KubernetesStreamInputType string
+
+// KubernetesStreamSession defines model for KubernetesStreamSession.
+type KubernetesStreamSession struct {
+	BytesIn      int64                         `json:"bytes_in"`
+	BytesOut     int64                         `json:"bytes_out"`
+	ClusterId    openapi_types.UUID            `json:"cluster_id"`
+	Container    string                        `json:"container"`
+	ExpiresAt    time.Time                     `json:"expires_at"`
+	Id           openapi_types.UUID            `json:"id"`
+	Mode         KubernetesStreamSessionMode   `json:"mode"`
+	Namespace    string                        `json:"namespace"`
+	NamespaceId  openapi_types.UUID            `json:"namespace_id"`
+	NamespaceUid string                        `json:"namespace_uid"`
+	Pod          string                        `json:"pod"`
+	PodUid       string                        `json:"pod_uid"`
+	Port         *int                          `json:"port,omitempty"`
+	Reason       *string                       `json:"reason,omitempty"`
+	RestartCount int                           `json:"restart_count"`
+	Service      *string                       `json:"service,omitempty"`
+	Shell        *KubernetesStreamSessionShell `json:"shell,omitempty"`
+	Status       KubernetesStreamSessionStatus `json:"status"`
+	Version      int64                         `json:"version"`
+}
+
+// KubernetesStreamSessionMode defines model for KubernetesStreamSession.Mode.
+type KubernetesStreamSessionMode string
+
+// KubernetesStreamSessionShell defines model for KubernetesStreamSession.Shell.
+type KubernetesStreamSessionShell string
+
+// KubernetesStreamSessionStatus defines model for KubernetesStreamSession.Status.
+type KubernetesStreamSessionStatus string
+
+// KubernetesStreamTicket defines model for KubernetesStreamTicket.
+type KubernetesStreamTicket struct {
+	ProtocolVersion KubernetesStreamTicketProtocolVersion `json:"protocol_version"`
+	Session         KubernetesStreamSession               `json:"session"`
+	Ticket          string                                `json:"ticket"`
+	TicketExpiresAt time.Time                             `json:"ticket_expires_at"`
+	WebsocketUrl    string                                `json:"websocket_url"`
+}
+
+// KubernetesStreamTicketProtocolVersion defines model for KubernetesStreamTicket.ProtocolVersion.
+type KubernetesStreamTicketProtocolVersion string
 
 // LabelValue defines model for LabelValue.
 type LabelValue = string
@@ -642,8 +1430,14 @@ type Limit = int
 // ResourceId defines model for ResourceId.
 type ResourceId = openapi_types.UUID
 
+// ParametersCsrfToken defines model for parameters-CsrfToken.
+type ParametersCsrfToken = string
+
 // Error defines model for Error.
 type Error = ApiError
+
+// ResponsesError defines model for responses-Error.
+type ResponsesError = ApiError
 
 // ListKubernetesClustersParams defines parameters for ListKubernetesClusters.
 type ListKubernetesClustersParams struct {
@@ -653,26 +1447,106 @@ type ListKubernetesClustersParams struct {
 
 // PreviewCreateKubernetesClusterParams defines parameters for PreviewCreateKubernetesCluster.
 type PreviewCreateKubernetesClusterParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey      `json:"Idempotency-Key"`
+	XCSRFToken     ParametersCsrfToken `json:"X-CSRF-Token"`
 }
 
 // CreateKubernetesConnectionTestParams defines parameters for CreateKubernetesConnectionTest.
 type CreateKubernetesConnectionTestParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey      `json:"Idempotency-Key"`
+	XCSRFToken     ParametersCsrfToken `json:"X-CSRF-Token"`
 }
 
 // PreviewDeleteKubernetesClusterParams defines parameters for PreviewDeleteKubernetesCluster.
 type PreviewDeleteKubernetesClusterParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey      `json:"Idempotency-Key"`
+	XCSRFToken     ParametersCsrfToken `json:"X-CSRF-Token"`
 }
 
 // PreviewUpdateKubernetesClusterParams defines parameters for PreviewUpdateKubernetesCluster.
 type PreviewUpdateKubernetesClusterParams struct {
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	IdempotencyKey IdempotencyKey      `json:"Idempotency-Key"`
+	XCSRFToken     ParametersCsrfToken `json:"X-CSRF-Token"`
+}
+
+// PreviewKubernetesHelmParams defines parameters for PreviewKubernetesHelm.
+type PreviewKubernetesHelmParams struct {
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListKubernetesHelmReleasesParams defines parameters for ListKubernetesHelmReleases.
+type ListKubernetesHelmReleasesParams struct {
+	NamespaceId openapi_types.UUID `form:"namespace_id" json:"namespace_id"`
+}
+
+// ListKubernetesHelmHistoryParams defines parameters for ListKubernetesHelmHistory.
+type ListKubernetesHelmHistoryParams struct {
+	NamespaceId openapi_types.UUID `form:"namespace_id" json:"namespace_id"`
+}
+
+// ListKubernetesInventoryParams defines parameters for ListKubernetesInventory.
+type ListKubernetesInventoryParams struct {
+	Type          string                                      `form:"type" json:"type"`
+	NamespaceMode *ListKubernetesInventoryParamsNamespaceMode `form:"namespace_mode,omitempty" json:"namespace_mode,omitempty"`
+	NamespaceIds  *[]openapi_types.UUID                       `form:"namespace_ids,omitempty" json:"namespace_ids,omitempty"`
+	Name          *string                                     `form:"name,omitempty" json:"name,omitempty"`
+	Labels        *string                                     `form:"labels,omitempty" json:"labels,omitempty"`
+	Limit         *int                                        `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor        *string                                     `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListKubernetesInventoryParamsNamespaceMode defines parameters for ListKubernetesInventory.
+type ListKubernetesInventoryParamsNamespaceMode string
+
+// PreviewKubernetesMutationParams defines parameters for PreviewKubernetesMutation.
+type PreviewKubernetesMutationParams struct {
+	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// GetKubernetesInventoryObjectParams defines parameters for GetKubernetesInventoryObject.
+type GetKubernetesInventoryObjectParams struct {
+	Type        string              `form:"type" json:"type"`
+	Name        string              `form:"name" json:"name"`
+	Uid         string              `form:"uid" json:"uid"`
+	NamespaceId *openapi_types.UUID `form:"namespace_id,omitempty" json:"namespace_id,omitempty"`
+}
+
+// WatchKubernetesInventoryParams defines parameters for WatchKubernetesInventory.
+type WatchKubernetesInventoryParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
+// CreateKubernetesLogSessionParams defines parameters for CreateKubernetesLogSession.
+type CreateKubernetesLogSessionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// AttachKubernetesLogSessionParams defines parameters for AttachKubernetesLogSession.
+type AttachKubernetesLogSessionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CloseKubernetesLogSessionParams defines parameters for CloseKubernetesLogSession.
+type CloseKubernetesLogSessionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ReadKubernetesLogSessionParams defines parameters for ReadKubernetesLogSession.
+type ReadKubernetesLogSessionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ListKubernetesOperationsParams defines parameters for ListKubernetesOperations.
+type ListKubernetesOperationsParams struct {
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// CancelKubernetesDrainParams defines parameters for CancelKubernetesDrain.
+type CancelKubernetesDrainParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // GetKubernetesPodLogsParams defines parameters for GetKubernetesPodLogs.
@@ -695,6 +1569,21 @@ type ListKubernetesResourcesParams struct {
 // ListKubernetesResourcesParamsResourceType defines parameters for ListKubernetesResources.
 type ListKubernetesResourcesParamsResourceType string
 
+// CreateKubernetesStreamSessionParams defines parameters for CreateKubernetesStreamSession.
+type CreateKubernetesStreamSessionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CloseKubernetesStreamSessionParams defines parameters for CloseKubernetesStreamSession.
+type CloseKubernetesStreamSessionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// IssueKubernetesStreamTicketParams defines parameters for IssueKubernetesStreamTicket.
+type IssueKubernetesStreamTicketParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // PreviewCreateKubernetesClusterJSONRequestBody defines body for PreviewCreateKubernetesCluster for application/json ContentType.
 type PreviewCreateKubernetesClusterJSONRequestBody = KubernetesPreviewCreate
 
@@ -706,6 +1595,98 @@ type PreviewDeleteKubernetesClusterJSONRequestBody = ResourcePreviewDelete
 
 // PreviewUpdateKubernetesClusterJSONRequestBody defines body for PreviewUpdateKubernetesCluster for application/json ContentType.
 type PreviewUpdateKubernetesClusterJSONRequestBody = KubernetesPreviewUpdate
+
+// PreviewKubernetesHelmJSONRequestBody defines body for PreviewKubernetesHelm for application/json ContentType.
+type PreviewKubernetesHelmJSONRequestBody = KubernetesHelmPreviewInput
+
+// PreviewKubernetesMutationJSONRequestBody defines body for PreviewKubernetesMutation for application/json ContentType.
+type PreviewKubernetesMutationJSONRequestBody = KubernetesMutationInput
+
+// WatchKubernetesInventoryJSONRequestBody defines body for WatchKubernetesInventory for application/json ContentType.
+type WatchKubernetesInventoryJSONRequestBody = KubernetesInventoryWatchInput
+
+// CreateKubernetesLogSessionJSONRequestBody defines body for CreateKubernetesLogSession for application/json ContentType.
+type CreateKubernetesLogSessionJSONRequestBody = KubernetesLogSessionInput
+
+// AttachKubernetesLogSessionJSONRequestBody defines body for AttachKubernetesLogSession for application/json ContentType.
+type AttachKubernetesLogSessionJSONRequestBody = KubernetesLogSessionAttachInput
+
+// ReadKubernetesLogSessionJSONRequestBody defines body for ReadKubernetesLogSession for application/json ContentType.
+type ReadKubernetesLogSessionJSONRequestBody = KubernetesLogSessionReadInput
+
+// CancelKubernetesDrainJSONRequestBody defines body for CancelKubernetesDrain for application/json ContentType.
+type CancelKubernetesDrainJSONRequestBody = KubernetesDrainCancelInput
+
+// CreateKubernetesStreamSessionJSONRequestBody defines body for CreateKubernetesStreamSession for application/json ContentType.
+type CreateKubernetesStreamSessionJSONRequestBody = KubernetesStreamInput
+
+// Getter for additional properties for KubernetesOperation_Result. Returns the specified
+// element and whether it was found
+func (a KubernetesOperation_Result) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for KubernetesOperation_Result
+func (a *KubernetesOperation_Result) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for KubernetesOperation_Result to handle AdditionalProperties
+func (a *KubernetesOperation_Result) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["drain"]; found {
+		err = json.Unmarshal(raw, &a.Drain)
+		if err != nil {
+			return fmt.Errorf("error reading 'drain': %w", err)
+		}
+		delete(object, "drain")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for KubernetesOperation_Result to handle AdditionalProperties
+func (a KubernetesOperation_Result) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	if a.Drain != nil {
+		object["drain"], err = json.Marshal(a.Drain)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'drain': %w", err)
+		}
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // AsApiErrorParams0 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams0
 func (t ApiError_Params_AdditionalProperties) AsApiErrorParams0() (ApiErrorParams0, error) {

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { AlertEventTimeline } from "./event-timeline";
+import { CollectorDeliveryGap } from "./delivery-gap";
 import { Check, BellOff } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEnterpriseAuthStore } from "@argus/auth";
@@ -122,7 +124,11 @@ export function AlertDetails({
         },
       }),
     enabled:
-      type === "instance" && !!e && !!e.state.metric && tab === "overview",
+      type === "instance" &&
+      !!e &&
+      !e.state.delivery_gap &&
+      !!e.state.metric &&
+      tab === "overview",
   });
   const handling = async (operation: "acknowledge" | "assign" | "comment") => {
     if (operation === "comment" && !comment.trim()) {
@@ -155,7 +161,9 @@ export function AlertDetails({
   const p = policy.data;
   const d = delivery.data?.delivery;
   const title =
-    e?.state.name ?? p?.name ?? d?.message.subject ?? t("alerts.details");
+    e?.state.delivery_gap || p?.managed_by === "collector_delivery"
+      ? t("alerts.deliveryGapTitle")
+      : (e?.state.name ?? p?.name ?? d?.message.subject ?? t("alerts.details"));
   const cells = (values: Array<[string, string]>) => (
     <div className="argus-alert-detail-grid">
       {values.map(([label, value]) => (
@@ -229,95 +237,92 @@ export function AlertDetails({
                   ))}
                 </TabsList>
                 <TabsContent value="overview">
-                  {e.health !== "normal" && (
-                    <AlertCallout danger>
-                      {t("alerts.queryTimeout")}
-                    </AlertCallout>
-                  )}
+                  {e.health !== "normal" &&
+                    e.health !== "not_evaluated" &&
+                    !e.state.delivery_gap && (
+                      <AlertCallout danger>
+                        {t("alerts.queryTimeout")}
+                      </AlertCallout>
+                    )}
                   {cells([
-                    [
-                      "currentValue",
-                      `${e.state.value ?? "—"}${e.state.unit} / ${e.state.threshold}${e.state.unit}`,
-                    ],
+                    ...(e.state.delivery_gap
+                      ? []
+                      : [
+                          [
+                            "currentValue",
+                            `${e.state.value ?? "—"}${e.state.unit} / ${e.state.threshold}${e.state.unit}`,
+                          ] as [string, string],
+                        ]),
                     ["policy", e.state.policy_name],
                     ["duration", duration(e, t)],
                     ["triggered", datetime(e.started_at)],
                     ["recovered", datetime(e.resolved_at)],
                     ["notification", t(`alerts.${e.state.notification_state}`)],
                     ["policyRevision", `v${e.policy_version}`],
-                    ["health", t(`alerts.${e.health}`)],
+                    [
+                      e.state.delivery_gap ? "deliveryHealth" : "health",
+                      t(
+                        e.state.delivery_gap
+                          ? "alerts.delivery_fault"
+                          : `alerts.${e.health}`,
+                      ),
+                    ],
                   ])}
-                  <pre className="argus-alert-code-block">
-                    {e.state.metric}{" "}
-                    {e.state.policy_snapshot.rules.find(
-                      (r) => r.id === e.state.rule_id,
-                    )?.operator ?? ">"}{" "}
-                    {e.state.threshold}
-                  </pre>
-                  <section className="argus-alert-drawer-section">
-                    <h3>{t("alerts.trend")}</h3>
-                    {chart.isError ? (
-                      <AlertCallout danger>
-                        {formatApiError(
-                          chart.error,
-                          t("alerts.invalid"),
-                          (id) => id,
+                  {e.state.delivery_gap ? (
+                    <CollectorDeliveryGap report={e.state.delivery_gap} />
+                  ) : (
+                    <>
+                      <pre className="argus-alert-code-block">
+                        {e.state.metric}{" "}
+                        {e.state.policy_snapshot.rules.find(
+                          (r) => r.id === e.state.rule_id,
+                        )?.operator ?? ">"}{" "}
+                        {e.state.threshold}
+                      </pre>
+                      <section className="argus-alert-drawer-section">
+                        <h3>{t("alerts.trend")}</h3>
+                        {chart.isError ? (
+                          <AlertCallout danger>
+                            {formatApiError(
+                              chart.error,
+                              t("alerts.invalid"),
+                              (id) => id,
+                            )}
+                          </AlertCallout>
+                        ) : chart.isPending ? (
+                          <Skeleton height={160} />
+                        ) : series.length ? (
+                          <MetricChart
+                            appearance="compact"
+                            domain={e.state.unit === "%" ? [0, 120] : undefined}
+                            threshold={{
+                              value: e.state.threshold,
+                              label: `${t("alerts.threshold")} ${e.state.threshold}`,
+                            }}
+                            height={160}
+                            series={series}
+                            labels={rows?.[0]?.values?.map((v) =>
+                              clock(new Date(v[0] * 1000).toISOString()),
+                            )}
+                            ariaLabel={t("alerts.trend")}
+                          />
+                        ) : (
+                          <p className="argus-alert-empty">
+                            {t("alerts.noData")}
+                          </p>
                         )}
-                      </AlertCallout>
-                    ) : chart.isPending ? (
-                      <Skeleton height={160} />
-                    ) : series.length ? (
-                      <MetricChart
-                        appearance="compact"
-                        domain={e.state.unit === "%" ? [0, 120] : undefined}
-                        threshold={{
-                          value: e.state.threshold,
-                          label: `${t("alerts.threshold")} ${e.state.threshold}`,
-                        }}
-                        height={160}
-                        series={series}
-                        labels={rows?.[0]?.values?.map((v) =>
-                          clock(new Date(v[0] * 1000).toISOString()),
-                        )}
-                        ariaLabel={t("alerts.trend")}
-                      />
-                    ) : (
-                      <p className="argus-alert-empty">{t("alerts.noData")}</p>
-                    )}
-                    <p className="argus-alert-secondary">
-                      {t("alerts.versionSnapshot")}
-                    </p>
-                  </section>
+                        <p className="argus-alert-secondary">
+                          {t("alerts.versionSnapshot")}
+                        </p>
+                      </section>
+                    </>
+                  )}
                   <section className="argus-alert-drawer-section">
                     <h3>{t("alerts.timeline")}</h3>
-                    <ol className="argus-alert-timeline">
-                      {timeline.map((entry) => (
-                        <li key={entry.id}>
-                          <div>
-                            {t(
-                              entry.event_type === "first"
-                                ? "alerts.eventCreated"
-                                : `alerts.${entry.event_type}`,
-                            )}
-                          </div>
-                          <p className="argus-alert-secondary">
-                            {clock(entry.created_at)} ·{" "}
-                            {entry.actor_id ?? t("alerts.system")}
-                          </p>
-                          {!!entry.payload["comment"] && (
-                            <p>{String(entry.payload["comment"])}</p>
-                          )}
-                        </li>
-                      ))}
-                      {e.last_evaluated_at && (
-                        <li>
-                          <div>{t("alerts.lastEval")}</div>
-                          <p className="argus-alert-secondary">
-                            {clock(e.last_evaluated_at, true)}
-                          </p>
-                        </li>
-                      )}
-                    </ol>
+                    <AlertEventTimeline
+                      events={timeline}
+                      lastEvaluatedAt={e.last_evaluated_at}
+                    />
                   </section>
                   {e.state.noise_reasons.length > 0 && (
                     <AlertCallout>
@@ -326,17 +331,7 @@ export function AlertDetails({
                   )}
                 </TabsContent>
                 <TabsContent value="timeline">
-                  <ol className="argus-alert-timeline">
-                    {timeline.map((entry) => (
-                      <li key={entry.id}>
-                        <div>{t(`alerts.${entry.event_type}`)}</div>
-                        <p className="argus-alert-secondary">
-                          {clock(entry.created_at)} · {entry.origin}
-                        </p>
-                        <pre>{JSON.stringify(entry.payload, null, 2)}</pre>
-                      </li>
-                    ))}
-                  </ol>
+                  <AlertEventTimeline events={timeline} />
                 </TabsContent>
                 <TabsContent value="deliveries">
                   {related.isPending ? (
@@ -463,6 +458,9 @@ export function AlertDetails({
         ))}
       {type === "policy" && p && (
         <>
+          {p.managed_by === "collector_delivery" && (
+            <AlertCallout>{t("alerts.deliveryManagedPolicy")}</AlertCallout>
+          )}
           <AlertStatus value={p.health} />
           {cells([
             ["combination", t(`alerts.${policySpec(p).mode}`)],
@@ -485,14 +483,14 @@ export function AlertDetails({
           <div className="argus-alert-actions">
             <Button
               density="compact"
-              isDisabled={!canPolicy}
+              isDisabled={!canPolicy || p.managed_by === "collector_delivery"}
               onPress={() => onEdit(p)}
             >
               {t("alerts.edit")}
             </Button>
             <Button
               density="compact"
-              isDisabled={!canPolicy}
+              isDisabled={!canPolicy || p.managed_by === "collector_delivery"}
               onPress={() => onDuplicate(p)}
             >
               {t("alerts.copy")}

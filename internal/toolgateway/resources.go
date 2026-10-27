@@ -52,7 +52,7 @@ func (tools ResourceTools) Register(registry *mcp.Registry) error {
 		registrations = append(registrations, tools.query("kubernetes."+resourceType+".list", true, permission,
 			kubernetesListSchema(resourceType), validateKubernetesList(resourceType), tools.listKubernetesResource(resourceType)))
 	}
-	registrations = append(registrations, tools.query("kubernetes.pod.logs", true, "kubernetes.logs",
+	registrations = append(registrations, tools.query("kubernetes.pod.logs", true, "kubernetes.operational_logs.read",
 		podLogsSchema(), validatePodLogs, tools.getKubernetesPodLogs))
 	for _, metadata := range registrations {
 		if err := registry.Register(metadata); err != nil {
