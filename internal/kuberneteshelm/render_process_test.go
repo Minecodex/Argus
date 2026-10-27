@@ -3,10 +3,12 @@ package kuberneteshelm
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -17,10 +19,38 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if len(os.Args) == 2 && os.Args[1] == "--argus-test-render-limits" {
+		if err := limitRenderSelf(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if RunRenderCommand(os.Args[1:], os.Stdin, os.Stdout) {
 		return
 	}
 	os.Exit(m.Run())
+}
+
+func TestHelmRendererInstallsResourceLimitsBeforeReadingInput(t *testing.T) {
+	for _, configured := range []bool{false, true} {
+		command := exec.CommandContext(t.Context(), os.Args[0], "--argus-test-render-limits")
+		command.Env = []string{"GOMAXPROCS=1", "GOMEMLIMIT=96MiB"}
+		if root := os.Getenv("SystemRoot"); root != "" {
+			command.Env = append(command.Env, "SystemRoot="+root)
+		}
+		if configured {
+			configureRenderCommand(command)
+		}
+		// This probe receives no Chart, values, credentials or other private input.
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Logf("configured=%v: %v; %s", configured, err, output)
+			if configured {
+				t.Fatal("renderer limits could not be installed before input")
+			}
+		}
+	}
 }
 func TestHelmRendererIsolatesValuesLogsAndRejectsExternalSchema(t *testing.T) {
 	r := Request{Name: "sample", Namespace: Namespace{Name: "orders"}, Operation: "install"}
