@@ -62,6 +62,8 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Verify native remote runner portability before full CLI compilation
         run: go test ./internal/remoteexecution/runner
+      - name: Verify bounded Helm renderer portability before full CLI compilation
+        run: go test ./internal/kuberneteshelm -run '^TestHelmRenderer' -count=1
       - run: go run ./cmd/argus-dev doctor portable --output json
       - run: go test ./internal/app/argusdev ./internal/app/argusctl ./cmd/argus-dev
       - run: go run ./cmd/argus-dev contracts lint
