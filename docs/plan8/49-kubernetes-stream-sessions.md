@@ -13,6 +13,7 @@
 - Direct 与 Connector 使用 client-go 原生 exec/portforward；不安装容器内 helper、不开放任意 API 代理。Gateway 副本之间使用现有 mTLS 监听上的独立 K8s Peer RPC。端口转发仅在受控组件/客户端监听回环地址，二进制多通道传输保留 TCP 字节和多连接。
 - 原生 Pod exec/portforward API 没有 UID 前置条件。连接前后与期间核验；通过校验前不发送人工输入、不交付输出。无法承诺原生 shell 启动与 Pod 替换之间原子互斥，不能将此限制描述成零副作用保证。
 - 人工终端与原始 TCP 不进入模型参数、聊天或 Workspace；审计保留目标、权限、生命周期和字节计数，不记录按键、凭据或业务正文。
+- WebSocket 升级前保留完整 Origin 校验，升级时继续启用库的 Origin 校验并传入精确允许来源；配置值不解释为通配符。无 Origin 的 CLI、同源页面和显式允许的门户可以连接，未授权来源、协议或端口变化均拒绝；不使用跳过验证选项。
 
 ## 交付路径
 

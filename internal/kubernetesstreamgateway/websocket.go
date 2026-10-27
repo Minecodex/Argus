@@ -71,7 +71,7 @@ func (g WebSocketGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "origin denied", 403)
 		return
 	}
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: g.originPatterns()})
 	if err != nil {
 		return
 	}
@@ -95,6 +95,17 @@ func (g WebSocketGateway) originAllowed(r *http.Request) bool {
 	}
 	return strings.EqualFold(u.Host, r.Host)
 }
+
+func (g WebSocketGateway) originPatterns() []string {
+	// Accept uses path.Match; configured origins are exact URLs, not globs.
+	escape := strings.NewReplacer(`\`, `\\`, `*`, `\*`, `?`, `\?`, `[`, `\[`)
+	patterns := make([]string, 0, len(g.AllowedOrigins))
+	for _, origin := range g.AllowedOrigins {
+		patterns = append(patterns, escape.Replace(strings.TrimSuffix(origin, "/")))
+	}
+	return patterns
+}
+
 func sendFrame(ctx context.Context, conn *websocket.Conn, sequence *uint64, frame ServerFrame) error {
 	*sequence += 1
 	frame.Protocol, frame.Sequence = kubernetesstream.WebSocketProtocol, *sequence
