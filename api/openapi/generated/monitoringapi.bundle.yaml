@@ -1,0 +1,2390 @@
+openapi: 3.1.0
+info:
+  title: Argus monitoringapi
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+paths:
+  /applications:
+    get:
+      operationId: listMonitoringApplications
+      summary: Search authorized single-environment applications
+      tags:
+        - Monitoring
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 200
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 4096
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - active
+              - archived
+            default: active
+      responses:
+        '200':
+          description: Authorized monitoring workspace result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringApplicationPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /applications/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getMonitoringApplication
+      summary: Read an authorized application
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Authorized monitoring workspace result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringApplication'
+        default:
+          $ref: '#/components/responses/Error'
+  /applications/services:
+    get:
+      operationId: listMonitoringServices
+      summary: Search services within authorized applications
+      tags:
+        - Monitoring
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 200
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 4096
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: application_ids
+          in: query
+          style: form
+          explode: false
+          schema:
+            type: array
+            maxItems: 1000
+            items:
+              type: string
+              format: uuid
+        - name: application_mode
+          in: query
+          description: explicit preserves an empty application_ids set; all_authorized enumerates current grants
+          schema:
+            type: string
+            enum:
+              - all_authorized
+              - explicit
+      responses:
+        '200':
+          description: Authorized monitoring workspace result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringServicePage'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/commands/preview:
+    post:
+      operationId: previewMonitoringCommand
+      summary: Preview an immutable monitoring workspace change
+      tags:
+        - Monitoring
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonitoringMutation'
+      responses:
+        '201':
+          description: Existing PendingAction confirmation workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/collections:
+    get:
+      operationId: listMonitoringCollections
+      summary: Search and filter authorized collections before pagination
+      tags:
+        - Monitoring
+      parameters:
+        - name: desired_enabled
+          in: query
+          description: Omit for both states; false explicitly selects disabled collections.
+          schema:
+            type: boolean
+        - name: apply_status
+          in: query
+          schema:
+            type: string
+            enum:
+              - pending
+              - applying
+              - effective
+              - failed
+              - unknown
+        - name: health
+          in: query
+          schema:
+            type: string
+            enum:
+              - unknown
+              - healthy
+              - degraded
+              - failed
+              - stopped
+        - name: freshness
+          in: query
+          description: Uses the same three-interval / two-minute sample freshness threshold as collection rows.
+          schema:
+            type: string
+            enum:
+              - no_data
+              - fresh
+              - stale
+        - name: search
+          in: query
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 200
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 4096
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: integration
+          in: query
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 64
+      responses:
+        '200':
+          description: Authorized monitoring workspace result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringCollectionPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/collections/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getMonitoringCollection
+      summary: Read a collection and its observed state
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Authorized monitoring workspace result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringCollection'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/targets:
+    get:
+      operationId: listMonitoringTargets
+      summary: Search authorized targets
+      tags:
+        - Monitoring
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 200
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 4096
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: integration
+          in: query
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 64
+      responses:
+        '200':
+          description: Authorized monitoring workspace result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringTargetPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/integrations:
+    get:
+      operationId: listMonitoringIntegrations
+      summary: List integration eligibility and validation status
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Authorized monitoring workspace result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MonitoringIntegration'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/collectors:
+    get:
+      operationId: listMonitoringCollectorChoices
+      summary: Search authorized executing Collectors
+      tags:
+        - Monitoring
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 200
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 4096
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Authorized monitoring workspace result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringCollectorChoicePage'
+        default:
+          $ref: '#/components/responses/Error'
+  /applications/{id}/ingest-endpoints:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listApplicationIngestEndpoints
+      summary: List authorized application ingestion endpoints
+      tags:
+        - Monitoring
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 4096
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Authorized application ingestion result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringIngestEndpointPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/ingest-endpoints/{id}/keys:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listApplicationIngestKeys
+      summary: List ingestion Key metadata without credentials
+      tags:
+        - Monitoring
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 4096
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Authorized application ingestion result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringIngestKeyPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/ingest-keys/{id}/reveal:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: revealApplicationIngestKey
+      summary: Reveal a newly issued Key once to its interactive creator
+      tags:
+        - Monitoring
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Authorized application ingestion result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringIngestKeyReveal'
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/builtins:
+    get:
+      operationId: listMonitoringBuiltins
+      summary: List fixed resource-owned collection instances and actual state
+      tags:
+        - Monitoring
+      parameters:
+        - name: target_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - host
+              - kubernetes_cluster
+        - name: target_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Fixed collection definitions and observed state
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MonitoringBuiltin'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/builtins/preview:
+    post:
+      operationId: previewMonitoringBuiltin
+      summary: Preview an own-resource fixed collection change
+      tags:
+        - Monitoring
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonitoringBuiltinInput'
+      responses:
+        '201':
+          description: Existing PendingAction confirmation workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/ingest-endpoints/{id}/connection:
+    parameters:
+      - schema:
+          type: string
+          format: uuid
+        in: path
+        required: true
+        name: id
+    get:
+      operationId: getMonitoringIngestConnection
+      summary: Read authorized SDK endpoint configuration and public TLS trust without a Key
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Application-scoped SDK connection metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringIngestConnection'
+        default:
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argus_session
+  schemas:
+    RequestId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._-]+$
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message_key
+        - request_id
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]*$
+        message_key:
+          type: string
+          pattern: ^errors\.[a-z0-9_.]+$
+        params:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        message:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+        trace_id:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+          default: false
+    MonitoringApplication:
+      additionalProperties: false
+      properties:
+        application_key:
+          maxLength: 100
+          minLength: 1
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        description:
+          maxLength: 4096
+          minLength: 0
+          type: string
+        environment:
+          maxLength: 64
+          minLength: 1
+          pattern: ^[a-z][a-z0-9_-]{0,63}$
+          type: string
+        id:
+          format: uuid
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        owner_name:
+          maxLength: 200
+          minLength: 0
+          type: string
+        status:
+          enum:
+            - active
+            - archived
+          type: string
+        updated_at:
+          format: date-time
+          type: string
+        version:
+          format: int64
+          minimum: 1
+          type: integer
+      required:
+        - id
+        - application_key
+        - name
+        - environment
+        - description
+        - owner_name
+        - status
+        - version
+        - created_at
+        - updated_at
+      type: object
+    MonitoringApplicationPage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/MonitoringApplication'
+          type: array
+        next_cursor:
+          maxLength: 4096
+          minLength: 1
+          type: string
+      required:
+        - items
+      type: object
+    MonitoringApplicationService:
+      additionalProperties: false
+      properties:
+        application_id:
+          format: uuid
+          type: string
+        first_seen_at:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        last_seen_at:
+          format: date-time
+          type: string
+        runtime:
+          maxLength: 200
+          minLength: 0
+          type: string
+        service_name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        service_namespace:
+          maxLength: 200
+          minLength: 0
+          type: string
+        status:
+          enum:
+            - active
+            - archived
+          type: string
+        version:
+          format: int64
+          minimum: 1
+          type: integer
+      required:
+        - id
+        - application_id
+        - service_namespace
+        - service_name
+        - runtime
+        - status
+        - version
+      type: object
+    MonitoringServicePage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/MonitoringApplicationService'
+          type: array
+        next_cursor:
+          maxLength: 4096
+          minLength: 1
+          type: string
+      required:
+        - items
+      type: object
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]+$
+    MonitoringApplicationInput:
+      additionalProperties: false
+      properties:
+        application_key:
+          maxLength: 100
+          minLength: 1
+          type: string
+        description:
+          maxLength: 4096
+          minLength: 0
+          type: string
+        environment:
+          maxLength: 64
+          minLength: 1
+          pattern: ^[a-z][a-z0-9_-]{0,63}$
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        owner_name:
+          maxLength: 200
+          minLength: 0
+          type: string
+      required:
+        - name
+      type: object
+    MonitoringResourceRef:
+      additionalProperties: false
+      properties:
+        id:
+          format: uuid
+          type: string
+        kind:
+          enum:
+            - host
+            - kubernetes_cluster
+            - monitoring_target
+          type: string
+      required:
+        - kind
+        - id
+      type: object
+    MonitoringBindingInput:
+      additionalProperties: false
+      properties:
+        application_id:
+          format: uuid
+          type: string
+        service_id:
+          format: uuid
+          type: string
+        target:
+          $ref: '#/components/schemas/MonitoringResourceRef'
+      required:
+        - application_id
+        - target
+      type: object
+    MonitoringCollectionBindingInput:
+      additionalProperties: false
+      properties:
+        application_id:
+          format: uuid
+          type: string
+        service_id:
+          format: uuid
+          type: string
+      required:
+        - application_id
+      type: object
+    MonitoringComponentTLS:
+      additionalProperties: false
+      properties:
+        ca_pem:
+          description: Public certificate PEM only; private keys and authentication material are rejected.
+          maxLength: 262144
+          type: string
+        server_name:
+          maxLength: 253
+          type: string
+      type: object
+    MonitoringLogWorkloadInput:
+      additionalProperties: false
+      description: Client-selected workload identity. Namespace identity and owner ancestry are resolved by the server and are never writable input.
+      properties:
+        containers:
+          items:
+            maxLength: 63
+            minLength: 1
+            type: string
+          maxItems: 32
+          minItems: 1
+          type: array
+          uniqueItems: true
+        name:
+          maxLength: 253
+          minLength: 1
+          type: string
+        namespace_id:
+          format: uuid
+          type: string
+        type:
+          enum:
+            - pod
+            - deployment
+            - replicaset
+            - daemonset
+            - statefulset
+            - job
+            - cronjob
+          type: string
+        uid:
+          maxLength: 128
+          minLength: 1
+          type: string
+      required:
+        - namespace_id
+        - type
+        - name
+        - uid
+        - containers
+      type: object
+    MonitoringCollectionConfigInput:
+      additionalProperties: false
+      properties:
+        allow_native_passwords:
+          type: boolean
+        auth_source:
+          maxLength: 253
+          minLength: 0
+          type: string
+        channel:
+          maxLength: 200
+          minLength: 1
+          type: string
+        component_tls:
+          $ref: '#/components/schemas/MonitoringComponentTLS'
+        direct_connection:
+          type: boolean
+        dns_network:
+          enum:
+            - udp
+            - tcp
+            - tcp-tls
+          type: string
+        encoding:
+          enum:
+            - utf-8
+            - utf-16le
+            - utf-16be
+            - ascii
+          type: string
+        exclude:
+          items:
+            maxLength: 1024
+            minLength: 1
+            type: string
+          maxItems: 16
+          type: array
+        format:
+          enum:
+            - text
+            - json
+          type: string
+        group_match:
+          maxLength: 256
+          minLength: 0
+          type: string
+        include:
+          items:
+            maxLength: 1024
+            minLength: 1
+            type: string
+          maxItems: 16
+          type: array
+        indices:
+          items:
+            maxLength: 256
+            minLength: 1
+            type: string
+          maxItems: 100
+          type: array
+        interval:
+          maxLength: 20
+          minLength: 1
+          type: string
+        max_log_bytes:
+          maximum: 1048576
+          minimum: 1024
+          type: integer
+        method:
+          enum:
+            - GET
+            - HEAD
+            - OPTIONS
+          type: string
+        multiline_start:
+          maxLength: 1024
+          type: string
+        nodes:
+          items:
+            maxLength: 256
+            minLength: 1
+            type: string
+          maxItems: 100
+          type: array
+        ping_count:
+          maximum: 10
+          minimum: 1
+          type: integer
+        record_type:
+          enum:
+            - A
+            - AAAA
+            - CNAME
+            - MX
+            - TXT
+            - NS
+            - SOA
+            - SRV
+          type: string
+        replica_set:
+          maxLength: 253
+          minLength: 0
+          type: string
+        sasl_mechanism:
+          enum:
+            - PLAIN
+            - SCRAM-SHA-256
+            - SCRAM-SHA-512
+          type: string
+        scope:
+          enum:
+            - business
+            - system
+            - component
+            - resource
+          type: string
+        start_at:
+          enum:
+            - beginning
+            - end
+          type: string
+        timeout:
+          maxLength: 20
+          minLength: 1
+          type: string
+        tls:
+          additionalProperties: false
+          properties:
+            enabled:
+              type: boolean
+            server_name:
+              maxLength: 253
+              minLength: 0
+              type: string
+          required:
+            - enabled
+          type: object
+        topic_match:
+          maxLength: 256
+          minLength: 0
+          type: string
+        units:
+          items:
+            maxLength: 200
+            minLength: 1
+            type: string
+          maxItems: 64
+          type: array
+        workload:
+          $ref: '#/components/schemas/MonitoringLogWorkloadInput'
+      required: []
+      type: object
+    MonitoringCollectionResourceRef:
+      additionalProperties: false
+      properties:
+        id:
+          format: uuid
+          type: string
+        kind:
+          enum:
+            - host
+            - kubernetes_cluster
+            - monitoring_target
+            - application
+          type: string
+      required:
+        - kind
+        - id
+      type: object
+    MonitoringTargetIdentity:
+      additionalProperties: false
+      properties:
+        database:
+          maxLength: 128
+          minLength: 0
+          type: string
+        endpoint:
+          maxLength: 2048
+          minLength: 1
+          type: string
+        hostnames:
+          items:
+            maxLength: 253
+            minLength: 1
+            type: string
+          maxItems: 32
+          type: array
+        members:
+          items:
+            maxLength: 2048
+            minLength: 1
+            type: string
+          maxItems: 16
+          type: array
+      required:
+        - endpoint
+      type: object
+    MonitoringCollectionInput:
+      additionalProperties: false
+      properties:
+        application_id:
+          format: uuid
+          type: string
+        bindings:
+          items:
+            $ref: '#/components/schemas/MonitoringCollectionBindingInput'
+          maxItems: 100
+          type: array
+        collector_id:
+          format: uuid
+          type: string
+        config:
+          $ref: '#/components/schemas/MonitoringCollectionConfigInput'
+        credential_update:
+          enum:
+            - keep
+            - replace
+            - remove
+          type: string
+        enabled:
+          type: boolean
+        integration:
+          maxLength: 64
+          minLength: 1
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        service_id:
+          format: uuid
+          type: string
+        target:
+          $ref: '#/components/schemas/MonitoringCollectionResourceRef'
+        target_identity:
+          $ref: '#/components/schemas/MonitoringTargetIdentity'
+        target_name:
+          maxLength: 200
+          minLength: 1
+          type: string
+      required: []
+      type: object
+    MonitoringCredentialInput:
+      additionalProperties: false
+      properties:
+        password:
+          maxLength: 65536
+          minLength: 0
+          type: string
+          writeOnly: true
+        username:
+          maxLength: 256
+          minLength: 0
+          type: string
+          writeOnly: true
+      required: []
+      type: object
+      writeOnly: true
+    MonitoringIngestEndpointInput:
+      additionalProperties: false
+      properties:
+        application_id:
+          format: uuid
+          type: string
+        collector_id:
+          format: uuid
+          type: string
+        enabled:
+          type: boolean
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        protocol:
+          enum:
+            - otlp
+            - jaeger
+            - skywalking
+          type: string
+        service_allowlist:
+          items:
+            format: uuid
+            type: string
+          maxItems: 100
+          type: array
+        signals:
+          items:
+            enum:
+              - metrics
+              - logs
+              - traces
+            type: string
+          maxItems: 3
+          minItems: 1
+          type: array
+          uniqueItems: true
+      required: []
+      type: object
+    MonitoringIngestKeyInput:
+      additionalProperties: false
+      properties:
+        endpoint_id:
+          format: uuid
+          type: string
+        expires_at:
+          format: date-time
+          type: string
+      required: []
+      type: object
+    MonitoringApplicationServiceInput:
+      additionalProperties: false
+      properties:
+        application_id:
+          format: uuid
+          type: string
+        service_name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        service_namespace:
+          maxLength: 200
+          type: string
+      required:
+        - application_id
+        - service_name
+      type: object
+    MonitoringMutation:
+      additionalProperties: false
+      properties:
+        application:
+          $ref: '#/components/schemas/MonitoringApplicationInput'
+        binding:
+          $ref: '#/components/schemas/MonitoringBindingInput'
+        collection:
+          $ref: '#/components/schemas/MonitoringCollectionInput'
+        credentials:
+          $ref: '#/components/schemas/MonitoringCredentialInput'
+        endpoint:
+          $ref: '#/components/schemas/MonitoringIngestEndpointInput'
+        expected_version:
+          format: int64
+          minimum: 1
+          type: integer
+        id:
+          format: uuid
+          type: string
+        ingest_key:
+          $ref: '#/components/schemas/MonitoringIngestKeyInput'
+        kind:
+          enum:
+            - application
+            - binding
+            - collection
+            - endpoint
+            - ingest_key
+            - service
+          type: string
+        operation:
+          enum:
+            - create
+            - update
+            - archive
+            - delete
+            - set_enabled
+            - revoke
+          type: string
+        service:
+          $ref: '#/components/schemas/MonitoringApplicationServiceInput'
+      required:
+        - kind
+        - operation
+      type: object
+    PublicJsonValue:
+      x-argus-typescript-type: unknown
+      oneOf:
+        - type: 'null'
+        - type: boolean
+        - type: number
+        - type: string
+        - type: array
+          items:
+            $ref: '#/components/schemas/PublicJsonValue'
+        - $ref: '#/components/schemas/PublicJsonObject'
+    PublicJsonObject:
+      x-argus-typescript-type: unknown
+      type: object
+      propertyNames:
+        allOf:
+          - pattern: ^[a-z][a-z0-9_]*$
+          - not:
+              pattern: (^|_)(argus__token|token|secret|credential|private_params?|commit_tool|remote_access_ticket)($|_)
+      additionalProperties:
+        $ref: '#/components/schemas/PublicJsonValue'
+    pending-action-public.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://argus.io/schemas/v1/action/pending-action-public.schema.json
+      title: PendingActionPublic
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - action_ref
+        - action_type
+        - title
+        - summary
+        - risk
+        - preview
+        - diff
+        - status
+        - available_actions
+        - expires_at
+        - created_at
+        - updated_at
+      properties:
+        schema_version:
+          const: argus.pending_action/v1
+        action_ref:
+          type: string
+          minLength: 1
+        action_type:
+          type: string
+          minLength: 3
+          maxLength: 128
+        title:
+          type: string
+          minLength: 1
+          maxLength: 256
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        risk:
+          enum:
+            - read
+            - write
+            - dangerous
+            - critical
+        preview:
+          $ref: '#/components/schemas/PublicJsonObject'
+        diff:
+          type: array
+          maxItems: 256
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - kind
+              - text
+            properties:
+              kind:
+                enum:
+                  - add
+                  - remove
+                  - change
+                  - note
+              text:
+                type: string
+                maxLength: 2048
+        status:
+          enum:
+            - prepared
+            - awaiting_confirmation
+            - awaiting_approval
+            - ready
+            - executing
+            - succeeded
+            - failed
+            - result_unknown
+            - cancelled
+            - expired
+            - rejected
+            - invalidated
+        available_actions:
+          type: array
+          uniqueItems: true
+          items:
+            enum:
+              - confirm
+              - cancel
+              - approve
+              - reject
+        approval:
+          type: object
+          additionalProperties: false
+          required:
+            - required
+            - minimum_approvers
+            - approved_count
+            - separation_of_duty
+          properties:
+            required:
+              type: boolean
+            policy_ref:
+              type: string
+            minimum_approvers:
+              type: integer
+              minimum: 0
+            approved_count:
+              type: integer
+              minimum: 0
+            separation_of_duty:
+              type: boolean
+        execution_ref:
+          type: string
+          minLength: 1
+        result_summary:
+          type: string
+          maxLength: 4096
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MonitoringLogWorkload:
+      additionalProperties: false
+      properties:
+        ancestors:
+          items:
+            maxLength: 128
+            type: string
+          maxItems: 4
+          readOnly: true
+          type: array
+        containers:
+          items:
+            maxLength: 63
+            minLength: 1
+            type: string
+          maxItems: 32
+          minItems: 1
+          type: array
+          uniqueItems: true
+        name:
+          maxLength: 253
+          minLength: 1
+          type: string
+        namespace:
+          maxLength: 253
+          readOnly: true
+          type: string
+        namespace_id:
+          format: uuid
+          type: string
+        namespace_uid:
+          maxLength: 128
+          readOnly: true
+          type: string
+        type:
+          enum:
+            - pod
+            - deployment
+            - replicaset
+            - daemonset
+            - statefulset
+            - job
+            - cronjob
+          type: string
+        uid:
+          maxLength: 128
+          minLength: 1
+          type: string
+      required:
+        - namespace_id
+        - type
+        - name
+        - uid
+        - containers
+      type: object
+    MonitoringCollectionConfig:
+      additionalProperties: false
+      properties:
+        allow_native_passwords:
+          type: boolean
+        auth_source:
+          maxLength: 253
+          minLength: 0
+          type: string
+        channel:
+          maxLength: 200
+          minLength: 1
+          type: string
+        component_tls:
+          $ref: '#/components/schemas/MonitoringComponentTLS'
+        direct_connection:
+          type: boolean
+        dns_network:
+          enum:
+            - udp
+            - tcp
+            - tcp-tls
+          type: string
+        encoding:
+          enum:
+            - utf-8
+            - utf-16le
+            - utf-16be
+            - ascii
+          type: string
+        exclude:
+          items:
+            maxLength: 1024
+            minLength: 1
+            type: string
+          maxItems: 16
+          type: array
+        format:
+          enum:
+            - text
+            - json
+          type: string
+        group_match:
+          maxLength: 256
+          minLength: 0
+          type: string
+        include:
+          items:
+            maxLength: 1024
+            minLength: 1
+            type: string
+          maxItems: 16
+          type: array
+        indices:
+          items:
+            maxLength: 256
+            minLength: 1
+            type: string
+          maxItems: 100
+          type: array
+        interval:
+          maxLength: 20
+          minLength: 1
+          type: string
+        max_log_bytes:
+          maximum: 1048576
+          minimum: 1024
+          type: integer
+        method:
+          enum:
+            - GET
+            - HEAD
+            - OPTIONS
+          type: string
+        multiline_start:
+          maxLength: 1024
+          type: string
+        nodes:
+          items:
+            maxLength: 256
+            minLength: 1
+            type: string
+          maxItems: 100
+          type: array
+        ping_count:
+          maximum: 10
+          minimum: 1
+          type: integer
+        record_type:
+          enum:
+            - A
+            - AAAA
+            - CNAME
+            - MX
+            - TXT
+            - NS
+            - SOA
+            - SRV
+          type: string
+        replica_set:
+          maxLength: 253
+          minLength: 0
+          type: string
+        sasl_mechanism:
+          enum:
+            - PLAIN
+            - SCRAM-SHA-256
+            - SCRAM-SHA-512
+          type: string
+        scope:
+          enum:
+            - business
+            - system
+            - component
+            - resource
+          type: string
+        start_at:
+          enum:
+            - beginning
+            - end
+          type: string
+        timeout:
+          maxLength: 20
+          minLength: 1
+          type: string
+        tls:
+          additionalProperties: false
+          properties:
+            enabled:
+              type: boolean
+            server_name:
+              maxLength: 253
+              minLength: 0
+              type: string
+          required:
+            - enabled
+          type: object
+        topic_match:
+          maxLength: 256
+          minLength: 0
+          type: string
+        units:
+          items:
+            maxLength: 200
+            minLength: 1
+            type: string
+          maxItems: 64
+          type: array
+        workload:
+          $ref: '#/components/schemas/MonitoringLogWorkload'
+      required: []
+      type: object
+    MonitoringCollection:
+      additionalProperties: false
+      properties:
+        application_id:
+          format: uuid
+          type: string
+        apply_status:
+          enum:
+            - pending
+            - applying
+            - effective
+            - failed
+            - unknown
+          type: string
+        assignment_epoch:
+          format: int64
+          minimum: 1
+          type: integer
+        collector_id:
+          format: uuid
+          type: string
+        config:
+          $ref: '#/components/schemas/MonitoringCollectionConfig'
+        credential_configured:
+          type: boolean
+        desired_enabled:
+          type: boolean
+        desired_revision:
+          format: int64
+          minimum: 1
+          type: integer
+        effective_assignment_epoch:
+          description: Epoch of the verified execution assignment; zero before first successful configuration.
+          format: int64
+          minimum: 0
+          readOnly: true
+          type: integer
+        effective_collector_id:
+          description: Collector of the last verified effective assignment; may differ from the desired collector_id while moving or after a failed candidate.
+          format: uuid
+          readOnly: true
+          type: string
+        effective_revision:
+          format: int64
+          minimum: 0
+          type: integer
+        error_code:
+          maxLength: 200
+          minLength: 0
+          type: string
+        freshness:
+          enum:
+            - no_data
+            - fresh
+            - stale
+          type: string
+        health:
+          enum:
+            - unknown
+            - healthy
+            - degraded
+            - failed
+            - stopped
+          type: string
+        id:
+          format: uuid
+          type: string
+        integration:
+          maxLength: 64
+          minLength: 1
+          type: string
+        last_attempt_at:
+          format: date-time
+          type: string
+        last_sample_at:
+          format: date-time
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        observed_at:
+          format: date-time
+          type: string
+        service_id:
+          format: uuid
+          type: string
+        status:
+          enum:
+            - active
+            - archived
+          type: string
+        target:
+          $ref: '#/components/schemas/MonitoringCollectionResourceRef'
+        version:
+          format: int64
+          minimum: 1
+          type: integer
+      required:
+        - id
+        - name
+        - integration
+        - target
+        - collector_id
+        - config
+        - credential_configured
+        - desired_enabled
+        - desired_revision
+        - effective_revision
+        - assignment_epoch
+        - apply_status
+        - health
+        - freshness
+        - error_code
+        - status
+        - version
+      type: object
+    MonitoringCollectionPage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/MonitoringCollection'
+          type: array
+        next_cursor:
+          maxLength: 4096
+          minLength: 1
+          type: string
+      required:
+        - items
+      type: object
+    MonitoringTarget:
+      additionalProperties: false
+      properties:
+        engine:
+          maxLength: 64
+          minLength: 1
+          type: string
+        id:
+          format: uuid
+          type: string
+        identity:
+          $ref: '#/components/schemas/MonitoringTargetIdentity'
+        kind:
+          enum:
+            - database
+            - cache
+            - messaging
+            - web
+            - runtime
+            - storage
+            - probe
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        status:
+          enum:
+            - active
+            - archived
+          type: string
+        version:
+          format: int64
+          minimum: 1
+          type: integer
+      required:
+        - id
+        - name
+        - kind
+        - engine
+        - identity
+        - status
+        - version
+      type: object
+    MonitoringTargetPage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/MonitoringTarget'
+          type: array
+        next_cursor:
+          maxLength: 4096
+          minLength: 1
+          type: string
+      required:
+        - items
+      type: object
+    MonitoringIntegrationForm:
+      additionalProperties: false
+      properties:
+        authentication:
+          enum:
+            - none
+            - optional
+            - required
+          type: string
+        database:
+          type: boolean
+        database_required:
+          type: boolean
+        endpoint_kind:
+          enum:
+            - host_port
+            - http_url
+            - host
+            - local
+          type: string
+        hostnames:
+          type: boolean
+        members:
+          type: boolean
+        tls:
+          type: boolean
+        tls_server_name:
+          type: boolean
+      required:
+        - endpoint_kind
+        - authentication
+        - database
+        - database_required
+        - members
+        - hostnames
+        - tls
+        - tls_server_name
+      type: object
+    MonitoringIntegration:
+      additionalProperties: false
+      properties:
+        adapter_ready:
+          type: boolean
+        component:
+          maxLength: 128
+          minLength: 1
+          type: string
+        config_version:
+          maxLength: 128
+          minLength: 1
+          type: string
+        family:
+          maxLength: 64
+          minLength: 1
+          type: string
+        form:
+          $ref: '#/components/schemas/MonitoringIntegrationForm'
+        key:
+          maxLength: 64
+          minLength: 1
+          type: string
+        module:
+          maxLength: 300
+          minLength: 1
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        platforms:
+          items:
+            maxLength: 64
+            minLength: 1
+            type: string
+          type: array
+        reason:
+          maxLength: 200
+          minLength: 0
+          type: string
+        selection:
+          enum:
+            - candidate
+            - deferred_no_eligible_embedded_component
+            - deferred_upstream_defect
+          type: string
+        signals:
+          items:
+            enum:
+              - metrics
+              - logs
+              - traces
+            type: string
+          type: array
+        validation:
+          enum:
+            - not_run
+            - not_applicable
+            - passed
+            - blocked
+          type: string
+      required:
+        - key
+        - name
+        - family
+        - signals
+        - platforms
+        - selection
+        - validation
+        - config_version
+        - adapter_ready
+      type: object
+    MonitoringCollectorChoice:
+      additionalProperties: false
+      properties:
+        collector_version:
+          type: string
+        components:
+          items:
+            type: string
+          type: array
+        distribution_version:
+          type: string
+        id:
+          format: uuid
+          type: string
+        name:
+          type: string
+        platform:
+          type: string
+        resource:
+          $ref: '#/components/schemas/MonitoringResourceRef'
+        status:
+          type: string
+        support_status:
+          enum:
+            - supported
+            - validation_pending
+            - retired
+          type: string
+        version:
+          format: int64
+          type: integer
+      required:
+        - id
+        - resource
+        - name
+        - platform
+        - status
+        - version
+        - collector_version
+        - distribution_version
+        - components
+        - support_status
+      type: object
+    MonitoringCollectorChoicePage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/MonitoringCollectorChoice'
+          type: array
+        next_cursor:
+          maxLength: 4096
+          type: string
+      required:
+        - items
+      type: object
+    MonitoringIngestEndpoint:
+      additionalProperties: false
+      properties:
+        application_id:
+          format: uuid
+          type: string
+        collector_id:
+          format: uuid
+          type: string
+        enabled:
+          type: boolean
+        id:
+          format: uuid
+          type: string
+        last_error_code:
+          maxLength: 100
+          minLength: 0
+          type: string
+        last_received_at:
+          format: date-time
+          type: string
+        last_rejected_at:
+          format: date-time
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        protocol:
+          enum:
+            - otlp
+            - jaeger
+            - skywalking
+          type: string
+        service_allowlist:
+          items:
+            format: uuid
+            type: string
+          maxItems: 100
+          type: array
+        signals:
+          items:
+            enum:
+              - metrics
+              - logs
+              - traces
+            type: string
+          maxItems: 3
+          minItems: 1
+          type: array
+          uniqueItems: true
+        version:
+          format: int64
+          minimum: 1
+          type: integer
+      required:
+        - name
+        - application_id
+        - collector_id
+        - protocol
+        - signals
+        - service_allowlist
+        - enabled
+        - id
+        - version
+        - last_error_code
+      type: object
+    MonitoringIngestEndpointPage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/MonitoringIngestEndpoint'
+          maxItems: 100
+          type: array
+        next_cursor:
+          maxLength: 4096
+          minLength: 0
+          type: string
+      required:
+        - items
+      type: object
+    MonitoringIngestKey:
+      additionalProperties: false
+      properties:
+        created_at:
+          format: date-time
+          type: string
+        endpoint_id:
+          format: uuid
+          type: string
+        expires_at:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        last_used_at:
+          format: date-time
+          type: string
+        prefix:
+          maxLength: 100
+          minLength: 0
+          type: string
+        revealed:
+          type: boolean
+        revoked_at:
+          format: date-time
+          type: string
+        version:
+          format: int64
+          minimum: 1
+          type: integer
+      required:
+        - id
+        - endpoint_id
+        - prefix
+        - revealed
+        - created_at
+        - version
+      type: object
+    MonitoringIngestKeyPage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/MonitoringIngestKey'
+          maxItems: 100
+          type: array
+        next_cursor:
+          maxLength: 4096
+          minLength: 0
+          type: string
+      required:
+        - items
+      type: object
+    MonitoringIngestKeyReveal:
+      additionalProperties: false
+      properties:
+        key:
+          description: One-time interactive portal response. Never cache, persist, log, or pass to model tools.
+          maxLength: 256
+          minLength: 1
+          type: string
+      required:
+        - key
+      type: object
+    MonitoringBuiltinDefinition:
+      additionalProperties: false
+      properties:
+        component:
+          type: string
+        component_tls_supported:
+          type: boolean
+        key:
+          enum:
+            - host_metrics
+            - host_process_metrics
+            - host_systemd_metrics
+            - host_windows_service_metrics
+            - collector_metrics
+            - kubernetes_cluster_metrics
+            - kubernetes_node_metrics
+            - kubernetes_apiserver_metrics
+            - kubernetes_coredns_metrics
+            - kubernetes_scheduler_metrics
+            - kubernetes_controller_metrics
+            - kubernetes_etcd_metrics
+          type: string
+        legacy_profile:
+          type: string
+        name:
+          type: string
+        placement:
+          type: string
+        platforms:
+          items:
+            type: string
+          type: array
+        resource_types:
+          items:
+            enum:
+              - host
+              - kubernetes_cluster
+            type: string
+          type: array
+        source_type:
+          type: string
+      required:
+        - key
+        - name
+        - resource_types
+        - platforms
+        - component
+        - source_type
+        - placement
+        - legacy_profile
+        - component_tls_supported
+      type: object
+    MonitoringBuiltin:
+      additionalProperties: false
+      properties:
+        available:
+          type: boolean
+        collection:
+          $ref: '#/components/schemas/MonitoringCollection'
+        collector_id:
+          format: uuid
+          type: string
+        definition:
+          $ref: '#/components/schemas/MonitoringBuiltinDefinition'
+        id:
+          format: uuid
+          type: string
+        reason:
+          type: string
+      required:
+        - definition
+        - id
+        - available
+      type: object
+    MonitoringBuiltinConfig:
+      additionalProperties: false
+      description: Certificate trust applies only to definitions advertising component_tls_supported.
+      properties:
+        component_tls:
+          $ref: '#/components/schemas/MonitoringComponentTLS'
+        interval:
+          maxLength: 32
+          type: string
+      type: object
+    MonitoringBuiltinInput:
+      additionalProperties: false
+      properties:
+        config:
+          $ref: '#/components/schemas/MonitoringBuiltinConfig'
+        enabled:
+          type: boolean
+        expected_version:
+          format: int64
+          minimum: 0
+          type: integer
+        key:
+          enum:
+            - host_metrics
+            - host_process_metrics
+            - host_systemd_metrics
+            - host_windows_service_metrics
+            - collector_metrics
+            - kubernetes_cluster_metrics
+            - kubernetes_node_metrics
+            - kubernetes_apiserver_metrics
+            - kubernetes_coredns_metrics
+            - kubernetes_scheduler_metrics
+            - kubernetes_controller_metrics
+            - kubernetes_etcd_metrics
+          type: string
+        target:
+          additionalProperties: false
+          properties:
+            id:
+              format: uuid
+              type: string
+            kind:
+              enum:
+                - host
+                - kubernetes_cluster
+              type: string
+          required:
+            - kind
+            - id
+          type: object
+      required:
+        - target
+        - key
+        - enabled
+        - expected_version
+      type: object
+    MonitoringIngestListener:
+      additionalProperties: false
+      properties:
+        endpoint:
+          maxLength: 4096
+          minLength: 0
+          type: string
+        local_endpoint:
+          maxLength: 4096
+          minLength: 0
+          type: string
+        path:
+          maxLength: 4096
+          minLength: 0
+          type: string
+        port:
+          maximum: 65535
+          minimum: 1
+          type: integer
+        transport:
+          enum:
+            - grpc
+            - http
+            - thrift_http
+          type: string
+      required:
+        - transport
+        - endpoint
+        - local_endpoint
+        - port
+        - path
+      type: object
+    MonitoringIngestTLS:
+      additionalProperties: false
+      properties:
+        ca_bundle_pem:
+          maxLength: 262144
+          minLength: 1
+          type: string
+        ca_bundle_sha256:
+          maxLength: 64
+          minLength: 64
+          pattern: ^[0-9a-f]{64}$
+          type: string
+        ca_fingerprints:
+          items:
+            maxLength: 4096
+            minLength: 0
+            type: string
+          maxItems: 16
+          minItems: 1
+          type: array
+        minimum_version:
+          enum:
+            - '1.3'
+          type: string
+        required:
+          type: boolean
+        server_name:
+          maxLength: 4096
+          minLength: 0
+          type: string
+        trust_bundle_epoch:
+          format: int64
+          minimum: 1
+          type: integer
+      required:
+        - required
+        - minimum_version
+        - server_name
+        - trust_bundle_epoch
+        - ca_bundle_pem
+        - ca_bundle_sha256
+        - ca_fingerprints
+      type: object
+    MonitoringIngestConnection:
+      additionalProperties: false
+      properties:
+        application_id:
+          format: uuid
+          type: string
+        application_status:
+          enum:
+            - active
+            - archived
+          type: string
+        authentication_header:
+          enum:
+            - authorization
+          type: string
+        authentication_scheme:
+          enum:
+            - Bearer
+          type: string
+        collector_id:
+          format: uuid
+          type: string
+        collector_status:
+          maxLength: 4096
+          minLength: 0
+          type: string
+        configuration_status:
+          enum:
+            - pending
+            - effective
+            - unknown
+            - unavailable
+          type: string
+        desired_enabled:
+          type: boolean
+        endpoint_id:
+          format: uuid
+          type: string
+        environment:
+          maxLength: 4096
+          minLength: 0
+          type: string
+        last_error_code:
+          maxLength: 4096
+          minLength: 0
+          type: string
+        last_received_at:
+          format: date-time
+          type: string
+        last_rejected_at:
+          format: date-time
+          type: string
+        listeners:
+          items:
+            $ref: '#/components/schemas/MonitoringIngestListener'
+          maxItems: 2
+          minItems: 1
+          type: array
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        network_prerequisite:
+          enum:
+            - resolve_collector_dns_or_use_local_address_with_tls_server_name
+          type: string
+        observation_state:
+          enum:
+            - waiting
+            - received
+            - rejected
+          type: string
+        protocol:
+          enum:
+            - otlp
+            - jaeger
+          type: string
+        service_name_required:
+          type: boolean
+        signals:
+          items:
+            enum:
+              - metrics
+              - logs
+              - traces
+            type: string
+          maxItems: 3
+          minItems: 1
+          type: array
+          uniqueItems: true
+        tls:
+          $ref: '#/components/schemas/MonitoringIngestTLS'
+      required:
+        - endpoint_id
+        - application_id
+        - collector_id
+        - environment
+        - protocol
+        - signals
+        - desired_enabled
+        - configuration_status
+        - collector_status
+        - application_status
+        - observation_state
+        - last_error_code
+        - authentication_header
+        - authentication_scheme
+        - service_name_required
+        - network_prerequisite
+        - listeners
+        - tls
+        - name
+      type: object
+  responses:
+    Error:
+      description: Operation result.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 256

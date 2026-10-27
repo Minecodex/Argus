@@ -89,10 +89,27 @@
   gap: var(--field-gap);
   margin-block: var(--space-4);
 }
+.argus-dashboard-directory-panel {
+  display: grid;
+  gap: var(--field-gap);
+}
+.argus-dashboard-directory-filters {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.argus-dashboard-directory-filters .argus-filter-bar__select {
+  max-width: var(--field-width-compact);
+}
+.argus-dashboard-directory-filters .argus-select {
+  width: max-content;
+  max-width: 100%;
+  flex: none;
+}
 .argus-dashboard-controls {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   justify-content: flex-start;
   gap: var(--action-gap);
   padding: var(--space-3);
@@ -100,10 +117,14 @@
   border-radius: var(--card-radius);
   background: var(--bg-surface);
 }
+.argus-dashboard-controls > .argus-field {
+  max-width: 100%;
+}
 .argus-dashboard-refresh-controls {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--action-gap);
+  margin-inline-start: auto;
 }
 .argus-dashboard-refresh-controls .argus-select {
   width: auto;
@@ -171,7 +192,10 @@
 }
 .argus-dashboard-form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--form-field-min-width), 1fr));
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(var(--form-field-min-width), 1fr)
+  );
   gap: var(--field-gap);
 }
 .argus-dashboard-filter-row {
@@ -283,4 +307,14 @@
 .argus-dashboard-shortcut:hover {
   background: var(--bg-hover);
   text-decoration: underline;
+}
+.argus-dashboard-scope-picker-options {
+  display: grid;
+  gap: var(--space-3);
+}
+.argus-dashboard-scope-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }

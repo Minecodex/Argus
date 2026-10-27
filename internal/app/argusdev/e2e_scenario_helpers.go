@@ -169,7 +169,7 @@ func (a *App) confirmPendingAction(ctx context.Context, env *E2EEnvironment, nam
 	if err != nil {
 		return nil, err
 	}
-	confirmed, err := client.JSON(ctx, name, "enterprise", http.MethodPost, "/enterprise/pending-actions/"+actionRef+"/confirm", http.StatusOK, nil, enterpriseHeaders(env, name))
+	confirmed, err := client.JSON(ctx, name, "enterprise", http.MethodPost, "/enterprise/pending-actions/"+actionRef+"/confirm", http.StatusOK, nil, pendingConfirmationHeaders(env, name, actionRef))
 	if err != nil {
 		return nil, err
 	}
@@ -322,4 +322,12 @@ func (a *App) waitRunStatus(ctx context.Context, env *E2EEnvironment, runID, exp
 
 func bytesContainFold(data, needle []byte) bool {
 	return strings.Contains(strings.ToLower(string(data)), strings.ToLower(string(needle)))
+}
+
+// Repeated fixture labels may address distinct pending actions. A retry of the
+// same action keeps its key; another action must never reuse it.
+func pendingConfirmationHeaders(env *E2EEnvironment, _ string, actionRef string) map[string]string {
+	headers := enterpriseHeaders(env, "")
+	headers["Idempotency-Key"] = p5RequestKey("confirm", env.Options.RunID+"\x00"+actionRef)
+	return headers
 }

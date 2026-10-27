@@ -279,7 +279,7 @@ func conditionParameters(spec Spec, state dashboardparams.State, at time.Time) (
 		return input, ErrInvalid
 	}
 	if r := state.Overrides.Resources; r != nil {
-		if r.All && len(r.IDs) > 0 || !r.All && len(r.IDs) == 0 || len(r.IDs) > 1000 {
+		if r.All && len(r.IDs) > 0 || len(r.IDs) > 1000 {
 			return input, ErrInvalid
 		}
 		seen := map[uuid.UUID]bool{}
@@ -290,6 +290,10 @@ func conditionParameters(spec Spec, state dashboardparams.State, at time.Time) (
 			seen[id] = true
 		}
 		input.ResourceIDs = append([]uuid.UUID{}, r.IDs...)
+		input.ResourceMode = "explicit"
+		if r.All {
+			input.ResourceMode = "all_authorized"
+		}
 	}
 	probe := Execution{}
 	if err := prepareParameters(spec, input, &probe); err != nil {

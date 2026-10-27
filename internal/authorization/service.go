@@ -75,6 +75,10 @@ type BindingInput struct {
 }
 
 type GrantResource struct {
+	Environment  string
+	ParentID     uuid.NullUUID
+	ParentName   string
+	SourceUID    string
 	ResourceType string
 	ResourceID   uuid.UUID
 	Name         string
@@ -118,140 +122,6 @@ func (service Service) AffectedMemberCount(ctx context.Context, enterpriseID, su
 	}
 }
 
-// ListGrantResources returns the complete resource catalog with direct and
-// inherited markers for the selected subject. Labels are intentionally absent.
-func (service Service) ListGrantResources(ctx context.Context, enterpriseID, subjectID uuid.UUID, subjectType, resourceType string) ([]GrantResource, error) {
-	if err := service.validateSubject(ctx, service.Store.Queries, enterpriseID, subjectType, subjectID); err != nil {
-		return nil, err
-	}
-	grants, err := service.Store.Queries.ListDataAuthorizationGrants(ctx, db.ListDataAuthorizationGrantsParams{EnterpriseID: enterpriseID, SubjectType: subjectType, SubjectID: subjectID, ResourceType: resourceType})
-	if err != nil {
-		return nil, err
-	}
-	direct := make(map[uuid.UUID]bool, len(grants))
-	for _, grant := range grants {
-		direct[grant.ResourceID] = true
-	}
-	ids, err := service.inheritedSources(ctx, enterpriseID, subjectID, subjectType, resourceType)
-	if err != nil {
-		return nil, err
-	}
-	var result []GrantResource
-	if resourceType == "host" {
-		hosts, queryErr := service.Store.Queries.ListHosts(ctx, enterpriseID)
-		if queryErr != nil {
-			return nil, queryErr
-		}
-		for _, host := range hosts {
-			sources := ids[host.ID]
-			result = append(result, GrantResource{ResourceType: resourceType, ResourceID: host.ID, Name: host.Name, Direct: direct[host.ID], Inherited: len(sources) > 0, Sources: sources})
-		}
-	} else if resourceType == "kubernetes_cluster" {
-		clusters, queryErr := service.Store.Queries.ListKubernetesClusters(ctx, enterpriseID)
-		if queryErr != nil {
-			return nil, queryErr
-		}
-		for _, cluster := range clusters {
-			sources := ids[cluster.ID]
-			result = append(result, GrantResource{ResourceType: resourceType, ResourceID: cluster.ID, Name: cluster.Name, Direct: direct[cluster.ID], Inherited: len(sources) > 0, Sources: sources})
-		}
-	} else if resourceType == "dashboard" {
-		items, err := service.Store.Queries.ListDashboards(ctx, enterpriseID)
-		if err != nil {
-			return nil, err
-		}
-		for _, item := range items {
-			sources := ids[item.ID]
-			result = append(result, GrantResource{ResourceType: resourceType, ResourceID: item.ID, Name: item.Name, Direct: direct[item.ID], Inherited: len(sources) > 0, Sources: sources})
-		}
-	}
-	for i := range result {
-		if result[i].Direct {
-			result[i].Inherited = false
-			result[i].Sources = []string{"直接"}
-		}
-	}
-	return result, nil
-}
-
-func (service Service) inheritedSources(ctx context.Context, enterpriseID, subjectID uuid.UUID, subjectType, resourceType string) (map[uuid.UUID][]string, error) {
-	sources := make(map[uuid.UUID][]string)
-	appendGrants := func(grants []db.DataAuthorizationGrant, label string) {
-		for _, grant := range grants {
-			if grant.Status == "active" {
-				sources[grant.ResourceID] = append(sources[grant.ResourceID], label)
-			}
-		}
-	}
-	appendRole := func(roleID uuid.UUID) error {
-		role, err := service.Store.Queries.GetRole(ctx, db.GetRoleParams{ID: roleID, EnterpriseID: enterpriseID})
-		if err != nil {
-			return err
-		}
-		grants, err := service.Store.Queries.ListDataAuthorizationGrants(ctx, db.ListDataAuthorizationGrantsParams{EnterpriseID: enterpriseID, SubjectType: "role", SubjectID: roleID, ResourceType: resourceType})
-		if err != nil {
-			return err
-		}
-		appendGrants(grants, "角色："+role.Name)
-		return nil
-	}
-	roleIDs := make(map[uuid.UUID]struct{})
-	switch subjectType {
-	case "user":
-		user, err := service.Store.Queries.GetEnterpriseUser(ctx, db.GetEnterpriseUserParams{ID: subjectID, EnterpriseID: enterpriseID})
-		if err != nil {
-			return nil, err
-		}
-		department, err := service.Store.Queries.GetDepartment(ctx, db.GetDepartmentParams{ID: user.DepartmentID, EnterpriseID: enterpriseID})
-		if err != nil {
-			return nil, err
-		}
-		departmentGrants, err := service.Store.Queries.ListDataAuthorizationGrants(ctx, db.ListDataAuthorizationGrantsParams{EnterpriseID: enterpriseID, SubjectType: "department", SubjectID: department.ID, ResourceType: resourceType})
-		if err != nil {
-			return nil, err
-		}
-		appendGrants(departmentGrants, "部门："+department.Name)
-		bindings, err := service.Store.Queries.ListRoleBindings(ctx, enterpriseID)
-		if err != nil {
-			return nil, err
-		}
-		for _, binding := range bindings {
-			if binding.Status == "active" && ((binding.SubjectType == "user" && binding.SubjectID == subjectID) || (binding.SubjectType == "department" && binding.SubjectID == department.ID)) {
-				roleIDs[binding.RoleID] = struct{}{}
-			}
-		}
-	case "department":
-		bindings, err := service.Store.Queries.ListRoleBindings(ctx, enterpriseID)
-		if err != nil {
-			return nil, err
-		}
-		for _, binding := range bindings {
-			if binding.Status == "active" && binding.SubjectType == "department" && binding.SubjectID == subjectID {
-				roleIDs[binding.RoleID] = struct{}{}
-			}
-		}
-	case "service_account":
-		bindings, err := service.Store.Queries.ListRoleBindings(ctx, enterpriseID)
-		if err != nil {
-			return nil, err
-		}
-		for _, binding := range bindings {
-			if binding.Status == "active" && binding.SubjectType == "service_account" && binding.SubjectID == subjectID {
-				roleIDs[binding.RoleID] = struct{}{}
-			}
-		}
-	}
-	for roleID := range roleIDs {
-		if err := appendRole(roleID); err != nil {
-			return nil, err
-		}
-	}
-	for resourceID := range sources {
-		sort.Strings(sources[resourceID])
-	}
-	return sources, nil
-}
-
 var (
 	ErrInvalidResource       = errors.New("resource does not belong to enterprise")
 	ErrAuthorizationConflict = errors.New("authorization version conflict")
@@ -282,7 +152,7 @@ func (service Service) UpdateGrantBatch(ctx context.Context, actorID string, ent
 	if input.SubjectType != "user" && input.SubjectType != "department" && input.SubjectType != "role" && input.SubjectType != "service_account" {
 		return errors.New("invalid subject type")
 	}
-	if input.ResourceType != "host" && input.ResourceType != "kubernetes_cluster" && input.ResourceType != "dashboard" {
+	if !ValidResourceType(input.ResourceType) {
 		return errors.New("invalid resource type")
 	}
 	if len(input.ResourceIDs) == 0 {
@@ -310,7 +180,7 @@ func (service Service) UpdateGrantBatch(ctx context.Context, actorID string, ent
 				return err
 			}
 			if input.Remove {
-				if input.SubjectType != "role" {
+				if input.SubjectType != "role" || input.ResourceType == "kubernetes_namespace" {
 					grants, listErr := q.ListDataAuthorizationGrants(ctx, db.ListDataAuthorizationGrantsParams{EnterpriseID: enterpriseID, SubjectType: input.SubjectType, SubjectID: input.SubjectID, ResourceType: input.ResourceType})
 					if listErr != nil {
 						return listErr
@@ -348,6 +218,15 @@ func (service Service) UpdateGrantBatch(ctx context.Context, actorID string, ent
 }
 
 func (service Service) effectiveResourceContains(ctx context.Context, q *db.Queries, enterpriseID, subjectID uuid.UUID, subjectType, resourceType string, resourceID uuid.UUID) (bool, error) {
+	if resourceType == "kubernetes_namespace" {
+		namespace, err := q.GetKubernetesNamespaceResource(ctx, db.GetKubernetesNamespaceResourceParams{EnterpriseID: enterpriseID, ID: resourceID})
+		if err != nil {
+			return false, err
+		}
+		if inherited, err := service.effectiveResourceContains(ctx, q, enterpriseID, subjectID, subjectType, "kubernetes_cluster", namespace.ClusterID); err != nil || inherited {
+			return inherited, err
+		}
+	}
 	var values []uuid.UUID
 	var err error
 	switch subjectType {
@@ -357,6 +236,14 @@ func (service Service) effectiveResourceContains(ctx context.Context, q *db.Quer
 		values, err = q.ListDepartmentAuthorizedResourceIDs(ctx, db.ListDepartmentAuthorizedResourceIDsParams{EnterpriseID: enterpriseID, DepartmentID: subjectID, ResourceType: resourceType})
 	case "service_account":
 		values, err = q.ListServiceAccountAuthorizedResourceIDs(ctx, db.ListServiceAccountAuthorizedResourceIDsParams{EnterpriseID: enterpriseID, ServiceAccountID: subjectID, ResourceType: resourceType})
+	case "role":
+		grants, e := q.ListDataAuthorizationGrants(ctx, db.ListDataAuthorizationGrantsParams{EnterpriseID: enterpriseID, SubjectType: subjectType, SubjectID: subjectID, ResourceType: resourceType})
+		err = e
+		for _, grant := range grants {
+			if grant.Status == "active" {
+				values = append(values, grant.ResourceID)
+			}
+		}
 	}
 	if err != nil {
 		return false, err
@@ -399,6 +286,11 @@ func (service Service) validateResource(ctx context.Context, q *db.Queries, ente
 		if err != nil {
 			return ErrInvalidResource
 		}
+	case "application", "monitoring_target", "kubernetes_namespace":
+		found, err := q.MonitoringGrantResourceExists(ctx, db.MonitoringGrantResourceExistsParams{EnterpriseID: enterpriseID, ID: resourceID, ResourceType: resourceType})
+		if err != nil || !found {
+			return ErrInvalidResource
+		}
 	default:
 		return ErrInvalidResource
 	}
@@ -414,6 +306,8 @@ func (service Service) invalidateSubject(ctx context.Context, q *db.Queries, ent
 		if err == nil {
 			affected = []uuid.UUID{subjectID}
 		}
+	case "service_account":
+		_, err = q.BumpServiceAccountAuthorizationVersion(ctx, db.BumpServiceAccountAuthorizationVersionParams{ID: subjectID, EnterpriseID: enterpriseID})
 	case "department":
 		if err := q.BumpAuthorizationVersionRecord(ctx, db.BumpAuthorizationVersionRecordParams{EnterpriseID: enterpriseID, SubjectType: subjectType, SubjectID: subjectID}); err != nil {
 			return err
@@ -542,7 +436,7 @@ func (service Service) UpdateRole(ctx context.Context, actorID string, enterpris
 		if err != nil {
 			return err
 		}
-		if err := service.invalidateEnterprise(ctx, queries, enterpriseID, "role", roleID.String()); err != nil {
+		if err := service.invalidateSubject(ctx, queries, enterpriseID, "role", roleID); err != nil {
 			return err
 		}
 		_, err = audit.Append(ctx, queries, audit.Entry{Domain: "enterprise", EnterpriseID: uuid.NullUUID{UUID: enterpriseID, Valid: true}, ActorType: identity.ActorTypeFromContext(ctx), ActorID: actorID,
@@ -723,12 +617,21 @@ func sortUUIDs(values []uuid.UUID) {
 
 func (service Service) CreateBinding(ctx context.Context, actorID string, enterpriseID uuid.UUID, input BindingInput, idempotencyKey string) (BindingRecord, error) {
 	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "role_binding.create", idempotencyKey, input, 201, func(queries *db.Queries) (BindingRecord, error) {
+		if input.SubjectType != "user" && input.SubjectType != "department" && input.SubjectType != "service_account" {
+			return BindingRecord{}, ErrInvalidRoleAssignment
+		}
+		if err := service.validateSubject(ctx, queries, enterpriseID, input.SubjectType, input.SubjectID); err != nil {
+			return BindingRecord{}, err
+		}
+		if _, err := queries.GetRole(ctx, db.GetRoleParams{EnterpriseID: enterpriseID, ID: input.RoleID}); err != nil {
+			return BindingRecord{}, ErrInvalidRoleAssignment
+		}
 		binding, err := queries.CreateRoleBinding(ctx, db.CreateRoleBindingParams{ID: newID(), EnterpriseID: enterpriseID, SubjectType: input.SubjectType,
 			SubjectID: input.SubjectID, RoleID: input.RoleID, ValidFrom: timeValue(input.ValidFrom), ValidUntil: timeValue(input.ValidUntil)})
 		if err != nil {
 			return BindingRecord{}, err
 		}
-		if err := service.invalidateEnterprise(ctx, queries, enterpriseID, "role_binding", binding.ID.String()); err != nil {
+		if err := service.invalidateSubject(ctx, queries, enterpriseID, binding.SubjectType, binding.SubjectID); err != nil {
 			return BindingRecord{}, err
 		}
 		_, err = audit.Append(ctx, queries, audit.Entry{Domain: "enterprise", EnterpriseID: uuid.NullUUID{UUID: enterpriseID, Valid: true}, ActorType: identity.ActorTypeFromContext(ctx), ActorID: actorID,
@@ -751,7 +654,7 @@ func (service Service) UpdateBinding(ctx context.Context, actorID string, enterp
 		if err != nil {
 			return err
 		}
-		if err := service.invalidateEnterprise(ctx, queries, enterpriseID, "role_binding", bindingID.String()); err != nil {
+		if err := service.invalidateSubject(ctx, queries, enterpriseID, binding.SubjectType, binding.SubjectID); err != nil {
 			return err
 		}
 		_, err = audit.Append(ctx, queries, audit.Entry{Domain: "enterprise", EnterpriseID: uuid.NullUUID{UUID: enterpriseID, Valid: true}, ActorType: identity.ActorTypeFromContext(ctx), ActorID: actorID,
@@ -760,22 +663,6 @@ func (service Service) UpdateBinding(ctx context.Context, actorID string, enterp
 		return err
 	})
 	return result, err
-}
-
-func (service Service) invalidateEnterprise(ctx context.Context, queries *db.Queries, enterpriseID uuid.UUID, aggregateType, aggregateID string) error {
-	affected, err := queries.BumpEnterpriseUsersAuthorizationVersion(ctx, enterpriseID)
-	if err != nil {
-		return err
-	}
-	serviceAccounts, err := queries.BumpEnterpriseServiceAccountsAuthorizationVersion(ctx, enterpriseID)
-	if err != nil {
-		return err
-	}
-	if err := revocation.Users(ctx, queries, enterpriseID, affected, aggregateType+"_changed"); err != nil {
-		return err
-	}
-	payload, _ := json.Marshal(map[string]any{"enterprise_id": enterpriseID.String(), "affected_user_count": len(affected), "affected_service_account_count": len(serviceAccounts)})
-	return queries.InsertOutboxEvent(ctx, db.InsertOutboxEventParams{ID: newID(), Topic: "authorization.changed", AggregateType: aggregateType, AggregateID: aggregateID, Payload: payload})
 }
 
 func newID() uuid.UUID {

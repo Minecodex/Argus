@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/kakj-go/Argus/internal/telemetry"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 )
@@ -23,6 +24,7 @@ type CandidateState struct {
 }
 
 type candidateWork struct {
+	refs      []ResourceScope
 	name      string
 	panel     Panel
 	query     CandidateQuery
@@ -125,9 +127,10 @@ func (runtime Runtime) freezeCandidates(ctx context.Context, actor Actor, spec S
 		for _, r := range result.Resources {
 			if item.panel.ID == "" || slices.Contains(item.panel.ApplicableResourceTypes, r.Type) {
 				item.resources = append(item.resources, r.ID)
+				item.refs = append(item.refs, r)
 			}
 		}
-		item.sources, err = resolveSources(ctx, runtime.Store.Queries, actor, item.query.SourceBinding, item.query.Signal, item.resources)
+		item.sources, err = resolveSources(ctx, runtime.Store.Queries, actor, item.query.SourceBinding, item.query.Signal, item.refs, runtime.scopeApplications)
 		if err != nil {
 			return nil, err
 		}
@@ -141,6 +144,27 @@ func (runtime Runtime) freezeCandidates(ctx context.Context, actor Actor, spec S
 
 func (runtime Runtime) resolveCandidates(ctx context.Context, actor Actor, spec Spec, work []candidateWork, result *Execution, budget *executionBudget) error {
 	runtime = runtime.metered(actor)
+	return resolveCandidateValues(ctx, actor, spec, work, result, budget, func(ctx context.Context, item candidateWork, request telemetry.DataCatalogRequest) (telemetry.DataCatalogResult, error) {
+		scope := queryScope{Resources: item.refs, Sources: item.sources}
+		if err := runtime.checkQueryScope(ctx, actor, scope, item.query.Signal); err != nil {
+			return telemetry.DataCatalogResult{}, candidateScopeError{err}
+		}
+		data, err := runtime.Backend.DiscoverData(ctx, request)
+		if err == nil {
+			if e := runtime.checkQueryScope(ctx, actor, scope, item.query.Signal); e != nil {
+				return telemetry.DataCatalogResult{}, candidateScopeError{e}
+			}
+		}
+		return data, err
+	})
+}
+
+type candidateScopeError struct{ error }
+type candidateDiscovery func(context.Context, candidateWork, telemetry.DataCatalogRequest) (telemetry.DataCatalogResult, error)
+
+// Candidate reconciliation is independent of scope authorization. Production
+// supplies a guarded discovery function; pure cascade tests supply a backend.
+func resolveCandidateValues(ctx context.Context, actor Actor, spec Spec, work []candidateWork, result *Execution, budget *executionBudget, discover candidateDiscovery) error {
 	for _, item := range work {
 		values, states := result.Variables, result.VariableCandidates
 		if item.panel.ID != "" {
@@ -161,11 +185,19 @@ func (runtime Runtime) resolveCandidates(ctx context.Context, actor Actor, spec 
 		}
 		data := telemetry.DataCatalogResult{Complete: true, Values: []string{}, Membership: map[string]bool{}}
 		if len(item.resources) > 0 && len(item.sources) > 0 {
+			refs, e := dataResourcesForSources(item.sources)
+			if e != nil {
+				return e
+			}
 			keys := []string{}
 			for _, s := range item.sources {
 				keys = append(keys, s.Key())
 			}
-			data, err = runtime.Backend.DiscoverData(ctx, telemetry.DataCatalogRequest{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, AuthorizationVersion: actor.AuthorizationVersion, ResourceIDs: item.resources, SourceKeys: keys, Signal: item.query.Signal, Kind: "values", Metric: item.query.Metric, Field: item.query.Field, Filters: filters, SelectedValues: selected.Values, From: result.From, To: result.To, Limit: min(200, max(1, allocation.MaxRows-len(selected.Values))), Budget: allocation})
+			data, err = discover(ctx, item, telemetry.DataCatalogRequest{ScopeSignature: result.ScopeSignature, Resources: refs, SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, AuthorizationVersion: actor.AuthorizationVersion, ResourceIDs: resourceref.IDs(refs), SourceKeys: keys, Signal: item.query.Signal, Kind: "values", Metric: item.query.Metric, Field: item.query.Field, Filters: filters, SelectedValues: selected.Values, From: result.From, To: result.To, Limit: min(200, max(1, allocation.MaxRows-len(selected.Values))), Budget: allocation})
+			var invalidScope candidateScopeError
+			if errors.As(err, &invalidScope) {
+				return invalidScope.error
+			}
 		}
 		if err != nil {
 			budget.failed(allocation)
@@ -202,9 +234,12 @@ func newExecutionBudget(count int) *executionBudget {
 	return &executionBudget{scan: telemetry.DefaultMaxScanBytes, bytes: 8 << 20, rows: telemetry.DefaultMaxRows, samples: telemetry.DefaultMaxSamples, pending: count}
 }
 func (b *executionBudget) next(ctx context.Context) (queryengine.Budget, error) {
-	count := max(b.pending, 1)
 	b.pending--
-	value := queryengine.Budget{MaxScanBytes: b.scan / int64(count), MaxResultBytes: b.bytes / int64(count), MaxRows: b.rows / count, MaxSamples: b.samples / count, MaxSeries: telemetry.DefaultMaxSeries, Timeout: telemetry.DefaultTimeout}
+	// Work is sequential: each request may spend the remaining run allowance.
+	// Equal slices reject a costly panel even when the whole run fits its budget.
+	// Successful work is charged by observed usage; a failure consumes the entire
+	// reservation, so unknown scanned work is never recycled for later targets.
+	value := queryengine.Budget{MaxScanBytes: b.scan, MaxResultBytes: b.bytes, MaxRows: b.rows, MaxSamples: b.samples, MaxSeries: telemetry.DefaultMaxSeries, Timeout: telemetry.DefaultTimeout}
 	if value.MaxScanBytes <= 0 || value.MaxResultBytes <= 0 || value.MaxRows <= 0 || value.MaxSamples <= 0 || ctx.Err() != nil {
 		return value, telemetry.ErrQueryBudget
 	}

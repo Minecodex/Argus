@@ -54,6 +54,15 @@ func (s Service) Configurations(ctx context.Context, a Actor, kind string) ([]Co
 			continue
 		}
 		item := configurationDTO(row)
+		if row.Kind == "policy" {
+			managed, err := s.Store.Queries.IsCollectorDeliveryPolicy(ctx, db.IsCollectorDeliveryPolicyParams{EnterpriseID: a.EnterpriseID, PolicyID: row.ID})
+			if err != nil {
+				return nil, err
+			}
+			if managed {
+				item.ManagedBy = "collector_delivery"
+			}
+		}
 		if row.Kind == "silence" || row.Kind == "inhibition" {
 			var enabled struct {
 				Enabled bool `json:"enabled"`
@@ -69,6 +78,9 @@ func (s Service) Configurations(ctx context.Context, a Actor, kind string) ([]Co
 			}
 		}
 		items = append(items, item)
+	}
+	if err := authorize(ctx, s.Store.Queries, a, permission); err != nil {
+		return nil, err
 	}
 	return items, nil
 }
@@ -162,6 +174,13 @@ func preparePlan(ctx context.Context, q *db.Queries, a Actor, m Mutation, lock b
 		if err != nil || row.Kind != m.Kind {
 			return plan, ErrNotFound
 		}
+		managed, managedErr := q.IsCollectorDeliveryPolicy(ctx, db.IsCollectorDeliveryPolicyParams{EnterpriseID: a.EnterpriseID, PolicyID: row.ID})
+		if managedErr != nil {
+			return plan, managedErr
+		}
+		if managed {
+			return plan, ErrDenied
+		}
 		if row.Version != m.ExpectedVersion {
 			return plan, ErrConflict
 		}
@@ -170,7 +189,10 @@ func preparePlan(ctx context.Context, q *db.Queries, a Actor, m Mutation, lock b
 		if err != nil {
 			return plan, err
 		}
-		if e != nil || !containsAll(allowed, prior) {
+		if e != nil {
+			return plan, e
+		}
+		if !containsAll(allowed, prior) {
 			return plan, ErrDenied
 		}
 		if m.Operation == "delete" {
@@ -201,7 +223,10 @@ func preparePlan(ctx context.Context, q *db.Queries, a Actor, m Mutation, lock b
 			return plan, err
 		}
 		allowed, err := actorResources(ctx, q, a)
-		if err != nil || !containsAll(allowed, ids) {
+		if err != nil {
+			return plan, err
+		}
+		if !containsAll(allowed, ids) {
 			return plan, ErrDenied
 		}
 		plan.ResourceIDs = ids

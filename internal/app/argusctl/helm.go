@@ -40,17 +40,41 @@ type helmManager struct {
 
 func (h helmManager) configuration(namespace string) (*action.Configuration, error) {
 	settings := cli.New()
+	// Helm treats KUBECONFIG as one explicit file. Leave a search list to
+	// client-go so every installer client resolves the same context.
+	if len(filepath.SplitList(settings.KubeConfig)) > 1 {
+		settings.KubeConfig = ""
+	}
 	settings.KubeContext = h.contextName
 	settings.SetNamespace(namespace)
+	getter := settings.RESTClientGetter()
+	if _, err := getter.ToRESTConfig(); err != nil {
+		return nil, fmt.Errorf("load Helm Kubernetes context %q: %w", h.contextName, err)
+	}
 	configuration := action.NewConfiguration()
 	configuration.SetLogger(slog.NewTextHandler(h.log, &slog.HandlerOptions{Level: slog.LevelWarn}))
-	if err := configuration.Init(settings.RESTClientGetter(), namespace, "secret"); err != nil {
+	if err := configuration.Init(getter, namespace, "secret"); err != nil {
 		return nil, fmt.Errorf("initialize Helm for namespace %s: %w", namespace, err)
 	}
 	return configuration, nil
 }
 
 func (h helmManager) installOrUpgrade(ctx context.Context, releaseName, namespace string, ch *chart.Chart, values map[string]any) error {
+	return h.apply(ctx, releaseName, namespace, ch, values, true)
+}
+
+// Platform resources have an explicit migration -> runtime permissions ->
+// readiness order. Waiting for all Pods inside Helm would deadlock bootstrap
+// when an older migration image does not contain the current role catalog.
+func (h helmManager) applyBeforeRuntimeBootstrap(ctx context.Context, releaseName, namespace string, ch *chart.Chart, values map[string]any) error {
+	return h.apply(ctx, releaseName, namespace, ch, values, false)
+}
+
+func (h helmManager) apply(ctx context.Context, releaseName, namespace string, ch *chart.Chart, values map[string]any, wait bool) error {
+	strategy := kube.StatusWatcherStrategy
+	if !wait {
+		strategy = kube.HookOnlyStrategy
+	}
 	configuration, err := h.configuration(namespace)
 	if err != nil {
 		return err
@@ -59,8 +83,8 @@ func (h helmManager) installOrUpgrade(ctx context.Context, releaseName, namespac
 		upgrade := action.NewUpgrade(configuration)
 		upgrade.Namespace = namespace
 		upgrade.Timeout = 15 * time.Minute
-		upgrade.WaitStrategy = kube.StatusWatcherStrategy
-		upgrade.WaitForJobs = true
+		upgrade.WaitStrategy = strategy
+		upgrade.WaitForJobs = wait
 		upgrade.CleanupOnFail = true
 		// Argus rotation and runtime controllers intentionally update a small
 		// set of Helm-owned fields. The values passed to this upgrade have first
@@ -80,9 +104,12 @@ func (h helmManager) installOrUpgrade(ctx context.Context, releaseName, namespac
 	install.ReleaseName = releaseName
 	install.Namespace = namespace
 	install.Timeout = 15 * time.Minute
-	install.WaitStrategy = kube.StatusWatcherStrategy
-	install.WaitForJobs = true
-	install.RollbackOnFailure = true
+	install.WaitStrategy = strategy
+	install.WaitForJobs = wait
+	// Helm 4 forces StatusWatcher when rollback-on-failure is enabled. The
+	// bootstrap handoff must return before runtime prerequisites are supplied;
+	// its caller owns completion/recovery after the explicit migration steps.
+	install.RollbackOnFailure = wait
 	if _, err := install.RunWithContext(ctx, ch, values); err != nil {
 		return fmt.Errorf("install Helm release %s: %w", releaseName, err)
 	}

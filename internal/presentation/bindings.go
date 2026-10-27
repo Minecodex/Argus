@@ -31,6 +31,10 @@ func ToolBinding(id string) (Binding, error) {
 		entry = "tool-description"
 	case strings.HasSuffix(id, ".preview"):
 		entry = "change-preview"
+	case strings.HasPrefix(id, "application.") || strings.HasPrefix(id, "monitoring.") || id == "kubernetes.object.get" || id == "kubernetes.operation.get" || id == "kubernetes.workbench.types":
+		if strings.HasSuffix(id, ".get") {
+			entry = "resource-detail"
+		}
 	case id == "telemetry.promql.query":
 		entry = "metric-query"
 		read = append(read, "metric.context")

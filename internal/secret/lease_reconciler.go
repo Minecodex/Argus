@@ -32,6 +32,9 @@ func (reconciler LeaseReconciler) Run(ctx context.Context) error {
 		if _, err := reconciler.Store.Queries.ExpireCredentialLeases(ctx); err != nil && ctx.Err() == nil {
 			logger.Error("credential lease expiration reconciliation failed", "error", err)
 		}
+		if _, err := (Service{Store: reconciler.Store}).CleanupMonitoringDrafts(ctx, 100); err != nil && ctx.Err() == nil {
+			logger.Error("monitoring credential draft cleanup failed", "error", err)
+		}
 	}
 	reconcile()
 	ticker := time.NewTicker(interval)

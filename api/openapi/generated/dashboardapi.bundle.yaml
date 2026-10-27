@@ -729,6 +729,146 @@ paths:
                 $ref: '#/components/schemas/DashboardDraftDrilldownExecution'
         default:
           $ref: '#/components/responses/Error'
+  /applications/{id}/dashboard-bindings:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listApplicationDashboardBindings
+      summary: List Application dashboard bindings
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceDashboardBindings'
+        default:
+          $ref: '#/components/responses/Error'
+  /applications/{id}/dashboard-bindings/preview:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: previewApplicationDashboardBinding
+      summary: Preview Application dashboard bindings
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardBindingInput'
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/targets/{id}/dashboard-bindings:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listMonitoringTargetDashboardBindings
+      summary: List MonitoringTarget dashboard bindings
+      responses:
+        '200':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceDashboardBindings'
+        default:
+          $ref: '#/components/responses/Error'
+  /monitoring/targets/{id}/dashboard-bindings/preview:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: previewMonitoringTargetDashboardBinding
+      summary: Preview MonitoringTarget dashboard bindings
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardBindingInput'
+      responses:
+        '201':
+          description: Operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pending-action-public.schema'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboard-scope-resources:
+    get:
+      operationId: listDashboardScopeResources
+      summary: List currently authorized query scope resources with search and signed pagination
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - host
+              - kubernetes_cluster
+              - application
+              - monitoring_target
+              - kubernetes_namespace
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 4096
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+      responses:
+        '200':
+          description: Authorized scope page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardScopeDirectoryPage'
+        default:
+          $ref: '#/components/responses/Error'
 components:
   securitySchemes:
     sessionCookie:
@@ -900,6 +1040,16 @@ components:
         updated_at:
           type: string
           format: date-time
+        managed_template_key:
+          type: string
+          minLength: 1
+          maxLength: 120
+          readOnly: true
+        managed_template_version:
+          type: integer
+          format: int64
+          minimum: 1
+          readOnly: true
       required:
         - id
         - name
@@ -1416,6 +1566,12 @@ components:
           type: array
           items:
             type: string
+            enum:
+              - host
+              - kubernetes_cluster
+              - application
+              - monitoring_target
+              - kubernetes_namespace
         source_binding:
           $ref: '#/components/schemas/DashboardSourceBinding'
         local_filters:
@@ -1651,6 +1807,16 @@ components:
         updated_at:
           type: string
           format: date-time
+        source_template_key:
+          type: string
+          minLength: 1
+          maxLength: 120
+          readOnly: true
+        source_template_version:
+          type: integer
+          format: int64
+          minimum: 1
+          readOnly: true
       required:
         - id
         - base_object_version
@@ -2014,6 +2180,34 @@ components:
               $ref: '#/components/schemas/DashboardSelection'
             maxProperties: 32
           maxProperties: 64
+        resource_mode:
+          type: string
+          enum:
+            - all_authorized
+            - explicit
+          description: all_authorized selects current grants; explicit preserves an empty resource_ids set
+        resource_types:
+          type: array
+          items:
+            type: string
+            enum:
+              - host
+              - kubernetes_cluster
+              - application
+              - monitoring_target
+              - kubernetes_namespace
+          maxItems: 5
+        application_mode:
+          type: string
+          enum:
+            - all_authorized
+            - explicit
+        application_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 1000
       required: []
     DashboardResourceScope:
       type: object
@@ -2027,6 +2221,9 @@ components:
           enum:
             - host
             - kubernetes_cluster
+            - application
+            - monitoring_target
+            - kubernetes_namespace
       required:
         - id
         - type
@@ -2057,6 +2254,30 @@ components:
           type: string
           format: date-time
           description: Registration time of this source configuration revision.
+        resource_type:
+          type: string
+          enum:
+            - host
+            - kubernetes_cluster
+            - application
+            - monitoring_target
+          description: Actual identity in telemetry storage; Namespace selection remains a separate authorization boundary.
+        scope_resource_ids:
+          type: array
+          maxItems: 1000
+          items:
+            type: string
+            format: uuid
+        scope_signature:
+          type: string
+          minLength: 64
+          maxLength: 64
+        scope_relations:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            minimum: 1
       required:
         - id
         - revision
@@ -2158,6 +2379,63 @@ components:
         - selected_exists
         - reset
         - sources
+    DashboardScopeSelection:
+      type: object
+      additionalProperties: false
+      properties:
+        mode:
+          type: string
+          enum:
+            - all_authorized
+            - explicit
+        ids:
+          type: array
+          maxItems: 1000
+          items:
+            type: string
+            format: uuid
+        types:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            enum:
+              - host
+              - kubernetes_cluster
+              - application
+              - monitoring_target
+              - kubernetes_namespace
+        signal:
+          type: string
+          enum:
+            - metrics
+            - logs
+            - traces
+            - catalog
+        applications:
+          type: object
+          additionalProperties: false
+          properties:
+            mode:
+              type: string
+              enum:
+                - all_authorized
+                - explicit
+            ids:
+              type: array
+              maxItems: 1000
+              items:
+                type: string
+                format: uuid
+          required:
+            - mode
+            - ids
+      required:
+        - mode
+        - ids
+        - types
+        - signal
+      readOnly: true
     DashboardExecution:
       type: object
       additionalProperties: false
@@ -2218,6 +2496,34 @@ components:
         context_expires_at:
           type: string
           format: date-time
+        scope_signature:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          minLength: 64
+          maxLength: 64
+        scope_empty:
+          type: boolean
+        scope_versions:
+          type: object
+          additionalProperties: false
+          required:
+            - resources
+            - relations
+          properties:
+            resources:
+              type: object
+              additionalProperties:
+                type: integer
+                format: int64
+                minimum: 1
+            relations:
+              type: object
+              additionalProperties:
+                type: integer
+                format: int64
+                minimum: 1
+        scope_selection:
+          $ref: '#/components/schemas/DashboardScopeSelection'
       required:
         - dashboard_id
         - revision_id
@@ -2346,6 +2652,34 @@ components:
         cursor:
           type: string
           maxLength: 8192
+        resource_mode:
+          type: string
+          enum:
+            - all_authorized
+            - explicit
+          description: all_authorized selects current grants; explicit preserves an empty resource_ids set
+        resource_types:
+          type: array
+          items:
+            type: string
+            enum:
+              - host
+              - kubernetes_cluster
+              - application
+              - monitoring_target
+              - kubernetes_namespace
+          maxItems: 5
+        application_mode:
+          type: string
+          enum:
+            - all_authorized
+            - explicit
+        application_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 1000
       required:
         - source_binding
         - signal
@@ -2567,6 +2901,8 @@ components:
           enum:
             - host
             - kubernetes_cluster
+            - application
+            - monitoring_target
         resource_id:
           type: string
           format: uuid
@@ -2592,6 +2928,8 @@ components:
           enum:
             - host
             - kubernetes_cluster
+            - application
+            - monitoring_target
         resource_id:
           type: string
           format: uuid
@@ -2850,6 +3188,50 @@ components:
         - draft_id
         - draft_version
         - execution
+    DashboardScopeDirectoryItem:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - host
+            - kubernetes_cluster
+            - application
+            - monitoring_target
+            - kubernetes_namespace
+        name:
+          type: string
+        environment:
+          type: string
+        parent_id:
+          type: string
+          format: uuid
+        parent_name:
+          type: string
+        source_uid:
+          type: string
+      required:
+        - id
+        - type
+        - name
+        - environment
+    DashboardScopeDirectoryPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardScopeDirectoryItem'
+        next_cursor:
+          type: string
+          maxLength: 4096
+      required:
+        - items
     DashboardConditionPatch:
       type: object
       additionalProperties: false

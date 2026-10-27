@@ -1,0 +1,29 @@
+.argus-authorization-catalog,
+.argus-authorization-identity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.argus-authorization-catalog {
+  gap: var(--space-4);
+}
+.argus-authorization-tabs {
+  flex-wrap: wrap;
+}
+.argus-authorization-identity small,
+.argus-authorization-identity code {
+  color: var(--text-secondary);
+  font-size: var(--font-size-12);
+  overflow-wrap: anywhere;
+}
+.argus-authorization-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: var(--space-3);
+  flex-wrap: wrap;
+}
+.argus-authorization-toolbar > .argus-input {
+  flex: 1;
+  min-width: 0;
+}

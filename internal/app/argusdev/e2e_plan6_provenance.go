@@ -99,6 +99,7 @@ func (a *App) plan6Images(ctx context.Context, env *E2EEnvironment, candidateReg
 	// Preserve them too so formal sessions do not retain the old image group.
 	refs["workspace"] = registry + "/argus/argus-workspace:" + env.ImageTag
 	refs["workspace-egress"] = registry + "/argus/argus-workspace-egress:" + env.ImageTag
+	refs["install-tools"] = registry + "/argus/argus-install-tools:" + env.ImageTag
 	names := make([]string, 0, len(refs))
 	for name := range refs {
 		names = append(names, name)
@@ -106,7 +107,7 @@ func (a *App) plan6Images(ctx context.Context, env *E2EEnvironment, candidateReg
 	sort.Strings(names)
 	images := []plan6Image{}
 	for _, name := range names {
-		if name != "backend" && name != "web" && name != "minio" && name != "workspace" && name != "workspace-egress" && name != "otelcol" && name != "remote-runtime" {
+		if name != "backend" && name != "web" && name != "minio" && name != "workspace" && name != "workspace-egress" && name != "otelcol" && name != "remote-runtime" && name != "install-tools" {
 			continue
 		}
 		ref := refs[name]
@@ -173,7 +174,7 @@ func (a *App) plan6Images(ctx context.Context, env *E2EEnvironment, candidateReg
 		}
 		images = append(images, image)
 	}
-	if err = validateE2ECoreImageSet(images, env.Options.Suite == "plan7" || env.State.FixtureImages["remote-runtime"] != ""); err != nil {
+	if err = validateE2ECoreImageSet(images, env.Options.Suite == "plan7" || env.Options.Suite == "plan8" || env.State.FixtureImages["remote-runtime"] != ""); err != nil {
 		return err
 	}
 	pods := []map[string]any{}

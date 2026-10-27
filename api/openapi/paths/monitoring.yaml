@@ -1,0 +1,788 @@
+{
+  "applications": {
+    "get": {
+      "operationId": "listMonitoringApplications",
+      "summary": "Search authorized single-environment applications",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "name": "search",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        {
+          "name": "status",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "default": "active"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized monitoring workspace result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringApplicationPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "application": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getMonitoringApplication",
+      "summary": "Read an authorized application",
+      "tags": [
+        "Monitoring"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized monitoring workspace result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringApplication"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "services": {
+    "get": {
+      "operationId": "listMonitoringServices",
+      "summary": "Search services within authorized applications",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "name": "search",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        {
+          "name": "application_ids",
+          "in": "query",
+          "style": "form",
+          "explode": false,
+          "schema": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        {
+          "name": "application_mode",
+          "in": "query",
+          "description": "explicit preserves an empty application_ids set; all_authorized enumerates current grants",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ]
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized monitoring workspace result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringServicePage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "preview": {
+    "post": {
+      "operationId": "previewMonitoringCommand",
+      "summary": "Preview an immutable monitoring workspace change",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "$ref": "../argus.yaml#/components/parameters/IdempotencyKey"
+        },
+        {
+          "$ref": "../argus.yaml#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringMutation"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Existing PendingAction confirmation workflow",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/PendingActionPublic"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "collections": {
+    "get": {
+      "operationId": "listMonitoringCollections",
+      "summary": "Search and filter authorized collections before pagination",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "name": "desired_enabled",
+          "in": "query",
+          "description": "Omit for both states; false explicitly selects disabled collections.",
+          "schema": { "type": "boolean" }
+        },
+        {
+          "name": "apply_status",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": ["pending", "applying", "effective", "failed", "unknown"]
+          }
+        },
+        {
+          "name": "health",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": ["unknown", "healthy", "degraded", "failed", "stopped"]
+          }
+        },
+        {
+          "name": "freshness",
+          "in": "query",
+          "description": "Uses the same three-interval / two-minute sample freshness threshold as collection rows.",
+          "schema": {
+            "type": "string",
+            "enum": ["no_data", "fresh", "stale"]
+          }
+        },
+        {
+          "name": "search",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        {
+          "name": "integration",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 64
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized monitoring workspace result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringCollectionPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "targets": {
+    "get": {
+      "operationId": "listMonitoringTargets",
+      "summary": "Search authorized targets",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "name": "search",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        {
+          "name": "integration",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 64
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized monitoring workspace result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringTargetPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "collection": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getMonitoringCollection",
+      "summary": "Read a collection and its observed state",
+      "tags": [
+        "Monitoring"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized monitoring workspace result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringCollection"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "integrations": {
+    "get": {
+      "operationId": "listMonitoringIntegrations",
+      "summary": "List integration eligibility and validation status",
+      "tags": [
+        "Monitoring"
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized monitoring workspace result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringIntegration"
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "collectors": {
+    "get": {
+      "operationId": "listMonitoringCollectorChoices",
+      "summary": "Search authorized executing Collectors",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "name": "search",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized monitoring workspace result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringCollectorChoicePage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "ingestEndpoints": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listApplicationIngestEndpoints",
+      "summary": "List authorized application ingestion endpoints",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized application ingestion result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringIngestEndpointPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "ingestKeys": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listApplicationIngestKeys",
+      "summary": "List ingestion Key metadata without credentials",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized application ingestion result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringIngestKeyPage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "ingestKeyReveal": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "revealApplicationIngestKey",
+      "summary": "Reveal a newly issued Key once to its interactive creator",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "$ref": "../argus.yaml#/components/parameters/CsrfToken"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized application ingestion result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringIngestKeyReveal"
+              }
+            }
+          },
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "builtins": {
+    "get": {
+      "operationId": "listMonitoringBuiltins",
+      "summary": "List fixed resource-owned collection instances and actual state",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "name": "target_type",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster"
+            ]
+          }
+        },
+        {
+          "name": "target_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Fixed collection definitions and observed state",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringBuiltin"
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "builtinPreview": {
+    "post": {
+      "operationId": "previewMonitoringBuiltin",
+      "summary": "Preview an own-resource fixed collection change",
+      "tags": [
+        "Monitoring"
+      ],
+      "parameters": [
+        {
+          "$ref": "../argus.yaml#/components/parameters/IdempotencyKey"
+        },
+        {
+          "$ref": "../argus.yaml#/components/parameters/CsrfToken"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringBuiltinInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Existing PendingAction confirmation workflow",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/PendingActionPublic"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "ingestConnection": {
+    "parameters": [
+      {
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "in": "path",
+        "required": true,
+        "name": "id"
+      }
+    ],
+    "get": {
+      "operationId": "getMonitoringIngestConnection",
+      "summary": "Read authorized SDK endpoint configuration and public TLS trust without a Key",
+      "tags": [
+        "Monitoring"
+      ],
+      "responses": {
+        "200": {
+          "description": "Application-scoped SDK connection metadata",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/monitoring.yaml#/components/schemas/MonitoringIngestConnection"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

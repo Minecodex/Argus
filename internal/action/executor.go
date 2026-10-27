@@ -45,6 +45,7 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 	if err := json.Unmarshal(task.Payload, &payload); err != nil || payload.ExecutionID == uuid.Nil || payload.EnterpriseID == uuid.Nil {
 		return runtime.Error{ErrorCode: "TOOL_INPUT_INVALID", Cause: ErrUnavailable}
 	}
+	preparedCtx, preparationErr := executor.prepareExecution(ctx, payload)
 	return executor.Store.InTx(ctx, func(q *db.Queries) error {
 		execution, err := q.GetExecution(ctx, db.GetExecutionParams{ID: payload.ExecutionID, EnterpriseID: payload.EnterpriseID})
 		if err != nil {
@@ -107,7 +108,11 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 			}
 			return conversation.ScheduleActionRun(ctx, q, action, false)
 		}
-		result, err := executor.Resources.ExecutePendingAction(ctx, q, action)
+		var result resource.ActionCommitResult
+		err = preparationErr
+		if err == nil {
+			result, err = executor.Resources.ExecutePendingAction(preparedCtx, q, action)
+		}
 		if err != nil {
 			if errors.Is(err, resource.ErrActionInvalidated) || errors.Is(err, resource.ErrActionUnavailable) {
 				if code := resource.ActionValidationCode(err); code != "" {
@@ -131,6 +136,10 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 		}
 		if result.RemoteExecutionID.Valid {
 			_, err = q.MarkExecutionRemoteResultUnknown(ctx, db.MarkExecutionRemoteResultUnknownParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID, RemoteExecutionID: result.RemoteExecutionID})
+			return err
+		}
+		if result.KubernetesOperationID.Valid {
+			_, err = q.MarkExecutionKubernetesResultUnknown(ctx, db.MarkExecutionKubernetesResultUnknownParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID, KubernetesOperationID: result.KubernetesOperationID})
 			return err
 		}
 		if result.TelemetryOperationID.Valid {
@@ -301,6 +310,18 @@ func resourceNameConflict(cause error) bool {
 }
 
 func (executor Executor) reconcileExecution(ctx context.Context, q *db.Queries, execution db.Execution) error {
+	if execution.KubernetesOperationID.Valid {
+		operation, err := q.GetKubernetesOperation(ctx, db.GetKubernetesOperationParams{EnterpriseID: execution.EnterpriseID, ID: execution.KubernetesOperationID.UUID})
+		if err != nil {
+			return err
+		}
+		switch operation.Status {
+		case "succeeded", "failed", "cancelled":
+			return executor.finishReconciledExecution(ctx, q, execution, operation.Status, pgtype.Text{String: operation.ErrorCode, Valid: operation.ErrorCode != ""}, "Kubernetes operation: "+operation.Status, "kubernetes_operation", operation.ID, operation.Version)
+		default:
+			return nil
+		}
+	}
 	if execution.RemoteExecutionID.Valid {
 		remote, err := q.GetRemoteRequest(ctx, db.GetRemoteRequestParams{ID: execution.RemoteExecutionID.UUID, EnterpriseID: execution.EnterpriseID})
 		if err != nil {

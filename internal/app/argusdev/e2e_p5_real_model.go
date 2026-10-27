@@ -180,7 +180,7 @@ func (a *App) p5RealTask(ctx context.Context, env *E2EEnvironment, conversation,
 	return a.realModelTask(ctx, env, conversation, id, prompt, files, nil)
 }
 
-func (a *App) realModelTask(ctx context.Context, env *E2EEnvironment, conversation, id, prompt string, files []string, selection map[string]any, afterStart ...func(string) error) (p5BenchmarkSample, error) {
+func (a *App) realModelTask(ctx context.Context, env *E2EEnvironment, conversation, id, prompt string, files []string, selection map[string]any, afterStart ...func(string) error) (sample p5BenchmarkSample, failure error) {
 	client, err := scenarioHTTP(env)
 	if err != nil {
 		return p5BenchmarkSample{}, err
@@ -200,6 +200,20 @@ func (a *App) realModelTask(ctx context.Context, env *E2EEnvironment, conversati
 	if err != nil {
 		return p5BenchmarkSample{}, err
 	}
+	if env.Options.Suite == "plan8" {
+		env.State.Values["plan8_last_model_run"] = run
+	}
+	defer func() {
+		if sample.ID == "" {
+			sample.ID = id
+		}
+		if sample.RunID == "" {
+			sample.RunID = run
+		}
+		if failure != nil && env.Options.Suite == "plan8" {
+			failure = errors.Join(failure, a.plan8StopFailedModelTask(ctx, env, run))
+		}
+	}()
 	for _, prepare := range afterStart {
 		if err := prepare(run); err != nil {
 			return p5BenchmarkSample{ID: id, RunID: run}, err
@@ -210,7 +224,7 @@ func (a *App) realModelTask(ctx context.Context, env *E2EEnvironment, conversati
 	for {
 		state, err := client.PollJSON(ctx, "p5-real-wait-"+id, "enterprise", "/runs/"+run, enterpriseHeaders(env, ""))
 		if err != nil {
-			return p5BenchmarkSample{}, err
+			return p5BenchmarkSample{ID: id, RunID: run}, err
 		}
 		switch state["status"] {
 		case "succeeded", "failed", "cancelled", "timed_out", "waiting_input", "waiting_approval":
@@ -218,9 +232,9 @@ func (a *App) realModelTask(ctx context.Context, env *E2EEnvironment, conversati
 		}
 		select {
 		case <-ctx.Done():
-			return p5BenchmarkSample{}, ctx.Err()
+			return p5BenchmarkSample{ID: id, RunID: run}, ctx.Err()
 		case <-deadline.C:
-			return p5BenchmarkSample{}, fmt.Errorf("P5 real-model task %s exceeded ten minutes", id)
+			return p5BenchmarkSample{ID: id, RunID: run}, fmt.Errorf("P5 real-model task %s exceeded ten minutes", id)
 		case <-time.After(time.Second):
 		}
 	}

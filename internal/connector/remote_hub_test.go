@@ -10,6 +10,7 @@ import (
 
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 	"github.com/kakj-go/Argus/internal/remoteaccess"
+	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
 type hubOpenResult struct {
@@ -21,6 +22,7 @@ func startHubOpen(hub *RemoteAccessHub, connectorID uuid.UUID, epoch int64) <-ch
 	done := make(chan hubOpenResult, 1)
 	go func() {
 		session, err := hub.Open(context.Background(), remoteaccess.ConnectionTarget{
+			Session:         db.RemoteAccessSession{ID: uuid.New(), SessionFence: 1},
 			ConnectorID:     uuid.NullUUID{UUID: connectorID, Valid: true},
 			ConnectionEpoch: epoch,
 		}, 100, 30)
@@ -169,4 +171,41 @@ func TestRemoteAccessHubOpenValidatesBinding(t *testing.T) {
 	}, 100, 30); !errors.Is(err, remoteaccess.ErrSessionUnavailable) {
 		t.Fatalf("stale epoch must be rejected, got %v", err)
 	}
+}
+
+func TestKubernetesStreamsRequireAdvertisedConnectorCapability(t *testing.T) {
+	for _, role := range []string{"bastion", "kubernetes"} {
+		if !capabilitiesAllowed(role, []string{"kubernetes.query", "argus.kubernetes_stream/v1"}) {
+			t.Fatal("native handshake capability rejected", role)
+		}
+	}
+	if capabilitiesAllowed("host", []string{"argus.kubernetes_stream/v1"}) {
+		t.Fatal("host Connector acquired Kubernetes capability")
+	}
+	hub := NewRemoteAccessHub()
+	id := uuid.New()
+	outbound := make(chan *connectorv1.ConnectResponse, 8)
+	unregister := hub.Register(id, 1, outbound)
+	request := &connectorv1.RemoteAccessOpen{SessionId: uuid.NewString(), SessionFence: 1, Protocol: "kubernetes_exec", KubernetesTargetJson: []byte(`{"schema_version":"argus.kubernetes_stream/v1"}`)}
+	if _, err := hub.OpenPrepared(t.Context(), id, 1, request); !errors.Is(err, remoteaccess.ErrProtocol) {
+		t.Fatal("legacy Connector received unsupported protocol", err)
+	}
+	if len(outbound) != 0 {
+		t.Fatal("unsupported frame was enqueued")
+	}
+	unregister()
+	unregister = hub.Register(id, 2, outbound, "argus.kubernetes_stream/v1")
+	defer unregister()
+	done := make(chan hubOpenResult, 1)
+	go func() { s, e := hub.OpenPrepared(t.Context(), id, 2, request); done <- hubOpenResult{s, e} }()
+	open := readRemoteAccessOpen(t, outbound)
+	if open.Protocol != "kubernetes_exec" || open.ConnectionEpoch != 2 || string(open.KubernetesTargetJson) != string(request.KubernetesTargetJson) {
+		t.Fatal("native binding changed")
+	}
+	deliverRemoteState(t, hub, id, 2, open.StreamId, 1, connectorv1.RemoteAccessStateValue_REMOTE_ACCESS_STATE_VALUE_ACTIVE)
+	result := <-done
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+	_ = result.session.Close(context.Background(), "test_cleanup")
 }

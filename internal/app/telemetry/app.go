@@ -17,6 +17,7 @@ import (
 	"github.com/kakj-go/Argus/internal/app/component"
 	"github.com/kakj-go/Argus/internal/config"
 	connectorservice "github.com/kakj-go/Argus/internal/connector"
+	"github.com/kakj-go/Argus/internal/monitoring"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	redisstore "github.com/kakj-go/Argus/internal/storage/redis"
 	telemetryservice "github.com/kakj-go/Argus/internal/telemetry"
@@ -112,7 +113,7 @@ func runIngest(ctx context.Context, cfg config.Telemetry, store *postgres.Store,
 		return nil, err
 	}
 	bundles := trustbundle.Service{Store: store, MountedPath: cfg.TrustBundlePath, InitialEpoch: cfg.TrustBundleEpoch}
-	activeBundle, err := bundles.EnsureInitial(ctx)
+	activeBundle, err := bundles.AwaitCurrent(ctx)
 	if err != nil {
 		producer.Close()
 		_ = redisClient.Close()
@@ -136,8 +137,8 @@ func runIngest(ctx context.Context, cfg config.Telemetry, store *postgres.Store,
 		RequestPrefix: "argus-telemetry-server-", SubjectLabel: "argus.io/telemetry-collector-id", IssuerGeneration: int32(activeBundle.Epoch),
 		Usages: []string{"server auth"},
 	}}
-	domain := &telemetryservice.IngestServer{Control: telemetryservice.PostgresIngestControl{Queries: store.Queries}, Redis: redisClient, Kafka: producer, Identity: identityService, Logger: logger,
-		IngestGRPCEndpoint: cfg.IngestGRPCEndpoint, IngestHTTPEndpoint: cfg.IngestHTTPEndpoint}
+	domain := &telemetryservice.IngestServer{Control: telemetryservice.PostgresIngestControl{Queries: store.Queries}, Applications: monitoring.Service{Store: store}, Redis: redisClient, Kafka: producer, Identity: identityService, Logger: logger,
+		IngestGRPCEndpoint: cfg.IngestGRPCEndpoint, IngestHTTPEndpoint: cfg.IngestHTTPEndpoint, DeliveryReports: telemetryservice.CollectorDeliveryService{Store: store}}
 	grpcServer := telemetryservice.NewIngestGRPCServer(domain, tlsConfig)
 	grpcListener, err := net.Listen("tcp", cfg.IngestGRPCAddress)
 	if err != nil {
@@ -192,7 +193,7 @@ func runWriter(ctx context.Context, cfg config.Telemetry, store *postgres.Store,
 
 func runQuery(ctx context.Context, cfg config.Telemetry, store *postgres.Store, logger *slog.Logger, errorsChannel chan<- error) (func(context.Context), error) {
 	bundles := trustbundle.Service{Store: store, MountedPath: cfg.TrustBundlePath, InitialEpoch: cfg.TrustBundleEpoch}
-	if _, err := bundles.EnsureInitial(ctx); err != nil {
+	if _, err := bundles.AwaitCurrent(ctx); err != nil {
 		return nil, err
 	}
 	bundleNodeID := trustbundle.ProcessNodeID("telemetry-query")

@@ -18,6 +18,7 @@ func TestCatalogCursorIsBoundToQueryAndAuthorization(t *testing.T) {
 		func(r *DataCatalogRequest) { r.SourceKeys = []string{"other:1"} },
 		func(r *DataCatalogRequest) { r.ResourceIDs = []uuid.UUID{uuid.New()} },
 		func(r *DataCatalogRequest) { r.AuthorizationVersion++ },
+		func(r *DataCatalogRequest) { r.ScopeSignature = "changed-application-relation" },
 		func(r *DataCatalogRequest) { r.To = r.To.Add(time.Second) },
 		func(r *DataCatalogRequest) { r.Search = "new" },
 		func(r *DataCatalogRequest) { r.Field = "body" },

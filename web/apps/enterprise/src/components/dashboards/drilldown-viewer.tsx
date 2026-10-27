@@ -6,7 +6,13 @@ import {
   type DashboardPanel,
   type DashboardSchemas,
 } from "@argus/api-client";
-import { Alert, Button, Dialog, ObservationPanel } from "@argus/ui";
+import {
+  Alert,
+  Button,
+  Dialog,
+  ObservationDetails,
+  ObservationPanel,
+} from "@argus/ui";
 import { scalarPointer } from "./model";
 import { SourceSummary } from "./source-summary";
 
@@ -128,6 +134,15 @@ export function DrilldownViewer({
       open
       onOpenChange={(open) => !open && onClose()}
       title={`${panel.title} · ${t("dashboards.details")}`}
+      titleExtra={
+        current && (
+          <ObservationDetails
+            title={panel.title}
+            targets={[current.result]}
+            signal={signal}
+          />
+        )
+      }
       width={1200}
       className="argus-dashboard-detail-dialog"
     >
@@ -192,6 +207,7 @@ export function DrilldownViewer({
             <div className="argus-dashboard-detail-content">
               <ObservationPanel
                 title={panel.title}
+                details="external"
                 signal={signal}
                 type={type}
                 targets={[current.result]}

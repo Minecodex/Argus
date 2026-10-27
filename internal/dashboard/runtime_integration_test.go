@@ -111,7 +111,7 @@ func TestPublishedDashboardRunsAgainstRegisteredAuthorizedSources(t *testing.T) 
 	encoded, _ := json.Marshal(spec)
 	draft, err := service.CreateDraft(ctx, actor, DraftInput{Name: "Source-aware logs", Spec: encoded})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("create draft: %v; validation=%+v", err, Validate(spec))
 	}
 	preview, err := service.PreviewPublish(ctx, actor, draft.ID, draft.DraftVersion, uuid.NewString())
 	if err != nil {
@@ -141,11 +141,16 @@ func TestPublishedDashboardRunsAgainstRegisteredAuthorizedSources(t *testing.T) 
 	if result.RevisionID == uuid.Nil || result.ExecutionHash == "" || len(result.Resources) != 1 || result.Resources[0].ID != host || len(result.Panels) != 1 || result.Panels[0].Status != "success" || len(result.Panels[0].Sources) != 1 || result.Panels[0].Sources[0].ID != ownSource {
 		t.Fatalf("runtime lost frozen scope: %+v", result)
 	}
-	// Same frozen published query reuses projected data, with original timestamps.
+	// Selecting explicit roots creates a new scope even when the current all-
+	// authorized set happens to match. Repeating that exact scope can use cache.
 	fixedInput := ExecutionInput{From: &result.From, To: &result.To, ResourceIDs: []uuid.UUID{host}}
+	explicit, err := runtime.Execute(ctx, actor, published.ResourceID, fixedInput)
+	if err != nil || explicit.Panels[0].Targets[0].Meta.CacheHit || explicit.ScopeSignature == result.ScopeSignature {
+		t.Fatalf("scope mode change reused the old context: %v", err)
+	}
 	cached, err := runtime.Execute(ctx, actor, published.ResourceID, fixedInput)
 	if err != nil || !cached.Panels[0].Targets[0].Meta.CacheHit {
-		t.Fatalf("published cache miss: %+v %v", cached, err)
+		t.Fatalf("published query did not reuse its identical frozen scope: %v", err)
 	}
 	if cached.Panels[0].Targets[0].Meta.LatestSampleAt == nil || cached.Panels[0].Targets[0].Meta.IngestionStatus != "unknown" {
 		t.Fatal("original log sample freshness missing")

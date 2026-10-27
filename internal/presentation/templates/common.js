@@ -4,7 +4,7 @@
   const pageRead=parameters=>{const next=pageReads.then(()=>api.read('result.page',parameters));pageReads=next.catch(()=>{});return next;};
   const view={node,entry:'', locale:'zh-CN',text:(zh,en)=>view.locale==='zh-CN'?zh:en,
     value(value){return value===undefined||value===null||value===''?'—':typeof value==='object'?JSON.stringify(value):String(value);},
-    name(row){return row.name||row.display_name||row.hostname||row.service_name||row.id||view.text('名称未识别','Name unavailable');},
+    name(row){return row.name||row.display_name||row.hostname||row.service_name||row.definition?.name||row.id||row.kind||row.key||view.text('名称未识别','Name unavailable');},
     time(value){if(!value)return '—';const date=new Date(typeof value==='number'?(value<1e12?value*1000:value):value);return Number.isNaN(date.getTime())?String(value):date.toLocaleString(view.locale,{hour12:false})+' · '+Intl.DateTimeFormat().resolvedOptions().timeZone;},
     number(value,unit,decimals=3){if(value===null||value===undefined||value===''||!Number.isFinite(Number(value)))return '—';return Number(value).toLocaleString(view.locale,{maximumFractionDigits:decimals})+(unit?' '+unit:'');},
     header(root,title,subtitle){const header=node('header',undefined,'argus-template-header');header.append(node('h3',title));if(subtitle)header.append(node('p',subtitle));root.append(header);},

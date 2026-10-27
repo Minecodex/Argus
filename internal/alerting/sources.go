@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/observationscope"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"slices"
 	"strconv"
@@ -11,10 +12,18 @@ import (
 
 // Sources are frozen per evaluation, including collector generation and revision.
 // Reinstalling a collector or withdrawing authorization invalidates the result.
-func metricSources(ctx context.Context, q *db.Queries, enterprise uuid.UUID, ids, requested []uuid.UUID) ([]db.AlertMetricSourcesRow, error) {
-	rows, err := q.AlertMetricSources(ctx, db.AlertMetricSourcesParams{EnterpriseID: enterprise, ResourceIds: ids})
+func metricSources(ctx context.Context, q *db.Queries, actor Actor, ids, requested []uuid.UUID, types []string) ([]db.AlertMetricSourcesRow, observationscope.Snapshot, error) {
+	snapshot, err := (observationscope.Resolver{Queries: q}).Resolve(ctx, actor, observationscope.Selection{Mode: observationscope.Explicit, IDs: ids, Types: types, Signal: "metrics"})
 	if err != nil {
-		return nil, err
+		return nil, snapshot, err
+	}
+	if len(snapshot.Resources) == 0 {
+		return []db.AlertMetricSourcesRow{}, snapshot, nil
+	}
+	raw, _ := json.Marshal(snapshot.Refs())
+	rows, err := q.AlertMetricSources(ctx, db.AlertMetricSourcesParams{EnterpriseID: actor.EnterpriseID, ResourceRefs: raw})
+	if err != nil {
+		return nil, snapshot, err
 	}
 	out := []db.AlertMetricSourcesRow{}
 	found := []uuid.UUID{}
@@ -25,9 +34,9 @@ func metricSources(ctx context.Context, q *db.Queries, enterprise uuid.UUID, ids
 		}
 	}
 	if !containsAll(found, requested) {
-		return nil, ErrDenied
+		return nil, snapshot, ErrDenied
 	}
-	return out, nil
+	return out, snapshot, nil
 }
 func sourceKeys(rows []db.AlertMetricSourcesRow) []string {
 	keys := []string{}

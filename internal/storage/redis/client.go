@@ -85,7 +85,7 @@ func (client *Client) SetConnectorRegistry(ctx context.Context, connectorID stri
 	if err != nil {
 		return err
 	}
-	return client.Raw.Set(ctx, "argus:connector:registry:"+connectorID, value, ttl).Err()
+	return client.setConnectorRegistry(ctx, connectorID, entry, value, ttl)
 }
 
 func (client *Client) DeleteConnectorRegistry(ctx context.Context, connectorID string) error {

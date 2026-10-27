@@ -32,6 +32,9 @@ func (a *App) configurePlanV2SelfMonitoring(ctx context.Context, env *E2EEnviron
 		found := false
 		for _, entry := range catalog {
 			if entry["key"] == key {
+				if entry["support_status"] != "supported" {
+					return fmt.Errorf("PlanV2 unkeyed self-monitoring is retired; Plan8 acceptance requires authenticated application endpoints (profile %s)", key)
+				}
 				id, _ := entry["id"].(string)
 				profiles = append(profiles, id)
 				found = true
@@ -146,12 +149,12 @@ func planV2SelfCollector(raw []byte) ([]byte, error) {
 	}
 	receivers := config["receivers"].(map[string]any)
 	for name := range receivers {
-		if name != "otlp" && name != "skywalking" && name != "jaeger" {
+		if name != "otlp" && name != "jaeger" {
 			delete(receivers, name)
 		}
 	}
-	if len(receivers) != 3 {
-		return nil, fmt.Errorf("expected three registered native/OTLP receivers")
+	if len(receivers) != 2 {
+		return nil, fmt.Errorf("expected historical OTLP/Jaeger receiver shapes")
 	}
 	service := config["service"].(map[string]any)
 	pipelines := service["pipelines"].(map[string]any)
@@ -162,8 +165,8 @@ func planV2SelfCollector(raw []byte) ([]byte, error) {
 			delete(pipelines, name)
 		}
 	}
-	if len(pipelines) != 5 {
-		return nil, fmt.Errorf("expected OTLP three-signal and two native trace pipelines")
+	if len(pipelines) != 4 {
+		return nil, fmt.Errorf("expected historical OTLP three-signal and Jaeger trace pipelines")
 	}
 	config["extensions"] = map[string]any{}
 	service["extensions"] = []string{}

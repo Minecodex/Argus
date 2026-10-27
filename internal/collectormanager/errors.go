@@ -9,6 +9,9 @@ import (
 	"github.com/kakj-go/Argus/internal/telemetrybinding"
 )
 
+var ErrConfigInvalid = errors.New("Collector rejected candidate configuration")
+var ErrRollbackFailed = errors.New("Collector rollback did not restore a verified running version")
+
 type stageError struct {
 	stage string
 	cause error
@@ -41,6 +44,10 @@ func FailureStage(err error) string {
 // 在界面与审计里呈现一致的可诊断信息,而不是笼统的 MANAGEMENT_FAILED。
 func FailureCode(err error) string {
 	switch {
+	case errors.Is(err, ErrRollbackFailed):
+		return "COLLECTOR_ROLLBACK_UNVERIFIED"
+	case errors.Is(err, ErrConfigInvalid):
+		return "COLLECTOR_CONFIG_INVALID"
 	case errors.Is(err, context.DeadlineExceeded):
 		return "COLLECTOR_HEALTH_CHECK_FAILED"
 	case errors.Is(err, ErrTargetAuthFailed):

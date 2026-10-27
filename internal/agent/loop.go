@@ -28,13 +28,16 @@ import (
 )
 
 const (
-	maxAgentTurns      = 24
+	maxAgentTurns      = toolruntime.MaxInferenceTurns
 	maxToolResultBytes = 64 << 20
 	maxProjectionBytes = 64 << 10
 )
 
 type Loop struct {
-	AutoConfirm    func(context.Context, db.Run) error
+	AutoConfirm func(context.Context, db.Run) error
+	// DeliverResults resumes durable native-query imports before another model
+	// round. It never changes the immutable source artifact or its projection.
+	DeliverResults func(context.Context, db.Run) error
 	RemoteFacts    func(context.Context, db.Run) (map[string]any, error)
 	Objects        *objectstore.Client
 	Store          *postgres.Store
@@ -127,6 +130,11 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 
 	provider := modelprovider.Provider{Protocol: modelprovider.Protocol(revision.ApiProtocol), BaseURL: revision.BaseUrl,
 		APIKey: string(credential), Client: loop.EndpointPolicy.ModelClient()}
+	if loop.DeliverResults != nil {
+		if err := loop.DeliverResults(ctx, run); err != nil {
+			return err
+		}
+	}
 	messages, currentInput, modelScope, source, err := loop.messages(ctx, run)
 	if err != nil {
 		return err
@@ -175,8 +183,11 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 		if scopeErr != nil || currentScope != modelScope {
 			return loop.finishRun(ctx, run, "failed", "authorization_invalidated", "AUTHORIZATION_VERSION_STALE")
 		}
-		turnTools := toolSet.Models()
-		projection, err := loop.context(ctx, run, revision, messages, currentInput, turnTools, source)
+		turnMessages, turnTools, err := inferenceTurnContext(run.ModeSnapshot, turn, messages, toolSet.Models())
+		if err != nil {
+			return err
+		}
+		projection, err := loop.context(ctx, run, revision, turnMessages, currentInput, turnTools, source)
 		if err != nil {
 			if errors.Is(err, ErrContextTooLarge) {
 				return loop.waitForCompaction(ctx, run, "CONTEXT_TOO_LARGE")
@@ -329,6 +340,12 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 		if len(calls) == 0 {
 			return loop.finishAssistantTurn(ctx, run, step, text.String(), modelScope, usage, stopReason)
 		}
+		if finalInferenceTurn(turn) {
+			if err := loop.failStep(ctx, run, step); err != nil {
+				return err
+			}
+			return loop.finishRun(ctx, run, "failed", "output_limit", "RUN_STEP_LIMIT_REACHED")
+		}
 		if !allowsToolExecution(stopReason) {
 			if finishErr := persistStepStatus(ctx, loop.Store, db.FinishRunStepParams{ID: step.ID, EnterpriseID: run.EnterpriseID, Status: "failed"}); finishErr != nil {
 				return finishErr
@@ -340,6 +357,12 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 		if err != nil {
 			_ = loop.failStep(ctx, run, step)
 			return err
+		}
+		for _, result := range toolResults {
+			if result.unknown {
+				_ = loop.failStep(ctx, run, step)
+				return loop.finishRun(ctx, run, "failed", "result_unknown", "TOOL_RESULT_UNKNOWN")
+			}
 		}
 		for _, result := range toolResults {
 			if result.paused {
@@ -384,22 +407,11 @@ func (loop Loop) context(ctx context.Context, run db.Run, revision db.AiModelRev
 	if err != nil {
 		return ContextProjection{}, err
 	}
-	// Relative user times must be anchored to a trusted host clock, rather
-	// than inferred from historical messages or a model's training date.
-	checkpoint["current_time_utc"] = time.Now().UTC().Format(time.RFC3339)
-	checkpoint["mode"] = run.ModeSnapshot
 	var toolSnapshot toolruntime.Snapshot
 	if err := json.Unmarshal(run.ToolSnapshot, &toolSnapshot); err != nil {
 		return ContextProjection{}, err
 	}
-	builtinNames := []string{}
-	for _, tool := range tools {
-		switch tool.Name {
-		case "read", "write", "edit", "bash", "connect":
-			builtinNames = append(builtinNames, tool.Name)
-		}
-	}
-	checkpoint["builtin_tool_availability"] = map[string]any{"workspace_status_at_run_start": toolSnapshot.SandboxStatus, "available": builtinNames}
+	checkpoint = conversation.WithModelRuntimeFacts(checkpoint, run.ModeSnapshot, toolSnapshot, tools, time.Now())
 	if loop.RemoteFacts != nil {
 		facts, e := loop.RemoteFacts(ctx, run)
 		if e != nil {
@@ -457,10 +469,7 @@ func (loop Loop) createModelCall(ctx context.Context, run db.Run, step db.RunSte
 }
 func (loop Loop) finishModelCall(ctx context.Context, call db.ModelCall, revision db.AiModelRevision, usage modelprovider.TokenUsage, latency time.Duration, reason, status, errorCode string, reserved pgtype.Numeric) error {
 	amount := usageAmount(usage, revision, reserved)
-	return fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
-		_, err := q.FinishModelCall(ctx, db.FinishModelCallParams{ID: call.ID, EnterpriseID: call.EnterpriseID, InputTokens: usage.Input, OutputTokens: usage.Output, CachedInputTokens: usage.CachedInput, CachedInputUsageSource: usage.CachedSource(), InputUsageSource: usage.InputSource(), OutputUsageSource: usage.OutputSource(), Amount: amount, LatencyMs: latency.Milliseconds(), StopReason: pgtype.Text{String: reason, Valid: reason != ""}, Status: status, ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}})
-		return err
-	})
+	return persistModelOutcome(ctx, loop.Store, db.FinishModelCallParams{ID: call.ID, EnterpriseID: call.EnterpriseID, InputTokens: usage.Input, OutputTokens: usage.Output, CachedInputTokens: usage.CachedInput, CachedInputUsageSource: usage.CachedSource(), InputUsageSource: usage.InputSource(), OutputUsageSource: usage.OutputSource(), Amount: amount, LatencyMs: latency.Milliseconds(), StopReason: pgtype.Text{String: reason, Valid: reason != ""}, Status: status, ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}})
 }
 
 func (loop Loop) failStep(ctx context.Context, run db.Run, step db.RunStep) error {

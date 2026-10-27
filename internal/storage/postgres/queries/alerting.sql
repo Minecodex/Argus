@@ -113,9 +113,10 @@ SELECT * FROM alert_deliveries WHERE enterprise_id=$1 AND channel_id=$2 AND grou
 ORDER BY created_at,id LIMIT 100 FOR UPDATE SKIP LOCKED;
 
 -- name: AlertMetricSources :many
-SELECT source.id,source.resource_id,source.source_key,source.config_revision,source.config_hash,source.generation
+SELECT source.id,source.resource_type,source.resource_id,source.source_key,source.config_revision,source.config_hash,source.generation
 FROM telemetry_sources source JOIN collector_instances collector ON collector.id=source.collector_id AND collector.enterprise_id=source.enterprise_id
-WHERE source.enterprise_id=sqlc.arg(enterprise_id) AND source.resource_id=ANY(sqlc.arg(resource_ids)::uuid[])
+JOIN jsonb_to_recordset(sqlc.arg(resource_refs)::jsonb) AS resource(type text,id uuid) ON resource.id=source.resource_id AND resource.type=source.resource_type
+WHERE source.enterprise_id=sqlc.arg(enterprise_id)
 AND source.generation=collector.source_generation AND collector.status NOT IN ('uninstalled','uninstalling') AND 'metrics'=ANY(source.signals)
 AND source.config_revision=collector.effective_revision
 ORDER BY source.id,source.config_revision;

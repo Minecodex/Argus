@@ -53,12 +53,14 @@ message TelemetryQueryScope {
   reserved "allowed_signals", "sensitive_fields";
   uint64 authorization_version = 4;
   string scope_hash = 5;
-  // Frozen source UUID:configuration-revision keys. Empty is only for legacy native queries.
+  // Frozen source UUID:configuration-revision keys; an empty set never means all sources.
   repeated string source_keys = 7;
   // Routing identity, not a signal-specific permission.
   string signal = 8;
   string subject_id = 9;
   string subject_type = 10;
+  // Frozen domain scope including resource and relationship revisions.
+  string scope_signature = 11;
 }
 
 message QueryOverviewRequest {

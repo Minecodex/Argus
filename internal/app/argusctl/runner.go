@@ -40,7 +40,20 @@ func (r commandRunner) quiet(ctx context.Context, name string, args ...string) (
 }
 
 func (r commandRunner) quietInput(ctx context.Context, stdin io.Reader, name string, args ...string) (string, error) {
+	return r.quietInputInDir(ctx, stdin, "", nil, name, args...)
+}
+
+func (r commandRunner) quietInDir(ctx context.Context, directory string, environment map[string]string, name string, args ...string) (string, error) {
+	return r.quietInputInDir(ctx, nil, directory, environment, name, args...)
+}
+
+func (r commandRunner) quietInputInDir(ctx context.Context, stdin io.Reader, directory string, environment map[string]string, name string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = directory
+	cmd.Env = os.Environ()
+	for key, value := range environment {
+		cmd.Env = append(cmd.Env, key+"="+value)
+	}
 	cmd.Stdin = stdin
 	var output bytes.Buffer
 	cmd.Stdout = &output

@@ -519,6 +519,12 @@ export function createAlertDomains(ctx: MockContext): AlertDomains {
       },
       async preview(input) {
         permission(ctx, required(input.kind));
+        if (
+          input.id &&
+          state(ctx).configurations.find((row) => row.id === input.id)
+            ?.managed_by === "collector_delivery"
+        )
+          fail("ALERT_DENIED", 403);
         if (input.kind === "policy" && input.operation === "update") {
           const rules = (
             input.spec as AlertSchemas["AlertPolicySpec"] | undefined

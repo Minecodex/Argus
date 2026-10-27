@@ -156,8 +156,10 @@ type RemoteAccessOpen struct {
 	IdleTimeout        *durationpb.Duration   `protobuf:"bytes,15,opt,name=idle_timeout,json=idleTimeout,proto3" json:"idle_timeout,omitempty"`
 	MaxDuration        *durationpb.Duration   `protobuf:"bytes,16,opt,name=max_duration,json=maxDuration,proto3" json:"max_duration,omitempty"`
 	Username           string                 `protobuf:"bytes,17,opt,name=username,proto3" json:"username,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Versioned target for independently authorized Kubernetes streams.
+	KubernetesTargetJson []byte `protobuf:"bytes,18,opt,name=kubernetes_target_json,json=kubernetesTargetJson,proto3" json:"kubernetes_target_json,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *RemoteAccessOpen) Reset() {
@@ -307,6 +309,13 @@ func (x *RemoteAccessOpen) GetUsername() string {
 		return x.Username
 	}
 	return ""
+}
+
+func (x *RemoteAccessOpen) GetKubernetesTargetJson() []byte {
+	if x != nil {
+		return x.KubernetesTargetJson
+	}
+	return nil
 }
 
 // Deprecated: Marked as deprecated in argus/connector/v1/remote_access.proto.
@@ -706,7 +715,7 @@ var File_argus_connector_v1_remote_access_proto protoreflect.FileDescriptor
 
 const file_argus_connector_v1_remote_access_proto_rawDesc = "" +
 	"\n" +
-	"&argus/connector/v1/remote_access.proto\x12\x12argus.connector.v1\x1a\x1cargus/common/v1/common.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd1\x05\n" +
+	"&argus/connector/v1/remote_access.proto\x12\x12argus.connector.v1\x1a\x1cargus/common/v1/common.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x87\x06\n" +
 	"\x10RemoteAccessOpen\x12\x1b\n" +
 	"\tstream_id\x18\x01 \x01(\tR\bstreamId\x12\x1d\n" +
 	"\n" +
@@ -729,7 +738,8 @@ const file_argus_connector_v1_remote_access_proto_rawDesc = "" +
 	"\rterminal_rows\x18\x0e \x01(\rR\fterminalRows\x12<\n" +
 	"\fidle_timeout\x18\x0f \x01(\v2\x19.google.protobuf.DurationR\vidleTimeout\x12<\n" +
 	"\fmax_duration\x18\x10 \x01(\v2\x19.google.protobuf.DurationR\vmaxDuration\x12\x1a\n" +
-	"\busername\x18\x11 \x01(\tR\busername\"\x94\x01\n" +
+	"\busername\x18\x11 \x01(\tR\busername\x124\n" +
+	"\x16kubernetes_target_json\x18\x12 \x01(\fR\x14kubernetesTargetJson\"\x94\x01\n" +
 	"\x10RemoteAccessData\x12\x1b\n" +
 	"\tstream_id\x18\x01 \x01(\tR\bstreamId\x12'\n" +
 	"\x0fstream_sequence\x18\x02 \x01(\x04R\x0estreamSequence\x12\x12\n" +

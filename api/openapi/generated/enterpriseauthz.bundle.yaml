@@ -225,6 +225,12 @@ paths:
           required: true
           schema:
             $ref: '#/components/schemas/DataAuthorizationResourceType'
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/parameters-Limit'
       responses:
@@ -478,6 +484,9 @@ components:
         - host
         - kubernetes_cluster
         - dashboard
+        - application
+        - monitoring_target
+        - kubernetes_namespace
     DataAuthorizationResource:
       type: object
       additionalProperties: false
@@ -495,6 +504,15 @@ components:
           type: string
           format: uuid
         name:
+          type: string
+        environment:
+          type: string
+        parent_id:
+          type: string
+          format: uuid
+        parent_name:
+          type: string
+        source_uid:
           type: string
         direct:
           type: boolean

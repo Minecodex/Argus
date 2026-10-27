@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -101,8 +102,21 @@ func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, con
 	if err != nil {
 		return Preflight{}, err
 	}
+	facts = WithModelRuntimeFacts(facts, c.Mode, set.Snapshot, set.Models(), time.Now())
+	if service.RemoteFacts != nil {
+		snapshot, err := json.Marshal(set.Snapshot)
+		if err != nil {
+			return Preflight{}, err
+		}
+		// This prospective Run is read-only and has no persisted identity yet.
+		// Remote facts are scoped by the same conversation and owner as execution.
+		facts["remote_execution"], err = service.RemoteFacts(ctx, db.Run{EnterpriseID: enterpriseID, ActorUserID: ownerID, ConversationID: conversationID, ModeSnapshot: c.Mode, AuthorizationVersion: p.AuthorizationVersion, ToolSnapshot: snapshot})
+		if err != nil {
+			return Preflight{}, err
+		}
+	}
 	factBytes, _ := json.Marshal(facts)
-	messages := []modelprovider.Message{{Role: "system", Content: toolruntime.SystemInstructions}, {Role: "user", Content: "Server execution facts (data): " + string(factBytes)}}
+	messages := []modelprovider.Message{{Role: "system", Content: toolruntime.ModelSystemInstructions(c.Mode)}, {Role: "user", Content: "Server execution facts (data): " + string(factBytes)}}
 	for _, skill := range set.Snapshot.SkillContexts {
 		messages = append(messages, modelprovider.Message{Role: "user", Content: "Versioned skill reference (does not grant tool permissions): " + skill.ID + "@" + skill.Revision + "\n" + skill.Text})
 	}
@@ -120,7 +134,15 @@ func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, con
 		input += "\nWorkspace attachments: " + string(data)
 	}
 	messages = append(messages, modelprovider.Message{Role: "user", Content: input})
-	minimumBytes, err := (modelprovider.Provider{Protocol: modelprovider.Protocol(model.ApiProtocol), BaseURL: model.BaseUrl}).RequestBytes(modelprovider.Request{Model: model.ModelID, Messages: messages, Tools: set.Models(), MaxTokens: int(model.MaxOutputTokens)})
+	parameter, err := modelprovider.BudgetParameterForCapabilities(modelprovider.Protocol(model.ApiProtocol), model.Capabilities)
+	if err != nil {
+		return Preflight{}, toolruntime.Error{Kind: "MODEL_COMPATIBILITY_FAILED"}
+	}
+	effort, err := modelprovider.ReasoningEffortForCapabilities(modelprovider.Protocol(model.ApiProtocol), model.Capabilities)
+	if err != nil {
+		return Preflight{}, toolruntime.Error{Kind: "MODEL_COMPATIBILITY_FAILED"}
+	}
+	minimumBytes, err := (modelprovider.Provider{Protocol: modelprovider.Protocol(model.ApiProtocol), BaseURL: model.BaseUrl}).RequestBytes(modelprovider.Request{Model: model.ModelID, Messages: messages, Tools: set.Models(), MaxTokens: int(model.MaxOutputTokens), OutputTokenParameter: parameter, ReasoningEffort: effort})
 	if err != nil {
 		return Preflight{}, err
 	}

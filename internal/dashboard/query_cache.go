@@ -15,7 +15,8 @@ func (runtime Runtime) targetCacheNamespace(panel Panel, target Target, variable
 		Variables, Locals, Inputs map[string]Selection
 		Scope                     queryScope
 		Compiler                  string
-	}{runtime.cacheDashboard, runtime.cacheRevision, panel, target, variables, locals, inputs, scope, CompilerVersion})
+		ScopeSignature            string
+	}{runtime.cacheDashboard, runtime.cacheRevision, panel, target, variables, locals, inputs, scope, CompilerVersion, runtime.cacheScopeSignature})
 	if err != nil {
 		return ""
 	}

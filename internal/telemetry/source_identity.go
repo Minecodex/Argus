@@ -2,11 +2,14 @@ package telemetry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/kakj-go/Argus/internal/monitoring"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	collectlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectmetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
@@ -16,11 +19,20 @@ import (
 )
 
 type SourceIdentity struct {
-	ID                uuid.UUID
-	Revision          int64
-	Type              string
-	Generation        uuid.UUID
-	CapabilityVersion string
+	ServiceID                                                uuid.UUID
+	ServiceName, ServiceNamespace, Environment, NamespaceUID string
+	NamespaceUnverified                                      bool
+	ID                                                       uuid.UUID
+	Revision                                                 int64
+	Type                                                     string
+	Generation                                               uuid.UUID
+	CapabilityVersion                                        string
+	ResourceID                                               uuid.UUID
+	ResourceType                                             string
+	CollectionID                                             uuid.UUID
+	CollectionRevision                                       int64
+	AssignmentEpoch                                          int64
+	IngestEndpointID                                         uuid.UUID
 }
 
 func (source SourceIdentity) Key() string {
@@ -33,10 +45,45 @@ type IngestSourceResolver interface {
 
 func (store PostgresIngestControl) ResolveSource(ctx context.Context, identity TrustedIdentity, id uuid.UUID, revision int64, signal string) (SourceIdentity, error) {
 	row, err := store.Queries.ResolveTelemetrySource(ctx, db.ResolveTelemetrySourceParams{ID: id, ConfigRevision: revision, CollectorID: identity.CollectorID, EnterpriseID: identity.EnterpriseID})
-	if err != nil || row.ResourceID != identity.ResourceID || row.ResourceType != identity.ResourceType || !slices.Contains(row.Signals, signal) {
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return SourceIdentity{}, controlReadError(err)
+		}
+		pending, lookupErr := store.Queries.TelemetrySourceAwaitingApply(ctx, db.TelemetrySourceAwaitingApplyParams{ID: id, ConfigRevision: revision, CollectorID: identity.CollectorID, EnterpriseID: identity.EnterpriseID, Signal: signal})
+		if lookupErr != nil {
+			return SourceIdentity{}, controlReadError(lookupErr)
+		}
+		if pending {
+			return SourceIdentity{}, ErrSourceAwaitingApply
+		}
 		return SourceIdentity{}, errIngestRejected
 	}
-	return SourceIdentity{ID: row.ID, Revision: row.ConfigRevision, Type: row.SourceType, Generation: row.Generation, CapabilityVersion: row.CapabilityVersion}, nil
+	if !slices.Contains(row.Signals, signal) {
+		return SourceIdentity{}, errIngestRejected
+	}
+	result := SourceIdentity{ID: row.ID, Revision: row.ConfigRevision, Type: row.SourceType, Generation: row.Generation, CapabilityVersion: row.CapabilityVersion,
+		ResourceID: row.ResourceID, ResourceType: row.ResourceType, CollectionID: row.CollectionID.UUID, CollectionRevision: row.CollectionRevision.Int64, AssignmentEpoch: row.AssignmentEpoch.Int64, IngestEndpointID: row.IngestEndpointID.UUID, ServiceID: row.ApplicationServiceID.UUID, NamespaceUID: row.NamespaceUid}
+	if row.ApplicationServiceID.Valid {
+		if signal != "logs" || row.ResourceType != "application" || !row.CollectionID.Valid || row.IngestEndpointID.Valid {
+			return SourceIdentity{}, errIngestRejected
+		}
+		service, e := store.Queries.GetMonitoringService(ctx, db.GetMonitoringServiceParams{EnterpriseID: identity.EnterpriseID, ID: row.ApplicationServiceID.UUID})
+		if e != nil {
+			return SourceIdentity{}, controlReadError(e)
+		}
+		if service.Status != "active" || service.ApplicationID != row.ResourceID {
+			return SourceIdentity{}, errIngestRejected
+		}
+		app, e := store.Queries.GetMonitoringApplication(ctx, db.GetMonitoringApplicationParams{EnterpriseID: identity.EnterpriseID, ID: row.ResourceID})
+		if e != nil {
+			return SourceIdentity{}, controlReadError(e)
+		}
+		if app.Status != "active" {
+			return SourceIdentity{}, errIngestRejected
+		}
+		result.ServiceName, result.ServiceNamespace, result.Environment = service.ServiceName, service.ServiceNamespace, app.Environment
+	}
+	return result, nil
 }
 
 func sourceReference(attrs []*commonpb.KeyValue) (uuid.UUID, int64, bool, error) {
@@ -78,8 +125,8 @@ func (server *IngestServer) applyTrustedSources(ctx context.Context, identity Tr
 	sources := make([]SourceIdentity, len(resources))
 	for i, res := range resources {
 		id, revision, present, err := sourceReference((*res).GetAttributes())
-		if err != nil {
-			return err
+		if err != nil || !present {
+			return errIngestRejected
 		}
 		sources[i] = SourceIdentity{Type: "unknown"}
 		if present {
@@ -89,16 +136,70 @@ func (server *IngestServer) applyTrustedSources(ctx context.Context, identity Tr
 			}
 			sources[i], err = resolver.ResolveSource(ctx, identity, id, revision, signal)
 			if err != nil {
-				return err
+				return &admissionStageError{Stage: "source", Cause: err}
 			}
 			if sources[i].ID != id || sources[i].Revision != revision || sources[i].Type == "" {
 				return errIngestRejected
 			}
+			if signal == "metrics" {
+				sources[i].NamespaceUID, err = server.metricNamespace(ctx, identity, sources[i], (*res).GetAttributes())
+				if errors.Is(err, errNamespaceAttributionUnverified) {
+					sources[i].NamespaceUID = ""
+					sources[i].NamespaceUnverified = true
+					err = nil
+				}
+				if err != nil {
+					stage := "namespace_uid"
+					if attributesMap((*res).GetAttributes())["k8s.namespace.uid"] == "" {
+						stage = "namespace_object"
+					}
+					return &admissionStageError{Stage: stage, Cause: err}
+				}
+			}
+			source := sources[i]
+			if source.ServiceID != uuid.Nil && (signal != "logs" || source.ResourceType != "application" || source.IngestEndpointID != uuid.Nil || source.CollectionID == uuid.Nil || source.ServiceName == "" || source.Environment == "") {
+				return errIngestRejected
+			}
+			if source.ResourceType == "application" && source.IngestEndpointID == uuid.Nil && source.ServiceID == uuid.Nil {
+				return errIngestRejected
+			}
+		}
+		// A Collector certificate authenticates the transport, not an SDK's
+		// application. All business traces require a registered application
+		// endpoint whose Key is rechecked below. Legacy host receivers cannot
+		// turn arbitrary service.name labels into application authority.
+		if signal == "traces" && (sources[i].IngestEndpointID == uuid.Nil || sources[i].ResourceType != "application" || sources[i].Type == "skywalking") {
+			return errIngestRejected
+		}
+		if (sources[i].Type == "otlp" || sources[i].Type == "jaeger" || sources[i].Type == "skywalking") && sources[i].IngestEndpointID == uuid.Nil {
+			return errIngestRejected
 		}
 	}
+	applications, err := server.resolveApplicationSources(ctx, identity, signal, sources, resources)
+	if err != nil {
+		return &admissionStageError{Stage: "application_identity", Cause: err}
+	}
 	for i, res := range resources {
-		overwriteResource(res, identity)
 		source := sources[i]
+		resourceIdentity := identity
+		if source.ResourceID != uuid.Nil {
+			resourceIdentity.ResourceID, resourceIdentity.ResourceType = source.ResourceID, source.ResourceType
+		}
+		overwriteResource(res, resourceIdentity)
+		if application, ok := applications[i]; ok {
+			stampApplicationIdentity(*res, application)
+		}
+		if source.ServiceID != uuid.Nil {
+			stampApplicationIdentity(*res, monitoring.ApplicationIdentity{ApplicationID: source.ResourceID, ServiceID: source.ServiceID, Environment: source.Environment})
+			setResourceString(*res, "service.name", source.ServiceName)
+			setResourceString(*res, "service.namespace", source.ServiceNamespace)
+		}
+		if source.NamespaceUID != "" {
+			setResourceString(*res, "argus.namespace.uid", source.NamespaceUID)
+		}
+		if source.NamespaceUnverified {
+			setResourceString(*res, "argus.namespace.attribution_status", "unverified")
+		}
 		(*res).Attributes = append((*res).Attributes,
 			&commonpb.KeyValue{Key: "argus.source.id", Value: stringValue(source.ID.String())},
 			&commonpb.KeyValue{Key: "argus.source.revision", Value: stringValue(strconv.FormatInt(source.Revision, 10))},
@@ -106,6 +207,12 @@ func (server *IngestServer) applyTrustedSources(ctx context.Context, identity Tr
 			&commonpb.KeyValue{Key: "argus.source.generation", Value: stringValue(source.Generation.String())},
 			&commonpb.KeyValue{Key: "argus.source.capability_version", Value: stringValue(source.CapabilityVersion)},
 		)
+		if source.CollectionID != uuid.Nil {
+			(*res).Attributes = append((*res).Attributes,
+				&commonpb.KeyValue{Key: "argus.collection.id", Value: stringValue(source.CollectionID.String())},
+				&commonpb.KeyValue{Key: "argus.collection.revision", Value: stringValue(strconv.FormatInt(source.CollectionRevision, 10))},
+				&commonpb.KeyValue{Key: "argus.assignment.epoch", Value: stringValue(strconv.FormatInt(source.AssignmentEpoch, 10))})
+		}
 	}
 	return nil
 }
@@ -113,7 +220,7 @@ func (server *IngestServer) applyTrustedSources(ctx context.Context, identity Tr
 func (server *IngestServer) prepareMetricPayload(ctx context.Context, gateway TrustedIdentity, request *collectmetrics.ExportMetricsServiceRequest) (TrustedIdentity, error) {
 	identity, err := server.resolveMetricPayloadIdentity(ctx, gateway, request)
 	if err != nil {
-		return identity, err
+		return identity, &admissionStageError{Stage: "forwarded_identity", Cause: err}
 	}
 	resources := []**resourcepb.Resource{}
 	for _, item := range request.ResourceMetrics {
@@ -122,12 +229,15 @@ func (server *IngestServer) prepareMetricPayload(ctx context.Context, gateway Tr
 		}
 		resources = append(resources, &item.Resource)
 	}
-	return identity, server.applyTrustedSources(ctx, identity, "metrics", resources)
+	if err := server.applyTrustedSources(ctx, identity, "metrics", resources); err != nil {
+		return identity, err
+	}
+	return identity, redactMetricPayload(request)
 }
 func (server *IngestServer) prepareLogPayload(ctx context.Context, gateway TrustedIdentity, request *collectlogs.ExportLogsServiceRequest) (TrustedIdentity, error) {
 	identity, err := server.resolveLogPayloadIdentity(ctx, gateway, request)
 	if err != nil {
-		return identity, err
+		return identity, &admissionStageError{Stage: "forwarded_identity", Cause: err}
 	}
 	resources := []**resourcepb.Resource{}
 	for _, item := range request.ResourceLogs {
@@ -136,12 +246,15 @@ func (server *IngestServer) prepareLogPayload(ctx context.Context, gateway Trust
 		}
 		resources = append(resources, &item.Resource)
 	}
-	return identity, server.applyTrustedSources(ctx, identity, "logs", resources)
+	if err := server.applyTrustedSources(ctx, identity, "logs", resources); err != nil {
+		return identity, err
+	}
+	return identity, redactLogPayload(request)
 }
 func (server *IngestServer) prepareTracePayload(ctx context.Context, gateway TrustedIdentity, request *collecttraces.ExportTraceServiceRequest) (TrustedIdentity, error) {
 	identity, err := server.resolveTracePayloadIdentity(ctx, gateway, request)
 	if err != nil {
-		return identity, err
+		return identity, &admissionStageError{Stage: "forwarded_identity", Cause: err}
 	}
 	resources := []**resourcepb.Resource{}
 	for _, item := range request.ResourceSpans {
@@ -150,7 +263,10 @@ func (server *IngestServer) prepareTracePayload(ctx context.Context, gateway Tru
 		}
 		resources = append(resources, &item.Resource)
 	}
-	return identity, server.applyTrustedSources(ctx, identity, "traces", resources)
+	if err := server.applyTrustedSources(ctx, identity, "traces", resources); err != nil {
+		return identity, err
+	}
+	return identity, redactTracePayload(request)
 }
 
 // Kafka payloads are already normalized by Ingest. Missing origin in legacy

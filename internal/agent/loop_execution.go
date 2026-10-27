@@ -20,6 +20,11 @@ import (
 )
 
 func (loop Loop) executeToolCalls(ctx context.Context, run db.Run, step db.RunStep, modelCall db.ModelCall, set *toolruntime.Set, principal toolruntime.Principal, readOnly bool, text, modelScope string, calls []*pendingToolCall) ([]toolExecutionResult, error) {
+	barrier, err := loop.actionBatchReadOnly(ctx, run)
+	if err != nil {
+		return nil, err
+	}
+	readOnly = readOnly || barrier
 	records := make([]db.ToolCall, 0, len(calls))
 	assistant := modelprovider.Message{Role: "assistant", Content: text}
 	scope, err := presentation.Scope(ctx, loop.Store, run.EnterpriseID, run.ActorUserID)
@@ -61,6 +66,7 @@ func (loop Loop) executeToolCalls(ctx context.Context, run db.Run, step db.RunSt
 	}
 	results := make([]toolExecutionResult, len(records))
 	stopped := false
+	actionPaused := false
 	for index, record := range records {
 		var result toolExecutionResult
 		var err error
@@ -73,7 +79,11 @@ func (loop Loop) executeToolCalls(ctx context.Context, run db.Run, step db.RunSt
 			return nil, err
 		}
 		results[index] = result
-		if result.paused {
+		if result.paused && result.controlKind == "action" {
+			// Reconciliation waits for the complete durable message group. Keep
+			// already declared reads, and restrict subsequent calls before dispatch.
+			actionPaused, readOnly = true, true
+		} else if result.paused {
 			if result.controlKind == "plan" {
 				for _, remaining := range records[index+1:] {
 					if _, err := loop.persistToolOutcome(ctx, run, remaining, toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_CANCELLED"}); err != nil {
@@ -87,6 +97,11 @@ func (loop Loop) executeToolCalls(ctx context.Context, run db.Run, step db.RunSt
 			return results[:index+1], nil
 		}
 		stopped = stopped || result.unknown
+	}
+	if actionPaused {
+		if err := loop.finishToolBatchSteps(ctx, run, records, stopped); err != nil {
+			return nil, err
+		}
 	}
 	return results, nil
 }
@@ -130,7 +145,7 @@ func (loop Loop) executePersistedTool(ctx context.Context, run db.Run, set *tool
 			if terminalRun(latest.Status) {
 				return toolruntime.Error{Kind: "TOOL_CANCELLED"}
 			}
-			if latest.VerificationOnly && (!exists || !tool.AllowedDuringVerification()) {
+			if (readOnly || latest.VerificationOnly) && (!exists || !tool.AllowedDuringVerification()) {
 				return toolruntime.Error{Kind: "TOOL_READ_ONLY_REQUIRED"}
 			}
 			if record.Status != "prepared" {
@@ -199,6 +214,10 @@ func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.T
 		status, errorCode = "failed", "TOOL_RESULT_TOO_LARGE"
 		result.Data = map[string]any{"error_code": errorCode}
 		full, _ = json.Marshal(result.Data)
+	}
+	result.QueryFile = ""
+	if status == "succeeded" && loop.DeliverResults != nil && record.Source == "argus" && record.ToolID == "tool.invoke" && !result.DataIsSchema && !result.DataIsDiscovery {
+		result.QueryFile = toolruntime.NativeQueryFile(result.ToolID, record.ID)
 	}
 	resultRef := "result_" + record.ID.String()
 	target := result.ToolID
@@ -276,6 +295,12 @@ func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.T
 		}
 		return nil
 	})
+	if err == nil && result.QueryFile != "" {
+		// Artifact, scope and typed resource references are committed first.
+		// Workspace performs current-source authorization and an atomic import.
+		// A worker interrupted here resumes the missing import before model use.
+		err = loop.DeliverResults(ctx, run)
+	}
 	return toolExecutionResult{message: string(projection), unknown: result.Unknown, through: through}, err
 }
 
@@ -287,7 +312,13 @@ func (loop Loop) recoverToolCalls(ctx context.Context, run db.Run, set *toolrunt
 	if err != nil || len(calls) == 0 {
 		return false, err
 	}
+	barrier, err := loop.actionBatchReadOnly(ctx, run)
+	if err != nil {
+		return true, err
+	}
+	readOnly = readOnly || barrier
 	unknown := false
+	actionPaused := false
 	for _, call := range calls {
 		var result toolExecutionResult
 		var err error
@@ -299,40 +330,28 @@ func (loop Loop) recoverToolCalls(ctx context.Context, run db.Run, set *toolrunt
 		if err != nil {
 			return true, err
 		}
-		if result.paused {
-			if result.controlKind == "action" {
-				if loop.AutoConfirm != nil {
-					if err := loop.AutoConfirm(ctx, run); err != nil {
-						return true, err
-					}
-				}
-				_, _, err = loop.reconcileActions(ctx, run)
-			}
+		if result.paused && result.controlKind == "action" {
+			actionPaused, readOnly = true, true
+		} else if result.paused {
 			return true, err
 		}
 		unknown = unknown || result.unknown
 	}
-	if err := fencedTransaction(ctx, loop.Store, func(q *db.Queries) error {
-		seen := map[uuid.UUID]bool{}
-		status := "succeeded"
-		if unknown {
-			status = "failed"
-		}
-		for _, call := range calls {
-			if seen[call.StepID] {
-				continue
-			}
-			seen[call.StepID] = true
-			if _, err := q.FinishRunStep(ctx, db.FinishRunStepParams{ID: call.StepID, EnterpriseID: run.EnterpriseID, Status: status}); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
+	if err := loop.finishToolBatchSteps(ctx, run, calls, unknown); err != nil {
 		return true, err
 	}
 	if unknown {
 		return true, loop.finishRun(ctx, run, "failed", "result_unknown", "TOOL_RESULT_UNKNOWN")
+	}
+	if barrier || actionPaused {
+		if loop.AutoConfirm != nil {
+			if err := loop.AutoConfirm(ctx, run); err != nil {
+				return true, err
+			}
+		}
+		if _, paused, err := loop.reconcileActions(ctx, run); err != nil || paused {
+			return true, err
+		}
 	}
 
 	payload, _ := json.Marshal(conversation.AgentTask{RunID: run.ID, EnterpriseID: run.EnterpriseID, Reason: "tools_recovered"})

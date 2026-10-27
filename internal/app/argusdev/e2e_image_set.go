@@ -3,7 +3,7 @@ package argusdev
 import "fmt"
 
 func validateE2ECoreImageSet(images []plan6Image, remote bool) error {
-	required := map[string]bool{"backend": true, "web": true, "minio": true, "workspace": true, "workspace-egress": true, "otelcol": true}
+	required := map[string]bool{"backend": true, "web": true, "minio": true, "workspace": true, "workspace-egress": true, "otelcol": true, "install-tools": true}
 	if remote {
 		required["remote-runtime"] = true
 	}

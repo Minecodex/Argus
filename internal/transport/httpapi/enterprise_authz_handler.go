@@ -31,21 +31,61 @@ func (handler EnterpriseAuthorizationHandler) ListDataAuthorizationResources(ctx
 	if !validDataAuthorizationSubjectType(subjectType) || !validDataAuthorizationResourceType(resourceType) {
 		return authzapi.ListDataAuthorizationResourcesdefaultJSONResponse{Body: authzError(ctx, errors.New("invalid data authorization target")), StatusCode: http.StatusBadRequest}, nil
 	}
-	items, err := handler.Service.ListGrantResources(principal.Context(ctx), principal.EnterpriseIDValue(), uuid.UUID(request.SubjectId), subjectType, resourceType)
+	version, err := handler.Service.CurrentAuthorizationVersion(principal.Context(ctx), principal.EnterpriseIDValue(), uuid.UUID(request.SubjectId), subjectType)
 	if err != nil {
 		return authzapi.ListDataAuthorizationResourcesdefaultJSONResponse{Body: authzError(ctx, err), StatusCode: http.StatusInternalServerError}, nil
 	}
-	filter := map[string]any{"subject_type": subjectType, "subject_id": request.SubjectId.String(), "resource_type": resourceType}
-	items, next, hasMore, err := paginate(handler.Cursor, items, cursorValue(request.Params.Cursor), listLimit(request.Params.Limit), enterpriseCursorBinding(principal, filter, "resource_id_asc"), func(value authorization.GrantResource) pageKey {
-		return pageKey{ID: value.ResourceID.String()}
-	})
+	search := ""
+	if request.Params.Search != nil {
+		search = *request.Params.Search
+	}
+	filter := map[string]any{"subject_type": subjectType, "subject_id": request.SubjectId.String(), "resource_type": resourceType, "search": search, "subject_version": version}
+	binding := enterpriseCursorBinding(principal, filter, "resource_id_asc")
+	after := uuid.Nil
+	if cursor := cursorValue(request.Params.Cursor); cursor != "" {
+		position, e := handler.Cursor.Decode(cursor, binding)
+		if e == nil {
+			after, e = uuid.Parse(position.ID)
+		}
+		if e != nil {
+			body, status := authzPaginationError(ctx, e)
+			return authzapi.ListDataAuthorizationResourcesdefaultJSONResponse{Body: body, StatusCode: status}, nil
+		}
+	}
+	limit := listLimit(request.Params.Limit)
+	items, err := handler.Service.GrantCatalogPage(principal.Context(ctx), principal.EnterpriseIDValue(), request.SubjectId, subjectType, resourceType, search, after, int32(limit+1))
 	if err != nil {
 		body, status := authzPaginationError(ctx, err)
 		return authzapi.ListDataAuthorizationResourcesdefaultJSONResponse{Body: body, StatusCode: status}, nil
 	}
-	version, err := handler.Service.CurrentAuthorizationVersion(principal.Context(ctx), principal.EnterpriseIDValue(), uuid.UUID(request.SubjectId), subjectType)
+	hasMore := len(items) > limit
+	var next *string
+	if hasMore {
+		items = items[:limit]
+		token, e := handler.Cursor.Encode(binding, pagination.Position{ID: items[len(items)-1].ResourceID.String()})
+		if e != nil {
+			return authzapi.ListDataAuthorizationResourcesdefaultJSONResponse{Body: authzError(ctx, e), StatusCode: 500}, nil
+		}
+		next = &token
+	}
+	currentVersion, err := handler.Service.CurrentAuthorizationVersion(principal.Context(ctx), principal.EnterpriseIDValue(), uuid.UUID(request.SubjectId), subjectType)
 	if err != nil {
 		return authzapi.ListDataAuthorizationResourcesdefaultJSONResponse{Body: authzError(ctx, err), StatusCode: http.StatusInternalServerError}, nil
+	}
+	if currentVersion != version {
+		body, status := authzPaginationError(ctx, pagination.ErrAuthorizationVersionStale)
+		return authzapi.ListDataAuthorizationResourcesdefaultJSONResponse{Body: body, StatusCode: status}, nil
+	}
+	actorID, e := uuid.Parse(principal.ActorID())
+	if e != nil {
+		return authzapi.ListDataAuthorizationResourcesdefaultJSONResponse{Body: authzError(ctx, e), StatusCode: 403}, nil
+	}
+	actorType := "user"
+	if principal.ServiceAccount != nil {
+		actorType = "service_account"
+	}
+	if e = authorization.Authorize(ctx, handler.Service.Store.Queries, authorization.Actor{EnterpriseID: principal.EnterpriseIDValue(), SubjectID: actorID, SubjectType: actorType, AuthorizationVersion: principal.AuthorizationVersion()}, "data_authorization.read"); e != nil {
+		return authzapi.ListDataAuthorizationResourcesdefaultJSONResponse{Body: authzError(ctx, e), StatusCode: 403}, nil
 	}
 	affected, err := handler.Service.AffectedMemberCount(principal.Context(ctx), principal.EnterpriseIDValue(), uuid.UUID(request.SubjectId), subjectType)
 	if err != nil {
@@ -53,11 +93,22 @@ func (handler EnterpriseAuthorizationHandler) ListDataAuthorizationResources(ctx
 	}
 	converted := make([]authzapi.DataAuthorizationResource, 0, len(items))
 	for _, item := range items {
-		converted = append(converted, authzapi.DataAuthorizationResource{
+		value := authzapi.DataAuthorizationResource{
 			ResourceType: authzapi.DataAuthorizationResourceType(item.ResourceType),
 			ResourceId:   authzapi.ResourceId(item.ResourceID),
 			Name:         item.Name, Direct: item.Direct, Inherited: item.Inherited, Sources: item.Sources,
-		})
+		}
+		if item.Environment != "" {
+			value.Environment = pointer(item.Environment)
+		}
+		if item.ParentID.Valid {
+			value.ParentId = &item.ParentID.UUID
+			value.ParentName = pointer(item.ParentName)
+		}
+		if item.SourceUID != "" {
+			value.SourceUid = pointer(item.SourceUID)
+		}
+		converted = append(converted, value)
 	}
 	return authzapi.ListDataAuthorizationResources200JSONResponse{Items: converted, Page: authzapi.CursorPage{NextCursor: next, HasMore: hasMore, Partial: emptyAuthzPage().Partial}, AuthorizationVersion: version, AffectedMemberCount: affected}, nil
 }
@@ -105,7 +156,7 @@ func validDataAuthorizationSubjectType(value string) bool {
 }
 
 func validDataAuthorizationResourceType(value string) bool {
-	return value == "host" || value == "kubernetes_cluster" || value == "dashboard"
+	return authorization.ValidResourceType(value)
 }
 
 func (handler EnterpriseAuthorizationHandler) ListPermissions(ctx context.Context, request authzapi.ListPermissionsRequestObject) (authzapi.ListPermissionsResponseObject, error) {

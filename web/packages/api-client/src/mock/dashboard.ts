@@ -33,6 +33,8 @@ import {
 } from "./dashboard-bindings";
 
 import { mockConvertPanel } from "./dashboard-conversion";
+import { ensureManagedDashboards } from "./managed-dashboards";
+import { mockDashboardScopeDirectory } from "./dashboard-scope-directory";
 import { prepareMockDraftSpec } from "./dashboard-preparation";
 import { createMockDashboardQueries } from "./dashboard-queries";
 import { resolvePermissions } from "./permissions";
@@ -50,6 +52,7 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
   return {
     dashboardQueries: createMockDashboardQueries(ctx),
     dashboards: {
+      scopeResources: mockDashboardScopeDirectory(ctx),
       async convertPanel(input) {
         const permissions = resolvePermissions(
           ctx.db,
@@ -74,6 +77,7 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
       async list() {
         await ctx.pause();
         dashboardPermission(ctx);
+        ensureManagedDashboards(ctx);
         return copy(
           dashboardState(ctx)
             .items.filter(
@@ -85,6 +89,7 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
         );
       },
       async get(id) {
+        ensureManagedDashboards(ctx);
         const item = mockDashboard(ctx, id);
         return copy({
           dashboard: item,
@@ -136,12 +141,20 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
         const published = item ? revision(item.active_revision_id) : undefined;
         const value: DashboardDraft = {
           id: crypto.randomUUID(),
-          dashboard_id: item?.id,
-          base_revision_id: item?.active_revision_id,
-          base_object_version: item?.version ?? 0,
+          dashboard_id: item?.managed_template_key ? undefined : item?.id,
+          base_revision_id: item?.managed_template_key
+            ? undefined
+            : item?.active_revision_id,
+          base_object_version: item?.managed_template_key
+            ? 0
+            : (item?.version ?? 0),
+          source_template_key: item?.managed_template_key,
+          source_template_version: item?.managed_template_version,
           draft_version: 1,
           status: "editing",
-          name: item?.name ?? input.name,
+          name: item?.managed_template_key
+            ? `${item.name} copy`
+            : (item?.name ?? input.name),
           description: item?.description ?? input.description,
           folder_id: item?.folder_id ?? input.folder_id,
           spec: prepareMockDraftSpec(
@@ -343,6 +356,8 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
         );
       },
       async previewLifecycle(id, input) {
+        if (mockDashboard(ctx, id).managed_template_key)
+          fail("DASHBOARD_DENIED", 403);
         dashboardPermission(ctx, true);
         const item = mockDashboard(ctx, id);
         if (item.version !== input.expected_version)

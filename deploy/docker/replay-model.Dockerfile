@@ -3,6 +3,7 @@ FROM mirror.gcr.io/library/golang:1.25.8-alpine@sha256:8e02eb337d9e0ea459e041f1e
 WORKDIR /src
 COPY go.mod go.sum ./
 COPY cmd/argus-replay-model ./cmd/argus-replay-model
+COPY internal/integration/modelprovider ./internal/integration/modelprovider
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 RUN --mount=type=cache,target=/go/pkg/mod \

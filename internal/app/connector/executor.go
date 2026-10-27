@@ -3,14 +3,12 @@ package connector
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/kakj-go/Argus/internal/artifacthttp"
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -24,10 +22,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 	"github.com/kakj-go/Argus/internal/installation"
+	"github.com/kakj-go/Argus/internal/kubernetesaccess"
+	"github.com/kakj-go/Argus/internal/kubernetesinventory"
 	"github.com/kakj-go/Argus/internal/sshtarget"
 )
 
@@ -88,8 +87,14 @@ func (executor commandExecutor) execute(parent context.Context, command *connect
 		value, err = executeKubernetesProbe(ctx, command.GetTypedPayload(), credential)
 	case "kubernetes_resource_query":
 		value, err = executeKubernetesQuery(ctx, command.GetTypedPayload(), credential)
+	case "kubernetes_resource_mutation":
+		value, err = executeKubernetesMutation(ctx, command.GetTypedPayload(), credential)
+	case "kubernetes_helm":
+		value, err = executeKubernetesHelm(ctx, command, credential)
 	case "kubernetes_pod_logs":
 		value, err = executeKubernetesLogs(ctx, command.GetTypedPayload(), credential)
+	case "kubernetes_pinned_pod_logs":
+		value, err = executePinnedPodLogs(ctx, command.GetTypedPayload(), credential)
 	case "connector_uninstall":
 		var request connectorv1.ConnectorUninstall
 		if err = command.GetTypedPayload().UnmarshalTo(&request); err == nil {
@@ -152,6 +157,9 @@ func (executor commandExecutor) execute(parent context.Context, command *connect
 }
 
 func timeoutForCommand(commandType string) time.Duration {
+	if commandType == "kubernetes_helm" {
+		return 270 * time.Second
+	}
 	if commandType == "remote_execution_control" {
 		return 2 * time.Minute
 	}
@@ -280,6 +288,9 @@ func executeKubernetesQuery(ctx context.Context, payload *anypb.Any, credential 
 	if payload.UnmarshalTo(&request) != nil || request.ClusterId == "" || request.ResourceType == "" {
 		return nil, errors.New("invalid Kubernetes query")
 	}
+	if request.SchemaVersion != "" {
+		return executeKubernetesInventory(ctx, &request, credential)
+	}
 	config, err := connectorKubeconfig(credential, "")
 	if err != nil {
 		return nil, err
@@ -318,10 +329,15 @@ func executeKubernetesQuery(ctx context.Context, payload *anypb.Any, credential 
 	result := &connectorv1.KubernetesResourceQueryResult{ContinueToken: list.GetContinue()}
 	used := 0
 	for _, item := range list.Items {
-		encoded, err := json.Marshal(item.Object)
+		definition, known := kubernetesinventory.Lookup(request.ResourceType)
+		if !known {
+			return nil, kubernetesinventory.ErrUnsupported
+		}
+		projected, err := kubernetesinventory.Project(definition, item, "", time.Now().UTC())
 		if err != nil {
 			return nil, err
 		}
+		encoded := []byte(projected.Data)
 		if used+len(encoded) > maxBytes {
 			result.Truncated = true
 			break
@@ -368,19 +384,9 @@ func executeKubernetesLogs(ctx context.Context, payload *anypb.Any, credential [
 }
 
 func connectorKubeconfig(value []byte, apiServer string) (*rest.Config, error) {
-	if len(value) == 0 {
-		return rest.InClusterConfig()
-	}
-	config, err := clientcmd.RESTConfigFromKubeConfig(value)
-	if err != nil || config.Insecure || config.ExecProvider != nil || config.AuthProvider != nil || config.Proxy != nil || config.WrapTransport != nil {
-		return nil, errors.New("unsafe kubeconfig")
-	}
-	if apiServer != "" {
-		parsed, err := url.Parse(apiServer)
-		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
-			return nil, errors.New("Kubernetes API server must use HTTPS")
-		}
-		config.Host = parsed.String()
+	config, err := kubernetesaccess.Config(value, apiServer)
+	if err != nil {
+		return nil, err
 	}
 	config.Timeout = commandTimeout
 	return config, nil

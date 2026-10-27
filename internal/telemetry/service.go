@@ -17,7 +17,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"k8s.io/apimachinery/pkg/util/validation"
 
+	"github.com/kakj-go/Argus/internal/builtincollection"
 	"github.com/kakj-go/Argus/internal/installation"
+	"github.com/kakj-go/Argus/internal/otelcol/configbundle"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -30,6 +32,7 @@ var (
 	ErrDenied                       = errors.New("telemetry resource is not explicitly authorized")
 	ErrDistributionPending          = errors.New("collector distribution validation pending")
 	ErrCollectorArtifactUnavailable = errors.New("collector artifact is unavailable")
+	ErrCollectorDependenciesExist   = errors.New("COLLECTOR_DEPENDENCIES_EXIST")
 	ErrQueryInvalid                 = errors.New("telemetry query invalid")
 	// ErrRouteTransportInvalid: 推送矩阵外的 transport/kind/路径组合。
 	ErrRouteTransportInvalid = errors.New("COLLECTOR_ROUTE_TRANSPORT_INVALID")
@@ -285,10 +288,32 @@ func (service Service) PreviewCollectorAction(ctx context.Context, actor Actor, 
 	if err != nil {
 		return db.PendingAction{}, err
 	}
+	if len(profiles) == 0 && !slices.Contains(distribution.Components, "nop") {
+		return db.PendingAction{}, ErrDistributionPending
+	}
+	for _, key := range profiles {
+		profile, _, _ := strings.Cut(key, "@")
+		for _, definition := range builtincollection.All() {
+			if definition.LegacyProfile != profile {
+				continue
+			}
+			id := builtincollection.StableID(resourceType, resourceID, definition.Key)
+			if _, err := service.Store.Queries.GetMonitoringCollection(ctx, db.GetMonitoringCollectionParams{EnterpriseID: actor.EnterpriseID, ID: id}); err == nil {
+				return db.PendingAction{}, ErrQueryInvalid
+			} else if !errors.Is(err, pgx.ErrNoRows) {
+				return db.PendingAction{}, err
+			}
+		}
+	}
 	if operation != "install" {
 		current, currentErr := service.Store.Queries.GetCollectorForResource(ctx, db.GetCollectorForResourceParams{EnterpriseID: actor.EnterpriseID, ResourceType: resourceType, ResourceID: resourceID})
 		if currentErr != nil || input.ExpectedVersion <= 0 || current.Version != input.ExpectedVersion {
 			return db.PendingAction{}, ErrNotFound
+		}
+		if operation == "uninstall" {
+			if err := requireUnusedCollector(ctx, service.Store.Queries, actor.EnterpriseID, current.ID); err != nil {
+				return db.PendingAction{}, err
+			}
 		}
 	}
 	target, err := resolveCollectorExecutionTarget(ctx, service.Store.Queries, actor.EnterpriseID, resourceType, resourceID)
@@ -544,27 +569,29 @@ func resolveBastionMemberTunnelTarget(
 	host db.Host,
 	execution collectorExecutionTarget,
 ) (collectorTunnelTarget, error) {
-	invalid := func() (collectorTunnelTarget, error) { return collectorTunnelTarget{}, ErrRouteTransportInvalid }
+	invalid := func(stage string) (collectorTunnelTarget, error) {
+		return collectorTunnelTarget{}, collectorPlanningError{stage: "tunnel_bastion_" + stage, cause: ErrRouteTransportInvalid}
+	}
 	if host.ControlPath != "bastion_relay" || !host.BastionScopeID.Valid || !host.ConnectorID.Valid ||
 		execution.Transport != "connector" || execution.ConnectorID != host.ConnectorID {
-		return invalid()
+		return invalid("host")
 	}
 	scope, err := q.GetBastionScope(ctx, db.GetBastionScopeParams{ID: host.BastionScopeID.UUID, EnterpriseID: enterpriseID})
 	if err != nil || scope.Status != "active" || scope.RelayStatus != "ready" || !scope.ActiveConnectorID.Valid ||
 		!scope.ConnectorHostID.Valid || scope.ActiveConnectorID == host.ConnectorID {
-		return invalid()
+		return invalid("scope")
 	}
 	bastion, err := q.GetConnector(ctx, db.GetConnectorParams{ID: scope.ActiveConnectorID.UUID, EnterpriseID: enterpriseID})
 	if err != nil || bastion.Role != "bastion" || bastion.Status != "online" || bastion.ConnectionEpoch < 1 ||
 		!bastion.BastionScopeID.Valid || bastion.BastionScopeID.UUID != scope.ID || !bastion.HostID.Valid || bastion.HostID != scope.ConnectorHostID {
-		return invalid()
+		return invalid("connector")
 	}
 	onboarding, err := q.GetLatestSuccessfulHostOnboardingOperation(ctx, db.GetLatestSuccessfulHostOnboardingOperationParams{
 		HostID: host.ID, EnterpriseID: enterpriseID,
 	})
 	if err != nil || onboarding.ConnectorID != host.ConnectorID.UUID || onboarding.SshPath != "bastion_connector" ||
 		onboarding.ControlPath != "bastion_relay" || !onboarding.BastionScopeID.Valid || onboarding.BastionScopeID.UUID != scope.ID {
-		return invalid()
+		return invalid("onboarding")
 	}
 	var plan installation.HostConnectorInstallPlan
 	if json.Unmarshal(onboarding.Plan, &plan) != nil || plan.HostID != host.ID || plan.ConnectorID != host.ConnectorID.UUID ||
@@ -572,12 +599,12 @@ func resolveBastionMemberTunnelTarget(
 		plan.BastionScopeID.UUID != scope.ID || plan.Address == "" || plan.Address != host.Address.String ||
 		plan.Port < 1 || plan.Port != host.Port || plan.Username == "" || plan.PinnedHostKey == "" ||
 		plan.PinnedHostKey != host.PinnedHostKey || plan.CredentialID == uuid.Nil || plan.CredentialVersion < 1 {
-		return invalid()
+		return invalid("plan")
 	}
 	credential, err := q.GetCredential(ctx, db.GetCredentialParams{ID: plan.CredentialID, EnterpriseID: enterpriseID})
 	if err != nil || credential.Status != "active" || credential.Protocol != "ssh" || credential.Version != plan.CredentialVersion ||
 		credential.Username != plan.Username {
-		return invalid()
+		return invalid("credential")
 	}
 	return collectorTunnelTarget{
 		Initiator: "connector", ConnectorID: scope.ActiveConnectorID,
@@ -714,9 +741,12 @@ func (service Service) resolveOrPlanBastionGateway(ctx context.Context, enterpri
 	if err != nil {
 		return uuid.Nil, nil, "", "", err
 	}
-	profileIDs := make([]uuid.UUID, 0, 3)
-	profileKeys := make([]string, 0, 3)
-	for _, key := range []string{"host-basic", "collector-self", "otlp-receiver"} {
+	profileIDs := make([]uuid.UUID, 0, 2)
+	profileKeys := make([]string, 0, 2)
+	// The gateway role creates its authenticated downstream receiver itself.
+	// An application receiver without an application Key is retired and must
+	// never be reintroduced as an implicit gateway bootstrap profile.
+	for _, key := range []string{"host-basic", "collector-self"} {
 		for _, profile := range profiles {
 			if profile.ProfileKey == key && profile.SupportStatus == "supported" && profile.ConfigSchemaVersion == distribution.ConfigSchemaVersion && slices.Contains(profile.SupportedPlatforms, platform) {
 				profileIDs = append(profileIDs, profile.ID)
@@ -945,8 +975,14 @@ func (service Service) distribution(ctx context.Context, id uuid.UUID) (db.Colle
 }
 
 func (service Service) profiles(ctx context.Context, ids []uuid.UUID, schemaVersion, supportStatus, platform string) ([]string, error) {
-	if len(ids) == 0 || len(ids) > 32 {
+	if len(ids) > 32 {
 		return nil, ErrQueryInvalid
+	}
+	if len(ids) == 0 {
+		if schemaVersion != configbundle.CatalogConfigSchemaVersion || supportStatus != "supported" {
+			return nil, ErrQueryInvalid
+		}
+		return []string{}, nil
 	}
 	items, err := service.Store.Queries.ListCollectionProfiles(ctx)
 	if err != nil {

@@ -1,7 +1,9 @@
+import { BuiltinCollections } from "../monitoring/builtin-collections";
+import { activeCollectorProfileIds } from "../telemetry/collector-profiles";
 import { collectorReplicaStatus } from "./collector-replicas";
 import { kubernetesCollectorNamespace } from "@argus/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useApi,
@@ -14,23 +16,15 @@ import {
   Card,
   CardContent,
   CardHeader,
-  DiffViewer,
   Field,
   Input,
   KeyValueGrid,
   Progress,
   StatCard,
   StatusBadge,
-  SettingCard,
 } from "@argus/ui";
 import { PendingActionCard } from "./pending-action-card";
 import { bindingCoverage, collectorStatusTone } from "./status";
-import {
-  CLUSTER_PROFILE_KEYS as PROFILE_KEYS,
-  clusterProfileBaseline,
-  clusterProfileIds,
-  type ClusterProfileKey as ProfileKey,
-} from "./collector-profile-draft";
 
 /** 已安装 OTLP 收集器：状态面板（副本/覆盖率/冲突/出口）+ Profile 开关配置。 */
 export function CollectorStatusPanel({
@@ -62,57 +56,17 @@ export function CollectorStatusPanel({
       }),
     refetchInterval: 15_000,
   });
-  const profilesQuery = useQuery({
-    queryKey: ["telemetry", "profiles"],
-    queryFn: () => api.telemetry.listProfiles(),
-  });
+
   const distributionsQuery = useQuery({
     queryKey: ["telemetry", "distributions"],
     queryFn: () => api.telemetry.listDistributions(),
   });
 
-  const [draft, setDraft] = useState<Record<ProfileKey, boolean> | null>(null);
   const [pendingAction, setPendingAction] =
     useState<PendingActionPublic | null>(null);
   const [routeTested, setRouteTested] = useState(false);
   const [customImage, setCustomImage] = useState("");
   const [imagePullSecretInput, setImagePullSecretInput] = useState("");
-
-  const baseline = useMemo(
-    () =>
-      clusterProfileBaseline(
-        collector.id,
-        claimsQuery.data ?? [],
-        profilesQuery.data ?? [],
-      ),
-    [collector.id, claimsQuery.data, profilesQuery.data],
-  );
-  const profiles = draft ?? baseline;
-  const hasProfiles = PROFILE_KEYS.some((key) => profiles[key]);
-
-  const diffLines = useMemo(() => {
-    const lines: Array<{
-      type: "add" | "remove" | "context";
-      content: string;
-    }> = [
-      {
-        type: "context",
-        content: `distribution: ${collector.distribution_version_id}`,
-      },
-    ];
-    for (const key of PROFILE_KEYS) {
-      if (profiles[key] === baseline[key]) continue;
-      lines.push({
-        type: profiles[key] ? "add" : "remove",
-        content: `${t(`collectionUi.clusterTitle.${key}`)}: ${
-          profiles[key] ? "on" : "off"
-        }`,
-      });
-    }
-    return lines;
-  }, [profiles, baseline, collector.distribution_version_id, t]);
-
-  const changed = diffLines.length > 1;
 
   // 镜像按次输入:configure/upgrade/repair 都会生成携带镜像的 plan,
   // 留空回退服务端默认;与安装向导共用同一套格式规则。
@@ -135,13 +89,17 @@ export function CollectorStatusPanel({
     ? { image_pull_secrets: imagePullSecrets }
     : {};
 
+  const changed = trimmedImage !== "" || imagePullSecretInput.trim() !== "";
   const previewChange = useMutation({
     mutationFn: () => {
       if (!collector.route) {
         throw new Error("COLLECTOR_ROUTE_TRANSPORT_INVALID");
       }
-      const profileIds = clusterProfileIds(profiles, profilesQuery.data ?? []);
-      if (!profileIds.length) throw new Error("COLLECTOR_PROFILE_INVALID");
+      const profileIds = activeCollectorProfileIds(
+        claimsQuery.data ?? [],
+        collector.id,
+      );
+
       return api.kubernetes.previewCollectorAction(cluster.id, "configure", {
         distribution_version_id: collector.distribution_version_id,
         profile_ids: profileIds,
@@ -443,48 +401,19 @@ export function CollectorStatusPanel({
 
       <Card>
         <CardHeader
-          description={t("kubernetes.collector.status.configHint")}
-          title={t("kubernetes.collector.status.configTitle")}
+          description={t("builtinCollections.clusterHint")}
+          title={t("builtinCollections.clusterTitle")}
         />
         <CardContent>
           <div className="argus-k8s-stack">
-            <div className="argus-collection-capabilities">
-              {PROFILE_KEYS.map((key) => (
-                <SettingCard
-                  key={key}
-                  checked={profiles[key]}
-                  title={t(`collectionUi.clusterTitle.${key}`)}
-                  description={t(`collectionUi.cluster.${key}`)}
-                  onChange={(checked) =>
-                    setDraft(() => ({
-                      ...profiles,
-                      [key]: checked,
-                    }))
-                  }
-                />
-              ))}
-            </div>
-            <div>
-              <h3 className="argus-k8s-section-title">
-                {t("kubernetes.collector.status.diffTitle")}
-              </h3>
-              {changed && !hasProfiles && (
-                <p role="alert">{t("collectionUi.emptyCapabilities")}</p>
-              )}
-              {changed ? (
-                <DiffViewer lines={diffLines} />
-              ) : (
-                <p className="argus-k8s-section-title">
-                  {t("kubernetes.collector.status.noChange")}
-                </p>
-              )}
-            </div>
+            <BuiltinCollections kind="kubernetes_cluster" id={cluster.id} />
+
             {pendingAction ? (
               <PendingActionCard
                 action={pendingAction}
                 onSettled={() => {
                   setPendingAction(null);
-                  setDraft(null);
+
                   void queryClient.invalidateQueries({
                     queryKey: ["kubernetes"],
                   });
@@ -494,10 +423,7 @@ export function CollectorStatusPanel({
               <div>
                 <Button
                   isDisabled={
-                    !changed ||
-                    !hasProfiles ||
-                    imageInvalid ||
-                    imagePullSecretsInvalid
+                    !changed || imageInvalid || imagePullSecretsInvalid
                   }
                   isPending={previewChange.isPending}
                   onPress={() => previewChange.mutate()}

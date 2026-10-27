@@ -6,13 +6,20 @@ package dashboardapi
 import (
 	"fmt"
 	"net/http"
+	openapi_types "github.com/oapi-codegen/runtime/types"
+	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListApplicationDashboardBindings List Application dashboard bindings
+	// (GET /applications/{id}/dashboard-bindings)
+	ListApplicationDashboardBindings(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// PreviewApplicationDashboardBinding Preview Application dashboard bindings
+	// (POST /applications/{id}/dashboard-bindings/preview)
+	PreviewApplicationDashboardBinding(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewApplicationDashboardBindingParams)
 	// StartDashboardQueryJob startDashboardQueryJob.
 	// (POST /conversations/{id}/dashboard-queries)
 	StartDashboardQueryJob(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params StartDashboardQueryJobParams)
@@ -61,6 +68,9 @@ type ServerInterface interface {
 	// PreviewDashboardFolder Preview a folder change without publishing it.
 	// (POST /dashboard-folders/preview)
 	PreviewDashboardFolder(w http.ResponseWriter, r *http.Request, params PreviewDashboardFolderParams)
+	// ListDashboardScopeResources List currently authorized query scope resources with search and signed pagination
+	// (GET /dashboard-scope-resources)
+	ListDashboardScopeResources(w http.ResponseWriter, r *http.Request, params ListDashboardScopeResourcesParams)
 	// ConvertDashboardPanel Convert every query in a panel only when the editing sources are losslessly representable.
 	// (POST /dashboard-spec/convert-panel)
 	ConvertDashboardPanel(w http.ResponseWriter, r *http.Request, params ConvertDashboardPanelParams)
@@ -103,11 +113,29 @@ type ServerInterface interface {
 	// PreviewClusterDashboardBinding Preview a resource dashboard binding change.
 	// (POST /kubernetes/clusters/{id}/dashboard-bindings/preview)
 	PreviewClusterDashboardBinding(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewClusterDashboardBindingParams)
+	// ListMonitoringTargetDashboardBindings List MonitoringTarget dashboard bindings
+	// (GET /monitoring/targets/{id}/dashboard-bindings)
+	ListMonitoringTargetDashboardBindings(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// PreviewMonitoringTargetDashboardBinding Preview MonitoringTarget dashboard bindings
+	// (POST /monitoring/targets/{id}/dashboard-bindings/preview)
+	PreviewMonitoringTargetDashboardBinding(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewMonitoringTargetDashboardBindingParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// ListApplicationDashboardBindings List Application dashboard bindings
+// (GET /applications/{id}/dashboard-bindings)
+func (_ Unimplemented) ListApplicationDashboardBindings(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewApplicationDashboardBinding Preview Application dashboard bindings
+// (POST /applications/{id}/dashboard-bindings/preview)
+func (_ Unimplemented) PreviewApplicationDashboardBinding(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewApplicationDashboardBindingParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // StartDashboardQueryJob startDashboardQueryJob.
 // (POST /conversations/{id}/dashboard-queries)
@@ -205,6 +233,12 @@ func (_ Unimplemented) PreviewDashboardFolder(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListDashboardScopeResources List currently authorized query scope resources with search and signed pagination
+// (GET /dashboard-scope-resources)
+func (_ Unimplemented) ListDashboardScopeResources(w http.ResponseWriter, r *http.Request, params ListDashboardScopeResourcesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ConvertDashboardPanel Convert every query in a panel only when the editing sources are losslessly representable.
 // (POST /dashboard-spec/convert-panel)
 func (_ Unimplemented) ConvertDashboardPanel(w http.ResponseWriter, r *http.Request, params ConvertDashboardPanelParams) {
@@ -289,6 +323,18 @@ func (_ Unimplemented) PreviewClusterDashboardBinding(w http.ResponseWriter, r *
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListMonitoringTargetDashboardBindings List MonitoringTarget dashboard bindings
+// (GET /monitoring/targets/{id}/dashboard-bindings)
+func (_ Unimplemented) ListMonitoringTargetDashboardBindings(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewMonitoringTargetDashboardBinding Preview MonitoringTarget dashboard bindings
+// (POST /monitoring/targets/{id}/dashboard-bindings/preview)
+func (_ Unimplemented) PreviewMonitoringTargetDashboardBinding(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewMonitoringTargetDashboardBindingParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ServerInterfaceWrapper converts contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler            ServerInterface
@@ -297,6 +343,109 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListApplicationDashboardBindings operation middleware
+func (siw *ServerInterfaceWrapper) ListApplicationDashboardBindings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListApplicationDashboardBindings(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewApplicationDashboardBinding operation middleware
+func (siw *ServerInterfaceWrapper) PreviewApplicationDashboardBinding(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewApplicationDashboardBindingParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewApplicationDashboardBinding(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // StartDashboardQueryJob operation middleware
 func (siw *ServerInterfaceWrapper) StartDashboardQueryJob(w http.ResponseWriter, r *http.Request) {
@@ -1048,6 +1197,78 @@ func (siw *ServerInterfaceWrapper) PreviewDashboardFolder(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ListDashboardScopeResources operation middleware
+func (siw *ServerInterfaceWrapper) ListDashboardScopeResources(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDashboardScopeResourcesParams
+
+	// ------------- Required query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDashboardScopeResources(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ConvertDashboardPanel operation middleware
 func (siw *ServerInterfaceWrapper) ConvertDashboardPanel(w http.ResponseWriter, r *http.Request) {
 
@@ -1475,315 +1696,3 @@ func (siw *ServerInterfaceWrapper) PreviewHostDashboardBinding(w http.ResponseWr
 
 	handler.ServeHTTP(w, r)
 }
-
-// ListClusterDashboardBindings operation middleware
-func (siw *ServerInterfaceWrapper) ListClusterDashboardBindings(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListClusterDashboardBindings(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PreviewClusterDashboardBinding operation middleware
-func (siw *ServerInterfaceWrapper) PreviewClusterDashboardBinding(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PreviewClusterDashboardBindingParams
-
-	headers := r.Header
-
-	// ------------- Required header parameter "X-CSRF-Token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
-		var XCSRFToken CsrfToken
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
-			return
-		}
-
-		params.XCSRFToken = XCSRFToken
-
-	} else {
-		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
-		return
-	}
-
-	// ------------- Required header parameter "Idempotency-Key" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
-		var IdempotencyKey IdempotencyKey
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
-			return
-		}
-
-		params.IdempotencyKey = IdempotencyKey
-
-	} else {
-		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PreviewClusterDashboardBinding(w, r, id, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-type UnescapedCookieParamError struct {
-	ParamName string
-	Err       error
-}
-
-func (e *UnescapedCookieParamError) Error() string {
-	return fmt.Sprintf("error unescaping cookie parameter '%s'", e.ParamName)
-}
-
-func (e *UnescapedCookieParamError) Unwrap() error {
-	return e.Err
-}
-
-type UnmarshalingParamError struct {
-	ParamName string
-	Err       error
-}
-
-func (e *UnmarshalingParamError) Error() string {
-	return fmt.Sprintf("Error unmarshaling parameter %s as JSON: %s", e.ParamName, e.Err.Error())
-}
-
-func (e *UnmarshalingParamError) Unwrap() error {
-	return e.Err
-}
-
-type RequiredParamError struct {
-	ParamName string
-}
-
-func (e *RequiredParamError) Error() string {
-	return fmt.Sprintf("Query argument %s is required, but not found", e.ParamName)
-}
-
-type RequiredHeaderError struct {
-	ParamName string
-	Err       error
-}
-
-func (e *RequiredHeaderError) Error() string {
-	return fmt.Sprintf("Header parameter %s is required, but not found", e.ParamName)
-}
-
-func (e *RequiredHeaderError) Unwrap() error {
-	return e.Err
-}
-
-type InvalidParamFormatError struct {
-	ParamName string
-	Err       error
-}
-
-func (e *InvalidParamFormatError) Error() string {
-	return fmt.Sprintf("Invalid format for parameter %s: %s", e.ParamName, e.Err.Error())
-}
-
-func (e *InvalidParamFormatError) Unwrap() error {
-	return e.Err
-}
-
-type TooManyValuesForParamError struct {
-	ParamName string
-	Count     int
-}
-
-func (e *TooManyValuesForParamError) Error() string {
-	return fmt.Sprintf("Expected one value for %s, got %d", e.ParamName, e.Count)
-}
-
-// Handler creates http.Handler with routing matching OpenAPI spec.
-func Handler(si ServerInterface) http.Handler {
-	return HandlerWithOptions(si, ChiServerOptions{})
-}
-
-type ChiServerOptions struct {
-	BaseURL          string
-	BaseRouter       chi.Router
-	Middlewares      []MiddlewareFunc
-	ErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
-}
-
-// HandlerFromMux creates http.Handler with routing matching OpenAPI spec based on the provided mux.
-func HandlerFromMux(si ServerInterface, r chi.Router) http.Handler {
-	return HandlerWithOptions(si, ChiServerOptions{
-		BaseRouter: r,
-	})
-}
-
-func HandlerFromMuxWithBaseURL(si ServerInterface, r chi.Router, baseURL string) http.Handler {
-	return HandlerWithOptions(si, ChiServerOptions{
-		BaseURL:    baseURL,
-		BaseRouter: r,
-	})
-}
-
-// HandlerWithOptions creates http.Handler with additional options
-func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handler {
-	r := options.BaseRouter
-
-	if r == nil {
-		r = chi.NewRouter()
-	}
-	if options.ErrorHandlerFunc == nil {
-		options.ErrorHandlerFunc = func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
-	}
-	wrapper := ServerInterfaceWrapper{
-		Handler:            si,
-		HandlerMiddlewares: options.Middlewares,
-		ErrorHandlerFunc:   options.ErrorHandlerFunc,
-	}
-
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/dashboards", wrapper.ListDashboards)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/dashboards/{id}", wrapper.GetDashboard)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/dashboards/{id}/revisions", wrapper.ListDashboardRevisions)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/dashboard-drafts", wrapper.ListDashboardDrafts)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboard-drafts", wrapper.CreateDashboardDraft)
-	})
-	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/dashboard-drafts/{id}", wrapper.DiscardDashboardDraft)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/dashboard-drafts/{id}", wrapper.GetDashboardDraft)
-	})
-	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/dashboard-drafts/{id}", wrapper.SaveDashboardDraft)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboard-drafts/{id}/preview", wrapper.PreviewDashboardPublication)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboard-drafts/{id}/rebase", wrapper.RebaseDashboardDraft)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboard-spec/validate", wrapper.ValidateDashboardSpec)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/dashboard-folders", wrapper.ListDashboardFolders)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboard-folders/preview", wrapper.PreviewDashboardFolder)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboards/{id}/actions/preview", wrapper.PreviewDashboardLifecycle)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboards/{id}/execute", wrapper.ExecuteDashboard)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboard-drafts/{id}/sample", wrapper.SampleDashboardDraft)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboards/catalog/query", wrapper.QueryDashboardCatalog)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboards/{id}/drilldown", wrapper.ExecuteDashboardDrilldown)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboard-drafts/{id}/drilldowns/generate", wrapper.GenerateDashboardDrilldowns)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/hosts/{id}/dashboard-bindings", wrapper.ListHostDashboardBindings)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/hosts/{id}/dashboard-bindings/preview", wrapper.PreviewHostDashboardBinding)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/kubernetes/clusters/{id}/dashboard-bindings", wrapper.ListClusterDashboardBindings)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/kubernetes/clusters/{id}/dashboard-bindings/preview", wrapper.PreviewClusterDashboardBinding)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/dashboards/{id}/bindings", wrapper.ListDashboardBindings)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboard-spec/convert-panel", wrapper.ConvertDashboardPanel)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/conversations/{id}/dashboard-queries", wrapper.StartDashboardQueryJob)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/conversations/{id}/dashboard-queries/{job_id}", wrapper.GetDashboardQueryJob)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/conversations/{id}/dashboard-queries/{job_id}/cancel", wrapper.CancelDashboardQueryJob)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/conversations/{id}/dashboard-queries/{job_id}/resume", wrapper.ResumeDashboardQueryJob)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/dashboard-drafts/{id}/drilldown", wrapper.ExecuteDashboardDraftDrilldown)
-	})
-
-	return r
-}
-
-type ErrorJSONResponse ApiError

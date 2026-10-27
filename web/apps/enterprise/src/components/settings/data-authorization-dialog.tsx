@@ -1,51 +1,46 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useApi } from "@argus/api-client";
-import type {
-  DataAuthorizationResourceType,
-  DataAuthorizationSubjectType,
+import {
+  useApi,
+  formatApiError,
+  type DataAuthorizationResource,
+  type DataAuthorizationResourceType,
+  type DataAuthorizationSubjectType,
 } from "@argus/api-client";
 import {
+  Badge,
+  Button,
   ConfirmDialog,
+  DataTable,
+  EmptyState,
   FormDrawer,
-  ResourceAuthorizationDualList,
+  Input,
   Spinner,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "@argus/ui";
+import "../../styles/data-authorization.css";
 
-async function listAllAuthorization(
-  api: ReturnType<typeof useApi>,
-  subjectType: DataAuthorizationSubjectType,
-  subjectId: string,
-  resourceType: DataAuthorizationResourceType,
-) {
-  const items: import("@argus/api-client").DataAuthorizationPage["items"] = [];
-  let cursor: string | undefined;
-  let first: import("@argus/api-client").DataAuthorizationPage | undefined;
-  do {
-    const page = await api.org.listDataAuthorization(
-      subjectType,
-      subjectId,
-      resourceType,
-      cursor,
-      200,
-    );
-    first ??= page;
-    items.push(...page.items);
-    cursor = page.page?.has_more
-      ? (page.page.next_cursor ?? undefined)
-      : undefined;
-  } while (cursor);
-  return {
-    ...(first ?? {
-      authorization_version: 1,
-      affected_member_count: 0,
-      page: { next_cursor: null, has_more: false },
-    }),
-    items,
-    page: { next_cursor: null, has_more: false },
-  };
-}
+const resourceTypes: DataAuthorizationResourceType[] = [
+  "host",
+  "kubernetes_cluster",
+  "dashboard",
+  "application",
+  "monitoring_target",
+  "kubernetes_namespace",
+];
+type Change = {
+  resourceType: DataAuthorizationResourceType;
+  id: string;
+  name: string;
+  before: boolean;
+  after: boolean;
+};
+const changeKey = (type: DataAuthorizationResourceType, id: string) =>
+  `${type}:${id}`;
 
 export function DataAuthorizationDialog({
   open,
@@ -60,207 +55,158 @@ export function DataAuthorizationDialog({
   subjectId: string;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { t } = useTranslation();
-  const api = useApi();
-  const queryClient = useQueryClient();
-  const hosts = useQuery({
-    queryKey: ["authorization", subjectType, subjectId, "host"],
-    enabled: open && Boolean(subjectId),
-    queryFn: () => listAllAuthorization(api, subjectType, subjectId, "host"),
-  });
-  const clusters = useQuery({
-    queryKey: ["authorization", subjectType, subjectId, "kubernetes_cluster"],
-    enabled: open && Boolean(subjectId),
-    queryFn: () =>
-      listAllAuthorization(api, subjectType, subjectId, "kubernetes_cluster"),
-  });
-  const [value, setValue] = useState<{
-    host: string[];
-    kubernetes_cluster: string[];
-    dashboard: string[];
-  }>({ host: [], kubernetes_cluster: [], dashboard: [] });
-  const [baseline, setBaseline] = useState<
-    Record<DataAuthorizationResourceType, string[]>
-  >({ host: [], kubernetes_cluster: [], dashboard: [] });
-  const dashboards = useQuery({
-    queryKey: ["authorization", subjectType, subjectId, "dashboard"],
-    enabled: open && Boolean(subjectId),
-    queryFn: () =>
-      listAllAuthorization(api, subjectType, subjectId, "dashboard"),
-  });
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const api = useApi(),
+    cache = useQueryClient(),
+    { t } = useTranslation();
+  const [type, setType] = useState<DataAuthorizationResourceType>("host"),
+    [search, setSearch] = useState(""),
+    [filter, setFilter] = useState(""),
+    [cursors, setCursors] = useState<Array<string | undefined>>([undefined]);
+  const [changes, setChanges] = useState<Record<string, Change>>({}),
+    [draftVersion, setDraftVersion] = useState<number>(),
+    [confirmOpen, setConfirmOpen] = useState(false);
   useEffect(() => {
-    if (!hosts.data || !clusters.data || !dashboards.data) return;
-    const hostSelected = hosts.data.items
-      .filter((item) => item.direct || item.inherited)
-      .map((item) => item.resource_id);
-    const clusterSelected = clusters.data.items
-      .filter((item) => item.direct || item.inherited)
-      .map((item) => item.resource_id);
-    setValue({
-      host: hostSelected,
-      kubernetes_cluster: clusterSelected,
-      dashboard: dashboards.data.items
-        .filter((item) => item.direct || item.inherited)
-        .map((item) => item.resource_id),
+    setChanges({});
+    setDraftVersion(undefined);
+    setSearch("");
+    setFilter("");
+    setCursors([undefined]);
+    setType("host");
+  }, [open, subjectType, subjectId]);
+  const query = useQuery({
+    queryKey: [
+      "authorization",
+      subjectType,
+      subjectId,
+      type,
+      filter,
+      cursors.at(-1),
+    ],
+    enabled: open && !!subjectId,
+    queryFn: ({ signal }) =>
+      api.org.listDataAuthorization(
+        subjectType,
+        subjectId,
+        type,
+        cursors.at(-1),
+        30,
+        filter,
+        signal,
+      ),
+  });
+  const rows = query.error ? [] : (query.data?.items ?? []),
+    pending = Object.values(changes),
+    stale =
+      draftVersion !== undefined &&
+      query.data !== undefined &&
+      draftVersion !== query.data.authorization_version;
+  const select = (item: DataAuthorizationResource, after: boolean) => {
+    if (stale || save.isPending) return;
+    setDraftVersion((version) => version ?? query.data?.authorization_version);
+    setChanges((current) => {
+      const next = { ...current },
+        key = changeKey(type, item.resource_id),
+        before = current[key]?.before ?? item.direct;
+      if (after === before) delete next[key];
+      else
+        next[key] = {
+          resourceType: type,
+          id: item.resource_id,
+          name: item.name,
+          before,
+          after,
+        };
+      return next;
     });
-    setBaseline({
-      host: hosts.data.items
-        .filter((item) => item.direct)
-        .map((item) => item.resource_id),
-      kubernetes_cluster: clusters.data.items
-        .filter((item) => item.direct)
-        .map((item) => item.resource_id),
-      dashboard: dashboards.data.items
-        .filter((item) => item.direct)
-        .map((item) => item.resource_id),
-    });
-  }, [hosts.data, clusters.data, dashboards.data]);
-  const dashboardItems = useMemo(
-    () =>
-      (dashboards.data?.items ?? []).map((item) => ({
-        id: item.resource_id,
-        label: item.name,
-        inherited: item.inherited,
-        source: item.sources.join(", "),
-      })),
-    [dashboards.data],
-  );
-  const directSelection = (type: DataAuthorizationResourceType) => {
-    const items =
-      type === "host"
-        ? hosts.data?.items
-        : type === "kubernetes_cluster"
-          ? clusters.data?.items
-          : dashboards.data?.items;
-    const inherited = new Set(
-      items
-        ?.filter((item) => item.inherited && !item.direct)
-        .map((item) => item.resource_id),
-    );
-    return value[type].filter((id) => !inherited.has(id));
   };
-  const hostItems = useMemo(
-    () =>
-      (hosts.data?.items ?? []).map((item) => ({
-        id: item.resource_id,
-        label: item.name,
-        inherited: item.inherited,
-        source: item.sources.join(", "),
-      })),
-    [hosts.data],
-  );
-  const clusterItems = useMemo(
-    () =>
-      (clusters.data?.items ?? []).map((item) => ({
-        id: item.resource_id,
-        label: item.name,
-        inherited: item.inherited,
-        source: item.sources.join(", "),
-      })),
-    [clusters.data],
-  );
+  useEffect(() => {
+    if (!pending.length) setDraftVersion(undefined);
+  }, [pending.length]);
+  const sourceLabel = (source: string) => {
+    const index = source.indexOf(":"),
+      kind = source.slice(0, index),
+      name = source.slice(index + 1);
+    if (source === "direct" || source === "直接")
+      return t("authorizationCatalog.direct");
+    if (index > 0 && ["role", "department", "cluster"].includes(kind))
+      return t(`authorizationCatalog.sources.${kind}`, { name });
+    return source;
+  };
   const save = useMutation({
     mutationFn: async () => {
-      let version =
-        hosts.data?.authorization_version ??
-        clusters.data?.authorization_version ??
-        1;
-      for (const resourceType of [
-        "host",
-        "kubernetes_cluster",
-        "dashboard",
-      ] as const) {
-        const before = new Set(baseline[resourceType]);
-        const after = new Set(directSelection(resourceType));
-        const add = [...after].filter((id) => !before.has(id));
-        const remove = [...before].filter((id) => !after.has(id));
-        if (add.length) {
-          await api.org.updateDataAuthorization(
-            subjectType,
-            subjectId,
-            resourceType,
-            add,
-            false,
-            version,
-          );
-          version = (
-            await listAllAuthorization(
-              api,
+      if (stale || draftVersion === undefined || !pending.length) return;
+      let version = draftVersion;
+      for (const resourceType of resourceTypes)
+        for (const remove of [false, true]) {
+          const ids = pending
+            .filter(
+              (item) =>
+                item.resourceType === resourceType && item.after === !remove,
+            )
+            .map((item) => item.id);
+          for (let offset = 0; offset < ids.length; offset += 1000) {
+            await api.org.updateDataAuthorization(
               subjectType,
               subjectId,
               resourceType,
-            )
-          ).authorization_version;
+              ids.slice(offset, offset + 1000),
+              remove,
+              version,
+            );
+            version = (
+              await api.org.listDataAuthorization(
+                subjectType,
+                subjectId,
+                resourceType,
+                undefined,
+                1,
+              )
+            ).authorization_version;
+          }
         }
-        if (remove.length) {
-          await api.org.updateDataAuthorization(
-            subjectType,
-            subjectId,
-            resourceType,
-            remove,
-            true,
-            version,
-          );
-          version = (
-            await listAllAuthorization(
-              api,
-              subjectType,
-              subjectId,
-              resourceType,
-            )
-          ).authorization_version;
-        }
-      }
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
+      setChanges({});
+      setDraftVersion(undefined);
+      await cache.invalidateQueries({
         queryKey: ["authorization", subjectType, subjectId],
       });
-      await queryClient.invalidateQueries({
-        predicate: (query) => String(query.queryKey[0]).startsWith("dashboard"),
+      await cache.invalidateQueries({
+        predicate: (query) =>
+          ["monitoring", "kubernetes-workbench", "hosts"].includes(
+            String(query.queryKey[0]),
+          ) || String(query.queryKey[0]).startsWith("dashboard"),
       });
       onOpenChange(false);
     },
-  });
-  const dirty = (Object.keys(value) as DataAuthorizationResourceType[]).some(
-    (resourceType) => {
-      const before = new Set(baseline[resourceType]);
-      const selected = directSelection(resourceType);
-      return (
-        selected.some((id) => !before.has(id)) ||
-        baseline[resourceType].some((id) => !selected.includes(id))
-      );
+    onError: () => {
+      void cache.invalidateQueries({
+        queryKey: ["authorization", subjectType, subjectId],
+      });
     },
-  );
-  const affectedMemberCount =
-    hosts.data?.affected_member_count ??
-    clusters.data?.affected_member_count ??
-    0;
+  });
   const submit = () => {
-    if (loading || loadError || save.isPending) return;
-    if (subjectType === "role" && dirty) {
-      setConfirmOpen(true);
+    if (
+      query.isFetching ||
+      query.error ||
+      stale ||
+      !pending.length ||
+      save.isPending
+    )
       return;
-    }
-    save.mutate();
+    if (subjectType === "role") setConfirmOpen(true);
+    else save.mutate();
   };
-  const loading = hosts.isPending || clusters.isPending || dashboards.isPending;
-  const loadError = hosts.error ?? clusters.error ?? dashboards.error;
-  const labels = {
-    host: t("settings.org.dataAuthorization.host"),
-    kubernetes: t("settings.org.dataAuthorization.kubernetes"),
-    dashboard: t("settings.org.dataAuthorization.dashboard"),
-    searchPlaceholder: t("settings.org.dataAuthorization.searchPlaceholder"),
-    available: t("settings.org.dataAuthorization.available"),
-    authorized: t("settings.org.dataAuthorization.authorized"),
-    inherited: t("settings.org.dataAuthorization.inherited"),
-    moveSelected: t("settings.org.dataAuthorization.moveSelected"),
-    moveAll: t("settings.org.dataAuthorization.moveAll"),
-    removeSelected: t("settings.org.dataAuthorization.removeSelected"),
-    removeAll: t("settings.org.dataAuthorization.removeAll"),
-    previousPage: t("settings.org.dataAuthorization.previousPage"),
-    nextPage: t("settings.org.dataAuthorization.nextPage"),
+  const applySearch = () => {
+    setFilter(search.trim());
+    setCursors([undefined]);
+  };
+  const discard = () => {
+    setChanges({});
+    setDraftVersion(undefined);
+    save.reset();
+    setCursors([undefined]);
+    void query.refetch();
   };
   return (
     <>
@@ -268,33 +214,205 @@ export function DataAuthorizationDialog({
         open={open}
         onOpenChange={onOpenChange}
         onSubmit={submit}
-        loading={save.isPending || loading}
+        loading={save.isPending}
         submitLabel={t("settings.org.dataAuthorization.save")}
         title={t("settings.org.dataAuthorization.title", {
           subject: subjectLabel,
         })}
       >
-        {loading ? (
-          <Spinner label={t("common.loading")} />
-        ) : loadError ? (
-          <p role="alert">{t("settings.org.dataAuthorization.loadFailed")}</p>
-        ) : (
-          <ResourceAuthorizationDualList
-            hosts={hostItems}
-            clusters={clusterItems}
-            dashboards={dashboardItems}
-            labels={labels}
-            value={value}
-            onChange={(next) =>
-              setValue({ ...next, dashboard: next.dashboard ?? [] })
-            }
-          />
-        )}
-        {save.error ? (
-          <p className="argus-form-error" role="alert">
-            {t("settings.org.dataAuthorization.saveFailed")}
+        <div className="argus-authorization-catalog">
+          <Tabs
+            value={type}
+            onValueChange={(value) => {
+              setType(value as DataAuthorizationResourceType);
+              setSearch("");
+              setFilter("");
+              setCursors([undefined]);
+            }}
+          >
+            <TabsList className="argus-authorization-tabs">
+              {resourceTypes.map((value) => (
+                <TabsTrigger key={value} value={value}>
+                  {t(`authorizationCatalog.types.${value}`)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            <TabsContent key={type} value={type}>
+              <div className="argus-authorization-toolbar">
+                <Input
+                  aria-label={t("authorizationCatalog.search")}
+                  placeholder={t("authorizationCatalog.search")}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      applySearch();
+                    }
+                  }}
+                />
+                <Button onPress={applySearch}>
+                  {t("authorizationCatalog.searchButton")}
+                </Button>
+              </div>
+              {query.isPending && <Spinner label={t("common.loading")} />}
+              {query.error && (
+                <p role="alert">
+                  {formatApiError(
+                    query.error,
+                    t("settings.org.dataAuthorization.loadFailed"),
+                    (id) => t("common.requestReference", { requestId: id }),
+                  )}
+                </p>
+              )}
+              {stale && (
+                <p role="alert">
+                  {t("authorizationCatalog.conflict")}{" "}
+                  <Button onPress={discard}>
+                    {t("authorizationCatalog.reload")}
+                  </Button>
+                </p>
+              )}
+              {rows.length ? (
+                <DataTable
+                  data={rows}
+                  getRowKey={(row) => row.resource_id}
+                  columns={[
+                    {
+                      key: "name",
+                      header: t("authorizationCatalog.name"),
+                      render: (row) => (
+                        <div className="argus-authorization-identity">
+                          <strong>{row.name}</strong>
+                          {(row.parent_name || row.environment) && (
+                            <small>
+                              {[
+                                row.parent_name,
+                                row.environment
+                                  ? t(`monitoring.env.${row.environment}`, {
+                                      defaultValue: row.environment,
+                                    })
+                                  : undefined,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </small>
+                          )}
+                          {row.source_uid && <code>{row.source_uid}</code>}
+                        </div>
+                      ),
+                    },
+                    {
+                      key: "sources",
+                      header: t("authorizationCatalog.source"),
+                      render: (row) => (
+                        <div className="argus-authorization-identity">
+                          {row.inherited && (
+                            <Badge>{t("authorizationCatalog.inherited")}</Badge>
+                          )}
+                          {row.sources.map((source) => (
+                            <small key={source}>{sourceLabel(source)}</small>
+                          ))}
+                        </div>
+                      ),
+                    },
+                    {
+                      key: "actions",
+                      header: t("authorizationCatalog.direct"),
+                      render: (row) => {
+                        const selected =
+                          changes[changeKey(type, row.resource_id)]?.after ??
+                          row.direct;
+                        return (
+                          <Button
+                            size="sm"
+                            isDisabled={
+                              stale ||
+                              save.isPending ||
+                              (row.inherited && !row.direct && !selected)
+                            }
+                            onPress={() => select(row, !selected)}
+                          >
+                            {t(
+                              selected
+                                ? "authorizationCatalog.revoke"
+                                : "authorizationCatalog.grant",
+                            )}
+                          </Button>
+                        );
+                      },
+                    },
+                  ]}
+                />
+              ) : (
+                !query.isPending &&
+                !query.error && (
+                  <EmptyState
+                    title={t("authorizationCatalog.empty")}
+                    description={t("authorizationCatalog.emptyHint")}
+                  />
+                )
+              )}
+              <div className="argus-authorization-toolbar">
+                <Button
+                  isDisabled={!rows.length || stale || save.isPending}
+                  onPress={() =>
+                    rows
+                      .filter((row) => !row.inherited)
+                      .forEach((row) => select(row, true))
+                  }
+                >
+                  {t("authorizationCatalog.grantPage")}
+                </Button>
+                <Button
+                  isDisabled={
+                    !rows.some((row) => row.direct) || stale || save.isPending
+                  }
+                  onPress={() =>
+                    rows
+                      .filter((row) => row.direct)
+                      .forEach((row) => select(row, false))
+                  }
+                >
+                  {t("authorizationCatalog.revokePage")}
+                </Button>
+              </div>
+              <div className="argus-authorization-toolbar">
+                <span>
+                  {t("authorizationCatalog.page", { page: cursors.length })}
+                </span>
+                <Button
+                  isDisabled={cursors.length === 1 || query.isFetching}
+                  onPress={() => setCursors((values) => values.slice(0, -1))}
+                >
+                  {t("settings.org.dataAuthorization.previousPage")}
+                </Button>
+                <Button
+                  isDisabled={!query.data?.page.has_more || query.isFetching}
+                  onPress={() =>
+                    setCursors((values) => [
+                      ...values,
+                      query.data?.page.next_cursor ?? undefined,
+                    ])
+                  }
+                >
+                  {t("settings.org.dataAuthorization.nextPage")}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
+          <p role="status">
+            {t("authorizationCatalog.pending", { count: pending.length })}
           </p>
-        ) : null}
+          {save.error && (
+            <p role="alert">
+              {t("authorizationCatalog.saveFailed")}{" "}
+              <Button onPress={discard}>
+                {t("authorizationCatalog.reload")}
+              </Button>
+            </p>
+          )}
+        </div>
       </FormDrawer>
       <ConfirmDialog
         open={confirmOpen}
@@ -303,7 +421,7 @@ export function DataAuthorizationDialog({
         title={t("settings.org.dataAuthorization.confirmRoleTitle")}
         description={t(
           "settings.org.dataAuthorization.confirmRoleDescription",
-          { count: affectedMemberCount },
+          { count: query.data?.affected_member_count ?? 0 },
         )}
         onConfirm={() => {
           setConfirmOpen(false);

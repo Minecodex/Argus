@@ -520,8 +520,13 @@
   border-radius: var(--control-radius);
   padding: var(--space-3);
   font: var(--text-help)/1.7 var(--font-mono);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  white-space: pre;
+  overflow-x: auto;
   margin-top: var(--space-3);
 }
 .argus-alert-checks {
@@ -701,10 +706,6 @@
 .argus-alert-page .argus-alert-stat-value.is-warning {
   color: var(--warning);
 }
-.argus-alert-details pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
 .argus-alert-pagination {
   display: flex;
   justify-content: space-between;
@@ -749,4 +750,9 @@
 }
 .argus-alert-spark.is-info {
   color: var(--info);
+}
+
+.argus-alert-event-comment {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

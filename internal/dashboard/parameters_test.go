@@ -127,7 +127,7 @@ func TestCandidateCascadeAbsenceAndUnavailableAreDifferent(t *testing.T) {
 	resource, sourceID := uuid.New(), uuid.New()
 	work := []candidateWork{}
 	for _, v := range spec.Variables {
-		work = append(work, candidateWork{name: v.Name, query: v.Query, resources: []uuid.UUID{resource}, sources: []ResolvedSource{{ID: sourceID, Revision: 1, ResourceID: resource}}})
+		work = append(work, candidateWork{name: v.Name, query: v.Query, resources: []uuid.UUID{resource}, sources: []ResolvedSource{{ID: sourceID, Revision: 1, ResourceID: resource, ResourceType: "host", Type: "otlp"}}})
 	}
 	for _, mode := range []string{"absent", "incomplete", "unavailable"} {
 		t.Run(mode, func(t *testing.T) {
@@ -154,7 +154,9 @@ func TestCandidateCascadeAbsenceAndUnavailableAreDifferent(t *testing.T) {
 				}
 				return telemetry.DataCatalogResult{Values: []string{}, Complete: false, Membership: map[string]bool{"api": true}}, nil
 			}}
-			if err := (Runtime{Backend: backend}).resolveCandidates(context.Background(), Actor{}, spec, work, &result, newExecutionBudget(3)); err != nil {
+			if err := resolveCandidateValues(context.Background(), Actor{}, spec, work, &result, newExecutionBudget(3), func(ctx context.Context, _ candidateWork, r telemetry.DataCatalogRequest) (telemetry.DataCatalogResult, error) {
+				return backend.DiscoverData(ctx, r)
+			}); err != nil {
 				t.Fatal(err)
 			}
 			if result.Variables["env"].All != (mode == "absent") || result.VariableCandidates["env"].Reset != (mode == "absent") {
@@ -192,9 +194,8 @@ func TestLocalFiltersAndCandidateBudget(t *testing.T) {
 		t.Fatal(err)
 	}
 	budget.failed(allocation)
-	next, err := budget.next(context.Background())
-	if err != nil || allocation.MaxScanBytes+next.MaxScanBytes > telemetry.DefaultMaxScanBytes {
-		t.Fatal("failed candidate budget was recycled")
+	if _, err := budget.next(context.Background()); err == nil {
+		t.Fatal("failed candidate reservation was recycled")
 	}
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()

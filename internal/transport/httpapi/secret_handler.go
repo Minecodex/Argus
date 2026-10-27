@@ -321,7 +321,7 @@ func secretError(ctx context.Context, err error) secretapi.ApiError {
 		base.Code, base.MessageKey = "SECRET_REFERENCED", "errors.secret.referenced"
 	case errors.Is(err, secret.ErrSecretValueRequired):
 		base.Code, base.MessageKey = "INVALID_ARGUMENT", "errors.common.invalid_argument"
-	case errors.Is(err, secret.ErrCredentialUnavailable):
+	case errors.Is(err, secret.ErrCredentialUnavailable), errors.Is(err, secret.ErrMonitoringManagedSecret), errors.Is(err, secret.ErrMCPManagedSecret):
 		base.Code, base.MessageKey = "CREDENTIAL_UNAVAILABLE", "errors.credential.unavailable"
 	case errors.Is(err, postgres.ErrIdempotencyConflict):
 		base.Code, base.MessageKey = "IDEMPOTENCY_CONFLICT", "errors.common.idempotency_conflict"

@@ -12,8 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Docker Desktop runs Kubernetes in its own Docker network. This owned
-// transport exposes temporary NodePorts to the Bastion's outbound network;
+// Local Kubernetes runs in a Docker network. This ownership-verified transport
+// exposes temporary NodePorts to the Bastion's outbound network;
 // it forwards opaque TLS bytes and never supplies telemetry or model results.
 func (a *App) plan6DockerIngressBridge(ctx context.Context, env *E2EEnvironment, f *plan6DockerFixture) (string, error) {
 	outside := ""
@@ -23,36 +23,24 @@ func (a *App) plan6DockerIngressBridge(ctx context.Context, env *E2EEnvironment,
 		}
 	}
 	nodes, err := env.Kube.Client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-	if err != nil || len(nodes.Items) != 1 {
-		return "", fmt.Errorf("Docker host bridge requires the single owned desktop node: %w", err)
+	if err != nil {
+		return "", fmt.Errorf("list local bridge nodes: %w", err)
 	}
-	node := nodes.Items[0]
-	raw, err := a.runner.Output(ctx, nil, "docker", "inspect", node.Name)
+	candidates, err := localBridgeNodeCandidates(env.Options.KubeContext, nodes.Items)
 	if err != nil {
 		return "", err
 	}
-	var peers []struct {
-		ID              string `json:"Id"`
-		NetworkSettings struct {
-			Networks map[string]struct {
-				NetworkID string `json:"NetworkID"`
-				IPAddress string `json:"IPAddress"`
-			} `json:"Networks"`
-		} `json:"NetworkSettings"`
+	if outside == "" {
+		return "", fmt.Errorf("owned Bastion outbound network missing")
 	}
-	if json.Unmarshal([]byte(raw), &peers) != nil || len(peers) != 1 {
-		return "", fmt.Errorf("desktop node Docker identity missing")
+	node := candidates[0]
+	actualNode, err := a.localE2EDockerNode(ctx, env, node.Name)
+	if err != nil {
+		return "", err
 	}
-	shared, ip := "", ""
-	for _, v := range peers[0].NetworkSettings.Networks {
-		for _, address := range node.Status.Addresses {
-			if address.Type == corev1.NodeInternalIP && address.Address == v.IPAddress {
-				shared, ip = v.NetworkID, v.IPAddress
-			}
-		}
-	}
-	if shared == "" || net.ParseIP(ip) == nil {
-		return "", fmt.Errorf("desktop node IP/network does not match Kubernetes")
+	shared, ip, err := localNodeSharedNetwork(node, actualNode)
+	if err != nil {
+		return "", err
 	}
 	ports := map[int32]int32{}
 	ingressService := "argus-e2e-ingress"
@@ -112,6 +100,6 @@ func (a *App) plan6DockerIngressBridge(ctx context.Context, env *E2EEnvironment,
 	if net.ParseIP(bridge) == nil {
 		return "", fmt.Errorf("bridge has no owned outbound address")
 	}
-	proof, _ := json.MarshalIndent(map[string]any{"container_id": cid, "owner": f.Owner, "desktop_node_uid": node.UID, "desktop_node_container_id": peers[0].ID, "shared_network_id": shared, "shared_network_delete_allowed": false, "node_ports": ports, "outbound_address": bridge, "tls_termination": false, "synthetic_metric_generation": false}, "", "  ")
+	proof, _ := json.MarshalIndent(map[string]any{"container_id": cid, "owner": f.Owner, "node_name": node.Name, "node_uid": node.UID, "node_container_id": actualNode.ID, "kubernetes_context": env.Options.KubeContext, "shared_network_id": shared, "shared_network_delete_allowed": false, "node_ports": ports, "outbound_address": bridge, "tls_termination": false, "synthetic_metric_generation": false}, "", "  ")
 	return bridge, writePrivate(filepath.Join(env.Options.Artifacts, "host-docker-ingress-bridge.json"), proof)
 }

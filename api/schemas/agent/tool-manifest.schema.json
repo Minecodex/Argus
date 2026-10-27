@@ -101,6 +101,8 @@
     },
     "category": {
       "enum": [
+        "application",
+        "monitoring",
         "host",
         "k8s",
         "metric",

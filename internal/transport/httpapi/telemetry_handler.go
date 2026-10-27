@@ -352,12 +352,19 @@ func (handler TelemetryHandler) executeEngine(ctx context.Context, toolID string
 	if apiError != nil {
 		return queryengine.Result{}, telemetryRequestError{apiError: *apiError}
 	}
-	resources, partial, err := handler.Service.AuthorizedResources(ctx, actor, resources)
+	signal := "metrics"
+	if language == queryengine.LanguageKQL {
+		signal = "logs"
+	} else if language == queryengine.LanguageTrace {
+		signal = "traces"
+	}
+	snapshot, keys, err := handler.Service.ResolveQueryScope(ctx, actor, resources, signal)
 	if err != nil {
 		return queryengine.Result{}, err
 	}
-	if partial {
-		return queryengine.Result{}, telemetryservice.ErrQueryScope
+	resources = snapshot.IDs()
+	if len(resources) == 0 || len(keys) == 0 {
+		return queryengine.Result{}, telemetryservice.ErrQuerySourcesEmpty
 	}
 	if from.IsZero() || to.IsZero() || !from.Before(to) {
 		return queryengine.Result{}, telemetryservice.ErrQueryInvalid
@@ -365,11 +372,11 @@ func (handler TelemetryHandler) executeEngine(ctx context.Context, toolID string
 	if handler.Service.Engine == nil {
 		return queryengine.Result{}, telemetryservice.ErrUnavailable
 	}
-	result, err := handler.Service.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: language, Expression: expression, Pipeline: pipeline, Operation: operation, Variables: variables, Instant: instant, Start: from, End: to, Step: step, Scope: queryengine.Scope{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: resources, AuthorizationVersion: actor.AuthorizationVersion}, Budget: telemetryEngineBudget(budget)})
+	result, err := handler.Service.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: language, Expression: expression, Pipeline: pipeline, Operation: operation, Variables: variables, Instant: instant, Start: from, End: to, Step: step, Scope: queryengine.Scope{Resources: snapshot.DataRefs(), Signature: snapshot.QuerySignature(), SourceKeys: keys, SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: snapshot.DataIDs(), AuthorizationVersion: actor.AuthorizationVersion}, Budget: telemetryEngineBudget(budget)})
 	if err != nil {
 		return queryengine.Result{}, err
 	}
-	if err := handler.Service.ValidateQueryScope(ctx, actor, resources); err != nil {
+	if err := handler.Service.ValidateResolvedQueryScope(ctx, actor, snapshot); err != nil {
 		return queryengine.Result{}, err
 	}
 	return result, nil
@@ -552,12 +559,16 @@ func telemetryStatus(err error) int {
 		return http.StatusNotFound
 	case errors.Is(err, telemetryservice.ErrDenied):
 		return http.StatusForbidden
+	case errors.Is(err, telemetryservice.ErrCollectorDependenciesExist):
+		return http.StatusConflict
 	case errors.Is(err, telemetryservice.ErrDistributionPending), errors.Is(err, telemetryservice.ErrQueryInvalid):
 		return http.StatusBadRequest
 	case errors.Is(err, telemetryservice.ErrQueryBudget), errors.Is(err, queryengine.ErrBudget):
 		return http.StatusRequestEntityTooLarge
 	case errors.Is(err, telemetryservice.ErrQueryParse), errors.Is(err, telemetryservice.ErrQueryType), errors.Is(err, telemetryservice.ErrQueryUnsupported), errors.Is(err, telemetryservice.ErrQueryComplexity), errors.Is(err, telemetryservice.ErrQueryInvalid):
 		return http.StatusBadRequest
+	case errors.Is(err, telemetryservice.ErrQueryProtocol), errors.Is(err, telemetryservice.ErrQuerySourcesEmpty):
+		return http.StatusConflict
 	case errors.Is(err, telemetryservice.ErrQueryScope):
 		return http.StatusForbidden
 	case errors.Is(err, postgres.ErrIdempotencyConflict), errors.Is(err, postgres.ErrIdempotencyExpired):
@@ -596,6 +607,8 @@ func telemetryError(ctx context.Context, err error) telemetryapi.ApiError {
 		code = "COLLECTOR_NOT_FOUND"
 	case errors.Is(err, telemetryservice.ErrDistributionPending):
 		code = "COLLECTOR_DISTRIBUTION_VALIDATION_PENDING"
+	case errors.Is(err, telemetryservice.ErrCollectorDependenciesExist):
+		code = "COLLECTOR_DEPENDENCIES_EXIST"
 	case errors.Is(err, telemetryservice.ErrQueryInvalid):
 		code = "TELEMETRY_QUERY_INVALID"
 	case errors.Is(err, telemetryservice.ErrRouteTransportInvalid):
@@ -610,6 +623,10 @@ func telemetryError(ctx context.Context, err error) telemetryapi.ApiError {
 		code = "QUERY_FEATURE_UNSUPPORTED"
 	case errors.Is(err, telemetryservice.ErrQueryComplexity):
 		code = "QUERY_COMPLEXITY_LIMIT"
+	case errors.Is(err, telemetryservice.ErrQueryProtocol):
+		code = "QUERY_PROTOCOL_VERSION_UNSUPPORTED"
+	case errors.Is(err, telemetryservice.ErrQuerySourcesEmpty):
+		code = "QUERY_SOURCES_EMPTY"
 	case errors.Is(err, telemetryservice.ErrQueryScope):
 		code = "QUERY_SCOPE_DENIED"
 	case errors.Is(err, telemetryservice.ErrQueryBudget), errors.Is(err, queryengine.ErrBudget):
@@ -622,6 +639,15 @@ func telemetryError(ctx context.Context, err error) telemetryapi.ApiError {
 	messageKey := "errors.telemetry." + code
 	retryable := base.Retryable
 	switch code {
+	case "COLLECTOR_DEPENDENCIES_EXIST":
+		messageKey = "errors.telemetry.collector_dependencies_exist"
+		retryable = pointer(false)
+	case "QUERY_PROTOCOL_VERSION_UNSUPPORTED":
+		messageKey = "errors.telemetry.query_protocol_version_unsupported"
+		retryable = pointer(false)
+	case "QUERY_SOURCES_EMPTY":
+		messageKey = "errors.telemetry.query_sources_empty"
+		retryable = pointer(false)
 	case "QUERY_BUDGET_EXCEEDED":
 		messageKey = "errors.telemetry.query_budget_exceeded"
 	case "TELEMETRY_DEPENDENCY_UNAVAILABLE":

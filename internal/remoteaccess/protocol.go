@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/kakj-go/Argus/internal/interactive"
 	"time"
 )
 
@@ -18,17 +19,7 @@ var (
 	ErrChannelUnavailable = errors.New("REMOTE_ACCESS_CHANNEL_NOT_AVAILABLE")
 )
 
-type ClientFrame struct {
-	Protocol string `json:"protocol"`
-	Type     string `json:"type"`
-	Sequence uint64 `json:"sequence"`
-	Ticket   string `json:"ticket,omitempty"`
-	Nonce    string `json:"nonce,omitempty"`
-	Cols     int    `json:"cols,omitempty"`
-	Rows     int    `json:"rows,omitempty"`
-	Data     string `json:"data,omitempty"`
-	Reason   string `json:"reason,omitempty"`
-}
+type ClientFrame = interactive.Input
 
 type ProtocolState struct {
 	StartedAt    time.Time

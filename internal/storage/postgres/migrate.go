@@ -41,7 +41,11 @@ func RunMigrations(ctx context.Context, databaseURL, directory string, direction
 	}
 	switch direction {
 	case MigrationUp:
-		return goose.Up(database, directory)
+		if err := goose.Up(database, directory); err != nil {
+			return err
+		}
+		_, err := reconcileRuntimeRolePermissions(ctx, database)
+		return err
 	case MigrationDown:
 		return goose.Down(database, directory)
 	default:

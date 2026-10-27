@@ -108,6 +108,43 @@
           "cursor": {
             "type": "string",
             "maxLength": 8192
+          },
+          "resource_mode": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ],
+            "description": "all_authorized selects current grants; explicit preserves an empty resource_ids set"
+          },
+          "resource_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "host",
+                "kubernetes_cluster",
+                "application",
+                "monitoring_target",
+                "kubernetes_namespace"
+              ]
+            },
+            "maxItems": 5
+          },
+          "application_mode": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ]
+          },
+          "application_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 1000
           }
         },
         "required": [

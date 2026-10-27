@@ -48,16 +48,22 @@ func (e DashboardBindingInputOperation) Valid() bool {
 
 // Defines values for DashboardBindingViewResourceType.
 const (
+	DashboardBindingViewResourceTypeApplication       DashboardBindingViewResourceType = "application"
 	DashboardBindingViewResourceTypeHost              DashboardBindingViewResourceType = "host"
 	DashboardBindingViewResourceTypeKubernetesCluster DashboardBindingViewResourceType = "kubernetes_cluster"
+	DashboardBindingViewResourceTypeMonitoringTarget  DashboardBindingViewResourceType = "monitoring_target"
 )
 
 // Valid indicates whether the value is a known member of the DashboardBindingViewResourceType enum.
 func (e DashboardBindingViewResourceType) Valid() bool {
 	switch e {
+	case DashboardBindingViewResourceTypeApplication:
+		return true
 	case DashboardBindingViewResourceTypeHost:
 		return true
 	case DashboardBindingViewResourceTypeKubernetesCluster:
+		return true
+	case DashboardBindingViewResourceTypeMonitoringTarget:
 		return true
 	default:
 		return false
@@ -217,6 +223,24 @@ func (e DashboardCatalogFilterOperator) Valid() bool {
 	}
 }
 
+// Defines values for DashboardCatalogInputApplicationMode.
+const (
+	DashboardCatalogInputApplicationModeAllAuthorized DashboardCatalogInputApplicationMode = "all_authorized"
+	DashboardCatalogInputApplicationModeExplicit      DashboardCatalogInputApplicationMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the DashboardCatalogInputApplicationMode enum.
+func (e DashboardCatalogInputApplicationMode) Valid() bool {
+	switch e {
+	case DashboardCatalogInputApplicationModeAllAuthorized:
+		return true
+	case DashboardCatalogInputApplicationModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DashboardCatalogInputKind.
 const (
 	DashboardCatalogInputKindFields  DashboardCatalogInputKind = "fields"
@@ -232,6 +256,51 @@ func (e DashboardCatalogInputKind) Valid() bool {
 	case DashboardCatalogInputKindMetrics:
 		return true
 	case DashboardCatalogInputKindValues:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardCatalogInputResourceMode.
+const (
+	DashboardCatalogInputResourceModeAllAuthorized DashboardCatalogInputResourceMode = "all_authorized"
+	DashboardCatalogInputResourceModeExplicit      DashboardCatalogInputResourceMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the DashboardCatalogInputResourceMode enum.
+func (e DashboardCatalogInputResourceMode) Valid() bool {
+	switch e {
+	case DashboardCatalogInputResourceModeAllAuthorized:
+		return true
+	case DashboardCatalogInputResourceModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardCatalogInputResourceTypes.
+const (
+	DashboardCatalogInputResourceTypesApplication         DashboardCatalogInputResourceTypes = "application"
+	DashboardCatalogInputResourceTypesHost                DashboardCatalogInputResourceTypes = "host"
+	DashboardCatalogInputResourceTypesKubernetesCluster   DashboardCatalogInputResourceTypes = "kubernetes_cluster"
+	DashboardCatalogInputResourceTypesKubernetesNamespace DashboardCatalogInputResourceTypes = "kubernetes_namespace"
+	DashboardCatalogInputResourceTypesMonitoringTarget    DashboardCatalogInputResourceTypes = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the DashboardCatalogInputResourceTypes enum.
+func (e DashboardCatalogInputResourceTypes) Valid() bool {
+	switch e {
+	case DashboardCatalogInputResourceTypesApplication:
+		return true
+	case DashboardCatalogInputResourceTypesHost:
+		return true
+	case DashboardCatalogInputResourceTypesKubernetesCluster:
+		return true
+	case DashboardCatalogInputResourceTypesKubernetesNamespace:
+		return true
+	case DashboardCatalogInputResourceTypesMonitoringTarget:
 		return true
 	default:
 		return false
@@ -361,6 +430,69 @@ func (e DashboardDrilldownExecutionScopePolicy) Valid() bool {
 	}
 }
 
+// Defines values for DashboardExecutionInputApplicationMode.
+const (
+	DashboardExecutionInputApplicationModeAllAuthorized DashboardExecutionInputApplicationMode = "all_authorized"
+	DashboardExecutionInputApplicationModeExplicit      DashboardExecutionInputApplicationMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the DashboardExecutionInputApplicationMode enum.
+func (e DashboardExecutionInputApplicationMode) Valid() bool {
+	switch e {
+	case DashboardExecutionInputApplicationModeAllAuthorized:
+		return true
+	case DashboardExecutionInputApplicationModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardExecutionInputResourceMode.
+const (
+	DashboardExecutionInputResourceModeAllAuthorized DashboardExecutionInputResourceMode = "all_authorized"
+	DashboardExecutionInputResourceModeExplicit      DashboardExecutionInputResourceMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the DashboardExecutionInputResourceMode enum.
+func (e DashboardExecutionInputResourceMode) Valid() bool {
+	switch e {
+	case DashboardExecutionInputResourceModeAllAuthorized:
+		return true
+	case DashboardExecutionInputResourceModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardExecutionInputResourceTypes.
+const (
+	DashboardExecutionInputResourceTypesApplication         DashboardExecutionInputResourceTypes = "application"
+	DashboardExecutionInputResourceTypesHost                DashboardExecutionInputResourceTypes = "host"
+	DashboardExecutionInputResourceTypesKubernetesCluster   DashboardExecutionInputResourceTypes = "kubernetes_cluster"
+	DashboardExecutionInputResourceTypesKubernetesNamespace DashboardExecutionInputResourceTypes = "kubernetes_namespace"
+	DashboardExecutionInputResourceTypesMonitoringTarget    DashboardExecutionInputResourceTypes = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the DashboardExecutionInputResourceTypes enum.
+func (e DashboardExecutionInputResourceTypes) Valid() bool {
+	switch e {
+	case DashboardExecutionInputResourceTypesApplication:
+		return true
+	case DashboardExecutionInputResourceTypesHost:
+		return true
+	case DashboardExecutionInputResourceTypesKubernetesCluster:
+		return true
+	case DashboardExecutionInputResourceTypesKubernetesNamespace:
+		return true
+	case DashboardExecutionInputResourceTypesMonitoringTarget:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DashboardFolderStatus.
 const (
 	Active   DashboardFolderStatus = "active"
@@ -424,6 +556,33 @@ func (e DashboardLocalFilterKind) Valid() bool {
 	case Query:
 		return true
 	case Text:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardPanelApplicableResourceTypes.
+const (
+	DashboardPanelApplicableResourceTypesApplication         DashboardPanelApplicableResourceTypes = "application"
+	DashboardPanelApplicableResourceTypesHost                DashboardPanelApplicableResourceTypes = "host"
+	DashboardPanelApplicableResourceTypesKubernetesCluster   DashboardPanelApplicableResourceTypes = "kubernetes_cluster"
+	DashboardPanelApplicableResourceTypesKubernetesNamespace DashboardPanelApplicableResourceTypes = "kubernetes_namespace"
+	DashboardPanelApplicableResourceTypesMonitoringTarget    DashboardPanelApplicableResourceTypes = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the DashboardPanelApplicableResourceTypes enum.
+func (e DashboardPanelApplicableResourceTypes) Valid() bool {
+	switch e {
+	case DashboardPanelApplicableResourceTypesApplication:
+		return true
+	case DashboardPanelApplicableResourceTypesHost:
+		return true
+	case DashboardPanelApplicableResourceTypesKubernetesCluster:
+		return true
+	case DashboardPanelApplicableResourceTypesKubernetesNamespace:
+		return true
+	case DashboardPanelApplicableResourceTypesMonitoringTarget:
 		return true
 	default:
 		return false
@@ -523,18 +682,165 @@ func (e DashboardQueryJobViewStatus) Valid() bool {
 	}
 }
 
+// Defines values for DashboardResolvedSourceResourceType.
+const (
+	DashboardResolvedSourceResourceTypeApplication       DashboardResolvedSourceResourceType = "application"
+	DashboardResolvedSourceResourceTypeHost              DashboardResolvedSourceResourceType = "host"
+	DashboardResolvedSourceResourceTypeKubernetesCluster DashboardResolvedSourceResourceType = "kubernetes_cluster"
+	DashboardResolvedSourceResourceTypeMonitoringTarget  DashboardResolvedSourceResourceType = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the DashboardResolvedSourceResourceType enum.
+func (e DashboardResolvedSourceResourceType) Valid() bool {
+	switch e {
+	case DashboardResolvedSourceResourceTypeApplication:
+		return true
+	case DashboardResolvedSourceResourceTypeHost:
+		return true
+	case DashboardResolvedSourceResourceTypeKubernetesCluster:
+		return true
+	case DashboardResolvedSourceResourceTypeMonitoringTarget:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DashboardResourceScopeType.
 const (
-	DashboardResourceScopeTypeHost              DashboardResourceScopeType = "host"
-	DashboardResourceScopeTypeKubernetesCluster DashboardResourceScopeType = "kubernetes_cluster"
+	DashboardResourceScopeTypeApplication         DashboardResourceScopeType = "application"
+	DashboardResourceScopeTypeHost                DashboardResourceScopeType = "host"
+	DashboardResourceScopeTypeKubernetesCluster   DashboardResourceScopeType = "kubernetes_cluster"
+	DashboardResourceScopeTypeKubernetesNamespace DashboardResourceScopeType = "kubernetes_namespace"
+	DashboardResourceScopeTypeMonitoringTarget    DashboardResourceScopeType = "monitoring_target"
 )
 
 // Valid indicates whether the value is a known member of the DashboardResourceScopeType enum.
 func (e DashboardResourceScopeType) Valid() bool {
 	switch e {
+	case DashboardResourceScopeTypeApplication:
+		return true
 	case DashboardResourceScopeTypeHost:
 		return true
 	case DashboardResourceScopeTypeKubernetesCluster:
+		return true
+	case DashboardResourceScopeTypeKubernetesNamespace:
+		return true
+	case DashboardResourceScopeTypeMonitoringTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardScopeDirectoryItemType.
+const (
+	DashboardScopeDirectoryItemTypeApplication         DashboardScopeDirectoryItemType = "application"
+	DashboardScopeDirectoryItemTypeHost                DashboardScopeDirectoryItemType = "host"
+	DashboardScopeDirectoryItemTypeKubernetesCluster   DashboardScopeDirectoryItemType = "kubernetes_cluster"
+	DashboardScopeDirectoryItemTypeKubernetesNamespace DashboardScopeDirectoryItemType = "kubernetes_namespace"
+	DashboardScopeDirectoryItemTypeMonitoringTarget    DashboardScopeDirectoryItemType = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the DashboardScopeDirectoryItemType enum.
+func (e DashboardScopeDirectoryItemType) Valid() bool {
+	switch e {
+	case DashboardScopeDirectoryItemTypeApplication:
+		return true
+	case DashboardScopeDirectoryItemTypeHost:
+		return true
+	case DashboardScopeDirectoryItemTypeKubernetesCluster:
+		return true
+	case DashboardScopeDirectoryItemTypeKubernetesNamespace:
+		return true
+	case DashboardScopeDirectoryItemTypeMonitoringTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardScopeSelectionApplicationsMode.
+const (
+	DashboardScopeSelectionApplicationsModeAllAuthorized DashboardScopeSelectionApplicationsMode = "all_authorized"
+	DashboardScopeSelectionApplicationsModeExplicit      DashboardScopeSelectionApplicationsMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the DashboardScopeSelectionApplicationsMode enum.
+func (e DashboardScopeSelectionApplicationsMode) Valid() bool {
+	switch e {
+	case DashboardScopeSelectionApplicationsModeAllAuthorized:
+		return true
+	case DashboardScopeSelectionApplicationsModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardScopeSelectionMode.
+const (
+	DashboardScopeSelectionModeAllAuthorized DashboardScopeSelectionMode = "all_authorized"
+	DashboardScopeSelectionModeExplicit      DashboardScopeSelectionMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the DashboardScopeSelectionMode enum.
+func (e DashboardScopeSelectionMode) Valid() bool {
+	switch e {
+	case DashboardScopeSelectionModeAllAuthorized:
+		return true
+	case DashboardScopeSelectionModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardScopeSelectionSignal.
+const (
+	DashboardScopeSelectionSignalCatalog DashboardScopeSelectionSignal = "catalog"
+	DashboardScopeSelectionSignalLogs    DashboardScopeSelectionSignal = "logs"
+	DashboardScopeSelectionSignalMetrics DashboardScopeSelectionSignal = "metrics"
+	DashboardScopeSelectionSignalTraces  DashboardScopeSelectionSignal = "traces"
+)
+
+// Valid indicates whether the value is a known member of the DashboardScopeSelectionSignal enum.
+func (e DashboardScopeSelectionSignal) Valid() bool {
+	switch e {
+	case DashboardScopeSelectionSignalCatalog:
+		return true
+	case DashboardScopeSelectionSignalLogs:
+		return true
+	case DashboardScopeSelectionSignalMetrics:
+		return true
+	case DashboardScopeSelectionSignalTraces:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardScopeSelectionTypes.
+const (
+	DashboardScopeSelectionTypesApplication         DashboardScopeSelectionTypes = "application"
+	DashboardScopeSelectionTypesHost                DashboardScopeSelectionTypes = "host"
+	DashboardScopeSelectionTypesKubernetesCluster   DashboardScopeSelectionTypes = "kubernetes_cluster"
+	DashboardScopeSelectionTypesKubernetesNamespace DashboardScopeSelectionTypes = "kubernetes_namespace"
+	DashboardScopeSelectionTypesMonitoringTarget    DashboardScopeSelectionTypes = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the DashboardScopeSelectionTypes enum.
+func (e DashboardScopeSelectionTypes) Valid() bool {
+	switch e {
+	case DashboardScopeSelectionTypesApplication:
+		return true
+	case DashboardScopeSelectionTypesHost:
+		return true
+	case DashboardScopeSelectionTypesKubernetesCluster:
+		return true
+	case DashboardScopeSelectionTypesKubernetesNamespace:
+		return true
+	case DashboardScopeSelectionTypesMonitoringTarget:
 		return true
 	default:
 		return false
@@ -663,16 +969,49 @@ func (e DashboardTimeRangeKind) Valid() bool {
 
 // Defines values for ResourceDashboardBindingsResourceType.
 const (
+	ResourceDashboardBindingsResourceTypeApplication       ResourceDashboardBindingsResourceType = "application"
 	ResourceDashboardBindingsResourceTypeHost              ResourceDashboardBindingsResourceType = "host"
 	ResourceDashboardBindingsResourceTypeKubernetesCluster ResourceDashboardBindingsResourceType = "kubernetes_cluster"
+	ResourceDashboardBindingsResourceTypeMonitoringTarget  ResourceDashboardBindingsResourceType = "monitoring_target"
 )
 
 // Valid indicates whether the value is a known member of the ResourceDashboardBindingsResourceType enum.
 func (e ResourceDashboardBindingsResourceType) Valid() bool {
 	switch e {
+	case ResourceDashboardBindingsResourceTypeApplication:
+		return true
 	case ResourceDashboardBindingsResourceTypeHost:
 		return true
 	case ResourceDashboardBindingsResourceTypeKubernetesCluster:
+		return true
+	case ResourceDashboardBindingsResourceTypeMonitoringTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListDashboardScopeResourcesParamsKind.
+const (
+	ListDashboardScopeResourcesParamsKindApplication         ListDashboardScopeResourcesParamsKind = "application"
+	ListDashboardScopeResourcesParamsKindHost                ListDashboardScopeResourcesParamsKind = "host"
+	ListDashboardScopeResourcesParamsKindKubernetesCluster   ListDashboardScopeResourcesParamsKind = "kubernetes_cluster"
+	ListDashboardScopeResourcesParamsKindKubernetesNamespace ListDashboardScopeResourcesParamsKind = "kubernetes_namespace"
+	ListDashboardScopeResourcesParamsKindMonitoringTarget    ListDashboardScopeResourcesParamsKind = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the ListDashboardScopeResourcesParamsKind enum.
+func (e ListDashboardScopeResourcesParamsKind) Valid() bool {
+	switch e {
+	case ListDashboardScopeResourcesParamsKindApplication:
+		return true
+	case ListDashboardScopeResourcesParamsKindHost:
+		return true
+	case ListDashboardScopeResourcesParamsKindKubernetesCluster:
+		return true
+	case ListDashboardScopeResourcesParamsKindKubernetesNamespace:
+		return true
+	case ListDashboardScopeResourcesParamsKindMonitoringTarget:
 		return true
 	default:
 		return false
@@ -859,23 +1198,38 @@ type DashboardCatalogFilterOperator string
 
 // DashboardCatalogInput defines model for DashboardCatalogInput.
 type DashboardCatalogInput struct {
-	Cursor         *string                     `json:"cursor,omitempty"`
-	Field          *string                     `json:"field,omitempty"`
-	Filters        []DashboardCatalogFilter    `json:"filters"`
-	From           time.Time                   `json:"from"`
-	Kind           DashboardCatalogInputKind   `json:"kind"`
-	Limit          int                         `json:"limit"`
-	Metric         *string                     `json:"metric,omitempty"`
-	ResourceIds    []openapi_types.UUID        `json:"resource_ids"`
-	Search         *string                     `json:"search,omitempty"`
-	SelectedValues []string                    `json:"selected_values"`
-	Signal         DashboardCatalogInputSignal `json:"signal"`
-	SourceBinding  DashboardSourceBinding      `json:"source_binding"`
-	To             time.Time                   `json:"to"`
+	ApplicationIds  *[]openapi_types.UUID                 `json:"application_ids,omitempty"`
+	ApplicationMode *DashboardCatalogInputApplicationMode `json:"application_mode,omitempty"`
+	Cursor          *string                               `json:"cursor,omitempty"`
+	Field           *string                               `json:"field,omitempty"`
+	Filters         []DashboardCatalogFilter              `json:"filters"`
+	From            time.Time                             `json:"from"`
+	Kind            DashboardCatalogInputKind             `json:"kind"`
+	Limit           int                                   `json:"limit"`
+	Metric          *string                               `json:"metric,omitempty"`
+	ResourceIds     []openapi_types.UUID                  `json:"resource_ids"`
+
+	// ResourceMode all_authorized selects current grants; explicit preserves an empty resource_ids set
+	ResourceMode   *DashboardCatalogInputResourceMode    `json:"resource_mode,omitempty"`
+	ResourceTypes  *[]DashboardCatalogInputResourceTypes `json:"resource_types,omitempty"`
+	Search         *string                               `json:"search,omitempty"`
+	SelectedValues []string                              `json:"selected_values"`
+	Signal         DashboardCatalogInputSignal           `json:"signal"`
+	SourceBinding  DashboardSourceBinding                `json:"source_binding"`
+	To             time.Time                             `json:"to"`
 }
+
+// DashboardCatalogInputApplicationMode defines model for DashboardCatalogInput.ApplicationMode.
+type DashboardCatalogInputApplicationMode string
 
 // DashboardCatalogInputKind defines model for DashboardCatalogInput.Kind.
 type DashboardCatalogInputKind string
+
+// DashboardCatalogInputResourceMode all_authorized selects current grants; explicit preserves an empty resource_ids set
+type DashboardCatalogInputResourceMode string
+
+// DashboardCatalogInputResourceTypes defines model for DashboardCatalogInput.ResourceTypes.
+type DashboardCatalogInputResourceTypes string
 
 // DashboardCatalogInputSignal defines model for DashboardCatalogInput.Signal.
 type DashboardCatalogInputSignal string
@@ -960,18 +1314,20 @@ type DashboardDisplayOptionsReducer string
 
 // DashboardDraft defines model for DashboardDraft.
 type DashboardDraft struct {
-	BaseObjectVersion int64               `json:"base_object_version"`
-	BaseRevisionId    *openapi_types.UUID `json:"base_revision_id,omitempty"`
-	DashboardId       *openapi_types.UUID `json:"dashboard_id,omitempty"`
-	Description       string              `json:"description"`
-	DraftVersion      int64               `json:"draft_version"`
-	FolderId          *openapi_types.UUID `json:"folder_id,omitempty"`
-	Id                openapi_types.UUID  `json:"id"`
-	Name              string              `json:"name"`
-	ProposedBindings  []DashboardBinding  `json:"proposed_bindings"`
-	Spec              DashboardSpec       `json:"spec"`
-	Status            string              `json:"status"`
-	UpdatedAt         time.Time           `json:"updated_at"`
+	BaseObjectVersion     int64               `json:"base_object_version"`
+	BaseRevisionId        *openapi_types.UUID `json:"base_revision_id,omitempty"`
+	DashboardId           *openapi_types.UUID `json:"dashboard_id,omitempty"`
+	Description           string              `json:"description"`
+	DraftVersion          int64               `json:"draft_version"`
+	FolderId              *openapi_types.UUID `json:"folder_id,omitempty"`
+	Id                    openapi_types.UUID  `json:"id"`
+	Name                  string              `json:"name"`
+	ProposedBindings      []DashboardBinding  `json:"proposed_bindings"`
+	SourceTemplateKey     *string             `json:"source_template_key,omitempty"`
+	SourceTemplateVersion *int64              `json:"source_template_version,omitempty"`
+	Spec                  DashboardSpec       `json:"spec"`
+	Status                string              `json:"status"`
+	UpdatedAt             time.Time           `json:"updated_at"`
 }
 
 // DashboardDraftDrilldownExecution defines model for DashboardDraftDrilldownExecution.
@@ -1013,97 +1369,3 @@ type DashboardDraftPanelConversion struct {
 
 // DashboardDraftPanelConversionMode defines model for DashboardDraftPanelConversion.Mode.
 type DashboardDraftPanelConversionMode string
-
-// DashboardDraftPanelDrilldowns defines model for DashboardDraftPanelDrilldowns.
-type DashboardDraftPanelDrilldowns struct {
-	PanelId       string                            `json:"panel_id"`
-	SignalSources map[string]DashboardSourceBinding `json:"signal_sources"`
-}
-
-// DashboardDraftPreparation defines model for DashboardDraftPreparation.
-type DashboardDraftPreparation struct {
-	Conversions *[]DashboardDraftPanelConversion `json:"conversions,omitempty"`
-	Drilldowns  *[]DashboardDraftPanelDrilldowns `json:"drilldowns,omitempty"`
-}
-
-// DashboardDraftSample defines model for DashboardDraftSample.
-type DashboardDraftSample struct {
-	DraftId      openapi_types.UUID        `json:"draft_id"`
-	DraftVersion int64                     `json:"draft_version"`
-	Sample       map[string]interface{}    `json:"sample"`
-	Validation   DashboardValidationReport `json:"validation"`
-}
-
-// DashboardDraftSampleInput defines model for DashboardDraftSampleInput.
-type DashboardDraftSampleInput struct {
-	ExpectedVersion int64                    `json:"expected_version"`
-	Parameters      *DashboardExecutionInput `json:"parameters,omitempty"`
-}
-
-// DashboardDrilldown defines model for DashboardDrilldown.
-type DashboardDrilldown struct {
-	DetailQueryRef string                        `json:"detail_query_ref"`
-	Id             string                        `json:"id"`
-	Inputs         map[string]string             `json:"inputs"`
-	Kind           *string                       `json:"kind,omitempty"`
-	OriginQueryRef string                        `json:"origin_query_ref"`
-	ScopePolicy    string                        `json:"scope_policy"`
-	TimeWindow     *DashboardDrilldownTimeWindow `json:"time_window,omitempty"`
-	Title          string                        `json:"title"`
-}
-
-// DashboardDrilldownExecution defines model for DashboardDrilldownExecution.
-type DashboardDrilldownExecution struct {
-	ContextExpiresAt  time.Time                              `json:"context_expires_at"`
-	ContextToken      string                                 `json:"context_token"`
-	DashboardId       openapi_types.UUID                     `json:"dashboard_id"`
-	DrilldownId       string                                 `json:"drilldown_id"`
-	ExecutionHash     string                                 `json:"execution_hash"`
-	From              time.Time                              `json:"from"`
-	PanelId           string                                 `json:"panel_id"`
-	ParentExecutionId openapi_types.UUID                     `json:"parent_execution_id"`
-	Resources         []DashboardResourceScope               `json:"resources"`
-	Result            DashboardTargetExecution               `json:"result"`
-	RevisionId        openapi_types.UUID                     `json:"revision_id"`
-	ScopePolicy       DashboardDrilldownExecutionScopePolicy `json:"scope_policy"`
-	Sources           []DashboardResolvedSource              `json:"sources"`
-	To                time.Time                              `json:"to"`
-}
-
-// DashboardDrilldownExecutionScopePolicy defines model for DashboardDrilldownExecution.ScopePolicy.
-type DashboardDrilldownExecutionScopePolicy string
-
-// DashboardDrilldownInput defines model for DashboardDrilldownInput.
-type DashboardDrilldownInput struct {
-	ContextToken              string            `json:"context_token"`
-	DrilldownId               string            `json:"drilldown_id"`
-	ExpandAuthorizedResources bool              `json:"expand_authorized_resources"`
-	PanelId                   string            `json:"panel_id"`
-	Values                    map[string]string `json:"values"`
-}
-
-// DashboardDrilldownTimeWindow defines model for DashboardDrilldownTimeWindow.
-type DashboardDrilldownTimeWindow struct {
-	DurationInput *string `json:"duration_input,omitempty"`
-	Input         string  `json:"input"`
-	Seconds       *int    `json:"seconds,omitempty"`
-}
-
-// DashboardExecution defines model for DashboardExecution.
-type DashboardExecution struct {
-	ContextExpiresAt   *time.Time                                    `json:"context_expires_at,omitempty"`
-	ContextToken       *string                                       `json:"context_token,omitempty"`
-	DashboardId        openapi_types.UUID                            `json:"dashboard_id"`
-	ExecutionHash      string                                        `json:"execution_hash"`
-	ExecutionId        openapi_types.UUID                            `json:"execution_id"`
-	From               time.Time                                     `json:"from"`
-	LocalCandidates    map[string]map[string]DashboardCandidateState `json:"local_candidates"`
-	LocalValues        map[string]map[string]DashboardSelection      `json:"local_values"`
-	Panels             []DashboardPanelExecution                     `json:"panels"`
-	Partial            bool                                          `json:"partial"`
-	Resources          []DashboardResourceScope                      `json:"resources"`
-	RevisionId         openapi_types.UUID                            `json:"revision_id"`
-	To                 time.Time                                     `json:"to"`
-	VariableCandidates map[string]DashboardCandidateState            `json:"variable_candidates"`
-	Variables          map[string]DashboardSelection                 `json:"variables"`
-}

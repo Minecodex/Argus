@@ -207,6 +207,7 @@ func TestSuiteDependencies(t *testing.T) {
 		"tool-templates":      {"m2", "m3", "m4", "p5-native", "m7", "m10-query", "tool-templates"},
 		"plan6":               {"m2", "m3", "m4", "p5-native", "m7", "plan6"},
 		"plan7":               {"m2", "m4", "plan7"},
+		"plan8":               {"m2", "m4", "plan8"},
 		"m8":                  {"m6", "m7", "m8"},
 		"p4":                  {"m2", "p4"},
 		"tls":                 {"m2", "tls"},

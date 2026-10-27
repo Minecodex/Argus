@@ -9,30 +9,30 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/dashboardaccess"
+	"github.com/kakj-go/Argus/internal/observationscope"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
 func authorize(ctx context.Context, q *db.Queries, a Actor, permission string) error {
 	if err := dashboardaccess.Authorize(ctx, q, a, permission); err != nil {
-		return ErrDenied
+		if errors.Is(err, dashboardaccess.ErrDenied) {
+			return ErrDenied
+		}
+		return err
 	}
 	return nil
 }
 func actorResources(ctx context.Context, q *db.Queries, a Actor) ([]uuid.UUID, error) {
-	ids := []uuid.UUID{}
-	for _, kind := range []struct{ kind, permission string }{{"host", "host.read"}, {"kubernetes_cluster", "kubernetes.read"}} {
-		if err := dashboardaccess.Authorize(ctx, q, a, kind.permission); err != nil {
-			if errors.Is(err, dashboardaccess.ErrDenied) {
-				continue
-			}
-			return nil, err
-		}
-		values, err := dashboardaccess.AuthorizedIDs(ctx, q, a, kind.kind)
-		if err != nil {
-			return nil, err
-		}
-		ids = append(ids, values...)
+	snapshot, err := (observationscope.Resolver{Queries: q}).Directory(ctx, a, observationscope.Selection{Mode: observationscope.AllAuthorized, Signal: "catalog"})
+	if errors.Is(err, observationscope.ErrDenied) {
+		// No object-read capability means an empty data set. Callers still
+		// enforce their own alert/IAM capability before exposing configuration.
+		return []uuid.UUID{}, nil
 	}
+	if err != nil {
+		return nil, err
+	}
+	ids := snapshot.IDs()
 	sort.Slice(ids, func(i, j int) bool { return ids[i].String() < ids[j].String() })
 	return slices.Compact(ids), nil
 }
@@ -78,14 +78,30 @@ func selectedResources(ctx context.Context, q *db.Queries, a Actor, s ResourceSe
 // A stopped evaluator does not grant its creator an authorization bypass.
 func selectorResources(ctx context.Context, q *db.Queries, a Actor, s ResourceSelector, evaluation bool) ([]uuid.UUID, error) {
 	result := []uuid.UUID{}
+	if evaluation {
+		mode := observationscope.AllAuthorized
+		if s.Mode == "explicit" {
+			mode = observationscope.Explicit
+		}
+		snapshot, err := (observationscope.Resolver{Queries: q}).Resolve(ctx, a, observationscope.Selection{Mode: mode, IDs: s.IDs, Types: s.Types, Signal: "metrics"})
+		if errors.Is(err, observationscope.ErrDenied) {
+			return nil, ErrDenied
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range snapshot.Resources {
+			if matches(item.Labels, s.Matchers) {
+				result = append(result, item.ID)
+			}
+		}
+		if s.Mode == "explicit" && !containsAll(result, s.IDs) {
+			return nil, ErrDenied
+		}
+		sort.Slice(result, func(i, j int) bool { return result[i].String() < result[j].String() })
+		return result, nil
+	}
 	for _, kind := range s.Types {
-		permission := "host.read"
-		if kind == "kubernetes_cluster" {
-			permission = "kubernetes.read"
-		}
-		if evaluation && dashboardaccess.Authorize(ctx, q, a, permission) != nil {
-			continue
-		}
 		ids, err := dashboardaccess.AuthorizedIDs(ctx, q, a, kind)
 		if !evaluation && a.SubjectType == "service_account" {
 			ids, err = q.ListAlertConfiguredResourceIDs(ctx, db.ListAlertConfiguredResourceIDsParams{EnterpriseID: a.EnterpriseID, EvaluatorID: a.SubjectID, ResourceType: kind})
@@ -104,12 +120,19 @@ func selectorResources(ctx context.Context, q *db.Queries, a Actor, s ResourceSe
 					continue
 				}
 				_ = json.Unmarshal(row.Labels, &labels)
-			} else {
+			} else if kind == "kubernetes_cluster" {
 				row, e := q.GetKubernetesCluster(ctx, db.GetKubernetesClusterParams{ID: id, EnterpriseID: a.EnterpriseID})
 				if e != nil {
 					continue
 				}
 				_ = json.Unmarshal(row.Labels, &labels)
+			} else if kind == "application" || kind == "monitoring_target" {
+				rows, e := q.ListObservationScopeResources(ctx, db.ListObservationScopeResourcesParams{EnterpriseID: a.EnterpriseID, Kind: kind, Ids: []uuid.UUID{id}})
+				if e != nil || len(rows) != 1 {
+					continue
+				}
+			} else {
+				return nil, ErrInvalid
 			}
 			if matches(labels, s.Matchers) {
 				result = append(result, id)
@@ -173,7 +196,10 @@ func globalConfigurationScope(ctx context.Context, q *db.Queries, a Actor) ([]uu
 		return nil, e
 	}
 	allowed, e := actorResources(ctx, q, a)
-	if e != nil || !containsAll(allowed, ids) {
+	if e != nil {
+		return nil, e
+	}
+	if !containsAll(allowed, ids) {
 		return nil, ErrDenied
 	}
 	return ids, nil

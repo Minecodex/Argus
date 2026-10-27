@@ -127,14 +127,23 @@ func (w Worker) persistEvaluation(ctx context.Context, task runtime.Task, policy
 		if current.LastEvaluatedAt.Valid && !result.Slot.Truncate(time.Microsecond).After(current.LastEvaluatedAt.Time) {
 			return nil
 		}
-		if result.Evaluator.SubjectID != uuid.Nil && (result.Health == "normal" || result.Health == "no_data" || len(result.Observations) > 0) {
+		if result.Evaluator.SubjectID != uuid.Nil && (result.Health == "normal" || result.Health == "no_data" || result.Health == "not_evaluated" || len(result.Observations) > 0) {
 			account, e := evaluator(ctx, q, policy.EnterpriseID)
 			if e != nil || account.AuthorizationVersion != result.Evaluator.AuthorizationVersion || account.SubjectID != result.Evaluator.SubjectID {
 				return ErrDenied
 			}
-			sources, e := metricSources(ctx, q, policy.EnterpriseID, result.ResourceIDs, p.Resources.SourceIDs)
-			if e != nil || !sourcesEqual(sources, result.Sources) {
+			sources, scope, e := metricSources(ctx, q, account, result.ResourceIDs, p.Resources.SourceIDs, p.Resources.Types)
+			if e != nil || !sourcesEqual(sources, result.Sources) || scope.Signature != result.ScopeSignature {
 				return ErrDenied
+			}
+			if result.SourcesCaptured {
+				stopped, err := metricScopeExplicitlyStopped(ctx, q, account, scope)
+				if err != nil {
+					return err
+				}
+				if stopped != (result.Health == "not_evaluated") {
+					return ErrDenied
+				}
 			}
 			ids, e := selectedResources(ctx, q, account, p.Resources)
 			if e != nil || !slices.Equal(ids, result.ResourceIDs) {
@@ -142,7 +151,7 @@ func (w Worker) persistEvaluation(ctx context.Context, task runtime.Task, policy
 			}
 		}
 		persistedResult, _ := json.Marshal(result)
-		snapshot, _ := json.Marshal(map[string]any{"resources": result.ResourceIDs, "sources": result.Sources})
+		snapshot, _ := json.Marshal(map[string]any{"resources": result.ResourceRefs, "sources": result.Sources, "scope_signature": result.ScopeSignature})
 		if err = q.AddAlertEvaluation(ctx, db.AddAlertEvaluationParams{ID: uuid.New(), EnterpriseID: policy.EnterpriseID, PolicyID: policy.ID, PolicyVersion: policy.Version, Slot: timestamp(result.Slot), EvaluatorID: nullID(result.Evaluator.SubjectID), AuthorizationVersion: result.Evaluator.AuthorizationVersion, Scope: snapshot, Health: result.Health, ErrorCode: result.ErrorCode, Fence: task.FenceToken, Result: persistedResult}); err != nil {
 			return err
 		}
@@ -232,7 +241,10 @@ func (w Worker) persistEvaluation(ctx context.Context, task runtime.Task, policy
 			if state.Kind == "health" {
 				continue
 			}
-			closure, e := missingEpisodeClosure(ctx, q, row, result)
+			closure, e := "", error(nil)
+			if result.Health != "not_evaluated" {
+				closure, e = missingEpisodeClosure(ctx, q, row, result)
+			}
 			if e != nil {
 				return e
 			}
@@ -264,7 +276,7 @@ func (w Worker) persistEvaluation(ctx context.Context, task runtime.Task, policy
 				return err
 			}
 		}
-		report := result.Health == "no_data" && p.NoDataBehavior == "report" || result.Health != "normal" && result.Health != "no_data" && p.ErrorBehavior == "report"
+		report := result.Health == "no_data" && p.NoDataBehavior == "report" || result.Health != "normal" && result.Health != "no_data" && result.Health != "not_evaluated" && p.ErrorBehavior == "report"
 		if report && len(result.ResourceIDs) > 0 {
 			event, e := w.healthEpisode(ctx, q, policy, p, result)
 			if e != nil {

@@ -133,7 +133,7 @@ const PROFILES: CollectionProfile[] = [
   profile(
     "profile-k8s-node-container",
     "k8s-node-container",
-    ["metrics", "logs"],
+    ["metrics"],
     ["linux_arm64", "linux_amd64"],
   ),
   profile(
@@ -182,7 +182,13 @@ function profile(
     supported_platforms: supportedPlatforms,
     claim_types: [key],
     config_schema_version: collectorConfigSchemaVersion,
-    support_status: "supported",
+    support_status: [
+      "otlp-receiver",
+      "jaeger-receiver",
+      "skywalking-receiver",
+    ].includes(key)
+      ? "retired"
+      : "supported",
   };
 }
 
@@ -324,6 +330,28 @@ export function createTelemetryDomain(
       requireTelemetryResources(ctx, input.resource_ids);
       await ctx.pause();
       if (
+        input.resource_ids.every((id) =>
+          ctx.db.monitoring?.[ctx.enterpriseId()]?.applications.some(
+            (row) => row.id === id,
+          ),
+        )
+      ) {
+        return {
+          schema_version: "argus.kql_result/v1",
+          result_type: "log_entries",
+          data: [],
+          warnings: [],
+          partial: false,
+          meta: {
+            ...queryMeta("b", false),
+            returned_rows: 0,
+            loaded_samples: 0,
+            scanned_rows: 0,
+            scanned_bytes: 0,
+          },
+        };
+      }
+      if (
         input.query === "*" &&
         /^stats count\(\)(?: \| limit \d+)?$/.test(input.pipeline ?? "")
       ) {
@@ -360,6 +388,68 @@ export function createTelemetryDomain(
       requireTelemetryResources(ctx, input.resource_ids);
       await ctx.pause();
       const now = new Date(input.time_range.to).toISOString();
+      const apmRoot = input.query.match(
+        /\bqueryAPM(?:Services|Instances|Endpoints|RED|Topology)\b/,
+      )?.[0];
+      if (apmRoot) {
+        const topology = apmRoot === "queryAPMTopology";
+        const data = {
+          basis: topology
+            ? "received_destination_entry_spans"
+            : "received_entry_spans",
+          status: "no_data",
+          limited: false,
+          percentileMethod: topology ? "nearest_rank" : "tdigest",
+          windowStart: input.time_range.from,
+          windowEnd: input.time_range.to,
+          coverage: {
+            observedSpanCount: 0,
+            requestSampleCount: 0,
+            missingServiceCount: 0,
+            missingInstanceCount: 0,
+            missingOperationCount: 0,
+            unknownSourceCount: 0,
+            missingParentCount: 0,
+            ambiguousParentCount: 0,
+            cyclicSpanCount: 0,
+          },
+          ...(topology ? { nodes: [], edges: [] } : { rows: [] }),
+        };
+        return {
+          data: { [apmRoot]: data },
+          extensions: {
+            argus: {
+              ...queryMeta("c", false),
+              scanned_bytes: 0,
+              scanned_rows: 0,
+              returned_rows: 0,
+              loaded_samples: 0,
+            },
+          },
+        };
+      }
+      if (
+        input.resource_ids.every((id) =>
+          ctx.db.monitoring?.[ctx.enterpriseId()]?.applications.some(
+            (row) => row.id === id,
+          ),
+        )
+      ) {
+        return {
+          data: input.query.includes("queryTrace(")
+            ? { queryTrace: null }
+            : { queryTraces: { total: 0, traces: [] } },
+          extensions: {
+            argus: {
+              ...queryMeta("c", false),
+              returned_rows: 0,
+              loaded_samples: 0,
+              scanned_rows: 0,
+              scanned_bytes: 0,
+            },
+          },
+        };
+      }
       const traces = input.resource_ids
         .slice(0, 3)
         .map((resource_id, index) => ({

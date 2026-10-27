@@ -1,0 +1,11 @@
+// Copied into the OCB-generated distribution by argus-dev. Upstream receivers
+// remain unmodified; these are the frozen defaults of the managed binary.
+package main
+
+import "go.opentelemetry.io/collector/featuregate"
+
+func init() {
+	if err := featuregate.GlobalRegistry().Set("stanza.synchronousLogEmitter", true); err != nil {
+		panic(err)
+	}
+}

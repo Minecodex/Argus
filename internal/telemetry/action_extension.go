@@ -14,8 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/kakj-go/Argus/internal/collectionclaim"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/kakj-go/Argus/internal/builtincollection"
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 	"github.com/kakj-go/Argus/internal/otelcol/configbundle"
 	"github.com/kakj-go/Argus/internal/resource"
@@ -125,8 +127,27 @@ func validateCollectorPlan(ctx context.Context, q *db.Queries, enterpriseID uuid
 		if err != nil || plan.ExpectedVersion <= 0 || collector.Version != plan.ExpectedVersion {
 			return resource.ErrActionInvalidated
 		}
+		if plan.Operation == "uninstall" {
+			if err := requireUnusedCollector(ctx, q, enterpriseID, collector.ID); err != nil {
+				return err
+			}
+		}
 	}
 	return validateGateway(ctx, q, enterpriseID, plan)
+}
+
+func requireUnusedCollector(ctx context.Context, q *db.Queries, enterprise, collector uuid.UUID) error {
+	used, err := q.HasCollectorMonitoringDependencies(ctx, db.HasCollectorMonitoringDependenciesParams{EnterpriseID: enterprise, CollectorID: uuid.NullUUID{UUID: collector, Valid: true}})
+	if err != nil {
+		return err
+	}
+	if !used.Valid {
+		return ErrUnavailable
+	}
+	if used.Bool {
+		return ErrCollectorDependenciesExist
+	}
+	return nil
 }
 
 func validateCollectorCatalogPlan(ctx context.Context, q *db.Queries, plan collectorActionPlan) error {
@@ -140,6 +161,9 @@ func validateCollectorCatalogPlan(ctx context.Context, q *db.Queries, plan colle
 	if distributionIndex < 0 || !distributionSupportsPlatform(distributions[distributionIndex].ArtifactManifest, plan.Platform) {
 		return ErrDistributionPending
 	}
+	if len(plan.ProfileIDs) == 0 && !slices.Contains(distributions[distributionIndex].Components, "nop") {
+		return ErrDistributionPending
+	}
 	currentHashes, err := artifactHashes(distributions[distributionIndex].ArtifactManifest)
 	if err != nil || !slices.Equal(currentHashes, plan.ArtifactHashes) {
 		return resource.ErrActionInvalidated
@@ -148,7 +172,7 @@ func validateCollectorCatalogPlan(ctx context.Context, q *db.Queries, plan colle
 	if err != nil {
 		return err
 	}
-	if len(plan.ProfileIDs) == 0 || len(plan.ProfileKeys) != len(plan.ProfileIDs) {
+	if len(plan.ProfileKeys) != len(plan.ProfileIDs) {
 		return resource.ErrActionInvalidated
 	}
 	seen := make(map[uuid.UUID]struct{}, len(plan.ProfileIDs))
@@ -292,6 +316,9 @@ func commitNodeBinding(ctx context.Context, q *db.Queries, action db.PendingActi
 	if err != nil {
 		return resource.ActionCommitResult{}, err
 	}
+	if err := collectionclaim.RefreshBinding(ctx, q, action.EnterpriseID, binding.KubernetesClusterID); err != nil {
+		return resource.ActionCommitResult{}, err
+	}
 	return resource.ActionCommitResult{ResourceType: "kubernetes_cluster", ResourceID: binding.KubernetesClusterID,
 		ResourceVersion: binding.Version, Summary: "Kubernetes node to Host binding confirmed"}, nil
 }
@@ -333,6 +360,33 @@ func (extension ActionExtension) commitCollectorAction(ctx context.Context, q *d
 		return resource.ActionCommitResult{}, err
 	}
 	routeTransport, routeLoopbackPort := plan.telemetryTransport()
+	if err := materializeBuiltinProfiles(ctx, q, action, collector, plan); err != nil {
+		return resource.ActionCommitResult{}, err
+	}
+	collections, err := collectionSnapshots(ctx, q, action.EnterpriseID, collector.ID)
+	if err != nil {
+		return resource.ActionCommitResult{}, err
+	}
+	retainedIDs, retainedKeys := []uuid.UUID{}, []string{}
+	for i, key := range plan.ProfileKeys {
+		profile, _, _ := strings.Cut(key, "@")
+		replaced := false
+		for _, collection := range collections {
+			if definition, ok := builtincollection.Lookup(collection.Integration); ok && definition.LegacyProfile == profile {
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			retainedIDs = append(retainedIDs, plan.ProfileIDs[i])
+			retainedKeys = append(retainedKeys, key)
+		}
+	}
+	plan.ProfileIDs, plan.ProfileKeys = retainedIDs, retainedKeys
+	applicationEndpoints, err := applicationEndpointSnapshots(ctx, q, action.EnterpriseID, collector.ID)
+	if err != nil {
+		return resource.ActionCommitResult{}, err
+	}
 	rendered, err := configbundle.Render(configbundle.RenderInput{CollectorID: collector.ID.String(), ResourceID: plan.ResourceID.String(),
 		SourceGeneration: collector.SourceGeneration.String(), ConfigRevision: collector.DesiredRevision,
 		ResourceType: plan.ResourceType, Role: plan.Role, Platform: plan.Platform, RouteKind: plan.RouteKind, Transport: routeTransport,
@@ -340,7 +394,7 @@ func (extension ActionExtension) commitCollectorAction(ctx context.Context, q *d
 		GatewayServerName: plan.GatewayServerName, ProfileKeys: plan.ProfileKeys,
 		EnrollmentEndpoint: extension.EnrollmentEndpoint, EnrollmentDialAddress: plan.EnrollmentDialAddress,
 		IngestGRPCEndpoint: extension.IngestGRPCEndpoint,
-		IngestHTTPEndpoint: extension.IngestHTTPEndpoint})
+		IngestHTTPEndpoint: extension.IngestHTTPEndpoint, Collections: collections, ApplicationEndpoints: applicationEndpoints})
 	if err != nil {
 		return resource.ActionCommitResult{}, err
 	}
@@ -362,6 +416,26 @@ func (extension ActionExtension) commitCollectorAction(ctx context.Context, q *d
 		id, parseErr := uuid.Parse(source.ID)
 		if parseErr != nil {
 			return resource.ActionCommitResult{}, parseErr
+		}
+		if source.CollectionID != "" {
+			serviceID := uuid.NullUUID{}
+			if source.ServiceID != "" {
+				id, e := uuid.Parse(source.ServiceID)
+				if e != nil || id == uuid.Nil {
+					return resource.ActionCommitResult{}, resource.ErrActionInvalidated
+				}
+				serviceID = uuid.NullUUID{UUID: id, Valid: true}
+			}
+			if err := q.RegisterCollectionTelemetrySource(ctx, db.RegisterCollectionTelemetrySourceParams{ID: id, EnterpriseID: action.EnterpriseID, CollectorID: collector.ID, Generation: collector.SourceGeneration, ResourceType: source.ResourceType, ResourceID: uuid.MustParse(source.ResourceID), SourceKey: source.Key, SourceType: source.Type, Signals: source.Signals, ConfigRevision: collector.DesiredRevision, ConfigHash: configHash[:], CapabilityVersion: source.CapabilityVersion, CollectionID: uuid.NullUUID{UUID: uuid.MustParse(source.CollectionID), Valid: true}, CollectionRevision: pgtype.Int8{Int64: source.CollectionRevision, Valid: true}, AssignmentEpoch: pgtype.Int8{Int64: source.AssignmentEpoch, Valid: true}, ApplicationServiceID: serviceID, NamespaceUid: source.NamespaceUID}); err != nil {
+				return resource.ActionCommitResult{}, err
+			}
+			continue
+		}
+		if source.IngestEndpointID != "" {
+			if err := q.RegisterApplicationTelemetrySource(ctx, db.RegisterApplicationTelemetrySourceParams{ID: id, EnterpriseID: action.EnterpriseID, CollectorID: collector.ID, Generation: collector.SourceGeneration, ResourceID: uuid.MustParse(source.ResourceID), SourceKey: source.Key, SourceType: source.Type, Signals: source.Signals, ConfigRevision: collector.DesiredRevision, ConfigHash: configHash[:], CapabilityVersion: source.CapabilityVersion, IngestEndpointID: uuid.NullUUID{UUID: uuid.MustParse(source.IngestEndpointID), Valid: true}, IngestEndpointVersion: pgtype.Int8{Int64: source.IngestEndpointVersion, Valid: true}}); err != nil {
+				return resource.ActionCommitResult{}, err
+			}
+			continue
 		}
 		if err := q.RegisterTelemetrySource(ctx, db.RegisterTelemetrySourceParams{ID: id, EnterpriseID: action.EnterpriseID, CollectorID: collector.ID, Generation: collector.SourceGeneration, ResourceType: collector.ResourceType, ResourceID: collector.ResourceID, SourceKey: source.Key, SourceType: source.Type, Signals: source.Signals, ConfigRevision: collector.DesiredRevision, ConfigHash: configHash[:], CapabilityVersion: source.CapabilityVersion}); err != nil {
 			return resource.ActionCommitResult{}, err
@@ -393,7 +467,7 @@ func (extension ActionExtension) commitCollectorAction(ctx context.Context, q *d
 		_, _ = q.MarkTelemetryTunnelRemoved(ctx, db.MarkTelemetryTunnelRemovedParams{
 			CollectorID: collector.ID, EnterpriseID: action.EnterpriseID, Column3: "", LastDropReason: "collector_uninstall"})
 	}
-	if err = rebuildClaims(ctx, q, action.EnterpriseID, collector, plan.ProfileIDs); err != nil {
+	if err = rebuildClaims(ctx, q, action.EnterpriseID, collector, plan.ProfileIDs, collections); err != nil {
 		return resource.ActionCommitResult{}, err
 	}
 	return extension.enqueueCollectorOperation(ctx, q, action, collector, plan, rendered)
@@ -434,6 +508,9 @@ func (extension ActionExtension) enqueueCollectorOperation(ctx context.Context, 
 		ConfigSha256: hex.EncodeToString(configHash[:]), RouteKind: plan.RouteKind, ResourceType: plan.ResourceType,
 		Transport: payloadTransport, LoopbackPort: uint32(payloadLoopback.Int32),
 		EnrollmentDialAddress: plan.EnrollmentDialAddress,
+		EnrollmentEndpoint:    extension.EnrollmentEndpoint,
+		IngestGrpcEndpoint:    extension.IngestGRPCEndpoint,
+		IngestHttpEndpoint:    extension.IngestHTTPEndpoint,
 		TargetAddress:         plan.TargetAddress, TargetPort: uint32(plan.TargetPort), TargetUsername: plan.TargetUsername, PinnedHostKey: plan.PinnedHostKey,
 		KubernetesImage:  plan.KubernetesImage,
 		ImagePullSecrets: slices.Clone(plan.ImagePullSecrets),
@@ -533,71 +610,8 @@ func minTime(a, b time.Time) time.Time {
 	return b
 }
 
-func rebuildClaims(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, collector db.CollectorInstance, profileIDs []uuid.UUID) error {
-	if err := q.ReleaseCollectorClaims(ctx, db.ReleaseCollectorClaimsParams{EnterpriseID: enterpriseID, CollectorID: collector.ID}); err != nil {
-		return err
-	}
-	profiles, err := q.ListCollectionProfiles(ctx)
-	if err != nil {
-		return err
-	}
-	selector := json.RawMessage(`{}`)
-	selectorHash := sha256.Sum256(selector)
-	for _, profileID := range profileIDs {
-		index := slices.IndexFunc(profiles, func(item db.CollectionProfile) bool { return item.ID == profileID })
-		if index < 0 {
-			return resource.ErrActionInvalidated
-		}
-		profile := profiles[index]
-		physicalRefs := []string{collector.ResourceType + ":" + collector.ResourceID.String()}
-		if collector.ResourceType == "kubernetes_cluster" && profile.ProfileKey == "k8s-node-container" {
-			bindings, bindingErr := q.ListKubernetesNodeHostBindings(ctx, db.ListKubernetesNodeHostBindingsParams{EnterpriseID: enterpriseID, KubernetesClusterID: collector.ResourceID})
-			if bindingErr != nil {
-				return bindingErr
-			}
-			physicalRefs = physicalRefs[:0]
-			for _, binding := range bindings {
-				if binding.Status == "verified" && binding.HostID.Valid {
-					physicalRefs = append(physicalRefs, "host:"+binding.HostID.UUID.String())
-				}
-			}
-			if len(physicalRefs) == 0 {
-				physicalRefs = append(physicalRefs, collector.ResourceType+":"+collector.ResourceID.String())
-			}
-		}
-		claims, claimErr := expandProfileClaims(profile.ProfileKey, profile.ClaimTypes, profile.Signals)
-		if claimErr != nil {
-			return claimErr
-		}
-		for _, physicalRef := range physicalRefs {
-			for _, claim := range claims {
-				primary, primaryErr := q.GetActivePrimaryCollectionClaim(ctx, db.GetActivePrimaryCollectionClaimParams{
-					EnterpriseID: enterpriseID, PhysicalResourceRef: physicalRef, ClaimType: claim.ClaimType, SelectorHash: selectorHash[:],
-				})
-				if primaryErr == nil && primary.CollectorID != collector.ID {
-					rollback, _ := json.Marshal(map[string]any{"restore_primary_claim_id": primary.ID, "collector_id": primary.CollectorID})
-					_, err = q.CreateMigrationCollectionClaim(ctx, db.CreateMigrationCollectionClaimParams{
-						ID: newTelemetryID(), EnterpriseID: enterpriseID, PhysicalResourceRef: physicalRef, CollectorID: collector.ID,
-						ProfileID: uuid.NullUUID{UUID: profile.ID, Valid: true}, ClaimType: claim.ClaimType, Signal: claim.Signal,
-						Selector: selector, SelectorHash: selectorHash[:], PrimaryClaimID: uuid.NullUUID{UUID: primary.ID, Valid: true},
-						RollbackPlan: rollback, ExpiresAt: pgtype.Timestamptz{Time: time.Now().UTC().Add(15 * time.Minute), Valid: true},
-					})
-				} else if errors.Is(primaryErr, pgx.ErrNoRows) {
-					_, err = q.CreateCollectionClaim(ctx, db.CreateCollectionClaimParams{
-						ID: newTelemetryID(), EnterpriseID: enterpriseID, PhysicalResourceRef: physicalRef,
-						CollectorID: collector.ID, ProfileID: uuid.NullUUID{UUID: profile.ID, Valid: true}, ClaimType: claim.ClaimType,
-						Signal: claim.Signal, Selector: selector, SelectorHash: selectorHash[:],
-					})
-				} else if primaryErr != nil {
-					err = primaryErr
-				}
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
+func rebuildClaims(ctx context.Context, q *db.Queries, enterpriseID uuid.UUID, collector db.CollectorInstance, profileIDs []uuid.UUID, collections []configbundle.Collection) error {
+	return collectionclaim.Rebuild(ctx, q, enterpriseID, collector, profileIDs, collections)
 }
 
 type profileClaim struct {

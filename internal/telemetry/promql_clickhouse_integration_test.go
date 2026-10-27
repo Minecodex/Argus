@@ -140,7 +140,6 @@ func TestPromQLClickHouseConformance(t *testing.T) {
 	for i := range points {
 		points[i].labels["argus_resource_id"] = resourceID.String()
 		points[i].labels["argus_source_id"] = uuid.Nil.String()
-		points[i].labels["argus_source_revision"] = "0"
 	}
 	reference := newConformanceQueryable(points)
 	argus := promqlengine.NewEngine(conn, router, nil)

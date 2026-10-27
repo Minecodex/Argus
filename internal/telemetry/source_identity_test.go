@@ -1,21 +1,65 @@
 package telemetry
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/twmb/franz-go/pkg/kgo"
 	collectlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type sourceTestControl struct {
 	IngestControlStore
 	collector uuid.UUID
 	sources   map[uuid.UUID]SourceIdentity
+}
+
+func TestMixedTargetsKeepIndependentTrustedIdentity(t *testing.T) {
+	collector, first, second := uuid.New(), uuid.New(), uuid.New()
+	a, b := uuid.New(), uuid.New()
+	collection := uuid.New()
+	control := sourceTestControl{collector: collector, sources: map[uuid.UUID]SourceIdentity{
+		first:  {ID: first, Revision: 4, Type: "filelog", ResourceID: a, ResourceType: "monitoring_target", CollectionID: collection, CollectionRevision: 2, AssignmentEpoch: 3},
+		second: {ID: second, Revision: 4, Type: "journald", ResourceID: b, ResourceType: "host"},
+	}}
+	server := IngestServer{Control: control}
+	sender := TrustedIdentity{EnterpriseID: uuid.New(), CollectorID: collector, ResourceID: b, ResourceType: "host"}
+	resource := func(source uuid.UUID) *resourcepb.Resource {
+		return &resourcepb.Resource{Attributes: []*commonpb.KeyValue{
+			{Key: "argus.source.id", Value: stringValue(source.String())}, {Key: "argus.source.revision", Value: stringValue("4")},
+			{Key: "argus.resource.id", Value: stringValue("forged")}, {Key: "argus.enterprise.id", Value: stringValue("forged")}, {Key: "argus.collection.id", Value: stringValue("forged")},
+		}}
+	}
+	request := &collectlogs.ExportLogsServiceRequest{ResourceLogs: []*logspb.ResourceLogs{{Resource: resource(first)}, {Resource: resource(second)}}}
+	if _, err := server.prepareLogPayload(t.Context(), sender, request); err != nil {
+		t.Fatal(err)
+	}
+	record := &kgo.Record{Headers: []kgo.RecordHeader{{Key: "argus-normalization-version", Value: []byte("v3")}}}
+	for i, id := range []uuid.UUID{a, b} {
+		identity, err := recordResourceIdentity(record, sender, request.ResourceLogs[i].Resource.Attributes)
+		if err != nil || identity.ResourceID != id || identity.CollectorID != collector || identity.EnterpriseID != sender.EnterpriseID {
+			t.Fatalf("target normalization: %+v %v", identity, err)
+		}
+	}
+	if attrs := attributesMap(request.ResourceLogs[0].Resource.Attributes); attrs["argus.collection.id"] != collection.String() || attrs["argus.assignment.epoch"] != "3" {
+		t.Fatal("collection responsibility was not trusted")
+	}
+	bad := &collectlogs.ExportLogsServiceRequest{ResourceLogs: []*logspb.ResourceLogs{{Resource: resource(first)}, {Resource: resource(uuid.New())}}}
+	before, _ := proto.Marshal(bad)
+	if _, err := server.prepareLogPayload(t.Context(), sender, bad); err == nil {
+		t.Fatal("partially invalid batch accepted")
+	}
+	after, _ := proto.Marshal(bad)
+	if !bytes.Equal(before, after) {
+		t.Fatal("rejected batch partially mutated")
+	}
 }
 
 func (control sourceTestControl) ResolveSource(_ context.Context, identity TrustedIdentity, id uuid.UUID, revision int64, signal string) (SourceIdentity, error) {
@@ -58,12 +102,8 @@ func TestIngestSourceReferenceIsBoundToAuthenticatedCollector(t *testing.T) {
 		}
 	}
 	request.ResourceLogs = []*logspb.ResourceLogs{{Resource: &resourcepb.Resource{Attributes: []*commonpb.KeyValue{{Key: "telemetry.sdk.name", Value: stringValue("skywalking")}}}}}
-	if _, err := server.prepareLogPayload(context.Background(), identity, request); err != nil {
-		t.Fatal(err)
-	}
-	source, err := recordSource(request.ResourceLogs[0].Resource.Attributes)
-	if err != nil || source.Type != "unknown" || source.ID != uuid.Nil {
-		t.Fatalf("SDK claim became trusted provenance: %+v %v", source, err)
+	if _, err := server.prepareLogPayload(context.Background(), identity, request); err == nil {
+		t.Fatal("unregistered SDK source was accepted")
 	}
 }
 
@@ -72,8 +112,11 @@ func TestPlatformSourceAttributesDoNotConsumeUserAttributeBudget(t *testing.T) {
 	for i := 0; i < maxAttributes; i++ {
 		attrs = append(attrs, &commonpb.KeyValue{Key: fmt.Sprintf("user_%d", i), Value: stringValue("value")})
 	}
+	collector, sourceID := uuid.New(), uuid.New()
+	attrs = append(attrs, &commonpb.KeyValue{Key: "argus.source.id", Value: stringValue(sourceID.String())}, &commonpb.KeyValue{Key: "argus.source.revision", Value: stringValue("1")})
 	resource := &resourcepb.Resource{Attributes: attrs}
-	if err := (&IngestServer{}).applyTrustedSources(context.Background(), TrustedIdentity{EnterpriseID: uuid.New(), ResourceID: uuid.New(), CollectorID: uuid.New()}, "logs", []**resourcepb.Resource{&resource}); err != nil {
+	server := IngestServer{Control: sourceTestControl{collector: collector, sources: map[uuid.UUID]SourceIdentity{sourceID: {ID: sourceID, Revision: 1, Type: "filelog"}}}}
+	if err := server.applyTrustedSources(context.Background(), TrustedIdentity{EnterpriseID: uuid.New(), ResourceID: uuid.New(), CollectorID: collector}, "logs", []**resourcepb.Resource{&resource}); err != nil {
 		t.Fatal(err)
 	}
 	if err := validateResourceAttributes(resource.Attributes); err != nil {

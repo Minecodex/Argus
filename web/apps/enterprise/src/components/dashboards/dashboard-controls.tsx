@@ -1,6 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button, Select, ValueSelector } from "@argus/ui";
+import { Button, Field, Select, ValueSelector } from "@argus/ui";
 import {
   useApi,
   type DashboardExecution,
@@ -10,6 +10,7 @@ import {
 import { TimeRangePicker } from "./time-range-picker";
 import { candidateContext, candidateRequest } from "./candidate-filters";
 import type { ViewInput } from "./use-dashboard-execution";
+import { DashboardScopeFilter } from "./dashboard-scope-filter";
 
 export function DashboardControls({
   spec,
@@ -17,12 +18,11 @@ export function DashboardControls({
   time,
   bounds,
   execution,
-  resources,
   busy,
   refreshSeconds,
   onRefreshSeconds,
   onTime,
-  onResources,
+  onScope,
   onVariable,
   onRefresh,
 }: {
@@ -31,12 +31,11 @@ export function DashboardControls({
   time: DashboardSchemas["DashboardTimeRange"];
   bounds?: { from: string; to: string };
   execution?: DashboardExecution;
-  resources: { id: string; label: string }[];
   busy: boolean;
   refreshSeconds: number;
   onRefreshSeconds: (seconds: number) => void;
   onTime: (time: DashboardSchemas["DashboardTimeRange"]) => void;
-  onResources: (ids: string[]) => void;
+  onScope: (scope: Partial<ViewInput>) => void;
   onVariable: (
     name: string,
     value: DashboardSchemas["DashboardSelection"],
@@ -54,24 +53,82 @@ export function DashboardControls({
       role="group"
       aria-label={t("dashboardControls.viewConditions")}
     >
-      <TimeRangePicker
+      <Field
         label={t("dashboards.time")}
-        value={time}
-        onChange={onTime}
+        requirement="optional"
+        controlMode="group"
+      >
+        <TimeRangePicker
+          label={t("dashboards.time")}
+          value={time}
+          onChange={onTime}
+        />
+      </Field>
+      <DashboardScopeFilter
+        dimension="applications"
+        mode={input.application_mode}
+        ids={input.application_ids}
+        disabled={busy}
+        onChange={(mode, ids) =>
+          onScope({
+            application_mode: mode,
+            application_ids: mode ? ids : undefined,
+          })
+        }
       />
-      <ValueSelector
-        presentation="popover"
-        label={t("dashboards.resources")}
-        title={t("dashboards.chooseResources")}
-        hint={t("dashboardControls.resourceHint")}
-        value={{
-          all: !input.resource_ids?.length,
-          values: input.resource_ids ?? [],
-        }}
-        multiple
-        candidates={resources.map((r) => r.id)}
-        valueLabels={Object.fromEntries(resources.map((r) => [r.id, r.label]))}
-        onChange={(value) => onResources(value.all ? [] : value.values)}
+      <Field label={t("dashboardControls.resourceType")} requirement="optional">
+        <Select
+          sizing="content"
+          ariaLabel={t("dashboardControls.resourceType")}
+          value={
+            input.resource_types?.length === 1
+              ? input.resource_types[0]!
+              : "all"
+          }
+          options={[
+            "all",
+            "host",
+            "kubernetes_cluster",
+            "kubernetes_namespace",
+            "application",
+            "monitoring_target",
+          ].map((value) => ({
+            value,
+            label: t(`dashboardControls.resourceKinds.${value}`),
+          }))}
+          onValueChange={(value) =>
+            onScope({
+              resource_types:
+                value === "all"
+                  ? undefined
+                  : [value as NonNullable<ViewInput["resource_types"]>[number]],
+              resource_mode: "all_authorized",
+              resource_ids: [],
+            })
+          }
+        />
+      </Field>
+      <DashboardScopeFilter
+        dimension="resources"
+        mode={
+          input.resource_mode ??
+          (input.resource_ids?.length ? "explicit" : "all_authorized")
+        }
+        ids={input.resource_ids}
+        initialKind={
+          input.resource_types?.[0] ??
+          execution?.resources.find((row) =>
+            input.resource_ids?.includes(row.id),
+          )?.type
+        }
+        disabled={busy}
+        onChange={(mode, ids) =>
+          onScope({
+            resource_mode: mode ?? "all_authorized",
+            resource_ids: ids,
+            ...(mode === "explicit" ? { resource_types: undefined } : {}),
+          })
+        }
       />
       {spec.variables.map((variable) => {
         const selection = input.variables?.[variable.name] ?? variable.default;
@@ -84,6 +141,10 @@ export function DashboardControls({
             contextKey={candidateContext(variable.query, {
               time: bounds,
               resource_ids: input.resource_ids,
+              resource_mode: input.resource_mode,
+              resource_types: input.resource_types,
+              application_mode: input.application_mode,
+              application_ids: input.application_ids,
               variables: input.variables,
             })}
             value={selection}
@@ -99,6 +160,10 @@ export function DashboardControls({
                   {
                     ...bounds!,
                     resource_ids: input.resource_ids,
+                    resource_mode: input.resource_mode,
+                    resource_types: input.resource_types,
+                    application_mode: input.application_mode,
+                    application_ids: input.application_ids,
                     variables: input.variables,
                   },
                   selection,
@@ -120,18 +185,24 @@ export function DashboardControls({
           <RefreshCw aria-hidden />
           {t(busy ? "dashboards.refreshing" : "dashboards.refresh")}
         </Button>
-        <Select
-          ariaLabel={t("dashboardControls.refreshInterval")}
-          value={String(refreshSeconds)}
-          options={intervals.map((seconds) => ({
-            value: String(seconds),
-            label:
-              seconds === 0
-                ? t("dashboardControls.refreshOff")
-                : t("dashboardControls.refreshEvery", { count: seconds }),
-          }))}
-          onValueChange={(value) => onRefreshSeconds(Number(value))}
-        />
+        <Field
+          label={t("dashboardControls.refreshInterval")}
+          requirement="optional"
+        >
+          <Select
+            sizing="content"
+            ariaLabel={t("dashboardControls.refreshInterval")}
+            value={String(refreshSeconds)}
+            options={intervals.map((seconds) => ({
+              value: String(seconds),
+              label:
+                seconds === 0
+                  ? t("dashboardControls.refreshOff")
+                  : t("dashboardControls.refreshEvery", { count: seconds }),
+            }))}
+            onValueChange={(value) => onRefreshSeconds(Number(value))}
+          />
+        </Field>
       </div>
     </div>
   );

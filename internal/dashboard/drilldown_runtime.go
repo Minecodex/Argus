@@ -89,7 +89,14 @@ func (runtime Runtime) Drilldown(ctx context.Context, actor Actor, id uuid.UUID,
 }
 
 func (runtime Runtime) runDrilldown(ctx context.Context, actor Actor, spec Spec, frozen executionContext, input DrilldownInput, recheck func(context.Context) error) (output DrilldownExecution, err error) {
+	if frozen.Scope.ScopeSelection != nil {
+		runtime.scopeApplications = frozen.Scope.ScopeSelection.Applications
+	}
 	runtime.cacheDashboard, runtime.cacheRevision = frozen.Scope.DashboardID, frozen.Scope.RevisionID
+	runtime.cacheScopeSignature = frozen.Scope.ScopeSignature
+	if frozen.Leaf != nil && frozen.Leaf.ScopeSignature != "" {
+		runtime.cacheScopeSignature = frozen.Leaf.ScopeSignature
+	}
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	prepared, err := runtime.prepareDrilldown(ctx, actor, spec, frozen, input, func(ctx context.Context, drill Drilldown, origin Target, base queryScope, originInputs map[string]string, ledger *executionBudget) (any, error) {
@@ -108,6 +115,11 @@ func (runtime Runtime) runDrilldown(ctx context.Context, actor Actor, spec Spec,
 	}
 	panel, drill, detail, scope, detailSources, ledger := prepared.Panel, prepared.Drill, prepared.Detail, prepared.Scope, prepared.DetailSources, prepared.Budget
 	variables, locals := frozen.Scope.Variables, frozen.Scope.LocalValues[panel.ID]
+	signature, versions, err := derivedScopeIdentity(ctx, runtime.Store.Queries, actor, scope.Resources, frozen.Scope)
+	if err != nil {
+		return output, err
+	}
+	runtime.cacheScopeSignature = signature
 	result, err := runtime.executeTarget(ctx, actor, spec, targetPanel(panel, detail), detail, variables, locals, selectionValues(input.Values), scope, ledger)
 	if err != nil {
 		return output, err
@@ -120,6 +132,8 @@ func (runtime Runtime) runDrilldown(ctx context.Context, actor Actor, spec Spec,
 	}
 	frozen.Depth++
 	frozen.Leaf = &detailContext{PanelID: panel.ID, TargetID: detail.ID, Inputs: input.Values, From: scope.From, To: scope.To, Resources: scope.Resources, Sources: scope.Sources, DetailSources: detailSources}
+	frozen.Leaf.ScopeSignature = signature
+	frozen.Leaf.ScopeVersions = versions
 	token, err := runtime.signContext(frozen)
 	if err != nil {
 		return output, err
@@ -185,17 +199,13 @@ func targetPanel(panel Panel, target Target) Panel {
 }
 
 func (runtime Runtime) freezeDetailScopes(ctx context.Context, actor Actor, panel Panel, resources []ResourceScope) (map[string][]ResolvedSource, error) {
-	ids := []uuid.UUID{}
-	for _, r := range resources {
-		ids = append(ids, r.ID)
-	}
 	result := map[string][]ResolvedSource{}
 	count := 0
 	for _, t := range panel.DetailQueryTargets {
 		if t.SourceBinding == nil {
 			return nil, ErrInvalid
 		}
-		sources, err := resolveSources(ctx, runtime.Store.Queries, actor, *t.SourceBinding, t.Signal, ids)
+		sources, err := resolveSources(ctx, runtime.Store.Queries, actor, *t.SourceBinding, t.Signal, resources, runtime.scopeApplications)
 		if err != nil {
 			return nil, err
 		}

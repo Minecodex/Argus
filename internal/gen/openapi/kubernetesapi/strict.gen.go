@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"net/http"
 )
 
@@ -30,12 +31,75 @@ type StrictServerInterface interface {
 	// PreviewUpdateKubernetesCluster Freeze a Kubernetes cluster update.
 	// (POST /enterprise/kubernetes-clusters/{id}/actions/preview-update)
 	PreviewUpdateKubernetesCluster(ctx context.Context, request PreviewUpdateKubernetesClusterRequestObject) (PreviewUpdateKubernetesClusterResponseObject, error)
+	// PreviewKubernetesHelm Render, authorize and dry-run Helm objects before preparing an immutable approval
+	// (POST /enterprise/kubernetes-clusters/{id}/helm/actions/preview)
+	PreviewKubernetesHelm(ctx context.Context, request PreviewKubernetesHelmRequestObject) (PreviewKubernetesHelmResponseObject, error)
+	// ListKubernetesHelmReleases List safe Helm release metadata in an explicitly selected authorized Namespace
+	// (GET /enterprise/kubernetes-clusters/{id}/helm/releases)
+	ListKubernetesHelmReleases(ctx context.Context, request ListKubernetesHelmReleasesRequestObject) (ListKubernetesHelmReleasesResponseObject, error)
+	// ListKubernetesHelmHistory List safe revision metadata for a Helm release
+	// (GET /enterprise/kubernetes-clusters/{id}/helm/releases/{releaseName}/history)
+	ListKubernetesHelmHistory(ctx context.Context, request ListKubernetesHelmHistoryRequestObject) (ListKubernetesHelmHistoryResponseObject, error)
+	// ListKubernetesInventory List authorized Kubernetes objects with server pagination
+	// (GET /enterprise/kubernetes-clusters/{id}/inventory)
+	ListKubernetesInventory(ctx context.Context, request ListKubernetesInventoryRequestObject) (ListKubernetesInventoryResponseObject, error)
+	// PreviewKubernetesMutation Dry-run an authorized object change and prepare a confirmation
+	// (POST /enterprise/kubernetes-clusters/{id}/inventory/actions/preview-mutation)
+	PreviewKubernetesMutation(ctx context.Context, request PreviewKubernetesMutationRequestObject) (PreviewKubernetesMutationResponseObject, error)
+	// GetKubernetesInventoryObject Read a projected object with frozen UID
+	// (GET /enterprise/kubernetes-clusters/{id}/inventory/object)
+	GetKubernetesInventoryObject(ctx context.Context, request GetKubernetesInventoryObjectRequestObject) (GetKubernetesInventoryObjectResponseObject, error)
+	// GetKubernetesInventoryScope Read current Cluster and Namespace access
+	// (GET /enterprise/kubernetes-clusters/{id}/inventory/scope)
+	GetKubernetesInventoryScope(ctx context.Context, request GetKubernetesInventoryScopeRequestObject) (GetKubernetesInventoryScopeResponseObject, error)
+	// ListKubernetesInventoryTypes List object types available in the current access scope
+	// (GET /enterprise/kubernetes-clusters/{id}/inventory/types)
+	ListKubernetesInventoryTypes(ctx context.Context, request ListKubernetesInventoryTypesRequestObject) (ListKubernetesInventoryTypesResponseObject, error)
+	// WatchKubernetesInventory Watch the current page with frozen UID scope and bounded batches
+	// (POST /enterprise/kubernetes-clusters/{id}/inventory/watch)
+	WatchKubernetesInventory(ctx context.Context, request WatchKubernetesInventoryRequestObject) (WatchKubernetesInventoryResponseObject, error)
+	// CreateKubernetesLogSession Create a UID-bound Pod log session and a one-use attach ticket
+	// (POST /enterprise/kubernetes-clusters/{id}/log-sessions)
+	CreateKubernetesLogSession(ctx context.Context, request CreateKubernetesLogSessionRequestObject) (CreateKubernetesLogSessionResponseObject, error)
+	// GetKubernetesLogSession Check the current authorization of the owning Pod log session
+	// (GET /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId})
+	GetKubernetesLogSession(ctx context.Context, request GetKubernetesLogSessionRequestObject) (GetKubernetesLogSessionResponseObject, error)
+	// AttachKubernetesLogSession Consume the short-lived ticket in the owning HTTP session
+	// (POST /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/attach)
+	AttachKubernetesLogSession(ctx context.Context, request AttachKubernetesLogSessionRequestObject) (AttachKubernetesLogSessionResponseObject, error)
+	// CloseKubernetesLogSession Close the owning Pod log session
+	// (POST /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/close)
+	CloseKubernetesLogSession(ctx context.Context, request CloseKubernetesLogSessionRequestObject) (CloseKubernetesLogSessionResponseObject, error)
+	// ReadKubernetesLogSession Read a bounded authorized log increment with a signed continuity cursor
+	// (POST /enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/read)
+	ReadKubernetesLogSession(ctx context.Context, request ReadKubernetesLogSessionRequestObject) (ReadKubernetesLogSessionResponseObject, error)
+	// ListKubernetesOperations List operations in the current authorized resource scope
+	// (GET /enterprise/kubernetes-clusters/{id}/operations)
+	ListKubernetesOperations(ctx context.Context, request ListKubernetesOperationsRequestObject) (ListKubernetesOperationsResponseObject, error)
+	// GetKubernetesOperation Read an authorized operation without its private execution plan
+	// (GET /enterprise/kubernetes-clusters/{id}/operations/{operationId})
+	GetKubernetesOperation(ctx context.Context, request GetKubernetesOperationRequestObject) (GetKubernetesOperationResponseObject, error)
+	// CancelKubernetesDrain Stop further batches of an authorized node drain; in-flight requests may finish and the node stays cordoned
+	// (POST /enterprise/kubernetes-clusters/{id}/operations/{operationId})
+	CancelKubernetesDrain(ctx context.Context, request CancelKubernetesDrainRequestObject) (CancelKubernetesDrainResponseObject, error)
 	// GetKubernetesPodLogs Read at most one MiB of Pod logs.
 	// (GET /enterprise/kubernetes-clusters/{id}/pod-logs)
 	GetKubernetesPodLogs(ctx context.Context, request GetKubernetesPodLogsRequestObject) (GetKubernetesPodLogsResponseObject, error)
 	// ListKubernetesResources List bounded Kubernetes resources after Kubernetes cluster authorization checks.
 	// (GET /enterprise/kubernetes-clusters/{id}/resources)
 	ListKubernetesResources(ctx context.Context, request ListKubernetesResourcesRequestObject) (ListKubernetesResourcesResponseObject, error)
+	// CreateKubernetesStreamSession Create a UID-bound terminal or TCP forwarding session
+	// (POST /enterprise/kubernetes-clusters/{id}/stream-sessions)
+	CreateKubernetesStreamSession(ctx context.Context, request CreateKubernetesStreamSessionRequestObject) (CreateKubernetesStreamSessionResponseObject, error)
+	// GetKubernetesStreamSession Read current Kubernetes session state
+	// (GET /enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId})
+	GetKubernetesStreamSession(ctx context.Context, request GetKubernetesStreamSessionRequestObject) (GetKubernetesStreamSessionResponseObject, error)
+	// CloseKubernetesStreamSession Close a Kubernetes terminal or forwarding session
+	// (POST /enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}/close)
+	CloseKubernetesStreamSession(ctx context.Context, request CloseKubernetesStreamSessionRequestObject) (CloseKubernetesStreamSessionResponseObject, error)
+	// IssueKubernetesStreamTicket Replace the pending one-use Kubernetes stream ticket
+	// (POST /enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}/ticket)
+	IssueKubernetesStreamTicket(ctx context.Context, request IssueKubernetesStreamTicketRequestObject) (IssueKubernetesStreamTicketResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -263,6 +327,517 @@ func (sh *strictHandler) PreviewUpdateKubernetesCluster(w http.ResponseWriter, r
 	}
 }
 
+// PreviewKubernetesHelm operation middleware
+func (sh *strictHandler) PreviewKubernetesHelm(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewKubernetesHelmParams) {
+	var request PreviewKubernetesHelmRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body PreviewKubernetesHelmJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewKubernetesHelm(ctx, request.(PreviewKubernetesHelmRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewKubernetesHelm")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewKubernetesHelmResponseObject); ok {
+		if err := validResponse.VisitPreviewKubernetesHelmResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListKubernetesHelmReleases operation middleware
+func (sh *strictHandler) ListKubernetesHelmReleases(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params ListKubernetesHelmReleasesParams) {
+	var request ListKubernetesHelmReleasesRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListKubernetesHelmReleases(ctx, request.(ListKubernetesHelmReleasesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListKubernetesHelmReleases")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListKubernetesHelmReleasesResponseObject); ok {
+		if err := validResponse.VisitListKubernetesHelmReleasesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListKubernetesHelmHistory operation middleware
+func (sh *strictHandler) ListKubernetesHelmHistory(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, releaseName string, params ListKubernetesHelmHistoryParams) {
+	var request ListKubernetesHelmHistoryRequestObject
+
+	request.Id = id
+	request.ReleaseName = releaseName
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListKubernetesHelmHistory(ctx, request.(ListKubernetesHelmHistoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListKubernetesHelmHistory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListKubernetesHelmHistoryResponseObject); ok {
+		if err := validResponse.VisitListKubernetesHelmHistoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListKubernetesInventory operation middleware
+func (sh *strictHandler) ListKubernetesInventory(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params ListKubernetesInventoryParams) {
+	var request ListKubernetesInventoryRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListKubernetesInventory(ctx, request.(ListKubernetesInventoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListKubernetesInventory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListKubernetesInventoryResponseObject); ok {
+		if err := validResponse.VisitListKubernetesInventoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewKubernetesMutation operation middleware
+func (sh *strictHandler) PreviewKubernetesMutation(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewKubernetesMutationParams) {
+	var request PreviewKubernetesMutationRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body PreviewKubernetesMutationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewKubernetesMutation(ctx, request.(PreviewKubernetesMutationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewKubernetesMutation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewKubernetesMutationResponseObject); ok {
+		if err := validResponse.VisitPreviewKubernetesMutationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetKubernetesInventoryObject operation middleware
+func (sh *strictHandler) GetKubernetesInventoryObject(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GetKubernetesInventoryObjectParams) {
+	var request GetKubernetesInventoryObjectRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKubernetesInventoryObject(ctx, request.(GetKubernetesInventoryObjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKubernetesInventoryObject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKubernetesInventoryObjectResponseObject); ok {
+		if err := validResponse.VisitGetKubernetesInventoryObjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetKubernetesInventoryScope operation middleware
+func (sh *strictHandler) GetKubernetesInventoryScope(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request GetKubernetesInventoryScopeRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKubernetesInventoryScope(ctx, request.(GetKubernetesInventoryScopeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKubernetesInventoryScope")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKubernetesInventoryScopeResponseObject); ok {
+		if err := validResponse.VisitGetKubernetesInventoryScopeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListKubernetesInventoryTypes operation middleware
+func (sh *strictHandler) ListKubernetesInventoryTypes(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request ListKubernetesInventoryTypesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListKubernetesInventoryTypes(ctx, request.(ListKubernetesInventoryTypesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListKubernetesInventoryTypes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListKubernetesInventoryTypesResponseObject); ok {
+		if err := validResponse.VisitListKubernetesInventoryTypesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// WatchKubernetesInventory operation middleware
+func (sh *strictHandler) WatchKubernetesInventory(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params WatchKubernetesInventoryParams) {
+	var request WatchKubernetesInventoryRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body WatchKubernetesInventoryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.WatchKubernetesInventory(ctx, request.(WatchKubernetesInventoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "WatchKubernetesInventory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(WatchKubernetesInventoryResponseObject); ok {
+		if err := validResponse.VisitWatchKubernetesInventoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateKubernetesLogSession operation middleware
+func (sh *strictHandler) CreateKubernetesLogSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params CreateKubernetesLogSessionParams) {
+	var request CreateKubernetesLogSessionRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body CreateKubernetesLogSessionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateKubernetesLogSession(ctx, request.(CreateKubernetesLogSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateKubernetesLogSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateKubernetesLogSessionResponseObject); ok {
+		if err := validResponse.VisitCreateKubernetesLogSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetKubernetesLogSession operation middleware
+func (sh *strictHandler) GetKubernetesLogSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, sessionId openapi_types.UUID) {
+	var request GetKubernetesLogSessionRequestObject
+
+	request.Id = id
+	request.SessionId = sessionId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKubernetesLogSession(ctx, request.(GetKubernetesLogSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKubernetesLogSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKubernetesLogSessionResponseObject); ok {
+		if err := validResponse.VisitGetKubernetesLogSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AttachKubernetesLogSession operation middleware
+func (sh *strictHandler) AttachKubernetesLogSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, sessionId openapi_types.UUID, params AttachKubernetesLogSessionParams) {
+	var request AttachKubernetesLogSessionRequestObject
+
+	request.Id = id
+	request.SessionId = sessionId
+	request.Params = params
+
+	var body AttachKubernetesLogSessionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AttachKubernetesLogSession(ctx, request.(AttachKubernetesLogSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AttachKubernetesLogSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AttachKubernetesLogSessionResponseObject); ok {
+		if err := validResponse.VisitAttachKubernetesLogSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CloseKubernetesLogSession operation middleware
+func (sh *strictHandler) CloseKubernetesLogSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, sessionId openapi_types.UUID, params CloseKubernetesLogSessionParams) {
+	var request CloseKubernetesLogSessionRequestObject
+
+	request.Id = id
+	request.SessionId = sessionId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CloseKubernetesLogSession(ctx, request.(CloseKubernetesLogSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CloseKubernetesLogSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CloseKubernetesLogSessionResponseObject); ok {
+		if err := validResponse.VisitCloseKubernetesLogSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReadKubernetesLogSession operation middleware
+func (sh *strictHandler) ReadKubernetesLogSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, sessionId openapi_types.UUID, params ReadKubernetesLogSessionParams) {
+	var request ReadKubernetesLogSessionRequestObject
+
+	request.Id = id
+	request.SessionId = sessionId
+	request.Params = params
+
+	var body ReadKubernetesLogSessionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReadKubernetesLogSession(ctx, request.(ReadKubernetesLogSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReadKubernetesLogSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReadKubernetesLogSessionResponseObject); ok {
+		if err := validResponse.VisitReadKubernetesLogSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListKubernetesOperations operation middleware
+func (sh *strictHandler) ListKubernetesOperations(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params ListKubernetesOperationsParams) {
+	var request ListKubernetesOperationsRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListKubernetesOperations(ctx, request.(ListKubernetesOperationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListKubernetesOperations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListKubernetesOperationsResponseObject); ok {
+		if err := validResponse.VisitListKubernetesOperationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetKubernetesOperation operation middleware
+func (sh *strictHandler) GetKubernetesOperation(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, operationId openapi_types.UUID) {
+	var request GetKubernetesOperationRequestObject
+
+	request.Id = id
+	request.OperationId = operationId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKubernetesOperation(ctx, request.(GetKubernetesOperationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKubernetesOperation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKubernetesOperationResponseObject); ok {
+		if err := validResponse.VisitGetKubernetesOperationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelKubernetesDrain operation middleware
+func (sh *strictHandler) CancelKubernetesDrain(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, operationId openapi_types.UUID, params CancelKubernetesDrainParams) {
+	var request CancelKubernetesDrainRequestObject
+
+	request.Id = id
+	request.OperationId = operationId
+	request.Params = params
+
+	var body CancelKubernetesDrainJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelKubernetesDrain(ctx, request.(CancelKubernetesDrainRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelKubernetesDrain")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelKubernetesDrainResponseObject); ok {
+		if err := validResponse.VisitCancelKubernetesDrainResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetKubernetesPodLogs operation middleware
 func (sh *strictHandler) GetKubernetesPodLogs(w http.ResponseWriter, r *http.Request, id ResourceId, params GetKubernetesPodLogsParams) {
 	var request GetKubernetesPodLogsRequestObject
@@ -310,6 +885,123 @@ func (sh *strictHandler) ListKubernetesResources(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListKubernetesResourcesResponseObject); ok {
 		if err := validResponse.VisitListKubernetesResourcesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateKubernetesStreamSession operation middleware
+func (sh *strictHandler) CreateKubernetesStreamSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params CreateKubernetesStreamSessionParams) {
+	var request CreateKubernetesStreamSessionRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body CreateKubernetesStreamSessionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateKubernetesStreamSession(ctx, request.(CreateKubernetesStreamSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateKubernetesStreamSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateKubernetesStreamSessionResponseObject); ok {
+		if err := validResponse.VisitCreateKubernetesStreamSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetKubernetesStreamSession operation middleware
+func (sh *strictHandler) GetKubernetesStreamSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, sessionId openapi_types.UUID) {
+	var request GetKubernetesStreamSessionRequestObject
+
+	request.Id = id
+	request.SessionId = sessionId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKubernetesStreamSession(ctx, request.(GetKubernetesStreamSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKubernetesStreamSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKubernetesStreamSessionResponseObject); ok {
+		if err := validResponse.VisitGetKubernetesStreamSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CloseKubernetesStreamSession operation middleware
+func (sh *strictHandler) CloseKubernetesStreamSession(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, sessionId openapi_types.UUID, params CloseKubernetesStreamSessionParams) {
+	var request CloseKubernetesStreamSessionRequestObject
+
+	request.Id = id
+	request.SessionId = sessionId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CloseKubernetesStreamSession(ctx, request.(CloseKubernetesStreamSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CloseKubernetesStreamSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CloseKubernetesStreamSessionResponseObject); ok {
+		if err := validResponse.VisitCloseKubernetesStreamSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// IssueKubernetesStreamTicket operation middleware
+func (sh *strictHandler) IssueKubernetesStreamTicket(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, sessionId openapi_types.UUID, params IssueKubernetesStreamTicketParams) {
+	var request IssueKubernetesStreamTicketRequestObject
+
+	request.Id = id
+	request.SessionId = sessionId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.IssueKubernetesStreamTicket(ctx, request.(IssueKubernetesStreamTicketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "IssueKubernetesStreamTicket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(IssueKubernetesStreamTicketResponseObject); ok {
+		if err := validResponse.VisitIssueKubernetesStreamTicketResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

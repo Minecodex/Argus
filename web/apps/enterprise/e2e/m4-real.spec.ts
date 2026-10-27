@@ -15,6 +15,12 @@ test.describe("M4 real Agent and governance flow", () => {
   test.skip(!enabled, "M4 Kubernetes environment is not active");
   test.describe.configure({ mode: "serial", timeout: 120_000 });
 
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("argus.locale", "en-US");
+    });
+  });
+
   test("renders persisted Chat, model, approval, and execution facts", async ({
     page,
   }) => {
@@ -50,7 +56,11 @@ test.describe("M4 real Agent and governance flow", () => {
     ).toBeVisible();
 
     await page.goto(`${enterpriseOrigin}/tasks`);
-    await expect(page.getByText(/Succeeded|已成功/).first()).toBeVisible();
+    await expect(
+      page
+        .getByRole("cell", { name: /^(Succeeded|Success|成功|已成功)$/ })
+        .first(),
+    ).toBeVisible();
     const refreshButton = page.getByRole("button", { name: /Refresh|刷新/ });
     await expect(refreshButton).toBeVisible();
     await expect(

@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/time/rate"
 
+	"github.com/kakj-go/Argus/internal/collectorstate"
 	"github.com/kakj-go/Argus/internal/secret"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"github.com/kakj-go/Argus/internal/tunnelaudit"
@@ -185,6 +186,9 @@ func (executor *Executor) reconcileTunnels(ctx context.Context) {
 			executor.dropTelemetryTunnelLocal(tunnel, "lease_lost")
 			continue
 		}
+		if err = executor.Store.InReadCommittedTx(ctx, func(q *db.Queries) error { return collectorstate.ActivateVerifiedTunnelRoute(ctx, q, row) }); err != nil {
+			slog.Warn("Verified Collector route recovery will retry", "collector_id", row.CollectorID)
+		}
 		tunnel.lastHeartbeat = time.Now()
 	}
 }
@@ -328,6 +332,9 @@ func (executor *Executor) establishTunnel(ctx context.Context, tunnel db.Telemet
 	if err != nil {
 		executor.closeTelemetryTunnel(entry)
 		return err
+	}
+	if err = executor.Store.InReadCommittedTx(ctx, func(q *db.Queries) error { return collectorstate.ActivateVerifiedTunnelRoute(ctx, q, current) }); err != nil {
+		slog.Warn("Verified Collector route recovery will retry", "collector_id", current.CollectorID)
 	}
 	executor.auditTelemetryTunnel(ctx, tunnelaudit.Establish, current, current.Status, "")
 	executor.tunnels.mu.Lock()

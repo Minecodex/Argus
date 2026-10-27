@@ -24,7 +24,7 @@ func TestKQLClickHouseLogContextKeepsStreamAndTime(t *testing.T) {
 	at := time.Now().UTC().Add(-time.Minute)
 	insert := func(resource uuid.UUID, index int, file string) {
 		t.Helper()
-		if err := conn.Exec(ctx, "INSERT INTO `"+tables.Logs+"` (resource_id,source_id,source_revision,source_type,timestamp,body,event_id,service_name,stream_labels,structured_metadata,expires_at) VALUES (?,?,1,'otlp',?,?,?,'api',?,?,now64(3)+INTERVAL 1 HOUR)", resource, source, at.Add(time.Duration(index)*time.Second), fmt.Sprint(index), fmt.Sprintf("event-%d-%s", index, file), map[string]string{"service": "api"}, map[string]string{"log.file.path": file}); err != nil {
+		if err := conn.Exec(ctx, "INSERT INTO `"+tables.Logs+"` (resource_id,source_id,source_revision,source_type,timestamp,body,event_id,service_name,stream_labels,structured_metadata,expires_at) VALUES (?,?,1,'otlp',fromUnixTimestamp64Nano(?),?,?,'api',?,?,now64(3)+INTERVAL 1 HOUR)", resource, source, at.Add(time.Duration(index)*time.Second).UnixNano(), fmt.Sprint(index), fmt.Sprintf("event-%d-%s", index, file), map[string]string{"service": "api"}, map[string]string{"log.file.path": file}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -54,7 +54,7 @@ func TestKQLClickHouseLogContextKeepsStreamAndTime(t *testing.T) {
 	// A busy authorized source must not be rescanned for every neighbor side.
 	// The unrelated file shares resource, source, service and event time.
 	const noiseRows = 8000
-	if err := conn.Exec(ctx, "INSERT INTO `"+tables.Logs+"` (resource_id,source_id,source_revision,source_type,timestamp,body,event_id,service_name,stream_labels,structured_metadata,expires_at) SELECT ?,?,1,'otlp',?,repeat('x',4096),concat('noise-',toString(number)),'api',map('service','api'),map('log.file.path','other-file'),now64(3)+INTERVAL 1 HOUR FROM numbers(8000)", host, source, at.Add(2*time.Second)); err != nil {
+	if err := conn.Exec(ctx, "INSERT INTO `"+tables.Logs+"` (resource_id,source_id,source_revision,source_type,timestamp,body,event_id,service_name,stream_labels,structured_metadata,expires_at) SELECT ?,?,1,'otlp',fromUnixTimestamp64Nano(?),repeat('x',4096),concat('noise-',toString(number)),'api',map('service','api'),map('log.file.path','other-file'),now64(3)+INTERVAL 1 HOUR FROM numbers(8000)", host, source, at.Add(2*time.Second).UnixNano()); err != nil {
 		t.Fatal(err)
 	}
 	request.End = at.Add(10 * time.Second)
@@ -65,7 +65,7 @@ func TestKQLClickHouseLogContextKeepsStreamAndTime(t *testing.T) {
 		t.Fatalf("context repeated a scoped dataset scan: rows=%d bytes=%d records=%d err=%v", result.ScannedRows, result.ScannedBytes, len(result.Data), err)
 	}
 	for _, side := range []string{"a", "z"} {
-		if err := conn.Exec(ctx, "INSERT INTO `"+tables.Logs+"` (resource_id,source_id,source_revision,source_type,timestamp,body,event_id,service_name,stream_labels,structured_metadata,expires_at) VALUES (?,?,1,'otlp',?,?,?,'api',?,?,now64(3)+INTERVAL 1 HOUR)", host, source, at.Add(3*time.Second), "tie-"+side, "event-3-"+side, map[string]string{"service": "api"}, map[string]string{"log.file.path": "main"}); err != nil {
+		if err := conn.Exec(ctx, "INSERT INTO `"+tables.Logs+"` (resource_id,source_id,source_revision,source_type,timestamp,body,event_id,service_name,stream_labels,structured_metadata,expires_at) VALUES (?,?,1,'otlp',fromUnixTimestamp64Nano(?),?,?,'api',?,?,now64(3)+INTERVAL 1 HOUR)", host, source, at.Add(3*time.Second).UnixNano(), "tie-"+side, "event-3-"+side, map[string]string{"service": "api"}, map[string]string{"log.file.path": "main"}); err != nil {
 			t.Fatal(err)
 		}
 	}

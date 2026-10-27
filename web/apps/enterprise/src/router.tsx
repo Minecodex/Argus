@@ -10,7 +10,18 @@ import { useEnterpriseAuthStore } from "@argus/auth";
 import { AdminShell } from "./components/admin-shell";
 import { ChatShell } from "./components/chat-shell";
 
-const AlertsPage=lazyRouteComponent(()=>import("./pages/alerts-page"),"AlertsPage");
+const ApplicationsPage = lazyRouteComponent(
+  () => import("./pages/applications-page"),
+  "ApplicationsPage",
+);
+const MonitoringPage = lazyRouteComponent(
+  () => import("./pages/monitoring-page"),
+  "MonitoringPage",
+);
+const AlertsPage = lazyRouteComponent(
+  () => import("./pages/alerts-page"),
+  "AlertsPage",
+);
 const DashboardsPage = lazyRouteComponent(
   () => import("./pages/dashboards-page"),
   "DashboardsPage",
@@ -149,7 +160,21 @@ const adminRoute = createRoute({
   id: "admin",
   component: AdminShell,
 });
-const alertsRoute=createRoute({getParentRoute:()=>adminRoute,path:"/alerts",component:AlertsPage});
+const applicationsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/applications",
+  component: ApplicationsPage,
+});
+const applicationDetailRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/applications/$applicationId",
+  component: ApplicationsPage,
+});
+const alertsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/alerts",
+  component: AlertsPage,
+});
 const dashboardsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/dashboards",
@@ -161,14 +186,25 @@ const dashboardViewRoute = createRoute({
   component: DashboardViewPage,
   validateSearch: (
     search: Record<string, unknown>,
-  ): { resource?: string; resource_type?: "host" | "kubernetes_cluster" } => ({
+  ): {
+    resource?: string;
+    resource_type?:
+      "host" | "kubernetes_cluster" | "application" | "monitoring_target";
+  } => ({
     resource: typeof search.resource === "string" ? search.resource : undefined,
     resource_type:
       search.resource_type === "host" ||
-      search.resource_type === "kubernetes_cluster"
+      search.resource_type === "kubernetes_cluster" ||
+      search.resource_type === "application" ||
+      search.resource_type === "monitoring_target"
         ? search.resource_type
         : undefined,
   }),
+});
+const monitoringRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/monitoring",
+  component: MonitoringPage,
 });
 const dashboardEditorRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -283,6 +319,9 @@ const routeTree = rootRoute.addChildren([
     adminRoute.addChildren([
       dashboardsRoute,
       alertsRoute,
+      applicationsRoute,
+      monitoringRoute,
+      applicationDetailRoute,
       dashboardViewRoute,
       dashboardEditorRoute.addChildren([
         dashboardDraftIndexRoute,

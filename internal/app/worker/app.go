@@ -21,6 +21,7 @@ import (
 	"github.com/kakj-go/Argus/internal/alerting"
 	"github.com/kakj-go/Argus/internal/app/component"
 	"github.com/kakj-go/Argus/internal/artifactcheck"
+	"github.com/kakj-go/Argus/internal/monitoring"
 
 	"github.com/kakj-go/Argus/internal/collectormanager"
 	"github.com/kakj-go/Argus/internal/config"
@@ -36,6 +37,7 @@ import (
 	"github.com/kakj-go/Argus/internal/interaction"
 	"github.com/kakj-go/Argus/internal/keywrap"
 	"github.com/kakj-go/Argus/internal/kubernetesreader"
+	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/mcp"
 	modelservice "github.com/kakj-go/Argus/internal/model"
 	remoteaccessservice "github.com/kakj-go/Argus/internal/remoteaccess"
@@ -160,15 +162,22 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	telemetryActions := telemetryservice.ActionExtension{Next: removalDomain, Credentials: secretDomain,
 		EnrollmentEndpoint: cfg.TelemetryEnrollment, IngestGRPCEndpoint: cfg.TelemetryIngestGRPC,
 		IngestHTTPEndpoint: cfg.TelemetryIngestHTTP, TrustBundles: bundles}
-	remoteDomain := &remoteexecution.Service{Store: store, Actions: actionDomain, Next: alerting.ActionExtension{Next: dashboard.ActionExtension{Next: telemetryActions}}}
+	kubernetesBackend := kubernetesreader.Reader{Store: store, Secrets: secretDomain, Validator: resource.DirectTargetValidator{DeniedCIDRs: denied}, Notifier: connectorDomain}
+	kubernetesDomain := kubernetesworkbench.Service{Store: store, Backend: kubernetesBackend, CursorKey: cfg.PendingActionKey, Actions: actionDomain, Credentials: secretDomain}
+	monitoringDomain := monitoring.Service{TrustBundles: bundles, Store: store, Actions: actionDomain, Credentials: secretDomain, CursorKey: cfg.PendingActionKey, Runtime: telemetryservice.CollectionRuntime{Actions: telemetryActions, KubernetesImage: cfg.OtelcolKubernetesImage}, Workloads: kubernetesDomain}
+	kubernetesWorker := kubernetesworkbench.Worker{Service: kubernetesDomain, Logger: logger}
+	remoteDomain := &remoteexecution.Service{Store: store, Actions: actionDomain, Next: monitoring.ActionExtension{Service: monitoringDomain, Next: alerting.ActionExtension{Next: dashboard.ActionExtension{Next: telemetryActions}}}}
 	remoteDomain.Transport = remoteexecution.ConnectorTransport{Store: store, Secrets: secretDomain, Notifier: connectorDomain}
 	resourceDomain := resource.Service{Store: store, Actions: actionDomain, Access: resource.AccessService{},
 		Direct: resource.DirectTargetValidator{DeniedCIDRs: denied}, Commands: connectorDomain, DirectCommands: directDispatcher,
 		HostOnboarding:   bastionDomain,
 		OnboardingProbes: bastionDomain,
-		Extension:        remoteDomain, ClusterEnrollment: connectorDomain,
-		Kubernetes: kubernetesreader.Reader{Store: store, Secrets: secretDomain, Validator: resource.DirectTargetValidator{DeniedCIDRs: denied}, Notifier: connectorDomain}}
+		Extension:        kubernetesworkbench.ActionExtension{Service: kubernetesDomain, Next: remoteDomain}, ClusterEnrollment: connectorDomain,
+		Kubernetes: kubernetesBackend}
 	registry := mcp.NewRegistry()
+	if err := (toolgateway.MonitoringTools{Base: toolgateway.ResourceTools{Store: store, Resources: resourceDomain}, Monitoring: monitoringDomain, Kubernetes: kubernetesDomain}).Register(registry); err != nil {
+		return err
+	}
 	if err := (toolgateway.ResourceTools{Store: store, Resources: resourceDomain}).Register(registry); err != nil {
 		return err
 	}
@@ -176,6 +185,9 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		return err
 	}
 	alertDomain := alerting.Service{Store: store, Actions: actionDomain, Secrets: secretDomain}
+	if err := (dashboard.Service{Store: store}).SyncTemplates(ctx, dashboard.BuiltinTemplates()); err != nil {
+		return err
+	}
 	var dashboardQueries *dashboard.QueryJobs
 	if cfg.TelemetryEnabled && (pool == PoolDefault || pool == PoolAgent) {
 		telemetryTLS, tlsErr := telemetryservice.ClientTLSConfig(cfg.TelemetryClientCert, cfg.TelemetryClientKey, cfg.TelemetryCABundle, cfg.TelemetryServerName)
@@ -233,15 +245,15 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	if err != nil {
 		return err
 	}
-	conversationDomain := conversation.Service{Store: store, Idempotency: idempotency}
+	conversationDomain := conversation.Service{Store: store, Idempotency: idempotency, RemoteFacts: remoteDomain.ModelFacts}
 	dashboardPolicy := dashboardcontext.Policy{Store: store}
 	nativeGateway.Scope = dashboardPolicy.BusinessScope
 	nativeGateway.BindPresentations(store)
-	nativeGateway.RequireDescription = toolgateway.RequireAlertDescription(store.Queries)
+	nativeGateway.RequireDescription = toolgateway.RequireNativeDescription(store.Queries)
 	mcpDomain := enterprisemcp.Service{Store: store, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: denied}}
 	toolFactory := toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, remoteDomain, interactionDomain, mcpDomain}, ContextSources: []toolruntime.SkillContextSource{dashboardPolicy}, Filter: dashboardPolicy.Filter, AuthorizeTool: dashboardPolicy.AuthorizeTool, Validate: conversationDomain.ValidateToolPrincipal}
 	handlers := map[string]runtime.Handler{
-		PoolAgent:      agent.Loop{AutoConfirm: (action.Service{Store: store, Idempotency: idempotency, Resources: resourceDomain}).AutoConfirmRun, Store: store, Models: modelDomain, Tools: toolFactory, Objects: workspaceDomain.Objects, RemoteFacts: remoteDomain.ModelFacts},
+		PoolAgent:      agent.Loop{DeliverResults: workspaceDomain.DeliverNativeQueryResults, AutoConfirm: (action.Service{Store: store, Idempotency: idempotency, Resources: resourceDomain}).AutoConfirmRun, Store: store, Models: modelDomain, Tools: toolFactory, Objects: workspaceDomain.Objects, RemoteFacts: remoteDomain.ModelFacts},
 		PoolAction:     action.Executor{Store: store, Resources: resourceDomain, OneTimeResultKey: cfg.PendingActionKey},
 		PoolCompaction: agent.Compactor{Store: store, Models: modelDomain, RemoteFacts: remoteDomain.ModelFacts},
 		PoolSandbox:    sandbox.Runner{Service: sandbox.Service{Store: store, Keyring: keyring}},
@@ -256,8 +268,16 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		handlers[remoteexecution.Queue] = remoteDomain
 		handlers[remoteexecution.ControlQueue] = remoteDomain
 		queues = []string{PoolAgent, PoolAction, PoolCompaction, PoolSandbox, alerting.EvaluationQueue, alerting.NotificationQueue, remoteexecution.Queue, remoteexecution.ControlQueue}
+		queues = append(queues, telemetryservice.CollectorDeliveryQueue)
+		handlers[telemetryservice.CollectorDeliveryQueue] = alerting.DeliveryGapWorker{Service: alertDomain, Logger: logger}
 		handlers[alerting.EvaluationQueue] = alerting.Worker{Service: alertDomain, Logger: logger}
 		handlers[alerting.NotificationQueue] = alerting.NotificationWorker{Service: alertDomain, Transport: alerting.Transport{Policy: remotemcp.EndpointPolicy{DeniedCIDRs: denied}}}
+	}
+	if pool == PoolDefault || pool == PoolAction {
+		handlers[monitoring.AssignmentRetirementQueue] = monitoring.AssignmentRetirementWorker{Service: monitoringDomain}
+		queues = append(queues, monitoring.AssignmentRetirementQueue)
+		handlers[kubernetesworkbench.OperationQueue] = kubernetesWorker
+		queues = append(queues, kubernetesworkbench.OperationQueue)
 	}
 	if dashboardQueries != nil {
 		handlers["dashboard_query"] = dashboardQueries
@@ -297,6 +317,10 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	}
 	if pool == PoolDefault || pool == PoolAction {
 		group.Add(1)
+		go func() { defer group.Done(); errorsChannel <- kubernetesWorker.RunNamespaceReconciler(workerCtx) }()
+		group.Add(1)
+		go func() { defer group.Done(); errorsChannel <- kubernetesWorker.RunReconciler(workerCtx) }()
+		group.Add(1)
 		go func() { defer group.Done(); errorsChannel <- remoteDomain.RunReconciler(workerCtx, logger) }()
 		group.Add(1)
 		go func() {
@@ -320,6 +344,11 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		}()
 	}
 	if pool == PoolDefault {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			(alerting.DeliveryGapWorker{Service: alertDomain, Logger: logger}).RunScheduler(workerCtx)
+		}()
 		group.Add(1)
 		go func() {
 			defer group.Done()

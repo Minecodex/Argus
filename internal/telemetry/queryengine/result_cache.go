@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/kakj-go/Argus/internal/telemetry/datapolicy"
 )
 
@@ -45,6 +46,13 @@ func resultCacheKey(request Request) string {
 		return ""
 	}
 	request.Scope.ResourceIDs = slices.Clone(request.Scope.ResourceIDs)
+	if len(request.Scope.Resources) > 0 {
+		refs, err := resourceref.Normalize(request.Scope.Resources)
+		if err != nil || !resourceref.MatchIDs(refs, request.Scope.ResourceIDs) {
+			return ""
+		}
+		request.Scope.Resources = refs
+	}
 	request.Scope.SourceKeys = slices.Clone(request.Scope.SourceKeys)
 	slices.SortFunc(request.Scope.ResourceIDs, func(a, b uuid.UUID) int { return bytes.Compare(a[:], b[:]) })
 	slices.Sort(request.Scope.SourceKeys)

@@ -62,6 +62,21 @@ func (e AlertCommandOperation) Valid() bool {
 	}
 }
 
+// Defines values for AlertConfigurationManagedBy.
+const (
+	CollectorDelivery AlertConfigurationManagedBy = "collector_delivery"
+)
+
+// Valid indicates whether the value is a known member of the AlertConfigurationManagedBy enum.
+func (e AlertConfigurationManagedBy) Valid() bool {
+	switch e {
+	case CollectorDelivery:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AlertDeliveryStatus.
 const (
 	AlertDeliveryStatusAccepted  AlertDeliveryStatus = "accepted"
@@ -358,16 +373,22 @@ func (e AlertResourceSelectorMode) Valid() bool {
 
 // Defines values for AlertResourceSelectorTypes.
 const (
+	Application       AlertResourceSelectorTypes = "application"
 	Host              AlertResourceSelectorTypes = "host"
 	KubernetesCluster AlertResourceSelectorTypes = "kubernetes_cluster"
+	MonitoringTarget  AlertResourceSelectorTypes = "monitoring_target"
 )
 
 // Valid indicates whether the value is a known member of the AlertResourceSelectorTypes enum.
 func (e AlertResourceSelectorTypes) Valid() bool {
 	switch e {
+	case Application:
+		return true
 	case Host:
 		return true
 	case KubernetesCluster:
+		return true
+	case MonitoringTarget:
 		return true
 	default:
 		return false
@@ -437,6 +458,51 @@ func (e AlertRuleSeverity) Valid() bool {
 	case AlertRuleSeverityInfo:
 		return true
 	case AlertRuleSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CollectorDeliveryReportAttribution.
+const (
+	CollectorSharedPipelineExactTargetsUnknown CollectorDeliveryReportAttribution = "collector_shared_pipeline_exact_targets_unknown"
+)
+
+// Valid indicates whether the value is a known member of the CollectorDeliveryReportAttribution enum.
+func (e CollectorDeliveryReportAttribution) Valid() bool {
+	switch e {
+	case CollectorSharedPipelineExactTargetsUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CollectorDeliveryReportRetryLimitSeconds.
+const (
+	N300 CollectorDeliveryReportRetryLimitSeconds = 300
+)
+
+// Valid indicates whether the value is a known member of the CollectorDeliveryReportRetryLimitSeconds enum.
+func (e CollectorDeliveryReportRetryLimitSeconds) Valid() bool {
+	switch e {
+	case N300:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CollectorDeliveryReportSchemaVersion.
+const (
+	ArgusCollectorDeliveryv1 CollectorDeliveryReportSchemaVersion = "argus.collector_delivery/v1"
+)
+
+// Valid indicates whether the value is a known member of the CollectorDeliveryReportSchemaVersion enum.
+func (e CollectorDeliveryReportSchemaVersion) Valid() bool {
+	switch e {
+	case ArgusCollectorDeliveryv1:
 		return true
 	default:
 		return false
@@ -537,20 +603,24 @@ type AlertCommandOperation string
 
 // AlertConfiguration defines model for AlertConfiguration.
 type AlertConfiguration struct {
-	CreatedAt        time.Time          `json:"created_at"`
-	ErrorCode        *string            `json:"error_code,omitempty"`
-	Generation       int64              `json:"generation"`
-	Health           string             `json:"health"`
-	Id               openapi_types.UUID `json:"id"`
-	Kind             AlertKind          `json:"kind"`
-	LastEvaluatedAt  *time.Time         `json:"last_evaluated_at,omitempty"`
-	LastSuccessfulAt *time.Time         `json:"last_successful_at,omitempty"`
-	MatchedInstances *int64             `json:"matched_instances,omitempty"`
-	Name             string             `json:"name"`
-	Spec             AlertSpec          `json:"spec"`
-	UpdatedAt        time.Time          `json:"updated_at"`
-	Version          int64              `json:"version"`
+	CreatedAt        time.Time                    `json:"created_at"`
+	ErrorCode        *string                      `json:"error_code,omitempty"`
+	Generation       int64                        `json:"generation"`
+	Health           string                       `json:"health"`
+	Id               openapi_types.UUID           `json:"id"`
+	Kind             AlertKind                    `json:"kind"`
+	LastEvaluatedAt  *time.Time                   `json:"last_evaluated_at,omitempty"`
+	LastSuccessfulAt *time.Time                   `json:"last_successful_at,omitempty"`
+	ManagedBy        *AlertConfigurationManagedBy `json:"managed_by,omitempty"`
+	MatchedInstances *int64                       `json:"matched_instances,omitempty"`
+	Name             string                       `json:"name"`
+	Spec             AlertSpec                    `json:"spec"`
+	UpdatedAt        time.Time                    `json:"updated_at"`
+	Version          int64                        `json:"version"`
 }
+
+// AlertConfigurationManagedBy defines model for AlertConfiguration.ManagedBy.
+type AlertConfigurationManagedBy string
 
 // AlertDelivery defines model for AlertDelivery.
 type AlertDelivery struct {
@@ -728,13 +798,14 @@ type AlertInstancePage struct {
 
 // AlertInstanceState defines model for AlertInstanceState.
 type AlertInstanceState struct {
-	AuthorizationVersion *int64              `json:"authorization_version,omitempty"`
-	ClosureReason        *string             `json:"closure_reason,omitempty"`
-	EvaluatorId          *openapi_types.UUID `json:"evaluator_id,omitempty"`
-	Kind                 string              `json:"kind"`
-	Labels               map[string]string   `json:"labels"`
-	LastNotificationAt   *time.Time          `json:"last_notification_at,omitempty"`
-	LastSlot             time.Time           `json:"last_slot"`
+	AuthorizationVersion *int64                   `json:"authorization_version,omitempty"`
+	ClosureReason        *string                  `json:"closure_reason,omitempty"`
+	DeliveryGap          *CollectorDeliveryReport `json:"delivery_gap,omitempty"`
+	EvaluatorId          *openapi_types.UUID      `json:"evaluator_id,omitempty"`
+	Kind                 string                   `json:"kind"`
+	Labels               map[string]string        `json:"labels"`
+	LastNotificationAt   *time.Time               `json:"last_notification_at,omitempty"`
+	LastSlot             time.Time                `json:"last_slot"`
 
 	// LastSuccessfulAt Time of the last successful evaluation that produced the retained value and members. Unchanged on failed evaluations; absent when unknown. This is not the telemetry sample timestamp.
 	LastSuccessfulAt     *time.Time                `json:"last_successful_at,omitempty"`
@@ -838,7 +909,7 @@ type AlertPolicySpec struct {
 	NoDataBehavior  AlertPolicySpecNoDataBehavior `json:"no_data_behavior"`
 	RecoverySeconds int64                         `json:"recovery_seconds"`
 
-	// Resources Named hosts or clusters must first be resolved with the existing resource tools, then selected by their explicit UUIDs. Dynamic selection evaluates resource LABELS inside the evaluator's existing grants; the resource name field is not a label. 指定某台主机或集群时先查询实际 UUID 并使用 explicit + ids；dynamic 的 matchers 只匹配资源 labels，不匹配资源名称字段。
+	// Resources Resolve hosts, clusters, applications or monitoring targets with the resource tools before selecting their explicit UUIDs. Dynamic selection evaluates resource LABELS inside the evaluator's existing grants; the resource name field is not a label. 指定主机、集群、应用或监控目标时先查询实际 UUID 并使用 explicit + ids；dynamic 的 matchers 只匹配资源 labels，不匹配资源名称字段。
 	Resources AlertResourceSelector `json:"resources"`
 	RouteIds  *[]openapi_types.UUID `json:"route_ids,omitempty"`
 	Rules     []AlertRule           `json:"rules"`
@@ -853,7 +924,7 @@ type AlertPolicySpecMode string
 // AlertPolicySpecNoDataBehavior defines model for AlertPolicySpec.NoDataBehavior.
 type AlertPolicySpecNoDataBehavior string
 
-// AlertResourceSelector Named hosts or clusters must first be resolved with the existing resource tools, then selected by their explicit UUIDs. Dynamic selection evaluates resource LABELS inside the evaluator's existing grants; the resource name field is not a label. 指定某台主机或集群时先查询实际 UUID 并使用 explicit + ids；dynamic 的 matchers 只匹配资源 labels，不匹配资源名称字段。
+// AlertResourceSelector Resolve hosts, clusters, applications or monitoring targets with the resource tools before selecting their explicit UUIDs. Dynamic selection evaluates resource LABELS inside the evaluator's existing grants; the resource name field is not a label. 指定主机、集群、应用或监控目标时先查询实际 UUID 并使用 explicit + ids；dynamic 的 matchers 只匹配资源 labels，不匹配资源名称字段。
 type AlertResourceSelector struct {
 	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
 
@@ -969,6 +1040,37 @@ type ApiErrorParams2 = bool
 type ApiError_Params_AdditionalProperties struct {
 	union json.RawMessage
 }
+
+// CollectorDeliveryCounts defines model for CollectorDeliveryCounts.
+type CollectorDeliveryCounts struct {
+	LogRecords   int64 `json:"log_records"`
+	MetricPoints int64 `json:"metric_points"`
+	Spans        int64 `json:"spans"`
+}
+
+// CollectorDeliveryReport defines model for CollectorDeliveryReport.
+type CollectorDeliveryReport struct {
+	Attribution       CollectorDeliveryReportAttribution       `json:"attribution"`
+	EnqueueFailures   CollectorDeliveryCounts                  `json:"enqueue_failures"`
+	InstanceId        string                                   `json:"instance_id"`
+	LastFailureAt     *time.Time                               `json:"last_failure_at,omitempty"`
+	ObservedAt        time.Time                                `json:"observed_at"`
+	ObservedSince     time.Time                                `json:"observed_since"`
+	ReceiverRefusals  CollectorDeliveryCounts                  `json:"receiver_refusals"`
+	RetryLimitSeconds CollectorDeliveryReportRetryLimitSeconds `json:"retry_limit_seconds"`
+	SchemaVersion     CollectorDeliveryReportSchemaVersion     `json:"schema_version"`
+	Sequence          int64                                    `json:"sequence"`
+	TerminalFailures  CollectorDeliveryCounts                  `json:"terminal_failures"`
+}
+
+// CollectorDeliveryReportAttribution defines model for CollectorDeliveryReport.Attribution.
+type CollectorDeliveryReportAttribution string
+
+// CollectorDeliveryReportRetryLimitSeconds defines model for CollectorDeliveryReport.RetryLimitSeconds.
+type CollectorDeliveryReportRetryLimitSeconds int64
+
+// CollectorDeliveryReportSchemaVersion defines model for CollectorDeliveryReport.SchemaVersion.
+type CollectorDeliveryReportSchemaVersion string
 
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string

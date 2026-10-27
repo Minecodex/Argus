@@ -68,6 +68,9 @@ func alertFixture(entry, kind string) map[string]any {
 	return base
 }
 func NormalForTool(tool, entry string) map[string]any {
+	if data := monitoringFixture(tool); data != nil {
+		return data
+	}
 	if data := resourceFixture(tool, entry); data != nil {
 		return data
 	}

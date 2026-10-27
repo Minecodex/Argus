@@ -3,13 +3,14 @@ package authorization
 import "testing"
 
 func TestPermissionRegistryVersionAndBuiltinRolesIncludeM7(t *testing.T) {
-	if PermissionRegistryVersion != 13 {
-		t.Fatalf("permission registry version = %d, want 13", PermissionRegistryVersion)
+	if PermissionRegistryVersion != 17 {
+		t.Fatalf("permission registry version = %d, want 17", PermissionRegistryVersion)
 	}
 
 	for _, permission := range []string{
 		"alert.read", "alert.policy.manage", "alert.silence.manage", "alert.notification.manage", "alert.handle",
 		"data_authorization.read", "data_authorization.manage",
+		"kubernetes.node.drain",
 		"conversation.use", "model.manage", "model.quota.manage", "approval_policy.manage", "telemetry.dashboard.read", "telemetry.dashboard.manage",
 		"approval.decide", "execution.read", "mcp_connection.manage", "workspace.use",
 		"remote_execution.read", "remote_execution.execute", "remote_execution.stop",

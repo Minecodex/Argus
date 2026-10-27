@@ -173,6 +173,9 @@ func planNotifications(ctx context.Context, q *db.Queries, policy db.AlertConfig
 		if e != nil {
 			return e
 		}
+		if instance.Health == "not_evaluated" {
+			continue
+		}
 		decision, reasons := noiseDecision(instance, all, silences, inhibitions, at)
 		previous := instance.State.NotificationState
 		transition := ""
@@ -226,6 +229,9 @@ func planNotifications(ctx context.Context, q *db.Queries, policy db.AlertConfig
 		instance, e := instanceDTO(row)
 		if e != nil {
 			return e
+		}
+		if instance.Health == "not_evaluated" {
+			continue
 		}
 		decision, reasons := noiseDecision(instance, all, silences, inhibitions, at)
 		channelIDs := append([]uuid.UUID{}, p.ChannelIDs...)
@@ -325,6 +331,9 @@ func renderNotification(i Instance, event string, channel ChannelSpec, at time.T
 	if i.State.Value != nil {
 		value = fmt.Sprintf("%g%s", *i.State.Value, i.State.Unit)
 	}
+	if gap := i.State.DeliveryGap; gap != nil {
+		value = fmt.Sprintf("terminal failures: logs=%d spans=%d metric_points=%d; receiver refusal attempts: logs=%d spans=%d metric_points=%d; enqueue failure attempts: logs=%d spans=%d metric_points=%d; exact targets and sample timestamps unknown", gap.TerminalFailures.LogRecords, gap.TerminalFailures.Spans, gap.TerminalFailures.MetricPoints, gap.ReceiverRefusals.LogRecords, gap.ReceiverRefusals.Spans, gap.ReceiverRefusals.MetricPoints, gap.EnqueueFailures.LogRecords, gap.EnqueueFailures.Spans, gap.EnqueueFailures.MetricPoints)
+	}
 	fields := map[string]any{"severity": i.Severity, "policy": i.State.PolicyName, "resource": strings.Join(uuidStrings(i.ResourceIDs), ", "), "metric": i.State.Metric, "value": value, "threshold": i.State.Threshold, "duration": int64(0), "event": event, "detail_url": "/alerts?instance=" + i.ID.String()}
 	if i.StartedAt != nil {
 		fields["duration"] = int64(at.Sub(*i.StartedAt).Seconds())
@@ -332,6 +341,9 @@ func renderNotification(i Instance, event string, channel ChannelSpec, at time.T
 	pattern := channel.Template
 	if pattern == "" {
 		pattern = "[{{.severity}}] {{.policy}}\n{{.resource}}\n{{.metric}} = {{.value}}; threshold {{.threshold}}\n{{.event}} · {{.detail_url}}"
+		if i.State.DeliveryGap != nil {
+			pattern = "[{{.severity}}] {{.policy}}\n{{.resource}}\n{{.value}}\n{{.event}} · {{.detail_url}}"
+		}
 	}
 	t, err := template.New("alert").Option("missingkey=error").Parse(normalizeTemplate(pattern))
 	if err != nil {

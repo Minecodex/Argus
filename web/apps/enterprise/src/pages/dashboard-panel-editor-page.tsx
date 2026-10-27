@@ -23,6 +23,7 @@ import {
   Input,
   SegmentedControl,
   ObservationPanel,
+  ObservationDetails,
   observationChartCapabilities,
   PageShell,
   Select,
@@ -477,6 +478,12 @@ export function DashboardPanelEditorPage() {
               <header>
                 <div className="argus-action-group">
                   <strong>{t("dashboards.editor.previewTitle")}</strong>
+                  <ObservationDetails
+                    title={panel.title}
+                    targets={entry?.targets ?? []}
+                    signal={panel.signal}
+                    display={panel.display}
+                  />
                   <Badge>
                     {t(
                       lastIdentity === identity && lastIdentity
@@ -520,6 +527,7 @@ export function DashboardPanelEditorPage() {
               <div className="argus-panel-editor__visual">
                 <ObservationPanel
                   title={panel.title}
+                  details="external"
                   type={resultView === "table" ? "table" : panel.type}
                   signal={panel.signal}
                   targets={entry?.targets ?? []}

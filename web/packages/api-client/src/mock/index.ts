@@ -1,3 +1,5 @@
+import { createMonitoringDomains } from "./monitoring";
+import { createKubernetesWorkbenchDomains } from "./kubernetes-workbench";
 import { createAlertDomains } from "./alerts";
 import { createDashboardDomains } from "./dashboard";
 import type { ArgusApiClient } from "../client";
@@ -340,6 +342,8 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
     ...createPlanV5Domains(ctx),
     ...createDashboardDomains(ctx),
     ...createAlertDomains(ctx),
+    ...createMonitoringDomains(ctx),
+    ...createKubernetesWorkbenchDomains(ctx),
     org: createOrgDomain(ctx),
     secrets: secretsDomain,
     audit: createAuditDomain(ctx),

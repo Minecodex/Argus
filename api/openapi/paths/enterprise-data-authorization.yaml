@@ -6,6 +6,7 @@ resources:
       - {name: subject_type, in: path, required: true, schema: {$ref: "../components/data-authorization.yaml#/components/schemas/DataAuthorizationSubjectType"}}
       - {name: subject_id, in: path, required: true, schema: {type: string, format: uuid}}
       - {name: resource_type, in: query, required: true, schema: {$ref: "../components/data-authorization.yaml#/components/schemas/DataAuthorizationResourceType"}}
+      - {name: search, in: query, required: false, schema: {type: string, maxLength: 200}}
       - {$ref: "../argus.yaml#/components/parameters/Cursor"}
       - {$ref: "../argus.yaml#/components/parameters/Limit"}
     responses:

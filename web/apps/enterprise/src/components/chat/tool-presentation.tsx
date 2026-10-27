@@ -7,6 +7,7 @@ import { Button, Dialog, ToolPresentationFrame, useTheme } from "@argus/ui";
 import { LoaderCircle } from "lucide-react";
 import { runtimeConfig } from "../../lib/runtime-config";
 import { toolDisplayName } from "./tool-name";
+import { MonitoringHostForm } from "../monitoring/host-form";
 
 export function ConversationPresentation({
   conversationId,
@@ -56,6 +57,15 @@ export function ConversationPresentation({
         <p>{t("planv5.template.loading")}</p>
       </div>
     );
+  // This descriptor comes from the sealed, reauthorized native presentation.
+  // Private fields are rendered by the trusted host, outside tool iframes.
+  if (
+    source === "argus" &&
+    query.data.status === "ready" &&
+    query.data.detail_data.tool === "monitoring.collection.form" &&
+    query.data.detail_data.schema_version === "argus.monitoring_host_form/v1"
+  )
+    return <MonitoringHostForm data={query.data.detail_data} />;
   const origin =
     runtimeConfig().templateOrigin ?? import.meta.env.VITE_TEMPLATE_ORIGIN;
   if (!origin) return <p role="alert">{t("planv5.template.failed")}</p>;
@@ -90,6 +100,11 @@ export function ConversationPresentation({
             });
           else if (ref.type === "connector")
             setOpened({ kind: "connector", ref: ref.id });
+          else if (ref.type === "application")
+            void navigate({
+              to: "/applications/$applicationId",
+              params: { applicationId: ref.id },
+            });
         }}
         onResult={(ref) => setOpened({ kind: "result", ref })}
       />

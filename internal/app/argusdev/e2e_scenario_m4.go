@@ -58,9 +58,13 @@ func (a *App) runM4Scenario(ctx context.Context, env *E2EEnvironment) error {
 
 	modelBase := "https://argus-replay-model." + env.SandboxNS + ".svc/v1"
 	var modelID string
+	modelWindow := 131072
+	if env.Options.RealModel != nil {
+		modelWindow = env.Options.RealModel.ContextWindow
+	}
 	for _, protocol := range []string{"chat_completions", "responses"} {
 		created, err := client.JSON(ctx, "m4-model-"+protocol, "enterprise", http.MethodPost, "/enterprise/ai-models/test-and-create", http.StatusCreated,
-			map[string]any{"name": "M4 Replay " + protocol, "base_url": modelBase, "model_id": "argus-replay-" + protocol, "api_protocol": protocol, "api_key": "m4-write-only-key", "context_window_tokens": 32768, "max_output_tokens": 1024, "input_price_per_million": 0.1, "output_price_per_million": 0.2}, enterpriseHeaders(env, "m4-model-"+protocol))
+			map[string]any{"name": "M4 Replay " + protocol, "base_url": modelBase, "model_id": "argus-replay-" + protocol, "api_protocol": protocol, "api_key": "m4-write-only-key", "context_window_tokens": modelWindow, "max_output_tokens": 1024, "input_price_per_million": 0.1, "output_price_per_million": 0.2}, enterpriseHeaders(env, "m4-model-"+protocol))
 		if err != nil {
 			return err
 		}

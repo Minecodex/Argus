@@ -13,7 +13,7 @@ import (
 )
 
 const listTelemetrySources = `-- name: ListTelemetrySources :many
-SELECT source.id, source.enterprise_id, source.collector_id, source.generation, source.resource_type, source.resource_id, source.source_key, source.source_type, source.signals, source.config_revision, source.config_hash, source.capability_version, source.created_at, (source.generation=collector.source_generation AND collector.status NOT IN ('uninstalled','uninstalling'))::boolean AS current_installation
+SELECT source.id, source.enterprise_id, source.collector_id, source.generation, source.resource_type, source.resource_id, source.source_key, source.source_type, source.signals, source.config_revision, source.config_hash, source.capability_version, source.created_at, source.collection_id, source.collection_revision, source.assignment_epoch, source.ingest_endpoint_id, source.ingest_endpoint_version, source.application_service_id, source.namespace_uid, (source.generation=collector.source_generation AND collector.status NOT IN ('uninstalled','uninstalling'))::boolean AS current_installation
 FROM telemetry_sources source JOIN collector_instances collector ON collector.id=source.collector_id AND collector.enterprise_id=source.enterprise_id
 WHERE source.enterprise_id=$1
  AND source.resource_id=ANY($2::uuid[]) AND source.source_type=$3
@@ -29,20 +29,27 @@ type ListTelemetrySourcesParams struct {
 }
 
 type ListTelemetrySourcesRow struct {
-	ID                  uuid.UUID          `json:"id"`
-	EnterpriseID        uuid.UUID          `json:"enterprise_id"`
-	CollectorID         uuid.UUID          `json:"collector_id"`
-	Generation          uuid.UUID          `json:"generation"`
-	ResourceType        string             `json:"resource_type"`
-	ResourceID          uuid.UUID          `json:"resource_id"`
-	SourceKey           string             `json:"source_key"`
-	SourceType          string             `json:"source_type"`
-	Signals             []string           `json:"signals"`
-	ConfigRevision      int64              `json:"config_revision"`
-	ConfigHash          []byte             `json:"config_hash"`
-	CapabilityVersion   string             `json:"capability_version"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	CurrentInstallation bool               `json:"current_installation"`
+	ID                    uuid.UUID          `json:"id"`
+	EnterpriseID          uuid.UUID          `json:"enterprise_id"`
+	CollectorID           uuid.UUID          `json:"collector_id"`
+	Generation            uuid.UUID          `json:"generation"`
+	ResourceType          string             `json:"resource_type"`
+	ResourceID            uuid.UUID          `json:"resource_id"`
+	SourceKey             string             `json:"source_key"`
+	SourceType            string             `json:"source_type"`
+	Signals               []string           `json:"signals"`
+	ConfigRevision        int64              `json:"config_revision"`
+	ConfigHash            []byte             `json:"config_hash"`
+	CapabilityVersion     string             `json:"capability_version"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	CollectionID          uuid.NullUUID      `json:"collection_id"`
+	CollectionRevision    pgtype.Int8        `json:"collection_revision"`
+	AssignmentEpoch       pgtype.Int8        `json:"assignment_epoch"`
+	IngestEndpointID      uuid.NullUUID      `json:"ingest_endpoint_id"`
+	IngestEndpointVersion pgtype.Int8        `json:"ingest_endpoint_version"`
+	ApplicationServiceID  uuid.NullUUID      `json:"application_service_id"`
+	NamespaceUid          string             `json:"namespace_uid"`
+	CurrentInstallation   bool               `json:"current_installation"`
 }
 
 func (q *Queries) ListTelemetrySources(ctx context.Context, arg ListTelemetrySourcesParams) ([]ListTelemetrySourcesRow, error) {
@@ -73,6 +80,13 @@ func (q *Queries) ListTelemetrySources(ctx context.Context, arg ListTelemetrySou
 			&i.ConfigHash,
 			&i.CapabilityVersion,
 			&i.CreatedAt,
+			&i.CollectionID,
+			&i.CollectionRevision,
+			&i.AssignmentEpoch,
+			&i.IngestEndpointID,
+			&i.IngestEndpointVersion,
+			&i.ApplicationServiceID,
+			&i.NamespaceUid,
 			&i.CurrentInstallation,
 		); err != nil {
 			return nil, err
@@ -83,6 +97,183 @@ func (q *Queries) ListTelemetrySources(ctx context.Context, arg ListTelemetrySou
 		return nil, err
 	}
 	return items, nil
+}
+
+const listTelemetrySourcesForScope = `-- name: ListTelemetrySourcesForScope :many
+SELECT source.id, source.enterprise_id, source.collector_id, source.generation, source.resource_type, source.resource_id, source.source_key, source.source_type, source.signals, source.config_revision, source.config_hash, source.capability_version, source.created_at, source.collection_id, source.collection_revision, source.assignment_epoch, source.ingest_endpoint_id, source.ingest_endpoint_version, source.application_service_id, source.namespace_uid, (source.generation=collector.source_generation AND collector.status NOT IN ('uninstalled','uninstalling'))::boolean AS current_installation
+FROM telemetry_sources source JOIN collector_instances collector ON collector.id=source.collector_id AND collector.enterprise_id=source.enterprise_id
+JOIN jsonb_to_recordset($1::jsonb) AS resource(type text,id uuid)
+ ON resource.id=source.resource_id AND resource.type=source.resource_type
+WHERE source.enterprise_id=$2
+ AND ($3::text='' OR source.source_type=$3)
+ AND ($4::text='' OR $4=ANY(source.signals))
+ORDER BY source.id,source.config_revision
+`
+
+type ListTelemetrySourcesForScopeParams struct {
+	ResourceRefs []byte    `json:"resource_refs"`
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	SourceType   string    `json:"source_type"`
+	Signal       string    `json:"signal"`
+}
+
+type ListTelemetrySourcesForScopeRow struct {
+	ID                    uuid.UUID          `json:"id"`
+	EnterpriseID          uuid.UUID          `json:"enterprise_id"`
+	CollectorID           uuid.UUID          `json:"collector_id"`
+	Generation            uuid.UUID          `json:"generation"`
+	ResourceType          string             `json:"resource_type"`
+	ResourceID            uuid.UUID          `json:"resource_id"`
+	SourceKey             string             `json:"source_key"`
+	SourceType            string             `json:"source_type"`
+	Signals               []string           `json:"signals"`
+	ConfigRevision        int64              `json:"config_revision"`
+	ConfigHash            []byte             `json:"config_hash"`
+	CapabilityVersion     string             `json:"capability_version"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	CollectionID          uuid.NullUUID      `json:"collection_id"`
+	CollectionRevision    pgtype.Int8        `json:"collection_revision"`
+	AssignmentEpoch       pgtype.Int8        `json:"assignment_epoch"`
+	IngestEndpointID      uuid.NullUUID      `json:"ingest_endpoint_id"`
+	IngestEndpointVersion pgtype.Int8        `json:"ingest_endpoint_version"`
+	ApplicationServiceID  uuid.NullUUID      `json:"application_service_id"`
+	NamespaceUid          string             `json:"namespace_uid"`
+	CurrentInstallation   bool               `json:"current_installation"`
+}
+
+func (q *Queries) ListTelemetrySourcesForScope(ctx context.Context, arg ListTelemetrySourcesForScopeParams) ([]ListTelemetrySourcesForScopeRow, error) {
+	rows, err := q.db.Query(ctx, listTelemetrySourcesForScope,
+		arg.ResourceRefs,
+		arg.EnterpriseID,
+		arg.SourceType,
+		arg.Signal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTelemetrySourcesForScopeRow{}
+	for rows.Next() {
+		var i ListTelemetrySourcesForScopeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EnterpriseID,
+			&i.CollectorID,
+			&i.Generation,
+			&i.ResourceType,
+			&i.ResourceID,
+			&i.SourceKey,
+			&i.SourceType,
+			&i.Signals,
+			&i.ConfigRevision,
+			&i.ConfigHash,
+			&i.CapabilityVersion,
+			&i.CreatedAt,
+			&i.CollectionID,
+			&i.CollectionRevision,
+			&i.AssignmentEpoch,
+			&i.IngestEndpointID,
+			&i.IngestEndpointVersion,
+			&i.ApplicationServiceID,
+			&i.NamespaceUid,
+			&i.CurrentInstallation,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const registerApplicationTelemetrySource = `-- name: RegisterApplicationTelemetrySource :exec
+INSERT INTO telemetry_sources(id,enterprise_id,collector_id,generation,resource_type,resource_id,source_key,source_type,signals,config_revision,config_hash,capability_version,ingest_endpoint_id,ingest_endpoint_version)
+VALUES($1,$2,$3,$4,'application',$5,$6,$7,$8,$9,$10,$11,$12,$13)
+`
+
+type RegisterApplicationTelemetrySourceParams struct {
+	ID                    uuid.UUID     `json:"id"`
+	EnterpriseID          uuid.UUID     `json:"enterprise_id"`
+	CollectorID           uuid.UUID     `json:"collector_id"`
+	Generation            uuid.UUID     `json:"generation"`
+	ResourceID            uuid.UUID     `json:"resource_id"`
+	SourceKey             string        `json:"source_key"`
+	SourceType            string        `json:"source_type"`
+	Signals               []string      `json:"signals"`
+	ConfigRevision        int64         `json:"config_revision"`
+	ConfigHash            []byte        `json:"config_hash"`
+	CapabilityVersion     string        `json:"capability_version"`
+	IngestEndpointID      uuid.NullUUID `json:"ingest_endpoint_id"`
+	IngestEndpointVersion pgtype.Int8   `json:"ingest_endpoint_version"`
+}
+
+func (q *Queries) RegisterApplicationTelemetrySource(ctx context.Context, arg RegisterApplicationTelemetrySourceParams) error {
+	_, err := q.db.Exec(ctx, registerApplicationTelemetrySource,
+		arg.ID,
+		arg.EnterpriseID,
+		arg.CollectorID,
+		arg.Generation,
+		arg.ResourceID,
+		arg.SourceKey,
+		arg.SourceType,
+		arg.Signals,
+		arg.ConfigRevision,
+		arg.ConfigHash,
+		arg.CapabilityVersion,
+		arg.IngestEndpointID,
+		arg.IngestEndpointVersion,
+	)
+	return err
+}
+
+const registerCollectionTelemetrySource = `-- name: RegisterCollectionTelemetrySource :exec
+INSERT INTO telemetry_sources(id,enterprise_id,collector_id,generation,resource_type,resource_id,source_key,source_type,signals,config_revision,config_hash,capability_version,collection_id,collection_revision,assignment_epoch,application_service_id,namespace_uid)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+`
+
+type RegisterCollectionTelemetrySourceParams struct {
+	ID                   uuid.UUID     `json:"id"`
+	EnterpriseID         uuid.UUID     `json:"enterprise_id"`
+	CollectorID          uuid.UUID     `json:"collector_id"`
+	Generation           uuid.UUID     `json:"generation"`
+	ResourceType         string        `json:"resource_type"`
+	ResourceID           uuid.UUID     `json:"resource_id"`
+	SourceKey            string        `json:"source_key"`
+	SourceType           string        `json:"source_type"`
+	Signals              []string      `json:"signals"`
+	ConfigRevision       int64         `json:"config_revision"`
+	ConfigHash           []byte        `json:"config_hash"`
+	CapabilityVersion    string        `json:"capability_version"`
+	CollectionID         uuid.NullUUID `json:"collection_id"`
+	CollectionRevision   pgtype.Int8   `json:"collection_revision"`
+	AssignmentEpoch      pgtype.Int8   `json:"assignment_epoch"`
+	ApplicationServiceID uuid.NullUUID `json:"application_service_id"`
+	NamespaceUid         string        `json:"namespace_uid"`
+}
+
+func (q *Queries) RegisterCollectionTelemetrySource(ctx context.Context, arg RegisterCollectionTelemetrySourceParams) error {
+	_, err := q.db.Exec(ctx, registerCollectionTelemetrySource,
+		arg.ID,
+		arg.EnterpriseID,
+		arg.CollectorID,
+		arg.Generation,
+		arg.ResourceType,
+		arg.ResourceID,
+		arg.SourceKey,
+		arg.SourceType,
+		arg.Signals,
+		arg.ConfigRevision,
+		arg.ConfigHash,
+		arg.CapabilityVersion,
+		arg.CollectionID,
+		arg.CollectionRevision,
+		arg.AssignmentEpoch,
+		arg.ApplicationServiceID,
+		arg.NamespaceUid,
+	)
+	return err
 }
 
 const registerTelemetrySource = `-- name: RegisterTelemetrySource :exec
@@ -124,10 +315,18 @@ func (q *Queries) RegisterTelemetrySource(ctx context.Context, arg RegisterTelem
 }
 
 const resolveTelemetrySource = `-- name: ResolveTelemetrySource :one
-SELECT source.id, source.enterprise_id, source.collector_id, source.generation, source.resource_type, source.resource_id, source.source_key, source.source_type, source.signals, source.config_revision, source.config_hash, source.capability_version, source.created_at FROM telemetry_sources source
+SELECT source.id, source.enterprise_id, source.collector_id, source.generation, source.resource_type, source.resource_id, source.source_key, source.source_type, source.signals, source.config_revision, source.config_hash, source.capability_version, source.created_at, source.collection_id, source.collection_revision, source.assignment_epoch, source.ingest_endpoint_id, source.ingest_endpoint_version, source.application_service_id, source.namespace_uid FROM telemetry_sources source
 JOIN collector_instances collector ON collector.id=source.collector_id AND collector.enterprise_id=source.enterprise_id AND collector.source_generation=source.generation
 WHERE source.id=$1 AND source.config_revision=$2 AND source.collector_id=$3 AND source.enterprise_id=$4
- AND source.resource_id=collector.resource_id AND source.resource_type=collector.resource_type
+ AND ((source.collection_id IS NULL AND source.ingest_endpoint_id IS NULL AND source.resource_id=collector.resource_id AND source.resource_type=collector.resource_type AND collector.effective_revision=source.config_revision)
+ OR EXISTS(SELECT 1 FROM monitoring_ingest_endpoints e WHERE e.id=source.ingest_endpoint_id AND e.enterprise_id=source.enterprise_id
+ AND e.collector_id=collector.id AND e.application_id=source.resource_id AND source.resource_type='application' AND e.enabled AND e.version=source.ingest_endpoint_version
+ AND collector.effective_revision=source.config_revision)
+ OR EXISTS(SELECT 1 FROM monitoring_collections c JOIN monitoring_collection_assignments a ON a.collection_id=c.id AND a.enterprise_id=c.enterprise_id
+ WHERE c.id=source.collection_id AND c.enterprise_id=source.enterprise_id AND c.effective_collector_id=source.collector_id
+ AND c.target_id=source.resource_id AND c.target_type=source.resource_type AND c.status='active' AND c.desired_enabled
+ AND c.effective_assignment_epoch=source.assignment_epoch AND a.epoch=c.effective_assignment_epoch AND a.collector_id=c.effective_collector_id AND a.valid_to IS NULL AND a.activated_at IS NOT NULL
+ AND c.effective_revision=source.collection_revision))
  AND collector.status NOT IN ('uninstalled','uninstalling')
 `
 
@@ -160,6 +359,56 @@ func (q *Queries) ResolveTelemetrySource(ctx context.Context, arg ResolveTelemet
 		&i.ConfigHash,
 		&i.CapabilityVersion,
 		&i.CreatedAt,
+		&i.CollectionID,
+		&i.CollectionRevision,
+		&i.AssignmentEpoch,
+		&i.IngestEndpointID,
+		&i.IngestEndpointVersion,
+		&i.ApplicationServiceID,
+		&i.NamespaceUid,
 	)
 	return i, err
+}
+
+const telemetrySourceAwaitingApply = `-- name: TelemetrySourceAwaitingApply :one
+SELECT EXISTS(SELECT 1 FROM telemetry_sources source
+ JOIN collector_instances collector ON collector.id=source.collector_id AND collector.enterprise_id=source.enterprise_id AND collector.source_generation=source.generation
+ JOIN telemetry_ingest_config_states config ON config.collector_id=collector.id AND config.revision=source.config_revision
+ WHERE source.id=$1 AND source.config_revision=$2
+ AND source.collector_id=$3 AND source.enterprise_id=$4
+ AND $5::text=ANY(source.signals)
+ AND collector.desired_revision=source.config_revision AND config.status IN ('prepared','applying')
+ AND collector.status NOT IN ('uninstalled','uninstalling')
+ AND source.source_type<>'skywalking'
+ AND (source.source_type NOT IN ('otlp','jaeger') OR source.ingest_endpoint_id IS NOT NULL)
+ AND ((source.collection_id IS NULL AND source.ingest_endpoint_id IS NULL AND source.resource_id=collector.resource_id AND source.resource_type=collector.resource_type)
+ OR EXISTS(SELECT 1 FROM monitoring_ingest_endpoints e WHERE e.id=source.ingest_endpoint_id AND e.enterprise_id=source.enterprise_id
+  AND e.collector_id=collector.id AND e.application_id=source.resource_id AND source.resource_type='application'
+  AND e.enabled AND e.version=source.ingest_endpoint_version)
+ OR EXISTS(SELECT 1 FROM monitoring_collections c JOIN monitoring_collection_assignments a ON a.collection_id=c.id AND a.enterprise_id=c.enterprise_id
+  WHERE c.id=source.collection_id AND c.enterprise_id=source.enterprise_id AND c.collector_id=source.collector_id
+  AND c.target_id=source.resource_id AND c.target_type=source.resource_type AND c.status='active' AND c.desired_enabled
+  AND c.assignment_epoch=source.assignment_epoch AND c.desired_revision=source.collection_revision
+  AND a.epoch=c.assignment_epoch AND a.collector_id=c.collector_id AND a.valid_to IS NULL)))
+`
+
+type TelemetrySourceAwaitingApplyParams struct {
+	ID             uuid.UUID `json:"id"`
+	ConfigRevision int64     `json:"config_revision"`
+	CollectorID    uuid.UUID `json:"collector_id"`
+	EnterpriseID   uuid.UUID `json:"enterprise_id"`
+	Signal         string    `json:"signal"`
+}
+
+func (q *Queries) TelemetrySourceAwaitingApply(ctx context.Context, arg TelemetrySourceAwaitingApplyParams) (bool, error) {
+	row := q.db.QueryRow(ctx, telemetrySourceAwaitingApply,
+		arg.ID,
+		arg.ConfigRevision,
+		arg.CollectorID,
+		arg.EnterpriseID,
+		arg.Signal,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }

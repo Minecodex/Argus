@@ -5,11 +5,36 @@ import (
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/google/uuid"
 	argusopenapi "github.com/kakj-go/Argus/api/openapi"
+	"github.com/kakj-go/Argus/internal/builtincollection"
 	"github.com/kakj-go/Argus/internal/dashboard"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
 )
+
+func TestRealHostMetricProofRequiresTheCorrectLogicalCollection(t *testing.T) {
+	host := uuid.New()
+	logical := builtincollection.StableID("host", host, "host_metrics").String()
+	labels := map[string]any{"argus_resource_id": host.String(), "argus_collection_id": logical}
+	if !hostMetricIdentityMatches(labels, host.String(), "physical-source") {
+		t.Fatal("stable instance identity rejected")
+	}
+	labels["argus_collection_id"] = uuid.NewString()
+	if hostMetricIdentityMatches(labels, host.String(), "physical-source") {
+		t.Fatal("another collection accepted")
+	}
+	labels["argus_collection_id"] = logical
+	labels["argus_source_id"] = "different-source"
+	if hostMetricIdentityMatches(labels, host.String(), "physical-source") {
+		t.Fatal("contradictory physical source accepted")
+	}
+	delete(labels, "argus_source_id")
+	labels["argus_resource_id"] = uuid.NewString()
+	if hostMetricIdentityMatches(labels, host.String(), "physical-source") {
+		t.Fatal("another resource accepted")
+	}
+}
 
 func TestRealHostMetricProofRejectsCrossResourceAndNonfiniteValues(t *testing.T) {
 	series := func(host, source, value string) map[string]any {

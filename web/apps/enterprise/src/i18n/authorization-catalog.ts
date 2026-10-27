@@ -1,0 +1,71 @@
+export const authorizationCatalogZh = {
+  authorizationCatalog: {
+    types: {
+      host: "主机",
+      kubernetes_cluster: "Kubernetes",
+      dashboard: "仪表盘",
+      application: "应用",
+      monitoring_target: "监控目标",
+      kubernetes_namespace: "Namespace",
+    },
+    search: "搜索资源名称、所属集群或 UID",
+    searchButton: "搜索",
+    name: "资源",
+    source: "授权来源",
+    direct: "直接授权",
+    inherited: "继承授权",
+    grant: "授予",
+    revoke: "撤销直接授权",
+    grantPage: "授权当前页",
+    revokePage: "撤销本页直接授权",
+    empty: "没有匹配的资源",
+    emptyHint: "可以调整搜索条件或资源类型。Namespace 只显示已同步的有效 UID。",
+    page: "第 {{page}} 页",
+    pending: "{{count}} 项待保存变更",
+    conflict: "授权已被其他操作修改。请重新加载后核对再保存。",
+    reload: "放弃草稿并刷新",
+    saveFailed: "保存未完成，部分变更可能已生效。请刷新核对后继续。",
+    sources: {
+      role: "角色：{{name}}",
+      department: "部门：{{name}}",
+      cluster: "集群：{{name}}",
+    },
+  },
+};
+export const authorizationCatalogEn = {
+  authorizationCatalog: {
+    types: {
+      host: "Hosts",
+      kubernetes_cluster: "Kubernetes",
+      dashboard: "Dashboards",
+      application: "Applications",
+      monitoring_target: "Monitoring targets",
+      kubernetes_namespace: "Namespaces",
+    },
+    search: "Search resource name, parent cluster or UID",
+    searchButton: "Search",
+    name: "Resource",
+    source: "Grant source",
+    direct: "Direct grant",
+    inherited: "Inherited",
+    grant: "Grant",
+    revoke: "Revoke direct grant",
+    grantPage: "Grant this page",
+    revokePage: "Revoke direct grants on this page",
+    empty: "No matching resources",
+    emptyHint:
+      "Change the search or resource type. Namespaces include synchronized active UIDs only.",
+    page: "Page {{page}}",
+    pending: "{{count}} pending changes",
+    conflict:
+      "Another operation changed these grants. Reload and review them before saving.",
+    reload: "Discard draft and reload",
+    saveFailed:
+      "Saving did not finish. Some changes may have applied. Reload and review them before continuing.",
+    sources: {
+      role: "Role: {{name}}",
+      department: "Department: {{name}}",
+      cluster: "Cluster: {{name}}",
+    },
+  },
+};

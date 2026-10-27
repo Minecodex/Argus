@@ -179,7 +179,7 @@ func issueCollectorRepairToken(ctx context.Context, session *pkiSession, collect
 	if err != nil {
 		return db.CollectorInstance{}, "", time.Time{}, err
 	}
-	expiresAt := time.Now().UTC().Add(pkiRepairTokenTTL)
+	var expiresAt time.Time
 	err = session.store.InTx(ctx, func(q *db.Queries) error {
 		if err := q.RevokeCollectorCertificates(ctx, db.RevokeCollectorCertificatesParams{CollectorID: collector.ID, RevokeReason: pgtype.Text{String: "pki_repair", Valid: true}}); err != nil {
 			return err
@@ -188,8 +188,11 @@ func issueCollectorRepairToken(ctx context.Context, session *pkiSession, collect
 			SubjectID: collector.ID.String(), RevocationReason: "pki_repair"}); err != nil {
 			return err
 		}
-		_, err := q.CreateTelemetryEnrollmentToken(ctx, db.CreateTelemetryEnrollmentTokenParams{ID: uuid.New(), CollectorID: collector.ID,
-			TokenHash: identity.TokenHash(token), ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true}})
+		record, err := q.CreateTelemetryEnrollmentToken(ctx, db.CreateTelemetryEnrollmentTokenParams{ID: uuid.New(), CollectorID: collector.ID,
+			TokenHash: identity.TokenHash(token), LifetimeSeconds: int32(pkiRepairTokenTTL / time.Second)})
+		if err == nil {
+			expiresAt = record.ExpiresAt.Time.UTC()
+		}
 		return err
 	})
 	return collector, token, expiresAt, err

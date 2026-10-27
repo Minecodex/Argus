@@ -2,6 +2,8 @@
 
 `deploy/` contains the install contract, locked dependency versions, image builds and six Helm releases used by `argusctl`.
 
+2026-10-26 当前本机正式构建：`local-20261026-165617`，稳定配置为 `deploy/.cache/argus-local-formal.yaml`，保留单机拓扑；7 个产品镜像及三平台 Connector 已重新构建升级，健康检查 20/20，通过真实门户及数据保留核验。发布与旧测试环境清理记录见[当前环境](../docs/local-formal-deployment-20261026.md)。这是用户明确选择的非高可用本地正式版，不改变下述 production Profile 的架构前件。
+
 ## Layout
 
 Default profiles co-locate telemetry and the Workspace CSI driver in `argus-system`, keep untrusted sandbox workloads/PVCs in `argus-sandbox`, and use an optional `argus-ingress` controller. Existing ingress controllers can be reused. Components retain separate workloads and service accounts. `namespaces.observability` and `workspace.storageNamespace` resolve to `namespaces.system` by default. Existing split installations require an explicit relocation/rebuild; changing names alone does not move PVCs or an installed CSI driver.

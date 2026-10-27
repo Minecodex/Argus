@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -105,6 +106,11 @@ func checkPublicationBase(ctx context.Context, q *db.Queries, actor Actor, draft
 		return item, err
 	}
 	if draft.DashboardID.Valid {
+		if _, err := q.GetManagedDashboardByID(ctx, db.GetManagedDashboardByIDParams{EnterpriseID: actor.EnterpriseID, DashboardID: draft.DashboardID.UUID}); err == nil {
+			return item, ErrDenied
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return item, err
+		}
 		if err := requireObject(ctx, q, actor, "dashboard", draft.DashboardID.UUID); err != nil {
 			return item, err
 		}

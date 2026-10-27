@@ -11,7 +11,10 @@ export type DashboardItem = DashboardSchemas["DashboardItem"];
 export type DashboardRevision = DashboardSchemas["DashboardRevision"];
 export type DashboardExecution = DashboardSchemas["DashboardExecution"];
 export type DashboardFolder = DashboardSchemas["DashboardFolder"];
-export type DashboardResourceType = "host" | "kubernetes_cluster";
+export type DashboardResourceType =
+  DashboardSchemas["DashboardResourceScope"]["type"];
+export type DashboardBindingResourceType =
+  DashboardSchemas["ResourceDashboardBindings"]["resource_type"];
 export type DashboardBindingView = DashboardSchemas["DashboardBindingView"];
 export interface DashboardDomains {
   dashboardQueries: {
@@ -35,16 +38,25 @@ export interface DashboardDomains {
     ): Promise<DashboardSchemas["DashboardQueryJobView"]>;
   };
   dashboards: {
+    scopeResources(
+      input: {
+        kind: DashboardResourceType;
+        search?: string;
+        cursor?: string;
+        limit?: number;
+      },
+      signal?: AbortSignal,
+    ): Promise<DashboardSchemas["DashboardScopeDirectoryPage"]>;
     convertPanel(
       input: DashboardSchemas["DashboardConvertPanelInput"],
     ): Promise<DashboardSchemas["DashboardConvertedPanel"]>;
     bindings(id: string): Promise<DashboardBindingView[]>;
     resourceBindings(
-      type: DashboardResourceType,
+      type: DashboardBindingResourceType,
       id: string,
     ): Promise<DashboardSchemas["ResourceDashboardBindings"]>;
     previewBinding(
-      type: DashboardResourceType,
+      type: DashboardBindingResourceType,
       id: string,
       input: DashboardSchemas["DashboardBindingInput"],
     ): Promise<PendingActionPublic>;

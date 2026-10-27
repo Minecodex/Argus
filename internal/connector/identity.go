@@ -197,6 +197,20 @@ func GenerateCSR(connectorID uuid.UUID) (*ecdsa.PrivateKey, []byte, error) {
 	return key, csrPEM, nil
 }
 
+// CreateCSRFromPrivateKey rebuilds the public enrollment request for an already
+// validated private key. Certificate rotation must persist this matching CSR
+// so a subsequent repair can reuse the complete local identity.
+func CreateCSRFromPrivateKey(connectorID uuid.UUID, keyPEM []byte) ([]byte, error) {
+	if connectorID == uuid.Nil {
+		return nil, errors.New("connector ID is required")
+	}
+	key, err := parsePrivateKey(keyPEM)
+	if err != nil {
+		return nil, err
+	}
+	return createCSR(connectorID, key)
+}
+
 func createCSR(connectorID uuid.UUID, key *ecdsa.PrivateKey) ([]byte, error) {
 	uri, _ := url.Parse(CertificateURI(connectorID))
 	csrDER, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{URIs: []*url.URL{uri}}, key)

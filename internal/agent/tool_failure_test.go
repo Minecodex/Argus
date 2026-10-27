@@ -30,3 +30,18 @@ func TestModelReceivesSafeValidationPathsAndNotInternalErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestModelReceivesOnlyExplicitSafeQueryBudgetFeedback(t *testing.T) {
+	const code = "TOOL_QUERY_BUDGET_EXCEEDED"
+	feedback := toolruntime.Error{Kind: code, Message: "Narrow the time window.", Details: map[string]any{"query_budget": true}}
+	data := modelToolFailure(feedback, code)
+	if data["message"] != feedback.Message || data["details"] == nil {
+		t.Fatal("known query budget lost its safe recovery advice")
+	}
+	for _, cause := range []error{errors.New("secret query"), toolruntime.Error{Kind: code, Message: "secret query"}} {
+		raw, _ := json.Marshal(modelToolFailure(cause, code))
+		if strings.Contains(string(raw), "secret") {
+			t.Fatal("unknown budget error exposed internal text")
+		}
+	}
+}

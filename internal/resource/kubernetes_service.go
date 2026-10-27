@@ -12,8 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"k8s.io/apimachinery/pkg/util/validation"
 
+	"github.com/kakj-go/Argus/internal/authorization"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"github.com/kakj-go/Argus/internal/telemetry/datapolicy"
 )
 
 func (service Service) ListKubernetesClusters(ctx context.Context, enterpriseID uuid.UUID, authorizedResourceIDs []uuid.UUID) ([]db.KubernetesCluster, error) {
@@ -372,6 +374,14 @@ func (service Service) ListKubernetesResources(ctx context.Context, subject Subj
 }
 
 func (service Service) GetKubernetesPodLogs(ctx context.Context, subject Subject, enterpriseID, clusterID uuid.UUID, query PodLogsQuery) ([]byte, bool, error) {
+	actorID, parseErr := uuid.Parse(subject.ActorID)
+	if parseErr != nil || service.Store == nil {
+		return nil, false, ErrResourceDenied
+	}
+	actor := authorization.Actor{EnterpriseID: enterpriseID, SubjectID: actorID, SubjectType: explicitGrantSubjectType(subject.ActorType), AuthorizationVersion: subject.AuthorizationVersion}
+	if err := authorization.Authorize(ctx, service.Store.Queries, actor, "kubernetes.operational_logs.read"); err != nil {
+		return nil, false, ErrResourceDenied
+	}
 	cluster, err := service.GetKubernetesCluster(ctx, enterpriseID, clusterID, subject.AuthorizedResourceIDs)
 	if err != nil {
 		return nil, false, err
@@ -389,6 +399,19 @@ func (service Service) GetKubernetesPodLogs(ctx context.Context, subject Subject
 	if len(content) > 1<<20 {
 		content = content[:1<<20]
 		truncated = true
+	}
+	if err := authorization.Authorize(ctx, service.Store.Queries, actor, "kubernetes.operational_logs.read"); err != nil {
+		clear(content)
+		return nil, false, ErrResourceDenied
+	}
+	projected, changed, err := datapolicy.Project(string(content))
+	if err != nil {
+		clear(content)
+		return nil, false, ErrKubernetesUnavailable
+	}
+	if changed {
+		clear(content)
+		content = []byte(projected.(string))
 	}
 	return content, truncated, nil
 }

@@ -264,7 +264,7 @@ for (const english of [false, true])
               .click();
           if (url === "/dashboards")
             await page
-              .getByRole("button", {
+              .getByRole("tab", {
                 name: tx("我的草稿", "My drafts"),
                 exact: true,
               })

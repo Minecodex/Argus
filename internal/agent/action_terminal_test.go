@@ -120,7 +120,10 @@ func TestExecutionInvalidationWakesRunAfterRejectingCommit(t *testing.T) {
 func TestExpiredPreviewIsRetiredWithoutDispatch(t *testing.T) {
 	f := newRecoveryFixture(t)
 	preview, _, executor := terminalActionFixture(t, f)
-	f.exec("UPDATE pending_actions SET expires_at=now()-interval '1 second' WHERE id=$1", preview.ID)
+	// The shared disposable database can contain earlier batches. Give only
+	// this owned fixture the first expiry slot; the production reconciler
+	// intentionally handles a bounded batch instead of draining the database.
+	f.exec("UPDATE pending_actions SET expires_at=now()-interval '100 years' WHERE id=$1", preview.ID)
 	r := action.Reconciler{Executor: action.Executor{Store: f.store, Resources: executor}}
 	for repeat := 0; repeat < 2; repeat++ {
 		if err := r.ReconcileExpired(t.Context()); err != nil {

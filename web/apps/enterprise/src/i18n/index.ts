@@ -1,3 +1,28 @@
+import { monitoringZh, monitoringEn } from "./monitoring";
+import { kubernetesHelmZh, kubernetesHelmEn } from "./kubernetes-helm";
+import { kubernetesStreamZh, kubernetesStreamEn } from "./kubernetes-stream";
+import {
+  kubernetesLogSessionZh,
+  kubernetesLogSessionEn,
+} from "./kubernetes-log-session";
+import {
+  applicationObservabilityZh,
+  applicationObservabilityEn,
+} from "./application-observability";
+import {
+  builtinCollectionsZh,
+  builtinCollectionsEn,
+} from "./builtin-collections";
+import { managedDashboardsZh, managedDashboardsEn } from "./managed-dashboards";
+import { logCollectionZh, logCollectionEn } from "./log-collection";
+import {
+  authorizationCatalogZh,
+  authorizationCatalogEn,
+} from "./authorization-catalog";
+import {
+  kubernetesWorkbenchZh,
+  kubernetesWorkbenchEn,
+} from "./kubernetes-workbench";
 import { hostInventoryZh, hostInventoryEn } from "./host-inventory";
 import { resourceListsZh, resourceListsEn } from "./resource-lists";
 import { alertsZh, alertsEn } from "./alerts";
@@ -40,6 +65,16 @@ import { errorsEn, errorsZh } from "./errors";
  * - 通用/跨模块文案放 `common.ts`，外壳与导航文案放 `shell.ts`。
  */
 const modulesZh = [
+  kubernetesHelmZh,
+  kubernetesStreamZh,
+  kubernetesLogSessionZh,
+  applicationObservabilityZh,
+  builtinCollectionsZh,
+  managedDashboardsZh,
+  logCollectionZh,
+  authorizationCatalogZh,
+  kubernetesWorkbenchZh,
+  monitoringZh,
   chatInteractionsZh,
   plan7Zh,
   hostInventoryZh,
@@ -72,6 +107,16 @@ const modulesZh = [
   errorsZh,
 ];
 const modulesEn = [
+  kubernetesHelmEn,
+  kubernetesStreamEn,
+  kubernetesLogSessionEn,
+  applicationObservabilityEn,
+  builtinCollectionsEn,
+  managedDashboardsEn,
+  logCollectionEn,
+  authorizationCatalogEn,
+  kubernetesWorkbenchEn,
+  monitoringEn,
   chatInteractionsEn,
   plan7En,
   hostInventoryEn,

@@ -330,12 +330,9 @@ func (compactor Compactor) generateSummary(ctx context.Context, run db.Run, even
 			code = "MODEL_USAGE_INVALID"
 		}
 	}
-	finishErr := fencedTransaction(ctx, compactor.Store, func(q *db.Queries) error {
-		_, err := q.FinishModelCall(ctx, db.FinishModelCallParams{ID: call.ID, EnterpriseID: call.EnterpriseID,
-			InputTokens: usage.Input, OutputTokens: usage.Output, CachedInputTokens: usage.CachedInput, CachedInputUsageSource: usage.CachedSource(), InputUsageSource: usage.InputSource(), OutputUsageSource: usage.OutputSource(), Amount: amount, LatencyMs: time.Since(started).Milliseconds(),
-			StopReason: pgtype.Text{String: "compaction", Valid: true}, Status: status, ErrorCode: pgtype.Text{String: code, Valid: code != ""}})
-		return err
-	})
+	finishErr := persistModelOutcome(ctx, compactor.Store, db.FinishModelCallParams{ID: call.ID, EnterpriseID: call.EnterpriseID,
+		InputTokens: usage.Input, OutputTokens: usage.Output, CachedInputTokens: usage.CachedInput, CachedInputUsageSource: usage.CachedSource(), InputUsageSource: usage.InputSource(), OutputUsageSource: usage.OutputSource(), Amount: amount, LatencyMs: time.Since(started).Milliseconds(),
+		StopReason: pgtype.Text{String: "compaction", Valid: true}, Status: status, ErrorCode: pgtype.Text{String: code, Valid: code != ""}})
 	if finishErr == nil {
 		finishErr = compactor.Models.SettleQuota(ctx, reservation, amount)
 	}

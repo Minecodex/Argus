@@ -496,6 +496,9 @@
 .argus-tabs__trigger[data-selected] {
   color: var(--brand-highlight);
 }
+.argus-tabs__trigger[data-hovered]:not([data-selected]):not([data-disabled]) {
+  color: var(--text-primary);
+}
 .argus-tabs__content {
   padding-top: var(--card-padding);
   min-width: 0;

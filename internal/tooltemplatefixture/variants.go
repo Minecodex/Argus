@@ -28,7 +28,7 @@ func transform(value any, change func(string, any) (any, bool)) {
 }
 func displayField(key string) bool {
 	switch key {
-	case "name", "display_name", "hostname", "policy_name", "service_name", "rootService", "serviceName", "rootOperation", "operationName", "title", "description", "metric", "__name__", "expression", "body", "message", "subject", "text", "pod", "container":
+	case "name", "display_name", "hostname", "policy_name", "service_name", "rootService", "serviceName", "rootOperation", "operationName", "title", "description", "metric", "__name__", "expression", "body", "message", "subject", "text", "pod", "container", "kind":
 		return true
 	}
 	return false
@@ -111,6 +111,25 @@ func cloneValue(value any) any                 { return object(map[string]any{"v
 // Business expectations are content contracts, independent of geometry. They
 // are consumed by runtime and real Chatbox browser tests.
 func Expected(entry string, data map[string]any) []string {
+	if entry == "resource-list" || entry == "resource-detail" {
+		if name, ok := data["name"].(string); ok && name != "" {
+			return []string{name}
+		}
+		if items, ok := data["items"].([]any); ok && len(items) > 0 {
+			if row, ok := items[0].(map[string]any); ok {
+				if definition, ok := row["definition"].(map[string]any); ok {
+					if name, ok := definition["name"].(string); ok && name != "" {
+						return []string{name}
+					}
+				}
+				for _, key := range []string{"name", "service_name", "kind", "key"} {
+					if name, ok := row[key].(string); ok && name != "" {
+						return []string{name}
+					}
+				}
+			}
+		}
+	}
 	switch entry {
 	case "collector-detail", "collector-list":
 		return []string{"db-prod-01", "7 / 6"}

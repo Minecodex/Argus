@@ -100,7 +100,7 @@ func TestConditionsPersistOnlyExplicitOverridesAndCheckRevisionMeaning(t *testin
 func TestEmptyResourceScopeCannotBecomeAllAndCandidateResetDoesNotCopyDefaults(t *testing.T) {
 	state := dashboardparams.Empty()
 	state.Overrides.Resources = &dashboardparams.Resources{IDs: []uuid.UUID{}}
-	if _, err := conditionParameters(EmptySpec(), state, time.Now()); err == nil {
+	if input, err := conditionParameters(EmptySpec(), state, time.Now()); err != nil || input.ResourceMode != "explicit" || len(input.ResourceIDs) != 0 {
 		t.Fatal("explicit empty resources became all")
 	}
 	state.Overrides.Resources = &dashboardparams.Resources{All: true, IDs: []uuid.UUID{}}

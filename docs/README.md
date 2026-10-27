@@ -55,6 +55,9 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 45. [工具卡片视图、返回内容与查询参数切换](./plans/frontend-redesign/chat-result-tabs-20261016.md)
 46. [会话文件目录树](./plans/frontend-redesign/chat-workspace-file-tree-20261018.md)
 47. [Workspace 业务结果目录与元数据](./plan7/19-workspace-results-and-metadata.md)
+48. [应用、监控与 Kubernetes 工作台交互提案（含 demo 与 Grafana 参考表）](./plans/monitoring-workspace/README.md)
+49. [Plan8 应用、监控采集与 Kubernetes 工作台完整实施计划](./plan8/README.md)
+50. [本机正式版与测试环境清理（2026-10-26）](./local-formal-deployment-20261026.md)
 
 2026-10-18 [Markdown 计划、命令授权与普通会话执行](./plan7/18-markdown-plan-command-consent.md)完成并发布到本地 revision 40：计划文档一次批准，命令按普通会话工具执行；两种权限模式的修复和停止场景通过，最终 38 次模型调用用量完整。Go 2263、前端 1326、交互 E2E 12、真实历史页面 12 通过，健康 20/20。此前 [revision 36/37 交互与布局记录](./plan7/16-interaction-closure.md)和更早的固定计划矩阵保留各自适用范围。
 

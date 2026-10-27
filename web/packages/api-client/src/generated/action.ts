@@ -42,7 +42,7 @@ export interface components {
             };
             operation_ref?: {
                 /** @enum {unknown} */
-                kind: "connector_install" | "host_onboarding" | "host_removal";
+                kind: "connector_install" | "host_onboarding" | "host_removal" | "kubernetes_operation";
                 /** Format: uuid */
                 id: string;
             };

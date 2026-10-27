@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package argus.connector.v1;
+
+option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1;connectorv1";
+
+// A bounded read of a durable, independently authorized Pod log session.
+// No raw credentials or browser tickets enter the command payload.
+message KubernetesPinnedPodLogs {
+  string schema_version = 1;
+  string cluster_id = 2;
+  string session_id = 3;
+  bytes query_json = 4;
+}
+
+message KubernetesPinnedPodLogsResult {
+  string schema_version = 1;
+  bytes batch_json = 2;
+  string error_code = 3;
+}

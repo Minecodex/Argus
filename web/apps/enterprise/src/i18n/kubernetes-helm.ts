@@ -1,0 +1,206 @@
+export const kubernetesHelmZh = {
+  kubernetesHelm: {
+    title: "Helm 发布管理",
+    scopeHint:
+      "选择一个已授权的 Namespace，查看发布及其历史版本。每个渲染对象仍需要对应类型的管理权限。",
+    name: "发布名称",
+    reason: "操作原因",
+    operations: "操作",
+    hook: "生命周期 Hook",
+    objectActions: {
+      apply: "应用",
+      delete: "删除",
+      hook: "执行 Hook",
+      retain: "保留",
+      absent: "对象已不存在",
+    },
+    chart: "Chart",
+    revision: "版本号",
+    history: "版本历史",
+    releaseHistory: "{{name}} · 版本历史",
+    search: "搜索发布名称或 Chart",
+    empty: "当前 Namespace 没有 Helm 发布",
+    changeTitle: "{{action}} Helm 发布",
+    chartArchive: "Chart 包（.tgz，最大 384 KiB）",
+    sourceKind: "Chart 来源",
+    sourceKinds: {
+      upload: "上传 Chart 包",
+      repository: "Helm 仓库",
+      oci: "OCI Registry",
+    },
+    sourceURL: "来源地址",
+    sourceChart: "Chart 名称",
+    sourceVersion: "精确 Chart 版本",
+    sourceDigest: "预期 SHA256 摘要",
+    sourceDigestHint:
+      "可选。仓库填写 Chart 包摘要；OCI 填写 Manifest 摘要。预览会显示实际固定的摘要。",
+    sourceUsername: "仓库用户名",
+    sourcePassword: "仓库密码",
+    sourceToken: "仓库访问 Token",
+    sourceTokenHint:
+      "用户名/密码与 Token 选择一种方式；凭据仅用于本次预览下载。",
+    sourceCA: "附加 CA 证书（PEM）",
+    sourceAuthURL: "跨域认证服务地址",
+    sourceAuthHint:
+      "仅 OCI 认证服务与仓库跨域时填写完整认证地址；凭据不会发送到其他认证域。",
+    sourceHTTP: "允许 HTTP（仅受信网络）",
+    sourceAdvanced: "摘要、认证与网络设置",
+    sourceHints: {
+      repository:
+        "仓库基础地址，例如 https://charts.example/team；不包含 index.yaml。",
+      oci: "完整 Chart 引用，例如 oci://registry.example/team/chart；版本另填，不包含 tag 或 digest。",
+    },
+    provenance: {
+      kind: "来源类型",
+      origin: "固定来源",
+      transport: "下载传输协议",
+      auth_url: "受信认证服务",
+      chart: "Chart 名称",
+      version: "固定版本",
+      digest: "固定制品摘要",
+      archive_digest: "固定 Chart 包摘要",
+    },
+    values: "受保护的 values（YAML / JSON，最大 96 KiB）",
+    expectedRevision: "预期当前版本",
+    targetRevision: "回滚目标版本",
+    timeout: "等待时间（秒，10–240）",
+    sensitiveHint:
+      "Chart、values 和仓库凭据通过加密临时输入交付。预览显示固定来源/摘要、对象、变更字段和权限范围；不会展示 Secret、values、凭据或 hook 日志。执行使用预览固定的内容。",
+    previewHint:
+      "确认后异步执行，请在操作记录中检查实际结果。新增 CRD 或 Namespace 的部分对象需要在执行时完成服务端校验。",
+    keep: "卸载时保留",
+    deferred: "执行时补充服务端校验",
+    uninstallHint:
+      "卸载会删除本次预览列出的受管对象；Helm 历史、CRD 和声明保留的对象继续保留。多对象操作可能部分完成。",
+    actions: {
+      install: "安装",
+      upgrade: "升级",
+      rollback: "回滚",
+      uninstall: "卸载",
+    },
+    statuses: {
+      deployed: "已部署",
+      failed: "失败",
+      uninstalled: "已卸载",
+      superseded: "历史版本",
+      uninstalling: "卸载中",
+      "pending-install": "安装中",
+      "pending-upgrade": "升级中",
+      "pending-rollback": "回滚中",
+      unknown: "结果未知",
+    },
+    errors: {
+      sourceAuth: "仓库认证失败，请检查本次输入的凭据及 Chart 读取权限。",
+      sourceIntegrity: "Chart 名称、版本或摘要不匹配，请重新核对来源。",
+      sourceUnavailable:
+        "无法安全读取 Chart 来源，请检查地址、CA、网络及认证服务。",
+      chart: "请选择有效的 .tgz Chart 包，大小不超过 384 KiB。",
+      values: "values 超过 96 KiB。",
+      form: "检查发布名称、操作原因和等待时间。",
+    },
+  },
+};
+export const kubernetesHelmEn = {
+  kubernetesHelm: {
+    title: "Helm releases",
+    scopeHint:
+      "Choose an authorized Namespace to view releases and revision history. Each rendered object requires its own resource management permission.",
+    name: "Release name",
+    reason: "Reason",
+    operations: "Actions",
+    hook: "Lifecycle hook",
+    objectActions: {
+      apply: "Apply",
+      delete: "Delete",
+      hook: "Run hook",
+      retain: "Retain",
+      absent: "Already absent",
+    },
+    chart: "Chart",
+    revision: "Revision",
+    history: "History",
+    releaseHistory: "{{name}} · revision history",
+    search: "Search release name or chart",
+    empty: "No Helm releases in this Namespace",
+    changeTitle: "{{action}} Helm release",
+    chartArchive: "Chart package (.tgz, up to 384 KiB)",
+    sourceKind: "Chart source",
+    sourceKinds: {
+      upload: "Upload chart package",
+      repository: "Helm repository",
+      oci: "OCI registry",
+    },
+    sourceURL: "Source address",
+    sourceChart: "Chart name",
+    sourceVersion: "Exact chart version",
+    sourceDigest: "Expected SHA256 digest",
+    sourceDigestHint:
+      "Optional: chart archive digest for a repository, manifest digest for OCI. Preview shows the actual pinned digest.",
+    sourceUsername: "Repository username",
+    sourcePassword: "Repository password",
+    sourceToken: "Repository access token",
+    sourceTokenHint:
+      "Use either username/password or a token. Credentials are used only for this preview download.",
+    sourceCA: "Additional CA certificates (PEM)",
+    sourceAuthURL: "Cross-origin token service URL",
+    sourceAuthHint:
+      "For an OCI token service on a different origin, enter its full URL. Credentials are not sent to other token origins.",
+    sourceHTTP: "Allow HTTP (trusted networks only)",
+    sourceAdvanced: "Digest, authentication and network settings",
+    sourceHints: {
+      repository:
+        "Repository base URL, such as https://charts.example/team; omit index.yaml.",
+      oci: "Full chart reference, such as oci://registry.example/team/chart; enter the version separately, without a tag or digest.",
+    },
+    provenance: {
+      kind: "Source type",
+      origin: "Pinned origin",
+      transport: "Download transport",
+      auth_url: "Trusted token service",
+      chart: "Chart name",
+      version: "Pinned version",
+      digest: "Pinned artifact digest",
+      archive_digest: "Pinned chart archive digest",
+    },
+    values: "Protected values (YAML / JSON, up to 96 KiB)",
+    expectedRevision: "Expected current revision",
+    targetRevision: "Rollback revision",
+    timeout: "Wait timeout (seconds, 10–240)",
+    sensitiveHint:
+      "Chart, values and repository credentials use encrypted temporary inputs. Preview shows the pinned origin/digest, objects, changed paths and scope; Secret values, credentials and hook output stay private. Execution uses the pinned preview content.",
+    previewHint:
+      "Confirmation queues asynchronous execution. Check operation history for the actual outcome. Objects in new CRDs or Namespaces require additional server validation during execution.",
+    keep: "Retained on uninstall",
+    deferred: "Server validation completed during execution",
+    uninstallHint:
+      "Uninstall deletes the managed objects listed in this preview. Helm history, CRDs and explicitly retained objects remain. Multi-object operations can partially complete.",
+    actions: {
+      install: "Install",
+      upgrade: "Upgrade",
+      rollback: "Rollback",
+      uninstall: "Uninstall",
+    },
+    statuses: {
+      deployed: "Deployed",
+      failed: "Failed",
+      uninstalled: "Uninstalled",
+      superseded: "Superseded",
+      uninstalling: "Uninstalling",
+      "pending-install": "Installing",
+      "pending-upgrade": "Upgrading",
+      "pending-rollback": "Rolling back",
+      unknown: "Unknown",
+    },
+    errors: {
+      sourceAuth:
+        "Repository authentication failed. Check the submitted credentials and chart read access.",
+      sourceIntegrity:
+        "Chart name, version or digest does not match. Verify the source before previewing again.",
+      sourceUnavailable:
+        "The chart source cannot be read safely. Check its address, CA, network and token service.",
+      chart: "Select a valid .tgz chart package no larger than 384 KiB.",
+      values: "Values exceed 96 KiB.",
+      form: "Check release name, reason and wait timeout.",
+    },
+  },
+};

@@ -113,7 +113,7 @@ func TestPostgresEvaluationIsolatesMissingRulesAndKeepsCompositeUnknown(t *testi
 	}
 	// A sub-microsecond remainder denotes the same persisted slot. It must
 	// not replace the successful value/health with a duplicate failure.
-	duplicate := Evaluation{Evaluator: eval, ResourceIDs: []uuid.UUID{f.host}, Sources: result.Sources, Health: "error", Slot: result.Slot.Add(100 * time.Nanosecond)}
+	duplicate := Evaluation{ResourceRefs: result.ResourceRefs, ScopeSignature: result.ScopeSignature, Evaluator: eval, ResourceIDs: []uuid.UUID{f.host}, Sources: result.Sources, Health: "error", Slot: result.Slot.Add(100 * time.Nanosecond)}
 	if err = (Worker{Service: f.s}).persistEvaluation(ctx, f.task(EvaluationQueue), policy, p, duplicate); err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestPostgresEvaluationIsolatesMissingRulesAndKeepsCompositeUnknown(t *testi
 	// Exercise the persisted failure path, including public DTO freshness. An
 	// unsuccessful attempt advances health/time but retains the prior values.
 	for index, health := range []string{"error", "no_data"} {
-		failed := Evaluation{Evaluator: eval, ResourceIDs: []uuid.UUID{f.host}, Sources: result.Sources, Health: health, Slot: result.Slot.Add(time.Duration(index+1) * 30 * time.Second)}
+		failed := Evaluation{ResourceRefs: result.ResourceRefs, ScopeSignature: result.ScopeSignature, Evaluator: eval, ResourceIDs: []uuid.UUID{f.host}, Sources: result.Sources, Health: health, Slot: result.Slot.Add(time.Duration(index+1) * 30 * time.Second)}
 		if err = (Worker{Service: f.s}).persistEvaluation(ctx, f.task(EvaluationQueue), policy, p, failed); err != nil {
 			t.Fatal(err)
 		}

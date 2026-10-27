@@ -14,6 +14,7 @@ func runCollectorService(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("argus-connector collector-service", flag.ContinueOnError)
 	binary := flags.String("binary", "", "Collector executable")
 	config := flags.String("config", "", "Collector configuration")
+	privateConfig := flags.String("private-config", "", "Collector private authentication configuration")
 	tokenFile := flags.String("token-file", "", "Collector enrollment token file")
 	enrollment := flags.String("enrollment-endpoint", "", "Telemetry enrollment endpoint")
 	grpcEndpoint := flags.String("ingest-grpc-endpoint", "", "Telemetry gRPC endpoint")
@@ -30,6 +31,9 @@ func runCollectorService(ctx context.Context, args []string) error {
 		return err
 	}
 	command := exec.CommandContext(ctx, *binary, "--config="+*config)
+	if *privateConfig != "" {
+		command.Args = append(command.Args, "--config="+*privateConfig)
+	}
 	command.Env = append(os.Environ(),
 		"ARGUS_TELEMETRY_ENROLLMENT_TOKEN_FILE="+*tokenFile,
 		"ARGUS_TELEMETRY_ENROLLMENT_ENDPOINT="+*enrollment,

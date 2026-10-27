@@ -488,6 +488,19 @@ func (service Service) PreviewDeleteHost(ctx context.Context, subject Subject, e
 }
 
 func (service Service) Confirm(ctx context.Context, subject Subject, enterpriseID uuid.UUID, actionRef, idempotencyKey string) (ActionConfirmation, error) {
+	action, err := service.Actions.Get(ctx, enterpriseID, actionRef)
+	if err != nil {
+		return ActionConfirmation{}, err
+	}
+	if action.Status == "awaiting_confirmation" {
+		if action.CreatorSubjectType != "user" || action.CreatorSubjectID.String() != subject.ActorID || action.AuthorizationVersion != subject.AuthorizationVersion {
+			return ActionConfirmation{}, ErrActionInvalidated
+		}
+		ctx, err = service.PreparePendingAction(ctx, action)
+		if err != nil {
+			return ActionConfirmation{}, err
+		}
+	}
 	return service.Actions.Confirm(ctx, subject.ActorID, enterpriseID, subject.AuthorizationVersion, actionRef, idempotencyKey, service.revalidateAction, service.commitAction)
 }
 
@@ -510,7 +523,7 @@ func (service Service) ExecutePendingAction(ctx context.Context, q *db.Queries, 
 }
 
 func (service Service) revalidateAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) ([]byte, error) {
-	if (strings.HasPrefix(action.ActionType, "alert.") || strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.control_tunnel.reconnect") && service.Extension != nil {
+	if (strings.HasPrefix(action.ActionType, "kubernetes.object.") || strings.HasPrefix(action.ActionType, "kubernetes.helm.") || strings.HasPrefix(action.ActionType, "application.") || strings.HasPrefix(action.ActionType, "monitoring.") || strings.HasPrefix(action.ActionType, "alert.") || strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.control_tunnel.reconnect") && service.Extension != nil {
 		return service.Extension.RevalidateAction(ctx, q, action, raw)
 	}
 	switch action.ResourceType {
@@ -580,7 +593,7 @@ func hostConnectionEvidenceMatches(plan hostActionPlan, result ConnectionTestRes
 }
 
 func (service Service) commitAction(ctx context.Context, q *db.Queries, action db.PendingAction, raw json.RawMessage) (ActionCommitResult, error) {
-	if (strings.HasPrefix(action.ActionType, "alert.") || strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.control_tunnel.reconnect") && service.Extension != nil {
+	if (strings.HasPrefix(action.ActionType, "kubernetes.object.") || strings.HasPrefix(action.ActionType, "kubernetes.helm.") || strings.HasPrefix(action.ActionType, "application.") || strings.HasPrefix(action.ActionType, "monitoring.") || strings.HasPrefix(action.ActionType, "alert.") || strings.HasPrefix(action.ActionType, "telemetry.") || strings.HasPrefix(action.ActionType, "host.removal.") || action.ActionType == "host.enrollment.rotate" || action.ActionType == "host.control_tunnel.reconnect") && service.Extension != nil {
 		return service.Extension.CommitAction(ctx, q, action, raw)
 	}
 	if action.ResourceType == "host" {

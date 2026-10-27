@@ -19,10 +19,15 @@ import {
   Badge,
   Button,
   Field,
+  FilterBar,
   FormDialog,
   Input,
   PageShell,
   Select,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Textarea,
 } from "@argus/ui";
 import { usePermission } from "../lib/permissions";
@@ -53,6 +58,7 @@ export function DashboardsPage() {
   });
   const [tab, setTab] = useState("published"),
     [folder, setFolder] = useState("all"),
+    [search, setSearch] = useState(""),
     [creating, setCreating] = useState<"dashboard" | "folder" | null>(null),
     [error, setError] = useState(""),
     [action, setAction] = useState<PendingActionPublic | null>(null),
@@ -137,12 +143,18 @@ export function DashboardsPage() {
         <p role="alert">{t("dashboards.forbidden")}</p>
       </PageShell>
     );
+  const tabs = ["published", ...(canManage ? ["drafts"] : []), "archived"];
+  const searchName = search.trim().toLocaleLowerCase();
+  const hasFilters = folder !== "all" || Boolean(searchName);
+  const matchesFilters = (item: Pick<DashboardItem, "name" | "folder_id">) =>
+    (folder === "all" || folder === (item.folder_id ?? "")) &&
+    item.name.toLocaleLowerCase().includes(searchName);
+  const visibleDrafts = (drafts.data ?? []).filter(matchesFilters);
   const visible = (items.data ?? []).filter(
     (item) =>
       (tab === "archived"
         ? item.lifecycle === "archived"
-        : item.lifecycle === "active") &&
-      (folder === "all" || folder === (item.folder_id ?? "")),
+        : item.lifecycle === "active") && matchesFilters(item),
   );
   return (
     <PageShell
@@ -174,227 +186,263 @@ export function DashboardsPage() {
         )
       }
     >
-      <div className="argus-dashboard-toolbar">
-        <div role="group" aria-label={t("dashboards.title")}>
-          {["published", ...(canManage ? ["drafts"] : []), "archived"].map(
-            (key) => (
-              <Button
-                aria-pressed={tab === key}
-                key={key}
-                variant={tab === key ? "primary" : "ghost"}
-                onPress={() => setTab(key)}
-              >
-                {t(`dashboards.${key}`)}
-              </Button>
-            ),
-          )}
-        </div>
-        <Select
-          ariaLabel={t("dashboards.folder")}
-          value={folder}
-          onValueChange={setFolder}
-          options={[
-            { value: "all", label: t("dashboards.allFolders") },
-            { value: "", label: t("dashboards.ungrouped") },
-            ...(folders.data ?? []).map((f) => ({
-              value: f.id,
-              label: f.name,
-            })),
-          ]}
-        />
-      </div>
-      {(error || items.isError || drafts.isError) && (
-        <Alert
-          tone="danger"
-          title={t("dashboards.failed")}
-          description={error || t("dashboards.failed")}
-        />
-      )}
-      {folder !== "all" && folder !== "" && canManage && (
-        <div className="argus-dashboard-inline">
-          {(() => {
-            const f = folders.data?.find((f) => f.id === folder);
-            return (
-              f && (
-                <Button
-                  onPress={() =>
-                    void api.dashboards
-                      .previewFolder({
-                        id: f.id,
-                        operation:
-                          f.status === "active"
-                            ? "folder.archive"
-                            : "folder.restore",
-                        expected_version: f.version,
-                        name: f.name,
-                        description: f.description,
-                        sort_order: f.sort_order,
-                      })
-                      .then(setAction)
-                      .catch(failure)
-                  }
-                >
-                  {t(
-                    f.status === "active"
-                      ? "dashboards.archiveFolder"
-                      : "dashboards.restoreFolder",
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          {tabs.map((key) => (
+            <TabsTrigger key={key} value={key}>
+              {t(`dashboards.${key}`)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {tabs.map((key) => (
+          <TabsContent
+            key={key}
+            value={key}
+            className="argus-dashboard-directory-panel"
+          >
+            {tab === key && (
+              <>
+                <FilterBar
+                  className="argus-dashboard-directory-filters"
+                  search={{
+                    value: search,
+                    onChange: setSearch,
+                    placeholder: t("dashboards.searchName"),
+                  }}
+                  filters={[
+                    {
+                      key: "folder",
+                      ariaLabel: t("dashboards.folder"),
+                      value: folder,
+                      onChange: setFolder,
+                      options: [
+                        { value: "all", label: t("dashboards.allFolders") },
+                        { value: "", label: t("dashboards.ungrouped") },
+                        ...(folders.data ?? []).map((f) => ({
+                          value: f.id,
+                          label: f.name,
+                        })),
+                      ],
+                    },
+                  ]}
+                />
+                {(error || items.isError || drafts.isError) && (
+                  <Alert
+                    tone="danger"
+                    title={t("dashboards.failed")}
+                    description={error || t("dashboards.failed")}
+                  />
+                )}
+                {folder !== "all" && folder !== "" && canManage && (
+                  <div className="argus-dashboard-inline">
+                    {(() => {
+                      const f = folders.data?.find((f) => f.id === folder);
+                      return (
+                        f && (
+                          <Button
+                            onPress={() =>
+                              void api.dashboards
+                                .previewFolder({
+                                  id: f.id,
+                                  operation:
+                                    f.status === "active"
+                                      ? "folder.archive"
+                                      : "folder.restore",
+                                  expected_version: f.version,
+                                  name: f.name,
+                                  description: f.description,
+                                  sort_order: f.sort_order,
+                                })
+                                .then(setAction)
+                                .catch(failure)
+                            }
+                          >
+                            {t(
+                              f.status === "active"
+                                ? "dashboards.archiveFolder"
+                                : "dashboards.restoreFolder",
+                            )}
+                          </Button>
+                        )
+                      );
+                    })()}
+                  </div>
+                )}
+                <QueryBoundary query={tab === "drafts" ? drafts : items}>
+                  {tab === "drafts" ? (
+                    <DataTable
+                      data={visibleDrafts}
+                      getRowKey={(d) => d.id}
+                      columns={[
+                        {
+                          key: "name",
+                          header: t("resourceList.name"),
+                          render: (d) => (
+                            <div className="argus-resource-list__identity">
+                              <Link
+                                to="/dashboard-drafts/$draftId"
+                                params={{ draftId: d.id }}
+                              >
+                                {d.name}
+                              </Link>
+                              <span className="argus-muted">
+                                {d.description}
+                              </span>
+                            </div>
+                          ),
+                        },
+                        {
+                          key: "status",
+                          header: t("resourceList.status"),
+                          render: () => <Badge>{t("dashboards.draft")}</Badge>,
+                        },
+                        {
+                          key: "folder_id",
+                          header: t("resourceList.folder"),
+                          render: (d) =>
+                            folders.isSuccess
+                              ? (folders.data.find((f) => f.id === d.folder_id)
+                                  ?.name ?? t("dashboards.ungrouped"))
+                              : t("resourceList.unavailable"),
+                        },
+                        {
+                          key: "updated_at",
+                          header: t("resourceList.updated"),
+                          render: (d) => formatDateTime(d.updated_at),
+                        },
+                        {
+                          key: "actions",
+                          header: t("resourceList.actions"),
+                          align: "right",
+                          render: (d) => (
+                            <ActionMenu
+                              items={[
+                                {
+                                  label: t("dashboards.resume"),
+                                  onSelect: () =>
+                                    void navigate({
+                                      to: "/dashboard-drafts/$draftId",
+                                      params: { draftId: d.id },
+                                    }),
+                                },
+                              ]}
+                            />
+                          ),
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <DataTable
+                      data={visible}
+                      getRowKey={(d) => d.id}
+                      columns={[
+                        {
+                          key: "name",
+                          header: t("resourceList.name"),
+                          render: (d) => (
+                            <div className="argus-resource-list__identity">
+                              <Link
+                                to="/dashboards/$dashboardId"
+                                params={{ dashboardId: d.id }}
+                              >
+                                {d.name}
+                              </Link>
+                              <span className="argus-muted">
+                                {d.description}
+                              </span>
+                            </div>
+                          ),
+                        },
+                        {
+                          key: "lifecycle",
+                          header: t("resourceList.status"),
+                          render: (d) => (
+                            <Badge>
+                              {t(
+                                d.managed_template_key
+                                  ? "managedDashboards.system"
+                                  : d.lifecycle === "active"
+                                    ? "dashboards.published"
+                                    : "dashboards.archived",
+                              )}
+                            </Badge>
+                          ),
+                        },
+                        {
+                          key: "folder_id",
+                          header: t("resourceList.folder"),
+                          render: (d) =>
+                            folders.isSuccess
+                              ? (folders.data.find((f) => f.id === d.folder_id)
+                                  ?.name ?? t("dashboards.ungrouped"))
+                              : t("resourceList.unavailable"),
+                        },
+                        {
+                          key: "updated_at",
+                          header: t("resourceList.updated"),
+                          render: (d) => formatDateTime(d.updated_at),
+                        },
+                        {
+                          key: "actions",
+                          header: t("resourceList.actions"),
+                          align: "right",
+                          render: (d) => (
+                            <ActionMenu
+                              items={[
+                                {
+                                  label: t("dashboards.open"),
+                                  onSelect: () =>
+                                    void navigate({
+                                      to: "/dashboards/$dashboardId",
+                                      params: { dashboardId: d.id },
+                                    }),
+                                },
+                                ...(canManage && !d.managed_template_key
+                                  ? [
+                                      {
+                                        label: t(
+                                          d.lifecycle === "active"
+                                            ? "dashboards.archive"
+                                            : "dashboards.restore",
+                                        ),
+                                        onSelect: () => void lifecycle(d),
+                                      },
+                                    ]
+                                  : []),
+                              ]}
+                            />
+                          ),
+                        },
+                      ]}
+                    />
                   )}
-                </Button>
-              )
-            );
-          })()}
-        </div>
-      )}
-      <QueryBoundary query={tab === "drafts" ? drafts : items}>
-        {tab === "drafts" ? (
-          <DataTable
-            data={drafts.data ?? []}
-            getRowKey={(d) => d.id}
-            columns={[
-              {
-                key: "name",
-                header: t("resourceList.name"),
-                render: (d) => (
-                  <div className="argus-resource-list__identity">
-                    <Link
-                      to="/dashboard-drafts/$draftId"
-                      params={{ draftId: d.id }}
-                    >
-                      {d.name}
-                    </Link>
-                    <span className="argus-muted">{d.description}</span>
-                  </div>
-                ),
-              },
-              {
-                key: "status",
-                header: t("resourceList.status"),
-                render: () => <Badge>{t("dashboards.draft")}</Badge>,
-              },
-              {
-                key: "folder_id",
-                header: t("resourceList.folder"),
-                render: (d) =>
-                  folders.isSuccess
-                    ? (folders.data.find((f) => f.id === d.folder_id)?.name ??
-                      t("dashboards.ungrouped"))
-                    : t("resourceList.unavailable"),
-              },
-              {
-                key: "updated_at",
-                header: t("resourceList.updated"),
-                render: (d) => formatDateTime(d.updated_at),
-              },
-              {
-                key: "actions",
-                header: t("resourceList.actions"),
-                align: "right",
-                render: (d) => (
-                  <ActionMenu
-                    items={[
-                      {
-                        label: t("dashboards.resume"),
-                        onSelect: () =>
-                          void navigate({
-                            to: "/dashboard-drafts/$draftId",
-                            params: { draftId: d.id },
-                          }),
-                      },
-                    ]}
-                  />
-                ),
-              },
-            ]}
-          />
-        ) : (
-          <DataTable
-            data={visible}
-            getRowKey={(d) => d.id}
-            columns={[
-              {
-                key: "name",
-                header: t("resourceList.name"),
-                render: (d) => (
-                  <div className="argus-resource-list__identity">
-                    <Link
-                      to="/dashboards/$dashboardId"
-                      params={{ dashboardId: d.id }}
-                    >
-                      {d.name}
-                    </Link>
-                    <span className="argus-muted">{d.description}</span>
-                  </div>
-                ),
-              },
-              {
-                key: "lifecycle",
-                header: t("resourceList.status"),
-                render: (d) => (
-                  <Badge>
-                    {t(
-                      d.lifecycle === "active"
-                        ? "dashboards.published"
-                        : "dashboards.archived",
+                  {(tab === "drafts"
+                    ? !visibleDrafts.length
+                    : !visible.length) &&
+                    !items.isLoading && (
+                      <div className="argus-dashboard-empty">
+                        <h2>
+                          {t(
+                            hasFilters
+                              ? "dashboards.noMatches"
+                              : "dashboards.empty",
+                          )}
+                        </h2>
+                        <p>
+                          {t(
+                            hasFilters
+                              ? "dashboards.noMatchesHint"
+                              : "dashboards.emptyHint",
+                          )}
+                        </p>
+                      </div>
                     )}
-                  </Badge>
-                ),
-              },
-              {
-                key: "folder_id",
-                header: t("resourceList.folder"),
-                render: (d) =>
-                  folders.isSuccess
-                    ? (folders.data.find((f) => f.id === d.folder_id)?.name ??
-                      t("dashboards.ungrouped"))
-                    : t("resourceList.unavailable"),
-              },
-              {
-                key: "updated_at",
-                header: t("resourceList.updated"),
-                render: (d) => formatDateTime(d.updated_at),
-              },
-              {
-                key: "actions",
-                header: t("resourceList.actions"),
-                align: "right",
-                render: (d) => (
-                  <ActionMenu
-                    items={[
-                      {
-                        label: t("dashboards.open"),
-                        onSelect: () =>
-                          void navigate({
-                            to: "/dashboards/$dashboardId",
-                            params: { dashboardId: d.id },
-                          }),
-                      },
-                      ...(canManage
-                        ? [
-                            {
-                              label: t(
-                                d.lifecycle === "active"
-                                  ? "dashboards.archive"
-                                  : "dashboards.restore",
-                              ),
-                              onSelect: () => void lifecycle(d),
-                            },
-                          ]
-                        : []),
-                    ]}
-                  />
-                ),
-              },
-            ]}
-          />
-        )}
-        {(tab === "drafts" ? !drafts.data?.length : !visible.length) &&
-          !items.isLoading && (
-            <div className="argus-dashboard-empty">
-              <h2>{t("dashboards.empty")}</h2>
-              <p>{t("dashboards.emptyHint")}</p>
-            </div>
-          )}
-      </QueryBoundary>
+                </QueryBoundary>
+              </>
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
       {creating && (
         <FormDialog
           open

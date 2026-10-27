@@ -136,6 +136,23 @@ func TestAuditTraceIDAlwaysExists(t *testing.T) {
 	}
 }
 
+func TestKubernetesSessionAuditKeepsIdentityAndCountersWithoutInteractiveContent(t *testing.T) {
+	encoded, e := json.Marshal(sanitizeDetails(map[string]any{"cluster_id": "cluster-1", "namespace_uid": "namespace-1", "pod_uid": "pod-1", "container": "main", "restart_count": int32(2), "request_reason": "investigate isolated target", "bytes_in": int64(123), "bytes_out": int64(456), "target_port": int32(3306), "input": "manual-input-never-audited", "stdout": "business-output-never-audited", "ticket": "one-use-ticket-never-audited", "credential_payload": "private-kubeconfig-never-audited"}))
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, value := range []string{"cluster-1", "namespace-1", "pod-1", "main", "investigate isolated target", "123", "456", "3306"} {
+		if !bytes.Contains(encoded, []byte(value)) {
+			t.Fatal("audit identity or counters missing", value)
+		}
+	}
+	for _, value := range []string{"manual-input-never-audited", "business-output-never-audited", "one-use-ticket-never-audited", "private-kubeconfig-never-audited"} {
+		if bytes.Contains(encoded, []byte(value)) {
+			t.Fatal("interactive content persisted in audit")
+		}
+	}
+}
+
 func TestSanitizeDetailsKeepsTunnelRuntimeTraceWithoutCredentials(t *testing.T) {
 	input := map[string]any{
 		"tunnel_id": uuid.New(), "collector_id": uuid.New(), "connector_id": uuid.New(),

@@ -1,5 +1,31 @@
 version: argus.error_codes/v1
 codes:
+  KUBERNETES_INVENTORY_INVALID: {http_status: 400, message_key: kubernetesWorkbench.errors.invalid, retryable: false}
+  MONITORING_SERVICE_LIMIT: {http_status: 409, message_key: monitoring.errors.service_limit, retryable: false}
+  MONITORING_LOG_RULE_OVERLAP: {http_status: 409, message_key: monitoring.errors.log_rule_overlap, retryable: false}
+  KUBERNETES_MUTATION_CONFLICT: {http_status: 409, message_key: kubernetesWorkbench.errors.mutationConflict, retryable: false}
+  KUBERNETES_MUTATION_INVALID: {http_status: 400, message_key: kubernetesWorkbench.errors.mutationInvalid, retryable: false}
+  KUBERNETES_PRIVATE_INPUT_UNAVAILABLE: {http_status: 409, message_key: kubernetesWorkbench.errors.privateInputUnavailable, retryable: false}
+  KUBERNETES_MUTATION_OUTCOME_UNKNOWN: {http_status: 409, message_key: kubernetesWorkbench.errors.mutationUnknown, retryable: false}
+  KUBERNETES_OPERATION_SUPERSEDED: {http_status: 409, message_key: kubernetesWorkbench.errors.superseded, retryable: false}
+  KUBERNETES_CONVERGENCE_TIMEOUT: {http_status: 409, message_key: kubernetesWorkbench.errors.convergenceTimeout, retryable: false}
+  KUBERNETES_WORKLOAD_FAILED: {http_status: 409, message_key: kubernetesWorkbench.errors.workloadFailed, retryable: false}
+  KUBERNETES_TYPE_UNSUPPORTED: {http_status: 409, message_key: kubernetesWorkbench.errors.unsupported, retryable: false}
+  KUBERNETES_OBJECT_IDENTITY_CHANGED: {http_status: 409, message_key: kubernetesWorkbench.errors.identityChanged, retryable: false}
+  KUBERNETES_RESOURCE_VERSION_EXPIRED: {http_status: 410, message_key: kubernetesWorkbench.errors.expired, retryable: false}
+  KUBERNETES_API_FORBIDDEN: {http_status: 403, message_key: kubernetesWorkbench.errors.forbidden, retryable: false}
+  KUBERNETES_API_UNAVAILABLE: {http_status: 503, message_key: kubernetesWorkbench.errors.unavailable, retryable: true}
+  KUBERNETES_RESULT_BUDGET_EXCEEDED: {http_status: 413, message_key: kubernetesWorkbench.errors.budget, retryable: false}
+  KUBERNETES_READER_VERSION_UNSUPPORTED: {http_status: 409, message_key: kubernetesWorkbench.errors.readerVersion, retryable: false}
+  MONITORING_INVALID: {http_status: 400, message_key: monitoring.errors.invalid, retryable: false}
+  MONITORING_NOT_FOUND: {http_status: 404, message_key: monitoring.errors.not_found, retryable: false}
+  MONITORING_VERSION_CONFLICT: {http_status: 409, message_key: monitoring.errors.version_conflict, retryable: false}
+  MONITORING_DENIED: {http_status: 403, message_key: monitoring.errors.denied, retryable: false}
+  MONITORING_UNAVAILABLE: {http_status: 503, message_key: monitoring.errors.unavailable, retryable: true}
+  MONITORING_UNSUPPORTED_INTEGRATION: {http_status: 409, message_key: monitoring.errors.unsupported_integration, retryable: false}
+  MONITORING_DEPENDENCIES_EXIST: {http_status: 409, message_key: monitoring.errors.dependencies_exist, retryable: false}
+  MONITORING_CREDENTIAL_INVALID: {http_status: 400, message_key: monitoring.errors.credential_invalid, retryable: false}
+  MONITORING_CURSOR_INVALID: {http_status: 400, message_key: monitoring.errors.cursor_invalid, retryable: false}
   MODEL_OUTPUT_INCOMPLETE: {http_status: 409, message_key: errors.codes.MODEL_OUTPUT_INCOMPLETE, retryable: false}
   REMOTE_EXECUTION_FORBIDDEN: {http_status: 403, message_key: errors.codes.REMOTE_EXECUTION_FORBIDDEN, retryable: false}
   REMOTE_RESOURCE_FORBIDDEN: {http_status: 403, message_key: errors.codes.REMOTE_RESOURCE_FORBIDDEN, retryable: false}
@@ -217,11 +243,13 @@ codes:
   COLLECTOR_ARTIFACT_INVALID: {http_status: 422, message_key: errors.telemetry.artifact_invalid, retryable: false}
   COLLECTOR_ARTIFACT_UNAVAILABLE: {http_status: 503, message_key: errors.telemetry.artifact_unavailable, retryable: true}
   COLLECTOR_NOT_FOUND: {http_status: 404, message_key: errors.telemetry.collector_not_found, retryable: false}
+  COLLECTOR_DEPENDENCIES_EXIST: {http_status: 409, message_key: errors.telemetry.collector_dependencies_exist, retryable: false}
   COLLECTOR_DISTRIBUTION_VALIDATION_PENDING: {http_status: 400, message_key: errors.telemetry.distribution_validation_pending, retryable: true}
   COLLECTOR_PROFILE_INCOMPATIBLE: {http_status: 422, message_key: errors.telemetry.profile_incompatible, retryable: false}
   COLLECTOR_ALREADY_INSTALLED: {http_status: 409, message_key: errors.telemetry.already_installed, retryable: false}
   COLLECTOR_NOT_INSTALLED: {http_status: 404, message_key: errors.telemetry.not_installed, retryable: false}
   COLLECTOR_CONFIG_INVALID: {http_status: 422, message_key: errors.telemetry.config_invalid, retryable: false}
+  COLLECTOR_ROLLBACK_UNVERIFIED: {http_status: 503, message_key: monitoring.errors.rollback_unverified, retryable: false}
   COLLECTOR_HEALTH_CHECK_FAILED: {http_status: 503, message_key: errors.telemetry.health_check_failed, retryable: true}
   COLLECTOR_COMMAND_INVALID: {http_status: 422, message_key: errors.telemetry.collector_command_invalid, retryable: false}
   COLLECTOR_NODE_EVIDENCE_INVALID: {http_status: 422, message_key: errors.telemetry.node_evidence_invalid, retryable: false}
@@ -244,6 +272,8 @@ codes:
   TELEMETRY_BACKPRESSURE: {http_status: 503, message_key: errors.telemetry.backpressure, retryable: true}
   QUERY_BUDGET_EXCEEDED: {http_status: 413, message_key: errors.telemetry.query_budget_exceeded, retryable: false}
   TELEMETRY_QUERY_INVALID: {http_status: 400, message_key: errors.telemetry.query_invalid, retryable: false}
+  QUERY_PROTOCOL_VERSION_UNSUPPORTED: {http_status: 409, message_key: errors.telemetry.query_protocol_version_unsupported, retryable: false}
+  QUERY_SOURCES_EMPTY: {http_status: 409, message_key: errors.telemetry.query_sources_empty, retryable: false}
   QUERY_PARSE_ERROR: {http_status: 400, message_key: errors.telemetry.query_parse, retryable: false, safe_params: [position, token, expected]}
   QUERY_TYPE_ERROR: {http_status: 400, message_key: errors.telemetry.query_type, retryable: false, safe_params: [field, expected_type, actual_type]}
   QUERY_FEATURE_UNSUPPORTED: {http_status: 400, message_key: errors.telemetry.query_feature_unsupported, retryable: false, safe_params: [feature]}

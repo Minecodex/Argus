@@ -45,6 +45,10 @@ export function candidateFilters(
 type CandidateScope = {
   time: unknown;
   resource_ids?: string[];
+  resource_mode?: DashboardSchemas["DashboardExecutionInput"]["resource_mode"];
+  resource_types?: DashboardSchemas["DashboardExecutionInput"]["resource_types"];
+  application_mode?: DashboardSchemas["DashboardExecutionInput"]["application_mode"];
+  application_ids?: string[];
   variables?: Record<string, DashboardSelection>;
   locals?: Record<string, DashboardSelection>;
 };
@@ -62,6 +66,10 @@ export function candidateContext(
     query,
     scope.time,
     scope.resource_ids ?? [],
+    scope.resource_mode,
+    scope.resource_types,
+    scope.application_mode,
+    scope.application_ids,
     names("variable").map((name) => [name, scope.variables?.[name]]),
     names("local_parameter").map((name) => [name, scope.locals?.[name]]),
   ]);
@@ -83,6 +91,10 @@ export function candidateRequest(
     from: scope.from,
     to: scope.to,
     resource_ids: scope.resource_ids ?? [],
+    resource_mode: scope.resource_mode,
+    resource_types: scope.resource_types,
+    application_mode: scope.application_mode,
+    application_ids: scope.application_ids,
     filters: candidateFilters(query, scope.variables ?? {}, scope.locals ?? {}),
     selected_values: selection.all ? [] : selection.values,
     search,

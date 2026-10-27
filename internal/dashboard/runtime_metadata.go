@@ -6,12 +6,12 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/kakj-go/Argus/internal/telemetry"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 )
 
-func (runtime Runtime) verifyMetricMetadata(ctx context.Context, actor Actor, target Target, resources []uuid.UUID, keys []string, execution Execution, allocation *queryengine.Budget, ledger *executionBudget) string {
+func (runtime Runtime) verifyMetricMetadata(ctx context.Context, actor Actor, target Target, resources []ResourceScope, keys []string, execution Execution, allocation *queryengine.Budget, ledger *executionBudget) string {
 	runtime = runtime.metered(actor)
 	builder := target.SourceDefinition.Builder
 	if builder == nil || target.Language != queryengine.LanguagePromQL || builder.MetricType == "" {
@@ -25,7 +25,7 @@ func (runtime Runtime) verifyMetricMetadata(ctx context.Context, actor Actor, ta
 	if reservation.MaxScanBytes <= 0 || reservation.MaxRows < 2 || reservation.MaxResultBytes <= 0 {
 		return "QUERY_BUDGET_EXCEEDED"
 	}
-	result, err := runtime.Backend.DiscoverData(ctx, telemetry.DataCatalogRequest{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: resources, SourceKeys: keys, AuthorizationVersion: actor.AuthorizationVersion, Signal: "metrics", Kind: "metrics", Metric: metric, From: execution.From, To: execution.To, Limit: 2, Budget: reservation})
+	result, err := runtime.Backend.DiscoverData(ctx, telemetry.DataCatalogRequest{ScopeSignature: runtime.cacheScopeSignature, Resources: resources, SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: resourceref.IDs(resources), SourceKeys: keys, AuthorizationVersion: actor.AuthorizationVersion, Signal: "metrics", Kind: "metrics", Metric: metric, From: execution.From, To: execution.To, Limit: 2, Budget: reservation})
 	if err != nil {
 		ledger.failed(reservation)
 		if errors.Is(err, telemetry.ErrQueryBudget) || errors.Is(err, queryengine.ErrBudget) {

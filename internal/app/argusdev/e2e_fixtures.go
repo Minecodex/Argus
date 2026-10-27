@@ -3,7 +3,6 @@ package argusdev
 import (
 	"context"
 	"errors"
-	"net"
 	"path/filepath"
 	"strings"
 	"time"
@@ -297,15 +296,9 @@ func localFixtureImagesForCleanup(images map[string]string) []string {
 	values := fixtureImagesForCleanup(images)
 	result := make([]string, 0, len(values))
 	for _, image := range values {
-		registry, remainder, found := strings.Cut(image, "/")
-		if !found {
-			continue
+		if local, ok := localE2ERegistryImage(image); ok {
+			result = append(result, local)
 		}
-		_, port, err := net.SplitHostPort(registry)
-		if err != nil {
-			continue
-		}
-		result = append(result, "localhost:"+port+"/"+remainder)
 	}
 	return result
 }

@@ -24,6 +24,16 @@ import (
 
 // This audits the shared mount gate. It does not allocate a PVC or run a Pod.
 func TestWorkspaceImportProvenanceSurvivesMissingMetadataAndRevocation(t *testing.T) {
+	runWorkspaceSourceRevocation(t, "authorization_version")
+}
+
+func TestPlan8WorkspaceTypedSourceGrantRevocation(t *testing.T) {
+	for _, kind := range []string{"application", "monitoring_target", "kubernetes_namespace"} {
+		t.Run(kind, func(t *testing.T) { runWorkspaceSourceRevocation(t, kind) })
+	}
+}
+
+func runWorkspaceSourceRevocation(t *testing.T, kind string) {
 	address := os.Getenv("ARGUS_P5_TEST_DATABASE_URL")
 	if address == "" {
 		t.Skip("requires a disposable migrated database")
@@ -48,6 +58,27 @@ func TestWorkspaceImportProvenanceSurvivesMissingMetadataAndRevocation(t *testin
 	exec("INSERT INTO conversations(id,enterprise_id,owner_user_id,title,selected_model_id) VALUES($1,$2,$3,'Audit',$4)", c, e, u, m)
 	exec("INSERT INTO runs(id,conversation_id,enterprise_id,actor_user_id,model_id,model_revision,locale,authorization_version,status) VALUES($1,$2,$3,$4,$5,1,'en-US',1,'running')", r, c, e, u, m)
 	exec("INSERT INTO workspaces(id,enterprise_id,conversation_id,pvc_name,namespace,status,capacity_bytes,environment_version) VALUES($1,$2,$3,$4,'test-workspace','ready',2147483648,'test')", w, e, c, "workspace-"+w.String())
+	grant := uuid.New()
+	toolID := "host.list"
+	if kind != "authorization_version" {
+		target := uuid.New()
+		switch kind {
+		case "application":
+			exec("INSERT INTO monitoring_applications(id,enterprise_id,application_key,name,environment,created_by) VALUES($1,$2,$3,'Workspace application','production',$4)", target, e, target.String(), u)
+			toolID = "application.list"
+		case "monitoring_target":
+			exec("INSERT INTO monitoring_targets(id,enterprise_id,name,kind,engine,identity_config,created_by) VALUES($1,$2,'Workspace database','database','mysql','{}',$3)", target, e, u)
+			toolID = "monitoring.target.list"
+		case "kubernetes_namespace":
+			cluster := uuid.New()
+			exec("INSERT INTO kubernetes_clusters(id,enterprise_id,name,api_server,connection_mode,default_namespace,environment,labels_hash) VALUES($1,$2,'Workspace cluster','https://cluster.example.test','in_cluster','default','development',decode(repeat('00',32),'hex'))", cluster, e)
+			exec("INSERT INTO kubernetes_namespace_resources(id,enterprise_id,cluster_id,namespace_uid,name) VALUES($1,$2,$3,$4,'workspace-namespace')", target, e, cluster, uuid.NewString())
+			toolID = "kubernetes.object.list"
+		default:
+			t.Fatal("unknown typed source fixture")
+		}
+		exec("INSERT INTO data_authorization_grants(id,enterprise_id,subject_type,subject_id,resource_type,resource_id) VALUES($1,$2,'user',$3,$4,$5)", grant, e, u, kind, target)
+	}
 	scope, err := presentation.Scope(ctx, store, e, u)
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +88,7 @@ func TestWorkspaceImportProvenanceSurvivesMissingMetadataAndRevocation(t *testin
 	body := []byte(`{"business_value":"previously-authorized"}`)
 	hash := sha256.Sum256(body)
 	exec("INSERT INTO run_steps(id,run_id,enterprise_id,sequence,step_type,status) VALUES($1,$2,$3,1,'tool_call','succeeded')", step, r, e)
-	exec("INSERT INTO tool_calls(id,call_id,enterprise_id,run_id,step_id,tool_id,input,input_hash,status,authorization_scope) VALUES($1,$2,$3,$4,$5,'host.list','{}',$6,'succeeded',$7)", call, call.String(), e, r, step, hash[:], scope)
+	exec("INSERT INTO tool_calls(id,call_id,enterprise_id,run_id,step_id,tool_id,input,input_hash,status,authorization_scope) VALUES($1,$2,$3,$4,$5,$6,'{}',$7,'succeeded',$8)", call, call.String(), e, r, step, toolID, hash[:], scope)
 	exec("INSERT INTO artifacts(id,result_ref,enterprise_id,conversation_id,run_id,content_type,data_classification,content,authorization_scope,content_hash,byte_size) VALUES($1,$2,$3,$4,$5,'application/json','internal',$6,$7,$8,$9)", artifact, ref, e, c, r, body, scope, hash[:], len(body))
 	exec("INSERT INTO tool_results(id,tool_call_id,enterprise_id,artifact_id,projection,projection_hash,projection_bytes) VALUES($1,$2,$3,$4,'{}',$5,2)", uuid.New(), call, e, artifact, hash[:])
 	// The durable metadata is exactly the source tracking used by ImportResult.
@@ -66,10 +97,17 @@ func TestWorkspaceImportProvenanceSurvivesMissingMetadataAndRevocation(t *testin
 		t.Fatalf("authorized fixture is invalid: %v", err)
 	}
 	exec("UPDATE workspaces SET source_result_refs=$2 WHERE id=$1", w, []string{ref})
-	exec("UPDATE enterprise_users SET authorization_version=authorization_version+1 WHERE id=$1", u)
+	if kind == "authorization_version" {
+		exec("UPDATE enterprise_users SET authorization_version=authorization_version+1 WHERE id=$1", u)
+	} else {
+		exec("DELETE FROM data_authorization_grants WHERE id=$1", grant)
+	}
 	actor, err := store.Queries.GetEnterpriseUser(ctx, db.GetEnterpriseUserParams{ID: u, EnterpriseID: e})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if kind != "authorization_version" && actor.AuthorizationVersion != 1 {
+		t.Fatal("typed grant test must preserve the principal version")
 	}
 	exec("UPDATE runs SET status='succeeded' WHERE id=$1", r)
 	r = uuid.New()

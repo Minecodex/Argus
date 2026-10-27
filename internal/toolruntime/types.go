@@ -81,6 +81,9 @@ type Result struct {
 	Data            map[string]any
 	// Optional domain-authored model view; Data remains the complete artifact.
 	ModelSummary map[string]any
+	// Trusted delivery intent, never read from tool/model output. The Agent
+	// blocks its next model round until the source-bound import has completed.
+	QueryFile    string
 	Partial      bool
 	ActionRef    string
 	ToolID       string

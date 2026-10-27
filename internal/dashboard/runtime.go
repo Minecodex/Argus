@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/dashboardparams"
+	"github.com/kakj-go/Argus/internal/observationscope"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/telemetry"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
@@ -27,6 +28,8 @@ type Runtime struct {
 	Backend                       RuntimeBackend
 	ContextKey                    []byte
 	cacheDashboard, cacheRevision uuid.UUID
+	cacheScopeSignature           string
+	scopeApplications             *observationscope.ApplicationSelection
 }
 
 var errNoResources = errors.New("no authorized resources are available")
@@ -50,6 +53,8 @@ type PanelExecution struct {
 	DetailSources map[string][]ResolvedSource `json:"detail_sources"`
 }
 type Execution struct {
+	ScopeSelection     *observationscope.Selection          `json:"scope_selection,omitempty"`
+	ScopeVersions      ScopeVersions                        `json:"scope_versions"`
 	ExecutionID        uuid.UUID                            `json:"execution_id"`
 	ContextToken       string                               `json:"context_token,omitempty"`
 	ContextExpiresAt   *time.Time                           `json:"context_expires_at,omitempty"`
@@ -61,10 +66,17 @@ type Execution struct {
 	Panels             []PanelExecution                     `json:"panels"`
 	Partial            bool                                 `json:"partial"`
 	ExecutionHash      string                               `json:"execution_hash"`
+	ScopeSignature     string                               `json:"scope_signature"`
+	ScopeEmpty         bool                                 `json:"scope_empty"`
 	Variables          map[string]Selection                 `json:"variables"`
 	LocalValues        map[string]map[string]Selection      `json:"local_values"`
 	VariableCandidates map[string]CandidateState            `json:"variable_candidates"`
 	LocalCandidates    map[string]map[string]CandidateState `json:"local_candidates"`
+}
+
+type ScopeVersions struct {
+	Resources map[string]int64 `json:"resources"`
+	Relations map[string]int64 `json:"relations"`
 }
 
 type DraftSample struct {
@@ -221,6 +233,10 @@ func (runtime Runtime) executeSpec(ctx context.Context, actor Actor, spec Spec, 
 
 func (runtime Runtime) executePrepared(ctx context.Context, actor Actor, spec Spec, result Execution, budget *executionBudget) (Execution, error) {
 	runtime = runtime.metered(actor)
+	if result.ScopeSelection != nil {
+		runtime.scopeApplications = result.ScopeSelection.Applications
+	}
+	runtime.cacheScopeSignature = result.ScopeSignature
 	if result.DashboardID != uuid.Nil && result.RevisionID != uuid.Nil {
 		runtime.cacheDashboard, runtime.cacheRevision = result.DashboardID, result.RevisionID
 	}
@@ -264,6 +280,15 @@ func (runtime Runtime) executePrepared(ctx context.Context, actor Actor, spec Sp
 	if _, err := resolveResources(ctx, runtime.Store.Queries, actor, ids); err != nil {
 		return Execution{}, err
 	}
+	if result.ScopeSelection != nil {
+		current, e := (observationscope.Resolver{Queries: runtime.Store.Queries, Permission: "telemetry.dashboard.read"}).Resolve(ctx, actor, *result.ScopeSelection)
+		if e != nil {
+			return Execution{}, e
+		}
+		if current.Signature != result.ScopeSignature {
+			return Execution{}, ErrDenied
+		}
+	}
 	return result, nil
 }
 
@@ -281,11 +306,21 @@ func (runtime Runtime) prepareSpec(ctx context.Context, actor Actor, spec Spec, 
 	if err != nil {
 		return result, nil, err
 	}
-	result.Resources, err = resolveResources(ctx, runtime.Store.Queries, actor, input.ResourceIDs)
+	snapshot, err := resolveExecutionScope(ctx, runtime.Store.Queries, actor, input)
 	if err != nil {
 		return result, nil, err
 	}
-	if len(result.Resources) == 0 && len(spec.Panels) > 0 {
+	result.Resources = scopeResources(snapshot)
+	result.ScopeSelection = &snapshot.Selection
+	runtime.scopeApplications = snapshot.Selection.Applications
+	result.ScopeSignature = snapshot.Signature
+	result.ScopeVersions = ScopeVersions{Resources: map[string]int64{}, Relations: snapshot.Relations}
+	for _, resource := range snapshot.Resources {
+		result.ScopeVersions.Resources[resource.Kind+":"+resource.ID.String()] = resource.Version
+	}
+	result.ScopeEmpty = len(snapshot.Resources) == 0 && (input.ResourceMode == "explicit" || input.ApplicationMode != "" || len(input.ApplicationIDs) > 0)
+	result.Partial = snapshot.Partial
+	if len(result.Resources) == 0 && len(spec.Panels) > 0 && input.ResourceMode != "explicit" && input.ApplicationMode == "" && len(input.ApplicationIDs) == 0 {
 		return result, nil, errNoResources
 	}
 	for _, id := range input.PanelIDs {
@@ -309,17 +344,17 @@ func (runtime Runtime) prepareSpec(ctx context.Context, actor Actor, spec Spec, 
 		if input.CandidatesOnly || (len(input.PanelIDs) > 0 && !slices.Contains(input.PanelIDs, panel.ID)) {
 			continue
 		}
-		ids := []uuid.UUID{}
+		refs := []ResourceScope{}
 		for _, resource := range result.Resources {
 			if slices.Contains(panel.ApplicableResourceTypes, resource.Type) {
-				ids = append(ids, resource.ID)
+				refs = append(refs, resource)
 			}
 		}
 		entry := PanelExecution{ID: panel.ID, Status: "success", Targets: []TargetExecution{}, Sources: []ResolvedSource{}, DetailSources: map[string][]ResolvedSource{}}
-		if len(ids) == 0 {
+		if len(refs) == 0 {
 			entry.Status = "not_applicable"
 		} else {
-			entry.Sources, err = resolveSources(ctx, runtime.Store.Queries, actor, panel.SourceBinding, panel.Signal, ids)
+			entry.Sources, err = resolveSources(ctx, runtime.Store.Queries, actor, panel.SourceBinding, panel.Signal, refs, runtime.scopeApplications)
 			if err != nil {
 				return result, nil, err
 			}
@@ -332,7 +367,7 @@ func (runtime Runtime) prepareSpec(ctx context.Context, actor Actor, spec Spec, 
 			if detail.SourceBinding == nil {
 				return result, nil, ErrInvalid
 			}
-			sources, e := resolveSources(ctx, runtime.Store.Queries, actor, *detail.SourceBinding, detail.Signal, ids)
+			sources, e := resolveSources(ctx, runtime.Store.Queries, actor, *detail.SourceBinding, detail.Signal, refs, runtime.scopeApplications)
 			if e != nil {
 				return result, nil, e
 			}

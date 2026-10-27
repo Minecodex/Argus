@@ -21,6 +21,41 @@ const scope = {
   variables: { env: { all: false, values: ["production"] } },
   locals: { region: { all: false, values: ["east"] } },
 };
+it("binds candidate caches and requests to explicit empty scope and application filters", () => {
+  const selected = {
+    ...scope,
+    resource_mode: "explicit" as const,
+    resource_ids: [],
+    application_mode: "explicit" as const,
+    application_ids: ["orders"],
+  };
+  const input = candidateRequest(
+    query,
+    selected,
+    { all: true, values: [] },
+    "",
+  );
+  expect(input).toMatchObject({
+    resource_mode: "explicit",
+    resource_ids: [],
+    application_mode: "explicit",
+    application_ids: ["orders"],
+  });
+  expect(candidateContext(query, { ...selected, time: null })).not.toBe(
+    candidateContext(query, {
+      ...selected,
+      time: null,
+      resource_mode: "all_authorized",
+    }),
+  );
+  expect(candidateContext(query, { ...selected, time: null })).not.toBe(
+    candidateContext(query, {
+      ...selected,
+      time: null,
+      application_ids: ["testing"],
+    }),
+  );
+});
 it("uses the entire saved candidate definition and mapped effective dependencies", () => {
   const input = candidateRequest(
     query,

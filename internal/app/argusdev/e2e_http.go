@@ -171,6 +171,9 @@ func redactJSON(value any) any {
 
 func containsSensitiveField(value string) bool {
 	lower := strings.ToLower(value)
+	if lower == "key" || lower == "ticket" || lower == "nonce" || lower == "continuity_key" {
+		return true
+	}
 	for _, field := range []string{"password", "secret", "token", "csrf", "authorization", "cookie", "private_key", "privatekey", "recovery_code", "api_key", "apikey", "credential_value"} {
 		if strings.Contains(lower, field) {
 			return true

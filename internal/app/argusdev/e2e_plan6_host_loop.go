@@ -33,7 +33,7 @@ func (a *App) runPlan6HostLoop(ctx context.Context, env *E2EEnvironment) (failur
 	if err != nil {
 		return err
 	}
-	h := &plan6HostLoop{Docker: f, HostName: "Plan6 Docker monitored Host", CPUExpression: `100 * (1 - avg by (argus_resource_id,argus_source_id) (system_cpu_utilization{state="idle"}))`, MemoryExpression: `100 * system_memory_utilization{state="used"}`}
+	h := &plan6HostLoop{Docker: f, HostName: "Plan6 Docker monitored Host", CPUExpression: `100 * (1 - avg by (argus_resource_id,argus_source_id,argus_collection_id) (system_cpu_utilization{state="idle"}))`, MemoryExpression: `100 * system_memory_utilization{state="used"}`}
 	defer func() {
 		data, _ := json.MarshalIndent(map[string]any{"scope": "real Docker Linux Host -> Bastion -> managed Collector -> Query -> dashboard/alerts -> real protocol receivers -> GLM", "passed": failure == nil, "host_id": h.HostID, "bastion_scope_id": h.ScopeID, "collector_id": h.CollectorID, "source_id": h.SourceID, "dashboard_id": h.DashboardID, "policy_id": h.PolicyID, "model_id": h.ModelID, "cases": h.Cases, "shared_linux_kernel": true, "synthetic_metric_injection": false, "external_groups_mailbox": false}, "", "  ")
 		failure = errors.Join(failure, writePrivate(filepath.Join(env.Options.Artifacts, "plan6-host-loop.json"), data))
@@ -161,11 +161,21 @@ func (a *App) plan6HostCollector(ctx context.Context, env *E2EEnvironment, h *pl
 	if err != nil {
 		return err
 	}
+	if env.Options.Suite == "plan8" {
+		// Install a control-only Collector, then enable its own metrics through
+		// the same per-instance API used by the formal portal.
+		profiles = []string{}
+	}
 	collector, err := a.applyP4HostCollector(ctx, env, "docker-host", h.HostID, distribution, profiles, "bastion_gateway", "bastion_tunnel", "", 14318)
 	if err != nil {
 		return err
 	}
 	h.CollectorID, _ = stringField(collector, "id")
+	if env.Options.Suite == "plan8" {
+		if err := a.enablePlan8HostMetrics(ctx, env, h.HostID); err != nil {
+			return err
+		}
+	}
 	query := fmt.Sprintf("SELECT json_build_object('host_control_path',h.control_path,'host_connector',h.connector_id,'scope',h.bastion_scope_id,'collector',c.id,'collector_status',c.status,'route',r.kind,'transport',r.transport,'gateway',r.gateway_collector_id,'gateway_status',g.status,'gateway_role',g.role,'source',(SELECT id FROM telemetry_sources s WHERE s.collector_id=c.id AND s.source_type='hostmetrics' ORDER BY created_at DESC LIMIT 1)) FROM hosts h JOIN collector_instances c ON c.resource_id=h.id AND c.resource_type='host' JOIN telemetry_routes r ON r.collector_id=c.id JOIN collector_instances g ON g.id=r.gateway_collector_id WHERE h.id='%s' AND h.enterprise_id='%s' AND c.id='%s';", h.HostID, env.State.Values["enterprise_id"], h.CollectorID)
 	raw, err := a.postgresQuery(ctx, env, query)
 	if err != nil {

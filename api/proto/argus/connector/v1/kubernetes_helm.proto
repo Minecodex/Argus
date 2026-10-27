@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package argus.connector.v1;
+
+option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1;connectorv1";
+
+import "google/protobuf/timestamp.proto";
+
+message KubernetesHelmCommand {
+  string schema_version = 1;
+  string cluster_id = 2;
+  string operation_id = 3;
+  string mode = 4;
+  bytes request_json = 5;
+  // Gateway-only injection. Chart, values and encryption key never enter command storage.
+  bytes private_material_json = 6;
+}
+
+message KubernetesHelmResult {
+  string schema_version = 1;
+  bytes result_json = 2;
+  string error_code = 3;
+}
+
+// Each physical write requires a new short-lived grant on the authenticated stream.
+message KubernetesHelmWriteRequest {
+  string command_id = 1;
+  uint64 connection_epoch = 2;
+  string operation_id = 3;
+  bytes nonce = 4;
+  string group = 5;
+  string version = 6;
+  string resource = 7;
+  string namespace = 8;
+  string name = 9;
+  string verb = 10;
+}
+
+message KubernetesHelmWriteGrant {
+  string command_id = 1;
+  uint64 connection_epoch = 2;
+  string operation_id = 3;
+  bytes nonce = 4;
+  bool allowed = 5;
+  google.protobuf.Timestamp expires_at = 6;
+}

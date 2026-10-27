@@ -13,6 +13,12 @@ import (
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ListApplicationDashboardBindings List Application dashboard bindings
+	// (GET /applications/{id}/dashboard-bindings)
+	ListApplicationDashboardBindings(ctx context.Context, request ListApplicationDashboardBindingsRequestObject) (ListApplicationDashboardBindingsResponseObject, error)
+	// PreviewApplicationDashboardBinding Preview Application dashboard bindings
+	// (POST /applications/{id}/dashboard-bindings/preview)
+	PreviewApplicationDashboardBinding(ctx context.Context, request PreviewApplicationDashboardBindingRequestObject) (PreviewApplicationDashboardBindingResponseObject, error)
 	// StartDashboardQueryJob startDashboardQueryJob.
 	// (POST /conversations/{id}/dashboard-queries)
 	StartDashboardQueryJob(ctx context.Context, request StartDashboardQueryJobRequestObject) (StartDashboardQueryJobResponseObject, error)
@@ -61,6 +67,9 @@ type StrictServerInterface interface {
 	// PreviewDashboardFolder Preview a folder change without publishing it.
 	// (POST /dashboard-folders/preview)
 	PreviewDashboardFolder(ctx context.Context, request PreviewDashboardFolderRequestObject) (PreviewDashboardFolderResponseObject, error)
+	// ListDashboardScopeResources List currently authorized query scope resources with search and signed pagination
+	// (GET /dashboard-scope-resources)
+	ListDashboardScopeResources(ctx context.Context, request ListDashboardScopeResourcesRequestObject) (ListDashboardScopeResourcesResponseObject, error)
 	// ConvertDashboardPanel Convert every query in a panel only when the editing sources are losslessly representable.
 	// (POST /dashboard-spec/convert-panel)
 	ConvertDashboardPanel(ctx context.Context, request ConvertDashboardPanelRequestObject) (ConvertDashboardPanelResponseObject, error)
@@ -103,6 +112,12 @@ type StrictServerInterface interface {
 	// PreviewClusterDashboardBinding Preview a resource dashboard binding change.
 	// (POST /kubernetes/clusters/{id}/dashboard-bindings/preview)
 	PreviewClusterDashboardBinding(ctx context.Context, request PreviewClusterDashboardBindingRequestObject) (PreviewClusterDashboardBindingResponseObject, error)
+	// ListMonitoringTargetDashboardBindings List MonitoringTarget dashboard bindings
+	// (GET /monitoring/targets/{id}/dashboard-bindings)
+	ListMonitoringTargetDashboardBindings(ctx context.Context, request ListMonitoringTargetDashboardBindingsRequestObject) (ListMonitoringTargetDashboardBindingsResponseObject, error)
+	// PreviewMonitoringTargetDashboardBinding Preview MonitoringTarget dashboard bindings
+	// (POST /monitoring/targets/{id}/dashboard-bindings/preview)
+	PreviewMonitoringTargetDashboardBinding(ctx context.Context, request PreviewMonitoringTargetDashboardBindingRequestObject) (PreviewMonitoringTargetDashboardBindingResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -142,6 +157,66 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListApplicationDashboardBindings operation middleware
+func (sh *strictHandler) ListApplicationDashboardBindings(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request ListApplicationDashboardBindingsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListApplicationDashboardBindings(ctx, request.(ListApplicationDashboardBindingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListApplicationDashboardBindings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListApplicationDashboardBindingsResponseObject); ok {
+		if err := validResponse.VisitListApplicationDashboardBindingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewApplicationDashboardBinding operation middleware
+func (sh *strictHandler) PreviewApplicationDashboardBinding(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewApplicationDashboardBindingParams) {
+	var request PreviewApplicationDashboardBindingRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body PreviewApplicationDashboardBindingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewApplicationDashboardBinding(ctx, request.(PreviewApplicationDashboardBindingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewApplicationDashboardBinding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewApplicationDashboardBindingResponseObject); ok {
+		if err := validResponse.VisitPreviewApplicationDashboardBindingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // StartDashboardQueryJob operation middleware
@@ -644,6 +719,32 @@ func (sh *strictHandler) PreviewDashboardFolder(w http.ResponseWriter, r *http.R
 	}
 }
 
+// ListDashboardScopeResources operation middleware
+func (sh *strictHandler) ListDashboardScopeResources(w http.ResponseWriter, r *http.Request, params ListDashboardScopeResourcesParams) {
+	var request ListDashboardScopeResourcesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDashboardScopeResources(ctx, request.(ListDashboardScopeResourcesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDashboardScopeResources")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListDashboardScopeResourcesResponseObject); ok {
+		if err := validResponse.VisitListDashboardScopeResourcesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ConvertDashboardPanel operation middleware
 func (sh *strictHandler) ConvertDashboardPanel(w http.ResponseWriter, r *http.Request, params ConvertDashboardPanelParams) {
 	var request ConvertDashboardPanelRequestObject
@@ -1056,6 +1157,66 @@ func (sh *strictHandler) PreviewClusterDashboardBinding(w http.ResponseWriter, r
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PreviewClusterDashboardBindingResponseObject); ok {
 		if err := validResponse.VisitPreviewClusterDashboardBindingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMonitoringTargetDashboardBindings operation middleware
+func (sh *strictHandler) ListMonitoringTargetDashboardBindings(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request ListMonitoringTargetDashboardBindingsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMonitoringTargetDashboardBindings(ctx, request.(ListMonitoringTargetDashboardBindingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMonitoringTargetDashboardBindings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMonitoringTargetDashboardBindingsResponseObject); ok {
+		if err := validResponse.VisitListMonitoringTargetDashboardBindingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewMonitoringTargetDashboardBinding operation middleware
+func (sh *strictHandler) PreviewMonitoringTargetDashboardBinding(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewMonitoringTargetDashboardBindingParams) {
+	var request PreviewMonitoringTargetDashboardBindingRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body PreviewMonitoringTargetDashboardBindingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewMonitoringTargetDashboardBinding(ctx, request.(PreviewMonitoringTargetDashboardBindingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewMonitoringTargetDashboardBinding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewMonitoringTargetDashboardBindingResponseObject); ok {
+		if err := validResponse.VisitPreviewMonitoringTargetDashboardBindingResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

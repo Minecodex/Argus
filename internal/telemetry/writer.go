@@ -196,6 +196,10 @@ func (writer *Writer) writeMetrics(ctx context.Context, record *kgo.Record, iden
 	var sequence uint32
 	seriesSeen := map[string]struct{}{}
 	for _, resourceMetrics := range request.ResourceMetrics {
+		identity, identityErr := recordResourceIdentity(record, identity, resourceMetrics.Resource.GetAttributes())
+		if identityErr != nil {
+			return 0, identityErr
+		}
 		source, sourceErr := recordSource(resourceMetrics.Resource.GetAttributes())
 		if sourceErr != nil {
 			return 0, sourceErr
@@ -217,14 +221,8 @@ func (writer *Writer) writeMetrics(ctx context.Context, record *kgo.Record, iden
 					labels["argus_resource_id"] = identity.ResourceID.String()
 					labels["argus_source_id"] = source.ID.String()
 					labels["argus_source_revision"] = strconv.FormatInt(source.Revision, 10)
-					delete(labels, "otel_scope_name")
-					delete(labels, "otel_scope_version")
-					if scope.Scope.GetName() != "" {
-						labels["otel_scope_name"] = scope.Scope.GetName()
-					}
-					if scope.Scope.GetVersion() != "" {
-						labels["otel_scope_version"] = scope.Scope.GetVersion()
-					}
+					addMetricResourceLabels(labels, resourceMetrics.Resource.GetAttributes())
+					metricScopeLabels(labels, scope.Scope)
 					seriesID, labelsHash := metricSeriesID(identity, metricName, labels)
 					seriesKey := seriesID.String()
 					if _, exists := seriesSeen[seriesKey]; !exists {
@@ -304,6 +302,9 @@ func (writer *Writer) writeMetrics(ctx context.Context, record *kgo.Record, iden
 }
 
 func (writer *Writer) writeLogs(ctx context.Context, record *kgo.Record, identity TrustedIdentity, request *collectlogs.ExportLogsServiceRequest, retention time.Duration) (int64, error) {
+	if err := validateLogs(request); err != nil {
+		return 0, fmt.Errorf("%w: invalid logs", errPermanentRecord)
+	}
 	tables, err := writer.Router.Tables(identity.EnterpriseID)
 	if err != nil {
 		return 0, err
@@ -315,6 +316,10 @@ func (writer *Writer) writeLogs(ctx context.Context, record *kgo.Record, identit
 	}
 	var sequence uint32
 	for _, resourceLogs := range request.ResourceLogs {
+		identity, identityErr := recordResourceIdentity(record, identity, resourceLogs.Resource.GetAttributes())
+		if identityErr != nil {
+			return 0, identityErr
+		}
 		source, sourceErr := recordSource(resourceLogs.Resource.GetAttributes())
 		if sourceErr != nil {
 			return 0, sourceErr
@@ -359,6 +364,10 @@ func (writer *Writer) writeTraces(ctx context.Context, record *kgo.Record, ident
 	}
 	var sequence uint32
 	for _, resourceSpans := range request.ResourceSpans {
+		identity, identityErr := recordResourceIdentity(record, identity, resourceSpans.Resource.GetAttributes())
+		if identityErr != nil {
+			return 0, identityErr
+		}
 		source, sourceErr := recordSource(resourceSpans.Resource.GetAttributes())
 		if sourceErr != nil {
 			return 0, sourceErr
@@ -583,7 +592,7 @@ func attributeString(values []*commonpb.KeyValue, key string) string {
 	return ""
 }
 func anyValueString(value *commonpb.AnyValue) string {
-	if value == nil {
+	if value == nil || value.Value == nil {
 		return ""
 	}
 	switch item := value.Value.(type) {
@@ -598,7 +607,7 @@ func anyValueString(value *commonpb.AnyValue) string {
 	case *commonpb.AnyValue_BytesValue:
 		return hex.EncodeToString(item.BytesValue)
 	default:
-		encoded, _ := json.Marshal(value)
+		encoded, _ := otlpCompositeJSON(value)
 		return string(encoded)
 	}
 }

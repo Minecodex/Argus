@@ -41,6 +41,12 @@ func sourceTestClickHouse(t *testing.T) driver.Conn {
 }
 
 func TestClickHouseSourceIsolationAcrossSignals(t *testing.T) {
+	testClickHouseSourceIsolationWithMemberCount(t, 1)
+}
+func TestClickHouseMaximumSourceIsolationAcrossSignals(t *testing.T) {
+	testClickHouseSourceIsolationWithMemberCount(t, 10000)
+}
+func testClickHouseSourceIsolationWithMemberCount(t *testing.T, sourceCount int) {
 	conn := sourceTestClickHouse(t)
 	ctx := context.Background()
 	enterprise, resource := uuid.New(), uuid.New()
@@ -82,11 +88,20 @@ func TestClickHouseSourceIsolationAcrossSignals(t *testing.T) {
 		}
 	}
 	for index, source := range sources {
-		logs, err := kql.Execute(ctx, conn, router, kql.Request{Expression: "*", Start: now.Add(-time.Minute), End: now.Add(time.Minute), Scope: kql.Scope{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: []string{source.Key()}}, Budget: kql.Budget{MaxRows: 100, Timeout: time.Second * 10}})
+		keys := []string{source.Key()}
+		for len(keys) < sourceCount {
+			keys = append(keys, uuid.NewString()+":1")
+		}
+		backend := ClickHouseQuery{Conn: conn, Router: router}
+		overview, overviewErr := backend.Overview(ctx, OverviewRequest{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: keys, From: now.Add(-time.Minute), To: now.Add(time.Minute), Timeout: 10 * time.Second, MaxScanBytes: 64 << 20})
+		if overviewErr != nil || overview.MetricPoints != 1 || overview.LogRecords != 1 || overview.Spans != 1 {
+			t.Fatalf("large-source overview crossed origins or failed: %+v %v", overview, overviewErr)
+		}
+		logs, err := kql.Execute(ctx, conn, router, kql.Request{Expression: "*", Start: now.Add(-time.Minute), End: now.Add(time.Minute), Scope: kql.Scope{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: keys}, Budget: kql.Budget{MaxRows: 100, Timeout: time.Second * 10}})
 		if err != nil || len(logs.Data) != 1 || logs.Data[0]["body"] != source.ID.String() {
 			t.Fatalf("log origin escaped: %+v %v", logs, err)
 		}
-		metrics, err := promqlengine.NewEngine(conn, router, nil).Execute(ctx, promqlengine.Request{Expression: "sum(source_value)", Instant: true, Start: now.Add(-time.Minute), End: now.Add(time.Second), Scope: promqlengine.Scope{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: []string{source.Key()}}})
+		metrics, err := promqlengine.NewEngine(conn, router, nil).Execute(ctx, promqlengine.Request{Expression: "sum(source_value)", Instant: true, Start: now.Add(-time.Minute), End: now.Add(time.Second), Scope: promqlengine.Scope{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: keys}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -94,11 +109,11 @@ func TestClickHouseSourceIsolationAcrossSignals(t *testing.T) {
 		if !ok || len(vector) != 1 || vector[0].F != float64(index+1) {
 			t.Fatalf("metric sources merged: %v", metrics.Value)
 		}
-		catalog, e := (ClickHouseQuery{Conn: conn, Router: router}).DiscoverData(ctx, DataCatalogRequest{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: []string{source.Key()}, Signal: "metrics", Kind: "metrics", From: now.Add(-time.Minute), To: now.Add(time.Minute), Limit: 10})
+		catalog, e := (ClickHouseQuery{Conn: conn, Router: router}).DiscoverData(ctx, DataCatalogRequest{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: keys, Signal: "metrics", Kind: "metrics", From: now.Add(-time.Minute), To: now.Add(time.Minute), Limit: 10})
 		if e != nil || len(catalog.Metrics) != 1 || catalog.Metrics[0].Name != "source_value" || catalog.Metrics[0].Type != "gauge" {
 			t.Fatalf("observed metric discovery failed: %+v %v", catalog, e)
 		}
-		query := skywalking.Request{Document: `query { queryTrace(traceId: "` + hex.EncodeToString(traceID) + `") { spans { operationName } } }`, Start: now.Add(-time.Minute), End: now.Add(time.Minute), Scope: skywalking.Scope{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: []string{source.Key()}}, Budget: skywalking.Budget{MaxRows: 100, Timeout: time.Second * 10}}
+		query := skywalking.Request{Document: `query { queryTrace(traceId: "` + hex.EncodeToString(traceID) + `") { spans { operationName } } }`, Start: now.Add(-time.Minute), End: now.Add(time.Minute), Scope: skywalking.Scope{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: keys}, Budget: skywalking.Budget{MaxRows: 100, Timeout: time.Second * 10}}
 		traces, err := (skywalking.Engine{Conn: conn, Router: router}).Execute(ctx, query)
 		if err != nil {
 			t.Fatal(err)

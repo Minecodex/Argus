@@ -31,10 +31,22 @@ export function requireTelemetryResources(ctx: MockContext, ids: string[]) {
     const cluster = ctx.db.clusters.find(
       (c) => c.id === id && c.enterpriseId === ctx.enterpriseId(),
     );
-    const kind = host ? "host" : cluster ? "kubernetes_cluster" : "";
+    const application = ctx.db.monitoring?.[
+      ctx.enterpriseId()
+    ]?.applications.find((row) => row.id === id);
+    const kind = host
+      ? "host"
+      : cluster
+        ? "kubernetes_cluster"
+        : application
+          ? "application"
+          : "";
     if (
       !kind ||
-      !allows(host ? "host.read" : "kubernetes.read") ||
+      [host, cluster, application].filter(Boolean).length !== 1 ||
+      !allows(
+        host ? "host.read" : cluster ? "kubernetes.read" : "application.read",
+      ) ||
       !dashboardObjectGrant(ctx, kind, id)
     )
       deny("QUERY_SCOPE_DENIED");

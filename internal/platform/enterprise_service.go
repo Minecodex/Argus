@@ -51,6 +51,9 @@ func (service EnterpriseService) CreateEnterprise(ctx context.Context, actorID s
 		return db.Enterprise{}, ErrEnterpriseCodeInvalid
 	}
 	enterprise, err := postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "platform", actorID, "enterprise.create", idempotencyKey, input, 201, func(queries *db.Queries) (db.Enterprise, error) {
+		if _, err := authorization.SyncPermissionCatalog(ctx, queries); err != nil {
+			return db.Enterprise{}, err
+		}
 		enterpriseID := newUUID()
 		departmentID := newUUID()
 		enterprise, err := queries.CreateEnterprise(ctx, db.CreateEnterpriseParams{
@@ -64,11 +67,6 @@ func (service EnterpriseService) CreateEnterprise(ctx context.Context, actorID s
 			ID: departmentID, EnterpriseID: enterpriseID, Name: "Default", Description: "Default department", IsDefault: true,
 		}); err != nil {
 			return db.Enterprise{}, err
-		}
-		for permission, description := range authorization.PermissionRegistry {
-			if err := queries.UpsertPermission(ctx, db.UpsertPermissionParams{ID: permission, Description: description, RegistryVersion: authorization.PermissionRegistryVersion}); err != nil {
-				return db.Enterprise{}, err
-			}
 		}
 		for _, builtin := range authorization.BuiltinRoles {
 			role, err := queries.CreateRole(ctx, db.CreateRoleParams{

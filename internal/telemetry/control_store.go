@@ -51,10 +51,13 @@ type PostgresIngestControl struct{ Queries *db.Queries }
 func (store PostgresIngestControl) ResolveCollectorIdentity(ctx context.Context, serial string) (TrustedIdentity, string, error) {
 	row, err := store.Queries.GetTelemetryCollectorIdentityBySerial(ctx, serial)
 	if err != nil {
-		return TrustedIdentity{}, "", err
+		return TrustedIdentity{}, "", controlReadError(err)
 	}
 	pkiIdentity, err := store.Queries.GetActivePKICertificateIdentity(ctx, serial)
-	if err != nil || pkiIdentity.SubjectKind != "collector" || pkiIdentity.SubjectID != row.ID.String() ||
+	if err != nil {
+		return TrustedIdentity{}, "", controlReadError(err)
+	}
+	if pkiIdentity.SubjectKind != "collector" || pkiIdentity.SubjectID != row.ID.String() ||
 		!pkiIdentity.EnterpriseID.Valid || pkiIdentity.EnterpriseID.UUID != row.EnterpriseID || pkiIdentity.ExtendedKeyUsage != "clientAuth" ||
 		pkiIdentity.UriSan != row.UriSan {
 		return TrustedIdentity{}, "", errors.New("telemetry PKI identity is fenced")
@@ -71,13 +74,18 @@ func (store PostgresIngestControl) ResolveDownstreamIdentity(ctx context.Context
 	pkiIdentity, pkiErr := store.Queries.GetActivePKICertificateIdentity(ctx, serial)
 	downstream, downstreamErr := store.Queries.GetCollectorInstanceByID(ctx, collectorID)
 	if downstreamErr != nil {
-		return TrustedIdentity{}, downstreamErr
+		return TrustedIdentity{}, controlReadError(downstreamErr)
 	}
 	route, routeErr := store.Queries.GetTelemetryRouteByCollector(ctx, db.GetTelemetryRouteByCollectorParams{
 		CollectorID: downstream.ID, EnterpriseID: downstream.EnterpriseID,
 	})
 	if routeErr != nil {
-		return TrustedIdentity{}, routeErr
+		return TrustedIdentity{}, controlReadError(routeErr)
+	}
+	for _, readErr := range []error{certificateErr, pkiErr} {
+		if readErr != nil && errors.Is(controlReadError(readErr), ErrUnavailable) {
+			return TrustedIdentity{}, ErrUnavailable
+		}
 	}
 	pkiValid := pkiErr == nil && pkiIdentity.SubjectKind == "collector" && pkiIdentity.SubjectID == collectorID.String() &&
 		pkiIdentity.EnterpriseID.Valid && pkiIdentity.EnterpriseID.UUID == downstream.EnterpriseID && pkiIdentity.ExtendedKeyUsage == "clientAuth"

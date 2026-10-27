@@ -34,6 +34,8 @@ import (
 )
 
 var errIdentityRotated = errors.New("Connector identity rotated")
+var errGatewayAcknowledgementTimeout = errors.New("Connector gateway acknowledgement timeout")
+var errGatewayWelcomeTimeout = errors.New("Connector gateway welcome timeout")
 
 type connectorClient struct {
 	remote           *remoteRuntimeHub
@@ -99,7 +101,14 @@ func (client connectorClient) run(ctx context.Context) error {
 	}
 }
 
-func (client connectorClient) runSession(ctx context.Context) error {
+func (client connectorClient) runSession(ctx context.Context) (failure error) {
+	ctx, cancelControl := context.WithCancelCause(ctx)
+	defer cancelControl(nil)
+	defer func() {
+		if cause := context.Cause(ctx); errors.Is(cause, errGatewayAcknowledgementTimeout) || errors.Is(cause, errGatewayWelcomeTimeout) {
+			failure = cause
+		}
+	}()
 	identity, err := client.store.loadIdentity()
 	if err != nil {
 		return fmt.Errorf("load Connector identity: %w", err)
@@ -114,6 +123,8 @@ func (client connectorClient) runSession(ctx context.Context) error {
 		return err
 	}
 	defer connection.Close()
+	welcomeDeadline := time.AfterFunc(15*time.Second, func() { cancelControl(errGatewayWelcomeTimeout) })
+	defer welcomeDeadline.Stop()
 	stream, err := connectorv1.NewConnectorControlServiceClient(connection).Connect(ctx)
 	if err != nil {
 		return err
@@ -124,7 +135,7 @@ func (client connectorClient) runSession(ctx context.Context) error {
 	}
 	if err := stream.Send(&connectorv1.ConnectRequest{Sequence: 1, Frame: &connectorv1.ConnectRequest_Hello{Hello: &connectorv1.ConnectorHello{
 		ProtocolVersion: connectorcore.ProtocolVersion, InstanceId: identity.InstanceID, SoftwareVersion: softwareVersion,
-		Capabilities: identity.Capabilities, ClientNonce: clientNonce, TrustBundleEpoch: uint64(identity.TrustBundleEpoch),
+		Capabilities: interactiveCapabilities(identity.Role, identity.Capabilities), ClientNonce: clientNonce, TrustBundleEpoch: uint64(identity.TrustBundleEpoch),
 		TrustBundleSha256: identity.TrustBundleSHA256, TrustBundleCaFingerprints: identity.TrustCAFingerprints}}}); err != nil {
 		return err
 	}
@@ -132,6 +143,7 @@ func (client connectorClient) runSession(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	welcomeDeadline.Stop()
 	welcome := first.GetWelcome()
 	if first.GetSequence() != 1 || welcome == nil || welcome.GetProtocolVersion() != connectorcore.ProtocolVersion ||
 		welcome.GetConnectionEpoch() == 0 || welcome.GetMaxMessageBytes() > connectorcore.MaxMessageBytes || len(welcome.GetServerNonce()) < 16 {
@@ -147,14 +159,29 @@ func (client connectorClient) runSession(ctx context.Context) error {
 	client.logger.Info("Connector session established", "connector_id", identity.ConnectorID, "connection_epoch", welcome.GetConnectionEpoch())
 	tunnels := newMemberTunnelSupervisor(connectorTelemetryTunnelLimit, connectorTunnelBytesPerSecond())
 	defer tunnels.CloseAll()
-	return client.sessionLoop(ctx, stream, identity, welcome, heartbeat, tunnels)
+	return client.sessionLoop(ctx, stream, identity, welcome, heartbeat, tunnels, cancelControl)
 }
 
 func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv1.ConnectorControlService_ConnectClient,
-	identity identityState, welcome *connectorv1.ConnectorWelcome, heartbeat time.Duration, tunnels *memberTunnelSupervisor) error {
+	identity identityState, welcome *connectorv1.ConnectorWelcome, heartbeat time.Duration, tunnels *memberTunnelSupervisor, cancelControl context.CancelCauseFunc) (failure error) {
+	// Cancel the actual RPC context from the timer, so a blocked Send or Recv
+	// also ends. Replaying completed Collector results remains independent of
+	// the session and keeps the existing bounded operation lifetime.
+	deadline := time.AfterFunc(3*heartbeat, func() { cancelControl(errGatewayAcknowledgementTimeout) })
+	defer deadline.Stop()
+	defer func() {
+		if errors.Is(context.Cause(ctx), errGatewayAcknowledgementTimeout) {
+			failure = errGatewayAcknowledgementTimeout
+		}
+	}()
+	lastAcknowledged := uint64(1)
 	received := make(chan receivedFrame, 1)
 	go receiveServerFrames(stream, received)
 	outgoing := make(chan outboundFrame, 64)
+	ctx, cancelSession := context.WithCancel(ctx)
+	defer cancelSession()
+	permits := &helmPermits{epoch: welcome.GetConnectionEpoch(), out: outgoing, pending: map[string]chan *connectorv1.KubernetesHelmWriteGrant{}}
+	ctx = context.WithValue(ctx, helmPermitKey{}, permits)
 	completed := make(chan completedCommand, 32)
 	ticker := time.NewTicker(heartbeat)
 	defer ticker.Stop()
@@ -175,9 +202,7 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 	var stopAfterAcknowledgement uint64
 	var runtimeObservation *connectorv1.HostRuntimeObservation
 	var kubernetesObservation *connectorv1.KubernetesRuntimeObservation
-	if identity.Role == "host" || identity.Role == "bastion" {
-		runtimeObservation = observeHostRuntime()
-	}
+
 	if welcome.GetCertificateRotationRequested() || certificateNeedsRotation(client.store) {
 		rotationKey, err = client.requestRotation(identity, epoch, outgoing)
 		if err != nil {
@@ -195,6 +220,38 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 		}
 		return nil
 	}
+	sendHeartbeat := func() error {
+		if identity.Role == "host" || identity.Role == "bastion" {
+			runtimeObservation = observeHostRuntime()
+		}
+		if identity.Role == "kubernetes" {
+			kubernetesObservation = observeKubernetesRuntime(ctx)
+		}
+		// A Connector control stream can remain open longer than the 24-hour
+		// client certificate lifetime. Re-evaluate rotation on every heartbeat
+		// so a long-lived stream moves to the next issuer during CA overlap
+		// instead of waiting for a reconnect that may happen after retirement.
+		if len(rotationKey) == 0 && certificateNeedsRotation(client.store) {
+			rotationKey, err = client.requestRotation(identity, epoch, outgoing)
+			if err != nil {
+				return err
+			}
+		}
+		if err := send(outboundFrame{value: &connectorv1.ConnectRequest{Frame: &connectorv1.ConnectRequest_Heartbeat{Heartbeat: &connectorv1.ConnectorHeartbeat{
+			ConnectionEpoch: epoch, SentAt: timestamppb.Now(), ActiveCommands: uint32(active.Load()),
+			ActiveRemoteAccessStreams: uint32(activeRemote.Load()), TelemetryTunnels: tunnels.Snapshot(),
+			TrustBundleEpoch: uint64(identity.TrustBundleEpoch), TrustBundleSha256: identity.TrustBundleSHA256,
+			TrustBundleCaFingerprints: identity.TrustCAFingerprints, BastionRelay: client.relay.snapshot(), HostRuntime: runtimeObservation, KubernetesRuntime: kubernetesObservation}}}}); err != nil {
+			return err
+		}
+		return nil
+	}
+	// Reconnects must report the current relay, tunnels and resource health
+	// before the first periodic tick; online alone does not imply readiness.
+	if err := sendHeartbeat(); err != nil {
+		return err
+	}
+
 	for {
 		heartbeatChannel := ticker.C
 		outgoingChannel := (<-chan outboundFrame)(outgoing)
@@ -206,27 +263,7 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 		case <-ctx.Done():
 			return nil
 		case <-heartbeatChannel:
-			if identity.Role == "host" || identity.Role == "bastion" {
-				runtimeObservation = observeHostRuntime()
-			}
-			if identity.Role == "kubernetes" {
-				kubernetesObservation = observeKubernetesRuntime(ctx)
-			}
-			// A Connector control stream can remain open longer than the 24-hour
-			// client certificate lifetime. Re-evaluate rotation on every heartbeat
-			// so a long-lived stream moves to the next issuer during CA overlap
-			// instead of waiting for a reconnect that may happen after retirement.
-			if len(rotationKey) == 0 && certificateNeedsRotation(client.store) {
-				rotationKey, err = client.requestRotation(identity, epoch, outgoing)
-				if err != nil {
-					return err
-				}
-			}
-			if err := send(outboundFrame{value: &connectorv1.ConnectRequest{Frame: &connectorv1.ConnectRequest_Heartbeat{Heartbeat: &connectorv1.ConnectorHeartbeat{
-				ConnectionEpoch: epoch, SentAt: timestamppb.Now(), ActiveCommands: uint32(active.Load()),
-				ActiveRemoteAccessStreams: uint32(activeRemote.Load()), TelemetryTunnels: tunnels.Snapshot(),
-				TrustBundleEpoch: uint64(identity.TrustBundleEpoch), TrustBundleSha256: identity.TrustBundleSHA256,
-				TrustBundleCaFingerprints: identity.TrustCAFingerprints, BastionRelay: client.relay.snapshot(), HostRuntime: runtimeObservation, KubernetesRuntime: kubernetesObservation}}}}); err != nil {
+			if err := sendHeartbeat(); err != nil {
 				return err
 			}
 		case item := <-outgoingChannel:
@@ -258,10 +295,18 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 			}
 			serverSequence = message.GetSequence()
 			switch {
+			case message.GetKubernetesHelmWriteGrant() != nil:
+				permits.accept(message.GetKubernetesHelmWriteGrant())
 			case message.GetAcknowledge() != nil:
 				acknowledged := message.GetAcknowledge().GetClientSequence()
 				if acknowledged > clientSequence {
 					return errors.New("Connector acknowledgement is invalid")
+				}
+				// Duplicate or stale cumulative acknowledgements cannot keep
+				// a silent control path alive indefinitely.
+				if acknowledged > lastAcknowledged {
+					lastAcknowledged = acknowledged
+					deadline.Reset(3 * heartbeat)
 				}
 				if stopSequenceAcknowledged(stopAfterAcknowledgement, acknowledged) {
 					client.removeIdentity()
@@ -273,11 +318,17 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 			case message.GetClose() != nil:
 				return fmt.Errorf("Connector stream closed: %s", message.GetClose().GetError().GetCode())
 			case message.GetCommandReconcileRequest() != nil:
+				if message.GetCommandReconcileRequest().GetConnectionEpoch() != epoch {
+					return errors.New("Connector reconciliation epoch is invalid")
+				}
 				latestResults, loadErr := client.store.loadResults()
 				if loadErr != nil {
 					return loadErr
 				}
 				results = latestResults
+				for _, receipt := range collectorReconciliationFrames(message.GetCommandReconcileRequest(), epoch, results) {
+					outgoing <- outboundFrame{value: receipt}
+				}
 				outgoing <- outboundFrame{value: reconcileFrame(message.GetCommandReconcileRequest(), epoch, results)}
 			case message.GetCredentialLeaseGrant() != nil:
 				grant := message.GetCredentialLeaseGrant()
@@ -403,7 +454,7 @@ func (client connectorClient) sessionLoop(ctx context.Context, stream connectorv
 				}
 			case message.GetRemoteAccessOpen() != nil:
 				open := message.GetRemoteAccessOpen()
-				requiresCredential := open.GetProtocol() == "ssh"
+				requiresCredential := open.GetProtocol() == "ssh" || (open.GetProtocol() == "kubernetes_exec" || open.GetProtocol() == "kubernetes_port_forward") && open.GetCredentialLeaseId() != ""
 				if open.GetConnectionEpoch() != epoch || open.GetStreamId() == "" || open.GetSessionId() == "" || requiresCredential && open.GetCredentialLeaseId() == "" ||
 					open.GetExpiresAt() == nil || time.Now().After(open.GetExpiresAt().AsTime()) || remoteSessions[open.GetStreamId()] != nil {
 					return errors.New("Connector remote access open frame is invalid")
@@ -646,8 +697,12 @@ func (client connectorClient) acceptRotation(identity identityState, grant *conn
 	if err := validateIssuedIdentity(id, keyPEM, grant.GetCertificatePem(), caBundle); err != nil {
 		return err
 	}
+	csrPEM, err := connectorcore.CreateCSRFromPrivateKey(id, keyPEM)
+	if err != nil {
+		return err
+	}
 	identity.CertificateExpiresAt = grant.GetNotAfter().AsTime()
-	return client.store.saveIdentity(identity, keyPEM, grant.GetCertificatePem(), caBundle)
+	return client.store.saveEnrollmentIdentity(identity, keyPEM, csrPEM, grant.GetCertificatePem(), caBundle)
 }
 
 func (client connectorClient) acceptTrustBundle(identity identityState, update *connectorv1.TrustBundleUpdate) (identityState, *connectorv1.TrustBundleAcknowledge, error) {

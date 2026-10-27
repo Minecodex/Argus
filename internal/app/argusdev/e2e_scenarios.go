@@ -83,6 +83,8 @@ func (a *App) runE2EScenarios(ctx context.Context, env *E2EEnvironment) error {
 			}
 		case "plan7":
 			err = a.runPlan7Scenario(ctx, env)
+		case "plan8":
+			err = a.runPlan8DeployedScenario(ctx, env)
 		case "planv2":
 			err = a.runPlanV2Scenario(ctx, env)
 		case "tool-templates":
@@ -140,7 +142,7 @@ func (a *App) runPlaywright(ctx context.Context, env *E2EEnvironment, spec strin
 	// Invoke the Node CLI directly: pnpm.cmd reinterprets regex metacharacters
 	// as Windows shell syntax instead of preserving the selector argument.
 	args := []string{filepath.Join(a.root, "node_modules", "@playwright", "test", "cli.js"), "test", "--config", filepath.Join(a.root, "web", "apps", "enterprise", "playwright.config.ts"), spec, "--workers=1"}
-	if env.Options.Suite == "plan7" {
+	if env.Options.Suite == "plan7" || env.Options.Suite == "plan8" {
 		// Stop on the first failure so cleanup can restore the original services.
 		// A successful gate still requires every selected browser case to pass.
 		args = append(args, "--max-failures=1", "--reporter=list,json")

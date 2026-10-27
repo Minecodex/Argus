@@ -1,0 +1,193 @@
+{
+  "releases": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listKubernetesHelmReleases",
+      "summary": "List safe Helm release metadata in an explicitly selected authorized Namespace",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Release metadata without chart, values, manifests or hook output",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-helm.yaml#/components/schemas/KubernetesHelmReleases"
+              }
+            }
+          },
+          "headers": {
+            "Cache-Control": {
+              "description": "Protected enterprise response is never stored by shared or browser caches",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "history": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "releaseName",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 53
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listKubernetesHelmHistory",
+      "summary": "List safe revision metadata for a Helm release",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Revision metadata",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-helm.yaml#/components/schemas/KubernetesHelmReleases"
+              }
+            }
+          },
+          "headers": {
+            "Cache-Control": {
+              "description": "Protected enterprise response is never stored by shared or browser caches",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "preview": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "previewKubernetesHelm",
+      "summary": "Render, authorize and dry-run Helm objects before preparing an immutable approval",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "$ref": "../argus.yaml#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "../argus.yaml#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-helm.yaml#/components/schemas/KubernetesHelmPreviewInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Protected Helm PendingAction",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/alerts.yaml#/components/schemas/PendingActionPublic"
+              }
+            }
+          },
+          "headers": {
+            "Cache-Control": {
+              "description": "Protected enterprise response is never stored by shared or browser caches",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

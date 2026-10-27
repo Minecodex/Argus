@@ -796,4 +796,136 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listApplicationDashboardBindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Operation result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceDashboardBindings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewApplicationDashboardBinding: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardBindingInput"];
+            };
+        };
+        responses: {
+            /** @description Operation result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["pending-action-public.schema"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMonitoringTargetDashboardBindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Operation result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceDashboardBindings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewMonitoringTargetDashboardBinding: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardBindingInput"];
+            };
+        };
+        responses: {
+            /** @description Operation result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["pending-action-public.schema"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDashboardScopeResources: {
+        parameters: {
+            query: {
+                kind: "host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace";
+                search?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized scope page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardScopeDirectoryPage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
 }

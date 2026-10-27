@@ -3,19 +3,27 @@ import type {
   DashboardExecution,
   DashboardRevision,
   DashboardSchemas,
+  DashboardResourceType,
 } from "@argus/api-client";
 import { changedVariables, dependentPanels } from "./execution-dependencies";
 import { hasUnverifiedCandidates } from "./execution-status";
 
 export type ViewInput = Pick<
   DashboardSchemas["DashboardExecutionInput"],
-  "variables" | "local_values" | "resource_ids"
+  | "variables"
+  | "local_values"
+  | "resource_ids"
+  | "resource_mode"
+  | "resource_types"
+  | "application_mode"
+  | "application_ids"
 >;
 type Range = DashboardSchemas["DashboardTimeRange"];
 type Options = {
   dashboardId: string;
   revision?: DashboardRevision;
   resourceId?: string;
+  resourceType?: DashboardResourceType;
   enabled: boolean;
   execute: (
     id: string,
@@ -220,6 +228,11 @@ export function useDashboardExecution(options: Options) {
       setRefreshSeconds(opts.revision.spec.default_refresh_seconds);
       const initial: ViewInput = {
         resource_ids: opts.resourceId ? [opts.resourceId] : [],
+        resource_mode: opts.resourceId ? "explicit" : "all_authorized",
+        resource_types:
+          opts.resourceId && opts.resourceType
+            ? [opts.resourceType]
+            : undefined,
         variables: Object.fromEntries(
           opts.revision.spec.variables.map((v) => [v.name, v.default]),
         ),
@@ -236,6 +249,7 @@ export function useDashboardExecution(options: Options) {
     options.dashboardId,
     options.revision?.id,
     options.resourceId,
+    options.resourceType,
     options.enabled,
     run,
   ]);

@@ -27,7 +27,7 @@ type Access struct {
 // matching resource type. Connector visibility alone does not reveal names of
 // its associated hosts or clusters.
 func (access Access) AllowsResource(ref toolruntime.ResourceRef) bool {
-	permission := map[string]string{"host": "host.read", "kubernetes_cluster": "kubernetes.read"}[ref.Type]
+	permission := map[string]string{"host": "host.read", "kubernetes_cluster": "kubernetes.read", "application": "application.read", "monitoring_target": "monitoring.read", "kubernetes_namespace": "kubernetes.read"}[ref.Type]
 	id, err := uuid.Parse(ref.ID)
 	return err == nil && permission != "" && slices.Contains(access.Permissions, permission) && slices.Contains(access.ResourceIDs[ref.Type], id)
 }
@@ -54,7 +54,7 @@ func CurrentAccess(ctx context.Context, store *postgres.Store, enterprise, user 
 	sort.Strings(permissions)
 	ids := []string{}
 	access := Access{Permissions: permissions, ResourceIDs: map[string][]uuid.UUID{}}
-	for _, kind := range []string{"host", "kubernetes_cluster", "dashboard"} {
+	for _, kind := range []string{"host", "kubernetes_cluster", "dashboard", "application", "monitoring_target", "kubernetes_namespace"} {
 		values, err := store.Queries.ListUserAuthorizedResourceIDs(ctx, db.ListUserAuthorizedResourceIDsParams{EnterpriseID: enterprise, UserID: user, ResourceType: kind})
 		if err != nil {
 			return Access{}, err

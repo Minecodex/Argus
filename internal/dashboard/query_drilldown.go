@@ -37,7 +37,7 @@ type QueryDrilldownContext struct {
 }
 
 func hasQueryOverrides(input ExecutionInput) bool {
-	return input.CandidatesOnly || input.From != nil || input.To != nil || len(input.ResourceIDs) > 0 || len(input.PanelIDs) > 0 || len(input.Variables) > 0 || len(input.LocalValues) > 0
+	return input.CandidatesOnly || input.From != nil || input.To != nil || input.ResourceMode != "" || len(input.ResourceTypes) > 0 || input.ApplicationMode != "" || len(input.ApplicationIDs) > 0 || len(input.ResourceIDs) > 0 || len(input.PanelIDs) > 0 || len(input.Variables) > 0 || len(input.LocalValues) > 0
 }
 func fileExecutionContext(parent db.DashboardQueryJob, manifest QueryManifest) (executionContext, error) {
 	if manifest.Schema != "argus.dashboard_query_manifest/v1" || !parent.AttemptID.Valid || manifest.JobID != parent.ID || manifest.AttemptID != parent.AttemptID.UUID || manifest.Execution.DashboardID != parent.DashboardID || manifest.Execution.RevisionID != parent.RevisionID || manifest.Compiler != CompilerVersion {
@@ -89,6 +89,9 @@ func (jobs QueryJobs) prepareFileDrilldown(ctx context.Context, actor Actor, con
 	if err != nil {
 		return empty, err
 	}
+	if frozen.Scope.ScopeSelection != nil {
+		jobs.Runtime.scopeApplications = frozen.Scope.ScopeSelection.Applications
+	}
 	revision, err := jobs.Runtime.Store.Queries.GetDashboardRevision(ctx, db.GetDashboardRevisionParams{ID: parent.RevisionID, EnterpriseID: actor.EnterpriseID})
 	if err != nil || revision.DashboardID != parent.DashboardID {
 		return empty, ErrDenied
@@ -106,8 +109,12 @@ func (jobs QueryJobs) prepareFileDrilldown(ctx context.Context, actor Actor, con
 	}
 	scope := prepared.Scope
 	detail := &QueryDrilldownContext{ParentJobID: parent.ID, ParentAttemptID: parent.AttemptID.UUID, ParentExecutionID: manifest.Execution.ExecutionID, PanelID: prepared.Panel.ID, DrilldownID: prepared.Drill.ID, OriginQueryRef: prepared.Drill.OriginQueryRef, TargetID: prepared.Detail.ID, ScopePolicy: prepared.Drill.ScopePolicy, Inputs: request.Values, Depth: frozen.Depth + 1}
-	result := Execution{DashboardID: parent.DashboardID, RevisionID: parent.RevisionID, From: scope.From, To: scope.To, Resources: scope.Resources, Variables: frozen.Scope.Variables, LocalValues: frozen.Scope.LocalValues, VariableCandidates: frozen.Scope.VariableCandidates, LocalCandidates: frozen.Scope.LocalCandidates,
+	result := Execution{DashboardID: parent.DashboardID, RevisionID: parent.RevisionID, From: scope.From, To: scope.To, Resources: scope.Resources, ScopeSelection: frozen.Scope.ScopeSelection, Variables: frozen.Scope.Variables, LocalValues: frozen.Scope.LocalValues, VariableCandidates: frozen.Scope.VariableCandidates, LocalCandidates: frozen.Scope.LocalCandidates,
 		Panels: []PanelExecution{{ID: prepared.Panel.ID, Sources: scope.Sources, Targets: []TargetExecution{}, DetailSources: prepared.DetailSources}}}
+	result.ScopeSignature, result.ScopeVersions, err = derivedScopeIdentity(ctx, jobs.Runtime.Store.Queries, actor, scope.Resources, frozen.Scope)
+	if err != nil {
+		return empty, err
+	}
 	if err := jobs.checkJob(ctx, actor, conversation, parent); err != nil {
 		return empty, err
 	}
@@ -175,6 +182,9 @@ func (jobs QueryJobs) readFileRowEvidence(ctx context.Context, actor Actor, conv
 func (runtime Runtime) executeFileDrilldown(ctx context.Context, actor Actor, spec Spec, plan queryPlan) (Execution, error) {
 	runtime = runtime.metered(actor)
 	result := plan.Scope
+	if result.ScopeSelection != nil {
+		runtime.scopeApplications = result.ScopeSelection.Applications
+	}
 	d := plan.Drilldown
 	if d == nil || d.Depth < 1 || d.Depth > 16 || len(result.Panels) != 1 || result.Panels[0].ID != d.PanelID {
 		return result, ErrInvalid

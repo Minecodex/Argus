@@ -237,8 +237,9 @@ func TestQueryRequestBindsScopeSignalAndBudget(t *testing.T) {
 	scope := &telemetryv1.TelemetryQueryScope{
 		EnterpriseId: enterpriseID.String(), AuthorizedResources: []*commonv1.ResourceRef{{ResourceType: "host", ResourceId: resourceID.String()}},
 		SubjectId: subjectID.String(), SubjectType: "user", Signal: "metrics", AuthorizationVersion: 7,
+		ScopeSignature: testScopeSignature, SourceKeys: []string{uuid.NewString() + ":1"},
 	}
-	scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", []uuid.UUID{resourceID}, 7, "metrics")
+	scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", testResourceRefs(resourceID), 7, "metrics", scope.ScopeSignature, scope.SourceKeys...)
 	if _, _, err := scopeFromProto(scope, "metrics"); err != nil {
 		t.Fatalf("valid query rejected: %v", err)
 	}
@@ -247,11 +248,11 @@ func TestQueryRequestBindsScopeSignalAndBudget(t *testing.T) {
 		t.Fatal("cross-signal query accepted")
 	}
 	scope.Signal = "metrics"
-	scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", []uuid.UUID{uuid.New()}, 7, "metrics")
+	scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", testResourceRefs(uuid.New()), 7, "metrics", scope.ScopeSignature, scope.SourceKeys...)
 	if _, _, err := scopeFromProto(scope, "metrics"); err == nil {
 		t.Fatal("forged resource scope hash accepted")
 	}
-	scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", []uuid.UUID{resourceID}, 7, "metrics")
+	scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", testResourceRefs(resourceID), 7, "metrics", scope.ScopeSignature, scope.SourceKeys...)
 	scope.AuthorizationVersion = 8
 	if _, _, err := scopeFromProto(scope, "metrics"); err == nil {
 		t.Fatal("stale AuthorizationVersion scope hash accepted")
@@ -300,8 +301,8 @@ func TestExecuteQuerySignalMatchesScopeHashBinding(t *testing.T) {
 			if err != nil || got != test.signal {
 				t.Fatalf("querySignal() = %q, %v; want %q", got, err, test.signal)
 			}
-			scope := &telemetryv1.TelemetryQueryScope{EnterpriseId: enterpriseID.String(), AuthorizedResources: []*commonv1.ResourceRef{{ResourceType: "host", ResourceId: resourceID.String()}}, SubjectId: subjectID.String(), SubjectType: "user", Signal: test.signal, AuthorizationVersion: 7}
-			scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", []uuid.UUID{resourceID}, 7, test.signal)
+			scope := &telemetryv1.TelemetryQueryScope{ScopeSignature: testScopeSignature, SourceKeys: []string{uuid.NewString() + ":1"}, EnterpriseId: enterpriseID.String(), AuthorizedResources: []*commonv1.ResourceRef{{ResourceType: "host", ResourceId: resourceID.String()}}, SubjectId: subjectID.String(), SubjectType: "user", Signal: test.signal, AuthorizationVersion: 7}
+			scope.ScopeHash = scopeHash(enterpriseID, subjectID, "user", testResourceRefs(resourceID), 7, test.signal, scope.ScopeSignature, scope.SourceKeys...)
 			if _, _, err := scopeFromProto(scope, got); err != nil {
 				t.Fatalf("scope binding rejected matching signal: %v", err)
 			}

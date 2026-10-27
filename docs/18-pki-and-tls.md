@@ -70,6 +70,8 @@ Server、Worker 和 Telemetry Ingest 统一加载并传递 `installinstruction.T
 argusctl 安装或复用锁定兼容版本的 cert-manager 与 trust-manager。trust-manager 把 `argus-trust-bundle` 只同步到带 Argus 标签的控制面命名空间。客户端只挂载公共 Bundle，不从任何服务端 TLS Secret 读取 `ca.crt`，也不会接触 CA 或其他服务私钥。
 
 服务端叶证书默认 90 天并提前 15 天续期；Connector、Collector 和服务间客户端身份默认 24 小时并提前 8 小时轮换。
+
+Connector 叶证书轮换后，落盘的私钥、公开 CSR、证书和公共 Bundle 必须保持同一身份，身份元数据在材料写入完成后作为提交标记。轮换提交同时保存与新私钥匹配的 CSR，后续离线修复继续严格验证私钥与 CSR 一致。遗留的失配公开 CSR 可在确认当前证书与私钥匹配后单独备份，再由正式修复流程为同一节点、同一私钥重建；不跳过验证或替换节点身份。详见 [Plan8 轮换身份一致性](./plan8/102-connector-rotation-identity-consistency.md)。
 根轮换重叠期不得短于 32 小时：它高于外部客户端身份的最长 24 小时寿命并保留安全余量；生产默认仍为 168 小时。
 
 ## 4. 安装指令与 SSH

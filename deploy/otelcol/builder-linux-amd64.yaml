@@ -2,32 +2,66 @@ dist:
   module: github.com/kakj-go/Argus/cmd/argus-otelcol
   name: argus-otelcol
   description: Argus managed OpenTelemetry Collector for Linux amd64
-  version: 0.1.0-m7
+  version: 0.3.2-plan8
   output_path: ./build/otelcol/dist/linux-amd64
-  otelcol_version: 0.133.0
+  otelcol_version: 0.159.0
 
 receivers:
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/skywalkingreceiver v0.133.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver v0.133.0
-  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.133.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver v0.133.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kubeletstatsreceiver v0.133.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8sclusterreceiver v0.133.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver v0.133.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/journaldreceiver v0.133.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver v0.133.0
+  - gomod: go.opentelemetry.io/collector/receiver/nopreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/skywalkingreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver v0.159.0
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/systemdreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kubeletstatsreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8sclusterreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/journaldreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mongodbreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/redisreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/memcachedreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kafkametricsreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/rabbitmqreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zookeeperreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/nginxreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/apachereceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/haproxyreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/elasticsearchreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/httpcheckreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/tcpcheckreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/tlscheckreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/dnscheckreceiver v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/icmpcheckreceiver v0.159.0
 processors:
-  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.133.0
-  - gomod: go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.133.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourceprocessor v0.133.0
+  - gomod: github.com/kakj-go/Argus/internal/otelcol/arguslogidentity v0.0.0
+    import: github.com/kakj-go/Argus/internal/otelcol/arguslogidentity
+    path: ./internal/otelcol/arguslogidentity
+  - gomod: github.com/kakj-go/Argus/internal/otelcol/argusapplicationidentity v0.0.0
+    import: github.com/kakj-go/Argus/internal/otelcol/argusapplicationidentity
+    path: ./internal/otelcol/argusapplicationidentity
+  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.159.0
+  - gomod: go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourceprocessor v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/k8sattributesprocessor v0.159.0
   - gomod: github.com/kakj-go/Argus/internal/otelcol/argusgatewayidentity v0.0.0
     import: github.com/kakj-go/Argus/internal/otelcol/argusgatewayidentity
     path: ./internal/otelcol/argusgatewayidentity
 exporters:
-  - gomod: go.opentelemetry.io/collector/exporter/otlpexporter v0.133.0
+  - gomod: go.opentelemetry.io/collector/exporter/nopexporter v0.159.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlpexporter v0.159.0
 extensions:
+  - gomod: github.com/kakj-go/Argus/internal/otelcol/argusapplicationauth v0.0.0
+    import: github.com/kakj-go/Argus/internal/otelcol/argusapplicationauth
+    path: ./internal/otelcol/argusapplicationauth
   - gomod: github.com/kakj-go/Argus/internal/otelcol/argusidentity v0.0.0
     import: github.com/kakj-go/Argus/internal/otelcol/argusidentity
     path: ./internal/otelcol/argusidentity
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/storage/filestorage v0.133.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.133.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/storage/filestorage v0.159.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.159.0

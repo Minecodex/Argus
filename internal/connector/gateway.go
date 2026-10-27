@@ -28,7 +28,10 @@ import (
 	connectorv1 "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1"
 	"github.com/kakj-go/Argus/internal/hostremoval"
 	"github.com/kakj-go/Argus/internal/installation"
+	"github.com/kakj-go/Argus/internal/kubernetesinventory"
+	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/operationsecret"
+	"github.com/kakj-go/Argus/internal/otelcol/configbundle"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/secret"
 	"github.com/kakj-go/Argus/internal/sshtarget"
@@ -135,12 +138,14 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 	remoteOutbound := make(chan *connectorv1.ConnectResponse, 32)
 	unregisterRemote := func() {}
 	if gateway.RemoteAccess != nil {
-		unregisterRemote = gateway.RemoteAccess.Register(identity.ConnectorID, epoch, remoteOutbound)
+		unregisterRemote = gateway.RemoteAccess.Register(identity.ConnectorID, epoch, remoteOutbound, hello.GetCapabilities()...)
 	}
 	defer unregisterRemote()
 	go receiveConnectorFrames(stream, received)
 	dispatchTicker := time.NewTicker(gateway.dispatchInterval())
 	defer dispatchTicker.Stop()
+	reconcileTicker := time.NewTicker(15 * time.Second)
+	defer reconcileTicker.Stop()
 	heartbeatDeadline := time.NewTimer(3 * heartbeat)
 	defer heartbeatDeadline.Stop()
 	lastClientSequence := uint64(1)
@@ -175,7 +180,9 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 				return gateErr
 			}
 			if failureCode != "" {
-				_, _ = gateway.Service.TransitionCommand(stream.Context(), identity, epoch, command.CommandID, "failed", nil, failureCode)
+				if _, err := gateway.Service.rejectCommandBeforeDispatch(stream.Context(), identity, epoch, command.CommandID, failureCode); err != nil {
+					return err
+				}
 				continue
 			}
 			if !ready {
@@ -183,7 +190,13 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 			}
 			frame, err := gateway.typedCommand(stream.Context(), command)
 			if err != nil {
-				_, _ = gateway.Service.TransitionCommand(stream.Context(), identity, epoch, command.CommandID, "failed", nil, "CONNECTOR_COMMAND_SCHEMA_INVALID")
+				code := dispatchPreparationFailureCode(err)
+				if code == "" {
+					return err
+				}
+				if _, rejectionErr := gateway.Service.rejectCommandBeforeDispatch(stream.Context(), identity, epoch, command.CommandID, code); rejectionErr != nil {
+					return rejectionErr
+				}
 				continue
 			}
 			transitioned, err := gateway.Service.TransitionCommand(stream.Context(), identity, epoch, command.CommandID, "dispatched", nil, "")
@@ -224,6 +237,13 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 				return gateway.close(stream, serverSequence, commonv1.CloseReason_CLOSE_REASON_PROTOCOL_ERROR, "CONNECTOR_SEQUENCE_INVALID")
 			}
 			lastClientSequence = message.GetSequence()
+			if request := message.GetKubernetesHelmWriteRequest(); request != nil {
+				grant := gateway.helmWriteGrant(stream.Context(), identity, epoch, request)
+				if err := stream.Send(&connectorv1.ConnectResponse{Sequence: serverSequence, Frame: &connectorv1.ConnectResponse_KubernetesHelmWriteGrant{KubernetesHelmWriteGrant: grant}}); err != nil {
+					return err
+				}
+				serverSequence++
+			}
 			if leaseRequest := message.GetCredentialLeaseRequest(); leaseRequest != nil {
 				grant, err := gateway.fulfillCredentialLease(stream.Context(), identity, epoch, leaseRequest)
 				if err != nil {
@@ -280,6 +300,10 @@ func (gateway Gateway) Connect(stream connectorv1.ConnectorControlService_Connec
 			serverSequence++
 		case <-dispatchTicker.C:
 			if err := dispatchCommands(); err != nil {
+				return err
+			}
+		case <-reconcileTicker.C:
+			if err := gateway.sendCollectorReconciliation(stream, identity, epoch, &serverSequence); err != nil {
 				return err
 			}
 		case <-dispatchWakeup:
@@ -358,22 +382,7 @@ func receiveConnectorFrames(stream connectorv1.ConnectorControlService_ConnectSe
 func (gateway Gateway) handleFrame(ctx context.Context, identity TrustedIdentity, epoch int64, request *connectorv1.ConnectRequest, acknowledgements map[uint64]string, active map[string]activeCommand) error {
 	switch {
 	case request.GetHeartbeat() != nil:
-		if request.GetHeartbeat().GetConnectionEpoch() != uint64(epoch) {
-			return ErrConnectorFenced
-		}
-		if err := gateway.Service.UpdateHostRuntimeObservation(ctx, identity, request.GetHeartbeat().GetHostRuntime()); err != nil {
-			return err
-		}
-		if err := gateway.Service.UpdateKubernetesRuntimeObservation(ctx, identity, epoch, request.GetHeartbeat().GetKubernetesRuntime()); err != nil {
-			return err
-		}
-		if err := gateway.Service.UpdateBastionRelayStatus(ctx, identity, request.GetHeartbeat().GetBastionRelay()); err != nil {
-			return err
-		}
-		if err := gateway.applyTelemetryTunnelStatuses(ctx, identity, epoch, request.GetHeartbeat().GetTelemetryTunnels()); err != nil {
-			return err
-		}
-		return gateway.Service.Heartbeat(ctx, identity, epoch)
+		return gateway.applyRuntimeHeartbeat(ctx, identity, epoch, request.GetHeartbeat())
 	case request.GetTelemetryTunnelStatusSet() != nil:
 		return gateway.applyTelemetryTunnelStatuses(ctx, identity, epoch, request.GetTelemetryTunnelStatusSet().GetTunnels())
 	case request.GetAcknowledge() != nil:
@@ -401,7 +410,10 @@ func (gateway Gateway) handleFrame(ctx context.Context, identity TrustedIdentity
 			return ErrCommandState
 		}
 		command, err := gateway.Service.Store.Queries.GetConnectorCommand(ctx, db.GetConnectorCommandParams{CommandID: result.GetCommandId(), ConnectorID: identity.ConnectorID, ConnectionEpoch: epoch})
-		if err != nil || !resultTypeAllowed(command.CommandType, result.GetTypedResult()) {
+		if err != nil {
+			return gateway.reconcileCollectorResult(ctx, identity, epoch, result, err)
+		}
+		if !resultTypeAllowed(command.CommandType, result.GetTypedResult()) {
 			return ErrCommandState
 		}
 		if cancelledHostInstallCommand(command) {
@@ -467,6 +479,8 @@ func (gateway Gateway) handleFrame(ctx context.Context, identity TrustedIdentity
 		}
 		return nil
 	case request.GetCredentialLeaseRequest() != nil:
+		return nil
+	case request.GetKubernetesHelmWriteRequest() != nil:
 		return nil
 	case request.GetRemoteAccessOutput() != nil || request.GetRemoteAccessState() != nil || request.GetRemoteAccessClose() != nil:
 		if gateway.RemoteAccess == nil {
@@ -540,6 +554,14 @@ func (gateway Gateway) fulfillCredentialLease(ctx context.Context, identity Trus
 		}
 		switch lease.TargetResourceType {
 		case "remote_access_session":
+		case "kubernetes_stream_session":
+			id, e := uuid.Parse(commandID)
+			if e != nil || lease.TargetResourceID != id {
+				return nil, secret.ErrInvalidLease
+			}
+			if e = kubernetesworkbench.ValidateStreamCredentialDelivery(ctx, gateway.Service.Store.Queries, identity.EnterpriseID, id, identity.ConnectorID, epoch, leaseID); e != nil {
+				return nil, e
+			}
 		case "telemetry_tunnel":
 			tunnel, tunnelErr := gateway.Service.Store.Queries.GetTelemetryTunnel(ctx, db.GetTelemetryTunnelParams{
 				ID: lease.TargetResourceID, EnterpriseID: identity.EnterpriseID})
@@ -745,12 +767,59 @@ func (gateway Gateway) typedCommand(ctx context.Context, command db.ConnectorCom
 			return nil, ErrCommandState
 		}
 		payload = &query
+	case "kubernetes_resource_mutation":
+		var request connectorv1.KubernetesResourceMutation
+		if json.Unmarshal(command.Payload, &request) != nil || request.SchemaVersion != kubernetesinventory.MutationSchemaVersion || len(request.PrivateSecretValuesJson) != 0 {
+			return nil, ErrCommandState
+		}
+		clusterID, clusterErr := uuid.Parse(request.ClusterId)
+		operationID, operationErr := uuid.Parse(request.OperationId)
+		if clusterErr != nil || operationErr != nil || command.OperationRef != clusterID.String() {
+			return nil, ErrCommandState
+		}
+		if request.AdvanceDrain && (request.DryRun || request.ObserveOnly) {
+			return nil, ErrCommandState
+		}
+		if request.AdvanceDrain {
+			if err := kubernetesworkbench.ValidateDrainDelivery(ctx, gateway.Service.Store.Queries, command.EnterpriseID, clusterID, operationID, request.MutationJson); err != nil {
+				return nil, err
+			}
+		} else if !request.DryRun && !request.ObserveOnly {
+			if err := kubernetesworkbench.ValidateDelivery(ctx, gateway.Service.Store.Queries, command.EnterpriseID, clusterID, operationID, request.MutationJson); err != nil {
+				return nil, err
+			}
+		}
+		var mutation kubernetesinventory.Mutation
+		if json.Unmarshal(request.MutationJson, &mutation) != nil {
+			return nil, ErrCommandState
+		}
+		if !request.ObserveOnly && mutation.PrivateInputID != "" {
+			values, err := gateway.Credentials.LoadKubernetesInput(ctx, command.EnterpriseID, clusterID, mutation, request.DryRun, "connector", command.ConnectorID.String())
+			if err != nil {
+				return nil, err
+			}
+			defer clear(values)
+			request.PrivateSecretValuesJson = values
+		}
+		payload = &request
+	case "kubernetes_helm":
+		request, err := gateway.helmCommand(ctx, command)
+		if err != nil {
+			return nil, err
+		}
+		payload = request
 	case "kubernetes_pod_logs":
 		var query connectorv1.KubernetesPodLogsQuery
 		if err := json.Unmarshal(command.Payload, &query); err != nil || query.ClusterId == "" || query.Namespace == "" || query.Pod == "" {
 			return nil, ErrCommandState
 		}
 		payload = &query
+	case "kubernetes_pinned_pod_logs":
+		request, err := gateway.pinnedLogCommand(ctx, command)
+		if err != nil {
+			return nil, err
+		}
+		payload = request
 	case "connector_uninstall":
 		var request connectorv1.ConnectorUninstall
 		if err := json.Unmarshal(command.Payload, &request); err != nil || request.ConnectorId == "" || request.ExpectedConnectionEpoch == 0 {
@@ -761,6 +830,17 @@ func (gateway Gateway) typedCommand(ctx context.Context, command db.ConnectorCom
 		var request connectorv1.CollectorManagementCommand
 		if protojson.Unmarshal(command.Payload, &request) != nil || request.GetCollectorId() == "" || request.GetResourceId() == "" || request.GetArtifact() == nil {
 			return nil, ErrCommandState
+		}
+		if len(request.GetPrivateMonitoringConfig()) != 0 {
+			return nil, ErrCommandState
+		}
+		if configbundle.RequiresMonitoringCredentials(request.GetRenderedConfig()) {
+			private, err := gateway.Credentials.MonitoringConfigForCollector(secret.WithActorType(ctx, "connector"), command.ConnectorID.String(), command.EnterpriseID, "connector", command.ConnectorID.String(), command.OperationRef, int64(request.GetDesiredRevision()), request.GetRenderedConfig())
+			if err != nil {
+				return nil, err
+			}
+			defer clear(private)
+			request.PrivateMonitoringConfig = private
 		}
 		if request.GetOperation() == "install" && gateway.CreateCollectorEnrollment != nil {
 			collectorID, parseErr := uuid.Parse(request.GetCollectorId())
@@ -799,6 +879,9 @@ func (gateway Gateway) typedCommand(ctx context.Context, command db.ConnectorCom
 		return nil, ErrCommandState
 	}
 	typed, err := anypb.New(payload)
+	if helm, ok := payload.(*connectorv1.KubernetesHelmCommand); ok {
+		clear(helm.PrivateMaterialJson)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -884,12 +967,14 @@ func (gateway Gateway) sendTelemetryTunnelDesired(stream connectorv1.ConnectorCo
 }
 
 func (gateway Gateway) markUncertain(identity TrustedIdentity, epoch int64, values map[string]activeCommand) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for commandID, command := range values {
 		status := "delivery_unknown"
 		if command.acknowledged {
 			status = "result_unknown"
 		}
-		_, _ = gateway.Service.TransitionCommand(context.Background(), identity, epoch, commandID, status, nil, "CONNECTOR_DISCONNECTED")
+		_, _ = gateway.Service.TransitionCommand(ctx, identity, epoch, commandID, status, nil, "CONNECTOR_DISCONNECTED")
 	}
 }
 

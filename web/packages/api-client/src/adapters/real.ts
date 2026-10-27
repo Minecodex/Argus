@@ -1,3 +1,7 @@
+import { createMonitoringDomains } from "./real/monitoring";
+import type { MonitoringDomains } from "../monitoring";
+import type { KubernetesWorkbenchDomains } from "../kubernetes-workbench";
+import { createKubernetesWorkbenchDomains } from "./real/kubernetes-workbench";
 import { createAlertDomains } from "./real/alerts";
 import { createDashboardDomains } from "./real/dashboard";
 import type { AlertDomains } from "../alerts";
@@ -269,6 +273,8 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
     ...createPlanV5Domains(http, idempotencyKey),
     ...createDashboardDomains(http, idempotencyKey),
     ...createAlertDomains(http, idempotencyKey),
+    ...createMonitoringDomains(http, idempotencyKey),
+    ...createKubernetesWorkbenchDomains(http),
   });
   const domainContext: RealDomainContext = {
     client,
@@ -1430,12 +1436,16 @@ function createOrganizationClient(
       resourceType,
       cursor,
       limit,
+      search,
+      signal,
     ) {
       const params = new URLSearchParams({ resource_type: resourceType });
       if (cursor) params.set("cursor", cursor);
       if (limit !== undefined) params.set("limit", String(limit));
+      if (search) params.set("search",search);
       return http.request<DataAuthorizationPage>(
         `enterprise/data-authorizations/${subjectType}/${subjectId}?${params.toString()}`,
+        {signal},
       );
     },
     async updateDataAuthorization(
@@ -1534,7 +1544,11 @@ function createOrganizationClient(
 }
 
 function createUnavailableClient(
-  planv5: PlanV5Domains & DashboardDomains & AlertDomains,
+  planv5: PlanV5Domains &
+    DashboardDomains &
+    AlertDomains &
+    MonitoringDomains &
+    KubernetesWorkbenchDomains,
 ): ArgusApiClient {
   return {
     ...planv5,

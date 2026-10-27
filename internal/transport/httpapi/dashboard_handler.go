@@ -128,6 +128,11 @@ func dashboardDraftView(item db.DashboardDraft) api.DashboardDraft {
 	if item.FolderID.Valid {
 		view.FolderId = &item.FolderID.UUID
 	}
+	if item.SourceTemplateKey.Valid {
+		key, version := item.SourceTemplateKey.String, item.SourceTemplateVersion.Int64
+		view.SourceTemplateKey = &key
+		view.SourceTemplateVersion = &version
+	}
 	_ = json.Unmarshal(item.Spec, &view.Spec)
 	_ = json.Unmarshal(item.ProposedBindings, &view.ProposedBindings)
 	return view
@@ -153,7 +158,11 @@ func (handler DashboardHandler) ListDashboards(ctx context.Context, r api.ListDa
 	}
 	result := []api.DashboardItem{}
 	for _, item := range items {
-		result = append(result, dashboardView(item))
+		view, err := handler.managedDashboardView(ctx, item)
+		if err != nil {
+			return api.ListDashboardsdefaultJSONResponse{Body: dashboardError(ctx, err), StatusCode: dashboardStatus(err)}, nil
+		}
+		result = append(result, view)
 	}
 	return api.ListDashboards200JSONResponse(result), nil
 }
@@ -166,7 +175,11 @@ func (handler DashboardHandler) GetDashboard(ctx context.Context, r api.GetDashb
 	if err != nil {
 		return api.GetDashboarddefaultJSONResponse{Body: dashboardError(ctx, err), StatusCode: dashboardStatus(err)}, nil
 	}
-	return api.GetDashboard200JSONResponse{Dashboard: dashboardView(item), Revision: dashboardRevisionView(revision)}, nil
+	view, err := handler.managedDashboardView(ctx, item)
+	if err != nil {
+		return api.GetDashboarddefaultJSONResponse{Body: dashboardError(ctx, err), StatusCode: dashboardStatus(err)}, nil
+	}
+	return api.GetDashboard200JSONResponse{Dashboard: view, Revision: dashboardRevisionView(revision)}, nil
 }
 func (handler DashboardHandler) ListDashboardRevisions(ctx context.Context, r api.ListDashboardRevisionsRequestObject) (api.ListDashboardRevisionsResponseObject, error) {
 	actor, failure := handler.auth(ctx, false, "")

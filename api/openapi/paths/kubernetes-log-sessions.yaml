@@ -1,0 +1,338 @@
+{
+  "create": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "createKubernetesLogSession",
+      "summary": "Create a UID-bound Pod log session and a one-use attach ticket",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "201": {
+          "description": "Create a UID-bound Pod log session and a one-use attach ticket",
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-log-sessions.yaml#/components/schemas/KubernetesLogSessionTicket"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-log-sessions.yaml#/components/schemas/KubernetesLogSessionInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "attach": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "attachKubernetesLogSession",
+      "summary": "Consume the short-lived ticket in the owning HTTP session",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Consume the short-lived ticket in the owning HTTP session",
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-log-sessions.yaml#/components/schemas/KubernetesLogSession"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-log-sessions.yaml#/components/schemas/KubernetesLogSessionAttachInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "read": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "readKubernetesLogSession",
+      "summary": "Read a bounded authorized log increment with a signed continuity cursor",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Read a bounded authorized log increment with a signed continuity cursor",
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-log-sessions.yaml#/components/schemas/KubernetesLogSessionBatch"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-log-sessions.yaml#/components/schemas/KubernetesLogSessionReadInput"
+            }
+          }
+        }
+      }
+    }
+  },
+  "close": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "closeKubernetesLogSession",
+      "summary": "Close the owning Pod log session",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Close the owning Pod log session",
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-log-sessions.yaml#/components/schemas/KubernetesLogSession"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "get": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getKubernetesLogSession",
+      "summary": "Check the current authorization of the owning Pod log session",
+      "tags": [
+        "Kubernetes"
+      ],
+      "responses": {
+        "200": {
+          "description": "Close the owning Pod log session",
+          "headers": {
+            "Cache-Control": {
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "no-store"
+                ]
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-log-sessions.yaml#/components/schemas/KubernetesLogSession"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

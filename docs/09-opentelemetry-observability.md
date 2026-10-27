@@ -1,5 +1,7 @@
 # OpenTelemetry 接入与监控数据链路
 
+2026-10-18 Plan8 讨论修订：[最新决策](./plan8/11-grilling-decisions-and-upstream.md)明确一应用一环境（生产/测试分别建应用）、SDK自动发现服务、Namespace独立授权及显式运维日志读取、完整K8s/Helm/CRD管理。监控仅采用可内置Collector的官方/成熟组件，不部署独立exporter或JMX采集服务；无合格专用内置采集方案的资源/模式留证暂缓，通用Prometheus抓取不算外部资源支持；默认仪表盘自动升级，全部支持范围统一发布。[身份与授权契约](./plan8/02-domain-data-and-authorization.md)扩展本页旧Host/Cluster范围；下述旧类型/流程与既有验收属于迁移前基线，不代表新增能力已实现。企业隔离、标签不授权、真实来源及现有确认边界保留。
+
 > Host 安装和执行路径已由 [跨平台主机接入设计](./19-cross-platform-host-onboarding.md) 替换：首装仅 Host Connector，Collector 后装并由本机 Connector 管理；旧 `self_enrolled`/WinRM 路径不再有效。
 
 ## 1. 目标与范围
@@ -479,7 +481,9 @@ config_template: host-basic.yaml
 
 Profile 需要声明 Collector 版本范围和配置 Schema。组件名称和配置可能随版本变化，例如新文档使用 `host_metrics`，旧版本中常见 `hostmetrics`，不能向所有版本下发同一份 YAML。
 
-Argus 不自行重写所有主机、数据库和中间件采集器，而是对锁定版本的 OpenTelemetry Collector Contrib Receiver、权限、只读查询和配置模板做产品封装。企业用户只配置业务参数、SecretRef、采集间隔和标签，第一版不提供任意 YAML 编辑器、动态下载组件或自定义二进制。
+Argus 不自行重写所有主机、数据库和中间件采集器，而是对锁定版本的 OpenTelemetry Collector Contrib Receiver、权限、只读查询和配置模板做产品封装。企业用户配置业务参数、连接认证、采集间隔和标签，内部用 SecretRef 引用受控凭据；第一版不提供任意 Collector YAML 编辑器、动态下载组件或自定义二进制。
+
+2026-10-18 新建交互约定：监控表单直接输入账号/密码或 Token，后台复用凭据机制自动托管为监控专用用途，平台“凭据与密钥”默认目录不混入监控专用记录；用途隔离仍由服务端授权执行。监控环境从应用/服务关联继承，应用和服务通过可搜索分页列表弹框选择；普通新建随采集配置建立目标资源，从资源详情新增采集则自动带入已有目标。当前以[工作台交互原型](./plans/monitoring-workspace/README.md)表达，正式凭据和领域链路尚待实现。
 
 ### 9.1 Metrics Profile
 

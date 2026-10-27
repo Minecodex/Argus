@@ -45,6 +45,8 @@ Schema v4 增加 source_id、source_revision、source_type 和物化 source_key�
 
 `trace_summary` 与 `trace_span_edges` 暂保留在 Schema v4 的表生命周期中，Writer 已停止写入，Trace Engine 已停止读取；它们不再是查询事实来源。新实现无需对摄入批次进行跨批更新，也不增加存储进程或权限边界。
 
+Schema v5 为 Metrics 原始样本增加数值查询投影 `argus_numeric_source_time`，按 `(source_key,timestamp,series_id,ingest_key)` 排序，包含数值、stale marker 和确定性冲突排序所需字段。Schema Manager 在既有租户锁内添加并同步物化历史样本，ReplacingMergeTree 合并使用 `deduplicate_merge_projection_mode=rebuild`。原始样本、TTL、序列身份、来源授权和 Histogram/Summary 语义保持一致；后者继续读取完整原表。新增投影增加部分磁盘和合并开销，用于避免大量短序列查询触及几乎所有 UUID 索引块。DDL 仍由原有 Schema Manager 承担。
+
 Query Pod 内的 ClickHouse 连接分为两类：查询 Engine 使用 `argus_telemetry_query` 只读账号；`TenantSchemaManager` 使用 `argus_telemetry_migration` 账号执行受信 DDL。Schema Manager 连接不得传入 PromQL、KQL、GraphQL 执行路径。
 
 ## 结果与失败策略

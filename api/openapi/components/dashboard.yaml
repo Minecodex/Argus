@@ -373,7 +373,14 @@
           "applicable_resource_types": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "host",
+                "kubernetes_cluster",
+                "application",
+                "monitoring_target",
+                "kubernetes_namespace"
+              ]
             }
           },
           "source_binding": {
@@ -966,6 +973,18 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "source_template_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "readOnly": true
+          },
+          "source_template_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "readOnly": true
           }
         },
         "required": [
@@ -1012,6 +1031,18 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "managed_template_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "readOnly": true
+          },
+          "managed_template_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "readOnly": true
           }
         },
         "required": [
@@ -1263,6 +1294,43 @@
               "maxProperties": 32
             },
             "maxProperties": 64
+          },
+          "resource_mode": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ],
+            "description": "all_authorized selects current grants; explicit preserves an empty resource_ids set"
+          },
+          "resource_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "host",
+                "kubernetes_cluster",
+                "application",
+                "monitoring_target",
+                "kubernetes_namespace"
+              ]
+            },
+            "maxItems": 5
+          },
+          "application_mode": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ]
+          },
+          "application_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 1000
           }
         },
         "required": []
@@ -1279,7 +1347,10 @@
             "type": "string",
             "enum": [
               "host",
-              "kubernetes_cluster"
+              "kubernetes_cluster",
+              "application",
+              "monitoring_target",
+              "kubernetes_namespace"
             ]
           }
         },
@@ -1322,6 +1393,37 @@
             "type": "string",
             "format": "date-time",
             "description": "Registration time of this source configuration revision."
+          },
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster",
+              "application",
+              "monitoring_target"
+            ],
+            "description": "Actual identity in telemetry storage; Namespace selection remains a separate authorization boundary."
+          },
+          "scope_resource_ids": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "scope_signature": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "scope_relations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
           }
         },
         "required": [
@@ -1493,6 +1595,44 @@
           "context_expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "scope_signature": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "scope_empty": {
+            "type": "boolean"
+          },
+          "scope_versions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resources",
+              "relations"
+            ],
+            "properties": {
+              "resources": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 1
+                }
+              },
+              "relations": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "scope_selection": {
+            "$ref": "#/components/schemas/DashboardScopeSelection"
           }
         },
         "required": [
@@ -1857,7 +1997,9 @@
             "type": "string",
             "enum": [
               "host",
-              "kubernetes_cluster"
+              "kubernetes_cluster",
+              "application",
+              "monitoring_target"
             ]
           },
           "resource_id": {
@@ -1891,7 +2033,9 @@
             "type": "string",
             "enum": [
               "host",
-              "kubernetes_cluster"
+              "kubernetes_cluster",
+              "application",
+              "monitoring_target"
             ]
           },
           "resource_id": {
@@ -2095,6 +2239,143 @@
             }
           }
         }
+      },
+      "DashboardScopeSelection": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ]
+          },
+          "ids": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "types": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "enum": [
+                "host",
+                "kubernetes_cluster",
+                "application",
+                "monitoring_target",
+                "kubernetes_namespace"
+              ]
+            }
+          },
+          "signal": {
+            "type": "string",
+            "enum": [
+              "metrics",
+              "logs",
+              "traces",
+              "catalog"
+            ]
+          },
+          "applications": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "all_authorized",
+                  "explicit"
+                ]
+              },
+              "ids": {
+                "type": "array",
+                "maxItems": 1000,
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "required": [
+              "mode",
+              "ids"
+            ]
+          }
+        },
+        "required": [
+          "mode",
+          "ids",
+          "types",
+          "signal"
+        ],
+        "readOnly": true
+      },
+      "DashboardScopeDirectoryItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster",
+              "application",
+              "monitoring_target",
+              "kubernetes_namespace"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent_name": {
+            "type": "string"
+          },
+          "source_uid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name",
+          "environment"
+        ]
+      },
+      "DashboardScopeDirectoryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardScopeDirectoryItem"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "items"
+        ]
       }
     }
   }

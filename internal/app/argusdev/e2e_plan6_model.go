@@ -146,6 +146,10 @@ func (a *App) runPlan6RealModel(ctx context.Context, env *E2EEnvironment) (failu
 }
 
 func verifyPlan6DiscoveryOrder(evidence string) error {
+	return verifyTypedToolDiscoveryOrder(evidence, "alert")
+}
+
+func verifyTypedToolDiscoveryOrder(evidence, category string) error {
 	var calls []struct {
 		Tool      string                          `json:"tool"`
 		Status    string                          `json:"status"`
@@ -160,13 +164,13 @@ func verifyPlan6DiscoveryOrder(evidence string) error {
 		key := call.Input.Category + ":" + call.Input.Name
 		switch call.Tool {
 		case "tool.search":
-			searched = searched || call.Status == "succeeded" && call.Input.Category == "alert"
+			searched = searched || call.Status == "succeeded" && call.Input.Category == category
 		case "tool.describe":
-			if call.Status == "succeeded" && call.Input.Category == "alert" && searched {
+			if call.Status == "succeeded" && call.Input.Category == category && searched {
 				described[key] = true
 			}
 		case "tool.invoke":
-			if call.Input.Category != "alert" {
+			if call.Input.Category != category {
 				continue
 			}
 			if call.Status == "failed" && call.ErrorCode == "TOOL_DESCRIPTION_REQUIRED" {
@@ -175,13 +179,13 @@ func verifyPlan6DiscoveryOrder(evidence string) error {
 				continue
 			}
 			if strings.HasSuffix(call.Input.Name, ".commit") || !described[key] {
-				return fmt.Errorf("alert invocation %s lacked prior authorized search/describe", key)
+				return fmt.Errorf("%s invocation %s lacked prior authorized search/describe", category, key)
 			}
 			invoked = invoked || call.Status == "succeeded"
 		}
 	}
 	if !searched || !invoked {
-		return fmt.Errorf("model did not autonomously search, describe and invoke an alert tool")
+		return fmt.Errorf("model did not autonomously search, describe and invoke a %s tool", category)
 	}
 	return nil
 }

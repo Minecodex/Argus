@@ -1,3 +1,6 @@
+import { commitMonitoringAction } from "./monitoring";
+import { commitKubernetesMutation } from "./kubernetes-mutations";
+import { commitKubernetesHelm } from "./kubernetes-helm";
 import { commitAlertAction, createAlertDomains } from "./alerts";
 import { commitDashboardAction } from "./dashboard";
 import { publishMockPresentation } from "./planv5";
@@ -354,6 +357,12 @@ export function createEngine(ctx: BaseContext): Engine {
   function commitResourceAction(
     action: PendingActionPublic,
   ): ConfirmActionResult | undefined {
+    const helmResult = commitKubernetesHelm(ctx, action);
+    if (helmResult) return helmResult;
+    const kubernetesResult = commitKubernetesMutation(ctx, action);
+    if (kubernetesResult) return kubernetesResult;
+    const monitoringResult = commitMonitoringAction(ctx, action);
+    if (monitoringResult) return monitoringResult;
     const alertResult = commitAlertAction(ctx, action);
     if (alertResult) return alertResult;
     const dashboardResult = commitDashboardAction(ctx, action);

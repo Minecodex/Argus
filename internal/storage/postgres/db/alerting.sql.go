@@ -185,21 +185,23 @@ func (q *Queries) AlertGroupNextSend(ctx context.Context, arg AlertGroupNextSend
 }
 
 const alertMetricSources = `-- name: AlertMetricSources :many
-SELECT source.id,source.resource_id,source.source_key,source.config_revision,source.config_hash,source.generation
+SELECT source.id,source.resource_type,source.resource_id,source.source_key,source.config_revision,source.config_hash,source.generation
 FROM telemetry_sources source JOIN collector_instances collector ON collector.id=source.collector_id AND collector.enterprise_id=source.enterprise_id
-WHERE source.enterprise_id=$1 AND source.resource_id=ANY($2::uuid[])
+JOIN jsonb_to_recordset($1::jsonb) AS resource(type text,id uuid) ON resource.id=source.resource_id AND resource.type=source.resource_type
+WHERE source.enterprise_id=$2
 AND source.generation=collector.source_generation AND collector.status NOT IN ('uninstalled','uninstalling') AND 'metrics'=ANY(source.signals)
 AND source.config_revision=collector.effective_revision
 ORDER BY source.id,source.config_revision
 `
 
 type AlertMetricSourcesParams struct {
-	EnterpriseID uuid.UUID   `json:"enterprise_id"`
-	ResourceIds  []uuid.UUID `json:"resource_ids"`
+	ResourceRefs []byte    `json:"resource_refs"`
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
 }
 
 type AlertMetricSourcesRow struct {
 	ID             uuid.UUID `json:"id"`
+	ResourceType   string    `json:"resource_type"`
 	ResourceID     uuid.UUID `json:"resource_id"`
 	SourceKey      string    `json:"source_key"`
 	ConfigRevision int64     `json:"config_revision"`
@@ -208,7 +210,7 @@ type AlertMetricSourcesRow struct {
 }
 
 func (q *Queries) AlertMetricSources(ctx context.Context, arg AlertMetricSourcesParams) ([]AlertMetricSourcesRow, error) {
-	rows, err := q.db.Query(ctx, alertMetricSources, arg.EnterpriseID, arg.ResourceIds)
+	rows, err := q.db.Query(ctx, alertMetricSources, arg.ResourceRefs, arg.EnterpriseID)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +220,7 @@ func (q *Queries) AlertMetricSources(ctx context.Context, arg AlertMetricSources
 		var i AlertMetricSourcesRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.ResourceType,
 			&i.ResourceID,
 			&i.SourceKey,
 			&i.ConfigRevision,

@@ -20,10 +20,11 @@ func formalSnapshotFixture(t *testing.T) (*E2EEnvironment, *fake.Clientset) {
 	t.Helper()
 	one := int32(1)
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "formal", UID: "ns-original", Labels: map[string]string{"argus.io/release-id": "original", "app.kubernetes.io/part-of": "argus"}}}
-	d := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "worker", Namespace: ns.Name, UID: "worker-original", Generation: 1}, Spec: appsv1.DeploymentSpec{Replicas: &one}, Status: appsv1.DeploymentStatus{ObservedGeneration: 1, Replicas: 1, ReadyReplicas: 1, AvailableReplicas: 1, UpdatedReplicas: 1}}
+	d := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "worker", Namespace: ns.Name, UID: "worker-original", Generation: 1}, Spec: appsv1.DeploymentSpec{Replicas: &one, Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "worker"}}}, Status: appsv1.DeploymentStatus{ObservedGeneration: 1, Replicas: 1, ReadyReplicas: 1, AvailableReplicas: 1, UpdatedReplicas: 1}}
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "worker-pod", Namespace: ns.Name, UID: "worker-pod-original", Labels: map[string]string{"app": "worker"}}, Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}}
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "data", Namespace: ns.Name, UID: "claim-original"}, Spec: corev1.PersistentVolumeClaimSpec{VolumeName: "volume", Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")}}}, Status: corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound, Capacity: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")}}}
 	pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: "volume", UID: "volume-original"}, Spec: corev1.PersistentVolumeSpec{ClaimRef: &corev1.ObjectReference{Namespace: ns.Name, Name: pvc.Name, UID: pvc.UID}, PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain}, Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeBound}}
-	client := fake.NewClientset(ns, d, pvc, pv)
+	client := fake.NewClientset(ns, d, pod, pvc, pv)
 	env := &E2EEnvironment{ReleaseID: "test-run", Options: E2EOptions{Artifacts: t.TempDir(), RunID: "test-run"}, Kube: &E2EKube{Client: client}}
 	return env, client
 }

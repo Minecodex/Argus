@@ -1,0 +1,225 @@
+{
+  "components": {
+    "schemas": {
+      "KubernetesLogSessionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pod": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "pod_uid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "container": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "previous": {
+            "type": "boolean"
+          },
+          "tail_lines": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "since_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 86400
+          }
+        },
+        "required": [
+          "namespace_id",
+          "pod",
+          "pod_uid",
+          "container",
+          "previous",
+          "tail_lines",
+          "since_seconds"
+        ]
+      },
+      "KubernetesLogSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cluster_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "namespace_uid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "pod": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "pod_uid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "container": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "restart_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "previous": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "closed",
+              "invalidated"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "cluster_id",
+          "namespace_id",
+          "namespace",
+          "namespace_uid",
+          "pod",
+          "pod_uid",
+          "container",
+          "restart_count",
+          "previous",
+          "status",
+          "version",
+          "expires_at"
+        ]
+      },
+      "KubernetesLogSessionTicket": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/KubernetesLogSession"
+          },
+          "ticket": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "ticket_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "session",
+          "ticket",
+          "ticket_expires_at"
+        ]
+      },
+      "KubernetesLogSessionAttachInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          }
+        },
+        "required": [
+          "ticket"
+        ]
+      },
+      "KubernetesLogSessionReadInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": []
+      },
+      "KubernetesLogSessionBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 524288
+          },
+          "next_cursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "pending_line": {
+            "type": "boolean"
+          },
+          "redacted": {
+            "type": "boolean"
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "content",
+          "next_cursor",
+          "observed_at",
+          "truncated",
+          "pending_line",
+          "redacted",
+          "complete"
+        ]
+      }
+    }
+  }
+}

@@ -105,7 +105,7 @@ func (handler PresentationHandler) ReadToolPresentation(ctx context.Context, r a
 		}
 		ids := []uuid.UUID{}
 		for _, ref := range refs {
-			if ref.Type == "host" || ref.Type == "kubernetes_cluster" {
+			if ref.Type == "host" || ref.Type == "kubernetes_cluster" || ref.Type == "application" || ref.Type == "monitoring_target" || ref.Type == "kubernetes_namespace" {
 				id, e := uuid.Parse(ref.ID)
 				if e != nil {
 					return fail(e)

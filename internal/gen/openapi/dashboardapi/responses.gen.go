@@ -10,6 +10,86 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+type ListApplicationDashboardBindingsRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type ListApplicationDashboardBindingsResponseObject interface {
+	VisitListApplicationDashboardBindingsResponse(w http.ResponseWriter) error
+}
+
+type ListApplicationDashboardBindings200JSONResponse ResourceDashboardBindings
+
+func (response ListApplicationDashboardBindings200JSONResponse) VisitListApplicationDashboardBindingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApplicationDashboardBindingsdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response ListApplicationDashboardBindingsdefaultJSONResponse) VisitListApplicationDashboardBindingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewApplicationDashboardBindingRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params PreviewApplicationDashboardBindingParams
+	Body   *PreviewApplicationDashboardBindingJSONRequestBody
+}
+
+type PreviewApplicationDashboardBindingResponseObject interface {
+	VisitPreviewApplicationDashboardBindingResponse(w http.ResponseWriter) error
+}
+
+type PreviewApplicationDashboardBinding201JSONResponse PendingActionPublicSchema
+
+func (response PreviewApplicationDashboardBinding201JSONResponse) VisitPreviewApplicationDashboardBindingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewApplicationDashboardBindingdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response PreviewApplicationDashboardBindingdefaultJSONResponse) VisitPreviewApplicationDashboardBindingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StartDashboardQueryJobRequestObject struct {
 	Id     openapi_types.UUID `json:"id"`
 	Params StartDashboardQueryJobParams
@@ -760,6 +840,45 @@ func (response PreviewDashboardFolderdefaultJSONResponse) VisitPreviewDashboardF
 	return err
 }
 
+type ListDashboardScopeResourcesRequestObject struct {
+	Params ListDashboardScopeResourcesParams
+}
+
+type ListDashboardScopeResourcesResponseObject interface {
+	VisitListDashboardScopeResourcesResponse(w http.ResponseWriter) error
+}
+
+type ListDashboardScopeResources200JSONResponse DashboardScopeDirectoryPage
+
+func (response ListDashboardScopeResources200JSONResponse) VisitListDashboardScopeResourcesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDashboardScopeResourcesdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response ListDashboardScopeResourcesdefaultJSONResponse) VisitListDashboardScopeResourcesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ConvertDashboardPanelRequestObject struct {
 	Params ConvertDashboardPanelParams
 	Body   *ConvertDashboardPanelJSONRequestBody
@@ -1304,6 +1423,86 @@ type PreviewClusterDashboardBindingdefaultJSONResponse struct {
 }
 
 func (response PreviewClusterDashboardBindingdefaultJSONResponse) VisitPreviewClusterDashboardBindingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMonitoringTargetDashboardBindingsRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type ListMonitoringTargetDashboardBindingsResponseObject interface {
+	VisitListMonitoringTargetDashboardBindingsResponse(w http.ResponseWriter) error
+}
+
+type ListMonitoringTargetDashboardBindings200JSONResponse ResourceDashboardBindings
+
+func (response ListMonitoringTargetDashboardBindings200JSONResponse) VisitListMonitoringTargetDashboardBindingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMonitoringTargetDashboardBindingsdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response ListMonitoringTargetDashboardBindingsdefaultJSONResponse) VisitListMonitoringTargetDashboardBindingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewMonitoringTargetDashboardBindingRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params PreviewMonitoringTargetDashboardBindingParams
+	Body   *PreviewMonitoringTargetDashboardBindingJSONRequestBody
+}
+
+type PreviewMonitoringTargetDashboardBindingResponseObject interface {
+	VisitPreviewMonitoringTargetDashboardBindingResponse(w http.ResponseWriter) error
+}
+
+type PreviewMonitoringTargetDashboardBinding201JSONResponse PendingActionPublicSchema
+
+func (response PreviewMonitoringTargetDashboardBinding201JSONResponse) VisitPreviewMonitoringTargetDashboardBindingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewMonitoringTargetDashboardBindingdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response PreviewMonitoringTargetDashboardBindingdefaultJSONResponse) VisitPreviewMonitoringTargetDashboardBindingResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {

@@ -9,9 +9,13 @@ import (
 	"syscall"
 
 	workerapp "github.com/kakj-go/Argus/internal/app/worker"
+	"github.com/kakj-go/Argus/internal/kuberneteshelm"
 )
 
 func main() {
+	if kuberneteshelm.RunRenderCommand(os.Args[1:], os.Stdin, os.Stdout) {
+		return
+	}
 	pool := flag.String("pool", workerapp.PoolDefault, "worker pool: default, agent, action, compaction, sandbox, direct-executor, or workspace-io")
 	flag.Parse()
 

@@ -183,4 +183,33 @@ func TestAPMClickHouseReceivedSamples(t *testing.T) {
 	if len(view["edges"].([]any)) != 0 || len(view["nodes"].([]any)) != 1 || view["coverage"].(map[string]any)["missingParentCount"] != float64(1) {
 		t.Fatal("topology attribute filter imported a parent from another environment")
 	}
+	bounded := request
+	bounded.Scope = skywalking.Scope{EnterpriseID: tenant, ResourceIDs: []uuid.UUID{host}, SourceKeys: []string{source.String() + ":1"}}
+	bounded.OperationName = "ApplicationAPM"
+	bounded.Variables = map[string]any{"serviceIds": nil}
+	bounded.Document = skywalking.ApplicationAPMQueries()["services"]
+	if _, err := engine.Execute(ctx, bounded); !errors.Is(err, skywalking.ErrBudget) {
+		t.Fatal("100 rows plus coverage bypassed the existing total budget", err)
+	}
+	bounded.Document, err = skywalking.ApplicationAPMQuery("services", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := engine.Execute(ctx, bounded)
+	if err != nil {
+		t.Fatal("narrow request failed within the unchanged budget", err)
+	}
+	apiFound := false
+	for _, row := range page.Data["queryAPMServices"].(map[string]any)["rows"].([]any) {
+		value := row.(map[string]any)
+		if value["resourceId"] != host.String() {
+			t.Fatal("bounded query escaped its resource")
+		}
+		if value["serviceName"] == "api" && value["sampleCount"] == float64(2) {
+			apiFound = true
+		}
+	}
+	if !apiFound {
+		t.Fatal("bounded query lost the actual received samples")
+	}
 }

@@ -1411,7 +1411,7 @@ func (q *Queries) LockRemoteSession(ctx context.Context, arg LockRemoteSessionPa
 }
 
 const markExecutionRemoteResultUnknown = `-- name: MarkExecutionRemoteResultUnknown :one
-UPDATE executions SET status='result_unknown',remote_execution_id=$3,updated_at=now() WHERE id=$1 AND enterprise_id=$2 RETURNING id, execution_ref, pending_action_id, enterprise_id, run_id, status, idempotency_key, result_ref, connector_command_id, error_code, started_at, completed_at, created_at, updated_at, telemetry_collector_operation_id, connector_install_operation_id, host_onboarding_operation_id, host_removal_operation_id, remote_execution_id
+UPDATE executions SET status='result_unknown',remote_execution_id=$3,updated_at=now() WHERE id=$1 AND enterprise_id=$2 RETURNING id, execution_ref, pending_action_id, enterprise_id, run_id, status, idempotency_key, result_ref, connector_command_id, error_code, started_at, completed_at, created_at, updated_at, telemetry_collector_operation_id, connector_install_operation_id, host_onboarding_operation_id, host_removal_operation_id, remote_execution_id, kubernetes_operation_id
 `
 
 type MarkExecutionRemoteResultUnknownParams struct {
@@ -1443,6 +1443,7 @@ func (q *Queries) MarkExecutionRemoteResultUnknown(ctx context.Context, arg Mark
 		&i.HostOnboardingOperationID,
 		&i.HostRemovalOperationID,
 		&i.RemoteExecutionID,
+		&i.KubernetesOperationID,
 	)
 	return i, err
 }

@@ -26,6 +26,8 @@ message RemoteAccessOpen {
   google.protobuf.Duration idle_timeout = 15;
   google.protobuf.Duration max_duration = 16;
   string username = 17;
+  // Versioned target for independently authorized Kubernetes streams.
+  bytes kubernetes_target_json = 18;
 }
 
 message RemoteAccessData {

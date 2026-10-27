@@ -1,5 +1,31 @@
 export const alertsZh = {
   alerts: {
+    deliveryHealth: "采集发送健康",
+    delivery_fault: "采集发送异常",
+    deliveryManagedPolicyLabel: "平台托管",
+    deliveryGapTitle: "采集发送数据缺口",
+    deliveryGapExplanation:
+      "最终发送失败与接收、入队拒绝分别记录。拒绝可能被重试，不能直接视为丢失条数；共享管道中精确受影响目标和样本时间未知。",
+    deliverySignal: "数据类型",
+    deliveryTerminal: "最终发送失败",
+    deliveryRefused: "接收拒绝尝试",
+    deliveryEnqueue: "入队失败尝试",
+    deliverySignal_log_records: "日志记录",
+    deliverySignal_spans: "Trace Span",
+    deliverySignal_metric_points: "指标点",
+    deliveryObservedSince: "累计观察起点",
+    deliveryObservedAt: "最近观察时间",
+    deliveryLastFailure: "最近观察到失败",
+    deliveryRetryLimit: "单批重试上限",
+    deliveryRetrySeconds: "{{seconds}} 秒，队列等待另计",
+    deliveryAttribution: "影响归属",
+    deliveryTargetsUnknown: "Collector 共享管道；精确目标未知",
+    deliveryGapHistory:
+      "新的正常采样不会抹掉历史缺口；原始本地日志仅用于明确范围的受控重采。",
+    deliveryObservationCoverage:
+      "计数来自周期性原生自监控；进程退出前未被观测的故障不能据此排除。",
+    deliveryManagedPolicy:
+      "平台托管的采集故障策略。无需启用自身指标采集；策略配置只读，事件仍可确认、分配和屏蔽。",
     policyBasics: "1. 名称与监控范围",
     policyBasicsHint: "选择需要监控的资源，以及多条规则之间的触发关系。",
     authorizedResources: "全部已授权资源",
@@ -406,6 +432,8 @@ export const alertsZh = {
       "支持 severity、policy、resource、metric、value、threshold、duration、detail_url。",
     not_evaluated: "尚未评估",
     first: "首次触发",
+    automatedAction: "系统操作",
+    eventUpdated: "告警状态更新",
     recovery: "指标恢复",
     smtp_host: "SMTP 主机",
     smtp_port: "SMTP 端口",
@@ -420,6 +448,32 @@ export const alertsZh = {
 };
 export const alertsEn = {
   alerts: {
+    deliveryHealth: "Delivery health",
+    delivery_fault: "Delivery fault",
+    deliveryManagedPolicyLabel: "Platform managed",
+    deliveryGapTitle: "Collector delivery data gap",
+    deliveryGapExplanation:
+      "Terminal export failures, receiver refusals and enqueue failures are separate counts. Refused attempts may succeed on retry. Exact affected targets and sample timestamps are unknown in the shared pipeline.",
+    deliverySignal: "Signal",
+    deliveryTerminal: "Terminal export failures",
+    deliveryRefused: "Refused receive attempts",
+    deliveryEnqueue: "Failed enqueue attempts",
+    deliverySignal_log_records: "Log records",
+    deliverySignal_spans: "Trace spans",
+    deliverySignal_metric_points: "Metric points",
+    deliveryObservedSince: "Cumulative observation start",
+    deliveryObservedAt: "Last observed",
+    deliveryLastFailure: "Last observed failure",
+    deliveryRetryLimit: "Per-batch retry limit",
+    deliveryRetrySeconds: "{{seconds}} seconds; queue wait is separate",
+    deliveryAttribution: "Affected scope",
+    deliveryTargetsUnknown: "Collector shared pipeline; exact targets unknown",
+    deliveryGapHistory:
+      "Fresh successful samples do not erase historical gaps. Original local logs may be replayed only within a controlled explicit scope.",
+    deliveryObservationCoverage:
+      "Counts use periodic native self-observation. Failures not observed before process exit cannot be excluded.",
+    deliveryManagedPolicy:
+      "Platform-managed Collector fault policy. Optional self-metric collection is not required. Configuration is read-only; events can still be acknowledged, assigned and silenced.",
     policyBasics: "1. Name and resource scope",
     policyBasicsHint:
       "Choose the monitored resources and how multiple rules combine.",
@@ -851,6 +905,8 @@ export const alertsEn = {
       "Available variables: severity, policy, resource, metric, value, threshold, duration, detail_url.",
     not_evaluated: "Not evaluated",
     first: "First firing",
+    automatedAction: "System action",
+    eventUpdated: "Alert updated",
     recovery: "Recovery",
     smtp_host: "SMTP host",
     smtp_port: "SMTP port",

@@ -11,8 +11,10 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/kakj-go/Argus/internal/telemetry/datapolicy"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
+	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chscope"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chstats"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/kql"
 )
@@ -23,6 +25,8 @@ type CatalogFilter struct {
 	Values   []string `json:"values"`
 }
 type DataCatalogRequest struct {
+	Resources                           []resourceref.Ref
+	ScopeSignature                      string
 	SubjectID                           uuid.UUID
 	SubjectType                         string
 	EnterpriseID                        uuid.UUID
@@ -115,18 +119,22 @@ func (query ClickHouseQuery) DiscoverData(ctx context.Context, request DataCatal
 	default:
 		return result, ErrQueryInvalid
 	}
-	where := "resource_id IN (?) AND source_key IN (?)"
-	args := []any{request.ResourceIDs, request.SourceKeys}
+	ctx, err = chscope.WithSources(ctx, request.SourceKeys)
+	if err != nil {
+		return result, err
+	}
+	where := "resource_id IN (?) AND " + chscope.FacetedPredicate("source_key", "resource_attributes['argus.namespace.uid']")
+	args := []any{request.ResourceIDs}
 	if request.Signal == "metrics" {
-		where += " AND series_id IN (SELECT series_id FROM `" + tables.MetricSamples + "` WHERE resource_id IN (?) AND source_key IN (?) AND timestamp>=? AND timestamp<=?)"
-		args = append(args, request.ResourceIDs, request.SourceKeys, request.From, request.To)
+		where += " AND series_id IN (SELECT series_id FROM `" + tables.MetricSamples + "` WHERE resource_id IN (?) AND " + chscope.BasePredicate("source_key") + " AND timestamp>=fromUnixTimestamp64Nano(?, 'UTC') AND timestamp<=fromUnixTimestamp64Nano(?, 'UTC'))"
+		args = append(args, request.ResourceIDs, request.From.UnixNano(), request.To.UnixNano())
 		if request.Metric != "" {
 			where += " AND metric_name=?"
 			args = append(args, request.Metric)
 		}
 	} else {
-		where += " AND " + timestamp + ">=? AND " + timestamp + "<?"
-		args = append(args, request.From, request.To)
+		where += " AND " + timestamp + ">=fromUnixTimestamp64Nano(?, 'UTC') AND " + timestamp + "<fromUnixTimestamp64Nano(?, 'UTC')"
+		args = append(args, request.From.UnixNano(), request.To.UnixNano())
 	}
 	for _, filter := range request.Filters {
 		predicate, values, e := catalogFilterSQL(request.Signal, filter)

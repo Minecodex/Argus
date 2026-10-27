@@ -10,7 +10,7 @@ import (
 )
 
 func (handler TelemetryHandler) queryActor(ctx context.Context, toolID string) (telemetry.Actor, identity.Principal, *api.ApiError) {
-	principal, failure := handler.Identity.enterprisePrincipalAny(ctx, false, "", "host.read", "kubernetes.read")
+	principal, failure := handler.Identity.enterprisePrincipalAny(ctx, false, "", telemetry.ResourceQueryPermissions()...)
 	if failure != nil {
 		value := dashboardConvert[api.ApiError](failure)
 		return telemetry.Actor{}, principal, &value

@@ -1,0 +1,64 @@
+.argus-monitoring-toolbar,
+.argus-monitoring-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.argus-builtin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.argus-component-trust-form {
+  display: grid;
+  gap: var(--space-4);
+}
+.argus-monitoring-toolbar .argus-input {
+  flex: 1;
+}
+.argus-monitoring-collection-filters {
+  margin-bottom: var(--space-4);
+}
+.argus-monitoring-pagination {
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+.argus-monitoring-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  padding: var(--space-4);
+}
+.argus-monitoring-facts dt {
+  color: var(--text-secondary);
+}
+.argus-monitoring-facts dd {
+  margin: var(--space-2) 0 0;
+}
+.argus-monitoring-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.argus-monitoring-ingest {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+.argus-monitoring-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.argus-monitoring-association {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+}
+.argus-monitoring-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

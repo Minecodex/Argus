@@ -72,7 +72,10 @@ func TestOpenBaoMaintenanceCommandsSelectUnsealContainer(t *testing.T) {
 	if !slices.Contains(execArgs, "--container") || !slices.Contains(execArgs, openBaoMaintenanceContainer) {
 		t.Fatalf("OpenBao exec does not select the maintenance container: %v", execArgs)
 	}
-	copyArgs := openBaoCopyArgs(kube, "argus-openbao-0:/tmp/snapshot", t.TempDir())
+	_, copyArgs, err := podFileTransferCommand(kube, podFileTransfer{Pod: "argus-openbao-0", Container: openBaoMaintenanceContainer, RemotePath: "/tmp/snapshot", LocalPath: filepath.Join(t.TempDir(), "snapshot")})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !slices.Contains(copyArgs, "--container") || !slices.Contains(copyArgs, openBaoMaintenanceContainer) {
 		t.Fatalf("OpenBao copy does not select the maintenance container: %v", copyArgs)
 	}

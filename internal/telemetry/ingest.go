@@ -26,13 +26,12 @@ import (
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/kakj-go/Argus/internal/monitoring"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"github.com/kakj-go/Argus/internal/storage/redis"
 	"github.com/kakj-go/Argus/internal/trustbundle"
@@ -71,6 +70,8 @@ type IngestServer struct {
 	Kafka              *kgo.Client
 	Logger             *slog.Logger
 	Identity           *IdentityService
+	Applications       monitoring.Service
+	DeliveryReports    collectorDeliveryObserver
 	IngestGRPCEndpoint string
 	IngestHTTPEndpoint string
 }
@@ -96,11 +97,13 @@ func NewIngestGRPCServer(server *IngestServer, tlsConfig *tls.Config) *grpc.Serv
 func (server *IngestServer) HTTPHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/identity/enroll", server.httpEnrollCollector)
+	mux.HandleFunc("/v1/application-ingest/authorize", server.httpAuthorizeApplication)
 	mux.HandleFunc("/v1/metrics", server.httpExport("metrics"))
 	mux.HandleFunc("/v1/logs", server.httpExport("logs"))
 	mux.HandleFunc("/v1/traces", server.httpExport("traces"))
 	mux.HandleFunc("/v1/identity/rotate", server.httpRotateCertificate)
 	mux.HandleFunc("/v1/identity/trust-bundle", server.httpTrustBundle)
+	mux.HandleFunc("/v1/collector-delivery", server.httpCollectorDelivery)
 	return mux
 }
 
@@ -216,11 +219,11 @@ func trustBundleJSON(bundle trustbundle.Bundle) map[string]any {
 func (server *IngestServer) Export(ctx context.Context, request *collectmetrics.ExportMetricsServiceRequest) (*collectmetrics.ExportMetricsServiceResponse, error) {
 	identity, err := server.grpcIdentity(ctx)
 	if err != nil || validateMetrics(request) != nil {
-		return nil, status.Error(codes.PermissionDenied, "telemetry identity or payload rejected")
+		return nil, admissionRPCError(&admissionStageError{Stage: "transport_identity", Cause: err}, "telemetry identity or payload rejected")
 	}
 	identity, err = server.prepareMetricPayload(ctx, identity, request)
 	if err != nil {
-		return nil, status.Error(codes.PermissionDenied, "telemetry downstream identity rejected")
+		return nil, admissionRPCError(err, "telemetry downstream identity rejected")
 	}
 	payload, err := proto.Marshal(request)
 	if err == nil {
@@ -228,7 +231,7 @@ func (server *IngestServer) Export(ctx context.Context, request *collectmetrics.
 	}
 	if err != nil {
 		server.logPublishFailure("metrics", identity, err)
-		return nil, status.Error(codes.Unavailable, "telemetry ingest unavailable")
+		return nil, ingestPublishRPCError(err)
 	}
 	return &collectmetrics.ExportMetricsServiceResponse{}, nil
 }
@@ -236,11 +239,11 @@ func (server *IngestServer) Export(ctx context.Context, request *collectmetrics.
 func (server *IngestServer) ExportLogs(ctx context.Context, request *collectlogs.ExportLogsServiceRequest) (*collectlogs.ExportLogsServiceResponse, error) {
 	identity, err := server.grpcIdentity(ctx)
 	if err != nil || validateLogs(request) != nil {
-		return nil, status.Error(codes.PermissionDenied, "telemetry identity or payload rejected")
+		return nil, admissionRPCError(&admissionStageError{Stage: "transport_identity", Cause: err}, "telemetry identity or payload rejected")
 	}
 	identity, err = server.prepareLogPayload(ctx, identity, request)
 	if err != nil {
-		return nil, status.Error(codes.PermissionDenied, "telemetry downstream identity rejected")
+		return nil, admissionRPCError(err, "telemetry downstream identity rejected")
 	}
 	payload, err := proto.Marshal(request)
 	if err == nil {
@@ -248,7 +251,7 @@ func (server *IngestServer) ExportLogs(ctx context.Context, request *collectlogs
 	}
 	if err != nil {
 		server.logPublishFailure("logs", identity, err)
-		return nil, status.Error(codes.Unavailable, "telemetry ingest unavailable")
+		return nil, ingestPublishRPCError(err)
 	}
 	return &collectlogs.ExportLogsServiceResponse{}, nil
 }
@@ -256,11 +259,11 @@ func (server *IngestServer) ExportLogs(ctx context.Context, request *collectlogs
 func (server *IngestServer) ExportTraces(ctx context.Context, request *collecttraces.ExportTraceServiceRequest) (*collecttraces.ExportTraceServiceResponse, error) {
 	identity, err := server.grpcIdentity(ctx)
 	if err != nil || validateTraces(request) != nil {
-		return nil, status.Error(codes.PermissionDenied, "telemetry identity or payload rejected")
+		return nil, admissionRPCError(&admissionStageError{Stage: "transport_identity", Cause: err}, "telemetry identity or payload rejected")
 	}
 	identity, err = server.prepareTracePayload(ctx, identity, request)
 	if err != nil {
-		return nil, status.Error(codes.PermissionDenied, "telemetry downstream identity rejected")
+		return nil, admissionRPCError(err, "telemetry downstream identity rejected")
 	}
 	payload, err := proto.Marshal(request)
 	if err == nil {
@@ -268,7 +271,7 @@ func (server *IngestServer) ExportTraces(ctx context.Context, request *collecttr
 	}
 	if err != nil {
 		server.logPublishFailure("traces", identity, err)
-		return nil, status.Error(codes.Unavailable, "telemetry ingest unavailable")
+		return nil, ingestPublishRPCError(err)
 	}
 	return &collecttraces.ExportTraceServiceResponse{}, nil
 }
@@ -294,7 +297,7 @@ func (server *IngestServer) httpExport(signal string) http.HandlerFunc {
 		}
 		identity, err := server.resolveIdentity(request.Context(), request.TLS.PeerCertificates[0])
 		if err != nil {
-			http.Error(writer, "telemetry identity rejected", http.StatusForbidden)
+			admissionHTTPError(writer, &admissionStageError{Stage: "transport_identity", Cause: err}, "telemetry identity rejected", http.StatusForbidden)
 			return
 		}
 		body, err := io.ReadAll(http.MaxBytesReader(writer, request.Body, maxCompressedRequest))
@@ -336,12 +339,12 @@ func (server *IngestServer) httpExport(signal string) http.HandlerFunc {
 			}
 		}
 		if err != nil || message == nil {
-			http.Error(writer, "telemetry payload rejected", http.StatusBadRequest)
+			admissionHTTPError(writer, err, "telemetry payload rejected", http.StatusBadRequest)
 			return
 		}
 		encoded, _ := proto.Marshal(message)
 		if err := server.publish(request.Context(), signal, identity, encoded); err != nil {
-			http.Error(writer, "telemetry ingest unavailable", http.StatusServiceUnavailable)
+			ingestPublishHTTPError(writer, err)
 			return
 		}
 		writer.Header().Set("Content-Type", "application/x-protobuf")
@@ -354,7 +357,13 @@ func (server *IngestServer) resolveIdentity(ctx context.Context, certificate *x5
 		return TrustedIdentity{}, errIngestRejected
 	}
 	identity, uriSAN, err := server.Control.ResolveCollectorIdentity(ctx, strings.ToLower(certificate.SerialNumber.Text(16)))
-	if err != nil || uriSAN != certificate.URIs[0].String() || !validCollectorURI(certificate.URIs[0], identity.CollectorID) {
+	if err != nil {
+		if retryableAdmission(err) {
+			return TrustedIdentity{}, err
+		}
+		return TrustedIdentity{}, errIngestRejected
+	}
+	if uriSAN != certificate.URIs[0].String() || !validCollectorURI(certificate.URIs[0], identity.CollectorID) {
 		return TrustedIdentity{}, errIngestRejected
 	}
 	identity.CertificateSerial = strings.ToLower(identity.CertificateSerial)
@@ -425,6 +434,9 @@ func (server *IngestServer) resolveDownstreamIdentity(ctx context.Context, gatew
 	}
 	identity, err := server.Control.ResolveDownstreamIdentity(ctx, gateway, reference.collectorID, reference.serial)
 	if err != nil {
+		if retryableAdmission(err) {
+			return TrustedIdentity{}, err
+		}
 		return TrustedIdentity{}, errIngestRejected
 	}
 	return identity, nil
@@ -504,13 +516,27 @@ func (server *IngestServer) publish(ctx context.Context, signal string, identity
 		_ = server.Redis.Raw.Expire(ctx, key, 2*time.Minute).Err()
 	}
 	if count > 1200 {
-		return errors.New("telemetry ingest rate exceeded")
+		return &ingestRateLimitError{RetryAfter: time.Until(time.Now().UTC().Truncate(time.Minute).Add(time.Minute))}
 	}
 	record := &kgo.Record{Topic: "otlp-" + signal, Key: []byte(identity.CollectorID.String()), Value: payload, Headers: []kgo.RecordHeader{
 		{Key: "argus-enterprise-id", Value: []byte(identity.EnterpriseID.String())}, {Key: "argus-resource-id", Value: []byte(identity.ResourceID.String())},
 		{Key: "argus-collector-id", Value: []byte(identity.CollectorID.String())}, {Key: "argus-resource-type", Value: []byte(identity.ResourceType)},
+		{Key: "argus-normalization-version", Value: []byte("v3")},
 	}}
-	return server.Kafka.ProduceSync(ctx, record).FirstErr()
+	if err := server.Kafka.ProduceSync(ctx, record).FirstErr(); err != nil {
+		return err
+	}
+	// Observation failure must not turn an accepted Kafka write into a client
+	// retry and duplicate ingestion. The next actual sample can refresh it.
+	if observer, ok := server.Control.(collectionSampleObserver); ok {
+		if err := observer.ObserveCollectionSamples(ctx, identity, acceptedCollectionSamples(signal, payload)); err != nil && server.Logger != nil {
+			server.Logger.Warn("collection sample observation failed", "collector_id", identity.CollectorID, "error", err)
+		}
+	}
+	if err := server.observeApplicationSamples(ctx, identity, signal, payload); err != nil && server.Logger != nil {
+		server.Logger.Warn("application sample observation failed", "collector_id", identity.CollectorID, "error", err)
+	}
+	return nil
 }
 
 func (server *IngestServer) logPublishFailure(signal string, identity TrustedIdentity, err error) {
@@ -590,8 +616,7 @@ func validateAttributeBudget(values []*commonpb.KeyValue, limit int) error {
 		if value == nil || len(value.Key) == 0 || len(value.Key) > maxAttributeKey {
 			return errIngestRejected
 		}
-		encoded, _ := json.Marshal(value.Value)
-		if len(encoded) > maxAttributeValue {
+		if anyValueSize(value.Value) > maxAttributeValue {
 			return errIngestRejected
 		}
 	}
@@ -648,16 +673,25 @@ func validateMetrics(value *collectmetrics.ExportMetricsServiceRequest) error {
 	return nil
 }
 func validateLogs(value *collectlogs.ExportLogsServiceRequest) error {
+	if value == nil {
+		return errIngestRejected
+	}
 	for _, resource := range value.ResourceLogs {
+		if resource == nil {
+			return errIngestRejected
+		}
 		if resource.Resource != nil && validateResourceAttributes(resource.Resource.Attributes) != nil {
 			return errIngestRejected
 		}
 		for _, scope := range resource.ScopeLogs {
+			if scope == nil {
+				return errIngestRejected
+			}
 			if scope.Scope != nil && validateAttributes(scope.Scope.Attributes) != nil {
 				return errIngestRejected
 			}
 			for _, record := range scope.LogRecords {
-				if validateAttributes(record.Attributes) != nil || anyValueSize(record.Body) > maxLogBody {
+				if record == nil || validateAttributes(record.Attributes) != nil || anyValueSize(record.Body) > maxLogBody {
 					return errIngestRejected
 				}
 			}
@@ -715,7 +749,19 @@ func anyValueSize(value *commonpb.AnyValue) int {
 	if value == nil {
 		return 0
 	}
-	encoded, _ := json.Marshal(value)
+	decoded, err := otlpJSONValue(value, 0)
+	if err != nil {
+		return maxLogBody + 1
+	}
+	// Keep the established encoded-size limit. Non-finite protobuf numbers
+	// have an explicit textual JSON representation instead of a zero-size error.
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		encoded, err = json.Marshal(decoded)
+		if err != nil {
+			return maxLogBody + 1
+		}
+	}
 	return len(encoded)
 }
 

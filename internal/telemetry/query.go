@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/authorization"
+	"github.com/kakj-go/Argus/internal/observationscope"
+	"github.com/kakj-go/Argus/internal/resourceref"
 )
 
 const (
@@ -53,6 +56,9 @@ type Overview struct {
 }
 
 type OverviewRequest struct {
+	Resources            []resourceref.Ref
+	SourceKeys           []string
+	ScopeSignature       string
 	SubjectID            uuid.UUID
 	SubjectType          string
 	EnterpriseID         uuid.UUID
@@ -69,53 +75,54 @@ type OverviewBackend interface {
 }
 
 func (service Service) AuthorizedResources(ctx context.Context, actor Actor, requested []uuid.UUID) ([]uuid.UUID, bool, error) {
-	if len(requested) == 0 || len(requested) > 1000 {
+	if len(requested) > 1000 {
 		return nil, false, ErrQueryInvalid
 	}
-	seen := make(map[uuid.UUID]struct{}, len(requested))
-	allowed := make([]uuid.UUID, 0, len(requested))
-	for _, id := range requested {
-		if id == uuid.Nil {
-			return nil, false, ErrQueryInvalid
-		}
-		if _, duplicate := seen[id]; duplicate {
-			continue
-		}
-		seen[id] = struct{}{}
-		if service.requireResource(ctx, actor, "host", id) == nil || service.requireResource(ctx, actor, "kubernetes_cluster", id) == nil {
-			allowed = append(allowed, id)
-		}
+	if service.Store == nil {
+		return nil, false, ErrUnavailable
 	}
-	if len(allowed) == 0 {
-		return nil, len(seen) > 0, ErrDenied
+	a := authorization.Actor{EnterpriseID: actor.EnterpriseID, SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, AuthorizationVersion: actor.AuthorizationVersion}
+	snapshot, err := (observationscope.Resolver{Queries: service.Store.Queries}).Resolve(ctx, a, observationscope.Selection{Mode: observationscope.Explicit, IDs: requested, Signal: "catalog"})
+	if errors.Is(err, observationscope.ErrDenied) {
+		return nil, false, ErrDenied
 	}
-	return allowed, len(allowed) != len(seen), nil
+	if errors.Is(err, observationscope.ErrInvalid) {
+		return nil, false, ErrQueryInvalid
+	}
+	return snapshot.IDs(), false, err
 }
 
 func (service Service) QueryOverview(ctx context.Context, actor Actor, ids []uuid.UUID, lookback int) (Overview, error) {
 	if service.Query == nil || lookback < 300 || lookback > 7*24*60*60 {
 		return Overview{}, ErrQueryInvalid
 	}
+	snapshot, keys, err := service.ResolveQueryScope(ctx, actor, ids, "overview")
+	if err != nil {
+		return Overview{}, err
+	}
+	if len(snapshot.Resources) == 0 || len(keys) == 0 {
+		if err := service.ValidateResolvedQueryScope(ctx, actor, snapshot); err != nil {
+			return Overview{}, err
+		}
+		return Overview{ResourceCount: len(snapshot.Resources), WindowSeconds: lookback}, nil
+	}
 	policy, err := service.Store.Queries.EnsureTelemetryRetentionPolicy(ctx, actor.EnterpriseID)
 	if err != nil {
 		return Overview{}, err
 	}
 	now := time.Now().UTC()
-	resources, partial, err := service.AuthorizedResources(ctx, actor, ids)
-	if err != nil {
-		return Overview{}, err
-	}
-	if partial {
-		return Overview{}, ErrQueryScope
-	}
-	request := OverviewRequest{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: resources, AuthorizationVersion: actor.AuthorizationVersion,
+	request := OverviewRequest{Resources: snapshot.DataRefs(), SourceKeys: keys, ScopeSignature: snapshot.QuerySignature(), SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: snapshot.DataIDs(), AuthorizationVersion: actor.AuthorizationVersion,
 		From: now.Add(-time.Duration(lookback) * time.Second), To: now, MaxScanBytes: policy.MaxScanBytes, Timeout: time.Duration(policy.MaxExecutionMs) * time.Millisecond}
 	result, err := service.Query.Overview(ctx, request)
 	if err != nil {
 		return Overview{}, err
 	}
-	result.Partial = result.Partial || partial
+	if err := service.ValidateResolvedQueryScope(ctx, actor, snapshot); err != nil {
+		return Overview{}, err
+	}
 	return result, nil
 }
 
 var ErrQueryBackend = errors.New("telemetry query backend unavailable")
+var ErrQueryProtocol = errors.New("telemetry query protocol version unsupported")
+var ErrQuerySourcesEmpty = errors.New("telemetry query has no authorized sources")

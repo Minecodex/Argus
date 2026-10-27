@@ -986,6 +986,9 @@ func (q *Queries) UpsertPermanentUserRoleBinding(ctx context.Context, arg Upsert
 const upsertPermission = `-- name: UpsertPermission :exec
 INSERT INTO permissions (id, description, registry_version) VALUES ($1, $2, $3)
 ON CONFLICT (id) DO UPDATE SET description = EXCLUDED.description, registry_version = EXCLUDED.registry_version
+WHERE permissions.registry_version <= EXCLUDED.registry_version
+  AND (permissions.description IS DISTINCT FROM EXCLUDED.description
+       OR permissions.registry_version IS DISTINCT FROM EXCLUDED.registry_version)
 `
 
 type UpsertPermissionParams struct {

@@ -86,20 +86,39 @@ func (service Service) FulfillLease(ctx context.Context, enterpriseID, leaseID u
 	var result IssuedLease
 	err := service.Store.InTx(ctx, func(q *db.Queries) error {
 		lease, err := q.GetCredentialLease(ctx, db.GetCredentialLeaseParams{ID: leaseID, EnterpriseID: enterpriseID})
-		if err != nil || lease.Status != "active" || !time.Now().UTC().Before(lease.ExpiresAt.Time) || lease.RecipientType != recipientType || lease.RecipientID != recipientID {
+		if err != nil {
+			return leaseReadFailure(err, ErrInvalidLease)
+		}
+		if lease.Status != "active" || !time.Now().UTC().Before(lease.ExpiresAt.Time) || lease.RecipientType != recipientType || lease.RecipientID != recipientID {
 			return ErrInvalidLease
 		}
 		credential, err := q.GetCredential(ctx, db.GetCredentialParams{ID: lease.CredentialID, EnterpriseID: enterpriseID})
-		if err != nil || credential.Status != "active" || credential.Protocol != lease.Protocol {
+		if err != nil {
+			return leaseReadFailure(err, ErrCredentialUnavailable)
+		}
+		if credential.Status != "active" || credential.Protocol != lease.Protocol {
 			return ErrCredentialUnavailable
 		}
 		version, err := q.GetSecretVersionByID(ctx, db.GetSecretVersionByIDParams{ID: lease.SecretVersionID, EnterpriseID: enterpriseID})
-		if err != nil || version.SecretID != credential.SecretID {
+		if err != nil {
+			return leaseReadFailure(err, ErrCredentialUnavailable)
+		}
+		if version.SecretID != credential.SecretID {
 			return ErrCredentialUnavailable
 		}
 		secretRecord, err := q.GetSecret(ctx, db.GetSecretParams{ID: credential.SecretID, EnterpriseID: enterpriseID})
-		if err != nil || secretRecord.Status != "active" {
+		if err != nil {
+			return leaseReadFailure(err, ErrCredentialUnavailable)
+		}
+		if secretRecord.Status != "active" {
 			return ErrCredentialUnavailable
+		}
+		if lease.Protocol == "monitoring" {
+			if err = validateMonitoringDelivery(ctx, q, lease, secretRecord); err != nil {
+				return err
+			}
+		} else if secretRecord.Purpose == "monitoring" {
+			return ErrInvalidLease
 		}
 		value, err := service.Keyring.DecryptContext(ctx, Envelope{Provider: version.Provider, KeyID: version.KeyID, KeyVersion: int(version.KeyVersion), WrappedDEK: version.WrappedDek,
 			WrapNonce: version.WrapNonce, Nonce: version.Nonce, Ciphertext: version.Ciphertext, ValueHash: version.ValueHash},
@@ -110,6 +129,9 @@ func (service Service) FulfillLease(ctx context.Context, enterpriseID, leaseID u
 		rows, err := q.ConsumeCredentialLease(ctx, db.ConsumeCredentialLeaseParams{ID: lease.ID, EnterpriseID: enterpriseID})
 		if err != nil || rows != 1 {
 			clear(value)
+			if err != nil {
+				return err
+			}
 			return ErrInvalidLease
 		}
 		lease.Status = "consumed"
@@ -445,6 +467,11 @@ func (service Service) RenewLease(
 // PrepareLeaseWithQueries records a one-time lease without decrypting its Secret.
 // Callers use it when the recipient will redeem the lease over an authenticated channel.
 func (service Service) PrepareLeaseWithQueries(ctx context.Context, q *db.Queries, actorID string, enterpriseID uuid.UUID, request LeaseRequest) (db.CredentialLease, error) {
+	// Monitoring credentials are never consumable through the general-purpose
+	// credential-use API. Their delivery must validate the collection assignment.
+	if request.Protocol == "monitoring" {
+		return db.CredentialLease{}, ErrInvalidLease
+	}
 	if request.TTL <= 0 || request.TTL > MaxLeaseTTL || request.OperationRef == "" || request.TargetResourceID == uuid.Nil ||
 		(request.RecipientType != "connector" && request.RecipientType != "direct_executor" && request.RecipientType != "connector_gateway" && request.RecipientType != "mcp_adapter" && request.RecipientType != "notification_worker") || request.RecipientID == "" {
 		return db.CredentialLease{}, ErrInvalidLease
@@ -481,7 +508,7 @@ func (service Service) PrepareLeaseWithQueries(ctx context.Context, q *db.Querie
 		if err := validateNotificationLease(ctx, q, enterpriseID, request, credential); err != nil {
 			return db.CredentialLease{}, err
 		}
-	} else if secretRecord.OwnerType == "mcp_connection" || credential.Protocol == "notification" {
+	} else if secretRecord.OwnerType != "user" || secretRecord.Purpose != "platform" || credential.Protocol == "notification" {
 		return db.CredentialLease{}, ErrInvalidLease
 	}
 	lease, err := q.CreateCredentialLease(ctx, db.CreateCredentialLeaseParams{ID: newUUID(), EnterpriseID: enterpriseID, CredentialID: credential.ID,

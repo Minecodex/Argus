@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package argus.connector.v1;
+
+option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/connector/v1;connectorv1";
+
+message KubernetesResourceMutation {
+  string schema_version = 1;
+  string cluster_id = 2;
+  string operation_id = 3;
+  bytes mutation_json = 4;
+  bool dry_run = 5;
+  bool observe_only = 6;
+  string expected_digest = 7;
+  // Injected by the authenticated gateway at dispatch; never persisted in command payloads.
+  bytes private_secret_values_json = 8;
+  // Explicit write continuation for an approved drain; observe_only stays read-only.
+  bool advance_drain = 9;
+}
+
+message KubernetesResourceMutationResult {
+  string schema_version = 1;
+  bytes result_json = 2;
+  string error_code = 3;
+}

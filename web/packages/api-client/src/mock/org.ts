@@ -11,6 +11,10 @@ import type {
 import { ApiError } from "../transport/errors";
 import type { MockContext } from "./context";
 import { nextId } from "./store";
+import {
+  authorizationCatalog,
+  authorizationPage,
+} from "./authorization-catalog";
 
 /** Organization: users, departments, roles, explicit resource grants, policies, API keys. */
 export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
@@ -615,8 +619,11 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
       resourceType: DataAuthorizationResourceType,
       cursor?: string,
       limit?: number,
+      search = "",
+      signal?: AbortSignal,
     ): Promise<DataAuthorizationPage> {
       await ctx.pause();
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       const direct = new Set(
         grants()
           .filter(
@@ -629,13 +636,16 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
           .map((grant) => grant.resource_id),
       );
       const inherited = new Set<string>();
+      const inheritedRoles = new Set<string>();
+      let inheritedDepartment: string | undefined;
       const inheritedSources = new Map<string, string[]>();
       const addSource = (resourceId: string, source: string) =>
         inheritedSources.set(resourceId, [
           ...(inheritedSources.get(resourceId) ?? []),
           source,
         ]);
-      const addRoleGrantsWithSources = (roleIds: string[]) =>
+      const addRoleGrantsWithSources = (roleIds: string[]) => {
+        roleIds.forEach((id) => inheritedRoles.add(id));
         grants()
           .filter(
             (grant) =>
@@ -651,9 +661,10 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
             );
             addSource(
               grant.resource_id,
-              `角色：${role?.name ?? grant.subject_id}`,
+              `role:${role?.name ?? grant.subject_id}`,
             );
           });
+      };
       if (subjectType === "user") {
         const enterpriseUser = db.enterpriseUsers.find(
           (entry) =>
@@ -661,11 +672,12 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
             entry.userId === subjectId,
         );
         if (enterpriseUser) {
+          inheritedDepartment = enterpriseUser.departmentId;
           const roleIds = db.roleBindings
             .filter(
               (binding) =>
                 binding.enterprise_id === ctx.enterpriseId() &&
-                binding.status === "active" &&
+                effectiveBinding(binding) &&
                 ((binding.subject_type === "user" &&
                   binding.subject_id === subjectId) ||
                   (binding.subject_type === "department" &&
@@ -688,7 +700,7 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
               inherited.add(grant.resource_id);
               addSource(
                 grant.resource_id,
-                `部门：${department?.name ?? enterpriseUser.departmentId}`,
+                `department:${department?.name ?? enterpriseUser.departmentId}`,
               );
             });
         }
@@ -700,7 +712,7 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
                 binding.enterprise_id === ctx.enterpriseId() &&
                 binding.subject_type === "department" &&
                 binding.subject_id === subjectId &&
-                binding.status === "active",
+                effectiveBinding(binding),
             )
             .map((binding) => binding.role_id),
         );
@@ -712,36 +724,58 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
                 binding.enterprise_id === ctx.enterpriseId() &&
                 binding.subject_type === "service_account" &&
                 binding.subject_id === subjectId &&
-                binding.status === "active",
+                effectiveBinding(binding),
             )
             .map((binding) => binding.role_id),
         );
       }
-      const resources =
-        resourceType === "host"
-          ? db.hosts.filter((row) => row.enterpriseId === ctx.enterpriseId())
-          : resourceType === "kubernetes_cluster"
-            ? db.clusters.filter(
-                (row) => row.enterpriseId === ctx.enterpriseId(),
-              )
-            : (db.dashboards?.items ?? [])
-                .filter((row) => row.enterprise === ctx.enterpriseId())
-                .map((row) => row.value);
+      const resources = authorizationCatalog(ctx, resourceType);
+      if (resourceType === "kubernetes_namespace") {
+        const parents = new Set(
+          grants()
+            .filter(
+              (grant) =>
+                grant.active &&
+                grant.resource_type === "kubernetes_cluster" &&
+                ((grant.subject_type === subjectType &&
+                  grant.subject_id === subjectId) ||
+                  (grant.subject_type === "role" &&
+                    inheritedRoles.has(grant.subject_id)) ||
+                  (grant.subject_type === "department" &&
+                    grant.subject_id === inheritedDepartment)),
+            )
+            .map((grant) => grant.resource_id),
+        );
+        for (const row of resources)
+          if (row.parent_id && parents.has(row.parent_id)) {
+            inherited.add(row.id);
+            addSource(row.id, `cluster:${row.parent_name}`);
+          }
+      }
       const catalog: DataAuthorizationResource[] = resources.map((row) => ({
         resource_type: resourceType,
         resource_id: row.id,
         name: row.name,
+        environment: row.environment,
+        parent_id: row.parent_id,
+        parent_name: row.parent_name,
+        source_uid: row.source_uid,
         direct: direct.has(row.id),
-        inherited: !direct.has(row.id) && inherited.has(row.id),
-        sources: direct.has(row.id)
-          ? ["直接"]
-          : (inheritedSources.get(row.id) ?? []),
+        inherited: inherited.has(row.id),
+        sources: [
+          ...(direct.has(row.id) ? ["direct"] : []),
+          ...(inheritedSources.get(row.id) ?? []),
+        ],
       }));
-      const offset = Math.max(0, Number.parseInt(cursor ?? "0", 10) || 0);
-      const pageSize = Math.min(Math.max(limit ?? 50, 1), 200);
-      const items = catalog.slice(offset, offset + pageSize);
-      const nextOffset = offset + items.length;
-      const hasMore = nextOffset < catalog.length;
+      const version = versions()[versionKey(subjectType, subjectId)] ?? 1;
+      const paged = authorizationPage(
+        ctx,
+        catalog,
+        [subjectType, subjectId, resourceType, version],
+        cursor,
+        limit,
+        search,
+      );
       const affectedMembers = new Set<string>();
       if (subjectType === "role") {
         db.enterpriseUsers
@@ -752,7 +786,7 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
                 (binding) =>
                   binding.enterprise_id === ctx.enterpriseId() &&
                   binding.role_id === subjectId &&
-                  binding.status === "active" &&
+                  effectiveBinding(binding) &&
                   ((binding.subject_type === "user" &&
                     binding.subject_id === entry.userId) ||
                     (binding.subject_type === "department" &&
@@ -770,7 +804,7 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
                   binding.role_id === subjectId &&
                   binding.subject_type === "service_account" &&
                   binding.subject_id === entry.id &&
-                  binding.status === "active",
+                  effectiveBinding(binding),
               ),
           )
           .forEach((entry) =>
@@ -778,11 +812,7 @@ export function createOrgDomain(ctx: MockContext): ArgusApiClient["org"] {
           );
       }
       return {
-        items,
-        page: {
-          next_cursor: hasMore ? String(nextOffset) : null,
-          has_more: hasMore,
-        },
+        ...paged,
         authorization_version:
           versions()[versionKey(subjectType, subjectId)] ?? 1,
         affected_member_count:

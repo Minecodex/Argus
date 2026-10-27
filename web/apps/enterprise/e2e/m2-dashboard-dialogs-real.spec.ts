@@ -254,17 +254,29 @@ for (const english of [false, true])
           exact: true,
         });
         const resources = controls.getByRole("button", {
-          name: d.resources,
-          exact: true,
+          name: new RegExp(`^${d.chooseResources}:`),
         });
-        const rangeBox = (await range.boundingBox())!,
-          resourcesBox = (await resources.boundingBox())!;
-        expect(
-          resourcesBox.x - rangeBox.x - rangeBox.width,
-        ).toBeGreaterThanOrEqual(7);
-        expect(
-          resourcesBox.x - rangeBox.x - rangeBox.width,
-        ).toBeLessThanOrEqual(9);
+        const applications = controls.getByRole("button", {
+          name: new RegExp(`^${c.chooseApplications}:`),
+        });
+        const typeFilter = selectTrigger(controls, c.resourceType);
+        await expect(applications).toBeVisible();
+        await expect(typeFilter).toBeVisible();
+        const boxes = await Promise.all(
+          [range, applications, typeFilter, resources].map((control) =>
+            control.boundingBox(),
+          ),
+        );
+        for (let index = 1; index < boxes.length; index++) {
+          expect(boxes[index]!.x).toBeGreaterThanOrEqual(
+            boxes[index - 1]!.x + boxes[index - 1]!.width,
+          );
+        }
+        const gap = await controls.evaluate((element) =>
+          Number.parseFloat(getComputedStyle(element).columnGap),
+        );
+        expect(gap).toBeGreaterThanOrEqual(7);
+        expect(gap).toBeLessThanOrEqual(9);
         await selectTrigger(controls, c.refreshInterval).click();
         await page
           .getByRole("option", { name: c.refreshOff, exact: true })

@@ -10,6 +10,7 @@ import (
 	"os/signal"
 
 	connectorapp "github.com/kakj-go/Argus/internal/app/connector"
+	"github.com/kakj-go/Argus/internal/kuberneteshelm"
 	"golang.org/x/sys/windows/svc"
 )
 
@@ -48,6 +49,9 @@ func (serviceHandler) Execute(_ []string, requests <-chan svc.ChangeRequest, cha
 }
 
 func main() {
+	if kuberneteshelm.RunRenderCommand(os.Args[1:], os.Stdin, os.Stdout) {
+		return
+	}
 	isService, err := svc.IsWindowsService()
 	if err == nil && isService {
 		serviceName := windowsServiceName

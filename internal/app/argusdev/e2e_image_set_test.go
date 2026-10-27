@@ -3,7 +3,7 @@ package argusdev
 import "testing"
 
 func TestRemoteRuntimeMustBeIncludedWithoutWaivingOtherCoreImages(t *testing.T) {
-	images := []plan6Image{{Name: "backend"}, {Name: "web"}, {Name: "minio"}, {Name: "workspace"}, {Name: "workspace-egress"}, {Name: "otelcol"}}
+	images := []plan6Image{{Name: "backend"}, {Name: "web"}, {Name: "minio"}, {Name: "workspace"}, {Name: "workspace-egress"}, {Name: "otelcol"}, {Name: "install-tools"}}
 	if err := validateE2ECoreImageSet(images, false); err != nil {
 		t.Fatal(err)
 	}
@@ -17,5 +17,16 @@ func TestRemoteRuntimeMustBeIncludedWithoutWaivingOtherCoreImages(t *testing.T) 
 	images[0].Name = "remote-runtime"
 	if err := validateE2ECoreImageSet(images, true); err == nil {
 		t.Fatal("duplicate image hid the missing backend")
+	}
+}
+
+func TestInstallationToolsMustBePreservedWithoutReplacingRemoteRuntime(t *testing.T) {
+	images := []plan6Image{{Name: "backend"}, {Name: "web"}, {Name: "minio"}, {Name: "workspace"}, {Name: "workspace-egress"}, {Name: "otelcol"}, {Name: "remote-runtime"}}
+	if err := validateE2ECoreImageSet(images, true); err == nil {
+		t.Fatal("installation dependency was omitted from the frozen image group")
+	}
+	images = append(images, plan6Image{Name: "install-tools"})
+	if err := validateE2ECoreImageSet(images, true); err != nil {
+		t.Fatal(err)
 	}
 }

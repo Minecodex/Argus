@@ -260,6 +260,12 @@ func toWorkflowExecution(value actionservice.ExecutionView) workflowapi.Executio
 			Kind interface{}        `json:"kind"`
 		}{Id: value.Execution.HostRemovalOperationID.UUID, Kind: "host_removal"}
 	}
+	if value.Execution.KubernetesOperationID.Valid {
+		result.OperationRef = &struct {
+			Id   openapi_types.UUID `json:"id"`
+			Kind interface{}        `json:"kind"`
+		}{Id: value.Execution.KubernetesOperationID.UUID, Kind: "kubernetes_operation"}
+	}
 	if value.Execution.ResultRef.Valid {
 		result.ResultRef = &value.Execution.ResultRef.String
 	}

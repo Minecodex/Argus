@@ -223,6 +223,7 @@ export const ERROR_CODES = [
   "COLLECTOR_ARTIFACT_INVALID",
   "COLLECTOR_ARTIFACT_UNAVAILABLE",
   "COLLECTOR_NOT_FOUND",
+  "COLLECTOR_DEPENDENCIES_EXIST",
   "COLLECTOR_DISTRIBUTION_VALIDATION_PENDING",
   "COLLECTOR_PROFILE_INCOMPATIBLE",
   "COLLECTOR_ALREADY_INSTALLED",
@@ -255,6 +256,8 @@ export const ERROR_CODES = [
   "QUERY_FEATURE_UNSUPPORTED",
   "QUERY_COMPLEXITY_LIMIT",
   "QUERY_SCOPE_DENIED",
+  "QUERY_PROTOCOL_VERSION_UNSUPPORTED",
+  "QUERY_SOURCES_EMPTY",
   "TELEMETRY_SIGNAL_FORBIDDEN",
   "TELEMETRY_FIELD_FORBIDDEN",
   "TELEMETRY_DEPENDENCY_UNAVAILABLE",
@@ -505,7 +508,14 @@ const errorTokenZhMap: Record<string, string> = {
 };
 
 const errorSpecialZhMap: Record<string, string> = {
-  MODEL_OUTPUT_INCOMPLETE: "模型输出未完成，任务已停止。已完成的操作保留；请调整模型输出预算或推理强度后重新提出方案。",
+  COLLECTOR_DEPENDENCIES_EXIST:
+    "此收集器仍有启用的监控、应用接入或待完成的执行迁移。请先停采或迁移，并等待配置实际生效后再卸载。",
+  QUERY_PROTOCOL_VERSION_UNSUPPORTED:
+    "查询服务版本不兼容，请联系管理员完成统一升级。",
+  QUERY_SOURCES_EMPTY:
+    "当前范围尚无可查询的采集来源，请检查采集配置和生效状态。",
+  MODEL_OUTPUT_INCOMPLETE:
+    "模型输出未完成，任务已停止。已完成的操作保留；请调整模型输出预算或推理强度后重新提出方案。",
   REMOTE_EXECUTION_FORBIDDEN: "当前账号没有此资源的远程执行权限。",
   REMOTE_RESOURCE_FORBIDDEN: "当前账号没有此资源的远程执行权限。",
   REMOTE_NOT_APPROVED: "当前账号没有此资源的远程执行权限。",
@@ -730,7 +740,14 @@ const errorSpecialZhMap: Record<string, string> = {
 
 const errorTokenEnMap: Record<string, string> = {};
 const errorSpecialEnMap: Record<string, string> = {
-  MODEL_OUTPUT_INCOMPLETE: "The model output is incomplete and the task stopped. Completed operations are retained. Adjust the output budget or reasoning strength before requesting a new plan.",
+  COLLECTOR_DEPENDENCIES_EXIST:
+    "This Collector still has enabled monitoring, application intake, or an unfinished execution migration. Stop or move them and wait for the configuration to take effect before uninstalling.",
+  QUERY_PROTOCOL_VERSION_UNSUPPORTED:
+    "The query service versions are incompatible. Ask an administrator to complete the coordinated upgrade.",
+  QUERY_SOURCES_EMPTY:
+    "This scope has no queryable collection sources. Check the collection configuration and applied status.",
+  MODEL_OUTPUT_INCOMPLETE:
+    "The model output is incomplete and the task stopped. Completed operations are retained. Adjust the output budget or reasoning strength before requesting a new plan.",
   REMOTE_EXECUTION_FORBIDDEN:
     "The current account cannot execute commands on this resource.",
   REMOTE_RESOURCE_FORBIDDEN:

@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/observationscope"
+	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/kakj-go/Argus/internal/telemetry"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 )
@@ -17,7 +20,7 @@ type queryScope struct {
 	Sources   []ResolvedSource
 }
 
-func (runtime Runtime) checkQueryScope(ctx context.Context, actor Actor, scope queryScope) error {
+func (runtime Runtime) checkQueryScope(ctx context.Context, actor Actor, scope queryScope, signals ...string) error {
 	if runtime.Store == nil {
 		return ErrUnavailable
 	}
@@ -31,14 +34,42 @@ func (runtime Runtime) checkQueryScope(ctx context.Context, actor Actor, scope q
 	if len(ids) == 0 {
 		return ErrDenied
 	}
-	_, err := resolveResources(ctx, runtime.Store.Queries, actor, ids)
-	return err
+	if err := validateTypedResources(ctx, runtime.Store.Queries, actor, scope.Resources); err != nil {
+		return err
+	}
+	if len(scope.Sources) > 0 {
+		keys := []string{}
+		for _, source := range scope.Sources {
+			keys = append(keys, source.Key())
+		}
+		signal := "catalog"
+		if len(signals) > 0 {
+			signal = signals[0]
+		}
+		resolved, err := (observationscope.Resolver{Queries: runtime.Store.Queries, Permission: "telemetry.dashboard.read"}).Sources(ctx, actor, observationscope.SourceSelection{Resources: scope.Resources, Applications: runtime.scopeApplications, Signal: signal, SourceType: scope.Sources[0].Type, Keys: keys})
+		if err != nil {
+			if errors.Is(err, observationscope.ErrDenied) {
+				return ErrDenied
+			}
+			return err
+		}
+		for _, source := range scope.Sources {
+			actual := resolved.SourceRelations[source.Key()]
+			if len(actual) == 0 && len(source.ScopeRelations) == 0 {
+				continue
+			}
+			if !reflect.DeepEqual(actual, source.ScopeRelations) {
+				return ErrDenied
+			}
+		}
+	}
+	return nil
 }
 
 func (runtime Runtime) executeTarget(ctx context.Context, actor Actor, spec Spec, panel Panel, target Target, variables, locals, inputs map[string]Selection, scope queryScope, ledger *executionBudget) (TargetExecution, error) {
 	runtime = runtime.metered(actor)
 	item := TargetExecution{ID: target.ID, Status: "no_data"}
-	if err := runtime.checkQueryScope(ctx, actor, scope); err != nil {
+	if err := runtime.checkQueryScope(ctx, actor, scope, panel.Signal); err != nil {
 		return item, err
 	}
 	bound, err := bindTargetInputs(spec, panel, target, variables, locals, inputs)
@@ -65,7 +96,12 @@ func (runtime Runtime) executeTarget(ctx context.Context, actor Actor, spec Spec
 	for _, s := range scope.Sources {
 		keys = append(keys, s.Key())
 	}
-	if code := runtime.verifyMetricMetadata(ctx, actor, bound, ids, keys, Execution{From: scope.From, To: scope.To}, &allocation, ledger); code != "" {
+	dataRefs, err := dataResourcesForSources(scope.Sources)
+	if err != nil {
+		return item, err
+	}
+	ids = resourceref.IDs(dataRefs)
+	if code := runtime.verifyMetricMetadata(ctx, actor, bound, dataRefs, keys, Execution{From: scope.From, To: scope.To}, &allocation, ledger); code != "" {
 		item.Status, item.Code = "error", code
 		return item, nil
 	}
@@ -80,7 +116,7 @@ func (runtime Runtime) executeTarget(ctx context.Context, actor Actor, spec Spec
 			return item, err
 		}
 	}
-	data, err := runtime.Backend.ExecuteEngineQuery(ctx, queryengine.Request{CacheNamespace: runtime.targetCacheNamespace(panel, target, variables, locals, inputs, scope), Language: target.Language, Expression: compiled.Query.Expression, Pipeline: compiled.Query.Pipeline, Operation: compiled.Query.Operation, Variables: compiled.Query.Variables, Instant: target.QueryMode == "instant", Start: scope.From, End: scope.To, Step: step, Scope: queryengine.Scope{SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: ids, SourceKeys: keys, AuthorizationVersion: actor.AuthorizationVersion}, Budget: allocation})
+	data, err := runtime.Backend.ExecuteEngineQuery(ctx, queryengine.Request{CacheNamespace: runtime.targetCacheNamespace(panel, target, variables, locals, inputs, scope), Language: target.Language, Expression: compiled.Query.Expression, Pipeline: compiled.Query.Pipeline, Operation: compiled.Query.Operation, Variables: compiled.Query.Variables, Instant: target.QueryMode == "instant", Start: scope.From, End: scope.To, Step: step, Scope: queryengine.Scope{Resources: dataRefs, Signature: runtime.cacheScopeSignature, SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: ids, SourceKeys: keys, AuthorizationVersion: actor.AuthorizationVersion}, Budget: allocation})
 	item.StepSeconds = int(step / time.Second)
 	if err != nil {
 		ledger.failed(allocation)
@@ -94,6 +130,9 @@ func (runtime Runtime) executeTarget(ctx context.Context, actor Actor, spec Spec
 		return item, nil
 	}
 	ledger.record(data.Meta, data.Data)
+	if err := runtime.checkQueryScope(ctx, actor, scope, panel.Signal); err != nil {
+		return item, err
+	}
 	if data.ResultType != compiled.ResultType {
 		item.Status, item.Code = "error", "QUERY_TYPE_ERROR"
 		return item, nil

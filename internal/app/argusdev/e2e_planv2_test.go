@@ -14,7 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func TestPlanV2DashboardAndSelfCollectorUsePublishedSourceContracts(t *testing.T) {
+func TestHistoricalPlanV2DashboardAndReceiverSourceShapesRemainReadable(t *testing.T) {
 	spec, err := planV2SelfDashboard()
 	if err != nil {
 		t.Fatal(err)
@@ -27,7 +27,9 @@ func TestPlanV2DashboardAndSelfCollectorUsePublishedSourceContracts(t *testing.T
 			t.Fatalf("missing published drilldown for %s", panel.ID)
 		}
 	}
-	input := configbundle.RenderInput{CollectorID: uuid.NewString(), ResourceID: uuid.NewString(), SourceGeneration: uuid.NewString(), ConfigRevision: 2, ResourceType: "kubernetes_cluster", Role: "direct", Platform: "linux_amd64", RouteKind: "direct_argus", Transport: "direct", ProfileKeys: []string{"k8s-node-container", "otlp-receiver", "skywalking-receiver", "jaeger-receiver"}, EnrollmentEndpoint: "https://example.test/enroll", IngestGRPCEndpoint: "grpcs://ingest.example.test:4317", IngestHTTPEndpoint: "https://ingest.example.test:4318"}
+	// Historical configuration inspection is not authorization to reactivate
+	// unkeyed SDK profiles. New ingestion requires an application endpoint.
+	input := configbundle.RenderInput{CollectorID: uuid.NewString(), ResourceID: uuid.NewString(), SourceGeneration: uuid.NewString(), ConfigRevision: 2, ResourceType: "kubernetes_cluster", Role: "direct", Platform: "linux_amd64", RouteKind: "direct_argus", Transport: "direct", ProfileKeys: []string{"k8s-node-container", "otlp-receiver", "jaeger-receiver"}, EnrollmentEndpoint: "https://example.test/enroll", IngestGRPCEndpoint: "grpcs://ingest.example.test:4317", IngestHTTPEndpoint: "https://ingest.example.test:4318"}
 	raw, err := configbundle.Render(input)
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +43,7 @@ func TestPlanV2DashboardAndSelfCollectorUsePublishedSourceContracts(t *testing.T
 		t.Fatal(err)
 	}
 	receivers := parsed["receivers"].(map[string]any)
-	if len(receivers) != 3 || receivers["skywalking"] == nil || receivers["jaeger"] == nil {
+	if len(receivers) != 2 || receivers["skywalking"] != nil || receivers["jaeger"] == nil {
 		t.Fatal("native receivers missing")
 	}
 	seen := map[string]bool{}
@@ -68,6 +70,10 @@ func TestPlanV2DashboardAndSelfCollectorUsePublishedSourceContracts(t *testing.T
 				t.Fatal("unverified native JVM metrics exposed")
 			}
 		}
+	}
+	input.ProfileKeys = append(input.ProfileKeys, "skywalking-receiver")
+	if _, err := configbundle.Render(input); err == nil {
+		t.Fatal("historical self-check reactivated deferred SkyWalking")
 	}
 }
 

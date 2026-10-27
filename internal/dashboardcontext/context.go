@@ -207,19 +207,21 @@ func Facts(ctx context.Context, q *db.Queries, p toolruntime.Principal, s Snapsh
 		}
 		refs = append(refs, map[string]any{"id": id, "name": d.Name, "conditions": conditions})
 	}
-	facts := map[string]any{"schema_version": s.Schema, "mode": s.Mode, "version": s.Version, "selected_dashboards": refs, "selection_policy": "automatic", "selection_required": false}
+	// Fixed-width UTC timestamps keep admission and the first worker request
+	// byte-identical in size. Before a Run exists no budget is reserved yet;
+	// expose that state without inventing a balance.
+	facts := map[string]any{"schema_version": s.Schema, "mode": s.Mode, "version": s.Version, "selected_dashboards": refs, "selection_policy": "automatic", "selection_required": false,
+		"run_budget_status": "not_started", "run_budget_observed_at": time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z")}
 	if len(runs) > 0 && runs[0] != uuid.Nil {
 		budget, err := q.GetDashboardRunBudget(ctx, db.GetDashboardRunBudgetParams{RunID: runs[0], EnterpriseID: p.EnterpriseID, OwnerUserID: p.UserID})
 		if err == nil {
 			facts["run_budget"] = map[string]any{"scan_bytes_remaining": budget.ScanRemaining, "result_bytes_remaining": budget.BytesRemaining, "rows_remaining": budget.RowsRemaining, "samples_remaining": budget.SamplesRemaining, "calls_remaining": budget.CallsRemaining}
 			facts["run_budget_status"] = "ready"
-			facts["run_budget_observed_at"] = time.Now().UTC().Format(time.RFC3339Nano)
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return nil, err
 		} else {
 			// No reservations exist yet. Do not fabricate a measured balance.
 			facts["run_budget_status"] = "not_started"
-			facts["run_budget_observed_at"] = time.Now().UTC().Format(time.RFC3339Nano)
 		}
 	}
 	return facts, nil

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kakj-go/Argus/internal/authorization"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 )
 
@@ -24,6 +25,17 @@ func main() {
 	}
 	if err := postgres.RunMigrations(context.Background(), databaseURL, directory, postgres.MigrationDirection(os.Args[1])); err != nil {
 		fatal(err)
+	}
+	if os.Args[1] == "up" {
+		store, err := postgres.Open(context.Background(), databaseURL)
+		if err != nil {
+			fatal(err)
+		}
+		_, err = (authorization.Service{Store: store}).ReconcileBuiltinRegistry(context.Background())
+		store.Close()
+		if err != nil {
+			fatal(err)
+		}
 	}
 }
 

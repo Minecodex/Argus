@@ -3,6 +3,26 @@ info: {title: Argus Kubernetes API, version: 1.0.0, license: {name: Proprietary,
 servers: [{url: /api/v1}]
 security: [{sessionCookie: []}]
 paths:
+  "/enterprise/kubernetes-clusters/{id}/helm/releases": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1helm~1releases"}
+  "/enterprise/kubernetes-clusters/{id}/helm/releases/{releaseName}/history": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1helm~1releases~1{releaseName}~1history"}
+  "/enterprise/kubernetes-clusters/{id}/helm/actions/preview": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1helm~1actions~1preview"}
+  "/enterprise/kubernetes-clusters/{id}/stream-sessions": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1stream-sessions"}
+  "/enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1stream-sessions~1{sessionId}"}
+  "/enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}/close": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1stream-sessions~1{sessionId}~1close"}
+  "/enterprise/kubernetes-clusters/{id}/stream-sessions/{sessionId}/ticket": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1stream-sessions~1{sessionId}~1ticket"}
+  "/enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1log-sessions~1{sessionId}"}
+  "/enterprise/kubernetes-clusters/{id}/log-sessions": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1log-sessions"}
+  "/enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/attach": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1log-sessions~1{sessionId}~1attach"}
+  "/enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/read": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1log-sessions~1{sessionId}~1read"}
+  "/enterprise/kubernetes-clusters/{id}/log-sessions/{sessionId}/close": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1log-sessions~1{sessionId}~1close"}
+  "/enterprise/kubernetes-clusters/{id}/operations/{operationId}": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1operations~1{operationId}"}
+  "/enterprise/kubernetes-clusters/{id}/operations": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1operations"}
+  "/enterprise/kubernetes-clusters/{id}/inventory/actions/preview-mutation": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1inventory~1actions~1preview-mutation"}
+  "/enterprise/kubernetes-clusters/{id}/inventory/watch": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1inventory~1watch"}
+  "/enterprise/kubernetes-clusters/{id}/inventory/types": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1inventory~1types"}
+  "/enterprise/kubernetes-clusters/{id}/inventory/scope": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1inventory~1scope"}
+  "/enterprise/kubernetes-clusters/{id}/inventory/object": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1inventory~1object"}
+  "/enterprise/kubernetes-clusters/{id}/inventory": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}~1inventory"}
   /enterprise/kubernetes-clusters: {$ref: ../argus.yaml#/paths/~1enterprise~1kubernetes-clusters}
   "/enterprise/kubernetes-clusters/{id}": {$ref: "../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1{id}"}
   /enterprise/kubernetes-clusters/actions/preview-create: {$ref: ../argus.yaml#/paths/~1enterprise~1kubernetes-clusters~1actions~1preview-create}
@@ -15,6 +35,9 @@ components:
   securitySchemes:
     sessionCookie: {$ref: ../argus.yaml#/components/securitySchemes/sessionCookie}
   schemas:
+    KubernetesStreamInput: {$ref: ../components/kubernetes-stream-sessions.yaml#/components/schemas/KubernetesStreamInput}
+    KubernetesStreamSession: {$ref: ../components/kubernetes-stream-sessions.yaml#/components/schemas/KubernetesStreamSession}
+    KubernetesStreamTicket: {$ref: ../components/kubernetes-stream-sessions.yaml#/components/schemas/KubernetesStreamTicket}
     KubernetesCluster: {$ref: ../components/m3.yaml#/components/schemas/KubernetesCluster}
     KubernetesClusterPage: {$ref: ../components/m3.yaml#/components/schemas/KubernetesClusterPage}
     KubernetesPreviewCreate: {$ref: ../components/m3.yaml#/components/schemas/KubernetesPreviewCreate}

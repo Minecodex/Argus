@@ -57,7 +57,7 @@ export function HostRowActions({
         (entry) => entry.collector_id === collector?.id,
       );
       const profiles = activeCollectorProfileIds(claims, collector?.id);
-      if (!collector || !route || profiles.length === 0)
+      if (!collector || !route)
         throw new Error(t("resourceList.collectorActionUnavailable"));
       const distribution = distributions.find(
         (item) =>

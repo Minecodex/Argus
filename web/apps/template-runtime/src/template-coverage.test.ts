@@ -17,7 +17,7 @@ it.each(["zh-CN", "en-US"])(
   },
 );
 it("covers every production tool binding and exact source asset", () => {
-  expect(fixtures.bindings).toHaveLength(106);
+  expect(fixtures.bindings).toHaveLength(126);
   for (const binding of fixtures.bindings) {
     expect(["template", "trace", "file", "action"]).toContain(binding.Mode);
     if (binding.Mode !== "template") continue;

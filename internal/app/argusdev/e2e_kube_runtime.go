@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,7 +58,20 @@ func (k *E2EKube) WaitDeployment(ctx context.Context, namespace, name string, ti
 			desired = *deployment.Spec.Replicas
 		}
 		if deployment.Status.ObservedGeneration >= deployment.Generation && deployment.Status.AvailableReplicas == desired && deployment.Status.UpdatedReplicas == desired && deployment.Status.Replicas == desired {
-			return nil
+			if deployment.Spec.Selector == nil {
+				return fmt.Errorf("deployment %s/%s has no Pod selector", namespace, name)
+			}
+			selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+			if err != nil || selector.Empty() {
+				return fmt.Errorf("deployment %s/%s has no valid Pod selector", namespace, name)
+			}
+			pods, err := k.Client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+			if err != nil {
+				return err
+			}
+			if deploymentPodsSettled(deployment, pods.Items) {
+				return nil
+			}
 		}
 		select {
 		case <-ctx.Done():
@@ -66,6 +80,31 @@ func (k *E2EKube) WaitDeployment(ctx context.Context, namespace, name string, ti
 		}
 	}
 	return fmt.Errorf("deployment %s/%s did not become available", namespace, name)
+}
+
+func deploymentPodsSettled(deployment *appsv1.Deployment, pods []corev1.Pod) bool {
+	desired := int32(1)
+	if deployment.Spec.Replicas != nil {
+		desired = *deployment.Spec.Replicas
+	}
+	// Deployment replica counters can exclude a terminating old Pod before
+	// its preStop/draining process has actually closed control connections.
+	if len(pods) != int(desired) {
+		return false
+	}
+	for _, pod := range pods {
+		if pod.DeletionTimestamp != nil || pod.Status.Phase != corev1.PodRunning {
+			return false
+		}
+		ready := false
+		for _, condition := range pod.Status.Conditions {
+			ready = ready || condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue
+		}
+		if !ready {
+			return false
+		}
+	}
+	return true
 }
 
 func (k *E2EKube) ScaleStatefulSet(ctx context.Context, namespace, name string, replicas int32) error {

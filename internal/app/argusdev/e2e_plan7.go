@@ -29,7 +29,7 @@ func (a *App) runPlan7Scenario(ctx context.Context, env *E2EEnvironment) error {
 	if err != nil {
 		return err
 	}
-	host := &plan6HostLoop{Docker: fixture, HostName: "Plan7 Docker monitored Host", CPUExpression: `100 * (1 - avg by (argus_resource_id,argus_source_id) (system_cpu_utilization{state="idle"}))`, MemoryExpression: `100 * system_memory_utilization{state="used"}`}
+	host := &plan6HostLoop{Docker: fixture, HostName: "Plan7 Docker monitored Host", CPUExpression: `100 * (1 - avg by (argus_resource_id,argus_source_id,argus_collection_id) (system_cpu_utilization{state="idle"}))`, MemoryExpression: `100 * system_memory_utilization{state="used"}`}
 	for _, phase := range []struct {
 		name string
 		run  func() error

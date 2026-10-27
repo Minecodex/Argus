@@ -10,6 +10,10 @@ export const observationObject = (
   value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
+export const isMetricDimension = (key: string) =>
+  !/^(?:__name__$|argus_|otel_|telemetry_sdk_|resource_(?:service_instance_id|server_|telemetry_sdk_)|service_instance_id$)/.test(
+    key,
+  );
 export function metricObservations(value: unknown): ObservationSeries[] {
   const root = observationObject(value);
   const rows = Array.isArray(value)
@@ -45,9 +49,9 @@ export function metricObservations(value: unknown): ObservationSeries[] {
         : [],
     );
     const dimensions = Object.entries(labels)
-      .filter(([key]) => key !== "__name__" && !key.startsWith("argus_"))
-      .map(([key, v]) => `${key}=${v}`)
-      .join(", ");
+      .filter(([key]) => isMetricDimension(key))
+      .map(([, v]) => v)
+      .join(" · ");
     return [
       {
         name:

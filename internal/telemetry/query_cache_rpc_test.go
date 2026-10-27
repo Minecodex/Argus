@@ -52,10 +52,14 @@ func (limiter *cacheRPCLimiter) Acquire(context.Context, uuid.UUID, string, time
 	return func() {}, nil
 }
 
-type cacheRPCEngine struct{ calls int }
+type cacheRPCEngine struct {
+	calls int
+	scope queryengine.Scope
+}
 
-func (engine *cacheRPCEngine) Execute(context.Context, queryengine.Request) (queryengine.Result, error) {
+func (engine *cacheRPCEngine) Execute(_ context.Context, request queryengine.Request) (queryengine.Result, error) {
 	engine.calls++
+	engine.scope = request.Scope
 	sample := time.Unix(20, 123).UTC()
 	return queryengine.Result{Language: queryengine.LanguageKQL, ResultType: "log_entries", Data: []map[string]any{{"body": "evidence"}}, Meta: queryengine.QueryMeta{LatestSampleAt: &sample}}, nil
 }
@@ -64,6 +68,8 @@ func TestQueryCacheAndFreshnessSurviveRPCWithLimiterOnEveryHit(t *testing.T) {
 	server := &QueryRPCServer{Limiter: limiter, Coordinator: &queryengine.Coordinator{KQL: engine, Cache: queryengine.NewResultCache(1<<20, time.Minute)}}
 	backend := GRPCQueryBackend{client: cacheRPCClient{server: server}}
 	r := queryengine.Request{CacheNamespace: strings.Repeat("a", 64), Language: queryengine.LanguageKQL, Expression: "*", Start: time.Unix(10, 0), End: time.Unix(30, 0), Scope: queryengine.Scope{EnterpriseID: uuid.New(), SubjectID: uuid.New(), SubjectType: "user", ResourceIDs: []uuid.UUID{uuid.New()}, SourceKeys: []string{uuid.NewString() + ":1"}, AuthorizationVersion: 1}}
+	r.Scope.Resources = testResourceRefs(r.Scope.ResourceIDs[0])
+	r.Scope.Signature = testScopeSignature
 	first, err := backend.ExecuteEngineQuery(context.Background(), r)
 	if err != nil {
 		t.Fatal(err)
@@ -77,5 +83,15 @@ func TestQueryCacheAndFreshnessSurviveRPCWithLimiterOnEveryHit(t *testing.T) {
 	}
 	if second.Meta.LatestSampleAt == nil || !second.Meta.LatestSampleAt.Equal(time.Unix(20, 123)) || second.Meta.QueryCompletedAt == nil || !first.Meta.QueryCompletedAt.Equal(*second.Meta.QueryCompletedAt) || second.Meta.SampleTimeBasis != "observed_query_samples" || second.Meta.IngestionStatus != "unknown" {
 		t.Fatalf("RPC dropped freshness fields: %+v", second.Meta)
+	}
+	r.Scope.Resources[0].Type = "application"
+	third, err := backend.ExecuteEngineQuery(context.Background(), r)
+	if err != nil || third.Meta.CacheHit || engine.calls != 2 || engine.scope.Resources[0].Type != "application" {
+		t.Fatalf("typed scope lost in transport/cache: %v calls=%d", err, engine.calls)
+	}
+	r.Scope.Signature = strings.Repeat("b", 64)
+	fourth, err := backend.ExecuteEngineQuery(context.Background(), r)
+	if err != nil || fourth.Meta.CacheHit || engine.calls != 3 {
+		t.Fatal("relationship/resource snapshot reused stale cache")
 	}
 }

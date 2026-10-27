@@ -30,7 +30,7 @@ func TestEveryRegisteredToolHasReviewedPresentationCoverageAndSource(t *testing.
 			t.Fatal("incomplete template coverage", binding.Tool)
 		}
 	}
-	if len(seen) != 106 {
+	if len(seen) != 132 {
 		t.Fatalf("registry coverage changed; review the declaration and fixtures: %d", len(seen))
 	}
 }

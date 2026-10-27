@@ -1,3 +1,6 @@
+export * from "./monitoring";
+export { applicationAPMQueries } from "./generated/application-apm-queries";
+export * from "./kubernetes-workbench";
 export * from "./types";
 export * from "./remote-execution";
 export type {
@@ -201,4 +204,7 @@ export {
 } from "./generated/permission-registry";
 
 export * from "./alerts";
+export { KubernetesTerminalConnection } from "./transport/kubernetes-stream";
 export * from "./interactions";
+export { managedDashboardTemplates } from "./generated/dashboard-templates";
+export { builtinCollections } from "./generated/builtin-collections";

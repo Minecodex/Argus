@@ -20,7 +20,7 @@ func TestRealModelDNSOverrideKeepsOtherHostsAndRejectsForeignNamespace(t *testin
 			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test", Labels: map[string]string{"argus.io/release-id": owner}}}
 			zero := int32(0)
 			deployment := func(name string) *appsv1.Deployment {
-				return &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test"}, Spec: appsv1.DeploymentSpec{Replicas: &zero, Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{HostAliases: []corev1.HostAlias{{IP: "198.18.0.2", Hostnames: []string{"model.example", "another.example"}}}}}}}
+				return &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test"}, Spec: appsv1.DeploymentSpec{Replicas: &zero, Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": name}}, Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": name}}, Spec: corev1.PodSpec{HostAliases: []corev1.HostAlias{{IP: "198.18.0.2", Hostnames: []string{"model.example", "another.example"}}}}}}}
 			}
 			client := fake.NewSimpleClientset(ns, deployment("argus-server"), deployment("argus-worker"), deployment("unrelated"))
 			env := &E2EEnvironment{ReleaseID: "run", SystemNS: "test", Kube: &E2EKube{Client: client}, Options: E2EOptions{Artifacts: t.TempDir(), RealModel: &p5RealModelConfig{BaseURL: "https://model.example/v1", EndpointIP: "8.8.8.8"}}}
