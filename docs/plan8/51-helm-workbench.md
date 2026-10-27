@@ -35,7 +35,9 @@ Helm 的 [hooks](https://helm.sh/docs/topics/charts_hooks/) 和 [CRD 行为](htt
 
 原生 Helm 的默认 Schema loader 可访问 file/http，值合并也可能打印原值，因此不在服务主进程中直接渲染。Server、Worker 与 Connector 使用同一程序的内部子进程入口；不增加独立服务或用户安装项，也不启动外部 Helm CLI、插件或 exporter。
 
-子进程仅收到 Chart、values、渲染所需的公开能力与 Release 信息；不继承平台环境、Kubeconfig、解密 Key 或 API 凭据。单进程一次渲染，限制约 128 MiB、5 秒 CPU、10 秒墙钟及有界输入输出；Windows 使用 Job Object，Unix 使用 rlimit。macOS 在启动 Go 进程前通过固定 shell 指令设置相同的 128 MiB 数据段软/硬限制，再 exec 渲染程序，避免 Go 运行时先预留映射后被系统拒绝降低限制；可执行路径与参数分别传入，不拼入脚本。三平台 CI 在完整 CLI 编译前执行普通渲染、外部 Schema 拒绝、超量模板与取消回归。SDK 日志在子进程中丢弃；Schema 保留校验但使用关闭外部加载的 compiler，支持 Schema 文档内的定义与标准 draft。模板的集群 lookup/DNS 不可用。
+子进程仅收到 Chart、values、渲染所需的公开能力与 Release 信息；不继承平台环境、Kubeconfig、解密 Key 或 API 凭据。单进程一次渲染，限制约 128 MiB、5 秒 CPU、10 秒墙钟及有界输入输出；Windows 使用 Job Object，Linux 使用 rlimit。macOS 的 RLIMIT_DATA 包含共享可写映射，不能直接用作相同的内存占用预算，因此由系统 `/usr/bin/taskpolicy -m 128` 在 exec 前安装 active/inactive 致命内存上限，CPU 与文件大小仍由 rlimit 限制；工具或限制不可用时拒绝渲染，不回退到无约束进程。三平台 CI 在完整 CLI 编译前执行普通渲染、外部 Schema 拒绝、超量模板与取消回归；macOS 另验证触碰 256 MiB 内存的子进程被 SIGKILL，且不是父进程墙钟超时导致。SDK 日志在子进程中丢弃；Schema 保留校验但使用关闭外部加载的 compiler，支持 Schema 文档内的定义与标准 draft。模板的集群 lookup/DNS 不可用。
+
+macOS 机制依据：[Apple taskpolicy 源码](https://github.com/apple-oss-distributions/system_cmds/blob/main/taskpolicy/taskpolicy.c)，使用 `POSIX_SPAWN_SETEXEC` 及 active/inactive fatal memory flags；执行路径和参数单独传递，不经 shell 拼接。
 
 Chart 压缩上限 384 KiB、累计展开 8 MiB（包括递归打包依赖）、values 和 Schema 各 96 KiB、100 个对象。配置/密封计划及整个 Connector 消息还受组合大小限制，不能同时占满所有单项上限。远程 URL、缺失依赖自动下载、外部 Schema 引用、可执行插件及后置渲染器不在入口范围。Kubernetes 返回体及 Helm 历史解压也有独立限额；超限明确失败。
 

@@ -3,10 +3,10 @@ package kuberneteshelm
 import "os/exec"
 
 func configureRenderCommand(command *exec.Cmd) {
-	// Darwin refuses to lower RLIMIT_DATA below mappings already reserved by
-	// the Go runtime. Install the same hard/soft limit before exec instead.
-	// The script is fixed; the executable and arguments are separate argv items.
+	// taskpolicy uses POSIX_SPAWN_SETEXEC and installs fatal active/inactive
+	// memory limits before the renderer starts. RLIMIT_DATA also counts shared
+	// writable mappings on Darwin and cannot enforce this footprint budget.
 	args := append([]string(nil), command.Args...)
-	command.Path = "/bin/sh"
-	command.Args = append([]string{"/bin/sh", "-c", `ulimit -Hd 131072 && ulimit -Sd 131072 && exec "$@"`, "argus-helm-renderer"}, args...)
+	command.Path = "/usr/bin/taskpolicy"
+	command.Args = append([]string{command.Path, "-m", "128"}, args...)
 }

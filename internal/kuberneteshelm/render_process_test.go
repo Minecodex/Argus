@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -19,6 +20,15 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if len(os.Args) == 2 && os.Args[1] == "--argus-test-render-memory" {
+		memory := make([]byte, 256<<20)
+		for i := 0; i < len(memory); i += 4096 {
+			memory[i] = 1
+		}
+		runtime.KeepAlive(memory)
+		fmt.Fprintln(os.Stdout, "allocation-completed")
+		return
+	}
 	if len(os.Args) == 2 && os.Args[1] == "--argus-test-render-limits" {
 		if err := limitRenderSelf(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
