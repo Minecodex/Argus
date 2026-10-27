@@ -58,6 +58,9 @@ func (a *App) runContracts(ctx context.Context, args []string) error {
 }
 
 func (a *App) contractLint(ctx context.Context) error {
+	if err := a.runner.Run(ctx, nil, "node", "--test", "scripts/generate-alert-schema.test.mjs"); err != nil {
+		return err
+	}
 	// Expand the files ourselves because exec.Cmd never invokes a shell and
 	// therefore behaves identically on Unix and Windows.
 	files, err := filepath.Glob(filepath.Join(a.root, "api", "openapi", "generation", "*.yaml"))

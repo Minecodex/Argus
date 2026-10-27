@@ -6,6 +6,8 @@
 
 默认主分支为 `main`，除 `CI` 外还要求固定 `contracts`。
 
+契约生成必须跨平台保持字节一致。嵌入生成代码的告警 HTML 模板在序列化前统一使用 LF，避免本地 CRLF 换行进入字符串字面量；`contracts lint` 会执行 LF/CRLF 两种输入的生成回归测试，`contracts check` 继续在隔离目录重新生成并比对产物。
+
 | 入口 | 实际范围 |
 | --- | --- |
 | 普通 PR / main push | 三平台 portable、契约 lint/生成/breaking change、真实 PostgreSQL 迁移及持久化业务、关键共享门户流程 |
