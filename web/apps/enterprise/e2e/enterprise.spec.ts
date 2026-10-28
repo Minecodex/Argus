@@ -787,12 +787,27 @@ test("kubernetes collector statuses install or open monitoring directly", async 
   );
 });
 
-async function observationSignal(page:Page, signal:string, expression?:string){
- const card=page.locator(".argus-observe-query").first();
- await selectTrigger(card,"查询类型").click();await page.getByRole("option",{name:signal,exact:true}).click();
- if(signal==="指标"){const input=card.getByRole("combobox",{name:"指标",exact:true});await input.fill("system_cpu_utilization");await input.press("Tab");}
- if(expression){await setChoice(card.getByRole("radio",{name:"DSL 编辑器",exact:true}));await expect(card.locator(".cm-editor").first()).toBeVisible();await card.getByRole("textbox",{name:"查询语句",exact:true}).fill(expression);}
- await card.getByRole("button",{name:"执行查询",exact:true}).click();await expect(card.getByRole("status").filter({hasText:"查询完成"})).toBeVisible();return card;
+async function observationSignal(page: Page, signal: string, expression?: string) {
+  const card = page.locator(".argus-observe-query").first();
+  await selectTrigger(card, "查询类型").click();
+  await page.getByRole("option", { name: signal, exact: true }).click();
+  if (signal === "指标") {
+    const input = card.getByRole("combobox", { name: /^指标\*?$/ });
+    await input.fill("system_cpu");
+    await page
+      .getByRole("option", { name: /^system_cpu_utilization/ })
+      .first()
+      .click();
+    await expect(input).toHaveValue("system_cpu_utilization");
+  }
+  if (expression) {
+    await setChoice(card.getByRole("radio", { name: "DSL 编辑器", exact: true }));
+    await expect(card.locator(".cm-editor").first()).toBeVisible();
+    await card.getByRole("textbox", { name: "查询语句", exact: true }).fill(expression);
+  }
+  await card.getByRole("button", { name: "执行查询", exact: true }).click();
+  await expect(card.getByRole("status").filter({ hasText: "查询完成" })).toBeVisible();
+  return card;
 }
 
 test("telemetry views expose Metrics, Logs, Traces, usage, and partial states",async({page})=>{
