@@ -2,7 +2,7 @@ import { ResolvedAlertActionPreview } from "../alerts/resolved-action-preview";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink } from "lucide-react";
+import { ActionExecutionStatus } from "../operations/execution-result";
 import type { PendingActionPublic } from "@argus/api-client";
 import { formatApiError, useApi } from "@argus/api-client";
 import {
@@ -82,6 +82,23 @@ export function PendingActionCard({
   if (action.action_type === "remote_execution.execute")
     return <RemoteExecutionCard action={action} />;
 
+  if (
+    [
+      "ready",
+      "executing",
+      "succeeded",
+      "failed",
+      "cancelled",
+      "invalidated",
+    ].includes(action.status)
+  )
+    return (
+      <div className="argus-chat-action" data-testid="pending-action-card">
+        <ActionExecutionStatus key={action.action_ref} action={action} />
+        {children}
+      </div>
+    );
+
   const status = failedMessage ? "failed" : toPreviewStatus(action);
   const awaitingApproval = action.status === "awaiting_approval";
   const busy =
@@ -139,15 +156,7 @@ export function PendingActionCard({
 
   const resultMessage =
     status === "success" ? (
-      <span>
-        {presented.resultSummary ?? t("chat.result.success")}
-        {action.execution_ref && (
-          <a className="argus-chat-action__task-link" href="/tasks">
-            {t("chat.action.viewTask")}
-            <ExternalLink aria-hidden size={11} />
-          </a>
-        )}
-      </span>
+      <span>{presented.resultSummary ?? t("chat.result.success")}</span>
     ) : status === "failed" ? (
       (failedMessage ?? presented.resultSummary ?? t("chat.result.failed"))
     ) : undefined;

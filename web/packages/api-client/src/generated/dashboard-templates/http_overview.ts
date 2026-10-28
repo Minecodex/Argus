@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "http.overview",
-  "version": 1,
+  "version": 2,
   "name": "HTTP checks",
   "description": "",
   "integration_keys": [
@@ -67,7 +67,7 @@ export const template = {
       },
       {
         "id": "success",
-        "title": "sum(httpcheck_status{http_status_class=~\"2xx|3xx\"})",
+        "title": "sum(httpcheck_status{http_status_class=~\"2xx|3xx\"} and topk by (argus_resource_id, http_status_class) (1, timestamp(httpcheck_status{http_status_class=~\"2xx|3xx\"})))",
         "description": "",
         "type": "stat",
         "signal": "metrics",
@@ -86,7 +86,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "sum(httpcheck_status{http_status_class=~\"2xx|3xx\"})"
+                "expression": "sum(httpcheck_status{http_status_class=~\"2xx|3xx\"} and topk by (argus_resource_id, http_status_class) (1, timestamp(httpcheck_status{http_status_class=~\"2xx|3xx\"})))"
               }
             },
             "query_mode": "instant",
@@ -115,7 +115,7 @@ export const template = {
       },
       {
         "id": "client_error",
-        "title": "httpcheck_status{http_status_class=\"4xx\"}",
+        "title": "httpcheck_status{http_status_class=\"4xx\"} and topk by (argus_resource_id, http_status_class) (1, timestamp(httpcheck_status{http_status_class=\"4xx\"}))",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -134,7 +134,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "httpcheck_status{http_status_class=\"4xx\"}"
+                "expression": "httpcheck_status{http_status_class=\"4xx\"} and topk by (argus_resource_id, http_status_class) (1, timestamp(httpcheck_status{http_status_class=\"4xx\"}))"
               }
             },
             "query_mode": "range",
@@ -163,7 +163,7 @@ export const template = {
       },
       {
         "id": "server_error",
-        "title": "httpcheck_status{http_status_class=\"5xx\"}",
+        "title": "httpcheck_status{http_status_class=\"5xx\"} and topk by (argus_resource_id, http_status_class) (1, timestamp(httpcheck_status{http_status_class=\"5xx\"}))",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -182,7 +182,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "httpcheck_status{http_status_class=\"5xx\"}"
+                "expression": "httpcheck_status{http_status_class=\"5xx\"} and topk by (argus_resource_id, http_status_class) (1, timestamp(httpcheck_status{http_status_class=\"5xx\"}))"
               }
             },
             "query_mode": "range",

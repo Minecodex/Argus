@@ -19,6 +19,13 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
+        - name: operation_ref
+          in: query
+          description: Exact server-owned action reference; restricted to the same authorized audit scope.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
         - name: action
           in: query
           required: false
@@ -130,6 +137,8 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+        operation:
+          $ref: '#/components/schemas/AuditOperation'
         action:
           type: string
           pattern: ^[a-z][a-z0-9_.]+$
@@ -212,6 +221,57 @@ components:
         retryable:
           type: boolean
           default: false
+    AuditOperation:
+      type: object
+      additionalProperties: false
+      description: Current operation projection. Separate from immutable event facts and never a source of execution authority.
+      required:
+        - action_ref
+        - action_type
+        - action_status
+        - created_at
+        - updated_at
+      properties:
+        action_ref:
+          type: string
+          minLength: 1
+          maxLength: 256
+        action_type:
+          type: string
+          minLength: 1
+          maxLength: 128
+        action_status:
+          type: string
+          minLength: 1
+          maxLength: 64
+        execution_id:
+          type: string
+          format: uuid
+        execution_status:
+          type: string
+          minLength: 1
+          maxLength: 64
+        error_code:
+          type: string
+          minLength: 1
+          maxLength: 128
+        resource_type:
+          type: string
+          minLength: 1
+          maxLength: 128
+        resource_id:
+          type: string
+          format: uuid
+        resource_name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     PartialMetadata:
       type: object
       additionalProperties: false

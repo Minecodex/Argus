@@ -44,6 +44,13 @@ paths:
               - active
               - archived
             default: active
+        - name: environment
+          in: query
+          description: Exact application environment; omitted means all authorized environments. Combined with search before pagination.
+          schema:
+            type: string
+            pattern: ^[a-z][a-z0-9_-]{0,63}$
+            maxLength: 64
       responses:
         '200':
           description: Authorized monitoring workspace result

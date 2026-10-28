@@ -1,0 +1,422 @@
+{
+  "components": {
+    "schemas": {
+      "ObservationResourceRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster",
+              "kubernetes_namespace",
+              "application",
+              "monitoring_target"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ]
+      },
+      "TelemetryQueryScope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "explicit",
+              "all_authorized"
+            ]
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservationResourceRef"
+            },
+            "maxItems": 1000
+          },
+          "source_type": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "source_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000
+          },
+          "resource_types": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "enum": [
+                "host",
+                "kubernetes_cluster",
+                "kubernetes_namespace",
+                "application",
+                "monitoring_target"
+              ]
+            }
+          }
+        },
+        "required": [
+          "mode",
+          "resources"
+        ]
+      },
+      "ObservationResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster",
+              "kubernetes_namespace",
+              "application",
+              "monitoring_target"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "parent_name": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_uid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name",
+          "environment"
+        ]
+      },
+      "ObservationResourcePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservationResource"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ObservationRecipe": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "expression": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "integration_key": {
+            "type": "string"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title",
+          "description",
+          "expression",
+          "unit",
+          "source_type",
+          "integration_key",
+          "metrics"
+        ]
+      },
+      "ObservationMetric": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "source_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "observed": {
+            "type": "boolean"
+          },
+          "recipes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservationRecipe"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "unit",
+          "labels",
+          "source_type",
+          "source_keys",
+          "description",
+          "observed",
+          "recipes"
+        ]
+      },
+      "ObservationSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_type": {
+            "type": "string"
+          },
+          "capability_version": {
+            "type": "string"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "integration_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "source_type",
+          "capability_version",
+          "keys",
+          "integration_keys"
+        ]
+      },
+      "ObservationCatalogInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/TelemetryQueryScope"
+          },
+          "signal": {
+            "type": "string",
+            "enum": [
+              "metrics",
+              "logs",
+              "traces"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "metrics",
+              "fields",
+              "values",
+              "sources"
+            ]
+          },
+          "metric": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 8192
+          },
+          "selected_values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200
+          },
+          "filters": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "./dashboard-catalog.yaml#/components/schemas/DashboardCatalogFilter"
+            }
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "observed_only": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "scope",
+          "signal",
+          "kind",
+          "from",
+          "to",
+          "limit"
+        ]
+      },
+      "ObservationCatalogResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservationMetric"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservationSource"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "type"
+              ]
+            }
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "selected_exists": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "metrics",
+          "sources",
+          "fields",
+          "values",
+          "has_more",
+          "complete",
+          "selected_exists",
+          "warnings"
+        ]
+      }
+    }
+  }
+}

@@ -55,16 +55,16 @@ test.describe("M4 real Agent and governance flow", () => {
         .first(),
     ).toBeVisible();
 
-    await page.goto(`${enterpriseOrigin}/tasks`);
+    await page.goto(`${enterpriseOrigin}/settings/audit`);
     await expect(
       page
-        .getByRole("cell", { name: /^(Succeeded|Success|成功|已成功)$/ })
+        .getByRole("cell", { name: /^(Succeeded|Success|成功|已成功|执行成功)$/ })
         .first(),
     ).toBeVisible();
     const refreshButton = page.getByRole("button", { name: /Refresh|刷新/ });
     await expect(refreshButton).toBeVisible();
     await expect(
-      page.locator(".argus-page__header").getByRole("button", {
+      page.locator(".argus-filter-bar").getByRole("button", {
         name: /Refresh|刷新/,
       }),
     ).toHaveCount(1);

@@ -3,6 +3,8 @@ info: {title: Argus Telemetry API, version: 1.0.0, license: {name: Proprietary, 
 servers: [{url: /api/v1}]
 security: [{sessionCookie: []}]
 paths:
+  /enterprise/telemetry/query/resources: {$ref: ../argus.yaml#/paths/~1enterprise~1telemetry~1query~1resources}
+  /enterprise/telemetry/query/catalog: {$ref: ../argus.yaml#/paths/~1enterprise~1telemetry~1query~1catalog}
   /telemetry/collectors/enroll: {$ref: ../argus.yaml#/paths/~1telemetry~1collectors~1enroll}
   /enterprise/telemetry/distributions: {$ref: ../argus.yaml#/paths/~1enterprise~1telemetry~1distributions}
   /enterprise/telemetry/profiles: {$ref: ../argus.yaml#/paths/~1enterprise~1telemetry~1profiles}

@@ -60,6 +60,7 @@ export function ResourceDashboardLinks({
   const available = useQuery({
     queryKey: ["dashboard-binding-candidates", type, id],
     queryFn: () => api.dashboards.list(),
+    select: (items) => items.filter((item) => item.managed_template_key !== "argus.model-governance"),
     enabled: canRead && canManage && open,
     staleTime: 0,
   });

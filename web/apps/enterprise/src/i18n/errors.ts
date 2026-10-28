@@ -508,6 +508,14 @@ const errorTokenZhMap: Record<string, string> = {
 };
 
 const errorSpecialZhMap: Record<string, string> = {
+  ACTION_INVALIDATED:
+    "权限或资源状态已变化，本次操作已失效。请检查后重新发起。",
+  ACTION_EXECUTION_FAILED: "操作执行失败，请检查目标资源状态和执行记录后重试。",
+  EXECUTION_RESULT_UNKNOWN: "执行结果尚未确认，系统正在核实。请勿重复提交。",
+  ACTION_RESULT_NOT_AVAILABLE:
+    "结果不可领取。请确认当前账号是原发起人，并检查结果状态。",
+  ACTION_RESULT_EXPIRED: "结果已过期，请从资源操作中重新生成。",
+  ACTION_RESULT_ALREADY_CONSUMED: "结果已经领取，无法再次展示。",
   COLLECTOR_DEPENDENCIES_EXIST:
     "此收集器仍有启用的监控、应用接入或待完成的执行迁移。请先停采或迁移，并等待配置实际生效后再卸载。",
   QUERY_PROTOCOL_VERSION_UNSUPPORTED:
@@ -740,6 +748,18 @@ const errorSpecialZhMap: Record<string, string> = {
 
 const errorTokenEnMap: Record<string, string> = {};
 const errorSpecialEnMap: Record<string, string> = {
+  ACTION_INVALIDATED:
+    "Permissions or resource state changed. Review the operation and start again.",
+  ACTION_EXECUTION_FAILED:
+    "Execution failed. Check the target resource and operation details before trying again.",
+  EXECUTION_RESULT_UNKNOWN:
+    "The execution result is being verified. Avoid submitting the operation again.",
+  ACTION_RESULT_NOT_AVAILABLE:
+    "The result cannot be retrieved. Check its state and use the original initiator account.",
+  ACTION_RESULT_EXPIRED:
+    "The result expired. Generate a new command from the resource actions.",
+  ACTION_RESULT_ALREADY_CONSUMED:
+    "The result has already been retrieved and cannot be shown again.",
   COLLECTOR_DEPENDENCIES_EXIST:
     "This Collector still has enabled monitoring, application intake, or an unfinished execution migration. Stop or move them and wait for the configuration to take effect before uninstalling.",
   QUERY_PROTOCOL_VERSION_UNSUPPORTED:

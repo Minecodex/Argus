@@ -1,5 +1,6 @@
 export const telemetryZh = {
   telemetry: {
+    queryOptions: "高级查询选项",
     quickQuery: "临时快速查询",
     reset: "重置查询",
     quickQueryHint: "使用查询构建器或 DSL 查询当前资源；条件仅保留在本页。",
@@ -69,6 +70,7 @@ export const telemetryZh = {
 
 export const telemetryEn = {
   telemetry: {
+    queryOptions: "Advanced query options",
     quickQuery: "Quick query",
     reset: "Reset query",
     quickQueryHint:

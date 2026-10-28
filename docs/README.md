@@ -58,6 +58,10 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 48. [应用、监控与 Kubernetes 工作台交互提案（含 demo 与 Grafana 参考表）](./plans/monitoring-workspace/README.md)
 49. [Plan8 应用、监控采集与 Kubernetes 工作台完整实施计划](./plan8/README.md)
 50. [本机正式版与测试环境清理（2026-10-26）](./local-formal-deployment-20261026.md)
+51. [Plan9 分批真实场景、监控与人工验收](./plan9/README.md)
+52. [Plan10 观测查询统一临时工作台（实现、原型与验收）](./plan10/README.md)
+53. [模型治理内置仪表盘（实现、隔离与真实验收）](./plans/frontend-redesign/model-governance-dashboard-20261028.md)
+54. [模型治理本地构建与部署（2026-10-28）](./model-governance-local-deployment-20261028.md)
 
 2026-10-18 [Markdown 计划、命令授权与普通会话执行](./plan7/18-markdown-plan-command-consent.md)完成并发布到本地 revision 40：计划文档一次批准，命令按普通会话工具执行；两种权限模式的修复和停止场景通过，最终 38 次模型调用用量完整。Go 2263、前端 1326、交互 E2E 12、真实历史页面 12 通过，健康 20/20。此前 [revision 36/37 交互与布局记录](./plan7/16-interaction-closure.md)和更早的固定计划矩阵保留各自适用范围。
 
@@ -66,6 +70,8 @@ PlanV5 已于 2026-09-13 同步 [已确认决策与待决问题](./planv5/02-con
 远程终端正式采用与页面内容切分视口的 Terminal Dock（非遮罩，类似浏览器 DevTools）：连接生命周期由 `TerminalSessionProvider` 与 Gateway 共同管理，支持底部/左侧/右侧三向停靠切换与 20%～80% 拖拽，位置与尺寸持久化在 `argus.terminalDock`；`server_ready` 语义与远端 shell 启动进度对齐（Connector 路径等待 `state: active`）。
 
 ## 关键术语
+
+2026-10-27 [企业审计与操作进度收敛](./plans/frontend-redesign/audit-operation-consolidation-20261027.md)：取消独立任务记录入口，审计关联操作与实际执行结果，会话和资源详情承接进度与一次性命令领取。
 
 | 术语                         | 含义                                                                                                                       |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |

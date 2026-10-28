@@ -3,9 +3,3 @@
   flex-direction: column;
   gap: var(--space-3);
 }
-.argus-resource-picker__pagination {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-}

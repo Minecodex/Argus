@@ -1,4 +1,6 @@
 import type { AuditOrigin, ISODateString } from "./common";
+import type { components } from "../generated/audit";
+export type AuditOperation = components["schemas"]["AuditOperation"];
 
 export type AuditResult = "success" | "failure" | "denied";
 export type AuditActorType =
@@ -31,9 +33,11 @@ export interface AuditEvent {
   details?: Record<string, unknown>;
   previousHash?: string;
   eventHash?: string;
+  operation?: AuditOperation;
 }
 
 export interface AuditFilter {
+  operationRef?: string;
   action?: string;
   actorUserId?: string;
   resourceType?: string;

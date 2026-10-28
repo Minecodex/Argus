@@ -511,10 +511,9 @@ export function ApprovalDetail({
                 }
               />
             )}
-            <Link to="/tasks">
+            <Link to="/settings/audit" search={{ operation_ref: action.action_ref }}>
               <Button variant="secondary">
-                {t("governance.approvals.detail.viewTask")} ·{" "}
-                {execution?.execution_id ?? action.execution_ref}
+                {t("operations.audit")}
               </Button>
             </Link>
           </section>

@@ -1,0 +1,39 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:5a36984755571cc20bdd65c37408f519d998481db4baed53e7cb22be19a41bf1",
+      "digests": [
+        "argus-plan9-cache@sha256:5a36984755571cc20bdd65c37408f519d998481db4baed53e7cb22be19a41bf1"
+      ],
+      "architecture": "amd64"
+    },
+    "REDIS": {
+      "id": "sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241",
+      "digests": [
+        "redis@sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241"
+      ],
+      "architecture": "amd64"
+    },
+    "MEMCACHED": {
+      "id": "sha256:6a089e37cbb8acd75c80c6c0667fe57ec54db68782fb1b3afb1d0eb265e50070",
+      "digests": [
+        "memcached@sha256:6a089e37cbb8acd75c80c6c0667fe57ec54db68782fb1b3afb1d0eb265e50070"
+      ],
+      "architecture": "amd64"
+    }
+  },
+  "versions": {
+    "redis": "8.10.0",
+    "memcached": "1.6.45"
+  },
+  "source_hashes": {
+    "client.py": "7aece3b149fa506090d3e59d31ed7b47a1f0d68fe70c7538427331f449ed16ad",
+    "compose.yaml": "e38e82b992b04ef2409b4e1552feb907340c512fee5f791fbf8aa986ca8beee7",
+    "Dockerfile": "738ea7bcf6165074dcd0734fa9e8cb5ed4bf06303083a8546c39a4ce18d4cf7b",
+    "integration.py": "ee2aa60cf326b58d9ff1941a658db270af065c813077e9bd0193182d7ad263bd",
+    "manage.py": "ebb932c858934b9937a6cffaf2e74e8c04ec53d012371d2bc106df3d5817d19d",
+    "retire.py": "c33ad3c732217e62281e6b012c69b8ea142be59e64f70ce060c26132598fc16e",
+    "runbook.md": "afe718687d0752767979abea116bcc67e5a05655433401751763bb85ed1927f0",
+    "scenario.py": "aa084d744565a1bb8c601e87be1b1c1a32aef37f5b5e6f37b47a98eb2e3d196f"
+  }
+}

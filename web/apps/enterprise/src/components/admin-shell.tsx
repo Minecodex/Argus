@@ -1,19 +1,16 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   Bell,
   Bot,
-  ChevronsLeft,
-  ChevronsRight,
   Component,
   Activity,
   Container,
-  History,
   House,
   LayoutDashboard,
   KeyRound,
   Menu,
+  MessageSquare,
   ScrollText,
   SquareTerminal,
   Search,
@@ -26,10 +23,11 @@ import {
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useApi, useTerminalSessions } from "@argus/api-client";
-import { AppShell, Badge, Button, Dialog, Input, Tooltip } from "@argus/ui";
+import { AppShell, Button, Dialog, Input, SidebarToggle, Tooltip } from "@argus/ui";
 import { useUiStore } from "../store/ui";
 import { AccountActions } from "./account-actions";
 import { usePermission } from "../lib/permissions";
+import { useAiopsAccess } from "../lib/aiops-access";
 import { TerminalDock } from "./hosts/terminal-dock";
 
 type AdminNavItem = {
@@ -46,15 +44,13 @@ type AdminNavSection = {
 };
 const realMode = import.meta.env.VITE_API_MODE === "real";
 
-function Brand({ compact = false }: { compact?: boolean }) {
+function Brand() {
   return (
     <Link className="argus-brand" to="/">
       <span className="argus-brand__mark">◉</span>
-      {!compact && (
-        <span className="argus-brand__name">
-          Argus<small>enterprise</small>
-        </span>
-      )}
+      <span className="argus-brand__name">
+        Argus<small>enterprise</small>
+      </span>
     </Link>
   );
 }
@@ -65,15 +61,17 @@ function useAdminCounts() {
   const hosts = useQuery({
     queryKey: ["hosts", "count"],
     queryFn: () => api.hosts.list(),
+    enabled: usePermission("host.read"),
   });
   const clusters = useQuery({
     queryKey: ["k8s-clusters", "count"],
     queryFn: () => api.kubernetes.listClusters(),
+    enabled: usePermission("kubernetes.read"),
   });
   const approvals = useQuery({
     queryKey: ["approvals", "awaiting_approval"],
     queryFn: () => api.approvals.list({ scope: "mine" }),
-    enabled: true,
+    enabled: usePermission("approval.read"),
   });
   return {
     hosts: hosts.data?.items.length,
@@ -90,14 +88,6 @@ function buildSections(
     {
       groupKey: "shell.groups.resources",
       items: [
-        { key: "dashboards.title", to: "/dashboards", icon: LayoutDashboard },
-        {
-          key: "monitoring.applications",
-          to: "/applications",
-          icon: Component,
-        },
-        { key: "monitoring.title", to: "/monitoring", icon: Activity },
-        { key: "alerts.center", to: "/alerts", icon: Bell },
         {
           key: "shell.nav.hosts",
           to: "/hosts",
@@ -110,12 +100,25 @@ function buildSections(
           icon: Container,
           count: counts.clusters,
         },
+        { key: "monitoring.title", to: "/monitoring", icon: Activity },
+        {
+          key: "monitoring.applications",
+          to: "/applications",
+          icon: Component,
+        },
+      ],
+    },
+    {
+      groupKey: "shell.groups.observability",
+      items: [
+        { key: "dashboards.title", to: "/dashboards", icon: LayoutDashboard },
+        { key: "alerts.center", to: "/alerts", icon: Bell },
+        { key: "shell.nav.queries", to: "/observe", icon: Search },
       ],
     },
     {
       groupKey: "shell.groups.execution",
       items: [
-        { key: "shell.nav.tasks", to: "/tasks", icon: History },
         {
           key: "shell.nav.approvals",
           to: "/approvals",
@@ -138,8 +141,7 @@ function buildSections(
       groupKey: "shell.groups.settings",
       items: [
         { key: "shell.nav.settingsOrg", to: "/settings/org", icon: Users },
-        { key: "shell.nav.settingsAi", to: "/settings/ai", icon: Bot },
-        { key: "planv5.mcp.title", to: "/settings/mcp", icon: Component },
+        { key: "aiopsSettings.title", to: "/settings/aiops", icon: Bot },
         {
           key: "shell.nav.settingsSecrets",
           to: "/settings/secrets",
@@ -157,8 +159,11 @@ function buildSections(
 }
 
 function Sidebar() {
-  const canManageMCP = usePermission("mcp_connection.manage");
+  const { canAccessAiops } = useAiopsAccess();
   const canReadDashboards = usePermission("telemetry.dashboard.read");
+  const canReadModelUsage = usePermission("model.usage.read");
+  const observeHost=usePermission("host.read"),observeK8s=usePermission("kubernetes.read"),observeApp=usePermission("application.read"),observeMonitor=usePermission("monitoring.read");
+  const canObserve=observeHost||observeK8s||observeApp||observeMonitor;
   const { t } = useTranslation();
   const { sidebarCollapsed, toggleSidebar, mobileNavOpen, setMobileNavOpen } =
     useUiStore();
@@ -177,7 +182,8 @@ function Sidebar() {
         className={`argus-sidebar ${sidebarCollapsed ? "is-collapsed" : ""} ${mobileNavOpen ? "is-mobile-open" : ""}`}
       >
         <div className="argus-sidebar__head">
-          <Brand compact={sidebarCollapsed} />
+          {!sidebarCollapsed && <Brand />}
+          <SidebarToggle collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
           <Button
             aria-label={t("shell.closeNavigation")}
             className="argus-mobile-close"
@@ -202,8 +208,8 @@ function Sidebar() {
               {section.items
                 .filter(
                   (item) =>
-                    (item.to !== "/settings/mcp" || canManageMCP) &&
-                    (item.to !== "/dashboards" || canReadDashboards),
+                    (item.to !== "/settings/aiops" || canAccessAiops) &&
+                    (item.to !== "/dashboards" || canReadDashboards || canReadModelUsage) && (item.to!=="/observe"||canObserve),
                 )
                 .map((item) => (
                   <Tooltip content={t(item.key)} key={item.key}>
@@ -231,22 +237,17 @@ function Sidebar() {
           ))}
         </nav>
         <div className="argus-sidebar__footer">
-          <Button
-            variant="ghost"
-            className="argus-collapse-button"
-            onPress={toggleSidebar}
-            type="button"
-          >
-            {sidebarCollapsed ? (
-              <ChevronsRight size={16} />
-            ) : (
-              <>
-                <ChevronsLeft size={16} />
-                <span>{t("shell.collapse")}</span>
-                <kbd>⌘ B</kbd>
-              </>
-            )}
-          </Button>
+          <Tooltip content={t("shell.backToChat")}>
+            <Link
+              className="argus-sidebar__switch"
+              to="/"
+              aria-label={t("shell.backToChat")}
+              onClick={() => setMobileNavOpen(false)}
+            >
+              <MessageSquare aria-hidden size={16} />
+              <span>{t("shell.backToChat")}</span>
+            </Link>
+          </Tooltip>
         </div>
       </aside>
     </>
@@ -294,12 +295,13 @@ function CommandDialog() {
 const pageTitles: Record<string, string> = {
   "/hosts": "shell.nav.hosts",
   "/kubernetes": "shell.nav.kubernetes",
-  "/tasks": "shell.nav.tasks",
+  "/applications": "monitoring.applications",
+  "/monitoring": "monitoring.title",
+  "/observe":"observe.title",
   "/approvals": "shell.nav.approvals",
   "/remote-sessions": "shell.nav.remoteSessions",
   "/settings/org": "shell.nav.settingsOrg",
-  "/settings/ai": "shell.nav.settingsAi",
-  "/settings/mcp": "planv5.mcp.title",
+  "/settings/aiops": "aiopsSettings.title",
   "/settings/secrets": "shell.nav.settingsSecrets",
   "/settings/audit": "shell.nav.settingsAudit",
   "/demo": "shell.nav.demo",
@@ -335,19 +337,8 @@ function Header() {
       >
         <Menu size={18} />
       </Button>
-      <Link
-        className="argus-back-to-chat"
-        to="/"
-        aria-label={t("shell.backToChat")}
-      >
-        <ArrowLeft size={14} />
-        <span>{t("shell.backToChat")}</span>
-      </Link>
       <div className="argus-topbar__title">
         <span>{titleKey ? t(titleKey) : "Argus"}</span>
-        <Badge dot tone="success">
-          {t("shell.healthy")}
-        </Badge>
       </div>
       <Button
         variant="ghost"
@@ -416,8 +407,8 @@ function MobileNavigation() {
 }
 
 /**
- * 管理后台布局（docs/07）：资源 / 执行治理 / 企业设置三组菜单，
- * 顶栏提供返回会话、企业切换、主题与语言、用户菜单和 ⌘K 命令面板。
+ * 管理后台布局（docs/07）：资源 / 观测 / 执行治理 / 企业设置四组菜单，
+ * 侧栏底部切换智能会话，顶部收缩导航；顶栏提供主题、语言、用户菜单和 ⌘K 命令面板。
  */
 export function AdminShell() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);

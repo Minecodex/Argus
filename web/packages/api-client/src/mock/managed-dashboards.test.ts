@@ -1,6 +1,39 @@
 import { expect, it } from "vitest";
 import { createMockApiClient } from "./index";
 
+it("offers model governance without a collector and refuses copies or foreign model selections", async () => {
+  const api = createMockApiClient({ persist: false, delay: 0 });
+  await api.auth.login({ username: "root", password: "123456" });
+  const item = (await api.dashboards.list()).find(
+    (row) => row.managed_template_key === "argus.model-governance",
+  )!;
+  expect(item).toBeTruthy();
+  const view = await api.dashboards.get(item.id);
+  await expect(
+    api.dashboards.createDraft({
+      dashboard_id: item.id,
+      name: "Copy",
+      description: "",
+      spec: view.revision.spec,
+      proposed_bindings: [],
+    }),
+  ).rejects.toMatchObject({ code: "DASHBOARD_DENIED", status: 403 });
+  const metadata = await api.dashboards.execute(item.id, {
+    resource_ids: [],
+    variables: {},
+    local_values: {},
+    candidates_only: true,
+  });
+  expect(metadata.model_governance?.models.length).toBeGreaterThan(0);
+  await expect(
+    api.dashboards.execute(item.id, {
+      resource_ids: [],
+      variables: { model: { all: false, values: [crypto.randomUUID()] } },
+      local_values: {},
+    }),
+  ).rejects.toMatchObject({ code: "DASHBOARD_DENIED", status: 403 });
+});
+
 it("offers a read-only native default and creates an independent personal copy", async () => {
   const api = createMockApiClient({ persist: false, delay: 0 });
   await api.auth.login({ username: "root", password: "123456" });

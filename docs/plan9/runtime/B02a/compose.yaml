@@ -1,0 +1,52 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-web: &web
+  image: ${PLAN9_HOST_IMAGE:?Verified local image ID required}
+  privileged: true
+  cgroup: private
+  cpus: 1.5
+  mem_limit: 1280m
+  memswap_limit: 1280m
+  pids_limit: 512
+  restart: unless-stopped
+  stop_grace_period: 30s
+  tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+  networks: [lab]
+  labels:
+    io.argus.plan9.run: ${PLAN9_RUN}
+    io.argus.plan9.batch: B02a
+  extra_hosts:
+    - host.docker.internal:host-gateway
+    - argus.dev:host-gateway
+    - artifacts.argus.dev:host-gateway
+    - connector.argus.dev:host-gateway
+    - telemetry.argus.dev:host-gateway
+  healthcheck:
+    test: [CMD-SHELL, 'systemctl is-active ssh nginx apache2 haproxy && curl -fsS http://127.0.0.1:8081/nginx_status >/dev/null && curl -fsS "http://127.0.0.1:8082/server-status?auto" >/dev/null && curl -fsS http://127.0.0.1:8404/stats >/dev/null']
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 30s
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+services:
+  web-a:
+    <<: *web
+    hostname: ${PLAN9_RUN}-a
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_NODE: A, PLAN9_TRAFFIC_DEADLINE: '${PLAN9_TRAFFIC_DEADLINE:?Deadline required}'}
+    ports: ['127.0.0.1:22231:22']
+    volumes: [data-a:/var/lib/plan9]
+  web-b:
+    <<: *web
+    hostname: ${PLAN9_RUN}-b
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_NODE: B, PLAN9_TRAFFIC_DEADLINE: '${PLAN9_TRAFFIC_DEADLINE:?Deadline required}'}
+    ports: ['127.0.0.1:22232:22']
+    volumes: [data-b:/var/lib/plan9]
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  data-a:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  data-b:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

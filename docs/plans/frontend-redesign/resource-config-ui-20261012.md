@@ -10,7 +10,9 @@
 - Kubernetes 卡片对应真实目录中的 `k8s-node-container`、`k8s-cluster`、`k8s-otlp-gateway`。节点指标和容器日志属于同一个 Profile，统一显示为「节点与容器采集」，不再提供提交后无效的独立日志开关。
 - Kubernetes 草稿从该 Collector 的当前 Claims 推导，忽略其他 Collector、已释放和到期 Claims。关闭节点采集不再被固定的 `k8s-daemonset` 标记重新开启。至少保留一项采集能力；关闭整个 Collector 继续走卸载预览与确认。
 
-## 主机与 Kubernetes 临时查询
+## 主机与 Kubernetes 临时查询（历史布局）
+
+2026-10-28 起，以下查询布局由 [Plan10 观测查询](../../plan10/README.md) 替代：主机和集群详情只提供跳转，三信号在 `/observe` 内使用独立资源范围的临时面板。采集配置、关联仪表盘、终端和 Pod 实时日志会话保留。
 
 三信号统一复用仪表盘的 `QueryTargetEditor`、`TelemetryQueryEditor`、原生语言转换服务和 `ObservationPanel`。2026-10-13 按用户反馈调整为查询工具栏 → 查询条件 → 结果，主机与 Kubernetes 共用这一布局；Builder/DSL 条件位于结果上方，DOM 与键盘浏览顺序一致。条件使用内存状态，进入其他资源或离开页面后不会生成或保存 Dashboard 草稿、Revision 或发布操作。
 

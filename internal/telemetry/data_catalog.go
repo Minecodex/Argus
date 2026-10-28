@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -42,10 +43,12 @@ type DataCatalogRequest struct {
 	Budget                              queryengine.Budget
 }
 type MetricDescriptor struct {
-	Name   string   `json:"name"`
-	Type   string   `json:"type"`
-	Unit   string   `json:"unit"`
-	Labels []string `json:"labels"`
+	SourceType string   `json:"source_type,omitempty"`
+	SourceKeys []string `json:"source_keys,omitempty"`
+	Name       string   `json:"name"`
+	Type       string   `json:"type"`
+	Unit       string   `json:"unit"`
+	Labels     []string `json:"labels"`
 }
 type CatalogField struct {
 	Name string `json:"name"`
@@ -123,15 +126,12 @@ func (query ClickHouseQuery) DiscoverData(ctx context.Context, request DataCatal
 	if err != nil {
 		return result, err
 	}
-	where := "resource_id IN (?) AND " + chscope.FacetedPredicate("source_key", "resource_attributes['argus.namespace.uid']")
+	sourcePredicate := chscope.SelectedPredicate("source_key", "resource_attributes['argus.namespace.uid']", request.SourceKeys)
+	where := "resource_id IN (?) AND " + sourcePredicate
 	args := []any{request.ResourceIDs}
 	if request.Signal == "metrics" {
-		where += " AND series_id IN (SELECT series_id FROM `" + tables.MetricSamples + "` WHERE resource_id IN (?) AND " + chscope.BasePredicate("source_key") + " AND timestamp>=fromUnixTimestamp64Nano(?, 'UTC') AND timestamp<=fromUnixTimestamp64Nano(?, 'UTC'))"
-		args = append(args, request.ResourceIDs, request.From.UnixNano(), request.To.UnixNano())
-		if request.Metric != "" {
-			where += " AND metric_name=?"
-			args = append(args, request.Metric)
-		}
+		where = sourcePredicate
+		args = nil
 	} else {
 		where += " AND " + timestamp + ">=fromUnixTimestamp64Nano(?, 'UTC') AND " + timestamp + "<fromUnixTimestamp64Nano(?, 'UTC')"
 		args = append(args, request.From.UnixNano(), request.To.UnixNano())
@@ -144,19 +144,27 @@ func (query ClickHouseQuery) DiscoverData(ctx context.Context, request DataCatal
 		where += " AND " + predicate
 		args = append(args, values...)
 	}
-	if request.Kind == "metrics" {
+	read, args := catalogReadClause(request, tables, table, where, args)
+	if request.Kind == "metric_variants" {
+		if request.Signal != "metrics" {
+			return result, ErrQueryInvalid
+		}
+		if err := query.discoverMetricVariants(ctx, request, read, args, after, &result); err != nil {
+			return result, err
+		}
+	} else if request.Kind == "metrics" {
 		if request.Signal != "metrics" {
 			return result, ErrQueryInvalid
 		}
 		if request.Search != "" {
-			where += " AND positionCaseInsensitive(metric_name,?)>0"
+			read += " AND positionCaseInsensitive(metric_name,?)>0"
 			args = append(args, request.Search)
 		}
 		if after != "" {
-			where += " AND metric_name>?"
+			read += " AND metric_name>?"
 			args = append(args, after)
 		}
-		rows, e := query.Conn.Query(ctx, "SELECT metric_name, groupUniqArray(concat(metric_type,':',temporality,':',toString(is_monotonic))), any(unit), arraySort(arrayDistinct(arrayFlatten(groupArray(mapKeys(labels))))) FROM `"+table+"` FINAL WHERE "+where+" GROUP BY metric_name ORDER BY metric_name LIMIT ?", append(args, request.Limit+1)...)
+		rows, e := query.Conn.Query(ctx, "SELECT metric_name, groupUniqArray(concat(metric_type,':',temporality,':',toString(is_monotonic))), any(unit), arraySort(arrayDistinct(arrayFlatten(groupArray(mapKeys(labels))))) FROM "+read+" GROUP BY metric_name ORDER BY metric_name LIMIT ?", append(args, request.Limit+1)...)
 		if e != nil {
 			return result, e
 		}
@@ -180,7 +188,7 @@ func (query ClickHouseQuery) DiscoverData(ctx context.Context, request DataCatal
 			return result, e
 		}
 	} else if request.Kind == "fields" {
-		if err := query.discoverCatalogFields(ctx, request, table, where, args, after, &result); err != nil {
+		if err := query.discoverCatalogFields(ctx, request, read, args, after, &result); err != nil {
 			return result, err
 		}
 	} else if request.Kind == "values" {
@@ -188,7 +196,7 @@ func (query ClickHouseQuery) DiscoverData(ctx context.Context, request DataCatal
 		if e != nil {
 			return result, e
 		}
-		base := "SELECT toString(" + field + ") AS value FROM `" + table + "` FINAL WHERE " + where
+		base := "SELECT toString(" + field + ") AS value FROM " + read
 		baseArgs := append(append([]any{}, fieldArgs...), args...)
 		selectSQL := "SELECT DISTINCT value FROM (" + base + ") WHERE value!='' AND length(value)<=4096"
 		selectArgs := append([]any{}, baseArgs...)
@@ -287,6 +295,29 @@ func ValidateCatalogFilters(signal string, filters []CatalogFilter) error {
 	return nil
 }
 
+// Prune immutable metric-series primary keys before loading wide metadata maps.
+// Keep mutable source, namespace and label predicates after FINAL so they apply
+// to the authoritative replacement row. All catalog kinds share this boundary.
+func catalogReadClause(request DataCatalogRequest, tables TenantTables, table, where string, args []any) (string, []any) {
+	read := "`" + table + "` FINAL"
+	if request.Signal == "metrics" {
+		read += " PREWHERE resource_id IN (?)"
+		primaryArgs := []any{request.ResourceIDs}
+		if request.Metric != "" {
+			read += " AND metric_name=?"
+			primaryArgs = append(primaryArgs, request.Metric)
+		}
+		// Series IDs include the trusted tenant/resource identity (metricSeriesID).
+		// The outer metadata read enforces resource and exact source/facet scope.
+		// Sample existence needs only source/time/series columns, allowing the
+		// existing source-time projection to skip unrelated historical samples.
+		read += " AND series_id IN (SELECT series_id FROM `" + tables.MetricSamples + "` WHERE " + chscope.BasePredicate("source_key") + " AND timestamp>=fromUnixTimestamp64Nano(?, 'UTC') AND timestamp<=fromUnixTimestamp64Nano(?, 'UTC'))"
+		primaryArgs = append(primaryArgs, request.From.UnixNano(), request.To.UnixNano())
+		args = append(primaryArgs, args...)
+	}
+	return read + " WHERE " + where, args
+}
+
 func catalogFilterSQL(signal string, filter CatalogFilter) (string, []any, error) {
 	if len(filter.Values) == 0 || len(filter.Values) > 200 {
 		return "", nil, ErrQueryInvalid
@@ -301,6 +332,29 @@ func catalogFilterSQL(signal string, filter CatalogFilter) (string, []any, error
 		return "", nil, err
 	}
 	switch filter.Operator {
+	case "=~", "!~":
+		if signal != "metrics" || len(filter.Values) != 1 {
+			return "", nil, ErrQueryInvalid
+		}
+		pattern := "^(?s:" + filter.Values[0] + ")$"
+		if _, err := regexp.Compile(pattern); err != nil {
+			return "", nil, ErrQueryInvalid
+		}
+		predicate := "match(toString(" + field + "), ?)"
+		if filter.Operator == "!~" {
+			predicate = "NOT " + predicate
+		}
+		return predicate, append(args, pattern), nil
+	case ":":
+		if signal != "logs" || len(filter.Values) != 1 {
+			return "", nil, ErrQueryInvalid
+		}
+		compiler := kql.Compiler{}
+		predicate, err := compiler.Compile(kql.Predicate{Field: filter.Field, Op: kql.OpContains, Value: filter.Values[0], Quoted: true})
+		if err != nil {
+			return "", nil, ErrQueryInvalid
+		}
+		return predicate, compiler.Args, nil
 	case "", "=", "!=":
 		op := " IN (?)"
 		if filter.Operator == "!=" {

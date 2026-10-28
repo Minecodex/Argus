@@ -2,7 +2,15 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useApi, type Host } from "@argus/api-client";
-import { ActionMenu, Alert, Badge, Dialog, type DropdownItem } from "@argus/ui";
+import {
+  ActionMenu,
+  Alert,
+  Dialog,
+  OperationPanel,
+  Spinner,
+  type DropdownItem,
+} from "@argus/ui";
+import { operationTone } from "../operations/execution-result";
 import { AddHostWizard } from "./add-host-wizard";
 import { onboardingFailureMessageKey as failureMessageKey } from "./onboarding-errors";
 
@@ -106,23 +114,29 @@ export function HostOnboardingProgress({
             description={t("hosts.onboardingProgress.failure")}
           />
         )}
+        {query.isPending && <Spinner label={t("common.loading")} />}
         {operation && (
-          <div className="argus-operation-progress">
-            <div className="argus-operation-progress__head">
-              <strong>
-                {t(`hosts.onboardingProgress.stages.${operation.stage}`)}
-              </strong>
-              <Badge
-                tone={
-                  operation.status === "failed" ||
-                  operation.status === "expired"
-                    ? "danger"
-                    : "info"
-                }
-              >
-                {t(`hosts.bastionOperationStatus.${operation.status}`)}
-              </Badge>
-            </div>
+          <OperationPanel
+            title={host.name}
+            description={t(
+              `hosts.onboardingProgress.stages.${operation.stage}`,
+            )}
+            statusLabel={t(`hosts.bastionOperationStatus.${operation.status}`)}
+            tone={operationTone(operation.status)}
+            busy={["queued", "running"].includes(operation.status)}
+            steps={operation.events.map((event) => ({
+              title: t(`hosts.onboardingProgress.stages.${event.stage}`),
+              status:
+                event.status === "failed"
+                  ? "danger"
+                  : event.status === "succeeded"
+                    ? "done"
+                    : "current",
+              meta: event.error_code
+                ? <><span>{t(failureMessageKey(event.error_code))}</span>{" "}<span>{t("hosts.onboardingProgress.errorCode", { code: event.error_code })}</span></>
+                : t(`hosts.bastionOperationEventStatus.${event.status}`),
+            }))}
+          >
             {code && (
               <Alert
                 tone="danger"
@@ -130,30 +144,7 @@ export function HostOnboardingProgress({
                 description={t("hosts.onboardingProgress.errorCode", { code })}
               />
             )}
-            <ol className="argus-operation-timeline">
-              {operation.events.map((event) => (
-                <li key={event.id} className={`is-${event.status}`}>
-                  <strong>
-                    {t(`hosts.onboardingProgress.stages.${event.stage}`)}
-                  </strong>
-                  <span>
-                    {event.error_code ? (
-                      <>
-                        <span>{t(failureMessageKey(event.error_code))}</span>{" "}
-                        <span>
-                          {t("hosts.onboardingProgress.errorCode", {
-                            code: event.error_code,
-                          })}
-                        </span>
-                      </>
-                    ) : (
-                      t(`hosts.bastionOperationEventStatus.${event.status}`)
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
+          </OperationPanel>
         )}
       </Dialog>
     </>

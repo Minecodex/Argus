@@ -1,0 +1,5 @@
+.argus-chart-tooltip {
+  /* ECharts writes its own inline z-index; all chart surfaces share this layer. */
+  z-index: var(--layer-chart-tooltip) !important;
+  max-width: calc(100vw - var(--space-4));
+}

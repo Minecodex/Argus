@@ -1,7 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "./button";
-import { useUiText } from "./locale";
+export { Pagination } from "./pagination";
 
 export type Column<T> = {
   key: keyof T | string;
@@ -112,44 +110,5 @@ export function DataTable<T extends object>({
         </tbody>
       </table>
     </div>
-  );
-}
-
-export function Pagination({
-  page,
-  totalPages,
-  onChange,
-}: {
-  page: number;
-  totalPages: number;
-  onChange: (page: number) => void;
-}) {
-  const text = useUiText();
-  return (
-    <nav aria-label={text("分页", "Pagination")} className="argus-pagination">
-      <span>
-        {text(`第 ${page} / ${totalPages} 页`, `Page ${page} of ${totalPages}`)}
-      </span>
-      <div>
-        <Button
-          aria-label={text("上一页", "Previous page")}
-          isDisabled={page <= 1}
-          onPress={() => onChange(page - 1)}
-          isIconOnly
-          variant="ghost"
-        >
-          <ChevronLeft size={16} />
-        </Button>
-        <Button
-          aria-label={text("下一页", "Next page")}
-          isDisabled={page >= totalPages}
-          onPress={() => onChange(page + 1)}
-          isIconOnly
-          variant="ghost"
-        >
-          <ChevronRight size={16} />
-        </Button>
-      </div>
-    </nav>
   );
 }

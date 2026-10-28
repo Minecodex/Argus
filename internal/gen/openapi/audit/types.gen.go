@@ -173,22 +173,25 @@ type ApiError_Params_AdditionalProperties struct {
 
 // AuditEvent defines model for AuditEvent.
 type AuditEvent struct {
-	Action              string                 `json:"action"`
-	ActorDisplayName    *string                `json:"actor_display_name,omitempty"`
-	ActorId             string                 `json:"actor_id"`
-	ActorType           AuditEventActorType    `json:"actor_type"`
-	ActorUsername       *string                `json:"actor_username,omitempty"`
-	CreatedAt           time.Time              `json:"created_at"`
-	Details             map[string]interface{} `json:"details"`
-	Domain              AuditEventDomain       `json:"domain"`
-	EnterpriseId        *openapi_types.UUID    `json:"enterprise_id,omitempty"`
-	EventHash           string                 `json:"event_hash"`
-	Id                  openapi_types.UUID     `json:"id"`
-	PreviousHash        string                 `json:"previous_hash"`
-	ResourceDisplayName *string                `json:"resource_display_name,omitempty"`
-	ResourceId          *string                `json:"resource_id,omitempty"`
-	ResourceType        *string                `json:"resource_type,omitempty"`
-	Result              AuditEventResult       `json:"result"`
+	Action           string                 `json:"action"`
+	ActorDisplayName *string                `json:"actor_display_name,omitempty"`
+	ActorId          string                 `json:"actor_id"`
+	ActorType        AuditEventActorType    `json:"actor_type"`
+	ActorUsername    *string                `json:"actor_username,omitempty"`
+	CreatedAt        time.Time              `json:"created_at"`
+	Details          map[string]interface{} `json:"details"`
+	Domain           AuditEventDomain       `json:"domain"`
+	EnterpriseId     *openapi_types.UUID    `json:"enterprise_id,omitempty"`
+	EventHash        string                 `json:"event_hash"`
+	Id               openapi_types.UUID     `json:"id"`
+
+	// Operation Current operation projection. Separate from immutable event facts and never a source of execution authority.
+	Operation           *AuditOperation  `json:"operation,omitempty"`
+	PreviousHash        string           `json:"previous_hash"`
+	ResourceDisplayName *string          `json:"resource_display_name,omitempty"`
+	ResourceId          *string          `json:"resource_id,omitempty"`
+	ResourceType        *string          `json:"resource_type,omitempty"`
+	Result              AuditEventResult `json:"result"`
 }
 
 // AuditEventActorType defines model for AuditEvent.ActorType.
@@ -204,6 +207,21 @@ type AuditEventResult string
 type AuditEventPage struct {
 	Items []AuditEvent `json:"items"`
 	Page  CursorPage   `json:"page"`
+}
+
+// AuditOperation Current operation projection. Separate from immutable event facts and never a source of execution authority.
+type AuditOperation struct {
+	ActionRef       string              `json:"action_ref"`
+	ActionStatus    string              `json:"action_status"`
+	ActionType      string              `json:"action_type"`
+	CreatedAt       time.Time           `json:"created_at"`
+	ErrorCode       *string             `json:"error_code,omitempty"`
+	ExecutionId     *openapi_types.UUID `json:"execution_id,omitempty"`
+	ExecutionStatus *string             `json:"execution_status,omitempty"`
+	ResourceId      *openapi_types.UUID `json:"resource_id,omitempty"`
+	ResourceName    *string             `json:"resource_name,omitempty"`
+	ResourceType    *string             `json:"resource_type,omitempty"`
+	UpdatedAt       time.Time           `json:"updated_at"`
 }
 
 // CursorPage defines model for CursorPage.
@@ -239,8 +257,11 @@ type Error = ApiError
 
 // ListAuditEventsParams defines parameters for ListAuditEvents.
 type ListAuditEventsParams struct {
-	Cursor       *Cursor                      `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Limit        *Limit                       `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// OperationRef Exact server-owned action reference; restricted to the same authorized audit scope.
+	OperationRef *string                      `form:"operation_ref,omitempty" json:"operation_ref,omitempty"`
 	Action       *string                      `form:"action,omitempty" json:"action,omitempty"`
 	ActorId      *string                      `form:"actor_id,omitempty" json:"actor_id,omitempty"`
 	ResourceType *string                      `form:"resource_type,omitempty" json:"resource_type,omitempty"`

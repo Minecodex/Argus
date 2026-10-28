@@ -10,6 +10,7 @@ import {
   Dialog,
   DataTable,
   Button,
+  Pagination,
   Badge,
   CodeBlock,
   Spinner,
@@ -127,20 +128,18 @@ export function KubernetesOperationsDialog({
           />
         )
       )}
-      <div className="argus-k8s-workbench-controls">
-        <Button
-          isDisabled={cursors.length === 1}
-          onPress={() => setCursors((v) => v.slice(0, -1))}
-        >
-          {t("monitoring.previous")}
-        </Button>
-        <Button
-          isDisabled={!list.data?.next_cursor}
-          onPress={() => setCursors((v) => [...v, list.data?.next_cursor])}
-        >
-          {t("monitoring.next")}
-        </Button>
-      </div>
+      <Pagination
+        page={cursors.length}
+        hasNext={!!list.data?.next_cursor}
+        isDisabled={list.isFetching}
+        onChange={(page) =>
+          setCursors((old) =>
+            page <= old.length
+              ? old.slice(0, page)
+              : [...old, list.data?.next_cursor],
+          )
+        }
+      />
       {selected && (
         <section aria-label={t("kubernetesWorkbench.details")}>
           {detail.error ? (

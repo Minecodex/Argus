@@ -31,6 +31,7 @@ import { template as template28 } from "./dashboard-templates/elasticsearch_over
 import { template as template29 } from "./dashboard-templates/sqlserver_overview";
 import { template as template30 } from "./dashboard-templates/oracle_overview";
 import { template as template31 } from "./dashboard-templates/iis_overview";
+import { template as template32 } from "./dashboard-templates/argus_model-governance";
 
 // prettier-ignore
-export const managedDashboardTemplates = [template0, template1, template2, template3, template4, template5, template6, template7, template8, template9, template10, template11, template12, template13, template14, template15, template16, template17, template18, template19, template20, template21, template22, template23, template24, template25, template26, template27, template28, template29, template30, template31] as const;
+export const managedDashboardTemplates = [template0, template1, template2, template3, template4, template5, template6, template7, template8, template9, template10, template11, template12, template13, template14, template15, template16, template17, template18, template19, template20, template21, template22, template23, template24, template25, template26, template27, template28, template29, template30, template31, template32] as const;

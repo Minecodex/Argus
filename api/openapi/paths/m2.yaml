@@ -438,6 +438,10 @@ audit_events:
     parameters:
       - {$ref: "#/components/parameters/Cursor"}
       - {$ref: "#/components/parameters/Limit"}
+      - name: operation_ref
+        in: query
+        description: Exact server-owned action reference; restricted to the same authorized audit scope.
+        schema: {type: string, minLength: 1, maxLength: 256}
       - name: action
         in: query
         required: false

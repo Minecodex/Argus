@@ -1,0 +1,887 @@
+{
+  "plan": "Plan9",
+  "schema_version": "argus.plan9_manual_review/v1",
+  "created_at": "2026-10-26",
+  "timezone": "Asia/Shanghai",
+  "status": "B04_deployed_waiting_user_review",
+  "current_run_id": "p9-b04-20261027-01",
+  "next_suggested_batch": "B05a",
+  "scope": "真实负载与正常接入驱动的分批人工界面验收",
+  "documentation": {
+    "entry": "README.md",
+    "catalog": "01-batch-catalog.md",
+    "workflow": "02-execution-workflow.md",
+    "environment": "03-environment-and-compose.md",
+    "review": "04-review-and-evidence.md",
+    "first_batch": "batches/B01-linux-host.md",
+    "review_entry": "batches/B04-review.md",
+    "issues": "batches/B04-review.md",
+    "data_reset": "05-local-data-reset-20261026.md",
+    "product_fixes": "06-b01-managed-dashboard-and-query-fixes.md",
+    "review_fixes": "07-dashboard-and-alert-review-fixes.md",
+    "current_review": "batches/B04-review.md",
+    "cache_query_fixes": "08-b04-cache-views-and-metadata-scan.md"
+  },
+  "delivery": {
+    "scenario_design": "written",
+    "compose_packages": "B01_B02a_B02b_B03_retired_B04_running_others_planned",
+    "runtime_scripts": "B01_infrastructure_normal_API_and_real_scenarios_implemented",
+    "deployment": "B04_deployed",
+    "live_api_calls": "normal_setup_login_enrollment_monitoring_dashboards_alerts",
+    "real_model_calls": "not_run",
+    "human_acceptance": "B04_pending_user_review"
+  },
+  "execution_policy": {
+    "one_active_sub_batch": true,
+    "needs_user_batch_selection": true,
+    "normal_product_api_and_confirmation": true,
+    "real_workloads_required": true,
+    "direct_argus_database_writes": false,
+    "wait_for_user_review": true,
+    "auto_advance": false,
+    "external_notification_targets": "require_explicit_user_target_authorization",
+    "preserve_formal_environment": true,
+    "cleanup_scope": "verified_run_owned_resources",
+    "preserve_product_history": true
+  },
+  "baseline": {
+    "plan8_status_reference": "../plan8/README.md",
+    "plan8_progress": "../plan8/progress.json",
+    "formal_environment_reference": "../local-formal-deployment-20261026.md",
+    "live_environment_verified_this_turn": true,
+    "plan8_historical_preservation_gap": "P8-A64 remains separately recorded; no retroactive acceptance claim",
+    "latest_reset": "05-local-data-reset-20261026.md",
+    "formal_version": "local-20261027-b04-v2",
+    "enterprise": "test"
+  },
+  "batches": [
+    {
+      "id": "B01",
+      "title": "Linux 主机、进程、systemd 与 Collector",
+      "activation": "on_user_batch_selection",
+      "status": "destroyed",
+      "package_status": "implemented_and_executed",
+      "self_check": "passed_api_80_panel_checks_ui_6_and_real_stop_restore",
+      "review_status": "advanced_by_user_request_without_explicit_acceptance",
+      "runtime_status": "destroyed",
+      "sub_batches": [],
+      "runs": [
+        "p9-b01-20261026-01"
+      ],
+      "handoff": "batches/B01-review.md",
+      "open_issues": [],
+      "fixed_pending_user_review": [
+        "B01-Q01",
+        "B01-A01",
+        "B01-UI01",
+        "B01-UI02"
+      ],
+      "cleanup": "../../artifacts/plan9/p9-b01-20261026-01/cleanup.json"
+    },
+    {
+      "id": "B02",
+      "title": "Web/代理与网络探测",
+      "activation": "on_user_batch_selection",
+      "status": "destroyed",
+      "package_status": "implemented_and_executed",
+      "self_check": "not_run",
+      "review_status": "accepted",
+      "runtime_status": "destroyed",
+      "sub_batches": [
+        {
+          "id": "B02a",
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "core_checks_passed_historical_gap_recorded",
+          "review_status": "accepted",
+          "runtime_status": "destroyed",
+          "handoff": "batches/B02a-review.md",
+          "recorded_observations": [
+            "B02a-D01"
+          ],
+          "accepted_at": "2026-10-27T05:48:03.234817+00:00",
+          "acceptance_statement": "没啥问题切换到 B02b 把"
+        },
+        {
+          "id": "B02b",
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "passed_real_probes_alerts_and_ui",
+          "review_status": "accepted",
+          "runtime_status": "destroyed",
+          "handoff": "batches/B02b-review.md",
+          "accepted_at": "2026-10-27T07:56:35.707Z",
+          "acceptance_statement": "B02b 没啥问题，清理后切换部署 B03 吧",
+          "cleanup": "../../artifacts/plan9/p9-b02b-20261027-01/cleanup.json"
+        }
+      ],
+      "runs": [
+        "p9-b02a-20261027-01",
+        "p9-b02b-20261027-01"
+      ]
+    },
+    {
+      "id": "B03",
+      "title": "MySQL 与 PostgreSQL",
+      "activation": "on_user_batch_selection",
+      "status": "destroyed",
+      "package_status": "implemented_and_executed",
+      "self_check": "real_data_alerts_recovery_and_ui_passed_diagnostic_gap_B03_D01",
+      "review_status": "advanced_by_user_request_without_explicit_acceptance",
+      "runtime_status": "destroyed",
+      "sub_batches": [],
+      "runs": [
+        "p9-b03-20261027-01"
+      ],
+      "handoff": "batches/B03-review.md",
+      "open_issues": [
+        "B03-D01"
+      ],
+      "cleanup": "../../artifacts/plan9/p9-b03-20261027-01/cleanup.json"
+    },
+    {
+      "id": "B04",
+      "title": "Redis 与 Memcached",
+      "activation": "on_user_batch_selection",
+      "status": "ready_for_review",
+      "package_status": "implemented_and_executed",
+      "self_check": "passed_real_cache_protocols_evictions_alerts_isolation_20_panels_6_ui",
+      "review_status": "pending_user_review",
+      "runtime_status": "running",
+      "sub_batches": [],
+      "runs": [
+        "p9-b04-20261027-01"
+      ],
+      "handoff": "batches/B04-review.md",
+      "open_issues": []
+    },
+    {
+      "id": "B05",
+      "title": "消息队列与协调服务",
+      "activation": "on_user_batch_selection",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [
+        {
+          "id": "B05a",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B05b",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B05c",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        }
+      ],
+      "runs": []
+    },
+    {
+      "id": "B06",
+      "title": "扩展数据库与搜索",
+      "activation": "on_user_batch_selection",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [
+        {
+          "id": "B06a",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B06b",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B06c",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B06d",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        }
+      ],
+      "runs": []
+    },
+    {
+      "id": "B07",
+      "title": "应用、APM 与 SDK 日志",
+      "activation": "on_user_batch_selection",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [
+        {
+          "id": "B07a",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B07b",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B07c",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        }
+      ],
+      "runs": []
+    },
+    {
+      "id": "B08",
+      "title": "Linux 文件日志与 Journald",
+      "activation": "on_user_batch_selection",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [],
+      "runs": []
+    },
+    {
+      "id": "B09",
+      "title": "Kubernetes 监控与日志",
+      "activation": "on_user_batch_selection",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [
+        {
+          "id": "B09a",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B09b",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        }
+      ],
+      "runs": []
+    },
+    {
+      "id": "B10",
+      "title": "Kubernetes 工作台实际操作",
+      "activation": "on_user_batch_selection",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [
+        {
+          "id": "B10a",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B10b",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B10c",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        }
+      ],
+      "runs": []
+    },
+    {
+      "id": "B11",
+      "title": "堡垒机与远程连接",
+      "activation": "on_user_batch_selection",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [
+        {
+          "id": "B11a",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B11b",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B11c",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        }
+      ],
+      "runs": []
+    },
+    {
+      "id": "B12",
+      "title": "真实模型聊天与操作闭环",
+      "activation": "on_user_batch_selection",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [],
+      "runs": []
+    },
+    {
+      "id": "B13",
+      "title": "多目标仪表盘、告警与权限",
+      "activation": "on_user_batch_selection",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [
+        {
+          "id": "B13a",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B13b",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        },
+        {
+          "id": "B13c",
+          "status": "planned",
+          "package_status": "not_created",
+          "self_check": "not_run",
+          "review_status": "not_reviewed",
+          "runtime_status": "not_created"
+        }
+      ],
+      "runs": []
+    },
+    {
+      "id": "E01",
+      "title": "Windows、IIS、Event Log 与 RDP",
+      "activation": "on_explicit_request",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [],
+      "runs": []
+    },
+    {
+      "id": "E02",
+      "title": "真实 ARM 主机",
+      "activation": "on_explicit_request",
+      "status": "planned",
+      "package_status": "not_created",
+      "self_check": "not_run",
+      "review_status": "not_reviewed",
+      "runtime_status": "not_created",
+      "sub_batches": [],
+      "runs": []
+    }
+  ],
+  "integration_coverage": [
+    {
+      "plan8_id": "P8-I01",
+      "key": "mysql",
+      "batches": [
+        "B03"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I02",
+      "key": "postgresql",
+      "batches": [
+        "B03"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I03",
+      "key": "sqlserver",
+      "batches": [
+        "B06c"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I04",
+      "key": "oracle",
+      "batches": [
+        "B06d"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I05",
+      "key": "mongodb",
+      "batches": [
+        "B06a"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I06",
+      "key": "clickhouse",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I07",
+      "key": "tidb",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I08",
+      "key": "oceanbase",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I09",
+      "key": "redis",
+      "batches": [
+        "B04"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I10",
+      "key": "memcached",
+      "batches": [
+        "B04"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I11",
+      "key": "kafka",
+      "batches": [
+        "B05b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I12",
+      "key": "rabbitmq",
+      "batches": [
+        "B05a"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I13",
+      "key": "rocketmq",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I14",
+      "key": "pulsar",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I15",
+      "key": "nats",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I16",
+      "key": "zookeeper",
+      "batches": [
+        "B05c"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I17",
+      "key": "nginx",
+      "batches": [
+        "B02a"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I18",
+      "key": "apache",
+      "batches": [
+        "B02a"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I19",
+      "key": "iis",
+      "batches": [
+        "E01"
+      ],
+      "plan9_status": "conditional_not_run"
+    },
+    {
+      "plan8_id": "P8-I20",
+      "key": "haproxy",
+      "batches": [
+        "B02a"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I21",
+      "key": "envoy",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I22",
+      "key": "elasticsearch",
+      "batches": [
+        "B06b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I23",
+      "key": "jvm",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I24",
+      "key": "tomcat",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I25",
+      "key": "springboot",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I26",
+      "key": "minio",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I27",
+      "key": "http",
+      "batches": [
+        "B02b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I28",
+      "key": "tcp",
+      "batches": [
+        "B02b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I29",
+      "key": "tls",
+      "batches": [
+        "B02b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I30",
+      "key": "dns",
+      "batches": [
+        "B02b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I31",
+      "key": "icmp",
+      "batches": [
+        "B02b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I32",
+      "key": "otlp",
+      "batches": [
+        "B07a",
+        "B07b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I33",
+      "key": "skywalking",
+      "batches": [],
+      "plan9_status": "deferred_existing_scope"
+    },
+    {
+      "plan8_id": "P8-I34",
+      "key": "jaeger",
+      "batches": [
+        "B07c"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I35",
+      "key": "filelog",
+      "batches": [
+        "B08"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I36",
+      "key": "k8slog",
+      "batches": [
+        "B09a"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I37",
+      "key": "sdklog",
+      "batches": [
+        "B07a",
+        "B07b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I38",
+      "key": "journald",
+      "batches": [
+        "B08"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-I39",
+      "key": "eventlog",
+      "batches": [
+        "E01"
+      ],
+      "plan9_status": "conditional_not_run"
+    }
+  ],
+  "builtin_coverage": [
+    {
+      "plan8_id": "P8-H01",
+      "key": "host_metrics",
+      "batches": [
+        "B01"
+      ],
+      "plan9_status": "executed_pending_human_review",
+      "evidence_platforms": [
+        "linux_amd64_debian13_container"
+      ]
+    },
+    {
+      "plan8_id": "P8-H02",
+      "key": "host_process_service",
+      "batches": [
+        "B01"
+      ],
+      "plan9_status": "executed_pending_human_review",
+      "optional_windows_batch": "E01",
+      "evidence_platforms": [
+        "linux_amd64_debian13_container"
+      ]
+    },
+    {
+      "plan8_id": "P8-H03",
+      "key": "host_collector_self",
+      "batches": [
+        "B01"
+      ],
+      "plan9_status": "executed_pending_human_review",
+      "evidence_platforms": [
+        "linux_amd64_debian13_container"
+      ]
+    },
+    {
+      "plan8_id": "P8-H04",
+      "key": "host_system_logs",
+      "batches": [
+        "B08"
+      ],
+      "plan9_status": "planned_not_run",
+      "optional_windows_batch": "E01"
+    },
+    {
+      "plan8_id": "P8-B01",
+      "key": "k8s_cluster_state",
+      "batches": [
+        "B09a"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-B02",
+      "key": "k8s_node_container",
+      "batches": [
+        "B09a"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-B03",
+      "key": "k8s_apiserver",
+      "batches": [
+        "B09b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-B04",
+      "key": "k8s_scheduler",
+      "batches": [
+        "B09b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-B05",
+      "key": "k8s_controller",
+      "batches": [
+        "B09b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-B06",
+      "key": "k8s_coredns",
+      "batches": [
+        "B09b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-B07",
+      "key": "k8s_etcd",
+      "batches": [
+        "B09b"
+      ],
+      "plan9_status": "planned_not_run"
+    },
+    {
+      "plan8_id": "P8-B08",
+      "key": "k8s_collector_self",
+      "batches": [
+        "B09a"
+      ],
+      "plan9_status": "planned_not_run"
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "p9-b01-20261026-01",
+      "batch": "B01",
+      "record": "../../artifacts/plan9/p9-b01-20261026-01/run.json"
+    }
+  ],
+  "human_acceptances": [],
+  "cleanup_records": [],
+  "validation": {
+    "scope": "documentation_only",
+    "status": "passed",
+    "report": "../../artifacts/plan9/reset-20261026/final-documentation-validation.json",
+    "utf8": "passed",
+    "local_links_checked": 41,
+    "integration_mappings_checked": 39,
+    "builtin_mappings_checked": 12,
+    "runtime_passed": false,
+    "runtime_result": "B01_deployed_with_two_open_issues"
+  }
+}

@@ -1,3 +1,4 @@
+import { Pagination } from "./pagination";
 import { Checkbox } from "./checkbox";
 import { useMemo, useState } from "react";
 import { Badge } from "./badge";
@@ -170,30 +171,11 @@ export function ObservationLogs({
           </p>
         )}
       </div>
-      <div className="argus-observation-pagination">
-        {pages > 1 && (
-          <Button
-            size="sm"
-            isDisabled={current === 0}
-            onPress={() => setPage(current - 1)}
-          >
-            {text("上一页", "Previous")}
-          </Button>
-        )}
-        <span>
-          {text("已返回记录", "Returned rows")}: {visible.length}
-          {pages > 1 && ` · ${current + 1} / ${pages}`}
-        </span>
-        {pages > 1 && (
-          <Button
-            size="sm"
-            isDisabled={current + 1 === pages}
-            onPress={() => setPage(current + 1)}
-          >
-            {text("下一页", "Next")}
-          </Button>
-        )}
-      </div>
+      <Pagination
+        page={current + 1}
+        totalPages={pages}
+        onChange={(page) => setPage(page - 1)}
+      />
     </>
   );
 }

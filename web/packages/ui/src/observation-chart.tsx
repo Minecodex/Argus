@@ -1,3 +1,4 @@
+import { useObservationChartLink } from "./observation-chart-link";
 import { useEffect, useRef } from "react";
 import {
   BarChart,
@@ -57,6 +58,7 @@ export function ObservationChart({
   label: string;
   onSelect?: (index: number, series: number, kind?: string) => void;
 }) {
+  const group = useObservationChartLink();
   const root = useRef<HTMLDivElement>(null);
   const { resolvedTheme } = useTheme();
   useEffect(() => {
@@ -108,7 +110,13 @@ export function ObservationChart({
     const resize = () => {
       // Sandboxed cards and collapsed sections can mount while hidden. ECharts
       // graph coordinates require a real view rectangle before initialization.
-      if (element.clientWidth <= 0 || element.clientHeight <= 0) return;
+      if (element.clientWidth <= 0 || element.clientHeight <= 0) {
+        if (chart) {
+          chart.dispatchAction({ type: "hideTip" });
+          chart.group = "";
+        }
+        return;
+      }
       if (!chart) {
         chart = echarts.init(element);
         chart.on("click", (event) =>
@@ -119,6 +127,8 @@ export function ObservationChart({
           ),
         );
       } else chart.resize();
+      chart.group = group ?? "";
+      if (group) echarts.connect(group);
       paint();
     };
     const observer = new ResizeObserver(resize);
@@ -128,7 +138,7 @@ export function ObservationChart({
       observer.disconnect();
       chart?.dispose();
     };
-  }, [option, label, resolvedTheme, onSelect]);
+  }, [option, label, resolvedTheme, onSelect, group]);
   return (
     <div
       className="argus-observation-chart"

@@ -23,6 +23,9 @@ func Validate(spec Spec) ValidationReport {
 		report.Valid = false
 		report.Issues = append(report.Issues, Issue{Path: path, Code: "DASHBOARD_INVALID", Message: message})
 	}
+	if privateSpec(spec) {
+		issue("spec", "internal model sources are reserved for the built-in dashboard")
+	}
 	if spec.SchemaVersion != SchemaVersion {
 		issue("schema_version", "unsupported schema version")
 	}

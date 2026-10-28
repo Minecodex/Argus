@@ -37,14 +37,14 @@ func catalogFieldPairs(signal string) (string, error) {
 	return "arrayConcat([" + strings.Join(fixed, ",") + "]," + strings.Join(maps, ",") + ")", nil
 }
 
-func (query ClickHouseQuery) discoverCatalogFields(ctx context.Context, request DataCatalogRequest, table, where string, args []any, after string, result *DataCatalogResult) error {
+func (query ClickHouseQuery) discoverCatalogFields(ctx context.Context, request DataCatalogRequest, read string, args []any, after string, result *DataCatalogResult) error {
 	pairs, err := catalogFieldPairs(request.Signal)
 	if err != nil {
 		return err
 	}
 	// Scope and predicates apply before ARRAY JOIN and DISTINCT. There is no
 	// sample limit: max_bytes_to_read and the timeout bound the whole discovery.
-	sql := "SELECT DISTINCT pair.1 AS name,pair.2 AS type FROM (SELECT arrayJoin(" + pairs + ") AS pair FROM `" + table + "` FINAL WHERE " + where + ") WHERE name!='' AND length(name)<=256"
+	sql := "SELECT DISTINCT pair.1 AS name,pair.2 AS type FROM (SELECT arrayJoin(" + pairs + ") AS pair FROM " + read + ") WHERE name!='' AND length(name)<=256"
 	if request.Signal == "metrics" {
 		sql += " AND match(name,'^[A-Za-z_][A-Za-z0-9_]*$')"
 	} else {

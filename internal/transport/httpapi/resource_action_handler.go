@@ -246,6 +246,7 @@ func toActionExecution(value actionservice.ExecutionView) actionapi.Execution {
 	execution, pending := value.Execution, value.Action
 	result := actionapi.Execution{ExecutionId: execution.ID.String(), ActionRef: pending.ActionRef, Status: execution.Status,
 		OneTimeResultState: value.OneTimeResultState, CreatedAt: execution.CreatedAt.Time, UpdatedAt: execution.UpdatedAt.Time}
+	result.ActionType = &pending.ActionType
 	if pending.ResultResourceID.Valid && pending.ResultResourceType.Valid && pending.ResultResourceVersion.Valid {
 		result.ResourceRef = &struct {
 			ResourceId   string `json:"resource_id"`

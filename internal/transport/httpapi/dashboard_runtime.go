@@ -8,7 +8,8 @@ import (
 )
 
 func (handler DashboardHandler) ExecuteDashboard(ctx context.Context, r api.ExecuteDashboardRequestObject) (api.ExecuteDashboardResponseObject, error) {
-	actor, failure := handler.auth(ctx, false, "")
+	ctx = dashboard.Interactive(ctx)
+	actor, failure := handler.authPermission(ctx, false, "", "telemetry.dashboard.read", "model.usage.read")
 	if failure != nil {
 		return api.ExecuteDashboarddefaultJSONResponse{Body: *failure, StatusCode: 403}, nil
 	}

@@ -55,9 +55,15 @@ type StrictServerInterface interface {
 	// ListCollectionProfiles List versioned Collection Profiles.
 	// (GET /enterprise/telemetry/profiles)
 	ListCollectionProfiles(ctx context.Context, request ListCollectionProfilesRequestObject) (ListCollectionProfilesResponseObject, error)
+	// QueryObservationCatalog Discover sources, metrics, fields and values within a resource query scope.
+	// (POST /enterprise/telemetry/query/catalog)
+	QueryObservationCatalog(ctx context.Context, request QueryObservationCatalogRequestObject) (QueryObservationCatalogResponseObject, error)
 	// QueryTelemetryOverview Query the Card-safe Telemetry overview.
 	// (POST /enterprise/telemetry/query/overview)
 	QueryTelemetryOverview(ctx context.Context, request QueryTelemetryOverviewRequestObject) (QueryTelemetryOverviewResponseObject, error)
+	// ListObservationQueryResources Search explicitly authorized resources for temporary observation queries.
+	// (GET /enterprise/telemetry/query/resources)
+	ListObservationQueryResources(ctx context.Context, request ListObservationQueryResourcesRequestObject) (ListObservationQueryResourcesResponseObject, error)
 	// ListTelemetryRoutes List authorized Telemetry routes.
 	// (GET /enterprise/telemetry/routes)
 	ListTelemetryRoutes(ctx context.Context, request ListTelemetryRoutesRequestObject) (ListTelemetryRoutesResponseObject, error)
@@ -515,6 +521,37 @@ func (sh *strictHandler) ListCollectionProfiles(w http.ResponseWriter, r *http.R
 	}
 }
 
+// QueryObservationCatalog operation middleware
+func (sh *strictHandler) QueryObservationCatalog(w http.ResponseWriter, r *http.Request) {
+	var request QueryObservationCatalogRequestObject
+
+	var body QueryObservationCatalogJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.QueryObservationCatalog(ctx, request.(QueryObservationCatalogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "QueryObservationCatalog")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(QueryObservationCatalogResponseObject); ok {
+		if err := validResponse.VisitQueryObservationCatalogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // QueryTelemetryOverview operation middleware
 func (sh *strictHandler) QueryTelemetryOverview(w http.ResponseWriter, r *http.Request) {
 	var request QueryTelemetryOverviewRequestObject
@@ -539,6 +576,32 @@ func (sh *strictHandler) QueryTelemetryOverview(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(QueryTelemetryOverviewResponseObject); ok {
 		if err := validResponse.VisitQueryTelemetryOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListObservationQueryResources operation middleware
+func (sh *strictHandler) ListObservationQueryResources(w http.ResponseWriter, r *http.Request, params ListObservationQueryResourcesParams) {
+	var request ListObservationQueryResourcesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListObservationQueryResources(ctx, request.(ListObservationQueryResourcesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListObservationQueryResources")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListObservationQueryResourcesResponseObject); ok {
+		if err := validResponse.VisitListObservationQueryResourcesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

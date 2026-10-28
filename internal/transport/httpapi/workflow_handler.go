@@ -111,12 +111,16 @@ func (handler WorkflowHandler) DecideApprovalRequest(ctx context.Context, reques
 	return workflowapi.DecideApprovalRequest200JSONResponse(toWorkflowApprovalView(value)), nil
 }
 
-func (handler WorkflowHandler) ListExecutions(ctx context.Context, _ workflowapi.ListExecutionsRequestObject) (workflowapi.ListExecutionsResponseObject, error) {
+func (handler WorkflowHandler) ListExecutions(ctx context.Context, request workflowapi.ListExecutionsRequestObject) (workflowapi.ListExecutionsResponseObject, error) {
 	p, apiError := handler.auth(ctx, false, "", "execution.read")
 	if apiError != nil {
 		return workflowapi.ListExecutionsdefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
 	}
-	items, err := handler.Service.ListExecutionViews(ctx, p.EnterpriseIDValue(), 100)
+	actionRef := ""
+	if request.Params.ActionRef != nil {
+		actionRef = *request.Params.ActionRef
+	}
+	items, err := handler.Service.ListFilteredExecutionViews(ctx, p.EnterpriseIDValue(), 100, actionRef, optionalUUID(request.Params.ResourceId))
 	if err != nil {
 		return workflowapi.ListExecutionsdefaultJSONResponse{Body: workflowError(ctx, err), StatusCode: workflowStatus(err)}, nil
 	}
@@ -235,6 +239,7 @@ func toWorkflowExecution(value actionservice.ExecutionView) workflowapi.Executio
 	result := workflowapi.Execution{ExecutionId: value.Execution.ID.String(), ActionRef: value.Action.ActionRef,
 		Status: value.Execution.Status, OneTimeResultState: value.OneTimeResultState,
 		CreatedAt: value.Execution.CreatedAt.Time, UpdatedAt: value.Execution.UpdatedAt.Time}
+	result.ActionType = &value.Action.ActionType
 	if value.Action.ResultResourceID.Valid && value.Action.ResultResourceType.Valid && value.Action.ResultResourceVersion.Valid {
 		result.ResourceRef = &struct {
 			ResourceId   string `json:"resource_id"`

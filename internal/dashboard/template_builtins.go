@@ -12,9 +12,7 @@ func BuiltinTemplates() []TemplateDefinition {
 		metricTemplate("mysql.overview", "MySQL", "mysql", "https://grafana.com/grafana/dashboards/7362-mysql-overview/", "7362", []nativeTemplateMetric{
 			{"uptime", "mysql_uptime", "s", "stat"}, {"threads", "mysql_threads", "short", "timeseries"}, {"buffer_usage", "mysql_buffer_pool_usage", "bytes", "timeseries"}, {"buffer_limit", "mysql_buffer_pool_limit", "bytes", "stat"}, {"operations", "rate(mysql_operations[5m])", "ops", "timeseries"}, {"row_locks", "mysql_row_locks", "short", "timeseries"},
 		}),
-		metricTemplate("redis.overview", "Redis", "redis", "https://grafana.com/grafana/dashboards/763-redis-dashboard-for-prometheus-redis-exporter-1-x/", "763", []nativeTemplateMetric{
-			{"uptime", "redis_uptime", "s", "stat"}, {"clients", "redis_clients_connected", "short", "timeseries"}, {"memory", "redis_memory_used", "bytes", "timeseries"}, {"memory_rss", "redis_memory_rss", "bytes", "timeseries"}, {"commands", "rate(redis_commands_processed[5m])", "ops", "timeseries"}, {"blocked", "redis_clients_blocked", "short", "timeseries"},
-		}),
+		redisTemplate(),
 		metricTemplate("nginx.overview", "Nginx", "nginx", "https://grafana.com/grafana/dashboards/12708-nginx/", "12708", []nativeTemplateMetric{
 			{"connections", "nginx_connections_current", "short", "timeseries"}, {"requests", "rate(nginx_requests[5m])", "reqps", "timeseries"}, {"accepted", "rate(nginx_connections_accepted[5m])", "ops", "timeseries"}, {"handled", "rate(nginx_connections_handled[5m])", "ops", "timeseries"},
 		}),
@@ -22,7 +20,7 @@ func BuiltinTemplates() []TemplateDefinition {
 	for _, group := range [][]TemplateDefinition{ownMetricTemplates(), postgresProbeTemplates(), cacheWebTemplates(), brokerCoordinationTemplates(), networkKafkaTemplates(), remainingDatabaseTemplates()} {
 		result = append(result, group...)
 	}
-	return result
+	return append(result, modelGovernanceTemplate())
 }
 
 type nativeTemplateMetric struct{ key, expression, unit, chart string }

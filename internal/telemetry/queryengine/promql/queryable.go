@@ -98,6 +98,11 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 	}
 	where := []string{"s.metric_name != ''"}
 	args := make([]any, 0, len(matchers)*2+3)
+	// FINAL must still choose the authoritative metadata row before applying
+	// mutable label/source predicates. Primary-key filters are invariant across
+	// replacements, so prune other resources/metrics before reading wide maps.
+	prewhere := []string{"s.resource_id IN (?)"}
+	prewhereArgs := []any{q.scope.ResourceIDs}
 	requestedMetric := ""
 	for _, matcher := range matchers {
 		if matcher == nil {
@@ -118,6 +123,8 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 					}
 					args = append(args, matcher.Value, base)
 					where = append(where, "(s.metric_name = ? OR (s.metric_name = ? AND s.metric_type IN "+families+"))")
+					prewhere = append(prewhere, "s.metric_name IN (?, ?)")
+					prewhereArgs = append(prewhereArgs, matcher.Value, base)
 					continue
 				}
 			}
@@ -125,6 +132,10 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 		expression, values := matcherSQL(column, matcher)
 		where = append(where, expression)
 		args = append(args, values...)
+		if matcher.Name == "__name__" {
+			prewhere = append(prewhere, expression)
+			prewhereArgs = append(prewhereArgs, values...)
+		}
 	}
 	if len(q.scope.ResourceIDs) > 0 {
 		where = append(where, "s.resource_id IN (?)")
@@ -147,8 +158,8 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 	if q.timeout > 0 {
 		settings["max_execution_time"] = max(1, int(q.timeout.Seconds()))
 	}
-	seriesQuery := fmt.Sprintf("SELECT s.series_id, s.metric_name, s.labels, s.metric_type FROM %s AS s FINAL WHERE %s ORDER BY toInt64OrZero(s.resource_attributes['argus.assignment.epoch']), s.source_revision, s.series_id LIMIT ?", quoteIdentifier(q.seriesTable), strings.Join(where, " AND "))
-	seriesArgs := append(args, limit+1)
+	seriesQuery := fmt.Sprintf("SELECT s.series_id, s.metric_name, s.labels, s.metric_type FROM %s AS s FINAL PREWHERE %s WHERE %s ORDER BY toInt64OrZero(s.resource_attributes['argus.assignment.epoch']), s.source_revision, s.series_id LIMIT ?", quoteIdentifier(q.seriesTable), strings.Join(prewhere, " AND "), strings.Join(where, " AND "))
+	seriesArgs := append(append(prewhereArgs, args...), limit+1)
 	seriesRows, err := q.conn.Query(q.queryContext(ctx, settings), seriesQuery, seriesArgs...)
 	if err != nil {
 		return storage.ErrSeriesSet(err)

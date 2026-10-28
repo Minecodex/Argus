@@ -76,7 +76,7 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 		}
 		if action.Status == "succeeded" || action.Status == "failed" {
 			status := action.Status
-			_, err = q.FinishExecution(ctx, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID,
+			_, err = finishExecution(ctx, q, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID,
 				Status: status, ResultRef: pgtype.Text{}, ErrorCode: action.ErrorCode})
 			if err != nil {
 				return err
@@ -92,7 +92,7 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 				if _, e = q.CancelStoppedReadyAction(ctx, db.CancelStoppedReadyActionParams{ID: action.ID, EnterpriseID: action.EnterpriseID}); e != nil {
 					return e
 				}
-				_, e = q.FinishExecution(ctx, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID, Status: "cancelled", ErrorCode: pgtype.Text{String: "TOOL_CANCELLED", Valid: true}})
+				_, e = finishExecution(ctx, q, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID, Status: "cancelled", ErrorCode: pgtype.Text{String: "TOOL_CANCELLED", Valid: true}})
 				return e
 			}
 		}
@@ -101,7 +101,7 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 				ErrorCode: pgtype.Text{String: "ACTION_INVALIDATED", Valid: true}}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				return err
 			}
-			_, err = q.FinishExecution(ctx, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID,
+			_, err = finishExecution(ctx, q, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID,
 				Status: "failed", ErrorCode: pgtype.Text{String: "ACTION_INVALIDATED", Valid: true}})
 			if err != nil {
 				return err
@@ -111,7 +111,7 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 		var result resource.ActionCommitResult
 		err = preparationErr
 		if err == nil {
-			result, err = executor.Resources.ExecutePendingAction(preparedCtx, q, action)
+			result, err = executor.Resources.ExecutePendingAction(executionAuditContext(preparedCtx, action, execution), q, action)
 		}
 		if err != nil {
 			if errors.Is(err, resource.ErrActionInvalidated) || errors.Is(err, resource.ErrActionUnavailable) {
@@ -198,7 +198,7 @@ func (executor Executor) Handle(ctx context.Context, task runtime.Task) error {
 		if err != nil {
 			return err
 		}
-		_, err = q.FinishExecution(ctx, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID,
+		_, err = finishExecution(ctx, q, db.FinishExecutionParams{ID: execution.ID, EnterpriseID: execution.EnterpriseID,
 			Status: status, ErrorCode: finished.ErrorCode})
 		if err != nil {
 			return err
@@ -268,7 +268,7 @@ func (executor Executor) HandleExhausted(ctx context.Context, task runtime.Task,
 		if action.ErrorCode.Valid {
 			code = action.ErrorCode
 		}
-		execution, err = q.FinishExecution(ctx, db.FinishExecutionParams{
+		execution, err = finishExecution(ctx, q, db.FinishExecutionParams{
 			ID: execution.ID, EnterpriseID: execution.EnterpriseID, Status: "failed", ErrorCode: code,
 		})
 		if err != nil {
@@ -557,7 +557,7 @@ func (executor Executor) finishReconciledExecution(ctx context.Context, q *db.Qu
 	if err != nil {
 		return err
 	}
-	execution, err = q.FinishExecution(ctx, db.FinishExecutionParams{
+	execution, err = finishExecution(ctx, q, db.FinishExecutionParams{
 		ID: execution.ID, EnterpriseID: execution.EnterpriseID, Status: status, ErrorCode: errorCode,
 	})
 	if err != nil {

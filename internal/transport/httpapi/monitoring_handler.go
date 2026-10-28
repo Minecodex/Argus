@@ -93,6 +93,9 @@ func (h MonitoringHandler) ListMonitoringApplications(ctx context.Context, r api
 		return api.ListMonitoringApplicationsdefaultJSONResponse{Body: *f, StatusCode: 403}, nil
 	}
 	input := monitoring.ListInput{}
+	if r.Params.Environment != nil {
+		input.Environment = *r.Params.Environment
+	}
 	if r.Params.Search != nil {
 		input.Search = *r.Params.Search
 	}

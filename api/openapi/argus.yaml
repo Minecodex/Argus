@@ -11,6 +11,8 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /enterprise/telemetry/query/resources: {$ref: ./paths/observe.yaml#/resources}
+  /enterprise/telemetry/query/catalog: {$ref: ./paths/observe.yaml#/catalog}
   /enterprise/kubernetes-clusters/{id}/helm/releases:
     $ref: ./paths/kubernetes-helm.yaml#/releases
   /enterprise/kubernetes-clusters/{id}/helm/releases/{releaseName}/history:

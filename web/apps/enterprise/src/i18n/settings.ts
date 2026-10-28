@@ -1,3 +1,4 @@
+import { auditAdditionalLabels } from "@argus/api-client/audit-labels";
 /**
  * 企业设置文案：组织与权限、Secret 和企业审计。
  * 模块清单在 i18n/index.ts 中集中维护。
@@ -423,6 +424,7 @@ export const settingsZh = {
         other: "其他",
       },
       actions: {
+        ...auditAdditionalLabels.zh.actions,
         setup_initialize: "初始化平台",
         enterprise_create: "创建企业",
         enterprise_update: "更新企业",
@@ -558,6 +560,7 @@ export const settingsZh = {
         auth_password_change: "修改密码",
       },
       resourceTypes: {
+        ...auditAdditionalLabels.zh.resourceTypes,
         platform: "平台",
         enterprise: "企业",
         enterprise_user: "企业用户",
@@ -1111,6 +1114,7 @@ export const settingsEn = {
         other: "Other",
       },
       actions: {
+        ...auditAdditionalLabels.en.actions,
         setup_initialize: "Initialize platform",
         enterprise_create: "Create enterprise",
         enterprise_update: "Update enterprise",
@@ -1261,6 +1265,7 @@ export const settingsEn = {
         auth_password_change: "Change password",
       },
       resourceTypes: {
+        ...auditAdditionalLabels.en.resourceTypes,
         platform: "Platform",
         enterprise: "Enterprise",
         enterprise_user: "Enterprise user",

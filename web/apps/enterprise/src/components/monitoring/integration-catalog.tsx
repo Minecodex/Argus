@@ -6,7 +6,7 @@ import {
   Button,
   DataTable,
   Dialog,
-  Input,
+  FilterBar,
   Tabs,
   TabsContent,
   TabsList,
@@ -51,11 +51,12 @@ export function IntegrationCatalog({
   );
   return (
     <div className="argus-monitoring-catalog">
-      <Input
-        aria-label={t("monitoring.searchIntegrations")}
-        placeholder={t("monitoring.searchIntegrations")}
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
+      <FilterBar
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: t("monitoring.searchIntegrations"),
+        }}
       />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -106,8 +107,8 @@ export function IntegrationCatalog({
                     item.key === "tls"
                       ? t("monitoring.certificateProbeScope")
                       : item.reason
-                      ? t(`monitoring.reasons.${item.reason}`)
-                      : t("monitoring.variantVerificationHint"),
+                        ? t(`monitoring.reasons.${item.reason}`)
+                        : t("monitoring.variantVerificationHint"),
                 },
                 {
                   key: "action",

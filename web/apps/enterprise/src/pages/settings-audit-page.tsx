@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link, useSearch } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   auditPresentationKey,
-  humanizeAuditCode,
   AUDIT_ACTION_CODES,
   AUDIT_RESOURCE_TYPE_CODES,
   formatApiError,
@@ -13,7 +13,7 @@ import type { AuditEvent, AuditResult } from "@argus/api-client";
 import {
   Badge,
   Alert,
-  ActionGroup,
+  Pagination,
   CodeBlock,
   Button,
   DataTable,
@@ -25,10 +25,16 @@ import {
   RowAction,
   Spinner,
   StatusBadge,
+  OperationDetails,
 } from "@argus/ui";
 import "../styles/settings.css";
 import { formatDateTime } from "../components/settings/shared";
 import { usePermission } from "../lib/permissions";
+import { AuditOperationDetail } from "../components/operations/audit-operation-detail";
+import {
+  operationActive,
+  operationTone,
+} from "../components/operations/execution-result";
 
 type AuditRow = {
   id: string;
@@ -39,6 +45,7 @@ type AuditRow = {
   origin: AuditEvent["origin"];
   result: AuditResult;
   summary: string;
+  executionStatus?: string;
 };
 
 const TIME_RANGES = [
@@ -56,6 +63,15 @@ function resultTone(result: AuditResult) {
 
 /** 企业审计：FilterBar 过滤 + 行点击详情抽屉。 */
 export function SettingsAuditPage() {
+  const { operation_ref: operationRef } = useSearch({
+    from: "/authed/admin/settings/audit",
+  });
+  return (
+    <AuditEventsPage key={operationRef ?? "all"} operationRef={operationRef} />
+  );
+}
+
+function AuditEventsPage({ operationRef }: { operationRef?: string }) {
   const { t } = useTranslation();
   const api = useApi();
 
@@ -80,7 +96,13 @@ export function SettingsAuditPage() {
   const labelFor = useCallback(
     (kind: "actions" | "resourceTypes" | "actorTypes", code: string) =>
       t(auditPresentationKey("settings.audit", kind, code), {
-        defaultValue: humanizeAuditCode(code),
+        defaultValue: t(
+          kind === "actions"
+            ? "operations.unknownAction"
+            : kind === "resourceTypes"
+              ? "operations.unknownResource"
+              : "settings.audit.actorTypes.system",
+        ),
       }),
     [t],
   );
@@ -91,6 +113,7 @@ export function SettingsAuditPage() {
         : item.actorName
       : labelFor("actorTypes", item.actorType);
   const resourceLabel = (item: AuditEvent) => {
+    if (item.operation?.resource_name) return item.operation.resource_name;
     if (!item.resourceType) return "—";
     const typeLabel = labelFor("resourceTypes", item.resourceType);
     return item.resourceName
@@ -113,14 +136,34 @@ export function SettingsAuditPage() {
   });
 
   const events = useQuery({
+    refetchInterval: (q) =>
+      q.state.data?.items.some(
+        (item) =>
+          item.operation &&
+          operationActive(
+            item.operation.execution_status ?? item.operation.action_status,
+          ),
+      )
+        ? 2000
+        : false,
     queryKey: [
       "audit",
-      { actor, actionType, resourceType, result, search, from, cursor },
+      {
+        actor,
+        actionType,
+        resourceType,
+        result,
+        search,
+        from,
+        cursor,
+        operationRef,
+      },
     ],
     queryFn: () =>
       api.audit.list(
         {
           action: actionType || undefined,
+          operationRef,
           actorUserId: actor || undefined,
           resourceType: resourceType || undefined,
           result: (result || undefined) as AuditResult | undefined,
@@ -161,6 +204,7 @@ export function SettingsAuditPage() {
     origin: item.origin,
     result: item.result,
     summary: summaryLabel(item),
+    executionStatus: item.operation?.execution_status,
   }));
 
   const openDetail = (row: AuditRow) =>
@@ -172,6 +216,18 @@ export function SettingsAuditPage() {
       title={t("settings.audit.title")}
     >
       <div className="argus-settings-stack">
+        {operationRef && (
+          <div className="argus-operation-list">
+            <Alert
+              tone="info"
+              title={t("operations.related")}
+              description={t("operations.filteredHint")}
+            />
+            <Link to="/settings/audit" search={{ operation_ref: undefined }}>
+              <Button variant="secondary">{t("operations.allAudit")}</Button>
+            </Link>
+          </div>
+        )}
         <FilterBar
           filters={[
             {
@@ -282,6 +338,11 @@ export function SettingsAuditPage() {
                 {
                   key: "actionLabel",
                   header: t("settings.audit.table.action"),
+                  render: (row) => (
+                    <RowAction onPress={() => openDetail(row)}>
+                      {row.actionLabel}
+                    </RowAction>
+                  ),
                 },
                 { key: "resource", header: t("settings.audit.table.resource") },
                 {
@@ -293,7 +354,7 @@ export function SettingsAuditPage() {
                 },
                 {
                   key: "result",
-                  header: t("settings.audit.table.result"),
+                  header: t("operations.eventResult"),
                   render: (row) => (
                     <StatusBadge tone={resultTone(row.result)}>
                       {t(`settings.audit.results.${row.result}`)}
@@ -301,13 +362,18 @@ export function SettingsAuditPage() {
                   ),
                 },
                 {
-                  key: "id",
-                  header: t("settings.audit.table.requestId"),
-                  render: (row) => (
-                    <RowAction onPress={() => openDetail(row)}>
-                      <code className="argus-mono">{row.id}</code>
-                    </RowAction>
-                  ),
+                  key: "executionStatus",
+                  header: t("operations.finalResult"),
+                  render: (row) =>
+                    row.executionStatus ? (
+                      <StatusBadge tone={operationTone(row.executionStatus)}>
+                        {t(`operations.status.${row.executionStatus}`, {
+                          defaultValue: t("operations.status.unavailable"),
+                        })}
+                      </StatusBadge>
+                    ) : (
+                      "—"
+                    ),
                 },
               ]}
               data={rows}
@@ -315,32 +381,20 @@ export function SettingsAuditPage() {
             />
           </div>
         )}
-        <ActionGroup>
-          <Button
-            variant="secondary"
-            isDisabled={!previous.length || events.isFetching}
-            onPress={() => {
-              setCursor(previous.at(-1));
-              setPrevious(previous.slice(0, -1));
-            }}
-          >
-            {t("settings.audit.previous")}
-          </Button>
-          <Button
-            variant="secondary"
-            isDisabled={
-              !events.data?.hasMore ||
-              !events.data.nextCursor ||
-              events.isFetching
-            }
-            onPress={() => {
+        <Pagination
+          page={previous.length + 1}
+          hasNext={!!events.data?.hasMore && !!events.data.nextCursor}
+          isDisabled={events.isFetching}
+          onChange={(page) => {
+            if (page <= previous.length) {
+              setCursor(previous[page - 1]);
+              setPrevious(previous.slice(0, page - 1));
+            } else {
               setPrevious([...previous, cursor]);
-              setCursor(events.data!.nextCursor!);
-            }}
-          >
-            {t("settings.audit.next")}
-          </Button>
-        </ActionGroup>
+              setCursor(events.data?.nextCursor ?? undefined);
+            }
+          }}
+        />
       </div>
 
       <FormDrawer
@@ -357,88 +411,98 @@ export function SettingsAuditPage() {
       >
         {selected && (
           <div className="argus-settings-stack">
-            <KeyValueGrid
-              columns={1}
-              items={[
-                {
-                  label: t("settings.audit.detail.id"),
-                  value: <code className="argus-mono">{selected.id}</code>,
-                },
-                {
-                  label: t("settings.audit.detail.actor"),
-                  value: actorLabel(selected),
-                },
-                {
-                  label: t("settings.audit.detail.actorType"),
-                  value: labelFor("actorTypes", selected.actorType),
-                },
-                {
-                  label: t("settings.audit.detail.actorId"),
-                  value: (
-                    <code className="argus-mono">{selected.actorUserId}</code>
-                  ),
-                },
-                {
-                  label: t("settings.audit.detail.action"),
-                  value: actionLabel(selected),
-                },
-                {
-                  label: t("settings.audit.detail.actionKey"),
-                  value: <code className="argus-mono">{selected.action}</code>,
-                },
-                {
-                  label: t("settings.audit.detail.origin"),
-                  value: t(`settings.audit.origins.${selected.origin}`),
-                },
-                {
-                  label: t("settings.audit.detail.resourceType"),
-                  value: selected.resourceType
-                    ? labelFor("resourceTypes", selected.resourceType)
-                    : "—",
-                },
-                {
-                  label: t("settings.audit.detail.resourceName"),
-                  value: selected.resourceName ?? "—",
-                },
-                {
-                  label: t("settings.audit.detail.resourceId"),
-                  value: selected.resourceId ?? "—",
-                },
-                {
-                  label: t("settings.audit.detail.result"),
-                  value: (
-                    <StatusBadge tone={resultTone(selected.result)}>
-                      {t(`settings.audit.results.${selected.result}`)}
-                    </StatusBadge>
-                  ),
-                },
-                {
-                  label: t("settings.audit.detail.summary"),
-                  value: summaryLabel(selected),
-                },
-                {
-                  label: t("settings.audit.detail.createdAt"),
-                  value: formatDateTime(selected.createdAt),
-                },
-                {
-                  label: t("settings.audit.detail.eventHash"),
-                  value: selected.eventHash ?? "—",
-                },
-                {
-                  label: t("settings.audit.detail.previousHash"),
-                  value: selected.previousHash ?? "—",
-                },
-              ]}
-            />
-            {selected.details && Object.keys(selected.details).length > 0 && (
-              <section aria-label={t("settings.audit.detail.facts")}>
-                <h3>{t("settings.audit.detail.facts")}</h3>
-                <CodeBlock
-                  code={JSON.stringify(selected.details, null, 2)}
-                  language="json"
-                />
-              </section>
-            )}
+            <AuditOperationDetail key={selected.id} event={selected} />
+            <p className="argus-muted">{t("operations.eventHint")}</p>
+            <OperationDetails
+              key={selected.id}
+              title={t("operations.technical")}
+              initiallyOpen={!selected.operation}
+            >
+              <KeyValueGrid
+                columns={1}
+                items={[
+                  {
+                    label: t("settings.audit.detail.id"),
+                    value: <code className="argus-mono">{selected.id}</code>,
+                  },
+                  {
+                    label: t("settings.audit.detail.actor"),
+                    value: actorLabel(selected),
+                  },
+                  {
+                    label: t("settings.audit.detail.actorType"),
+                    value: labelFor("actorTypes", selected.actorType),
+                  },
+                  {
+                    label: t("settings.audit.detail.actorId"),
+                    value: (
+                      <code className="argus-mono">{selected.actorUserId}</code>
+                    ),
+                  },
+                  {
+                    label: t("settings.audit.detail.action"),
+                    value: actionLabel(selected),
+                  },
+                  {
+                    label: t("settings.audit.detail.actionKey"),
+                    value: (
+                      <code className="argus-mono">{selected.action}</code>
+                    ),
+                  },
+                  {
+                    label: t("settings.audit.detail.origin"),
+                    value: t(`settings.audit.origins.${selected.origin}`),
+                  },
+                  {
+                    label: t("settings.audit.detail.resourceType"),
+                    value: selected.resourceType
+                      ? labelFor("resourceTypes", selected.resourceType)
+                      : "—",
+                  },
+                  {
+                    label: t("settings.audit.detail.resourceName"),
+                    value: selected.resourceName ?? "—",
+                  },
+                  {
+                    label: t("settings.audit.detail.resourceId"),
+                    value: selected.resourceId ?? "—",
+                  },
+                  {
+                    label: t("settings.audit.detail.result"),
+                    value: (
+                      <StatusBadge tone={resultTone(selected.result)}>
+                        {t(`settings.audit.results.${selected.result}`)}
+                      </StatusBadge>
+                    ),
+                  },
+                  {
+                    label: t("settings.audit.detail.summary"),
+                    value: summaryLabel(selected),
+                  },
+                  {
+                    label: t("settings.audit.detail.createdAt"),
+                    value: formatDateTime(selected.createdAt),
+                  },
+                  {
+                    label: t("settings.audit.detail.eventHash"),
+                    value: selected.eventHash ?? "—",
+                  },
+                  {
+                    label: t("settings.audit.detail.previousHash"),
+                    value: selected.previousHash ?? "—",
+                  },
+                ]}
+              />
+              {selected.details && Object.keys(selected.details).length > 0 && (
+                <section aria-label={t("settings.audit.detail.facts")}>
+                  <h3>{t("settings.audit.detail.facts")}</h3>
+                  <CodeBlock
+                    code={JSON.stringify(selected.details, null, 2)}
+                    language="json"
+                  />
+                </section>
+              )}
+            </OperationDetails>
           </div>
         )}
       </FormDrawer>

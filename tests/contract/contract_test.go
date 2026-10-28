@@ -1642,7 +1642,7 @@ func checkLegacyWebBaseline(t *testing.T, root string) {
 			return readErr
 		}
 		for lineNumber, line := range strings.Split(string(data), "\n") {
-			if legacyPattern.MatchString(line) {
+			if legacyWebContractViolation(line) {
 				relative, _ := filepath.Rel(root, path)
 				t.Errorf("legacy web contract in %s:%d: %s", filepath.ToSlash(relative), lineNumber+1, strings.TrimSpace(line))
 			}

@@ -16,9 +16,9 @@ import {
 } from "@argus/ui";
 import "../styles/hosts.css";
 import { ComponentsTab } from "../components/hosts/components-tab";
-import { TasksTab } from "../components/hosts/tasks-tab";
+import { ResourceExecutionActivity } from "../components/operations/execution-result";
 import { RealTerminalTab } from "../components/hosts/real-terminal-tab";
-import { ResourceTelemetry } from "../components/telemetry/resource-telemetry";
+import {ResourceObserveLink} from "../components/observe/resource-link";
 import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
 import { useResourceDashboardTab } from "../components/dashboards/use-resource-dashboard-tab";
 import { usePermission } from "../lib/permissions";
@@ -30,7 +30,7 @@ import {
 
 const realMode = import.meta.env.VITE_API_MODE === "real";
 
-/** 主机详情页：概览 | 终端与会话 | 已安装组件 | 任务与审计。 */
+/** 主机详情：资源概览、终端、采集与当前操作进度。历史统一关联企业审计。 */
 export function HostDetailPage() {
   const { t } = useTranslation();
   const api = useApi();
@@ -76,13 +76,14 @@ export function HostDetailPage() {
     void queryClient.invalidateQueries({
       queryKey: ["remote-access", "sessions"],
     });
-    void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    void queryClient.invalidateQueries({ queryKey: ["executions"] });
     void queryClient.invalidateQueries({ queryKey: ["audit"] });
   };
 
   return (
     <PageShell
       className="argus-host-detail-page"
+      actions={host?<ResourceObserveLink type="host" id={host.id}/>:undefined}
       breadcrumbs={[
         { label: t("hosts.detail.backToList"), href: "/hosts" },
         { label: host?.name ?? hostId ?? "" },
@@ -134,16 +135,9 @@ export function HostDetailPage() {
               <TabsTrigger value="components">
                 {t("hosts.detail.tabComponents")}
               </TabsTrigger>
-              <TabsTrigger value="metrics">
-                {t("telemetry.metrics")}
+              <TabsTrigger value="activity">
+                {t("operations.title")}
               </TabsTrigger>
-              <TabsTrigger value="logs">{t("telemetry.logs")}</TabsTrigger>
-              <TabsTrigger value="traces">{t("telemetry.traces")}</TabsTrigger>
-              {!realMode && (
-                <TabsTrigger value="tasks">
-                  {t("hosts.detail.tabTasks")}
-                </TabsTrigger>
-              )}
             </TabsList>
             <TabsContent value="overview">
               <HostOverview host={host} />
@@ -172,20 +166,12 @@ export function HostDetailPage() {
                 />
               </div>
             </TabsContent>
-            <TabsContent value="metrics">
-              <ResourceTelemetry resourceId={host.id} signal="metrics" />
+            <TabsContent value="activity">
+              <ResourceExecutionActivity
+                resourceId={host.id}
+                resourceName={host.name}
+              />
             </TabsContent>
-            <TabsContent value="logs">
-              <ResourceTelemetry resourceId={host.id} signal="logs" />
-            </TabsContent>
-            <TabsContent value="traces">
-              <ResourceTelemetry resourceId={host.id} signal="traces" />
-            </TabsContent>
-            {!realMode && (
-              <TabsContent value="tasks">
-                <TasksTab host={host} />
-              </TabsContent>
-            )}
           </Tabs>
         </>
       )}

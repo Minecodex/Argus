@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./contracts": "./src/generated/contracts.ts",
     "./tool-labels": "./src/generated/tool-labels.ts",
+    "./audit-labels": "./src/audit-catalog.ts",
     "./provisional": "./src/provisional/index.ts",
     "./mock": "./src/mock/index.ts",
     "./real": "./src/adapters/real.ts"

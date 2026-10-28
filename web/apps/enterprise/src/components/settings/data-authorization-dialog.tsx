@@ -11,6 +11,7 @@ import {
 import {
   Badge,
   Button,
+  Pagination,
   ConfirmDialog,
   DataTable,
   EmptyState,
@@ -377,28 +378,18 @@ export function DataAuthorizationDialog({
                   {t("authorizationCatalog.revokePage")}
                 </Button>
               </div>
-              <div className="argus-authorization-toolbar">
-                <span>
-                  {t("authorizationCatalog.page", { page: cursors.length })}
-                </span>
-                <Button
-                  isDisabled={cursors.length === 1 || query.isFetching}
-                  onPress={() => setCursors((values) => values.slice(0, -1))}
-                >
-                  {t("settings.org.dataAuthorization.previousPage")}
-                </Button>
-                <Button
-                  isDisabled={!query.data?.page.has_more || query.isFetching}
-                  onPress={() =>
-                    setCursors((values) => [
-                      ...values,
-                      query.data?.page.next_cursor ?? undefined,
-                    ])
-                  }
-                >
-                  {t("settings.org.dataAuthorization.nextPage")}
-                </Button>
-              </div>
+              <Pagination
+                page={cursors.length}
+                hasNext={!!query.data?.page.has_more}
+                isDisabled={query.isFetching}
+                onChange={(page) =>
+                  setCursors((old) =>
+                    page <= old.length
+                      ? old.slice(0, page)
+                      : [...old, query.data?.page.next_cursor ?? undefined],
+                  )
+                }
+              />
             </TabsContent>
           </Tabs>
           <p role="status">

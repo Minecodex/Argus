@@ -20,6 +20,8 @@ RUN --mount=type=cache,id=argus-pnpm-store,target=/pnpm/store \
 # Keep dependency installation cached when application source changes.
 COPY scripts ./scripts/
 COPY web ./web
+# The query editor compiles the same read-only SDL as the Go trace engine.
+COPY internal/telemetry/queryengine/skywalking/schema/trace.graphql ./internal/telemetry/queryengine/skywalking/schema/trace.graphql
 ARG VITE_API_MODE=real
 ARG VITE_API_BASE_URL=/
 # Template origin and platform login URL are resolved at runtime from

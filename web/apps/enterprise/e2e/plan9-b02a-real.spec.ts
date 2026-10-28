@@ -53,6 +53,20 @@ test.describe("Plan9 B02a deployed web services", () => {
         );
         const errors: string[] = [];
         page.on("pageerror", (e) => errors.push(e.message));
+        const inventory = await page.request.get(
+          "/api/v1/monitoring/collections?limit=100",
+        );
+        expect(inventory.status()).toBe(200);
+        const inventoryRows: Array<{ target: { id: string } }> = (
+          await inventory.json()
+        ).items;
+        const retired = JSON.parse(
+          readFileSync(process.env.ARGUS_PLAN9_RETIRED_MAP!, "utf8"),
+        ) as { hosts: Record<string, { host_id: string }> };
+        const retiredIds = Object.values(retired.hosts).map((h) => h.host_id);
+        expect(
+          inventoryRows.filter((c) => retiredIds.includes(c.target.id)),
+        ).toEqual([]);
         await page.goto("/monitoring");
         await expect(page.locator("html")).toHaveAttribute("lang", locale);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
@@ -137,6 +151,7 @@ test.describe("Plan9 B02a deployed web services", () => {
         await page.goto(`/alerts?tab=active&policy_id=${policy.id}`);
         await page.getByText(policy.name, { exact: true }).first().click();
         const detail = page.getByRole("dialog", { name: policy.name });
+        await expect(detail).toContainText(map.targets["web-a-haproxy"].name);
         await expect(detail.locator(".argus-chart svg")).toBeVisible();
         await expect(detail.locator("pre.argus-alert-code-block")).toHaveCSS(
           "white-space",

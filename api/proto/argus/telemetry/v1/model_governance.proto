@@ -1,0 +1,18 @@
+syntax = "proto3";
+package argus.telemetry.v1;
+
+option go_package = "github.com/kakj-go/Argus/internal/gen/proto/argus/telemetry/v1;telemetryv1";
+
+// Private mTLS-only endpoint. Request JSON is the strict, versioned
+// modelmetrics.Request contract. It contains no caller-authored query.
+service ModelGovernanceService {
+  rpc QueryModelGovernance(QueryModelGovernanceRequest) returns (QueryModelGovernanceResponse);
+}
+message QueryModelGovernanceRequest {
+  string schema_version = 1;
+  bytes request_json = 2;
+}
+message QueryModelGovernanceResponse {
+  string schema_version = 1;
+  bytes result_json = 2;
+}

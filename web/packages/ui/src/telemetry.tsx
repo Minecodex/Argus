@@ -10,6 +10,8 @@ import * as echarts from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { cx } from "./lib";
 import { useLocale, useUiText } from "./locale";
+import { floatingObservationTooltip } from "./observation-tooltip";
+import { useTheme } from "./theme";
 
 echarts.use([
   AriaComponent,
@@ -40,6 +42,7 @@ export function TelemetryTimeSeries({
   const root = useRef<HTMLDivElement>(null);
   const text = useUiText();
   const { locale } = useLocale();
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     if (!root.current) return;
@@ -58,7 +61,12 @@ export function TelemetryTimeSeries({
         color("--danger"),
       ],
       legend: { top: 0, textStyle: { color: color("--text-tertiary") } },
-      tooltip: { trigger: "axis" },
+      tooltip: floatingObservationTooltip({
+        trigger: "axis",
+        backgroundColor: color("--bg-elevated"),
+        borderColor: color("--border-default"),
+        textStyle: { color: color("--text-primary") },
+      }),
       xAxis: { type: "time", axisLabel: { hideOverlap: true } },
       yAxis: { type: "value", scale: true },
       series: series.map((item) => ({
@@ -69,13 +77,17 @@ export function TelemetryTimeSeries({
         data: item.points.map((point) => [point.timestamp, point.value]),
       })),
     });
-    const observer = new ResizeObserver(() => chart.resize());
+    const observer = new ResizeObserver(() => {
+      if (!root.current?.clientWidth || !root.current?.clientHeight)
+        chart.dispatchAction({ type: "hideTip" });
+      else chart.resize();
+    });
     observer.observe(root.current);
     return () => {
       observer.disconnect();
       chart.dispose();
     };
-  }, [ariaLabel, series]);
+  }, [ariaLabel, series, resolvedTheme]);
 
   const rows = useMemo(
     () =>

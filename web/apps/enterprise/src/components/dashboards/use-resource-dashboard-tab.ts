@@ -7,10 +7,10 @@ export function useResourceDashboardTab(
   allowed: boolean,
 ) {
   const [tab, setTab] = useState(() =>
-    requested === "dashboards" && allowed ? "dashboards" : initial,
+    requested === "activity" ? "activity" : requested === "dashboards" && allowed ? "dashboards" : initial,
   );
   useEffect(() => {
-    setTab(requested === "dashboards" && allowed ? "dashboards" : initial);
+    setTab(requested === "activity" ? "activity" : requested === "dashboards" && allowed ? "dashboards" : initial);
   }, [id, requested, initial, allowed]);
   return [tab, setTab] as const;
 }

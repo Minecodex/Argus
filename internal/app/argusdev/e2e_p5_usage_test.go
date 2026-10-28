@@ -90,7 +90,7 @@ func TestP5UsageGateRequiresReportedSettledSuccessfulCalls(t *testing.T) {
 		if sample.UsageComplete || sample.CachedUsageComplete || sample.InputTokens != 0 || sample.OutputTokens != 0 || sample.CachedInputTokens != 0 {
 			t.Fatalf("invalid benchmark=%s", data)
 		}
-		rows, err := store.Queries.ListModelUsage(t.Context(), db.ListModelUsageParams{EnterpriseID: e, CompletedAt: pgtype.Timestamptz{Time: time.Now().Add(-time.Hour), Valid: true}, CompletedAt_2: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true}})
+		rows, err := store.Queries.ListModelUsage(t.Context(), db.ListModelUsageParams{EnterpriseID: e, CompletedAt: pgtype.Timestamptz{Time: time.Now().Add(-time.Hour), Valid: true}, CompletedAt2: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true}})
 		if err != nil || len(rows) != 1 {
 			t.Fatalf("public usage: %v %v", rows, err)
 		}

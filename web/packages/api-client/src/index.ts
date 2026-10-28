@@ -208,3 +208,6 @@ export { KubernetesTerminalConnection } from "./transport/kubernetes-stream";
 export * from "./interactions";
 export { managedDashboardTemplates } from "./generated/dashboard-templates";
 export { builtinCollections } from "./generated/builtin-collections";
+export { auditAdditionalLabels } from "./audit-catalog";
+
+export type * from "./observation";

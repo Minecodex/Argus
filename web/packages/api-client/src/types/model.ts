@@ -113,12 +113,12 @@ export interface ModelUsageSummary {
   totalInputTokens: number;
   totalOutputTokens: number;
   totalRequests: number;
-  successRate: number;
+  successRate: number | null;
   totalAmount: number;
-  avgLatencyMs: number;
-  errorCount: number;
-  toolCallingFailures: number;
-  structuredOutputFailures: number;
+  avgLatencyMs: number | null;
+  errorCount: number | null;
+  toolCallingFailures: number | null;
+  structuredOutputFailures: number | null;
   points: ModelUsagePoint[];
 }
 

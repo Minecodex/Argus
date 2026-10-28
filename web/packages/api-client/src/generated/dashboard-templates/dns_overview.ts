@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "dns.overview",
-  "version": 1,
+  "version": 2,
   "name": "DNS checks",
   "description": "",
   "integration_keys": [
@@ -19,7 +19,7 @@ export const template = {
     "panels": [
       {
         "id": "status",
-        "title": "dnscheck_status",
+        "title": "dnscheck_status and topk by (argus_resource_id, resource_dns_domain) (1, timestamp(dnscheck_status))",
         "description": "",
         "type": "stat",
         "signal": "metrics",
@@ -38,7 +38,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "dnscheck_status"
+                "expression": "dnscheck_status and topk by (argus_resource_id, resource_dns_domain) (1, timestamp(dnscheck_status))"
               }
             },
             "query_mode": "instant",

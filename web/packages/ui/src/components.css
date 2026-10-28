@@ -98,7 +98,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-px-7);
-  height: 36px;
+  height: var(--control-md);
   padding: 0 var(--space-px-10);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -129,7 +129,7 @@
 /* FilterBar */
 .argus-filter-bar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
   gap: var(--action-gap);
   padding: var(--card-padding);
@@ -139,18 +139,45 @@
 }
 .argus-filter-bar__search {
   flex: 1;
-  min-width: 180px;
-  max-width: 320px;
+  min-width: var(--filter-search-min-width);
+  max-width: var(--filter-search-max-width);
 }
 .argus-filter-bar__select {
   display: inline-flex;
   align-items: center;
+  max-width: var(--field-width-compact);
 }
 .argus-filter-bar__select > .argus-select {
-  min-width: 140px;
+  min-width: var(--filter-select-min-width);
+  max-width: 100%;
+}
+.argus-filter-bar__dates {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--action-gap);
+}
+.argus-filter-bar__date {
+  width: var(--filter-date-width);
+  margin: 0;
+}
+.argus-filter-bar__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--action-gap);
+  margin-inline-start: auto;
 }
 .argus-filter-bar__refresh {
   margin-left: auto;
+}
+.argus-filter-bar__inline-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--action-gap);
+}
+.argus-filter-bar--grouped .argus-filter-bar__refresh {
+  margin-inline-start: 0;
 }
 
 /* ConfirmDialog */
@@ -1081,14 +1108,6 @@
   margin-left: auto;
   color: var(--text-tertiary);
   white-space: nowrap;
-}
-.argus-dual-list__pager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-px-6);
-  min-height: 40px;
-  color: var(--text-secondary);
 }
 .argus-form-error {
   margin: var(--space-px-8) 0 0;

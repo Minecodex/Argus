@@ -49,3 +49,15 @@ func BasePredicate(column string) string {
 func FacetedPredicate(column, namespaceExpression string) string {
 	return "(" + column + " IN (SELECT selected_key FROM " + sourceTable + " WHERE is_facet=0) OR concat(" + column + ",'@'," + namespaceExpression + ") IN (SELECT selected_key FROM " + sourceTable + " WHERE is_facet=1))"
 }
+
+// SelectedPredicate avoids reading the namespace metadata map when the frozen
+// scope contains only whole sources. Mixed or namespace-only scopes retain the
+// exact facet predicate; source selectors still travel in the external table.
+func SelectedPredicate(column, namespaceExpression string, keys []string) string {
+	for _, key := range keys {
+		if strings.Contains(key, "@") {
+			return FacetedPredicate(column, namespaceExpression)
+		}
+	}
+	return ExactPredicate(column)
+}

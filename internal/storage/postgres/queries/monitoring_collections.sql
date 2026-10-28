@@ -31,6 +31,14 @@ SELECT * FROM monitoring_collections WHERE enterprise_id=$1 AND id=$2 FOR UPDATE
 
 -- name: ListMonitoringCollections :many
 SELECT collection.* FROM monitoring_collections collection WHERE collection.enterprise_id=sqlc.arg(enterprise_id) AND collection.status='active'
+ -- Current inventory excludes retired owners, while collection records remain
+ -- available to historical/audit reads. Apply this before pagination.
+ AND CASE collection.target_type
+   WHEN 'host' THEN EXISTS(SELECT 1 FROM hosts owner WHERE owner.enterprise_id=collection.enterprise_id AND owner.id=collection.target_id AND owner.status<>'deleted')
+   WHEN 'kubernetes_cluster' THEN EXISTS(SELECT 1 FROM kubernetes_clusters owner WHERE owner.enterprise_id=collection.enterprise_id AND owner.id=collection.target_id AND owner.status<>'deleted')
+   WHEN 'monitoring_target' THEN EXISTS(SELECT 1 FROM monitoring_targets owner WHERE owner.enterprise_id=collection.enterprise_id AND owner.id=collection.target_id AND owner.status='active')
+   WHEN 'application' THEN EXISTS(SELECT 1 FROM monitoring_applications owner WHERE owner.enterprise_id=collection.enterprise_id AND owner.id=collection.target_id AND owner.status='active')
+   ELSE false END
  AND ((collection.target_type='host' AND collection.target_id=ANY(sqlc.arg(host_ids)::uuid[]))
  OR (collection.target_type='kubernetes_cluster' AND collection.target_id=ANY(sqlc.arg(cluster_ids)::uuid[]))
  OR (collection.target_type='monitoring_target' AND collection.target_id=ANY(sqlc.arg(target_ids)::uuid[]))

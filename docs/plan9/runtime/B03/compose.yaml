@@ -1,0 +1,88 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  restart: unless-stopped
+  networks: [lab]
+  labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B03}
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+x-mysql: &mysql
+  <<: *base
+  image: ${PLAN9_MYSQL_IMAGE:?Verified image required}
+  cpus: 1
+  mem_limit: 768m
+  memswap_limit: 768m
+  pids_limit: 256
+  command: [--innodb-buffer-pool-size=64M, --max-connections=40, --performance-schema=ON, --skip-log-bin]
+  environment: {MYSQL_ROOT_PASSWORD_FILE: /run/secrets/root-password, MYSQL_ROOT_HOST: '%'}
+  healthcheck:
+    test: [CMD-SHELL, 'mysqladmin ping -h 127.0.0.1 --silent']
+    interval: 5s
+    timeout: 3s
+    retries: 30
+x-postgres: &postgres
+  <<: *base
+  image: ${PLAN9_POSTGRES_IMAGE:?Verified image required}
+  cpus: 0.75
+  mem_limit: 384m
+  memswap_limit: 384m
+  pids_limit: 128
+  command: [postgres, -c, shared_buffers=32MB, -c, max_connections=40, -c, log_statement=none]
+  environment: {POSTGRES_PASSWORD_FILE: /run/secrets/root-password, POSTGRES_DB: plan9}
+  healthcheck:
+    test: [CMD, pg_isready, -U, postgres, -d, plan9]
+    interval: 5s
+    timeout: 3s
+    retries: 30
+services:
+  collector:
+    <<: *base
+    image: ${PLAN9_HOST_IMAGE:?Verified image required}
+    hostname: ${PLAN9_RUN}-collector
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: mysql-a}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22251:22']
+    volumes: ['collector-data:/var/lib/plan9', '${PLAN9_PRIVATE}/database-credentials.json:/root/plan9-databases.json:ro']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  mysql-a:
+    <<: *mysql
+    volumes: ['mysql-a-data:/var/lib/mysql', '${PLAN9_PRIVATE}/mysql-a-root:/run/secrets/root-password:ro']
+  mysql-b:
+    <<: *mysql
+    volumes: ['mysql-b-data:/var/lib/mysql', '${PLAN9_PRIVATE}/mysql-b-root:/run/secrets/root-password:ro']
+  postgres-a:
+    <<: *postgres
+    volumes: ['postgres-a-data:/var/lib/postgresql', '${PLAN9_PRIVATE}/postgres-a-root:/run/secrets/root-password:ro']
+  postgres-b:
+    <<: *postgres
+    volumes: ['postgres-b-data:/var/lib/postgresql', '${PLAN9_PRIVATE}/postgres-b-root:/run/secrets/root-password:ro']
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  collector-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  mysql-a-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  mysql-b-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  postgres-a-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  postgres-b-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

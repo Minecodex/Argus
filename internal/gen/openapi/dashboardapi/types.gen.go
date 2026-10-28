@@ -197,10 +197,13 @@ func (e DashboardCandidateStateStatus) Valid() bool {
 const (
 	DashboardCatalogFilterOperatorEmpty            DashboardCatalogFilterOperator = "!="
 	DashboardCatalogFilterOperatorEqual            DashboardCatalogFilterOperator = "="
+	DashboardCatalogFilterOperatorEqualTilde       DashboardCatalogFilterOperator = "=~"
 	DashboardCatalogFilterOperatorGreaterThan      DashboardCatalogFilterOperator = ">"
 	DashboardCatalogFilterOperatorGreaterThanEqual DashboardCatalogFilterOperator = ">="
 	DashboardCatalogFilterOperatorLessThan         DashboardCatalogFilterOperator = "<"
 	DashboardCatalogFilterOperatorLessThanEqual    DashboardCatalogFilterOperator = "<="
+	DashboardCatalogFilterOperatorN1               DashboardCatalogFilterOperator = "!~"
+	DashboardCatalogFilterOperatorN2               DashboardCatalogFilterOperator = ":"
 )
 
 // Valid indicates whether the value is a known member of the DashboardCatalogFilterOperator enum.
@@ -210,6 +213,8 @@ func (e DashboardCatalogFilterOperator) Valid() bool {
 		return true
 	case DashboardCatalogFilterOperatorEqual:
 		return true
+	case DashboardCatalogFilterOperatorEqualTilde:
+		return true
 	case DashboardCatalogFilterOperatorGreaterThan:
 		return true
 	case DashboardCatalogFilterOperatorGreaterThanEqual:
@@ -217,6 +222,10 @@ func (e DashboardCatalogFilterOperator) Valid() bool {
 	case DashboardCatalogFilterOperatorLessThan:
 		return true
 	case DashboardCatalogFilterOperatorLessThanEqual:
+		return true
+	case DashboardCatalogFilterOperatorN1:
+		return true
+	case DashboardCatalogFilterOperatorN2:
 		return true
 	default:
 		return false
@@ -430,6 +439,24 @@ func (e DashboardDrilldownExecutionScopePolicy) Valid() bool {
 	}
 }
 
+// Defines values for DashboardExecutionModelGovernanceSubjectsKind.
+const (
+	Department DashboardExecutionModelGovernanceSubjectsKind = "department"
+	User       DashboardExecutionModelGovernanceSubjectsKind = "user"
+)
+
+// Valid indicates whether the value is a known member of the DashboardExecutionModelGovernanceSubjectsKind enum.
+func (e DashboardExecutionModelGovernanceSubjectsKind) Valid() bool {
+	switch e {
+	case Department:
+		return true
+	case User:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DashboardExecutionInputApplicationMode.
 const (
 	DashboardExecutionInputApplicationModeAllAuthorized DashboardExecutionInputApplicationMode = "all_authorized"
@@ -566,6 +593,7 @@ func (e DashboardLocalFilterKind) Valid() bool {
 const (
 	DashboardPanelApplicableResourceTypesApplication         DashboardPanelApplicableResourceTypes = "application"
 	DashboardPanelApplicableResourceTypesHost                DashboardPanelApplicableResourceTypes = "host"
+	DashboardPanelApplicableResourceTypesInternalModel       DashboardPanelApplicableResourceTypes = "internal_model"
 	DashboardPanelApplicableResourceTypesKubernetesCluster   DashboardPanelApplicableResourceTypes = "kubernetes_cluster"
 	DashboardPanelApplicableResourceTypesKubernetesNamespace DashboardPanelApplicableResourceTypes = "kubernetes_namespace"
 	DashboardPanelApplicableResourceTypesMonitoringTarget    DashboardPanelApplicableResourceTypes = "monitoring_target"
@@ -577,6 +605,8 @@ func (e DashboardPanelApplicableResourceTypes) Valid() bool {
 	case DashboardPanelApplicableResourceTypesApplication:
 		return true
 	case DashboardPanelApplicableResourceTypesHost:
+		return true
+	case DashboardPanelApplicableResourceTypesInternalModel:
 		return true
 	case DashboardPanelApplicableResourceTypesKubernetesCluster:
 		return true

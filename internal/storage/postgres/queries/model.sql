@@ -54,8 +54,8 @@ RETURNING *;
 SELECT * FROM model_quotas WHERE enterprise_id = $1 ORDER BY model_id, subject_type, subject_id;
 
 -- name: ListModelUsage :many
-SELECT model_id,
-    date_trunc('month', completed_at)::date AS month,
+SELECT c.model_id,
+    sqlc.arg('month')::date AS month,
     count(*)::bigint AS request_count,
     COALESCE(sum(input_tokens) FILTER(WHERE input_usage_source='provider'), 0)::bigint AS input_tokens,
     COALESCE(sum(input_tokens) FILTER(WHERE input_usage_source='estimated'), 0)::bigint AS estimated_input_tokens,
@@ -66,11 +66,17 @@ SELECT model_id,
     bool_and(cached_input_usage_source='provider' AND input_usage_source='provider' AND cached_input_tokens<=input_tokens AND status='succeeded')::boolean AS cached_usage_complete,
     COALESCE(sum(amount), 0)::numeric(20,8) AS amount,
     count(*) FILTER (WHERE call_kind = 'compaction')::bigint AS compaction_count
-FROM model_calls
-WHERE enterprise_id = $1 AND completed_at >= $2 AND completed_at < $3
-  AND (sqlc.narg('model_id')::uuid IS NULL OR model_id = sqlc.narg('model_id'))
-GROUP BY model_id, date_trunc('month', completed_at)::date
-ORDER BY month DESC, model_id;
+FROM model_calls c
+WHERE c.enterprise_id = sqlc.arg('enterprise_id') AND c.completed_at >= sqlc.arg('completed_at') AND c.completed_at < sqlc.arg('completed_at_2')
+  AND c.status IN ('succeeded','failed','cancelled')
+  AND (sqlc.narg('model_id')::uuid IS NULL OR c.model_id = sqlc.narg('model_id'))
+  AND (sqlc.narg('department_id')::uuid IS NULL OR EXISTS (
+    SELECT 1 FROM model_metric_outbox snapshot WHERE snapshot.enterprise_id=c.enterprise_id AND snapshot.entity_id=c.id AND snapshot.kind='call'
+      AND snapshot.department_id=sqlc.narg('department_id')
+      AND snapshot.id=(SELECT max(latest.id) FROM model_metric_outbox latest WHERE latest.enterprise_id=c.enterprise_id AND latest.entity_id=c.id AND latest.kind='call')
+  ))
+GROUP BY c.model_id
+ORDER BY c.model_id;
 
 -- name: CreateQuotaReservation :one
 INSERT INTO model_quota_reservations (id, enterprise_id, model_call_id, model_id, department_id, user_id, month, reserved_amount, status, expires_at)

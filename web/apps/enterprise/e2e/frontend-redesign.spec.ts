@@ -150,7 +150,6 @@ for (const viewport of [
             "/hosts",
             "/kubernetes",
             "/dashboards",
-            "/tasks",
             "/approvals",
             "/remote-sessions",
             "/hosts/host-web-11",

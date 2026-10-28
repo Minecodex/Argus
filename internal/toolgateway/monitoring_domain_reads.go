@@ -15,6 +15,7 @@ func domainListSchema(fields ...string) map[string]any {
 	extra["apply_status"] = map[string]any{"type": "string", "enum": []string{"pending", "applying", "effective", "failed", "unknown"}}
 	extra["health"] = map[string]any{"type": "string", "enum": []string{"unknown", "healthy", "degraded", "failed", "stopped"}}
 	extra["freshness"] = map[string]any{"type": "string", "enum": []string{"no_data", "fresh", "stale"}}
+	extra["environment"] = map[string]any{"type": "string", "maxLength": 64, "pattern": "^[a-z][a-z0-9_-]{0,63}$", "description": "Exact application environment; omit for all authorized environments. Combined with search before pagination."}
 	for _, field := range fields {
 		props[field] = extra[field]
 	}
@@ -45,7 +46,7 @@ func (t MonitoringTools) registerMonitoring(reg *mcp.Registry) error {
 		item := item
 		fields := []string{"integration"}
 		if item.id == "application.list" {
-			fields = []string{"status"}
+			fields = []string{"status", "environment"}
 		} else if item.id == "application.service.list" {
 			fields = []string{"application_ids"}
 		} else if item.id == "monitoring.collection.list" {

@@ -9,7 +9,6 @@ const enterpriseCases = [
   ["/hosts", "/enterprise/hosts"],
   ["/kubernetes", "/enterprise/kubernetes-clusters"],
   ["/dashboards", "/dashboards"],
-  ["/tasks", "/executions"],
   ["/approvals", "/pending-actions"],
   ["/remote-sessions", "/enterprise/remote-access-sessions"],
   ["/settings/org", "/enterprise/users"],

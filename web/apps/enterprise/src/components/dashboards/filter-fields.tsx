@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 export function FilterFields({
   filters,
   onChange,
+  onInvalidInput,
   variables,
   locals = [],
   rowInputs = [],
@@ -11,6 +12,7 @@ export function FilterFields({
 }: {
   filters: DashboardSchemas["DashboardFilter"][];
   onChange: (filters: DashboardSchemas["DashboardFilter"][]) => void;
+  onInvalidInput?: () => void;
   variables: DashboardVariable[];
   locals?: string[];
   rowInputs?: string[];
@@ -99,6 +101,9 @@ export function FilterFields({
             !f.drilldown_input &&
             (f.values ? (
               <JsonField
+                onInvalidChange={(invalid) => {
+                  if (invalid) onInvalidInput?.();
+                }}
                 label={t("dashboards.valueSet")}
                 kind="strings"
                 value={f.values}

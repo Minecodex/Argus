@@ -7,11 +7,13 @@ export function JsonField<T extends Record<string, unknown> | string[]>({
   kind,
   value,
   onChange,
+  onInvalidChange,
 }: {
   label: string;
   kind: "object" | "strings";
   value: T;
   onChange: (value: T) => void;
+  onInvalidChange?: (invalid: boolean) => void;
 }) {
   const text = useUiText(),
     ref = useRef<HTMLTextAreaElement>(null),
@@ -53,6 +55,7 @@ export function JsonField<T extends Record<string, unknown> | string[]>({
             last.current = JSON.stringify(parsed);
             event.currentTarget.setCustomValidity("");
             setError("");
+            onInvalidChange?.(false);
             onChange(parsed as T);
           } catch {
             const message =
@@ -64,6 +67,7 @@ export function JsonField<T extends Record<string, unknown> | string[]>({
                   );
             event.currentTarget.setCustomValidity(message);
             setError(message);
+            onInvalidChange?.(true);
           }
         }}
       />

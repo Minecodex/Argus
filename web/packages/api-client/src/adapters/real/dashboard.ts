@@ -50,8 +50,9 @@ export function createDashboardDomains(
           if (value !== undefined) params.set(key, String(value));
         return http.request(`dashboard-scope-resources?${params}`, { signal });
       },
-      convertPanel: (body) =>
+      convertPanel: (body, signal) =>
         http.request("dashboard-spec/convert-panel", {
+          signal,
           method: "POST",
           csrf: true,
           body,

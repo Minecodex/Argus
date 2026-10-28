@@ -1,16 +1,34 @@
-import {zodResolver} from "@hookform/resolvers/zod";
-import {ActionMenu,QueryBoundary} from "@argus/ui";
-import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
-import {useEffect,useMemo,useState} from "react";
-import {Controller,useForm} from "react-hook-form";
-import {useTranslation} from "react-i18next";
-import {z} from "zod";
-import {Activity,CircleDollarSign,Gauge,Plus} from "lucide-react";
-import {apiErrorPresentation,formConstraint,formatApiError,useApi,type AIModel,type ModelQuota} from "@argus/api-client";
-import {useEnterpriseAuthStore} from "@argus/auth";
-import {Badge,Alert,Button,DataTable,EmptyState,Field,FormDrawer,Input,PageShell,Select,StatCard,StatusBadge,Tabs,TabsContent,TabsList,TabsTrigger} from "@argus/ui";
-import {useOrgDepartments,useOrgUsers} from "../components/settings/org-users-tab";
-import {usePermission} from "../lib/permissions";
+import { useNavigate } from "@tanstack/react-router";
+import { DepartmentQuotaModels } from "../components/settings/department-quota-models";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ActionMenu, QueryBoundary } from "@argus/ui";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
+import { z } from "zod";
+import { Plus } from "lucide-react";
+import {
+  apiErrorPresentation,
+  formConstraint,
+  formatApiError,
+  useApi,
+  type AIModel,
+} from "@argus/api-client";
+import {
+  Badge,
+  Alert,
+  Button,
+  DataTable,
+  EmptyState,
+  Field,
+  FormDrawer,
+  Input,
+  Select,
+  StatusBadge,
+} from "@argus/ui";
+import { QuotaDrawer } from "../components/settings/model-quota-drawer";
+import { usePermission } from "../lib/permissions";
 import "../styles/ai-settings.css";
 
 type ModelDrawerState =
@@ -54,54 +72,67 @@ const modelFieldByApiName: Record<string, keyof ModelFormValues> = {
   output_price_per_million: "outputPricePerMillionTokens",
 };
 
-export function SettingsAiPage() {
+export function ModelSettingsPanel() {
   const { t } = useTranslation();
+  const api = useApi();
+  const navigate = useNavigate();
   const canManageModels = usePermission("model.manage");
+  const canReadUsage = usePermission("model.usage.read");
   const canManageQuota = usePermission("model.quota.manage");
-  const departmentAdmin = !canManageModels && canManageQuota;
-  const [tab, setTab] = useState("models");
-  const [dashboardModelId, setDashboardModelId] = useState<string>();
+  const [failure, setFailure] = useState("");
+  const openDashboard = async (modelId?: string) => {
+    try {
+      setFailure("");
+      const item = (await api.dashboards.list()).find(
+        (item) => item.managed_template_key === "argus.model-governance",
+      );
+      if (!item) throw new Error(t("modelGovernance.unavailable"));
+      await navigate({
+        to: "/dashboards/$dashboardId",
+        params: { dashboardId: item.id },
+        search: { model: modelId },
+      });
+    } catch (error) {
+      setFailure(
+        formatApiError(error, t("modelGovernance.unavailable"), (requestId) =>
+          t("common.requestReference", { requestId }),
+        ),
+      );
+    }
+  };
   return (
-    <PageShell
-      description={t("aiSettings.description")}
-      title={t("shell.nav.settingsAi")}
-    >
-      <Tabs onValueChange={setTab} value={tab}>
-        <TabsList>
-          {canManageModels && (
-            <TabsTrigger value="models">
-              {t("aiSettings.tabs.models")}
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="governance">
-            {t("aiSettings.tabs.governance")}
-          </TabsTrigger>
-        </TabsList>
-        {canManageModels && (
-          <TabsContent value="models">
-            <ModelsView
-              onDashboard={(id) => {
-                setDashboardModelId(id);
-                setTab("governance");
-              }}
-            />
-          </TabsContent>
-        )}
-        <TabsContent value="governance">
-          <GovernanceView
-            canManage={canManageModels || departmentAdmin}
-            modelId={dashboardModelId}
-            onModelChange={setDashboardModelId}
-          />
-        </TabsContent>
-      </Tabs>
-    </PageShell>
+    <div className="argus-settings-stack">
+      <p className="argus-settings-section__hint">
+        {t("aiSettings.description")}
+      </p>
+      {failure && (
+        <Alert
+          tone="danger"
+          title={t("modelGovernance.unavailable")}
+          description={failure}
+        />
+      )}
+      {canReadUsage && (
+        <div className="argus-ai-toolbar">
+          <Button onPress={() => void openDashboard()}>
+            {t("modelGovernance.open")}
+          </Button>
+        </div>
+      )}
+      {canManageModels ? (
+        <ModelsView onDashboard={(id) => void openDashboard(id)} />
+      ) : canManageQuota ? (
+        <DepartmentQuotaModels onDashboard={(id) => void openDashboard(id)} />
+      ) : null}
+    </div>
   );
 }
 
 function ModelsView({ onDashboard }: { onDashboard: (id: string) => void }) {
   const { t } = useTranslation();
   const api = useApi();
+  const canManageQuota = usePermission("model.quota.manage");
+  const canReadUsage = usePermission("model.usage.read");
   const queryClient = useQueryClient();
   const [drawer, setDrawer] = useState<ModelDrawerState>(null);
   const [quotaModel, setQuotaModel] = useState<AIModel | null>(null);
@@ -181,12 +212,50 @@ function ModelsView({ onDashboard }: { onDashboard: (id: string) => void }) {
               {
                 key: "actions",
                 header: t("settings.common.actions"),
-                render: (model) => (<ActionMenu items={[{label: t("aiSettings.model.test"),onSelect: () =>
-                        void api.models
-                          .test(model.id)
-                          .then(() => models.refetch())},{label: t("aiSettings.model.edit"),onSelect: () => setDrawer({ mode: "edit", model })},{label: t("aiSettings.model.quota"),onSelect: () => setQuotaModel(model)},{label: t("aiSettings.model.dashboard"),onSelect: () => onDashboard(model.id)},{label: model.enabled
-                        ? t("aiSettings.model.disable")
-                        : t("aiSettings.model.enable"),onSelect: () => update.mutate({ id: model.id, patch: { enabled: !model.enabled } }),disabled: (update.isPending)}]} />),
+                render: (model) => (
+                  <ActionMenu
+                    items={[
+                      {
+                        label: t("aiSettings.model.test"),
+                        onSelect: () =>
+                          void api.models
+                            .test(model.id)
+                            .then(() => models.refetch()),
+                      },
+                      {
+                        label: t("aiSettings.model.edit"),
+                        onSelect: () => setDrawer({ mode: "edit", model }),
+                      },
+                      ...(canManageQuota
+                        ? [
+                            {
+                              label: t("aiSettings.model.quota"),
+                              onSelect: () => setQuotaModel(model),
+                            },
+                          ]
+                        : []),
+                      ...(canReadUsage
+                        ? [
+                            {
+                              label: t("aiSettings.model.dashboard"),
+                              onSelect: () => onDashboard(model.id),
+                            },
+                          ]
+                        : []),
+                      {
+                        label: model.enabled
+                          ? t("aiSettings.model.disable")
+                          : t("aiSettings.model.enable"),
+                        onSelect: () =>
+                          update.mutate({
+                            id: model.id,
+                            patch: { enabled: !model.enabled },
+                          }),
+                        disabled: update.isPending,
+                      },
+                    ]}
+                  />
+                ),
               },
             ]}
             data={
@@ -526,334 +595,5 @@ function ModelDrawer({
         </details>
       </div>
     </FormDrawer>
-  );
-}
-
-function QuotaDrawer({
-  model,
-  onClose,
-}: {
-  model: AIModel;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const api = useApi();
-  const session = useEnterpriseAuthStore((state) => state.session);
-  const enterpriseAdmin = usePermission("model.manage");
-  const departments = useOrgDepartments();
-  const users = useOrgUsers();
-  const queryClient = useQueryClient();
-  const schema = useMemo(
-    () =>
-      z.object({
-        subjectType: z.enum(["department", "user"]),
-        subjectId: z.string().min(1, t("aiSettings.validation.required")),
-        amount: z
-          .number({ error: t("aiSettings.validation.nonnegative") })
-          .min(0, t("aiSettings.validation.nonnegative"))
-          .optional(),
-      }),
-    [t],
-  );
-  type QuotaFormValues = z.infer<typeof schema>;
-  const {
-    control,
-    handleSubmit,
-    register,
-    setError,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<QuotaFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      subjectType: enterpriseAdmin ? "department" : "user",
-      subjectId: "",
-      amount: undefined,
-    },
-  });
-  const subjectType = watch("subjectType");
-  const subjects = useMemo(() => {
-    if (subjectType === "department") return departments.data ?? [];
-    return (users.data ?? []).filter(
-      (user) =>
-        enterpriseAdmin ||
-        user.department_id === session?.session.department_id,
-    );
-  }, [
-    departments.data,
-    enterpriseAdmin,
-    session?.session.department_id,
-    subjectType,
-    users.data,
-  ]);
-  useEffect(() => {
-    setValue("subjectId", subjects[0]?.id ?? "", { shouldValidate: false });
-  }, [setValue, subjectType, subjects]);
-  const save = useMutation({
-    mutationFn: (values: QuotaFormValues) =>
-      api.models.setQuota({
-        modelId: model.id,
-        subjectType: values.subjectType,
-        subjectId: values.subjectId,
-        monthlyAmount: values.amount,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["model-quotas"] });
-      onClose();
-    },
-    onError: (caught) => {
-      setError("root", {
-        message: formatApiError(
-          caught,
-          t("aiSettings.quota.saveFailed"),
-          (requestId) => t("common.requestReference", { requestId }),
-        ),
-        type: "server",
-      });
-    },
-  });
-  return (
-    <FormDrawer
-      loading={save.isPending}
-      onOpenChange={(open) => !open && onClose()}
-      onSubmit={handleSubmit((values) => save.mutate(values))}
-      open
-      submitLabel={t("aiSettings.quota.save")}
-      title={`${t("aiSettings.quota.title")} · ${model.name}`}
-    >
-      <div className="argus-settings-form">
-        {errors.root?.message && (
-          <Alert
-            description={errors.root.message}
-            title={t("aiSettings.quota.saveFailed")}
-            tone="danger"
-          />
-        )}
-        {enterpriseAdmin && (
-          <Field
-            error={errors.subjectType?.message}
-            requirement="required"
-            label={t("aiSettings.quota.subjectType")}
-          >
-            <Controller
-              control={control}
-              name="subjectType"
-              render={({ field }) => (
-                <Select
-                  onValueChange={field.onChange}
-                  options={[
-                    {
-                      value: "department",
-                      label: t("aiSettings.quota.department"),
-                    },
-                    { value: "user", label: t("aiSettings.quota.user") },
-                  ]}
-                  value={field.value}
-                />
-              )}
-            />
-          </Field>
-        )}
-        <Field
-          error={errors.subjectId?.message}
-          requirement="required"
-          label={t("aiSettings.quota.subject")}
-        >
-          <Controller
-            control={control}
-            name="subjectId"
-            render={({ field }) => (
-              <Select
-                onValueChange={field.onChange}
-                options={subjects.map((subject) => ({
-                  value: subject.id,
-                  label:
-                    (subject as { name?: string; displayName?: string }).name ??
-                    (subject as { displayName?: string }).displayName ??
-                    subject.id,
-                }))}
-                value={field.value}
-              />
-            )}
-          />
-        </Field>
-        <Field
-          error={errors.amount?.message}
-          requirement="optional"
-          hint={t("aiSettings.quota.unlimited")}
-          label={t("aiSettings.quota.amount")}
-        >
-          <Input
-            {...register("amount", {
-              setValueAs: (value) =>
-                value === "" || value === undefined ? undefined : Number(value),
-            })}
-            min="0"
-            step="0.01"
-            type="number"
-          />
-        </Field>
-        {!enterpriseAdmin && (
-          <p className="argus-settings-section__hint">
-            {t("aiSettings.quota.departmentOnly")}
-          </p>
-        )}
-      </div>
-    </FormDrawer>
-  );
-}
-
-function GovernanceView({
-  modelId,
-  onModelChange,
-  canManage,
-}: {
-  modelId?: string;
-  onModelChange: (id?: string) => void;
-  canManage: boolean;
-}) {
-  const { t } = useTranslation();
-  const api = useApi();
-  const models = useQuery({
-    queryKey: ["models"],
-    queryFn: () => api.models.list(),
-  });
-  const usage = useQuery({
-    queryKey: ["model-usage", modelId],
-    queryFn: () => api.models.usage({ modelId }),
-  });
-  const quotas = useQuery<ModelQuota[]>({
-    queryKey: ["model-quotas", modelId],
-    queryFn: () => api.models.listQuotas(modelId),
-    enabled: canManage,
-  });
-  const data = usage.data;
-  const ranking = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const point of data?.points ?? [])
-      map.set(
-        `${point.departmentId} / ${point.userId}`,
-        (map.get(`${point.departmentId} / ${point.userId}`) ?? 0) +
-          point.amount,
-      );
-    return [...map.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([subject, amount]) => ({ subject, amount }));
-  }, [data]);
-  return (
-    <QueryBoundary
-      query={usage}
-      dependencies={[models, ...(canManage ? [quotas] : [])]}
-    >
-      <div className="argus-ai-stack">
-        <div className="argus-ai-toolbar">
-          <Select
-            className="argus-ai-model-filter"
-            onValueChange={(value) => onModelChange(value || undefined)}
-            options={[
-              { value: "", label: t("aiSettings.dashboard.allModels") },
-              ...(models.data ?? []).map((model) => ({
-                value: model.id,
-                label: model.name,
-              })),
-            ]}
-            value={modelId ?? ""}
-          />
-          {canManage && (
-            <Badge>
-              {t("aiSettings.dashboard.quotaCount", {
-                count: (quotas.data ?? []).length,
-              })}
-            </Badge>
-          )}
-        </div>
-        {data && !data.usageComplete && (
-          <Alert
-            tone="warning"
-            title={t("aiSettings.dashboard.usageIncompleteTitle")}
-            description={t("aiSettings.dashboard.usageIncomplete", {
-              input: data.estimatedInputTokens,
-              output: data.estimatedOutputTokens,
-            })}
-          />
-        )}
-        <div className="argus-settings-stat-grid">
-          <StatCard
-            icon={<Activity size={16} />}
-            label={t("aiSettings.dashboard.requests")}
-            value={data?.totalRequests ?? 0}
-          />
-          <StatCard
-            icon={<Gauge size={16} />}
-            label={t("aiSettings.dashboard.tokens")}
-            value={(
-              (data?.totalInputTokens ?? 0) + (data?.totalOutputTokens ?? 0)
-            ).toLocaleString()}
-          />
-          <StatCard
-            label={t("aiSettings.dashboard.cachedTokens")}
-            value={(data?.cachedInputTokens ?? 0).toLocaleString()}
-            detail={t(
-              data?.cachedUsageComplete
-                ? "aiSettings.dashboard.cachedIncluded"
-                : "aiSettings.dashboard.cachedPartial",
-            )}
-          />
-          <StatCard
-            icon={<CircleDollarSign size={16} />}
-            label={t("aiSettings.dashboard.amount")}
-            value={(data?.totalAmount ?? 0).toFixed(2)}
-          />
-          <StatCard
-            label={t("aiSettings.dashboard.successRate")}
-            value={`${((data?.successRate ?? 1) * 100).toFixed(1)}%`}
-          />
-          <StatCard
-            label={t("aiSettings.dashboard.latency")}
-            value={`${Math.round(data?.avgLatencyMs ?? 0)} ms`}
-          />
-          <StatCard
-            label={t("aiSettings.dashboard.errors")}
-            value={data?.errorCount ?? 0}
-            tone="danger"
-          />
-          <StatCard
-            label={t("aiSettings.dashboard.toolFailures")}
-            value={data?.toolCallingFailures ?? 0}
-            tone="warning"
-          />
-          <StatCard
-            label={t("aiSettings.dashboard.structuredFailures")}
-            value={data?.structuredOutputFailures ?? 0}
-            tone="warning"
-          />
-        </div>
-        <section className="argus-settings-section">
-          <h2 className="argus-settings-section__title">
-            {t("aiSettings.dashboard.ranking")}
-          </h2>
-          {ranking.length ? (
-            <DataTable
-              columns={[
-                { key: "subject", header: t("aiSettings.quota.subject") },
-                {
-                  key: "amount",
-                  header: t("aiSettings.dashboard.amount"),
-                  render: (row) => row.amount.toFixed(2),
-                },
-              ]}
-              data={ranking}
-              getRowKey={(row) => row.subject}
-            />
-          ) : (
-            <EmptyState
-              description=""
-              title={t("aiSettings.dashboard.noData")}
-            />
-          )}
-        </section>
-      </div>
-    </QueryBoundary>
   );
 }

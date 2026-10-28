@@ -33,7 +33,7 @@ export function TimeRangePicker({
     [draft, setDraft] = useState(value);
   const valid =
     draft.kind === "relative"
-      ? Number(draft.seconds) > 0
+      ? Number.isFinite(Number(draft.seconds)) && Number(draft.seconds) > 0
       : Boolean(
           draft.from &&
           draft.to &&

@@ -1,4 +1,38 @@
 export interface paths {
+    "/enterprise/telemetry/query/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search explicitly authorized resources for temporary observation queries. */
+        get: operations["listObservationQueryResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enterprise/telemetry/query/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discover sources, metrics, fields and values within a resource query scope. */
+        post: operations["queryObservationCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/telemetry/collectors/enroll": {
         parameters: {
             query?: never;
@@ -621,32 +655,36 @@ export interface components {
             max_result_bytes: number;
         };
         PromQLInstantQuery: {
+            scope?: components["schemas"]["TelemetryQueryScope"];
             query: string;
-            resource_ids: string[];
+            resource_ids?: string[];
             time_range: components["schemas"]["TelemetryQueryTimeRange"];
             budget?: components["schemas"]["TelemetryQueryBudget"];
         };
         PromQLRangeQuery: {
+            scope?: components["schemas"]["TelemetryQueryScope"];
             query: string;
-            resource_ids: string[];
+            resource_ids?: string[];
             time_range: components["schemas"]["TelemetryQueryTimeRange"];
             step_seconds: number;
             budget?: components["schemas"]["TelemetryQueryBudget"];
         };
         KQLQuery: {
+            scope?: components["schemas"]["TelemetryQueryScope"];
             query: string;
             pipeline?: string;
-            resource_ids: string[];
+            resource_ids?: string[];
             time_range: components["schemas"]["TelemetryQueryTimeRange"];
             budget?: components["schemas"]["TelemetryQueryBudget"];
         };
         SkyWalkingTraceGraphQLQuery: {
+            scope?: components["schemas"]["TelemetryQueryScope"];
             query: string;
             operation_name?: string;
             variables?: {
                 [key: string]: unknown;
             };
-            resource_ids: string[];
+            resource_ids?: string[];
             time_range: components["schemas"]["TelemetryQueryTimeRange"];
             budget?: components["schemas"]["TelemetryQueryBudget"];
         };
@@ -737,6 +775,106 @@ export interface components {
             trace_id?: string;
             /** @default false */
             retryable: boolean;
+        };
+        ObservationResource: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "host" | "kubernetes_cluster" | "kubernetes_namespace" | "application" | "monitoring_target";
+            name: string;
+            environment: string;
+            parent_name?: string;
+            /** Format: uuid */
+            parent_id?: string;
+            source_uid?: string;
+        };
+        ObservationResourcePage: {
+            items: components["schemas"]["ObservationResource"][];
+            next_cursor?: string;
+        };
+        ObservationResourceRef: {
+            /** @enum {string} */
+            type: "host" | "kubernetes_cluster" | "kubernetes_namespace" | "application" | "monitoring_target";
+            /** Format: uuid */
+            id: string;
+        };
+        TelemetryQueryScope: {
+            /** @enum {string} */
+            mode: "explicit" | "all_authorized";
+            resources: components["schemas"]["ObservationResourceRef"][];
+            source_type?: string;
+            source_keys?: string[];
+            resource_types?: ("host" | "kubernetes_cluster" | "kubernetes_namespace" | "application" | "monitoring_target")[];
+        };
+        DashboardCatalogFilter: {
+            field: string;
+            values: string[];
+            /** @enum {string} */
+            operator?: "=" | "!=" | ">" | ">=" | "<" | "<=" | "=~" | "!~" | ":";
+        };
+        ObservationCatalogInput: {
+            scope: components["schemas"]["TelemetryQueryScope"];
+            /** @enum {string} */
+            signal: "metrics" | "logs" | "traces";
+            /** @enum {string} */
+            kind: "metrics" | "fields" | "values" | "sources";
+            metric?: string;
+            field?: string;
+            search?: string;
+            cursor?: string;
+            selected_values?: string[];
+            filters?: components["schemas"]["DashboardCatalogFilter"][];
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            limit: number;
+            /** @default true */
+            observed_only: boolean;
+        };
+        ObservationRecipe: {
+            id: string;
+            version: number;
+            title: string;
+            description: string;
+            expression: string;
+            unit: string;
+            source_type: string;
+            integration_key: string;
+            metrics: string[];
+        };
+        ObservationMetric: {
+            name: string;
+            type: string;
+            unit: string;
+            labels: string[];
+            source_type: string;
+            source_keys: string[];
+            description: string;
+            observed: boolean;
+            recipes: components["schemas"]["ObservationRecipe"][];
+        };
+        ObservationSource: {
+            source_type: string;
+            capability_version: string;
+            keys: string[];
+            integration_keys: string[];
+        };
+        ObservationCatalogResult: {
+            metrics: components["schemas"]["ObservationMetric"][];
+            sources: components["schemas"]["ObservationSource"][];
+            fields: {
+                name: string;
+                type: string;
+            }[];
+            values: string[];
+            has_more: boolean;
+            complete: boolean;
+            next_cursor?: string;
+            selected_exists: {
+                [key: string]: boolean;
+            };
+            warnings: string[];
         };
         TrustBundleSnapshot: {
             /** Format: int64 */
@@ -852,6 +990,57 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listObservationQueryResources: {
+        parameters: {
+            query: {
+                kind: "host" | "kubernetes_cluster" | "kubernetes_namespace" | "application" | "monitoring_target";
+                search?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized observation query data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationResourcePage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    queryObservationCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ObservationCatalogInput"];
+            };
+        };
+        responses: {
+            /** @description Authorized observation query data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationCatalogResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     enrollTelemetryCollector: {
         parameters: {
             query?: never;

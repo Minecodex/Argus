@@ -1,0 +1,12 @@
+[Unit]
+Description=Keep the Plan9 test service loaded for real state observation
+Wants=plan9-web.service
+After=plan9-web.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/true
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

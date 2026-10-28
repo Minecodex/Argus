@@ -207,7 +207,7 @@ components:
       additionalProperties: false
       required: [resource_ids, lookback_seconds]
       properties:
-        resource_ids: {type: array, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
+        resource_ids: {type: array, x-go-type-skip-optional-pointer: true, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
         lookback_seconds: {type: integer, minimum: 300, maximum: 604800, default: 3600}
     TelemetryOverview:
       type: object
@@ -242,41 +242,45 @@ components:
     PromQLInstantQuery:
       type: object
       additionalProperties: false
-      required: [query, resource_ids, time_range]
+      required: [query, time_range]
       properties:
+        scope: {$ref: "./observe.yaml#/components/schemas/TelemetryQueryScope"}
         query: {type: string, minLength: 1, maxLength: 65536}
-        resource_ids: {type: array, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
+        resource_ids: {type: array, x-go-type-skip-optional-pointer: true, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
         time_range: {$ref: '#/components/schemas/TelemetryQueryTimeRange'}
         budget: {$ref: '#/components/schemas/TelemetryQueryBudget'}
     PromQLRangeQuery:
       type: object
       additionalProperties: false
-      required: [query, resource_ids, time_range, step_seconds]
+      required: [query, time_range, step_seconds]
       properties:
+        scope: {$ref: "./observe.yaml#/components/schemas/TelemetryQueryScope"}
         query: {type: string, minLength: 1, maxLength: 65536}
-        resource_ids: {type: array, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
+        resource_ids: {type: array, x-go-type-skip-optional-pointer: true, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
         time_range: {$ref: '#/components/schemas/TelemetryQueryTimeRange'}
         step_seconds: {type: integer, minimum: 1, maximum: 86400}
         budget: {$ref: '#/components/schemas/TelemetryQueryBudget'}
     KQLQuery:
       type: object
       additionalProperties: false
-      required: [query, resource_ids, time_range]
+      required: [query, time_range]
       properties:
+        scope: {$ref: "./observe.yaml#/components/schemas/TelemetryQueryScope"}
         query: {type: string, minLength: 1, maxLength: 65536}
         pipeline: {type: string, maxLength: 65536}
-        resource_ids: {type: array, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
+        resource_ids: {type: array, x-go-type-skip-optional-pointer: true, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
         time_range: {$ref: '#/components/schemas/TelemetryQueryTimeRange'}
         budget: {$ref: '#/components/schemas/TelemetryQueryBudget'}
     SkyWalkingTraceGraphQLQuery:
       type: object
       additionalProperties: false
-      required: [query, resource_ids, time_range]
+      required: [query, time_range]
       properties:
+        scope: {$ref: "./observe.yaml#/components/schemas/TelemetryQueryScope"}
         query: {type: string, minLength: 1, maxLength: 65536}
         operation_name: {type: string, maxLength: 256}
         variables: {type: object, additionalProperties: true}
-        resource_ids: {type: array, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
+        resource_ids: {type: array, x-go-type-skip-optional-pointer: true, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, format: uuid}}
         time_range: {$ref: '#/components/schemas/TelemetryQueryTimeRange'}
         budget: {$ref: '#/components/schemas/TelemetryQueryBudget'}
     TelemetryQueryMeta:

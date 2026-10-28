@@ -15,7 +15,7 @@
 
 资源查询复用同一个 ResourceQueryActor，检查企业/主体/部门状态、授权版本、读取能力和显式授权并集。持有 host.read 不能读取仅有数据授权但缺少 kubernetes.read 的集群，反之亦然。请求包含未授权资源时整体拒绝，不把剩余子集表现为完整结果；空集合不变为全部。
 
-主机/Kubernetes 的临时查询与仪表盘共用查询编辑组件和无损转换编译器。纯定义转换不读取数据或写入业务配置，允许具备 `host.read`、`kubernetes.read` 或 `telemetry.dashboard.manage` 的企业主体使用，浏览器会话仍校验 CSRF。执行继续遵循上述对象授权；指标/字段目录保留既有 Dashboard 读取能力门禁。临时查询不创建 Dashboard 草稿或发布状态，详见[资源配置交互](../plans/frontend-redesign/resource-config-ui-20261012.md)。
+2026-10-28，主机/Kubernetes 顶层查询已迁到统一的 [观测查询工作台](../plan10/README.md)。纯定义转换允许 `host.read`、`kubernetes.read`、`application.read`、`monitoring.read` 或 `telemetry.dashboard.manage` 中任一能力，仍校验 CSRF，不读遥测、不保存配置。新工作台的资源与数据目录使用 ResourceQueryActor 和显式授权；原 `/dashboards/catalog/query` 与仪表盘资源目录仍保持 Dashboard 门禁。查询组、历史和草稿不会被创建。
 
 HTTP 查询支持用户会话以及服务账户 API Key；服务账户仍须通过现有 allowed_tool_ids 白名单。普通 Chat 的三个元工具使用相同校验。查询返回前再次核对权限和对象范围，执行中撤权不返回已取到的数据。
 
@@ -50,3 +50,9 @@ Dashboard 关联仍只是快捷入口，不授予资源访问权。Dashboard 查
 真实 PostgreSQL 用于 HTTP/工具一致性、主机与集群能力区分、混合/空范围、服务账户白名单、执行中撤权、会话失效及迁移不扩大授权；真实 OTLP 对象写入 ClickHouse 后验证普通日志/Trace 细节保留及凭证屏蔽。目录游标与 RPC 哈希验证主体隔离，角色矩阵有双语浏览器检查。
 
 这些分段证据不能代替真实 Collector/Kafka、模型、Workspace PVC 和正式镜像的全链路验收。完整状态见 [实施记录](./implementation-status.md)。
+
+## Plan10 结构化查询范围
+
+三信号原查询入口新增 `scope {mode, resources:[{type,id}], source_type?, source_keys?, resource_types?}`，与旧 `resource_ids` 互斥；旧入口继续按显式非空 UUID 列表处理。默认 UI 使用明确空集合，空资源或明确空来源集合均不扩展为全部。`all_authorized` 在服务端按当前权限解析；资源类型必须与真实身份一致，来源必须属于已授权资源。
+
+新增 `GET /enterprise/telemetry/query/resources` 和 `POST /enterprise/telemetry/query/catalog`。目录、补全与执行共用资源/来源解析、时间范围及返回前复核；游标绑定主体、授权版本、来源版本和发现条件。内部目录协议升为 `argus.telemetry_catalog/v5`；API 与 Query 服务需一起升级。没有新增权限 ID、业务持久化表或遥测样本迁移。

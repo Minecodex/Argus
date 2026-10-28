@@ -387,6 +387,7 @@ type CursorPage struct {
 // Execution defines model for Execution.
 type Execution struct {
 	ActionRef          string      `json:"action_ref"`
+	ActionType         *string     `json:"action_type,omitempty"`
 	CreatedAt          time.Time   `json:"created_at"`
 	ErrorCode          *string     `json:"error_code,omitempty"`
 	ExecutionId        string      `json:"execution_id"`
@@ -533,6 +534,12 @@ type UpdateApprovalPolicyParams struct {
 type DecideApprovalRequestParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+}
+
+// ListExecutionsParams defines parameters for ListExecutions.
+type ListExecutionsParams struct {
+	ActionRef  *string             `form:"action_ref,omitempty" json:"action_ref,omitempty"`
+	ResourceId *openapi_types.UUID `form:"resource_id,omitempty" json:"resource_id,omitempty"`
 }
 
 // ClaimExecutionOneTimeResultParams defines parameters for ClaimExecutionOneTimeResult.

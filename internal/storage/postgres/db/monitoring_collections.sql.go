@@ -729,6 +729,14 @@ func (q *Queries) ListCollectorMonitoringCollections(ctx context.Context, arg Li
 
 const listMonitoringCollections = `-- name: ListMonitoringCollections :many
 SELECT collection.id, collection.enterprise_id, collection.name, collection.integration_key, collection.integration_version, collection.target_type, collection.target_id, collection.collector_id, collection.application_id, collection.service_id, collection.config, collection.credential_id, collection.desired_enabled, collection.desired_revision, collection.effective_revision, collection.assignment_epoch, collection.status, collection.apply_status, collection.health, collection.last_attempt_at, collection.last_sample_at, collection.observed_at, collection.error_code, collection.error_message, collection.version, collection.created_by, collection.created_at, collection.updated_at, collection.effective_collector_id, collection.effective_assignment_epoch FROM monitoring_collections collection WHERE collection.enterprise_id=$1 AND collection.status='active'
+ -- Current inventory excludes retired owners, while collection records remain
+ -- available to historical/audit reads. Apply this before pagination.
+ AND CASE collection.target_type
+   WHEN 'host' THEN EXISTS(SELECT 1 FROM hosts owner WHERE owner.enterprise_id=collection.enterprise_id AND owner.id=collection.target_id AND owner.status<>'deleted')
+   WHEN 'kubernetes_cluster' THEN EXISTS(SELECT 1 FROM kubernetes_clusters owner WHERE owner.enterprise_id=collection.enterprise_id AND owner.id=collection.target_id AND owner.status<>'deleted')
+   WHEN 'monitoring_target' THEN EXISTS(SELECT 1 FROM monitoring_targets owner WHERE owner.enterprise_id=collection.enterprise_id AND owner.id=collection.target_id AND owner.status='active')
+   WHEN 'application' THEN EXISTS(SELECT 1 FROM monitoring_applications owner WHERE owner.enterprise_id=collection.enterprise_id AND owner.id=collection.target_id AND owner.status='active')
+   ELSE false END
  AND ((collection.target_type='host' AND collection.target_id=ANY($2::uuid[]))
  OR (collection.target_type='kubernetes_cluster' AND collection.target_id=ANY($3::uuid[]))
  OR (collection.target_type='monitoring_target' AND collection.target_id=ANY($4::uuid[]))

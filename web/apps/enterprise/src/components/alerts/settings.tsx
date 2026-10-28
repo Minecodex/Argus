@@ -1,8 +1,13 @@
-import {useState} from "react";
-import {Plus,Send,Mail,Search} from "lucide-react";
-import type {AlertConfiguration,AlertKind,AlertMutation,AlertSchemas} from "@argus/api-client";
-import {ActionMenu,Button,Input,SegmentedControl} from "@argus/ui";
-import {useAlertText,AlertStatus,AlertCallout,AlertTable} from "./common";
+import { useState } from "react";
+import { Plus, Send, Mail } from "lucide-react";
+import type {
+  AlertConfiguration,
+  AlertKind,
+  AlertMutation,
+  AlertSchemas,
+} from "@argus/api-client";
+import { ActionMenu, Button, FilterBar, SegmentedControl } from "@argus/ui";
+import { useAlertText, AlertStatus, AlertCallout, AlertTable } from "./common";
 export function AlertSettings({
   tab,
   configurations,
@@ -41,19 +46,11 @@ export function AlertSettings({
           JSON.stringify(c).toLowerCase().includes(query.toLowerCase())),
     );
   const channels = rows("channel");
-  const search = (
-    <div className="argus-alert-search">
-      <Search size={16} className="argus-alert-icon" />
-      <Input
-        size="lg"
-        density="compact"
-        aria-label={t("alerts.search")}
-        placeholder={t("alerts.search")}
-        value={query}
-        onChange={(e) => onQuery(e.target.value)}
-      />
-    </div>
-  );
+  const search = {
+    value: query,
+    onChange: onQuery,
+    placeholder: t("alerts.search"),
+  };
   const date = (value: string) =>
     new Intl.DateTimeFormat(locale.startsWith("zh") ? "zh-CN" : "en-GB", {
       timeZone: "Asia/Shanghai",
@@ -94,23 +91,26 @@ export function AlertSettings({
       <>
         {tabs(["silences", "inhibitions"], noise, setNoise)}
         <AlertCallout>{t("alerts.noiseHint")}</AlertCallout>
-        <div className="argus-alert-toolbar">
-          {search}
-          <Button
-            density="compact"
-            size="lg"
-            variant="primary"
-            isDisabled={!canNoise}
-            onPress={() => onEdit(kind)}
-          >
-            <Plus size={16} />
-            {t(
-              kind === "silence"
-                ? "alerts.createSilence"
-                : "alerts.createInhibition",
-            )}
-          </Button>
-        </div>
+        <FilterBar
+          className="argus-alert-filter-bar"
+          search={search}
+          actions={
+            <>
+              <Button
+                variant="primary"
+                isDisabled={!canNoise}
+                onPress={() => onEdit(kind)}
+              >
+                <Plus size={16} />
+                {t(
+                  kind === "silence"
+                    ? "alerts.createSilence"
+                    : "alerts.createInhibition",
+                )}
+              </Button>
+            </>
+          }
+        />
         <AlertTable
           data={rows(kind)}
           columns={
@@ -188,7 +188,22 @@ export function AlertSettings({
                   {
                     key: "action",
                     header: t("alerts.action"),
-                    render: (c) => (<ActionMenu items={[{label: t("alerts.edit"),onSelect: () => onEdit(kind, c),disabled: (!canNoise)},{label: t("alerts.revoke"),onSelect: () => change(c, "disable"),disabled: (!canNoise)}]} />),
+                    render: (c) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            label: t("alerts.edit"),
+                            onSelect: () => onEdit(kind, c),
+                            disabled: !canNoise,
+                          },
+                          {
+                            label: t("alerts.revoke"),
+                            onSelect: () => change(c, "disable"),
+                            disabled: !canNoise,
+                          },
+                        ]}
+                      />
+                    ),
                   },
                 ]
               : [
@@ -257,19 +272,34 @@ export function AlertSettings({
                   {
                     key: "action",
                     header: t("alerts.action"),
-                    render: (c) => (<ActionMenu items={[{label: t("alerts.edit"),onSelect: () => onEdit(kind, c),disabled: (!canNoise)},{label: t(
-                            (c.spec as AlertSchemas["AlertInhibitionSpec"])
-                              .enabled
-                              ? "alerts.pause"
-                              : "alerts.resume",
-                          ),onSelect: () =>
-                            change(
-                              c,
+                    render: (c) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            label: t("alerts.edit"),
+                            onSelect: () => onEdit(kind, c),
+                            disabled: !canNoise,
+                          },
+                          {
+                            label: t(
                               (c.spec as AlertSchemas["AlertInhibitionSpec"])
                                 .enabled
-                                ? "disable"
-                                : "enable",
-                            ),disabled: (!canNoise)}]} />),
+                                ? "alerts.pause"
+                                : "alerts.resume",
+                            ),
+                            onSelect: () =>
+                              change(
+                                c,
+                                (c.spec as AlertSchemas["AlertInhibitionSpec"])
+                                  .enabled
+                                  ? "disable"
+                                  : "enable",
+                              ),
+                            disabled: !canNoise,
+                          },
+                        ]}
+                      />
+                    ),
                   },
                 ]
           }
@@ -285,19 +315,23 @@ export function AlertSettings({
           channelTab,
           setChannelTab,
         )}
-        <div className="argus-alert-toolbar">
-          {search}
-          <Button
-            density="compact"
-            variant="primary"
-            size="lg"
-            isDisabled={!canNotify}
-            onPress={() => onEdit("channel")}
-          >
-            <Plus size={16} />
-            {t("alerts.createChannel")}
-          </Button>
-        </div>
+        <FilterBar
+          className="argus-alert-filter-bar"
+          search={search}
+          actions={
+            <>
+              <Button
+                variant="primary"
+
+                isDisabled={!canNotify}
+                onPress={() => onEdit("channel")}
+              >
+                <Plus size={16} />
+                {t("alerts.createChannel")}
+              </Button>
+            </>
+          }
+        />
         <div className="argus-alert-grid">
           {channels.map((c) => {
             const s = c.spec as AlertSchemas["AlertChannelSpec"];
@@ -432,19 +466,23 @@ export function AlertSettings({
         setChannelTab,
       )}
       <AlertCallout>{t("alerts.routeHint")}</AlertCallout>
-      <div className="argus-alert-toolbar">
-        <span />
-        <Button
-          density="compact"
-          variant="primary"
-          size="lg"
-          isDisabled={!canNotify}
-          onPress={() => onEdit("route")}
-        >
-          <Plus size={16} />
-          {t("alerts.createRoute")}
-        </Button>
-      </div>
+      <FilterBar
+        className="argus-alert-filter-bar"
+        search={search}
+        actions={
+          <>
+            <Button
+              variant="primary"
+
+              isDisabled={!canNotify}
+              onPress={() => onEdit("route")}
+            >
+              <Plus size={16} />
+              {t("alerts.createRoute")}
+            </Button>
+          </>
+        }
+      />
       <AlertTable
         data={rows("route")}
         columns={[
@@ -482,7 +520,17 @@ export function AlertSettings({
           {
             key: "action",
             header: t("alerts.action"),
-            render: (c) => (<ActionMenu items={[{label: t("alerts.edit"),onSelect: () => onEdit("route", c),disabled: (!canNotify)}]} />),
+            render: (c) => (
+              <ActionMenu
+                items={[
+                  {
+                    label: t("alerts.edit"),
+                    onSelect: () => onEdit("route", c),
+                    disabled: !canNotify,
+                  },
+                ]}
+              />
+            ),
           },
         ]}
       />

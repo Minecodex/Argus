@@ -29,7 +29,10 @@ export function candidateFilters(
           return mapped;
         }),
       };
-    if (!["=", "!=", ">", ">=", "<", "<="].includes(filter.operator))
+    if (
+      !["=", "!=", ">", ">=", "<", "<="].includes(filter.operator) &&
+      !(query.signal === "metrics" && ["=~", "!~"].includes(filter.operator))
+    )
       throw new Error("DASHBOARD_CATALOG_OPERATOR_UNSUPPORTED");
     return [
       {

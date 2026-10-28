@@ -139,8 +139,12 @@ export function installWorkflowDomains(context: RealDomainContext): void {
   };
 
   client.executions = {
-    async list() {
-      const value = await http.request<ExecutionPage>("enterprise/executions");
+    async list(filter) {
+      const params = new URLSearchParams();
+      if (filter?.actionRef) params.set("action_ref", filter.actionRef);
+      if (filter?.resourceId) params.set("resource_id", filter.resourceId);
+      const suffix = params.size ? `?${params}` : "";
+      const value = await http.request<ExecutionPage>(`enterprise/executions${suffix}`);
       return page(value);
     },
     get: (executionId) =>

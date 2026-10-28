@@ -454,14 +454,16 @@ func (q *Queries) ListAuthorizedKubernetesNamespaceResources(ctx context.Context
 const listMonitoringApplications = `-- name: ListMonitoringApplications :many
 SELECT id, enterprise_id, application_key, name, environment, description, owner_name, status, version, created_by, created_at, updated_at FROM monitoring_applications
 WHERE enterprise_id=$1 AND id=ANY($2::uuid[])
- AND status=$3 AND id>$4::uuid
- AND ($5::text='' OR name ILIKE '%'||$5||'%' OR application_key ILIKE '%'||$5||'%')
-ORDER BY id LIMIT $6
+ AND ($3::text='' OR environment=$3)
+ AND status=$4 AND id>$5::uuid
+ AND ($6::text='' OR name ILIKE '%'||$6||'%' OR application_key ILIKE '%'||$6||'%')
+ORDER BY id LIMIT $7
 `
 
 type ListMonitoringApplicationsParams struct {
 	EnterpriseID  uuid.UUID   `json:"enterprise_id"`
 	AuthorizedIds []uuid.UUID `json:"authorized_ids"`
+	Environment   string      `json:"environment"`
 	Status        string      `json:"status"`
 	AfterID       uuid.UUID   `json:"after_id"`
 	Search        string      `json:"search"`
@@ -472,6 +474,7 @@ func (q *Queries) ListMonitoringApplications(ctx context.Context, arg ListMonito
 	rows, err := q.db.Query(ctx, listMonitoringApplications,
 		arg.EnterpriseID,
 		arg.AuthorizedIds,
+		arg.Environment,
 		arg.Status,
 		arg.AfterID,
 		arg.Search,

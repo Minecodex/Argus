@@ -38,6 +38,7 @@ import { mockDashboardScopeDirectory } from "./dashboard-scope-directory";
 import { prepareMockDraftSpec } from "./dashboard-preparation";
 import { createMockDashboardQueries } from "./dashboard-queries";
 import { resolvePermissions } from "./permissions";
+import { mockModelGovernanceExecution } from "./model-governance";
 
 export function createDashboardDomains(ctx: MockContext): DashboardDomains {
   const revision = (id: string) =>
@@ -66,6 +67,8 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
               "*",
               "host.read",
               "kubernetes.read",
+              "application.read",
+              "monitoring.read",
               "telemetry.dashboard.manage",
             ].includes(p),
           )
@@ -76,7 +79,7 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
       ...createDashboardBindingMethods(ctx),
       async list() {
         await ctx.pause();
-        dashboardPermission(ctx);
+        dashboardPermission(ctx, false, true);
         ensureManagedDashboards(ctx);
         return copy(
           dashboardState(ctx)
@@ -127,6 +130,7 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
         const item = input.dashboard_id
           ? mockDashboard(ctx, input.dashboard_id)
           : undefined;
+        if (item?.managed_template_key === "argus.model-governance" || input.spec.panels.some((panel) => panel.source_binding.source_type === "argus_internal_model_governance")) fail("DASHBOARD_DENIED", 403);
         if (item?.lifecycle === "archived") fail("DASHBOARD_ARCHIVED", 409);
         const existing =
           item &&
@@ -311,6 +315,7 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
       },
       async execute(id, input) {
         const item = mockDashboard(ctx, id);
+        if (item.managed_template_key === "argus.model-governance") return mockModelGovernanceExecution(ctx, item, revision(item.active_revision_id).spec, input);
         if (item.lifecycle !== "active") fail("DASHBOARD_ARCHIVED", 409);
         return mockDashboardExecution(
           ctx,

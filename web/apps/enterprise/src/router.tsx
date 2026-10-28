@@ -7,9 +7,10 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { useEnterpriseAuthStore } from "@argus/auth";
-import { AdminShell } from "./components/admin-shell";
-import { ChatShell } from "./components/chat-shell";
+const AdminShell = lazyRouteComponent(() => import("./components/admin-shell"), "AdminShell");
+const ChatShell = lazyRouteComponent(() => import("./components/chat-shell"), "ChatShell");
 
+const ObservePage=lazyRouteComponent(()=>import("./pages/observe-page"),"ObservePage");
 const ApplicationsPage = lazyRouteComponent(
   () => import("./pages/applications-page"),
   "ApplicationsPage",
@@ -70,10 +71,6 @@ const KubernetesClusterPage = lazyRouteComponent(
   () => import("./pages/kubernetes-cluster-page"),
   "KubernetesClusterPage",
 );
-const TasksPage = lazyRouteComponent(
-  () => import("./pages/tasks-page"),
-  "TasksPage",
-);
 const ApprovalsPage = lazyRouteComponent(
   () => import("./pages/approvals-page"),
   "ApprovalsPage",
@@ -86,13 +83,9 @@ const SettingsOrgPage = lazyRouteComponent(
   () => import("./pages/settings-org-page"),
   "SettingsOrgPage",
 );
-const SettingsAiPage = lazyRouteComponent(
-  () => import("./pages/settings-ai-page"),
-  "SettingsAiPage",
-);
-const SettingsMCPPage = lazyRouteComponent(
-  () => import("./pages/settings-mcp-page"),
-  "SettingsMCPPage",
+const SettingsAiopsPage = lazyRouteComponent(
+  () => import("./pages/settings-aiops-page"),
+  "SettingsAiopsPage",
 );
 const SettingsSecretsPage = lazyRouteComponent(
   () => import("./pages/settings-secrets-page"),
@@ -160,6 +153,11 @@ const adminRoute = createRoute({
   id: "admin",
   component: AdminShell,
 });
+const observeRoute=createRoute({getParentRoute:()=>adminRoute,path:"/observe",component:ObservePage,validateSearch:(search:Record<string,unknown>)=>({
+ resource_type:(["host","kubernetes_cluster","kubernetes_namespace","application","monitoring_target"].includes(String(search.resource_type))?search.resource_type:undefined) as import("@argus/api-client").ObservationResourceRef["type"]|undefined,
+ resource_id:typeof search.resource_id==="string"?search.resource_id:undefined,
+ signal:(["metrics","logs","traces"].includes(String(search.signal))?search.signal:"metrics") as import("@argus/api-client").ObservationSignal,
+})});
 const applicationsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/applications",
@@ -188,10 +186,14 @@ const dashboardViewRoute = createRoute({
     search: Record<string, unknown>,
   ): {
     resource?: string;
+    model?: string;
+    month?: string;
     resource_type?:
       "host" | "kubernetes_cluster" | "application" | "monitoring_target";
   } => ({
     resource: typeof search.resource === "string" ? search.resource : undefined,
+    model: typeof search.model === "string" ? search.model : undefined,
+    month: typeof search.month === "string" ? search.month : undefined,
     resource_type:
       search.resource_type === "host" ||
       search.resource_type === "kubernetes_cluster" ||
@@ -232,8 +234,11 @@ const hostDetailRoute = createRoute({
   component: HostDetailPage,
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tab?: "dashboards" } => ({
-    tab: search.tab === "dashboards" ? "dashboards" : undefined,
+  ): { tab?: "dashboards" | "activity" } => ({
+    tab:
+      search.tab === "dashboards" || search.tab === "activity"
+        ? search.tab
+        : undefined,
   }),
 });
 const kubernetesRoute = createRoute({
@@ -247,14 +252,12 @@ const kubernetesClusterRoute = createRoute({
   component: KubernetesClusterPage,
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tab?: "dashboards" } => ({
-    tab: search.tab === "dashboards" ? "dashboards" : undefined,
+  ): { tab?: "dashboards" | "activity" } => ({
+    tab:
+      search.tab === "dashboards" || search.tab === "activity"
+        ? search.tab
+        : undefined,
   }),
-});
-const tasksRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: "/tasks",
-  component: TasksPage,
 });
 const approvalsRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -282,15 +285,27 @@ const settingsOrgRoute = createRoute({
   path: "/settings/org",
   component: SettingsOrgPage,
 });
+const settingsAiopsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/settings/aiops",
+  component: SettingsAiopsPage,
+  validateSearch: (search: Record<string, unknown>): { tab?: "models" | "mcp" } => ({
+    tab: search.tab === "models" || search.tab === "mcp" ? search.tab : undefined,
+  }),
+});
 const settingsAiRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/settings/ai",
-  component: SettingsAiPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/settings/aiops", search: { tab: "models" }, replace: true });
+  },
 });
 const settingsMCPRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/settings/mcp",
-  component: SettingsMCPPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/settings/aiops", search: { tab: "mcp" }, replace: true });
+  },
 });
 const settingsSecretsRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -301,6 +316,15 @@ const settingsAuditRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/settings/audit",
   component: SettingsAuditPage,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { operation_ref?: string } => ({
+    operation_ref:
+      typeof search.operation_ref === "string" &&
+      search.operation_ref.length <= 256
+        ? search.operation_ref
+        : undefined,
+  }),
 });
 
 // 组件展厅仅开发环境注册，不进入任何菜单
@@ -318,6 +342,7 @@ const routeTree = rootRoute.addChildren([
     chatRoute.addChildren([indexRoute]),
     adminRoute.addChildren([
       dashboardsRoute,
+      observeRoute,
       alertsRoute,
       applicationsRoute,
       monitoringRoute,
@@ -331,11 +356,11 @@ const routeTree = rootRoute.addChildren([
       hostDetailRoute,
       kubernetesRoute,
       kubernetesClusterRoute,
-      tasksRoute,
       approvalsRoute,
       remoteSessionsRoute,
       accountRoute,
       settingsOrgRoute,
+      settingsAiopsRoute,
       settingsAiRoute,
       settingsMCPRoute,
       settingsSecretsRoute,

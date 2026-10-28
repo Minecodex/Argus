@@ -1,3 +1,4 @@
+import { requireObservationKind } from "./observation-access";
 import type { DashboardDomains, DashboardSchemas } from "../dashboard";
 import type { BaseContext } from "./context";
 import { authorizationCatalog } from "./authorization-catalog";
@@ -10,9 +11,10 @@ import { ensureKubernetesInventory } from "./kubernetes-seed";
 
 export function mockDashboardScopeDirectory(
   ctx: BaseContext,
+  resourceQuery = false,
 ): DashboardDomains["dashboards"]["scopeResources"] {
   return async (input) => {
-    dashboardPermission(ctx);
+    if(resourceQuery)requireObservationKind(ctx,input.kind);else dashboardPermission(ctx);
     const limit = input.limit ?? 30,
       search = input.search?.trim() ?? "";
     if (limit < 1 || limit > 100 || search.length > 200) fail();

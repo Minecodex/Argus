@@ -2,9 +2,12 @@ package dashboard
 
 func networkKafkaTemplates() []TemplateDefinition {
 	dns := metricTemplate("dns.overview", "DNS checks", "dns", "https://grafana.com/grafana/dashboards/7587-prometheus-blackbox-exporter/", "7587", []nativeTemplateMetric{
-		{"status", `dnscheck_status`, "", "stat"},
+		// RCODE and answer attributes change across failure/recovery. Select the
+		// latest observation per stable query identity, preserving every domain.
+		{"status", `dnscheck_status and topk by (argus_resource_id, resource_dns_domain) (1, timestamp(dnscheck_status))`, "", "stat"},
 		{"duration", `dnscheck_duration`, "ms", "timeseries"},
 	})
+	dns.Version = 2
 	for i := range dns.Spec.Panels {
 		dns.Spec.Panels[i].SourceBinding.SourceType = "dns_check"
 	}

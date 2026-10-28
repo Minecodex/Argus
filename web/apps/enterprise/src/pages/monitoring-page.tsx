@@ -14,6 +14,7 @@ import {
 import {
   Badge,
   Button,
+  Pagination,
   DataTable,
   EmptyState,
   PageShell,
@@ -283,23 +284,18 @@ export function MonitoringPage() {
                 />
               )
             )}
-            <div className="argus-monitoring-pagination">
-              <Button
-                isDisabled={cursors.length === 1 || query.isFetching}
-                onPress={() => setCursors((old) => old.slice(0, -1))}
-              >
-                {t("monitoring.previous")}
-              </Button>
-              <span>{t("monitoring.page", { page: cursors.length })}</span>
-              <Button
-                isDisabled={!query.data?.next_cursor || query.isFetching}
-                onPress={() =>
-                  setCursors((old) => [...old, query.data?.next_cursor])
-                }
-              >
-                {t("monitoring.next")}
-              </Button>
-            </div>
+            <Pagination
+              page={cursors.length}
+              hasNext={!!query.data?.next_cursor}
+              isDisabled={query.isFetching}
+              onChange={(page) =>
+                setCursors((old) =>
+                  page <= old.length
+                    ? old.slice(0, page)
+                    : [...old, query.data?.next_cursor],
+                )
+              }
+            />
           </TabsContent>
           <TabsContent value="integrations">
             {catalog.data && (

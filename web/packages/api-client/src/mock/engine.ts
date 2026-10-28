@@ -348,6 +348,15 @@ export function createEngine(ctx: BaseContext): Engine {
     plan.task_id = task.id;
     action.execution_ref = task.id;
     db.tasks.unshift(task);
+    db.executions.unshift({
+      execution_id: task.id,
+      action_ref: action.action_ref,
+      action_type: action.action_type,
+      status: "running",
+      one_time_result_state: "unavailable",
+      created_at: task.createdAt,
+      updated_at: task.createdAt,
+    });
     ctx.save();
     ctx.emitTask(task);
     scheduleSteps(task, action);
@@ -403,6 +412,7 @@ export function createEngine(ctx: BaseContext): Engine {
     const now = ctx.nowIso();
     const execution: Execution = {
       execution_id: nextId(db, "exec"),
+      action_type: action.action_type,
       action_ref: action.action_ref,
       status: sideEffect?.operation ? "result_unknown" : "succeeded",
       one_time_result_state: sideEffect?.instructionSets
@@ -599,13 +609,14 @@ export function createEngine(ctx: BaseContext): Engine {
     action.status = "succeeded";
     action.result_summary = "执行成功";
     action.updated_at = ctx.nowIso();
-    applySideEffect(action);
+    const sideEffect = applySideEffect(action);
     const execution = db.executions.find(
       (entry) => entry.execution_id === task.id,
     );
     if (execution) {
       execution.status = "succeeded";
       execution.updated_at = ctx.nowIso();
+      if (sideEffect?.resource) execution.resource_ref = sideEffect.resource;
     }
     const plan = db.actionPlans[action.action_ref];
     ctx.audit(`${plan?.tool ?? "pending_action"}.commit`, {

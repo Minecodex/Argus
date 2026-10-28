@@ -6,4 +6,7 @@
 @import "./file-tree.css";
 @import "./resource-picker.css";
 @import "./protected-textarea.css";
+@import "./operation-panel.css";
 @import "./structured-document.css";
+
+@import "./telemetry-editor.css";

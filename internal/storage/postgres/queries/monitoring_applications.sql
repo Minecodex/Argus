@@ -11,6 +11,7 @@ SELECT * FROM monitoring_applications WHERE enterprise_id=$1 AND id=$2 FOR UPDAT
 -- name: ListMonitoringApplications :many
 SELECT * FROM monitoring_applications
 WHERE enterprise_id=sqlc.arg(enterprise_id) AND id=ANY(sqlc.arg(authorized_ids)::uuid[])
+ AND (sqlc.arg(environment)::text='' OR environment=sqlc.arg(environment))
  AND status=sqlc.arg(status) AND id>sqlc.arg(after_id)::uuid
  AND (sqlc.arg(search)::text='' OR name ILIKE '%'||sqlc.arg(search)||'%' OR application_key ILIKE '%'||sqlc.arg(search)||'%')
 ORDER BY id LIMIT sqlc.arg(page_limit);

@@ -1,0 +1,39 @@
+.argus-telemetry-code {
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--bg-canvas);
+  overflow: visible;
+}
+.argus-telemetry-code:focus-within {
+  border-color: var(--control-focus-border);
+  box-shadow: 0 0 0 var(--control-focus-width) var(--control-focus-ring);
+}
+.argus-telemetry-code .cm-editor {
+  min-height: var(--space-px-80);
+}
+.argus-telemetry-code .cm-focused {
+  outline: none;
+}
+.argus-telemetry-code .cm-tooltip-autocomplete {
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+.argus-telemetry-code .cm-tooltip-autocomplete ul li[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.argus-telemetry-code > small {
+  display: block;
+  padding: var(--space-px-8);
+  color: var(--warning);
+}
+.argus-observe-scope-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-px-8);
+}
+.argus-observe-scope-button {
+  white-space: nowrap;
+}

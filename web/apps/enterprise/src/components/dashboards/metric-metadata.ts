@@ -25,7 +25,9 @@ export function metricOperationCompatible(
 ) {
   const required = requiredMetricType(operation),
     actual = knownMetricType(metadata);
-  return !required || !actual || actual === required;
+  return (
+    !required || (!actual && metadata?.type !== "mixed") || actual === required
+  );
 }
 
 /** Never copy the previous metric's declaration to a newly selected metric. */

@@ -1,0 +1,15 @@
+[Unit]
+Description=Plan9 B02a bounded low-frequency real HTTP requests
+After=plan9-backend.service nginx.service apache2.service haproxy.service
+[Service]
+Type=simple
+EnvironmentFile=/etc/plan9-web.env
+ExecStart=/usr/local/bin/plan9-web-lab traffic --seconds 86400
+Restart=on-failure
+RestartSec=5
+RuntimeMaxSec=86430
+MemoryMax=64M
+CPUQuota=10%
+TasksMax=32
+[Install]
+WantedBy=multi-user.target

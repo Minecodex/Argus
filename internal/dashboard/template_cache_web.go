@@ -2,14 +2,7 @@ package dashboard
 
 func cacheWebTemplates() []TemplateDefinition {
 	return []TemplateDefinition{
-		metricTemplate("memcached.overview", "Memcached", "memcached", "https://grafana.com/grafana/dashboards/11527-memcached-overview/", "11527", []nativeTemplateMetric{
-			{"memory", `memcached_bytes`, "bytes", "timeseries"},
-			{"connections", `memcached_connections_current`, "short", "timeseries"},
-			{"items", `memcached_current_items`, "short", "stat"},
-			{"evictions", `rate(memcached_evictions[5m])`, "ops", "timeseries"},
-			{"commands", `rate(memcached_commands[5m])`, "ops", "timeseries"},
-			{"network", `rate(memcached_network[5m])`, "B/s", "timeseries"},
-		}),
+		memcachedTemplate(),
 		metricTemplate("apache.overview", "Apache HTTP Server", "apache", "https://grafana.com/grafana/dashboards/3894-apache/", "3894", []nativeTemplateMetric{
 			{"uptime", `apache_uptime`, "s", "stat"},
 			{"connections", `apache_current_connections`, "short", "timeseries"},

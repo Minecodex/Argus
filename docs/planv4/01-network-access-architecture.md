@@ -158,7 +158,7 @@ telemetry_tunnels
 
 - 主机详情“数据推送”区域展示 route kind × transport 与隧道状态（established/degraded/down、最后建连时间与断开原因）。
 - self_enrolled 在线状态走 collector last_seen；隧道路径分别呈现 Collector、隧道和 Connector 状态，不以一个“离线”掩盖根因。
-- B/C 创建后保留安装 operation 可见性，用户关闭对话框后仍可从待注册卡片或任务记录恢复进度。
+- B/C 创建后保留安装 operation 可见性，用户关闭对话框后仍可从待注册卡片或资源详情恢复进度；跨资源历史统一进入企业审计，不再使用独立任务记录页面。
 
 ## 8. 安全不变量
 

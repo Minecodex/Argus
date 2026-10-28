@@ -917,7 +917,7 @@ export interface components {
              * @enum {string}
              */
             authoring_mode: "builder" | "dsl";
-            applicable_resource_types: ("host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace")[];
+            applicable_resource_types: ("host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace" | "internal_model")[];
             source_binding: components["schemas"]["DashboardSourceBinding"];
             local_filters: components["schemas"]["DashboardLocalFilter"][];
             targets: components["schemas"]["DashboardTarget"][];
@@ -1237,6 +1237,39 @@ export interface components {
             };
         };
         DashboardExecution: {
+            /** @description Private built-in model governance metadata. Data is available only to the authorized interactive built-in dashboard. */
+            model_governance?: {
+                /** Format: date-time */
+                from: string;
+                /** Format: date-time */
+                to: string;
+                timezone: string;
+                models: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                }[];
+                subjects?: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    /** @enum {string} */
+                    kind: "user" | "department";
+                    /** Format: uuid */
+                    department_id: string;
+                }[];
+                /** Format: int64 */
+                pending: number;
+                /** Format: date-time */
+                projected_at?: string | null;
+                usage_complete: boolean;
+                cached_usage_complete?: boolean;
+                /** Format: int64 */
+                estimated_input: number;
+                /** Format: int64 */
+                estimated_output: number;
+                scope_hash: string;
+            };
             /** Format: uuid */
             dashboard_id: string;
             /** Format: uuid */
@@ -1301,7 +1334,7 @@ export interface components {
             field: string;
             values: string[];
             /** @enum {string} */
-            operator?: "=" | "!=" | ">" | ">=" | "<" | "<=";
+            operator?: "=" | "!=" | ">" | ">=" | "<" | "<=" | "=~" | "!~" | ":";
         };
         DashboardCatalogInput: {
             source_binding: components["schemas"]["DashboardSourceBinding"];

@@ -78,15 +78,9 @@ export function createApprovalsDomain(
       const committed = ctx.commitResourceAction(action);
       if (committed) return committed;
       const task = ctx.startExecution(action);
-      const execution = {
-        execution_id: task.id,
-        action_ref: action.action_ref,
-        status: "running" as const,
-        one_time_result_state: "unavailable" as const,
-        created_at: task.createdAt,
-        updated_at: task.createdAt,
-      };
-      db.executions.unshift(execution);
+      const execution = db.executions.find(
+        (entry) => entry.execution_id === task.id,
+      )!;
       ctx.save();
       return {
         pending_action: action,
