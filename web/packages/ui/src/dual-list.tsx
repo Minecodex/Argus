@@ -1,3 +1,4 @@
+import { Pagination } from "./pagination";
 import { Checkbox } from "./checkbox";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "./button";
@@ -51,7 +52,7 @@ export function ResourceAuthorizationDualList({
 }) {
   const [tab, setTab] = useState<ResourceType>("host");
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState({ available: 1, authorized: 1 });
   const [selected, setSelected] = useState<
     Record<ResourceType, Record<Side, string[]>>
   >({
@@ -88,11 +89,11 @@ export function ResourceAuthorizationDualList({
     Math.max(1, Math.ceil(count / PAGE_SIZE));
   const availablePageCount = pageCount(available.length);
   const grantedPageCount = pageCount(granted.length);
-  const pageItems = (list: DualListItem[]) =>
-    list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageItems = (list: DualListItem[], side: Side) =>
+    list.slice((pages[side] - 1) * PAGE_SIZE, pages[side] * PAGE_SIZE);
 
   useEffect(() => {
-    setPage(1);
+    setPages({ available: 1, authorized: 1 });
     setSelected((current) => ({
       ...current,
       [tab]: { available: [], authorized: [] },
@@ -100,9 +101,11 @@ export function ResourceAuthorizationDualList({
   }, [tab, query]);
 
   useEffect(() => {
-    const max = Math.max(availablePageCount, grantedPageCount);
-    if (page > max) setPage(max);
-  }, [page, availablePageCount, grantedPageCount]);
+    setPages((old) => ({
+      available: Math.min(old.available, availablePageCount),
+      authorized: Math.min(old.authorized, grantedPageCount),
+    }));
+  }, [availablePageCount, grantedPageCount]);
 
   const updateSelection = (side: Side, id: string, checked: boolean) =>
     setSelected((current) => {
@@ -153,28 +156,12 @@ export function ResourceAuthorizationDualList({
     </Checkbox>
   );
 
-  const pager = (count: number) => (
-    <div className="argus-dual-list__pager">
-      <Button
-        isDisabled={page <= 1}
-        onPress={() => setPage((current) => current - 1)}
-        size="sm"
-        variant="ghost"
-      >
-        {labels.previousPage}
-      </Button>
-      <span>
-        {page} / {count}
-      </span>
-      <Button
-        isDisabled={page >= count}
-        onPress={() => setPage((current) => current + 1)}
-        size="sm"
-        variant="ghost"
-      >
-        {labels.nextPage}
-      </Button>
-    </div>
+  const pager = (count: number, side: Side) => (
+    <Pagination
+      page={pages[side]}
+      totalPages={count}
+      onChange={(page) => setPages((old) => ({ ...old, [side]: page }))}
+    />
   );
 
   const column = (side: Side, list: DualListItem[], count: number) => {
@@ -204,8 +191,8 @@ export function ResourceAuthorizationDualList({
             </Button>
           </span>
         </header>
-        {pageItems(list).map((item) => renderItem(item, side))}
-        {pager(count)}
+        {pageItems(list, side).map((item) => renderItem(item, side))}
+        {pager(count, side)}
       </section>
     );
   };

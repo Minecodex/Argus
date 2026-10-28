@@ -1,0 +1,39 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:6b79a7a3acd9b272ece046196f81fbbbc738acb2a8d1fc1825ac4c92693e74ab",
+      "digests": [
+        "argus-plan9-databases@sha256:6b79a7a3acd9b272ece046196f81fbbbc738acb2a8d1fc1825ac4c92693e74ab"
+      ],
+      "architecture": "amd64"
+    },
+    "MYSQL": {
+      "id": "sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69",
+      "digests": [
+        "mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69"
+      ],
+      "architecture": "amd64"
+    },
+    "POSTGRES": {
+      "id": "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+      "digests": [
+        "postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873"
+      ],
+      "architecture": "amd64"
+    }
+  },
+  "source_hashes": {
+    "client.py": "39df5e26a9e63bf5a2cf30367077f705ea267401724f49cd28f244aae446eca0",
+    "compose.yaml": "581d875e23dcdd18501dc1143954ced534e7412552a1536a59140d447d21cb8f",
+    "Dockerfile": "48d6a38665a507b5aaca72eec7af73c1906155a5fd278c169a7424f27e37e657",
+    "integration.py": "3319c3cd9ae2f12c9e4956e0ec36d76b1f7051e6846fab719fb62dd9d82b4ceb",
+    "manage.py": "ff4429ca23b0b777ad276bc5fd96a7bec0ed00bb169c3a7a0ad92b1589f63f34",
+    "retire.py": "c06dcf4e40f2639ddac1a088fc7659cb273253a3a527a9a2758c5a0ac180cf97",
+    "runbook.md": "ed0d17f2cd8352f1e2da2f2a86850924804d2786cf29a3b58c98216cbbfcc4e6",
+    "scenario.py": "4d13bda42b4ad5ad599998e302d3cf82b8013f8f6f15f201f0b957fe6f8a32fa"
+  },
+  "verified_database_versions": {
+    "MYSQL": "8.4.13",
+    "POSTGRES": "18.6"
+  }
+}

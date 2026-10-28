@@ -1,0 +1,77 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  image: ${PLAN9_IMAGE:?Verified image ID required}
+  restart: unless-stopped
+  networks: [lab]
+  labels:
+    io.argus.plan9.run: ${PLAN9_RUN}
+    io.argus.plan9.batch: B02b
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+services:
+  probe:
+    <<: *base
+    hostname: ${PLAN9_RUN}-probe
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_ROLE: probe, PLAN9_NODE: probe}
+    sysctls: {net.ipv4.ping_group_range: '0 2147483647'}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22241:22']
+    volumes: ['${PLAN9_PKI_DIR}/ca.crt:/pki/ca.crt:ro', 'probe-data:/var/lib/plan9']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  target-a:
+    <<: *base
+    hostname: target-a
+    cpus: 0.5
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 96
+    cap_add: [NET_ADMIN, NET_RAW]
+    environment: {PLAN9_ROLE: target, PLAN9_NODE: A, PLAN9_DNS_ANSWER: 192.0.2.10}
+    volumes: ['${PLAN9_PKI_DIR}/target-a:/pki:ro', 'target-a-data:/var/lib/plan9']
+    healthcheck:
+      test: [CMD-SHELL, 'supervisorctl -c /etc/plan9-supervisord.conf status http tls dns | grep -q RUNNING']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  target-b:
+    <<: *base
+    hostname: target-b
+    cpus: 0.5
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 96
+    cap_add: [NET_ADMIN, NET_RAW]
+    environment: {PLAN9_ROLE: target, PLAN9_NODE: B, PLAN9_DNS_ANSWER: 192.0.2.20}
+    volumes: ['${PLAN9_PKI_DIR}/target-b:/pki:ro', 'target-b-data:/var/lib/plan9']
+    healthcheck:
+      test: [CMD-SHELL, 'supervisorctl -c /etc/plan9-supervisord.conf status http tls dns | grep -q RUNNING']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  probe-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  target-a-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  target-b-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

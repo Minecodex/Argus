@@ -1,0 +1,13 @@
+[Unit]
+Description=Plan9 B02a real HTTP backend
+After=network.target
+[Service]
+Type=simple
+EnvironmentFile=/etc/plan9-web.env
+ExecStart=/usr/local/bin/plan9-web-lab serve
+Restart=on-failure
+MemoryMax=128M
+CPUQuota=50%
+TasksMax=96
+[Install]
+WantedBy=multi-user.target

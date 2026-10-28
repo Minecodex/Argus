@@ -35,6 +35,10 @@
   --card-gap: 12px;
   --resource-card-min-width: 280px;
   --field-width-compact: 240px;
+  --filter-search-min-width: 180px;
+  --filter-search-max-width: 320px;
+  --filter-select-min-width: 140px;
+  --filter-date-width: 144px;
   --dashboard-settings-width: 320px;
   --dashboard-preview-height: 250px;
   --dashboard-preview-min-height: 180px;
@@ -74,6 +78,7 @@
   --layer-overlay: 100;
   --layer-popover: 110;
   --layer-tooltip: 120;
+  --layer-chart-tooltip: 2147483647;
   --dashboard-stat-min-width: 120px;
   --dashboard-cell-max-width: 320px;
   --line-height-normal: 1.5;

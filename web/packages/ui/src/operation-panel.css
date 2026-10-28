@@ -1,0 +1,54 @@
+.argus-operation-panel {
+  min-width: 0;
+}
+.argus-operation-list {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.argus-operation-list > h3 {
+  margin: 0;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-semibold);
+}
+.argus-operation-details {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+}
+.argus-operation-details > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+}
+.argus-operation-details[open] > summary {
+  margin-bottom: var(--space-4);
+}
+.argus-operation-panel__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.argus-operation-panel__title svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+.argus-operation-panel__body {
+  display: grid;
+  gap: var(--space-4);
+}
+.argus-operation-panel__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--font-size-12);
+}
+.argus-operation-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

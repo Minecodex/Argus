@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/kakj-go/Argus/internal/builtincollection"
+	"github.com/kakj-go/Argus/internal/modelmetrics"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -43,6 +44,12 @@ type DraftInput struct {
 }
 
 func (service Service) List(ctx context.Context, actor Actor) ([]db.Dashboard, error) {
+	if interactive(ctx) {
+		return service.listInteractive(ctx, actor)
+	}
+	return service.listResources(ctx, actor)
+}
+func (service Service) listResources(ctx context.Context, actor Actor) ([]db.Dashboard, error) {
 	if err := authorize(ctx, service.Store.Queries, actor, "telemetry.dashboard.read"); err != nil {
 		return nil, err
 	}
@@ -94,6 +101,9 @@ func (service Service) List(ctx context.Context, actor Actor) ([]db.Dashboard, e
 	}
 	result := []db.Dashboard{}
 	for _, row := range rows {
+		if row.ID == modelmetrics.DashboardID(actor.EnterpriseID) {
+			continue
+		}
 		if slices.Contains(ids, row.ID) || slices.Contains(managedIDs, row.ID) {
 			result = append(result, row)
 		}
@@ -102,6 +112,9 @@ func (service Service) List(ctx context.Context, actor Actor) ([]db.Dashboard, e
 }
 
 func (service Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (db.Dashboard, db.DashboardRevision, error) {
+	if id == modelmetrics.DashboardID(actor.EnterpriseID) {
+		return service.getModelGovernance(ctx, actor)
+	}
 	if err := authorize(ctx, service.Store.Queries, actor, "telemetry.dashboard.read"); err != nil {
 		return db.Dashboard{}, db.DashboardRevision{}, err
 	}
@@ -310,8 +323,12 @@ func validateDraftInput(input DraftInput) error {
 	if strings.TrimSpace(input.Name) == "" || len([]rune(input.Name)) > 120 || len(input.Description) > 8000 || len(input.ProposedBindings) > 100 {
 		return ErrInvalid
 	}
-	if _, err := DecodeSpec(input.Spec); err != nil {
+	spec, err := DecodeSpec(input.Spec)
+	if err != nil {
 		return err
+	}
+	if privateSpec(spec) {
+		return ErrDenied
 	}
 	for _, binding := range input.ProposedBindings {
 		if binding.ResourceID == uuid.Nil || binding.ResourceType != "host" && binding.ResourceType != "kubernetes_cluster" && binding.ResourceType != "application" && binding.ResourceType != "monitoring_target" {

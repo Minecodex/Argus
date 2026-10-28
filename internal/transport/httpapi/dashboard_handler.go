@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/dashboard"
 	api "github.com/kakj-go/Argus/internal/gen/openapi/dashboardapi"
+	"github.com/kakj-go/Argus/internal/modelmetrics"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"github.com/kakj-go/Argus/internal/telemetry"
@@ -58,7 +59,7 @@ func dashboardConvert[T any](value any) T {
 
 func dashboardStatus(err error) int {
 	switch {
-	case errors.Is(err, telemetry.ErrQueryBudget):
+	case errors.Is(err, telemetry.ErrQueryBudget), errors.Is(err, modelmetrics.ErrBudget):
 		return http.StatusRequestEntityTooLarge
 	case errors.Is(err, dashboard.ErrInvalid):
 		return http.StatusBadRequest
@@ -78,7 +79,7 @@ func dashboardError(ctx context.Context, err error) api.ApiError {
 	base.Code = "DASHBOARD_UNAVAILABLE"
 	base.MessageKey = "errors.dashboard.unavailable"
 	base.Retryable = pointer(true)
-	if errors.Is(err, telemetry.ErrQueryBudget) {
+	if errors.Is(err, telemetry.ErrQueryBudget) || errors.Is(err, modelmetrics.ErrBudget) {
 		base.Code = "QUERY_BUDGET_EXCEEDED"
 		base.MessageKey = "errors.telemetry.query_budget_exceeded"
 		base.Retryable = pointer(false)
@@ -148,7 +149,8 @@ func dashboardRevisionView(item db.DashboardRevision) api.DashboardRevision {
 }
 
 func (handler DashboardHandler) ListDashboards(ctx context.Context, r api.ListDashboardsRequestObject) (api.ListDashboardsResponseObject, error) {
-	actor, failure := handler.auth(ctx, false, "")
+	ctx = dashboard.Interactive(ctx)
+	actor, failure := handler.authPermission(ctx, false, "", "telemetry.dashboard.read", "model.usage.read")
 	if failure != nil {
 		return api.ListDashboardsdefaultJSONResponse{Body: *failure, StatusCode: 403}, nil
 	}
@@ -167,7 +169,8 @@ func (handler DashboardHandler) ListDashboards(ctx context.Context, r api.ListDa
 	return api.ListDashboards200JSONResponse(result), nil
 }
 func (handler DashboardHandler) GetDashboard(ctx context.Context, r api.GetDashboardRequestObject) (api.GetDashboardResponseObject, error) {
-	actor, failure := handler.auth(ctx, false, "")
+	ctx = dashboard.Interactive(ctx)
+	actor, failure := handler.authPermission(ctx, false, "", "telemetry.dashboard.read", "model.usage.read")
 	if failure != nil {
 		return api.GetDashboarddefaultJSONResponse{Body: *failure, StatusCode: 403}, nil
 	}
@@ -182,7 +185,8 @@ func (handler DashboardHandler) GetDashboard(ctx context.Context, r api.GetDashb
 	return api.GetDashboard200JSONResponse{Dashboard: view, Revision: dashboardRevisionView(revision)}, nil
 }
 func (handler DashboardHandler) ListDashboardRevisions(ctx context.Context, r api.ListDashboardRevisionsRequestObject) (api.ListDashboardRevisionsResponseObject, error) {
-	actor, failure := handler.auth(ctx, false, "")
+	ctx = dashboard.Interactive(ctx)
+	actor, failure := handler.authPermission(ctx, false, "", "telemetry.dashboard.read", "model.usage.read")
 	if failure != nil {
 		return api.ListDashboardRevisionsdefaultJSONResponse{Body: *failure, StatusCode: 403}, nil
 	}
@@ -305,7 +309,7 @@ func (handler DashboardHandler) ValidateDashboardSpec(ctx context.Context, r api
 func (handler DashboardHandler) ConvertDashboardPanel(ctx context.Context, r api.ConvertDashboardPanelRequestObject) (api.ConvertDashboardPanelResponseObject, error) {
 	// Conversion only parses the supplied definition. It reads no telemetry,
 	// persists nothing, and is also used by temporary Host/Cluster queries.
-	_, failure := handler.authPermission(ctx, true, r.Params.XCSRFToken, "host.read", "kubernetes.read", "telemetry.dashboard.manage")
+	_, failure := handler.authPermission(ctx, true, r.Params.XCSRFToken, "host.read", "kubernetes.read", "application.read", "monitoring.read", "telemetry.dashboard.manage")
 	if failure != nil {
 		return api.ConvertDashboardPaneldefaultJSONResponse{Body: *failure, StatusCode: 403}, nil
 	}

@@ -44,6 +44,7 @@ type ApprovalRequest struct {
 // Execution defines model for Execution.
 type Execution struct {
 	ActionRef          string      `json:"action_ref"`
+	ActionType         *string     `json:"action_type,omitempty"`
 	CreatedAt          time.Time   `json:"created_at"`
 	ErrorCode          *string     `json:"error_code,omitempty"`
 	ExecutionId        string      `json:"execution_id"`

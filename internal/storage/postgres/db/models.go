@@ -1706,6 +1706,17 @@ type ModelCompatibilityResult struct {
 	TestedAt        pgtype.Timestamptz `json:"tested_at"`
 }
 
+type ModelMetricOutbox struct {
+	ID           int64              `json:"id"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	EntityID     uuid.UUID          `json:"entity_id"`
+	Kind         string             `json:"kind"`
+	DepartmentID uuid.NullUUID      `json:"department_id"`
+	Payload      []byte             `json:"payload"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	DeliveredAt  pgtype.Timestamptz `json:"delivered_at"`
+}
+
 type ModelQuota struct {
 	ID            uuid.UUID          `json:"id"`
 	EnterpriseID  uuid.UUID          `json:"enterprise_id"`

@@ -273,7 +273,7 @@ describe("ResourceAuthorizationDualList", () => {
       />,
       { wrapper: Wrapper },
     );
-    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(screen.getByText("第 1 / 2 页")).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: "下一页" })[0]!);
     expect(screen.getByText("Host 20")).toBeInTheDocument();
   });

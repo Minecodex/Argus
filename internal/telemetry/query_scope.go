@@ -9,7 +9,7 @@ import (
 )
 
 const QueryProtocolVersion = "argus.telemetry_query/v6"
-const CatalogProtocolVersion = "argus.telemetry_catalog/v4"
+const CatalogProtocolVersion = "argus.telemetry_catalog/v5"
 
 func queryProtoScope(enterprise, subject uuid.UUID, kind string, refs []resourceref.Ref, ids []uuid.UUID, version int64, signal string, sources []string, signature string) (*telemetryv1.TelemetryQueryScope, error) {
 	resources, err := resourceref.Normalize(refs)

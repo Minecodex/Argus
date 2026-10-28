@@ -199,6 +199,7 @@ it("themes axes, legends and gauge labels without overriding formatters, bounds 
   const before = JSON.stringify(option);
   const themed = themeObservation(option, (token) => `resolved:${token}`);
   expect(themed).toMatchObject({
+    tooltip: { renderMode: "html", confine: false, className: "argus-chart-tooltip", appendTo: expect.any(Function) },
     xAxis: [
       {
         type: "time",

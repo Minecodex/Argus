@@ -2,6 +2,12 @@
 
 `deploy/` contains the install contract, locked dependency versions, image builds and six Helm releases used by `argusctl`.
 
+2026-10-28 本机当前版本为 `local-20261028-model-controls-align`：模型治理的刷新按钮与月份、模型选择框底边对齐。8 项中英明暗对齐检查通过，发布后健康 20/20，Schema 51、99 条原有记录和 6 个数据卷核验一致；详见[部署记录](../docs/model-governance-local-deployment-20261028.md#刷新按钮对齐补丁)。
+
+2026-10-28 前版 `local-20261028-model-governance`：后端和 real Web 已重新构建部署，Schema 51、模型治理内置模板与私有表就绪；标准健康 20/20，原有 97 条业务记录和 6 个 PVC/PV 保留。入口为 <https://argus.dev/settings/aiops> 和 <https://argus.dev/dashboards>，部署范围与 evaluation 配置边界见[本地部署记录](../docs/model-governance-local-deployment-20261028.md)。
+
+2026-10-28 前版 `local-20261028-query-toolbar`，观测查询入口为 <https://argus.dev/observe>，包含查询执行按钮上移、结果切换按需显示，以及目录筛选左侧紧排、时间右对齐。沿用独立 Web 发布副本，保留工作区其他未完成源码。标准健康检查 20/20、97 条原有业务记录保护字段及 6 个 PVC/PV 前后核验通过；发布范围和证据见[Plan10 本地发布](../docs/plan10/local-deployment-20261028.md)。以下较早记录保留各自时点的发布背景。
+
 2026-10-26 当前本机正式构建：`local-20261026-165617`，稳定配置为 `deploy/.cache/argus-local-formal.yaml`，保留单机拓扑；7 个产品镜像及三平台 Connector 已重新构建升级，健康检查 20/20，通过真实门户及数据保留核验。发布与旧测试环境清理记录见[当前环境](../docs/local-formal-deployment-20261026.md)。这是用户明确选择的非高可用本地正式版，不改变下述 production Profile 的架构前件。
 
 ## Layout

@@ -11,9 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/kakj-go/Argus/internal/authorization"
 	modelapi "github.com/kakj-go/Argus/internal/gen/openapi/modelapi"
 	"github.com/kakj-go/Argus/internal/identity"
 	modelservice "github.com/kakj-go/Argus/internal/model"
+	"github.com/kakj-go/Argus/internal/modelmetrics"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
@@ -100,7 +102,7 @@ func (handler ModelHandler) ListModelQuotas(ctx context.Context, _ modelapi.List
 	if apiError != nil {
 		return modelapi.ListModelQuotasdefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
 	}
-	items, err := handler.Service.ListQuotas(ctx, p.EnterpriseIDValue())
+	items, err := handler.Service.ListAuthorizedQuotas(ctx, modelActor(p))
 	if err != nil {
 		return modelapi.ListModelQuotasdefaultJSONResponse{Body: modelError(ctx, err), StatusCode: modelStatus(err)}, nil
 	}
@@ -116,7 +118,7 @@ func (handler ModelHandler) UpsertModelQuota(ctx context.Context, request modela
 	if apiError != nil {
 		return modelapi.UpsertModelQuotadefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
 	}
-	value, err := handler.Service.UpsertQuota(ctx, p.ActorID(), p.EnterpriseIDValue(), uuid.UUID(request.Body.ModelId), string(request.Body.SubjectType), uuid.UUID(request.Body.SubjectId), float64(request.Body.MonthlyAmount), request.Params.IdempotencyKey)
+	value, err := handler.Service.UpsertQuota(ctx, modelActor(p), uuid.UUID(request.Body.ModelId), string(request.Body.SubjectType), uuid.UUID(request.Body.SubjectId), float64(request.Body.MonthlyAmount), request.Params.IdempotencyKey)
 	if err != nil {
 		return modelapi.UpsertModelQuotadefaultJSONResponse{Body: modelError(ctx, err), StatusCode: modelStatus(err)}, nil
 	}
@@ -128,7 +130,7 @@ func (handler ModelHandler) ListModelUsage(ctx context.Context, request modelapi
 	if apiError != nil {
 		return modelapi.ListModelUsagedefaultJSONResponse{Body: *apiError, StatusCode: http.StatusForbidden}, nil
 	}
-	month := time.Now().UTC()
+	month := time.Time{}
 	if request.Params.Month != nil {
 		parsed, err := time.Parse("2006-01", *request.Params.Month)
 		if err != nil {
@@ -140,8 +142,18 @@ func (handler ModelHandler) ListModelUsage(ctx context.Context, request modelapi
 	if request.Params.ModelId != nil {
 		modelID = uuid.NullUUID{UUID: uuid.UUID(*request.Params.ModelId), Valid: true}
 	}
-	items, err := handler.Service.ListUsage(ctx, p.EnterpriseIDValue(), month, modelID)
+	kind := "user"
+	if p.ServiceAccount != nil {
+		kind = "service_account"
+	}
+	items, err := handler.Service.ListUsage(ctx, authorization.Actor{EnterpriseID: p.EnterpriseIDValue(), SubjectID: uuid.MustParse(p.ActorID()), SubjectType: kind, AuthorizationVersion: p.AuthorizationVersion()}, month, modelID)
 	if err != nil {
+		if errors.Is(err, modelmetrics.ErrDenied) {
+			return modelapi.ListModelUsagedefaultJSONResponse{Body: modelError(ctx, err), StatusCode: 403}, nil
+		}
+		if errors.Is(err, modelmetrics.ErrInvalid) {
+			return modelapi.ListModelUsagedefaultJSONResponse{Body: modelError(ctx, err), StatusCode: 400}, nil
+		}
 		return modelapi.ListModelUsagedefaultJSONResponse{Body: modelError(ctx, err), StatusCode: modelStatus(err)}, nil
 	}
 	result := make([]modelapi.ModelUsage, 0, len(items))
@@ -270,6 +282,12 @@ func modelError(ctx context.Context, err error) modelapi.ApiError {
 	return modelapi.ApiError{Code: code, MessageKey: key, RequestId: requestID}
 }
 func modelStatus(err error) int {
+	if errors.Is(err, modelmetrics.ErrDenied) {
+		return http.StatusForbidden
+	}
+	if errors.Is(err, modelmetrics.ErrInvalid) {
+		return http.StatusBadRequest
+	}
 	switch {
 	case errors.Is(err, modelservice.ErrEndpointNotAllowed):
 		return http.StatusBadRequest
@@ -282,6 +300,14 @@ func modelStatus(err error) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+func modelActor(p identity.Principal) authorization.Actor {
+	kind := "user"
+	if p.ServiceAccount != nil {
+		kind = "service_account"
+	}
+	return authorization.Actor{EnterpriseID: p.EnterpriseIDValue(), SubjectID: uuid.MustParse(p.ActorID()), SubjectType: kind, AuthorizationVersion: p.AuthorizationVersion()}
 }
 func emptyModelPage() modelapi.CursorPage {
 	return modelapi.CursorPage{HasMore: false, Partial: modelapi.PartialMetadata{Partial: false, Reasons: []modelapi.PartialMetadataReasons{}}}

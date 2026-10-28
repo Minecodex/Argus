@@ -32,9 +32,10 @@ type auditActorPresentation struct {
 }
 
 type auditPresentationResolver struct {
-	queries   *db.Queries
-	actors    map[string]auditActorPresentation
-	resources map[string]string
+	queries    *db.Queries
+	actors     map[string]auditActorPresentation
+	resources  map[string]string
+	operations map[string]*auditapi.AuditOperation
 }
 
 func (handler AuditHandler) ListAuditEvents(ctx context.Context, request auditapi.ListAuditEventsRequestObject) (auditapi.ListAuditEventsResponseObject, error) {
@@ -108,7 +109,12 @@ func (handler AuditHandler) ListAuditEvents(ctx context.Context, request auditap
 		resources: make(map[string]string),
 	}
 	for _, row := range filtered {
-		items = append(items, resolver.toAuditEvent(ctx, row))
+		item := resolver.toAuditEvent(ctx, row)
+		item.Operation, err = resolver.resolveOperation(ctx, row)
+		if err != nil {
+			return auditapi.ListAuditEventsdefaultJSONResponse{Body: auditError(ctx, err), StatusCode: http.StatusInternalServerError}, nil
+		}
+		items = append(items, item)
 	}
 	return auditapi.ListAuditEvents200JSONResponse{Items: items, Page: auditapi.CursorPage{NextCursor: next, HasMore: hasMore, Partial: auditapi.PartialMetadata{Partial: false, Reasons: []auditapi.PartialMetadataReasons{}}}}, nil
 }
@@ -173,6 +179,16 @@ func (resolver *auditPresentationResolver) resolveResource(ctx context.Context, 
 	if !row.ResourceType.Valid || !row.ResourceID.Valid {
 		return ""
 	}
+	if row.EnterpriseID.Valid && (row.ResourceType.String == "telemetry_tunnel" || row.ResourceType.String == "connector_control_tunnel") {
+		var detail struct {
+			HostID uuid.UUID `json:"host_id"`
+		}
+		if json.Unmarshal(row.Details, &detail) == nil && detail.HostID != uuid.Nil {
+			if host, err := resolver.queries.GetHost(ctx, db.GetHostParams{ID: detail.HostID, EnterpriseID: row.EnterpriseID.UUID}); err == nil {
+				return host.Name
+			}
+		}
+	}
 	// A bounded name captured by the domain remains useful after rename/delete;
 	// resolving someone else's private draft through its read API is unnecessary.
 	if slices.Contains([]string{"dashboard", "dashboard_folder", "dashboard_draft", "dashboard_binding", "dashboard_query_job"}, row.ResourceType.String) {
@@ -208,6 +224,14 @@ func (resolver *auditPresentationResolver) resolveResourceUncached(ctx context.C
 	}
 	enterpriseID := row.EnterpriseID.UUID
 	switch row.ResourceType.String {
+	case "application":
+		if value, e := resolver.queries.GetMonitoringApplication(ctx, db.GetMonitoringApplicationParams{ID: id, EnterpriseID: enterpriseID}); e == nil {
+			return value.Name
+		}
+	case "collection", "monitoring_collection":
+		if value, e := resolver.queries.GetMonitoringCollection(ctx, db.GetMonitoringCollectionParams{ID: id, EnterpriseID: enterpriseID}); e == nil {
+			return value.Name
+		}
 	case "dashboard":
 		if value, e := resolver.queries.GetDashboard(ctx, db.GetDashboardParams{ID: id, EnterpriseID: enterpriseID}); e == nil {
 			return value.Name

@@ -37,7 +37,11 @@ describe("dashboard mock contract", () => {
       proposed_bindings: [],
       spec: emptyDashboardSpec(),
     });
-    expect(await api.dashboards.list()).toHaveLength(0);
+    expect(
+      (await api.dashboards.list()).filter(
+        (item) => !item.managed_template_key,
+      ),
+    ).toHaveLength(0);
     const preview = await api.dashboards.preview(draft.id, draft.draft_version);
     const saved = await api.dashboards.saveDraft(draft.id, {
       name: "New name",
@@ -51,7 +55,9 @@ describe("dashboard mock contract", () => {
     ).rejects.toMatchObject({ code: "DASHBOARD_VERSION_CONFLICT" });
     const fresh = await api.dashboards.preview(draft.id, saved.draft_version);
     await api.approvals.confirm(fresh.action_ref);
-    const items = await api.dashboards.list();
+    const items = (await api.dashboards.list()).filter(
+      (item) => !item.managed_template_key,
+    );
     expect(items).toHaveLength(1);
     expect(items[0]?.name).toBe("New name");
     const edit = await api.dashboards.createDraft({

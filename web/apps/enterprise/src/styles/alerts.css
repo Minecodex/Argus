@@ -159,50 +159,8 @@
   color: var(--text-secondary);
   font: var(--font-size-10)/1.7 var(--font-mono);
 }
-.argus-alert-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
 .argus-alert-actions--adjacent {
   gap: 0;
-}
-.argus-alert-filters {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-}
-.argus-alert-search {
-  position: relative;
-  flex: 1;
-  max-width: var(--popover-filter-width);
-  min-width: var(--space-px-100);
-}
-.argus-alert-search .argus-alert-icon {
-  position: absolute;
-  left: var(--space-3);
-  top: var(--space-px-10);
-  color: var(--text-tertiary);
-}
-.argus-alert-search input {
-  padding-left: var(--space-10);
-  background: var(--bg-surface);
-}
-.argus-alert-filters select {
-  width: auto;
-  max-width: var(--field-width-compact);
-  background: var(--bg-surface);
-}
-.argus-alert-history-dates {
-  display: flex;
-  gap: var(--space-3);
-}
-.argus-alert-history-dates .argus-alert-field {
-  width: var(--field-width-compact);
 }
 .argus-alert-surface {
   border: var(--space-px-1) solid var(--border-subtle);
@@ -695,11 +653,6 @@
 .argus-alert-form .argus-alert-grid:not(.argus-alert-drawer-section) {
   margin-bottom: 0;
 }
-.argus-alert-toolbar .argus-select {
-  width: max-content;
-  max-width: var(--field-width-compact);
-  flex: none;
-}
 .argus-alert-page .argus-alert-stat-value.is-danger {
   color: var(--danger);
 }
@@ -755,4 +708,8 @@
 .argus-alert-event-comment {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.argus-alert-filter-bar {
+  margin-bottom: var(--space-4);
 }

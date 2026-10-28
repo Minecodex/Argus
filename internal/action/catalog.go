@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -98,10 +99,15 @@ func (service Service) approvalView(ctx context.Context, request db.ApprovalRequ
 }
 
 func (service Service) ListExecutionViews(ctx context.Context, enterpriseID uuid.UUID, limit int32) ([]ExecutionView, error) {
+	return service.ListFilteredExecutionViews(ctx, enterpriseID, limit, "", uuid.NullUUID{})
+}
+
+func (service Service) ListFilteredExecutionViews(ctx context.Context, enterpriseID uuid.UUID, limit int32, actionRef string, resourceID uuid.NullUUID) ([]ExecutionView, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
-	items, err := service.Store.Queries.ListExecutions(ctx, db.ListExecutionsParams{EnterpriseID: enterpriseID, Limit: limit})
+	items, err := service.Store.Queries.ListExecutions(ctx, db.ListExecutionsParams{EnterpriseID: enterpriseID, PageLimit: limit,
+		ActionRef: pgtype.Text{String: actionRef, Valid: actionRef != ""}, ResourceID: resourceID})
 	if err != nil {
 		return nil, err
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/dashboardparams"
+	"github.com/kakj-go/Argus/internal/modelmetrics"
 	"github.com/kakj-go/Argus/internal/observationscope"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/telemetry"
@@ -53,6 +54,7 @@ type PanelExecution struct {
 	DetailSources map[string][]ResolvedSource `json:"detail_sources"`
 }
 type Execution struct {
+	ModelGovernance    *modelmetrics.Response               `json:"model_governance,omitempty"`
 	ScopeSelection     *observationscope.Selection          `json:"scope_selection,omitempty"`
 	ScopeVersions      ScopeVersions                        `json:"scope_versions"`
 	ExecutionID        uuid.UUID                            `json:"execution_id"`
@@ -143,6 +145,9 @@ func (runtime Runtime) Execute(ctx context.Context, actor Actor, id uuid.UUID, i
 		return Execution{}, ErrArchived
 	}
 	name = revision.Name
+	if id == modelmetrics.DashboardID(actor.EnterpriseID) {
+		return runtime.executeModelGovernance(ctx, actor, item, revision, input)
+	}
 	spec, err := DecodeSpec(revision.Spec)
 	if err != nil {
 		return Execution{}, err

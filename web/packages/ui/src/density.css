@@ -400,6 +400,9 @@
   visibility: hidden;
   pointer-events: none;
   display: grid;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   padding-inline: var(--control-padding);
   padding-right: calc(var(--control-padding) + var(--space-3) + var(--space-2));
   border: var(--space-px-1) solid transparent;

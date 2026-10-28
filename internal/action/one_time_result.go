@@ -120,7 +120,7 @@ func (service Service) ClaimOneTimeResult(ctx context.Context, actorID string, e
 			}
 			_, err = audit.Append(ctx, q, audit.Entry{Domain: "enterprise", EnterpriseID: uuid.NullUUID{UUID: enterpriseID, Valid: true},
 				ActorType: "enterprise_user", ActorID: actorID, Action: "execution.one_time_result.claim", ResourceType: "execution",
-				ResourceID: executionID.String(), Result: "success", Details: map[string]any{"result_kind": record.ResultKind}})
+				ResourceID: executionID.String(), Result: "success", Details: resource.PendingAuditDetails(action, map[string]any{"execution_id": executionID, "result_kind": record.ResultKind})})
 			if err != nil {
 				return OneTimeResult{}, err
 			}

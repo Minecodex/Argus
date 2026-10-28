@@ -866,6 +866,8 @@ export interface operations {
                 cursor?: string;
                 limit?: number;
                 status?: "active" | "archived";
+                /** @description Exact application environment; omitted means all authorized environments. Combined with search before pagination. */
+                environment?: string;
             };
             header?: never;
             path?: never;

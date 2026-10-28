@@ -261,18 +261,28 @@
   background: var(--accent-soft);
   color: var(--brand-highlight);
 }
-.argus-chat-admin-link {
+.argus-sidebar__switch {
   display: flex;
   align-items: center;
   gap: var(--action-gap);
   min-height: var(--control-md);
+  width: 100%;
   padding: var(--space-1) var(--space-2);
   color: var(--text-secondary);
+  font-size: var(--text-body);
   border-radius: var(--control-radius);
+  text-decoration: none;
 }
-.argus-chat-admin-link:hover {
+.argus-sidebar__switch:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+.argus-sidebar.is-collapsed .argus-sidebar__switch {
+  justify-content: center;
+  padding: 0;
+}
+.argus-sidebar.is-collapsed .argus-sidebar__switch > span {
+  display: none;
 }
 .argus-table th,
 .argus-table td {
@@ -302,10 +312,6 @@
 }
 .argus-card__header + .argus-card__content {
   padding-top: 0;
-}
-.argus-filter-bar {
-  gap: var(--action-gap);
-  align-items: center;
 }
 .argus-mobile-menu,
 .argus-mobile-close,

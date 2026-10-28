@@ -1,0 +1,15 @@
+[Unit]
+Description=Plan9 bounded low-rate real HTTP requests
+After=network.target
+
+[Service]
+EnvironmentFile=/etc/plan9.env
+ExecStart=/usr/local/bin/plan9-workload traffic --seconds 86400
+Restart=no
+MemoryMax=64M
+CPUQuota=10%
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

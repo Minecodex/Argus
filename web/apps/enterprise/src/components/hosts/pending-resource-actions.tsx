@@ -12,7 +12,15 @@ import {
   type ConfirmActionResult,
   type PendingActionPublic,
 } from "@argus/api-client";
-import { ActionMenu, Alert, Badge, Dialog, type DropdownItem } from "@argus/ui";
+import {
+  ActionMenu,
+  Alert,
+  Dialog,
+  OperationPanel,
+  Spinner,
+  type DropdownItem,
+} from "@argus/ui";
+import { operationTone } from "../operations/execution-result";
 
 import { formatDateTime } from "../settings/shared";
 import { PendingActionConfirm } from "./pending-action-confirm";
@@ -109,47 +117,42 @@ function ScopeOperationDialog({
           tone="danger"
         />
       )}
+      {operationQuery.isPending && operationId && (
+        <Spinner label={t("common.loading")} />
+      )}
       {operation && (
-        <div className="argus-operation-progress">
-          <div className="argus-operation-progress__head">
-            <strong>{connectorInstallStageLabel(t, operation.stage)}</strong>
-            <Badge
-              tone={
-                ["failed", "expired", "result_unknown"].includes(
-                  operation.status,
+        <OperationPanel
+          title={scope.name}
+          description={connectorInstallStageLabel(t, operation.stage)}
+          statusLabel={connectorInstallStatusLabel(t, operation.status)}
+          tone={operationTone(operation.status)}
+          busy={["queued", "running"].includes(operation.status)}
+          steps={operation.events.map((event) => ({
+            title: connectorInstallStageLabel(t, event.stage),
+            status:
+              event.status === "failed"
+                ? "danger"
+                : event.status === "succeeded"
+                  ? "done"
+                  : "current",
+            meta: event.error_code
+              ? formatErrorCode(
+                  event.error_code,
+                  t("hosts.pendingActions.failed"),
                 )
-                  ? "danger"
-                  : operation.status === "succeeded"
-                    ? "success"
-                    : "info"
-              }
-            >
-              {connectorInstallStatusLabel(t, operation.status)}
-            </Badge>
-          </div>
-          <ol className="argus-operation-timeline">
-            {operation.events.map((event) => (
-              <li className={`is-${event.status}`} key={event.id}>
-                <strong>{connectorInstallStageLabel(t, event.stage)}</strong>
-                <span>
-                  {event.error_code
-                    ? formatErrorCode(
-                        event.error_code,
-                        t("hosts.pendingActions.failed"),
-                      )
-                    : connectorInstallEventStatusLabel(t, event.status)}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </div>
+              : connectorInstallEventStatusLabel(t, event.status),
+          }))}
+        />
       )}
     </Dialog>
   );
 }
 
 /** Pending Bastion Scope actions are derived only from the server projection. */
-export function PendingScopeActions({ scope, extraItems = [] }: {
+export function PendingScopeActions({
+  scope,
+  extraItems = [],
+}: {
   scope: BastionScope;
   extraItems?: DropdownItem[];
 }) {
@@ -241,31 +244,75 @@ export function PendingScopeActions({ scope, extraItems = [] }: {
           tone="danger"
         />
       )}
-      <ActionMenu name={scope.name} isDisabled={busy} items={[
-        ...(onboarding.state === "command_available" ? [{
-          label: t("hosts.pendingActions.claimCommand"),
-          disabled: !onboarding.execution_id,
-          onSelect: () => void claimExisting(),
-        }] : []),
-        ...(["command_consumed", "command_expired"].includes(onboarding.state) && scope.onboarding_mode === "command" ? [{
-          label: t("hosts.pendingActions.rotateCommand"), onSelect: () => void preview("rotate"),
-        }] : []),
-        ...(onboarding.state === "awaiting_approval" ? [{
-          label: t("hosts.pendingActions.viewApproval"),
-          onSelect: () => void navigate({ to: "/approvals", search: { approval: "operation", scope: "mine" } }),
-        }] : []),
-        ...(onboarding.state === "installing" ? [{
-          label: t("hosts.pendingActions.viewProgress"), onSelect: () => setOperationOpen(true),
-        }] : []),
-        ...(onboarding.state === "install_failed" ? [
-          { label: t("hosts.bastionForm.retryInstall"), disabled: !onboarding.operation_id, onSelect: () => void preview("retry") },
-          { label: t("hosts.pendingActions.viewFailure"), onSelect: () => setOperationOpen(true) },
-        ] : []),
-        ...extraItems,
-        "separator",
-        { label: t(onboarding.state === "installing" ? "hostRemoval.incomplete.cancelAndDelete" : "hostRemoval.incomplete.deleteRecord"),
-          danger: true, onSelect: () => void preview("delete") },
-      ]} />
+      <ActionMenu
+        name={scope.name}
+        isDisabled={busy}
+        items={[
+          ...(onboarding.state === "command_available"
+            ? [
+                {
+                  label: t("hosts.pendingActions.claimCommand"),
+                  disabled: !onboarding.execution_id,
+                  onSelect: () => void claimExisting(),
+                },
+              ]
+            : []),
+          ...(["command_consumed", "command_expired"].includes(
+            onboarding.state,
+          ) && scope.onboarding_mode === "command"
+            ? [
+                {
+                  label: t("hosts.pendingActions.rotateCommand"),
+                  onSelect: () => void preview("rotate"),
+                },
+              ]
+            : []),
+          ...(onboarding.state === "awaiting_approval"
+            ? [
+                {
+                  label: t("hosts.pendingActions.viewApproval"),
+                  onSelect: () =>
+                    void navigate({
+                      to: "/approvals",
+                      search: { approval: "operation", scope: "mine" },
+                    }),
+                },
+              ]
+            : []),
+          ...(onboarding.state === "installing"
+            ? [
+                {
+                  label: t("hosts.pendingActions.viewProgress"),
+                  onSelect: () => setOperationOpen(true),
+                },
+              ]
+            : []),
+          ...(onboarding.state === "install_failed"
+            ? [
+                {
+                  label: t("hosts.bastionForm.retryInstall"),
+                  disabled: !onboarding.operation_id,
+                  onSelect: () => void preview("retry"),
+                },
+                {
+                  label: t("hosts.pendingActions.viewFailure"),
+                  onSelect: () => setOperationOpen(true),
+                },
+              ]
+            : []),
+          ...extraItems,
+          "separator",
+          {
+            label: t(
+              onboarding.state === "installing"
+                ? "hostRemoval.incomplete.cancelAndDelete"
+                : "hostRemoval.incomplete.deleteRecord",
+            ),
+            danger: true,
+            onSelect: () => void preview("delete"),
+          },
+        ]}
+      />
       {pendingAction && actionKind === "delete" && (
         <Alert
           title={t(

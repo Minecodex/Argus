@@ -18,11 +18,12 @@ import { CollectorStatusPanel } from "../components/kubernetes/collector-status"
 import { CollectorWizard } from "../components/kubernetes/collector-wizard";
 import { connectionStatusTone } from "../components/kubernetes/status";
 import { KubernetesWorkbench } from "../components/kubernetes/workbench";
-import { ResourceTelemetry } from "../components/telemetry/resource-telemetry";
+import {ResourceObserveLink} from "../components/observe/resource-link";
 import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
 import { useResourceDashboardTab } from "../components/dashboards/use-resource-dashboard-tab";
 import { usePermission } from "../lib/permissions";
 import "../styles/kubernetes.css";
+import { ResourceExecutionActivity } from "../components/operations/execution-result";
 
 /** Kubernetes 集群详情：资源查询 + Collector 安装/管理。 */
 export function KubernetesClusterPage() {
@@ -122,6 +123,7 @@ export function KubernetesClusterPage() {
         { label: t("shell.nav.kubernetes"), href: "/kubernetes" },
         { label: cluster.name },
       ]}
+      actions={<ResourceObserveLink type="kubernetes_cluster" id={cluster.id}/>}
       description={cluster.api_server}
       title={
         <span className="argus-k8s-cluster-card__head">
@@ -138,6 +140,7 @@ export function KubernetesClusterPage() {
     >
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
+          <TabsTrigger value="activity">{t("operations.title")}</TabsTrigger>
           <TabsTrigger value="resources">
             {t("kubernetes.detail.resourcesTab")}
           </TabsTrigger>
@@ -149,10 +152,13 @@ export function KubernetesClusterPage() {
           <TabsTrigger value="collector">
             {t("kubernetes.detail.collectorTab")}
           </TabsTrigger>
-          <TabsTrigger value="metrics">{t("telemetry.metrics")}</TabsTrigger>
-          <TabsTrigger value="logs">{t("telemetry.logs")}</TabsTrigger>
-          <TabsTrigger value="traces">{t("telemetry.traces")}</TabsTrigger>
         </TabsList>
+        <TabsContent value="activity">
+          <ResourceExecutionActivity
+            resourceId={cluster.id}
+            resourceName={cluster.name}
+          />
+        </TabsContent>
         <TabsContent value="resources">
           <KubernetesWorkbench
             key={id}
@@ -185,27 +191,6 @@ export function KubernetesClusterPage() {
               </div>
             )}
           </div>
-        </TabsContent>
-        <TabsContent value="metrics">
-          <ResourceTelemetry
-            resourceId={cluster.id}
-            signal="metrics"
-            resourceType="kubernetes_cluster"
-          />
-        </TabsContent>
-        <TabsContent value="logs">
-          <ResourceTelemetry
-            resourceId={cluster.id}
-            signal="logs"
-            resourceType="kubernetes_cluster"
-          />
-        </TabsContent>
-        <TabsContent value="traces">
-          <ResourceTelemetry
-            resourceId={cluster.id}
-            signal="traces"
-            resourceType="kubernetes_cluster"
-          />
         </TabsContent>
       </Tabs>
     </PageShell>

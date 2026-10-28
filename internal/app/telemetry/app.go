@@ -17,6 +17,7 @@ import (
 	"github.com/kakj-go/Argus/internal/app/component"
 	"github.com/kakj-go/Argus/internal/config"
 	connectorservice "github.com/kakj-go/Argus/internal/connector"
+	"github.com/kakj-go/Argus/internal/modelmetrics"
 	"github.com/kakj-go/Argus/internal/monitoring"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	redisstore "github.com/kakj-go/Argus/internal/storage/redis"
@@ -187,6 +188,7 @@ func runWriter(ctx context.Context, cfg config.Telemetry, store *postgres.Store,
 		return nil, err
 	}
 	writer := &telemetryservice.Writer{Kafka: consumer, ClickHouse: clickhouse, Router: telemetryservice.TenantTableRouter{}, Control: telemetryservice.PostgresWriterControl{Queries: store.Queries}}
+	go (modelmetrics.Projector{Store: store, Conn: clickhouse}).Run(ctx, slog.Default())
 	go func() { errorsChannel <- writer.Run(ctx) }()
 	return func(context.Context) { consumer.Close() }, nil
 }
@@ -243,6 +245,12 @@ func runQuery(ctx context.Context, cfg config.Telemetry, store *postgres.Store, 
 		return nil, err
 	}
 	manager := telemetryservice.ClickHouseTenantSchemaManager{Conn: schemaConn, Router: telemetryservice.TenantTableRouter{}}
+	if err := modelmetrics.EnsureSchema(ctx, schemaConn); err != nil {
+		_ = schemaConn.Close()
+		_ = clickhouse.Close()
+		_ = redisClient.Close()
+		return nil, err
+	}
 	lifecycle := telemetryservice.TenantSchemaLifecycle{
 		Manager: manager,
 		Queries: store.Queries,
@@ -283,6 +291,7 @@ func runQuery(ctx context.Context, cfg config.Telemetry, store *postgres.Store, 
 	telemetryservice.RegisterQueryRPC(server, telemetryservice.ClickHouseQuery{Conn: clickhouse, Router: router, PromQL: promEngine}, telemetryservice.RedisQueryConcurrencyLimiter{
 		Client: redisClient.Raw, Limit: int64(cfg.QueryConcurrency),
 	}, logger, []*queryengine.Coordinator{coordinator}, telemetryservice.PostgresWriterControl{Queries: store.Queries}, lifecycle)
+	telemetryservice.RegisterModelGovernanceRPC(server, modelmetrics.Service{Store: store, Conn: clickhouse}, telemetryservice.RedisQueryConcurrencyLimiter{Client: redisClient.Raw, Limit: int64(cfg.QueryConcurrency)})
 	reconcileCtx, reconcileCancel := context.WithCancel(ctx)
 	go runTenantSchemaReconciler(reconcileCtx, store, lifecycle, logger)
 	go func() { errorsChannel <- server.Serve(listener) }()

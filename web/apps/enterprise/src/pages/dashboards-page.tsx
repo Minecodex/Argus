@@ -39,8 +39,10 @@ export function DashboardsPage() {
     { t } = useTranslation(),
     navigate = useNavigate(),
     cache = useQueryClient();
-  const canRead = usePermission("telemetry.dashboard.read"),
+  const canReadResources = usePermission("telemetry.dashboard.read"),
     canManage = usePermission("telemetry.dashboard.manage");
+  const canReadModels = usePermission("model.usage.read");
+  const canRead = canReadResources || canReadModels;
   const items = useQuery({
     queryKey: ["dashboards"],
     queryFn: () => api.dashboards.list(),
@@ -54,7 +56,7 @@ export function DashboardsPage() {
   const folders = useQuery({
     queryKey: ["dashboard-folders"],
     queryFn: () => api.dashboards.folders(),
-    enabled: canRead,
+    enabled: canReadResources,
   });
   const [tab, setTab] = useState("published"),
     [folder, setFolder] = useState("all"),
@@ -150,7 +152,7 @@ export function DashboardsPage() {
     (folder === "all" || folder === (item.folder_id ?? "")) &&
     item.name.toLocaleLowerCase().includes(searchName);
   const visibleDrafts = (drafts.data ?? []).filter(matchesFilters);
-  const visible = (items.data ?? []).filter(
+  const visible = (items.data ?? []).map((item) => item.managed_template_key === "argus.model-governance" ? { ...item, name: t("modelGovernance.title"), description: t("modelGovernance.managedHint") } : item).filter(
     (item) =>
       (tab === "archived"
         ? item.lifecycle === "archived"
@@ -345,7 +347,7 @@ export function DashboardsPage() {
                                 to="/dashboards/$dashboardId"
                                 params={{ dashboardId: d.id }}
                               >
-                                {d.name}
+                                {d.managed_template_key === "argus.model-governance" ? t("modelGovernance.title") : d.name}
                               </Link>
                               <span className="argus-muted">
                                 {d.description}

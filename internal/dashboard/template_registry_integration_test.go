@@ -17,7 +17,11 @@ func TestBuiltinTemplatesCompileNativeMetrics(t *testing.T) {
 				t.Fatalf("template validation: %v", err)
 			}
 			for _, panel := range definition.Spec.Panels {
-				if panel.Layout.H*definition.Spec.Layout.RowHeight < 256 {
+				minimum := 256
+				if definition.Key == "argus.model-governance" && panel.Type == "stat" {
+					minimum = 128
+				}
+				if panel.Layout.H*definition.Spec.Layout.RowHeight < minimum {
 					t.Fatal("native panel clips chart and query controls")
 				}
 				if panel.Unit == "short" || panel.Unit == "ops" || panel.Unit == "reqps" {

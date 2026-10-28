@@ -3,7 +3,6 @@ import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
   Plus,
-  Search,
   Download,
   List,
   Check,
@@ -24,8 +23,7 @@ import {
 import {
   ActionMenu,
   Button,
-  Input,
-  Select,
+  Pagination,
   Checkbox,
   Tabs,
   TabsList,
@@ -33,19 +31,18 @@ import {
   TabsContent,
   Dialog,
   Skeleton,
-  Field,
   type Column,
 } from "@argus/ui";
 import { usePermission } from "../lib/permissions";
 import { PendingActionConfirm } from "../components/hosts/pending-action-confirm";
 import { AlertEditor } from "../components/alerts/editor";
 import { AlertDetails } from "../components/alerts/details";
+import { AlertFilters } from "../components/alerts/filters";
 import { AlertSettings } from "../components/alerts/settings";
 import {
   AlertStatus,
   AlertTable,
   AlertCallout,
-  SmallAction,
   useAlertText,
   policySpec,
   resourceName,
@@ -75,6 +72,7 @@ export function AlertsPage() {
   const api = useApi(),
     cache = useQueryClient(),
     { t } = useAlertText();
+  const canReadTargets = usePermission("monitoring.read");
   const canRead = usePermission("alert.read"),
     canPolicy = usePermission("alert.policy.manage"),
     canNoise = usePermission("alert.silence.manage"),
@@ -137,14 +135,21 @@ export function AlertsPage() {
     queryFn: () => api.kubernetes.listClusters(),
     enabled: canRead,
   });
+  const targets = useQuery({
+    queryKey: ["monitoring", "alert-labels"],
+    queryFn: () => api.monitoring.targets({ limit: 100 }),
+    enabled: canRead && canReadTargets,
+  });
   const names = useMemo(
     () =>
       new Map(
-        [...(hosts.data?.items ?? []), ...(clusters.data?.items ?? [])].map(
-          (h) => [h.id, h.name],
-        ),
+        [
+          ...(hosts.data?.items ?? []),
+          ...(clusters.data?.items ?? []),
+          ...(targets.data?.items ?? []),
+        ].map((h) => [h.id, h.name]),
       ),
-    [hosts.data, clusters.data],
+    [hosts.data, clusters.data, targets.data],
   );
   const report = (e: unknown) =>
     setError(formatApiError(e, t("alerts.invalid"), (id) => id));
@@ -565,43 +570,29 @@ export function AlertsPage() {
     );
   const page = tab === "deliveries" ? deliveries.data : events.data;
   const pageFooter = page ? (
-    <div className="argus-alert-table-footer">
-      <span>
-        {t("alerts.pageInfo", {
-          total: page.total,
-          page: cursors.length + 1,
-          pages: Math.max(1, Math.ceil(page.total / (filter.limit ?? 5))),
-        })}
-      </span>
-      <div className="argus-alert-actions">
-        <SmallAction
-          disabled={!cursors.length}
-          onPress={() => {
-            const prev = [...cursors];
-            const cursor = prev.pop();
-            setCursors(prev);
-            setFilter({
-              ...filter,
-              cursor: cursor || undefined,
-            });
-          }}
-        >
-          {t("alerts.previous")}
-        </SmallAction>
-        <SmallAction
-          disabled={!page.next_cursor}
-          onPress={() => {
-            setCursors([...cursors, filter.cursor ?? ""]);
-            setFilter({
-              ...filter,
-              cursor: page.next_cursor ?? undefined,
-            });
-          }}
-        >
-          {t("alerts.next")}
-        </SmallAction>
-      </div>
-    </div>
+    <Pagination
+      page={cursors.length + 1}
+      totalPages={Math.max(1, Math.ceil(page.total / (filter.limit ?? 5)))}
+      maxReachablePage={cursors.length + 1 + (page.next_cursor ? 1 : 0)}
+      hasNext={!!page.next_cursor}
+      isDisabled={
+        tab === "deliveries" ? deliveries.isFetching : events.isFetching
+      }
+      summary={t("alerts.pageInfo", {
+        total: page.total,
+        page: cursors.length + 1,
+        pages: Math.max(1, Math.ceil(page.total / (filter.limit ?? 5))),
+      })}
+      onChange={(target) => {
+        if (target <= cursors.length) {
+          setFilter({ ...filter, cursor: cursors[target - 1] || undefined });
+          setCursors(cursors.slice(0, target - 1));
+        } else {
+          setCursors([...cursors, filter.cursor ?? ""]);
+          setFilter({ ...filter, cursor: page.next_cursor ?? undefined });
+        }
+      }}
+    />
   ) : null;
   const filteredPolicies = policies.filter(
     (p) =>
@@ -754,217 +745,53 @@ export function AlertsPage() {
                 {["active", "history", "deliveries", "policies"].includes(
                   tab,
                 ) && (
-                  <div className="argus-alert-toolbar">
-                    <div className="argus-alert-filters">
-                      <div className="argus-alert-search">
-                        <Search size={16} className="argus-alert-icon" />
-                        <Input
-                          size="lg"
-                          density="compact"
-                          aria-label={t("alerts.search")}
-                          placeholder={t("alerts.search")}
-                          value={filter.query ?? ""}
-                          onChange={(e) =>
-                            editFilter({ query: e.target.value })
-                          }
-                        />
-                      </div>
-                      {["active", "history"].includes(tab) && (
-                        <Select
-                          density="compact"
-                          size="lg"
-                          ariaLabel={t("alerts.allLevels")}
-                          sizing="content"
-                          value={filter.severity ?? ""}
-                          options={[
-                            { value: "", label: t("alerts.allLevels") },
-                            ...["critical", "warning", "info"].map((value) => ({
-                              value,
-                              label: t(`alerts.${value}`),
-                            })),
-                          ]}
-                          onValueChange={(severity) => editFilter({ severity })}
-                        />
-                      )}
-                      {tab === "active" && (
-                        <Select
-                          density="compact"
-                          size="lg"
-                          ariaLabel={t("alerts.allHandling")}
-                          sizing="content"
-                          value={
-                            filter.acknowledged === undefined
-                              ? ""
-                              : String(filter.acknowledged)
-                          }
-                          options={[
-                            { value: "", label: t("alerts.allHandling") },
-                            {
-                              value: "false",
-                              label: t("alerts.unacknowledged"),
-                            },
-                            { value: "true", label: t("alerts.acknowledged") },
-                          ]}
-                          onValueChange={(v) =>
-                            editFilter({
-                              acknowledged: v === "" ? undefined : v === "true",
-                            })
-                          }
-                        />
-                      )}
-                      {tab === "history" && (
-                        <Select
-                          density="compact"
-                          size="lg"
-                          ariaLabel={t("alerts.allLifecycle")}
-                          sizing="content"
-                          value={filter.lifecycle ?? ""}
-                          options={[
-                            { value: "", label: t("alerts.allLifecycle") },
-                            ...[
-                              "firing",
-                              "pending",
-                              "recovering",
-                              "resolved",
-                              "closed",
-                            ].map((value) => ({
-                              value,
-                              label: t(`alerts.${value}`),
-                            })),
-                          ]}
-                          onValueChange={(lifecycle) =>
-                            editFilter({ lifecycle })
-                          }
-                        />
-                      )}
-                      {tab === "deliveries" && (
-                        <Select
-                          density="compact"
-                          size="lg"
-                          ariaLabel={t("alerts.notification")}
-                          sizing="content"
-                          value={filter.notification_state ?? ""}
-                          options={[
-                            { value: "", label: t("alerts.allStates") },
-                            ...[
-                              "pending",
-                              "sending",
-                              "accepted",
-                              "failed",
-                              "unknown",
-                              "muted",
-                              "inhibited",
-                              "canceled",
-                            ].map((value) => ({
-                              value,
-                              label: t(`alerts.${value}`),
-                            })),
-                          ]}
-                          onValueChange={(notification_state) =>
-                            editFilter({ notification_state })
-                          }
-                        />
-                      )}
-                    </div>
-                    <div className="argus-alert-actions">
-                      {tab === "active" && (
-                        <>
-                          <Button
-                            density="compact"
-                            size="lg"
-                            onPress={() => setGrouped(!grouped)}
-                          >
-                            <List size={16} />
-                            {t(grouped ? "alerts.flat" : "alerts.group")}
+                  <AlertFilters
+                    tab={tab}
+                    value={filter}
+                    onChange={editFilter}
+                    actions={
+                      <>
+                        {tab === "active" && (
+                          <>
+                            <Button onPress={() => setGrouped(!grouped)}>
+                              <List size={16} />
+                              {t(grouped ? "alerts.flat" : "alerts.group")}
+                            </Button>
+                            <Button
+                              isDisabled={!canHandle || !selected.size}
+                              onPress={() =>
+                                void (async () => {
+                                  for (const e of events.data?.items ?? []) {
+                                    if (selected.has(e.id) && !e.acknowledged)
+                                      await handle(e);
+                                  }
+                                })()
+                              }
+                            >
+                              <Check size={16} />
+                              {t("alerts.bulkAck")}
+                            </Button>
+                          </>
+                        )}
+                        {tab === "history" && (
+                          <Button onPress={() => void exportHistory()}>
+                            <Download size={16} />
+                            {t("alerts.export")}
                           </Button>
+                        )}
+                        {tab === "policies" && (
                           <Button
-                            density="compact"
-                            size="lg"
-                            isDisabled={!canHandle || !selected.size}
-                            onPress={() =>
-                              void (async () => {
-                                for (const e of events.data?.items ?? []) {
-                                  if (selected.has(e.id) && !e.acknowledged)
-                                    await handle(e);
-                                }
-                              })()
-                            }
+                            variant="primary"
+                            isDisabled={!canPolicy}
+                            onPress={() => setEditor({ kind: "policy" })}
                           >
-                            <Check size={16} />
-                            {t("alerts.bulkAck")}
+                            <Plus size={16} />
+                            {t("alerts.create")}
                           </Button>
-                        </>
-                      )}
-                      {tab === "history" && (
-                        <Button
-                          density="compact"
-                          size="lg"
-                          onPress={() => void exportHistory()}
-                        >
-                          <Download size={16} />
-                          {t("alerts.export")}
-                        </Button>
-                      )}
-                      {tab === "policies" && (
-                        <Button
-                          density="compact"
-                          size="lg"
-                          variant="primary"
-                          isDisabled={!canPolicy}
-                          onPress={() => setEditor({ kind: "policy" })}
-                        >
-                          <Plus size={16} />
-                          {t("alerts.create")}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {tab === "history" && (
-                  <div className="argus-alert-history-dates">
-                    <Field
-                      label={t("alerts.fromDate")}
-                      requirement="optional"
-                      density="compact"
-                      className="argus-alert-field"
-                    >
-                      <Input
-                        size="lg"
-                        density="compact"
-                        type="date"
-                        aria-label={t("alerts.fromDate")}
-                        value={filter.from?.slice(0, 10) ?? ""}
-                        onChange={(e) =>
-                          editFilter({
-                            from: e.target.value
-                              ? `${e.target.value}T00:00:00+08:00`
-                              : undefined,
-                          })
-                        }
-                      />
-                    </Field>
-                    <Field
-                      label={t("alerts.toDate")}
-                      requirement="optional"
-                      density="compact"
-                      className="argus-alert-field"
-                    >
-                      <Input
-                        size="lg"
-                        density="compact"
-                        type="date"
-                        aria-label={t("alerts.toDate")}
-                        value={filter.to?.slice(0, 10) ?? ""}
-                        onChange={(e) =>
-                          editFilter({
-                            to: e.target.value
-                              ? `${e.target.value}T23:59:59+08:00`
-                              : undefined,
-                          })
-                        }
-                      />
-                    </Field>
-                  </div>
+                        )}
+                      </>
+                    }
+                  />
                 )}
                 {loading ? (
                   <Skeleton height={200} />

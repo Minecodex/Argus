@@ -1,3 +1,5 @@
+import {createObservationDiscovery} from "./observation";
+import {resolveObservationResources} from "./observation-access";
 import type { ArgusApiClient } from "../client";
 import type {
   CollectionProfile,
@@ -196,6 +198,7 @@ export function createTelemetryDomain(
   ctx: MockContext,
 ): ArgusApiClient["telemetry"] {
   return {
+    ...createObservationDiscovery(ctx),
     async listDistributions() {
       await ctx.pause();
       return DISTRIBUTIONS.map((item) => ({
@@ -287,12 +290,15 @@ export function createTelemetryDomain(
     },
     async queryMetrics(
       input: PromQLInstantQuery,
+      signal?: AbortSignal,
     ): Promise<PrometheusQueryResponse> {
-      requireTelemetryResources(ctx, input.resource_ids);
+      const resource_ids=resolveObservationResources(ctx,input.scope,input.resource_ids).map(r=>r.id);
+      if(!resource_ids.length)throw new Error("QUERY_SOURCES_EMPTY");
       await ctx.pause();
+      signal?.throwIfAborted();
       const now = new Date(input.time_range.to).getTime();
-      const partial = input.resource_ids.includes("k8s-prod-east");
-      const result = input.resource_ids.map((resource_id, index) => ({
+      const partial = resource_ids.includes("k8s-prod-east");
+      const result = resource_ids.map((resource_id, index) => ({
         metric: {
           __name__:
             input.query === "host_cpu_usage_percent"
@@ -323,14 +329,17 @@ export function createTelemetryDomain(
     },
     async queryMetricsRange(
       input: PromQLRangeQuery,
+      signal?: AbortSignal,
     ): Promise<PrometheusQueryResponse> {
-      return this.queryMetrics(input);
+      return this.queryMetrics(input,signal);
     },
-    async queryLogs(input: KQLQuery): Promise<KQLQueryResponse> {
-      requireTelemetryResources(ctx, input.resource_ids);
+    async queryLogs(input: KQLQuery, signal?: AbortSignal): Promise<KQLQueryResponse> {
+      const resource_ids=resolveObservationResources(ctx,input.scope,input.resource_ids).map(r=>r.id);
+      if(!resource_ids.length)throw new Error("QUERY_SOURCES_EMPTY");
       await ctx.pause();
+      signal?.throwIfAborted();
       if (
-        input.resource_ids.every((id) =>
+        resource_ids.every((id) =>
           ctx.db.monitoring?.[ctx.enterpriseId()]?.applications.some(
             (row) => row.id === id,
           ),
@@ -358,14 +367,14 @@ export function createTelemetryDomain(
         return {
           schema_version: "argus.kql_result/v1",
           result_type: "table",
-          data: [{ count: input.resource_ids.length * 12 }],
+          data: [{ count: resource_ids.length * 12 }],
           warnings: [],
           partial: false,
           meta: queryMeta("b", false),
         };
       }
       const now = new Date(input.time_range.to).toISOString();
-      const data = input.resource_ids.slice(0, 3).map((resource_id, index) => ({
+      const data = resource_ids.slice(0, 3).map((resource_id, index) => ({
         timestamp: now,
         resource_id,
         severity_text: index === 0 ? "ERROR" : "INFO",
@@ -384,9 +393,12 @@ export function createTelemetryDomain(
     },
     async queryTraces(
       input: SkyWalkingTraceGraphQLQuery,
+      signal?: AbortSignal,
     ): Promise<SkyWalkingGraphQLResponse> {
-      requireTelemetryResources(ctx, input.resource_ids);
+      const resource_ids=resolveObservationResources(ctx,input.scope,input.resource_ids).map(r=>r.id);
+      if(!resource_ids.length)throw new Error("QUERY_SOURCES_EMPTY");
       await ctx.pause();
+      signal?.throwIfAborted();
       const now = new Date(input.time_range.to).toISOString();
       const apmRoot = input.query.match(
         /\bqueryAPM(?:Services|Instances|Endpoints|RED|Topology)\b/,
@@ -429,7 +441,7 @@ export function createTelemetryDomain(
         };
       }
       if (
-        input.resource_ids.every((id) =>
+        resource_ids.every((id) =>
           ctx.db.monitoring?.[ctx.enterpriseId()]?.applications.some(
             (row) => row.id === id,
           ),
@@ -450,7 +462,7 @@ export function createTelemetryDomain(
           },
         };
       }
-      const traces = input.resource_ids
+      const traces = resource_ids
         .slice(0, 3)
         .map((resource_id, index) => ({
           traceId: String(index + 1).padStart(32, "0"),

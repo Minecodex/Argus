@@ -195,6 +195,7 @@ function page<T>(
     version: ctx.db.dataAuthorizationVersions?.[`user:${ctx.actor().id}`] ?? 1,
     search: input.search?.trim() ?? "",
     status: input.status ?? "active",
+    environment: input.environment ?? "",
     applications:
       input.application_ids === undefined
         ? "all_authorized"
@@ -334,6 +335,11 @@ export function createMonitoringDomains(ctx: MockContext): MonitoringDomains {
       },
       async applications(input = {}) {
         permission(ctx, "application.read");
+        if (
+          input.environment &&
+          !/^[a-z][a-z0-9_-]{0,63}$/.test(input.environment)
+        )
+          fail();
         await ctx.pause();
         const search = input.search?.trim().toLowerCase() ?? "";
         return page(
@@ -342,6 +348,7 @@ export function createMonitoringDomains(ctx: MockContext): MonitoringDomains {
             .applications.filter(
               (a) =>
                 a.status === (input.status ?? "active") &&
+                (!input.environment || a.environment === input.environment) &&
                 dashboardObjectGrant(ctx, "application", a.id) &&
                 (a.name.toLowerCase().includes(search) ||
                   a.application_key.toLowerCase().includes(search)),

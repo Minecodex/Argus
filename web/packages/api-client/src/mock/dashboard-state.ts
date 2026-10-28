@@ -55,7 +55,7 @@ export function dashboardFailure(
     status,
   );
 }
-export function dashboardPermission(ctx: BaseContext, manage = false) {
+export function dashboardPermission(ctx: BaseContext, manage = false, includeModels = false) {
   const permissions = resolvePermissions(
     ctx.db,
     ctx.enterpriseId(),
@@ -63,7 +63,7 @@ export function dashboardPermission(ctx: BaseContext, manage = false) {
     ctx.nowIso(),
   );
   if (
-    !permissions.has("*") &&
+    !permissions.has("*") && !(includeModels && !manage && permissions.has("model.usage.read")) &&
     !permissions.has(
       manage ? "telemetry.dashboard.manage" : "telemetry.dashboard.read",
     )
@@ -75,9 +75,10 @@ export function dashboardAccess(ctx: BaseContext, id: string) {
     (r) => r.enterprise === ctx.enterpriseId() && r.value.id === id,
   );
   if (!record) return false;
+  if (record.value.managed_template_key === "argus.model-governance") return modelGovernancePermission(ctx);
   if (record.value.managed_template_key) {
-    dashboardPermission(ctx);
-    return true;
+    const permissions = resolvePermissions(ctx.db, ctx.enterpriseId(), ctx.actor().id, ctx.nowIso());
+    return permissions.has("*") || permissions.has("telemetry.dashboard.read");
   }
   return dashboardObjectGrant(ctx, "dashboard", id);
 }
@@ -117,9 +118,14 @@ export function dashboardObjectGrant(
   );
 }
 export function mockDashboard(ctx: BaseContext, id: string) {
-  dashboardPermission(ctx);
+  const internal = dashboardState(ctx).items.some((r) => r.value.id === id && r.value.managed_template_key === "argus.model-governance");
+  dashboardPermission(ctx, false, internal);
   if (!dashboardAccess(ctx, id)) dashboardFailure("DASHBOARD_DENIED", 403);
   return dashboardState(ctx).items.find((r) => r.value.id === id)!.value;
+}
+export function modelGovernancePermission(ctx: BaseContext) {
+  const permissions = resolvePermissions(ctx.db, ctx.enterpriseId(), ctx.actor().id, ctx.nowIso());
+  return permissions.has("*") || permissions.has("model.usage.read");
 }
 export function mockDraft(ctx: BaseContext, id: string) {
   dashboardPermission(ctx, true);

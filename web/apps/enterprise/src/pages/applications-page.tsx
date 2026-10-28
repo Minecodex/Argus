@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   formatApiError,
   useApi,
@@ -12,9 +12,11 @@ import {
 import {
   Badge,
   Button,
+  Pagination,
   DataTable,
   EmptyState,
   Field,
+  FilterBar,
   FormDialog,
   Input,
   PageShell,
@@ -43,14 +45,22 @@ function ApplicationList() {
   const canRead = usePermission("application.read"),
     canManage = usePermission("application.manage");
   const [search, setSearch] = useState(""),
+    [environment, setEnvironment] = useState(""),
     [cursors, setCursors] = useState<Array<string | undefined>>([undefined]);
   const [creating, setCreating] = useState(false),
     actions = useMonitoringActions();
   const query = useQuery({
-    queryKey: ["monitoring", "applications", search, cursors.at(-1)],
+    queryKey: [
+      "monitoring",
+      "applications",
+      search,
+      environment,
+      cursors.at(-1),
+    ],
     queryFn: () =>
       api.monitoring.applications({
         search,
+        environment: environment || undefined,
         cursor: cursors.at(-1),
         limit: 50,
       }),
@@ -111,18 +121,38 @@ function ApplicationList() {
         />
       ) : (
         <>
-          <div className="argus-monitoring-toolbar">
-            <Search size={16} />
-            <Input
-              aria-label={t("monitoring.search")}
-              placeholder={t("monitoring.search")}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
+          <FilterBar
+            className="argus-monitoring-collection-filters"
+            search={{
+              value: search,
+              placeholder: t("monitoring.search"),
+              onChange: (value) => {
+                setSearch(value);
                 setCursors([undefined]);
-              }}
-            />
-          </div>
+              },
+            }}
+            filters={[
+              {
+                key: "environment",
+                value: environment,
+                ariaLabel: t("monitoring.environment"),
+                allLabel: t("monitoring.allEnvironments"),
+                options: [
+                  "production",
+                  "testing",
+                  "staging",
+                  "development",
+                ].map((value) => ({
+                  value,
+                  label: t(`monitoring.env.${value}`),
+                })),
+                onChange: (value) => {
+                  setEnvironment(value);
+                  setCursors([undefined]);
+                },
+              },
+            ]}
+          />
           {query.isPending && <p role="status">{t("common.loading")}</p>}
           {query.error && (
             <p role="alert">
@@ -142,25 +172,30 @@ function ApplicationList() {
               />
             ) : (
               <EmptyState
-                title={t("monitoring.emptyApplications")}
-                description={t("monitoring.emptyApplicationsDescription")}
+                title={t(
+                  search.trim() || environment
+                    ? "monitoring.noMatchingApplications"
+                    : "monitoring.emptyApplications",
+                )}
+                description={t(
+                  search.trim() || environment
+                    ? "monitoring.noFilterMatchesHint"
+                    : "monitoring.emptyApplicationsDescription",
+                )}
               />
             ))}
-          <div className="argus-monitoring-pagination">
-            <Button
-              isDisabled={cursors.length === 1 || query.isFetching}
-              onPress={() => setCursors((v) => v.slice(0, -1))}
-            >
-              {t("monitoring.previous")}
-            </Button>
-            <span>{t("monitoring.page", { page: cursors.length })}</span>
-            <Button
-              isDisabled={!query.data?.next_cursor || query.isFetching}
-              onPress={() => setCursors((v) => [...v, query.data!.next_cursor])}
-            >
-              {t("monitoring.next")}
-            </Button>
-          </div>
+          <Pagination
+            page={cursors.length}
+            hasNext={!!query.data?.next_cursor}
+            isDisabled={query.isFetching}
+            onChange={(page) =>
+              setCursors((old) =>
+                page <= old.length
+                  ? old.slice(0, page)
+                  : [...old, query.data?.next_cursor],
+              )
+            }
+          />
         </>
       )}
       {actions.error && <p role="alert">{actions.error}</p>}
@@ -325,22 +360,18 @@ function ApplicationDetails({ id }: { id: string }) {
                 description={t("monitoring.noServicesDescription")}
               />
             ))}
-          <div className="argus-monitoring-pagination">
-            <Button
-              isDisabled={cursors.length === 1}
-              onPress={() => setCursors((v) => v.slice(0, -1))}
-            >
-              {t("monitoring.previous")}
-            </Button>
-            <Button
-              isDisabled={!services.data?.next_cursor}
-              onPress={() =>
-                setCursors((v) => [...v, services.data!.next_cursor])
-              }
-            >
-              {t("monitoring.next")}
-            </Button>
-          </div>
+          <Pagination
+            page={cursors.length}
+            hasNext={!!services.data?.next_cursor}
+            isDisabled={services.isFetching}
+            onChange={(page) =>
+              setCursors((old) =>
+                page <= old.length
+                  ? old.slice(0, page)
+                  : [...old, services.data?.next_cursor],
+              )
+            }
+          />
           <ApplicationObservability key={row.id} application={row} />
           <ApplicationIngest application={row} />
           {declaringService && (

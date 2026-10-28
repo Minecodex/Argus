@@ -209,6 +209,45 @@ func (e ConfigRevisionStatus) Valid() bool {
 	}
 }
 
+// Defines values for DashboardCatalogFilterOperator.
+const (
+	Empty            DashboardCatalogFilterOperator = "!="
+	Equal            DashboardCatalogFilterOperator = "="
+	EqualTilde       DashboardCatalogFilterOperator = "=~"
+	GreaterThan      DashboardCatalogFilterOperator = ">"
+	GreaterThanEqual DashboardCatalogFilterOperator = ">="
+	LessThan         DashboardCatalogFilterOperator = "<"
+	LessThanEqual    DashboardCatalogFilterOperator = "<="
+	N1               DashboardCatalogFilterOperator = "!~"
+	N2               DashboardCatalogFilterOperator = ":"
+)
+
+// Valid indicates whether the value is a known member of the DashboardCatalogFilterOperator enum.
+func (e DashboardCatalogFilterOperator) Valid() bool {
+	switch e {
+	case Empty:
+		return true
+	case Equal:
+		return true
+	case EqualTilde:
+		return true
+	case GreaterThan:
+		return true
+	case GreaterThanEqual:
+		return true
+	case LessThan:
+		return true
+	case LessThanEqual:
+		return true
+	case N1:
+		return true
+	case N2:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for KQLQueryResponseResultType.
 const (
 	LogEntries KQLQueryResponseResultType = "log_entries"
@@ -302,6 +341,105 @@ func (e KubernetesNodeHostBindingStatus) Valid() bool {
 	}
 }
 
+// Defines values for ObservationCatalogInputKind.
+const (
+	ObservationCatalogInputKindFields  ObservationCatalogInputKind = "fields"
+	ObservationCatalogInputKindMetrics ObservationCatalogInputKind = "metrics"
+	ObservationCatalogInputKindSources ObservationCatalogInputKind = "sources"
+	ObservationCatalogInputKindValues  ObservationCatalogInputKind = "values"
+)
+
+// Valid indicates whether the value is a known member of the ObservationCatalogInputKind enum.
+func (e ObservationCatalogInputKind) Valid() bool {
+	switch e {
+	case ObservationCatalogInputKindFields:
+		return true
+	case ObservationCatalogInputKindMetrics:
+		return true
+	case ObservationCatalogInputKindSources:
+		return true
+	case ObservationCatalogInputKindValues:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ObservationCatalogInputSignal.
+const (
+	ObservationCatalogInputSignalLogs    ObservationCatalogInputSignal = "logs"
+	ObservationCatalogInputSignalMetrics ObservationCatalogInputSignal = "metrics"
+	ObservationCatalogInputSignalTraces  ObservationCatalogInputSignal = "traces"
+)
+
+// Valid indicates whether the value is a known member of the ObservationCatalogInputSignal enum.
+func (e ObservationCatalogInputSignal) Valid() bool {
+	switch e {
+	case ObservationCatalogInputSignalLogs:
+		return true
+	case ObservationCatalogInputSignalMetrics:
+		return true
+	case ObservationCatalogInputSignalTraces:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ObservationResourceType.
+const (
+	ObservationResourceTypeApplication         ObservationResourceType = "application"
+	ObservationResourceTypeHost                ObservationResourceType = "host"
+	ObservationResourceTypeKubernetesCluster   ObservationResourceType = "kubernetes_cluster"
+	ObservationResourceTypeKubernetesNamespace ObservationResourceType = "kubernetes_namespace"
+	ObservationResourceTypeMonitoringTarget    ObservationResourceType = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the ObservationResourceType enum.
+func (e ObservationResourceType) Valid() bool {
+	switch e {
+	case ObservationResourceTypeApplication:
+		return true
+	case ObservationResourceTypeHost:
+		return true
+	case ObservationResourceTypeKubernetesCluster:
+		return true
+	case ObservationResourceTypeKubernetesNamespace:
+		return true
+	case ObservationResourceTypeMonitoringTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ObservationResourceRefType.
+const (
+	ObservationResourceRefTypeApplication         ObservationResourceRefType = "application"
+	ObservationResourceRefTypeHost                ObservationResourceRefType = "host"
+	ObservationResourceRefTypeKubernetesCluster   ObservationResourceRefType = "kubernetes_cluster"
+	ObservationResourceRefTypeKubernetesNamespace ObservationResourceRefType = "kubernetes_namespace"
+	ObservationResourceRefTypeMonitoringTarget    ObservationResourceRefType = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the ObservationResourceRefType enum.
+func (e ObservationResourceRefType) Valid() bool {
+	switch e {
+	case ObservationResourceRefTypeApplication:
+		return true
+	case ObservationResourceRefTypeHost:
+		return true
+	case ObservationResourceRefTypeKubernetesCluster:
+		return true
+	case ObservationResourceRefTypeKubernetesNamespace:
+		return true
+	case ObservationResourceRefTypeMonitoringTarget:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PartialMetadataReasons.
 const (
 	AuthorizationFiltered PartialMetadataReasons = "authorization_filtered"
@@ -386,6 +524,51 @@ func (e RouteTestResultStatus) Valid() bool {
 	case RouteTestResultStatusRunning:
 		return true
 	case RouteTestResultStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TelemetryQueryScopeMode.
+const (
+	AllAuthorized TelemetryQueryScopeMode = "all_authorized"
+	Explicit      TelemetryQueryScopeMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the TelemetryQueryScopeMode enum.
+func (e TelemetryQueryScopeMode) Valid() bool {
+	switch e {
+	case AllAuthorized:
+		return true
+	case Explicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TelemetryQueryScopeResourceTypes.
+const (
+	TelemetryQueryScopeResourceTypesApplication         TelemetryQueryScopeResourceTypes = "application"
+	TelemetryQueryScopeResourceTypesHost                TelemetryQueryScopeResourceTypes = "host"
+	TelemetryQueryScopeResourceTypesKubernetesCluster   TelemetryQueryScopeResourceTypes = "kubernetes_cluster"
+	TelemetryQueryScopeResourceTypesKubernetesNamespace TelemetryQueryScopeResourceTypes = "kubernetes_namespace"
+	TelemetryQueryScopeResourceTypesMonitoringTarget    TelemetryQueryScopeResourceTypes = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the TelemetryQueryScopeResourceTypes enum.
+func (e TelemetryQueryScopeResourceTypes) Valid() bool {
+	switch e {
+	case TelemetryQueryScopeResourceTypesApplication:
+		return true
+	case TelemetryQueryScopeResourceTypesHost:
+		return true
+	case TelemetryQueryScopeResourceTypesKubernetesCluster:
+		return true
+	case TelemetryQueryScopeResourceTypesKubernetesNamespace:
+		return true
+	case TelemetryQueryScopeResourceTypesMonitoringTarget:
 		return true
 	default:
 		return false
@@ -490,19 +673,19 @@ func (e TelemetryRouteTransport) Valid() bool {
 
 // Defines values for TelemetrySignal.
 const (
-	Logs    TelemetrySignal = "logs"
-	Metrics TelemetrySignal = "metrics"
-	Traces  TelemetrySignal = "traces"
+	TelemetrySignalLogs    TelemetrySignal = "logs"
+	TelemetrySignalMetrics TelemetrySignal = "metrics"
+	TelemetrySignalTraces  TelemetrySignal = "traces"
 )
 
 // Valid indicates whether the value is a known member of the TelemetrySignal enum.
 func (e TelemetrySignal) Valid() bool {
 	switch e {
-	case Logs:
+	case TelemetrySignalLogs:
 		return true
-	case Metrics:
+	case TelemetrySignalMetrics:
 		return true
-	case Traces:
+	case TelemetrySignalTraces:
 		return true
 	default:
 		return false
@@ -548,6 +731,33 @@ func (e ListCollectorInstancesParamsResourceType) Valid() bool {
 	case ListCollectorInstancesParamsResourceTypeHost:
 		return true
 	case ListCollectorInstancesParamsResourceTypeKubernetesCluster:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListObservationQueryResourcesParamsKind.
+const (
+	ListObservationQueryResourcesParamsKindApplication         ListObservationQueryResourcesParamsKind = "application"
+	ListObservationQueryResourcesParamsKindHost                ListObservationQueryResourcesParamsKind = "host"
+	ListObservationQueryResourcesParamsKindKubernetesCluster   ListObservationQueryResourcesParamsKind = "kubernetes_cluster"
+	ListObservationQueryResourcesParamsKindKubernetesNamespace ListObservationQueryResourcesParamsKind = "kubernetes_namespace"
+	ListObservationQueryResourcesParamsKindMonitoringTarget    ListObservationQueryResourcesParamsKind = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the ListObservationQueryResourcesParamsKind enum.
+func (e ListObservationQueryResourcesParamsKind) Valid() bool {
+	switch e {
+	case ListObservationQueryResourcesParamsKindApplication:
+		return true
+	case ListObservationQueryResourcesParamsKindHost:
+		return true
+	case ListObservationQueryResourcesParamsKindKubernetesCluster:
+		return true
+	case ListObservationQueryResourcesParamsKindKubernetesNamespace:
+		return true
+	case ListObservationQueryResourcesParamsKindMonitoringTarget:
 		return true
 	default:
 		return false
@@ -749,6 +959,16 @@ type CursorPage struct {
 	Partial    PartialMetadata `json:"partial"`
 }
 
+// DashboardCatalogFilter defines model for DashboardCatalogFilter.
+type DashboardCatalogFilter struct {
+	Field    string                          `json:"field"`
+	Operator *DashboardCatalogFilterOperator `json:"operator,omitempty"`
+	Values   []string                        `json:"values"`
+}
+
+// DashboardCatalogFilterOperator defines model for DashboardCatalogFilter.Operator.
+type DashboardCatalogFilterOperator string
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
@@ -757,7 +977,8 @@ type KQLQuery struct {
 	Budget      *TelemetryQueryBudget   `json:"budget,omitempty"`
 	Pipeline    *string                 `json:"pipeline,omitempty"`
 	Query       string                  `json:"query"`
-	ResourceIds []openapi_types.UUID    `json:"resource_ids"`
+	ResourceIds []openapi_types.UUID    `json:"resource_ids,omitempty"`
+	Scope       *TelemetryQueryScope    `json:"scope,omitempty"`
 	TimeRange   TelemetryQueryTimeRange `json:"time_range"`
 }
 
@@ -806,6 +1027,108 @@ type NodeHostBindingPreview struct {
 	HostId          openapi_types.UUID `json:"host_id"`
 }
 
+// ObservationCatalogInput defines model for ObservationCatalogInput.
+type ObservationCatalogInput struct {
+	Cursor         *string                       `json:"cursor,omitempty"`
+	Field          *string                       `json:"field,omitempty"`
+	Filters        *[]DashboardCatalogFilter     `json:"filters,omitempty"`
+	From           time.Time                     `json:"from"`
+	Kind           ObservationCatalogInputKind   `json:"kind"`
+	Limit          int                           `json:"limit"`
+	Metric         *string                       `json:"metric,omitempty"`
+	ObservedOnly   *bool                         `json:"observed_only,omitempty"`
+	Scope          TelemetryQueryScope           `json:"scope"`
+	Search         *string                       `json:"search,omitempty"`
+	SelectedValues *[]string                     `json:"selected_values,omitempty"`
+	Signal         ObservationCatalogInputSignal `json:"signal"`
+	To             time.Time                     `json:"to"`
+}
+
+// ObservationCatalogInputKind defines model for ObservationCatalogInput.Kind.
+type ObservationCatalogInputKind string
+
+// ObservationCatalogInputSignal defines model for ObservationCatalogInput.Signal.
+type ObservationCatalogInputSignal string
+
+// ObservationCatalogResult defines model for ObservationCatalogResult.
+type ObservationCatalogResult struct {
+	Complete bool `json:"complete"`
+	Fields   []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	} `json:"fields"`
+	HasMore        bool                `json:"has_more"`
+	Metrics        []ObservationMetric `json:"metrics"`
+	NextCursor     *string             `json:"next_cursor,omitempty"`
+	SelectedExists map[string]bool     `json:"selected_exists"`
+	Sources        []ObservationSource `json:"sources"`
+	Values         []string            `json:"values"`
+	Warnings       []string            `json:"warnings"`
+}
+
+// ObservationMetric defines model for ObservationMetric.
+type ObservationMetric struct {
+	Description string              `json:"description"`
+	Labels      []string            `json:"labels"`
+	Name        string              `json:"name"`
+	Observed    bool                `json:"observed"`
+	Recipes     []ObservationRecipe `json:"recipes"`
+	SourceKeys  []string            `json:"source_keys"`
+	SourceType  string              `json:"source_type"`
+	Type        string              `json:"type"`
+	Unit        string              `json:"unit"`
+}
+
+// ObservationRecipe defines model for ObservationRecipe.
+type ObservationRecipe struct {
+	Description    string   `json:"description"`
+	Expression     string   `json:"expression"`
+	Id             string   `json:"id"`
+	IntegrationKey string   `json:"integration_key"`
+	Metrics        []string `json:"metrics"`
+	SourceType     string   `json:"source_type"`
+	Title          string   `json:"title"`
+	Unit           string   `json:"unit"`
+	Version        int      `json:"version"`
+}
+
+// ObservationResource defines model for ObservationResource.
+type ObservationResource struct {
+	Environment string                  `json:"environment"`
+	Id          openapi_types.UUID      `json:"id"`
+	Name        string                  `json:"name"`
+	ParentId    *openapi_types.UUID     `json:"parent_id,omitempty"`
+	ParentName  *string                 `json:"parent_name,omitempty"`
+	SourceUid   *string                 `json:"source_uid,omitempty"`
+	Type        ObservationResourceType `json:"type"`
+}
+
+// ObservationResourceType defines model for ObservationResource.Type.
+type ObservationResourceType string
+
+// ObservationResourcePage defines model for ObservationResourcePage.
+type ObservationResourcePage struct {
+	Items      []ObservationResource `json:"items"`
+	NextCursor *string               `json:"next_cursor,omitempty"`
+}
+
+// ObservationResourceRef defines model for ObservationResourceRef.
+type ObservationResourceRef struct {
+	Id   openapi_types.UUID         `json:"id"`
+	Type ObservationResourceRefType `json:"type"`
+}
+
+// ObservationResourceRefType defines model for ObservationResourceRef.Type.
+type ObservationResourceRefType string
+
+// ObservationSource defines model for ObservationSource.
+type ObservationSource struct {
+	CapabilityVersion string   `json:"capability_version"`
+	IntegrationKeys   []string `json:"integration_keys"`
+	Keys              []string `json:"keys"`
+	SourceType        string   `json:"source_type"`
+}
+
 // PartialMetadata defines model for PartialMetadata.
 type PartialMetadata struct {
 	Partial bool                     `json:"partial"`
@@ -819,7 +1142,8 @@ type PartialMetadataReasons string
 type PromQLInstantQuery struct {
 	Budget      *TelemetryQueryBudget   `json:"budget,omitempty"`
 	Query       string                  `json:"query"`
-	ResourceIds []openapi_types.UUID    `json:"resource_ids"`
+	ResourceIds []openapi_types.UUID    `json:"resource_ids,omitempty"`
+	Scope       *TelemetryQueryScope    `json:"scope,omitempty"`
 	TimeRange   TelemetryQueryTimeRange `json:"time_range"`
 }
 
@@ -827,7 +1151,8 @@ type PromQLInstantQuery struct {
 type PromQLRangeQuery struct {
 	Budget      *TelemetryQueryBudget   `json:"budget,omitempty"`
 	Query       string                  `json:"query"`
-	ResourceIds []openapi_types.UUID    `json:"resource_ids"`
+	ResourceIds []openapi_types.UUID    `json:"resource_ids,omitempty"`
+	Scope       *TelemetryQueryScope    `json:"scope,omitempty"`
 	StepSeconds int                     `json:"step_seconds"`
 	TimeRange   TelemetryQueryTimeRange `json:"time_range"`
 }
@@ -917,7 +1242,8 @@ type SkyWalkingTraceGraphQLQuery struct {
 	Budget        *TelemetryQueryBudget   `json:"budget,omitempty"`
 	OperationName *string                 `json:"operation_name,omitempty"`
 	Query         string                  `json:"query"`
-	ResourceIds   []openapi_types.UUID    `json:"resource_ids"`
+	ResourceIds   []openapi_types.UUID    `json:"resource_ids,omitempty"`
+	Scope         *TelemetryQueryScope    `json:"scope,omitempty"`
 	TimeRange     TelemetryQueryTimeRange `json:"time_range"`
 	Variables     *map[string]interface{} `json:"variables,omitempty"`
 }
@@ -962,6 +1288,21 @@ type TelemetryQueryMeta struct {
 	ScannedBytes  int64  `json:"scanned_bytes"`
 	ScannedRows   int64  `json:"scanned_rows"`
 }
+
+// TelemetryQueryScope defines model for TelemetryQueryScope.
+type TelemetryQueryScope struct {
+	Mode          TelemetryQueryScopeMode             `json:"mode"`
+	ResourceTypes *[]TelemetryQueryScopeResourceTypes `json:"resource_types,omitempty"`
+	Resources     []ObservationResourceRef            `json:"resources"`
+	SourceKeys    *[]string                           `json:"source_keys,omitempty"`
+	SourceType    *string                             `json:"source_type,omitempty"`
+}
+
+// TelemetryQueryScopeMode defines model for TelemetryQueryScope.Mode.
+type TelemetryQueryScopeMode string
+
+// TelemetryQueryScopeResourceTypes defines model for TelemetryQueryScope.ResourceTypes.
+type TelemetryQueryScopeResourceTypes string
 
 // TelemetryQueryTimeRange defines model for TelemetryQueryTimeRange.
 type TelemetryQueryTimeRange struct {
@@ -1123,6 +1464,17 @@ type PreviewKubernetesNodeHostBindingParams struct {
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
 }
 
+// ListObservationQueryResourcesParams defines parameters for ListObservationQueryResources.
+type ListObservationQueryResourcesParams struct {
+	Kind   ListObservationQueryResourcesParamsKind `form:"kind" json:"kind"`
+	Search *string                                 `form:"search,omitempty" json:"search,omitempty"`
+	Cursor *string                                 `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int                                    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListObservationQueryResourcesParamsKind defines parameters for ListObservationQueryResources.
+type ListObservationQueryResourcesParamsKind string
+
 // CreateTelemetryRouteTestParams defines parameters for CreateTelemetryRouteTest.
 type CreateTelemetryRouteTestParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
@@ -1151,6 +1503,9 @@ type QueryMetricsRangeJSONRequestBody = PromQLRangeQuery
 
 // PreviewKubernetesNodeHostBindingJSONRequestBody defines body for PreviewKubernetesNodeHostBinding for application/json ContentType.
 type PreviewKubernetesNodeHostBindingJSONRequestBody = NodeHostBindingPreview
+
+// QueryObservationCatalogJSONRequestBody defines body for QueryObservationCatalog for application/json ContentType.
+type QueryObservationCatalogJSONRequestBody = ObservationCatalogInput
 
 // QueryTelemetryOverviewJSONRequestBody defines body for QueryTelemetryOverview for application/json ContentType.
 type QueryTelemetryOverviewJSONRequestBody = TelemetryOverviewQuery

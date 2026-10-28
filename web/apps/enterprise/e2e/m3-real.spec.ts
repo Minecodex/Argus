@@ -234,10 +234,10 @@ test.describe("M3 real resource flow", () => {
       .click();
     await expect(drawer).toHaveCount(0);
 
-    await page.goto("/tasks");
-    const executionRow = page.locator("tr").filter({ hasText: executionId });
-    await expect(executionRow).toBeVisible();
-    const claim = executionRow.getByRole("button", {
+    await page.goto("/settings/audit");
+    await page.getByPlaceholder(/搜索摘要|Search summary/i).fill(executionId);
+    await expect(page.locator("tbody tr").first()).toBeVisible();
+    const claim = page.getByRole("button", {
       name: /领取安装命令|Claim install command/i,
     });
     await expect(claim).toHaveCount(0);

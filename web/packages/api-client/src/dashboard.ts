@@ -49,6 +49,7 @@ export interface DashboardDomains {
     ): Promise<DashboardSchemas["DashboardScopeDirectoryPage"]>;
     convertPanel(
       input: DashboardSchemas["DashboardConvertPanelInput"],
+      signal?: AbortSignal,
     ): Promise<DashboardSchemas["DashboardConvertedPanel"]>;
     bindings(id: string): Promise<DashboardBindingView[]>;
     resourceBindings(

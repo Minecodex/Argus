@@ -1,3 +1,4 @@
+import { alertMeasurement } from "./measurement";
 import { useAlertText, datetime } from "./common";
 
 type Event = {
@@ -23,7 +24,7 @@ export function AlertEventTimeline({
   lastEvaluatedAt?: string;
   userNames?: Map<string, string>;
 }) {
-  const { t } = useAlertText();
+  const { t, locale } = useAlertText();
   return (
     <ol className="argus-alert-timeline">
       {events.map((entry) => {
@@ -65,10 +66,19 @@ export function AlertEventTimeline({
             </p>
             {typeof state.value === "number" && (
               <p>
-                {t("alerts.currentValue")}: {state.value}
-                {String(state.unit ?? "")}
+                {t("alerts.currentValue")}:{" "}
+                <span title={String(state.value)}>
+                  {alertMeasurement(
+                    state.value,
+                    String(state.unit ?? ""),
+                    locale,
+                    typeof state.threshold === "number"
+                      ? state.threshold
+                      : undefined,
+                  )}
+                </span>
                 {typeof state.threshold === "number" &&
-                  ` / ${state.threshold}${String(state.unit ?? "")}`}
+                  ` / ${alertMeasurement(state.threshold, String(state.unit ?? ""), locale, state.value)}`}
               </p>
             )}
             {typeof entry.payload.severity === "string" && (

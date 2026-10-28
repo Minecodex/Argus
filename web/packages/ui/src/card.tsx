@@ -1,6 +1,8 @@
 import { type HTMLAttributes, type ReactNode } from "react";
 import { cx } from "./lib";
 import { Card as HeroCard } from "@heroui/react/card";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { Button } from "./button";
 
 export function Card({
   className,
@@ -19,16 +21,62 @@ export function CardHeader({
   description,
   action,
   className,
+  onToggle,
+  expanded,
+  controlsId,
+  toggleLabel,
 }: {
   title: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
   className?: string;
+  onToggle?: () => void;
+  expanded?: boolean;
+  controlsId?: string;
+  toggleLabel?: string;
 }) {
   return (
-    <header className={cx("argus-card__header", className)}>
+    <header
+      className={cx(
+        "argus-card__header",
+        onToggle && "argus-card__header--collapsible",
+        className,
+      )}
+      onClick={
+        onToggle
+          ? (event) => {
+              const target = event.target as HTMLElement;
+              if (!event.currentTarget.contains(target)) return;
+              if (
+                !target.closest(
+                  "button,a,input,select,textarea,[role=button],[role=combobox],[role=checkbox],[role=switch]",
+                )
+              )
+                onToggle();
+            }
+          : undefined
+      }
+    >
       <div className="argus-card__heading">
-        <div className="argus-card__title">{title}</div>
+        <div className="argus-card__title">
+          {onToggle && (
+            <Button
+              variant="ghost"
+              isIconOnly
+              aria-label={toggleLabel}
+              aria-expanded={expanded}
+              aria-controls={controlsId}
+              onPress={onToggle}
+            >
+              {expanded ? (
+                <ChevronDown aria-hidden />
+              ) : (
+                <ChevronRight aria-hidden />
+              )}
+            </Button>
+          )}
+          {title}
+        </div>
         {description && (
           <div className="argus-card__description">{description}</div>
         )}

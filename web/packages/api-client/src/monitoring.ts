@@ -16,6 +16,7 @@ export type MonitoringCollection = MonitoringSchemas["MonitoringCollection"];
 export type MonitoringIntegration = MonitoringSchemas["MonitoringIntegration"];
 export type MonitoringTarget = MonitoringSchemas["MonitoringTarget"];
 export type MonitoringListInput = {
+  environment?: string;
   search?: string;
   cursor?: string;
   limit?: number;

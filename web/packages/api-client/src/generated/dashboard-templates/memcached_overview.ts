@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "memcached.overview",
-  "version": 1,
+  "version": 2,
   "name": "Memcached",
   "description": "",
   "integration_keys": [
@@ -301,6 +301,150 @@ export const template = {
           "min_h": 20
         },
         "unit": "B/s",
+        "decimals": 2,
+        "legend": true,
+        "thresholds": []
+      },
+      {
+        "id": "hits",
+        "title": "rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])",
+        "description": "",
+        "type": "timeseries",
+        "signal": "metrics",
+        "authoring_mode": "dsl",
+        "applicable_resource_types": [
+          "monitoring_target"
+        ],
+        "source_binding": {
+          "source_type": "memcached",
+          "capability_version": "v1"
+        },
+        "local_filters": [],
+        "targets": [
+          {
+            "id": "a",
+            "language": "promql",
+            "source_definition": {
+              "dsl": {
+                "expression": "rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])"
+              }
+            },
+            "query_mode": "range",
+            "range_step_policy": {
+              "kind": "auto",
+              "target_points": 300,
+              "min_step_seconds": 1
+            },
+            "parameter_bindings": []
+          }
+        ],
+        "detail_query_targets": [],
+        "drilldowns": [],
+        "layout": {
+          "x": 0,
+          "y": 108,
+          "w": 6,
+          "h": 36,
+          "min_w": 2,
+          "min_h": 20
+        },
+        "unit": "ops/s",
+        "decimals": 2,
+        "legend": true,
+        "thresholds": []
+      },
+      {
+        "id": "misses",
+        "title": "rate(memcached_operations{operation=\"get\",type=\"miss\"}[5m])",
+        "description": "",
+        "type": "timeseries",
+        "signal": "metrics",
+        "authoring_mode": "dsl",
+        "applicable_resource_types": [
+          "monitoring_target"
+        ],
+        "source_binding": {
+          "source_type": "memcached",
+          "capability_version": "v1"
+        },
+        "local_filters": [],
+        "targets": [
+          {
+            "id": "a",
+            "language": "promql",
+            "source_definition": {
+              "dsl": {
+                "expression": "rate(memcached_operations{operation=\"get\",type=\"miss\"}[5m])"
+              }
+            },
+            "query_mode": "range",
+            "range_step_policy": {
+              "kind": "auto",
+              "target_points": 300,
+              "min_step_seconds": 1
+            },
+            "parameter_bindings": []
+          }
+        ],
+        "detail_query_targets": [],
+        "drilldowns": [],
+        "layout": {
+          "x": 6,
+          "y": 108,
+          "w": 6,
+          "h": 36,
+          "min_w": 2,
+          "min_h": 20
+        },
+        "unit": "ops/s",
+        "decimals": 2,
+        "legend": true,
+        "thresholds": []
+      },
+      {
+        "id": "hit_ratio",
+        "title": "(sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])) / (sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])) + sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"miss\"}[5m])))) and ((sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])) + sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"miss\"}[5m]))) \u003e 0)",
+        "description": "",
+        "type": "timeseries",
+        "signal": "metrics",
+        "authoring_mode": "dsl",
+        "applicable_resource_types": [
+          "monitoring_target"
+        ],
+        "source_binding": {
+          "source_type": "memcached",
+          "capability_version": "v1"
+        },
+        "local_filters": [],
+        "targets": [
+          {
+            "id": "a",
+            "language": "promql",
+            "source_definition": {
+              "dsl": {
+                "expression": "(sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])) / (sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])) + sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"miss\"}[5m])))) and ((sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])) + sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"miss\"}[5m]))) \u003e 0)"
+              }
+            },
+            "query_mode": "range",
+            "range_step_policy": {
+              "kind": "auto",
+              "target_points": 300,
+              "min_step_seconds": 1
+            },
+            "parameter_bindings": []
+          }
+        ],
+        "detail_query_targets": [],
+        "drilldowns": [],
+        "layout": {
+          "x": 0,
+          "y": 144,
+          "w": 6,
+          "h": 36,
+          "min_w": 2,
+          "min_h": 20
+        },
+        "unit": "percent_ratio",
         "decimals": 2,
         "legend": true,
         "thresholds": []

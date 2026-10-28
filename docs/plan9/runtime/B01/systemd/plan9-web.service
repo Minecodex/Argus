@@ -1,0 +1,16 @@
+[Unit]
+Description=Plan9 real HTTP workload
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/plan9.env
+ExecStart=/usr/local/bin/plan9-workload serve
+Restart=no
+MemoryMax=128M
+CPUQuota=20%
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

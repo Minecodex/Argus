@@ -1,0 +1,61 @@
+.argus-metric-query-basics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--action-gap);
+}
+.argus-query-source {
+  width: var(--filter-select-min-width);
+}
+.argus-metric-query-basics > .argus-field {
+  flex: none;
+  width: var(--filter-select-min-width);
+  min-width: 0;
+}
+.argus-metric-query-basics > .argus-metric-query-name {
+  width: var(--field-width-compact);
+}
+.argus-metric-query-basics .argus-combobox,
+.argus-metric-query-basics .argus-value-selector {
+  width: 100%;
+  min-width: 0;
+}
+.argus-metric-query-basics .argus-value-selector-summary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.argus-metric-label-filters {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--action-gap);
+}
+.argus-metric-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--action-gap);
+  max-width: 100%;
+}
+.argus-metric-label-row .argus-combobox {
+  width: var(--field-width-compact);
+}
+.argus-metric-query-options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--field-gap);
+  padding-top: var(--space-2);
+  border-top: var(--space-px-1) solid var(--border-subtle);
+}
+.argus-metric-query-options > .argus-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--action-gap);
+}
+.argus-metric-query-options .argus-input {
+  width: var(--filter-select-min-width);
+}

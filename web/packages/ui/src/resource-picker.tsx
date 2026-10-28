@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Button } from "./button";
 import { Input } from "./form";
 import { Dialog } from "./primitives";
-import { DataTable, type Column } from "./table";
+import { DataTable, Pagination, type Column } from "./table";
 import { useUiText } from "./locale";
 
 export function ResourcePickerDialog<T extends object>({
@@ -134,17 +134,14 @@ export function ResourcePickerDialog<T extends object>({
         {!loading && !error && data.length === 0 && (
           <p role="status">{text("没有匹配的结果", "No matching results")}</p>
         )}
-        <div className="argus-resource-picker__pagination">
-          <Button isDisabled={!hasPrevious || loading} onPress={onPrevious}>
-            {text("上一页", "Previous")}
-          </Button>
-          <span>
-            {text("第", "Page")} {page} {text("页", "")}
-          </span>
-          <Button isDisabled={!hasNext || loading} onPress={onNext}>
-            {text("下一页", "Next")}
-          </Button>
-        </div>
+        <Pagination
+          page={page}
+          hasPrevious={hasPrevious}
+          hasNext={hasNext}
+          isDisabled={loading}
+          onPrevious={onPrevious}
+          onNext={onNext}
+        />
       </div>
     </Dialog>
   );

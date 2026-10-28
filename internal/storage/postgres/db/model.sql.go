@@ -671,8 +671,8 @@ func (q *Queries) ListModelQuotas(ctx context.Context, enterpriseID uuid.UUID) (
 }
 
 const listModelUsage = `-- name: ListModelUsage :many
-SELECT model_id,
-    date_trunc('month', completed_at)::date AS month,
+SELECT c.model_id,
+    $1::date AS month,
     count(*)::bigint AS request_count,
     COALESCE(sum(input_tokens) FILTER(WHERE input_usage_source='provider'), 0)::bigint AS input_tokens,
     COALESCE(sum(input_tokens) FILTER(WHERE input_usage_source='estimated'), 0)::bigint AS estimated_input_tokens,
@@ -683,18 +683,23 @@ SELECT model_id,
     bool_and(cached_input_usage_source='provider' AND input_usage_source='provider' AND cached_input_tokens<=input_tokens AND status='succeeded')::boolean AS cached_usage_complete,
     COALESCE(sum(amount), 0)::numeric(20,8) AS amount,
     count(*) FILTER (WHERE call_kind = 'compaction')::bigint AS compaction_count
-FROM model_calls
-WHERE enterprise_id = $1 AND completed_at >= $2 AND completed_at < $3
-  AND ($4::uuid IS NULL OR model_id = $4)
-GROUP BY model_id, date_trunc('month', completed_at)::date
-ORDER BY month DESC, model_id
+FROM model_calls c
+WHERE c.enterprise_id = $2 AND c.completed_at >= $3 AND c.completed_at < $4
+  AND ($5::uuid IS NULL OR c.model_id = $5)
+  AND ($6::uuid IS NULL OR EXISTS (
+    SELECT 1 FROM model_quota_reservations q WHERE q.enterprise_id=c.enterprise_id AND q.model_call_id=c.id AND q.department_id=$6
+  ))
+GROUP BY c.model_id
+ORDER BY c.model_id
 `
 
 type ListModelUsageParams struct {
-	EnterpriseID  uuid.UUID          `json:"enterprise_id"`
-	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
-	CompletedAt_2 pgtype.Timestamptz `json:"completed_at_2"`
-	ModelID       uuid.NullUUID      `json:"model_id"`
+	Month        pgtype.Date        `json:"month"`
+	EnterpriseID uuid.UUID          `json:"enterprise_id"`
+	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+	CompletedAt2 pgtype.Timestamptz `json:"completed_at_2"`
+	ModelID      uuid.NullUUID      `json:"model_id"`
+	DepartmentID uuid.NullUUID      `json:"department_id"`
 }
 
 type ListModelUsageRow struct {
@@ -714,10 +719,12 @@ type ListModelUsageRow struct {
 
 func (q *Queries) ListModelUsage(ctx context.Context, arg ListModelUsageParams) ([]ListModelUsageRow, error) {
 	rows, err := q.db.Query(ctx, listModelUsage,
+		arg.Month,
 		arg.EnterpriseID,
 		arg.CompletedAt,
-		arg.CompletedAt_2,
+		arg.CompletedAt2,
 		arg.ModelID,
+		arg.DepartmentID,
 	)
 	if err != nil {
 		return nil, err

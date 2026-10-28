@@ -11,6 +11,7 @@ import {
 import {
   Badge,
   Button,
+  Pagination,
   CodeBlock,
   DataTable,
   Dialog,
@@ -360,26 +361,19 @@ export function KubernetesWorkbench({
                     : "kubernetesWorkbench.more",
                 )}
               </span>
-              <div className="argus-k8s-workbench-controls">
-                <Button
-                  isDisabled={cursors.length === 1}
-                  onPress={() => {
-                    setSelected(undefined);
-                    setCursors((v) => v.slice(0, -1));
-                  }}
-                >
-                  {t("monitoring.previous")}
-                </Button>
-                <Button
-                  isDisabled={!data.next_cursor}
-                  onPress={() => {
-                    setSelected(undefined);
-                    setCursors((v) => [...v, data.next_cursor]);
-                  }}
-                >
-                  {t("monitoring.next")}
-                </Button>
-              </div>
+              <Pagination
+                page={cursors.length}
+                hasNext={!!data.next_cursor}
+                isDisabled={list.isFetching}
+                onChange={(page) => {
+                  setSelected(undefined);
+                  setCursors((old) =>
+                    page <= old.length
+                      ? old.slice(0, page)
+                      : [...old, data.next_cursor],
+                  );
+                }}
+              />
             </div>
           )}
           {picker && (

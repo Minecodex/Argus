@@ -9,6 +9,7 @@ import {
 } from "@argus/api-client";
 import {
   Button,
+  Pagination,
   DataTable,
   Dialog,
   EmptyState,
@@ -147,20 +148,18 @@ export function ApplicationIngest({
             description={t("monitoring.ingest.discoveryHint")}
           />
         ))}
-      <div className="argus-monitoring-pagination">
-        <Button
-          isDisabled={cursors.length === 1}
-          onPress={() => setCursors((v) => v.slice(0, -1))}
-        >
-          {t("monitoring.previous")}
-        </Button>
-        <Button
-          isDisabled={!query.data?.next_cursor}
-          onPress={() => setCursors((v) => [...v, query.data!.next_cursor])}
-        >
-          {t("monitoring.next")}
-        </Button>
-      </div>
+      <Pagination
+        page={cursors.length}
+        hasNext={!!query.data?.next_cursor}
+        isDisabled={query.isFetching}
+        onChange={(page) =>
+          setCursors((old) =>
+            page <= old.length
+              ? old.slice(0, page)
+              : [...old, query.data?.next_cursor],
+          )
+        }
+      />
       {creating && (
         <EndpointForm
           application={application}
@@ -494,20 +493,18 @@ function IngestKeys({
             ]}
           />
         )}
-        <div className="argus-monitoring-pagination">
-          <Button
-            isDisabled={cursors.length === 1}
-            onPress={() => setCursors((v) => v.slice(0, -1))}
-          >
-            {t("monitoring.previous")}
-          </Button>
-          <Button
-            isDisabled={!query.data?.next_cursor}
-            onPress={() => setCursors((v) => [...v, query.data!.next_cursor])}
-          >
-            {t("monitoring.next")}
-          </Button>
-        </div>
+        <Pagination
+          page={cursors.length}
+          hasNext={!!query.data?.next_cursor}
+          isDisabled={query.isFetching}
+          onChange={(page) =>
+            setCursors((old) =>
+              page <= old.length
+                ? old.slice(0, page)
+                : [...old, query.data?.next_cursor],
+            )
+          }
+        />
       </Dialog>
       {value && (
         <Dialog

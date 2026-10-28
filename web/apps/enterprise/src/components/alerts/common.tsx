@@ -1,5 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { StatusBadge, Button, DataTable, type Column } from "@argus/ui";
+import {
+  StatusBadge,
+  Button,
+  DataTable,
+  Pagination,
+  type Column,
+} from "@argus/ui";
 import type {
   AlertInstance,
   AlertConfiguration,
@@ -86,25 +92,12 @@ export function AlertTable<T extends object>({
         </div>
       )}
       {footer === undefined ? (
-        <div className="argus-alert-table-footer">
-          <span>
-            {t("alerts.pageInfo", { total: data.length, page, pages })}
-          </span>
-          <div className="argus-alert-actions">
-            <SmallAction
-              disabled={page <= 1}
-              onPress={() => setLocalPage(page - 1)}
-            >
-              {t("alerts.previous")}
-            </SmallAction>
-            <SmallAction
-              disabled={page >= pages}
-              onPress={() => setLocalPage(page + 1)}
-            >
-              {t("alerts.next")}
-            </SmallAction>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          totalPages={pages}
+          onChange={setLocalPage}
+          summary={t("alerts.pageInfo", { total: data.length, page, pages })}
+        />
       ) : (
         footer
       )}

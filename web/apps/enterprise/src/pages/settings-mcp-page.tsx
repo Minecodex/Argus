@@ -7,11 +7,11 @@ import {useState} from "react";
 import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import {useTranslation} from "react-i18next";
 import {useApi,formatApiError,type MCPConnection,type MCPConnectionWrite} from "@argus/api-client";
-import {Alert,Button,DataTable,Field,FormDrawer,Input,PageShell,Select} from "@argus/ui";
+import {Alert,Button,DataTable,Field,FormDrawer,Input,Select} from "@argus/ui";
 import {usePermission} from "../lib/permissions";
 import "../styles/planv5.css";
 
-export function SettingsMCPPage() {
+export function MCPSettingsPanel() {
   const api = useApi();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -52,10 +52,8 @@ export function SettingsMCPPage() {
     }
   };
   return (
-    <PageShell
-      title={t("planv5.mcp.title")}
-      description={t("planv5.mcp.description")}
-    >
+    <div className="argus-settings-stack">
+      <p className="argus-settings-section__hint">{t("planv5.mcp.description")}</p>
       {!canManage ? (
         <p role="alert">{t("planv5.mcp.forbidden")}</p>
       ) : (
@@ -123,7 +121,7 @@ export function SettingsMCPPage() {
           )}
         </>
       )}
-    </PageShell>
+    </div>
   );
 }
 function ConnectionEditor({

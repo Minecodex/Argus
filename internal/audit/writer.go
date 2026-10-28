@@ -17,6 +17,7 @@ import (
 
 var allowedDetailKeys = map[string]bool{
 	"summary": true, "reason": true, "before": true, "after": true,
+	"action_type": true, "error_code": true, "result_kind": true,
 	"affected_count": true, "status": true, "username": true,
 	"in_flight_batch_may_finish": true, "node_stays_cordoned": true,
 	"cluster_id": true, "namespace_id": true, "namespace_uid": true,
@@ -96,6 +97,7 @@ func Append(ctx context.Context, queries *db.Queries, entry Entry) (db.AuditEven
 	for key, value := range entry.Details {
 		detailValues[key] = value
 	}
+	operationDetails(ctx, entry, detailValues)
 	detailValues["trace_id"] = auditTraceID(ctx, entry.TraceID)
 	details, err := json.Marshal(sanitizeDetails(detailValues))
 	if err != nil {

@@ -24,6 +24,8 @@ type Options = {
   revision?: DashboardRevision;
   resourceId?: string;
   resourceType?: DashboardResourceType;
+  modelId?: string;
+  month?: string;
   enabled: boolean;
   execute: (
     id: string,
@@ -238,6 +240,8 @@ export function useDashboardExecution(options: Options) {
         ),
         local_values: {},
       };
+      if (opts.modelId) (initial.variables ??= {}).model = { all: false, values: [opts.modelId] };
+      if (opts.month) (initial.variables ??= {}).month = { all: false, values: [opts.month] };
       void run(initial, undefined, opts.revision.spec.default_time_range);
     }
     return () => {
@@ -250,6 +254,8 @@ export function useDashboardExecution(options: Options) {
     options.revision?.id,
     options.resourceId,
     options.resourceType,
+    options.modelId,
+    options.month,
     options.enabled,
     run,
   ]);

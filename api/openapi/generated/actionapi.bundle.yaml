@@ -513,6 +513,10 @@ components:
       properties:
         execution_id:
           type: string
+        action_type:
+          type: string
+          minLength: 1
+          maxLength: 128
         action_ref:
           type: string
         status:

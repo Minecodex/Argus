@@ -43,6 +43,9 @@ func (s Service) Applications(ctx context.Context, a Actor, in ListInput) (Page[
 	if in.Status == "" {
 		in.Status = "active"
 	}
+	if in.Environment != "" && !environmentPattern.MatchString(in.Environment) {
+		return out, ErrInvalid
+	}
 	if in.Status != "active" && in.Status != "archived" {
 		return out, ErrInvalid
 	}
@@ -50,7 +53,7 @@ func (s Service) Applications(ctx context.Context, a Actor, in ListInput) (Page[
 	if err != nil {
 		return out, err
 	}
-	rows, err := s.Store.Queries.ListMonitoringApplications(ctx, db.ListMonitoringApplicationsParams{EnterpriseID: a.EnterpriseID, AuthorizedIds: ids, Status: in.Status, AfterID: after, Search: in.Search, PageLimit: int32(limit + 1)})
+	rows, err := s.Store.Queries.ListMonitoringApplications(ctx, db.ListMonitoringApplicationsParams{EnterpriseID: a.EnterpriseID, AuthorizedIds: ids, Status: in.Status, AfterID: after, Search: in.Search, Environment: in.Environment, PageLimit: int32(limit + 1)})
 	if err != nil {
 		return out, err
 	}
@@ -144,12 +147,12 @@ func (s Service) page(a Actor, audience string, in ListInput) (int, uuid.UUID, p
 		return 0, uuid.Nil, pagination.Binding{}, ErrInvalid
 	}
 	filter := struct {
-		Search, Status, Integration, ApplicationMode string
-		ApplyStatus, Health, Freshness               string
-		DesiredEnabled                               *bool
-		ApplicationIDs                               []uuid.UUID
-		Limit                                        int
-	}{Search: strings.TrimSpace(in.Search), Status: in.Status, Integration: in.Integration, ApplicationMode: "all_authorized", ApplicationIDs: append([]uuid.UUID{}, in.ApplicationIDs...), Limit: limit,
+		Search, Status, Integration, ApplicationMode, Environment string
+		ApplyStatus, Health, Freshness                            string
+		DesiredEnabled                                            *bool
+		ApplicationIDs                                            []uuid.UUID
+		Limit                                                     int
+	}{Environment: in.Environment, Search: strings.TrimSpace(in.Search), Status: in.Status, Integration: in.Integration, ApplicationMode: "all_authorized", ApplicationIDs: append([]uuid.UUID{}, in.ApplicationIDs...), Limit: limit,
 		DesiredEnabled: in.DesiredEnabled, ApplyStatus: in.ApplyStatus, Health: in.Health, Freshness: in.Freshness}
 	if in.ApplicationIDs != nil {
 		filter.ApplicationMode = "explicit"

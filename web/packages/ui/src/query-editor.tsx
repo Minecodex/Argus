@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
+const CodeEditor = lazy(() => import("./telemetry-code-editor"));
 import { Textarea } from "./form";
 import { useUiText } from "./locale";
 
@@ -34,24 +35,30 @@ export function TelemetryQueryEditor({
         builder
       ) : (
         <>
-          <Textarea
-            className="argus-query-editor__code"
-            aria-label={text("查询语句", "Query expression")}
-            value={expression ?? ""}
-            onChange={(e) => onExpressionChange?.(e.target.value)}
-            spellCheck={false}
-            rows={7}
-          />
-          {language === "kql" && (
-            <Textarea
-              className="argus-query-editor__code"
-              aria-label={text("处理管道", "Query pipeline")}
-              value={pipeline ?? ""}
-              onChange={(e) => onPipelineChange?.(e.target.value)}
-              spellCheck={false}
-              rows={2}
+          <Suspense
+            fallback={
+              <Textarea
+                aria-label={text("查询语句", "Query expression")}
+                value={expression ?? ""}
+                onChange={(e) => onExpressionChange?.(e.target.value)}
+              />
+            }
+          >
+            <CodeEditor
+              language={language}
+              label={text("查询语句", "Query expression")}
+              value={expression ?? ""}
+              onChange={onExpressionChange}
             />
-          )}
+            {language === "kql" && (
+              <CodeEditor
+                language="kql"
+                label={text("处理管道", "Query pipeline")}
+                value={pipeline ?? ""}
+                onChange={onPipelineChange}
+              />
+            )}
+          </Suspense>
         </>
       )}
     </div>

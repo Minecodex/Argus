@@ -1,5 +1,6 @@
 import type { EChartsOption } from "echarts";
 import { resolveObservationColors } from "./observation-display";
+import { floatingObservationTooltip } from "./observation-tooltip";
 
 type Settings = Record<string, unknown>;
 const settings = (value: unknown): Settings =>
@@ -55,8 +56,7 @@ export function themeObservation(
         ...v,
         textStyle: { color: text, ...settings(v.textStyle) },
       })),
-      tooltip: {
-        renderMode: "richText",
+      tooltip: floatingObservationTooltip({
         trigger: "axis",
         ...settings(option.tooltip),
         backgroundColor: color("--bg-elevated"),
@@ -65,7 +65,7 @@ export function themeObservation(
           ...settings(settings(option.tooltip).textStyle),
           color: primary,
         },
-      },
+      }),
       series: components(option.series, (v) => ({
         ...v,
         label: { color: text, ...settings(v.label) },

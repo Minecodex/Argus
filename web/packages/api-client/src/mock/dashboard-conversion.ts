@@ -65,13 +65,24 @@ export function mockConvertPanel(
     if (input.mode === "dsl") {
       const builder = target.source_definition.builder!;
       if (
-        builder.filters.length ||
+        builder.filters.some(
+          (filter) =>
+            filter.variable ||
+            filter.local_parameter ||
+            filter.drilldown_input ||
+            filter.values ||
+            filter.value === undefined ||
+            !/^[A-Za-z_][A-Za-z0-9_]*$/.test(filter.field) ||
+            !["=", "!=", "=~", "!~"].includes(filter.operator),
+        ) ||
         builder.group_by.length ||
         !["value", "sum", "avg", "min", "max"].includes(builder.operation) ||
         !/^\w+$/.test(builder.metric ?? "")
       )
         return unsupported(target.id);
-      const selector = `${builder.metric}{}`;
+      // Fixed literal-label fixtures support the inline editor. This is not a
+      // PromQL parser; complex and parameterized conversions still fail closed.
+      const selector = `${builder.metric}{${builder.filters.map((filter) => `${filter.field}${filter.operator}${JSON.stringify(filter.value)}`).join(",")}}`;
       target.source_definition = {
         dsl: {
           expression:

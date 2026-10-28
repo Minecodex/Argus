@@ -42,6 +42,8 @@ import {
 } from "../components/dashboards/execution-status";
 
 import { useDashboardExecution } from "../components/dashboards/use-dashboard-execution";
+import { ModelGovernanceControls } from "../components/dashboards/model-governance-controls";
+import "../styles/settings.css";
 
 export function DashboardViewPage() {
   const { dashboardId } = useParams({
@@ -51,14 +53,17 @@ export function DashboardViewPage() {
   const api = useApi(),
     { t } = useTranslation(),
     navigate = useNavigate();
-  const canRead = usePermission("telemetry.dashboard.read"),
+  const canReadResources = usePermission("telemetry.dashboard.read"),
     canManage = usePermission("telemetry.dashboard.manage");
+  const canReadModels = usePermission("model.usage.read");
+  const canRead = canReadResources || canReadModels;
   const detail = useQuery({
     queryKey: ["dashboard", dashboardId],
     queryFn: () => api.dashboards.get(dashboardId),
     enabled: canRead,
   });
   const { refetch: refetchDetail } = detail;
+  const isModelGovernance = detail.data?.dashboard.managed_template_key === "argus.model-governance";
   const hosts = useQuery({
     queryKey: ["hosts", "dashboard-selector"],
     queryFn: () => api.hosts.list(),
@@ -99,8 +104,10 @@ export function DashboardViewPage() {
     revision: detail.data?.revision,
     resourceId: search.resource,
     resourceType: search.resource_type,
+    modelId: isModelGovernance ? search.model : undefined,
+    month: isModelGovernance ? search.month : undefined,
     enabled: canRead && !historical,
-    execute: (id, input, signal) => api.dashboards.execute(id, input, signal),
+    execute: (id, input, signal) => api.dashboards.execute(id, isModelGovernance ? { variables: input.variables, local_values: {}, resource_ids: [], panel_ids: input.panel_ids, candidates_only: input.candidates_only } : input, signal),
     onRevisionChanged: refetchDetail,
     onReset: () => setDrill(undefined),
     formatError: (e) =>
@@ -171,7 +178,7 @@ export function DashboardViewPage() {
   };
   return (
     <PageShell
-      title={view.name}
+      title={isModelGovernance ? t("modelGovernance.title") : view.name}
       description={
         <>
           <Badge>
@@ -182,7 +189,7 @@ export function DashboardViewPage() {
             )}
           </Badge>{" "}
           · R{view.revision_number}
-          {view.description && <> · {view.description}</>}
+          {view.description && <> · {isModelGovernance ? t("modelGovernance.managedHint") : view.description}</>}
           {search.resource && (
             <DashboardEntrySource
               key={search.resource}
@@ -213,7 +220,7 @@ export function DashboardViewPage() {
           >
             {t("dashboards.history")}
           </Button>
-          {canManage && (
+          {canManage && !isModelGovernance && (
             <Button
               variant="primary"
               isDisabled={detail.data.dashboard.lifecycle !== "active"}
@@ -226,7 +233,7 @@ export function DashboardViewPage() {
               )}
             </Button>
           )}
-          {!historical && <DashboardLinkedResources id={dashboardId} />}
+          {!historical && !isModelGovernance && <DashboardLinkedResources id={dashboardId} />}
         </div>
       }
     >
@@ -250,13 +257,17 @@ export function DashboardViewPage() {
           title={t("managedDashboards.version", {
             version: detail.data.dashboard.managed_template_version,
           })}
-          description={t("managedDashboards.hint")}
+          description={t(isModelGovernance ? "modelGovernance.managedHint" : "managedDashboards.hint")}
         />
       )}
       {historical ? (
         <Button onPress={() => setHistorical(null)}>
           {t("dashboards.currentVersion")}
         </Button>
+      ) : isModelGovernance ? (
+        <ModelGovernanceControls execution={execution} variables={input.variables ?? {}} busy={busy}
+          onVariable={(name, value) => { void run({ ...latest.current, variables: { ...latest.current.variables, [name]: value } }); }}
+          onRefresh={() => void run(latest.current)} />
       ) : (
         <DashboardControls
           spec={view.spec}
@@ -294,7 +305,7 @@ export function DashboardViewPage() {
             ? view.spec.panels.map((panel) => ({
                 ...panel,
                 title: t(
-                  `managedDashboards.metrics.${["host.processes", "host.systemd", "host.windows_services"].includes(detail.data.dashboard.managed_template_key!) ? detail.data.dashboard.managed_template_key!.replace(".", "_") : detail.data.dashboard.managed_template_key!.split(".")[0]}.${panel.id}`,
+                  isModelGovernance ? `modelGovernance.panels.${panel.id}` : `managedDashboards.metrics.${["host.processes", "host.systemd", "host.windows_services"].includes(detail.data.dashboard.managed_template_key!) ? detail.data.dashboard.managed_template_key!.replace(".", "_") : detail.data.dashboard.managed_template_key!.split(".")[0]}.${panel.id}`,
                   { defaultValue: panel.title },
                 ),
               }))
@@ -329,7 +340,7 @@ export function DashboardViewPage() {
               >
                 {t("dashboards.readQuery")}
               </Button>
-              {!historical && (
+              {!historical && !isModelGovernance && (
                 <SourceSummary
                   title={panel.title}
                   sources={

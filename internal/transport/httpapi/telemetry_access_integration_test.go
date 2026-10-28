@@ -199,6 +199,7 @@ func TestPostgresTelemetryObjectReadParityAndRevocation(t *testing.T) {
 	application := uuid.New()
 	exec("INSERT INTO monitoring_applications(id,enterprise_id,application_key,name,environment,created_by) VALUES($1,$2,$3,'Application-only reader','production',$4)", application, e, application.String(), user)
 	exec("INSERT INTO data_authorization_grants(id,enterprise_id,subject_type,subject_id,resource_type,resource_id) VALUES($1,$2,'user',$3,'application',$4)", uuid.New(), e, user, application)
+	exec("INSERT INTO permissions(id,description,registry_version) VALUES('application.read','Read applications',1) ON CONFLICT DO NOTHING")
 	exec("INSERT INTO role_permissions(role_id,permission_id) VALUES($1,'application.read') ON CONFLICT DO NOTHING", role)
 	exec("DELETE FROM role_permissions WHERE role_id=$1 AND permission_id IN ('host.read','kubernetes.read')", role)
 	if _, err = handler.executeEngine(requestContext, "telemetry.skywalking.trace", queryengine.LanguageTrace, "query{queryAPMServices{status}}", "", "", nil, []uuid.UUID{application}, now.Add(-time.Minute), now, 0, nil, false); !errors.Is(err, telemetry.ErrQuerySourcesEmpty) {

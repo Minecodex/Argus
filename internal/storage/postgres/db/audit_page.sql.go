@@ -18,28 +18,37 @@ WHERE domain = $1::text
   AND ((domain = 'platform' AND enterprise_id IS NULL)
     OR (domain = 'enterprise' AND enterprise_id = $2::uuid))
   AND ($3::text IS NULL OR action = $3::text)
-  AND ($4::text IS NULL OR actor_id = $4::text)
-  AND ($5::text IS NULL OR resource_type = $5::text
-    OR ($5::text='alert' AND (resource_type LIKE 'alert\_%' ESCAPE '\' OR action LIKE 'alert.%')))
-  AND ($6::uuid[] IS NULL OR domain<>'enterprise'
+  AND ($4::text IS NULL
+    OR COALESCE(details->>'action_ref', details->>'pending_action_ref') = $4::text
+    OR (resource_type = 'execution' AND resource_id IN (
+      SELECT e.id::text FROM executions e JOIN pending_actions p ON p.id=e.pending_action_id AND p.enterprise_id=e.enterprise_id
+      WHERE e.enterprise_id=audit_events.enterprise_id AND p.action_ref=$4::text)))
+  AND ($5::text IS NULL OR actor_id = $5::text)
+  AND ($6::text IS NULL OR resource_type = $6::text
+    OR ($6::text='alert' AND (resource_type LIKE 'alert\_%' ESCAPE '\' OR action LIKE 'alert.%')))
+  AND ($7::uuid[] IS NULL OR domain<>'enterprise'
     OR (COALESCE(resource_type,'') NOT LIKE 'alert%' AND action NOT LIKE 'alert.%')
     OR (details ? 'resource_ids' AND NOT EXISTS(
       SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(details->'resource_ids')='array' THEN details->'resource_ids' ELSE '[]'::jsonb END) resource
-      WHERE NOT (resource::uuid=ANY($6::uuid[])))))
-  AND ($7::text IS NULL OR resource_id = $7::text)
-  AND ($8::text IS NULL OR result = $8::text)
-  AND ($9::timestamptz IS NULL OR created_at >= $9::timestamptz)
-  AND ($10::timestamptz IS NULL OR created_at < $10::timestamptz)
-  AND ($11::text IS NULL OR position(lower(btrim($11::text)) IN lower(concat_ws(' ', action, actor_id, resource_type, resource_id, details::text))) > 0)
-  AND ($12::timestamptz IS NULL OR (created_at,id) < ($12::timestamptz,$13::uuid))
+      WHERE NOT (resource::uuid=ANY($7::uuid[])))))
+  AND ($8::text IS NULL OR resource_id = $8::text
+    OR EXISTS (SELECT 1 FROM pending_actions p WHERE p.enterprise_id=audit_events.enterprise_id
+      AND p.action_ref=COALESCE(audit_events.details->>'action_ref', audit_events.details->>'pending_action_ref')
+      AND (p.resource_id::text=$8::text OR p.result_resource_id::text=$8::text)))
+  AND ($9::text IS NULL OR result = $9::text)
+  AND ($10::timestamptz IS NULL OR created_at >= $10::timestamptz)
+  AND ($11::timestamptz IS NULL OR created_at < $11::timestamptz)
+  AND ($12::text IS NULL OR position(lower(btrim($12::text)) IN lower(concat_ws(' ', action, actor_id, resource_type, resource_id, details::text))) > 0)
+  AND ($13::timestamptz IS NULL OR (created_at,id) < ($13::timestamptz,$14::uuid))
 ORDER BY created_at DESC, id DESC
-LIMIT $14::int
+LIMIT $15::int
 `
 
 type ListAuditEventsPageParams struct {
 	Domain         string             `json:"domain"`
 	EnterpriseID   uuid.NullUUID      `json:"enterprise_id"`
 	Action         pgtype.Text        `json:"action"`
+	OperationRef   pgtype.Text        `json:"operation_ref"`
 	ActorID        pgtype.Text        `json:"actor_id"`
 	ResourceType   pgtype.Text        `json:"resource_type"`
 	AlertResources []uuid.UUID        `json:"alert_resources"`
@@ -58,6 +67,7 @@ func (q *Queries) ListAuditEventsPage(ctx context.Context, arg ListAuditEventsPa
 		arg.Domain,
 		arg.EnterpriseID,
 		arg.Action,
+		arg.OperationRef,
 		arg.ActorID,
 		arg.ResourceType,
 		arg.AlertResources,

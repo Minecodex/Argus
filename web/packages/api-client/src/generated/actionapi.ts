@@ -179,6 +179,7 @@ export interface components {
         };
         Execution: {
             execution_id: string;
+            action_type?: string;
             action_ref: string;
             /** @enum {unknown} */
             status: "pending" | "running" | "succeeded" | "failed" | "result_unknown" | "cancelled";

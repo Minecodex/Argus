@@ -2,6 +2,8 @@
 
 ## 1. 模型域
 
+企业管理入口为“企业设置 → AIOps 设置 → 模型设置”。同页另一 Tab 管理 MCP 连接。治理展示已迁到“观测 → 仪表盘”的内置“模型治理”，模型设置直接展示列表、额度操作和查看按钮，不再保留内部二级 Tab。数据域、权限与验证见[迁移记录](./plans/frontend-redesign/model-governance-dashboard-20261028.md)，导航基线见[企业门户](./07-bootstrap-and-administration.md#8-企业管理员门户)。
+
 第一版模型域只有 `AIModel`，仅支持 OpenAI Compatible API，不保留旧的多层模型对象、路由或角色配置；Tool 与 Sandbox 能力由用户 RBAC 和系统固定安全策略控制，不由模型配置扩大。
 
 `AIModel` 包含名称、Base URL、模型 ID、只写 API Key 引用、Context Window、最大输出 Token、每百万输入 Token 金额、每百万输出 Token 金额、Tool Calling/结构化输出/Provider Compaction 能力、兼容性结果、健康状态、启用状态、Revision 和时间戳。API Key 永不回显。
@@ -41,7 +43,9 @@ Tool Calling 与结构化输出全部通过才创建并启用模型；Context Wi
 
 ## 6. 治理仪表盘
 
-全局仪表盘聚合全部模型的 Token、金额、请求数、成功率、延迟、错误数、Tool Calling 失败、结构化输出失败、普通推理/Compaction 用量和额度消耗。
+治理仪表盘为受管内置配置，模型设置通过按钮跳转并可预选模型。内部模型指标只供该内置仪表盘使用；复用指标服务和 PromQL 引擎，以独立投影表和专用 mTLS RPC 隔离，不向普通指标目录、临时查询、自定义仪表盘或工具开放。额度与结算继续以 PostgreSQL 事实为准。调用、额度设置和预留/结算状态均通过事务 outbox 投影；调用金额按完成时间归月，额度占用按预留记录的账期统计活动预留和已结算金额，并对照当前部门限额。新预留按企业时区确定自然月；历史账期记录不重写。具体实现、不可用指标和验收边界见[迁移记录](./plans/frontend-redesign/model-governance-dashboard-20261028.md)。
+
+全局仪表盘聚合当前授权范围的 Token、金额、调用数、成功率、平均/P95 延迟、失败/取消调用、Compaction 调用和额度占用。Token 区分实报与估算，缓存用量不完整时明确提示；没有样本时不补 100% 或虚构零。Tool Calling 与结构化输出失败尚无可靠独立分类，面板明确不可用。
 
 单模型仪表盘增加部门、用户排行和当月额度进度。企业超级管理员查看全企业；部门管理员只查看本部门和成员。所有统计按调用记录的价格快照聚合。
 

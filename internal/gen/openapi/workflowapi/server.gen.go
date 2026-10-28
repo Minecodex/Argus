@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -37,7 +38,7 @@ type ServerInterface interface {
 	DecideApprovalRequest(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params DecideApprovalRequestParams)
 	// ListExecutions listExecutions.
 	// (GET /enterprise/executions)
-	ListExecutions(w http.ResponseWriter, r *http.Request)
+	ListExecutions(w http.ResponseWriter, r *http.Request, params ListExecutionsParams)
 	// GetExecution getExecution.
 	// (GET /enterprise/executions/{id})
 	GetExecution(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
@@ -88,7 +89,7 @@ func (_ Unimplemented) DecideApprovalRequest(w http.ResponseWriter, r *http.Requ
 
 // ListExecutions listExecutions.
 // (GET /enterprise/executions)
-func (_ Unimplemented) ListExecutions(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListExecutions(w http.ResponseWriter, r *http.Request, params ListExecutionsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -369,8 +370,40 @@ func (siw *ServerInterfaceWrapper) DecideApprovalRequest(w http.ResponseWriter, 
 // ListExecutions operation middleware
 func (siw *ServerInterfaceWrapper) ListExecutions(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListExecutionsParams
+
+	// ------------- Optional query parameter "action_ref" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action_ref", r.URL.Query(), &params.ActionRef, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "action_ref"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "action_ref", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "resource_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "resource_id", r.URL.Query(), &params.ResourceId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "resource_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "resource_id", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListExecutions(w, r)
+		siw.Handler.ListExecutions(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -867,6 +900,7 @@ func (response DecideApprovalRequestdefaultJSONResponse) VisitDecideApprovalRequ
 }
 
 type ListExecutionsRequestObject struct {
+	Params ListExecutionsParams
 }
 
 type ListExecutionsResponseObject interface {
@@ -1229,8 +1263,10 @@ func (sh *strictHandler) DecideApprovalRequest(w http.ResponseWriter, r *http.Re
 }
 
 // ListExecutions operation middleware
-func (sh *strictHandler) ListExecutions(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListExecutions(w http.ResponseWriter, r *http.Request, params ListExecutionsParams) {
 	var request ListExecutionsRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListExecutions(ctx, request.(ListExecutionsRequestObject))

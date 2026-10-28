@@ -5,6 +5,7 @@ import {
   dashboardObjectGrant,
   dashboardState,
   validateMockDashboard,
+  modelGovernancePermission,
 } from "./dashboard-state";
 
 // Mock definitions share the locked Go-generated contract; sample data remains
@@ -14,8 +15,10 @@ export function ensureManagedDashboards(ctx: BaseContext) {
     targets = ctx.db.monitoring?.[ctx.enterpriseId()]?.targets ?? [];
   const own = ctx.db.monitoring?.[ctx.enterpriseId()]?.collections ?? [];
   for (const template of managedDashboardTemplates) {
+    const internal = template.key === "argus.model-governance";
+    if (internal && !modelGovernancePermission(ctx)) continue;
     if (
-      !own.some(
+      !internal && !own.some(
         (row) =>
           row.status === "active" &&
           template.integration_keys.some((key) => key === row.integration) &&

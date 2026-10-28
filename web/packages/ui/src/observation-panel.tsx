@@ -1,3 +1,4 @@
+import { Pagination } from "./pagination";
 import { useMemo, useState } from "react";
 import type { EChartsOption } from "echarts";
 import { metricOption } from "./metric-options";
@@ -499,26 +500,11 @@ export function ObservationTable({
         )}
       </div>
       {visible.length > 50 && (
-        <div className="argus-observation-pagination">
-          <Button
-            size="sm"
-            isDisabled={currentPage === 0}
-            onPress={() => setPage(currentPage - 1)}
-          >
-            {text("上一页", "Previous")}
-          </Button>
-          <span>
-            {currentPage + 1} / {pages} · {text("已返回记录", "Returned rows")}:{" "}
-            {visible.length}
-          </span>
-          <Button
-            size="sm"
-            isDisabled={currentPage + 1 === pages}
-            onPress={() => setPage(currentPage + 1)}
-          >
-            {text("下一页", "Next")}
-          </Button>
-        </div>
+        <Pagination
+          page={currentPage + 1}
+          totalPages={pages}
+          onChange={(page) => setPage(page - 1)}
+        />
       )}
     </>
   );

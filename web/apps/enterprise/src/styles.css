@@ -143,32 +143,6 @@ kbd,
   left: -10px;
 }
 
-.argus-collapse-button {
-  width: 100%;
-  height: 32px;
-  padding: 0 var(--space-px-9);
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-9);
-  border: 0;
-  border-radius: var(--radius-7);
-  background: transparent;
-  color: var(--text-disabled);
-  font-size: var(--font-size-10-5);
-  cursor: pointer;
-}
-.argus-collapse-button:hover {
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-}
-.argus-collapse-button kbd {
-  margin-left: auto;
-  font-size: var(--font-size-9);
-}
-.is-collapsed .argus-collapse-button {
-  justify-content: center;
-}
-
 .argus-search-trigger {
   width: min(360px, 34vw);
   height: 34px;
@@ -1419,7 +1393,7 @@ kbd,
     left: 0;
   }
 
-  .argus-collapse-button {
+  .argus-sidebar__collapse {
     display: none;
   }
   .argus-mobile-close {
@@ -1644,40 +1618,12 @@ kbd,
   display: grid;
   gap: var(--space-px-6);
 }
-.argus-chat-admin-link {
-  min-height: 32px;
-  padding: 0 var(--space-px-9);
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-9);
-  border-radius: var(--radius-7);
-  color: var(--text-secondary);
-  font-size: var(--font-size-11-5);
-}
-.argus-chat-admin-link:hover {
-  background: var(--bg-elevated);
-}
 .argus-chat-shell .argus-sidebar__footer .argus-user-menu {
   width: 100%;
   margin-left: 0;
 }
 
 /* Admin shell 顶栏 */
-.argus-back-to-chat {
-  height: 30px;
-  padding: 0 var(--space-px-10);
-  display: flex;
-  align-items: center;
-  gap: var(--space-px-6);
-  border-radius: var(--radius-8);
-  color: var(--text-secondary);
-  font-size: var(--font-size-12);
-  white-space: nowrap;
-}
-.argus-back-to-chat:hover {
-  background: var(--bg-surface);
-  color: var(--text-primary);
-}
 .argus-enterprise-switch {
   height: 30px;
   padding: 0 var(--space-px-10);
@@ -1705,7 +1651,6 @@ kbd,
   white-space: nowrap;
 }
 @media (max-width: 760px) {
-  .argus-back-to-chat span,
   .argus-enterprise-switch,
   .argus-enterprise-current {
     display: none;

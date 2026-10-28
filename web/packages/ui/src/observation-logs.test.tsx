@@ -61,7 +61,7 @@ it.each(["zh-CN", "en-US"])(
     expect(select).toHaveBeenCalledWith(rows[0], "published");
     fireEvent.click(
       screen.getByRole("button", {
-        name: locale === "zh-CN" ? "下一页" : "Next",
+        name: locale === "zh-CN" ? "下一页" : "Next page",
       }),
     );
     expect(screen.getAllByRole("article")).toHaveLength(2);

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/kakj-go/Argus/internal/builtincollection"
+	"github.com/kakj-go/Argus/internal/modelmetrics"
 	"github.com/kakj-go/Argus/internal/monitoringcatalog"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
@@ -36,7 +37,11 @@ type TemplateDefinition struct {
 }
 
 func validateTemplate(definition TemplateDefinition) ([]byte, string, error) {
-	if !templateKeyPattern.MatchString(definition.Key) || definition.Version < 1 || len(definition.Name) == 0 || len(definition.Name) > 120 || len(definition.Description) > 8000 || len(definition.IntegrationKeys) == 0 {
+	internal := definition.Key == modelmetrics.TemplateKey
+	if internal && (!internalTemplateSpec(definition.Spec) || definition.Version != modelmetrics.TemplateVersion || len(definition.IntegrationKeys) != 0) {
+		return nil, "", ErrInvalid
+	}
+	if !templateKeyPattern.MatchString(definition.Key) || definition.Version < 1 || len(definition.Name) == 0 || len(definition.Name) > 120 || len(definition.Description) > 8000 || (!internal && len(definition.IntegrationKeys) == 0) {
 		return nil, "", ErrInvalid
 	}
 	for _, key := range definition.IntegrationKeys {

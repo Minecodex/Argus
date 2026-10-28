@@ -11,7 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/kakj-go/Argus/internal/authorization"
 	"github.com/kakj-go/Argus/internal/integration/modelprovider"
+	"github.com/kakj-go/Argus/internal/modelmetrics"
 	"github.com/kakj-go/Argus/internal/secret"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -209,19 +211,45 @@ func (service Service) ListQuotas(ctx context.Context, enterpriseID uuid.UUID) (
 	return service.Store.Queries.ListModelQuotas(ctx, enterpriseID)
 }
 
-func (service Service) UpsertQuota(ctx context.Context, actorID string, enterpriseID, modelID uuid.UUID, subjectType string, subjectID uuid.UUID, amount float64, idempotencyKey string) (db.ModelQuota, error) {
+func (service Service) UpsertQuota(ctx context.Context, actor authorization.Actor, modelID uuid.UUID, subjectType string, subjectID uuid.UUID, amount float64, idempotencyKey string) (db.ModelQuota, error) {
+	if _, err := modelmetrics.AuthorizePermission(ctx, service.Store, actor, "model.quota.manage"); err != nil {
+		return db.ModelQuota{}, err
+	}
 	input := map[string]any{"model_id": modelID, "subject_type": subjectType, "subject_id": subjectID, "monthly_amount": amount}
-	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actorID, "model_quota.upsert", idempotencyKey, input, 200,
+	return postgres.ExecuteIdempotent(ctx, service.Store, service.Idempotency, "enterprise", actor.SubjectID.String(), "model_quota.upsert", idempotencyKey, input, 200,
 		func(q *db.Queries) (db.ModelQuota, error) {
-			return q.UpsertModelQuota(ctx, db.UpsertModelQuotaParams{ID: newID(), EnterpriseID: enterpriseID, ModelID: modelID,
+			if err := checkQuotaWrite(ctx, q, actor, modelID, subjectType, subjectID, amount); err != nil {
+				return db.ModelQuota{}, err
+			}
+			return q.UpsertModelQuota(ctx, db.UpsertModelQuotaParams{ID: newID(), EnterpriseID: actor.EnterpriseID, ModelID: modelID,
 				SubjectType: subjectType, SubjectID: subjectID, MonthlyAmount: numeric(amount)})
 		})
 }
 
-func (service Service) ListUsage(ctx context.Context, enterpriseID uuid.UUID, month time.Time, modelID uuid.NullUUID) ([]db.ListModelUsageRow, error) {
-	start := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, time.UTC)
-	return service.Store.Queries.ListModelUsage(ctx, db.ListModelUsageParams{EnterpriseID: enterpriseID,
-		CompletedAt: pgtype.Timestamptz{Time: start, Valid: true}, CompletedAt_2: pgtype.Timestamptz{Time: start.AddDate(0, 1, 0), Valid: true}, ModelID: modelID})
+func (service Service) ListUsage(ctx context.Context, actor authorization.Actor, month time.Time, modelID uuid.NullUUID) ([]db.ListModelUsageRow, error) {
+	request := modelmetrics.Request{Actor: actor, TemplateHash: modelmetrics.ContractHash(), ModelMode: "all"}
+	if !month.IsZero() {
+		request.Month = month.Format("2006-01")
+	}
+	if modelID.Valid {
+		request.ModelMode = "explicit"
+		request.ModelIDs = []uuid.UUID{modelID.UUID}
+	}
+	access, err := modelmetrics.Resolve(ctx, service.Store, request)
+	if err != nil {
+		return nil, err
+	}
+	location, _ := time.LoadLocation(access.Timezone)
+	local := access.From.In(location)
+	result, err := service.Store.Queries.ListModelUsage(ctx, db.ListModelUsageParams{EnterpriseID: actor.EnterpriseID,
+		Month: pgtype.Date{Time: time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, time.UTC), Valid: true}, CompletedAt: pgtype.Timestamptz{Time: access.From, Valid: true}, CompletedAt2: pgtype.Timestamptz{Time: access.To, Valid: true}, ModelID: modelID, DepartmentID: uuid.NullUUID{UUID: access.DepartmentID, Valid: access.DepartmentID != uuid.Nil}})
+	if err != nil {
+		return nil, err
+	}
+	if _, err = modelmetrics.Authorize(ctx, service.Store, actor); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (service Service) ReserveQuota(ctx context.Context, call db.ModelCall, departmentID, userID uuid.UUID, amount pgtype.Numeric) (db.ModelQuotaReservation, error) {
@@ -232,7 +260,14 @@ func (service Service) ReserveQuota(ctx context.Context, call db.ModelCall, depa
 		if err != nil {
 			return err
 		}
-		month := time.Date(time.Now().UTC().Year(), time.Now().UTC().Month(), 1, 0, 0, 0, 0, time.UTC)
+		enterprise, err := q.GetEnterprise(ctx, call.EnterpriseID)
+		if err != nil {
+			return err
+		}
+		month, err := billingMonth(time.Now(), enterprise.Timezone)
+		if err != nil {
+			return err
+		}
 		used, err := q.SumQuotaReservationsBySubject(ctx, db.SumQuotaReservationsBySubjectParams{EnterpriseID: call.EnterpriseID,
 			ModelID: call.ModelID, Month: pgtype.Date{Time: month, Valid: true}, DepartmentID: departmentID, UserID: userID})
 		if err != nil {

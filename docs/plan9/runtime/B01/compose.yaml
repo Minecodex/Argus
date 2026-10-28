@@ -1,0 +1,71 @@
+name: ${PLAN9_RUN:?Run ID required}
+
+x-host: &host
+  image: ${PLAN9_HOST_IMAGE:?Pinned local image required}
+  build:
+    context: .
+  privileged: true
+  cgroup: private
+  cpus: 1.5
+  mem_limit: 1280m
+  memswap_limit: 1280m
+  pids_limit: 512
+  restart: unless-stopped
+  stop_grace_period: 30s
+  tmpfs:
+    - /run:size=64m
+    - /run/lock:size=8m
+    - /tmp:size=128m
+  networks: [lab]
+  labels:
+    io.argus.plan9.run: ${PLAN9_RUN}
+    io.argus.plan9.batch: B01
+  extra_hosts:
+    - host.docker.internal:host-gateway
+    - argus.dev:host-gateway
+    - artifacts.argus.dev:host-gateway
+    - connector.argus.dev:host-gateway
+    - telemetry.argus.dev:host-gateway
+  healthcheck:
+    test: [CMD-SHELL, "systemctl is-active ssh dbus && curl --fail --silent http://127.0.0.1:8080/health >/dev/null"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-size: 5m
+      max-file: "2"
+
+services:
+  host-a:
+    <<: *host
+    hostname: ${PLAN9_RUN}-a
+    environment:
+      PLAN9_RUN: ${PLAN9_RUN}
+      PLAN9_PEER: host-b
+    ports:
+      - "127.0.0.1:${PLAN9_SSH_A:-22221}:22"
+    volumes: [data-a:/var/lib/plan9]
+  host-b:
+    <<: *host
+    hostname: ${PLAN9_RUN}-b
+    environment:
+      PLAN9_RUN: ${PLAN9_RUN}
+      PLAN9_PEER: host-a
+    ports:
+      - "127.0.0.1:${PLAN9_SSH_B:-22222}:22"
+    volumes: [data-b:/var/lib/plan9]
+
+networks:
+  lab:
+    labels:
+      io.argus.plan9.run: ${PLAN9_RUN}
+volumes:
+  data-a:
+    labels:
+      io.argus.plan9.run: ${PLAN9_RUN}
+  data-b:
+    labels:
+      io.argus.plan9.run: ${PLAN9_RUN}

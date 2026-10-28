@@ -281,6 +281,7 @@ export interface components {
         };
         Execution: {
             execution_id: string;
+            action_type?: string;
             action_ref: string;
             /** @enum {unknown} */
             status: "pending" | "running" | "succeeded" | "failed" | "result_unknown" | "cancelled";
@@ -526,7 +527,10 @@ export interface operations {
     };
     listExecutions: {
         parameters: {
-            query?: never;
+            query?: {
+                action_ref?: string;
+                resource_id?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

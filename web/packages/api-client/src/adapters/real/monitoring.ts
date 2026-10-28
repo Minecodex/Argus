@@ -10,6 +10,7 @@ export function createMonitoringDomains(
     const params = new URLSearchParams();
     for (const field of [
       "search",
+      "environment",
       "cursor",
       "limit",
       "status",

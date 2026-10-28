@@ -1,5 +1,8 @@
+import { auditAdditionalLabels } from "@argus/api-client/audit-labels";
+const additional = (locale: "zh" | "en") => Object.fromEntries(Object.entries(auditAdditionalLabels[locale]).flatMap(([kind, labels]) => Object.entries(labels).map(([key, value]) => [`audit.${kind}.${key}`, value])));
 /** 平台审计文案。 */
 export const auditZh = {
+  ...additional("zh"),
   "audit.title": "平台审计",
   "audit.description":
     "仅平台域事件（enterpriseId = null），企业业务审计不会出现在此门户",
@@ -79,6 +82,7 @@ export const auditZh = {
 };
 
 export const auditEn = {
+  ...additional("en"),
   "audit.title": "Platform audit",
   "audit.description":
     "Platform-domain events only (enterpriseId = null); enterprise business audits never appear here",

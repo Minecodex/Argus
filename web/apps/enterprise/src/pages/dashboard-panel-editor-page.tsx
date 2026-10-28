@@ -17,7 +17,6 @@ import {
   Button,
   Checkbox,
   ChartTypePicker,
-  ComboBox,
   ConfirmDialog,
   Field,
   Input,
@@ -36,7 +35,6 @@ import {
 import { ArrowLeft, Play, Table2 } from "lucide-react";
 import { useDashboardDraftWorkspace } from "../components/dashboards/draft-workspace-context";
 import { QueryTargetEditor } from "../components/dashboards/query-target-editor";
-import { QueryFilterChips } from "../components/dashboards/query-filter-chips";
 import { LocalFiltersEditor } from "../components/dashboards/local-filters-editor";
 import { DrilldownsEditor } from "../components/dashboards/drilldowns-editor";
 import {
@@ -59,11 +57,6 @@ import {
   candidateRequest,
 } from "../components/dashboards/candidate-filters";
 import { useMetricMetadata } from "../components/dashboards/use-metric-metadata";
-import {
-  metricOperationCompatible,
-  requiredMetricType,
-  selectMetric,
-} from "../components/dashboards/metric-metadata";
 import "../styles/dashboard-panel-editor.css";
 
 type Range = DashboardSchemas["DashboardTimeRange"];
@@ -283,7 +276,7 @@ export function DashboardPanelEditorPage() {
     previewRange,
     parameters.resource_ids,
   ]);
-  const { metadata, catalog } = useMetricMetadata(
+  const { metadata } = useMetricMetadata(
     panel,
     target,
     { time: previewRange, resources: parameters.resource_ids ?? [] },
@@ -375,15 +368,12 @@ export function DashboardPanelEditorPage() {
         </p>
       </PageShell>
     );
-  const builder = target.source_definition.builder,
-    types =
-      panel.signal === "metrics"
-        ? metricCharts
-        : panel.signal === "logs"
-          ? ["logs", "timeseries", "stat", "bar", "pie", "table"]
-          : traceCharts;
-  const patchBuilder = (patch: Partial<DashboardSchemas["DashboardBuilder"]>) =>
-    updateTarget({ source_definition: { builder: { ...builder!, ...patch } } });
+  const types =
+    panel.signal === "metrics"
+      ? metricCharts
+      : panel.signal === "logs"
+        ? ["logs", "timeseries", "stat", "bar", "pie", "table"]
+        : traceCharts;
   const chartChoices = observationChartCapabilities(
     panel.signal,
     types,
@@ -467,7 +457,12 @@ export function DashboardPanelEditorPage() {
         />
       )}
       <DashboardQueryScopeProvider
-        value={{ time: previewRange, resources: parameters.resource_ids ?? [] }}
+        value={{
+          time: previewRange,
+          resources: parameters.resource_ids ?? [],
+          variables: parameters.variables,
+          locals: parameters.local_values?.[panel.id],
+        }}
       >
         <div className="argus-panel-editor__workspace">
           <main className="argus-panel-editor__main">
@@ -648,222 +643,51 @@ export function DashboardPanelEditorPage() {
                 disabled={converting}
                 className="argus-panel-editor__query-fields"
               >
-                <div className="argus-panel-editor__query-toolbar">
-                  <Field label={t("dashboards.source")} requirement="required">
-                    <Select
-                      value={panel.source_binding.source_type}
-                      options={sources[panel.signal].map((value) => ({
-                        value,
-                        label: t(`dashboards.editor.sources.${value}`, {
-                          defaultValue: value,
-                        }),
-                      }))}
-                      onValueChange={(source_type) =>
-                        update({
-                          source_binding: {
-                            source_type,
-                            capability_version: "v1",
-                          },
-                          targets: panel.targets.map((query) =>
-                            query.source_definition.builder
-                              ? {
-                                  ...query,
-                                  source_definition: {
-                                    builder: {
-                                      ...query.source_definition.builder,
-                                      metric_type: undefined,
-                                    },
-                                  },
-                                }
-                              : query,
-                          ),
-                        })
-                      }
-                    />
-                  </Field>
-                  <p className="argus-dashboard-muted">
-                    {t("dashboards.editor.inheritedScope")}
-                  </p>
-                </div>
-                {builder && panel.signal === "metrics" && (
-                  <div className="argus-panel-editor__basics">
+                <QueryTargetEditor
+                  metricLayout
+                  key={target.id}
+                  panel={panel}
+                  spec={draft.spec}
+                  target={target}
+                  onChange={updateTarget}
+                  sourceControl={
                     <Field
-                      label={t("dashboards.metric")}
-                      requirement="required"
-                    >
-                      <ComboBox
-                        value={builder.metric ?? ""}
-                        allowCustom
-                        options={(catalog.data?.metrics ?? []).map((m) => ({
-                          value: m.name,
-                          label: m.name,
-                          description: [m.type, m.unit]
-                            .filter(Boolean)
-                            .join(" · "),
-                        }))}
-                        contextKey={dataKey}
-                        fetchOptions={async (search, cursor, signal) => {
-                          const result = await api.dashboards.catalog(
-                            {
-                              ...bounds(previewRange),
-                              resource_ids: parameters.resource_ids ?? [],
-                              signal: "metrics",
-                              kind: "metrics",
-                              source_binding: panel.source_binding,
-                              selected_values: [],
-                              filters: [],
-                              search,
-                              cursor,
-                              limit: 100,
-                            },
-                            signal,
-                          );
-                          return {
-                            options: result.metrics.map((m) => ({
-                              value: m.name,
-                              label: m.name,
-                              description: [m.type, m.unit]
-                                .filter(Boolean)
-                                .join(" · "),
-                            })),
-                            next_cursor: result.next_cursor,
-                          };
-                        }}
-                        onValueChange={(metric) =>
-                          patchBuilder(selectMetric(builder, metric))
-                        }
-                      />
-                    </Field>
-                    <Field
-                      label={t("dashboards.editor.calculation")}
+                      label={t("dashboards.source")}
                       requirement="required"
                     >
                       <Select
-                        value={builder.operation}
-                        options={[
-                          "value",
-                          "sum",
-                          "avg",
-                          "min",
-                          "max",
-                          "rate",
-                          "error_rate",
-                          "topk",
-                          "p95",
-                        ].map((value) => ({
+                        value={panel.source_binding.source_type}
+                        options={sources[panel.signal].map((value) => ({
                           value,
-                          label: t(`dashboards.operations.${value}`),
-                          disabled: !metricOperationCompatible(value, metadata),
-                          description: requiredMetricType(value)
-                            ? t("dashboards.editor.metricRequirement", {
-                                type: requiredMetricType(value),
-                              })
-                            : undefined,
+                          label: t(`dashboards.editor.sources.${value}`, {
+                            defaultValue: value,
+                          }),
                         }))}
-                        onValueChange={(operation) =>
-                          patchBuilder({
-                            operation:
-                              operation as DashboardSchemas["DashboardBuilder"]["operation"],
-                            window_seconds: [
-                              "rate",
-                              "p95",
-                              "error_rate",
-                            ].includes(operation)
-                              ? (builder.window_seconds ?? 300)
-                              : undefined,
-                            top_n:
-                              operation === "topk"
-                                ? (builder.top_n ?? 10)
-                                : undefined,
-                            error_filters:
-                              operation === "error_rate"
-                                ? (builder.error_filters ?? [
-                                    {
-                                      field: "status",
-                                      operator: "=~",
-                                      value: "5..",
+                        onValueChange={(source_type) =>
+                          update({
+                            source_binding: {
+                              source_type,
+                              capability_version: "v1",
+                            },
+                            targets: panel.targets.map((query) =>
+                              query.source_definition.builder
+                                ? {
+                                    ...query,
+                                    source_definition: {
+                                      builder: {
+                                        ...query.source_definition.builder,
+                                        metric_type: undefined,
+                                      },
                                     },
-                                  ])
-                                : undefined,
+                                  }
+                                : query,
+                            ),
                           })
                         }
                       />
                     </Field>
-                    <Field
-                      label={t("dashboards.editor.split")}
-                      requirement="optional"
-                    >
-                      <ValueSelector
-                        label={t("dashboards.editor.split")}
-                        multiple
-                        allLabel={t("dashboards.editor.noSplit")}
-                        value={{
-                          all: !builder.group_by?.length,
-                          values: builder.group_by ?? [],
-                        }}
-                        candidates={metadata?.labels ?? []}
-                        onChange={(selection) =>
-                          patchBuilder({
-                            group_by: selection.all ? [] : selection.values,
-                          })
-                        }
-                      />
-                    </Field>
-                  </div>
-                )}
-                {metadata ? (
-                  <p className="argus-dashboard-muted">
-                    {metadata.type} ·{" "}
-                    {metadata.unit || t("dashboards.editor.unknownUnit")}
-                  </p>
-                ) : (
-                  builder &&
-                  panel.signal === "metrics" && (
-                    <p className="argus-dashboard-muted">
-                      {t("dashboards.editor.metadataUnverified")}
-                    </p>
-                  )
-                )}
-                {builder &&
-                  panel.signal === "metrics" &&
-                  !metricOperationCompatible(builder.operation, metadata) && (
-                    <p role="alert" className="argus-dashboard-muted">
-                      {t("dashboards.editor.metricMismatch", {
-                        type: metadata?.type,
-                        required: requiredMetricType(builder.operation),
-                      })}
-                    </p>
-                  )}
-                {builder && panel.signal === "metrics" ? (
-                  <>
-                    <QueryFilterChips
-                      key={target.id}
-                      filters={builder.filters}
-                      variables={draft.spec.variables}
-                      locals={panel.local_filters.map((f) => f.id)}
-                      onChange={(filters) => patchBuilder({ filters })}
-                    />
-                    <details className="argus-panel-editor__advanced">
-                      <summary>{t("dashboards.editor.advancedQuery")}</summary>
-                      <QueryTargetEditor
-                        compactMetrics
-                        key={target.id}
-                        panel={panel}
-                        spec={draft.spec}
-                        target={target}
-                        onChange={updateTarget}
-                      />
-                    </details>
-                  </>
-                ) : (
-                  <QueryTargetEditor
-                    key={target.id}
-                    panel={panel}
-                    spec={draft.spec}
-                    target={target}
-                    onChange={updateTarget}
-                  />
-                )}
+                  }
+                />
                 {draft.spec.variables.length > 0 && (
                   <details className="argus-panel-editor__advanced">
                     <summary>{t("dashboards.variables")}</summary>

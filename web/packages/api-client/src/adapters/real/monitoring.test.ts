@@ -37,4 +37,18 @@ it("sends disabled collection filters explicitly and omits an unrestricted enabl
   });
   await api.monitoring.collections({ desired_enabled: undefined });
   expect(urls[1]!.searchParams.has("desired_enabled")).toBe(false);
+  await api.monitoring.applications({
+    environment: "production",
+    search: "Orders",
+    limit: 1,
+    cursor: "signed-cursor",
+  });
+  expect(Object.fromEntries(urls[2]!.searchParams)).toEqual({
+    environment: "production",
+    search: "Orders",
+    limit: "1",
+    cursor: "signed-cursor",
+  });
+  await api.monitoring.applications();
+  expect(urls[3]!.searchParams.has("environment")).toBe(false);
 });

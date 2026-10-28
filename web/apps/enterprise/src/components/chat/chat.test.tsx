@@ -295,7 +295,8 @@ describe("PendingActionCard", () => {
     await screen.findByText(/主机 host-test-x 已创建/, undefined, {
       timeout: 4_000,
     });
-    expect(screen.getByText("查看任务")).toBeInTheDocument();
+    expect(screen.queryByText("查看任务")).not.toBeInTheDocument();
+    expect(screen.getByText("执行成功", { exact: true })).toBeInTheDocument();
   });
 
   it("[取消] 调 approvals.cancel，状态流转为已取消", async () => {

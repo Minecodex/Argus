@@ -1,0 +1,124 @@
+.argus-observe-global {
+  margin: var(--space-px-16) 0;
+}
+.argus-observe-global > .argus-card__content {
+  padding: var(--space-3);
+}
+.argus-observe-global .argus-observe-actions {
+  flex-wrap: nowrap;
+  margin-inline-start: auto;
+}
+.argus-observe-global .argus-select {
+  flex: none;
+}
+.argus-observe-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-px-12);
+  flex-wrap: wrap;
+}
+.argus-observe-toolbar > .argus-select {
+  max-width: var(--field-width-compact);
+}
+.argus-observe-actions {
+  display: flex;
+  gap: var(--space-px-8);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.argus-observe-actions > .argus-select {
+  min-width: var(--field-width-compact);
+}
+.argus-observe-queries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-px-16);
+}
+.argus-observe-query-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-px-8);
+  flex-wrap: wrap;
+}
+.argus-observe-query-heading > .argus-select {
+  width: var(--dashboard-stat-min-width);
+}
+.argus-observe-query > .argus-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-px-12);
+}
+.argus-observe-editor .argus-query-editor__heading {
+  display: none;
+}
+.argus-observe-editor .argus-query-advanced {
+  padding: var(--space-px-8) 0;
+}
+.argus-observe-editor summary {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+  cursor: pointer;
+}
+.argus-observe-editor summary + * {
+  margin-top: var(--space-px-12);
+}
+.argus-observe-hint {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-observe-scope-hint {
+  font-weight: var(--font-weight-normal);
+}
+.argus-observe-add {
+  width: 100%;
+  border: var(--space-px-1) dashed var(--border-default);
+}
+.argus-observe-catalog .argus-filter-bar {
+  margin-top: var(--space-px-16);
+}
+.argus-observe-metric-name {
+  font-family: var(--font-mono);
+  max-width: var(--dashboard-cell-max-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.argus-observe-description {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-observe-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-px-16);
+}
+.argus-observe-recipe {
+  padding: var(--space-px-16);
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+.argus-observe-recipe pre,
+.argus-observe-compiled pre {
+  padding: var(--space-px-12);
+  background: var(--bg-canvas);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: var(--text-help)/var(--line-height-normal) var(--font-mono);
+  border-radius: var(--radius-sm);
+}
+.argus-observe-recipe small {
+  display: block;
+  margin-bottom: var(--space-px-12);
+  color: var(--text-secondary);
+}
+
+.argus-observe-query .argus-observation-chart {
+  min-height: var(--template-chart-height);
+  height: var(--template-chart-height);
+}
+
+.argus-observe-query-heading > strong {
+  max-width: var(--dashboard-cell-max-width);
+  overflow-wrap: anywhere;
+}

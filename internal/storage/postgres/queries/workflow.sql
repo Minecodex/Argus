@@ -158,7 +158,11 @@ WHERE execution_id = $1 AND enterprise_id = $2 AND consumed_at IS NULL AND expir
 RETURNING *;
 
 -- name: ListExecutions :many
-SELECT * FROM executions WHERE enterprise_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2;
+SELECT e.* FROM executions e JOIN pending_actions p ON p.id=e.pending_action_id AND p.enterprise_id=e.enterprise_id
+WHERE e.enterprise_id = sqlc.arg(enterprise_id)
+  AND (sqlc.narg(action_ref)::text IS NULL OR p.action_ref = sqlc.narg(action_ref))
+  AND (sqlc.narg(resource_id)::uuid IS NULL OR p.resource_id = sqlc.narg(resource_id) OR p.result_resource_id = sqlc.narg(resource_id))
+ORDER BY e.created_at DESC, e.id DESC LIMIT sqlc.arg(page_limit);
 
 -- name: ClaimExecution :one
 UPDATE executions SET status = 'running', started_at = now(), updated_at = now()

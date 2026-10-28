@@ -60,7 +60,7 @@ export function mockDashboardCatalog(
             "resource_attributes.service.instance.id",
           ];
   const allValues =
-    input.field === "status"
+    input.field === "state" ? ["idle","used","user","system"] : input.field === "status"
       ? ["200", "500"]
       : input.field === "service_name" || input.field === "service"
         ? ["checkout", "storage"]

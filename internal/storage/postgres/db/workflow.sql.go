@@ -1112,16 +1112,27 @@ func (q *Queries) ListApprovalRequirements(ctx context.Context, arg ListApproval
 }
 
 const listExecutions = `-- name: ListExecutions :many
-SELECT id, execution_ref, pending_action_id, enterprise_id, run_id, status, idempotency_key, result_ref, connector_command_id, error_code, started_at, completed_at, created_at, updated_at, telemetry_collector_operation_id, connector_install_operation_id, host_onboarding_operation_id, host_removal_operation_id, remote_execution_id, kubernetes_operation_id FROM executions WHERE enterprise_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2
+SELECT e.id, e.execution_ref, e.pending_action_id, e.enterprise_id, e.run_id, e.status, e.idempotency_key, e.result_ref, e.connector_command_id, e.error_code, e.started_at, e.completed_at, e.created_at, e.updated_at, e.telemetry_collector_operation_id, e.connector_install_operation_id, e.host_onboarding_operation_id, e.host_removal_operation_id, e.remote_execution_id, e.kubernetes_operation_id FROM executions e JOIN pending_actions p ON p.id=e.pending_action_id AND p.enterprise_id=e.enterprise_id
+WHERE e.enterprise_id = $1
+  AND ($2::text IS NULL OR p.action_ref = $2)
+  AND ($3::uuid IS NULL OR p.resource_id = $3 OR p.result_resource_id = $3)
+ORDER BY e.created_at DESC, e.id DESC LIMIT $4
 `
 
 type ListExecutionsParams struct {
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
-	Limit        int32     `json:"limit"`
+	EnterpriseID uuid.UUID     `json:"enterprise_id"`
+	ActionRef    pgtype.Text   `json:"action_ref"`
+	ResourceID   uuid.NullUUID `json:"resource_id"`
+	PageLimit    int32         `json:"page_limit"`
 }
 
 func (q *Queries) ListExecutions(ctx context.Context, arg ListExecutionsParams) ([]Execution, error) {
-	rows, err := q.db.Query(ctx, listExecutions, arg.EnterpriseID, arg.Limit)
+	rows, err := q.db.Query(ctx, listExecutions,
+		arg.EnterpriseID,
+		arg.ActionRef,
+		arg.ResourceID,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

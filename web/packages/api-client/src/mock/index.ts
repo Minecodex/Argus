@@ -249,9 +249,21 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
     interactions: createInteractionDomains(ctx),
     runs: createRunsDomain(ctx),
     executions: {
-      async list() {
+      async list(filter) {
         await pause();
-        return { items: [...db.executions], nextCursor: null, hasMore: false };
+        const items = db.executions.filter(
+          (entry) =>
+            (!filter?.actionRef || entry.action_ref === filter.actionRef) &&
+            (!filter?.resourceId ||
+              entry.resource_ref?.resource_id === filter.resourceId ||
+              db.pendingActions.some(
+                (action) =>
+                  action.action_ref === entry.action_ref &&
+                  (action.preview as Record<string, unknown>)?.resource_id ===
+                    filter.resourceId,
+              )),
+        );
+        return { items, nextCursor: null, hasMore: false };
       },
       async get(executionId): Promise<Execution> {
         await pause();

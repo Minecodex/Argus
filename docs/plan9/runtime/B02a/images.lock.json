@@ -1,0 +1,64 @@
+{
+  "image_id": "sha256:c251946a32f4d4e92a6e36e6608465a50ecacc6111321901192ee51bb2b62c8b",
+  "architecture": "amd64",
+  "packages": [
+    "apache2 2.4.69-1~deb13u1",
+    "haproxy 3.0.11-1+deb13u4",
+    "nginx 1.26.3-3+deb13u10"
+  ],
+  "base_image_id": "sha256:752ef62afe9edd62067f6c1617fb79aebbbde7c5951fe633925a284de3b33ad7",
+  "source_hashes": {
+    "bootstrap.sh": "fd4c20b1eacd2274613cc33c4d66155c0d4049edf76d1226c9fb24fec2bdae8b",
+    "compose.yaml": "a5eec8f78c90b9675f5c3139dc9b89d03f0976c550098a612ae70e46b6d22b8d",
+    "Dockerfile": "efe1a98e2bf67f0dd24d819991f200140a66a8c5176c99e7a9c30e41adc3f61a",
+    "manage.py": "ff034fa979aaf6e28edb68f20c9f0e2c4431ed21fe9fd341077acdc62cb90f47",
+    "services.py": "d22e2f99c884764b5924b72838fd0e72adc3494f997b4fe206d967877a8f67c3",
+    "config\\apache.conf": "80fd0c451fe23b701b6e4d2e3bf1ec8da0a48ac4678988f591c90dca320db8a1",
+    "config\\haproxy.cfg": "61cf73605899e1b3be78518bab7e1ae13fa94024ddb99ca06476fc9917720b28",
+    "config\\nginx.conf": "02e71129792bb888d2bcfef22476588a66740731be5b6c530cc8aaf3c00ef76d",
+    "systemd\\plan9-backend.service": "af511d4bba6723c1b3f3e1d78344f4ee39098cb923294cda18bcd8beb6b458e8",
+    "systemd\\plan9-proxy-backend.service": "ed05009e58759b7d6d5042393e9cae31afd381588d8e7fe7bf3024f99345f893",
+    "systemd\\plan9-web-traffic.service": "870fccbcc17f6e75162cdacdef8f758ad26efee402b41f33916f2df890a9d4f1"
+  },
+  "rebuild_image_id": "sha256:62518df279aa1e58519dd64e4ec7aaebf9848493102296a9bef347f70d76bff9",
+  "runtime_overrides": {
+    "reason": "Portable executable newlines and bounded HTTP clients that always close connections; preserve enrolled host identities",
+    "patches": [
+      {
+        "path": "/usr/local/bin/plan9-web-lab",
+        "sha256": "99d213a14b99c97a060ea178df1b1d02419796b8b8541f290dbf2de8ea43d6ec"
+      },
+      {
+        "path": "/etc/systemd/system/plan9-web-traffic.service",
+        "sha256": "2cb78fb488e635f8add9817fcec22ba1ea5bd0149c3948530f1afd638258a3a0"
+      },
+      {
+        "path": "/usr/local/bin/plan9-web-bootstrap",
+        "sha256": "3a083fc474186a5592bb7c7235aaa01304eefd118858076f5f5500cd7c3fb7a7"
+      }
+    ],
+    "applied_at": "2026-10-27T00:22:52.101861+00:00",
+    "containers": [
+      "eea6ff28a0479c19a22994286bfc285b35809a02f190ba30b15a4b9cad3a78ce",
+      "d7a4099bccb209cc97af5686b4668d399c4527328b4a382be444310908120039"
+    ],
+    "traffic_deadline_unix": 1793145215
+  },
+  "final_source_hashes": {
+    ".env.example": "d09b2cc139ca4cb51736f8e56925d516e2069e648c3fae859e9790723ff81dd8",
+    "bootstrap.sh": "3a083fc474186a5592bb7c7235aaa01304eefd118858076f5f5500cd7c3fb7a7",
+    "compose.yaml": "db050316f6d5a2bb57bbae04e84fcb46f7562fe79e7bc2731170deba938b2e6e",
+    "Dockerfile": "ce5ade5adc9de07edde6a48a068efe772c553f5691a51465a301928faf6b698d",
+    "integration.py": "083d0606a656dec5e785f9ea196eb35dfc50b53546e86efa16f089076a57f8a1",
+    "manage.py": "6070e5fcd7ce21dcdc515b4db08c2dc4c39a001496957279ea1d4d2f12615155",
+    "runbook.md": "5bffe0e351114700ffbb4e402469310c4b438f470f075e83d7fdbe64e1e1d2a6",
+    "scenario.py": "335790f426d17868e3ec260c3cfe55ecd99e5ae73430746f033be0439cc3fdc9",
+    "services.py": "99d213a14b99c97a060ea178df1b1d02419796b8b8541f290dbf2de8ea43d6ec",
+    "config\\apache.conf": "80fd0c451fe23b701b6e4d2e3bf1ec8da0a48ac4678988f591c90dca320db8a1",
+    "config\\haproxy.cfg": "80a853f372588afca4d21a745edc3e320071003c719181187447eb060bb7fa12",
+    "config\\nginx.conf": "02e71129792bb888d2bcfef22476588a66740731be5b6c530cc8aaf3c00ef76d",
+    "systemd\\plan9-backend.service": "af511d4bba6723c1b3f3e1d78344f4ee39098cb923294cda18bcd8beb6b458e8",
+    "systemd\\plan9-proxy-backend.service": "e1bcda6acb4c844b06e4b630c5f92507e49297fe9bdeae10e640fd912b2098c0",
+    "systemd\\plan9-web-traffic.service": "2cb78fb488e635f8add9817fcec22ba1ea5bd0149c3948530f1afd638258a3a0"
+  }
+}

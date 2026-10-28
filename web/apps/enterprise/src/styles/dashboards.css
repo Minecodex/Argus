@@ -4,6 +4,9 @@
   align-items: center;
   gap: var(--action-gap);
 }
+.argus-dashboard-inline--fields {
+  align-items: flex-end;
+}
 .argus-dashboard-entry-source {
   display: inline-flex;
   align-items: center;
@@ -92,19 +95,6 @@
 .argus-dashboard-directory-panel {
   display: grid;
   gap: var(--field-gap);
-}
-.argus-dashboard-directory-filters {
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-.argus-dashboard-directory-filters .argus-filter-bar__select {
-  max-width: var(--field-width-compact);
-}
-.argus-dashboard-directory-filters .argus-select {
-  width: max-content;
-  max-width: 100%;
-  flex: none;
 }
 .argus-dashboard-controls {
   display: flex;

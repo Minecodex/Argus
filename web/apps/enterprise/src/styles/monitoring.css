@@ -1,5 +1,4 @@
-.argus-monitoring-toolbar,
-.argus-monitoring-pagination {
+.argus-monitoring-toolbar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -18,10 +17,6 @@
 }
 .argus-monitoring-collection-filters {
   margin-bottom: var(--space-4);
-}
-.argus-monitoring-pagination {
-  justify-content: flex-end;
-  margin-top: var(--space-4);
 }
 .argus-monitoring-facts {
   display: flex;

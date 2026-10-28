@@ -1,0 +1,34 @@
+{
+  "image_id": "sha256:55b664e22d80f9743982059f93bed2fb8edb9b0f77d144bd1b7a47f401aeb4bc",
+  "architecture": "amd64",
+  "base_image_id": "sha256:752ef62afe9edd62067f6c1617fb79aebbbde7c5951fe633925a284de3b33ad7",
+  "packages": [
+    "dnsmasq-base 2.91-1+deb13u2",
+    "iptables 1.8.11-2",
+    "openssl 3.5.7-1~deb13u3",
+    "supervisor 4.2.5-3"
+  ],
+  "source_hashes": {
+    "bootstrap.sh": "1a2aa257161b477f87f6b2d1065fe418f52eaddeddd29718fd08eb4aa381fe0c",
+    "compose.yaml": "7041f50afd062cb0203b06d41bc40fb830e9436c31227f3f8db2b5bcd3e2567a",
+    "Dockerfile": "abd514f426097161cf6b8e21ef1aaf575a25c692876ee4214b0e4f17ef706121",
+    "manage.py": "a8973b0a741c9e5cacbcac78b0bafc3647fb694bb1a4ddcca69f43d14618ee18",
+    "pki.py": "81f056075e0a988483e5d351f244f636be49513a1b7e4001ae462a7d88866b87",
+    "services.py": "f6716282878dae9cc4cb88fd1fa51d3c06ced97607493c87ed4fbfc619ad2f9a",
+    "supervisord.conf": "afc941c22086127ed2e516baf5923cd53af3622771b7b0e71054ea0c342e3f47"
+  },
+  "handoff_source_hashes": {
+    ".env.example": "da9f0da0b53083b1b8b87ebe72a2cc73881c20900fa82845b84d241486d9a49d",
+    "bootstrap.sh": "1a2aa257161b477f87f6b2d1065fe418f52eaddeddd29718fd08eb4aa381fe0c",
+    "compose.yaml": "7041f50afd062cb0203b06d41bc40fb830e9436c31227f3f8db2b5bcd3e2567a",
+    "Dockerfile": "abd514f426097161cf6b8e21ef1aaf575a25c692876ee4214b0e4f17ef706121",
+    "integration.py": "732e823c4d60175c86376803fe46947995307d0cceacf097194d1b7d70cc51ad",
+    "manage.py": "78a081e4a63d1ec2ca649e41b756877f916e9f5d79d35bf79607561d1c7e7d96",
+    "pki.py": "81f056075e0a988483e5d351f244f636be49513a1b7e4001ae462a7d88866b87",
+    "retire.py": "71451ee8709179129af68babf1f0c334fe37b2480dc55711ddf35e95c56bbcd5",
+    "runbook.md": "f11d1c30da2c284476caf19a96c9fdd27e744b8814ef72ac5e0beacb22c21708",
+    "scenario.py": "0e5386944ce4a162d6fdb7cfbde50db27ae9a7b969a6e94c22dfdcad9614a29c",
+    "services.py": "f6716282878dae9cc4cb88fd1fa51d3c06ced97607493c87ed4fbfc619ad2f9a",
+    "supervisord.conf": "afc941c22086127ed2e516baf5923cd53af3622771b7b0e71054ea0c342e3f47"
+  }
+}

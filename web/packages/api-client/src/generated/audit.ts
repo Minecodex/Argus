@@ -34,6 +34,7 @@ export interface components {
             actor_id: string;
             actor_display_name?: string;
             actor_username?: string;
+            operation?: components["schemas"]["AuditOperation"];
             action: string;
             resource_type?: string;
             resource_id?: string;
@@ -64,6 +65,24 @@ export interface components {
             trace_id?: string;
             /** @default false */
             retryable: boolean;
+        };
+        /** @description Current operation projection. Separate from immutable event facts and never a source of execution authority. */
+        AuditOperation: {
+            action_ref: string;
+            action_type: string;
+            action_status: string;
+            /** Format: uuid */
+            execution_id?: string;
+            execution_status?: string;
+            error_code?: string;
+            resource_type?: string;
+            /** Format: uuid */
+            resource_id?: string;
+            resource_name?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
         };
         PartialMetadata: {
             partial: boolean;
@@ -102,6 +121,8 @@ export interface operations {
             query?: {
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
+                /** @description Exact server-owned action reference; restricted to the same authorized audit scope. */
+                operation_ref?: string;
                 action?: string;
                 actor_id?: string;
                 resource_type?: string;

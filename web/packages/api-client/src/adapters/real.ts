@@ -225,6 +225,7 @@ function auditEvent(value: AuditEventContract): AuditEvent {
     details: value.details,
     previousHash: value.previous_hash,
     eventHash: value.event_hash,
+    operation: value.operation,
   };
 }
 
@@ -1035,6 +1036,8 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
   };
 
   client.telemetry = {
+    resources: (query, signal) => http.request(`enterprise/telemetry/query/resources?${new URLSearchParams(Object.entries(query).filter(([,v])=>v!==undefined).map(([k,v])=>[k,String(v)]))}`, {signal}),
+    catalog: (body, signal) => http.request("enterprise/telemetry/query/catalog", {method:"POST", body, signal}),
     listDistributions: () =>
       http.request<CollectorDistributionVersion[]>(
         "enterprise/telemetry/distributions",
@@ -1063,25 +1066,29 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
         method: "POST",
         body: input,
       }),
-    queryMetrics: (input: PromQLInstantQuery) =>
+    queryMetrics: (input: PromQLInstantQuery, signal?: AbortSignal) =>
       http.request<PrometheusQueryResponse>("enterprise/metrics/query", {
         method: "POST",
         body: input,
+        signal,
       }),
-    queryMetricsRange: (input: PromQLRangeQuery) =>
+    queryMetricsRange: (input: PromQLRangeQuery, signal?: AbortSignal) =>
       http.request<PrometheusQueryResponse>("enterprise/metrics/query_range", {
         method: "POST",
         body: input,
+        signal,
       }),
-    queryLogs: (input: KQLQuery) =>
+    queryLogs: (input: KQLQuery, signal?: AbortSignal) =>
       http.request<KQLQueryResponse>("enterprise/logs/query", {
         method: "POST",
         body: input,
+        signal,
       }),
-    queryTraces: (input: SkyWalkingTraceGraphQLQuery) =>
+    queryTraces: (input: SkyWalkingTraceGraphQLQuery, signal?: AbortSignal) =>
       http.request<SkyWalkingGraphQLResponse>("enterprise/traces/graphql", {
         method: "POST",
         body: input,
+        signal,
       }),
   };
 
@@ -1221,6 +1228,7 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
       actor_id: filter?.actorUserId,
       resource_type: filter?.resourceType,
       resource_id: filter?.resourceId,
+      operation_ref: filter?.operationRef,
       result: filter?.result,
       query: filter?.query,
       from: filter?.from,
@@ -1758,6 +1766,8 @@ function createUnavailableClient(
         unavailable("kubernetes.previewCollectorInstall"),
     },
     telemetry: {
+      resources: () => unavailable("telemetry.resources"),
+      catalog: () => unavailable("telemetry.catalog"),
       listDistributions: () => unavailable("telemetry.listDistributions"),
       listProfiles: () => unavailable("telemetry.listProfiles"),
       listCollectors: () => unavailable("telemetry.listCollectors"),

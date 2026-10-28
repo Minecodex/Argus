@@ -166,8 +166,8 @@ function Sidebar() {
         </div>
         <ConversationList />
         <div className="argus-sidebar__footer">
-          <Link className="argus-chat-admin-link" to="/hosts">
-            <Settings2 size={15} />
+          <Link className="argus-sidebar__switch" to="/hosts">
+            <Settings2 aria-hidden size={16} />
             <span>{t("shell.enterAdmin")}</span>
           </Link>
         </div>

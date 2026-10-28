@@ -82,4 +82,10 @@ export * from "./structured-document";
 export * from "./structured-document-editor";
 
 export * from "./info-popover";
+export * from "./operation-panel";
 export * from "./observation-details";
+
+export * from "./telemetry-editor-context";
+
+export * from "./observation-scope-picker";
+export * from "./observation-chart-link";

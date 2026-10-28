@@ -122,7 +122,7 @@ export async function assertEditorLayout(page: Page, english: boolean) {
     page,
   );
   for (const field of await page
-    .locator(".argus-panel-editor__basics .argus-field")
+    .locator(".argus-metric-query-basics .argus-field")
     .all())
     await assertViewport(field, page);
   await assertViewport(

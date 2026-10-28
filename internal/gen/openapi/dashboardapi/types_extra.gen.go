@@ -97,14 +97,38 @@ type DashboardExecution struct {
 	From             time.Time                                     `json:"from"`
 	LocalCandidates  map[string]map[string]DashboardCandidateState `json:"local_candidates"`
 	LocalValues      map[string]map[string]DashboardSelection      `json:"local_values"`
-	Panels           []DashboardPanelExecution                     `json:"panels"`
-	Partial          bool                                          `json:"partial"`
-	Resources        []DashboardResourceScope                      `json:"resources"`
-	RevisionId       openapi_types.UUID                            `json:"revision_id"`
-	ScopeEmpty       *bool                                         `json:"scope_empty,omitempty"`
-	ScopeSelection   *DashboardScopeSelection                      `json:"scope_selection,omitempty"`
-	ScopeSignature   *string                                       `json:"scope_signature,omitempty"`
-	ScopeVersions    *struct {
+
+	// ModelGovernance Private built-in model governance metadata. Data is available only to the authorized interactive built-in dashboard.
+	ModelGovernance *struct {
+		CachedUsageComplete *bool     `json:"cached_usage_complete,omitempty"`
+		EstimatedInput      int64     `json:"estimated_input"`
+		EstimatedOutput     int64     `json:"estimated_output"`
+		From                time.Time `json:"from"`
+		Models              []struct {
+			Id   openapi_types.UUID `json:"id"`
+			Name string             `json:"name"`
+		} `json:"models"`
+		Pending     int64      `json:"pending"`
+		ProjectedAt *time.Time `json:"projected_at,omitempty"`
+		ScopeHash   string     `json:"scope_hash"`
+		Subjects    *[]struct {
+			DepartmentId openapi_types.UUID                            `json:"department_id"`
+			Id           openapi_types.UUID                            `json:"id"`
+			Kind         DashboardExecutionModelGovernanceSubjectsKind `json:"kind"`
+			Name         string                                        `json:"name"`
+		} `json:"subjects,omitempty"`
+		Timezone      string    `json:"timezone"`
+		To            time.Time `json:"to"`
+		UsageComplete bool      `json:"usage_complete"`
+	} `json:"model_governance,omitempty"`
+	Panels         []DashboardPanelExecution `json:"panels"`
+	Partial        bool                      `json:"partial"`
+	Resources      []DashboardResourceScope  `json:"resources"`
+	RevisionId     openapi_types.UUID        `json:"revision_id"`
+	ScopeEmpty     *bool                     `json:"scope_empty,omitempty"`
+	ScopeSelection *DashboardScopeSelection  `json:"scope_selection,omitempty"`
+	ScopeSignature *string                   `json:"scope_signature,omitempty"`
+	ScopeVersions  *struct {
 		Relations map[string]int64 `json:"relations"`
 		Resources map[string]int64 `json:"resources"`
 	} `json:"scope_versions,omitempty"`
@@ -112,6 +136,9 @@ type DashboardExecution struct {
 	VariableCandidates map[string]DashboardCandidateState `json:"variable_candidates"`
 	Variables          map[string]DashboardSelection      `json:"variables"`
 }
+
+// DashboardExecutionModelGovernanceSubjectsKind defines model for DashboardExecution.ModelGovernance.Subjects.Kind.
+type DashboardExecutionModelGovernanceSubjectsKind string
 
 // DashboardExecutionInput defines model for DashboardExecutionInput.
 type DashboardExecutionInput struct {

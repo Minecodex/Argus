@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/kakj-go/Argus/internal/authorization"
+	"github.com/kakj-go/Argus/internal/modelmetrics"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
@@ -32,6 +33,10 @@ func AuthorizedIDs(ctx context.Context, q *db.Queries, actor Actor, kind string)
 }
 
 func RequireObject(ctx context.Context, q *db.Queries, actor Actor, kind string, id uuid.UUID) error {
+	// Only the dedicated interactive domain can resolve this private object.
+	if kind == "dashboard" && id == modelmetrics.DashboardID(actor.EnterpriseID) {
+		return ErrDenied
+	}
 	if kind == "dashboard" {
 		_, err := q.GetManagedDashboardByID(ctx, db.GetManagedDashboardByIDParams{EnterpriseID: actor.EnterpriseID, DashboardID: id})
 		if err == nil {

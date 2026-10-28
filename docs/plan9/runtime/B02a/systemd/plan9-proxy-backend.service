@@ -1,0 +1,13 @@
+[Unit]
+Description=Plan9 B02a dedicated HAProxy backend
+After=network.target
+[Service]
+Type=simple
+EnvironmentFile=/etc/plan9-web.env
+ExecStart=/usr/local/bin/plan9-web-lab serve --port 9001
+Restart=on-failure
+MemoryMax=128M
+CPUQuota=50%
+TasksMax=96
+[Install]
+WantedBy=multi-user.target

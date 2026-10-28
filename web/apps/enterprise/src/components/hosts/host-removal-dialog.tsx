@@ -855,7 +855,7 @@ function dependencyHref(dependency: Dependency, targetHostId: string) {
       "credential_lease",
     ].includes(dependency.type)
   )
-    return "/tasks";
+    return `/hosts/${targetHostId}?tab=activity`;
   return `/hosts/${targetHostId}`;
 }
 

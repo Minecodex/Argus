@@ -1,0 +1,99 @@
+{
+  "resources": {
+    "get": {
+      "operationId": "listObservationQueryResources",
+      "summary": "Search explicitly authorized resources for temporary observation queries.",
+      "parameters": [
+        {
+          "name": "kind",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "host",
+              "kubernetes_cluster",
+              "kubernetes_namespace",
+              "application",
+              "monitoring_target"
+            ]
+          }
+        },
+        {
+          "name": "search",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized observation query data.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/observe.yaml#/components/schemas/ObservationResourcePage"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./m7.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "catalog": {
+    "post": {
+      "operationId": "queryObservationCatalog",
+      "summary": "Discover sources, metrics, fields and values within a resource query scope.",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/observe.yaml#/components/schemas/ObservationCatalogInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Authorized observation query data.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/observe.yaml#/components/schemas/ObservationCatalogResult"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./m7.yaml#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

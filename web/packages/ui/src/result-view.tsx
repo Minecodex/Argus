@@ -5,7 +5,7 @@ import { FilterBar } from "./filter";
 import { StatusBadge } from "./status-badge";
 import { useUiText } from "./locale";
 import { KeyValueGrid } from "./key-value-grid";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Pagination } from "./pagination";
 
 export type ResultRow = Record<string, unknown>;
 export type ResultPagerProps = {
@@ -13,6 +13,7 @@ export type ResultPagerProps = {
   length: number;
   total: number;
   sourceTotal: number;
+  pageSize?: number;
   onFirst?: () => void;
   onPrevious?: () => void;
   onNext?: () => void;
@@ -22,41 +23,31 @@ export function ResultPager({
   length,
   total,
   sourceTotal,
+  pageSize = 25,
   onFirst,
   onPrevious,
   onNext,
 }: ResultPagerProps) {
   const text = useUiText();
   return (
-    <nav
-      className="argus-pagination"
-      aria-label={text("结果分页", "Result pagination")}
-    >
-      <span>
-        {length ? `${offset + 1}–${offset + length}` : "0"} ·{" "}
-        {text("匹配", "Matched")} {total} / {text("已返回", "Returned")}{" "}
-        {sourceTotal}
-      </span>
-      <div>
-        {onFirst && (
-          <Button size="sm" variant="ghost" onPress={onFirst}>
-            {text("第一页", "First page")}
-          </Button>
-        )}
-        {onPrevious && (
-          <Button size="sm" variant="ghost" onPress={onPrevious}>
-            <ChevronLeft size={14} aria-hidden />
-            {text("上一页", "Previous page")}
-          </Button>
-        )}
-        {onNext && (
-          <Button size="sm" variant="ghost" onPress={onNext}>
-            {text("下一页", "Next page")}
-            <ChevronRight size={14} aria-hidden />
-          </Button>
-        )}
-      </div>
-    </nav>
+    <Pagination
+      page={Math.floor(offset / pageSize) + 1}
+      totalPages={Math.max(1, Math.ceil(total / pageSize))}
+      maxReachablePage={Math.floor(offset / pageSize) + 2}
+      hasPrevious={!!onPrevious}
+      hasNext={!!onNext}
+      onFirst={onFirst}
+      onPrevious={onPrevious}
+      onNext={onNext}
+      ariaLabel={text("结果分页", "Result pagination")}
+      summary={
+        <>
+          {length ? `${offset + 1}–${offset + length}` : "0"} ·{" "}
+          {text("匹配", "Matched")} {total} / {text("已返回", "Returned")}{" "}
+          {sourceTotal}
+        </>
+      }
+    />
   );
 }
 export type ResultColumn = {

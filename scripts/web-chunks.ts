@@ -4,10 +4,22 @@ export function webVendorChunk(rawId: string) {
   // CSS is imported by the shared theme. Grouping it with an optional engine
   // would turn that engine into a static dependency of every portal.
   if (/\.(css|scss)(?:\?|$)/.test(id)) return;
+  // Optional form constraints and dashboard definitions must not make every
+  // API consumer preload their complete catalogs (including the login shell).
+  if (id.includes("/api-client/src/generated/form-constraints"))
+    return "argus-form-contracts";
+  if (id.includes("/api-client/src/generated/dashboard-templates"))
+    return "argus-dashboard-catalog";
   // The shared API runtime and generated catalogs are used across portal routes.
   // Keep them in a cacheable chunk as the business pages and catalogs grow.
   if (id.includes("/web/packages/api-client/src/")) return "argus-api";
   if (!id.includes("node_modules")) return;
+  if (/\/(?:@codemirror|@lezer)\//.test(id)) return "vendor-codemirror";
+  if (id.includes("/@prometheus-io/")) return "vendor-promql-editor";
+  if (id.includes("/graphql-language-service/")) return "vendor-graphql-editor";
+  if (id.includes("/graphql/")) return "vendor-graphql";
+  if (id.includes("/js-yaml/")) return "vendor-structured-document";
+  if (/\/(?:i18next|react-i18next)\//.test(id)) return "vendor-i18n";
   // tslib is shared by zrender and ECharts at initialization time. Letting
   // Rollup absorb it into ECharts makes zrender depend back on ECharts before
   // the helper is initialized. Keep helpers independent, preserving budgets.

@@ -1,3 +1,4 @@
+import type { ObservationDiscovery } from "./observation";
 import type { MonitoringDomains } from "./monitoring";
 import type { KubernetesWorkbenchDomains } from "./kubernetes-workbench";
 import type { AlertDomains } from "./alerts";
@@ -327,7 +328,7 @@ export interface ArgusApiClient
   };
 
   executions: {
-    list(): Promise<Page<Execution>>;
+    list(filter?: { actionRef?: string; resourceId?: string }): Promise<Page<Execution>>;
     get(executionId: string): Promise<Execution>;
     claimOneTimeResult(executionId: string): Promise<ActionOneTimeResult>;
   };
@@ -568,7 +569,7 @@ export interface ArgusApiClient
     ): Promise<PendingActionPublic>;
   };
 
-  telemetry: {
+  telemetry: ObservationDiscovery & {
     listDistributions(): Promise<CollectorDistributionVersion[]>;
     listProfiles(): Promise<CollectionProfile[]>;
     listCollectors(): Promise<CollectorInstance[]>;
@@ -577,13 +578,15 @@ export interface ArgusApiClient
     testRoute(input: RouteTestCreate): Promise<RouteTestResult>;
     usage(): Promise<TelemetryUsage>;
     overview(input: TelemetryOverviewQuery): Promise<TelemetryOverview>;
-    queryMetrics(input: PromQLInstantQuery): Promise<PrometheusQueryResponse>;
+    queryMetrics(input: PromQLInstantQuery, signal?: AbortSignal): Promise<PrometheusQueryResponse>;
     queryMetricsRange(
       input: PromQLRangeQuery,
+      signal?: AbortSignal,
     ): Promise<PrometheusQueryResponse>;
-    queryLogs(input: KQLQuery): Promise<KQLQueryResponse>;
+    queryLogs(input: KQLQuery, signal?: AbortSignal): Promise<KQLQueryResponse>;
     queryTraces(
       input: SkyWalkingTraceGraphQLQuery,
+      signal?: AbortSignal,
     ): Promise<SkyWalkingGraphQLResponse>;
   };
 

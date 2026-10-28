@@ -706,6 +706,9 @@ type ListMonitoringApplicationsParams struct {
 	Cursor *string                                 `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int                                    `form:"limit,omitempty" json:"limit,omitempty"`
 	Status *ListMonitoringApplicationsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Environment Exact application environment; omitted means all authorized environments. Combined with search before pagination.
+	Environment *string `form:"environment,omitempty" json:"environment,omitempty"`
 }
 
 // ListMonitoringApplicationsParamsStatus defines parameters for ListMonitoringApplications.

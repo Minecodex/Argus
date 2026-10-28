@@ -54,6 +54,13 @@ func TestClickHouseSourceTransportKeepsEmptyFacetedMixedAndDuplicateSets(t *test
 			if actual != test.want || actual != reference {
 				t.Fatalf("source selection changed: binary=%d reference=%d want=%d", actual, reference, test.want)
 			}
+			selected := chscope.SelectedPredicate("source_key", "namespace_uid", test.keys)
+			if err = conn.QueryRow(ctx, "SELECT count() FROM argus_scope_reference_rows WHERE "+selected).Scan(&actual); err != nil {
+				t.Fatal(err)
+			}
+			if actual != reference {
+				t.Fatalf("optimized source selection changed: selected=%d reference=%d", actual, reference)
+			}
 		})
 	}
 }

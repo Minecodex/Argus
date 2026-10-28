@@ -18,7 +18,13 @@ func (handler TelemetryHandler) queryActor(ctx context.Context, toolID string) (
 	kind := "user"
 	if account := principal.ServiceAccount; account != nil {
 		kind = "service_account"
-		if !slices.Contains(account.AllowedToolIds, toolID) {
+		allowed := slices.Contains(account.AllowedToolIds, toolID)
+		if toolID == "" {
+			for _, id := range []string{"telemetry.promql.query", "telemetry.kql.query", "telemetry.skywalking.trace"} {
+				allowed = allowed || slices.Contains(account.AllowedToolIds, id)
+			}
+		}
+		if !allowed {
 			value := telemetryError(ctx, telemetry.ErrDenied)
 			return telemetry.Actor{}, principal, &value
 		}

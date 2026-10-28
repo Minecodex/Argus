@@ -4,6 +4,11 @@ WHERE domain = sqlc.arg(domain)::text
   AND ((domain = 'platform' AND enterprise_id IS NULL)
     OR (domain = 'enterprise' AND enterprise_id = sqlc.narg(enterprise_id)::uuid))
   AND (sqlc.narg(action)::text IS NULL OR action = sqlc.narg(action)::text)
+  AND (sqlc.narg(operation_ref)::text IS NULL
+    OR COALESCE(details->>'action_ref', details->>'pending_action_ref') = sqlc.narg(operation_ref)::text
+    OR (resource_type = 'execution' AND resource_id IN (
+      SELECT e.id::text FROM executions e JOIN pending_actions p ON p.id=e.pending_action_id AND p.enterprise_id=e.enterprise_id
+      WHERE e.enterprise_id=audit_events.enterprise_id AND p.action_ref=sqlc.narg(operation_ref)::text)))
   AND (sqlc.narg(actor_id)::text IS NULL OR actor_id = sqlc.narg(actor_id)::text)
   AND (sqlc.narg(resource_type)::text IS NULL OR resource_type = sqlc.narg(resource_type)::text
     OR (sqlc.narg(resource_type)::text='alert' AND (resource_type LIKE 'alert\_%' ESCAPE '\' OR action LIKE 'alert.%')))
@@ -12,7 +17,10 @@ WHERE domain = sqlc.arg(domain)::text
     OR (details ? 'resource_ids' AND NOT EXISTS(
       SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(details->'resource_ids')='array' THEN details->'resource_ids' ELSE '[]'::jsonb END) resource
       WHERE NOT (resource::uuid=ANY(sqlc.narg(alert_resources)::uuid[])))))
-  AND (sqlc.narg(resource_id)::text IS NULL OR resource_id = sqlc.narg(resource_id)::text)
+  AND (sqlc.narg(resource_id)::text IS NULL OR resource_id = sqlc.narg(resource_id)::text
+    OR EXISTS (SELECT 1 FROM pending_actions p WHERE p.enterprise_id=audit_events.enterprise_id
+      AND p.action_ref=COALESCE(audit_events.details->>'action_ref', audit_events.details->>'pending_action_ref')
+      AND (p.resource_id::text=sqlc.narg(resource_id)::text OR p.result_resource_id::text=sqlc.narg(resource_id)::text)))
   AND (sqlc.narg(result)::text IS NULL OR result = sqlc.narg(result)::text)
   AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
   AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)

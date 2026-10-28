@@ -1,0 +1,6 @@
+*
+!Dockerfile
+!bootstrap.sh
+!workload.py
+!systemd/
+!systemd/*.service

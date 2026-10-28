@@ -1,0 +1,69 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  restart: unless-stopped
+  networks: [lab]
+  labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B04}
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+services:
+  collector:
+    <<: *base
+    image: ${PLAN9_HOST_IMAGE:?Verified image required}
+    hostname: ${PLAN9_RUN}-collector
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: redis}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22261:22']
+    volumes: ['collector-data:/var/lib/plan9', '${PLAN9_PRIVATE}/redis-credentials.json:/root/plan9-redis.json:ro']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    <<: *base
+    image: ${PLAN9_REDIS_IMAGE:?Verified image required}
+    cpus: 0.5
+    mem_limit: 192m
+    memswap_limit: 192m
+    pids_limit: 96
+    command: [redis-server, /run/secrets/redis.conf]
+    volumes: ['redis-data:/data', '${PLAN9_PRIVATE}/redis.conf:/run/secrets/redis.conf:ro', '${PLAN9_PRIVATE}/users.acl:/run/secrets/users.acl:ro']
+    healthcheck:
+      test: [CMD-SHELL, 'redis-cli ping | grep -Eq "PONG|NOAUTH"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  memcached:
+    <<: *base
+    image: ${PLAN9_MEMCACHED_IMAGE:?Verified image required}
+    cpus: 0.5
+    mem_limit: 96m
+    memswap_limit: 96m
+    pids_limit: 64
+    command: [memcached, -m, '8', -c, '64', -t, '1', -I, 1m, -U, '0']
+    healthcheck:
+      test: [CMD-SHELL, 'printf "version\r\n" | nc -w 1 127.0.0.1 11211 | grep -q VERSION']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  collector-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  redis-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

@@ -104,6 +104,7 @@ type Page[T any] struct {
 }
 
 type ListInput struct {
+	Environment    string      `json:"environment,omitempty"`
 	Search         string      `json:"search,omitempty"`
 	Cursor         string      `json:"cursor,omitempty"`
 	Limit          int         `json:"limit,omitempty"`

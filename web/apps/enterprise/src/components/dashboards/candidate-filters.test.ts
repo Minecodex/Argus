@@ -1,5 +1,9 @@
 import { expect, it } from "vitest";
-import { candidateContext, candidateRequest } from "./candidate-filters";
+import {
+  candidateContext,
+  candidateRequest,
+  candidateFilters,
+} from "./candidate-filters";
 import type { DashboardSchemas } from "@argus/api-client";
 const query: DashboardSchemas["DashboardCandidateQuery"] = {
   signal: "logs",
@@ -21,6 +25,35 @@ const scope = {
   variables: { env: { all: false, values: ["production"] } },
   locals: { region: { all: false, values: ["east"] } },
 };
+it("preserves PromQL regex matchers and fails closed on unresolved bindings", () => {
+  const metric = {
+    ...query,
+    signal: "metrics" as const,
+    filters: [
+      { field: "state", operator: "=~", value: "idle|user" },
+      { field: "host", operator: "!~", value: "dev.*" },
+    ],
+  };
+  expect(candidateFilters(metric, {})).toEqual([
+    { field: "state", operator: "=~", values: ["idle|user"] },
+    { field: "host", operator: "!~", values: ["dev.*"] },
+  ]);
+  expect(() =>
+    candidateFilters(
+      {
+        ...metric,
+        filters: [{ field: "host", operator: "=", variable: "missing" }],
+      },
+      {},
+    ),
+  ).toThrow("DASHBOARD_PARAMETER_UNRESOLVED");
+  expect(() =>
+    candidateFilters(
+      { ...metric, filters: [{ field: "host", operator: ":", value: "prod" }] },
+      {},
+    ),
+  ).toThrow("DASHBOARD_CATALOG_OPERATOR_UNSUPPORTED");
+});
 it("binds candidate caches and requests to explicit empty scope and application filters", () => {
   const selected = {
     ...scope,

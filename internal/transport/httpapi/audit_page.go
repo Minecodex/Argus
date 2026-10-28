@@ -16,6 +16,7 @@ func auditPageParams(p auditapi.ListAuditEventsParams, binding pagination.Bindin
 		return db.ListAuditEventsPageParams{}, pagination.ErrInvalid
 	}
 	q := db.ListAuditEventsPageParams{Domain: binding.Audience, Action: auditText(p.Action), ActorID: auditText(p.ActorId), ResourceType: auditText(p.ResourceType), ResourceID: auditText(p.ResourceId), Result: auditText(p.Result), Search: auditText(p.Query), Since: auditTime(p.From), Until: auditTime(p.To), PageSize: int32(limit + 1)}
+	q.OperationRef = auditText(p.OperationRef)
 	if binding.Audience == "enterprise" {
 		id, err := uuid.Parse(binding.EnterpriseID)
 		if err != nil {

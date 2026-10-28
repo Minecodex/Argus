@@ -1572,6 +1572,7 @@ components:
               - application
               - monitoring_target
               - kubernetes_namespace
+              - internal_model
         source_binding:
           $ref: '#/components/schemas/DashboardSourceBinding'
         local_filters:
@@ -2440,6 +2441,88 @@ components:
       type: object
       additionalProperties: false
       properties:
+        model_governance:
+          type: object
+          description: Private built-in model governance metadata. Data is available only to the authorized interactive built-in dashboard.
+          additionalProperties: false
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+            timezone:
+              type: string
+            models:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                required:
+                  - id
+                  - name
+            subjects:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  kind:
+                    type: string
+                    enum:
+                      - user
+                      - department
+                  department_id:
+                    type: string
+                    format: uuid
+                required:
+                  - id
+                  - name
+                  - kind
+                  - department_id
+            pending:
+              type: integer
+              format: int64
+              minimum: 0
+            projected_at:
+              type:
+                - string
+                - 'null'
+              format: date-time
+            usage_complete:
+              type: boolean
+            cached_usage_complete:
+              type: boolean
+            estimated_input:
+              type: integer
+              format: int64
+            estimated_output:
+              type: integer
+              format: int64
+            scope_hash:
+              type: string
+          required:
+            - from
+            - to
+            - timezone
+            - models
+            - pending
+            - usage_complete
+            - estimated_input
+            - estimated_output
+            - scope_hash
         dashboard_id:
           type: string
           format: uuid
@@ -2593,6 +2676,9 @@ components:
             - '>='
             - <
             - <=
+            - '=~'
+            - '!~'
+            - ':'
       required:
         - field
         - values

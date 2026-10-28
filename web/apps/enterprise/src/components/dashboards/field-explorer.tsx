@@ -1,10 +1,7 @@
+import { useQueryCatalog } from "./query-scope";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  useApi,
-  type DashboardSchemas,
-  type DashboardSpec,
-} from "@argus/api-client";
+import { type DashboardSchemas, type DashboardSpec } from "@argus/api-client";
 import { TelemetryFieldExplorer } from "@argus/ui";
 import { useDashboardQueryScope, queryScopeBounds } from "./query-scope";
 
@@ -24,8 +21,8 @@ export function DashboardFieldExplorer({
   canUse?: (field: string) => boolean;
 }) {
   const scope = useDashboardQueryScope();
-  const api = useApi(),
-    { t, i18n } = useTranslation();
+  const catalogApi = useQueryCatalog();
+  const { t, i18n } = useTranslation();
   // Freeze relative time across all pages. The parent keys this component by
   // source, metric and authored time so stale pages cannot cross scope changes.
   const { kind, from, to, seconds } = scope?.time ?? time;
@@ -43,7 +40,7 @@ export function DashboardFieldExplorer({
       onUse={onUse}
       canUse={canUse}
       load={(request, cancel) =>
-        api.dashboards.catalog(
+        catalogApi(
           {
             ...range,
             ...request,

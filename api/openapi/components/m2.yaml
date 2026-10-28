@@ -580,6 +580,23 @@ components:
               { $ref: "./authorization.yaml#/components/schemas/Permission" },
           }
         page: { $ref: "./common.yaml#/components/schemas/CursorPage" }
+    AuditOperation:
+      type: object
+      additionalProperties: false
+      description: Current operation projection. Separate from immutable event facts and never a source of execution authority.
+      required: [action_ref, action_type, action_status, created_at, updated_at]
+      properties:
+        action_ref: {type: string, minLength: 1, maxLength: 256}
+        action_type: {type: string, minLength: 1, maxLength: 128}
+        action_status: {type: string, minLength: 1, maxLength: 64}
+        execution_id: {type: string, format: uuid}
+        execution_status: {type: string, minLength: 1, maxLength: 64}
+        error_code: {type: string, minLength: 1, maxLength: 128}
+        resource_type: {type: string, minLength: 1, maxLength: 128}
+        resource_id: {type: string, format: uuid}
+        resource_name: {type: string, minLength: 1, maxLength: 256}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
     AuditEvent:
       type: object
       additionalProperties: false
@@ -617,6 +634,7 @@ components:
         actor_id: { type: string, minLength: 1 }
         actor_display_name: { type: string, minLength: 1, maxLength: 256 }
         actor_username: { type: string, minLength: 1, maxLength: 128 }
+        operation: {$ref: "#/components/schemas/AuditOperation"}
         action: { type: string, pattern: "^[a-z][a-z0-9_.]+$" }
         resource_type: { type: string, minLength: 1, maxLength: 128 }
         resource_id: { type: string, minLength: 1, maxLength: 256 }

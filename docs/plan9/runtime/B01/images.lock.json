@@ -1,0 +1,18 @@
+{
+  "schema_version": "argus.plan9_images/v1",
+  "batch": "B01",
+  "run_id": "p9-b01-20261026-01",
+  "platform": "linux/amd64",
+  "host_image_id": "sha256:752ef62afe9edd62067f6c1617fb79aebbbde7c5951fe633925a284de3b33ad7",
+  "base_image": "debian@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad",
+  "bootstrap_ca_source_image": "localhost:5001/argus/argus-remote-runtime@sha256:8a2366f74b988ead98caf266c8fc5f0fd2d125df64c1f0cf4bd1372f33553872",
+  "observed_package_versions": [
+    "dbus 1.16.2-2",
+    "openssh-server 1:10.0p1-7+deb13u4",
+    "python3 3.13.5-1",
+    "systemd 257.13-1~deb13u1"
+  ],
+  "rebuild_source": "Dockerfile",
+  "runtime_has_real_connector_and_collector": true,
+  "image_contains_no_preinstalled_argus_agent_or_telemetry_generator": true
+}

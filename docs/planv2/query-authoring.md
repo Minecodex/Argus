@@ -2,7 +2,7 @@
 
 ## 契约
 
-`POST /dashboard-spec/convert-panel` 接收完整 `panel` 和目标 `mode`（`builder` / `dsl`），需要仪表盘管理权限与 CSRF。返回 `converted`、`panel` 和 `issues`。此接口只转换配置，不保存草稿、不执行查询、不代替发布校验。
+`POST /dashboard-spec/convert-panel` 接收完整 `panel` 和目标 `mode`（`builder` / `dsl`），允许具备 host.read、kubernetes.read、application.read、monitoring.read 或 telemetry.dashboard.manage 中任一能力的企业主体使用，并校验 CSRF。返回 `converted`、`panel` 和 `issues`。此接口只转换配置，不保存草稿、不执行查询、不代替发布校验。
 
 - 转换覆盖同一 Panel 的全部展示与详情 Target。任何一条不支持转换，返回原 Panel 和具体问题路径；不返回半转换状态。
 - 每个 Target 只保留一种 `source_definition`；整张图使用同一 `authoring_mode`，不维护隐藏的旧 Builder 配置。
@@ -59,3 +59,19 @@ mock 只提供无参数基本指标的转换演示，不运行额外原生解析
 独立临时 Kubernetes PostgreSQL / ClickHouse 中，三信号与 APM 的固定范围执行经“Builder 发布 → DSL 发布 → Builder 发布”后结果保持一致，转换后的标准 Trace 详情继续执行。数据通过测试直接写入存储，不包含 Collector/Kafka 摄入链路。
 
 浏览器覆盖保留不支持的语句、模式往返、嵌套详情保存与刷新恢复；使用 mock API。此证据与真实存储测试分别记录，不视为真实后端浏览器或 Chat 全链路验收。
+
+## 2026-10-28：独立观测查询
+
+[Plan10](../plan10/README.md) 将主机/K8s 顶层三信号查询 Tab 迁入 `/observe`，继续共享本页的 Builder/DSL 编译器。工作台的每个临时面板有独立资源/来源范围，只共享时间；查询不保存、不发布。目录、候选与执行统一按资源查询身份授权，原仪表盘入口权限保持不变。
+
+共享 CodeMirror 6 提供 PromQL 0.314.0、Argus KQL 与固定只读 GraphQL SDL 补全。Scope/主体变化取消旧请求并清除候选视图。完整 PromQL 标签条件（含正则）及受控 KQL AND 条件传给目录；不能表示的补全上下文明示不可用，不移除条件后扩大候选。
+
+新增资源目录返回按来源版本、名称、类型、单位区分的指标，支持已观测与内置定义的区分。定义不制造样本；未登记的说明或类型显示未知。无效 JSON 保留原文，并通过表单有效性阻止单次执行和执行全部；首次空白定义允许在两种模式间切换。
+
+## 行内指标配置与查询选项
+
+观测查询和仪表盘主编辑器使用同一布局：采集来源 → 指标 → 计算方式 → 分组。指标框使用共享紧凑宽度，不随页面拉伸。`rate`、`p95`、`error_rate` 的窗口和 `topk` 的数量跟随相应运算显示。
+
+条件逐行编辑，不弹出配置窗口。标签下拉读取当前 metric 的 Catalog 字段，支持搜索和分页；标签值保留其他已填写条件，包括同标签的其他匹配器、变量映射和正则。指标名已经由指标选择器表达，不重复作为 `__name__` 条件。无法解析的参数使候选请求失败，不丢掉条件扩大搜索；原查询仍由服务端编译校验。
+
+执行选项参考 Prometheus 的[即时/区间查询](https://prometheus.io/docs/prometheus/latest/querying/basics/)及[区间查询 step 参数](https://prometheus.io/docs/prometheus/latest/querying/api/)：查询方式、自动或固定步长直接可见，固定时才设置秒数。构造器继续使用 Argus 的三信号定义及服务端转换，不在浏览器重写 PromQL 编译器。字段探索由标签候选承接，变量映射在确有绑定上下文时单独保留。

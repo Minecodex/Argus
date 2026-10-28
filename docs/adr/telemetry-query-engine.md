@@ -26,6 +26,8 @@ Trace 摘要与父子关系以 Span 事实为依据，在只读查询进程内�
 
 PlanV2 在同一固定 GraphQL SDL 中增加服务、实例、接口、RED 与拓扑查询。统计基于去重的 SERVER / CONSUMER 入口 Span；显式返回已接收样本口径、单位、分位数方法及缺失字段状态，不能推算全量。拓扑只连接当前授权和来源范围内的明确父子身份，歧义连接不猜测。详细契约见 [APM 查询与发布](../planv2/apm-query-contract.md)。
 
+2026-10-27 [指标目录查询修复](../plans/frontend-redesign/dashboard-metric-catalog-20261027.md)：目录先按资源和存在样本的序列主键裁剪元数据，只在包含 Namespace 选择时读取命名空间属性；样本存在性复用现有来源/时间投影。保留 `FINAL` 后的来源和标签校验，以及原有预算、分页、授权与时间边界。
+
 ## 租户存储
 
 查询和 Writer 使用以下物理表名后缀：
@@ -66,3 +68,11 @@ PromQL 查询预算包含独立的 `MaxSamples` 与 `MaxSeries`，后者默认 1
 Recording/Alert Rule 管理、Thanos 特殊能力、完整 KQL、完整 SkyWalking OAP / Query Protocol 兼容、任意 SQL 和旧查询协议不属于本 ADR 范围；PlanV2 的受控 APM 查询不代表完整厂商后端兼容。
 
 2026-10-07 新增的 [Plan6 告警中心](../plan6/README.md) 独立规划告警策略、通知、历史与会话工具，评估复用本 ADR 的授权查询链路；本轮计划与原型不表示正式告警能力已实施。
+
+## 2026-10-28：Plan10 观测查询
+
+企业门户新增 `/observe`，主机/K8s 详情取消三信号查询 Tab 并提供带资源上下文的入口。每个临时面板独立选择资源和来源；PromQL、KQL、GraphQL 引擎及其原生响应保持不变。
+
+原查询 HTTP 接受结构化 scope，保留旧 resource_ids 的显式语义，禁止同时传入。新增资源身份目录与 Catalog transport，复用 observationscope Resolver；不借用仪表盘能力扩大权限。目录按来源版本/名称/类型/单位区分指标，支持原生 PromQL 正则标签条件与 KQL contains 语义，查询条件在发现和聚合前应用。
+
+内部 Catalog 协议升级至 v5；API 与 Query 组件必须同步升级，旧协议明确拒绝。元数据和查询语句来自实际发现及版本化模板；没有样本不填零，未登记说明显示未知。实施及验证边界见 [Plan10 实施记录](../plan10/implementation-status.md)。

@@ -22,16 +22,17 @@ export function SidebarToggle({
   onToggle: () => void;
 }) {
   const text = useUiText();
+  const label = collapsed
+    ? text("展开导航", "Expand navigation")
+    : text("收起导航", "Collapse navigation");
   return (
     <Button
       isIconOnly
       variant="ghost"
       className="argus-sidebar__collapse"
-      aria-label={
-        collapsed
-          ? text("展开导航", "Expand navigation")
-          : text("收起导航", "Collapse navigation")
-      }
+      aria-label={label}
+      aria-expanded={!collapsed}
+      title={label}
       onPress={onToggle}
     >
       {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}

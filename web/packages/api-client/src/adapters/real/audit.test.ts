@@ -26,6 +26,14 @@ it("preserves audit facts and forwards filters together with the signed page cur
               previous_hash: "a".repeat(64),
               event_hash: "b".repeat(64),
               created_at: "2026-09-27T00:00:00Z",
+              operation: {
+                action_ref: "act-linked",
+                action_type: "host.update",
+                action_status: "failed",
+                execution_status: "failed",
+                created_at: "2026-09-27T00:00:00Z",
+                updated_at: "2026-09-27T00:00:01Z",
+              },
             },
           ],
           page: {
@@ -46,6 +54,7 @@ it("preserves audit facts and forwards filters together with the signed page cur
   const result = await api.audit.list(
     {
       action: "dashboard.published",
+      operationRef: "act-linked",
       actorUserId: "editor",
       resourceType: "dashboard",
       resourceId: "board",
@@ -59,6 +68,7 @@ it("preserves audit facts and forwards filters together with the signed page cur
   const url = new URL(String(fetcher.mock.calls[0]![0]));
   expect(Object.fromEntries(url.searchParams)).toEqual({
     action: "dashboard.published",
+    operation_ref: "act-linked",
     actor_id: "editor",
     resource_type: "dashboard",
     resource_id: "board",
@@ -75,5 +85,7 @@ it("preserves audit facts and forwards filters together with the signed page cur
     spec_hash: "digest",
   });
   expect(result.items[0]?.eventHash).toBe("b".repeat(64));
+  expect(result.items[0]?.operation?.execution_status).toBe("failed");
+  expect(result.items[0]?.result).toBe("success");
   expect(result.nextCursor).toBe("next");
 });

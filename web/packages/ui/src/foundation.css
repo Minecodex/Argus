@@ -327,6 +327,7 @@
   padding: var(--space-1);
   max-height: var(--popover-max-height);
   overflow: auto;
+  overscroll-behavior: contain;
 }
 .argus-select__item,
 .argus-dropdown__item {

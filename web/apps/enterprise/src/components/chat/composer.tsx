@@ -123,6 +123,7 @@ export function ChatComposer({
   const dashboards = useQuery({
     queryKey: ["dashboards", "chat-picker"],
     queryFn: () => api.dashboards.list(),
+    select: (items) => items.filter((item) => item.managed_template_key !== "argus.model-governance"),
     enabled: canReadDashboard && !!picker,
   });
   const items: Mention[] = [

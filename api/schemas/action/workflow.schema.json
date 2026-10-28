@@ -48,6 +48,7 @@
       "required": ["execution_id", "action_ref", "status", "one_time_result_state", "created_at", "updated_at"],
       "properties": {
         "execution_id": {"type": "string"},
+        "action_type": {"type": "string", "minLength": 1, "maxLength": 128},
         "action_ref": {"type": "string"},
         "status": {"enum": ["pending", "running", "succeeded", "failed", "result_unknown", "cancelled"]},
         "result_ref": {"type": "string"},

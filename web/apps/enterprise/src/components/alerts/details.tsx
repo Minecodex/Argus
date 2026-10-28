@@ -1,3 +1,4 @@
+import { alertMeasurement } from "./measurement";
 import { useState } from "react";
 import { AlertEventTimeline } from "./event-timeline";
 import { CollectorDeliveryGap } from "./delivery-gap";
@@ -67,7 +68,7 @@ export function AlertDetails({
 }) {
   const api = useApi(),
     cache = useQueryClient(),
-    { t } = useAlertText();
+    { t, locale } = useAlertText();
   const [tab, setTab] = useState("overview"),
     [comment, setComment] = useState(""),
     [owner, setOwner] = useState<string | null>(null),
@@ -203,7 +204,9 @@ export function AlertDetails({
       title={title}
       description={
         e
-          ? `${resourceName(e, names)} · ${e.id} · ${e.state.labels["service"] ?? ""}`
+          ? [resourceName(e, names), e.id, e.state.labels["service"]]
+              .filter(Boolean)
+              .join(" · ")
           : undefined
       }
       width="calc(var(--drawer-width) + var(--space-8))"
@@ -250,7 +253,7 @@ export function AlertDetails({
                       : [
                           [
                             "currentValue",
-                            `${e.state.value ?? "—"}${e.state.unit} / ${e.state.threshold}${e.state.unit}`,
+                            `${alertMeasurement(e.state.value, e.state.unit, locale, e.state.threshold)} / ${alertMeasurement(e.state.threshold, e.state.unit, locale, e.state.value ?? undefined)}`,
                           ] as [string, string],
                         ]),
                     ["policy", e.state.policy_name],

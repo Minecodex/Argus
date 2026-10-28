@@ -1,4 +1,9 @@
-export const AUDIT_ACTION_CODES = [
+import {
+  auditAdditionalActions,
+  auditAdditionalResources,
+} from "./audit-catalog";
+export { auditAdditionalLabels } from "./audit-catalog";
+const baseActionCodes = [
   "dashboard.drilldown.executed",
   "dashboard.draft.created",
   "dashboard.draft.saved",
@@ -132,7 +137,7 @@ export const AUDIT_ACTION_CODES = [
   "auth.password_change",
 ] as const;
 
-export const AUDIT_RESOURCE_TYPE_CODES = [
+const baseResourceCodes = [
   "dashboard",
   "dashboard_draft",
   "dashboard_folder",
@@ -211,3 +216,10 @@ export function humanizeAuditCode(code: string): string {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 }
+
+export const AUDIT_ACTION_CODES = [
+  ...new Set([...baseActionCodes, ...auditAdditionalActions]),
+];
+export const AUDIT_RESOURCE_TYPE_CODES = [
+  ...new Set([...baseResourceCodes, ...auditAdditionalResources]),
+];
