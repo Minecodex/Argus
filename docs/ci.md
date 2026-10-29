@@ -25,3 +25,5 @@ go run ./cmd/argus-dev e2e windows-host --config YOUR_PRIVATE_CONFIG --run-id YO
 其他集群套件为 `m8`、`p4`、`tls`。实际安装预检的 10 核 CPU、15 GiB 集群可分配内存和原生架构要求保持不变；没有环境时记录待验证。配置、凭据和资源必须属于独立测试环境，结束后只清理本次资源。
 
 完整门户保留原有主题、语言、桌面和权限断言。mock 门户检查不替代实际集群、外部接入或真实模型验收；托管 CI 成功不改变 `local_hardening_complete` 或 Production Profile 的既有阻断状态。没有定时任务。
+
+仪表盘浏览器回归按当前共享查询编辑器交互：CodeMirror 语句使用文本断言并检查保存后重载；指标从目录候选中选择，再验证查询和图表能力，不能仅填写搜索文本代替选择。
