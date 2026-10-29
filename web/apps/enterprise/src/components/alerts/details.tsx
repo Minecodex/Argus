@@ -1,4 +1,6 @@
 import { alertMeasurement } from "./measurement";
+import { alertEventTitle } from "./event-presentation";
+import { AlertQueryHealth } from "./query-health";
 import { useState } from "react";
 import { AlertEventTimeline } from "./event-timeline";
 import { CollectorDeliveryGap } from "./delivery-gap";
@@ -128,6 +130,7 @@ export function AlertDetails({
       type === "instance" &&
       !!e &&
       !e.state.delivery_gap &&
+      e.state.kind !== "health" &&
       !!e.state.metric &&
       tab === "overview",
   });
@@ -164,7 +167,9 @@ export function AlertDetails({
   const title =
     e?.state.delivery_gap || p?.managed_by === "collector_delivery"
       ? t("alerts.deliveryGapTitle")
-      : (e?.state.name ?? p?.name ?? d?.message.subject ?? t("alerts.details"));
+      : e
+        ? alertEventTitle(e, t)
+        : (p?.name ?? d?.message.subject ?? t("alerts.details"));
   const cells = (values: Array<[string, string]>) => (
     <div className="argus-alert-detail-grid">
       {values.map(([label, value]) => (
@@ -242,13 +247,18 @@ export function AlertDetails({
                 <TabsContent value="overview">
                   {e.health !== "normal" &&
                     e.health !== "not_evaluated" &&
-                    !e.state.delivery_gap && (
+                    !e.state.delivery_gap &&
+                    e.state.kind !== "health" && (
                       <AlertCallout danger>
-                        {t("alerts.queryTimeout")}
+                        {t(
+                          e.health === "no_data"
+                            ? "alerts.queryHealthNoDataHelp"
+                            : "alerts.queryTimeout",
+                        )}
                       </AlertCallout>
                     )}
                   {cells([
-                    ...(e.state.delivery_gap
+                    ...(e.state.delivery_gap || e.state.kind === "health"
                       ? []
                       : [
                           [
@@ -273,6 +283,8 @@ export function AlertDetails({
                   ])}
                   {e.state.delivery_gap ? (
                     <CollectorDeliveryGap report={e.state.delivery_gap} />
+                  ) : e.state.kind === "health" ? (
+                    <AlertQueryHealth event={e} />
                   ) : (
                     <>
                       <pre className="argus-alert-code-block">

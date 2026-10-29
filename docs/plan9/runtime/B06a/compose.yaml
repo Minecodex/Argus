@@ -1,0 +1,70 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  restart: unless-stopped
+  networks: [lab]
+  labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B06a}
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+x-mongo: &mongo
+  <<: *base
+  image: ${PLAN9_MONGODB_IMAGE:?Verified image required}
+  cpus: 1
+  mem_limit: 768m
+  memswap_limit: 768m
+  pids_limit: 256
+  command: [mongod, --wiredTigerCacheSizeGB, '0.25', --maxConns, '128', --bind_ip_all]
+  environment: {MONGO_INITDB_ROOT_USERNAME: bootstrap, MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/root-password}
+  healthcheck:
+    test: [CMD, mongosh, --quiet, --eval, 'quit(db.adminCommand({ping:1}).ok ? 0 : 1)']
+    interval: 10s
+    timeout: 5s
+    retries: 18
+services:
+  collector:
+    <<: *base
+    image: ${PLAN9_HOST_IMAGE:?Verified image required}
+    hostname: ${PLAN9_RUN}-collector
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: mongodb-a}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22301:22']
+    volumes: ['collector-data:/var/lib/plan9']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  mongodb-a:
+    <<: *mongo
+    hostname: mongodb-a
+    volumes: ['a-data:/data/db', 'a-config:/data/configdb', '${PLAN9_PRIVATE}/a-root:/run/secrets/root-password:ro']
+  mongodb-b:
+    <<: *mongo
+    hostname: mongodb-b
+    volumes: ['b-data:/data/db', 'b-config:/data/configdb', '${PLAN9_PRIVATE}/b-root:/run/secrets/root-password:ro']
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  collector-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  a-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  a-config:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  b-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  b-config:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

@@ -1,0 +1,10 @@
+[Unit]
+Description=Plan9 bounded Oracle workload %i
+After=network-online.target
+[Service]
+Type=simple
+ExecStart=/opt/plan9-client/bin/python /usr/local/lib/plan9-oracle-client.py background %i
+RuntimeMaxSec=28800
+MemoryMax=128M
+CPUQuota=15%
+Restart=no

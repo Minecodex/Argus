@@ -1,0 +1,10 @@
+[Unit]
+Description=Plan9 bounded MongoDB workload %i
+After=network-online.target
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/plan9-mongo-client.py background %i
+RuntimeMaxSec=28800
+MemoryMax=128M
+CPUQuota=15%
+Restart=no

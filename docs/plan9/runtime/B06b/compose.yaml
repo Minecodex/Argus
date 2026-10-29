@@ -1,0 +1,76 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  restart: unless-stopped
+  networks: [lab]
+  labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B06b}
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+x-elasticsearch: &elasticsearch
+  <<: *base
+  image: ${PLAN9_ELASTICSEARCH_IMAGE:?Verified image required}
+  cpus: 1
+  mem_limit: 1536m
+  memswap_limit: 1536m
+  pids_limit: 256
+  tmpfs: ['/run/plan9:size=1m,uid=1000,gid=0,mode=0700']
+  healthcheck:
+    test: [CMD-SHELL, 'test "$$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9200/)" = 401']
+    interval: 10s
+    timeout: 5s
+    retries: 24
+x-es-environment: &es-environment
+  discovery.type: single-node
+  xpack.security.enabled: 'true'
+  xpack.security.http.ssl.enabled: 'false'
+  xpack.security.transport.ssl.enabled: 'false'
+  xpack.license.self_generated.type: basic
+  node.store.allow_mmap: 'false'
+  ES_JAVA_OPTS: -Xms512m -Xmx512m -XX:ActiveProcessorCount=2
+  ELASTIC_PASSWORD_FILE: /run/plan9/elastic-password
+services:
+  collector:
+    <<: *base
+    image: ${PLAN9_HOST_IMAGE:?Verified image required}
+    hostname: ${PLAN9_RUN}-collector
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: elasticsearch-a}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22311:22']
+    volumes: ['collector-data:/var/lib/plan9']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  elasticsearch-a:
+    <<: *elasticsearch
+    hostname: elasticsearch-a
+    environment: {<<: *es-environment, cluster.name: p9-b06b-a, node.name: node-a}
+    volumes: ['a-data:/usr/share/elasticsearch/data', '${PLAN9_PRIVATE}/a-root:/run/secrets/elastic-password:ro']
+  elasticsearch-b:
+    <<: *elasticsearch
+    hostname: elasticsearch-b
+    environment: {<<: *es-environment, cluster.name: p9-b06b-b, node.name: node-b}
+    volumes: ['b-data:/usr/share/elasticsearch/data', '${PLAN9_PRIVATE}/b-root:/run/secrets/elastic-password:ro']
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  collector-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  a-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  b-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

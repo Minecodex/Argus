@@ -54,9 +54,11 @@ export function AlertEventTimeline({
         return (
           <li key={entry.id}>
             <strong>
-              {known
-                ? t(`alerts.${entry.event_type}`)
-                : t("alerts.eventUpdated")}
+              {state.kind === "health" && entry.event_type === "recovery"
+                ? t("alerts.queryHealthRecovered")
+                : known
+                  ? t(`alerts.${entry.event_type}`)
+                  : t("alerts.eventUpdated")}
             </strong>
             <p className="argus-alert-secondary">
               <time dateTime={entry.created_at}>
@@ -64,7 +66,7 @@ export function AlertEventTimeline({
               </time>{" "}
               · {actor}
             </p>
-            {typeof state.value === "number" && (
+            {state.kind !== "health" && typeof state.value === "number" && (
               <p>
                 {t("alerts.currentValue")}:{" "}
                 <span title={String(state.value)}>

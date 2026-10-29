@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "mongodb.overview",
-  "version": 1,
+  "version": 2,
   "name": "MongoDB",
   "description": "",
   "integration_keys": [
@@ -19,7 +19,7 @@ export const template = {
     "panels": [
       {
         "id": "connections",
-        "title": "mongodb_connection_count",
+        "title": "max by (argus_resource_id, type) (mongodb_connection_count)",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -38,7 +38,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "mongodb_connection_count"
+                "expression": "max by (argus_resource_id, type) (mongodb_connection_count)"
               }
             },
             "query_mode": "range",
@@ -301,6 +301,54 @@ export const template = {
           "min_h": 20
         },
         "unit": "B/s",
+        "decimals": 2,
+        "legend": true,
+        "thresholds": []
+      },
+      {
+        "id": "cache",
+        "title": "rate(mongodb_cache_operations[5m])",
+        "description": "",
+        "type": "timeseries",
+        "signal": "metrics",
+        "authoring_mode": "dsl",
+        "applicable_resource_types": [
+          "monitoring_target"
+        ],
+        "source_binding": {
+          "source_type": "mongodb",
+          "capability_version": "v1"
+        },
+        "local_filters": [],
+        "targets": [
+          {
+            "id": "a",
+            "language": "promql",
+            "source_definition": {
+              "dsl": {
+                "expression": "rate(mongodb_cache_operations[5m])"
+              }
+            },
+            "query_mode": "range",
+            "range_step_policy": {
+              "kind": "auto",
+              "target_points": 300,
+              "min_step_seconds": 1
+            },
+            "parameter_bindings": []
+          }
+        ],
+        "detail_query_targets": [],
+        "drilldowns": [],
+        "layout": {
+          "x": 0,
+          "y": 108,
+          "w": 6,
+          "h": 36,
+          "min_w": 2,
+          "min_h": 20
+        },
+        "unit": "ops/s",
         "decimals": 2,
         "legend": true,
         "thresholds": []

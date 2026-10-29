@@ -1,0 +1,48 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:92803390e53e15e5226f5a5671ae051c5e7329c95b55092d8ddb4ffcfcb1b331",
+      "digests": [
+        "argus-plan9-elasticsearch@sha256:92803390e53e15e5226f5a5671ae051c5e7329c95b55092d8ddb4ffcfcb1b331"
+      ],
+      "architecture": "amd64"
+    },
+    "ELASTICSEARCH": {
+      "id": "sha256:4cf5f1a5fb94bc734983761cff0b2b38d9e32ae2fc99afe7bef2c6a7f6905555",
+      "digests": [
+        "argus-plan9-elastic-server@sha256:4cf5f1a5fb94bc734983761cff0b2b38d9e32ae2fc99afe7bef2c6a7f6905555"
+      ],
+      "architecture": "amd64"
+    }
+  },
+  "upstream": {
+    "source": "docker.io/library/elasticsearch:8.17.0",
+    "image_id": "sha256:0681af5779b516b0652df86aa1db52e225f2d4e68bb3a3099534377b7f788739",
+    "digests": [
+      "elasticsearch@sha256:0681af5779b516b0652df86aa1db52e225f2d4e68bb3a3099534377b7f788739"
+    ],
+    "canonical_registry_pull": "cancelled after verified official Docker Hub image completed"
+  },
+  "versions": {
+    "elasticsearch": "8.17.0"
+  },
+  "password_file": {
+    "runtime_mode": "600",
+    "runtime_uid": 1000,
+    "private_tmpfs": true,
+    "standard_validation_preserved": true
+  },
+  "source_hashes": {
+    "client.py": "5f2f29d3f0607c9fbdec968eaa39c507c0a2be3a8574b62597da0f89b940f6b7",
+    "compose.yaml": "39a8c60abfa1e5624acc80466811dfff9348b326dbd7f3d74213e71a8abce096",
+    "Dockerfile": "582c34ea69ffd2852ec81efcbc060c0263147d20c92e24a77a14ac736910f3a2",
+    "Dockerfile.server": "9630cd998a1251fd61177b7357e38d64961152d01876d29b3a7a22ecc635aee2",
+    "elastic-bootstrap.sh": "7e775e808f0e2324c05cdc5533357e85b48d4d56e381ae9e669a0b9c0c417350",
+    "integration.py": "c0cea31453dfb6f128e040459d239ec30bc0864698a898764763dd784a497eb7",
+    "manage.py": "ef3472555beb97537e9f5f3ceccdc3765cf297b8ef2f15f310405070d6a0f04e",
+    "retire.py": "c230ebd2c166067d6d6a458f5834b9b15003a04884d43dced29691c1a01faa9e",
+    "runbook.md": "5b1aff064841a82c3a1cf0a64fd1a5df7b81a05897ea8c8910df776f99f91403",
+    "scenario.py": "112ce27630adc9fd1e74436d1032047b4f6987ae3101db5bd5651105d87ac25d",
+    "systemd\\plan9-elastic-workload@.service": "da09a26d603e7fb52bdb270f053d3d381f700ae7ba3dde62d0d11fc3dc23ccda"
+  }
+}

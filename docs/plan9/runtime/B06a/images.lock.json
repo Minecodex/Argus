@@ -1,0 +1,33 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:5e499b4ff3fb0a2ca0d3fc7ed660dd338300b0c436ad9aaa05e2de67204c9926",
+      "digests": [
+        "argus-plan9-mongodb@sha256:5e499b4ff3fb0a2ca0d3fc7ed660dd338300b0c436ad9aaa05e2de67204c9926"
+      ],
+      "architecture": "amd64"
+    },
+    "MONGODB": {
+      "id": "sha256:c630c59342c1493d50345136df2af14a76b9e827dd5316bfabee07a0880a5f3a",
+      "digests": [
+        "mongo@sha256:c630c59342c1493d50345136df2af14a76b9e827dd5316bfabee07a0880a5f3a"
+      ],
+      "architecture": "amd64"
+    }
+  },
+  "versions": {
+    "mongodb": "7.0.16",
+    "pymongo": "4.10.1"
+  },
+  "source_hashes": {
+    "client.py": "0322b3d1ba8fb2c6b9f9d33a130bb1bc7db7f20a97831e3bacaee9aac941cd45",
+    "compose.yaml": "5622f92c647fe8b7efe083f64b46d019cd2b7eee967cc0e1d59f72501d59dcc5",
+    "Dockerfile": "acc536b45bf9e41b39e9589cc962d93da9a69f86042565ef03ceba985b18ab4a",
+    "integration.py": "052ede2a63efe411213a4e46d6361345da7b2431135cb5b36524f445de7e9900",
+    "manage.py": "ea62c5a72bb91d7c7f2cb481542f04ce8b02ffaa57f7492167126dbca3fe1073",
+    "retire.py": "296621c5ffdd704abb58bb00ffdc7fc5079a2f797758873b66891ceee1cee47b",
+    "runbook.md": "ace5e393a4c6bdfb9fbbc9d21d03a94ce2f2d52b3e497af13d03fc3df21c89da",
+    "scenario.py": "5965312f90a5ad7ca91d7f2a5ecf837ad18943ee95d2f9b3eddd10bbc6583bc4",
+    "systemd\\plan9-mongo-workload@.service": "52b3c1427408d9be1c5fb621e337dfc2ae20e328b09b62cf97531368e40ca033"
+  }
+}

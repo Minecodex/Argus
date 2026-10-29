@@ -1,0 +1,57 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  restart: unless-stopped
+  networks: [lab]
+  labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B05a}
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+services:
+  collector:
+    <<: *base
+    image: ${PLAN9_HOST_IMAGE:?Verified image required}
+    hostname: ${PLAN9_RUN}-collector
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: rabbitmq}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22271:22']
+    volumes: ['collector-data:/var/lib/plan9']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  rabbitmq:
+    <<: *base
+    image: ${PLAN9_RABBITMQ_IMAGE:?Verified image required}
+    hostname: rabbitmq
+    cpus: 1
+    mem_limit: 768m
+    memswap_limit: 768m
+    pids_limit: 256
+    environment: {RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'}
+    volumes: ['rabbitmq-data:/var/lib/rabbitmq', '${PLAN9_PRIVATE}/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro']
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  collector-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  rabbitmq-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

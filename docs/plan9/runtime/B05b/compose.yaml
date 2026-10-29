@@ -1,0 +1,61 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  restart: unless-stopped
+  networks: [lab]
+  labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B05b}
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+services:
+  collector:
+    <<: *base
+    image: ${PLAN9_HOST_IMAGE:?Verified image required}
+    hostname: ${PLAN9_RUN}-collector
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: kafka}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22281:22']
+    volumes: ['collector-data:/var/lib/plan9']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  kafka:
+    <<: *base
+    image: ${PLAN9_KAFKA_IMAGE:?Verified image required}
+    hostname: kafka
+    user: '0:0'
+    cpus: 1
+    mem_limit: 768m
+    memswap_limit: 768m
+    pids_limit: 256
+    environment: {KAFKA_HEAP_OPTS: '-Xms128m -Xmx256m', PLAN9_CLUSTER_ID: '${PLAN9_CLUSTER_ID}'}
+    volumes: ['kafka-data:/tmp/kafka-data', '${PLAN9_PRIVATE}/server.properties:/config.properties:ro']
+    entrypoint: [/bin/sh, -ec]
+    command:
+      - '/opt/kafka/bin/kafka-storage.sh format --standalone --ignore-formatted --cluster-id="$${PLAN9_CLUSTER_ID}" -c /config.properties >/tmp/format.log; exec /opt/kafka/bin/kafka-server-start.sh /config.properties'
+    healthcheck:
+      test: [CMD, /opt/kafka/bin/kafka-topics.sh, --bootstrap-server, '127.0.0.1:19092', --list]
+      interval: 10s
+      timeout: 8s
+      retries: 18
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  collector-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  kafka-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

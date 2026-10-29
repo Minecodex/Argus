@@ -1,0 +1,65 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  restart: unless-stopped
+  networks: [lab]
+  labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B06d}
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+x-sql: &sql
+  <<: *base
+  image: ${PLAN9_ORACLE_IMAGE:?Verified image required}
+  cpus: 1.5
+  mem_limit: 2560m
+  memswap_limit: 2560m
+  pids_limit: 512
+  environment: {ORACLE_PASSWORD_FILE: /run/secrets/oracle-password}
+  healthcheck:
+    test: [CMD, healthcheck.sh]
+    interval: 10s
+    timeout: 10s
+    retries: 36
+services:
+  collector:
+    <<: *base
+    image: ${PLAN9_HOST_IMAGE:?Verified image required}
+    hostname: ${PLAN9_RUN}-collector
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: oracle-a}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22331:22']
+    volumes: ['collector-data:/var/lib/plan9']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  oracle-a:
+    <<: *sql
+    hostname: oracle-a
+    volumes: ['a-data:/opt/oracle/oradata', '${PLAN9_PRIVATE}/a-root:/run/secrets/oracle-password:ro']
+  oracle-b:
+    <<: *sql
+    hostname: oracle-b
+    volumes: ['b-data:/opt/oracle/oradata', '${PLAN9_PRIVATE}/b-root:/run/secrets/oracle-password:ro']
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  collector-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  a-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  b-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

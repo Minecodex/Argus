@@ -4,31 +4,47 @@ package dashboard
 // A definition is not a support claim: unavailable observations remain empty,
 // and each platform/authentication/topology combination needs its own evidence.
 func remainingDatabaseTemplates() []TemplateDefinition {
+	mongodb := metricTemplate("mongodb.overview", "MongoDB", "mongodb", "https://grafana.com/grafana/dashboards/2583-mongodb/", "2583", []nativeTemplateMetric{
+		// serverStatus connections are instance-wide even when the receiver
+		// repeats them with a database dimension. Do not sum those copies.
+		{"connections", `max by (argus_resource_id, type) (mongodb_connection_count)`, "short", "timeseries"},
+		{"memory", `mongodb_memory_usage`, "bytes", "timeseries"},
+		{"data", `mongodb_data_size`, "bytes", "timeseries"},
+		{"storage", `mongodb_storage_size`, "bytes", "timeseries"},
+		{"operations", `rate(mongodb_operation_count[5m])`, "ops", "timeseries"},
+		{"receive", `rate(mongodb_network_io_receive[5m])`, "B/s", "timeseries"},
+		{"cache", `rate(mongodb_cache_operations[5m])`, "ops", "timeseries"},
+	})
+	mongodb.Version = 2
+	elasticsearch := metricTemplate("elasticsearch.overview", "Elasticsearch", "elasticsearch", "https://grafana.com/grafana/dashboards/2322-elasticsearch/", "2322", []nativeTemplateMetric{
+		{"health", `elasticsearch_cluster_health`, "short", "stat"},
+		{"nodes", `elasticsearch_cluster_nodes`, "short", "stat"},
+		// Primary and total shard aggregations overlap. Show logical active
+		// documents and primary operations without counting replica copies.
+		{"documents", `sum by (argus_resource_id, resource_elasticsearch_index_name) (elasticsearch_index_documents{aggregation="primary_shards",state="active",resource_elasticsearch_index_name!="_all"})`, "short", "timeseries"},
+		{"heap", `jvm_memory_heap_used`, "bytes", "timeseries"},
+		{"disk", `elasticsearch_node_fs_disk_available`, "bytes", "timeseries"},
+		{"operations", `sum by (argus_resource_id, resource_elasticsearch_index_name, operation) (rate(elasticsearch_index_operations_completed{aggregation="primary_shards",resource_elasticsearch_index_name!="_all"}[5m]))`, "ops", "timeseries"},
+		{"unassigned", `elasticsearch_cluster_shards{state="unassigned"}`, "short", "timeseries"},
+	})
+	elasticsearch.Version = 2
+	// Argus supplies a datasource on every platform. In the locked receiver's
+	// SQL path these three rate-named gauges contain cumulative DMV counters;
+	// only its separate Windows performance-counter path emits cooked rates.
+	sqlserver := metricTemplate("sqlserver.overview", "SQL Server", "sqlserver", "https://grafana.com/grafana/dashboards/1883-telegraf-sql-server-monitoring/", "1883", []nativeTemplateMetric{
+		{"connections", `sqlserver_user_connection_count`, "short", "timeseries"},
+		{"batches", `rate(sqlserver_batch_request_rate[1m])`, "reqps", "timeseries"},
+		{"cache", `sqlserver_page_buffer_cache_hit_ratio`, "%", "timeseries"},
+		// Buffer Node overlaps Buffer Manager; use the instance-wide value.
+		{"page_life", `sqlserver_page_life_expectancy{performance_counter_object_name=~".*Buffer Manager"}`, "s", "timeseries"},
+		{"lock_wait", `rate(sqlserver_lock_wait_rate[1m])`, "reqps", "timeseries"},
+		{"compilations", `rate(sqlserver_batch_sql_compilation_rate[1m])`, "ops", "timeseries"},
+	})
+	sqlserver.Version = 2
 	return []TemplateDefinition{
-		metricTemplate("mongodb.overview", "MongoDB", "mongodb", "https://grafana.com/grafana/dashboards/2583-mongodb/", "2583", []nativeTemplateMetric{
-			{"connections", `mongodb_connection_count`, "short", "timeseries"},
-			{"memory", `mongodb_memory_usage`, "bytes", "timeseries"},
-			{"data", `mongodb_data_size`, "bytes", "timeseries"},
-			{"storage", `mongodb_storage_size`, "bytes", "timeseries"},
-			{"operations", `rate(mongodb_operation_count[5m])`, "ops", "timeseries"},
-			{"receive", `rate(mongodb_network_io_receive[5m])`, "B/s", "timeseries"},
-		}),
-		metricTemplate("elasticsearch.overview", "Elasticsearch", "elasticsearch", "https://grafana.com/grafana/dashboards/2322-elasticsearch/", "2322", []nativeTemplateMetric{
-			{"health", `elasticsearch_cluster_health`, "short", "stat"},
-			{"nodes", `elasticsearch_cluster_nodes`, "short", "stat"},
-			{"documents", `elasticsearch_index_documents`, "short", "timeseries"},
-			{"heap", `jvm_memory_heap_used`, "bytes", "timeseries"},
-			{"disk", `elasticsearch_node_fs_disk_available`, "bytes", "timeseries"},
-			{"operations", `rate(elasticsearch_index_operations_completed[5m])`, "ops", "timeseries"},
-		}),
-		metricTemplate("sqlserver.overview", "SQL Server", "sqlserver", "https://grafana.com/grafana/dashboards/1883-telegraf-sql-server-monitoring/", "1883", []nativeTemplateMetric{
-			{"connections", `sqlserver_user_connection_count`, "short", "timeseries"},
-			{"batches", `sqlserver_batch_request_rate`, "reqps", "timeseries"},
-			{"cache", `sqlserver_page_buffer_cache_hit_ratio`, "%", "timeseries"},
-			{"page_life", `sqlserver_page_life_expectancy`, "s", "timeseries"},
-			{"lock_wait", `sqlserver_lock_wait_rate`, "reqps", "timeseries"},
-			{"compilations", `sqlserver_batch_sql_compilation_rate`, "ops", "timeseries"},
-		}),
+		mongodb,
+		elasticsearch,
+		sqlserver,
 		metricTemplate("oracle.overview", "Oracle", "oracle", "https://grafana.com/grafana/dashboards/13555-oracledb-monitoring-performance-and-table-space-stats/", "13555", []nativeTemplateMetric{
 			{"sessions", `oracledb_sessions_usage`, "short", "timeseries"},
 			{"cpu", `rate(oracledb_cpu_time[5m])`, "cores", "timeseries"},

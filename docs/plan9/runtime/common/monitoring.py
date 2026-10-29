@@ -13,7 +13,7 @@ class MonitoringBatch:
         write_json(self.run.resources,self.map)
     def query(self, target, expression, range_seconds=0):
         end=datetime.now(timezone.utc)
-        path='/enterprise/metrics/query-range' if range_seconds else '/enterprise/metrics/query'
+        path='/enterprise/metrics/query_range' if range_seconds else '/enterprise/metrics/query'
         body={'query':expression,'resource_ids':[target['target_id']],
               'time_range':{'from':(end-timedelta(seconds=max(range_seconds,300))).isoformat(),'to':end.isoformat()},
               'budget':{'max_scan_bytes':268435456,'max_rows':10000,'max_samples':1000000,'max_series':10000,'timeout_ms':10000,'max_result_bytes':8388608}}

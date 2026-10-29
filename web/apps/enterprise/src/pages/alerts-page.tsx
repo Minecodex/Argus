@@ -1,3 +1,4 @@
+import { alertEventTitle } from "../components/alerts/event-presentation";
 import { useState, useMemo } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import {
@@ -235,9 +236,7 @@ export function AlertsPage() {
       render: (e) => (
         <Checkbox
           appearance="outline"
-          aria-label={
-            e.state.delivery_gap ? t("alerts.deliveryGapTitle") : e.state.name
-          }
+          aria-label={alertEventTitle(e, t)}
           isSelected={selected.has(e.id)}
           onChange={(v) =>
             setSelected((old) => {
@@ -264,7 +263,7 @@ export function AlertsPage() {
             variant="ghost"
             onPress={() => setDetail({ type: "instance", id: e.id })}
           >
-            {e.state.delivery_gap ? t("alerts.deliveryGapTitle") : e.state.name}
+            {alertEventTitle(e, t)}
           </Button>
         </div>
       ),
@@ -286,9 +285,15 @@ export function AlertsPage() {
       header: t("alerts.currentValue"),
       render: (e) => (
         <>
-          {e.state.value === undefined ? (
+          {e.state.kind === "health" || e.state.value === undefined ? (
             <AlertStatus
-              value={e.state.delivery_gap ? "delivery_fault" : e.health}
+              value={
+                e.state.delivery_gap
+                  ? "delivery_fault"
+                  : e.state.kind === "health" && e.lifecycle === "resolved"
+                    ? "resolved"
+                    : e.health
+              }
               tone={e.state.delivery_gap ? "danger" : undefined}
             />
           ) : (

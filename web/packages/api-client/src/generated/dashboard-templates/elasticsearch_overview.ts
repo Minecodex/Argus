@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "elasticsearch.overview",
-  "version": 1,
+  "version": 2,
   "name": "Elasticsearch",
   "description": "",
   "integration_keys": [
@@ -115,7 +115,7 @@ export const template = {
       },
       {
         "id": "documents",
-        "title": "elasticsearch_index_documents",
+        "title": "sum by (argus_resource_id, resource_elasticsearch_index_name) (elasticsearch_index_documents{aggregation=\"primary_shards\",state=\"active\",resource_elasticsearch_index_name!=\"_all\"})",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -134,7 +134,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "elasticsearch_index_documents"
+                "expression": "sum by (argus_resource_id, resource_elasticsearch_index_name) (elasticsearch_index_documents{aggregation=\"primary_shards\",state=\"active\",resource_elasticsearch_index_name!=\"_all\"})"
               }
             },
             "query_mode": "range",
@@ -259,7 +259,7 @@ export const template = {
       },
       {
         "id": "operations",
-        "title": "rate(elasticsearch_index_operations_completed[5m])",
+        "title": "sum by (argus_resource_id, resource_elasticsearch_index_name, operation) (rate(elasticsearch_index_operations_completed{aggregation=\"primary_shards\",resource_elasticsearch_index_name!=\"_all\"}[5m]))",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -278,7 +278,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "rate(elasticsearch_index_operations_completed[5m])"
+                "expression": "sum by (argus_resource_id, resource_elasticsearch_index_name, operation) (rate(elasticsearch_index_operations_completed{aggregation=\"primary_shards\",resource_elasticsearch_index_name!=\"_all\"}[5m]))"
               }
             },
             "query_mode": "range",
@@ -301,6 +301,54 @@ export const template = {
           "min_h": 20
         },
         "unit": "ops/s",
+        "decimals": 2,
+        "legend": true,
+        "thresholds": []
+      },
+      {
+        "id": "unassigned",
+        "title": "elasticsearch_cluster_shards{state=\"unassigned\"}",
+        "description": "",
+        "type": "timeseries",
+        "signal": "metrics",
+        "authoring_mode": "dsl",
+        "applicable_resource_types": [
+          "monitoring_target"
+        ],
+        "source_binding": {
+          "source_type": "elasticsearch",
+          "capability_version": "v1"
+        },
+        "local_filters": [],
+        "targets": [
+          {
+            "id": "a",
+            "language": "promql",
+            "source_definition": {
+              "dsl": {
+                "expression": "elasticsearch_cluster_shards{state=\"unassigned\"}"
+              }
+            },
+            "query_mode": "range",
+            "range_step_policy": {
+              "kind": "auto",
+              "target_points": 300,
+              "min_step_seconds": 1
+            },
+            "parameter_bindings": []
+          }
+        ],
+        "detail_query_targets": [],
+        "drilldowns": [],
+        "layout": {
+          "x": 0,
+          "y": 108,
+          "w": 6,
+          "h": 36,
+          "min_w": 2,
+          "min_h": 20
+        },
+        "unit": "",
         "decimals": 2,
         "legend": true,
         "thresholds": []

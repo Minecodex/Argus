@@ -186,6 +186,11 @@ export function duration(
   const end = new Date(
     e.resolved_at ?? anchor ?? e.last_evaluated_at,
   ).getTime();
+  const seconds = Math.max(
+    0,
+    Math.round((end - new Date(e.started_at).getTime()) / 1000),
+  );
+  if (seconds < 60) return t("alerts.secondValue", { n: seconds });
   return t("alerts.minuteValue", {
     n: Math.max(
       0,

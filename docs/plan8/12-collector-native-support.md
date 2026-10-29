@@ -63,6 +63,7 @@
 
 ## 已查明的容易误判项
 
+- SQL Server（2026-10-29 B06c 实测）：锁定的 sqlserverreceiver v0.159.0 在 datasource SQL 查询路径把 Batch Requests/sec、Lock Waits/sec、SQL Compilations/sec 的累计 DMV 值直接输出为 rate 命名的 gauge；Windows 本地性能计数器是另一条路径，不能混用口径。Argus 正常配置统一使用 datasource，因此 SQL Server 默认模板 v2 对这三个指标使用 `rate(...[1m])`，页面生存时间只取实例级 Buffer Manager，原始指标保留。真实计数差分、告警恢复和界面验证见 [B06c 运行包](../plan9/runtime/B06c/runbook.md)。仅收到指标并不证明数值语义正确。
 - [Redis Receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/117c83022ff71c8dd75acc0ee6804d1c0b2dc17b/receiver/redisreceiver/README.md)定位单实例 INFO。分别采集若干节点不等于自动发现拓扑或完整故障切换监控；单实例可保留，集群模式缺能力单列。
 - [NATS Receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/117c83022ff71c8dd75acc0ee6804d1c0b2dc17b/receiver/natsreceiver/README.md)与 [Pulsar Receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/117c83022ff71c8dd75acc0ee6804d1c0b2dc17b/receiver/pulsarreceiver/README.md)接收消息载荷中的遥测。第三方 [natsbrokerreceiver](https://github.com/m3nowak/otelcol-nats)确实是 Collector Broker 指标组件，但 2026-10-18 GitHub API 核查为 0 Star，README 标实验，未满足用户要求的社区采纳依据。本轮暂缓 NATS 自身监控，不声称全球不存在实现。
 - [JMX Receiver v0.133.0](https://raw.githubusercontent.com/open-telemetry/opentelemetry-collector-contrib/v0.133.0/receiver/jmxreceiver/README.md)需要 JRE 和 JAR，内置 Go Receiver 还会调用外部采集进程，因此不能列为本方案的纯内置采集。

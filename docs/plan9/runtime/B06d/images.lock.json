@@ -1,0 +1,35 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:fe7d3c504f4d0faf007b57166dc392671ec2bdc1a1d482307eb22d4aae65bfd4",
+      "digests": [
+        "argus-plan9-oracle@sha256:fe7d3c504f4d0faf007b57166dc392671ec2bdc1a1d482307eb22d4aae65bfd4"
+      ],
+      "architecture": "amd64"
+    },
+    "ORACLE": {
+      "id": "sha256:f28e85cbe6349c9d29bcfec22a55ccfbd0788deb3f1491ca9c8b72274477b035",
+      "digests": [
+        "gvenzl/oracle-free@sha256:f28e85cbe6349c9d29bcfec22a55ccfbd0788deb3f1491ca9c8b72274477b035"
+      ],
+      "architecture": "amd64"
+    }
+  },
+  "runtime_client_overlay": {
+    "sha256": "588314ee7fc2c5133446654dbedd60beae194edb71bb7d01a2f7718ccdf12724",
+    "path": "/usr/local/lib/plan9-oracle-client.py",
+    "reason": "use nonreserved Oracle query alias"
+  },
+  "rebuilt_host_image": "sha256:a8fec30eaa44581b31e4a6602a111211d55b61acff4305d8794a2c3bf64c300d",
+  "native_client_packages": [
+    "cffi==2.1.1",
+    "cryptography==50.0.2",
+    "oracledb==3.4.1",
+    "pycparser==3.12",
+    "typing_extensions==4.16.0"
+  ],
+  "runtime_overlays": {
+    "/usr/local/lib/plan9-oracle-client.py": "588314ee7fc2c5133446654dbedd60beae194edb71bb7d01a2f7718ccdf12724",
+    "/etc/systemd/system/plan9-oracle-workload@.service": "d1dfecd00283c97c63f14e073a368941b2a46cb682ca6ff6363cfb46f3ce17f9"
+  }
+}

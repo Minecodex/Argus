@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "kafka.overview",
-  "version": 1,
+  "version": 2,
   "name": "Kafka",
   "description": "",
   "integration_keys": [
@@ -391,6 +391,54 @@ export const template = {
         "layout": {
           "x": 6,
           "y": 108,
+          "w": 6,
+          "h": 36,
+          "min_w": 2,
+          "min_h": 20
+        },
+        "unit": "",
+        "decimals": 2,
+        "legend": true,
+        "thresholds": []
+      },
+      {
+        "id": "group_lag",
+        "title": "sum by (argus_resource_id, group, topic) (kafka_consumer_group_lag)",
+        "description": "",
+        "type": "timeseries",
+        "signal": "metrics",
+        "authoring_mode": "dsl",
+        "applicable_resource_types": [
+          "monitoring_target"
+        ],
+        "source_binding": {
+          "source_type": "kafka_metrics",
+          "capability_version": "v1"
+        },
+        "local_filters": [],
+        "targets": [
+          {
+            "id": "a",
+            "language": "promql",
+            "source_definition": {
+              "dsl": {
+                "expression": "sum by (argus_resource_id, group, topic) (kafka_consumer_group_lag)"
+              }
+            },
+            "query_mode": "range",
+            "range_step_policy": {
+              "kind": "auto",
+              "target_points": 300,
+              "min_step_seconds": 1
+            },
+            "parameter_bindings": []
+          }
+        ],
+        "detail_query_targets": [],
+        "drilldowns": [],
+        "layout": {
+          "x": 0,
+          "y": 144,
           "w": 6,
           "h": 36,
           "min_w": 2,

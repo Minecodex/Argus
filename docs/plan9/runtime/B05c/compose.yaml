@@ -1,0 +1,79 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  restart: unless-stopped
+  networks: [lab]
+  labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B05c}
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+x-zookeeper: &zookeeper
+  <<: *base
+  image: ${PLAN9_ZOOKEEPER_IMAGE:?Verified image required}
+  cpus: 0.75
+  mem_limit: 384m
+  memswap_limit: 384m
+  pids_limit: 128
+  environment:
+    JVMFLAGS: -Xms64m -Xmx128m
+    ZOO_4LW_COMMANDS_WHITELIST: mntr,ruok,stat,srvr
+    ZOO_MAX_CLIENT_CNXNS: '60'
+    ZOO_ADMINSERVER_ENABLED: 'false'
+    ZOO_AUTOPURGE_PURGEINTERVAL: '1'
+    ZOO_AUTOPURGE_SNAPRETAINCOUNT: '3'
+  healthcheck:
+    test: [CMD-SHELL, 'printf ruok | nc -w 2 127.0.0.1 2181 | grep -q imok']
+    interval: 10s
+    timeout: 4s
+    retries: 18
+services:
+  collector:
+    <<: *base
+    image: ${PLAN9_HOST_IMAGE:?Verified image required}
+    hostname: ${PLAN9_RUN}-collector
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: zookeeper-a}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22291:22']
+    volumes: ['collector-data:/var/lib/plan9']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  zookeeper-a:
+    <<: *zookeeper
+    hostname: zookeeper-a
+    volumes: ['a-data:/data', 'a-log:/datalog', 'a-logs:/logs']
+  zookeeper-b:
+    <<: *zookeeper
+    hostname: zookeeper-b
+    volumes: ['b-data:/data', 'b-log:/datalog', 'b-logs:/logs']
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  collector-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  a-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  a-log:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  a-logs:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  b-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  b-log:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  b-logs:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
