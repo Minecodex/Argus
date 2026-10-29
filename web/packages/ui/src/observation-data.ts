@@ -252,3 +252,33 @@ export function formatObservation(
   }
   return `${value.toFixed(places)}${unit === "percent" ? "%" : unit ? ` ${unit}` : ""}`;
 }
+
+/** Keep small nonzero chart ticks and tooltips legible without changing samples. */
+export function formatObservationChartValue(
+  value: number,
+  unit = "",
+  decimals = 2,
+): string {
+  const scaled = unit === "percent_ratio" ? value * 100 : value;
+  const magnitude = Math.abs(scaled);
+  const places = Math.max(0, Math.min(8, decimals));
+  if (
+    unit !== "bytes" &&
+    Number.isFinite(scaled) &&
+    magnitude > 0 &&
+    magnitude < 10 ** -places
+  ) {
+    const significantPlaces = 1 - Math.floor(Math.log10(magnitude));
+    if (significantPlaces > 8) {
+      const suffix =
+        unit === "percent" || unit === "percent_ratio"
+          ? "%"
+          : unit
+            ? ` ${unit}`
+            : "";
+      return `${scaled.toExponential(2)}${suffix}`;
+    }
+    return formatObservation(value, unit, significantPlaces);
+  }
+  return formatObservation(value, unit, decimals);
+}

@@ -1,6 +1,6 @@
 import type { EChartsOption } from "echarts";
 import {
-  formatObservation,
+  formatObservationChartValue,
   histogramObservations,
   stateIntervals,
   type ObservationSeries,
@@ -23,7 +23,8 @@ export function metricOption(
 ): EChartsOption | undefined {
   const from = range ? Date.parse(range.from) : NaN;
   const to = range ? Date.parse(range.to) : NaN;
-  const formatted = (value: number) => formatObservation(value, unit, decimals);
+  const formatted = (value: number) =>
+    formatObservationChartValue(value, unit, decimals);
   const valueColor = (value: number | null) => {
     const tone = observationTone(value, thresholds);
     return tone ? `var(--${tone})` : undefined;
@@ -58,7 +59,8 @@ export function metricOption(
       min: display.min,
       max: display.max,
       axisLabel: {
-        formatter: (value: number) => formatObservation(value, unit, decimals),
+        formatter: (value: number) =>
+          formatObservationChartValue(value, unit, decimals),
       },
     },
     dataZoom: [{ type: "inside" }],
@@ -94,7 +96,7 @@ export function metricOption(
         data: v.value === null ? [] : [{ name: v.name, value: v.value }],
         detail: {
           formatter: (value: number) =>
-            formatObservation(value, unit, decimals),
+            formatObservationChartValue(value, unit, decimals),
         },
       })),
       tooltip: {
@@ -130,7 +132,7 @@ export function metricOption(
         max: display.max,
         axisLabel: {
           formatter: (value: number) =>
-            formatObservation(value, unit, decimals),
+            formatObservationChartValue(value, unit, decimals),
         },
       },
       yAxis: {

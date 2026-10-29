@@ -1,0 +1,65 @@
+name: ${PLAN9_RUN:?Run ID required}
+x-base: &base
+  restart: unless-stopped
+  networks: [lab]
+  labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B06c}
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+x-sql: &sql
+  <<: *base
+  image: ${PLAN9_SQLSERVER_IMAGE:?Verified image required}
+  cpus: 1.5
+  mem_limit: 2560m
+  memswap_limit: 2560m
+  pids_limit: 512
+  environment: {ACCEPT_EULA: 'Y', MSSQL_PID: Developer, MSSQL_MEMORY_LIMIT_MB: '1536'}
+  healthcheck:
+    test: [CMD, /usr/local/bin/plan9-sql-health]
+    interval: 10s
+    timeout: 8s
+    retries: 24
+services:
+  collector:
+    <<: *base
+    image: ${PLAN9_HOST_IMAGE:?Verified image required}
+    hostname: ${PLAN9_RUN}-collector
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: sqlserver-a}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    ports: ['127.0.0.1:22321:22']
+    volumes: ['collector-data:/var/lib/plan9']
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active ssh dbus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  sqlserver-a:
+    <<: *sql
+    hostname: sqlserver-a
+    volumes: ['a-data:/var/opt/mssql', '${PLAN9_PRIVATE}/a-root:/run/secrets/sa-password:ro']
+  sqlserver-b:
+    <<: *sql
+    hostname: sqlserver-b
+    volumes: ['b-data:/var/opt/mssql', '${PLAN9_PRIVATE}/b-root:/run/secrets/sa-password:ro']
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+volumes:
+  collector-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  a-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  b-data:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

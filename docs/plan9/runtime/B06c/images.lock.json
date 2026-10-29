@@ -1,0 +1,25 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:828d0f1d13d5f17ef48e6e28b94bc26beb705e60bff18a065066e8e90a82ed89",
+      "digests": [
+        "argus-plan9-sqlserver@sha256:828d0f1d13d5f17ef48e6e28b94bc26beb705e60bff18a065066e8e90a82ed89"
+      ],
+      "architecture": "amd64"
+    },
+    "SQLSERVER": {
+      "id": "sha256:c0156beec110eddd483be00af31e43d382ec4a0fc4274443b2d357ae6378d1fd",
+      "digests": [
+        "argus-plan9-sql-server@sha256:c0156beec110eddd483be00af31e43d382ec4a0fc4274443b2d357ae6378d1fd"
+      ],
+      "architecture": "amd64"
+    }
+  },
+  "sqlserver_upstream_digest": "sha256:ea73825f3d88a23c355ac2f9fdc6bd960fec90171c12c572109b36a558f77bb8",
+  "runtime_client_overlay": {
+    "path": "/usr/local/lib/plan9-sql-client.py",
+    "sha256": "90f4d6736c094e9888791788f745a8bfaba6577783ee2f9922ba66f20682451a",
+    "reason": "correct server permission check NULL class; no permission change"
+  },
+  "rebuild_host_image": "sha256:baa34026abb29ed145f1474373e71d4ec9c4e4c1d4bf0918767526fb10a69465"
+}

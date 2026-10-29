@@ -1,6 +1,6 @@
 # Plan9：分批真实场景与人工验收
 
-创建日期：2026-10-26。当前阶段：**B03 已按用户指令清理，历史与诊断问题记录保留；B04 的 Redis/Memcached 真实场景已部署，20 个面板和 6 项真实浏览器检查通过，等待用户查看。**
+创建日期：2026-10-26。当前阶段：**B06c 已清理；B06d Oracle 的真实事务、监控、12 个面板和两类告警已接好，6 项真实浏览器检查通过，等待用户查看。初次接入中断的发送缺口记录保留，当前采集已恢复，见 B06d-D01。**
 
 ## 要完成的事情
 
@@ -18,7 +18,7 @@
 
 ## 本轮交付和后续交付
 
-B04 的[运行包](./runtime/B04/runbook.md)已执行：一个正式接入的 Collector、Redis 与 Memcached、两张 v2 默认仪表盘、两条内存策略。真实命中/未命中、TTL、空闲比率、内存淘汰、告警恢复、独立停采和平台页面检查通过，见 [B04 查看入口](./batches/B04-review.md)。完整图查询发现的元数据扫描开销已统一修正；B03-D01 仍作为历史未关闭问题保留。
+B06b 的[运行包](./runtime/B06b/runbook.md)已执行：两个独立 Elasticsearch 8.17.0 单节点集群和一台正常接入的 Collector。真实 Bulk、更新、删除、检索及权限边界通过，单节点副本导致 yellow 与活动文档增多分别触发告警后恢复，B 保持正常；入口和历史窗口见 [B06b 查看记录](./batches/B06b-review.md)。默认图按主分片和具体索引展示，保留健康状态和未分配分片的真实口径。B06a 已退役，账号及历史保留。
 
 用户指定某批后，先在本目录补齐该批可运行文件并验证，再执行部署；无需用户另外手工安装中间件、填仪表盘或配置告警。缺少实际登录、模型凭据、VM 等必要条件时，明确指出缺什么，继续完成不依赖它的准备工作。
 
@@ -41,6 +41,20 @@ B04 的[运行包](./runtime/B04/runbook.md)已执行：一个正式接入的 Co
 | [B04 查看入口](./batches/B04-review.md) | 缓存命中、TTL、淘汰、历史告警与查看窗口 |
 | [B04 运行包](./runtime/B04/runbook.md) | 真实协议客户端、有界压力、独立停采和清理 |
 | [缓存视图和元数据扫描修正](./08-b04-cache-views-and-metadata-scan.md) | 空闲比率语义、全局查询优化和真实回归 |
+| [B05a 查看入口](./batches/B05a-review.md) | RabbitMQ 队列、vhost、真实积压和确认告警 |
+| [B05a 运行包](./runtime/B05a/runbook.md) | AMQP 客户端、有界队列、恢复保护和清理 |
+| [B05b 查看入口](./batches/B05b-review.md) | Kafka Topic、固定组、提交位点和实际 lag |
+| [B05b 运行包](./runtime/B05b/runbook.md) | SASL 权限、原生客户端、有界暂停与清理 |
+| [B05c 查看入口](./batches/B05c-review.md) | ZooKeeper 会话、Watch、临时节点与告警历史 |
+| [B05c 运行包](./runtime/B05c/runbook.md) | 原生客户端、有界压力、会话回收和清理 |
+| [B06a 查看入口](./batches/B06a-review.md) | MongoDB CRUD、连接、操作和告警历史 |
+| [B06a 运行包](./runtime/B06a/runbook.md) | 最小权限、原生客户端、有界负载与清理 |
+| [B06b 查看入口](./batches/B06b-review.md) | Elasticsearch 索引、yellow 原因和真实告警历史 |
+| [B06b 运行包](./runtime/B06b/runbook.md) | 权限、私有密码文件、有界场景及清理 |
+| [B06c 查看入口](./batches/B06c-review.md) | SQL Server 事务、连接、锁等待和告警历史 |
+| [B06c 运行包](./runtime/B06c/runbook.md) | 最小权限、真实 TDS 客户端、速率口径与清理 |
+| [B06d 查看入口](./batches/B06d-review.md) | Oracle 事务、会话、提交速率和告警历史 |
+| [B06d 运行包](./runtime/B06d/runbook.md) | 受支持认证组合、最小授权、有界负载与清理 |
 | [状态清单](./progress.json) | 规划状态、支持范围映射及后续运行索引 |
 | [本地业务数据重置与账号重建](./05-local-data-reset-20261026.md) | 用户授权范围、清理结果、新账号和验证 |
 | [B01 默认仪表盘与查询修正](./06-b01-managed-dashboard-and-query-fixes.md) | 实际接入发现的问题、统一实现修正及证据范围 |

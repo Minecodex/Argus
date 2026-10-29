@@ -1,0 +1,34 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:feff5ca6bd81e46e56ac55b3a8055e1c6dcf73db7790d0e76f5daba220206f70",
+      "digests": [
+        "argus-plan9-rabbitmq@sha256:feff5ca6bd81e46e56ac55b3a8055e1c6dcf73db7790d0e76f5daba220206f70"
+      ],
+      "architecture": "amd64"
+    },
+    "RABBITMQ": {
+      "id": "sha256:0452ee3fd3b9a74160b251e693338616b464f22df4d4ba43304c101bebdca292",
+      "digests": [
+        "rabbitmq@sha256:0452ee3fd3b9a74160b251e693338616b464f22df4d4ba43304c101bebdca292"
+      ],
+      "architecture": "amd64"
+    }
+  },
+  "versions": {
+    "rabbitmq": "4.4.0",
+    "pika": "1.3.2"
+  },
+  "source_hashes": {
+    "client.py": "a98aa878ab56b3b7677bb0b88327b605f1e2b138212afac6a352c618a462380f",
+    "compose.yaml": "4c05eae6cf059d39cb1489246a093c4addb001b21c95fa5dace9ae26b66a5c42",
+    "Dockerfile": "0c899254658ce1b009262acc84bf15300abcd10454abec0a2146d10ee8ec2cdd",
+    "integration.py": "41b0cc911a8f16759d6363f101cf08163b57576f1a892f2d7cda3a115630aa15",
+    "manage.py": "59eb658aa65d729335b621ab0a2726e39a9da78d701771bc9bd051e29ca46884",
+    "retire.py": "c0e8f0a179c5044c5b3dfc26ad0989e56dec6c6a1f3b84bbe810990988491c68",
+    "runbook.md": "189901eb54fe1c8281443db213cf00effa33465296eb55db4e502ccc3e625a91",
+    "scenario.py": "7ad27606e1aabf61d9458ab54f31fe09685c46b181fd3f99656f7e2076f65ee6",
+    "systemd\\plan9-mq-consumer@.service": "7dd9b3b5b9c313c1f2beba783ec5e0ba5e5208ebc2d819916e26e29039005d4f",
+    "systemd\\plan9-mq-producer@.service": "917a9a8b04efdb88730007f7576b28c1e2da33a01b834efd25d8ced8aaf7bfe0"
+  }
+}

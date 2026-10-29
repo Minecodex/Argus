@@ -1,0 +1,8 @@
+ARG ELASTIC_IMAGE=elasticsearch:8.17.0
+FROM ${ELASTIC_IMAGE}
+USER 0:0
+COPY elastic-bootstrap.sh /usr/local/bin/plan9-elastic-bootstrap
+RUN sed -i 's/\r$//' /usr/local/bin/plan9-elastic-bootstrap && chmod 755 /usr/local/bin/plan9-elastic-bootstrap
+USER 1000:0
+ENTRYPOINT ["/bin/tini","--","/usr/local/bin/plan9-elastic-bootstrap"]
+CMD ["eswrapper"]

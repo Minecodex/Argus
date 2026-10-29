@@ -1,5 +1,9 @@
 import { expect, it } from "vitest";
-import { histogramObservations, metricObservations } from "./observation-data";
+import {
+  formatObservationChartValue,
+  histogramObservations,
+  metricObservations,
+} from "./observation-data";
 import {
   observationTone,
   reduceObservation,
@@ -199,7 +203,12 @@ it("themes axes, legends and gauge labels without overriding formatters, bounds 
   const before = JSON.stringify(option);
   const themed = themeObservation(option, (token) => `resolved:${token}`);
   expect(themed).toMatchObject({
-    tooltip: { renderMode: "html", confine: false, className: "argus-chart-tooltip", appendTo: expect.any(Function) },
+    tooltip: {
+      renderMode: "html",
+      confine: false,
+      className: "argus-chart-tooltip",
+      appendTo: expect.any(Function),
+    },
     xAxis: [
       {
         type: "time",
@@ -215,4 +224,34 @@ it("themes axes, legends and gauge labels without overriding formatters, bounds 
     series: [{ detail: { color: "resolved:--warning", formatter } }],
   });
   expect(JSON.stringify(option)).toBe(before);
+});
+
+it("keeps low-usage CPU ticks and hover values distinct from zero without changing data", () => {
+  expect(formatObservationChartValue(0.00025, "cores", 2)).toBe(
+    "0.00025 cores",
+  );
+  expect(formatObservationChartValue(-0.0004, "cores", 2)).toBe(
+    "-0.00040 cores",
+  );
+  expect(formatObservationChartValue(0, "cores", 2)).toBe("0.00 cores");
+  expect(formatObservationChartValue(0.000002, "percent_ratio", 2)).toBe(
+    "0.00020%",
+  );
+  expect(formatObservationChartValue(1e-12, "cores", 2)).toBe("1.00e-12 cores");
+  expect(formatObservationChartValue(NaN, "cores", 2)).toBe("—");
+  const series = metricObservations([
+    {
+      values: [
+        [1, "0.00025"],
+        [2, "0.0005"],
+      ],
+    },
+  ]);
+  const before = structuredClone(series);
+  const option = metricOption("timeseries", series, true, "cores", 2);
+  const axis = option!.yAxis as {
+    axisLabel: { formatter: (value: number) => string };
+  };
+  expect(axis.axisLabel.formatter(0.00025)).toBe("0.00025 cores");
+  expect(series).toEqual(before);
 });

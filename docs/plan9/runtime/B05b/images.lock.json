@@ -1,0 +1,42 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:6877a305b695cae1aa32ee54a609f141e4b0022fad6c620a5837188101fb1107",
+      "digests": [
+        "argus-plan9-kafka@sha256:6877a305b695cae1aa32ee54a609f141e4b0022fad6c620a5837188101fb1107"
+      ],
+      "architecture": "amd64"
+    },
+    "KAFKA": {
+      "id": "sha256:9916d60eca5d599550e2c320230808fda342124ba550bb4ac4ea8591803262a0",
+      "digests": [
+        "apache/kafka@sha256:9916d60eca5d599550e2c320230808fda342124ba550bb4ac4ea8591803262a0"
+      ],
+      "architecture": "amd64"
+    }
+  },
+  "versions": {
+    "kafka": "4.2.1",
+    "python_confluent_kafka": "1.7.0",
+    "librdkafka": "2.8.0"
+  },
+  "runtime_client_install": {
+    "path": "/usr/local/lib/plan9-kafka-client.py",
+    "sha256": "e9037c18f5f833cb962cbb93d0a676492962559d8cffacd7785e416d3389f1f7",
+    "reason": "Use the installed confluent-kafka 1.7 list_groups API; librdkafka 2.8 handles Kafka protocol negotiation",
+    "image_recreated": false,
+    "permission_check": "Real subscription must return TOPIC_AUTHORIZATION_FAILED"
+  },
+  "source_hashes": {
+    "client.py": "e9037c18f5f833cb962cbb93d0a676492962559d8cffacd7785e416d3389f1f7",
+    "compose.yaml": "4b5bdd63b548dc86dd08ab6a715124f0b288ea8424b954e1756c3eee755bda31",
+    "Dockerfile": "611942e442d8024cdb4a5f992786b78fb0fe1e4f3b37a54ce4fbcdc95a69534e",
+    "integration.py": "66475c0f5c52c2b9dce92ee066def7077a78d532d8f8db85e940ac153a357eeb",
+    "manage.py": "e5d5f0efb1296f1293a547e0f5016daf008f45eea52b36a640a7ede69933a497",
+    "retire.py": "1b20bc08d532765ba4441514fc9432aef6612bab9393300beb63e475e9ce0ba1",
+    "runbook.md": "bec694d30cc0068b801ead2c075aa3c2ddd4dccf1ec854c8b2ba1f50c6d71522",
+    "scenario.py": "986f889b2c297501ea87e442d9859745b42e1fe9acd411217e62bbcdf08982b8",
+    "systemd\\plan9-kafka-consumer@.service": "ad84dcb179c44c961dbf84361f3aaa56b1791499ff29f98501f6dd85e3b34664",
+    "systemd\\plan9-kafka-producer@.service": "53aa63c31beb97d623626a19bddeb42dc20101bf261c7f7bc48bc9bd3a75d8ed"
+  }
+}

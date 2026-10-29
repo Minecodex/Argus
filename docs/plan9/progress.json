@@ -3,9 +3,9 @@
   "schema_version": "argus.plan9_manual_review/v1",
   "created_at": "2026-10-26",
   "timezone": "Asia/Shanghai",
-  "status": "B04_deployed_waiting_user_review",
-  "current_run_id": "p9-b04-20261027-01",
-  "next_suggested_batch": "B05a",
+  "status": "B06d_deployed_waiting_user_review",
+  "current_run_id": "p9-b06d-20261029-01",
+  "next_suggested_batch": "B07a",
   "scope": "真实负载与正常接入驱动的分批人工界面验收",
   "documentation": {
     "entry": "README.md",
@@ -14,22 +14,22 @@
     "environment": "03-environment-and-compose.md",
     "review": "04-review-and-evidence.md",
     "first_batch": "batches/B01-linux-host.md",
-    "review_entry": "batches/B04-review.md",
-    "issues": "batches/B04-review.md",
+    "review_entry": "batches/B06d-review.md",
+    "issues": "batches/B06d-review.md",
     "data_reset": "05-local-data-reset-20261026.md",
     "product_fixes": "06-b01-managed-dashboard-and-query-fixes.md",
     "review_fixes": "07-dashboard-and-alert-review-fixes.md",
-    "current_review": "batches/B04-review.md",
+    "current_review": "batches/B06d-review.md",
     "cache_query_fixes": "08-b04-cache-views-and-metadata-scan.md"
   },
   "delivery": {
     "scenario_design": "written",
-    "compose_packages": "B01_B02a_B02b_B03_retired_B04_running_others_planned",
+    "compose_packages": "B01_B02a_B02b_B03_B04_B05a_B05b_B05c_B06a_B06b_B06c_retired_B06d_running_others_planned",
     "runtime_scripts": "B01_infrastructure_normal_API_and_real_scenarios_implemented",
-    "deployment": "B04_deployed",
+    "deployment": "B06d_deployed_with_preserved_initial_delivery_gap",
     "live_api_calls": "normal_setup_login_enrollment_monitoring_dashboards_alerts",
     "real_model_calls": "not_run",
-    "human_acceptance": "B04_pending_user_review"
+    "human_acceptance": "B06d_pending_user_review"
   },
   "execution_policy": {
     "one_active_sub_batch": true,
@@ -51,7 +51,7 @@
     "live_environment_verified_this_turn": true,
     "plan8_historical_preservation_gap": "P8-A64 remains separately recorded; no retroactive acceptance claim",
     "latest_reset": "05-local-data-reset-20261026.md",
-    "formal_version": "local-20261027-b04-v2",
+    "formal_version": "local-20261029-b06d-v2",
     "enterprise": "test"
   },
   "batches": [
@@ -143,99 +143,154 @@
       "id": "B04",
       "title": "Redis 与 Memcached",
       "activation": "on_user_batch_selection",
-      "status": "ready_for_review",
+      "status": "destroyed",
       "package_status": "implemented_and_executed",
       "self_check": "passed_real_cache_protocols_evictions_alerts_isolation_20_panels_6_ui",
-      "review_status": "pending_user_review",
-      "runtime_status": "running",
+      "review_status": "accepted",
+      "runtime_status": "destroyed",
       "sub_batches": [],
       "runs": [
         "p9-b04-20261027-01"
       ],
       "handoff": "batches/B04-review.md",
-      "open_issues": []
+      "open_issues": [],
+      "accepted_at": "2026-10-28T12:22:06.038Z",
+      "acceptance_statement": "B04 没啥问题，清理后部署 B05a，把 RabbitMQ 的真实场景、监控、仪表盘和告警都接好，我再去平台看。",
+      "cleanup": "../../artifacts/plan9/p9-b04-20261027-01/cleanup.json"
     },
     {
       "id": "B05",
       "title": "消息队列与协调服务",
       "activation": "on_user_batch_selection",
-      "status": "planned",
-      "package_status": "not_created",
+      "status": "destroyed",
+      "package_status": "B05a_B05b_B05c_implemented_and_executed",
       "self_check": "not_run",
       "review_status": "not_reviewed",
-      "runtime_status": "not_created",
+      "runtime_status": "destroyed",
       "sub_batches": [
         {
           "id": "B05a",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "passed_real_AMQP_permissions_backlog_unacked_recovery_9_panels_6_ui",
+          "review_status": "advanced_by_user_request_without_explicit_acceptance",
+          "runtime_status": "destroyed",
+          "runs": [
+            "p9-b05a-20261028-01"
+          ],
+          "handoff": "batches/B05a-review.md",
+          "open_issues": [],
+          "cleanup": "../../artifacts/plan9/p9-b05a-20261028-01/cleanup.json"
         },
         {
           "id": "B05b",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "passed_real_Kafka_offsets_lag_members_recovery_9_panels_6_ui",
+          "review_status": "advanced_by_user_request_without_explicit_acceptance",
+          "runtime_status": "destroyed",
+          "runs": [
+            "p9-b05b-20261028-01"
+          ],
+          "handoff": "batches/B05b-review.md",
+          "open_issues": [],
+          "cleanup": "../../artifacts/plan9/p9-b05b-20261028-01/cleanup.json"
         },
         {
           "id": "B05c",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "passed_real_sessions_watches_ephemeral_cleanup_alerts_12_panels_6_ui",
+          "review_status": "advanced_by_user_request_without_explicit_acceptance",
+          "runtime_status": "destroyed",
+          "runs": [
+            "p9-b05c-20261029-01"
+          ],
+          "handoff": "batches/B05c-review.md",
+          "open_issues": [],
+          "cleanup": "../../artifacts/plan9/p9-b05c-20261029-01/cleanup.json"
         }
       ],
-      "runs": []
+      "runs": [
+        "p9-b05a-20261028-01",
+        "p9-b05b-20261028-01",
+        "p9-b05c-20261029-01"
+      ]
     },
     {
       "id": "B06",
       "title": "扩展数据库与搜索",
       "activation": "on_user_batch_selection",
-      "status": "planned",
-      "package_status": "not_created",
+      "status": "B06d_pending_user_review",
+      "package_status": "B06a_B06b_B06c_B06d_implemented_and_executed",
       "self_check": "not_run",
       "review_status": "not_reviewed",
-      "runtime_status": "not_created",
+      "runtime_status": "B06d_running",
       "sub_batches": [
         {
           "id": "B06a",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "passed_real_CRUD_permissions_connections_update_rate_recovery_14_panels_6_ui",
+          "review_status": "advanced_by_user_request_without_explicit_acceptance",
+          "runtime_status": "destroyed",
+          "runs": [
+            "p9-b06a-20261029-01"
+          ],
+          "handoff": "batches/B06a-review.md",
+          "open_issues": [],
+          "cleanup": "../../artifacts/plan9/p9-b06a-20261029-01/cleanup.json"
         },
         {
           "id": "B06b",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "passed_real_index_search_permissions_yellow_documents_recovery_14_panels_6_ui",
+          "review_status": "advanced_by_user_request_without_explicit_acceptance",
+          "runtime_status": "destroyed",
+          "runs": [
+            "p9-b06b-20261029-01"
+          ],
+          "handoff": "batches/B06b-review.md",
+          "open_issues": [],
+          "cleanup": "../../artifacts/plan9/p9-b06b-20261029-01/cleanup.json"
         },
         {
           "id": "B06c",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "passed_real_TDS_transactions_permissions_connections_batches_lock_recovery_12_panels_6_ui",
+          "review_status": "advanced_by_user_request_without_explicit_acceptance",
+          "runtime_status": "destroyed",
+          "runs": [
+            "p9-b06c-20261029-01"
+          ],
+          "handoff": "batches/B06c-review.md",
+          "open_issues": [],
+          "cleanup": "../../artifacts/plan9/p9-b06c-20261029-01/cleanup.json"
         },
         {
           "id": "B06d",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "ready_for_review",
+          "package_status": "implemented_and_executed",
+          "self_check": "passed_native_transactions_permissions_sessions_commits_recovery_12_panels_6_ui_with_preserved_initial_delivery_gap",
+          "review_status": "pending_user_review",
+          "runtime_status": "running",
+          "runs": [
+            "p9-b06d-20261029-01"
+          ],
+          "handoff": "batches/B06d-review.md",
+          "open_issues": [
+            "B06d-D01"
+          ]
         }
       ],
-      "runs": []
+      "runs": [
+        "p9-b06a-20261029-01",
+        "p9-b06b-20261029-01",
+        "p9-b06c-20261029-01",
+        "p9-b06d-20261029-01"
+      ]
     },
     {
       "id": "B07",
@@ -486,7 +541,11 @@
       "batches": [
         "B06c"
       ],
-      "plan9_status": "planned_not_run"
+      "plan9_status": "executed_retired_after_user_advance",
+      "evidence": "../../artifacts/plan9/p9-b06c-20261029-01/checks.json",
+      "evidence_platforms": [
+        "linux_amd64_SQLServer_2022_CU18_Developer_TDS"
+      ]
     },
     {
       "plan8_id": "P8-I04",
@@ -494,7 +553,11 @@
       "batches": [
         "B06d"
       ],
-      "plan9_status": "planned_not_run"
+      "plan9_status": "executed_pending_human_review",
+      "evidence": "../../artifacts/plan9/p9-b06d-20261029-01/checks.json",
+      "evidence_platforms": [
+        "linux_amd64_Oracle_Free_23.5_29_byte_credentials"
+      ]
     },
     {
       "plan8_id": "P8-I05",
@@ -624,7 +687,8 @@
       "batches": [
         "B06b"
       ],
-      "plan9_status": "planned_not_run"
+      "plan9_status": "executed_retired_after_user_advance",
+      "evidence": "../../artifacts/plan9/p9-b06b-20261029-01/checks.json"
     },
     {
       "plan8_id": "P8-I23",
@@ -883,5 +947,11 @@
     "builtin_mappings_checked": 12,
     "runtime_passed": false,
     "runtime_result": "B01_deployed_with_two_open_issues"
+  },
+  "current_runtime_validation": {
+    "status": "ready_for_review",
+    "record": "../../artifacts/plan9/p9-b06d-20261029-01/checks.json",
+    "known_issue": "B06d-D01 initial audit conflict and preserved delivery gap; current collection restored",
+    "human_acceptance": "pending"
   }
 }

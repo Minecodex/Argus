@@ -1,0 +1,33 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:1c31c9a726bcf9ef99cb686036f439c232fbfe1a2eb3edf5357aae1931dcaca9",
+      "digests": [
+        "argus-plan9-zookeeper@sha256:1c31c9a726bcf9ef99cb686036f439c232fbfe1a2eb3edf5357aae1931dcaca9"
+      ],
+      "architecture": "amd64"
+    },
+    "ZOOKEEPER": {
+      "id": "sha256:17d9b6af91d97ad4feec7b088102d34f1c42df52d6320fd794af5d01d48883a0",
+      "digests": [
+        "zookeeper@sha256:17d9b6af91d97ad4feec7b088102d34f1c42df52d6320fd794af5d01d48883a0"
+      ],
+      "architecture": "amd64"
+    }
+  },
+  "versions": {
+    "zookeeper": "3.9.6",
+    "kazoo": "2.9.0"
+  },
+  "source_hashes": {
+    "client.py": "cc1ecf857af158eda1329fda469696264bb11d8eab03c7ed485b6041c5b2d696",
+    "compose.yaml": "bb102938802b423a0455b723c00d16dc3436f3d948547dca50754d32085bb02c",
+    "Dockerfile": "ddd4995ea01bf1829a3779012c7f66a7e6b96274a4e0f6b611465fe67cc97ac1",
+    "integration.py": "23eceb8648a306d0cf8de93f7ea39ac93c4d32dc1e0837456a0bbbba2b76b8a6",
+    "manage.py": "67bbb8cbce1dc642c94e1bf1b9308d64f8a673481babbdbe3c64ca2be7345235",
+    "retire.py": "e74aab8f5e618244e0f808333b1c8fe69039d3df043af4dd7a8ed928e9adc288",
+    "runbook.md": "243941faa292c3fa01bd0ec54b90b5e7e08479f09451c0e54dcd1241ad23ada6",
+    "scenario.py": "ee2a9979bfd6d312151012e16c5e7e20c99e468300ab7bc4a018c102539a1371",
+    "systemd\\plan9-zk-workload@.service": "08910ef1f7d6df3e43f1b27020f1545ee7471fa5ca42936379ac4aeb781eee0c"
+  }
+}

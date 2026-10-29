@@ -1,0 +1,9 @@
+ARG SQL_IMAGE=mcr.microsoft.com/mssql/server:2022-CU18-ubuntu-22.04
+FROM ${SQL_IMAGE}
+USER 0:0
+COPY sql-bootstrap.sh /usr/local/bin/plan9-sql-bootstrap
+COPY sql-health.sh /usr/local/bin/plan9-sql-health
+RUN sed -i 's/\r$//' /usr/local/bin/plan9-sql-bootstrap /usr/local/bin/plan9-sql-health && chmod 755 /usr/local/bin/plan9-sql-bootstrap /usr/local/bin/plan9-sql-health
+USER mssql
+ENTRYPOINT ["/usr/local/bin/plan9-sql-bootstrap"]
+CMD ["/opt/mssql/bin/sqlservr"]

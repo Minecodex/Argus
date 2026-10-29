@@ -61,8 +61,8 @@ func TestNativeSQLServerTarget(t *testing.T) {
 		t.Fatal("SQL Server monitor could create a database")
 	}
 	f.add("sqlserver", f.owner+"-sqlserver:1433", "", map[string]string{"username": "monitor", "password": databaseTestPassword})
-	// Native SQL rate scrapers have internal sample windows; allow them to
-	// finish without changing any receiver implementation.
+	// This verifies native metric presence. The SQL-path rate-named gauges
+	// are cumulative DMV counters; managed views derive their per-second rate.
 	f.collections[0].Config = json.RawMessage(`{"interval":"5s","timeout":"5s"}`)
 	verifyDatabaseTarget(t, f, "sqlserver", []string{"sqlserver.user.connection.count", "sqlserver.batch.request.rate", "sqlserver.page.buffer_cache.hit_ratio", "sqlserver.page.life_expectancy", "sqlserver.lock.wait.rate", "sqlserver.batch.sql_compilation.rate"})
 }

@@ -6449,7 +6449,7 @@
   },
   {
     "key": "rabbitmq.overview",
-    "version": 1,
+    "version": 2,
     "name": "RabbitMQ",
     "description": "",
     "integration_keys": [
@@ -6748,6 +6748,150 @@
             "min_h": 20
           },
           "unit": "",
+          "decimals": 2,
+          "legend": true,
+          "thresholds": []
+        },
+        {
+          "id": "published",
+          "title": "rate(rabbitmq_message_published[5m])",
+          "description": "",
+          "type": "timeseries",
+          "signal": "metrics",
+          "authoring_mode": "dsl",
+          "applicable_resource_types": [
+            "monitoring_target"
+          ],
+          "source_binding": {
+            "source_type": "rabbitmq",
+            "capability_version": "v1"
+          },
+          "local_filters": [],
+          "targets": [
+            {
+              "id": "a",
+              "language": "promql",
+              "source_definition": {
+                "dsl": {
+                  "expression": "rate(rabbitmq_message_published[5m])"
+                }
+              },
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "target_points": 300,
+                "min_step_seconds": 1
+              },
+              "parameter_bindings": []
+            }
+          ],
+          "detail_query_targets": [],
+          "drilldowns": [],
+          "layout": {
+            "x": 0,
+            "y": 108,
+            "w": 6,
+            "h": 36,
+            "min_w": 2,
+            "min_h": 20
+          },
+          "unit": "ops/s",
+          "decimals": 2,
+          "legend": true,
+          "thresholds": []
+        },
+        {
+          "id": "delivered",
+          "title": "rate(rabbitmq_message_delivered[5m])",
+          "description": "",
+          "type": "timeseries",
+          "signal": "metrics",
+          "authoring_mode": "dsl",
+          "applicable_resource_types": [
+            "monitoring_target"
+          ],
+          "source_binding": {
+            "source_type": "rabbitmq",
+            "capability_version": "v1"
+          },
+          "local_filters": [],
+          "targets": [
+            {
+              "id": "a",
+              "language": "promql",
+              "source_definition": {
+                "dsl": {
+                  "expression": "rate(rabbitmq_message_delivered[5m])"
+                }
+              },
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "target_points": 300,
+                "min_step_seconds": 1
+              },
+              "parameter_bindings": []
+            }
+          ],
+          "detail_query_targets": [],
+          "drilldowns": [],
+          "layout": {
+            "x": 6,
+            "y": 108,
+            "w": 6,
+            "h": 36,
+            "min_w": 2,
+            "min_h": 20
+          },
+          "unit": "ops/s",
+          "decimals": 2,
+          "legend": true,
+          "thresholds": []
+        },
+        {
+          "id": "acknowledged",
+          "title": "rate(rabbitmq_message_acknowledged[5m])",
+          "description": "",
+          "type": "timeseries",
+          "signal": "metrics",
+          "authoring_mode": "dsl",
+          "applicable_resource_types": [
+            "monitoring_target"
+          ],
+          "source_binding": {
+            "source_type": "rabbitmq",
+            "capability_version": "v1"
+          },
+          "local_filters": [],
+          "targets": [
+            {
+              "id": "a",
+              "language": "promql",
+              "source_definition": {
+                "dsl": {
+                  "expression": "rate(rabbitmq_message_acknowledged[5m])"
+                }
+              },
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "target_points": 300,
+                "min_step_seconds": 1
+              },
+              "parameter_bindings": []
+            }
+          ],
+          "detail_query_targets": [],
+          "drilldowns": [],
+          "layout": {
+            "x": 0,
+            "y": 144,
+            "w": 6,
+            "h": 36,
+            "min_w": 2,
+            "min_h": 20
+          },
+          "unit": "ops/s",
           "decimals": 2,
           "legend": true,
           "thresholds": []
@@ -7485,7 +7629,7 @@
   },
   {
     "key": "kafka.overview",
-    "version": 1,
+    "version": 2,
     "name": "Kafka",
     "description": "",
     "integration_keys": [
@@ -7883,6 +8027,54 @@
           "decimals": 2,
           "legend": true,
           "thresholds": []
+        },
+        {
+          "id": "group_lag",
+          "title": "sum by (argus_resource_id, group, topic) (kafka_consumer_group_lag)",
+          "description": "",
+          "type": "timeseries",
+          "signal": "metrics",
+          "authoring_mode": "dsl",
+          "applicable_resource_types": [
+            "monitoring_target"
+          ],
+          "source_binding": {
+            "source_type": "kafka_metrics",
+            "capability_version": "v1"
+          },
+          "local_filters": [],
+          "targets": [
+            {
+              "id": "a",
+              "language": "promql",
+              "source_definition": {
+                "dsl": {
+                  "expression": "sum by (argus_resource_id, group, topic) (kafka_consumer_group_lag)"
+                }
+              },
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "target_points": 300,
+                "min_step_seconds": 1
+              },
+              "parameter_bindings": []
+            }
+          ],
+          "detail_query_targets": [],
+          "drilldowns": [],
+          "layout": {
+            "x": 0,
+            "y": 144,
+            "w": 6,
+            "h": 36,
+            "min_w": 2,
+            "min_h": 20
+          },
+          "unit": "",
+          "decimals": 2,
+          "legend": true,
+          "thresholds": []
         }
       ],
       "layout": {
@@ -7900,7 +8092,7 @@
   },
   {
     "key": "mongodb.overview",
-    "version": 1,
+    "version": 2,
     "name": "MongoDB",
     "description": "",
     "integration_keys": [
@@ -7917,7 +8109,7 @@
       "panels": [
         {
           "id": "connections",
-          "title": "mongodb_connection_count",
+          "title": "max by (argus_resource_id, type) (mongodb_connection_count)",
           "description": "",
           "type": "timeseries",
           "signal": "metrics",
@@ -7936,7 +8128,7 @@
               "language": "promql",
               "source_definition": {
                 "dsl": {
-                  "expression": "mongodb_connection_count"
+                  "expression": "max by (argus_resource_id, type) (mongodb_connection_count)"
                 }
               },
               "query_mode": "range",
@@ -8202,6 +8394,54 @@
           "decimals": 2,
           "legend": true,
           "thresholds": []
+        },
+        {
+          "id": "cache",
+          "title": "rate(mongodb_cache_operations[5m])",
+          "description": "",
+          "type": "timeseries",
+          "signal": "metrics",
+          "authoring_mode": "dsl",
+          "applicable_resource_types": [
+            "monitoring_target"
+          ],
+          "source_binding": {
+            "source_type": "mongodb",
+            "capability_version": "v1"
+          },
+          "local_filters": [],
+          "targets": [
+            {
+              "id": "a",
+              "language": "promql",
+              "source_definition": {
+                "dsl": {
+                  "expression": "rate(mongodb_cache_operations[5m])"
+                }
+              },
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "target_points": 300,
+                "min_step_seconds": 1
+              },
+              "parameter_bindings": []
+            }
+          ],
+          "detail_query_targets": [],
+          "drilldowns": [],
+          "layout": {
+            "x": 0,
+            "y": 108,
+            "w": 6,
+            "h": 36,
+            "min_w": 2,
+            "min_h": 20
+          },
+          "unit": "ops/s",
+          "decimals": 2,
+          "legend": true,
+          "thresholds": []
         }
       ],
       "layout": {
@@ -8219,7 +8459,7 @@
   },
   {
     "key": "elasticsearch.overview",
-    "version": 1,
+    "version": 2,
     "name": "Elasticsearch",
     "description": "",
     "integration_keys": [
@@ -8332,7 +8572,7 @@
         },
         {
           "id": "documents",
-          "title": "elasticsearch_index_documents",
+          "title": "sum by (argus_resource_id, resource_elasticsearch_index_name) (elasticsearch_index_documents{aggregation=\"primary_shards\",state=\"active\",resource_elasticsearch_index_name!=\"_all\"})",
           "description": "",
           "type": "timeseries",
           "signal": "metrics",
@@ -8351,7 +8591,7 @@
               "language": "promql",
               "source_definition": {
                 "dsl": {
-                  "expression": "elasticsearch_index_documents"
+                  "expression": "sum by (argus_resource_id, resource_elasticsearch_index_name) (elasticsearch_index_documents{aggregation=\"primary_shards\",state=\"active\",resource_elasticsearch_index_name!=\"_all\"})"
                 }
               },
               "query_mode": "range",
@@ -8476,7 +8716,7 @@
         },
         {
           "id": "operations",
-          "title": "rate(elasticsearch_index_operations_completed[5m])",
+          "title": "sum by (argus_resource_id, resource_elasticsearch_index_name, operation) (rate(elasticsearch_index_operations_completed{aggregation=\"primary_shards\",resource_elasticsearch_index_name!=\"_all\"}[5m]))",
           "description": "",
           "type": "timeseries",
           "signal": "metrics",
@@ -8495,7 +8735,7 @@
               "language": "promql",
               "source_definition": {
                 "dsl": {
-                  "expression": "rate(elasticsearch_index_operations_completed[5m])"
+                  "expression": "sum by (argus_resource_id, resource_elasticsearch_index_name, operation) (rate(elasticsearch_index_operations_completed{aggregation=\"primary_shards\",resource_elasticsearch_index_name!=\"_all\"}[5m]))"
                 }
               },
               "query_mode": "range",
@@ -8521,6 +8761,54 @@
           "decimals": 2,
           "legend": true,
           "thresholds": []
+        },
+        {
+          "id": "unassigned",
+          "title": "elasticsearch_cluster_shards{state=\"unassigned\"}",
+          "description": "",
+          "type": "timeseries",
+          "signal": "metrics",
+          "authoring_mode": "dsl",
+          "applicable_resource_types": [
+            "monitoring_target"
+          ],
+          "source_binding": {
+            "source_type": "elasticsearch",
+            "capability_version": "v1"
+          },
+          "local_filters": [],
+          "targets": [
+            {
+              "id": "a",
+              "language": "promql",
+              "source_definition": {
+                "dsl": {
+                  "expression": "elasticsearch_cluster_shards{state=\"unassigned\"}"
+                }
+              },
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "target_points": 300,
+                "min_step_seconds": 1
+              },
+              "parameter_bindings": []
+            }
+          ],
+          "detail_query_targets": [],
+          "drilldowns": [],
+          "layout": {
+            "x": 0,
+            "y": 108,
+            "w": 6,
+            "h": 36,
+            "min_w": 2,
+            "min_h": 20
+          },
+          "unit": "",
+          "decimals": 2,
+          "legend": true,
+          "thresholds": []
         }
       ],
       "layout": {
@@ -8538,7 +8826,7 @@
   },
   {
     "key": "sqlserver.overview",
-    "version": 1,
+    "version": 2,
     "name": "SQL Server",
     "description": "",
     "integration_keys": [
@@ -8603,7 +8891,7 @@
         },
         {
           "id": "batches",
-          "title": "sqlserver_batch_request_rate",
+          "title": "rate(sqlserver_batch_request_rate[1m])",
           "description": "",
           "type": "timeseries",
           "signal": "metrics",
@@ -8622,7 +8910,7 @@
               "language": "promql",
               "source_definition": {
                 "dsl": {
-                  "expression": "sqlserver_batch_request_rate"
+                  "expression": "rate(sqlserver_batch_request_rate[1m])"
                 }
               },
               "query_mode": "range",
@@ -8699,7 +8987,7 @@
         },
         {
           "id": "page_life",
-          "title": "sqlserver_page_life_expectancy",
+          "title": "sqlserver_page_life_expectancy{performance_counter_object_name=~\".*Buffer Manager\"}",
           "description": "",
           "type": "timeseries",
           "signal": "metrics",
@@ -8718,7 +9006,7 @@
               "language": "promql",
               "source_definition": {
                 "dsl": {
-                  "expression": "sqlserver_page_life_expectancy"
+                  "expression": "sqlserver_page_life_expectancy{performance_counter_object_name=~\".*Buffer Manager\"}"
                 }
               },
               "query_mode": "range",
@@ -8747,7 +9035,7 @@
         },
         {
           "id": "lock_wait",
-          "title": "sqlserver_lock_wait_rate",
+          "title": "rate(sqlserver_lock_wait_rate[1m])",
           "description": "",
           "type": "timeseries",
           "signal": "metrics",
@@ -8766,7 +9054,7 @@
               "language": "promql",
               "source_definition": {
                 "dsl": {
-                  "expression": "sqlserver_lock_wait_rate"
+                  "expression": "rate(sqlserver_lock_wait_rate[1m])"
                 }
               },
               "query_mode": "range",
@@ -8795,7 +9083,7 @@
         },
         {
           "id": "compilations",
-          "title": "sqlserver_batch_sql_compilation_rate",
+          "title": "rate(sqlserver_batch_sql_compilation_rate[1m])",
           "description": "",
           "type": "timeseries",
           "signal": "metrics",
@@ -8814,7 +9102,7 @@
               "language": "promql",
               "source_definition": {
                 "dsl": {
-                  "expression": "sqlserver_batch_sql_compilation_rate"
+                  "expression": "rate(sqlserver_batch_sql_compilation_rate[1m])"
                 }
               },
               "query_mode": "range",

@@ -32,7 +32,9 @@ func networkKafkaTemplates() []TemplateDefinition {
 		{"consumer_offset", `kafka_consumer_group_offset`, "short", "timeseries"},
 		{"consumer_lag", `kafka_consumer_group_lag`, "short", "timeseries"},
 		{"consumer_members", `kafka_consumer_group_members`, "short", "timeseries"},
+		{"group_lag", `sum by (argus_resource_id, group, topic) (kafka_consumer_group_lag)`, "short", "timeseries"},
 	})
+	kafka.Version = 2
 	for i := range kafka.Spec.Panels {
 		kafka.Spec.Panels[i].SourceBinding.SourceType = "kafka_metrics"
 	}

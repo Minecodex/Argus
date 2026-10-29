@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "rabbitmq.overview",
-  "version": 1,
+  "version": 2,
   "name": "RabbitMQ",
   "description": "",
   "integration_keys": [
@@ -301,6 +301,150 @@ export const template = {
           "min_h": 20
         },
         "unit": "",
+        "decimals": 2,
+        "legend": true,
+        "thresholds": []
+      },
+      {
+        "id": "published",
+        "title": "rate(rabbitmq_message_published[5m])",
+        "description": "",
+        "type": "timeseries",
+        "signal": "metrics",
+        "authoring_mode": "dsl",
+        "applicable_resource_types": [
+          "monitoring_target"
+        ],
+        "source_binding": {
+          "source_type": "rabbitmq",
+          "capability_version": "v1"
+        },
+        "local_filters": [],
+        "targets": [
+          {
+            "id": "a",
+            "language": "promql",
+            "source_definition": {
+              "dsl": {
+                "expression": "rate(rabbitmq_message_published[5m])"
+              }
+            },
+            "query_mode": "range",
+            "range_step_policy": {
+              "kind": "auto",
+              "target_points": 300,
+              "min_step_seconds": 1
+            },
+            "parameter_bindings": []
+          }
+        ],
+        "detail_query_targets": [],
+        "drilldowns": [],
+        "layout": {
+          "x": 0,
+          "y": 108,
+          "w": 6,
+          "h": 36,
+          "min_w": 2,
+          "min_h": 20
+        },
+        "unit": "ops/s",
+        "decimals": 2,
+        "legend": true,
+        "thresholds": []
+      },
+      {
+        "id": "delivered",
+        "title": "rate(rabbitmq_message_delivered[5m])",
+        "description": "",
+        "type": "timeseries",
+        "signal": "metrics",
+        "authoring_mode": "dsl",
+        "applicable_resource_types": [
+          "monitoring_target"
+        ],
+        "source_binding": {
+          "source_type": "rabbitmq",
+          "capability_version": "v1"
+        },
+        "local_filters": [],
+        "targets": [
+          {
+            "id": "a",
+            "language": "promql",
+            "source_definition": {
+              "dsl": {
+                "expression": "rate(rabbitmq_message_delivered[5m])"
+              }
+            },
+            "query_mode": "range",
+            "range_step_policy": {
+              "kind": "auto",
+              "target_points": 300,
+              "min_step_seconds": 1
+            },
+            "parameter_bindings": []
+          }
+        ],
+        "detail_query_targets": [],
+        "drilldowns": [],
+        "layout": {
+          "x": 6,
+          "y": 108,
+          "w": 6,
+          "h": 36,
+          "min_w": 2,
+          "min_h": 20
+        },
+        "unit": "ops/s",
+        "decimals": 2,
+        "legend": true,
+        "thresholds": []
+      },
+      {
+        "id": "acknowledged",
+        "title": "rate(rabbitmq_message_acknowledged[5m])",
+        "description": "",
+        "type": "timeseries",
+        "signal": "metrics",
+        "authoring_mode": "dsl",
+        "applicable_resource_types": [
+          "monitoring_target"
+        ],
+        "source_binding": {
+          "source_type": "rabbitmq",
+          "capability_version": "v1"
+        },
+        "local_filters": [],
+        "targets": [
+          {
+            "id": "a",
+            "language": "promql",
+            "source_definition": {
+              "dsl": {
+                "expression": "rate(rabbitmq_message_acknowledged[5m])"
+              }
+            },
+            "query_mode": "range",
+            "range_step_policy": {
+              "kind": "auto",
+              "target_points": 300,
+              "min_step_seconds": 1
+            },
+            "parameter_bindings": []
+          }
+        ],
+        "detail_query_targets": [],
+        "drilldowns": [],
+        "layout": {
+          "x": 0,
+          "y": 144,
+          "w": 6,
+          "h": 36,
+          "min_w": 2,
+          "min_h": 20
+        },
+        "unit": "ops/s",
         "decimals": 2,
         "legend": true,
         "thresholds": []

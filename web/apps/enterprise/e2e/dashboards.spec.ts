@@ -93,7 +93,7 @@ test("query changes mark preview stale, style changes retain it and complex stat
   ).toBeChecked();
   await expect(
     page.getByRole("textbox", { name: "查询语句", exact: true }),
-  ).toHaveValue("sum_over_time(system_cpu_utilization[13m]) / clamp_min(2, 1)");
+  ).toHaveText("sum_over_time(system_cpu_utilization[13m]) / clamp_min(2, 1)");
   await page.getByRole("button", { name: "完成", exact: true }).click();
   await page.reload();
   await page
@@ -101,7 +101,7 @@ test("query changes mark preview stale, style changes retain it and complex stat
     .click();
   await expect(
     page.getByRole("textbox", { name: "查询语句", exact: true }),
-  ).toHaveValue("sum_over_time(system_cpu_utilization[13m]) / clamp_min(2, 1)");
+  ).toHaveText("sum_over_time(system_cpu_utilization[13m]) / clamp_min(2, 1)");
 });
 test("eleven metric visualizations render and pointer layout survives reload", async ({
   page,
@@ -142,11 +142,15 @@ test("eleven metric visualizations render and pointer layout survives reload", a
     .locator(".argus-panel-editor__settings")
     .getByRole("button", { name: "时序曲线", exact: true })
     .click();
-  await page.getByText("高级查询与过滤", { exact: true }).click();
   const metric = page
-    .getByRole("combobox", { name: "指标", exact: true })
+    .getByRole("combobox", { name: /^指标\*?$/ })
     .last();
   await metric.fill("http_request_duration_seconds_bucket");
+  await metric.press("ArrowDown");
+  await page
+    .getByRole("option", { name: /http_request_duration_seconds_bucket/ })
+    .click();
+  await expect(metric).toHaveValue("http_request_duration_seconds_bucket");
   await page.getByRole("button", { name: "运行查询", exact: true }).click();
   for (const name of ["直方图", "热力图"]) {
     await page

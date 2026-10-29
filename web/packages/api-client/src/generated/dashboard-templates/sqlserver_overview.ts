@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "sqlserver.overview",
-  "version": 1,
+  "version": 2,
   "name": "SQL Server",
   "description": "",
   "integration_keys": [
@@ -67,7 +67,7 @@ export const template = {
       },
       {
         "id": "batches",
-        "title": "sqlserver_batch_request_rate",
+        "title": "rate(sqlserver_batch_request_rate[1m])",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -86,7 +86,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "sqlserver_batch_request_rate"
+                "expression": "rate(sqlserver_batch_request_rate[1m])"
               }
             },
             "query_mode": "range",
@@ -163,7 +163,7 @@ export const template = {
       },
       {
         "id": "page_life",
-        "title": "sqlserver_page_life_expectancy",
+        "title": "sqlserver_page_life_expectancy{performance_counter_object_name=~\".*Buffer Manager\"}",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -182,7 +182,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "sqlserver_page_life_expectancy"
+                "expression": "sqlserver_page_life_expectancy{performance_counter_object_name=~\".*Buffer Manager\"}"
               }
             },
             "query_mode": "range",
@@ -211,7 +211,7 @@ export const template = {
       },
       {
         "id": "lock_wait",
-        "title": "sqlserver_lock_wait_rate",
+        "title": "rate(sqlserver_lock_wait_rate[1m])",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -230,7 +230,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "sqlserver_lock_wait_rate"
+                "expression": "rate(sqlserver_lock_wait_rate[1m])"
               }
             },
             "query_mode": "range",
@@ -259,7 +259,7 @@ export const template = {
       },
       {
         "id": "compilations",
-        "title": "sqlserver_batch_sql_compilation_rate",
+        "title": "rate(sqlserver_batch_sql_compilation_rate[1m])",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -278,7 +278,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "sqlserver_batch_sql_compilation_rate"
+                "expression": "rate(sqlserver_batch_sql_compilation_rate[1m])"
               }
             },
             "query_mode": "range",

@@ -1,5 +1,21 @@
 export const alertsZh = {
   alerts: {
+    secondValue: "{{n}} 秒",
+    queryHealthTitle: "告警查询异常",
+    queryHealthNoDataTitle: "告警查询暂无数据",
+    queryHealthErrorTitle: "告警查询失败",
+    queryHealthDeniedTitle: "告警查询权限不足",
+    queryHealthNoDataHelp:
+      "该次评估未取得可用于判断的指标结果。无数据不等于数值为 0，也不能据此认定服务故障；请检查采集状态、查询范围和样本时间。",
+    queryHealthDeniedHelp:
+      "该次评估缺少查询所需权限，请检查评估身份和资源授权。",
+    queryHealthErrorHelp:
+      "该次查询未能完成评估，请结合事件时间检查查询及采集链路。",
+    queryHealthRecoveredHelp:
+      "此事件已恢复，查询评估已恢复正常。历史记录保留触发时的原因。",
+    queryHealthQueries: "关联策略的查询",
+    queryHealthRecovered: "查询恢复",
+
     deliveryHealth: "采集发送健康",
     delivery_fault: "采集发送异常",
     deliveryManagedPolicyLabel: "平台托管",
@@ -448,6 +464,22 @@ export const alertsZh = {
 };
 export const alertsEn = {
   alerts: {
+    secondValue: "{{n}} seconds",
+    queryHealthTitle: "Alert query health issue",
+    queryHealthNoDataTitle: "Alert query has no data",
+    queryHealthErrorTitle: "Alert query failed",
+    queryHealthDeniedTitle: "Alert query access denied",
+    queryHealthNoDataHelp:
+      "This evaluation returned no usable metric result. No data does not mean a value of zero or prove a service failure. Check collection status, query scope and sample times.",
+    queryHealthDeniedHelp:
+      "This evaluation lacked query permissions. Check the evaluator identity and resource authorization.",
+    queryHealthErrorHelp:
+      "The query could not complete evaluation. Check the query and collection path at the event time.",
+    queryHealthRecoveredHelp:
+      "This event has resolved and query evaluation is healthy again. The history preserves the original cause.",
+    queryHealthQueries: "Queries in the related policy",
+    queryHealthRecovered: "Query recovered",
+
     deliveryHealth: "Delivery health",
     delivery_fault: "Delivery fault",
     deliveryManagedPolicyLabel: "Platform managed",
