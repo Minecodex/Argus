@@ -27,6 +27,14 @@ import (
 )
 
 type E2EOptions struct {
+	Plan11BaselineImage    string
+	Plan11CompareRepeats   int
+	Plan11CompareQuestions []string
+	Plan11CompareProfiles  []string
+	Plan11DeliverySummary  bool
+	Plan11HighResolution   bool
+	Plan11SignalTasks      []string
+	P5PublicationOnly      bool
 	Plan8Phase             string
 	Plan8Integrations      []string
 	Plan7Phase             string
@@ -120,6 +128,7 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	runID := flags.String("run-id", envOr("ARGUS_E2E_RUN_ID", ""), "run identifier")
 	artifacts := flags.String("artifacts", envOr("ARGUS_E2E_ARTIFACTS", ""), "artifact directory")
 	unitOnly := flags.Bool("unit-only", envBool("ARGUS_E2E_UNIT_ONLY"), "run the suite's non-cluster gate only")
+	p5PublicationOnly := flags.Bool("p5-publication-only", false, "focused actual P5 upload/publication/download regression; no external model calls and not the full P5 suite")
 	argusctl := flags.String("argusctl", envOr("ARGUS_E2E_ARGUSCTL", envOr("ARGUSCTL_BIN", "")), "existing argusctl binary")
 	sharedControllerConfig := flags.String("shared-controller-config", "", "existing trusted Argus install config containing the shared controller namespace and immutable image digest; never modifies that controller")
 	realModelPath := flags.String("real-model-config", "", "P5 or PlanV2 real-model benchmark JSON configuration (API key from named environment variable)")
@@ -129,8 +138,15 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	modelGroups := flags.String("planv2-model-groups", "", "explicit PlanV2 real-model groups: core,authoring,conditions,failures,automatic; omitted runs the original groups")
 	plan6Phase := flags.String("plan6-phase", "all", "Plan6 all, runtime, model, browser, or host gate; selected gates are reported as partial")
 	plan7Phase := flags.String("plan7-phase", "all", "Plan7 all gates, flow iteration, or linux-chatbox real-model workflow; selected flows do not complete the full matrix")
-	plan8Phase := flags.String("plan8-phase", "all", "Plan8 all, integrations, kubernetes, workspace or models; selected phases are partial acceptance")
-	plan8Integrations := flags.String("plan8-integrations", "", "comma-separated dedicated integration groups in partial integrations phase only")
+	plan8Phase := flags.String("plan8-phase", "all", "Plan8 all, integrations, kubernetes, workspace, models, plan11, plan11-discovery, plan11-targets, plan11-business, plan11-access, plan11-review, plan11-revocation, plan11-interactions, plan11-identity, plan11-metadata, plan11-metrics, plan11-mcp, plan11-workflows, plan11-publish, plan11-navigation-ui, plan11-navigation-publish, plan11-authoring, plan11-authoring-ui-replay, plan11-signals or plan11-compare; partial phases retain their actual-data prerequisites")
+	plan8Integrations := flags.String("plan8-integrations", "", "comma-separated dedicated integration keys/groups in integrations, plan11-targets or plan11-review (defaults to http)")
+	plan11Signals := flags.String("plan11-signal-tasks", "", "explicit plan11-signals task subset, e.g. general-zh,semantics-zh,general-en,semantics-en; omitted runs all nine; subsets never complete the full cohort")
+	plan11Baseline := flags.String("plan11-baseline-image", "", "cached immutable legacy image ID; required only for plan11-compare")
+	plan11Repeats := flags.Int("plan11-comparison-repeats", 3, "independent repeats per language/question/profile, 0 for infrastructure-only, 1 for smoke, 3 for the planned comparison")
+	plan11Questions := flags.String("plan11-comparison-questions", "", "standalone comparison subset: metric,catalog,dashboard; omitted runs all; subsets never complete the full comparison")
+	plan11Profiles := flags.String("plan11-comparison-profiles", "", "standalone comparison profiles: candidate,legacy; omitted runs both; candidate-only is not a complete comparative cohort")
+	plan11DeliverySummary := flags.Bool("plan11-delivery-summary", false, "candidate-only delivery_summary_v2 acceptance: complete evidence in sealed report, final business summary with actual delivery reference; never reclassifies strict_json_v1 results")
+	plan11HighResolution := flags.Bool("plan11-high-resolution", false, "candidate-only standalone evidence-path acceptance: one-second native queries and actual >32KiB CPU original; default comparison remains unchanged")
 	plan6HostFixtures := flags.String("plan6-host-fixtures", "", "owned Docker Linux Host/Bastion fixture manifest; required by the host gate")
 	plan6CandidateRegistry := flags.String("plan6-candidate-registry", "", "copy the exact passing Plan6 all-suite image manifests to this local registry before temporary cleanup; does not deploy")
 	if err := flags.Parse(args[1:]); err != nil {
@@ -144,6 +160,9 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	}
 	if _, exists := suiteDependencies[*suite]; !exists {
 		return fmt.Errorf("%w: unsupported suite %q", errUsage, *suite)
+	}
+	if *p5PublicationOnly && (*suite != "p5" || *unitOnly || *realModelPath != "") {
+		return fmt.Errorf("%w: --p5-publication-only requires P5 cluster acceptance without a real model", errUsage)
 	}
 	if *realModelOnly && (*suite != "planv2" || *unitOnly || *runtimeOnly || *browserGrep != "" || *realModelPath == "") {
 		return fmt.Errorf("%w: --planv2-real-model-only requires PlanV2 cluster acceptance and a real-model configuration without other scope selectors", errUsage)
@@ -175,18 +194,50 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 		*artifacts = filepath.Join(a.root, *artifacts)
 	}
 	options := E2EOptions{Suite: *suite, KubeContext: *kubeContext, RunID: *runID, Artifacts: *artifacts, UnitOnly: *unitOnly, Argusctl: *argusctl, PlanV2RuntimeOnly: *runtimeOnly, Plan6CandidateRegistry: *plan6CandidateRegistry}
+	options.P5PublicationOnly = *p5PublicationOnly
 	if *plan7Phase != "all" && (*suite != "plan7" || !slices.Contains([]string{"flow", "linux-chatbox"}, *plan7Phase)) {
 		return fmt.Errorf("%w: invalid Plan7 phase", errUsage)
 	}
 	options.Plan7Phase = *plan7Phase
-	if *plan8Phase != "all" && (*suite != "plan8" || !slices.Contains([]string{"integrations", "kubernetes", "workspace", "models"}, *plan8Phase)) {
+	if *plan8Phase != "all" && (*suite != "plan8" || !slices.Contains([]string{"integrations", "kubernetes", "workspace", "models", "plan11", "plan11-discovery", "plan11-targets", "plan11-business", "plan11-access", "plan11-review", "plan11-compare", "plan11-revocation", "plan11-interactions", "plan11-mcp", "plan11-identity", "plan11-metadata", "plan11-metrics", "plan11-workflows", "plan11-publish", "plan11-navigation-ui", "plan11-navigation-publish", "plan11-authoring", "plan11-authoring-ui-replay", "plan11-signals"}, *plan8Phase)) {
 		return fmt.Errorf("%w: invalid Plan8 phase", errUsage)
 	}
 	selectedIntegrations, err := plan8ParseIntegrationGroups(*plan8Integrations)
-	if err != nil || len(selectedIntegrations) > 0 && (*suite != "plan8" || *plan8Phase != "integrations") {
+	if err != nil || len(selectedIntegrations) > 0 && (*suite != "plan8" || !slices.Contains([]string{"integrations", "plan11-targets", "plan11-review"}, *plan8Phase)) {
 		return fmt.Errorf("%w: integration selection requires the partial Plan8 integrations phase", errUsage)
 	}
+	if *plan8Phase == "plan11-review" && len(selectedIntegrations) == 0 {
+		selectedIntegrations = []string{"http"}
+	}
 	options.Plan8Phase, options.Plan8Integrations = *plan8Phase, selectedIntegrations
+	options.Plan11SignalTasks, err = plan11ParseSignalTasks(*plan11Signals, *suite, *plan8Phase)
+	if err != nil {
+		return fmt.Errorf("%w: %v", errUsage, err)
+	}
+	if plan11ComparisonPhase(*plan8Phase) {
+		if *plan11Repeats < 0 || *plan11Repeats > 3 || !validPlan6Digest(*plan11Baseline) {
+			return fmt.Errorf("%w: comparison requires a pinned baseline image and repeats 0..3", errUsage)
+		}
+	} else if *plan11Baseline != "" || *plan11Repeats != 3 {
+		return fmt.Errorf("%w: comparison options require --plan8-phase plan11-compare or plan11-review", errUsage)
+	}
+	options.Plan11BaselineImage, options.Plan11CompareRepeats = *plan11Baseline, *plan11Repeats
+	options.Plan11CompareQuestions, err = plan11ParseComparisonQuestions(*plan11Questions, *suite, *plan8Phase)
+	if err != nil {
+		return fmt.Errorf("%w: %v", errUsage, err)
+	}
+	options.Plan11CompareProfiles, err = plan11ParseComparisonProfiles(*plan11Profiles, *suite, *plan8Phase)
+	if err != nil {
+		return fmt.Errorf("%w: %v", errUsage, err)
+	}
+	options.Plan11DeliverySummary = *plan11DeliverySummary
+	options.Plan11HighResolution = *plan11HighResolution
+	if err := plan11ValidateDeliverySummary(options.Plan11DeliverySummary, *suite, *plan8Phase, options.Plan11CompareProfiles); err != nil {
+		return fmt.Errorf("%w: %v", errUsage, err)
+	}
+	if err := plan11ValidateHighResolution(options.Plan11HighResolution, options.Plan11DeliverySummary, *suite, *plan8Phase, options.Plan11CompareProfiles); err != nil {
+		return fmt.Errorf("%w: %v", errUsage, err)
+	}
 	if (*suite == "plan7" || *suite == "plan8") && !*unitOnly && *realModelPath == "" {
 		return fmt.Errorf("%w: Plan7/Plan8 requires --real-model-config before preparing its environment", errUsage)
 	}
@@ -226,6 +277,8 @@ func (a *App) runE2E(ctx context.Context, args []string) error {
 	if *unitOnly {
 		return a.runE2EUnitGate(ctx, options)
 	}
+	ctx, stopControl := controlledE2EContext(ctx, options.Artifacts, options.RunID)
+	defer stopControl()
 	if options.Suite == "tls" {
 		return a.runTLSE2EMatrix(ctx, options)
 	}
@@ -252,6 +305,14 @@ func (a *App) runE2EUnitGate(ctx context.Context, options E2EOptions) error {
 }
 
 func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr error) {
+	if err := a.checkSystemdFixturePrerequisite(ctx, options.Suite); err != nil {
+		return err
+	}
+	if plan11ComparisonPhase(options.Plan8Phase) {
+		if _, err := a.inspectPlan11LegacyImage(ctx, options.Plan11BaselineImage); err != nil {
+			return err
+		}
+	}
 	if strings.TrimSpace(options.KubeContext) == "" {
 		contextName, err := a.doctorOutput(ctx, "kubectl", "config", "current-context")
 		if err != nil {
@@ -372,6 +433,9 @@ func (a *App) runE2ECluster(ctx context.Context, options E2EOptions) (returnErr 
 		}
 	}
 	result := fmt.Sprintf("{\"run_id\":%q,\"suite\":%q,\"status\":\"passed\"}\n", options.RunID, options.Suite)
+	if options.P5PublicationOnly {
+		result = fmt.Sprintf("{\"run_id\":%q,\"suite\":\"p5\",\"scope\":\"publication_media_only\",\"status\":\"passed\",\"complete\":false,\"external_model_business_calls\":0}\n", options.RunID)
+	}
 	if options.Suite == "plan8" {
 		result = fmt.Sprintf("{\"run_id\":%q,\"suite\":\"plan8\",\"scope\":\"deployed_foundation\",\"status\":\"passed\",\"plan_complete\":false,\"release_eligible\":false}\n", options.RunID)
 		if options.Plan8Phase != "" && options.Plan8Phase != "all" {

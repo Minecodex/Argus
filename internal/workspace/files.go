@@ -200,12 +200,7 @@ func (service Service) Publish(ctx context.Context, p toolruntime.Principal, run
 	if !safeFileName(name) {
 		return db.FileDelivery{}, toolruntime.Error{Kind: "WORKSPACE_FILE_INVALID"}
 	}
-	if media == "" {
-		media = mime.TypeByExtension(path.Ext(name))
-	}
-	if media == "" {
-		media = "application/octet-stream"
-	}
+	media = publicationMediaType(filePath, name, media)
 	if _, _, err := mime.ParseMediaType(media); err != nil {
 		return db.FileDelivery{}, toolruntime.Error{Kind: "WORKSPACE_FILE_INVALID"}
 	}

@@ -156,11 +156,21 @@ export interface components {
             projection_schema_version: string;
             result_ref: string;
             result_hash: string;
+            workspace_file?: {
+                path: string;
+                sha256?: string;
+                source_result_ref: string;
+                /** @constant */
+                delivery: "required_before_next_model_round";
+                instructions: string;
+            };
+            /** @description Framework-authored native query certificate: original at most 32768 bytes equals the actual sanitized, nonpartial summary. Absence means false. Direct analysis additionally requires current authorized query_evidence.inline_original_in_context; a historical flag alone is insufficient. */
+            inline_original_complete?: boolean;
             summary: components["schemas"]["PublicJsonObject"];
             samples?: components["schemas"]["PublicJsonValue"][];
             resource_refs: components["schemas"]["ResourceRef"][];
             partial: boolean;
-            partial_reasons?: ("authorization_filtered" | "budget_truncated" | "source_timeout" | "source_unavailable")[];
+            partial_reasons?: ("authorization_filtered" | "budget_truncated" | "source_timeout" | "source_unavailable" | "tool_result_partial")[];
             original_bytes: number;
             projected_bytes: number;
         } & (unknown & unknown);
@@ -181,7 +191,7 @@ export interface components {
             /** @enum {string} */
             output_token_parameter?: "max_tokens" | "max_completion_tokens" | "max_output_tokens";
             /** @enum {string} */
-            reasoning_effort?: "low" | "high" | "max";
+            reasoning_effort?: "low" | "medium" | "high" | "max";
             supports_streaming?: boolean;
             context_window_tokens: number;
             max_output_tokens: number;

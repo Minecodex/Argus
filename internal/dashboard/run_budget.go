@@ -34,8 +34,9 @@ func runBudgetLimit() budgetCost {
 }
 
 type runMeter struct {
-	store *postgres.Store
-	actor Actor
+	store      *postgres.Store
+	actor      Actor
+	permission string
 }
 type budgetTicket struct {
 	id   uuid.UUID
@@ -48,7 +49,11 @@ func (meter runMeter) authorize(ctx context.Context, q *db.Queries) error {
 	if meter.actor.RunID == uuid.Nil || meter.actor.SubjectType != "user" {
 		return ErrDenied
 	}
-	if err := authorize(ctx, q, meter.actor, "telemetry.dashboard.read"); err != nil {
+	permission := meter.permission
+	if permission == "" {
+		permission = "telemetry.dashboard.read"
+	}
+	if err := authorize(ctx, q, meter.actor, permission); err != nil {
 		return err
 	}
 	run, err := q.GetRun(ctx, db.GetRunParams{ID: meter.actor.RunID, EnterpriseID: meter.actor.EnterpriseID})
@@ -58,7 +63,7 @@ func (meter runMeter) authorize(ctx context.Context, q *db.Queries) error {
 	return nil
 }
 func (service Service) RunBudget(ctx context.Context, actor Actor) (RunBudgetView, error) {
-	meter := runMeter{service.Store, actor}
+	meter := runMeter{store: service.Store, actor: actor}
 	limit := runBudgetLimit()
 	view := RunBudgetView{Remaining: limit, Limit: limit, CallsRemaining: runCallLimit, CallLimit: runCallLimit}
 	if err := meter.authorize(ctx, service.Store.Queries); err != nil {
@@ -206,7 +211,7 @@ func (runtime Runtime) metered(actor Actor) Runtime {
 		}
 		runtime.Backend = prior.base
 	}
-	runtime.Backend = &meteredBackend{base: runtime.Backend, meter: runMeter{runtime.Store, actor}}
+	runtime.Backend = &meteredBackend{base: runtime.Backend, meter: runMeter{store: runtime.Store, actor: actor}}
 	return runtime
 }
 
@@ -293,7 +298,7 @@ func chargeRunEvidence(ctx context.Context, store *postgres.Store, actor Actor, 
 	if actor.RunID == uuid.Nil {
 		return nil
 	}
-	meter := runMeter{store, actor}
+	meter := runMeter{store: store, actor: actor}
 	cost := budgetCost{Bytes: bytes, Rows: rows}
 	ticket, err := meter.reserve(ctx, cost, telemetry.DefaultTimeout, true)
 	if err != nil {

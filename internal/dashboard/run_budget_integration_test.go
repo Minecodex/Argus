@@ -28,7 +28,7 @@ func setTestBudget(t *testing.T, f analysisFixture, cost budgetCost, calls int64
 	if err := q.EnsureDashboardRunBudget(t.Context(), db.EnsureDashboardRunBudgetParams{RunID: f.actor.RunID, EnterpriseID: f.actor.EnterpriseID, OwnerUserID: f.actor.SubjectID, ScanRemaining: cost.Scan, BytesRemaining: cost.Bytes, RowsRemaining: cost.Rows, SamplesRemaining: cost.Samples, CallsRemaining: calls}); err != nil {
 		t.Fatal(err)
 	}
-	return runMeter{f.store, f.actor}
+	return runMeter{store: f.store, actor: f.actor}
 }
 func TestPostgresRunBudgetSharesCatalogAndQueryAcrossBackendRecreation(t *testing.T) {
 	f := newAnalysisFixture(t)

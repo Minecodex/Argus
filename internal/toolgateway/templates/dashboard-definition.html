@@ -6,7 +6,7 @@
   const columns=kind==='metrics'?[[t('指标','Metric'),'name'],[t('类型','Type'),'type'],[t('单位','Unit'),row=>row.unit||t('未识别','Unknown')],[t('标签','Labels'),'labels']]:kind==='fields'?[[t('字段','Field'),'name'],[t('类型','Type'),'type']]:kind==='values'?[[t('候选值','Value'),'value']]:[[t('名称','Name'),row=>v.name(row)],[t('资源类型','Resource type'),row=>row.type||row.resource_type]];
   void v.pages(root,data,(target,rows)=>v.table(target,rows,columns));
   if(kind==='values'&&Object.keys(data.selected_exists||{}).length){const target=v.section(root,t('已选值存在性','Selected value presence'),true);v.table(target,Object.entries(data.selected_exists).map(([value,exists])=>({value,exists})),[[t('已选值','Selected value'),'value'],[t('本次范围存在','Exists in query scope'),row=>row.exists?t('存在','Present'):t('不存在','Absent')]]);}
-  if(data.source_capabilities?.length){const target=v.section(root,t('注册采集能力','Registered source capabilities'),true);v.table(target,data.source_capabilities,[[t('来源','Source'),'source_type'],[t('信号','Signal'),'signal'],[t('能力版本','Capability version'),'capability_version'],[t('资源','Resources'),row=>(row.resource_ids||[]).map(id=>(data.resources||[]).find(item=>item.id===id)?.name||id).join(' · ')],[t('数据状态','Data state'),row=>row.data_state==='not_sampled'?t('尚未采样验证','Not sampled'):row.data_state]]);}
+  if(data.source_capabilities?.length){const target=v.section(root,t('注册采集能力','Registered source capabilities'),true);v.table(target,data.source_capabilities,[[t('来源','Source'),'source_type'],[t('信号','Signal'),'signal'],[t('能力版本','Capability version'),'capability_version'],[t('资源','Resources'),row=>(row.resource_ids||[]).map(id=>(data.resources||[]).find(item=>item.id===id)?.name||id).join(' · ')],[t('数据状态','Data state'),row=>['not_sampled','not_checked'].includes(row.data_state)?t('此目录未执行采样检查','This directory did not check samples'):row.data_state]]);}
   if(data.has_more||data.complete===false)v.note(root,t('当前仅展示本次工具已查询的业务页；让 AI 继续检索可获取后续结果。','This card contains the queried business page; ask AI to retrieve additional results.'));
   if(data.meta){const target=v.section(root,t('检索执行信息','Catalog execution details'));v.fields(target,Object.entries(data.meta));}
  };
@@ -19,7 +19,15 @@
 
  v.mount(document.getElementById('definition-view'),(root,data)=>{
   if(v.entry==='telemetry-catalog')catalog(root,data);
-  else if(v.entry==='dashboard-list'){v.header(root,t('仪表盘目录','Dashboard catalog'));void v.pages(root,data,(target,rows)=>v.table(target,rows,[[t('名称','Name'),row=>v.name(row)],[t('说明 / 类型','Description / type'),row=>row.description||row.resource_type||row.metric_type||row.type],[t('版本','Revision'),row=>row.revision_number||row.version],[t('更新时间','Updated'),row=>v.time(row.updated_at)]],detail));}
+  else if(v.entry==='dashboard-list'){
+   v.header(root,t('仪表盘目录','Dashboard catalog'));
+   if(data.request_context){const scope=v.section(root,t('筛选条件','Filters'),true);v.fields(scope,v.requestFields(data.request_context));}
+   v.fields(root,[[t('完整性','Completeness'),data.complete===false?t('本页结果，仍可继续查询','This page; more results may be available'):t('本次结果完整','Complete for this request')]]);
+   v.note(root,t('仅检查适用范围，未执行面板采样；空列表不代表目标没有遥测。','Applicability only; panels were not sampled. An empty list does not prove telemetry is absent.'));
+   const suitability=row=>({applicable:t('完全适用','Applicable'),partial:t('部分适用','Partially applicable')}[row.suitability]||t('未检查','Not checked'));
+   const itemDetail=(target,row)=>{if(row.spec||row.definition||row.revision?.spec){detail(target,row);return;}v.fields(target,[[t('名称','Name'),row.name],[t('适用性','Suitability'),suitability(row)],[t('适用类型','Resource types'),row.applicable_resource_types],[t('信号','Signals'),row.signals],[t('集成','Integrations'),row.integrations],[t('匹配依据','Match reasons'),row.match_reasons],[t('数据检查','Data check'),row.sampling_performed===false?t('未执行采样','Not sampled'):t('未检查','Not checked')]]);};
+   void v.pages(root,data,(target,rows)=>v.table(target,rows,[[t('名称','Name'),row=>v.name(row)],[t('适用性','Suitability'),suitability],[t('适用类型','Resource types'),row=>(row.applicable_resource_types||[]).join(' · ')],[t('信号','Signals'),row=>(row.signals||[]).join(' · ')],[t('集成','Integrations'),row=>(row.integrations||[]).join(' · ')],[t('版本','Revision'),row=>row.template_version||row.revision_number||row.version]],itemDetail));
+  }
   else if(v.entry==='dashboard-draft-validation'){v.header(root,t('草稿校验','Draft validation'));v.fields(root,[[t('状态','Status'),data.status||data.valid],[t('样本状态','Sample status'),data.sample_status||data.sample?.status||t('未提供样本','No sample provided')]]);const issues=data.issues||data.validation?.issues||[];v.table(root,issues,[[t('问题路径','Issue path'),row=>row.path||row.field],[t('级别','Severity'),'severity'],[t('原因','Reason'),row=>row.message||row.code]]);if(data.sample){const target=v.section(root,t('样本执行信息','Sample execution'));v.note(target,v.value(data.sample));}}
   else detail(root,data);
  });

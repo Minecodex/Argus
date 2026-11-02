@@ -1129,6 +1129,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "parameters": {"$ref": "#/components/schemas/DashboardExecutionInput"},
           "expected_version": {
             "type": "integer",
             "format": "int64"

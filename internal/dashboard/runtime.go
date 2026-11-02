@@ -449,6 +449,10 @@ func (runtime Runtime) Verify(ctx context.Context, actor Actor, spec Spec) (Vali
 	return runtime.verifySample(ctx, actor, spec, ExecutionInput{})
 }
 
+func (runtime Runtime) VerifyWithScope(ctx context.Context, actor Actor, spec Spec, parameters ExecutionInput) (ValidationReport, json.RawMessage, error) {
+	return runtime.verifySample(ctx, actor, spec, parameters)
+}
+
 func (runtime Runtime) verifySample(ctx context.Context, actor Actor, spec Spec, input ExecutionInput) (ValidationReport, json.RawMessage, error) {
 	report := Validate(spec)
 	if !report.Valid {
@@ -508,6 +512,10 @@ func (runtime Runtime) verifySample(ctx context.Context, actor Actor, spec Spec,
 				report.Issues = append(report.Issues, Issue{Path: "panels." + panel.ID + ".targets." + target.ID, Code: target.Code, Message: "query failed a hard execution gate"})
 			}
 		}
+	}
+	if issues := sampleQuantityIssues(spec, sample); len(issues) > 0 {
+		report.Valid = false
+		report.Issues = append(report.Issues, issues...)
 	}
 	state := "no_data"
 	for _, panel := range sample.Panels {

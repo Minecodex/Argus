@@ -29,8 +29,9 @@ func (loop Loop) HandleExhausted(ctx context.Context, task runtime.Task, cause e
 				return err
 			}
 			if run.CurrentStepID.Valid {
-				_, err := q.FinishRunStep(ctx, db.FinishRunStepParams{ID: run.CurrentStepID.UUID, EnterpriseID: run.EnterpriseID, Status: "failed"})
-				return err
+				// A failed provider attempt already closes its step. Exhaustion
+				// must still close the Run without rewriting terminal step facts.
+				return q.FailActiveExhaustedRunStep(ctx, db.FailActiveExhaustedRunStepParams{ID: run.CurrentStepID.UUID, EnterpriseID: run.EnterpriseID, RunID: run.ID})
 			}
 			return nil
 		}); err != nil {

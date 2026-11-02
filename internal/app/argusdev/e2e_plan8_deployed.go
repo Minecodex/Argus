@@ -35,13 +35,35 @@ func (a *App) runPlan8DeployedScenario(ctx context.Context, env *E2EEnvironment)
 	}
 	if env.Options.Plan8Phase != "" && env.Options.Plan8Phase != "all" {
 		proof["scope"] = "partial_deployed_" + env.Options.Plan8Phase
-		count := 0
-		names := []string{}
-		if env.Options.Plan8Phase == "kubernetes" {
-			count = 1
-			names = []string{"kubernetes_owned_workload_recovery"}
+		names := plan8SelectedModelNames(env.Options.Plan8Phase)
+		if plan11SignalPhase(env.Options.Plan8Phase) {
+			names, err = plan11SignalModelNames(env.Options.Plan11SignalTasks)
+			if err != nil {
+				return err
+			}
 		}
-		proof["model_budget"] = map[string]any{"scenarios": count, "scenario_names": names, "provider_call_acceptance_limit_per_scenario": 32, "maximum_duration_seconds_per_scenario": 600}
+		if env.Options.Plan8Phase == "plan11-compare" {
+			names = plan11ComparisonSelectedModelNames(env.Options.Plan11CompareRepeats, env.Options.Plan11CompareProfiles, env.Options.Plan11CompareQuestions)
+		}
+		if env.Options.Plan8Phase == "plan11-targets" {
+			names = plan11TargetModelNames(env.Options.Plan8Integrations)
+		}
+		if env.Options.Plan8Phase == "plan11-review" {
+			names = plan11ReviewModelNames(env.Options.Plan11CompareRepeats, env.Options.Plan8Integrations)
+		}
+		proof["model_budget"] = map[string]any{"scenarios": len(names), "scenario_names": names, "provider_call_acceptance_limit_per_scenario": 32, "maximum_duration_seconds_per_scenario": 600}
+		if env.Options.Plan8Phase == "plan11-authoring-ui-replay" {
+			proof["model"] = "local_scripted_replay"
+			proof["model_reasoning_effort"] = ""
+			proof["configured_context_budget_only"] = true
+			proof["model_budget"] = map[string]any{"initial_real_model_tasks": 0, "external_provider_call_limit": 0, "local_scripted_cases": 2, "not_new_L5_evidence": true}
+		}
+		if plan11NavigationPhase(env.Options.Plan8Phase) {
+			proof["model_budget"] = map[string]any{"scenario_names": names, "initial_tasks": len(names), "provider_call_acceptance_limit_total": plan11NavigationCallBound(env.Options.Plan8Phase), "filter_calls_each": 32, "scope_only_calls_each": 4, "authoring_with_continuations": 64, "provider_probe_calls_separate": true}
+		}
+		if env.Options.Plan8Phase == "plan11-interactions" {
+			proof["model_budget"] = map[string]any{"workflow_names": names, "workflows": 4, "provider_call_acceptance_limit_total": 128, "maximum_duration_seconds_per_workflow": 1200, "provider_probe_calls_separate": true}
+		}
 	}
 	defer func() {
 		after, err := a.plan8Snapshot(context.WithoutCancel(ctx))
@@ -58,10 +80,7 @@ func (a *App) runPlan8DeployedScenario(ctx context.Context, env *E2EEnvironment)
 		failure = errors.Join(failure, e)
 	}()
 	var h *plan6HostLoop
-	stages := []struct {
-		name string
-		run  func() error
-	}{
+	stages := []plan8DeployedStage{
 		{"workspace-device-prerequisites", func() error { return a.plan8WorkspaceDevicePrerequisites(ctx, env) }},
 		{"workspace", func() error { return a.configureP5Workspace(ctx, env) }},
 		{"control-prerequisite", func() error { return a.preparePlan7ControlModel(ctx, env) }},
@@ -77,11 +96,27 @@ func (a *App) runPlan8DeployedScenario(ctx context.Context, env *E2EEnvironment)
 			return a.usePlan6ProductionBackend(ctx, env)
 		}},
 		{"monitoring-api", func() error { return a.plan8DeployedMonitoringAPI(ctx, env) }},
+		{"plan11-resource-identity", func() error { return a.plan11DeployedResourceIdentity(ctx, env, h) }},
+		{"plan11-customer-mcp", func() error { return a.plan11DeployedCustomerMCP(ctx, env) }},
+		{"plan11-chat-interactions", func() error { return a.plan11DeployedInteractions(ctx, env, h) }},
+		{"plan11-business-workflows", func() error { return a.plan11DeployedBusinessWorkflows(ctx, env, h) }},
+		{"plan11-navigation-ui", func() error { return a.plan11DeployedNavigationUI(ctx, env, h) }},
+		{"plan11-dashboard-authoring", func() error { return a.plan11DeployedAuthoring(ctx, env, h) }},
+		{"plan11-authoring-ui-replay", func() error { return a.plan11DeployedAuthoringUIReplay(ctx, env, h) }},
+		{"plan11-authoring-ui-production-readback", func() error { return a.plan11AuthoringProductionReadback(ctx, env, h) }},
+		{"plan11-read-only-dashboards", func() error { return a.plan11ReadOnlyDashboards(ctx, env, h) }},
+		{"plan11-profile-comparison", func() error { return a.plan11DeployedComparison(ctx, env, h) }},
+		{"plan11-business-discovery", func() error { return a.plan11DeployedDiscovery(ctx, env, h) }},
+		{"plan11-resource-navigation", func() error { return a.plan11DeployedNavigation(ctx, env, h) }},
 		{"host-application-files-and-system-journal", func() error { return a.plan8DeployedHostLogs(ctx, env, h) }},
 		{"kubernetes-namespace-workbench", func() error { return a.plan8DeployedKubernetesNamespace(ctx, env) }},
 		{"service-instances-and-migration", func() error { return a.plan8DeployedServices(ctx, env, h) }},
 		{"additional-services-and-managed-dashboards", func() error { return a.plan8DeployedExtraServices(ctx, env, h) }},
 		{"sdk-application-protocols", func() error { return a.plan8DeployedSDK(ctx, env, h) }},
+		{"plan11-signal-cohort", func() error { return a.plan11DeployedSignals(ctx, env, h) }},
+		{"plan11-namespace-recreation", func() error { return a.plan11NamespaceRecreation(ctx, env) }},
+		{"plan11-metadata-semantics", func() error { return a.plan11DeployedMetadataSemantics(ctx, env, h) }},
+		{"plan11-metric-semantics", func() error { return a.plan11DeployedMetricSemantics(ctx, env) }},
 		{"real-model-applications-and-shared-database", func() error { return a.plan8ModelApplicationObservation(ctx, env) }},
 		{"real-model-secure-form", func() error { return a.plan8ModelSecureCollectionForm(ctx, env, h) }},
 		{"real-model-collection-alert-health", func() error { return a.plan8ModelCollectionAlertHealth(ctx, env, h) }},
@@ -91,7 +126,7 @@ func (a *App) runPlan8DeployedScenario(ctx context.Context, env *E2EEnvironment)
 		{"additional-supported-integrations", func() error { return a.plan8DeployedSupportedTargets(ctx, env, h) }},
 		{"real-portal-workspace", func() error { return a.plan8DeployedPortalWorkspace(ctx, env) }},
 	}
-	for _, stage := range stages {
+	for _, stage := range plan8OrderedDeployedStages(env.Options.Plan8Phase, stages) {
 		if !plan8StageSelected(env.Options.Plan8Phase, stage.name) {
 			continue
 		}
@@ -111,12 +146,12 @@ func (a *App) runPlan8DeployedScenario(ctx context.Context, env *E2EEnvironment)
 				stageProof["recovered_for_independent_following_stages"] = recovered
 				err = errors.Join(err, recovery)
 			}
-			if run := env.State.Values["plan8_last_model_run"]; plan8IndependentModelStage(stage.name) && run != "" {
+			if run := env.State.Values["plan8_last_model_run"]; (plan8IndependentModelStage(stage.name) || errors.Is(err, errPlan8IndependentModelFailure)) && run != "" {
 				err = errors.Join(err, a.plan8StopFailedModelTask(ctx, env, run))
 			}
 			failure = errors.Join(failure, fmt.Errorf("Plan8 deployed %s: %w", stage.name, err))
-			independent := plan8IndependentModelStage(stage.name) || stage.name == "existing-target-authorization"
-			if !independent && !recovered || errors.Is(err, errPlan8ModelCleanup) || ctx.Err() != nil {
+			independent := plan8IndependentModelStage(stage.name) || stage.name == "existing-target-authorization" || errors.Is(err, errPlan8IndependentModelFailure)
+			if !independent && !recovered || errors.Is(err, errPlan8ModelCleanup) || errors.Is(err, errPlan8TargetCleanup) || errors.Is(err, errPlan11NavigationBoundary) || ctx.Err() != nil {
 				return failure
 			}
 			fmt.Fprintf(a.stdout, "Plan8 deployed %s failed; remaining independent stages will still run\n", stage.name)
@@ -130,7 +165,7 @@ func (a *App) runPlan8DeployedScenario(ctx context.Context, env *E2EEnvironment)
 
 func plan8IndependentModelStage(name string) bool {
 	switch name {
-	case "real-model-applications-and-shared-database", "real-model-secure-form", "real-model-collection-alert-health", "real-model-application-revocation", "real-model-workspace":
+	case "plan11-signal-cohort", "real-model-applications-and-shared-database", "real-model-secure-form", "real-model-collection-alert-health", "real-model-application-revocation", "real-model-workspace", "plan11-business-discovery", "plan11-resource-navigation", "plan11-business-workflows", "plan11-dashboard-authoring", "plan11-navigation-ui":
 		return true
 	default:
 		return false

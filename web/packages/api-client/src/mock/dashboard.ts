@@ -80,12 +80,13 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
       async list() {
         await ctx.pause();
         dashboardPermission(ctx, false, true);
-        ensureManagedDashboards(ctx);
+        const visibleDefaults = ensureManagedDashboards(ctx);
         return copy(
           dashboardState(ctx)
             .items.filter(
               (r) =>
                 r.enterprise === ctx.enterpriseId() &&
+                (!r.value.managed_template_key || visibleDefaults.has(r.value.managed_template_key)) &&
                 dashboardAccess(ctx, r.value.id),
             )
             .map((r) => r.value),
@@ -266,7 +267,7 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
       async draftDrilldown(id, input) {
         return mockDraftDrilldown(ctx, id, input);
       },
-      async preview(id, version) {
+      async preview(id, version, parameters) {
         const d = mockDraft(ctx, id);
         if (d.draft_version !== version)
           fail("DASHBOARD_VERSION_CONFLICT", 409);
@@ -279,6 +280,7 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
           "telemetry.dashboard.publish",
           {
             draft_id: id,
+            ...(parameters ? { sample_parameters: parameters } : {}),
             draft_version: version,
             base_revision_id: d.base_revision_id ?? "",
             base_object_version: d.base_object_version,

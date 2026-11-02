@@ -12,6 +12,7 @@ import (
 )
 
 var errPlan8ModelCleanup = errors.New("Plan8 failed model run cleanup incomplete")
+var errPlan8IndependentModelFailure = errors.New("independent model scenario failed after its infrastructure prerequisites")
 
 // A failed fault subcase is retained as failed. Independent following stages
 // may run only after real control convergence and a new host metric sample.

@@ -82,6 +82,7 @@ codes:
   REMOTE_STOPPED: {http_status: 409, message_key: errors.codes.REMOTE_STOPPED, retryable: false}
   DASHBOARD_SELECTION_REQUIRED: {http_status: 422, message_key: errors.dashboard.selection_required, retryable: false}
   DASHBOARD_CONDITION_EVIDENCE_REQUIRED: {http_status: 422, message_key: errors.dashboard.condition_evidence_required, retryable: false}
+  DASHBOARD_RESOURCE_SCOPE_REQUIRED: {http_status: 422, message_key: errors.dashboard.resource_scope_required, retryable: false}
   DASHBOARD_CONDITIONS_INCOMPATIBLE: {http_status: 409, message_key: errors.dashboard.conditions_incompatible, retryable: false}
   DASHBOARD_SELECTION_STALE: {http_status: 409, message_key: errors.dashboard.selection_stale, retryable: false}
   DASHBOARD_CONTEXT_EXPIRED: {http_status: 409, message_key: errors.dashboard.context_expired, retryable: false}

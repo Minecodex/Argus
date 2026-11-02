@@ -194,7 +194,7 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 			}
 			return err
 		}
-		request := modelprovider.Request{Model: revision.ProviderModelID, Messages: projection.Messages, Tools: turnTools, MaxTokens: int(revision.MaxOutputTokens), OutputTokenParameter: budgetParameter, ReasoningEffort: reasoningEffort}
+		request := inferenceRequest(revision.ProviderModelID, int(revision.MaxOutputTokens), projection.Messages, turnTools, budgetParameter, reasoningEffort)
 		wireBytes, err := provider.RequestBytes(request)
 		if err != nil {
 			return err
@@ -235,7 +235,7 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 		if err != nil {
 			return err
 		}
-		if err := persistModelDispatch(ctx, loop.Store, db.MarkModelDispatchedParams{ID: modelCall.ID, EnterpriseID: run.EnterpriseID, ProjectionHash: hashBytes, ToolSnapshotHash: run.ToolSnapshotHash, CapabilitySnapshot: revision.Capabilities}); err != nil {
+		if err := persistModelDispatch(ctx, loop.Store, db.MarkModelDispatchedParams{ID: modelCall.ID, EnterpriseID: run.EnterpriseID, ProjectionHash: hashBytes, ToolSnapshotHash: run.ToolSnapshotHash, CapabilitySnapshot: revision.Capabilities}, modelInlineQueryReceipts(projection, actualHash)); err != nil {
 			return err
 		}
 		started := time.Now()
@@ -412,6 +412,10 @@ func (loop Loop) context(ctx context.Context, run db.Run, revision db.AiModelRev
 		return ContextProjection{}, err
 	}
 	checkpoint = conversation.WithModelRuntimeFacts(checkpoint, run.ModeSnapshot, toolSnapshot, tools, time.Now())
+	checkpoint["query_evidence"], err = loop.queryEvidenceFacts(ctx, run, messages...)
+	if err != nil {
+		return ContextProjection{}, err
+	}
 	if loop.RemoteFacts != nil {
 		facts, e := loop.RemoteFacts(ctx, run)
 		if e != nil {

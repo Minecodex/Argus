@@ -21,6 +21,15 @@ func (a *App) runP5Scenario(ctx context.Context, env *E2EEnvironment) error {
 	if err := a.prepareP5Scenario(ctx, env); err != nil {
 		return err
 	}
+	if env.Options.P5PublicationOnly {
+		if err := a.enableP5Sandbox(ctx, env); err != nil {
+			return err
+		}
+		if err := a.configureP5Workspace(ctx, env); err != nil {
+			return err
+		}
+		return a.verifyP5PublicationMedia(ctx, env)
+	}
 	if err := a.verifyP5LiteInstallation(ctx, env); err != nil {
 		return err
 	}

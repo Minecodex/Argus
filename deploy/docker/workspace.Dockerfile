@@ -19,6 +19,26 @@ RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r /opt/argu
     && node --version && bash --version \
     && mkdir -p /workspace /home/argus && chmod 1777 /workspace /home/argus
 COPY --from=supervisor /out/supervisor /usr/local/bin/argus-workspace-supervisor
+COPY deploy/workspace/metric_metadata.py /opt/argus/metric_metadata.py
+COPY deploy/workspace/evidence_text.py /opt/argus/evidence_text.py
+COPY deploy/workspace/evaluation_window.py /opt/argus/evaluation_window.py
+COPY deploy/workspace/report_receipt.py /opt/argus/report_receipt.py
+COPY --chmod=0755 deploy/workspace/metric_evidence.py /opt/argus/metric_evidence.py
+RUN ln -s /opt/argus/metric_evidence.py /usr/local/bin/argus-metric-evidence
+COPY --chmod=0755 deploy/workspace/dashboard_evidence.py /opt/argus/dashboard_evidence.py
+RUN ln -s /opt/argus/dashboard_evidence.py /usr/local/bin/argus-dashboard-evidence
+COPY --chmod=0755 deploy/workspace/evidence_report.py /opt/argus/evidence_report.py
+RUN ln -s /opt/argus/evidence_report.py /usr/local/bin/argus-evidence-report
+RUN --mount=type=bind,source=deploy/workspace/test_metric_evidence.py,target=/opt/argus/test_metric_evidence.py \
+    python -m unittest discover -s /opt/argus -p test_metric_evidence.py
+RUN --mount=type=bind,source=deploy/workspace/test_dashboard_evidence.py,target=/opt/argus/test_dashboard_evidence.py \
+    python -m unittest discover -s /opt/argus -p test_dashboard_evidence.py
+RUN --mount=type=bind,source=deploy/workspace/test_evidence_report.py,target=/opt/argus/test_evidence_report.py \
+    python -m unittest discover -s /opt/argus -p test_evidence_report.py
+RUN --mount=type=bind,source=deploy/workspace/test_metric_metadata.py,target=/opt/argus/test_metric_metadata.py \
+    python -m unittest discover -s /opt/argus -p test_metric_metadata.py
+RUN --mount=type=bind,source=deploy/workspace/test_evaluation_window.py,target=/opt/argus/test_evaluation_window.py \
+    python -m unittest discover -s /opt/argus -p test_evaluation_window.py
 RUN mkdir -p /var/run/argus/manager/tls && chown 10001:10001 /var/run/argus/manager && chmod 0700 /var/run/argus/manager \
     && python -c "import os; os.setxattr('/usr/local/bin/argus-workspace-supervisor', 'security.capability', bytes.fromhex('01000002e0000000000000000000000000000000'))"
 ENV HOME=/home/argus MPLCONFIGDIR=/home/argus/.matplotlib PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1

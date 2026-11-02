@@ -17,6 +17,10 @@ func ToolBinding(id string) (Binding, error) {
 	read := []string{"result.detail", "result.page", "resources.context"}
 	entry := "resource-list"
 	switch {
+	case strings.HasPrefix(id, "observe."):
+		return Binding{Entry: "observation-discovery", Mode: "template", Reads: read}, nil
+	case id == "workflow.plan.propose":
+		return Binding{Mode: "interaction"}, nil
 	case id == "pending_action.get":
 		return Binding{Mode: "action"}, nil
 	case id == "tool.search" || id == "tool.describe" || id == "telemetry.dashboard.catalog" || id == "telemetry.dashboard.catalog.resources" || id == "telemetry.dashboard.draft.create" || id == "telemetry.dashboard.draft.validate":

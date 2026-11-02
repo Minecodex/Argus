@@ -37,7 +37,7 @@ func Acquire(ctx context.Context, store *postgres.Store, p toolruntime.Principal
 		if !slices.Contains(result.DashboardIDs, id) {
 			result.DashboardIDs = append(result.DashboardIDs, id)
 		}
-		if result.Mode == "none" {
+		if result.Mode == "none" && result.TaskScope == "" {
 			result.Mode = "analyze"
 		}
 		if err := Validate(ctx, q, p, result); err != nil {
@@ -65,7 +65,7 @@ func discoveredSnapshot(ctx context.Context, q *db.Queries, p toolruntime.Princi
 			seed.DashboardIDs = append(seed.DashboardIDs, row.DashboardID)
 		}
 	}
-	if seed.Mode == "none" && len(seed.DashboardIDs) > 0 {
+	if seed.Mode == "none" && len(seed.DashboardIDs) > 0 && seed.TaskScope == "" {
 		seed.Mode = "analyze"
 	}
 	return seed, nil

@@ -142,8 +142,16 @@ func (a *App) preparePlan8DatabaseSet(ctx context.Context, env *E2EEnvironment, 
 			variables = map[string]string{"SQLCMDPASSWORD": row.password}
 			cmd = []string{"exec", "-i", "--env", "SQLCMDPASSWORD", row.id, "/opt/mssql-tools18/bin/sqlcmd", "-C", "-b", "-S", "localhost", "-U", "monitor"}
 		}
-		if a.runner.RunIO(ctx, variables, strings.NewReader("CREATE DATABASE forbidden;\n"), io.Discard, io.Discard, "docker", cmd...) == nil {
-			return rows, fmt.Errorf("%s monitoring account can create databases", engine)
+		if a.runner.RunIO(ctx, variables, strings.NewReader("SELECT 1;\n"), io.Discard, io.Discard, "docker", cmd...) != nil {
+			return rows, fmt.Errorf("%s monitoring account could not log in", engine)
+		}
+		var denied bytes.Buffer
+		denialCode := "ERROR 1044"
+		if engine == "sqlserver" {
+			denialCode = "262"
+		}
+		if a.runner.RunIO(ctx, variables, strings.NewReader("CREATE DATABASE forbidden;\n"), &denied, &denied, "docker", cmd...) == nil || !strings.Contains(denied.String(), denialCode) {
+			return rows, fmt.Errorf("%s monitoring account did not explicitly reject database creation", engine)
 		}
 	}
 	return rows, nil

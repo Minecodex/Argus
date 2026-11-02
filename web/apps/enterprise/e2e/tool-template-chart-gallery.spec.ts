@@ -128,14 +128,14 @@ const types = panels.map((panel) => panel.type);
 
 for (const english of [false, true])
   for (const dark of [false, true])
-    for (const width of [1280, 1600, 1920]) {
+    for (const width of [1280, 1440, 1920]) {
       test(`all 19 dashboard chart types ${english ? "en" : "zh"} ${dark ? "dark" : "light"} ${width}`, async ({
         page,
       }, info) => {
         test.setTimeout(120000);
         await page.setViewportSize({
           width,
-          height: width === 1280 ? 800 : width === 1600 ? 1000 : 1080,
+          height: width === 1280 ? 800 : width === 1440 ? 900 : 1080,
         });
         await page.addInitScript(
           ({ english, dark }) => {
@@ -225,6 +225,61 @@ for (const english of [false, true])
               "43.00 ms",
             );
             await expect(panel.locator(".argus-trace-bar")).toHaveCount(2);
+          }
+          if (types[index] === "logs") {
+            await expect(
+              panel.locator(".argus-observation-log-body"),
+            ).toHaveText("Database latency increased");
+            await expect(
+              panel.locator(".argus-observation-logs"),
+            ).toContainText("WARN");
+            await expect(
+              panel.locator(".argus-observation-logs"),
+            ).toContainText("orders-api");
+          }
+          if (
+            [
+              "trace_list",
+              "apm_services",
+              "apm_instances",
+              "apm_endpoints",
+            ].includes(types[index])
+          ) {
+            const table = panel.locator(".argus-observation-table");
+            await expect(table).toContainText("orders-api");
+            await expect(table).toContainText(
+              types[index] === "trace_list" ? "trace-001" : "10",
+            );
+          }
+          if (types[index] === "apm_red") {
+            const redMetric = panel.getByRole("button", {
+              name: english ? "RED metric" : "RED 指标",
+            });
+            await expect(redMetric).toBeVisible();
+            await expect(panel.getByRole("img")).toHaveAttribute(
+              "aria-label",
+              /(?:Chart samples|曲线样本): 2/,
+            );
+            await redMetric.click();
+            await content
+              .getByRole("option", {
+                name: english ? "P95 latency" : "P95 时延",
+                exact: true,
+              })
+              .click();
+            await expect(panel.getByRole("img")).toHaveAttribute(
+              "aria-label",
+              /P95/,
+            );
+          }
+          if (types[index] === "stat") {
+            await expect(
+              panel.locator(".argus-observation-stat strong"),
+            ).toHaveText([
+              "15.0 connections",
+              "15.0 connections",
+              "15.0 connections",
+            ]);
           }
           geometry.push({
             type: types[index],

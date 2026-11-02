@@ -41,3 +41,23 @@ func TestOwnedPortalCookieHandoffUsesActualAPIOriginAndEnterpriseAudience(t *tes
 		t.Fatal("CSRF cookie alone was treated as authentication")
 	}
 }
+
+func TestReadOnlyPortalCookieHandoffDoesNotFallBackToAdministratorSession(t *testing.T) {
+	api := NewScenarioHTTP("https://platform.owned.argus.test/api/v1", t.TempDir(), nil)
+	env := &E2EEnvironment{Endpoints: &E2EEndpoints{EnterpriseOrigin: "https://enterprise.owned.argus.test"}, State: NewScenarioState("reader-cookie-observation")}
+	env.State.HTTP = api
+	origin, _ := url.Parse(api.BaseURL + "/enterprise/auth/session")
+	api.Client("enterprise").Jar.SetCookies(origin, []*http.Cookie{{Name: "argus_enterprise_session", Value: "administrator-only", Path: "/", Secure: true}})
+	if _, err := portalBrowserCookies(env, "read-only-reader"); err == nil {
+		t.Fatal("missing reader session fell back to the administrator")
+	}
+	api.Client("read-only-reader").Jar.SetCookies(origin, []*http.Cookie{{Name: "argus_enterprise_session", Value: "reader-only", Path: "/", Secure: true}})
+	raw, err := portalBrowserCookies(env, "read-only-reader")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cookies []struct{ Name, Value string }
+	if json.Unmarshal([]byte(raw), &cookies) != nil || len(cookies) != 1 || cookies[0].Value != "reader-only" {
+		t.Fatal("reader handoff did not preserve its actual account identity")
+	}
+}

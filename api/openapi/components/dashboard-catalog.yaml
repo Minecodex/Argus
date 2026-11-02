@@ -166,6 +166,10 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "source_type": {"type": "string"},
+          "source_keys": {"type": "array", "items": {"type": "string"}},
+          "semantics": {"$ref": "./observe.yaml#/components/schemas/ObservationMetricSemantics"},
+          "recipes": {"type": "array", "items": {"$ref": "./observe.yaml#/components/schemas/ObservationRecipe"}},
           "name": {
             "type": "string"
           },

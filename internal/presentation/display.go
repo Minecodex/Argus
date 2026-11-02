@@ -13,6 +13,9 @@ func ToolDisplayFor(tool string, result toolruntime.Result) *toolruntime.ToolDis
 		return nil
 	}
 	display := &toolruntime.ToolDisplay{Mode: binding.Mode}
+	if binding.Mode == "interaction" {
+		return nil
+	} // The persisted host interaction owns its UI and control flow.
 	data := PublicSnapshot(result.Data)
 	if result.Presentation != nil {
 		data = result.Presentation.Data

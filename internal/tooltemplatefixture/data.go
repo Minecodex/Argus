@@ -92,6 +92,11 @@ func Normal(entry string) map[string]any {
 		if entry == "dashboard-list" || entry == "telemetry-catalog" {
 			base["items"] = []any{map[string]any{"id": host, "name": "Database overview", "description": "CPU / database / storage", "revision_number": 3, "updated_at": now}}
 		}
+		if entry == "dashboard-list" {
+			base["items"] = []any{map[string]any{"id": host, "name": "Database overview", "suitability": "partial", "applicable_resource_types": []string{"host"}, "signals": []string{"metrics"}, "integrations": []string{"host_metrics"}, "sampling_performed": false, "data_state": "not_checked", "match_reasons": []string{"authorized_resource_type_and_source"}, "template_version": 1}}
+			base["complete"], base["has_more"] = true, false
+			base["request_context"] = map[string]any{"resource_types": []string{"host"}, "signals": []string{"metrics"}, "integrations": []string{"host_metrics"}}
+		}
 		if entry == "dashboard-draft-validation" {
 			base["status"], base["sample_status"], base["issues"] = "invalid", "not_sampled", []any{map[string]any{"path": "panels[0].targets[0]", "severity": "error", "message": "Metric source binding is required"}}
 		}

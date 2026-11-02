@@ -111,6 +111,20 @@ func cloneValue(value any) any                 { return object(map[string]any{"v
 // Business expectations are content contracts, independent of geometry. They
 // are consumed by runtime and real Chatbox browser tests.
 func Expected(entry string, data map[string]any) []string {
+	switch data["tool"] {
+	case "observe.resources.list":
+		return []string{"orders-mysql", "Monitoring target", "mysql"}
+	case "observe.capabilities.get":
+		return []string{"orders-mysql", "Partial"}
+	case "observe.catalog.query":
+		return []string{"mysql_threads", "gauge", "threads"}
+	case "monitoring.collection.form":
+		return []string{"requires_user_input", "mysql"}
+	case "kubernetes.drain.cancel.preview":
+		return []string{"Cancel node drain"}
+	case "kubernetes.helm.change.preview":
+		return []string{"Rollback Helm orders-api"}
+	}
 	if entry == "resource-list" || entry == "resource-detail" {
 		if name, ok := data["name"].(string); ok && name != "" {
 			return []string{name}

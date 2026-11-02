@@ -578,6 +578,26 @@ components:
         retryable:
           type: boolean
           default: false
+    ConversationResourceRef:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - id
+      properties:
+        type:
+          type: string
+          enum:
+            - host
+            - kubernetes_cluster
+            - kubernetes_namespace
+            - application
+            - monitoring_target
+            - connector
+            - dashboard
+        id:
+          type: string
+          format: uuid
     DashboardChatContext:
       type: object
       additionalProperties: false
@@ -591,12 +611,24 @@ components:
           type: string
           enum:
             - argus.dashboard_context/v1
+        task_scope:
+          type: string
+          enum:
+            - general_diagnosis
+            - dashboard_analysis
+            - dashboard_authoring
         mode:
           type: string
           enum:
             - none
             - analyze
             - create
+        resource_refs:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ConversationResourceRef'
         dashboard_ids:
           type: array
           uniqueItems: true
@@ -621,6 +653,12 @@ components:
             - none
             - analyze
             - create
+        resource_refs:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ConversationResourceRef'
         dashboard_ids:
           type: array
           uniqueItems: true
@@ -1152,6 +1190,32 @@ components:
         result_hash:
           type: string
           minLength: 32
+        workspace_file:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - source_result_ref
+            - delivery
+            - instructions
+          properties:
+            path:
+              type: string
+              pattern: ^/workspace/
+            sha256:
+              type: string
+              pattern: ^[a-f0-9]{64}$
+            source_result_ref:
+              type: string
+              minLength: 1
+            delivery:
+              const: required_before_next_model_round
+            instructions:
+              type: string
+              minLength: 1
+        inline_original_complete:
+          type: boolean
+          description: 'Framework-authored native query certificate: original at most 32768 bytes equals the actual sanitized, nonpartial summary. Absence means false. Direct analysis additionally requires current authorized query_evidence.inline_original_in_context; a historical flag alone is insufficient.'
         summary:
           $ref: '#/components/schemas/PublicJsonObject'
         samples:
@@ -1174,6 +1238,7 @@ components:
               - budget_truncated
               - source_timeout
               - source_unavailable
+              - tool_result_partial
         original_bytes:
           type: integer
           minimum: 0

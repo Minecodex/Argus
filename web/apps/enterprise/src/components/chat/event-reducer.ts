@@ -20,6 +20,7 @@ export type CompactionView = {
   status: "idle" | "running" | "completed" | "failed";
   tokens_before?: number;
   tokens_after?: number;
+  estimated?: boolean;
 };
 
 export type ConversationProjection = {
@@ -135,7 +136,10 @@ export function reduceAgentEvent(
             ? "success"
             : "failed",
         summary: stringField(payload, "summary"),
-        display: parseToolEventDisplay(payload),
+        display: parseToolEventDisplay({
+          ...payload,
+          source: stringField(payload, "source") ?? current?.source,
+        }),
         durationMs:
           typeof payload.duration_ms === "number"
             ? payload.duration_ms
@@ -156,13 +160,30 @@ export function reduceAgentEvent(
   } else if (event.event_type === "context_compaction_started") {
     compaction = {
       status: "running",
-      tokens_before: Number(payload.tokens_before) || undefined,
+      tokens_before:
+        compactionSize(payload.estimated_tokens_before) ??
+        compactionSize(payload.tokens_before),
+      ...(compactionSize(payload.estimated_tokens_before) !== undefined
+        ? { estimated: true }
+        : {}),
     };
   } else if (event.event_type === "context_compaction_completed") {
     compaction = {
       status: "completed",
-      tokens_before: Number(payload.tokens_before) || compaction.tokens_before,
-      tokens_after: Number(payload.tokens_after) || undefined,
+      tokens_before:
+        compactionSize(payload.estimated_tokens_before) ??
+        compactionSize(payload.tokens_before) ??
+        (compaction.status === "running"
+          ? compaction.tokens_before
+          : undefined),
+      tokens_after:
+        compactionSize(payload.estimated_tokens_after) ??
+        compactionSize(payload.tokens_after),
+      ...(compactionSize(payload.estimated_tokens_before) !== undefined ||
+      compactionSize(payload.estimated_tokens_after) !== undefined ||
+      (compaction.status === "running" && compaction.estimated)
+        ? { estimated: true }
+        : {}),
     };
   } else if (event.event_type === "context_compaction_failed") {
     compaction = { ...compaction, status: "failed" };
@@ -248,6 +269,12 @@ export function reduceAgentEvent(
     compaction,
     stop_reason,
   };
+}
+
+function compactionSize(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
 }
 
 export function reduceConversationEvent(

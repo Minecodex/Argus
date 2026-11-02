@@ -3,6 +3,7 @@ import type { ChatFile, ChatMessage, ToolCallTrace } from "./chat-view-model";
 import { hasChatContent } from "./chat-content";
 import { coalesceRemoteCommands } from "./remote-command-timeline";
 import { parseToolEventDisplay } from "./tool-display";
+import { parseChatTaskScope } from "./task-scope";
 import {
   appendFileEntry,
   fileEntryFromEvent,
@@ -111,6 +112,7 @@ export function timelineFromEvents(
           role: "user",
           content,
           files,
+          taskScope: parseChatTaskScope(references.task_scope),
           dashboardContext:
             ["none", "analyze", "create"].includes(String(references.mode)) &&
             Array.isArray(references.dashboard_ids)

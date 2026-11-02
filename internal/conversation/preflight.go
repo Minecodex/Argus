@@ -67,7 +67,15 @@ func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, con
 		selection = selections[0]
 	}
 	if command := dashboardcontext.Command(content); command != nil {
-		if selection != nil && selection.Mode != "create" {
+		if selection != nil {
+			copy := *selection
+			copy.Mode = command.Mode
+			if command.Mode == "none" {
+				copy.DashboardIDs = []uuid.UUID{}
+			}
+			selection = &copy
+		}
+		if selection != nil && selection.Mode != command.Mode {
 			return Preflight{}, toolruntime.Error{Kind: "DASHBOARD_INVALID"}
 		}
 		if selection == nil {

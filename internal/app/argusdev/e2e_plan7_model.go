@@ -26,7 +26,8 @@ func (a *App) plan7Model(ctx context.Context, env *E2EEnvironment) (string, erro
 	}
 	request := env.Options.RealModel.modelRequest()
 	request["name"] = "Plan7 real model"
-	created, err := client.JSON(ctx, "p7-model-create", "enterprise", http.MethodPost, "/enterprise/ai-models/test-and-create", 201, request, enterpriseHeaders(env, "p7-model-create"))
+	compatibility := client.withClientTimeout("enterprise", 5*time.Minute)
+	created, err := compatibility.JSON(ctx, "p7-model-create", "enterprise", http.MethodPost, "/enterprise/ai-models/test-and-create", 201, request, enterpriseHeaders(env, "p7-model-create"))
 	if err != nil {
 		return "", err
 	}

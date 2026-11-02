@@ -88,6 +88,9 @@ type Registry struct {
 func NewRegistry() *Registry { return &Registry{tools: map[string]Metadata{}} }
 
 func (registry *Registry) Register(metadata Metadata) error {
+	if navigation, ok := nativeNavigation[metadata.ID]; ok && metadata.Discovery.OperationKind == "" {
+		metadata.Discovery.Navigation = navigation.clone()
+	}
 	if metadata.ID == "" || metadata.Execute == nil || metadata.MaxResultBytes <= 0 {
 		return errors.New("tool metadata is incomplete")
 	}

@@ -9,7 +9,7 @@ const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
-export function parseToolDisplay(value: unknown): ToolDisplay | undefined {
+function parseToolDisplay(value: unknown): ToolDisplay | undefined {
   const data = record(value);
   if (!["template", "trace", "action", "file"].includes(String(data.mode)))
     return;
@@ -36,18 +36,22 @@ export function parseToolDisplay(value: unknown): ToolDisplay | undefined {
   };
 }
 
+export function parseSourceToolDisplay(
+  value: unknown,
+  source: unknown,
+): ToolDisplay | undefined {
+  return source === "argus" ? parseToolDisplay(value) : undefined;
+}
+
 /** Old native connect events recorded the authoritative action reference in
  * resource_refs before their provider supplied explicit display metadata. */
 export function parseToolEventDisplay(
   payload: Record<string, unknown>,
 ): ToolDisplay | undefined {
-  const explicit = parseToolDisplay(payload.display);
+  if (payload.source !== "argus") return;
+  const explicit = parseSourceToolDisplay(payload.display, payload.source);
   if (explicit) return explicit;
-  if (
-    payload.source !== "argus" ||
-    (payload.target_tool_id ?? payload.tool_id) !== "connect"
-  )
-    return;
+  if ((payload.target_tool_id ?? payload.tool_id) !== "connect") return;
   const projection = record(payload.projection);
   const refs = (
     Array.isArray(projection.resource_refs) ? projection.resource_refs : []

@@ -408,6 +408,7 @@ type Querier interface {
 	ExpireRemoteAccessRecordings(ctx context.Context, limit int32) ([]RemoteAccessRecording, error)
 	ExpireRemoteAccessRequirements(ctx context.Context, limit int32) ([]RemoteAccessRequirementSnapshot, error)
 	ExpireWorkspaceUploads(ctx context.Context) ([]WorkspaceUpload, error)
+	FailActiveExhaustedRunStep(ctx context.Context, arg FailActiveExhaustedRunStepParams) error
 	FailDeletedWorkspaceUploads(ctx context.Context, arg FailDeletedWorkspaceUploadsParams) error
 	FailHostOnboardingOperation(ctx context.Context, arg FailHostOnboardingOperationParams) (HostOnboardingOperation, error)
 	FailHostRemovalOperation(ctx context.Context, arg FailHostRemovalOperationParams) (HostRemovalOperation, error)
@@ -682,6 +683,7 @@ type Querier interface {
 	HandleAlertInstance(ctx context.Context, arg HandleAlertInstanceParams) (AlertInstance, error)
 	HasCollectorMonitoringDependencies(ctx context.Context, arg HasCollectorMonitoringDependenciesParams) (pgtype.Bool, error)
 	HasEarlierNativeToolDescription(ctx context.Context, arg HasEarlierNativeToolDescriptionParams) (bool, error)
+	HasEarlierNativeToolSearch(ctx context.Context, arg HasEarlierNativeToolSearchParams) (bool, error)
 	HasExecutionOneTimeResult(ctx context.Context, arg HasExecutionOneTimeResultParams) (bool, error)
 	HasMCPConnectionGrant(ctx context.Context, arg HasMCPConnectionGrantParams) (bool, error)
 	HasPendingAgentTask(ctx context.Context, arg HasPendingAgentTaskParams) (bool, error)
@@ -833,6 +835,8 @@ type Querier interface {
 	ListMonitoringTargets(ctx context.Context, arg ListMonitoringTargetsParams) ([]MonitoringTarget, error)
 	ListNamespaceGrantCatalog(ctx context.Context, enterpriseID uuid.UUID) ([]ListNamespaceGrantCatalogRow, error)
 	ListNodeTrustAcks(ctx context.Context, epoch int64) ([]PkiNodeTrustAck, error)
+	ListObservationCollectionStates(ctx context.Context, arg ListObservationCollectionStatesParams) ([]MonitoringCollection, error)
+	ListObservationDiscoveryPage(ctx context.Context, arg ListObservationDiscoveryPageParams) ([]ListObservationDiscoveryPageRow, error)
 	ListObservationResourceDirectoryPage(ctx context.Context, arg ListObservationResourceDirectoryPageParams) ([]ObservationResourceDirectory, error)
 	ListObservationScopeResources(ctx context.Context, arg ListObservationScopeResourcesParams) ([]ListObservationScopeResourcesRow, error)
 	ListObservationSources(ctx context.Context, arg ListObservationSourcesParams) ([]ListObservationSourcesRow, error)
@@ -866,7 +870,13 @@ type Querier interface {
 	ListRolePermissions(ctx context.Context, roleID uuid.UUID) ([]string, error)
 	ListRoles(ctx context.Context, enterpriseID uuid.UUID) ([]Role, error)
 	ListRunConversationEvents(ctx context.Context, arg ListRunConversationEventsParams) ([]ConversationEvent, error)
+	// Bounded current-Run public evidence metadata. target_tool_id is authored by
+	// the Harness; external MCP data and model-authored paths cannot enter it.
+	ListRunNativeQueryEvidence(ctx context.Context, arg ListRunNativeQueryEvidenceParams) ([]ListRunNativeQueryEvidenceRow, error)
 	ListRunPendingActions(ctx context.Context, arg ListRunPendingActionsParams) ([]PendingAction, error)
+	// A full read is evidence only after the caller checks content against the
+	// immutable hash/length. Bash success alone does not establish consumption.
+	ListRunQueryFileReads(ctx context.Context, arg ListRunQueryFileReadsParams) ([]ListRunQueryFileReadsRow, error)
 	ListRunningBastionHostOnboardingOperations(ctx context.Context) ([]HostOnboardingOperation, error)
 	ListRunningBastionHostRemovalOperations(ctx context.Context) ([]HostRemovalOperation, error)
 	ListSandboxBackends(ctx context.Context) ([]SandboxBackend, error)
@@ -1024,6 +1034,7 @@ type Querier interface {
 	NextConversationSequence(ctx context.Context, id uuid.UUID) (int64, error)
 	NextHostRemovalEventSequence(ctx context.Context, operationID uuid.UUID) (int32, error)
 	NextRunStepSequence(ctx context.Context, arg NextRunStepSequenceParams) (int32, error)
+	ObservationCollectionRevision(ctx context.Context, arg ObservationCollectionRevisionParams) (string, error)
 	ObserveApplicationIngest(ctx context.Context, arg ObserveApplicationIngestParams) error
 	ObserveKubernetesNamespaceObjectIdentity(ctx context.Context, arg ObserveKubernetesNamespaceObjectIdentityParams) error
 	ObserveKubernetesOperation(ctx context.Context, arg ObserveKubernetesOperationParams) (int64, error)
@@ -1171,6 +1182,10 @@ type Querier interface {
 	SetDraftTemplateOrigin(ctx context.Context, arg SetDraftTemplateOriginParams) error
 	SetEnterpriseMfaEnabled(ctx context.Context, arg SetEnterpriseMfaEnabledParams) error
 	SetHostOnboardingRetryOf(ctx context.Context, arg SetHostOnboardingRetryOfParams) error
+	// Receipt bytes are computed from the actual assembled current request and
+	// committed in its dispatch transaction. Unknown/failed requests never certify
+	// historical exposure. Old rows remain empty; never backfill from old flags.
+	SetModelInlineQueryReceipts(ctx context.Context, arg SetModelInlineQueryReceiptsParams) error
 	SetPendingActionPolicySnapshot(ctx context.Context, arg SetPendingActionPolicySnapshotParams) (PendingAction, error)
 	SetPlatformMfaEnabled(ctx context.Context, arg SetPlatformMfaEnabledParams) error
 	SetPresentationReadBinding(ctx context.Context, arg SetPresentationReadBindingParams) error

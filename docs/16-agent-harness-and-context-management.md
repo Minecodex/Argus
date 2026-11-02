@@ -1,5 +1,7 @@
 # Agent Harness 与上下文管理
 
+> 2026-10-29：[Plan11](./plan11/README.md)规划类型化工具导航与综合诊断，并要求 task_scope、已获取仪表盘、工作模式和 access_mode 分别保存和恢复。它是待实施方案，不允许模型自报范围扩大权限；现有快照、确认及未知结果规则继续生效，见 [范围与恢复设计](./plan11/05-agent-routing-and-context.md)。
+
 > 2026-10-18：新增持久化 request_user_input 暂停点及 workflow.plan.propose。提问时停止后续工具派发并释放 Worker；答复后以同一工具调用记录恢复，撤销同批尚未派发的旧决策，再让 ReAct 消费真实答复。计划确认创建新的 execute Run，不可变 Markdown 计划、一次性步骤 ID 和执行事实随恢复与压缩重新注入；操作权限在每个 Preview 创建时冻结，切换不追溯旧请求。见 [Markdown 计划与命令授权](./plan7/18-markdown-plan-command-consent.md)。
 
 ## 1. 目标与模板选择
@@ -125,6 +127,8 @@ ModelContextProjection 是一次模型请求的派生对象，不是历史事实
 7. 当前权限投影后的 Tool Catalog。
 
 每次请求以 ModelCall 保存 Projection Hash、组成来源、估算/实际 Token、价格快照、模型 Revision、ContextSnapshot ID、延迟和停止原因，便于复现和审计，但不保存 Secret 或私有 Token。
+
+原文件交付在 `workspace_file` 中保留路径、`source_result_ref` 和文件字节 `sha256`；调用其他工具后的 `result_hash` 只标识对应调用的结果，不能替代原文件校验值。该元数据不授予权限，文件操作仍重新检查来源授权。投影的 `partial_reasons` 区分模型视图预算截断与工具自行报告 partial；后者只表示工具明确的部分状态，不推断底层数据缺失原因。数据查询的部分/覆盖状态继续读取其独立元数据。
 
 ## 4. Agent Loop
 
@@ -409,3 +413,17 @@ Run 固定 ModelToolSet、原生 CatalogRevision、外接连接/工具 Schema �
 普通推理与压缩共用按方向记录的 `provider/estimated/missing` 用量来源，明确返回零不等于字段缺失。ModelCall 和额度结算保留来源；实际模型统计仅合计实报，估算不能让完整性门禁通过。持久 Workspace 在导入前记录来源，任意代码可复制文件，因此授权约束整个目录及派生文件；来源失效阻止读取/执行而保留文件。工程、数据库和 P5 d 证据见 [R12～R13 修复记录](./planv5/fixes-r12-r13-2026-09-22.md)，真实模型评测仍未执行。
 
 PlanV5 最新补齐：MCP 返回数据在进入目录和结果前拒绝本次已知认证值；缓存输入单独记录且不重复计入输入总量；ModelCall 保存实际组装使用的摘要 ID/Hash，派发时不重新推断。工程、数据库和 P5 b 证据见 [R14～R15 修复记录](./planv5/fixes-r14-r15-2026-09-23.md)。
+
+D21 的离线数值报告支持 --locale zh-CN|en-US，人读语言与机器事实分开。多面板报告使用同一次 argus-evidence-report，显式传入每个已交付 manifest、原查询 SHA 和语言，定性 notes 为现有文件；发布程序生成的 Markdown，完整 JSON 由程序闭合。Workspace 契约 v7，机器数值证据仍 v6。该机制不新增工具或自动发布，不豁免实际来源、单位/换算及正文事实核验。
+
+Plan11 D49 在每次推理重新组装的 server execution facts 中加入有界 query_evidence。它派生于当前 Run 的成功自有查询、封存原件、当前可用 Workspace 副本及实际读取记录，最多64项；当前授权过滤先于分页上限，退出当前授权的历史条目不影响模型可见计数/完整性。只有完整 read 的字节数和SHA与原件一致才标 complete_read_verified；部分读、改写副本或任意 bash 命令不得伪造该证明。not_verified_by_framework 同时包含无法自动核验的合法离线分析，不等于执行失败。清单不授权、不取代查询或原件，不新增工具、微服务、用户确认或最终回答阻断；模型只需继续核对参与结论的文件，不能声称尚未读取的贡献文件已验证。历史摘要不替代当前清单，压缩和重启后从持久事实重建。
+
+D51按实际来源修正：Workspace内置read/bash的持久ToolCall.Source为sandbox，自有业务查询为argus，两者分别过滤；客户MCP不能用名称或内容自称任一内置来源。原字节完整read校验在toolruntime共享实现，等价绝对/相对Workspace路径规范化后比较。离线bash在产品清单仍为未自动核实，不能仅凭进程成功、命令字符串或自报SHA赋予complete_read_verified；验收中的已确认离线分析回执与产品自动事实分开。
+
+Plan11 D52按用户确认允许框架认证的完整小查询原文直接分析：可信native三信号投影增加可选inline_original_complete，原件<=32KiB，非partial且实际脱敏/裁剪后的summary与原JSON无损等价。每次请求query_evidence.inline_original_in_context重新绑定当前授权/ready副本Hash大小及真实tool消息与持久认证投影；压缩后只剩摘要、外部自报、改写/不可用/撤权均失效。缺失=false，大型/截断/未知仍读原件。保留封存、自动交付屏障、read_status和独立数值/全文校验，不新增实体、工具、确认或回答阻断。
+
+Plan11 D53补充分离原文当前可见性和历史完整曝光。dispatch事务在既有model_calls.inline_query_receipts保存最多64项已验证当前原生tool原件的ID/SHA/大小/实际provider request hash，不存原文或密钥；只有实际成功推理的精确凭据、当前授权/Run和ready副本仍匹配时标inline_exposure_verified。它允许复用已建立事实，不把压缩后消失的原文标为当前可见；新分析需要缺失细节、大/partial/截断原件仍read。旧记录不回填，未知/失败/未发送不认证。历史事件解码UseNumber避免数值精度损失。新增字段属现有模型调用持久化，Migration52/sqlc同步，不新增实体、工具、确认或最终回答阻断。
+
+Plan11 D54补来源限定的内置量值定义和显式校验过程状态。原生查询在已授权snapshot内按SourceID/key、host来源类型和实际name/type/unit匹配builtincollection定义，输出input_metric_semantics；目录同步semantics。原始unit/type/value不变，unknown/custom/source冲突不继承ratio，派生表达式不自动使用输入单位。Workspacev8助手auto可使用原件内一致的比率定义，显式原值要求仍保留。manifest_checksum_status=not_requested|verified消除false被误读成失败，真实mismatch仍错误。无新工具、实体、权限、确认或最终回答阻断。
+
+Plan11 D55将已计算面板端点明确交付，避免把min/max当首末值；多序列保持各自时间和值。原始counter报告以interpretation_limits明确本输入未建立区间活动强弱/稳定性；这不推测其他查询是否已完成。Workspacev9，无新增工具、实体、权限、确认或最终回答门禁。验收器身份接受合法非空UUID对象/字符串，修复R65类型误判并保留原机判；真实六项重放不产生新外部调用。

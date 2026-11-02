@@ -526,6 +526,41 @@
           "type": "string",
           "minLength": 32
         },
+        "workspace_file": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "source_result_ref",
+            "delivery",
+            "instructions"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^/workspace/"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "source_result_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "delivery": {
+              "const": "required_before_next_model_round"
+            },
+            "instructions": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "inline_original_complete": {
+          "type": "boolean",
+          "description": "Framework-authored native query certificate: original at most 32768 bytes equals the actual sanitized, nonpartial summary. Absence means false. Direct analysis additionally requires current authorized query_evidence.inline_original_in_context; a historical flag alone is insufficient."
+        },
         "summary": {
           "$ref": "../common/public-json.schema.json#/$defs/PublicJsonObject"
         },
@@ -553,7 +588,8 @@
               "authorization_filtered",
               "budget_truncated",
               "source_timeout",
-              "source_unavailable"
+              "source_unavailable",
+              "tool_result_partial"
             ]
           }
         },
@@ -748,6 +784,7 @@
           "type": "string",
           "enum": [
             "low",
+            "medium",
             "high",
             "max"
           ]

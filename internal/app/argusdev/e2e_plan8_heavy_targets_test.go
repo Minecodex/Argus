@@ -18,7 +18,7 @@ func TestPlan8AdditionalActualTargetRolesAndVersions(t *testing.T) {
 		t.Skip("explicit owned target fixtures required")
 	}
 	filter := os.Getenv("ARGUS_PLAN8_TARGET_FILTER")
-	for _, engine := range []string{"mongodb", "elasticsearch", "oracle", "kafka"} {
+	for _, engine := range []string{"mongodb", "elasticsearch", "oracle", "mysql", "sqlserver", "kafka"} {
 		if filter != "" && filter != engine {
 			continue
 		}
@@ -51,10 +51,14 @@ func TestPlan8AdditionalActualTargetRolesAndVersions(t *testing.T) {
 			}
 			var target plan8ExtraTarget
 			switch engine {
+			case "mysql":
+				target, err = a.preparePlan8MySQLTarget(t.Context(), env, host)
 			case "mongodb", "elasticsearch":
 				target, err = a.preparePlan8DocumentTarget(t.Context(), env, host, engine)
 			case "oracle":
 				target, err = a.preparePlan8OracleTarget(t.Context(), env, host)
+			case "sqlserver":
+				target, err = a.preparePlan8SQLServerTarget(t.Context(), env, host)
 			case "kafka":
 				target, err = a.preparePlan8KafkaTarget(t.Context(), env, host)
 			}

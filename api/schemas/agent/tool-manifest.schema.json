@@ -101,6 +101,7 @@
     },
     "category": {
       "enum": [
+        "observe",
         "application",
         "monitoring",
         "host",
@@ -155,6 +156,78 @@
         "minLength": 1
       },
       "description": "At least one of these object-read capabilities is required in addition to required_permissions."
+    },
+    "resource_types": {
+      "type": "array",
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "host",
+          "kubernetes_cluster",
+          "kubernetes_namespace",
+          "application",
+          "monitoring_target",
+          "dashboard",
+          "connector",
+          "alert"
+        ]
+      }
+    },
+    "signals": {
+      "type": "array",
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "metrics",
+          "logs",
+          "traces"
+        ]
+      }
+    },
+    "operation_kind": {
+      "type": "string",
+      "enum": [
+        "discover",
+        "query",
+        "prepare",
+        "preview",
+        "control",
+        "deliver"
+      ]
+    },
+    "result_kind": {
+      "type": "array",
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "resource_detail",
+          "resource_list",
+          "pending_action",
+          "operation_status",
+          "file",
+          "interaction",
+          "dashboard_draft",
+          "timeseries",
+          "instant_vector",
+          "scalar",
+          "logs",
+          "table",
+          "traces",
+          "apm",
+          "coverage",
+          "dashboard_result",
+          "metric_catalog",
+          "fields",
+          "values",
+          "resource_capabilities"
+        ]
+      }
     }
   }
 }

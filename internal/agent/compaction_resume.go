@@ -34,6 +34,19 @@ func (compactor Compactor) currentContextFits(ctx context.Context, run db.Run) (
 	if err != nil {
 		return false, err
 	}
+	used, err := compactor.Store.Queries.CountRunInferenceCalls(ctx, db.CountRunInferenceCallsParams{RunID: run.ID, EnterpriseID: run.EnterpriseID})
+	if err != nil {
+		return false, err
+	}
+	if used >= toolruntime.MaxInferenceTurns {
+		// Resume only to finalize the durable turn budget; no provider request
+		// remains to size, and the Loop must enforce its existing terminal rule.
+		return true, nil
+	}
+	messages, tools, err = inferenceTurnContext(run.ModeSnapshot, int(used), messages, tools)
+	if err != nil {
+		return false, err
+	}
 	projection, err := loop.context(ctx, run, revision, messages, current, tools, source)
 	if err != nil {
 		if errors.Is(err, ErrContextTooLarge) {
@@ -41,7 +54,16 @@ func (compactor Compactor) currentContextFits(ctx context.Context, run db.Run) (
 		}
 		return false, err
 	}
-	size, err := (modelprovider.Provider{Protocol: modelprovider.Protocol(revision.ApiProtocol), BaseURL: revision.BaseUrl}).RequestBytes(modelprovider.Request{Model: revision.ProviderModelID, Messages: projection.Messages, Tools: tools, MaxTokens: int(revision.MaxOutputTokens)})
+	protocol := modelprovider.Protocol(revision.ApiProtocol)
+	budgetParameter, err := modelprovider.BudgetParameterForCapabilities(protocol, revision.Capabilities)
+	if err != nil {
+		return false, err
+	}
+	reasoningEffort, err := modelprovider.ReasoningEffortForCapabilities(protocol, revision.Capabilities)
+	if err != nil {
+		return false, err
+	}
+	size, err := (modelprovider.Provider{Protocol: protocol, BaseURL: revision.BaseUrl}).RequestBytes(inferenceRequest(revision.ProviderModelID, int(revision.MaxOutputTokens), projection.Messages, tools, budgetParameter, reasoningEffort))
 	return size < projection.HardLimit, err
 }
 

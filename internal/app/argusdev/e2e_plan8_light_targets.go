@@ -163,6 +163,11 @@ func (a *App) preparePlan8LightTargets(ctx context.Context, env *E2EEnvironment,
 		}
 		row.imageID = strings.TrimSpace(imageID)
 		rows[len(rows)-1] = row
+		if engine == "memcached" {
+			if err = a.plan8StartTargetLoad(ctx, env, row); err != nil {
+				return rows, err
+			}
+		}
 		if err = save(); err != nil {
 			return rows, err
 		}

@@ -30,6 +30,7 @@ export const dashboardsZh = {
         "指标元数据尚未确认。可继续配置，运行后查看验证状态。",
       unknownUnit: "单位未提供",
       metricRequirement: "需要 {{type}} 类型的指标",
+      quantityDisplayMismatch: "百分比格式与原始量值不匹配。0–1 利用率请选择比例百分比或先乘 100；字节指标须先计算比例。",
       metricMismatch:
         "当前指标是 {{type}}，此计算需要 {{required}}。请调整计算方式。",
       recommended: "推荐",
@@ -487,6 +488,7 @@ export const dashboardsEn = {
         "Metric metadata is unverified. Continue configuring and run to check the validation state.",
       unknownUnit: "No unit provided",
       metricRequirement: "Requires a {{type}} metric",
+      quantityDisplayMismatch: "The percentage formatter does not match the source quantity. Use ratio percentage for 0–1 utilization, or multiply by 100 first; byte metrics need an explicit ratio calculation.",
       metricMismatch:
         "This metric is {{type}}; the calculation requires {{required}}. Choose a compatible calculation.",
       recommended: "Recommended",

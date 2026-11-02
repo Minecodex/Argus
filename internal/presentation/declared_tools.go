@@ -2,6 +2,10 @@ package presentation
 
 // Explicit public tool coverage; new registrations require a reviewed binding.
 var declaredTools = map[string]bool{
+	"observe.resources.list":                       true,
+	"observe.capabilities.get":                     true,
+	"observe.catalog.query":                        true,
+	"workflow.plan.propose":                        true,
 	"monitoring.builtin.list":                      true,
 	"monitoring.builtin.change.preview":            true,
 	"application.list":                             true,

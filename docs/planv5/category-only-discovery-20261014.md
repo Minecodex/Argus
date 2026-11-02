@@ -1,5 +1,7 @@
 # 按分类完整列出工具
 
+> 2026-10-29：[Plan11](../plan11/README.md)在当前 11 类、130 个业务工具基线上规划 observe 分类与结构化导航元数据。保留本文 category-only 输入和 Describe/Invoke 顺序；新增 resource_types/signals/operation_kind/result_kind 属于工具说明输出，不是三元工具查询参数。下文九类及版本 2 为本次历史实施记录，当前盘点见 [Plan11 基线](../plan11/01-current-state-and-gaps.md)。
+
 2026-10-14 用户确认将工具发现改为“分类列表 → 按名称读取详情 → 调用”。此决策替代原关键词 AND 检索及游标分页契约，工具标识仍为 `tool.search`。
 
 ## 输入与输出

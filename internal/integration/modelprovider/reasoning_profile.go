@@ -12,7 +12,7 @@ func NormalizeReasoningEffort(protocol Protocol, effort string) (string, error) 
 		return "", ErrBudgetProfileInvalid
 	}
 	switch effort {
-	case "low", "high", "max":
+	case "low", "medium", "high", "max":
 		return effort, nil
 	default:
 		return "", ErrBudgetProfileInvalid

@@ -36,7 +36,7 @@ func (a *App) prepareP5Scenario(ctx context.Context, env *E2EEnvironment) error 
 	}
 	for _, protocol := range []string{"chat_completions", "responses"} {
 		value, err := client.JSON(ctx, "p5-model-"+protocol, "enterprise", http.MethodPost, "/enterprise/ai-models/test-and-create", 201,
-			map[string]any{"name": "P5 Replay " + protocol, "base_url": "https://argus-replay-model." + env.ReplayNamespace() + ".svc/v1", "model_id": "argus-replay-" + protocol, "api_protocol": protocol, "api_key": "p5-write-only-key", "context_window_tokens": 32768, "max_output_tokens": 1024, "input_price_per_million": 0.1, "output_price_per_million": 0.2}, enterpriseHeaders(env, "p5-model-"+protocol))
+			map[string]any{"name": "P5 Replay " + protocol, "base_url": "https://argus-replay-model." + env.ReplayNamespace() + ".svc/v1", "model_id": "argus-replay-" + protocol, "api_protocol": protocol, "api_key": "p5-write-only-key", "context_window_tokens": 131072, "max_output_tokens": 1024, "input_price_per_million": 0.1, "output_price_per_million": 0.2}, enterpriseHeaders(env, "p5-model-"+protocol))
 		if err != nil {
 			return err
 		}

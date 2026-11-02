@@ -95,7 +95,8 @@ func traceToolQuerySchema(base map[string]any) map[string]any {
 	properties["service_ids"] = map[string]any{"type": "array", "minItems": 1, "maxItems": 200, "uniqueItems": true, "items": map[string]any{"type": "string", "format": "uuid"}}
 	properties["limit"].(map[string]any)["description"] = "Total execution row budget, including APM coverage and topology relations; default 5000. APM list pages use at most 100 rows within this budget. Aggregate views require at least 2. / 查询总行数预算含统计信息与拓扑关系，默认 5000；APM 列表在预算内最多取 100 行，聚合视图至少需要 2 行预算。"
 	properties["bucket_seconds"] = map[string]any{"type": "integer", "minimum": 60, "maximum": 3600, "description": "RED view only; default 60 seconds. / 仅 RED 视图使用，默认 60 秒。"}
-	base["required"] = []string{"resource_ids", "from", "to"}
+	base["required"] = []string{"from", "to"}
+	base["allOf"] = []any{map[string]any{"oneOf": modelScopeAlternatives()}}
 	base["oneOf"] = []map[string]any{
 		{"required": []string{"document"}, "not": map[string]any{"anyOf": []map[string]any{{"required": []string{"application_view"}}, {"required": []string{"service_ids"}}, {"required": []string{"bucket_seconds"}}}}},
 		{"required": []string{"application_view"}, "not": map[string]any{"anyOf": []map[string]any{{"required": []string{"document"}}, {"required": []string{"operation_name"}}, {"required": []string{"variables"}}}}},

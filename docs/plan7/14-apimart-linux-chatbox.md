@@ -101,7 +101,7 @@ R05 历史保留，R06 在新会话中从真实取数重新开始。R06 尚未�
 
 普通推理现在将 length、incomplete、content_filter 等非正常完成原因记录为 **MODEL_OUTPUT_INCOMPLETE**，保留部分正文、提供方用量及已完成操作，任务和步骤均为 failed。不会自动扩充预算、继续远程修改或将空正文视为恢复成功。真实 PostgreSQL＋HTTP 回归覆盖空截断、部分截断、其他不完整结束及正常完成；同时修正压缩额度预留与实际输出上限不一致的问题，二者共用同一上限值。
 
-模型创建／更新 API 增加可选 `reasoning_effort`（provider_default／low／high／max），仅支持已实现的 Chat Completions 路径；省略时保留已有设置，显式 provider_default 在新版本清除覆盖。兼容性测试使用同一设置，成功后冻结到模型 revision，推理和压缩均读取该版本；未知值和不支持的协议拒绝。现有表单不新增设置入口，其更新也不会清除该覆盖。没有按供应商名称硬编码运行参数，也没有修改审批、工具或资源权限。
+模型创建／更新 API 增加可选 `reasoning_effort`（provider_default／low／high／max），仅支持已实现的 Chat Completions 路径；省略时保留已有设置，显式 provider_default 在新版本清除覆盖。兼容性测试使用同一设置，成功后冻结到模型 revision，推理和压缩均读取该版本；未知值和不支持的协议拒绝。此处记录当时仅 API 提供配置的范围。后续用户要求在模型设置提供思考深度入口，已由[当前模型治理设计](../08-model-and-sandbox-management.md#思考深度)取代该表单限制，并增加通用 medium 档位；供应商支持仍须实际兼容性测试，不能据枚举推断。更新省略字段仍保留覆盖。没有按供应商名称硬编码运行参数，也没有修改审批、工具或资源权限。
 
 [NVIDIA 的 GLM-5.3-Flash 文档](https://docs.nvidia.com/nim/vision-language-models/latest/get-started/advanced/get-started-glm-5-3-flash.html#control-reasoning-effort)说明推理默认 max，可选择 low／high；这不能替代 APIMart 网关验证。本轮使用同一 APIMart 端点和模型进行独立、无真实主机操作的虚构恢复探测，明确发送 low 后取得有效 inspect 工具调用和真实用量；随后通过正常 Argus API 的完整兼容性测试，保存为模型 revision **3**、max_tokens、8192、low。早期探测曾因开发中的请求构造覆盖该字段而无效，已单列 invalidated，未作为 low 生效证据。[有效探测](../../build/plan7-apimart-reasoning-probe.log)、[模型版本](../../build/plan7-kakj-reasoning-model-update.json)。
 

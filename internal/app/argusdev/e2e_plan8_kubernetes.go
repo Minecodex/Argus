@@ -219,8 +219,11 @@ func (a *App) plan8DeployedKubernetesNamespace(ctx context.Context, env *E2EEnvi
 	if err = a.plan8KubernetesSessions(ctx, env, cluster, selected, pods.Items[0]); err != nil {
 		return err
 	}
-	if err = a.plan8ModelKubernetesRecovery(ctx, env, cluster, selected, deploymentName); err != nil {
-		return err
+	delete(env.State.Values, "plan8_last_model_run")
+	if !plan11SignalPhase(env.Options.Plan8Phase) {
+		if err = a.plan8ModelKubernetesRecovery(ctx, env, cluster, selected, deploymentName); err != nil {
+			return errors.Join(errPlan8IndependentModelFailure, err)
+		}
 	}
 	observedWorkload, readErr := a.plan8KubernetesObject(ctx, env, cluster, selected.ID, "deployment", live.Name, string(live.UID))
 	if readErr != nil || observedWorkload.NamespaceUID != selected.UID {

@@ -196,6 +196,11 @@ func (a *App) plan8ModelApplicationRevocation(ctx context.Context, env *E2EEnvir
 	if err != nil || strings.TrimSpace(pending) != "0" {
 		return errors.New("read-only revocation model prepared a change")
 	}
+	if plan11RevocationBrowserSelected(env.Options.Plan8Phase) {
+		if err = a.plan11RevocationBrowser(bounded, env, conversation, apps[0], apps[1], files[0].ID); err != nil {
+			return err
+		}
+	}
 	first.Passed = true
 	next.Passed = true
 	second = &next

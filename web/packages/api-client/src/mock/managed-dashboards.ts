@@ -11,6 +11,7 @@ import {
 // Mock definitions share the locked Go-generated contract; sample data remains
 // explicitly labelled by the existing mock query backend.
 export function ensureManagedDashboards(ctx: BaseContext) {
+  const visible = new Set<string>();
   const state = dashboardState(ctx),
     targets = ctx.db.monitoring?.[ctx.enterpriseId()]?.targets ?? [];
   const own = ctx.db.monitoring?.[ctx.enterpriseId()]?.collections ?? [];
@@ -32,6 +33,7 @@ export function ensureManagedDashboards(ctx: BaseContext) {
       )
     )
       continue;
+    visible.add(template.key);
     const current = state.items.find(
       (row) =>
         row.enterprise === ctx.enterpriseId() &&
@@ -75,4 +77,5 @@ export function ensureManagedDashboards(ctx: BaseContext) {
       });
     ctx.save();
   }
+  return visible;
 }

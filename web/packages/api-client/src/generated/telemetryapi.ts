@@ -843,6 +843,27 @@ export interface components {
             integration_key: string;
             metrics: string[];
         };
+        ObservationMetricMethods: {
+            /** @enum {string} */
+            representation: "classic_histogram" | "native_histogram" | "summary";
+            count_expression: string;
+            sum_expression: string;
+            mean_expression: string;
+            count_unit: string;
+            mean_unit: string;
+            notes: string;
+        };
+        ObservationMetricSemantics: {
+            /** @enum {string} */
+            quantity_kind: "ratio";
+            /** @enum {string} */
+            recommended_display_transform: "percent";
+            definition_id: string;
+            definition_version: string;
+            /** @enum {string} */
+            origin: "builtin_collection_definition";
+            notes: string;
+        };
         ObservationMetric: {
             name: string;
             type: string;
@@ -853,6 +874,8 @@ export interface components {
             description: string;
             observed: boolean;
             recipes: components["schemas"]["ObservationRecipe"][];
+            query_methods?: components["schemas"]["ObservationMetricMethods"];
+            semantics?: components["schemas"]["ObservationMetricSemantics"];
         };
         ObservationSource: {
             source_type: string;

@@ -997,6 +997,51 @@ func (e DashboardTimeRangeKind) Valid() bool {
 	}
 }
 
+// Defines values for ObservationMetricSemanticsOrigin.
+const (
+	BuiltinCollectionDefinition ObservationMetricSemanticsOrigin = "builtin_collection_definition"
+)
+
+// Valid indicates whether the value is a known member of the ObservationMetricSemanticsOrigin enum.
+func (e ObservationMetricSemanticsOrigin) Valid() bool {
+	switch e {
+	case BuiltinCollectionDefinition:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ObservationMetricSemanticsQuantityKind.
+const (
+	Ratio ObservationMetricSemanticsQuantityKind = "ratio"
+)
+
+// Valid indicates whether the value is a known member of the ObservationMetricSemanticsQuantityKind enum.
+func (e ObservationMetricSemanticsQuantityKind) Valid() bool {
+	switch e {
+	case Ratio:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ObservationMetricSemanticsRecommendedDisplayTransform.
+const (
+	Percent ObservationMetricSemanticsRecommendedDisplayTransform = "percent"
+)
+
+// Valid indicates whether the value is a known member of the ObservationMetricSemanticsRecommendedDisplayTransform enum.
+func (e ObservationMetricSemanticsRecommendedDisplayTransform) Valid() bool {
+	switch e {
+	case Percent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ResourceDashboardBindingsResourceType.
 const (
 	ResourceDashboardBindingsResourceTypeApplication       ResourceDashboardBindingsResourceType = "application"
@@ -1115,7 +1160,7 @@ type DashboardAnalysisResolveInputEvidence1 struct {
 type DashboardAnalysisResolveInput_Evidence_Item struct {
 	Origin *DashboardAnalysisResolveInputEvidenceOrigin `json:"origin,omitempty"`
 
-	// Path JSON pointer for each changed condition; / for reset_all
+	// Path Condition-relative JSON pointer, for example /time, /resources, /variables/env or /local_values/cpu/device; / for reset_all. The pointer starts at the condition object, without a changes prefix. Supply one entry per changed condition and preserve all user resource/time conditions when correcting evidence.
 	Path string `json:"path"`
 
 	// Quote Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness
@@ -1282,7 +1327,9 @@ type DashboardConditionPatch struct {
 	ResetAll       *bool                                      `json:"reset_all,omitempty"`
 	ResetResources *bool                                      `json:"reset_resources,omitempty"`
 	ResetTime      *bool                                      `json:"reset_time,omitempty"`
-	Resources      *struct {
+
+	// Resources Explicit resource choice for an initial analysis; may be omitted only when inheriting a previously confirmed resource condition or recording an evidenced reset. For named resources use all=false and their authorized IDs. Choose all=true only for an intended all-authorized analysis.
+	Resources *struct {
 		All bool                 `json:"all"`
 		Ids []openapi_types.UUID `json:"ids"`
 	} `json:"resources,omitempty"`
@@ -1399,3 +1446,9 @@ type DashboardDraftPanelConversion struct {
 
 // DashboardDraftPanelConversionMode defines model for DashboardDraftPanelConversion.Mode.
 type DashboardDraftPanelConversionMode string
+
+// DashboardDraftPanelDrilldowns defines model for DashboardDraftPanelDrilldowns.
+type DashboardDraftPanelDrilldowns struct {
+	PanelId       string                            `json:"panel_id"`
+	SignalSources map[string]DashboardSourceBinding `json:"signal_sources"`
+}

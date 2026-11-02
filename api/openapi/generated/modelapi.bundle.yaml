@@ -300,6 +300,7 @@ components:
           enum:
             - provider_default
             - low
+            - medium
             - high
             - max
           description: Optional Chat Completions reasoning strength; compatibility-tested and frozen per model revision.
@@ -345,6 +346,7 @@ components:
           enum:
             - provider_default
             - low
+            - medium
             - high
             - max
           description: Omit to preserve the existing strength; provider_default clears the override in a new revision.
@@ -608,6 +610,7 @@ components:
           type: string
           enum:
             - low
+            - medium
             - high
             - max
         supports_streaming:

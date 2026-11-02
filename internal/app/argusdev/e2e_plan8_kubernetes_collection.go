@@ -185,6 +185,9 @@ func (a *App) plan8KubernetesCollection(ctx context.Context, env *E2EEnvironment
 	if err != nil {
 		return err
 	}
+	if plan11SignalPhase(env.Options.Plan8Phase) {
+		return a.plan11KubernetesOperationalFixture(ctx, env, cluster, namespace, deployment, row.CollectorID, metric)
+	}
 	app, err := a.plan8ServiceCommit(ctx, env, "k8s-log-application", map[string]any{"kind": "application", "operation": "create", "application": map[string]any{"name": "Plan8 Kubernetes workload logs", "environment": "testing"}})
 	if err != nil {
 		return err

@@ -16,6 +16,7 @@ func (a *App) verifyNativePreview(ctx context.Context, env *E2EEnvironment, key,
 		return err
 	}
 	run, err := a.p5StartRun(ctx, env, conversation, "native-preview-"+key, []p5ToolStep{
+		{"tool.search", map[string]any{"category": category}},
 		{"tool.describe", map[string]any{"category": category, "name": name}},
 		{"tool.invoke", map[string]any{"category": category, "name": name, "arguments": input}},
 	}, []string{})

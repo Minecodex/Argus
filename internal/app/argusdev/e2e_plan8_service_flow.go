@@ -200,6 +200,8 @@ func (a *App) plan8CurrentCollectionSource(ctx context.Context, env *E2EEnvironm
 }
 
 func (a *App) plan8DeployedServices(ctx context.Context, env *E2EEnvironment, h *plan6HostLoop) (failure error) {
+	var modelFailure error
+	defer func() { failure = errors.Join(failure, modelFailure) }()
 	if err := a.plan8WaitCollectorPaths(ctx, env); err != nil {
 		a.plan8ServiceReadinessEvidence(env, "control-readiness")
 		return err
@@ -208,7 +210,9 @@ func (a *App) plan8DeployedServices(ctx context.Context, env *E2EEnvironment, h 
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		failure = errors.Join(failure, a.cleanupPlan8Databases(cleanup, fixtures))
+		if err := a.cleanupPlan8Databases(cleanup, fixtures); err != nil {
+			failure = errors.Join(failure, errPlan8TargetCleanup, err)
+		}
 	}()
 	if err != nil {
 		return err
@@ -256,8 +260,17 @@ func (a *App) plan8DeployedServices(ctx context.Context, env *E2EEnvironment, h 
 	for _, fixture := range fixtures {
 		privateCanaries = append(privateCanaries, fixture.password)
 	}
+	delete(env.State.Values, "plan8_last_model_run")
 	if err = a.plan8ModelDisableInstance(ctx, env, rows[0], rows[1], privateCanaries); err != nil {
-		return err
+		modelFailure = errors.Join(errPlan8IndependentModelFailure, err)
+		if run := env.State.Values["plan8_last_model_run"]; run != "" {
+			if stopErr := a.plan8StopFailedModelTask(ctx, env, run); stopErr != nil {
+				return stopErr
+			}
+		}
+		// The failed model task remains failed. Once quiesced, the independent
+		// API stop/resume/migration checks still validate the owned fixtures.
+		fmt.Fprintln(a.stdout, "Plan8 collection model failed; independent API lifecycle checks continue")
 	}
 	rows[0], err = a.plan8ServiceCollection(ctx, env, rows[0].ID)
 	if err != nil {
@@ -343,6 +356,6 @@ func (a *App) plan8DeployedServices(ctx context.Context, env *E2EEnvironment, h 
 	if _, err := a.plan6HostMetric(ctx, env, h, "after-service-all-off", h.CPUExpression); err != nil {
 		return err
 	}
-	body, _ := json.MarshalIndent(map[string]any{"passed": true, "scope": "actual_two_mysql_sqlserver_one_collector_independent_stop_resume_and_two_collector_migration", "collections": rows, "managed_default_views": managedViews, "synthetic_metric_injection": false}, "", "  ")
+	body, _ := json.MarshalIndent(map[string]any{"passed": modelFailure == nil, "api_lifecycle_passed": true, "model_change_passed": modelFailure == nil, "scope": "actual_two_mysql_sqlserver_one_collector_independent_stop_resume_and_two_collector_migration", "collections": rows, "managed_default_views": managedViews, "synthetic_metric_injection": false}, "", "  ")
 	return writePrivate(filepath.Join(env.Options.Artifacts, "plan8-deployed-services.json"), body)
 }

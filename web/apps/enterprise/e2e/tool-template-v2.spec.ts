@@ -42,7 +42,7 @@ const templates = [
 ];
 const sizes = [
   { width: 1280, height: 800 },
-  { width: 1600, height: 1000 },
+  { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ];
 
@@ -636,6 +636,7 @@ test("compact calls and action previews share one confirmation workspace", async
           {
             callId: "read-action",
             toolName: "pending_action.get",
+            source: "argus",
             status: "success",
             startedAt: new Date().toISOString(),
             display: {
@@ -656,6 +657,7 @@ test("compact calls and action previews share one confirmation workspace", async
           {
             callId: "validate",
             toolName: "telemetry.dashboard.draft.validate",
+            source: "argus",
             status: "success",
             startedAt: new Date().toISOString(),
             display: {
@@ -885,10 +887,21 @@ for (const english of [false, true])
         for (const [index, binding] of templates.entries()) {
           const { content } = await seed(page, conversation, binding);
           await expect(content.locator("h3").first()).not.toBeEmpty();
-          for (const expected of binding.Expected)
+          for (const expected of binding.Expected) {
+            // Fixture business names remain literal; reviewed UI labels follow locale.
+            const localized =
+              !english && binding.Entry === "observation-discovery"
+                ? ((
+                    {
+                      "Monitoring target": "监控目标",
+                      Partial: "结果不完整",
+                    } as Record<string, string>
+                  )[expected] ?? expected)
+                : expected;
             await expect
               .poll(() => content.locator("body").innerText())
-              .toContain(expected);
+              .toContain(localized);
+          }
           if (binding.Entry === "metric-query")
             await expect(content.locator("canvas")).toHaveCount(1);
           if (binding.Entry === "dashboard-result")

@@ -291,11 +291,20 @@ export interface components {
             /** @default false */
             retryable: boolean;
         };
+        ConversationResourceRef: {
+            /** @enum {string} */
+            type: "host" | "kubernetes_cluster" | "kubernetes_namespace" | "application" | "monitoring_target" | "connector" | "dashboard";
+            /** Format: uuid */
+            id: string;
+        };
         DashboardChatContext: {
             /** @enum {string} */
             schema_version: "argus.dashboard_context/v1";
             /** @enum {string} */
+            task_scope?: "general_diagnosis" | "dashboard_analysis" | "dashboard_authoring";
+            /** @enum {string} */
             mode: "none" | "analyze" | "create";
+            resource_refs?: components["schemas"]["ConversationResourceRef"][];
             dashboard_ids: string[];
             /** Format: int64 */
             version: number;
@@ -303,6 +312,7 @@ export interface components {
         DashboardChatSelection: {
             /** @enum {string} */
             mode: "none" | "analyze" | "create";
+            resource_refs?: components["schemas"]["ConversationResourceRef"][];
             dashboard_ids: string[];
             /** Format: int64 */
             expected_version?: number;
@@ -454,11 +464,21 @@ export interface components {
             projection_schema_version: string;
             result_ref: string;
             result_hash: string;
+            workspace_file?: {
+                path: string;
+                sha256?: string;
+                source_result_ref: string;
+                /** @constant */
+                delivery: "required_before_next_model_round";
+                instructions: string;
+            };
+            /** @description Framework-authored native query certificate: original at most 32768 bytes equals the actual sanitized, nonpartial summary. Absence means false. Direct analysis additionally requires current authorized query_evidence.inline_original_in_context; a historical flag alone is insufficient. */
+            inline_original_complete?: boolean;
             summary: components["schemas"]["PublicJsonObject"];
             samples?: components["schemas"]["PublicJsonValue"][];
             resource_refs: components["schemas"]["ResourceRef"][];
             partial: boolean;
-            partial_reasons?: ("authorization_filtered" | "budget_truncated" | "source_timeout" | "source_unavailable")[];
+            partial_reasons?: ("authorization_filtered" | "budget_truncated" | "source_timeout" | "source_unavailable" | "tool_result_partial")[];
             original_bytes: number;
             projected_bytes: number;
         } & (unknown & unknown);

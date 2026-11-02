@@ -153,5 +153,8 @@ func (a *App) preparePlan8RabbitTarget(ctx context.Context, env *E2EEnvironment,
 		return row, errors.New("RabbitMQ immutable image identity missing")
 	}
 	row.imageID = strings.TrimSpace(image)
+	if err = a.plan8StartTargetLoad(ctx, env, row); err != nil {
+		return row, err
+	}
 	return row, save()
 }

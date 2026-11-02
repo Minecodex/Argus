@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -36,21 +37,33 @@ func encodeToolResultProjection(resultRef, toolCallID string, full []byte, resul
 	} else {
 		summary, refs, partial = projectStructuredResult(clean)
 	}
-	partial = partial || result.Partial
+	reasons := []string{}
+	if partial {
+		reasons = append(reasons, "budget_truncated")
+	}
+	if result.Partial {
+		reasons = append(reasons, "tool_result_partial")
+	}
+	partial = len(reasons) > 0
+	hash := fmt.Sprintf("%x", sha256.Sum256(full))
 	payload := map[string]any{
 		"schema_version":            "argus.tool_result_projection/v1",
 		"projection_schema_version": "v1",
 		"tool_call_id":              toolCallID,
 		"result_ref":                resultRef,
-		"result_hash":               fmt.Sprintf("%x", sha256.Sum256(full)),
+		"result_hash":               hash,
 		"original_bytes":            len(full),
 		"projected_bytes":           0,
 		"partial":                   partial,
 		"resource_refs":             refs,
 		"summary":                   summary,
 	}
+	if partial {
+		payload["partial_reasons"] = reasons
+	}
 	if result.QueryFile != "" {
-		payload["workspace_file"] = map[string]any{"path": "/workspace/" + result.QueryFile, "source_result_ref": resultRef, "delivery": "required_before_next_model_round", "instructions": "Read the actual JSON file with read or bash before analysis. Source permissions are rechecked on every file operation."}
+		payload["inline_original_complete"] = !result.DataIsSchema && !result.DataIsDiscovery && toolruntime.CompleteInlineQueryOriginal(full, summary, partial)
+		payload["workspace_file"] = map[string]any{"path": "/workspace/" + result.QueryFile, "sha256": hash, "source_result_ref": resultRef, "delivery": "required_before_next_model_round", "instructions": "Current server query_evidence distinguishes complete inline originals in this request from verified earlier full exposure. Directly analyze currently certified complete small originals; earlier verified exposure permits reusing established facts, not claiming absent originals are still visible. Otherwise read/analyze this file, including large, partial or truncated results and missing details after compaction. Use this file's sha256 for an expected checksum; later read/bash result_hash is not these original bytes. Source permissions are rechecked on every file operation."}
 	}
 	encoded, err := marshalProjection(payload)
 	if err != nil {
@@ -60,6 +73,13 @@ func encodeToolResultProjection(resultRef, toolCallID string, full []byte, resul
 		return encoded, partial, nil
 	}
 	payload["partial"] = true
+	if result.QueryFile != "" {
+		payload["inline_original_complete"] = false
+	}
+	if !slices.Contains(reasons, "budget_truncated") {
+		reasons = append(reasons, "budget_truncated")
+	}
+	payload["partial_reasons"] = reasons
 	payload["resource_refs"] = capResourceRefs(refs, 20)
 	payload["summary"] = map[string]any{
 		"message": "result projection truncated; retrieve the full result with result_ref",

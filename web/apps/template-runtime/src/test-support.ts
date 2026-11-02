@@ -1,12 +1,13 @@
 import * as renderers from "./renderers";
 import fixtures from "./fixtures.generated.json";
 import { flushSync } from "react-dom";
-import { dashboardDefinition, clearViews } from "./views";
+import { dashboardDefinition, clearViews, recordTable, recordFields } from "./views";
 
 export function presentTool(
   tool: string,
   value?: Record<string, unknown>,
   locale = "zh-CN",
+  sharedViews = false,
 ) {
   if (!window.matchMedia)
     window.matchMedia = (query) => ({
@@ -47,6 +48,7 @@ export function presentTool(
   const charts: Record<string, unknown>[] = [];
   const api = {
     ...renderers,
+    ...(sharedViews ? { recordTable, recordFields } : {}),
     dashboardDefinition: (...args: Parameters<typeof dashboardDefinition>) =>
       flushSync(() => dashboardDefinition(...args)),
     observation: (_root: HTMLElement, spec: Record<string, unknown>) =>

@@ -87,7 +87,10 @@ tlsd.serve_forever()
 			row.config = map[string]any{"interval": "5s", "timeout": "3s", "dns_network": "udp", "record_type": "A"}
 		} else if engine == "icmp" {
 			image = "alpine:3.21"
-			args = append(args, image, "sleep", "600")
+			// Five preceding real-model/probe subcases may each take ten
+			// minutes. The peer must outlive the group's whole bounded run;
+			// exact owned-container cleanup still removes it on every exit.
+			args = append(args, image, "sleep", "7200")
 			row.metric = "ping_loss_ratio"
 			row.config = map[string]any{"interval": "5s", "timeout": "3s", "ping_count": 2}
 		} else {

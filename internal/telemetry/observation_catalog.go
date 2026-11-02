@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/builtincollection"
 	"github.com/kakj-go/Argus/internal/observationscope"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
@@ -31,15 +32,17 @@ type ObservationRecipe struct {
 	Metrics        []string `json:"metrics"`
 }
 type ObservationMetric struct {
-	Name        string              `json:"name"`
-	Type        string              `json:"type"`
-	Unit        string              `json:"unit"`
-	Labels      []string            `json:"labels"`
-	SourceType  string              `json:"source_type"`
-	SourceKeys  []string            `json:"source_keys"`
-	Description string              `json:"description"`
-	Observed    bool                `json:"observed"`
-	Recipes     []ObservationRecipe `json:"recipes"`
+	Name         string                             `json:"name"`
+	Type         string                             `json:"type"`
+	Unit         string                             `json:"unit"`
+	Labels       []string                           `json:"labels"`
+	SourceType   string                             `json:"source_type"`
+	SourceKeys   []string                           `json:"source_keys"`
+	Description  string                             `json:"description"`
+	Observed     bool                               `json:"observed"`
+	Recipes      []ObservationRecipe                `json:"recipes"`
+	QueryMethods *ObservationMetricMethods          `json:"query_methods,omitempty"`
+	Semantics    *builtincollection.MetricSemantics `json:"semantics,omitempty"`
 }
 type ObservationSource struct {
 	SourceType        string   `json:"source_type"`
@@ -211,6 +214,12 @@ func (s Service) ObservationCatalog(ctx context.Context, a Actor, in Observation
 					if e != nil {
 						return out, e
 					}
+					if len(r.Metrics) == 0 && !r.Complete {
+						out.Complete = false
+						if !slices.Contains(out.Warnings, "SUPPORTED_METRIC_OBSERVATION_CHECK_INCOMPLETE") {
+							out.Warnings = append(out.Warnings, "SUPPORTED_METRIC_OBSERVATION_CHECK_INCOMPLETE")
+						}
+					}
 					// The observation phase has already enumerated existing variants. Only a
 					// complete empty targeted lookup can establish that a definition is unseen.
 					if len(r.Metrics) == 0 && r.Complete && !r.HasMore {
@@ -277,6 +286,8 @@ func (s Service) observationSources(ctx context.Context, a Actor, snapshot obser
 
 func enrichObservedMetric(m MetricDescriptor, recipes []ObservationRecipe, sources []ObservationSource) ObservationMetric {
 	out := ObservationMetric{Name: m.Name, Type: m.Type, Unit: m.Unit, Labels: m.Labels, SourceType: m.SourceType, SourceKeys: m.SourceKeys, Observed: true, Recipes: []ObservationRecipe{}}
+	out.QueryMethods = ObservationMethodsForMetric(m)
+	out.Semantics = observedMetricSemantics(m, sources)
 	if out.Labels == nil {
 		out.Labels = []string{}
 	}

@@ -386,6 +386,72 @@ func (e ObservationCatalogInputSignal) Valid() bool {
 	}
 }
 
+// Defines values for ObservationMetricMethodsRepresentation.
+const (
+	ClassicHistogram ObservationMetricMethodsRepresentation = "classic_histogram"
+	NativeHistogram  ObservationMetricMethodsRepresentation = "native_histogram"
+	Summary          ObservationMetricMethodsRepresentation = "summary"
+)
+
+// Valid indicates whether the value is a known member of the ObservationMetricMethodsRepresentation enum.
+func (e ObservationMetricMethodsRepresentation) Valid() bool {
+	switch e {
+	case ClassicHistogram:
+		return true
+	case NativeHistogram:
+		return true
+	case Summary:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ObservationMetricSemanticsOrigin.
+const (
+	BuiltinCollectionDefinition ObservationMetricSemanticsOrigin = "builtin_collection_definition"
+)
+
+// Valid indicates whether the value is a known member of the ObservationMetricSemanticsOrigin enum.
+func (e ObservationMetricSemanticsOrigin) Valid() bool {
+	switch e {
+	case BuiltinCollectionDefinition:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ObservationMetricSemanticsQuantityKind.
+const (
+	Ratio ObservationMetricSemanticsQuantityKind = "ratio"
+)
+
+// Valid indicates whether the value is a known member of the ObservationMetricSemanticsQuantityKind enum.
+func (e ObservationMetricSemanticsQuantityKind) Valid() bool {
+	switch e {
+	case Ratio:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ObservationMetricSemanticsRecommendedDisplayTransform.
+const (
+	Percent ObservationMetricSemanticsRecommendedDisplayTransform = "percent"
+)
+
+// Valid indicates whether the value is a known member of the ObservationMetricSemanticsRecommendedDisplayTransform enum.
+func (e ObservationMetricSemanticsRecommendedDisplayTransform) Valid() bool {
+	switch e {
+	case Percent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ObservationResourceType.
 const (
 	ObservationResourceTypeApplication         ObservationResourceType = "application"
@@ -1068,16 +1134,51 @@ type ObservationCatalogResult struct {
 
 // ObservationMetric defines model for ObservationMetric.
 type ObservationMetric struct {
-	Description string              `json:"description"`
-	Labels      []string            `json:"labels"`
-	Name        string              `json:"name"`
-	Observed    bool                `json:"observed"`
-	Recipes     []ObservationRecipe `json:"recipes"`
-	SourceKeys  []string            `json:"source_keys"`
-	SourceType  string              `json:"source_type"`
-	Type        string              `json:"type"`
-	Unit        string              `json:"unit"`
+	Description  string                      `json:"description"`
+	Labels       []string                    `json:"labels"`
+	Name         string                      `json:"name"`
+	Observed     bool                        `json:"observed"`
+	QueryMethods *ObservationMetricMethods   `json:"query_methods,omitempty"`
+	Recipes      []ObservationRecipe         `json:"recipes"`
+	Semantics    *ObservationMetricSemantics `json:"semantics,omitempty"`
+	SourceKeys   []string                    `json:"source_keys"`
+	SourceType   string                      `json:"source_type"`
+	Type         string                      `json:"type"`
+	Unit         string                      `json:"unit"`
 }
+
+// ObservationMetricMethods defines model for ObservationMetricMethods.
+type ObservationMetricMethods struct {
+	CountExpression string                                 `json:"count_expression"`
+	CountUnit       string                                 `json:"count_unit"`
+	MeanExpression  string                                 `json:"mean_expression"`
+	MeanUnit        string                                 `json:"mean_unit"`
+	Notes           string                                 `json:"notes"`
+	Representation  ObservationMetricMethodsRepresentation `json:"representation"`
+	SumExpression   string                                 `json:"sum_expression"`
+}
+
+// ObservationMetricMethodsRepresentation defines model for ObservationMetricMethods.Representation.
+type ObservationMetricMethodsRepresentation string
+
+// ObservationMetricSemantics defines model for ObservationMetricSemantics.
+type ObservationMetricSemantics struct {
+	DefinitionId                string                                                `json:"definition_id"`
+	DefinitionVersion           string                                                `json:"definition_version"`
+	Notes                       string                                                `json:"notes"`
+	Origin                      ObservationMetricSemanticsOrigin                      `json:"origin"`
+	QuantityKind                ObservationMetricSemanticsQuantityKind                `json:"quantity_kind"`
+	RecommendedDisplayTransform ObservationMetricSemanticsRecommendedDisplayTransform `json:"recommended_display_transform"`
+}
+
+// ObservationMetricSemanticsOrigin defines model for ObservationMetricSemantics.Origin.
+type ObservationMetricSemanticsOrigin string
+
+// ObservationMetricSemanticsQuantityKind defines model for ObservationMetricSemantics.QuantityKind.
+type ObservationMetricSemanticsQuantityKind string
+
+// ObservationMetricSemanticsRecommendedDisplayTransform defines model for ObservationMetricSemantics.RecommendedDisplayTransform.
+type ObservationMetricSemanticsRecommendedDisplayTransform string
 
 // ObservationRecipe defines model for ObservationRecipe.
 type ObservationRecipe struct {

@@ -13,9 +13,9 @@ var workspaceDiscovery = map[string]mcp.Discovery{
 		Examples:          []mcp.DiscoveryExample{{Request: "把刚才的查询结果导入工作区供 Python 分析。 / Import the query result for Python analysis.", Guidance: "使用返回的 result_ref 和相对路径如 data/query.json；不能传模板或私有记录引用。 Use a returned result_ref and a relative data path, never a template/private reference."}},
 	},
 	"workflow.publish_file": {
-		SchemaVersion: "argus.tool_discovery/v1", Revision: "1",
+		SchemaVersion: "argus.tool_discovery/v1", Revision: "2",
 		Title:             "发布文件下载 / Publish workspace file",
-		Description:       "核验当前 Workspace 中已有文件，将其发布为不可变会话交付；同名工作文件后续修改不改变历史下载。 Verify an existing workspace file and publish an immutable conversation delivery.",
+		Description:       "核验当前 Workspace 中已有文件，将其发布为不可变会话交付；同名工作文件后续修改不改变历史下载。未指定media_type时，按有效显示后缀或实际Workspace路径识别格式，显示标题无后缀不丢失源格式。 Verify an existing workspace file and publish an immutable delivery. An extensionless display title retains the recognized source-path format when media_type is omitted; publishing never converts bytes.",
 		Keywords:          []string{"发布", "下载", "导出", "文件", "产物", "交付", "publish", "download", "export", "artifact", "file"},
 		ResultDescription: "返回交付 ID、文件名、大小、内容 Hash 与受控下载信息；不是外部 URL。 Returns immutable delivery identity, size, content hash and authorized download metadata.",
 		Preconditions:     []string{"文件必须已在当前 Workspace 生成，且仍有来源访问权限；受单文件上限约束。 The file must exist in the current workspace and pass provenance/size checks."},

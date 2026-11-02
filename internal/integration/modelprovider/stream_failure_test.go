@@ -14,6 +14,9 @@ import (
 )
 
 func TestStreamFailureDiagnosticsUseBoundedClasses(t *testing.T) {
+	if streamFailureType(fmt.Errorf("private URL: %w", io.EOF)) != "eof" {
+		t.Fatal("wrapped transport EOF lost its safe diagnostic class")
+	}
 	for _, tc := range []struct {
 		err  error
 		kind string

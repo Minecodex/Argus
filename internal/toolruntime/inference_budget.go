@@ -15,5 +15,5 @@ func ModelSystemInstructionsForTurn(mode string, completed int) string {
 	} else if remaining <= 4 {
 		budget += " The budget is nearly exhausted. Use only indispensable remaining reads, then provide the requested conclusion and limitations."
 	}
-	return SystemInstructions + BuiltinToolInstructions + RemoteInstructions + RemoteModeInstructions(mode) + budget
+	return SystemInstructions + BuiltinToolInstructions + EvidenceReportInstructions + MetricInterpretationInstructions + DiagnosticClaimInstructions + DashboardDiscoveryScopeInstructions + MetricRateEvidenceInstructions + StatisticalEvidenceInstructions + RemoteInstructions + RemoteModeInstructions(mode) + budget
 }

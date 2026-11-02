@@ -100,8 +100,8 @@ export function createDashboardDomains(
           body: input,
           signal,
         }),
-      preview: (id, expected_version) =>
-        preview(`${draft(id)}/preview`, { expected_version }),
+      preview: (id, expected_version, parameters) =>
+        preview(`${draft(id)}/preview`, { expected_version, ...(parameters ? { parameters } : {}) }),
       execute: (id, body, signal) =>
         http.request(`${item(id)}/execute`, { method: "POST", body, signal }),
       catalog: (body, signal) =>

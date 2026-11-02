@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/kakj-go/Argus/internal/conversation"
 
@@ -24,7 +25,9 @@ func snapshotInScope(snapshot db.ContextSnapshot, scope string) bool {
 // output or arguments derived from data the current principal can no longer use.
 func contextEventPayload(kind string, raw []byte, scope string) (map[string]any, error) {
 	var payload map[string]any
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
 		return nil, err
 	}
 	if kind != "assistant_message" && kind != "tool_call_result" || scope != "" && payload["authorization_scope"] == scope {

@@ -78,6 +78,9 @@ func (a *App) configureP5Workspace(ctx context.Context, env *E2EEnvironment) err
 }
 
 func (a *App) verifyP5Workspace(ctx context.Context, env *E2EEnvironment) error {
+	if err := a.verifyP5PublicationMedia(ctx, env); err != nil {
+		return err
+	}
 	client, err := scenarioHTTP(env)
 	if err != nil {
 		return err
@@ -119,6 +122,7 @@ func (a *App) verifyP5Workspace(ctx context.Context, env *E2EEnvironment) error 
 	command := "python - <<'PY'\nimport pandas as pd\nfrom pathlib import Path\nvalue=pd.read_csv(" + string(pyPath) + ")[\"value\"].sum()\nPath('/workspace/report.txt').write_text(str(value)+'\\n')\nprint('analysis-complete')\nPY"
 	run, err := a.p5Run(ctx, env, conversation, "analyse", []p5ToolStep{
 		{"bash", map[string]any{"command": command}},
+		{"tool.search", map[string]any{"category": "workflow"}},
 		{"tool.describe", map[string]any{"category": "workflow", "name": "publish_file"}},
 		{"tool.invoke", map[string]any{"category": "workflow", "name": "publish_file", "arguments": map[string]any{"path": "report.txt", "name": "report.txt", "media_type": "text/plain"}}},
 		{"write", map[string]any{"path": "report.txt", "content": "changed after publication"}},

@@ -35,6 +35,7 @@ func (a *App) plan8DeployedSDK(ctx context.Context, env *E2EEnvironment, h *plan
 		return err
 	}
 	cases := []map[string]any{}
+	modelKeyDelivery := false
 	for _, test := range []struct {
 		name, protocol, environment, port string
 		signals                           []string
@@ -43,6 +44,9 @@ func (a *App) plan8DeployedSDK(ctx context.Context, env *E2EEnvironment, h *plan
 		{"otlp_grpc", "otlp", "testing", "24317", []string{"traces"}},
 		{"jaeger", "jaeger", "production", "24250", []string{"traces"}},
 	} {
+		if (env.Options.Plan8Phase == "plan11-metadata" || env.Options.Plan8Phase == "plan11-metrics" || plan11SignalPhase(env.Options.Plan8Phase)) && test.name != "otlp_http" {
+			continue
+		}
 		app, err := a.plan8ServiceCommit(ctx, env, "sdk-app-"+test.name, map[string]any{"kind": "application", "operation": "create", "application": map[string]any{"name": "Plan8 SDK " + test.name, "environment": test.environment}})
 		if err != nil {
 			return err
@@ -94,8 +98,9 @@ func (a *App) plan8DeployedSDK(ctx context.Context, env *E2EEnvironment, h *plan
 		}
 		var keyID uuid.UUID
 		var key string
-		if test.name == "otlp_http" {
+		if plan8SDKModelKeySelected(env.Options.Plan8Phase, test.name) {
 			keyID, key, err = a.plan8ModelSDKKey(ctx, env, app, endpoint)
+			modelKeyDelivery = err == nil
 		} else {
 			keyID, key, err = makeKey("sdk-key-" + test.name)
 		}
@@ -106,6 +111,8 @@ func (a *App) plan8DeployedSDK(ctx context.Context, env *E2EEnvironment, h *plan
 			// Private data is streamed only to the explicitly owned SDK process. It
 			// does not enter Docker arguments, files, model messages or evidence.
 			input := map[string]any{"Endpoint": address, "Key": token, "CA": connection.TLS.CABundlePEM, "ServerName": connection.TLS.ServerName, "Protocol": test.name, "Service": "api", "Namespace": "orders", "Instance": "replica-one", "Marker": "plan8-sdk-" + test.name + "-" + label, "ExpectedAccept": accept}
+			input["MetricSemantics"] = env.Options.Plan8Phase == "plan11-metrics" || plan11SignalPhase(env.Options.Plan8Phase)
+			input["SignalAcceptance"] = plan11SignalPhase(env.Options.Plan8Phase)
 			raw, _ := json.Marshal(input)
 			defer clear(raw)
 			var output bytes.Buffer
@@ -116,6 +123,13 @@ func (a *App) plan8DeployedSDK(ctx context.Context, env *E2EEnvironment, h *plan
 			result := map[string]any{}
 			if json.Unmarshal(output.Bytes(), &result) != nil || result["accepted"] != accept || result["expectation_met"] != true {
 				return nil, errors.New("invalid actual SDK transport evidence")
+			}
+			if accept && (env.Options.Plan8Phase == "plan11-metrics" || plan11SignalPhase(env.Options.Plan8Phase)) && result["metric_semantics_generated"] != true {
+				return nil, errors.New("actual SDK omitted the declared metric kinds")
+			}
+
+			if accept && plan11SignalPhase(env.Options.Plan8Phase) && result["signal_acceptance_generated"] != true {
+				return nil, errors.New("actual SDK omitted the explicit native/injection fixture observations")
 			}
 			return result, nil
 		}
@@ -155,6 +169,13 @@ func (a *App) plan8DeployedSDK(ctx context.Context, env *E2EEnvironment, h *plan
 			if err = a.waitM7Metric(ctx, env, app.String(), "argus_plan8_sdk_requests"); err != nil {
 				return err
 			}
+			if env.Options.Plan8Phase == "plan11-metrics" || plan11SignalPhase(env.Options.Plan8Phase) {
+				for _, name := range []string{"argus_plan11_sdk_completed", "argus_plan11_sdk_queue", "argus_plan11_sdk_latency_count"} {
+					if err = a.waitM7Metric(ctx, env, app.String(), name); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		if _, err = a.plan8ServiceCommit(ctx, env, "sdk-disable-"+test.name, map[string]any{"kind": "endpoint", "operation": "set_enabled", "id": endpoint, "expected_version": 1, "endpoint": map[string]any{"enabled": false}}); err != nil {
 			return err
@@ -165,6 +186,21 @@ func (a *App) plan8DeployedSDK(ctx context.Context, env *E2EEnvironment, h *plan
 		// Keep only non-secret observed identities. Credentials are never copied
 		// into this proof, even for the negative/revoked case.
 		cases = append(cases, map[string]any{"protocol": test.name, "application_id": app, "environment": test.environment, "endpoint_id": endpoint, "initial": initial, "rotated": rotated, "apm": row, "key_revoked_rejected": true, "stable_service": true})
+		if env.Options.Plan8Phase == "plan11-metadata" {
+			env.State.Values["p11_metadata_application_id"] = app.String()
+			env.State.Values["p11_metadata_endpoint_id"] = endpoint.String()
+		}
+		if env.Options.Plan8Phase == "plan11-metrics" {
+			env.State.Values["p11_metric_application_id"] = app.String()
+		}
+		if plan11SignalPhase(env.Options.Plan8Phase) {
+			env.State.Values["p11_signal_application_id"] = app.String()
+			env.State.Values["p11_signal_endpoint_id"] = endpoint.String()
+			if err = a.plan11WaitNativeSDKHistogram(ctx, env, app.String()); err != nil {
+				return err
+			}
+		}
+
 		key = ""
 		replacement = ""
 	}
@@ -174,7 +210,7 @@ func (a *App) plan8DeployedSDK(ctx context.Context, env *E2EEnvironment, h *plan
 	if _, err = a.plan6HostMetric(ctx, env, h, "after-sdk-endpoints-off", h.CPUExpression); err != nil {
 		return err
 	}
-	raw, _ := json.MarshalIndent(map[string]any{"passed": true, "enrollment_fixture": false, "cases": cases, "sdk_key_in_model_or_argv": false}, "", "  ")
+	raw, _ := json.MarshalIndent(map[string]any{"passed": true, "enrollment_fixture": false, "cases": cases, "sdk_key_in_model_or_argv": false, "real_model_key_delivery_tested": modelKeyDelivery}, "", "  ")
 	return writePrivate(filepath.Join(env.Options.Artifacts, "plan8-deployed-sdk.json"), raw)
 }
 
@@ -229,10 +265,19 @@ func (a *App) plan8WaitSDKLogs(ctx context.Context, env *E2EEnvironment, app uui
 		return err
 	}
 	deadline := time.Now().Add(time.Minute)
-	for {
+	for attempt := 1; ; attempt++ {
 		value, err := client.JSON(ctx, "sdk-logs-"+marker, "enterprise", http.MethodPost, "/enterprise/logs/query", 200, map[string]any{"query": "body : " + strconv.Quote(marker), "resource_ids": []string{app.String()}, "time_range": telemetryTimeRange(5 * time.Minute), "budget": telemetryBudget(100)}, enterpriseHeaders(env, ""))
 		if err != nil {
 			return err
+		}
+		if plan11SignalPhase(env.Options.Plan8Phase) {
+			raw, marshalErr := json.MarshalIndent(value, "", "  ")
+			if marshalErr != nil {
+				return marshalErr
+			}
+			if e := writePrivate(filepath.Join(env.Options.Artifacts, fmt.Sprintf("plan11-sdk-log-%s-attempt-%02d.json", marker, attempt)), raw); e != nil {
+				return e
+			}
 		}
 		if assertKQLResponse(value, marker, 1) == nil {
 			rows := value["data"].([]any)

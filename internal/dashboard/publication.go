@@ -34,7 +34,7 @@ type PublicationPreview struct {
 	Validation ValidationReport `json:"validation"`
 }
 
-func (service Service) PreviewPublish(ctx context.Context, actor Actor, draftID uuid.UUID, expectedVersion int64, key string) (PublicationPreview, error) {
+func (service Service) PreviewPublish(ctx context.Context, actor Actor, draftID uuid.UUID, expectedVersion int64, key string, parameters ...ExecutionInput) (PublicationPreview, error) {
 	draft, err := service.Draft(ctx, actor, draftID)
 	if err != nil {
 		return PublicationPreview{}, err
@@ -49,7 +49,7 @@ func (service Service) PreviewPublish(ctx context.Context, actor Actor, draftID 
 	if err != nil {
 		return PublicationPreview{}, err
 	}
-	report, sample, err := service.verify(ctx, actor, spec)
+	report, sample, err := service.verify(ctx, actor, spec, parameters...)
 	preview := PublicationPreview{Validation: report}
 	if err != nil || !report.Valid {
 		if err == nil {

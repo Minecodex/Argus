@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { dashboardIssueMessage } from "../components/dashboards/validation-issues";
 import {
   ApiError,
   formatApiError,
@@ -81,7 +82,12 @@ export function DashboardEditorPage() {
     try {
       const saved = await editor.save();
       if (kind === "preview")
-        setAction(await api.dashboards.preview(draftId, saved.draft_version));
+        setAction(await api.dashboards.preview(draftId, saved.draft_version,
+          sample && sampleVersion === saved.draft_version ? {
+            resource_mode: "explicit",
+            resource_types: [...new Set(sample.resources.map(resource => resource.type))],
+            resource_ids: sample.resources.map(resource => resource.id),
+          } : undefined));
       else if (kind === "sample") {
         const result = await api.dashboards.sample(draftId, {
           expected_version: saved.draft_version,
@@ -92,7 +98,7 @@ export function DashboardEditorPage() {
         if (!result.validation.valid)
           setMessage(
             result.validation.issues
-              .map((i) => `${i.path}: ${i.message}`)
+              .map((i) => `${i.path}: ${dashboardIssueMessage(t, i)}`)
               .join("\n"),
           );
       } else {
@@ -103,7 +109,7 @@ export function DashboardEditorPage() {
             panel_id: id!,
             signal_sources: {},
           });
-          messages = generated.issues.map((i) => i.message);
+          messages = generated.issues.map((i) => dashboardIssueMessage(t, i));
           return generated.draft;
         });
         setMessage(messages.join("\n"));

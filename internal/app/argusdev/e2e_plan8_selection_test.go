@@ -2,6 +2,40 @@ package argusdev
 
 import "testing"
 
+func TestSDKKeyDispatchMatchesDeclaredModelBudget(t *testing.T) {
+	for _, phase := range []string{"integrations", "models", "plan11", "plan11-business", "all"} {
+		declared := false
+		for _, name := range plan8SelectedModelNames(phase) {
+			declared = declared || name == "sdk_private_key_delivery"
+		}
+		dispatched := false
+		for _, protocol := range []string{"otlp_http", "otlp_grpc", "jaeger"} {
+			selected := plan8SDKModelKeySelected(phase, protocol)
+			if phase == "integrations" && selected {
+				t.Fatal("data-only SDK admission would dispatch an external model", protocol)
+			}
+			if protocol != "otlp_http" && selected {
+				t.Fatal("SDK model admission expanded beyond the declared key-delivery task", protocol)
+			}
+			dispatched = dispatched || selected
+		}
+		if declared != dispatched || !plan8StageSelected(phase, "sdk-application-protocols") {
+			t.Fatal("advertised model budget and actual SDK key dispatch disagree", phase)
+		}
+	}
+}
+
+func TestPlan11BusinessPhaseCombinesDeepModelAndKubernetesDependencies(t *testing.T) {
+	for _, stage := range []string{"formal-onboarding-and-managed-collector", "sdk-application-protocols", "service-instances-and-migration", "kubernetes-namespace-workbench", "real-model-applications-and-shared-database", "real-model-application-revocation", "real-model-workspace"} {
+		if !plan8StageSelected("plan11-business", stage) {
+			t.Fatal("combined business phase lost prerequisite", stage)
+		}
+	}
+	if plan8StageSelected("plan11-business", "additional-supported-integrations") || len(plan8SelectedModelNames("plan11-business")) != 8 {
+		t.Fatal("combined business phase budget/scope changed")
+	}
+}
+
 func TestPlan8PartialPhasesKeepPrerequisitesWithoutClaimingModelCoverage(t *testing.T) {
 	for _, name := range []string{"formal-onboarding-and-managed-collector", "normal-production-backend", "actual-query-and-dashboard"} {
 		if !plan8StageSelected("integrations", name) || !plan8StageSelected("kubernetes", name) || !plan8StageSelected("workspace", name) {

@@ -1856,6 +1856,65 @@ components:
         - source_type
         - integration_key
         - metrics
+    ObservationMetricMethods:
+      type: object
+      additionalProperties: false
+      properties:
+        representation:
+          type: string
+          enum:
+            - classic_histogram
+            - native_histogram
+            - summary
+        count_expression:
+          type: string
+        sum_expression:
+          type: string
+        mean_expression:
+          type: string
+        count_unit:
+          type: string
+        mean_unit:
+          type: string
+        notes:
+          type: string
+      required:
+        - representation
+        - count_expression
+        - sum_expression
+        - mean_expression
+        - count_unit
+        - mean_unit
+        - notes
+    ObservationMetricSemantics:
+      type: object
+      additionalProperties: false
+      properties:
+        quantity_kind:
+          type: string
+          enum:
+            - ratio
+        recommended_display_transform:
+          type: string
+          enum:
+            - percent
+        definition_id:
+          type: string
+        definition_version:
+          type: string
+        origin:
+          type: string
+          enum:
+            - builtin_collection_definition
+        notes:
+          type: string
+      required:
+        - quantity_kind
+        - recommended_display_transform
+        - definition_id
+        - definition_version
+        - origin
+        - notes
     ObservationMetric:
       type: object
       additionalProperties: false
@@ -1884,6 +1943,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ObservationRecipe'
+        query_methods:
+          $ref: '#/components/schemas/ObservationMetricMethods'
+        semantics:
+          $ref: '#/components/schemas/ObservationMetricSemantics'
       required:
         - name
         - type

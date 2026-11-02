@@ -66,6 +66,7 @@ func TestHardActiveTurnCompactionResumesWithPairedHistoryAndUserConstraints(t *t
 		t.Fatal(err)
 	}
 	f.exec(`UPDATE runs SET status='waiting_system',stop_reason='context_compaction',tool_snapshot='{"version":"argus.model_tool_set/v1","tools":[]}' WHERE id=$1`, f.r)
+	f.compactionFixtureBudget(t)
 	scope, err := presentation.Scope(t.Context(), f.store, f.e, f.u)
 	if err != nil {
 		t.Fatal(err)

@@ -6,17 +6,21 @@ import { useApi, formatApiError, ApiError } from "@argus/api-client";
 import { useEnterpriseAuthStore } from "@argus/auth";
 import "../../styles/planv5.css";
 import { ConversationFile } from "./conversation-file";
+import { ConversationResourceIndex } from "./conversation-resource-index";
+import type { ChatMessage } from "./chat-view-model";
 
 export function ConversationWorkspace({
   conversationId,
   selected,
   disabled,
   expanded = false,
+  messages = [],
 }: {
   conversationId: string;
   selected: string[];
   disabled: boolean;
   expanded?: boolean;
+  messages?: ChatMessage[];
 }) {
   const api = useApi();
   const { t, i18n } = useTranslation();
@@ -135,6 +139,7 @@ export function ConversationWorkspace({
         )}
         {files.isError && <p role="alert">{t("planv5.files.unavailable")}</p>}
       </details>
+      {expanded && <ConversationResourceIndex messages={messages} />}
       {error && <p role="alert">{error}</p>}
     </div>
   );

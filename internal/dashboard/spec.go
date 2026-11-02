@@ -17,7 +17,7 @@ import (
 )
 
 const SchemaVersion = "argus.telemetry_dashboard/v1"
-const CompilerVersion = "argus.dashboard_compiler/v3"
+const CompilerVersion = "argus.dashboard_compiler/v5"
 
 var (
 	ErrInvalid        = errors.New("DASHBOARD_INVALID")

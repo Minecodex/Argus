@@ -1472,6 +1472,7 @@ func schemaString(node map[string]any, mode fixtureMode) string {
 		contains string
 		value    string
 	}{
+		{"^/workspace/", "/workspace/queries/metrics/fixture.json"},
 		{"errors\\.", "errors.contract.invalid"},
 		{"^S-1-", "S-1-5-21-1000-1000-1000-1001"},
 		{"\\.commit$", "host.update.commit"},

@@ -3,11 +3,13 @@ import { useTranslation } from "react-i18next";
 import { ListCollapse } from "lucide-react";
 import { Button, ContentPopover } from "@argus/ui";
 import { ConversationWorkspace } from "./conversation-workspace";
+import type { ChatMessage } from "./chat-view-model";
 
 export function ConversationSummary(props: {
   conversationId: string;
   selected: string[];
   disabled: boolean;
+  messages?: ChatMessage[];
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);

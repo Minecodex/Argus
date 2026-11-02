@@ -3,6 +3,7 @@ package tooltemplatefixture
 import (
 	"testing"
 
+	"github.com/kakj-go/Argus/internal/nativetools"
 	"github.com/kakj-go/Argus/internal/presentation"
 )
 
@@ -30,7 +31,11 @@ func TestEveryRegisteredToolHasReviewedPresentationCoverageAndSource(t *testing.
 			t.Fatal("incomplete template coverage", binding.Tool)
 		}
 	}
-	if len(seen) != 132 {
+	production, err := nativetools.Catalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != len(production.ModelCatalog())+3 {
 		t.Fatalf("registry coverage changed; review the declaration and fixtures: %d", len(seen))
 	}
 }

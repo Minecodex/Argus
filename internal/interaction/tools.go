@@ -17,7 +17,7 @@ func obj(required []string, properties map[string]any) map[string]any {
 func str(max int) map[string]any { return map[string]any{"type": "string", "maxLength": max} }
 func QuestionSchema() map[string]any {
 	option := obj([]string{"label", "description"}, map[string]any{"label": str(256), "description": str(2048)})
-	question := obj([]string{"id", "header", "question", "options"}, map[string]any{"id": map[string]any{"type": "string", "pattern": identifier.String()}, "header": str(128), "question": str(4096), "options": map[string]any{"type": "array", "maxItems": 4, "items": option, "description": "Two to four distinct choices, recommended first. Empty for free text only. The UI always accepts custom text; never add an Other option."}})
+	question := obj([]string{"id", "header", "question", "options"}, map[string]any{"id": map[string]any{"type": "string", "pattern": identifier.String(), "description": "Required stable unique identifier for this question, for example target_pick. Include id on EVERY question, including free-text questions; keep it unchanged when referring to the response. 每个问题必须提供唯一且稳定的 id。", "examples": []string{"target_pick"}}, "header": str(128), "question": str(4096), "options": map[string]any{"type": "array", "maxItems": 4, "items": option, "description": "Two to four distinct choices, recommended first. Empty for free text only. The UI always accepts custom text; never add an Other option."}})
 	return obj([]string{"questions"}, map[string]any{"questions": map[string]any{"type": "array", "minItems": 1, "maxItems": 3, "items": question}})
 }
 func PlanSchema() map[string]any {
@@ -27,7 +27,7 @@ func (s Service) BuildTools(ctx context.Context, p toolruntime.Principal) (toolr
 	if !p.Allows("conversation.use") {
 		return toolruntime.Contribution{}, nil
 	}
-	tool := toolruntime.Tool{Definition: toolruntime.Definition{Model: modelprovider.Tool{Name: "request_user_input", Description: "Ask the real user one to three concise questions and wait for their response. Use when missing preferences or facts prevent progress. Supply short options with tradeoff descriptions, or an empty options array for free text. Available in execute and plan modes. Full access never answers these questions. This is not an execution approval tool.", Schema: QuestionSchema()}, Source: "argus", Scenario: "interaction", Version: "1", ReadOnly: true}, Invoke: func(ctx context.Context, call toolruntime.Invocation) (toolruntime.Result, error) {
+	tool := toolruntime.Tool{Definition: toolruntime.Definition{Model: modelprovider.Tool{Name: "request_user_input", Description: "Ask the real user one to three concise questions and wait for their response. Use when missing preferences or facts prevent progress. Every question MUST include a unique stable id (for example target_pick), header, question and options. Supply short options with tradeoff descriptions, or an empty options array for free text. Available in execute and plan modes. Full access never answers these questions. This is not an execution approval tool.", Schema: QuestionSchema()}, Source: "argus", Scenario: "interaction", Version: "2", ReadOnly: true}, Invoke: func(ctx context.Context, call toolruntime.Invocation) (toolruntime.Result, error) {
 		raw, _ := json.Marshal(call.Arguments)
 		var input Questions
 		if json.Unmarshal(raw, &input) != nil {

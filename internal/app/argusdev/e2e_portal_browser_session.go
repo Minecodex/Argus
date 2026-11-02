@@ -8,6 +8,10 @@ import (
 )
 
 func existingPortalBrowserCookies(env *E2EEnvironment) (string, error) {
+	return portalBrowserCookies(env, "enterprise")
+}
+
+func portalBrowserCookies(env *E2EEnvironment, alias string) (string, error) {
 	client, err := scenarioHTTP(env)
 	if err != nil {
 		return "", err
@@ -24,7 +28,7 @@ func existingPortalBrowserCookies(env *E2EEnvironment) (string, error) {
 	}
 	values := []map[string]any{}
 	authenticated := false
-	for _, cookie := range client.Client("enterprise").Jar.Cookies(apiEndpoint) {
+	for _, cookie := range client.Client(alias).Jar.Cookies(apiEndpoint) {
 		if cookie.Name != "argus_enterprise_session" && cookie.Name != "argus_enterprise_csrf" {
 			continue
 		}

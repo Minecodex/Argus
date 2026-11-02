@@ -2,6 +2,7 @@ package argusdev
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -42,5 +43,32 @@ func TestRealModelDNSOverrideKeepsOtherHostsAndRejectsForeignNamespace(t *testin
 				}
 			}
 		})
+	}
+}
+
+func TestE2ETLSCompatibilityPreservesOtherSettingsAndForeignDeployments(t *testing.T) {
+	zero := int32(0)
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "owned", Labels: map[string]string{"argus.io/release-id": "probe"}}}
+	deployment := func(name string) *appsv1.Deployment {
+		return &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "owned"}, Spec: appsv1.DeploymentSpec{Replicas: &zero, Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": name}}, Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": name}}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app", Env: []corev1.EnvVar{{Name: "GODEBUG", Value: "netdns=go,tlsmlkem=1"}}}}}}}}
+	}
+	client := fake.NewSimpleClientset(ns, deployment("argus-server"), deployment("argus-worker"), deployment("unrelated"))
+	env := &E2EEnvironment{ReleaseID: "probe", SystemNS: "owned", Kube: &E2EKube{Client: client}, Options: E2EOptions{Artifacts: t.TempDir(), RealModel: &p5RealModelConfig{BaseURL: "https://model.example/v1", EndpointIP: "8.8.8.8", DisableMLKEM: true}}}
+	if err := configureRealModelEndpointDNS(t.Context(), env); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"argus-server", "argus-worker", "unrelated"} {
+		d, err := client.AppsV1().Deployments("owned").Get(t.Context(), name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		value := d.Spec.Template.Spec.Containers[0].Env[0].Value
+		want := "tlsmlkem=0"
+		if name == "unrelated" {
+			want = "tlsmlkem=1"
+		}
+		if !strings.Contains(value, "netdns=go") || !strings.Contains(value, want) {
+			t.Fatalf("unexpected compatibility mutation for %s", name)
+		}
 	}
 }

@@ -12,8 +12,8 @@ import (
 
 	"github.com/kakj-go/Argus/internal/mcp"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"github.com/kakj-go/Argus/internal/telemetry/metricmeta"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
-	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 type Tools struct{ Service Service }
@@ -61,6 +61,11 @@ func (tools Tools) metadata(id, permission string, input, output map[string]any,
 	}
 	if id == "telemetry.skywalking.trace" {
 		metadata.InputVersion = id + "/v2"
+	}
+	if id == "telemetry.promql.query" {
+		metadata.InputVersion = id + "/v2"
+		metadata.OutputVersion = id + "/v3"
+		metadata.Discovery.ResultDescription += " input_metrics binds input type/unit/temporality to observed sources. input_metric_semantics optionally adds exact builtin-source quantity definitions: a known ratio supports percent, raw unit stays 1. Unknown unit1 metrics do not inherit ratio semantics. Definitions describe inputs; derived expression output needs separate unit analysis."
 	}
 	if slices.Contains([]string{"telemetry.promql.query", "telemetry.kql.query", "telemetry.skywalking.trace"}, id) {
 		// Agent query analysis requires the existing Workspace capability. This
@@ -167,6 +172,16 @@ func (tools Tools) dslQuery(ctx context.Context, call mcp.Call, language queryen
 	if err != nil {
 		return mcp.Result{}, err
 	}
+	if call.RunID != "" {
+		id, e := uuid.Parse(call.RunID)
+		if e != nil {
+			return mcp.Result{}, ErrQueryInvalid
+		}
+		actor.RunID = uuid.NullUUID{UUID: id, Valid: true}
+	}
+	if tools.Service.ModelQueryMeter != nil {
+		tools.Service.Engine = tools.Service.ModelQueryMeter(actor, tools.Service.Engine)
+	}
 	ids, from, to, limit, err := toolQueryCommon(call.Input)
 	if err != nil {
 		return mcp.Result{}, err
@@ -177,7 +192,11 @@ func (tools Tools) dslQuery(ctx context.Context, call mcp.Call, language queryen
 	} else if language == queryengine.LanguageTrace {
 		signal = "traces"
 	}
-	snapshot, sourceKeys, err := tools.Service.ResolveQueryScope(ctx, actor, ids, signal)
+	legacy, scope, err := modelQueryScope(call.Input)
+	if err != nil {
+		return mcp.Result{}, err
+	}
+	snapshot, sourceKeys, err := tools.Service.ResolveQueryInput(ctx, actor, legacy, scope, signal)
 	if err != nil {
 		return mcp.Result{}, err
 	}
@@ -227,15 +246,18 @@ func (tools Tools) dslQuery(ctx context.Context, call mcp.Call, language queryen
 			return mcp.Result{}, err
 		}
 	}
-	result, err := tools.Service.Engine.ExecuteEngineQuery(ctx, queryengine.Request{Language: language, Expression: expression, Pipeline: pipeline, Operation: operation, Variables: variables, Instant: language == queryengine.LanguagePromQL && step <= 0, Start: from, End: to, Step: step,
+	result, err := executeValidatedModelQuery(ctx, tools.Service.Engine, queryengine.Request{Language: language, Expression: expression, Pipeline: pipeline, Operation: operation, Variables: variables, Instant: language == queryengine.LanguagePromQL && step <= 0, Start: from, End: to, Step: step,
 		Scope: queryengine.Scope{Resources: snapshot.DataRefs(), Signature: snapshot.QuerySignature(), SourceKeys: sourceKeys, SubjectID: actor.SubjectID, SubjectType: actor.SubjectType, EnterpriseID: actor.EnterpriseID, ResourceIDs: snapshot.DataIDs(), AuthorizationVersion: actor.AuthorizationVersion}, Budget: queryengine.Budget{MaxRows: limit, MaxSamples: maxSamples, MaxSeries: maxSeries, MaxScanBytes: maxScanBytes, MaxResultBytes: maxResultBytes, Timeout: timeout}})
 	if err != nil {
-		if errors.Is(err, queryengine.ErrBudget) {
-			return mcp.Result{}, toolruntime.Error{Kind: "TOOL_QUERY_BUDGET_EXCEEDED", Message: "The query exceeded its execution budget. Narrow the time window or requested data; use the documented row and scan budgets. No result was delivered.", Details: map[string]any{"query_budget": true}}
-		}
-		return mcp.Result{}, err
+		return mcp.Result{}, ModelQueryError(err)
 	}
 	output := protocolQueryOutput(result)
+	if language == queryengine.LanguagePromQL && result.Meta.InputMetricsOrigin == metricmeta.Origin && result.Meta.InputMetricsComplete {
+		if meanings := queryInputMetricSemantics(result.Meta.InputMetrics, snapshot); len(meanings) > 0 {
+			output["argus_meta"].(map[string]any)["input_metric_semantics"] = meanings
+		}
+	}
+	output["query_context"] = map[string]any{"resources": snapshot.Refs(), "source_keys": sourceKeys, "from": from, "to": to, "signal": signal, "scope_signature": snapshot.QuerySignature(), "observed_at": time.Now().UTC()}
 	if err := tools.Service.ValidateResolvedQueryScope(ctx, actor, snapshot); err != nil {
 		return mcp.Result{}, err
 	}
@@ -269,7 +291,7 @@ func (tools Tools) overview(ctx context.Context, call mcp.Call) (mcp.Result, err
 }
 
 func toolQueryCommon(input map[string]any) ([]uuid.UUID, time.Time, time.Time, int, error) {
-	ids, err := inputUUIDs(input["resource_ids"])
+	ids, err := queryResourceIDs(input)
 	if err != nil {
 		return nil, time.Time{}, time.Time{}, 0, err
 	}
@@ -313,6 +335,7 @@ func dslQueryInputSchema(language, signal string) map[string]any {
 		queryField = "document"
 	}
 	properties := map[string]any{
+		"scope":        ModelScopeSchema(),
 		queryField:     map[string]any{"type": "string", "minLength": 1, "maxLength": 65536},
 		"pipeline":     map[string]any{"type": "string", "maxLength": 16384},
 		"resource_ids": map[string]any{"type": "array", "items": map[string]any{"type": "string", "format": "uuid"}, "minItems": 1, "maxItems": 1000},
@@ -323,15 +346,23 @@ func dslQueryInputSchema(language, signal string) map[string]any {
 		"language":         map[string]any{"const": language}, "signal": map[string]any{"const": signal},
 	}
 	if language == "promql" {
+		properties["from"].(map[string]any)["description"] = "Original requested absolute window start; must be earlier than to, including instant queries. Do not replace with the evaluation/end timestamp."
+		properties["to"].(map[string]any)["description"] = "Original requested absolute window end, later than from. An instant query evaluates here while preserving the original positive window."
+		properties["step_seconds"].(map[string]any)["description"] = "Omit or use0 for one instant evaluation at to; positive values evaluate a range. Neither mode permits from=to."
+		properties["scope"].(map[string]any)["description"] = "Use explicit typed resources and the actual observed full scope.source_keys for a source-version constraint. A source revision is not automatically a metric label; use only labels/values established by the current catalog."
 		properties["max_samples"] = map[string]any{"type": "integer", "minimum": 1, "maximum": HardMaxSamples}
 		properties["max_series"] = map[string]any{"type": "integer", "minimum": 1, "maximum": HardMaxSeries}
 	}
+	if language == "kql" {
+		properties[queryField].(map[string]any)["description"] = modelLogSyntaxGuidance
+	}
+
 	if language == "skywalking_graphql" {
 		properties["operation_name"] = map[string]any{"type": "string", "maxLength": 256}
 		properties["variables"] = map[string]any{"type": []string{"object", "null"}, "maxProperties": 64}
 		return traceToolQuerySchema(map[string]any{"type": "object", "properties": properties, "additionalProperties": false})
 	}
-	return map[string]any{"type": "object", "properties": properties, "required": []string{queryField, "resource_ids", "from", "to"}, "additionalProperties": false}
+	return map[string]any{"type": "object", "properties": properties, "required": []string{queryField, "from", "to"}, "oneOf": modelScopeAlternatives(), "additionalProperties": false}
 }
 
 func promQLOutputSchema() map[string]any {
@@ -352,12 +383,33 @@ func protocolQueryOutput(result queryengine.Result) map[string]any {
 		"scanned_bytes": result.Meta.ScannedBytes, "scanned_rows": result.Meta.ScannedRows, "returned_rows": result.Meta.ReturnedRows,
 		"loaded_samples": result.Meta.LoadedSamples, "elapsed_ms": result.Meta.ElapsedMillis, "partial": result.Meta.Partial,
 	}
+	if result.Meta.LatestSampleAt != nil {
+		meta["latest_sample_at"] = result.Meta.LatestSampleAt
+	}
+	if result.Meta.QueryCompletedAt != nil {
+		meta["query_completed_at"] = result.Meta.QueryCompletedAt
+	}
+	if result.Meta.SampleTimeBasis != "" {
+		meta["sample_time_basis"] = result.Meta.SampleTimeBasis
+	}
+	if result.Meta.IngestionStatus != "" {
+		meta["ingestion_status"] = result.Meta.IngestionStatus
+	}
+	if result.Meta.InputMetricsOrigin != "" {
+		meta["input_metrics"] = result.Meta.InputMetrics
+		meta["input_metrics_complete"] = result.Meta.InputMetricsComplete
+		meta["input_metrics_origin"] = result.Meta.InputMetricsOrigin
+		meta["result_is_original_metric"] = result.Meta.ResultIsOriginalMetric
+	}
 	warnings := result.Meta.Warnings
 	if warnings == nil {
 		warnings = []string{}
 	}
 	switch result.Language {
 	case queryengine.LanguagePromQL:
+		if points := promQLReturnedPoints(result.ResultType, result.Data); points != nil {
+			meta["returned_points"] = points
+		}
 		return map[string]any{"status": "success", "data": map[string]any{"resultType": result.ResultType, "result": result.Data}, "warnings": warnings, "argus_meta": meta}
 	case queryengine.LanguageTrace:
 		return map[string]any{"data": result.Data, "extensions": map[string]any{"argus": meta}}

@@ -57,7 +57,7 @@ func (service Service) CreationCatalog(ctx context.Context, actor Actor, offset,
 					}
 				}
 				if len(matched) > 0 {
-					capabilities = append(capabilities, map[string]any{"source_type": kind, "signal": signal, "capability_version": "v1", "resource_ids": matched, "data_state": "not_sampled"})
+					capabilities = append(capabilities, map[string]any{"source_type": kind, "signal": signal, "capability_version": "v1", "resource_ids": matched, "data_state": "not_checked", "sampling_performed": false, "data_state_reason": "Resource discovery does not query samples. This does not mean missing data or delayed registration; use catalog/query to determine observed availability."})
 				}
 			}
 		}

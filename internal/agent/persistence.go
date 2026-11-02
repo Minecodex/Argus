@@ -6,10 +6,15 @@ import (
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 )
 
-func persistModelDispatch(ctx context.Context, store *postgres.Store, params db.MarkModelDispatchedParams) error {
+func persistModelDispatch(ctx context.Context, store *postgres.Store, params db.MarkModelDispatchedParams, inlineReceipts ...[]byte) error {
 	return fencedModelRecordTransaction(ctx, store, func(q *db.Queries) error {
 		if err := q.MarkModelDispatched(ctx, params); err != nil {
 			return err
+		}
+		if len(inlineReceipts) > 0 {
+			if err := q.SetModelInlineQueryReceipts(ctx, db.SetModelInlineQueryReceiptsParams{ID: params.ID, EnterpriseID: params.EnterpriseID, Column3: inlineReceipts[0]}); err != nil {
+				return err
+			}
 		}
 		return q.RecordRemoteModelDispatchHash(ctx, db.RecordRemoteModelDispatchHashParams{ModelCallID: params.ID, EnterpriseID: params.EnterpriseID})
 	})

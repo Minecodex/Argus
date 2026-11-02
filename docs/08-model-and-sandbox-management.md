@@ -12,7 +12,13 @@
 
 管理员在一个抽屉填写名称、API 地址、API Key、模型 ID、每百万输入 Token 金额和每百万输出 Token 金额，点击“测试并创建”。服务端必须测试 OpenAI Compatible 请求、流式响应、Tool Calling 和结构化输出。
 
-Tool Calling 与结构化输出全部通过才创建并启用模型；Context Window 和最大输出 Token 必须由受信配置或探测结果固化。Provider 原生 Compaction 是可选能力，缺失时使用 Argus 自己的 ContextAssembler/ContextSnapshot。失败只返回诊断，不产生可用模型。修改 Base URL、API Key 或模型 ID 时必须重新测试；名称和价格修改不要求重新测试。测试失败、停用或健康不可用的模型不能用于新消息。
+Tool Calling 与结构化输出全部通过才创建并启用模型；Context Window 和最大输出 Token 必须由受信配置或探测结果固化。Provider 原生 Compaction 是可选能力，缺失时使用 Argus 自己的 ContextAssembler/ContextSnapshot。失败只返回诊断，不产生可用模型。修改 Base URL、API Key、模型 ID、API 协议或思考深度时必须重新测试；名称和价格修改不要求重新测试。测试失败、停用或健康不可用的模型不能用于新消息。
+
+### 思考深度
+
+创建和编辑模型的同一表单提供“供应商默认 / 低 / 中 / 高 / 最高”（`provider_default / low / medium / high / max`），列表展示已保存档位。默认表示不发送覆盖参数，具体支持范围由端点和模型决定；不是每个模型都支持全部档位。思考深度与最大输出 Token 独立，较深档位可能增加延迟与 Token。当前显式档位仅对 Chat Completions 开放；Responses 继续使用供应商默认，用户切换到该协议时表单明确重置并禁用档位。
+
+创建、修改和重新测试使用同一档位完成流式、工具和结构化输出等兼容性检查；失败不得创建可用模型或覆盖现有版本，不静默改成其他档位。成功后保存到模型版本的 `capabilities.reasoning_effort`，推理、压缩及请求容量计算读取同一版本。API 更新省略该字段保留已有设置，显式 `provider_default` 创建清除覆盖的新版本；只写密钥继续不回显。已开始 Run 固定原模型版本，修改只影响后续消息；模型设置不扩大工具、资源或执行权限。
 
 ## 3. 会话模型选择
 

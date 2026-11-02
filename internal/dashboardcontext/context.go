@@ -18,15 +18,18 @@ import (
 )
 
 type Selection struct {
-	Mode            string      `json:"mode"`
-	DashboardIDs    []uuid.UUID `json:"dashboard_ids"`
-	ExpectedVersion *int64      `json:"expected_version,omitempty"`
+	ResourceRefs    []toolruntime.ResourceRef `json:"resource_refs,omitempty"`
+	Mode            string                    `json:"mode"`
+	DashboardIDs    []uuid.UUID               `json:"dashboard_ids"`
+	ExpectedVersion *int64                    `json:"expected_version,omitempty"`
 }
 type Snapshot struct {
-	Schema       string      `json:"schema_version"`
-	Mode         string      `json:"mode"`
-	DashboardIDs []uuid.UUID `json:"dashboard_ids"`
-	Version      int64       `json:"version"`
+	ResourceRefs []toolruntime.ResourceRef `json:"resource_refs,omitempty"`
+	TaskScope    string                    `json:"task_scope,omitempty"`
+	Schema       string                    `json:"schema_version"`
+	Mode         string                    `json:"mode"`
+	DashboardIDs []uuid.UUID               `json:"dashboard_ids"`
+	Version      int64                     `json:"version"`
 }
 type Prepared struct {
 	Snapshot    Snapshot
@@ -35,7 +38,7 @@ type Prepared struct {
 }
 
 func None() Snapshot {
-	return Snapshot{Schema: "argus.dashboard_context/v1", Mode: "none", DashboardIDs: []uuid.UUID{}}
+	return Snapshot{Schema: "argus.dashboard_context/v1", Mode: "none", TaskScope: GeneralDiagnosis, DashboardIDs: []uuid.UUID{}}
 }
 func invalid() error  { return toolruntime.Error{Kind: "DASHBOARD_INVALID"} }
 func conflict() error { return toolruntime.Error{Kind: "TOOL_CONFIGURATION_CHANGED"} }
@@ -54,13 +57,21 @@ func Current(ctx context.Context, q *db.Queries, p toolruntime.Principal) (Snaps
 	return result, nil
 }
 func Validate(ctx context.Context, q *db.Queries, p toolruntime.Principal, s Snapshot) error {
+	if len(s.ResourceRefs) > 0 {
+		if _, err := resourceHintFacts(ctx, q, p, s.ResourceRefs); err != nil {
+			return err
+		}
+	}
 	if s.Schema != "argus.dashboard_context/v1" || len(s.DashboardIDs) > 20 || s.Version < 0 {
 		return invalid()
 	}
-	if !slices.Contains([]string{"none", "analyze", "create"}, s.Mode) || s.Mode == "none" && len(s.DashboardIDs) > 0 {
+	if s.TaskScope != "" && (!slices.Contains([]string{GeneralDiagnosis, DashboardAnalysis, DashboardAuthoring}, s.TaskScope) || s.Mode == "create" && s.TaskScope != DashboardAuthoring || s.TaskScope == DashboardAuthoring && s.Mode != "create" || s.TaskScope == DashboardAnalysis && s.Mode != "analyze") {
 		return invalid()
 	}
-	if s.Mode == "none" {
+	if !slices.Contains([]string{"none", "analyze", "create"}, s.Mode) || s.Mode == "none" && len(s.DashboardIDs) > 0 && s.TaskScope != GeneralDiagnosis {
+		return invalid()
+	}
+	if s.Mode == "none" && len(s.DashboardIDs) == 0 {
 		return nil
 	}
 	actor := dashboardaccess.Actor{EnterpriseID: p.EnterpriseID, SubjectID: p.UserID, SubjectType: "user", AuthorizationVersion: p.AuthorizationVersion}
@@ -99,18 +110,35 @@ func Prepare(ctx context.Context, q *db.Queries, p toolruntime.Principal, input 
 			return result, conflict()
 		}
 		result.Snapshot.Mode = input.Mode
+		result.Snapshot.ResourceRefs = slices.Clone(input.ResourceRefs)
+		result.Snapshot.TaskScope = scopeForMode(input.Mode)
 		result.Snapshot.DashboardIDs = append([]uuid.UUID{}, input.DashboardIDs...)
-		result.Changed = input.Mode != current.Mode || !slices.Equal(input.DashboardIDs, current.DashboardIDs)
+		result.Changed = input.Mode != current.Mode || !slices.Equal(input.DashboardIDs, current.DashboardIDs) || result.Snapshot.TaskScope != current.TaskScope || !slices.Equal(input.ResourceRefs, current.ResourceRefs)
 		if result.Changed {
 			result.Snapshot.Version++
 		}
-	} else if current.Mode == "analyze" {
+	} else if current.Mode == "analyze" && current.TaskScope == "" {
 		// Manual analysis hints apply to their admission only. A new ordinary
 		// message discovers its own objects, so old revoked hints cannot block a
 		// correction or an unrelated question after the scope editor is removed.
 		result.Snapshot.Mode = "none"
+		result.Snapshot.TaskScope = GeneralDiagnosis
 		result.Snapshot.DashboardIDs = []uuid.UUID{}
 		result.Snapshot.Version++
+		result.Changed = true
+	}
+	if result.Snapshot.TaskScope == "" {
+		result.Snapshot.TaskScope = scopeForMode(result.Snapshot.Mode)
+		if !result.Changed {
+			result.Snapshot.Version++
+		}
+		result.Changed = true
+	}
+	if input == nil && len(result.Snapshot.ResourceRefs) > 0 {
+		result.Snapshot.ResourceRefs = nil
+		if !result.Changed {
+			result.Snapshot.Version++
+		}
 		result.Changed = true
 	}
 	return result, Validate(ctx, q, p, result.Snapshot)
@@ -154,7 +182,9 @@ func ForRun(ctx context.Context, q *db.Queries, p toolruntime.Principal, run uui
 		if e != nil || r.ActorUserID != p.UserID || r.ConversationID != p.ConversationID {
 			return Snapshot{}, dashboardaccess.ErrDenied
 		}
-		return None(), nil
+		legacy := None()
+		legacy.TaskScope = ""
+		return legacy, nil
 	}
 	if err != nil {
 		return Snapshot{}, err
@@ -174,6 +204,20 @@ type contextKey struct{}
 
 func Command(content string) *Selection {
 	words := strings.Fields(content)
+	if len(words) > 0 && (words[0] == "/分析仪表盘" || words[0] == "/analyze-dashboard") {
+		return &Selection{Mode: "analyze", DashboardIDs: []uuid.UUID{}}
+	}
+	if len(words) > 0 && (words[0] == "/综合诊断" || words[0] == "/diagnose") {
+		return &Selection{Mode: "none", DashboardIDs: []uuid.UUID{}}
+	}
+	trimmed := strings.TrimSpace(content)
+	if (strings.HasPrefix(trimmed, "只分析") || strings.HasPrefix(trimmed, "仅分析")) && strings.Contains(strings.SplitN(trimmed, "\n", 2)[0], "仪表盘") {
+		return &Selection{Mode: "analyze", DashboardIDs: []uuid.UUID{}}
+	}
+	lower := strings.ToLower(trimmed)
+	if (strings.HasPrefix(lower, "only analyze ") || strings.HasPrefix(lower, "only analyse ")) && strings.Contains(strings.SplitN(lower, "\n", 2)[0], "dashboard") {
+		return &Selection{Mode: "analyze", DashboardIDs: []uuid.UUID{}}
+	}
 	if len(words) > 0 && (words[0] == "/创建仪表盘" || words[0] == "/create-dashboard") {
 		return &Selection{Mode: "create", DashboardIDs: []uuid.UUID{}}
 	}
@@ -192,6 +236,10 @@ func Facts(ctx context.Context, q *db.Queries, p toolruntime.Principal, s Snapsh
 		return nil, err
 	}
 	refs := []map[string]any{}
+	hints, err := resourceHintFacts(ctx, q, p, s.ResourceRefs)
+	if err != nil {
+		return nil, err
+	}
 	for _, id := range s.DashboardIDs {
 		d, err := q.GetDashboard(ctx, db.GetDashboardParams{ID: id, EnterpriseID: p.EnterpriseID})
 		if err != nil {
@@ -210,7 +258,7 @@ func Facts(ctx context.Context, q *db.Queries, p toolruntime.Principal, s Snapsh
 	// Fixed-width UTC timestamps keep admission and the first worker request
 	// byte-identical in size. Before a Run exists no budget is reserved yet;
 	// expose that state without inventing a balance.
-	facts := map[string]any{"schema_version": s.Schema, "mode": s.Mode, "version": s.Version, "selected_dashboards": refs, "selection_policy": "automatic", "selection_required": false,
+	facts := map[string]any{"schema_version": s.Schema, "mode": s.Mode, "task_scope": EffectiveTaskScope(s), "resource_refs": hints, "version": s.Version, "selected_dashboards": refs, "selection_policy": "automatic", "selection_required": false,
 		"run_budget_status": "not_started", "run_budget_observed_at": time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z")}
 	if len(runs) > 0 && runs[0] != uuid.Nil {
 		budget, err := q.GetDashboardRunBudget(ctx, db.GetDashboardRunBudgetParams{RunID: runs[0], EnterpriseID: p.EnterpriseID, OwnerUserID: p.UserID})

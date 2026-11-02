@@ -212,6 +212,20 @@ func (a *App) realModelTask(ctx context.Context, env *E2EEnvironment, conversati
 		}
 		if failure != nil && env.Options.Suite == "plan8" {
 			failure = errors.Join(failure, a.plan8StopFailedModelTask(ctx, env, run))
+			if sample.ModelCalls == 0 {
+				// A caller deadline must not turn actual failed/retried calls
+				// into a zero-cost sample. Stop first, then read settled facts
+				// through a separate bounded accounting context.
+				accounting, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+				defer cancel()
+				refreshed, err := a.p5BenchmarkSample(accounting, env, id, run)
+				if err == nil {
+					refreshed.Passed = false
+					sample = refreshed
+				} else {
+					failure = errors.Join(failure, fmt.Errorf("failed task accounting remains incomplete: %w", err))
+				}
+			}
 		}
 	}()
 	for _, prepare := range afterStart {

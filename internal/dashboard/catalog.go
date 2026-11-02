@@ -93,5 +93,6 @@ func (runtime Runtime) Catalog(ctx context.Context, actor Actor, input CatalogIn
 	if err := runtime.checkQueryScope(ctx, actor, queryScope{Resources: snapshot.Refs(), Sources: sources}, input.Signal); err != nil {
 		return empty, err
 	}
+	enrichAuthoringMetricGuidance(&data, sources)
 	return data, nil
 }

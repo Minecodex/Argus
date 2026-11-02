@@ -1,10 +1,12 @@
 package dashboard
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/modelmetrics"
 )
 
 func TestPostgresOwnTemplatesDiscoverNewBuiltinsWithoutLeakingPrivateResources(t *testing.T) {
@@ -16,6 +18,7 @@ func TestPostgresOwnTemplatesDiscoverNewBuiltinsWithoutLeakingPrivateResources(t
 			t.Fatal(err)
 		}
 	}
+	execute("DELETE FROM role_permissions WHERE permission_id='telemetry.dashboard.manage' AND role_id IN (SELECT role_id FROM role_bindings WHERE enterprise_id=$1 AND subject_type='user' AND subject_id=$2)", f.actor.EnterpriseID, f.actor.SubjectID)
 	visible, private, distribution := uuid.New(), uuid.New(), uuid.New()
 	execute("INSERT INTO collector_distribution_versions(id,name,version,collector_version,config_schema_version,support_status,artifact_manifest,catalog_revision) VALUES($1,'Own template regression',$2,'fixture','v1','supported','[]',1)", distribution, distribution.String())
 	for _, host := range []uuid.UUID{visible, private} {
@@ -50,6 +53,33 @@ func TestPostgresOwnTemplatesDiscoverNewBuiltinsWithoutLeakingPrivateResources(t
 	if names["Host"] {
 		t.Fatal("private Host collection leaked its managed template")
 	}
+	interactiveRows, err := service.List(Interactive(ctx), f.actor)
+	if err != nil || len(interactiveRows) != len(rows) {
+		t.Fatalf("read-only interactive/native directory differs: %d/%d %v", len(interactiveRows), len(rows), err)
+	}
+	ids := map[uuid.UUID]bool{}
+	for _, row := range rows {
+		ids[row.ID] = true
+		if row.Name == "Host processes" || row.Name == "Linux system services" {
+			item, revision, err := service.Get(ctx, f.actor, row.ID)
+			if err != nil || item.ID != row.ID || revision.ID != item.ActiveRevisionID.UUID {
+				t.Fatalf("read-only default definition unavailable: %v", err)
+			}
+		}
+	}
+	for _, row := range interactiveRows {
+		if !ids[row.ID] {
+			t.Fatal("interactive directory exposed an extra private dashboard")
+		}
+	}
+	for _, readContext := range []context.Context{ctx, Interactive(ctx)} {
+		if _, _, err := service.Get(readContext, f.actor, modelmetrics.DashboardID(f.actor.EnterpriseID)); !errors.Is(err, ErrDenied) {
+			t.Fatalf("ordinary reader accessed model governance: %v", err)
+		}
+	}
+	if _, err := service.CreateDraft(ctx, f.actor, DraftInput{Name: "Unapproved read-only draft"}); !errors.Is(err, ErrDenied) {
+		t.Fatalf("read-only discovery granted dashboard authoring: %v", err)
+	}
 	execute("DELETE FROM data_authorization_grants WHERE id=$1", grant)
 	rows, err = service.List(ctx, f.actor)
 	if err != nil {
@@ -59,6 +89,10 @@ func TestPostgresOwnTemplatesDiscoverNewBuiltinsWithoutLeakingPrivateResources(t
 		if row.Name == "Host processes" || row.Name == "Linux system services" {
 			t.Fatal("revoked Host grant retained default dashboard discovery")
 		}
+	}
+	interactiveRows, err = service.List(Interactive(ctx), f.actor)
+	if err != nil || len(interactiveRows) != len(rows) {
+		t.Fatalf("interactive directory retained revoked defaults: %v", err)
 	}
 }
 
@@ -71,6 +105,7 @@ func TestPostgresManagedBindingsUseDefinitionReadPolicyAndKeepResourceGrants(t *
 			t.Fatal(err)
 		}
 	}
+	execute("DELETE FROM role_permissions WHERE permission_id='telemetry.dashboard.manage' AND role_id IN (SELECT role_id FROM role_bindings WHERE enterprise_id=$1 AND subject_type='user' AND subject_id=$2)", f.actor.EnterpriseID, f.actor.SubjectID)
 	execute("INSERT INTO role_permissions(role_id,permission_id) SELECT role_id,'host.read' FROM role_bindings WHERE enterprise_id=$1 AND subject_type='user' AND subject_id=$2 ON CONFLICT DO NOTHING", f.actor.EnterpriseID, f.actor.SubjectID)
 	host, grant := uuid.New(), uuid.New()
 	execute("INSERT INTO hosts(id,enterprise_id,name,address,port,platform,role,control_path,environment,labels_hash) VALUES($1,$2,'Bound host','127.0.0.1',22,'linux','managed_host','direct','development',decode(repeat('00',32),'hex'))", host, f.actor.EnterpriseID)

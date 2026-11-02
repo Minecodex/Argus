@@ -60,6 +60,7 @@ export const ERROR_CODES = [
   "ALERT_EVALUATOR_UNAVAILABLE",
   "ALERT_UNAVAILABLE",
   "DASHBOARD_CONDITION_EVIDENCE_REQUIRED",
+  "DASHBOARD_RESOURCE_SCOPE_REQUIRED",
   "DASHBOARD_CONDITIONS_INCOMPATIBLE",
   "DASHBOARD_SELECTION_REQUIRED",
   "DASHBOARD_SELECTION_STALE",
@@ -632,6 +633,8 @@ const errorSpecialZhMap: Record<string, string> = {
   DASHBOARD_SELECTION_REQUIRED: "需要先读取仪表盘定义，才能继续查询或编辑。",
   DASHBOARD_CONDITION_EVIDENCE_REQUIRED:
     "参数变更需要关联用户消息，或记录 AI 自主选择的依据。",
+  DASHBOARD_RESOURCE_SCOPE_REQUIRED:
+    "请明确本次分析的资源范围，或继承已确认的资源条件。",
   DASHBOARD_CONDITIONS_INCOMPATIBLE:
     "已发布参数的含义发生变化，请重新明确相关条件或恢复默认值。",
   DASHBOARD_SELECTION_STALE: "所选数据已变化，请刷新后再打开详情。",
@@ -886,6 +889,8 @@ const errorSpecialEnMap: Record<string, string> = {
   ALERT_UNAVAILABLE: "The alert service or query engine is unavailable.",
   DASHBOARD_CONDITION_EVIDENCE_REQUIRED:
     "Parameter changes require a user-message reference or a reason for the AI choice.",
+  DASHBOARD_RESOURCE_SCOPE_REQUIRED:
+    "Choose the resources for this analysis, or inherit confirmed resource conditions.",
   DASHBOARD_CONDITIONS_INCOMPATIBLE:
     "Published parameter meanings changed. Specify the affected conditions again or reset them to defaults.",
   DASHBOARD_SELECTION_REQUIRED:

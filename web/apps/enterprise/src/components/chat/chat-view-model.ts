@@ -1,6 +1,7 @@
 import type { ConversationEvent } from "@argus/api-client/contracts";
 import { timelineFromEvents } from "./chat-timeline";
-import { parseToolDisplay, type ToolDisplay } from "./tool-display";
+import { parseSourceToolDisplay, type ToolDisplay } from "./tool-display";
+import { parseChatTaskScope, type ChatTaskScope } from "./task-scope";
 export type MessageRole = "user" | "assistant" | "system";
 
 export interface ToolCallTrace {
@@ -28,6 +29,7 @@ export interface ChatMessage {
   streamEntries?: ChatMessage[];
   isStreaming?: boolean;
   dashboardContext?: import("@argus/api-client").DashboardChatSelection;
+  taskScope?: ChatTaskScope;
   id: string;
   conversationId: string;
   role: MessageRole;
@@ -72,6 +74,38 @@ function dashboardReference(value: unknown): ChatMessage["dashboardContext"] {
   return {
     mode: data.mode as "none" | "analyze" | "create",
     dashboard_ids: data.dashboard_ids,
+    resource_refs: Array.isArray(data.resource_refs)
+      ? data.resource_refs.filter(
+          (
+            item,
+          ): item is {
+            type:
+              | "host"
+              | "kubernetes_cluster"
+              | "kubernetes_namespace"
+              | "application"
+              | "monitoring_target"
+              | "connector"
+              | "dashboard";
+            id: string;
+          } => {
+            const ref = record(item);
+            return (
+              !!ref &&
+              typeof ref.id === "string" &&
+              [
+                "host",
+                "kubernetes_cluster",
+                "kubernetes_namespace",
+                "application",
+                "monitoring_target",
+                "connector",
+                "dashboard",
+              ].includes(String(ref.type))
+            );
+          },
+        )
+      : undefined,
   };
 }
 
@@ -116,7 +150,7 @@ export function chatMessageFromPublic(value: unknown): ChatMessage | null {
             status,
             startedAt,
             summary: stringValue(item.summary),
-            display: parseToolDisplay(item.display),
+            display: parseSourceToolDisplay(item.display, item.source),
             durationMs: numberValue(item.duration_ms),
             ...(item.input !== undefined ? { input: item.input } : {}),
             ...(item.output !== undefined ? { output: item.output } : {}),
@@ -131,6 +165,7 @@ export function chatMessageFromPublic(value: unknown): ChatMessage | null {
     role,
     content,
     dashboardContext: dashboardReference(source.dashboard_context),
+    taskScope: parseChatTaskScope(record(source.dashboard_context)?.task_scope),
     createdAt,
     modelId: stringValue(source.model_id),
     modelRevision: numberValue(source.model_revision),

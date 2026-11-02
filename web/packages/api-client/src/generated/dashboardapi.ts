@@ -611,7 +611,7 @@ export interface components {
             expected_version: number;
             changes: components["schemas"]["DashboardConditionPatch"];
             evidence: ({
-                /** @description JSON pointer for each changed condition; / for reset_all */
+                /** @description Condition-relative JSON pointer, for example /time, /resources, /variables/env or /local_values/cpu/device; / for reset_all. The pointer starts at the condition object, without a changes prefix. Supply one entry per changed condition and preserve all user resource/time conditions when correcting evidence. */
                 path: string;
                 /** @description Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness */
                 quote?: string;
@@ -1053,7 +1053,35 @@ export interface components {
             /** @description Optional deterministic lossless conversions and standard drilldowns, applied atomically with the version-checked draft save. Omission does not modify the supplied definition. */
             preparation?: components["schemas"]["DashboardDraftPreparation"];
         };
+        DashboardExecutionInput: {
+            /** @description Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode. */
+            candidates_only?: boolean;
+            /** Format: date-time */
+            from?: string;
+            /** Format: date-time */
+            to?: string;
+            resource_ids?: string[];
+            panel_ids?: string[];
+            variables?: {
+                [key: string]: components["schemas"]["DashboardSelection"];
+            };
+            local_values?: {
+                [key: string]: {
+                    [key: string]: components["schemas"]["DashboardSelection"];
+                };
+            };
+            /**
+             * @description all_authorized selects current grants; explicit preserves an empty resource_ids set
+             * @enum {string}
+             */
+            resource_mode?: "all_authorized" | "explicit";
+            resource_types?: ("host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace")[];
+            /** @enum {string} */
+            application_mode?: "all_authorized" | "explicit";
+            application_ids?: string[];
+        };
         DashboardVersionInput: {
+            parameters?: components["schemas"]["DashboardExecutionInput"];
             /** Format: int64 */
             expected_version: number;
         };
@@ -1126,33 +1154,6 @@ export interface components {
             description: string;
             /** Format: int32 */
             sort_order: number;
-        };
-        DashboardExecutionInput: {
-            /** @description Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode. */
-            candidates_only?: boolean;
-            /** Format: date-time */
-            from?: string;
-            /** Format: date-time */
-            to?: string;
-            resource_ids?: string[];
-            panel_ids?: string[];
-            variables?: {
-                [key: string]: components["schemas"]["DashboardSelection"];
-            };
-            local_values?: {
-                [key: string]: {
-                    [key: string]: components["schemas"]["DashboardSelection"];
-                };
-            };
-            /**
-             * @description all_authorized selects current grants; explicit preserves an empty resource_ids set
-             * @enum {string}
-             */
-            resource_mode?: "all_authorized" | "explicit";
-            resource_types?: ("host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace")[];
-            /** @enum {string} */
-            application_mode?: "all_authorized" | "explicit";
-            application_ids?: string[];
         };
         DashboardResourceScope: {
             /** Format: uuid */
@@ -1364,7 +1365,33 @@ export interface components {
             application_mode?: "all_authorized" | "explicit";
             application_ids?: string[];
         };
+        ObservationMetricSemantics: {
+            /** @enum {string} */
+            quantity_kind: "ratio";
+            /** @enum {string} */
+            recommended_display_transform: "percent";
+            definition_id: string;
+            definition_version: string;
+            /** @enum {string} */
+            origin: "builtin_collection_definition";
+            notes: string;
+        };
+        ObservationRecipe: {
+            id: string;
+            version: number;
+            title: string;
+            description: string;
+            expression: string;
+            unit: string;
+            source_type: string;
+            integration_key: string;
+            metrics: string[];
+        };
         DashboardMetricDescriptor: {
+            source_type?: string;
+            source_keys?: string[];
+            semantics?: components["schemas"]["ObservationMetricSemantics"];
+            recipes?: components["schemas"]["ObservationRecipe"][];
             name: string;
             type: string;
             unit: string;
@@ -1576,6 +1603,7 @@ export interface components {
             reset_time?: boolean;
             reset_resources?: boolean;
             time?: components["schemas"]["DashboardTimeRange"];
+            /** @description Explicit resource choice for an initial analysis; may be omitted only when inheriting a previously confirmed resource condition or recording an evidenced reset. For named resources use all=false and their authorized IDs. Choose all=true only for an intended all-authorized analysis. */
             resources?: {
                 all: boolean;
                 ids: string[];

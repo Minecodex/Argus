@@ -173,7 +173,7 @@ func (a *App) m4AgentPreview(ctx context.Context, env *E2EEnvironment, hostID, l
 	if err != nil {
 		return "", "", "", err
 	}
-	run, err := a.p5StartRun(ctx, env, convo, "m4-"+label, []p5ToolStep{{"tool.describe", map[string]any{"category": "host", "name": "update.preview"}}, {"tool.invoke", map[string]any{"category": "host", "name": "update.preview", "arguments": map[string]any{"host_id": hostID, "expected_version": version, "labels": map[string]string{"p5-proof": label}}}}}, []string{})
+	run, err := a.p5StartRun(ctx, env, convo, "m4-"+label, []p5ToolStep{{"tool.search", map[string]any{"category": "host"}}, {"tool.describe", map[string]any{"category": "host", "name": "update.preview"}}, {"tool.invoke", map[string]any{"category": "host", "name": "update.preview", "arguments": map[string]any{"host_id": hostID, "expected_version": version, "labels": map[string]string{"p5-proof": label}}}}}, []string{})
 	if err != nil {
 		return "", "", "", err
 	}

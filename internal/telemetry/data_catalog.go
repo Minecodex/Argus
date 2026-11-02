@@ -12,8 +12,10 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/builtincollection"
 	"github.com/kakj-go/Argus/internal/resourceref"
 	"github.com/kakj-go/Argus/internal/telemetry/datapolicy"
+	"github.com/kakj-go/Argus/internal/telemetry/metricmeta"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chscope"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chstats"
@@ -43,12 +45,14 @@ type DataCatalogRequest struct {
 	Budget                              queryengine.Budget
 }
 type MetricDescriptor struct {
-	SourceType string   `json:"source_type,omitempty"`
-	SourceKeys []string `json:"source_keys,omitempty"`
-	Name       string   `json:"name"`
-	Type       string   `json:"type"`
-	Unit       string   `json:"unit"`
-	Labels     []string `json:"labels"`
+	Semantics  *builtincollection.MetricSemantics `json:"semantics,omitempty"`
+	Recipes    []ObservationRecipe                `json:"recipes,omitempty"`
+	SourceType string                             `json:"source_type,omitempty"`
+	SourceKeys []string                           `json:"source_keys,omitempty"`
+	Name       string                             `json:"name"`
+	Type       string                             `json:"type"`
+	Unit       string                             `json:"unit"`
+	Labels     []string                           `json:"labels"`
 }
 type CatalogField struct {
 	Name string `json:"name"`
@@ -164,15 +168,15 @@ func (query ClickHouseQuery) DiscoverData(ctx context.Context, request DataCatal
 			read += " AND metric_name>?"
 			args = append(args, after)
 		}
-		rows, e := query.Conn.Query(ctx, "SELECT metric_name, groupUniqArray(concat(metric_type,':',temporality,':',toString(is_monotonic))), any(unit), arraySort(arrayDistinct(arrayFlatten(groupArray(mapKeys(labels))))) FROM "+read+" GROUP BY metric_name ORDER BY metric_name LIMIT ?", append(args, request.Limit+1)...)
+		rows, e := query.Conn.Query(ctx, "SELECT metric_name, groupUniqArray(concat(metric_type,':',temporality,':',toString(is_monotonic))), arraySort(groupUniqArray(unit)), arraySort(arrayDistinct(arrayFlatten(groupArray(mapKeys(labels))))), arraySort(groupUniqArray(source_type)), arraySort(groupUniqArray(source_key)) FROM "+read+" GROUP BY metric_name ORDER BY metric_name LIMIT ?", append(args, request.Limit+1)...)
 		if e != nil {
 			return result, e
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var item MetricDescriptor
-			var types []string
-			if e := rows.Scan(&item.Name, &types, &item.Unit, &item.Labels); e != nil {
+			var types, units, sourceTypes []string
+			if e := rows.Scan(&item.Name, &types, &units, &item.Labels, &sourceTypes, &item.SourceKeys); e != nil {
 				return result, e
 			}
 			if len(result.Metrics) == request.Limit {
@@ -182,6 +186,14 @@ func (query ClickHouseQuery) DiscoverData(ctx context.Context, request DataCatal
 				break
 			}
 			item.Type = metricDescriptorType(types)
+			if len(units) == 1 {
+				item.Unit = units[0]
+			} else {
+				item.Type = "mixed"
+			}
+			if len(sourceTypes) == 1 {
+				item.SourceType = sourceTypes[0]
+			}
 			result.Metrics = append(result.Metrics, item)
 		}
 		if e := rows.Err(); e != nil {
@@ -418,11 +430,5 @@ func metricDescriptorType(types []string) string {
 	if len(parts) != 3 {
 		return "unknown"
 	}
-	if parts[0] == "sum" {
-		if strings.HasSuffix(strings.ToLower(parts[1]), "cumulative") && (parts[2] == "true" || parts[2] == "1") {
-			return "counter"
-		}
-		return "gauge"
-	}
-	return parts[0]
+	return metricmeta.Kind(parts[0], parts[1], parts[2] == "true" || parts[2] == "1")
 }

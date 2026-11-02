@@ -15,6 +15,7 @@ func (a *App) verifyM7OverviewPresentation(ctx context.Context, env *E2EEnvironm
 		return err
 	}
 	run, err := a.p5Run(ctx, env, conversation, "m7-overview", []p5ToolStep{
+		{"tool.search", map[string]any{"category": "metric"}},
 		{"tool.describe", map[string]any{"category": "metric", "name": "overview"}},
 		{"tool.invoke", map[string]any{"category": "metric", "name": "overview", "arguments": map[string]any{"resource_ids": []string{resourceID}, "lookback_seconds": 3600}}},
 	}, []string{})

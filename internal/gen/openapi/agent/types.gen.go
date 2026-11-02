@@ -34,9 +34,10 @@ func (e ModelCapabilitiesOutputTokenParameter) Valid() bool {
 
 // Defines values for ModelCapabilitiesReasoningEffort.
 const (
-	High ModelCapabilitiesReasoningEffort = "high"
-	Low  ModelCapabilitiesReasoningEffort = "low"
-	Max  ModelCapabilitiesReasoningEffort = "max"
+	High   ModelCapabilitiesReasoningEffort = "high"
+	Low    ModelCapabilitiesReasoningEffort = "low"
+	Max    ModelCapabilitiesReasoningEffort = "max"
+	Medium ModelCapabilitiesReasoningEffort = "medium"
 )
 
 // Valid indicates whether the value is a known member of the ModelCapabilitiesReasoningEffort enum.
@@ -47,6 +48,8 @@ func (e ModelCapabilitiesReasoningEffort) Valid() bool {
 	case Low:
 		return true
 	case Max:
+		return true
+	case Medium:
 		return true
 	default:
 		return false
@@ -323,6 +326,8 @@ type ToolMetadata struct {
 
 // ToolResultProjection defines model for ToolResultProjection.
 type ToolResultProjection struct {
+	// InlineOriginalComplete Framework-authored native query certificate: original at most 32768 bytes equals the actual sanitized, nonpartial summary. Absence means false. Direct analysis additionally requires current authorized query_evidence.inline_original_in_context; a historical flag alone is insufficient.
+	InlineOriginalComplete  *bool               `json:"inline_original_complete,omitempty"`
 	OriginalBytes           int                 `json:"original_bytes"`
 	Partial                 bool                `json:"partial"`
 	PartialReasons          *[]interface{}      `json:"partial_reasons,omitempty"`
@@ -335,6 +340,13 @@ type ToolResultProjection struct {
 	SchemaVersion           interface{}         `json:"schema_version"`
 	Summary                 PublicJsonObject    `json:"summary"`
 	ToolCallId              string              `json:"tool_call_id"`
+	WorkspaceFile           *struct {
+		Delivery        interface{} `json:"delivery"`
+		Instructions    string      `json:"instructions"`
+		Path            string      `json:"path"`
+		Sha256          *string     `json:"sha256,omitempty"`
+		SourceResultRef string      `json:"source_result_ref"`
+	} `json:"workspace_file,omitempty"`
 }
 
 // AsPublicJsonValue1 returns the union data inside the PublicJsonValue as a PublicJsonValue1
