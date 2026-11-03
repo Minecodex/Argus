@@ -274,6 +274,7 @@ context_window_tokens - reserved_output_tokens - safety_margin_tokens
 - 当前等待事项、未完成 ToolCall、活动 PendingAction 及执行结果仍由服务端事实投影重建；摘要不能产生批准、恢复权限或重放副作用。切点、原文来源范围及实际模型请求 Hash 共同记录来源。
 - 单个最新用户输入本身超过预算时返回稳定错误并引导使用文件/Artifact，不能静默截断用户请求。
 - 消息接受、Agent 与 Compactor 使用同一预算实现。不可压缩的工具/系统/当前输入必须严格小于 `floor(usable × 0.85)`；达到阈值时在创建 Run/Task 前返回 `MODEL_TOOL_CAPACITY_EXCEEDED`，不能接受后再因无历史可压缩而失败。
+- 新 Run 的最低请求预算包含 `query_evidence` 空清单及完整固定说明；预检与 Worker 共用该上下文定义，Worker 再按当前 Run 和授权填充证据条目。双协议回归比较实际请求字节，并验证独占容量边界前一字节、边界值和超限值的接受/拒绝结果。
 - System Prompt、Tool Schema、Typed Checkpoint、摘要和最近历史分别记录预算占用。
 
 第一版 Compaction 使用当前 Run 固定的 `model_id + model_revision`，不自动切换廉价模型或 Fallback；压缩调用纳入该用户和部门的 Token/金额结算。

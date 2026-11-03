@@ -43,4 +43,12 @@ R94 实时日志保存了 HTTP 200 响应体 `unexpected_eof`、响应头 EOF �
 - `C:/Users/23574/AppData/Local/Temp/argus-dev-e2e-3732663658`：[原拒绝记录](../../artifacts/plan11/r09-temp-cleanup-blocked.json)。
 - `C:/Users/23574/AppData/Local/Temp/argus-dev-e2e-1647195630`：[本轮拒绝记录](../../artifacts/plan11/r94-fenced-recovery/temp-cleanup-blocked.json)。后续只读核对确认它属于 R94；没有重新尝试删除。
 
-新 R95 正常取消时自动清理的是它新分配的另一临时目录，没有触碰上述两个受阻目标。输入的加密模型凭据和原始证据保留，不将其当作可随意删除的临时文件。当前工作只修改 D 盘候选，C 盘基线和 `docs/plan9` 保持原状，未提交或创建 PR。
+新 R95 正常取消时自动清理的是它新分配的另一临时目录，没有触碰上述两个受阻目标。输入的加密模型凭据和原始证据保留，不将其当作可随意删除的临时文件。11 月 2 日收尾时只修改 D 盘候选，C 盘基线和 `docs/plan9` 保持原状，当时尚未提交或创建 PR。
+
+## 2026-11-03：PR 合并前的预算回归
+
+已提交代码并创建 [PR #7](https://github.com/Minecodex/Argus/pull/7)。首次云端 PostgreSQL 集成检查暴露了工作流测试沿用旧 32K 容量，以及预检缺少 `query_evidence` 固定说明的问题；后者使预检比实际首轮请求少计 1223 字节。
+
+预检与 Worker 现共用原生查询证据上下文定义；新 Run 以空条目计算完整固定开销，运行时仍按当前授权填充条目。双协议测试比较实际请求字节与预检估计；容量测试按当前固定请求校准测试窗口，继续验证独占边界前一字节、边界值和超限值的接受/拒绝，拒绝时不得生成 Run、Task 或事件。工作流测试使用独立的充足容量，原有压缩失败测试保留其较小预算。
+
+已在本机新建、独占的 PostgreSQL 17 容器复现原始失败，并完成 Agent、Conversation、Dashboard、Authorization 四包真实数据库测试，全部通过。全过程未调用真实模型。云端门禁仍以 PR 最新提交的检查结果为准；Plan11 保持 33/35，A25、A35 和实机暂缓项的结论不变。
