@@ -24,6 +24,12 @@ export function TraceWaterfall({
       Number.isFinite(n.duration) &&
       n.duration >= 0,
   );
+  if (!nodes.length)
+    return (
+      <p className="argus-observation-empty" role="status">
+        {text("当前范围没有数据", "No data in this range")}
+      </p>
+    );
   const origin = Math.min(...valid.map((n) => n.start)),
     end = Math.max(...valid.map((n) => n.start + n.duration));
   const total = Math.max(end - origin, 0.001);

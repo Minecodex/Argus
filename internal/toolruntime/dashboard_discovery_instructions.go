@@ -1,0 +1,3 @@
+package toolruntime
+
+const DashboardDiscoveryScopeInstructions = ` For a dashboard search with type, signal or integration conditions, or applicability across several resources, use the existing dashboard/list matcher with those filters and explicit typed resources. The dashboards section of observe/capabilities.get contains navigation links evaluated separately for each resource; it does not establish an aggregate partial match. Only report a returned suitability for its recorded scope. Do not call empty per-resource links a combined partial result or claim a separately requested complete no-match filter was executed when it was not. These are domain responsibilities, not additional parameters on the three meta tools.`

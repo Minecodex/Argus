@@ -52,7 +52,11 @@ func (t MonitoringTools) registerMonitoring(reg *mcp.Registry) error {
 		} else if item.id == "monitoring.collection.list" {
 			fields = []string{"integration", "desired_enabled", "apply_status", "health", "freshness"}
 		}
-		if err := t.register(reg, item.id, item.permission, item.title, "Search a bounded authoritative directory. Follow next_cursor to obtain subsequent pages; a page is not the complete inventory. Application environment is inherited, and relationships do not grant resource access.", domainListSchema(fields...), func(ctx context.Context, a authorization.Actor, c mcp.Call) (any, error) {
+		description := "Search a bounded authoritative directory. Follow next_cursor to obtain subsequent pages; a page is not the complete inventory. Application environment is inherited, and relationships do not grant resource access."
+		if item.id == "monitoring.collection.list" {
+			description += " 本工具 search 匹配采集实例名称，不匹配目标名称或端点。返回项 id 是采集实例 ID，target.id 是另一种身份。已知目标引用时可先使用 observe.capabilities.get 取得其采集项；其他合法路径应按 integration 分页并精确匹配 item.target.kind/id。 Search matches collection instance names, not target names or endpoints. Each item.id is a collection instance ID, distinct from item.target.id. For a known target reference, observe.capabilities.get can return its collections; alternatively page the integration directory and match the exact item.target.kind/id. Tool references still require Search/Describe."
+		}
+		if err := t.register(reg, item.id, item.permission, item.title, description, domainListSchema(fields...), func(ctx context.Context, a authorization.Actor, c mcp.Call) (any, error) {
 			in, e := domainInput[monitoring.ListInput](c)
 			if e != nil {
 				return nil, e
@@ -88,7 +92,14 @@ func (t MonitoringTools) registerMonitoring(reg *mcp.Registry) error {
 			return t.Monitoring.Collection(ctx, a, id)
 		}},
 	} {
-		if err := t.register(reg, item.id, item.permission, item.title, "Read an authorized object's current public state. Desired enablement, effective revision, health and freshness are separate fields.", idSchema("id"), item.run); err != nil {
+		description := "Read an authorized object's current public state. Desired enablement, effective revision, health and freshness are separate fields."
+		schema := idSchema("id")
+		if item.id == "monitoring.collection.get" {
+			identity := "采集实例 ID：使用当前授权 collection.list 项的 id 或 capabilities 的 collection_state 节返回的采集实例 id；不能使用 monitoring_target.id、host.id、cluster.id 或 collector.id。 Collection instance UUID from collection.list item.id or a capability collection_state item.id; target, Host, Cluster and Collector UUIDs are different identities."
+			description += " " + identity
+			schema["properties"].(map[string]any)["id"].(map[string]any)["description"] = identity
+		}
+		if err := t.register(reg, item.id, item.permission, item.title, description, schema, item.run); err != nil {
 			return err
 		}
 	}
@@ -179,12 +190,17 @@ func (t MonitoringTools) registerMonitoringPreviews(reg *mcp.Registry) error {
 		props := schema["properties"].(map[string]any)
 		delete(props, "credentials")
 		props["kind"] = map[string]any{"type": "string", "enum": item.kinds}
+		description := "Prepare an immutable change using the same domain service as the portal. Confirmation is required. Environment cannot be edited; new production/test applications are distinct. Credential replacement requires the trusted portal form. Creating/rotating an SDK Key delivers its value only through the user's one-time result."
+		if item.id == "monitoring.collection.change.preview" {
+			collectionMutationSchema(schema)
+			description = "Preview a collection change using its current id and expected_version. To pause or resume use operation=set_enabled and collection={enabled:false} or {enabled:true}; enabled is nested inside collection, never at the top level. This preserves target, credentials, bindings and all other configuration. Update requires the complete desired public collection; credential replacement uses the trusted form. Wait for host confirmation."
+		}
 		if collection, ok := props["collection"].(map[string]any); ok {
 			if cp, ok := collection["properties"].(map[string]any); ok {
 				cp["credential_update"] = map[string]any{"type": "string", "enum": []string{"keep", "remove"}}
 			}
 		}
-		if err = t.register(reg, item.id, item.permission, item.title, "Prepare an immutable change using the same domain service as the portal. Confirmation is required. Environment cannot be edited; new production/test applications are distinct. Credential replacement requires the trusted portal form. Creating/rotating an SDK Key delivers its value only through the user's one-time result.", schema, func(ctx context.Context, a authorization.Actor, c mcp.Call) (any, error) {
+		if err = t.register(reg, item.id, item.permission, item.title, description, schema, func(ctx context.Context, a authorization.Actor, c mcp.Call) (any, error) {
 			if e := rejectPrivateDomainInput(c.Input); e != nil {
 				return nil, e
 			}

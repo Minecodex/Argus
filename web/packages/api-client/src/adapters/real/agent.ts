@@ -45,6 +45,7 @@ function modelView(value: AIModelContract): AIModel {
     baseUrl: value.base_url,
     modelId: value.model_id,
     apiProtocol: value.api_protocol,
+    reasoningEffort: value.capabilities?.reasoning_effort ?? "provider_default",
     contextWindowTokens: value.context_window_tokens,
     maxOutputTokens: value.max_output_tokens,
     credentialRef: "write-only",
@@ -89,9 +90,13 @@ export function installAgentDomains(context: RealDomainContext): void {
 
   client.conversations = {
     async updateAccessMode(id, access_mode) {
-      return remember(await http.request<ConversationContract>(`conversations/${id}`, {
-        method: "PUT", csrf: true, body: { access_mode, expected_version: expectedVersion(id) },
-      }));
+      return remember(
+        await http.request<ConversationContract>(`conversations/${id}`, {
+          method: "PUT",
+          csrf: true,
+          body: { access_mode, expected_version: expectedVersion(id) },
+        }),
+      );
     },
     async updateMode(id, mode) {
       return remember(
@@ -303,6 +308,7 @@ export function installAgentDomains(context: RealDomainContext): void {
             base_url: input.baseUrl,
             model_id: input.modelId,
             api_protocol: input.apiProtocol,
+            reasoning_effort: input.reasoningEffort,
             api_key: input.apiKey,
             context_window_tokens: input.contextWindowTokens,
             max_output_tokens: input.maxOutputTokens,
@@ -330,6 +336,7 @@ export function installAgentDomains(context: RealDomainContext): void {
               base_url: patch.baseUrl,
               model_id: patch.modelId,
               api_protocol: patch.apiProtocol,
+              reasoning_effort: patch.reasoningEffort,
               api_key: patch.apiKey,
               context_window_tokens: patch.contextWindowTokens,
               max_output_tokens: patch.maxOutputTokens,

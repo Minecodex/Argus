@@ -15,6 +15,7 @@ import (
 // The configuration contains only a reference to a process environment secret.
 // Neither the config nor benchmark evidence carries the resolved API key.
 type p5RealModelConfig struct {
+	DisableMLKEM    bool    `json:"disable_mlkem,omitempty"`
 	BaseURL         string  `json:"base_url"`
 	ModelID         string  `json:"model_id"`
 	Protocol        string  `json:"api_protocol"`
@@ -51,6 +52,9 @@ func loadP5RealModelConfig(path string) (*p5RealModelConfig, error) {
 }
 
 func (c p5RealModelConfig) validate() error {
+	if c.DisableMLKEM && c.EndpointIP == "" {
+		return fmt.Errorf("%w: E2E TLS compatibility requires an explicit public endpoint_ip", errUsage)
+	}
 	endpoint, err := url.Parse(c.BaseURL)
 	if err != nil || len(c.BaseURL) > 2048 || endpoint.Scheme != "https" || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
 		return fmt.Errorf("%w: real-model base_url must be an HTTPS endpoint without credentials, query or fragment", errUsage)

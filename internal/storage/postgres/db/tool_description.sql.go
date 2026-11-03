@@ -28,6 +28,22 @@ SELECT EXISTS (
    AND d.input->>'category'=$6::text
    AND d.input->>'name'=$7::text
    AND result.projection->'summary'->>'version'=$8::text
+   AND EXISTS (
+     SELECT 1 FROM tool_calls searched
+     JOIN tool_results listing ON listing.tool_call_id=searched.id AND listing.enterprise_id=searched.enterprise_id
+     JOIN run_steps search_step ON search_step.id=searched.step_id
+     WHERE searched.enterprise_id=d.enterprise_id AND searched.run_id=d.run_id
+       AND searched.source='argus' AND searched.tool_id='tool.search' AND searched.status='succeeded'
+       AND searched.model_call_id<>d.model_call_id
+       AND search_step.sequence<described_step.sequence
+       AND searched.input->>'category'=$6::text
+       AND listing.projection->'summary'->>'category'=$6::text
+       AND listing.projection->'summary'->>'complete'='true'
+       AND EXISTS (
+         SELECT 1 FROM jsonb_array_elements(coalesce(listing.projection->'summary'->'items','[]'::jsonb)) item
+         WHERE item->>'name'=$7::text AND item->>'version'=$8::text
+       )
+   )
 )
 `
 

@@ -9,6 +9,15 @@ export interface ModelCompatibilityResult {
   diagnostics: string[];
 }
 
+export const modelReasoningEfforts = [
+  "provider_default",
+  "low",
+  "medium",
+  "high",
+  "max",
+] as const;
+export type ModelReasoningEffort = (typeof modelReasoningEfforts)[number];
+
 export interface AIModel {
   id: string;
   enterpriseId: string;
@@ -16,6 +25,7 @@ export interface AIModel {
   baseUrl: string;
   modelId: string;
   apiProtocol: "chat_completions" | "responses";
+  reasoningEffort?: ModelReasoningEffort;
   contextWindowTokens: number;
   maxOutputTokens: number;
   credentialRef: string;
@@ -35,6 +45,7 @@ export interface TestAndCreateAIModelInput {
   apiKey: string;
   modelId: string;
   apiProtocol: "chat_completions" | "responses";
+  reasoningEffort?: ModelReasoningEffort;
   contextWindowTokens: number;
   maxOutputTokens: number;
   inputPricePerMillionTokens: number;
@@ -53,6 +64,7 @@ export interface UpdateAIModelInput {
   apiKey?: string;
   modelId?: string;
   apiProtocol?: "chat_completions" | "responses";
+  reasoningEffort?: ModelReasoningEffort;
   contextWindowTokens?: number;
   maxOutputTokens?: number;
   inputPricePerMillionTokens?: number;

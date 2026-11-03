@@ -78,6 +78,37 @@ describe("conversation event reducer", () => {
     expect(JSON.stringify(completed)).not.toContain("internal_prompt");
   });
 
+  it("reads the backend estimated compaction fields without inventing zero or retaining stale counts", () => {
+    const completed = reduceAgentEvent(
+      initialConversationProjection,
+      event(1, "context_compaction_completed", {
+        estimated_tokens_before: 21000,
+        estimated_tokens_after: 1200,
+      }),
+    );
+    expect(completed.compaction).toEqual({
+      status: "completed",
+      tokens_before: 21000,
+      tokens_after: 1200,
+      estimated: true,
+    });
+    const missing = reduceAgentEvent(
+      completed,
+      event(2, "context_compaction_completed", {}),
+    );
+    expect(missing.compaction.tokens_before).toBeUndefined();
+    expect(missing.compaction.tokens_after).toBeUndefined();
+    const invalid = reduceAgentEvent(
+      missing,
+      event(3, "context_compaction_completed", {
+        estimated_tokens_before: -1,
+        estimated_tokens_after: Number.NaN,
+      }),
+    );
+    expect(invalid.compaction.tokens_before).toBeUndefined();
+    expect(invalid.compaction.tokens_after).toBeUndefined();
+  });
+
   it("tracks tool, pending action, execution, and explicit output-limit stops", () => {
     const tool = reduceAgentEvent(
       initialConversationProjection,

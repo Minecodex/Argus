@@ -35,13 +35,22 @@ func (tools Tools) presentationMetadata(metadata mcp.Metadata) mcp.Metadata {
 			return nil, err
 		}
 		value := presentation.PublicSnapshot(result.Structured)
-		value["query_context"] = map[string]any{"query": call.Input["query"], "document": call.Input["document"], "operation_name": call.Input["operation_name"], "from": call.Input["from"], "to": call.Input["to"], "step_seconds": call.Input["step_seconds"], "lookback_seconds": call.Input["lookback_seconds"]}
+		queryContext, _ := value["query_context"].(map[string]any)
+		if queryContext == nil {
+			queryContext = map[string]any{}
+		}
+		for _, key := range []string{"query", "document", "operation_name", "from", "to", "step_seconds", "lookback_seconds"} {
+			if v, ok := call.Input[key]; ok {
+				queryContext[key] = v
+			}
+		}
+		value["query_context"] = queryContext
 		data := presentation.BindData(metadata.ID, metadata.Discovery.Title, value)
 		data["partial"] = result.Partial
 		refs := []toolruntime.ResourceRef{}
 		names := []map[string]any{}
-		if call.Input["resource_ids"] != nil {
-			ids, err := inputUUIDs(call.Input["resource_ids"])
+		if call.Input["resource_ids"] != nil || call.Input["scope"] != nil {
+			ids, err := queryResourceIDs(call.Input)
 			if err != nil {
 				return nil, err
 			}

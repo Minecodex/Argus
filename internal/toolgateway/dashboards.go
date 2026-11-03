@@ -108,7 +108,7 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 		{"query.cancel", "EmptyInput", "job_id", "write", "取消本会话已采用的仪表盘取数任务。Cancel a query job for a dashboard acquired in this conversation."},
 		{"query.resume", "DashboardQueryResumeInput", "job_id", "write", "按版本恢复失败任务。Resume sealed file delivery or a new execution attempt; never merge different attempts."},
 		{"catalog", "DashboardCatalogInput", "", "read", "创建模式下发现已接收数据的指标/字段/候选。Discover real metric metadata, fields and values; installed plugins are not proof of received data."},
-		{"catalog.resources", "EmptyInput", "", "read", "列出当前有权资源及注册来源能力，再用 catalog 验证实际数据。List authorized resource names and registered source capabilities; data_state not_sampled is not evidence of received data."},
+		{"catalog.resources", "EmptyInput", "", "read", "列出当前有权资源及注册来源能力，再用 catalog 验证实际数据。List authorized resource names and registered source capabilities. data_state=not_checked means this discovery did not sample telemetry; it does not mean missing samples or stale registration."},
 		{"draft.create", "DashboardDraftInput", "", "write", "创建或恢复个人草稿，不发布；编辑已有仪表盘必须先 get 读取其定义。Create a personal draft; existing dashboard opens its published baseline, then use draft.save to edit."},
 		{"draft.get", "EmptyInput", "draft_id", "read", "读取当前编辑者个人草稿。Read an owned draft and its version."},
 		{"draft.validate", "DashboardDraftSampleInput", "draft_id", "read", "复用人工编辑器校验草稿和样本，返回 validation.issues 的路径与原因；修正硬错误后再发布预览。Validate the owned draft version with the same compiler/runtime as the editor. valid=false is repair feedback; no_data/unavailable sample states do not mean verified healthy data."},
@@ -120,10 +120,16 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 			return e
 		}
 		if op.name == "list" {
-			schema = object([]string{}, map[string]any{"search": map[string]any{"type": "string", "maxLength": 256}, "offset": map[string]any{"type": "integer", "minimum": 0}, "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 50}})
+			schema = object([]string{}, map[string]any{"search": domainText(256), "offset": map[string]any{"type": "integer", "minimum": 0}, "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 50}, "resource_types": domainStrings(5), "resources": telemetry.ModelScopeSchema()["properties"].(map[string]any)["resources"], "integrations": domainStrings(64), "signals": domainStrings(3), "managed_only": map[string]any{"type": "boolean"}})
 		}
 		if op.name == "catalog.resources" {
 			schema = object([]string{}, map[string]any{"offset": map[string]any{"type": "integer", "minimum": 0}, "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 100}})
+		}
+		if op.name == "draft.validate" || op.name == "publish.preview" {
+			schema, e = modelAuthoringScopeSchema(schema)
+			if e != nil {
+				return e
+			}
 		}
 		name := op.name
 		title, found := dashboardToolTitles[name]
@@ -145,13 +151,18 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 			},
 		}
 		if name == "context.resolve" {
-			metadata.InputVersion = "argus.dashboard.context.resolve/v2"
-			metadata.Discovery.Revision = "4"
-			metadata.Discovery.Description = "Resolve inherited conditions. Cite the current user message for explicit changes; use origin=ai_selection with a reason for AI-chosen conditions. AI choices cannot replace explicit user constraints. Returns an immutable context_ref; corrections require a new query."
+			metadata.InputVersion = "argus.dashboard.context.resolve/v3"
+			metadata.Discovery.Revision = "5"
+			metadata.Discovery.Description = "Resolve inherited conditions. Initially choose changes.resources explicitly: all=false with authorized IDs for requested objects, or all=true with ids=[] for an intended all-authorized task. An already confirmed resource condition may be inherited unchanged. Evidence paths are condition-relative: /resources, /time, /variables/<name>, /local_values/<panel>/<name>, or / for reset_all. Cite current user text for explicit changes; use origin=ai_selection with a reason for permitted AI choices. Preserve all requested conditions when fixing evidence. AI choices cannot replace explicit user constraints. Returns an immutable context_ref; corrections require a new query."
 			metadata.Discovery.Keywords = append(metadata.Discovery.Keywords, "条件", "追问", "继承", "参数")
 		}
+		if name == "list" {
+			metadata.Discovery.Revision = "4"
+			metadata.Discovery.Description = "按类型、信号、集成筛选已发布仪表盘，并对显式多个资源判定适用/部分适用；这是仪表盘条件匹配入口。Filter authorized published dashboards by resource_types, signals and integrations (intersection), and pass explicit typed resources for applicability across that combined set. suitability=partial is the server's aggregate outcome; capability dashboard links describe each resource separately. Preserve filters while paging. A complete empty page means no matching dashboard, not absent telemetry. Listing never executes panels; use get for a selected definition."
+			metadata.Discovery.ResultDescription = "Authorized dashboard applicability directory. resource_types, signals and integrations intersect before paging; resources are explicit typed references. suitability=partial means only part of the selected scope is supported. not_checked/sampling_performed=false means no panel samples were queried. A complete empty page is no matching dashboard, not evidence of absent telemetry. Preserve filters across offsets."
+		}
 		if name == "query" {
-			metadata.InputVersion = "argus.dashboard.query/v2"
+			metadata.InputVersion = "argus.dashboard.query/v3"
 			metadata.Discovery.Revision = "2"
 		}
 		if name == "get" {
@@ -163,10 +174,25 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 			metadata.Discovery.Revision = "2"
 			metadata.Discovery.Description += " Returns server_time, enterprise timezone and suggested_catalog_range (the default recent-hour from/to). Use these authoritative clock values for catalog lookup; never guess today's date from training knowledge."
 		}
+		if name == "catalog" {
+			metadata.OutputVersion = "argus.dashboard.catalog/v2"
+			metadata.Discovery.Revision = "3"
+			metadata.Discovery.Description += " Observed known Host utilization metrics include source-qualified semantics and versioned built-in recipes. Use those actual recipes/units for requested busy CPU or used-memory percentages; raw memory_usage bytes and all CPU states do not fulfill that intent. A valid sample only proves the submitted configuration can run, not that its title matches the user's requested quantity. Never guess a ratio from unit1 on unknown sources."
+		}
+		if name == "draft.validate" || name == "publish.preview" {
+			metadata.InputVersion = "argus.dashboard." + name + "/v2"
+			metadata.Discovery.Revision = "4"
+			metadata.Discovery.Description += " Always provide parameters with resource_mode=explicit, resource_types and resource_ids for the requested sample/publication scope. Empty explicit IDs mean no sampled resources, never all authorized. Preserve this scope when repairing version/unit fields; proposed shortcut bindings do not define data scope."
+			metadata.Discovery.Description += " Complete original source metadata can return QUANTITY_DISPLAY_MISMATCH at a panel unit: direct Host utilization is a0-1ratio, so use percent_ratio display or explicitly multiply by100 for percent display. Raw byte metrics cannot use percentage display without an explicit ratio calculation. Unknown or derived expression units are not guessed; repair validation issues before preview/confirmation."
+		}
 		if strings.HasPrefix(name, "query") {
 			metadata.OutputVersion = "argus.dashboard." + name + "/v2"
 			metadata.Discovery.Revision = "3"
 			metadata.Discovery.Description += " The response includes the current run_budget and observation time. Failed acquisition can consume its reserved budget; distinguish the failure cause from remaining capacity. The server refreshes authoritative Run budget facts before every model round; use those facts after file analysis."
+		}
+		if name == "query" {
+			metadata.Discovery.Revision = "4"
+			metadata.Discovery.Description += " A root context must contain an attributed resource choice or reset; an unconfirmed implicit all-resource context is rejected. For status/results, describe query.get before invoking it; repeat query only for a genuinely new acquisition."
 		}
 		if name == "draft.create" || name == "draft.save" {
 			metadata.InputVersion = "argus.dashboard." + name + "/v2"
@@ -232,27 +258,15 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 	}
 	switch name {
 	case "list":
-		rows, e := tools.Service.List(ctx, c.actor)
+		input, e := dashboardToolDecode[dashboard.DiscoveryInput](call.Input)
 		if e != nil {
 			return mcp.Result{}, e
 		}
-		items := []map[string]any{}
-		for _, row := range rows {
-			if row.Lifecycle == "active" && row.ActiveRevisionID.Valid && strings.Contains(strings.ToLower(row.Name+" "+row.Description), strings.ToLower(stringValue(call.Input, "search"))) {
-				items = append(items, map[string]any{"id": row.ID, "name": row.Name, "description": row.Description})
-			}
+		page, e := tools.Service.Discover(ctx, c.actor, input)
+		if e != nil {
+			return mcp.Result{}, e
 		}
-		// Catalog has no implicit selection side effect.
-		limit := int(intValue(call.Input, "limit"))
-		if limit == 0 {
-			limit = 20
-		}
-		limit = min(50, limit)
-		offset := max(0, int(intValue(call.Input, "offset")))
-		offset = min(offset, len(items))
-		end := min(len(items), offset+limit)
-		value := map[string]any{"items": items[offset:end], "has_more": end < len(items), "next_offset": end, "selection_required": false, "selection_policy": "automatic"}
-		return dashboardToolResult(value, tools.Service.ChargeCatalog(ctx, c.actor, value, int64(end-offset)))
+		return dashboardToolResult(page, tools.Service.ChargeCatalog(ctx, c.actor, page, int64(len(page.Items))))
 	case "get":
 		id, e := callID(call, "dashboard_id")
 		if e != nil {
@@ -266,7 +280,7 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 			return mcp.Result{}, e
 		}
 		value := map[string]any{"id": item.ID, "name": item.Name, "revision_id": rev.ID, "revision_number": rev.RevisionNumber, "spec": json.RawMessage(rev.Spec)}
-		if c.selection.Mode == "analyze" {
+		if c.selection.Mode != "create" {
 			analysis, e := tools.Service.InspectAnalysis(ctx, c.actor, c.principal.ConversationID, id)
 			if e != nil {
 				return mcp.Result{}, e
@@ -395,13 +409,11 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 			if tools.Jobs == nil {
 				return mcp.Result{}, dashboard.ErrUnavailable
 			}
-			input, e := dashboardToolDecode[struct {
-				Parameters dashboard.ExecutionInput `json:"parameters"`
-			}](call.Input)
+			input, e := modelAuthoringParameters(call.Input)
 			if e != nil {
 				return mcp.Result{}, e
 			}
-			value, e := tools.Jobs.Runtime.SampleDraft(ctx, c.actor, id, intValue(call.Input, "expected_version"), input.Parameters)
+			value, e := tools.Jobs.Runtime.SampleDraft(ctx, c.actor, id, intValue(call.Input, "expected_version"), input)
 			return dashboardToolResult(value, e)
 		}
 		if name == "draft.save" {
@@ -412,7 +424,11 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 			value, e := tools.Service.SaveDraft(ctx, c.actor, id, input)
 			return dashboardToolResult(toolDraft(value), e)
 		}
-		preview, e := tools.Service.PreviewPublish(ctx, c.actor, id, intValue(call.Input, "expected_version"), idempotency(call))
+		parameters, e := modelAuthoringParameters(call.Input)
+		if e != nil {
+			return mcp.Result{}, e
+		}
+		preview, e := tools.Service.PreviewPublish(ctx, c.actor, id, intValue(call.Input, "expected_version"), idempotency(call), parameters)
 		if e != nil {
 			return mcp.Result{}, e
 		}

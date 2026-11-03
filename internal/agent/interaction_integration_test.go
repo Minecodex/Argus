@@ -31,6 +31,9 @@ func (p interactionProbe) BuildTools(context.Context, toolruntime.Principal) (to
 func interactionFixture(t *testing.T) (*recoveryFixture, interaction.Service, toolruntime.Principal, *toolruntime.Set, *int) {
 	t.Helper()
 	f := newRecoveryFixture(t)
+	// These workflow tests exercise admission with the full instruction set;
+	// compaction scenarios retain the recovery fixture's smaller test budget.
+	f.exec("UPDATE ai_models SET context_window_tokens=131072 WHERE id=$1", f.m)
 	role := uuid.New()
 	f.exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'Interaction operator')", role, f.e)
 	f.exec("INSERT INTO role_permissions(role_id,permission_id) SELECT $1,id FROM permissions", role)

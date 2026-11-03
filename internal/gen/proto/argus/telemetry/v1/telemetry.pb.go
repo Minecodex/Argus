@@ -1333,29 +1333,125 @@ func (x *ExecuteQueryV2Response) GetMeta() *QueryMeta {
 	return nil
 }
 
+type InputMetricDescriptor struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Unit          string                 `protobuf:"bytes,3,opt,name=unit,proto3" json:"unit,omitempty"`
+	StorageType   string                 `protobuf:"bytes,4,opt,name=storage_type,json=storageType,proto3" json:"storage_type,omitempty"`
+	Temporality   string                 `protobuf:"bytes,5,opt,name=temporality,proto3" json:"temporality,omitempty"`
+	Monotonic     bool                   `protobuf:"varint,6,opt,name=monotonic,proto3" json:"monotonic,omitempty"`
+	SourceKey     string                 `protobuf:"bytes,7,opt,name=source_key,json=sourceKey,proto3" json:"source_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InputMetricDescriptor) Reset() {
+	*x = InputMetricDescriptor{}
+	mi := &file_argus_telemetry_v1_telemetry_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InputMetricDescriptor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InputMetricDescriptor) ProtoMessage() {}
+
+func (x *InputMetricDescriptor) ProtoReflect() protoreflect.Message {
+	mi := &file_argus_telemetry_v1_telemetry_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InputMetricDescriptor.ProtoReflect.Descriptor instead.
+func (*InputMetricDescriptor) Descriptor() ([]byte, []int) {
+	return file_argus_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *InputMetricDescriptor) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *InputMetricDescriptor) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *InputMetricDescriptor) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *InputMetricDescriptor) GetStorageType() string {
+	if x != nil {
+		return x.StorageType
+	}
+	return ""
+}
+
+func (x *InputMetricDescriptor) GetTemporality() string {
+	if x != nil {
+		return x.Temporality
+	}
+	return ""
+}
+
+func (x *InputMetricDescriptor) GetMonotonic() bool {
+	if x != nil {
+		return x.Monotonic
+	}
+	return false
+}
+
+func (x *InputMetricDescriptor) GetSourceKey() string {
+	if x != nil {
+		return x.SourceKey
+	}
+	return ""
+}
+
 type QueryMeta struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	PlanHash         string                 `protobuf:"bytes,1,opt,name=plan_hash,json=planHash,proto3" json:"plan_hash,omitempty"`
-	Engine           string                 `protobuf:"bytes,2,opt,name=engine,proto3" json:"engine,omitempty"`
-	EngineVersion    string                 `protobuf:"bytes,3,opt,name=engine_version,json=engineVersion,proto3" json:"engine_version,omitempty"`
-	ScannedBytes     uint64                 `protobuf:"varint,4,opt,name=scanned_bytes,json=scannedBytes,proto3" json:"scanned_bytes,omitempty"`
-	ScannedRows      uint64                 `protobuf:"varint,5,opt,name=scanned_rows,json=scannedRows,proto3" json:"scanned_rows,omitempty"`
-	ReturnedRows     uint64                 `protobuf:"varint,6,opt,name=returned_rows,json=returnedRows,proto3" json:"returned_rows,omitempty"`
-	LoadedSamples    uint64                 `protobuf:"varint,7,opt,name=loaded_samples,json=loadedSamples,proto3" json:"loaded_samples,omitempty"`
-	ElapsedMillis    uint64                 `protobuf:"varint,8,opt,name=elapsed_millis,json=elapsedMillis,proto3" json:"elapsed_millis,omitempty"`
-	Partial          bool                   `protobuf:"varint,9,opt,name=partial,proto3" json:"partial,omitempty"`
-	QueryCompletedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=query_completed_at,json=queryCompletedAt,proto3" json:"query_completed_at,omitempty"`
-	CacheHit         bool                   `protobuf:"varint,11,opt,name=cache_hit,json=cacheHit,proto3" json:"cache_hit,omitempty"`
-	LatestSampleAt   *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=latest_sample_at,json=latestSampleAt,proto3" json:"latest_sample_at,omitempty"`
-	SampleTimeBasis  string                 `protobuf:"bytes,13,opt,name=sample_time_basis,json=sampleTimeBasis,proto3" json:"sample_time_basis,omitempty"`
-	IngestionStatus  string                 `protobuf:"bytes,14,opt,name=ingestion_status,json=ingestionStatus,proto3" json:"ingestion_status,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                  protoimpl.MessageState   `protogen:"open.v1"`
+	PlanHash               string                   `protobuf:"bytes,1,opt,name=plan_hash,json=planHash,proto3" json:"plan_hash,omitempty"`
+	Engine                 string                   `protobuf:"bytes,2,opt,name=engine,proto3" json:"engine,omitempty"`
+	EngineVersion          string                   `protobuf:"bytes,3,opt,name=engine_version,json=engineVersion,proto3" json:"engine_version,omitempty"`
+	ScannedBytes           uint64                   `protobuf:"varint,4,opt,name=scanned_bytes,json=scannedBytes,proto3" json:"scanned_bytes,omitempty"`
+	ScannedRows            uint64                   `protobuf:"varint,5,opt,name=scanned_rows,json=scannedRows,proto3" json:"scanned_rows,omitempty"`
+	ReturnedRows           uint64                   `protobuf:"varint,6,opt,name=returned_rows,json=returnedRows,proto3" json:"returned_rows,omitempty"`
+	LoadedSamples          uint64                   `protobuf:"varint,7,opt,name=loaded_samples,json=loadedSamples,proto3" json:"loaded_samples,omitempty"`
+	ElapsedMillis          uint64                   `protobuf:"varint,8,opt,name=elapsed_millis,json=elapsedMillis,proto3" json:"elapsed_millis,omitempty"`
+	Partial                bool                     `protobuf:"varint,9,opt,name=partial,proto3" json:"partial,omitempty"`
+	QueryCompletedAt       *timestamppb.Timestamp   `protobuf:"bytes,10,opt,name=query_completed_at,json=queryCompletedAt,proto3" json:"query_completed_at,omitempty"`
+	CacheHit               bool                     `protobuf:"varint,11,opt,name=cache_hit,json=cacheHit,proto3" json:"cache_hit,omitempty"`
+	LatestSampleAt         *timestamppb.Timestamp   `protobuf:"bytes,12,opt,name=latest_sample_at,json=latestSampleAt,proto3" json:"latest_sample_at,omitempty"`
+	SampleTimeBasis        string                   `protobuf:"bytes,13,opt,name=sample_time_basis,json=sampleTimeBasis,proto3" json:"sample_time_basis,omitempty"`
+	IngestionStatus        string                   `protobuf:"bytes,14,opt,name=ingestion_status,json=ingestionStatus,proto3" json:"ingestion_status,omitempty"`
+	InputMetrics           []*InputMetricDescriptor `protobuf:"bytes,15,rep,name=input_metrics,json=inputMetrics,proto3" json:"input_metrics,omitempty"`
+	InputMetricsComplete   bool                     `protobuf:"varint,16,opt,name=input_metrics_complete,json=inputMetricsComplete,proto3" json:"input_metrics_complete,omitempty"`
+	InputMetricsOrigin     string                   `protobuf:"bytes,17,opt,name=input_metrics_origin,json=inputMetricsOrigin,proto3" json:"input_metrics_origin,omitempty"`
+	ResultIsOriginalMetric bool                     `protobuf:"varint,18,opt,name=result_is_original_metric,json=resultIsOriginalMetric,proto3" json:"result_is_original_metric,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *QueryMeta) Reset() {
 	*x = QueryMeta{}
-	mi := &file_argus_telemetry_v1_telemetry_proto_msgTypes[18]
+	mi := &file_argus_telemetry_v1_telemetry_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1367,7 +1463,7 @@ func (x *QueryMeta) String() string {
 func (*QueryMeta) ProtoMessage() {}
 
 func (x *QueryMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_telemetry_v1_telemetry_proto_msgTypes[18]
+	mi := &file_argus_telemetry_v1_telemetry_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1380,7 +1476,7 @@ func (x *QueryMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryMeta.ProtoReflect.Descriptor instead.
 func (*QueryMeta) Descriptor() ([]byte, []int) {
-	return file_argus_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{18}
+	return file_argus_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *QueryMeta) GetPlanHash() string {
@@ -1479,6 +1575,34 @@ func (x *QueryMeta) GetIngestionStatus() string {
 		return x.IngestionStatus
 	}
 	return ""
+}
+
+func (x *QueryMeta) GetInputMetrics() []*InputMetricDescriptor {
+	if x != nil {
+		return x.InputMetrics
+	}
+	return nil
+}
+
+func (x *QueryMeta) GetInputMetricsComplete() bool {
+	if x != nil {
+		return x.InputMetricsComplete
+	}
+	return false
+}
+
+func (x *QueryMeta) GetInputMetricsOrigin() string {
+	if x != nil {
+		return x.InputMetricsOrigin
+	}
+	return ""
+}
+
+func (x *QueryMeta) GetResultIsOriginalMetric() bool {
+	if x != nil {
+		return x.ResultIsOriginalMetric
+	}
+	return false
 }
 
 var File_argus_telemetry_v1_telemetry_proto protoreflect.FileDescriptor
@@ -1598,7 +1722,16 @@ const file_argus_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"resultJson\x12\x1a\n" +
 	"\bwarnings\x18\x05 \x03(\tR\bwarnings\x12\x18\n" +
 	"\apartial\x18\x06 \x01(\bR\apartial\x121\n" +
-	"\x04meta\x18\a \x01(\v2\x1d.argus.telemetry.v1.QueryMetaR\x04meta\"\xc0\x04\n" +
+	"\x04meta\x18\a \x01(\v2\x1d.argus.telemetry.v1.QueryMetaR\x04meta\"\xd5\x01\n" +
+	"\x15InputMetricDescriptor\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\x12\x12\n" +
+	"\x04unit\x18\x03 \x01(\tR\x04unit\x12!\n" +
+	"\fstorage_type\x18\x04 \x01(\tR\vstorageType\x12 \n" +
+	"\vtemporality\x18\x05 \x01(\tR\vtemporality\x12\x1c\n" +
+	"\tmonotonic\x18\x06 \x01(\bR\tmonotonic\x12\x1d\n" +
+	"\n" +
+	"source_key\x18\a \x01(\tR\tsourceKey\"\xb3\x06\n" +
 	"\tQueryMeta\x12\x1b\n" +
 	"\tplan_hash\x18\x01 \x01(\tR\bplanHash\x12\x16\n" +
 	"\x06engine\x18\x02 \x01(\tR\x06engine\x12%\n" +
@@ -1614,7 +1747,11 @@ const file_argus_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\tcache_hit\x18\v \x01(\bR\bcacheHit\x12D\n" +
 	"\x10latest_sample_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\x0elatestSampleAt\x12*\n" +
 	"\x11sample_time_basis\x18\r \x01(\tR\x0fsampleTimeBasis\x12)\n" +
-	"\x10ingestion_status\x18\x0e \x01(\tR\x0fingestionStatus2\x89\x01\n" +
+	"\x10ingestion_status\x18\x0e \x01(\tR\x0fingestionStatus\x12N\n" +
+	"\rinput_metrics\x18\x0f \x03(\v2).argus.telemetry.v1.InputMetricDescriptorR\finputMetrics\x124\n" +
+	"\x16input_metrics_complete\x18\x10 \x01(\bR\x14inputMetricsComplete\x120\n" +
+	"\x14input_metrics_origin\x18\x11 \x01(\tR\x12inputMetricsOrigin\x129\n" +
+	"\x19result_is_original_metric\x18\x12 \x01(\bR\x16resultIsOriginalMetric2\x89\x01\n" +
 	"\x18TelemetryIdentityService\x12m\n" +
 	"\x10ResolveCollector\x12+.argus.telemetry.v1.ResolveCollectorRequest\x1a,.argus.telemetry.v1.ResolveCollectorResponse2\xca\x03\n" +
 	"\x15TelemetryQueryService\x12g\n" +
@@ -1635,7 +1772,7 @@ func file_argus_telemetry_v1_telemetry_proto_rawDescGZIP() []byte {
 	return file_argus_telemetry_v1_telemetry_proto_rawDescData
 }
 
-var file_argus_telemetry_v1_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_argus_telemetry_v1_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_argus_telemetry_v1_telemetry_proto_goTypes = []any{
 	(*ResolveCollectorRequest)(nil),    // 0: argus.telemetry.v1.ResolveCollectorRequest
 	(*ResolveCollectorResponse)(nil),   // 1: argus.telemetry.v1.ResolveCollectorResponse
@@ -1655,51 +1792,53 @@ var file_argus_telemetry_v1_telemetry_proto_goTypes = []any{
 	(*KQLQuery)(nil),                   // 15: argus.telemetry.v1.KQLQuery
 	(*TraceGraphQLQuery)(nil),          // 16: argus.telemetry.v1.TraceGraphQLQuery
 	(*ExecuteQueryV2Response)(nil),     // 17: argus.telemetry.v1.ExecuteQueryV2Response
-	(*QueryMeta)(nil),                  // 18: argus.telemetry.v1.QueryMeta
-	(*timestamppb.Timestamp)(nil),      // 19: google.protobuf.Timestamp
-	(*v1.ResourceRef)(nil),             // 20: argus.common.v1.ResourceRef
-	(*structpb.Struct)(nil),            // 21: google.protobuf.Struct
+	(*InputMetricDescriptor)(nil),      // 18: argus.telemetry.v1.InputMetricDescriptor
+	(*QueryMeta)(nil),                  // 19: argus.telemetry.v1.QueryMeta
+	(*timestamppb.Timestamp)(nil),      // 20: google.protobuf.Timestamp
+	(*v1.ResourceRef)(nil),             // 21: argus.common.v1.ResourceRef
+	(*structpb.Struct)(nil),            // 22: google.protobuf.Struct
 }
 var file_argus_telemetry_v1_telemetry_proto_depIdxs = []int32{
 	2,  // 0: argus.telemetry.v1.ResolveCollectorResponse.identity:type_name -> argus.telemetry.v1.TrustedTelemetryIdentity
-	19, // 1: argus.telemetry.v1.ResolveCollectorResponse.expires_at:type_name -> google.protobuf.Timestamp
+	20, // 1: argus.telemetry.v1.ResolveCollectorResponse.expires_at:type_name -> google.protobuf.Timestamp
 	2,  // 2: argus.telemetry.v1.TelemetryIngestContext.identity:type_name -> argus.telemetry.v1.TrustedTelemetryIdentity
-	19, // 3: argus.telemetry.v1.TelemetryIngestContext.received_at:type_name -> google.protobuf.Timestamp
-	20, // 4: argus.telemetry.v1.TelemetryQueryScope.authorized_resources:type_name -> argus.common.v1.ResourceRef
+	20, // 3: argus.telemetry.v1.TelemetryIngestContext.received_at:type_name -> google.protobuf.Timestamp
+	21, // 4: argus.telemetry.v1.TelemetryQueryScope.authorized_resources:type_name -> argus.common.v1.ResourceRef
 	4,  // 5: argus.telemetry.v1.QueryOverviewRequest.scope:type_name -> argus.telemetry.v1.TelemetryQueryScope
-	19, // 6: argus.telemetry.v1.QueryOverviewRequest.from:type_name -> google.protobuf.Timestamp
-	19, // 7: argus.telemetry.v1.QueryOverviewRequest.to:type_name -> google.protobuf.Timestamp
+	20, // 6: argus.telemetry.v1.QueryOverviewRequest.from:type_name -> google.protobuf.Timestamp
+	20, // 7: argus.telemetry.v1.QueryOverviewRequest.to:type_name -> google.protobuf.Timestamp
 	6,  // 8: argus.telemetry.v1.QueryOverviewResponse.result:type_name -> argus.telemetry.v1.TelemetryQueryResponse
 	4,  // 9: argus.telemetry.v1.ExecuteQueryV2Request.scope:type_name -> argus.telemetry.v1.TelemetryQueryScope
 	13, // 10: argus.telemetry.v1.ExecuteQueryV2Request.budget:type_name -> argus.telemetry.v1.QueryBudget
 	14, // 11: argus.telemetry.v1.ExecuteQueryV2Request.promql:type_name -> argus.telemetry.v1.PromQLQuery
 	15, // 12: argus.telemetry.v1.ExecuteQueryV2Request.kql:type_name -> argus.telemetry.v1.KQLQuery
 	16, // 13: argus.telemetry.v1.ExecuteQueryV2Request.trace_graphql:type_name -> argus.telemetry.v1.TraceGraphQLQuery
-	19, // 14: argus.telemetry.v1.PromQLQuery.start:type_name -> google.protobuf.Timestamp
-	19, // 15: argus.telemetry.v1.PromQLQuery.end:type_name -> google.protobuf.Timestamp
-	19, // 16: argus.telemetry.v1.KQLQuery.start:type_name -> google.protobuf.Timestamp
-	19, // 17: argus.telemetry.v1.KQLQuery.end:type_name -> google.protobuf.Timestamp
-	21, // 18: argus.telemetry.v1.TraceGraphQLQuery.variables:type_name -> google.protobuf.Struct
-	19, // 19: argus.telemetry.v1.TraceGraphQLQuery.start:type_name -> google.protobuf.Timestamp
-	19, // 20: argus.telemetry.v1.TraceGraphQLQuery.end:type_name -> google.protobuf.Timestamp
-	18, // 21: argus.telemetry.v1.ExecuteQueryV2Response.meta:type_name -> argus.telemetry.v1.QueryMeta
-	19, // 22: argus.telemetry.v1.QueryMeta.query_completed_at:type_name -> google.protobuf.Timestamp
-	19, // 23: argus.telemetry.v1.QueryMeta.latest_sample_at:type_name -> google.protobuf.Timestamp
-	0,  // 24: argus.telemetry.v1.TelemetryIdentityService.ResolveCollector:input_type -> argus.telemetry.v1.ResolveCollectorRequest
-	12, // 25: argus.telemetry.v1.TelemetryQueryService.ExecuteQueryV2:input_type -> argus.telemetry.v1.ExecuteQueryV2Request
-	5,  // 26: argus.telemetry.v1.TelemetryQueryService.QueryOverview:input_type -> argus.telemetry.v1.QueryOverviewRequest
-	8,  // 27: argus.telemetry.v1.TelemetryQueryService.EnsureTenantSchema:input_type -> argus.telemetry.v1.EnsureTenantSchemaRequest
-	9,  // 28: argus.telemetry.v1.TelemetryQueryService.DropTenantSchema:input_type -> argus.telemetry.v1.DropTenantSchemaRequest
-	1,  // 29: argus.telemetry.v1.TelemetryIdentityService.ResolveCollector:output_type -> argus.telemetry.v1.ResolveCollectorResponse
-	17, // 30: argus.telemetry.v1.TelemetryQueryService.ExecuteQueryV2:output_type -> argus.telemetry.v1.ExecuteQueryV2Response
-	7,  // 31: argus.telemetry.v1.TelemetryQueryService.QueryOverview:output_type -> argus.telemetry.v1.QueryOverviewResponse
-	10, // 32: argus.telemetry.v1.TelemetryQueryService.EnsureTenantSchema:output_type -> argus.telemetry.v1.EnsureTenantSchemaResponse
-	11, // 33: argus.telemetry.v1.TelemetryQueryService.DropTenantSchema:output_type -> argus.telemetry.v1.DropTenantSchemaResponse
-	29, // [29:34] is the sub-list for method output_type
-	24, // [24:29] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	20, // 14: argus.telemetry.v1.PromQLQuery.start:type_name -> google.protobuf.Timestamp
+	20, // 15: argus.telemetry.v1.PromQLQuery.end:type_name -> google.protobuf.Timestamp
+	20, // 16: argus.telemetry.v1.KQLQuery.start:type_name -> google.protobuf.Timestamp
+	20, // 17: argus.telemetry.v1.KQLQuery.end:type_name -> google.protobuf.Timestamp
+	22, // 18: argus.telemetry.v1.TraceGraphQLQuery.variables:type_name -> google.protobuf.Struct
+	20, // 19: argus.telemetry.v1.TraceGraphQLQuery.start:type_name -> google.protobuf.Timestamp
+	20, // 20: argus.telemetry.v1.TraceGraphQLQuery.end:type_name -> google.protobuf.Timestamp
+	19, // 21: argus.telemetry.v1.ExecuteQueryV2Response.meta:type_name -> argus.telemetry.v1.QueryMeta
+	20, // 22: argus.telemetry.v1.QueryMeta.query_completed_at:type_name -> google.protobuf.Timestamp
+	20, // 23: argus.telemetry.v1.QueryMeta.latest_sample_at:type_name -> google.protobuf.Timestamp
+	18, // 24: argus.telemetry.v1.QueryMeta.input_metrics:type_name -> argus.telemetry.v1.InputMetricDescriptor
+	0,  // 25: argus.telemetry.v1.TelemetryIdentityService.ResolveCollector:input_type -> argus.telemetry.v1.ResolveCollectorRequest
+	12, // 26: argus.telemetry.v1.TelemetryQueryService.ExecuteQueryV2:input_type -> argus.telemetry.v1.ExecuteQueryV2Request
+	5,  // 27: argus.telemetry.v1.TelemetryQueryService.QueryOverview:input_type -> argus.telemetry.v1.QueryOverviewRequest
+	8,  // 28: argus.telemetry.v1.TelemetryQueryService.EnsureTenantSchema:input_type -> argus.telemetry.v1.EnsureTenantSchemaRequest
+	9,  // 29: argus.telemetry.v1.TelemetryQueryService.DropTenantSchema:input_type -> argus.telemetry.v1.DropTenantSchemaRequest
+	1,  // 30: argus.telemetry.v1.TelemetryIdentityService.ResolveCollector:output_type -> argus.telemetry.v1.ResolveCollectorResponse
+	17, // 31: argus.telemetry.v1.TelemetryQueryService.ExecuteQueryV2:output_type -> argus.telemetry.v1.ExecuteQueryV2Response
+	7,  // 32: argus.telemetry.v1.TelemetryQueryService.QueryOverview:output_type -> argus.telemetry.v1.QueryOverviewResponse
+	10, // 33: argus.telemetry.v1.TelemetryQueryService.EnsureTenantSchema:output_type -> argus.telemetry.v1.EnsureTenantSchemaResponse
+	11, // 34: argus.telemetry.v1.TelemetryQueryService.DropTenantSchema:output_type -> argus.telemetry.v1.DropTenantSchemaResponse
+	30, // [30:35] is the sub-list for method output_type
+	25, // [25:30] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_argus_telemetry_v1_telemetry_proto_init() }
@@ -1718,7 +1857,7 @@ func file_argus_telemetry_v1_telemetry_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_argus_telemetry_v1_telemetry_proto_rawDesc), len(file_argus_telemetry_v1_telemetry_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

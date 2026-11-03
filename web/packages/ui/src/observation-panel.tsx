@@ -295,6 +295,12 @@ function ObservationContent({
   if (type === "apm_topology" && envelope) {
     const nodes = observationRows(envelope.nodes),
       edges = observationRows(envelope.edges);
+    if (!nodes.length)
+      return (
+        <p className="argus-observation-empty" role="status">
+          {text("当前范围没有数据", "No data in this range")}
+        </p>
+      );
     const graph: EChartsOption = {
       tooltip: { trigger: "item", renderMode: "richText" },
       series: [

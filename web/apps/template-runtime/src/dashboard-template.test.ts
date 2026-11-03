@@ -59,3 +59,28 @@ it("renders a corrected window independently and retains historical input", () =
     document.querySelector(".argus-template-parameters")!.textContent,
   ).toBe(original);
 });
+
+for (const locale of ["zh-CN", "en-US"])
+  it.each([{ status: "partial" }, { status: "complete", partial: true }])(
+    `shows partial results before the panel grid in ${locale}: %j`,
+    (state) => {
+      const charts = presentTool(
+        "telemetry.dashboard.query",
+        { ...data, ...state },
+        locale,
+      );
+      expect(charts).toHaveLength(11);
+      const warning = document.querySelector(".argus-template-note--warning")!;
+      expect(warning.textContent).toContain(
+        locale === "zh-CN" ? "结果不完整" : "Partial result",
+      );
+      expect(
+        warning.compareDocumentPosition(
+          document.querySelector(".argus-dashboard-grid")!,
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        document.querySelector(".argus-template-parameters")!.textContent,
+      ).toContain("db-prod-01");
+    },
+  );

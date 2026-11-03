@@ -13,12 +13,13 @@ type nativeDescriptionHistory interface {
 	HasEarlierNativeToolDescription(context.Context, db.HasEarlierNativeToolDescriptionParams) (bool, error)
 }
 
-// Persisted successful descriptions are the authority across Worker restarts.
+// Persisted successful category searches and descriptions are the authority
+// across Worker restarts. The listed version must match the described contract.
 // Prompt text, failed descriptions, another Run or the same model batch cannot
 // establish that the model received this exact authorized tool schema.
 func RequireNativeDescription(history nativeDescriptionHistory) func(context.Context, toolruntime.Invocation, Manifest) error {
 	return func(ctx context.Context, call toolruntime.Invocation, manifest Manifest) error {
-		missing := toolruntime.Error{Kind: "TOOL_DESCRIPTION_REQUIRED", Message: "Call tool.describe for this exact category/name and wait for its successful schema response in an earlier model round before invoking it.", Details: map[string]any{"category": manifest.Category, "name": manifest.Name}}
+		missing := toolruntime.Error{Kind: "TOOL_DESCRIPTION_REQUIRED", Message: "Call tool.search for this category, wait for the complete authorized list, then call tool.describe for this exact name in a later round. Wait for that schema before invoking. Tool references from another result do not replace this sequence.", Details: map[string]any{"category": manifest.Category, "name": manifest.Name}}
 		if history == nil || call.RunID == uuid.Nil || call.StepID == uuid.Nil || call.ModelCallID == uuid.Nil {
 			return missing
 		}

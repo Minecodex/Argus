@@ -1,6 +1,7 @@
 import type { ArgusApiClient } from "../client";
 import {
   calculateModelAmount,
+  modelReasoningEfforts,
   type ModelCompatibilityResult,
   type ModelUsagePoint,
 } from "../types";
@@ -52,7 +53,13 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
     async testAndCreate(input) {
       await ctx.pause();
       if (!isEnterpriseAdmin()) throw new Error("forbidden");
+      const effort = input.reasoningEffort ?? "provider_default";
+      const profileValid =
+        modelReasoningEfforts.includes(effort) &&
+        ((input.apiProtocol ?? "chat_completions") === "chat_completions" ||
+          effort === "provider_default");
       const ok =
+        profileValid &&
         input.baseUrl.startsWith("http") &&
         input.apiKey.trim().length >= 6 &&
         !/invalid|incompatible/i.test(input.modelId + input.apiKey);
@@ -65,6 +72,7 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
         baseUrl: input.baseUrl,
         modelId: input.modelId,
         apiProtocol: input.apiProtocol ?? "chat_completions",
+        reasoningEffort: effort,
         contextWindowTokens: input.contextWindowTokens ?? 128_000,
         maxOutputTokens: input.maxOutputTokens ?? 8192,
         credentialRef: `secret://model/${nextId(db, "credential")}`,
@@ -94,7 +102,19 @@ export function createModelsDomain(ctx: MockContext): ArgusApiClient["models"] {
         (entry) => entry.id === id,
         "AI model",
       );
+      const effectiveProtocol = patch.apiProtocol ?? model.apiProtocol;
+      const effort =
+        patch.reasoningEffort ?? model.reasoningEffort ?? "provider_default";
+      if (
+        !modelReasoningEfforts.includes(effort) ||
+        (effectiveProtocol !== "chat_completions" &&
+          effort !== "provider_default")
+      ) {
+        throw new Error("MODEL_COMPATIBILITY_FAILED");
+      }
       const connectionChanged =
+        patch.reasoningEffort !== undefined ||
+        patch.apiProtocol !== undefined ||
         patch.baseUrl !== undefined ||
         patch.apiKey !== undefined ||
         patch.modelId !== undefined;

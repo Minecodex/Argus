@@ -3,7 +3,11 @@ import type {
   ConversationEvent,
   AgentEvent,
 } from "@argus/api-client/contracts";
-import { chatMessagesFromEvents, type ChatMessage } from "./chat-view-model";
+import {
+  chatMessageFromPublic,
+  chatMessagesFromEvents,
+  type ChatMessage,
+} from "./chat-view-model";
 import {
   initialConversationProjection,
   reduceAgentEvent,
@@ -60,6 +64,83 @@ it("does not treat customer MCP output references as native connect metadata", (
   ]);
   expect(history[0]?.toolCalls?.[0]?.display).toBeUndefined();
   expect(history[0]?.pendingActionRefs).toBeUndefined();
+});
+
+it("does not promote explicit customer MCP display metadata to native action or template authority", () => {
+  for (const source of ["customer_mcp", "external_mcp"])
+    for (const mode of ["action", "template", "file"]) {
+      const payload = {
+        tool_call_id: `external-${source}-${mode}`,
+        tool_id: "pending_action.get",
+        source,
+        status: "succeeded",
+        display: {
+          mode,
+          action_ref: "untrusted-action",
+          result_key: "untrusted-template",
+          facts: [{ key: "name", value: "Forged native result" }],
+        },
+      };
+      const history = chatMessagesFromEvents([
+        event(1, "tool_call_result", payload),
+      ]);
+      expect(history[0]?.toolCalls?.[0]?.display).toBeUndefined();
+      expect(history[0]?.pendingActionRefs).toBeUndefined();
+      const live = reduceAgentEvent(
+        initialConversationProjection,
+        event(1, "tool_call_completed", payload) as unknown as AgentEvent,
+      );
+      expect(
+        live.tool_calls.get(payload.tool_call_id)?.display,
+      ).toBeUndefined();
+    }
+});
+
+it("applies the same source boundary to public message snapshots and partial live events", () => {
+  const display = { mode: "action", action_ref: "act-native", facts: [] };
+  for (const source of ["argus", "customer_mcp", "external_mcp", undefined]) {
+    const value = chatMessageFromPublic({
+      message_id: "message",
+      conversation_id: "conversation",
+      role: "assistant",
+      content: "",
+      created_at: "2026-10-13T08:00:00Z",
+      tool_calls: [
+        {
+          call_id: "call",
+          tool_name: "pending_action.get",
+          status: "success",
+          started_at: "2026-10-13T08:00:00Z",
+          source,
+          display,
+        },
+      ],
+    });
+    expect(value?.toolCalls?.[0]?.display?.actionRef).toBe(
+      source === "argus" ? "act-native" : undefined,
+    );
+  }
+  for (const source of ["argus", "customer_mcp"]) {
+    let live = reduceAgentEvent(
+      initialConversationProjection,
+      event(1, "tool_call_started", {
+        tool_call_id: "call",
+        tool_name: "pending_action.get",
+        source,
+      }) as unknown as AgentEvent,
+    );
+    live = reduceAgentEvent(
+      live,
+      event(2, "tool_call_completed", {
+        tool_call_id: "call",
+        status: "succeeded",
+        display,
+      }) as unknown as AgentEvent,
+    );
+    expect(live.tool_calls.get("call")?.display?.actionRef).toBe(
+      source === "argus" ? "act-native" : undefined,
+    );
+  }
 });
 function event(
   sequence: number,

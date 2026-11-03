@@ -163,6 +163,9 @@ export function ChatMessageItem({
         {message.content.trim() && (
           <div className="argus-chat-message__body">{message.content}</div>
         )}
+        {message.taskScope && message.taskScope !== "general_diagnosis" && (
+          <Badge>{t(`chat.taskScope.${message.taskScope}`)}</Badge>
+        )}
         {downloads(message.files, "file")}
       </div>
     );

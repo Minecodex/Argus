@@ -59,6 +59,27 @@ func TestPlan8RabbitActualRoleVersionAndCleanup(t *testing.T) {
 	if err != nil || strings.Contains(string(body), row.password) || strings.Contains(string(body), "Root-P8-") {
 		t.Fatal("RabbitMQ public ownership evidence invalid")
 	}
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		status, data, e := a.plan8TargetHTTP(t.Context(), row.id, "15672", "GET", "/api/overview", "monitor", row.password, nil)
+		var traffic struct {
+			Stats struct {
+				Publish   int64 `json:"publish"`
+				Delivered int64 `json:"deliver_get"`
+				Ack       int64 `json:"ack"`
+			} `json:"message_stats"`
+		}
+		if e == nil && status == 200 && json.Unmarshal(data, &traffic) == nil && traffic.Stats.Publish > 0 && traffic.Stats.Delivered > 0 && traffic.Stats.Ack > 0 {
+			t.Log("actual publish/get/ack traffic observed by the monitoring identity")
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("owned RabbitMQ workload did not produce monitored publish/get/ack counters", status, e, traffic)
+		}
+		if e = waitContext(t.Context(), time.Second); e != nil {
+			t.Fatal(e)
+		}
+	}
 	t.Logf("actual RabbitMQ runtime=%s image=%s; monitor read succeeds, queue write and wrong password explicitly rejected", row.version, row.imageID)
 	if output := os.Getenv("ARGUS_PLAN8_RABBIT_VERSION_EVIDENCE"); output != "" {
 		if err = os.WriteFile(output, body, 0600); err != nil {

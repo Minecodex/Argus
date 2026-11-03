@@ -11,6 +11,22 @@ import (
 	"time"
 )
 
+// Fail before building images, allocating a namespace or pausing formal
+// workloads. The fixture constructor repeats the cached-image check at use.
+func (a *App) checkSystemdFixturePrerequisite(ctx context.Context, suite string) error {
+	if suite != "plan7" && suite != "plan8" {
+		return nil
+	}
+	image := strings.TrimSpace(os.Getenv("ARGUS_P7_SYSTEMD_IMAGE"))
+	if image == "" || strings.HasPrefix(image, "-") || strings.ContainsAny(image, " \t\r\n") {
+		return fmt.Errorf("%w: %s requires ARGUS_P7_SYSTEMD_IMAGE naming the selected cached SSH/systemd fixture image before environment preparation", errCapability, suite)
+	}
+	if _, err := a.runner.Output(ctx, nil, "docker", "image", "inspect", image, "--format", "{{.Id}}"); err != nil {
+		return fmt.Errorf("%w: selected SSH/systemd fixture image is not cached: %w", errCapability, err)
+	}
+	return nil
+}
+
 func (a *App) createPlan7DockerFixture(ctx context.Context, env *E2EEnvironment) (*plan6DockerFixture, error) {
 	image := os.Getenv("ARGUS_P7_SYSTEMD_IMAGE")
 	if image == "" {

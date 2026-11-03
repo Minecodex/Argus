@@ -85,7 +85,7 @@ func newActualSDKService(t *testing.T, f *nativeSDKPipeline, app sdkPipelineAppl
 	service.trace = sdktrace.NewTracerProvider(sdktrace.WithSyncer(service.traceExport), sdktrace.WithResource(res), sdktrace.WithSampler(sdktrace.AlwaysSample()))
 	service.logs = sdklog.NewLoggerProvider(sdklog.WithProcessor(sdklog.NewSimpleProcessor(service.logExport)), sdklog.WithResource(res))
 	service.metricReader = sdkmetric.NewManualReader()
-	service.metrics = sdkmetric.NewMeterProvider(sdkmetric.WithReader(service.metricReader), sdkmetric.WithResource(res))
+	service.metrics = sdkmetric.NewMeterProvider(sdkmetric.WithReader(service.metricReader), sdkmetric.WithResource(res), sdkmetric.WithView(sdkmetric.NewView(sdkmetric.Instrument{Name: "plan11_sdk_native_latency"}, sdkmetric.Stream{Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{MaxSize: 160, MaxScale: 20}})))
 	service.metricExport, err = otlpmetrichttp.New(f.ctx, otlpmetrichttp.WithEndpoint(f.address), otlpmetrichttp.WithTLSClientConfig(f.sdkTLS()), otlpmetrichttp.WithHeaders(map[string]string{"Authorization": "Bearer " + app.token}))
 	if err != nil {
 		t.Fatal(err)

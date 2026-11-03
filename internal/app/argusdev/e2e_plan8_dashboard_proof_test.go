@@ -37,6 +37,19 @@ func TestDefaultAggregationRequiresTrustedExecutionScopeAndRealAggregate(t *test
 	if values, err := plan8MetricValues(data, target.String(), collection.String(), true); err != nil || len(values) != 1 {
 		t.Fatal("verified scoped aggregate was rejected", err)
 	}
+	for _, labels := range []map[string]any{{"argus_resource_id": target.String()}, {"argus_collection_id": collection.String()}} {
+		data["metric"] = labels
+		if _, err := plan8MetricValues(data, target.String(), collection.String(), true); err != nil {
+			t.Fatal("verified aggregate retaining one identity label was rejected", err)
+		}
+		if _, err := plan8MetricValues(data, target.String(), collection.String(), false); err == nil {
+			t.Fatal("raw series accepted a missing identity label")
+		}
+	}
+	data["metric"] = map[string]any{"argus_collection_id": uuid.NewString()}
+	if _, err := plan8MetricValues(data, target.String(), collection.String(), true); err == nil {
+		t.Fatal("partially labelled aggregate accepted a foreign collection")
+	}
 	data["metric"] = map[string]any{"argus_resource_id": uuid.NewString(), "argus_collection_id": collection.String()}
 	if _, err := plan8MetricValues(data, target.String(), collection.String(), true); err == nil {
 		t.Fatal("aggregation excused foreign identity labels")

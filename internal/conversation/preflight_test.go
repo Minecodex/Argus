@@ -59,7 +59,8 @@ func TestMessageAdmissionRejectsFixedInputAtRuntimeBoundary(t *testing.T) {
 	tools := &capacityTools{}
 	svc := Service{Store: store, Tools: toolruntime.CompositeFactory{Providers: []toolruntime.Provider{tools}}, Idempotency: postgres.Idempotency{Key: bytes.Repeat([]byte{3}, 32)}}
 	for _, protocol := range []string{"chat_completions", "responses"} {
-		exec("UPDATE ai_models SET api_protocol=$2 WHERE id=$1", m, protocol)
+		window := 32 * 1024
+		exec("UPDATE ai_models SET api_protocol=$2,context_window_tokens=$3 WHERE id=$1", m, protocol, window)
 		for _, delta := range []int{-1, 0, 1, 1985} {
 			c := uuid.New()
 			exec("INSERT INTO conversations(id,enterprise_id,owner_user_id,title,selected_model_id) VALUES($1,$2,$3,'Capacity',$4)", c, e, u, m)
@@ -68,7 +69,21 @@ func TestMessageAdmissionRejectsFixedInputAtRuntimeBoundary(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			hard := modelprovider.NewContextBudget(32768, 1024).HardLimit
+			// Size the fixture from the actual fixed request before padding the
+			// schema to the exact exclusive boundary; instructions may grow.
+			for !base.Ready || base.InputLimitTokens-base.EstimatedTokens < 4096 {
+				window += 4096
+				if window > 256*1024 {
+					t.Fatal("fixed request exceeds the controlled capacity fixture bound")
+				}
+				exec("UPDATE ai_models SET context_window_tokens=$2 WHERE id=$1", m, window)
+				base, err = svc.Preflight(t.Context(), e, u, c, "中文分析", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			hard := modelprovider.NewContextBudget(window, 1024).HardLimit
+			t.Logf("%s fixed_bytes=%d window=%d hard_limit=%d delta=%d", protocol, base.EstimatedTokens, window, hard, delta)
 			tools.extra = 1 + hard + delta - base.EstimatedTokens
 			value, err := svc.Preflight(t.Context(), e, u, c, "中文分析", nil)
 			if err != nil {

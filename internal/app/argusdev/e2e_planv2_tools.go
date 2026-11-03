@@ -95,7 +95,7 @@ func (a *App) runPlanV2Tools(ctx context.Context, env *E2EEnvironment) (failure 
 	steps := []p5ToolStep{}
 	for _, id := range ids {
 		index := len(steps)
-		steps = append(steps, dashboardReplayStep("context.resolve", map[string]any{"dashboard_id": id, "expected_version": 0, "changes": map[string]any{}, "evidence": []any{}}), dashboardReplayStep("query", map[string]any{"dashboard_id": id, "context_ref": replayResult(index, "context_ref")}))
+		steps = append(steps, dashboardReplayStep("context.resolve", map[string]any{"dashboard_id": id, "expected_version": 0, "changes": map[string]any{"resources": map[string]any{"all": true, "ids": []string{}}}, "evidence": []any{map[string]any{"path": "/resources", "origin": "ai_selection", "reason": "Exercise the published dashboard across the fixture's authorized scope"}}}), dashboardReplayStep("query", map[string]any{"dashboard_id": id, "context_ref": replayResult(index, "context_ref")}))
 	}
 	run, err := a.planV2ToolRun(ctx, env, convo, "selected-files", "analyze", ids, steps)
 	if err != nil {

@@ -11,6 +11,8 @@ import {
 import { ApiError } from "../transport/errors";
 import { nextId } from "./store";
 import type { MockChatStreamEvent } from "./chat-types";
+import { resolveObservationResources } from "./observation-access";
+import { resolvePermissions } from "./permissions";
 
 // The UI fixture demonstrates context persistence, not real telemetry/model
 // execution. Never fabricate a healthy conclusion or pretend files were read.
@@ -63,6 +65,7 @@ export function currentDashboardContext(
     ctx.db.planv5.dashboardContexts?.[id] ?? {
       schema_version: "argus.dashboard_context/v1",
       mode: "none",
+      task_scope: "general_diagnosis",
       dashboard_ids: [],
       version: 0,
     }
@@ -74,13 +77,22 @@ export function prepareDashboardContext(
   input: MessageCreate,
 ): DashboardChatContext {
   const current = currentDashboardContext(ctx, id);
-  const command = /^\/(?:创建仪表盘|create-dashboard)(?:\s|$)/.test(
-    input.content.trim(),
-  );
-  const selected =
+  const text = input.content.trim();
+  const command = /^\/(?:创建仪表盘|create-dashboard)(?:\s|$)/.test(text);
+  const analysis =
+    /^\/(?:分析仪表盘|analyze-dashboard)(?:\s|$)/.test(text) ||
+    /^(?:只分析|仅分析)[^\n]*仪表盘/.test(text) ||
+    /^only analy[sz]e [^\n]*dashboard/i.test(text);
+  const reset = /^\/(?:综合诊断|diagnose)(?:\s|$)/.test(text);
+  let selected =
     input.dashboard_context ??
     (command ? { mode: "create" as const, dashboard_ids: [] } : current);
-  if (command && selected.mode !== "create") dashboardFailure();
+  if (command || analysis || reset)
+    selected = {
+      ...selected,
+      mode: command ? "create" : analysis ? "analyze" : "none",
+      dashboard_ids: reset ? [] : selected.dashboard_ids,
+    };
   if (
     "expected_version" in selected &&
     selected.expected_version !== undefined &&
@@ -108,14 +120,51 @@ export function prepareDashboardContext(
     if (mockDashboard(ctx, id).lifecycle !== "active")
       dashboardFailure("DASHBOARD_DENIED", 403);
   }
+  const refs = selected.resource_refs ?? [];
+  if (
+    refs.length > 20 ||
+    new Set(refs.map((ref) => `${ref.type}:${ref.id}`)).size !== refs.length
+  )
+    dashboardFailure();
+  for (const ref of refs) {
+    if (ref.type === "dashboard") mockDashboard(ctx, ref.id);
+    else if (ref.type === "connector") {
+      const permissions = resolvePermissions(
+        ctx.db,
+        ctx.enterpriseId(),
+        ctx.actor().id,
+        ctx.nowIso(),
+      );
+      if (!permissions.has("*") && !permissions.has("connector.read"))
+        dashboardFailure("DASHBOARD_DENIED", 403);
+      if (
+        !ctx.db.connectors.some(
+          (row) => row.id === ref.id && row.enterpriseId === ctx.enterpriseId(),
+        )
+      )
+        dashboardFailure("DASHBOARD_DENIED", 403);
+    } else
+      resolveObservationResources(ctx, {
+        mode: "explicit",
+        resources: [{ type: ref.type, id: ref.id }],
+      });
+  }
   const changed =
     selected.mode !== current.mode ||
     JSON.stringify(selected.dashboard_ids) !==
-      JSON.stringify(current.dashboard_ids);
+      JSON.stringify(current.dashboard_ids) ||
+    JSON.stringify(refs) !== JSON.stringify(current.resource_refs ?? []);
   return {
     schema_version: "argus.dashboard_context/v1",
     mode: selected.mode,
     dashboard_ids: [...selected.dashboard_ids],
+    resource_refs: structuredClone(refs),
+    task_scope:
+      selected.mode === "create"
+        ? "dashboard_authoring"
+        : selected.mode === "analyze"
+          ? "dashboard_analysis"
+          : "general_diagnosis",
     version: current.version + Number(changed),
   };
 }

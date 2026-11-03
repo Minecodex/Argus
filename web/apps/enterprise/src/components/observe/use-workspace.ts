@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { dashboardIssueMessage } from "../dashboards/validation-issues";
 import { freezeObservationTime, type ObservationTimeRange } from "./time-range";
 import {
   ApiError,
@@ -125,7 +126,7 @@ export function useObserveWorkspace(initial: ObserveQuery) {
     const result = await api.dashboards.convertPanel({ panel, mode }, signal);
     if (!result.converted)
       throw new ObservationConversionError(
-        result.issues.map((i) => i.message).join("; ") ||
+        result.issues.map((i) => dashboardIssueMessage(t, i)).join("; ") ||
           t("observe.conversionFailed"),
       );
     return result.panel;

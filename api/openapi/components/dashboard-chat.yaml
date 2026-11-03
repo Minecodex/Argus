@@ -6,6 +6,7 @@ components:
       required: [mode, dashboard_ids]
       properties:
         mode: {type: string, enum: [none, analyze, create]}
+        resource_refs: {type: array, maxItems: 20, uniqueItems: true, items: {$ref: '#/components/schemas/ConversationResourceRef'}}
         dashboard_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}}
         expected_version: {type: integer, format: int64, minimum: 0}
     DashboardChatContext:
@@ -14,6 +15,15 @@ components:
       required: [schema_version, mode, dashboard_ids, version]
       properties:
         schema_version: {type: string, enum: [argus.dashboard_context/v1]}
+        task_scope: {type: string, enum: [general_diagnosis, dashboard_analysis, dashboard_authoring]}
         mode: {type: string, enum: [none, analyze, create]}
+        resource_refs: {type: array, maxItems: 20, uniqueItems: true, items: {$ref: '#/components/schemas/ConversationResourceRef'}}
         dashboard_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}}
         version: {type: integer, format: int64, minimum: 0}
+    ConversationResourceRef:
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type: {type: string, enum: [host, kubernetes_cluster, kubernetes_namespace, application, monitoring_target, connector, dashboard]}
+        id: {type: string, format: uuid}

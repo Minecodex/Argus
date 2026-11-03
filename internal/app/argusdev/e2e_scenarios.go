@@ -143,9 +143,18 @@ func (a *App) runPlaywright(ctx context.Context, env *E2EEnvironment, spec strin
 	// as Windows shell syntax instead of preserving the selector argument.
 	args := []string{filepath.Join(a.root, "node_modules", "@playwright", "test", "cli.js"), "test", "--config", filepath.Join(a.root, "web", "apps", "enterprise", "playwright.config.ts"), spec, "--workers=1"}
 	if env.Options.Suite == "plan7" || env.Options.Suite == "plan8" {
-		// Stop on the first failure so cleanup can restore the original services.
-		// A successful gate still requires every selected browser case to pass.
-		args = append(args, "--max-failures=1", "--reporter=list,json")
+		// The two authoring decisions use separate drafts/conversations, so a
+		// failed cancellation assertion must not suppress confirmation evidence.
+		// Other suites retain their first-failure cleanup policy.
+		maxFailures := "--max-failures=1"
+		if spec == "plan11-authoring-real.spec.ts" {
+			maxFailures = "--max-failures=2"
+		}
+		if spec == "plan11-signal-results-real.spec.ts" {
+			// These four read-only locale/theme cases are independent.
+			maxFailures = "--max-failures=4"
+		}
+		args = append(args, maxFailures, "--reporter=list,json")
 		variables["PLAYWRIGHT_JSON_OUTPUT_FILE"] = filepath.Join(artifactDir, "report.json")
 	}
 	if env.Options.Suite == "planv2" && env.Options.PlanV2BrowserGrep != "" {

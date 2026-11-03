@@ -1694,6 +1694,8 @@ type ModelCall struct {
 	ErrorCode              pgtype.Text        `json:"error_code"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	CompletedAt            pgtype.Timestamptz `json:"completed_at"`
+	// Private framework receipts for complete native originals actually included in this provider request; IDs/hash/size only, no contents or credentials
+	InlineQueryReceipts []byte `json:"inline_query_receipts"`
 }
 
 type ModelCompatibilityResult struct {

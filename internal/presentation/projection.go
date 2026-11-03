@@ -95,6 +95,10 @@ func MetricContext(data map[string]any) {
 		if unit, ok := metric["unit"].(string); ok {
 			info["unit"] = unit
 		}
+		if descriptor, verified := metricDisplayDescriptor(data, metric); verified {
+			info["unit"], info["source"] = descriptor.Unit, descriptor.SourceKey
+			info["unit_origin"] = "authorized_series_metadata"
+		}
 		id, _ := metric["resource_id"].(string)
 		if id == "" {
 			id, _ = metric["argus_resource_id"].(string)
@@ -108,7 +112,7 @@ func MetricContext(data map[string]any) {
 			}
 		}
 		objects := []string{}
-		for _, key := range []string{"db_name", "database", "db.system", "service_name", "service", "device", "mountpoint", "instance"} {
+		for _, key := range []string{"db_name", "database", "db.system", "service_name", "service", "device", "mountpoint", "instance", "resource_service_name", "resource_service_namespace", "resource_service_instance_id"} {
 			if value, ok := metric[key].(string); ok && value != "" {
 				objects = append(objects, key+"="+value)
 			}

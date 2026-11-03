@@ -16,17 +16,19 @@ import (
 	"github.com/kakj-go/Argus/internal/integration/modelprovider"
 	"github.com/kakj-go/Argus/internal/mcp"
 	"github.com/kakj-go/Argus/internal/presentation"
+	"github.com/kakj-go/Argus/internal/telemetry"
 	"github.com/kakj-go/Argus/internal/toolruntime"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-const nativeDiscoveryVersion = "4"
+const nativeDiscoveryVersion = "7"
 
 var Categories = toolruntime.NativeCategoryNames()
 
 type Gateway struct {
 	Scope              func(context.Context, toolruntime.Invocation) (func(string) bool, error)
 	PresentationScope  func(context.Context, toolruntime.Principal) (string, error)
+	RequireSearch      func(context.Context, toolruntime.Invocation, Manifest) error
 	RequireDescription func(context.Context, toolruntime.Invocation, Manifest) error
 	cache              discoveryCache
 	Registry           *mcp.Registry
@@ -112,6 +114,7 @@ func identity(id string) (string, string, bool) {
 		return "connector", "collector.get", true
 	}
 	for _, prefix := range []struct{ prefix, category string }{
+		{"observe.", "observe"},
 		{"application.", "application"}, {"monitoring.", "monitoring"},
 		{"alert.", "alert"},
 		{"telemetry.dashboard.", "dashboard"},
@@ -161,7 +164,7 @@ func coreDescription(name string) string {
 	case "tool.search":
 		return "List every currently authorized Argus tool in one category. Input accepts category only. The complete list is sorted by name; there are no keywords, limits or cursors. Choose the relevant returned name and call tool.describe before invocation. An empty list means no tools are currently available in this category.\n" + toolruntime.NativeCategoryGuide()
 	case "tool.describe":
-		return "Describe an Argus tool's input schema and result. Describe before its first invocation."
+		return "Read an Argus tool's complete input schema and result contract. First obtain this exact name from a successful tool.search for its category in an earlier model round of this Run. Then describe and wait for the schema before invocation. Cached schemas and tool references do not replace this Run's Search."
 	default:
 		return "Invoke an Argus tool only after successful authorized search and tool.describe for this exact category/name. Wait for its schema response in an earlier round; never describe and invoke the same tool in one parallel batch or guess arguments from another tool. Business mutations return a preview for user confirmation; commit is never accessible."
 	}
@@ -192,6 +195,11 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_NOT_FOUND"}
 	}
 	if tool == "tool.describe" {
+		if g.RequireSearch != nil {
+			if err := g.RequireSearch(ctx, call, manifest); err != nil {
+				return toolruntime.Result{}, err
+			}
+		}
 		key := discoveryKey(g.Revision, tool, call)
 		if cached, ok := g.cache.get(key); ok {
 			return cached, nil
@@ -225,6 +233,7 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 		Subject: call.Principal.UserID.String(), SubjectType: "user", RunID: call.RunID.String(), InvocationID: call.ID.String(), Input: args}
 	result, err := g.Registry.Call(ctx, native)
 	if err != nil {
+		err = telemetry.ModelQueryError(err)
 		if errors.Is(err, mcp.ErrPermissionDenied) {
 			return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_PERMISSION_DENIED"}
 		}
@@ -240,7 +249,10 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 	if manifest.RequiresConfirmation {
 		actionRef, _ = result.Structured["action_ref"].(string)
 	}
-	output := toolruntime.Result{Data: result.Structured, Partial: result.Partial, ActionRef: actionRef, ToolID: manifest.ToolID, Control: result.Control}
+	if manifest.ToolID == "observe.capabilities.get" {
+		g.filterCapabilityReferences(result.Structured, call.Principal, allow)
+	}
+	output := toolruntime.Result{Data: result.Structured, Partial: result.Partial, ActionRef: actionRef, ToolID: manifest.ToolID, Control: result.Control, DataIsDiscovery: strings.HasPrefix(manifest.ToolID, "observe.")}
 	if metadata, ok := g.Registry.Lookup(manifest.ToolID); ok {
 		if metadata.Project != nil {
 			output.ModelSummary = metadata.Project(result)
@@ -274,7 +286,7 @@ func (g *Gateway) search(call toolruntime.Invocation, category string, scopes ..
 		if len(scopes) > 0 && !scopes[0](m.ToolID) {
 			continue
 		}
-		items = append(items, map[string]any{"name": m.Name, "title": m.Title, "summary": discoverySummary(m.Description), "risk": m.Risk, "requires_confirmation": m.RequiresConfirmation, "version": m.Version})
+		items = append(items, map[string]any{"name": m.Name, "title": m.Title, "summary": discoverySummary(m.Description), "risk": m.Risk, "requires_confirmation": m.RequiresConfirmation, "version": m.Version, "resource_types": m.ResourceTypes, "signals": m.Signals, "operation_kind": m.OperationKind, "result_kind": m.ResultKind})
 	}
 	return toolruntime.Result{ToolID: "tool.search", DataIsDiscovery: true, Data: map[string]any{"category": category, "items": items, "complete": true, "catalog_revision": g.Revision}}, nil
 }

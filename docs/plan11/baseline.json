@@ -1,0 +1,77 @@
+{
+  "schema_version": "argus.plan11_baseline/v1",
+  "date": "2026-10-29",
+  "source_commit": "37f5fb4516de52d98ad7a39fef8e2b8fc869d1b3",
+  "kind": "source_registration_and_documentation_review",
+  "source_state_at_start": "clean",
+  "deployment_verified": false,
+  "database_queried": false,
+  "real_model_calls_run": false,
+  "counts": {
+    "public_catalog_generator": 129,
+    "interaction_registry_extra": 1,
+    "public_business": 130,
+    "proposed_business": 133,
+    "current_categories": 11,
+    "proposed_categories": 12,
+    "maximum_builtin_top_level": 9,
+    "customer_mcp": "dynamic",
+    "monitoring_catalog_entries": 39,
+    "dedicated_target_entries": 20,
+    "ingestion_log_entries": 8,
+    "deferred_target_entries": 11,
+    "builtin_collection_entries": 12,
+    "builtin_dashboard_templates": 33,
+    "builtin_dashboard_panels": 202,
+    "backend_presentation_bindings": 132,
+    "frontend_fixture_bindings": 126
+  },
+  "current_category_counts": {
+    "alert": 38,
+    "application": 7,
+    "connector": 11,
+    "dashboard": 15,
+    "host": 12,
+    "k8s": 29,
+    "log": 1,
+    "metric": 2,
+    "monitoring": 9,
+    "trace": 1,
+    "workflow": 5
+  },
+  "changed_business_ids": [
+    "telemetry.promql.query",
+    "telemetry.kql.query",
+    "telemetry.skywalking.trace",
+    "telemetry.dashboard.list"
+  ],
+  "proposed_tools": [
+    "observe.resources.list",
+    "observe.capabilities.get",
+    "observe.catalog.query"
+  ],
+  "missing_frontend_fixture_ids": [
+    "application.endpoint.connection",
+    "kubernetes.drain.cancel.preview",
+    "kubernetes.helm.change.preview",
+    "kubernetes.helm.history",
+    "kubernetes.helm.list",
+    "monitoring.collection.form"
+  ],
+  "special_host_delivery": [
+    "workflow.plan.propose",
+    "request_user_input",
+    "connect",
+    "monitoring.collection.form"
+  ],
+  "commands_run": [
+    "go run ./scripts/tool-labels --catalog",
+    "git status --short",
+    "git rev-parse HEAD"
+  ],
+  "notes": [
+    "Counts describe full source registration, not one subject or deployed runtime.",
+    "Catalog presence is not support admission or observed telemetry.",
+    "Prior-turn tests are baseline evidence only; no Plan11 implementation or live acceptance has run."
+  ]
+}

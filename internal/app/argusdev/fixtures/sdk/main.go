@@ -35,12 +35,16 @@ import (
 type input struct {
 	Endpoint, Key, CA, ServerName, Protocol, Service, Namespace, Instance, Marker string
 	ExpectedAccept                                                                bool
+	MetricSemantics                                                               bool
+	SignalAcceptance                                                              bool
 }
 type output struct {
-	Accepted       bool     `json:"accepted"`
-	TraceID        string   `json:"trace_id"`
-	Signals        []string `json:"signals"`
-	ExpectationMet bool     `json:"expectation_met"`
+	Accepted         bool     `json:"accepted"`
+	TraceID          string   `json:"trace_id"`
+	Signals          []string `json:"signals"`
+	ExpectationMet   bool     `json:"expectation_met"`
+	MetricSemantics  bool     `json:"metric_semantics_generated,omitempty"`
+	SignalAcceptance bool     `json:"signal_acceptance_generated,omitempty"`
 }
 
 func main() {
@@ -97,6 +101,10 @@ func main() {
 					record.SetBody(logapi.StringValue(in.Marker))
 					record.SetSeverity(logapi.SeverityInfo)
 					logProvider.Logger("argus.plan8.actual-sdk").Emit(spanCtx, record)
+					if in.SignalAcceptance {
+						record.SetBody(logapi.StringValue(signalLogMarker(in.Marker)))
+						logProvider.Logger("argus.plan11.untrusted-data").Emit(spanCtx, record)
+					}
 					if logProvider.Shutdown(ctx) != nil {
 						failed.Store(true)
 					}
@@ -106,7 +114,11 @@ func main() {
 					failed.Store(true)
 				} else {
 					reader := sdkmetric.NewManualReader()
-					mp := sdkmetric.NewMeterProvider(sdkmetric.WithResource(res), sdkmetric.WithReader(reader))
+					options := []sdkmetric.Option{sdkmetric.WithResource(res), sdkmetric.WithReader(reader)}
+					if in.SignalAcceptance {
+						options = append(options, signalMetricView())
+					}
+					mp := sdkmetric.NewMeterProvider(options...)
 					counter, e := mp.Meter("argus.plan8.actual-sdk").Int64Counter("argus_plan8_sdk_requests")
 					if e != nil {
 						failed.Store(true)
@@ -114,7 +126,14 @@ func main() {
 						counter.Add(spanCtx, 1)
 					}
 					var data metricdata.ResourceMetrics
-					if reader.Collect(ctx, &data) != nil || metrics.Export(ctx, &data) != nil {
+					if in.MetricSemantics {
+						if emitMetricSemantics(ctx, mp, reader, metrics, in.SignalAcceptance) != nil {
+							failed.Store(true)
+						} else {
+							out.MetricSemantics = true
+							out.SignalAcceptance = in.SignalAcceptance
+						}
+					} else if reader.Collect(ctx, &data) != nil || metrics.Export(ctx, &data) != nil {
 						failed.Store(true)
 					}
 					if mp.Shutdown(ctx) != nil || metrics.Shutdown(ctx) != nil {

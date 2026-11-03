@@ -9,6 +9,7 @@ import (
 )
 
 type plan8ModelToolFact struct {
+	ID           string
 	Tool, Status string
 	Input        struct {
 		Category, Name string
@@ -75,6 +76,22 @@ func plan8VerifyModelMetricTarget(raw string, target uuid.UUID) error {
 }
 
 func plan8ModelArgumentHasResource(arguments map[string]any, id uuid.UUID) bool {
+	if raw, exists := arguments["scope"]; exists {
+		if _, legacy := arguments["resource_ids"]; legacy {
+			return false
+		}
+		scope, ok := raw.(map[string]any)
+		if !ok || scope["mode"] != "explicit" {
+			return false
+		}
+		refs, _ := scope["resources"].([]any)
+		for _, raw := range refs {
+			if ref, ok := raw.(map[string]any); ok && ref["id"] == id.String() {
+				return true
+			}
+		}
+		return false
+	}
 	values, ok := arguments["resource_ids"].([]any)
 	if !ok {
 		return false

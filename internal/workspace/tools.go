@@ -75,10 +75,10 @@ func (service Service) BuildTools(ctx context.Context, p toolruntime.Principal) 
 		"bash":  toolSchema([]string{"command"}, map[string]any{"command": stringField(64 << 10), "timeout_seconds": map[string]any{"type": "integer", "minimum": 1, "maximum": 300}}),
 	}
 	identity := runtime.Identity()
-	version := identity.Version()
+	version := workspaceBuiltinVersion(identity)
 	for _, name := range []string{"read", "write", "edit", "bash"} {
 		name := name
-		part.Tools = append(part.Tools, toolruntime.Tool{Definition: toolruntime.Definition{Model: modelprovider.Tool{Name: name, Schema: schemas[name], Description: "Operate on the persistent /workspace in an offline sandbox. No network access."}, Source: "sandbox", Version: version, ReadOnly: name == "read"},
+		part.Tools = append(part.Tools, toolruntime.Tool{Definition: toolruntime.Definition{Model: modelprovider.Tool{Name: name, Schema: schemas[name], Description: workspaceBuiltinDescription(name)}, Source: "sandbox", Version: version, ReadOnly: name == "read"},
 			Invoke: func(ctx context.Context, call toolruntime.Invocation) (toolruntime.Result, error) {
 				return service.builtin(ctx, name, call, identity)
 			}})
@@ -164,6 +164,9 @@ func (service Service) builtin(ctx context.Context, name string, call toolruntim
 			return toolruntime.Result{Unknown: true, Data: map[string]any{"error_code": "SANDBOX_COMMAND_RESULT_UNKNOWN"}}, nil
 		}
 		result = map[string]any{"stdout": output.Stdout, "stderr": output.Stderr, "exit_code": output.ExitCode, "partial": output.Partial}
+	}
+	if name == "write" || name == "edit" {
+		markWorkspaceFileSaved(result)
 	}
 	if err := access.checkAuthorization(ctx); err != nil {
 		return toolruntime.Result{}, err

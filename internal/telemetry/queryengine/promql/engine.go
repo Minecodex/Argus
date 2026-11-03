@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/prometheus/prometheus/storage"
 
+	"github.com/kakj-go/Argus/internal/telemetry/metricmeta"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chstats"
 )
 
@@ -33,13 +34,16 @@ type Request struct {
 }
 
 type Result struct {
-	LatestSampleAt *time.Time
-	Value          parser.Value
-	Warnings       []string
-	Elapsed        time.Duration
-	Stats          any
-	ScannedRows    int64
-	ScannedBytes   int64
+	LatestSampleAt         *time.Time
+	Value                  parser.Value
+	Warnings               []string
+	Elapsed                time.Duration
+	Stats                  any
+	ScannedRows            int64
+	ScannedBytes           int64
+	InputMetrics           []metricmeta.Descriptor
+	InputMetricsComplete   bool
+	ResultIsOriginalMetric bool
 }
 
 type Engine struct {
@@ -78,7 +82,8 @@ func (e *Engine) Execute(ctx context.Context, request Request) (Result, error) {
 		request.MaxSeries = 100_000
 	}
 	progress := &chstats.Tracker{}
-	queryable := Queryable{Conn: e.conn, Router: e.router, Scope: request.Scope, MaxSeries: request.MaxSeries, MaxSamples: request.MaxSamples, MaxScanBytes: request.MaxScanBytes, Timeout: request.Timeout, Progress: progress}
+	metadata := &metricmeta.Tracker{}
+	queryable := Queryable{Conn: e.conn, Router: e.router, Scope: request.Scope, MaxSeries: request.MaxSeries, MaxSamples: request.MaxSamples, MaxScanBytes: request.MaxScanBytes, Timeout: request.Timeout, Progress: progress, Metadata: metadata}
 	engine := promql.NewEngine(promql.EngineOpts{
 		Logger: e.logger, MaxSamples: request.MaxSamples, Timeout: request.Timeout,
 		LookbackDelta: lookback, EnableAtModifier: true, EnableNegativeOffset: true,
@@ -112,7 +117,23 @@ func (e *Engine) Execute(ctx context.Context, request Request) (Result, error) {
 	// the value before the deferred Close runs so a later query cannot mutate an
 	// already returned result through pooled backing arrays.
 	value := clonePromQLValue(result.Value)
-	return Result{LatestSampleAt: progress.LatestEvent(), Value: value, Warnings: warnings, Elapsed: time.Since(started), Stats: query.Stats(), ScannedRows: progress.Rows(), ScannedBytes: progress.Bytes()}, nil
+	inputMetrics, complete := metadata.Snapshot()
+	return Result{LatestSampleAt: progress.LatestEvent(), Value: value, Warnings: warnings, Elapsed: time.Since(started), Stats: query.Stats(), ScannedRows: progress.Rows(), ScannedBytes: progress.Bytes(), InputMetrics: inputMetrics, InputMetricsComplete: complete, ResultIsOriginalMetric: originalMetricSelector(request.Expression)}, nil
+}
+
+func originalMetricSelector(expression string) bool {
+	node, err := parser.NewParser(parser.Options{}).ParseExpr(expression)
+	if err != nil {
+		return false
+	}
+	for {
+		if parenthesized, ok := node.(*parser.ParenExpr); ok {
+			node = parenthesized.Expr
+			continue
+		}
+		_, ok := node.(*parser.VectorSelector)
+		return ok
+	}
 }
 
 func clonePromQLValue(value parser.Value) parser.Value {

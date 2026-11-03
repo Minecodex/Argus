@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/kakj-go/Argus/internal/resourceref"
+	"github.com/kakj-go/Argus/internal/telemetry/metricmeta"
 	"github.com/prometheus/prometheus/promql"
 	promqlstats "github.com/prometheus/prometheus/util/stats"
 
@@ -75,21 +76,25 @@ type Request struct {
 }
 
 type QueryMeta struct {
-	QueryCompletedAt *time.Time `json:"query_completed_at,omitempty"`
-	LatestSampleAt   *time.Time `json:"latest_sample_at,omitempty"`
-	SampleTimeBasis  string     `json:"sample_time_basis"`
-	IngestionStatus  string     `json:"ingestion_status"`
-	CacheHit         bool       `json:"cache_hit"`
-	PlanHash         string     `json:"plan_hash"`
-	Engine           string     `json:"engine"`
-	EngineVersion    string     `json:"engine_version"`
-	ScannedBytes     int64      `json:"scanned_bytes"`
-	ScannedRows      int64      `json:"scanned_rows"`
-	ReturnedRows     int64      `json:"returned_rows"`
-	LoadedSamples    int64      `json:"loaded_samples"`
-	ElapsedMillis    int64      `json:"elapsed_millis"`
-	Partial          bool       `json:"partial"`
-	Warnings         []string   `json:"warnings"`
+	QueryCompletedAt       *time.Time              `json:"query_completed_at,omitempty"`
+	LatestSampleAt         *time.Time              `json:"latest_sample_at,omitempty"`
+	SampleTimeBasis        string                  `json:"sample_time_basis"`
+	IngestionStatus        string                  `json:"ingestion_status"`
+	CacheHit               bool                    `json:"cache_hit"`
+	PlanHash               string                  `json:"plan_hash"`
+	Engine                 string                  `json:"engine"`
+	EngineVersion          string                  `json:"engine_version"`
+	ScannedBytes           int64                   `json:"scanned_bytes"`
+	ScannedRows            int64                   `json:"scanned_rows"`
+	ReturnedRows           int64                   `json:"returned_rows"`
+	LoadedSamples          int64                   `json:"loaded_samples"`
+	ElapsedMillis          int64                   `json:"elapsed_millis"`
+	Partial                bool                    `json:"partial"`
+	Warnings               []string                `json:"warnings"`
+	InputMetrics           []metricmeta.Descriptor `json:"input_metrics,omitempty"`
+	InputMetricsComplete   bool                    `json:"input_metrics_complete"`
+	InputMetricsOrigin     string                  `json:"input_metrics_origin,omitempty"`
+	ResultIsOriginalMetric bool                    `json:"result_is_original_metric"`
 }
 
 type Result struct {
@@ -586,7 +591,7 @@ func (e PromQLEngine) Execute(ctx context.Context, request Request) (Result, err
 	case promql.Vector:
 		resultType = "vector"
 	}
-	meta := QueryMeta{LatestSampleAt: result.LatestSampleAt, Engine: "prometheus-promql", EngineVersion: "v0.314.0", ScannedBytes: result.ScannedBytes, ScannedRows: result.ScannedRows, ElapsedMillis: result.Elapsed.Milliseconds(), Warnings: result.Warnings}
+	meta := QueryMeta{LatestSampleAt: result.LatestSampleAt, Engine: "prometheus-promql", EngineVersion: "v0.314.0", ScannedBytes: result.ScannedBytes, ScannedRows: result.ScannedRows, ElapsedMillis: result.Elapsed.Milliseconds(), Warnings: result.Warnings, InputMetrics: result.InputMetrics, InputMetricsComplete: result.InputMetricsComplete, InputMetricsOrigin: metricmeta.Origin, ResultIsOriginalMetric: result.ResultIsOriginalMetric}
 	if stats, ok := result.Stats.(*promqlstats.Statistics); ok && stats != nil && stats.Samples != nil {
 		meta.LoadedSamples = stats.Samples.SamplesRead
 	}

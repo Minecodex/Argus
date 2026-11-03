@@ -94,4 +94,26 @@ func TestQueryCacheAndFreshnessSurviveRPCWithLimiterOnEveryHit(t *testing.T) {
 	if err != nil || fourth.Meta.CacheHit || engine.calls != 3 {
 		t.Fatal("relationship/resource snapshot reused stale cache")
 	}
+	// Sharing an engine/cache connection must not share a previously cached
+	// result across authenticated subjects or authorization identities.
+	for name, change := range map[string]func(*queryengine.Request){
+		"enterprise":    func(q *queryengine.Request) { q.Scope.EnterpriseID = uuid.New() },
+		"user":          func(q *queryengine.Request) { q.Scope.SubjectID = uuid.New() },
+		"subject type":  func(q *queryengine.Request) { q.Scope.SubjectType = "service_account" },
+		"grant version": func(q *queryengine.Request) { q.Scope.AuthorizationVersion++ },
+	} {
+		t.Run(name, func(t *testing.T) {
+			other := r
+			change(&other)
+			before := engine.calls
+			first, err := backend.ExecuteEngineQuery(context.Background(), other)
+			if err != nil || first.Meta.CacheHit || engine.calls != before+1 {
+				t.Fatal("foreign identity reused cached result", err)
+			}
+			repeated, err := backend.ExecuteEngineQuery(context.Background(), other)
+			if err != nil || !repeated.Meta.CacheHit || engine.calls != before+1 {
+				t.Fatal("same authorized identity did not retain its own cache", err)
+			}
+		})
+	}
 }

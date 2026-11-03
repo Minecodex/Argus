@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -65,6 +66,29 @@ func TestPlan8LightTargetActualVersionsAndCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, row := range rows {
+		if row.engine == "memcached" {
+			deadline := time.Now().Add(12 * time.Second)
+			for {
+				stats, e := a.runner.Output(t.Context(), nil, "docker", "exec", row.id, "sh", "-c", `printf 'stats\r\n' | nc -w 1 127.0.0.1 11211`)
+				counts := map[string]int64{}
+				for _, line := range strings.Split(stats, "\n") {
+					fields := strings.Fields(line)
+					if len(fields) == 3 && fields[0] == "STAT" {
+						counts[fields[1]], _ = strconv.ParseInt(fields[2], 10, 64)
+					}
+				}
+				if e == nil && counts["get_hits"] > 0 && counts["get_misses"] > 0 {
+					t.Log("actual cache set/get traffic produced hits and misses")
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatal("owned cache workload did not produce real hits/misses", e)
+				}
+				if e = waitContext(t.Context(), time.Second); e != nil {
+					t.Fatal(e)
+				}
+			}
+		}
 		if row.version == "" || !strings.HasPrefix(row.imageID, "sha256:") {
 			t.Fatal("runtime identity missing", row.engine)
 		}

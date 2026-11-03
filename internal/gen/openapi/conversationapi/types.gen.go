@@ -95,6 +95,39 @@ func (e ConversationPreflightSandboxStatus) Valid() bool {
 	}
 }
 
+// Defines values for ConversationResourceRefType.
+const (
+	Application         ConversationResourceRefType = "application"
+	Connector           ConversationResourceRefType = "connector"
+	Dashboard           ConversationResourceRefType = "dashboard"
+	Host                ConversationResourceRefType = "host"
+	KubernetesCluster   ConversationResourceRefType = "kubernetes_cluster"
+	KubernetesNamespace ConversationResourceRefType = "kubernetes_namespace"
+	MonitoringTarget    ConversationResourceRefType = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the ConversationResourceRefType enum.
+func (e ConversationResourceRefType) Valid() bool {
+	switch e {
+	case Application:
+		return true
+	case Connector:
+		return true
+	case Dashboard:
+		return true
+	case Host:
+		return true
+	case KubernetesCluster:
+		return true
+	case KubernetesNamespace:
+		return true
+	case MonitoringTarget:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ConversationUpdateAccessMode.
 const (
 	ConversationUpdateAccessModeFullAccess      ConversationUpdateAccessMode = "full_access"
@@ -179,6 +212,27 @@ const (
 func (e DashboardChatContextSchemaVersion) Valid() bool {
 	switch e {
 	case ArgusDashboardContextv1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardChatContextTaskScope.
+const (
+	DashboardAnalysis  DashboardChatContextTaskScope = "dashboard_analysis"
+	DashboardAuthoring DashboardChatContextTaskScope = "dashboard_authoring"
+	GeneralDiagnosis   DashboardChatContextTaskScope = "general_diagnosis"
+)
+
+// Valid indicates whether the value is a known member of the DashboardChatContextTaskScope enum.
+func (e DashboardChatContextTaskScope) Valid() bool {
+	switch e {
+	case DashboardAnalysis:
+		return true
+	case DashboardAuthoring:
+		return true
+	case GeneralDiagnosis:
 		return true
 	default:
 		return false
@@ -401,6 +455,15 @@ type ConversationPreflightInput struct {
 	FileIds          *[]openapi_types.UUID   `json:"file_ids,omitempty"`
 }
 
+// ConversationResourceRef defines model for ConversationResourceRef.
+type ConversationResourceRef struct {
+	Id   openapi_types.UUID          `json:"id"`
+	Type ConversationResourceRefType `json:"type"`
+}
+
+// ConversationResourceRefType defines model for ConversationResourceRef.Type.
+type ConversationResourceRefType string
+
 // ConversationUpdate defines model for ConversationUpdate.
 type ConversationUpdate struct {
 	AccessMode               *ConversationUpdateAccessMode `json:"access_mode,omitempty"`
@@ -432,7 +495,9 @@ type CursorPage struct {
 type DashboardChatContext struct {
 	DashboardIds  []openapi_types.UUID              `json:"dashboard_ids"`
 	Mode          DashboardChatContextMode          `json:"mode"`
+	ResourceRefs  *[]ConversationResourceRef        `json:"resource_refs,omitempty"`
 	SchemaVersion DashboardChatContextSchemaVersion `json:"schema_version"`
+	TaskScope     *DashboardChatContextTaskScope    `json:"task_scope,omitempty"`
 	Version       int64                             `json:"version"`
 }
 
@@ -442,11 +507,15 @@ type DashboardChatContextMode string
 // DashboardChatContextSchemaVersion defines model for DashboardChatContext.SchemaVersion.
 type DashboardChatContextSchemaVersion string
 
+// DashboardChatContextTaskScope defines model for DashboardChatContext.TaskScope.
+type DashboardChatContextTaskScope string
+
 // DashboardChatSelection defines model for DashboardChatSelection.
 type DashboardChatSelection struct {
 	DashboardIds    []openapi_types.UUID       `json:"dashboard_ids"`
 	ExpectedVersion *int64                     `json:"expected_version,omitempty"`
 	Mode            DashboardChatSelectionMode `json:"mode"`
+	ResourceRefs    *[]ConversationResourceRef `json:"resource_refs,omitempty"`
 }
 
 // DashboardChatSelectionMode defines model for DashboardChatSelection.Mode.
@@ -581,6 +650,8 @@ type ToolResult struct {
 
 // ToolResultProjection defines model for ToolResultProjection.
 type ToolResultProjection struct {
+	// InlineOriginalComplete Framework-authored native query certificate: original at most 32768 bytes equals the actual sanitized, nonpartial summary. Absence means false. Direct analysis additionally requires current authorized query_evidence.inline_original_in_context; a historical flag alone is insufficient.
+	InlineOriginalComplete  *bool               `json:"inline_original_complete,omitempty"`
 	OriginalBytes           int                 `json:"original_bytes"`
 	Partial                 bool                `json:"partial"`
 	PartialReasons          *[]interface{}      `json:"partial_reasons,omitempty"`
@@ -593,6 +664,13 @@ type ToolResultProjection struct {
 	SchemaVersion           interface{}         `json:"schema_version"`
 	Summary                 PublicJsonObject    `json:"summary"`
 	ToolCallId              string              `json:"tool_call_id"`
+	WorkspaceFile           *struct {
+		Delivery        interface{} `json:"delivery"`
+		Instructions    string      `json:"instructions"`
+		Path            string      `json:"path"`
+		Sha256          *string     `json:"sha256,omitempty"`
+		SourceResultRef string      `json:"source_result_ref"`
+	} `json:"workspace_file,omitempty"`
 }
 
 // CsrfToken defines model for CsrfToken.

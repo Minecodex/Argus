@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/audit"
+	"github.com/kakj-go/Argus/internal/authorization"
 	"github.com/kakj-go/Argus/internal/conversation"
 	"github.com/kakj-go/Argus/internal/dashboardcontext"
 	"github.com/kakj-go/Argus/internal/dashboardparams"
@@ -53,6 +54,12 @@ func newAnalysisFixture(t *testing.T) analysisFixture {
 	}
 	store, err := postgres.Open(t.Context(), address)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.InReadCommittedTx(t.Context(), func(q *db.Queries) error {
+		_, err := authorization.SyncPermissionCatalog(t.Context(), q)
+		return err
+	}); err != nil {
 		t.Fatal(err)
 	}
 	e, d, u, m, c, role := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
@@ -142,6 +149,7 @@ func TestPostgresAnalysisConditionsResetCompatibilityAndRunIsolation(t *testing.
 	chosen := Selection{Values: []string{"prod"}}
 	input := AnalysisResolveInput{DashboardID: f.a, ExpectedVersion: 0, Changes: dashboardparams.Patch{Time: &TimeRange{Kind: "relative", Seconds: 1800}, Variables: map[string]*Selection{"env": &chosen}}, Evidence: []dashboardparams.Evidence{{Path: "/time", Quote: "最近30分钟"}, {Path: "/variables/env", Quote: "prod"}}}
 	invocation := uuid.New()
+	input = allAnalysisResourcesForTest(input)
 	first, err := f.service.ResolveAnalysis(ctx, f.actor, f.conversation, input, invocation)
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +192,7 @@ func TestPostgresAnalysisConditionsResetCompatibilityAndRunIsolation(t *testing.
 	if err != nil || !decoded.Overrides.Variables["env"].All || decoded.Evidence["/variables/env"].Origin != "candidate_reset" || decoded.Overrides.Time.Kind != "relative" {
 		t.Fatal("effective reset and relative intent lost")
 	}
-	b, err := f.service.ResolveAnalysis(ctx, f.actor, f.conversation, AnalysisResolveInput{DashboardID: f.b, ExpectedVersion: 0}, uuid.New())
+	b, err := f.service.ResolveAnalysis(ctx, f.actor, f.conversation, allAnalysisResourcesForTest(AnalysisResolveInput{DashboardID: f.b, ExpectedVersion: 0}), uuid.New())
 	if err != nil || b.Parameters.To.Sub(*b.Parameters.From).Hours() != 2 || b.Conditions.Overrides.Time != nil {
 		t.Fatal("one dashboard inherited another's defaults or overrides")
 	}

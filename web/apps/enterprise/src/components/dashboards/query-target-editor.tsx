@@ -25,6 +25,7 @@ import { DashboardFieldExplorer } from "./field-explorer";
 import { useDashboardQueryScope, queryScopeBounds } from "./query-scope";
 import { useMetricMetadata } from "./use-metric-metadata";
 import { useMetricOptions } from "./use-metric-options";
+import { mergeMetricCatalog } from "./metric-metadata";
 import { MetricQueryFields } from "./metric-query-fields";
 import { MetricLabelFilters } from "./metric-label-filters";
 import { MetricQueryOptions } from "./metric-query-options";
@@ -144,9 +145,7 @@ export function QueryTargetEditor({
     { time, resources: scope?.resources ?? [] },
     (metrics) => {
       setCatalog((previous) => {
-        const all = new Map(previous.map((item) => [item.name, item]));
-        for (const item of metrics) all.set(item.name, item);
-        return [...all.values()];
+        return mergeMetricCatalog(previous, metrics);
       });
     },
   );

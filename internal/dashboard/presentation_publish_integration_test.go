@@ -21,7 +21,7 @@ func TestPostgresPresentationSealingIdempotencyFailureAndAttemptIsolation(t *tes
 		}
 	}
 	exec("UPDATE runtime_tasks SET status='cancelled' WHERE enterprise_id=$1 AND queue='agent'", f.actor.EnterpriseID)
-	resolved, err := f.service.ResolveAnalysis(ctx, f.actor, f.conversation, AnalysisResolveInput{DashboardID: f.b, Changes: dashboardparams.Patch{}, Evidence: []dashboardparams.Evidence{}}, uuid.New())
+	resolved, err := f.service.ResolveAnalysis(ctx, f.actor, f.conversation, allAnalysisResourcesForTest(AnalysisResolveInput{DashboardID: f.b, Changes: dashboardparams.Patch{}, Evidence: []dashboardparams.Evidence{}}), uuid.New())
 	if err != nil {
 		t.Fatal(err)
 	}

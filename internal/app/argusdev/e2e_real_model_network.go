@@ -74,6 +74,30 @@ func configureRealModelEndpointDNS(ctx context.Context, env *E2EEnvironment) err
 			}
 		}
 		deployment.Spec.Template.Spec.HostAliases = append(aliases, corev1.HostAlias{IP: config.EndpointIP, Hostnames: []string{endpoint.Hostname()}})
+		if config.DisableMLKEM {
+			for i := range deployment.Spec.Template.Spec.Containers {
+				container := &deployment.Spec.Template.Spec.Containers[i]
+				found := false
+				for j := range container.Env {
+					if container.Env[j].Name == "GODEBUG" {
+						if container.Env[j].ValueFrom != nil {
+							return fmt.Errorf("cannot override referenced GODEBUG in owned E2E deployment")
+						}
+						parts := []string{}
+						for _, part := range strings.Split(container.Env[j].Value, ",") {
+							if part != "" && !strings.HasPrefix(part, "tlsmlkem=") {
+								parts = append(parts, part)
+							}
+						}
+						container.Env[j].Value = strings.Join(append(parts, "tlsmlkem=0"), ",")
+						found = true
+					}
+				}
+				if !found {
+					container.Env = append(container.Env, corev1.EnvVar{Name: "GODEBUG", Value: "tlsmlkem=0"})
+				}
+			}
+		}
 		if _, err := env.Kube.Client.AppsV1().Deployments(env.SystemNS).Update(ctx, &deployment, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
@@ -87,6 +111,6 @@ func configureRealModelEndpointDNS(ctx context.Context, env *E2EEnvironment) err
 			return err
 		}
 	}
-	data, _ := json.MarshalIndent(map[string]any{"hostname": endpoint.Hostname(), "public_ip": config.EndpointIP, "deployments": patched, "scope": "owned temporary E2E namespace only; TLS and public endpoint policy unchanged"}, "", "  ")
+	data, _ := json.MarshalIndent(map[string]any{"hostname": endpoint.Hostname(), "public_ip": config.EndpointIP, "deployments": patched, "tls_mlkem_disabled": config.DisableMLKEM, "scope": "owned temporary E2E namespace only; TLS certificate verification and public endpoint policy preserved"}, "", "  ")
 	return writePrivate(filepath.Join(env.Options.Artifacts, "real-model-dns.json"), data)
 }

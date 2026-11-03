@@ -96,6 +96,24 @@ func runWorkspaceSourceRevocation(t *testing.T, kind string) {
 	if _, err := (conversation.Service{Store: store}).ReadToolResult(ctx, e, u, ref); err != nil {
 		t.Fatalf("authorized fixture is invalid: %v", err)
 	}
+	otherUser, foreignEnterprise, foreignDepartment, foreignUser := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Another valid member')", otherUser, e, d, otherUser.String())
+	// The other member has the same explicit data grants; that still does not
+	// make this member the owner of the conversation or its stored artifacts.
+	exec("INSERT INTO data_authorization_grants(id,enterprise_id,subject_type,subject_id,resource_type,resource_id) SELECT gen_random_uuid(),enterprise_id,'user',$2,resource_type,resource_id FROM data_authorization_grants WHERE enterprise_id=$1 AND subject_type='user' AND subject_id=$3", e, otherUser, u)
+	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Outside',$2,'UTC')", foreignEnterprise, foreignEnterprise.String())
+	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Outside')", foreignDepartment, foreignEnterprise)
+	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Outside member')", foreignUser, foreignEnterprise, foreignDepartment, foreignUser.String())
+	others := []toolruntime.Principal{{EnterpriseID: e, UserID: otherUser, ConversationID: c, AuthorizationVersion: 1, Permissions: []string{"workspace.use"}}, {EnterpriseID: foreignEnterprise, UserID: foreignUser, ConversationID: c, AuthorizationVersion: 1, Permissions: []string{"workspace.use"}}}
+	for _, other := range others {
+		value, err := (conversation.Service{Store: store}).ReadToolResult(ctx, other.EnterpriseID, other.UserID, ref)
+		if err == nil || len(value.Artifact.Content) != 0 {
+			t.Fatal("cross-owner/enterprise original result exposed despite conversation ownership", err)
+		}
+	}
+	if _, err := (conversation.Service{Store: store}).ReadToolResult(ctx, e, u, ref); err != nil {
+		t.Fatal("unrelated member/grants invalidated the original owner's result", err)
+	}
 	exec("UPDATE workspaces SET source_result_refs=$2 WHERE id=$1", w, []string{ref})
 	if kind == "authorization_version" {
 		exec("UPDATE enterprise_users SET authorization_version=authorization_version+1 WHERE id=$1", u)
@@ -117,6 +135,11 @@ func runWorkspaceSourceRevocation(t *testing.T, kind string) {
 	client := fake.NewSimpleClientset(&storagev1.StorageClass{ObjectMeta: metav1.ObjectMeta{Name: "argus-workspace"}, Provisioner: "rawfile.csi.openebs.io", Parameters: map[string]string{"thinProvision": "false", "csi.storage.k8s.io/fstype": "ext4"}, MountOptions: []string{"nodiscard"}, VolumeBindingMode: &mode})
 	cfg := config.Workspace{Enabled: true, Namespace: "test-workspace", StorageClass: "argus-workspace", IOImage: "fixed-io"}
 	service := Service{Store: store, Config: cfg, Kubernetes: Kubernetes{Client: client, Config: cfg}, Idempotency: postgres.Idempotency{Key: []byte(strings.Repeat("k", 32))}}
+	for _, other := range others {
+		if _, _, _, err := service.ReadFile(ctx, other, file, 0, 0); err == nil {
+			t.Fatal("cross-owner/enterprise file exposed")
+		}
+	}
 	if err := service.Authorize(ctx, p); err != nil {
 		t.Fatalf("new principal should retain workspace use: %v", err)
 	}

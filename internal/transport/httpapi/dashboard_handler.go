@@ -289,7 +289,11 @@ func (handler DashboardHandler) PreviewDashboardPublication(ctx context.Context,
 	if r.Body == nil {
 		return api.PreviewDashboardPublicationdefaultJSONResponse{Body: dashboardError(ctx, dashboard.ErrInvalid), StatusCode: 400}, nil
 	}
-	preview, err := handler.Service.PreviewPublish(ctx, actor, r.Id, r.Body.ExpectedVersion, r.Params.IdempotencyKey)
+	parameters := []dashboard.ExecutionInput{}
+	if r.Body.Parameters != nil {
+		parameters = append(parameters, dashboardConvert[dashboard.ExecutionInput](r.Body.Parameters))
+	}
+	preview, err := handler.Service.PreviewPublish(ctx, actor, r.Id, r.Body.ExpectedVersion, r.Params.IdempotencyKey, parameters...)
 	if err != nil {
 		return api.PreviewDashboardPublicationdefaultJSONResponse{Body: dashboardError(ctx, err), StatusCode: dashboardStatus(err)}, nil
 	}

@@ -14,6 +14,10 @@ import (
 
 var errPlan8TargetCleanup = errors.New("owned target cleanup incomplete")
 
+func plan8TargetHardFailure(ctx context.Context, err error) bool {
+	return err != nil && (errors.Is(err, errPlan8TargetCleanup) || errors.Is(err, errPlan8ModelCleanup) || errors.Is(err, errPlan11ComparisonBoundary) || ctx.Err() != nil)
+}
+
 // Each new integration is exercised on the enrolled Host after independent
 // model scenarios. Actual API/Collector/Kafka/Writer/Query results are retained;
 // component captures alone do not satisfy this deployed stage.
@@ -40,6 +44,8 @@ func (a *App) plan8DeployedSupportedTargets(ctx context.Context, env *E2EEnviron
 		name    string
 		prepare func() ([]plan8ExtraTarget, error)
 	}{
+		{"mysql", one(a.preparePlan8MySQLTarget)},
+		{"redis-nginx", func() ([]plan8ExtraTarget, error) { return a.preparePlan8ExtraServices(ctx, env, host) }},
 		{"postgresql", one(a.preparePlan8PostgresTarget)},
 		{"cache-web-coordination", func() ([]plan8ExtraTarget, error) { return a.preparePlan8LightTargets(ctx, env, host) }},
 		{"rabbitmq", one(a.preparePlan8RabbitTarget)},
@@ -52,6 +58,7 @@ func (a *App) plan8DeployedSupportedTargets(ctx context.Context, env *E2EEnviron
 			return []plan8ExtraTarget{target}, e
 		}},
 		{"oracle", one(a.preparePlan8OracleTarget)},
+		{"sqlserver", one(a.preparePlan8SQLServerTarget)},
 		{"kafka", one(a.preparePlan8KafkaTarget)},
 		{"http-tcp-tls-dns-icmp", func() ([]plan8ExtraTarget, error) {
 			probes, e := a.preparePlan8ProbeTargets(ctx, env, host)
@@ -63,14 +70,8 @@ func (a *App) plan8DeployedSupportedTargets(ctx context.Context, env *E2EEnviron
 		}},
 	}
 	for _, group := range groups {
-		if len(env.Options.Plan8Integrations) > 0 {
-			selected := false
-			for _, name := range env.Options.Plan8Integrations {
-				selected = selected || name == group.name
-			}
-			if !selected {
-				continue
-			}
+		if !plan8IntegrationGroupSelected(env.Options.Plan8Integrations, group.name) {
+			continue
 		}
 		fmt.Fprintf(a.stdout, "Plan8 supported target group %s started\n", group.name)
 		started := time.Now().UTC()
@@ -108,19 +109,29 @@ func (a *App) plan8DeployedSupportedTargets(ctx context.Context, env *E2EEnviron
 			if e != nil {
 				return e
 			}
+			var groupFailure error
 			for _, target := range targets {
-				record, e := a.plan8VerifyDedicatedTarget(ctx, env, collector, target, true)
-				if e != nil {
-					return e
+				if !plan8IntegrationTargetSelected(env.Options.Plan8Integrations, group.name, target.engine) {
+					continue
 				}
-				records = append(records, record)
+				record, e := a.plan8VerifyDedicatedTarget(ctx, env, collector, target, true)
+				if record != nil {
+					records = append(records, record)
+				}
+				if e != nil {
+					groupFailure = errors.Join(groupFailure, e)
+					if plan8TargetHardFailure(ctx, e) {
+						return groupFailure
+					}
+					continue
+				}
 			}
-			return nil
+			return groupFailure
 		}()
 		if err != nil {
 			records = append(records, map[string]any{"group": group.name, "passed": false, "error": string(redactDiagnostic([]byte(err.Error())))})
 			failure = errors.Join(failure, fmt.Errorf("supported target group %s: %w", group.name, err))
-			if errors.Is(err, errPlan8TargetCleanup) || ctx.Err() != nil {
+			if plan8TargetHardFailure(ctx, err) {
 				return failure
 			}
 			fmt.Fprintf(a.stdout, "Plan8 supported target group %s failed; independent groups continue\n", group.name)

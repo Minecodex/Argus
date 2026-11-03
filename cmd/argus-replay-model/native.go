@@ -117,7 +117,7 @@ func selectTool(request replayRequest) (string, string, bool) {
 		}
 		switch len(calls) {
 		case 0:
-			return marshal("tool_search", map[string]any{"category": category, "query": name})
+			return marshal("tool_search", map[string]any{"category": category})
 		case 1:
 			return marshal("tool_describe", map[string]any{"category": category, "name": name})
 		case 2:

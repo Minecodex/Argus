@@ -115,7 +115,11 @@ func (service Service) ResolveAnalysis(ctx context.Context, actor Actor, convers
 		if row.InputHash != digest {
 			return result, ErrConflict
 		}
-		return analysisView(row)
+		view, err := analysisView(row)
+		if err == nil {
+			err = requireAnalysisResourceCondition(view.Conditions)
+		}
+		return view, err
 	}
 	if row, e := q.GetDashboardAnalysisContext(ctx, lookup); e == nil {
 		return replay(row)
@@ -173,9 +177,17 @@ func (service Service) ResolveAnalysis(ctx context.Context, actor Actor, convers
 		if e != nil {
 			return e
 		}
+		if e = requireAnalysisResourceCondition(state); e != nil {
+			return e
+		}
 		parameters, e := conditionParameters(spec, state, time.Now().UTC())
 		if e != nil {
 			return e
+		}
+		if parameters.ResourceMode == "" {
+			// An attributed reset deliberately chooses the default authorized
+			// scope; materialize that choice in the immutable context too.
+			parameters.ResourceMode = "all_authorized"
 		}
 		if len(parameters.ResourceIDs) > 0 {
 			if _, e = resolveResources(ctx, q, actor, parameters.ResourceIDs); e != nil {
@@ -232,6 +244,9 @@ func (jobs QueryJobs) StartAnalysis(ctx context.Context, actor Actor, conversati
 		}
 		view, err := analysisView(row)
 		if err != nil {
+			return QueryJobView{}, err
+		}
+		if err = requireAnalysisResourceCondition(view.Conditions); err != nil {
 			return QueryJobView{}, err
 		}
 		request.Parameters = view.Parameters

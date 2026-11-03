@@ -55,6 +55,7 @@ func (a *App) preparePlan8ExtraServices(ctx context.Context, env *E2EEnvironment
 		row.endpoint = "http://" + row.name + ":8080/status"
 		row.metric = "nginx_connections_accepted"
 		command := []string{}
+		loadPassword := ""
 		if engine == "redis" {
 			row.password = "P8-" + strings.ReplaceAll(uuid.NewString(), "-", "")
 			image = "redis:7.4-alpine"
@@ -62,6 +63,8 @@ func (a *App) preparePlan8ExtraServices(ctx context.Context, env *E2EEnvironment
 			row.endpoint = row.name + ":6379"
 			row.metric = "redis_uptime"
 			contents = "bind 0.0.0.0\nprotected-mode no\nappendonly no\nsave \"\"\nuser default off\nuser monitor reset on >" + row.password + " -@all +info +ping +hello +cluster|info +client|setinfo\n"
+			loadPassword = "P11-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+			contents += "user load reset on >" + loadPassword + " ~argus-e2e:* -@all +set +get +ping\n"
 			command = []string{"redis-server", "/redis.conf"}
 		}
 		config := filepath.Join(env.WorkDir, "plan8-extra-"+engine+".conf")
@@ -129,6 +132,16 @@ func (a *App) preparePlan8ExtraServices(ctx context.Context, env *E2EEnvironment
 					return rows, errors.New("Redis monitoring role can access business values or protected configuration")
 				}
 			}
+			// A hit-ratio requires actual lookups. Keep the collector's account
+			// read-only; a separate fixture account owns only these load keys.
+			loadEnv := map[string]string{"REDISCLI_AUTH": loadPassword}
+			if err = a.runner.RunIO(ctx, loadEnv, nil, io.Discard, io.Discard, "docker", "exec", "--env", "REDISCLI_AUTH", row.id, "redis-cli", "--user", "load", "--no-auth-warning", "-e", "SET", "argus-e2e:hit", "value"); err != nil {
+				return rows, errors.New("owned Redis load initialization failed")
+			}
+			load := "set -eu; while :; do redis-cli --user load --no-auth-warning -e GET argus-e2e:hit >/dev/null; redis-cli --user load --no-auth-warning -e GET argus-e2e:miss >/dev/null; sleep 1; done"
+			if err = a.runner.RunIO(ctx, loadEnv, nil, io.Discard, io.Discard, "docker", "exec", "--detach", "--env", "REDISCLI_AUTH", row.id, "sh", "-c", load); err != nil {
+				return rows, errors.New("owned Redis lookup load did not start")
+			}
 		}
 	}
 	return rows, nil
@@ -151,8 +164,9 @@ func plan8MetricValues(value any, target, collection string, scopedAggregation b
 			}
 		case map[string]any:
 			if labels, ok := value["metric"].(map[string]any); ok {
-				unlabeledAggregate := scopedAggregation && labels["argus_resource_id"] == nil && labels["argus_collection_id"] == nil
-				if !unlabeledAggregate && (labels["argus_resource_id"] != target || labels["argus_collection_id"] != collection) {
+				resourceMatches := labels["argus_resource_id"] == target || scopedAggregation && labels["argus_resource_id"] == nil
+				collectionMatches := labels["argus_collection_id"] == collection || scopedAggregation && labels["argus_collection_id"] == nil
+				if !resourceMatches || !collectionMatches {
 					return errors.New("service query escaped its target or logical instance")
 				}
 				points := []any{}
@@ -221,7 +235,7 @@ func (a *App) plan8ExtraManagedDashboard(ctx context.Context, env *E2EEnvironmen
 		if err := plan8DefaultViewScope(result, row, sourceKeys); err != nil {
 			body, _ := json.MarshalIndent(redactJSON(result), "", "  ")
 			_ = writePrivate(filepath.Join(env.Options.Artifacts, "plan8-extra-dashboard-"+row.Integration+"-failure.json"), body)
-			return nil, err
+			return nil, fmt.Errorf("%w: default dashboard scope: %v", errPlan11ComparisonBoundary, err)
 		}
 		complete := result["partial"] != true
 		panels, _ := result["panels"].([]any)
@@ -377,15 +391,19 @@ func (a *App) plan8VerifyDedicatedTarget(ctx context.Context, env *E2EEnvironmen
 			return nil, err
 		}
 	}
-	dashboard, err := a.plan8ExtraManagedDashboard(ctx, env, row)
-	if err != nil {
-		return nil, err
+	dashboard, dashboardErr := a.plan8ExtraManagedDashboard(ctx, env, row)
+	if plan8TargetHardFailure(ctx, dashboardErr) {
+		return nil, dashboardErr
+	}
+	business, businessErr := a.plan11IntegrationBusiness(ctx, env, fixture, row)
+	if plan8TargetHardFailure(ctx, businessErr) {
+		return nil, businessErr
 	}
 	authorization := map[string]any{"status": "not_run_in_foundation_stage", "following_gate": "existing-target-authorization"}
 	if verifyAuthorization {
 		authorization, err = a.plan8VerifyTargetAuthorization(ctx, env, row, fixture.metric)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: target authorization: %v", errPlan11ComparisonBoundary, err)
 		}
 	}
 	row, err = a.plan8ServiceUpdate(ctx, env, "extra-disable-"+fixture.engine, row, collector, false)
@@ -400,7 +418,14 @@ func (a *App) plan8VerifyDedicatedTarget(ctx context.Context, env *E2EEnvironmen
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"integration": fixture.engine, "collection": row, "configuration_gate": configuration, "actual_samples": samples, "default_dashboard": redactJSON(dashboard), "independent_disable_resume_verified": true, "target_runtime_version": fixture.version, "target_image_id": fixture.imageID, "platform_target_authorization": authorization}, nil
+	return map[string]any{"integration": fixture.engine, "collection": row, "configuration_gate": configuration, "actual_samples": samples, "default_dashboard": redactJSON(dashboard), "dashboard_validation_passed": dashboardErr == nil, "dashboard_error": errorText(dashboardErr), "business_acceptance": business, "independent_disable_resume_verified": true, "target_runtime_version": fixture.version, "target_image_id": fixture.imageID, "platform_target_authorization": authorization}, errors.Join(dashboardErr, businessErr)
+}
+
+func errorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return string(redactDiagnostic([]byte(err.Error())))
 }
 
 // A loss sample alone does not establish the healthy ICMP fixture required by

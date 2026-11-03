@@ -6,6 +6,7 @@ import { useMemo, useRef, type ComponentProps } from "react";
 import type { DashboardSchemas } from "@argus/api-client";
 import type { ComboBox } from "@argus/ui";
 import { queryScopeBounds, type DashboardQueryScope } from "./query-scope";
+import { mergeMetricCatalog, metricCatalogOptions } from "./metric-metadata";
 
 type Metric = DashboardSchemas["DashboardMetricDescriptor"];
 type Request = DashboardSchemas["DashboardCatalogInput"];
@@ -23,10 +24,12 @@ export function createMetricOptionsLoader(
 ): NonNullable<ComponentProps<typeof ComboBox>["fetchOptions"]> {
   let range: ReturnType<typeof queryScopeBounds> | undefined;
   let activeSearch: string | undefined;
+  let variants: Metric[] = [];
   return async (search, cursor, signal) => {
     if (!cursor || search !== activeSearch || !range) {
       range = queryScopeBounds(scope.time);
       activeSearch = search;
+      variants = [];
     }
     const result = await catalog(
       {
@@ -43,13 +46,14 @@ export function createMetricOptionsLoader(
       },
       signal,
     );
-    if (!signal.aborted) received?.(result.metrics);
+    if (!signal.aborted && activeSearch === search) {
+      variants = mergeMetricCatalog(variants, result.metrics);
+      received?.(result.metrics);
+    }
+    const pageNames = new Set(result.metrics.map(metric => metric.name));
     return {
-      options: result.metrics.map((metric) => ({
-        value: metric.name,
-        label: metric.name,
-        description: [metric.type, metric.unit].filter(Boolean).join(" · "),
-      })),
+      options: metricCatalogOptions(activeSearch === search ? variants : result.metrics)
+        .filter(option => pageNames.has(option.value)),
       next_cursor: result.next_cursor,
     };
   };

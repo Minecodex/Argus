@@ -162,6 +162,16 @@ message ExecuteQueryV2Response {
   QueryMeta meta = 7;
 }
 
+message InputMetricDescriptor {
+  string name = 1;
+  string type = 2;
+  string unit = 3;
+  string storage_type = 4;
+  string temporality = 5;
+  bool monotonic = 6;
+  string source_key = 7;
+}
+
 message QueryMeta {
   string plan_hash = 1;
   string engine = 2;
@@ -177,4 +187,8 @@ message QueryMeta {
   google.protobuf.Timestamp latest_sample_at = 12;
   string sample_time_basis = 13;
   string ingestion_status = 14;
+  repeated InputMetricDescriptor input_metrics = 15;
+  bool input_metrics_complete = 16;
+  string input_metrics_origin = 17;
+  bool result_is_original_metric = 18;
 }

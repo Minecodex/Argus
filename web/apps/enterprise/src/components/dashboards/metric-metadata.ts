@@ -3,6 +3,36 @@ import type { DashboardSchemas } from "@argus/api-client";
 type Builder = DashboardSchemas["DashboardBuilder"];
 export type MetricMetadata = DashboardSchemas["DashboardMetricDescriptor"];
 
+export function mergeMetricCatalog(previous: MetricMetadata[], incoming: MetricMetadata[]) {
+  const rows = new Map<string, MetricMetadata>();
+  for (const metric of [...previous, ...incoming])
+    rows.set(JSON.stringify([metric.name, metric.type, metric.unit, metric.source_type,
+      [...(metric.source_keys ?? [])].sort()]), metric);
+  return [...rows.values()];
+}
+
+/** A query selects a name; describe all returned variants instead of picking one. */
+export function metricCatalogOptions(metrics: MetricMetadata[]) {
+  const names = new Map<string, Set<string>>();
+  for (const metric of metrics) {
+    const descriptions = names.get(metric.name) ?? new Set<string>();
+    descriptions.add([metric.type, metric.unit].filter(Boolean).join(" · "));
+    names.set(metric.name, descriptions);
+  }
+  return [...names].map(([name, descriptions]) => ({
+    value: name, label: name, description: [...descriptions].join(" / "),
+  }));
+}
+
+export function catalogMetricMetadata(metrics: MetricMetadata[], name: string, complete: boolean) {
+  const matches = metrics.filter((item) => item.name === name);
+  if (!matches.length) return undefined;
+  const conflict = new Set(matches.map((item) => JSON.stringify([item.type, item.unit]))).size > 1;
+  if (conflict || !complete)
+    return { name, type: "mixed", unit: "", labels: [...new Set(matches.flatMap(item => item.labels))] };
+  return matches[0];
+}
+
 export function knownMetricType(
   metadata?: MetricMetadata,
 ): Builder["metric_type"] {

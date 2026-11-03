@@ -99,6 +99,11 @@ func (a *App) runM4Scenario(ctx context.Context, env *E2EEnvironment) error {
 	if err := a.waitRunTerminal(ctx, env, runID); err != nil {
 		return err
 	}
+	// A terminal answer alone can hide a rejected replay tool call. Require
+	// the actual current Search -> Describe -> Invoke business path to succeed.
+	if err := a.waitPostgresValue(ctx, env, "SELECT count(*) FROM tool_calls WHERE run_id='"+runID+"' AND source='argus' AND tool_id IN ('tool.search','tool.describe','tool.invoke') AND status='succeeded';", "3", time.Second); err != nil {
+		return fmt.Errorf("M4 native discovery did not execute all three protocol steps: %w", err)
+	}
 	if err := a.verifyM4Compaction(ctx, env, conversationID, runID); err != nil {
 		return err
 	}

@@ -14,6 +14,8 @@ import {
   formatApiError,
   useApi,
   type AIModel,
+  modelReasoningEfforts,
+  type ModelReasoningEffort,
 } from "@argus/api-client";
 import {
   Badge,
@@ -40,6 +42,7 @@ type ModelFormValues = {
   apiKey: string;
   modelId: string;
   apiProtocol: "chat_completions" | "responses";
+  reasoningEffort: ModelReasoningEffort;
   contextWindowTokens: number;
   maxOutputTokens: number;
   inputPricePerMillionTokens: number;
@@ -63,6 +66,7 @@ const modelConstraints = {
 const modelFieldByApiName: Record<string, keyof ModelFormValues> = {
   api_key: "apiKey",
   api_protocol: "apiProtocol",
+  reasoning_effort: "reasoningEffort",
   base_url: "baseUrl",
   context_window_tokens: "contextWindowTokens",
   input_price_per_million: "inputPricePerMillionTokens",
@@ -205,6 +209,14 @@ function ModelsView({ onDashboard }: { onDashboard: (id: string) => void }) {
                 ),
               },
               {
+                key: "reasoningEffort",
+                header: t("aiSettings.model.reasoningEffort"),
+                render: (model) =>
+                  t(
+                    `aiSettings.model.reasoning.${model.reasoningEffort ?? "provider_default"}`,
+                  ),
+              },
+              {
                 key: "revision",
                 header: t("aiSettings.model.revisionLabel"),
                 render: (model) => <Badge>{model.revision}</Badge>,
@@ -342,6 +354,7 @@ function ModelDrawer({
             }),
           ),
         apiProtocol: z.enum(["chat_completions", "responses"]),
+        reasoningEffort: z.enum(modelReasoningEfforts),
         contextWindowTokens: z
           .number({ error: t("aiSettings.validation.required") })
           .int(t("aiSettings.validation.integer"))
@@ -384,6 +397,8 @@ function ModelDrawer({
     register,
     handleSubmit,
     setError,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ModelFormValues>({
     resolver: zodResolver(schema),
@@ -393,12 +408,14 @@ function ModelDrawer({
       apiKey: "",
       modelId: existing?.modelId ?? "",
       apiProtocol: existing?.apiProtocol ?? "responses",
+      reasoningEffort: existing?.reasoningEffort ?? "provider_default",
       contextWindowTokens: existing?.contextWindowTokens ?? 128_000,
       maxOutputTokens: existing?.maxOutputTokens ?? 8192,
       inputPricePerMillionTokens: existing?.inputPricePerMillionTokens,
       outputPricePerMillionTokens: existing?.outputPricePerMillionTokens,
     },
   });
+  const selectedProtocol = watch("apiProtocol");
   const mutation = useMutation({
     mutationFn: async (values: ModelFormValues) => {
       if (existing) {
@@ -516,12 +533,45 @@ function ModelDrawer({
             name="apiProtocol"
             render={({ field }) => (
               <Select
-                onValueChange={field.onChange}
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  if (value === "responses")
+                    setValue("reasoningEffort", "provider_default", {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                }}
                 options={[
                   { value: "responses", label: "Responses" },
                   { value: "chat_completions", label: "Chat Completions" },
                 ]}
                 value={field.value}
+              />
+            )}
+          />
+        </Field>
+        <Field
+          label={t("aiSettings.model.reasoningEffort")}
+          requirement="optional"
+          error={errors.reasoningEffort?.message}
+          hint={t(
+            selectedProtocol === "chat_completions"
+              ? "aiSettings.model.reasoningHint"
+              : "aiSettings.model.reasoningProtocolHint",
+          )}
+        >
+          <Controller
+            control={control}
+            name="reasoningEffort"
+            render={({ field }) => (
+              <Select
+                disabled={selectedProtocol !== "chat_completions"}
+                value={field.value}
+                onValueChange={field.onChange}
+                options={modelReasoningEfforts.map((value) => ({
+                  value,
+                  label: t(`aiSettings.model.reasoning.${value}`),
+                }))}
               />
             )}
           />

@@ -67,7 +67,15 @@ func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, con
 		selection = selections[0]
 	}
 	if command := dashboardcontext.Command(content); command != nil {
-		if selection != nil && selection.Mode != "create" {
+		if selection != nil {
+			copy := *selection
+			copy.Mode = command.Mode
+			if command.Mode == "none" {
+				copy.DashboardIDs = []uuid.UUID{}
+			}
+			selection = &copy
+		}
+		if selection != nil && selection.Mode != command.Mode {
 			return Preflight{}, toolruntime.Error{Kind: "DASHBOARD_INVALID"}
 		}
 		if selection == nil {
@@ -103,6 +111,7 @@ func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, con
 		return Preflight{}, err
 	}
 	facts = WithModelRuntimeFacts(facts, c.Mode, set.Snapshot, set.Models(), time.Now())
+	facts["query_evidence"] = toolruntime.NativeQueryEvidenceFacts([]any{}, true)
 	if service.RemoteFacts != nil {
 		snapshot, err := json.Marshal(set.Snapshot)
 		if err != nil {

@@ -147,7 +147,7 @@ components:
             additionalProperties: false
             required: [type, id]
             properties:
-              type: {type: string, enum: [host, kubernetes_cluster, connector, dashboard]}
+              type: {type: string, enum: [host, kubernetes_cluster, kubernetes_namespace, application, monitoring_target, connector, dashboard]}
               id: {type: string, format: uuid}
         result_refs: {type: array, items: {type: string}}
         status: {type: string, enum: [ready, failed]}

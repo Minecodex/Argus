@@ -179,7 +179,7 @@ func (q *Queries) CreateAIModelRevision(ctx context.Context, arg CreateAIModelRe
 const createModelCall = `-- name: CreateModelCall :one
 INSERT INTO model_calls (id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash,
     input_price_snapshot, output_price_snapshot, context_snapshot_id, context_snapshot_hash, context_from_sequence, context_through_sequence, status)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'reserved') RETURNING id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash, context_snapshot_id, context_snapshot_hash, tool_snapshot_hash, capability_snapshot, dispatched_at, context_from_sequence, context_through_sequence, input_tokens, output_tokens, cached_input_tokens, cached_input_usage_source, input_usage_source, output_usage_source, input_price_snapshot, output_price_snapshot, amount, latency_ms, stop_reason, status, error_code, created_at, completed_at
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'reserved') RETURNING id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash, context_snapshot_id, context_snapshot_hash, tool_snapshot_hash, capability_snapshot, dispatched_at, context_from_sequence, context_through_sequence, input_tokens, output_tokens, cached_input_tokens, cached_input_usage_source, input_usage_source, output_usage_source, input_price_snapshot, output_price_snapshot, amount, latency_ms, stop_reason, status, error_code, created_at, completed_at, inline_query_receipts
 `
 
 type CreateModelCallParams struct {
@@ -248,6 +248,7 @@ func (q *Queries) CreateModelCall(ctx context.Context, arg CreateModelCallParams
 		&i.ErrorCode,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.InlineQueryReceipts,
 	)
 	return i, err
 }
@@ -340,7 +341,7 @@ const finishModelCall = `-- name: FinishModelCall :one
 UPDATE model_calls SET input_tokens = $3, output_tokens = $4, amount = $5, latency_ms = $6,
     stop_reason = $7, status = $8, error_code = $9, completed_at = now(),
     input_usage_source=$10, output_usage_source=$11, cached_input_tokens=$12, cached_input_usage_source=$13
-WHERE id = $1 AND enterprise_id = $2 RETURNING id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash, context_snapshot_id, context_snapshot_hash, tool_snapshot_hash, capability_snapshot, dispatched_at, context_from_sequence, context_through_sequence, input_tokens, output_tokens, cached_input_tokens, cached_input_usage_source, input_usage_source, output_usage_source, input_price_snapshot, output_price_snapshot, amount, latency_ms, stop_reason, status, error_code, created_at, completed_at
+WHERE id = $1 AND enterprise_id = $2 RETURNING id, enterprise_id, run_id, step_id, model_id, model_revision, call_kind, projection_hash, context_snapshot_id, context_snapshot_hash, tool_snapshot_hash, capability_snapshot, dispatched_at, context_from_sequence, context_through_sequence, input_tokens, output_tokens, cached_input_tokens, cached_input_usage_source, input_usage_source, output_usage_source, input_price_snapshot, output_price_snapshot, amount, latency_ms, stop_reason, status, error_code, created_at, completed_at, inline_query_receipts
 `
 
 type FinishModelCallParams struct {
@@ -407,6 +408,7 @@ func (q *Queries) FinishModelCall(ctx context.Context, arg FinishModelCallParams
 		&i.ErrorCode,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.InlineQueryReceipts,
 	)
 	return i, err
 }
@@ -685,9 +687,12 @@ SELECT c.model_id,
     count(*) FILTER (WHERE call_kind = 'compaction')::bigint AS compaction_count
 FROM model_calls c
 WHERE c.enterprise_id = $2 AND c.completed_at >= $3 AND c.completed_at < $4
+  AND c.status IN ('succeeded','failed','cancelled')
   AND ($5::uuid IS NULL OR c.model_id = $5)
   AND ($6::uuid IS NULL OR EXISTS (
-    SELECT 1 FROM model_quota_reservations q WHERE q.enterprise_id=c.enterprise_id AND q.model_call_id=c.id AND q.department_id=$6
+    SELECT 1 FROM model_metric_outbox snapshot WHERE snapshot.enterprise_id=c.enterprise_id AND snapshot.entity_id=c.id AND snapshot.kind='call'
+      AND snapshot.department_id=$6
+      AND snapshot.id=(SELECT max(latest.id) FROM model_metric_outbox latest WHERE latest.enterprise_id=c.enterprise_id AND latest.entity_id=c.id AND latest.kind='call')
   ))
 GROUP BY c.model_id
 ORDER BY c.model_id

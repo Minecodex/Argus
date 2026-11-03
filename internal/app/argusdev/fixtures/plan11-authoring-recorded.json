@@ -1,0 +1,246 @@
+[
+  {
+    "locale": "zh",
+    "original_trace": "artifacts/plan11/p11-authoring-20261102-r69/plan11-authoring-run-01-tools.json",
+    "original_trace_sha256": "74e718fa3a2b5dbe0be16d507c4127580eb91c43a9fb3ce9e562c682d9358f64",
+    "original_tool_call_id": "b199f889-89fe-5714-8255-c120e467f9a9",
+    "spec": {
+      "default_refresh_seconds": 0,
+      "default_time_range": {
+        "kind": "relative",
+        "seconds": 1800
+      },
+      "layout": {
+        "columns": 12,
+        "row_height": 8
+      },
+      "panels": [
+        {
+          "applicable_resource_types": [
+            "host",
+            "kubernetes_cluster"
+          ],
+          "authoring_mode": "dsl",
+          "decimals": 2,
+          "description": "1 - idle CPU 利用率（hostmetrics）",
+          "detail_query_targets": [],
+          "display": {
+            "draw_style": "line"
+          },
+          "drilldowns": [],
+          "id": "cpu-busy",
+          "layout": {
+            "h": 8,
+            "min_h": 4,
+            "min_w": 3,
+            "w": 6,
+            "x": 0,
+            "y": 0
+          },
+          "legend": true,
+          "local_filters": [],
+          "signal": "metrics",
+          "source_binding": {
+            "capability_version": "v1",
+            "source_type": "hostmetrics"
+          },
+          "targets": [
+            {
+              "id": "cpu-busy-t1",
+              "language": "promql",
+              "parameter_bindings": [],
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "min_step_seconds": 10,
+                "target_points": 120
+              },
+              "source_definition": {
+                "dsl": {
+                  "expression": "1 - avg by (argus_resource_id) (system_cpu_utilization{state=\"idle\"})"
+                }
+              }
+            }
+          ],
+          "thresholds": [],
+          "title": "CPU 忙碌率",
+          "type": "timeseries",
+          "unit": "percent_ratio"
+        },
+        {
+          "applicable_resource_types": [
+            "host",
+            "kubernetes_cluster"
+          ],
+          "authoring_mode": "dsl",
+          "decimals": 2,
+          "description": "已用内存占比（hostmetrics）",
+          "detail_query_targets": [],
+          "display": {
+            "draw_style": "line"
+          },
+          "drilldowns": [],
+          "id": "memory-used",
+          "layout": {
+            "h": 8,
+            "min_h": 4,
+            "min_w": 3,
+            "w": 6,
+            "x": 6,
+            "y": 0
+          },
+          "legend": true,
+          "local_filters": [],
+          "signal": "metrics",
+          "source_binding": {
+            "capability_version": "v1",
+            "source_type": "hostmetrics"
+          },
+          "targets": [
+            {
+              "id": "memory-used-t1",
+              "language": "promql",
+              "parameter_bindings": [],
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "min_step_seconds": 10,
+                "target_points": 120
+              },
+              "source_definition": {
+                "dsl": {
+                  "expression": "system_memory_utilization{state=\"used\"}"
+                }
+              }
+            }
+          ],
+          "thresholds": [],
+          "title": "已用内存百分比",
+          "type": "timeseries",
+          "unit": "percent_ratio"
+        }
+      ],
+      "schema_version": "argus.telemetry_dashboard/v1",
+      "variables": []
+    }
+  },
+  {
+    "locale": "en",
+    "original_trace": "artifacts/plan11/p11-authoring-20261102-r69/plan11-authoring-run-02-tools.json",
+    "original_trace_sha256": "f94164742c85becc120b8b5ff253a44732564db7841c2bc8ba08e27e73a33f76",
+    "original_tool_call_id": "1aa60f3f-65bc-564b-915f-2589a2679dc8",
+    "spec": {
+      "default_refresh_seconds": 0,
+      "default_time_range": {
+        "kind": "relative",
+        "seconds": 1800
+      },
+      "layout": {
+        "columns": 12,
+        "row_height": 8
+      },
+      "panels": [
+        {
+          "applicable_resource_types": [
+            "host",
+            "kubernetes_cluster"
+          ],
+          "authoring_mode": "dsl",
+          "decimals": 2,
+          "description": "CPU busy percentage derived from hostmetrics system_cpu_utilization idle state",
+          "detail_query_targets": [],
+          "drilldowns": [],
+          "id": "panel_cpu_busy",
+          "layout": {
+            "h": 32,
+            "min_h": 12,
+            "min_w": 3,
+            "w": 6,
+            "x": 0,
+            "y": 0
+          },
+          "legend": true,
+          "local_filters": [],
+          "signal": "metrics",
+          "source_binding": {
+            "capability_version": "v1",
+            "source_type": "hostmetrics"
+          },
+          "targets": [
+            {
+              "id": "t_cpu_busy",
+              "language": "promql",
+              "parameter_bindings": [],
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "min_step_seconds": 10,
+                "target_points": 120
+              },
+              "source_definition": {
+                "dsl": {
+                  "expression": "1 - avg by (argus_resource_id) (system_cpu_utilization{state=\"idle\"})"
+                }
+              }
+            }
+          ],
+          "thresholds": [],
+          "title": "CPU Busy Percentage",
+          "type": "timeseries",
+          "unit": "percent_ratio"
+        },
+        {
+          "applicable_resource_types": [
+            "host",
+            "kubernetes_cluster"
+          ],
+          "authoring_mode": "dsl",
+          "decimals": 2,
+          "description": "Used memory percentage from hostmetrics system_memory_utilization state=used",
+          "detail_query_targets": [],
+          "drilldowns": [],
+          "id": "panel_mem_used",
+          "layout": {
+            "h": 32,
+            "min_h": 12,
+            "min_w": 3,
+            "w": 6,
+            "x": 6,
+            "y": 0
+          },
+          "legend": true,
+          "local_filters": [],
+          "signal": "metrics",
+          "source_binding": {
+            "capability_version": "v1",
+            "source_type": "hostmetrics"
+          },
+          "targets": [
+            {
+              "id": "t_mem_used",
+              "language": "promql",
+              "parameter_bindings": [],
+              "query_mode": "range",
+              "range_step_policy": {
+                "kind": "auto",
+                "min_step_seconds": 10,
+                "target_points": 120
+              },
+              "source_definition": {
+                "dsl": {
+                  "expression": "system_memory_utilization{state=\"used\"}"
+                }
+              }
+            }
+          ],
+          "thresholds": [],
+          "title": "Used Memory Percentage",
+          "type": "timeseries",
+          "unit": "percent_ratio"
+        }
+      ],
+      "schema_version": "argus.telemetry_dashboard/v1",
+      "variables": []
+    }
+  }
+]

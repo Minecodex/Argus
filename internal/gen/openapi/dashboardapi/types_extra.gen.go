@@ -12,12 +12,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// DashboardDraftPanelDrilldowns defines model for DashboardDraftPanelDrilldowns.
-type DashboardDraftPanelDrilldowns struct {
-	PanelId       string                            `json:"panel_id"`
-	SignalSources map[string]DashboardSourceBinding `json:"signal_sources"`
-}
-
 // DashboardDraftPreparation defines model for DashboardDraftPreparation.
 type DashboardDraftPreparation struct {
 	Conversions *[]DashboardDraftPanelConversion `json:"conversions,omitempty"`
@@ -265,10 +259,14 @@ type DashboardLocalFilterKind string
 
 // DashboardMetricDescriptor defines model for DashboardMetricDescriptor.
 type DashboardMetricDescriptor struct {
-	Labels []string `json:"labels"`
-	Name   string   `json:"name"`
-	Type   string   `json:"type"`
-	Unit   string   `json:"unit"`
+	Labels     []string                    `json:"labels"`
+	Name       string                      `json:"name"`
+	Recipes    *[]ObservationRecipe        `json:"recipes,omitempty"`
+	Semantics  *ObservationMetricSemantics `json:"semantics,omitempty"`
+	SourceKeys *[]string                   `json:"source_keys,omitempty"`
+	SourceType *string                     `json:"source_type,omitempty"`
+	Type       string                      `json:"type"`
+	Unit       string                      `json:"unit"`
 }
 
 // DashboardPanel defines model for DashboardPanel.
@@ -625,11 +623,44 @@ type DashboardVariable struct {
 
 // DashboardVersionInput defines model for DashboardVersionInput.
 type DashboardVersionInput struct {
-	ExpectedVersion int64 `json:"expected_version"`
+	ExpectedVersion int64                    `json:"expected_version"`
+	Parameters      *DashboardExecutionInput `json:"parameters,omitempty"`
 }
 
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
+
+// ObservationMetricSemantics defines model for ObservationMetricSemantics.
+type ObservationMetricSemantics struct {
+	DefinitionId                string                                                `json:"definition_id"`
+	DefinitionVersion           string                                                `json:"definition_version"`
+	Notes                       string                                                `json:"notes"`
+	Origin                      ObservationMetricSemanticsOrigin                      `json:"origin"`
+	QuantityKind                ObservationMetricSemanticsQuantityKind                `json:"quantity_kind"`
+	RecommendedDisplayTransform ObservationMetricSemanticsRecommendedDisplayTransform `json:"recommended_display_transform"`
+}
+
+// ObservationMetricSemanticsOrigin defines model for ObservationMetricSemantics.Origin.
+type ObservationMetricSemanticsOrigin string
+
+// ObservationMetricSemanticsQuantityKind defines model for ObservationMetricSemantics.QuantityKind.
+type ObservationMetricSemanticsQuantityKind string
+
+// ObservationMetricSemanticsRecommendedDisplayTransform defines model for ObservationMetricSemantics.RecommendedDisplayTransform.
+type ObservationMetricSemanticsRecommendedDisplayTransform string
+
+// ObservationRecipe defines model for ObservationRecipe.
+type ObservationRecipe struct {
+	Description    string   `json:"description"`
+	Expression     string   `json:"expression"`
+	Id             string   `json:"id"`
+	IntegrationKey string   `json:"integration_key"`
+	Metrics        []string `json:"metrics"`
+	SourceType     string   `json:"source_type"`
+	Title          string   `json:"title"`
+	Unit           string   `json:"unit"`
+	Version        int      `json:"version"`
+}
 
 // PublicJsonObject defines model for PublicJsonObject.
 type PublicJsonObject map[string]*PublicJsonValue

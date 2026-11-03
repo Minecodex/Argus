@@ -15,6 +15,7 @@ func TestReasoningProfileIsExplicitAndProtocolBound(t *testing.T) {
 	}{
 		{ProtocolChatCompletions, `{}`, "", false},
 		{ProtocolChatCompletions, `{"reasoning_effort":"low"}`, "low", false},
+		{ProtocolChatCompletions, `{"reasoning_effort":"medium"}`, "medium", false},
 		{ProtocolChatCompletions, `{"reasoning_effort":"high"}`, "high", false},
 		{ProtocolChatCompletions, `{"reasoning_effort":"max"}`, "max", false},
 		{ProtocolChatCompletions, `{"reasoning_effort":"arbitrary"}`, "", true},
@@ -26,7 +27,7 @@ func TestReasoningProfileIsExplicitAndProtocolBound(t *testing.T) {
 			t.Fatalf("profile %s: effort=%q err=%v", fixture.capabilities, effort, err)
 		}
 	}
-	for _, effort := range []string{"", "provider_default", "low", "high", "max"} {
+	for _, effort := range []string{"", "provider_default", "low", "medium", "high", "max"} {
 		_, wire, err := (Provider{Protocol: ProtocolChatCompletions, BaseURL: "https://example.test/v1"}).buildRequest(Request{Model: "fixture", MaxTokens: 128, ReasoningEffort: effort})
 		if err != nil {
 			t.Fatal(err)

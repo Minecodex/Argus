@@ -133,15 +133,20 @@ func (e PresentationReadResultStatus) Valid() bool {
 
 // Defines values for ToolPresentationResourceRefsType.
 const (
-	Connector         ToolPresentationResourceRefsType = "connector"
-	Dashboard         ToolPresentationResourceRefsType = "dashboard"
-	Host              ToolPresentationResourceRefsType = "host"
-	KubernetesCluster ToolPresentationResourceRefsType = "kubernetes_cluster"
+	Application         ToolPresentationResourceRefsType = "application"
+	Connector           ToolPresentationResourceRefsType = "connector"
+	Dashboard           ToolPresentationResourceRefsType = "dashboard"
+	Host                ToolPresentationResourceRefsType = "host"
+	KubernetesCluster   ToolPresentationResourceRefsType = "kubernetes_cluster"
+	KubernetesNamespace ToolPresentationResourceRefsType = "kubernetes_namespace"
+	MonitoringTarget    ToolPresentationResourceRefsType = "monitoring_target"
 )
 
 // Valid indicates whether the value is a known member of the ToolPresentationResourceRefsType enum.
 func (e ToolPresentationResourceRefsType) Valid() bool {
 	switch e {
+	case Application:
+		return true
 	case Connector:
 		return true
 	case Dashboard:
@@ -149,6 +154,10 @@ func (e ToolPresentationResourceRefsType) Valid() bool {
 	case Host:
 		return true
 	case KubernetesCluster:
+		return true
+	case KubernetesNamespace:
+		return true
+	case MonitoringTarget:
 		return true
 	default:
 		return false

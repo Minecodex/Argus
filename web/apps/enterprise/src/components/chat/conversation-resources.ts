@@ -2,6 +2,10 @@ import { useQueries } from "@tanstack/react-query";
 import { useApi } from "@argus/api-client";
 import { useMyPermissions } from "../../lib/permissions";
 import type { ChatMessage } from "./chat-view-model";
+import {
+  isObservationReferenceType,
+  readObservationReference,
+} from "./observation-reference";
 
 export type ConversationResource = {
   id: string;
@@ -19,6 +23,9 @@ const supported = new Set([
   "kubernetes_cluster",
   "connector",
   "dashboard",
+  "application",
+  "monitoring_target",
+  "kubernetes_namespace",
 ]);
 
 /** Resolve actual business references, never treat a ToolCall/Template ID as a resource. */
@@ -48,6 +55,8 @@ export function useConversationResources(messages: ChatMessage[]) {
   const candidates = new Map<string, string>();
   const dashboardScopes = new Map<string, string[]>();
   for (const message of messages) {
+    for (const ref of message.dashboardContext?.resource_refs ?? [])
+      add(ref.id, ref.type);
     for (const id of message.dashboardContext?.dashboard_ids ?? [])
       add(id, "dashboard");
     for (const call of message.toolCalls ?? []) {
@@ -93,9 +102,11 @@ export function useConversationResources(messages: ChatMessage[]) {
     permissions.has(
       type === "dashboard"
         ? "telemetry.dashboard.read"
-        : type === "kubernetes_cluster"
+        : type === "kubernetes_cluster" || type === "kubernetes_namespace"
           ? "kubernetes.read"
-          : `${type}.read`,
+          : type === "monitoring_target"
+            ? "monitoring.read"
+            : `${type}.read`,
     );
   const resolved = useQueries({
     queries: values.map((ref) => ({
@@ -112,13 +123,24 @@ export function useConversationResources(messages: ChatMessage[]) {
       retry: false,
       staleTime: 0,
       queryFn: async (): Promise<ConversationResource> => {
-        if (ref.type === "host") {
-          const value = await api.hosts.get(ref.id);
-          return { ...ref, name: value.name, href: `/hosts/${ref.id}` };
-        }
-        if (ref.type === "kubernetes_cluster") {
-          const value = await api.kubernetes.getCluster(ref.id);
-          return { ...ref, name: value.name, href: `/kubernetes/${ref.id}` };
+        if (isObservationReferenceType(ref.type)) {
+          const value = await readObservationReference(api, {
+            type: ref.type,
+            id: ref.id,
+          });
+          const href =
+            ref.type === "host"
+              ? `/hosts/${ref.id}`
+              : ref.type === "kubernetes_cluster"
+                ? `/kubernetes/${ref.id}`
+                : ref.type === "application"
+                  ? `/applications/${ref.id}`
+                  : `/observe?resource_type=${encodeURIComponent(ref.type)}&resource_id=${encodeURIComponent(ref.id)}`;
+          return {
+            ...ref,
+            name: value.name,
+            href,
+          };
         }
         if (ref.type === "dashboard") {
           const value = await api.dashboards.get(ref.id);
@@ -143,6 +165,8 @@ export function useConversationResources(messages: ChatMessage[]) {
   return values.map((ref, index) =>
     !mayRead(ref.type) || resolved[index]?.isError
       ? { ...ref, unavailable: true }
-      : (resolved[index]?.data ?? ref),
+      : resolved[index]?.isFetching
+        ? ref
+        : (resolved[index]?.data ?? ref),
   );
 }

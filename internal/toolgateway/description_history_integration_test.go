@@ -51,6 +51,20 @@ func TestPostgresNativeDescriptionAuthorityRejectsBatchRunAndVersionMixups(t *te
 			t.Fatal(found, want, err)
 		}
 	}
+	check(base, false) // Describe without its authorized category search is insufficient.
+	searched, searchCall, searchModel := uuid.New(), uuid.New(), uuid.New()
+	exec("INSERT INTO run_steps(id,run_id,enterprise_id,sequence,step_type,status) VALUES($1,$2,$3,1,'tool_call','succeeded')", searched, run, e)
+	exec("INSERT INTO tool_calls(id,call_id,enterprise_id,run_id,step_id,model_call_id,tool_id,source,input,input_hash,status) VALUES($1,$2,$3,$4,$5,$6,'tool.search','argus','{\"category\":\"alert\"}',decode(repeat('00',32),'hex'),'succeeded')", searchCall, searchCall.String(), e, run, searched, searchModel)
+	exec("INSERT INTO tool_results(id,tool_call_id,enterprise_id,artifact_id,projection,projection_hash,projection_bytes) VALUES($1,$2,$3,$4,'{\"summary\":{\"category\":\"alert\",\"complete\":true,\"items\":[{\"name\":\"channel.list\",\"version\":\"current-version\"}]}}',decode(repeat('00',32),'hex'),120)", uuid.New(), searchCall, e, artifact)
+	check(base, true)
+	exec("UPDATE tool_calls SET status='failed' WHERE id=$1", searchCall)
+	check(base, false)
+	exec("UPDATE tool_calls SET status='succeeded',model_call_id=$2 WHERE id=$1", searchCall, priorModel)
+	check(base, false) // Search and Describe in one batch do not establish order.
+	exec("UPDATE tool_calls SET model_call_id=$2 WHERE id=$1", searchCall, searchModel)
+	exec("UPDATE tool_results SET projection=jsonb_set(projection,'{summary,items,0,version}','\"old-version\"') WHERE tool_call_id=$1", searchCall)
+	check(base, false)
+	exec("UPDATE tool_results SET projection=jsonb_set(projection,'{summary,items,0,version}','\"current-version\"') WHERE tool_call_id=$1", searchCall)
 	check(base, true)
 	for _, mutate := range []func(*db.HasEarlierNativeToolDescriptionParams){
 		func(p *db.HasEarlierNativeToolDescriptionParams) { p.ModelCallID = priorModel },

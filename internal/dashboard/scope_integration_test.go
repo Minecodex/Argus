@@ -43,6 +43,31 @@ func TestPostgresExecutionScopeModesAndApplicationDependencies(t *testing.T) {
 	if _, err := resolveExecutionScope(t.Context(), f.store.Queries, f.actor, ExecutionInput{ResourceMode: "all_authorized", ResourceIDs: []uuid.UUID{target}}); err == nil {
 		t.Fatal("ambiguous all plus IDs accepted")
 	}
+	secondApp := uuid.New()
+	exec("INSERT INTO monitoring_applications(id,enterprise_id,application_key,name,environment,created_by) VALUES($1,$2,$3,'Second application','production',$4)", secondApp, f.actor.EnterpriseID, secondApp.String(), f.actor.SubjectID)
+	exec("INSERT INTO data_authorization_grants(id,enterprise_id,subject_type,subject_id,resource_type,resource_id) VALUES($1,$2,'user',$3,'application',$4)", uuid.New(), f.actor.EnterpriseID, f.actor.SubjectID, secondApp)
+	exec("INSERT INTO monitoring_application_bindings(id,enterprise_id,application_id,target_type,target_id) VALUES($1,$2,$3,'monitoring_target',$4)", uuid.New(), f.actor.EnterpriseID, secondApp, target)
+	shared, err := resolveExecutionScope(t.Context(), f.store.Queries, f.actor, ExecutionInput{ApplicationMode: "explicit", ApplicationIDs: []uuid.UUID{app, secondApp}})
+	if err != nil || len(shared.Resources) != 3 {
+		t.Fatal("shared dependency duplicated across applications", shared, err)
+	}
+	exec("DELETE FROM data_authorization_grants WHERE enterprise_id=$1 AND subject_id=$2 AND resource_type='monitoring_target' AND resource_id=$3", f.actor.EnterpriseID, f.actor.SubjectID, target)
+	dependencies, err := resolveExecutionScope(t.Context(), f.store.Queries, f.actor, ExecutionInput{ApplicationMode: "explicit", ApplicationIDs: []uuid.UUID{app, secondApp}})
+	if err == nil {
+		for _, ref := range dependencies.Refs() {
+			if ref.Type == "monitoring_target" && ref.ID == target {
+				t.Fatal("application relation granted the now-private database")
+			}
+		}
+	}
+	direct, err := resolveExecutionScope(t.Context(), f.store.Queries, f.actor, ExecutionInput{ResourceMode: "explicit", ResourceIDs: []uuid.UUID{app}, ResourceTypes: []string{"application"}})
+	if err != nil || len(direct.Resources) != 1 {
+		t.Fatal("database denial removed independent application access", direct, err)
+	}
+	if _, err := resolveExecutionScope(t.Context(), f.store.Queries, f.actor, ExecutionInput{ResourceMode: "explicit", ResourceIDs: []uuid.UUID{target}, ResourceTypes: []string{"monitoring_target"}}); err == nil {
+		t.Fatal("ungranted dependent database directly readable")
+	}
+	t.Log("Two granted applications deduplicate one granted DB; removing DB grant does not authorize it through relationships and retains independent application scope")
 }
 
 func TestPostgresTypedSourcesDoNotUseAnotherResourceKindWithTheSameUUID(t *testing.T) {

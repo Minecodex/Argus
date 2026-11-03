@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { dashboardIssueMessage } from "../components/dashboards/validation-issues";
 import {
   useApi,
   formatApiError,
@@ -300,7 +301,7 @@ export function DashboardPanelEditorPage() {
         setError(
           t("dashboards.conversionBlocked") +
             " " +
-            result.issues.map((i) => i.message).join("; "),
+            result.issues.map((i) => dashboardIssueMessage(t, i)).join("; "),
         );
     } catch (e) {
       setError(
@@ -328,7 +329,7 @@ export function DashboardPanelEditorPage() {
         return result.draft;
       });
       setGenerated(true);
-      if (issues.length) setError(issues.map((i) => i.message).join("; "));
+      if (issues.length) setError(issues.map((i) => dashboardIssueMessage(t, i)).join("; "));
     } catch (e) {
       setError(
         formatApiError(e, t("dashboards.failed"), (requestId) =>

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"syscall"
 )
 
 // Preserve errors.Is/As while separating transport reads, protocol decoding and
@@ -28,6 +29,18 @@ func streamFailureOrigin(err error) string {
 }
 
 func streamFailureType(err error) string {
+	if errors.Is(err, io.EOF) {
+		return "eof"
+	}
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return "unexpected_eof"
+	}
+	if errors.Is(err, net.ErrClosed) {
+		return "connection_closed"
+	}
+	if errors.Is(err, syscall.ECONNRESET) {
+		return "connection_reset"
+	}
 	var dns *net.DNSError
 	if errors.As(err, &dns) {
 		if dns.IsTimeout {
@@ -40,6 +53,8 @@ func streamFailureType(err error) string {
 	}
 	for cause := err; cause != nil; cause = errors.Unwrap(cause) {
 		switch reflect.TypeOf(cause).String() {
+		case "tls.alert", "tls.RecordHeaderError":
+			return "tls_alert"
 		case "http.http2StreamError", "http2.StreamError":
 			return "http2_stream_error"
 		case "http.http2ConnectionError", "http2.ConnectionError":

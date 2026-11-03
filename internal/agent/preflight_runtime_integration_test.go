@@ -34,7 +34,7 @@ func TestPreflightMeasuresSameFixedRequestAsAgentRuntime(t *testing.T) {
 			if protocol == "responses" {
 				capabilities = []byte(`{"output_token_parameter":"max_output_tokens"}`)
 			}
-			f.exec("UPDATE ai_models SET api_protocol=$2,capabilities=$3 WHERE id=$1", f.m, protocol, capabilities)
+			f.exec("UPDATE ai_models SET api_protocol=$2,capabilities=$3,context_window_tokens=131072 WHERE id=$1", f.m, protocol, capabilities)
 			factory := toolruntime.CompositeFactory{Providers: []toolruntime.Provider{fixedContextTools{}}}
 			remote := func(_ context.Context, run db.Run) (map[string]any, error) {
 				if run.EnterpriseID != f.e || run.ActorUserID != f.u || run.ConversationID != f.c {
@@ -67,7 +67,11 @@ func TestPreflightMeasuresSameFixedRequestAsAgentRuntime(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			revision := db.AiModelRevision{ProviderModelID: "model", ApiProtocol: protocol, ContextWindowTokens: 32768, MaxOutputTokens: 1024, Capabilities: capabilities}
+			model, err := f.store.Queries.GetAIModel(ctx, db.GetAIModelParams{ID: run.ModelID, EnterpriseID: run.EnterpriseID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			revision := db.AiModelRevision{ProviderModelID: model.ModelID, ApiProtocol: model.ApiProtocol, ContextWindowTokens: model.ContextWindowTokens, MaxOutputTokens: model.MaxOutputTokens, Capabilities: model.Capabilities}
 			projection, err := loop.context(ctx, run, revision, messages, input, set.Models(), source)
 			if err != nil {
 				t.Fatal(err)
@@ -87,7 +91,7 @@ func TestPreflightMeasuresSameFixedRequestAsAgentRuntime(t *testing.T) {
 			if admission.EstimatedTokens != bytes {
 				t.Fatalf("admission measured %d bytes but runtime sends %d", admission.EstimatedTokens, bytes)
 			}
-			if admission.Ready != modelprovider.NewContextBudget(32768, 1024).Fits(bytes) {
+			if admission.Ready != modelprovider.NewContextBudget(int(revision.ContextWindowTokens), int(revision.MaxOutputTokens)).Fits(bytes) {
 				t.Fatal("admission and runtime disagree at the hard boundary")
 			}
 			if calls := f.count("SELECT count(*) FROM model_calls WHERE run_id=$1", f.r); calls != 0 {

@@ -163,6 +163,9 @@ components:
                 enum:
                   - host
                   - kubernetes_cluster
+                  - kubernetes_namespace
+                  - application
+                  - monitoring_target
                   - connector
                   - dashboard
               id:

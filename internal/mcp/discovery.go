@@ -17,6 +17,7 @@ import (
 // Discovery is tool-owned business documentation. It has no executor or
 // authorization fields and never grants permission to call a tool.
 type Discovery struct {
+	Navigation
 	SchemaVersion     string             `json:"schema_version"`
 	Revision          string             `json:"revision"`
 	Title             string             `json:"title"`
@@ -42,6 +43,18 @@ var discoverySchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
 })
 
 func NormalizeDiscovery(value Discovery) (Discovery, string, error) {
+	value.Navigation = value.Navigation.clone()
+	if value.ResourceTypes == nil {
+		value.ResourceTypes = []string{}
+	}
+	if value.Signals == nil {
+		value.Signals = []string{}
+	}
+	if value.OperationKind != "" {
+		if err := value.Navigation.Validate(); err != nil {
+			return Discovery{}, "", err
+		}
+	}
 	// Own the slices so a registration caller cannot mutate a frozen catalog.
 	value.Keywords = append([]string{}, value.Keywords...)
 	for i, k := range value.Keywords {

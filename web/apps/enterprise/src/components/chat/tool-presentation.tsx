@@ -8,6 +8,7 @@ import { LoaderCircle } from "lucide-react";
 import { runtimeConfig } from "../../lib/runtime-config";
 import { toolDisplayName } from "./tool-name";
 import { MonitoringHostForm } from "../monitoring/host-form";
+import { ResourceReferenceDetails } from "./resource-reference-details";
 
 export function ConversationPresentation({
   conversationId,
@@ -22,8 +23,9 @@ export function ConversationPresentation({
 }) {
   const navigate = useNavigate();
   const [opened, setOpened] = useState<{
-    kind: "result" | "connector";
+    kind: "result" | "connector" | "resource";
     ref: string;
+    resourceType?: "monitoring_target" | "kubernetes_namespace";
   } | null>(null);
   const api = useApi();
   const { t, i18n } = useTranslation();
@@ -39,7 +41,7 @@ export function ConversationPresentation({
       opened?.kind === "connector"
         ? api.connectors.get(opened.ref)
         : api.presentations.result(opened!.ref),
-    enabled: !!opened,
+    enabled: !!opened && opened.kind !== "resource",
   });
   if (query.isError)
     return (
@@ -105,6 +107,15 @@ export function ConversationPresentation({
               to: "/applications/$applicationId",
               params: { applicationId: ref.id },
             });
+          else if (
+            ref.type === "monitoring_target" ||
+            ref.type === "kubernetes_namespace"
+          )
+            setOpened({
+              kind: "resource",
+              ref: ref.id,
+              resourceType: ref.type,
+            });
         }}
         onResult={(ref) => setOpened({ kind: "result", ref })}
       />
@@ -113,7 +124,12 @@ export function ConversationPresentation({
         onOpenChange={(open) => !open && setOpened(null)}
         title={t("planv5.template.title")}
       >
-        {detail.isError ? (
+        {opened?.kind === "resource" && opened.resourceType ? (
+          <ResourceReferenceDetails
+            type={opened.resourceType}
+            id={opened.ref}
+          />
+        ) : detail.isError ? (
           <p role="alert">{t("planv5.template.failed")}</p>
         ) : (
           <pre>

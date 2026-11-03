@@ -25,7 +25,7 @@ components:
             additionalProperties: false
             required: [path]
             properties:
-              path: {type: string, minLength: 1, maxLength: 512, description: JSON pointer for each changed condition; / for reset_all}
+              path: {type: string, minLength: 1, maxLength: 512, description: "Condition-relative JSON pointer, for example /time, /resources, /variables/env or /local_values/cpu/device; / for reset_all. The pointer starts at the condition object, without a changes prefix. Supply one entry per changed condition and preserve all user resource/time conditions when correcting evidence."}
               quote: {type: string, minLength: 1, maxLength: 2048, description: "Exact excerpt from this Run's user message; a model interpretation with provenance, not proof of semantic correctness"}
               origin: {type: string, enum: [message_interpretation, ai_selection], default: message_interpretation}
               reason: {type: string, minLength: 1, maxLength: 2048, description: Explanation of an AI-selected parameter; cannot replace an explicit user condition}
@@ -44,6 +44,7 @@ components:
         time: {$ref: ./dashboard.yaml#/components/schemas/DashboardTimeRange}
         resources:
           type: object
+          description: Explicit resource choice for an initial analysis; may be omitted only when inheriting a previously confirmed resource condition or recording an evidenced reset. For named resources use all=false and their authorized IDs. Choose all=true only for an intended all-authorized analysis.
           additionalProperties: false
           required: [all, ids]
           properties:

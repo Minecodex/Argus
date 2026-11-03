@@ -91,7 +91,7 @@ export interface DashboardDomains {
       input: DashboardSchemas["DashboardDraftDrilldownInput"],
       signal?: AbortSignal,
     ): Promise<DashboardSchemas["DashboardDraftDrilldownExecution"]>;
-    preview(id: string, version: number): Promise<PendingActionPublic>;
+    preview(id: string, version: number, parameters?: DashboardSchemas["DashboardExecutionInput"]): Promise<PendingActionPublic>;
     execute(
       id: string,
       input: DashboardSchemas["DashboardExecutionInput"],

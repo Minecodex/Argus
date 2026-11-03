@@ -5,7 +5,7 @@ import {
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type DashboardPanel, type DashboardTarget } from "@argus/api-client";
-import { knownMetricType } from "./metric-metadata";
+import { catalogMetricMetadata, knownMetricType } from "./metric-metadata";
 import { queryScopeBounds, type DashboardQueryScope } from "./query-scope";
 
 export function useMetricMetadata(
@@ -51,14 +51,10 @@ export function useMetricMetadata(
         signal,
       ),
   });
-  const matches =
-    catalog.data?.metrics.filter((item) => item.name === metric) ?? [];
-  const conflicting =
-    new Set(matches.map((item) => JSON.stringify([item.type, item.unit])))
-      .size > 1;
-  const metadata = conflicting
-    ? { ...matches[0]!, type: "mixed", unit: "" }
-    : matches[0];
+  const metadata = catalogMetricMetadata(
+    catalog.data?.metrics ?? [], metric ?? "",
+    catalog.data?.complete !== false && !catalog.data?.has_more,
+  );
   const type = knownMetricType(metadata),
     declared = builder?.metric_type;
   useEffect(() => {

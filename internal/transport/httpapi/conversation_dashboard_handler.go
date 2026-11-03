@@ -12,7 +12,8 @@ func dashboardSelection(input *api.DashboardChatSelection) *dashboardcontext.Sel
 	if input == nil {
 		return nil
 	}
-	return &dashboardcontext.Selection{Mode: string(input.Mode), DashboardIDs: input.DashboardIds, ExpectedVersion: input.ExpectedVersion}
+	selection := dashboardConvert[dashboardcontext.Selection](input)
+	return &selection
 }
 
 func (handler ConversationHandler) GetConversationDashboardContext(ctx context.Context, request api.GetConversationDashboardContextRequestObject) (api.GetConversationDashboardContextResponseObject, error) {

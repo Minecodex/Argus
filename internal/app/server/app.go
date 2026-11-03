@@ -33,6 +33,7 @@ import (
 	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/mcp"
 	modelservice "github.com/kakj-go/Argus/internal/model"
+	"github.com/kakj-go/Argus/internal/nativetools"
 	"github.com/kakj-go/Argus/internal/outbox"
 	"github.com/kakj-go/Argus/internal/pagination"
 	"github.com/kakj-go/Argus/internal/platform"
@@ -208,15 +209,7 @@ func (a *App) Run(ctx context.Context) error {
 	modelHandler := httpapi.ModelHandler{Identity: enterpriseIdentityHandler,
 		Service: modelservice.Service{Store: postgresStore, Idempotency: idempotency, Keyring: secretKeyring}}
 	toolRegistry := mcp.NewRegistry()
-	if err := (toolgateway.MonitoringTools{Base: toolgateway.ResourceTools{Store: postgresStore, Resources: resourceDomain}, Monitoring: monitoringDomain, Kubernetes: kubernetesDomain}).Register(toolRegistry); err != nil {
-		return err
-	}
-	if err := (toolgateway.ResourceTools{Store: postgresStore, Resources: resourceDomain}).Register(toolRegistry); err != nil {
-		return err
-	}
-	if err := (toolgateway.LifecycleTools{Base: toolgateway.ResourceTools{Store: postgresStore, Resources: resourceDomain}, Bastion: bastionDomain, Removal: removalDomain}).Register(toolRegistry); err != nil {
-		return err
-	}
+	var nativeTelemetry *telemetryservice.Service
 
 	sandboxHandler := httpapi.SandboxHandler{Auth: setupHandler, Service: sandbox.Service{Store: postgresStore, Keyring: secretKeyring}}
 	connectorHandler := httpapi.ConnectorHandler{Identity: enterpriseIdentityHandler, Service: connectorDomain, Bastion: bastionDomain, Queries: postgresStore.Queries}
@@ -243,6 +236,7 @@ func (a *App) Run(ctx context.Context) error {
 		defer telemetryQuery.Close()
 		platformHandler.Enterprise.Telemetry = telemetryQuery
 		telemetryDomain := component.TelemetryDomain(a.config, postgresStore, actionDomain, telemetryQuery)
+		nativeTelemetry = &telemetryDomain
 		alertDomain.Telemetry = telemetryDomain
 		alertHandler.Service = alertDomain
 		dashboardRuntime := &dashboard.Runtime{Store: postgresStore, Backend: telemetryQuery, ContextKey: actionDomain.Key}
@@ -257,12 +251,6 @@ func (a *App) Run(ctx context.Context) error {
 			RequestPrefix: "argus-telemetry-server-", SubjectLabel: "argus.io/telemetry-collector-id", IssuerGeneration: int32(activeBundle.Epoch),
 			Usages: []string{"server auth"},
 		}}
-		if err := (telemetryservice.Tools{Service: telemetryDomain}).Register(toolRegistry); err != nil {
-			return err
-		}
-		if err := (toolgateway.CollectorPreviewTools{Base: toolgateway.ResourceTools{Store: postgresStore, Resources: resourceDomain}, Service: telemetryDomain}).Register(toolRegistry); err != nil {
-			return err
-		}
 		telemetryHandler = &httpapi.TelemetryHandler{Identity: enterpriseIdentityHandler, Service: telemetryDomain, CollectorIdentity: telemetryIdentity,
 			IngestGRPCEndpoint: a.config.TelemetryIngestGRPC, IngestHTTPEndpoint: a.config.TelemetryIngestHTTP}
 	}
@@ -270,15 +258,9 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := workspaceDomain.RegisterTools(toolRegistry); err != nil {
-		return err
-	}
 	conversationHandler.Service.Objects = workspaceDomain.Objects
 	remoteDomain.Files = workspaceDomain
 	remoteDomain.Objects = workspaceDomain.Objects
-	if err := remoteDomain.RegisterTools(toolRegistry); err != nil {
-		return err
-	}
 	if dashboardHandler.Runtime != nil {
 		dashboardHandler.Queries = &dashboard.QueryJobs{Runtime: *dashboardHandler.Runtime, Objects: workspaceDomain.Objects}
 	}
@@ -288,14 +270,14 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := (toolgateway.DashboardTools{Service: dashboardHandler.Service, Jobs: dashboardHandler.Queries}).Register(toolRegistry); err != nil {
-		return err
-	}
-	if err := (alerting.Tools{Service: alertDomain}).Register(toolRegistry); err != nil {
-		return err
-	}
 	interactionDomain := interaction.Service{Remote: remoteDomain, Store: postgresStore, Idempotency: idempotency, Conversations: conversationHandler.Service}
-	if err := interactionDomain.RegisterTools(toolRegistry); err != nil {
+	baseTools := toolgateway.ResourceTools{Store: postgresStore, Resources: resourceDomain}
+	if err := nativetools.Register(toolRegistry, nativetools.Services{
+		Resources: baseTools, Monitoring: monitoringDomain, Kubernetes: kubernetesDomain,
+		Lifecycle: toolgateway.LifecycleTools{Base: baseTools, Bastion: bastionDomain, Removal: removalDomain},
+		Telemetry: nativeTelemetry, Workspace: workspaceDomain, Remote: remoteDomain,
+		Dashboard: dashboardHandler.Service, DashboardJobs: dashboardHandler.Queries, Alerting: alertDomain, Interaction: interactionDomain,
+	}); err != nil {
 		return err
 	}
 	nativeGateway, err := toolgateway.New(toolRegistry, a.config.ToolImplementationRevision)
@@ -305,6 +287,7 @@ func (a *App) Run(ctx context.Context) error {
 	dashboardPolicy := dashboardcontext.Policy{Store: postgresStore}
 	nativeGateway.Scope = dashboardPolicy.BusinessScope
 	nativeGateway.BindPresentations(postgresStore)
+	nativeGateway.RequireSearch = toolgateway.RequireNativeSearch(postgresStore.Queries)
 	nativeGateway.RequireDescription = toolgateway.RequireNativeDescription(postgresStore.Queries)
 	mcpDomain := enterprisemcp.Service{Store: postgresStore, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: deniedCIDRs}}
 	mcpHandler := httpapi.MCPHandler{Identity: enterpriseIdentityHandler, Service: mcpDomain}

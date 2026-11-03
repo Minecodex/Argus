@@ -40,6 +40,7 @@ import (
 	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/mcp"
 	modelservice "github.com/kakj-go/Argus/internal/model"
+	"github.com/kakj-go/Argus/internal/nativetools"
 	remoteaccessservice "github.com/kakj-go/Argus/internal/remoteaccess"
 	"github.com/kakj-go/Argus/internal/remoteexecution"
 	"github.com/kakj-go/Argus/internal/resource"
@@ -175,15 +176,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		Extension:        kubernetesworkbench.ActionExtension{Service: kubernetesDomain, Next: remoteDomain}, ClusterEnrollment: connectorDomain,
 		Kubernetes: kubernetesBackend}
 	registry := mcp.NewRegistry()
-	if err := (toolgateway.MonitoringTools{Base: toolgateway.ResourceTools{Store: store, Resources: resourceDomain}, Monitoring: monitoringDomain, Kubernetes: kubernetesDomain}).Register(registry); err != nil {
-		return err
-	}
-	if err := (toolgateway.ResourceTools{Store: store, Resources: resourceDomain}).Register(registry); err != nil {
-		return err
-	}
-	if err := (toolgateway.LifecycleTools{Base: toolgateway.ResourceTools{Store: store, Resources: resourceDomain}, Bastion: bastionDomain, Removal: removalDomain}).Register(registry); err != nil {
-		return err
-	}
+	var nativeTelemetry *telemetryservice.Service
 	alertDomain := alerting.Service{Store: store, Actions: actionDomain, Secrets: secretDomain}
 	if err := (dashboard.Service{Store: store}).SyncTemplates(ctx, dashboard.BuiltinTemplates()); err != nil {
 		return err
@@ -200,14 +193,9 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		}
 		defer telemetryQuery.Close()
 		telemetryDomain := component.TelemetryDomain(cfg, store, actionDomain, telemetryQuery)
+		nativeTelemetry = &telemetryDomain
 		alertDomain.Telemetry = telemetryDomain
 		dashboardQueries = &dashboard.QueryJobs{Runtime: dashboard.Runtime{Store: store, Backend: telemetryQuery, ContextKey: actionDomain.Key}}
-		if err := (telemetryservice.Tools{Service: telemetryDomain}).Register(registry); err != nil {
-			return err
-		}
-		if err := (toolgateway.CollectorPreviewTools{Base: toolgateway.ResourceTools{Store: store, Resources: resourceDomain}, Service: telemetryDomain}).Register(registry); err != nil {
-			return err
-		}
 	}
 	modelDomain := modelservice.Service{Store: store, Keyring: keyring}
 
@@ -215,14 +203,8 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	if err != nil {
 		return err
 	}
-	if err := workspaceDomain.RegisterTools(registry); err != nil {
-		return err
-	}
 	remoteDomain.Files = workspaceDomain
 	remoteDomain.Objects = workspaceDomain.Objects
-	if err := remoteDomain.RegisterTools(registry); err != nil {
-		return err
-	}
 	if dashboardQueries != nil {
 		dashboardQueries.Objects = workspaceDomain.Objects
 		dashboardQueries.Delivery = workspaceDomain
@@ -231,14 +213,14 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	if dashboardQueries != nil {
 		dashboardService.Verifier = dashboardQueries.Runtime
 	}
-	if err := (toolgateway.DashboardTools{Service: dashboardService, Jobs: dashboardQueries}).Register(registry); err != nil {
-		return err
-	}
-	if err := (alerting.Tools{Service: alertDomain}).Register(registry); err != nil {
-		return err
-	}
 	interactionDomain := interaction.Service{Remote: remoteDomain, Store: store, Idempotency: idempotency, Conversations: conversation.Service{Store: store, Idempotency: idempotency}}
-	if err := interactionDomain.RegisterTools(registry); err != nil {
+	baseTools := toolgateway.ResourceTools{Store: store, Resources: resourceDomain}
+	if err := nativetools.Register(registry, nativetools.Services{
+		Resources: baseTools, Monitoring: monitoringDomain, Kubernetes: kubernetesDomain,
+		Lifecycle: toolgateway.LifecycleTools{Base: baseTools, Bastion: bastionDomain, Removal: removalDomain},
+		Telemetry: nativeTelemetry, Workspace: workspaceDomain, Remote: remoteDomain,
+		Dashboard: dashboardService, DashboardJobs: dashboardQueries, Alerting: alertDomain, Interaction: interactionDomain,
+	}); err != nil {
 		return err
 	}
 	nativeGateway, err := toolgateway.New(registry, cfg.ToolImplementationRevision)
@@ -249,6 +231,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	dashboardPolicy := dashboardcontext.Policy{Store: store}
 	nativeGateway.Scope = dashboardPolicy.BusinessScope
 	nativeGateway.BindPresentations(store)
+	nativeGateway.RequireSearch = toolgateway.RequireNativeSearch(store.Queries)
 	nativeGateway.RequireDescription = toolgateway.RequireNativeDescription(store.Queries)
 	mcpDomain := enterprisemcp.Service{Store: store, Credentials: secretDomain, Idempotency: idempotency, Policy: remotemcp.EndpointPolicy{DeniedCIDRs: denied}}
 	toolFactory := toolruntime.CompositeFactory{Providers: []toolruntime.Provider{nativeGateway, workspaceDomain, remoteDomain, interactionDomain, mcpDomain}, ContextSources: []toolruntime.SkillContextSource{dashboardPolicy}, Filter: dashboardPolicy.Filter, AuthorizeTool: dashboardPolicy.AuthorizeTool, Validate: conversationDomain.ValidateToolPrincipal}

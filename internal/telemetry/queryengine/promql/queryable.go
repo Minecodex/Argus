@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kakj-go/Argus/internal/telemetry/metricmeta"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine/chscope"
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
@@ -43,6 +44,7 @@ type Queryable struct {
 	MaxScanBytes int64
 	Timeout      time.Duration
 	Progress     *chstats.Tracker
+	Metadata     *metricmeta.Tracker
 }
 
 var _ storage.Queryable = Queryable{}
@@ -59,7 +61,7 @@ func (q Queryable) Querier(mint, maxt int64) (storage.Querier, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &querier{conn: q.Conn, seriesTable: table, samplesTable: samples, scope: q.Scope, mint: mint, maxt: maxt, maxSeries: q.MaxSeries, maxSamples: q.MaxSamples, maxScanBytes: q.MaxScanBytes, timeout: q.Timeout, progress: q.Progress}, nil
+	return &querier{conn: q.Conn, seriesTable: table, samplesTable: samples, scope: q.Scope, mint: mint, maxt: maxt, maxSeries: q.MaxSeries, maxSamples: q.MaxSamples, maxScanBytes: q.MaxScanBytes, timeout: q.Timeout, progress: q.Progress, metadata: q.Metadata}, nil
 }
 
 type querier struct {
@@ -71,6 +73,7 @@ type querier struct {
 	maxScanBytes              int64
 	timeout                   time.Duration
 	progress                  *chstats.Tracker
+	metadata                  *metricmeta.Tracker
 }
 
 var _ storage.Querier = (*querier)(nil)
@@ -142,7 +145,7 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 		args = append(args, q.scope.ResourceIDs)
 	}
 	if len(q.scope.SourceKeys) > 0 {
-		where = append(where, chscope.FacetedPredicate("s.source_key", "s.resource_attributes['argus.namespace.uid']"))
+		where = append(where, chscope.SelectedPredicate("s.source_key", "s.resource_attributes['argus.namespace.uid']", q.scope.SourceKeys))
 	}
 	limit := q.maxSeries
 	if hints != nil && hints.Limit > 0 && (limit <= 0 || hints.Limit < limit) {
@@ -158,7 +161,7 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 	if q.timeout > 0 {
 		settings["max_execution_time"] = max(1, int(q.timeout.Seconds()))
 	}
-	seriesQuery := fmt.Sprintf("SELECT s.series_id, s.metric_name, s.labels, s.metric_type FROM %s AS s FINAL PREWHERE %s WHERE %s ORDER BY toInt64OrZero(s.resource_attributes['argus.assignment.epoch']), s.source_revision, s.series_id LIMIT ?", quoteIdentifier(q.seriesTable), strings.Join(prewhere, " AND "), strings.Join(where, " AND "))
+	seriesQuery := fmt.Sprintf("SELECT s.series_id, s.metric_name, s.labels, s.metric_type, s.temporality, s.is_monotonic, s.unit, concat(toString(s.source_id),':',toString(s.source_revision)) FROM %s AS s FINAL PREWHERE %s WHERE %s ORDER BY s.assignment_epoch, s.source_revision, s.series_id LIMIT ?", quoteIdentifier(q.seriesTable), strings.Join(prewhere, " AND "), strings.Join(where, " AND "))
 	seriesArgs := append(append(prewhereArgs, args...), limit+1)
 	seriesRows, err := q.conn.Query(q.queryContext(ctx, settings), seriesQuery, seriesArgs...)
 	if err != nil {
@@ -172,11 +175,14 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 		var id uuid.UUID
 		var metricName string
 		var metricType string
+		var temporality, unit, sourceKey string
+		var monotonic bool
 		var rawLabels map[string]string
-		if err := seriesRows.Scan(&id, &metricName, &rawLabels, &metricType); err != nil {
+		if err := seriesRows.Scan(&id, &metricName, &rawLabels, &metricType, &temporality, &monotonic, &unit, &sourceKey); err != nil {
 			seriesRows.Close()
 			return storage.ErrSeriesSet(err)
 		}
+		q.metadata.Observe(metricmeta.Descriptor{Name: metricName, StorageType: metricType, Temporality: temporality, Monotonic: monotonic, Unit: unit, SourceKey: sourceKey})
 		if metricType != "gauge" && metricType != "sum" {
 			numericOnly = false
 		}
@@ -221,14 +227,25 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 		// Source keys have already been authorized by the control-plane snapshot.
 		// Bind the base set before the join/payload read as well as retaining the
 		// external-table guard. Sparse series alone can touch unrelated sources.
-		baseKeys := make([]string, 0, len(q.scope.SourceKeys))
-		for _, key := range q.scope.SourceKeys {
-			base, _, _ := strings.Cut(key, "@")
-			baseKeys = append(baseKeys, base)
+		// A large authorized set must remain binary external-table data. Keep
+		// the small-set primary-index optimization without expanding 10,000
+		// sources beyond ClickHouse's SQL parser size limit.
+		if len(q.scope.SourceKeys) <= 128 {
+			baseKeys := make([]string, 0, len(q.scope.SourceKeys))
+			for _, key := range q.scope.SourceKeys {
+				base, _, _ := strings.Cut(key, "@")
+				baseKeys = append(baseKeys, base)
+			}
+			sampleQuery = strings.Replace(sampleQuery, " WHERE series_id", " AND source_key IN (?) WHERE series_id", 1)
+			sampleArgs = []any{selectedIDs, q.mint, q.maxt, baseKeys, q.mint, q.maxt}
+		} else {
+			sampleQuery = strings.Replace(sampleQuery, " WHERE series_id", " AND "+chscope.BasePredicate("source_key")+" WHERE series_id", 1)
 		}
-		sampleQuery = strings.Replace(sampleQuery, " WHERE series_id", " AND source_key IN (?) WHERE series_id", 1)
-		sampleArgs = []any{selectedIDs, q.mint, q.maxt, baseKeys, q.mint, q.maxt}
 		sampleQuery = strings.Replace(sampleQuery, " ORDER BY", " AND "+chscope.BasePredicate("source_key")+" ORDER BY", 1)
+	}
+	if len(selectedIDs) > 128 {
+		sampleQuery = strings.Replace(sampleQuery, "PREWHERE series_id IN (?)", "PREWHERE series_id IN (SELECT selected_id FROM argus_selected_series)", 1)
+		sampleArgs = sampleArgs[1:]
 	}
 	selection, selectionErr := ext.NewTable("argus_selected_series", ext.Column("selected_id", "UUID"), ext.Column("selection_order", "UInt64"))
 	if selectionErr != nil {

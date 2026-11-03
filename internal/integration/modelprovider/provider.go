@@ -129,7 +129,7 @@ func (provider Provider) Stream(ctx context.Context, request Request, sink func(
 	httpRequest.Header.Set("Content-Type", "application/json")
 	httpRequest.Header.Set("Accept", "text/event-stream")
 	httpRequest.Header.Set("Authorization", "Bearer "+provider.APIKey)
-	response, err := streamClient.Do(httpRequest)
+	response, err := doModelRequest(&streamClient, httpRequest)
 	if err != nil {
 		return err
 	}

@@ -46,7 +46,7 @@ func TestPostgresAutomaticAnalysisCorrectionAndFrozenPresentation(t *testing.T) 
 		t.Fatal(err)
 	}
 	acquired, err := dashboardcontext.Acquire(ctx, f.store, principal, f.actor.RunID, f.b)
-	if err != nil || acquired.Mode != "analyze" || len(acquired.DashboardIDs) != 1 {
+	if err != nil || acquired.Mode != "none" || acquired.TaskScope != dashboardcontext.GeneralDiagnosis || len(acquired.DashboardIDs) != 1 {
 		t.Fatalf("automatic discovery: %+v %v", acquired, err)
 	}
 	if _, err = dashboardcontext.Acquire(ctx, f.store, principal, f.actor.RunID, f.b); err != nil {
@@ -61,6 +61,7 @@ func TestPostgresAutomaticAnalysisCorrectionAndFrozenPresentation(t *testing.T) 
 		t.Fatal("automatic discovery rewrote the admission fact")
 	}
 	input := AnalysisResolveInput{DashboardID: f.b, ExpectedVersion: 0, Changes: dashboardparams.Patch{Time: &TimeRange{Kind: "relative", Seconds: 1800}}, Evidence: []dashboardparams.Evidence{{Path: "/time", Origin: "ai_selection", Reason: "Use a recent half-hour for an initial diagnostic overview"}}}
+	input = allAnalysisResourcesForTest(input)
 	resolved, err := f.service.ResolveAnalysis(ctx, f.actor, f.conversation, input, uuid.New())
 	if err != nil || resolved.Conditions.Evidence["/time"].Origin != "ai_selection" {
 		t.Fatalf("AI conditions: %+v %v", resolved, err)
@@ -83,6 +84,7 @@ func TestPostgresAutomaticAnalysisCorrectionAndFrozenPresentation(t *testing.T) 
 		t.Fatal(err)
 	}
 	input.ExpectedVersion = 1
+	input.Changes.Resources = nil // Inherit the already attributed resource choice.
 	input.Changes.Time.Seconds = 3600
 	input.Evidence = []dashboardparams.Evidence{{Path: "/time", Quote: "最近一小时"}}
 	corrected, err := f.service.ResolveAnalysis(ctx, f.actor, f.conversation, input, uuid.New())

@@ -204,6 +204,9 @@ func (m ClickHouseTenantSchemaManager) EnsureTenant(ctx context.Context, enterpr
 	if err := m.upgradeSourceColumns(ctx, tables); err != nil {
 		return err
 	}
+	if err := m.upgradeMetricAssignmentEpoch(ctx, tables); err != nil {
+		return err
+	}
 	return m.upgradeSampleProjection(ctx, tables)
 }
 
@@ -270,7 +273,7 @@ func tenantTableExpectations(t TenantTables) map[string]tenantTableExpectation {
 			SortingKey: "metric_name, labels_hash, resource_id, series_id",
 			Columns: columns(
 				"resource_id", "UUID", "series_id", "UUID", "metric_name", "LowCardinality(String)", "labels", "Map(String,String)", "labels_hash", "UInt64",
-				"resource_attributes", "Map(String,String)", "scope_name", "LowCardinality(String)", "scope_version", "LowCardinality(String)", "scope_attributes", "Map(String,String)",
+				"resource_attributes", "Map(String,String)", "assignment_epoch", "Int64", "scope_name", "LowCardinality(String)", "scope_version", "LowCardinality(String)", "scope_attributes", "Map(String,String)",
 				"metric_type", "LowCardinality(String)", "temporality", "LowCardinality(String)", "is_monotonic", "Bool", "unit", "LowCardinality(String)", "description", "String",
 				"kafka_topic", "LowCardinality(String)", "kafka_partition", "Int32", "kafka_offset", "Int64", "record_sequence", "UInt32", "expires_at", "DateTime64(3,'UTC')",
 			),
@@ -370,7 +373,7 @@ func tenantTableDDL(t TenantTables) []string {
 	return []string{
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 resource_id UUID, series_id UUID, metric_name LowCardinality(String), labels Map(String,String), labels_hash UInt64,
-resource_attributes Map(String,String), scope_name LowCardinality(String), scope_version LowCardinality(String), scope_attributes Map(String,String),
+resource_attributes Map(String,String), assignment_epoch Int64 MATERIALIZED toInt64OrZero(resource_attributes['argus.assignment.epoch']), scope_name LowCardinality(String), scope_version LowCardinality(String), scope_attributes Map(String,String),
 metric_type LowCardinality(String), temporality LowCardinality(String), is_monotonic Bool, unit LowCardinality(String), description String,
 kafka_topic LowCardinality(String), kafka_partition Int32, kafka_offset Int64, record_sequence UInt32, expires_at DateTime64(3,'UTC'),
 source_id UUID, source_revision Int64, source_type LowCardinality(String), source_key String MATERIALIZED concat(toString(source_id), ':', toString(source_revision))

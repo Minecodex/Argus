@@ -13,6 +13,7 @@ import (
 	authzapi "github.com/kakj-go/Argus/internal/gen/openapi/enterpriseauthz"
 	"github.com/kakj-go/Argus/internal/identity"
 	"github.com/kakj-go/Argus/internal/pagination"
+	"github.com/kakj-go/Argus/internal/storage/postgres"
 )
 
 type EnterpriseAuthorizationHandler struct {
@@ -137,13 +138,21 @@ func (handler EnterpriseAuthorizationHandler) UpdateDataAuthorization(ctx contex
 		SubjectType: subjectType, SubjectID: uuid.UUID(request.SubjectId), ResourceType: resourceType, ResourceIDs: ids, Remove: request.Body.Remove, ExpectedVersion: request.Body.ExpectedVersion,
 	})
 	if err != nil {
-		status := http.StatusConflict
-		if errors.Is(err, authorization.ErrInvalidResource) {
-			status = http.StatusUnprocessableEntity
-		}
+		status := grantUpdateErrorStatus(err)
 		return authzapi.UpdateDataAuthorizationdefaultJSONResponse{Body: authzError(ctx, err), StatusCode: status}, nil
 	}
 	return authzapi.UpdateDataAuthorization204Response{}, nil
+}
+
+func grantUpdateErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, authorization.ErrInvalidResource):
+		return http.StatusUnprocessableEntity
+	case errors.Is(err, authorization.ErrAuthorizationConflict), errors.Is(err, authorization.ErrInheritedGrant), errors.Is(err, identity.ErrVersionConflict), postgres.IsRetryableTransactionError(err):
+		return http.StatusConflict
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 func validDataAuthorizationSubjectType(value string) bool {
@@ -440,7 +449,9 @@ func emptyAuthzPage() authzapi.CursorPage {
 func authzError(ctx context.Context, err error) authzapi.ApiError {
 	base := setupErrorBase(ctx, err)
 	defer func() { logMappedError(ctx, base.Code, err) }()
-	if errors.Is(err, authorization.ErrBuiltinRoleImmutable) {
+	if postgres.IsRetryableTransactionError(err) {
+		base.Code, base.MessageKey, base.Retryable = "VERSION_CONFLICT", "errors.common.version_conflict", retryablePointer(true)
+	} else if errors.Is(err, authorization.ErrBuiltinRoleImmutable) {
 		base.Code, base.MessageKey = "BUILTIN_ROLE_IMMUTABLE", "errors.role.builtin_immutable"
 	} else if errors.Is(err, authorization.ErrAuthorizationConflict) {
 		base.Code, base.MessageKey = "AUTHORIZATION_VERSION_STALE", "errors.auth.authorization_version_stale"

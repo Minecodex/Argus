@@ -73,6 +73,7 @@ const (
 	AIModelTestCreateReasoningEffortHigh            AIModelTestCreateReasoningEffort = "high"
 	AIModelTestCreateReasoningEffortLow             AIModelTestCreateReasoningEffort = "low"
 	AIModelTestCreateReasoningEffortMax             AIModelTestCreateReasoningEffort = "max"
+	AIModelTestCreateReasoningEffortMedium          AIModelTestCreateReasoningEffort = "medium"
 	AIModelTestCreateReasoningEffortProviderDefault AIModelTestCreateReasoningEffort = "provider_default"
 )
 
@@ -84,6 +85,8 @@ func (e AIModelTestCreateReasoningEffort) Valid() bool {
 	case AIModelTestCreateReasoningEffortLow:
 		return true
 	case AIModelTestCreateReasoningEffortMax:
+		return true
+	case AIModelTestCreateReasoningEffortMedium:
 		return true
 	case AIModelTestCreateReasoningEffortProviderDefault:
 		return true
@@ -139,6 +142,7 @@ const (
 	AIModelUpdateReasoningEffortHigh            AIModelUpdateReasoningEffort = "high"
 	AIModelUpdateReasoningEffortLow             AIModelUpdateReasoningEffort = "low"
 	AIModelUpdateReasoningEffortMax             AIModelUpdateReasoningEffort = "max"
+	AIModelUpdateReasoningEffortMedium          AIModelUpdateReasoningEffort = "medium"
 	AIModelUpdateReasoningEffortProviderDefault AIModelUpdateReasoningEffort = "provider_default"
 )
 
@@ -150,6 +154,8 @@ func (e AIModelUpdateReasoningEffort) Valid() bool {
 	case AIModelUpdateReasoningEffortLow:
 		return true
 	case AIModelUpdateReasoningEffortMax:
+		return true
+	case AIModelUpdateReasoningEffortMedium:
 		return true
 	case AIModelUpdateReasoningEffortProviderDefault:
 		return true
@@ -199,9 +205,10 @@ func (e ModelCapabilitiesOutputTokenParameter) Valid() bool {
 
 // Defines values for ModelCapabilitiesReasoningEffort.
 const (
-	ModelCapabilitiesReasoningEffortHigh ModelCapabilitiesReasoningEffort = "high"
-	ModelCapabilitiesReasoningEffortLow  ModelCapabilitiesReasoningEffort = "low"
-	ModelCapabilitiesReasoningEffortMax  ModelCapabilitiesReasoningEffort = "max"
+	ModelCapabilitiesReasoningEffortHigh   ModelCapabilitiesReasoningEffort = "high"
+	ModelCapabilitiesReasoningEffortLow    ModelCapabilitiesReasoningEffort = "low"
+	ModelCapabilitiesReasoningEffortMax    ModelCapabilitiesReasoningEffort = "max"
+	ModelCapabilitiesReasoningEffortMedium ModelCapabilitiesReasoningEffort = "medium"
 )
 
 // Valid indicates whether the value is a known member of the ModelCapabilitiesReasoningEffort enum.
@@ -212,6 +219,8 @@ func (e ModelCapabilitiesReasoningEffort) Valid() bool {
 	case ModelCapabilitiesReasoningEffortLow:
 		return true
 	case ModelCapabilitiesReasoningEffortMax:
+		return true
+	case ModelCapabilitiesReasoningEffortMedium:
 		return true
 	default:
 		return false

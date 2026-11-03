@@ -8,8 +8,12 @@ import type {
   ConversationInteractionState,
 } from "@argus/api-client";
 import { plan7Login } from "./helpers/plan7-login";
+import { browserApi } from "./helpers/browser-api";
+import { setChoice } from "./helpers/choice";
+import { createMfaProof } from "./helpers/mfa-login";
 
 const execute = promisify(execFile);
+const actionMfaProof = createMfaProof("enterprise");
 const enabled = process.env.ARGUS_CHAT_INTERACTIONS_REAL === "1";
 const fixture = enabled
   ? (JSON.parse(process.env.ARGUS_CHAT_INTERACTIONS_FIXTURE!) as {
@@ -24,7 +28,8 @@ async function state(
   page: Page,
   conversation: string,
 ): Promise<ConversationInteractionState> {
-  const response = await page.request.get(
+  const response = await browserApi(
+    page,
     `/api/v1/conversations/${conversation}/interactions`,
   );
   expect(response.status()).toBe(200);
@@ -40,7 +45,7 @@ async function answerQuestions(
   for (let index = 0; index < questions.length; index++) {
     await expect(panel).toContainText(questions[index]!.question);
     if (questions[index]!.options.length)
-      await panel.getByRole("radio").first().check();
+      await setChoice(panel.getByRole("radio").first());
     await panel
       .getByRole("textbox", { name: "补充回答" })
       .fill(
@@ -65,14 +70,58 @@ async function approveOrdinaryActions(page: Page): Promise<number> {
   for (const card of await page.locator(".argus-command-approval").all()) {
     const confirm = card.getByRole("button", { name: "确认执行", exact: true });
     if (await confirm.isVisible().catch(() => false)) {
-      await expect(card).toContainText("AIOps Linux");
+      const targetResponse = await browserApi(
+        page,
+        `/api/v1/enterprise/hosts/${fixture!.host_id}`,
+      );
+      expect(targetResponse.status()).toBe(200);
+      const target = await targetResponse.json();
+      expect(target.id).toBe(fixture!.host_id);
+      expect(target.name).toEqual(expect.any(String));
+      expect(target.name.length).toBeGreaterThan(0);
+      await expect(card).toContainText(target.name);
+      const conversation = new URL(page.url()).searchParams.get("c")!;
+      const requestsResponse = await browserApi(
+        page,
+        `/api/v1/conversations/${conversation}/remote-executions`,
+      );
+      expect(requestsResponse.status()).toBe(200);
+      const pending = (await requestsResponse.json()).items.filter(
+        (item: { status: string }) => item.status === "awaiting_confirmation",
+      );
+      expect(pending.length).toBeGreaterThan(0);
+      for (const request of pending)
+        for (const step of request.spec.steps) {
+          expect(step.target.resource_type).toBe("host");
+          expect(step.target.resource_id).toBe(fixture!.host_id);
+        }
       const accepted = page.waitForResponse(
         (response) =>
           response.url().endsWith("/confirm") &&
           response.request().method() === "POST",
       );
       await confirm.click();
-      expect((await accepted).status()).toBe(200);
+      const response = await accepted;
+      if (response.status() !== 200) {
+        expect((await response.json()).code).toBe("STEP_UP_REQUIRED");
+        const dialog = page.getByRole("dialog", {
+          name: "验证身份后继续操作",
+          exact: true,
+        });
+        await expect(dialog).toBeVisible();
+        await dialog
+          .getByLabel("验证码或恢复码", { exact: true })
+          .fill(await actionMfaProof());
+        const retried = page.waitForResponse(
+          (item) =>
+            item.url().endsWith("/confirm") &&
+            item.request().method() === "POST",
+        );
+        await dialog
+          .getByRole("button", { name: "验证并继续", exact: true })
+          .click();
+        expect((await retried).status()).toBe(200);
+      }
       count++;
     }
   }
@@ -147,13 +196,15 @@ test.describe("existing-account real guidance-plan implementation", () => {
         process.env.ARGUS_PLAN7_USERNAME!,
         process.env.ARGUS_PLAN7_PASSWORD!,
       );
-      const sessionResponse = await page.request.get(
+      const sessionResponse = await browserApi(
+        page,
         "/api/v1/enterprise/auth/session",
       );
       expect(sessionResponse.status()).toBe(200);
       const session = await sessionResponse.json();
       expect(session.user.username).toBe(process.env.ARGUS_PLAN7_USERNAME);
-      const modelResponse = await page.request.get(
+      const modelResponse = await browserApi(
+        page,
         "/api/v1/enterprise/ai-models",
       );
       expect(modelResponse.status()).toBe(200);
@@ -162,7 +213,8 @@ test.describe("existing-account real guidance-plan implementation", () => {
       );
       expect(actualModel.model_id).toBe("glm-5.3-flash");
       expect(actualModel.base_url).toContain("api.apimart.ai");
-      const created = await page.request.post("/api/v1/conversations", {
+      const created = await browserApi(page, "/api/v1/conversations", {
+        method: "POST",
         headers: {
           "X-CSRF-Token": session.csrf_token,
           "Idempotency-Key": randomUUID(),
@@ -261,7 +313,8 @@ test.describe("existing-account real guidance-plan implementation", () => {
       expect(implementation?.implementation_status).toBe("succeeded");
       expect(approvals).toBe(0);
       expect(revised.plan.content.commands?.length).toBeGreaterThanOrEqual(2);
-      const executionResponse = await page.request.get(
+      const executionResponse = await browserApi(
+        page,
         `/api/v1/conversations/${conversation}/remote-executions`,
       );
       expect(executionResponse.status()).toBe(200);
@@ -329,6 +382,7 @@ test.describe("existing-account real guidance-plan implementation", () => {
         .getByRole("button", { name: "下载计划文件" })
         .click();
       const savedPlan = await downloadPlan;
+      await savedPlan.saveAs(info.outputPath("approved-plan.md"));
       expect(await readFile((await savedPlan.path())!, "utf8")).toBe(
         revised.plan.content.document_markdown,
       );
@@ -348,6 +402,7 @@ test.describe("existing-account real guidance-plan implementation", () => {
       await downloadLink.click();
       const downloaded = await downloadEvent;
       expect(downloaded.suggestedFilename()).toBe("repair-report.md");
+      await downloaded.saveAs(info.outputPath("repair-report.md"));
       const reportBytes = await readFile((await downloaded.path())!);
       const reportText = reportBytes.toString("utf8");
       expect(reportText).toContain(owned.directory);
@@ -373,7 +428,7 @@ test.describe("existing-account real guidance-plan implementation", () => {
         .poll(
           async () => {
             additionalApprovals += await approveOrdinaryActions(page);
-            const response = await page.request.get(`/api/v1/runs/${nextRun}`);
+            const response = await browserApi(page, `/api/v1/runs/${nextRun}`);
             expect(response.status()).toBe(200);
             return (await response.json()).status;
           },

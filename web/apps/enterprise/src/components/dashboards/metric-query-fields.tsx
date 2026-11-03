@@ -7,6 +7,7 @@ import {
   requiredMetricType,
   selectMetric,
   type MetricMetadata,
+  metricCatalogOptions,
 } from "./metric-metadata";
 import "../../styles/dashboard-query-builder.css";
 
@@ -46,11 +47,7 @@ export function MetricQueryFields({
             disabled={disabled}
             value={builder.metric ?? ""}
             allowCustom
-            options={metrics.map((m) => ({
-              value: m.name,
-              label: m.name,
-              description: [m.type, m.unit].filter(Boolean).join(" · "),
-            }))}
+            options={metricCatalogOptions(metrics)}
             contextKey={contextKey}
             fetchOptions={disabled ? undefined : fetchMetrics}
             onValueChange={(metric) => onChange(selectMetric(builder, metric))}

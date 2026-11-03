@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUp,
   Plus,
@@ -33,12 +33,13 @@ import { usePermission } from "../../lib/permissions";
 import { mentionQuery } from "./mention-query";
 import { ChatAccessSwitch, useConversationModes } from "./mode-switch";
 import { ComposerInteraction } from "./composer-interaction";
+import {
+  useResourceMentions,
+  type ResourceMention,
+} from "./use-resource-mentions";
+import { useControlResourceMentions } from "./use-control-resource-mentions";
 
-type Mention = {
-  kind: "host" | "connector" | "dashboard";
-  id: string;
-  label: string;
-};
+type Mention = ResourceMention;
 export function ChatComposer({
   sending,
   disabled,
@@ -70,11 +71,11 @@ export function ChatComposer({
   >(null);
   const showInteraction =
     !!interaction && !!onRespond && collapsedInteraction !== interaction.id;
-  const canReadDashboard = usePermission("telemetry.dashboard.read");
   const canCreateDashboard = usePermission("telemetry.dashboard.manage");
   const queries = useQueryClient();
   const [text, setText] = useState("");
   const [mentions, setMentions] = useState<Mention[]>([]);
+  const [activeMention, setActiveMention] = useState(0);
   const [files, setFiles] = useState<WorkspaceFile[]>([]);
   const [picker, setPicker] = useState<{
     start: number;
@@ -110,51 +111,38 @@ export function ChatComposer({
     previousConversation.current = conversationId;
   }, [conversationId]);
   useEffect(() => () => activeUpload.current?.abort(), []);
-  const hosts = useQuery({
-    queryKey: ["hosts", "picker"],
-    queryFn: () => api.hosts.list(),
-    enabled: !!picker,
-  });
-  const connectors = useQuery({
-    queryKey: ["connectors", "picker"],
-    queryFn: () => api.connectors.list(),
-    enabled: !!picker,
-  });
-  const dashboards = useQuery({
-    queryKey: ["dashboards", "chat-picker"],
-    queryFn: () => api.dashboards.list(),
-    select: (items) => items.filter((item) => item.managed_template_key !== "argus.model-governance"),
-    enabled: canReadDashboard && !!picker,
-  });
+  const resources = useResourceMentions(picker?.query ?? "", !!picker);
+  const controls = useControlResourceMentions(!!picker);
+  const { dashboards } = controls;
   const items: Mention[] = [
-    ...(dashboards.data ?? [])
-      .filter((item) => item.lifecycle === "active")
-      .map((item) => ({
-        kind: "dashboard" as const,
-        id: item.id,
-        label: item.name,
-      })),
-    ...(hosts.data?.items ?? []).map((item) => ({
-      kind: "host" as const,
-      id: item.id,
-      label: item.name,
-    })),
-    ...(connectors.data?.items ?? []).map((item) => ({
-      kind: "connector" as const,
-      id: item.id,
-      label: item.name,
-    })),
-  ].filter((item) =>
-    item.label.toLowerCase().includes(picker?.query.toLowerCase() ?? ""),
+    ...controls.items.filter((item) => item.kind === "dashboard"),
+    ...resources.items,
+    ...controls.items.filter((item) => item.kind === "connector"),
+  ].filter(
+    (item) =>
+      (item.kind !== "dashboard" && item.kind !== "connector") ||
+      [item.label, item.id].some((value) =>
+        value.toLowerCase().includes(picker?.query.toLowerCase() ?? ""),
+      ),
   );
   const updateText = (value: string, caret: number) => {
+    setActiveMention(0);
     setText(value);
     setPicker(mentionQuery(value, caret));
   };
   const choose = (item: Mention) => {
     if (!picker) return;
+    if (
+      mentions.length >= 20 &&
+      !mentions.some((ref) => ref.kind === item.kind && ref.id === item.id)
+    ) {
+      setError(t("chat.composer.referenceLimit"));
+      return;
+    }
     setMentions((current) =>
-      current.some((x) => x.id === item.id) ? current : [...current, item],
+      current.some((x) => x.kind === item.kind && x.id === item.id)
+        ? current
+        : [...current, item],
     );
     setText(text.slice(0, picker.start) + text.slice(picker.end));
     setPicker(null);
@@ -166,13 +154,28 @@ export function ChatComposer({
     setError(null);
     const value = [
       text.trim(),
-      ...mentions.map((item) => `@${item.label} (${item.kind}:${item.id})`),
+      ...mentions.map((item) => `@${item.label}`),
     ].join("\n");
     try {
+      const currentContext =
+        mentions.length && conversationId
+          ? await api.conversations.dashboardContext(conversationId)
+          : undefined;
+      const context = mentions.length
+        ? {
+            mode: currentContext?.mode ?? ("none" as const),
+            dashboard_ids: currentContext?.dashboard_ids ?? [],
+            resource_refs: mentions.map((item) => ({
+              type: item.kind,
+              id: item.id,
+            })),
+          }
+        : undefined;
       if (
         await onSend(
           value,
           files.map((file) => file.id),
+          context,
         )
       ) {
         setText("");
@@ -193,12 +196,25 @@ export function ChatComposer({
   const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Escape") setPicker(null);
     if (
+      picker &&
+      items.length &&
+      (event.key === "ArrowDown" || event.key === "ArrowUp")
+    ) {
+      event.preventDefault();
+      setActiveMention(
+        (index) =>
+          (index + (event.key === "ArrowDown" ? 1 : items.length - 1)) %
+          items.length,
+      );
+      return;
+    }
+    if (
       event.key === "Enter" &&
       !event.shiftKey &&
       !event.nativeEvent.isComposing
     ) {
       event.preventDefault();
-      if (picker && items[0]) choose(items[0]);
+      if (picker && items.length) choose(items[activeMention] ?? items[0]!);
       else void submit();
     }
   };
@@ -240,7 +256,7 @@ export function ChatComposer({
       <div className="argus-chat-composer__inner">
         <div className="argus-chat-composer__chips">
           {mentions.map((item) => (
-            <span className="argus-chat-chip" key={item.id}>
+            <span className="argus-chat-chip" key={`${item.kind}:${item.id}`}>
               {item.kind === "host" ? (
                 <Server size={12} />
               ) : item.kind === "dashboard" ? (
@@ -255,7 +271,9 @@ export function ChatComposer({
                 aria-label={t("planv5.files.remove")}
                 onPress={() =>
                   setMentions((current) =>
-                    current.filter((x) => x.id !== item.id),
+                    current.filter(
+                      (x) => x.kind !== item.kind || x.id !== item.id,
+                    ),
                   )
                 }
               >
@@ -299,33 +317,57 @@ export function ChatComposer({
           {picker && (
             <div
               className="argus-chat-picker"
+              id="argus-chat-resource-options"
               role="listbox"
               aria-label={t("chat.composer.mentionTitle")}
             >
-              <div className="argus-chat-picker__list">
+              <div
+                className="argus-chat-picker__list"
+                onScroll={(event) => {
+                  const node = event.currentTarget;
+                  if (
+                    node.scrollHeight - node.scrollTop - node.clientHeight <
+                      80 &&
+                    resources.hasNextPage &&
+                    !resources.isFetchingNextPage
+                  )
+                    void resources.fetchNextPage();
+                }}
+              >
                 {dashboards.isError && (
                   <p role="alert">{t("chat.dashboard.failed")}</p>
                 )}
+                {resources.isError && (
+                  <p role="alert">{t("chat.composer.resourceFailed")}</p>
+                )}
+                {(resources.isFetching || controls.isFetching) && (
+                  <p role="status">{t("chat.composer.resourceLoading")}</p>
+                )}
                 {items.length ? (
-                  items.map((item) => (
+                  items.map((item, index) => (
                     <Button
                       variant="ghost"
-                      className="argus-chat-picker__item"
+                      className={`argus-chat-picker__item${index === activeMention ? " is-highlighted" : ""}`}
                       role="option"
-                      aria-selected="false"
+                      aria-selected={index === activeMention}
+                      id={`argus-mention-${item.kind}-${item.id}`}
                       type="button"
-                      key={item.id}
+                      key={`${item.kind}:${item.id}`}
                       onPress={() => choose(item)}
                     >
                       {item.kind === "dashboard" && (
                         <LayoutDashboard size={13} />
                       )}{" "}
                       {item.label}
+                      <small>
+                        {t(`chat.resourceTypes.${item.kind}`)}
+                        {item.context ? ` · ${item.context}` : ""}
+                      </small>
                     </Button>
                   ))
-                ) : (
+                ) : !resources.isFetching && !controls.isFetching ? (
                   <p>{t("chat.composer.noMatch")}</p>
-                )}
+                ) : null}
               </div>
             </div>
           )}
@@ -344,6 +386,12 @@ export function ChatComposer({
               appearance="embedded"
               ref={area}
               aria-label={t("chat.composer.send")}
+              aria-activedescendant={
+                picker && items[activeMention]
+                  ? `argus-mention-${items[activeMention]!.kind}-${items[activeMention]!.id}`
+                  : undefined
+              }
+              aria-controls={picker ? "argus-chat-resource-options" : undefined}
               value={text}
               disabled={disabled || sending}
               rows={2}

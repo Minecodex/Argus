@@ -59,6 +59,7 @@ func TestNativeObservationQueryPipelineAndPortal(t *testing.T) {
 	if err := app.flushMetrics(f.ctx); err != nil {
 		t.Fatal(err)
 	}
+	emitObservationMetricKinds(t, f, app)
 	verifySDKMetricSum(t, f, f.apps[0], 2)
 	f.waitRows(1, 2, 0, 0)
 	department, user, role, grant := uuid.New(), uuid.New(), uuid.New(), uuid.New()
@@ -132,6 +133,7 @@ func TestNativeObservationQueryPipelineAndPortal(t *testing.T) {
 	if !found {
 		t.Fatal("actual collected metric missing from catalog")
 	}
+	verifyObservationMetricKinds(t, f, entries, call, scope, now.Add(-time.Hour))
 	query := map[string]any{"scope": scope, "query": "sum(plan8_sdk_request_count)", "time_range": map[string]any{"from": now.Add(-time.Hour), "to": time.Now().Add(time.Second)}}
 	if status, result = call("POST", "/enterprise/metrics/query", query); status != 200 {
 		t.Fatalf("structured query: %d %v", status, result)
@@ -163,6 +165,7 @@ func TestNativeObservationQueryPipelineAndPortal(t *testing.T) {
 		t.Fatal("explicit empty catalog expanded")
 	}
 	scope["resources"] = []map[string]any{{"type": "application", "id": f.apps[0].app.String()}}
+	verifyPlan11CollectedObservationTools(t, f, service, user, role)
 	runObservationPortal(t, f, server.URL, token, csrf, traceID)
 	f.exec("DELETE FROM data_authorization_grants WHERE id=$1", grant)
 	if status, _ = call("POST", "/enterprise/telemetry/query/catalog", catalog); status != 403 {

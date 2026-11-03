@@ -6,19 +6,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/kakj-go/Argus/internal/nativetools"
 	"os"
 	"strings"
 
-	"github.com/kakj-go/Argus/internal/alerting"
-	"github.com/kakj-go/Argus/internal/dashboard"
-	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/mcp"
-	"github.com/kakj-go/Argus/internal/monitoring"
 	"github.com/kakj-go/Argus/internal/presentation"
-	"github.com/kakj-go/Argus/internal/storage/postgres"
-	"github.com/kakj-go/Argus/internal/telemetry"
-	"github.com/kakj-go/Argus/internal/toolgateway"
-	"github.com/kakj-go/Argus/internal/workspace"
 )
 
 func main() {
@@ -68,23 +61,9 @@ func main() {
 }
 
 func publicCatalog() ([]mcp.Metadata, error) {
-	registry := mcp.NewRegistry()
-	store := &postgres.Store{}
-	base := toolgateway.ResourceTools{Store: store}
-	registers := []func(*mcp.Registry) error{
-		(toolgateway.MonitoringTools{Base: base, Monitoring: monitoring.Service{Store: store}, Kubernetes: kubernetesworkbench.Service{Store: store}}).Register,
-		base.Register,
-		(toolgateway.LifecycleTools{Base: base}).Register,
-		(toolgateway.CollectorPreviewTools{Base: base}).Register,
-		(telemetry.Tools{Service: telemetry.Service{Store: store}}).Register,
-		(workspace.Service{}).RegisterTools,
-		(toolgateway.DashboardTools{Service: dashboard.Service{Store: store}}).Register,
-		(alerting.Tools{Service: alerting.Service{Store: store}}).Register,
-	}
-	for _, register := range registers {
-		if err := register(registry); err != nil {
-			return nil, err
-		}
+	registry, err := nativetools.Catalog()
+	if err != nil {
+		return nil, err
 	}
 	catalog := registry.ModelCatalog()
 	for _, metadata := range catalog {

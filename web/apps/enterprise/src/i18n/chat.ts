@@ -4,6 +4,28 @@
  */
 export const chatZh = {
   chat: {
+    resourceTypes: {
+      host: "主机",
+      kubernetes_cluster: "Kubernetes 集群",
+      kubernetes_namespace: "命名空间",
+      application: "应用",
+      monitoring_target: "监控目标",
+      connector: "连接代理",
+      dashboard: "仪表盘",
+    },
+    resourceDetails: {
+      name: "名称",
+      references: "会话引用的资源",
+      type: "类型",
+      id: "资源 ID",
+      environment: "环境",
+      parent: "所属资源",
+      unknown: "未提供",
+    },
+    taskScope: {
+      dashboard_analysis: "仅分析已发布仪表盘",
+      dashboard_authoring: "创建或编辑仪表盘",
+    },
     resultViews: {
       view: "视图",
       parameters: "查询参数",
@@ -20,9 +42,9 @@ export const chatZh = {
       partial: "部分结果",
     },
     files: {
-      queryData: "仪表盘查询数据",
+      queryData: "查询结果数据",
       queryManifest: "查询清单",
-      queryGroup: "仪表盘查询数据 · {{count}} 个文件",
+      queryGroup: "查询结果数据 · {{count}} 个文件",
       previewDescription: "只读在线预览，内容与下载文件一致。",
       previewTooLarge: "文件超过 2 MiB 在线预览限制，可通过下载查看完整内容。",
       previewFailed: "文件预览失败或访问权限已变更。",
@@ -108,6 +130,9 @@ export const chatZh = {
       attach: "添加附件",
       mention: "引用资源（堡垒机 / 主机）",
       mentionTitle: "引用资源",
+      resourceFailed: "资源目录读取失败或权限已变更",
+      resourceLoading: "正在读取资源…",
+      referenceLimit: "每条消息最多引用 20 个对象",
       commandTitle: "命令",
       removeCommand: "移除命令",
       noModel: "没有可用模型，请联系管理员配置或调整额度。",
@@ -141,6 +166,11 @@ export const chatZh = {
       request: "压缩上下文",
       running: "正在压缩上下文（压缩前 {{before}} Token）…",
       completed: "上下文压缩完成：{{before}} → {{after}} Token。",
+      runningUnknown: "正在压缩上下文…",
+      runningEstimated: "正在压缩上下文（压缩前估算 {{before}} Token）…",
+      completedUnknown: "上下文压缩完成，大小统计不可用。",
+      completedEstimated:
+        "上下文压缩完成（估算）：{{before}} → {{after}} Token。",
       failed: "上下文压缩失败，已保留原始会话事件。",
     },
   },
@@ -148,6 +178,28 @@ export const chatZh = {
 
 export const chatEn = {
   chat: {
+    resourceTypes: {
+      host: "Host",
+      kubernetes_cluster: "Kubernetes cluster",
+      kubernetes_namespace: "Namespace",
+      application: "Application",
+      monitoring_target: "Monitoring target",
+      connector: "Connector",
+      dashboard: "Dashboard",
+    },
+    resourceDetails: {
+      name: "Name",
+      references: "Resources referenced in this conversation",
+      type: "Type",
+      id: "Resource ID",
+      environment: "Environment",
+      parent: "Parent resource",
+      unknown: "Not provided",
+    },
+    taskScope: {
+      dashboard_analysis: "Published dashboard analysis only",
+      dashboard_authoring: "Create or edit dashboard",
+    },
     resultViews: {
       view: "View",
       parameters: "Query parameters",
@@ -164,9 +216,9 @@ export const chatEn = {
       partial: "Partial result",
     },
     files: {
-      queryData: "Dashboard query data",
+      queryData: "Query result data",
       queryManifest: "Query manifest",
-      queryGroup: "Dashboard query data · {{count}} files",
+      queryGroup: "Query result data · {{count}} files",
       previewDescription: "Read-only preview of the same downloadable file.",
       previewTooLarge:
         "The file exceeds the 2 MiB preview limit. Download it to view the full content.",
@@ -254,6 +306,9 @@ export const chatEn = {
       attach: "Attach file",
       mention: "Reference a resource (Connector / host)",
       mentionTitle: "Reference a resource",
+      resourceFailed: "Resource directory unavailable or access changed",
+      resourceLoading: "Loading resources…",
+      referenceLimit: "Reference at most 20 resources per message",
       commandTitle: "Command",
       removeCommand: "Remove command",
       noModel:
@@ -288,6 +343,13 @@ export const chatEn = {
       request: "Compact context",
       running: "Compacting context ({{before}} tokens before compaction)…",
       completed: "Context compaction completed: {{before}} → {{after}} tokens.",
+      runningUnknown: "Compacting context…",
+      runningEstimated:
+        "Compacting context (estimated {{before}} tokens before compaction)…",
+      completedUnknown:
+        "Context compaction completed; size statistics are unavailable.",
+      completedEstimated:
+        "Context compaction completed (estimated): {{before}} → {{after}} tokens.",
       failed:
         "Context compaction failed; original conversation events were preserved.",
     },

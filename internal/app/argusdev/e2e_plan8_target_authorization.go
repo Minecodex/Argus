@@ -4,118 +4,21 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/monitoring"
 )
 
-// This account is created, changes its password and enrolls MFA through the
-// actual APIs. No inserted password hash, synthetic cookie or SQL grant is used.
 func (a *App) preparePlan8TargetReader(ctx context.Context, env *E2EEnvironment) (string, string, error) {
-	const alias = "plan8-support-reader"
-	if id := env.State.Values["p8_support_reader_id"]; id != "" {
-		return id, alias, nil
-	}
-	client, err := scenarioHTTP(env)
-	if err != nil {
-		return "", "", err
-	}
-	enterprise := env.State.Values["enterprise_id"]
-	if uuid.Validate(enterprise) != nil {
-		return "", "", errors.New("owned enterprise identity missing")
-	}
-	department, err := a.postgresQuery(ctx, env, "SELECT id FROM departments WHERE enterprise_id='"+enterprise+"' AND is_default=true")
-	if err != nil {
-		return "", "", err
-	}
-	department = strings.TrimSpace(department)
-	if uuid.Validate(department) != nil {
-		return "", "", errors.New("owned department identity missing")
-	}
-	role, err := client.JSON(ctx, "p8-support-reader-role", "enterprise", http.MethodPost, "/enterprise/roles", 201, map[string]any{"name": "Plan8 dedicated target reader", "permissions": []string{"monitoring.read"}}, enterpriseHeaders(env, "p8-support-reader-role"))
-	if err != nil {
-		return "", "", err
-	}
-	roleID, err := stringField(role, "id")
-	if err != nil {
-		return "", "", err
-	}
-	username := "p8-reader-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
-	created, err := client.JSON(ctx, "p8-support-reader-user", "enterprise", http.MethodPost, "/enterprise/users", 201, map[string]any{"username": username, "display_name": "Plan8 target scope reader", "department_id": department, "role_ids": []string{roleID}}, enterpriseHeaders(env, "p8-support-reader-user"))
-	if err != nil {
-		return "", "", err
-	}
-	id, err := stringField(created, "user", "id")
-	if err != nil {
-		return "", "", err
-	}
-	temporary, err := stringField(created, "temporary_password")
-	if err != nil {
-		return "", "", err
-	}
-	login, err := client.JSON(ctx, "p8-support-reader-login", alias, http.MethodPost, "/enterprise/auth/login", 200, map[string]any{"username": username, "password": temporary}, map[string]string{"Origin": env.EnterpriseOrigin()})
-	if err != nil {
-		return "", "", err
-	}
-	challenge, err := stringField(login, "password_change_challenge", "challenge_id")
-	if err != nil {
-		return "", "", err
-	}
-	password := "P8!" + uuid.NewString() + "zQ9"
-	completed, err := client.JSON(ctx, "p8-support-reader-password", alias, http.MethodPost, "/enterprise/auth/complete-password-change", 200, map[string]any{"challenge_id": challenge, "temporary_password": temporary, "new_password": password}, map[string]string{"Origin": env.EnterpriseOrigin()})
-	if err != nil {
-		return "", "", err
-	}
-	csrf, err := stringField(completed, "csrf_token")
-	if err != nil {
-		return "", "", err
-	}
-	mfa, err := enrollScenarioMFA(ctx, client, "enterprise", alias, env.EnterpriseOrigin(), csrf, env.Options.RunID+"-target-reader")
-	if err != nil {
-		return "", "", err
-	}
-	env.State.Values["p8_support_reader_id"], env.State.Values["p8_support_reader_username"], env.State.Values["p8_support_reader_password"], env.State.Values["p8_support_reader_csrf"] = id, username, password, csrf
-	env.State.Values["p8_support_reader_mfa_secret"], env.State.Values["p8_support_reader_mfa_last"] = mfa.Secret, mfa.LastCode
-	return id, alias, nil
+	return a.prepareScenarioReader(ctx, env, plan8TargetReaderSpec)
 }
 
 func (a *App) refreshPlan8TargetReader(ctx context.Context, env *E2EEnvironment, alias string) error {
-	client, err := scenarioHTTP(env)
-	if err != nil {
-		return err
+	if alias != plan8TargetReaderSpec.Alias {
+		return errors.New("unexpected owned target-reader alias")
 	}
-	client.Reset(alias)
-	login, err := client.JSON(ctx, "p8-target-reader-login-refresh", alias, http.MethodPost, "/enterprise/auth/login", 200, map[string]any{"username": env.State.Values["p8_support_reader_username"], "password": env.State.Values["p8_support_reader_password"]}, map[string]string{"Origin": env.EnterpriseOrigin()})
-	if err != nil {
-		return err
-	}
-	if session, ok := login["authenticated_session"].(map[string]any); ok && login["status"] == "authenticated" {
-		csrf, e := stringField(session, "csrf_token")
-		if e == nil {
-			env.State.Values["p8_support_reader_csrf"] = csrf
-		}
-		return e
-	}
-	challenge, err := stringField(login, "mfa_challenge", "challenge_id")
-	if err != nil {
-		return err
-	}
-	code, err := waitForNextTOTP(env.State.Values["p8_support_reader_mfa_secret"], env.State.Values["p8_support_reader_mfa_last"])
-	if err != nil {
-		return err
-	}
-	completed, err := client.JSON(ctx, "p8-target-reader-mfa-refresh", alias, http.MethodPost, "/enterprise/auth/mfa/complete", 200, map[string]any{"challenge_id": challenge, "code": code}, map[string]string{"Origin": env.EnterpriseOrigin()})
-	if err != nil {
-		return err
-	}
-	csrf, err := stringField(completed, "csrf_token")
-	if err != nil {
-		return err
-	}
-	env.State.Values["p8_support_reader_csrf"], env.State.Values["p8_support_reader_mfa_last"] = csrf, code
-	return nil
+	return a.refreshScenarioReader(ctx, env, plan8TargetReaderSpec)
 }
 
 func (a *App) plan8VerifyTargetAuthorization(ctx context.Context, env *E2EEnvironment, row monitoring.Collection, metric string) (proof map[string]any, failure error) {
@@ -147,6 +50,11 @@ func (a *App) plan8VerifyTargetAuthorization(ctx context.Context, env *E2EEnviro
 	// Every target starts without a grant for this non-admin subject.
 	headers := map[string]string{"Origin": env.EnterpriseOrigin(), "X-CSRF-Token": env.State.Values["p8_support_reader_csrf"]}
 	queryPath, query := plan8TargetAuthorizationQuery(row, metric, time.Now())
+	window := query["time_range"].(map[string]any)
+	catalog := map[string]any{"scope": map[string]any{"mode": "explicit", "resources": []any{map[string]any{"type": "monitoring_target", "id": row.Target.ID.String()}}}, "signal": "metrics", "kind": "metrics", "observed_only": true, "from": window["from"], "to": window["to"], "limit": 100}
+	if _, err = client.JSON(ctx, "p8-target-reader-denied-catalog", alias, http.MethodPost, "/enterprise/telemetry/query/catalog", 403, catalog, headers); err != nil {
+		return nil, err
+	}
 	if _, err = client.JSON(ctx, "p8-target-reader-denied-record", alias, http.MethodGet, "/monitoring/collections/"+row.ID.String(), 403, nil, headers); err != nil {
 		return nil, err
 	}
@@ -172,6 +80,20 @@ func (a *App) plan8VerifyTargetAuthorization(ctx context.Context, env *E2EEnviro
 	if err != nil || len(samples) == 0 {
 		return nil, errors.New("authorized target reader did not receive actual scoped observations")
 	}
+	catalogValue, err := client.JSON(ctx, "p8-target-reader-allowed-catalog", alias, http.MethodPost, "/enterprise/telemetry/query/catalog", 200, catalog, headers)
+	if err != nil {
+		return nil, err
+	}
+	metrics, ok := catalogValue["metrics"].([]any)
+	if !ok || len(metrics) == 0 {
+		return nil, errors.New("resource-only reader could not discover actual scoped metric metadata")
+	}
+	for _, value := range metrics {
+		item, ok := value.(map[string]any)
+		if !ok || item["observed"] != true || item["name"] == "" {
+			return nil, errors.New("resource reader catalog fabricated or omitted observed metric identity")
+		}
+	}
 	if err = setGrant(ctx, true); err != nil {
 		return nil, err
 	}
@@ -186,7 +108,10 @@ func (a *App) plan8VerifyTargetAuthorization(ctx context.Context, env *E2EEnviro
 	if _, err = client.JSON(ctx, "p8-target-reader-revoked-query", alias, http.MethodPost, queryPath, 403, query, headers); err != nil {
 		return nil, err
 	}
-	return map[string]any{"passed": true, "reader_id": id, "target_id": row.Target.ID, "collection_id": row.ID, "actual_api_user_login_password_change_and_mfa": true, "explicit_target_grant_required": true, "scoped_metric_samples": len(samples), "revocation_denies_record_and_cached_query": true}, nil
+	if _, err = client.JSON(ctx, "p8-target-reader-revoked-catalog", alias, http.MethodPost, "/enterprise/telemetry/query/catalog", 403, catalog, headers); err != nil {
+		return nil, err
+	}
+	return map[string]any{"passed": true, "reader_id": id, "target_id": row.Target.ID, "collection_id": row.ID, "actual_api_user_login_password_change_and_mfa": true, "explicit_target_grant_required": true, "scoped_metric_samples": len(samples), "observed_catalog_metrics": len(metrics), "reader_permissions": []string{"monitoring.read"}, "dashboard_permission_required": false, "revocation_denies_record_query_and_catalog": true, "revocation_denies_record_and_cached_query": true}, nil
 }
 
 func plan8TargetAuthorizationQuery(row monitoring.Collection, metric string, now time.Time) (string, map[string]any) {

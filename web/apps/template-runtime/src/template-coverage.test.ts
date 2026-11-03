@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { fixtures, presentTool } from "./test-support";
+import { nativeToolNamesEn } from "../../../packages/api-client/src/generated/tool-labels";
 afterEach(() => document.body.replaceChildren());
 it.each(["zh-CN", "en-US"])(
   "uses zero pagination for an empty list in %s",
@@ -17,9 +18,19 @@ it.each(["zh-CN", "en-US"])(
   },
 );
 it("covers every production tool binding and exact source asset", () => {
-  expect(fixtures.bindings).toHaveLength(126);
+  expect(fixtures.bindings).toHaveLength(
+    Object.keys(nativeToolNamesEn).length + 3,
+  );
+  for (const name of Object.keys(nativeToolNamesEn))
+    expect(
+      fixtures.bindings.some(
+        (binding) => binding.Tool === name.replaceAll("/", "."),
+      ),
+    ).toBe(true);
   for (const binding of fixtures.bindings) {
-    expect(["template", "trace", "file", "action"]).toContain(binding.Mode);
+    expect(["template", "trace", "file", "action", "interaction"]).toContain(
+      binding.Mode,
+    );
     if (binding.Mode !== "template") continue;
     expect(binding.Hash).toMatch(/^[a-f0-9]{64}$/);
     expect(binding.Version).toMatch(/\/v2$/);

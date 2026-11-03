@@ -119,7 +119,7 @@ func (t MonitoringTools) register(reg *mcp.Registry, id, permission, title, desc
 			}
 			value, e := run(ctx, a, c)
 			if e != nil {
-				return mcp.Result{}, e
+				return mcp.Result{}, monitoringToolError(e)
 			}
 			raw, e := json.Marshal(value)
 			if e != nil {
@@ -130,6 +130,11 @@ func (t MonitoringTools) register(reg *mcp.Registry, id, permission, title, desc
 				return mcp.Result{}, monitoring.ErrInvalid
 			}
 			delete(out, "watch_token")
+			if id == "monitoring.collection.list" || id == "monitoring.collection.get" {
+				out["sampling_performed"] = false
+				out["data_state"] = "not_checked"
+				out["data_state_reason"] = "This collection metadata request did not query telemetry samples. This is the request's activity, not target collection history; do not infer it from desired enablement, health or freshness."
+			}
 			if cursor, ok := out["next_cursor"].(string); ok {
 				out["complete"] = cursor == ""
 			}
@@ -143,6 +148,11 @@ func (t MonitoringTools) register(reg *mcp.Registry, id, permission, title, desc
 			}
 			return mcp.Result{Structured: public}, nil
 		}}
+	if id == "monitoring.collection.list" || id == "monitoring.collection.get" {
+		meta.Discovery.Revision = "3"
+		meta.OutputVersion = "argus.monitoring_result/v2"
+		meta.Discovery.Description += " Explicit sampling_performed=false/data_state=not_checked describe THIS metadata request only; configuration, stopped and no_data do not establish telemetry query activity or historical data absence."
+	}
 	if id == "kubernetes.object.change.preview" {
 		meta.AnyRequired = []string{"kubernetes.workload.manage", "kubernetes.configuration.manage", "kubernetes.namespace.manage", "kubernetes.node.manage", "kubernetes.network.manage", "kubernetes.rbac.manage", "kubernetes.storage.manage", "kubernetes.crd.manage", "kubernetes.custom_resource.manage"}
 	}

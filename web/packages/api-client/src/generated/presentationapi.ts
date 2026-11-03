@@ -69,7 +69,7 @@ export interface components {
             };
             resource_refs?: {
                 /** @enum {string} */
-                type: "host" | "kubernetes_cluster" | "connector" | "dashboard";
+                type: "host" | "kubernetes_cluster" | "kubernetes_namespace" | "application" | "monitoring_target" | "connector" | "dashboard";
                 /** Format: uuid */
                 id: string;
             }[];

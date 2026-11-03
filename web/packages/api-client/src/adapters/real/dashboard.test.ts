@@ -118,6 +118,9 @@ it("dashboard adapter uses declared HTTP operations and required confirmation he
   };
   await api.convertPanel({ panel, mode: "dsl" });
   await api.preview(id, 1);
+  const publicationScope = { resource_mode: "explicit" as const, resource_types: ["host" as const], resource_ids: [id] };
+  await api.preview(id, 1, publicationScope);
+  expect(JSON.parse(fetch.mock.calls.at(-1)![1]!.body as string)).toMatchObject({ expected_version: 1, parameters: publicationScope });
   await api.folders();
   await api.bindings(id);
   for (const type of ["host", "kubernetes_cluster"] as const) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/mcp"
+	"github.com/kakj-go/Argus/internal/presentation"
 	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
@@ -46,6 +47,7 @@ func TestNativeToolVersionFreezesSchemaPermissionsAndExecutionContract(t *testin
 	version := func(change func(*mcp.Metadata)) string {
 		t.Helper()
 		meta := mcp.Metadata{ID: "host.inspect_contract", Discovery: fixtureDiscovery("host.inspect_contract"), Risk: "read", Visibility: mcp.Visible, ExecutionMode: mcp.ParallelSafe, MaxResultBytes: 1024, Required: []string{"host.read"}, InputVersion: "1", OutputVersion: "1", InputSchema: object([]string{}, map[string]any{"limit": map[string]any{"type": "integer", "maximum": 10}}), OutputSchema: map[string]any{"type": "object"}, Execute: func(context.Context, mcp.Call) (mcp.Result, error) { return mcp.Result{}, nil }}
+		meta.Template = presentation.AssetV2("<p>Original owned template</p>", "1")
 		if change != nil {
 			change(&meta)
 		}
@@ -70,6 +72,7 @@ func TestNativeToolVersionFreezesSchemaPermissionsAndExecutionContract(t *testin
 		func(m *mcp.Metadata) { m.Required = []string{"host.manage"} },
 		func(m *mcp.Metadata) { m.AnyRequired = []string{"host.manage"} },
 		func(m *mcp.Metadata) { m.ExecutionMode = mcp.Sequential },
+		func(m *mcp.Metadata) { m.Template = presentation.AssetV2("<p>Changed owned template</p>", "1") },
 	} {
 		if version(change) == before {
 			t.Fatal("changed contract reused a previously described tool version")

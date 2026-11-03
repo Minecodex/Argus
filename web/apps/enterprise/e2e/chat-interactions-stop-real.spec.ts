@@ -8,6 +8,7 @@ import type {
   RemoteExecution,
 } from "@argus/api-client";
 import { plan7Login } from "./helpers/plan7-login";
+import { browserApi } from "./helpers/browser-api";
 
 const execute = promisify(execFile);
 const enabled = process.env.ARGUS_CHAT_INTERACTIONS_REAL === "1";
@@ -24,7 +25,8 @@ async function state(
   page: Page,
   conversation: string,
 ): Promise<ConversationInteractionState> {
-  const response = await page.request.get(
+  const response = await browserApi(
+    page,
     `/api/v1/conversations/${conversation}/interactions`,
   );
   expect(response.status()).toBe(200);
@@ -69,13 +71,15 @@ test.describe("real guidance implementation stop", () => {
         process.env.ARGUS_PLAN7_USERNAME!,
         process.env.ARGUS_PLAN7_PASSWORD!,
       );
-      const sessionResponse = await page.request.get(
+      const sessionResponse = await browserApi(
+        page,
         "/api/v1/enterprise/auth/session",
       );
       expect(sessionResponse.status()).toBe(200);
       const session = await sessionResponse.json();
       expect(session.user.username).toBe(process.env.ARGUS_PLAN7_USERNAME);
-      const created = await page.request.post("/api/v1/conversations", {
+      const created = await browserApi(page, "/api/v1/conversations", {
+        method: "POST",
         headers: {
           "X-CSRF-Token": session.csrf_token,
           "Idempotency-Key": randomUUID(),
@@ -178,7 +182,8 @@ test.describe("real guidance implementation stop", () => {
       await expect
         .poll(
           async () => {
-            const response = await page.request.get(
+            const response = await browserApi(
+              page,
               `/api/v1/conversations/${conversation}/remote-executions`,
             );
             expect(response.status()).toBe(200);
@@ -200,7 +205,8 @@ test.describe("real guidance implementation stop", () => {
       // Allow cancellation watchers and any queued worker tasks to settle.
       await page.waitForTimeout(5000);
       expect(await markers(directory)).toEqual(["started"]);
-      const after = await page.request.get(
+      const after = await browserApi(
+        page,
         `/api/v1/conversations/${conversation}/remote-executions`,
       );
       expect(

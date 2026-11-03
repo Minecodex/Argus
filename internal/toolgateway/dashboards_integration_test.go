@@ -46,7 +46,9 @@ func (dashboardContextObjects) ReadFile(context.Context, string, int64, int64) (
 }
 
 func (dashboardExternalFixture) BuildTools(context.Context, toolruntime.Principal) (toolruntime.Contribution, error) {
-	return toolruntime.Contribution{Tools: []toolruntime.Tool{{Definition: toolruntime.Definition{Model: modelprovider.Tool{Name: "customer_query", Schema: emptyObjectSchema()}, Source: "external_mcp", Version: "1"}, Invoke: func(context.Context, toolruntime.Invocation) (toolruntime.Result, error) {
+	return toolruntime.Contribution{Tools: []toolruntime.Tool{{Definition: toolruntime.Definition{Model: modelprovider.Tool{Name: "connect", Schema: emptyObjectSchema()}, Source: "argus", Version: "controlled-policy-only"}, Invoke: func(context.Context, toolruntime.Invocation) (toolruntime.Result, error) {
+		return toolruntime.Result{Data: map[string]any{"controlled_no_execution": true}}, nil
+	}}, {Definition: toolruntime.Definition{Model: modelprovider.Tool{Name: "customer_query", Schema: emptyObjectSchema()}, Source: "external_mcp", Version: "1"}, Invoke: func(context.Context, toolruntime.Invocation) (toolruntime.Result, error) {
 		return toolruntime.Result{}, nil
 	}}}}, nil
 }
@@ -131,6 +133,15 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	if err = json.Unmarshal(general.Run.ToolSnapshot, &generalSnapshot); err != nil {
 		t.Fatal(err)
 	}
+	connectVisible := false
+	for _, definition := range generalSnapshot.Definitions {
+		if definition.Model.Name == "connect" {
+			connectVisible = true
+		}
+	}
+	if !connectVisible {
+		t.Fatal("general scope lost controlled remote capability")
+	}
 	generalTools, err := factory.Restore(ctx, p, generalSnapshot)
 	if err != nil {
 		t.Fatal(err)
@@ -139,12 +150,16 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	if err != nil || automatic.Data["analysis"] == nil {
 		t.Fatalf("ordinary Run did not automatically acquire analysis conditions: %v", err)
 	}
-	if _, err = generalTools.Invoke(ctx, "tool.describe", toolruntime.Invocation{RunID: general.Run.ID, Principal: p, Arguments: map[string]any{"category": "metric", "name": "query"}}); err == nil {
-		t.Fatal("automatic analysis left raw telemetry discovery open")
+	generalScope, err := dashboardcontext.ForRun(ctx, store.Queries, p, general.Run.ID)
+	if err != nil || !dashboardcontext.AllowsBusiness(generalScope, "telemetry.promql.query") {
+		t.Fatal("dashboard acquisition narrowed general diagnosis", err)
 	}
-	if _, err = generalTools.Invoke(ctx, "customer_query", toolruntime.Invocation{RunID: general.Run.ID, Principal: p, Arguments: map[string]any{}}); err == nil {
-		t.Fatal("automatic analysis left external MCP open")
+	if _, err = generalTools.Invoke(ctx, "customer_query", toolruntime.Invocation{RunID: general.Run.ID, Principal: p, Arguments: map[string]any{}}); err != nil {
+		t.Fatal("general diagnosis lost its selected external MCP", err)
 	}
+	t.Run("read-only managed defaults match interactive directory", func(t *testing.T) {
+		assertReadOnlyDefaultDashboardParity(t, store, service, e, u, role, general.Run.ID)
+	})
 	finish(general.Run.ID)
 	zero := int64(0)
 	selected, err := send(&dashboardcontext.Selection{Mode: "analyze", DashboardIDs: []uuid.UUID{a}, ExpectedVersion: &zero}, "Check this dashboard for the last 30 minutes")
@@ -168,7 +183,7 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	if _, err = invoke(restored, selected.Run.ID, "get", map[string]any{"dashboard_id": a.String()}); err != nil {
 		t.Fatal(err)
 	}
-	resolution, err := invoke(restored, selected.Run.ID, "context.resolve", map[string]any{"dashboard_id": a.String(), "expected_version": float64(0), "changes": map[string]any{"time": map[string]any{"kind": "relative", "seconds": float64(1800)}}, "evidence": []any{map[string]any{"path": "/time", "quote": "last 30 minutes"}}})
+	resolution, err := invoke(restored, selected.Run.ID, "context.resolve", map[string]any{"dashboard_id": a.String(), "expected_version": float64(0), "changes": map[string]any{"time": map[string]any{"kind": "relative", "seconds": float64(1800)}, "resources": map[string]any{"all": true, "ids": []any{}}}, "evidence": []any{map[string]any{"path": "/time", "quote": "last 30 minutes"}, map[string]any{"path": "/resources", "origin": "ai_selection", "reason": "Analyze this fixture's full authorized scope"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,6 +251,9 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 	if _, err = restored.Invoke(ctx, "customer_query", toolruntime.Invocation{RunID: selected.Run.ID, Principal: p, Arguments: map[string]any{}}); err == nil {
 		t.Fatal("external MCP escaped analysis")
 	}
+	if _, err = restored.Invoke(ctx, "connect", toolruntime.Invocation{RunID: selected.Run.ID, Principal: p, Arguments: map[string]any{}}); err == nil {
+		t.Fatal("remote capability escaped restricted persisted scope")
+	}
 	if _, err = store.Pool.Exec(ctx, "UPDATE dashboard_run_contexts SET context_version=context_version+1 WHERE run_id=$1", selected.Run.ID); err == nil {
 		t.Fatal("Run selection mutable")
 	}
@@ -297,7 +315,10 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 		t.Fatal("foreign owner read Run context")
 	}
 	exec("UPDATE data_authorization_grants SET status='disabled' WHERE enterprise_id=$1 AND resource_id=$2", e, b)
-	automaticFollow, err := send(nil, "revoked follow-up")
+	if _, err = send(nil, "revoked restricted follow-up"); err == nil {
+		t.Fatal("revoked explicit analysis silently widened")
+	}
+	automaticFollow, err := send(nil, "/diagnose revoked follow-up")
 	if err != nil {
 		t.Fatalf("obsolete hints blocked an ordinary message: %v", err)
 	}
@@ -358,7 +379,8 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 		t.Fatalf("initial draft replay duplicated: %v", err)
 	}
 	draftID := draft.Data["id"].(string)
-	sampled, err := invoke(createSet, created.Run.ID, "draft.validate", map[string]any{"draft_id": draftID, "expected_version": float64(1)})
+	authoringScope := map[string]any{"resource_mode": "explicit", "resource_types": []any{"host"}, "resource_ids": []any{}}
+	sampled, err := invoke(createSet, created.Run.ID, "draft.validate", map[string]any{"draft_id": draftID, "expected_version": float64(1), "parameters": authoringScope})
 	if err != nil || sampled.Data["validation"].(map[string]any)["valid"] != true {
 		t.Fatalf("valid draft validation unavailable: %v", err)
 	}
@@ -372,17 +394,17 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 		t.Fatalf("draft did not expose editable validation issues: %v", err)
 	}
 	invalidID := invalidDraft.Data["id"].(string)
-	sampled, err = invoke(createSet, created.Run.ID, "draft.validate", map[string]any{"draft_id": invalidID, "expected_version": float64(1)})
+	sampled, err = invoke(createSet, created.Run.ID, "draft.validate", map[string]any{"draft_id": invalidID, "expected_version": float64(1), "parameters": authoringScope})
 	if err != nil || sampled.Data["validation"].(map[string]any)["valid"] != false || sampled.Data["sample"].(map[string]any)["status"] != "not_executed" {
 		t.Fatalf("hard validation feedback was lost or mistaken for execution: %v", err)
 	}
-	if _, err = invoke(createSet, created.Run.ID, "draft.validate", map[string]any{"draft_id": invalidID, "expected_version": float64(2)}); !errors.Is(err, dashboard.ErrConflict) {
+	if _, err = invoke(createSet, created.Run.ID, "draft.validate", map[string]any{"draft_id": invalidID, "expected_version": float64(2), "parameters": authoringScope}); !errors.Is(err, dashboard.ErrConflict) {
 		t.Fatalf("stale draft validation was accepted: %v", err)
 	}
-	if _, err = invoke(createSet, created.Run.ID, "publish.preview", map[string]any{"draft_id": invalidID, "expected_version": float64(1)}); !errors.Is(err, dashboard.ErrInvalid) {
+	if _, err = invoke(createSet, created.Run.ID, "publish.preview", map[string]any{"draft_id": invalidID, "expected_version": float64(1), "parameters": authoringScope}); !errors.Is(err, dashboard.ErrInvalid) {
 		t.Fatalf("invalid configuration reached publication: %v", err)
 	}
-	preview, err := invoke(createSet, created.Run.ID, "publish.preview", map[string]any{"draft_id": draftID, "expected_version": float64(1)})
+	preview, err := invoke(createSet, created.Run.ID, "publish.preview", map[string]any{"draft_id": draftID, "expected_version": float64(1), "parameters": authoringScope})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -150,7 +150,7 @@ export interface components {
              * @description Optional Chat Completions reasoning strength; compatibility-tested and frozen per model revision.
              * @enum {string}
              */
-            reasoning_effort?: "provider_default" | "low" | "high" | "max";
+            reasoning_effort?: "provider_default" | "low" | "medium" | "high" | "max";
             api_key: string;
             context_window_tokens: number;
             max_output_tokens: number;
@@ -167,7 +167,7 @@ export interface components {
              * @description Omit to preserve the existing strength; provider_default clears the override in a new revision.
              * @enum {string}
              */
-            reasoning_effort?: "provider_default" | "low" | "high" | "max";
+            reasoning_effort?: "provider_default" | "low" | "medium" | "high" | "max";
             api_key?: string;
             context_window_tokens?: number;
             max_output_tokens?: number;
@@ -266,7 +266,7 @@ export interface components {
             /** @enum {string} */
             output_token_parameter?: "max_tokens" | "max_completion_tokens" | "max_output_tokens";
             /** @enum {string} */
-            reasoning_effort?: "low" | "high" | "max";
+            reasoning_effort?: "low" | "medium" | "high" | "max";
             supports_streaming?: boolean;
             context_window_tokens: number;
             max_output_tokens: number;

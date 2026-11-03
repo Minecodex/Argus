@@ -1,6 +1,7 @@
 import { ConversationSummary } from "../components/chat/conversation-summary";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CompactionNotice } from "../components/chat/compaction-notice";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, Minimize2, Pencil, Trash2, X } from "lucide-react";
@@ -10,6 +11,7 @@ import { Button, ConfirmDialog, Input, Select } from "@argus/ui";
 import { ChatComposer } from "../components/chat/composer";
 import { ChatMessageList } from "../components/chat/message-list";
 import { chatMessagesFromEvents } from "../components/chat/chat-view-model";
+import type { ChatMessage } from "../components/chat/chat-view-model";
 import { useChatStream } from "../components/chat/use-chat-stream";
 import { useConversationInteractions } from "../components/chat/use-conversation-interactions";
 import { createConversationRefresh } from "../components/chat/conversation-refresh";
@@ -60,6 +62,7 @@ function ConversationHeader({
   onModelChange,
   selectedConnections,
   sending,
+  messages,
 }: {
   conversationId: string;
   title: string;
@@ -69,6 +72,7 @@ function ConversationHeader({
   onModelChange: (modelId: string) => void;
   selectedConnections: string[];
   sending: boolean;
+  messages: ChatMessage[];
 }) {
   const { t } = useTranslation();
   const api = useApi();
@@ -225,6 +229,7 @@ function ConversationHeader({
           conversationId={conversationId}
           selected={selectedConnections}
           disabled={sending}
+          messages={messages}
         />
       </div>
     </header>
@@ -373,6 +378,7 @@ export function ConversationPage() {
       <div className="argus-chat__main">
         {conversationId && (
           <ConversationHeader
+            messages={messages}
             availability={availability}
             conversationId={conversationId}
             models={models}
@@ -411,14 +417,7 @@ export function ConversationPage() {
             )}
           </div>
         )}
-        {compaction.status !== "idle" && (
-          <div className="argus-chat-composer__note" role="status">
-            {t(`chat.compaction.${compaction.status}`, {
-              before: compaction.tokens_before ?? 0,
-              after: compaction.tokens_after ?? 0,
-            })}
-          </div>
-        )}
+        <CompactionNotice value={compaction} />
         {sending && activeRunId && (
           <div className="argus-chat-composer__note" role="status">
             <Button onPress={compact} size="sm" variant="ghost">

@@ -11,6 +11,153 @@ import (
 	"github.com/google/uuid"
 )
 
+const listRunNativeQueryEvidence = `-- name: ListRunNativeQueryEvidence :many
+SELECT call.id AS tool_call_id, artifact.result_ref, artifact.content_hash,
+       artifact.byte_size, artifact.authorization_scope,
+       result.projection,
+       EXISTS(SELECT 1 FROM model_calls model
+         WHERE model.enterprise_id=call.enterprise_id AND model.run_id=call.run_id
+         AND model.call_kind='inference' AND model.status='succeeded' AND model.dispatched_at IS NOT NULL
+         AND model.inline_query_receipts @> jsonb_build_array(jsonb_build_object(
+           'query_call_id',call.id::text,'original_sha256',encode(artifact.content_hash,'hex'),
+           'original_bytes',artifact.byte_size,'provider_request_hash',encode(model.projection_hash,'hex')))) AS inline_exposure_verified,
+       (event.payload->>'target_tool_id')::text AS target_tool_id,
+       COALESCE(file.path,'')::text AS file_path,
+       COALESCE(file.content_hash,'')::text AS file_hash,
+       COALESCE(file.byte_size,0)::bigint AS file_bytes
+FROM tool_calls call
+JOIN tool_results result ON result.tool_call_id=call.id AND result.enterprise_id=call.enterprise_id
+JOIN artifacts artifact ON artifact.id=result.artifact_id AND artifact.enterprise_id=call.enterprise_id
+JOIN runs run ON run.id=call.run_id AND run.enterprise_id=call.enterprise_id
+JOIN conversation_events event ON event.run_id=call.run_id AND event.enterprise_id=call.enterprise_id
+ AND event.event_type='tool_call_result' AND event.payload->>'tool_call_id'=call.id::text
+LEFT JOIN workspaces workspace ON workspace.conversation_id=run.conversation_id
+ AND workspace.enterprise_id=run.enterprise_id AND workspace.status='ready'
+LEFT JOIN workspace_files file ON file.workspace_id=workspace.id AND file.enterprise_id=call.enterprise_id
+ AND file.conversation_id=run.conversation_id AND file.deleted_at IS NULL
+ AND artifact.result_ref=ANY(file.source_result_refs)
+ AND file.path='queries/' || CASE event.payload->>'target_tool_id'
+   WHEN 'telemetry.promql.query' THEN 'metrics'
+   WHEN 'telemetry.kql.query' THEN 'logs'
+   WHEN 'telemetry.skywalking.trace' THEN 'traces' END || '/' || call.id::text || '.json'
+WHERE call.run_id=$1 AND call.enterprise_id=$2 AND run.conversation_id=$3
+ AND call.source='argus' AND call.status='succeeded' AND call.tool_id='tool.invoke'
+ AND artifact.authorization_scope=$4::text
+ AND event.payload->>'target_tool_id' IN ('telemetry.promql.query','telemetry.kql.query','telemetry.skywalking.trace')
+ORDER BY call.created_at,call.call_sequence LIMIT 65
+`
+
+type ListRunNativeQueryEvidenceParams struct {
+	RunID              uuid.UUID `json:"run_id"`
+	EnterpriseID       uuid.UUID `json:"enterprise_id"`
+	ConversationID     uuid.UUID `json:"conversation_id"`
+	AuthorizationScope string    `json:"authorization_scope"`
+}
+
+type ListRunNativeQueryEvidenceRow struct {
+	ToolCallID             uuid.UUID `json:"tool_call_id"`
+	ResultRef              string    `json:"result_ref"`
+	ContentHash            []byte    `json:"content_hash"`
+	ByteSize               int32     `json:"byte_size"`
+	AuthorizationScope     string    `json:"authorization_scope"`
+	Projection             []byte    `json:"projection"`
+	InlineExposureVerified bool      `json:"inline_exposure_verified"`
+	TargetToolID           string    `json:"target_tool_id"`
+	FilePath               string    `json:"file_path"`
+	FileHash               string    `json:"file_hash"`
+	FileBytes              int64     `json:"file_bytes"`
+}
+
+// Bounded current-Run public evidence metadata. target_tool_id is authored by
+// the Harness; external MCP data and model-authored paths cannot enter it.
+func (q *Queries) ListRunNativeQueryEvidence(ctx context.Context, arg ListRunNativeQueryEvidenceParams) ([]ListRunNativeQueryEvidenceRow, error) {
+	rows, err := q.db.Query(ctx, listRunNativeQueryEvidence,
+		arg.RunID,
+		arg.EnterpriseID,
+		arg.ConversationID,
+		arg.AuthorizationScope,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRunNativeQueryEvidenceRow{}
+	for rows.Next() {
+		var i ListRunNativeQueryEvidenceRow
+		if err := rows.Scan(
+			&i.ToolCallID,
+			&i.ResultRef,
+			&i.ContentHash,
+			&i.ByteSize,
+			&i.AuthorizationScope,
+			&i.Projection,
+			&i.InlineExposureVerified,
+			&i.TargetToolID,
+			&i.FilePath,
+			&i.FileHash,
+			&i.FileBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRunQueryFileReads = `-- name: ListRunQueryFileReads :many
+SELECT call.id, call.input, result.projection
+FROM tool_calls call JOIN tool_results result
+ ON result.tool_call_id=call.id AND result.enterprise_id=call.enterprise_id
+WHERE call.run_id=$1 AND call.enterprise_id=$2 AND call.source='sandbox'
+ AND call.tool_id='read' AND call.status='succeeded'
+ AND call.authorization_scope=$3::text
+ AND call.input->>'path'=ANY($4::text[])
+ORDER BY call.created_at,call.call_sequence LIMIT 65
+`
+
+type ListRunQueryFileReadsParams struct {
+	RunID              uuid.UUID `json:"run_id"`
+	EnterpriseID       uuid.UUID `json:"enterprise_id"`
+	AuthorizationScope string    `json:"authorization_scope"`
+	Paths              []string  `json:"paths"`
+}
+
+type ListRunQueryFileReadsRow struct {
+	ID         uuid.UUID `json:"id"`
+	Input      []byte    `json:"input"`
+	Projection []byte    `json:"projection"`
+}
+
+// A full read is evidence only after the caller checks content against the
+// immutable hash/length. Bash success alone does not establish consumption.
+func (q *Queries) ListRunQueryFileReads(ctx context.Context, arg ListRunQueryFileReadsParams) ([]ListRunQueryFileReadsRow, error) {
+	rows, err := q.db.Query(ctx, listRunQueryFileReads,
+		arg.RunID,
+		arg.EnterpriseID,
+		arg.AuthorizationScope,
+		arg.Paths,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRunQueryFileReadsRow{}
+	for rows.Next() {
+		var i ListRunQueryFileReadsRow
+		if err := rows.Scan(&i.ID, &i.Input, &i.Projection); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUndeliveredNativeQueryResults = `-- name: ListUndeliveredNativeQueryResults :many
 SELECT call.id AS tool_call_id, artifact.result_ref,
        COALESCE(event.payload->>'target_tool_id','')::text AS target_tool_id
@@ -67,4 +214,23 @@ func (q *Queries) ListUndeliveredNativeQueryResults(ctx context.Context, arg Lis
 		return nil, err
 	}
 	return items, nil
+}
+
+const setModelInlineQueryReceipts = `-- name: SetModelInlineQueryReceipts :exec
+UPDATE model_calls SET inline_query_receipts=$3::jsonb
+WHERE id=$1 AND enterprise_id=$2 AND status='running' AND dispatched_at IS NOT NULL
+`
+
+type SetModelInlineQueryReceiptsParams struct {
+	ID           uuid.UUID `json:"id"`
+	EnterpriseID uuid.UUID `json:"enterprise_id"`
+	Column3      []byte    `json:"column_3"`
+}
+
+// Receipt bytes are computed from the actual assembled current request and
+// committed in its dispatch transaction. Unknown/failed requests never certify
+// historical exposure. Old rows remain empty; never backfill from old flags.
+func (q *Queries) SetModelInlineQueryReceipts(ctx context.Context, arg SetModelInlineQueryReceiptsParams) error {
+	_, err := q.db.Exec(ctx, setModelInlineQueryReceipts, arg.ID, arg.EnterpriseID, arg.Column3)
+	return err
 }

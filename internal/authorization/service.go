@@ -162,7 +162,7 @@ func (service Service) UpdateGrantBatch(ctx context.Context, actorID string, ent
 	if err != nil {
 		return errors.New("invalid actor id")
 	}
-	return service.Store.InTx(ctx, func(q *db.Queries) error {
+	return service.grantTransaction(ctx, func(q *db.Queries) error {
 		if err := service.validateSubject(ctx, q, enterpriseID, input.SubjectType, input.SubjectID); err != nil {
 			return err
 		}

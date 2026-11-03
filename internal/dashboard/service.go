@@ -32,6 +32,10 @@ type PublicationVerifier interface {
 	Verify(context.Context, Actor, Spec) (ValidationReport, json.RawMessage, error)
 }
 
+type ScopedPublicationVerifier interface {
+	VerifyWithScope(context.Context, Actor, Spec, ExecutionInput) (ValidationReport, json.RawMessage, error)
+}
+
 type DraftInput struct {
 	DashboardID      uuid.UUID         `json:"dashboard_id,omitempty"`
 	Name             string            `json:"name"`
@@ -368,7 +372,7 @@ func recordDraft(ctx context.Context, q *db.Queries, actor Actor, draft db.Dashb
 	return appendDashboardAudit(ctx, q, actor, event, kind, id, draft.Name, "success", details)
 }
 
-func (service Service) verify(ctx context.Context, actor Actor, spec Spec) (ValidationReport, json.RawMessage, error) {
+func (service Service) verify(ctx context.Context, actor Actor, spec Spec, parameters ...ExecutionInput) (ValidationReport, json.RawMessage, error) {
 	report := Validate(spec)
 	if !report.Valid {
 		return report, nil, ErrInvalid
@@ -378,6 +382,16 @@ func (service Service) verify(ctx context.Context, actor Actor, spec Spec) (Vali
 	}
 	if service.Verifier == nil {
 		return report, nil, fmt.Errorf("%w: publication verifier unavailable", ErrUnavailable)
+	}
+	if len(parameters) > 1 {
+		return report, nil, ErrInvalid
+	}
+	if len(parameters) == 1 {
+		verifier, ok := service.Verifier.(ScopedPublicationVerifier)
+		if !ok {
+			return report, nil, fmt.Errorf("%w: scoped publication verifier unavailable", ErrUnavailable)
+		}
+		return verifier.VerifyWithScope(ctx, actor, spec, parameters[0])
 	}
 	return service.Verifier.Verify(ctx, actor, spec)
 }

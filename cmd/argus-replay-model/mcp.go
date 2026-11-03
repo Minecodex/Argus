@@ -56,6 +56,10 @@ func remoteMCP(w http.ResponseWriter, r *http.Request) {
 		result = map[string]any{"protocolVersion": "2025-11-25", "capabilities": map[string]any{"tools": map[string]any{}}, "serverInfo": map[string]any{"name": "Argus P5 Remote MCP fixture", "version": "1"}}
 		w.Header().Set("Mcp-Session-Id", "p5-session")
 	case "tools/list":
+		if r.URL.Query().Get("scenario") == "plan11-origin-boundary" {
+			result = plan11MCPBoundaryTools(request.Params)
+			break
+		}
 		name := "read_counter"
 		if request.Params["cursor"] == "write" {
 			name = "write_counter"
@@ -71,6 +75,10 @@ func remoteMCP(w http.ResponseWriter, r *http.Request) {
 		}
 		result["tools"] = []any{map[string]any{"name": name, "description": description, "inputSchema": map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"drop_response": map[string]any{"type": "boolean"}}}}}
 	case "tools/call":
+		if r.URL.Query().Get("scenario") == "plan11-origin-boundary" {
+			result = plan11MCPBoundaryResult(request.Params)
+			break
+		}
 		if request.Params["name"] == "write_counter" {
 			mcpWrites.Add(1)
 		}

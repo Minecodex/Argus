@@ -37,7 +37,8 @@ it("renders named instant values with explicit unknown units and no trend", () =
   expect(document.body.textContent).toContain("cpu * 100");
   expect(document.body.textContent).toContain("3.523");
   expect(document.body.textContent).toContain("单位");
-  expect(document.body.textContent).toContain("未识别");
+  expect(document.body.textContent).toContain("未附单位");
+  expect(document.body.textContent).toContain("未提供业务维度");
   expect(document.body.textContent).toContain("单点");
 });
 it("separates host/database relationships and reliable units in chart targets", () => {

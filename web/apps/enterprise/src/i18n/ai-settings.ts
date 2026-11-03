@@ -13,6 +13,17 @@ export const aiSettingsZh = {
       apiKeyHint: "只写，保存后不会回显。",
       modelId: "模型 ID",
       apiProtocol: "API 协议",
+      reasoningEffort: "思考深度",
+      reasoningHint:
+        "支持的档位由供应商决定。保存时按此配置测试；较深思考可能增加耗时和 Token，仅影响新版本及后续消息。",
+      reasoningProtocolHint: "此协议当前使用供应商默认思考设置。",
+      reasoning: {
+        provider_default: "供应商默认",
+        low: "低",
+        medium: "中",
+        high: "高",
+        max: "最高",
+      },
       contextWindowTokens: "上下文窗口 Token",
       maxOutputTokens: "最大输出 Token",
       inputPrice: "每百万输入 Token 金额",
@@ -93,6 +104,18 @@ export const aiSettingsEn = {
       apiKeyHint: "Write-only and never returned after saving.",
       modelId: "Model ID",
       apiProtocol: "API protocol",
+      reasoningEffort: "Thinking depth",
+      reasoningHint:
+        "Supported levels depend on the provider. Saving tests this configuration; deeper thinking may increase latency and token usage. Applies to the new revision and subsequent messages.",
+      reasoningProtocolHint:
+        "This protocol currently uses the provider's default thinking settings.",
+      reasoning: {
+        provider_default: "Provider default",
+        low: "Low",
+        medium: "Medium",
+        high: "High",
+        max: "Maximum",
+      },
       contextWindowTokens: "Context window tokens",
       maxOutputTokens: "Maximum output tokens",
       inputPrice: "Input amount per 1M tokens",

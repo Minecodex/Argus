@@ -56,8 +56,9 @@ type Actor struct {
 }
 
 type Service struct {
-	Store  *postgres.Store
-	Access resource.AccessService
+	ModelQueryMeter func(Actor, EngineQueryBackend) EngineQueryBackend
+	Store           *postgres.Store
+	Access          resource.AccessService
 	// TunnelQuota 是企业级活跃反向隧道上限(PlanV4);0 时使用默认值。
 	TunnelQuota            int64
 	Actions                resource.PendingActionService

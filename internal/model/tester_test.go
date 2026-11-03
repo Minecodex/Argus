@@ -27,11 +27,13 @@ func (f testTransport) RoundTrip(request *http.Request) (*http.Response, error) 
 func TestCompatibilityFreezesOnlyAnEnforcedOutputParameter(t *testing.T) {
 	for _, tc := range []struct {
 		name, expected             string
+		effort                     string
 		rejectLegacy, ignoreLegacy bool
 	}{
-		{"legacy", modelprovider.BudgetMaxTokens, false, false},
-		{"modern rejects legacy", modelprovider.BudgetMaxCompletionTokens, true, false},
-		{"silently ignored legacy", modelprovider.BudgetMaxCompletionTokens, false, true},
+		{"legacy", modelprovider.BudgetMaxTokens, "low", false, false},
+		{"modern rejects legacy", modelprovider.BudgetMaxCompletionTokens, "low", true, false},
+		{"silently ignored legacy", modelprovider.BudgetMaxCompletionTokens, "low", false, true},
+		{"medium profile", modelprovider.BudgetMaxTokens, "medium", false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			selected := []string{}
@@ -40,7 +42,7 @@ func TestCompatibilityFreezesOnlyAnEnforcedOutputParameter(t *testing.T) {
 				if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 					t.Fatal(err)
 				}
-				if body["reasoning_effort"] != "low" {
+				if body["reasoning_effort"] != tc.effort {
 					t.Fatal("a compatibility probe lost the requested reasoning profile")
 				}
 				parameter := modelprovider.BudgetMaxCompletionTokens
@@ -73,13 +75,13 @@ func TestCompatibilityFreezesOnlyAnEnforcedOutputParameter(t *testing.T) {
 				wire, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": delta, "finish_reason": finish}}, "usage": map[string]any{"prompt_tokens": 32, "completion_tokens": output}})
 				return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader("data: " + string(wire) + "\n\ndata: [DONE]\n\n"))}, nil
 			})}
-			input := Input{BaseURL: "https://public.example/v1", ProviderModelID: "model", Protocol: "chat_completions", MaxOutput: 8192, ContextWindow: 200000, ReasoningEffort: "low"}
+			input := Input{BaseURL: "https://public.example/v1", ProviderModelID: "model", Protocol: "chat_completions", MaxOutput: 8192, ContextWindow: 200000, ReasoningEffort: tc.effort}
 			result := (ProviderTester{Policy: modelprovider.PublicEndpointPolicy{Resolver: publicTestResolver{}}, Client: client}).Test(t.Context(), input)
 			if !result.Compatible || result.OutputTokenParameter != tc.expected {
 				t.Fatalf("wrong measured profile: %+v", result)
 			}
 			capabilities := capabilitiesJSON(input, result)
-			if effort, err := modelprovider.ReasoningEffortForCapabilities(modelprovider.ProtocolChatCompletions, capabilities); err != nil || effort != "low" {
+			if effort, err := modelprovider.ReasoningEffortForCapabilities(modelprovider.ProtocolChatCompletions, capabilities); err != nil || effort != tc.effort {
 				t.Fatal("revision did not freeze the explicit reasoning profile")
 			}
 			parameter, err := modelprovider.BudgetParameterForCapabilities(modelprovider.ProtocolChatCompletions, capabilities)

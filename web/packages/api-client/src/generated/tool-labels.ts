@@ -104,6 +104,9 @@ export const nativeToolNamesZh: Record<string, string> = {
   "monitoring/collector/choices": "可用采集器",
   "monitoring/integration/list": "监控能力目录",
   "monitoring/target/list": "监控目标列表",
+  "observe/capabilities/get": "观测能力与来源",
+  "observe/catalog/query": "指标与字段目录",
+  "observe/resources/list": "发现观测资源",
   "pending_action/cancel": "取消待确认操作",
   "pending_action/get": "查看操作状态",
   "telemetry/collector/get": "查看采集器详情",
@@ -128,6 +131,7 @@ export const nativeToolNamesZh: Record<string, string> = {
   "telemetry/promql/query": "指标查询",
   "telemetry/skywalking/trace": "查询调用链",
   "workflow/import_result": "导入授权查询结果",
+  "workflow/plan/propose": "提出实施计划",
   "workflow/publish_file": "发布文件下载"
 };
 export const nativeToolNamesEn: Record<string, string> = {
@@ -235,6 +239,9 @@ export const nativeToolNamesEn: Record<string, string> = {
   "monitoring/collector/choices": "Collector choices",
   "monitoring/integration/list": "Integration catalog",
   "monitoring/target/list": "Monitoring targets",
+  "observe/capabilities/get": "Observation capabilities and sources",
+  "observe/catalog/query": "Metrics and fields catalog",
+  "observe/resources/list": "Find observation resources",
   "pending_action/cancel": "Cancel pending action",
   "pending_action/get": "Get action status",
   "telemetry/collector/get": "Inspect telemetry collector",
@@ -259,5 +266,6 @@ export const nativeToolNamesEn: Record<string, string> = {
   "telemetry/promql/query": "Metric query",
   "telemetry/skywalking/trace": "Query distributed traces",
   "workflow/import_result": "Import authorized tool result",
+  "workflow/plan/propose": "Propose implementation plan",
   "workflow/publish_file": "Publish workspace file"
 };
