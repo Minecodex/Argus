@@ -8,6 +8,7 @@ import {
   useApi,
   type MonitoringApplication,
   type MonitoringApplicationInput,
+  type MonitoringService,
 } from "@argus/api-client";
 import {
   Badge,
@@ -25,7 +26,6 @@ import {
 } from "@argus/ui";
 import { usePermission } from "../lib/permissions";
 import { useMonitoringActions } from "../components/monitoring/actions";
-import { ApplicationIngest } from "../components/monitoring/application-ingest";
 import { ServiceDeclaration } from "../components/monitoring/service-declaration";
 import { ApplicationObservability } from "../components/monitoring/application-observability";
 import "../styles/monitoring.css";
@@ -33,7 +33,7 @@ import "../styles/monitoring.css";
 export function ApplicationsPage() {
   const params = useParams({ strict: false });
   return params.applicationId ? (
-    <ApplicationDetails id={params.applicationId} />
+    <ApplicationDetails key={params.applicationId} id={params.applicationId} />
   ) : (
     <ApplicationList />
   );
@@ -223,29 +223,16 @@ function ApplicationList() {
 
 function ApplicationDetails({ id }: { id: string }) {
   const api = useApi(),
-    { t, i18n } = useTranslation(),
+    { t } = useTranslation(),
     canRead = usePermission("application.read"),
     canManage = usePermission("application.manage");
   const [editing, setEditing] = useState(false),
     actions = useMonitoringActions();
   const [declaringService, setDeclaringService] = useState(false);
-  const [cursors, setCursors] = useState<Array<string | undefined>>([
-    undefined,
-  ]);
   const app = useQuery({
     queryKey: ["monitoring", "application", id],
     queryFn: () => api.monitoring.application(id),
     enabled: canRead,
-  });
-  const services = useQuery({
-    queryKey: ["monitoring", "services", id, cursors.at(-1)],
-    queryFn: () =>
-      api.monitoring.services({
-        application_ids: [id],
-        limit: 50,
-        cursor: cursors.at(-1),
-      }),
-    enabled: canRead && !!app.data,
   });
   const row = app.data;
   return (
@@ -317,63 +304,21 @@ function ApplicationDetails({ id }: { id: string }) {
               <dd>{t(`monitoring.${row.status}`)}</dd>
             </div>
           </dl>
-          <h2>{t("monitoring.services")}</h2>
-          {canManage && row.status === "active" && (
-            <Button onPress={() => setDeclaringService(true)}>
-              {t("monitoring.createService")}
-            </Button>
-          )}
-          {services.error && (
-            <p role="alert">
-              {formatApiError(
-                services.error,
-                t("monitoring.errors.unavailable"),
-                (requestId) => t("common.requestReference", { requestId }),
-              )}
-            </p>
-          )}
-          {services.data &&
-            (services.data.items.length ? (
-              <DataTable
-                data={services.data.items}
-                getRowKey={(s) => s.id}
-                columns={[
-                  { key: "service_name", header: t("monitoring.serviceName") },
-                  {
-                    key: "service_namespace",
-                    header: t("monitoring.serviceNamespace"),
-                  },
-                  { key: "runtime", header: t("monitoring.runtime") },
-                  {
-                    key: "last_seen_at",
-                    header: t("monitoring.lastSeen"),
-                    render: (s) =>
-                      s.last_seen_at
-                        ? new Date(s.last_seen_at).toLocaleString(i18n.language)
-                        : t("monitoring.serviceNotObserved"),
-                  },
-                ]}
+          <ApplicationObservability
+            key={row.id}
+            application={row}
+            services={(select) => (
+              <ApplicationServiceDirectory
+                id={row.id}
+                onSelect={select}
+                onDeclare={
+                  canManage && row.status === "active"
+                    ? () => setDeclaringService(true)
+                    : undefined
+                }
               />
-            ) : (
-              <EmptyState
-                title={t("monitoring.noServices")}
-                description={t("monitoring.noServicesDescription")}
-              />
-            ))}
-          <Pagination
-            page={cursors.length}
-            hasNext={!!services.data?.next_cursor}
-            isDisabled={services.isFetching}
-            onChange={(page) =>
-              setCursors((old) =>
-                page <= old.length
-                  ? old.slice(0, page)
-                  : [...old, services.data?.next_cursor],
-              )
-            }
+            )}
           />
-          <ApplicationObservability key={row.id} application={row} />
-          <ApplicationIngest application={row} />
           {declaringService && (
             <ServiceDeclaration
               applicationId={id}
@@ -486,5 +431,114 @@ function ApplicationEditor({
         />
       </Field>
     </FormDialog>
+  );
+}
+
+function ApplicationServiceDirectory({
+  id,
+  onSelect,
+  onDeclare,
+}: {
+  id: string;
+  onSelect: (service: MonitoringService) => void;
+  onDeclare?: () => void;
+}) {
+  const api = useApi();
+  const { t, i18n } = useTranslation();
+  const canRead = usePermission("application.read");
+  const [cursors, setCursors] = useState<Array<string | undefined>>([
+    undefined,
+  ]);
+  const services = useQuery({
+    queryKey: ["monitoring", "services", id, cursors.at(-1)],
+    queryFn: () =>
+      api.monitoring.services({
+        application_ids: [id],
+        limit: 50,
+        cursor: cursors.at(-1),
+      }),
+    enabled: canRead,
+  });
+  const nextCursor = services.data?.next_cursor;
+  return (
+    <section
+      className="argus-application-panels"
+      aria-label={t("monitoring.services")}
+    >
+      <div className="argus-monitoring-toolbar">
+        <h2>{t("monitoring.services")}</h2>
+        {onDeclare && (
+          <Button onPress={onDeclare}>{t("monitoring.createService")}</Button>
+        )}
+      </div>
+      {services.isPending && <p role="status">{t("common.loading")}</p>}
+      {services.error && (
+        <p role="alert">
+          {formatApiError(
+            services.error,
+            t("monitoring.errors.unavailable"),
+            (requestId) => t("common.requestReference", { requestId }),
+          )}
+        </p>
+      )}
+      {services.data &&
+        (services.data.items.length ? (
+          <>
+            <DataTable
+              data={services.data.items}
+              getRowKey={(service) => service.id}
+              columns={[
+                {
+                  key: "service_name",
+                  header: t("monitoring.serviceName"),
+                  render: (service) => (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onPress={() => onSelect(service)}
+                    >
+                      {service.service_name}
+                    </Button>
+                  ),
+                },
+                {
+                  key: "service_namespace",
+                  header: t("monitoring.serviceNamespace"),
+                },
+                { key: "runtime", header: t("monitoring.runtime") },
+                {
+                  key: "last_seen_at",
+                  header: t("monitoring.lastSeen"),
+                  render: (service) =>
+                    service.last_seen_at
+                      ? new Date(service.last_seen_at).toLocaleString(
+                          i18n.language,
+                        )
+                      : t("monitoring.serviceNotObserved"),
+                },
+              ]}
+            />
+            {(cursors.length > 1 || nextCursor) && (
+              <Pagination
+                page={cursors.length}
+                hasNext={!!nextCursor}
+                isDisabled={services.isFetching}
+                onChange={(page) =>
+                  setCursors((old) =>
+                    page <= old.length
+                      ? old.slice(0, page)
+                      : [...old, nextCursor],
+                  )
+                }
+              />
+            )}
+          </>
+        ) : (
+          <EmptyState
+            title={t("monitoring.noServices")}
+            description={t("monitoring.noServicesDescription")}
+          />
+        ))}
+    </section>
   );
 }

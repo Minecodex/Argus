@@ -469,14 +469,14 @@ test("add host wizard supports direct enrollment and SSH network scenarios", asy
   expect(browserState).not.toContain(command ?? "curl -fsS");
 });
 
-test("approvals inbox: open a pending action and approve it", async ({
+test("approvals inbox: approve the automatically selected action", async ({
   page,
 }) => {
   await login(page);
   await page.goto("/approvals");
-  await page
-    .getByRole("button", { name: /重启工作负载 payment-worker/ })
-    .click();
+  await expect(
+    page.getByRole("button", { name: /重启工作负载 payment-worker/ }),
+  ).toHaveAttribute("aria-current", "true");
 
   const detail = page.locator(".argus-approval-detail");
   await expect(
@@ -526,9 +526,9 @@ test("approvals inbox: desktop tabs preserve scope deep links", async ({
     "true",
   );
   await expect(page.getByRole("radio", { name: "我发起的" })).toBeChecked();
-  await expect(
-    page.getByRole("button", { name: /升级遥测收集器/ }),
-  ).toBeVisible();
+  const createdAction = page.getByRole("button", { name: /升级遥测收集器/ });
+  await expect(createdAction).toHaveAttribute("aria-current", "true");
+  await createdAction.click();
 
   await setChoice(
     page
@@ -536,9 +536,23 @@ test("approvals inbox: desktop tabs preserve scope deep links", async ({
       .locator('xpath=ancestor::*[@data-slot="radio-content"]'),
   );
   await expect(page).toHaveURL(/scope=done/);
+  const handledAction = page.getByRole("button", {
+    name: /新增主机 host-web-12/,
+  });
+  await expect(handledAction).toHaveAttribute("aria-current", "true");
+  const detail = page.locator(".argus-approval-detail");
   await expect(
-    page.getByRole("button", { name: /新增主机 host-web-12/ }),
+    detail.getByText("新增主机 host-web-12", { exact: true }).first(),
   ).toBeVisible();
+
+  const search = page.getByRole("searchbox", { name: "搜索操作标题…" });
+  await search.fill("__no_matching_approval__");
+  await expect(page.getByText("没有待处理事项")).toBeVisible();
+  await expect(detail).toHaveCount(0);
+  await expect(page.getByText("未选择操作")).toHaveCount(0);
+  await search.clear();
+  await expect(handledAction).toHaveAttribute("aria-current", "true");
+  await expect(detail).toBeVisible();
 
   await page.getByRole("tab", { name: "远程访问审批" }).click();
   await expect(page).toHaveURL(/approval=remote/);
@@ -556,6 +570,11 @@ test("approvals inbox: desktop tabs preserve scope deep links", async ({
     "aria-selected",
     "true",
   );
+
+  await page.getByRole("tab", { name: "操作审批" }).click();
+  await expect(page).toHaveURL(/scope=done/);
+  await expect(handledAction).toHaveAttribute("aria-current", "true");
+  await expect(detail).toBeVisible();
 });
 
 test("ai settings: test and create a model in one step", async ({ page }) => {

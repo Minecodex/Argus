@@ -1,0 +1,10 @@
+[Unit]
+Description=Plan9 bounded real HTTP traffic
+After=plan9-app@orders-gateway.service plan9-app@orders-worker.service
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/plan9-load.py background
+RuntimeMaxSec=28800
+MemoryMax=64M
+CPUQuota=10%
+Restart=no

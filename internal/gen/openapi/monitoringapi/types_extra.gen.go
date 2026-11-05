@@ -751,6 +751,9 @@ type PreviewMonitoringBuiltinParams struct {
 
 // ListMonitoringCollectionsParams defines parameters for ListMonitoringCollections.
 type ListMonitoringCollectionsParams struct {
+	// TargetId Select collections for this exact authorized monitoring target.
+	TargetId *openapi_types.UUID `form:"target_id,omitempty" json:"target_id,omitempty"`
+
 	// DesiredEnabled Omit for both states; false explicitly selects disabled collections.
 	DesiredEnabled *bool                                       `form:"desired_enabled,omitempty" json:"desired_enabled,omitempty"`
 	ApplyStatus    *ListMonitoringCollectionsParamsApplyStatus `form:"apply_status,omitempty" json:"apply_status,omitempty"`

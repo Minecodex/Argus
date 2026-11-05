@@ -347,6 +347,7 @@ function ObservationContent({
         title={title}
         rows={rows}
         legend={legend}
+        range={range}
         onSelect={onSelect}
       />
     );

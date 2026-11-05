@@ -75,9 +75,11 @@ function cardStatus(action: PendingActionPublic): PreviewCommitStatus {
  */
 export function ApprovalDetail({
   actionRef,
+  onActionSuccess,
   readOnly = false,
 }: {
   actionRef: string;
+  onActionSuccess: () => void;
   readOnly?: boolean;
 }) {
   const { t, i18n } = useTranslation();
@@ -163,6 +165,7 @@ export function ApprovalDetail({
       approvalForm.reset();
       rejectionForm.reset();
       setRejectOpen(false);
+      onActionSuccess();
       invalidate();
     },
     onError: (error: unknown) =>

@@ -114,6 +114,7 @@ type ListInput struct {
 	ApplyStatus    string      `json:"apply_status,omitempty"`
 	Health         string      `json:"health,omitempty"`
 	Freshness      string      `json:"freshness,omitempty"`
+	TargetID       *uuid.UUID  `json:"target_id,omitempty"`
 	ApplicationIDs []uuid.UUID `json:"application_ids,omitempty"`
 }
 

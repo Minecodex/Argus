@@ -103,6 +103,8 @@ export const monitoringZh = {
     },
     title: "中间件（监控）",
     workspaceHint: "按实例管理采集配置、运行状态和数据新鲜度。",
+    targetCollections: "监控目标 {{name}} 的采集配置",
+    allCollections: "查看全部采集",
     collections: "采集实例",
     integrationCatalog: "集成目录",
     createCollection: "新建监控",
@@ -408,6 +410,8 @@ export const monitoringEn = {
     title: "Middleware Monitoring",
     workspaceHint:
       "Manage collection instances, runtime state and data freshness.",
+    targetCollections: "Collections for monitoring target {{name}}",
+    allCollections: "View all collections",
     collections: "Collection instances",
     integrationCatalog: "Integrations",
     createCollection: "New monitor",

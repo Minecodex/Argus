@@ -26,6 +26,7 @@ func TestPostgresCollectionFiltersBeforePagination(t *testing.T) {
 	f.s.Now = func() time.Time { return now }
 	prefix := uuid.New()
 	ids := make([]uuid.UUID, 7)
+	targets := make([]uuid.UUID, len(ids))
 	fixtures := []struct {
 		integration             string
 		enabled                 bool
@@ -47,6 +48,7 @@ func TestPostgresCollectionFiltersBeforePagination(t *testing.T) {
 		id[15] = byte(i + 1)
 		ids[i] = id
 		target := uuid.New()
+		targets[i] = target
 		f.exec("INSERT INTO monitoring_targets(id,enterprise_id,name,kind,engine,identity_config,created_by) VALUES($1,$2,'filter target','database',$3,'{}',$4)", target, f.a.EnterpriseID, item.integration, f.a.SubjectID)
 		if item.granted {
 			f.exec("INSERT INTO data_authorization_grants(id,enterprise_id,subject_type,subject_id,resource_type,resource_id) VALUES($1,$2,'user',$3,'monitoring_target',$4)", uuid.New(), f.a.EnterpriseID, f.a.SubjectID, target)
@@ -96,6 +98,14 @@ func TestPostgresCollectionFiltersBeforePagination(t *testing.T) {
 	if err != nil || len(hidden.Items) != 0 {
 		t.Fatalf("filter widened resource authorization: %#v %v", hidden, err)
 	}
+	scoped, err := f.s.Collections(t.Context(), f.a, ListInput{TargetID: &targets[2], Limit: 1})
+	if err != nil || len(scoped.Items) != 1 || scoped.Items[0].ID != ids[2] || scoped.NextCursor != "" {
+		t.Fatalf("expected only the exact target's collection: %#v %v", scoped, err)
+	}
+	_, err = f.s.Collections(t.Context(), f.a, ListInput{TargetID: &targets[6]})
+	if !errors.Is(err, ErrDenied) {
+		t.Fatalf("accepted an unauthorized target filter: %v", err)
+	}
 	for _, raw := range []string{`{"apply_status":"ready"}`, `{"health":"good"}`, `{"freshness":"recent"}`} {
 		_, err := f.s.Collections(t.Context(), f.a, collectionFilterInput(t, raw))
 		if !errors.Is(err, ErrInvalid) {
@@ -108,6 +118,8 @@ func TestCollectionCursorBindsFilterDimensions(t *testing.T) {
 	service := Service{CursorKey: []byte("01234567890123456789012345678901")}
 	actor := Actor{EnterpriseID: uuid.New(), SubjectID: uuid.New(), SubjectType: "user", AuthorizationVersion: 1}
 	original := collectionFilterInput(t, `{"desired_enabled":false,"apply_status":"effective","health":"healthy","freshness":"fresh"}`)
+	target := uuid.New()
+	original.TargetID = &target
 	_, _, binding, err := service.page(actor, "collections", original)
 	if err != nil {
 		t.Fatal(err)
@@ -124,9 +136,16 @@ func TestCollectionCursorBindsFilterDimensions(t *testing.T) {
 		`{"desired_enabled":false,"apply_status":"effective","health":"healthy","freshness":"stale"}`,
 	} {
 		next := collectionFilterInput(t, raw)
+		next.TargetID = &target
 		next.Cursor = cursor
 		if _, _, _, err := service.page(actor, "collections", next); err == nil {
 			t.Fatalf("cursor accepted different filters: %s", raw)
 		}
+	}
+	otherTarget := uuid.New()
+	original.TargetID = &otherTarget
+	original.Cursor = cursor
+	if _, _, _, err := service.page(actor, "collections", original); err == nil {
+		t.Fatal("cursor accepted a different monitoring target")
 	}
 }

@@ -1,169 +1,87 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  ApiError,
-  applicationAPMQueries,
-  formatApiError,
-  useApi,
-  type MonitoringApplication,
-  type MonitoringService,
+import type {
+  DashboardSchemas,
+  MonitoringApplication,
+  MonitoringService,
 } from "@argus/api-client";
 import {
   Alert,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  EmptyState,
-  Field,
-  ObservationPanel,
-  ObservationWarnings,
-  SegmentedControl,
-  Select,
-  Spinner,
+  Input,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "@argus/ui";
-import { usePermission } from "../../lib/permissions";
 import { queryScopeBounds } from "../dashboards/query-scope";
+import { TimeRangePicker } from "../dashboards/time-range-picker";
+import { ApplicationIngest } from "./application-ingest";
+import { ApplicationObservationPanel } from "./application-observation-panel";
 import { ServicePicker } from "./pickers";
 import {
   ApplicationTraceDetail,
   type ApplicationTraceSelection,
 } from "./application-trace-detail";
 
-const views = [
-  "services",
-  "instances",
-  "endpoints",
-  "red",
-  "topology",
-  "traces",
-  "logs",
-] as const;
-type View = (typeof views)[number];
+const tabs = ["overview", "services", "traces", "logs", "ingest"] as const;
+type Tab = (typeof tabs)[number];
 type SelectedService = Pick<
   MonitoringService,
   "id" | "service_name" | "service_namespace"
 >;
+type Drill = {
+  sourceId?: string;
+  traceId?: string;
+  operation?: string;
+  approximate?: boolean;
+};
+const defaultTime: DashboardSchemas["DashboardTimeRange"] = {
+  kind: "relative",
+  seconds: 3600,
+};
 
 export function ApplicationObservability({
   application,
+  services,
 }: {
   application: MonitoringApplication;
+  services: (select: (value: SelectedService) => void) => ReactNode;
 }) {
-  const api = useApi(),
-    { t } = useTranslation(),
-    canQuery = usePermission("application.read");
-  const [view, setView] = useState<View>("services"),
-    [seconds, setSeconds] = useState(3600);
-  const [service, setService] = useState<SelectedService>(),
-    [choosing, setChoosing] = useState(false);
-  const [sourceId, setSourceId] = useState<string>(),
-    [traceFilter, setTraceFilter] = useState<string>(),
-    [operation, setOperation] = useState<string>();
-  const [trace, setTrace] = useState<ApplicationTraceSelection>(),
-    [approximate, setApproximate] = useState(false);
-  const [range, setRange] = useState(() =>
-    queryScopeBounds({ kind: "relative", seconds: 3600 }),
-  );
-  const clearDrill = () => {
-    setSourceId(undefined);
-    setTraceFilter(undefined);
-    setOperation(undefined);
-    setApproximate(false);
+  const { t } = useTranslation();
+  const client = useQueryClient();
+  const [tab, setTab] = useState<Tab>("overview");
+  const [time, setTime] = useState(defaultTime);
+  const [range, setRange] = useState(() => queryScopeBounds(defaultTime));
+  const [service, setService] = useState<SelectedService>();
+  const [choosing, setChoosing] = useState(false);
+  const [drill, setDrill] = useState<Drill>({});
+  const [trace, setTrace] = useState<ApplicationTraceSelection>();
+  const [tracePage, setTracePage] = useState(1);
+
+  const setTraceQuery = (value: Drill) => {
+    setDrill(value);
+    setTracePage(1);
   };
-  const query = useQuery({
-    queryKey: [
-      "application-observability",
-      application.id,
-      view,
-      range,
-      service?.id,
-      view === "traces" ? [sourceId, traceFilter, operation] : null,
-    ],
-    enabled: canQuery,
-    retry: false,
-    queryFn: async () => {
-      const common = {
-        resource_ids: [application.id],
-        time_range: range,
-        budget: {
-          max_rows: 5000,
-          max_samples: 100000,
-          max_scan_bytes: 268435456,
-          max_series: 10000,
-          max_result_bytes: 8388608,
-          timeout_ms: 10000,
-        },
-      };
-      if (view === "logs") {
-        const result = await api.telemetry.queryLogs({
-          ...common,
-          query: service
-            ? `resource_attributes.argus.service.id = ${JSON.stringify(service.id)}`
-            : "*",
-          pipeline: "limit 100",
-        });
-        return {
-          data: result.data,
-          partial: result.partial,
-          meta: result.meta,
-          type: "log_entries",
-          warnings: result.warnings,
-        };
-      }
-      const result = await api.telemetry.queryTraces({
-        ...common,
-        query: applicationAPMQueries[view],
-        operation_name: "ApplicationAPM",
-        variables: {
-          serviceIds: service ? [service.id] : null,
-          ...(view === "red"
-            ? { bucketSeconds: Math.max(10, Math.ceil(seconds / 120)) }
-            : {}),
-          ...(view === "traces"
-            ? {
-                sourceId: sourceId ?? null,
-                traceId: traceFilter ?? null,
-                operationName: operation ?? null,
-              }
-            : {}),
-        },
+  const chooseService = (value?: SelectedService) => {
+    setService(value);
+    setTraceQuery({});
+    setChoosing(false);
+  };
+  const applyTime = (value: typeof time) => {
+    setTime(value);
+    setRange(queryScopeBounds(value));
+    setTracePage(1);
+  };
+  const refresh = () => {
+    if (time.kind === "relative") applyTime(time);
+    else
+      void client.invalidateQueries({
+        queryKey: ["application-observability", application.id],
       });
-      return {
-        data: result.data,
-        partial: result.extensions.argus.partial,
-        meta: result.extensions.argus,
-        type: view === "traces" ? "traces" : `apm_${view}`,
-        warnings: result.errors?.map((error) => error.message) ?? [],
-      };
-    },
-  });
-  const noSources =
-    query.error instanceof ApiError &&
-    query.error.code === "QUERY_SOURCES_EMPTY";
-  const selectObservation = (row: Record<string, unknown>) => {
-    if (view === "traces") {
-      if (
-        row.resourceId === application.id &&
-        typeof row.traceId === "string" &&
-        typeof row.sourceId === "string"
-      )
-        setTrace({ traceId: row.traceId, sourceId: row.sourceId, range });
-      return;
-    }
-    if (view === "logs") {
-      setTraceFilter(
-        typeof row.trace_id === "string" && row.trace_id
-          ? row.trace_id
-          : undefined,
-      );
-      setApproximate(!row.trace_id);
-      setSourceId(undefined);
-      setOperation(undefined);
-      setView("traces");
-      return;
-    }
+  };
+  const openServiceTraces = (row: Record<string, unknown>) => {
     if (
       row.resourceId !== application.id ||
       typeof row.serviceId !== "string" ||
@@ -175,167 +93,187 @@ export function ApplicationObservability({
       service_name: String(row.serviceName ?? ""),
       service_namespace: String(row.serviceNamespace ?? ""),
     });
-    setSourceId(
-      Array.isArray(row.sourceIds) && row.sourceIds.length > 1
-        ? undefined
-        : typeof row.sourceId === "string"
-          ? row.sourceId
-          : undefined,
-    );
-    setTraceFilter(undefined);
-    setOperation(
-      typeof row.operationName === "string" && row.operationName
-        ? row.operationName
-        : undefined,
-    );
-    setView("traces");
+    setTraceQuery({
+      sourceId:
+        Array.isArray(row.sourceIds) && row.sourceIds.length > 1
+          ? undefined
+          : typeof row.sourceId === "string"
+            ? row.sourceId
+            : undefined,
+      operation:
+        typeof row.operationName === "string" ? row.operationName : undefined,
+    });
+    setTab("traces");
   };
+  const panelScope = {
+    applicationId: application.id,
+    range,
+    serviceId: service?.id,
+  };
+
   return (
     <section aria-label={t("applicationObservability.title")}>
-      <Card>
-        <CardHeader
-          title={t("applicationObservability.title")}
-          description={t("applicationObservability.basis")}
-        />
-        <CardContent>
-          {!canQuery ? (
-            <EmptyState
-              title={t("monitoring.denied")}
-              description={t("applicationObservability.denied")}
+      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+        <TabsList>
+          {tabs.map((value) => (
+            <TabsTrigger key={value} value={value}>
+              {t(`applicationObservability.tabs.${value}`)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {tab !== "ingest" && (
+          <div className="argus-monitoring-toolbar argus-application-filters">
+            <TimeRangePicker
+              value={time}
+              onChange={applyTime}
+              label={t("applicationObservability.range")}
             />
-          ) : (
+            <Button onPress={() => setChoosing(true)}>
+              {service
+                ? [service.service_namespace, service.service_name]
+                    .filter(Boolean)
+                    .join(" / ")
+                : t("applicationObservability.allServices")}
+            </Button>
+            {service && (
+              <Button onPress={() => chooseService()}>
+                {t("applicationObservability.clearService")}
+              </Button>
+            )}
+            <Button onPress={refresh}>
+              {t("applicationObservability.refresh")}
+            </Button>
+          </div>
+        )}
+        <TabsContent value="overview" className="argus-application-panels">
+          <ApplicationObservationPanel
+            {...panelScope}
+            view="red"
+            onSelect={openServiceTraces}
+          />
+          <ApplicationObservationPanel
+            {...panelScope}
+            view="topology"
+            onSelect={openServiceTraces}
+          />
+        </TabsContent>
+        <TabsContent value="services" className="argus-application-panels">
+          {services(chooseService)}
+          {service ? (
             <>
-              <div className="argus-monitoring-toolbar">
-                <SegmentedControl
-                  label={t("applicationObservability.view")}
-                  value={view}
-                  onChange={(value) => setView(value as View)}
-                  options={views.map((value) => ({
-                    value,
-                    label: t(`applicationObservability.views.${value}`),
-                  }))}
-                />
-                <Field
-                  label={t("applicationObservability.range")}
-                  requirement="required"
-                >
-                  <Select
-                    value={String(seconds)}
-                    onValueChange={(value) => {
-                      setSeconds(Number(value));
-                      setRange(
-                        queryScopeBounds({
-                          kind: "relative",
-                          seconds: Number(value),
-                        }),
-                      );
-                    }}
-                    options={[900, 3600, 21600, 86400].map((value) => ({
-                      value: String(value),
-                      label: t(`applicationObservability.ranges.${value}`),
-                    }))}
-                  />
-                </Field>
-                <Button onPress={() => setChoosing(true)}>
-                  {service
-                    ? `${service.service_namespace ? service.service_namespace + " / " : ""}${service.service_name}`
-                    : t("applicationObservability.allServices")}
-                </Button>
-                {service && (
-                  <Button
-                    onPress={() => {
-                      setService(undefined);
-                      clearDrill();
-                    }}
-                  >
-                    {t("applicationObservability.clearService")}
-                  </Button>
-                )}
-                <Button
-                  isDisabled={query.isFetching}
-                  onPress={() =>
-                    setRange(queryScopeBounds({ kind: "relative", seconds }))
-                  }
-                >
-                  {t("applicationObservability.refresh")}
-                </Button>
-              </div>
-              {(sourceId || traceFilter || operation) && (
-                <Button onPress={clearDrill}>
-                  {t("applicationObservability.clearDrill")}
-                </Button>
-              )}
-              {approximate && (
-                <Alert
-                  title={t("applicationObservability.approximate")}
-                  description={t("applicationObservability.approximateHint")}
-                />
-              )}
-              {query.isFetching && <Spinner label={t("common.loading")} />}
-              {query.error && !noSources && (
-                <Alert
-                  tone="danger"
-                  title={t("telemetry.queryFailed")}
-                  description={formatApiError(
-                    query.error,
-                    t("monitoring.errors.unavailable"),
-                    (id) => t("common.requestReference", { requestId: id }),
-                  )}
-                />
-              )}
-              {noSources && (
-                <EmptyState
-                  title={t("applicationObservability.noData")}
-                  description={t("applicationObservability.noDataHint")}
-                />
-              )}
-              <ObservationWarnings warnings={query.data?.warnings} />
-              {query.data && (
-                <ObservationPanel
-                  title={t(`applicationObservability.views.${view}`)}
-                  type={
-                    view === "logs"
-                      ? "logs"
-                      : view === "traces"
-                        ? "trace_list"
-                        : `apm_${view}`
-                  }
-                  signal={view === "logs" ? "logs" : "traces"}
-                  range={range}
-                  onSelect={selectObservation}
-                  targets={[
-                    {
-                      id: "application",
-                      status: query.data.partial ? "partial" : "success",
-                      result_type: query.data.type,
-                      data: query.data.data,
-                      meta: query.data.meta,
-                    },
-                  ]}
-                />
-              )}
+              <ApplicationObservationPanel {...panelScope} view="instances" />
+              <ApplicationObservationPanel
+                {...panelScope}
+                view="endpoints"
+                onSelect={openServiceTraces}
+              />
             </>
+          ) : (
+            <p className="argus-application-hint">
+              {t("applicationObservability.selectServiceDetails")}
+            </p>
           )}
-          {choosing && (
-            <ServicePicker
-              application={application}
-              onClose={() => setChoosing(false)}
-              onSelect={(value) => {
-                setService(value);
-                clearDrill();
-                setChoosing(false);
-              }}
+        </TabsContent>
+        <TabsContent value="traces" className="argus-application-panels">
+          <form
+            className="argus-monitoring-toolbar"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const fields = new FormData(event.currentTarget);
+              setTraceQuery({
+                traceId:
+                  String(fields.get("traceId") ?? "").trim() || undefined,
+                operation:
+                  String(fields.get("operation") ?? "").trim() || undefined,
+              });
+            }}
+          >
+            <Input
+              key={`trace-${drill.traceId ?? ""}`}
+              name="traceId"
+              defaultValue={drill.traceId}
+              aria-label={t("applicationObservability.traceId")}
+              placeholder={t("applicationObservability.traceId")}
+              maxLength={256}
+            />
+            <Input
+              key={`operation-${drill.operation ?? ""}`}
+              name="operation"
+              defaultValue={drill.operation}
+              aria-label={t("applicationObservability.operation")}
+              placeholder={t("applicationObservability.operation")}
+              maxLength={4096}
+            />
+            <Button type="submit">
+              {t("applicationObservability.searchTraces")}
+            </Button>
+            {(drill.sourceId ||
+              drill.traceId ||
+              drill.operation ||
+              drill.approximate) && (
+              <Button onPress={() => setTraceQuery({})}>
+                {t("applicationObservability.clearDrill")}
+              </Button>
+            )}
+          </form>
+          {drill.approximate && (
+            <Alert
+              title={t("applicationObservability.approximate")}
+              description={t("applicationObservability.approximateHint")}
             />
           )}
-          {trace && (
-            <ApplicationTraceDetail
-              applicationId={application.id}
-              selected={trace}
-              onClose={() => setTrace(undefined)}
-            />
-          )}
-        </CardContent>
-      </Card>
+          <ApplicationObservationPanel
+            {...panelScope}
+            view="traces"
+            drill={drill}
+            page={tracePage}
+            onPageChange={setTracePage}
+            onSelect={(row) => {
+              if (
+                row.resourceId === application.id &&
+                typeof row.traceId === "string" &&
+                typeof row.sourceId === "string"
+              )
+                setTrace({
+                  traceId: row.traceId,
+                  sourceId: row.sourceId,
+                  range,
+                });
+            }}
+          />
+        </TabsContent>
+        <TabsContent value="logs">
+          <ApplicationObservationPanel
+            {...panelScope}
+            view="logs"
+            onSelect={(row) => {
+              const traceId =
+                typeof row.trace_id === "string" && row.trace_id
+                  ? row.trace_id
+                  : undefined;
+              setTraceQuery({ traceId, approximate: !traceId });
+              setTab("traces");
+            }}
+          />
+        </TabsContent>
+        <TabsContent value="ingest">
+          <ApplicationIngest application={application} />
+        </TabsContent>
+      </Tabs>
+      {choosing && (
+        <ServicePicker
+          application={application}
+          onClose={() => setChoosing(false)}
+          onSelect={chooseService}
+        />
+      )}
+      {trace && (
+        <ApplicationTraceDetail
+          applicationId={application.id}
+          selected={trace}
+          onClose={() => setTrace(undefined)}
+        />
+      )}
     </section>
   );
 }

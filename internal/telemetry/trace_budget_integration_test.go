@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -36,20 +37,29 @@ func TestTraceSystemBudgetIsPartialButAuthoredPageIsPreserved(t *testing.T) {
 	if !result.Meta.Partial || len(result.Meta.Warnings) == 0 {
 		t.Fatal("implicit budget truncation presented as complete")
 	}
-	request.Expression = `{queryTraces(pageSize:1){total traces{traceId}}}`
-	result, err = engine.Execute(ctx, request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Meta.Partial {
-		t.Fatal("explicit authored page was changed into a wider query")
-	}
-	request.Expression = `{queryTraces(pageNum:5){total traces{traceId}}}`
-	result, err = engine.Execute(ctx, request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Meta.Partial {
-		t.Fatal("an explicitly empty page claimed budget truncation")
+	for _, page := range []struct {
+		number int
+		trace  string
+	}{{1, "first"}, {2, "second"}, {5, ""}} {
+		request.Expression = fmt.Sprintf("{queryTraces(pageNum:%d,pageSize:1){total traces{traceId}}}", page.number)
+		result, err = engine.Execute(ctx, request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Meta.Partial {
+			t.Fatalf("page %d: explicit page was presented as partial", page.number)
+		}
+		data := result.Data.(map[string]any)["queryTraces"].(map[string]any)
+		if data["total"] != float64(2) {
+			t.Fatalf("page %d: total = %v, want 2", page.number, data["total"])
+		}
+		traces := data["traces"].([]any)
+		if page.trace == "" {
+			if len(traces) != 0 {
+				t.Fatalf("page %d: expected an empty page, got %v", page.number, traces)
+			}
+		} else if len(traces) != 1 || traces[0].(map[string]any)["traceId"] != page.trace {
+			t.Fatalf("page %d: expected %q, got %v", page.number, page.trace, traces)
+		}
 	}
 }

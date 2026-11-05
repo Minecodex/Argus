@@ -151,9 +151,10 @@ func (s Service) page(a Actor, audience string, in ListInput) (int, uuid.UUID, p
 		ApplyStatus, Health, Freshness                            string
 		DesiredEnabled                                            *bool
 		ApplicationIDs                                            []uuid.UUID
+		TargetID                                                  *uuid.UUID `json:",omitempty"`
 		Limit                                                     int
 	}{Environment: in.Environment, Search: strings.TrimSpace(in.Search), Status: in.Status, Integration: in.Integration, ApplicationMode: "all_authorized", ApplicationIDs: append([]uuid.UUID{}, in.ApplicationIDs...), Limit: limit,
-		DesiredEnabled: in.DesiredEnabled, ApplyStatus: in.ApplyStatus, Health: in.Health, Freshness: in.Freshness}
+		DesiredEnabled: in.DesiredEnabled, ApplyStatus: in.ApplyStatus, Health: in.Health, Freshness: in.Freshness, TargetID: in.TargetID}
 	if in.ApplicationIDs != nil {
 		filter.ApplicationMode = "explicit"
 	}

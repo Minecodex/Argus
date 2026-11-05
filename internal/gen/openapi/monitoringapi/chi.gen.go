@@ -541,6 +541,19 @@ func (siw *ServerInterfaceWrapper) ListMonitoringCollections(w http.ResponseWrit
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListMonitoringCollectionsParams
 
+	// ------------- Optional query parameter "target_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_id", r.URL.Query(), &params.TargetId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "desired_enabled" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "desired_enabled", r.URL.Query(), &params.DesiredEnabled, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})

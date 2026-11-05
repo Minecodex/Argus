@@ -27,6 +27,7 @@ export type MonitoringListInput = {
   apply_status?: MonitoringCollection["apply_status"];
   health?: MonitoringCollection["health"];
   freshness?: MonitoringCollection["freshness"];
+  target_id?: string;
 };
 
 // Match the server's locked distribution admission, including its version.

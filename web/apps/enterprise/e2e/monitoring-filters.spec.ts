@@ -188,4 +188,12 @@ test("monitoring builtin dashboard retains actual host resource type", async ({
   await expect
     .poll(() => new URL(page.url()).searchParams.get("resource_type"))
     .toBe("host");
+  const source = page.getByRole("button", { name: /采集来源/ }).first();
+  await expect(source).toHaveText("采集来源 · 1");
+  await source.click();
+  const dialog = page.getByRole("dialog", { name: /采集来源/ });
+  const host = dialog.getByRole("link", { name: "host-web-11", exact: true });
+  await expect(host).toHaveAttribute("href", "/hosts/host-web-11");
+  await host.click();
+  await expect(page).toHaveURL(/\/hosts\/host-web-11$/);
 });

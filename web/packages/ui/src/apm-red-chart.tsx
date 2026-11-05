@@ -36,11 +36,13 @@ export function APMRedChart({
   rows,
   title,
   legend,
+  range,
   onSelect,
 }: {
   rows: Array<{ row: Record<string, unknown>; target: string }>;
   title: string;
   legend: boolean;
+  range?: { from: string; to: string };
   onSelect?: (row: Record<string, unknown>, target: string) => void;
 }) {
   const text = useUiText(),
@@ -91,7 +93,13 @@ export function APMRedChart({
         label={`${title} · ${label}${times.length ? ` · ${text("曲线样本", "Chart samples")}: ${rows.length} · ${times[0]} – ${times.at(-1)}` : ""}`}
         option={{
           legend: { show: legend, type: "scroll" },
-          xAxis: { type: "time" },
+          xAxis: {
+            type: "time",
+            ...(range && {
+              min: Date.parse(range.from),
+              max: Date.parse(range.to),
+            }),
+          },
           yAxis: { type: "value", name: unit },
           series: groups.map((group) => ({
             type: "line",

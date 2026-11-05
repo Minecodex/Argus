@@ -252,6 +252,32 @@
   max-height: 90vh;
   overflow: auto;
 }
+.argus-dashboard-source-resources {
+  display: grid;
+  gap: var(--action-gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.argus-dashboard-source-resource {
+  display: grid;
+  gap: var(--action-gap);
+  padding: var(--field-gap);
+  border: var(--space-px-1) solid var(--border-subtle);
+  border-radius: var(--control-radius);
+  overflow-wrap: anywhere;
+}
+.argus-dashboard-source-resource .argus-dashboard-resource-link {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.argus-dashboard-source-details > summary {
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.argus-dashboard-source-details > div {
+  margin-block-start: var(--action-gap);
+}
 .argus-dashboard-diff {
   display: grid;
   grid-template-columns: 1fr 1fr;

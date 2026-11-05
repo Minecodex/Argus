@@ -50,48 +50,47 @@ for (const english of [false, true])
         },
         { english, theme },
       );
+      const query = (field: string) =>
+        page.waitForResponse(
+          (response) =>
+            response.url().endsWith("/enterprise/traces/graphql") &&
+            response.request().method() === "POST" &&
+            String(response.request().postDataJSON()?.query).includes(field),
+        );
+      const overview = [query("queryAPMRED"), query("queryAPMTopology")];
       await page.goto(`/applications/${app}`);
       const region = page.getByRole("region", {
         name: text("应用性能", "Application performance"),
         exact: true,
       });
-      await expect(region).toBeVisible();
+      const tab = (zh: string, en: string) =>
+        region.getByRole("tab", { name: text(zh, en), exact: true });
+      for (const response of await Promise.all(overview))
+        expect(response.status()).toBe(200);
+      await expect(
+        region.locator(".argus-observation-chart canvas"),
+      ).toHaveCount(2);
+      await tab("服务", "Services").click();
       await expect(region.getByRole("table")).toContainText("payments");
       await expect(region.getByRole("table")).toContainText("inventory");
-      for (const [label, field] of [
-        [text("运行实例", "Runtime instances"), "queryAPMInstances"],
-        [text("接口", "Endpoints"), "queryAPMEndpoints"],
-        [text("请求与耗时", "Requests and duration"), "queryAPMRED"],
-        [text("服务拓扑", "Service topology"), "queryAPMTopology"],
-      ]) {
-        const loaded = page.waitForResponse(
-          (response) =>
-            response.url().endsWith("/enterprise/traces/graphql") &&
-            response.request().method() === "POST" &&
-            String(response.request().postDataJSON()?.query).includes(field!),
-        );
-        await region
-          .getByRole("radiogroup")
-          .getByText(label, { exact: true })
-          .click();
-        const response = await loaded;
+      const scoped = [query("queryAPMInstances"), query("queryAPMEndpoints")];
+      await region
+        .getByRole("tabpanel")
+        .getByRole("button", { name: "payments", exact: true })
+        .click();
+      for (const response of await Promise.all(scoped)) {
         expect(response.status()).toBe(200);
-        const actual = (await response.json()).data[field!];
-        expect(actual.status).toBe("available");
-        expect(
-          field === "queryAPMTopology"
-            ? actual.nodes.length
-            : actual.rows.length,
-        ).toBeGreaterThan(0);
-        await expect(
-          region.getByRole("radio", { name: label, exact: true }),
-        ).toBeChecked();
-        await expect(region.getByRole("alert")).toHaveCount(0);
+        const data = Object.values((await response.json()).data) as {
+          rows: unknown[];
+        }[];
+        expect(data[0]!.rows.length).toBeGreaterThan(0);
       }
       await region
-        .getByRole("radiogroup")
-        .getByText(text("调用链", "Traces"), { exact: true })
+        .getByRole("button", {
+          name: text("清除服务筛选", "Clear service filter"),
+        })
         .click();
+      await tab("调用链", "Traces").click();
       const traceRow = region
         .getByRole("row")
         .filter({ has: page.getByText("GET /checkout", { exact: true }) });
@@ -111,10 +110,7 @@ for (const english of [false, true])
       await expect(detail).toContainText("GET /inventory");
       await expect(detail).not.toContainText("partner-private-handler");
       await page.keyboard.press("Escape");
-      await region
-        .getByRole("radiogroup")
-        .getByText(text("应用日志", "Application logs"), { exact: true })
-        .click();
+      await tab("日志", "Logs").click();
       await expect(region).toContainText("sdk-checkout-event");
       await expect(region).toContainText("sdk-inventory-event");
       await expect(region).not.toContainText("sdk-partner-event");

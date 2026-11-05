@@ -1,6 +1,21 @@
 export const applicationObservabilityZh = {
   applicationObservability: {
     title: "应用性能",
+    tabs: {
+      overview: "概览",
+      services: "服务",
+      traces: "调用链",
+      logs: "日志",
+      ingest: "SDK 接入",
+    },
+    selectServiceDetails: "选择一个服务以查看运行实例和接口。",
+    traceId: "Trace ID",
+    operation: "接口名称",
+    searchTraces: "查询调用链",
+    budgetExceeded:
+      "当前查询超出预算。请选择更短的时间范围或缩小服务范围后重试。",
+    trendLimited:
+      "当前趋势只返回了部分时间桶。请选择更少的服务以查看完整时段。",
     basis:
       "按当前授权应用和服务汇总已接收的入口 Span。同一 Trace/Span 身份跨来源只计一次，原始来源保留。统计反映采样数据。",
     denied: "需要 Trace 查询权限才能读取应用性能数据。",
@@ -36,6 +51,22 @@ export const applicationObservabilityZh = {
 export const applicationObservabilityEn = {
   applicationObservability: {
     title: "Application performance",
+    tabs: {
+      overview: "Overview",
+      services: "Services",
+      traces: "Traces",
+      logs: "Logs",
+      ingest: "SDK ingestion",
+    },
+    selectServiceDetails:
+      "Select a service to view its runtime instances and endpoints.",
+    traceId: "Trace ID",
+    operation: "Endpoint name",
+    searchTraces: "Search traces",
+    budgetExceeded:
+      "This query exceeded its budget. Choose a shorter time range or narrow the service scope.",
+    trendLimited:
+      "Only some time buckets were returned. Select fewer services to see the full time range.",
     basis:
       "Aggregate received entry spans within the authorized application and service. Identical trace/span identities count once across sources; original sources remain available. Statistics describe samples.",
     denied:

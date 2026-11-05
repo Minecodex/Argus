@@ -187,7 +187,7 @@ func resolveSources(ctx context.Context, q *db.Queries, actor Actor, binding Sou
 	}
 	result := []ResolvedSource{}
 	for _, row := range scoped.Rows {
-		if row.CapabilityVersion != binding.CapabilityVersion {
+		if !sourceCapabilityMatches(row.SourceType, row.ResourceType, row.CapabilityVersion, binding.CapabilityVersion) {
 			return nil, ErrInvalid
 		}
 		current, registered := row.CurrentInstallation, row.CreatedAt.Time
@@ -195,6 +195,18 @@ func resolveSources(ctx context.Context, q *db.Queries, actor Actor, binding Sou
 		result = append(result, ResolvedSource{ID: row.ID, Revision: row.ConfigRevision, ResourceID: row.ResourceID, ResourceType: row.ResourceType, Generation: row.Generation, Type: row.SourceType, CapabilityVersion: row.CapabilityVersion, CurrentInstallation: &current, RegisteredAt: &registered, ScopeResourceIDs: row.ScopeResourceIds, ScopeSignature: scoped.Signature, ScopeRelations: scoped.SourceRelations[key]})
 	}
 	return result, nil
+}
+
+// SDK source registration versions the application identity envelope separately
+// from the v1 OTLP/Jaeger query capability advertised by dashboard discovery.
+// Retain that registered version in evidence; only these known combinations
+// share a query contract. Other source types and future versions remain closed.
+func sourceCapabilityMatches(sourceType, resourceType, registered, requested string) bool {
+	if registered == requested {
+		return true
+	}
+	return requested == "v1" && registered == "application/v1" && resourceType == "application" &&
+		(sourceType == "otlp" || sourceType == "jaeger")
 }
 
 func dataResourcesForSources(sources []ResolvedSource) ([]ResourceScope, error) {

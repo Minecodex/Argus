@@ -13,15 +13,22 @@ import (
 // asynchronous merges. Config revisions share an installation identity;
 // reinstallations and distinct resources/sources remain separate traces.
 func (state *executionState) spanFacts(where string) string {
-	return `SELECT resource_id,source_id,trace_id,span_id,
- latest.1 AS parent_span_id,latest.2 AS service_name,latest.3 AS operation,
- latest.4 AS status,latest.5 AS start_time,latest.6 AS end_time,latest.7 AS duration_ns,
- latest.8 AS attributes,latest.9 AS events,latest.10 AS links,latest.11 AS resource_attributes,
- latest.12 AS scope_name,latest.13 AS span_kind,latest.14 AS status_message,latest.15 AS trace_state,latest.16 AS source_type
- FROM (SELECT resource_id,source_id,trace_id,span_id,
- argMax(tuple(parent_span_id,service_name,operation,status,start_time,end_time,duration_ns,attributes,events,links,resource_attributes,scope_name,span_kind,status_message,trace_state,source_type),
- tuple(source_revision,kafka_partition,kafka_offset,record_sequence,ingest_key)) AS latest
- FROM ` + "`" + state.tables.spans + "`" + ` WHERE ` + where + ` GROUP BY resource_id,source_id,trace_id,span_id)`
+	return state.projectSpanFacts(where, []string{
+		"parent_span_id", "service_name", "operation", "status", "start_time", "end_time", "duration_ns",
+		"attributes", "events", "links", "resource_attributes", "scope_name", "span_kind", "status_message", "trace_state", "source_type",
+	})
+}
+
+func (state *executionState) projectSpanFacts(where string, columns []string) string {
+	const identity = "resource_id,source_id,trace_id,span_id"
+	projection := make([]string, len(columns))
+	for i, column := range columns {
+		projection[i] = fmt.Sprintf("latest.%d AS %s", i+1, column)
+	}
+	return "SELECT " + identity + "," + strings.Join(projection, ",") +
+		" FROM (SELECT " + identity + ",argMax(tuple(" + strings.Join(columns, ",") +
+		"),tuple(source_revision,kafka_partition,kafka_offset,record_sequence,ingest_key)) AS latest" +
+		" FROM `" + state.tables.spans + "` WHERE " + where + " GROUP BY " + identity + ")"
 }
 
 func (state *executionState) traceSummary(where string) string {
@@ -54,8 +61,15 @@ func (state *executionState) queryTracePage(ctx context.Context, filter traceFil
 			args = append(args, *f.value)
 		}
 	}
-	facts := state.spanFacts(predicate)
 	attributes, attributeValues := apmAttributeSQL(filter.filters)
+	columns := []string{"parent_span_id", "service_name", "operation", "status", "start_time", "end_time"}
+	if filter.serviceInstanceName != nil || strings.Contains(attributes, " resource_attributes[") {
+		columns = append(columns, "resource_attributes")
+	}
+	if filter.tags != nil && len(*filter.tags) > 0 || strings.Contains(attributes, " attributes[") {
+		columns = append(columns, "attributes")
+	}
+	facts := state.projectSpanFacts(predicate, columns)
 	if attributes != "" {
 		facts = "SELECT * FROM (" + facts + ") WHERE 1" + attributes
 		args = append(args, attributeValues...)
@@ -136,22 +150,30 @@ func (state *executionState) queryTracePage(ctx context.Context, filter traceFil
 	}
 	base := " FROM (" + summary + ") WHERE " + where
 	var total uint64
-	if err := state.engine.Conn.QueryRow(queryContext(ctx, state.request.Budget), "SELECT count()"+base, args...).Scan(&total); err != nil {
-		return 0, nil, err
-	}
-	rows, err := state.engine.Conn.Query(queryContext(ctx, state.request.Budget), "SELECT "+traceColumns+base+" ORDER BY "+order+" LIMIT ? OFFSET ?", append(args, limit, (page-1)*limit)...)
+	rows, err := state.engine.Conn.Query(queryContext(ctx, state.request.Budget),
+		"SELECT "+traceColumns+",count() OVER ()"+base+" ORDER BY "+order+" LIMIT ? OFFSET ?", append(args, limit, (page-1)*limit)...)
 	if err != nil {
 		return 0, nil, err
 	}
 	defer rows.Close()
 	items := []traceRecord{}
 	for rows.Next() {
-		item, err := scanTrace(rows)
+		item, err := scanTrace(rows, &total)
 		if err != nil {
 			return 0, nil, err
 		}
 		state.request.Budget.progress.ObserveEvent(item.latestSampleTime)
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, nil, err
+	}
+	// A requested page beyond the last row has no window total to read.
+	if len(items) == 0 && page > 1 {
+		_ = rows.Close()
+		if err := state.engine.Conn.QueryRow(queryContext(ctx, state.request.Budget), "SELECT count()"+base, args...).Scan(&total); err != nil {
+			return 0, nil, err
+		}
 	}
 	if err := state.recordRows(len(items)); err != nil {
 		return 0, nil, err
@@ -163,15 +185,16 @@ func (state *executionState) queryTracePage(ctx context.Context, filter traceFil
 		state.warnings = append(state.warnings, "system row budget truncated the trace query result")
 		state.mu.Unlock()
 	}
-	return total, items, rows.Err()
+	return total, items, nil
 }
 
 type traceScanner interface{ Scan(...any) error }
 
-func scanTrace(row traceScanner) (traceRecord, error) {
+func scanTrace(row traceScanner, extra ...any) (traceRecord, error) {
 	var item traceRecord
 	var resource, source uuid.UUID
-	err := row.Scan(&resource, &source, &item.traceID, &item.rootService, &item.rootOperation, &item.startTime, &item.duration, &item.spanCount, &item.errorCount, &item.status, &item.rootPresent, &item.missingParents, &item.rootCount, &item.latestSampleTime)
+	fields := []any{&resource, &source, &item.traceID, &item.rootService, &item.rootOperation, &item.startTime, &item.duration, &item.spanCount, &item.errorCount, &item.status, &item.rootPresent, &item.missingParents, &item.rootCount, &item.latestSampleTime}
+	err := row.Scan(append(fields, extra...)...)
 	item.resourceID, item.sourceID = resource.String(), source.String()
 	return item, err
 }

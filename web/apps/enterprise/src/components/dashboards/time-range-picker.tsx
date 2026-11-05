@@ -31,9 +31,12 @@ export function TimeRangePicker({
   const { t } = useTranslation(),
     [open, setOpen] = useState(false),
     [draft, setDraft] = useState(value);
+  const seconds = Number(draft.seconds);
   const valid =
     draft.kind === "relative"
-      ? Number.isFinite(Number(draft.seconds)) && Number(draft.seconds) > 0
+      ? Number.isSafeInteger(seconds) &&
+        seconds > 0 &&
+        new Date(Date.now() - seconds * 1000).getUTCFullYear() >= 1
       : Boolean(
           draft.from &&
           draft.to &&
@@ -99,17 +102,18 @@ export function TimeRangePicker({
             { value: "relative", label: t("dashboards.relativeTime") },
             { value: "absolute", label: t("dashboards.absoluteTime") },
           ]}
-          onValueChange={(kind) =>
+          onValueChange={(kind) => {
+            const now = new Date();
             setDraft(
               kind === "relative"
                 ? { kind, seconds: 3600 }
                 : {
                     kind: "absolute",
-                    from: new Date(Date.now() - 3600000).toISOString(),
-                    to: new Date().toISOString(),
+                    from: new Date(now.getTime() - 3600000).toISOString(),
+                    to: now.toISOString(),
                   },
-            )
-          }
+            );
+          }}
         />
         {draft.kind === "relative" ? (
           <>

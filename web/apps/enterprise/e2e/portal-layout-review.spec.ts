@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   assertEditorLayout,
   assertFilterAlignment,
@@ -6,6 +6,24 @@ import {
   assertNoSeriousAxe,
   assertViewport,
 } from "./helpers/portal-layout";
+
+async function login(page: Page, english: boolean, theme: string) {
+  await page.addInitScript(
+    ({ english, theme }) => {
+      localStorage.setItem("argus.locale", english ? "en-US" : "zh-CN");
+      localStorage.setItem("argus.theme", theme);
+    },
+    { english, theme },
+  );
+  await page.goto("/login");
+  await page.getByLabel(english ? "Username" : "用户名").fill("root");
+  await page.getByLabel(english ? "Password" : "密码").fill("123456");
+  await page
+    .getByRole("button", { name: english ? "Sign in" : "登录", exact: true })
+    .click();
+  await expect(page).not.toHaveURL(/login/);
+}
+
 for (const viewport of [
   { width: 1280, height: 800 },
   { width: 1440, height: 900 },
@@ -17,23 +35,10 @@ for (const viewport of [
     for (const english of [false, true])
       for (const theme of ["light", "dark"]) {
         const tx = (zh: string, en: string) => (english ? en : zh);
-        test(`populated approvals, filters and Demo editor ${english ? "en" : "zh"} ${theme}`, async ({
+        test(`populated operation approvals ${english ? "en" : "zh"} ${theme}`, async ({
           page,
         }, info) => {
-          await page.addInitScript(
-            ({ english, theme }) => {
-              localStorage.setItem("argus.locale", english ? "en-US" : "zh-CN");
-              localStorage.setItem("argus.theme", theme);
-            },
-            { english, theme },
-          );
-          await page.goto("/login");
-          await page.getByLabel(tx("用户名", "Username")).fill("root");
-          await page.getByLabel(tx("密码", "Password")).fill("123456");
-          await page
-            .getByRole("button", { name: tx("登录", "Sign in"), exact: true })
-            .click();
-          await expect(page).not.toHaveURL(/login/);
+          await login(page, english, theme);
           await page.goto("/approvals?scope=created");
           await assertInboxContents(page);
           await assertNoSeriousAxe(page);
@@ -54,6 +59,12 @@ for (const viewport of [
               exact: true,
             }),
           ).toBeChecked();
+        });
+
+        test(`filters and Demo editor ${english ? "en" : "zh"} ${theme}`, async ({
+          page,
+        }, info) => {
+          await login(page, english, theme);
           await page.goto("/hosts");
           await expect(
             page.locator(".argus-resource-card, .argus-table tbody tr").first(),

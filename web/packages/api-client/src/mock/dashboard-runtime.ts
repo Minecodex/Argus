@@ -337,6 +337,10 @@ export function mockDashboardExecution(
             {
               id: `mock-source-${resource}`,
               resource_id: resource,
+              resource_type:
+                resources[0]?.type === "kubernetes_namespace"
+                  ? undefined
+                  : resources[0]?.type,
               revision: 1,
               generation: "mock-installation",
               type: panel.source_binding.source_type,

@@ -202,6 +202,7 @@ func (h MonitoringHandler) ListMonitoringCollections(ctx context.Context, r api.
 		return api.ListMonitoringCollectionsdefaultJSONResponse{Body: *f, StatusCode: 403}, nil
 	}
 	in := monitoringList(r.Params.Search, r.Params.Cursor, r.Params.Integration, r.Params.Limit)
+	in.TargetID = r.Params.TargetId
 	in.DesiredEnabled = r.Params.DesiredEnabled
 	if r.Params.ApplyStatus != nil {
 		in.ApplyStatus = string(*r.Params.ApplyStatus)

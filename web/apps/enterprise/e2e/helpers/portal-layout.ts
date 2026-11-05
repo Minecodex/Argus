@@ -20,6 +20,18 @@ export async function assertNoSeriousAxe(page: Page) {
 export async function assertInboxContents(page: Page) {
   const items = page.locator(".argus-approval-item");
   await expect(items.first()).toBeVisible();
+  await expect(items.first()).toHaveAttribute("aria-current", "true");
+  await expect(items.and(page.locator('[aria-current="true"]'))).toHaveCount(1);
+  const title = await items
+    .first()
+    .locator(".argus-approval-item__title")
+    .innerText();
+  const detail = page.locator(".argus-approval-detail");
+  await expect(detail.getByText(title, { exact: true }).first()).toBeVisible();
+  const filter = await page.locator(".argus-filter-bar").boundingBox();
+  const inbox = await page.locator(".argus-approvals-layout").boundingBox();
+  expect(inbox!.y - filter!.y - filter!.height).toBeGreaterThanOrEqual(12);
+
   const geometry = await items.evaluateAll((elements) =>
     elements.map((el) => {
       const box = el.getBoundingClientRect();
