@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -61,7 +62,9 @@ func (q Queryable) Querier(mint, maxt int64) (storage.Querier, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &querier{conn: q.Conn, seriesTable: table, samplesTable: samples, scope: q.Scope, mint: mint, maxt: maxt, maxSeries: q.MaxSeries, maxSamples: q.MaxSamples, maxScanBytes: q.MaxScanBytes, timeout: q.Timeout, progress: q.Progress, metadata: q.Metadata}, nil
+	scope := q.Scope
+	scope.ResourceIDs, scope.SourceKeys = slices.Clone(scope.ResourceIDs), slices.Clone(scope.SourceKeys)
+	return &querier{conn: q.Conn, seriesTable: table, samplesTable: samples, scope: scope, mint: mint, maxt: maxt, maxSeries: q.MaxSeries, maxSamples: q.MaxSamples, maxScanBytes: q.MaxScanBytes, timeout: q.Timeout, progress: q.Progress, metadata: q.Metadata}, nil
 }
 
 type querier struct {
@@ -74,6 +77,7 @@ type querier struct {
 	timeout                   time.Duration
 	progress                  *chstats.Tracker
 	metadata                  *metricmeta.Tracker
+	selections                selectionMemo
 }
 
 var _ storage.Querier = (*querier)(nil)
@@ -89,6 +93,12 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 	if q == nil || q.conn == nil {
 		return storage.ErrSeriesSet(fmt.Errorf("promql storage unavailable"))
 	}
+	return q.selections.selectSet(ctx, selectionKey(sortSeries, hints, matchers), func() storage.SeriesSet {
+		return q.selectUncached(ctx, sortSeries, hints, matchers...)
+	})
+}
+
+func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *storage.SelectHints, matchers ...*labels.Matcher) storage.SeriesSet {
 	if len(q.scope.ResourceIDs) == 0 {
 		return &seriesSet{items: nil, index: -1}
 	}

@@ -166,6 +166,12 @@ paths:
       tags:
         - Monitoring
       parameters:
+        - name: target_id
+          in: query
+          description: Select collections for this exact authorized monitoring target.
+          schema:
+            type: string
+            format: uuid
         - name: desired_enabled
           in: query
           description: Omit for both states; false explicitly selects disabled collections.

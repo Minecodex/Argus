@@ -155,8 +155,6 @@ export const governanceZh = {
       expired: "已过期",
       emptyTitle: "没有待处理事项",
       emptyDescription: "当前筛选条件下没有操作，稍后再来看看。",
-      selectHintTitle: "未选择操作",
-      selectHint: "从左侧列表选择一条记录，查看完整预览并执行确认或审批。",
       status: {
         awaiting_confirmation: "待确认",
         awaiting_approval: "待审批",
@@ -385,9 +383,6 @@ export const governanceEn = {
       emptyTitle: "Nothing to handle",
       emptyDescription:
         "No actions under the current filters. Check back later.",
-      selectHintTitle: "No action selected",
-      selectHint:
-        "Select an entry on the left to review the full preview and confirm or approve it.",
       status: {
         awaiting_confirmation: "Awaiting confirmation",
         awaiting_approval: "Awaiting approval",

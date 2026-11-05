@@ -969,6 +969,8 @@ export interface operations {
     listMonitoringCollections: {
         parameters: {
             query?: {
+                /** @description Select collections for this exact authorized monitoring target. */
+                target_id?: string;
                 /** @description Omit for both states; false explicitly selects disabled collections. */
                 desired_enabled?: boolean;
                 apply_status?: "pending" | "applying" | "effective" | "failed" | "unknown";

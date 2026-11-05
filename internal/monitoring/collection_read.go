@@ -133,12 +133,19 @@ func (s Service) Collections(ctx context.Context, a Actor, in ListInput) (Page[C
 		return out, ErrInvalid
 	}
 	ids := map[string][]uuid.UUID{}
-	for _, kind := range []string{"host", "kubernetes_cluster", "monitoring_target", "application", "kubernetes_namespace"} {
-		granted, err := authorization.AuthorizedResourceIDs(ctx, q, a, kind)
-		if err != nil {
+	if in.TargetID != nil {
+		if err := authorization.RequireResource(ctx, q, a, "monitoring_target", *in.TargetID); err != nil {
 			return out, err
 		}
-		ids[kind] = granted
+		ids["monitoring_target"] = []uuid.UUID{*in.TargetID}
+	} else {
+		for _, kind := range []string{"host", "kubernetes_cluster", "monitoring_target", "application", "kubernetes_namespace"} {
+			granted, err := authorization.AuthorizedResourceIDs(ctx, q, a, kind)
+			if err != nil {
+				return out, err
+			}
+			ids[kind] = granted
+		}
 	}
 	in.Search = strings.TrimSpace(in.Search)
 	limit, after, binding, err := s.page(a, "collections", in)

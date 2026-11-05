@@ -51,6 +51,12 @@ for (const english of [false, true])
         .click();
       await page.getByRole("link", { name: "SDK Orders", exact: true }).click();
       await page
+        .getByRole("tab", {
+          name: english ? "SDK ingestion" : "SDK 接入",
+          exact: true,
+        })
+        .click();
+      await page
         .getByRole("button", {
           name: english ? "New SDK endpoint" : "新建 SDK 接入",
           exact: true,
@@ -112,33 +118,60 @@ for (const english of [false, true])
           exact: true,
         }),
       ).toBeVisible();
-      await endpoint.getByRole("button", {
-        name: english ? "SDK configuration" : "接入配置", exact: true,
-      }).click();
+      await endpoint
+        .getByRole("button", {
+          name: english ? "SDK configuration" : "接入配置",
+          exact: true,
+        })
+        .click();
       const guide = page.getByRole("dialog", {
         name: `Orders OTLP · ${english ? "SDK configuration" : "接入配置"}`,
         exact: true,
       });
-      await expect(guide.getByRole("textbox", {
-        name: english ? "TLS server name" : "TLS 服务器名称", exact: true,
-      })).toHaveValue(/^collector-.+\.argus\.telemetry$/);
-      await expect(guide.getByRole("textbox", {
-        name: english ? "Application environment (inherited)" : "应用环境（自动继承）", exact: true,
-      })).toHaveAttribute("readonly", "");
+      await expect(
+        guide.getByRole("textbox", {
+          name: english ? "TLS server name" : "TLS 服务器名称",
+          exact: true,
+        }),
+      ).toHaveValue(/^collector-.+\.argus\.telemetry$/);
+      await expect(
+        guide.getByRole("textbox", {
+          name: english
+            ? "Application environment (inherited)"
+            : "应用环境（自动继承）",
+          exact: true,
+        }),
+      ).toHaveAttribute("readonly", "");
       await guide.getByText("HTTP", { exact: true }).click();
-      await expect(guide.getByRole("textbox", {
-        name: english ? "SDK endpoint" : "SDK 推送地址", exact: true,
-      })).toHaveValue(/^https:\/\/collector-.+:24318$/);
-      await guide.getByRole("textbox", {
-        name: english ? "Example service name" : "示例服务名", exact: true,
-      }).fill("orders-api");
-      await expect(guide.getByRole("region", {
-        name: english ? "SDK configuration example" : "SDK 配置示例", exact: true,
-      })).toContainText("OTEL_SERVICE_NAME='orders-api'");
+      await expect(
+        guide.getByRole("textbox", {
+          name: english ? "SDK endpoint" : "SDK 推送地址",
+          exact: true,
+        }),
+      ).toHaveValue(/^https:\/\/collector-.+:24318$/);
+      await guide
+        .getByRole("textbox", {
+          name: english ? "Example service name" : "示例服务名",
+          exact: true,
+        })
+        .fill("orders-api");
+      await expect(
+        guide.getByRole("region", {
+          name: english ? "SDK configuration example" : "SDK 配置示例",
+          exact: true,
+        }),
+      ).toContainText("OTEL_SERVICE_NAME='orders-api'");
       await expect(guide).toContainText("ARGUS_APPLICATION_INGEST_KEY");
       const guideAccessibility = await new AxeBuilder({ page }).analyze();
-      expect(guideAccessibility.violations.filter((v) => v.impact === "serious" || v.impact === "critical")).toEqual([]);
-      await page.screenshot({ path: info.outputPath("ingest-connection-guide.png"), fullPage: true });
+      expect(
+        guideAccessibility.violations.filter(
+          (v) => v.impact === "serious" || v.impact === "critical",
+        ),
+      ).toEqual([]);
+      await page.screenshot({
+        path: info.outputPath("ingest-connection-guide.png"),
+        fullPage: true,
+      });
       await page.keyboard.press("Escape");
       await expect(guide).toHaveCount(0);
       await endpoint

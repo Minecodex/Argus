@@ -3,9 +3,9 @@
   "schema_version": "argus.plan9_manual_review/v1",
   "created_at": "2026-10-26",
   "timezone": "Asia/Shanghai",
-  "status": "B06d_deployed_waiting_user_review",
-  "current_run_id": "p9-b06d-20261029-01",
-  "next_suggested_batch": "B07a",
+  "status": "B07c_deployed_waiting_user_review",
+  "current_run_id": "p9-b07c-20261104-01",
+  "next_suggested_batch": "B08",
   "scope": "真实负载与正常接入驱动的分批人工界面验收",
   "documentation": {
     "entry": "README.md",
@@ -14,22 +14,22 @@
     "environment": "03-environment-and-compose.md",
     "review": "04-review-and-evidence.md",
     "first_batch": "batches/B01-linux-host.md",
-    "review_entry": "batches/B06d-review.md",
-    "issues": "batches/B06d-review.md",
+    "review_entry": "batches/B07c-review.md",
+    "issues": "batches/B07c-review.md",
     "data_reset": "05-local-data-reset-20261026.md",
     "product_fixes": "06-b01-managed-dashboard-and-query-fixes.md",
     "review_fixes": "07-dashboard-and-alert-review-fixes.md",
-    "current_review": "batches/B06d-review.md",
+    "current_review": "batches/B07c-review.md",
     "cache_query_fixes": "08-b04-cache-views-and-metadata-scan.md"
   },
   "delivery": {
     "scenario_design": "written",
-    "compose_packages": "B01_B02a_B02b_B03_B04_B05a_B05b_B05c_B06a_B06b_B06c_retired_B06d_running_others_planned",
+    "compose_packages": "B01_through_B07b_retired_B07c_running_others_planned",
     "runtime_scripts": "B01_infrastructure_normal_API_and_real_scenarios_implemented",
-    "deployment": "B06d_deployed_with_preserved_initial_delivery_gap",
+    "deployment": "B07c_deployed",
     "live_api_calls": "normal_setup_login_enrollment_monitoring_dashboards_alerts",
     "real_model_calls": "not_run",
-    "human_acceptance": "B06d_pending_user_review"
+    "human_acceptance": "B07c_pending_user_review"
   },
   "execution_policy": {
     "one_active_sub_batch": true,
@@ -51,8 +51,9 @@
     "live_environment_verified_this_turn": true,
     "plan8_historical_preservation_gap": "P8-A64 remains separately recorded; no retroactive acceptance claim",
     "latest_reset": "05-local-data-reset-20261026.md",
-    "formal_version": "local-20261029-b06d-v2",
-    "enterprise": "test"
+    "formal_version": "local-20261104-b07c-apm-v2",
+    "enterprise": "test",
+    "source_head": "be89e55"
   },
   "batches": [
     {
@@ -221,11 +222,11 @@
       "id": "B06",
       "title": "扩展数据库与搜索",
       "activation": "on_user_batch_selection",
-      "status": "B06d_pending_user_review",
+      "status": "destroyed",
       "package_status": "B06a_B06b_B06c_B06d_implemented_and_executed",
       "self_check": "not_run",
       "review_status": "not_reviewed",
-      "runtime_status": "B06d_running",
+      "runtime_status": "destroyed",
       "sub_batches": [
         {
           "id": "B06a",
@@ -271,18 +272,19 @@
         },
         {
           "id": "B06d",
-          "status": "ready_for_review",
+          "status": "destroyed",
           "package_status": "implemented_and_executed",
           "self_check": "passed_native_transactions_permissions_sessions_commits_recovery_12_panels_6_ui_with_preserved_initial_delivery_gap",
-          "review_status": "pending_user_review",
-          "runtime_status": "running",
+          "review_status": "advanced_by_user_request_without_explicit_acceptance",
+          "runtime_status": "destroyed",
           "runs": [
             "p9-b06d-20261029-01"
           ],
           "handoff": "batches/B06d-review.md",
           "open_issues": [
             "B06d-D01"
-          ]
+          ],
+          "cleanup": "../../artifacts/plan9/p9-b06d-20261029-01/cleanup.json"
         }
       ],
       "runs": [
@@ -296,38 +298,63 @@
       "id": "B07",
       "title": "应用、APM 与 SDK 日志",
       "activation": "on_user_batch_selection",
-      "status": "planned",
-      "package_status": "not_created",
-      "self_check": "not_run",
+      "status": "B07c_pending_user_review",
+      "package_status": "B07a_B07b_B07c_implemented_and_executed",
+      "self_check": "all_sub_batches_executed",
       "review_status": "not_reviewed",
-      "runtime_status": "not_created",
+      "runtime_status": "B07c_running",
       "sub_batches": [
         {
           "id": "B07a",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "real_HTTP_Redis_OTLP_three_signals_21_panels_2_alert_cycles_6_browser_passed",
+          "review_status": "advanced_by_user_request",
+          "runtime_status": "destroyed",
+          "runs": [
+            "p9-b07a-20261104-01"
+          ],
+          "handoff": "batches/B07a-review.md",
+          "open_issues": [
+            "B07a-D01",
+            "B07a-L01"
+          ],
+          "cleanup": "../../artifacts/plan9/p9-b07a-20261104-01/cleanup.json"
         },
         {
           "id": "B07b",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "destroyed",
+          "package_status": "implemented_and_executed",
+          "self_check": "native_grpc_three_signals_21_panels_2_alert_cycles_6_browser_and_endpoint_restore_passed",
+          "review_status": "advanced_by_user_request",
+          "runtime_status": "destroyed",
+          "runs": [
+            "p9-b07b-20261104-01"
+          ],
+          "handoff": "batches/B07b-review.md",
+          "recorded_observations": [
+            "B07b-L01"
+          ],
+          "cleanup": "../../artifacts/plan9/p9-b07b-20261104-01/cleanup.json"
         },
         {
           "id": "B07c",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "ready_for_review",
+          "package_status": "implemented_and_executed",
+          "self_check": "native_Jaeger_gRPC_traces_OTLP_gRPC_logs_metrics_21_panels_2_alert_cycles_6_browser_and_endpoint_restore_passed",
+          "review_status": "pending_user_review",
+          "runtime_status": "running",
+          "runs": [
+            "p9-b07c-20261104-01"
+          ],
+          "handoff": "batches/B07c-review.md"
         }
       ],
-      "runs": []
+      "runs": [
+        "p9-b07a-20261104-01",
+        "p9-b07b-20261104-01",
+        "p9-b07c-20261104-01"
+      ]
     },
     {
       "id": "B08",
@@ -553,7 +580,7 @@
       "batches": [
         "B06d"
       ],
-      "plan9_status": "executed_pending_human_review",
+      "plan9_status": "executed_retired_after_user_advance",
       "evidence": "../../artifacts/plan9/p9-b06d-20261029-01/checks.json",
       "evidence_platforms": [
         "linux_amd64_Oracle_Free_23.5_29_byte_credentials"
@@ -759,9 +786,11 @@
       "key": "otlp",
       "batches": [
         "B07a",
-        "B07b"
+        "B07b",
+        "B07c"
       ],
-      "plan9_status": "planned_not_run"
+      "plan9_status": "B07a_OTLP_HTTP_B07b_OTLP_gRPC_and_B07c_OTLP_gRPC_logs_metrics_verified",
+      "evidence": "../../artifacts/plan9/p9-b07b-20261104-01/checks.json"
     },
     {
       "plan8_id": "P8-I33",
@@ -775,7 +804,8 @@
       "batches": [
         "B07c"
       ],
-      "plan9_status": "planned_not_run"
+      "plan9_status": "B07c_native_Jaeger_gRPC_traces_verified",
+      "evidence": "../../artifacts/plan9/p9-b07c-20261104-01/checks.json"
     },
     {
       "plan8_id": "P8-I35",
@@ -950,8 +980,8 @@
   },
   "current_runtime_validation": {
     "status": "ready_for_review",
-    "record": "../../artifacts/plan9/p9-b06d-20261029-01/checks.json",
-    "known_issue": "B06d-D01 initial audit conflict and preserved delivery gap; current collection restored",
-    "human_acceptance": "pending"
+    "record": "../../artifacts/plan9/p9-b07c-20261104-01/checks.json",
+    "human_acceptance": "pending",
+    "application_detail_review": "../../artifacts/plan9/p9-b07c-20261104-01/application-repair/checks.json"
   }
 }

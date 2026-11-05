@@ -2,6 +2,7 @@ package skywalking
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -9,6 +10,9 @@ func TestApplicationPortalQueriesUseActualReadOnlySchema(t *testing.T) {
 	queries := ApplicationAPMQueries()
 	if len(queries) != 7 {
 		t.Fatal("application view registry drift")
+	}
+	if strings.Contains(queries["traces"], "completeness") || !strings.Contains(queries["trace_detail"], "completeness") {
+		t.Fatal("only the detail view should expand the trace graph")
 	}
 	for view, query := range queries {
 		t.Run(view, func(t *testing.T) {

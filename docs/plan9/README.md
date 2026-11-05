@@ -1,6 +1,6 @@
 # Plan9：分批真实场景与人工验收
 
-创建日期：2026-10-26。当前阶段：**B06c 已清理；B06d Oracle 的真实事务、监控、12 个面板和两类告警已接好，6 项真实浏览器检查通过，等待用户查看。初次接入中断的发送缺口记录保留，当前采集已恢复，见 B06d-D01。**
+创建日期：2026-10-26。当前阶段为 **B07b 已清理，B07c Jaeger gRPC 已部署并等待用户查看**。两个服务的三信号、21 个面板、两类告警和 6 项真实浏览器验证通过。
 
 ## 要完成的事情
 
@@ -18,7 +18,7 @@
 
 ## 本轮交付和后续交付
 
-B06b 的[运行包](./runtime/B06b/runbook.md)已执行：两个独立 Elasticsearch 8.17.0 单节点集群和一台正常接入的 Collector。真实 Bulk、更新、删除、检索及权限边界通过，单节点副本导致 yellow 与活动文档增多分别触发告警后恢复，B 保持正常；入口和历史窗口见 [B06b 查看记录](./batches/B06b-review.md)。默认图按主分片和具体索引展示，保留健康状态和未分配分片的真实口径。B06a 已退役，账号及历史保留。
+B07c 沿用真实网关、业务服务和 Redis 请求链路。Trace 使用 Jaeger 原生 gRPC，指标和日志通过独立 OTLP gRPC 接入点上报。平台入口及告警窗口见 [B07c 查看与运行记录](./batches/B07c-review.md)。
 
 用户指定某批后，先在本目录补齐该批可运行文件并验证，再执行部署；无需用户另外手工安装中间件、填仪表盘或配置告警。缺少实际登录、模型凭据、VM 等必要条件时，明确指出缺什么，继续完成不依赖它的准备工作。
 
@@ -55,6 +55,11 @@ B06b 的[运行包](./runtime/B06b/runbook.md)已执行：两个独立 Elasticse
 | [B06c 运行包](./runtime/B06c/runbook.md) | 最小权限、真实 TDS 客户端、速率口径与清理 |
 | [B06d 查看入口](./batches/B06d-review.md) | Oracle 事务、会话、提交速率和告警历史 |
 | [B06d 运行包](./runtime/B06d/runbook.md) | 受支持认证组合、最小授权、有界负载与清理 |
+| [B07a 查看入口](./batches/B07a-review.md) | 实际 HTTP 链路、SDK 三信号和告警窗口 |
+| [B07b 运行归档](./batches/B07b-review.md) | OTLP gRPC 三信号回执、告警窗口和清理状态 |
+| [B07c 查看与运行记录](./batches/B07c-review.md) | Jaeger Trace、关联日志、仪表盘和告警窗口 |
+| [B07 运行包](./runtime/B07a/runbook.md) | 服务、TLS/Key 接入、负载与清理 |
+| [B07a 接入与查询修正](./09-b07a-application-source-capability.md) | 应用来源契约、拓扑预算与重复读取复用 |
 | [状态清单](./progress.json) | 规划状态、支持范围映射及后续运行索引 |
 | [本地业务数据重置与账号重建](./05-local-data-reset-20261026.md) | 用户授权范围、清理结果、新账号和验证 |
 | [B01 默认仪表盘与查询修正](./06-b01-managed-dashboard-and-query-fixes.md) | 实际接入发现的问题、统一实现修正及证据范围 |

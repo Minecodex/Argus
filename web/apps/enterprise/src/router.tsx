@@ -207,6 +207,12 @@ const monitoringRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/monitoring",
   component: MonitoringPage,
+  validateSearch: (search: Record<string, unknown>): { target?: string } => ({
+    target:
+      typeof search.target === "string" && search.target
+        ? search.target
+        : undefined,
+  }),
 });
 const dashboardEditorRoute = createRoute({
   getParentRoute: () => adminRoute,

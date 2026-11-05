@@ -1,8 +1,5 @@
-import { SegmentedControl } from "@argus/ui";
-import { Button } from "@argus/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { QueryBoundary } from "@argus/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock } from "lucide-react";
 import type {
@@ -13,10 +10,12 @@ import type {
 import { useApi } from "@argus/api-client";
 import {
   Badge,
+  Button,
   EmptyState,
   FilterBar,
   PageShell,
-  Spinner,
+  QueryBoundary,
+  SegmentedControl,
   StatCard,
   StatusBadge,
   Tabs,
@@ -46,10 +45,9 @@ type ScopeFilter = "mine" | "created" | "done";
 
 /** 待审批（路由 /approvals）：收件箱式列表 + 右侧详情。 */
 export function ApprovalsPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
-  const locale = i18n.resolvedLanguage === "en-US" ? "en-US" : "zh-CN";
 
   const [search, setSearch] = useState("");
   const [risk, setRisk] = useState("");
@@ -62,7 +60,6 @@ export function ApprovalsPage() {
       ? (params.get("scope") as ScopeFilter)
       : "mine",
   );
-  const [selectedRef, setSelectedRef] = useState<string | null>(null);
 
   const filter = useMemo<PendingActionFilter>(
     () => ({
@@ -102,14 +99,7 @@ export function ApprovalsPage() {
     queryFn: () => api.approvals.list(),
   });
 
-  const actions = primary === "remote" ? [] : (listQuery.data?.items ?? []);
   const allActions = statsQuery.data?.items ?? [];
-  const now = useNow();
-
-  const groups = RISK_ORDER.map((riskLevel) => ({
-    riskLevel,
-    items: actions.filter((action) => action.risk === riskLevel),
-  })).filter((group) => group.items.length > 0);
 
   const awaitingMine = (mineStatsQuery.data?.items ?? []).filter(
     (action) => action.status === "awaiting_approval",
@@ -229,63 +219,104 @@ export function ApprovalsPage() {
             }}
           />
 
-          <div className="argus-approvals-layout">
-            <div className="argus-approval-inbox">
-              <QueryBoundary query={listQuery}>
-                {listQuery.isPending ? (
-                  <Spinner label={t("common.loading")} />
-                ) : actions.length === 0 ? (
-                  <EmptyState
-                    description={t("governance.approvals.emptyDescription")}
-                    title={t("governance.approvals.emptyTitle")}
-                  />
-                ) : (
-                  groups.map((group) => (
-                    <section
-                      className={`argus-approval-group is-${group.riskLevel}`}
-                      key={group.riskLevel}
-                    >
-                      <header className="argus-approval-group__header">
-                        <i aria-hidden className="argus-approval-group__dot" />
-                        {t(`governance.approvals.risk.${group.riskLevel}`)}
-                        <span className="argus-approval-group__count">
-                          {group.items.length}
-                        </span>
-                      </header>
-                      {group.items.map((action) => (
-                        <ApprovalInboxItem
-                          action={action}
-                          key={action.action_ref}
-                          locale={locale}
-                          now={now}
-                          onSelect={() => setSelectedRef(action.action_ref)}
-                          selected={selectedRef === action.action_ref}
-                        />
-                      ))}
-                    </section>
-                  ))
-                )}
-              </QueryBoundary>
-            </div>
-
-            <div>
-              {selectedRef ? (
-                <ApprovalDetail
-                  actionRef={selectedRef}
-                  key={selectedRef}
-                  readOnly={scope !== "mine"}
-                />
-              ) : (
-                <EmptyState
-                  description={t("governance.approvals.selectHint")}
-                  title={t("governance.approvals.selectHintTitle")}
-                />
-              )}
-            </div>
+          <div className="argus-operation-approvals">
+            <QueryBoundary query={listQuery}>
+              <ApprovalInbox
+                actions={listQuery.data?.items ?? []}
+                key={JSON.stringify(filter)}
+                readOnly={scope !== "mine"}
+              />
+            </QueryBoundary>
           </div>
         </TabsContent>
       </Tabs>
     </PageShell>
+  );
+}
+
+function ApprovalInbox({
+  actions,
+  readOnly,
+}: {
+  actions: PendingActionPublic[];
+  readOnly: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage === "en-US" ? "en-US" : "zh-CN";
+  const now = useNow();
+  const [selection, setSelection] = useState<{
+    actionRef: string;
+    showResult?: boolean;
+  } | null>(null);
+
+  const groups = RISK_ORDER.map((riskLevel) => ({
+    riskLevel,
+    items: actions.filter((action) => action.risk === riskLevel),
+  })).filter((group) => group.items.length > 0);
+  const selectedRef =
+    selection &&
+    (selection.showResult ||
+      actions.some((action) => action.action_ref === selection.actionRef))
+      ? selection.actionRef
+      : groups[0]?.items[0]?.action_ref;
+  const empty = (
+    <EmptyState
+      description={t("governance.approvals.emptyDescription")}
+      title={t("governance.approvals.emptyTitle")}
+    />
+  );
+
+  if (!selectedRef) return empty;
+
+  return (
+    <div className="argus-approvals-layout">
+      <div className="argus-approval-inbox">
+        {groups.length === 0
+          ? empty
+          : groups.map((group) => (
+              <section
+                className={`argus-approval-group is-${group.riskLevel}`}
+                key={group.riskLevel}
+              >
+                <header className="argus-approval-group__header">
+                  <i aria-hidden className="argus-approval-group__dot" />
+                  {t(`governance.approvals.risk.${group.riskLevel}`)}
+                  <span className="argus-approval-group__count">
+                    {group.items.length}
+                  </span>
+                </header>
+                {group.items.map((action) => (
+                  <ApprovalInboxItem
+                    action={action}
+                    key={action.action_ref}
+                    locale={locale}
+                    now={now}
+                    onSelect={() =>
+                      setSelection({ actionRef: action.action_ref })
+                    }
+                    selected={selectedRef === action.action_ref}
+                  />
+                ))}
+              </section>
+            ))}
+      </div>
+
+      <div>
+        <ApprovalDetail
+          actionRef={selectedRef}
+          key={selectedRef}
+          onActionSuccess={() => {
+            // Keep the result visible when the action leaves the pending inbox.
+            setSelection((current) =>
+              current === selection || current?.actionRef === selectedRef
+                ? { actionRef: selectedRef, showResult: true }
+                : current,
+            );
+          }}
+          readOnly={readOnly}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -309,11 +340,11 @@ function ApprovalInboxItem({
 
   return (
     <Button
+      aria-current={selected || undefined}
       variant="ghost"
       layout="content"
       className={[
         "argus-approval-item",
-        selected ? "is-selected" : "",
         expired ? "is-expired" : "",
         !open ? "is-closed" : "",
       ]

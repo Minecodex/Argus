@@ -79,6 +79,9 @@ for (const english of [false, true])
       await expect(
         page.getByRole("heading", { name: names[1], exact: true }),
       ).toBeVisible();
+      await page
+        .getByRole("tab", { name: english ? "Services" : "服务", exact: true })
+        .click();
       await expect(
         page.getByText(english ? "No services discovered" : "尚未发现服务", {
           exact: true,

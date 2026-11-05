@@ -1,0 +1,18 @@
+{
+  "images": {
+    "HOST": {
+      "id": "sha256:92c21aea900860e443744bb2fcfdb48a5977fb7acaeaf264a215479100dce419",
+      "digests": [
+        "argus-plan9-http@sha256:92c21aea900860e443744bb2fcfdb48a5977fb7acaeaf264a215479100dce419"
+      ],
+      "architecture": "amd64"
+    },
+    "REDIS": {
+      "id": "sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241",
+      "digests": [
+        "redis@sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241"
+      ],
+      "architecture": "amd64"
+    }
+  }
+}

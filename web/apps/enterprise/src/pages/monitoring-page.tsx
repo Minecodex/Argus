@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import {
@@ -40,6 +40,11 @@ import {
 import "../styles/monitoring.css";
 
 export function MonitoringPage() {
+  const { target } = useSearch({ from: "/authed/admin/monitoring" });
+  return <MonitoringWorkspace key={target} targetId={target} />;
+}
+
+function MonitoringWorkspace({ targetId }: { targetId?: string }) {
   const api = useApi(),
     { t, i18n } = useTranslation(),
     actions = useMonitoringActions();
@@ -88,11 +93,26 @@ export function MonitoringPage() {
     queryFn: () => api.monitoring.integrations(),
     enabled: canRead,
   });
+  const target = useQuery({
+    queryKey: ["dashboard-bindings", "monitoring_target", targetId],
+    queryFn: () =>
+      api.dashboards.resourceBindings("monitoring_target", targetId!),
+    enabled: Boolean(targetId) && canRead && canReadDashboards,
+    retry: false,
+  });
   const query = useQuery({
-    queryKey: ["monitoring", "collections", search, filters, cursors.at(-1)],
+    queryKey: [
+      "monitoring",
+      "collections",
+      targetId,
+      search,
+      filters,
+      cursors.at(-1),
+    ],
     queryFn: () =>
       api.monitoring.collections({
         ...filters,
+        target_id: targetId,
         search,
         cursor: cursors.at(-1),
         limit: 30,
@@ -210,14 +230,29 @@ export function MonitoringPage() {
   return (
     <PageShell
       title={t("monitoring.title")}
-      description={t("monitoring.workspaceHint")}
+      description={
+        targetId
+          ? t("monitoring.targetCollections", {
+              name: target.isSuccess ? target.data.resource_name : targetId,
+            })
+          : t("monitoring.workspaceHint")
+      }
       actions={
-        canManage && (
-          <Button variant="primary" onPress={() => setChoosing(true)}>
-            <Plus size={16} />
-            {t("monitoring.createCollection")}
-          </Button>
-        )
+        <>
+          {targetId && (
+            <Button
+              onPress={() => void navigate({ to: "/monitoring", search: {} })}
+            >
+              {t("monitoring.allCollections")}
+            </Button>
+          )}
+          {canManage && !targetId && (
+            <Button variant="primary" onPress={() => setChoosing(true)}>
+              <Plus size={16} />
+              {t("monitoring.createCollection")}
+            </Button>
+          )}
+        </>
       }
     >
       {!canRead ? (

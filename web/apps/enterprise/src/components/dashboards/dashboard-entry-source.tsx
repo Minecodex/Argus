@@ -40,7 +40,7 @@ export function DashboardEntrySource({
     retry: false,
   });
   const target = useQuery({
-    queryKey: ["monitoring", "target-dashboard-bindings", id],
+    queryKey: ["dashboard-bindings", "monitoring_target", id],
     queryFn: () => api.dashboards.resourceBindings("monitoring_target", id),
     enabled: knownType.current === "monitoring_target" && canReadMonitoring,
     retry: false,

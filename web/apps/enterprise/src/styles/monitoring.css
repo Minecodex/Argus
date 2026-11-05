@@ -57,3 +57,20 @@
   align-items: center;
   gap: var(--space-2);
 }
+
+.argus-application-panels {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.argus-application-filters {
+  flex-wrap: wrap;
+  padding-block: var(--space-3);
+}
+.argus-application-chart .argus-observation-chart {
+  min-height: var(--template-chart-height);
+}
+.argus-application-hint {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}

@@ -288,12 +288,20 @@ export function createMonitoringDomains(ctx: MockContext): MonitoringDomains {
       async collections(input = {}) {
         permission(ctx, "monitoring.read");
         await ctx.pause();
+        if (
+          input.target_id &&
+          !dashboardObjectGrant(ctx, "monitoring_target", input.target_id)
+        )
+          fail("MONITORING_DENIED", 403);
         return page(
           ctx,
           (state(ctx).collections ?? []).filter(
             (item) =>
               item.status === "active" &&
               canReadMonitoringCollection(ctx, item) &&
+              (!input.target_id ||
+                (item.target.kind === "monitoring_target" &&
+                  item.target.id === input.target_id)) &&
               (!input.integration || item.integration === input.integration) &&
               (input.desired_enabled === undefined ||
                 item.desired_enabled === input.desired_enabled) &&

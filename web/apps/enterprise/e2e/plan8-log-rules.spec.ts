@@ -58,6 +58,9 @@ for (const english of [false, true])
         .getByRole("link", { name: "Log portal application", exact: true })
         .click();
       await page
+        .getByRole("tab", { name: label("服务", "Services"), exact: true })
+        .click();
+      await page
         .getByRole("button", {
           name: label("声明服务", "Declare service"),
           exact: true,
@@ -259,11 +262,9 @@ for (const english of [false, true])
         .click();
       await confirm();
       await expect(
-        page
-          .getByRole("row")
-          .filter({
-            has: page.getByText("System journal rule", { exact: true }),
-          }),
+        page.getByRole("row").filter({
+          has: page.getByText("System journal rule", { exact: true }),
+        }),
       ).toBeVisible();
       expect(errors).toEqual([]);
     });

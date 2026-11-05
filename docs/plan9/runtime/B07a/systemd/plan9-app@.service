@@ -1,0 +1,10 @@
+[Unit]
+Description=Plan9 native HTTP service %i
+After=network-online.target argus-otelcol.service
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/plan9-http-app --service=%i
+Restart=on-failure
+RestartSec=5
+MemoryMax=192M
+CPUQuota=25%

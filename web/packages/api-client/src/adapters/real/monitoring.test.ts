@@ -15,7 +15,9 @@ it("sends disabled collection filters explicitly and omits an unrestricted enabl
     base_url: "https://api.example.test",
     fetch,
   });
+  const targetId = "fb8cc9bd-d700-4876-98d4-ff877cf75376";
   await api.monitoring.collections({
+    target_id: targetId,
     desired_enabled: false,
     integration: "mysql",
     apply_status: "effective",
@@ -26,6 +28,7 @@ it("sends disabled collection filters explicitly and omits an unrestricted enabl
     cursor: "signed-cursor",
   });
   expect(Object.fromEntries(urls[0]!.searchParams)).toEqual({
+    target_id: targetId,
     desired_enabled: "false",
     integration: "mysql",
     apply_status: "effective",
@@ -37,6 +40,7 @@ it("sends disabled collection filters explicitly and omits an unrestricted enabl
   });
   await api.monitoring.collections({ desired_enabled: undefined });
   expect(urls[1]!.searchParams.has("desired_enabled")).toBe(false);
+  expect(urls[1]!.searchParams.has("target_id")).toBe(false);
   await api.monitoring.applications({
     environment: "production",
     search: "Orders",

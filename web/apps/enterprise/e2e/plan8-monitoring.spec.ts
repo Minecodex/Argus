@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { selectTrigger } from "./helpers/select";
 
 for (const english of [false, true])
   for (const theme of ["light", "dark"]) {
@@ -204,6 +205,126 @@ for (const english of [false, true])
           exact: true,
         }),
       ).toBeVisible();
+      const dashboardUrl = page.url();
+      const targetId = new URL(dashboardUrl).searchParams.get("resource");
+      const panel = page.locator('[data-panel-id="uptime"]');
+      const sourceLabel = english ? "Collection sources" : "采集来源";
+      const timeLabel = english ? "Time range" : "时间范围";
+      const sixHours = english ? "Last 6 hours" : "最近 6 小时";
+      const sources = panel.getByRole("button", {
+        name: new RegExp(sourceLabel),
+      });
+      await expect(sources).toHaveText(`${sourceLabel} · 1`);
+      await panel
+        .getByRole("button", {
+          name: english ? "Expand Uptime" : "展开 运行时长",
+          exact: true,
+        })
+        .click();
+      const expanded = page.getByRole("dialog", {
+        name: english ? "Uptime" : "运行时长",
+        exact: true,
+      });
+      const bounds = () =>
+        expanded
+          .locator("time")
+          .evaluateAll((times) =>
+            times.map((time) => (time as HTMLTimeElement).dateTime),
+          );
+      await expect(expanded.locator("time")).toHaveCount(2);
+      const initialBounds = await bounds();
+      await expanded
+        .getByRole("button", { name: timeLabel, exact: true })
+        .click();
+      await selectTrigger(page, english ? "Common ranges" : "常用范围").click();
+      await page.getByRole("option", { name: sixHours, exact: true }).click();
+      await page
+        .getByRole("button", { name: english ? "Apply" : "应用", exact: true })
+        .click();
+      expect(await bounds()).toEqual(initialBounds);
+      const run = expanded.getByRole("button", {
+        name: english ? "Run query" : "运行查询",
+        exact: true,
+      });
+      const expectSixHourResult = () =>
+        expect
+          .poll(async () => {
+            const [from, to] = await bounds();
+            return Date.parse(to ?? "") - Date.parse(from ?? "");
+          })
+          .toBe(6 * 3600 * 1000);
+      await run.click();
+      await expectSixHourResult();
+      const firstRun = await bounds();
+      await run.click();
+      await expect.poll(bounds).not.toEqual(firstRun);
+      await expectSixHourResult();
+      await page.screenshot({
+        path: info.outputPath("expanded-panel-query.png"),
+        animations: "disabled",
+      });
+      await expanded
+        .getByRole("button", { name: timeLabel, exact: true })
+        .click();
+      await selectTrigger(
+        page,
+        english ? "Time range type" : "时间范围类型",
+      ).click();
+      await page
+        .getByRole("option", {
+          name: english ? "Fixed time range" : "固定时间范围",
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole("button", { name: english ? "Apply" : "应用", exact: true })
+        .click();
+      await expect(
+        expanded.getByRole("button", { name: timeLabel, exact: true }),
+      ).toContainText("—");
+      await run.click();
+      await expect
+        .poll(async () => {
+          const [from, to] = await bounds();
+          return Date.parse(to ?? "") - Date.parse(from ?? "");
+        })
+        .toBe(3600 * 1000);
+      const absoluteBounds = await bounds();
+      await run.click();
+      await expect(run).toBeEnabled();
+      await expect(expanded.locator("time")).toHaveCount(2);
+      expect(await bounds()).toEqual(absoluteBounds);
+      await expanded
+        .getByRole("button", { name: english ? "Close" : "关闭", exact: true })
+        .click();
+      await expect(
+        page.getByRole("button", { name: timeLabel, exact: true }),
+      ).not.toHaveText(sixHours);
+
+      await sources.click();
+      const sourceDialog = page.getByRole("dialog", {
+        name: new RegExp(sourceLabel),
+      });
+      const target = sourceDialog.getByRole("link", {
+        name: "Orders MySQL",
+        exact: true,
+      });
+      await expect(target).toHaveAttribute(
+        "href",
+        `/monitoring?target=${targetId}`,
+      );
+      await expect(sourceDialog.locator("details")).not.toHaveAttribute("open");
+      await page.screenshot({
+        path: info.outputPath("dashboard-source-resources.png"),
+        animations: "disabled",
+      });
+      await target.click();
+      await expect(page).toHaveURL(/\/monitoring\?target=/);
+      await expect(row).toBeVisible();
+      await expect(page.locator("tbody tr")).toHaveCount(1);
+      await page.reload();
+      await expect(row).toBeVisible();
+
       await page.goto("/dashboards");
       const managed = page.getByRole("row").filter({
         has: page.getByRole("link", { name: "MySQL", exact: true }),

@@ -16,13 +16,12 @@ import {
   DashboardGrid,
   Dialog,
   Input,
-  ObservationPanel,
-  ObservationDetails,
   PageShell,
   ValueSelector,
 } from "@argus/ui";
 import { usePermission } from "../lib/permissions";
 import { PanelTile } from "../components/dashboards/panel-tile";
+import { ExpandedPanel } from "../components/dashboards/expanded-panel";
 import { DrilldownViewer } from "../components/dashboards/drilldown-viewer";
 import { DashboardLinkedResources } from "../components/dashboards/dashboard-linked-resources";
 import { DashboardEntrySource } from "../components/dashboards/dashboard-entry-source";
@@ -41,7 +40,10 @@ import {
   panelCandidateResources,
 } from "../components/dashboards/execution-status";
 
-import { useDashboardExecution } from "../components/dashboards/use-dashboard-execution";
+import {
+  useDashboardExecution,
+  type ViewInput,
+} from "../components/dashboards/use-dashboard-execution";
 import { ModelGovernanceControls } from "../components/dashboards/model-governance-controls";
 import "../styles/settings.css";
 
@@ -77,13 +79,34 @@ export function DashboardViewPage() {
   const [history, setHistory] = useState<DashboardRevision[] | null>(null),
     [historical, setHistorical] = useState<DashboardRevision | null>(null),
     [queryPanel, setQueryPanel] = useState<DashboardPanel>(),
-    [expanded, setExpanded] = useState<DashboardPanel>();
+    [expanded, setExpanded] = useState<{
+      panel: DashboardPanel;
+      revisionId: string;
+      time: DashboardSchemas["DashboardTimeRange"];
+      bounds?: { from: string; to: string };
+      input: ViewInput;
+      execution?: DashboardSchemas["DashboardPanelExecution"];
+    }>();
   const [drill, setDrill] = useState<{
     panel: DashboardPanel;
     row: Record<string, unknown>;
     target: string;
     token: string;
   }>();
+  const executeDashboard: typeof api.dashboards.execute = (id, input, signal) =>
+    api.dashboards.execute(
+      id,
+      isModelGovernance
+        ? {
+            variables: input.variables,
+            local_values: {},
+            resource_ids: [],
+            panel_ids: input.panel_ids,
+            candidates_only: input.candidates_only,
+          }
+        : input,
+      signal,
+    );
   const {
     execution,
     input,
@@ -107,7 +130,7 @@ export function DashboardViewPage() {
     modelId: isModelGovernance ? search.model : undefined,
     month: isModelGovernance ? search.month : undefined,
     enabled: canRead && !historical,
-    execute: (id, input, signal) => api.dashboards.execute(id, isModelGovernance ? { variables: input.variables, local_values: {}, resource_ids: [], panel_ids: input.panel_ids, candidates_only: input.candidates_only } : input, signal),
+    execute: executeDashboard,
     onRevisionChanged: refetchDetail,
     onReset: () => setDrill(undefined),
     formatError: (e) =>
@@ -116,13 +139,6 @@ export function DashboardViewPage() {
       ),
   });
   const observed = execution?.resources ?? [];
-  const resourceOptions = observed.map((row) => ({
-    id: row.id,
-    label:
-      hosts.data?.items.find((host) => host.id === row.id)?.name ??
-      clusters.data?.items.find((cluster) => cluster.id === row.id)?.name ??
-      row.id,
-  }));
   const view = historical ?? detail.data?.revision;
   const entryType =
     search.resource_type ??
@@ -322,7 +338,21 @@ export function DashboardViewPage() {
                   ? undefined
                   : execution?.panels.find((p) => p.id === panel.id)
               }
-              onExpand={() => setExpanded(panel)}
+              onExpand={() =>
+                setExpanded({
+                  panel,
+                  revisionId: view.id,
+                  time: timeRange,
+                  bounds:
+                    historical || isModelGovernance || !execution
+                      ? undefined
+                      : { from: execution.from, to: execution.to },
+                  input,
+                  execution: historical
+                    ? undefined
+                    : execution?.panels.find((item) => item.id === panel.id),
+                })
+              }
               onSelect={
                 historical
                   ? undefined
@@ -347,9 +377,6 @@ export function DashboardViewPage() {
                     execution?.panels.find((item) => item.id === panel.id)
                       ?.sources ?? []
                   }
-                  resourceNames={Object.fromEntries(
-                    resourceOptions.map((r) => [r.id, r.label]),
-                  )}
                 />
               )}
               {!historical &&
@@ -526,44 +553,38 @@ export function DashboardViewPage() {
           </div>
         </Dialog>
       )}
-      {expanded && (
-        <Dialog
-          open
-          onOpenChange={(open) => !open && setExpanded(undefined)}
-          title={expanded.title}
-          titleExtra={
-            <ObservationDetails
-              title={expanded.title}
-              targets={
-                execution?.panels.find((p) => p.id === expanded.id)?.targets ??
-                []
-              }
-              signal={expanded.signal}
-              display={expanded.display}
-            />
+      {expanded && expanded.revisionId === view.id && (
+        <ExpandedPanel
+          panel={expanded.panel}
+          revisionId={expanded.revisionId}
+          initialTime={expanded.time}
+          initialBounds={
+            expanded.bounds ??
+            (historical || isModelGovernance ? undefined : execution)
           }
-          width={1200}
-        >
-          <div className="argus-dashboard-detail-content">
-            <ObservationPanel
-              title={expanded.title}
-              details="external"
-              type={expanded.type}
-              signal={expanded.signal}
-              unit={expanded.unit}
-              decimals={expanded.decimals}
-              legend={expanded.legend}
-              display={expanded.display}
-              thresholds={expanded.thresholds}
-              targets={
-                (historical
-                  ? undefined
-                  : execution?.panels.find((p) => p.id === expanded.id)
-                      ?.targets) ?? []
-              }
-            />
-          </div>
-        </Dialog>
+          initialExecution={
+            expanded.execution ??
+            (historical
+              ? undefined
+              : execution?.panels.find((item) => item.id === expanded.panel.id))
+          }
+          selectTime={!isModelGovernance}
+          execute={
+            historical
+              ? undefined
+              : (range, signal) =>
+                  executeDashboard(
+                    dashboardId,
+                    {
+                      ...expanded.input,
+                      ...range,
+                      panel_ids: [expanded.panel.id],
+                    },
+                    signal,
+                  )
+          }
+          onClose={() => setExpanded(undefined)}
+        />
       )}
       {drill && (
         <DrilldownViewer

@@ -58,6 +58,9 @@ for (const english of [false, true])
         .getByRole("link", { name: "APM application", exact: true })
         .click();
       await page
+        .getByRole("tab", { name: text("服务", "Services"), exact: true })
+        .click();
+      await page
         .getByRole("button", {
           name: text("声明服务", "Declare service"),
           exact: true,
@@ -86,33 +89,33 @@ for (const english of [false, true])
       await expect(region).toBeVisible();
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await region
-        .getByRole("radiogroup")
-        .getByText(text("服务", "Services"), { exact: true })
-        .click();
+        .getByRole("tab", { name: text("服务", "Services"), exact: true })
+        .focus();
       await page.keyboard.press("ArrowRight");
       await expect(
-        region.getByRole("radio", {
-          name: text("运行实例", "Runtime instances"),
+        region.getByRole("tab", {
+          name: text("调用链", "Traces"),
           exact: true,
         }),
-      ).toBeChecked();
+      ).toHaveAttribute("aria-selected", "true");
       for (const label of [
+        text("概览", "Overview"),
         text("服务", "Services"),
-        text("运行实例", "Runtime instances"),
-        text("接口", "Endpoints"),
-        text("请求与耗时", "Requests and duration"),
-        text("服务拓扑", "Service topology"),
         text("调用链", "Traces"),
-        text("应用日志", "Application logs"),
+        text("SDK 接入", "SDK ingestion"),
+        text("日志", "Logs"),
       ]) {
-        await region
-          .getByRole("radiogroup")
-          .getByText(label, { exact: true })
-          .click();
-        await expect(
-          region.getByRole("radio", { name: label, exact: true }),
-        ).toBeChecked();
+        const tab = region.getByRole("tab", { name: label, exact: true });
+        await tab.click();
+        await expect(tab).toHaveAttribute("aria-selected", "true");
+        await expect(region.getByRole("tabpanel")).toHaveCount(1);
         await expect(region.getByRole("alert")).toHaveCount(0);
+        await expect(
+          region.getByRole("button", {
+            name: text("时间范围", "Time range"),
+            exact: true,
+          }),
+        ).toHaveCount(label === text("SDK 接入", "SDK ingestion") ? 0 : 1);
       }
       await region
         .getByRole("button", {

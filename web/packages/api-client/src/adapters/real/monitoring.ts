@@ -19,6 +19,7 @@ export function createMonitoringDomains(
       "apply_status",
       "health",
       "freshness",
+      "target_id",
     ] as const) {
       const value = input[field];
       if (value !== undefined && value !== "") params.set(field, String(value));
