@@ -150,11 +150,12 @@ for (const viewport of [
             path: info.outputPath("editor-result.png"),
             animations: "disabled",
           });
-          await page
-            .locator(".argus-panel-editor__advanced")
-            .first()
-            .locator(":scope > summary")
-            .click();
+          await expect(
+            page.getByRole("group", {
+              name: tx("高级查询选项", "Advanced query options"),
+              exact: true,
+            }),
+          ).toBeVisible();
           await page.locator(".argus-page-content").evaluate((el) => {
             el.scrollTop = el.scrollHeight;
           });
