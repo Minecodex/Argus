@@ -56,8 +56,8 @@ func TestAuthenticatedMFAStateHonorsPlatformRequirement(t *testing.T) {
 	}
 }
 
-func TestSetupErrorMapsInvalidEnterpriseCode(t *testing.T) {
-	response := setupError(context.Background(), platform.ErrEnterpriseCodeInvalid)
+func TestSetupErrorMapsInvalidSetupInput(t *testing.T) {
+	response := setupError(context.Background(), platform.ErrSetupInvalid)
 	if response.Code != "INVALID_ARGUMENT" {
 		t.Fatalf("code = %q, want INVALID_ARGUMENT", response.Code)
 	}

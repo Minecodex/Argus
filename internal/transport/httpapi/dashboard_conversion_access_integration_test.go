@@ -39,7 +39,7 @@ func TestPostgresResourceReaderConvertsQueriesWithoutDashboardWrites(t *testing.
 		}
 	}
 	enterprise, department, user, role := uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Resource query UI',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Resource query UI','UTC')", enterprise)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Operations')", department, enterprise)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Resource reader')", user, enterprise, department, user.String())
 	exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'Host reader only')", role, enterprise)

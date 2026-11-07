@@ -776,6 +776,7 @@ type Querier interface {
 	ListDashboardQueryFiles(ctx context.Context, arg ListDashboardQueryFilesParams) ([]DashboardQueryFile, error)
 	ListDashboardRevisions(ctx context.Context, arg ListDashboardRevisionsParams) ([]DashboardRevision, error)
 	ListDashboardRunParameters(ctx context.Context, arg ListDashboardRunParametersParams) ([]DashboardRunParameter, error)
+	ListDashboardSourceNames(ctx context.Context, arg ListDashboardSourceNamesParams) ([]ListDashboardSourceNamesRow, error)
 	ListDashboardTemplateHeads(ctx context.Context) ([]DashboardTemplateVersion, error)
 	ListDashboards(ctx context.Context, enterpriseID uuid.UUID) ([]Dashboard, error)
 	ListDataAuthorizationCatalogPage(ctx context.Context, arg ListDataAuthorizationCatalogPageParams) ([]ListDataAuthorizationCatalogPageRow, error)

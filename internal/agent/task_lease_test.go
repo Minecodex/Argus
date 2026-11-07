@@ -32,7 +32,7 @@ func TestRunQueueSerializesTasksAndFencesAnExpiredWorker(t *testing.T) {
 		}
 	}
 	enterprise, department, user, model, conversation, run := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'P5 fence',$2,'UTC')", enterprise, "p5-"+enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'P5 fence','UTC')", enterprise)
 	exec("INSERT INTO departments(id,enterprise_id,name,is_default) VALUES($1,$2,'Default',true)", department, enterprise)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'P5 fence')", user, enterprise, department, "p5-"+user.String())
 	exec("INSERT INTO ai_models(id,enterprise_id,name,base_url,model_id,api_protocol,context_window_tokens,max_output_tokens,input_price_per_million,output_price_per_million,health_status) VALUES($1,$2,'P5','https://model.example.test','model','chat_completions',32768,1024,0,0,'healthy')", model, enterprise)

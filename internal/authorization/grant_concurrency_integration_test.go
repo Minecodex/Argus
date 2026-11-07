@@ -29,7 +29,7 @@ func TestPostgresConcurrentGrantChangesKeepVersionsAndAuditExactlyOnce(t *testin
 		}
 	}
 	enterprise, department, admin, host := uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Concurrent grants',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Concurrent grants','UTC')", enterprise)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Concurrent readers')", department, enterprise)
 	users := []uuid.UUID{admin}
 	for i := 0; i < 6; i++ {

@@ -168,38 +168,53 @@ components:
       type: object
       additionalProperties: false
       required:
-        - platform_name
-        - default_locale
+        - enterprise_name
         - timezone
-        - external_url
-        - super_admin
+        - username
+        - display_name
+        - password
       properties:
-        platform_name:
+        enterprise_name:
           type: string
           minLength: 1
           maxLength: 128
-        default_locale:
-          $ref: '#/components/schemas/Locale'
         timezone:
           type: string
           minLength: 1
           maxLength: 128
-        external_url:
+        username:
           type: string
-          format: uri
-        super_admin:
-          $ref: '#/components/schemas/SetupSuperAdminInput'
+          minLength: 3
+          maxLength: 128
+          pattern: ^[a-zA-Z][a-zA-Z0-9_-]{2,127}$
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        password:
+          type: string
+          minLength: 12
+          maxLength: 1024
+          writeOnly: true
     SetupInitializeResult:
       type: object
       additionalProperties: false
       required:
         - state
         - platform_user_id
+        - enterprise_id
+        - enterprise_user_id
       properties:
         state:
           type: string
           const: initialized
         platform_user_id:
+          type: string
+          format: uuid
+        enterprise_id:
+          type: string
+          format: uuid
+        enterprise_user_id:
           type: string
           format: uuid
     LoginRequest:
@@ -401,35 +416,6 @@ components:
       minLength: 16
       maxLength: 128
       pattern: ^[A-Za-z0-9._:-]+$
-    Locale:
-      type: string
-      enum:
-        - zh-CN
-        - en-US
-    SetupSuperAdminInput:
-      type: object
-      additionalProperties: false
-      required:
-        - username
-        - display_name
-        - password
-      properties:
-        username:
-          type: string
-          minLength: 3
-          maxLength: 128
-        display_name:
-          type: string
-          minLength: 1
-          maxLength: 128
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          minLength: 12
-          maxLength: 1024
-          writeOnly: true
     AuthorizationVersion:
       type: integer
       format: int64

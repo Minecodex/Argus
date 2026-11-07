@@ -74,7 +74,7 @@ func newAnalysisFixture(t *testing.T) analysisFixture {
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Conditions',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Conditions','UTC')", e)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Conditions')", d, e)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Conditions')", u, e, d, u.String())
 	exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'Conditions')", role, e)

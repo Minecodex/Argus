@@ -51,7 +51,7 @@ func runWorkspaceSourceRevocation(t *testing.T, kind string) {
 		}
 	}
 	e, d, u, m, c, r, w := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Audit R12',$2,'UTC')", e, "audit-"+e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Audit R12','UTC')", e)
 	exec("INSERT INTO departments(id,enterprise_id,name,is_default) VALUES($1,$2,'Default',true)", d, e)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Audit R12')", u, e, d, "audit-"+u.String())
 	exec("INSERT INTO ai_models(id,enterprise_id,name,base_url,model_id,api_protocol,context_window_tokens,max_output_tokens,input_price_per_million,output_price_per_million,health_status) VALUES($1,$2,'Audit','https://model.example.test','model','chat_completions',32768,1024,0,0,'healthy')", m, e)
@@ -101,7 +101,7 @@ func runWorkspaceSourceRevocation(t *testing.T, kind string) {
 	// The other member has the same explicit data grants; that still does not
 	// make this member the owner of the conversation or its stored artifacts.
 	exec("INSERT INTO data_authorization_grants(id,enterprise_id,subject_type,subject_id,resource_type,resource_id) SELECT gen_random_uuid(),enterprise_id,'user',$2,resource_type,resource_id FROM data_authorization_grants WHERE enterprise_id=$1 AND subject_type='user' AND subject_id=$3", e, otherUser, u)
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Outside',$2,'UTC')", foreignEnterprise, foreignEnterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Outside','UTC')", foreignEnterprise)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Outside')", foreignDepartment, foreignEnterprise)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Outside member')", foreignUser, foreignEnterprise, foreignDepartment, foreignUser.String())
 	others := []toolruntime.Principal{{EnterpriseID: e, UserID: otherUser, ConversationID: c, AuthorizationVersion: 1, Permissions: []string{"workspace.use"}}, {EnterpriseID: foreignEnterprise, UserID: foreignUser, ConversationID: c, AuthorizationVersion: 1, Permissions: []string{"workspace.use"}}}

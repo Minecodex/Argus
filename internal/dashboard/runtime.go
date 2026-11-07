@@ -189,6 +189,13 @@ func (runtime Runtime) Execute(ctx context.Context, actor Actor, id uuid.UUID, i
 	if err == nil && len(runtime.ContextKey) >= 32 {
 		err = runtime.attachExecutionContext(actor, &result)
 	}
+	if err == nil {
+		groups := make([][]ResolvedSource, 0, len(result.Panels))
+		for _, panel := range result.Panels {
+			groups = append(groups, panel.Sources)
+		}
+		err = populateSourceNames(ctx, runtime.Store.Queries, actor, result.Resources, groups...)
+	}
 	return result, err
 }
 

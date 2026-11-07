@@ -789,7 +789,6 @@ describe("platform", () => {
 
     const created = await client.platform.enterprises.create({
       name: "Initech",
-      code: "initech",
     });
     expect(created.status).toBe("active");
     expect((await client.platform.enterprises.list()).items.length).toBe(3);
@@ -838,35 +837,38 @@ describe("setup", () => {
     });
     expect((await client.setup.status()).state).toBe("uninitialized");
 
-    const result = await client.setup.submit({
+    const input = {
       setupToken: "setup-token-123",
-      platformName: "Argus Demo",
-      defaultLocale: "zh-CN",
+      enterpriseName: "首家企业",
       timezone: "Asia/Shanghai",
-      externalUrl: "https://argus.example",
-      superAdmin: {
-        username: "root",
-        displayName: "超级管理员",
-        password: "a-strong-password",
-      },
-    });
+      username: "first-admin",
+      displayName: "初始管理员",
+      password: "StrongSetup2026!",
+    };
+    const result = await client.setup.submit(input);
     expect(result.success).toBe(true);
+    expect(result.superAdminUserId).not.toBe(result.enterpriseAdminUserId);
     expect((await client.setup.status()).state).toBe("initialized");
-
+    await client.auth.login({
+      username: input.username,
+      password: input.password,
+    });
     await expect(
-      client.setup.submit({
-        setupToken: "again",
-        platformName: "x",
-        defaultLocale: "zh-CN",
-        timezone: "UTC",
-        externalUrl: "https://x.example",
-        superAdmin: {
-          username: "root2",
-          displayName: "x",
-          password: "another-password",
-        },
-      }),
-    ).rejects.toThrow("already initialized");
+      client.platform.enterprises.get(result.enterpriseId),
+    ).resolves.toMatchObject({
+      name: input.enterpriseName,
+      timezone: input.timezone,
+    });
+    expect(
+      (await client.platform.admins.list(result.enterpriseId))[0],
+    ).toMatchObject({
+      id: result.enterpriseAdminUserId,
+      username: input.username,
+      credentialStatus: "active",
+    });
+    await expect(client.setup.submit(input)).rejects.toThrow(
+      "already initialized",
+    );
   });
 });
 

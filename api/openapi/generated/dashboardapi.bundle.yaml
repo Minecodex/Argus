@@ -2248,6 +2248,9 @@ components:
           format: uuid
         type:
           type: string
+        name:
+          type: string
+          description: Display name of the registered collection or ingest endpoint, when readable.
         capability_version:
           type: string
         current_installation:

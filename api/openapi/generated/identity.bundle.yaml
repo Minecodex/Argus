@@ -16,7 +16,6 @@ components:
       required:
         - id
         - name
-        - code
         - status
         - timezone
         - default_locale
@@ -26,16 +25,11 @@ components:
       properties:
         id:
           type: string
-          minLength: 1
+          format: uuid
         name:
           type: string
           minLength: 1
           maxLength: 128
-        code:
-          type: string
-          minLength: 1
-          maxLength: 63
-          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
         status:
           type: string
           enum:

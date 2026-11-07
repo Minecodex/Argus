@@ -39,7 +39,7 @@ func (handler SetupHandler) GetSetupStatus(ctx context.Context, _ setupapi.GetSe
 
 func (handler SetupHandler) InitializePlatform(ctx context.Context, request setupapi.InitializePlatformRequestObject) (setupapi.InitializePlatformResponseObject, error) {
 	metadata, ok := RequestFromContext(ctx)
-	if !ok || request.Body == nil || request.Body.SuperAdmin.Password == nil {
+	if !ok || request.Body == nil || request.Body.Password == nil {
 		return setupapi.InitializePlatformdefaultJSONResponse{Body: setupError(ctx, errors.New("invalid request")), StatusCode: http.StatusBadRequest}, nil
 	}
 	if err := handler.Token.Verify(metadata.Request.Header.Get("X-Argus-Setup-Token")); err != nil {
@@ -49,20 +49,19 @@ func (handler SetupHandler) InitializePlatform(ctx context.Context, request setu
 		}
 		return setupapi.InitializePlatformdefaultJSONResponse{Body: setupError(ctx, err), StatusCode: status}, nil
 	}
-	email := ""
-	if request.Body.SuperAdmin.Email != nil {
-		email = string(*request.Body.SuperAdmin.Email)
-	}
-	userID, err := handler.Setup.Initialize(ctx, platform.SetupInput{
-		PlatformName: request.Body.PlatformName, DefaultLocale: string(request.Body.DefaultLocale),
-		Timezone: request.Body.Timezone, ExternalURL: request.Body.ExternalUrl,
-		Username: request.Body.SuperAdmin.Username, DisplayName: request.Body.SuperAdmin.DisplayName,
-		Email: email, Password: *request.Body.SuperAdmin.Password,
+	result, err := handler.Setup.Initialize(ctx, platform.SetupInput{
+		EnterpriseName: request.Body.EnterpriseName,
+		Timezone:       request.Body.Timezone, ExternalURL: handler.Config.RemoteOrigin,
+		Username: request.Body.Username, DisplayName: request.Body.DisplayName,
+		Password: *request.Body.Password,
 	}, request.Params.IdempotencyKey)
 	if err != nil {
 		status := http.StatusInternalServerError
-		if errors.Is(err, platform.ErrAlreadyInitialized) {
+		if errors.Is(err, platform.ErrAlreadyInitialized) || errors.Is(err, postgres.ErrIdempotencyConflict) || errors.Is(err, postgres.ErrIdempotencyExpired) {
 			status = http.StatusConflict
+		}
+		if errors.Is(err, platform.ErrSetupInvalid) {
+			status = http.StatusBadRequest
 		}
 		if errors.Is(err, identity.ErrWeakPassword) {
 			status = http.StatusUnprocessableEntity
@@ -70,7 +69,8 @@ func (handler SetupHandler) InitializePlatform(ctx context.Context, request setu
 		return setupapi.InitializePlatformdefaultJSONResponse{Body: setupError(ctx, err), StatusCode: status}, nil
 	}
 	return setupapi.InitializePlatform201JSONResponse{
-		State: setupapi.SetupInitializeResultStateInitialized, PlatformUserId: openapi_types.UUID(userID),
+		State: setupapi.SetupInitializeResultStateInitialized, PlatformUserId: openapi_types.UUID(result.PlatformUserID),
+		EnterpriseId: openapi_types.UUID(result.EnterpriseID), EnterpriseUserId: openapi_types.UUID(result.EnterpriseUserID),
 	}, nil
 }
 
@@ -375,7 +375,7 @@ func setupErrorBase(ctx context.Context, err error) setupapi.ApiError {
 		code, key = "CSRF_TOKEN_INVALID", "errors.auth.csrf_token_invalid"
 	case errors.Is(err, identity.ErrVersionConflict):
 		code, key, retryable = "VERSION_CONFLICT", "errors.common.version_conflict", true
-	case errors.Is(err, platform.ErrEnterpriseCodeInvalid):
+	case errors.Is(err, platform.ErrSetupInvalid):
 		code, key = "INVALID_ARGUMENT", "errors.common.invalid_argument"
 	case errors.Is(err, postgres.ErrIdempotencyConflict):
 		code, key = "IDEMPOTENCY_CONFLICT", "errors.common.idempotency_conflict"

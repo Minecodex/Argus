@@ -38,7 +38,7 @@ func TestPostgresDraftPublicationIsolation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	exec(`INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Dashboard test',$2,'UTC')`, enterprise, "dashboard-"+enterprise.String())
+	exec(`INSERT INTO enterprises(id,name,timezone) VALUES($1,'Dashboard test','UTC')`, enterprise)
 	exec(`INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Test')`, department, enterprise)
 	for _, id := range []uuid.UUID{user, other} {
 		exec(`INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Editor')`, id, enterprise, department, "editor-"+id.String())

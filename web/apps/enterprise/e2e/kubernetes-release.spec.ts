@@ -64,17 +64,14 @@ test("setup completes once and remains permanently locked", async ({
   );
   await expect(page.getByLabel("Setup Token")).toHaveCount(0);
 
-  await page.getByLabel("平台显示名称").fill("Argus Evaluation");
-  await page.getByLabel("外部访问地址").fill(`${enterpriseOrigin}`);
+  await page.getByLabel("企业名称").fill("Argus Evaluation");
   await page.getByLabel("登录名").fill("e2eadmin");
   await page.locator('input[name="admin.displayName"]').fill("E2E 管理员");
-  await page.getByLabel("邮箱").fill("e2e@example.com");
   await page.locator('input[name="admin.password"]').fill("SecureRelease2026!");
   await page
     .locator('input[name="admin.confirmPassword"]')
     .fill("SecureRelease2026!");
-  await page.getByRole("button", { name: "下一步" }).click();
-  await page.getByRole("button", { name: "确认初始化" }).click();
+  await page.getByRole("button", { name: "初始化" }).click();
 
   await expect(page).toHaveURL(`${platformOrigin}/login`);
   await expect(page.locator('input[autocomplete="username"]')).toBeVisible();

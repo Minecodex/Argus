@@ -61,7 +61,7 @@ func TestPublishedDashboardRunsAgainstRegisteredAuthorizedSources(t *testing.T) 
 			t.Fatal(err)
 		}
 	}
-	exec(`INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Runtime test',$2,'UTC')`, enterprise, "runtime-"+enterprise.String())
+	exec(`INSERT INTO enterprises(id,name,timezone) VALUES($1,'Runtime test','UTC')`, enterprise)
 	exec(`INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Runtime')`, department, enterprise)
 	exec(`INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Editor')`, user, enterprise, department, "runtime-"+user.String())
 	exec(`INSERT INTO roles(id,enterprise_id,name,description,builtin) VALUES($1,$2,'Runtime editor','',false)`, role, enterprise)

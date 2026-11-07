@@ -5,11 +5,13 @@ import {
 } from "./generated/form-constraints";
 
 describe("generated form constraints", () => {
-  it("keeps setup email optional", () => {
-    expect(formConstraint("SetupSuperAdminInput", "email")).toMatchObject({
-      format: "email",
-      required: false,
-    });
+  it("requires the enterprise name and password for setup", () => {
+    expect(
+      formConstraint("SetupInitializeRequest", "enterprise_name").required,
+    ).toBe(true);
+    expect(formConstraint("SetupInitializeRequest", "password").required).toBe(
+      true,
+    );
   });
 
   it("keeps AI model create and update requirements distinct", () => {

@@ -36,7 +36,7 @@ func TestPostgresGatewayMonitoringDispatchUsesConfiguredPrivateCredentialChannel
 		}
 	}
 	e, host, collector, distribution, target, collection, creator, connector, draft := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Owned credential dispatch',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Owned credential dispatch','UTC')", e)
 	if err = audit.InitializeChain(ctx, store.Queries, "enterprise", uuid.NullUUID{UUID: e, Valid: true}); err != nil {
 		t.Fatal(err)
 	}

@@ -39,7 +39,7 @@ func newRecoveryFixture(t *testing.T) *recoveryFixture {
 		}
 		store.Close()
 	})
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Recovery',$2,'UTC')", f.e, "recovery-"+f.e.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Recovery','UTC')", f.e)
 	if err := audit.InitializeChain(t.Context(), store.Queries, "enterprise", uuid.NullUUID{UUID: f.e, Valid: true}); err != nil {
 		t.Fatal(err)
 	}

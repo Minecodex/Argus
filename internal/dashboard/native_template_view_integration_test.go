@@ -69,11 +69,11 @@ func TestPostgresClickHouseManagedNativeTemplateViews(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ownedCode := "nativeview-" + e.String()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Native template view',$2,'UTC')", e, ownedCode)
+	ownedName := "Native template view " + e.String()
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,$2,'UTC')", e, ownedName)
 	t.Cleanup(func() {
-		var code string
-		if err := store.Pool.QueryRow(context.Background(), "SELECT code FROM enterprises WHERE id=$1", e).Scan(&code); err != nil || code != ownedCode {
+		var name string
+		if err := store.Pool.QueryRow(context.Background(), "SELECT name FROM enterprises WHERE id=$1", e).Scan(&name); err != nil || name != ownedName {
 			t.Error("owned native tenant cleanup refused")
 			return
 		}

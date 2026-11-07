@@ -36,7 +36,7 @@ func TestPostgresDisconnectProjectsAtomicallyBeforeNewSession(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Owned disconnect race',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Owned disconnect race','UTC')", enterprise)
 	t.Logf("owned_disconnect_enterprise=%s", enterprise)
 	t.Cleanup(func() {
 		cleanup, stop := context.WithTimeout(context.Background(), 5*time.Second)
@@ -60,7 +60,7 @@ func TestPostgresDisconnectProjectsAtomicallyBeforeNewSession(t *testing.T) {
 				return
 			}
 		}
-		if _, err = tx.Exec(cleanup, "DELETE FROM enterprises WHERE id=$1 AND code=$2", enterprise, enterprise.String()); err != nil {
+		if _, err = tx.Exec(cleanup, "DELETE FROM enterprises WHERE id=$1 AND name=$2", enterprise, "Owned disconnect race"); err != nil {
 			t.Error(err)
 			return
 		}

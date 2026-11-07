@@ -5,8 +5,10 @@ import type {
   DashboardSpec,
   DashboardTarget,
 } from "../dashboard";
+import { builtinCollections } from "../generated/builtin-collections";
 import type { BaseContext } from "./context";
 import { authorizationCatalog } from "./authorization-catalog";
+import { resolvePermissions } from "./permissions";
 import {
   copyDashboard as copy,
   dashboardFailure as fail,
@@ -275,6 +277,16 @@ export function mockDashboardExecution(
   )
     fail("DASHBOARD_DENIED", 403);
   const resource = resources[0]?.id ?? "";
+  const permissions = resolvePermissions(
+    ctx.db,
+    ctx.enterpriseId(),
+    ctx.actor().id,
+    ctx.nowIso(),
+  );
+  const readableCollections =
+    permissions.has("*") || permissions.has("monitoring.read")
+      ? (ctx.db.monitoring?.[ctx.enterpriseId()]?.collections ?? [])
+      : [];
   for (const [key, value] of contexts)
     if (value.expires < Date.now()) contexts.delete(key);
   if (contexts.size >= 128) contexts.delete(contexts.keys().next().value!);
@@ -329,6 +341,17 @@ export function mockDashboardExecution(
       (input.panel_ids?.length && !input.panel_ids.includes(panel.id))
     )
       continue;
+    const builtin = builtinCollections.find(
+      (entry) => entry.source_type === panel.source_binding.source_type,
+    );
+    const collection =
+      builtin &&
+      readableCollections.find(
+        (item) =>
+          item.target.id === resource &&
+          item.target.kind === resources[0]?.type &&
+          item.integration === builtin.key,
+      );
     result.panels.push({
       id: panel.id,
       status: resources.length ? "success" : "no_data",
@@ -344,6 +367,7 @@ export function mockDashboardExecution(
               revision: 1,
               generation: "mock-installation",
               type: panel.source_binding.source_type,
+              name: collection?.name,
               capability_version: "v1",
             },
           ]

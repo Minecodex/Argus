@@ -729,6 +729,57 @@ func (q *Queries) ListDashboardRevisions(ctx context.Context, arg ListDashboardR
 	return items, nil
 }
 
+const listDashboardSourceNames = `-- name: ListDashboardSourceNames :many
+SELECT source.id, source.config_revision, COALESCE(collection.name, endpoint.name, '')::text AS name
+FROM jsonb_to_recordset($1::jsonb) AS ref(id uuid, revision bigint)
+JOIN telemetry_sources source ON source.id=ref.id AND source.config_revision=ref.revision
+LEFT JOIN monitoring_collections collection ON $2::boolean
+ AND collection.enterprise_id=source.enterprise_id AND collection.id=source.collection_id
+ AND collection.target_type=source.resource_type AND collection.target_id=source.resource_id
+LEFT JOIN monitoring_ingest_endpoints endpoint ON $3::boolean
+ AND endpoint.enterprise_id=source.enterprise_id AND endpoint.id=source.ingest_endpoint_id
+ AND source.resource_type='application' AND endpoint.application_id=source.resource_id
+WHERE source.enterprise_id=$4 AND (collection.id IS NOT NULL OR endpoint.id IS NOT NULL)
+`
+
+type ListDashboardSourceNamesParams struct {
+	SourceRefs      []byte    `json:"source_refs"`
+	ReadCollections bool      `json:"read_collections"`
+	ReadEndpoints   bool      `json:"read_endpoints"`
+	EnterpriseID    uuid.UUID `json:"enterprise_id"`
+}
+
+type ListDashboardSourceNamesRow struct {
+	ID             uuid.UUID `json:"id"`
+	ConfigRevision int64     `json:"config_revision"`
+	Name           string    `json:"name"`
+}
+
+func (q *Queries) ListDashboardSourceNames(ctx context.Context, arg ListDashboardSourceNamesParams) ([]ListDashboardSourceNamesRow, error) {
+	rows, err := q.db.Query(ctx, listDashboardSourceNames,
+		arg.SourceRefs,
+		arg.ReadCollections,
+		arg.ReadEndpoints,
+		arg.EnterpriseID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDashboardSourceNamesRow{}
+	for rows.Next() {
+		var i ListDashboardSourceNamesRow
+		if err := rows.Scan(&i.ID, &i.ConfigRevision, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDashboards = `-- name: ListDashboards :many
 SELECT id, enterprise_id, folder_id, name, description, active_revision_id, version, lifecycle, created_by, updated_by, created_at, updated_at FROM dashboards WHERE enterprise_id=$1 ORDER BY name,id
 `

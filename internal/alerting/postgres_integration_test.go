@@ -44,7 +44,7 @@ func newAlertFixture(t *testing.T) alertFixture {
 	t.Cleanup(store.Close)
 	e, d, u, role, sa, h := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	f := alertFixture{t: t, s: Service{Store: store}, a: Actor{EnterpriseID: e, SubjectID: u, SubjectType: "user", AuthorizationVersion: 1}, host: h, sa: sa}
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Plan6',$2,'UTC')", e, e.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Plan6','UTC')", e)
 	f.exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Plan6')", d, e)
 	f.exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Operator')", u, e, d, u.String())
 	f.exec("INSERT INTO service_accounts(id,enterprise_id,name) VALUES($1,$2,'Evaluator')", sa, e)

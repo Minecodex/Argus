@@ -51,6 +51,7 @@ export interface MockOptions {
   persist?: boolean;
   /** Seed the platform as uninitialized to exercise the setup wizard. */
   initialized?: boolean;
+  portal?: "setup" | "platform" | "enterprise";
 }
 
 export interface MockApiClient extends ArgusApiClient {
@@ -243,7 +244,7 @@ export function createMockApiClient(options: MockOptions = {}): MockApiClient {
   }
 
   return {
-    auth: createAuthDomain(ctx),
+    auth: createAuthDomain(ctx, options.portal),
     conversations: createConversationsDomain(ctx),
     remoteExecutions: createRemoteExecutionDomain(ctx),
     interactions: createInteractionDomains(ctx),

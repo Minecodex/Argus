@@ -31,7 +31,7 @@ func TestActualOpaqueKubernetesUIDIsResolvedOnlyFromTrustedInventory(t *testing.
 		}
 	}
 	e, c := uuid.New(), uuid.New()
-	exec(`INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Opaque UID',$2,'UTC')`, e, e.String())
+	exec(`INSERT INTO enterprises(id,name,timezone) VALUES($1,'Opaque UID','UTC')`, e)
 	exec(`INSERT INTO kubernetes_clusters(id,enterprise_id,name,api_server,connection_mode,default_namespace,environment,labels_hash) VALUES($1,$2,'Opaque UID','https://cluster.example.test','in_cluster','default','development',decode(repeat('00',32),'hex'))`, c, e)
 	n := uuid.NewString()
 	_, err = store.Queries.UpsertKubernetesNamespaceResource(ctx, db.UpsertKubernetesNamespaceResourceParams{ID: uuid.New(), EnterpriseID: e, ClusterID: c, Name: "kube-system", NamespaceUid: n})

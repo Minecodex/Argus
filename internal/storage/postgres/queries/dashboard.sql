@@ -99,3 +99,15 @@ SELECT id,name,status,resource_version FROM hosts WHERE id=$1 AND enterprise_id=
 
 -- name: LockDashboardBindingCluster :one
 SELECT id,name,status,resource_version FROM kubernetes_clusters WHERE id=$1 AND enterprise_id=$2 FOR UPDATE;
+
+-- name: ListDashboardSourceNames :many
+SELECT source.id, source.config_revision, COALESCE(collection.name, endpoint.name, '')::text AS name
+FROM jsonb_to_recordset(sqlc.arg(source_refs)::jsonb) AS ref(id uuid, revision bigint)
+JOIN telemetry_sources source ON source.id=ref.id AND source.config_revision=ref.revision
+LEFT JOIN monitoring_collections collection ON sqlc.arg(read_collections)::boolean
+ AND collection.enterprise_id=source.enterprise_id AND collection.id=source.collection_id
+ AND collection.target_type=source.resource_type AND collection.target_id=source.resource_id
+LEFT JOIN monitoring_ingest_endpoints endpoint ON sqlc.arg(read_endpoints)::boolean
+ AND endpoint.enterprise_id=source.enterprise_id AND endpoint.id=source.ingest_endpoint_id
+ AND source.resource_type='application' AND endpoint.application_id=source.resource_id
+WHERE source.enterprise_id=sqlc.arg(enterprise_id) AND (collection.id IS NOT NULL OR endpoint.id IS NOT NULL);

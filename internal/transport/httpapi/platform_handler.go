@@ -96,14 +96,10 @@ func (handler PlatformHandler) CreateEnterprise(ctx context.Context, request pla
 		remark = *request.Body.Remark
 	}
 	value, err := handler.Enterprise.CreateEnterprise(ctx, principal.PlatformUser.ID.String(), platform.CreateEnterpriseInput{
-		Name: request.Body.Name, Code: request.Body.Code, Timezone: request.Body.Timezone, DefaultLocale: locale, Remark: remark,
+		Name: request.Body.Name, Timezone: request.Body.Timezone, DefaultLocale: locale, Remark: remark,
 	}, request.Params.IdempotencyKey)
 	if err != nil {
-		status := http.StatusConflict
-		if errors.Is(err, platform.ErrEnterpriseCodeInvalid) {
-			status = http.StatusBadRequest
-		}
-		return platformapi.CreateEnterprisedefaultJSONResponse{Body: platformError(ctx, err), StatusCode: status}, nil
+		return platformapi.CreateEnterprisedefaultJSONResponse{Body: platformError(ctx, err), StatusCode: http.StatusConflict}, nil
 	}
 	return platformapi.CreateEnterprise201JSONResponse(toPlatformEnterprise(value)), nil
 }
@@ -236,7 +232,7 @@ func (handler PlatformHandler) platformPrincipal(ctx context.Context, mutation b
 }
 
 func toPlatformEnterprise(value db.Enterprise) platformapi.Enterprise {
-	result := platformapi.Enterprise{Id: value.ID.String(), Name: value.Name, Code: value.Code, Status: platformapi.EnterpriseStatus(value.Status),
+	result := platformapi.Enterprise{Id: value.ID, Name: value.Name, Status: platformapi.EnterpriseStatus(value.Status),
 		Timezone: value.Timezone, DefaultLocale: platformapi.EnterpriseDefaultLocale(value.DefaultLocale), Version: value.Version,
 		CreatedAt: value.CreatedAt.Time, UpdatedAt: value.UpdatedAt.Time}
 	if value.Remark != "" {

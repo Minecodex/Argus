@@ -35,7 +35,7 @@ func TestPostgresEnterpriseCreationAndRegistryStartupSerialize(t *testing.T) {
 	reconciliation := make(chan error, 1)
 	go func() {
 		<-start
-		value, err := service.CreateEnterprise(t.Context(), uuid.NewString(), CreateEnterpriseInput{Name: "Owned concurrent bootstrap", Code: "registry-" + uuid.NewString(), Timezone: "UTC", DefaultLocale: "en-US"}, uuid.NewString())
+		value, err := service.CreateEnterprise(t.Context(), uuid.NewString(), CreateEnterpriseInput{Name: "Owned concurrent bootstrap", Timezone: "UTC", DefaultLocale: "en-US"}, uuid.NewString())
 		creation <- created{value, err}
 	}()
 	go func() {
@@ -81,7 +81,7 @@ func TestPostgresEnterpriseCreationRejectsNewerRegistry(t *testing.T) {
 	if _, err := store.Pool.Exec(t.Context(), "INSERT INTO permissions(id,description,registry_version) VALUES('owned.future','Future registry',$1)", authorization.PermissionRegistryVersion+1); err != nil {
 		t.Fatal(err)
 	}
-	_, err := service.CreateEnterprise(t.Context(), uuid.NewString(), CreateEnterpriseInput{Name: "Owned stale bootstrap", Code: "stale-" + uuid.NewString(), Timezone: "UTC", DefaultLocale: "en-US"}, uuid.NewString())
+	_, err := service.CreateEnterprise(t.Context(), uuid.NewString(), CreateEnterpriseInput{Name: "Owned stale bootstrap", Timezone: "UTC", DefaultLocale: "en-US"}, uuid.NewString())
 	if err == nil || !strings.Contains(err.Error(), "newer") {
 		t.Fatal("stale enterprise creation overwrote a newer registry", err)
 	}

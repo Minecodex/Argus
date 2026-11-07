@@ -35,7 +35,7 @@ func TestPostgresRetiredTelemetryPrivilegesInvalidateWithoutGrantExpansion(t *te
 		}
 	}
 	e, d, user, account, role := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Permission migration',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Permission migration','UTC')", e)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Migration')", d, e)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Legacy reader')", user, e, d, user.String())
 	exec("INSERT INTO service_accounts(id,enterprise_id,name) VALUES($1,$2,'Legacy reader')", account, e)

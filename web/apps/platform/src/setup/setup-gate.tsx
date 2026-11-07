@@ -6,15 +6,16 @@ import {
   type ReactNode,
 } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormProvider, useForm, useWatch } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import {
   ApiError,
   apiErrorRequestId,
   passwordPolicyRuleFromError,
   useApi,
+  type SetupSubmission,
 } from "@argus/api-client";
 import {
   Alert,
@@ -23,11 +24,8 @@ import {
   Button,
   Card,
   CardContent,
-  Wizard,
-  type WizardStep,
 } from "@argus/ui";
-import { StepReview } from "./step-review";
-import { StepSystem } from "./step-system";
+import { SetupFields } from "./setup-fields";
 import { setupCredentialStore } from "./setup-credential";
 import {
   createInitialDraft,
@@ -43,7 +41,7 @@ import {
 export function PlatformSetupGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const api = useApi();
-  const queryClient = useQueryClient();
+  const [initialized, setInitialized] = useState(false);
   const setupToken = useSyncExternalStore(
     setupCredentialStore.subscribe,
     setupCredentialStore.getSnapshot,
@@ -53,18 +51,24 @@ export function PlatformSetupGate({ children }: { children: ReactNode }) {
   const statusQuery = useQuery({
     queryKey: ["setup", "status"],
     queryFn: () => api.setup.status(),
+    enabled: !initialized,
     retry: 1,
     refetchOnWindowFocus: false,
   });
+  const platformState = statusQuery.data?.state;
 
-  const [step, setStep] = useState(0);
+  useEffect(() => {
+    // Login clears the query cache. Keep the one-way setup decision in the gate
+    // so that cache invalidation cannot unmount the login router.
+    if (platformState === "initialized") setInitialized(true);
+  }, [platformState]);
+
   const schemas = useMemo(() => createSetupSchemas(t), [t]);
   const form = useForm<SetupDraft>({
     resolver: zodResolver(schemas.setup),
     defaultValues: createInitialDraft(setupToken),
     mode: "onTouched",
   });
-  const draft = useWatch({ control: form.control }) as SetupDraft;
 
   useEffect(() => {
     if (!setupToken || form.getValues("setupToken") === setupToken) return;
@@ -72,55 +76,41 @@ export function PlatformSetupGate({ children }: { children: ReactNode }) {
   }, [form, setupToken]);
 
   const submitMutation = useMutation({
-    mutationFn: (input: SetupDraft) => api.setup.submit(toSubmission(input)),
-    onSuccess: (_result, input) => {
+    mutationFn: (input: SetupSubmission) => api.setup.submit(input),
+    gcTime: 0,
+    onSuccess: () => {
+      submitMutation.reset();
+      form.reset(createInitialDraft(""));
       setupCredentialStore.clear();
       window.history.replaceState(null, "", "/login");
-      queryClient.setQueryData(["setup", "status"], {
-        state: "initialized",
-        platformName: input.platformName.trim(),
-      });
+      setInitialized(true);
     },
   });
 
   const submitErrorDescription = (() => {
     if (!(submitMutation.error instanceof ApiError)) {
-      return t("setup.review.genericError");
+      return t("setup.submit.genericError");
     }
     let description: string;
-    if (submitMutation.error.code === "SETUP_TOKEN_INVALID") {
-      description = t("setup.review.tokenInvalid");
+    if (
+      ["SETUP_TOKEN_INVALID", "SETUP_TOKEN_EXPIRED"].includes(
+        submitMutation.error.code,
+      )
+    ) {
+      description = t("setup.submit.tokenInvalid");
     } else {
       const passwordRule = passwordPolicyRuleFromError(submitMutation.error);
       description = passwordRule
         ? t(`setup.system.password.${passwordRule}`)
-        : t("setup.review.genericError");
+        : t("setup.submit.genericError");
     }
     const requestId = apiErrorRequestId(submitMutation.error);
     return requestId
-      ? `${description} ${t("setup.review.requestReference", { requestId })}`
+      ? `${description} ${t("setup.submit.requestReference", { requestId })}`
       : description;
   })();
 
-  const canNext =
-    step === 0
-      ? schemas.system.safeParse(draft).success
-      : !submitMutation.isPending;
-
-  const steps: WizardStep[] = [
-    {
-      id: "system",
-      title: t("setup.steps.system.title"),
-      description: t("setup.steps.system.description"),
-    },
-    {
-      id: "review",
-      title: t("setup.steps.review.title"),
-      description: t("setup.steps.review.description"),
-    },
-  ];
-
-  if (statusQuery.data?.state === "initialized") {
+  if (initialized || platformState === "initialized") {
     return <InitializedPlatformEntry>{children}</InitializedPlatformEntry>;
   }
 
@@ -181,34 +171,24 @@ export function PlatformSetupGate({ children }: { children: ReactNode }) {
       <Card className="argus-setup-card">
         <CardContent>
           <FormProvider {...form}>
-            <Wizard
-              canNext={canNext}
-              current={step}
-              onBack={() => setStep((prev) => Math.max(0, prev - 1))}
-              onNext={() =>
-                setStep((prev) => Math.min(steps.length - 1, prev + 1))
-              }
+            <form
+              className="argus-setup-fields"
               onSubmit={form.handleSubmit((values) =>
-                submitMutation.mutate(values),
+                submitMutation.mutate(toSubmission(values)),
               )}
-              steps={steps}
-              submitLabel={t("setup.review.submit")}
-              submitting={submitMutation.isPending}
             >
-              {step === 0 && <StepSystem />}
-              {step === 1 && (
-                <div className="argus-setup-fields">
-                  <StepReview draft={draft} />
-                  {submitMutation.isError && (
-                    <Alert
-                      description={submitErrorDescription}
-                      title={t("setup.review.errorTitle")}
-                      tone="danger"
-                    />
-                  )}
-                </div>
+              <SetupFields />
+              {submitMutation.isError && (
+                <Alert
+                  description={submitErrorDescription}
+                  title={t("setup.submit.errorTitle")}
+                  tone="danger"
+                />
               )}
-            </Wizard>
+              <Button type="submit" isPending={submitMutation.isPending}>
+                {t("setup.submit.label")}
+              </Button>
+            </form>
           </FormProvider>
         </CardContent>
       </Card>

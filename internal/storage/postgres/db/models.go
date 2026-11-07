@@ -1062,7 +1062,6 @@ type Department struct {
 type Enterprise struct {
 	ID            uuid.UUID          `json:"id"`
 	Name          string             `json:"name"`
-	Code          string             `json:"code"`
 	Status        string             `json:"status"`
 	Timezone      string             `json:"timezone"`
 	DefaultLocale string             `json:"default_locale"`

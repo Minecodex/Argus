@@ -85,8 +85,8 @@ func assertBastionRootLifecycle(t *testing.T, database *sql.DB) {
 
 	var enterpriseID string
 	if err = tx.QueryRow(`
-		INSERT INTO enterprises (id, name, code, timezone)
-		VALUES (gen_random_uuid(), 'Bastion lifecycle test', 'bastion-lifecycle-test', 'UTC')
+		INSERT INTO enterprises (id, name, timezone)
+		VALUES (gen_random_uuid(), 'Bastion lifecycle test', 'UTC')
 		RETURNING id::text
 	`).Scan(&enterpriseID); err != nil {
 		t.Fatal(err)
@@ -238,12 +238,12 @@ func testRemoteAccessGovernanceConstraints(t *testing.T, database *sql.DB) {
 	createdBy := "88888888-8888-4888-8888-888888888888"
 
 	for _, value := range []struct {
-		id, name, code string
+		id, name string
 	}{
-		{enterpriseA, "Governance Constraint A", "governance-constraint-a"},
-		{enterpriseB, "Governance Constraint B", "governance-constraint-b"},
+		{enterpriseA, "Governance Constraint A"},
+		{enterpriseB, "Governance Constraint B"},
 	} {
-		if _, err := tx.Exec(`INSERT INTO enterprises (id, name, code, timezone) VALUES ($1::uuid, $2, $3, 'UTC')`, value.id, value.name, value.code); err != nil {
+		if _, err := tx.Exec(`INSERT INTO enterprises (id, name, timezone) VALUES ($1::uuid, $2, 'UTC')`, value.id, value.name); err != nil {
 			t.Fatal(err)
 		}
 	}

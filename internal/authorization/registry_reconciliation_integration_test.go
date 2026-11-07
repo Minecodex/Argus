@@ -48,7 +48,7 @@ func newOwnedRegistryFixture(t *testing.T) *ownedRegistryFixture {
 	f := &ownedRegistryFixture{t: t, store: postgrestest.New(t, "ARGUS_MONITORING_TEST_DATABASE_URL", "p8_registry_lifecycle", prior), enterprise: uuid.New(), admin: uuid.New(), custom: uuid.New(), user: uuid.New(), other: uuid.New(), account: uuid.New(), grant: uuid.New()}
 	f.service = Service{Store: f.store}
 	department, otherDepartment := uuid.New(), uuid.New()
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Owned old enterprise',$2,'UTC')", f.enterprise, f.enterprise.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Owned old enterprise','UTC')", f.enterprise)
 	f.exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$3,'managed'),($2,$3,'custom')", department, otherDepartment, f.enterprise)
 	f.exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$5,$3,$1::uuid::text,'managed'),($2,$5,$4,$2::uuid::text,'custom')", f.user, f.other, department, otherDepartment, f.enterprise)
 	f.exec("INSERT INTO service_accounts(id,enterprise_id,name) VALUES($1,$2,'owned worker')", f.account, f.enterprise)

@@ -27,7 +27,7 @@ func TestP5CompletedToolRecoveryFixturePreservesExistingEvents(t *testing.T) {
 		}
 	}
 	e, d, u, m, c, r, sourceRun, sourceStep, original := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Fixture SQL',$2,'UTC')", e, "sql-"+e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Fixture SQL','UTC')", e)
 	exec("INSERT INTO departments(id,enterprise_id,name,is_default) VALUES($1,$2,'Default',true)", d, e)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Fixture')", u, e, d, "sql-"+u.String())
 	exec("INSERT INTO ai_models(id,enterprise_id,name,base_url,model_id,api_protocol,context_window_tokens,max_output_tokens,input_price_per_million,output_price_per_million,health_status) VALUES($1,$2,'Fixture','https://model.example.test','model','chat_completions',32768,1024,0,0,'healthy')", m, e)

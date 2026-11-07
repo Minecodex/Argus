@@ -22,40 +22,27 @@ export const TIMEZONE_OPTIONS = [
 export function createInitialDraft(setupToken: string): SetupDraft {
   return {
     setupToken,
-    platformName: "",
-    defaultLocale: "zh-CN",
+    enterpriseName: "",
     timezone: "Asia/Shanghai",
-    externalUrl: "",
     admin: {
       username: "",
       displayName: "",
-      email: "",
       password: "",
       confirmPassword: "",
     },
   };
 }
 
-export function isValidHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USERNAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{2,127}$/;
-
 const setupConstraints = {
-  platformName: formConstraint("SetupInitializeRequest", "platform_name"),
+  enterpriseName: formConstraint("SetupInitializeRequest", "enterprise_name"),
   timezone: formConstraint("SetupInitializeRequest", "timezone"),
-  externalUrl: formConstraint("SetupInitializeRequest", "external_url"),
-  username: formConstraint("SetupSuperAdminInput", "username"),
-  displayName: formConstraint("SetupSuperAdminInput", "display_name"),
-  email: formConstraint("SetupSuperAdminInput", "email"),
+  username: formConstraint("SetupInitializeRequest", "username"),
+  displayName: formConstraint("SetupInitializeRequest", "display_name"),
 };
+
+const USERNAME_PATTERN = new RegExp(
+  setupConstraints.username.pattern ?? "^(?!)$",
+);
 
 export type Translator = (key: string) => string;
 
@@ -85,20 +72,12 @@ export function createSetupSchemas(t: Translator) {
           setupConstraints.displayName.maxLength ?? 128,
           t("setup.system.displayName.tooLong"),
         ),
-      email: z
-        .string()
-        .trim()
-        .refine(
-          (value) => value === "" || EMAIL_PATTERN.test(value),
-          t("setup.system.email.invalid"),
-        ),
       password: z.string().min(1, t("setup.system.password.required")),
       confirmPassword: z.string(),
     })
     .superRefine((value, context) => {
       const rule = validatePasswordPolicy(value.password, {
         username: value.username,
-        email: value.email,
       });
       if (rule) {
         context.addIssue({
@@ -116,30 +95,24 @@ export function createSetupSchemas(t: Translator) {
       }
     });
   const system = z.object({
-    platformName: z
+    enterpriseName: z
       .string()
       .trim()
       .min(
-        setupConstraints.platformName.minLength ?? 1,
-        t("setup.system.platformName.required"),
+        setupConstraints.enterpriseName.minLength ?? 1,
+        t("setup.system.enterpriseName.required"),
       )
       .max(
-        setupConstraints.platformName.maxLength ?? 128,
-        t("setup.system.platformName.tooLong"),
+        setupConstraints.enterpriseName.maxLength ?? 128,
+        t("setup.system.enterpriseName.tooLong"),
       ),
-    defaultLocale: z.enum(["zh-CN", "en-US"]),
     timezone: z
       .string()
       .min(setupConstraints.timezone.minLength ?? 1)
       .max(setupConstraints.timezone.maxLength ?? 128),
-    externalUrl: z
-      .string()
-      .trim()
-      .min(1, t("setup.system.externalUrl.required"))
-      .refine(isValidHttpUrl, t("setup.system.externalUrl.invalid")),
     admin,
   });
-  return { credential, system, setup: credential.merge(system) };
+  return { credential, setup: credential.merge(system) };
 }
 
 export type SetupDraft = z.infer<
@@ -164,15 +137,10 @@ export function passwordStrength(password: string): 0 | 1 | 2 {
 export function toSubmission(draft: SetupDraft): SetupSubmission {
   return {
     setupToken: draft.setupToken.trim(),
-    platformName: draft.platformName.trim(),
-    defaultLocale: draft.defaultLocale,
+    enterpriseName: draft.enterpriseName.trim(),
     timezone: draft.timezone,
-    externalUrl: draft.externalUrl.trim(),
-    superAdmin: {
-      username: draft.admin.username.trim(),
-      displayName: draft.admin.displayName.trim(),
-      email: draft.admin.email.trim() || undefined,
-      password: draft.admin.password,
-    },
+    username: draft.admin.username.trim(),
+    displayName: draft.admin.displayName.trim(),
+    password: draft.admin.password,
   };
 }

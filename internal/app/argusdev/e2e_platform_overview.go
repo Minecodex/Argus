@@ -29,17 +29,17 @@ func (a *App) verifyPlatformOverview(ctx context.Context, env *E2EEnvironment) e
 		return err
 	}
 	marker := "overview-" + uuid.NewString()
-	cleanup := fmt.Sprintf("DELETE FROM sandbox_usage WHERE enterprise_id IN (SELECT id FROM enterprises WHERE code LIKE '%s-%%'); DELETE FROM enterprises WHERE code LIKE '%s-%%';", marker, marker)
+	cleanup := fmt.Sprintf("DELETE FROM sandbox_usage WHERE enterprise_id IN (SELECT id FROM enterprises WHERE name LIKE '%s-%%'); DELETE FROM enterprises WHERE name LIKE '%s-%%';", marker, marker)
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		_, _ = a.postgresQuery(cleanupCtx, env, cleanup)
 	}()
 	seed := fmt.Sprintf(`WITH created AS (
-		INSERT INTO enterprises (id,name,code,timezone,default_locale)
-		SELECT gen_random_uuid(), '%s-'||n, '%s-'||n, 'UTC', 'zh-CN' FROM generate_series(1,205) n RETURNING id
+		INSERT INTO enterprises (id,name,timezone,default_locale)
+		SELECT gen_random_uuid(), '%s-'||n, 'UTC', 'zh-CN' FROM generate_series(1,205) n RETURNING id
 	) INSERT INTO sandbox_usage (enterprise_id,month,session_count,session_seconds)
-	SELECT id, date_trunc('month',now() AT TIME ZONE 'UTC')::date, 3, 31 FROM created;`, marker, marker)
+	SELECT id, date_trunc('month',now() AT TIME ZONE 'UTC')::date, 3, 31 FROM created;`, marker)
 	if _, err = a.postgresQuery(ctx, env, seed); err != nil {
 		return err
 	}

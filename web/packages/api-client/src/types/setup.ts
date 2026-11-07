@@ -7,24 +7,19 @@ export interface SetupStatus {
   platformName?: string;
 }
 
-export interface SetupSuperAdminInput {
-  username: string;
-  displayName: string;
-  email?: string;
-  password: string;
-}
-
 export interface SetupSubmission {
   /** Deployment-provided one-time Setup Token. */
   setupToken: string;
-  platformName: string;
-  defaultLocale: "zh-CN" | "en-US";
+  enterpriseName: string;
   timezone: string;
-  externalUrl: string;
-  superAdmin: SetupSuperAdminInput;
+  username: string;
+  displayName: string;
+  password: string;
 }
 
 export interface SetupResult {
   success: boolean;
   superAdminUserId: string;
+  enterpriseId: string;
+  enterpriseAdminUserId: string;
 }

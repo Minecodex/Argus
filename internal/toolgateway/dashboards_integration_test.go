@@ -73,7 +73,7 @@ func TestPostgresDashboardChatSelectionAndTools(t *testing.T) {
 		}
 	}
 	e, d, u, m, c, role := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Dashboard Chat',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Dashboard Chat','UTC')", e)
 	defer func() {
 		_, _ = store.Pool.Exec(context.Background(), "UPDATE runtime_tasks SET status='succeeded',lease_owner=NULL,lease_until=NULL WHERE enterprise_id=$1", e)
 	}()

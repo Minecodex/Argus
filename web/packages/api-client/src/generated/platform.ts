@@ -179,7 +179,6 @@ export interface components {
         };
         EnterpriseCreate: {
             name: string;
-            code: string;
             timezone: string;
             default_locale?: components["schemas"]["Locale"];
             remark?: string;
@@ -243,9 +242,9 @@ export interface components {
             session_seconds: number;
         };
         Enterprise: {
+            /** Format: uuid */
             id: string;
             name: string;
-            code: string;
             /** @enum {string} */
             status: "active" | "suspended" | "disabled";
             timezone: string;

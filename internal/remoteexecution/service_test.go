@@ -44,7 +44,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 	t.Cleanup(store.Close)
 	f := &fixture{t: t, store: store, e: uuid.New(), d: uuid.New(), u: uuid.New(), m: uuid.New(), c: uuid.New(), r: uuid.New(), h: uuid.New(), connector: uuid.New(), role: uuid.New()}
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Plan7 fixture',$2,'UTC')", f.e, "p7-"+f.e.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Plan7 fixture','UTC')", f.e)
 	if err = audit.InitializeChain(t.Context(), store.Queries, "enterprise", uuid.NullUUID{UUID: f.e, Valid: true}); err != nil {
 		t.Fatal(err)
 	}

@@ -1,0 +1,13 @@
+[Unit]
+Description=Plan9 B08 HTTP log producer
+After=systemd-journald.service
+
+[Service]
+EnvironmentFile=/etc/plan9.env
+ExecStart=/usr/bin/python3 /usr/local/lib/plan9-b08.py serve
+StandardOutput=journal
+StandardError=journal
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

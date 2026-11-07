@@ -9,7 +9,6 @@ export type EnterpriseStatus = "active" | "suspended" | "disabled";
 export interface Enterprise {
   id: string;
   name: string;
-  code: string;
   status: EnterpriseStatus;
   timezone: string;
   sandboxQuotaProfile?: string;
@@ -19,7 +18,6 @@ export interface Enterprise {
 
 export interface CreateEnterpriseInput {
   name: string;
-  code: string;
   timezone?: string;
   sandboxQuotaProfile?: string;
   remark?: string;

@@ -85,7 +85,7 @@ func TestPostgresHelmHTTPProtectedInputsCSRFReplayAndNamespaceScope(t *testing.T
 		}
 	}
 	enterprise, department, user, role, cluster, namespace, connector := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Plan8 Helm HTTP',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Plan8 Helm HTTP','UTC')", enterprise)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Operations')", department, enterprise)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Helm operator')", user, enterprise, department, user.String())
 	exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'Namespace Helm operator')", role, enterprise)

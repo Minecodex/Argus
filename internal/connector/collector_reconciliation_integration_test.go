@@ -34,7 +34,7 @@ func newCollectorReconnectFixture(t *testing.T) *collectorReconnectFixture {
 	store := postgrestest.New(t, "ARGUS_MONITORING_TEST_DATABASE_URL", "collector_replay", filepath.Join("..", "..", "migrations", "postgresql"))
 	f := &collectorReconnectFixture{t: t, store: store, identity: TrustedIdentity{EnterpriseID: uuid.New(), ConnectorID: uuid.New(), SerialNumber: "01"}, collector: uuid.New(), collection: uuid.New(), target: uuid.New(), command: "receipt-" + uuid.NewString()}
 	e, h, d, creator := f.identity.EnterpriseID, uuid.New(), uuid.New(), uuid.New()
-	f.exec("INSERT INTO enterprises(id,name,code,timezone)VALUES($1,'Owned reconnect receipt',$2,'UTC')", e, e.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone)VALUES($1,'Owned reconnect receipt','UTC')", e)
 	if err := audit.InitializeChain(t.Context(), store.Queries, "enterprise", uuid.NullUUID{UUID: e, Valid: true}); err != nil {
 		t.Fatal(err)
 	}

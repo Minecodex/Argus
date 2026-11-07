@@ -62,7 +62,7 @@
 
 | 应用                    | 主要职责         | 当前主要页面                                                              |
 | ----------------------- | ---------------- | ------------------------------------------------------------------------- |
-| `web/apps/platform`     | 初始化与平台管理 | 一次性初始化链接、超级管理员初始化、登录、平台概览、企业、管理员、Sandbox、审计、账号 |
+| `web/apps/platform`     | 初始化与平台管理 | 一次性初始化链接、首家企业与双管理员初始化、登录、平台概览、企业、管理员、Sandbox、审计、账号 |
 | `web/apps/enterprise`   | 企业业务域       | Chatbox、主机、Kubernetes、任务、审批、组织权限、模型、MCP、Secret、审计 |
 | `web/apps/template-runtime` | 独立 Template Origin | CSP 下加载并运行已校验的 Tool 模板，通过 MessagePort 与 Host 通信         |
 
@@ -128,7 +128,7 @@ Evaluation 当前有 Web、Server、合并 Worker、Direct Executor、Connector 
 - HTTP 错误响应的 `message/params/trace_id/request_id` 已跨领域 handler 保留，所有业务错误 mapper 写入稳定 `error_code` 关联日志；错误码注册表已清理重复键并增加“代码返回值必须登记”的契约门禁。
 - `/api/v1` 已启用嵌入式 bundled OpenAPI 请求校验；非法 body/path/query/header 在进入领域 Handler 前返回安全 `INVALID_ARGUMENT`。前端可把 `params.field` 回填到 RHF Field，其他错误显示表单摘要和 request ID，不回显输入、正则、堆栈或内部路径。
 - 企业生命周期、EnterpriseUser/Department 启停、默认 Department/七个内置 Role/默认空 DataAuthorizationGrant、统一授权、签名游标、ServiceAccount/APIKey 和分域 hash-chain 审计。
-- `go run ./cmd/argus-dev e2e run --suite m2`：真实 Platform 初始化 → Platform 登录 → Enterprise → IAM → APIKey → Audit → 撤权，Redis 停止和 Server 重启恢复，三 Origin real Playwright，以及成功/失败无条件清理。
+- `go run ./cmd/argus-dev e2e run --suite m2`：真实首家企业与双管理员初始化 → 双门户登录与独立改密 → 企业 IAM → APIKey → Audit → 撤权，Redis 停止和 Server 重启恢复，三 Origin real Playwright，以及成功/失败无条件清理。
 - M3 OpenAPI/protobuf、Goose/sqlc、Envelope Encryption、Credential Lease、Host/Kubernetes、网络路径变更绑定冻结 ConnectionTest、最小 PendingAction、Bastion/Connector、Gateway Registry/Pub/Sub/Command/sweeper 和 DataAuthorizationGrant 撤权实现。
 - cert-manager Connector PKI、Gateway 独立 ServiceAccount/Issuer/RBAC、独立 Direct Executor CA/mTLS RPC、固定 IP/DNS 重校验、Redirect/TLS/SSRF 防护，以及对应 Helm Service/RBAC/NetworkPolicy。
 - Enterprise real Adapter 与页面已接 Host 路径迁移、Kubernetes 有界资源/Pod Logs、Secret/ManagedAccount、Bastion/Connector 卸载和 Preview/Confirm；`in_cluster` 安装命令通过 Execution 一次性结果能力领取并只在当前内存结果态展示，Collector、Remote Access 和 Agent 操作不读取 mock 数据。

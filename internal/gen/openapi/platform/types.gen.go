@@ -250,10 +250,9 @@ type CursorPage struct {
 
 // Enterprise defines model for Enterprise.
 type Enterprise struct {
-	Code          string                  `json:"code"`
 	CreatedAt     time.Time               `json:"created_at"`
 	DefaultLocale EnterpriseDefaultLocale `json:"default_locale"`
-	Id            string                  `json:"id"`
+	Id            openapi_types.UUID      `json:"id"`
 	Name          string                  `json:"name"`
 	Remark        *string                 `json:"remark,omitempty"`
 	Status        EnterpriseStatus        `json:"status"`
@@ -278,7 +277,6 @@ type EnterpriseAdminCreate struct {
 
 // EnterpriseCreate defines model for EnterpriseCreate.
 type EnterpriseCreate struct {
-	Code          string  `json:"code"`
 	DefaultLocale *Locale `json:"default_locale,omitempty"`
 	Name          string  `json:"name"`
 	Remark        *string `json:"remark,omitempty"`

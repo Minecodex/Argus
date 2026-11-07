@@ -36,7 +36,7 @@ func TestPostgresObservationCapabilityMaximumBatchRoundTrips(t *testing.T) {
 		}
 	}
 	enterprise, department, user, role := uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Plan11 batch',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Plan11 batch','UTC')", enterprise)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Batch readers')", department, enterprise)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Batch reader')", user, enterprise, department, user.String())
 	exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'Batch reader')", role, enterprise)

@@ -3,9 +3,9 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         Enterprise: {
+            /** Format: uuid */
             id: string;
             name: string;
-            code: string;
             /** @enum {string} */
             status: "active" | "suspended" | "disabled";
             timezone: string;

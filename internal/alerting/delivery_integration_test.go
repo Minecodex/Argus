@@ -31,7 +31,7 @@ func TestPostgresCollectorDeliveryReportOutboxAlertIsolationAndReplay(t *testing
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Delivery evidence',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Delivery evidence','UTC')", enterprise)
 	department := uuid.New()
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Operations')", department, enterprise)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Operator')", user, enterprise, department, user.String())

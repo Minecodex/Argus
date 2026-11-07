@@ -47,7 +47,7 @@ func TestBastionDeletePreviewRiskPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	enterpriseID, scopeID, hostID, actorID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	bastionPreviewSQL(t, store, "INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Bastion preview',$2,'UTC')", enterpriseID, "bastion-preview-"+enterpriseID.String())
+	bastionPreviewSQL(t, store, "INSERT INTO enterprises(id,name,timezone) VALUES($1,'Bastion preview','UTC')", enterpriseID)
 	bastionPreviewSQL(t, store, "INSERT INTO bastion_scopes(id,enterprise_id,name,environment,labels_hash,onboarding_mode,status) VALUES($1,$2,'Pending bastion','development',decode(repeat('00',32),'hex'),'direct_install','pending')", scopeID, enterpriseID)
 	bastionPreviewSQL(t, store, "INSERT INTO hosts(id,enterprise_id,name,address,port,platform,architecture,environment,labels_hash,role,control_path,bastion_scope_id,status) VALUES($1,$2,'Pending bastion','192.0.2.40',22,'linux','amd64','development',decode(repeat('00',32),'hex'),'bastion','direct',$3,'active')", hostID, enterpriseID, scopeID)
 	bastionPreviewSQL(t, store, "UPDATE bastion_scopes SET connector_host_id=$2 WHERE id=$1", scopeID, hostID)

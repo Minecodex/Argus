@@ -1,6 +1,6 @@
 # Plan9：分批真实场景与人工验收
 
-创建日期：2026-10-26。当前阶段为 **B07b 已清理，B07c Jaeger gRPC 已部署并等待用户查看**。两个服务的三信号、21 个面板、两类告警和 6 项真实浏览器验证通过。
+创建日期：2026-10-26。当前阶段为 **B07c 已清理，B08 Linux 文件日志与 Journald 已部署并等待用户查看**。三条规则、两种文件轮转、一次实际告警和四组浏览器检查通过。日志下载列为 B08-D01。
 
 ## 要完成的事情
 
@@ -18,7 +18,7 @@
 
 ## 本轮交付和后续交付
 
-B07c 沿用真实网关、业务服务和 Redis 请求链路。Trace 使用 Jaeger 原生 gRPC，指标和日志通过独立 OTLP gRPC 接入点上报。平台入口及告警窗口见 [B07c 查看与运行记录](./batches/B07c-review.md)。
+B08 从实际 HTTP 服务采集应用文件日志、多行异常和主机 Journal，并通过 systemd 指标验证实际故障告警。平台入口及告警窗口见 [B08 查看与运行记录](./batches/B08-review.md)。
 
 用户指定某批后，先在本目录补齐该批可运行文件并验证，再执行部署；无需用户另外手工安装中间件、填仪表盘或配置告警。缺少实际登录、模型凭据、VM 等必要条件时，明确指出缺什么，继续完成不依赖它的准备工作。
 
@@ -57,7 +57,9 @@ B07c 沿用真实网关、业务服务和 Redis 请求链路。Trace 使用 Jaeg
 | [B06d 运行包](./runtime/B06d/runbook.md) | 受支持认证组合、最小授权、有界负载与清理 |
 | [B07a 查看入口](./batches/B07a-review.md) | 实际 HTTP 链路、SDK 三信号和告警窗口 |
 | [B07b 运行归档](./batches/B07b-review.md) | OTLP gRPC 三信号回执、告警窗口和清理状态 |
-| [B07c 查看与运行记录](./batches/B07c-review.md) | Jaeger Trace、关联日志、仪表盘和告警窗口 |
+| [B07c 运行归档](./batches/B07c-review.md) | Jaeger Trace、关联日志、告警窗口和清理状态 |
+| [B08 查看与运行记录](./batches/B08-review.md) | 文件日志、Journald、轮转、续采与告警窗口 |
+| [B08 运行包](./runtime/B08/runbook.md) | 独立规则、故障、实际浏览器与清理 |
 | [B07 运行包](./runtime/B07a/runbook.md) | 服务、TLS/Key 接入、负载与清理 |
 | [B07a 接入与查询修正](./09-b07a-application-source-capability.md) | 应用来源契约、拓扑预算与重复读取复用 |
 | [状态清单](./progress.json) | 规划状态、支持范围映射及后续运行索引 |

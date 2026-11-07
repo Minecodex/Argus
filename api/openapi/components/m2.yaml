@@ -34,34 +34,26 @@ components:
       properties:
         state: { $ref: "#/components/schemas/PlatformState" }
         platform_name: { type: string, minLength: 1, maxLength: 128 }
-    SetupSuperAdminInput:
-      type: object
-      additionalProperties: false
-      required: [username, display_name, password]
-      properties:
-        username: { type: string, minLength: 3, maxLength: 128 }
-        display_name: { type: string, minLength: 1, maxLength: 128 }
-        email: { type: string, format: email }
-        password:
-          { type: string, minLength: 12, maxLength: 1024, writeOnly: true }
     SetupInitializeRequest:
       type: object
       additionalProperties: false
-      required:
-        [platform_name, default_locale, timezone, external_url, super_admin]
+      required: [enterprise_name, timezone, username, display_name, password]
       properties:
-        platform_name: { type: string, minLength: 1, maxLength: 128 }
-        default_locale: { $ref: "./common.yaml#/components/schemas/Locale" }
+        enterprise_name: { type: string, minLength: 1, maxLength: 128 }
         timezone: { type: string, minLength: 1, maxLength: 128 }
-        external_url: { type: string, format: uri }
-        super_admin: { $ref: "#/components/schemas/SetupSuperAdminInput" }
+        username: { type: string, minLength: 3, maxLength: 128, pattern: "^[a-zA-Z][a-zA-Z0-9_-]{2,127}$" }
+        display_name: { type: string, minLength: 1, maxLength: 128 }
+        password:
+          { type: string, minLength: 12, maxLength: 1024, writeOnly: true }
     SetupInitializeResult:
       type: object
       additionalProperties: false
-      required: [state, platform_user_id]
+      required: [state, platform_user_id, enterprise_id, enterprise_user_id]
       properties:
         state: { type: string, const: initialized }
         platform_user_id: { type: string, format: uuid }
+        enterprise_id: { type: string, format: uuid }
+        enterprise_user_id: { type: string, format: uuid }
     LoginRequest:
       type: object
       additionalProperties: false
@@ -158,16 +150,9 @@ components:
     EnterpriseCreate:
       type: object
       additionalProperties: false
-      required: [name, code, timezone]
+      required: [name, timezone]
       properties:
         name: { type: string, minLength: 1, maxLength: 128 }
-        code:
-          {
-            type: string,
-            minLength: 1,
-            maxLength: 63,
-            pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-          }
         timezone: { type: string, minLength: 1, maxLength: 128 }
         default_locale: { $ref: "./common.yaml#/components/schemas/Locale" }
         remark: { type: string, maxLength: 2048 }

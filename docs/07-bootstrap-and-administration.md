@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-Argus 第一次启动时没有任何用户和企业。系统通过一次性初始化流程让部署者设置平台超级管理员账号和密码。初始化完成后，平台超级管理员负责创建企业和对应企业管理员；企业管理员进入独立企业门户管理本企业。OpenSandbox 由 Helm 安装和配置，不进入 Setup 向导；其治理 API 在 M4 Agent/Sandbox 接入前补充。
+Argus 第一次启动时没有任何用户和企业。部署者通过一次性初始化创建首家企业、平台超级管理员和首家企业管理员。两个管理员使用相同的初始登录名、显示名和密码，各自拥有独立的用户 ID、凭据和会话。初始化后，平台超级管理员可创建其他企业和对应企业管理员。OpenSandbox 由 Helm 安装和配置，不进入 Setup 向导；其治理 API 在 M4 Agent/Sandbox 接入前补充。
 
 平台超级管理员不是企业的“万能管理员”，其权限应保持最小化。
 
@@ -64,22 +64,11 @@ Setup Token 应具有：
 
 未初始化时可以执行 `argusctl setup-token rotate` 更新 Secret；初始化完成后该命令必须拒绝执行。
 
-## 4. 初始化向导
+## 4. 初始化表单
 
-建议步骤：
+同一页填写企业名称、时区、管理员登录名、显示名、密码和确认密码。显示名可从登录名预填。确认密码在浏览器内校验，提交只包含一份密码。
 
-### 4.1 系统信息
-
-- 平台显示名称。
-- 默认语言和时区。
-- 外部访问地址，用于门户跳转和后续受信回调地址；域名模式下默认为安装配置的企业门户域名（HTTPS）。
-
-### 4.2 超级管理员
-
-- 登录名。
-- 显示名称。
-- 邮箱。
-- 密码与确认密码。
+所选时区用作平台与首家企业的默认时区。平台显示名称使用 Argus，默认语言为简体中文，外部地址取部署配置中的企业门户地址。首家企业使用正常状态和后端生成的 UUID，备注与管理员邮箱留空。
 
 密码策略由 `api/contracts/password-policy.json` 作为唯一机器可读事实，并生成 Go 与 TypeScript 常量。当前规则为：
 
@@ -93,19 +82,18 @@ Setup Token 应具有：
 
 前端校验用于即时反馈，后端必须重复执行同一生成策略。失败响应保持稳定 `PASSWORD_WEAK`，并只公开 `field=password`、失败 `rule` 和适用的长度边界；不返回密码片段、命中内容或哈希细节。
 
-### 4.3 初始化提交
+### 4.1 初始化提交
 
-初始化必须在一个数据库事务中完成：
+服务端验证一次性 Setup Token 后，在同一个 PostgreSQL 事务内完成以下操作。
 
-1. 锁定 PlatformState。
-2. 再次确认系统未初始化。
-3. 校验 Setup Token。
-4. 创建平台超级管理员。
-5. 创建平台默认设置和审计根记录。
-6. 将 PlatformState 更新为 `initialized`。
-7. 永久关闭 Setup 接口并使 Setup Token 失效。
+1. 锁定 PlatformState 并确认系统尚未初始化。
+2. 创建平台默认设置、平台超级管理员和平台审计链。
+3. 创建首家企业、默认部门、内置角色和企业审计链。
+4. 创建绑定企业和默认部门的独立 EnterpriseUser，授予内置企业管理员角色并初始化授权版本。
+5. 为两个账号分别生成加盐的 Argon2id 哈希，保存为正式密码。
+6. 提交审计记录与 `PlatformState` 的 `initialized` 状态，使初始化凭据失效。
 
-并发初始化请求只能有一个成功。
+并发初始化只允许一次创建。任一数据库写入失败则回滚整次提交。企业的 ClickHouse 物理表由遥测租户协调器根据企业 UUID 创建。首次登录两个门户分别取得各自的会话，改密和会话撤销作用于当前账号。
 
 ## 5. 超级管理员登录后界面
 
@@ -138,13 +126,11 @@ M1 原型中的 Sandbox 页面在 M2 real 模式保持稳定不可用，不得�
 
 ## 6. 企业创建
 
-超级管理员创建企业时填写：
+超级管理员创建后续企业时填写以下信息。企业 UUID 由服务端生成，列表以企业名称展示，详情可查询 UUID。
 
 ```json
 {
   "name": "Example Corp",
-  "code": "example-corp",
-  "status": "active",
   "timezone": "Asia/Shanghai",
   "remark": ""
 }
@@ -158,7 +144,7 @@ M1 原型中的 Sandbox 页面在 M2 real 模式保持稳定不可用，不得�
 
 删除企业属于高危且难恢复操作，不建议第一版提供。先提供停用和数据保留策略。
 
-创建企业时必须在同一事务或可恢复工作流中创建可重命名的默认 Department、内置 Role 模板和默认管理员账号。DataAuthorizationGrant 只接受已经存在的 Host 或 KubernetesCluster ID；资源创建成功后，再在同一资源事务中为实际创建主体写入只读授权。第一版不创建 Default Project；Host 和 KubernetesCluster 通过用户标签归类，Conversation、Run 和 PendingAction 只归属企业并分别保存实际目标资源和授权快照。
+创建企业时在同一事务内创建可重命名的默认 Department、内置 Role 模板和企业审计链。首家企业的管理员由 Setup 在同一事务内创建，后续企业的管理员由平台超级管理员创建。DataAuthorizationGrant 只接受已经存在的 Host 或 KubernetesCluster ID；资源创建成功后，再在同一资源事务中为实际创建主体写入只读授权。第一版不创建 Default Project；Host 和 KubernetesCluster 通过用户标签归类，Conversation、Run 和 PendingAction 只归属企业并分别保存实际目标资源和授权快照。
 
 企业状态必须由授权服务在所有入口统一执行，不能只在登录页面判断：
 
@@ -179,19 +165,18 @@ M1 原型中的 Sandbox 页面在 M2 real 模式保持稳定不可用，不得�
 
 ## 7. 创建企业管理员
 
-企业创建完成后，超级管理员至少创建一名 Enterprise Admin：
+后续企业创建完成后，超级管理员可以创建 Enterprise Admin。
 
 ```json
 {
-  "enterprise_id": "ent-01",
+  "enterprise_id": "01940000-0000-7000-8000-000000000001",
   "username": "corp-admin",
   "display_name": "企业管理员",
-  "email": "admin@example.com",
-  "department_id": "default-department-id"
+  "email": "admin@example.com"
 }
 ```
 
-第一版只支持 24 小时临时密码，首次登录必须修改；不实现激活链接、邮件、SMTP 或重发邀请。临时密码只在创建或重置结果中显示一次，不进入 URL、日志、Query Cache 或 localStorage。
+平台管理门户创建的后续企业管理员使用 24 小时临时密码，首次登录必须修改；不实现激活链接、邮件、SMTP 或重发邀请。临时密码只在创建或重置结果中显示一次，不进入 URL、日志、Query Cache 或 localStorage。
 
 Enterprise 用户名全局大小写不敏感唯一。原因是企业登录只提交 `username + password`，不接受客户端 `enterprise_id`，因此服务端必须在认证前唯一定位企业身份。
 
@@ -210,7 +195,7 @@ Enterprise 用户名全局大小写不敏感唯一。原因是企业登录只提
 
 ## 8. 企业管理员门户
 
-企业用户登录固定企业门户，例如 `/app`。如果路由为了可读性包含企业 Code，服务端仍必须从已认证的 EnterpriseUser 获取唯一 `enterprise_id`，不能把 URL 参数作为企业切换能力。企业门户使用两种布局而不是在 Chatbox 外再叠一层完整管理侧栏：
+企业用户登录固定企业门户，例如 `/app`。服务端从已认证的 EnterpriseUser 获取唯一 `enterprise_id`。企业门户使用两种布局而不是在 Chatbox 外再叠一层完整管理侧栏：
 
 - Chatbox 布局左侧只显示新建会话、搜索和会话历史，底部提供“进入管理后台”。
 - 管理后台布局左侧显示确定性管理菜单，底部提供“返回智能会话”，与会话页的“进入管理后台”使用相同的侧栏底部位置和共享样式；顶栏不再放置切换入口。
@@ -269,7 +254,7 @@ AIOps 设置统一为 `/settings/aiops`，一级 Tab 为“模型设置 / MCP �
 
 ## 9. 固定企业上下文和资源范围
 
-EnterpriseUser 登录后只有一个固定企业上下文。服务端 Session 和 Access Token 必须包含该用户唯一的企业 Audience；客户端提交的 `enterprise_id`、URL 企业 Code 或资源 ID 只是请求参数，任何查询都必须再次验证资源真实归属。
+EnterpriseUser 登录后只有一个固定企业上下文。服务端 Session 和 Access Token 必须包含该用户唯一的企业 Audience；客户端提交的 `enterprise_id` 或资源 ID 只是请求参数，任何查询都必须再次验证资源真实归属。
 
 平台 Session 和企业 Session 必须使用不同 Audience、路由和 Cookie/Token 约束。平台身份不能访问企业 API，企业身份不能访问平台 API；禁止通过 `enterprise_id = null`、指定其他企业 ID 或修改 URL 切换身份域。
 

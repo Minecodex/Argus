@@ -18,7 +18,7 @@ export async function createConfiguredApiClient(
 ): Promise<ArgusApiClient> {
   if (options.mode === "mock") {
     const { createMockApiClient } = await import("./mock/index.js");
-    return createMockApiClient(options.mock);
+    return createMockApiClient({ ...options.mock, portal: options.portal });
   }
   if (options.mode === "real") {
     if (!options.base_url) {

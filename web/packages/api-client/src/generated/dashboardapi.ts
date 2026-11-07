@@ -1171,6 +1171,8 @@ export interface components {
             /** Format: uuid */
             generation: string;
             type: string;
+            /** @description Display name of the registered collection or ingest endpoint, when readable. */
+            name?: string;
             capability_version: string;
             /** @description Whether this source belongs to the current installed generation when this execution was frozen; not proof of active collection. */
             current_installation?: boolean;

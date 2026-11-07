@@ -121,18 +121,21 @@ export interface components {
             platform_name?: string;
         };
         SetupInitializeRequest: {
-            platform_name: string;
-            default_locale: components["schemas"]["Locale"];
+            enterprise_name: string;
             timezone: string;
-            /** Format: uri */
-            external_url: string;
-            super_admin: components["schemas"]["SetupSuperAdminInput"];
+            username: string;
+            display_name: string;
+            password: string;
         };
         SetupInitializeResult: {
             /** @constant */
             state: "initialized";
             /** Format: uuid */
             platform_user_id: string;
+            /** Format: uuid */
+            enterprise_id: string;
+            /** Format: uuid */
+            enterprise_user_id: string;
         };
         LoginRequest: {
             username: string;
@@ -195,15 +198,6 @@ export interface components {
             retryable: boolean;
         };
         IdempotencyKey: string;
-        /** @enum {string} */
-        Locale: "zh-CN" | "en-US";
-        SetupSuperAdminInput: {
-            username: string;
-            display_name: string;
-            /** Format: email */
-            email?: string;
-            password: string;
-        };
         /** Format: int64 */
         AuthorizationVersion: number;
         Session: {

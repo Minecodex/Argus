@@ -88,7 +88,7 @@ func TestPostgresAuditWorkflowFinalResultCorrelationAndReplay(t *testing.T) {
 	f.call("GET", "/enterprise/audit-events?operation_ref="+failedRef+"&limit=1&cursor="+*page.Page.NextCursor, nil, 400, "")
 	// Same authenticated identity switched to a different tenant has no access.
 	other := uuid.New()
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Other audit tenant',$2,'UTC')", other, other.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Other audit tenant','UTC')", other)
 	department, user, role := uuid.New(), uuid.New(), uuid.New()
 	f.exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Other')", department, other)
 	f.exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,'other-operator','Other operator')", user, other, department)

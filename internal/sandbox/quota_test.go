@@ -20,7 +20,7 @@ func TestQuotaCreateAndUpdateRequireTheObservedVersion(t *testing.T) {
 	}
 	defer store.Close()
 	enterprise := uuid.New()
-	if _, err := store.Pool.Exec(t.Context(), "INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'P5 quota',$2,'UTC')", enterprise, "p5-"+enterprise.String()); err != nil {
+	if _, err := store.Pool.Exec(t.Context(), "INSERT INTO enterprises(id,name,timezone) VALUES($1,'P5 quota','UTC')", enterprise); err != nil {
 		t.Fatal(err)
 	}
 	service := Service{Store: store}

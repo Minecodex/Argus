@@ -673,7 +673,6 @@ export function createSeedDb(now: number = Date.now()): MockDb {
       {
         id: "ent-acme",
         name: "Acme Corp",
-        code: "acme",
         status: "active",
         timezone: "Asia/Shanghai",
         sandboxQuotaProfile: "standard",
@@ -683,7 +682,6 @@ export function createSeedDb(now: number = Date.now()): MockDb {
       {
         id: "ent-globex",
         name: "Globex Ltd",
-        code: "globex",
         status: "active",
         timezone: "Asia/Shanghai",
         sandboxQuotaProfile: "standard",

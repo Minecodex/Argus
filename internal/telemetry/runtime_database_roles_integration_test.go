@@ -167,7 +167,7 @@ func TestPostgresTelemetryRuntimeRolesAndLateRoleReconciliation(t *testing.T) {
 		}
 	})
 	enterprise, host, collector, generation, distribution, creator := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Runtime role regression',$2,'UTC')", enterprise, "runtime-roles-"+enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Runtime role regression','UTC')", enterprise)
 	exec("INSERT INTO hosts(id,enterprise_id,name,address,port,environment,platform,role,control_path,labels_hash) VALUES($1,$2,'Role collector','127.0.0.1',22,'development','linux','managed_host','direct',decode(repeat('00',32),'hex'))", host, enterprise)
 	exec("INSERT INTO collector_distribution_versions(id,name,version,collector_version,config_schema_version,support_status,components,artifact_manifest,catalog_revision) VALUES($1,$2,$3,$4,$5,'supported',$6,'[]',1)", distribution, distribution.String(), configbundle.DistributionVersion, configbundle.CollectorVersion, configbundle.CatalogConfigSchemaVersion, configbundle.DistributionComponents("linux_amd64"))
 	exec("INSERT INTO collector_instances(id,enterprise_id,resource_type,resource_id,distribution_version_id,platform,role,status,source_generation,desired_revision,effective_revision) VALUES($1,$2,'host',$3,$4,'linux_amd64','direct','converged',$5,1,1)", collector, enterprise, host, distribution, generation)

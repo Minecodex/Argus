@@ -65,7 +65,7 @@ func TestPostgresTelemetryObjectReadParityAndRevocation(t *testing.T) {
 		}
 	}
 	e, d, user, sa, role, host, cluster := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Access parity',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Access parity','UTC')", e)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Access')", d, e)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Reader')", user, e, d, user.String())
 	exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'Object reader')", role, e)

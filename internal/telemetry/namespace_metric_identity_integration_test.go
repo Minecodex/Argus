@@ -31,7 +31,7 @@ func TestPostgresMetricNamespaceUIDCannotFollowRecreatedName(t *testing.T) {
 		}
 	}
 	enterprise, cluster := uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Namespace admission',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Namespace admission','UTC')", enterprise)
 	exec("INSERT INTO kubernetes_clusters(id,enterprise_id,name,api_server,connection_mode,default_namespace,environment,labels_hash) VALUES($1,$2,'Namespace admission','https://cluster.example.test','in_cluster','default','development',decode(repeat('00',32),'hex'))", cluster, enterprise)
 	uid := uuid.NewString()
 	row, err := store.Queries.UpsertKubernetesNamespaceResource(t.Context(), db.UpsertKubernetesNamespaceResourceParams{ID: uuid.New(), EnterpriseID: enterprise, ClusterID: cluster, Name: "orders", NamespaceUid: uid})

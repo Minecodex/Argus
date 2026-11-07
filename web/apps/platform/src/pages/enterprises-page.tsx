@@ -35,7 +35,6 @@ import { formatDateTime } from "../lib/format";
 type EnterpriseRow = {
   id: string;
   name: string;
-  code: string;
   timezone: string;
   status: Enterprise["status"];
   createdAt: string;
@@ -60,14 +59,9 @@ const TIMEZONES = [
 
 const enterpriseCreateConstraints = {
   name: formConstraint("EnterpriseCreate", "name"),
-  code: formConstraint("EnterpriseCreate", "code"),
   timezone: formConstraint("EnterpriseCreate", "timezone"),
   remark: formConstraint("EnterpriseCreate", "remark"),
 };
-
-const enterpriseCodePattern = new RegExp(
-  enterpriseCreateConstraints.code.pattern ?? "^(?!)$",
-);
 
 /** 企业管理：生命周期（创建/暂停/激活/停用，无删除）+ 详情抽屉内配额编辑。 */
 export function EnterprisesPage() {
@@ -99,18 +93,6 @@ export function EnterprisesPage() {
               max: enterpriseCreateConstraints.name.maxLength ?? 128,
             }),
           ),
-        code: z
-          .string()
-          .trim()
-          .min(
-            enterpriseCreateConstraints.code.minLength ?? 1,
-            t("enterprises.form.required"),
-          )
-          .max(
-            enterpriseCreateConstraints.code.maxLength ?? 63,
-            t("enterprises.form.codeInvalid"),
-          )
-          .regex(enterpriseCodePattern, t("enterprises.form.codeInvalid")),
         timezone: z
           .string()
           .min(
@@ -144,7 +126,6 @@ export function EnterprisesPage() {
     resolver: zodResolver(enterpriseSchema),
     defaultValues: {
       name: "",
-      code: "",
       timezone: TIMEZONES[0]!,
       remark: "",
     },
@@ -161,7 +142,6 @@ export function EnterprisesPage() {
     mutationFn: (input: EnterpriseForm) =>
       api.platform.enterprises.create({
         name: input.name,
-        code: input.code,
         timezone: input.timezone,
         remark: input.remark.trim() || undefined,
       }),
@@ -173,10 +153,7 @@ export function EnterprisesPage() {
     onError: (error) => {
       const field = apiErrorField(error);
       const formField =
-        field === "name" ||
-        field === "code" ||
-        field === "timezone" ||
-        field === "remark"
+        field === "name" || field === "timezone" || field === "remark"
           ? field
           : undefined;
       const message = formatApiError(
@@ -221,7 +198,6 @@ export function EnterprisesPage() {
   const rows: EnterpriseRow[] = (enterprises.data?.items ?? []).map((item) => ({
     id: item.id,
     name: item.name,
-    code: item.code,
     timezone: item.timezone,
     status: item.status,
     createdAt: item.createdAt,
@@ -257,7 +233,6 @@ export function EnterprisesPage() {
               <ResourceCard
                 key={row.id}
                 title={row.name}
-                subtitle={row.code}
                 onOpen={() => setDetail(findEnterprise(row.id))}
                 status={
                   <StatusBadge tone={statusTone(row.status)}>
@@ -365,18 +340,6 @@ export function EnterprisesPage() {
         </Field>
         <Field
           requirement="required"
-          hint={t("enterprises.form.codeHint")}
-          error={errors.code?.message}
-          label={t("enterprises.form.code")}
-        >
-          <Input
-            {...register("code")}
-            maxLength={enterpriseCreateConstraints.code.maxLength}
-            required
-          />
-        </Field>
-        <Field
-          requirement="required"
           error={errors.timezone?.message}
           label={t("enterprises.form.timezone")}
         >
@@ -468,10 +431,6 @@ export function EnterprisesPage() {
                   value: <code className="argus-mono">{detail.id}</code>,
                 },
                 { label: t("enterprises.table.name"), value: detail.name },
-                {
-                  label: t("enterprises.table.code"),
-                  value: <code className="argus-mono">{detail.code}</code>,
-                },
                 {
                   label: t("enterprises.table.timezone"),
                   value: detail.timezone,

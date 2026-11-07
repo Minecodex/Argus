@@ -116,7 +116,7 @@ func newNativeSDKProtocolPipelineWithFaults(t *testing.T, protocol string, fault
 	}
 	t.Cleanup(func() { _ = f.conn.Close() })
 	distribution, creator := uuid.New(), uuid.New()
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Owned real SDK pipeline',$2,'UTC')", f.enterprise, f.enterprise.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Owned real SDK pipeline','UTC')", f.enterprise)
 	f.exec("INSERT INTO hosts(id,enterprise_id,name,address,port,environment,platform,role,control_path,labels_hash) VALUES($1,$2,'Controlled SDK transport','127.0.0.1',22,'development','linux','managed_host','direct',decode(repeat('00',32),'hex'))", f.host, f.enterprise)
 	f.exec("INSERT INTO collector_distribution_versions(id,name,version,collector_version,config_schema_version,support_status,components,artifact_manifest,catalog_revision) VALUES($1,$2,$3,$4,$5,'supported',$6,'[]',1)", distribution, distribution.String(), configbundle.DistributionVersion, configbundle.CollectorVersion, configbundle.CatalogConfigSchemaVersion, configbundle.DistributionComponents("linux_amd64"))
 	f.exec("INSERT INTO collector_instances(id,enterprise_id,resource_type,resource_id,distribution_version_id,platform,role,status,source_generation,desired_revision,effective_revision) VALUES($1,$2,'host',$3,$4,'linux_amd64','direct','converged',$5,1,1)", f.collector, f.enterprise, f.host, distribution, f.generation)

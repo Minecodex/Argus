@@ -41,7 +41,7 @@ func TestRegisteredWorkspacePublicationUsesRemoteSourceAuthorization(t *testing.
 		}
 	}
 	e, d, u, m, c, r, w, role := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Publication regression',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Publication regression','UTC')", e)
 	exec("INSERT INTO departments(id,enterprise_id,name,is_default) VALUES($1,$2,'Default',true)", d, e)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Publisher')", u, e, d, u.String())
 	exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'Publisher')", role, e)
