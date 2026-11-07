@@ -24,7 +24,7 @@ import (
 
 type fixture struct {
 	Enterprise, User, Department, Role, Model, Conversation uuid.UUID
-	Code, Username, Password                                string
+	Name, Username, Password                                string
 }
 
 func main() {
@@ -46,7 +46,7 @@ func main() {
 		return
 	}
 	f := fixture{Enterprise: uuid.New(), User: uuid.New(), Department: uuid.New(), Role: uuid.New(), Model: uuid.New(), Conversation: uuid.New(), Password: "Aa9!" + uuid.NewString()}
-	f.Code, f.Username = "template-smoke-"+f.Enterprise.String(), "template_smoke_"+strings.ReplaceAll(f.User.String(), "-", "")
+	f.Name, f.Username = "template-smoke-"+f.Enterprise.String(), "template_smoke_"+strings.ReplaceAll(f.User.String(), "-", "")
 	// Write ownership before any mutation so a failed setup can be cleaned.
 	raw, _ := json.Marshal(f)
 	must(os.WriteFile(os.Args[2], raw, 0600))
@@ -82,7 +82,7 @@ func create(ctx context.Context, store *postgres.Store, f fixture) error {
 			sql  string
 			args []any
 		}{
-			{"INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Template release smoke (owned empty tenant)',$2,'Asia/Shanghai')", []any{f.Enterprise, f.Code}},
+			{"INSERT INTO enterprises(id,name,timezone) VALUES($1,$2,'Asia/Shanghai')", []any{f.Enterprise, f.Name}},
 			{"INSERT INTO departments(id,enterprise_id,name,is_default) VALUES($1,$2,'Smoke',true)", []any{f.Department, f.Enterprise}},
 			{"INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'模板发布验收')", []any{f.User, f.Enterprise, f.Department, f.Username}},
 			{"INSERT INTO password_credentials(id,audience,subject_id,encoded_hash,temporary) VALUES($1,'enterprise',$2,$3,false)", []any{uuid.New(), f.User, hash}},
@@ -161,15 +161,15 @@ func create(ctx context.Context, store *postgres.Store, f fixture) error {
 }
 
 func clean(ctx context.Context, store *postgres.Store, f fixture) error {
-	var code string
-	err := store.Pool.QueryRow(ctx, "SELECT code FROM enterprises WHERE id=$1", f.Enterprise).Scan(&code)
+	var name string
+	err := store.Pool.QueryRow(ctx, "SELECT name FROM enterprises WHERE id=$1", f.Enterprise).Scan(&name)
 	if err == pgx.ErrNoRows {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	if code != f.Code || !strings.HasPrefix(code, "template-smoke-") || f.User == uuid.Nil {
+	if name != f.Name || !strings.HasPrefix(name, "template-smoke-") || f.User == uuid.Nil {
 		return fmt.Errorf("smoke ownership changed")
 	}
 	return withTx(ctx, store, func(tx pgx.Tx, q *db.Queries) error {
@@ -203,7 +203,7 @@ func clean(ctx context.Context, store *postgres.Store, f fixture) error {
 				return err
 			}
 		}
-		_, err = tx.Exec(ctx, "DELETE FROM enterprises WHERE id=$1 AND code=$2", f.Enterprise, f.Code)
+		_, err = tx.Exec(ctx, "DELETE FROM enterprises WHERE id=$1 AND name=$2", f.Enterprise, f.Name)
 		return err
 	})
 }

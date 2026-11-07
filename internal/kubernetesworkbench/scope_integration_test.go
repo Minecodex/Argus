@@ -67,7 +67,7 @@ func TestPostgresWorkbenchNamespaceScopesAndCursorRevocation(t *testing.T) {
 			t.Fatal(e)
 		}
 	}
-	execute("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Plan8 inventory',$2,'UTC')", enterprise, enterprise.String())
+	execute("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Plan8 inventory','UTC')", enterprise)
 	execute("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'operators')", department, enterprise)
 	execute("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'operator')", user, enterprise, department, user.String())
 	execute("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'namespace reader')", role, enterprise)

@@ -30,7 +30,7 @@ func TestPostgresObservationDirectorySeparatesEnterpriseUserAndDepartment(t *tes
 	}
 	enterprise, foreignEnterprise := uuid.New(), uuid.New()
 	for _, id := range []uuid.UUID{enterprise, foreignEnterprise} {
-		exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Isolation',$2,'UTC')", id, id.String())
+		exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Isolation','UTC')", id)
 	}
 	exec("INSERT INTO permissions(id,description,registry_version) VALUES('host.read','Read Host',$1) ON CONFLICT DO NOTHING", authorization.PermissionRegistryVersion)
 	actors := []authorization.Actor{}

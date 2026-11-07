@@ -20,13 +20,7 @@ async function monitoringFixture(page: Page, english: boolean, theme: string) {
     .getByRole("button", { name: english ? "Sign in" : "登录", exact: true })
     .click();
   await expect(page).not.toHaveURL(/login/);
-  await page.goto("/hosts/host-web-11");
-  await page
-    .getByRole("tab", {
-      name: english ? "Components & Collection" : "组件与采集",
-      exact: true,
-    })
-    .click();
+  await page.goto("/hosts/host-web-11#otlp-collector");
   const builtinNames = (english ? builtinCollectionsEn : builtinCollectionsZh)
     .builtinCollections.names;
   for (const key of [
@@ -176,24 +170,74 @@ for (const width of [1280, 1440, 1920])
       });
     }
 
-test("monitoring builtin dashboard retains actual host resource type", async ({
-  page,
-}) => {
-  await monitoringFixture(page, false, "light");
-  await page
-    .getByRole("row")
-    .filter({ has: page.getByText("Host metrics", { exact: true }) })
-    .getByRole("button", { name: "默认仪表盘", exact: true })
-    .click();
-  await expect
-    .poll(() => new URL(page.url()).searchParams.get("resource_type"))
-    .toBe("host");
-  const source = page.getByRole("button", { name: /采集来源/ }).first();
-  await expect(source).toHaveText("采集来源 · 1");
-  await source.click();
-  const dialog = page.getByRole("dialog", { name: /采集来源/ });
-  const host = dialog.getByRole("link", { name: "host-web-11", exact: true });
-  await expect(host).toHaveAttribute("href", "/hosts/host-web-11");
-  await host.click();
-  await expect(page).toHaveURL(/\/hosts\/host-web-11$/);
-});
+for (const english of [false, true])
+  for (const theme of ["light", "dark"]) {
+    test(`dashboard collection sources use names in a table ${english ? "en" : "zh"} ${theme}`, async ({
+      page,
+    }, info) => {
+      test.setTimeout(90_000);
+      const tx = (zh: string, en: string) => (english ? en : zh);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await monitoringFixture(page, english, theme);
+      await page.evaluate(() => {
+        const key = "argus-mock:db-v14";
+        const db = JSON.parse(localStorage.getItem(key)!);
+        db.hosts.find(
+          (host: { id: string }) => host.id === "host-web-11",
+        ).name = "Web node 11";
+        localStorage.setItem(key, JSON.stringify(db));
+      });
+      await page.reload();
+      await page
+        .getByRole("row")
+        .filter({
+          has: page.getByRole("cell", { name: "Host metrics", exact: true }),
+        })
+        .getByRole("button", {
+          name: tx("默认仪表盘", "Default dashboard"),
+          exact: true,
+        })
+        .click();
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get("resource_type"))
+        .toBe("host");
+      const sourceLabel = tx("采集来源", "Collection sources");
+      const source = page
+        .getByRole("button", { name: new RegExp(sourceLabel) })
+        .first();
+      await expect(source).toHaveText(`${sourceLabel} · 1`);
+      await source.click();
+      const dialog = page.getByRole("dialog", {
+        name: new RegExp(sourceLabel),
+      });
+      const table = dialog.getByRole("table");
+      await expect(table.getByRole("row")).toHaveCount(2);
+      await expect(
+        table.getByRole("columnheader", {
+          name: tx("资源名称", "Resource name"),
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        table.getByRole("columnheader", {
+          name: tx("来源名称", "Source name"),
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        table.getByRole("cell").filter({ hasText: "Host metrics" }),
+      ).toContainText("hostmetrics");
+      await expect(dialog).not.toContainText(/host-web-11|mock-installation/);
+      const host = table.getByRole("link", {
+        name: "Web node 11",
+        exact: true,
+      });
+      await expect(host).toHaveAttribute("href", "/hosts/host-web-11");
+      await dialog.screenshot({
+        path: info.outputPath("collection-sources.png"),
+        animations: "disabled",
+      });
+      await host.click();
+      await expect(page).toHaveURL(/\/hosts\/host-web-11$/);
+    });
+  }

@@ -10,16 +10,11 @@ import (
 
 func TestOpenAPIValidationAcceptsSetupInitializeRequest(t *testing.T) {
 	body := `{
-  "platform_name": "Argus E2E",
-  "default_locale": "zh-CN",
+  "enterprise_name": "首家企业",
   "timezone": "Asia/Shanghai",
-  "external_url": "http://127.0.0.1:4174",
-  "super_admin": {
-    "username": "platform-admin",
-    "display_name": "Platform Admin",
-    "email": "platform@example.test",
-    "password": "N7!qP4@vL9#sT2$x"
-  }
+  "username": "first-admin",
+  "display_name": "First Admin",
+  "password": "N7!qP4@vL9#sT2$x"
 }`
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/setup/initialize", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")

@@ -1,7 +1,54 @@
 import type { ArgusApiClient } from "../client";
+import type { CreateEnterpriseInput } from "../types";
 import type { MockContext } from "./context";
 import { BUILTIN_ROLE_TEMPLATES } from "./seed-org";
 import { nextId } from "./store";
+
+export function createMockEnterprise(
+  ctx: MockContext,
+  input: CreateEnterpriseInput,
+) {
+  const { db } = ctx;
+  const enterprise = {
+    id: crypto.randomUUID(),
+    name: input.name,
+    status: "active" as const,
+    timezone: input.timezone ?? "Asia/Shanghai",
+    sandboxQuotaProfile: input.sandboxQuotaProfile,
+    remark: input.remark,
+    createdAt: ctx.nowIso(),
+  };
+  db.enterprises.push(enterprise);
+  const departmentId = nextId(db, "dept");
+  db.departments.push({
+    id: departmentId,
+    enterprise_id: enterprise.id,
+    name: "默认部门",
+    description: "企业创建时自动生成",
+    is_default: true,
+    status: "active",
+    version: 1,
+    created_at: ctx.nowIso(),
+    updated_at: ctx.nowIso(),
+  });
+  // 内置角色与 seed 保持一致，保证新企业开箱可用。
+  for (const template of BUILTIN_ROLE_TEMPLATES) {
+    db.roles.push({
+      id: nextId(db, "role"),
+      enterprise_id: enterprise.id,
+      builtin_key: template.key,
+      name: template.name,
+      description: template.description,
+      builtin: true,
+      permissions: [...template.permissions],
+      status: "active",
+      version: 1,
+      created_at: ctx.nowIso(),
+      updated_at: ctx.nowIso(),
+    });
+  }
+  return { enterprise, departmentId };
+}
 
 /** Platform super admin domain: enterprises, admins and OpenSandbox. */
 export function createPlatformDomain(
@@ -88,44 +135,7 @@ export function createPlatformDomain(
       },
       async create(input) {
         await platformPause();
-        const enterprise = {
-          id: nextId(db, "ent"),
-          name: input.name,
-          code: input.code,
-          status: "active" as const,
-          timezone: input.timezone ?? "Asia/Shanghai",
-          sandboxQuotaProfile: input.sandboxQuotaProfile,
-          remark: input.remark,
-          createdAt: ctx.nowIso(),
-        };
-        db.enterprises.push(enterprise);
-        db.departments.push({
-          id: nextId(db, "dept"),
-          enterprise_id: enterprise.id,
-          name: "默认部门",
-          description: "企业创建时自动生成",
-          is_default: true,
-          status: "active",
-          version: 1,
-          created_at: ctx.nowIso(),
-          updated_at: ctx.nowIso(),
-        });
-        // 内置角色与 seed 保持一致，保证新企业开箱可用。
-        for (const template of BUILTIN_ROLE_TEMPLATES) {
-          db.roles.push({
-            id: nextId(db, "role"),
-            enterprise_id: enterprise.id,
-            builtin_key: template.key,
-            name: template.name,
-            description: template.description,
-            builtin: true,
-            permissions: [...template.permissions],
-            status: "active",
-            version: 1,
-            created_at: ctx.nowIso(),
-            updated_at: ctx.nowIso(),
-          });
-        }
+        const { enterprise } = createMockEnterprise(ctx, input);
         ctx.audit("platform.enterprise.create", {
           platform: true,
           resourceType: "enterprise",

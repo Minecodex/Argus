@@ -33,7 +33,7 @@ func TestConversationSSESlowConsumersStayBoundedAndCancel(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'SSE capacity',$2,'UTC')", e, "sse-"+e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'SSE capacity','UTC')", e)
 	exec("INSERT INTO departments(id,enterprise_id,name,is_default) VALUES($1,$2,'Default',true)", d, e)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Stream user')", u, e, d, "sse-"+u.String())
 	model := uuid.New()

@@ -1,15 +1,23 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { useApi, type DashboardSchemas } from "@argus/api-client";
-import { Badge, Button, Dialog, KeyValueGrid, Pagination } from "@argus/ui";
+import {
+  Badge,
+  Button,
+  DataTable,
+  Dialog,
+  Pagination,
+  type Column,
+} from "@argus/ui";
 
 type Source = DashboardSchemas["DashboardResolvedSource"];
-type SourceResource = {
-  id: string;
-  type: Source["resource_type"];
-  sources: Source[];
+type SourceRow = {
+  key: string;
+  source: Source;
+  revisions: Set<number>;
+  registeredAt: number;
 };
 const pageSize = 20;
 export function installationLabel(source: Source, t: (key: string) => string) {
@@ -32,6 +40,27 @@ export function sourceValueLabels(
     ]),
   );
 }
+
+export function sourceRows(sources: Source[]) {
+  const rows = new Map<string, SourceRow>();
+  for (const source of sources) {
+    const key = `${source.resource_type ?? ""}:${source.resource_id}:${source.id}:${source.generation}`;
+    const row = rows.get(key) ?? {
+      key,
+      source,
+      revisions: new Set<number>(),
+      registeredAt: Infinity,
+    };
+    row.revisions.add(source.revision);
+    if (source.revision > row.source.revision) row.source = source;
+    const timestamp = Date.parse(source.registered_at ?? "");
+    if (Number.isFinite(timestamp))
+      row.registeredAt = Math.min(row.registeredAt, timestamp);
+    rows.set(key, row);
+  }
+  return [...rows.values()];
+}
+
 export function SourceSummary({
   title,
   sources,
@@ -41,18 +70,7 @@ export function SourceSummary({
 }) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
-  const resources = new Map<string, SourceResource>();
-  for (const source of sources) {
-    const key = `${source.resource_type ?? ""}:${source.resource_id}`;
-    const group = resources.get(key);
-    if (group) group.sources.push(source);
-    else
-      resources.set(key, {
-        id: source.resource_id,
-        type: source.resource_type,
-        sources: [source],
-      });
-  }
+  const rows = sourceRows(sources);
   return (
     <>
       <Button
@@ -61,37 +79,87 @@ export function SourceSummary({
         aria-label={`${title} ${t("dashboards.resolvedSources")}`}
         onPress={() => setOpen(true)}
       >
-        {t("dashboards.resolvedSources")} · {resources.size}
+        {t("dashboards.resolvedSources")} · {rows.length}
       </Button>
       <Dialog
         open={open}
         onOpenChange={setOpen}
         title={`${title} · ${t("dashboards.resolvedSources")}`}
+        description={
+          rows.length ? t("dashboards.sourceSnapshotHint") : undefined
+        }
+        size="lg"
       >
-        {open && <SourceResourceList resources={[...resources.values()]} />}
+        {open && <SourceTable rows={rows} />}
       </Dialog>
     </>
   );
 }
 
-function SourceResourceList({ resources }: { resources: SourceResource[] }) {
-  const { t } = useTranslation();
+function SourceTable({ rows }: { rows: SourceRow[] }) {
+  const { t, i18n } = useTranslation();
   const [page, setPage] = useState(1);
-  if (!resources.length) return <p>{t("dashboards.noResolvedSources")}</p>;
-  const totalPages = Math.ceil(resources.length / pageSize);
+  if (!rows.length) return <p>{t("dashboards.noResolvedSources")}</p>;
+  const totalPages = Math.ceil(rows.length / pageSize);
   const current = Math.min(page, totalPages);
+  const dateFormat = new Intl.DateTimeFormat(i18n.language, {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  });
+  const columns: Column<SourceRow>[] = [
+    {
+      key: "resource",
+      header: t("dashboards.sourceResourceName"),
+      cellClassName: "argus-dashboard-source-text",
+      render: ({ source }) => <SourceResourceName source={source} />,
+    },
+    {
+      key: "resourceType",
+      header: t("dashboardControls.resourceType"),
+      render: ({ source }) =>
+        source.resource_type
+          ? t(`dashboardControls.resourceKinds.${source.resource_type}`)
+          : "—",
+    },
+    {
+      key: "name",
+      header: t("dashboards.sourceName"),
+      cellClassName: "argus-dashboard-source-text",
+      render: ({ source }) => (
+        <span className="argus-dashboard-inline">
+          {source.name && <span>{source.name}</span>}
+          <Badge>{source.type}</Badge>
+        </span>
+      ),
+    },
+    {
+      key: "installation",
+      header: t("dashboards.sourceInstallation"),
+      render: ({ source }) => <Badge>{installationLabel(source, t)}</Badge>,
+    },
+    {
+      key: "revisions",
+      header: t("dashboards.sourceRevisions"),
+      cellClassName: "argus-dashboard-source-text",
+      render: ({ revisions }) =>
+        [...revisions].sort((a, b) => a - b).join(", "),
+    },
+    {
+      key: "registeredAt",
+      header: t("dashboards.sourceRegistered"),
+      render: ({ registeredAt }) =>
+        Number.isFinite(registeredAt) ? dateFormat.format(registeredAt) : "—",
+    },
+  ];
   return (
     <div className="argus-dashboard-form-stack">
-      <ul className="argus-dashboard-source-resources">
-        {resources
-          .slice((current - 1) * pageSize, current * pageSize)
-          .map((resource) => (
-            <SourceResourceRow
-              key={`${resource.type ?? ""}:${resource.id}`}
-              resource={resource}
-            />
-          ))}
-      </ul>
+      <DataTable
+        columns={columns}
+        data={rows.slice((current - 1) * pageSize, current * pageSize)}
+        getRowKey={(row) => row.key}
+        density="compact"
+        tableClassName="argus-dashboard-source-table"
+      />
       {totalPages > 1 && (
         <Pagination page={current} totalPages={totalPages} onChange={setPage} />
       )}
@@ -99,98 +167,22 @@ function SourceResourceList({ resources }: { resources: SourceResource[] }) {
   );
 }
 
-function SourceResourceRow({ resource }: { resource: SourceResource }) {
+function SourceResourceName({ source }: { source: Source }) {
   const api = useApi();
-  const { t, i18n } = useTranslation();
-  const { id, type, sources } = resource;
+  const { t } = useTranslation();
+  const { resource_id: id, resource_type: type } = source;
   const query = useQuery({
     queryKey: ["dashboard-bindings", type, id],
-    queryFn: () => api.dashboards.resourceBindings(type!, id),
-    enabled: Boolean(type && id),
+    queryFn:
+      type && id ? () => api.dashboards.resourceBindings(type, id) : skipToken,
+    staleTime: 0,
     retry: false,
   });
-  const groups = new Map<string, Source[]>();
-  for (const source of sources) {
-    const versions = groups.get(source.id);
-    if (versions) versions.push(source);
-    else groups.set(source.id, [source]);
-  }
-  return (
-    <li className="argus-dashboard-source-resource">
-      <div className="argus-dashboard-inline">
-        {query.isSuccess && type ? (
-          <SourceResourceLink
-            id={id}
-            type={type}
-            name={query.data.resource_name}
-          />
-        ) : (
-          <span>
-            {query.isFetching
-              ? t("common.loading")
-              : t("dashboards.sourceResourceUnavailable")}
-          </span>
-        )}
-        {type && <Badge>{t(`dashboardControls.resourceKinds.${type}`)}</Badge>}
-        {[...new Set(sources.map((source) => source.type))].map(
-          (sourceType) => (
-            <Badge key={sourceType}>{sourceType}</Badge>
-          ),
-        )}
-      </div>
-      <details className="argus-dashboard-source-details">
-        <summary>{t("dashboards.sourceTechnicalDetails")}</summary>
-        <div className="argus-dashboard-form-stack">
-          <p className="argus-dashboard-muted">
-            {t("dashboards.sourceSnapshotHint")}
-          </p>
-          {[...groups.entries()].map(([sourceId, versions]) => {
-            const source = versions[0]!;
-            const registered = versions
-              .map((v) => v.registered_at)
-              .filter((v): v is string => Boolean(v))
-              .sort()[0];
-            const date = registered ? new Date(registered) : undefined;
-            return (
-              <section key={sourceId}>
-                <Badge>{installationLabel(source, t)}</Badge>
-                <KeyValueGrid
-                  columns={2}
-                  items={[
-                    { label: t("dashboards.sourceIdentity"), value: sourceId },
-                    { label: t("dashboards.source"), value: source.type },
-                    {
-                      label: t("dashboards.resources"),
-                      value: id,
-                    },
-                    {
-                      label: t("dashboards.sourceGeneration"),
-                      value: source.generation,
-                    },
-                    {
-                      label: t("dashboards.sourceRevisions"),
-                      value: [...new Set(versions.map((v) => v.revision))]
-                        .sort((a, b) => a - b)
-                        .join(", "),
-                    },
-                    {
-                      label: t("dashboards.sourceRegistered"),
-                      value:
-                        date && Number.isFinite(date.getTime())
-                          ? new Intl.DateTimeFormat(i18n.language, {
-                              dateStyle: "medium",
-                              timeStyle: "medium",
-                            }).format(date)
-                          : "—",
-                    },
-                  ]}
-                />
-              </section>
-            );
-          })}
-        </div>
-      </details>
-    </li>
+  if (query.isFetching) return t("common.loading");
+  return query.isSuccess && query.data.resource_name && type ? (
+    <SourceResourceLink id={id} type={type} name={query.data.resource_name} />
+  ) : (
+    t("dashboards.sourceResourceUnavailable")
   );
 }
 

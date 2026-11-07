@@ -76,7 +76,7 @@ func (runtime Runtime) Drilldown(ctx context.Context, actor Actor, id uuid.UUID,
 	if err != nil {
 		return output, err
 	}
-	return runtime.runDrilldown(ctx, actor, spec, frozen, input, func(ctx context.Context) error {
+	output, err = runtime.runDrilldown(ctx, actor, spec, frozen, input, func(ctx context.Context) error {
 		current, _, err := service.Get(ctx, actor, id)
 		if err != nil {
 			return err
@@ -86,6 +86,10 @@ func (runtime Runtime) Drilldown(ctx context.Context, actor Actor, id uuid.UUID,
 		}
 		return nil
 	})
+	if err == nil {
+		err = populateSourceNames(ctx, runtime.Store.Queries, actor, output.Resources, output.Sources)
+	}
+	return output, err
 }
 
 func (runtime Runtime) runDrilldown(ctx context.Context, actor Actor, spec Spec, frozen executionContext, input DrilldownInput, recheck func(context.Context) error) (output DrilldownExecution, err error) {

@@ -15,7 +15,7 @@ import (
 const changeEnterpriseStatus = `-- name: ChangeEnterpriseStatus :one
 UPDATE enterprises SET status = $2, version = version + 1, updated_at = now()
 WHERE id = $1 AND version = $3
-RETURNING id, name, code, status, timezone, default_locale, remark, version, created_at, updated_at
+RETURNING id, name, status, timezone, default_locale, remark, version, created_at, updated_at
 `
 
 type ChangeEnterpriseStatusParams struct {
@@ -30,7 +30,6 @@ func (q *Queries) ChangeEnterpriseStatus(ctx context.Context, arg ChangeEnterpri
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Code,
 		&i.Status,
 		&i.Timezone,
 		&i.DefaultLocale,
@@ -43,15 +42,14 @@ func (q *Queries) ChangeEnterpriseStatus(ctx context.Context, arg ChangeEnterpri
 }
 
 const createEnterprise = `-- name: CreateEnterprise :one
-INSERT INTO enterprises (id, name, code, timezone, default_locale, remark)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, name, code, status, timezone, default_locale, remark, version, created_at, updated_at
+INSERT INTO enterprises (id, name, timezone, default_locale, remark)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, name, status, timezone, default_locale, remark, version, created_at, updated_at
 `
 
 type CreateEnterpriseParams struct {
 	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
-	Code          string    `json:"code"`
 	Timezone      string    `json:"timezone"`
 	DefaultLocale string    `json:"default_locale"`
 	Remark        string    `json:"remark"`
@@ -61,7 +59,6 @@ func (q *Queries) CreateEnterprise(ctx context.Context, arg CreateEnterprisePara
 	row := q.db.QueryRow(ctx, createEnterprise,
 		arg.ID,
 		arg.Name,
-		arg.Code,
 		arg.Timezone,
 		arg.DefaultLocale,
 		arg.Remark,
@@ -70,7 +67,6 @@ func (q *Queries) CreateEnterprise(ctx context.Context, arg CreateEnterprisePara
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Code,
 		&i.Status,
 		&i.Timezone,
 		&i.DefaultLocale,
@@ -153,7 +149,7 @@ func (q *Queries) CreatePlatformUser(ctx context.Context, arg CreatePlatformUser
 }
 
 const getEnterprise = `-- name: GetEnterprise :one
-SELECT id, name, code, status, timezone, default_locale, remark, version, created_at, updated_at FROM enterprises WHERE id = $1
+SELECT id, name, status, timezone, default_locale, remark, version, created_at, updated_at FROM enterprises WHERE id = $1
 `
 
 func (q *Queries) GetEnterprise(ctx context.Context, id uuid.UUID) (Enterprise, error) {
@@ -162,7 +158,6 @@ func (q *Queries) GetEnterprise(ctx context.Context, id uuid.UUID) (Enterprise, 
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Code,
 		&i.Status,
 		&i.Timezone,
 		&i.DefaultLocale,
@@ -256,7 +251,7 @@ func (q *Queries) GetPlatformUserByUsername(ctx context.Context, lower string) (
 }
 
 const listAllEnterprises = `-- name: ListAllEnterprises :many
-SELECT id, name, code, status, timezone, default_locale, remark, version, created_at, updated_at FROM enterprises ORDER BY created_at DESC, id DESC
+SELECT id, name, status, timezone, default_locale, remark, version, created_at, updated_at FROM enterprises ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListAllEnterprises(ctx context.Context) ([]Enterprise, error) {
@@ -271,7 +266,6 @@ func (q *Queries) ListAllEnterprises(ctx context.Context) ([]Enterprise, error) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Code,
 			&i.Status,
 			&i.Timezone,
 			&i.DefaultLocale,
@@ -291,7 +285,7 @@ func (q *Queries) ListAllEnterprises(ctx context.Context) ([]Enterprise, error) 
 }
 
 const listEnterprises = `-- name: ListEnterprises :many
-SELECT id, name, code, status, timezone, default_locale, remark, version, created_at, updated_at FROM enterprises
+SELECT id, name, status, timezone, default_locale, remark, version, created_at, updated_at FROM enterprises
 WHERE ($1::timestamptz IS NULL OR (created_at, id) < ($1, $2))
 ORDER BY created_at DESC, id DESC LIMIT $3
 `
@@ -314,7 +308,6 @@ func (q *Queries) ListEnterprises(ctx context.Context, arg ListEnterprisesParams
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Code,
 			&i.Status,
 			&i.Timezone,
 			&i.DefaultLocale,
@@ -382,7 +375,7 @@ UPDATE enterprises SET
   version = version + 1,
   updated_at = now()
 WHERE id = $5 AND version = $6
-RETURNING id, name, code, status, timezone, default_locale, remark, version, created_at, updated_at
+RETURNING id, name, status, timezone, default_locale, remark, version, created_at, updated_at
 `
 
 type UpdateEnterpriseParams struct {
@@ -407,7 +400,6 @@ func (q *Queries) UpdateEnterprise(ctx context.Context, arg UpdateEnterprisePara
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Code,
 		&i.Status,
 		&i.Timezone,
 		&i.DefaultLocale,

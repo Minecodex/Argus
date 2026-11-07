@@ -57,24 +57,6 @@ func (e EnterpriseUserStatus) Valid() bool {
 	}
 }
 
-// Defines values for Locale.
-const (
-	LocaleEnUS Locale = "en-US"
-	LocaleZhCN Locale = "zh-CN"
-)
-
-// Valid indicates whether the value is a known member of the Locale enum.
-func (e Locale) Valid() bool {
-	switch e {
-	case LocaleEnUS:
-		return true
-	case LocaleZhCN:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for LoginResult0Status.
 const (
 	Authenticated LoginResult0Status = "authenticated"
@@ -251,16 +233,16 @@ func (e SessionAudience) Valid() bool {
 
 // Defines values for SessionLocale.
 const (
-	SessionLocaleEnUS SessionLocale = "en-US"
-	SessionLocaleZhCN SessionLocale = "zh-CN"
+	EnUS SessionLocale = "en-US"
+	ZhCN SessionLocale = "zh-CN"
 )
 
 // Valid indicates whether the value is a known member of the SessionLocale enum.
 func (e SessionLocale) Valid() bool {
 	switch e {
-	case SessionLocaleEnUS:
+	case EnUS:
 		return true
-	case SessionLocaleZhCN:
+	case ZhCN:
 		return true
 	default:
 		return false
@@ -377,9 +359,6 @@ type EnterpriseUserStatus string
 
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
-
-// Locale defines model for Locale.
-type Locale string
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
@@ -510,17 +489,19 @@ type Session1 struct {
 
 // SetupInitializeRequest defines model for SetupInitializeRequest.
 type SetupInitializeRequest struct {
-	DefaultLocale Locale               `json:"default_locale"`
-	ExternalUrl   string               `json:"external_url"`
-	PlatformName  string               `json:"platform_name"`
-	SuperAdmin    SetupSuperAdminInput `json:"super_admin"`
-	Timezone      string               `json:"timezone"`
+	DisplayName    string  `json:"display_name"`
+	EnterpriseName string  `json:"enterprise_name"`
+	Password       *string `json:"password,omitempty"`
+	Timezone       string  `json:"timezone"`
+	Username       string  `json:"username"`
 }
 
 // SetupInitializeResult defines model for SetupInitializeResult.
 type SetupInitializeResult struct {
-	PlatformUserId openapi_types.UUID         `json:"platform_user_id"`
-	State          SetupInitializeResultState `json:"state"`
+	EnterpriseId     openapi_types.UUID         `json:"enterprise_id"`
+	EnterpriseUserId openapi_types.UUID         `json:"enterprise_user_id"`
+	PlatformUserId   openapi_types.UUID         `json:"platform_user_id"`
+	State            SetupInitializeResultState `json:"state"`
 }
 
 // SetupInitializeResultState defines model for SetupInitializeResult.State.
@@ -530,14 +511,6 @@ type SetupInitializeResultState string
 type SetupStatus struct {
 	PlatformName *string       `json:"platform_name,omitempty"`
 	State        PlatformState `json:"state"`
-}
-
-// SetupSuperAdminInput defines model for SetupSuperAdminInput.
-type SetupSuperAdminInput struct {
-	DisplayName string               `json:"display_name"`
-	Email       *openapi_types.Email `json:"email,omitempty"`
-	Password    *string              `json:"password,omitempty"`
-	Username    string               `json:"username"`
 }
 
 // Audience defines model for Audience.

@@ -58,7 +58,7 @@ func TestWorkspaceRenewalReservesBeforeDispatchAndRotatesAtMonthBoundary(t *test
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Renewal quota',$2,'UTC')", e, "p5-"+e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Renewal quota','UTC')", e)
 	quota, err := service.UpdateQuota(t.Context(), e, 1, 60, 0)
 	if err != nil {
 		t.Fatal(err)

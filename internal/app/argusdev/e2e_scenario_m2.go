@@ -27,11 +27,56 @@ func (a *App) runM2Scenario(ctx context.Context, env *E2EEnvironment) error {
 	if state, _ := stringField(status, "state"); state != "uninitialized" {
 		return fmt.Errorf("new installation setup state is %q", state)
 	}
-	_, err = httpClient.JSON(ctx, "setup-initialize", "", http.MethodPost, "/setup/initialize", http.StatusCreated, map[string]any{
-		"platform_name": "Argus E2E", "default_locale": "zh-CN", "timezone": "Asia/Shanghai", "external_url": env.PlatformOrigin(),
-		"super_admin": map[string]any{"username": platformUsername, "display_name": "Platform Admin", "email": "platform@example.test", "password": platformPassword},
-	}, map[string]string{"Origin": env.PlatformOrigin(), "X-Argus-Setup-Token": setupToken, "Idempotency-Key": "setup-" + env.Options.RunID})
+	setupBody := map[string]any{
+		"enterprise_name": "Acme Evaluation", "timezone": "Asia/Shanghai",
+		"username": platformUsername, "display_name": "Initial Administrator", "password": platformPassword,
+	}
+	setupHeaders := map[string]string{"Origin": env.PlatformOrigin(), "X-Argus-Setup-Token": setupToken, "Idempotency-Key": "setup-" + env.Options.RunID}
+	initialized, err := httpClient.JSON(ctx, "setup-initialize", "", http.MethodPost, "/setup/initialize", http.StatusCreated, setupBody, setupHeaders)
 	if err != nil {
+		return err
+	}
+	enterpriseID, err := stringField(initialized, "enterprise_id")
+	if err != nil {
+		return err
+	}
+	initialAdminID, err := stringField(initialized, "enterprise_user_id")
+	if err != nil {
+		return err
+	}
+	initialPlatformID, err := stringField(initialized, "platform_user_id")
+	if err != nil {
+		return err
+	}
+	if initialAdminID == initialPlatformID {
+		return fmt.Errorf("setup returned the same identity for both portals")
+	}
+	setupHeaders["Idempotency-Key"] += "-repeat"
+	if _, err = httpClient.JSON(ctx, "setup-locked", "", http.MethodPost, "/setup/initialize", http.StatusConflict, setupBody, setupHeaders); err != nil {
+		return err
+	}
+
+	initialLogin, err := httpClient.JSON(ctx, "bootstrap-enterprise-login", "bootstrap-enterprise", http.MethodPost, "/enterprise/auth/login", http.StatusOK,
+		map[string]any{"username": platformUsername, "password": platformPassword}, map[string]string{"Origin": env.EnterpriseOrigin()})
+	if err != nil {
+		return err
+	}
+	sessionEnterpriseID, err := stringField(initialLogin, "authenticated_session", "session", "enterprise_id")
+	if err != nil || sessionEnterpriseID != enterpriseID {
+		return fmt.Errorf("initial enterprise administrator session does not match the new enterprise")
+	}
+	initialCSRF, err := stringField(initialLogin, "authenticated_session", "csrf_token")
+	if err != nil {
+		return err
+	}
+	const rotatedBootstrapPassword = "S6!rT5%uH8&zD1"
+	if _, err = httpClient.JSON(ctx, "bootstrap-enterprise-change-password", "bootstrap-enterprise", http.MethodPut, "/enterprise/account/password", http.StatusNoContent,
+		map[string]any{"current_password": platformPassword, "new_password": rotatedBootstrapPassword, "expected_version": 1},
+		map[string]string{"Origin": env.EnterpriseOrigin(), "X-CSRF-Token": initialCSRF}); err != nil {
+		return err
+	}
+	if _, err = httpClient.JSON(ctx, "bootstrap-enterprise-old-password-denied", "bootstrap-enterprise", http.MethodPost, "/enterprise/auth/login", http.StatusUnauthorized,
+		map[string]any{"username": platformUsername, "password": platformPassword}, map[string]string{"Origin": env.EnterpriseOrigin()}); err != nil {
 		return err
 	}
 	platformLogin, err := httpClient.JSON(ctx, "platform-login", "platform", http.MethodPost, "/platform/auth/login", http.StatusOK,
@@ -51,15 +96,13 @@ func (a *App) runM2Scenario(ctx context.Context, env *E2EEnvironment) error {
 	if err != nil {
 		return err
 	}
-	enterprise, err := httpClient.JSON(ctx, "enterprise-create", "platform", http.MethodPost, "/platform/enterprises", http.StatusCreated,
-		map[string]any{"name": "Acme Evaluation", "code": "acme-eval", "timezone": "Asia/Shanghai", "default_locale": "zh-CN"},
-		map[string]string{"Origin": env.PlatformOrigin(), "X-CSRF-Token": platformCSRF, "Idempotency-Key": "enterprise-" + env.Options.RunID})
+	enterprise, err := httpClient.JSON(ctx, "enterprise-by-uuid", "platform", http.MethodGet, "/platform/enterprises/"+enterpriseID, http.StatusOK, nil,
+		map[string]string{"Origin": env.PlatformOrigin()})
 	if err != nil {
 		return err
 	}
-	enterpriseID, err := stringField(enterprise, "id")
-	if err != nil {
-		return err
+	if _, hasCode := enterprise["code"]; enterprise["id"] != enterpriseID || hasCode {
+		return fmt.Errorf("enterprise lookup returned an unexpected identity")
 	}
 	admin, err := httpClient.JSON(ctx, "enterprise-admin-create", "platform", http.MethodPost, "/platform/enterprise-admins", http.StatusCreated,
 		map[string]any{"enterprise_id": enterpriseID, "username": enterpriseUsername, "display_name": "Enterprise Admin", "email": "enterprise@example.test"},

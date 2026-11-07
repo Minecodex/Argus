@@ -1,4 +1,4 @@
-import {selectTrigger} from "./helpers/select";
+import { selectTrigger } from "./helpers/select";
 import { openActionMenu, selectRowAction } from "./helpers/action-menu";
 import { setChoice } from "./helpers/choice";
 import { platformOrigin } from "./origins";
@@ -93,7 +93,7 @@ test("initialized platform entry opens the login page", async ({ page }) => {
   await expect(page).toHaveURL(/\/login(?:\?redirect=.*)?$/);
 });
 
-test("setup marks required fields and initializes without an admin email", async ({
+test("setup initializes the enterprise and both accounts in one step", async ({
   page,
 }) => {
   await page.goto(`${platformOrigin}/login?initialized=false&reset=1`);
@@ -108,29 +108,49 @@ test("setup marks required fields and initializes without an admin email", async
   );
   await expect(page.getByLabel("Setup Token")).toHaveCount(0);
 
-  const email = page.getByLabel("邮箱");
-  await expect(fieldFor(email).locator(".argus-field__required")).toHaveCount(
-    0,
-  );
   const username = page.getByLabel("登录名");
   await expect(
     fieldFor(username).locator(".argus-field__required"),
   ).toHaveCount(1);
+  await expect(page.locator(".argus-setup-fields .argus-field")).toHaveCount(6);
 
-  await page.getByLabel("平台显示名称").fill("Argus E2E");
-  await page.getByLabel("外部访问地址").fill("https://argus-e2e.example.com");
+  await page.getByLabel("企业名称").fill("测试企业");
   await username.fill("e2eadmin");
-  await page.locator('input[name="admin.displayName"]').fill("E2E 管理员");
+  await username.blur();
+  await expect(page.getByLabel("显示名")).toHaveValue("e2eadmin");
+  await page.getByLabel("显示名").fill("E2E 管理员");
   await page
     .locator('input[name="admin.password"]')
     .fill("StrongSetupPass2026!");
-  await page
-    .locator('input[name="admin.confirmPassword"]')
-    .fill("StrongSetupPass2026!");
-  await page.getByRole("button", { name: "下一步" }).click();
-  await page.getByRole("button", { name: /初始化|提交/ }).click();
+  await page.getByLabel("确认密码").fill("DifferentPass2026!");
+  await page.getByRole("button", { name: "初始化", exact: true }).click();
+  await expect(page.getByText("两次输入的密码不一致")).toBeVisible();
+  await page.getByLabel("确认密码").fill("StrongSetupPass2026!");
+  await page.getByRole("button", { name: "初始化", exact: true }).click();
   await expect(page).toHaveURL(`${platformOrigin}/login`);
-  await expect(page.locator('input[autocomplete="username"]')).toBeVisible();
+
+  await page.goto(`${platformOrigin}/enterprises`);
+  await expect(page).toHaveURL(/\/login\?redirect=/);
+  await page.locator('input[autocomplete="username"]').fill("e2eadmin");
+  await page
+    .locator('input[autocomplete="current-password"]')
+    .fill("StrongSetupPass2026!");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(page).toHaveURL(`${platformOrigin}/enterprises`);
+  const card = page
+    .locator(".argus-resource-card")
+    .filter({ hasText: "测试企业" });
+  await expect(card).toBeVisible();
+  await expect(card).not.toContainText(/[a-f0-9]{8}-[a-f0-9-]{27}/i);
+
+  await page.getByRole("button", { name: "创建企业" }).click();
+  await expect(page.getByLabel("企业编码")).toHaveCount(0);
+  await page.getByLabel("企业名称").fill("第二家企业");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "创建", exact: true })
+    .click();
+  await expect(page.getByRole("heading", { name: "第二家企业" })).toBeVisible();
 });
 
 test("protected routes redirect to login and login redirects back", async ({
@@ -806,7 +826,11 @@ test("kubernetes collector statuses install or open monitoring directly", async 
   );
 });
 
-async function observationSignal(page: Page, signal: string, expression?: string) {
+async function observationSignal(
+  page: Page,
+  signal: string,
+  expression?: string,
+) {
   const card = page.locator(".argus-observe-query").first();
   await selectTrigger(card, "查询类型").click();
   await page.getByRole("option", { name: signal, exact: true }).click();
@@ -820,23 +844,42 @@ async function observationSignal(page: Page, signal: string, expression?: string
     await expect(input).toHaveValue("system_cpu_utilization");
   }
   if (expression) {
-    await setChoice(card.getByRole("radio", { name: "DSL 编辑器", exact: true }));
+    await setChoice(
+      card.getByRole("radio", { name: "DSL 编辑器", exact: true }),
+    );
     await expect(card.locator(".cm-editor").first()).toBeVisible();
-    await card.getByRole("textbox", { name: "查询语句", exact: true }).fill(expression);
+    await card
+      .getByRole("textbox", { name: "查询语句", exact: true })
+      .fill(expression);
   }
   await card.getByRole("button", { name: "执行查询", exact: true }).click();
-  await expect(card.getByRole("status").filter({ hasText: "查询完成" })).toBeVisible();
+  await expect(
+    card.getByRole("status").filter({ hasText: "查询完成" }),
+  ).toBeVisible();
   return card;
 }
 
-test("telemetry views expose Metrics, Logs, Traces, usage, and partial states",async({page})=>{
- await login(page);await page.goto("/kubernetes/k8s-prod-east");
- for(const name of ["指标","日志","链路"])await expect(page.getByRole("tab",{name,exact:true})).toHaveCount(0);
- await page.getByRole("button",{name:"观测查询",exact:true}).click();
- await observationSignal(page,"指标");await expect(page.getByText("结果已裁剪",{exact:true})).toBeVisible();
- await expect(page.locator(".argus-observe-query [role=img]")).toBeVisible();
- const logs=await observationSignal(page,"日志");await expect(logs.locator(".argus-observation-log-body").getByText("credential=[REDACTED]",{exact:true})).toBeVisible();
- const traces=await observationSignal(page,"链路");await expect(traces.getByRole("columnheader",{name:"调用链 ID",exact:true})).toBeVisible();
+test("telemetry views expose Metrics, Logs, Traces, usage, and partial states", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto("/kubernetes/k8s-prod-east");
+  for (const name of ["指标", "日志", "链路"])
+    await expect(page.getByRole("tab", { name, exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "观测查询", exact: true }).click();
+  await observationSignal(page, "指标");
+  await expect(page.getByText("结果已裁剪", { exact: true })).toBeVisible();
+  await expect(page.locator(".argus-observe-query [role=img]")).toBeVisible();
+  const logs = await observationSignal(page, "日志");
+  await expect(
+    logs
+      .locator(".argus-observation-log-body")
+      .getByText("credential=[REDACTED]", { exact: true }),
+  ).toBeVisible();
+  const traces = await observationSignal(page, "链路");
+  await expect(
+    traces.getByRole("columnheader", { name: "调用链 ID", exact: true }),
+  ).toBeVisible();
   await page.goto("/settings/org");
   await page.getByRole("tab", { name: "遥测" }).click();
   await expect(page.getByText("Evaluation 保留期")).toBeVisible();
@@ -848,12 +891,29 @@ test("telemetry views expose Metrics, Logs, Traces, usage, and partial states",a
   await expectNoSeriousAccessibilityViolations(page);
 });
 
-test("telemetry query builder and DSL editor execute all three language models",async({page})=>{
- await login(page);await page.goto("/observe?resource_type=kubernetes_cluster&resource_id=k8s-prod-east&signal=metrics");
- await observationSignal(page,"指标",'sum by (service) (rate(http_requests_total{status=~"5.."}[5m]))');
- await observationSignal(page,"日志",'service_name:"argus-demo" AND body:"error"');
- await observationSignal(page,"链路",'query { queryTraces(serviceName:"argus-demo",pageSize:20) { total traces { traceId rootService rootOperation } } }');
- await expectNoSeriousAccessibilityViolations(page);
+test("telemetry query builder and DSL editor execute all three language models", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto(
+    "/observe?resource_type=kubernetes_cluster&resource_id=k8s-prod-east&signal=metrics",
+  );
+  await observationSignal(
+    page,
+    "指标",
+    'sum by (service) (rate(http_requests_total{status=~"5.."}[5m]))',
+  );
+  await observationSignal(
+    page,
+    "日志",
+    'service_name:"argus-demo" AND body:"error"',
+  );
+  await observationSignal(
+    page,
+    "链路",
+    'query { queryTraces(serviceName:"argus-demo",pageSize:20) { total traces { traceId rootService rootOperation } } }',
+  );
+  await expectNoSeriousAccessibilityViolations(page);
 });
 
 test("chatbox: host-create request confirms once in the host to success", async ({
@@ -872,11 +932,15 @@ test("chatbox: host-create request confirms once in the host to success", async 
   await expect(card.getByText(/10\.0\.1\.5/)).toBeVisible();
 
   await card.getByRole("button", { name: "确认执行" }).click();
-  await expect(card.getByText("执行成功", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(card.getByText("执行成功", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(card.getByRole("link", { name: /查看任务/ })).toHaveCount(0);
 });
 
-test("audit: historical operations have one entry point and readable details", async ({ page }) => {
+test("audit: historical operations have one entry point and readable details", async ({
+  page,
+}) => {
   await login(page);
   await page.goto("/settings/audit");
   await expect(page.getByRole("link", { name: "任务记录" })).toHaveCount(0);

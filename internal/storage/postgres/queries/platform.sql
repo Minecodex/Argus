@@ -32,8 +32,8 @@ SELECT * FROM platform_users WHERE lower(username) = lower($1);
 SELECT * FROM platform_users WHERE id = $1;
 
 -- name: CreateEnterprise :one
-INSERT INTO enterprises (id, name, code, timezone, default_locale, remark)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO enterprises (id, name, timezone, default_locale, remark)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetEnterprise :one

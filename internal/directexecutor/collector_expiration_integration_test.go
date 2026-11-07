@@ -26,7 +26,7 @@ func TestPostgresDirectCollectorExpirationProjectsFailedAndUnknownOutcomes(t *te
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone)VALUES($1,'Owned command expiration',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone)VALUES($1,'Owned command expiration','UTC')", enterprise)
 	if err := audit.InitializeChain(ctx, store.Queries, "enterprise", uuid.NullUUID{UUID: enterprise, Valid: true}); err != nil {
 		t.Fatal(err)
 	}

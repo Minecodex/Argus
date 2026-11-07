@@ -27,6 +27,7 @@ type ResolvedSource struct {
 	ResourceID          uuid.UUID        `json:"resource_id"`
 	Generation          uuid.UUID        `json:"generation"`
 	Type                string           `json:"type"`
+	Name                string           `json:"name,omitempty"`
 	CapabilityVersion   string           `json:"capability_version"`
 	CurrentInstallation *bool            `json:"current_installation,omitempty"`
 	RegisteredAt        *time.Time       `json:"registered_at,omitempty"`

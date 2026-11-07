@@ -56,7 +56,7 @@ func TestRemovalProvenanceAndProjectionPostgres(t *testing.T) {
 	hostOperationID, bastionOperationID := uuid.New(), uuid.New()
 	hostRemovalID, bastionRemovalID := uuid.New(), uuid.New()
 
-	mustSQL(t, store, "INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Removal provenance',$2,'UTC')", enterpriseID, "removal-provenance-"+enterpriseID.String())
+	mustSQL(t, store, "INSERT INTO enterprises(id,name,timezone) VALUES($1,'Removal provenance','UTC')", enterpriseID)
 	mustSQL(t, store, "INSERT INTO bastion_scopes(id,enterprise_id,name,environment,labels_hash,onboarding_mode,status,removal_generation) VALUES($1,$2,'Bastion','development',decode(repeat('00',32),'hex'),'command','active',1)", scopeID, enterpriseID)
 	mustSQL(t, store, "INSERT INTO hosts(id,enterprise_id,name,address,port,platform,architecture,environment,labels_hash,role,control_path,bastion_scope_id,status,removal_generation) VALUES($1,$2,'Managed','192.0.2.10',22,'linux','amd64','development',decode(repeat('00',32),'hex'),'managed_host','direct',NULL,'active',1),($3,$2,'Bastion','192.0.2.20',22,'linux','amd64','development',decode(repeat('00',32),'hex'),'bastion','direct',$4,'active',1)", managedHostID, enterpriseID, rootHostID, scopeID)
 	for _, connector := range []struct {

@@ -44,7 +44,7 @@ func TestOnboardingPreflightPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	enterpriseID, actorID, departmentID, credentialID, secretID := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	bastionPreviewSQL(t, store, "INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Callback preflight',$2,'UTC')", enterpriseID, "callback-"+enterpriseID.String())
+	bastionPreviewSQL(t, store, "INSERT INTO enterprises(id,name,timezone) VALUES($1,'Callback preflight','UTC')", enterpriseID)
 	bastionPreviewSQL(t, store, "INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Callback tests')", departmentID, enterpriseID)
 	bastionPreviewSQL(t, store, "INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,'callback-test-user','Callback test user')", actorID, enterpriseID, departmentID)
 	bastionPreviewSQL(t, store, "INSERT INTO secrets(id,enterprise_id,name,type,created_by) VALUES($1,$2,'SSH callback','ssh_password',$3)", secretID, enterpriseID, actorID)

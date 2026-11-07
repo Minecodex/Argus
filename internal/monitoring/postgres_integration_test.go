@@ -45,7 +45,7 @@ func newFixture(t *testing.T) *fixture {
 	f := &fixture{t: t, s: Service{Store: store, CursorKey: bytes.Repeat([]byte{7}, 32)}, a: Actor{EnterpriseID: e, SubjectID: u, SubjectType: "user", AuthorizationVersion: 1}}
 	f.other = f.a
 	f.other.SubjectID = other
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Plan8',$2,'UTC')", e, e.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Plan8','UTC')", e)
 	f.exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Plan8')", d, e)
 	for _, id := range []uuid.UUID{u, other} {
 		f.exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Plan8 operator')", id, e, d, id.String())

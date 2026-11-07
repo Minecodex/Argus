@@ -27,7 +27,7 @@ func TestResourceNameAvailabilityPostgres(t *testing.T) {
 	ctx := context.Background()
 	enterpriseID, otherEnterpriseID := uuid.New(), uuid.New()
 	for _, id := range []uuid.UUID{enterpriseID, otherEnterpriseID} {
-		bastionPreviewSQL(t, store, "INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Resource names',$2,'UTC')", id, "names-"+id.String())
+		bastionPreviewSQL(t, store, "INSERT INTO enterprises(id,name,timezone) VALUES($1,'Resource names','UTC')", id)
 	}
 	for _, item := range []struct{ name, status string }{{"Existing Host", "active"}, {"Disabled Host", "disabled"}, {"Uninstalled Host", "uninstalled"}, {"Deleted Host", "deleted"}} {
 		bastionPreviewSQL(t, store, "INSERT INTO hosts(id,enterprise_id,name,address,port,platform,architecture,environment,labels_hash,role,control_path,status) VALUES($1,$2,$3,'',0,'linux','amd64','development',decode(repeat('00',32),'hex'),'managed_host','direct',$4)", uuid.New(), enterpriseID, item.name, item.status)

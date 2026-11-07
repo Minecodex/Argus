@@ -192,7 +192,7 @@ func TestModelGovernancePostgresClickHouseHTTP(t *testing.T) {
 	f.user, f.department = adminUser, adminDept
 	f.session()
 	foreignEnterprise, foreignModel := uuid.New(), uuid.New()
-	f.exec(`INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Other model tenant',$2,'UTC')`, foreignEnterprise, foreignEnterprise.String())
+	f.exec(`INSERT INTO enterprises(id,name,timezone) VALUES($1,'Other model tenant','UTC')`, foreignEnterprise)
 	f.exec(`INSERT INTO ai_models(id,enterprise_id,name,base_url,model_id,api_protocol,context_window_tokens,max_output_tokens,input_price_per_million,output_price_per_million,health_status) VALUES($1,$2,'Private tenant canary','https://controlled.invalid','controlled','chat_completions',32768,1024,1,2,'healthy')`, foreignModel, foreignEnterprise)
 	f.call("POST", path+"/execute", map[string]any{"resource_ids": []string{}, "local_values": map[string]any{}, "variables": map[string]any{"model": map[string]any{"all": false, "values": []string{foreignModel.String()}}}}, 403, "")
 	f.call("GET", "/enterprise/model-usage?model_id="+foreignModel.String(), nil, 403, "")

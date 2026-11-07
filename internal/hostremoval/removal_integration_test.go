@@ -167,7 +167,7 @@ func TestRemovalIntegration(t *testing.T) {
 func removalFixture(t *testing.T, store *postgres.Store, role string) (db.HostRemovalOperation, Plan) {
 	t.Helper()
 	ent, host, connector, action, op := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	mustSQL(t, store, "INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Removal test',$2,'UTC')", ent, "removal-"+ent.String())
+	mustSQL(t, store, "INSERT INTO enterprises(id,name,timezone) VALUES($1,'Removal test','UTC')", ent)
 	if err := audit.InitializeChain(context.Background(), store.Queries, "enterprise", uuid.NullUUID{UUID: ent, Valid: true}); err != nil {
 		t.Fatal(err)
 	}

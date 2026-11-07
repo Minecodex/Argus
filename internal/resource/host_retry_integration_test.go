@@ -100,7 +100,7 @@ func TestRetryRetiresOnlyPreviousHostControlTunnel(t *testing.T) {
 	retryConnectorID := uuid.New()
 	actorID := uuid.New()
 
-	hostRetrySQL(t, store, "INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Host retry test',$2,'UTC')", enterpriseID, "host-retry-"+enterpriseID.String())
+	hostRetrySQL(t, store, "INSERT INTO enterprises(id,name,timezone) VALUES($1,'Host retry test','UTC')", enterpriseID)
 	for _, item := range []struct {
 		id   uuid.UUID
 		name string

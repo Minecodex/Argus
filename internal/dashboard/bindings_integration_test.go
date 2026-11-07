@@ -38,7 +38,7 @@ func TestPostgresResourceDashboardBindings(t *testing.T) {
 		}
 	}
 	enterprise, department, editorRole, managerRole, user, manager, host, cluster := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec(`INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Binding test',$2,'UTC')`, enterprise, "binding-"+enterprise.String())
+	exec(`INSERT INTO enterprises(id,name,timezone) VALUES($1,'Binding test','UTC')`, enterprise)
 	exec(`INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Bindings')`, department, enterprise)
 	for _, id := range []uuid.UUID{user, manager} {
 		exec(`INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Binding user')`, id, enterprise, department, id.String())

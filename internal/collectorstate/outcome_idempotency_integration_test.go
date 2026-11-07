@@ -19,7 +19,7 @@ func TestPostgresRepeatedCollectorOutcomeDoesNotInvalidateUnchangedIntent(t *tes
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone)VALUES($1,'Owned outcome replay',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone)VALUES($1,'Owned outcome replay','UTC')", e)
 	exec("INSERT INTO hosts(id,enterprise_id,name,address,port,environment,platform,role,control_path,labels_hash)VALUES($1,$2,'Owned outcome host','127.0.0.1',22,'development','linux','managed_host','direct',decode(repeat('00',32),'hex'))", h, e)
 	exec("INSERT INTO collector_distribution_versions(id,name,version,collector_version,config_schema_version,support_status,artifact_manifest,catalog_revision)VALUES($1,$2,'fixture','fixture','fixture','supported','[]',1)", d, d.String())
 	exec("INSERT INTO collector_instances(id,enterprise_id,resource_type,resource_id,distribution_version_id,platform,role,status,desired_revision,effective_revision)VALUES($1,$2,'host',$3,$4,'linux_amd64','direct','installing',2,1)", c, e, h, d)

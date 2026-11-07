@@ -32,7 +32,7 @@ func TestPostgresServerRejectsUndeliveredCommandsWithoutOpeningClientTransition(
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone)VALUES($1,'Owned undelivered commands',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone)VALUES($1,'Owned undelivered commands','UTC')", e)
 	t.Cleanup(func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

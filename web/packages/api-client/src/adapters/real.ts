@@ -156,7 +156,6 @@ function enterprise(value: EnterpriseContract): Enterprise {
   return {
     id: value.id,
     name: value.name,
-    code: value.code,
     status: value.status,
     timezone: value.timezone,
     remark: value.remark,
@@ -427,22 +426,19 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
             "Idempotency-Key": idempotencyKey(),
           },
           body: {
-            platform_name: input.platformName,
-            default_locale: input.defaultLocale,
+            enterprise_name: input.enterpriseName,
             timezone: input.timezone,
-            external_url: input.externalUrl,
-            super_admin: {
-              username: input.superAdmin.username,
-              display_name: input.superAdmin.displayName,
-              email: input.superAdmin.email,
-              password: input.superAdmin.password,
-            },
+            username: input.username,
+            display_name: input.displayName,
+            password: input.password,
           },
         },
       );
       return {
         success: result.state === "initialized",
         superAdminUserId: result.platform_user_id,
+        enterpriseId: result.enterprise_id,
+        enterpriseAdminUserId: result.enterprise_user_id,
       };
     },
   };
@@ -478,7 +474,6 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
             headers: { "Idempotency-Key": idempotencyKey() },
             body: {
               name: input.name,
-              code: input.code,
               timezone: input.timezone ?? "Asia/Shanghai",
               remark: input.remark,
             },
@@ -1036,8 +1031,21 @@ export function createRealAdapter(options: RealAdapterOptions): RealAdapter {
   };
 
   client.telemetry = {
-    resources: (query, signal) => http.request(`enterprise/telemetry/query/resources?${new URLSearchParams(Object.entries(query).filter(([,v])=>v!==undefined).map(([k,v])=>[k,String(v)]))}`, {signal}),
-    catalog: (body, signal) => http.request("enterprise/telemetry/query/catalog", {method:"POST", body, signal}),
+    resources: (query, signal) =>
+      http.request(
+        `enterprise/telemetry/query/resources?${new URLSearchParams(
+          Object.entries(query)
+            .filter(([, v]) => v !== undefined)
+            .map(([k, v]) => [k, String(v)]),
+        )}`,
+        { signal },
+      ),
+    catalog: (body, signal) =>
+      http.request("enterprise/telemetry/query/catalog", {
+        method: "POST",
+        body,
+        signal,
+      }),
     listDistributions: () =>
       http.request<CollectorDistributionVersion[]>(
         "enterprise/telemetry/distributions",
@@ -1450,10 +1458,10 @@ function createOrganizationClient(
       const params = new URLSearchParams({ resource_type: resourceType });
       if (cursor) params.set("cursor", cursor);
       if (limit !== undefined) params.set("limit", String(limit));
-      if (search) params.set("search",search);
+      if (search) params.set("search", search);
       return http.request<DataAuthorizationPage>(
         `enterprise/data-authorizations/${subjectType}/${subjectId}?${params.toString()}`,
-        {signal},
+        { signal },
       );
     },
     async updateDataAuthorization(

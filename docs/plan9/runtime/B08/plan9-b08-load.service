@@ -1,0 +1,8 @@
+[Unit]
+Description=Plan9 B08 bounded HTTP workload
+After=plan9-b08.service
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/lib/plan9-b08.py load
+RuntimeMaxSec=8h
+Restart=no

@@ -44,7 +44,7 @@ func newAuditWorkflowFixture(t *testing.T) *auditWorkflowFixture {
 	t.Helper()
 	store := postgrestest.New(t, "ARGUS_AUDIT_TEST_DATABASE_URL", "audit_workflow", filepath.Join("..", "..", "..", "migrations", "postgresql"))
 	f := &auditWorkflowFixture{t: t, store: store, enterprise: uuid.New(), user: uuid.New(), department: uuid.New(), host: uuid.New()}
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Audit acceptance',$2,'Asia/Shanghai')", f.enterprise, f.enterprise.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Audit acceptance','Asia/Shanghai')", f.enterprise)
 	f.exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Operations')", f.department, f.enterprise)
 	f.exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,'audit-operator','Audit operator')", f.user, f.enterprise, f.department)
 	role := uuid.New()

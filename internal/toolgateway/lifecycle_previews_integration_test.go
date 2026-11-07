@@ -39,7 +39,7 @@ func TestLifecycleGatewayPreparesPublicTemplateAndKeepsRunForExecutor(t *testing
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Preview gateway',$2,'UTC')", e, "p5-"+e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Preview gateway','UTC')", e)
 	exec("INSERT INTO departments(id,enterprise_id,name,is_default) VALUES($1,$2,'Default',true)", d, e)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Preview user')", u, e, d, "p5-"+u.String())
 	exec("INSERT INTO roles(id,enterprise_id,name,builtin) VALUES($1,$2,'Preview role',false)", role, e)

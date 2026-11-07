@@ -76,7 +76,7 @@ func newGatewayFixture(t *testing.T) *gatewayFixture {
 		}
 	}
 	department, role, connector := uuid.New(), uuid.New(), uuid.New()
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Plan8 stream Gateway',$2,'UTC')", f.actor.EnterpriseID, f.actor.EnterpriseID.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Plan8 stream Gateway','UTC')", f.actor.EnterpriseID)
 	f.exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'operators')", department, f.actor.EnterpriseID)
 	f.exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'operator')", f.actor.SubjectID, f.actor.EnterpriseID, department, f.actor.SubjectID.String())
 	f.exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'stream operator')", role, f.actor.EnterpriseID)

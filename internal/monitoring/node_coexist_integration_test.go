@@ -37,7 +37,7 @@ func newActualNodeBindingFixture(t *testing.T) *actualNodeBindingFixture {
 	f := &actualNodeBindingFixture{t: t, a: telemetry.Actor{EnterpriseID: uuid.New(), SubjectID: uuid.New(), SubjectType: "user", AuthorizationVersion: 1}}
 	f.s.Store = store
 	department := uuid.New()
-	f.exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Owned actual Node binding',$2,'UTC')", f.a.EnterpriseID, f.a.EnterpriseID.String())
+	f.exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Owned actual Node binding','UTC')", f.a.EnterpriseID)
 	f.exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Owned Node binding')", department, f.a.EnterpriseID)
 	f.exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Owned Node operator')", f.a.SubjectID, f.a.EnterpriseID, department, f.a.SubjectID.String())
 	key := bytes.Repeat([]byte{7}, 32)

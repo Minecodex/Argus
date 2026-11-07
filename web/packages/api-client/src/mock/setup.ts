@@ -1,6 +1,7 @@
 import type { ArgusApiClient } from "../client";
 import type { User } from "../types";
 import type { MockContext } from "./context";
+import { createMockEnterprise } from "./platform";
 import { nextId } from "./store";
 
 /** One-time platform initialization wizard. */
@@ -21,19 +22,61 @@ export function createSetupDomain(ctx: MockContext): ArgusApiClient["setup"] {
         throw new Error("platform already initialized");
       }
       if (!input.setupToken) throw new Error("invalid setup token");
+      const createdAt = ctx.nowIso();
+      const { enterprise, departmentId } = createMockEnterprise(ctx, {
+        name: input.enterpriseName,
+        timezone: input.timezone,
+      });
+      const role = db.roles.find(
+        (entry) =>
+          entry.enterprise_id === enterprise.id &&
+          entry.builtin_key === "enterprise_admin",
+      )!;
       const admin: User = {
         id: nextId(db, "u"),
-        username: input.superAdmin.username,
-        displayName: input.superAdmin.displayName,
-        email: input.superAdmin.email,
+        username: input.username,
+        displayName: input.displayName,
         platformRole: "platform_super_admin",
         status: "active",
         mfaEnabled: false,
-        createdAt: ctx.nowIso(),
+        createdAt,
       };
-      db.users.push(admin);
-      db.credentials[admin.id] = input.superAdmin.password;
-      db.platformState = { state: "initialized", name: input.platformName };
+      const enterpriseAdmin: User = {
+        id: nextId(db, "u"),
+        username: input.username,
+        displayName: input.displayName,
+        status: "active",
+        mfaEnabled: false,
+        createdAt,
+      };
+      db.users.push(admin, enterpriseAdmin);
+      db.credentials[admin.id] = input.password;
+      db.credentials[enterpriseAdmin.id] = input.password;
+      db.enterpriseUsers.push({
+        userId: enterpriseAdmin.id,
+        enterpriseId: enterprise.id,
+        departmentId,
+      });
+      db.enterpriseAdmins.push({
+        id: enterpriseAdmin.id,
+        enterpriseId: enterprise.id,
+        username: enterpriseAdmin.username,
+        displayName: enterpriseAdmin.displayName,
+        credentialStatus: "active",
+        createdAt,
+      });
+      db.roleBindings.push({
+        id: nextId(db, "rb"),
+        enterprise_id: enterprise.id,
+        subject_type: "user",
+        subject_id: enterpriseAdmin.id,
+        role_id: role.id,
+        status: "active",
+        version: 1,
+        created_at: createdAt,
+        updated_at: createdAt,
+      });
+      db.platformState = { state: "initialized", name: "Argus" };
       db.auditEvents.unshift({
         id: nextId(db, "aud"),
         enterpriseId: null,
@@ -48,7 +91,12 @@ export function createSetupDomain(ctx: MockContext): ArgusApiClient["setup"] {
         createdAt: ctx.nowIso(),
       });
       ctx.save();
-      return { success: true, superAdminUserId: admin.id };
+      return {
+        success: true,
+        superAdminUserId: admin.id,
+        enterpriseId: enterprise.id,
+        enterpriseAdminUserId: enterpriseAdmin.id,
+      };
     },
   };
 }

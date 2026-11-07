@@ -75,7 +75,7 @@ func TestPostgresPodLogSessionHTTPAuthenticatesTicketsCSRFAndScope(t *testing.T)
 		}
 	}
 	enterprise, department, user, role, cluster, namespace := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Plan8 log HTTP',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Plan8 log HTTP','UTC')", enterprise)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Operations')", department, enterprise)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Log operator')", user, enterprise, department, user.String())
 	exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'Namespace log operator')", role, enterprise)

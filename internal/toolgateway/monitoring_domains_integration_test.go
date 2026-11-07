@@ -34,7 +34,7 @@ func TestPostgresMonitoringNativeDomainsIsolationPreviewAndPresentationRevocatio
 		}
 	}
 	e, d, u, role, app, hidden, grant := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Plan8 native domain',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Plan8 native domain','UTC')", e)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Domain readers')", d, e)
 	exec("INSERT INTO enterprise_users(id,enterprise_id,department_id,username,display_name) VALUES($1,$2,$3,$4,'Domain reader')", u, e, d, u.String())
 	exec("INSERT INTO roles(id,enterprise_id,name) VALUES($1,$2,'Domain role')", role, e)

@@ -33,7 +33,7 @@ func TestPostgresHeartbeatFencesEveryProjectionAndRollsBackInvalidFrames(t *test
 			t.Fatal(err)
 		}
 	}
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Owned heartbeat fence',$2,'UTC')", e, e.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Owned heartbeat fence','UTC')", e)
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

@@ -409,6 +409,9 @@ type DashboardResolvedSource struct {
 	Generation          openapi_types.UUID `json:"generation"`
 	Id                  openapi_types.UUID `json:"id"`
 
+	// Name Display name of the registered collection or ingest endpoint, when readable.
+	Name *string `json:"name,omitempty"`
+
 	// RegisteredAt Registration time of this source configuration revision.
 	RegisteredAt *time.Time         `json:"registered_at,omitempty"`
 	ResourceId   openapi_types.UUID `json:"resource_id"`

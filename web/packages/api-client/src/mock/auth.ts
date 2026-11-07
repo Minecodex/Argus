@@ -4,7 +4,10 @@ import type { MockContext } from "./context";
 import { resolvePermissions } from "./permissions";
 
 /** Session lifecycle for mutually exclusive platform or single-enterprise identities. */
-export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
+export function createAuthDomain(
+  ctx: MockContext,
+  portal?: "setup" | "platform" | "enterprise",
+): ArgusApiClient["auth"] {
   const { db } = ctx;
   const breakGlassSessions: Awaited<
     ReturnType<ArgusApiClient["auth"]["listBreakGlassSessions"]>
@@ -93,7 +96,15 @@ export function createAuthDomain(ctx: MockContext): ArgusApiClient["auth"] {
   return {
     async login(input) {
       await ctx.pause();
-      const user = db.users.find((entry) => entry.username === input.username);
+      const users = db.users.filter(
+        (entry) =>
+          entry.username.toLowerCase() === input.username.toLowerCase(),
+      );
+      const user =
+        users.find(
+          (entry) =>
+            portal === (entry.platformRole ? "platform" : "enterprise"),
+        ) ?? users[0];
       if (
         !user ||
         db.credentials[user.id] !== input.password ||

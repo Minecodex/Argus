@@ -236,10 +236,9 @@ type DepartmentStatus string
 
 // Enterprise defines model for Enterprise.
 type Enterprise struct {
-	Code          string                  `json:"code"`
 	CreatedAt     time.Time               `json:"created_at"`
 	DefaultLocale EnterpriseDefaultLocale `json:"default_locale"`
-	Id            string                  `json:"id"`
+	Id            openapi_types.UUID      `json:"id"`
 	Name          string                  `json:"name"`
 	Remark        *string                 `json:"remark,omitempty"`
 	Status        EnterpriseStatus        `json:"status"`

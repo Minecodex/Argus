@@ -85,13 +85,6 @@
   padding-bottom: var(--space-px-8);
 }
 
-.argus-setup-step-intro {
-  margin: 0;
-  color: var(--text-tertiary);
-  line-height: 1.7;
-  font-size: var(--font-size-13);
-}
-
 .argus-setup-strength {
   display: flex;
   align-items: center;

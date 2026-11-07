@@ -23,7 +23,7 @@ func TestPostgresRoleChangesInvalidateOnlyAffectedSubjects(t *testing.T) {
 	}
 	enterprise, department, otherDepartment := uuid.New(), uuid.New(), uuid.New()
 	admin, member, other, account, role := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Authorization scope',$2,'UTC')", enterprise, enterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Authorization scope','UTC')", enterprise)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$3,'members'),($2,$3,'other')", department, otherDepartment, enterprise)
 	for _, user := range []uuid.UUID{admin, member, other} {
 		dept := otherDepartment
@@ -57,7 +57,7 @@ func TestPostgresRoleChangesInvalidateOnlyAffectedSubjects(t *testing.T) {
 		}
 	}
 	foreignEnterprise, foreignDepartment := uuid.New(), uuid.New()
-	exec("INSERT INTO enterprises(id,name,code,timezone) VALUES($1,'Foreign scope',$2,'UTC')", foreignEnterprise, foreignEnterprise.String())
+	exec("INSERT INTO enterprises(id,name,timezone) VALUES($1,'Foreign scope','UTC')", foreignEnterprise)
 	exec("INSERT INTO departments(id,enterprise_id,name) VALUES($1,$2,'Foreign')", foreignDepartment, foreignEnterprise)
 	if _, err := service.CreateBinding(ctx, admin.String(), enterprise, BindingInput{SubjectType: "department", SubjectID: foreignDepartment, RoleID: role}, uuid.NewString()); err == nil {
 		t.Fatal("a foreign department acquired a local binding")
