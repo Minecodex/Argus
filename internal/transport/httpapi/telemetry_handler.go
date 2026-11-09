@@ -742,7 +742,11 @@ func toNodeHostBinding(value db.KubernetesNodeHostBinding) telemetryapi.Kubernet
 }
 func toTelemetryRoute(value db.TelemetryRoute) telemetryapi.TelemetryRoute {
 	enterprise := openapi_types.UUID(value.EnterpriseID)
-	result := telemetryapi.TelemetryRoute{Id: value.ID, EnterpriseId: &enterprise, CollectorId: value.CollectorID, Kind: telemetryapi.TelemetryRouteKind(value.Kind), Status: telemetryapi.TelemetryRouteStatus(value.Status), Version: value.Version, CreatedAt: value.CreatedAt.Time, UpdatedAt: value.UpdatedAt.Time}
+	result := telemetryapi.TelemetryRoute{Id: value.ID, EnterpriseId: &enterprise, CollectorId: value.CollectorID, Kind: telemetryapi.TelemetryRouteKind(value.Kind), Status: telemetryapi.TelemetryRouteStatus(value.Status), Version: value.Version, CreatedAt: value.CreatedAt.Time, UpdatedAt: value.UpdatedAt.Time, Transport: telemetryapi.TelemetryRouteTransport(value.Transport)}
+	if value.LoopbackPort.Valid {
+		port := int(value.LoopbackPort.Int32)
+		result.LoopbackPort = &port
+	}
 	if value.GatewayCollectorID.Valid {
 		id := openapi_types.UUID(value.GatewayCollectorID.UUID)
 		result.GatewayCollectorId = &id

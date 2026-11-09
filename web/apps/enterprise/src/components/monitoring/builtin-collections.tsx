@@ -12,6 +12,7 @@ import {
 } from "@argus/api-client";
 import {
   DataTable,
+  ActionMenu,
   Switch,
   Badge,
   Dialog,
@@ -40,12 +41,14 @@ const builtinTemplates: Record<string, string> = {
 export function BuiltinCollections({
   kind,
   id,
+  showTitle = true,
 }: {
   kind: "host" | "kubernetes_cluster";
   id: string;
+  showTitle?: boolean;
 }) {
   const api = useApi(),
-    { t } = useTranslation(),
+    { t, i18n } = useTranslation(),
     cache = useQueryClient();
   const navigate = useNavigate(),
     canViewDashboard = usePermission("telemetry.dashboard.read");
@@ -111,18 +114,14 @@ export function BuiltinCollections({
       render: (row) => (
         <>
           <div>{t(`builtinCollections.names.${row.definition.key}`)}</div>
-          {(
-            [
-              "host_process_metrics",
-              "host_systemd_metrics",
-              "host_windows_service_metrics",
-              "kubernetes_scheduler_metrics",
-              "kubernetes_controller_metrics",
-              "kubernetes_etcd_metrics",
-            ] as string[]
-          ).includes(row.definition.key) && (
+          <div className="argus-muted">
+            {t(`builtinCollections.descriptions.${row.definition.key}`)}
+          </div>
+          {!row.available && (
             <div className="argus-muted">
-              {t(`builtinCollections.hints.${row.definition.key}`)}
+              {t(
+                `builtinCollections.reasons.${row.reason ?? "component_unavailable"}`,
+              )}
             </div>
           )}
         </>
@@ -130,7 +129,7 @@ export function BuiltinCollections({
     },
     {
       key: "desired",
-      header: t("monitoring.desiredEnabled"),
+      header: t("builtinCollections.enable"),
       render: (row) => (
         <Switch
           label={t("monitoring.toggleCollection", {
@@ -143,54 +142,59 @@ export function BuiltinCollections({
       ),
     },
     {
-      key: "apply",
-      header: t("monitoring.applicationState"),
-      render: (row) =>
-        row.collection ? (
-          <>
-            <Badge>
-              {t(`monitoring.applyStates.${row.collection.apply_status}`)}
-            </Badge>
-            <div className="argus-muted">
-              {t("monitoring.revisions", {
-                desired: row.collection.desired_revision,
-                effective: row.collection.effective_revision,
-              })}
-            </div>
-          </>
-        ) : (
-          t("builtinCollections.notConfigured")
-        ),
-    },
-    {
-      key: "health",
-      header: t("monitoring.collectionHealth"),
-      render: (row) =>
-        row.collection
-          ? t(`monitoring.healthStates.${row.collection.health}`)
-          : "—",
-    },
-    {
       key: "data",
       header: t("monitoring.dataState"),
-      render: (row) =>
-        row.collection
-          ? t(`monitoring.freshnessStates.${row.collection.freshness}`)
-          : "—",
-    },
-    {
-      key: "reason",
-      header: t("builtinCollections.availability"),
-      render: (row) =>
-        row.available
-          ? row.collection?.error_code
-            ? t(`builtinCollections.diagnostics.${row.collection.error_code}`, {
-                defaultValue: row.collection.error_code,
-              })
-            : t("builtinCollections.available")
-          : t(
-              `builtinCollections.reasons.${row.reason ?? "component_unavailable"}`,
-            ),
+      render: (row) => {
+        const collection = row.collection;
+        const applying =
+          collection &&
+          ["pending", "applying", "unknown"].includes(collection.apply_status);
+        const failed =
+          collection?.apply_status === "failed" ||
+          collection?.health === "failed";
+        const enabled = collection?.desired_enabled;
+        const warning =
+          enabled &&
+          (collection?.freshness === "stale" ||
+            collection?.health === "degraded");
+        const label = applying
+          ? t(`monitoring.applyStates.${collection.apply_status}`)
+          : failed
+            ? t("monitoring.healthStates.failed")
+            : !enabled
+              ? t("builtinCollections.off")
+              : collection.health === "degraded"
+                ? t("monitoring.healthStates.degraded")
+                : t(`monitoring.freshnessStates.${collection.freshness}`);
+        return (
+          <>
+            <Badge
+              tone={
+                applying
+                  ? "accent"
+                  : failed
+                    ? "danger"
+                    : warning
+                      ? "warning"
+                      : enabled && collection?.freshness === "fresh"
+                        ? "success"
+                        : "neutral"
+              }
+            >
+              {label}
+            </Badge>
+            {enabled && collection?.last_sample_at && (
+              <div className="argus-muted">
+                {t("builtinCollections.latestSample", {
+                  time: new Date(collection.last_sample_at).toLocaleString(
+                    i18n.language,
+                  ),
+                })}
+              </div>
+            )}
+          </>
+        );
+      },
     },
     {
       key: "dashboard",
@@ -200,9 +204,16 @@ export function BuiltinCollections({
           {canManage &&
             row.available &&
             row.definition.component_tls_supported && (
-              <Button size="sm" isDisabled={busy} onPress={() => setTrust(row)}>
-                {t("builtinCollections.trust.action")}
-              </Button>
+              <ActionMenu
+                name={t(`builtinCollections.names.${row.definition.key}`)}
+                isDisabled={busy}
+                items={[
+                  {
+                    label: t("builtinCollections.trust.action"),
+                    onSelect: () => setTrust(row),
+                  },
+                ]}
+              />
             )}
           {canViewDashboard &&
           row.collection &&
@@ -221,10 +232,14 @@ export function BuiltinCollections({
   ];
   return (
     <section className="argus-detail-section">
-      <h3 className="argus-detail-section__title">
-        {t("builtinCollections.title")}
-      </h3>
-      <p className="argus-muted">{t("builtinCollections.hint")}</p>
+      {showTitle && (
+        <h3 className="argus-detail-section__title">
+          {t("builtinCollections.title")}
+        </h3>
+      )}
+      {showTitle && (
+        <p className="argus-muted">{t("builtinCollections.hint")}</p>
+      )}
       {!canRead ? (
         <EmptyState
           title={t("builtinCollections.noAccess")}

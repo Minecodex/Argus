@@ -510,7 +510,11 @@ test("approvals inbox: approve the automatically selected action", async ({
   // 审批记录出现「已批准」，操作进入执行（mock 定时推进任务步骤）。
   await expect(detail.getByText("已批准").first()).toBeVisible();
   await expect(approveButton).not.toBeVisible();
-  await expect(detail.getByText(/待执行|执行中/)).toBeVisible();
+  await expect(
+    detail
+      .locator(".argus-status-badge")
+      .filter({ hasText: /^(待执行|执行中)$/ }),
+  ).toBeVisible();
 });
 
 test("approvals inbox: reject a pending action with a reason", async ({
@@ -786,29 +790,31 @@ test("kubernetes collector statuses install or open monitoring directly", async 
     page.getByRole("row").filter({
       has: page.getByRole("link", { name: "k8s-staging", exact: true }),
     }),
-    "OTLP 收集器",
+    "采集配置",
   );
   const dialog = page.getByRole("tabpanel", {
-    name: "OTLP 收集器",
+    name: "采集配置",
     exact: true,
   });
   await expect(dialog).toBeVisible();
 
-  // 向导三步:绑定 → Claim 矩阵 → 预览;预览步填写内网镜像并展示生效值。
-  await dialog.getByRole("button", { name: "下一步" }).click();
-  await dialog.getByRole("button", { name: "下一步" }).click();
-  const imageInput = dialog.getByLabel("内网镜像地址");
+  await dialog.getByRole("button", { name: "安装采集器", exact: true }).click();
+  const install = page.getByRole("dialog", { name: "安装采集器", exact: true });
+  await install
+    .getByRole("button", { name: "自定义安装设置", exact: true })
+    .click();
+  const imageInput = install.getByLabel("内网镜像地址");
   await expect(imageInput).toBeVisible();
   await imageInput.fill("registry.internal.corp/argus/otelcol:0.1.0-m7");
-  await expect(
-    dialog.getByText("registry.internal.corp/argus/otelcol:0.1.0-m7").last(),
-  ).toBeVisible();
-  await dialog.getByRole("button", { name: "生成安装预览" }).click();
-  await dialog.getByRole("button", { name: "确认执行" }).click();
+  await install.getByRole("button", { name: "生成安装预览" }).click();
+  await install.getByRole("button", { name: "确认执行" }).click();
+  await expect(install).not.toBeVisible({ timeout: 15000 });
+  await expect(dialog.getByRole("switch").first()).toBeEnabled({
+    timeout: 15000,
+  });
 
   // 确认后详情中的向导切换到收敛状态面板。
-  await expect(dialog.getByText("安装中")).toBeVisible();
-  await expect(dialog.getByText("监控中", { exact: true })).toBeVisible({
+  await expect(dialog.getByText("采集内容", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
   await page.goto("/kubernetes");
@@ -817,10 +823,10 @@ test("kubernetes collector statuses install or open monitoring directly", async 
     page.getByRole("row").filter({
       has: page.getByRole("link", { name: "k8s-prod-east", exact: true }),
     }),
-    "OTLP 收集器",
+    "采集配置",
   );
   await expect(page).toHaveURL(/\/kubernetes\/k8s-prod-east#otlp-collector$/);
-  await expect(page.getByRole("tab", { name: "OTLP 收集器" })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "采集配置" })).toHaveAttribute(
     "aria-selected",
     "true",
   );

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { selectRowAction } from "./helpers/action-menu";
 
 for (const english of [false, true])
   for (const theme of ["light", "dark"]) {
@@ -27,12 +28,10 @@ for (const english of [false, true])
           exact: true,
         }),
       });
-      await scheduler
-        .getByRole("button", {
-          name: english ? "Certificate trust" : "证书信任",
-          exact: true,
-        })
-        .click();
+      await selectRowAction(
+        scheduler,
+        english ? "Certificate trust" : "证书信任",
+      );
       const trust = page.getByRole("dialog", {
         name: english
           ? "Component metric certificate trust"
@@ -94,12 +93,10 @@ for (const english of [false, true])
       await scheduler.getByRole("switch").press("Space");
       await confirm();
       await expect(scheduler.getByRole("switch")).not.toBeChecked();
-      await scheduler
-        .getByRole("button", {
-          name: english ? "Certificate trust" : "证书信任",
-          exact: true,
-        })
-        .click();
+      await selectRowAction(
+        scheduler,
+        english ? "Certificate trust" : "证书信任",
+      );
       await expect(
         trust.getByRole("textbox", {
           name: english ? "Certificate server name" : "证书服务名",

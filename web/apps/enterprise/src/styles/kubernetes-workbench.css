@@ -20,9 +20,6 @@
 .argus-k8s-workbench-toolbar {
   flex-wrap: wrap;
 }
-.argus-k8s-type-select {
-  min-inline-size: var(--field-width-compact);
-}
 .argus-k8s-workbench-toolbar {
   align-items: flex-end;
 }
@@ -31,5 +28,29 @@
 }
 .argus-k8s-workbench-footer {
   justify-content: space-between;
+  flex-wrap: wrap;
   color: var(--text-secondary);
+}
+.argus-k8s-resource-filters,
+.argus-k8s-resource-filters > .argus-filter-bar__inline-actions,
+.argus-k8s-resource-filters > .argus-filter-bar__actions {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.argus-k8s-resource-filters > .argus-filter-bar__inline-actions {
+  flex: 1;
+  min-width: 0;
+}
+.argus-k8s-resource-filters > .argus-filter-bar__actions {
+  flex-shrink: 0;
+}
+.argus-k8s-namespace-select {
+  flex: 0 1 var(--field-width-compact);
+  min-width: var(--filter-select-min-width);
+}
+.argus-k8s-resource-name,
+.argus-k8s-resource-labels {
+  flex: 1 1 var(--filter-search-min-width);
+  min-width: 0;
+  max-width: var(--field-width-compact);
 }

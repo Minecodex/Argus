@@ -1,9 +1,10 @@
+import { selectWorkbenchNamespace } from "./helpers/kubernetes-workbench";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 for (const english of [false, true])
   for (const theme of ["light", "dark"]) {
-    test(`Plan8 Kubernetes terminal and port forward ${english ? "en" : "zh"} ${theme}`, async ({
+    test(`Plan8 Kubernetes terminal without port forward ${english ? "en" : "zh"} ${theme}`, async ({
       page,
     }, info) => {
       const errors: string[] = [],
@@ -62,25 +63,8 @@ for (const english of [false, true])
       await page.locator('form button[type="submit"]').click();
       await expect(page).not.toHaveURL(/\/login/);
       await page.goto("/kubernetes/k8s-prod-east");
-      await page
-        .getByRole("button", {
-          name: english ? "All authorized namespaces" : "全部已授权命名空间",
-          exact: true,
-        })
-        .click();
-      await page
-        .getByRole("dialog", {
-          name: english ? "Choose a namespace" : "选择命名空间",
-          exact: true,
-        })
-        .getByRole("button", { name: /^(Select|选择) production$/ })
-        .click();
-      await page
-        .getByRole("button", {
-          name: new RegExp(english ? "Resource type" : "资源类型"),
-        })
-        .click();
-      await page.getByRole("option", { name: "Pod", exact: true }).click();
+      await selectWorkbenchNamespace(page, "production");
+      await page.getByRole("tab", { name: "Pod", exact: true }).click();
       const row = page
         .getByRole("row")
         .filter({ has: page.getByText("pod-example", { exact: true }) });
@@ -90,7 +74,7 @@ for (const english of [false, true])
           exact: true,
         })
         .click();
-      let dialog = page.getByRole("dialog", {
+      const dialog = page.getByRole("dialog", {
         name: english ? "Pod terminal · pod-example" : "Pod 终端 · pod-example",
         exact: true,
       });
@@ -125,58 +109,12 @@ for (const english of [false, true])
         })
         .click();
       await expect(dialog).not.toBeVisible();
-      await row
-        .getByRole("button", {
+      await expect(
+        page.getByRole("button", {
           name: english ? "Port forward" : "端口转发",
           exact: true,
-        })
-        .click();
-      dialog = page.getByRole("dialog", {
-        name: english ? "Port forward · pod-example" : "端口转发 · pod-example",
-        exact: true,
-      });
-      await dialog
-        .getByRole("spinbutton", {
-          name: english ? "Target TCP port" : "目标 TCP 端口",
-          exact: true,
-        })
-        .fill("3306");
-      await dialog
-        .getByRole("textbox", {
-          name: english ? "Reason" : "操作原因",
-          exact: true,
-        })
-        .fill("Inspect isolated MySQL connection");
-      await dialog
-        .getByRole("button", {
-          name: english ? "Create session" : "创建会话",
-          exact: true,
-        })
-        .click();
-      await expect(dialog.locator("pre")).toContainText(
-        "argusctl kubernetes port-forward",
-      );
-      await expect(dialog.locator("pre")).toContainText(
-        "--ticket-stdin --listen 127.0.0.1:18080",
-      );
-      const token = dialog.getByRole("textbox", {
-        name: english ? "One-use connection ticket" : "一次性连接票据",
-        exact: true,
-      });
-      await expect(token).toHaveValue(/^[\w-]{43}$/);
-      const old = await token.inputValue();
-      await dialog
-        .getByRole("button", {
-          name: english ? "Replace ticket" : "重新签发票据",
-          exact: true,
-        })
-        .click();
-      await expect(token).not.toHaveValue(old);
-      expect(
-        await page.evaluate(() =>
-          JSON.stringify({ local: localStorage, session: sessionStorage }),
-        ),
-      ).not.toContain(old);
+        }),
+      ).toHaveCount(0);
       const violations = (
         await new AxeBuilder({ page }).analyze()
       ).violations.filter(
@@ -184,16 +122,9 @@ for (const english of [false, true])
       );
       expect(violations).toEqual([]);
       await page.screenshot({
-        path: info.outputPath("port-forward.png"),
+        path: info.outputPath("resource-actions.png"),
         fullPage: true,
       });
-      await dialog
-        .getByRole("button", {
-          name: english ? "Close session" : "关闭会话",
-          exact: true,
-        })
-        .click();
-      await expect(dialog).not.toBeVisible();
       expect(errors).toEqual([]);
     });
   }

@@ -3,9 +3,9 @@
   "schema_version": "argus.plan9_manual_review/v1",
   "created_at": "2026-10-26",
   "timezone": "Asia/Shanghai",
-  "status": "B08_deployed_waiting_user_review",
-  "current_run_id": "p9-b08-20261105-01",
-  "next_suggested_batch": "B09a",
+  "status": "B09a_deployed_waiting_user_review",
+  "current_run_id": "p9-b09a-20261108-01",
+  "next_suggested_batch": "B09b",
   "scope": "真实负载与正常接入驱动的分批人工界面验收",
   "documentation": {
     "entry": "README.md",
@@ -14,22 +14,22 @@
     "environment": "03-environment-and-compose.md",
     "review": "04-review-and-evidence.md",
     "first_batch": "batches/B01-linux-host.md",
-    "review_entry": "batches/B08-review.md",
-    "issues": "batches/B08-review.md",
+    "review_entry": "batches/B09a-review.md",
+    "issues": "batches/B09a-review.md",
     "data_reset": "05-local-data-reset-20261026.md",
     "product_fixes": "06-b01-managed-dashboard-and-query-fixes.md",
     "review_fixes": "07-dashboard-and-alert-review-fixes.md",
-    "current_review": "batches/B08-review.md",
+    "current_review": "batches/B09a-review.md",
     "cache_query_fixes": "08-b04-cache-views-and-metadata-scan.md"
   },
   "delivery": {
     "scenario_design": "written",
-    "compose_packages": "B01_through_B07c_retired_B08_running_others_planned",
+    "compose_packages": "B01_through_B08_retired_B09a_running_others_planned",
     "runtime_scripts": "B01_infrastructure_normal_API_and_real_scenarios_implemented",
-    "deployment": "B08_deployed",
+    "deployment": "B09a_deployed",
     "live_api_calls": "normal_setup_login_enrollment_monitoring_dashboards_alerts",
     "real_model_calls": "not_run",
-    "human_acceptance": "B08_pending_user_review"
+    "human_acceptance": "B09a_pending_user_review"
   },
   "execution_policy": {
     "one_active_sub_batch": true,
@@ -361,11 +361,11 @@
       "id": "B08",
       "title": "Linux 文件日志与 Journald",
       "activation": "on_user_batch_selection",
-      "status": "ready_for_review",
+      "status": "destroyed",
       "package_status": "implemented_and_executed",
       "self_check": "real_filelog_journald_rotation_resume_redaction_dashboards_alert_and_browser_passed",
-      "review_status": "pending_user_review",
-      "runtime_status": "running",
+      "review_status": "advanced_by_user_request",
+      "runtime_status": "destroyed",
       "sub_batches": [],
       "runs": [
         "p9-b08-20261105-01"
@@ -373,25 +373,30 @@
       "handoff": "batches/B08-review.md",
       "open_issues": [
         "B08-D01"
-      ]
+      ],
+      "cleanup": "../../artifacts/plan9/p9-b08-20261105-01/cleanup.json"
     },
     {
       "id": "B09",
       "title": "Kubernetes 监控与日志",
       "activation": "on_user_batch_selection",
-      "status": "planned",
-      "package_status": "not_created",
+      "status": "B09a_pending_user_review",
+      "package_status": "B09a_implemented_and_executed",
       "self_check": "not_run",
       "review_status": "not_reviewed",
-      "runtime_status": "not_created",
+      "runtime_status": "B09a_running",
       "sub_batches": [
         {
           "id": "B09a",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "ready_for_review",
+          "package_status": "implemented_and_executed",
+          "self_check": "real_native_metrics_logs_24_panels_namespace_scope_alert_restart_and_browser_passed",
+          "review_status": "pending_user_review",
+          "runtime_status": "running",
+          "runs": [
+            "p9-b09a-20261108-01"
+          ],
+          "handoff": "batches/B09a-review.md"
         },
         {
           "id": "B09b",
@@ -402,7 +407,9 @@
           "runtime_status": "not_created"
         }
       ],
-      "runs": []
+      "runs": [
+        "p9-b09a-20261108-01"
+      ]
     },
     {
       "id": "B10",
@@ -829,7 +836,8 @@
       "batches": [
         "B09a"
       ],
-      "plan9_status": "planned_not_run"
+      "plan9_status": "B09a_formal_native_collection_verified",
+      "evidence": "../../artifacts/plan9/p9-b09a-20261108-01/checks.json"
     },
     {
       "plan8_id": "P8-I37",
@@ -909,7 +917,8 @@
       "batches": [
         "B09a"
       ],
-      "plan9_status": "planned_not_run"
+      "plan9_status": "B09a_formal_native_collection_verified",
+      "evidence": "../../artifacts/plan9/p9-b09a-20261108-01/checks.json"
     },
     {
       "plan8_id": "P8-B02",
@@ -917,7 +926,8 @@
       "batches": [
         "B09a"
       ],
-      "plan9_status": "planned_not_run"
+      "plan9_status": "B09a_formal_native_collection_verified",
+      "evidence": "../../artifacts/plan9/p9-b09a-20261108-01/checks.json"
     },
     {
       "plan8_id": "P8-B03",
@@ -965,7 +975,8 @@
       "batches": [
         "B09a"
       ],
-      "plan9_status": "planned_not_run"
+      "plan9_status": "B09a_formal_native_collection_verified",
+      "evidence": "../../artifacts/plan9/p9-b09a-20261108-01/checks.json"
     }
   ],
   "runs": [
@@ -978,6 +989,11 @@
       "run_id": "p9-b08-20261105-01",
       "batch": "B08",
       "record": "../../artifacts/plan9/p9-b08-20261105-01/run.json"
+    },
+    {
+      "run_id": "p9-b09a-20261108-01",
+      "batch": "B09a",
+      "record": "../../artifacts/plan9/p9-b09a-20261108-01/run.json"
     }
   ],
   "human_acceptances": [],
@@ -995,7 +1011,7 @@
   },
   "current_runtime_validation": {
     "status": "ready_for_review",
-    "record": "../../artifacts/plan9/p9-b08-20261105-01/checks.json",
+    "record": "../../artifacts/plan9/p9-b09a-20261108-01/checks.json",
     "human_acceptance": "pending",
     "application_detail_review": "../../artifacts/plan9/p9-b07c-20261104-01/application-repair/checks.json"
   }

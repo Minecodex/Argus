@@ -400,6 +400,28 @@ func (service Service) UpdateManagedAccount(ctx context.Context, actorID string,
 }
 
 func (service Service) IssueLease(ctx context.Context, actorID string, enterpriseID uuid.UUID, request LeaseRequest) (IssuedLease, error) {
+	for attempt := 0; ; attempt++ {
+		result, err := service.issueLease(ctx, actorID, enterpriseID, request)
+		if err == nil {
+			return result, nil
+		}
+		clear(result.Value)
+		if attempt >= 7 || !postgres.IsRetryableTransactionError(err) {
+			return IssuedLease{}, err
+		}
+		// The failed transaction rolled back its lease and audit entry. No
+		// credential has been handed to a runtime consumer at this boundary.
+		timer := time.NewTimer(time.Duration(20*(attempt+1)) * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return IssuedLease{}, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func (service Service) issueLease(ctx context.Context, actorID string, enterpriseID uuid.UUID, request LeaseRequest) (IssuedLease, error) {
 	var result IssuedLease
 	err := service.Store.InTx(ctx, func(q *db.Queries) error {
 		lease, err := service.PrepareLeaseWithQueries(ctx, q, actorID, enterpriseID, request)

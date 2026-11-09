@@ -7,12 +7,25 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	telemetryapi "github.com/kakj-go/Argus/internal/gen/openapi/telemetryapi"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
+	"github.com/kakj-go/Argus/internal/storage/postgres/db"
 	telemetryservice "github.com/kakj-go/Argus/internal/telemetry"
 	"github.com/kakj-go/Argus/internal/telemetry/queryengine"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+func TestTelemetryRouteResponsePreservesTransport(t *testing.T) {
+	route := toTelemetryRoute(db.TelemetryRoute{Transport: "executor_tunnel", LoopbackPort: pgtype.Int4{Int32: 14317, Valid: true}})
+	if route.Transport != telemetryapi.TelemetryRouteTransportExecutorTunnel || route.LoopbackPort == nil || *route.LoopbackPort != 14317 {
+		t.Fatalf("route response dropped transport settings: %#v", route)
+	}
+	direct := toTelemetryRoute(db.TelemetryRoute{Transport: "direct"})
+	if direct.Transport != telemetryapi.TelemetryRouteTransportDirect || direct.LoopbackPort != nil {
+		t.Fatalf("direct route response changed transport settings: %#v", direct)
+	}
+}
 
 func TestCollectorPreviewInputPreservesRouteTransportAndLoopbackPort(t *testing.T) {
 	distributionID := uuid.Must(uuid.NewV7())

@@ -1,5 +1,7 @@
 # Helm 工作台实施
 
+2026-11-09 门户入口修订：[资源工作台](../plans/frontend-redesign/kubernetes-resource-workspace-20261109.md)移除 Helm 发布管理入口与弹层挂载；本页保留领域/API、工具与历史实现和验证记录。
+
 2026-10-20，接续 [50 完成度复核](./50-completion-audit.md)，T11 实施中。
 
 沿用现有 Kubernetes 接入身份、PendingAction、操作队列与审计。使用仓库锁定的 Helm v4 SDK 管理 Release 和 hooks；不创建外部 Helm 服务，不把平台安装 CLI 当作工作台。

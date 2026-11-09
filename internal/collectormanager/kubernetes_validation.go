@@ -49,7 +49,19 @@ func validateKubernetesCandidate(ctx context.Context, client kubernetes.Interfac
 	agent.Env = append(agent.Env, corev1.EnvVar{Name: "K8S_NODE_NAME", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"}}})
 	agent.Name = "validate-agent"
 	agent.Args = []string{"validate", "--config=/etc/argus-otelcol/agent.yaml"}
-	agent.VolumeMounts = slices.DeleteFunc(agent.VolumeMounts, func(mount corev1.VolumeMount) bool { return mount.Name == "monitoring-private" })
+	agentTemplate := collectorPodTemplate(command, image, slot, "argus-otelcol-agent")
+	agent.VolumeMounts = slices.Clone(agentTemplate.Spec.Containers[0].VolumeMounts)
+	agent.SecurityContext = agentTemplate.Spec.Containers[0].SecurityContext.DeepCopy()
+	if agent.SecurityContext == nil {
+		agent.SecurityContext = &corev1.SecurityContext{}
+	}
+	agent.SecurityContext.RunAsUser = agentTemplate.Spec.SecurityContext.RunAsUser
+	agent.SecurityContext.RunAsNonRoot = agentTemplate.Spec.SecurityContext.RunAsNonRoot
+	for _, volume := range agentTemplate.Spec.Volumes {
+		if !slices.ContainsFunc(template.Spec.Volumes, func(existing corev1.Volume) bool { return existing.Name == volume.Name }) {
+			template.Spec.Volumes = append(template.Spec.Volumes, volume)
+		}
+	}
 	template.Spec.InitContainers = []corev1.Container{agent}
 	template.Spec.Containers = []corev1.Container{container}
 	template.Spec.RestartPolicy = corev1.RestartPolicyNever

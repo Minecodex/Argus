@@ -28,12 +28,7 @@ for (const english of [false, true])
         await page
           .getByRole("tab", { name: english ? "Cluster" : "集群", exact: true })
           .click();
-        await page
-          .getByRole("button", {
-            name: new RegExp(english ? "Resource type" : "资源类型"),
-          })
-          .click();
-        await page.getByRole("option", { name: "Node", exact: true }).click();
+        await page.getByRole("tab", { name: "Node", exact: true }).click();
         const row = page.getByRole("row").filter({ hasText: "node-example" });
         await row
           .getByRole("button", {

@@ -423,11 +423,25 @@ func loadOrCreatePrivateKey(path string) (*ecdsa.PrivateKey, []byte, error) {
 	value, err := os.ReadFile(path)
 	if err == nil {
 		block, rest := pem.Decode(value)
-		if block == nil || len(rest) != 0 || block.Type != "EC PRIVATE KEY" {
+		if block == nil || len(rest) != 0 {
 			return nil, nil, errors.New("telemetry private key is invalid")
 		}
-		key, parseErr := x509.ParseECPrivateKey(block.Bytes)
-		return key, value, parseErr
+		// Installation uses PKCS#8; self-enrollment historically used SEC1.
+		// Renew with the existing ECDSA identity in either supported encoding.
+		switch block.Type {
+		case "EC PRIVATE KEY":
+			key, parseErr := x509.ParseECPrivateKey(block.Bytes)
+			return key, value, parseErr
+		case "PRIVATE KEY":
+			parsed, parseErr := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if parseErr != nil {
+				return nil, nil, errors.New("telemetry private key is invalid")
+			}
+			if key, ok := parsed.(*ecdsa.PrivateKey); ok {
+				return key, value, nil
+			}
+		}
+		return nil, nil, errors.New("telemetry private key is invalid")
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		return nil, nil, err
