@@ -510,7 +510,11 @@ test("approvals inbox: approve the automatically selected action", async ({
   // 审批记录出现「已批准」，操作进入执行（mock 定时推进任务步骤）。
   await expect(detail.getByText("已批准").first()).toBeVisible();
   await expect(approveButton).not.toBeVisible();
-  await expect(detail.getByText(/待执行|执行中/)).toBeVisible();
+  await expect(
+    detail
+      .locator(".argus-status-badge")
+      .filter({ hasText: /^(待执行|执行中)$/ }),
+  ).toBeVisible();
 });
 
 test("approvals inbox: reject a pending action with a reason", async ({

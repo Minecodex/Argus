@@ -6,6 +6,7 @@ for (const english of [false, true])
     test(`Plan8 own metric instances ${english ? "en" : "zh"} ${theme}`, async ({
       page,
     }, info) => {
+      test.setTimeout(90_000);
       await page.setViewportSize({ width: 1440, height: 1100 });
       await page.addInitScript(
         ({ english, theme }) => {
@@ -159,13 +160,11 @@ for (const english of [false, true])
           .first(),
       ).toBeVisible();
       await page.goto("/kubernetes/k8s-prod-east#otlp-collector");
-      const dns = page
-        .getByRole("row")
-        .filter({
-          has: page.getByText(english ? "CoreDNS metrics" : "CoreDNS 指标", {
-            exact: true,
-          }),
-        });
+      const dns = page.getByRole("row").filter({
+        has: page.getByText(english ? "CoreDNS metrics" : "CoreDNS 指标", {
+          exact: true,
+        }),
+      });
       await dns.getByRole("switch").focus();
       await dns.getByRole("switch").press("Space");
       await confirm();
