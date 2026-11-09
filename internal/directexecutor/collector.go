@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kakj-go/Argus/internal/collectormanager"
 	"github.com/kakj-go/Argus/internal/collectorstate"
@@ -83,7 +82,7 @@ func (executor *Executor) executeCollectorOperation(parent context.Context, oper
 		command.IngestGrpcEndpoint = executor.TelemetryIngestGRPCEndpoint
 		command.IngestHttpEndpoint = executor.TelemetryIngestHTTPEndpoint
 	}
-	addresses, err := executor.Validator.Resolve(ctx, command.GetTargetAddress())
+	addresses, err := executor.collectorTargetAddresses(ctx, &command)
 	if err != nil || len(addresses) == 0 {
 		executor.finishCollectorOperation(ctx, operation, "failed", nil, "DIRECT_TARGET_DENIED")
 		return
@@ -137,10 +136,32 @@ func (executor *Executor) executeCollectorOperation(parent context.Context, oper
 	executor.finishCollectorOperation(ctx, operation, "succeeded", resultHash[:], "")
 }
 
+func (executor *Executor) collectorTargetAddresses(ctx context.Context, command *connectorv1.CollectorManagementCommand) ([]netip.Addr, error) {
+	if command.GetResourceType() == "kubernetes_cluster" {
+		_, addresses, err := executor.Validator.ResolveHTTPS(ctx, command.GetTargetAddress())
+		return addresses, err
+	}
+	return executor.Validator.Resolve(ctx, command.GetTargetAddress())
+}
+
 func (executor *Executor) executeKubernetesCollector(ctx context.Context, enterpriseID uuid.UUID, command *connectorv1.CollectorManagementCommand, kubeconfig []byte) (collectormanager.Result, error) {
-	configuration, err := clientcmd.RESTConfigFromKubeConfig(kubeconfig)
+	configuration, err := safeKubernetesConfig(kubeconfig)
 	if err != nil {
 		return collectormanager.Result{}, err
+	}
+	target, addresses, err := executor.Validator.ResolveHTTPS(ctx, command.GetTargetAddress())
+	if err != nil {
+		return collectormanager.Result{}, err
+	}
+	configuration.Host = target.Scheme + "://" + target.Host
+	if configuration.ServerName == "" {
+		configuration.ServerName = target.Hostname()
+	}
+	configuration.Dial = func(ctx context.Context, _, _ string) (net.Conn, error) {
+		if err := executor.Validator.Revalidate(ctx, target.Hostname(), addresses); err != nil {
+			return nil, err
+		}
+		return dialFixed(ctx, addresses[0], int32(portForURL(target)))
 	}
 	configuration.Timeout = 30 * time.Second
 	client, err := kubernetes.NewForConfig(configuration)

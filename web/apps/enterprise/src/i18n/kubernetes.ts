@@ -119,7 +119,7 @@ export const kubernetesZh = {
     },
     detail: {
       resourcesTab: "资源查询",
-      collectorTab: "OTLP 收集器",
+      collectorTab: "采集配置",
       apiServer: "API Server",
       createdAt: "接入时间",
     },
@@ -186,11 +186,19 @@ export const kubernetesZh = {
       temporary: "临时重复",
     },
     collector: {
+      settings: {
+        title: "收集器管理",
+        hint: "仅在维护部署时调整镜像、拉取凭据或执行修复。采集内容通过页面上的开关配置。",
+      },
       notInstalled: "该集群尚未安装 OTLP 收集器",
-      notInstalledHint:
-        "通过向导完成 Node/Host 绑定确认、Claim 冲突检查后，安装 DaemonSet + Gateway。",
-      startInstall: "安装 OTLP 收集器",
+      notInstalledHint: "安装采集器后，按需开启需要的指标采集。",
+      startInstall: "安装采集器",
       wizard: {
+        simpleHint:
+          "使用已保存的集群连接凭据安装容器版采集器，完成后通过开关选择采集内容。",
+        advanced: "自定义安装设置",
+        catalogUnavailable:
+          "暂无可用的采集器发行包，请联系管理员检查部署配置。",
         step1: "Node/Host 绑定",
         step1Desc: "确认节点与主机的可信物理绑定",
         step2: "Claim 冲突矩阵",
@@ -384,7 +392,7 @@ export const kubernetesEn = {
     },
     detail: {
       resourcesTab: "Resources",
-      collectorTab: "OTLP Collector",
+      collectorTab: "Collection",
       apiServer: "API Server",
       createdAt: "Connected at",
     },
@@ -451,11 +459,20 @@ export const kubernetesEn = {
       temporary: "Temporary duplicate",
     },
     collector: {
+      settings: {
+        title: "Collector management",
+        hint: "Change images, pull references or repair the deployment when maintenance is needed. Use the page switches to choose what to collect.",
+      },
       notInstalled: "No OTLP Collector installed on this cluster",
       notInstalledHint:
-        "Walk through binding confirmation and claim conflict checks, then install the DaemonSet + Gateway.",
-      startInstall: "Install OTLP Collector",
+        "Install the Collector, then enable the metrics you need.",
+      startInstall: "Install Collector",
       wizard: {
+        simpleHint:
+          "Install the container Collector using the saved cluster credentials, then use the switches to choose what to collect.",
+        advanced: "Custom installation settings",
+        catalogUnavailable:
+          "No supported Collector distribution is available. Ask an administrator to check deployment settings.",
         step1: "Node/Host bindings",
         step1Desc: "Confirm trusted physical bindings",
         step2: "Claim conflict matrix",

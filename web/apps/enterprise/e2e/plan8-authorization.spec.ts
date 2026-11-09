@@ -60,8 +60,9 @@ for (const english of [false, true])
       ).toBeVisible();
       await page.goto("/kubernetes/k8s-prod-east");
       await expect(
-        page.getByRole("button", {
-          name: new RegExp(english ? "Resource type" : "资源类型"),
+        page.getByRole("tablist", {
+          name: english ? "Resource type" : "资源类型",
+          exact: true,
         }),
       ).toBeVisible();
       await expect(
@@ -80,11 +81,9 @@ for (const english of [false, true])
           exact: true,
         })
         .click();
-      const appRow = drawer
-        .getByRole("row")
-        .filter({
-          has: page.getByText("Plan8 authorized application", { exact: true }),
-        });
+      const appRow = drawer.getByRole("row").filter({
+        has: page.getByText("Plan8 authorized application", { exact: true }),
+      });
       await appRow
         .getByRole("button", { name: english ? "Grant" : "授予", exact: true })
         .click();

@@ -1,5 +1,9 @@
 # 主机与 Kubernetes 工作台
 
+2026-11-09 门户交互修订：[资源工作台布局](../plans/frontend-redesign/kubernetes-resource-workspace-20261109.md)使用类别/类型两排 Tab 和 Namespace 下拉，移除资源页 Helm 与端口转发入口。下方能力表保留领域/API 与历史统一交付范围；当前页面入口以该修订为准。
+
+同日[采集配置简化与仪表盘恢复](../plans/frontend-redesign/kubernetes-collection-controls-20261109.md)：日常主视图以采集内容开关和实际样本状态为主，部署维护进入次级入口；修正 PKCS#8 安装私钥不能续证导致的停采。
+
 ## 主机自身监控
 
 主机页面继续管理资产、Connector 和 Collector 生命周期。自身能力包括基础 CPU/内存/磁盘/文件系统/网络、系统日志、受控文件日志、进程/系统服务以及 Collector 自监控；各平台只展示已验证能力。

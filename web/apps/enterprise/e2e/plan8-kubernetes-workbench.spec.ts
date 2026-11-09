@@ -1,3 +1,4 @@
+import { selectWorkbenchNamespace } from "./helpers/kubernetes-workbench";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -25,29 +26,16 @@ for (const english of [false, true])
       await expect(page).not.toHaveURL(/\/login/);
       await page.goto("/kubernetes/k8s-prod-east");
       await expect(
-        page.getByRole("button", {
-          name: new RegExp(english ? "Resource type" : "资源类型"),
+        page.getByRole("tablist", {
+          name: english ? "Resource type" : "资源类型",
+          exact: true,
         }),
       ).toBeVisible();
-      await page
-        .getByRole("button", {
-          name: english ? "All authorized namespaces" : "全部已授权命名空间",
-          exact: true,
-        })
-        .click();
-      const picker = page.getByRole("dialog", {
-        name: english ? "Choose a namespace" : "选择命名空间",
-        exact: true,
-      });
-      await picker
-        .getByRole("button", { name: /^(Select|选择) production$/ })
-        .click();
+      await selectWorkbenchNamespace(page, "production");
       await expect(
-        page
-          .getByRole("row")
-          .filter({
-            has: page.getByText("deployment-example", { exact: true }),
-          }),
+        page.getByRole("row").filter({
+          has: page.getByText("deployment-example", { exact: true }),
+        }),
       ).toHaveCount(1);
       await page
         .getByRole("tab", {
@@ -55,12 +43,7 @@ for (const english of [false, true])
           exact: true,
         })
         .click();
-      await page
-        .getByRole("button", {
-          name: new RegExp(english ? "Resource type" : "资源类型"),
-        })
-        .click();
-      await page.getByRole("option", { name: "Secret", exact: true }).click();
+      await page.getByRole("tab", { name: "Secret", exact: true }).click();
       const row = page
         .getByRole("row")
         .filter({ has: page.getByText("secret-example", { exact: true }) });

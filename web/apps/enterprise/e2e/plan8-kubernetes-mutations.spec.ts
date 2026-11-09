@@ -1,3 +1,4 @@
+import { selectWorkbenchNamespace } from "./helpers/kubernetes-workbench";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -24,19 +25,7 @@ for (const english of [false, true])
       await page.locator('form button[type="submit"]').click();
       await expect(page).not.toHaveURL(/\/login/);
       await page.goto("/kubernetes/k8s-prod-east");
-      await page
-        .getByRole("button", {
-          name: english ? "All authorized namespaces" : "全部已授权命名空间",
-          exact: true,
-        })
-        .click();
-      await page
-        .getByRole("dialog", {
-          name: english ? "Choose a namespace" : "选择命名空间",
-          exact: true,
-        })
-        .getByRole("button", { name: /^(Select|选择) production$/ })
-        .click();
+      await selectWorkbenchNamespace(page, "production");
       await page
         .getByRole("tab", {
           name: english ? "Configuration" : "配置",
@@ -196,12 +185,7 @@ for (const english of [false, true])
         '"mode": "updated"',
       );
       await page.keyboard.press("Escape");
-      await page
-        .getByRole("button", {
-          name: new RegExp(english ? "Resource type" : "资源类型"),
-        })
-        .click();
-      await page.getByRole("option", { name: "Secret", exact: true }).click();
+      await page.getByRole("tab", { name: "Secret", exact: true }).click();
       await page
         .getByRole("button", {
           name: english ? "Create object" : "新建对象",

@@ -1,3 +1,4 @@
+import { selectWorkbenchNamespace } from "./helpers/kubernetes-workbench";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -25,25 +26,8 @@ for (const english of [false, true])
       await page.locator('form button[type="submit"]').click();
       await expect(page).not.toHaveURL(/\/login/);
       await page.goto("/kubernetes/k8s-prod-east");
-      await page
-        .getByRole("button", {
-          name: text("全部已授权命名空间", "All authorized namespaces"),
-          exact: true,
-        })
-        .click();
-      await page
-        .getByRole("dialog", {
-          name: text("选择命名空间", "Choose a namespace"),
-          exact: true,
-        })
-        .getByRole("button", { name: /^(Select|选择) production$/ })
-        .click();
-      await page
-        .getByRole("button", {
-          name: new RegExp(text("资源类型", "Resource type")),
-        })
-        .click();
-      await page.getByRole("option", { name: "CronJob", exact: true }).click();
+      await selectWorkbenchNamespace(page, "production");
+      await page.getByRole("tab", { name: "CronJob", exact: true }).click();
       const row = page
         .getByRole("row")
         .filter({ has: page.getByText("cronjob-example", { exact: true }) });
@@ -104,12 +88,7 @@ for (const english of [false, true])
           .filter({ has: page.getByText("plan8-manual-run", { exact: true }) }),
       ).toContainText(text("已生效", "Applied"));
       await page.keyboard.press("Escape");
-      await page
-        .getByRole("button", {
-          name: new RegExp(text("资源类型", "Resource type")),
-        })
-        .click();
-      await page.getByRole("option", { name: "Job", exact: true }).click();
+      await page.getByRole("tab", { name: "Job", exact: true }).click();
       const job = page
         .getByRole("row")
         .filter({ has: page.getByText("plan8-manual-run", { exact: true }) });

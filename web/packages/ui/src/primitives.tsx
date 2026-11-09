@@ -74,15 +74,17 @@ export function Tabs({
 export function TabsList({
   children,
   className,
+  ariaLabel,
 }: {
   children: ReactNode;
   className?: string;
+  ariaLabel?: string;
 }) {
   const text = useUiText();
   return (
     <HeroTabs.ListContainer className="argus-tabs__list-container">
       <HeroTabs.List
-        aria-label={text("页面分区", "Page sections")}
+        aria-label={ariaLabel ?? text("页面分区", "Page sections")}
         className={cx("argus-tabs", className)}
       >
         {children}

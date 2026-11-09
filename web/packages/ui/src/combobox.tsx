@@ -150,9 +150,21 @@ export function ComboBox({
     }
   };
   const current = items.find((option) => option.value === value),
+    selected = current ?? options.find((option) => option.value === value),
     seen = new Set<string>();
+  const restoreSelection = () => {
+    if (allowCustom) return;
+    typedValue.current = undefined;
+    setTyping(false);
+    setSearch(
+      displayLabel
+        ? (selected?.textValue ??
+            (typeof selected?.label === "string" ? selected.label : value))
+        : value,
+    );
+  };
   const shown = [
-    ...(current || !value ? [] : [{ value, label: value }]),
+    ...(current || !value ? [] : [selected ?? { value, label: value }]),
     ...items,
   ].filter(
     (option) => !seen.has(option.value) && Boolean(seen.add(option.value)),
@@ -175,6 +187,10 @@ export function ComboBox({
       disabledKeys={shown
         .filter((option) => option.disabled)
         .map((option) => option.value)}
+      onBlur={restoreSelection}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") restoreSelection();
+      }}
       onInputChange={(next) => {
         typedValue.current = next;
         setTyping(true);

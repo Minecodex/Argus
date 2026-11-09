@@ -1,5 +1,7 @@
 # Kubernetes 终端与端口转发会话
 
+2026-11-09 门户入口调整：[资源工作台](../plans/frontend-redesign/kubernetes-resource-workspace-20261109.md)移除 Pod/Service 端口转发入口，保留 Pod 终端。本文记录的领域/API、CLI 和历史验证范围继续适用。
+
 2026-10-19，接续 [48 复核](./48-completion-audit.md)。已实现 Kubernetes 终端和 Pod/Service TCP 转发，并完成下述分层验证；T11 和 Plan8 整体仍在实施，未发布。
 
 保留 Host 与 K8s 的独立权限、票据与审计；共享底层帧、背压和 Connector 通道，不创建虚假 Host/账号记录。

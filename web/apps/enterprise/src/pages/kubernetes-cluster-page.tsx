@@ -3,7 +3,6 @@ import { useParams, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { useApi } from "@argus/api-client";
 import {
-  Alert,
   Badge,
   EmptyState,
   PageShell,
@@ -18,7 +17,7 @@ import { CollectorStatusPanel } from "../components/kubernetes/collector-status"
 import { CollectorWizard } from "../components/kubernetes/collector-wizard";
 import { connectionStatusTone } from "../components/kubernetes/status";
 import { KubernetesWorkbench } from "../components/kubernetes/workbench";
-import {ResourceObserveLink} from "../components/observe/resource-link";
+import { ResourceObserveLink } from "../components/observe/resource-link";
 import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
 import { useResourceDashboardTab } from "../components/dashboards/use-resource-dashboard-tab";
 import { usePermission } from "../lib/permissions";
@@ -123,7 +122,9 @@ export function KubernetesClusterPage() {
         { label: t("shell.nav.kubernetes"), href: "/kubernetes" },
         { label: cluster.name },
       ]}
-      actions={<ResourceObserveLink type="kubernetes_cluster" id={cluster.id}/>}
+      actions={
+        <ResourceObserveLink type="kubernetes_cluster" id={cluster.id} />
+      }
       description={cluster.api_server}
       title={
         <span className="argus-k8s-cluster-card__head">
@@ -181,14 +182,7 @@ export function KubernetesClusterPage() {
                 collector={collectorQuery.data}
               />
             ) : (
-              <div className="argus-k8s-stack">
-                <Alert
-                  description={t("kubernetes.collector.notInstalledHint")}
-                  title={t("kubernetes.collector.notInstalled")}
-                  tone="info"
-                />
-                <CollectorWizard cluster={cluster} />
-              </div>
+              <CollectorWizard cluster={cluster} />
             )}
           </div>
         </TabsContent>
