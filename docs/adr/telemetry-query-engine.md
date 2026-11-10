@@ -76,3 +76,9 @@ Recording/Alert Rule 管理、Thanos 特殊能力、完整 KQL、完整 SkyWalki
 原查询 HTTP 接受结构化 scope，保留旧 resource_ids 的显式语义，禁止同时传入。新增资源身份目录与 Catalog transport，复用 observationscope Resolver；不借用仪表盘能力扩大权限。目录按来源版本/名称/类型/单位区分指标，支持原生 PromQL 正则标签条件与 KQL contains 语义，查询条件在发现和聚合前应用。
 
 内部 Catalog 协议升级至 v5；API 与 Query 组件必须同步升级，旧协议明确拒绝。元数据和查询语句来自实际发现及版本化模板；没有样本不填零，未登记说明显示未知。实施及验证边界见 [Plan10 实施记录](../plan10/implementation-status.md)。
+
+## 2026-11-09：组件直方图的物理读取路径
+
+数值投影继续服务普通 Gauge/Counter，新增 `argus_histogram_source_time` 完整载荷投影，为 Histogram/Summary 按来源和时间裁剪旧样本。租户管理流程同步物化已有记录并验证两个投影，保持原始表、字段契约及查询预算。选中序列通过原生 `Array(UUID)` 参数提供主键集合，同时保留二进制外部表的成员与来源优先级约束；大集合不扩成 SQL 文本。实现、现存数据升级回归和正式组件仪表盘证据见 [B09b](../plan9/11-b09b-component-metrics.md)。
+
+2026-11-10，补充来源/指标/时间排序的数值与完整载荷投影，并使用授权元数据中的真实物理指标名裁剪同一来源的其他指标。Histogram/Summary 虚拟 sum/count 按需读取字段，展开标签只在创建序列时分配；旧投影保留支持滚动发布。详见[一小时窗口修正](../plan9/12-kubernetes-hour-window-query-20261110.md)，不改变原始数据、权限或预算上限。

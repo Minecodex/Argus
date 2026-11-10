@@ -62,3 +62,61 @@ for (const theme of ["light", "dark"])
       animations: "disabled",
     });
   });
+
+for (const locale of ["zh-CN", "en-US"])
+  for (const theme of ["light", "dark"])
+    test(`many long series stay bounded and scrollable ${locale} ${theme}`, async ({
+      page,
+    }, info) => {
+      await page.setViewportSize({
+        width: theme === "light" ? 1280 : 1920,
+        height: 700,
+      });
+      await page.goto(
+        `/e2e/fixtures/observation-tooltip.html?theme=${theme}&locale=${locale}`,
+      );
+      const chart = page.getByRole("img", { name: /^Crowded metric ·/ });
+      await chart.scrollIntoViewIfNeeded();
+      const tooltip = await hover(page, chart);
+      const bounds = (await tooltip.boundingBox())!;
+      const viewport = page.viewportSize()!;
+      expect(bounds.width).toBeLessThanOrEqual(441);
+      expect(bounds.height).toBeLessThanOrEqual(321);
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.y).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+      await expect(tooltip.getByRole("listitem")).toHaveCount(150);
+      await expect(tooltip).toContainText(
+        locale === "en-US" ? "150 series" : "150 条序列",
+      );
+      const names = tooltip.locator(".argus-chart-tooltip__name");
+      expect(
+        await names.first().evaluate((el) => el.scrollWidth > el.clientWidth),
+      ).toBe(true);
+      const list = tooltip.getByRole("list");
+      expect(
+        await list.evaluate((el) => el.scrollHeight > el.clientHeight),
+      ).toBe(true);
+      await list.hover();
+      await page.mouse.wheel(0, 600);
+      await expect
+        .poll(() => list.evaluate((el) => el.scrollTop))
+        .toBeGreaterThan(0);
+      await list.evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+      });
+      await expect(
+        tooltip.getByText("last-visible-series", { exact: true }),
+      ).toBeInViewport();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: info.outputPath("bounded-long-series.png"),
+      });
+      await page.mouse.move(2, 2);
+      await expect(tooltip).not.toBeVisible();
+    });

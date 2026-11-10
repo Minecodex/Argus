@@ -138,6 +138,10 @@ func TestRenderKubernetesConfigUsesMutualTLSAndIsolatesGatewayIdentity(t *testin
 	}
 	agent := decodeTarget(t, value, "kubernetes_agent")
 	agentIdentity := nestedMap(t, agent, "extensions", "argus_identity")
+	if agentIdentity["follow_bootstrap_identity"] != true {
+		t.Fatal("Kubernetes Agent must follow the Gateway identity rather than rotate independently")
+	}
+	assertString(t, agentIdentity, "check_interval", "1m")
 	assertString(t, agentIdentity, "bootstrap_identity_directory", "/var/run/argus-bootstrap/identity")
 	assertString(t, agentIdentity, "enrollment_token_file", "/var/lib/argus-otelcol/identity/enrollment-token")
 	agentTLS := nestedMap(t, agent, "exporters", "otlp/gateway", "tls")
@@ -152,6 +156,9 @@ func TestRenderKubernetesConfigUsesMutualTLSAndIsolatesGatewayIdentity(t *testin
 
 	gateway := decodeTarget(t, value, "kubernetes_gateway")
 	gatewayIdentity := nestedMap(t, gateway, "extensions", "argus_identity")
+	if gatewayIdentity["follow_bootstrap_identity"] == true {
+		t.Fatal("Gateway must remain the identity renewal owner")
+	}
 	assertString(t, gatewayIdentity, "bootstrap_identity_directory", "/var/run/argus-bootstrap/identity")
 	assertString(t, gatewayIdentity, "enrollment_token_file", "/var/lib/argus-otelcol/identity/enrollment-token")
 	grpc := nestedMap(t, gateway, "receivers", "otlp/downstream", "protocols", "grpc")
@@ -159,6 +166,10 @@ func TestRenderKubernetesConfigUsesMutualTLSAndIsolatesGatewayIdentity(t *testin
 	assertString(t, receiverTLS, "client_ca_file", "/var/lib/argus-otelcol/identity/ca.pem")
 	assertString(t, receiverTLS, "cert_file", "/var/lib/argus-otelcol/identity/server.pem")
 	assertString(t, receiverTLS, "key_file", "/var/lib/argus-otelcol/identity/server-key.pem")
+	assertString(t, receiverTLS, "reload_interval", "1m")
+	keepalive := nestedMap(t, grpc, "keepalive", "server_parameters")
+	assertString(t, keepalive, "max_connection_age", "5m")
+	assertString(t, keepalive, "max_connection_age_grace", "30s")
 	assertString(t, nestedMap(t, grpc, "auth"), "authenticator", "argus_identity")
 
 	pipelines := nestedMap(t, gateway, "service", "pipelines")

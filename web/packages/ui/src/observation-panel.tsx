@@ -2,6 +2,7 @@ import { Pagination } from "./pagination";
 import { useMemo, useState } from "react";
 import type { EChartsOption } from "echarts";
 import { metricOption } from "./metric-options";
+import { uniqueObservationNames } from "./observation-series-name";
 import { Button } from "./button";
 import { Input } from "./form";
 import { Select } from "./select";
@@ -75,19 +76,21 @@ function ObservationContent({
   const text = useUiText();
   const series = useMemo(
     () =>
-      targets.flatMap((target) =>
-        (signal === "logs" && target.result_type !== "log_entries"
-          ? logAggregateObservations(target.data)
-          : metricObservations(target.data)
-        ).map((s) => ({
-          ...s,
-          name:
-            Object.keys(s.labels).every((key) => !isMetricDimension(key)) ||
-            s.name === s.labels.__name__
-              ? title
-              : s.name,
-          target: target.id,
-        })),
+      uniqueObservationNames(
+        targets.flatMap((target) =>
+          (signal === "logs" && target.result_type !== "log_entries"
+            ? logAggregateObservations(target.data)
+            : metricObservations(target.data)
+          ).map((s) => ({
+            ...s,
+            name:
+              Object.keys(s.labels).every((key) => !isMetricDimension(key)) ||
+              s.name === s.labels.__name__
+                ? title
+                : s.name,
+            target: target.id,
+          })),
+        ),
       ),
     [targets, signal, title],
   );

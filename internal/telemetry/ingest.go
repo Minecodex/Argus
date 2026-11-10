@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
 
@@ -89,7 +90,11 @@ func (server *IngestServer) RegisterGRPC(grpcServer *grpc.Server) {
 }
 
 func NewIngestGRPCServer(server *IngestServer, tlsConfig *tls.Config) *grpc.Server {
-	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)), grpc.MaxRecvMsgSize(maxDecodedRequest), grpc.MaxSendMsgSize(1<<20))
+	// TLS reload only affects new connections. Rehandshake within the 15 minute
+	// identity overlap so a healthy OTLP channel cannot retain a retired leaf.
+	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)),
+		grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionAge: 5 * time.Minute, MaxConnectionAgeGrace: 30 * time.Second}),
+		grpc.MaxRecvMsgSize(maxDecodedRequest), grpc.MaxSendMsgSize(1<<20))
 	server.RegisterGRPC(grpcServer)
 	return grpcServer
 }
@@ -420,11 +425,11 @@ func (server *IngestServer) resolveDownstreamIdentity(ctx context.Context, gatew
 	// identity processor persists the authenticated receiver identity in the
 	// payload before the exporter queue, so an exact self-reference must remain
 	// valid after a restart or tunnel outage. This does not authorize another
-	// Collector: both the Collector ID and active certificate serial must match
-	// the mTLS identity already resolved for this connection.
+	// Collector. During rotation the two independently reconnected hops may
+	// present different registered leaves of this same logical identity.
 	if (gateway.Role == "daemonset" || gateway.Role == "edge_gateway") &&
-		reference.collectorID == gateway.CollectorID && reference.serial == gateway.CertificateSerial {
-		return gateway, nil
+		reference.collectorID == gateway.CollectorID {
+		return server.resolveSelfIdentity(ctx, gateway, reference.serial)
 	}
 	if gateway.Role != "edge_gateway" {
 		return TrustedIdentity{}, errIngestRejected

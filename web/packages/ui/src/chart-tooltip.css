@@ -1,5 +1,74 @@
 .argus-chart-tooltip {
   /* ECharts writes its own inline z-index; all chart surfaces share this layer. */
   z-index: var(--layer-chart-tooltip) !important;
-  max-width: calc(100vw - var(--space-4));
+  max-width: min(var(--chart-tooltip-max-width), calc(100vw - var(--space-6)));
+  max-height: min(
+    var(--chart-tooltip-max-height),
+    calc(100dvh - var(--space-6))
+  );
+  box-sizing: border-box;
+  overflow: auto;
+  padding: var(--space-3) !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-help) !important;
+  line-height: var(--line-height-normal) !important;
+  white-space: normal !important;
+}
+.argus-chart-tooltip:empty {
+  display: none;
+}
+.argus-chart-tooltip__content {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(
+    min(var(--chart-tooltip-max-height), 100dvh - var(--space-6)) -
+      var(--space-3) * 2 - var(--space-px-2)
+  );
+  min-width: 0;
+}
+.argus-chart-tooltip__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  padding-bottom: var(--space-2);
+  color: var(--text-secondary);
+}
+.argus-chart-tooltip__heading strong {
+  color: var(--text-primary);
+}
+.argus-chart-tooltip__list {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.argus-chart-tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-sm);
+}
+.argus-chart-tooltip__row > i {
+  flex: 0 0 var(--space-2);
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-round);
+  background-color: var(--argus-chart-tooltip-marker, var(--accent));
+}
+.argus-chart-tooltip__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.argus-chart-tooltip__value {
+  flex-shrink: 0;
+  max-width: var(--chart-label-max-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }

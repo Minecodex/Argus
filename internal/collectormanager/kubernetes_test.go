@@ -72,6 +72,9 @@ func TestApplyKubernetesUsesFixedTypedResources(t *testing.T) {
 		t.Fatalf("fixed Gateway missing: %v", err)
 	}
 	container := deployment.Spec.Template.Spec.Containers[0]
+	if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 1 || deployment.Spec.Strategy.Type != "Recreate" {
+		t.Fatal("Collector identity renewal requires exactly one non-overlapping Gateway owner")
+	}
 	if deployment.Spec.MinReadySeconds != 5 || container.StartupProbe == nil || container.ReadinessProbe == nil || container.LivenessProbe == nil {
 		t.Fatal("Gateway identity readiness is not part of Collector convergence")
 	}

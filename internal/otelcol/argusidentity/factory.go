@@ -32,6 +32,7 @@ type Config struct {
 	ServerCAFile                     string        `mapstructure:"server_ca_file"`
 	TrustBundleStateFile             string        `mapstructure:"trust_bundle_state_file"`
 	BootstrapIdentityDir             string        `mapstructure:"bootstrap_identity_directory"`
+	FollowBootstrapIdentity          bool          `mapstructure:"follow_bootstrap_identity"`
 	RotateBefore                     time.Duration `mapstructure:"rotate_before"`
 	CheckInterval                    time.Duration `mapstructure:"check_interval"`
 	DeliveryEndpoint                 string        `mapstructure:"delivery_endpoint"`
@@ -47,6 +48,9 @@ func (config *Config) Validate() error {
 	}
 	if config.RotateBefore <= 0 || config.CheckInterval <= 0 || config.RotateBefore < config.CheckInterval {
 		return errors.New("argus_identity rotation intervals are invalid")
+	}
+	if config.FollowBootstrapIdentity && (config.BootstrapIdentityDir == "" || config.CheckInterval > time.Minute) {
+		return errors.New("argus_identity followers require a bootstrap directory and a check interval of at most one minute")
 	}
 	if config.DeliveryEndpoint != "" {
 		delivery, deliveryErr := url.Parse(config.DeliveryEndpoint)

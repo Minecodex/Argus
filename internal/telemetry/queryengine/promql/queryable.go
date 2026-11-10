@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -180,7 +181,9 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 	selected := make(map[string]*series, limit)
 	logical := make(map[string]*series, limit)
 	selectedIDs := make([]uuid.UUID, 0, limit)
+	metricNames := map[string]bool{}
 	numericOnly := true
+	scalarsOnly := strings.HasSuffix(requestedMetric, "_sum") || strings.HasSuffix(requestedMetric, "_count")
 	for seriesRows.Next() {
 		var id uuid.UUID
 		var metricName string
@@ -193,8 +196,12 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 			return storage.ErrSeriesSet(err)
 		}
 		q.metadata.Observe(metricmeta.Descriptor{Name: metricName, StorageType: metricType, Temporality: temporality, Monotonic: monotonic, Unit: unit, SourceKey: sourceKey})
+		metricNames[metricName] = true
 		if metricType != "gauge" && metricType != "sum" {
 			numericOnly = false
+			// A real Summary may itself end in _sum/_count; its quantiles
+			// remain required. Only virtual family scalars can omit payloads.
+			scalarsOnly = scalarsOnly && metricName != requestedMetric && (metricType == "histogram" || metricType == "summary")
 		}
 		rawLabels = logicalMetricLabels(rawLabels)
 		key := metricName + "/" + labelSet(rawLabels).String()
@@ -223,16 +230,27 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 	exponential_negative_offset, exponential_negative_bucket_counts`
 	if numericOnly {
 		columns = "series_id, timestamp, float_value, stale_marker, sample_type"
+	} else if scalarsOnly {
+		columns = "series_id, timestamp, float_value, stale_marker, sample_type, count, sum"
 	}
-	// Keep selected-UUID and source/time predicates available to primary-index
-	// pruning while the external join preserves deterministic source precedence.
-	// A bound UUID set is available during primary-index planning and before
-	// reading payload/sort columns. Keep the external membership guard as well
-	// so source precedence and the final selected set retain the same contract.
-	sampleQuery := fmt.Sprintf(`SELECT %s FROM %s INNER JOIN argus_selected_series ON series_id=selected_id PREWHERE series_id IN (?) AND timestamp >= toDateTime64(fromUnixTimestamp64Milli(?, 'UTC'),9,'UTC') AND timestamp <= toDateTime64(fromUnixTimestamp64Milli(?, 'UTC'),9,'UTC') WHERE series_id IN (SELECT selected_id FROM argus_selected_series) AND timestamp >= toDateTime64(fromUnixTimestamp64Milli(?, 'UTC'),9,'UTC') AND timestamp <= toDateTime64(fromUnixTimestamp64Milli(?, 'UTC'),9,'UTC') ORDER BY timestamp, selection_order, kafka_partition, kafka_offset, record_sequence, ingest_key`, columns, quoteIdentifier(q.samplesTable))
+	sampleQuery, constantSelection := sampleSelectionQuery(q.samplesTable, columns, len(q.scope.SourceKeys))
 	// Convert Prometheus millisecond bounds to the stored DateTime64(9) type
 	// explicitly; neither integer comparison nor second-precision binding is safe.
-	sampleArgs := []any{selectedIDs, q.mint, q.maxt, q.mint, q.maxt}
+	// Typed native parameters keep SQL text bounded while exposing a constant
+	// UUID set to MergeTree's primary index. An external-table subquery alone
+	// loses this pruning for large selections and scans unrelated UUID history.
+	ids := make([]string, len(selectedIDs))
+	for i, id := range selectedIDs {
+		ids[i] = id.String()
+	}
+	parameters := clickhouse.Parameters{"argus_selected_ids": arrayParameter(ids),
+		"argus_mint": strconv.FormatInt(q.mint, 10), "argus_maxt": strconv.FormatInt(q.maxt, 10)}
+	names := make([]string, 0, len(metricNames))
+	for name := range metricNames {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	parameters["argus_metric_names"] = arrayParameter(names)
 	if len(q.scope.SourceKeys) > 0 {
 		// Source keys have already been authorized by the control-plane snapshot.
 		// Bind the base set before the join/payload read as well as retaining the
@@ -246,33 +264,37 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 				base, _, _ := strings.Cut(key, "@")
 				baseKeys = append(baseKeys, base)
 			}
-			sampleQuery = strings.Replace(sampleQuery, " WHERE series_id", " AND source_key IN (?) WHERE series_id", 1)
-			sampleArgs = []any{selectedIDs, q.mint, q.maxt, baseKeys, q.mint, q.maxt}
-		} else {
-			sampleQuery = strings.Replace(sampleQuery, " WHERE series_id", " AND "+chscope.BasePredicate("source_key")+" WHERE series_id", 1)
+			parameters["argus_base_keys"] = arrayParameter(baseKeys)
 		}
-		sampleQuery = strings.Replace(sampleQuery, " ORDER BY", " AND "+chscope.BasePredicate("source_key")+" ORDER BY", 1)
 	}
-	if len(selectedIDs) > 128 {
-		sampleQuery = strings.Replace(sampleQuery, "PREWHERE series_id IN (?)", "PREWHERE series_id IN (SELECT selected_id FROM argus_selected_series)", 1)
-		sampleArgs = sampleArgs[1:]
-	}
-	selection, selectionErr := ext.NewTable("argus_selected_series", ext.Column("selected_id", "UUID"), ext.Column("selection_order", "UInt64"))
-	if selectionErr != nil {
-		return storage.ErrSeriesSet(selectionErr)
-	}
-	for i, id := range selectedIDs {
-		if selectionErr = selection.Append(id, uint64(i)); selectionErr != nil {
+	sampleContext := clickhouse.Context(q.queryContext(ctx, settings), clickhouse.WithParameters(parameters))
+	if !constantSelection {
+		selection, selectionErr := ext.NewTable("argus_selected_series", ext.Column("selected_id", "UUID"), ext.Column("selection_order", "UInt64"))
+		if selectionErr != nil {
 			return storage.ErrSeriesSet(selectionErr)
 		}
+		for i, id := range selectedIDs {
+			if selectionErr = selection.Append(id, uint64(i)); selectionErr != nil {
+				return storage.ErrSeriesSet(selectionErr)
+			}
+		}
+		sampleContext = clickhouse.Context(sampleContext, clickhouse.WithExternalTable(selection))
 	}
-	sampleContext := clickhouse.Context(q.queryContext(ctx, settings), clickhouse.WithExternalTable(selection))
-	rows, err := q.conn.Query(sampleContext, sampleQuery, sampleArgs...)
+	rows, err := q.conn.Query(sampleContext, sampleQuery)
 	if err != nil {
 		return storage.ErrSeriesSet(err)
 	}
 	defer rows.Close()
 	seriesByID := make(map[string]*series)
+	projectionLabels := make(map[string]map[string]string)
+	labelsFor := func(item *series) map[string]string {
+		if cached, ok := projectionLabels[item.id]; ok {
+			return cached
+		}
+		value := labelsToMap(item.labels)
+		projectionLabels[item.id] = value
+		return value
+	}
 	for rows.Next() {
 		var id uuid.UUID
 		var timestamp time.Time
@@ -294,6 +316,8 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 		var scanErr error
 		if numericOnly {
 			scanErr = rows.Scan(&id, &timestamp, &value, &stale, &sampleType)
+		} else if scalarsOnly {
+			scanErr = rows.Scan(&id, &timestamp, &value, &stale, &sampleType, &count, &sum)
 		} else {
 			scanErr = rows.Scan(&id, &timestamp, &value, &stale, &sampleType, &count, &sum, &bucketCounts, &explicitBounds,
 				&quantileRaw, &exponentialScale, &exponentialZeroCount, &exponentialZeroThreshold, &exponentialPositiveOffset, &exponentialPositiveBuckets,
@@ -312,11 +336,11 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 		seriesByID[item.id] = item
 		quantileValues := normalizeQuantiles(quantileRaw)
 		if sampleType == "histogram" && value == nil {
-			appendHistogramSeries(seriesByID, item.id, item.labels.Get("__name__"), labelsToMap(item.labels), timestamp, count, sum, bucketCounts, explicitBounds, requestedMetric, limit, q.maxSamples)
+			appendHistogramSeries(seriesByID, item.id, item.labels.Get("__name__"), labelsFor(item), timestamp, count, sum, bucketCounts, explicitBounds, requestedMetric, limit, q.maxSamples)
 			continue
 		}
 		if sampleType == "summary" && value == nil {
-			appendSummarySeries(seriesByID, item.id, item.labels.Get("__name__"), labelsToMap(item.labels), timestamp, count, sum, quantileValues, requestedMetric, limit, q.maxSamples)
+			appendSummarySeries(seriesByID, item.id, item.labels.Get("__name__"), labelsFor(item), timestamp, count, sum, quantileValues, requestedMetric, limit, q.maxSamples)
 			continue
 		}
 		if sampleType == "exponential_histogram" && value == nil {
@@ -380,15 +404,18 @@ func appendHistogramSeries(seriesByID map[string]*series, id, metricName string,
 		if requestedMetric != "" && requestedMetric != name {
 			return
 		}
-		labelsCopy := make(map[string]string, len(rawLabels)+2)
-		for key, value := range rawLabels {
-			labelsCopy[key] = value
+		key := seriesID + suffix + extra["le"]
+		item := seriesByID[key]
+		if item == nil {
+			labelsCopy := make(map[string]string, len(rawLabels)+2)
+			for key, value := range rawLabels {
+				labelsCopy[key] = value
+			}
+			for key, value := range extra {
+				labelsCopy[key] = value
+			}
+			item = ensureSeries(seriesByID, key, name, labelsCopy, limit)
 		}
-		labelsCopy["__name__"] = name
-		for key, value := range extra {
-			labelsCopy[key] = value
-		}
-		item := ensureSeries(seriesByID, seriesID+suffix+labelsCopy["le"], name, labelsCopy, limit)
 		if item == nil || timestamp.IsZero() {
 			return
 		}
@@ -419,15 +446,18 @@ func appendSummarySeries(seriesByID map[string]*series, id, metricName string, r
 		if requestedMetric != "" && requestedMetric != name {
 			return
 		}
-		labelsCopy := make(map[string]string, len(rawLabels)+2)
-		for key, itemValue := range rawLabels {
-			labelsCopy[key] = itemValue
+		key := id + name + extra["quantile"]
+		item := seriesByID[key]
+		if item == nil {
+			labelsCopy := make(map[string]string, len(rawLabels)+2)
+			for key, itemValue := range rawLabels {
+				labelsCopy[key] = itemValue
+			}
+			for key, itemValue := range extra {
+				labelsCopy[key] = itemValue
+			}
+			item = ensureSeries(seriesByID, key, name, labelsCopy, limit)
 		}
-		labelsCopy["__name__"] = name
-		for key, itemValue := range extra {
-			labelsCopy[key] = itemValue
-		}
-		item := ensureSeries(seriesByID, id+name+labelsCopy["quantile"], name, labelsCopy, limit)
 		if item == nil || timestamp.IsZero() {
 			return
 		}

@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "kubernetes.apiserver",
-  "version": 1,
+  "version": 2,
   "name": "Kubernetes API server",
   "description": "",
   "integration_keys": [
@@ -115,7 +115,7 @@ export const template = {
       },
       {
         "id": "api_latency",
-        "title": "sum(rate(apiserver_request_duration_seconds_sum[5m])) / sum(rate(apiserver_request_duration_seconds_count[5m]))",
+        "title": "1000 * sum(rate(apiserver_request_duration_seconds_sum{verb!~\"WATCH|WATCHLIST|CONNECT|PROXY\"}[5m])) / sum(rate(apiserver_request_duration_seconds_count{verb!~\"WATCH|WATCHLIST|CONNECT|PROXY\"}[5m]))",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -134,7 +134,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "sum(rate(apiserver_request_duration_seconds_sum[5m])) / sum(rate(apiserver_request_duration_seconds_count[5m]))"
+                "expression": "1000 * sum(rate(apiserver_request_duration_seconds_sum{verb!~\"WATCH|WATCHLIST|CONNECT|PROXY\"}[5m])) / sum(rate(apiserver_request_duration_seconds_count{verb!~\"WATCH|WATCHLIST|CONNECT|PROXY\"}[5m]))"
               }
             },
             "query_mode": "range",
@@ -156,14 +156,14 @@ export const template = {
           "min_w": 2,
           "min_h": 20
         },
-        "unit": "s",
+        "unit": "ms",
         "decimals": 2,
         "legend": true,
         "thresholds": []
       },
       {
         "id": "api_p95",
-        "title": "histogram_quantile(0.95, sum by (le) (rate(apiserver_request_duration_seconds_bucket[5m])))",
+        "title": "1000 * histogram_quantile(0.95, sum by (le) (rate(apiserver_request_duration_seconds_bucket{verb!~\"WATCH|WATCHLIST|CONNECT|PROXY\"}[5m])))",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",
@@ -182,7 +182,7 @@ export const template = {
             "language": "promql",
             "source_definition": {
               "dsl": {
-                "expression": "histogram_quantile(0.95, sum by (le) (rate(apiserver_request_duration_seconds_bucket[5m])))"
+                "expression": "1000 * histogram_quantile(0.95, sum by (le) (rate(apiserver_request_duration_seconds_bucket{verb!~\"WATCH|WATCHLIST|CONNECT|PROXY\"}[5m])))"
               }
             },
             "query_mode": "range",
@@ -204,7 +204,7 @@ export const template = {
           "min_w": 2,
           "min_h": 20
         },
-        "unit": "s",
+        "unit": "ms",
         "decimals": 2,
         "legend": true,
         "thresholds": []

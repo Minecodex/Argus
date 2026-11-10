@@ -20,10 +20,23 @@ const components = (
 export function themeObservation(
   option: EChartsOption,
   color: (token: string) => string,
+  element?: HTMLElement,
 ): EChartsOption {
   const text = color("--text-secondary"),
     primary = color("--text-primary"),
     border = color("--border-default");
+  const rawSeries = Array.isArray(option.series)
+    ? option.series
+    : option.series
+      ? [option.series]
+      : [];
+  // Preserve native multidimensional/item renderers (heatmaps, graphs, state
+  // intervals, gauges and pie percentages). Numeric axes use bounded rows.
+  const structuredRows =
+    !option.visualMap &&
+    rawSeries.every((series) =>
+      ["line", "bar", "scatter"].includes(String(settings(series).type)),
+    );
   const axis = (v: Settings) => ({
     ...v,
     nameTextStyle: { color: text, ...settings(v.nameTextStyle) },
@@ -56,16 +69,20 @@ export function themeObservation(
         ...v,
         textStyle: { color: text, ...settings(v.textStyle) },
       })),
-      tooltip: floatingObservationTooltip({
-        trigger: "axis",
-        ...settings(option.tooltip),
-        backgroundColor: color("--bg-elevated"),
-        borderColor: border,
-        textStyle: {
-          ...settings(settings(option.tooltip).textStyle),
-          color: primary,
+      tooltip: floatingObservationTooltip(
+        {
+          trigger: "axis",
+          ...settings(option.tooltip),
+          backgroundColor: color("--bg-elevated"),
+          borderColor: border,
+          textStyle: {
+            ...settings(settings(option.tooltip).textStyle),
+            color: primary,
+          },
         },
-      }),
+        element,
+        structuredRows,
+      ),
       series: components(option.series, (v) => ({
         ...v,
         label: { color: text, ...settings(v.label) },

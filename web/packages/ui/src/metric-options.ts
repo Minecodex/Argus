@@ -44,6 +44,7 @@ export function metricOption(
       }
     : undefined;
   const base: EChartsOption = {
+    tooltip: { valueFormatter: (value) => formatted(Number(value)) },
     legend: { show: legend, type: "scroll" },
     xAxis: {
       type: "time",

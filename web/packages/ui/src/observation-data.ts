@@ -1,3 +1,5 @@
+import { labelMetricSeries } from "./observation-series-name";
+
 export type ObservationSeries = {
   name: string;
   labels: Record<string, string>;
@@ -30,40 +32,39 @@ export function metricObservations(value: unknown): ObservationSeries[] {
         row: { value: rows },
       },
     ];
-  return rows.flatMap((entry, index) => {
-    const row = observationObject(entry);
-    if (!row) return [];
-    const labels = Object.fromEntries(
-      Object.entries(observationObject(row.metric) ?? {}).filter(
-        (p): p is [string, string] => typeof p[1] === "string",
-      ),
-    );
-    const raw = Array.isArray(row.values)
-      ? row.values
-      : Array.isArray(row.value)
-        ? [row.value]
-        : [];
-    const points = raw.flatMap((point): Array<[number, number | null]> =>
-      Array.isArray(point) && Number.isFinite(Number(point[0]))
-        ? [[Number(point[0]) * 1000, finite(point[1])]]
-        : [],
-    );
-    const dimensions = Object.entries(labels)
-      .filter(([key]) => isMetricDimension(key))
-      .map(([, v]) => v)
-      .join(" · ");
-    return [
-      {
-        name:
-          typeof row.display_name === "string"
-            ? row.display_name
-            : dimensions || labels.__name__ || String(index + 1),
-        labels,
-        points,
-        row,
-      },
-    ];
-  });
+  return labelMetricSeries(
+    rows.flatMap((entry, index) => {
+      const row = observationObject(entry);
+      if (!row) return [];
+      const labels = Object.fromEntries(
+        Object.entries(observationObject(row.metric) ?? {}).filter(
+          (p): p is [string, string] => typeof p[1] === "string",
+        ),
+      );
+      const raw = Array.isArray(row.values)
+        ? row.values
+        : Array.isArray(row.value)
+          ? [row.value]
+          : [];
+      const points = raw.flatMap((point): Array<[number, number | null]> =>
+        Array.isArray(point) && Number.isFinite(Number(point[0]))
+          ? [[Number(point[0]) * 1000, finite(point[1])]]
+          : [],
+      );
+      return [
+        {
+          name:
+            typeof row.display_name === "string"
+              ? row.display_name
+              : labels.__name__ || String(index + 1),
+          labels,
+          points,
+          row,
+        },
+      ];
+    }),
+    isMetricDimension,
+  );
 }
 function finite(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;

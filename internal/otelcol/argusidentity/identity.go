@@ -123,8 +123,14 @@ func newIdentityExtension(config Config, logger *zap.Logger) *identityExtension 
 }
 
 func (extension *identityExtension) Start(ctx context.Context, _ component.Host) error {
-	if err := bootstrapIdentity(extension.config); err != nil {
-		return err
+	if extension.config.FollowBootstrapIdentity {
+		if os.Getenv(kubernetesMirrorEnv) == "1" {
+			return errors.New("telemetry identity follower cannot own the Kubernetes identity mirror")
+		}
+	} else {
+		if err := bootstrapIdentity(extension.config); err != nil {
+			return err
+		}
 	}
 	if err := extension.ensureIdentity(ctx); err != nil {
 		return err
@@ -165,6 +171,9 @@ func (extension *identityExtension) rotationLoop(ctx context.Context) {
 func (extension *identityExtension) ensureIdentity(ctx context.Context) error {
 	extension.mu.Lock()
 	defer extension.mu.Unlock()
+	if extension.config.FollowBootstrapIdentity {
+		return followBootstrapIdentity(extension.config)
+	}
 
 	certificate, clientErr := loadCertificate(extension.config.CertificateFile)
 	serverCertificate, serverErr := loadCertificate(extension.config.ServerCertificateFile)
@@ -280,6 +289,7 @@ func (extension *identityExtension) do(request *http.Request, certificate *tls.C
 		tlsConfig.RootCAs = pool
 	}
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
+	defer transport.CloseIdleConnections()
 	if extension.config.DialAddress != "" {
 		dialAddress := extension.config.DialAddress
 		transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
@@ -372,6 +382,7 @@ func (extension *identityExtension) reportTrustBundle(ctx context.Context, certi
 		return trustBundleResult{}, false, errors.New("telemetry runtime Trust Bundle is invalid")
 	}
 	transport := &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: pool, Certificates: []tls.Certificate{certificate}}}
+	defer transport.CloseIdleConnections()
 	if extension.config.DialAddress != "" {
 		dialAddress := extension.config.DialAddress
 		transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
@@ -403,14 +414,21 @@ func (extension *identityExtension) reportTrustBundle(ctx context.Context, certi
 }
 
 func loadTrustBundleState(statePath, caPath string) (trustBundleState, error) {
-	var state trustBundleState
 	encoded, err := os.ReadFile(statePath)
-	if err != nil || json.Unmarshal(encoded, &state) != nil || state.Epoch < 1 {
-		return trustBundleState{}, errors.New("telemetry Trust Bundle state is invalid")
+	if err != nil {
+		return trustBundleState{}, err
 	}
 	value, err := os.ReadFile(caPath)
 	if err != nil {
 		return trustBundleState{}, err
+	}
+	return parseTrustBundleState(encoded, value)
+}
+
+func parseTrustBundleState(encoded, value []byte) (trustBundleState, error) {
+	var state trustBundleState
+	if json.Unmarshal(encoded, &state) != nil || state.Epoch < 1 {
+		return trustBundleState{}, errors.New("telemetry Trust Bundle state is invalid")
 	}
 	material, err := parseTrustBundle(value, time.Now().UTC())
 	if err != nil || material.SHA256 != state.BundleSHA256 || !slices.Equal(material.Fingerprints, state.CAFingerprints) {
@@ -422,26 +440,8 @@ func loadTrustBundleState(statePath, caPath string) (trustBundleState, error) {
 func loadOrCreatePrivateKey(path string) (*ecdsa.PrivateKey, []byte, error) {
 	value, err := os.ReadFile(path)
 	if err == nil {
-		block, rest := pem.Decode(value)
-		if block == nil || len(rest) != 0 {
-			return nil, nil, errors.New("telemetry private key is invalid")
-		}
-		// Installation uses PKCS#8; self-enrollment historically used SEC1.
-		// Renew with the existing ECDSA identity in either supported encoding.
-		switch block.Type {
-		case "EC PRIVATE KEY":
-			key, parseErr := x509.ParseECPrivateKey(block.Bytes)
-			return key, value, parseErr
-		case "PRIVATE KEY":
-			parsed, parseErr := x509.ParsePKCS8PrivateKey(block.Bytes)
-			if parseErr != nil {
-				return nil, nil, errors.New("telemetry private key is invalid")
-			}
-			if key, ok := parsed.(*ecdsa.PrivateKey); ok {
-				return key, value, nil
-			}
-		}
-		return nil, nil, errors.New("telemetry private key is invalid")
+		key, parseErr := parseIdentityPrivateKey(value)
+		return key, value, parseErr
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		return nil, nil, err
@@ -455,6 +455,26 @@ func loadOrCreatePrivateKey(path string) (*ecdsa.PrivateKey, []byte, error) {
 		return nil, nil, err
 	}
 	return key, pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: encoded}), nil
+}
+
+func parseIdentityPrivateKey(value []byte) (*ecdsa.PrivateKey, error) {
+	block, rest := pem.Decode(value)
+	if block == nil || len(rest) != 0 {
+		return nil, errors.New("telemetry private key is invalid")
+	}
+	// Installation uses PKCS#8; self-enrollment also supports SEC1.
+	switch block.Type {
+	case "EC PRIVATE KEY":
+		return x509.ParseECPrivateKey(block.Bytes)
+	case "PRIVATE KEY":
+		parsed, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err == nil {
+			if key, ok := parsed.(*ecdsa.PrivateKey); ok {
+				return key, nil
+			}
+		}
+	}
+	return nil, errors.New("telemetry private key is invalid")
 }
 
 func createCSR(collectorID string, key *ecdsa.PrivateKey, usage x509.ExtKeyUsage) ([]byte, error) {
@@ -484,6 +504,10 @@ func loadCertificate(path string) (*x509.Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parseCertificate(value)
+}
+
+func parseCertificate(value []byte) (*x509.Certificate, error) {
 	block, rest := pem.Decode(value)
 	if block == nil || len(rest) != 0 || block.Type != "CERTIFICATE" {
 		return nil, errors.New("telemetry certificate is invalid")

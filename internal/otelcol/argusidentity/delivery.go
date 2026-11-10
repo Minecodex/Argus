@@ -16,7 +16,7 @@ import (
 
 func (extension *identityExtension) deliveryLoop(ctx context.Context) {
 	defer close(extension.deliveryDone)
-	if extension.config.DeliveryEndpoint == "" {
+	if extension.config.DeliveryEndpoint == "" || extension.config.FollowBootstrapIdentity {
 		return
 	}
 	state, err := loadDeliveryState(extension.config.DeliveryStateFile, time.Now().UTC())

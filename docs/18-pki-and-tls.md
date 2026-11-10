@@ -115,6 +115,10 @@ OpenTelemetry Collector 扩展位于独立 Go module，不能反向导入 Argus 
 
 Collector 的身份扩展把只读 Kubernetes Secret 复制到 writable `emptyDir`，后续原子轮换。Gateway 通过固定资源名 RBAC 把最后有效身份镜像回 `argus-otelcol-identity`，重启时不会退回旧证书。无法原地重载的组件使用受控滚动重启。
 
+Kubernetes Collector 的逻辑身份由单副本、Recreate Gateway 独占续期，Agent 显式跟随固定 Secret 的原子投影版本并严格验证后热加载，不独立签发或续期。Ingest 与 Gateway 接收侧限制 gRPC 连接年龄，使换证后的连接在 15 分钟旧叶证书重叠期结束前重新握手。详见 [统一续期与长连接重建](./plan9/13-collector-identity-renewal-20261110.md)。
+
+这里的实例是一次 Kubernetes 采集安装的逻辑 Collector，包含其 Gateway 与 Agent Pod；它们共用该安装的身份材料，不与其他 Collector 或服务共享。两跳换证时间不同而序列号暂不相同时，Ingest 必须另外核对旧叶仍在活动注册窗口，且企业、资源、角色、Collector URI 与授权版本均与当前连接一致；同 ID 字符串本身不能替代授权。
+
 ## 6. 客户 Kubernetes 集群
 
 Kubernetes 安装器先在本机严格下载并校验，再使用当前 kubeconfig 完成 mTLS 注册。一次性令牌不会写入 Manifest。安装器创建：

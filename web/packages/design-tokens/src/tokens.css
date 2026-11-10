@@ -16,6 +16,8 @@
   --chart-column-min-width: 112px;
   --chart-label-max-width: 160px;
   --chart-legend-space: 48px;
+  --chart-tooltip-max-width: 440px;
+  --chart-tooltip-max-height: 320px;
   --template-dashboard-max-height: 1600px;
   --template-border-width: 1px;
   --template-radius-round: 50%;

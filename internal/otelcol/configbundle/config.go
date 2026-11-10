@@ -333,10 +333,15 @@ func kubernetesAgentConfig(input RenderInput, profiles map[string]bool, identity
 		receivers["otlp"] = otlpReceiver("127.0.0.1")
 	}
 	identityDirectory := "/var/lib/argus-otelcol/identity"
+	agentIdentity := identityConfig(input.CollectorID, enrollment, rotation, trustBundle, input.EnrollmentDialAddress,
+		identityDirectory+"/enrollment-token", identityDirectory, "/etc/argus-otelcol/server-ca.pem", "/var/run/argus-bootstrap/identity")
+	// One Recreate Gateway owns this installation's logical identity. Agents
+	// follow its fixed Secret rather than retiring each other's certificates.
+	agentIdentity["follow_bootstrap_identity"] = true
+	agentIdentity["check_interval"] = "1m"
 	return map[string]any{
-		"extensions": map[string]any{"health_check": map[string]any{"endpoint": "0.0.0.0:13133"}, "argus_identity": identityConfig(input.CollectorID, enrollment, rotation, trustBundle, input.EnrollmentDialAddress,
-			identityDirectory+"/enrollment-token", identityDirectory, "/etc/argus-otelcol/server-ca.pem", "/var/run/argus-bootstrap/identity")},
-		"receivers": receivers,
+		"extensions": map[string]any{"health_check": map[string]any{"endpoint": "0.0.0.0:13133"}, "argus_identity": agentIdentity},
+		"receivers":  receivers,
 		"processors": map[string]any{
 			"memory_limiter": map[string]any{"check_interval": "1s", "limit_mib": 192, "spike_limit_mib": 48},
 			"resource/argus": resourceProcessor(identity),
@@ -401,9 +406,10 @@ func otlpReceiver(host string) map[string]any {
 }
 
 func secureOTLPReceiver(host, identityDirectory string) map[string]any {
-	tlsConfig := map[string]any{"cert_file": targetPath(identityDirectory, "server.pem"), "key_file": targetPath(identityDirectory, "server-key.pem"), "client_ca_file": targetPath(identityDirectory, "ca.pem")}
+	tlsConfig := map[string]any{"cert_file": targetPath(identityDirectory, "server.pem"), "key_file": targetPath(identityDirectory, "server-key.pem"), "client_ca_file": targetPath(identityDirectory, "ca.pem"), "reload_interval": "1m"}
 	return map[string]any{"protocols": map[string]any{
-		"grpc": map[string]any{"endpoint": host + ":4317", "tls": tlsConfig, "auth": map[string]any{"authenticator": "argus_identity"}},
+		"grpc": map[string]any{"endpoint": host + ":4317", "tls": tlsConfig, "auth": map[string]any{"authenticator": "argus_identity"},
+			"keepalive": map[string]any{"server_parameters": map[string]any{"max_connection_age": "5m", "max_connection_age_grace": "30s"}}},
 		"http": map[string]any{"endpoint": host + ":4318", "tls": tlsConfig, "auth": map[string]any{"authenticator": "argus_identity"}},
 	}}
 }

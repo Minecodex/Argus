@@ -138,7 +138,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - name: Verify critical shared portal browser flows
         if: ${{ !inputs.full }}
-        run: pnpm --filter @argus/enterprise exec playwright test enterprise.spec.ts p4.spec.ts p5-mock.spec.ts p5-profile.spec.ts m8-local.spec.ts telemetry-permissions.spec.ts kubernetes-resource-layout.spec.ts kubernetes-namespace-select.spec.ts kubernetes-collection-settings.spec.ts plan8-own-metric-instances.spec.ts plan8-component-trust.spec.ts --workers=2 --retries=0
+        run: pnpm --filter @argus/enterprise exec playwright test enterprise.spec.ts p4.spec.ts p5-mock.spec.ts p5-profile.spec.ts m8-local.spec.ts telemetry-permissions.spec.ts kubernetes-resource-layout.spec.ts kubernetes-namespace-select.spec.ts kubernetes-collection-settings.spec.ts kubernetes-component-diagnostics.spec.ts observation-tooltip.spec.ts plan8-own-metric-instances.spec.ts plan8-component-trust.spec.ts --workers=2 --retries=0
       - name: Verify the complete shared portal browser matrix
         if: inputs.full
         run: pnpm --filter @argus/enterprise exec playwright test --workers=2 --retries=0 --timeout=90000
