@@ -61,12 +61,15 @@ export function TelemetryTimeSeries({
         color("--danger"),
       ],
       legend: { top: 0, textStyle: { color: color("--text-tertiary") } },
-      tooltip: floatingObservationTooltip({
-        trigger: "axis",
-        backgroundColor: color("--bg-elevated"),
-        borderColor: color("--border-default"),
-        textStyle: { color: color("--text-primary") },
-      }),
+      tooltip: floatingObservationTooltip(
+        {
+          trigger: "axis",
+          backgroundColor: color("--bg-elevated"),
+          borderColor: color("--border-default"),
+          textStyle: { color: color("--text-primary") },
+        },
+        root.current,
+      ),
       xAxis: { type: "time", axisLabel: { hideOverlap: true } },
       yAxis: { type: "value", scale: true },
       series: series.map((item) => ({

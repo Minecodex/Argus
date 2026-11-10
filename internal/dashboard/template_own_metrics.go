@@ -38,11 +38,12 @@ func ownMetricTemplates() []TemplateDefinition {
 	apiServer := metricTemplate("kubernetes.apiserver", "Kubernetes API server", "kubernetes_apiserver_metrics", "https://grafana.com/grafana/dashboards/12654-kubernetes-api-server/", "12654", []nativeTemplateMetric{
 		{"api_up", `up`, "", "stat"},
 		{"api_requests", `sum(rate(apiserver_request_total[5m]))`, "req/s", "timeseries"},
-		{"api_latency", `sum(rate(apiserver_request_duration_seconds_sum[5m])) / sum(rate(apiserver_request_duration_seconds_count[5m]))`, "s", "timeseries"},
-		{"api_p95", `histogram_quantile(0.95, sum by (le) (rate(apiserver_request_duration_seconds_bucket[5m])))`, "s", "timeseries"},
+		{"api_latency", `1000 * sum(rate(apiserver_request_duration_seconds_sum{verb!~"WATCH|WATCHLIST|CONNECT|PROXY"}[5m])) / sum(rate(apiserver_request_duration_seconds_count{verb!~"WATCH|WATCHLIST|CONNECT|PROXY"}[5m]))`, "ms", "timeseries"},
+		{"api_p95", `1000 * histogram_quantile(0.95, sum by (le) (rate(apiserver_request_duration_seconds_bucket{verb!~"WATCH|WATCHLIST|CONNECT|PROXY"}[5m])))`, "ms", "timeseries"},
 		{"api_inflight", `apiserver_current_inflight_requests`, "", "timeseries"},
 		{"api_memory", `process_resident_memory_bytes`, "bytes", "timeseries"},
 	})
+	apiServer.Version = 2
 	dns := metricTemplate("kubernetes.coredns", "Kubernetes CoreDNS", "kubernetes_coredns_metrics", "https://grafana.com/grafana/dashboards/15762-kubernetes-system-coredns/", "15762", []nativeTemplateMetric{
 		{"dns_up", `up`, "", "stat"},
 		{"dns_requests", `sum(rate(coredns_dns_requests_total[5m]))`, "req/s", "timeseries"},

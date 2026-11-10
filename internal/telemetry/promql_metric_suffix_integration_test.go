@@ -41,6 +41,7 @@ func TestPromQLSuffixNamesKeepExactMetricsAndTypedFamilyProjections(t *testing.T
 	metrics = append(metrics,
 		&metricspb.Metric{Name: "latency", Data: &metricspb.Metric_Histogram{Histogram: &metricspb.Histogram{DataPoints: []*metricspb.HistogramDataPoint{{TimeUnixNano: uint64(at.UnixNano()), Count: 2, Sum: &histogramSum, BucketCounts: []uint64{1, 1}, ExplicitBounds: []float64{1}, Attributes: attrs("histogram")}}}}},
 		&metricspb.Metric{Name: "duration", Data: &metricspb.Metric_Summary{Summary: &metricspb.Summary{DataPoints: []*metricspb.SummaryDataPoint{{TimeUnixNano: uint64(at.UnixNano()), Count: 2, Sum: 3, Attributes: attrs("summary")}}}}},
+		&metricspb.Metric{Name: "ambiguous_sum", Data: &metricspb.Metric_Summary{Summary: &metricspb.Summary{DataPoints: []*metricspb.SummaryDataPoint{{TimeUnixNano: uint64(at.UnixNano()), Count: 2, Sum: 3, QuantileValues: []*metricspb.SummaryDataPoint_ValueAtQuantile{{Quantile: .5, Value: 1.25}}, Attributes: attrs("summary")}}}}},
 	)
 	request := &collectmetrics.ExportMetricsServiceRequest{ResourceMetrics: []*metricspb.ResourceMetrics{{Resource: &resourcepb.Resource{Attributes: []*commonpb.KeyValue{{Key: "argus.source.id", Value: stringValue(source.String())}, {Key: "argus.source.revision", Value: stringValue("1")}, {Key: "argus.source.type", Value: stringValue("otlp")}}}, ScopeMetrics: []*metricspb.ScopeMetrics{{Metrics: metrics}}}}}
 	if _, err := (&Writer{ClickHouse: conn, Router: router}).writeMetrics(ctx, &kgo.Record{Topic: "otlp-metrics"}, TrustedIdentity{EnterpriseID: enterprise, ResourceID: resource, CollectorID: uuid.New()}, request, time.Hour); err != nil {
@@ -52,6 +53,7 @@ func TestPromQLSuffixNamesKeepExactMetricsAndTypedFamilyProjections(t *testing.T
 		"sum(latency_count)": 7, "sum(latency_sum)": 7.5, "sum(latency_bucket)": 10,
 		`latency_bucket{kind="native"}`: 7, `latency_count{kind="histogram"}`: 2,
 		"sum(duration_count)": 7, "sum(duration_sum)": 10, "sum(duration_bucket)": 17,
+		"sum(ambiguous_sum)": 1.25,
 	} {
 		t.Run(expression, func(t *testing.T) {
 			result, err := engine.Execute(ctx, promengine.Request{Expression: expression, Instant: true, Start: at.Add(-time.Minute), End: at.Add(time.Second), Scope: promengine.Scope{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: []string{source.String() + ":1"}}})

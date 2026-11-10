@@ -38,3 +38,5 @@ Logs 的数值聚合图复用适用的显示能力。原始 Logs 表格、Trace 
 - Histogram 拒绝重复/非法边界、不同来源或标签身份、不同样本时刻、缺失及非单调累计桶，不强行拼成有效分布图。
 
 当前矩阵是正式实现范围，不承诺 Grafana 全部变换、字段覆盖、多轴、值映射或任意插件。正式 Collector 到浏览器与 Chat 的整体部署验收仍由 [实施状态](./implementation-status.md) 跟踪，不能用 mock 浏览器或存储集成替代。
+
+2026-11-10，共享数值图表补齐[悬浮提示尺寸、滚动与可读序列名称](../plans/frontend-redesign/chart-tooltip-bounds-20261110.md)。完整标签和序列保持独立，变化仅为显示；其他多维图型及显式 formatter 保留原有内容。

@@ -37,6 +37,7 @@ const builtinTemplates: Record<string, string> = {
   kubernetes_controller_metrics: "kubernetes.controller_manager",
   kubernetes_etcd_metrics: "kubernetes.etcd",
 };
+const applyingStates = new Set(["pending", "applying", "unknown"]);
 
 export function BuiltinCollections({
   kind,
@@ -80,7 +81,12 @@ export function BuiltinCollections({
     queryKey: ["monitoring", "builtins", kind, id],
     queryFn: () => api.monitoring.builtins({ kind, id }),
     enabled: canRead,
-    refetchInterval: 15000,
+    refetchInterval: (query) =>
+      query.state.data?.some((row) =>
+        applyingStates.has(row.collection?.apply_status ?? ""),
+      )
+        ? 2000
+        : 15000,
   });
   const message = (error: unknown) =>
     formatApiError(error, t("monitoring.errors.unavailable"), (requestId) =>
@@ -147,12 +153,12 @@ export function BuiltinCollections({
       render: (row) => {
         const collection = row.collection;
         const applying =
-          collection &&
-          ["pending", "applying", "unknown"].includes(collection.apply_status);
-        const failed =
-          collection?.apply_status === "failed" ||
-          collection?.health === "failed";
+          collection && applyingStates.has(collection.apply_status);
         const enabled = collection?.desired_enabled;
+        const failed =
+          enabled &&
+          (collection?.apply_status === "failed" ||
+            collection?.health === "failed");
         const warning =
           enabled &&
           (collection?.freshness === "stale" ||
@@ -192,6 +198,16 @@ export function BuiltinCollections({
                 })}
               </div>
             )}
+            {enabled &&
+              collection?.error_code &&
+              [
+                "COLLECTION_SCRAPE_FAILED",
+                "COLLECTION_SCRAPE_PARTIAL_FAILURE",
+              ].includes(collection.error_code) && (
+                <div className="argus-muted">
+                  {t(`builtinCollections.diagnostics.${collection.error_code}`)}
+                </div>
+              )}
           </>
         );
       },

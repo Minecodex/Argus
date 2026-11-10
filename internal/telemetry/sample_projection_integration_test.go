@@ -35,6 +35,11 @@ func TestClickHouseNumericProjectionMaterializesExistingSamples(t *testing.T) {
 	if err := conn.Exec(ctx, "ALTER TABLE "+tables.MetricSamples+" DROP PROJECTION "+numericSampleProjection); err != nil {
 		t.Fatal(err)
 	}
+	// Both projections can serve numeric columns. Simulate the legacy raw-only
+	// storage before measuring the upgraded source/time access path.
+	if err := conn.Exec(ctx, "ALTER TABLE "+tables.MetricSamples+" DROP PROJECTION "+histogramSampleProjection); err != nil {
+		t.Fatal(err)
+	}
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	points := []*metricspb.NumberDataPoint{}
 	for i := range 128 {

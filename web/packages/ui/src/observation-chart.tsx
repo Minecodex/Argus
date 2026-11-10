@@ -104,7 +104,7 @@ export function ObservationChart({
               : size("--space-3"),
           containLabel: true,
         },
-        ...themeObservation(arranged, color),
+        ...themeObservation(arranged, color, element),
       });
     };
     const resize = () => {

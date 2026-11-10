@@ -29,3 +29,5 @@
 [`plan8-kubernetes-local.ps1`](../../scripts/plan8-kubernetes-local.ps1) 的 PrepareControlMetrics/RestoreControlMetrics 仅修改本轮自有 Docker 节点，保存原清单和精确 Hash，复验 Docker ID，拒绝覆盖外部变化。测试证书在节点内部生成并由其 CA 签发，私钥不导出；保持组件认证和 TLS 校验，等到新配置的实际 Pod Ready 后运行。TestControlMetrics 复用这些前件；Cleanup 仍只删除所有权验证通过的集群。
 
 本次正向测试为 Kubernetes 1.36.1 自有 kind 集群；原 `argus-monitoring` 控制面没有修改，之前的不可达结果仍按原时点保留。托管组件不开放或缺可信证书的实际目标仍应显示未观测。本记录不替代正式接入 Collector、全部平台/版本/拓扑或部署后模型验收。
+
+2026-11-09，正式已登记 Collector 到部署后门户的五项组件链路在 [Plan9 B09b](../plan9/batches/B09b-review.md)完成：五套默认仪表盘 30 个面板、真实独立启停及稳定来源告警恢复通过。该记录补充本轮 Kubernetes 1.36.1 独立 Kind 组合的正式证据，不扩展为其他托管集群或全部版本的支持结论。

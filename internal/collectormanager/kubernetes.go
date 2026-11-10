@@ -252,9 +252,9 @@ func collectorPodTemplate(command *connectorv1.CollectorManagementCommand, image
 			{Name: "identity-bootstrap", MountPath: "/var/run/argus-bootstrap/identity", ReadOnly: true},
 			{Name: "identity-state", MountPath: "/var/lib/argus-otelcol/identity"}},
 		Resources: corev1.ResourceRequirements{}}
-	// Secret is bootstrap-only. The identity extension copies it into the
-	// writable per-Pod state (Gateway: dedicated PVC) and atomically persists Gateway rotations back through
-	// the fixed-name Role above.
+	// The Gateway bootstraps its dedicated PVC once and owns rotations. Agents
+	// continuously validate and follow the same Secret into writable per-Pod
+	// state. Only the Gateway mirrors back through the fixed-name Role above.
 	identityMode := int32(0o440)
 	volumes := []corev1.Volume{
 		{Name: "config", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: configName}}}},
