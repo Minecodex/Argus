@@ -154,7 +154,9 @@ for (const english of [false, true])
       await expect(
         page
           .getByText(
-            english ? "API request duration P95" : "API 请求耗时 P95",
+            english
+              ? "API request duration P95 (excluding long connections)"
+              : "API 请求耗时 P95（不含长连接）",
             { exact: true },
           )
           .first(),
