@@ -27,3 +27,9 @@ go run ./cmd/argus-dev e2e windows-host --config YOUR_PRIVATE_CONFIG --run-id YO
 完整门户保留原有主题、语言、桌面和权限断言。mock 门户检查不替代实际集群、外部接入或真实模型验收；托管 CI 成功不改变 `local_hardening_complete` 或 Production Profile 的既有阻断状态。没有定时任务。
 
 仪表盘浏览器回归按当前共享查询编辑器交互：CodeMirror 语句使用文本断言并检查保存后重载；指标从目录候选中选择，再验证查询和图表能力，不能仅填写搜索文本代替选择。
+
+## Ubuntu 软件源不可用时的 CI 回退
+
+2026-11-11，PR 检查的两轮运行反复停在 ripgrep 和 Chromium 系统依赖安装，已完成作业的日志确认为 Ubuntu archive/security 域名解析失败。Linux portable 与 PostgreSQL/浏览器集成在安装依赖前共用 `scripts/ci/ubuntu_archive.py`：先有界探测默认 HTTPS archive；不可达时只切换预置 HTTPS Ubuntu 镜像，保留发行版、组件、Signed-By 和 APT 软件包签名校验。未知配置或全部探测失败仍失败，不跳过依赖或测试。该脚本仅允许在 GitHub Actions Ubuntu runner 执行。
+
+回归覆盖默认源可达时不改配置、Deb822/镜像列表/旧格式、保留签名与第三方源、发行版匹配及超时失败。三平台、PostgreSQL、浏览器、CI 和 contracts 门禁均保持。

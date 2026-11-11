@@ -30,6 +30,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Prepare a reachable signed Ubuntu archive
+        if: runner.os == 'Linux'
+        run: |
+          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+          python3 scripts/ci/ubuntu_archive.py
       - name: Install ripgrep on Linux
         if: runner.os == 'Linux'
         run: |
@@ -135,6 +140,11 @@ jobs:
           go test ./tests/postgres -run '^TestGeneratedQueriesPrepareAgainstMigratedBaseline$' -count=1
       - name: Verify persisted Agent, authorization, credential and dashboard behavior
         run: go test -p 1 ./internal/agent ./internal/conversation ./internal/dashboard ./internal/authorization ./internal/secret -count=1 -timeout=20m
+      - name: Prepare a reachable signed Ubuntu archive
+        if: runner.os == 'Linux'
+        run: |
+          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+          python3 scripts/ci/ubuntu_archive.py
       - run: pnpm exec playwright install --with-deps chromium
       - name: Verify critical shared portal browser flows
         if: ${{ !inputs.full }}
