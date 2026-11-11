@@ -52,14 +52,18 @@ type payload struct {
 }
 
 func (signer Signer) Encode(binding Binding, position Position) (string, error) {
-	if len(signer.Key) != 32 || position.ID == "" || position.Time.IsZero() {
+	if len(signer.Key) != 32 || position.ID == "" || position.Time.IsZero() && binding.Sort != "id" {
 		return "", ErrInvalid
+	}
+	afterTime := ""
+	if !position.Time.IsZero() {
+		afterTime = position.Time.UTC().Format(time.RFC3339Nano)
 	}
 	body, err := json.Marshal(payload{
 		Version: 1, Audience: binding.Audience, EnterpriseID: binding.EnterpriseID,
 		SubjectType: binding.SubjectType, SubjectID: binding.SubjectID,
 		AuthorizationVersion: binding.AuthorizationVersion, FilterHash: binding.FilterHash,
-		Sort: binding.Sort, AfterTime: position.Time.UTC().Format(time.RFC3339Nano),
+		Sort: binding.Sort, AfterTime: afterTime,
 		AfterID: position.ID, ExpiresAt: signer.now().Add(15 * time.Minute).Unix(),
 	})
 	if err != nil {
@@ -99,6 +103,9 @@ func (signer Signer) Decode(value string, binding Binding) (Position, error) {
 	}
 	if decoded.AuthorizationVersion != binding.AuthorizationVersion {
 		return Position{}, ErrAuthorizationVersionStale
+	}
+	if binding.Sort == "id" && decoded.AfterTime == "" && decoded.AfterID != "" {
+		return Position{ID: decoded.AfterID}, nil
 	}
 	afterTime, err := time.Parse(time.RFC3339Nano, decoded.AfterTime)
 	if err != nil || decoded.AfterID == "" {

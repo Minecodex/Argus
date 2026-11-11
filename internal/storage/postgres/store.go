@@ -44,6 +44,25 @@ func (store *Store) InTx(ctx context.Context, fn func(*db.Queries) error) error 
 	return store.inTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable}, fn)
 }
 
+// InTxRetry retries only serialization/deadlock aborts. The callback must contain
+// transaction-bound database work only; network sends and runtime mutations
+// must complete outside this boundary and are never replayed here.
+func (store *Store) InTxRetry(ctx context.Context, fn func(*db.Queries) error) error {
+	for attempt := 0; ; attempt++ {
+		err := store.InTx(ctx, fn)
+		if attempt >= 7 || !IsRetryableTransactionError(err) {
+			return err
+		}
+		timer := time.NewTimer(time.Duration(20*(attempt+1)) * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
 // InReadCommittedTx is reserved for workflows that explicitly serialize their
 // own writes with row locks, such as the append-only audit hash chain.
 func (store *Store) InReadCommittedTx(ctx context.Context, fn func(*db.Queries) error) error {

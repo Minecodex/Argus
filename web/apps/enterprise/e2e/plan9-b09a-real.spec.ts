@@ -69,10 +69,7 @@ test.describe("Plan9 B09a real Kubernetes monitoring", () => {
             .getByRole("button", { name: "查看日志", exact: true })
             .click();
           const dialog = page.getByRole("dialog", { name: /^Pod 日志/ });
-          await dialog
-            .getByRole("button", { name: "打开日志会话", exact: true })
-            .click();
-          await expect(dialog.locator("pre")).toContainText(
+          await expect(dialog.getByRole("log")).toContainText(
             "p9-b09a-20261108-01",
           );
           await page.screenshot({

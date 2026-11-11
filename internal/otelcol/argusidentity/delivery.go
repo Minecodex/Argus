@@ -63,7 +63,7 @@ func (extension *identityExtension) observeDelivery(ctx context.Context, state *
 				return
 			}
 			var snapshot deliverySnapshot
-			snapshot, err = readDeliverySnapshot(bytes.NewReader(value))
+			snapshot, err = readDeliverySnapshot(bytes.NewReader(value), extension.config.DeliveryPersistentExporters...)
 			if err != nil {
 				return
 			}
@@ -86,6 +86,21 @@ func (extension *identityExtension) observeDelivery(ctx context.Context, state *
 		}
 	}
 	return err
+}
+
+func (extension *identityExtension) finalizeDelivery(ctx context.Context) {
+	if extension.config.DeliveryEndpoint == "" || extension.config.FollowBootstrapIdentity {
+		return
+	}
+	finalize, cancel := context.WithTimeout(ctx, 6*time.Second)
+	defer cancel()
+	state, err := loadDeliveryState(extension.config.DeliveryStateFile, time.Now().UTC())
+	if err == nil {
+		err = extension.observeDelivery(finalize, &state)
+	}
+	if err != nil {
+		extension.logger.Warn("final collector delivery observation unavailable; persisted evidence was retained")
+	}
 }
 
 func (extension *identityExtension) reportDelivery(ctx context.Context, report deliveryReport) error {

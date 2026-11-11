@@ -1,4 +1,50 @@
-# B09b Kubernetes 组件指标查看记录
+# B09b Kubernetes 控制面组件查看记录
+
+本轮 `p9-b09b-20261110-01` 已于 2026-11-11 退役。用户要求进入下一波，未据此代记明确人工通过；独立 Kind、Collector、策略、凭据授权和专属入口已清理，正式六个 PVC 与平台历史保留。[清理核验](../../../artifacts/plan9/p9-b09b-20261110-01/cleanup-verification.json)，当前查看 [B10a](./B10a-review.md)。
+
+以下为退役前验证归档，旧集群页面已不可作为当前入口。2026-11-10 按用户要求完成 B09a 和旧复用 B09b 的退役，再创建全新的独立 Kind 集群。旧应用、自定义仪表盘已归档，Collector 已卸载，旧节点和专属网络入口已回收。当前集群名称为 **B09b Kubernetes Control Plane**。
+
+投递丢失和未触发 no_data 混入当前列表两项反馈已完成修复、重新发布与真实复验。8 项采集、30 个面板、5 项真实页面流程、326 秒投递观察及健康 20/20 通过；[修复与版本记录](../14-b09b-delivery-and-current-alerts-20261110.md)。
+
+## 退役前查看入口
+
+- [组件采集配置](https://argus.dev/kubernetes/01a1c56d-27fb-7e35-91d7-2c2604782627#otlp-collector) 中五项组件均为 healthy/fresh。每项右侧「默认仪表盘」可打开对应六个面板。
+- [五套默认仪表盘](https://argus.dev/kubernetes/01a1c56d-27fb-7e35-91d7-2c2604782627?tab=dashboards) 已绑定本轮新集群。
+- [Scheduler 条件告警历史](https://argus.dev/alerts?tab=history&policy_id=5558e03c-ec12-5133-a468-f421b00b87c2) 最新复验在北京时间 **2026-11-10 23:31:00** 触发，**23:32:00** 恢复。
+
+| 组件 | 当前仪表盘 | 已配置策略 |
+| --- | --- | --- |
+| API Server | [六个面板](https://argus.dev/dashboards/ba89e0b8-0204-5461-84a9-1931aed51b58?resource=01a1c56d-27fb-7e35-91d7-2c2604782627&resource_type=kubernetes_cluster) | B09b API Server metrics scrape unavailable |
+| CoreDNS | [六个面板](https://argus.dev/dashboards/0c88b025-2a4d-5b9d-97e3-408569077f40?resource=01a1c56d-27fb-7e35-91d7-2c2604782627&resource_type=kubernetes_cluster) | B09b CoreDNS metrics scrape unavailable |
+| Scheduler | [六个面板](https://argus.dev/dashboards/59eba15f-bcdc-5ef0-86aa-59145838262e?resource=01a1c56d-27fb-7e35-91d7-2c2604782627&resource_type=kubernetes_cluster) | B09b Scheduler metrics scrape unavailable |
+| Controller Manager | [六个面板](https://argus.dev/dashboards/df0a6a46-cbdc-54d9-a4d0-41ac509368db?resource=01a1c56d-27fb-7e35-91d7-2c2604782627&resource_type=kubernetes_cluster) | B09b Controller Manager metrics scrape unavailable |
+| etcd | [六个面板](https://argus.dev/dashboards/cda16bcf-f1fa-560b-a29d-ad2208a21b27?resource=01a1c56d-27fb-7e35-91d7-2c2604782627&resource_type=kubernetes_cluster) | B09b etcd metrics scrape unavailable |
+
+## 本轮自检
+
+五项组件各取得连续推进的真实目标样本，30 个面板均有有限数值。另有集群、节点/容器和 Collector 自身指标，共八项采集。五条抓取可用性策略保留集群资源标签，资源授权限定本轮集群，触发阈值 0.5、恢复阈值 1，每十秒评估，触发和恢复各持续二十秒。
+
+真实证书名称错误、独立停采和恢复均已执行。配置变化的事件记录为 source_changed。随后对 Scheduler 抓取施加精确、有界网络故障，验证同一条件告警触发和恢复，其他四个组件持续采集，临时规则已全部清除。
+
+五项真实浏览器流程覆盖中英、明暗、1280/1920 桌面、五套默认仪表盘及通过页面停采和恢复 CoreDNS。规则资源分组补充后，另执行一次相同页面停采/恢复流程。当前五条业务策略的评估均为 normal，组件条件告警为 0。
+
+低速 DNS/API 请求和 1/2 副本变化继续运行，绝对截止时间沿用本轮八小时预算。平台部署、查询/模板及身份续期版本核对一致，六个原有 PVC 绑定一致。
+
+## 修复结果与历史记录
+
+- **B09b-D02：已修复，待人工查看。** 修正成功回执事务重试、正常停采的生效版本切换、持久队列 Shutdown 分类及关停最后一次采样。最终实际停采、出口中断和重启后，台账三类失败增量均为 0，日志也没有终止丢弃。故障复现把累计已观察失败从 17 增至 918，原日志另含周期观察之外的拒绝事实；历史空档没有伪造补齐，当前保留一条历史缺口事件。最初 [17 点观察](../../../artifacts/plan9/p9-b09b-20261110-01/collector-delivery-observation.json) 和 [最终核验](../../../artifacts/b09b-repairs-20261110/final-review.json) 分别保留。
+- **B09b-A01：已修复，待人工查看。** 原来 4 条开始时间为空的 `normal/no_data` 内部状态已退出当前列表。来源新增、移除与安装代次变化均会退役旧分组；列表、分页和概览口径一致，真正触发的健康告警与历史保持。原 [告警状态证据](../../../artifacts/plan9/p9-b09b-20261110-01/alert-observations.json) 保留，真实中英明暗页面均通过。
+
+## 执行与证据
+
+- [独立部署、预算和清理流程](../runtime/B09b/runbook.md)
+- [修复后最终核验](../../../artifacts/b09b-repairs-20261110/final-review.json) · [原部署核验](../../../artifacts/plan9/p9-b09b-20261110-01/checks.json)
+- [连续真实样本](../../../artifacts/plan9/p9-b09b-20261110-01/continuous-samples.json) · [30 个面板](../../../artifacts/plan9/p9-b09b-20261110-01/dashboard-verification.json) · [五条告警](../../../artifacts/plan9/p9-b09b-20261110-01/alert-policies.json)
+- [真实稳定来源故障与恢复](../../../artifacts/plan9/p9-b09b-20261110-01/stable-source-fault.json) · [告警时间](../../../artifacts/plan9/p9-b09b-20261110-01/alert-cycle.json)
+- [五项真实浏览器流程](../../../artifacts/plan9/p9-b09b-20261110-01/browser-review.json) · [补充规则分组复验](../../../artifacts/plan9/p9-b09b-20261110-01/alert-scope-browser.json)
+- [B09a 清理核验](../../../artifacts/plan9/p9-b09a-20261108-01/cleanup-verification.json) · [旧 B09b 退役](../../../artifacts/plan9/p9-b09b-20261109-01/transition-cleanup.json)
+
+## 2026-11-09 历史运行（已退役）
 
 运行 `p9-b09b-20261109-01`，沿用 B09a 的独立 Kind 集群和已登记资源身份。五项组件已开启，正式采集、30 个面板、5 项真实浏览器流程与故障恢复均通过，环境保留等待用户查看。
 

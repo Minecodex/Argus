@@ -69,6 +69,9 @@ func admissionRPCError(err error, message string) error {
 		}
 		return status.Error(codes.Unavailable, message)
 	}
+	if reason := admissionPublicReason(err); reason != "" {
+		message += ": " + reason
+	}
 	return status.Error(codes.PermissionDenied, message)
 }
 func admissionHTTPError(w http.ResponseWriter, err error, message string, fallback int) {
@@ -80,6 +83,9 @@ func admissionHTTPError(w http.ResponseWriter, err error, message string, fallba
 		}
 		http.Error(w, message, http.StatusServiceUnavailable)
 		return
+	}
+	if reason := admissionPublicReason(err); reason != "" {
+		message += ": " + reason
 	}
 	http.Error(w, message, fallback)
 }

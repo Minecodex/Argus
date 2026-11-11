@@ -11,7 +11,7 @@ AND (sqlc.narg(since)::timestamptz IS NULL OR last_evaluated_at>=sqlc.narg(since
 AND (sqlc.narg(until)::timestamptz IS NULL OR last_evaluated_at<=sqlc.narg(until))
 AND (sqlc.narg(rule_id)::uuid IS NULL OR state->>'rule_id'=sqlc.narg(rule_id)::text OR EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(state->'members')='array' THEN state->'members' ELSE '[]'::jsonb END) member WHERE member->>'rule_id'=sqlc.narg(rule_id)::text))
 AND (sqlc.narg(metric)::text IS NULL OR state->>'metric' LIKE '%'||sqlc.narg(metric)::text||'%' OR EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(state->'members')='array' THEN state->'members' ELSE '[]'::jsonb END) member WHERE member->>'expression' LIKE '%'||sqlc.narg(metric)::text||'%'))
-AND ((sqlc.arg(history)::boolean AND (started_at IS NOT NULL OR lifecycle='pending')) OR (NOT sqlc.arg(history)::boolean AND lifecycle NOT IN ('resolved','closed') AND (lifecycle<>'normal' OR health<>'normal')))
+AND ((sqlc.arg(history)::boolean AND (started_at IS NOT NULL OR lifecycle='pending')) OR (NOT sqlc.arg(history)::boolean AND lifecycle IN ('pending','firing','recovering')))
 AND (sqlc.narg(after_time)::timestamptz IS NULL OR (created_at,id)<(sqlc.narg(after_time),sqlc.narg(after_id)::uuid))
 ORDER BY created_at DESC,id DESC LIMIT sqlc.arg(page_size);
 
@@ -28,7 +28,7 @@ AND (sqlc.narg(since)::timestamptz IS NULL OR last_evaluated_at>=sqlc.narg(since
 AND (sqlc.narg(until)::timestamptz IS NULL OR last_evaluated_at<=sqlc.narg(until))
 AND (sqlc.narg(rule_id)::uuid IS NULL OR state->>'rule_id'=sqlc.narg(rule_id)::text OR EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(state->'members')='array' THEN state->'members' ELSE '[]'::jsonb END) member WHERE member->>'rule_id'=sqlc.narg(rule_id)::text))
 AND (sqlc.narg(metric)::text IS NULL OR state->>'metric' LIKE '%'||sqlc.narg(metric)::text||'%' OR EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(state->'members')='array' THEN state->'members' ELSE '[]'::jsonb END) member WHERE member->>'expression' LIKE '%'||sqlc.narg(metric)::text||'%'))
-AND ((sqlc.arg(history)::boolean AND (started_at IS NOT NULL OR lifecycle='pending')) OR (NOT sqlc.arg(history)::boolean AND lifecycle NOT IN ('resolved','closed') AND (lifecycle<>'normal' OR health<>'normal')));
+AND ((sqlc.arg(history)::boolean AND (started_at IS NOT NULL OR lifecycle='pending')) OR (NOT sqlc.arg(history)::boolean AND lifecycle IN ('pending','firing','recovering')));
 
 -- name: PageAlertDeliveries :many
 SELECT * FROM alert_deliveries WHERE enterprise_id=sqlc.arg(enterprise_id) AND resource_ids <@ sqlc.arg(allowed_resources)::uuid[]

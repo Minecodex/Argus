@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -49,7 +49,24 @@ export function KubernetesStreamSessionDialog({
   const api = useApi(),
     { t, i18n } = useTranslation(),
     formatError = useInventoryError();
+  const formId = useId();
   const containers = kubernetesObjectContainers(object);
+  const stopMessage = useCallback(
+    (reason?: string) => {
+      const keys: Record<string, string> = {
+        KUBERNETES_API_FORBIDDEN:
+          mode === "exec" ? "forbidden" : "forwardForbidden",
+        KUBERNETES_STREAM_BACKEND_UNAVAILABLE: "backend",
+        KUBERNETES_STREAM_AUTHORIZATION_CHANGED: "changed",
+        session_expired: "expired",
+        idle_timeout: "idle",
+      };
+      return reason && keys[reason]
+        ? t("kubernetesStream.errors." + keys[reason])
+        : t("kubernetesStream.stopped");
+    },
+    [t, mode],
+  );
   const form = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -112,6 +129,11 @@ export function KubernetesStreamSessionDialog({
         ) {
           connection.current?.close();
           setTicket(undefined);
+          if (
+            current.reason &&
+            !["client_close", "remote_closed"].includes(current.reason)
+          )
+            setError(stopMessage(current.reason));
           return;
         }
       } catch (cause) {
@@ -128,7 +150,7 @@ export function KubernetesStreamSessionDialog({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [api, clusterId, sessionId, formatError]);
+  }, [api, clusterId, sessionId, formatError, stopMessage]);
   const submit = form.handleSubmit(async (values) => {
     setError("");
     try {
@@ -179,13 +201,7 @@ export function KubernetesStreamSessionDialog({
           if (mounted.current) {
             setState(next);
             if (reason && !["client_close", "remote_closed"].includes(reason))
-              setError(
-                t(
-                  reason === "KUBERNETES_API_FORBIDDEN"
-                    ? "kubernetesWorkbench.errors.forbidden"
-                    : "kubernetesStream.stopped",
-                ),
-              );
+              setError(stopMessage(reason));
           }
         },
       });
@@ -213,6 +229,26 @@ export function KubernetesStreamSessionDialog({
       setBusy(false);
     }
   };
+  const reconnect = async () => {
+    setBusy(true);
+    connection.current?.close();
+    try {
+      if (owned.current)
+        await api.kubernetesWorkbench.closeStreamSession(
+          clusterId,
+          owned.current,
+        );
+      owned.current = undefined;
+      setSession(undefined);
+      setTicket(undefined);
+      setOutput({ lines: [], offset: 0, size: 0 });
+      await submit();
+    } catch (cause) {
+      setError(formatError(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
   const renew = async () => {
     if (!session) return;
     setBusy(true);
@@ -236,10 +272,47 @@ export function KubernetesStreamSessionDialog({
   const active =
     !!session &&
     ["pending", "connecting", "active", "closing"].includes(session.status);
+  const displayStatus =
+    mode === "exec" && state === "disconnected" && active
+      ? "connection_lost"
+      : mode === "exec" &&
+          state === "connected" &&
+          session?.status === "pending"
+        ? "active"
+        : session?.status;
   return (
     <Dialog
       open
       size="lg"
+      className="argus-k8s-session-dialog"
+      footer={
+        <>
+          <Button onPress={() => void close()} isDisabled={busy}>
+            {t("kubernetesStream.close")}
+          </Button>
+          {!session && (
+            <Button
+              type="submit"
+              form={formId}
+              variant="primary"
+              isDisabled={busy || form.formState.isSubmitting}
+            >
+              {t("kubernetesStream.open")}
+            </Button>
+          )}
+          {session &&
+            (state === "disconnected" || !active) &&
+            mode === "exec" && (
+              <Button
+                variant="primary"
+                onPress={() => void reconnect()}
+                isDisabled={busy || form.formState.isSubmitting}
+              >
+                {t("kubernetesStream.reconnect")}
+              </Button>
+            )}
+        </>
+      }
       title={t(
         mode === "exec"
           ? "kubernetesStream.execTitle"
@@ -250,174 +323,189 @@ export function KubernetesStreamSessionDialog({
         if (!open) void close();
       }}
     >
-      <p>
-        {t(
-          mode === "exec"
-            ? "kubernetesStream.execHint"
-            : "kubernetesStream.forwardHint",
+      <div className="argus-k8s-session-content">
+        <p>
+          {t(
+            mode === "exec"
+              ? "kubernetesStream.execHint"
+              : "kubernetesStream.forwardHint",
+          )}
+        </p>
+        {mode === "exec" && (
+          <section
+            className="argus-k8s-session-notice"
+            aria-label={t("kubernetesStream.requirementsTitle")}
+          >
+            <strong>{t("kubernetesStream.requirementsTitle")}</strong>
+            <p>{t("kubernetesStream.requirements")}</p>
+          </section>
         )}
-      </p>
-      {error && <p role="alert">{error}</p>}
-      {!session ? (
-        <form className="argus-k8s-mutation-form" onSubmit={submit}>
-          {mode === "exec" ? (
-            <>
+        {error && <p role="alert">{error}</p>}
+        {!session ? (
+          <form
+            id={formId}
+            className="argus-k8s-mutation-form"
+            onSubmit={submit}
+          >
+            {mode === "exec" ? (
+              <>
+                <Field
+                  label={t("kubernetesStream.container")}
+                  requirement="required"
+                >
+                  <Select
+                    value={form.watch("container")}
+                    options={containers.map((c) => ({
+                      value: c.name,
+                      label: c.name,
+                    }))}
+                    onValueChange={(v) => form.setValue("container", v)}
+                  />
+                </Field>
+                <Field
+                  label={t("kubernetesStream.shell")}
+                  requirement="required"
+                  hint={t("kubernetesStream.shellHint")}
+                >
+                  <Select
+                    value={form.watch("shell")}
+                    options={["sh", "bash", "powershell", "cmd"].map((v) => ({
+                      value: v,
+                      label: v,
+                    }))}
+                    onValueChange={(v) =>
+                      form.setValue("shell", v as Form["shell"])
+                    }
+                  />
+                </Field>
+              </>
+            ) : (
               <Field
-                label={t("kubernetesStream.container")}
+                label={t("kubernetesStream.port")}
                 requirement="required"
+                error={
+                  form.formState.errors.port
+                    ? t("kubernetesStream.invalid")
+                    : undefined
+                }
               >
-                <Select
-                  value={form.watch("container")}
-                  options={containers.map((c) => ({
-                    value: c.name,
-                    label: c.name,
-                  }))}
-                  onValueChange={(v) => form.setValue("container", v)}
+                <Input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  {...form.register("port", { valueAsNumber: true })}
                 />
               </Field>
-              <Field label={t("kubernetesStream.shell")} requirement="required">
-                <Select
-                  value={form.watch("shell")}
-                  options={["sh", "bash", "powershell", "cmd"].map((v) => ({
-                    value: v,
-                    label: v,
-                  }))}
-                  onValueChange={(v) =>
-                    form.setValue("shell", v as Form["shell"])
-                  }
-                />
-              </Field>
-            </>
-          ) : (
+            )}
             <Field
-              label={t("kubernetesStream.port")}
+              label={t("kubernetesStream.reason")}
               requirement="required"
               error={
-                form.formState.errors.port
+                form.formState.errors.reason
                   ? t("kubernetesStream.invalid")
                   : undefined
               }
             >
-              <Input
-                type="number"
-                min={1}
-                max={65535}
-                {...form.register("port", { valueAsNumber: true })}
-              />
+              <Input maxLength={500} {...form.register("reason")} />
             </Field>
-          )}
-          <Field
-            label={t("kubernetesStream.reason")}
-            requirement="required"
-            error={
-              form.formState.errors.reason
-                ? t("kubernetesStream.invalid")
-                : undefined
-            }
-          >
-            <Input maxLength={500} {...form.register("reason")} />
-          </Field>
-          <Button
-            type="submit"
-            variant="primary"
-            isDisabled={form.formState.isSubmitting}
-          >
-            {t("kubernetesStream.open")}
-          </Button>
-        </form>
-      ) : (
-        <>
-          <Badge tone={active ? "success" : "neutral"}>
-            {t(
-              `kubernetesStream.status.${mode === "exec" && state === "connected" && session.status === "pending" ? "active" : session.status}`,
-            )}
-          </Badge>
-          <KeyValueGrid
-            items={[
-              { label: "Pod", value: session.pod },
-              { label: "Pod UID", value: session.pod_uid },
-              ...(mode === "port_forward"
-                ? [
-                    {
-                      label: t("kubernetesStream.port"),
-                      value: String(session.port),
-                    },
-                    ...(session.service
-                      ? [{ label: "Service", value: session.service }]
-                      : []),
-                  ]
-                : []),
-              {
-                label: t("kubernetesStream.container"),
-                value: session.container,
-              },
-              {
-                label: t("kubernetesStream.expires"),
-                value: new Date(session.expires_at).toLocaleString(
-                  i18n.language,
-                ),
-              },
-              {
-                label: t("kubernetesStream.bytes"),
-                value: `${session.bytes_in} / ${session.bytes_out}`,
-              },
-            ]}
-          />
-          {mode === "exec" ? (
-            <TerminalEmulator
-              host={session.pod}
-              account={session.container}
-              protocol="Kubernetes"
-              mode="pty"
-              sessionId={session.id}
-              lines={output.lines}
-              chunkOffset={output.offset}
-              state={state}
-              readOnly={state !== "connected"}
-              onData={(data) => connection.current?.input(data)}
-              onResize={(cols, rows) => connection.current?.resize(cols, rows)}
+          </form>
+        ) : (
+          <>
+            <Badge
+              tone={
+                active && !(mode === "exec" && state === "disconnected")
+                  ? "success"
+                  : "neutral"
+              }
+            >
+              {t(`kubernetesStream.status.${displayStatus}`)}
+            </Badge>
+            <KeyValueGrid
+              items={[
+                { label: "Pod", value: session.pod },
+                { label: "Pod UID", value: session.pod_uid },
+                ...(mode === "port_forward"
+                  ? [
+                      {
+                        label: t("kubernetesStream.port"),
+                        value: String(session.port),
+                      },
+                      ...(session.service
+                        ? [{ label: "Service", value: session.service }]
+                        : []),
+                    ]
+                  : []),
+                {
+                  label: t("kubernetesStream.container"),
+                  value: session.container,
+                },
+                {
+                  label: t("kubernetesStream.expires"),
+                  value: new Date(session.expires_at).toLocaleString(
+                    i18n.language,
+                  ),
+                },
+                {
+                  label: t("kubernetesStream.bytes"),
+                  value: `${session.bytes_in} / ${session.bytes_out}`,
+                },
+              ]}
             />
-          ) : (
-            <>
-              {ticket && active && (
-                <>
-                  <p>{t("kubernetesStream.cliHint")}</p>
-                  <CodeBlock
-                    code={`argusctl kubernetes port-forward --url ${ticket.websocket_url} --ticket-stdin --listen 127.0.0.1:18080`}
-                    language="bash"
-                  />
-                  {remaining > 0 ? (
-                    <Field
-                      label={t("kubernetesStream.ticket", {
-                        seconds: remaining,
-                      })}
-                      controlMode="group"
-                      requirement="optional"
-                    >
-                      <ProtectedTextarea
-                        readOnly
-                        value={ticket.ticket}
-                        aria-label={t("kubernetesStream.ticketValue")}
-                      />
-                    </Field>
-                  ) : (
-                    <p role="status">{t("kubernetesStream.ticketExpired")}</p>
-                  )}
-                  {session.status === "pending" && (
-                    <Button onPress={() => void renew()} isDisabled={busy}>
-                      {t("kubernetesStream.renew")}
-                    </Button>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </>
-      )}
-      <div className="argus-k8s-workbench-controls">
-        <Button onPress={() => void close()} isDisabled={busy}>
-          {t("kubernetesStream.close")}
-        </Button>
+            {mode === "exec" ? (
+              (state !== "disconnected" || output.lines.length > 0) && (
+                <TerminalEmulator
+                  host={session.pod}
+                  account={session.container}
+                  protocol="Kubernetes"
+                  mode="pty"
+                  sessionId={session.id}
+                  lines={output.lines}
+                  chunkOffset={output.offset}
+                  state={state}
+                  readOnly={state !== "connected"}
+                  onData={(data) => connection.current?.input(data)}
+                  onResize={(cols, rows) =>
+                    connection.current?.resize(cols, rows)
+                  }
+                />
+              )
+            ) : (
+              <>
+                {ticket && active && (
+                  <>
+                    <p>{t("kubernetesStream.cliHint")}</p>
+                    <CodeBlock
+                      code={`argusctl kubernetes port-forward --url ${ticket.websocket_url} --ticket-stdin --listen 127.0.0.1:18080`}
+                      language="bash"
+                    />
+                    {remaining > 0 ? (
+                      <Field
+                        label={t("kubernetesStream.ticket", {
+                          seconds: remaining,
+                        })}
+                        controlMode="group"
+                        requirement="optional"
+                      >
+                        <ProtectedTextarea
+                          readOnly
+                          value={ticket.ticket}
+                          aria-label={t("kubernetesStream.ticketValue")}
+                        />
+                      </Field>
+                    ) : (
+                      <p role="status">{t("kubernetesStream.ticketExpired")}</p>
+                    )}
+                    {session.status === "pending" && (
+                      <Button onPress={() => void renew()} isDisabled={busy}>
+                        {t("kubernetesStream.renew")}
+                      </Button>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
     </Dialog>
   );

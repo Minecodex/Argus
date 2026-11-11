@@ -33,6 +33,9 @@ func TestClickHouseLargeHistogramSelectionPrunesUnrelatedSamples(t *testing.T) {
 	if err := conn.Exec(ctx, "ALTER TABLE "+tables.MetricSamples+" DROP PROJECTION "+histogramSampleProjection); err != nil {
 		t.Fatal(err)
 	}
+	if err := conn.Exec(ctx, "ALTER TABLE "+tables.MetricSamples+" DROP PROJECTION "+fineSampleProjection); err != nil {
+		t.Fatal(err)
+	}
 	at := time.Now().UTC().Truncate(time.Second)
 	const count = 256
 	metadata := fmt.Sprintf(`INSERT INTO %s (resource_id,series_id,metric_name,labels,labels_hash,metric_type,expires_at,source_id,source_revision,source_type)

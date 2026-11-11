@@ -48,13 +48,13 @@ class Batch:
         configuration=yaml.safe_load((self.run.private/'platform-kubeconfig.yaml').read_text(encoding='utf-8'))
         address=state.get('api_server') or configuration['clusters'][0]['cluster']['server']
         if not state.get('secret_id'):
-            secret=self.api.call('POST','/enterprise/secrets',{'name':RUN+'-kubeconfig','type':'kubeconfig',
+            secret=self.api.call('POST','/enterprise/secrets',{'name':self.run.id+'-kubeconfig','type':'kubeconfig',
                 'value':(self.run.private/'platform-kubeconfig.yaml').read_text(encoding='utf-8')},
                 key='cluster-secret',expected=201)
             state['secret_id']=secret['id']
             self.save()
         if not state.get('credential_id'):
-            credential=self.api.call('POST','/enterprise/credentials',{'name':RUN+'-kubernetes',
+            credential=self.api.call('POST','/enterprise/credentials',{'name':self.run.id+'-kubernetes',
                 'protocol':'kubernetes','secret_id':state['secret_id']},key='cluster-credential',expected=201)
             state['credential_id']=credential['id']
             self.save()
@@ -70,12 +70,12 @@ class Batch:
             tested=self.api.wait('/enterprise/connection-tests/'+test['id'],success,timeout=90)
             write_json(self.run.out/'cluster-connection.json',tested)
             preview=self.api.call('POST','/enterprise/kubernetes-clusters/actions/preview-create',{
-                'name':'B09a Kubernetes Workloads','api_server':address,'connection_mode':'direct',
+                'name':getattr(self.run,'cluster_name','B09a Kubernetes Workloads'),'api_server':address,'connection_mode':'direct',
                 'credential_id':state['credential_id'],'connection_test_id':test['id'],
-                'default_namespace':APP_NS,'environment':'development',
-                'labels':{'plan9_run':RUN,'plan9_batch':'b09a'}},key='cluster-create',expected=201)
+                'default_namespace':getattr(self.run,'app_namespace',APP_NS),'environment':'development',
+                'labels':{'plan9_run':self.run.id,'plan9_batch':getattr(self.run,'batch','B09a').lower()}},key='cluster-create',expected=201)
             response=self.api.confirm(preview)
-            state.update(id=response['resource_ref']['resource_id'],name='B09a Kubernetes Workloads',api_server=address)
+            state.update(id=response['resource_ref']['resource_id'],name=getattr(self.run,'cluster_name','B09a Kubernetes Workloads'),api_server=address)
             self.save()
         print('Cluster enrolled through the normal API',flush=True)
         self.inventory()

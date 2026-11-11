@@ -47,11 +47,15 @@ type deliveryState struct {
 	Report    deliveryReport   `json:"report"`
 	ProcessID string           `json:"process_id"`
 	Counters  map[string]int64 `json:"counters"`
+	// Native Shutdown errors leave dispatched requests in persistent storage.
+	// Keep their counters for diagnostics without claiming that replay is loss.
+	PreservedShutdownFailures deliveryCounts `json:"preserved_shutdown_failures"`
 }
 
 type deliverySnapshot struct {
 	ProcessID string
 	Counters  map[string]int64
+	Preserved map[string]bool
 }
 
 func loadDeliveryState(path string, now time.Time) (deliveryState, error) {
@@ -76,6 +80,9 @@ func loadDeliveryState(path string, now time.Time) (deliveryState, error) {
 		return state, errors.New("collector delivery ledger identity is invalid")
 	}
 	r := state.Report
+	if state.PreservedShutdownFailures.LogRecords < 0 || state.PreservedShutdownFailures.Spans < 0 || state.PreservedShutdownFailures.MetricPoints < 0 {
+		return state, errors.New("collector preserved delivery counts are invalid")
+	}
 	if r.RetryLimitSeconds != 300 || r.Attribution != "collector_shared_pipeline_exact_targets_unknown" || r.ObservedSince.IsZero() || r.ObservedAt.Before(r.ObservedSince) || r.TerminalFailures.LogRecords < 0 || r.TerminalFailures.Spans < 0 || r.TerminalFailures.MetricPoints < 0 || r.ReceiverRefusals.LogRecords < 0 || r.ReceiverRefusals.Spans < 0 || r.ReceiverRefusals.MetricPoints < 0 || r.EnqueueFailures.LogRecords < 0 || r.EnqueueFailures.Spans < 0 || r.EnqueueFailures.MetricPoints < 0 {
 		return state, errors.New("collector delivery ledger facts are invalid")
 	}
@@ -117,13 +124,13 @@ func deliveryMetricKind(name string) (string, bool) {
 	return "", false
 }
 
-func readDeliverySnapshot(reader io.Reader) (deliverySnapshot, error) {
+func readDeliverySnapshot(reader io.Reader, persistentExporters ...string) (deliverySnapshot, error) {
 	parser := expfmt.NewTextParser(model.UTF8Validation)
 	families, err := parser.TextToMetricFamilies(reader)
 	if err != nil {
 		return deliverySnapshot{}, errors.New("native Collector metric response is invalid")
 	}
-	out := deliverySnapshot{Counters: map[string]int64{}}
+	out := deliverySnapshot{Counters: map[string]int64{}, Preserved: map[string]bool{}}
 	for name, family := range families {
 		if name == "target_info" {
 			for _, sample := range family.Metric {
@@ -151,8 +158,17 @@ func readDeliverySnapshot(reader io.Reader) (deliverySnapshot, error) {
 				return out, errors.New("native delivery metric count is invalid")
 			}
 			labels := make([]string, 0, len(sample.Label))
+			var exporter, errorType, permanent string
 			for _, label := range sample.Label {
 				labels = append(labels, label.GetName()+"="+label.GetValue())
+				switch label.GetName() {
+				case "exporter":
+					exporter = label.GetValue()
+				case "error_type":
+					errorType = label.GetValue()
+				case "error_permanent":
+					permanent = label.GetValue()
+				}
 			}
 			slices.Sort(labels)
 			digest := sha256.Sum256([]byte(strings.Join(labels, "\x00")))
@@ -161,6 +177,8 @@ func readDeliverySnapshot(reader io.Reader) (deliverySnapshot, error) {
 				return out, errors.New("duplicate native delivery metric")
 			}
 			out.Counters[key] = int64(value)
+			out.Preserved[key] = strings.HasPrefix(kind, "exporter_send_failed:") &&
+				errorType == "Shutdown" && permanent == "false" && slices.Contains(persistentExporters, exporter)
 			if len(out.Counters) > 4096 {
 				return out, errors.New("native delivery observation cardinality exceeds limit")
 			}
@@ -197,6 +215,9 @@ func (state *deliveryState) observe(snapshot deliverySnapshot, now time.Time) er
 		switch parts[0] {
 		case "exporter_send_failed":
 			counts = &next.Report.TerminalFailures
+			if snapshot.Preserved[key] {
+				counts = &next.PreservedShutdownFailures
+			}
 		case "receiver_refused":
 			counts = &next.Report.ReceiverRefusals
 		case "exporter_enqueue_failed":
@@ -219,7 +240,7 @@ func (state *deliveryState) observe(snapshot deliverySnapshot, now time.Time) er
 			return errors.New("delivery observation count overflow")
 		}
 		*total += delta
-		if delta > 0 {
+		if delta > 0 && !snapshot.Preserved[key] {
 			at := now
 			next.Report.LastFailureAt = &at
 		}

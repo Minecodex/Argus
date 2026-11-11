@@ -76,7 +76,7 @@ func (s Service) CreateLogSession(ctx context.Context, a Actor, httpID, clusterI
 	if s.Store == nil || len(s.CursorKey) != 32 {
 		return LogTicket{}, kubernetesinventory.ErrUnavailable
 	}
-	if a.SubjectType != "user" || httpID == uuid.Nil || in.SinceSeconds < 1 || in.SinceSeconds > 86400 || in.TailLines < 1 || in.TailLines > 1000 {
+	if a.SubjectType != "user" || httpID == uuid.Nil || in.SinceSeconds < 0 || in.SinceSeconds > 86400 || in.TailLines < 1 || in.TailLines > 1000 {
 		return LogTicket{}, kubernetesinventory.ErrInvalid
 	}
 	if _, ok := s.Backend.(logBackend); !ok {
@@ -101,7 +101,11 @@ func (s Service) CreateLogSession(ctx context.Context, a Actor, httpID, clusterI
 	if err != nil {
 		return LogTicket{}, err
 	}
-	query := kubernetespodlogs.Query{Pin: pin, Since: time.Now().UTC().Truncate(time.Second).Add(-time.Duration(in.SinceSeconds) * time.Second), TailLines: in.TailLines}
+	since := time.Unix(0, 0).UTC()
+	if in.SinceSeconds > 0 {
+		since = time.Now().UTC().Truncate(time.Second).Add(-time.Duration(in.SinceSeconds) * time.Second)
+	}
+	query := kubernetespodlogs.Query{Pin: pin, Since: since, TailLines: in.TailLines}
 	query.APIServer = baseline.ApiServer
 	query.ContinuityKey = make([]byte, 32)
 	if _, err = rand.Read(query.ContinuityKey); err != nil {

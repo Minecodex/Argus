@@ -47,6 +47,7 @@ type Queryable struct {
 	Timeout      time.Duration
 	Progress     *chstats.Tracker
 	Metadata     *metricmeta.Tracker
+	scalarPairs  map[string]bool
 }
 
 var _ storage.Queryable = Queryable{}
@@ -65,7 +66,7 @@ func (q Queryable) Querier(mint, maxt int64) (storage.Querier, error) {
 	}
 	scope := q.Scope
 	scope.ResourceIDs, scope.SourceKeys = slices.Clone(scope.ResourceIDs), slices.Clone(scope.SourceKeys)
-	return &querier{conn: q.Conn, seriesTable: table, samplesTable: samples, scope: scope, mint: mint, maxt: maxt, maxSeries: q.MaxSeries, maxSamples: q.MaxSamples, maxScanBytes: q.MaxScanBytes, timeout: q.Timeout, progress: q.Progress, metadata: q.Metadata}, nil
+	return &querier{conn: q.Conn, seriesTable: table, samplesTable: samples, scope: scope, mint: mint, maxt: maxt, maxSeries: q.MaxSeries, maxSamples: q.MaxSamples, maxScanBytes: q.MaxScanBytes, timeout: q.Timeout, progress: q.Progress, metadata: q.Metadata, scalarPairs: q.scalarPairs}, nil
 }
 
 type querier struct {
@@ -79,6 +80,7 @@ type querier struct {
 	progress                  *chstats.Tracker
 	metadata                  *metricmeta.Tracker
 	selections                selectionMemo
+	scalarPairs               map[string]bool
 }
 
 var _ storage.Querier = (*querier)(nil)
@@ -94,12 +96,22 @@ func (q *querier) Select(ctx context.Context, sortSeries bool, hints *storage.Se
 	if q == nil || q.conn == nil {
 		return storage.ErrSeriesSet(fmt.Errorf("promql storage unavailable"))
 	}
+	if normalized, metric, key := scalarPairMatcher(matchers); key != "" && q.scalarPairs[key] {
+		set := q.selections.selectSet(ctx, selectionKey(sortSeries, hints, normalized), func() storage.SeriesSet {
+			return q.selectUncachedMode(ctx, sortSeries, hints, true, normalized...)
+		})
+		return &metricFilteredSet{SeriesSet: set, name: metric}
+	}
 	return q.selections.selectSet(ctx, selectionKey(sortSeries, hints, matchers), func() storage.SeriesSet {
 		return q.selectUncached(ctx, sortSeries, hints, matchers...)
 	})
 }
 
 func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *storage.SelectHints, matchers ...*labels.Matcher) storage.SeriesSet {
+	return q.selectUncachedMode(ctx, sortSeries, hints, false, matchers...)
+}
+
+func (q *querier) selectUncachedMode(ctx context.Context, sortSeries bool, hints *storage.SelectHints, scalarPair bool, matchers ...*labels.Matcher) storage.SeriesSet {
 	if len(q.scope.ResourceIDs) == 0 {
 		return &seriesSet{items: nil, index: -1}
 	}
@@ -128,6 +140,13 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 			if matcher.Type == labels.MatchEqual {
 				requestedMetric = matcher.Value
 				if base, ok := histogramBaseName(matcher.Value); ok {
+					if scalarPair {
+						where = append(where, "(s.metric_name IN (?, ?) OR (s.metric_name = ? AND s.metric_type IN ('histogram','summary')))")
+						args = append(args, base+"_sum", base+"_count", base)
+						prewhere = append(prewhere, "s.metric_name IN (?, ?, ?)")
+						prewhereArgs = append(prewhereArgs, base+"_sum", base+"_count", base)
+						continue
+					}
 					// Suffixes are valid ordinary metric names too. Read exact
 					// series alongside supported virtual histogram/summary
 					// projections, never substitute an unrelated scalar base.
@@ -182,8 +201,10 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 	logical := make(map[string]*series, limit)
 	selectedIDs := make([]uuid.UUID, 0, limit)
 	metricNames := map[string]bool{}
+	selectedSourceKeys := map[string]bool{}
 	numericOnly := true
 	scalarsOnly := strings.HasSuffix(requestedMetric, "_sum") || strings.HasSuffix(requestedMetric, "_count")
+	bucketsOnly := strings.HasSuffix(requestedMetric, "_bucket")
 	for seriesRows.Next() {
 		var id uuid.UUID
 		var metricName string
@@ -197,11 +218,14 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 		}
 		q.metadata.Observe(metricmeta.Descriptor{Name: metricName, StorageType: metricType, Temporality: temporality, Monotonic: monotonic, Unit: unit, SourceKey: sourceKey})
 		metricNames[metricName] = true
+		selectedSourceKeys[sourceKey] = true
 		if metricType != "gauge" && metricType != "sum" {
 			numericOnly = false
 			// A real Summary may itself end in _sum/_count; its quantiles
 			// remain required. Only virtual family scalars can omit payloads.
-			scalarsOnly = scalarsOnly && metricName != requestedMetric && (metricType == "histogram" || metricType == "summary")
+			pairExactCount := scalarPair && metricName == strings.TrimSuffix(requestedMetric, "_sum")+"_count"
+			scalarsOnly = scalarsOnly && metricName != requestedMetric && !pairExactCount && (metricType == "histogram" || metricType == "summary")
+			bucketsOnly = bucketsOnly && metricName != requestedMetric && metricType == "histogram"
 		}
 		rawLabels = logicalMetricLabels(rawLabels)
 		key := metricName + "/" + labelSet(rawLabels).String()
@@ -232,8 +256,18 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 		columns = "series_id, timestamp, float_value, stale_marker, sample_type"
 	} else if scalarsOnly {
 		columns = "series_id, timestamp, float_value, stale_marker, sample_type, count, sum"
+	} else if bucketsOnly {
+		columns = "series_id, timestamp, float_value, stale_marker, sample_type, bucket_counts, explicit_bounds"
 	}
-	sampleQuery, constantSelection := sampleSelectionQuery(q.samplesTable, columns, len(q.scope.SourceKeys))
+	// FINAL metadata has already enforced resource, namespace and source scope.
+	// Sample reads need only that exact selected subset, not every authorized
+	// historical revision of unrelated receivers in the same resource scope.
+	sampleSources := make([]string, 0, len(selectedSourceKeys))
+	for key := range selectedSourceKeys {
+		sampleSources = append(sampleSources, key)
+	}
+	sort.Strings(sampleSources)
+	sampleQuery, constantSelection := sampleSelectionQuery(q.samplesTable, columns, len(sampleSources))
 	// Convert Prometheus millisecond bounds to the stored DateTime64(9) type
 	// explicitly; neither integer comparison nor second-precision binding is safe.
 	// Typed native parameters keep SQL text bounded while exposing a constant
@@ -251,20 +285,15 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 	}
 	sort.Strings(names)
 	parameters["argus_metric_names"] = arrayParameter(names)
-	if len(q.scope.SourceKeys) > 0 {
+	if len(sampleSources) > 0 {
 		// Source keys have already been authorized by the control-plane snapshot.
 		// Bind the base set before the join/payload read as well as retaining the
 		// external-table guard. Sparse series alone can touch unrelated sources.
 		// A large authorized set must remain binary external-table data. Keep
 		// the small-set primary-index optimization without expanding 10,000
 		// sources beyond ClickHouse's SQL parser size limit.
-		if len(q.scope.SourceKeys) <= 128 {
-			baseKeys := make([]string, 0, len(q.scope.SourceKeys))
-			for _, key := range q.scope.SourceKeys {
-				base, _, _ := strings.Cut(key, "@")
-				baseKeys = append(baseKeys, base)
-			}
-			parameters["argus_base_keys"] = arrayParameter(baseKeys)
+		if constantSelection {
+			parameters["argus_base_keys"] = arrayParameter(sampleSources)
 		}
 	}
 	sampleContext := clickhouse.Context(q.queryContext(ctx, settings), clickhouse.WithParameters(parameters))
@@ -318,6 +347,8 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 			scanErr = rows.Scan(&id, &timestamp, &value, &stale, &sampleType)
 		} else if scalarsOnly {
 			scanErr = rows.Scan(&id, &timestamp, &value, &stale, &sampleType, &count, &sum)
+		} else if bucketsOnly {
+			scanErr = rows.Scan(&id, &timestamp, &value, &stale, &sampleType, &bucketCounts, &explicitBounds)
 		} else {
 			scanErr = rows.Scan(&id, &timestamp, &value, &stale, &sampleType, &count, &sum, &bucketCounts, &explicitBounds,
 				&quantileRaw, &exponentialScale, &exponentialZeroCount, &exponentialZeroThreshold, &exponentialPositiveOffset, &exponentialPositiveBuckets,
@@ -335,12 +366,22 @@ func (q *querier) selectUncached(ctx context.Context, sortSeries bool, hints *st
 		}
 		seriesByID[item.id] = item
 		quantileValues := normalizeQuantiles(quantileRaw)
+		projectionMetric := requestedMetric
+		if scalarPair && (item.labels.Get("__name__") == requestedMetric || item.labels.Get("__name__") == strings.TrimSuffix(requestedMetric, "_sum")+"_count") {
+			projectionMetric = item.labels.Get("__name__")
+		}
 		if sampleType == "histogram" && value == nil {
-			appendHistogramSeries(seriesByID, item.id, item.labels.Get("__name__"), labelsFor(item), timestamp, count, sum, bucketCounts, explicitBounds, requestedMetric, limit, q.maxSamples)
+			appendHistogramSeries(seriesByID, item.id, item.labels.Get("__name__"), labelsFor(item), timestamp, count, sum, bucketCounts, explicitBounds, projectionMetric, limit, q.maxSamples)
+			if scalarPair && projectionMetric == requestedMetric {
+				appendHistogramSeries(seriesByID, item.id, item.labels.Get("__name__"), labelsFor(item), timestamp, count, sum, nil, nil, strings.TrimSuffix(requestedMetric, "_sum")+"_count", limit, q.maxSamples)
+			}
 			continue
 		}
 		if sampleType == "summary" && value == nil {
-			appendSummarySeries(seriesByID, item.id, item.labels.Get("__name__"), labelsFor(item), timestamp, count, sum, quantileValues, requestedMetric, limit, q.maxSamples)
+			appendSummarySeries(seriesByID, item.id, item.labels.Get("__name__"), labelsFor(item), timestamp, count, sum, quantileValues, projectionMetric, limit, q.maxSamples)
+			if scalarPair && projectionMetric == requestedMetric {
+				appendSummarySeries(seriesByID, item.id, item.labels.Get("__name__"), labelsFor(item), timestamp, count, sum, nil, strings.TrimSuffix(requestedMetric, "_sum")+"_count", limit, q.maxSamples)
+			}
 			continue
 		}
 		if sampleType == "exponential_histogram" && value == nil {

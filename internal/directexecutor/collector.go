@@ -197,7 +197,10 @@ func (executor *Executor) finishCollectorOperation(ctx context.Context, operatio
 	ctx = finalize
 	var command connectorv1.CollectorManagementCommand
 	_ = protojson.Unmarshal(operation.Plan, &command)
-	err := executor.Store.InTx(ctx, func(q *db.Queries) error {
+	// The already observed runtime outcome is immutable. Retry only its atomic
+	// database projection; a conflict must not rerun an installation or leave
+	// applied source metadata pending until the export retry window expires.
+	err := executor.Store.InTxRetry(ctx, func(q *db.Queries) error {
 		if _, err := q.FinishTelemetryCollectorOperation(ctx, db.FinishTelemetryCollectorOperationParams{ID: operation.ID,
 			EnterpriseID: operation.EnterpriseID, Fence: operation.Fence, Status: status, ResultHash: resultHash,
 			ErrorCode: pgtype.Text{String: errorCode, Valid: errorCode != ""}}); err != nil {

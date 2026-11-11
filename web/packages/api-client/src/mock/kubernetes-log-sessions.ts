@@ -154,7 +154,7 @@ export function createKubernetesLogSessionDomains(
       if (
         input.tail_lines < 1 ||
         input.tail_lines > 1000 ||
-        input.since_seconds < 1 ||
+        input.since_seconds < 0 ||
         input.since_seconds > 86400 ||
         (input.previous && (g.restarts < 1 || !g.previousId))
       )

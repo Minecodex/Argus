@@ -1,6 +1,6 @@
 # Plan9：分批真实场景与人工验收
 
-创建日期：2026-10-26。当前阶段为 **B09b Kubernetes 组件指标已发布，等待用户查看**。五项组件真实采集、30 个面板、独立停采/故障恢复及 5 项真实浏览器流程通过，平台健康 20/20。沿用 B09a 独立集群，保留工作负载、日志和原有查看入口；本轮按当前集群连续验收，不销毁后重装。B08-D01 保留在历史记录中。
+创建日期：2026-10-26。当前阶段为 **B09b 已退役，B10a 常用 Kubernetes 对象与工作台已部署，等待用户查看**。三项原生采集、四个仪表盘共 23 个面板、真实告警触发/恢复、日志/终端/CLI 转发和六项实际页面流程通过。修复后 311.8 秒观察无新增投递失败；修复前真实的 133 点缺口保留。
 
 ## 要完成的事情
 
@@ -20,7 +20,9 @@
 
 B09a 使用独立 Kubernetes 集群运行实际业务工作负载，接入原生集群与节点指标、持久容器日志、实时 Pod 日志及告警。平台入口与事件时间见 [B09a 查看与运行记录](./batches/B09a-review.md)。
 
-B09b 在同一已登记集群完成 API Server、CoreDNS、Scheduler、Controller Manager 和 etcd 的采集开关、实际样本及五套默认仪表盘。查看入口、发布版本与恢复时间见 [B09b 查看记录](./batches/B09b-review.md)。
+B09b 已完成真实控制面组件验证并按用户下一批指令退役，修复结果和历史见 [B09b 记录](./batches/B09b-review.md)。
+
+当前 [B10a 查看入口](./batches/B10a-review.md) 提供独立集群的常用对象、差异预览/确认、真实变更、Pod 日志/终端、四个仪表盘和副本告警。端口转发遵循现有 CLI/API 边界。
 
 2026-11-10，按完整一小时反馈补齐[节点/API Server 查询预算与延迟口径修正](./12-kubernetes-hour-window-query-20261110.md)，12 个面板、4 项真实中英明暗页面及健康 20/20 通过，当前版本见该记录。
 
@@ -69,8 +71,16 @@ B09b 在同一已登记集群完成 API Server、CoreDNS、Scheduler、Controlle
 | [B09a 接入修正](./10-b09a-direct-collector-target.md) | HTTPS 目标、凭据事务和候选 Agent 挂载 |
 | [B09b 查看记录](./batches/B09b-review.md) | 五项组件、30 个面板、独立启停及故障/告警恢复 |
 | [B09b 运行包](./runtime/B09b/runbook.md) | 自有端点准备、只读权限、有界活动、正常 API 与真实浏览器 |
+| [B10a 查看记录](./batches/B10a-review.md) | 常用对象、真实变更、日志/终端、23 面板与告警历史 |
+| [B10a 运行包](./runtime/B10a/runbook.md) | 独立集群、正常预览/确认、实际会话、有界负载和清理 |
+| [B10a 终端可用名单与展开选项](./18-b10a-terminal-matrix-and-log-options-20261111.md) | 17 个 Pod 的权限分析、四个真实 PTY 和参数区对齐 |
+| [B10a 安静日志与操作栏复查](./17-b10a-quiet-pod-logs-and-actions-20261111.md) | 截图 Agent 的真实历史日志、默认 tail、对齐操作栏与终端前件 |
+| [B10a 日志和终端反馈](./16-b10a-pod-logs-and-terminal-20261111.md) | 日志自动打开与滚动、原生终端拒绝诊断、实际 PTY 与重连 |
+| [B10a 生命周期修复](./15-b10a-workbench-lifecycle-20261111.md) | Secret 引用、操作分页、凭据交付后的会话与短命 Namespace 归属 |
 | [B09b 直方图查询修正](./11-b09b-component-metrics.md) | 大序列参数、完整物理投影和可恢复物化 |
 | [一小时查询与延迟口径修正](./12-kubernetes-hour-window-query-20261110.md) | 同源多指标裁剪、直方图按需读取、长连接排除及正式复验 |
+| [Collector 身份续期与连接重建](./13-collector-identity-renewal-20261110.md) | 唯一续期者、投影同步、注册窗口与真实轮换 |
+| [B09b 投递与当前告警修复](./14-b09b-delivery-and-current-alerts-20261110.md) | 回执事务重试、持久队列失败分类和未触发状态过滤 |
 | [B07 运行包](./runtime/B07a/runbook.md) | 服务、TLS/Key 接入、负载与清理 |
 | [B07a 接入与查询修正](./09-b07a-application-source-capability.md) | 应用来源契约、拓扑预算与重复读取复用 |
 | [状态清单](./progress.json) | 规划状态、支持范围映射及后续运行索引 |

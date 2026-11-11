@@ -28,9 +28,13 @@ TEMPLATES = dict(zip(KEYS, (
 
 class Run:
     def __init__(self):
-        self.id = RUN
-        self.infra = WorkloadRun()
-        self.out = ROOT / 'artifacts/plan9' / RUN
+        self.id = os.environ.get('ARGUS_PLAN9_B09B_RUN', RUN)
+        if self.id != RUN:
+            from infrastructure import Infrastructure
+            self.infra = Infrastructure(self.id)
+        else:
+            self.infra = WorkloadRun()
+        self.out = ROOT / 'artifacts/plan9' / self.id
         self.private = self.out / 'private'
         self.private.mkdir(parents=True, exist_ok=True)
         if os.name == 'nt':
@@ -72,10 +76,11 @@ class Run:
         self.save('initial-builtins', rows)
         self.save('platform-before', self.infra.platform())
         self.save('collector-before', api.call('GET', '/enterprise/kubernetes-clusters/' + self.cluster + '/collector'))
-        self.save('infrastructure', {'run_id': RUN, 'borrowed_from': self.infra.id,
+        self.save('infrastructure', {'run_id': self.id, 'infrastructure_run': self.infra.id,
             'cluster_id': self.cluster,
             'node': json.loads(execute(['docker', 'inspect', self.node]))[0]['Id'],
-            'scope': 'extend_existing_owned_cluster_preserve_workloads_and_resource_identity'})
+            'scope': ('fresh_independent_cluster' if self.infra.id==self.id else
+                      'extend_existing_owned_cluster_preserve_workloads_and_resource_identity')})
         print(json.dumps([{'key': r['definition']['key'], 'available': r['available'],
                            'collection': r.get('collection')} for r in rows]), flush=True)
 
@@ -114,7 +119,7 @@ class Run:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['inspect', 'login', 'enable', 'prepare', 'restore', 'activity', 'verify', 'exercise', 'availability', 'permissions'])
+    parser.add_argument('action', choices=['inspect', 'login', 'enable', 'prepare', 'restore', 'activity', 'verify', 'exercise', 'availability', 'permissions', 'alerts', 'retire', 'final'])
     args = parser.parse_args()
     run = Run()
     api = run.api(login=args.action == 'login')
@@ -136,6 +141,15 @@ if __name__ == '__main__':
     elif args.action == 'availability':
         from exercise import availability
         availability(run, api)
+    elif args.action == 'final':
+        from verification import final_review
+        final_review(run, api)
+    elif args.action == 'retire':
+        from retirement import retire
+        retire(run, api)
+    elif args.action == 'alerts':
+        from alerts import configure
+        configure(run, api)
     elif args.action == 'permissions':
         from verification import permissions
         permissions(run)

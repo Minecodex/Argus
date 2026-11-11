@@ -74,3 +74,58 @@ func TestMixedNamespaceAttributionRetainsClusterDataWithoutGrantingNamespace(t *
 		}
 	}
 }
+
+func (c attributionTestControl) ResolveMetricNamespace(_ context.Context, _ TrustedIdentity, _ SourceIdentity, name, _ string) (string, error) {
+	if name == "verified" {
+		return c.uid, nil
+	}
+	return "", c.failure
+}
+
+func TestDirectNamespaceAttributionRetainsClusterDataWithoutGrantingNamespace(t *testing.T) {
+	collector, id, cluster, ns := uuid.New(), uuid.New(), uuid.New(), uuid.NewString()
+	source := SourceIdentity{ID: id, Revision: 1, Type: "k8s_cluster", ResourceID: cluster, ResourceType: "kubernetes_cluster"}
+	control := attributionTestControl{nativeTemplateSourceControl{sourceTestControl{collector: collector, sources: map[uuid.UUID]SourceIdentity{id: source}}}, ns, errNamespaceAttributionUnverified}
+	identity := TrustedIdentity{EnterpriseID: uuid.New(), CollectorID: collector, ResourceID: cluster, ResourceType: "kubernetes_cluster"}
+	request := &metricsrpc.ExportMetricsServiceRequest{}
+	for _, name := range []string{"verified", "retired"} {
+		attrs := []*commonpb.KeyValue{
+			{Key: "argus.source.id", Value: stringValue(id.String())},
+			{Key: "argus.source.revision", Value: stringValue("1")},
+			{Key: "k8s.namespace.name", Value: stringValue(name)},
+			{Key: "k8s.namespace.uid", Value: stringValue(ns)},
+			{Key: "argus.namespace.uid", Value: stringValue("forged")},
+		}
+		request.ResourceMetrics = append(request.ResourceMetrics, &metricspb.ResourceMetrics{Resource: &resourcepb.Resource{Attributes: attrs}})
+	}
+	original := proto.Clone(request).(*metricsrpc.ExportMetricsServiceRequest)
+	server := &IngestServer{Control: control}
+	if _, err := server.prepareMetricPayload(t.Context(), identity, request); err != nil {
+		t.Fatal(err)
+	}
+	for i, block := range request.ResourceMetrics {
+		attrs := attributesMap(block.Resource.Attributes)
+		if attrs["argus.resource.id"] != cluster.String() || attrs["argus.source.id"] != id.String() {
+			t.Fatal("trusted Cluster source lost", attrs)
+		}
+		if i == 0 && attrs["argus.namespace.uid"] != ns {
+			t.Fatal("verified UID lost", attrs)
+		}
+		if i == 1 && (attrs["argus.namespace.uid"] != "" || attrs["argus.namespace.attribution_status"] != "unverified") {
+			t.Fatal("retired Namespace acquired authority", attrs)
+		}
+	}
+	for _, failure := range []error{ErrUnavailable, errIngestRejected} {
+		control.failure = failure
+		server.Control = control
+		rejected := proto.Clone(original).(*metricsrpc.ExportMetricsServiceRequest)
+		before, _ := proto.Marshal(rejected)
+		if _, err := server.prepareMetricPayload(t.Context(), identity, rejected); err == nil {
+			t.Fatal("control failure or known contradiction accepted")
+		}
+		after, _ := proto.Marshal(rejected)
+		if !bytes.Equal(before, after) {
+			t.Fatal("rejected request partially mutated")
+		}
+	}
+}

@@ -94,7 +94,7 @@ Kafka 的 lag 必须确有消费组提交位点；不从生产速率猜测积压
 
 | 子批 | 真实操作及对象 | 重点界面 |
 | --- | --- | --- |
-| B10a | Namespace、Deployment/StatefulSet/DaemonSet、Service/Ingress、ConfigMap/Secret 的适用创建/更新/删除；扩缩容、重启、回滚、Pod 删除、日志/exec/端口转发 | 选择器、YAML 脱敏、差异预览、确认、任务状态、失败/冲突、对象详情和审计 |
+| B10a | Namespace、Deployment/StatefulSet/DaemonSet、Service/Ingress、ConfigMap/Secret 的适用创建/更新/删除；扩缩容、重启、回滚、Pod 删除、日志/exec；端口转发按既有 CLI/API 验证 | 选择器、YAML 脱敏、差异预览、确认、任务状态、失败/冲突、对象详情和审计 |
 | B10b | PVC 创建/支持时扩容/删除；PV/StorageClass 只读；Job/CronJob 暂停恢复/手动触发；HPA、NetworkPolicy | 存储依赖和数据影响、任务历史/日志、真实指标驱动的伸缩、实际网络探测 |
 | B10c | Helm 仓库与 OCI 安装/升级/回滚/卸载；专用 CRD/CR；限定 RBAC；专用 worker 节点 cordon/drain/uncordon、标签/污点 | Chart/values/资源差异、权限拒绝、hooks、PDB 阻塞与恢复、集群级操作边界 |
 

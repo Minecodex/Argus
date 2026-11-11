@@ -66,6 +66,9 @@ func TestPostgresMetricNamespaceUIDCannotFollowRecreatedName(t *testing.T) {
 		t.Fatal("missing native UID was inferred by name", err)
 	}
 	exec("UPDATE kubernetes_namespace_resources SET status='deleted',version=version+1 WHERE id=$1", row.ID)
+	if _, err := control.ResolveMetricNamespace(t.Context(), identity, source, "orders", uid); !errors.Is(err, errNamespaceAttributionUnverified) {
+		t.Fatal("retired Namespace blocked its verified Cluster source", err)
+	}
 	_, err = store.Queries.UpsertKubernetesNamespaceResource(t.Context(), db.UpsertKubernetesNamespaceResourceParams{ID: uuid.New(), EnterpriseID: enterprise, ClusterID: cluster, Name: "orders", NamespaceUid: uuid.NewString()})
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +87,7 @@ func TestPostgresMetricNamespaceUIDCannotFollowRecreatedName(t *testing.T) {
 	}
 	other := source
 	other.ResourceID = uuid.New()
-	if _, err := control.ResolveMetricNamespace(t.Context(), identity, other, "orders", uid); !errors.Is(err, ErrSourceAwaitingApply) {
-		t.Fatal("unobserved foreign Cluster namespace accepted", err)
+	if _, err := control.ResolveMetricNamespace(t.Context(), identity, other, "orders", uid); !errors.Is(err, errNamespaceAttributionUnverified) {
+		t.Fatal("unobserved foreign Cluster Namespace acquired row authority", err)
 	}
 }

@@ -1,38 +1,63 @@
-# B09b Kubernetes 组件指标运行包
+# B09b Kubernetes 控制面组件运行包
 
-本轮按用户要求完成 API Server、CoreDNS、Scheduler、Controller Manager 和 etcd 的实际采集与默认仪表盘。沿用 B09a 已登记的独立 Kind 集群、Collector 和资源身份，避免重新安装导致当前页面入口失效；B09a 工作负载和历史数据保留。B09b 的新增 Namespace、授权、组件端点准备和回滚基线单独记录，默认单批运行规则在本轮作为同一集群的连续验收执行。
+当前运行 `p9-b09b-20261110-01`。本轮按用户要求先退役 B09a 及复用其集群的旧 B09b，再创建独立 Kind 集群。原平台的查询、模板和 Collector 续期修正继续用于新环境，历史证据保留。
 
-所有平台配置走正式 API 的预览、确认和运行收敛。数据来自 Kubernetes 组件原生 `/metrics`，经过已安装的 Collector、mTLS Ingest、Kafka、Writer、ClickHouse 和正式仪表盘查询；不写入伪造遥测样本。
+五项组件为 API Server、CoreDNS、Scheduler、Controller Manager 和 etcd。每项都有独立采集开关、六个默认面板和一条抓取可用性告警。数据来自组件原生端点，经正式安装的 Collector、mTLS Ingest、Kafka、Writer 和正常仪表盘查询链路进入平台。
 
-## 执行边界
+## 创建与接入
 
-- 控制面监听及服务端证书准备只允许修改 B09a 所有权记录中 Docker ID 和 Kind 标签均匹配的独立测试节点。保存原始清单及 SHA256，拒绝覆盖外部变化；不修改 Docker Desktop 的正式控制面。
-- Scheduler/Controller Manager 保持 ServiceAccount 认证授权，使用受集群 CA 签发的服务端证书直接 HTTPS 抓取。etcd 使用专用 HTTP metrics 端口，经受权 API Pod Proxy 读取，不使用 etcd 客户端或成员私钥。
-- 固定组件默认不开启匿名权限、不跳过 TLS 验证。CoreDNS/etcd 的 Pod Proxy 许可限定在 kube-system，Collector 不获取 Secret、exec 或 RBAC 写权限。
-- 指标开关、数据新鲜度和默认仪表盘继续作为日常界面；组件维护细节保留在次级入口。
-- 本轮只验收组件指标。当前无已登记的节点主机，Host/Node Claim 去重不作为组件成功取数的前置条件，也不宣称已实测。
-
-## 初始核对
+从仓库根目录执行，`--session` 指向通过正常企业登录取得的有效私有会话文件。
 
 ```powershell
-python docs/plan9/runtime/B09b/run.py login
+$env:ARGUS_PLAN9_B09B_RUN = 'p9-b09b-20261110-01'
+$session = 'artifacts/plan9/p9-b09b-20261109-01/private/enterprise-session.json'
+python docs/plan9/runtime/B09b/deploy.py prepare
+python docs/plan9/runtime/B09b/deploy.py cluster
+python docs/plan9/runtime/B09b/deploy.py bootstrap
+python docs/plan9/runtime/B09b/deploy.py foundation --session $session
 python docs/plan9/runtime/B09b/run.py inspect
 python docs/plan9/runtime/B09b/run.py prepare
 python docs/plan9/runtime/B09b/run.py permissions
 python docs/plan9/runtime/B09b/run.py activity
 python docs/plan9/runtime/B09b/run.py enable
 python docs/plan9/runtime/B09b/run.py verify
+python docs/plan9/runtime/B09b/run.py alerts
+```
+
+新的集群、Namespace、Collector、凭据和运行记录均属于本轮。集群创建要求 B09a 的正常卸载与零残留核验完成。基础设施复用共享的 Kind、原生权限准备和正式接入逻辑，单节点上限为 3 vCPU、3072 MiB。
+
+## 端点与权限
+
+控制面监听及服务端证书准备只修改 Docker ID 和 Kind 标签均匹配的独立节点。每个清单保存原文及 SHA256，恢复时拒绝覆盖外部改动。
+
+Scheduler 与 Controller Manager 保持 ServiceAccount 认证授权，使用本批集群 CA 签发的服务端证书直接 HTTPS 抓取。etcd 使用专用 metrics 端口，经授权的 kube-system Pod Proxy 读取。私钥保留在目标节点，Collector 的只读角色不包含 Secret、exec 或 RBAC 写权限。权限检查保存到本轮证据。
+
+本轮未登记节点主机，Host/Node Claim 和日志责任去重保持单列验收边界。
+
+## 实际活动、故障与页面复验
+
+```powershell
 python docs/plan9/runtime/B09b/run.py exercise
 python docs/plan9/runtime/B09b/run.py availability
 python docs/plan9/runtime/B09b/browser.py
+python docs/plan9/runtime/B09b/run.py final
 ```
 
-登录密码通过隐藏输入读取，仅保存正常登录会话。运行记录位于 `artifacts/plan9/p9-b09b-20261109-01/`，私有材料只保存在其中的 `private/`。凭据不进入文档、普通日志或源码。
+`activity` 在 `b09b-components` 中每十秒执行少量真实 DNS/API 请求，每三轮改变一个 Deployment 的 1/2 副本。绝对截止时间保存在 `activity-deadline.json`，八小时后恢复一副本并空闲。容器重启沿用同一截止时间。
 
-验收要求：五项均有持续更新的真实目标样本，五套默认仪表盘逐面板取数；覆盖开关独立性、权限/TLS 失败与恢复、真实告警触发和恢复、桌面中英明暗页面。未观察到的数据保持空或不可用，不能由抓取诊断冒充目标指标。
+五条告警使用各自采集的原生 `up`，阈值 0.5，恢复阈值 1，每十秒评估，触发和恢复各持续二十秒。资源授权明确限定本批集群。
 
-`activity` 在独立 `b09b-components` 中每十秒执行少量真实 DNS/API 请求，每三轮改变一个测试 Deployment 的 1/2 副本，产生 Scheduler/Controller/etcd 的实际活动。绝对截止时间记录在 `activity-deadline.json`，八小时后恢复一副本并保持空闲；容器重启不会重置该预算。
+`exercise` 验证错误证书名称、独立停采和重新开启。配置变化将旧事件标为 `source_changed`。随后 `availability` 在不改采集配置的情况下，精确拒绝当前 Gateway Pod 到 Scheduler 10259 的流量，核对同一条件告警实际触发与恢复，并确认其余四个组件继续采集。故障设有 120 秒自动恢复，驱动也在 finally 中核对清除本轮规则。
 
-`exercise` 验证错误证书名称、停止与重新开启。配置变化按既有来源围栏关闭旧告警，记录为 `source_changed`，不把它称为条件自然恢复。`availability` 在所有权确认后的独立节点临时拒绝**当前网关 Pod 到 Scheduler 10259** 的流量，Collector 配置版本保持不变，要求同一条件告警从实际故障恢复；120 秒自动回滚和 finally 清理均使用精确匹配的本轮规则。该故障不修改正式 Argus 或客户控制面的网络策略。
+浏览器连接正式门户，验证中英、明暗、1280/1920 桌面、五项组件、30 个面板，以及通过页面独立停用/恢复 CoreDNS。运行参数显式选择本轮集群 ID。
 
-端点恢复使用 `run.py restore`，只在原始/本轮应用清单 Hash 匹配时恢复。完整退役前先通过正常平台操作停用本轮告警、五项采集和新增仪表盘绑定，再按记录的 UID 删除 B09b Namespace、Role/RoleBinding；B09a 基础设施与平台共享资源按各自清单处理。人工查看前保留实际组件及低负载来源。
+## 清理
+
+```powershell
+$env:ARGUS_PLAN9_B09B_RUN = 'p9-b09b-20261110-01'
+python docs/plan9/runtime/B09b/run.py retire
+```
+
+按正常预览确认删除本批策略、停用八项采集并卸载 Collector，随后退役集群、撤销凭据与数据授权。专属遥测 Service 按 UID 与运行标签核验后删除，再核对 Kind 容器原始 ID 和标签，销毁本批节点。共享模板和平台业务历史按既有策略保留。
+
+旧运行 `p9-b09b-20261109-01` 的复用模式与原始结果保留在历史验收记录中。本轮实际入口见 [B09b 查看记录](../../batches/B09b-review.md)。

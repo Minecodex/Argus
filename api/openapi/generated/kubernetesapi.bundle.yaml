@@ -2019,8 +2019,9 @@ components:
           maximum: 1000
         since_seconds:
           type: integer
-          minimum: 1
+          minimum: 0
           maximum: 86400
+          description: Initial lookback in seconds. Zero reads the latest retained tail without a time filter; byte and row limits still apply.
       required:
         - namespace_id
         - pod

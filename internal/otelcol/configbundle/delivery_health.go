@@ -9,5 +9,7 @@ func addMandatoryDeliveryHealth(config map[string]any) {
 		telemetry = map[string]any{}
 		service["telemetry"] = telemetry
 	}
-	telemetry["metrics"] = map[string]any{"level": "normal", "readers": []map[string]any{{"pull": map[string]any{"exporter": map[string]any{"prometheus": map[string]any{"host": "127.0.0.1", "port": 8888}}}}}}
+	// Detailed retains the upstream error.type/error.permanent dimensions.
+	// Normal merges durable shutdown retries with genuine terminal failures.
+	telemetry["metrics"] = map[string]any{"level": "detailed", "readers": []map[string]any{{"pull": map[string]any{"exporter": map[string]any{"prometheus": map[string]any{"host": "127.0.0.1", "port": 8888}}}}}}
 }

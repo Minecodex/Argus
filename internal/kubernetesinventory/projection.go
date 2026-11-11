@@ -52,7 +52,7 @@ func projectObject(definition Definition, input unstructured.Unstructured, names
 		}
 	}
 	redacted = redactEnvironment(value.Object) || redacted
-	projected, changed, err := datapolicy.Project(value.Object)
+	projected, changed, err := ProjectManifest(value.Object)
 	if err != nil {
 		return Object{}, ErrInvalid
 	}

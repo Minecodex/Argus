@@ -83,7 +83,7 @@ func (e *Engine) Execute(ctx context.Context, request Request) (Result, error) {
 	}
 	progress := &chstats.Tracker{}
 	metadata := &metricmeta.Tracker{}
-	queryable := Queryable{Conn: e.conn, Router: e.router, Scope: request.Scope, MaxSeries: request.MaxSeries, MaxSamples: request.MaxSamples, MaxScanBytes: request.MaxScanBytes, Timeout: request.Timeout, Progress: progress, Metadata: metadata}
+	queryable := Queryable{Conn: e.conn, Router: e.router, Scope: request.Scope, MaxSeries: request.MaxSeries, MaxSamples: request.MaxSamples, MaxScanBytes: request.MaxScanBytes, Timeout: request.Timeout, Progress: progress, Metadata: metadata, scalarPairs: scalarPairSelectors(request.Expression)}
 	engine := promql.NewEngine(promql.EngineOpts{
 		Logger: e.logger, MaxSamples: request.MaxSamples, Timeout: request.Timeout,
 		LookbackDelta: lookback, EnableAtModifier: true, EnableNegativeOffset: true,

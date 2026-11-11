@@ -223,9 +223,11 @@ func CollectorID(value []byte) (string, error) {
 
 func outboundConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBundleEndpoint, ingestEndpoint, serverName, dialAddress, tokenFile, identityDirectory, serverCAFile string,
 	receivers map[string]any, processors map[string]any, pipelines map[string]any, bootstrapDirectory ...string) map[string]any {
+	identity := identityConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBundleEndpoint, dialAddress, tokenFile, identityDirectory, serverCAFile, bootstrapDirectory...)
+	identity["delivery_persistent_exporters"] = []string{"otlp/argus"}
 	return map[string]any{
 		"extensions": map[string]any{
-			"argus_identity": identityConfig(collectorID, enrollmentEndpoint, rotationEndpoint, trustBundleEndpoint, dialAddress, tokenFile, identityDirectory, serverCAFile, bootstrapDirectory...),
+			"argus_identity": identity,
 			"file_storage":   map[string]any{"directory": targetPath(identityDirectory, "queue"), "create_directory": true},
 			"health_check":   map[string]any{"endpoint": "0.0.0.0:13133"},
 		},

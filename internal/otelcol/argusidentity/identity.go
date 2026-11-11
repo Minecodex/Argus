@@ -142,13 +142,17 @@ func (extension *identityExtension) Start(ctx context.Context, _ component.Host)
 	return nil
 }
 
-func (extension *identityExtension) Shutdown(context.Context) error {
+func (extension *identityExtension) Shutdown(ctx context.Context) error {
 	if extension.cancel == nil {
 		return nil
 	}
 	extension.cancel()
 	<-extension.done
 	<-extension.deliveryDone
+	// Pipelines/exporters stop before extensions. Read their final native
+	// counters while the telemetry listener is still alive, after the periodic
+	// writer has stopped, so graceful shutdown cannot lose its last failures.
+	extension.finalizeDelivery(ctx)
 	return nil
 }
 
