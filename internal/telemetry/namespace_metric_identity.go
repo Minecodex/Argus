@@ -78,7 +78,10 @@ func (store PostgresIngestControl) ResolveMetricNamespace(ctx context.Context, i
 	}
 	row, err := store.Queries.ResolveKubernetesNamespaceResource(ctx, db.ResolveKubernetesNamespaceResourceParams{EnterpriseID: identity.EnterpriseID, ClusterID: source.ResourceID, Name: name})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", ErrSourceAwaitingApply
+		// A short-lived or already retired Namespace may never enter the
+		// asynchronous active inventory. Its verified Cluster source remains
+		// usable, but this observation receives no Namespace row authority.
+		return "", errNamespaceAttributionUnverified
 	}
 	if err != nil {
 		return "", controlReadError(err)

@@ -145,7 +145,7 @@ func TestPostgresPodLogSessionHTTPAuthenticatesTicketsCSRFAndScope(t *testing.T)
 		}
 		return response.StatusCode, raw, response.Header
 	}
-	input := map[string]any{"namespace_id": namespace, "pod": "api", "pod_uid": "pod-uid", "container": "main", "previous": false, "tail_lines": 100, "since_seconds": 300}
+	input := map[string]any{"namespace_id": namespace, "pod": "api", "pod_uid": "pod-uid", "container": "main", "previous": false, "tail_lines": 100, "since_seconds": 0}
 	if status, _, _ := call("POST", base, input, tokens[0], "wrong"); status != 403 {
 		t.Fatalf("CSRF status %d", status)
 	}

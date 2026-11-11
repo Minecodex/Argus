@@ -9,3 +9,7 @@ r54 在真实 Gateway 重建、上游停止后仍有指标队列，固定错误�
 Namespace 授权的 source facet 仍在聚合、目录、概览前过滤，因此不读取未验证归属数据，也不把同名重建后的 Namespace 视为旧代次。Namespace 指标查询附固定覆盖说明：只包括已验证 Namespace UID 的观测；未验证归属数据只对相应 Cluster 授权可见。这是资格说明，不伪造缺口计数或把每次查询都标为预算截断。
 
 验证分别记录真实 PostgreSQL 身份、实际 Writer/ClickHouse 聚合与候选隔离、准入失败不改写请求、查询覆盖说明、真实 K8s 故障和总队列排空。实现或组件回归不等于完整复验，原队列断言及三分钟恢复、五分钟重试边界保留。r54 已恢复原部署和存储身份，server 1/1、自有 Namespace 清零；整体仍未完成、未发布。
+
+## 2026-11-11：直接 Namespace UID 缺少活动库存
+
+B10a 真实 Namespace 创建/删除暴露直接 UID 路径的同类问题：Namespace 生命周期短于库存同步，指标等待元数据超过重试上限。现在仅将活动库存查询无记录纳入既定的 Cluster 范围 unverified 处理；明确 UID 矛盾仍拒绝、控制库故障仍重试、不授予 Namespace 行权限。正常创建/删除复验及完整重试周期观察见 [B10a 生命周期修复](../plan9/15-b10a-workbench-lifecycle-20261111.md)。

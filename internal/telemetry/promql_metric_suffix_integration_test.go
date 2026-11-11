@@ -53,7 +53,12 @@ func TestPromQLSuffixNamesKeepExactMetricsAndTypedFamilyProjections(t *testing.T
 		"sum(latency_count)": 7, "sum(latency_sum)": 7.5, "sum(latency_bucket)": 10,
 		`latency_bucket{kind="native"}`: 7, `latency_count{kind="histogram"}`: 2,
 		"sum(duration_count)": 7, "sum(duration_sum)": 10, "sum(duration_bucket)": 17,
-		"sum(ambiguous_sum)": 1.25,
+		"sum(ambiguous_sum)":                  1.25,
+		"sum(latency_sum)/sum(latency_count)": 7.5 / 7,
+		`sum(latency_sum{kind="histogram"})/sum(latency_count{kind="histogram"})`: .75,
+		`sum(latency_sum{kind="native"})/sum(latency_count{kind="native"})`:       1.2,
+		"sum(duration_sum)/sum(duration_count)":                                   10.0 / 7,
+		"sum(plain_sum)+sum(plain_count)":                                         18,
 	} {
 		t.Run(expression, func(t *testing.T) {
 			result, err := engine.Execute(ctx, promengine.Request{Expression: expression, Instant: true, Start: at.Add(-time.Minute), End: at.Add(time.Second), Scope: promengine.Scope{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: []string{source.String() + ":1"}}})
@@ -75,4 +80,17 @@ func TestPromQLSuffixNamesKeepExactMetricsAndTypedFamilyProjections(t *testing.T
 			t.Fatal("scalar base leaked into virtual histogram family")
 		}
 	}
+	read := func(expression string) promengine.Result {
+		t.Helper()
+		result, err := engine.Execute(ctx, promengine.Request{Expression: expression, Instant: true, Start: at.Add(-time.Minute), End: at.Add(time.Second), Scope: promengine.Scope{EnterpriseID: enterprise, ResourceIDs: []uuid.UUID{resource}, SourceKeys: []string{source.String() + ":1"}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return result
+	}
+	left, right, pair := read("sum(latency_sum)"), read("sum(latency_count)"), read("sum(latency_sum)/sum(latency_count)")
+	if pair.ScannedBytes >= left.ScannedBytes+right.ScannedBytes {
+		t.Fatal("scalar pair repeated metadata/sample reads", pair.ScannedBytes, left.ScannedBytes, right.ScannedBytes)
+	}
+	t.Logf("paired scalar scan=%d separate scans=%d", pair.ScannedBytes, left.ScannedBytes+right.ScannedBytes)
 }

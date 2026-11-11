@@ -69,6 +69,10 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 59. [Kubernetes 一小时仪表盘预算与延迟口径修正](./plan9/12-kubernetes-hour-window-query-20261110.md)
 60. [图表悬浮提示边界与序列名称](./plans/frontend-redesign/chart-tooltip-bounds-20261110.md)
 61. [Kubernetes Collector 统一续期与长连接重建](./plan9/13-collector-identity-renewal-20261110.md)
+62. [B10a 工作台与采集生命周期修复（2026-11-11）](./plan9/15-b10a-workbench-lifecycle-20261111.md)
+63. [B10a Pod 日志自动输出与终端反馈（2026-11-11）](./plan9/16-b10a-pod-logs-and-terminal-20261111.md)
+64. [B10a 安静容器日志与操作栏复查（2026-11-11）](./plan9/17-b10a-quiet-pod-logs-and-actions-20261111.md)
+65. [B10a 终端可用名单与日志选项对齐（2026-11-11）](./plan9/18-b10a-terminal-matrix-and-log-options-20261111.md)
 
 2026-10-18 [Markdown 计划、命令授权与普通会话执行](./plan7/18-markdown-plan-command-consent.md)完成并发布到本地 revision 40：计划文档一次批准，命令按普通会话工具执行；两种权限模式的修复和停止场景通过，最终 38 次模型调用用量完整。Go 2263、前端 1326、交互 E2E 12、真实历史页面 12 通过，健康 20/20。此前 [revision 36/37 交互与布局记录](./plan7/16-interaction-closure.md)和更早的固定计划矩阵保留各自适用范围。
 

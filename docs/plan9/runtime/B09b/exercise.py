@@ -23,7 +23,7 @@ def exercise(run, api):
     row = next(r for r in run.builtins(api) if r['definition']['key'] == KEY)
     original = copy.deepcopy(row['collection']['config'])
     ident = row['collection']['id']
-    expression = 'min(up{argus_collection_id="' + ident + '"})'
+    expression = 'min by (argus_resource_id) (up{argus_collection_id="' + ident + '"})'
     assert float(query(run, api, expression)['data']['result'][0]['value'][1]) == 1
     name = 'B09b Scheduler metrics scrape unavailable'
     policies = api.call('GET', '/alerts/configurations?kind=policy')

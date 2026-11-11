@@ -12,7 +12,7 @@ def main():
     run = Run()
     env = os.environ.copy()
     env.update(ARGUS_E2E_EXTERNAL='1', ARGUS_E2E_ENTERPRISE_ORIGIN='https://argus.dev',
-        ARGUS_PLAN9_B09B_E2E='1', ARGUS_PLAN9_SESSION_PATH=str(run.session),
+        ARGUS_PLAN9_B09B_E2E='1', ARGUS_PLAN9_CLUSTER_ID=run.cluster, ARGUS_PLAN9_SESSION_PATH=str(run.session),
         ARGUS_PLAN9_COMPONENT_BOARDS=str(run.out / 'dashboard-verification.json'),
         ARGUS_E2E_ARTIFACTS=str(run.out / 'real-browser-final'), NODE_EXTRA_CA_CERTS=str(run.ca))
     # No host-resolver override: browser and API requests keep certificate validation enabled.

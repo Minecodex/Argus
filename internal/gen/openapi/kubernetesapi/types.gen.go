@@ -1111,13 +1111,15 @@ type KubernetesLogSessionBatch struct {
 
 // KubernetesLogSessionInput defines model for KubernetesLogSessionInput.
 type KubernetesLogSessionInput struct {
-	Container    string             `json:"container"`
-	NamespaceId  openapi_types.UUID `json:"namespace_id"`
-	Pod          string             `json:"pod"`
-	PodUid       string             `json:"pod_uid"`
-	Previous     bool               `json:"previous"`
-	SinceSeconds int                `json:"since_seconds"`
-	TailLines    int                `json:"tail_lines"`
+	Container   string             `json:"container"`
+	NamespaceId openapi_types.UUID `json:"namespace_id"`
+	Pod         string             `json:"pod"`
+	PodUid      string             `json:"pod_uid"`
+	Previous    bool               `json:"previous"`
+
+	// SinceSeconds Initial lookback in seconds. Zero reads the latest retained tail without a time filter; byte and row limits still apply.
+	SinceSeconds int `json:"since_seconds"`
+	TailLines    int `json:"tail_lines"`
 }
 
 // KubernetesLogSessionReadInput defines model for KubernetesLogSessionReadInput.

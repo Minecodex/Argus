@@ -9,7 +9,7 @@ from manage import API_SERVER,APP_NS,ROOT,RUN,execute,write_json
 
 def bootstrap(run):
     namespace='plan9-access'
-    labels={'argus.plan9/run':RUN}
+    labels={'argus.plan9/run':run.id}
     objects=[
         {'apiVersion':'v1','kind':'Namespace','metadata':{'name':namespace,'labels':labels}},
         {'apiVersion':'v1','kind':'Namespace','metadata':{'name':'argus-telemetry',
@@ -56,9 +56,9 @@ def bootstrap(run):
         config={'apiVersion':'v1','kind':'Config','current-context':'plan9','clusters':[{
             'name':'plan9','cluster':{'server':address,'certificate-authority-data':cluster['certificate-authority-data']}}],
             'users':[{'name':'plan9','user':{'token':token}}],
-            'contexts':[{'name':'plan9','context':{'cluster':'plan9','user':'plan9','namespace':APP_NS}}]}
+            'contexts':[{'name':'plan9','context':{'cluster':'plan9','user':'plan9','namespace':getattr(run,'app_namespace',APP_NS)}}]}
         private.write_text(yaml.safe_dump(config),encoding='utf-8')
-    node=RUN+'-control-plane'
+    node=run.id+'-control-plane'
     gateway='192.168.65.254'
     dns=run.get('configmap','coredns','-n','kube-system')
     original=dns['data']['Corefile']
@@ -89,14 +89,14 @@ def telemetry_endpoint(run):
     """Expose only the native TLS ingest ports to this independent lab cluster."""
     original=json.loads(execute(['kubectl','--context','docker-desktop','get','svc',
         'argus-telemetry-ingest','-n','argus-system','-o','json']))
-    name='plan9-b09a-telemetry'
+    name='plan9-'+getattr(run,'batch','B09a').lower()+'-telemetry'
     desired={'apiVersion':'v1','kind':'Service','metadata':{'name':name,'namespace':'argus-system',
-        'labels':{'argus.plan9/run':RUN}},'spec':{'type':'LoadBalancer','selector':original['spec']['selector'],
+        'labels':{'argus.plan9/run':run.id}},'spec':{'type':'LoadBalancer','selector':original['spec']['selector'],
         'ports':[{'name':'grpc','port':4317,'targetPort':4317},{'name':'https','port':4318,'targetPort':4318}]}}
     current=execute(['kubectl','--context','docker-desktop','get','svc',name,'-n','argus-system',
         '--ignore-not-found','-o','json'])
     if current:
-        assert json.loads(current)['metadata']['labels']['argus.plan9/run']==RUN
+        assert json.loads(current)['metadata']['labels']['argus.plan9/run']==run.id
     execute(['kubectl','--context','docker-desktop','apply','-f','-'],data=json.dumps(desired))
     import time
     for _ in range(30):

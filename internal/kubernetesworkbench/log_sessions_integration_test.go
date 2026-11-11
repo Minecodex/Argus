@@ -240,3 +240,24 @@ func TestPostgresPodLogSessionsRejectRestartExpiryAndLogout(t *testing.T) {
 		})
 	}
 }
+
+func TestPostgresPodLogSessionDefaultTailIncludesQuietHistory(t *testing.T) {
+	f, b, httpID, in := newLogFixture(t)
+	grantOperationalLogs(f)
+	old := time.Now().UTC().Add(-48 * time.Hour).Format(time.RFC3339Nano)
+	b.raw = []byte(old + " actual old startup record\n")
+	in.SinceSeconds = 0
+	ticket := openFixtureLog(t, f, httpID, in)
+	row, err := f.service.Store.Queries.GetKubernetesLogSession(t.Context(), db.GetKubernetesLogSessionParams{EnterpriseID: f.actor.EnterpriseID, ID: ticket.Session.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var query kubernetespodlogs.Query
+	if json.Unmarshal(row.Binding, &query) != nil || !query.Since.Equal(time.Unix(0, 0)) {
+		t.Fatal("Default log tail was narrowed to a recent time window")
+	}
+	batch, err := f.service.ReadLogSession(t.Context(), f.actor, httpID, f.cluster, ticket.Session.ID, "")
+	if err != nil || !strings.Contains(batch.Content, "actual old startup record") {
+		t.Fatal("Quiet retained logs were hidden", err)
+	}
+}

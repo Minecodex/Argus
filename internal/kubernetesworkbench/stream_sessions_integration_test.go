@@ -215,11 +215,30 @@ func TestPostgresKubernetesStreamCredentialRotationAndDelivery(t *testing.T) {
 	if _, err = f.service.Credentials.FulfillLease(ctx, f.actor.EnterpriseID, v.Row.CredentialLeaseID.UUID, "connector_gateway", "wrong-gateway"); err == nil {
 		t.Fatal("credential moved to foreign Gateway")
 	}
+	if err = f.service.ClaimStreamExecution(ctx, v.Row.ID, v.Row.Fence, "gateway"); err != nil {
+		t.Fatal(err)
+	}
 	issued, err := f.service.Credentials.FulfillLease(ctx, f.actor.EnterpriseID, v.Row.CredentialLeaseID.UUID, "connector_gateway", "gateway")
 	if err != nil || string(issued.Value) != "test-sensitive-kubeconfig-not-an-actual-cluster" {
 		t.Fatal("recipient delivery", err)
 	}
 	clear(issued.Value)
+	if _, err = f.service.Credentials.FulfillLease(ctx, f.actor.EnterpriseID, v.Row.CredentialLeaseID.UUID, "connector_gateway", "gateway"); err == nil {
+		t.Fatal("delivered credential lease was replayed")
+	}
+	if err = f.service.ActivateStream(ctx, v.Row.ID, v.Row.Fence, "gateway"); err != nil {
+		t.Fatal("single-use credential delivery invalidated its bound execution", err)
+	}
+	if err = f.service.HeartbeatStream(ctx, v.Row.ID, v.Row.Fence, "gateway"); err != nil {
+		t.Fatal("delivered credential could not maintain its bound session", err)
+	}
+	for _, executor := range []string{"", "foreign-gateway"} {
+		f.exec("UPDATE kubernetes_stream_sessions SET execution_gateway=$2 WHERE id=$1", v.Row.ID, executor)
+		if _, err = f.service.CurrentStream(ctx, v.Row.ID, v.Row.Fence); err == nil {
+			t.Fatal("consumed credential authorized a missing/foreign execution")
+		}
+	}
+	f.exec("UPDATE kubernetes_stream_sessions SET execution_gateway='gateway' WHERE id=$1", v.Row.ID)
 	if err = ValidateStreamCredentialDelivery(ctx, f.service.Store.Queries, f.actor.EnterpriseID, v.Row.ID, uuid.New(), 1, v.Row.CredentialLeaseID.UUID); err == nil {
 		t.Fatal("credential moved to foreign Connector")
 	}

@@ -84,7 +84,12 @@ func authorizeStream(ctx context.Context, q *db.Queries, row db.KubernetesStream
 			recipientType, recipientID = "connector_gateway", row.OwnerGateway
 		}
 		lease, err := q.GetCredentialLease(ctx, db.GetCredentialLeaseParams{EnterpriseID: row.EnterpriseID, ID: row.CredentialLeaseID.UUID})
-		if err != nil || lease.Status != "active" || !time.Now().Before(lease.ExpiresAt.Time) || lease.CredentialID != route.CredentialID || lease.RecipientType != recipientType || lease.RecipientID != recipientID || lease.SecretVersionID != route.SecretVersionID || lease.OperationRef != row.ID.String() || lease.TargetResourceType != "kubernetes_stream_session" || lease.TargetResourceID != row.ID {
+		// FulfillLease is intentionally single-use. Once an execution has been
+		// claimed, consumed means delivered to this exact bound backend, not
+		// revoked. It must never authorize a fresh/unclaimed execution.
+		executionMatches := row.ExecutionGateway != "" && (route.Mode != "direct" || row.ExecutionGateway == row.OwnerGateway)
+		leaseStateValid := lease.Status == "active" || lease.Status == "consumed" && executionMatches && (row.Status == "connecting" || row.Status == "active")
+		if err != nil || !leaseStateValid || !time.Now().Before(lease.ExpiresAt.Time) || lease.CredentialID != route.CredentialID || lease.RecipientType != recipientType || lease.RecipientID != recipientID || lease.SecretVersionID != route.SecretVersionID || lease.OperationRef != row.ID.String() || lease.TargetResourceType != "kubernetes_stream_session" || lease.TargetResourceID != row.ID {
 			return result, secret.ErrInvalidLease
 		}
 	}

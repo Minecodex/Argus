@@ -5,7 +5,6 @@ package kubernetespodlogs
 import (
 	"context"
 	"errors"
-	"io"
 	"time"
 
 	"github.com/kakj-go/Argus/internal/kubernetesaccess"
@@ -131,23 +130,31 @@ func Read(ctx context.Context, api kubernetes.Interface, q Query) (Batch, error)
 		since = q.Resume.Second
 	}
 	limit := int64(MaxBytes + 1)
-	options := &corev1.PodLogOptions{Container: q.Pin.Container, Previous: q.Pin.Previous, Timestamps: true, SinceTime: &metav1.Time{Time: since}, LimitBytes: &limit}
-	stream, err := api.CoreV1().Pods(q.Pin.Namespace).GetLogs(q.Pin.Pod, options).Stream(ctx)
-	if err != nil {
-		return Batch{}, apiError(err)
+	options := &corev1.PodLogOptions{Container: q.Pin.Container, Previous: q.Pin.Previous, Timestamps: true, LimitBytes: &limit}
+	if q.Resume != nil || q.Since.After(time.Unix(0, 0)) {
+		options.SinceTime = &metav1.Time{Time: since}
 	}
-	defer stream.Close()
-	raw, err := io.ReadAll(io.LimitReader(stream, limit))
+	if q.Resume == nil {
+		tail := int64(q.TailLines)
+		options.TailLines = &tail
+	}
+	raw, err := readNativeLogs(ctx, api, q, options)
+	if err != nil {
+		return Batch{}, err
+	}
 	defer clear(raw)
-	if err != nil {
-		return Batch{}, kubernetesinventory.ErrUnavailable
-	}
 	if err = ValidatePin(ctx, api, q.Pin); err != nil {
 		return Batch{}, err
 	}
 	batch, err := Continue(raw, q, time.Now().UTC())
 	if err != nil {
 		return Batch{}, err
+	}
+	if q.Resume == nil {
+		batch, err = completeInitialTail(ctx, api, q, raw, batch)
+		if err != nil {
+			return Batch{}, err
+		}
 	}
 	projected, changed, err := datapolicy.Project(batch.Content)
 	if err != nil {

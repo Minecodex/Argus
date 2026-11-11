@@ -34,6 +34,7 @@ export function LogViewer({
   copyLabel,
   downloadLabel,
   className,
+  emptyMessage,
 }: {
   lines: LogLine[];
   height?: number;
@@ -46,6 +47,7 @@ export function LogViewer({
   copyLabel?: string;
   downloadLabel?: string;
   className?: string;
+  emptyMessage?: string;
 }) {
   const text = useUiText();
   const outputRef = useRef<HTMLDivElement>(null);
@@ -67,7 +69,7 @@ export function LogViewer({
     if (following && !paused && element) {
       element.scrollTop = element.scrollHeight;
     }
-  }, [visible.length, following, paused]);
+  }, [visible, following, paused]);
 
   const copy = () => {
     void navigator.clipboard?.writeText(serialize(visible));
@@ -96,7 +98,11 @@ export function LogViewer({
         </span>
         <div className="argus-log-viewer__actions">
           <Button
-            aria-label={pauseLabel ?? text("暂停", "Pause")}
+            aria-label={
+              paused
+                ? text("继续", "Resume")
+                : (pauseLabel ?? text("暂停", "Pause"))
+            }
             onPress={() => setPaused((value) => !value)}
             isIconOnly
             variant={paused ? "secondary" : "ghost"}
@@ -124,8 +130,24 @@ export function LogViewer({
       <div
         className="argus-log-viewer__output"
         ref={outputRef}
+        role="log"
+        aria-label={text("日志内容", "Log output")}
+        aria-live={following && !paused ? "polite" : "off"}
+        tabIndex={0}
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          setFollowing(
+            element.scrollHeight - element.scrollTop - element.clientHeight <=
+              2,
+          );
+        }}
         style={{ height }}
       >
+        {visible.length === 0 && (
+          <p role="status" className="argus-log-viewer__empty">
+            {emptyMessage ?? text("暂无日志", "No log entries")}
+          </p>
+        )}
         {visible.map((line, index) => (
           <div
             className={cx(

@@ -65,7 +65,7 @@ AND ($10::timestamptz IS NULL OR last_evaluated_at>=$10)
 AND ($11::timestamptz IS NULL OR last_evaluated_at<=$11)
 AND ($12::uuid IS NULL OR state->>'rule_id'=$12::text OR EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(state->'members')='array' THEN state->'members' ELSE '[]'::jsonb END) member WHERE member->>'rule_id'=$12::text))
 AND ($13::text IS NULL OR state->>'metric' LIKE '%'||$13::text||'%' OR EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(state->'members')='array' THEN state->'members' ELSE '[]'::jsonb END) member WHERE member->>'expression' LIKE '%'||$13::text||'%'))
-AND (($14::boolean AND (started_at IS NOT NULL OR lifecycle='pending')) OR (NOT $14::boolean AND lifecycle NOT IN ('resolved','closed') AND (lifecycle<>'normal' OR health<>'normal')))
+AND (($14::boolean AND (started_at IS NOT NULL OR lifecycle='pending')) OR (NOT $14::boolean AND lifecycle IN ('pending','firing','recovering')))
 `
 
 type CountFilteredAlertInstancesParams struct {
@@ -204,7 +204,7 @@ AND ($10::timestamptz IS NULL OR last_evaluated_at>=$10)
 AND ($11::timestamptz IS NULL OR last_evaluated_at<=$11)
 AND ($12::uuid IS NULL OR state->>'rule_id'=$12::text OR EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(state->'members')='array' THEN state->'members' ELSE '[]'::jsonb END) member WHERE member->>'rule_id'=$12::text))
 AND ($13::text IS NULL OR state->>'metric' LIKE '%'||$13::text||'%' OR EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(state->'members')='array' THEN state->'members' ELSE '[]'::jsonb END) member WHERE member->>'expression' LIKE '%'||$13::text||'%'))
-AND (($14::boolean AND (started_at IS NOT NULL OR lifecycle='pending')) OR (NOT $14::boolean AND lifecycle NOT IN ('resolved','closed') AND (lifecycle<>'normal' OR health<>'normal')))
+AND (($14::boolean AND (started_at IS NOT NULL OR lifecycle='pending')) OR (NOT $14::boolean AND lifecycle IN ('pending','firing','recovering')))
 AND ($15::timestamptz IS NULL OR (created_at,id)<($15,$16::uuid))
 ORDER BY created_at DESC,id DESC LIMIT $17
 `

@@ -65,7 +65,7 @@ class Api:
             return self.call(method, path, body, key=key, expected=expected, retry=False)
         allowed = expected if isinstance(expected, (list, tuple)) else [expected]
         if response.status_code not in allowed:
-            params = value.get('params', {}) if isinstance(value, dict) else {}
+            params = (value.get('params') or {}) if isinstance(value, dict) else {}
             detail = {k: params[k] for k in ('field', 'rule', 'min', 'max') if k in params}
             raise RuntimeError(f'{method} {path}: HTTP {response.status_code}, code={code}, validation={detail}')
         return value

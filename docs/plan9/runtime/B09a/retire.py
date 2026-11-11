@@ -1,15 +1,14 @@
 """Idempotent retirement of owned B09a product resources and the Kind cluster."""
 import json
 
-from integration import Batch
-from manage import RUN,execute,now,write_json
+from manage import execute,now,write_json
 
 
 def retire(batch):
     run,api=batch.run,batch.api
     file=run.out/'cleanup.json'
     state=json.loads(file.read_text(encoding='utf-8')) if file.exists() else {
-        'run_id':RUN,'status':'destroying','started_at':now(),'steps':[],'history_preserved':True}
+        'run_id':run.id,'status':'destroying','started_at':now(),'steps':[],'history_preserved':True}
     if state['status']=='destroyed':
         return
     def stage(name,action):
@@ -85,7 +84,7 @@ def retire(batch):
         base='/enterprise/kubernetes-clusters/'+batch.cluster
         current=api.call('GET',base,expected=[200,404])
         if not current.get('code'):
-            assert current['labels']['plan9_run']==RUN
+            assert current['labels']['plan9_run']==run.id
             api.confirm(api.call('POST',base+'/actions/preview-delete',
                 {'expected_version':current['resource_version']},key='delete-cluster',expected=201))
     stage('cluster-retired',cluster)
@@ -122,18 +121,18 @@ def retire(batch):
         if row:
             current=json.loads(row)
             assert current['metadata']['uid']==endpoint['uid']
-            assert current['metadata']['labels']['argus.plan9/run']==RUN
+            assert current['metadata']['labels']['argus.plan9/run']==run.id
             execute(['kubectl','--context','docker-desktop','delete','svc',endpoint['name'],
                 '-n',endpoint['namespace'],'--wait=true'])
     stage('owned-telemetry-endpoint-deleted',telemetry_endpoint)
     def destroy():
         original=json.loads((run.out/'cluster-infrastructure.json').read_text(encoding='utf-8'))
-        values=json.loads(execute(['docker','inspect',RUN+'-control-plane']))
+        values=json.loads(execute(['docker','inspect',run.id+'-control-plane']))
         assert len(values)==1 and values[0]['Id']==original['container_id']
-        assert values[0]['Config']['Labels']['io.x-k8s.kind.cluster']==RUN
-        execute([str(run.kind),'delete','cluster','--name',RUN,'--kubeconfig',str(run.kubeconfig)],timeout=150)
-        assert not execute(['docker','container','ls','-aq','--filter','label=io.x-k8s.kind.cluster='+RUN])
+        assert values[0]['Config']['Labels']['io.x-k8s.kind.cluster']==run.id
+        execute([str(run.kind),'delete','cluster','--name',run.id,'--kubeconfig',str(run.kubeconfig)],timeout=150)
+        assert not execute(['docker','container','ls','-aq','--filter','label=io.x-k8s.kind.cluster='+run.id])
     stage('owned-kind-cluster-deleted',destroy)
     state.update(status='destroyed',finished_at=now(),owned_containers_remaining=0)
     write_json(file,state)
-    print('B09a product resources retired and owned Kind cluster destroyed',flush=True)
+    print(run.id+' product resources retired and owned Kind cluster destroyed',flush=True)

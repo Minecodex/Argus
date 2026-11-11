@@ -18,7 +18,7 @@ type Series = { values?: [number, string][]; value?: [number, string] };
 type Execution = {
   panels: { status: string; targets: { status: string; data?: Series[] }[] }[];
 };
-const cluster = "01a1b8f7-875a-721d-8084-3c8e6c80a5cc";
+const cluster = process.env.ARGUS_PLAN9_CLUSTER_ID ?? "";
 const builtinPath = `/api/v1/monitoring/builtins?target_type=kubernetes_cluster&target_id=${cluster}`;
 const names: Record<string, [string, string]> = {
   kubernetes_apiserver_metrics: ["API Server 指标", "API server metrics"],
@@ -37,6 +37,27 @@ async function builtins(page: Page): Promise<Builtin[]> {
   return response.json();
 }
 
+async function currentAlertsExcludeInternalQueryStates(
+  page: Page,
+  english = false,
+) {
+  const list = await page.request.get("/api/v1/alerts/instances?limit=100");
+  expect(list.status()).toBe(200);
+  const current: { total: number; items: { lifecycle: string }[] } =
+    await list.json();
+  expect(current.items.every((row) => row.lifecycle !== "normal")).toBe(true);
+  const summary = await page.request.get("/api/v1/alerts/summary");
+  expect(summary.status()).toBe(200);
+  expect((await summary.json()).current_total).toBe(current.total);
+  await page.goto("/alerts");
+  await expect(
+    page.getByRole("tab", {
+      name: new RegExp(english ? "^Active alerts" : "^当前告警"),
+    }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("tbody tr")).toHaveCount(current.total);
+}
+
 test.describe("B09b deployed component collection and dashboards", () => {
   test.skip(
     process.env.ARGUS_PLAN9_B09B_E2E !== "1",
@@ -44,6 +65,7 @@ test.describe("B09b deployed component collection and dashboards", () => {
   );
   test.describe.configure({ mode: "serial", timeout: 180_000 });
   test.beforeEach(async ({ context }) => {
+    expect(cluster, "Requires the selected B09b cluster ID").not.toBe("");
     const session = JSON.parse(
       readFileSync(process.env.ARGUS_PLAN9_SESSION_PATH!, "utf8"),
     );
@@ -165,6 +187,11 @@ test.describe("B09b deployed component collection and dashboards", () => {
           await expect(
             page.locator(`a[href*="/dashboards/${board.id}"]`),
           ).toBeVisible();
+        await currentAlertsExcludeInternalQueryStates(page, english);
+        await page.screenshot({
+          path: info.outputPath("current-alerts.png"),
+          fullPage: true,
+        });
         expect(errors).toEqual([]);
       });
     }
@@ -250,5 +277,6 @@ test.describe("B09b deployed component collection and dashboards", () => {
       )
       .toBe(true);
     await expect(row).toContainText("数据新鲜", { timeout: 30_000 });
+    await currentAlertsExcludeInternalQueryStates(page);
   });
 });

@@ -4,11 +4,12 @@ import AxeBuilder from "@axe-core/playwright";
 
 for (const english of [false, true])
   for (const theme of ["light", "dark"]) {
-    test(`Plan8 UID-bound Pod log session ${english ? "en" : "zh"} ${theme}`, async ({
+    test(`Plan8 automatic UID-bound Pod logs ${english ? "en" : "zh"} ${theme}`, async ({
       page,
     }, info) => {
+      const text = (zh: string, en: string) => (english ? en : zh);
       const errors: string[] = [];
-      page.on("pageerror", (e) => errors.push(e.message));
+      page.on("pageerror", (error) => errors.push(error.message));
       await page.setViewportSize({ width: 1440, height: 1100 });
       await page.addInitScript(
         ({ english, theme }) => {
@@ -32,123 +33,94 @@ for (const english of [false, true])
         .filter({ has: page.getByText("pod-example", { exact: true }) });
       await row
         .getByRole("button", {
-          name: english ? "View logs" : "查看日志",
+          name: text("查看日志", "View logs"),
           exact: true,
         })
         .click();
       const dialog = page.getByRole("dialog", {
-        name: english ? "Pod logs · pod-example" : "Pod 日志 · pod-example",
+        name: text("Pod 日志 · pod-example", "Pod logs · pod-example"),
         exact: true,
       });
-      await dialog
-        .getByRole("spinbutton", {
-          name: english ? "Initial tail lines" : "初始末尾行数",
-          exact: true,
-        })
-        .fill("0");
-      await dialog
-        .getByRole("button", {
-          name: english ? "Open log session" : "打开日志会话",
-          exact: true,
-        })
-        .click();
+      const output = dialog.getByRole("log");
+      await expect(output).toContainText("mock main current log");
+      await expect(output).toContainText("[REDACTED]");
       await expect(
         dialog.getByRole("button", {
-          name: english ? "Open log session" : "打开日志会话",
+          name: text("打开日志会话", "Open log session"),
           exact: true,
         }),
-      ).toBeVisible();
+      ).toHaveCount(0);
       await dialog
-        .getByRole("spinbutton", {
-          name: english ? "Initial tail lines" : "初始末尾行数",
-          exact: true,
-        })
-        .fill("100");
+        .getByRole("button", { name: text("暂停", "Pause"), exact: true })
+        .click();
+      const frozen = await output.textContent();
+      await page.waitForTimeout(2300);
+      await expect(output).toHaveText(frozen!);
+      await dialog
+        .getByRole("button", { name: text("继续", "Resume"), exact: true })
+        .click();
+      await expect(output).not.toHaveText(frozen!);
       await dialog
         .getByRole("button", {
-          name: english ? "Open log session" : "打开日志会话",
+          name: text("日志选项", "Log options"),
           exact: true,
         })
         .click();
-      await expect(dialog.locator("pre")).toContainText(
-        "mock main current log",
-      );
-      await expect(dialog.locator("pre")).toContainText("[REDACTED]");
-      await dialog
-        .getByRole("switch", {
-          name: english ? "Follow new logs" : "跟随新增日志",
-          exact: true,
-        })
-        .press("Space");
-      await expect(
-        dialog.getByRole("switch", {
-          name: english ? "Follow new logs" : "跟随新增日志",
-          exact: true,
-        }),
-      ).not.toBeChecked();
-      const refresh = dialog.getByRole("button", {
-        name: english ? "Read new entries" : "读取新增",
+      const tail = dialog.getByRole("spinbutton", {
+        name: text("初始末尾行数", "Initial tail lines"),
         exact: true,
       });
-      await expect(refresh).toBeEnabled();
-      const paused = await dialog.locator("pre").textContent();
-      // Wait beyond one polling interval: a paused session only checks access.
-      await page.waitForTimeout(2300);
-      await expect(dialog.locator("pre")).toHaveText(paused!);
-      await refresh.click();
-      await expect(dialog.locator("pre")).not.toHaveText(paused!);
-      const violations = (
-        await new AxeBuilder({ page }).analyze()
-      ).violations.filter(
-        (v) => v.impact === "critical" || v.impact === "serious",
-      );
-      expect(violations).toEqual([]);
+      await tail.fill("0");
+      await dialog
+        .getByRole("button", {
+          name: text("应用并重新读取", "Apply and reload"),
+          exact: true,
+        })
+        .click();
+      await expect(tail).toBeVisible();
+      await tail.fill("120");
+      await dialog
+        .getByRole("button", {
+          name: text("应用并重新读取", "Apply and reload"),
+          exact: true,
+        })
+        .click();
+      await expect(tail).not.toBeVisible();
+      await expect(output).toContainText("mock main current log");
+      expect(
+        (await new AxeBuilder({ page }).analyze()).violations.filter(
+          (v) => v.impact === "critical" || v.impact === "serious",
+        ),
+      ).toEqual([]);
       await page.screenshot({
-        path: info.outputPath("pod-log-session.png"),
+        path: info.outputPath("automatic-pod-logs.png"),
         fullPage: true,
       });
-      const storage = await page.evaluate(() => JSON.stringify(localStorage));
-      expect(storage).not.toContain("mock main current log");
-      await dialog
-        .getByRole("button", {
-          name: english ? "Close log session" : "关闭日志会话",
-          exact: true,
-        })
-        .click();
-      await expect(dialog).toHaveCount(0);
-      await row
-        .getByRole("button", {
-          name: english ? "View logs" : "查看日志",
-          exact: true,
-        })
-        .click();
+      expect(
+        await page.evaluate(() => JSON.stringify(localStorage)),
+      ).not.toContain("mock main current log");
       await dialog
         .getByRole("switch", {
-          name: english
-            ? "Read the previously terminated container"
-            : "读取上次终止容器日志",
+          name: text(
+            "读取上次终止容器日志",
+            "Read the previously terminated container",
+          ),
           exact: true,
         })
         .press("Space");
-      await dialog
-        .getByRole("button", {
-          name: english ? "Open log session" : "打开日志会话",
-          exact: true,
-        })
-        .click();
-      await expect(dialog.locator("pre")).toContainText("main previous");
+      await expect(output).toContainText("main previous");
       await expect(
-        dialog.getByText(english ? "Bounded read complete" : "有界读取已完成", {
+        dialog.getByText(text("有界读取已完成", "Bounded read complete"), {
           exact: true,
         }),
       ).toBeVisible();
-      await expect(
-        dialog.getByRole("switch", {
-          name: english ? "Follow new logs" : "跟随新增日志",
+      await dialog
+        .getByRole("button", {
+          name: text("关闭日志会话", "Close log session"),
           exact: true,
-        }),
-      ).toBeDisabled();
-      await page.keyboard.press("Escape");
+        })
+        .click();
+      await expect(dialog).not.toBeVisible();
       expect(errors).toEqual([]);
     });
   }

@@ -155,7 +155,7 @@ func (s Service) PreviewMutationWithSecretValues(ctx context.Context, a Actor, i
 		if json.Unmarshal(in.Object, &value) != nil {
 			return db.PendingAction{}, kubernetesinventory.ErrInvalid
 		}
-		_, sensitive, err := datapolicy.Project(value)
+		_, sensitive, err := kubernetesinventory.ProjectManifest(value)
 		if err != nil || sensitive {
 			return db.PendingAction{}, kubernetesinventory.ErrMutationInvalid
 		}

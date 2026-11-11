@@ -871,6 +871,7 @@ export interface components {
             container: string;
             previous: boolean;
             tail_lines: number;
+            /** @description Initial lookback in seconds. Zero reads the latest retained tail without a time filter; byte and row limits still apply. */
             since_seconds: number;
         };
         KubernetesLogSessionTicket: {

@@ -38,6 +38,7 @@ type Config struct {
 	DeliveryEndpoint                 string        `mapstructure:"delivery_endpoint"`
 	DeliveryStateFile                string        `mapstructure:"delivery_state_file"`
 	DeliveryInterval                 time.Duration `mapstructure:"delivery_interval"`
+	DeliveryPersistentExporters      []string      `mapstructure:"delivery_persistent_exporters"`
 }
 
 func (config *Config) Validate() error {
@@ -61,6 +62,15 @@ func (config *Config) Validate() error {
 	}
 	if config.DeliveryEndpoint != "" && (config.DeliveryStateFile == "" || config.DeliveryInterval < time.Second || config.DeliveryInterval > time.Minute) {
 		return errors.New("collector delivery reporting configuration is invalid")
+	}
+	if len(config.DeliveryPersistentExporters) > 16 {
+		return errors.New("collector delivery persistent exporter scope exceeds limit")
+	}
+	for _, exporter := range config.DeliveryPersistentExporters {
+		var id component.ID
+		if err := id.UnmarshalText([]byte(exporter)); err != nil {
+			return errors.New("collector delivery persistent exporter identity is invalid")
+		}
 	}
 	if config.DialAddress != "" && !validIdentityDialAddress(config.DialAddress) {
 		return errors.New("argus_identity dial address must be a loopback endpoint")

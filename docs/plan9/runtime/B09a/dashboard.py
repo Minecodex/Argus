@@ -16,12 +16,12 @@ def execute_board(batch,ident,resource,kind,name):
     return [{'id':panel['id'],'status':panel['status']} for panel in value['panels']]
 
 
-def publish(batch,key,name,spec,kind,resource):
+def publish(batch,key,name,spec,kind,resource,description='Real B09a observations'):
     state=batch.map['dashboards'].setdefault(key,{})
     if not state.get('draft_id'):
         checked=batch.api.call('POST','/dashboard-spec/validate',spec)
         assert checked['valid'],checked
-        draft=batch.api.call('POST','/dashboard-drafts',{'name':name,'description':'Real B09a observations',
+        draft=batch.api.call('POST','/dashboard-drafts',{'name':name,'description':description,
             'spec':spec,'proposed_bindings':[{'resource_type':kind,'resource_id':resource}]},
             key='draft-'+key,expected=201)
         state['draft_id']=draft['id']

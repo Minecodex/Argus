@@ -3,6 +3,7 @@ package telemetry
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,7 +128,30 @@ func TestClickHouseSelectedSeriesDoesNotReadHistogramPayloadColumns(t *testing.T
 	// Same authorized source, same time window and one shared granule: primary
 	// index pruning cannot avoid reading its unrelated wide histogram payloads.
 	samples := tables.MetricSamples + "_wide_regression"
-	if err = conn.Exec(ctx, "CREATE TABLE "+samples+" AS "+tables.MetricSamples+" ENGINE=ReplacingMergeTree ORDER BY (series_id,timestamp,ingest_key) SETTINGS index_granularity_bytes=0, deduplicate_merge_projection_mode='rebuild'"); err != nil {
+	// Copy column types/defaults only, excluding adaptive-mark projections.
+	definitions := []string{}
+	columnRows, err := conn.Query(ctx, "SELECT name,type,default_kind,default_expression FROM system.columns WHERE database=currentDatabase() AND table=? ORDER BY position", tables.MetricSamples)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for columnRows.Next() {
+		var name, columnType, kind, expression string
+		if err = columnRows.Scan(&name, &columnType, &kind, &expression); err != nil {
+			columnRows.Close()
+			t.Fatal(err)
+		}
+		definition := "`" + strings.ReplaceAll(name, "`", "``") + "` " + columnType
+		if kind != "" && expression != "" {
+			definition += " " + kind + " (" + expression + ")"
+		}
+		definitions = append(definitions, definition)
+	}
+	if err = columnRows.Err(); err != nil {
+		columnRows.Close()
+		t.Fatal(err)
+	}
+	columnRows.Close()
+	if err = conn.Exec(ctx, "CREATE TABLE "+samples+" ("+strings.Join(definitions, ",")+") ENGINE=ReplacingMergeTree ORDER BY (series_id,timestamp,ingest_key) SETTINGS index_granularity_bytes=0, deduplicate_merge_projection_mode='rebuild'"); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Exec(context.Background(), "DROP TABLE IF EXISTS "+samples+" SYNC") })

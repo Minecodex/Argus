@@ -8,6 +8,7 @@ import (
 
 const numericSampleProjection = "argus_numeric_source_metric_time"
 const histogramSampleProjection = "argus_histogram_source_metric_time"
+const fineSampleProjection = "argus_payload_source_metric_time_128"
 
 // The raw samples and their identity remain authoritative. This alternate
 // physical ordering lets source-scoped, recent queries avoid reading almost
@@ -33,7 +34,20 @@ exponential_negative_offset,exponential_negative_bucket_counts,source_id,source_
 ORDER BY (source_key,metric_name,timestamp,series_id,ingest_key))`); err != nil {
 		return err
 	}
-	return m.materializeSampleProjection(ctx, tables, histogramSampleProjection)
+	if err := m.materializeSampleProjection(ctx, tables, histogramSampleProjection); err != nil {
+		return err
+	}
+	// A default 8192-row mark can span many short-lived source revisions and
+	// unrelated metrics. Fine payload marks bound that read amplification even
+	// when only a handful of selected series intersect a large retained part.
+	if err := m.Conn.Exec(ctx, "ALTER TABLE "+table+" ADD PROJECTION IF NOT EXISTS "+fineSampleProjection+` (
+SELECT series_id,metric_name,timestamp,float_value,stale_marker,sample_type,count,sum,bucket_counts,explicit_bounds,quantile_values,
+exponential_scale,exponential_zero_count,exponential_zero_threshold,exponential_positive_offset,exponential_positive_bucket_counts,
+exponential_negative_offset,exponential_negative_bucket_counts,source_id,source_revision,source_key,kafka_partition,kafka_offset,record_sequence,ingest_key
+ORDER BY (source_key,metric_name,timestamp,series_id,ingest_key)) WITH SETTINGS (index_granularity=128)`); err != nil {
+		return err
+	}
+	return m.materializeSampleProjection(ctx, tables, fineSampleProjection)
 }
 
 func (m ClickHouseTenantSchemaManager) missingProjectionParts(ctx context.Context, tables TenantTables, name string) (uint64, error) {
@@ -79,14 +93,14 @@ func (m ClickHouseTenantSchemaManager) materializeSampleProjection(ctx context.C
 
 func (m ClickHouseTenantSchemaManager) verifySampleProjection(ctx context.Context, tables TenantTables) error {
 	var count uint64
-	err := m.Conn.QueryRow(ctx, "SELECT count() FROM system.projections WHERE database=currentDatabase() AND table=? AND name IN (?,?)", tables.MetricSamples, numericSampleProjection, histogramSampleProjection).Scan(&count)
+	err := m.Conn.QueryRow(ctx, "SELECT count() FROM system.projections WHERE database=currentDatabase() AND table=? AND name IN (?,?,?)", tables.MetricSamples, numericSampleProjection, histogramSampleProjection, fineSampleProjection).Scan(&count)
 	if err != nil {
 		return err
 	}
-	if count != 2 {
+	if count != 3 {
 		return fmt.Errorf("telemetry numeric or histogram source/time projection is missing")
 	}
-	for _, name := range []string{numericSampleProjection, histogramSampleProjection} {
+	for _, name := range []string{numericSampleProjection, histogramSampleProjection, fineSampleProjection} {
 		missing, err := m.missingProjectionParts(ctx, tables, name)
 		if err != nil {
 			return err

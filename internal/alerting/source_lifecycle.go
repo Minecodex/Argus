@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"slices"
 )
 
 func missingEpisodeClosure(ctx context.Context, q *db.Queries, row db.AlertInstance, result Evaluation) (string, error) {
@@ -29,20 +30,27 @@ func missingEpisodeClosure(ctx context.Context, q *db.Queries, row db.AlertInsta
 	if json.Unmarshal(state.SourceSnapshot, &old) != nil {
 		return "", ErrInvalid
 	}
-	for _, previous := range old {
-		if !overlappingIDs(row.ResourceIds, []uuid.UUID{previous.ResourceID}) {
+	previousScope := map[uuid.UUID]uuid.UUID{}
+	participates := func(source db.AlertMetricSourcesRow) bool {
+		return slices.Contains(row.ResourceIds, source.ResourceID) &&
+			(len(row.SourceIds) == 0 || slices.Contains(row.SourceIds, source.ID))
+	}
+	for _, source := range old {
+		if participates(source) {
+			previousScope[source.ID] = source.Generation
+		}
+	}
+	for _, source := range result.Sources {
+		if !participates(source) {
 			continue
 		}
-		found := false
-		for _, current := range result.Sources {
-			if current.ID == previous.ID && current.Generation == previous.Generation {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if generation, found := previousScope[source.ID]; !found || generation != source.Generation {
 			return "source_changed", nil
 		}
+		delete(previousScope, source.ID)
+	}
+	if len(previousScope) > 0 {
+		return "source_changed", nil
 	}
 	return "", nil
 }

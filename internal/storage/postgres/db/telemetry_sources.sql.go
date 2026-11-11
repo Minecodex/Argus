@@ -324,7 +324,7 @@ WHERE source.id=$1 AND source.config_revision=$2 AND source.collector_id=$3 AND 
  AND collector.effective_revision=source.config_revision)
  OR EXISTS(SELECT 1 FROM monitoring_collections c JOIN monitoring_collection_assignments a ON a.collection_id=c.id AND a.enterprise_id=c.enterprise_id
  WHERE c.id=source.collection_id AND c.enterprise_id=source.enterprise_id AND c.effective_collector_id=source.collector_id
- AND c.target_id=source.resource_id AND c.target_type=source.resource_type AND c.status='active' AND c.desired_enabled
+ AND c.target_id=source.resource_id AND c.target_type=source.resource_type AND c.status='active'
  AND c.effective_assignment_epoch=source.assignment_epoch AND a.epoch=c.effective_assignment_epoch AND a.collector_id=c.effective_collector_id AND a.valid_to IS NULL AND a.activated_at IS NOT NULL
  AND c.effective_revision=source.collection_revision))
  AND collector.status NOT IN ('uninstalled','uninstalling')

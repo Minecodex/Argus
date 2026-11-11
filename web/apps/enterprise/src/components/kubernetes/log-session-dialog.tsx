@@ -1,41 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import {
   kubernetesObjectContainers,
-  useApi,
   type KubernetesInventoryObject,
-  type KubernetesLogSession,
 } from "@argus/api-client";
 import {
   Badge,
   Button,
-  CodeBlock,
   Dialog,
   Field,
   Input,
-  KeyValueGrid,
+  LogViewer,
   Select,
   Spinner,
   Switch,
 } from "@argus/ui";
 import { useInventoryError } from "./inventory-error";
+import { usePodLogSession } from "./use-pod-log-session";
 
 const schema = z.object({
-  container: z.string().min(1, "kubernetesLogSession.invalid"),
+  container: z.string().min(1),
   previous: z.boolean(),
-  tailLines: z
-    .number()
-    .int()
-    .min(1, "kubernetesLogSession.invalid")
-    .max(1000, "kubernetesLogSession.invalid"),
-  sinceSeconds: z
-    .number()
-    .int()
-    .min(1, "kubernetesLogSession.invalid")
-    .max(86400, "kubernetesLogSession.invalid"),
+  tailLines: z.number().int().min(1).max(1000),
+  sinceSeconds: z.number().int().min(0).max(86400),
 });
 type Form = z.infer<typeof schema>;
 
@@ -50,323 +40,180 @@ export function KubernetesLogSessionDialog({
   namespaceId: string;
   onClose: () => void;
 }) {
-  const api = useApi(),
-    { t, i18n } = useTranslation(),
-    formatError = useInventoryError();
+  const { t, i18n } = useTranslation();
+  const formatError = useInventoryError();
   const containers = kubernetesObjectContainers(object);
+  const [config, setConfig] = useState<Form>({
+    container: containers[0]?.name ?? "",
+    previous: false,
+    tailLines: 100,
+    sinceSeconds: 0,
+  });
+  const [options, setOptions] = useState(false);
   const form = useForm<Form>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      container: containers[0]?.name ?? "",
-      previous: false,
-      tailLines: 100,
-      sinceSeconds: 300,
-    },
+    defaultValues: config,
   });
-  const [session, setSession] = useState<KubernetesLogSession>();
-  const [content, setContent] = useState(""),
-    [error, setError] = useState(""),
-    [observed, setObserved] = useState("");
-  const [following, setFollowing] = useState(true),
-    [reading, setReading] = useState(false),
-    [complete, setComplete] = useState(false),
-    [truncated, setTruncated] = useState(false),
-    [reload, setReload] = useState(0);
-  const cursor = useRef<string | undefined>(undefined),
-    owned = useRef<string | undefined>(undefined),
-    mounted = useRef(true);
-  const sessionId = session?.status === "active" ? session.id : undefined;
-  useEffect(() => {
-    if (!sessionId || (following && !complete)) return;
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    async function check() {
-      try {
-        await api.kubernetesWorkbench.getLogSession(
-          clusterId,
-          sessionId!,
-          controller.signal,
-        );
-        if (!controller.signal.aborted)
-          timer = setTimeout(() => void check(), 2000);
-      } catch (cause) {
-        if (!controller.signal.aborted) {
-          setContent("");
-          setSession(undefined);
-          setError(formatError(cause));
-          setFollowing(false);
-        }
-      }
-    }
-    void check();
-    return () => {
-      controller.abort();
-      if (timer) clearTimeout(timer);
-    };
-  }, [api, clusterId, sessionId, following, complete, formatError]);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      const id = owned.current;
-      owned.current = undefined;
-      if (id)
-        void api.kubernetesWorkbench
-          .closeLogSession(clusterId, id)
-          .catch(() => undefined);
-    };
-  }, [api, clusterId]);
-  useEffect(() => {
-    if (!sessionId) return;
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    async function read() {
-      setReading(true);
-      try {
-        const batch = await api.kubernetesWorkbench.readLogSession(
-          clusterId,
-          sessionId!,
-          cursor.current,
-          controller.signal,
-        );
-        if (controller.signal.aborted) return;
-        cursor.current = batch.next_cursor;
-        setContent((current) => {
-          const next = current + batch.content;
-          return next.length > 262144 ? next.slice(-262144) : next;
-        });
-        setObserved(batch.observed_at);
-        setComplete(batch.complete);
-        setTruncated(batch.truncated);
-        if (following && !batch.complete)
-          timer = setTimeout(() => void read(), 2000);
-      } catch (cause) {
-        if (!controller.signal.aborted) {
-          setContent("");
-          setError(formatError(cause));
-          setFollowing(false);
-          setSession(undefined);
-          cursor.current = undefined;
-        }
-      } finally {
-        if (!controller.signal.aborted) setReading(false);
-      }
-    }
-    void read();
-    return () => {
-      controller.abort();
-      if (timer) clearTimeout(timer);
-    };
-  }, [api, clusterId, sessionId, following, reload, formatError]);
-  const submit = form.handleSubmit(async (values) => {
-    setError("");
-    setContent("");
-    setObserved("");
-    setComplete(false);
-    setTruncated(false);
-    cursor.current = undefined;
-    let created: string | undefined;
-    try {
-      const ticket = await api.kubernetesWorkbench.createLogSession(clusterId, {
-        namespace_id: namespaceId,
-        pod: object.name,
-        pod_uid: object.uid,
-        container: values.container,
-        previous: values.previous,
-        tail_lines: values.tailLines,
-        since_seconds: values.sinceSeconds,
-      });
-      created = ticket.session.id;
-      if (!mounted.current) {
-        await api.kubernetesWorkbench.closeLogSession(clusterId, created);
-        return;
-      }
-      owned.current = created;
-      let attached: KubernetesLogSession;
-      try {
-        attached = await api.kubernetesWorkbench.attachLogSession(
-          clusterId,
-          created,
-          ticket.ticket,
-        );
-      } finally {
-        ticket.ticket = "";
-      }
-      if (!mounted.current) {
-        await api.kubernetesWorkbench.closeLogSession(clusterId, created);
-        return;
-      }
-      setFollowing(!values.previous);
-      setSession(attached);
-    } catch (cause) {
-      if (created)
-        void api.kubernetesWorkbench
-          .closeLogSession(clusterId, created)
-          .catch(() => undefined);
-      owned.current = undefined;
-      if (mounted.current) setError(formatError(cause));
-    }
+  const input = useMemo(
+    () => ({
+      namespace_id: namespaceId,
+      pod: object.name,
+      pod_uid: object.uid,
+      container: config.container,
+      previous: config.previous,
+      tail_lines: config.tailLines,
+      since_seconds: config.sinceSeconds,
+    }),
+    [namespaceId, object.name, object.uid, config],
+  );
+  const log = usePodLogSession(clusterId, input, formatError);
+  const lines = useMemo(
+    () =>
+      log.content
+        ? log.content
+            .replace(/\r\n/g, "\n")
+            .split("\n")
+            .filter((line, index, all) => line || index < all.length - 1)
+            .map((content) => ({ content }))
+        : [],
+    [log.content],
+  );
+  const apply = form.handleSubmit((values) => {
+    setConfig((current) =>
+      JSON.stringify(current) === JSON.stringify(values) ? current : values,
+    );
+    setOptions(false);
   });
-  const close = () => {
-    const id = owned.current;
-    owned.current = undefined;
-    if (id)
-      void api.kubernetesWorkbench
-        .closeLogSession(clusterId, id)
-        .catch(() => undefined);
-    setContent("");
-    cursor.current = undefined;
-    onClose();
-  };
   return (
     <Dialog
       open
       size="lg"
+      className="argus-k8s-session-dialog"
+      footer={
+        <Button onPress={onClose}>{t("kubernetesLogSession.close")}</Button>
+      }
       title={t("kubernetesLogSession.title", { pod: object.name })}
       onOpenChange={(open) => {
-        if (!open) close();
+        if (!open) onClose();
       }}
     >
-      <p>{t("kubernetesLogSession.hint")}</p>
-      {!session ? (
-        <form className="argus-k8s-mutation-form" onSubmit={submit}>
+      <div className="argus-k8s-session-content">
+        <div className="argus-k8s-log-controls">
           <Field
             label={t("kubernetesLogSession.container")}
             requirement="required"
-            error={
-              form.formState.errors.container
-                ? t("kubernetesLogSession.invalid")
-                : undefined
-            }
           >
             <Select
-              value={form.watch("container")}
+              value={config.container}
               options={containers.map((c) => ({
                 value: c.name,
                 label: c.name,
               }))}
-              onValueChange={(value) =>
-                form.setValue("container", value, { shouldValidate: true })
-              }
+              onValueChange={(container) => {
+                form.setValue("container", container);
+                setConfig((current) => ({ ...current, container }));
+              }}
             />
           </Field>
-          <Field
-            label={t("kubernetesLogSession.tail")}
-            requirement="required"
-            error={
-              form.formState.errors.tailLines
-                ? t("kubernetesLogSession.invalid")
-                : undefined
-            }
-          >
-            <Input
-              type="number"
-              min={1}
-              max={1000}
-              {...form.register("tailLines", { valueAsNumber: true })}
-            />
-          </Field>
-          <Field
-            label={t("kubernetesLogSession.window")}
-            requirement="required"
-            error={
-              form.formState.errors.sinceSeconds
-                ? t("kubernetesLogSession.invalid")
-                : undefined
-            }
-          >
-            <Input
-              type="number"
-              min={1}
-              max={86400}
-              {...form.register("sinceSeconds", { valueAsNumber: true })}
-            />
-          </Field>
-          <Field
-            label={t("kubernetesLogSession.previous")}
-            requirement="optional"
-            controlMode="group"
-          >
+          <div className="argus-k8s-workbench-controls argus-k8s-log-previous">
             <Switch
               label={t("kubernetesLogSession.previous")}
-              checked={form.watch("previous")}
-              onChange={(value) => form.setValue("previous", value)}
+              checked={config.previous}
+              onChange={(previous) => {
+                form.setValue("previous", previous);
+                setConfig((current) => ({ ...current, previous }));
+              }}
             />
-          </Field>
-          <div className="argus-k8s-workbench-controls">
-            <Button
-              type="submit"
-              variant="primary"
-              isDisabled={form.formState.isSubmitting}
-            >
-              {t("kubernetesLogSession.open")}
-            </Button>
-            <Button type="button" onPress={close}>
-              {t("common.cancel")}
-            </Button>
+            <span>{t("kubernetesLogSession.previous")}</span>
           </div>
-        </form>
-      ) : (
-        <>
-          <KeyValueGrid
-            items={[
-              {
-                label: t("kubernetesWorkbench.namespace"),
-                value: session.namespace,
-              },
-              {
-                label: t("kubernetesLogSession.container"),
-                value: session.container,
-              },
-              {
-                label: t("kubernetesLogSession.podUid"),
-                value: session.pod_uid,
-              },
-              {
-                label: t("kubernetesLogSession.restarts"),
-                value: String(session.restart_count),
-              },
-            ]}
-          />
-          <div className="argus-k8s-workbench-controls">
+          <Button
+            onPress={() => setOptions((value) => !value)}
+            aria-expanded={options}
+          >
+            {t("kubernetesLogSession.options")}
+          </Button>
+        </div>
+        {options && (
+          <form className="argus-k8s-log-options" onSubmit={apply}>
             <Field
-              label={t("kubernetesLogSession.follow")}
-              requirement="optional"
-              controlMode="group"
+              label={t("kubernetesLogSession.tail")}
+              requirement="required"
+              error={
+                form.formState.errors.tailLines
+                  ? t("kubernetesLogSession.invalid")
+                  : undefined
+              }
             >
-              <Switch
-                label={t("kubernetesLogSession.follow")}
-                checked={following && !complete}
-                disabled={complete || session.previous}
-                onChange={setFollowing}
+              <Input
+                type="number"
+                min={1}
+                max={1000}
+                {...form.register("tailLines", { valueAsNumber: true })}
               />
             </Field>
-            <Button
-              isDisabled={reading || complete}
-              onPress={() => setReload((v) => v + 1)}
+            <Field
+              label={t("kubernetesLogSession.window")}
+              hint={t("kubernetesLogSession.windowHint")}
+              requirement="required"
+              error={
+                form.formState.errors.sinceSeconds
+                  ? t("kubernetesLogSession.invalid")
+                  : undefined
+              }
             >
-              {t("kubernetesLogSession.refresh")}
+              <Input
+                type="number"
+                min={0}
+                max={86400}
+                {...form.register("sinceSeconds", { valueAsNumber: true })}
+              />
+            </Field>
+            <Button type="submit" variant="primary">
+              {t("kubernetesLogSession.apply")}
             </Button>
-            <Button onPress={close}>{t("kubernetesLogSession.close")}</Button>
+          </form>
+        )}
+        <p>{t("kubernetesLogSession.scrollHint")}</p>
+        {log.error && (
+          <div role="alert">
+            <p>{log.error}</p>
+            <Button onPress={log.retry}>
+              {t("kubernetesLogSession.retry")}
+            </Button>
           </div>
-          {observed && (
-            <p>
-              {t("kubernetesWorkbench.observed")}{" "}
-              {new Date(observed).toLocaleString(i18n.language)}
-            </p>
-          )}
-          {complete && <Badge>{t("kubernetesLogSession.complete")}</Badge>}
-          {truncated && (
-            <p role="status">{t("kubernetesLogSession.truncated")}</p>
-          )}
-          {reading && !observed && <Spinner label={t("common.loading")} />}
-          <section aria-label={t("kubernetesLogSession.output")}>
-            <CodeBlock code={content || t("kubernetesLogSession.empty")} />
-          </section>
-          <p>{t("kubernetesLogSession.retention")}</p>
-        </>
-      )}
-      {error && <p role="alert">{error}</p>}
+        )}
+        {!config.container && (
+          <p role="status">{t("kubernetesLogSession.noContainers")}</p>
+        )}
+        {log.reading && !log.observed && (
+          <Spinner label={t("kubernetesLogSession.loading")} />
+        )}
+        <LogViewer
+          key={log.session?.id ?? JSON.stringify(input)}
+          lines={lines}
+          emptyMessage={
+            config.sinceSeconds
+              ? t("kubernetesLogSession.windowEmpty", {
+                  seconds: config.sinceSeconds,
+                })
+              : t("kubernetesLogSession.empty")
+          }
+          autoScroll={!config.previous}
+          fileName={object.name + "-" + config.container + ".log"}
+        />
+        <div className="argus-k8s-workbench-footer">
+          <span>
+            {object.namespace} · {config.container}
+            {log.observed &&
+              " · " + new Date(log.observed).toLocaleString(i18n.language)}
+          </span>
+          {log.complete && <Badge>{t("kubernetesLogSession.complete")}</Badge>}
+        </div>
+        {log.truncated && (
+          <p role="status">{t("kubernetesLogSession.truncated")}</p>
+        )}
+        <p>{t("kubernetesLogSession.retention")}</p>
+      </div>
     </Dialog>
   );
 }

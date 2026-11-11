@@ -60,4 +60,19 @@ UNION ALL SELECT toUUID(?),reinterpretAsUUID(MD5(concat('noise-',toString(number
 		t.Fatalf("sample selection scanned unrelated UUID granules: rows=%d bytes=%d", result.ScannedRows, result.ScannedBytes)
 	}
 	t.Logf("400 logical series, two source generations, 800k noise: rows=%d bytes=%d", result.ScannedRows, result.ScannedBytes)
+	// Configuration revisions of unrelated receivers must not force this small
+	// selected metric back onto a projection-blocking sample JOIN. The complete
+	// authorization set still guards FINAL metadata before narrowing samples.
+	for range 300 {
+		request.Scope.SourceKeys = append(request.Scope.SourceKeys, uuid.NewString()+":1")
+	}
+	largeScope, err := promengine.NewEngine(conn, router, nil).Execute(ctx, request)
+	if err != nil {
+		t.Fatalf("unrelated authorized source history exhausted the same sample budget: %v", err)
+	}
+	largeVector, ok := largeScope.Value.(promql.Vector)
+	if !ok || len(largeVector) != 1 || largeVector[0].F != 800 || largeScope.ScannedBytes >= 8<<20 {
+		t.Fatal("narrowing selected sources changed precedence or scanned unrelated data", largeScope.Value, largeScope.ScannedBytes)
+	}
+	t.Logf("302 authorized sources, only two selected: rows=%d bytes=%d", largeScope.ScannedRows, largeScope.ScannedBytes)
 }

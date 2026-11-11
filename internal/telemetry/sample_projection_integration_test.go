@@ -40,6 +40,9 @@ func TestClickHouseNumericProjectionMaterializesExistingSamples(t *testing.T) {
 	if err := conn.Exec(ctx, "ALTER TABLE "+tables.MetricSamples+" DROP PROJECTION "+histogramSampleProjection); err != nil {
 		t.Fatal(err)
 	}
+	if err := conn.Exec(ctx, "ALTER TABLE "+tables.MetricSamples+" DROP PROJECTION "+fineSampleProjection); err != nil {
+		t.Fatal(err)
+	}
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	points := []*metricspb.NumberDataPoint{}
 	for i := range 128 {
