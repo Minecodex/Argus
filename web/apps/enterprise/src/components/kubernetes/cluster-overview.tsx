@@ -12,7 +12,7 @@ import {
   type KubernetesInventoryScope,
   type DashboardSchemas,
 } from "@argus/api-client";
-import { Alert, Button, Spinner, Field } from "@argus/ui";
+import { ActionGroup, Alert, Button, Spinner, Field } from "@argus/ui";
 import { DashboardView } from "../../pages/dashboard-view-page";
 import { usePermission } from "../../lib/permissions";
 import { NamespaceSelect } from "./namespace-select";
@@ -122,7 +122,7 @@ export function KubernetesClusterOverview({
           </strong>
           <p>{t("kubernetesResources.liveSnapshot")}</p>
         </div>
-        <div className="argus-k8s-detail-actions">
+        <ActionGroup>
           {board && (
             <Button
               variant="ghost"
@@ -142,7 +142,7 @@ export function KubernetesClusterOverview({
               {t("kubernetesResources.chooseDashboard")}
             </Button>
           )}
-        </div>
+        </ActionGroup>
       </div>
       {selection.isPending && <Spinner label={t("common.loading")} />}
       {selection.error && (
