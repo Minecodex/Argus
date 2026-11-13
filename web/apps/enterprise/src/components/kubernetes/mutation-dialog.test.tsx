@@ -40,6 +40,103 @@ afterAll(() => {
   else Reflect.deleteProperty(Element.prototype, "getAnimations");
 });
 
+it("initializes each new edit from a fresh read even when the previous action cached this object", async () => {
+  const api = createMockApiClient({ persist: false, delay: 0 });
+  const old: KubernetesInventoryObject = {
+    definition: {
+      key: "configmap",
+      group: "",
+      version: "v1",
+      resource: "configmaps",
+      kind: "ConfigMap",
+      namespaced: true,
+      category: "configuration",
+      manage_permission: "kubernetes.configuration.manage",
+    },
+    uid: "cached-uid",
+    namespace: "orders",
+    namespace_uid: "orders-uid",
+    name: "settings",
+    resource_version: "1",
+    generation: 1,
+    labels: {},
+    owners: [],
+    created_at: new Date().toISOString(),
+    observed_at: new Date().toISOString(),
+    redacted: false,
+    data: {
+      apiVersion: "v1",
+      kind: "ConfigMap",
+      metadata: {
+        name: "settings",
+        namespace: "orders",
+        uid: "cached-uid",
+        resourceVersion: "1",
+      },
+      data: { mode: "cached-before-action" },
+    },
+  };
+  const fresh = structuredClone(old);
+  fresh.resource_version = "2";
+  fresh.data.data = { mode: "fresh-after-action" };
+  let finish!: (value: KubernetesInventoryObject) => void;
+  vi.spyOn(api.kubernetesWorkbench, "object").mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const cache = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 60000 } },
+  });
+  caches.push(cache);
+  cache.setQueryData(
+    ["kubernetes-workbench", "cluster", "mutation-object", old.uid],
+    old,
+  );
+  render(
+    <LocaleProvider locale="zh-CN" persist={false}>
+      <ApiProvider client={api}>
+        <QueryClientProvider client={cache}>
+          <KubernetesMutationDialog
+            clusterId="cluster"
+            definition={old.definition}
+            object={old}
+            namespace={{ id: "namespace", name: "orders" }}
+            onClose={() => {}}
+            onSubmitted={() => {}}
+          />
+        </QueryClientProvider>
+      </ApiProvider>
+    </LocaleProvider>,
+  );
+  await waitFor(() => expect(finish).toBeDefined());
+  expect(screen.getByRole("button", { name: "验证并预览差异" })).toBeDisabled();
+  expect(
+    (
+      screen.getByRole("textbox", {
+        name: "对象清单（YAML / JSON）",
+      }) as HTMLTextAreaElement
+    ).value,
+  ).not.toContain("cached-before-action");
+  await act(async () => finish(fresh));
+  await waitFor(() =>
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "对象清单（YAML / JSON）",
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toContain("fresh-after-action"),
+  );
+  expect(
+    screen.queryByText(
+      "资源已更新。当前编辑仍保留在旧版本，请重新加载后再预览。",
+    ),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "验证并预览差异" })).toBeEnabled();
+});
+
 for (const backgroundRefresh of [false, true])
   it(`keeps the original edit version when the server changes: background=${backgroundRefresh}`, async () => {
     const api = createMockApiClient({ persist: false, delay: 0 });
@@ -148,10 +245,19 @@ for (const backgroundRefresh of [false, true])
     expect(
       screen.getByRole("button", { name: "验证并预览差异" }),
     ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "保留输入并重新读取" }));
+    await screen.findByText(/此字段也被修改或删除/);
+    expect(editor).toHaveValue("data:\n  mode: my-unsaved-edit\n");
     fireEvent.click(
-      screen.getByRole("button", { name: "重新加载并替换当前编辑" }),
+      screen.getByRole("button", { name: "保留我的改动，重新审阅" }),
     );
     await waitFor(() =>
-      expect((editor as HTMLTextAreaElement).value).toContain("mode: remote-edit"),
+      expect((editor as HTMLTextAreaElement).value).toContain(
+        "mode: my-unsaved-edit",
+      ),
     );
+    expect(
+      screen.getByRole("button", { name: "验证并预览差异" }),
+    ).toBeEnabled();
+    expect(preview).not.toHaveBeenCalled();
   });

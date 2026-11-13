@@ -23,7 +23,7 @@ export const sources = {
 };
 export function isDashboardSignal(
   value: string,
-): value is DashboardPanel["signal"] {
+): value is "metrics" | "logs" | "traces" {
   return Object.hasOwn(sources, value);
 }
 export function newTarget(
@@ -140,4 +140,12 @@ export function scalarPointer(
   return ["string", "number", "boolean"].includes(typeof value)
     ? String(value)
     : undefined;
+}
+
+export function requireTelemetrySignal(
+  value: string,
+): "metrics" | "logs" | "traces" {
+  if (!isDashboardSignal(value))
+    throw new Error("This panel requires a typed resource editor");
+  return value;
 }

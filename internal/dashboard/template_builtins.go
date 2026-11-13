@@ -20,7 +20,7 @@ func BuiltinTemplates() []TemplateDefinition {
 	for _, group := range [][]TemplateDefinition{ownMetricTemplates(), postgresProbeTemplates(), cacheWebTemplates(), brokerCoordinationTemplates(), networkKafkaTemplates(), remainingDatabaseTemplates()} {
 		result = append(result, group...)
 	}
-	return append(result, modelGovernanceTemplate())
+	return append(result, modelGovernanceTemplate(), operationsOverviewTemplate())
 }
 
 type nativeTemplateMetric struct{ key, expression, unit, chart string }

@@ -29,7 +29,7 @@ var definitions = []Definition{
 	{"host_windows_service_metrics", "Windows system services", []string{"host"}, []string{"windows_amd64"}, "windows_service", "host_windows_services", "host", "", false},
 	{"collector_metrics", "Collector metrics", []string{"host", "kubernetes_cluster"}, []string{"linux_amd64", "linux_arm64", "windows_amd64"}, "prometheus", "collector_self", "all", "collector-self", false},
 	{"kubernetes_cluster_metrics", "Cluster and workload state", []string{"kubernetes_cluster"}, []string{"linux_amd64", "linux_arm64"}, "k8s_cluster", "k8s_cluster", "kubernetes_gateway", "k8s-cluster", false},
-	{"kubernetes_node_metrics", "Node and container metrics", []string{"kubernetes_cluster"}, []string{"linux_amd64", "linux_arm64"}, "kubeletstats", "kubeletstats", "kubernetes_agent", "k8s-node-container", false},
+	{"kubernetes_node_metrics", "Node and container metrics", []string{"kubernetes_cluster"}, []string{"linux_amd64", "linux_arm64"}, "kubeletstats", "kubeletstats", "kubernetes_agent", "k8s-node-container", true},
 	{"kubernetes_apiserver_metrics", "API server metrics", []string{"kubernetes_cluster"}, []string{"linux_amd64", "linux_arm64"}, "prometheus", "kubernetes_apiserver", "kubernetes_gateway", "", false},
 	{"kubernetes_coredns_metrics", "CoreDNS metrics", []string{"kubernetes_cluster"}, []string{"linux_amd64", "linux_arm64"}, "prometheus", "kubernetes_coredns", "kubernetes_gateway", "", false},
 	{"kubernetes_scheduler_metrics", "Scheduler metrics", []string{"kubernetes_cluster"}, []string{"linux_amd64", "linux_arm64"}, "prometheus", "kubernetes_scheduler", "kubernetes_gateway", "", true},

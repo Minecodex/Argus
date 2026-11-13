@@ -195,7 +195,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 		telemetryDomain := component.TelemetryDomain(cfg, store, actionDomain, telemetryQuery)
 		nativeTelemetry = &telemetryDomain
 		alertDomain.Telemetry = telemetryDomain
-		dashboardQueries = &dashboard.QueryJobs{Runtime: dashboard.Runtime{Store: store, Backend: telemetryQuery, ContextKey: actionDomain.Key}}
+		dashboardQueries = &dashboard.QueryJobs{Runtime: dashboard.Runtime{Store: store, Backend: telemetryQuery, ContextKey: actionDomain.Key, Inventory: &kubernetesDomain}}
 	}
 	modelDomain := modelservice.Service{Store: store, Keyring: keyring}
 

@@ -40,7 +40,7 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 30. [Windows Server 主机接入实机验收](./20-windows-host-e2e.md)
 31. [主机与堡垒机幂等卸载](./21-host-and-bastion-removal.md)
 32. [Connector 跨集群接管](./22-cross-cluster-connector-takeover.md)
-33. [全门户重设计与仪表盘编辑器重构](./plans/frontend-redesign/README.md)
+33. [全门户重设计与仪表盘编辑器重构](./plans/frontend-redesign/README.md)（[Kubernetes 资源工作台重构实现计划](./plans/frontend-redesign/kubernetes-resource-workbench-refactor-plan-20261112.md)）
 34. [Plan6 告警中心](./plan6/README.md)
 35. [资源列表与主机资产概览](./plans/frontend-redesign/resource-lists-and-host-inventory.md)
 36. [自动仪表盘分析与查询参数展示](./planv2/automatic-analysis-20261013.md)
@@ -167,3 +167,9 @@ PlanV5 已于 2026-09-13 同步 [已确认决策与待决问题](./planv5/02-con
 ## 提交与自动检查
 
 主分支保护、功能分支、PR 和必需检查见 [PR 与 CI 合并规则](ci.md)。
+
+56. [B10b 存储、任务、节点证书和操作结算实测](./plan9/19-b10b-storage-jobs-and-node-ca-20261112.md)
+
+2026-11-13：Kubernetes 工作台主干已发布，完整计划重新打开；五组剩余缺口见 [第二次完成度复核](./plans/frontend-redesign/kubernetes-workbench-completion-review-20261113.md)。上轮发布及验收证据保留。
+
+2026-11-13：Kubernetes 工作台二次复核剩余项已关闭，最终实现、真实验证、发布及清理见 [剩余项验收](./plans/frontend-redesign/kubernetes-workbench-closure-20261113.md)。

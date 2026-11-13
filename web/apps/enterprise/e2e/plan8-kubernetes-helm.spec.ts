@@ -21,7 +21,7 @@ for (const english of [false, true])
         .fill("123456");
       await page.locator('form button[type="submit"]').click();
       await expect(page).not.toHaveURL(/\/login/);
-      await page.goto("/kubernetes/k8s-prod-east");
+      await page.goto("/kubernetes/k8s-prod-east?tab=resources");
       await expect(
         page.getByRole("tab", { name: "Deployment", exact: true }),
       ).toBeVisible();

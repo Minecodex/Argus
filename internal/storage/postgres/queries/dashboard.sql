@@ -79,20 +79,20 @@ UPDATE dashboard_drafts SET status='discarded',draft_version=draft_version+1,upd
 WHERE id=$1 AND enterprise_id=$2 AND editor_subject_type=$3 AND editor_subject_id=$4 AND draft_version=$5 AND status='editing';
 
 -- name: ListDashboardBindings :many
-SELECT * FROM dashboard_bindings WHERE enterprise_id=$1 AND dashboard_id=$2 ORDER BY created_at,id;
+SELECT * FROM dashboard_bindings WHERE enterprise_id=$1 AND dashboard_id=$2 AND purpose='resource' ORDER BY created_at,id;
 
 -- name: ListResourceDashboardBindings :many
-SELECT * FROM dashboard_bindings WHERE enterprise_id=$1 AND resource_type=$2 AND resource_id=$3 ORDER BY created_at,id;
+SELECT * FROM dashboard_bindings WHERE enterprise_id=$1 AND resource_type=$2 AND resource_id=$3 AND purpose='resource' ORDER BY created_at,id;
 
 -- name: CreateDashboardBinding :one
 INSERT INTO dashboard_bindings(id,enterprise_id,dashboard_id,resource_type,resource_id,created_by)
-VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(enterprise_id,dashboard_id,resource_type,resource_id) DO UPDATE SET dashboard_id=EXCLUDED.dashboard_id RETURNING *;
+VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(enterprise_id,dashboard_id,resource_type,resource_id,purpose) DO UPDATE SET dashboard_id=EXCLUDED.dashboard_id RETURNING *;
 
 -- name: DeleteDashboardBinding :execrows
-DELETE FROM dashboard_bindings WHERE id=$1 AND enterprise_id=$2 AND version=$3;
+DELETE FROM dashboard_bindings WHERE id=$1 AND enterprise_id=$2 AND version=$3 AND purpose='resource';
 
 -- name: FindDashboardBinding :one
-SELECT * FROM dashboard_bindings WHERE enterprise_id=$1 AND dashboard_id=$2 AND resource_type=$3 AND resource_id=$4;
+SELECT * FROM dashboard_bindings WHERE enterprise_id=$1 AND dashboard_id=$2 AND resource_type=$3 AND resource_id=$4 AND purpose='resource';
 
 -- name: LockDashboardBindingHost :one
 SELECT id,name,status,resource_version FROM hosts WHERE id=$1 AND enterprise_id=$2 FOR UPDATE;

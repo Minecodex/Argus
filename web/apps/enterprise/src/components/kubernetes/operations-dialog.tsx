@@ -1,10 +1,11 @@
+import { EmbeddedDashboardFrame } from "../dashboards/embedded-dashboard-frame";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   useApi,
   formatApiError,
-  type KubernetesOperation,
+  type KubernetesResourceReference,
 } from "@argus/api-client";
 import {
   Dialog,
@@ -15,20 +16,29 @@ import {
   CodeBlock,
   Spinner,
   EmptyState,
+  KeyValueGrid,
 } from "@argus/ui";
 import { KubernetesDrainProgressView } from "./drain-progress";
 import { usePermission } from "../../lib/permissions";
+import { operationResource } from "./operation-result";
 export function KubernetesOperationsDialog({
   clusterId,
   onClose,
+  embedded = false,
+  operationId,
+  onOpen,
 }: {
+  embedded?: boolean;
   clusterId: string;
   onClose: () => void;
+  operationId?: string;
+  onOpen?: (reference: KubernetesResourceReference) => void;
 }) {
+  const Frame = embedded ? EmbeddedDashboardFrame : Dialog;
   const api = useApi(),
     { t, i18n } = useTranslation(),
     [cursors, setCursors] = useState<Array<string | undefined>>([undefined]),
-    [selected, setSelected] = useState<KubernetesOperation>();
+    [selected, setSelected] = useState<string | undefined>(operationId);
   const canDrain = usePermission("kubernetes.node.drain"),
     canMaintain = usePermission("kubernetes.node.manage");
   const list = useQuery({
@@ -40,11 +50,12 @@ export function KubernetesOperationsDialog({
         signal,
       ),
     refetchInterval: 3000,
+    enabled: !selected,
   });
   const detail = useQuery({
-    queryKey: ["kubernetes-workbench", clusterId, "operation", selected?.id],
+    queryKey: ["kubernetes-workbench", clusterId, "operation", selected],
     queryFn: ({ signal }) =>
-      api.kubernetesWorkbench.operation(clusterId, selected!.id, signal),
+      api.kubernetesWorkbench.operation(clusterId, selected!, signal),
     enabled: !!selected,
     refetchInterval: 3000,
   });
@@ -62,7 +73,7 @@ export function KubernetesOperationsDialog({
   });
   const rows = list.error ? [] : (list.data?.items ?? []);
   return (
-    <Dialog
+    <Frame
       open
       size="lg"
       title={t("kubernetesWorkbench.mutation.history")}
@@ -70,78 +81,88 @@ export function KubernetesOperationsDialog({
         if (!open) onClose();
       }}
     >
-      {list.isPending && <Spinner label={t("common.loading")} />}
-      {list.error && (
-        <p role="alert">
-          {formatApiError(
-            list.error,
-            t("kubernetesWorkbench.errors.unavailable"),
-            (id) => t("common.requestReference", { requestId: id }),
+      {!selected && (
+        <>
+          {list.isPending && <Spinner label={t("common.loading")} />}
+          {list.error && (
+            <p role="alert">
+              {formatApiError(
+                list.error,
+                t("kubernetesWorkbench.errors.unavailable"),
+                (id) => t("common.requestReference", { requestId: id }),
+              )}
+            </p>
           )}
-        </p>
-      )}
-      {rows.length ? (
-        <DataTable
-          data={rows}
-          getRowKey={(r) => r.id}
-          columns={[
-            { key: "name", header: t("kubernetesWorkbench.name") },
-            {
-              key: "operation",
-              header: t("kubernetesWorkbench.mutation.operation"),
-              render: (r) =>
-                r.operation.startsWith("helm_")
-                  ? t(`kubernetesHelm.actions.${r.operation.slice(5)}`)
-                  : t(`kubernetesWorkbench.mutation.actions.${r.operation}`),
-            },
-            {
-              key: "status",
-              header: t("kubernetesWorkbench.mutation.status"),
-              render: (r) => (
-                <Badge>
-                  {t(`kubernetesWorkbench.mutation.statuses.${r.status}`)}
-                </Badge>
-              ),
-            },
-            {
-              key: "updated_at",
-              header: t("kubernetesWorkbench.observed"),
-              render: (r) =>
-                new Date(r.updated_at).toLocaleString(i18n.language),
-            },
-            {
-              key: "actions",
-              header: t("monitoring.actions"),
-              render: (r) => (
-                <Button size="sm" onPress={() => setSelected(r)}>
-                  {t("kubernetesWorkbench.details")}
-                </Button>
-              ),
-            },
-          ]}
-        />
-      ) : (
-        !list.isPending && (
-          <EmptyState
-            title={t("kubernetesWorkbench.mutation.empty")}
-            description={t("kubernetesWorkbench.mutation.previewHint")}
+          {rows.length ? (
+            <DataTable
+              data={rows}
+              getRowKey={(r) => r.id}
+              columns={[
+                { key: "name", header: t("kubernetesWorkbench.name") },
+                {
+                  key: "operation",
+                  header: t("kubernetesWorkbench.mutation.operation"),
+                  render: (r) =>
+                    r.operation.startsWith("helm_")
+                      ? t(`kubernetesHelm.actions.${r.operation.slice(5)}`)
+                      : t(
+                          `kubernetesWorkbench.mutation.actions.${r.operation}`,
+                        ),
+                },
+                {
+                  key: "status",
+                  header: t("kubernetesWorkbench.mutation.status"),
+                  render: (r) => (
+                    <Badge>
+                      {t(`kubernetesWorkbench.mutation.statuses.${r.status}`)}
+                    </Badge>
+                  ),
+                },
+                {
+                  key: "updated_at",
+                  header: t("kubernetesWorkbench.observed"),
+                  render: (r) =>
+                    new Date(r.updated_at).toLocaleString(i18n.language),
+                },
+                {
+                  key: "actions",
+                  header: t("monitoring.actions"),
+                  render: (r) => (
+                    <Button size="sm" onPress={() => setSelected(r.id)}>
+                      {t("kubernetesWorkbench.details")}
+                    </Button>
+                  ),
+                },
+              ]}
+            />
+          ) : (
+            !list.isPending && (
+              <EmptyState
+                title={t("kubernetesWorkbench.mutation.empty")}
+                description={t("kubernetesWorkbench.mutation.previewHint")}
+              />
+            )
+          )}
+          <Pagination
+            page={cursors.length}
+            hasNext={!!list.data?.next_cursor}
+            isDisabled={list.isFetching}
+            onChange={(page) =>
+              setCursors((old) =>
+                page <= old.length
+                  ? old.slice(0, page)
+                  : [...old, list.data?.next_cursor],
+              )
+            }
           />
-        )
+        </>
       )}
-      <Pagination
-        page={cursors.length}
-        hasNext={!!list.data?.next_cursor}
-        isDisabled={list.isFetching}
-        onChange={(page) =>
-          setCursors((old) =>
-            page <= old.length
-              ? old.slice(0, page)
-              : [...old, list.data?.next_cursor],
-          )
-        }
-      />
       {selected && (
         <section aria-label={t("kubernetesWorkbench.details")}>
+          <Button variant="ghost" onPress={() => setSelected(undefined)}>
+            {t("kubernetesWorkbench.mutation.history")}
+          </Button>
+          {detail.isPending && <Spinner label={t("common.loading")} />}
           {detail.error ? (
             <p role="alert">
               {formatApiError(
@@ -153,6 +174,14 @@ export function KubernetesOperationsDialog({
           ) : (
             detail.data && (
               <>
+                <h3>{detail.data.name}</h3>
+                {onOpen && operationResource(detail.data) && (
+                  <Button
+                    onPress={() => onOpen(operationResource(detail.data!)!)}
+                  >
+                    {t("kubernetesResources.openResult")}
+                  </Button>
+                )}
                 <p>
                   {t(
                     `kubernetesWorkbench.mutation.statuses.${detail.data.status}`,
@@ -200,16 +229,42 @@ export function KubernetesOperationsDialog({
                     progress={detail.data.result.drain}
                   />
                 ) : (
-                  <CodeBlock
-                    code={JSON.stringify(detail.data.result, null, 2)}
-                    language="json"
-                  />
+                  <>
+                    <KeyValueGrid
+                      columns={2}
+                      items={[
+                        {
+                          label: t("kubernetesWorkbench.type"),
+                          value: detail.data.type,
+                        },
+                        {
+                          label: t("kubernetesResources.age"),
+                          value: new Date(
+                            detail.data.created_at,
+                          ).toLocaleString(i18n.language),
+                        },
+                        {
+                          label: t("kubernetesWorkbench.observed"),
+                          value: new Date(
+                            detail.data.updated_at,
+                          ).toLocaleString(i18n.language),
+                        },
+                      ]}
+                    />
+                    <details>
+                      <summary>{t("kubernetesResources.technical")}</summary>
+                      <CodeBlock
+                        code={JSON.stringify(detail.data.result, null, 2)}
+                        language="json"
+                      />
+                    </details>
+                  </>
                 )}
               </>
             )
           )}
         </section>
       )}
-    </Dialog>
+    </Frame>
   );
 }

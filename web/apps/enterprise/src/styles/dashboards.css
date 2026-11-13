@@ -216,13 +216,24 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  padding: 0 var(--space-5) var(--space-4);
+}
+.argus-dashboard-locked-scope {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-height);
+}
+.argus-dashboard-panel-content .argus-empty-state {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-4);
 }
 .argus-dashboard-panel-footer {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--action-gap);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-5);
   color: var(--text-tertiary);
   font-size: var(--font-size-11);
   border-top: var(--space-px-1) solid var(--border-subtle);

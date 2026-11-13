@@ -12,26 +12,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// DashboardDraftPreparation defines model for DashboardDraftPreparation.
-type DashboardDraftPreparation struct {
-	Conversions *[]DashboardDraftPanelConversion `json:"conversions,omitempty"`
-	Drilldowns  *[]DashboardDraftPanelDrilldowns `json:"drilldowns,omitempty"`
-}
-
-// DashboardDraftSample defines model for DashboardDraftSample.
-type DashboardDraftSample struct {
-	DraftId      openapi_types.UUID        `json:"draft_id"`
-	DraftVersion int64                     `json:"draft_version"`
-	Sample       map[string]interface{}    `json:"sample"`
-	Validation   DashboardValidationReport `json:"validation"`
-}
-
-// DashboardDraftSampleInput defines model for DashboardDraftSampleInput.
-type DashboardDraftSampleInput struct {
-	ExpectedVersion int64                    `json:"expected_version"`
-	Parameters      *DashboardExecutionInput `json:"parameters,omitempty"`
-}
-
 // DashboardDrilldown defines model for DashboardDrilldown.
 type DashboardDrilldown struct {
 	DetailQueryRef string                        `json:"detail_query_ref"`
@@ -89,6 +69,7 @@ type DashboardExecution struct {
 	ExecutionHash    string                                        `json:"execution_hash"`
 	ExecutionId      openapi_types.UUID                            `json:"execution_id"`
 	From             time.Time                                     `json:"from"`
+	KubernetesScope  *DashboardKubernetesScope                     `json:"kubernetes_scope,omitempty"`
 	LocalCandidates  map[string]map[string]DashboardCandidateState `json:"local_candidates"`
 	LocalValues      map[string]map[string]DashboardSelection      `json:"local_values"`
 
@@ -140,11 +121,12 @@ type DashboardExecutionInput struct {
 	ApplicationMode *DashboardExecutionInputApplicationMode `json:"application_mode,omitempty"`
 
 	// CandidatesOnly Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode.
-	CandidatesOnly *bool                                     `json:"candidates_only,omitempty"`
-	From           *time.Time                                `json:"from,omitempty"`
-	LocalValues    *map[string]map[string]DashboardSelection `json:"local_values,omitempty"`
-	PanelIds       *[]string                                 `json:"panel_ids,omitempty"`
-	ResourceIds    *[]openapi_types.UUID                     `json:"resource_ids,omitempty"`
+	CandidatesOnly  *bool                                     `json:"candidates_only,omitempty"`
+	From            *time.Time                                `json:"from,omitempty"`
+	KubernetesScope *DashboardKubernetesScope                 `json:"kubernetes_scope,omitempty"`
+	LocalValues     *map[string]map[string]DashboardSelection `json:"local_values,omitempty"`
+	PanelIds        *[]string                                 `json:"panel_ids,omitempty"`
+	ResourceIds     *[]openapi_types.UUID                     `json:"resource_ids,omitempty"`
 
 	// ResourceMode all_authorized selects current grants; explicit preserves an empty resource_ids set
 	ResourceMode  *DashboardExecutionInputResourceMode    `json:"resource_mode,omitempty"`
@@ -230,6 +212,13 @@ type DashboardItem struct {
 	Version                int64               `json:"version"`
 }
 
+// DashboardKubernetesScope defines model for DashboardKubernetesScope.
+type DashboardKubernetesScope struct {
+	ClusterId    openapi_types.UUID    `json:"cluster_id"`
+	FocusUid     *string               `json:"focus_uid,omitempty"`
+	NamespaceIds *[]openapi_types.UUID `json:"namespace_ids,omitempty"`
+}
+
 // DashboardLifecycleInput defines model for DashboardLifecycleInput.
 type DashboardLifecycleInput struct {
 	Description     string                           `json:"description"`
@@ -269,12 +258,24 @@ type DashboardMetricDescriptor struct {
 	Unit       string                      `json:"unit"`
 }
 
+// DashboardOperationalSource defines model for DashboardOperationalSource.
+type DashboardOperationalSource struct {
+	Kind          DashboardOperationalSourceKind `json:"kind"`
+	Limit         *int                           `json:"limit,omitempty"`
+	ResourceTypes *[]string                      `json:"resource_types,omitempty"`
+	States        *[]string                      `json:"states,omitempty"`
+}
+
+// DashboardOperationalSourceKind defines model for DashboardOperationalSource.Kind.
+type DashboardOperationalSourceKind string
+
 // DashboardPanel defines model for DashboardPanel.
 type DashboardPanel struct {
 	ApplicableResourceTypes []DashboardPanelApplicableResourceTypes `json:"applicable_resource_types"`
 
 	// AuthoringMode All display and detail targets in a Panel use this single editing source.
 	AuthoringMode      DashboardPanelAuthoringMode `json:"authoring_mode"`
+	DataSource         *DashboardOperationalSource `json:"data_source,omitempty"`
 	Decimals           int64                       `json:"decimals"`
 	Description        string                      `json:"description"`
 	DetailQueryTargets []DashboardTarget           `json:"detail_query_targets"`
@@ -633,6 +634,65 @@ type DashboardVersionInput struct {
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
+// KubernetesOverviewCandidates defines model for KubernetesOverviewCandidates.
+type KubernetesOverviewCandidates struct {
+	Items      []DashboardItem `json:"items"`
+	NextCursor *string         `json:"next_cursor,omitempty"`
+}
+
+// KubernetesOverviewExecutionInput defines model for KubernetesOverviewExecutionInput.
+type KubernetesOverviewExecutionInput struct {
+	ApplicationIds  *[]openapi_types.UUID                            `json:"application_ids,omitempty"`
+	ApplicationMode *KubernetesOverviewExecutionInputApplicationMode `json:"application_mode,omitempty"`
+
+	// CandidatesOnly Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode.
+	CandidatesOnly      *bool                                     `json:"candidates_only,omitempty"`
+	ExpectedDashboardId openapi_types.UUID                        `json:"expected_dashboard_id"`
+	From                *time.Time                                `json:"from,omitempty"`
+	KubernetesScope     *DashboardKubernetesScope                 `json:"kubernetes_scope,omitempty"`
+	LocalValues         *map[string]map[string]DashboardSelection `json:"local_values,omitempty"`
+	PanelIds            *[]string                                 `json:"panel_ids,omitempty"`
+	ResourceIds         *[]openapi_types.UUID                     `json:"resource_ids,omitempty"`
+
+	// ResourceMode all_authorized selects current grants; explicit preserves an empty resource_ids set
+	ResourceMode  *KubernetesOverviewExecutionInputResourceMode    `json:"resource_mode,omitempty"`
+	ResourceTypes *[]KubernetesOverviewExecutionInputResourceTypes `json:"resource_types,omitempty"`
+	To            *time.Time                                       `json:"to,omitempty"`
+	Variables     *map[string]DashboardSelection                   `json:"variables,omitempty"`
+}
+
+// KubernetesOverviewExecutionInputApplicationMode defines model for KubernetesOverviewExecutionInput.ApplicationMode.
+type KubernetesOverviewExecutionInputApplicationMode string
+
+// KubernetesOverviewExecutionInputResourceMode all_authorized selects current grants; explicit preserves an empty resource_ids set
+type KubernetesOverviewExecutionInputResourceMode string
+
+// KubernetesOverviewExecutionInputResourceTypes defines model for KubernetesOverviewExecutionInput.ResourceTypes.
+type KubernetesOverviewExecutionInputResourceTypes string
+
+// KubernetesOverviewInput defines model for KubernetesOverviewInput.
+type KubernetesOverviewInput struct {
+	DashboardId              openapi_types.UUID `json:"dashboard_id"`
+	ExpectedDashboardVersion int64              `json:"expected_dashboard_version"`
+	ExpectedResourceVersion  int64              `json:"expected_resource_version"`
+	ExpectedSelectionVersion int64              `json:"expected_selection_version"`
+	Reset                    bool               `json:"reset"`
+}
+
+// KubernetesOverviewSelection defines model for KubernetesOverviewSelection.
+type KubernetesOverviewSelection struct {
+	ClusterId        openapi_types.UUID              `json:"cluster_id"`
+	Dashboard        *DashboardItem                  `json:"dashboard,omitempty"`
+	DefaultDashboard DashboardItem                   `json:"default_dashboard"`
+	Mode             KubernetesOverviewSelectionMode `json:"mode"`
+	ResourceVersion  int64                           `json:"resource_version"`
+	SelectionVersion int64                           `json:"selection_version"`
+	UnavailableCode  *string                         `json:"unavailable_code,omitempty"`
+}
+
+// KubernetesOverviewSelectionMode defines model for KubernetesOverviewSelection.Mode.
+type KubernetesOverviewSelectionMode string
+
 // ObservationMetricSemantics defines model for ObservationMetricSemantics.
 type ObservationMetricSemantics struct {
 	DefinitionId                string                                                `json:"definition_id"`
@@ -833,6 +893,19 @@ type PreviewClusterDashboardBindingParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// ListKubernetesOverviewCandidatesParams defines parameters for ListKubernetesOverviewCandidates.
+type ListKubernetesOverviewCandidatesParams struct {
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// PreviewKubernetesOverviewParams defines parameters for PreviewKubernetesOverview.
+type PreviewKubernetesOverviewParams struct {
+	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // PreviewMonitoringTargetDashboardBindingParams defines parameters for PreviewMonitoringTargetDashboardBinding.
 type PreviewMonitoringTargetDashboardBindingParams struct {
 	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
@@ -898,6 +971,12 @@ type PreviewHostDashboardBindingJSONRequestBody = DashboardBindingInput
 
 // PreviewClusterDashboardBindingJSONRequestBody defines body for PreviewClusterDashboardBinding for application/json ContentType.
 type PreviewClusterDashboardBindingJSONRequestBody = DashboardBindingInput
+
+// ExecuteKubernetesOverviewJSONRequestBody defines body for ExecuteKubernetesOverview for application/json ContentType.
+type ExecuteKubernetesOverviewJSONRequestBody = KubernetesOverviewExecutionInput
+
+// PreviewKubernetesOverviewJSONRequestBody defines body for PreviewKubernetesOverview for application/json ContentType.
+type PreviewKubernetesOverviewJSONRequestBody = KubernetesOverviewInput
 
 // PreviewMonitoringTargetDashboardBindingJSONRequestBody defines body for PreviewMonitoringTargetDashboardBinding for application/json ContentType.
 type PreviewMonitoringTargetDashboardBindingJSONRequestBody = DashboardBindingInput

@@ -89,3 +89,13 @@ export * from "./telemetry-editor-context";
 
 export * from "./observation-scope-picker";
 export * from "./observation-chart-link";
+
+export * from "./key-value-editor";
+
+export * from "./structured-fields-editor";
+
+export * from "./resource-visualizations";
+export * from "./resource-kind-name";
+export * from "./resource-quantity";
+
+export { TroubleshootingWorkspace } from "./troubleshooting-workspace";

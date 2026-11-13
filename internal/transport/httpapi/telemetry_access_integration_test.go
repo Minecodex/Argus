@@ -147,6 +147,9 @@ func TestPostgresTelemetryObjectReadParityAndRevocation(t *testing.T) {
 			input := map[string]any{"resource_ids": []any{host.String()}, "from": now.Add(-time.Minute).Format(time.RFC3339), "to": now.Format(time.RFC3339)}
 			if scenario.language == queryengine.LanguageTrace {
 				input["document"] = "query { queryTraces(pageSize:10) { total traces { traceId rootService rootOperation startTime duration spanCount errorCount } } }"
+			} else if scenario.language == queryengine.LanguagePromQL {
+				// Authorization parity must exercise a valid PromQL selector; "*" is only a log query.
+				input["query"] = "up"
 			} else {
 				input["query"] = "*"
 			}

@@ -239,7 +239,7 @@ func (a *App) Run(ctx context.Context) error {
 		nativeTelemetry = &telemetryDomain
 		alertDomain.Telemetry = telemetryDomain
 		alertHandler.Service = alertDomain
-		dashboardRuntime := &dashboard.Runtime{Store: postgresStore, Backend: telemetryQuery, ContextKey: actionDomain.Key}
+		dashboardRuntime := &dashboard.Runtime{Store: postgresStore, Backend: telemetryQuery, ContextKey: actionDomain.Key, Inventory: &kubernetesDomain}
 		dashboardHandler.Runtime = dashboardRuntime
 		dashboardHandler.Service.Verifier = dashboardRuntime
 		telemetryIdentity := telemetryservice.IdentityService{Store: postgresStore, TrustBundles: bundles, Issuer: connectorservice.CertManagerIssuer{

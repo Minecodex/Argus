@@ -39,6 +39,7 @@ export function ComponentTrustDialog({
     interval?: string;
     component_tls?: { server_name?: string; ca_pem?: string };
   };
+  const nodeCAOnly = row.definition.key === "kubernetes_node_metrics";
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -58,7 +59,7 @@ export function ComponentTrustDialog({
         config: {
           interval: config.interval ?? "30s",
           component_tls: {
-            server_name: values.serverName.trim(),
+            ...(!nodeCAOnly ? { server_name: values.serverName.trim() } : {}),
             ca_pem: values.caPem,
           },
         },
@@ -82,19 +83,27 @@ export function ComponentTrustDialog({
       }}
     >
       <form className="argus-component-trust-form" onSubmit={submit}>
-        <p>{t("builtinCollections.trust.hint")}</p>
-        <Field
-          label={t("builtinCollections.trust.serverName")}
-          requirement="optional"
-          hint={t("builtinCollections.trust.serverNameHint")}
-          error={
-            form.formState.errors.serverName?.message
-              ? t(form.formState.errors.serverName.message)
-              : undefined
-          }
-        >
-          <Input {...form.register("serverName")} />
-        </Field>
+        <p>
+          {t(
+            nodeCAOnly
+              ? "builtinCollections.trust.nodeHint"
+              : "builtinCollections.trust.hint",
+          )}
+        </p>
+        {!nodeCAOnly && (
+          <Field
+            label={t("builtinCollections.trust.serverName")}
+            requirement="optional"
+            hint={t("builtinCollections.trust.serverNameHint")}
+            error={
+              form.formState.errors.serverName?.message
+                ? t(form.formState.errors.serverName.message)
+                : undefined
+            }
+          >
+            <Input {...form.register("serverName")} />
+          </Field>
+        )}
         <Field
           label={t("builtinCollections.trust.ca")}
           requirement="optional"

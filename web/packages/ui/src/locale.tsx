@@ -19,7 +19,11 @@ const LocaleContext = createContext<{
 function initialLocale(): SupportedLocale {
   if (typeof window === "undefined") return "zh-CN";
   let stored: string | null = null;
-  try { stored = window.localStorage.getItem(LOCALE_STORAGE_KEY); } catch { /* Opaque template frames have no storage. */ }
+  try {
+    stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  } catch {
+    /* Opaque template frames have no storage. */
+  }
   if (stored === "zh-CN" || stored === "en-US") return stored;
   return "zh-CN";
 }
@@ -35,7 +39,8 @@ export function LocaleProvider({
   locale?: SupportedLocale;
   persist?: boolean;
 }) {
-  const [preferredLocale, setLocaleState] = useState<SupportedLocale>(initialLocale);
+  const [preferredLocale, setLocaleState] =
+    useState<SupportedLocale>(initialLocale);
   const locale = controlledLocale ?? preferredLocale;
 
   useEffect(() => {
@@ -47,7 +52,13 @@ export function LocaleProvider({
     () => ({
       locale,
       setLocale: (next: SupportedLocale) => {
-        if (persist) { try { window.localStorage.setItem(LOCALE_STORAGE_KEY, next); } catch { /* Template locale is supplied by the host. */ } }
+        if (persist) {
+          try {
+            window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
+          } catch {
+            /* Template locale is supplied by the host. */
+          }
+        }
         setLocaleState(next);
       },
     }),
@@ -75,5 +86,8 @@ export function useUiText() {
     document.documentElement.lang === "en-US"
       ? "en-US"
       : "zh-CN");
-  return (zhCN: string, enUS: string) => (locale === "zh-CN" ? zhCN : enUS);
+  return useMemo(
+    () => (zhCN: string, enUS: string) => (locale === "zh-CN" ? zhCN : enUS),
+    [locale],
+  );
 }

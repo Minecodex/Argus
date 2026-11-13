@@ -79,11 +79,11 @@ class Api:
             time.sleep(2)
         raise RuntimeError(label + ' did not converge within the bounded wait')
 
-    def confirm(self, preview):
+    def confirm(self, preview, wait=True):
         ref = preview['action_ref']
         result = self.call('POST', '/enterprise/pending-actions/' + ref + '/confirm', key='confirm-' + ref)
         execution = result.get('execution', {})
-        if execution.get('status') not in ('succeeded', None):
+        if wait and execution.get('status') not in ('succeeded', None):
             eid = execution['execution_id']
             def finished(value):
                 if value['status'] in ('failed', 'cancelled'):

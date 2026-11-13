@@ -75,6 +75,17 @@ func (service Service) listResources(ctx context.Context, actor Actor) ([]db.Das
 		if err != nil {
 			return nil, err
 		}
+		namespaces, namespaceErr := authorizedIDs(ctx, service.Store.Queries, actor, "kubernetes_namespace")
+		if namespaceErr != nil {
+			return nil, namespaceErr
+		}
+		if len(clusters) > 0 || len(namespaces) > 0 {
+			board, e := service.ApplyManagedTemplate(ctx, actor.EnterpriseID, OperationsOverviewTemplate)
+			if e != nil {
+				return nil, e
+			}
+			managedIDs = append(managedIDs, board.ID)
+		}
 		builtinKeys := []string{}
 		for _, definition := range builtincollection.All() {
 			builtinKeys = append(builtinKeys, definition.Key)

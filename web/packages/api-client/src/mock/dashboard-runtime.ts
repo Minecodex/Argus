@@ -1,3 +1,4 @@
+import { mockResourceSnapshot } from "./kubernetes-resource-view";
 import type {
   DashboardExecution,
   DashboardPanel,
@@ -341,6 +342,41 @@ export function mockDashboardExecution(
       (input.panel_ids?.length && !input.panel_ids.includes(panel.id))
     )
       continue;
+    if (panel.data_source && panel.data_source.kind !== "telemetry") {
+      const cluster =
+        input.kubernetes_scope?.cluster_id ??
+        resources.find((row) => row.type === "kubernetes_cluster")?.id;
+      const data =
+        panel.data_source.kind === "alert_instances"
+          ? { items: [], total: 0, complete: true, observed_at: ctx.nowIso() }
+          : cluster
+            ? mockResourceSnapshot(
+                ctx,
+                cluster,
+                input.kubernetes_scope?.namespace_ids,
+              )
+            : undefined;
+      result.panels.push({
+        id: panel.id,
+        status: data ? "success" : "not_applicable",
+        sources: [],
+        detail_sources: {},
+        targets: [
+          {
+            query_hash: "",
+            meta: {},
+            id: "resources",
+            status: data ? "success" : "not_applicable",
+            result_type:
+              panel.data_source.kind === "alert_instances"
+                ? "alert_instances"
+                : "resource_snapshot",
+            data: data ?? {},
+          },
+        ],
+      });
+      continue;
+    }
     const builtin = builtinCollections.find(
       (entry) => entry.source_type === panel.source_binding.source_type,
     );

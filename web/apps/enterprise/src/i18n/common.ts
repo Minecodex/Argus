@@ -4,6 +4,10 @@
  */
 export const commonZh = {
   common: {
+    back: "返回",
+    all: "全部",
+    select: "选择",
+    refresh: "刷新",
     loading: "加载中…",
     retry: "重试",
     cancel: "取消",
@@ -74,6 +78,10 @@ export const commonZh = {
 
 export const commonEn = {
   common: {
+    back: "Back",
+    all: "All",
+    select: "Select",
+    refresh: "Refresh",
     loading: "Loading…",
     retry: "Retry",
     cancel: "Cancel",

@@ -91,7 +91,22 @@ func TestLiveCSIExpansionApprovalWaitsForActualCapacity(t *testing.T) {
 			}
 		}
 	})
-	class, err := classAPI.Create(ctx, &unstructured.Unstructured{Object: map[string]any{"apiVersion": "storage.k8s.io/v1", "kind": "StorageClass", "metadata": map[string]any{"name": owner, "labels": map[string]any{"argus.owner": owner}}, "provisioner": os.Getenv("ARGUS_CSI_EXPANSION_DRIVER"), "allowVolumeExpansion": true, "reclaimPolicy": "Delete", "volumeBindingMode": "Immediate"}}, metav1.CreateOptions{})
+	classObject := map[string]any{"apiVersion": "storage.k8s.io/v1", "kind": "StorageClass", "metadata": map[string]any{"name": owner, "labels": map[string]any{"argus.owner": owner}}, "provisioner": os.Getenv("ARGUS_CSI_EXPANSION_DRIVER"), "allowVolumeExpansion": true, "reclaimPolicy": "Delete", "volumeBindingMode": "Immediate"}
+	if sourceName := os.Getenv("ARGUS_CSI_EXPANSION_TEMPLATE"); sourceName != "" {
+		source, e := classAPI.Get(ctx, sourceName, metav1.GetOptions{})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if source.Object["provisioner"] != os.Getenv("ARGUS_CSI_EXPANSION_DRIVER") {
+			t.Fatal("CSI template driver differs")
+		}
+		for _, key := range []string{"parameters", "mountOptions", "volumeBindingMode", "allowedTopologies"} {
+			if value, ok := source.Object[key]; ok {
+				classObject[key] = value
+			}
+		}
+	}
+	class, err := classAPI.Create(ctx, &unstructured.Unstructured{Object: classObject}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

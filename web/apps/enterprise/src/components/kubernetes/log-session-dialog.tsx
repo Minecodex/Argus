@@ -10,7 +10,7 @@ import {
 import {
   Badge,
   Button,
-  Dialog,
+  TroubleshootingWorkspace,
   Field,
   Input,
   LogViewer,
@@ -85,7 +85,7 @@ export function KubernetesLogSessionDialog({
     setOptions(false);
   });
   return (
-    <Dialog
+    <TroubleshootingWorkspace
       open
       size="lg"
       className="argus-k8s-session-dialog"
@@ -214,6 +214,6 @@ export function KubernetesLogSessionDialog({
         )}
         <p>{t("kubernetesLogSession.retention")}</p>
       </div>
-    </Dialog>
+    </TroubleshootingWorkspace>
   );
 }

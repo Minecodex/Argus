@@ -49,9 +49,15 @@ type StrictServerInterface interface {
 	// GetKubernetesInventoryObject Read a projected object with frozen UID
 	// (GET /enterprise/kubernetes-clusters/{id}/inventory/object)
 	GetKubernetesInventoryObject(ctx context.Context, request GetKubernetesInventoryObjectRequestObject) (GetKubernetesInventoryObjectResponseObject, error)
+	// GetKubernetesRelatedResources Read a UID-bound object relation or event page within the current authorization scope
+	// (GET /enterprise/kubernetes-clusters/{id}/inventory/related)
+	GetKubernetesRelatedResources(ctx context.Context, request GetKubernetesRelatedResourcesRequestObject) (GetKubernetesRelatedResourcesResponseObject, error)
 	// GetKubernetesInventoryScope Read current Cluster and Namespace access
 	// (GET /enterprise/kubernetes-clusters/{id}/inventory/scope)
 	GetKubernetesInventoryScope(ctx context.Context, request GetKubernetesInventoryScopeRequestObject) (GetKubernetesInventoryScopeResponseObject, error)
+	// GetKubernetesResourceSnapshot Read a bounded authorized resource snapshot and real resource relations
+	// (GET /enterprise/kubernetes-clusters/{id}/inventory/snapshot)
+	GetKubernetesResourceSnapshot(ctx context.Context, request GetKubernetesResourceSnapshotRequestObject) (GetKubernetesResourceSnapshotResponseObject, error)
 	// ListKubernetesInventoryTypes List object types available in the current access scope
 	// (GET /enterprise/kubernetes-clusters/{id}/inventory/types)
 	ListKubernetesInventoryTypes(ctx context.Context, request ListKubernetesInventoryTypesRequestObject) (ListKubernetesInventoryTypesResponseObject, error)
@@ -504,6 +510,33 @@ func (sh *strictHandler) GetKubernetesInventoryObject(w http.ResponseWriter, r *
 	}
 }
 
+// GetKubernetesRelatedResources operation middleware
+func (sh *strictHandler) GetKubernetesRelatedResources(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GetKubernetesRelatedResourcesParams) {
+	var request GetKubernetesRelatedResourcesRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKubernetesRelatedResources(ctx, request.(GetKubernetesRelatedResourcesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKubernetesRelatedResources")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKubernetesRelatedResourcesResponseObject); ok {
+		if err := validResponse.VisitGetKubernetesRelatedResourcesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetKubernetesInventoryScope operation middleware
 func (sh *strictHandler) GetKubernetesInventoryScope(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
 	var request GetKubernetesInventoryScopeRequestObject
@@ -523,6 +556,33 @@ func (sh *strictHandler) GetKubernetesInventoryScope(w http.ResponseWriter, r *h
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetKubernetesInventoryScopeResponseObject); ok {
 		if err := validResponse.VisitGetKubernetesInventoryScopeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetKubernetesResourceSnapshot operation middleware
+func (sh *strictHandler) GetKubernetesResourceSnapshot(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GetKubernetesResourceSnapshotParams) {
+	var request GetKubernetesResourceSnapshotRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKubernetesResourceSnapshot(ctx, request.(GetKubernetesResourceSnapshotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKubernetesResourceSnapshot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKubernetesResourceSnapshotResponseObject); ok {
+		if err := validResponse.VisitGetKubernetesResourceSnapshotResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

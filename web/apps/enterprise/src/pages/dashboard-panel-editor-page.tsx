@@ -1,3 +1,4 @@
+import { OperationalPanelEditor } from "../components/dashboards/operational-panel-editor";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -50,6 +51,7 @@ import {
   newTarget,
   sources,
   isDashboardSignal,
+  requireTelemetrySignal,
 } from "../components/dashboards/model";
 import { usePermission } from "../lib/permissions";
 import { DashboardQueryScopeProvider } from "../components/dashboards/query-scope";
@@ -70,7 +72,7 @@ function bounds(range: Range): { from: string; to: string } {
     to: to.toISOString(),
   };
 }
-export function DashboardPanelEditorPage() {
+function TelemetryPanelEditorPage() {
   const { panelId, draftId } = useParams({
     from: "/authed/admin/dashboard-drafts/$draftId/panels/$panelId",
   });
@@ -329,7 +331,8 @@ export function DashboardPanelEditorPage() {
         return result.draft;
       });
       setGenerated(true);
-      if (issues.length) setError(issues.map((i) => dashboardIssueMessage(t, i)).join("; "));
+      if (issues.length)
+        setError(issues.map((i) => dashboardIssueMessage(t, i)).join("; "));
     } catch (e) {
       setError(
         formatApiError(e, t("dashboards.failed"), (requestId) =>
@@ -658,7 +661,9 @@ export function DashboardPanelEditorPage() {
                     >
                       <Select
                         value={panel.source_binding.source_type}
-                        options={sources[panel.signal].map((value) => ({
+                        options={sources[
+                          requireTelemetrySignal(panel.signal)
+                        ].map((value) => ({
                           value,
                           label: t(`dashboards.editor.sources.${value}`, {
                             defaultValue: value,
@@ -957,7 +962,7 @@ export function DashboardPanelEditorPage() {
             signal: replace,
             type,
             source_binding: {
-              source_type: sources[replace][0]!,
+              source_type: sources[requireTelemetrySignal(replace)][0]!,
               capability_version: "v1",
             },
             targets: [
@@ -989,5 +994,18 @@ export function DashboardPanelEditorPage() {
         />
       )}
     </PageShell>
+  );
+}
+
+export function DashboardPanelEditorPage() {
+  const { panelId } = useParams({
+    from: "/authed/admin/dashboard-drafts/$draftId/panels/$panelId",
+  });
+  const editor = useDashboardDraftWorkspace();
+  const panel = editor.draft?.spec.panels.find((p) => p.id === panelId);
+  return panel?.data_source && panel.data_source.kind !== "telemetry" ? (
+    <OperationalPanelEditor key={panelId} panelId={panelId} />
+  ) : (
+    <TelemetryPanelEditorPage />
   );
 }

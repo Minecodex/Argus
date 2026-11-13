@@ -36,7 +36,7 @@ func TestComponentTrustIsPublicTypedAndScopeBound(t *testing.T) {
 	}
 	for _, definition := range All() {
 		_, err := ParseFor(definition.Key, raw)
-		if (err == nil) != definition.ComponentTLS {
+		if (err == nil) != (definition.ComponentTLS && definition.Key != "kubernetes_node_metrics") {
 			t.Fatalf("TLS authority for %s: %v", definition.Key, err)
 		}
 	}
@@ -61,5 +61,18 @@ func TestComponentTrustIsPublicTypedAndScopeBound(t *testing.T) {
 	parsed, err = ParseFor("kubernetes_scheduler_metrics", []byte(`{"component_tls":{}}`))
 	if err != nil || parsed.ComponentTLS != nil {
 		t.Fatal("empty trust settings did not restore defaults")
+	}
+}
+
+func TestNodeTrustRejectsIgnoredServerNameOverride(t *testing.T) {
+	ca := publicTestCA(t)
+	raw, _ := json.Marshal(Config{ComponentTLS: &ComponentTLS{CAPEM: ca}})
+	parsed, err := ParseFor("kubernetes_node_metrics", raw)
+	if err != nil || parsed.ComponentTLS == nil || parsed.ComponentTLS.CAPEM != ca {
+		t.Fatal("public node CA rejected", err)
+	}
+	raw, _ = json.Marshal(Config{ComponentTLS: &ComponentTLS{CAPEM: ca, ServerName: "other-node"}})
+	if _, err = ParseFor("kubernetes_node_metrics", raw); err == nil {
+		t.Fatal("ignored native name override accepted")
 	}
 }

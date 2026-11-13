@@ -1,3 +1,4 @@
+import { requireTelemetrySignal } from "../dashboards/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { dashboardIssueMessage } from "../dashboards/validation-issues";
@@ -168,8 +169,8 @@ export function useObserveWorkspace(initial: ObserveQuery) {
               source_definition:
                 mode === "dsl"
                   ? { dsl: { expression: "" } }
-                  : makeQuery(q.panel.signal).panel.targets[0]!
-                      .source_definition,
+                  : makeQuery(requireTelemetrySignal(q.panel.signal)).panel
+                      .targets[0]!.source_definition,
             },
           ],
         },

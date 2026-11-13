@@ -550,5 +550,18 @@ export function commitKubernetesMutation(
     resourceId: input.operation_id,
   });
   ctx.save();
-  return { pending_action: structuredClone(action) };
+  const execution: NonNullable<ConfirmActionResult["execution"]> = {
+    execution_id: crypto.randomUUID(),
+    action_ref: action.action_ref,
+    action_type: action.action_type,
+    status: complete ? "succeeded" : "running",
+    one_time_result_state: "unavailable",
+    operation_ref: { kind: "kubernetes_operation", id: input.operation_id },
+    created_at: ctx.nowIso(),
+    updated_at: ctx.nowIso(),
+  };
+  action.execution_ref = execution.execution_id;
+  ctx.db.executions.unshift(execution);
+  ctx.save();
+  return { pending_action: structuredClone(action), execution };
 }

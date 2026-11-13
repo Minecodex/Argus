@@ -9,6 +9,7 @@ import {
   useApi,
   type KubernetesInventoryObject,
   type PendingActionPublic,
+  type ConfirmActionResult,
 } from "@argus/api-client";
 import { Button, Dialog, Field, Input, KeyValueGrid } from "@argus/ui";
 import { PendingActionConfirm } from "../hosts/pending-action-confirm";
@@ -33,12 +34,14 @@ export function KubernetesJobRunDialog({
   source,
   onClose,
   onSubmitted,
+  initialName,
 }: {
   clusterId: string;
   namespaceId: string;
   source: KubernetesInventoryObject;
   onClose: () => void;
-  onSubmitted: () => void;
+  initialName?: string;
+  onSubmitted: (submission: ConfirmActionResult, name: string) => void;
 }) {
   const api = useApi(),
     { t } = useTranslation();
@@ -48,7 +51,9 @@ export function KubernetesJobRunDialog({
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: `${source.name.slice(0, 40).replace(/[-.]$/u, "")}-manual-${crypto.randomUUID().slice(0, 8)}`,
+      name:
+        initialName ??
+        `${source.name.slice(0, 40).replace(/[-.]$/u, "")}-manual-${crypto.randomUUID().slice(0, 8)}`,
     },
   });
   const current = useQuery({
@@ -123,8 +128,8 @@ export function KubernetesJobRunDialog({
         <PendingActionConfirm
           action={pending}
           confirmLabel={t("kubernetesWorkbench.mutation.confirm")}
-          onDone={() => {
-            onSubmitted();
+          onDone={(result) => {
+            onSubmitted(result, form.getValues("name"));
             onClose();
           }}
           onCancel={onClose}
@@ -180,7 +185,7 @@ export function KubernetesJobRunDialog({
                 formatApiError(
                   current.error,
                   t("kubernetesWorkbench.errors.unavailable"),
-                (id) => t("common.requestReference", { requestId: id }),
+                  (id) => t("common.requestReference", { requestId: id }),
                 )}
             </p>
           )}

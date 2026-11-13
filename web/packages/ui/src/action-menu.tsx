@@ -9,11 +9,13 @@ export function ActionMenu({
   label,
   name,
   isDisabled,
+  description,
 }: {
   items: DropdownItem[];
   label?: string;
   name?: string;
   isDisabled?: boolean;
+  description?: string;
 }) {
   const text = useUiText();
   if (!items.some((item) => item !== "separator")) return null;
@@ -25,6 +27,7 @@ export function ActionMenu({
   return (
     <Dropdown
       items={items}
+      description={description}
       trigger={
         <Button
           isIconOnly

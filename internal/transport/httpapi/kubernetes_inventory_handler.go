@@ -123,6 +123,9 @@ func (h KubernetesHandler) ListKubernetesInventory(ctx context.Context, r api.Li
 	if r.Params.Name != nil {
 		in.Name = *r.Params.Name
 	}
+	if r.Params.State != nil {
+		in.State = string(*r.Params.State)
+	}
 	if r.Params.Labels != nil {
 		in.Labels = *r.Params.Labels
 	}

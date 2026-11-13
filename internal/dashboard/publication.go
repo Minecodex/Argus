@@ -158,6 +158,9 @@ func (extension ActionExtension) RevalidateAction(ctx context.Context, q *db.Que
 		}
 	}()
 	if action.ActionType != "telemetry.dashboard.publish" {
+		if strings.HasPrefix(action.ActionType, "telemetry.dashboard.overview.") {
+			return revalidateOverview(ctx, q, action, raw)
+		}
 		if strings.HasPrefix(action.ActionType, "telemetry.dashboard.binding.") {
 			return revalidateBinding(ctx, q, action, raw)
 		}
@@ -222,6 +225,9 @@ func (extension ActionExtension) CommitAction(ctx context.Context, q *db.Queries
 		}
 	}()
 	if action.ActionType != "telemetry.dashboard.publish" {
+		if strings.HasPrefix(action.ActionType, "telemetry.dashboard.overview.") {
+			return commitOverview(ctx, q, action, raw)
+		}
 		if strings.HasPrefix(action.ActionType, "telemetry.dashboard.binding.") {
 			return commitBinding(ctx, q, action, raw)
 		}
@@ -260,7 +266,7 @@ func (extension ActionExtension) CommitAction(ctx context.Context, q *db.Queries
 		revisionNumber = previous.RevisionNumber + 1
 	}
 	validation, _ := json.Marshal(plan.Validation)
-	revision, err := q.CreateDashboardRevision(ctx, db.CreateDashboardRevisionParams{ID: uuid.New(), EnterpriseID: actor.EnterpriseID, DashboardID: item.ID, RevisionNumber: revisionNumber, SchemaVersion: SchemaVersion, Name: draft.Name, Description: draft.Description, FolderID: draft.FolderID, Spec: draft.Spec, SpecHash: plan.SpecHash, ValidationReport: validation, SampleReport: plan.Sample, CreatedBy: actor.SubjectID})
+	revision, err := q.CreateDashboardRevision(ctx, db.CreateDashboardRevisionParams{ID: uuid.New(), EnterpriseID: actor.EnterpriseID, DashboardID: item.ID, RevisionNumber: revisionNumber, SchemaVersion: func() string { spec, _ := DecodeSpec(draft.Spec); return spec.SchemaVersion }(), Name: draft.Name, Description: draft.Description, FolderID: draft.FolderID, Spec: draft.Spec, SpecHash: plan.SpecHash, ValidationReport: validation, SampleReport: plan.Sample, CreatedBy: actor.SubjectID})
 	if err != nil {
 		return result, err
 	}

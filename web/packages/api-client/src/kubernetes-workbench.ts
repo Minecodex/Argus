@@ -1,4 +1,8 @@
-import type { components } from "./generated/kubernetesapi";
+import type { components as DashboardComponents } from "./generated/dashboardapi";
+import type {
+  components,
+  operations as KubernetesInventoryOperations,
+} from "./generated/kubernetesapi";
 import type { PendingActionPublic } from "./types";
 export type KubernetesMutationInput =
   components["schemas"]["KubernetesMutationInput"];
@@ -22,6 +26,18 @@ export type KubernetesLogSession =
   components["schemas"]["KubernetesLogSession"];
 export type KubernetesLogSessionBatch =
   components["schemas"]["KubernetesLogSessionBatch"];
+export type KubernetesResourceSnapshot =
+  KubernetesInventorySchemas["KubernetesResourceSnapshot"];
+export type KubernetesResourceReference = Pick<
+  KubernetesInventorySchemas["KubernetesSnapshotResource"],
+  "type" | "name" | "uid" | "namespace" | "namespace_id" | "namespace_uid"
+> & { operation_id?: string };
+export type KubernetesSnapshotInput = {
+  namespace_mode?: "all_authorized" | "explicit";
+  namespace_ids?: string[];
+  types?: string[];
+  max_items?: number;
+};
 export type KubernetesInventoryObject =
   KubernetesInventorySchemas["KubernetesInventoryObject"];
 export type KubernetesInventoryDefinition =
@@ -116,6 +132,7 @@ export type KubernetesInventoryInput = {
   namespace_ids?: string[];
   name?: string;
   labels?: string;
+  state?: string;
   limit?: number;
   cursor?: string;
 };
@@ -127,6 +144,34 @@ export type KubernetesObjectInput = {
 };
 export interface KubernetesWorkbenchDomains {
   kubernetesWorkbench: {
+    overviewCandidates(
+      cluster: string,
+      input: { search?: string; cursor?: string; limit?: number },
+      signal?: AbortSignal,
+    ): Promise<DashboardComponents["schemas"]["KubernetesOverviewCandidates"]>;
+    overview(
+      cluster: string,
+      signal?: AbortSignal,
+    ): Promise<DashboardComponents["schemas"]["KubernetesOverviewSelection"]>;
+    previewOverview(
+      cluster: string,
+      input: DashboardComponents["schemas"]["KubernetesOverviewInput"],
+    ): Promise<PendingActionPublic>;
+    executeOverview(
+      cluster: string,
+      input: DashboardComponents["schemas"]["KubernetesOverviewExecutionInput"],
+      signal?: AbortSignal,
+    ): Promise<DashboardComponents["schemas"]["DashboardExecution"]>;
+    snapshot(
+      cluster: string,
+      input: KubernetesSnapshotInput,
+      signal?: AbortSignal,
+    ): Promise<KubernetesResourceSnapshot>;
+    related(
+      cluster: string,
+      input: KubernetesInventoryOperations["getKubernetesRelatedResources"]["parameters"]["query"],
+      signal?: AbortSignal,
+    ): Promise<KubernetesInventorySchemas["KubernetesRelatedPage"]>;
     helmReleases(
       cluster: string,
       namespaceId: string,

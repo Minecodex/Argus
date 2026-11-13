@@ -18,7 +18,7 @@ func TestBuiltinTemplatesCompileNativeMetrics(t *testing.T) {
 			}
 			for _, panel := range definition.Spec.Panels {
 				minimum := 256
-				if definition.Key == "argus.model-governance" && panel.Type == "stat" {
+				if definition.Key == "argus.model-governance" && panel.Type == "stat" || operationalPanel(panel) && (panel.Type == "resource_summary" || panel.Type == "alert_summary") {
 					minimum = 128
 				}
 				if panel.Layout.H*definition.Spec.Layout.RowHeight < minimum {

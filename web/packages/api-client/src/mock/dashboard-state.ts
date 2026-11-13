@@ -14,6 +14,12 @@ import { resolvePermissions } from "./permissions";
 import { validateMockDisplay } from "./dashboard-display";
 
 export interface MockDashboards {
+  overviews?: {
+    enterprise: string;
+    cluster: string;
+    dashboard_id: string;
+    version: number;
+  }[];
   items: Array<{ enterprise: string; creator: string; value: DashboardItem }>;
   drafts: Array<{ enterprise: string; editor: string; value: DashboardDraft }>;
   revisions: DashboardRevision[];
@@ -55,7 +61,11 @@ export function dashboardFailure(
     status,
   );
 }
-export function dashboardPermission(ctx: BaseContext, manage = false, includeModels = false) {
+export function dashboardPermission(
+  ctx: BaseContext,
+  manage = false,
+  includeModels = false,
+) {
   const permissions = resolvePermissions(
     ctx.db,
     ctx.enterpriseId(),
@@ -63,7 +73,8 @@ export function dashboardPermission(ctx: BaseContext, manage = false, includeMod
     ctx.nowIso(),
   );
   if (
-    !permissions.has("*") && !(includeModels && !manage && permissions.has("model.usage.read")) &&
+    !permissions.has("*") &&
+    !(includeModels && !manage && permissions.has("model.usage.read")) &&
     !permissions.has(
       manage ? "telemetry.dashboard.manage" : "telemetry.dashboard.read",
     )
@@ -75,9 +86,15 @@ export function dashboardAccess(ctx: BaseContext, id: string) {
     (r) => r.enterprise === ctx.enterpriseId() && r.value.id === id,
   );
   if (!record) return false;
-  if (record.value.managed_template_key === "argus.model-governance") return modelGovernancePermission(ctx);
+  if (record.value.managed_template_key === "argus.model-governance")
+    return modelGovernancePermission(ctx);
   if (record.value.managed_template_key) {
-    const permissions = resolvePermissions(ctx.db, ctx.enterpriseId(), ctx.actor().id, ctx.nowIso());
+    const permissions = resolvePermissions(
+      ctx.db,
+      ctx.enterpriseId(),
+      ctx.actor().id,
+      ctx.nowIso(),
+    );
     return permissions.has("*") || permissions.has("telemetry.dashboard.read");
   }
   return dashboardObjectGrant(ctx, "dashboard", id);
@@ -118,13 +135,22 @@ export function dashboardObjectGrant(
   );
 }
 export function mockDashboard(ctx: BaseContext, id: string) {
-  const internal = dashboardState(ctx).items.some((r) => r.value.id === id && r.value.managed_template_key === "argus.model-governance");
+  const internal = dashboardState(ctx).items.some(
+    (r) =>
+      r.value.id === id &&
+      r.value.managed_template_key === "argus.model-governance",
+  );
   dashboardPermission(ctx, false, internal);
   if (!dashboardAccess(ctx, id)) dashboardFailure("DASHBOARD_DENIED", 403);
   return dashboardState(ctx).items.find((r) => r.value.id === id)!.value;
 }
 export function modelGovernancePermission(ctx: BaseContext) {
-  const permissions = resolvePermissions(ctx.db, ctx.enterpriseId(), ctx.actor().id, ctx.nowIso());
+  const permissions = resolvePermissions(
+    ctx.db,
+    ctx.enterpriseId(),
+    ctx.actor().id,
+    ctx.nowIso(),
+  );
   return permissions.has("*") || permissions.has("model.usage.read");
 }
 export function mockDraft(ctx: BaseContext, id: string) {
@@ -170,7 +196,9 @@ export function validateMockDashboard(spec: DashboardSpec) {
   const add = (path: string, message: string) =>
     issues.push({ path, code: "DASHBOARD_INVALID", message });
   if (
-    spec.schema_version !== "argus.telemetry_dashboard/v1" ||
+    !["argus.telemetry_dashboard/v1", "argus.telemetry_dashboard/v2"].includes(
+      spec.schema_version,
+    ) ||
     spec.layout.columns !== 12
   )
     add("layout", "Invalid schema or column count");
@@ -220,6 +248,17 @@ export function validateMockDashboard(spec: DashboardSpec) {
         q.y < r.y + r.h
       )
         add(`panels.${p.id}.layout`, "Overlapping panels");
+    }
+    if (p.data_source && p.data_source.kind !== "telemetry") {
+      if (
+        spec.schema_version !== "argus.telemetry_dashboard/v2" ||
+        !["kubernetes_inventory", "alert_instances"].includes(
+          p.data_source.kind,
+        ) ||
+        p.targets.length
+      )
+        add("data_source", "Invalid operational source");
+      return;
     }
     if (!p.targets.length) add(`panels.${p.id}`, "Query required");
     for (const target of p.targets) {

@@ -19,7 +19,9 @@ export function ensureManagedDashboards(ctx: BaseContext) {
     const internal = template.key === "argus.model-governance";
     if (internal && !modelGovernancePermission(ctx)) continue;
     if (
-      !internal && !own.some(
+      !internal &&
+      template.key !== "kubernetes.operations-overview" &&
+      !own.some(
         (row) =>
           row.status === "active" &&
           template.integration_keys.some((key) => key === row.integration) &&

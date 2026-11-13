@@ -25,6 +25,7 @@ type RuntimeBackend interface {
 	telemetry.DataCatalogBackend
 }
 type Runtime struct {
+	Inventory                     InventoryRuntime
 	Store                         *postgres.Store
 	Backend                       RuntimeBackend
 	ContextKey                    []byte
@@ -54,6 +55,7 @@ type PanelExecution struct {
 	DetailSources map[string][]ResolvedSource `json:"detail_sources"`
 }
 type Execution struct {
+	KubernetesScope    *dashboardparams.KubernetesScope     `json:"kubernetes_scope,omitempty"`
 	ModelGovernance    *modelmetrics.Response               `json:"model_governance,omitempty"`
 	ScopeSelection     *observationscope.Selection          `json:"scope_selection,omitempty"`
 	ScopeVersions      ScopeVersions                        `json:"scope_versions"`
@@ -230,6 +232,18 @@ func executionTime(spec Spec, input ExecutionInput) (time.Time, time.Time, error
 }
 
 func runtimeSupported(spec Spec) error {
+	if spec.SchemaVersion != SchemaVersion && spec.SchemaVersion != SchemaVersionV2 {
+		return ErrInvalid
+	}
+	valid := true
+	for _, panel := range spec.Panels {
+		if operationalPanel(panel) {
+			validateOperationalPanel(spec, panel, "panel", func(string, string) { valid = false })
+		}
+	}
+	if !valid {
+		return ErrInvalid
+	}
 	return nil
 }
 
@@ -252,6 +266,7 @@ func (runtime Runtime) executePrepared(ctx context.Context, actor Actor, spec Sp
 	if result.DashboardID != uuid.Nil && result.RevisionID != uuid.Nil {
 		runtime.cacheDashboard, runtime.cacheRevision = result.DashboardID, result.RevisionID
 	}
+	round := operationalPlan(spec, result.Panels)
 	for i := range result.Panels {
 		entry := &result.Panels[i]
 		panel := spec.Panels[slices.IndexFunc(spec.Panels, func(p Panel) bool { return p.ID == entry.ID })]
@@ -261,10 +276,27 @@ func (runtime Runtime) executePrepared(ctx context.Context, actor Actor, spec Sp
 				resources = append(resources, r)
 			}
 		}
+		if operationalPanel(panel) && entry.Status != "not_applicable" {
+			value, e := runtime.executeOperational(ctx, actor, panel, result, round)
+			if e != nil {
+				return result, e
+			}
+			entry.Targets = append(entry.Targets, value)
+			entry.Status = value.Status
+			if value.Status != "success" {
+				result.Partial = true
+			}
+			continue
+		}
 		for _, target := range panel.Targets {
 			if entry.Status == "not_applicable" {
 				_, _ = budget.next(ctx)
 				entry.Targets = append(entry.Targets, TargetExecution{ID: target.ID, Status: "not_applicable"})
+				continue
+			}
+			if runtime.Backend == nil {
+				entry.Targets = append(entry.Targets, TargetExecution{ID: target.ID, Status: "error", Code: "DASHBOARD_UNAVAILABLE"})
+				result.Partial = true
 				continue
 			}
 			targetResult, e := runtime.executeTarget(ctx, actor, spec, panel, target, result.Variables, result.LocalValues[panel.ID], nil, queryScope{result.From, result.To, resources, entry.Sources}, budget)
@@ -306,10 +338,12 @@ func (runtime Runtime) executePrepared(ctx context.Context, actor Actor, spec Sp
 
 func (runtime Runtime) prepareSpec(ctx context.Context, actor Actor, spec Spec, input ExecutionInput) (Execution, *executionBudget, error) {
 	runtime = runtime.metered(actor)
-	result := Execution{Panels: []PanelExecution{}}
-	if runtime.Backend == nil {
-		return result, nil, ErrUnavailable
+	var scopeErr error
+	input, scopeErr = runtime.normalizeKubernetesScope(ctx, actor, input)
+	if scopeErr != nil {
+		return Execution{}, nil, scopeErr
 	}
+	result := Execution{Panels: []PanelExecution{}, KubernetesScope: input.KubernetesScope}
 	if err := runtimeSupported(spec); err != nil {
 		return result, nil, err
 	}
@@ -365,7 +399,7 @@ func (runtime Runtime) prepareSpec(ctx context.Context, actor Actor, spec Spec, 
 		entry := PanelExecution{ID: panel.ID, Status: "success", Targets: []TargetExecution{}, Sources: []ResolvedSource{}, DetailSources: map[string][]ResolvedSource{}}
 		if len(refs) == 0 {
 			entry.Status = "not_applicable"
-		} else {
+		} else if !operationalPanel(panel) {
 			entry.Sources, err = resolveSources(ctx, runtime.Store.Queries, actor, panel.SourceBinding, panel.Signal, refs, runtime.scopeApplications)
 			if err != nil {
 				return result, nil, err
@@ -469,6 +503,9 @@ func (runtime Runtime) verifySample(ctx context.Context, actor Actor, spec Spec,
 		return report, nil, err
 	}
 	for _, panel := range spec.Panels {
+		if operationalPanel(panel) {
+			continue
+		}
 		if panel.SourceBinding.CapabilityVersion != "v1" || !slices.Contains(sourceSignals[panel.SourceBinding.SourceType], panel.Signal) {
 			report.Valid = false
 			report.Issues = append(report.Issues, Issue{Path: "panels." + panel.ID, Code: "SOURCE_UNSUPPORTED", Message: "source capability is not supported"})

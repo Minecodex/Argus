@@ -1434,6 +1434,166 @@ func (response PreviewClusterDashboardBindingdefaultJSONResponse) VisitPreviewCl
 	return err
 }
 
+type GetKubernetesOverviewRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type GetKubernetesOverviewResponseObject interface {
+	VisitGetKubernetesOverviewResponse(w http.ResponseWriter) error
+}
+
+type GetKubernetesOverview200JSONResponse KubernetesOverviewSelection
+
+func (response GetKubernetesOverview200JSONResponse) VisitGetKubernetesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetKubernetesOverviewdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response GetKubernetesOverviewdefaultJSONResponse) VisitGetKubernetesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListKubernetesOverviewCandidatesRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params ListKubernetesOverviewCandidatesParams
+}
+
+type ListKubernetesOverviewCandidatesResponseObject interface {
+	VisitListKubernetesOverviewCandidatesResponse(w http.ResponseWriter) error
+}
+
+type ListKubernetesOverviewCandidates200JSONResponse KubernetesOverviewCandidates
+
+func (response ListKubernetesOverviewCandidates200JSONResponse) VisitListKubernetesOverviewCandidatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListKubernetesOverviewCandidatesdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response ListKubernetesOverviewCandidatesdefaultJSONResponse) VisitListKubernetesOverviewCandidatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExecuteKubernetesOverviewRequestObject struct {
+	Id   openapi_types.UUID `json:"id"`
+	Body *ExecuteKubernetesOverviewJSONRequestBody
+}
+
+type ExecuteKubernetesOverviewResponseObject interface {
+	VisitExecuteKubernetesOverviewResponse(w http.ResponseWriter) error
+}
+
+type ExecuteKubernetesOverview200JSONResponse DashboardExecution
+
+func (response ExecuteKubernetesOverview200JSONResponse) VisitExecuteKubernetesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExecuteKubernetesOverviewdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response ExecuteKubernetesOverviewdefaultJSONResponse) VisitExecuteKubernetesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewKubernetesOverviewRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params PreviewKubernetesOverviewParams
+	Body   *PreviewKubernetesOverviewJSONRequestBody
+}
+
+type PreviewKubernetesOverviewResponseObject interface {
+	VisitPreviewKubernetesOverviewResponse(w http.ResponseWriter) error
+}
+
+type PreviewKubernetesOverview201JSONResponse PendingActionPublicSchema
+
+func (response PreviewKubernetesOverview201JSONResponse) VisitPreviewKubernetesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewKubernetesOverviewdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response PreviewKubernetesOverviewdefaultJSONResponse) VisitPreviewKubernetesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListMonitoringTargetDashboardBindingsRequestObject struct {
 	Id openapi_types.UUID `json:"id"`
 }

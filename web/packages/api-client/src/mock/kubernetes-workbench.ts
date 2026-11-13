@@ -1,3 +1,7 @@
+import { dashboardState, dashboardAccess } from "./dashboard-state";
+import { mockOverview, validateOverviewChoice } from "./kubernetes-overview";
+import { createDashboardDomains } from "./dashboard";
+import { mockResourceView } from "./kubernetes-resource-view";
 import { ensureKubernetesInventory } from "./kubernetes-seed";
 import { createKubernetesLogSessionDomains } from "./kubernetes-log-sessions";
 import { createKubernetesStreamDomains } from "./kubernetes-stream-sessions";
@@ -127,6 +131,151 @@ export function createKubernetesWorkbenchDomains(
   };
   return {
     kubernetesWorkbench: {
+      async overviewCandidates(id, input) {
+        const access = scope(id);
+        if (!access.cluster_wide) fail("KUBERNETES_API_FORBIDDEN", 403);
+        mockOverview(ctx, access);
+        const data = dashboardState(ctx);
+        const items = data.items
+          .filter(
+            (row) =>
+              row.enterprise === ctx.enterpriseId() &&
+              row.value.lifecycle === "active" &&
+              row.value.name
+                .toLocaleLowerCase()
+                .includes((input.search ?? "").toLocaleLowerCase()),
+          )
+          .filter((row) => {
+            try {
+              dashboardAccess(ctx, row.value.id);
+              return true;
+            } catch {
+              return false;
+            }
+          })
+          .filter((row) => {
+            const revision = data.revisions.find(
+              (item) => item.id === row.value.active_revision_id,
+            );
+            return (
+              revision?.spec.panels.length &&
+              revision.spec.panels.every((panel) =>
+                panel.applicable_resource_types.some(
+                  (kind) =>
+                    kind === "kubernetes_cluster" ||
+                    kind === "kubernetes_namespace",
+                ),
+              )
+            );
+          })
+          .map((row) => row.value);
+        const start = input.cursor ? Number(input.cursor) : 0,
+          limit = input.limit ?? 50;
+        return {
+          items: items.slice(start, start + limit),
+          next_cursor:
+            start + limit < items.length ? String(start + limit) : undefined,
+        };
+      },
+      async overview(id) {
+        await ctx.pause();
+        return mockOverview(ctx, scope(id));
+      },
+      async previewOverview(id, input) {
+        const access = scope(id);
+        const { board } = validateOverviewChoice(ctx, access, input);
+        const action = ctx.createPendingAction({
+          tool:
+            "telemetry.dashboard.overview." +
+            (input.reset ? "reset" : "select"),
+          title: board.name,
+          risk: "write",
+          input_data: { ...input, cluster_id: id },
+        });
+        ctx.save();
+        return structuredClone(action);
+      },
+      async executeOverview(id, input) {
+        const current = mockOverview(ctx, scope(id));
+        if (current.dashboard?.id !== input.expected_dashboard_id)
+          fail("DASHBOARD_SELECTION_STALE", 409);
+        if (input.kubernetes_scope && input.kubernetes_scope.cluster_id !== id)
+          fail("KUBERNETES_API_FORBIDDEN", 403);
+        return createDashboardDomains(ctx).dashboards.execute(
+          current.dashboard.id,
+          {
+            ...input,
+            resource_mode: "explicit",
+            resource_ids: [id],
+            resource_types: ["kubernetes_cluster"],
+            kubernetes_scope: { ...input.kubernetes_scope, cluster_id: id },
+          },
+        );
+      },
+      async related(id, input, signal) {
+        const source = await this.object(id, input, signal);
+        const snapshot = await this.snapshot(id, { namespace_mode: input.namespace_id ? "explicit" : "all_authorized", namespace_ids: input.namespace_id ? [input.namespace_id] : undefined, types: input.view === "events" ? ["event"] : ["pod", "deployment", "cronjob", "job", "pvc", "pdb"] }, signal);
+        const related = snapshot.resources.filter(row => row.uid !== source.uid && (input.view === "events" ? row.summary.fields.involved_uid === source.uid : source.definition.key === "namespace" ? row.namespace_uid === source.uid : source.owners.some(owner => owner.uid === row.uid) || row.summary.fields.owner?.includes(source.definition.kind + "/" + source.name)));
+        const offset = Number(input.cursor ?? 0), limit = input.limit ?? 30;
+        return { items: related.slice(offset, offset + limit), next_cursor: offset + limit < related.length ? String(offset + limit) : undefined, complete: true, errors: {}, observed_at: ctx.nowIso() };
+      },
+      async snapshot(id, input, signal) {
+        const access = scope(id);
+        const resources: import("../kubernetes-workbench").KubernetesResourceSnapshot["resources"] =
+          [];
+        const counts: Record<string, Record<string, number>> = {};
+        for (const type of input.types ?? [
+          "pod",
+          "deployment",
+          "cronjob",
+          "pvc",
+        ]) {
+          const page = await this.list(
+            id,
+            {
+              type,
+              namespace_mode: input.namespace_mode,
+              namespace_ids: input.namespace_ids,
+              limit: 100,
+            },
+            signal,
+          );
+          for (const row of page.items) {
+            const summary = row.summary ?? {
+              state: "unknown" as const,
+              fields: {},
+            };
+            resources.push({
+              type,
+              name: row.name,
+              uid: row.uid,
+              namespace: row.namespace,
+              namespace_uid: row.namespace_uid,
+              namespace_id: row.namespace_uid
+                ? page.namespace_references[row.namespace_uid]
+                : undefined,
+              summary,
+              actions: row.actions ?? [],
+              created_at: row.created_at,
+            });
+            counts[type] ??= { total: 0 };
+            counts[type]!.total = (counts[type]!.total ?? 0) + 1;
+            counts[type]![summary.state] =
+              (counts[type]![summary.state] ?? 0) + 1;
+          }
+        }
+        return {
+          cluster_id: id,
+          cluster_wide: access.cluster_wide,
+          resources,
+          relations: [],
+          counts,
+          complete: true,
+          errors: {},
+          observed_at: ctx.nowIso(),
+          scope_signature: JSON.stringify(access),
+        };
+      },
       ...createKubernetesHelmDomains(ctx, state, scope),
       ...createKubernetesMutationDomains(ctx, state, scope),
       ...createKubernetesLogSessionDomains(ctx, state, scope),
@@ -171,7 +320,18 @@ export function createKubernetesWorkbenchDomains(
       },
       async list(id, input) {
         await ctx.pause();
-        const { access, data, rows } = visible(id, input),
+        const { access, data, rows: unfiltered } = visible(id, input),
+          rows = unfiltered.filter((row) => {
+            const state = mockResourceView(row).summary?.state;
+            return (
+              !input.state ||
+              (input.state === "attention"
+                ? ["failed", "warning", "pending", "unknown"].includes(
+                    state ?? "unknown",
+                  )
+                : input.state === state)
+            );
+          }),
           limit = input.limit ?? 50;
         if (limit < 1 || limit > 200) fail();
         const binding = JSON.stringify({
@@ -226,7 +386,7 @@ export function createKubernetesWorkbenchDomains(
         });
         return {
           watch_token: watchToken,
-          items: structuredClone(rows.slice(offset, offset + limit)),
+          items: rows.slice(offset, offset + limit).map(mockResourceView),
           next_cursor: next,
           complete: !next,
           observed_at: ctx.nowIso(),
@@ -253,7 +413,7 @@ export function createKubernetesWorkbenchDomains(
         const row = rows.find((v) => v.uid === input.uid);
         if (!row) fail("KUBERNETES_OBJECT_IDENTITY_CHANGED", 409);
         if (row.definition.namespaced && !input.namespace_id) fail();
-        return structuredClone(row);
+        return mockResourceView(row);
       },
     },
   };

@@ -17,174 +17,196 @@ import { CollectorStatusPanel } from "../components/kubernetes/collector-status"
 import { CollectorWizard } from "../components/kubernetes/collector-wizard";
 import { connectionStatusTone } from "../components/kubernetes/status";
 import { KubernetesWorkbench } from "../components/kubernetes/workbench";
+import { KubernetesClusterOverview } from "../components/kubernetes/cluster-overview";
+import { KubernetesOperationsDialog } from "../components/kubernetes/operations-dialog";
 import { ResourceObserveLink } from "../components/observe/resource-link";
 import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
 import { useResourceDashboardTab } from "../components/dashboards/use-resource-dashboard-tab";
+import { useResourceLocation } from "../components/kubernetes/resource-location";
 import { usePermission } from "../lib/permissions";
-import "../styles/kubernetes.css";
 import { ResourceExecutionActivity } from "../components/operations/execution-result";
+import "../styles/kubernetes.css";
+import "../styles/kubernetes-workbench.css";
 
-/** Kubernetes 集群详情：资源查询 + Collector 安装/管理。 */
 export function KubernetesClusterPage() {
-  const { t } = useTranslation();
-  const api = useApi();
-  const { clusterId } = useParams({ strict: false });
-  const search = useSearch({ from: "/authed/admin/kubernetes/$clusterId" });
+  const { t } = useTranslation(),
+    api = useApi(),
+    { clusterId } = useParams({ strict: false }),
+    id = clusterId ?? "";
+  const search = useSearch({ from: "/authed/admin/kubernetes/$clusterId" }),
+    location = useResourceLocation(id);
   const canReadDashboards = usePermission("telemetry.dashboard.read");
-  const id = clusterId ?? "";
-  const accessQuery = useQuery({
+  const access = useQuery({
     queryKey: ["kubernetes-workbench", id, "scope"],
     queryFn: ({ signal }) => api.kubernetesWorkbench.scope(id, signal),
-    enabled: id.length > 0,
+    enabled: !!id,
     refetchInterval: 10000,
   });
-
-  const clusterQuery = useQuery({
+  const wide = access.data?.cluster_wide === true;
+  const cluster = useQuery({
     queryKey: ["kubernetes", "clusters", id],
     queryFn: () => api.kubernetes.getCluster(id),
-    enabled: id.length > 0 && accessQuery.data?.cluster_wide === true,
+    enabled: !!id && wide,
   });
-  const collectorQuery = useQuery({
+  const collector = useQuery({
     queryKey: ["kubernetes", "collector", id],
     queryFn: () => api.kubernetes.getCollector(id),
-    enabled: id.length > 0 && accessQuery.data?.cluster_wide === true,
-    refetchInterval: (query) =>
-      query.state.data &&
+    enabled: !!id && wide,
+    refetchInterval: (q) =>
+      q.state.data &&
       ["pending_install", "installing", "uninstalling"].includes(
-        query.state.data.status,
+        q.state.data.status,
       )
         ? 2000
         : false,
   });
-
-  const cluster = clusterQuery.data;
-  const initialTab =
-    typeof window !== "undefined" && window.location.hash === "#otlp-collector"
+  const allowed = [
+    "resources",
+    "activity",
+    ...(canReadDashboards ? ["overview"] : []),
+    ...(wide
+      ? ["collector", ...(canReadDashboards ? ["dashboards"] : [])]
+      : []),
+  ];
+  const initial =
+    window.location.hash === "#otlp-collector" && wide
       ? "collector"
-      : "resources";
+      : canReadDashboards
+        ? "overview"
+        : "resources";
   const [tab, setTab] = useResourceDashboardTab(
     id,
-    initialTab === "collector" ? undefined : search.tab,
-    initialTab,
+    search.tab,
+    initial,
     canReadDashboards,
+    allowed,
   );
-
-  if (accessQuery.isPending || clusterQuery.isLoading) {
+  if (access.isPending || (wide && cluster.isLoading))
     return (
       <PageShell title={t("shell.nav.clusterDetail")}>
         <Spinner label={t("common.loading")} />
       </PageShell>
     );
-  }
-  if (
-    accessQuery.data &&
-    !accessQuery.error &&
-    !accessQuery.data.cluster_wide
-  ) {
+  if (!access.data || access.error || (wide && !cluster.data))
     return (
-      <PageShell
-        title={accessQuery.data.cluster_name}
-        breadcrumbs={[
-          { label: t("shell.nav.kubernetes"), href: "/kubernetes" },
-          { label: accessQuery.data.cluster_name },
-        ]}
-      >
-        <KubernetesWorkbench
-          key={id}
-          clusterId={id}
-          access={accessQuery.data}
-        />
-      </PageShell>
-    );
-  }
-
-  if (!cluster || !accessQuery.data || accessQuery.error) {
-    return (
-      <PageShell
-        breadcrumbs={[
-          { label: t("shell.nav.kubernetes"), href: "/kubernetes" },
-          { label: id },
-        ]}
-        title={t("shell.nav.clusterDetail")}
-      >
+      <PageShell title={t("shell.nav.clusterDetail")}>
         <EmptyState
-          description={t("kubernetes.loadFailed")}
+          description=""
           kind="error"
-          title={id}
+          title={t("kubernetes.loadFailed")}
         />
       </PageShell>
     );
-  }
-
+  const name = cluster.data?.name ?? access.data.cluster_name;
   return (
     <PageShell
       breadcrumbs={[
         { label: t("shell.nav.kubernetes"), href: "/kubernetes" },
-        { label: cluster.name },
+        { label: name },
       ]}
-      actions={
-        <ResourceObserveLink type="kubernetes_cluster" id={cluster.id} />
-      }
-      description={cluster.api_server}
+      description={cluster.data?.api_server}
       title={
         <span className="argus-k8s-cluster-card__head">
-          {cluster.name}
-          <Badge tone="accent">
-            {t(`kubernetes.environment.${cluster.environment}`)}
-          </Badge>
-          <StatusBadge tone={connectionStatusTone(cluster.connection_status)}>
-            {t(`kubernetes.status.${cluster.connection_status}`)}
-          </StatusBadge>
-          <Badge tone="neutral">{cluster.kubernetes_version}</Badge>
+          {name}
+          {cluster.data ? (
+            <>
+              <Badge tone="accent">
+                {t("kubernetes.environment." + cluster.data.environment)}
+              </Badge>
+              <StatusBadge
+                tone={connectionStatusTone(cluster.data.connection_status)}
+              >
+                {t("kubernetes.status." + cluster.data.connection_status)}
+              </StatusBadge>
+              {cluster.data.kubernetes_version && (
+                <Badge>{cluster.data.kubernetes_version}</Badge>
+              )}
+            </>
+          ) : (
+            <Badge>{t("kubernetesWorkbench.namespaceOnly")}</Badge>
+          )}
         </span>
       }
+      actions={
+        wide ? (
+          <ResourceObserveLink type="kubernetes_cluster" id={id} />
+        ) : undefined
+      }
     >
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          setTab(value);
+          location.update(
+            { tab: value as NonNullable<typeof search.tab> },
+            false,
+          );
+        }}
+      >
         <TabsList>
-          <TabsTrigger value="activity">{t("operations.title")}</TabsTrigger>
+          {canReadDashboards && (
+            <TabsTrigger value="overview">
+              {t("kubernetesResources.overviewTab")}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="resources">
             {t("kubernetes.detail.resourcesTab")}
           </TabsTrigger>
-          {canReadDashboards && (
+          {wide && canReadDashboards && (
             <TabsTrigger value="dashboards">
               {t("dashboardLinks.resourceTab")}
             </TabsTrigger>
           )}
-          <TabsTrigger value="collector">
-            {t("kubernetes.detail.collectorTab")}
-          </TabsTrigger>
+          {wide && (
+            <TabsTrigger value="collector">
+              {t("kubernetes.detail.collectorTab")}
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="activity">{t("operations.title")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="activity">
-          <ResourceExecutionActivity
-            resourceId={cluster.id}
-            resourceName={cluster.name}
-          />
-        </TabsContent>
-        <TabsContent value="resources">
-          <KubernetesWorkbench
-            key={id}
-            clusterId={id}
-            access={accessQuery.data}
-          />
-        </TabsContent>
         {canReadDashboards && (
+          <TabsContent value="overview">
+            <KubernetesClusterOverview
+              clusterId={id}
+              access={access.data}
+              visible={tab === "overview"}
+            />
+          </TabsContent>
+        )}
+        <TabsContent value="resources">
+          <KubernetesWorkbench key={id} clusterId={id} access={access.data} />
+        </TabsContent>
+        {wide && canReadDashboards && (
           <TabsContent value="dashboards">
             <ResourceDashboardLinks type="kubernetes_cluster" id={id} />
           </TabsContent>
         )}
-        <TabsContent value="collector">
-          <div id="otlp-collector">
-            {collectorQuery.isLoading ? (
-              <Spinner label={t("common.loading")} />
-            ) : collectorQuery.data ? (
-              <CollectorStatusPanel
-                cluster={cluster}
-                collector={collectorQuery.data}
-              />
-            ) : (
-              <CollectorWizard cluster={cluster} />
-            )}
-          </div>
+        {wide && cluster.data && (
+          <TabsContent value="collector">
+            <div id="otlp-collector">
+              {collector.isLoading ? (
+                <Spinner label={t("common.loading")} />
+              ) : collector.data ? (
+                <CollectorStatusPanel
+                  cluster={cluster.data}
+                  collector={collector.data}
+                />
+              ) : (
+                <CollectorWizard cluster={cluster.data} />
+              )}
+            </div>
+          </TabsContent>
+        )}
+        <TabsContent value="activity">
+          {wide ? (
+            <ResourceExecutionActivity resourceId={id} resourceName={name} />
+          ) : (
+            <KubernetesOperationsDialog
+              clusterId={id}
+              embedded
+              onClose={() => location.update({ tab: "resources" })}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </PageShell>

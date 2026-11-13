@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { selectWorkbenchNamespace } from "./helpers/kubernetes-workbench";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -25,18 +26,13 @@ for (const english of [false, true])
         .fill("123456");
       await page.locator('form button[type="submit"]').click();
       await expect(page).not.toHaveURL(/\/login/);
-      await page.goto("/kubernetes/k8s-prod-east");
+      await page.goto("/kubernetes/k8s-prod-east?tab=resources");
       await selectWorkbenchNamespace(page, "production");
       await page.getByRole("tab", { name: "CronJob", exact: true }).click();
       const row = page
         .getByRole("row")
         .filter({ has: page.getByText("cronjob-example", { exact: true }) });
-      await row
-        .getByRole("button", {
-          name: text("运行一次", "Run once"),
-          exact: true,
-        })
-        .click();
+      await selectRowAction(row, text("立即运行", "Run now"));
       const dialog = page.getByRole("dialog", {
         name: text(
           "从 cronjob-example 创建一次 Job",
@@ -75,6 +71,15 @@ for (const english of [false, true])
       await dialog
         .getByRole("button", {
           name: text("确认执行", "Confirm operation"),
+          exact: true,
+        })
+        .click();
+      await expect(page.locator(".argus-k8s-operation-feedback")).toContainText(
+        text("已生效", "Applied"),
+      );
+      await page
+        .getByRole("button", {
+          name: text("操作记录", "Operation history"),
           exact: true,
         })
         .click();

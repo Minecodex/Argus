@@ -1,27 +1,40 @@
+import { useEnterpriseAuthStore } from "@argus/auth";
+import { useInventoryPagination } from "./use-inventory-pagination";
+import { ResourceActions } from "./resource-actions";
+import { KubernetesResourceDetail } from "./resource-detail";
+import { KubernetesOperationFeedback } from "./operation-feedback";
+import {
+  resourceColumns,
+  formatResourceField,
+  stateTone,
+  readonlyKinds,
+  referenceOf,
+} from "./resource-model";
+import { useResourceLocation } from "./resource-location";
+import type { KubernetesResourceReference } from "@argus/api-client";
 import type { NamespaceChoice } from "./namespace-picker";
 import { NamespaceSelect } from "./namespace-select";
 import { useInventoryError } from "./inventory-error";
-import { useState } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { RefreshCw } from "lucide-react";
 import {
   useApi,
   type KubernetesInventoryObject,
+  type ConfirmActionResult,
   type KubernetesInventoryScope,
 } from "@argus/api-client";
 import {
   Badge,
+  Select,
   Button,
   Pagination,
-  CodeBlock,
   DataTable,
-  Dialog,
   EmptyState,
   FilterBar,
   Input,
   SearchInput,
-  KeyValueGrid,
   Spinner,
   Tabs,
   TabsContent,
@@ -30,7 +43,10 @@ import {
 } from "@argus/ui";
 import "../../styles/kubernetes-workbench.css";
 import { usePermission } from "../../lib/permissions";
-import { KubernetesMutationDialog } from "./mutation-dialog";
+import {
+  KubernetesMutationDialog,
+  type KubernetesMutationEdit,
+} from "./mutation-dialog";
 import { KubernetesOperationsDialog } from "./operations-dialog";
 import { KubernetesJobRunDialog } from "./job-run-dialog";
 import { KubernetesLogSessionDialog } from "./log-session-dialog";
@@ -47,35 +63,65 @@ export function KubernetesWorkbench({
     cache = useQueryClient(),
     { t, i18n } = useTranslation(),
     formatError = useInventoryError();
+  const location = useResourceLocation(clusterId);
+  const listScroll = useRef<number | undefined>(undefined);
+  const restoreList = useCallback(() => {
+    const top = listScroll.current;
+    if (top !== undefined)
+      requestAnimationFrame(() =>
+        document.querySelector("main")?.scrollTo({ top }),
+      );
+  }, []);
+  const [submission, setSubmission] = useState<ConfirmActionResult>();
+  const [initialEdit, setInitialEdit] = useState<KubernetesMutationEdit>();
+  const [reviewInput, setReviewInput] = useState<() => void>();
+  const [jobName, setJobName] = useState<string>();
+  const [mutationNamespace, setMutationNamespace] = useState<NamespaceChoice>();
+  const [mutationIntent, setMutationIntent] = useState<string>();
+  const [sessionNamespaceId, setSessionNamespaceId] = useState<string>();
   const [category, setCategory] = useState("workload"),
-    [type, setType] = useState("deployment"),
-    [namespace, setNamespace] = useState<NamespaceChoice>();
+    [type, setType] = useState(location.search.kind ?? "deployment"),
+    [namespace, setNamespace] = useState<NamespaceChoice | undefined>(
+      location.search.namespace_id
+        ? {
+            id: location.search.namespace_id,
+            name: location.search.namespace_name ?? "",
+          }
+        : undefined,
+    );
   const [jobSource, setJobSource] = useState<KubernetesInventoryObject>();
   const [logSource, setLogSource] = useState<KubernetesInventoryObject>();
   const [streamSource, setStreamSource] = useState<KubernetesInventoryObject>();
-  const canExec = usePermission("kubernetes.exec");
-  const canReadLogs = usePermission("kubernetes.operational_logs.read");
-  const [name, setName] = useState(""),
-    [labels, setLabels] = useState(""),
-    [filters, setFilters] = useState({ name: "", labels: "" });
-  const [cursors, setCursors] = useState<Array<string | undefined>>([
-      undefined,
-    ]),
-    [selected, setSelected] = useState<KubernetesInventoryObject>();
+  const [name, setName] = useState(location.search.name_filter ?? ""),
+    [labels, setLabels] = useState(location.search.label_filter ?? ""),
+    [filters, setFilters] = useState({
+      name: location.search.name_filter ?? "",
+      labels: location.search.label_filter ?? "",
+    });
+  const [selected, setSelected] = useState<KubernetesResourceReference>();
   const types = useQuery({
     queryKey: ["kubernetes-workbench", clusterId, "types"],
     queryFn: ({ signal }) => api.kubernetesWorkbench.types(clusterId, signal),
   });
-  const definitions = types.error ? [] : (types.data?.items ?? []);
+  const definitions = useMemo(
+    () => (types.error ? [] : (types.data?.items ?? [])),
+    [types.error, types.data?.items],
+  );
   const categories = [...new Set(definitions.map((v) => v.category))];
   const visibleTypes = definitions.filter((v) => v.category === category);
-  const definition =
-    visibleTypes.find((v) => v.key === type) ?? visibleTypes[0];
+  const definition = type
+    ? definitions.find((v) => v.key === type)
+    : visibleTypes[0];
   const canManage = usePermission(definition?.manage_permission ?? "");
   const [mutation, setMutation] = useState<
     "create" | KubernetesInventoryObject
   >();
   const [operationsOpen, setOperationsOpen] = useState(false);
+  const [operationId, setOperationId] = useState<string>();
+  const showOperation = (id: string) => {
+    setOperationId(id);
+    setOperationsOpen(true);
+  };
   const chosenNamespace = definition?.namespaced ? namespace : undefined;
   const objectScopeKey = [
     "kubernetes-workbench",
@@ -84,10 +130,37 @@ export function KubernetesWorkbench({
     definition?.key,
     chosenNamespace?.id,
   ];
+  const actorId = useEnterpriseAuthStore((state) => state.session?.user.id);
+  const pagination = useInventoryPagination({
+    scopeKey: JSON.stringify([
+      actorId,
+      objectScopeKey,
+      filters,
+      location.search.state_filter,
+      access,
+    ]),
+    location: location.search,
+    update: location.update,
+    fetchPage: (cursor, signal) =>
+      api.kubernetesWorkbench.list(
+        clusterId,
+        {
+          type: definition!.key,
+          namespace_mode: chosenNamespace ? "explicit" : "all_authorized",
+          namespace_ids: chosenNamespace ? [chosenNamespace.id] : undefined,
+          ...filters,
+          state: location.search.state_filter,
+          limit: 30,
+          cursor,
+        },
+        signal,
+      ),
+  });
   const queryKey = [
     ...objectScopeKey,
     filters,
-    cursors.at(-1),
+    location.search.state_filter,
+    pagination.cursor,
     access.cluster_version,
   ];
   const list = useQuery({
@@ -100,25 +173,132 @@ export function KubernetesWorkbench({
           namespace_mode: chosenNamespace ? "explicit" : "all_authorized",
           namespace_ids: chosenNamespace ? [chosenNamespace.id] : undefined,
           ...filters,
+          state: location.search.state_filter,
           limit: 30,
-          cursor: cursors.at(-1),
+          cursor: pagination.cursor,
         },
         signal,
       ),
     enabled: !!definition,
   });
   const data = list.error ? undefined : list.data;
+  const namespaceIdFor = (row: KubernetesInventoryObject) =>
+    row.namespace_uid
+      ? (data?.namespace_references[row.namespace_uid] ??
+        (selected?.uid === row.uid ? selected.namespace_id : undefined))
+      : undefined;
+  const openResource = (ref: KubernetesResourceReference) => {
+    if (!selected)
+      listScroll.current = document.querySelector("main")?.scrollTop ?? 0;
+    setSelected(ref);
+    location.update(
+      {
+        resource_type: ref.type,
+        resource_name: ref.name,
+        resource_uid: ref.uid,
+        resource_namespace: ref.namespace,
+        resource_namespace_id: ref.namespace_id,
+        resource_operation: ref.operation_id,
+        full: false,
+      },
+      false,
+    );
+  };
+  const closeResource = () => {
+    restoreList();
+    setSelected(undefined);
+    location.update({
+      resource_type: undefined,
+      resource_name: undefined,
+      resource_uid: undefined,
+      resource_namespace: undefined,
+      resource_namespace_id: undefined,
+      resource_operation: undefined,
+      full: false,
+    });
+  };
+  const onAction = (intent: string, row: KubernetesInventoryObject) => {
+    setInitialEdit(undefined);
+    setJobName(undefined);
+    setMutationNamespace(
+      namespaceIdFor(row)
+        ? { id: namespaceIdFor(row)!, name: row.namespace }
+        : undefined,
+    );
+    setSessionNamespaceId(namespaceIdFor(row));
+    if (intent === "logs") {
+      setLogSource(row);
+      return;
+    }
+    if (intent === "exec") {
+      setStreamSource(row);
+      return;
+    }
+    if (intent === "run") {
+      setJobSource(row);
+      return;
+    }
+    setMutationIntent(intent);
+    setMutation(row);
+  };
+  const settled = useCallback(() => {
+    void cache.invalidateQueries({
+      queryKey: ["kubernetes-workbench", clusterId],
+    });
+  }, [cache, clusterId]);
+  useEffect(() => {
+    const q = location.search;
+    if (q.resource_uid && q.resource_type && q.resource_name)
+      setSelected({
+        uid: q.resource_uid,
+        type: q.resource_type,
+        name: q.resource_name,
+        namespace: q.resource_namespace ?? "",
+        namespace_id: q.resource_namespace_id,
+        operation_id: q.resource_operation,
+      });
+    else {
+      setSelected(undefined);
+      restoreList();
+    }
+  }, [location.search, restoreList]);
+  useEffect(() => {
+    if (location.search.kind) {
+      setType(location.search.kind);
+      const found = definitions.find((row) => row.key === location.search.kind);
+      if (found) setCategory(found.category);
+    }
+  }, [location.search.kind, definitions]);
+  useEffect(() => {
+    const q = location.search;
+    setName(q.name_filter ?? "");
+    setLabels(q.label_filter ?? "");
+    setFilters({ name: q.name_filter ?? "", labels: q.label_filter ?? "" });
+    setNamespace(
+      q.namespace_id
+        ? { id: q.namespace_id, name: q.namespace_name ?? "" }
+        : undefined,
+    );
+  }, [location.search]);
   const reset = () => {
-    setCursors([undefined]);
+    pagination.cancel();
     setSelected(undefined);
   };
   const refreshFirstPage = (nextFilters = filters) => {
     setFilters(nextFilters);
+    location.update({
+      name_filter: nextFilters.name || undefined,
+      label_filter: nextFilters.labels || undefined,
+      page_cursor: undefined,
+      page_index: undefined,
+      resource_uid: undefined,
+    });
     reset();
     void cache.invalidateQueries({
       queryKey: [
         ...objectScopeKey,
         nextFilters,
+        location.search.state_filter,
         undefined,
         access.cluster_version,
       ],
@@ -130,393 +310,507 @@ export function KubernetesWorkbench({
       {!access.cluster_wide && (
         <Badge>{t("kubernetesWorkbench.namespaceOnly")}</Badge>
       )}
-      <Tabs
-        value={category}
-        onValueChange={(value) => {
-          setCategory(value);
-          setType("");
-          reset();
-        }}
-      >
-        <TabsList ariaLabel={t("kubernetesWorkbench.category")}>
-          {categories.map((value) => (
-            <TabsTrigger key={value} value={value}>
-              {t(`kubernetesWorkbench.categories.${value}`, {
-                defaultValue: value,
-              })}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        <TabsContent
-          key={category}
+      {submission && !selected && (
+        <KubernetesOperationFeedback
+          key={submission.pending_action.action_ref}
+          clusterId={clusterId}
+          submission={submission}
+          onReview={reviewInput}
+          onSettled={settled}
+          onDetails={showOperation}
+          onOpen={openResource}
+        />
+      )}
+      {(pagination.unknown ||
+        pagination.busy ||
+        pagination.recovery ||
+        !!pagination.error) && (
+        <section role="status">
+          <p>
+            {t(
+              pagination.unknown
+                ? "kubernetesResources.pageUnknown"
+                : pagination.error
+                  ? "kubernetesResources.pageRestoreFailed"
+                  : "kubernetesResources.pageRestoring",
+              { page: pagination.recovery?.reached ?? pagination.page },
+            )}
+          </p>
+          {!!pagination.error && (
+            <Button onPress={() => refreshFirstPage()}>
+              {t("kubernetesResources.firstPage")}
+            </Button>
+          )}
+          {pagination.recovery && (
+            <Button onPress={pagination.continueRecovery}>
+              {t("kubernetesResources.continueRestore")}
+            </Button>
+          )}
+          {(pagination.busy || pagination.recovery) && (
+            <Button onPress={pagination.cancel}>{t("common.cancel")}</Button>
+          )}
+        </section>
+      )}
+      <div>
+        <Tabs
           value={category}
-          className="argus-k8s-workbench-panel"
+          onValueChange={(value) => {
+            setCategory(value);
+            setType("");
+            location.update({
+              kind: definitions.find((row) => row.category === value)?.key,
+              page_cursor: undefined,
+              page_index: undefined,
+              resource_uid: undefined,
+            });
+            reset();
+          }}
         >
-          <Tabs
-            value={definition?.key ?? ""}
-            onValueChange={(value) => {
-              setType(value);
-              reset();
-            }}
+          <TabsList ariaLabel={t("kubernetesWorkbench.category")}>
+            {categories.map((value) => (
+              <TabsTrigger key={value} value={value}>
+                {t(`kubernetesWorkbench.categories.${value}`, {
+                  defaultValue: value,
+                })}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent
+            key={category}
+            value={category}
+            className="argus-k8s-workbench-panel"
           >
-            <TabsList ariaLabel={t("kubernetesWorkbench.type")}>
-              {visibleTypes.map((value) => (
-                <TabsTrigger key={value.key} value={value.key}>
-                  {value.kind}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <TabsContent
-              key={definition?.key}
+            <Tabs
               value={definition?.key ?? ""}
-              className="argus-k8s-workbench-panel"
+              onValueChange={(value) => {
+                setType(value);
+                location.update({
+                  kind: value,
+                  page_cursor: undefined,
+                  page_index: undefined,
+                  resource_uid: undefined,
+                });
+                reset();
+              }}
             >
-              <form
-                aria-label={t("kubernetesWorkbench.filters")}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  refreshFirstPage({ name, labels });
-                }}
+              <TabsList ariaLabel={t("kubernetesWorkbench.type")}>
+                {visibleTypes.map((value) => (
+                  <TabsTrigger key={value.key} value={value.key}>
+                    {value.kind}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent
+                key={definition?.key}
+                value={definition?.key ?? ""}
+                className="argus-k8s-workbench-panel"
               >
-                <FilterBar
-                  className="argus-k8s-resource-filters"
-                  inlineActions={
-                    <>
-                      {definition?.namespaced && (
-                        <NamespaceSelect
-                          clusterId={clusterId}
-                          scopeVersion={access.cluster_version}
-                          value={namespace}
-                          onChange={(value) => {
-                            setNamespace(value);
+                <form
+                  aria-label={t("kubernetesWorkbench.filters")}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    refreshFirstPage({ name, labels });
+                  }}
+                >
+                  <FilterBar
+                    className="argus-k8s-resource-filters"
+                    inlineActions={
+                      <>
+                        {definition?.namespaced && (
+                          <NamespaceSelect
+                            clusterId={clusterId}
+                            scopeVersion={access.cluster_version}
+                            value={namespace}
+                            onChange={(value) => {
+                              setNamespace(value);
+                              location.update({
+                                namespace_id: value?.id,
+                                namespace_name: value?.name,
+                                page_cursor: undefined,
+                                page_index: undefined,
+                                resource_uid: undefined,
+                              });
+                              reset();
+                            }}
+                          />
+                        )}
+                        <Select
+                          ariaLabel={t("kubernetesResources.status")}
+                          sizing="content"
+                          className="argus-k8s-status-select"
+                          value={location.search.state_filter ?? ""}
+                          onValueChange={(state) => {
+                            location.update({
+                              state_filter: state || undefined,
+                              page_cursor: undefined,
+                              page_index: undefined,
+                              resource_uid: undefined,
+                            });
                             reset();
                           }}
+                          options={[
+                            "",
+                            "healthy",
+                            "configured",
+                            "progressing",
+                            "pending",
+                            "warning",
+                            "failed",
+                            "completed",
+                            "paused",
+                            "scaled_down",
+                            "terminating",
+                            "unknown",
+                            "attention",
+                          ].map((value) => ({
+                            value,
+                            label: value
+                              ? t("kubernetesResources.states." + value)
+                              : t("common.all"),
+                          }))}
                         />
-                      )}
-                      <SearchInput
-                        className="argus-k8s-resource-name"
-                        aria-label={t("kubernetesWorkbench.search")}
-                        placeholder={t("kubernetesWorkbench.search")}
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                      />
-                      <Input
-                        className="argus-k8s-resource-labels"
-                        aria-label={t("kubernetesWorkbench.labels")}
-                        placeholder={t("kubernetesWorkbench.labels")}
-                        value={labels}
-                        onChange={(event) => setLabels(event.target.value)}
-                      />
-                      <Button
-                        type="submit"
-                        variant="ghost"
-                        isIconOnly
-                        aria-label={t("kubernetesWorkbench.refresh")}
-                        title={t("kubernetesWorkbench.refresh")}
-                        isDisabled={list.isFetching}
-                      >
-                        <RefreshCw aria-hidden size={15} />
-                      </Button>
-                    </>
-                  }
-                  actions={
-                    <>
-                      <Button onPress={() => setOperationsOpen(true)}>
-                        {t("kubernetesWorkbench.mutation.history")}
-                      </Button>
-                      {definition?.manage_permission && canManage && (
+                        <SearchInput
+                          className="argus-k8s-resource-name"
+                          aria-label={t("kubernetesWorkbench.search")}
+                          placeholder={t("kubernetesWorkbench.search")}
+                          value={name}
+                          onChange={(event) => setName(event.target.value)}
+                        />
+                        <Input
+                          className="argus-k8s-resource-labels"
+                          aria-label={t("kubernetesWorkbench.labels")}
+                          placeholder={t("kubernetesWorkbench.labels")}
+                          value={labels}
+                          onChange={(event) => setLabels(event.target.value)}
+                        />
                         <Button
-                          variant="primary"
-                          isDisabled={definition.namespaced && !namespace}
-                          title={
-                            definition.namespaced && !namespace
-                              ? t(
-                                  "kubernetesWorkbench.mutation.chooseNamespace",
-                                )
-                              : undefined
-                          }
-                          onPress={() => setMutation("create")}
+                          type="submit"
+                          variant="ghost"
+                          isIconOnly
+                          aria-label={t("kubernetesWorkbench.refresh")}
+                          title={t("kubernetesWorkbench.refresh")}
+                          isDisabled={list.isFetching}
                         >
-                          {t("kubernetesWorkbench.mutation.create")}
+                          <RefreshCw aria-hidden size={15} />
                         </Button>
-                      )}
-                    </>
-                  }
-                />
-              </form>
-              {(types.error || list.error) && (
-                <p role="alert">{formatError(types.error || list.error)}</p>
-              )}
-              {(types.isPending || list.isFetching) && (
-                <Spinner label={t("common.loading")} />
-              )}
-              {data &&
-                (data.items.length ? (
-                  <DataTable
-                    data={data.items}
-                    getRowKey={(row) => row.uid}
-                    columns={[
-                      { key: "name", header: t("kubernetesWorkbench.name") },
-                      {
-                        key: "namespace",
-                        header: t("kubernetesWorkbench.namespace"),
-                      },
-                      {
-                        key: "owners",
-                        header: t("kubernetesWorkbench.owner"),
-                        render: (row) =>
-                          row.owners
-                            .map((owner) => `${owner.kind}/${owner.name}`)
-                            .join(", ") || "—",
-                      },
-                      {
-                        key: "resource_version",
-                        header: t("kubernetesWorkbench.version"),
-                      },
-                      {
-                        key: "actions",
-                        header: t("monitoring.actions"),
-                        render: (row) => (
-                          <div className="argus-k8s-workbench-controls">
-                            <Button size="sm" onPress={() => setSelected(row)}>
-                              {t("kubernetesWorkbench.details")}
+                      </>
+                    }
+                    actions={
+                      <>
+                        <Button onPress={() => setOperationsOpen(true)}>
+                          {t("kubernetesWorkbench.mutation.history")}
+                        </Button>
+                        {definition?.manage_permission &&
+                          canManage &&
+                          !readonlyKinds.has(definition.key) && (
+                            <Button
+                              variant="primary"
+                              isDisabled={definition.namespaced && !namespace}
+                              title={
+                                definition.namespaced && !namespace
+                                  ? t(
+                                      "kubernetesWorkbench.mutation.chooseNamespace",
+                                    )
+                                  : undefined
+                              }
+                              onPress={() => {
+                                setMutationIntent("configure");
+                                setMutationNamespace(chosenNamespace);
+                                setMutation("create");
+                              }}
+                            >
+                              {t("kubernetesWorkbench.mutation.create")}
                             </Button>
-                            {canReadLogs &&
-                              row.definition.key === "pod" &&
-                              row.namespace_uid &&
-                              data.namespace_references[row.namespace_uid] && (
-                                <Button
-                                  size="sm"
-                                  onPress={() => setLogSource(row)}
-                                >
-                                  {t("kubernetesLogSession.action")}
-                                </Button>
-                              )}
-                            {canManage && definition?.manage_permission && (
-                              <Button
-                                size="sm"
-                                onPress={() => setMutation(row)}
+                          )}
+                      </>
+                    }
+                  />
+                </form>
+                {(types.error || list.error) && (
+                  <p role="alert">{formatError(types.error || list.error)}</p>
+                )}
+                {(types.isPending || list.isFetching) && (
+                  <Spinner label={t("common.loading")} />
+                )}
+                {data &&
+                  (data.items.length ? (
+                    <DataTable
+                      className="argus-k8s-inventory-wrap"
+                      tableClassName="argus-k8s-inventory-table"
+                      data={data.items}
+                      getRowKey={(row) => row.uid}
+                      columns={[
+                        {
+                          key: "name",
+                          header: t("kubernetesWorkbench.name"),
+                          render: (row) => (
+                            <Button
+                              variant="ghost"
+                              className="argus-k8s-resource-name-link"
+                              title={row.name}
+                              onPress={() =>
+                                openResource(
+                                  referenceOf(row, namespaceIdFor(row)),
+                                )
+                              }
+                            >
+                              <span className="argus-k8s-resource-value">
+                                {row.name}
+                              </span>
+                            </Button>
+                          ),
+                        },
+                        {
+                          key: "namespace",
+                          header: t("kubernetesWorkbench.namespace"),
+                          render: (row) => (
+                            <span
+                              className="argus-k8s-resource-value"
+                              title={row.namespace}
+                            >
+                              {row.namespace}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: "status",
+                          header: t("kubernetesResources.status"),
+                          render: (row) => (
+                            <div>
+                              <Badge
+                                tone={stateTone(
+                                  row.summary?.state ?? "unknown",
+                                )}
                               >
-                                {t("kubernetesWorkbench.mutation.manage")}
-                              </Button>
-                            )}
-                            {canExec &&
-                              row.definition.key === "pod" &&
-                              row.namespace_uid &&
-                              data.namespace_references[row.namespace_uid] && (
-                                <Button
-                                  size="sm"
-                                  onPress={() => setStreamSource(row)}
-                                >
-                                  {t("kubernetesStream.exec")}
-                                </Button>
+                                {t(
+                                  "kubernetesResources.states." +
+                                    (row.summary?.state ?? "unknown"),
+                                )}
+                              </Badge>
+                              {row.summary?.reason && (
+                                <small>{row.summary.reason}</small>
                               )}
-                            {canManage &&
-                              row.definition.key === "cronjob" &&
-                              row.namespace_uid &&
-                              data?.namespace_references[row.namespace_uid] && (
-                                <Button
-                                  size="sm"
-                                  onPress={() => setJobSource(row)}
-                                >
-                                  {t("kubernetesWorkbench.jobRun.action")}
-                                </Button>
-                              )}
-                          </div>
-                        ),
-                      },
-                    ]}
-                  />
-                ) : (
-                  <EmptyState
-                    title={t("kubernetesWorkbench.empty")}
-                    description={t("kubernetesWorkbench.emptyHint")}
-                  />
-                ))}
-              {data && (
-                <div className="argus-k8s-workbench-footer">
-                  <span>
-                    {t("kubernetesWorkbench.observed")}{" "}
-                    {new Date(data.observed_at).toLocaleString(i18n.language)} ·{" "}
-                    {t(
-                      data.complete
-                        ? "kubernetesWorkbench.complete"
-                        : "kubernetesWorkbench.more",
-                    )}
-                  </span>
-                  <Pagination
-                    page={cursors.length}
-                    hasNext={!!data.next_cursor}
-                    isDisabled={list.isFetching}
-                    onChange={(page) => {
-                      setSelected(undefined);
-                      setCursors((old) =>
-                        page <= old.length
-                          ? old.slice(0, page)
-                          : [...old, data.next_cursor],
-                      );
-                    }}
-                  />
-                </div>
-              )}
-              {selected && data && (
-                <InventoryObjectDialog
-                  key={selected.uid}
-                  clusterId={clusterId}
-                  object={selected}
-                  namespaceId={
-                    selected.namespace_uid
-                      ? data.namespace_references[selected.namespace_uid]
-                      : undefined
-                  }
-                  onClose={() => setSelected(undefined)}
-                />
-              )}
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-      </Tabs>
+                            </div>
+                          ),
+                        },
+                        ...(
+                          resourceColumns[definition?.key ?? ""] ?? ["phase"]
+                        ).map((key) => ({
+                          key,
+                          header: t("kubernetesResources.fields." + key, {
+                            defaultValue: key,
+                          }),
+                          render: (row: KubernetesInventoryObject) => (
+                            <span
+                              className="argus-k8s-resource-value"
+                              title={row.summary?.fields[key]}
+                            >
+                              {row.summary?.fields[key] !== undefined
+                                ? formatResourceField(
+                                    key,
+                                    row.summary.fields[key]!,
+                                  )
+                                : "—"}
+                            </span>
+                          ),
+                        })),
+                        {
+                          key: "created",
+                          header: t("kubernetesResources.age"),
+                          render: (row) =>
+                            new Date(row.created_at).toLocaleString(
+                              i18n.language,
+                            ),
+                        },
+                        {
+                          key: "actions",
+                          header: t("monitoring.actions"),
+                          render: (row) => (
+                            <ResourceActions
+                              object={row}
+                              onAction={onAction}
+                              onCopyLink={() => {
+                                const reference = referenceOf(
+                                  row,
+                                  namespaceIdFor(row),
+                                );
+                                const params = new URLSearchParams();
+                                const search = {
+                                  ...location.search,
+                                  resource_type: reference.type,
+                                  resource_name: reference.name,
+                                  resource_uid: reference.uid,
+                                  resource_namespace: reference.namespace,
+                                  resource_namespace_id: reference.namespace_id,
+                                  resource_operation: undefined,
+                                  full: undefined,
+                                };
+                                for (const [key, value] of Object.entries(
+                                  search,
+                                ))
+                                  if (value !== undefined)
+                                    params.set(key, String(value));
+                                void navigator.clipboard.writeText(
+                                  window.location.origin +
+                                    "/kubernetes/" +
+                                    encodeURIComponent(clusterId) +
+                                    "?" +
+                                    params,
+                                );
+                              }}
+                            />
+                          ),
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <EmptyState
+                      title={t("kubernetesWorkbench.empty")}
+                      description={t("kubernetesWorkbench.emptyHint")}
+                    />
+                  ))}
+                {data && (
+                  <div className="argus-k8s-workbench-footer">
+                    <span>
+                      {t("kubernetesWorkbench.observed")}{" "}
+                      {new Date(data.observed_at).toLocaleString(i18n.language)}{" "}
+                      ·{" "}
+                      {t(
+                        data.complete
+                          ? "kubernetesWorkbench.complete"
+                          : "kubernetesWorkbench.more",
+                      )}
+                    </span>
+                    <Pagination
+                      page={pagination.page}
+                      summary={
+                        pagination.unknown
+                          ? t("kubernetesResources.pageUnknown")
+                          : undefined
+                      }
+                      hasPrevious={!pagination.unknown && pagination.page > 1}
+                      hasNext={!!data.next_cursor}
+                      isDisabled={list.isFetching || pagination.busy}
+                      onChange={(page) => {
+                        setSelected(undefined);
+                        pagination.go(page, data.next_cursor);
+                      }}
+                    />
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+        </Tabs>
+      </div>
+      {selected && (
+        <KubernetesResourceDetail
+          key={selected.uid}
+          clusterId={clusterId}
+          reference={selected}
+          onOperationDetails={showOperation}
+          feedback={
+            submission ? (
+              <KubernetesOperationFeedback
+                key={submission.pending_action.action_ref}
+                clusterId={clusterId}
+                submission={submission}
+                onSettled={settled}
+                onDetails={showOperation}
+                onOpen={openResource}
+                onReview={reviewInput}
+              />
+            ) : undefined
+          }
+          full={location.search.full}
+          onClose={closeResource}
+          onExpand={() => {
+            listScroll.current ??=
+              document.querySelector("main")?.scrollTop ?? 0;
+            location.update({ full: !location.search.full });
+          }}
+          onOpen={openResource}
+        />
+      )}
       {mutation && definition && (
         <KubernetesMutationDialog
-          key={mutation === "create" ? "create" : mutation.uid}
-          clusterId={clusterId}
-          definition={definition}
-          object={mutation === "create" ? undefined : mutation}
-          namespace={
-            mutation === "create"
-              ? chosenNamespace
-              : mutation.namespace_uid &&
-                  data?.namespace_references[mutation.namespace_uid]
-                ? {
-                    id: data.namespace_references[mutation.namespace_uid]!,
-                    name: mutation.namespace,
-                  }
-                : undefined
+          key={
+            (mutation === "create" ? "create" : mutation.uid) +
+            ":" +
+            mutationIntent
           }
+          clusterId={clusterId}
+          definition={mutation === "create" ? definition : mutation.definition}
+          intent={mutationIntent}
+          initialEdit={initialEdit}
+          object={mutation === "create" ? undefined : mutation}
+          namespace={mutationNamespace}
           onClose={() => setMutation(undefined)}
-          onSubmitted={() => {
-            setOperationsOpen(true);
-            void list.refetch();
+          onSubmitted={(result, edit) => {
+            setSubmission(result);
+            setReviewInput(() => () => {
+              setInitialEdit(edit);
+              setMutationIntent(mutationIntent);
+              setMutationNamespace(mutationNamespace);
+              setMutation(mutation);
+            });
+            settled();
           }}
         />
       )}
-      {jobSource &&
-        jobSource.namespace_uid &&
-        data?.namespace_references[jobSource.namespace_uid] && (
-          <KubernetesJobRunDialog
-            clusterId={clusterId}
-            source={jobSource}
-            namespaceId={data.namespace_references[jobSource.namespace_uid]!}
-            onClose={() => setJobSource(undefined)}
-            onSubmitted={() => {
-              setOperationsOpen(true);
-              void list.refetch();
-            }}
-          />
-        )}
+      {jobSource && jobSource.namespace_uid && sessionNamespaceId && (
+        <KubernetesJobRunDialog
+          clusterId={clusterId}
+          source={jobSource}
+          initialName={jobName}
+          namespaceId={sessionNamespaceId!}
+          onClose={() => setJobSource(undefined)}
+          onSubmitted={(result, name) => {
+            setSubmission(result);
+            setReviewInput(() => () => {
+              setJobName(name);
+              setJobSource(jobSource);
+              setSessionNamespaceId(sessionNamespaceId);
+            });
+            settled();
+          }}
+        />
+      )}
       {operationsOpen && (
         <KubernetesOperationsDialog
           clusterId={clusterId}
+          operationId={operationId}
+          onOpen={(ref) => {
+            setOperationsOpen(false);
+            setOperationId(undefined);
+            openResource(ref);
+          }}
           onClose={() => {
             setOperationsOpen(false);
+            setOperationId(undefined);
             void list.refetch();
           }}
         />
       )}
-      {logSource?.namespace_uid &&
-        data?.namespace_references[logSource.namespace_uid] && (
-          <KubernetesLogSessionDialog
-            key={logSource.uid}
-            clusterId={clusterId}
-            object={logSource}
-            namespaceId={data.namespace_references[logSource.namespace_uid]!}
-            onClose={() => setLogSource(undefined)}
-          />
-        )}
-      {streamSource?.namespace_uid &&
-        data?.namespace_references[streamSource.namespace_uid] && (
-          <KubernetesStreamSessionDialog
-            key={streamSource.uid}
-            clusterId={clusterId}
-            object={streamSource}
-            mode="exec"
-            namespaceId={data.namespace_references[streamSource.namespace_uid]!}
-            onClose={() => setStreamSource(undefined)}
-          />
-        )}
-    </div>
-  );
-}
-
-function InventoryObjectDialog({
-  clusterId,
-  object,
-  namespaceId,
-  onClose,
-}: {
-  clusterId: string;
-  object: KubernetesInventoryObject;
-  namespaceId?: string;
-  onClose: () => void;
-}) {
-  const api = useApi(),
-    { t } = useTranslation(),
-    formatError = useInventoryError();
-  const query = useQuery({
-    queryKey: [
-      "kubernetes-workbench",
-      clusterId,
-      "object",
-      object.uid,
-      namespaceId,
-    ],
-    queryFn: ({ signal }) =>
-      api.kubernetesWorkbench.object(
-        clusterId,
-        {
-          type: object.definition.key,
-          name: object.name,
-          uid: object.uid,
-          namespace_id: namespaceId,
-        },
-        signal,
-      ),
-  });
-  const data = query.error ? undefined : query.data;
-  return (
-    <Dialog
-      open
-      size="lg"
-      title={`${object.definition.kind} · ${object.name}`}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      {query.isPending && <Spinner label={t("common.loading")} />}
-      {query.error && <p role="alert">{formatError(query.error)}</p>}
-      {data && (
-        <>
-          <KeyValueGrid
-            columns={2}
-            items={[
-              { label: t("kubernetesWorkbench.uid"), value: data.uid },
-              {
-                label: t("kubernetesWorkbench.version"),
-                value: data.resource_version,
-              },
-              {
-                label: t("kubernetesWorkbench.namespace"),
-                value: data.namespace || "—",
-              },
-            ]}
-          />
-          {data.redacted && <p>{t("kubernetesWorkbench.projected")}</p>}
-          <CodeBlock
-            code={JSON.stringify(data.data, null, 2)}
-            language="json"
-          />
-        </>
+      {logSource?.namespace_uid && sessionNamespaceId && (
+        <KubernetesLogSessionDialog
+          key={logSource.uid}
+          clusterId={clusterId}
+          object={logSource}
+          namespaceId={sessionNamespaceId!}
+          onClose={() => setLogSource(undefined)}
+        />
       )}
-    </Dialog>
+      {streamSource?.namespace_uid && sessionNamespaceId && (
+        <KubernetesStreamSessionDialog
+          key={streamSource.uid}
+          clusterId={clusterId}
+          object={streamSource}
+          mode="exec"
+          namespaceId={sessionNamespaceId!}
+          onClose={() => setStreamSource(undefined)}
+        />
+      )}
+    </div>
   );
 }

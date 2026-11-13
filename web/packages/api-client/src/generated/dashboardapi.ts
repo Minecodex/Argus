@@ -600,6 +600,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/kubernetes/clusters/{id}/overview-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Read the current cluster overview selection */
+        get: operations["getKubernetesOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/kubernetes/clusters/{id}/overview-dashboard/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Select or reset a cluster overview through confirmation */
+        post: operations["previewKubernetesOverview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/kubernetes/clusters/{id}/overview-dashboard/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute the selected dashboard with the URL cluster scope pinned by the server */
+        post: operations["executeKubernetesOverview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/kubernetes/clusters/{id}/overview-dashboard/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** List authorized published dashboards applicable to the cluster */
+        get: operations["listKubernetesOverviewCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -905,13 +981,20 @@ export interface components {
             stack?: boolean;
             smooth?: boolean;
         };
+        DashboardOperationalSource: {
+            /** @enum {string} */
+            kind: "telemetry" | "kubernetes_inventory" | "alert_instances";
+            resource_types?: string[];
+            states?: string[];
+            limit?: number;
+        };
         DashboardPanel: {
             id: string;
             title: string;
             description: string;
             type: string;
             /** @enum {string} */
-            signal: "metrics" | "logs" | "traces";
+            signal: "metrics" | "logs" | "traces" | "resources" | "alerts";
             /**
              * @description All display and detail targets in a Panel use this single editing source.
              * @enum {string}
@@ -930,6 +1013,7 @@ export interface components {
             legend: boolean;
             thresholds: components["schemas"]["DashboardThreshold"][];
             display?: components["schemas"]["DashboardDisplayOptions"];
+            data_source?: components["schemas"]["DashboardOperationalSource"];
         };
         DashboardGrid: {
             /**
@@ -951,7 +1035,7 @@ export interface components {
              * @example argus.telemetry_dashboard/v1
              * @enum {string}
              */
-            schema_version: "argus.telemetry_dashboard/v1";
+            schema_version: "argus.telemetry_dashboard/v1" | "argus.telemetry_dashboard/v2";
             default_time_range: components["schemas"]["DashboardTimeRange"];
             /**
              * Format: int64
@@ -1053,6 +1137,12 @@ export interface components {
             /** @description Optional deterministic lossless conversions and standard drilldowns, applied atomically with the version-checked draft save. Omission does not modify the supplied definition. */
             preparation?: components["schemas"]["DashboardDraftPreparation"];
         };
+        DashboardKubernetesScope: {
+            /** Format: uuid */
+            cluster_id: string;
+            namespace_ids?: string[];
+            focus_uid?: string;
+        };
         DashboardExecutionInput: {
             /** @description Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode. */
             candidates_only?: boolean;
@@ -1079,6 +1169,7 @@ export interface components {
             /** @enum {string} */
             application_mode?: "all_authorized" | "explicit";
             application_ids?: string[];
+            kubernetes_scope?: components["schemas"]["DashboardKubernetesScope"];
         };
         DashboardVersionInput: {
             parameters?: components["schemas"]["DashboardExecutionInput"];
@@ -1317,6 +1408,7 @@ export interface components {
                 };
             };
             scope_selection?: components["schemas"]["DashboardScopeSelection"];
+            kubernetes_scope?: components["schemas"]["DashboardKubernetesScope"];
         };
         DashboardDraftSampleInput: {
             /** Format: int64 */
@@ -1598,6 +1690,64 @@ export interface components {
         };
         DashboardScopeDirectoryPage: {
             items: components["schemas"]["DashboardScopeDirectoryItem"][];
+            next_cursor?: string;
+        };
+        KubernetesOverviewSelection: {
+            /** Format: uuid */
+            cluster_id: string;
+            /** Format: int64 */
+            resource_version: number;
+            /** Format: int64 */
+            selection_version: number;
+            /** @enum {string} */
+            mode: "default" | "custom";
+            dashboard?: components["schemas"]["DashboardItem"];
+            default_dashboard: components["schemas"]["DashboardItem"];
+            unavailable_code?: string;
+        };
+        KubernetesOverviewInput: {
+            /** Format: uuid */
+            dashboard_id: string;
+            /** Format: int64 */
+            expected_dashboard_version: number;
+            /** Format: int64 */
+            expected_selection_version: number;
+            /** Format: int64 */
+            expected_resource_version: number;
+            reset: boolean;
+        };
+        KubernetesOverviewExecutionInput: {
+            /** @description Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode. */
+            candidates_only?: boolean;
+            /** Format: date-time */
+            from?: string;
+            /** Format: date-time */
+            to?: string;
+            resource_ids?: string[];
+            panel_ids?: string[];
+            variables?: {
+                [key: string]: components["schemas"]["DashboardSelection"];
+            };
+            local_values?: {
+                [key: string]: {
+                    [key: string]: components["schemas"]["DashboardSelection"];
+                };
+            };
+            /**
+             * @description all_authorized selects current grants; explicit preserves an empty resource_ids set
+             * @enum {string}
+             */
+            resource_mode?: "all_authorized" | "explicit";
+            resource_types?: ("host" | "kubernetes_cluster" | "application" | "monitoring_target" | "kubernetes_namespace")[];
+            /** @enum {string} */
+            application_mode?: "all_authorized" | "explicit";
+            application_ids?: string[];
+            kubernetes_scope?: components["schemas"]["DashboardKubernetesScope"];
+            /** Format: uuid */
+            expected_dashboard_id: string;
+        };
+        KubernetesOverviewCandidates: {
+            items: components["schemas"]["DashboardItem"][];
             next_cursor?: string;
         };
         DashboardConditionPatch: {

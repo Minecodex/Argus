@@ -271,16 +271,6 @@ export const kubernetesInventoryTypes = [
     "manage_permission": "kubernetes.storage.manage"
   },
   {
-    "key": "pdb",
-    "group": "policy",
-    "version": "v1",
-    "resource": "poddisruptionbudgets",
-    "kind": "PodDisruptionBudget",
-    "namespaced": true,
-    "category": "workload",
-    "manage_permission": "kubernetes.workload.manage"
-  },
-  {
     "key": "resourcequota",
     "group": "",
     "version": "v1",

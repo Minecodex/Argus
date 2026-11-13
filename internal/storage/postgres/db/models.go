@@ -843,6 +843,7 @@ type DashboardBinding struct {
 	Version      int64              `json:"version"`
 	CreatedBy    uuid.UUID          `json:"created_by"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Purpose      string             `json:"purpose"`
 }
 
 type DashboardBudgetReservation struct {

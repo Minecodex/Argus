@@ -8,6 +8,7 @@
 - 移除主视图中的运行状态大卡、绑定覆盖率、Claim 冲突数、版本、就绪副本进度、镜像、Revision、Profile 和出口信息。镜像、路由测试、升级、修复与卸载收进次级“收集器管理”弹窗。
 - 未安装时先展示可采集内容与一个安装入口；安装弹窗默认使用已保存的集群凭据和默认容器镜像，自定义镜像及拉取凭据按需展开。安装完成后，通过各项开关独立启用指标。
 - 主机与 Kubernetes 复用的 `BuiltinCollections` 统一精简为四列，显示内容说明、开关、最近样本状态和仪表盘操作。配置 Revision、独立健康列与技术诊断列移出日常视图；组件证书配置进入行操作菜单。
+- 2026-11-13：行操作顺序统一为“默认仪表盘 → …”，使用共享 ActionGroup 保持同一行、垂直居中和标准间距，主机与 Kubernetes 采集表一并生效。
 - 数据状态以采集实例的实际样本和新鲜度为准，不能把 Pod Ready 或配置已应用当成持续采到数据。
 
 沿用既有“连接凭据（kubeconfig）/集群内 Kubernetes Connector → Gateway Deployment 与节点 DaemonSet Collector → 内置采集实例开关”能力。Connector 管理连接身份，Collector 管理遥测身份；不合并两种身份或扩大资源权限。所有安装、维护和开关变更仍经原 Preview/Confirm、授权、审计及运行收敛流程，不改变既定架构边界。
@@ -33,3 +34,10 @@ B09a 三项已启用采集的样本停在北京时间 10:42 左右。网关持�
 - B09a Gateway 与 Agent 均就绪，近五分钟无原私钥格式错误或上报身份拒绝；三项已开启采集持续产生新鲜样本，四套仪表盘 23 个面板均有非空实际样本。未开启组件仍显示“未开启”。
 
 证据目录：`artifacts/kubernetes-collector-review-20261109/`。主要记录为 `dashboard-verification.json`、`final-freshness.json`、`collector-runtime-verified.json`、`frontend-pass.log`、`install-final.log`、`real-browser-final.log`、`health.json`、`deployment.json` 和 `server-patch-baseline.json`。真实截图位于 `real-browser-final/`。
+
+
+## 2026-11-13 操作顺序修订验收
+
+主机与 Kubernetes 采集表统一使用共享 ActionGroup，顺序为“默认仪表盘 → …”，保持垂直居中和标准间距。Enterprise 类型检查通过；12 组 mock 桌面/中英/明暗用例与部署后 4 组正常登录真实页面检查全部通过，核对了按钮相邻位置和默认仪表盘跳转保留资源范围。
+
+Web 已发布 `local-20261113-collection-actions-v1`，运行摘要 `sha256:0f2fdc56e783e8e69ea09e5ee1b9c5285915d3599ecd6e45ec17196b76e295f5`；其余 Deployment 和 6 个正式 PVC 身份及绑定保留。构建与发布证据见 `artifacts/kubernetes-collection-actions-20261113/`，浏览器日志与截图见 `C:/Users/23574/.codex/artifacts/argus-collection-actions-20261113/`。

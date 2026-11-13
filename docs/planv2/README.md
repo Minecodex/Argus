@@ -12,6 +12,8 @@
 
 Q35/Q36：不同 Panel 可分别绑定采集来源，按厂商能力提供查询和展示，保持 Argus 样式与对象权限。Dashboard 顶部通用过滤与图内局部过滤分层；时间/资源约束所有适用图，共享自定义变量仍只影响引用它的查询。详细规则见 [专项设计](./04-collector-plugins-and-source-views.md)。Demo 的变化 13～15 覆盖来源和两层过滤，16～20 补齐 APM/标准下钻、最新版本 Chat、来源历史与归档恢复；最新场景为 demo.html#apm。原型缺陷已修复，不代表正式后端已实现。
 
+新增：[DashboardSpec v2 与 Kubernetes 运维大盘](./kubernetes-overview-contract-v2.md)。v1 保留读取，当前资源与告警作为受控只读数据源接入共享仪表盘运行时。
+
 ## 阅读顺序
 
 | 文件 | 内容 |

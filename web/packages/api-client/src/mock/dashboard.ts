@@ -1,3 +1,4 @@
+import { commitOverviewChoice } from "./kubernetes-overview";
 import type {
   DashboardDomains,
   DashboardDraft,
@@ -86,7 +87,8 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
             .items.filter(
               (r) =>
                 r.enterprise === ctx.enterpriseId() &&
-                (!r.value.managed_template_key || visibleDefaults.has(r.value.managed_template_key)) &&
+                (!r.value.managed_template_key ||
+                  visibleDefaults.has(r.value.managed_template_key)) &&
                 dashboardAccess(ctx, r.value.id),
             )
             .map((r) => r.value),
@@ -131,7 +133,15 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
         const item = input.dashboard_id
           ? mockDashboard(ctx, input.dashboard_id)
           : undefined;
-        if (item?.managed_template_key === "argus.model-governance" || input.spec.panels.some((panel) => panel.source_binding.source_type === "argus_internal_model_governance")) fail("DASHBOARD_DENIED", 403);
+        if (
+          item?.managed_template_key === "argus.model-governance" ||
+          input.spec.panels.some(
+            (panel) =>
+              panel.source_binding.source_type ===
+              "argus_internal_model_governance",
+          )
+        )
+          fail("DASHBOARD_DENIED", 403);
         if (item?.lifecycle === "archived") fail("DASHBOARD_ARCHIVED", 409);
         const existing =
           item &&
@@ -317,7 +327,13 @@ export function createDashboardDomains(ctx: MockContext): DashboardDomains {
       },
       async execute(id, input) {
         const item = mockDashboard(ctx, id);
-        if (item.managed_template_key === "argus.model-governance") return mockModelGovernanceExecution(ctx, item, revision(item.active_revision_id).spec, input);
+        if (item.managed_template_key === "argus.model-governance")
+          return mockModelGovernanceExecution(
+            ctx,
+            item,
+            revision(item.active_revision_id).spec,
+            input,
+          );
         if (item.lifecycle !== "active") fail("DASHBOARD_ARCHIVED", 409);
         return mockDashboardExecution(
           ctx,
@@ -394,7 +410,9 @@ export function commitDashboardAction(
     fail("DASHBOARD_DENIED", 403);
   const state = dashboardState(ctx),
     input = plan.input_data;
-  if (plan.tool.startsWith("telemetry.dashboard.binding.")) {
+  if (plan.tool.startsWith("telemetry.dashboard.overview.")) {
+    commitOverviewChoice(ctx, input);
+  } else if (plan.tool.startsWith("telemetry.dashboard.binding.")) {
     commitDashboardBinding(ctx, plan.input_data);
   } else if (plan.tool === "telemetry.dashboard.publish") {
     const d = mockDraft(ctx, String(input.draft_id));

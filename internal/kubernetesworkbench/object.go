@@ -60,5 +60,7 @@ func (s Service) Get(ctx context.Context, a Actor, clusterID uuid.UUID, in Objec
 	if scopeSignature(scope, scope.Namespaces) != scopeSignature(current, current.Namespaces) {
 		return kubernetesinventory.Object{}, authorization.ErrAccessDenied
 	}
-	return object, nil
+	objects := []kubernetesinventory.Object{object}
+	s.objectActions(ctx, a, objects)
+	return objects[0], nil
 }

@@ -41,7 +41,7 @@ func validateTemplate(definition TemplateDefinition) ([]byte, string, error) {
 	if internal && (!internalTemplateSpec(definition.Spec) || definition.Version != modelmetrics.TemplateVersion || len(definition.IntegrationKeys) != 0) {
 		return nil, "", ErrInvalid
 	}
-	if !templateKeyPattern.MatchString(definition.Key) || definition.Version < 1 || len(definition.Name) == 0 || len(definition.Name) > 120 || len(definition.Description) > 8000 || (!internal && len(definition.IntegrationKeys) == 0) {
+	if !templateKeyPattern.MatchString(definition.Key) || definition.Version < 1 || len(definition.Name) == 0 || len(definition.Name) > 120 || len(definition.Description) > 8000 || (!internal && definition.Key != OperationsOverviewTemplate && len(definition.IntegrationKeys) == 0) {
 		return nil, "", ErrInvalid
 	}
 	for _, key := range definition.IntegrationKeys {
@@ -171,7 +171,7 @@ func (s Service) ApplyManagedTemplate(ctx context.Context, enterprise uuid.UUID,
 		}
 		revisionID := uuid.NewSHA1(id, []byte(template.SpecHash))
 		specHash := sha256.Sum256(template.Spec)
-		revision, err := q.CreateDashboardRevision(ctx, db.CreateDashboardRevisionParams{ID: revisionID, EnterpriseID: enterprise, DashboardID: id, RevisionNumber: number, SchemaVersion: SchemaVersion, Name: template.Name, Description: template.Description, Spec: template.Spec, SpecHash: hex.EncodeToString(specHash[:]), ValidationReport: json.RawMessage(`{"valid":true,"basis":"locked_system_definition","sample_verified":false}`), SampleReport: json.RawMessage(`{"status":"not_run","basis":"template_installation_does_not_generate_samples"}`)})
+		revision, err := q.CreateDashboardRevision(ctx, db.CreateDashboardRevisionParams{ID: revisionID, EnterpriseID: enterprise, DashboardID: id, RevisionNumber: number, SchemaVersion: func() string { spec, _ := DecodeSpec(template.Spec); return spec.SchemaVersion }(), Name: template.Name, Description: template.Description, Spec: template.Spec, SpecHash: hex.EncodeToString(specHash[:]), ValidationReport: json.RawMessage(`{"valid":true,"basis":"locked_system_definition","sample_verified":false}`), SampleReport: json.RawMessage(`{"status":"not_run","basis":"template_installation_does_not_generate_samples"}`)})
 		if err != nil {
 			return err
 		}

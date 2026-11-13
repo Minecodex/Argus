@@ -649,6 +649,134 @@ paths:
                 $ref: '#/components/schemas/KubernetesInventoryWatchResult'
         default:
           $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/inventory/related:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getKubernetesRelatedResources
+      summary: Read a UID-bound object relation or event page within the current authorization scope
+      tags:
+        - Kubernetes
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 1024
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 253
+        - name: uid
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 128
+        - name: namespace_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: view
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - relations
+              - events
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 65536
+      responses:
+        '200':
+          description: Bounded native scan; next_cursor continues reading; complete reports read failures separately from remaining pages.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesRelatedPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /enterprise/kubernetes-clusters/{id}/inventory/snapshot:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getKubernetesResourceSnapshot
+      summary: Read a bounded authorized resource snapshot and real resource relations
+      tags:
+        - Kubernetes
+      parameters:
+        - name: namespace_mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - all_authorized
+              - explicit
+            default: all_authorized
+        - name: namespace_ids
+          in: query
+          required: false
+          schema:
+            type: array
+            maxItems: 1000
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: false
+        - name: types
+          in: query
+          schema:
+            type: array
+            maxItems: 32
+            items:
+              type: string
+          style: form
+          explode: false
+        - name: max_items
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2000
+            default: 1000
+      responses:
+        '200':
+          description: Authorized current snapshot; completeness is explicit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesResourceSnapshot'
+        default:
+          $ref: '#/components/responses/Error'
   /enterprise/kubernetes-clusters/{id}/inventory/types:
     parameters:
       - name: id
@@ -815,6 +943,25 @@ paths:
             type: string
             minLength: 0
             maxLength: 32768
+        - name: state
+          in: query
+          required: false
+          description: Unified resource state; attention matches failed, warning, pending or unknown. Filtering retains bounded server pagination.
+          schema:
+            type: string
+            enum:
+              - healthy
+              - configured
+              - progressing
+              - pending
+              - warning
+              - failed
+              - completed
+              - paused
+              - scaled_down
+              - terminating
+              - unknown
+              - attention
       responses:
         '200':
           description: Authorized UID-bound Kubernetes observation
@@ -2461,6 +2608,49 @@ components:
         - namespaced
         - category
         - manage_permission
+    KubernetesResourceSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - fields
+      properties:
+        state:
+          type: string
+          enum:
+            - unknown
+            - healthy
+            - configured
+            - progressing
+            - pending
+            - warning
+            - failed
+            - completed
+            - paused
+            - scaled_down
+            - terminating
+        reason:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+    KubernetesResourceAction:
+      type: object
+      additionalProperties: false
+      required:
+        - action
+        - state
+      properties:
+        action:
+          type: string
+        state:
+          type: string
+          enum:
+            - requires_check
+            - unavailable
+        reason:
+          type: string
     KubernetesInventoryObject:
       type: object
       additionalProperties: false
@@ -2538,6 +2728,12 @@ components:
         data:
           type: object
           additionalProperties: true
+        summary:
+          $ref: '#/components/schemas/KubernetesResourceSummary'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/KubernetesResourceAction'
       required:
         - definition
         - uid
@@ -2594,6 +2790,163 @@ components:
         - scope_signature
         - observed_at
         - more
+    KubernetesSnapshotResource:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - name
+        - uid
+        - namespace
+        - summary
+        - actions
+        - created_at
+      properties:
+        type:
+          type: string
+        name:
+          type: string
+        uid:
+          type: string
+        namespace:
+          type: string
+        namespace_id:
+          type: string
+          format: uuid
+        namespace_uid:
+          type: string
+        summary:
+          $ref: '#/components/schemas/KubernetesResourceSummary'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/KubernetesResourceAction'
+        created_at:
+          type: string
+          format: date-time
+    KubernetesRelatedPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - complete
+        - errors
+        - observed_at
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/KubernetesSnapshotResource'
+        next_cursor:
+          type: string
+          maxLength: 65536
+        complete:
+          type: boolean
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+        observed_at:
+          type: string
+          format: date-time
+    KubernetesResourceRelation:
+      type: object
+      additionalProperties: false
+      required:
+        - from
+        - to
+        - kind
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        kind:
+          type: string
+          enum:
+            - owns
+            - selects
+            - schedules
+            - mounts
+            - references
+            - binds
+            - uses
+            - scales
+            - routes
+    KubernetesResourceReference:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - name
+        - uid
+        - namespace
+      properties:
+        type:
+          type: string
+        name:
+          type: string
+        uid:
+          type: string
+        namespace:
+          type: string
+        namespace_id:
+          type: string
+          format: uuid
+        namespace_uid:
+          type: string
+    KubernetesResourceSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - cluster_id
+        - cluster_wide
+        - resources
+        - relations
+        - counts
+        - complete
+        - errors
+        - observed_at
+        - scope_signature
+      properties:
+        cluster_id:
+          type: string
+          format: uuid
+        cluster_wide:
+          type: boolean
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/KubernetesSnapshotResource'
+        relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/KubernetesResourceRelation'
+        counts:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: integer
+        complete:
+          type: boolean
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+        observed_at:
+          type: string
+          format: date-time
+        scope_signature:
+          type: string
+        focus_uid:
+          type: string
+        focus_candidates:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/KubernetesResourceReference'
     KubernetesInventoryTypes:
       type: object
       additionalProperties: false

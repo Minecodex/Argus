@@ -30,7 +30,6 @@ var definitions = []Definition{
 	{"pvc", "", "v1", "persistentvolumeclaims", "PersistentVolumeClaim", true, "storage", "kubernetes.storage.manage"},
 	{"pv", "", "v1", "persistentvolumes", "PersistentVolume", false, "storage", "kubernetes.storage.manage"},
 	{"storageclass", "storage.k8s.io", "v1", "storageclasses", "StorageClass", false, "storage", "kubernetes.storage.manage"},
-	{"pdb", "policy", "v1", "poddisruptionbudgets", "PodDisruptionBudget", true, "workload", "kubernetes.workload.manage"},
 	{"resourcequota", "", "v1", "resourcequotas", "ResourceQuota", true, "configuration", "kubernetes.configuration.manage"},
 	{"limitrange", "", "v1", "limitranges", "LimitRange", true, "configuration", "kubernetes.configuration.manage"},
 	{"event", "", "v1", "events", "Event", true, "events", ""},

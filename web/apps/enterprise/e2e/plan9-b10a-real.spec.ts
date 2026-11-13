@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { readFileSync } from "node:fs";
 import { expect, test, type Page, type Locator } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -347,7 +348,7 @@ test.describe("B10a real workbench acceptance", () => {
       .filter({ has: page.getByText(/^b10a-api-/) })
       .first();
     await expect(pod).toBeVisible();
-    await pod.getByRole("button", { name: "查看日志", exact: true }).click();
+    await selectRowAction(pod, "查看日志");
     const logs = page.getByRole("dialog", { name: /^Pod 日志/ });
     await expect(logs.getByRole("log")).toContainText("p9-b10a", {
       timeout: 30_000,
@@ -360,7 +361,7 @@ test.describe("B10a real workbench acceptance", () => {
       .getByRole("button", { name: "关闭日志会话", exact: true })
       .click();
     await expect(logs).not.toBeVisible();
-    await pod.getByRole("button", { name: "打开终端", exact: true }).click();
+    await selectRowAction(pod, "打开终端");
     const terminal = page.getByRole("dialog", { name: /^Pod 终端/ });
     await terminal
       .getByRole("textbox", { name: "操作原因", exact: true })

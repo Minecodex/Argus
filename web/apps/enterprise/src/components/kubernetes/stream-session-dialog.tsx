@@ -15,7 +15,7 @@ import {
   Badge,
   Button,
   CodeBlock,
-  Dialog,
+  TroubleshootingWorkspace,
   Field,
   Input,
   KeyValueGrid,
@@ -281,7 +281,7 @@ export function KubernetesStreamSessionDialog({
         ? "active"
         : session?.status;
   return (
-    <Dialog
+    <TroubleshootingWorkspace
       open
       size="lg"
       className="argus-k8s-session-dialog"
@@ -507,6 +507,6 @@ export function KubernetesStreamSessionDialog({
           </>
         )}
       </div>
-    </Dialog>
+    </TroubleshootingWorkspace>
   );
 }

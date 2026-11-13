@@ -222,6 +222,15 @@
           "data": {
             "type": "object",
             "additionalProperties": true
+          },
+          "summary": {
+            "$ref": "#/components/schemas/KubernetesResourceSummary"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KubernetesResourceAction"
+            }
           }
         },
         "required": [
@@ -792,6 +801,280 @@
             "type": "integer",
             "format": "int64",
             "minimum": 1
+          }
+        }
+      },
+      "KubernetesResourceSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "fields"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "healthy",
+              "configured",
+              "progressing",
+              "pending",
+              "warning",
+              "failed",
+              "completed",
+              "paused",
+              "scaled_down",
+              "terminating"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "KubernetesResourceAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "state"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requires_check",
+              "unavailable"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "KubernetesResourceReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "name",
+          "uid",
+          "namespace"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace_uid": {
+            "type": "string"
+          }
+        }
+      },
+      "KubernetesSnapshotResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "name",
+          "uid",
+          "namespace",
+          "summary",
+          "actions",
+          "created_at"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace_uid": {
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/KubernetesResourceSummary"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KubernetesResourceAction"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "KubernetesResourceRelation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "kind"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "owns",
+              "selects",
+              "schedules",
+              "mounts",
+              "references",
+              "binds",
+              "uses",
+              "scales",
+              "routes"
+            ]
+          }
+        }
+      },
+      "KubernetesResourceSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cluster_id",
+          "cluster_wide",
+          "resources",
+          "relations",
+          "counts",
+          "complete",
+          "errors",
+          "observed_at",
+          "scope_signature"
+        ],
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cluster_wide": {
+            "type": "boolean"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KubernetesSnapshotResource"
+            }
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KubernetesResourceRelation"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scope_signature": {
+            "type": "string"
+          },
+          "focus_uid": {
+            "type": "string"
+          },
+          "focus_candidates": {
+            "type": "array",
+            "maxItems": 2000,
+            "items": {
+              "$ref": "#/components/schemas/KubernetesResourceReference"
+            }
+          }
+        }
+      },
+      "KubernetesRelatedPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "complete",
+          "errors",
+          "observed_at"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/KubernetesSnapshotResource"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "maxLength": 65536
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

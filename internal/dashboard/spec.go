@@ -92,24 +92,25 @@ type LocalFilter struct {
 	Query    *CandidateQuery `json:"query,omitempty"`
 }
 type Panel struct {
-	ID                      string          `json:"id"`
-	Title                   string          `json:"title"`
-	Description             string          `json:"description"`
-	Type                    string          `json:"type"`
-	Signal                  string          `json:"signal"`
-	AuthoringMode           string          `json:"authoring_mode"`
-	ApplicableResourceTypes []string        `json:"applicable_resource_types"`
-	SourceBinding           SourceBinding   `json:"source_binding"`
-	LocalFilters            []LocalFilter   `json:"local_filters"`
-	Targets                 []Target        `json:"targets"`
-	DetailQueryTargets      []Target        `json:"detail_query_targets"`
-	Drilldowns              []Drilldown     `json:"drilldowns"`
-	Layout                  Rectangle       `json:"layout"`
-	Unit                    string          `json:"unit"`
-	Decimals                int             `json:"decimals"`
-	Legend                  bool            `json:"legend"`
-	Thresholds              []Threshold     `json:"thresholds"`
-	Display                 *DisplayOptions `json:"display,omitempty"`
+	DataSource              *OperationalSource `json:"data_source,omitempty"`
+	ID                      string             `json:"id"`
+	Title                   string             `json:"title"`
+	Description             string             `json:"description"`
+	Type                    string             `json:"type"`
+	Signal                  string             `json:"signal"`
+	AuthoringMode           string             `json:"authoring_mode"`
+	ApplicableResourceTypes []string           `json:"applicable_resource_types"`
+	SourceBinding           SourceBinding      `json:"source_binding"`
+	LocalFilters            []LocalFilter      `json:"local_filters"`
+	Targets                 []Target           `json:"targets"`
+	DetailQueryTargets      []Target           `json:"detail_query_targets"`
+	Drilldowns              []Drilldown        `json:"drilldowns"`
+	Layout                  Rectangle          `json:"layout"`
+	Unit                    string             `json:"unit"`
+	Decimals                int                `json:"decimals"`
+	Legend                  bool               `json:"legend"`
+	Thresholds              []Threshold        `json:"thresholds"`
+	Display                 *DisplayOptions    `json:"display,omitempty"`
 }
 
 // DisplayOptions changes presentation only; it never rewrites a target or its query hash.

@@ -56,6 +56,9 @@ func ParseFor(key string, raw []byte) (Config, error) {
 		}
 		tls := value.ComponentTLS
 		tls.ServerName = strings.TrimSpace(tls.ServerName)
+		if key == "kubernetes_node_metrics" && tls.ServerName != "" {
+			return value, errors.New("node certificate names follow the fixed node endpoint")
+		}
 		if tls.ServerName != "" && !validTLSName(tls.ServerName) {
 			return value, errors.New("invalid component certificate name")
 		}

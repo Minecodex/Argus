@@ -51,6 +51,11 @@ func addBuiltin(config map[string]any, input RenderInput, collection Collection)
 		receiver = map[string]any{"collection_interval": value.Interval}
 	case "kubernetes_node_metrics":
 		receiver = map[string]any{"collection_interval": value.Interval, "auth_type": "serviceAccount", "endpoint": "https://${env:K8S_NODE_NAME}:10250", "ca_file": "/var/run/argus-kubelet/pki/kubelet.crt", "insecure_skip_verify": false}
+		if tls := value.ComponentTLS; tls != nil {
+			if tls.CAPEM != "" {
+				receiver["ca_file"] = KubeletCAPath
+			}
+		}
 	case "kubernetes_cluster_metrics":
 		receiver = map[string]any{"auth_type": "serviceAccount", "collection_interval": value.Interval}
 	case "kubernetes_apiserver_metrics":

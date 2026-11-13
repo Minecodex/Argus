@@ -77,6 +77,8 @@ type Query struct {
 	AllNamespaces   bool   `json:"all_namespaces"`
 }
 type Object struct {
+	Summary         *Summary                `json:"summary,omitempty"`
+	Actions         []ActionAvailability    `json:"actions,omitempty"`
 	Definition      Definition              `json:"definition"`
 	UID             string                  `json:"uid"`
 	Namespace       string                  `json:"namespace"`

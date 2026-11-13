@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { selectWorkbenchNamespace } from "./helpers/kubernetes-workbench";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -24,7 +25,7 @@ for (const english of [false, true])
         .fill("123456");
       await page.locator('form button[type="submit"]').click();
       await expect(page).not.toHaveURL(/\/login/);
-      await page.goto("/kubernetes/k8s-prod-east");
+      await page.goto("/kubernetes/k8s-prod-east?tab=resources");
       await selectWorkbenchNamespace(page, "production");
       await page
         .getByRole("tab", {
@@ -41,6 +42,12 @@ for (const english of [false, true])
       const create = page
         .getByRole("dialog", { name: "Create ConfigMap", exact: true })
         .or(page.getByRole("dialog", { name: "新建 ConfigMap", exact: true }));
+      await create
+        .getByRole("button", {
+          name: english ? "Use advanced manifest editor" : "使用高级清单编辑",
+          exact: true,
+        })
+        .click();
       const source = create.getByRole("textbox", {
         name: english
           ? "Object manifest (YAML / JSON)"
@@ -112,6 +119,15 @@ for (const english of [false, true])
           exact: true,
         })
         .click();
+      await expect(page.locator(".argus-k8s-operation-feedback")).toContainText(
+        english ? "Applied" : "已生效",
+      );
+      await page
+        .getByRole("button", {
+          name: english ? "Operation history" : "操作记录",
+          exact: true,
+        })
+        .click();
       const history = page.getByRole("dialog", {
         name: english ? "Operation history" : "操作记录",
         exact: true,
@@ -126,16 +142,14 @@ for (const english of [false, true])
         .getByRole("row")
         .filter({ has: page.getByText("plan8-ui-config", { exact: true }) });
       await expect(row).toBeVisible();
-      await row
-        .getByRole("button", {
-          name: english ? "Manage object" : "管理对象",
-          exact: true,
-        })
-        .click();
+      await selectRowAction(
+        row,
+        english ? "Edit YAML / JSON" : "编辑 YAML / JSON",
+      );
       const edit = page.getByRole("dialog", {
         name: english
-          ? "Manage ConfigMap · plan8-ui-config"
-          : "管理 ConfigMap · plan8-ui-config",
+          ? "Edit YAML / JSON · plan8-ui-config"
+          : "编辑 YAML / JSON · plan8-ui-config",
         exact: true,
       });
       await edit
@@ -169,6 +183,12 @@ for (const english of [false, true])
           exact: true,
         })
         .click();
+      await page
+        .getByRole("button", {
+          name: english ? "Operation history" : "操作记录",
+          exact: true,
+        })
+        .click();
       await expect(
         history
           .getByRole("row")
@@ -176,13 +196,14 @@ for (const english of [false, true])
       ).toHaveCount(2);
       await page.keyboard.press("Escape");
       await row
-        .getByRole("button", {
-          name: english ? "View object" : "查看对象",
-          exact: true,
-        })
+        .getByRole("button", { name: "plan8-ui-config", exact: true })
+        .click();
+      await page
+        .getByRole("dialog")
+        .getByRole("tab", { name: "YAML / JSON", exact: true })
         .click();
       await expect(page.getByRole("dialog").locator("pre")).toContainText(
-        '"mode": "updated"',
+        "mode: updated",
       );
       await page.keyboard.press("Escape");
       await page.getByRole("tab", { name: "Secret", exact: true }).click();
@@ -196,6 +217,12 @@ for (const english of [false, true])
         name: english ? "Create Secret" : "新建 Secret",
         exact: true,
       });
+      await secretDialog
+        .getByRole("button", {
+          name: english ? "Use advanced manifest editor" : "使用高级清单编辑",
+          exact: true,
+        })
+        .click();
       await secretDialog
         .getByRole("textbox", {
           name: english
@@ -245,6 +272,12 @@ for (const english of [false, true])
       await secretDialog
         .getByRole("button", {
           name: english ? "Confirm operation" : "确认执行",
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole("button", {
+          name: english ? "Operation history" : "操作记录",
           exact: true,
         })
         .click();

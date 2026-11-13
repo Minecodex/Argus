@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -84,12 +85,7 @@ test.describe("B10a deployed automatic logs and terminal diagnosis", () => {
             new URL(r.url()).pathname === base + "/log-sessions" &&
             r.request().method() === "POST",
         );
-        await row
-          .getByRole("button", {
-            name: text("查看日志", "View logs"),
-            exact: true,
-          })
-          .click();
+        await selectRowAction(row, text("查看日志", "View logs"));
         const dialog = page.getByRole("dialog", {
           name: /^(Pod 日志|Pod logs)/,
         });
@@ -186,7 +182,7 @@ test.describe("B10a deployed automatic logs and terminal diagnosis", () => {
       localStorage.setItem("argus.theme", "light");
     });
     const row = await podRow(page, "b10a-workloads", /^b10a-api-/);
-    await row.getByRole("button", { name: "打开终端", exact: true }).click();
+    await selectRowAction(row, "打开终端");
     const dialog = page.getByRole("dialog", { name: /^Pod 终端/ });
     const output: string[] = [];
     page.on("websocket", (socket) =>
@@ -277,7 +273,7 @@ test.describe("B10a deployed automatic logs and terminal diagnosis", () => {
       localStorage.setItem("argus.theme", "light");
     });
     const row = await podRow(page, "argus-telemetry", /^argus-otelcol-agent-/);
-    await row.getByRole("button", { name: "打开终端", exact: true }).click();
+    await selectRowAction(row, "打开终端");
     const dialog = page.getByRole("dialog", { name: /^Pod 终端/ });
     await expect(dialog).toContainText("不含 Shell");
     await dialog
