@@ -1,3 +1,14 @@
+import { createResourceDraft, hasResourceForm } from "./resource-create";
+import { KubernetesHPANotice } from "./hpa-notice";
+import { ResourceActionFields } from "./resource-action-fields";
+import {
+  applyResourcePatch,
+  asRecord,
+  resourcePatch,
+  rebaseResource,
+  ResourceRebaseConflict,
+} from "./resource-patch";
+
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,10 +22,12 @@ import {
   type KubernetesMutationInput,
   type KubernetesRollbackReference,
   type PendingActionPublic,
+  type ConfirmActionResult,
   type KubernetesDrainProgress,
 } from "@argus/api-client";
 import {
   Dialog,
+  Checkbox,
   Field,
   Input,
   Select,
@@ -34,20 +47,36 @@ import { RollbackPicker } from "./rollback-picker";
 import { usePermission } from "../../lib/permissions";
 import { KubernetesDrainProgressView } from "./drain-progress";
 
+export type KubernetesMutationEdit = {
+  base?: KubernetesInventoryObject;
+  draft: Record<string, unknown>;
+  manifest: StructuredDocumentValue;
+  replicas: string;
+  capacity: string;
+  structured: boolean;
+  deletedKeys?: string[];
+};
 export function KubernetesMutationDialog({
   clusterId,
   definition,
   object,
   namespace,
+  intent,
   onClose,
   onSubmitted,
+  initialEdit,
 }: {
   clusterId: string;
   definition: KubernetesInventoryDefinition;
   object?: KubernetesInventoryObject;
   namespace?: { id: string; name: string };
   onClose: () => void;
-  onSubmitted: () => void;
+  intent?: string;
+  initialEdit?: KubernetesMutationEdit;
+  onSubmitted: (
+    submission: ConfirmActionResult,
+    edit: KubernetesMutationEdit,
+  ) => void;
 }) {
   const api = useApi(),
     { t } = useTranslation();
@@ -57,35 +86,58 @@ export function KubernetesMutationDialog({
   >([]);
   const [operation, setOperation] = useState<
       KubernetesMutationInput["operation"]
-    >(object ? "patch" : "create"),
-    [replicas, setReplicas] = useState("1"),
+    >(
+      object
+        ? [
+            "scale",
+            "restart",
+            "rollback",
+            "cordon",
+            "uncordon",
+            "drain",
+            "delete",
+          ].includes(intent ?? "")
+          ? (intent as KubernetesMutationInput["operation"])
+          : "patch"
+        : "create",
+    ),
+    [replicas, setReplicas] = useState(initialEdit?.replicas ?? "1"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [pending, setPending] = useState<PendingActionPublic>();
-  const [base, setBase] = useState<KubernetesInventoryObject>();
+  const [deletedKeys, setDeletedKeys] = useState<string[]>(
+    initialEdit?.deletedKeys ?? [],
+  );
+  const [structured, setStructured] = useState(
+    initialEdit?.structured ??
+      (intent !== undefined &&
+        intent !== "edit" &&
+        hasResourceForm(definition.key)),
+  );
+  const [draft, setDraft] = useState<Record<string, unknown>>(
+    () =>
+      initialEdit?.draft ?? createResourceDraft(definition, namespace?.name),
+  );
+  const [capacity, setCapacity] = useState(initialEdit?.capacity ?? "");
+  const [rebaseConflict, setRebaseConflict] = useState("");
+  const [base, setBase] = useState<KubernetesInventoryObject | undefined>(
+    initialEdit?.base,
+  );
   const [rollback, setRollback] = useState<KubernetesRollbackReference>();
   const [choosingRevision, setChoosingRevision] = useState(false);
   const drainPreview = (
     (pending?.preview ?? {}) as { drain?: KubernetesDrainProgress }
   ).drain;
-  const [manifest, setManifest] = useState<StructuredDocumentValue>(() => ({
-    format: "yaml",
-    source: formatStructuredDocument(
-      object
-        ? {}
-        : {
-            apiVersion: definition.group
-              ? `${definition.group}/${definition.version}`
-              : definition.version,
-            kind: definition.kind,
-            metadata: {
-              name: "",
-              ...(namespace ? { namespace: namespace.name } : {}),
-            },
-          },
-      "yaml",
-    ),
-  }));
+  const [manifest, setManifest] = useState<StructuredDocumentValue>(
+    () =>
+      initialEdit?.manifest ?? {
+        format: "yaml",
+        source: formatStructuredDocument(
+          object ? {} : createResourceDraft(definition, namespace?.name),
+          "yaml",
+        ),
+      },
+  );
   const current = useQuery({
     queryKey: [
       "kubernetes-workbench",
@@ -105,6 +157,7 @@ export function KubernetesMutationDialog({
         signal,
       ),
     enabled: !!object,
+    refetchOnMount: "always",
     refetchOnWindowFocus: "always",
     refetchInterval: 15000,
   });
@@ -114,6 +167,12 @@ export function KubernetesMutationDialog({
   });
   const loadObject = useCallback((value: KubernetesInventoryObject) => {
     setBase(value);
+    setDraft(editableKubernetesManifest(value.data));
+    const spec = asRecord(value.data.spec);
+    setReplicas(String(spec.replicas ?? 1));
+    setCapacity(
+      String(asRecord(asRecord(spec.resources).requests).storage ?? ""),
+    );
     setRollback(undefined);
     setManifest((previous) => ({
       ...previous,
@@ -125,8 +184,9 @@ export function KubernetesMutationDialog({
     setError("");
   }, []);
   useEffect(() => {
-    if (current.data && !base) loadObject(current.data);
-  }, [current.data, base, loadObject]);
+    if (current.data && !base && !current.isFetching && !current.error)
+      loadObject(current.data);
+  }, [current.data, current.isFetching, current.error, base, loadObject]);
   const serverChanged =
     !!base &&
     !!current.data &&
@@ -146,6 +206,37 @@ export function KubernetesMutationDialog({
     options.push("restart", "rollback");
   if (object && definition.key === "node") options.push("cordon", "uncordon");
   if (object && definition.key === "node" && canDrain) options.push("drain");
+  const rebase = (keepMine = false) => {
+    if (!current.data || !base) return;
+    try {
+      const edited = structured
+        ? draft
+        : applyResourcePatch(
+            editableKubernetesManifest(base.data),
+            parseStructuredDocument(manifest.source, manifest.format),
+          );
+      const merged = asRecord(
+        rebaseResource(
+          editableKubernetesManifest(base.data),
+          edited,
+          editableKubernetesManifest(current.data.data),
+          keepMine,
+        ),
+      );
+      setBase(current.data);
+      setDraft(merged);
+      setManifest((previous) => ({
+        ...previous,
+        source: formatStructuredDocument(merged, previous.format),
+      }));
+      setError("");
+      setRebaseConflict("");
+    } catch (cause) {
+      if (cause instanceof ResourceRebaseConflict)
+        setRebaseConflict(cause.path);
+      else setError(t("kubernetesWorkbench.mutation.invalidManifest"));
+    }
+  };
   const preview = async () => {
     setError("");
     setBusy(true);
@@ -155,9 +246,26 @@ export function KubernetesMutationDialog({
         return;
       }
       let body: Record<string, unknown> | undefined;
-      if (operation === "patch" || operation === "create") {
+      if (structured && (operation === "patch" || operation === "create")) {
+        body = base
+          ? resourcePatch(editableKubernetesManifest(base.data), draft)
+          : draft;
+        if (intent === "suspend" || intent === "resume")
+          body = {
+            spec: {
+              [definition.key === "deployment" ? "paused" : "suspend"]:
+                intent === "suspend",
+            },
+          };
+        if (intent === "expand")
+          body = { spec: { resources: { requests: { storage: capacity } } } };
+      } else if (operation === "patch" || operation === "create") {
         try {
-          body = parseStructuredDocument(manifest.source, manifest.format);
+          const parsed = parseStructuredDocument(
+            manifest.source,
+            manifest.format,
+          );
+          body = parsed;
         } catch {
           setError(t("kubernetesWorkbench.mutation.invalidManifest"));
           return;
@@ -190,8 +298,24 @@ export function KubernetesMutationDialog({
             setError(t("kubernetesWorkbench.mutation.secretKeyInvalid"));
             return;
           }
+          if (deletedKeys.includes(row.key)) {
+            setError(t("kubernetesResources.secretIntentConflict"));
+            return;
+          }
           privateValues[row.key] = row.value;
         }
+      if (
+        definition.key === "secret" &&
+        operation === "patch" &&
+        deletedKeys.length
+      )
+        body = {
+          ...body,
+          data: {
+            ...asRecord(body?.data),
+            ...Object.fromEntries(deletedKeys.map((key) => [key, null])),
+          },
+        };
       setPending(
         await api.kubernetesWorkbench.preview(clusterId, {
           operation,
@@ -225,12 +349,16 @@ export function KubernetesMutationDialog({
     <Dialog
       open
       size="lg"
-      title={t(
-        object
-          ? "kubernetesWorkbench.mutation.manageTitle"
-          : "kubernetesWorkbench.mutation.createTitle",
-        { kind: definition.kind, name: object?.name ?? "" },
-      )}
+      title={
+        intent && object
+          ? t("kubernetesResources.actions." + intent) + " · " + object.name
+          : t(
+              object
+                ? "kubernetesWorkbench.mutation.manageTitle"
+                : "kubernetesWorkbench.mutation.createTitle",
+              { kind: definition.kind, name: object?.name ?? "" },
+            )
+      }
       onOpenChange={(open) => {
         if (!open && !busy) onClose();
       }}
@@ -242,9 +370,31 @@ export function KubernetesMutationDialog({
           )}
           <PendingActionConfirm
             action={pending}
+            completionMode="submitted"
             confirmLabel={t("kubernetesWorkbench.mutation.confirm")}
-            onDone={() => {
-              onSubmitted();
+            onError={(cause) => {
+              const code = (cause as { code?: string }).code;
+              if (
+                code === "KUBERNETES_MUTATION_CONFLICT" ||
+                code === "ACTION_INVALIDATED"
+              ) {
+                setPending(undefined);
+                setError(t("kubernetesResources.replaceWarning"));
+                void current.refetch();
+                return true;
+              }
+              return false;
+            }}
+            onDone={(result) => {
+              onSubmitted(result, {
+                base,
+                draft,
+                manifest,
+                replicas,
+                capacity,
+                structured,
+                deletedKeys,
+              });
               onClose();
             }}
             onCancel={onClose}
@@ -275,15 +425,10 @@ export function KubernetesMutationDialog({
                   namespace?.name ??
                   t("kubernetesWorkbench.categories.cluster"),
               },
-              ...(object
-                ? [
-                    { label: t("kubernetesWorkbench.uid"), value: object.uid },
-                    {
-                      label: t("kubernetesWorkbench.version"),
-                      value: base?.resource_version ?? "—",
-                    },
-                  ]
-                : []),
+              {
+                label: t("kubernetesWorkbench.name"),
+                value: object?.name ?? definition.kind,
+              },
             ]}
           />
           {object && current.isPending && (
@@ -301,15 +446,24 @@ export function KubernetesMutationDialog({
           {serverChanged && (
             <div role="alert">
               <p>{t("kubernetesWorkbench.mutation.versionChanged")}</p>
-              <Button
-                type="button"
-                onPress={() => current.data && loadObject(current.data)}
-              >
-                {t("kubernetesWorkbench.mutation.reloadObject")}
+              <Button type="button" onPress={() => rebase()}>
+                {t("kubernetesResources.rebase")}
               </Button>
             </div>
           )}
-          {object && (
+          {rebaseConflict && (
+            <div role="alert">
+              <p>
+                {t("kubernetesResources.rebaseConflict", {
+                  path: rebaseConflict,
+                })}
+              </p>
+              <Button onPress={() => rebase(true)}>
+                {t("kubernetesResources.keepInput")}
+              </Button>
+            </div>
+          )}
+          {object && !intent && (
             <Field
               label={t("kubernetesWorkbench.mutation.operation")}
               requirement="required"
@@ -326,10 +480,38 @@ export function KubernetesMutationDialog({
               />
             </Field>
           )}
+          {operation === "delete" &&
+            definition.key === "pod" &&
+            object?.owners.some((owner) => owner.controller) && (
+              <p>{t("kubernetesResources.controlledPodDelete")}</p>
+            )}
+          {definition.key === "statefulset" &&
+            ["patch", "restart", "rollback"].includes(operation) && (
+              <p>{t("kubernetesResources.statefulChange")}</p>
+            )}
           {operation === "drain" && (
             <p>{t("kubernetesWorkbench.drain.hint")}</p>
           )}
-          {(operation === "patch" || operation === "create") && (
+          {structured && (operation === "patch" || operation === "create") && (
+            <ResourceActionFields
+              kind={definition.key}
+              intent={intent ?? "configure"}
+              object={object}
+              draft={draft}
+              onChange={setDraft}
+              capacity={capacity}
+              onCapacity={setCapacity}
+              disabled={busy || (!!object && !base)}
+              onAdvanced={() => {
+                setManifest((previous) => ({
+                  ...previous,
+                  source: formatStructuredDocument(draft, previous.format),
+                }));
+                setStructured(false);
+              }}
+            />
+          )}
+          {!structured && (operation === "patch" || operation === "create") && (
             <Field
               label={t(
                 operation === "patch"
@@ -352,6 +534,14 @@ export function KubernetesMutationDialog({
               />
             </Field>
           )}
+          {object &&
+            ["scale", "restart", "rollback", "patch"].includes(operation) && (
+              <KubernetesHPANotice
+                clusterId={clusterId}
+                object={object}
+                namespaceId={namespace?.id}
+              />
+            )}
           {operation === "scale" && (
             <Field
               label={t("kubernetesWorkbench.mutation.replicas")}
@@ -393,6 +583,26 @@ export function KubernetesMutationDialog({
                 />
               )}
             </Field>
+          )}
+          {definition.key === "secret" && base && operation === "patch" && (
+            <fieldset>
+              <legend>{t("kubernetesResources.secretDelete")}</legend>
+              {Object.keys(asRecord(base.data.data)).map((key) => (
+                <Checkbox
+                  key={key}
+                  isSelected={deletedKeys.includes(key)}
+                  onChange={(selected) =>
+                    setDeletedKeys((old) =>
+                      selected
+                        ? [...old, key]
+                        : old.filter((value) => value !== key),
+                    )
+                  }
+                >
+                  {key}
+                </Checkbox>
+              ))}
+            </fieldset>
           )}
           {definition.key === "secret" &&
             (operation === "create" || operation === "patch") && (

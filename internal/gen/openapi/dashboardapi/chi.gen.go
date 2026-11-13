@@ -113,6 +113,18 @@ type ServerInterface interface {
 	// PreviewClusterDashboardBinding Preview a resource dashboard binding change.
 	// (POST /kubernetes/clusters/{id}/dashboard-bindings/preview)
 	PreviewClusterDashboardBinding(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewClusterDashboardBindingParams)
+	// GetKubernetesOverview Read the current cluster overview selection
+	// (GET /kubernetes/clusters/{id}/overview-dashboard)
+	GetKubernetesOverview(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// ListKubernetesOverviewCandidates List authorized published dashboards applicable to the cluster
+	// (GET /kubernetes/clusters/{id}/overview-dashboard/candidates)
+	ListKubernetesOverviewCandidates(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params ListKubernetesOverviewCandidatesParams)
+	// ExecuteKubernetesOverview Execute the selected dashboard with the URL cluster scope pinned by the server
+	// (POST /kubernetes/clusters/{id}/overview-dashboard/execute)
+	ExecuteKubernetesOverview(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// PreviewKubernetesOverview Select or reset a cluster overview through confirmation
+	// (POST /kubernetes/clusters/{id}/overview-dashboard/preview)
+	PreviewKubernetesOverview(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewKubernetesOverviewParams)
 	// ListMonitoringTargetDashboardBindings List MonitoringTarget dashboard bindings
 	// (GET /monitoring/targets/{id}/dashboard-bindings)
 	ListMonitoringTargetDashboardBindings(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
@@ -320,6 +332,30 @@ func (_ Unimplemented) ListClusterDashboardBindings(w http.ResponseWriter, r *ht
 // PreviewClusterDashboardBinding Preview a resource dashboard binding change.
 // (POST /kubernetes/clusters/{id}/dashboard-bindings/preview)
 func (_ Unimplemented) PreviewClusterDashboardBinding(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewClusterDashboardBindingParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetKubernetesOverview Read the current cluster overview selection
+// (GET /kubernetes/clusters/{id}/overview-dashboard)
+func (_ Unimplemented) GetKubernetesOverview(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListKubernetesOverviewCandidates List authorized published dashboards applicable to the cluster
+// (GET /kubernetes/clusters/{id}/overview-dashboard/candidates)
+func (_ Unimplemented) ListKubernetesOverviewCandidates(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params ListKubernetesOverviewCandidatesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExecuteKubernetesOverview Execute the selected dashboard with the URL cluster scope pinned by the server
+// (POST /kubernetes/clusters/{id}/overview-dashboard/execute)
+func (_ Unimplemented) ExecuteKubernetesOverview(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewKubernetesOverview Select or reset a cluster overview through confirmation
+// (POST /kubernetes/clusters/{id}/overview-dashboard/preview)
+func (_ Unimplemented) PreviewKubernetesOverview(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewKubernetesOverviewParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 

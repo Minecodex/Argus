@@ -13,7 +13,9 @@ import { useDashboardExecution } from "./use-dashboard-execution";
 
 const all = { all: true, values: [] };
 const prod = { all: false, values: ["production"] };
-function fixture() {
+function fixture(
+  overrides: Partial<Parameters<typeof useDashboardExecution>[0]> = {},
+) {
   const spec = emptyDashboardSpec();
   spec.default_refresh_seconds = 5;
   spec.panels = ["dependent", "cascade", "independent"].map((id) => ({
@@ -72,7 +74,7 @@ function fixture() {
         pending.push({ input, signal, resolve, reject }),
       ),
   );
-  const options = {
+  const options: Parameters<typeof useDashboardExecution>[0] = {
     dashboardId: "board",
     revision,
     enabled: true,
@@ -80,6 +82,7 @@ function fixture() {
     onRevisionChanged: vi.fn(async () => {}),
     onReset: vi.fn(),
     formatError: (e: unknown) => String(e),
+    ...overrides,
   };
   const hook = renderHook((props) => useDashboardExecution(props), {
     initialProps: options,
@@ -374,4 +377,74 @@ it("recognizes local candidate dependencies, ratio error filters and statement d
     "cascade",
     "independent",
   ]);
+});
+
+it("locks embedded scope and clears old data when the namespace changes", async () => {
+  const fixedScope = {
+    resource_mode: "explicit" as const,
+    resource_ids: ["cluster"],
+    resource_types: ["kubernetes_cluster" as const],
+    kubernetes_scope: { cluster_id: "cluster", namespace_ids: [] as string[] },
+  };
+  const f = fixture({ fixedScope });
+  await f.finish(0);
+  act(() =>
+    f.result.current.apply({
+      ...f.result.current.input,
+      resource_ids: ["foreign"],
+    }),
+  );
+  expect(f.pending[1]!.input.resource_ids).toEqual(["cluster"]);
+  const next = {
+    ...fixedScope,
+    resource_ids: ["orders"],
+    resource_types: ["kubernetes_namespace" as const],
+    kubernetes_scope: { cluster_id: "cluster", namespace_ids: ["orders"] },
+  };
+  f.rerender({ ...f.options, fixedScope: next });
+  expect(f.pending[1]!.signal.aborted).toBe(true);
+  expect(f.result.current.execution).toBeUndefined();
+  expect(f.pending[2]!.input.resource_ids).toEqual(["orders"]);
+  await f.finish(1);
+  expect(f.result.current.execution).toBeUndefined();
+  await f.finish(2);
+  expect(f.result.current.execution).toBeDefined();
+  act(() => void f.result.current.run(f.result.current.latest.current));
+  await act(async () => f.pending[3]!.reject(new Error("scope revoked")));
+  expect(f.result.current.execution).toBeUndefined();
+  expect(f.result.current.input.resource_ids).toEqual(["orders"]);
+});
+it("retains user time and refresh settings across tab visibility changes", async () => {
+  const f = fixture();
+  await f.finish(0);
+  act(
+    () =>
+      void f.result.current.run(f.result.current.latest.current, undefined, {
+        kind: "relative",
+        seconds: 7200,
+      }),
+  );
+  await f.finish(1);
+  act(() => f.result.current.setRefreshSeconds(30));
+  f.rerender({ ...f.options, enabled: false });
+  await act(async () => vi.advanceTimersByTimeAsync(60000));
+  expect(f.execute).toHaveBeenCalledTimes(2);
+  f.rerender(f.options);
+  expect(f.result.current.timeRange).toEqual({
+    kind: "relative",
+    seconds: 7200,
+  });
+  expect(f.result.current.refreshSeconds).toBe(30);
+  expect(
+    Date.parse(f.pending[2]!.input.to!) - Date.parse(f.pending[2]!.input.from!),
+  ).toBe(7200000);
+});
+it("does not reset expanded or drilldown UI on automatic refresh", async () => {
+  const f = fixture();
+  await f.finish(0);
+  const resets = f.options.onReset as ReturnType<typeof vi.fn>;
+  const previous = resets.mock.calls.length;
+  await act(async () => vi.advanceTimersByTimeAsync(5000));
+  expect(f.execute).toHaveBeenCalledTimes(2);
+  expect(resets).toHaveBeenCalledTimes(previous);
 });

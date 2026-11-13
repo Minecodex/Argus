@@ -14,6 +14,7 @@ import (
 
 type ListInput struct {
 	Type       string    `json:"type"`
+	State      string    `json:"state"`
 	Namespaces Selection `json:"namespaces"`
 	Name       string    `json:"name"`
 	Labels     string    `json:"labels"`
@@ -36,6 +37,9 @@ type position struct {
 
 func (s Service) List(ctx context.Context, a Actor, clusterID uuid.UUID, in ListInput) (Page, error) {
 	out := Page{Items: []kubernetesinventory.Object{}, Complete: true, ObservedAt: time.Now().UTC(), NamespaceReferences: map[string]uuid.UUID{}}
+	if !kubernetesinventory.ValidStateFilter(in.State) {
+		return out, kubernetesinventory.ErrInvalid
+	}
 	if in.Limit == 0 {
 		in.Limit = 50
 	}
@@ -105,7 +109,11 @@ func (s Service) List(ctx context.Context, a Actor, clusterID uuid.UUID, in List
 		}
 		queries++
 		watchPositions = append(watchPositions, watchPosition{Namespace: namespace, AllNamespaces: all, ResourceVersion: page.ResourceVersion})
-		out.Items = append(out.Items, page.Items...)
+		for _, item := range page.Items {
+			if kubernetesinventory.MatchesState(item, in.State) {
+				out.Items = append(out.Items, item)
+			}
+		}
 		out.ObservedAt = page.ObservedAt
 		if namespace.ID != uuid.Nil {
 			out.NamespaceReferences[namespace.UID] = namespace.ID
@@ -162,12 +170,13 @@ func (s Service) List(ctx context.Context, a Actor, clusterID uuid.UUID, in List
 	if scopeSignature(current, namespaces) != out.ScopeSignature {
 		return Page{}, authorization.ErrAccessDenied
 	}
-	if len(watchPositions) > 0 && len(watchPositions) <= 4 {
+	if in.State == "" && len(watchPositions) > 0 && len(watchPositions) <= 4 {
 		out.WatchToken, err = s.issueWatch(a, clusterID, watchState{Input: filter, ScopeSignature: out.ScopeSignature, Positions: watchPositions})
 		if err != nil {
 			return Page{}, err
 		}
 	}
+	s.objectActions(ctx, a, out.Items)
 	return out, nil
 }
 
@@ -200,9 +209,9 @@ func (s Service) namespaceDirectory(ctx context.Context, a Actor, cluster db.Kub
 	// broad cluster namespace query followed by post-filtering.
 	out := Page{Items: []kubernetesinventory.Object{}, Complete: true, ObservedAt: time.Now().UTC(), ScopeSignature: scopeSignature(scope, scope.Namespaces), NamespaceReferences: map[string]uuid.UUID{}}
 	binding := pagination.Binding{Audience: "kubernetes_namespace_directory/v2", EnterpriseID: a.EnterpriseID.String(), SubjectType: a.SubjectType, SubjectID: a.SubjectID.String(), AuthorizationVersion: a.AuthorizationVersion, FilterHash: pagination.HashFilter(struct {
-		Scope, Name string
-		Limit       int
-	}{out.ScopeSignature, in.Name, in.Limit}), Sort: "namespace-id"}
+		Scope, Name, State string
+		Limit              int
+	}{out.ScopeSignature, in.Name, in.State, in.Limit}), Sort: "namespace-id"}
 	signer := pagination.Signer{Key: s.CursorKey}
 	after := ""
 	if in.Cursor != "" {
@@ -212,14 +221,16 @@ func (s Service) namespaceDirectory(ctx context.Context, a Actor, cluster db.Kub
 		}
 		after = position.ID
 	}
+	scanned := 0
 	for _, namespace := range scope.Namespaces {
 		if namespace.ID.String() <= after || in.Name != "" && namespace.Name != in.Name {
 			continue
 		}
-		if len(out.Items) == in.Limit {
+		if len(out.Items) == in.Limit || scanned >= 200 {
 			out.Complete = false
 			break
 		}
+		scanned++
 		object, err := s.Backend.GetInventory(ctx, cluster, kubernetesinventory.Query{Type: "namespace", Name: namespace.Name, UID: namespace.UID})
 		if err != nil {
 			return Page{}, err
@@ -227,7 +238,9 @@ func (s Service) namespaceDirectory(ctx context.Context, a Actor, cluster db.Kub
 		if object.Definition.Key != "namespace" || object.UID != namespace.UID || object.Name != namespace.Name || object.Namespace != "" {
 			return Page{}, kubernetesinventory.ErrIdentityChanged
 		}
-		out.Items = append(out.Items, object)
+		if kubernetesinventory.MatchesState(object, in.State) {
+			out.Items = append(out.Items, object)
+		}
 		out.NamespaceReferences[namespace.UID] = namespace.ID
 		after = namespace.ID.String()
 	}
@@ -245,5 +258,6 @@ func (s Service) namespaceDirectory(ctx context.Context, a Actor, cluster db.Kub
 	if scopeSignature(current, current.Namespaces) != out.ScopeSignature {
 		return Page{}, authorization.ErrAccessDenied
 	}
+	s.objectActions(ctx, a, out.Items)
 	return out, nil
 }

@@ -112,6 +112,18 @@ type StrictServerInterface interface {
 	// PreviewClusterDashboardBinding Preview a resource dashboard binding change.
 	// (POST /kubernetes/clusters/{id}/dashboard-bindings/preview)
 	PreviewClusterDashboardBinding(ctx context.Context, request PreviewClusterDashboardBindingRequestObject) (PreviewClusterDashboardBindingResponseObject, error)
+	// GetKubernetesOverview Read the current cluster overview selection
+	// (GET /kubernetes/clusters/{id}/overview-dashboard)
+	GetKubernetesOverview(ctx context.Context, request GetKubernetesOverviewRequestObject) (GetKubernetesOverviewResponseObject, error)
+	// ListKubernetesOverviewCandidates List authorized published dashboards applicable to the cluster
+	// (GET /kubernetes/clusters/{id}/overview-dashboard/candidates)
+	ListKubernetesOverviewCandidates(ctx context.Context, request ListKubernetesOverviewCandidatesRequestObject) (ListKubernetesOverviewCandidatesResponseObject, error)
+	// ExecuteKubernetesOverview Execute the selected dashboard with the URL cluster scope pinned by the server
+	// (POST /kubernetes/clusters/{id}/overview-dashboard/execute)
+	ExecuteKubernetesOverview(ctx context.Context, request ExecuteKubernetesOverviewRequestObject) (ExecuteKubernetesOverviewResponseObject, error)
+	// PreviewKubernetesOverview Select or reset a cluster overview through confirmation
+	// (POST /kubernetes/clusters/{id}/overview-dashboard/preview)
+	PreviewKubernetesOverview(ctx context.Context, request PreviewKubernetesOverviewRequestObject) (PreviewKubernetesOverviewResponseObject, error)
 	// ListMonitoringTargetDashboardBindings List MonitoringTarget dashboard bindings
 	// (GET /monitoring/targets/{id}/dashboard-bindings)
 	ListMonitoringTargetDashboardBindings(ctx context.Context, request ListMonitoringTargetDashboardBindingsRequestObject) (ListMonitoringTargetDashboardBindingsResponseObject, error)
@@ -1157,6 +1169,126 @@ func (sh *strictHandler) PreviewClusterDashboardBinding(w http.ResponseWriter, r
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PreviewClusterDashboardBindingResponseObject); ok {
 		if err := validResponse.VisitPreviewClusterDashboardBindingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetKubernetesOverview operation middleware
+func (sh *strictHandler) GetKubernetesOverview(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request GetKubernetesOverviewRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKubernetesOverview(ctx, request.(GetKubernetesOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKubernetesOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKubernetesOverviewResponseObject); ok {
+		if err := validResponse.VisitGetKubernetesOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListKubernetesOverviewCandidates operation middleware
+func (sh *strictHandler) ListKubernetesOverviewCandidates(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params ListKubernetesOverviewCandidatesParams) {
+	var request ListKubernetesOverviewCandidatesRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListKubernetesOverviewCandidates(ctx, request.(ListKubernetesOverviewCandidatesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListKubernetesOverviewCandidates")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListKubernetesOverviewCandidatesResponseObject); ok {
+		if err := validResponse.VisitListKubernetesOverviewCandidatesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ExecuteKubernetesOverview operation middleware
+func (sh *strictHandler) ExecuteKubernetesOverview(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request ExecuteKubernetesOverviewRequestObject
+
+	request.Id = id
+
+	var body ExecuteKubernetesOverviewJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExecuteKubernetesOverview(ctx, request.(ExecuteKubernetesOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExecuteKubernetesOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExecuteKubernetesOverviewResponseObject); ok {
+		if err := validResponse.VisitExecuteKubernetesOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewKubernetesOverview operation middleware
+func (sh *strictHandler) PreviewKubernetesOverview(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewKubernetesOverviewParams) {
+	var request PreviewKubernetesOverviewRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body PreviewKubernetesOverviewJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewKubernetesOverview(ctx, request.(PreviewKubernetesOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewKubernetesOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewKubernetesOverviewResponseObject); ok {
+		if err := validResponse.VisitPreviewKubernetesOverviewResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

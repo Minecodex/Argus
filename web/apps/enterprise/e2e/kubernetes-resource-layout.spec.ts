@@ -27,7 +27,7 @@ for (const width of [1280, 1440, 1920])
           .fill("123456");
         await page.locator('form button[type="submit"]').click();
         await expect(page).not.toHaveURL(/\/login/);
-        await page.goto("/kubernetes/k8s-prod-east");
+        await page.goto("/kubernetes/k8s-prod-east?tab=resources");
         const categoryTabs = page.getByRole("tablist", {
           name: text("资源类别", "Resource category"),
           exact: true,

@@ -161,7 +161,7 @@ func (q *Queries) CreateDashboard(ctx context.Context, arg CreateDashboardParams
 
 const createDashboardBinding = `-- name: CreateDashboardBinding :one
 INSERT INTO dashboard_bindings(id,enterprise_id,dashboard_id,resource_type,resource_id,created_by)
-VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(enterprise_id,dashboard_id,resource_type,resource_id) DO UPDATE SET dashboard_id=EXCLUDED.dashboard_id RETURNING id, enterprise_id, dashboard_id, resource_type, resource_id, version, created_by, created_at
+VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(enterprise_id,dashboard_id,resource_type,resource_id,purpose) DO UPDATE SET dashboard_id=EXCLUDED.dashboard_id RETURNING id, enterprise_id, dashboard_id, resource_type, resource_id, version, created_by, created_at, purpose
 `
 
 type CreateDashboardBindingParams struct {
@@ -192,6 +192,7 @@ func (q *Queries) CreateDashboardBinding(ctx context.Context, arg CreateDashboar
 		&i.Version,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.Purpose,
 	)
 	return i, err
 }
@@ -354,7 +355,7 @@ func (q *Queries) CreateDashboardRevision(ctx context.Context, arg CreateDashboa
 }
 
 const deleteDashboardBinding = `-- name: DeleteDashboardBinding :execrows
-DELETE FROM dashboard_bindings WHERE id=$1 AND enterprise_id=$2 AND version=$3
+DELETE FROM dashboard_bindings WHERE id=$1 AND enterprise_id=$2 AND version=$3 AND purpose='resource'
 `
 
 type DeleteDashboardBindingParams struct {
@@ -399,7 +400,7 @@ func (q *Queries) DiscardDashboardDraft(ctx context.Context, arg DiscardDashboar
 }
 
 const findDashboardBinding = `-- name: FindDashboardBinding :one
-SELECT id, enterprise_id, dashboard_id, resource_type, resource_id, version, created_by, created_at FROM dashboard_bindings WHERE enterprise_id=$1 AND dashboard_id=$2 AND resource_type=$3 AND resource_id=$4
+SELECT id, enterprise_id, dashboard_id, resource_type, resource_id, version, created_by, created_at, purpose FROM dashboard_bindings WHERE enterprise_id=$1 AND dashboard_id=$2 AND resource_type=$3 AND resource_id=$4 AND purpose='resource'
 `
 
 type FindDashboardBindingParams struct {
@@ -426,6 +427,7 @@ func (q *Queries) FindDashboardBinding(ctx context.Context, arg FindDashboardBin
 		&i.Version,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.Purpose,
 	)
 	return i, err
 }
@@ -562,7 +564,7 @@ func (q *Queries) GetDashboardRevision(ctx context.Context, arg GetDashboardRevi
 }
 
 const listDashboardBindings = `-- name: ListDashboardBindings :many
-SELECT id, enterprise_id, dashboard_id, resource_type, resource_id, version, created_by, created_at FROM dashboard_bindings WHERE enterprise_id=$1 AND dashboard_id=$2 ORDER BY created_at,id
+SELECT id, enterprise_id, dashboard_id, resource_type, resource_id, version, created_by, created_at, purpose FROM dashboard_bindings WHERE enterprise_id=$1 AND dashboard_id=$2 AND purpose='resource' ORDER BY created_at,id
 `
 
 type ListDashboardBindingsParams struct {
@@ -588,6 +590,7 @@ func (q *Queries) ListDashboardBindings(ctx context.Context, arg ListDashboardBi
 			&i.Version,
 			&i.CreatedBy,
 			&i.CreatedAt,
+			&i.Purpose,
 		); err != nil {
 			return nil, err
 		}
@@ -818,7 +821,7 @@ func (q *Queries) ListDashboards(ctx context.Context, enterpriseID uuid.UUID) ([
 }
 
 const listResourceDashboardBindings = `-- name: ListResourceDashboardBindings :many
-SELECT id, enterprise_id, dashboard_id, resource_type, resource_id, version, created_by, created_at FROM dashboard_bindings WHERE enterprise_id=$1 AND resource_type=$2 AND resource_id=$3 ORDER BY created_at,id
+SELECT id, enterprise_id, dashboard_id, resource_type, resource_id, version, created_by, created_at, purpose FROM dashboard_bindings WHERE enterprise_id=$1 AND resource_type=$2 AND resource_id=$3 AND purpose='resource' ORDER BY created_at,id
 `
 
 type ListResourceDashboardBindingsParams struct {
@@ -845,6 +848,7 @@ func (q *Queries) ListResourceDashboardBindings(ctx context.Context, arg ListRes
 			&i.Version,
 			&i.CreatedBy,
 			&i.CreatedAt,
+			&i.Purpose,
 		); err != nil {
 			return nil, err
 		}

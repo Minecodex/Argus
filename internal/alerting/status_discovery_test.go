@@ -1,10 +1,11 @@
-package alerting
+package alerting_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/kakj-go/Argus/internal/alerting"
 	"github.com/kakj-go/Argus/internal/mcp"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/toolgateway"
@@ -13,7 +14,7 @@ import (
 
 func TestPolicyStatusCategoryIncludesTransitionsWithoutReplacingConfig(t *testing.T) {
 	registry := mcp.NewRegistry()
-	if err := (Tools{Service: Service{Store: &postgres.Store{}}}).Register(registry); err != nil {
+	if err := (alerting.Tools{Service: alerting.Service{Store: &postgres.Store{}}}).Register(registry); err != nil {
 		t.Fatal(err)
 	}
 	hub, err := toolgateway.New(registry, "plan6-status-discovery")

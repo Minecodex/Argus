@@ -825,7 +825,11 @@ test("kubernetes collector statuses install or open monitoring directly", async 
     }),
     "采集配置",
   );
-  await expect(page).toHaveURL(/\/kubernetes\/k8s-prod-east#otlp-collector$/);
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === "/kubernetes/k8s-prod-east" &&
+      url.hash === "#otlp-collector",
+  );
   await expect(page.getByRole("tab", { name: "采集配置" })).toHaveAttribute(
     "aria-selected",
     "true",

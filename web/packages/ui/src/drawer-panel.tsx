@@ -1,6 +1,6 @@
 import { Drawer } from "@heroui/react/drawer";
-import { X } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
+import { X, Maximize2, Minimize2 } from "lucide-react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { Button } from "./button";
 import { FieldBoundary } from "./form";
 import { useUiText } from "./locale";
@@ -18,6 +18,9 @@ export function DrawerPanel({
   className,
   density = "default",
   headerLeading,
+  expandable = true,
+  expanded,
+  onExpandedChange,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,8 +33,18 @@ export function DrawerPanel({
   density?: "default" | "compact";
   dismissable?: boolean;
   headerLeading?: ReactNode;
+  expandable?: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const text = useUiText();
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const wide = expanded ?? localExpanded;
+  const toggleWidth = () => {
+    const next = !wide;
+    if (expanded === undefined) setLocalExpanded(next);
+    onExpandedChange?.(next);
+  };
   return (
     <Drawer.Backdrop
       isOpen={open}
@@ -41,8 +54,11 @@ export function DrawerPanel({
       isKeyboardDismissDisabled={!dismissable}
       style={
         {
-          "--argus-drawer-width":
-            typeof width === "number" ? `${width}px` : width,
+          "--argus-drawer-width": wide
+            ? "var(--dialog-width-lg)"
+            : typeof width === "number"
+              ? `${width}px`
+              : width,
         } as CSSProperties
       }
     >
@@ -75,19 +91,40 @@ export function DrawerPanel({
                 <p className="argus-dialog__description">{description}</p>
               )}
             </div>
-            <Button
-              slot="close"
-              className="argus-overlay-close"
-              isIconOnly={density !== "compact"}
-              density={density}
-              size={density === "compact" ? "sm" : "md"}
-              isDisabled={!dismissable}
-              aria-label={text("关闭", "Close")}
-              variant="ghost"
-            >
-              <X aria-hidden />
-              {density === "compact" && text("关闭", "Close")}
-            </Button>
+            <div className="argus-overlay-actions">
+              {expandable && (
+                <Button
+                  isIconOnly
+                  variant="ghost"
+                  onPress={toggleWidth}
+                  aria-label={
+                    wide
+                      ? text("恢复抽屉宽度", "Restore drawer width")
+                      : text("放大详情窗口", "Expand detail window")
+                  }
+                  title={
+                    wide
+                      ? text("恢复抽屉宽度", "Restore drawer width")
+                      : text("放大详情窗口", "Expand detail window")
+                  }
+                >
+                  {wide ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
+                </Button>
+              )}
+              <Button
+                slot="close"
+                className="argus-overlay-close"
+                isIconOnly={density !== "compact"}
+                density={density}
+                size={density === "compact" ? "sm" : "md"}
+                isDisabled={!dismissable}
+                aria-label={text("关闭", "Close")}
+                variant="ghost"
+              >
+                <X aria-hidden />
+                {density === "compact" && text("关闭", "Close")}
+              </Button>
+            </div>
           </Drawer.Header>
           <Drawer.Body className="argus-drawer__body">
             <FieldBoundary>{children}</FieldBoundary>

@@ -675,3 +675,59 @@
   background: var(--bg-surface);
   border-radius: var(--card-radius);
 }
+
+.argus-key-value-editor,
+.argus-structured-fields {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.argus-key-value-editor fieldset,
+.argus-structured-fields fieldset {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-width: 0;
+}
+.argus-key-value-editor__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: var(--space-2);
+  grid-template-rows: auto auto auto;
+  align-items: start;
+}
+.argus-key-value-editor__row > .argus-field {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: 1 / span 3;
+  row-gap: inherit;
+}
+.argus-key-value-editor__row > .argus-field:first-child {
+  grid-column: 1;
+}
+.argus-key-value-editor__row > .argus-field:nth-child(2) {
+  grid-column: 2;
+}
+.argus-key-value-editor__row > .argus-button {
+  grid-column: 3;
+  grid-row: 2;
+  align-self: start;
+}
+.argus-key-value-editor__row .argus-textarea {
+  min-height: calc(var(--control-height) + var(--space-3));
+}
+.argus-structured-fields__list,
+.argus-structured-fields__item {
+  display: grid;
+  gap: var(--space-3);
+}
+.argus-structured-fields__item + .argus-structured-fields__item {
+  border-top: 1px solid var(--border-default);
+  padding-top: var(--space-3);
+}
+
+.argus-troubleshooting-workspace {
+  resize: both;
+  overflow: auto;
+  max-width: calc(100vw - var(--space-8));
+}

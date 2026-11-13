@@ -567,6 +567,21 @@
   margin-left: auto;
   align-self: flex-start;
 }
+.argus-overlay-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--action-gap);
+  margin-inline-start: auto;
+}
+.argus-dropdown__description {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+  max-width: var(--filter-search-max-width);
+  border-bottom: var(--space-px-1) solid var(--border-subtle);
+}
 .argus-dialog-form {
   display: flex;
   flex-direction: column;
@@ -603,18 +618,28 @@
 }
 .argus-drawer-content {
   position: fixed;
-  inset: 0;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inset-inline-start: auto;
   display: flex;
   justify-content: flex-end;
   align-items: stretch;
-  width: 100%;
+  width: min(
+    var(--argus-drawer-width, var(--drawer-width)),
+    calc(100vw - var(--space-8))
+  );
   height: 100dvh;
   max-width: none;
 }
 .argus-drawer {
-  width: min(var(--argus-drawer-width, var(--drawer-width)), 100vw);
+  width: 100%;
   flex: 0 0 auto;
   margin: 0;
+}
+.argus-drawer__top .argus-dialog__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .argus-drawer {
   display: flex;

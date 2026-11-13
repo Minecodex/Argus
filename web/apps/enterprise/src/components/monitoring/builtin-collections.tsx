@@ -11,6 +11,7 @@ import {
   type PendingActionPublic,
 } from "@argus/api-client";
 import {
+  ActionGroup,
   DataTable,
   ActionMenu,
   Switch,
@@ -216,7 +217,18 @@ export function BuiltinCollections({
       key: "dashboard",
       header: t("monitoring.actions"),
       render: (row) => (
-        <div className="argus-builtin-actions">
+        <ActionGroup>
+          {canViewDashboard &&
+          row.collection &&
+          row.available &&
+          builtinTemplates[row.definition.key] ? (
+            <Button
+              size="sm"
+              onPress={() => void openDefault(row.definition.key)}
+            >
+              {t("monitoring.openDefaultDashboard")}
+            </Button>
+          ) : null}
           {canManage &&
             row.available &&
             row.definition.component_tls_supported && (
@@ -231,18 +243,7 @@ export function BuiltinCollections({
                 ]}
               />
             )}
-          {canViewDashboard &&
-          row.collection &&
-          row.available &&
-          builtinTemplates[row.definition.key] ? (
-            <Button
-              size="sm"
-              onPress={() => void openDefault(row.definition.key)}
-            >
-              {t("monitoring.openDefaultDashboard")}
-            </Button>
-          ) : null}
-        </div>
+        </ActionGroup>
       ),
     },
   ];

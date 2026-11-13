@@ -8,6 +8,59 @@ export function createKubernetesWorkbenchDomains(
     `enterprise/kubernetes-clusters/${encodeURIComponent(id)}/inventory`;
   return {
     kubernetesWorkbench: {
+      overviewCandidates: (id, input, signal) => {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(input))
+          if (value !== undefined) params.set(key, String(value));
+        return http.request(
+          "kubernetes/clusters/" +
+            encodeURIComponent(id) +
+            "/overview-dashboard/candidates?" +
+            params,
+          { signal },
+        );
+      },
+      overview: (id, signal) =>
+        http.request(
+          "kubernetes/clusters/" +
+            encodeURIComponent(id) +
+            "/overview-dashboard",
+          { signal },
+        ),
+      previewOverview: (id, input) =>
+        http.request(
+          "kubernetes/clusters/" +
+            encodeURIComponent(id) +
+            "/overview-dashboard/preview",
+          {
+            method: "POST",
+            body: input,
+            csrf: true,
+            headers: { "Idempotency-Key": crypto.randomUUID() },
+          },
+        ),
+      executeOverview: (id, input, signal) =>
+        http.request(
+          "kubernetes/clusters/" +
+            encodeURIComponent(id) +
+            "/overview-dashboard/execute",
+          { method: "POST", body: input, signal },
+        ),
+      snapshot: (id, input, signal) => {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(input))
+          if (value !== undefined)
+            params.set(
+              key,
+              Array.isArray(value) ? value.join(",") : String(value),
+            );
+        return http.request(base(id) + "/snapshot?" + params, { signal });
+      },
+      related: (id, input, signal) => {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(input)) if (value !== undefined) params.set(key, String(value));
+        return http.request(base(id) + "/related?" + params, { signal });
+      },
       helmReleases: (cluster, namespaceId, signal) =>
         http.request(
           `enterprise/kubernetes-clusters/${encodeURIComponent(cluster)}/helm/releases?${new URLSearchParams({ namespace_id: namespaceId })}`,
@@ -124,7 +177,13 @@ export function createKubernetesWorkbenchDomains(
             input.namespace_mode ??
             (input.namespace_ids !== undefined ? "explicit" : "all_authorized"),
         });
-        for (const key of ["name", "labels", "limit", "cursor"] as const) {
+        for (const key of [
+          "name",
+          "labels",
+          "state",
+          "limit",
+          "cursor",
+        ] as const) {
           const value = input[key];
           if (value !== undefined && value !== "")
             query.set(key, String(value));

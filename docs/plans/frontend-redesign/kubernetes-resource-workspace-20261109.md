@@ -1,6 +1,10 @@
 # Kubernetes 资源工作台布局
 
+本布局已由后续完整重构替代；当前实现、实际发布及剩余边界见 [补齐与样式复验](./kubernetes-workbench-repair-acceptance-20261112.md)。
+
 2026-11-09，根据资源查询页截图调整桌面交互。
+
+后续重构见 [2026-11-12 实现计划](./kubernetes-resource-workbench-refactor-plan-20261112.md)。该计划已实现并发布，当前行为以 [2026-11-12 交付验收](./kubernetes-workbench-acceptance-20261112.md) 和 [资源能力矩阵](./kubernetes-workbench-capabilities-20261112.md) 为准。本文下方保留 11 月 9 日布局基线。
 
 ## 页面行为
 

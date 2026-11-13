@@ -27,3 +27,10 @@ Host 文件系统采集纳入实际 overlay/虚拟文件系统，同时排除 pr
 - [中英明暗四场景](../../artifacts/plan8-own-default-portal-e2e.log)：Host/K8s 自身开关、相互独立、默认仪表盘预选该资源、个人副本入口和可访问性；使用 mock API。
 
 Host 默认模板参考 Grafana 1860，Collector 参考 12553，查询已按当前 Receiver 真实指标改写。默认入口仅在当前用户有相应权威资源权限且配置过该能力时提供，停采后仍可查保留期历史；用户副本继续独立。K8s 组件默认内容、进程/系统服务、控制面组件、Node/Host Claim、所有平台的正式安装/迁移/运维链路仍待完成。
+
+
+## 节点公开 CA 的实际文件信任
+
+2026-11-12，节点指标固定实例复用公开 CA 配置与证书信任表单。原生 kubeletstats ServiceAccount 客户端按文件读取 CA，因此配置编译使用固定的 `/etc/argus-otelcol/kubelet-ca.pem`，部署器把规范化的公开 PEM 写入候选配置卷并纳入既有大小预算、校验和回滚。未配置时保持原 kubelet 证书路径。节点始终按固定节点名称校验，不支持服务名覆盖；API 拒绝该字段，门户隐藏对应输入。没有新增任意路径、端点、私钥或跳过校验选项。
+
+受管 CA 文件取样与错误 CA 的原生拒绝、三项实际采集及中英明暗表单验收见 [B10b 记录](../plan9/19-b10b-storage-jobs-and-node-ca-20261112.md)。

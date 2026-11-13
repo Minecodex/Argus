@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { selectWorkbenchNamespace } from "./helpers/kubernetes-workbench";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -24,7 +25,7 @@ for (const english of [false, true])
         .fill("123456");
       await page.locator('form button[type="submit"]').click();
       await expect(page).not.toHaveURL(/\/login/);
-      await page.goto("/kubernetes/k8s-prod-east");
+      await page.goto("/kubernetes/k8s-prod-east?tab=resources");
       await selectWorkbenchNamespace(page, "production");
       for (const [type, kind] of [
         ["deployment", "Deployment"],
@@ -36,27 +37,12 @@ for (const english of [false, true])
         const row = page
           .getByRole("row")
           .filter({ has: page.getByText(name, { exact: true }) });
-        await row
-          .getByRole("button", {
-            name: english ? "Manage object" : "管理对象",
-            exact: true,
-          })
-          .click();
+        await selectRowAction(row, english ? "Roll back" : "回滚");
         const dialog = page.getByRole("dialog", {
-          name: `${english ? "Manage" : "管理"} ${kind} · ${name}`,
+          name: `${english ? "Roll back" : "回滚"} · ${name}`,
           exact: true,
         });
-        await dialog
-          .getByRole("button", {
-            name: new RegExp(english ? "^Operation" : "^操作"),
-          })
-          .click();
-        await page
-          .getByRole("option", {
-            name: english ? "Roll back Pod template" : "回滚 Pod 模板",
-            exact: true,
-          })
-          .click();
+
         const choose = dialog.getByRole("button", {
           name: english ? "Choose a historical revision" : "选择历史修订",
           exact: true,
@@ -110,6 +96,15 @@ for (const english of [false, true])
             exact: true,
           })
           .click();
+        await expect(
+          page.locator(".argus-k8s-operation-feedback"),
+        ).toContainText(english ? "Applied" : "已生效");
+        await page
+          .getByRole("button", {
+            name: english ? "Operation history" : "操作记录",
+            exact: true,
+          })
+          .click();
         const history = page.getByRole("dialog", {
           name: english ? "Operation history" : "操作记录",
           exact: true,
@@ -120,11 +115,10 @@ for (const english of [false, true])
             .filter({ has: page.getByText(name, { exact: true }) }),
         ).toContainText(english ? "Applied" : "已生效");
         await page.keyboard.press("Escape");
-        await row
-          .getByRole("button", {
-            name: english ? "View object" : "查看对象",
-            exact: true,
-          })
+        await row.getByRole("button", { name, exact: true }).click();
+        await page
+          .getByRole("dialog")
+          .getByRole("tab", { name: "YAML / JSON", exact: true })
           .click();
         await expect(page.getByRole("dialog").locator("pre")).toContainText(
           "alpine:3.20",

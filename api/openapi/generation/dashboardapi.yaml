@@ -114,6 +114,18 @@
     },
     "/dashboard-scope-resources": {
       "$ref": "../argus.yaml#/paths/~1dashboard-scope-resources"
+    },
+    "/kubernetes/clusters/{id}/overview-dashboard": {
+      "$ref": "../argus.yaml#/paths/~1kubernetes~1clusters~1{id}~1overview-dashboard"
+    },
+    "/kubernetes/clusters/{id}/overview-dashboard/preview": {
+      "$ref": "../argus.yaml#/paths/~1kubernetes~1clusters~1{id}~1overview-dashboard~1preview"
+    },
+    "/kubernetes/clusters/{id}/overview-dashboard/execute": {
+      "$ref": "../argus.yaml#/paths/~1kubernetes~1clusters~1{id}~1overview-dashboard~1execute"
+    },
+    "/kubernetes/clusters/{id}/overview-dashboard/candidates": {
+      "$ref": "../argus.yaml#/paths/~1kubernetes~1clusters~1{id}~1overview-dashboard~1candidates"
     }
   },
   "components": {

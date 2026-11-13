@@ -1,5 +1,11 @@
 # 全门户重设计与仪表盘编辑器重构
 
+2026-11-13 Kubernetes 资源行操作统一进入“…”、详情使用可放大的共享抽屉并支持点击外侧关闭；状态筛选收窄、操作列固定及重复待检查提示合并，见 [菜单与抽屉验收](./kubernetes-resource-actions-drawers-20261113.md)。
+
+2026-11-13 Kubernetes 工作台 C01～C05 已补齐、真实复验和清理，见 [剩余项补齐验收](./kubernetes-workbench-closure-20261113.md)。原复核文件作为历史发现保留。
+
+2026-11-13 [Kubernetes 工作台计划](./kubernetes-resource-workbench-refactor-plan-20261112.md)的五组二次复核缺口已完成修复与验证；审查发现保留在 [二次复核](./kubernetes-workbench-completion-review-20261113.md)，当前发布见 [剩余项补齐验收](./kubernetes-workbench-closure-20261113.md)。
+
 2026-11-09 [Kubernetes 采集配置](./kubernetes-collection-controls-20261109.md)以采集内容开关、实际数据状态和仪表盘入口为主，部署维护移入次级入口；修正续证私钥格式不一致并恢复四套 Kubernetes 仪表盘数据，已发布本地环境并通过真实页面验收。
 
 2026-11-09 [Kubernetes 资源工作台](./kubernetes-resource-workspace-20261109.md)调整为类别和类型两排 Tab、Namespace 下拉与紧凑单行筛选，操作记录和新建靠右；移除资源页 Helm 与端口转发入口。

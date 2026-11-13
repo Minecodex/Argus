@@ -86,15 +86,26 @@ func (manager Manager) ApplyKubernetes(ctx context.Context, command *connectorv1
 		return Result{}, err
 	}
 	defer clear(private)
-	if len(private) > 512<<10 || len(agentConfig)+len(gatewayConfig)+len(trust.PEM) > 900<<10 {
+	publicFiles, err := configbundle.KubernetesPublicFiles(command.GetRenderedConfig())
+	if err != nil {
+		return Result{}, err
+	}
+	publicSize := 0
+	for _, value := range publicFiles {
+		publicSize += len(value)
+	}
+	if len(private) > 512<<10 || len(agentConfig)+len(gatewayConfig)+len(trust.PEM)+publicSize > 900<<10 {
 		return Result{}, ErrInvalidCommand
 	}
 	if err = applySecret(ctx, options.Client, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: privateSlot(configName), Namespace: KubernetesNamespace, Labels: labels}, Data: map[string][]byte{"config.json": private}}); err != nil {
 		return Result{}, err
 	}
-	if err := applyConfigMap(ctx, options.Client, &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: configName, Namespace: KubernetesNamespace, Labels: labels},
-		Data: map[string]string{"agent.yaml": string(agentConfig), "gateway.yaml": string(gatewayConfig), "server-ca.pem": string(trust.PEM),
-			"trust-bundle-epoch": strconv.FormatUint(command.GetTrustBundleEpoch(), 10), "trust-bundle-sha256": trust.SHA256}}); err != nil {
+	publicData := map[string]string{"agent.yaml": string(agentConfig), "gateway.yaml": string(gatewayConfig), "server-ca.pem": string(trust.PEM),
+		"trust-bundle-epoch": strconv.FormatUint(command.GetTrustBundleEpoch(), 10), "trust-bundle-sha256": trust.SHA256}
+	for name, value := range publicFiles {
+		publicData[name] = value
+	}
+	if err := applyConfigMap(ctx, options.Client, &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: configName, Namespace: KubernetesNamespace, Labels: labels}, Data: publicData}); err != nil {
 		return Result{}, err
 	}
 	if command.GetOperation() == "install" {

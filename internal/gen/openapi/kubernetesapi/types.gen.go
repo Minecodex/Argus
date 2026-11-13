@@ -5,10 +5,8 @@ package kubernetesapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
-	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -507,6 +505,108 @@ func (e KubernetesResourceResourceType) Valid() bool {
 	}
 }
 
+// Defines values for KubernetesResourceActionState.
+const (
+	RequiresCheck KubernetesResourceActionState = "requires_check"
+	Unavailable   KubernetesResourceActionState = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesResourceActionState enum.
+func (e KubernetesResourceActionState) Valid() bool {
+	switch e {
+	case RequiresCheck:
+		return true
+	case Unavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesResourceRelationKind.
+const (
+	Binds      KubernetesResourceRelationKind = "binds"
+	Mounts     KubernetesResourceRelationKind = "mounts"
+	Owns       KubernetesResourceRelationKind = "owns"
+	References KubernetesResourceRelationKind = "references"
+	Routes     KubernetesResourceRelationKind = "routes"
+	Scales     KubernetesResourceRelationKind = "scales"
+	Schedules  KubernetesResourceRelationKind = "schedules"
+	Selects    KubernetesResourceRelationKind = "selects"
+	Uses       KubernetesResourceRelationKind = "uses"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesResourceRelationKind enum.
+func (e KubernetesResourceRelationKind) Valid() bool {
+	switch e {
+	case Binds:
+		return true
+	case Mounts:
+		return true
+	case Owns:
+		return true
+	case References:
+		return true
+	case Routes:
+		return true
+	case Scales:
+		return true
+	case Schedules:
+		return true
+	case Selects:
+		return true
+	case Uses:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesResourceSummaryState.
+const (
+	KubernetesResourceSummaryStateCompleted   KubernetesResourceSummaryState = "completed"
+	KubernetesResourceSummaryStateConfigured  KubernetesResourceSummaryState = "configured"
+	KubernetesResourceSummaryStateFailed      KubernetesResourceSummaryState = "failed"
+	KubernetesResourceSummaryStateHealthy     KubernetesResourceSummaryState = "healthy"
+	KubernetesResourceSummaryStatePaused      KubernetesResourceSummaryState = "paused"
+	KubernetesResourceSummaryStatePending     KubernetesResourceSummaryState = "pending"
+	KubernetesResourceSummaryStateProgressing KubernetesResourceSummaryState = "progressing"
+	KubernetesResourceSummaryStateScaledDown  KubernetesResourceSummaryState = "scaled_down"
+	KubernetesResourceSummaryStateTerminating KubernetesResourceSummaryState = "terminating"
+	KubernetesResourceSummaryStateUnknown     KubernetesResourceSummaryState = "unknown"
+	KubernetesResourceSummaryStateWarning     KubernetesResourceSummaryState = "warning"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesResourceSummaryState enum.
+func (e KubernetesResourceSummaryState) Valid() bool {
+	switch e {
+	case KubernetesResourceSummaryStateCompleted:
+		return true
+	case KubernetesResourceSummaryStateConfigured:
+		return true
+	case KubernetesResourceSummaryStateFailed:
+		return true
+	case KubernetesResourceSummaryStateHealthy:
+		return true
+	case KubernetesResourceSummaryStatePaused:
+		return true
+	case KubernetesResourceSummaryStatePending:
+		return true
+	case KubernetesResourceSummaryStateProgressing:
+		return true
+	case KubernetesResourceSummaryStateScaledDown:
+		return true
+	case KubernetesResourceSummaryStateTerminating:
+		return true
+	case KubernetesResourceSummaryStateUnknown:
+		return true
+	case KubernetesResourceSummaryStateWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for KubernetesStreamInputMode.
 const (
 	KubernetesStreamInputModeExec        KubernetesStreamInputMode = "exec"
@@ -683,16 +783,100 @@ func (e PartialMetadataReasons) Valid() bool {
 
 // Defines values for ListKubernetesInventoryParamsNamespaceMode.
 const (
-	AllAuthorized ListKubernetesInventoryParamsNamespaceMode = "all_authorized"
-	Explicit      ListKubernetesInventoryParamsNamespaceMode = "explicit"
+	ListKubernetesInventoryParamsNamespaceModeAllAuthorized ListKubernetesInventoryParamsNamespaceMode = "all_authorized"
+	ListKubernetesInventoryParamsNamespaceModeExplicit      ListKubernetesInventoryParamsNamespaceMode = "explicit"
 )
 
 // Valid indicates whether the value is a known member of the ListKubernetesInventoryParamsNamespaceMode enum.
 func (e ListKubernetesInventoryParamsNamespaceMode) Valid() bool {
 	switch e {
-	case AllAuthorized:
+	case ListKubernetesInventoryParamsNamespaceModeAllAuthorized:
 		return true
-	case Explicit:
+	case ListKubernetesInventoryParamsNamespaceModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListKubernetesInventoryParamsState.
+const (
+	ListKubernetesInventoryParamsStateAttention   ListKubernetesInventoryParamsState = "attention"
+	ListKubernetesInventoryParamsStateCompleted   ListKubernetesInventoryParamsState = "completed"
+	ListKubernetesInventoryParamsStateConfigured  ListKubernetesInventoryParamsState = "configured"
+	ListKubernetesInventoryParamsStateFailed      ListKubernetesInventoryParamsState = "failed"
+	ListKubernetesInventoryParamsStateHealthy     ListKubernetesInventoryParamsState = "healthy"
+	ListKubernetesInventoryParamsStatePaused      ListKubernetesInventoryParamsState = "paused"
+	ListKubernetesInventoryParamsStatePending     ListKubernetesInventoryParamsState = "pending"
+	ListKubernetesInventoryParamsStateProgressing ListKubernetesInventoryParamsState = "progressing"
+	ListKubernetesInventoryParamsStateScaledDown  ListKubernetesInventoryParamsState = "scaled_down"
+	ListKubernetesInventoryParamsStateTerminating ListKubernetesInventoryParamsState = "terminating"
+	ListKubernetesInventoryParamsStateUnknown     ListKubernetesInventoryParamsState = "unknown"
+	ListKubernetesInventoryParamsStateWarning     ListKubernetesInventoryParamsState = "warning"
+)
+
+// Valid indicates whether the value is a known member of the ListKubernetesInventoryParamsState enum.
+func (e ListKubernetesInventoryParamsState) Valid() bool {
+	switch e {
+	case ListKubernetesInventoryParamsStateAttention:
+		return true
+	case ListKubernetesInventoryParamsStateCompleted:
+		return true
+	case ListKubernetesInventoryParamsStateConfigured:
+		return true
+	case ListKubernetesInventoryParamsStateFailed:
+		return true
+	case ListKubernetesInventoryParamsStateHealthy:
+		return true
+	case ListKubernetesInventoryParamsStatePaused:
+		return true
+	case ListKubernetesInventoryParamsStatePending:
+		return true
+	case ListKubernetesInventoryParamsStateProgressing:
+		return true
+	case ListKubernetesInventoryParamsStateScaledDown:
+		return true
+	case ListKubernetesInventoryParamsStateTerminating:
+		return true
+	case ListKubernetesInventoryParamsStateUnknown:
+		return true
+	case ListKubernetesInventoryParamsStateWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetKubernetesRelatedResourcesParamsView.
+const (
+	Events    GetKubernetesRelatedResourcesParamsView = "events"
+	Relations GetKubernetesRelatedResourcesParamsView = "relations"
+)
+
+// Valid indicates whether the value is a known member of the GetKubernetesRelatedResourcesParamsView enum.
+func (e GetKubernetesRelatedResourcesParamsView) Valid() bool {
+	switch e {
+	case Events:
+		return true
+	case Relations:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetKubernetesResourceSnapshotParamsNamespaceMode.
+const (
+	GetKubernetesResourceSnapshotParamsNamespaceModeAllAuthorized GetKubernetesResourceSnapshotParamsNamespaceMode = "all_authorized"
+	GetKubernetesResourceSnapshotParamsNamespaceModeExplicit      GetKubernetesResourceSnapshotParamsNamespaceMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the GetKubernetesResourceSnapshotParamsNamespaceMode enum.
+func (e GetKubernetesResourceSnapshotParamsNamespaceMode) Valid() bool {
+	switch e {
+	case GetKubernetesResourceSnapshotParamsNamespaceModeAllAuthorized:
+		return true
+	case GetKubernetesResourceSnapshotParamsNamespaceModeExplicit:
 		return true
 	default:
 		return false
@@ -1001,6 +1185,7 @@ type KubernetesInventoryDefinition struct {
 
 // KubernetesInventoryObject defines model for KubernetesInventoryObject.
 type KubernetesInventoryObject struct {
+	Actions      *[]KubernetesResourceAction   `json:"actions,omitempty"`
 	CreatedAt    time.Time                     `json:"created_at"`
 	Data         map[string]interface{}        `json:"data"`
 	Definition   KubernetesInventoryDefinition `json:"definition"`
@@ -1018,902 +1203,8 @@ type KubernetesInventoryObject struct {
 		Name               string `json:"name"`
 		Uid                string `json:"uid"`
 	} `json:"owners"`
-	Redacted        bool   `json:"redacted"`
-	ResourceVersion string `json:"resource_version"`
-	Uid             string `json:"uid"`
-}
-
-// KubernetesInventoryPage defines model for KubernetesInventoryPage.
-type KubernetesInventoryPage struct {
-	Complete            bool                          `json:"complete"`
-	Items               []KubernetesInventoryObject   `json:"items"`
-	NamespaceReferences map[string]openapi_types.UUID `json:"namespace_references"`
-	NextCursor          *string                       `json:"next_cursor,omitempty"`
-	ObservedAt          time.Time                     `json:"observed_at"`
-	ScopeSignature      string                        `json:"scope_signature"`
-	WatchToken          *string                       `json:"watch_token,omitempty"`
-}
-
-// KubernetesInventoryScope defines model for KubernetesInventoryScope.
-type KubernetesInventoryScope struct {
-	ClusterId      openapi_types.UUID             `json:"cluster_id"`
-	ClusterName    string                         `json:"cluster_name"`
-	ClusterVersion int64                          `json:"cluster_version"`
-	ClusterWide    bool                           `json:"cluster_wide"`
-	Namespaces     []KubernetesNamespaceReference `json:"namespaces"`
-}
-
-// KubernetesInventoryTypes defines model for KubernetesInventoryTypes.
-type KubernetesInventoryTypes struct {
-	Complete          bool                            `json:"complete"`
-	Items             []KubernetesInventoryDefinition `json:"items"`
-	UnavailableReason *string                         `json:"unavailable_reason,omitempty"`
-}
-
-// KubernetesInventoryWatchEvent defines model for KubernetesInventoryWatchEvent.
-type KubernetesInventoryWatchEvent struct {
-	Object KubernetesInventoryObject         `json:"object"`
-	Type   KubernetesInventoryWatchEventType `json:"type"`
-}
-
-// KubernetesInventoryWatchEventType defines model for KubernetesInventoryWatchEvent.Type.
-type KubernetesInventoryWatchEventType string
-
-// KubernetesInventoryWatchInput defines model for KubernetesInventoryWatchInput.
-type KubernetesInventoryWatchInput struct {
-	Token string `json:"token"`
-}
-
-// KubernetesInventoryWatchResult defines model for KubernetesInventoryWatchResult.
-type KubernetesInventoryWatchResult struct {
-	Events         []KubernetesInventoryWatchEvent `json:"events"`
-	More           bool                            `json:"more"`
-	ObservedAt     time.Time                       `json:"observed_at"`
-	ScopeSignature string                          `json:"scope_signature"`
-	WatchToken     string                          `json:"watch_token"`
-}
-
-// KubernetesLogSession defines model for KubernetesLogSession.
-type KubernetesLogSession struct {
-	ClusterId    openapi_types.UUID         `json:"cluster_id"`
-	Container    string                     `json:"container"`
-	ExpiresAt    time.Time                  `json:"expires_at"`
-	Id           openapi_types.UUID         `json:"id"`
-	Namespace    string                     `json:"namespace"`
-	NamespaceId  openapi_types.UUID         `json:"namespace_id"`
-	NamespaceUid string                     `json:"namespace_uid"`
-	Pod          string                     `json:"pod"`
-	PodUid       string                     `json:"pod_uid"`
-	Previous     bool                       `json:"previous"`
-	RestartCount int                        `json:"restart_count"`
-	Status       KubernetesLogSessionStatus `json:"status"`
-	Version      int64                      `json:"version"`
-}
-
-// KubernetesLogSessionStatus defines model for KubernetesLogSession.Status.
-type KubernetesLogSessionStatus string
-
-// KubernetesLogSessionAttachInput defines model for KubernetesLogSessionAttachInput.
-type KubernetesLogSessionAttachInput struct {
-	Ticket string `json:"ticket"`
-}
-
-// KubernetesLogSessionBatch defines model for KubernetesLogSessionBatch.
-type KubernetesLogSessionBatch struct {
-	Complete    bool      `json:"complete"`
-	Content     string    `json:"content"`
-	NextCursor  string    `json:"next_cursor"`
-	ObservedAt  time.Time `json:"observed_at"`
-	PendingLine bool      `json:"pending_line"`
-	Redacted    bool      `json:"redacted"`
-	Truncated   bool      `json:"truncated"`
-}
-
-// KubernetesLogSessionInput defines model for KubernetesLogSessionInput.
-type KubernetesLogSessionInput struct {
-	Container   string             `json:"container"`
-	NamespaceId openapi_types.UUID `json:"namespace_id"`
-	Pod         string             `json:"pod"`
-	PodUid      string             `json:"pod_uid"`
-	Previous    bool               `json:"previous"`
-
-	// SinceSeconds Initial lookback in seconds. Zero reads the latest retained tail without a time filter; byte and row limits still apply.
-	SinceSeconds int `json:"since_seconds"`
-	TailLines    int `json:"tail_lines"`
-}
-
-// KubernetesLogSessionReadInput defines model for KubernetesLogSessionReadInput.
-type KubernetesLogSessionReadInput struct {
-	Cursor *string `json:"cursor,omitempty"`
-}
-
-// KubernetesLogSessionTicket defines model for KubernetesLogSessionTicket.
-type KubernetesLogSessionTicket struct {
-	Session         KubernetesLogSession `json:"session"`
-	Ticket          string               `json:"ticket"`
-	TicketExpiresAt time.Time            `json:"ticket_expires_at"`
-}
-
-// KubernetesMutationInput defines model for KubernetesMutationInput.
-type KubernetesMutationInput struct {
-	CronjobSource           *KubernetesObjectVersionReference `json:"cronjob_source,omitempty"`
-	ExpectedResourceVersion *string                           `json:"expected_resource_version,omitempty"`
-	Name                    string                            `json:"name"`
-	NamespaceId             *openapi_types.UUID               `json:"namespace_id,omitempty"`
-	Object                  *map[string]interface{}           `json:"object,omitempty"`
-	Operation               KubernetesMutationInputOperation  `json:"operation"`
-	Replicas                *int64                            `json:"replicas,omitempty"`
-	Rollback                *KubernetesRollbackReference      `json:"rollback,omitempty"`
-
-	// SecretValues Protected Secret values; excluded from public manifests, action plans and Agent inputs.
-	SecretValues *map[string]string `json:"secret_values,omitempty"`
-	Type         string             `json:"type"`
-	Uid          *string            `json:"uid,omitempty"`
-}
-
-// KubernetesMutationInputOperation defines model for KubernetesMutationInput.Operation.
-type KubernetesMutationInputOperation string
-
-// KubernetesNamespaceReference defines model for KubernetesNamespaceReference.
-type KubernetesNamespaceReference struct {
-	Id      openapi_types.UUID `json:"id"`
-	Name    string             `json:"name"`
-	Uid     string             `json:"uid"`
-	Version int64              `json:"version"`
-}
-
-// KubernetesObjectVersionReference defines model for KubernetesObjectVersionReference.
-type KubernetesObjectVersionReference struct {
-	Name            string `json:"name"`
-	ResourceVersion string `json:"resource_version"`
-	Uid             string `json:"uid"`
-}
-
-// KubernetesOperation defines model for KubernetesOperation.
-type KubernetesOperation struct {
-	ClusterId       openapi_types.UUID         `json:"cluster_id"`
-	CreatedAt       time.Time                  `json:"created_at"`
-	ErrorCode       string                     `json:"error_code"`
-	FinishedAt      *time.Time                 `json:"finished_at,omitempty"`
-	Id              openapi_types.UUID         `json:"id"`
-	Name            string                     `json:"name"`
-	NamespaceId     *openapi_types.UUID        `json:"namespace_id,omitempty"`
-	NamespaceUid    string                     `json:"namespace_uid"`
-	Operation       string                     `json:"operation"`
-	PendingActionId *openapi_types.UUID        `json:"pending_action_id,omitempty"`
-	Result          KubernetesOperation_Result `json:"result"`
-	StartedAt       *time.Time                 `json:"started_at,omitempty"`
-	Status          KubernetesOperationStatus  `json:"status"`
-	Type            string                     `json:"type"`
+	Redacted        bool                       `json:"redacted"`
+	ResourceVersion string                     `json:"resource_version"`
+	Summary         *KubernetesResourceSummary `json:"summary,omitempty"`
 	Uid             string                     `json:"uid"`
-	UpdatedAt       time.Time                  `json:"updated_at"`
-	Version         int64                      `json:"version"`
-}
-
-// KubernetesOperation_Result defines model for KubernetesOperation.Result.
-type KubernetesOperation_Result struct {
-	Drain                *KubernetesDrainProgress `json:"drain,omitempty"`
-	AdditionalProperties map[string]interface{}   `json:"-"`
-}
-
-// KubernetesOperationStatus defines model for KubernetesOperation.Status.
-type KubernetesOperationStatus string
-
-// KubernetesOperationPage defines model for KubernetesOperationPage.
-type KubernetesOperationPage struct {
-	Items      []KubernetesOperation `json:"items"`
-	NextCursor *string               `json:"next_cursor,omitempty"`
-}
-
-// KubernetesPreviewCreate defines model for KubernetesPreviewCreate.
-type KubernetesPreviewCreate struct {
-	ApiServer        string                   `json:"api_server"`
-	BastionScopeId   *openapi_types.UUID      `json:"bastion_scope_id,omitempty"`
-	ConnectionMode   KubernetesConnectionMode `json:"connection_mode"`
-	ConnectionTestId *openapi_types.UUID      `json:"connection_test_id,omitempty"`
-
-	// ConnectorImagePullSecrets 仅 in_cluster：目标集群中已存在的 Connector 镜像拉取 Secret
-	ConnectorImagePullSecrets *[]string           `json:"connector_image_pull_secrets,omitempty"`
-	CredentialId              *openapi_types.UUID `json:"credential_id,omitempty"`
-	DefaultNamespace          *string             `json:"default_namespace,omitempty"`
-	Environment               Environment         `json:"environment"`
-	Labels                    UserLabels          `json:"labels"`
-	Name                      string              `json:"name"`
-}
-
-// KubernetesPreviewUpdate defines model for KubernetesPreviewUpdate.
-type KubernetesPreviewUpdate struct {
-	ApiServer        *string                   `json:"api_server,omitempty"`
-	BastionScopeId   *openapi_types.UUID       `json:"bastion_scope_id,omitempty"`
-	ConnectionMode   *KubernetesConnectionMode `json:"connection_mode,omitempty"`
-	ConnectionTestId *openapi_types.UUID       `json:"connection_test_id,omitempty"`
-	CredentialId     *openapi_types.UUID       `json:"credential_id,omitempty"`
-	DefaultNamespace *string                   `json:"default_namespace,omitempty"`
-	Environment      *Environment              `json:"environment,omitempty"`
-	ExpectedVersion  int64                     `json:"expected_version"`
-	Labels           *UserLabels               `json:"labels,omitempty"`
-	Name             *string                   `json:"name,omitempty"`
-}
-
-// KubernetesResource defines model for KubernetesResource.
-type KubernetesResource struct {
-	ClusterId    openapi_types.UUID             `json:"cluster_id"`
-	Labels       Labels                         `json:"labels"`
-	Name         string                         `json:"name"`
-	Namespace    *string                        `json:"namespace,omitempty"`
-	ResourceType KubernetesResourceResourceType `json:"resource_type"`
-	Summary      map[string]interface{}         `json:"summary"`
-}
-
-// KubernetesResourceResourceType defines model for KubernetesResource.ResourceType.
-type KubernetesResourceResourceType string
-
-// KubernetesResourcePage defines model for KubernetesResourcePage.
-type KubernetesResourcePage struct {
-	Items []KubernetesResource `json:"items"`
-	Page  CursorPage           `json:"page"`
-}
-
-// KubernetesRollbackReference defines model for KubernetesRollbackReference.
-type KubernetesRollbackReference struct {
-	Name            string `json:"name"`
-	ResourceVersion string `json:"resource_version"`
-	Revision        int64  `json:"revision"`
-	Uid             string `json:"uid"`
-}
-
-// KubernetesStreamInput defines model for KubernetesStreamInput.
-type KubernetesStreamInput struct {
-	Container   *string                     `json:"container,omitempty"`
-	Mode        KubernetesStreamInputMode   `json:"mode"`
-	Name        string                      `json:"name"`
-	NamespaceId openapi_types.UUID          `json:"namespace_id"`
-	Port        *int                        `json:"port,omitempty"`
-	Reason      string                      `json:"reason"`
-	Shell       *KubernetesStreamInputShell `json:"shell,omitempty"`
-	Type        KubernetesStreamInputType   `json:"type"`
-	Uid         string                      `json:"uid"`
-}
-
-// KubernetesStreamInputMode defines model for KubernetesStreamInput.Mode.
-type KubernetesStreamInputMode string
-
-// KubernetesStreamInputShell defines model for KubernetesStreamInput.Shell.
-type KubernetesStreamInputShell string
-
-// KubernetesStreamInputType defines model for KubernetesStreamInput.Type.
-type KubernetesStreamInputType string
-
-// KubernetesStreamSession defines model for KubernetesStreamSession.
-type KubernetesStreamSession struct {
-	BytesIn      int64                         `json:"bytes_in"`
-	BytesOut     int64                         `json:"bytes_out"`
-	ClusterId    openapi_types.UUID            `json:"cluster_id"`
-	Container    string                        `json:"container"`
-	ExpiresAt    time.Time                     `json:"expires_at"`
-	Id           openapi_types.UUID            `json:"id"`
-	Mode         KubernetesStreamSessionMode   `json:"mode"`
-	Namespace    string                        `json:"namespace"`
-	NamespaceId  openapi_types.UUID            `json:"namespace_id"`
-	NamespaceUid string                        `json:"namespace_uid"`
-	Pod          string                        `json:"pod"`
-	PodUid       string                        `json:"pod_uid"`
-	Port         *int                          `json:"port,omitempty"`
-	Reason       *string                       `json:"reason,omitempty"`
-	RestartCount int                           `json:"restart_count"`
-	Service      *string                       `json:"service,omitempty"`
-	Shell        *KubernetesStreamSessionShell `json:"shell,omitempty"`
-	Status       KubernetesStreamSessionStatus `json:"status"`
-	Version      int64                         `json:"version"`
-}
-
-// KubernetesStreamSessionMode defines model for KubernetesStreamSession.Mode.
-type KubernetesStreamSessionMode string
-
-// KubernetesStreamSessionShell defines model for KubernetesStreamSession.Shell.
-type KubernetesStreamSessionShell string
-
-// KubernetesStreamSessionStatus defines model for KubernetesStreamSession.Status.
-type KubernetesStreamSessionStatus string
-
-// KubernetesStreamTicket defines model for KubernetesStreamTicket.
-type KubernetesStreamTicket struct {
-	ProtocolVersion KubernetesStreamTicketProtocolVersion `json:"protocol_version"`
-	Session         KubernetesStreamSession               `json:"session"`
-	Ticket          string                                `json:"ticket"`
-	TicketExpiresAt time.Time                             `json:"ticket_expires_at"`
-	WebsocketUrl    string                                `json:"websocket_url"`
-}
-
-// KubernetesStreamTicketProtocolVersion defines model for KubernetesStreamTicket.ProtocolVersion.
-type KubernetesStreamTicketProtocolVersion string
-
-// LabelValue defines model for LabelValue.
-type LabelValue = string
-
-// Labels defines model for Labels.
-type Labels map[string]LabelValue
-
-// PartialMetadata defines model for PartialMetadata.
-type PartialMetadata struct {
-	Partial bool                     `json:"partial"`
-	Reasons []PartialMetadataReasons `json:"reasons"`
-}
-
-// PartialMetadataReasons defines model for PartialMetadata.Reasons.
-type PartialMetadataReasons string
-
-// PodLogs defines model for PodLogs.
-type PodLogs struct {
-	Bytes     int                `json:"bytes"`
-	ClusterId openapi_types.UUID `json:"cluster_id"`
-	Container *string            `json:"container,omitempty"`
-	Content   string             `json:"content"`
-	Namespace string             `json:"namespace"`
-	Pod       string             `json:"pod"`
-	Truncated bool               `json:"truncated"`
-}
-
-// PublicJsonObject defines model for PublicJsonObject.
-type PublicJsonObject map[string]*PublicJsonValue
-
-// PublicJsonValue defines model for PublicJsonValue.
-type PublicJsonValue struct {
-	union json.RawMessage
-}
-
-// PublicJsonValue1 defines model for PublicJsonValue.1.
-type PublicJsonValue1 = bool
-
-// PublicJsonValue2 defines model for PublicJsonValue.2.
-type PublicJsonValue2 = float32
-
-// PublicJsonValue3 defines model for PublicJsonValue.3.
-type PublicJsonValue3 = string
-
-// PublicJsonValue4 defines model for PublicJsonValue.4.
-type PublicJsonValue4 = []*PublicJsonValue
-
-// RequestId defines model for RequestId.
-type RequestId = string
-
-// ResourcePreviewDelete defines model for ResourcePreviewDelete.
-type ResourcePreviewDelete struct {
-	ExpectedVersion int64 `json:"expected_version"`
-}
-
-// SystemLabelKey defines model for SystemLabelKey.
-type SystemLabelKey = string
-
-// UserLabelKey defines model for UserLabelKey.
-type UserLabelKey = string
-
-// UserLabels defines model for UserLabels.
-type UserLabels map[string]LabelValue
-
-// PendingActionPublicSchema defines model for pending-action-public.schema.
-type PendingActionPublicSchema struct {
-	ActionRef  string `json:"action_ref"`
-	ActionType string `json:"action_type"`
-	Approval   *struct {
-		ApprovedCount    int     `json:"approved_count"`
-		MinimumApprovers int     `json:"minimum_approvers"`
-		PolicyRef        *string `json:"policy_ref,omitempty"`
-		Required         bool    `json:"required"`
-		SeparationOfDuty bool    `json:"separation_of_duty"`
-	} `json:"approval,omitempty"`
-	AvailableActions []interface{} `json:"available_actions"`
-	CreatedAt        time.Time     `json:"created_at"`
-	Diff             []struct {
-		Kind interface{} `json:"kind"`
-		Text string      `json:"text"`
-	} `json:"diff"`
-	ExecutionRef  *string          `json:"execution_ref,omitempty"`
-	ExpiresAt     time.Time        `json:"expires_at"`
-	Preview       PublicJsonObject `json:"preview"`
-	ResultSummary *string          `json:"result_summary,omitempty"`
-	Risk          interface{}      `json:"risk"`
-	SchemaVersion interface{}      `json:"schema_version"`
-	Status        interface{}      `json:"status"`
-	Summary       string           `json:"summary"`
-	Title         string           `json:"title"`
-	UpdatedAt     time.Time        `json:"updated_at"`
-}
-
-// CsrfToken defines model for CsrfToken.
-type CsrfToken = string
-
-// Cursor defines model for Cursor.
-type Cursor = string
-
-// Limit defines model for Limit.
-type Limit = int
-
-// ResourceId defines model for ResourceId.
-type ResourceId = openapi_types.UUID
-
-// ParametersCsrfToken defines model for parameters-CsrfToken.
-type ParametersCsrfToken = string
-
-// Error defines model for Error.
-type Error = ApiError
-
-// ResponsesError defines model for responses-Error.
-type ResponsesError = ApiError
-
-// ListKubernetesClustersParams defines parameters for ListKubernetesClusters.
-type ListKubernetesClustersParams struct {
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// PreviewCreateKubernetesClusterParams defines parameters for PreviewCreateKubernetesCluster.
-type PreviewCreateKubernetesClusterParams struct {
-	IdempotencyKey IdempotencyKey      `json:"Idempotency-Key"`
-	XCSRFToken     ParametersCsrfToken `json:"X-CSRF-Token"`
-}
-
-// CreateKubernetesConnectionTestParams defines parameters for CreateKubernetesConnectionTest.
-type CreateKubernetesConnectionTestParams struct {
-	IdempotencyKey IdempotencyKey      `json:"Idempotency-Key"`
-	XCSRFToken     ParametersCsrfToken `json:"X-CSRF-Token"`
-}
-
-// PreviewDeleteKubernetesClusterParams defines parameters for PreviewDeleteKubernetesCluster.
-type PreviewDeleteKubernetesClusterParams struct {
-	IdempotencyKey IdempotencyKey      `json:"Idempotency-Key"`
-	XCSRFToken     ParametersCsrfToken `json:"X-CSRF-Token"`
-}
-
-// PreviewUpdateKubernetesClusterParams defines parameters for PreviewUpdateKubernetesCluster.
-type PreviewUpdateKubernetesClusterParams struct {
-	IdempotencyKey IdempotencyKey      `json:"Idempotency-Key"`
-	XCSRFToken     ParametersCsrfToken `json:"X-CSRF-Token"`
-}
-
-// PreviewKubernetesHelmParams defines parameters for PreviewKubernetesHelm.
-type PreviewKubernetesHelmParams struct {
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
-// ListKubernetesHelmReleasesParams defines parameters for ListKubernetesHelmReleases.
-type ListKubernetesHelmReleasesParams struct {
-	NamespaceId openapi_types.UUID `form:"namespace_id" json:"namespace_id"`
-}
-
-// ListKubernetesHelmHistoryParams defines parameters for ListKubernetesHelmHistory.
-type ListKubernetesHelmHistoryParams struct {
-	NamespaceId openapi_types.UUID `form:"namespace_id" json:"namespace_id"`
-}
-
-// ListKubernetesInventoryParams defines parameters for ListKubernetesInventory.
-type ListKubernetesInventoryParams struct {
-	Type          string                                      `form:"type" json:"type"`
-	NamespaceMode *ListKubernetesInventoryParamsNamespaceMode `form:"namespace_mode,omitempty" json:"namespace_mode,omitempty"`
-	NamespaceIds  *[]openapi_types.UUID                       `form:"namespace_ids,omitempty" json:"namespace_ids,omitempty"`
-	Name          *string                                     `form:"name,omitempty" json:"name,omitempty"`
-	Labels        *string                                     `form:"labels,omitempty" json:"labels,omitempty"`
-	Limit         *int                                        `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor        *string                                     `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// ListKubernetesInventoryParamsNamespaceMode defines parameters for ListKubernetesInventory.
-type ListKubernetesInventoryParamsNamespaceMode string
-
-// PreviewKubernetesMutationParams defines parameters for PreviewKubernetesMutation.
-type PreviewKubernetesMutationParams struct {
-	XCSRFToken     CsrfToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
-// GetKubernetesInventoryObjectParams defines parameters for GetKubernetesInventoryObject.
-type GetKubernetesInventoryObjectParams struct {
-	Type        string              `form:"type" json:"type"`
-	Name        string              `form:"name" json:"name"`
-	Uid         string              `form:"uid" json:"uid"`
-	NamespaceId *openapi_types.UUID `form:"namespace_id,omitempty" json:"namespace_id,omitempty"`
-}
-
-// WatchKubernetesInventoryParams defines parameters for WatchKubernetesInventory.
-type WatchKubernetesInventoryParams struct {
-	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
-}
-
-// CreateKubernetesLogSessionParams defines parameters for CreateKubernetesLogSession.
-type CreateKubernetesLogSessionParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// AttachKubernetesLogSessionParams defines parameters for AttachKubernetesLogSession.
-type AttachKubernetesLogSessionParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// CloseKubernetesLogSessionParams defines parameters for CloseKubernetesLogSession.
-type CloseKubernetesLogSessionParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// ReadKubernetesLogSessionParams defines parameters for ReadKubernetesLogSession.
-type ReadKubernetesLogSessionParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// ListKubernetesOperationsParams defines parameters for ListKubernetesOperations.
-type ListKubernetesOperationsParams struct {
-	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// CancelKubernetesDrainParams defines parameters for CancelKubernetesDrain.
-type CancelKubernetesDrainParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// GetKubernetesPodLogsParams defines parameters for GetKubernetesPodLogs.
-type GetKubernetesPodLogsParams struct {
-	Namespace string  `form:"namespace" json:"namespace"`
-	Pod       string  `form:"pod" json:"pod"`
-	Container *string `form:"container,omitempty" json:"container,omitempty"`
-	TailLines *int    `form:"tail_lines,omitempty" json:"tail_lines,omitempty"`
-}
-
-// ListKubernetesResourcesParams defines parameters for ListKubernetesResources.
-type ListKubernetesResourcesParams struct {
-	ResourceType ListKubernetesResourcesParamsResourceType `form:"resource_type" json:"resource_type"`
-	Namespace    *string                                   `form:"namespace,omitempty" json:"namespace,omitempty"`
-	Query        *string                                   `form:"query,omitempty" json:"query,omitempty"`
-	Cursor       *Cursor                                   `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Limit        *Limit                                    `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// ListKubernetesResourcesParamsResourceType defines parameters for ListKubernetesResources.
-type ListKubernetesResourcesParamsResourceType string
-
-// CreateKubernetesStreamSessionParams defines parameters for CreateKubernetesStreamSession.
-type CreateKubernetesStreamSessionParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// CloseKubernetesStreamSessionParams defines parameters for CloseKubernetesStreamSession.
-type CloseKubernetesStreamSessionParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// IssueKubernetesStreamTicketParams defines parameters for IssueKubernetesStreamTicket.
-type IssueKubernetesStreamTicketParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// PreviewCreateKubernetesClusterJSONRequestBody defines body for PreviewCreateKubernetesCluster for application/json ContentType.
-type PreviewCreateKubernetesClusterJSONRequestBody = KubernetesPreviewCreate
-
-// CreateKubernetesConnectionTestJSONRequestBody defines body for CreateKubernetesConnectionTest for application/json ContentType.
-type CreateKubernetesConnectionTestJSONRequestBody = KubernetesConnectionTestCreate
-
-// PreviewDeleteKubernetesClusterJSONRequestBody defines body for PreviewDeleteKubernetesCluster for application/json ContentType.
-type PreviewDeleteKubernetesClusterJSONRequestBody = ResourcePreviewDelete
-
-// PreviewUpdateKubernetesClusterJSONRequestBody defines body for PreviewUpdateKubernetesCluster for application/json ContentType.
-type PreviewUpdateKubernetesClusterJSONRequestBody = KubernetesPreviewUpdate
-
-// PreviewKubernetesHelmJSONRequestBody defines body for PreviewKubernetesHelm for application/json ContentType.
-type PreviewKubernetesHelmJSONRequestBody = KubernetesHelmPreviewInput
-
-// PreviewKubernetesMutationJSONRequestBody defines body for PreviewKubernetesMutation for application/json ContentType.
-type PreviewKubernetesMutationJSONRequestBody = KubernetesMutationInput
-
-// WatchKubernetesInventoryJSONRequestBody defines body for WatchKubernetesInventory for application/json ContentType.
-type WatchKubernetesInventoryJSONRequestBody = KubernetesInventoryWatchInput
-
-// CreateKubernetesLogSessionJSONRequestBody defines body for CreateKubernetesLogSession for application/json ContentType.
-type CreateKubernetesLogSessionJSONRequestBody = KubernetesLogSessionInput
-
-// AttachKubernetesLogSessionJSONRequestBody defines body for AttachKubernetesLogSession for application/json ContentType.
-type AttachKubernetesLogSessionJSONRequestBody = KubernetesLogSessionAttachInput
-
-// ReadKubernetesLogSessionJSONRequestBody defines body for ReadKubernetesLogSession for application/json ContentType.
-type ReadKubernetesLogSessionJSONRequestBody = KubernetesLogSessionReadInput
-
-// CancelKubernetesDrainJSONRequestBody defines body for CancelKubernetesDrain for application/json ContentType.
-type CancelKubernetesDrainJSONRequestBody = KubernetesDrainCancelInput
-
-// CreateKubernetesStreamSessionJSONRequestBody defines body for CreateKubernetesStreamSession for application/json ContentType.
-type CreateKubernetesStreamSessionJSONRequestBody = KubernetesStreamInput
-
-// Getter for additional properties for KubernetesOperation_Result. Returns the specified
-// element and whether it was found
-func (a KubernetesOperation_Result) Get(fieldName string) (value interface{}, found bool) {
-	if a.AdditionalProperties != nil {
-		value, found = a.AdditionalProperties[fieldName]
-	}
-	return
-}
-
-// Setter for additional properties for KubernetesOperation_Result
-func (a *KubernetesOperation_Result) Set(fieldName string, value interface{}) {
-	if a.AdditionalProperties == nil {
-		a.AdditionalProperties = make(map[string]interface{})
-	}
-	a.AdditionalProperties[fieldName] = value
-}
-
-// Override default JSON handling for KubernetesOperation_Result to handle AdditionalProperties
-func (a *KubernetesOperation_Result) UnmarshalJSON(b []byte) error {
-	object := make(map[string]json.RawMessage)
-	err := json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["drain"]; found {
-		err = json.Unmarshal(raw, &a.Drain)
-		if err != nil {
-			return fmt.Errorf("error reading 'drain': %w", err)
-		}
-		delete(object, "drain")
-	}
-
-	if len(object) != 0 {
-		a.AdditionalProperties = make(map[string]interface{})
-		for fieldName, fieldBuf := range object {
-			var fieldVal interface{}
-			err := json.Unmarshal(fieldBuf, &fieldVal)
-			if err != nil {
-				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
-			}
-			a.AdditionalProperties[fieldName] = fieldVal
-		}
-	}
-	return nil
-}
-
-// Override default JSON handling for KubernetesOperation_Result to handle AdditionalProperties
-func (a KubernetesOperation_Result) MarshalJSON() ([]byte, error) {
-	var err error
-	object := make(map[string]json.RawMessage)
-
-	if a.Drain != nil {
-		object["drain"], err = json.Marshal(a.Drain)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'drain': %w", err)
-		}
-	}
-
-	for fieldName, field := range a.AdditionalProperties {
-		object[fieldName], err = json.Marshal(field)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
-		}
-	}
-	return json.Marshal(object)
-}
-
-// AsApiErrorParams0 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams0
-func (t ApiError_Params_AdditionalProperties) AsApiErrorParams0() (ApiErrorParams0, error) {
-	var body ApiErrorParams0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiErrorParams0 overwrites any union data inside the ApiError_Params_AdditionalProperties as the provided ApiErrorParams0
-func (t *ApiError_Params_AdditionalProperties) FromApiErrorParams0(v ApiErrorParams0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeApiErrorParams0 performs a merge with any union data inside the ApiError_Params_AdditionalProperties, using the provided ApiErrorParams0
-func (t *ApiError_Params_AdditionalProperties) MergeApiErrorParams0(v ApiErrorParams0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsApiErrorParams1 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams1
-func (t ApiError_Params_AdditionalProperties) AsApiErrorParams1() (ApiErrorParams1, error) {
-	var body ApiErrorParams1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiErrorParams1 overwrites any union data inside the ApiError_Params_AdditionalProperties as the provided ApiErrorParams1
-func (t *ApiError_Params_AdditionalProperties) FromApiErrorParams1(v ApiErrorParams1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeApiErrorParams1 performs a merge with any union data inside the ApiError_Params_AdditionalProperties, using the provided ApiErrorParams1
-func (t *ApiError_Params_AdditionalProperties) MergeApiErrorParams1(v ApiErrorParams1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsApiErrorParams2 returns the union data inside the ApiError_Params_AdditionalProperties as a ApiErrorParams2
-func (t ApiError_Params_AdditionalProperties) AsApiErrorParams2() (ApiErrorParams2, error) {
-	var body ApiErrorParams2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiErrorParams2 overwrites any union data inside the ApiError_Params_AdditionalProperties as the provided ApiErrorParams2
-func (t *ApiError_Params_AdditionalProperties) FromApiErrorParams2(v ApiErrorParams2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeApiErrorParams2 performs a merge with any union data inside the ApiError_Params_AdditionalProperties, using the provided ApiErrorParams2
-func (t *ApiError_Params_AdditionalProperties) MergeApiErrorParams2(v ApiErrorParams2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ApiError_Params_AdditionalProperties) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ApiError_Params_AdditionalProperties) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsPublicJsonValue1 returns the union data inside the PublicJsonValue as a PublicJsonValue1
-func (t PublicJsonValue) AsPublicJsonValue1() (PublicJsonValue1, error) {
-	var body PublicJsonValue1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue1 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue1
-func (t *PublicJsonValue) FromPublicJsonValue1(v PublicJsonValue1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue1 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue1
-func (t *PublicJsonValue) MergePublicJsonValue1(v PublicJsonValue1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonValue2 returns the union data inside the PublicJsonValue as a PublicJsonValue2
-func (t PublicJsonValue) AsPublicJsonValue2() (PublicJsonValue2, error) {
-	var body PublicJsonValue2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue2 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue2
-func (t *PublicJsonValue) FromPublicJsonValue2(v PublicJsonValue2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue2 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue2
-func (t *PublicJsonValue) MergePublicJsonValue2(v PublicJsonValue2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonValue3 returns the union data inside the PublicJsonValue as a PublicJsonValue3
-func (t PublicJsonValue) AsPublicJsonValue3() (PublicJsonValue3, error) {
-	var body PublicJsonValue3
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue3 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue3
-func (t *PublicJsonValue) FromPublicJsonValue3(v PublicJsonValue3) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue3 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue3
-func (t *PublicJsonValue) MergePublicJsonValue3(v PublicJsonValue3) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonValue4 returns the union data inside the PublicJsonValue as a PublicJsonValue4
-func (t PublicJsonValue) AsPublicJsonValue4() (PublicJsonValue4, error) {
-	var body PublicJsonValue4
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonValue4 overwrites any union data inside the PublicJsonValue as the provided PublicJsonValue4
-func (t *PublicJsonValue) FromPublicJsonValue4(v PublicJsonValue4) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonValue4 performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonValue4
-func (t *PublicJsonValue) MergePublicJsonValue4(v PublicJsonValue4) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPublicJsonObject returns the union data inside the PublicJsonValue as a PublicJsonObject
-func (t PublicJsonValue) AsPublicJsonObject() (PublicJsonObject, error) {
-	var body PublicJsonObject
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPublicJsonObject overwrites any union data inside the PublicJsonValue as the provided PublicJsonObject
-func (t *PublicJsonValue) FromPublicJsonObject(v PublicJsonObject) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePublicJsonObject performs a merge with any union data inside the PublicJsonValue, using the provided PublicJsonObject
-func (t *PublicJsonValue) MergePublicJsonObject(v PublicJsonObject) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t PublicJsonValue) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *PublicJsonValue) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
 }

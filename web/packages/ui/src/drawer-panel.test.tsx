@@ -65,3 +65,39 @@ it("offers a read-only drawer without a submit form or action", async () => {
   expect(dialog.querySelector('button[type="submit"]')).toBeNull();
   expect(screen.getByRole("button", { name: "Close" })).toBeVisible();
 });
+
+it("expands and restores without remounting an edited form", async () => {
+  render(
+    <LocaleProvider>
+      <DrawerPanel open title="Resource details" onOpenChange={() => {}}>
+        <Field label="Name" requirement="optional">
+          <Input defaultValue="Resource A" />
+        </Field>
+      </DrawerPanel>
+    </LocaleProvider>,
+  );
+  const input = await screen.findByRole("textbox", { name: "Name" });
+  fireEvent.change(input, { target: { value: "Unsubmitted change" } });
+  fireEvent.click(screen.getByRole("button", { name: "Expand detail window" }));
+  expect(
+    screen.getByRole("button", { name: "Restore drawer width" }),
+  ).toBeVisible();
+  expect(input).toHaveValue("Unsubmitted change");
+  fireEvent.click(screen.getByRole("button", { name: "Restore drawer width" }));
+  expect(input).toHaveValue("Unsubmitted change");
+});
+
+it("keeps a busy form protected from dismissal", async () => {
+  const close = vi.fn();
+  render(
+    <LocaleProvider>
+      <DrawerPanel open title="Saving" dismissable={false} onOpenChange={close}>
+        <p>Saving changes</p>
+      </DrawerPanel>
+    </LocaleProvider>,
+  );
+  await screen.findByRole("dialog", { name: "Saving" });
+  expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(close).not.toHaveBeenCalled();
+});

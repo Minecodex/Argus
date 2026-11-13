@@ -3,6 +3,8 @@ export const builtinCollectionsZh = {
     trust: {
       action: "证书信任",
       title: "组件指标证书信任",
+      nodeHint:
+        "按节点名称验证 kubelet 证书。可提供受信任的公开 CA；留空使用默认的 kubelet 证书路径。",
       hint: "使用采集器的服务账号直接读取受保护的组件指标。组件未暴露指标端口时，请先由集群管理员提供访问条件。",
       serverName: "证书服务名",
       serverNameHint:
@@ -84,6 +86,8 @@ export const builtinCollectionsEn = {
     trust: {
       action: "Certificate trust",
       title: "Component metric certificate trust",
+      nodeHint:
+        "Verify kubelet certificates against each node name. Supply a trusted public CA, or leave empty to use the default kubelet certificate path.",
       hint: "Use the Collector service account to read protected component metrics directly. The cluster administrator must expose the component metric port first.",
       serverName: "Certificate server name",
       serverNameHint:

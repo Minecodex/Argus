@@ -96,6 +96,29 @@
             "minLength": 0,
             "maxLength": 32768
           }
+        },
+        {
+          "name": "state",
+          "in": "query",
+          "required": false,
+          "description": "Unified resource state; attention matches failed, warning, pending or unknown. Filtering retains bounded server pagination.",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "configured",
+              "progressing",
+              "pending",
+              "warning",
+              "failed",
+              "completed",
+              "paused",
+              "scaled_down",
+              "terminating",
+              "unknown",
+              "attention"
+            ]
+          }
         }
       ],
       "responses": {
@@ -497,6 +520,199 @@
             "application/json": {
               "schema": {
                 "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesOperation"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "snapshot": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getKubernetesResourceSnapshot",
+      "summary": "Read a bounded authorized resource snapshot and real resource relations",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "namespace_mode",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ],
+            "default": "all_authorized"
+          }
+        },
+        {
+          "name": "namespace_ids",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "style": "form",
+          "explode": false
+        },
+        {
+          "name": "types",
+          "in": "query",
+          "schema": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string"
+            }
+          },
+          "style": "form",
+          "explode": false
+        },
+        {
+          "name": "max_items",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 1000
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Authorized current snapshot; completeness is explicit.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesResourceSnapshot"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "related": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getKubernetesRelatedResources",
+      "summary": "Read a UID-bound object relation or event page within the current authorization scope",
+      "tags": [
+        "Kubernetes"
+      ],
+      "parameters": [
+        {
+          "name": "type",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        {
+          "name": "name",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "maxLength": 253
+          }
+        },
+        {
+          "name": "uid",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        {
+          "name": "namespace_id",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "view",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "relations",
+              "events"
+            ]
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 30
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "maxLength": 65536
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Bounded native scan; next_cursor continues reading; complete reports read failures separately from remaining pages.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-workbench.yaml#/components/schemas/KubernetesRelatedPage"
               }
             }
           }

@@ -1,3 +1,4 @@
+import { operationalViews } from "./operational-panel-editor";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -75,6 +76,9 @@ export function PanelPresetPicker({
           <TabsTrigger value="scenarios">
             {t("dashboardPresets.scenarios")}
           </TabsTrigger>
+          <TabsTrigger value="resources">
+            {t("kubernetesResources.nativeEditor")}
+          </TabsTrigger>
           <TabsTrigger value="charts">
             {t("dashboardPresets.charts")}
           </TabsTrigger>
@@ -137,6 +141,41 @@ export function PanelPresetPicker({
           {!presets.length && (
             <EmptyState title={t("dashboardPresets.noMatch")} description="" />
           )}
+        </TabsContent>
+        <TabsContent value="resources">
+          <div className="argus-panel-preset-grid">
+            {operationalViews.map((type) => (
+              <Button
+                key={type}
+                onPress={() => {
+                  const base = newPanel(
+                    spec,
+                    t("kubernetesResources.views." + type),
+                  );
+                  const kind = type.startsWith("alert_")
+                    ? "alert_instances"
+                    : "kubernetes_inventory";
+                  onChoose({
+                    ...base,
+                    type,
+                    signal: kind === "alert_instances" ? "alerts" : "resources",
+                    source_binding: {
+                      source_type: kind,
+                      capability_version: "v1",
+                    },
+                    data_source: { kind, limit: 20 },
+                    targets: [],
+                    applicable_resource_types: [
+                      "kubernetes_cluster",
+                      "kubernetes_namespace",
+                    ],
+                  });
+                }}
+              >
+                {t("kubernetesResources.views." + type)}
+              </Button>
+            ))}
+          </div>
         </TabsContent>
         <TabsContent value="charts">
           <p className="argus-dashboard-muted">

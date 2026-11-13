@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { readFileSync, writeFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -54,7 +55,7 @@ test.describe("B10a current terminal matrix and expanded log options", () => {
         localStorage.setItem("argus.theme", "light");
       });
       const row = await resource(page, pod.namespace, pod.pod);
-      await row.getByRole("button", { name: "打开终端", exact: true }).click();
+      await selectRowAction(row, "打开终端");
       const dialog = page.getByRole("dialog", { name: /^Pod 终端/ });
       const output: string[] = [];
       page.on("websocket", (socket) =>
@@ -155,12 +156,7 @@ test.describe("B10a current terminal matrix and expanded log options", () => {
           "argus-telemetry",
           /^argus-otelcol-agent-/,
         );
-        await row
-          .getByRole("button", {
-            name: text("查看日志", "View logs"),
-            exact: true,
-          })
-          .click();
+        await selectRowAction(row, text("查看日志", "View logs"));
         const dialog = page.getByRole("dialog", {
           name: /^(Pod 日志|Pod logs)/,
         });

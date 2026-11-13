@@ -1,3 +1,4 @@
+import { requireTelemetrySignal } from "./model";
 import { Checkbox } from "@argus/ui";
 import { useTranslation } from "react-i18next";
 import type {
@@ -27,7 +28,7 @@ export function LocalFiltersEditor({
       panel.local_filters.map((f) => (f.id === id ? { ...f, ...next } : f)),
     );
   const makeQuery = () => ({
-    signal: panel.signal,
+    signal: requireTelemetrySignal(panel.signal),
     source_binding: panel.source_binding,
     field: "",
     filters: [],

@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { selectWorkbenchNamespace } from "./helpers/kubernetes-workbench";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -62,18 +63,13 @@ for (const english of [false, true])
         .fill("123456");
       await page.locator('form button[type="submit"]').click();
       await expect(page).not.toHaveURL(/\/login/);
-      await page.goto("/kubernetes/k8s-prod-east");
+      await page.goto("/kubernetes/k8s-prod-east?tab=resources");
       await selectWorkbenchNamespace(page, "production");
       await page.getByRole("tab", { name: "Pod", exact: true }).click();
       const row = page
         .getByRole("row")
         .filter({ has: page.getByText("pod-example", { exact: true }) });
-      await row
-        .getByRole("button", {
-          name: english ? "Open terminal" : "打开终端",
-          exact: true,
-        })
-        .click();
+      await selectRowAction(row, english ? "Open terminal" : "打开终端");
       const dialog = page.getByRole("dialog", {
         name: english ? "Pod terminal · pod-example" : "Pod 终端 · pod-example",
         exact: true,

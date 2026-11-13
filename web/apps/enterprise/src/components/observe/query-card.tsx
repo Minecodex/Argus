@@ -1,3 +1,4 @@
+import { requireTelemetrySignal } from "../dashboards/model";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -103,7 +104,7 @@ export function ObserveQueryCard({
       api.telemetry.catalog(
         {
           scope: { mode: q.scope.mode, resources: q.scope.resources },
-          signal: q.panel.signal,
+          signal: requireTelemetrySignal(q.panel.signal),
           kind: "sources",
           ...time,
           limit: 100,
@@ -133,7 +134,11 @@ export function ObserveQueryCard({
       signal?: AbortSignal,
     ) =>
       api.telemetry.catalog(
-        { ...input, scope: q.scope, signal: q.panel.signal },
+        {
+          ...input,
+          scope: q.scope,
+          signal: requireTelemetrySignal(q.panel.signal),
+        },
         signal,
       );
     const loadDashboard: import("../dashboards/query-scope").QueryCatalogLoader =
@@ -504,7 +509,7 @@ export function ObserveQueryCard({
           >
             <ObservationPanel
               title={title}
-              signal={q.panel.signal}
+              signal={requireTelemetrySignal(q.panel.signal)}
               type={resultType}
               unit={q.panel.unit}
               range={q.range}

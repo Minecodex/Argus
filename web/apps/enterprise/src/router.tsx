@@ -1,3 +1,9 @@
+import { parseDashboardTime } from "./components/dashboards/url-time-range";
+import {
+  parseKubernetesDashboardScope,
+  type KubernetesDashboardSearch,
+} from "./components/dashboards/url-kubernetes-scope";
+import { parseKubernetesSearch } from "./components/kubernetes/resource-location";
 import {
   createRootRoute,
   createRoute,
@@ -7,10 +13,19 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { useEnterpriseAuthStore } from "@argus/auth";
-const AdminShell = lazyRouteComponent(() => import("./components/admin-shell"), "AdminShell");
-const ChatShell = lazyRouteComponent(() => import("./components/chat-shell"), "ChatShell");
+const AdminShell = lazyRouteComponent(
+  () => import("./components/admin-shell"),
+  "AdminShell",
+);
+const ChatShell = lazyRouteComponent(
+  () => import("./components/chat-shell"),
+  "ChatShell",
+);
 
-const ObservePage=lazyRouteComponent(()=>import("./pages/observe-page"),"ObservePage");
+const ObservePage = lazyRouteComponent(
+  () => import("./pages/observe-page"),
+  "ObservePage",
+);
 const ApplicationsPage = lazyRouteComponent(
   () => import("./pages/applications-page"),
   "ApplicationsPage",
@@ -153,11 +168,28 @@ const adminRoute = createRoute({
   id: "admin",
   component: AdminShell,
 });
-const observeRoute=createRoute({getParentRoute:()=>adminRoute,path:"/observe",component:ObservePage,validateSearch:(search:Record<string,unknown>)=>({
- resource_type:(["host","kubernetes_cluster","kubernetes_namespace","application","monitoring_target"].includes(String(search.resource_type))?search.resource_type:undefined) as import("@argus/api-client").ObservationResourceRef["type"]|undefined,
- resource_id:typeof search.resource_id==="string"?search.resource_id:undefined,
- signal:(["metrics","logs","traces"].includes(String(search.signal))?search.signal:"metrics") as import("@argus/api-client").ObservationSignal,
-})});
+const observeRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/observe",
+  component: ObservePage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    resource_type: ([
+      "host",
+      "kubernetes_cluster",
+      "kubernetes_namespace",
+      "application",
+      "monitoring_target",
+    ].includes(String(search.resource_type))
+      ? search.resource_type
+      : undefined) as
+      import("@argus/api-client").ObservationResourceRef["type"] | undefined,
+    resource_id:
+      typeof search.resource_id === "string" ? search.resource_id : undefined,
+    signal: (["metrics", "logs", "traces"].includes(String(search.signal))
+      ? search.signal
+      : "metrics") as import("@argus/api-client").ObservationSignal,
+  }),
+});
 const applicationsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/applications",
@@ -185,18 +217,30 @@ const dashboardViewRoute = createRoute({
   validateSearch: (
     search: Record<string, unknown>,
   ): {
+    cluster_scope?: KubernetesDashboardSearch["cluster_scope"];
+    namespace_scope?: KubernetesDashboardSearch["namespace_scope"];
+    time_seconds?: number;
+    time_from?: string;
+    time_to?: string;
     resource?: string;
     model?: string;
     month?: string;
     resource_type?:
-      "host" | "kubernetes_cluster" | "application" | "monitoring_target";
+      | "host"
+      | "kubernetes_cluster"
+      | "kubernetes_namespace"
+      | "application"
+      | "monitoring_target";
   } => ({
+    ...parseDashboardTime(search),
+    ...parseKubernetesDashboardScope(search),
     resource: typeof search.resource === "string" ? search.resource : undefined,
     model: typeof search.model === "string" ? search.model : undefined,
     month: typeof search.month === "string" ? search.month : undefined,
     resource_type:
       search.resource_type === "host" ||
       search.resource_type === "kubernetes_cluster" ||
+      search.resource_type === "kubernetes_namespace" ||
       search.resource_type === "application" ||
       search.resource_type === "monitoring_target"
         ? search.resource_type
@@ -256,14 +300,7 @@ const kubernetesClusterRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/kubernetes/$clusterId",
   component: KubernetesClusterPage,
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { tab?: "dashboards" | "activity" } => ({
-    tab:
-      search.tab === "dashboards" || search.tab === "activity"
-        ? search.tab
-        : undefined,
-  }),
+  validateSearch: parseKubernetesSearch,
 });
 const approvalsRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -295,22 +332,33 @@ const settingsAiopsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/settings/aiops",
   component: SettingsAiopsPage,
-  validateSearch: (search: Record<string, unknown>): { tab?: "models" | "mcp" } => ({
-    tab: search.tab === "models" || search.tab === "mcp" ? search.tab : undefined,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: "models" | "mcp" } => ({
+    tab:
+      search.tab === "models" || search.tab === "mcp" ? search.tab : undefined,
   }),
 });
 const settingsAiRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/settings/ai",
   beforeLoad: () => {
-    throw redirect({ to: "/settings/aiops", search: { tab: "models" }, replace: true });
+    throw redirect({
+      to: "/settings/aiops",
+      search: { tab: "models" },
+      replace: true,
+    });
   },
 });
 const settingsMCPRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/settings/mcp",
   beforeLoad: () => {
-    throw redirect({ to: "/settings/aiops", search: { tab: "mcp" }, replace: true });
+    throw redirect({
+      to: "/settings/aiops",
+      search: { tab: "mcp" },
+      replace: true,
+    });
   },
 });
 const settingsSecretsRoute = createRoute({

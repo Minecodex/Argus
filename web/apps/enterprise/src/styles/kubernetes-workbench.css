@@ -45,8 +45,15 @@
   flex-shrink: 0;
 }
 .argus-k8s-namespace-select {
-  flex: 0 1 var(--field-width-compact);
+  width: var(--field-width-compact);
+  max-width: 100%;
   min-width: var(--filter-select-min-width);
+}
+.argus-k8s-status-select {
+  flex: 0 0 auto;
+  width: var(--filter-select-min-width);
+  min-width: var(--filter-select-min-width);
+  max-width: var(--field-width-compact);
 }
 .argus-k8s-resource-name,
 .argus-k8s-resource-labels {
@@ -110,4 +117,101 @@
   background: var(--bg-surface);
   color: var(--text-secondary);
   font-size: var(--text-help);
+}
+
+.argus-k8s-resource-detail {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.argus-k8s-cluster-card__head {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+.argus-k8s-facts {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-block: var(--space-3);
+}
+.argus-k8s-facts h3 {
+  margin: 0;
+  font-size: var(--text-body);
+}
+.argus-k8s-detail-state,
+.argus-k8s-operation-feedback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.argus-k8s-operation-feedback {
+  padding: var(--space-3);
+  border: var(--template-border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+.argus-k8s-resource-name-link {
+  text-align: left;
+  justify-content: flex-start;
+  padding-inline: 0;
+  max-width: var(--field-width-compact);
+}
+.argus-k8s-inventory-wrap {
+  isolation: isolate;
+}
+.argus-k8s-inventory-table th {
+  white-space: nowrap;
+}
+.argus-k8s-inventory-table :is(th, td):last-child {
+  position: sticky;
+  inset-inline-end: 0;
+  z-index: 1;
+  background: var(--bg-canvas);
+  border-inline-start: var(--space-px-1) solid var(--border-subtle);
+}
+.argus-k8s-inventory-table th:last-child {
+  background: var(--bg-elevated);
+}
+.argus-k8s-resource-value {
+  display: inline-block;
+  max-width: var(--field-width-compact);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.argus-k8s-observation-time {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-k8s-session-dialog {
+  resize: both;
+  max-width: calc(100vw - var(--space-8));
+  overflow: auto;
+}
+
+.argus-k8s-overview,
+.argus-dashboard-embedded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.argus-k8s-overview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.argus-k8s-overview__header p {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+  margin: var(--space-1) 0 0;
+}
+
+.argus-k8s-resource-metric {
+  height: calc(var(--template-chart-height) + var(--space-10));
+  min-height: var(--template-chart-height);
 }

@@ -589,6 +589,27 @@ func (e DashboardLocalFilterKind) Valid() bool {
 	}
 }
 
+// Defines values for DashboardOperationalSourceKind.
+const (
+	AlertInstances      DashboardOperationalSourceKind = "alert_instances"
+	KubernetesInventory DashboardOperationalSourceKind = "kubernetes_inventory"
+	Telemetry           DashboardOperationalSourceKind = "telemetry"
+)
+
+// Valid indicates whether the value is a known member of the DashboardOperationalSourceKind enum.
+func (e DashboardOperationalSourceKind) Valid() bool {
+	switch e {
+	case AlertInstances:
+		return true
+	case KubernetesInventory:
+		return true
+	case Telemetry:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DashboardPanelApplicableResourceTypes.
 const (
 	DashboardPanelApplicableResourceTypesApplication         DashboardPanelApplicableResourceTypes = "application"
@@ -639,17 +660,23 @@ func (e DashboardPanelAuthoringMode) Valid() bool {
 
 // Defines values for DashboardPanelSignal.
 const (
-	DashboardPanelSignalLogs    DashboardPanelSignal = "logs"
-	DashboardPanelSignalMetrics DashboardPanelSignal = "metrics"
-	DashboardPanelSignalTraces  DashboardPanelSignal = "traces"
+	DashboardPanelSignalAlerts    DashboardPanelSignal = "alerts"
+	DashboardPanelSignalLogs      DashboardPanelSignal = "logs"
+	DashboardPanelSignalMetrics   DashboardPanelSignal = "metrics"
+	DashboardPanelSignalResources DashboardPanelSignal = "resources"
+	DashboardPanelSignalTraces    DashboardPanelSignal = "traces"
 )
 
 // Valid indicates whether the value is a known member of the DashboardPanelSignal enum.
 func (e DashboardPanelSignal) Valid() bool {
 	switch e {
+	case DashboardPanelSignalAlerts:
+		return true
 	case DashboardPanelSignalLogs:
 		return true
 	case DashboardPanelSignalMetrics:
+		return true
+	case DashboardPanelSignalResources:
 		return true
 	case DashboardPanelSignalTraces:
 		return true
@@ -880,12 +907,15 @@ func (e DashboardScopeSelectionTypes) Valid() bool {
 // Defines values for DashboardSpecSchemaVersion.
 const (
 	ArgusTelemetryDashboardv1 DashboardSpecSchemaVersion = "argus.telemetry_dashboard/v1"
+	ArgusTelemetryDashboardv2 DashboardSpecSchemaVersion = "argus.telemetry_dashboard/v2"
 )
 
 // Valid indicates whether the value is a known member of the DashboardSpecSchemaVersion enum.
 func (e DashboardSpecSchemaVersion) Valid() bool {
 	switch e {
 	case ArgusTelemetryDashboardv1:
+		return true
+	case ArgusTelemetryDashboardv2:
 		return true
 	default:
 		return false
@@ -991,6 +1021,87 @@ func (e DashboardTimeRangeKind) Valid() bool {
 	case Absolute:
 		return true
 	case Relative:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesOverviewExecutionInputApplicationMode.
+const (
+	KubernetesOverviewExecutionInputApplicationModeAllAuthorized KubernetesOverviewExecutionInputApplicationMode = "all_authorized"
+	KubernetesOverviewExecutionInputApplicationModeExplicit      KubernetesOverviewExecutionInputApplicationMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesOverviewExecutionInputApplicationMode enum.
+func (e KubernetesOverviewExecutionInputApplicationMode) Valid() bool {
+	switch e {
+	case KubernetesOverviewExecutionInputApplicationModeAllAuthorized:
+		return true
+	case KubernetesOverviewExecutionInputApplicationModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesOverviewExecutionInputResourceMode.
+const (
+	KubernetesOverviewExecutionInputResourceModeAllAuthorized KubernetesOverviewExecutionInputResourceMode = "all_authorized"
+	KubernetesOverviewExecutionInputResourceModeExplicit      KubernetesOverviewExecutionInputResourceMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesOverviewExecutionInputResourceMode enum.
+func (e KubernetesOverviewExecutionInputResourceMode) Valid() bool {
+	switch e {
+	case KubernetesOverviewExecutionInputResourceModeAllAuthorized:
+		return true
+	case KubernetesOverviewExecutionInputResourceModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesOverviewExecutionInputResourceTypes.
+const (
+	KubernetesOverviewExecutionInputResourceTypesApplication         KubernetesOverviewExecutionInputResourceTypes = "application"
+	KubernetesOverviewExecutionInputResourceTypesHost                KubernetesOverviewExecutionInputResourceTypes = "host"
+	KubernetesOverviewExecutionInputResourceTypesKubernetesCluster   KubernetesOverviewExecutionInputResourceTypes = "kubernetes_cluster"
+	KubernetesOverviewExecutionInputResourceTypesKubernetesNamespace KubernetesOverviewExecutionInputResourceTypes = "kubernetes_namespace"
+	KubernetesOverviewExecutionInputResourceTypesMonitoringTarget    KubernetesOverviewExecutionInputResourceTypes = "monitoring_target"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesOverviewExecutionInputResourceTypes enum.
+func (e KubernetesOverviewExecutionInputResourceTypes) Valid() bool {
+	switch e {
+	case KubernetesOverviewExecutionInputResourceTypesApplication:
+		return true
+	case KubernetesOverviewExecutionInputResourceTypesHost:
+		return true
+	case KubernetesOverviewExecutionInputResourceTypesKubernetesCluster:
+		return true
+	case KubernetesOverviewExecutionInputResourceTypesKubernetesNamespace:
+		return true
+	case KubernetesOverviewExecutionInputResourceTypesMonitoringTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesOverviewSelectionMode.
+const (
+	Custom  KubernetesOverviewSelectionMode = "custom"
+	Default KubernetesOverviewSelectionMode = "default"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesOverviewSelectionMode enum.
+func (e KubernetesOverviewSelectionMode) Valid() bool {
+	switch e {
+	case Custom:
+		return true
+	case Default:
 		return true
 	default:
 		return false
@@ -1451,4 +1562,24 @@ type DashboardDraftPanelConversionMode string
 type DashboardDraftPanelDrilldowns struct {
 	PanelId       string                            `json:"panel_id"`
 	SignalSources map[string]DashboardSourceBinding `json:"signal_sources"`
+}
+
+// DashboardDraftPreparation defines model for DashboardDraftPreparation.
+type DashboardDraftPreparation struct {
+	Conversions *[]DashboardDraftPanelConversion `json:"conversions,omitempty"`
+	Drilldowns  *[]DashboardDraftPanelDrilldowns `json:"drilldowns,omitempty"`
+}
+
+// DashboardDraftSample defines model for DashboardDraftSample.
+type DashboardDraftSample struct {
+	DraftId      openapi_types.UUID        `json:"draft_id"`
+	DraftVersion int64                     `json:"draft_version"`
+	Sample       map[string]interface{}    `json:"sample"`
+	Validation   DashboardValidationReport `json:"validation"`
+}
+
+// DashboardDraftSampleInput defines model for DashboardDraftSampleInput.
+type DashboardDraftSampleInput struct {
+	ExpectedVersion int64                    `json:"expected_version"`
+	Parameters      *DashboardExecutionInput `json:"parameters,omitempty"`
 }

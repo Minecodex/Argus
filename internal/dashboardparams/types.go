@@ -17,15 +17,22 @@ type TimeRange struct {
 	From    *time.Time `json:"from,omitempty"`
 	To      *time.Time `json:"to,omitempty"`
 }
+type KubernetesScope struct {
+	ClusterID    uuid.UUID   `json:"cluster_id"`
+	NamespaceIDs []uuid.UUID `json:"namespace_ids,omitempty"`
+	FocusUID     string      `json:"focus_uid,omitempty"`
+}
+
 type Input struct {
-	From            *time.Time  `json:"from,omitempty"`
-	To              *time.Time  `json:"to,omitempty"`
-	ResourceIDs     []uuid.UUID `json:"resource_ids"`
-	ResourceMode    string      `json:"resource_mode,omitempty"`
-	ResourceTypes   []string    `json:"resource_types,omitempty"`
-	ApplicationMode string      `json:"application_mode,omitempty"`
-	ApplicationIDs  []uuid.UUID `json:"application_ids,omitempty"`
-	PanelIDs        []string    `json:"panel_ids"`
+	KubernetesScope *KubernetesScope `json:"kubernetes_scope,omitempty"`
+	From            *time.Time       `json:"from,omitempty"`
+	To              *time.Time       `json:"to,omitempty"`
+	ResourceIDs     []uuid.UUID      `json:"resource_ids"`
+	ResourceMode    string           `json:"resource_mode,omitempty"`
+	ResourceTypes   []string         `json:"resource_types,omitempty"`
+	ApplicationMode string           `json:"application_mode,omitempty"`
+	ApplicationIDs  []uuid.UUID      `json:"application_ids,omitempty"`
+	PanelIDs        []string         `json:"panel_ids"`
 	// CandidatesOnly reconciles selections without executing panel queries.
 	CandidatesOnly bool                        `json:"candidates_only,omitempty"`
 	Variables      map[string]Value            `json:"variables"`

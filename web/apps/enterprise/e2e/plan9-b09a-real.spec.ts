@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { selectWorkbenchNamespace } from "./helpers/kubernetes-workbench";
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
@@ -64,10 +65,7 @@ test.describe("Plan9 B09a real Kubernetes monitoring", () => {
             has: page.getByText(/^orders-/),
           });
           await expect(rows.first()).toBeVisible();
-          await rows
-            .first()
-            .getByRole("button", { name: "查看日志", exact: true })
-            .click();
+          await selectRowAction(rows.first(), "查看日志");
           const dialog = page.getByRole("dialog", { name: /^Pod 日志/ });
           await expect(dialog.getByRole("log")).toContainText(
             "p9-b09a-20261108-01",

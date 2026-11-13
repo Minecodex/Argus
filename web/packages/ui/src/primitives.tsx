@@ -10,6 +10,7 @@ import { Separator } from "@heroui/react/separator";
 import { Check, ChevronRight, X } from "lucide-react";
 import {
   cloneElement,
+  useId,
   isValidElement,
   type ReactNode,
   type ReactElement,
@@ -281,17 +282,26 @@ export type DropdownItem =
 export function Dropdown({
   trigger,
   items,
+  description,
 }: {
   trigger: ReactNode;
   items: DropdownItem[];
+  description?: string;
 }) {
   const text = useUiText();
+  const descriptionId = useId();
   return (
     <HeroDropdown>
       {trigger}
       <HeroDropdown.Popover className="argus-dropdown" placement="bottom end">
+        {description && (
+          <p className="argus-dropdown__description" id={descriptionId}>
+            {description}
+          </p>
+        )}
         <HeroDropdown.Menu
           aria-label={text("操作", "Actions")}
+          aria-describedby={description ? descriptionId : undefined}
           onAction={(key) => {
             const item = items[Number(key)];
             if (item && item !== "separator" && !item.disabled)
@@ -306,6 +316,8 @@ export function Dropdown({
                 id={String(index)}
                 key={index}
                 textValue={item.label}
+                aria-label={item.label}
+                aria-description={item.description}
                 isDisabled={item.disabled}
                 className={cx(
                   "argus-dropdown__item",

@@ -518,6 +518,46 @@ func (response GetKubernetesInventoryObjectdefaultJSONResponse) VisitGetKubernet
 	return err
 }
 
+type GetKubernetesRelatedResourcesRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params GetKubernetesRelatedResourcesParams
+}
+
+type GetKubernetesRelatedResourcesResponseObject interface {
+	VisitGetKubernetesRelatedResourcesResponse(w http.ResponseWriter) error
+}
+
+type GetKubernetesRelatedResources200JSONResponse KubernetesRelatedPage
+
+func (response GetKubernetesRelatedResources200JSONResponse) VisitGetKubernetesRelatedResourcesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetKubernetesRelatedResourcesdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response GetKubernetesRelatedResourcesdefaultJSONResponse) VisitGetKubernetesRelatedResourcesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetKubernetesInventoryScopeRequestObject struct {
 	Id openapi_types.UUID `json:"id"`
 }
@@ -546,6 +586,46 @@ type GetKubernetesInventoryScopedefaultJSONResponse struct {
 }
 
 func (response GetKubernetesInventoryScopedefaultJSONResponse) VisitGetKubernetesInventoryScopeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetKubernetesResourceSnapshotRequestObject struct {
+	Id     openapi_types.UUID `json:"id"`
+	Params GetKubernetesResourceSnapshotParams
+}
+
+type GetKubernetesResourceSnapshotResponseObject interface {
+	VisitGetKubernetesResourceSnapshotResponse(w http.ResponseWriter) error
+}
+
+type GetKubernetesResourceSnapshot200JSONResponse KubernetesResourceSnapshot
+
+func (response GetKubernetesResourceSnapshot200JSONResponse) VisitGetKubernetesResourceSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetKubernetesResourceSnapshotdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response GetKubernetesResourceSnapshotdefaultJSONResponse) VisitGetKubernetesResourceSnapshotResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {

@@ -8,7 +8,8 @@
           "schema_version": {
             "type": "string",
             "enum": [
-              "argus.telemetry_dashboard/v1"
+              "argus.telemetry_dashboard/v1",
+              "argus.telemetry_dashboard/v2"
             ],
             "description": "Exact configuration version; do not abbreviate to v1.",
             "example": "argus.telemetry_dashboard/v1"
@@ -359,7 +360,9 @@
             "enum": [
               "metrics",
               "logs",
-              "traces"
+              "traces",
+              "resources",
+              "alerts"
             ]
           },
           "authoring_mode": {
@@ -435,6 +438,9 @@
           },
           "display": {
             "$ref": "#/components/schemas/DashboardDisplayOptions"
+          },
+          "data_source": {
+            "$ref": "#/components/schemas/DashboardOperationalSource"
           }
         },
         "required": [
@@ -1129,7 +1135,9 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "parameters": {"$ref": "#/components/schemas/DashboardExecutionInput"},
+          "parameters": {
+            "$ref": "#/components/schemas/DashboardExecutionInput"
+          },
           "expected_version": {
             "type": "integer",
             "format": "int64"
@@ -1333,6 +1341,9 @@
               "format": "uuid"
             },
             "maxItems": 1000
+          },
+          "kubernetes_scope": {
+            "$ref": "#/components/schemas/DashboardKubernetesScope"
           }
         },
         "required": []
@@ -1528,20 +1539,111 @@
             "description": "Private built-in model governance metadata. Data is available only to the authorized interactive built-in dashboard.",
             "additionalProperties": false,
             "properties": {
-              "from": { "type": "string", "format": "date-time" },
-              "to": { "type": "string", "format": "date-time" },
-              "timezone": { "type": "string" },
-              "models": { "type": "array", "items": { "type": "object", "additionalProperties": false, "properties": { "id": { "type": "string", "format": "uuid" }, "name": { "type": "string" } }, "required": ["id", "name"] } },
-              "subjects": { "type": "array", "items": { "type": "object", "additionalProperties": false, "properties": { "id": { "type": "string", "format": "uuid" }, "name": { "type": "string" }, "kind": { "type": "string", "enum": ["user", "department"] }, "department_id": { "type": "string", "format": "uuid" } }, "required": ["id", "name", "kind", "department_id"] } },
-              "pending": { "type": "integer", "format": "int64", "minimum": 0 },
-              "projected_at": { "type": ["string", "null"], "format": "date-time" },
-              "usage_complete": { "type": "boolean" },
-              "cached_usage_complete": { "type": "boolean" },
-              "estimated_input": { "type": "integer", "format": "int64" },
-              "estimated_output": { "type": "integer", "format": "int64" },
-              "scope_hash": { "type": "string" }
+              "from": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "to": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "timezone": {
+                "type": "string"
+              },
+              "models": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ]
+                }
+              },
+              "subjects": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "department"
+                      ]
+                    },
+                    "department_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "kind",
+                    "department_id"
+                  ]
+                }
+              },
+              "pending": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "projected_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "usage_complete": {
+                "type": "boolean"
+              },
+              "cached_usage_complete": {
+                "type": "boolean"
+              },
+              "estimated_input": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "estimated_output": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "scope_hash": {
+                "type": "string"
+              }
             },
-            "required": ["from", "to", "timezone", "models", "pending", "usage_complete", "estimated_input", "estimated_output", "scope_hash"]
+            "required": [
+              "from",
+              "to",
+              "timezone",
+              "models",
+              "pending",
+              "usage_complete",
+              "estimated_input",
+              "estimated_output",
+              "scope_hash"
+            ]
           },
           "dashboard_id": {
             "type": "string",
@@ -1659,6 +1761,9 @@
           },
           "scope_selection": {
             "$ref": "#/components/schemas/DashboardScopeSelection"
+          },
+          "kubernetes_scope": {
+            "$ref": "#/components/schemas/DashboardKubernetesScope"
           }
         },
         "required": [
@@ -2402,6 +2507,259 @@
         "required": [
           "items"
         ]
+      },
+      "DashboardOperationalSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "telemetry",
+              "kubernetes_inventory",
+              "alert_instances"
+            ]
+          },
+          "resource_types": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "states": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          }
+        }
+      },
+      "DashboardKubernetesScope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cluster_id"
+        ],
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace_ids": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "focus_uid": {
+            "type": "string",
+            "maxLength": 128
+          }
+        }
+      },
+      "KubernetesOverviewSelection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cluster_id",
+          "resource_version",
+          "selection_version",
+          "mode",
+          "default_dashboard"
+        ],
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resource_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "selection_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "default",
+              "custom"
+            ]
+          },
+          "dashboard": {
+            "$ref": "#/components/schemas/DashboardItem"
+          },
+          "default_dashboard": {
+            "$ref": "#/components/schemas/DashboardItem"
+          },
+          "unavailable_code": {
+            "type": "string"
+          }
+        }
+      },
+      "KubernetesOverviewInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dashboard_id",
+          "expected_dashboard_version",
+          "expected_selection_version",
+          "expected_resource_version",
+          "reset"
+        ],
+        "properties": {
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expected_dashboard_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "expected_selection_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "expected_resource_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "reset": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KubernetesOverviewExecutionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "candidates_only": {
+            "type": "boolean",
+            "description": "Reconcile shared variable candidates without executing panels. panel_ids is ignored in this mode."
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 1000
+          },
+          "panel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DashboardSelection"
+            },
+            "maxProperties": 32
+          },
+          "local_values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/DashboardSelection"
+              },
+              "maxProperties": 32
+            },
+            "maxProperties": 64
+          },
+          "resource_mode": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ],
+            "description": "all_authorized selects current grants; explicit preserves an empty resource_ids set"
+          },
+          "resource_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "host",
+                "kubernetes_cluster",
+                "application",
+                "monitoring_target",
+                "kubernetes_namespace"
+              ]
+            },
+            "maxItems": 5
+          },
+          "application_mode": {
+            "type": "string",
+            "enum": [
+              "all_authorized",
+              "explicit"
+            ]
+          },
+          "application_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 1000
+          },
+          "kubernetes_scope": {
+            "$ref": "#/components/schemas/DashboardKubernetesScope"
+          },
+          "expected_dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "expected_dashboard_id"
+        ]
+      },
+      "KubernetesOverviewCandidates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardItem"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
       }
     }
   }

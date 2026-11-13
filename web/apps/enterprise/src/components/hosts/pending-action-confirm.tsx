@@ -32,6 +32,7 @@ function diffLinesOf(action: PendingActionPublic) {
 export function PendingActionConfirm({
   action,
   claimOneTimeResult = false,
+  completionMode = "settled",
   confirmLabel,
   onDone,
   onCancel,
@@ -42,6 +43,8 @@ export function PendingActionConfirm({
 }: {
   action: PendingActionPublic;
   claimOneTimeResult?: boolean;
+  /** Resource workspaces observe accepted asynchronous writes next to the target. */
+  completionMode?: "settled" | "submitted";
   confirmLabel?: string;
   onDone?: (result: ConfirmActionResult) => void;
   onCancel?: () => void;
@@ -69,6 +72,10 @@ export function PendingActionConfirm({
     setConfirming(true);
     try {
       let result = await api.approvals.confirm(action.action_ref);
+      if (completionMode === "submitted") {
+        onDone?.(result);
+        return;
+      }
       // 执行是异步的:必须轮询到终态再回调,否则父组件失效缓存时副作用
       // 尚未落库,列表刷了个寂寞(如新增主机后短暂看不到新主机)。
       if (result.execution && !result.one_time_result) {

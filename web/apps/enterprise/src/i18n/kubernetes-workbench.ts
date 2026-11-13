@@ -95,6 +95,9 @@ export const kubernetesWorkbenchZh = {
         drain: "维护节点并驱逐 Pod",
       },
       statuses: {
+        awaitingApproval: "等待审批",
+        rejected: "已拒绝",
+        expired: "已过期",
         awaiting_confirmation: "等待确认",
         queued: "已排队",
         running: "执行中",
@@ -270,6 +273,9 @@ export const kubernetesWorkbenchEn = {
         drain: "Drain node",
       },
       statuses: {
+        awaitingApproval: "Awaiting approval",
+        rejected: "Rejected",
+        expired: "Expired",
         awaiting_confirmation: "Awaiting confirmation",
         queued: "Queued",
         running: "Running",

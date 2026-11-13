@@ -203,6 +203,11 @@ func (w Worker) observe(ctx context.Context, row db.KubernetesOperation) error {
 		result, err = backend.ObserveInventoryMutation(callCtx, cluster, plan.Mutation, "")
 	}
 	if err != nil {
+		if row.Status == "observing" && errors.Is(err, kubernetesinventory.ErrMutationUnknown) {
+			if current, superseded := supersededObservation(callCtx, w.Service.Backend, cluster, plan.Mutation, row.Result); superseded {
+				return w.finish(ctx, row, "failed", publicMutationResult(kubernetesinventory.MutationResult{Accepted: true, After: current}), "KUBERNETES_OPERATION_SUPERSEDED")
+			}
+		}
 		return nil
 	} // Ambiguous outcomes remain inspectable and are never re-applied.
 	ready, code := mutationConverged(plan.Mutation, result, row.Result)

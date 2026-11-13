@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button, Field, Select, ValueSelector } from "@argus/ui";
@@ -25,7 +26,9 @@ export function DashboardControls({
   onScope,
   onVariable,
   onRefresh,
+  lockedScope,
 }: {
+  lockedScope?: ReactNode;
   spec: DashboardSpec;
   input: ViewInput;
   time: DashboardSchemas["DashboardTimeRange"];
@@ -64,72 +67,83 @@ export function DashboardControls({
           onChange={onTime}
         />
       </Field>
-      <DashboardScopeFilter
-        dimension="applications"
-        mode={input.application_mode}
-        ids={input.application_ids}
-        disabled={busy}
-        onChange={(mode, ids) =>
-          onScope({
-            application_mode: mode,
-            application_ids: mode ? ids : undefined,
-          })
-        }
-      />
-      <Field label={t("dashboardControls.resourceType")} requirement="optional">
-        <Select
-          sizing="content"
-          ariaLabel={t("dashboardControls.resourceType")}
-          value={
-            input.resource_types?.length === 1
-              ? input.resource_types[0]!
-              : "all"
-          }
-          options={[
-            "all",
-            "host",
-            "kubernetes_cluster",
-            "kubernetes_namespace",
-            "application",
-            "monitoring_target",
-          ].map((value) => ({
-            value,
-            label: t(`dashboardControls.resourceKinds.${value}`),
-          }))}
-          onValueChange={(value) =>
-            onScope({
-              resource_types:
-                value === "all"
-                  ? undefined
-                  : [value as NonNullable<ViewInput["resource_types"]>[number]],
-              resource_mode: "all_authorized",
-              resource_ids: [],
-            })
-          }
-        />
-      </Field>
-      <DashboardScopeFilter
-        dimension="resources"
-        mode={
-          input.resource_mode ??
-          (input.resource_ids?.length ? "explicit" : "all_authorized")
-        }
-        ids={input.resource_ids}
-        initialKind={
-          input.resource_types?.[0] ??
-          execution?.resources.find((row) =>
-            input.resource_ids?.includes(row.id),
-          )?.type
-        }
-        disabled={busy}
-        onChange={(mode, ids) =>
-          onScope({
-            resource_mode: mode ?? "all_authorized",
-            resource_ids: ids,
-            ...(mode === "explicit" ? { resource_types: undefined } : {}),
-          })
-        }
-      />
+      {lockedScope ?? (
+        <>
+          <DashboardScopeFilter
+            dimension="applications"
+            mode={input.application_mode}
+            ids={input.application_ids}
+            disabled={busy}
+            onChange={(mode, ids) =>
+              onScope({
+                application_mode: mode,
+                application_ids: mode ? ids : undefined,
+              })
+            }
+          />
+          <Field
+            label={t("dashboardControls.resourceType")}
+            requirement="optional"
+          >
+            <Select
+              sizing="content"
+              ariaLabel={t("dashboardControls.resourceType")}
+              value={
+                input.resource_types?.length === 1
+                  ? input.resource_types[0]!
+                  : "all"
+              }
+              options={[
+                "all",
+                "host",
+                "kubernetes_cluster",
+                "kubernetes_namespace",
+                "application",
+                "monitoring_target",
+              ].map((value) => ({
+                value,
+                label: t(`dashboardControls.resourceKinds.${value}`),
+              }))}
+              onValueChange={(value) =>
+                onScope({
+                  resource_types:
+                    value === "all"
+                      ? undefined
+                      : [
+                          value as NonNullable<
+                            ViewInput["resource_types"]
+                          >[number],
+                        ],
+                  resource_mode: "all_authorized",
+                  resource_ids: [],
+                })
+              }
+            />
+          </Field>
+          <DashboardScopeFilter
+            dimension="resources"
+            mode={
+              input.resource_mode ??
+              (input.resource_ids?.length ? "explicit" : "all_authorized")
+            }
+            ids={input.resource_ids}
+            initialKind={
+              input.resource_types?.[0] ??
+              execution?.resources.find((row) =>
+                input.resource_ids?.includes(row.id),
+              )?.type
+            }
+            disabled={busy}
+            onChange={(mode, ids) =>
+              onScope({
+                resource_mode: mode ?? "all_authorized",
+                resource_ids: ids,
+                ...(mode === "explicit" ? { resource_types: undefined } : {}),
+              })
+            }
+          />
+        </>
+      )}
       {spec.variables.map((variable) => {
         const selection = input.variables?.[variable.name] ?? variable.default;
         return (

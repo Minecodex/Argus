@@ -1230,5 +1230,189 @@
         }
       }
     }
+  },
+  "clusterOverview": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "getKubernetesOverview",
+      "summary": "Read the current cluster overview selection",
+      "responses": {
+        "200": {
+          "description": "Current selection and default template",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/KubernetesOverviewSelection"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "clusterOverviewPreview": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "previewKubernetesOverview",
+      "summary": "Select or reset a cluster overview through confirmation",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        },
+        {
+          "$ref": "#/components/parameters/IdempotencyKey"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/KubernetesOverviewInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../../schemas/action/pending-action-public.schema.json"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "clusterOverviewExecute": {
+    "post": {
+      "operationId": "executeKubernetesOverview",
+      "summary": "Execute the selected dashboard with the URL cluster scope pinned by the server",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/dashboard.yaml#/components/schemas/KubernetesOverviewExecutionInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Operation result.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/DashboardExecution"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    },
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ]
+  },
+  "clusterOverviewCandidates": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "get": {
+      "operationId": "listKubernetesOverviewCandidates",
+      "summary": "List authorized published dashboards applicable to the cluster",
+      "parameters": [
+        {
+          "name": "search",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "maxLength": 32768
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Bounded overview candidates",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/dashboard.yaml#/components/schemas/KubernetesOverviewCandidates"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/Error"
+        }
+      }
+    }
   }
 }

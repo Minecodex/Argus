@@ -8,9 +8,11 @@ test.beforeEach(async ({ page }) => {
   await page.locator('input[autocomplete="current-password"]').fill("123456");
   await page.locator('form button[type="submit"]').click();
   await expect(page).not.toHaveURL(/\/login/);
-  await page.goto("/kubernetes/k8s-prod-east");
+  await page.goto("/kubernetes/k8s-prod-east?tab=resources&kind=deployment");
   await expect(
-    page.getByText("deployment-example", { exact: true }),
+    page
+      .locator(".argus-k8s-workbench")
+      .getByRole("button", { name: "deployment-example", exact: true }),
   ).toHaveCount(2);
 });
 
@@ -99,7 +101,9 @@ test("Namespace dropdown respects namespace-only read grants", async ({
   });
   await page.reload();
   await expect(
-    page.getByText("当前授权仅包含指定命名空间。", { exact: true }),
+    page
+      .locator(".argus-k8s-workbench")
+      .getByText("当前授权仅包含指定命名空间。", { exact: true }),
   ).toBeVisible();
   await selectWorkbenchNamespace(page, "production");
   const select = page.getByRole("combobox", {
@@ -113,8 +117,12 @@ test("Namespace dropdown respects namespace-only read grants", async ({
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(select).toHaveValue("production");
+  await select.press("Tab");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
   await expect(
-    page.getByText("deployment-example", { exact: true }),
+    page
+      .locator(".argus-k8s-workbench")
+      .getByRole("button", { name: "deployment-example", exact: true }),
   ).toHaveCount(1);
   await expect(
     page.getByRole("button", { name: "新建对象", exact: true }),

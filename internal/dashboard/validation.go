@@ -26,7 +26,7 @@ func Validate(spec Spec) ValidationReport {
 	if privateSpec(spec) {
 		issue("spec", "internal model sources are reserved for the built-in dashboard")
 	}
-	if spec.SchemaVersion != SchemaVersion {
+	if spec.SchemaVersion != SchemaVersion && spec.SchemaVersion != SchemaVersionV2 {
 		issue("schema_version", "unsupported schema version")
 	}
 	if spec.Layout.Columns != 12 || spec.Layout.RowHeight < 1 || spec.Layout.RowHeight > 64 {
@@ -103,6 +103,20 @@ func Validate(spec Spec) ValidationReport {
 		if strings.TrimSpace(panel.Title) == "" || len(panel.Title) > 240 {
 			issue(path, "panel title required, at most 240 bytes")
 		}
+		r := panel.Layout
+		if r.X < 0 || r.Y < 0 || r.Y > 100000 || r.MinW < 1 || r.MinH < 1 || r.W < r.MinW || r.H < r.MinH || r.X+r.W > 12 || r.H > 1000 {
+			issue(path+".layout", "invalid grid rectangle")
+		}
+		for j := 0; j < i; j++ {
+			o := spec.Panels[j].Layout
+			if r.X < o.X+o.W && o.X < r.X+r.W && r.Y < o.Y+o.H && o.Y < r.Y+r.H {
+				issue(path+".layout", "panels overlap")
+			}
+		}
+		if operationalPanel(panel) {
+			validateOperationalPanel(spec, panel, path, issue)
+			continue
+		}
 		if !slices.Contains(chartSignals[panel.Type], panel.Signal) {
 			issue(path, "chart and signal are incompatible")
 		}
@@ -121,16 +135,7 @@ func Validate(spec Spec) ValidationReport {
 				issue(path, "unsupported resource type")
 			}
 		}
-		r := panel.Layout
-		if r.X < 0 || r.Y < 0 || r.Y > 100000 || r.MinW < 1 || r.MinH < 1 || r.W < r.MinW || r.H < r.MinH || r.X+r.W > 12 || r.H > 1000 {
-			issue(path+".layout", "invalid grid rectangle")
-		}
-		for j := 0; j < i; j++ {
-			o := spec.Panels[j].Layout
-			if r.X < o.X+o.W && o.X < r.X+r.W && r.Y < o.Y+o.H && o.Y < r.Y+r.H {
-				issue(path+".layout", "panels overlap")
-			}
-		}
+
 		locals := map[string]bool{}
 		for _, local := range panel.LocalFilters {
 			if !identifier.MatchString(local.ID) || locals[local.ID] {

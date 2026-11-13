@@ -928,4 +928,111 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getKubernetesOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current selection and default template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KubernetesOverviewSelection"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewKubernetesOverview: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KubernetesOverviewInput"];
+            };
+        };
+        responses: {
+            /** @description Operation result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["pending-action-public.schema"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    executeKubernetesOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KubernetesOverviewExecutionInput"];
+            };
+        };
+        responses: {
+            /** @description Operation result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardExecution"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listKubernetesOverviewCandidates: {
+        parameters: {
+            query?: {
+                search?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded overview candidates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KubernetesOverviewCandidates"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
 }

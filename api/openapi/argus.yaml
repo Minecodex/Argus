@@ -47,6 +47,10 @@ paths:
     $ref: ./paths/kubernetes-workbench.yaml#/mutation
   /enterprise/kubernetes-clusters/{id}/inventory/watch:
     $ref: ./paths/kubernetes-workbench.yaml#/watch
+  /enterprise/kubernetes-clusters/{id}/inventory/related:
+    $ref: ./paths/kubernetes-workbench.yaml#/related
+  /enterprise/kubernetes-clusters/{id}/inventory/snapshot:
+    $ref: ./paths/kubernetes-workbench.yaml#/snapshot
   /enterprise/kubernetes-clusters/{id}/inventory/types:
     $ref: ./paths/kubernetes-workbench.yaml#/types
   /enterprise/kubernetes-clusters/{id}/inventory/scope:
@@ -593,6 +597,14 @@ paths:
     $ref: ./paths/dashboard.yaml#/hostBindings
   /hosts/{id}/dashboard-bindings/preview:
     $ref: ./paths/dashboard.yaml#/hostBindingPreview
+  /kubernetes/clusters/{id}/overview-dashboard/candidates:
+    $ref: ./paths/dashboard.yaml#/clusterOverviewCandidates
+  /kubernetes/clusters/{id}/overview-dashboard:
+    $ref: ./paths/dashboard.yaml#/clusterOverview
+  /kubernetes/clusters/{id}/overview-dashboard/preview:
+    $ref: ./paths/dashboard.yaml#/clusterOverviewPreview
+  /kubernetes/clusters/{id}/overview-dashboard/execute:
+    $ref: ./paths/dashboard.yaml#/clusterOverviewExecute
   /kubernetes/clusters/{id}/dashboard-bindings:
     $ref: ./paths/dashboard.yaml#/clusterBindings
   /kubernetes/clusters/{id}/dashboard-bindings/preview:

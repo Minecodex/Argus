@@ -1,3 +1,5 @@
+import { OperationalPanelDetails } from "./operational-panel-details";
+import { OperationalPanel } from "./operational-panel";
 import { Maximize2, Pencil, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DashboardPanel, DashboardSchemas } from "@argus/api-client";
@@ -26,6 +28,54 @@ export function PanelTile({
   onSelect?: (row: Record<string, unknown>, target: string) => void;
 }) {
   const { t } = useTranslation();
+  if (panel.data_source && panel.data_source.kind !== "telemetry")
+    return (
+      <>
+        <DashboardPanelHeader
+          title={panel.title}
+          editing={editable}
+          info={
+            <OperationalPanelDetails
+              title={panel.title}
+              execution={execution}
+            />
+          }
+        >
+          {onExpand && (
+            <Button
+              isIconOnly
+              variant="ghost"
+              aria-label={t("dashboards.expand") + " " + panel.title}
+              onPress={onExpand}
+            >
+              <Maximize2 />
+            </Button>
+          )}
+          {editable && onEdit && (
+            <Button
+              isIconOnly
+              aria-label={t("dashboards.editPanel") + " " + panel.title}
+              onPress={onEdit}
+            >
+              <Pencil />
+            </Button>
+          )}
+          {editable && onRemove && (
+            <Button
+              isIconOnly
+              aria-label={t("dashboards.removePanel") + " " + panel.title}
+              onPress={onRemove}
+            >
+              <Trash2 />
+            </Button>
+          )}
+        </DashboardPanelHeader>
+        <div className="argus-dashboard-panel-content">
+          <OperationalPanel panel={panel} execution={execution} />
+        </div>
+      </>
+    );
+  const signal = panel.signal as "metrics" | "logs" | "traces";
   return (
     <>
       <DashboardPanelHeader
@@ -34,7 +84,7 @@ export function PanelTile({
           <ObservationDetails
             title={panel.title}
             targets={execution?.targets ?? []}
-            signal={panel.signal}
+            signal={signal}
             display={panel.display}
           />
         }
@@ -86,7 +136,7 @@ export function PanelTile({
           title={panel.title}
           details="external"
           type={panel.type}
-          signal={panel.signal}
+          signal={signal}
           targets={execution?.targets ?? []}
           unit={panel.unit}
           decimals={panel.decimals}

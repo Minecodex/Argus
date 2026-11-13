@@ -506,6 +506,7 @@ type Querier interface {
 	GetDashboardAnalysisContext(ctx context.Context, arg GetDashboardAnalysisContextParams) (DashboardAnalysisContext, error)
 	GetDashboardDraft(ctx context.Context, arg GetDashboardDraftParams) (DashboardDraft, error)
 	GetDashboardFolder(ctx context.Context, arg GetDashboardFolderParams) (DashboardFolder, error)
+	GetDashboardOverviewBinding(ctx context.Context, arg GetDashboardOverviewBindingParams) (DashboardBinding, error)
 	GetDashboardParameterState(ctx context.Context, arg GetDashboardParameterStateParams) (DashboardParameterState, error)
 	GetDashboardQueryDelivery(ctx context.Context, arg GetDashboardQueryDeliveryParams) (DashboardQueryDelivery, error)
 	GetDashboardQueryFile(ctx context.Context, arg GetDashboardQueryFileParams) (DashboardQueryFile, error)
@@ -773,6 +774,7 @@ type Querier interface {
 	ListDashboardBindings(ctx context.Context, arg ListDashboardBindingsParams) ([]DashboardBinding, error)
 	ListDashboardDrafts(ctx context.Context, arg ListDashboardDraftsParams) ([]DashboardDraft, error)
 	ListDashboardFolders(ctx context.Context, enterpriseID uuid.UUID) ([]DashboardFolder, error)
+	ListDashboardOverviewCandidates(ctx context.Context, arg ListDashboardOverviewCandidatesParams) ([]Dashboard, error)
 	ListDashboardQueryFiles(ctx context.Context, arg ListDashboardQueryFilesParams) ([]DashboardQueryFile, error)
 	ListDashboardRevisions(ctx context.Context, arg ListDashboardRevisionsParams) ([]DashboardRevision, error)
 	ListDashboardRunParameters(ctx context.Context, arg ListDashboardRunParametersParams) ([]DashboardRunParameter, error)
@@ -1048,6 +1050,7 @@ type Querier interface {
 	PauseReconciledRemoteRequest(ctx context.Context, arg PauseReconciledRemoteRequestParams) error
 	PrepareMonitoringAssignment(ctx context.Context, arg PrepareMonitoringAssignmentParams) error
 	PromoteDashboardTemplateHead(ctx context.Context, arg PromoteDashboardTemplateHeadParams) error
+	PutDashboardOverviewBinding(ctx context.Context, arg PutDashboardOverviewBindingParams) (DashboardBinding, error)
 	PutManagedDashboardInstance(ctx context.Context, arg PutManagedDashboardInstanceParams) error
 	QueueKubernetesOperation(ctx context.Context, arg QueueKubernetesOperationParams) (int64, error)
 	ReadyRemoteRequest(ctx context.Context, arg ReadyRemoteRequestParams) (int64, error)

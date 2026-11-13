@@ -114,7 +114,7 @@ export const builtinCollections = [
     "source_type": "kubeletstats",
     "placement": "kubernetes_agent",
     "legacy_profile": "k8s-node-container",
-    "component_tls_supported": false
+    "component_tls_supported": true
   },
   {
     "key": "kubernetes_apiserver_metrics",

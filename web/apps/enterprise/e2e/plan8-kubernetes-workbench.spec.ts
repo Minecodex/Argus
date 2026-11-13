@@ -24,7 +24,7 @@ for (const english of [false, true])
         .fill("123456");
       await page.locator('form button[type="submit"]').click();
       await expect(page).not.toHaveURL(/\/login/);
-      await page.goto("/kubernetes/k8s-prod-east");
+      await page.goto("/kubernetes/k8s-prod-east?tab=resources");
       await expect(
         page.getByRole("tablist", {
           name: english ? "Resource type" : "资源类型",
@@ -49,15 +49,15 @@ for (const english of [false, true])
         .filter({ has: page.getByText("secret-example", { exact: true }) });
       await expect(row).toBeVisible();
       await row
-        .getByRole("button", {
-          name: english ? "View object" : "查看对象",
-          exact: true,
-        })
+        .getByRole("button", { name: "secret-example", exact: true })
         .click();
       const dialog = page.getByRole("dialog", {
         name: "Secret · secret-example",
         exact: true,
       });
+      await dialog
+        .getByRole("tab", { name: "YAML / JSON", exact: true })
+        .click();
       await expect(
         dialog.getByText(
           english
@@ -68,7 +68,7 @@ for (const english of [false, true])
       ).toBeVisible();
       await expect(dialog.locator("pre")).toContainText("[REDACTED]");
       await expect(dialog.locator("pre")).toContainText(
-        '"namespace": "production"',
+        "namespace: production",
       );
       await page.keyboard.press("Escape");
       const accessibility = await new AxeBuilder({ page }).analyze();

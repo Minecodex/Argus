@@ -1,3 +1,4 @@
+import { requireTelemetrySignal } from "./model";
 import { useEnterpriseAuthStore } from "@argus/auth";
 import { useQueryCatalog } from "./query-scope";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -95,7 +96,7 @@ export function QueryTargetEditor({
                       {
                         ...queryScopeBounds(time),
                         ...request,
-                        signal: panel.signal,
+                        signal: requireTelemetrySignal(panel.signal),
                         source_binding: panel.source_binding,
                         resource_ids: scope?.resources ?? [],
                         filters: request.filters ?? [],

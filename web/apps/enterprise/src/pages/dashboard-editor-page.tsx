@@ -82,12 +82,23 @@ export function DashboardEditorPage() {
     try {
       const saved = await editor.save();
       if (kind === "preview")
-        setAction(await api.dashboards.preview(draftId, saved.draft_version,
-          sample && sampleVersion === saved.draft_version ? {
-            resource_mode: "explicit",
-            resource_types: [...new Set(sample.resources.map(resource => resource.type))],
-            resource_ids: sample.resources.map(resource => resource.id),
-          } : undefined));
+        setAction(
+          await api.dashboards.preview(
+            draftId,
+            saved.draft_version,
+            sample && sampleVersion === saved.draft_version
+              ? {
+                  resource_mode: "explicit",
+                  resource_types: [
+                    ...new Set(
+                      sample.resources.map((resource) => resource.type),
+                    ),
+                  ],
+                  resource_ids: sample.resources.map((resource) => resource.id),
+                }
+              : undefined,
+          ),
+        );
       else if (kind === "sample") {
         const result = await api.dashboards.sample(draftId, {
           expected_version: saved.draft_version,
@@ -360,7 +371,14 @@ export function DashboardEditorPage() {
             setAddingPanel(false);
             editor.update({
               ...draft,
-              spec: { ...draft.spec, panels: [...draft.spec.panels, value] },
+              spec: {
+                ...draft.spec,
+                schema_version:
+                  value.data_source && value.data_source.kind !== "telemetry"
+                    ? "argus.telemetry_dashboard/v2"
+                    : draft.spec.schema_version,
+                panels: [...draft.spec.panels, value],
+              },
             });
             void editor
               .save()

@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -24,32 +25,17 @@ for (const english of [false, true])
           .fill("123456");
         await page.locator('form button[type="submit"]').click();
         await expect(page).not.toHaveURL(/\/login/);
-        await page.goto("/kubernetes/k8s-prod-east");
+        await page.goto("/kubernetes/k8s-prod-east?tab=resources");
         await page
           .getByRole("tab", { name: english ? "Cluster" : "集群", exact: true })
           .click();
         await page.getByRole("tab", { name: "Node", exact: true }).click();
         const row = page.getByRole("row").filter({ hasText: "node-example" });
-        await row
-          .getByRole("button", {
-            name: english ? "Manage object" : "管理对象",
-            exact: true,
-          })
-          .click();
+        await selectRowAction(row, english ? "Drain node" : "排空节点");
         const dialog = page.getByRole("dialog", {
-          name: new RegExp("Node.*node-example"),
+          name: new RegExp("node-example"),
         });
-        await dialog
-          .getByRole("button", {
-            name: new RegExp(english ? "Operation" : "操作"),
-          })
-          .click();
-        await page
-          .getByRole("option", {
-            name: english ? "Drain node" : "维护节点并驱逐 Pod",
-            exact: true,
-          })
-          .click();
+
         await expect(dialog).toContainText(
           english ? "node remains cordoned" : "保持禁止调度",
         );
@@ -81,16 +67,10 @@ for (const english of [false, true])
             exact: true,
           })
           .click();
-        await expect(dialog).toContainText(
-          english ? "dual approval" : "等待审批",
-        );
-        await dialog
-          .getByRole("button", {
-            name: english ? "Close" : "关闭",
-            exact: true,
-          })
-          .last()
-          .click();
+        await expect(dialog).not.toBeVisible();
+        await expect(
+          page.locator(".argus-k8s-operation-feedback"),
+        ).toContainText(english ? "Awaiting approval" : "等待审批");
         await page.getByRole("button", { name: /root$/ }).click();
         await page
           .getByRole("menuitem", {
@@ -133,7 +113,7 @@ for (const english of [false, true])
           .fill("123456");
         await page.locator('form button[type="submit"]').click();
         await expect(page).not.toHaveURL(/\/login/);
-        await page.goto("/kubernetes/k8s-prod-east");
+        await page.goto("/kubernetes/k8s-prod-east?tab=resources");
         await page
           .getByRole("button", {
             name: english ? "Operation history" : "操作记录",

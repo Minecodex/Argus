@@ -1,3 +1,5 @@
+import { OperationalPanelDetails } from "./operational-panel-details";
+import { OperationalPanel } from "./operational-panel";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -77,12 +79,19 @@ export function ExpandedPanel({
       onOpenChange={(open) => !open && onClose()}
       title={panel.title}
       titleExtra={
-        <ObservationDetails
-          title={panel.title}
-          targets={targets}
-          signal={panel.signal}
-          display={panel.display}
-        />
+        panel.data_source && panel.data_source.kind !== "telemetry" ? (
+          <OperationalPanelDetails
+            title={panel.title}
+            execution={request ? result : initialExecution}
+          />
+        ) : (
+          <ObservationDetails
+            title={panel.title}
+            targets={targets}
+            signal={panel.signal}
+            display={panel.display}
+          />
+        )
       }
       width={1200}
     >
@@ -142,6 +151,11 @@ export function ExpandedPanel({
                       t("common.requestReference", { requestId: id }),
                     )
               }
+            />
+          ) : panel.data_source && panel.data_source.kind !== "telemetry" ? (
+            <OperationalPanel
+              panel={panel}
+              execution={request ? result : initialExecution}
             />
           ) : (
             <ObservationPanel

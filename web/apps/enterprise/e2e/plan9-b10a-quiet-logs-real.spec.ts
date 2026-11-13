@@ -1,3 +1,4 @@
+import { selectRowAction } from "./helpers/action-menu";
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -101,12 +102,7 @@ test.describe("B10a quiet Collector logs and session layout", () => {
             new URL(r.url()).pathname.endsWith("/read") &&
             r.request().method() === "POST",
         );
-        await agent
-          .getByRole("button", {
-            name: text("查看日志", "View logs"),
-            exact: true,
-          })
-          .click();
+        await selectRowAction(agent, text("查看日志", "View logs"));
         const response = await created;
         expect(response.status()).toBe(201);
         expect(response.request().postDataJSON().since_seconds).toBe(0);
@@ -174,12 +170,7 @@ test.describe("B10a quiet Collector logs and session layout", () => {
           .click();
         expect((await closing).status()).toBe(200);
         await expect(dialog).not.toBeVisible();
-        await agent
-          .getByRole("button", {
-            name: text("打开终端", "Open terminal"),
-            exact: true,
-          })
-          .click();
+        await selectRowAction(agent, text("打开终端", "Open terminal"));
         const terminal = page.getByRole("dialog", {
           name: /^(Pod 终端|Pod terminal)/,
         });
@@ -238,7 +229,7 @@ test.describe("B10a quiet Collector logs and session layout", () => {
       localStorage.setItem("argus.theme", "light");
     });
     const pod = await row(page, "b10a-workloads", /^b10a-api-/);
-    await pod.getByRole("button", { name: "打开终端", exact: true }).click();
+    await selectRowAction(pod, "打开终端");
     const dialog = page.getByRole("dialog", { name: /^Pod 终端/ });
     const outputs: string[] = [];
     page.on("websocket", (socket) =>

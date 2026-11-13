@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+const real = process.env.ARGUS_KWR_REAL === "1";
+test.use({ trace: "off", video: "off", reducedMotion: "reduce" });
+
 for (const width of [1280, 1440, 1920])
   for (const english of [false, true])
     for (const theme of ["light", "dark"]) {
@@ -19,13 +22,16 @@ for (const width of [1280, 1440, 1920])
           { english, theme },
         );
         await page.goto("/login");
-        await page.locator('input[autocomplete="username"]').fill("root");
+        await page
+          .locator('input[autocomplete="username"]')
+          .fill(real ? "kakj" : "root");
         await page
           .locator('input[autocomplete="current-password"]')
-          .fill("123456");
+          .fill(real ? process.env.ARGUS_KWR_PASSWORD! : "123456");
         await page.locator('form button[type="submit"]').click();
         await expect(page).not.toHaveURL(/\/login/);
-        await page.goto("/kubernetes/k8s-prod-east#otlp-collector");
+        const cluster = real ? process.env.ARGUS_KWR_CLUSTER! : "k8s-prod-east";
+        await page.goto(`/kubernetes/${cluster}?tab=collector`);
         const panel = page.getByRole("tabpanel", {
           name: text("采集配置", "Collection"),
           exact: true,
@@ -47,18 +53,40 @@ for (const width of [1280, 1440, 1920])
             { exact: true },
           ),
         });
-        await node.getByRole("switch").focus();
-        await node.getByRole("switch").press("Space");
-        const confirmation = page.getByRole("dialog", {
-          name: text("自身监控配置预览", "Preview own resource monitoring"),
+        if (!real) {
+          await node.getByRole("switch").focus();
+          await node.getByRole("switch").press("Space");
+          const confirmation = page.getByRole("dialog", {
+            name: text("自身监控配置预览", "Preview own resource monitoring"),
+            exact: true,
+          });
+          await expect(confirmation).toBeVisible();
+          await confirmation
+            .getByRole("button", { name: /^(确认|Confirm)/ })
+            .click();
+          await expect(confirmation).not.toBeVisible();
+          await expect(node.getByRole("switch")).toBeChecked();
+        }
+        const dashboard = node.getByRole("button", {
+          name: text("默认仪表盘", "Default dashboard"),
           exact: true,
         });
-        await expect(confirmation).toBeVisible();
-        await confirmation
-          .getByRole("button", { name: /^(确认|Confirm)/ })
-          .click();
-        await expect(confirmation).not.toBeVisible();
-        await expect(node.getByRole("switch")).toBeChecked();
+        const more = node.getByRole("button", {
+          name: /更多操作|More actions/,
+        });
+        await expect(dashboard).toBeVisible();
+        const primary = (await dashboard.boundingBox())!,
+          secondary = (await more.boundingBox())!;
+        expect(
+          secondary.x - (primary.x + primary.width),
+        ).toBeGreaterThanOrEqual(6);
+        expect(
+          Math.abs(
+            secondary.y +
+              secondary.height / 2 -
+              (primary.y + primary.height / 2),
+          ),
+        ).toBeLessThan(1);
         await panel
           .getByRole("button", {
             name: text("采集配置 · 更多操作", "Collection · More actions"),
@@ -95,6 +123,9 @@ for (const width of [1280, 1440, 1920])
         await panel.screenshot({
           path: info.outputPath("collection-choices.png"),
         });
+        await dashboard.click();
+        await expect(page).toHaveURL(/\/dashboards\//);
+        expect(new URL(page.url()).searchParams.get("resource")).toBe(cluster);
         expect(errors).toEqual([]);
       });
     }

@@ -3,10 +3,10 @@
   "schema_version": "argus.plan9_manual_review/v1",
   "created_at": "2026-10-26",
   "timezone": "Asia/Shanghai",
-  "status": "B10a_deployed_waiting_user_review",
-  "current_run_id": "p9-b10a-20261111-01",
-  "next_suggested_batch": "B10b",
-  "scope": "\u771f\u5b9e\u8d1f\u8f7d\u4e0e\u6b63\u5e38\u63a5\u5165\u9a71\u52a8\u7684\u5206\u6279\u4eba\u5de5\u754c\u9762\u9a8c\u6536",
+  "status": "B10b_deployed_waiting_user_review",
+  "current_run_id": "p9-b10b-20261112-01",
+  "next_suggested_batch": "B10c",
+  "scope": "真实负载与正常接入驱动的分批人工界面验收",
   "documentation": {
     "entry": "README.md",
     "catalog": "01-batch-catalog.md",
@@ -14,27 +14,29 @@
     "environment": "03-environment-and-compose.md",
     "review": "04-review-and-evidence.md",
     "first_batch": "batches/B01-linux-host.md",
-    "review_entry": "batches/B10a-review.md",
-    "issues": "15-b10a-workbench-lifecycle-20261111.md",
+    "review_entry": "batches/B10b-review.md",
+    "issues": "19-b10b-storage-jobs-and-node-ca-20261112.md",
     "data_reset": "05-local-data-reset-20261026.md",
     "product_fixes": "06-b01-managed-dashboard-and-query-fixes.md",
     "review_fixes": "07-dashboard-and-alert-review-fixes.md",
-    "current_review": "batches/B10a-review.md",
+    "current_review": "batches/B10b-review.md",
     "cache_query_fixes": "08-b04-cache-views-and-metadata-scan.md",
     "delivery_and_current_alert_fixes": "14-b09b-delivery-and-current-alerts-20261110.md",
     "workbench_lifecycle_fixes": "15-b10a-workbench-lifecycle-20261111.md",
     "pod_log_terminal_feedback": "16-b10a-pod-logs-and-terminal-20261111.md",
     "quiet_pod_logs_and_actions": "17-b10a-quiet-pod-logs-and-actions-20261111.md",
-    "terminal_matrix_and_options": "18-b10a-terminal-matrix-and-log-options-20261111.md"
+    "terminal_matrix_and_options": "18-b10a-terminal-matrix-and-log-options-20261111.md",
+    "storage_jobs_and_node_ca": "19-b10b-storage-jobs-and-node-ca-20261112.md",
+    "kubernetes_workbench_refactor": "../plans/frontend-redesign/kubernetes-workbench-acceptance-20261112.md"
   },
   "delivery": {
     "scenario_design": "written",
-    "compose_packages": "B01_through_B09b_retired_B10a_running_others_planned",
-    "runtime_scripts": "B10a_native_Kubernetes_normal_API_real_objects_and_sessions",
-    "deployment": "B10a_fresh_deployed",
+    "compose_packages": "B01_through_B10a_retired_B10b_running_others_planned",
+    "runtime_scripts": "B10b_native_Kubernetes_CSI_jobs_CPU_HPA_Calico_normal_API",
+    "deployment": "B10b_fresh_deployed",
     "live_api_calls": "normal_setup_login_enrollment_monitoring_dashboards_alerts",
     "real_model_calls": "not_run",
-    "human_acceptance": "B10a_pending_user_review"
+    "human_acceptance": "B10b_pending_user_review"
   },
   "execution_policy": {
     "one_active_sub_batch": true,
@@ -56,14 +58,14 @@
     "live_environment_verified_this_turn": true,
     "plan8_historical_preservation_gap": "P8-A64 remains separately recorded; no retroactive acceptance claim",
     "latest_reset": "05-local-data-reset-20261026.md",
-    "formal_version": "B10a_lifecycle_v3_with_ingest_v4_frozen_Schema52",
+    "formal_version": "KWR_backend_v8_web_v5_Schema54",
     "enterprise": "test",
-    "source_head": "be89e55"
+    "source_head": "5b87836"
   },
   "batches": [
     {
       "id": "B01",
-      "title": "Linux \u4e3b\u673a\u3001\u8fdb\u7a0b\u3001systemd \u4e0e Collector",
+      "title": "Linux 主机、进程、systemd 与 Collector",
       "activation": "on_user_batch_selection",
       "status": "destroyed",
       "package_status": "implemented_and_executed",
@@ -86,7 +88,7 @@
     },
     {
       "id": "B02",
-      "title": "Web/\u4ee3\u7406\u4e0e\u7f51\u7edc\u63a2\u6d4b",
+      "title": "Web/代理与网络探测",
       "activation": "on_user_batch_selection",
       "status": "destroyed",
       "package_status": "implemented_and_executed",
@@ -106,7 +108,7 @@
             "B02a-D01"
           ],
           "accepted_at": "2026-10-27T05:48:03.234817+00:00",
-          "acceptance_statement": "\u6ca1\u5565\u95ee\u9898\u5207\u6362\u5230 B02b \u628a"
+          "acceptance_statement": "没啥问题切换到 B02b 把"
         },
         {
           "id": "B02b",
@@ -117,7 +119,7 @@
           "runtime_status": "destroyed",
           "handoff": "batches/B02b-review.md",
           "accepted_at": "2026-10-27T07:56:35.707Z",
-          "acceptance_statement": "B02b \u6ca1\u5565\u95ee\u9898\uff0c\u6e05\u7406\u540e\u5207\u6362\u90e8\u7f72 B03 \u5427",
+          "acceptance_statement": "B02b 没啥问题，清理后切换部署 B03 吧",
           "cleanup": "../../artifacts/plan9/p9-b02b-20261027-01/cleanup.json"
         }
       ],
@@ -128,7 +130,7 @@
     },
     {
       "id": "B03",
-      "title": "MySQL \u4e0e PostgreSQL",
+      "title": "MySQL 与 PostgreSQL",
       "activation": "on_user_batch_selection",
       "status": "destroyed",
       "package_status": "implemented_and_executed",
@@ -147,7 +149,7 @@
     },
     {
       "id": "B04",
-      "title": "Redis \u4e0e Memcached",
+      "title": "Redis 与 Memcached",
       "activation": "on_user_batch_selection",
       "status": "destroyed",
       "package_status": "implemented_and_executed",
@@ -161,12 +163,12 @@
       "handoff": "batches/B04-review.md",
       "open_issues": [],
       "accepted_at": "2026-10-28T12:22:06.038Z",
-      "acceptance_statement": "B04 \u6ca1\u5565\u95ee\u9898\uff0c\u6e05\u7406\u540e\u90e8\u7f72 B05a\uff0c\u628a RabbitMQ \u7684\u771f\u5b9e\u573a\u666f\u3001\u76d1\u63a7\u3001\u4eea\u8868\u76d8\u548c\u544a\u8b66\u90fd\u63a5\u597d\uff0c\u6211\u518d\u53bb\u5e73\u53f0\u770b\u3002",
+      "acceptance_statement": "B04 没啥问题，清理后部署 B05a，把 RabbitMQ 的真实场景、监控、仪表盘和告警都接好，我再去平台看。",
       "cleanup": "../../artifacts/plan9/p9-b04-20261027-01/cleanup.json"
     },
     {
       "id": "B05",
-      "title": "\u6d88\u606f\u961f\u5217\u4e0e\u534f\u8c03\u670d\u52a1",
+      "title": "消息队列与协调服务",
       "activation": "on_user_batch_selection",
       "status": "destroyed",
       "package_status": "B05a_B05b_B05c_implemented_and_executed",
@@ -225,7 +227,7 @@
     },
     {
       "id": "B06",
-      "title": "\u6269\u5c55\u6570\u636e\u5e93\u4e0e\u641c\u7d22",
+      "title": "扩展数据库与搜索",
       "activation": "on_user_batch_selection",
       "status": "destroyed",
       "package_status": "B06a_B06b_B06c_B06d_implemented_and_executed",
@@ -301,7 +303,7 @@
     },
     {
       "id": "B07",
-      "title": "\u5e94\u7528\u3001APM \u4e0e SDK \u65e5\u5fd7",
+      "title": "应用、APM 与 SDK 日志",
       "activation": "on_user_batch_selection",
       "status": "destroyed",
       "package_status": "B07a_B07b_B07c_implemented_and_executed",
@@ -364,7 +366,7 @@
     },
     {
       "id": "B08",
-      "title": "Linux \u6587\u4ef6\u65e5\u5fd7\u4e0e Journald",
+      "title": "Linux 文件日志与 Journald",
       "activation": "on_user_batch_selection",
       "status": "destroyed",
       "package_status": "implemented_and_executed",
@@ -383,7 +385,7 @@
     },
     {
       "id": "B09",
-      "title": "Kubernetes \u76d1\u63a7\u4e0e\u65e5\u5fd7",
+      "title": "Kubernetes 监控与日志",
       "activation": "on_user_batch_selection",
       "status": "destroyed",
       "package_status": "B09b_components_implemented_and_executed",
@@ -437,21 +439,21 @@
     },
     {
       "id": "B10",
-      "title": "Kubernetes \u5de5\u4f5c\u53f0\u5b9e\u9645\u64cd\u4f5c",
+      "title": "Kubernetes 工作台实际操作",
       "activation": "on_user_batch_selection",
-      "status": "B10a_pending_user_review",
-      "package_status": "B10a_implemented_and_executed",
-      "self_check": "B10a_real_objects_metrics_alert_sessions_and_6_browser_cases_passed",
+      "status": "B10b_pending_user_review",
+      "package_status": "B10a_B10b_implemented_and_executed",
+      "self_check": "B10b_real_storage_jobs_CPU_HPA_network_policy_metrics_alerts_and_6_UI_cases_passed",
       "review_status": "not_reviewed",
-      "runtime_status": "B10a_running",
+      "runtime_status": "B10b_running",
       "sub_batches": [
         {
           "id": "B10a",
-          "status": "ready_for_review",
+          "status": "destroyed",
           "package_status": "implemented_and_executed",
           "self_check": "actual_mutations_configuration_ingress_23_panels_alert_cycle_exec_CLI_forward_and_6_UI_cases_passed",
-          "review_status": "pending_user_review",
-          "runtime_status": "deployed",
+          "review_status": "advanced_by_user_request_without_explicit_acceptance",
+          "runtime_status": "destroyed",
           "runs": [
             "p9-b10a-20261111-01"
           ],
@@ -488,15 +490,28 @@
             "browser_cases": 8,
             "supported_pods": 4,
             "human_acceptance": "pending"
-          }
+          },
+          "cleanup_record": "../../artifacts/plan9/p9-b10a-20261111-01/cleanup-verification.json"
         },
         {
           "id": "B10b",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "ready_for_review",
+          "package_status": "implemented_and_executed",
+          "self_check": "actual_CSI_online_resize_reclaim_jobs_suspend_resume_manual_scheduled_CPU_1_3_1_Calico_deny_restore_6_UI_cases_and_health20_passed",
+          "review_status": "pending_user_review",
+          "runtime_status": "deployed",
+          "handoff": "batches/B10b-review.md",
+          "open_issues": [],
+          "limitations": [
+            "Rawfile per-PVC kubelet volume stats unavailable; real object capacity and mounted statvfs/df verified"
+          ],
+          "fixes": [
+            "explicit_node_CA_file_materialization",
+            "superseded_accepted_operation_settlement"
+          ],
+          "runs": [
+            "p9-b10b-20261112-01"
+          ]
         },
         {
           "id": "B10c",
@@ -508,12 +523,13 @@
         }
       ],
       "runs": [
-        "p9-b10a-20261111-01"
+        "p9-b10a-20261111-01",
+        "p9-b10b-20261112-01"
       ]
     },
     {
       "id": "B11",
-      "title": "\u5821\u5792\u673a\u4e0e\u8fdc\u7a0b\u8fde\u63a5",
+      "title": "堡垒机与远程连接",
       "activation": "on_user_batch_selection",
       "status": "planned",
       "package_status": "not_created",
@@ -550,7 +566,7 @@
     },
     {
       "id": "B12",
-      "title": "\u771f\u5b9e\u6a21\u578b\u804a\u5929\u4e0e\u64cd\u4f5c\u95ed\u73af",
+      "title": "真实模型聊天与操作闭环",
       "activation": "on_user_batch_selection",
       "status": "planned",
       "package_status": "not_created",
@@ -562,7 +578,7 @@
     },
     {
       "id": "B13",
-      "title": "\u591a\u76ee\u6807\u4eea\u8868\u76d8\u3001\u544a\u8b66\u4e0e\u6743\u9650",
+      "title": "多目标仪表盘、告警与权限",
       "activation": "on_user_batch_selection",
       "status": "planned",
       "package_status": "not_created",
@@ -599,7 +615,7 @@
     },
     {
       "id": "E01",
-      "title": "Windows\u3001IIS\u3001Event Log \u4e0e RDP",
+      "title": "Windows、IIS、Event Log 与 RDP",
       "activation": "on_explicit_request",
       "status": "planned",
       "package_status": "not_created",
@@ -611,7 +627,7 @@
     },
     {
       "id": "E02",
-      "title": "\u771f\u5b9e ARM \u4e3b\u673a",
+      "title": "真实 ARM 主机",
       "activation": "on_explicit_request",
       "status": "planned",
       "package_status": "not_created",

@@ -17,6 +17,7 @@ export type ViewInput = Pick<
   | "resource_types"
   | "application_mode"
   | "application_ids"
+  | "kubernetes_scope"
 >;
 type Range = DashboardSchemas["DashboardTimeRange"];
 type Options = {
@@ -27,6 +28,9 @@ type Options = {
   modelId?: string;
   month?: string;
   enabled: boolean;
+  initialTime?: Range;
+  onTimeChange?: (time: Range) => void;
+  fixedScope?: Partial<ViewInput>;
   execute: (
     id: string,
     input: DashboardSchemas["DashboardExecutionInput"],
@@ -77,6 +81,10 @@ export function useDashboardExecution(options: Options) {
         (automatic && (active.current || document.visibilityState === "hidden"))
       )
         return;
+      const focus = next.kubernetes_scope?.focus_uid;
+      next = { ...next, ...opts.fixedScope };
+      if (focus && next.kubernetes_scope)
+        next.kubernetes_scope = { ...next.kubernetes_scope, focus_uid: focus };
       const spec = opts.revision.spec;
       // A condition change supersedes the active request, but must also finish
       // every invalidated panel from that request. Never drop a local change.
@@ -108,10 +116,11 @@ export function useDashboardExecution(options: Options) {
       if (range) {
         rangeRef.current = range;
         setTimeRange(range);
+        opts.onTimeChange?.(range);
       }
       latest.current = next;
       setInput(next);
-      opts.onReset();
+      if (!automatic) opts.onReset();
       if (requested) requested.forEach((id) => tokens.current.delete(id));
       else tokens.current.clear();
       setBusy(true);
@@ -203,8 +212,12 @@ export function useDashboardExecution(options: Options) {
           active.current = { controller, panels: remaining };
         }
       } catch (e) {
-        if (!controller.signal.aborted && ticket === generation.current)
+        if (!controller.signal.aborted && ticket === generation.current) {
+          snapshot.current = undefined;
+          setExecution(undefined);
+          tokens.current.clear();
           setError(opts.formatError(e));
+        }
       } finally {
         if (ticket === generation.current) {
           active.current = undefined;
@@ -215,7 +228,17 @@ export function useDashboardExecution(options: Options) {
     [],
   );
 
+  const initialized = useRef("");
   useEffect(() => {
+    const identity = JSON.stringify([
+      options.dashboardId,
+      options.revision?.id,
+      options.resourceId,
+      options.resourceType,
+      options.modelId,
+      options.month,
+    ]);
+    const fresh = initialized.current !== identity;
     const epoch = generation;
     generation.current++;
     active.current?.controller.abort();
@@ -227,6 +250,19 @@ export function useDashboardExecution(options: Options) {
     setBusy(false);
     const opts = current.current;
     if (opts.enabled && opts.revision) {
+      if (!fresh) {
+        void run(
+          { ...latest.current, ...opts.fixedScope },
+          undefined,
+          rangeRef.current,
+        );
+        return () => {
+          epoch.current++;
+          active.current?.controller.abort();
+          active.current = undefined;
+        };
+      }
+      initialized.current = identity;
       setRefreshSeconds(opts.revision.spec.default_refresh_seconds);
       const initial: ViewInput = {
         resource_ids: opts.resourceId ? [opts.resourceId] : [],
@@ -239,10 +275,20 @@ export function useDashboardExecution(options: Options) {
           opts.revision.spec.variables.map((v) => [v.name, v.default]),
         ),
         local_values: {},
+        ...opts.fixedScope,
       };
-      if (opts.modelId) (initial.variables ??= {}).model = { all: false, values: [opts.modelId] };
-      if (opts.month) (initial.variables ??= {}).month = { all: false, values: [opts.month] };
-      void run(initial, undefined, opts.revision.spec.default_time_range);
+      if (opts.modelId)
+        (initial.variables ??= {}).model = {
+          all: false,
+          values: [opts.modelId],
+        };
+      if (opts.month)
+        (initial.variables ??= {}).month = { all: false, values: [opts.month] };
+      void run(
+        initial,
+        undefined,
+        opts.initialTime ?? opts.revision.spec.default_time_range,
+      );
     }
     return () => {
       epoch.current++;
@@ -260,14 +306,42 @@ export function useDashboardExecution(options: Options) {
     run,
   ]);
 
+  const scopeKey = JSON.stringify(options.fixedScope ?? null);
+  const previousScope = useRef(scopeKey);
+  useEffect(() => {
+    if (previousScope.current === scopeKey) return;
+    previousScope.current = scopeKey;
+    snapshot.current = undefined;
+    setExecution(undefined);
+    tokens.current.clear();
+    active.current?.controller.abort();
+    if (options.enabled && current.current.revision) {
+      current.current.onReset();
+      void run({
+        ...latest.current,
+        ...current.current.fixedScope,
+        kubernetes_scope: current.current.fixedScope?.kubernetes_scope,
+      });
+    }
+  }, [scopeKey, options.enabled, run]);
+
   useEffect(() => {
     const seconds = refreshSeconds;
-    if (!options.enabled || seconds < 5) return;
+    if (!options.enabled) return;
     let timer: ReturnType<typeof setInterval> | undefined;
+    let wasHidden = document.visibilityState === "hidden";
     const schedule = () => {
       clearInterval(timer);
       timer = undefined;
-      if (document.visibilityState !== "hidden")
+      if (document.visibilityState === "hidden") {
+        active.current?.controller.abort();
+        active.current = undefined;
+        setBusy(false);
+      }
+      if (document.visibilityState !== "hidden" && wasHidden && seconds >= 5)
+        void run(latest.current, undefined, undefined, true);
+      wasHidden = document.visibilityState === "hidden";
+      if (document.visibilityState !== "hidden" && seconds >= 5)
         timer = setInterval(
           () => void run(latest.current, undefined, undefined, true),
           seconds * 1000,
