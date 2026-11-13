@@ -141,6 +141,26 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
 });
+
+it("does not navigate on initialization or reactivation and reports explicit time changes", async () => {
+  const initial = { kind: "relative" as const, seconds: 900 };
+  const onTimeChange = vi.fn();
+  const f = fixture({ initialTime: initial, onTimeChange });
+  expect(f.result.current.timeRange).toEqual(initial);
+  expect(onTimeChange).not.toHaveBeenCalled();
+  await f.finish(0);
+  f.rerender({ ...f.options, enabled: false });
+  f.rerender(f.options);
+  await f.finish(1);
+  expect(onTimeChange).not.toHaveBeenCalled();
+  const selected = { kind: "relative" as const, seconds: 1800 };
+  act(() => {
+    void f.result.current.run(f.result.current.input, undefined, selected);
+  });
+  expect(onTimeChange).toHaveBeenCalledExactlyOnceWith(selected);
+  await f.finish(2);
+  expect(f.result.current.timeRange).toEqual(selected);
+});
 afterEach(() => {
   cleanup();
   vi.useRealTimers();

@@ -877,6 +877,7 @@ test("telemetry views expose Metrics, Logs, Traces, usage, and partial states", 
   for (const name of ["指标", "日志", "链路"])
     await expect(page.getByRole("tab", { name, exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "观测查询", exact: true }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/observe");
   await observationSignal(page, "指标");
   await expect(page.getByText("结果已裁剪", { exact: true })).toBeVisible();
   await expect(page.locator(".argus-observe-query [role=img]")).toBeVisible();

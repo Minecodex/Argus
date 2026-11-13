@@ -73,6 +73,7 @@ export function useDashboardExecution(options: Options) {
       panels?: string[],
       range?: Range,
       automatic = false,
+      notifyTime = true,
     ) => {
       const opts = current.current;
       if (
@@ -116,7 +117,7 @@ export function useDashboardExecution(options: Options) {
       if (range) {
         rangeRef.current = range;
         setTimeRange(range);
-        opts.onTimeChange?.(range);
+        if (notifyTime) opts.onTimeChange?.(range);
       }
       latest.current = next;
       setInput(next);
@@ -250,11 +251,15 @@ export function useDashboardExecution(options: Options) {
     setBusy(false);
     const opts = current.current;
     if (opts.enabled && opts.revision) {
+      // Bootstrap and reactivation must not overwrite a navigation already
+      // started by the user. Explicit time changes still synchronize the URL.
       if (!fresh) {
         void run(
           { ...latest.current, ...opts.fixedScope },
           undefined,
           rangeRef.current,
+          false,
+          false,
         );
         return () => {
           epoch.current++;
@@ -288,6 +293,8 @@ export function useDashboardExecution(options: Options) {
         initial,
         undefined,
         opts.initialTime ?? opts.revision.spec.default_time_range,
+        false,
+        false,
       );
     }
     return () => {

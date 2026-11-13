@@ -62,3 +62,8 @@ data_source 为受控只读能力。省略 data_source 的 v1 遥测面板保持
 状态摘要与活跃告警；节点/Pod 分布和状态构成；两列 CPU/内存使用趋势和请求趋势；局部关系、警告事件、异常资源及告警列表。可分配资源来自当前 Node，Pod requests 使用 Kubernetes 自身的资源计算规则，包含 init container 与 overhead；使用量来自真实遥测。无综合健康评分。
 
 相关实现与验收：[资源工作台计划](../plans/frontend-redesign/kubernetes-resource-workbench-refactor-plan-20261112.md)、[资源能力矩阵](../plans/frontend-redesign/kubernetes-workbench-capabilities-20261112.md)、[本轮验收记录](../plans/frontend-redesign/kubernetes-workbench-acceptance-20261112.md)。
+
+
+## 初始化与路由竞争
+
+共享仪表盘运行时在首次加载、版本重读和可见性重新启用时仅设置内部时间状态，不触发时间 URL 写回。用户明确调整时间范围时才通知外层同步链接，避免大盘首轮加载覆盖用户刚发起的页面跳转。初始化、重新启用和用户调整分别有回归断言；从集群进入观测查询也核对目标路径。
