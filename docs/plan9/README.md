@@ -1,6 +1,6 @@
 # Plan9：分批真实场景与人工验收
 
-创建日期：2026-10-26。当前阶段为 **B10a 已退役，B10b 存储、任务、真实 CPU HPA 和 NetworkPolicy 已部署，等待用户查看**。三项原生采集、四个仪表盘共 24 个面板、实际告警触发/恢复、六项部署页面 E2E 和正式健康 20/20 通过。
+创建日期：2026-10-26。当前阶段为 **B10c 已明确通过并清理，B11a 已部署，保留 Linux 直连主机供用户查看**。[B11a 查看记录](./batches/B11a-review.md) 包含真实 SSH 安装、Shell/OpenSSH、录像、四套仪表盘和告警恢复窗口；启动阶段的历史投递缺口单列保留。B11a 人工验收仍待用户确认。
 
 ## 要完成的事情
 
@@ -22,7 +22,7 @@ B09a 使用独立 Kubernetes 集群运行实际业务工作负载，接入原生
 
 B09b 已完成真实控制面组件验证并按用户下一批指令退役，修复结果和历史见 [B09b 记录](./batches/B09b-review.md)。
 
-B10a 已清理，原始反馈与修复证据保留。[当前 B10b 查看入口](./batches/B10b-review.md) 提供真实 PVC 在线扩容、任务暂停/恢复/手动执行、CPU HPA、网络隔离、四个仪表盘和已恢复告警。
+B10a、B10b、B10c 已清理，原始反馈与修复证据保留。[B10c 历史记录](./batches/B10c-review.md) 保留 Helm/OCI、CR/RBAC、PDB/节点迁移及人工确认。[当前 B11a 查看入口](./batches/B11a-review.md) 提供实际在线直连主机、终端、录像、仪表盘与服务告警。B10b 的存储/任务验证见 [历史记录](./batches/B10b-review.md)。
 
 2026-11-10，按完整一小时反馈补齐[节点/API Server 查询预算与延迟口径修正](./12-kubernetes-hour-window-query-20261110.md)，12 个面板、4 项真实中英明暗页面及健康 20/20 通过，当前版本见该记录。
 
@@ -30,6 +30,15 @@ B10a 已清理，原始反馈与修复证据保留。[当前 B10b 查看入口](
 
 | 文档 | 用途 |
 | --- | --- |
+| [B11a 当前记录](./batches/B11a-review.md) | Linux 直连、Shell/OpenSSH、录像、监控及告警 |
+| [B11a 运行包](./runtime/B11a/runbook.md) | systemd/SSH、原生 TLS 端点、真实故障、归属清理 |
+| [B11a 签名主机制品与直连](./23-b11a-direct-host-artifact-20261113.md) | 旧安装包不兼容、仅 amd64 发行、初始身份与 DNS 修正 |
+| [B11a 主机列表趋势](./24-b11a-host-list-trends-20261113.md) | CPU/内存/磁盘渐进读取、共享迷你曲线与详情路径 |
+| [B10c 历史记录（已通过并清理）](./batches/B10c-review.md) | Helm/OCI、扩展资源、限定 RBAC 与专用 worker 维护 |
+| [B10c 运行包](./runtime/B10c/runbook.md) | 独立三节点、TLS 源、正常平台操作、监控和归属清理 |
+| [B10c 自定义资源预览事务修复](./20-b10c-custom-resource-preview-transaction.md) | 原生 dry-run 成功后的审计冲突、事务边界修复与实际复验 |
+| [B10c 命名空间范围与错误提示](./21-b10c-namespace-scope-error-20261113.md) | 默认全部范围 403 的真实原因、统一错误翻译和选择恢复 |
+| [B10c 资源列表趋势与渐进加载](./22-b10c-progressive-resource-trends-20261113.md) | 当前页批量指标、迷你曲线、独立加载与名称摘要 |
 | [批次与场景目录](./01-batch-catalog.md) | 13 个主批次、子批次、仪表盘和实际故障 |
 | [每批执行与清理流程](./02-execution-workflow.md) | 部署、接入、交付查看、修改、通过、销毁 |
 | [Compose 与环境规范](./03-environment-and-compose.md) | 文件组成、主机/中间件/K8s/模型边界、资源与凭据 |

@@ -47,6 +47,17 @@ function fail(code = "KUBERNETES_INVENTORY_INVALID", status = 400): never {
 export function createKubernetesWorkbenchDomains(
   ctx: MockContext,
 ): KubernetesWorkbenchDomains {
+  const metricContexts = new Map<
+    string,
+    {
+      cluster: string;
+      actor: string;
+      scope: string;
+      uids: string[];
+      observed: string;
+      expires: number;
+    }
+  >();
   const watches = new Map<
     string,
     {
@@ -131,6 +142,59 @@ export function createKubernetesWorkbenchDomains(
   };
   return {
     kubernetesWorkbench: {
+      async prepareMetrics(id, input) {
+        await ctx.pause();
+        const { rows } = visible(id, input.list),
+          access = scope(id);
+        const token = crypto.randomUUID(),
+          observed = ctx.nowIso(),
+          expires = Date.now() + 120000;
+        metricContexts.set(token, {
+          cluster: id,
+          actor: ctx.actor().id,
+          scope: JSON.stringify(access),
+          uids: input.uids.filter((uid) => rows.some((row) => row.uid === uid)),
+          observed,
+          expires,
+        });
+        return {
+          token,
+          observed_at: observed,
+          expires_at: new Date(expires).toISOString(),
+          complete: true,
+        };
+      },
+      async readMetrics(id, input) {
+        await ctx.pause();
+        const context = metricContexts.get(input.token);
+        if (
+          !context ||
+          context.cluster !== id ||
+          context.actor !== ctx.actor().id ||
+          context.scope !== JSON.stringify(scope(id)) ||
+          context.expires < Date.now()
+        )
+          fail("KUBERNETES_API_FORBIDDEN", 403);
+        return {
+          observed_at: ctx.nowIso(),
+          from: new Date(Date.parse(context.observed) - 1800000).toISOString(),
+          to: context.observed,
+          complete: true,
+          items: context.uids.map((uid) => ({
+            uid,
+            trends: [
+              {
+                kind: input.metric === "storage" ? "ephemeral" : input.metric,
+                unit: input.metric === "cpu" ? "cores" : "bytes",
+                state: "not_configured",
+                basis: "usage",
+                points: [],
+                partial_configuration: false,
+              },
+            ],
+          })),
+        };
+      },
       async overviewCandidates(id, input) {
         const access = scope(id);
         if (!access.cluster_wide) fail("KUBERNETES_API_FORBIDDEN", 403);
@@ -214,10 +278,44 @@ export function createKubernetesWorkbenchDomains(
       },
       async related(id, input, signal) {
         const source = await this.object(id, input, signal);
-        const snapshot = await this.snapshot(id, { namespace_mode: input.namespace_id ? "explicit" : "all_authorized", namespace_ids: input.namespace_id ? [input.namespace_id] : undefined, types: input.view === "events" ? ["event"] : ["pod", "deployment", "cronjob", "job", "pvc", "pdb"] }, signal);
-        const related = snapshot.resources.filter(row => row.uid !== source.uid && (input.view === "events" ? row.summary.fields.involved_uid === source.uid : source.definition.key === "namespace" ? row.namespace_uid === source.uid : source.owners.some(owner => owner.uid === row.uid) || row.summary.fields.owner?.includes(source.definition.kind + "/" + source.name)));
-        const offset = Number(input.cursor ?? 0), limit = input.limit ?? 30;
-        return { items: related.slice(offset, offset + limit), next_cursor: offset + limit < related.length ? String(offset + limit) : undefined, complete: true, errors: {}, observed_at: ctx.nowIso() };
+        const snapshot = await this.snapshot(
+          id,
+          {
+            namespace_mode: input.namespace_id ? "explicit" : "all_authorized",
+            namespace_ids: input.namespace_id
+              ? [input.namespace_id]
+              : undefined,
+            types:
+              input.view === "events"
+                ? ["event"]
+                : ["pod", "deployment", "cronjob", "job", "pvc", "pdb"],
+          },
+          signal,
+        );
+        const related = snapshot.resources.filter(
+          (row) =>
+            row.uid !== source.uid &&
+            (input.view === "events"
+              ? row.summary.fields.involved_uid === source.uid
+              : source.definition.key === "namespace"
+                ? row.namespace_uid === source.uid
+                : source.owners.some((owner) => owner.uid === row.uid) ||
+                  row.summary.fields.owner?.includes(
+                    source.definition.kind + "/" + source.name,
+                  )),
+        );
+        const offset = Number(input.cursor ?? 0),
+          limit = input.limit ?? 30;
+        return {
+          items: related.slice(offset, offset + limit),
+          next_cursor:
+            offset + limit < related.length
+              ? String(offset + limit)
+              : undefined,
+          complete: true,
+          errors: {},
+          observed_at: ctx.nowIso(),
+        };
       },
       async snapshot(id, input, signal) {
         const access = scope(id);

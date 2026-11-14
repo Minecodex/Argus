@@ -124,6 +124,14 @@ export function kubernetesObjectContainers(
 }
 export type KubernetesInventoryScope =
   KubernetesInventorySchemas["KubernetesInventoryScope"];
+export type KubernetesMetricContext =
+  KubernetesInventorySchemas["KubernetesMetricContext"];
+export type KubernetesMetricTrend =
+  KubernetesInventorySchemas["KubernetesMetricTrend"];
+export type KubernetesMetricPoint =
+  KubernetesInventorySchemas["KubernetesMetricPoint"];
+export type KubernetesMetricResult =
+  KubernetesInventorySchemas["KubernetesMetricResult"];
 export type KubernetesDrainProgress =
   KubernetesInventorySchemas["KubernetesDrainProgress"];
 export type KubernetesInventoryInput = {
@@ -144,6 +152,16 @@ export type KubernetesObjectInput = {
 };
 export interface KubernetesWorkbenchDomains {
   kubernetesWorkbench: {
+    prepareMetrics: (
+      id: string,
+      input: { list: KubernetesInventoryInput; uids: string[] },
+      signal?: AbortSignal,
+    ) => Promise<KubernetesMetricContext>;
+    readMetrics: (
+      id: string,
+      input: { token: string; metric: "cpu" | "memory" | "storage" },
+      signal?: AbortSignal,
+    ) => Promise<KubernetesMetricResult>;
     overviewCandidates(
       cluster: string,
       input: { search?: string; cursor?: string; limit?: number },

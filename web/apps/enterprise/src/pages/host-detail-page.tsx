@@ -18,7 +18,7 @@ import "../styles/hosts.css";
 import { ComponentsTab } from "../components/hosts/components-tab";
 import { ResourceExecutionActivity } from "../components/operations/execution-result";
 import { RealTerminalTab } from "../components/hosts/real-terminal-tab";
-import {ResourceObserveLink} from "../components/observe/resource-link";
+import { ResourceObserveLink } from "../components/observe/resource-link";
 import { ResourceDashboardLinks } from "../components/dashboards/resource-dashboard-links";
 import { useResourceDashboardTab } from "../components/dashboards/use-resource-dashboard-tab";
 import { usePermission } from "../lib/permissions";
@@ -83,7 +83,9 @@ export function HostDetailPage() {
   return (
     <PageShell
       className="argus-host-detail-page"
-      actions={host?<ResourceObserveLink type="host" id={host.id}/>:undefined}
+      actions={
+        host ? <ResourceObserveLink type="host" id={host.id} /> : undefined
+      }
       breadcrumbs={[
         { label: t("hosts.detail.backToList"), href: "/hosts" },
         { label: host?.name ?? hostId ?? "" },
@@ -140,7 +142,7 @@ export function HostDetailPage() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="overview">
-              <HostOverview host={host} />
+              <HostOverview host={host} scopes={scopes} />
             </TabsContent>
             {canReadDashboards && (
               <TabsContent value="dashboards">

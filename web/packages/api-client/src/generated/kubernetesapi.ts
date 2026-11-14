@@ -411,6 +411,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/enterprise/kubernetes-clusters/{id}/inventory/metrics/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare a bounded current-page metric context */
+        post: operations["prepareKubernetesListMetrics"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enterprise/kubernetes-clusters/{id}/inventory/metrics/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read one metric independently for the current resource page */
+        post: operations["readKubernetesListMetrics"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/enterprise/kubernetes-clusters/{id}/inventory": {
         parameters: {
             query?: never;
@@ -1193,6 +1231,76 @@ export interface components {
             cluster_version: number;
             cluster_wide: boolean;
             namespaces: components["schemas"]["KubernetesNamespaceReference"][];
+        };
+        KubernetesMetricSelection: {
+            /** @enum {string} */
+            mode: "explicit" | "all_authorized";
+            ids?: string[];
+        };
+        KubernetesMetricList: {
+            type: string;
+            namespaces: components["schemas"]["KubernetesMetricSelection"];
+            state?: string;
+            name?: string;
+            labels?: string;
+            limit?: number;
+            cursor?: string;
+        };
+        KubernetesMetricPrepareInput: {
+            list: components["schemas"]["KubernetesMetricList"];
+            uids: string[];
+        };
+        KubernetesMetricContext: {
+            token: string;
+            /** Format: date-time */
+            observed_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            complete: boolean;
+        };
+        KubernetesMetricReadInput: {
+            token: string;
+            /** @enum {string} */
+            metric: "cpu" | "memory" | "storage";
+        };
+        KubernetesMetricPoint: {
+            /** Format: date-time */
+            time: string;
+            value: number | null;
+            request?: number | null;
+            limit?: number | null;
+            capacity?: number | null;
+        };
+        KubernetesMetricTrend: {
+            /** @enum {string} */
+            kind: "cpu" | "memory" | "ephemeral" | "local_filesystem" | "volume";
+            /** @enum {string} */
+            unit: "cores" | "bytes";
+            /** @enum {string} */
+            state: "ready" | "no_data" | "stale" | "partial" | "not_configured" | "forbidden" | "query_failed" | "identity_changed" | "unsupported";
+            reason?: string;
+            /** @enum {string} */
+            basis: "usage" | "request" | "limit" | "capacity";
+            points: components["schemas"]["KubernetesMetricPoint"][];
+            current_request?: number | null;
+            current_limit?: number | null;
+            current_capacity?: number | null;
+            allocatable?: number | null;
+            partial_configuration: boolean;
+        };
+        KubernetesMetricEntry: {
+            uid: string;
+            trends: components["schemas"]["KubernetesMetricTrend"][];
+        };
+        KubernetesMetricResult: {
+            items: components["schemas"]["KubernetesMetricEntry"][];
+            /** Format: date-time */
+            observed_at: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            complete: boolean;
         };
         KubernetesInventoryPage: {
             items: components["schemas"]["KubernetesInventoryObject"][];

@@ -1,3 +1,5 @@
+import { kubernetesTrendsZh, kubernetesTrendsEn } from "./kubernetes-trends";
+import { hostTrendsZh, hostTrendsEn } from "./host-trends";
 import {
   kubernetesResourcesZh,
   kubernetesResourcesEn,
@@ -73,6 +75,8 @@ import { errorsEn, errorsZh } from "./errors";
  * - 通用/跨模块文案放 `common.ts`，外壳与导航文案放 `shell.ts`。
  */
 const modulesZh = [
+  hostTrendsZh,
+  kubernetesTrendsZh,
   observeZh,
   operationsZh,
   aiopsSettingsZh,
@@ -120,6 +124,8 @@ const modulesZh = [
   errorsZh,
 ];
 const modulesEn = [
+  hostTrendsEn,
+  kubernetesTrendsEn,
   observeEn,
   operationsEn,
   aiopsSettingsEn,

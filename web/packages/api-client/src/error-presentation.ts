@@ -11,9 +11,27 @@ export type ApiErrorTranslator = (
   params?: ApiErrorTranslationParams,
 ) => string | undefined;
 
+/** Prefer a stable code translation, then a registered domain message key. */
+export function createApiErrorTranslator(
+  lookup: (
+    key: string,
+    params?: ApiErrorTranslationParams,
+  ) => string | undefined,
+): ApiErrorTranslator {
+  return (code, messageKey, params) => {
+    const key = `errors.codes.${code}`;
+    return (
+      lookup(key, params) ??
+      (messageKey !== key ? lookup(messageKey, params) : undefined)
+    );
+  };
+}
+
 let apiErrorTranslator: ApiErrorTranslator | undefined;
 
-export function setApiErrorTranslator(translator: ApiErrorTranslator | undefined) {
+export function setApiErrorTranslator(
+  translator: ApiErrorTranslator | undefined,
+) {
   apiErrorTranslator = translator;
 }
 

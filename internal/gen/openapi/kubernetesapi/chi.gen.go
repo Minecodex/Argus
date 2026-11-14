@@ -47,6 +47,12 @@ type ServerInterface interface {
 	// PreviewKubernetesMutation Dry-run an authorized object change and prepare a confirmation
 	// (POST /enterprise/kubernetes-clusters/{id}/inventory/actions/preview-mutation)
 	PreviewKubernetesMutation(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewKubernetesMutationParams)
+	// PrepareKubernetesListMetrics Prepare a bounded current-page metric context
+	// (POST /enterprise/kubernetes-clusters/{id}/inventory/metrics/prepare)
+	PrepareKubernetesListMetrics(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// ReadKubernetesListMetrics Read one metric independently for the current resource page
+	// (POST /enterprise/kubernetes-clusters/{id}/inventory/metrics/read)
+	ReadKubernetesListMetrics(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// GetKubernetesInventoryObject Read a projected object with frozen UID
 	// (GET /enterprise/kubernetes-clusters/{id}/inventory/object)
 	GetKubernetesInventoryObject(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params GetKubernetesInventoryObjectParams)
@@ -176,6 +182,18 @@ func (_ Unimplemented) ListKubernetesInventory(w http.ResponseWriter, r *http.Re
 // PreviewKubernetesMutation Dry-run an authorized object change and prepare a confirmation
 // (POST /enterprise/kubernetes-clusters/{id}/inventory/actions/preview-mutation)
 func (_ Unimplemented) PreviewKubernetesMutation(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, params PreviewKubernetesMutationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PrepareKubernetesListMetrics Prepare a bounded current-page metric context
+// (POST /enterprise/kubernetes-clusters/{id}/inventory/metrics/prepare)
+func (_ Unimplemented) PrepareKubernetesListMetrics(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReadKubernetesListMetrics Read one metric independently for the current resource page
+// (POST /enterprise/kubernetes-clusters/{id}/inventory/metrics/read)
+func (_ Unimplemented) ReadKubernetesListMetrics(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1050,6 +1068,58 @@ func (siw *ServerInterfaceWrapper) PreviewKubernetesMutation(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// PrepareKubernetesListMetrics operation middleware
+func (siw *ServerInterfaceWrapper) PrepareKubernetesListMetrics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PrepareKubernetesListMetrics(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReadKubernetesListMetrics operation middleware
+func (siw *ServerInterfaceWrapper) ReadKubernetesListMetrics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReadKubernetesListMetrics(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetKubernetesInventoryObject operation middleware
 func (siw *ServerInterfaceWrapper) GetKubernetesInventoryObject(w http.ResponseWriter, r *http.Request) {
 
@@ -1644,69 +1714,6 @@ func (siw *ServerInterfaceWrapper) CloseKubernetesLogSession(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CloseKubernetesLogSession(w, r, id, sessionId, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ReadKubernetesLogSession operation middleware
-func (siw *ServerInterfaceWrapper) ReadKubernetesLogSession(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "sessionId" -------------
-	var sessionId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", chi.URLParam(r, "sessionId"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionId", Err: err})
-		return
-	}
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ReadKubernetesLogSessionParams
-
-	headers := r.Header
-
-	// ------------- Required header parameter "X-CSRF-Token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
-		var XCSRFToken string
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
-			return
-		}
-
-		params.XCSRFToken = XCSRFToken
-
-	} else {
-		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ReadKubernetesLogSession(w, r, id, sessionId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

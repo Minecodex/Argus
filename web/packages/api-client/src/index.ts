@@ -119,6 +119,7 @@ export { kubernetesCollectorNamespace } from "./generated/collector-registry";
 export {
   apiErrorField,
   apiErrorPresentation,
+  createApiErrorTranslator,
   formatErrorCode,
   formatApiError,
   presentApiFormError,

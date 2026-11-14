@@ -12,6 +12,7 @@ import (
 
 	kubernetesapi "github.com/kakj-go/Argus/internal/gen/openapi/kubernetesapi"
 	"github.com/kakj-go/Argus/internal/identity"
+	"github.com/kakj-go/Argus/internal/kubernetesmetrics"
 	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/resource"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
@@ -21,6 +22,7 @@ type KubernetesHandler struct {
 	Identity     EnterpriseIdentityHandler
 	Service      resource.Service
 	Workbench    kubernetesworkbench.Service
+	Metrics      *kubernetesmetrics.Service
 	WebsocketURL string
 }
 

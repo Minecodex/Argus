@@ -123,6 +123,100 @@ type KubernetesLogSessionTicket struct {
 	TicketExpiresAt time.Time            `json:"ticket_expires_at"`
 }
 
+// KubernetesMetricContext defines model for KubernetesMetricContext.
+type KubernetesMetricContext struct {
+	Complete   bool      `json:"complete"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	ObservedAt time.Time `json:"observed_at"`
+	Token      string    `json:"token"`
+}
+
+// KubernetesMetricEntry defines model for KubernetesMetricEntry.
+type KubernetesMetricEntry struct {
+	Trends []KubernetesMetricTrend `json:"trends"`
+	Uid    string                  `json:"uid"`
+}
+
+// KubernetesMetricList defines model for KubernetesMetricList.
+type KubernetesMetricList struct {
+	Cursor     *string                   `json:"cursor,omitempty"`
+	Labels     *string                   `json:"labels,omitempty"`
+	Limit      *int                      `json:"limit,omitempty"`
+	Name       *string                   `json:"name,omitempty"`
+	Namespaces KubernetesMetricSelection `json:"namespaces"`
+	State      *string                   `json:"state,omitempty"`
+	Type       string                    `json:"type"`
+}
+
+// KubernetesMetricPoint defines model for KubernetesMetricPoint.
+type KubernetesMetricPoint struct {
+	Capacity *float32  `json:"capacity,omitempty"`
+	Limit    *float32  `json:"limit,omitempty"`
+	Request  *float32  `json:"request,omitempty"`
+	Time     time.Time `json:"time"`
+	Value    *float32  `json:"value"`
+}
+
+// KubernetesMetricPrepareInput defines model for KubernetesMetricPrepareInput.
+type KubernetesMetricPrepareInput struct {
+	List KubernetesMetricList `json:"list"`
+	Uids []string             `json:"uids"`
+}
+
+// KubernetesMetricReadInput defines model for KubernetesMetricReadInput.
+type KubernetesMetricReadInput struct {
+	Metric KubernetesMetricReadInputMetric `json:"metric"`
+	Token  string                          `json:"token"`
+}
+
+// KubernetesMetricReadInputMetric defines model for KubernetesMetricReadInput.Metric.
+type KubernetesMetricReadInputMetric string
+
+// KubernetesMetricResult defines model for KubernetesMetricResult.
+type KubernetesMetricResult struct {
+	Complete   bool                    `json:"complete"`
+	From       time.Time               `json:"from"`
+	Items      []KubernetesMetricEntry `json:"items"`
+	ObservedAt time.Time               `json:"observed_at"`
+	To         time.Time               `json:"to"`
+}
+
+// KubernetesMetricSelection defines model for KubernetesMetricSelection.
+type KubernetesMetricSelection struct {
+	Ids  *[]openapi_types.UUID         `json:"ids,omitempty"`
+	Mode KubernetesMetricSelectionMode `json:"mode"`
+}
+
+// KubernetesMetricSelectionMode defines model for KubernetesMetricSelection.Mode.
+type KubernetesMetricSelectionMode string
+
+// KubernetesMetricTrend defines model for KubernetesMetricTrend.
+type KubernetesMetricTrend struct {
+	Allocatable          *float32                   `json:"allocatable,omitempty"`
+	Basis                KubernetesMetricTrendBasis `json:"basis"`
+	CurrentCapacity      *float32                   `json:"current_capacity,omitempty"`
+	CurrentLimit         *float32                   `json:"current_limit,omitempty"`
+	CurrentRequest       *float32                   `json:"current_request,omitempty"`
+	Kind                 KubernetesMetricTrendKind  `json:"kind"`
+	PartialConfiguration bool                       `json:"partial_configuration"`
+	Points               []KubernetesMetricPoint    `json:"points"`
+	Reason               *string                    `json:"reason,omitempty"`
+	State                KubernetesMetricTrendState `json:"state"`
+	Unit                 KubernetesMetricTrendUnit  `json:"unit"`
+}
+
+// KubernetesMetricTrendBasis defines model for KubernetesMetricTrend.Basis.
+type KubernetesMetricTrendBasis string
+
+// KubernetesMetricTrendKind defines model for KubernetesMetricTrend.Kind.
+type KubernetesMetricTrendKind string
+
+// KubernetesMetricTrendState defines model for KubernetesMetricTrend.State.
+type KubernetesMetricTrendState string
+
+// KubernetesMetricTrendUnit defines model for KubernetesMetricTrend.Unit.
+type KubernetesMetricTrendUnit string
+
 // KubernetesMutationInput defines model for KubernetesMutationInput.
 type KubernetesMutationInput struct {
 	CronjobSource           *KubernetesObjectVersionReference `json:"cronjob_source,omitempty"`
@@ -700,6 +794,12 @@ type PreviewKubernetesHelmJSONRequestBody = KubernetesHelmPreviewInput
 
 // PreviewKubernetesMutationJSONRequestBody defines body for PreviewKubernetesMutation for application/json ContentType.
 type PreviewKubernetesMutationJSONRequestBody = KubernetesMutationInput
+
+// PrepareKubernetesListMetricsJSONRequestBody defines body for PrepareKubernetesListMetrics for application/json ContentType.
+type PrepareKubernetesListMetricsJSONRequestBody = KubernetesMetricPrepareInput
+
+// ReadKubernetesListMetricsJSONRequestBody defines body for ReadKubernetesListMetrics for application/json ContentType.
+type ReadKubernetesListMetricsJSONRequestBody = KubernetesMetricReadInput
 
 // WatchKubernetesInventoryJSONRequestBody defines body for WatchKubernetesInventory for application/json ContentType.
 type WatchKubernetesInventoryJSONRequestBody = KubernetesInventoryWatchInput

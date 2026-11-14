@@ -1,0 +1,123 @@
+.argus-mini-trend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--resource-trend-width);
+  max-width: var(--space-full);
+  border-radius: var(--radius-sm);
+  outline-offset: var(--space-1);
+  cursor: crosshair;
+  color: var(--text-primary);
+}
+.argus-mini-trend:focus-visible {
+  outline: var(--space-px-1) solid var(--accent);
+}
+.argus-mini-trend {
+  height: auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  line-height: inherit;
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
+  font-weight: var(--font-weight-normal);
+}
+.argus-mini-trend__value {
+  font-size: var(--text-help);
+  font-variant-numeric: tabular-nums;
+}
+.argus-mini-trend svg {
+  width: var(--space-full);
+  height: var(--resource-trend-height);
+  overflow: visible;
+}
+.argus-mini-trend__line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: var(--resource-trend-stroke-width);
+  vector-effect: non-scaling-stroke;
+}
+.argus-mini-trend__reference {
+  fill: none;
+  stroke: var(--text-tertiary);
+  stroke-dasharray: var(--space-1) var(--space-1);
+  stroke-width: var(--space-px-1);
+}
+.argus-mini-trend__point {
+  fill: var(--accent);
+}
+.argus-mini-trend-tooltip,
+.argus-hover-summary {
+  padding: var(--space-4);
+  max-width: min(var(--popover-document-width), calc(100vw - var(--space-8)));
+  max-height: var(--popover-document-height);
+  overflow: auto;
+  border: var(--space-px-1) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: var(--text-help);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--layer-chart-tooltip);
+}
+.argus-mini-trend-tooltip dl,
+.argus-hover-summary__fields {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+.argus-mini-trend-tooltip dl > div,
+.argus-hover-summary__fields > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.argus-mini-trend-tooltip dt,
+.argus-hover-summary__fields dt {
+  color: var(--text-secondary);
+}
+.argus-mini-trend-tooltip dd,
+.argus-hover-summary__fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.argus-hover-summary-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.argus-hover-summary__fields dd {
+  user-select: text;
+}
+
+.argus-resource-metric-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: var(--resource-trend-width);
+}
+.argus-resource-metric-loading,
+.argus-resource-metric-status {
+  display: inline-flex;
+  align-items: center;
+  min-width: var(--resource-trend-width);
+  min-height: var(--resource-trend-cell-height);
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-resource-metric-kind {
+  color: var(--text-secondary);
+  font-size: var(--text-help);
+}
+.argus-resource-metric-tooltip {
+  display: grid;
+  gap: var(--space-3);
+}
+.argus-resource-metric-tooltip p {
+  margin: 0;
+  color: var(--text-secondary);
+}

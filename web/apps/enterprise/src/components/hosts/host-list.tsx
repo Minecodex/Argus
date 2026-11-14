@@ -1,30 +1,29 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useApi, type Host, type BastionScope } from "@argus/api-client";
+import { useApi, type Host } from "@argus/api-client";
 import { Badge, DataTable, StatusBadge } from "@argus/ui";
 import { HostRowActions } from "./host-row-actions";
 import { HostOnboardingProgress } from "./host-onboarding-progress";
 import {
   collectorTone,
-  connectionPathKey,
   environmentTone,
-  formatDateTime,
   hostConnectionPresentation,
-  scopeOf,
 } from "./host-utils";
 import { usePermission } from "../../lib/permissions";
+import { HostListMetricCell } from "./host-list-metric-cell";
+import type { HostMetricGroup, HostMetricKind } from "./host-list-metrics";
 
 export function HostList({
   hosts,
-  scopes,
+  metrics,
   onEdit,
   onDelete,
   onRemove,
   onCollectorAction,
 }: {
   hosts: Host[];
-  scopes: BastionScope[];
+  metrics: Record<HostMetricKind, HostMetricGroup>;
   onEdit: (host: Host) => void;
   onDelete: (host: Host) => void;
   onRemove: (host: Host) => void;
@@ -102,13 +101,36 @@ export function HostList({
             `${host.platform === "linux" ? "Linux" : "Windows"} / ${host.architecture || "—"}`,
         },
         {
-          key: "control_path",
-          header: t("resourceList.path"),
-          render: (host) =>
-            t(`hosts.path.${connectionPathKey(host)}`, {
-              scope: scopeOf(host, scopes)?.name ?? host.bastion_scope_id ?? "",
-              address: `${host.address}:${host.port}`,
-            }),
+          key: "cpu",
+          header: t("hostTrends.cpu"),
+          noWrap: true,
+          render: (host) => (
+            <HostListMetricCell id={host.id} metric="cpu" group={metrics.cpu} />
+          ),
+        },
+        {
+          key: "memory",
+          header: t("hostTrends.memory"),
+          noWrap: true,
+          render: (host) => (
+            <HostListMetricCell
+              id={host.id}
+              metric="memory"
+              group={metrics.memory}
+            />
+          ),
+        },
+        {
+          key: "storage",
+          header: t("hostTrends.storage"),
+          noWrap: true,
+          render: (host) => (
+            <HostListMetricCell
+              id={host.id}
+              metric="storage"
+              group={metrics.storage}
+            />
+          ),
         },
         {
           key: "collector",
@@ -128,11 +150,6 @@ export function HostList({
               </StatusBadge>
             );
           },
-        },
-        {
-          key: "last_seen_at",
-          header: t("resourceList.lastSeen"),
-          render: (host) => formatDateTime(host.last_seen_at),
         },
         {
           key: "actions",

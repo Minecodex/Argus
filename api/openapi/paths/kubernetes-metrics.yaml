@@ -1,0 +1,92 @@
+{
+  "prepare": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "prepareKubernetesListMetrics",
+      "summary": "Prepare a bounded current-page metric context",
+      "tags": [
+        "kubernetes"
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-metrics.yaml#/components/schemas/KubernetesMetricPrepareInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Authorized current-page read result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-metrics.yaml#/components/schemas/KubernetesMetricContext"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  },
+  "read": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "post": {
+      "operationId": "readKubernetesListMetrics",
+      "summary": "Read one metric independently for the current resource page",
+      "tags": [
+        "kubernetes"
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../components/kubernetes-metrics.yaml#/components/schemas/KubernetesMetricReadInput"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Authorized current-page read result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../components/kubernetes-metrics.yaml#/components/schemas/KubernetesMetricResult"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "./dashboard.yaml#/components/responses/Error"
+        }
+      }
+    }
+  }
+}

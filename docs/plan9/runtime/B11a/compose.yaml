@@ -1,0 +1,40 @@
+name: ${PLAN9_RUN:?Run ID required}
+services:
+  direct:
+    image: ${PLAN9_HOST_IMAGE:?Pinned image required}
+    hostname: ${PLAN9_RUN}
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: direct}
+    ports: ['127.0.0.1:22361:22']
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=64m]
+    volumes: [state:/var/lib/plan9, journal:/var/log/journal]
+    networks: [lab, kind]
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+      - telemetry.argus.dev:host-gateway
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B11a}
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active --quiet ssh dbus plan9-b11a.service && curl -fsS http://127.0.0.1:18081/health']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+    logging: {driver: json-file, options: {max-size: 5m, max-file: '2'}}
+networks:
+  lab:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  kind: {external: true, name: kind}
+volumes:
+  state:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  journal:
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}

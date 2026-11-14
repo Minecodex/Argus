@@ -57,6 +57,10 @@ paths:
     $ref: ./paths/kubernetes-workbench.yaml#/scope
   /enterprise/kubernetes-clusters/{id}/inventory/object:
     $ref: ./paths/kubernetes-workbench.yaml#/object
+  /enterprise/kubernetes-clusters/{id}/inventory/metrics/prepare:
+    $ref: ./paths/kubernetes-metrics.yaml#/prepare
+  /enterprise/kubernetes-clusters/{id}/inventory/metrics/read:
+    $ref: ./paths/kubernetes-metrics.yaml#/read
   /enterprise/kubernetes-clusters/{id}/inventory:
     $ref: ./paths/kubernetes-workbench.yaml#/inventory
   /monitoring/ingest-keys/{id}/reveal:

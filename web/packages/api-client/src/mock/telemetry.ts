@@ -1,4 +1,5 @@
 import {createObservationDiscovery} from "./observation";
+import { hostListTrendSamples } from "./host-list-trends";
 import {resolveObservationResources} from "./observation-access";
 import type { ArgusApiClient } from "../client";
 import type {
@@ -331,6 +332,12 @@ export function createTelemetryDomain(
       input: PromQLRangeQuery,
       signal?: AbortSignal,
     ): Promise<PrometheusQueryResponse> {
+      if (input.scope?.source_type === "hostmetrics" && input.query.includes("argus_host_component")) {
+        const ids = resolveObservationResources(ctx, input.scope, input.resource_ids).map((row) => row.id);
+        await ctx.pause();
+        signal?.throwIfAborted();
+        return { status: "success", data: { resultType: "matrix", result: hostListTrendSamples(input, ids) }, warnings: [], argus_meta: queryMeta("a", false) };
+      }
       return this.queryMetrics(input,signal);
     },
     async queryLogs(input: KQLQuery, signal?: AbortSignal): Promise<KQLQueryResponse> {

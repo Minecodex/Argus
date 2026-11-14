@@ -3,7 +3,12 @@ import { usePermission } from "../../lib/permissions";
 import { HostReconnectDialog } from "./host-reconnect-dialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useApi, formatApiError, type Host } from "@argus/api-client";
+import {
+  useApi,
+  formatApiError,
+  type Host,
+  type BastionScope,
+} from "@argus/api-client";
 import {
   Alert,
   Badge,
@@ -13,7 +18,7 @@ import {
   KeyValueGrid,
 } from "@argus/ui";
 import { RefreshCw } from "lucide-react";
-import { formatDateTime } from "./host-utils";
+import { formatDateTime, connectionPathKey, scopeOf } from "./host-utils";
 import { HostTelemetrySummary } from "./host-telemetry-summary";
 import "../../styles/resource-lists.css";
 
@@ -28,7 +33,13 @@ export function formatInventoryBytes(value: number | undefined): string {
   return `${Number(value.toFixed(2))} ${units[index]}`;
 }
 
-export function HostOverview({ host }: { host: Host }) {
+export function HostOverview({
+  host,
+  scopes = [],
+}: {
+  host: Host;
+  scopes?: BastionScope[];
+}) {
   const { t } = useTranslation(),
     api = useApi(),
     cache = useQueryClient(),
@@ -103,6 +114,15 @@ export function HostOverview({ host }: { host: Host }) {
             {
               label: t("hosts.overview.kv.connectionMode"),
               value: t(`hosts.controlPath.${host.control_path}`),
+            },
+            {
+              label: t("resourceList.path"),
+              value: t(`hosts.path.${connectionPathKey(host)}`, {
+                scope: scopeOf(host, scopes)?.name ?? unknown,
+                address: host.address
+                  ? `${host.address}:${host.port}`
+                  : unknown,
+              }),
             },
             {
               label: t("hosts.overview.kv.lastSeen"),

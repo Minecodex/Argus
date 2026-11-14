@@ -29,6 +29,7 @@ import (
 	"github.com/kakj-go/Argus/internal/integration/remotemcp"
 	"github.com/kakj-go/Argus/internal/interaction"
 	"github.com/kakj-go/Argus/internal/keywrap"
+	"github.com/kakj-go/Argus/internal/kubernetesmetrics"
 	"github.com/kakj-go/Argus/internal/kubernetesreader"
 	"github.com/kakj-go/Argus/internal/kubernetesworkbench"
 	"github.com/kakj-go/Argus/internal/mcp"
@@ -237,6 +238,7 @@ func (a *App) Run(ctx context.Context) error {
 		platformHandler.Enterprise.Telemetry = telemetryQuery
 		telemetryDomain := component.TelemetryDomain(a.config, postgresStore, actionDomain, telemetryQuery)
 		nativeTelemetry = &telemetryDomain
+		kubernetesHandler.Metrics = &kubernetesmetrics.Service{Inventory: kubernetesDomain, Telemetry: telemetryDomain, Key: a.config.PendingActionKey}
 		alertDomain.Telemetry = telemetryDomain
 		alertHandler.Service = alertDomain
 		dashboardRuntime := &dashboard.Runtime{Store: postgresStore, Backend: telemetryQuery, ContextKey: actionDomain.Key, Inventory: &kubernetesDomain}

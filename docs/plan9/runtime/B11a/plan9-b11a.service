@@ -1,0 +1,14 @@
+[Unit]
+Description=Plan9 B11a real direct host HTTP service
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/plan9.env
+ExecStart=/usr/bin/python3 -u /usr/local/lib/plan9-b11a.py serve
+Restart=no
+MemoryMax=96M
+CPUQuota=15%
+
+[Install]
+WantedBy=multi-user.target

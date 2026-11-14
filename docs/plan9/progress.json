@@ -3,9 +3,9 @@
   "schema_version": "argus.plan9_manual_review/v1",
   "created_at": "2026-10-26",
   "timezone": "Asia/Shanghai",
-  "status": "B10b_deployed_waiting_user_review",
-  "current_run_id": "p9-b10b-20261112-01",
-  "next_suggested_batch": "B10c",
+  "status": "B11a_ready_for_review_with_known_historical_gap",
+  "current_run_id": "p9-b11a-20261113-01",
+  "next_suggested_batch": "B11b",
   "scope": "真实负载与正常接入驱动的分批人工界面验收",
   "documentation": {
     "entry": "README.md",
@@ -14,12 +14,12 @@
     "environment": "03-environment-and-compose.md",
     "review": "04-review-and-evidence.md",
     "first_batch": "batches/B01-linux-host.md",
-    "review_entry": "batches/B10b-review.md",
-    "issues": "19-b10b-storage-jobs-and-node-ca-20261112.md",
+    "review_entry": "batches/B11a-review.md",
+    "issues": "23-b11a-direct-host-artifact-20261113.md",
     "data_reset": "05-local-data-reset-20261026.md",
     "product_fixes": "06-b01-managed-dashboard-and-query-fixes.md",
     "review_fixes": "07-dashboard-and-alert-review-fixes.md",
-    "current_review": "batches/B10b-review.md",
+    "current_review": "batches/B11a-review.md",
     "cache_query_fixes": "08-b04-cache-views-and-metadata-scan.md",
     "delivery_and_current_alert_fixes": "14-b09b-delivery-and-current-alerts-20261110.md",
     "workbench_lifecycle_fixes": "15-b10a-workbench-lifecycle-20261111.md",
@@ -27,16 +27,21 @@
     "quiet_pod_logs_and_actions": "17-b10a-quiet-pod-logs-and-actions-20261111.md",
     "terminal_matrix_and_options": "18-b10a-terminal-matrix-and-log-options-20261111.md",
     "storage_jobs_and_node_ca": "19-b10b-storage-jobs-and-node-ca-20261112.md",
-    "kubernetes_workbench_refactor": "../plans/frontend-redesign/kubernetes-workbench-acceptance-20261112.md"
+    "kubernetes_workbench_refactor": "../plans/frontend-redesign/kubernetes-workbench-acceptance-20261112.md",
+    "custom_resource_preview_transaction": "20-b10c-custom-resource-preview-transaction.md",
+    "namespace_scope_feedback": "21-b10c-namespace-scope-error-20261113.md",
+    "progressive_resource_trends": "22-b10c-progressive-resource-trends-20261113.md",
+    "direct_host_artifact": "23-b11a-direct-host-artifact-20261113.md",
+    "host_list_trends": "24-b11a-host-list-trends-20261113.md"
   },
   "delivery": {
     "scenario_design": "written",
-    "compose_packages": "B01_through_B10a_retired_B10b_running_others_planned",
-    "runtime_scripts": "B10b_native_Kubernetes_CSI_jobs_CPU_HPA_Calico_normal_API",
-    "deployment": "B10b_fresh_deployed",
+    "compose_packages": "B01_through_B10c_retired_B11a_running_others_planned",
+    "runtime_scripts": "B11a_direct_SSH_Connector_Collector_PTY_recording_systemd_alerts",
+    "deployment": "B11a_deployed_self_checks_passed_with_historical_gap",
     "live_api_calls": "normal_setup_login_enrollment_monitoring_dashboards_alerts",
     "real_model_calls": "not_run",
-    "human_acceptance": "B10b_pending_user_review"
+    "human_acceptance": "B10c_accepted_B11a_pending_user_review"
   },
   "execution_policy": {
     "one_active_sub_batch": true,
@@ -58,9 +63,11 @@
     "live_environment_verified_this_turn": true,
     "plan8_historical_preservation_gap": "P8-A64 remains separately recorded; no retroactive acceptance claim",
     "latest_reset": "05-local-data-reset-20261026.md",
-    "formal_version": "KWR_backend_v8_web_v5_Schema54",
+    "formal_version": "Server_Worker_resource_trends_v2_Web_resource_trends_v5_other_backend_closure_v3_Schema54",
     "enterprise": "test",
-    "source_head": "5b87836"
+    "source_head": "0cef28ad6cf2986c98c66380cac893210bde60d1",
+    "source_state": "B10c_worktree_changes_deployed_without_commit",
+    "preservation_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/final-preservation.json"
   },
   "batches": [
     {
@@ -441,11 +448,11 @@
       "id": "B10",
       "title": "Kubernetes 工作台实际操作",
       "activation": "on_user_batch_selection",
-      "status": "B10b_pending_user_review",
-      "package_status": "B10a_B10b_implemented_and_executed",
-      "self_check": "B10b_real_storage_jobs_CPU_HPA_network_policy_metrics_alerts_and_6_UI_cases_passed",
-      "review_status": "not_reviewed",
-      "runtime_status": "B10b_running",
+      "status": "all_sub_batches_retired",
+      "package_status": "B10a_B10b_B10c_implemented_and_executed",
+      "self_check": "B10c_native_Helm_OCI_CR_RBAC_PDB_eviction_21_panels_alert_5_UI_health20_delivery312_passed",
+      "review_status": "B10c_pending_user_review",
+      "runtime_status": "destroyed",
       "sub_batches": [
         {
           "id": "B10a",
@@ -495,11 +502,11 @@
         },
         {
           "id": "B10b",
-          "status": "ready_for_review",
+          "status": "destroyed",
           "package_status": "implemented_and_executed",
           "self_check": "actual_CSI_online_resize_reclaim_jobs_suspend_resume_manual_scheduled_CPU_1_3_1_Calico_deny_restore_6_UI_cases_and_health20_passed",
-          "review_status": "pending_user_review",
-          "runtime_status": "deployed",
+          "review_status": "advanced_by_user_request_without_explicit_acceptance",
+          "runtime_status": "destroyed",
           "handoff": "batches/B10b-review.md",
           "open_issues": [],
           "limitations": [
@@ -511,39 +518,97 @@
           ],
           "runs": [
             "p9-b10b-20261112-01"
-          ]
+          ],
+          "cleanup_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/predecessor-cleanup-verification.json"
         },
         {
           "id": "B10c",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "accepted_and_retired",
+          "package_status": "implemented_and_executed",
+          "self_check": "native_Helm_OCI_lifecycles_hooks_offline_chart_CR_CRUD_RBAC_denials_PDB_eviction_21_panels_alert_cycle_5_UI_health20_delivery312_passed",
+          "review_status": "accepted",
+          "runtime_status": "destroyed",
+          "runs": [
+            "p9-b10c-20261113-01"
+          ],
+          "handoff": "batches/B10c-review.md",
+          "artifact_directory": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01",
+          "open_issues": [],
+          "fixed_pending_user_review": [
+            "B10c-CR01",
+            "B10c-UI01",
+            "B10c-UI02"
+          ],
+          "limitations": [
+            "Helm uses existing API and CLI; portal shows generated resources and operations",
+            "Cross-namespace ConfigMap/Secret inventory intentionally incomplete under native RBAC",
+            "Three Kind nodes share Docker VM capacity",
+            "Formal evaluation network enforcement and shared sandbox degradations retained",
+            "Management token expires 2026-11-20T09:40:46Z"
+          ],
+          "evidence": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/checks.json",
+          "namespace_scope_feedback": {
+            "status": "accepted_and_retired",
+            "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/namespace-scope-feedback.json",
+            "human_acceptance": "accepted"
+          },
+          "table_surface_feedback": {
+            "status": "accepted_and_retired",
+            "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/table-surface-feedback.json",
+            "human_acceptance": "accepted"
+          },
+          "progressive_resource_trends": {
+            "status": "accepted_and_retired",
+            "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/resource-trends-v1/final-review.json",
+            "human_acceptance": "accepted"
+          },
+          "human_acceptance": "accepted",
+          "cleanup_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/cleanup-verification.json"
         }
       ],
       "runs": [
         "p9-b10a-20261111-01",
-        "p9-b10b-20261112-01"
+        "p9-b10b-20261112-01",
+        "p9-b10c-20261113-01"
       ]
     },
     {
       "id": "B11",
       "title": "堡垒机与远程连接",
       "activation": "on_user_batch_selection",
-      "status": "planned",
-      "package_status": "not_created",
-      "self_check": "not_run",
-      "review_status": "not_reviewed",
-      "runtime_status": "not_created",
+      "status": "B11a_ready_for_review",
+      "package_status": "B11a_created",
+      "self_check": "B11a_passed_with_historical_gap",
+      "review_status": "B11a_pending",
+      "runtime_status": "B11a_running",
       "sub_batches": [
         {
           "id": "B11a",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
+          "status": "ready_for_review",
+          "package_status": "created",
+          "self_check": "passed_with_known_historical_gap",
           "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "runtime_status": "running",
+          "human_acceptance": "pending",
+          "runs": [
+            "p9-b11a-20261113-01"
+          ],
+          "handoff": "batches/B11a-review.md",
+          "evidence": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11a-20261113-01\\checks.json",
+          "known_issues": [
+            "B11a-D01"
+          ],
+          "host_list_trends": {
+            "status": "verified_deployed_pending_user_review",
+            "human_acceptance": "pending",
+            "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11a-20261113-01\\host-list-trends-v1\\final-review.json",
+            "web_image": "host.docker.internal:5001/argus/argus-web:local-20261113-b11a-host-list-v3@sha256:3d49c8bcfb2d834d26de5fd4fa462a2b02df44dfccaca10ceb08bc38dcc83603",
+            "unit_and_component_checks": 17,
+            "mock_browser_cases": 12,
+            "real_browser_cases": 6,
+            "formal_pvcs_preserved": 6,
+            "native_collections_unchanged": true
+          }
         },
         {
           "id": "B11b",
@@ -562,7 +627,9 @@
           "runtime_status": "not_created"
         }
       ],
-      "runs": []
+      "runs": [
+        "p9-b11a-20261113-01"
+      ]
     },
     {
       "id": "B12",
@@ -1093,13 +1160,50 @@
       "run_id": "p9-b10a-20261111-01",
       "batch": "B10a",
       "record": "../../artifacts/plan9/p9-b10a-20261111-01/run.json"
+    },
+    {
+      "run_id": "p9-b10b-20261112-01",
+      "batch": "B10b",
+      "record": "../../artifacts/plan9/p9-b10b-20261112-01/run.json"
+    },
+    {
+      "run_id": "p9-b10c-20261113-01",
+      "batch": "B10c",
+      "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/run.json"
+    },
+    {
+      "run_id": "p9-b11a-20261113-01",
+      "batch": "B11a",
+      "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b11a-20261113-01/run.json"
     }
   ],
-  "human_acceptances": [],
+  "human_acceptances": [
+    {
+      "run_id": "p9-b10c-20261113-01",
+      "batch": "B10c",
+      "status": "accepted",
+      "statement": "没啥问题，继续 plan9 下一轮，清理 B10c 后部署 B11a，把主机直连、远程终端、监控、仪表盘和告警都接好，我再去平台看。"
+    }
+  ],
   "cleanup_records": [
     {
       "run_id": "p9-b09b-20261110-01",
       "record": "../../artifacts/plan9/p9-b09b-20261110-01/cleanup-verification.json",
+      "status": "destroyed"
+    },
+    {
+      "run_id": "p9-b10a-20261111-01",
+      "record": "../../artifacts/plan9/p9-b10a-20261111-01/cleanup-verification.json",
+      "status": "destroyed"
+    },
+    {
+      "run_id": "p9-b10b-20261112-01",
+      "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/predecessor-cleanup-verification.json",
+      "status": "destroyed"
+    },
+    {
+      "run_id": "p9-b10c-20261113-01",
+      "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/cleanup-verification.json",
       "status": "destroyed"
     }
   ],
@@ -1115,55 +1219,246 @@
     "runtime_result": "B01_deployed_with_two_open_issues"
   },
   "current_runtime_validation": {
+    "run_id": "p9-b11a-20261113-01",
     "status": "ready_for_review",
-    "record": "../../artifacts/plan9/p9-b10a-20261111-01/checks.json",
+    "verified_at": "2026-11-13T14:55:46.712073+00:00",
     "human_acceptance": "pending",
-    "scope": "B10a_common_objects_configuration_ingress_workbench_sessions_and_monitoring",
-    "healthy_native_collections": 3,
-    "dashboards": 4,
-    "nonempty_panels": 23,
-    "real_browser_cases": 6,
-    "formal_health_checks": 20,
-    "delivery_followup": {
-      "status": "passed",
-      "record": "../../artifacts/plan9/p9-b10a-20261111-01/delivery-watch.json",
-      "watch_seconds": 311.780999999959,
-      "terminal_failure_delta": 0,
-      "enqueue_failure_delta": 0,
-      "receiver_refusal_delta": 0,
-      "historical_delivery_event_ids": [
-        "2eee3ecc-581c-4549-aa0c-81f205e1e9b7"
+    "direct_database_writes": false,
+    "synthetic_telemetry": false,
+    "host_id": "01a1d539-af94-7a20-befd-47b6f8f763f3",
+    "collector_id": "01a1d539-c80a-7341-a10a-2ce6cf4ad8b2",
+    "control_path": "direct",
+    "collector_transport": "direct",
+    "healthy_fresh_sources": {
+      "host_metrics": {
+        "freshness": "fresh",
+        "last_sample_at": "2026-11-13T14:55:35.489369Z"
+      },
+      "host_process_metrics": {
+        "freshness": "fresh",
+        "last_sample_at": "2026-11-13T14:55:35.490993Z"
+      },
+      "host_systemd_metrics": {
+        "freshness": "fresh",
+        "last_sample_at": "2026-11-13T14:55:35.530593Z"
+      },
+      "collector_metrics": {
+        "freshness": "fresh",
+        "last_sample_at": "2026-11-13T14:55:33.331Z"
+      }
+    },
+    "dashboards": {
+      "host.overview": 6,
+      "host.processes": 4,
+      "host.systemd": 4,
+      "collector.overview": 6
+    },
+    "nonempty_panels": 20,
+    "browser": {
+      "passed": true,
+      "cases": 4,
+      "normal_login": true,
+      "real_backend": true,
+      "strict_tls": true,
+      "locales": [
+        "zh-CN",
+        "en-US"
       ],
-      "historical_failure_counters_preserved": true,
-      "untriggered_no_data_current_rows": 0,
-      "historical_metric_failures_retained": 133
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "protocols": [
+        "shell",
+        "ssh"
+      ],
+      "actual_output": [
+        "hostname",
+        "id",
+        "ps"
+      ],
+      "terminated_after_verification": true,
+      "recording_read_and_playback": true,
+      "recovered_alert_timeline": true
     },
-    "fixed_pending_user_review": [
-      "B10a-S01",
-      "B10a-P01",
-      "B10a-C01",
-      "B10a-D01"
+    "verified_recordings": 4,
+    "all_test_sessions_closed": true,
+    "alert_cycle": {
+      "id": "08f342b0-5235-4df9-ab89-1dd09b081cdd",
+      "policy_id": "86946b52-3808-5b22-85de-5a88cd454196",
+      "started_at": "2026-11-13T14:34:10Z",
+      "resolved_at": "2026-11-13T14:34:40Z",
+      "lifecycle": "resolved",
+      "threshold": 0.5,
+      "failed_value": 1,
+      "recovered_value": 0
+    },
+    "current_owned_alerts": 1,
+    "current_owned_condition_or_query_health_alerts": 0,
+    "historical_delivery_gaps": [
+      "f81a4313-1e38-440d-b241-2c7ff6218330"
     ],
-    "pod_log_terminal_feedback": {
-      "status": "fixed_deployed_waiting_user_review",
-      "record": "../../artifacts/plan9/p9-b10a-20261111-01/session-feedback-final.json",
+    "delivery_watch": {
+      "passed": true,
+      "started_at": "2026-11-13T14:53:34.435554+00:00",
+      "ended_at": "2026-11-13T14:55:36.856257+00:00",
+      "watch_seconds": 120,
+      "observations": [
+        {
+          "schema_version": "argus.collector_delivery/v1",
+          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+          "sequence": 101,
+          "observed_since": "2026-11-13T14:29:45.826509863Z",
+          "observed_at": "2026-11-13T14:53:33.490228255Z",
+          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+          "terminal_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 1999
+          },
+          "receiver_refusals": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "enqueue_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "retry_limit_seconds": 300,
+          "attribution": "collector_shared_pipeline_exact_targets_unknown"
+        },
+        {
+          "schema_version": "argus.collector_delivery/v1",
+          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+          "sequence": 103,
+          "observed_since": "2026-11-13T14:29:45.826509863Z",
+          "observed_at": "2026-11-13T14:54:03.489883278Z",
+          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+          "terminal_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 1999
+          },
+          "receiver_refusals": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "enqueue_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "retry_limit_seconds": 300,
+          "attribution": "collector_shared_pipeline_exact_targets_unknown"
+        },
+        {
+          "schema_version": "argus.collector_delivery/v1",
+          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+          "sequence": 105,
+          "observed_since": "2026-11-13T14:29:45.826509863Z",
+          "observed_at": "2026-11-13T14:54:33.487446645Z",
+          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+          "terminal_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 1999
+          },
+          "receiver_refusals": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "enqueue_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "retry_limit_seconds": 300,
+          "attribution": "collector_shared_pipeline_exact_targets_unknown"
+        },
+        {
+          "schema_version": "argus.collector_delivery/v1",
+          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+          "sequence": 107,
+          "observed_since": "2026-11-13T14:29:45.826509863Z",
+          "observed_at": "2026-11-13T14:55:03.486673403Z",
+          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+          "terminal_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 1999
+          },
+          "receiver_refusals": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "enqueue_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "retry_limit_seconds": 300,
+          "attribution": "collector_shared_pipeline_exact_targets_unknown"
+        },
+        {
+          "schema_version": "argus.collector_delivery/v1",
+          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+          "sequence": 109,
+          "observed_since": "2026-11-13T14:29:45.826509863Z",
+          "observed_at": "2026-11-13T14:55:33.485308333Z",
+          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+          "terminal_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 1999
+          },
+          "receiver_refusals": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "enqueue_failures": {
+            "log_records": 0,
+            "spans": 0,
+            "metric_points": 0
+          },
+          "retry_limit_seconds": 300,
+          "attribution": "collector_shared_pipeline_exact_targets_unknown"
+        }
+      ],
+      "new_terminal_failures": 0,
+      "new_enqueue_failures": 0,
+      "new_receiver_refusals": 0,
+      "historical_metric_points_preserved": 1999,
+      "historical_gap_handled": false,
+      "last_failure_at": "2026-11-13T14:30:03.424712211Z"
+    },
+    "known_issues": [
+      "B11a-D01: setup SOURCE_REJECTED, 1999 historical lost metric points; retained without acknowledgement"
+    ],
+    "formal_health_checks": 20,
+    "formal_pvcs_preserved": 6,
+    "shared_kernel_scope": true,
+    "grant_valid_until": "2026-11-20T14:31:41.653793Z",
+    "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11a-20261113-01\\checks.json",
+    "scope": "B11a_real_direct_linux_host_monitoring_Shell_OpenSSH_recordings_and_alerts",
+    "known_issue_record": "batches/B11a-review.md#已知问题-b11a-d01启动期历史投递缺口",
+    "host_list_trends": {
+      "status": "verified_deployed_pending_user_review",
+      "human_acceptance": "pending",
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11a-20261113-01\\host-list-trends-v1\\final-review.json",
+      "web_image": "host.docker.internal:5001/argus/argus-web:local-20261113-b11a-host-list-v3@sha256:3d49c8bcfb2d834d26de5fd4fa462a2b02df44dfccaca10ceb08bc38dcc83603",
+      "unit_and_component_checks": 17,
+      "mock_browser_cases": 12,
       "real_browser_cases": 6,
-      "web_image": "host.docker.internal:5001/argus/argus-web:local-20261111-b10a-sessions-v3@sha256:cd9c6aa391f8c9a320322be2effef1d578fff466e62d3cd4606b046f26337fe3",
-      "human_acceptance": "pending"
+      "formal_pvcs_preserved": 6,
+      "native_collections_unchanged": true
     },
-    "quiet_pod_followup": {
-      "status": "fixed_deployed_waiting_user_review",
-      "record": "../../artifacts/plan9/p9-b10a-20261111-01/quiet-pod-final.json",
-      "real_browser_cases": 5,
-      "human_acceptance": "pending"
-    },
-    "terminal_matrix_and_options": {
-      "status": "verified_deployed_waiting_user_review",
-      "record": "../../artifacts/plan9/p9-b10a-20261111-01/terminal-options-final.json",
-      "browser_cases": 8,
-      "supported_pods": 4,
-      "human_acceptance": "pending"
-    }
+    "latest_web_image": "host.docker.internal:5001/argus/argus-web:local-20261113-b11a-host-list-v3@sha256:3d49c8bcfb2d834d26de5fd4fa462a2b02df44dfccaca10ceb08bc38dcc83603"
   },
   "runtime_validation_history": [
     {
@@ -1201,6 +1496,119 @@
         "untriggered_normal_no_data_current_rows": 0,
         "current_historical_delivery_alerts": 1
       }
+    },
+    {
+      "status": "retired_after_user_advance",
+      "record": "../../artifacts/plan9/p9-b10a-20261111-01/checks.json",
+      "human_acceptance": "pending",
+      "scope": "B10a_common_objects_configuration_ingress_workbench_sessions_and_monitoring",
+      "healthy_native_collections": 3,
+      "dashboards": 4,
+      "nonempty_panels": 23,
+      "real_browser_cases": 6,
+      "formal_health_checks": 20,
+      "delivery_followup": {
+        "status": "passed",
+        "record": "../../artifacts/plan9/p9-b10a-20261111-01/delivery-watch.json",
+        "watch_seconds": 311.780999999959,
+        "terminal_failure_delta": 0,
+        "enqueue_failure_delta": 0,
+        "receiver_refusal_delta": 0,
+        "historical_delivery_event_ids": [
+          "2eee3ecc-581c-4549-aa0c-81f205e1e9b7"
+        ],
+        "historical_failure_counters_preserved": true,
+        "untriggered_no_data_current_rows": 0,
+        "historical_metric_failures_retained": 133
+      },
+      "fixed_pending_user_review": [
+        "B10a-S01",
+        "B10a-P01",
+        "B10a-C01",
+        "B10a-D01"
+      ],
+      "pod_log_terminal_feedback": {
+        "status": "fixed_deployed_waiting_user_review",
+        "record": "../../artifacts/plan9/p9-b10a-20261111-01/session-feedback-final.json",
+        "real_browser_cases": 6,
+        "web_image": "host.docker.internal:5001/argus/argus-web:local-20261111-b10a-sessions-v3@sha256:cd9c6aa391f8c9a320322be2effef1d578fff466e62d3cd4606b046f26337fe3",
+        "human_acceptance": "pending"
+      },
+      "quiet_pod_followup": {
+        "status": "fixed_deployed_waiting_user_review",
+        "record": "../../artifacts/plan9/p9-b10a-20261111-01/quiet-pod-final.json",
+        "real_browser_cases": 5,
+        "human_acceptance": "pending"
+      },
+      "terminal_matrix_and_options": {
+        "status": "verified_deployed_waiting_user_review",
+        "record": "../../artifacts/plan9/p9-b10a-20261111-01/terminal-options-final.json",
+        "browser_cases": 8,
+        "supported_pods": 4,
+        "human_acceptance": "pending"
+      },
+      "run_id": "p9-b10a-20261111-01"
+    },
+    {
+      "run_id": "p9-b10b-20261112-01",
+      "status": "retired_after_user_advance",
+      "record": "batches/B10b-review.md",
+      "human_acceptance": "advanced_without_explicit_acceptance",
+      "cleanup_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/predecessor-cleanup-verification.json"
+    },
+    {
+      "run_id": "p9-b10c-20261113-01",
+      "status": "accepted_and_retired",
+      "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/checks.json",
+      "human_acceptance": "accepted",
+      "scope": "B10c_native_Helm_OCI_CR_RBAC_and_dedicated_worker_maintenance",
+      "healthy_native_collections": 3,
+      "dashboards": 4,
+      "nonempty_panels": 21,
+      "embedded_overview_panels": 12,
+      "real_browser_cases": 11,
+      "strict_tls": true,
+      "formal_health_checks": 20,
+      "formal_evaluation_degradations": [
+        "NetworkPolicy probe did not observe an enforced deny: job argus-network-probe-1794566157557781800/probe-denied failed",
+        "no external Egress Gateway was detected; Direct Executor uses the cluster default route",
+        "SHARED_CONTAINER_SANDBOX_RUNTIME"
+      ],
+      "formal_pvcs_preserved": 6,
+      "native_nodes_ready": 3,
+      "delivery_followup": {
+        "status": "passed",
+        "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/delivery-watch.json",
+        "watch_seconds": 312.17199999978766,
+        "terminal_failure_delta": 0,
+        "enqueue_failure_delta": 0,
+        "receiver_refusal_delta": 0,
+        "untriggered_no_data_current_rows": 0,
+        "scope": "gateway_ledger_and_three_advancing_metric_collections"
+      },
+      "final_preservation_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/final-preservation.json",
+      "namespace_scope_feedback": {
+        "status": "accepted_and_retired",
+        "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/namespace-scope-feedback.json",
+        "human_acceptance": "accepted"
+      },
+      "web_image": "host.docker.internal:5001/argus/argus-web:local-20261113-b10c-resource-trends-v5@sha256:c235e4f287553be168d64000b3eaf51b9e1c69f3a761f02165ad33e957a32baa",
+      "table_surface_feedback": {
+        "status": "accepted_and_retired",
+        "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/table-surface-feedback.json",
+        "human_acceptance": "accepted"
+      },
+      "progressive_resource_trends": {
+        "status": "accepted_and_retired",
+        "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/resource-trends-v1/final-review.json",
+        "human_acceptance": "accepted"
+      },
+      "cleanup_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/cleanup-verification.json",
+      "accepted_fixes": [
+        "B10c-CR01",
+        "B10c-UI01",
+        "B10c-UI02"
+      ]
     }
   ]
 }

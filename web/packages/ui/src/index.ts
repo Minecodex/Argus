@@ -97,5 +97,7 @@ export * from "./structured-fields-editor";
 export * from "./resource-visualizations";
 export * from "./resource-kind-name";
 export * from "./resource-quantity";
+export * from "./mini-trend";
+export * from "./hover-summary-button";
 
 export { TroubleshootingWorkspace } from "./troubleshooting-workspace";

@@ -1,0 +1,78 @@
+services:
+  charts:
+    image: ${B10C_SOURCE_IMAGE}
+    entrypoint:
+    - python3
+    - /batch/repository.py
+    environment:
+      PLAN9_RUN: ${B10C_RUN}
+    volumes:
+    - type: bind
+      source: ${B10C_PACKAGE_DIR}
+      target: /batch
+      read_only: true
+    - type: bind
+      source: ${B10C_CHARTS_DIR}
+      target: /charts
+      read_only: true
+    - type: bind
+      source: ${B10C_PRIVATE_DIR}/source-account.json
+      target: /private/source-account.json
+      read_only: true
+    - type: bind
+      source: ${B10C_PRIVATE_DIR}/server.crt
+      target: /private/server.crt
+      read_only: true
+    - type: bind
+      source: ${B10C_PRIVATE_DIR}/server.key
+      target: /private/server.key
+      read_only: true
+    networks:
+      kind:
+        ipv4_address: ${B10C_REPOSITORY_IP}
+    cpus: 0.25
+    mem_limit: 128m
+    labels:
+      argus.plan9/run: ${B10C_RUN}
+    ports:
+    - 127.0.0.1:23443:8443
+  registry:
+    image: registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e
+    environment:
+      REGISTRY_HTTP_ADDR: 0.0.0.0:5000
+      REGISTRY_HTTP_TLS_CERTIFICATE: /private/server.crt
+      REGISTRY_HTTP_TLS_KEY: /private/server.key
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: plan9-b10c
+      REGISTRY_AUTH_HTPASSWD_PATH: /private/htpasswd
+      OTEL_TRACES_EXPORTER: none
+    volumes:
+    - registry-data:/var/lib/registry
+    - type: bind
+      source: ${B10C_PRIVATE_DIR}/htpasswd
+      target: /private/htpasswd
+      read_only: true
+    - type: bind
+      source: ${B10C_PRIVATE_DIR}/server.crt
+      target: /private/server.crt
+      read_only: true
+    - type: bind
+      source: ${B10C_PRIVATE_DIR}/server.key
+      target: /private/server.key
+      read_only: true
+    networks:
+      kind:
+        ipv4_address: ${B10C_REGISTRY_IP}
+    cpus: 0.5
+    mem_limit: 192m
+    labels:
+      argus.plan9/run: ${B10C_RUN}
+    ports:
+    - 127.0.0.1:23500:5000
+networks:
+  kind:
+    external: true
+volumes:
+  registry-data:
+    labels:
+      argus.plan9/run: ${B10C_RUN}
