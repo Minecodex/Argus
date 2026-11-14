@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   apiErrorField,
+  createApiErrorTranslator,
   formatApiError,
   formatErrorCode,
   presentApiFormError,
@@ -9,9 +10,42 @@ import {
 import { ApiError } from "./transport/errors";
 
 describe("API error presentation", () => {
+  it("falls back to domain translations while preserving code priority and safe unknown errors", () => {
+    const messages: Record<string, string> = {
+      "errors.codes.KNOWN": "Known code",
+      "kubernetesWorkbench.errors.forbidden": "Kubernetes scope denied",
+    };
+    const translate = createApiErrorTranslator((key) => messages[key]);
+    expect(translate("KNOWN", "kubernetesWorkbench.errors.forbidden")).toBe(
+      "Known code",
+    );
+    expect(
+      translate(
+        "KUBERNETES_API_FORBIDDEN",
+        "kubernetesWorkbench.errors.forbidden",
+      ),
+    ).toBe("Kubernetes scope denied");
+    expect(translate("UNKNOWN", "unregistered.server.key")).toBeUndefined();
+    setApiErrorTranslator(translate);
+    const error = new ApiError(
+      {
+        code: "KUBERNETES_API_FORBIDDEN",
+        message_key: "kubernetesWorkbench.errors.forbidden",
+        request_id: "request-scope",
+        retryable: false,
+      },
+      403,
+    );
+    expect(formatApiError(error, "Unavailable", (id) => `Request: ${id}`)).toBe(
+      "Kubernetes scope denied Request: request-scope",
+    );
+    setApiErrorTranslator(undefined);
+  });
   it("translates stable error codes before using the fallback", () => {
     setApiErrorTranslator((code) =>
-      code === "REMOTE_ACCESS_GRANT_REQUIRED" ? "Remote access grant is required." : undefined,
+      code === "REMOTE_ACCESS_GRANT_REQUIRED"
+        ? "Remote access grant is required."
+        : undefined,
     );
     const error = new ApiError(
       {

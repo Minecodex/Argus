@@ -12,15 +12,19 @@ import {
 } from "./resource-model";
 import { useResourceLocation } from "./resource-location";
 import type { KubernetesResourceReference } from "@argus/api-client";
-import type { NamespaceChoice } from "./namespace-picker";
+import { NamespacePicker, type NamespaceChoice } from "./namespace-picker";
 import { NamespaceSelect } from "./namespace-select";
 import { useInventoryError } from "./inventory-error";
+import { supportsListMetrics, useListMetrics } from "./use-list-metrics";
+import { ListMetricCell } from "./list-metric-cell";
+import { ResourceNameSummary } from "./resource-name-summary";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { RefreshCw } from "lucide-react";
 import {
   useApi,
+  apiErrorPresentation,
   type KubernetesInventoryObject,
   type ConfirmActionResult,
   type KubernetesInventoryScope,
@@ -117,6 +121,7 @@ export function KubernetesWorkbench({
     "create" | KubernetesInventoryObject
   >();
   const [operationsOpen, setOperationsOpen] = useState(false);
+  const [namespacePickerOpen, setNamespacePickerOpen] = useState(false);
   const [operationId, setOperationId] = useState<string>();
   const showOperation = (id: string) => {
     setOperationId(id);
@@ -182,6 +187,34 @@ export function KubernetesWorkbench({
     enabled: !!definition,
   });
   const data = list.error ? undefined : list.data;
+  const metricGroups = useListMetrics({
+    clusterId,
+    input: {
+      type: definition?.key ?? "",
+      namespace_mode: chosenNamespace ? "explicit" : "all_authorized",
+      namespace_ids: chosenNamespace ? [chosenNamespace.id] : undefined,
+      ...filters,
+      state: location.search.state_filter,
+      limit: 30,
+      cursor: pagination.cursor,
+    },
+    uids: data?.items.map((row) => row.uid) ?? [],
+    updatedAt: list.dataUpdatedAt,
+    fetching: list.isFetching || !!list.error,
+    scopeKey: JSON.stringify(access),
+  });
+  const metricColumns: ("cpu" | "memory" | "storage")[] = supportsListMetrics(
+    definition?.key ?? "",
+  )
+    ? definition?.key === "pvc"
+      ? ["storage"]
+      : ["cpu", "memory", "storage"]
+    : [];
+  const namespaceReadDenied =
+    !types.error &&
+    definition?.namespaced &&
+    !chosenNamespace &&
+    apiErrorPresentation(list.error)?.code === "KUBERNETES_API_FORBIDDEN";
   const namespaceIdFor = (row: KubernetesInventoryObject) =>
     row.namespace_uid
       ? (data?.namespace_references[row.namespace_uid] ??
@@ -283,6 +316,18 @@ export function KubernetesWorkbench({
   const reset = () => {
     pagination.cancel();
     setSelected(undefined);
+  };
+  const selectNamespace = (value: NamespaceChoice | undefined) => {
+    setNamespacePickerOpen(false);
+    setNamespace(value);
+    location.update({
+      namespace_id: value?.id,
+      namespace_name: value?.name,
+      page_cursor: undefined,
+      page_index: undefined,
+      resource_uid: undefined,
+    });
+    reset();
   };
   const refreshFirstPage = (nextFilters = filters) => {
     setFilters(nextFilters);
@@ -421,17 +466,7 @@ export function KubernetesWorkbench({
                             clusterId={clusterId}
                             scopeVersion={access.cluster_version}
                             value={namespace}
-                            onChange={(value) => {
-                              setNamespace(value);
-                              location.update({
-                                namespace_id: value?.id,
-                                namespace_name: value?.name,
-                                page_cursor: undefined,
-                                page_index: undefined,
-                                resource_uid: undefined,
-                              });
-                              reset();
-                            }}
+                            onChange={selectNamespace}
                           />
                         )}
                         <Select
@@ -527,7 +562,19 @@ export function KubernetesWorkbench({
                   />
                 </form>
                 {(types.error || list.error) && (
-                  <p role="alert">{formatError(types.error || list.error)}</p>
+                  <div role="alert" className="argus-k8s-inventory-error">
+                    <p>{formatError(types.error || list.error)}</p>
+                    {namespaceReadDenied && (
+                      <>
+                        <p>
+                          {t("kubernetesWorkbench.namespaceReadDeniedHint")}
+                        </p>
+                        <Button onPress={() => setNamespacePickerOpen(true)}>
+                          {t("kubernetesWorkbench.chooseNamespace")}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 )}
                 {(types.isPending || list.isFetching) && (
                   <Spinner label={t("common.loading")} />
@@ -544,34 +591,41 @@ export function KubernetesWorkbench({
                           key: "name",
                           header: t("kubernetesWorkbench.name"),
                           render: (row) => (
-                            <Button
-                              variant="ghost"
-                              className="argus-k8s-resource-name-link"
-                              title={row.name}
+                            <ResourceNameSummary
+                              object={row}
+                              isSummaryDisabled={
+                                !!selected ||
+                                !!mutation ||
+                                !!jobSource ||
+                                !!logSource ||
+                                !!streamSource ||
+                                operationsOpen ||
+                                namespacePickerOpen
+                              }
                               onPress={() =>
                                 openResource(
                                   referenceOf(row, namespaceIdFor(row)),
                                 )
                               }
-                            >
-                              <span className="argus-k8s-resource-value">
-                                {row.name}
-                              </span>
-                            </Button>
+                            />
                           ),
                         },
-                        {
-                          key: "namespace",
-                          header: t("kubernetesWorkbench.namespace"),
-                          render: (row) => (
-                            <span
-                              className="argus-k8s-resource-value"
-                              title={row.namespace}
-                            >
-                              {row.namespace}
-                            </span>
-                          ),
-                        },
+                        ...(definition?.namespaced
+                          ? [
+                              {
+                                key: "namespace",
+                                header: t("kubernetesWorkbench.namespace"),
+                                render: (row: KubernetesInventoryObject) => (
+                                  <span
+                                    className="argus-k8s-resource-value"
+                                    title={row.namespace}
+                                  >
+                                    {row.namespace}
+                                  </span>
+                                ),
+                              },
+                            ]
+                          : []),
                         {
                           key: "status",
                           header: t("kubernetesResources.status"),
@@ -614,14 +668,29 @@ export function KubernetesWorkbench({
                             </span>
                           ),
                         })),
-                        {
-                          key: "created",
-                          header: t("kubernetesResources.age"),
-                          render: (row) =>
-                            new Date(row.created_at).toLocaleString(
-                              i18n.language,
-                            ),
-                        },
+                        ...metricColumns.map((metric) => ({
+                          key: `metric_${metric}`,
+                          header: t("kubernetesTrends." + metric),
+                          render: (row: KubernetesInventoryObject) => (
+                            <ListMetricCell
+                              uid={row.uid}
+                              metric={metric}
+                              group={metricGroups[metric]}
+                            />
+                          ),
+                        })),
+                        ...(metricColumns.length
+                          ? []
+                          : [
+                              {
+                                key: "created",
+                                header: t("kubernetesResources.age"),
+                                render: (row: KubernetesInventoryObject) =>
+                                  new Date(row.created_at).toLocaleString(
+                                    i18n.language,
+                                  ),
+                              },
+                            ]),
                         {
                           key: "actions",
                           header: t("monitoring.actions"),
@@ -730,6 +799,13 @@ export function KubernetesWorkbench({
             location.update({ full: !location.search.full });
           }}
           onOpen={openResource}
+        />
+      )}
+      {namespacePickerOpen && namespaceReadDenied && (
+        <NamespacePicker
+          clusterId={clusterId}
+          onSelect={selectNamespace}
+          onClose={() => setNamespacePickerOpen(false)}
         />
       )}
       {mutation && definition && (

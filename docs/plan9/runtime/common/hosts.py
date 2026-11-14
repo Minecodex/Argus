@@ -17,6 +17,9 @@ class HostEnrollment:
         private = json.loads((self.run.out / 'private/host-credentials.json').read_text(encoding='utf-8'))
         for host, metadata in self.host_specs.items():
             letter, port = metadata['letter'], metadata['ssh_port']
+            address = metadata.get('address', 'host.docker.internal')
+            username = metadata.get('username', 'root')
+            control_path = metadata.get('control_path', 'executor_tunnel')
             state = self.map['hosts'].setdefault(host, {'name': metadata['name']})
             if state.get('create_action_ref') and not state.get('host_id'):
                 matches = [x for x in self.api.call('GET', '/enterprise/hosts')['items']
@@ -37,15 +40,15 @@ class HostEnrollment:
                 self.save()
             if not state.get('credential_id'):
                 credential = self.api.call('POST', '/enterprise/credentials', {
-                    'name': self.run.id + '-' + letter + '-ssh', 'protocol': 'ssh', 'username': 'root',
+                    'name': self.run.id + '-' + letter + '-ssh', 'protocol': 'ssh', 'username': username,
                     'secret_id': state['secret_id']}, key='credential-' + host, expected=201)
                 state['credential_id'] = credential['id']
                 self.save()
             if not state.get('host_id'):
                 connection = self.api.call('POST', '/enterprise/hosts/connection-tests', {
-                    'address': 'host.docker.internal', 'port': port, 'platform': 'linux',
-                    'ssh_path': 'direct_executor', 'onboarding_control_path': 'executor_tunnel',
-                    'credential_id': state['credential_id'], 'username': 'root'},
+                    'address': address, 'port': port, 'platform': 'linux',
+                    'ssh_path': 'direct_executor', 'onboarding_control_path': control_path,
+                    'credential_id': state['credential_id'], 'username': username},
                     key='connection-' + host, expected=202)
                 state['connection_test_id'] = connection['id']
                 self.save()
@@ -58,10 +61,10 @@ class HostEnrollment:
                                            label='SSH and callback preflight')
                 write_json(self.run.out / (host + '-connection.json'), connection)
                 preview = self.api.call('POST', '/enterprise/hosts/actions/preview-create', {
-                    'name': state['name'], 'address': 'host.docker.internal', 'port': port,
-                    'platform': 'linux', 'role': 'managed_host', 'control_path': 'executor_tunnel',
+                    'name': state['name'], 'address': address, 'port': port,
+                    'platform': 'linux', 'role': 'managed_host', 'control_path': control_path,
                     'install_method': 'ssh', 'ssh_path': 'direct_executor',
-                    'credential_id': state['credential_id'], 'username': 'root',
+                    'credential_id': state['credential_id'], 'username': username,
                     'connection_test_id': state['connection_test_id'], 'environment': 'development',
                     'labels': {'plan9_run': self.run.id, 'plan9_batch': self.batch, 'node': letter.lower()}},
                     key='host-' + host, expected=201)
@@ -83,9 +86,10 @@ class HostEnrollment:
             print(host + ': normal SSH installation online', flush=True)
         return {'online_hosts': len(self.map['hosts'])}
 
-    def collectors(self):
+    def collectors(self, distribution_version=None):
         distributions = self.api.call('GET', '/enterprise/telemetry/distributions')
         distribution = next(x for x in distributions if x['support_status'] == 'supported' and
+                            (distribution_version is None or x['version']==distribution_version) and
                             any(a['platform'] == 'linux_amd64' for a in x['artifacts']))
         for host, state in self.map['hosts'].items():
             hid = state['host_id']
@@ -94,7 +98,7 @@ class HostEnrollment:
             if not current or current.get('code'):
                 preview = self.api.call('POST', base + '/actions/preview-install', {
                     'distribution_version_id': distribution['id'], 'profile_ids': [],
-                    'route_kind': 'direct_argus', 'transport': 'executor_tunnel'},
+                    'route_kind': 'direct_argus', 'transport': self.host_specs[host].get('collector_transport', 'executor_tunnel')},
                     key='collector-install-' + host, expected=201)
                 state['collector_install_action_ref'] = preview['action_ref']
                 self.save()

@@ -64,14 +64,39 @@ func mutationSnapshot(plan mutationPlan) any {
 	}{plan.ID, plan.Input.ClusterID, plan.Scope.ClusterVersion, plan.Scope.ClusterWide, plan.Mutation.Policy, plan.Input.NamespaceID, plan.Mutation.Query.NamespaceUID, plan.Input.Type, plan.Input.UID, plan.Input.ExpectedVersion, plan.Input.Rollback, plan.Input.CronJobSource}
 }
 func (s Service) prepareMutation(ctx context.Context, a Actor, in MutationInput, id uuid.UUID, marker string) (mutationPlan, db.KubernetesCluster, error) {
+	return s.prepareMutationResolved(ctx, a, in, id, marker, nil)
+}
+
+func (s Service) mutationTransaction(q *db.Queries) Service {
+	store := *s.Store
+	store.Queries = q
+	s.Store = &store
+	return s
+}
+
+// A verified definition can be reused while transaction-bound storage rechecks
+// authorization and scope. Native metadata reads issue audited credential leases
+// and must never run inside the preview's serializable transaction.
+func (s Service) prepareMutationResolved(ctx context.Context, a Actor, in MutationInput, id uuid.UUID, marker string, resolved *kubernetesinventory.Definition) (mutationPlan, db.KubernetesCluster, error) {
 	plan := mutationPlan{SchemaVersion: kubernetesinventory.MutationSchemaVersion, ID: id, Actor: a, Input: in}
 	cluster, scope, err := s.scope(ctx, a, in.ClusterID)
 	if err != nil {
 		return plan, cluster, err
 	}
-	definition, err := s.definition(ctx, cluster, in.Type)
-	if err != nil {
-		return plan, cluster, err
+	var definition kubernetesinventory.Definition
+	if resolved == nil {
+		definition, err = s.definition(ctx, cluster, in.Type)
+		if err != nil {
+			return plan, cluster, err
+		}
+	} else {
+		if resolved.Key != in.Type {
+			return plan, cluster, kubernetesinventory.ErrIdentityChanged
+		}
+		definition = *resolved
+		if registered, ok := kubernetesinventory.Lookup(in.Type); ok {
+			definition = registered
+		}
 	}
 	if definition.ManagePermission == "" {
 		return plan, cluster, kubernetesinventory.ErrForbidden
@@ -261,7 +286,8 @@ func (s Service) PreviewMutationWithSecretValues(ctx context.Context, a Actor, i
 		if err := authorization.Authorize(ctx, q, a, plan.Definition.ManagePermission); err != nil {
 			return db.PendingAction{}, err
 		}
-		current, _, err := s.prepareMutation(ctx, a, in, id, marker)
+		txService := s.mutationTransaction(q)
+		current, _, err := txService.prepareMutationResolved(ctx, a, in, id, marker, &plan.Definition)
 		if err != nil {
 			return db.PendingAction{}, err
 		}
@@ -344,7 +370,10 @@ func (e ActionExtension) RevalidateAction(ctx context.Context, q *db.Queries, ac
 	if json.Unmarshal(raw, &plan) != nil || plan.SchemaVersion != kubernetesinventory.MutationSchemaVersion || plan.Actor.EnterpriseID != action.EnterpriseID || plan.Actor.SubjectID != action.CreatorSubjectID || plan.Actor.SubjectType != action.CreatorSubjectType || action.ActionType != "kubernetes.object."+plan.Input.Operation {
 		return nil, resource.ErrActionInvalidated
 	}
-	current, _, err := e.Service.prepareMutation(ctx, plan.Actor, plan.Input, plan.ID, plan.Mutation.ID)
+	// Confirmation retains the UID-bearing type from the protected plan and
+	// rechecks DB authorization/scope atomically. The operation worker resolves
+	// its live native definition again before any write, as for object versions.
+	current, _, err := e.Service.mutationTransaction(q).prepareMutationResolved(ctx, plan.Actor, plan.Input, plan.ID, plan.Mutation.ID, &plan.Definition)
 	if err != nil {
 		return nil, err
 	}

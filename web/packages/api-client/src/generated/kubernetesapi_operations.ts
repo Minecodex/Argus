@@ -613,6 +613,60 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    prepareKubernetesListMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KubernetesMetricPrepareInput"];
+            };
+        };
+        responses: {
+            /** @description Authorized current-page read result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KubernetesMetricContext"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    readKubernetesListMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KubernetesMetricReadInput"];
+            };
+        };
+        responses: {
+            /** @description Authorized current-page read result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KubernetesMetricResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listKubernetesInventory: {
         parameters: {
             query: {

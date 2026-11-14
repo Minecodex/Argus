@@ -397,6 +397,153 @@ func (e KubernetesLogSessionStatus) Valid() bool {
 	}
 }
 
+// Defines values for KubernetesMetricReadInputMetric.
+const (
+	KubernetesMetricReadInputMetricCpu     KubernetesMetricReadInputMetric = "cpu"
+	KubernetesMetricReadInputMetricMemory  KubernetesMetricReadInputMetric = "memory"
+	KubernetesMetricReadInputMetricStorage KubernetesMetricReadInputMetric = "storage"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesMetricReadInputMetric enum.
+func (e KubernetesMetricReadInputMetric) Valid() bool {
+	switch e {
+	case KubernetesMetricReadInputMetricCpu:
+		return true
+	case KubernetesMetricReadInputMetricMemory:
+		return true
+	case KubernetesMetricReadInputMetricStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesMetricSelectionMode.
+const (
+	KubernetesMetricSelectionModeAllAuthorized KubernetesMetricSelectionMode = "all_authorized"
+	KubernetesMetricSelectionModeExplicit      KubernetesMetricSelectionMode = "explicit"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesMetricSelectionMode enum.
+func (e KubernetesMetricSelectionMode) Valid() bool {
+	switch e {
+	case KubernetesMetricSelectionModeAllAuthorized:
+		return true
+	case KubernetesMetricSelectionModeExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesMetricTrendBasis.
+const (
+	KubernetesMetricTrendBasisCapacity KubernetesMetricTrendBasis = "capacity"
+	KubernetesMetricTrendBasisLimit    KubernetesMetricTrendBasis = "limit"
+	KubernetesMetricTrendBasisRequest  KubernetesMetricTrendBasis = "request"
+	KubernetesMetricTrendBasisUsage    KubernetesMetricTrendBasis = "usage"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesMetricTrendBasis enum.
+func (e KubernetesMetricTrendBasis) Valid() bool {
+	switch e {
+	case KubernetesMetricTrendBasisCapacity:
+		return true
+	case KubernetesMetricTrendBasisLimit:
+		return true
+	case KubernetesMetricTrendBasisRequest:
+		return true
+	case KubernetesMetricTrendBasisUsage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesMetricTrendKind.
+const (
+	KubernetesMetricTrendKindCpu             KubernetesMetricTrendKind = "cpu"
+	KubernetesMetricTrendKindEphemeral       KubernetesMetricTrendKind = "ephemeral"
+	KubernetesMetricTrendKindLocalFilesystem KubernetesMetricTrendKind = "local_filesystem"
+	KubernetesMetricTrendKindMemory          KubernetesMetricTrendKind = "memory"
+	KubernetesMetricTrendKindVolume          KubernetesMetricTrendKind = "volume"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesMetricTrendKind enum.
+func (e KubernetesMetricTrendKind) Valid() bool {
+	switch e {
+	case KubernetesMetricTrendKindCpu:
+		return true
+	case KubernetesMetricTrendKindEphemeral:
+		return true
+	case KubernetesMetricTrendKindLocalFilesystem:
+		return true
+	case KubernetesMetricTrendKindMemory:
+		return true
+	case KubernetesMetricTrendKindVolume:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesMetricTrendState.
+const (
+	Forbidden       KubernetesMetricTrendState = "forbidden"
+	IdentityChanged KubernetesMetricTrendState = "identity_changed"
+	NoData          KubernetesMetricTrendState = "no_data"
+	NotConfigured   KubernetesMetricTrendState = "not_configured"
+	Partial         KubernetesMetricTrendState = "partial"
+	QueryFailed     KubernetesMetricTrendState = "query_failed"
+	Ready           KubernetesMetricTrendState = "ready"
+	Stale           KubernetesMetricTrendState = "stale"
+	Unsupported     KubernetesMetricTrendState = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesMetricTrendState enum.
+func (e KubernetesMetricTrendState) Valid() bool {
+	switch e {
+	case Forbidden:
+		return true
+	case IdentityChanged:
+		return true
+	case NoData:
+		return true
+	case NotConfigured:
+		return true
+	case Partial:
+		return true
+	case QueryFailed:
+		return true
+	case Ready:
+		return true
+	case Stale:
+		return true
+	case Unsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KubernetesMetricTrendUnit.
+const (
+	Bytes KubernetesMetricTrendUnit = "bytes"
+	Cores KubernetesMetricTrendUnit = "cores"
+)
+
+// Valid indicates whether the value is a known member of the KubernetesMetricTrendUnit enum.
+func (e KubernetesMetricTrendUnit) Valid() bool {
+	switch e {
+	case Bytes:
+		return true
+	case Cores:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for KubernetesMutationInputOperation.
 const (
 	KubernetesMutationInputOperationCordon   KubernetesMutationInputOperation = "cordon"

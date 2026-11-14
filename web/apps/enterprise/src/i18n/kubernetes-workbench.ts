@@ -134,6 +134,8 @@ export const kubernetesWorkbenchZh = {
     empty: "当前页没有资源",
     emptyHint: "调整类型或命名空间范围；有下一页时可继续查看。",
     namespaceOnly: "当前授权仅包含指定命名空间。",
+    namespaceReadDeniedHint:
+      "请选择有读取权限的命名空间后重试。当前资源类型和筛选条件会保留。",
     projected: "凭据和 Secret 内容已屏蔽。",
     complete: "已到列表末尾",
     more: "仍有下一页",
@@ -314,6 +316,8 @@ export const kubernetesWorkbenchEn = {
     emptyHint:
       "Change the type or namespace scope, or continue to the next page when available.",
     namespaceOnly: "Access is limited to explicitly authorized namespaces.",
+    namespaceReadDeniedHint:
+      "Choose a namespace you can read and retry. The current resource type and filters will be kept.",
     projected: "Credentials and Secret contents are redacted.",
     complete: "End of list",
     more: "More pages available",

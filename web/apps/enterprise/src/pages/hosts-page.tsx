@@ -1,4 +1,5 @@
 import { HostList } from "../components/hosts/host-list";
+import { useHostListMetrics } from "../components/hosts/use-host-list-metrics";
 import "../styles/resource-lists.css";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -140,6 +141,7 @@ export function HostsPage() {
   const [search, setSearch] = useState("");
   const [envFilter, setEnvFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [trendRefresh, setTrendRefresh] = useState(0);
   const [addBastionOpen, setAddBastionOpen] = useState(false);
   const [addHostOpen, setAddHostOpen] = useState(false);
   const [editBastion, setEditBastion] = useState<BastionScope | null>(null);
@@ -209,6 +211,12 @@ export function HostsPage() {
     () => scopesQuery.data?.items ?? [],
     [scopesQuery.data],
   );
+  const listMetrics = useHostListMetrics({
+    hosts,
+    ready: hostsQuery.isSuccess,
+    refreshKey: trendRefresh,
+    scopeKey: JSON.stringify([filter.query, envFilter, statusFilter]),
+  });
   const connectors = useMemo(
     () => connectorsQuery.data?.items ?? [],
     [connectorsQuery.data],
@@ -218,6 +226,7 @@ export function HostsPage() {
   );
 
   const invalidateAll = () => {
+    setTrendRefresh((value) => value + 1);
     void queryClient.invalidateQueries({ queryKey: ["hosts"] });
     void queryClient.invalidateQueries({ queryKey: ["bastion-scopes"] });
     void queryClient.invalidateQueries({ queryKey: ["connectors"] });
@@ -231,6 +240,7 @@ export function HostsPage() {
   };
 
   const refresh = () => {
+    setTrendRefresh((value) => value + 1);
     void hostsQuery.refetch();
     void scopesQuery.refetch();
     void connectorsQuery.refetch();
@@ -598,7 +608,7 @@ export function HostsPage() {
                         hosts={
                           bastionHost ? [bastionHost, ...members] : members
                         }
-                        scopes={scopes}
+                        metrics={listMetrics}
                         onCollectorAction={openCollector}
                         onDelete={setDeleteTarget}
                         onRemove={removeHost}
@@ -628,7 +638,7 @@ export function HostsPage() {
               <div className="argus-scope-card__body">
                 <HostList
                   hosts={standaloneHosts}
-                  scopes={scopes}
+                  metrics={listMetrics}
                   onCollectorAction={openCollector}
                   onDelete={setDeleteTarget}
                   onRemove={removeHost}

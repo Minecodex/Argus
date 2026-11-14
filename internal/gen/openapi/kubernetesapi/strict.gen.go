@@ -46,6 +46,12 @@ type StrictServerInterface interface {
 	// PreviewKubernetesMutation Dry-run an authorized object change and prepare a confirmation
 	// (POST /enterprise/kubernetes-clusters/{id}/inventory/actions/preview-mutation)
 	PreviewKubernetesMutation(ctx context.Context, request PreviewKubernetesMutationRequestObject) (PreviewKubernetesMutationResponseObject, error)
+	// PrepareKubernetesListMetrics Prepare a bounded current-page metric context
+	// (POST /enterprise/kubernetes-clusters/{id}/inventory/metrics/prepare)
+	PrepareKubernetesListMetrics(ctx context.Context, request PrepareKubernetesListMetricsRequestObject) (PrepareKubernetesListMetricsResponseObject, error)
+	// ReadKubernetesListMetrics Read one metric independently for the current resource page
+	// (POST /enterprise/kubernetes-clusters/{id}/inventory/metrics/read)
+	ReadKubernetesListMetrics(ctx context.Context, request ReadKubernetesListMetricsRequestObject) (ReadKubernetesListMetricsResponseObject, error)
 	// GetKubernetesInventoryObject Read a projected object with frozen UID
 	// (GET /enterprise/kubernetes-clusters/{id}/inventory/object)
 	GetKubernetesInventoryObject(ctx context.Context, request GetKubernetesInventoryObjectRequestObject) (GetKubernetesInventoryObjectResponseObject, error)
@@ -476,6 +482,72 @@ func (sh *strictHandler) PreviewKubernetesMutation(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PreviewKubernetesMutationResponseObject); ok {
 		if err := validResponse.VisitPreviewKubernetesMutationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PrepareKubernetesListMetrics operation middleware
+func (sh *strictHandler) PrepareKubernetesListMetrics(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request PrepareKubernetesListMetricsRequestObject
+
+	request.Id = id
+
+	var body PrepareKubernetesListMetricsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PrepareKubernetesListMetrics(ctx, request.(PrepareKubernetesListMetricsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PrepareKubernetesListMetrics")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PrepareKubernetesListMetricsResponseObject); ok {
+		if err := validResponse.VisitPrepareKubernetesListMetricsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReadKubernetesListMetrics operation middleware
+func (sh *strictHandler) ReadKubernetesListMetrics(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request ReadKubernetesListMetricsRequestObject
+
+	request.Id = id
+
+	var body ReadKubernetesListMetricsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReadKubernetesListMetrics(ctx, request.(ReadKubernetesListMetricsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReadKubernetesListMetrics")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReadKubernetesListMetricsResponseObject); ok {
+		if err := validResponse.VisitReadKubernetesListMetricsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

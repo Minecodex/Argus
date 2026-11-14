@@ -478,6 +478,86 @@ func (response PreviewKubernetesMutationdefaultJSONResponse) VisitPreviewKuberne
 	return err
 }
 
+type PrepareKubernetesListMetricsRequestObject struct {
+	Id   openapi_types.UUID `json:"id"`
+	Body *PrepareKubernetesListMetricsJSONRequestBody
+}
+
+type PrepareKubernetesListMetricsResponseObject interface {
+	VisitPrepareKubernetesListMetricsResponse(w http.ResponseWriter) error
+}
+
+type PrepareKubernetesListMetrics200JSONResponse KubernetesMetricContext
+
+func (response PrepareKubernetesListMetrics200JSONResponse) VisitPrepareKubernetesListMetricsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PrepareKubernetesListMetricsdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response PrepareKubernetesListMetricsdefaultJSONResponse) VisitPrepareKubernetesListMetricsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadKubernetesListMetricsRequestObject struct {
+	Id   openapi_types.UUID `json:"id"`
+	Body *ReadKubernetesListMetricsJSONRequestBody
+}
+
+type ReadKubernetesListMetricsResponseObject interface {
+	VisitReadKubernetesListMetricsResponse(w http.ResponseWriter) error
+}
+
+type ReadKubernetesListMetrics200JSONResponse KubernetesMetricResult
+
+func (response ReadKubernetesListMetrics200JSONResponse) VisitReadKubernetesListMetricsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadKubernetesListMetricsdefaultJSONResponse struct {
+	Body       ApiError
+	StatusCode int
+}
+
+func (response ReadKubernetesListMetricsdefaultJSONResponse) VisitReadKubernetesListMetricsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetKubernetesInventoryObjectRequestObject struct {
 	Id     openapi_types.UUID `json:"id"`
 	Params GetKubernetesInventoryObjectParams

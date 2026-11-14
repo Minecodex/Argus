@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import type { Badge } from "@argus/ui";
 type BadgeTone = NonNullable<ComponentProps<typeof Badge>["tone"]>;
 
-export const resourceColumns: Record<string, string[]> = {
+export const resourceHoverFields: Record<string, string[]> = {
   pod: ["ready", "restarts", "node", "owner"],
   deployment: ["available", "ready", "updated", "images", "strategy"],
   statefulset: ["ready", "updated", "images", "strategy"],
@@ -50,6 +50,16 @@ export const resourceColumns: Record<string, string[]> = {
   endpointslice: ["address_type", "ready_endpoints", "unknown_endpoints"],
   event: ["event_type", "event_reason", "message", "event_time"],
   crd: ["group", "kind", "scope"],
+};
+export const resourceColumns: Record<string, string[]> = {
+  ...resourceHoverFields,
+  pod: ["ready"],
+  deployment: ["available"],
+  statefulset: ["ready"],
+  daemonset: ["available"],
+  replicaset: ["ready"],
+  namespace: [],
+  node: ["scheduling"],
 };
 export function stateTone(state: string): BadgeTone {
   if (state === "healthy") return "success";

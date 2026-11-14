@@ -457,7 +457,7 @@
   color: var(--text-tertiary);
   font-size: var(--font-size-10-5);
   font-weight: 600;
-  background: color-mix(in srgb, var(--overlay-black) 7%, transparent);
+  background: var(--bg-elevated);
   border-bottom: 1px solid var(--border-subtle);
 }
 .argus-table td {

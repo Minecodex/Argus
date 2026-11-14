@@ -8,6 +8,31 @@ export function createKubernetesWorkbenchDomains(
     `enterprise/kubernetes-clusters/${encodeURIComponent(id)}/inventory`;
   return {
     kubernetesWorkbench: {
+      prepareMetrics: (id, input, signal) => {
+        const { namespace_mode, namespace_ids, ...rest } = input.list;
+        return http.request(base(id) + "/metrics/prepare", {
+          method: "POST",
+          signal,
+          body: {
+            uids: input.uids,
+            list: {
+              ...rest,
+              namespaces: {
+                mode:
+                  namespace_mode ??
+                  (namespace_ids ? "explicit" : "all_authorized"),
+                ids: namespace_ids,
+              },
+            },
+          },
+        });
+      },
+      readMetrics: (id, input, signal) =>
+        http.request(base(id) + "/metrics/read", {
+          method: "POST",
+          body: input,
+          signal,
+        }),
       overviewCandidates: (id, input, signal) => {
         const params = new URLSearchParams();
         for (const [key, value] of Object.entries(input))
@@ -58,7 +83,8 @@ export function createKubernetesWorkbenchDomains(
       },
       related: (id, input, signal) => {
         const params = new URLSearchParams();
-        for (const [key, value] of Object.entries(input)) if (value !== undefined) params.set(key, String(value));
+        for (const [key, value] of Object.entries(input))
+          if (value !== undefined) params.set(key, String(value));
         return http.request(base(id) + "/related?" + params, { signal });
       },
       helmReleases: (cluster, namespaceId, signal) =>

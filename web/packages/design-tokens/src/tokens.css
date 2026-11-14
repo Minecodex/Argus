@@ -1,4 +1,8 @@
 :root {
+  --resource-trend-width: 120px;
+  --resource-trend-height: 28px;
+  --resource-trend-cell-height: 48px;
+  --resource-trend-stroke-width: 1.5px;
   --scrollbar-size: 9px;
   --scrollbar-inset: 2px;
   --popover-document-width: 440px;

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -16,6 +17,17 @@ import (
 
 const CatalogRevision = 3
 
+func validateCatalogPlatforms(platforms []string) error {
+	seen := map[string]bool{}
+	for _, platform := range platforms {
+		if !slices.Contains([]string{"linux_amd64", "linux_arm64", "windows_amd64"}, platform) || seen[platform] {
+			return errors.New("invalid Collector catalog platform selection")
+		}
+		seen[platform] = true
+	}
+	return nil
+}
+
 const (
 	LinuxARM64DistributionName   = "argus-otelcol-linux-arm64"
 	LinuxAMD64DistributionName   = "argus-otelcol-linux-amd64"
@@ -23,8 +35,11 @@ const (
 )
 
 type CatalogSync struct {
-	Service                     Service
-	Version                     string
+	Service Service
+	Version string
+	// Platforms optionally limits a release publication to explicitly selected
+	// architectures. Other existing versions and platform records stay intact.
+	Platforms                   []string
 	LinuxArtifactURI            string
 	LinuxArtifactSHA256         string
 	LinuxArtifactSignature      string
@@ -42,6 +57,9 @@ type CatalogSync struct {
 }
 
 func (sync CatalogSync) Run(ctx context.Context) error {
+	if err := validateCatalogPlatforms(sync.Platforms); err != nil {
+		return err
+	}
 	if sync.Version == "" {
 		sync.Version = configbundle.DistributionVersion
 	}
@@ -115,6 +133,9 @@ func (sync CatalogSync) Run(ctx context.Context) error {
 			configbundle.DistributionComponents("windows_amd64")})
 	}
 	for _, distribution := range distributions {
+		if len(sync.Platforms) > 0 && !slices.Contains(sync.Platforms, distribution.platform) {
+			continue
+		}
 		artifacts, marshalErr := json.Marshal([]map[string]any{{
 			"platform": distribution.platform, "uri": distribution.uri, "sha256": distribution.hash,
 			"signature": distribution.signature, "signing_key_id": sync.SigningKeyID, "byte_size": distribution.byteSize,

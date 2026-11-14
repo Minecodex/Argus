@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/telemetry"
@@ -41,6 +42,9 @@ func main() {
 		WindowsArtifactByteSize:     envUint64("ARGUS_OTELCOL_WINDOWS_AMD64_BYTE_SIZE"),
 		SigningKeyID:                os.Getenv("ARGUS_OTELCOL_SIGNING_KEY_ID"),
 		SigningPublicKey:            os.Getenv("ARGUS_OTELCOL_SIGNING_PUBLIC_KEY"),
+	}
+	if selection := os.Getenv("ARGUS_OTELCOL_PLATFORMS"); selection != "" {
+		sync.Platforms = strings.Split(selection, ",")
 	}
 	if err := sync.Run(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err)

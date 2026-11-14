@@ -5,6 +5,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import {
   ApiProvider,
   createConfiguredApiClient,
+  createApiErrorTranslator,
   setApiErrorTranslator,
 } from "@argus/api-client";
 import { usePlatformAuthStore } from "@argus/auth";
@@ -33,11 +34,15 @@ const queryClient = new QueryClient({
 
 initializeTheme();
 
-setApiErrorTranslator((code, _messageKey, params) => {
-  const key = `errors.codes.${code}`;
-  const translated = i18n.t(key, { defaultValue: "", ...(params ?? {}) });
-  return translated === key ? undefined : translated || undefined;
-});
+setApiErrorTranslator(
+  createApiErrorTranslator((key, params) => {
+    if (!i18n.exists(key)) return undefined;
+    const translated = i18n.t(key, { ...(params ?? {}), defaultValue: "" });
+    return typeof translated === "string" && translated !== key
+      ? translated || undefined
+      : undefined;
+  }),
+);
 
 function syncLocale(locale: SupportedLocale) {
   void i18n.changeLanguage(locale);
