@@ -710,7 +710,26 @@
   height: var(--control-height);
   display: flex;
   align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-px-4);
 }
 .argus-range-slider__track {
   width: 100%;
+  height: var(--space-px-6);
+  border-inline-width: var(--space-px-6);
+  border-radius: var(--radius-pill);
+}
+.argus-range-slider__fill {
+  border-radius: inherit;
+}
+.argus-range-slider__thumb {
+  width: var(--space-4);
+  height: var(--space-4);
+  border: var(--space-px-2) solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+.argus-range-slider__thumb::after {
+  display: none;
 }

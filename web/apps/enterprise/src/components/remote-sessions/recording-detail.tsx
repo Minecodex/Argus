@@ -64,6 +64,7 @@ export function RecordingDetailDialog({
     );
   return (
     <Dialog
+      className="argus-recording-dialog"
       description={t("remoteSessions.recordingDescription")}
       onOpenChange={onOpenChange}
       open={recordingId !== null}
@@ -91,7 +92,7 @@ export function RecordingDetailDialog({
                   tone="warning"
                 />
               )}
-              <dl className="argus-recording-meta">
+              <dl className="argus-recording-meta argus-recording-summary">
                 <div>
                   <dt>{t("remoteSessions.columns.session")}</dt>
                   <dd>{recording.session_id}</dd>
@@ -151,7 +152,7 @@ export function RecordingDetailDialog({
               {!isError && isPending && <Spinner label={t("common.loading")} />}
               {!isError && !isPending && events.length === 0 && replay}
               {!isError && !isPending && events.length > 0 && (
-                <Tabs defaultValue="replay">
+                <Tabs className="argus-recording-tabs" defaultValue="replay">
                   <TabsList>
                     <TabsTrigger value="replay">
                       {t("remoteSessions.replayTab")}
@@ -160,7 +161,12 @@ export function RecordingDetailDialog({
                       {t("remoteSessions.eventsTab")}
                     </TabsTrigger>
                   </TabsList>
-                  <TabsContent value="replay">{replay}</TabsContent>
+                  <TabsContent
+                    className="argus-recording-replay"
+                    value="replay"
+                  >
+                    {replay}
+                  </TabsContent>
                   <TabsContent value="events">
                     <pre className="argus-recording-events">
                       {events.map(eventText).join("\n")}

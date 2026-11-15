@@ -13,19 +13,25 @@ def retire(batch):
     for row in sessions:
         assert row['host_id'] in owned
         if row['status'] in ['authorized','connecting','active','terminating']:
-            api.call('POST','/enterprise/remote-access-sessions/'+row['id']+'/terminate',{'reason':'Plan9 B11a accepted and retired'})
+            api.call('POST','/enterprise/remote-access-sessions/'+row['id']+'/terminate',{'reason':'User advanced Plan9 beyond B11a; owned batch retired'})
             api.wait('/enterprise/remote-access-sessions/'+row['id'],lambda x:x['status'] not in
                 ['authorized','connecting','active','terminating'],timeout=90,label='Owned terminal closure')
     if remote.get('grant_id'):
         base='/enterprise/remote-access-grants/'+remote['grant_id'];grant=api.call('GET',base)
         assert set(grant['host_ids'])==owned
-        if grant['status']=='enabled':grant=api.call('POST',base+'/disable?expected_version='+str(grant['version']))
-        if grant['status']!='archived':api.call('POST',base+'/archive?expected_version='+str(grant['version']))
+        if grant['status']=='enabled':
+            grant=api.call('POST',base+'/disable?expected_version='+str(grant['version']))
+            api.login()
+        if grant['status']!='archived':
+            api.call('POST',base+'/archive?expected_version='+str(grant['version']))
+            api.login()
     if remote.get('account_id'):
         account=next(row for row in api.call('GET','/enterprise/managed-accounts')['items'] if row['id']==remote['account_id'])
         assert account['host_id'] in owned
-        if account['status']=='active':api.call('PUT','/enterprise/managed-accounts/'+account['id'],{
-            'expected_version':account['version'],'status':'disabled'})
+        if account['status']=='active':
+            api.call('PUT','/enterprise/managed-accounts/'+account['id'],{
+                'expected_version':account['version'],'status':'disabled'})
+            api.login()
     result=retire_hosts(run,api,execute,write_json,now)
     endpoint=batch.map.get('telemetry_network_endpoint')
     if endpoint:

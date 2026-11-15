@@ -1,6 +1,8 @@
 # Plan9：分批真实场景与人工验收
 
-创建日期：2026-10-26。当前阶段为 **B10c 已明确通过并清理，B11a 已部署，保留 Linux 直连主机供用户查看**。[B11a 查看记录](./batches/B11a-review.md) 包含真实 SSH 安装、Shell/OpenSSH、录像、四套仪表盘和告警恢复窗口；启动阶段的历史投递缺口单列保留。B11a 人工验收仍待用户确认。
+创建日期：2026-10-26。当前阶段为 **B11a 已按用户推进指令封存并清理，B11b 已部署且自检通过，保留堡垒机与私网成员供查看**。[B11b 查看记录](./batches/B11b-review.md) 提供真实网络隔离、TLS Relay、Gateway/Leaf、终端录像、40 个面板和两类告警恢复窗口。B11b 人工验收待用户确认，B11a 的历史投递缺口保留。
+
+2026-11-14：[B11b 终端录像播放器布局与主题修复](./26-terminal-recording-player-layout-20261114.md)，统一处理录像画面溢出、控制栏对齐和浅色主题的按钮对比度。
 
 ## 要完成的事情
 
@@ -22,7 +24,7 @@ B09a 使用独立 Kubernetes 集群运行实际业务工作负载，接入原生
 
 B09b 已完成真实控制面组件验证并按用户下一批指令退役，修复结果和历史见 [B09b 记录](./batches/B09b-review.md)。
 
-B10a、B10b、B10c 已清理，原始反馈与修复证据保留。[B10c 历史记录](./batches/B10c-review.md) 保留 Helm/OCI、CR/RBAC、PDB/节点迁移及人工确认。[当前 B11a 查看入口](./batches/B11a-review.md) 提供实际在线直连主机、终端、录像、仪表盘与服务告警。B10b 的存储/任务验证见 [历史记录](./batches/B10b-review.md)。
+B10a、B10b、B10c、B11a 已清理，原始反馈与修复证据保留。[B10c 历史记录](./batches/B10c-review.md) 保留 Helm/OCI、CR/RBAC、PDB/节点迁移及人工确认。[当前 B11b 查看入口](./batches/B11b-review.md) 提供实际堡垒机、隔离成员、终端、录像、监控和数据健康诊断。B11a 的直连与列表调整见 [历史记录](./batches/B11a-review.md)。
 
 2026-11-10，按完整一小时反馈补齐[节点/API Server 查询预算与延迟口径修正](./12-kubernetes-hour-window-query-20261110.md)，12 个面板、4 项真实中英明暗页面及健康 20/20 通过，当前版本见该记录。
 
@@ -30,7 +32,10 @@ B10a、B10b、B10c 已清理，原始反馈与修复证据保留。[B10c 历史�
 
 | 文档 | 用途 |
 | --- | --- |
-| [B11a 当前记录](./batches/B11a-review.md) | Linux 直连、Shell/OpenSSH、录像、监控及告警 |
+| [B11b 当前记录](./batches/B11b-review.md) | 真私网隔离、TLS Relay、Gateway/Leaf、终端录像及两类告警 |
+| [B11b 运行包](./runtime/B11b/runbook.md) | 两主机、正常 SSH/Relay 接入、稳定观察和成员先行清理 |
+| [B11b 隔离与安装记录](./25-b11b-isolated-bastion-member-20261114.md) | 私网套接字证据、暂存目录/沙箱前件与原位重试 |
+| [B11a 历史记录（已清理）](./batches/B11a-review.md) | Linux 直连、Shell/OpenSSH、录像、监控及告警 |
 | [B11a 运行包](./runtime/B11a/runbook.md) | systemd/SSH、原生 TLS 端点、真实故障、归属清理 |
 | [B11a 签名主机制品与直连](./23-b11a-direct-host-artifact-20261113.md) | 旧安装包不兼容、仅 amd64 发行、初始身份与 DNS 修正 |
 | [B11a 主机列表趋势](./24-b11a-host-list-trends-20261113.md) | CPU/内存/磁盘渐进读取、共享迷你曲线与详情路径 |

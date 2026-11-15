@@ -10,14 +10,12 @@ import {
 import { Button } from "./button";
 import { cx } from "./lib";
 import { useUiText } from "./locale";
-
-/** Asciicast v2 event tuple carried by session recordings. */
-export type TerminalPlayerEvent = {
-  /** Seconds relative to session start. */
-  time: number;
-  type: "i" | "o" | "r" | "m";
-  data: unknown;
-};
+import {
+  TerminalReplay,
+  terminalRecordingExtent,
+  type TerminalPlayerEvent,
+} from "./terminal-replay";
+export type { TerminalPlayerEvent } from "./terminal-replay";
 
 const VALID_TYPES = new Set(["i", "o", "r", "m"]);
 const SPEEDS = [1, 2, 4, 8] as const;
@@ -61,23 +59,6 @@ function formatClock(seconds: number): string {
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-function parseResize(data: unknown): { cols: number; rows: number } | null {
-  if (typeof data !== "string") return null;
-  const match = /^(\d+)x(\d+)$/.exec(data);
-  if (!match) return null;
-  const cols = Number(match[1]);
-  const rows = Number(match[2]);
-  if (cols < 2 || cols > 500 || rows < 2 || rows > 500) return null;
-  return { cols, rows };
-}
-
-type XtermLike = {
-  dispose(): void;
-  reset(): void;
-  resize(cols: number, rows: number): void;
-  write(value: string): void;
-};
-
 /**
  * JumpServer-style session recording player: a terminal emulator driven by a
  * wall-clock scheduler over asciicast events. Output events repaint the screen
@@ -102,8 +83,19 @@ export function TerminalPlayer({
 }) {
   const text = useUiText();
   const screenRef = useRef<HTMLDivElement>(null);
-  const terminalRef = useRef<XtermLike | null>(null);
-  const cursorRef = useRef(0);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const replayRef = useRef<TerminalReplay | null>(null);
+  const layoutRef = useRef<(() => void) | null>(null);
+  const [ready, setReady] = useState(false);
+  const [renderedPosition, setRenderedPosition] = useState(-1);
+  const [fitRecording, setFitRecording] = useState(false);
+  const fitRef = useRef(fitRecording);
+  fitRef.current = fitRecording;
+  const extent = useMemo(() => terminalRecordingExtent(events), [events]);
+  const extentRef = useRef(extent);
+  extentRef.current = extent;
   // The scheduler loop reads live values through refs so it is not rebuilt per tick.
   const positionRef = useRef(0);
   const speedRef = useRef(1);
@@ -115,20 +107,11 @@ export function TerminalPlayer({
   eventsRef.current = events;
   speedRef.current = speed;
 
-  const emit = (event: TerminalPlayerEvent) => {
-    const terminal = terminalRef.current;
-    if (!terminal) return;
-    if (event.type === "o" && typeof event.data === "string") {
-      terminal.write(event.data);
-    } else if (event.type === "r") {
-      const size = parseResize(event.data);
-      if (size) terminal.resize(size.cols, size.rows);
-    }
-  };
-
   useEffect(() => {
-    const element = screenRef.current;
-    if (!element) return;
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    const element = stageRef.current;
+    if (!viewport || !canvas || !element) return;
     let disposed = false;
     let disposeTerminal: (() => void) | undefined;
     void Promise.all([
@@ -136,20 +119,69 @@ export function TerminalPlayer({
       import("@xterm/xterm/css/xterm.css"),
     ]).then(([xterm]) => {
       if (disposed) return;
+      const styles = getComputedStyle(viewport);
       const terminal = new xterm.Terminal({
         convertEol: false,
         cursorBlink: false,
         disableStdin: true,
-        fontFamily: "var(--font-mono)",
-        fontSize: 13,
-        scrollback: 10000,
-        theme: { background: "#11100e", foreground: "#f4f1ea" },
+        fontFamily: styles.fontFamily,
+        fontSize: parseFloat(styles.fontSize),
+        // The timeline provides history; a replay shows the recorded viewport.
+        scrollback: 0,
+        theme: {
+          background: styles.getPropertyValue("--surface-terminal").trim(),
+          foreground: styles.getPropertyValue("--text-console").trim(),
+        },
       });
       terminal.open(element);
-      terminalRef.current = terminal as unknown as XtermLike;
+      const screen = element.querySelector<HTMLElement>(".xterm-screen")!;
+      // One cell size and one extent for the entire recording: a timeline
+      // resize must never change display zoom or the top-left origin.
+      const cell = {
+        width: screen.offsetWidth / terminal.cols,
+        height: screen.offsetHeight / terminal.rows,
+      };
+      const fit = () => {
+        const width = screen.offsetWidth;
+        const height = screen.offsetHeight;
+        if (!width || !height) return;
+        const fullWidth = extentRef.current.cols * cell.width;
+        const fullHeight = extentRef.current.rows * cell.height;
+        const scale = fitRef.current
+          ? Math.max(
+              0,
+              Math.min(
+                1,
+                viewport.clientWidth / fullWidth,
+                viewport.clientHeight / fullHeight,
+              ),
+            )
+          : 1;
+        element.style.width = `${width}px`;
+        element.style.height = `${height}px`;
+        element.style.setProperty("--argus-replay-scale", String(scale));
+        canvas.style.width = `${fullWidth * scale}px`;
+        canvas.style.height = `${fullHeight * scale}px`;
+      };
+      const observer = new ResizeObserver(fit);
+      observer.observe(viewport);
+      observer.observe(screen);
+      layoutRef.current = fit;
+      fit();
+      const replay = new TerminalReplay(
+        terminal,
+        eventsRef.current,
+        setRenderedPosition,
+      );
+      replayRef.current = replay;
+      replay.seek(0);
+      setReady(true);
       disposeTerminal = () => {
+        observer.disconnect();
+        replay.dispose();
         terminal.dispose();
-        terminalRef.current = null;
+        replayRef.current = null;
+        layoutRef.current = null;
       };
     });
     return () => {
@@ -160,35 +192,31 @@ export function TerminalPlayer({
 
   // Re-emit from the beginning whenever the loaded event stream changes identity.
   useEffect(() => {
-    cursorRef.current = 0;
     positionRef.current = 0;
     setPosition(0);
+    setRenderedPosition(-1);
     setPlaying(false);
-    terminalRef.current?.reset();
+    replayRef.current?.setEvents(events);
+    viewportRef.current?.scrollTo(0, 0);
+    layoutRef.current?.();
   }, [events]);
 
   useEffect(() => {
-    if (!playing) return;
+    viewportRef.current?.scrollTo(0, 0);
+    layoutRef.current?.();
+  }, [fitRecording]);
+
+  useEffect(() => {
+    if (!playing || !ready) return;
     let frame = 0;
     let last = performance.now();
     const tick = (now: number) => {
-      const terminal = terminalRef.current;
-      const list = eventsRef.current;
       const next = Math.min(
         duration,
         positionRef.current + ((now - last) / 1000) * speedRef.current,
       );
       last = now;
-      if (terminal) {
-        for (
-          let event = list[cursorRef.current];
-          event !== undefined && event.time <= next;
-          event = list[cursorRef.current]
-        ) {
-          emit(event);
-          cursorRef.current++;
-        }
-      }
+      replayRef.current?.advance(next);
       positionRef.current = next;
       setPosition(next);
       if (next >= duration) {
@@ -199,35 +227,29 @@ export function TerminalPlayer({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, duration]);
+  }, [playing, duration, ready]);
 
   const seek = (target: number) => {
     const clamped = Math.min(Math.max(target, 0), duration);
-    const terminal = terminalRef.current;
-    if (terminal) {
-      terminal.reset();
-      cursorRef.current = 0;
-      const list = eventsRef.current;
-      for (
-        let event = list[cursorRef.current];
-        event !== undefined && event.time <= clamped;
-        event = list[cursorRef.current]
-      ) {
-        emit(event);
-        cursorRef.current++;
-      }
-    }
+    setRenderedPosition(-1);
+    replayRef.current?.seek(clamped);
     positionRef.current = clamped;
     setPosition(clamped);
     if (clamped >= duration) setPlaying(false);
   };
 
   const toggle = () => {
-    if (duration > 0 && positionRef.current >= duration) seek(0);
+    if (!ready || !events.length) return;
+    if (duration > 0 && positionRef.current >= duration) {
+      seek(0);
+      viewportRef.current?.scrollTo(0, 0);
+    }
     setPlaying((value) => !value);
   };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    // Buttons and the slider own their keyboard input.
+    if (event.target !== event.currentTarget) return;
     if (event.key === " " || event.key === "k") {
       event.preventDefault();
       toggle();
@@ -247,6 +269,8 @@ export function TerminalPlayer({
 
   return (
     <div
+      aria-busy={!ready || Math.abs(renderedPosition - position) > 0.00001}
+      data-view-mode={fitRecording ? "fit" : "native"}
       className={cx("argus-terminal-player", className)}
       onKeyDown={onKeyDown}
       tabIndex={0}
@@ -255,7 +279,22 @@ export function TerminalPlayer({
         className="argus-terminal-player__screen"
         ref={screenRef}
         style={{ height }}
-      />
+      >
+        <div
+          className="argus-terminal-player__viewport"
+          ref={viewportRef}
+          role="region"
+          aria-label={text(
+            "录像画面，可滚动查看超出部分",
+            "Recording viewport, scroll to explore",
+          )}
+          tabIndex={0}
+        >
+          <div className="argus-terminal-player__canvas" ref={canvasRef}>
+            <div className="argus-terminal-player__stage" ref={stageRef} />
+          </div>
+        </div>
+      </div>
       {(loading || (!loading && events.length === 0)) && (
         <div className="argus-terminal-player__overlay" role="status">
           {loading
@@ -264,25 +303,32 @@ export function TerminalPlayer({
         </div>
       )}
       <div className="argus-terminal-player__controls">
-        <Button
-          aria-label={playing ? text("暂停", "Pause") : text("播放", "Play")}
-          onPress={toggle}
-          isIconOnly
-          variant="secondary"
-        >
-          {playing ? <Pause size={16} /> : <Play size={16} />}
-        </Button>
-        <Button
-          aria-label={text("从头播放", "Restart")}
-          onPress={() => {
-            setPlaying(false);
-            seek(0);
-          }}
-          isIconOnly
-          variant="ghost"
-        >
-          <RotateCcw size={16} />
-        </Button>
+        <div className="argus-terminal-player__actions">
+          <Button
+            aria-label={playing ? text("暂停", "Pause") : text("播放", "Play")}
+            title={playing ? text("暂停", "Pause") : text("播放", "Play")}
+            onPress={toggle}
+            isDisabled={!ready || !events.length}
+            isIconOnly
+            variant="primary"
+          >
+            {playing ? <Pause size={16} /> : <Play size={16} />}
+          </Button>
+          <Button
+            aria-label={text("从头播放", "Restart")}
+            title={text("从头播放", "Restart")}
+            onPress={() => {
+              setPlaying(false);
+              seek(0);
+              viewportRef.current?.scrollTo(0, 0);
+            }}
+            isDisabled={!ready || !events.length}
+            isIconOnly
+            variant="secondary"
+          >
+            <RotateCcw size={16} />
+          </Button>
+        </div>
         <RangeSlider
           label={text("录像进度", "Recording position")}
           valueText={summary}
@@ -291,8 +337,42 @@ export function TerminalPlayer({
           onChange={seek}
           step={0.1}
           value={position}
+          disabled={!ready || !events.length}
         />
-        <span className="argus-terminal-player__clock">{summary}</span>
+        <div className="argus-terminal-player__timing">
+          <span className="argus-terminal-player__clock">{summary}</span>
+          {position >= duration &&
+            renderedPosition >= duration &&
+            duration > 0 && (
+              <span className="argus-terminal-player__ended" role="status">
+                {text("回放结束", "Replay ended")}
+              </span>
+            )}
+        </div>
+        <div
+          className="argus-terminal-player__views"
+          role="group"
+          aria-label={text("画面大小", "Display size")}
+        >
+          <Button
+            variant="ghost"
+            aria-pressed={!fitRecording}
+            aria-label={text(
+              "原始字号，超出部分可滚动查看",
+              "Original font size, scroll to explore",
+            )}
+            onPress={() => setFitRecording(false)}
+          >
+            100%
+          </Button>
+          <Button
+            variant="ghost"
+            aria-pressed={fitRecording}
+            onPress={() => setFitRecording(true)}
+          >
+            {text("适应窗口", "Fit")}
+          </Button>
+        </div>
         <div
           aria-label={text("倍速", "Speed")}
           className="argus-terminal-player__speeds"
@@ -302,10 +382,7 @@ export function TerminalPlayer({
             <Button
               variant="ghost"
               aria-pressed={speed === value}
-              className={cx(
-                "argus-terminal-player__speed",
-                speed === value && "is-active",
-              )}
+              className={cx("argus-terminal-player__speed")}
               key={value}
               onPress={() => setSpeed(value)}
               type="button"
@@ -314,11 +391,6 @@ export function TerminalPlayer({
             </Button>
           ))}
         </div>
-        {position >= duration && duration > 0 && (
-          <span className="argus-terminal-player__ended">
-            {text("回放结束", "Replay ended")}
-          </span>
-        )}
       </div>
     </div>
   );

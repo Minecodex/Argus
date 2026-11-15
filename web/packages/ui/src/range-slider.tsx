@@ -32,8 +32,12 @@ export function RangeSlider({
       className="argus-range-slider"
     >
       <Slider.Track className="argus-range-slider__track">
-        <Slider.Fill />
-        <Slider.Thumb aria-label={label} aria-valuetext={valueText} />
+        <Slider.Fill className="argus-range-slider__fill" />
+        <Slider.Thumb
+          className="argus-range-slider__thumb"
+          aria-label={label}
+          aria-valuetext={valueText}
+        />
       </Slider.Track>
     </Slider>
   );

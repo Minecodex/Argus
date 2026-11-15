@@ -30,6 +30,7 @@
   --control-md: 32px;
   --control-lg: 36px;
   --control-height: var(--control-md);
+  --terminal-replay-max-height: 42dvh;
   --control-padding: 12px;
   --control-icon: 16px;
   --control-radius: 8px;

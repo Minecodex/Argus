@@ -3,9 +3,9 @@
   "schema_version": "argus.plan9_manual_review/v1",
   "created_at": "2026-10-26",
   "timezone": "Asia/Shanghai",
-  "status": "B11a_ready_for_review_with_known_historical_gap",
-  "current_run_id": "p9-b11a-20261113-01",
-  "next_suggested_batch": "B11b",
+  "status": "B11b_ready_for_review",
+  "current_run_id": "p9-b11b-20261114-01",
+  "next_suggested_batch": "B11c",
   "scope": "真实负载与正常接入驱动的分批人工界面验收",
   "documentation": {
     "entry": "README.md",
@@ -14,12 +14,12 @@
     "environment": "03-environment-and-compose.md",
     "review": "04-review-and-evidence.md",
     "first_batch": "batches/B01-linux-host.md",
-    "review_entry": "batches/B11a-review.md",
-    "issues": "23-b11a-direct-host-artifact-20261113.md",
+    "review_entry": "batches/B11b-review.md",
+    "issues": "25-b11b-isolated-bastion-member-20261114.md",
     "data_reset": "05-local-data-reset-20261026.md",
     "product_fixes": "06-b01-managed-dashboard-and-query-fixes.md",
     "review_fixes": "07-dashboard-and-alert-review-fixes.md",
-    "current_review": "batches/B11a-review.md",
+    "current_review": "batches/B11b-review.md",
     "cache_query_fixes": "08-b04-cache-views-and-metadata-scan.md",
     "delivery_and_current_alert_fixes": "14-b09b-delivery-and-current-alerts-20261110.md",
     "workbench_lifecycle_fixes": "15-b10a-workbench-lifecycle-20261111.md",
@@ -32,16 +32,17 @@
     "namespace_scope_feedback": "21-b10c-namespace-scope-error-20261113.md",
     "progressive_resource_trends": "22-b10c-progressive-resource-trends-20261113.md",
     "direct_host_artifact": "23-b11a-direct-host-artifact-20261113.md",
-    "host_list_trends": "24-b11a-host-list-trends-20261113.md"
+    "host_list_trends": "24-b11a-host-list-trends-20261113.md",
+    "bastion_member_isolation": "25-b11b-isolated-bastion-member-20261114.md"
   },
   "delivery": {
     "scenario_design": "written",
-    "compose_packages": "B01_through_B10c_retired_B11a_running_others_planned",
-    "runtime_scripts": "B11a_direct_SSH_Connector_Collector_PTY_recording_systemd_alerts",
-    "deployment": "B11a_deployed_self_checks_passed_with_historical_gap",
+    "compose_packages": "B01_through_B11a_retired_B11b_running_others_planned",
+    "runtime_scripts": "B11b_native_internal_network_TLS_Relay_Gateway_Leaf_PTY_recording_two_alert_cycles",
+    "deployment": "B11b_deployed_self_checks_passed",
     "live_api_calls": "normal_setup_login_enrollment_monitoring_dashboards_alerts",
     "real_model_calls": "not_run",
-    "human_acceptance": "B10c_accepted_B11a_pending_user_review"
+    "human_acceptance": "B11a_advanced_without_explicit_acceptance_B11b_pending_user_review"
   },
   "execution_policy": {
     "one_active_sub_batch": true,
@@ -576,20 +577,20 @@
       "id": "B11",
       "title": "堡垒机与远程连接",
       "activation": "on_user_batch_selection",
-      "status": "B11a_ready_for_review",
-      "package_status": "B11a_created",
-      "self_check": "B11a_passed_with_historical_gap",
-      "review_status": "B11a_pending",
-      "runtime_status": "B11a_running",
+      "status": "B11b_ready_for_review",
+      "package_status": "B11a_B11b_created",
+      "self_check": "B11b_passed",
+      "review_status": "B11b_pending",
+      "runtime_status": "B11b_running",
       "sub_batches": [
         {
           "id": "B11a",
-          "status": "ready_for_review",
+          "status": "retired_after_user_advance",
           "package_status": "created",
           "self_check": "passed_with_known_historical_gap",
-          "review_status": "not_reviewed",
-          "runtime_status": "running",
-          "human_acceptance": "pending",
+          "review_status": "advanced_without_explicit_acceptance",
+          "runtime_status": "destroyed",
+          "human_acceptance": "advanced_without_explicit_acceptance",
           "runs": [
             "p9-b11a-20261113-01"
           ],
@@ -608,15 +609,22 @@
             "real_browser_cases": 6,
             "formal_pvcs_preserved": 6,
             "native_collections_unchanged": true
-          }
+          },
+          "cleanup_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b11a-20261113-01/cleanup-verification.json"
         },
         {
           "id": "B11b",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
+          "status": "ready_for_review",
+          "package_status": "created",
+          "self_check": "passed",
           "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "runtime_status": "running",
+          "human_acceptance": "pending",
+          "runs": [
+            "p9-b11b-20261114-01"
+          ],
+          "handoff": "batches/B11b-review.md",
+          "evidence": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11b-20261114-01\\checks.json"
         },
         {
           "id": "B11c",
@@ -628,7 +636,8 @@
         }
       ],
       "runs": [
-        "p9-b11a-20261113-01"
+        "p9-b11a-20261113-01",
+        "p9-b11b-20261114-01"
       ]
     },
     {
@@ -1175,6 +1184,11 @@
       "run_id": "p9-b11a-20261113-01",
       "batch": "B11a",
       "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b11a-20261113-01/run.json"
+    },
+    {
+      "run_id": "p9-b11b-20261114-01",
+      "batch": "B11b",
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11b-20261114-01\\run.json"
     }
   ],
   "human_acceptances": [
@@ -1205,6 +1219,11 @@
       "run_id": "p9-b10c-20261113-01",
       "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/cleanup-verification.json",
       "status": "destroyed"
+    },
+    {
+      "run_id": "p9-b11a-20261113-01",
+      "status": "destroyed",
+      "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b11a-20261113-01/cleanup-verification.json"
     }
   ],
   "validation": {
@@ -1219,47 +1238,44 @@
     "runtime_result": "B01_deployed_with_two_open_issues"
   },
   "current_runtime_validation": {
-    "run_id": "p9-b11a-20261113-01",
+    "run_id": "p9-b11b-20261114-01",
+    "batch": "B11b",
     "status": "ready_for_review",
-    "verified_at": "2026-11-13T14:55:46.712073+00:00",
     "human_acceptance": "pending",
-    "direct_database_writes": false,
-    "synthetic_telemetry": false,
-    "host_id": "01a1d539-af94-7a20-befd-47b6f8f763f3",
-    "collector_id": "01a1d539-c80a-7341-a10a-2ce6cf4ad8b2",
-    "control_path": "direct",
-    "collector_transport": "direct",
-    "healthy_fresh_sources": {
-      "host_metrics": {
-        "freshness": "fresh",
-        "last_sample_at": "2026-11-13T14:55:35.489369Z"
-      },
-      "host_process_metrics": {
-        "freshness": "fresh",
-        "last_sample_at": "2026-11-13T14:55:35.490993Z"
-      },
-      "host_systemd_metrics": {
-        "freshness": "fresh",
-        "last_sample_at": "2026-11-13T14:55:35.530593Z"
-      },
-      "collector_metrics": {
-        "freshness": "fresh",
-        "last_sample_at": "2026-11-13T14:55:33.331Z"
-      }
+    "verified_at": "2026-11-14T04:20:04.187842+00:00",
+    "actual_hosts": 2,
+    "native_healthy_fresh_collections": 8,
+    "resource_scoped_dashboard_views": 8,
+    "nonempty_panels": 40,
+    "scope_id": "01a1d825-c5af-75bb-85ea-1e7038574bf9",
+    "hosts": {
+      "bastion": "01a1d825-c5af-75bd-a9af-171331e194b7",
+      "member": "01a1d829-4ddc-7892-a31a-dc267db0e1c5"
     },
-    "dashboards": {
-      "host.overview": 6,
-      "host.processes": 4,
-      "host.systemd": 4,
-      "collector.overview": 6
+    "control": {
+      "bastion": "direct",
+      "member": "bastion_relay"
     },
-    "nonempty_panels": 20,
+    "telemetry": {
+      "bastion": "edge_gateway/direct_argus/direct",
+      "member": "leaf/bastion_gateway/bastion_tunnel"
+    },
+    "member_direct_platform_access": false,
+    "native_fault_and_query_health_events_recovered": true,
     "browser": {
       "passed": true,
       "cases": 4,
       "normal_login": true,
-      "real_backend": true,
       "strict_tls": true,
+      "real_backend": true,
+      "hosts": [
+        "bastion",
+        "member"
+      ],
+      "protocols": [
+        "shell",
+        "ssh"
+      ],
       "locales": [
         "zh-CN",
         "en-US"
@@ -1268,197 +1284,40 @@
         "light",
         "dark"
       ],
-      "protocols": [
-        "shell",
-        "ssh"
+      "widths": [
+        1280,
+        1440,
+        1920
       ],
+      "dock_positions": [
+        "left",
+        "right",
+        "bottom"
+      ],
+      "keyboard_resize": true,
       "actual_output": [
         "hostname",
         "id",
         "ps"
       ],
-      "terminated_after_verification": true,
-      "recording_read_and_playback": true,
-      "recovered_alert_timeline": true
+      "recording_replay": true,
+      "alert_timeline": true
     },
-    "verified_recordings": 4,
-    "all_test_sessions_closed": true,
-    "alert_cycle": {
-      "id": "08f342b0-5235-4df9-ab89-1dd09b081cdd",
-      "policy_id": "86946b52-3808-5b22-85de-5a88cd454196",
-      "started_at": "2026-11-13T14:34:10Z",
-      "resolved_at": "2026-11-13T14:34:40Z",
-      "lifecycle": "resolved",
-      "threshold": 0.5,
-      "failed_value": 1,
-      "recovered_value": 0
-    },
-    "current_owned_alerts": 1,
-    "current_owned_condition_or_query_health_alerts": 0,
-    "historical_delivery_gaps": [
-      "f81a4313-1e38-440d-b241-2c7ff6218330"
-    ],
-    "delivery_watch": {
-      "passed": true,
-      "started_at": "2026-11-13T14:53:34.435554+00:00",
-      "ended_at": "2026-11-13T14:55:36.856257+00:00",
-      "watch_seconds": 120,
-      "observations": [
-        {
-          "schema_version": "argus.collector_delivery/v1",
-          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
-          "sequence": 101,
-          "observed_since": "2026-11-13T14:29:45.826509863Z",
-          "observed_at": "2026-11-13T14:53:33.490228255Z",
-          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
-          "terminal_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 1999
-          },
-          "receiver_refusals": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "enqueue_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "retry_limit_seconds": 300,
-          "attribution": "collector_shared_pipeline_exact_targets_unknown"
-        },
-        {
-          "schema_version": "argus.collector_delivery/v1",
-          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
-          "sequence": 103,
-          "observed_since": "2026-11-13T14:29:45.826509863Z",
-          "observed_at": "2026-11-13T14:54:03.489883278Z",
-          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
-          "terminal_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 1999
-          },
-          "receiver_refusals": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "enqueue_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "retry_limit_seconds": 300,
-          "attribution": "collector_shared_pipeline_exact_targets_unknown"
-        },
-        {
-          "schema_version": "argus.collector_delivery/v1",
-          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
-          "sequence": 105,
-          "observed_since": "2026-11-13T14:29:45.826509863Z",
-          "observed_at": "2026-11-13T14:54:33.487446645Z",
-          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
-          "terminal_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 1999
-          },
-          "receiver_refusals": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "enqueue_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "retry_limit_seconds": 300,
-          "attribution": "collector_shared_pipeline_exact_targets_unknown"
-        },
-        {
-          "schema_version": "argus.collector_delivery/v1",
-          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
-          "sequence": 107,
-          "observed_since": "2026-11-13T14:29:45.826509863Z",
-          "observed_at": "2026-11-13T14:55:03.486673403Z",
-          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
-          "terminal_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 1999
-          },
-          "receiver_refusals": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "enqueue_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "retry_limit_seconds": 300,
-          "attribution": "collector_shared_pipeline_exact_targets_unknown"
-        },
-        {
-          "schema_version": "argus.collector_delivery/v1",
-          "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
-          "sequence": 109,
-          "observed_since": "2026-11-13T14:29:45.826509863Z",
-          "observed_at": "2026-11-13T14:55:33.485308333Z",
-          "last_failure_at": "2026-11-13T14:30:03.424712211Z",
-          "terminal_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 1999
-          },
-          "receiver_refusals": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "enqueue_failures": {
-            "log_records": 0,
-            "spans": 0,
-            "metric_points": 0
-          },
-          "retry_limit_seconds": 300,
-          "attribution": "collector_shared_pipeline_exact_targets_unknown"
-        }
-      ],
-      "new_terminal_failures": 0,
-      "new_enqueue_failures": 0,
-      "new_receiver_refusals": 0,
-      "historical_metric_points_preserved": 1999,
-      "historical_gap_handled": false,
-      "last_failure_at": "2026-11-13T14:30:03.424712211Z"
-    },
-    "known_issues": [
-      "B11a-D01: setup SOURCE_REJECTED, 1999 historical lost metric points; retained without acknowledgement"
-    ],
+    "verified_encrypted_recordings": 4,
+    "test_sessions_closed": true,
+    "current_owned_alerts": 0,
+    "delivery_watch_seconds": 120,
+    "terminal_failures": 0,
+    "enqueue_failures": 0,
+    "receiver_refusals": 0,
     "formal_health_checks": 20,
     "formal_pvcs_preserved": 6,
+    "direct_database_writes": false,
+    "synthetic_telemetry": false,
     "shared_kernel_scope": true,
-    "grant_valid_until": "2026-11-20T14:31:41.653793Z",
-    "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11a-20261113-01\\checks.json",
-    "scope": "B11a_real_direct_linux_host_monitoring_Shell_OpenSSH_recordings_and_alerts",
-    "known_issue_record": "batches/B11a-review.md#已知问题-b11a-d01启动期历史投递缺口",
-    "host_list_trends": {
-      "status": "verified_deployed_pending_user_review",
-      "human_acceptance": "pending",
-      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11a-20261113-01\\host-list-trends-v1\\final-review.json",
-      "web_image": "host.docker.internal:5001/argus/argus-web:local-20261113-b11a-host-list-v3@sha256:3d49c8bcfb2d834d26de5fd4fa462a2b02df44dfccaca10ceb08bc38dcc83603",
-      "unit_and_component_checks": 17,
-      "mock_browser_cases": 12,
-      "real_browser_cases": 6,
-      "formal_pvcs_preserved": 6,
-      "native_collections_unchanged": true
-    },
-    "latest_web_image": "host.docker.internal:5001/argus/argus-web:local-20261113-b11a-host-list-v3@sha256:3d49c8bcfb2d834d26de5fd4fa462a2b02df44dfccaca10ceb08bc38dcc83603"
+    "grant_valid_until": "2026-11-21T03:58:55.225079Z",
+    "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11b-20261114-01\\checks.json",
+    "scope": "B11b_isolated_private_member_Bastion_TLS_Relay_Gateway_Leaf_monitoring_terminal_and_alerts"
   },
   "runtime_validation_history": [
     {
@@ -1609,6 +1468,249 @@
         "B10c-UI01",
         "B10c-UI02"
       ]
+    },
+    {
+      "run_id": "p9-b11a-20261113-01",
+      "status": "retired_after_user_advance",
+      "verified_at": "2026-11-13T14:55:46.712073+00:00",
+      "human_acceptance": "advanced_without_explicit_acceptance",
+      "direct_database_writes": false,
+      "synthetic_telemetry": false,
+      "host_id": "01a1d539-af94-7a20-befd-47b6f8f763f3",
+      "collector_id": "01a1d539-c80a-7341-a10a-2ce6cf4ad8b2",
+      "control_path": "direct",
+      "collector_transport": "direct",
+      "healthy_fresh_sources": {
+        "host_metrics": {
+          "freshness": "fresh",
+          "last_sample_at": "2026-11-13T14:55:35.489369Z"
+        },
+        "host_process_metrics": {
+          "freshness": "fresh",
+          "last_sample_at": "2026-11-13T14:55:35.490993Z"
+        },
+        "host_systemd_metrics": {
+          "freshness": "fresh",
+          "last_sample_at": "2026-11-13T14:55:35.530593Z"
+        },
+        "collector_metrics": {
+          "freshness": "fresh",
+          "last_sample_at": "2026-11-13T14:55:33.331Z"
+        }
+      },
+      "dashboards": {
+        "host.overview": 6,
+        "host.processes": 4,
+        "host.systemd": 4,
+        "collector.overview": 6
+      },
+      "nonempty_panels": 20,
+      "browser": {
+        "passed": true,
+        "cases": 4,
+        "normal_login": true,
+        "real_backend": true,
+        "strict_tls": true,
+        "locales": [
+          "zh-CN",
+          "en-US"
+        ],
+        "themes": [
+          "light",
+          "dark"
+        ],
+        "protocols": [
+          "shell",
+          "ssh"
+        ],
+        "actual_output": [
+          "hostname",
+          "id",
+          "ps"
+        ],
+        "terminated_after_verification": true,
+        "recording_read_and_playback": true,
+        "recovered_alert_timeline": true
+      },
+      "verified_recordings": 4,
+      "all_test_sessions_closed": true,
+      "alert_cycle": {
+        "id": "08f342b0-5235-4df9-ab89-1dd09b081cdd",
+        "policy_id": "86946b52-3808-5b22-85de-5a88cd454196",
+        "started_at": "2026-11-13T14:34:10Z",
+        "resolved_at": "2026-11-13T14:34:40Z",
+        "lifecycle": "resolved",
+        "threshold": 0.5,
+        "failed_value": 1,
+        "recovered_value": 0
+      },
+      "current_owned_alerts": 1,
+      "current_owned_condition_or_query_health_alerts": 0,
+      "historical_delivery_gaps": [
+        "f81a4313-1e38-440d-b241-2c7ff6218330"
+      ],
+      "delivery_watch": {
+        "passed": true,
+        "started_at": "2026-11-13T14:53:34.435554+00:00",
+        "ended_at": "2026-11-13T14:55:36.856257+00:00",
+        "watch_seconds": 120,
+        "observations": [
+          {
+            "schema_version": "argus.collector_delivery/v1",
+            "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+            "sequence": 101,
+            "observed_since": "2026-11-13T14:29:45.826509863Z",
+            "observed_at": "2026-11-13T14:53:33.490228255Z",
+            "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+            "terminal_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 1999
+            },
+            "receiver_refusals": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "enqueue_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "retry_limit_seconds": 300,
+            "attribution": "collector_shared_pipeline_exact_targets_unknown"
+          },
+          {
+            "schema_version": "argus.collector_delivery/v1",
+            "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+            "sequence": 103,
+            "observed_since": "2026-11-13T14:29:45.826509863Z",
+            "observed_at": "2026-11-13T14:54:03.489883278Z",
+            "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+            "terminal_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 1999
+            },
+            "receiver_refusals": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "enqueue_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "retry_limit_seconds": 300,
+            "attribution": "collector_shared_pipeline_exact_targets_unknown"
+          },
+          {
+            "schema_version": "argus.collector_delivery/v1",
+            "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+            "sequence": 105,
+            "observed_since": "2026-11-13T14:29:45.826509863Z",
+            "observed_at": "2026-11-13T14:54:33.487446645Z",
+            "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+            "terminal_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 1999
+            },
+            "receiver_refusals": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "enqueue_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "retry_limit_seconds": 300,
+            "attribution": "collector_shared_pipeline_exact_targets_unknown"
+          },
+          {
+            "schema_version": "argus.collector_delivery/v1",
+            "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+            "sequence": 107,
+            "observed_since": "2026-11-13T14:29:45.826509863Z",
+            "observed_at": "2026-11-13T14:55:03.486673403Z",
+            "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+            "terminal_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 1999
+            },
+            "receiver_refusals": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "enqueue_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "retry_limit_seconds": 300,
+            "attribution": "collector_shared_pipeline_exact_targets_unknown"
+          },
+          {
+            "schema_version": "argus.collector_delivery/v1",
+            "instance_id": "a35a264b05ea38095235ede41a4a0d3c",
+            "sequence": 109,
+            "observed_since": "2026-11-13T14:29:45.826509863Z",
+            "observed_at": "2026-11-13T14:55:33.485308333Z",
+            "last_failure_at": "2026-11-13T14:30:03.424712211Z",
+            "terminal_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 1999
+            },
+            "receiver_refusals": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "enqueue_failures": {
+              "log_records": 0,
+              "spans": 0,
+              "metric_points": 0
+            },
+            "retry_limit_seconds": 300,
+            "attribution": "collector_shared_pipeline_exact_targets_unknown"
+          }
+        ],
+        "new_terminal_failures": 0,
+        "new_enqueue_failures": 0,
+        "new_receiver_refusals": 0,
+        "historical_metric_points_preserved": 1999,
+        "historical_gap_handled": false,
+        "last_failure_at": "2026-11-13T14:30:03.424712211Z"
+      },
+      "known_issues": [
+        "B11a-D01: setup SOURCE_REJECTED, 1999 historical lost metric points; retained without acknowledgement"
+      ],
+      "formal_health_checks": 20,
+      "formal_pvcs_preserved": 6,
+      "shared_kernel_scope": true,
+      "grant_valid_until": "2026-11-20T14:31:41.653793Z",
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11a-20261113-01\\checks.json",
+      "scope": "B11a_real_direct_linux_host_monitoring_Shell_OpenSSH_recordings_and_alerts",
+      "known_issue_record": "batches/B11a-review.md#已知问题-b11a-d01启动期历史投递缺口",
+      "host_list_trends": {
+        "status": "verified_deployed_pending_user_review",
+        "human_acceptance": "pending",
+        "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11a-20261113-01\\host-list-trends-v1\\final-review.json",
+        "web_image": "host.docker.internal:5001/argus/argus-web:local-20261113-b11a-host-list-v3@sha256:3d49c8bcfb2d834d26de5fd4fa462a2b02df44dfccaca10ceb08bc38dcc83603",
+        "unit_and_component_checks": 17,
+        "mock_browser_cases": 12,
+        "real_browser_cases": 6,
+        "formal_pvcs_preserved": 6,
+        "native_collections_unchanged": true
+      },
+      "latest_web_image": "host.docker.internal:5001/argus/argus-web:local-20261113-b11a-host-list-v3@sha256:3d49c8bcfb2d834d26de5fd4fa462a2b02df44dfccaca10ceb08bc38dcc83603",
+      "cleanup_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b11a-20261113-01/cleanup-verification.json"
     }
   ]
 }
