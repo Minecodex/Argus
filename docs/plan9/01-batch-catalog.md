@@ -105,8 +105,9 @@ Kafka 的 lag 必须确有消费组提交位点；不从生产速率猜测积压
 ## B11：堡垒机与远程连接
 
 - B11a：测试 Linux 主机的真实 SSH/命令安装、身份注册和远程终端；执行 hostname、id、只读进程查看等，保留返回与审计。
-- 当前 B11a 已实际部署一个 `direct` Linux 主机，接好 Shell/OpenSSH、四类原生监控、四套默认仪表盘和真实服务告警；[查看记录](./batches/B11a-review.md) / [运行包](./runtime/B11a/runbook.md)。启动配置阶段的历史投递缺口保留，单列已知问题 B11a-D01。
+- B11a 已按用户要求推进后封存并清理；[历史记录](./batches/B11a-review.md) 保留四套仪表盘、直连终端及启动期投递缺口 B11a-D01。
 - B11b：堡垒机＋内网成员，网络实际阻止成员直达 Argus；通过堡垒机接入、TLS Relay/数据路径、成员监控和人工终端。仅设置一个“内网”标签不算网络隔离。
+- 当前 B11b 已部署并保留运行，采用 `bastion_relay` 控制和 `bastion_gateway/bastion_tunnel` 成员遥测；8 项采集、40 面板、真实 Shell/OpenSSH/录像及业务/no_data 告警均已自检。[查看记录](./batches/B11b-review.md) / [运行包](./runtime/B11b/runbook.md)。
 - B11c：按现有支持路径验证 Executor Tunnel/堡垒机隧道、重连、凭据轮换、过期预览拒绝、断连恢复；精确记录实际使用的控制和遥测路由。
 - 仪表盘/页面：堡垒机/成员列表、安装任务、主机/Collector 监控、Terminal Dock 的底/左/右停靠和缩放、会话状态、录像/回放、审计和适用文件能力。
 - 告警：本批专用服务/探测指标触发，比较连接故障与数据失联诊断；不能用“堡垒机在线”证明成员监控在线。

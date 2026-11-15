@@ -29,7 +29,7 @@ def dashboards(batch):
         binding=batch.api.call('GET',path)
         if not any(item['dashboard']['id']==board['id'] for item in binding['items']):
             batch.api.confirm(batch.api.call('POST',path+'/preview',{'operation':'attach','dashboard_id':board['id'],
-                'expected_dashboard_version':board['version'],'expected_resource_version':binding['resource_version']},key='bind-'+key,expected=201))
+                'expected_dashboard_version':board['version'],'expected_resource_version':binding['resource_version']},key='bind-'+key+'-'+batch.host,expected=201))
         batch.map['dashboards'][key]={'id':board['id'],'name':board['name']};batch.save()
         for attempt in range(12):
             end=datetime.now(timezone.utc)

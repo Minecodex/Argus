@@ -12,7 +12,40 @@
 }
 .argus-recording-detail {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: var(--field-gap);
+}
+.argus-recording-detail > * {
+  min-width: 0;
+}
+.argus-recording-dialog .argus-dialog__body,
+.argus-recording-dialog .argus-recording-detail,
+.argus-recording-tabs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.argus-recording-dialog .argus-recording-detail,
+.argus-recording-tabs,
+.argus-recording-replay > .argus-terminal-player {
+  flex: 1 1 auto;
+}
+.argus-recording-dialog .argus-recording-meta,
+.argus-recording-tabs > .argus-tabs__list-container {
+  flex-shrink: 0;
+}
+.argus-recording-replay {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.argus-recording-meta.argus-recording-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: var(--card-padding);
+  border: var(--space-px-1) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  background: var(--bg-canvas);
 }
 .argus-recording-meta {
   display: grid;
