@@ -10,6 +10,7 @@ import (
 type ContextSource struct {
 	Snapshot                      *db.ContextSnapshot
 	FromSequence, ThroughSequence int64
+	RehydratedCallIDs             []string
 }
 
 func (source ContextSource) snapshotID() uuid.NullUUID {

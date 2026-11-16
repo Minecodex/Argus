@@ -46,3 +46,27 @@ func TestActiveTurnCompactionKeepsCompleteToolGroups(t *testing.T) {
 		t.Fatal("active approval was moved into a narrative summary")
 	}
 }
+
+func TestActiveTurnCompactionAcceptsFinalCompleteGroupWithoutInventingEvent(t *testing.T) {
+	events := []db.ConversationEvent{
+		{Sequence: 58, EventType: "tool_presentation", Payload: json.RawMessage(`{}`)},
+		{Sequence: 59, EventType: "context_compacted", Payload: json.RawMessage(`{}`)},
+		{Sequence: 65, EventType: "assistant_message", Payload: json.RawMessage(`{"tool_calls":[{"id":"last","name":"bash","arguments":"{}"}]}`)},
+		{Sequence: 66, EventType: "tool_call_result", Payload: json.RawMessage(`{"tool_call_id":"last","projection":{"summary":{"exit_code":0}}}`)},
+	}
+	for _, input := range [][]db.ConversationEvent{events, events[2:]} {
+		through, kept, ok := chooseActiveTurnBoundary(input, nil)
+		if !ok || through != 66 || kept != 67 {
+			t.Fatalf("final complete boundary = %d/%d, %v", through, kept, ok)
+		}
+	}
+	for _, invalid := range [][]db.ConversationEvent{
+		events[:3],
+		{events[3]},
+		{events[2], {Sequence: 66, EventType: "tool_call_result", Payload: json.RawMessage(`{"tool_call_id":"different"}`)}},
+	} {
+		if _, _, ok := chooseActiveTurnBoundary(invalid, nil); ok {
+			t.Fatal("incomplete or mismatched final group was compacted")
+		}
+	}
+}

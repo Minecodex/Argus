@@ -92,6 +92,14 @@ func TestOnboardingPreflightPostgres(t *testing.T) {
 		t.Fatalf("missing callback proof persisted as %s/%s", missing.Status, missing.ErrorCode.String)
 	}
 	valid := makeTest("direct", true)
+	tunneled := makeTest("executor_tunnel", true)
+	credential, err := store.Queries.GetCredential(ctx, db.GetCredentialParams{ID: credentialID, EnterpriseID: enterpriseID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !validReconnectTest(tunneled, db.Host{Platform: input.Platform, PinnedHostKey: "SHA256:callback-host"}, db.ConnectorControlTunnel{TargetAddress: input.Address, TargetPort: input.Port, TargetUsername: input.Username}, credential, actorID) {
+		t.Fatal("real persisted jsonb callback proof rejected by reconnect")
+	}
 	input.ConnectionTestID = uuid.NullUUID{UUID: valid.ID, Valid: true}
 	bastionInput.ConnectionTestID = input.ConnectionTestID
 	if _, _, err := bastions.validateDirectInstallInput(ctx, store.Queries, enterpriseID, bastionInput); err != nil {

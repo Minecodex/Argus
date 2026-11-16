@@ -217,12 +217,13 @@ func mergeConditions(old dashboardparams.State, patch dashboardparams.Patch, evi
 		}
 	}
 	if len(paths) > 128 || len(evidence) != len(paths) {
-		return state, conditionEvidenceRequired(paths)
+		return state, conditionEvidenceIssue(paths, "/evidence", "one_entry_per_changed_condition")
 	}
 	seen := map[string]bool{}
-	for _, ref := range evidence {
+	for index, ref := range evidence {
+		field := fmt.Sprintf("/evidence/%d", index)
 		if !slices.Contains(paths, ref.Path) || seen[ref.Path] || len(ref.Quote) > 2048 || len(ref.Reason) > 2048 {
-			return state, conditionEvidenceRequired(paths)
+			return state, conditionEvidenceIssue(paths, field+"/path", "unique_changed_condition_path")
 		}
 		origin := ref.Origin
 		if origin == "" {
@@ -231,11 +232,11 @@ func mergeConditions(old dashboardparams.State, patch dashboardparams.Patch, evi
 		switch origin {
 		case "message_interpretation":
 			if strings.TrimSpace(ref.Quote) == "" || !strings.Contains(message, ref.Quote) {
-				return state, conditionEvidenceRequired(paths)
+				return state, conditionEvidenceIssue(paths, field+"/quote", "exact_excerpt_from_current_user_message")
 			}
 		case "ai_selection":
 			if strings.TrimSpace(ref.Reason) == "" || ref.Quote != "" && !strings.Contains(message, ref.Quote) {
-				return state, conditionEvidenceRequired(paths)
+				return state, conditionEvidenceIssue(paths, field+"/reason", "nonempty_reason_and_valid_optional_quote")
 			}
 			for path, prior := range old.Evidence {
 				if (path == ref.Path || ref.Path == "/") && prior.Origin != "ai_selection" {

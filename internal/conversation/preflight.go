@@ -112,6 +112,11 @@ func (service Service) Preflight(ctx context.Context, enterpriseID, ownerID, con
 	}
 	facts = WithModelRuntimeFacts(facts, c.Mode, set.Snapshot, set.Models(), time.Now())
 	facts["query_evidence"] = toolruntime.NativeQueryEvidenceFacts([]any{}, true)
+	facts["tool_discovery"] = toolruntime.EmptyDiscoveryFacts(uuid.Nil.String())
+	facts["context_references"], err = toolruntime.ContextFacts(ctx, service.Tools, toolruntime.ContextRequest{Principal: p, ThroughSequence: c.EventSequence})
+	if err != nil {
+		return Preflight{}, err
+	}
 	if service.RemoteFacts != nil {
 		snapshot, err := json.Marshal(set.Snapshot)
 		if err != nil {

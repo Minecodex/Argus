@@ -1,6 +1,16 @@
 # Plan9：分批真实场景与人工验收
 
-创建日期：2026-10-26。当前阶段为 **B11a 已按用户推进指令封存并清理，B11b 已部署且自检通过，保留堡垒机与私网成员供查看**。[B11b 查看记录](./batches/B11b-review.md) 提供真实网络隔离、TLS Relay、Gateway/Leaf、终端录像、40 个面板和两类告警恢复窗口。B11b 人工验收待用户确认，B11a 的历史投递缺口保留。
+创建日期：2026-10-26。当前为 **B12：真实模型聊天与操作闭环**，新 Host、Redis、HTTP 服务、31 面板及 APIMart `glm-5.3-flash` 已接入，真实查询、Workspace 分析/下载、取消与确认执行/恢复均完成自检，等待人工查看。[B12 查看路线](./batches/B12-review.md)，状态以 [progress.json](./progress.json) 为准。
+
+2026-11-16 用户确认 B11c“没问题，开始下一轮”后，已正常卸载并清理 B11c，保留原审计、告警、录像和失败用量；下一批 B13 未启动。B12 的模型上下文配置与初次压缩失败、工具自纠和后续实际成功记录均保留，不写为全程零失败。
+
+2026-11-16：[B12 通用上下文正式接入与复验](./32-b12-generic-context-runtime-20261116.md)已部署。完整引用、工具/任务事实、版本与证据错误反馈及历史卡片已修复，真实压缩后的六面板统计和 CSV 校核通过；模型仍有重复查询，调用效率及自动停止门禁未全通过，保留全部失败和用量，人工验收继续 pending。
+
+随后按用户要求[重新执行B12并测量成功率/Token](./33-b12-session-rerun-metrics-20261116.md)：补足本地Sandbox额度后，工具成功率56.10%→91.30%，账面Token减少22.93%；但查询Run仍压缩恢复失败、报告区间值有误。计入此次额度阻断尝试，Token实际增加66.87%，因此未认定有效降耗或整体验收通过。
+
+随后已[修复尾部完整组压缩与整轮请求预算](./34-b12-compaction-recovery-fix-20261116.md)，部署v4；原事件回放、数据库生命周期与真实B12两个Run均通过，9次实际压缩没有恢复失败。原件/CSV校核及真实页面通过，模型命令速率/命中率语义混淆仍保留，未宣称整体验收或Token降耗通过。
+
+2026-11-16 按“执行 B11c”复用原环境恢复八小时真实负载，并重新通过八项采集、40 面板、四条真实会话/录像、20 项正式健康及 120 秒投递观察；历史缺口计数未增长。最新证据和查看说明已追加到上述 B11c 查看路线，人工验收仍待用户确认。
 
 2026-11-14：[B11b 终端录像播放器布局与主题修复](./26-terminal-recording-player-layout-20261114.md)，统一处理录像画面溢出、控制栏对齐和浅色主题的按钮对比度。
 
@@ -24,7 +34,7 @@ B09a 使用独立 Kubernetes 集群运行实际业务工作负载，接入原生
 
 B09b 已完成真实控制面组件验证并按用户下一批指令退役，修复结果和历史见 [B09b 记录](./batches/B09b-review.md)。
 
-B10a、B10b、B10c、B11a 已清理，原始反馈与修复证据保留。[B10c 历史记录](./batches/B10c-review.md) 保留 Helm/OCI、CR/RBAC、PDB/节点迁移及人工确认。[当前 B11b 查看入口](./batches/B11b-review.md) 提供实际堡垒机、隔离成员、终端、录像、监控和数据健康诊断。B11a 的直连与列表调整见 [历史记录](./batches/B11a-review.md)。
+B10a、B10b、B10c、B11a、B11b 均已清理，原始反馈与源码中的修复记录保留。[B10c 历史记录](./batches/B10c-review.md) 记录 Helm/OCI、CR/RBAC、PDB/节点迁移及人工确认；[B11b 历史记录](./batches/B11b-review.md) 记录堡垒机、私网成员、终端录像和数据健康诊断。历史资源链接不代表清理后仍可访问；B11a 的直连与列表调整见 [历史记录](./batches/B11a-review.md)。
 
 2026-11-10，按完整一小时反馈补齐[节点/API Server 查询预算与延迟口径修正](./12-kubernetes-hour-window-query-20261110.md)，12 个面板、4 项真实中英明暗页面及健康 20/20 通过，当前版本见该记录。
 
@@ -32,8 +42,17 @@ B10a、B10b、B10c、B11a 已清理，原始反馈与修复证据保留。[B10c 
 
 | 文档 | 用途 |
 | --- | --- |
-| [B11b 当前记录](./batches/B11b-review.md) | 真私网隔离、TLS Relay、Gateway/Leaf、终端录像及两类告警 |
+| [B11b 历史记录](./batches/B11b-review.md) | 已在账号保留重部署时退役，保留原验证与人工结论 |
 | [B11b 运行包](./runtime/B11b/runbook.md) | 两主机、正常 SSH/Relay 接入、稳定观察和成员先行清理 |
+| [B11c 当前记录](./batches/B11c-review.md) | Executor Tunnel/成员隧道、真实轮换、过期拒绝、断线和远程会话 |
+| [B11c 运行包](./runtime/B11c/runbook.md) | 两台受限主机、正常接入、故障/恢复与成员先行清理 |
+| [B11c 重连修复](./27-b11c-tunnel-reconnect-20261115.md) | jsonb 证明校验、server/worker 发布、原失败与历史数据缺口 |
+| [B11c 清理依赖修正](./28-b11c-retirement-dependencies-20261116.md) | 已验证退役依赖的只读投影与正常卸载证据 |
+| [B12 当前记录](./batches/B12-review.md) | 真实 APIMart、指标与仪表盘、Workspace、取消和确认恢复 |
+| [会话文件统一预览](./29-b12-file-previews-20261116.md) | CSV/TSV 表格、MIME Markdown、JSON 精度、图片及其他文件类型 |
+| [B12 工具失败根因核对](./30-b12-tool-failure-analysis-20261116.md) | 18次历史失败、条件契约、压缩路径损坏及笼统错误卡片；诊断未修复 |
+| [B12 压缩断点原型对照](./31-b12-compaction-controlled-comparison-20261116.md) | 同一真实数据/模型的两组对照、用量与限制；未接入正式 Harness |
+| [B12 运行包](./runtime/B12/runbook.md) | 真实 Host/Redis/HTTP、有限模型预算、故障与后续清理 |
 | [B11b 隔离与安装记录](./25-b11b-isolated-bastion-member-20261114.md) | 私网套接字证据、暂存目录/沙箱前件与原位重试 |
 | [B11a 历史记录（已清理）](./batches/B11a-review.md) | Linux 直连、Shell/OpenSSH、录像、监控及告警 |
 | [B11a 运行包](./runtime/B11a/runbook.md) | systemd/SSH、原生 TLS 端点、真实故障、归属清理 |

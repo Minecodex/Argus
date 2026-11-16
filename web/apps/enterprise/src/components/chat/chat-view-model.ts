@@ -2,12 +2,14 @@ import type { ConversationEvent } from "@argus/api-client/contracts";
 import { timelineFromEvents } from "./chat-timeline";
 import { parseSourceToolDisplay, type ToolDisplay } from "./tool-display";
 import { parseChatTaskScope, type ChatTaskScope } from "./task-scope";
+import { requestedToolLabel } from "./tool-error";
 export type MessageRole = "user" | "assistant" | "system";
 
 export interface ToolCallTrace {
   display?: ToolDisplay;
   callId: string;
   toolName: string;
+  requestedTarget?: string;
   source?: string;
   status: "running" | "success" | "failed";
   summary?: string;
@@ -146,6 +148,7 @@ export function chatMessageFromPublic(value: unknown): ChatMessage | null {
           {
             callId,
             toolName,
+            requestedTarget: requestedToolLabel(toolName, item.input),
             source: stringValue(item.source),
             status,
             startedAt,

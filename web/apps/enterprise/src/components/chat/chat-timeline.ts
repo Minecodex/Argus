@@ -4,6 +4,7 @@ import { hasChatContent } from "./chat-content";
 import { coalesceRemoteCommands } from "./remote-command-timeline";
 import { parseToolEventDisplay } from "./tool-display";
 import { parseChatTaskScope } from "./task-scope";
+import { requestedToolLabel } from "./tool-error";
 import {
   appendFileEntry,
   fileEntryFromEvent,
@@ -135,6 +136,7 @@ export function timelineFromEvents(
         continue;
       const trace: ToolCallTrace = {
         callId: id,
+        requestedTarget: requestedToolLabel(requested?.name, requested?.input),
         display: parseToolEventDisplay(payload),
         source: string(payload.source),
         toolName:

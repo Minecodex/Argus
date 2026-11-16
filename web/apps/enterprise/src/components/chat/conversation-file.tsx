@@ -2,18 +2,17 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError, formatApiError, useApi } from "@argus/api-client";
-import { Dialog, FileCard, FileRow, FileTextPreview } from "@argus/ui";
+import {
+  Dialog,
+  FileCard,
+  FileRow,
+  FileTextPreview,
+  FileImagePreview,
+  filePreviewKind,
+  readFilePreview,
+  FilePreviewContentError,
+} from "@argus/ui";
 import type { ChatFile } from "./chat-view-model";
-
-async function text(blob: Blob): Promise<string> {
-  if (typeof blob.text === "function") return blob.text();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsText(blob);
-  });
-}
 
 export function ConversationFile({
   file,
@@ -60,16 +59,8 @@ export function ConversationFile({
       ? `${t("chat.files.queryManifest")}.json`
       : `${panelTitle ?? storedFile.panel_id ?? t("chat.files.queryData")} · ${t("chat.files.queryData")}.json`
     : file.name;
-  const mediaType = file.media_type?.split(";")[0]?.trim().toLowerCase();
-  const previewable = mediaType
-    ? /^text\//.test(mediaType) ||
-      /^application\/(json|xml|x-ndjson|javascript|yaml|x-yaml)$/.test(
-        mediaType,
-      ) ||
-      /^application\/[\w.+-]+\+(json|xml)$/.test(mediaType)
-    : /\.(md|markdown|json|jsonl|txt|log|csv|tsv|yaml|yml|xml|html|sql|sh|ps1|py|js|ts)$/i.test(
-        file.name,
-      );
+  const format = filePreviewKind(file.name, file.media_type, file.path);
+  const previewable = format !== "unsupported";
   const content = useQuery({
     queryKey: [
       "workspace-preview",
@@ -79,8 +70,10 @@ export function ConversationFile({
       file.content_hash,
     ],
     queryFn: async ({ signal }) =>
-      text(
+      readFilePreview(
         await api.workspace.readContent(conversationId, file.id, kind, signal),
+        format,
+        file.media_type,
       ),
     enabled: open && previewable,
     retry: false,
@@ -131,19 +124,29 @@ export function ConversationFile({
           <p>{t("chat.files.previewUnsupported")}</p>
         ) : content.isError ? (
           <p role="alert">
-            {content.error instanceof ApiError &&
-            content.error.code === "WORKSPACE_PREVIEW_TOO_LARGE"
-              ? t("chat.files.previewTooLarge")
-              : formatApiError(
-                  content.error,
-                  t("chat.files.previewFailed"),
-                  (id) => t("common.requestReference", { requestId: id }),
-                )}
+            {content.error instanceof FilePreviewContentError
+              ? t("chat.files.previewInvalidContent")
+              : content.error instanceof ApiError &&
+                  content.error.code === "WORKSPACE_PREVIEW_TOO_LARGE"
+                ? t("chat.files.previewTooLarge")
+                : formatApiError(
+                    content.error,
+                    t("chat.files.previewFailed"),
+                    (id) => t("common.requestReference", { requestId: id }),
+                  )}
           </p>
-        ) : content.isPending ? (
+        ) : content.isPending || content.isFetching ? (
           <p role="status">{t("chat.files.loading")}</p>
+        ) : content.data?.kind === "image" ? (
+          <FileImagePreview blob={content.data.blob} name={file.name} />
         ) : (
-          <FileTextPreview name={file.name} content={content.data ?? ""} />
+          <FileTextPreview
+            key={file.id}
+            name={file.name}
+            path={file.path}
+            mediaType={file.media_type}
+            content={content.data?.text ?? ""}
+          />
         )}
       </Dialog>
     </>

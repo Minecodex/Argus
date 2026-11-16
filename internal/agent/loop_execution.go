@@ -189,6 +189,9 @@ func (loop Loop) executePersistedTool(ctx context.Context, run db.Run, set *tool
 }
 
 func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.ToolCall, result toolruntime.Result, invokeErr error) (toolExecutionResult, error) {
+	if record.Source != "argus" && record.Source != "sandbox" {
+		result.ContextFacts = nil
+	}
 	if err := assertTaskLease(ctx); err != nil {
 		return toolExecutionResult{}, err
 	}
@@ -259,7 +262,7 @@ func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.T
 		}
 		event, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true},
 			StepID: uuid.NullUUID{UUID: record.StepID, Valid: true}, Type: "tool_call_result", ActorType: "service", Payload: map[string]any{"tool_call_id": record.ID.String(), "tool_id": record.ToolID,
-				"authorization_scope": scope, "target_tool_id": target, "source": record.Source, "status": status, "result_ref": resultRef, "projection": json.RawMessage(projection), "display": result.Display}, ArtifactRef: resultRef, Classification: "internal"})
+				"authorization_scope": scope, "target_tool_id": target, "source": record.Source, "status": status, "result_ref": resultRef, "projection": json.RawMessage(projection), "display": result.Display, "context_facts": result.ContextFacts}, ArtifactRef: resultRef, Classification: "internal"})
 		if err != nil {
 			return err
 		}

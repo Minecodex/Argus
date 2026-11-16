@@ -29,7 +29,7 @@ func (compactor Compactor) activeTurnBoundary(ctx context.Context, run db.Run, e
 }
 
 func chooseActiveTurnBoundary(events []db.ConversationEvent, protected map[string]bool) (through, firstKept int64, ok bool) {
-	if len(events) < 3 {
+	if len(events) < 2 {
 		return 0, 0, false
 	}
 	total := 0
@@ -65,12 +65,17 @@ func chooseActiveTurnBoundary(events []db.ConversationEvent, protected map[strin
 			}
 			delete(pending, payload.ID)
 		}
-		if index+1 >= len(events) || len(pending) != 0 {
+		if len(pending) != 0 {
 			continue
 		}
 		complete := event.EventType == "tool_call_result" || event.EventType == "model_usage" || event.EventType == "assistant_message" && len(payload.Calls) == 0
 		if complete {
-			through, firstKept, ok = event.Sequence, events[index+1].Sequence, true
+			// A complete final group is a legal prefix too. Its next sequence
+			// need not already exist: user inputs are restored from the ledger.
+			through, firstKept, ok = event.Sequence, event.Sequence+1, true
+			if index+1 < len(events) {
+				firstKept = events[index+1].Sequence
+			}
 			if consumed >= total/2 {
 				return through, firstKept, true
 			}

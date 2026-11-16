@@ -73,11 +73,12 @@ type Call struct {
 }
 
 type Result struct {
-	Control    *toolruntime.Control
-	Structured map[string]any
-	Private    map[string]any
-	ResultRef  string
-	Partial    bool
+	ContextFacts map[string]any
+	Control      *toolruntime.Control
+	Structured   map[string]any
+	Private      map[string]any
+	ResultRef    string
+	Partial      bool
 }
 
 type Registry struct {

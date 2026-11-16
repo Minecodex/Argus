@@ -145,7 +145,10 @@ func (service Service) ResolveAnalysis(ctx context.Context, actor Actor, convers
 			return ErrContextExpired
 		}
 		if row.Version != input.ExpectedVersion {
-			return ErrConflict
+			return toolruntime.Error{Kind: ErrConflict.Error(), Cause: ErrConflict,
+				Message: "expected_version must equal this dashboard's analysis.condition_version, not its publication revision or another dashboard's condition version. Read the current definition/conditions before deciding whether to submit a corrected request; this attempt made no change.",
+				Details: map[string]any{"version_conflict": true, "dashboard_id": input.DashboardID.String(), "expected_version": input.ExpectedVersion,
+					"actual_version": row.Version, "version_field": "analysis.condition_version", "read_tool": map[string]string{"category": "dashboard", "name": "get"}}}
 		}
 		old, e := decodeConditions(row.State)
 		if e != nil {

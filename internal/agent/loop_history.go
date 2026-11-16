@@ -117,6 +117,20 @@ func (loop Loop) messages(ctx context.Context, run db.Run) ([]modelprovider.Mess
 			break
 		}
 	}
+	if source.Snapshot != nil {
+		knowledge, e := loop.toolContextFacts(ctx, run, source.ThroughSequence, source.Snapshot.SourceThroughSequence, scope)
+		if e != nil {
+			return nil, "", "", source, e
+		}
+		// Rehydrated contracts are paired and outside the original persisted
+		// ledger. They carry no new dispatch or completion event.
+		messages = append(messages, knowledge.Messages...)
+		for _, message := range knowledge.Messages {
+			if message.Role == "tool" {
+				source.RehydratedCallIDs = append(source.RehydratedCallIDs, message.ToolCallID)
+			}
+		}
+	}
 	if run.VerificationOnly {
 		verification, err := loop.executionVerification(ctx, run)
 		if err != nil {

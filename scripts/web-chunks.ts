@@ -4,6 +4,12 @@ export function webVendorChunk(rawId: string) {
   // CSS is imported by the shared theme. Grouping it with an optional engine
   // would turn that engine into a static dependency of every portal.
   if (/\.(css|scss)(?:\?|$)/.test(id)) return;
+  // Cache translation catalogs separately from the portal shell as modules grow.
+  // Keep i18next initialization in the entry to preserve its startup ordering.
+  const locale = id.match(
+    /\/web\/apps\/(enterprise|platform)\/src\/i18n\/(?!index\.ts$)[^/]+\.ts$/,
+  );
+  if (locale) return `argus-${locale[1]}-locales`;
   // Optional form constraints and dashboard definitions must not make every
   // API consumer preload their complete catalogs (including the login shell).
   if (id.includes("/api-client/src/generated/form-constraints"))

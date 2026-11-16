@@ -1,7 +1,12 @@
 import { Download, Eye, FileText } from "lucide-react";
 import { Button } from "./button";
 import { useUiText } from "./locale";
-import { Markdown } from "./markdown";
+export { FileTextPreview, FileImagePreview } from "./file-preview";
+export { filePreviewKind } from "./file-preview-format";
+export {
+  readFilePreview,
+  FilePreviewContentError,
+} from "./file-preview-content";
 
 export function FileCard({
   name,
@@ -53,7 +58,7 @@ export function FileCard({
               className="argus-file-card__download"
               href={downloadHref}
               download={name}
-            aria-label={`${text("下载", "Download")} ${name}`}
+              aria-label={`${text("下载", "Download")} ${name}`}
             >
               <Download size={14} />
               {text("下载", "Download")}
@@ -63,23 +68,4 @@ export function FileCard({
       </div>
     </article>
   );
-}
-
-export function FileTextPreview({
-  name,
-  content,
-}: {
-  name: string;
-  content: string;
-}) {
-  if (/\.(md|markdown)$/i.test(name)) return <Markdown>{content}</Markdown>;
-  let value = content;
-  if (/\.json$/i.test(name)) {
-    try {
-      value = JSON.stringify(JSON.parse(content), null, 2);
-    } catch {
-      /* Preserve malformed text for inspection. */
-    }
-  }
-  return <pre className="argus-file-preview__text">{value}</pre>;
 }

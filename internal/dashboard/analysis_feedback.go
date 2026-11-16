@@ -20,6 +20,12 @@ func conditionEvidenceRequired(paths []string) toolruntime.Error {
 	}
 }
 
+func conditionEvidenceIssue(paths []string, field, rule string) toolruntime.Error {
+	failure := conditionEvidenceRequired(paths)
+	failure.Details["issues"] = []map[string]string{{"path": field, "constraint": rule}}
+	return failure
+}
+
 // A fresh analysis must attribute its resource choice. A saved resource
 // selection or an explicit resource/all reset may be inherited unchanged.
 func requireAnalysisResourceCondition(state dashboardparams.State) error {

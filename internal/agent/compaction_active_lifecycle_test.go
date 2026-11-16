@@ -23,6 +23,14 @@ import (
 )
 
 func TestHardActiveTurnCompactionResumesWithPairedHistoryAndUserConstraints(t *testing.T) {
+	for _, groups := range []int{8, 1} {
+		t.Run(fmt.Sprintf("complete_groups_%d", groups), func(t *testing.T) {
+			testActiveTurnLifecycle(t, groups)
+		})
+	}
+}
+
+func testActiveTurnLifecycle(t *testing.T, groups int) {
 	f := newRecoveryFixture(t)
 	f.exec(`UPDATE ai_models SET capabilities='{"output_token_parameter":"max_tokens","reasoning_effort":"low"}' WHERE id=$1`, f.m)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -82,10 +90,14 @@ func TestHardActiveTurnCompactionResumesWithPairedHistoryAndUserConstraints(t *t
 	}
 	goal := "Only inspect the owned fixture; keep the backup and never replay a completed modification."
 	appendEvent("user_message", map[string]any{"content": goal})
-	for n := 0; n < 8; n++ {
+	repeats := 450
+	if groups == 1 {
+		repeats = 1600
+	}
+	for n := 0; n < groups; n++ {
 		id := fmt.Sprintf("call-%d", n)
 		appendEvent("assistant_message", map[string]any{"tool_calls": []modelprovider.ToolCall{{ID: id, Name: "read", Arguments: `{}`}}})
-		appendEvent("tool_call_result", map[string]any{"tool_call_id": id, "projection": map[string]any{"data": strings.Repeat("observed fixture result ", 450)}})
+		appendEvent("tool_call_result", map[string]any{"tool_call_id": id, "projection": map[string]any{"data": strings.Repeat("observed fixture result ", repeats)}})
 	}
 	originalEvents := f.count("SELECT count(*) FROM conversation_events WHERE conversation_id=$1", f.c)
 	compactor := Compactor{Store: f.store, Models: modelservice.Service{Store: f.store, Keyring: keyring}, EndpointPolicy: modelprovider.PublicEndpointPolicy{Resolver: usageFixtureResolver{}}}

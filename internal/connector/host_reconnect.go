@@ -2,8 +2,6 @@ package connector
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/kakj-go/Argus/internal/resource"
@@ -56,20 +54,8 @@ func validReconnectTest(test db.ConnectionTest, host db.Host, tunnel db.Connecto
 	if test.Status != "succeeded" || test.TargetType != "host" || test.Path != "direct" || test.CreatedBy != actorID || !test.ExpiresAt.Valid || !test.ExpiresAt.Time.After(time.Now()) || !test.CredentialID.Valid || test.CredentialID.UUID != credential.ID || !test.CredentialVersion.Valid || test.CredentialVersion.Int64 != credential.Version {
 		return false
 	}
-	digest := sha256.Sum256(test.RequestPlan)
-	if !subtleEqual(digest[:], test.RequestHash) {
-		return false
-	}
-	var input struct {
-		Address, Platform, Username string
-		Port                        int32
-		SSHPath                     string `json:"ssh_path"`
-		Onboarding                  struct {
-			ControlPath string `json:"control_path"`
-		} `json:"onboarding"`
-	}
-	var result resource.ConnectionTestResult
-	return json.Unmarshal(test.RequestPlan, &input) == nil && json.Unmarshal(test.Result, &result) == nil && input.Address == tunnel.TargetAddress && input.Port == tunnel.TargetPort && input.Platform == host.Platform && input.Username == tunnel.TargetUsername && input.SSHPath == "direct_executor" && input.Onboarding.ControlPath == "executor_tunnel" && result.HostKeyFingerprint == host.PinnedHostKey && result.CallbackVerified && result.CallbackControlPath == "executor_tunnel"
+	input, result, err := resource.DecodeConnectionTestProof(test)
+	return err == nil && input.TargetType == "host" && input.Address == tunnel.TargetAddress && input.Port == tunnel.TargetPort && input.Platform == host.Platform && input.Username == tunnel.TargetUsername && input.SSHPath == "direct_executor" && input.Onboarding != nil && input.Onboarding.ControlPath == "executor_tunnel" && result.HostKeyFingerprint == host.PinnedHostKey && result.CallbackVerified && result.CallbackControlPath == "executor_tunnel"
 }
 
 func (service BastionService) PreviewHostReconnect(ctx context.Context, subject resource.Subject, enterpriseID, hostID, testID uuid.UUID, version int64, key string) (db.PendingAction, error) {

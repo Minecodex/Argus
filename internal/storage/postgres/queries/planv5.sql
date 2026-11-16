@@ -140,8 +140,37 @@ SELECT * FROM workspace_files WHERE id=$1 AND enterprise_id=$2 AND deleted_at IS
 -- name: ListWorkspaceFiles :many
 SELECT * FROM workspace_files WHERE workspace_id=$1 AND enterprise_id=$2 AND deleted_at IS NULL ORDER BY created_at,id;
 
+-- name: ListWorkspaceContextFiles :many
+SELECT f.*, history.source_sequence
+FROM (
+ SELECT e.sequence AS source_sequence,e.enterprise_id,e.conversation_id,
+ CASE WHEN e.payload->'file'->>'id' ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+ THEN (e.payload->'file'->>'id')::uuid END AS file_id
+ FROM conversation_events e
+ WHERE e.enterprise_id=sqlc.arg(enterprise_id) AND e.event_type='workspace_file_added'
+ AND e.sequence <= sqlc.arg(through_sequence)::bigint
+) history
+JOIN workspace_files f ON f.id=history.file_id AND f.enterprise_id=history.enterprise_id AND f.conversation_id=history.conversation_id
+WHERE f.workspace_id=sqlc.arg(workspace_id) AND f.enterprise_id=sqlc.arg(enterprise_id) AND f.deleted_at IS NULL
+ORDER BY history.source_sequence DESC,f.id LIMIT 65;
+
+-- name: ListRunToolContextRecords :many
+SELECT e.sequence,e.payload,t.input,t.call_id,t.id AS tool_call_id
+FROM conversation_events e
+JOIN tool_calls t ON t.enterprise_id=e.enterprise_id AND t.id::text=e.payload->>'tool_call_id'
+WHERE e.enterprise_id=sqlc.arg(enterprise_id) AND e.conversation_id=sqlc.arg(conversation_id)
+AND e.run_id=sqlc.arg(run_id) AND e.sequence<=sqlc.arg(through_sequence)::bigint
+AND e.event_type='tool_call_result' AND e.actor_type='service'
+AND e.payload->>'source'='argus' AND e.payload->>'authorization_scope'=sqlc.arg(authorization_scope)::text
+AND (e.payload->>'status'='failed' OR e.payload->>'tool_id' IN ('tool.search','tool.describe') OR jsonb_typeof(e.payload->'context_facts')='object')
+ORDER BY e.sequence DESC LIMIT 33;
+
 -- name: DeleteWorkspaceFileRecords :exec
 UPDATE workspace_files SET deleted_at=now() WHERE workspace_id=$1 AND enterprise_id=$2 AND deleted_at IS NULL;
+
+-- name: RetireWorkspaceFileRegistration :execrows
+UPDATE workspace_files SET deleted_at=now()
+WHERE id=$1 AND enterprise_id=$2 AND workspace_id=$3 AND content_hash=$4 AND deleted_at IS NULL;
 
 -- name: CreateFileDelivery :one
 INSERT INTO file_deliveries (id,enterprise_id,conversation_id,workspace_id,run_id,name,media_type,byte_size,content_hash,object_key,source_result_refs)

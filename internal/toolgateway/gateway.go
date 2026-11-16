@@ -170,7 +170,13 @@ func coreDescription(name string) string {
 	}
 }
 
-func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Invocation) (toolruntime.Result, error) {
+func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Invocation) (output toolruntime.Result, failure error) {
+	validatedTarget := ""
+	defer func() {
+		if failure != nil && validatedTarget != "" {
+			output.ToolID = validatedTarget
+		}
+	}()
 	allow := func(string) bool { return true }
 	if g.Scope != nil {
 		var err error
@@ -193,6 +199,9 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 	manifest, ok := g.byName[key]
 	if !ok || !manifest.allowed(call.Principal) || !allow(manifest.ToolID) {
 		return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_NOT_FOUND"}
+	}
+	if tool == "tool.invoke" {
+		validatedTarget = manifest.ToolID
 	}
 	if tool == "tool.describe" {
 		if g.RequireSearch != nil {
@@ -252,7 +261,7 @@ func (g *Gateway) execute(ctx context.Context, tool string, call toolruntime.Inv
 	if manifest.ToolID == "observe.capabilities.get" {
 		g.filterCapabilityReferences(result.Structured, call.Principal, allow)
 	}
-	output := toolruntime.Result{Data: result.Structured, Partial: result.Partial, ActionRef: actionRef, ToolID: manifest.ToolID, Control: result.Control, DataIsDiscovery: strings.HasPrefix(manifest.ToolID, "observe.")}
+	output = toolruntime.Result{ContextFacts: result.ContextFacts, Data: result.Structured, Partial: result.Partial, ActionRef: actionRef, ToolID: manifest.ToolID, Control: result.Control, DataIsDiscovery: strings.HasPrefix(manifest.ToolID, "observe.")}
 	if metadata, ok := g.Registry.Lookup(manifest.ToolID); ok {
 		if metadata.Project != nil {
 			output.ModelSummary = metadata.Project(result)

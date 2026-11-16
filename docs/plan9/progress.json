@@ -3,9 +3,9 @@
   "schema_version": "argus.plan9_manual_review/v1",
   "created_at": "2026-10-26",
   "timezone": "Asia/Shanghai",
-  "status": "B11b_ready_for_review",
-  "current_run_id": "p9-b11b-20261114-01",
-  "next_suggested_batch": "B11c",
+  "status": "ready_for_review",
+  "current_run_id": "p9-b12-20261116-01",
+  "next_suggested_batch": "B13a",
   "scope": "真实负载与正常接入驱动的分批人工界面验收",
   "documentation": {
     "entry": "README.md",
@@ -14,12 +14,12 @@
     "environment": "03-environment-and-compose.md",
     "review": "04-review-and-evidence.md",
     "first_batch": "batches/B01-linux-host.md",
-    "review_entry": "batches/B11b-review.md",
-    "issues": "25-b11b-isolated-bastion-member-20261114.md",
+    "review_entry": "batches/B12-review.md",
+    "issues": "27-b11c-tunnel-reconnect-20261115.md",
     "data_reset": "05-local-data-reset-20261026.md",
     "product_fixes": "06-b01-managed-dashboard-and-query-fixes.md",
     "review_fixes": "07-dashboard-and-alert-review-fixes.md",
-    "current_review": "batches/B11b-review.md",
+    "current_review": "batches/B12-review.md",
     "cache_query_fixes": "08-b04-cache-views-and-metadata-scan.md",
     "delivery_and_current_alert_fixes": "14-b09b-delivery-and-current-alerts-20261110.md",
     "workbench_lifecycle_fixes": "15-b10a-workbench-lifecycle-20261111.md",
@@ -33,16 +33,21 @@
     "progressive_resource_trends": "22-b10c-progressive-resource-trends-20261113.md",
     "direct_host_artifact": "23-b11a-direct-host-artifact-20261113.md",
     "host_list_trends": "24-b11a-host-list-trends-20261113.md",
-    "bastion_member_isolation": "25-b11b-isolated-bastion-member-20261114.md"
+    "bastion_member_isolation": "25-b11b-isolated-bastion-member-20261114.md",
+    "file_previews": "29-b12-file-previews-20261116.md",
+    "context_reference_comparison": "31-b12-compaction-controlled-comparison-20261116.md",
+    "generic_context_runtime": "32-b12-generic-context-runtime-20261116.md",
+    "session_rerun_metrics": "33-b12-session-rerun-metrics-20261116.md",
+    "compaction_recovery_fix": "34-b12-compaction-recovery-fix-20261116.md"
   },
   "delivery": {
     "scenario_design": "written",
-    "compose_packages": "B01_through_B11a_retired_B11b_running_others_planned",
-    "runtime_scripts": "B11b_native_internal_network_TLS_Relay_Gateway_Leaf_PTY_recording_two_alert_cycles",
-    "deployment": "B11b_deployed_self_checks_passed",
+    "compose_packages": "B01_through_B11c_retired_B12_running",
+    "runtime_scripts": "fresh_host_Redis_HTTP_native_monitoring_real_APIMart_conversation_and_Workspace",
+    "deployment": "B12_ready_for_review",
     "live_api_calls": "normal_setup_login_enrollment_monitoring_dashboards_alerts",
-    "real_model_calls": "not_run",
-    "human_acceptance": "B11a_advanced_without_explicit_acceptance_B11b_pending_user_review"
+    "real_model_calls": "actual_APIMart_glm_5.3_flash_verified",
+    "human_acceptance": "B11c_accepted_B12_pending"
   },
   "execution_policy": {
     "one_active_sub_batch": true,
@@ -60,15 +65,18 @@
   "baseline": {
     "plan8_status_reference": "../plan8/README.md",
     "plan8_progress": "../plan8/progress.json",
-    "formal_environment_reference": "../local-formal-deployment-20261026.md",
+    "formal_environment_reference": "../local-account-only-redeployment-20261115.md",
     "live_environment_verified_this_turn": true,
     "plan8_historical_preservation_gap": "P8-A64 remains separately recorded; no retroactive acceptance claim",
-    "latest_reset": "05-local-data-reset-20261026.md",
-    "formal_version": "Server_Worker_resource_trends_v2_Web_resource_trends_v5_other_backend_closure_v3_Schema54",
+    "latest_reset": "../local-account-only-redeployment-20261115.md",
+    "formal_version": "local-20261116-b12-file-previews_Schema54",
     "enterprise": "test",
-    "source_head": "0cef28ad6cf2986c98c66380cac893210bde60d1",
-    "source_state": "B10c_worktree_changes_deployed_without_commit",
-    "preservation_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b10c-20261113-01/final-preservation.json"
+    "source_head": "eff32a1a739235f4c348471b2203d0b583a1a206",
+    "source_state": "main_eff32a1_plus_preserved_uncommitted_B11c_B12_fixes_and_shared_file_previews",
+    "preservation_record": "C:\\Users\\23574\\.codex\\artifacts\\argus-account-reset-20261115\\completion.json",
+    "business_data": "B11c_retired_fresh_B12_objects_created_through_normal_API",
+    "current_fix_release": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11c-20261115-01\\server-fix-release.json",
+    "current_file_preview_release": "C:\\Users\\23574\\.codex\\artifacts\\argus-b12-file-previews-20261116\\acceptance.json"
   },
   "batches": [
     {
@@ -577,11 +585,11 @@
       "id": "B11",
       "title": "堡垒机与远程连接",
       "activation": "on_user_batch_selection",
-      "status": "B11b_ready_for_review",
-      "package_status": "B11a_B11b_created",
-      "self_check": "B11b_passed",
-      "review_status": "B11b_pending",
-      "runtime_status": "B11b_running",
+      "status": "B11c_accepted_and_retired",
+      "package_status": "B11a_B11b_B11c_created",
+      "self_check": "B11c_passed",
+      "review_status": "B11c_accepted",
+      "runtime_status": "destroyed",
       "sub_batches": [
         {
           "id": "B11a",
@@ -614,43 +622,64 @@
         },
         {
           "id": "B11b",
-          "status": "ready_for_review",
+          "status": "retired_for_account_only_reset",
           "package_status": "created",
           "self_check": "passed",
-          "review_status": "not_reviewed",
-          "runtime_status": "running",
-          "human_acceptance": "pending",
+          "review_status": "not_accepted_before_reset",
+          "runtime_status": "destroyed",
+          "human_acceptance": "pending_at_reset",
           "runs": [
             "p9-b11b-20261114-01"
           ],
           "handoff": "batches/B11b-review.md",
-          "evidence": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11b-20261114-01\\checks.json"
+          "evidence": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11b-20261114-01\\checks.json",
+          "cleanup_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b11b-20261114-01/cleanup-verification.json"
         },
         {
           "id": "B11c",
-          "status": "planned",
-          "package_status": "not_created",
-          "self_check": "not_run",
-          "review_status": "not_reviewed",
-          "runtime_status": "not_created"
+          "status": "destroyed",
+          "package_status": "created",
+          "self_check": "passed",
+          "review_status": "accepted",
+          "runtime_status": "destroyed",
+          "human_acceptance": "accepted",
+          "runs": [
+            "p9-b11c-20261115-01"
+          ],
+          "handoff": "batches/B11c-review.md",
+          "evidence": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11c-20261115-01\\checks.json",
+          "latest_recheck": {
+            "verified_at": "2026-11-16T00:31:42.923838+00:00",
+            "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11c-20261115-01\\rechecks\\recheck-20261116-01\\checks.json",
+            "status": "passed",
+            "human_acceptance": "pending"
+          },
+          "accepted_at": "2026-11-16T00:35:43.924563+00:00",
+          "acceptance_statement": "没问题，开始下一轮",
+          "cleanup_record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11c-20261115-01\\cleanup-verification.json"
         }
       ],
       "runs": [
         "p9-b11a-20261113-01",
-        "p9-b11b-20261114-01"
+        "p9-b11b-20261114-01",
+        "p9-b11c-20261115-01"
       ]
     },
     {
       "id": "B12",
       "title": "真实模型聊天与操作闭环",
       "activation": "on_user_batch_selection",
-      "status": "planned",
-      "package_status": "not_created",
-      "self_check": "not_run",
-      "review_status": "not_reviewed",
-      "runtime_status": "not_created",
+      "status": "ready_for_review",
+      "package_status": "created",
+      "self_check": "passed",
+      "review_status": "pending",
+      "runtime_status": "running",
       "sub_batches": [],
-      "runs": []
+      "runs": [
+        "p9-b12-20261116-01"
+      ],
+      "human_acceptance": "pending",
+      "handoff": "batches/B12-review.md"
     },
     {
       "id": "B13",
@@ -1188,7 +1217,23 @@
     {
       "run_id": "p9-b11b-20261114-01",
       "batch": "B11b",
-      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11b-20261114-01\\run.json"
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11b-20261114-01\\run.json",
+      "status": "destroyed_for_account_only_reset",
+      "retirement_record": "C:\\Users\\23574\\.codex\\artifacts\\argus-account-reset-20261115\\completion.json"
+    },
+    {
+      "run_id": "p9-b11c-20261115-01",
+      "batch": "B11c",
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11c-20261115-01\\run.json",
+      "status": "destroyed",
+      "human_acceptance": "accepted"
+    },
+    {
+      "run_id": "p9-b12-20261116-01",
+      "batch": "B12",
+      "status": "validating",
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b12-20261116-01\\run.json",
+      "human_acceptance": "pending"
     }
   ],
   "human_acceptances": [
@@ -1197,6 +1242,12 @@
       "batch": "B10c",
       "status": "accepted",
       "statement": "没啥问题，继续 plan9 下一轮，清理 B10c 后部署 B11a，把主机直连、远程终端、监控、仪表盘和告警都接好，我再去平台看。"
+    },
+    {
+      "batch": "B11c",
+      "run_id": "p9-b11c-20261115-01",
+      "at": "2026-11-16T00:35:43.924563+00:00",
+      "statement": "没问题，开始下一轮"
     }
   ],
   "cleanup_records": [
@@ -1224,100 +1275,94 @@
       "run_id": "p9-b11a-20261113-01",
       "status": "destroyed",
       "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b11a-20261113-01/cleanup-verification.json"
+    },
+    {
+      "run_id": "p9-b11b-20261114-01",
+      "status": "destroyed",
+      "reason": "user_authorized_global_account_only_reset",
+      "record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b11b-20261114-01/cleanup-verification.json",
+      "at": "2026-11-15T03:02:19.936628+00:00",
+      "formal_business_data_preserved": false,
+      "account_data_preserved": true
+    },
+    {
+      "run_id": "p9-b11c-20261115-01",
+      "status": "destroyed",
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11c-20261115-01\\cleanup-verification.json",
+      "at": "2026-11-16T00:57:25.562927+00:00"
     }
   ],
   "validation": {
-    "scope": "documentation_only",
+    "scope": "B11c_documentation_and_real_runtime",
     "status": "passed",
-    "report": "../../artifacts/plan9/reset-20261026/final-documentation-validation.json",
+    "report": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11c-20261115-01\\checks.json",
     "utf8": "passed",
     "local_links_checked": 41,
     "integration_mappings_checked": 39,
     "builtin_mappings_checked": 12,
-    "runtime_passed": false,
-    "runtime_result": "B01_deployed_with_two_open_issues"
+    "runtime_passed": true,
+    "runtime_result": "B11c_ready_for_review_with_preserved_historical_gap_B11c_D01",
+    "account_only_maintenance": {
+      "run_id": "account-reset-20261115",
+      "batch": null,
+      "status": "maintenance_complete",
+      "verified_at": "2026-11-15T03:02:19.936628+00:00",
+      "accounts_preserved": true,
+      "password_hashes_preserved": true,
+      "other_business_data_empty": true,
+      "active_hosts": 0,
+      "active_clusters": 0,
+      "healthy_checks": 20,
+      "browser_original_logins_passed": true,
+      "vhdx_compaction_passed": true,
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-account-reset-20261115\\completion.json",
+      "human_acceptance": "not_claimed",
+      "next_batch_requires_user_selection": true
+    }
   },
   "current_runtime_validation": {
-    "run_id": "p9-b11b-20261114-01",
-    "batch": "B11b",
+    "run_id": "p9-b12-20261116-01",
+    "batch": "B12",
     "status": "ready_for_review",
+    "verified_at": "2026-11-16T02:37:32.351422+00:00",
     "human_acceptance": "pending",
-    "verified_at": "2026-11-14T04:20:04.187842+00:00",
-    "actual_hosts": 2,
-    "native_healthy_fresh_collections": 8,
-    "resource_scoped_dashboard_views": 8,
-    "nonempty_panels": 40,
-    "scope_id": "01a1d825-c5af-75bb-85ea-1e7038574bf9",
-    "hosts": {
-      "bastion": "01a1d825-c5af-75bd-a9af-171331e194b7",
-      "member": "01a1d829-4ddc-7892-a31a-dc267db0e1c5"
-    },
-    "control": {
-      "bastion": "direct",
-      "member": "bastion_relay"
-    },
-    "telemetry": {
-      "bastion": "edge_gateway/direct_argus/direct",
-      "member": "leaf/bastion_gateway/bastion_tunnel"
-    },
-    "member_direct_platform_access": false,
-    "native_fault_and_query_health_events_recovered": true,
-    "browser": {
-      "passed": true,
-      "cases": 4,
-      "normal_login": true,
-      "strict_tls": true,
-      "real_backend": true,
-      "hosts": [
-        "bastion",
-        "member"
-      ],
-      "protocols": [
-        "shell",
-        "ssh"
-      ],
-      "locales": [
-        "zh-CN",
-        "en-US"
-      ],
-      "themes": [
-        "light",
-        "dark"
-      ],
-      "widths": [
-        1280,
-        1440,
-        1920
-      ],
-      "dock_positions": [
-        "left",
-        "right",
-        "bottom"
-      ],
-      "keyboard_resize": true,
-      "actual_output": [
-        "hostname",
-        "id",
-        "ps"
-      ],
-      "recording_replay": true,
-      "alert_timeline": true
-    },
-    "verified_encrypted_recordings": 4,
-    "test_sessions_closed": true,
-    "current_owned_alerts": 0,
-    "delivery_watch_seconds": 120,
-    "terminal_failures": 0,
-    "enqueue_failures": 0,
-    "receiver_refusals": 0,
+    "actual_hosts": 1,
+    "actual_redis_targets": 1,
+    "native_fresh_collections": 5,
+    "nonempty_dashboard_panels": 31,
+    "real_provider": "APIMart",
+    "real_model": "glm-5.3-flash",
+    "model_revision": 3,
+    "actual_dashboard_query_results_read": 2,
+    "workspace_code_executed": true,
+    "native_csv_math_verified": true,
+    "published_report_bytes": 2226,
+    "model_proposed_cancelled_action_not_dispatched": true,
+    "new_model_action_confirmed_in_ui_and_native_http_recovered": true,
+    "real_business_alert_fired_and_resolved": true,
     "formal_health_checks": 20,
-    "formal_pvcs_preserved": 6,
-    "direct_database_writes": false,
-    "synthetic_telemetry": false,
-    "shared_kernel_scope": true,
-    "grant_valid_until": "2026-11-21T03:58:55.225079Z",
-    "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11b-20261114-01\\checks.json",
-    "scope": "B11b_isolated_private_member_Bastion_TLS_Relay_Gateway_Leaf_monitoring_terminal_and_alerts"
+    "formal_pvcs_and_deployments_preserved": true,
+    "delivery_watch_seconds": 120,
+    "delivery_failures": 0,
+    "provider_usage": {
+      "amount": 0.06780489,
+      "cached_input_tokens": 0,
+      "cached_usage_complete": false,
+      "compaction_count": 12,
+      "estimated_input_tokens": 0,
+      "estimated_output_tokens": 0,
+      "input_tokens": 819839,
+      "model_id": "01a1e1e4-562e-7e1f-b123-2656935a8dfa",
+      "month": "2026-11",
+      "output_tokens": 25268,
+      "request_count": 50,
+      "usage_complete": false
+    },
+    "historical_failed_run_retained": "failed-observe-run.json",
+    "aggregate_usage_incomplete_because_failed_sample_retained": true,
+    "replay_or_mock_model": false,
+    "direct_business_sql_writes": false,
+    "provider_key_in_source_or_screenshots": false
   },
   "runtime_validation_history": [
     {
@@ -1711,6 +1756,350 @@
       },
       "latest_web_image": "host.docker.internal:5001/argus/argus-web:local-20261113-b11a-host-list-v3@sha256:3d49c8bcfb2d834d26de5fd4fa462a2b02df44dfccaca10ceb08bc38dcc83603",
       "cleanup_record": "C:/Users/23574/.codex/artifacts/argus-plan9/p9-b11a-20261113-01/cleanup-verification.json"
+    },
+    {
+      "run_id": "p9-b11b-20261114-01",
+      "batch": "B11b",
+      "status": "retired_for_user_authorized_account_only_reset",
+      "human_acceptance": "pending",
+      "verified_at": "2026-11-14T04:20:04.187842+00:00",
+      "actual_hosts": 2,
+      "native_healthy_fresh_collections": 8,
+      "resource_scoped_dashboard_views": 8,
+      "nonempty_panels": 40,
+      "scope_id": "01a1d825-c5af-75bb-85ea-1e7038574bf9",
+      "hosts": {
+        "bastion": "01a1d825-c5af-75bd-a9af-171331e194b7",
+        "member": "01a1d829-4ddc-7892-a31a-dc267db0e1c5"
+      },
+      "control": {
+        "bastion": "direct",
+        "member": "bastion_relay"
+      },
+      "telemetry": {
+        "bastion": "edge_gateway/direct_argus/direct",
+        "member": "leaf/bastion_gateway/bastion_tunnel"
+      },
+      "member_direct_platform_access": false,
+      "native_fault_and_query_health_events_recovered": true,
+      "browser": {
+        "passed": true,
+        "cases": 4,
+        "normal_login": true,
+        "strict_tls": true,
+        "real_backend": true,
+        "hosts": [
+          "bastion",
+          "member"
+        ],
+        "protocols": [
+          "shell",
+          "ssh"
+        ],
+        "locales": [
+          "zh-CN",
+          "en-US"
+        ],
+        "themes": [
+          "light",
+          "dark"
+        ],
+        "widths": [
+          1280,
+          1440,
+          1920
+        ],
+        "dock_positions": [
+          "left",
+          "right",
+          "bottom"
+        ],
+        "keyboard_resize": true,
+        "actual_output": [
+          "hostname",
+          "id",
+          "ps"
+        ],
+        "recording_replay": true,
+        "alert_timeline": true
+      },
+      "verified_encrypted_recordings": 4,
+      "test_sessions_closed": true,
+      "current_owned_alerts": 0,
+      "delivery_watch_seconds": 120,
+      "terminal_failures": 0,
+      "enqueue_failures": 0,
+      "receiver_refusals": 0,
+      "formal_health_checks": 20,
+      "formal_pvcs_preserved": 6,
+      "direct_database_writes": false,
+      "synthetic_telemetry": false,
+      "shared_kernel_scope": true,
+      "grant_valid_until": "2026-11-21T03:58:55.225079Z",
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11b-20261114-01\\checks.json",
+      "scope": "B11b_isolated_private_member_Bastion_TLS_Relay_Gateway_Leaf_monitoring_terminal_and_alerts",
+      "retired_at": "2026-11-15T03:02:19.936628+00:00",
+      "retirement_record": "C:\\Users\\23574\\.codex\\artifacts\\argus-account-reset-20261115\\completion.json",
+      "backend_history_cleared": true
+    },
+    {
+      "run_id": "account-reset-20261115",
+      "batch": null,
+      "status": "maintenance_complete",
+      "verified_at": "2026-11-15T03:02:19.936628+00:00",
+      "accounts_preserved": true,
+      "password_hashes_preserved": true,
+      "other_business_data_empty": true,
+      "active_hosts": 0,
+      "active_clusters": 0,
+      "healthy_checks": 20,
+      "browser_original_logins_passed": true,
+      "vhdx_compaction_passed": true,
+      "record": "C:\\Users\\23574\\.codex\\artifacts\\argus-account-reset-20261115\\completion.json",
+      "human_acceptance": "not_claimed",
+      "next_batch_requires_user_selection": true
+    },
+    {
+      "run_id": "p9-b11c-20261115-01",
+      "batch": "B11c",
+      "status": "ready_for_review",
+      "human_acceptance": "pending",
+      "verified_at": "2026-11-15T05:12:01.959936+00:00",
+      "actual_hosts": 2,
+      "native_healthy_fresh_collections": 8,
+      "resource_scoped_dashboard_views": 8,
+      "nonempty_panels": 40,
+      "scope_id": "01a1dd5d-8cba-7242-8b42-54d3a6776a4e",
+      "hosts": {
+        "bastion": "01a1dd5d-8cba-7244-ba1d-585fc3078343",
+        "member": "01a1dd60-ab79-76ae-b8a7-42c2953301a4"
+      },
+      "control": {
+        "bastion": "executor_tunnel",
+        "member": "bastion_relay"
+      },
+      "telemetry": {
+        "bastion": "edge_gateway/direct_argus/executor_tunnel",
+        "member": "leaf/bastion_gateway/bastion_tunnel"
+      },
+      "member_direct_platform_access": false,
+      "native_fault_and_query_health_events_recovered": true,
+      "browser": {
+        "passed": true,
+        "cases": 4,
+        "revocation_cases": 1,
+        "verified_at": "2026-11-15T05:03:42.711859+00:00",
+        "normal_login": true,
+        "strict_tls": true,
+        "languages": [
+          "zh-CN",
+          "en-US"
+        ],
+        "themes": [
+          "light",
+          "dark"
+        ],
+        "desktop_widths": [
+          1280,
+          1440,
+          1920
+        ],
+        "mock": false,
+        "artifact_directory": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11c-20261115-01\\browser"
+      },
+      "verified_encrypted_recordings": 4,
+      "test_sessions_closed": true,
+      "current_condition_or_query_health_alerts": 0,
+      "unhandled_historical_delivery_gap_alerts": 2,
+      "historical_delivery_gap_alert_ids": [
+        "8bcd3ca2-b45a-44ec-a6e4-f6ea9b008cfe",
+        "2ac45eda-db1d-4dd3-964c-6197c1c0f993"
+      ],
+      "delivery_watch_seconds": 120,
+      "new_terminal_failures": 0,
+      "new_enqueue_failures": 0,
+      "new_receiver_refusals": 0,
+      "historical_data_gap": "B11c-D01; delivery-maintenance-gap.json; fixed and counters retained",
+      "formal_health_checks": 20,
+      "formal_pvcs_preserved": 6,
+      "direct_database_writes": false,
+      "synthetic_telemetry": false,
+      "actual_credential_rotation": true,
+      "stale_preview_rejected": true,
+      "naturally_expired_preview_rejected": true,
+      "actual_access_revocation": true,
+      "server_worker_fix_deployed": true,
+      "original_independent_platform_and_enterprise_logins": true,
+      "shared_kernel_scope": true,
+      "grant_valid_until": "2026-11-22T04:14:03.262854Z",
+      "latest_recheck": {
+        "run_id": "p9-b11c-20261115-01",
+        "review_id": "recheck-20261116-01",
+        "status": "ready_for_review",
+        "verified_at": "2026-11-16T00:31:42.923838+00:00",
+        "human_acceptance": "pending",
+        "actual_hosts": 2,
+        "same_host_collector_container_identities": true,
+        "native_healthy_fresh_collections": 8,
+        "resource_scoped_dashboard_views": 8,
+        "nonempty_panels": 40,
+        "fresh_browser_cases": 4,
+        "fresh_recordings": 4,
+        "formal_health_checks": 20,
+        "formal_volumes_and_deployments_unchanged": true,
+        "overnight_new_failures": 0,
+        "watch_seconds": 120,
+        "watch_new_failures": 0,
+        "retained_historical_delivery_gaps": 2,
+        "historical_mutation_tests_reference": "C:\\Users\\23574\\.codex\\artifacts\\argus-plan9\\p9-b11c-20261115-01\\checks.json",
+        "historical_mutation_tests_replayed_today": false,
+        "real_http_traffic_resumed": true,
+        "traffic_runtime_max_seconds": 28800,
+        "next_batch_started": false
+      }
     }
-  ]
+  ],
+  "context_reference_experiment": {
+    "status": "prototype_comparison_complete",
+    "scope": "controlled_post_compaction_continuation",
+    "paired_repeats": 2,
+    "all_four_numeric_reports_correct": true,
+    "baseline_model_calls": 12,
+    "candidate_model_calls": 7,
+    "baseline_failed_tool_calls": 4,
+    "candidate_failed_tool_calls": 1,
+    "production_harness_changed": false,
+    "full_production_e2e_completed": false,
+    "native_contract_failures_fixed": false,
+    "temporary_namespace_deleted": true,
+    "evidence": "C:\\Users\\23574\\.codex\\artifacts\\argus-b12-context-compare-20261116\\summary.json"
+  },
+  "generic_context_runtime": {
+    "status": "deployed_consistency_verified_efficiency_gate_incomplete",
+    "release_tag": "local-20261116-b12-context-runtime-v3",
+    "helm_revision": 99,
+    "schema_version": 54,
+    "model_chooses_business_flow": true,
+    "exact_registered_references": true,
+    "bounded_native_discovery_and_result_facts": true,
+    "field_level_failure_feedback": true,
+    "same_b12_model_data_and_historical_windows": true,
+    "actual_compacted_prefix_read": true,
+    "actual_snapshot_source_through": 79,
+    "report_oracle_panels": 6,
+    "report_oracle_passed": true,
+    "csv_command_delta": 37,
+    "csv_peak_memory_bytes": 1562696,
+    "report_corrected_by_real_model": true,
+    "retained_original_events": 291,
+    "new_tool_result_count": 69,
+    "new_failed_tool_status_count": 0,
+    "nonzero_model_script_exits_retained": 1,
+    "repeated_model_queries_still_observed": true,
+    "automatic_stop_gate_passed": false,
+    "uninterrupted_acquisition_run_passed": false,
+    "extra_manual_compaction_control_passed": false,
+    "new_model_requests_including_stopped_attempts": 80,
+    "new_compaction_requests": 23,
+    "new_provider_input_tokens": 1352324,
+    "new_provider_output_tokens": 36402,
+    "new_configured_amount_usd": 0.11052476,
+    "native_monthly_quota_increased": false,
+    "real_browser_cases": 4,
+    "formal_health_checks": 20,
+    "formal_pvcs_preserved": 6,
+    "temporary_compactor_job_deleted": true,
+    "worker_replicas_restored": 1,
+    "human_acceptance": "pending",
+    "next_batch_started": false,
+    "conversation_id": "01a1e3ce-ed7f-72d9-96c9-b1876258daf0",
+    "corrected_delivery_id": "b603ece0-fec8-4a57-9387-1b81396a7a7f",
+    "evidence_root": "C:/Users/23574/.codex/artifacts/argus-b12-generic-runtime-20261116"
+  },
+  "b12_session_rerun": {
+    "status": "measured_not_accepted",
+    "release_tag_unchanged": "local-20261116-b12-context-runtime-v3",
+    "same_model_revision": 3,
+    "baseline_tool_calls": 41,
+    "baseline_tool_failures": 18,
+    "baseline_tool_success_pct": 56.09756097560976,
+    "baseline_total_tokens": 597657,
+    "post_quota_tool_calls": 23,
+    "post_quota_tool_failures": 2,
+    "post_quota_tool_success_pct": 91.30434782608695,
+    "post_quota_total_tokens": 460629,
+    "post_quota_observed_token_reduction_pct": 22.92753201250885,
+    "all_attempt_tool_calls": 53,
+    "all_attempt_tool_failures": 16,
+    "all_attempt_tool_success_pct": 69.81132075471699,
+    "all_attempt_model_calls": 55,
+    "all_attempt_compaction_calls": 14,
+    "all_attempt_input_tokens": 975254,
+    "all_attempt_output_tokens": 22085,
+    "all_attempt_total_tokens": 997339,
+    "all_attempt_token_increase_pct": 66.87481281069242,
+    "all_attempt_configured_amount_usd": 0.07866527,
+    "provider_input_output_usage": true,
+    "nonzero_script_exits": 0,
+    "context_compaction_failed_runs": 1,
+    "compaction_failure_root_cause": "confirmed_no_boundary_for_final_complete_tool_group",
+    "compaction_actual_event_replay_count": 9,
+    "compaction_actual_boundary_found": false,
+    "compaction_in_memory_trailing_event_control_found": true,
+    "compaction_summary_model_calls_succeeded": 5,
+    "compaction_last_summary_output_tokens": 1227,
+    "compaction_conservative_wire_byte_hard_limit": 99878,
+    "compaction_analysis_changed_production_code": false,
+    "report_semantic_review_passed": false,
+    "csv_raw_integer_verification_passed": true,
+    "effective_savings_accepted": false,
+    "local_sandbox_quota_seconds_before": 3600,
+    "local_sandbox_quota_seconds_after": 7200,
+    "historical_sandbox_usage_preserved": true,
+    "model_monthly_quota_increased": false,
+    "browser_cases_passed": 4,
+    "benchmark_compute_session_terminated": true,
+    "conversation_id": "01a1e3fd-c390-7673-ae10-9e7d5e5fd1fd",
+    "evidence_root": "C:/Users/23574/.codex/artifacts/argus-b12-rerun-20261116-01",
+    "human_acceptance": "pending"
+  },
+  "b12_compaction_recovery_fix": {
+    "status": "deployed_kernel_verified",
+    "release_tag": "local-20261116-b12-context-recovery-v4",
+    "helm_revision": 100,
+    "schema_version": 54,
+    "final_complete_tool_group_boundary_fixed": true,
+    "actual_incident_replay_events": 9,
+    "synthetic_events_added": false,
+    "shared_dispatch_and_recovery_request_projection": true,
+    "fixed_admission_capacity_guard_preserved": true,
+    "immutable_original_results_preserved": true,
+    "partial_projection_does_not_certify_inline_original": true,
+    "postgres_lifecycle_cases": 2,
+    "native_query_run_status": "succeeded",
+    "native_report_run_status": "succeeded",
+    "native_context_compacted_events": 9,
+    "native_context_compaction_failures": 0,
+    "native_model_calls": 48,
+    "native_input_tokens": 1062962,
+    "native_output_tokens": 19155,
+    "native_total_tokens": 1082117,
+    "native_configured_amount_usd": 0.08451092,
+    "native_tool_calls": 39,
+    "native_protocol_failures": 1,
+    "native_nonzero_script_exits": 2,
+    "native_strict_failed_outcomes": 3,
+    "report_csv_integer_verification_passed": true,
+    "report_semantic_review_passed": false,
+    "token_reduction_verified": false,
+    "formal_health_checks": 20,
+    "formal_volumes_preserved": 6,
+    "real_browser_cases_passed": 4,
+    "owned_compute_session_closed": true,
+    "isolated_database_removed": true,
+    "original_history_events_preserved": 291,
+    "conversation_id": "01a1e422-2c55-74de-9aa0-05d2e37987b6",
+    "evidence_root": "C:/Users/23574/.codex/artifacts/argus-b12-compaction-fix-20261116",
+    "human_acceptance": "pending"
+  }
 }

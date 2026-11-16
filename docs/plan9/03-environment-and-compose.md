@@ -43,6 +43,8 @@ artifacts/plan9/<run-id>/
 
 可以在 `runtime/common/` 复用已验证的主机镜像构建、负载小工具和配置 API 客户端，避免复制维护；各批 runbook 必须显式列出依赖。运行脚本可用 PowerShell 调度、容器内 shell/应用客户端执行，不再搭建一个平行测试平台。
 
+本机清理历史产物后，设置 `ARGUS_PLAN9_ARTIFACT_ROOT` 为本轮 C 盘证据目录，并设置 `ARGUS_PLAN9_CA_BUNDLE=D:/workspace/go/Argus/deploy/.cache/argus-trust-bundle.pem`。公共 API 客户端优先使用这个显式 CA 文件；不存在时拒绝连接，不回退到关闭证书校验。不要复用已销毁批次的资源 ID 或会话。2026-11-15 的当前基线见[仅保留账号的重部署记录](../local-account-only-redeployment-20261115.md)。
+
 ## Compose 必须具有的内容
 
 - 明确且唯一的 project name；不硬编码会跨批冲突的 `container_name`。所有服务、命名卷和网络带本批 run ID 与所有权标签，例如 `io.argus.plan9.run`；标签命名空间不等同产品资源标签。

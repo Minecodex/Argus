@@ -238,7 +238,7 @@ func runRuntimeWorker(ctx context.Context, logger *slog.Logger, pool string) err
 	handlers := map[string]runtime.Handler{
 		PoolAgent:      agent.Loop{DeliverResults: workspaceDomain.DeliverNativeQueryResults, AutoConfirm: (action.Service{Store: store, Idempotency: idempotency, Resources: resourceDomain}).AutoConfirmRun, Store: store, Models: modelDomain, Tools: toolFactory, Objects: workspaceDomain.Objects, RemoteFacts: remoteDomain.ModelFacts},
 		PoolAction:     action.Executor{Store: store, Resources: resourceDomain, OneTimeResultKey: cfg.PendingActionKey},
-		PoolCompaction: agent.Compactor{Store: store, Models: modelDomain, RemoteFacts: remoteDomain.ModelFacts},
+		PoolCompaction: agent.Compactor{Store: store, Models: modelDomain, Tools: toolFactory, RemoteFacts: remoteDomain.ModelFacts},
 		PoolSandbox:    sandbox.Runner{Service: sandbox.Service{Store: store, Keyring: keyring}},
 	}
 	queues := []string{pool}

@@ -8,6 +8,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+func (q *Queries) RevokeHostRemovalCredentialLeases(ctx context.Context, arg RevokeHostRemovalCredentialLeasesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeHostRemovalCredentialLeases, arg.EnterpriseID, arg.TargetResourceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const revokeHostRemovalTokens = `-- name: RevokeHostRemovalTokens :execrows
 UPDATE host_removal_tokens SET status='revoked'
 WHERE operation_id=$1 AND enterprise_id=$2 AND status='active'

@@ -187,7 +187,7 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 		if err != nil {
 			return err
 		}
-		projection, err := loop.context(ctx, run, revision, turnMessages, currentInput, turnTools, source)
+		projection, err := loop.prepareContext(ctx, run, revision, turnMessages, currentInput, turnTools, source, budgetParameter, reasoningEffort)
 		if err != nil {
 			if errors.Is(err, ErrContextTooLarge) {
 				return loop.waitForCompaction(ctx, run, "CONTEXT_TOO_LARGE")
@@ -195,14 +195,9 @@ func (loop Loop) Handle(ctx context.Context, task runtime.Task) error {
 			return err
 		}
 		request := inferenceRequest(revision.ProviderModelID, int(revision.MaxOutputTokens), projection.Messages, turnTools, budgetParameter, reasoningEffort)
-		wireBytes, err := provider.RequestBytes(request)
-		if err != nil {
-			return err
-		}
 		// For arbitrary OpenAI-compatible tokenizers the wire byte count is a
 		// conservative upper bound, shared with message preflight. Never rely
 		// on English characters-per-token estimates for Unicode or schemas.
-		projection.EstimatedTokens = wireBytes
 		if projection.NeedsHardCompaction() {
 			return loop.waitForCompaction(ctx, run, "")
 		}
@@ -435,6 +430,19 @@ func (loop Loop) context(ctx context.Context, run db.Run, revision db.AiModelRev
 	if err != nil {
 		return ContextProjection{}, err
 	}
+	checkpoint["context_references"], err = toolruntime.ContextFacts(ctx, loop.Tools, toolruntime.ContextRequest{Principal: p, RunID: run.ID.String(), ThroughSequence: source.ThroughSequence})
+	if err != nil {
+		return ContextProjection{}, err
+	}
+	contextScope, err := presentation.Scope(ctx, loop.Store, run.EnterpriseID, run.ActorUserID)
+	if err != nil {
+		return ContextProjection{}, err
+	}
+	knowledge, err := loop.toolContextFacts(ctx, run, source.ThroughSequence, 0, contextScope)
+	if err != nil {
+		return ContextProjection{}, err
+	}
+	checkpoint["tool_discovery"] = knowledge.Facts
 	var snapshot any
 	if source.Snapshot != nil {
 		active := source.Snapshot
