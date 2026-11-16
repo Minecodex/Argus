@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, LoaderCircle, Wrench, X } from "lucide-react";
 import type { ToolCallTrace } from "./chat-view-model";
 import { toolDetailsText } from "./tool-details";
-import { toolDisplayName } from "./tool-name";
+import { toolTraceName } from "./tool-name";
+import { toolFailureIssues, toolFailureText } from "./tool-error";
 import { toolDisplaySummary } from "./tool-display";
 
 function formatDuration(durationMs?: number): string {
@@ -59,7 +60,7 @@ export function ToolTrace({
             ? t(
                 expanded ? "chat.trace.collapseTool" : "chat.trace.expandTool",
                 {
-                  tool: toolDisplayName(t, single.toolName, single.source),
+                  tool: toolTraceName(t, single),
                 },
               )
             : expanded
@@ -74,14 +75,16 @@ export function ToolTrace({
         <span>
           {label ??
             (single
-              ? toolDisplayName(t, single.toolName, single.source)
+              ? toolTraceName(t, single)
               : t("chat.trace.title", { count: toolCalls.length }))}
         </span>
         {single && (
           <>
             <StatusIcon status={single.status} />
             <span className="argus-chat-trace__summary">
-              {toolDisplaySummary(single.display, t) || single.summary}
+              {toolFailureText(t, single) ||
+                toolDisplaySummary(single.display, t) ||
+                single.summary}
             </span>
             <time>{formatDuration(single.durationMs)}</time>
           </>
@@ -94,20 +97,27 @@ export function ToolTrace({
             <div className="argus-chat-trace__step" key={call.callId}>
               <div className="argus-chat-trace__row">
                 <StatusIcon status={call.status} />
-                <span>{toolDisplayName(t, call.toolName, call.source)}</span>
+                <span>{toolTraceName(t, call)}</span>
                 <small>{t(`chat.trace.${call.status}`)}</small>
                 <time>{formatDuration(call.durationMs)}</time>
               </div>
-              {toolDisplayName(t, call.toolName, call.source) !==
-                call.toolName && (
+              {toolTraceName(t, call) !== call.toolName && (
                 <small className="argus-chat-trace__identifier">
                   {t("toolNames.identifier")}: <code>{call.toolName}</code>
                 </small>
               )}
-              {call.summary && <p>{call.summary}</p>}
-              {!!call.display?.issues.length && (
+              {(toolFailureText(t, call) || call.summary) && (
+                <p>{toolFailureText(t, call) || call.summary}</p>
+              )}
+              {!!(
+                call.display?.issues.length || toolFailureIssues(t, call).length
+              ) && (
                 <DataTable
-                  data={call.display.issues}
+                  data={
+                    call.display?.issues.length
+                      ? call.display.issues
+                      : toolFailureIssues(t, call)
+                  }
                   getRowKey={(row) => row.path + row.message}
                   columns={[
                     { key: "path", header: t("chat.trace.issuePath") },

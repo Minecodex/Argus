@@ -1,0 +1,50 @@
+name: ${PLAN9_RUN:?Run required}
+services:
+  direct:
+    image: ${PLAN9_HOST_IMAGE:?Pinned host image required}
+    hostname: ${PLAN9_RUN}-host
+    privileged: true
+    cgroup: private
+    cpus: 1.5
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    pids_limit: 512
+    restart: unless-stopped
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: direct}
+    tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=128m]
+    volumes: ['host-state:/var/lib/plan9', 'host-journal:/var/log/journal', '${PLAN9_PRIVATE}/redis-credentials.json:/root/plan9-redis.json:ro']
+    ports: ['127.0.0.1:22381:22']
+    networks: [lab, kind]
+    extra_hosts: ['host.docker.internal:host-gateway']
+    depends_on: {redis: {condition: service_healthy}}
+    healthcheck:
+      test: [CMD-SHELL, 'systemctl is-active --quiet ssh dbus plan9-b12.service && curl -fsS http://127.0.0.1:18084/health']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B12}
+    logging: {driver: json-file, options: {max-size: 5m, max-file: '2'}}
+  redis:
+    image: ${PLAN9_REDIS_IMAGE:?Pinned Redis image required}
+    cpus: 0.5
+    mem_limit: 192m
+    memswap_limit: 192m
+    pids_limit: 96
+    restart: unless-stopped
+    command: [redis-server, /run/secrets/redis.conf]
+    volumes: ['redis-data:/data', '${PLAN9_PRIVATE}/redis.conf:/run/secrets/redis.conf:ro', '${PLAN9_PRIVATE}/users.acl:/run/secrets/users.acl:ro']
+    networks: [lab]
+    healthcheck:
+      test: [CMD-SHELL, 'redis-cli ping | grep -Eq "PONG|NOAUTH"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B12}
+    logging: {driver: json-file, options: {max-size: 5m, max-file: '2'}}
+networks:
+  lab: {labels: {io.argus.plan9.run: '${PLAN9_RUN}'}}
+  kind: {external: true, name: kind}
+volumes:
+  host-state: {labels: {io.argus.plan9.run: '${PLAN9_RUN}'}}
+  host-journal: {labels: {io.argus.plan9.run: '${PLAN9_RUN}'}}
+  redis-data: {labels: {io.argus.plan9.run: '${PLAN9_RUN}'}}

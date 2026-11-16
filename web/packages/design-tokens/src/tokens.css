@@ -66,6 +66,7 @@
   --popover-max-height: 320px;
   --popover-filter-width: 360px;
   --dialog-width-md: 600px;
+  --file-preview-cell-max-width: 320px;
   --dialog-width-lg: 1120px;
   --dialog-width-cover: min(1200px, 92vw);
   --dialog-height-cover: min(880px, 84vh);

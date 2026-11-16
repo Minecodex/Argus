@@ -29,7 +29,7 @@ func (compactor Compactor) currentContextFits(ctx context.Context, run db.Run) (
 	if err != nil {
 		return false, err
 	}
-	loop := Loop{Store: compactor.Store, RemoteFacts: compactor.RemoteFacts}
+	loop := Loop{Store: compactor.Store, Tools: compactor.Tools, RemoteFacts: compactor.RemoteFacts}
 	messages, current, _, source, err := loop.messages(ctx, run)
 	if err != nil {
 		return false, err
@@ -47,13 +47,6 @@ func (compactor Compactor) currentContextFits(ctx context.Context, run db.Run) (
 	if err != nil {
 		return false, err
 	}
-	projection, err := loop.context(ctx, run, revision, messages, current, tools, source)
-	if err != nil {
-		if errors.Is(err, ErrContextTooLarge) {
-			return false, nil
-		}
-		return false, err
-	}
 	protocol := modelprovider.Protocol(revision.ApiProtocol)
 	budgetParameter, err := modelprovider.BudgetParameterForCapabilities(protocol, revision.Capabilities)
 	if err != nil {
@@ -63,8 +56,11 @@ func (compactor Compactor) currentContextFits(ctx context.Context, run db.Run) (
 	if err != nil {
 		return false, err
 	}
-	size, err := (modelprovider.Provider{Protocol: protocol, BaseURL: revision.BaseUrl}).RequestBytes(inferenceRequest(revision.ProviderModelID, int(revision.MaxOutputTokens), projection.Messages, tools, budgetParameter, reasoningEffort))
-	return size < projection.HardLimit, err
+	projection, err := loop.prepareContext(ctx, run, revision, messages, current, tools, source, budgetParameter, reasoningEffort)
+	if errors.Is(err, ErrContextTooLarge) {
+		return false, nil
+	}
+	return !projection.NeedsHardCompaction(), err
 }
 
 func resumeCompactedRun(ctx context.Context, q *db.Queries, run db.Run) error {

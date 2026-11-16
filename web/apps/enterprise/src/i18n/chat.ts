@@ -4,6 +4,27 @@
  */
 export const chatZh = {
   chat: {
+    toolFailure: {
+      searchRequired: "需要先完成本轮工具发现（Search）",
+      descriptionRequired: "需要先读取这个工具的完整契约（Describe）",
+      invalidInput: "工具参数不符合契约，请检查字段位置和类型",
+      versionConflict:
+        "条件版本不一致，请重读当前条件版本（服务端：{{version}}）",
+      conditionEvidence: "条件证据不符合要求，请检查原文引用和条件路径",
+      resourceScope: "需要明确本次分析的资源范围",
+      fileNotFound: "文件不存在，请核对当前完整文件引用",
+      unknownResult: "上次执行结果未知，请先核实执行状态",
+      permissionDenied: "当前权限不允许调用此工具",
+      other: "工具调用失败：{{code}}",
+      error: "错误",
+      exactQuote: "必须逐字引用当前用户消息中的连续原文",
+      oneEvidence: "每个变更条件必须且只能有一条证据",
+      uniquePath: "证据路径必须对应变更条件且不能重复",
+      selectionReason: "自主选择需要说明理由，可选引用也必须来自当前原文",
+      requiredField: "缺少必填字段",
+      unexpectedField: "字段位置或名称不被接受",
+      fieldType: "字段类型不符合要求",
+    },
     resourceTypes: {
       host: "主机",
       kubernetes_cluster: "Kubernetes 集群",
@@ -48,6 +69,8 @@ export const chatZh = {
       previewDescription: "只读在线预览，内容与下载文件一致。",
       previewTooLarge: "文件超过 2 MiB 在线预览限制，可通过下载查看完整内容。",
       previewFailed: "文件预览失败或访问权限已变更。",
+      previewInvalidContent:
+        "文件内容与声明格式不符，或文本编码无法识别，请下载查看。",
       previewUnsupported: "此格式暂不支持在线预览，请下载查看。",
       loading: "正在读取文件…",
       download: "下载",
@@ -178,6 +201,33 @@ export const chatZh = {
 
 export const chatEn = {
   chat: {
+    toolFailure: {
+      searchRequired: "Complete tool discovery (Search) in this Run first",
+      descriptionRequired:
+        "Read this tool's complete contract (Describe) first",
+      invalidInput:
+        "Arguments do not match the contract; check field placement and types",
+      versionConflict:
+        "Condition version conflict; reread the current version (server: {{version}})",
+      conditionEvidence:
+        "Condition evidence is invalid; check the exact quote and condition path",
+      resourceScope: "Choose the resource scope for this analysis",
+      fileNotFound: "File not found; check the current full file reference",
+      unknownResult:
+        "The previous result is unknown; inspect its execution status first",
+      permissionDenied: "Current permissions do not allow this tool",
+      other: "Tool invocation failed: {{code}}",
+      error: "Error",
+      exactQuote:
+        "Use an exact contiguous excerpt from the current user message",
+      oneEvidence: "Provide exactly one evidence entry per changed condition",
+      uniquePath: "Use a unique evidence path for a changed condition",
+      selectionReason:
+        "Explain the permitted AI choice; optional quotes must match the current message",
+      requiredField: "Required field is missing",
+      unexpectedField: "Field name or placement is not accepted",
+      fieldType: "Field type does not match the contract",
+    },
     resourceTypes: {
       host: "Host",
       kubernetes_cluster: "Kubernetes cluster",
@@ -223,6 +273,8 @@ export const chatEn = {
       previewTooLarge:
         "The file exceeds the 2 MiB preview limit. Download it to view the full content.",
       previewFailed: "File preview failed or access has changed.",
+      previewInvalidContent:
+        "The content does not match its declared format or its text encoding could not be decoded. Please download it to inspect.",
       previewUnsupported:
         "Online preview is not available for this format. Download it to view the content.",
       loading: "Reading file…",

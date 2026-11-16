@@ -1,0 +1,53 @@
+name: ${PLAN9_RUN:?Run required}
+x-host: &host
+  image: ${PLAN9_HOST_IMAGE:?Pinned image required}
+  privileged: true
+  cgroup: private
+  cpus: 1.5
+  mem_limit: 1280m
+  memswap_limit: 1280m
+  pids_limit: 512
+  restart: unless-stopped
+  stop_grace_period: 30s
+  tmpfs: [/run:size=64m, /run/lock:size=8m, /tmp:size=64m]
+  healthcheck:
+    test: [CMD-SHELL, 'systemctl is-active --quiet ssh dbus plan9-b11c.service && curl -fsS http://127.0.0.1:18083/health']
+    interval: 5s
+    timeout: 3s
+    retries: 24
+  logging: {driver: json-file, options: {max-size: 5m, max-file: '2'}}
+services:
+  bastion:
+    <<: *host
+    hostname: ${PLAN9_RUN}-bastion
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: bastion}
+    ports: ['127.0.0.1:22372:22']
+    volumes: [bastion-state:/var/lib/plan9, bastion-journal:/var/log/journal]
+    networks:
+      inside: {ipv4_address: '${PLAN9_BASTION_PRIVATE}'}
+      kind: {}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - argus.dev:host-gateway
+      - artifacts.argus.dev:host-gateway
+      - connector.argus.dev:host-gateway
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B11c, io.argus.plan9.peer: bastion}
+  member:
+    <<: *host
+    hostname: ${PLAN9_RUN}-member
+    environment: {PLAN9_RUN: '${PLAN9_RUN}', PLAN9_PEER: member}
+    volumes: [member-state:/var/lib/plan9, member-journal:/var/log/journal]
+    networks:
+      inside: {ipv4_address: '${PLAN9_MEMBER_PRIVATE}'}
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}', io.argus.plan9.batch: B11c, io.argus.plan9.peer: member}
+networks:
+  inside:
+    internal: true
+    ipam: {config: [{subnet: '${PLAN9_PRIVATE_SUBNET}'}]}
+    labels: {io.argus.plan9.run: '${PLAN9_RUN}'}
+  kind: {external: true, name: kind}
+volumes:
+  bastion-state: {labels: {io.argus.plan9.run: '${PLAN9_RUN}'}}
+  bastion-journal: {labels: {io.argus.plan9.run: '${PLAN9_RUN}'}}
+  member-state: {labels: {io.argus.plan9.run: '${PLAN9_RUN}'}}
+  member-journal: {labels: {io.argus.plan9.run: '${PLAN9_RUN}'}}

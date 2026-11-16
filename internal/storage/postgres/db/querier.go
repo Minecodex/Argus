@@ -880,6 +880,7 @@ type Querier interface {
 	// A full read is evidence only after the caller checks content against the
 	// immutable hash/length. Bash success alone does not establish consumption.
 	ListRunQueryFileReads(ctx context.Context, arg ListRunQueryFileReadsParams) ([]ListRunQueryFileReadsRow, error)
+	ListRunToolContextRecords(ctx context.Context, arg ListRunToolContextRecordsParams) ([]ListRunToolContextRecordsRow, error)
 	ListRunningBastionHostOnboardingOperations(ctx context.Context) ([]HostOnboardingOperation, error)
 	ListRunningBastionHostRemovalOperations(ctx context.Context) ([]HostRemovalOperation, error)
 	ListSandboxBackends(ctx context.Context) ([]SandboxBackend, error)
@@ -910,6 +911,7 @@ type Querier interface {
 	ListUserAuthorizedResourceIDs(ctx context.Context, arg ListUserAuthorizedResourceIDsParams) ([]uuid.UUID, error)
 	ListUserIDsForDepartmentRole(ctx context.Context, arg ListUserIDsForDepartmentRoleParams) ([]uuid.UUID, error)
 	ListUserIDsForRole(ctx context.Context, arg ListUserIDsForRoleParams) ([]uuid.UUID, error)
+	ListWorkspaceContextFiles(ctx context.Context, arg ListWorkspaceContextFilesParams) ([]ListWorkspaceContextFilesRow, error)
 	ListWorkspaceDeliveries(ctx context.Context, arg ListWorkspaceDeliveriesParams) ([]FileDelivery, error)
 	ListWorkspaceFiles(ctx context.Context, arg ListWorkspaceFilesParams) ([]WorkspaceFile, error)
 	ListWorkspaceResultArtifacts(ctx context.Context, arg ListWorkspaceResultArtifactsParams) ([]WorkspaceResultArtifact, error)
@@ -1124,6 +1126,7 @@ type Querier interface {
 	RetireMonitoringCredential(ctx context.Context, arg RetireMonitoringCredentialParams) error
 	RetireReplacedKubernetesNamespace(ctx context.Context, arg RetireReplacedKubernetesNamespaceParams) error
 	RetireUnconfirmedKubernetesOperations(ctx context.Context) error
+	RetireWorkspaceFileRegistration(ctx context.Context, arg RetireWorkspaceFileRegistrationParams) (int64, error)
 	RetryDashboardQueryTask(ctx context.Context, arg RetryDashboardQueryTaskParams) (int64, error)
 	RetryHostOnboardingOperation(ctx context.Context, arg RetryHostOnboardingOperationParams) (HostOnboardingOperation, error)
 	RetryHostRemovalOperation(ctx context.Context, arg RetryHostRemovalOperationParams) (HostRemovalOperation, error)

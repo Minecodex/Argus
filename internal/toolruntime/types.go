@@ -72,6 +72,8 @@ type ResourceRef struct {
 }
 
 type Result struct {
+	// ContextFacts is trusted provider metadata, separate from model/external data.
+	ContextFacts map[string]any
 	// Control is trusted provider metadata, never inferred from model/tool data.
 	Control      *Control
 	Display      *ToolDisplay
@@ -390,6 +392,7 @@ type Error struct {
 	Kind    string
 	Message string
 	Details map[string]any
+	Cause   error `json:"-"`
 }
 
 func (err Error) Error() string {
@@ -398,7 +401,8 @@ func (err Error) Error() string {
 	}
 	return err.Kind
 }
-func (err Error) Code() string { return err.Kind }
+func (err Error) Code() string  { return err.Kind }
+func (err Error) Unwrap() error { return err.Cause }
 
 func DecodeObject(value any) (map[string]any, error) {
 	object, ok := value.(map[string]any)

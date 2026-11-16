@@ -1573,6 +1573,66 @@ func (q *Queries) ListMCPConnections(ctx context.Context, enterpriseID uuid.UUID
 	return items, nil
 }
 
+const listRunToolContextRecords = `-- name: ListRunToolContextRecords :many
+SELECT e.sequence,e.payload,t.input,t.call_id,t.id AS tool_call_id
+FROM conversation_events e
+JOIN tool_calls t ON t.enterprise_id=e.enterprise_id AND t.id::text=e.payload->>'tool_call_id'
+WHERE e.enterprise_id=$1 AND e.conversation_id=$2
+AND e.run_id=$3 AND e.sequence<=$4::bigint
+AND e.event_type='tool_call_result' AND e.actor_type='service'
+AND e.payload->>'source'='argus' AND e.payload->>'authorization_scope'=$5::text
+AND (e.payload->>'status'='failed' OR e.payload->>'tool_id' IN ('tool.search','tool.describe') OR jsonb_typeof(e.payload->'context_facts')='object')
+ORDER BY e.sequence DESC LIMIT 33
+`
+
+type ListRunToolContextRecordsParams struct {
+	EnterpriseID       uuid.UUID     `json:"enterprise_id"`
+	ConversationID     uuid.UUID     `json:"conversation_id"`
+	RunID              uuid.NullUUID `json:"run_id"`
+	ThroughSequence    int64         `json:"through_sequence"`
+	AuthorizationScope string        `json:"authorization_scope"`
+}
+
+type ListRunToolContextRecordsRow struct {
+	Sequence   int64     `json:"sequence"`
+	Payload    []byte    `json:"payload"`
+	Input      []byte    `json:"input"`
+	CallID     string    `json:"call_id"`
+	ToolCallID uuid.UUID `json:"tool_call_id"`
+}
+
+func (q *Queries) ListRunToolContextRecords(ctx context.Context, arg ListRunToolContextRecordsParams) ([]ListRunToolContextRecordsRow, error) {
+	rows, err := q.db.Query(ctx, listRunToolContextRecords,
+		arg.EnterpriseID,
+		arg.ConversationID,
+		arg.RunID,
+		arg.ThroughSequence,
+		arg.AuthorizationScope,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRunToolContextRecordsRow{}
+	for rows.Next() {
+		var i ListRunToolContextRecordsRow
+		if err := rows.Scan(
+			&i.Sequence,
+			&i.Payload,
+			&i.Input,
+			&i.CallID,
+			&i.ToolCallID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUnfinishedRunToolCalls = `-- name: ListUnfinishedRunToolCalls :many
 SELECT call.id, call.call_id, call.enterprise_id, call.run_id, call.step_id, call.tool_id, call.source, call.authorization_scope, call.model_call_id, call.call_sequence, call.connection_id, call.schema_hash, call.dispatched_at, call.input, call.input_hash, call.status, call.error_code, call.created_at, call.updated_at FROM tool_calls call JOIN run_steps step ON step.id=call.step_id
 WHERE call.run_id=$1 AND call.enterprise_id=$2 AND call.status IN ('prepared','dispatched')
@@ -1613,6 +1673,77 @@ func (q *Queries) ListUnfinishedRunToolCalls(ctx context.Context, arg ListUnfini
 			&i.ErrorCode,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkspaceContextFiles = `-- name: ListWorkspaceContextFiles :many
+SELECT f.id, f.enterprise_id, f.workspace_id, f.conversation_id, f.name, f.path, f.byte_size, f.content_hash, f.media_type, f.source_result_refs, f.created_at, f.deleted_at, history.source_sequence
+FROM (
+ SELECT e.sequence AS source_sequence,e.enterprise_id,e.conversation_id,
+ CASE WHEN e.payload->'file'->>'id' ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+ THEN (e.payload->'file'->>'id')::uuid END AS file_id
+ FROM conversation_events e
+ WHERE e.enterprise_id=$1 AND e.event_type='workspace_file_added'
+ AND e.sequence <= $2::bigint
+) history
+JOIN workspace_files f ON f.id=history.file_id AND f.enterprise_id=history.enterprise_id AND f.conversation_id=history.conversation_id
+WHERE f.workspace_id=$3 AND f.enterprise_id=$1 AND f.deleted_at IS NULL
+ORDER BY history.source_sequence DESC,f.id LIMIT 65
+`
+
+type ListWorkspaceContextFilesParams struct {
+	EnterpriseID    uuid.UUID `json:"enterprise_id"`
+	ThroughSequence int64     `json:"through_sequence"`
+	WorkspaceID     uuid.UUID `json:"workspace_id"`
+}
+
+type ListWorkspaceContextFilesRow struct {
+	ID               uuid.UUID          `json:"id"`
+	EnterpriseID     uuid.UUID          `json:"enterprise_id"`
+	WorkspaceID      uuid.UUID          `json:"workspace_id"`
+	ConversationID   uuid.UUID          `json:"conversation_id"`
+	Name             string             `json:"name"`
+	Path             string             `json:"path"`
+	ByteSize         int64              `json:"byte_size"`
+	ContentHash      string             `json:"content_hash"`
+	MediaType        string             `json:"media_type"`
+	SourceResultRefs []string           `json:"source_result_refs"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
+	SourceSequence   int64              `json:"source_sequence"`
+}
+
+func (q *Queries) ListWorkspaceContextFiles(ctx context.Context, arg ListWorkspaceContextFilesParams) ([]ListWorkspaceContextFilesRow, error) {
+	rows, err := q.db.Query(ctx, listWorkspaceContextFiles, arg.EnterpriseID, arg.ThroughSequence, arg.WorkspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorkspaceContextFilesRow{}
+	for rows.Next() {
+		var i ListWorkspaceContextFilesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EnterpriseID,
+			&i.WorkspaceID,
+			&i.ConversationID,
+			&i.Name,
+			&i.Path,
+			&i.ByteSize,
+			&i.ContentHash,
+			&i.MediaType,
+			&i.SourceResultRefs,
+			&i.CreatedAt,
+			&i.DeletedAt,
+			&i.SourceSequence,
 		); err != nil {
 			return nil, err
 		}
@@ -1675,134 +1806,3 @@ type ListWorkspaceFilesParams struct {
 	WorkspaceID  uuid.UUID `json:"workspace_id"`
 	EnterpriseID uuid.UUID `json:"enterprise_id"`
 }
-
-func (q *Queries) ListWorkspaceFiles(ctx context.Context, arg ListWorkspaceFilesParams) ([]WorkspaceFile, error) {
-	rows, err := q.db.Query(ctx, listWorkspaceFiles, arg.WorkspaceID, arg.EnterpriseID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []WorkspaceFile{}
-	for rows.Next() {
-		var i WorkspaceFile
-		if err := rows.Scan(
-			&i.ID,
-			&i.EnterpriseID,
-			&i.WorkspaceID,
-			&i.ConversationID,
-			&i.Name,
-			&i.Path,
-			&i.ByteSize,
-			&i.ContentHash,
-			&i.MediaType,
-			&i.SourceResultRefs,
-			&i.CreatedAt,
-			&i.DeletedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const lockRuntimeTaskLease = `-- name: LockRuntimeTaskLease :one
-SELECT id FROM runtime_tasks WHERE id=$1 AND lease_owner=$2 AND fence_token=$3 AND status='running' AND lease_until>now() FOR UPDATE
-`
-
-type LockRuntimeTaskLeaseParams struct {
-	ID         uuid.UUID   `json:"id"`
-	LeaseOwner pgtype.Text `json:"lease_owner"`
-	FenceToken int64       `json:"fence_token"`
-}
-
-func (q *Queries) LockRuntimeTaskLease(ctx context.Context, arg LockRuntimeTaskLeaseParams) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, lockRuntimeTaskLease, arg.ID, arg.LeaseOwner, arg.FenceToken)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
-}
-
-const lockWorkspace = `-- name: LockWorkspace :one
-SELECT id, runtime_uid, enterprise_id, conversation_id, status, pvc_name, namespace, capacity_bytes, environment_version, source_result_refs, active_pod_name, active_sandbox_id, lease_owner, lease_until, fence_token, version, last_used_at, deleted_at, created_at, updated_at FROM workspaces WHERE id=$1 AND enterprise_id=$2 FOR UPDATE
-`
-
-type LockWorkspaceParams struct {
-	ID           uuid.UUID `json:"id"`
-	EnterpriseID uuid.UUID `json:"enterprise_id"`
-}
-
-func (q *Queries) LockWorkspace(ctx context.Context, arg LockWorkspaceParams) (Workspace, error) {
-	row := q.db.QueryRow(ctx, lockWorkspace, arg.ID, arg.EnterpriseID)
-	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.RuntimeUid,
-		&i.EnterpriseID,
-		&i.ConversationID,
-		&i.Status,
-		&i.PvcName,
-		&i.Namespace,
-		&i.CapacityBytes,
-		&i.EnvironmentVersion,
-		&i.SourceResultRefs,
-		&i.ActivePodName,
-		&i.ActiveSandboxID,
-		&i.LeaseOwner,
-		&i.LeaseUntil,
-		&i.FenceToken,
-		&i.Version,
-		&i.LastUsedAt,
-		&i.DeletedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const markMCPManagedSecret = `-- name: MarkMCPManagedSecret :exec
-UPDATE secrets SET owner_type='mcp_connection',owner_id=$3 WHERE id=$1 AND enterprise_id=$2
-`
-
-type MarkMCPManagedSecretParams struct {
-	ID           uuid.UUID     `json:"id"`
-	EnterpriseID uuid.UUID     `json:"enterprise_id"`
-	OwnerID      uuid.NullUUID `json:"owner_id"`
-}
-
-func (q *Queries) MarkMCPManagedSecret(ctx context.Context, arg MarkMCPManagedSecretParams) error {
-	_, err := q.db.Exec(ctx, markMCPManagedSecret, arg.ID, arg.EnterpriseID, arg.OwnerID)
-	return err
-}
-
-const markModelDispatched = `-- name: MarkModelDispatched :exec
-UPDATE model_calls SET status='running',projection_hash=$3,tool_snapshot_hash=$4,capability_snapshot=$5,
-dispatched_at=now()
-WHERE id=$1 AND enterprise_id=$2 AND status='reserved'
-`
-
-type MarkModelDispatchedParams struct {
-	ID                 uuid.UUID `json:"id"`
-	EnterpriseID       uuid.UUID `json:"enterprise_id"`
-	ProjectionHash     []byte    `json:"projection_hash"`
-	ToolSnapshotHash   string    `json:"tool_snapshot_hash"`
-	CapabilitySnapshot []byte    `json:"capability_snapshot"`
-}
-
-func (q *Queries) MarkModelDispatched(ctx context.Context, arg MarkModelDispatchedParams) error {
-	_, err := q.db.Exec(ctx, markModelDispatched,
-		arg.ID,
-		arg.EnterpriseID,
-		arg.ProjectionHash,
-		arg.ToolSnapshotHash,
-		arg.CapabilitySnapshot,
-	)
-	return err
-}
-
-const markRunVerificationOnly = `-- name: MarkRunVerificationOnly :exec
-UPDATE runs SET verification_only=true,updated_at=now() WHERE id=$1 AND enterprise_id=$2
-`

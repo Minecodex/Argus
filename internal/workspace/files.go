@@ -250,6 +250,9 @@ func (service Service) Publish(ctx context.Context, p toolruntime.Principal, run
 		if err != nil {
 			return err
 		}
+		if _, err = registerSavedFile(ctx, q, p, current, filePath, size, delivery.ContentHash, media); err != nil {
+			return err
+		}
 		_, err = conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: p.EnterpriseID, ConversationID: p.ConversationID, RunID: uuid.NullUUID{UUID: runID, Valid: runID != uuid.Nil}, Type: "artifact_published", ActorType: "service",
 			Payload: map[string]any{"artifact": deliveryView(delivery)}, Classification: "internal"})
 		return err

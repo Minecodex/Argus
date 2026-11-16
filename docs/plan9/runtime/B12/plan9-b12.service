@@ -1,0 +1,14 @@
+[Unit]
+Description=Plan9 B12 real cache orders service
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/plan9.env
+ExecStart=/usr/bin/python3 /usr/local/lib/plan9-b12/service.py serve
+Restart=no
+MemoryMax=128M
+CPUQuota=10%
+
+[Install]
+WantedBy=multi-user.target

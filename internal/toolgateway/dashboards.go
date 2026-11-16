@@ -150,10 +150,18 @@ func (tools DashboardTools) Register(registry *mcp.Registry) error {
 				return value, dashboardToolFailure(err)
 			},
 		}
+		if strings.HasPrefix(name, "query") {
+			metadata.Project = func(result mcp.Result) map[string]any {
+				if view, ok := result.Private["model_summary"].(map[string]any); ok {
+					return view
+				}
+				return result.Structured
+			}
+		}
 		if name == "context.resolve" {
 			metadata.InputVersion = "argus.dashboard.context.resolve/v3"
 			metadata.Discovery.Revision = "5"
-			metadata.Discovery.Description = "Resolve inherited conditions. Initially choose changes.resources explicitly: all=false with authorized IDs for requested objects, or all=true with ids=[] for an intended all-authorized task. An already confirmed resource condition may be inherited unchanged. Evidence paths are condition-relative: /resources, /time, /variables/<name>, /local_values/<panel>/<name>, or / for reset_all. Cite current user text for explicit changes; use origin=ai_selection with a reason for permitted AI choices. Preserve all requested conditions when fixing evidence. AI choices cannot replace explicit user constraints. Returns an immutable context_ref; corrections require a new query."
+			metadata.Discovery.Description = "Resolve inherited conditions. Read get.analysis.condition_version for expected_version; publication revision_number and other dashboards' versions are different. dashboard_id, expected_version, changes and evidence are top-level arguments. changes.time and changes.resources are siblings. Initially choose resources explicitly: all=false with authorized IDs, or all=true with ids=[] only for an all-authorized task. Supply exactly one top-level evidence entry per changed condition. Paths are /resources, /time, /variables/<name>, /local_values/<panel>/<name>, or / for reset_all. message_interpretation.quote must be an exact contiguous excerpt of this Run's current user message, never a paraphrase or summary. Use ai_selection with a reason only for permitted AI choices. Preserve requested conditions while correcting evidence; AI choices cannot replace explicit user constraints. Returns immutable context_ref; corrections require a new query."
 			metadata.Discovery.Keywords = append(metadata.Discovery.Keywords, "条件", "追问", "继承", "参数")
 		}
 		if name == "list" {
@@ -287,7 +295,11 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 			}
 			value["analysis"] = analysis
 		}
-		return dashboardToolResult(value, tools.Service.ChargeCatalog(ctx, c.actor, value, 1))
+		result, e := dashboardToolResult(value, tools.Service.ChargeCatalog(ctx, c.actor, value, 1))
+		if e == nil {
+			result.ContextFacts = map[string]any{"kind": "dashboard", "id": id.String(), "revision_id": rev.ID.String(), "analysis": value["analysis"]}
+		}
+		return result, e
 	case "context.resolve":
 		input, e := dashboardToolDecode[dashboard.AnalysisResolveInput](call.Input)
 		if e != nil {
@@ -298,7 +310,11 @@ func (tools DashboardTools) execute(ctx context.Context, call mcp.Call, name str
 			return mcp.Result{}, mcp.ErrInputInvalid
 		}
 		value, e := tools.Service.ResolveAnalysis(ctx, c.actor, c.principal.ConversationID, input, invocation)
-		return dashboardToolResult(value, e)
+		result, e := dashboardToolResult(value, e)
+		if e == nil {
+			result.ContextFacts = map[string]any{"kind": "analysis_context", "id": value.ID.String(), "dashboard_id": value.DashboardID.String(), "condition_version": value.ConditionVersion, "parameters": value.Parameters}
+		}
+		return result, e
 	case "context.candidates":
 		if tools.Jobs == nil {
 			return mcp.Result{}, dashboard.ErrUnavailable

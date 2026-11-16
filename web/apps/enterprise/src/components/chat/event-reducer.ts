@@ -11,6 +11,7 @@ import {
   type ToolCallTrace,
 } from "./chat-view-model";
 import { parseToolEventDisplay } from "./tool-display";
+import { requestedToolLabel } from "./tool-error";
 import { projectLiveTimeline } from "./live-timeline";
 
 export type ChatStopReason =
@@ -35,7 +36,12 @@ export type ConversationProjection = {
   tool_calls: ReadonlyMap<string, ToolCallTrace>;
   requested_calls: ReadonlyMap<
     string,
-    { name: string; input: unknown; requestedAt: string }
+    {
+      name: string;
+      input: unknown;
+      requestedAt: string;
+      requestedTarget?: string;
+    }
   >;
   presentations: readonly string[];
   completed_message?: ChatMessage;
@@ -110,6 +116,10 @@ export function reduceAgentEvent(
       tool_calls.set(ref, {
         callId: ref,
         toolName: stringField(payload, "tool_name") ?? "tool",
+        requestedTarget: requestedToolLabel(
+          stringField(payload, "tool_name"),
+          payload.arguments ?? payload.input,
+        ),
         source: stringField(payload, "source"),
         status: "running",
         startedAt: stringField(payload, "started_at") ?? event.occurred_at,
@@ -123,6 +133,7 @@ export function reduceAgentEvent(
     if (ref) {
       tool_calls.set(ref, {
         callId: ref,
+        requestedTarget: current?.requestedTarget ?? requested?.requestedTarget,
         toolName:
           stringField(payload, "target_tool_id") ??
           current?.toolName ??
@@ -235,6 +246,7 @@ export function reduceAgentEvent(
       }
       requested_calls.set(call.id, {
         name: String(call.name ?? "tool"),
+        requestedTarget: requestedToolLabel(String(call.name ?? "tool"), input),
         input:
           call.name === "tool.invoke"
             ? (objectPayload(input).arguments ?? input)

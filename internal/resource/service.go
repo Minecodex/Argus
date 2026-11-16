@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/netip"
 	"net/url"
-	"slices"
 	"strings"
 	"time"
 
@@ -140,7 +139,8 @@ type KubernetesInput struct {
 	ConnectorImagePullSecrets                                      []string
 }
 
-type connectionPlan struct {
+// ConnectionTestPlan is the persisted proof input shared by onboarding and reconnect.
+type ConnectionTestPlan struct {
 	TargetType        string                          `json:"target_type"`
 	Address           string                          `json:"address"`
 	Port              int32                           `json:"port,omitempty"`
@@ -155,6 +155,8 @@ type connectionPlan struct {
 	ResolvedIPs       []string                        `json:"resolved_ips,omitempty"`
 	Onboarding        *installation.CallbackProbePlan `json:"onboarding,omitempty"`
 }
+
+type connectionPlan = ConnectionTestPlan
 
 type ConnectionTestResult struct {
 	IdentitySID         string              `json:"identity_sid,omitempty"`
@@ -728,23 +730,8 @@ func (service Service) requireConnectionTest(ctx context.Context, q *db.Queries,
 	if err != nil || test.TargetType != targetType || test.Status != "succeeded" || time.Now().UTC().After(test.ExpiresAt.Time) {
 		return db.ConnectionTest{}, connectionPlan{}, ConnectionTestResult{}, ErrConnectionTestNeeded
 	}
-	var plan connectionPlan
-	if err := json.Unmarshal(test.RequestPlan, &plan); err != nil || plan.TargetType != targetType {
-		return db.ConnectionTest{}, connectionPlan{}, ConnectionTestResult{}, ErrConnectionTestNeeded
-	}
-	encoded, err := json.Marshal(plan)
-	if err != nil {
-		return db.ConnectionTest{}, connectionPlan{}, ConnectionTestResult{}, ErrConnectionTestNeeded
-	}
-	hash := sha256.Sum256(encoded)
-	if !subtleEqual(hash[:], test.RequestHash) {
-		return db.ConnectionTest{}, connectionPlan{}, ConnectionTestResult{}, ErrConnectionTestNeeded
-	}
-	var result ConnectionTestResult
-	if err := json.Unmarshal(test.Result, &result); err != nil {
-		return db.ConnectionTest{}, connectionPlan{}, ConnectionTestResult{}, ErrConnectionTestNeeded
-	}
-	if len(plan.ResolvedIPs) > 0 && !slices.Equal(plan.ResolvedIPs, result.ResolvedIPs) {
+	plan, result, err := DecodeConnectionTestProof(test)
+	if err != nil || plan.TargetType != targetType {
 		return db.ConnectionTest{}, connectionPlan{}, ConnectionTestResult{}, ErrConnectionTestNeeded
 	}
 	if err := service.validateConnectionPlanState(ctx, q, enterpriseID, test, plan); err != nil {

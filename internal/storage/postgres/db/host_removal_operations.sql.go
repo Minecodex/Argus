@@ -1180,7 +1180,7 @@ SELECT 'telemetry_route'::text, route.id, collector.role::text, route.status::te
 FROM telemetry_routes route JOIN collector_instances collector ON collector.id=route.collector_id AND collector.enterprise_id=route.enterprise_id
 WHERE route.enterprise_id=$1 AND (collector.resource_id=$3 OR route.gateway_collector_id IN (
   SELECT id FROM collector_instances WHERE enterprise_id=$1 AND resource_type='host' AND resource_id=$3
-)) AND route.status<>'invalidated'
+)) AND route.status<>'invalidated' AND collector.status<>'uninstalled'
 UNION ALL
 SELECT 'remote_session'::text, session.id, session.protocol::text, session.status::text
 FROM remote_access_sessions session JOIN hosts host ON host.id=session.host_id AND host.enterprise_id=session.enterprise_id
@@ -1204,6 +1204,15 @@ LEFT JOIN hosts host ON host.id=tunnel.host_id AND host.enterprise_id=tunnel.ent
 WHERE tunnel.enterprise_id=$1 AND tunnel.status<>'removed' AND (
   tunnel.host_id=$3 OR host.bastion_scope_id=$2 OR tunnel.connector_id=(
     SELECT active_connector_id FROM bastion_scopes WHERE enterprise_id=$1 AND id=$2
+  )
+)
+AND NOT (
+  tunnel.status='down'
+  AND COALESCE(host.status='deleted' AND host.local_cleanup='verified',false)
+  AND EXISTS (
+    SELECT 1 FROM collector_instances retired
+    WHERE retired.enterprise_id=tunnel.enterprise_id AND retired.id=tunnel.collector_id
+      AND retired.status='uninstalled'
   )
 )
 UNION ALL
@@ -1794,12 +1803,4 @@ WHERE enterprise_id=$1 AND target_resource_type='host' AND target_resource_id=$2
 type RevokeHostRemovalCredentialLeasesParams struct {
 	EnterpriseID     uuid.UUID `json:"enterprise_id"`
 	TargetResourceID uuid.UUID `json:"target_resource_id"`
-}
-
-func (q *Queries) RevokeHostRemovalCredentialLeases(ctx context.Context, arg RevokeHostRemovalCredentialLeasesParams) (int64, error) {
-	result, err := q.db.Exec(ctx, revokeHostRemovalCredentialLeases, arg.EnterpriseID, arg.TargetResourceID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }

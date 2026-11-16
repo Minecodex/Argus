@@ -1,0 +1,12 @@
+[Unit]
+Description=Plan9 B11c real tunnel review service
+After=network.target
+[Service]
+Type=simple
+EnvironmentFile=/etc/plan9.env
+ExecStart=/usr/bin/python3 /usr/local/lib/plan9-b11c.py serve
+Restart=no
+MemoryMax=128M
+CPUQuota=10%
+[Install]
+WantedBy=multi-user.target

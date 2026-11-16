@@ -59,6 +59,9 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 49. [Plan8 应用、监控采集与 Kubernetes 工作台完整实施计划](./plan8/README.md)
 50. [本机正式版与测试环境清理（2026-10-26）](./local-formal-deployment-20261026.md)
 51. [Plan9 分批真实场景、监控与人工验收](./plan9/README.md)
+    - [B12 通用上下文正式接入、真实压缩续读与保留限制](./plan9/32-b12-generic-context-runtime-20261116.md)
+    - [B12 重新执行的工具成功率、Token计量与未通过项](./plan9/33-b12-session-rerun-metrics-20261116.md)
+    - [B12 压缩恢复与整轮请求预算修复验证](./plan9/34-b12-compaction-recovery-fix-20261116.md)
 52. [Plan10 观测查询统一临时工作台（实现、原型与验收）](./plan10/README.md)
 53. [模型治理内置仪表盘（实现、隔离与真实验收）](./plans/frontend-redesign/model-governance-dashboard-20261028.md)
 54. [模型治理本地构建与部署（2026-10-28）](./model-governance-local-deployment-20261028.md)
@@ -74,6 +77,13 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 64. [B10a 安静容器日志与操作栏复查（2026-11-11）](./plan9/17-b10a-quiet-pod-logs-and-actions-20261111.md)
 65. [B10a 终端可用名单与日志选项对齐（2026-11-11）](./plan9/18-b10a-terminal-matrix-and-log-options-20261111.md)
 66. [B11b 终端录像播放器布局与主题修复（2026-11-14）](./plan9/26-terminal-recording-player-layout-20261114.md)
+67. [仅保留账号的重部署与磁盘回收（2026-11-15）](./local-account-only-redeployment-20261115.md)
+68. [B11c 隧道重连、凭据轮换与历史缺口（2026-11-15）](./plan9/27-b11c-tunnel-reconnect-20261115.md)
+69. [B11c 正常卸载依赖投影修正（2026-11-16）](./plan9/28-b11c-retirement-dependencies-20261116.md)
+70. [B12 真实模型、Workspace 与操作闭环查看路线](./plan9/batches/B12-review.md)
+71. [B12 会话文件统一预览修正](./plan9/29-b12-file-previews-20261116.md)
+72. [B12 会话工具失败根因核对](./plan9/30-b12-tool-failure-analysis-20261116.md)
+73. [B12 压缩后继续执行的受控对照](./plan9/31-b12-compaction-controlled-comparison-20261116.md)
 
 2026-10-18 [Markdown 计划、命令授权与普通会话执行](./plan7/18-markdown-plan-command-consent.md)完成并发布到本地 revision 40：计划文档一次批准，命令按普通会话工具执行；两种权限模式的修复和停止场景通过，最终 38 次模型调用用量完整。Go 2263、前端 1326、交互 E2E 12、真实历史页面 12 通过，健康 20/20。此前 [revision 36/37 交互与布局记录](./plan7/16-interaction-closure.md)和更早的固定计划矩阵保留各自适用范围。
 

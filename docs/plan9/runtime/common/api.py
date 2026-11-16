@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import time
 
@@ -17,7 +18,10 @@ class Api:
         assert self.origin == 'https://argus.dev'
         self.http = requests.Session()
         self.http.trust_env = False
-        self.http.verify = str(ca_path)
+        bundle = Path(os.environ.get('ARGUS_PLAN9_CA_BUNDLE', str(ca_path)))
+        if not bundle.is_file():
+            raise RuntimeError('Plan9 CA bundle missing; set ARGUS_PLAN9_CA_BUNDLE to the current trusted bundle')
+        self.http.verify = str(bundle)
         self.http.headers['Origin'] = self.origin
         for c in stored['cookies']:
             self.http.cookies.set(c['name'], c['value'], domain=c['domain'], path=c['path'])
@@ -45,13 +49,13 @@ class Api:
         self.csrf, self.user = session['csrf_token'], session['user']
         self.save()
 
-    def call(self, method, path, body=None, *, key=None, expected=200, retry=True):
+    def call(self, method, path, body=None, *, key=None, expected=200, retry=True, timeout=45):
         headers = {'X-CSRF-Token': self.csrf}
         if method != 'GET':
             frozen = self.run.id + '\0' + (key or path) + '\0' + json.dumps(body, sort_keys=True)
             headers['Idempotency-Key'] = 'p9-' + hashlib.sha256(frozen.encode()).hexdigest()
         response = self.http.request(method, self.origin + '/api/v1' + path,
-                                     json=body, headers=headers, timeout=45)
+                                     json=body, headers=headers, timeout=timeout)
         try:
             value = response.json() if response.content else None
         except ValueError:
@@ -62,7 +66,7 @@ class Api:
                                      'path': path, 'status': response.status_code, 'code': code}) + '\n')
         if response.status_code == 401 and retry and self.credentials:
             self.login()
-            return self.call(method, path, body, key=key, expected=expected, retry=False)
+            return self.call(method, path, body, key=key, expected=expected, retry=False, timeout=timeout)
         allowed = expected if isinstance(expected, (list, tuple)) else [expected]
         if response.status_code not in allowed:
             params = (value.get('params') or {}) if isinstance(value, dict) else {}

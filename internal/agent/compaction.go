@@ -21,9 +21,11 @@ import (
 	"github.com/kakj-go/Argus/internal/runtime"
 	"github.com/kakj-go/Argus/internal/storage/postgres"
 	"github.com/kakj-go/Argus/internal/storage/postgres/db"
+	"github.com/kakj-go/Argus/internal/toolruntime"
 )
 
 type Compactor struct {
+	Tools          toolruntime.Factory
 	Store          *postgres.Store
 	Models         modelservice.Service
 	EndpointPolicy modelprovider.PublicEndpointPolicy

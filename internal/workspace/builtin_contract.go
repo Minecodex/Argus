@@ -5,13 +5,13 @@ import "github.com/kakj-go/Argus/internal/sandbox"
 // Tool contracts are versioned separately from the runtime's RPC identity.
 // Existing Run snapshots must not silently acquire changed builtin contracts.
 func workspaceBuiltinVersion(identity sandbox.WorkspaceIdentity) string {
-	return "workspace-tools/v9:" + identity.Version()
+	return "workspace-tools/v10:" + identity.Version()
 }
 
 func workspaceBuiltinDescription(name string) string {
 	switch name {
 	case "read":
-		return "Read an existing UTF-8 file in the persistent offline /workspace. Select a bounded line range and inspect partial before assuming the complete file was read. No network access."
+		return "Read an existing UTF-8 file in persistent offline /workspace. Use full paths from current context_references rather than historical abbreviations. Select a bounded line range and inspect partial before assuming a complete read. A complete read returns actual_sha256 for the original file bytes; a partial read does not certify the whole file. No network access."
 	case "write":
 		return "Create or replace the complete contents of a persistent /workspace file. The result records the saved path, size and content hash; saving does not create a downloadable delivery. When the user requested a report/file export or download, search workflow, describe publish_file, then publish only the requested authorized file and return its actual delivery reference. No network access."
 	case "edit":

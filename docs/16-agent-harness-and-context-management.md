@@ -1,5 +1,9 @@
 # Agent Harness 与上下文管理
 
+> 2026-11-16 后续：已修复硬压缩无法选择末尾完整工具组的问题；派发与恢复共用整轮预算投影，释放可恢复旧契约、为大结果保留完整原件引用并降级内联证明。固定入场/未知Tokenizer容量保护不放宽，原始账本与权限边界不变。真实B12两个Run完成，经历9次压缩且恢复失败0；报告语义仍有未通过项，见[修复及实际验证](./plan9/34-b12-compaction-recovery-fix-20261116.md)。
+
+> 2026-11-16：已正式接入可选 `ContextFactProvider`、完整 Workspace 引用、有界原生工具知识/任务事实及字段级失败反馈，Admission/推理/压缩恢复共用现有工具工厂。模型继续自行决定业务流程，事实不授予权限或重放效果。B12 真实压缩续读和原件统计已验证；模型取数后重复决策仍存在，未宣称调用效率或全部自动停止验收通过。见[实现与实际证据](./plan9/32-b12-generic-context-runtime-20261116.md)。
+
 > 2026-10-29：[Plan11](./plan11/README.md)规划类型化工具导航与综合诊断，并要求 task_scope、已获取仪表盘、工作模式和 access_mode 分别保存和恢复。它是待实施方案，不允许模型自报范围扩大权限；现有快照、确认及未知结果规则继续生效，见 [范围与恢复设计](./plan11/05-agent-routing-and-context.md)。
 
 > 2026-10-18：新增持久化 request_user_input 暂停点及 workflow.plan.propose。提问时停止后续工具派发并释放 Worker；答复后以同一工具调用记录恢复，撤销同批尚未派发的旧决策，再让 ReAct 消费真实答复。计划确认创建新的 execute Run，不可变 Markdown 计划、一次性步骤 ID 和执行事实随恢复与压缩重新注入；操作权限在每个 Preview 创建时冻结，切换不追溯旧请求。见 [Markdown 计划与命令授权](./plan7/18-markdown-plan-command-consent.md)。

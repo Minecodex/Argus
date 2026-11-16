@@ -3,7 +3,10 @@ package workspace
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
+	"io"
 	"strings"
 
 	"github.com/google/uuid"
@@ -117,7 +120,8 @@ func (service Service) builtin(ctx context.Context, name string, call toolruntim
 			return toolruntime.Result{}, toolruntime.Error{Kind: "TOOL_INPUT_INVALID"}
 		}
 		var output strings.Builder
-		scanner := bufio.NewScanner(reader)
+		hash := sha256.New()
+		scanner := bufio.NewScanner(io.TeeReader(reader, hash))
 		scanner.Buffer(make([]byte, 4096), 1<<20)
 		line := 0
 		partial := false
@@ -137,6 +141,9 @@ func (service Service) builtin(ctx context.Context, name string, call toolruntim
 			return toolruntime.Result{}, err
 		}
 		result = map[string]any{"path": filePath, "content": output.String(), "byte_size": size, "start_line": start, "end_line": min(line, end), "partial": partial}
+		if !partial {
+			result["actual_sha256"] = fmt.Sprintf("%x", hash.Sum(nil))
+		}
 	case "write":
 		content, _ := call.Arguments["content"].(string)
 		info, err := access.IO.Write(access.Context, filePath, strings.NewReader(content), int64(len(content)), true)
@@ -167,6 +174,12 @@ func (service Service) builtin(ctx context.Context, name string, call toolruntim
 	}
 	if name == "write" || name == "edit" {
 		markWorkspaceFileSaved(result)
+		file, err := service.recordSavedFile(ctx, call.Principal, access, result["path"].(string), result["byte_size"].(int64), result["content_hash"].(string))
+		if err != nil {
+			return toolruntime.Result{ToolID: name, Unknown: true, Data: map[string]any{"file_saved": true, "registration_complete": false,
+				"message": "The filesystem save completed but registration was not confirmed. Inspect current file state before deciding what to do; the write was not replayed."}}, nil
+		}
+		result["workspace_file_id"] = file.ID.String()
 	}
 	if err := access.checkAuthorization(ctx); err != nil {
 		return toolruntime.Result{}, err

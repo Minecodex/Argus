@@ -2,7 +2,8 @@ import { useTranslation } from "react-i18next";
 import { ToolResultDisclosure } from "@argus/ui";
 import { ConversationPresentation } from "./tool-presentation";
 import { toolDetailsText } from "./tool-details";
-import { toolDisplayName } from "./tool-name";
+import { toolTraceName } from "./tool-name";
+import { toolFailureText } from "./tool-error";
 import { toolDisplaySummary } from "./tool-display";
 import type { ToolCallTrace } from "./chat-view-model";
 
@@ -41,11 +42,10 @@ export function ConversationToolResult({
   call?: ToolCallTrace;
 }) {
   const { t } = useTranslation();
-  const title = call
-    ? toolDisplayName(t, call.toolName, call.source)
-    : t("planv5.template.title");
+  const title = call ? toolTraceName(t, call) : t("planv5.template.title");
   // Only display an explicit public summary. Never guess names, counts or units from IDs.
   const summary =
+    (call && toolFailureText(t, call)) ||
     toolDisplaySummary(call?.display, t) ||
     call?.summary ||
     (typeof call?.output === "string" ? call.output : undefined);

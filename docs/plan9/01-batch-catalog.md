@@ -107,13 +107,16 @@ Kafka 的 lag 必须确有消费组提交位点；不从生产速率猜测积压
 - B11a：测试 Linux 主机的真实 SSH/命令安装、身份注册和远程终端；执行 hostname、id、只读进程查看等，保留返回与审计。
 - B11a 已按用户要求推进后封存并清理；[历史记录](./batches/B11a-review.md) 保留四套仪表盘、直连终端及启动期投递缺口 B11a-D01。
 - B11b：堡垒机＋内网成员，网络实际阻止成员直达 Argus；通过堡垒机接入、TLS Relay/数据路径、成员监控和人工终端。仅设置一个“内网”标签不算网络隔离。
-- 当前 B11b 已部署并保留运行，采用 `bastion_relay` 控制和 `bastion_gateway/bastion_tunnel` 成员遥测；8 项采集、40 面板、真实 Shell/OpenSSH/录像及业务/no_data 告警均已自检。[查看记录](./batches/B11b-review.md) / [运行包](./runtime/B11b/runbook.md)。
+- B11b 已在 2026-11-15 账号保留重部署时退役，人工结论未改写；原 `bastion_relay`/`bastion_tunnel` 场景证据见 [历史记录](./batches/B11b-review.md)。
 - B11c：按现有支持路径验证 Executor Tunnel/堡垒机隧道、重连、凭据轮换、过期预览拒绝、断连恢复；精确记录实际使用的控制和遥测路由。
+- B11c 已于 2026-11-16 经用户确认通过后正常卸载并销毁，审计与历史证据保留；[历史查看路线](./batches/B11c-review.md) / [运行包](./runtime/B11c/runbook.md)。轮换及清理修正不抹除已发生的历史数据缺口。
 - 仪表盘/页面：堡垒机/成员列表、安装任务、主机/Collector 监控、Terminal Dock 的底/左/右停靠和缩放、会话状态、录像/回放、审计和适用文件能力。
 - 告警：本批专用服务/探测指标触发，比较连接故障与数据失联诊断；不能用“堡垒机在线”证明成员监控在线。
 - 人工会话、AI 远程工具、安装身份分别验收。未支持或未授予的文件/剪贴板能力必须明确拒绝，不能为演示开放更多权限。
 
 ## B12：真实模型聊天与操作闭环
+
+当前已部署 `p9-b12-20261116-01`，使用用户提供的 APIMart `glm-5.3-flash` 完成真实平台查询、Workspace 代码与下载、取消及确认后原生恢复；保留环境等待用户查看。详情、用量和历史失败见 [B12 查看路线](./batches/B12-review.md) / [运行包](./runtime/B12/runbook.md)。
 
 - 环境：本批真实 Host＋中间件/应用＋已取数仪表盘＋已触发告警；有效真实模型配置、正常 Workspace。重新创建基础场景，不依赖 B01～B11 的旧数据。
 - 部署前列明模型配置 ID/Provider/模型、最大轮次、调用/token/费用预算、超时与停止条件；优先使用企业现有已授权可用模型。未提供预算/凭据且无法从现有配置确定时再询问，不能用 replay/mock 模型代替。
@@ -135,7 +138,7 @@ Kafka 的 lag 必须确有消费组提交位点；不从生产速率猜测积压
 
 - E01：真实 Windows VM/主机、SCM/进程、IIS、Windows Event Log、RDP/录像和权限。Linux Docker 环境无法替代；既有 Windows 实机暂缓决定继续保留，只有用户要求时启动该批。
 - E02：真实 ARM Linux 主机上的安装、采集、仪表盘和卸载；amd64 仿真/交叉构建不记为 ARM 实机验收。
-- 暂缓独立资源监控：ClickHouse、TiDB、OceanBase、RocketMQ、Pulsar、NATS、Envoy、JVM、Tomcat、Spring Boot、MinIO；暂缓协议：SkyWalking。沿用 [Plan8 交付边界](../../artifacts/plan8-r88-delivery-and-remaining-limitations.md)，不新增 exporter、通用抓取或假数据把这些项目填成可用。
+- 暂缓独立资源监控：ClickHouse、TiDB、OceanBase、RocketMQ、Pulsar、NATS、Envoy、JVM、Tomcat、Spring Boot、MinIO；暂缓协议：SkyWalking。沿用 [Plan8 交付边界](../plan8/README.md)，不新增 exporter、通用抓取或假数据把这些项目填成可用。旧 `artifacts/plan8-r88-delivery-and-remaining-limitations.md` 已在用户授权的 artifacts 全量清理中删除，现使用保留的文档入口。
 - 这些软件可以在其他场景中充当真实业务依赖，但依赖存在不代表完成其自身监控。若用户后续明确要求扩展采集支持，单列开发任务和真实验收，不静默并入本计划。
 
 ## 覆盖与状态
