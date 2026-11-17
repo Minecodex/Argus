@@ -1,3 +1,4 @@
+import { openSummarySection } from "./helpers/conversation-summary";
 import { selectRowAction } from "./helpers/action-menu";
 import { setChoice } from "./helpers/choice";
 import { expect, test, type Page } from "@playwright/test";
@@ -39,6 +40,7 @@ test("enterprise MCP grants, write-only Basic credentials and remembered convers
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await expect(page).toHaveURL(/c=/);
   await page.getByRole("button", { name: "置顶摘要", exact: true }).click();
+  await openSummarySection(page, "mcp");
   const selected = page.getByRole("checkbox", { name: /Business reports/ });
   await expect(selected).not.toBeChecked();
   await expect(selected).toBeEnabled({ timeout: 15_000 });
@@ -47,6 +49,7 @@ test("enterprise MCP grants, write-only Basic credentials and remembered convers
   await expect(page.getByText("会话 MCP 连接 · 1")).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "置顶摘要", exact: true }).click();
+  await openSummarySection(page, "mcp");
   await expect(selected).toBeChecked();
 });
 
@@ -70,6 +73,7 @@ test("uploaded bytes survive reload without a Workspace deletion action", async 
   ).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "置顶摘要", exact: true }).click();
+  await openSummarySection(page, "files");
   await page.locator('summary[title="/workspace/uploads"]').click();
   await page.locator('summary[title^="/workspace/uploads/"]').click();
   const file = page

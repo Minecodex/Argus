@@ -202,8 +202,12 @@ func (service Service) ListEvents(ctx context.Context, enterpriseID, ownerID, co
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
-	return service.Store.Queries.ListConversationEvents(ctx, db.ListConversationEventsParams{ConversationID: conversationID,
+	items, err := service.Store.Queries.ListConversationEvents(ctx, db.ListConversationEventsParams{ConversationID: conversationID,
 		EnterpriseID: enterpriseID, Sequence: after, Limit: limit})
+	if err != nil {
+		return nil, err
+	}
+	return service.scopeActivityEvents(ctx, enterpriseID, ownerID, items)
 }
 
 func (service Service) GetRun(ctx context.Context, enterpriseID, ownerID, runID uuid.UUID) (db.Run, error) {

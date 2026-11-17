@@ -1,3 +1,4 @@
+import { openSummarySection } from "./helpers/conversation-summary";
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
@@ -77,6 +78,7 @@ for (const english of [false, true])
         name: english ? "Pinned summary" : "置顶摘要",
         exact: true,
       });
+      await openSummarySection(page, "files");
       const tree = popup.getByRole("list", {
         name: english ? "Conversation files" : "会话文件",
         exact: true,

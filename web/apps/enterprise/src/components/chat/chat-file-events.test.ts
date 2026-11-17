@@ -83,7 +83,15 @@ describe("file events in chat", () => {
         ),
         event(5, "assistant_message", { content: "分析完成" }, "run"),
       ]);
-      expect(history.map((entry) => entry.kind)).toEqual(["file", "message"]);
+      expect(history.map((entry) => entry.kind)).toEqual([
+        "file",
+        "tool",
+        "message",
+      ]);
+      expect(history[1]?.toolCalls?.[0]).toMatchObject({
+        callId: "call",
+        rawStatus: "queued",
+      });
       expect(history[0]).toMatchObject({
         role: "system",
         content: "",

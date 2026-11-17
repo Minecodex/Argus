@@ -125,7 +125,10 @@ describe("conversation event reducer", () => {
       action,
       event(3, "run_completed", { stop_reason: "output_limit" }),
     );
-    expect(done.tool_calls.get("tool-1")?.status).toBe("running");
+    expect(done.tool_calls.get("tool-1")).toMatchObject({
+      status: "failed",
+      rawStatus: "result_unknown",
+    });
     expect(done.pending_action_refs).toEqual(["action-1"]);
     expect(done.execution_refs).toEqual(["execution-1"]);
     expect(done.stop_reason).toBe("output_limit");

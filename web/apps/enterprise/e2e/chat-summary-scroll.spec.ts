@@ -1,3 +1,5 @@
+import { openToolResults } from "./helpers/tool-results";
+import { openSummarySection } from "./helpers/conversation-summary";
 import { expect, test } from "@playwright/test";
 import { createHash } from "node:crypto";
 
@@ -154,10 +156,19 @@ for (const english of [false, true])
         });
         await expect(popup).toBeVisible();
         await expect(
-          popup
-            .locator(".argus-conversation-workspace > details > summary")
-            .last(),
-        ).toContainText("24");
+          popup.locator(".argus-conversation-workspace > details"),
+        ).toHaveCount(3);
+        await expect(
+          popup.locator(".argus-conversation-workspace > details[open]"),
+        ).toHaveCount(0);
+        const sections = popup.locator(
+          ".argus-conversation-workspace > details",
+        );
+        await expect(sections.nth(1).locator(":scope > summary")).toContainText(
+          "24",
+        );
+        await sections.nth(0).locator(":scope > summary").click();
+        await sections.nth(1).locator(":scope > summary").click();
         const connection = popup.getByRole("checkbox", {
           name: /Read-only MCP/,
         });
@@ -198,7 +209,7 @@ for (const english of [false, true])
         await page.keyboard.press("Escape");
         await expect(popup).not.toBeVisible();
         await expect(trigger).toBeFocused();
-        await page.locator(".argus-tool-result__header button").click();
+        await openToolResults(page);
         const frame = page.locator("iframe.argus-tool-presentation__frame");
         await expect(frame).toBeVisible({ timeout: 25000 });
         const content = frame.contentFrame();
@@ -254,6 +265,7 @@ for (const english of [false, true])
         expect(stream!.y + stream!.height).toBeLessThanOrEqual(input!.y + 1);
         await page.reload();
         await trigger.click();
+        await openSummarySection(page, "mcp");
         await expect(connection).toBeChecked();
         await page.keyboard.press("Escape");
       });

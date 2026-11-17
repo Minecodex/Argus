@@ -43,3 +43,18 @@ func TestToConversationRunIncludesTerminalReason(t *testing.T) {
 		t.Fatalf("error_code = %v", result.ErrorCode)
 	}
 }
+
+func TestToolStartAndCompletionKeepSameIdentityAndProvenance(t *testing.T) {
+	for _, kind := range []string{"tool_call_started", "tool_call_result"} {
+		payload, _ := json.Marshal(map[string]any{"tool_call_id": "same-call", "source": "sandbox", "tool_name": "edit", "status": "succeeded"})
+		envelope, ok := toAgentStreamEnvelope(db.ConversationEvent{ID: uuid.New(), ConversationID: uuid.New(), EventType: kind, Payload: payload, OccurredAt: pgtype.Timestamptz{Time: time.Now(), Valid: true}}, 1)
+		if !ok {
+			t.Fatal("tool lifecycle event omitted", kind)
+		}
+		agent := envelope["data"].(map[string]any)
+		public := agent["payload"].(map[string]any)
+		if public["tool_call_id"] != "same-call" || public["source"] != "sandbox" {
+			t.Fatal("lost call identity/source")
+		}
+	}
+}

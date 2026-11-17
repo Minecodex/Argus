@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { captureTemplatePanel } from "./helpers/template-panel-capture";
-import { openToolResults } from "./helpers/tool-results";
+import { openActivityGroups, openToolResults } from "./helpers/tool-results";
 
 type Binding = {
   Tool: string;
@@ -152,6 +152,7 @@ async function seed(
     },
   );
   await page.reload();
+  await openActivityGroups(page);
   await expect(page.getByTestId("tool-result")).toHaveCount(additional ? 2 : 1);
   if (expanded) await openToolResults(page);
   const card = page.locator(".argus-tool-presentation").first(),
@@ -584,7 +585,7 @@ for (const english of [false, true])
             scroll: node.scrollWidth,
           }));
         expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width + 1);
-        expect(await page.locator(".argus-tool-result").count()).toBe(1);
+        expect(await page.getByTestId("tool-result").count()).toBe(1);
       });
 
 test("compact calls and action previews share one confirmation workspace", async ({
@@ -686,7 +687,10 @@ test("compact calls and action previews share one confirmation workspace", async
   await expect(
     action.getByRole("button", { name: "确认执行", exact: true }),
   ).toBeVisible();
-  await action.locator(".argus-tool-result__header button").click();
+  await action
+    .locator('[data-testid="tool-result"] .argus-tool-activity > button')
+    .click();
+  await action.getByTestId("tool-business-view").locator("summary").click();
   await expect(action.locator("iframe")).toBeVisible();
   await expect(
     action
@@ -694,9 +698,7 @@ test("compact calls and action previews share one confirmation workspace", async
       .contentFrame()
       .getByRole("button", { name: /确认执行|取消/ }),
   ).toHaveCount(0);
-  await page
-    .getByRole("button", { name: /展开 仪表盘草稿校验 调用详情/ })
-    .click();
+  await page.getByRole("button", { name: /^仪表盘草稿校验/ }).click();
   await expect(
     page.getByText("Missing query target", { exact: true }),
   ).toBeVisible();

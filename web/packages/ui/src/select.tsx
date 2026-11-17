@@ -28,7 +28,9 @@ export type SelectProps = {
   required?: boolean;
   size?: ControlSize;
   density?: "default" | "compact";
-  sizing?: "field" | "content";
+  appearance?: "default" | "pill";
+  sizing?: "field" | "content" | "selection";
+  placement?: "bottom start" | "bottom end" | "top start" | "top end";
 } & Pick<
   AriaAttributes,
   "aria-describedby" | "aria-invalid" | "aria-labelledby" | "aria-required"
@@ -47,7 +49,9 @@ export function Select({
   required,
   size = "md",
   density = "default",
+  appearance = "default",
   sizing = "field",
+  placement = "bottom start",
   ...aria
 }: SelectProps) {
   const field = useFieldContext();
@@ -76,9 +80,11 @@ export function Select({
         .map((o) => encode(o.value))}
       className={cx(
         "argus-select",
+        appearance === "pill" && "argus-select--pill",
         `argus-control--${size}`,
         density === "compact" && "argus-select--compact",
-        sizing === "content" && "argus-select--content",
+        sizing !== "field" && "argus-select--content",
+        sizing === "selection" && "argus-select--selection",
         className,
       )}
       placeholder={
@@ -93,9 +99,12 @@ export function Select({
           onValueChange(decoded);
       }}
     >
-      {sizing === "content" && (
+      {sizing !== "field" && (
         <span className="argus-select__sizer" aria-hidden>
-          {options.map((option) => (
+          {(sizing === "selection"
+            ? options.filter((option) => option.value === value)
+            : options
+          ).map((option) => (
             <span key={option.value}>
               {option.textValue ??
                 (typeof option.label === "string"
@@ -123,8 +132,11 @@ export function Select({
         <HeroSelect.Indicator className="argus-select__indicator" />
       </HeroSelect.Trigger>
       <HeroSelect.Popover
-        className="argus-select__content"
-        placement="bottom start"
+        className={cx(
+          "argus-select__content",
+          sizing === "selection" && "argus-select__content--selection",
+        )}
+        placement={placement}
       >
         <ListBox className="argus-select__viewport">
           {options.map((option) => (

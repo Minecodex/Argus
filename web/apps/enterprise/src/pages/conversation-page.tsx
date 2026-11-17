@@ -5,10 +5,10 @@ import { CompactionNotice } from "../components/chat/compaction-notice";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, Minimize2, Pencil, Trash2, X } from "lucide-react";
-import type { AIModel, ModelAvailability } from "@argus/api-client";
 import { formatApiError, useApi } from "@argus/api-client";
-import { Button, ConfirmDialog, Input, Select } from "@argus/ui";
+import { Button, ConfirmDialog, Input } from "@argus/ui";
 import { ChatComposer } from "../components/chat/composer";
+import { ConversationModelSelect } from "../components/chat/conversation-model-select";
 import { ChatMessageList } from "../components/chat/message-list";
 import { chatMessagesFromEvents } from "../components/chat/chat-view-model";
 import type { ChatMessage } from "../components/chat/chat-view-model";
@@ -52,24 +52,16 @@ function Welcome({ onExample }: { onExample: (text: string) => void }) {
   );
 }
 
-/** 会话头部：标题、模型选择和会话生命周期操作。 */
+/** 会话头部：标题和会话生命周期操作。 */
 function ConversationHeader({
   conversationId,
   title,
-  selectedModelId,
-  models,
-  availability,
-  onModelChange,
   selectedConnections,
   sending,
   messages,
 }: {
   conversationId: string;
   title: string;
-  selectedModelId: string;
-  models: AIModel[];
-  availability: ModelAvailability[];
-  onModelChange: (modelId: string) => void;
   selectedConnections: string[];
   sending: boolean;
   messages: ChatMessage[];
@@ -152,30 +144,6 @@ function ConversationHeader({
         </div>
       )}
       <div className="argus-chat__header-actions">
-        <div className="argus-chat__model-field">
-          <span>{t("chat.model.label")}</span>
-          <Select
-            ariaLabel={t("chat.model.select")}
-            className="argus-chat__model-select"
-            size="sm"
-            onValueChange={onModelChange}
-            options={models.map((model) => {
-              const state = availability.find(
-                (entry) => entry.modelId === model.id,
-              );
-              return {
-                value: model.id,
-                disabled: !state?.available,
-                label: `${model.name}${
-                  state?.available
-                    ? ""
-                    : ` · ${t(`chat.model.reason.${state?.reason ?? "unavailable"}`)}`
-                }`,
-              };
-            })}
-            value={selectedModelId}
-          />
-        </div>
         <Button
           aria-label={t("planv5.files.deleteConversation")}
           isIconOnly
@@ -247,6 +215,11 @@ export function ConversationPage() {
   const queryClient = useQueryClient();
   const search = useSearch({ strict: false }) as { c?: string };
   const conversationId = search.c;
+  const [draftModelId, setDraftModelId] = useState(
+    () => window.localStorage.getItem("argus.lastModelId") ?? "",
+  );
+  const [modelSaving, setModelSaving] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
   const titleOverride = useUiStore((state) =>
     conversationId ? state.conversationTitles[conversationId] : undefined,
   );
@@ -317,9 +290,7 @@ export function ConversationPage() {
       availability.find((entry) => entry.modelId === model.id)?.available,
   );
   const preferredModelId =
-    conversation?.selected_model_id ??
-    window.localStorage.getItem("argus.lastModelId") ??
-    availableModels[0]?.id;
+    conversation?.selected_model_id ?? (draftModelId || availableModels[0]?.id);
 
   // 会话追加事件到达后刷新消息列表。
   useEffect(() => {
@@ -362,12 +333,31 @@ export function ConversationPage() {
   };
 
   const changeModel = async (modelId: string) => {
-    window.localStorage.setItem("argus.lastModelId", modelId);
-    if (!conversationId) return;
-    await api.conversations.updateModel(conversationId, modelId);
-    await queryClient.invalidateQueries({
-      queryKey: ["conversations", "detail", conversationId],
-    });
+    if (
+      modelSaving ||
+      !availability.find((entry) => entry.modelId === modelId)?.available
+    )
+      return;
+    setModelSaving(true);
+    setModelError(null);
+    try {
+      if (conversationId)
+        await api.conversations.updateModel(conversationId, modelId);
+      window.localStorage.setItem("argus.lastModelId", modelId);
+      setDraftModelId(modelId);
+      if (conversationId)
+        await queryClient.invalidateQueries({
+          queryKey: ["conversations", "detail", conversationId],
+        });
+    } catch (error) {
+      setModelError(
+        formatApiError(error, t("chat.model.changeFailed"), (requestId) =>
+          t("common.requestReference", { requestId }),
+        ),
+      );
+    } finally {
+      setModelSaving(false);
+    }
   };
 
   const title =
@@ -379,13 +369,7 @@ export function ConversationPage() {
         {conversationId && (
           <ConversationHeader
             messages={messages}
-            availability={availability}
             conversationId={conversationId}
-            models={models}
-            onModelChange={(modelId) => void changeModel(modelId)}
-            selectedModelId={
-              conversation?.selected_model_id ?? preferredModelId ?? ""
-            }
             title={title}
             selectedConnections={
               conversation?.selected_mcp_connection_ids ?? []
@@ -426,8 +410,23 @@ export function ConversationPage() {
             </Button>
           </div>
         )}
+        {modelError && (
+          <p className="argus-chat-composer__note" role="alert">
+            {modelError}
+          </p>
+        )}
         <ChatComposer
+          modelSelector={
+            <ConversationModelSelect
+              models={models}
+              availability={availability}
+              value={preferredModelId ?? ""}
+              disabled={modelSaving}
+              onChange={(modelId) => void changeModel(modelId)}
+            />
+          }
           disabled={
+            modelSaving ||
             !preferredModelId ||
             !availability.find((entry) => entry.modelId === preferredModelId)
               ?.available

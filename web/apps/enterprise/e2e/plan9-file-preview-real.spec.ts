@@ -1,3 +1,4 @@
+import { openSummarySection } from "./helpers/conversation-summary";
 import { expect, test } from "@playwright/test";
 import { plan7Login } from "./helpers/plan7-login";
 
@@ -107,6 +108,7 @@ for (const [width, english, theme] of [
         exact: true,
       })
       .click();
+    await openSummarySection(page, "files");
     await page.locator('summary[title="/workspace/uploads"]').click();
     for (const folder of await page
       .locator('summary[title^="/workspace/uploads/"]')

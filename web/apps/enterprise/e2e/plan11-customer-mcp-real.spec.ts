@@ -1,3 +1,4 @@
+import { openToolResults } from "./helpers/tool-results";
 import { expect, test } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import { plan7Login } from "./helpers/plan7-login";
@@ -38,6 +39,7 @@ for (const locale of ["zh-CN", "en-US"])
       expect(cases).toHaveLength(6);
       for (const [index, row] of cases.entries()) {
         await page.goto(`/?c=${row.conversation_id}`);
+        await openToolResults(page);
         const traces = page.getByTestId("tool-trace");
         await expect(traces.first()).toBeVisible();
         for (const trace of await traces.all()) {
@@ -49,7 +51,7 @@ for (const locale of ["zh-CN", "en-US"])
         }
         await expect(
           page
-            .locator(".argus-chat-trace__step pre")
+            .locator(".argus-tool-activity__details pre")
             .filter({ hasText: "plan11-customer-inventory-v1" }),
         ).toHaveCount(1);
         await expect(page.getByTestId("pending-action-card")).toHaveCount(0);

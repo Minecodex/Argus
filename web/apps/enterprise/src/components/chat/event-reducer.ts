@@ -13,6 +13,11 @@ import {
 import { parseToolEventDisplay } from "./tool-display";
 import { requestedToolLabel } from "./tool-error";
 import { projectLiveTimeline } from "./live-timeline";
+import {
+  isInteractionTool,
+  parseActivity,
+  settleUnfinishedActivity,
+} from "./tool-activity-model";
 
 export type ChatStopReason =
   "completed" | "cancelled" | "failed" | "output_limit";
@@ -112,25 +117,50 @@ export function reduceAgentEvent(
     message_text += stringField(payload, "delta") ?? "";
   } else if (event.event_type === "tool_call_started") {
     const ref = stringField(payload, "tool_call_id");
-    if (ref) {
+    if (
+      ref &&
+      !isInteractionTool(
+        requested_calls.get(ref)?.name,
+        requested_calls.get(ref)?.input,
+        payload.source,
+      )
+    ) {
+      const current = tool_calls.get(ref);
+      const requested = requested_calls.get(ref);
       tool_calls.set(ref, {
         callId: ref,
-        toolName: stringField(payload, "tool_name") ?? "tool",
+        toolName:
+          stringField(payload, "tool_name") ??
+          current?.toolName ??
+          requested?.name ??
+          "tool",
         requestedTarget: requestedToolLabel(
           stringField(payload, "tool_name"),
           payload.arguments ?? payload.input,
         ),
-        source: stringField(payload, "source"),
+        source: stringField(payload, "source") ?? current?.source,
         status: "running",
+        rawStatus: "running",
         startedAt: stringField(payload, "started_at") ?? event.occurred_at,
-        input: payload.arguments ?? payload.input,
+        input:
+          payload.arguments ??
+          payload.input ??
+          current?.input ??
+          requested?.input,
       });
     }
   } else if (event.event_type === "tool_call_completed") {
     const ref = stringField(payload, "tool_call_id");
     const current = ref ? tool_calls.get(ref) : undefined;
     const requested = ref ? requested_calls.get(ref) : undefined;
-    if (ref) {
+    if (
+      ref &&
+      !isInteractionTool(
+        requested?.name,
+        requested?.input,
+        payload.source ?? current?.source,
+      )
+    ) {
       tool_calls.set(ref, {
         callId: ref,
         requestedTarget: current?.requestedTarget ?? requested?.requestedTarget,
@@ -140,6 +170,11 @@ export function reduceAgentEvent(
           stringField(payload, "tool_id") ??
           "tool",
         source: stringField(payload, "source") ?? current?.source,
+        rawStatus: stringField(payload, "status"),
+        activity: parseActivity(
+          payload.activity,
+          stringField(payload, "source") ?? current?.source,
+        ),
         startedAt:
           current?.startedAt ?? requested?.requestedAt ?? event.occurred_at,
         status:
@@ -155,7 +190,14 @@ export function reduceAgentEvent(
           typeof payload.duration_ms === "number"
             ? payload.duration_ms
             : undefined,
-        input: current?.input ?? requested?.input,
+        input:
+          (!(stringField(payload, "source") ?? current?.source) ||
+            (stringField(payload, "source") ?? current?.source) === "argus") &&
+          (requested?.name ?? current?.toolName) === "tool.invoke"
+            ? (objectPayload(current?.input ?? requested?.input).arguments ??
+              current?.input ??
+              requested?.input)
+            : (current?.input ?? requested?.input),
         output:
           payload.projection && typeof payload.projection === "object"
             ? (payload.projection as Record<string, unknown>).summary
@@ -247,17 +289,45 @@ export function reduceAgentEvent(
       requested_calls.set(call.id, {
         name: String(call.name ?? "tool"),
         requestedTarget: requestedToolLabel(String(call.name ?? "tool"), input),
-        input:
-          call.name === "tool.invoke"
-            ? (objectPayload(input).arguments ?? input)
-            : input,
+        input,
         requestedAt: event.occurred_at,
       });
+      const source = stringField(objectPayload(payload.tool_sources), call.id);
+      if (isInteractionTool(call.name, input, source)) continue;
+      if (!tool_calls.has(call.id))
+        tool_calls.set(call.id, {
+          callId: call.id,
+          toolName: String(call.name ?? "tool"),
+          input,
+          source,
+          requestedTarget: requestedToolLabel(
+            String(call.name ?? "tool"),
+            input,
+          ),
+          startedAt: event.occurred_at,
+          status: "running",
+          rawStatus: "queued",
+        });
     }
   }
   const execution_ref = stringField(payload, "execution_ref");
   if (execution_ref && !execution_refs.includes(execution_ref))
     execution_refs = [...execution_refs, execution_ref];
+
+  if (
+    event.event_type === "run_completed" ||
+    event.event_type === "run_failed"
+  ) {
+    const current = new Set(
+      state.live_entries
+        .filter((entry) => !event.run_id || entry.runId === event.run_id)
+        .flatMap((entry) => entry.toolCalls?.map((call) => call.callId) ?? []),
+    );
+    for (const id of current) {
+      const call = tool_calls.get(id);
+      if (call) tool_calls.set(id, settleUnfinishedActivity(call));
+    }
+  }
 
   return {
     ...state,

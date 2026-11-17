@@ -6,6 +6,11 @@ import { parseToolEventDisplay } from "./tool-display";
 import { parseChatTaskScope } from "./task-scope";
 import { requestedToolLabel } from "./tool-error";
 import {
+  isInteractionTool,
+  parseActivity,
+  settleUnfinishedActivity,
+} from "./tool-activity-model";
+import {
   appendFileEntry,
   fileEntryFromEvent,
   fileFromPublic as file,
@@ -36,7 +41,7 @@ export function timelineFromEvents(
   const presented = new Set<string>();
   const calls = new Map<
     string,
-    { name: string; input: unknown; startedAt: string }
+    { name: string; input: unknown; startedAt: string; source?: string }
   >();
   const toolEntries = new Map<string, ChatMessage>();
   for (const event of [...events].sort((a, b) => a.sequence - b.sequence)) {
@@ -63,6 +68,7 @@ export function timelineFromEvents(
       createdAt: event.occurred_at,
       sequence: event.sequence,
       runId: event.run_id,
+      stepId: event.step_id,
     };
     const explicit = parseMessage(payload.message);
     if (
@@ -87,19 +93,42 @@ export function timelineFromEvents(
       continue;
     }
     if (event.event_type === "assistant_message") {
+      const content = string(payload.content) ?? "";
+      if (content.trim()) result.push({ ...base, kind: "message", content });
       for (const raw of Array.isArray(payload.tool_calls)
         ? payload.tool_calls
         : []) {
         const call = object(raw);
-        if (typeof call.id === "string")
+        if (typeof call.id === "string") {
+          const source = string(object(payload.tool_sources)[call.id]);
           calls.set(call.id, {
             name: string(call.name) ?? "tool",
             input: parse(call.arguments),
             startedAt: event.occurred_at,
+            source,
           });
+          const input = object(parse(call.arguments));
+          if (isInteractionTool(call.name, input, source)) continue;
+          const entry: ChatMessage = {
+            ...base,
+            id: `tool-${call.id}`,
+            kind: "tool",
+            toolCalls: [
+              {
+                callId: call.id,
+                toolName: string(call.name) ?? "tool",
+                input: parse(call.arguments),
+                source,
+                startedAt: event.occurred_at,
+                status: "running",
+                rawStatus: "queued",
+              },
+            ],
+          };
+          toolEntries.set(call.id, entry);
+          result.push(entry);
+        }
       }
-      const content = string(payload.content) ?? "";
-      if (content.trim()) result.push({ ...base, kind: "message", content });
     } else if (event.event_type === "user_message") {
       const content = string(payload.content) ?? "";
       const references = object(payload.dashboard_context);
@@ -121,24 +150,60 @@ export function timelineFromEvents(
               : undefined,
         });
     } else if (
+      event.event_type === "tool_call_started" &&
+      typeof payload.tool_call_id === "string"
+    ) {
+      const id = payload.tool_call_id,
+        prior = toolEntries.get(id);
+      const requested = calls.get(id);
+      if (isInteractionTool(requested?.name, requested?.input, payload.source))
+        continue;
+      const trace: ToolCallTrace = {
+        ...(prior?.toolCalls?.[0] ?? {
+          callId: id,
+          toolName: string(payload.tool_name) ?? requested?.name ?? "tool",
+          input: requested?.input,
+        }),
+        source: string(payload.source),
+        status: "running",
+        rawStatus: "running",
+        startedAt: event.occurred_at,
+      };
+      if (prior) prior.toolCalls = [trace];
+      else {
+        const entry: ChatMessage = {
+          ...base,
+          id: `tool-${id}`,
+          kind: "tool",
+          toolCalls: [trace],
+        };
+        toolEntries.set(id, entry);
+        result.push(entry);
+      }
+    } else if (
       event.event_type === "tool_call_result" &&
       typeof payload.tool_call_id === "string"
     ) {
       const id = payload.tool_call_id;
+      const prior = toolEntries.get(id);
       const requested = calls.get(id);
       const input = object(requested?.input);
       if (
-        requested?.name === "request_user_input" ||
-        (requested?.name === "tool.invoke" &&
-          input.category === "workflow" &&
-          input.name === "plan.propose")
-      )
+        isInteractionTool(requested?.name, requested?.input, payload.source)
+      ) {
+        if (prior) {
+          result.splice(result.indexOf(prior), 1);
+          toolEntries.delete(id);
+        }
         continue;
+      }
       const trace: ToolCallTrace = {
         callId: id,
         requestedTarget: requestedToolLabel(requested?.name, requested?.input),
         display: parseToolEventDisplay(payload),
         source: string(payload.source),
+        rawStatus: string(payload.status),
+        activity: parseActivity(payload.activity, payload.source),
         toolName:
           string(payload.target_tool_id) ??
           string(payload.tool_id) ??
@@ -150,14 +215,18 @@ export function timelineFromEvents(
             : payload.status === "running"
               ? "running"
               : "failed",
-        startedAt: requested?.startedAt ?? event.occurred_at,
+        startedAt:
+          prior?.toolCalls?.[0]?.startedAt ??
+          requested?.startedAt ??
+          event.occurred_at,
         completedAt: event.occurred_at,
         durationMs:
           typeof payload.duration_ms === "number"
             ? payload.duration_ms
             : undefined,
         input:
-          requested?.name === "tool.invoke"
+          requested?.name === "tool.invoke" &&
+          (!payload.source || payload.source === "argus")
             ? (input.arguments ?? input)
             : requested?.input,
         output: object(payload.projection).summary,
@@ -171,8 +240,18 @@ export function timelineFromEvents(
         kind: "tool" as const,
         toolCalls: [trace],
       };
-      toolEntries.set(id, entry);
-      result.push(entry);
+      if (prior) prior.toolCalls = [trace];
+      else {
+        toolEntries.set(id, entry);
+        result.push(entry);
+      }
+    } else if (
+      event.event_type === "run_state_changed" &&
+      ["succeeded", "failed", "cancelled"].includes(String(payload.status))
+    ) {
+      for (const entry of toolEntries.values())
+        if (entry.runId === event.run_id)
+          entry.toolCalls = entry.toolCalls?.map(settleUnfinishedActivity);
     } else if (
       event.event_type === "tool_presentation" &&
       typeof payload.tool_call_id === "string" &&

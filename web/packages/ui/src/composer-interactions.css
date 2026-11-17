@@ -1,36 +1,79 @@
 .argus-composer-actions {
-  width: var(--popover-document-width);
+  width: var(--composer-menu-width);
   max-width: calc(100vw - var(--page-padding) * 2);
-  max-height: var(--popover-document-height);
+  max-height: min(
+    var(--popover-max-height),
+    var(--available-height, var(--popover-max-height))
+  );
   overflow: auto;
-  padding: var(--space-2);
+  padding: var(--space-1);
   border: var(--space-px-1) solid var(--border-default);
-  border-radius: var(--card-radius);
+  border-radius: var(--control-radius);
   background: var(--bg-surface);
   color: var(--text-primary);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-body);
+  line-height: var(--line-height-normal);
+}
+.argus-composer-actions--described {
+  width: var(--composer-menu-description-width);
+}
+.argus-composer-actions .argus-composer-actions__menu {
+  padding: 0;
+  gap: 0;
+}
+.argus-composer-actions__section {
+  padding: 0;
+}
+.argus-composer-actions__section + .argus-composer-actions__section {
+  margin-top: var(--space-1);
 }
 .argus-composer-actions__heading {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   color: var(--text-tertiary);
   font-size: var(--text-help);
+  line-height: var(--line-height-normal);
+  font-weight: var(--font-weight-normal);
 }
 .argus-composer-actions__item {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
+  gap: var(--action-gap);
+  min-height: var(--control-md);
+  padding: var(--space-px-6) var(--space-2);
+  border-radius: var(--control-radius);
+  font-size: var(--text-body);
+  line-height: var(--line-height-normal);
 }
 .argus-composer-actions__copy {
   display: flex;
   flex: 1;
   min-width: 0;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-px-2);
 }
-.argus-composer-actions__copy [data-slot="description"] {
+.argus-composer-actions__label {
+  font: inherit;
+  white-space: normal;
+}
+.argus-composer-actions__description {
   color: var(--text-secondary);
+  font-size: var(--text-help);
+  line-height: var(--line-height-normal);
+}
+.argus-composer-actions__icon,
+.argus-composer-actions__check {
+  display: flex;
+  flex: 0 0 var(--control-icon);
+  align-items: center;
+  justify-content: center;
+  width: var(--control-icon);
+  height: var(--control-icon);
+}
+.argus-composer-actions__icon > svg,
+.argus-composer-actions__check > svg {
+  width: var(--control-icon);
+  height: var(--control-icon);
 }
 .argus-composer-actions__check {
   color: var(--accent);

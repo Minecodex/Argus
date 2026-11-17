@@ -37,6 +37,7 @@ export interface components {
             occurred_at: string;
             payload: components["schemas"]["PublicJsonObject"];
             conversation_id?: string;
+            step_id?: string;
         };
         RunCheckpoint: {
             /** @constant */

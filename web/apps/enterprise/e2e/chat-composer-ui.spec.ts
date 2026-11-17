@@ -1,3 +1,4 @@
+import { openSummarySection } from "./helpers/conversation-summary";
 import { expect, test, type Page } from "@playwright/test";
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -145,6 +146,7 @@ test("upload and file preview survive reload without adding empty user replies",
   ).toHaveCount(0);
   await expect(page.locator(".argus-chat-message__body:empty")).toHaveCount(0);
   await page.getByRole("button", { name: "置顶摘要", exact: true }).click();
+  await openSummarySection(page, "files");
   await page.locator('summary[title="/workspace/uploads"]').click();
   await page.locator('summary[title^="/workspace/uploads/"]').click();
   await page

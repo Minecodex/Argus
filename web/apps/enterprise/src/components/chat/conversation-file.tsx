@@ -158,11 +158,13 @@ export function MessageFiles({
   conversationId,
   kind = "file",
   group,
+  compact = false,
 }: {
   items: ChatFile[];
   conversationId: string;
   kind?: "file" | "delivery";
   group?: string;
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const cards = (
@@ -173,6 +175,7 @@ export function MessageFiles({
           file={file}
           conversationId={conversationId}
           kind={kind}
+          layout={compact ? "row" : "card"}
         />
       ))}
     </div>

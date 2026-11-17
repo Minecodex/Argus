@@ -27,6 +27,7 @@ func (loop Loop) executeToolCalls(ctx context.Context, run db.Run, step db.RunSt
 	readOnly = readOnly || barrier
 	records := make([]db.ToolCall, 0, len(calls))
 	assistant := modelprovider.Message{Role: "assistant", Content: text}
+	sources := map[string]string{}
 	scope, err := presentation.Scope(ctx, loop.Store, run.EnterpriseID, run.ActorUserID)
 	if err != nil {
 		return nil, err
@@ -53,12 +54,13 @@ func (loop Loop) executeToolCalls(ctx context.Context, run db.Run, step db.RunSt
 				return err
 			}
 			records = append(records, record)
+			sources[id.String()] = source
 			call.ID = id.String()
 			assistant.ToolCalls = append(assistant.ToolCalls, modelprovider.ToolCall{ID: call.ID, Name: call.Name, Arguments: call.Arguments})
 		}
 		_, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID,
 			RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: step.ID, Valid: true}, Type: "assistant_message", ActorType: "model", ActorID: run.ModelID.String(),
-			Payload: map[string]any{"content": assistant.Content, "tool_calls": assistant.ToolCalls, "authorization_scope": modelScope}, Classification: "internal"})
+			Payload: map[string]any{"content": assistant.Content, "tool_calls": assistant.ToolCalls, "tool_sources": sources, "authorization_scope": modelScope}, Classification: "internal"})
 		return err
 	})
 	if err != nil {
@@ -151,14 +153,19 @@ func (loop Loop) executePersistedTool(ctx context.Context, run db.Run, set *tool
 			if record.Status != "prepared" {
 				return nil
 			}
-			count, err := loop.Store.Queries.MarkToolDispatched(dispatchCtx, db.MarkToolDispatchedParams{ID: record.ID, EnterpriseID: run.EnterpriseID, ExpectedRunVersion: latest.Version})
-			if err != nil {
+			return fencedEventTransaction(dispatchCtx, loop.Store, func(q *db.Queries) error {
+				count, err := q.MarkToolDispatched(dispatchCtx, db.MarkToolDispatchedParams{ID: record.ID, EnterpriseID: run.EnterpriseID, ExpectedRunVersion: latest.Version})
+				if err != nil {
+					return err
+				}
+				if count != 1 {
+					return toolruntime.Error{Kind: "TOOL_INVOCATION_CONFLICT"}
+				}
+				_, err = conversation.AppendEvent(dispatchCtx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID,
+					RunID: uuid.NullUUID{UUID: run.ID, Valid: true}, StepID: uuid.NullUUID{UUID: record.StepID, Valid: true}, Type: "tool_call_started", ActorType: "service",
+					Payload: map[string]any{"tool_call_id": record.ID.String(), "tool_name": record.ToolID, "source": record.Source, "authorization_scope": record.AuthorizationScope}, Classification: "internal"})
 				return err
-			}
-			if count != 1 {
-				return toolruntime.Error{Kind: "TOOL_INVOCATION_CONFLICT"}
-			}
-			return nil
+			})
 		}
 		// Remote discovery is safe to repeat. Only the business HTTP request
 		// crosses the durable dispatched boundary and becomes unreplayable.
@@ -191,6 +198,7 @@ func (loop Loop) executePersistedTool(ctx context.Context, run db.Run, set *tool
 func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.ToolCall, result toolruntime.Result, invokeErr error) (toolExecutionResult, error) {
 	if record.Source != "argus" && record.Source != "sandbox" {
 		result.ContextFacts = nil
+		result.Activity = nil
 	}
 	if err := assertTaskLease(ctx); err != nil {
 		return toolExecutionResult{}, err
@@ -262,7 +270,7 @@ func (loop Loop) persistToolOutcome(ctx context.Context, run db.Run, record db.T
 		}
 		event, err := conversation.AppendEvent(ctx, q, conversation.EventInput{EnterpriseID: run.EnterpriseID, ConversationID: run.ConversationID, RunID: uuid.NullUUID{UUID: run.ID, Valid: true},
 			StepID: uuid.NullUUID{UUID: record.StepID, Valid: true}, Type: "tool_call_result", ActorType: "service", Payload: map[string]any{"tool_call_id": record.ID.String(), "tool_id": record.ToolID,
-				"authorization_scope": scope, "target_tool_id": target, "source": record.Source, "status": status, "result_ref": resultRef, "projection": json.RawMessage(projection), "display": result.Display, "context_facts": result.ContextFacts}, ArtifactRef: resultRef, Classification: "internal"})
+				"authorization_scope": scope, "target_tool_id": target, "source": record.Source, "status": status, "result_ref": resultRef, "projection": json.RawMessage(projection), "display": result.Display, "activity": result.Activity, "context_facts": result.ContextFacts}, ArtifactRef: resultRef, Classification: "internal"})
 		if err != nil {
 			return err
 		}

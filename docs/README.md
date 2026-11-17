@@ -41,6 +41,9 @@ Argus 是一个面向 AIOps 场景的多租户 SaaS 控制平面。产品以 Cha
 31. [主机与堡垒机幂等卸载](./21-host-and-bastion-removal.md)
 32. [Connector 跨集群接管](./22-cross-cluster-connector-takeover.md)
 33. [全门户重设计与仪表盘编辑器重构](./plans/frontend-redesign/README.md)（[Kubernetes 资源工作台重构实现计划](./plans/frontend-redesign/kubernetes-resource-workbench-refactor-plan-20261112.md)）
+    - [会话输入区菜单密度修复](./plans/frontend-redesign/chat-composer-menu-density-20261117.md)
+    - [会话工具活动分组与统一展示](./plans/frontend-redesign/chat-tool-activity-groups-20261117.md)
+    - [工具宽视图、摘要资源表格与输入区模型入口](./plans/frontend-redesign/chat-layout-polish-20261117.md)
 34. [Plan6 告警中心](./plan6/README.md)
 35. [资源列表与主机资产概览](./plans/frontend-redesign/resource-lists-and-host-inventory.md)
 36. [自动仪表盘分析与查询参数展示](./planv2/automatic-analysis-20261013.md)

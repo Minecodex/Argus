@@ -1,3 +1,4 @@
+import { openSummarySection } from "./helpers/conversation-summary";
 import { expect, test } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import {
@@ -179,10 +180,12 @@ for (const english of [false, true])
         exact: true,
       });
       await summary.click();
-      const list = page.locator(".argus-chat-resource-list");
-      await expect(list.locator("li")).toHaveCount(7);
+      await openSummarySection(page, "resources");
+      const list = page.getByTestId("conversation-resources-section");
+      await expect(list.locator("tbody tr")).toHaveCount(5);
       const host = refs.find((ref) => ref.type === "host")!;
       for (const ref of refs) {
+        await list.getByRole("searchbox").fill(ref.name);
         const href =
           ref.type === "host" || ref.type === "connector"
             ? `/hosts/${host.id}`
@@ -197,6 +200,7 @@ for (const english of [false, true])
           list.getByRole("link", { name: ref.name, exact: true }),
         ).toHaveAttribute("href", href);
       }
+      await list.getByRole("searchbox").fill("");
       await page.screenshot({
         path: info.outputPath("seven-reference-links.png"),
       });
@@ -225,7 +229,8 @@ for (const english of [false, true])
       );
       await page.reload();
       await summary.click();
-      await expect(list.locator("li")).toHaveCount(7);
+      await openSummarySection(page, "resources");
+      await expect(list.locator("tbody tr")).toHaveCount(5);
       await expect(
         list.getByText(
           english
@@ -233,7 +238,7 @@ for (const english of [false, true])
             : "资源目录读取失败或权限已变更",
           { exact: true },
         ),
-      ).toHaveCount(7);
+      ).toHaveCount(5);
       await expect(list.locator("a")).toHaveCount(0);
       for (const ref of refs) await expect(list).not.toContainText(ref.name);
       await page.screenshot({

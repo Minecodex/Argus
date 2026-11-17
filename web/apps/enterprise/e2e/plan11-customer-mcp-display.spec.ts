@@ -65,6 +65,9 @@ for (const english of [false, true])
           { conversation, source, html, tools },
         );
         await page.reload();
+        await page
+          .locator('.argus-tool-activity-group > button[aria-expanded="false"]')
+          .click();
         await expect(page.getByTestId("tool-trace")).toHaveCount(3);
         await expect(page.getByTestId("pending-action-card")).toHaveCount(0);
         await expect(
@@ -75,20 +78,21 @@ for (const english of [false, true])
         ).toHaveCount(0);
         for (const tool of tools)
           await page
-            .getByRole("button", {
-              name: english
-                ? `Expand ${tool} call details`
-                : `展开 ${tool} 调用详情`,
-              exact: true,
+            .locator(".argus-tool-activity")
+            .filter({
+              has: page
+                .locator(".argus-tool-activity__title")
+                .getByText(tool, { exact: true }),
             })
+            .getByRole("button")
             .click();
         await expect(
           page
-            .locator(".argus-chat-trace__step pre")
+            .locator(".argus-tool-activity__details pre")
             .filter({ hasText: JSON.stringify(html).slice(1, -1) }),
         ).toHaveCount(3);
         for (const details of await page
-          .locator(".argus-chat-trace__step details")
+          .locator(".argus-tool-activity__details details")
           .filter({
             has: page
               .locator("summary")

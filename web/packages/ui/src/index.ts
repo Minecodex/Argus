@@ -101,3 +101,4 @@ export * from "./mini-trend";
 export * from "./hover-summary-button";
 
 export { TroubleshootingWorkspace } from "./troubleshooting-workspace";
+export * from "./tool-activity";
