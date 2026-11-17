@@ -103,6 +103,7 @@ type AgentEvent struct {
 	RunId          *string          `json:"run_id,omitempty"`
 	SchemaVersion  interface{}      `json:"schema_version"`
 	Sequence       int              `json:"sequence"`
+	StepId         *string          `json:"step_id,omitempty"`
 }
 
 // ContextBudget defines model for ContextBudget.

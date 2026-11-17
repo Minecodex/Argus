@@ -140,6 +140,8 @@ components:
           $ref: '#/components/schemas/PublicJsonObject'
         conversation_id:
           type: string
+        step_id:
+          type: string
     RunCheckpoint:
       type: object
       additionalProperties: false

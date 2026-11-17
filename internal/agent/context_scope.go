@@ -30,6 +30,9 @@ func contextEventPayload(kind string, raw []byte, scope string) (map[string]any,
 	if err := decoder.Decode(&payload); err != nil {
 		return nil, err
 	}
+	// UI-only file diffs are durable evidence, not additional model context.
+	delete(payload, "activity")
+	delete(payload, "tool_sources")
 	if kind != "assistant_message" && kind != "tool_call_result" || scope != "" && payload["authorization_scope"] == scope {
 		return payload, nil
 	}

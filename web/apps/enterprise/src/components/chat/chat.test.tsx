@@ -82,15 +82,24 @@ function makeMessage(patch: Partial<ChatMessage>): ChatMessage {
 }
 
 describe("ToolTrace", () => {
-  it("默认折叠，点击展开后展示工具名称与耗时", () => {
+  it("工具使用轻量行展示名称与耗时，详情独立折叠", () => {
     render(<ToolTrace toolCalls={TOOL_CALLS} />);
-    expect(screen.queryByText("host.resolve_context")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "展开工具调用" }));
-    expect(screen.getByText("host.resolve_context")).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: /host.resolve_context/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText("host.resolve_context", { selector: "code" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(
+      screen.getByText("host.resolve_context", { selector: "code" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("host.test_connection")).toBeInTheDocument();
     expect(screen.getByText("320ms")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "收起工具调用" }));
-    expect(screen.queryByText("host.resolve_context")).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText("host.resolve_context", { selector: "code" }),
+    ).not.toBeInTheDocument();
   });
 });
 

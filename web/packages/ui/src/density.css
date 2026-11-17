@@ -381,6 +381,12 @@
   width: var(--space-px-5);
   height: var(--space-px-5);
 }
+.argus-select--pill .argus-select__trigger {
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-help);
+}
 .argus-select--compact .argus-select__trigger {
   background: var(--bg-surface);
   gap: var(--space-2);
@@ -395,6 +401,29 @@
 .argus-select--content .argus-select__trigger,
 .argus-select__sizer {
   grid-area: 1 / 1;
+}
+.argus-select--pill .argus-select__sizer {
+  font-size: var(--text-help);
+}
+.argus-select--selection .argus-select__trigger {
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+.argus-select--selection .argus-select__value {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.argus-select--selection .argus-select__indicator {
+  position: static;
+  flex-shrink: 0;
+  margin-inline-start: 0;
+  transform: none;
+}
+.argus-select__content--selection {
+  min-width: max(
+    var(--trigger-width, var(--field-width-compact)),
+    var(--field-width-compact)
+  );
 }
 .argus-select__sizer {
   visibility: hidden;

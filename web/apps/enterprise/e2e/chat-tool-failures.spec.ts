@@ -71,6 +71,8 @@ for (const english of [false, true])
         { id },
       );
       await page.reload();
+      const group = page.getByTestId("tool-activity-group");
+      await group.locator(":scope > button").click();
       const trace = page
         .getByTestId("tool-trace")
         .filter({ hasText: "dashboard/context.resolve" });

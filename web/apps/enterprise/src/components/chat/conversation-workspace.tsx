@@ -14,12 +14,14 @@ export function ConversationWorkspace({
   selected,
   disabled,
   expanded = false,
+  showReferences = expanded,
   messages = [],
 }: {
   conversationId: string;
   selected: string[];
   disabled: boolean;
   expanded?: boolean;
+  showReferences?: boolean;
   messages?: ChatMessage[];
 }) {
   const api = useApi();
@@ -75,7 +77,11 @@ export function ConversationWorkspace({
   );
   return (
     <div className="argus-conversation-workspace">
-      <details className="argus-planv5-selector" open={expanded}>
+      <details
+        data-testid="conversation-mcp-section"
+        className="argus-planv5-selector"
+        open={expanded}
+      >
         <summary>
           {t("planv5.mcp.select")} · {selected.length}
         </summary>
@@ -112,7 +118,7 @@ export function ConversationWorkspace({
             </Checkbox>
           ))}
       </details>
-      <details open={expanded}>
+      <details data-testid="conversation-files-section" open={expanded}>
         <summary>
           {t("planv5.files.workspace")} · {files.data?.length ?? 0}
         </summary>
@@ -139,7 +145,7 @@ export function ConversationWorkspace({
         )}
         {files.isError && <p role="alert">{t("planv5.files.unavailable")}</p>}
       </details>
-      {expanded && <ConversationResourceIndex messages={messages} />}
+      {showReferences && <ConversationResourceIndex messages={messages} />}
       {error && <p role="alert">{error}</p>}
     </div>
   );

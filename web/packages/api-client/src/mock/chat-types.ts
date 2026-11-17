@@ -1,4 +1,6 @@
 export interface MockToolCallTrace {
+  rawStatus?: string;
+  activity?: Record<string, unknown>;
   display?: Record<string, unknown>;
   input?: unknown;
   output?: unknown;

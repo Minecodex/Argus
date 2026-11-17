@@ -47,7 +47,9 @@ for (const locale of ["zh-CN", "en-US"])
               .getByTestId("tool-trace")
               .filter({ hasText: /远程命令|Remote command/ })
               .filter({
-                has: page.locator(".argus-chat-trace__status.is-success"),
+                has: page.locator(
+                  '.argus-tool-activity__state[data-state="success"]',
+                ),
               }),
           ).toHaveCount(0);
           const reference = (await page

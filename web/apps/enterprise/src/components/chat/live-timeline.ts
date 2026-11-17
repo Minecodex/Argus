@@ -20,6 +20,7 @@ export function projectLiveTimeline(
     role: "assistant",
     content: "",
     runId: event.run_id,
+    stepId: event.step_id,
     createdAt: event.occurred_at,
   };
   const callId =
@@ -109,6 +110,45 @@ export function projectLiveTimeline(
     const entry = fileEntryFromEvent(event);
     if (entry) appendFileEntry(entries, entry);
   }
+  if (event.event_type === "message_completed") {
+    for (const raw of Array.isArray(payload.tool_calls)
+      ? payload.tool_calls
+      : []) {
+      const id =
+        raw && typeof raw === "object" && "id" in raw ? String(raw.id) : "";
+      const call = calls.get(id);
+      if (
+        call &&
+        !entries.some((entry) =>
+          entry.toolCalls?.some((item) => item.callId === id),
+        )
+      )
+        entries.push({
+          ...base,
+          id: `tool-${id}`,
+          kind: "tool",
+          toolCalls: [call],
+        });
+    }
+  }
+  if (
+    event.event_type === "run_completed" ||
+    event.event_type === "run_failed"
+  ) {
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]!;
+      if (
+        (!event.run_id || entry.runId === event.run_id) &&
+        entry.toolCalls?.length
+      )
+        entries[i] = {
+          ...entry,
+          toolCalls: entry.toolCalls.map(
+            (call) => calls.get(call.callId) ?? call,
+          ),
+        };
+    }
+  }
   return coalesceRemoteCommands(entries);
 }
 
@@ -149,6 +189,27 @@ export function mergeTimeline(
       }
     }
     if (!hasChatContent(entry)) continue;
+    if (entry.kind === "tool") {
+      const index = result.findIndex(
+        (stored) =>
+          stored.kind === "tool" &&
+          stored.toolCalls?.some(
+            (call) => call.callId === entry.toolCalls?.[0]?.callId,
+          ),
+      );
+      if (index >= 0) {
+        const stored = result[index]!;
+        const old = stored.toolCalls?.[0],
+          incoming = entry.toolCalls?.[0];
+        if (
+          incoming &&
+          old?.status === "running" &&
+          (incoming.status !== "running" || old.rawStatus === "queued")
+        )
+          result[index] = { ...stored, toolCalls: entry.toolCalls };
+        continue;
+      }
+    }
     const persisted = history.some(
       (stored) =>
         stored.id === entry.id ||

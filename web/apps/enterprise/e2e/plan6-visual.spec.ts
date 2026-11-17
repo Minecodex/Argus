@@ -601,7 +601,11 @@ test.describe("Plan6 deterministic Demo comparison", () => {
                 JSON.stringify(frameHosts, null, 2),
               );
               await expect(
-                portal.locator(".argus-tool-result__header button").last(),
+                portal
+                  .locator(
+                    '[data-testid="tool-result"] .argus-tool-activity > button',
+                  )
+                  .last(),
               ).toHaveAttribute("aria-expanded", "true");
               const currentFrame = portal.frameLocator(portalRoot);
               const exposure = await currentFrame
@@ -1135,7 +1139,11 @@ test.describe("Plan6 deterministic Demo comparison", () => {
               }),
           ).toBeVisible();
           await expect(
-            portal.locator(".argus-tool-result__header button").last(),
+            portal
+              .locator(
+                '[data-testid="tool-result"] .argus-tool-activity > button',
+              )
+              .last(),
           ).toHaveAttribute("aria-expanded", "true");
           let frameMeasurement: Record<string, unknown> = {};
           try {

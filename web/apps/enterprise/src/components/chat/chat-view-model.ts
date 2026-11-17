@@ -3,9 +3,12 @@ import { timelineFromEvents } from "./chat-timeline";
 import { parseSourceToolDisplay, type ToolDisplay } from "./tool-display";
 import { parseChatTaskScope, type ChatTaskScope } from "./task-scope";
 import { requestedToolLabel } from "./tool-error";
+import { parseActivity } from "./tool-activity-model";
 export type MessageRole = "user" | "assistant" | "system";
 
 export interface ToolCallTrace {
+  rawStatus?: string;
+  activity?: import("./tool-activity-model").ActivityEvidence;
   display?: ToolDisplay;
   callId: string;
   toolName: string;
@@ -27,6 +30,7 @@ export interface ChatMessage {
   interactionId?: string;
   sequence?: number;
   runId?: string;
+  stepId?: string;
   fileGroup?: string;
   streamEntries?: ChatMessage[];
   isStreaming?: boolean;
@@ -150,6 +154,8 @@ export function chatMessageFromPublic(value: unknown): ChatMessage | null {
             toolName,
             requestedTarget: requestedToolLabel(toolName, item.input),
             source: stringValue(item.source),
+            rawStatus: stringValue(item.raw_status),
+            activity: parseActivity(item.activity, item.source),
             status,
             startedAt,
             summary: stringValue(item.summary),

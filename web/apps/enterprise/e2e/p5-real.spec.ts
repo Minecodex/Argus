@@ -178,9 +178,7 @@ test.describe("P5 real tools and workspace", () => {
       `${enterpriseOrigin}/?c=${process.env.ARGUS_P5_MODEL_ONLY_CONVERSATION}`,
     );
     await page.getByRole("button", { name: /置顶摘要|Pinned summary/ }).click();
-    const files = page
-      .locator(".argus-conversation-workspace > details")
-      .last();
+    const files = page.getByTestId("conversation-files-section");
     await expect(files.locator(":scope > summary")).toContainText(
       /会话文件|Conversation files/,
     );

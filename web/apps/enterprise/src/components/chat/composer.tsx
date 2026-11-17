@@ -5,6 +5,7 @@ import {
   useState,
   type ChangeEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -49,8 +50,10 @@ export function ChatComposer({
   prepareConversation,
   interaction,
   onRespond,
+  modelSelector,
 }: {
   interaction?: ConversationInteraction;
+  modelSelector?: ReactNode;
   onRespond?: (id: string, value: InteractionResponse) => Promise<void>;
   sending: boolean;
   disabled?: boolean;
@@ -506,26 +509,33 @@ export function ChatComposer({
                 {t("chatInteractions.reopen")}
               </Button>
             )}
-            <span>{t("chat.composer.hint")}</span>
-            {sending ? (
-              <Button
-                aria-label={t("chat.composer.stop")}
-                onPress={onStop}
-                isIconOnly
-                variant="secondary"
-              >
-                <Square size={13} />
-              </Button>
-            ) : (
-              <Button
-                aria-label={t("chat.composer.send")}
-                onPress={() => void submit()}
-                isDisabled={disabled || !text.trim() || submitting || !!upload}
-                isIconOnly
-              >
-                <ArrowUp size={16} />
-              </Button>
-            )}
+            <span className="argus-chat-composer__hint">
+              {t("chat.composer.hint")}
+            </span>
+            <div className="argus-chat-composer__actions">
+              {modelSelector}
+              {sending ? (
+                <Button
+                  aria-label={t("chat.composer.stop")}
+                  onPress={onStop}
+                  isIconOnly
+                  variant="secondary"
+                >
+                  <Square size={13} />
+                </Button>
+              ) : (
+                <Button
+                  aria-label={t("chat.composer.send")}
+                  onPress={() => void submit()}
+                  isDisabled={
+                    disabled || !text.trim() || submitting || !!upload
+                  }
+                  isIconOnly
+                >
+                  <ArrowUp size={16} />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
         <small className="argus-chat-composer__note">

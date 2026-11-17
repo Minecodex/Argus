@@ -4,6 +4,29 @@
  */
 export const chatZh = {
   chat: {
+    activity: {
+      batch: "工具活动 · {{count}} 项",
+      file_read: "读取文件",
+      file_change: "编辑文件",
+      file_create: "创建文件",
+      command: "运行命令",
+      platform: "平台内部工具",
+      workspace: "工作区工具",
+      external: "外部参数工具",
+      legacy: "历史工具记录",
+      states: {
+        queued: "等待执行",
+        running: "执行中",
+        success: "已完成",
+        failed: "失败",
+        cancelled: "已取消",
+        unknown: "结果未知",
+      },
+      exitCode: "退出码：{{code}}",
+      partialOutput: "输出不完整，请以实际执行结果为准。",
+      partialDiff: "差异预览不完整，部分内容未保留。",
+      noHistoricalDiff: "此历史调用未记录写入前后的差异。",
+    },
     toolFailure: {
       searchRequired: "需要先完成本轮工具发现（Search）",
       descriptionRequired: "需要先读取这个工具的完整契约（Describe）",
@@ -37,6 +60,12 @@ export const chatZh = {
     resourceDetails: {
       name: "名称",
       references: "会话引用的资源",
+      category: "分类",
+      allCategories: "全部分类",
+      search: "按资源名称搜索",
+      noMatches: "没有匹配的引用资源",
+      pagination: "引用资源分页",
+      range: "{{from}}–{{to}} · 共 {{total}} 条",
       type: "类型",
       id: "资源 ID",
       environment: "环境",
@@ -166,6 +195,7 @@ export const chatZh = {
     },
     model: {
       select: "选择模型",
+      changeFailed: "模型切换失败，请重试",
       label: "模型",
       reason: {
         disabled: "已停用",
@@ -201,6 +231,31 @@ export const chatZh = {
 
 export const chatEn = {
   chat: {
+    activity: {
+      batch: "Tool activity · {{count}} items",
+      file_read: "Read file",
+      file_change: "Edited file",
+      file_create: "Created file",
+      command: "Ran command",
+      platform: "Internal platform tool",
+      workspace: "Workspace tool",
+      external: "External parameter tool",
+      legacy: "Historical tool record",
+      states: {
+        queued: "Queued",
+        running: "Running",
+        success: "Completed",
+        failed: "Failed",
+        cancelled: "Cancelled",
+        unknown: "Result unknown",
+      },
+      exitCode: "Exit code: {{code}}",
+      partialOutput: "Output is incomplete. Check the actual execution result.",
+      partialDiff:
+        "The diff preview is incomplete; some content was not retained.",
+      noHistoricalDiff:
+        "This historical call did not record a before/after diff.",
+    },
     toolFailure: {
       searchRequired: "Complete tool discovery (Search) in this Run first",
       descriptionRequired:
@@ -240,6 +295,12 @@ export const chatEn = {
     resourceDetails: {
       name: "Name",
       references: "Resources referenced in this conversation",
+      category: "Category",
+      allCategories: "All categories",
+      search: "Search resource names",
+      noMatches: "No matching resource references",
+      pagination: "Resource reference pagination",
+      range: "{{from}}–{{to}} · {{total}} resources",
       type: "Type",
       id: "Resource ID",
       environment: "Environment",
@@ -372,6 +433,7 @@ export const chatEn = {
     },
     model: {
       select: "Select model",
+      changeFailed: "Could not change the model. Try again.",
       label: "Model",
       reason: {
         disabled: "Disabled",

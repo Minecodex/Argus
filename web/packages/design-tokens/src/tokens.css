@@ -6,6 +6,8 @@
   --scrollbar-size: 9px;
   --scrollbar-inset: 2px;
   --popover-document-width: 440px;
+  --composer-menu-width: 260px;
+  --composer-menu-description-width: 320px;
   --popover-document-height: 70dvh;
   --template-placeholder-height: 240px;
   --template-table-min-width: 560px;
@@ -52,6 +54,7 @@
   --chart-option-height: 80px;
   --chat-content-width: 880px;
   --chat-result-width: 1600px;
+  --activity-duration-width: 64px;
   --chat-text-width: calc(var(--chat-content-width) - var(--space-px-24) * 2);
   --auth-card-width: 400px;
   --field-label-gap: 4px;

@@ -44,6 +44,27 @@
 .argus-conversation-workspace > details {
   min-width: 0;
 }
+.argus-chat-resource-index__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+  margin-block: var(--space-3);
+}
+.argus-chat-resource-index__filters > .argus-select {
+  flex: 0 0 var(--filter-select-min-width);
+  min-width: 0;
+}
+.argus-chat-resource-index__filters > .argus-search-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.argus-chat-resource-index__name {
+  overflow-wrap: anywhere;
+}
+.argus-chat-resource-index .argus-pagination {
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
 .argus-conversation-workspace p {
   margin-block: var(--space-3);
   font-size: var(--text-help);

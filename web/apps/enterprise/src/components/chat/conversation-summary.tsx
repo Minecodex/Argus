@@ -25,7 +25,11 @@ export function ConversationSummary(props: {
         </Button>
       }
     >
-      <ConversationWorkspace {...props} expanded />
+      <ConversationWorkspace
+        key={`${props.conversationId}:${open}`}
+        {...props}
+        showReferences
+      />
     </ContentPopover>
   );
 }

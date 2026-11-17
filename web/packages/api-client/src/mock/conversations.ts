@@ -49,6 +49,8 @@ function serializeMessage(message: ChatMessage): Record<string, unknown> {
       tool_name: call.toolName,
       ...(call.source ? { source: call.source } : {}),
       status: call.status,
+      ...(call.rawStatus ? { raw_status: call.rawStatus } : {}),
+      ...(call.activity ? { activity: call.activity } : {}),
       ...(call.summary ? { summary: call.summary } : {}),
       ...(call.display ? { display: call.display } : {}),
       ...(call.durationMs !== undefined

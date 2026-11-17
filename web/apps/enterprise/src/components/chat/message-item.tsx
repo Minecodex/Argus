@@ -137,6 +137,7 @@ export function ChatMessageItem({
             items={message.files}
             conversationId={message.conversationId}
             group={message.fileGroup}
+            compact
           />
         ) : null}
         {message.artifacts?.length ? (

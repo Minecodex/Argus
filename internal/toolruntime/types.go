@@ -77,6 +77,7 @@ type Result struct {
 	// Control is trusted provider metadata, never inferred from model/tool data.
 	Control      *Control
 	Display      *ToolDisplay
+	Activity     *Activity
 	DataIsSchema bool
 	// A complete native discovery list must reach the model without list clipping.
 	DataIsDiscovery bool

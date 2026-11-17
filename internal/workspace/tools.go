@@ -102,6 +102,11 @@ func (service Service) builtin(ctx context.Context, name string, call toolruntim
 	defer access.Close()
 	filePath, _ := call.Arguments["path"].(string)
 	var result map[string]any
+	var activity *toolruntime.Activity
+	var before activitySnapshot
+	if name == "write" || name == "edit" {
+		before = readActivitySnapshot(access.Context, access.IO, filePath)
+	}
 	switch name {
 	case "read":
 		reader, size, err := access.IO.Read(access.Context, filePath, 0, 0)
@@ -141,6 +146,7 @@ func (service Service) builtin(ctx context.Context, name string, call toolruntim
 			return toolruntime.Result{}, err
 		}
 		result = map[string]any{"path": filePath, "content": output.String(), "byte_size": size, "start_line": start, "end_line": min(line, end), "partial": partial}
+		activity = &toolruntime.Activity{Schema: "argus.tool_activity/v1", Kind: "file_read", Path: filePath, WorkspaceID: access.IO.Authority.WorkspaceId}
 		if !partial {
 			result["actual_sha256"] = fmt.Sprintf("%x", hash.Sum(nil))
 		}
@@ -180,6 +186,8 @@ func (service Service) builtin(ctx context.Context, name string, call toolruntim
 				"message": "The filesystem save completed but registration was not confirmed. Inspect current file state before deciding what to do; the write was not replayed."}}, nil
 		}
 		result["workspace_file_id"] = file.ID.String()
+		activity = fileChangeActivity(access.IO.Authority.WorkspaceId, result["path"].(string), result["content_hash"].(string), before,
+			readActivitySnapshot(access.Context, access.IO, result["path"].(string)))
 	}
 	if err := access.checkAuthorization(ctx); err != nil {
 		return toolruntime.Result{}, err
@@ -187,7 +195,7 @@ func (service Service) builtin(ctx context.Context, name string, call toolruntim
 	if err := access.Close(); err != nil {
 		return toolruntime.Result{}, err
 	}
-	return toolruntime.Result{Data: result, ToolID: name}, nil
+	return toolruntime.Result{Data: result, ToolID: name, Activity: activity}, nil
 }
 
 func (service Service) RegisterTools(registry *mcp.Registry) error {
