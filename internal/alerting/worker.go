@@ -179,7 +179,10 @@ func (w Worker) persistEvaluation(ctx context.Context, task runtime.Task, policy
 				if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 					return e
 				}
-				state := InstanceState{Name: obs.Rule.Name, PolicyName: policy.Name, Labels: obs.Labels, PolicySnapshot: policy.Spec, NotificationState: "pending", NoiseReasons: []string{}, Kind: "condition"}
+				// Decode stored state into fresh buffers. RawMessage.UnmarshalJSON
+				// reuses capacity: seeding it with policy.Spec can corrupt that
+				// shared definition when a legacy projected snapshot is shorter.
+				state := InstanceState{Name: obs.Rule.Name, PolicyName: policy.Name, Labels: obs.Labels, NotificationState: "pending", NoiseReasons: []string{}, Kind: "condition"}
 				life := "normal"
 				if exists {
 					if json.Unmarshal(row.State, &state) != nil {
@@ -191,7 +194,7 @@ func (w Worker) persistEvaluation(ctx context.Context, task runtime.Task, policy
 				state.Name = obs.Rule.Name
 				state.PolicyName = policy.Name
 				if !exists || !row.StartedAt.Valid {
-					state.PolicySnapshot = policy.Spec
+					state.PolicySnapshot = append(json.RawMessage(nil), policy.Spec...)
 				}
 				state.EvaluatorID = result.Evaluator.SubjectID
 				state.AuthorizationVersion = result.Evaluator.AuthorizationVersion
@@ -202,7 +205,10 @@ func (w Worker) persistEvaluation(ctx context.Context, task runtime.Task, policy
 				if eventType == "" && exists && row.Severity != obs.Severity && (life == "firing" || life == "recovering") {
 					eventType = "severity"
 				}
-				raw, _ := json.Marshal(state)
+				raw, marshalErr := json.Marshal(state)
+				if marshalErr != nil {
+					return fmt.Errorf("encode evaluated alert state: %w", marshalErr)
+				}
 				start := row.StartedAt
 				resolved := row.ResolvedAt
 				if eventType == "first" {
@@ -256,7 +262,10 @@ func (w Worker) persistEvaluation(ctx context.Context, task runtime.Task, policy
 			}
 			state = evaluationFailure(state)
 			state.LastSlot = result.Slot
-			raw, _ := json.Marshal(state)
+			raw, marshalErr := json.Marshal(state)
+			if marshalErr != nil {
+				return fmt.Errorf("encode missing-observation alert state: %w", marshalErr)
+			}
 			health := result.Health
 			if p.Mode == "independent" {
 				for _, outcome := range result.Outcomes {
@@ -356,7 +365,7 @@ func (w Worker) healthEpisode(ctx context.Context, q *db.Queries, policy db.Aler
 		return db.AlertEvent{}, err
 	}
 	sources, _ := json.Marshal(result.Sources)
-	state := InstanceState{Name: "Query health: " + result.Health, PolicyName: policy.Name, Labels: map[string]string{"alert_health": result.Health, "policy_id": policy.ID.String()}, PolicySnapshot: policy.Spec, Kind: "health", NotificationState: "pending", LastSlot: result.Slot, NoiseReasons: []string{}, EvaluatorID: result.Evaluator.SubjectID, AuthorizationVersion: result.Evaluator.AuthorizationVersion, SourceSnapshot: sources}
+	state := InstanceState{Name: "Query health: " + result.Health, PolicyName: policy.Name, Labels: mergePolicyLabels(p.Labels, map[string]string{"alert_health": result.Health, "policy_id": policy.ID.String()}), PolicySnapshot: policy.Spec, Kind: "health", NotificationState: "pending", LastSlot: result.Slot, NoiseReasons: []string{}, EvaluatorID: result.Evaluator.SubjectID, AuthorizationVersion: result.Evaluator.AuthorizationVersion, SourceSnapshot: sources}
 	raw, _ := json.Marshal(state)
 	row, err = q.CreateAlertInstance(ctx, db.CreateAlertInstanceParams{ID: uuid.New(), EnterpriseID: policy.EnterpriseID, PolicyID: policy.ID, PolicyVersion: policy.Version, Generation: policy.Generation, Fingerprint: fp, ResourceIds: result.ResourceIDs, SourceIds: []uuid.UUID{}, State: raw, Lifecycle: "firing", Health: result.Health, Severity: "warning", StartedAt: timestamp(result.Slot), LastEvaluatedAt: timestamp(result.Slot)})
 	if err != nil {

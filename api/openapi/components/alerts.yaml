@@ -264,7 +264,8 @@
             "additionalProperties": {
               "type": "string",
               "maxLength": 512
-            }
+            },
+            "description": "Static metadata participates in routing, grouping and suppression; observed metric labels take precedence. Reserved argus_* identity labels, resource_id, policy_id, severity, metric and alert_health cannot be configured."
           }
         },
         "required": [

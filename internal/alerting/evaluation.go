@@ -109,7 +109,7 @@ func (s Service) evaluate(ctx context.Context, a Actor, p PolicySpec, ids []uuid
 				result.Outcomes = append(result.Outcomes, EvaluationOutcome{RuleID: rule.ID, ResourceIDs: []uuid.UUID{id}, SourceIDs: []uuid.UUID{}, Health: "no_data", ErrorCode: "ALERT_RESOURCE_SOURCES_EMPTY", Complete: false})
 			}
 		}
-		observations, err := s.queryRule(ctx, a, rule, p.MatchBy, snapshot, sourceKeys(sources), slot)
+		observations, err := s.queryRule(ctx, a, rule, p.MatchBy, snapshot, sourceKeys(sources), slot, p.Labels)
 		if err != nil {
 			result.Health = "error"
 			result.ErrorCode = "ALERT_QUERY_FAILED"
@@ -170,7 +170,7 @@ func (s Service) evaluate(ctx context.Context, a Actor, p PolicySpec, ids []uuid
 	}
 	return result, nil
 }
-func (s Service) queryRule(ctx context.Context, a Actor, r Rule, matchBy []string, snapshot observationscope.Snapshot, sources []string, slot time.Time) ([]Observation, error) {
+func (s Service) queryRule(ctx context.Context, a Actor, r Rule, matchBy []string, snapshot observationscope.Snapshot, sources []string, slot time.Time, policyLabels map[string]string) ([]Observation, error) {
 	ids := snapshot.IDs()
 	if s.Telemetry.Engine == nil {
 		return nil, ErrUnavailable
@@ -180,7 +180,7 @@ func (s Service) queryRule(ctx context.Context, a Actor, r Rule, matchBy []strin
 		if err != nil || value.Meta.Partial {
 			return nil, ErrUnavailable
 		}
-		observations, e := decodeObservations(value, r, matchBy, ids)
+		observations, e := decodeObservations(value, r, matchBy, ids, policyLabels)
 		if e != nil {
 			return nil, e
 		}
@@ -224,7 +224,7 @@ func (s Service) queryRule(ctx context.Context, a Actor, r Rule, matchBy []strin
 	}
 	return values, nil
 }
-func decodeObservations(result queryengine.Result, r Rule, matchBy []string, ids []uuid.UUID) ([]Observation, error) {
+func decodeObservations(result queryengine.Result, r Rule, matchBy []string, ids []uuid.UUID, policyLabels ...map[string]string) ([]Observation, error) {
 	raw, err := json.Marshal(result.Data)
 	if err != nil {
 		return nil, err
@@ -250,6 +250,9 @@ func decodeObservations(result queryengine.Result, r Rule, matchBy []string, ids
 	}
 	observations := []Observation{}
 	add := func(labels map[string]string, value []json.RawMessage) error {
+		if len(policyLabels) != 0 {
+			labels = mergePolicyLabels(policyLabels[0], labels)
+		}
 		if len(value) != 2 {
 			return ErrInvalid
 		}

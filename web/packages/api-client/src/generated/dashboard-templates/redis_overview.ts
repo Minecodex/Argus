@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "redis.overview",
-  "version": 2,
+  "version": 3,
   "name": "Redis",
   "description": "",
   "integration_keys": [
@@ -403,7 +403,7 @@ export const template = {
       },
       {
         "id": "hit_ratio",
-        "title": "(sum by (argus_resource_id) (rate(redis_keyspace_hits[5m])) / (sum by (argus_resource_id) (rate(redis_keyspace_hits[5m])) + sum by (argus_resource_id) (rate(redis_keyspace_misses[5m])))) and ((sum by (argus_resource_id) (rate(redis_keyspace_hits[5m])) + sum by (argus_resource_id) (rate(redis_keyspace_misses[5m]))) \u003e 0)",
+        "title": "Cache hit ratio",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",

@@ -1189,6 +1189,7 @@ components:
             - endpoint
             - ingest_key
             - service
+            - target
           type: string
         operation:
           enum:

@@ -81,12 +81,18 @@ func pendingInput(plan actionPlan) resource.PrepareActionInput {
 	if m.Service != nil {
 		name = m.Service.Name
 	}
+	resourceType, summary := m.Kind, "Apply monitoring workspace change"
+	if m.Kind == "target" {
+		name = plan.TargetName
+		resourceType = "monitoring_target"
+		summary = "Archive this target from the current inventory and retain existing telemetry for historical queries"
+	}
 	actionType := "monitoring." + m.Kind + "." + m.Operation
 	if m.Kind == "application" {
 		actionType = "application." + m.Operation
 	}
 	return resource.PrepareActionInput{
-		ActionType: actionType, Title: name, Summary: "Apply monitoring workspace change", Risk: "write", ResourceType: m.Kind, ResourceID: nullID(m.ID),
+		ActionType: actionType, Title: name, Summary: summary, Risk: "write", ResourceType: resourceType, ResourceID: nullID(m.ID),
 		ExpectedResourceVersion: pgtype.Int8{Int64: m.ExpectedVersion, Valid: m.ExpectedVersion > 0}, AuthorizationVersion: a.AuthorizationVersion, RunID: nullID(a.RunID),
 		Preview: map[string]any{"kind": m.Kind, "operation": m.Operation, "id": m.ID, "application": plan.Mutation.Application, "service": m.Service, "binding": plan.Mutation.Binding, "collection": publicCollectionInput(plan.Mutation.Collection), "endpoint": m.Endpoint, "ingest_key": m.IngestKey},
 		Diff:    []map[string]string{{"kind": "change", "text": m.Operation + " " + name}}, ImmutablePlan: plan, ResourceScopeSnapshot: plan.References, CommitHandler: actionType + ".commit",
@@ -105,6 +111,8 @@ func (s Service) prepare(ctx context.Context, q *db.Queries, a Actor, m Mutation
 		return p, ErrInvalid
 	}
 	switch m.Kind {
+	case "target":
+		return s.prepareTargetArchive(ctx, q, a, m, lock)
 	case "service":
 		return s.prepareServiceDeclaration(ctx, q, a, m, lock)
 	case "endpoint", "ingest_key":
@@ -269,7 +277,9 @@ func requireTarget(ctx context.Context, q *db.Queries, a Actor, ref ResourceRef)
 		}
 		return row.ResourceVersion, nil
 	default:
-		row, err := q.GetMonitoringTarget(ctx, db.GetMonitoringTargetParams{EnterpriseID: a.EnterpriseID, ID: ref.ID})
+		// Serialize new dependencies with a target's archive transaction. The
+		// same query outside a transaction releases its lock after the probe.
+		row, err := q.LockMonitoringTarget(ctx, db.LockMonitoringTargetParams{EnterpriseID: a.EnterpriseID, ID: ref.ID})
 		if err != nil {
 			return 0, lookupError(err)
 		}
@@ -370,6 +380,8 @@ func (s Service) commitWorkspace(ctx context.Context, q *db.Queries, p actionPla
 	m, a := p.Mutation, p.Actor
 	result := resource.ActionCommitResult{ResourceType: m.Kind, ResourceID: m.ID, Summary: "Monitoring workspace change applied"}
 	switch m.Kind {
+	case "target":
+		return s.commitTargetArchive(ctx, q, p)
 	case "service":
 		if m.Service == nil || m.Operation != "create" {
 			return result, ErrInvalid

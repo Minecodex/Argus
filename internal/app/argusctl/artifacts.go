@@ -28,7 +28,15 @@ const (
 	collectorArtifactBucket = "argus-collector-artifacts"
 	connectorArtifactBucket = "argus-connector-artifacts"
 	signingKeyPath          = "deploy/.keys/otelcol-signing-key.json"
+	connectorSignaturesFile = "signatures.json"
+	connectorSignaturesV1   = "argus.connector_artifact_signatures/v1"
 )
+
+var connectorArtifactTargets = []struct{ platform, os, architecture, filename string }{
+	{string(installation.LinuxAMD64), "linux", "amd64", "argus-connector-linux-amd64"},
+	{string(installation.LinuxARM64), "linux", "arm64", "argus-connector-linux-arm64"},
+	{string(installation.WindowsAMD64), "windows", "amd64", "argus-connector-windows-amd64.exe"},
+}
 
 type connectorReleaseRegistration struct {
 	ID           uuid.UUID
@@ -70,16 +78,18 @@ type persistedSigningKey struct {
 	PublicKey  string `json:"public_key"`
 }
 
+type connectorArtifactSignatures struct {
+	SchemaVersion string                     `json:"schema_version"`
+	ImageTag      string                     `json:"image_tag"`
+	Artifacts     []connectorInstallArtifact `json:"artifacts"`
+}
+
 func (a *App) buildConnectorDistributionArtifacts(ctx context.Context, root string) error {
 	directory := filepath.Join(root, "build", "connector", "artifacts")
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return err
 	}
-	for _, target := range []struct{ os, architecture, filename string }{
-		{"linux", "amd64", "argus-connector-linux-amd64"},
-		{"linux", "arm64", "argus-connector-linux-arm64"},
-		{"windows", "amd64", "argus-connector-windows-amd64.exe"},
-	} {
+	for _, target := range connectorArtifactTargets {
 		path := filepath.Join(directory, target.filename)
 		_, _ = fmt.Fprintf(a.stdout, "Building Connector distribution for %s/%s\n", target.os, target.architecture)
 		if _, err := a.runner.runEnv(ctx, map[string]string{"GOOS": target.os, "GOARCH": target.architecture, "CGO_ENABLED": "0"}, nil,
@@ -100,6 +110,10 @@ func (a *App) publishInstallArtifacts(
 	root string,
 	installationCredentials map[string]string,
 ) (connectorReleaseRegistration, error) {
+	publicKey, artifacts, err := loadConnectorInstallArtifacts(root, cfg)
+	if err != nil {
+		return connectorReleaseRegistration{}, err
+	}
 	forward, err := portForwardService(ctx, clients, cfg.Spec.Namespaces.System, "argus-minio", 9000)
 	if err != nil {
 		return connectorReleaseRegistration{}, fmt.Errorf("connect to Artifact Store: %w", err)
@@ -116,14 +130,10 @@ func (a *App) publishInstallArtifacts(
 			return connectorReleaseRegistration{}, err
 		}
 	}
-	publicKey, privateKey, keyID, err := loadArtifactSigningKey(root, cfg.Spec.Telemetry.SigningKeyID, cfg.Spec.Telemetry.SigningPublicKey)
-	if err != nil {
-		return connectorReleaseRegistration{}, err
-	}
 	if err := publishCollectorArtifacts(ctx, client, cfg, root, publicKey); err != nil {
 		return connectorReleaseRegistration{}, err
 	}
-	registration, err := publishConnectorArtifacts(ctx, client, cfg, root, privateKey, publicKey, keyID)
+	registration, err := publishConnectorArtifacts(ctx, client, cfg, root, publicKey, artifacts)
 	if err != nil {
 		return connectorReleaseRegistration{}, err
 	}
@@ -162,7 +172,7 @@ func loadArtifactSigningKey(root, expectedKeyID, expectedPublicKey string) (ed25
 	}
 	raw, err := os.ReadFile(filepath.Join(root, signingKeyPath))
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("read signing key %s: %w; the installation release bundle must include the key used by spec.telemetry", signingKeyPath, err)
+		return nil, nil, "", fmt.Errorf("read development signing key %s: %w; use a signed installation bundle or configure a development signer", signingKeyPath, err)
 	}
 	var material persistedSigningKey
 	if json.Unmarshal(raw, &material) != nil {
@@ -175,6 +185,64 @@ func loadArtifactSigningKey(root, expectedKeyID, expectedPublicKey string) (ed25
 		return nil, nil, "", errors.New("artifact signing key does not match spec.telemetry signingKeyId/signingPublicKey")
 	}
 	return ed25519.PublicKey(publicKey), ed25519.PrivateKey(privateKey), material.KeyID, nil
+}
+
+func loadConnectorInstallArtifacts(root string, cfg *InstallConfig) (ed25519.PublicKey, []connectorInstallArtifact, error) {
+	directory := filepath.Join(root, "build", "connector", "artifacts")
+	keyID := cfg.Spec.Telemetry.SigningKeyID
+	encodedKey := cfg.Spec.Telemetry.SigningPublicKey
+	raw, err := os.ReadFile(filepath.Join(directory, connectorSignaturesFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return signDevelopmentConnectorArtifacts(root, directory, keyID, encodedKey)
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("read Connector artifact signatures: %w", err)
+	}
+	publicKey, err := base64.RawStdEncoding.DecodeString(encodedKey)
+	if err != nil || len(publicKey) != ed25519.PublicKeySize || keyID == "" {
+		return nil, nil, errors.New("invalid Connector artifact verification key")
+	}
+	var document connectorArtifactSignatures
+	if err := json.Unmarshal(raw, &document); err != nil || document.SchemaVersion != connectorSignaturesV1 ||
+		document.ImageTag != cfg.Spec.Images.Tag || len(document.Artifacts) != len(connectorArtifactTargets) {
+		return nil, nil, errors.New("Connector artifact signatures must match the installation image tag and supported platforms")
+	}
+	byPlatform := make(map[string]connectorInstallArtifact, len(document.Artifacts))
+	for _, artifact := range document.Artifacts {
+		byPlatform[artifact.Platform] = artifact
+	}
+	artifacts := make([]connectorInstallArtifact, 0, len(connectorArtifactTargets))
+	for _, target := range connectorArtifactTargets {
+		artifact, ok := byPlatform[target.platform]
+		if !ok || artifact.ByteSize <= 0 || artifact.SigningKeyID != keyID || artifact.URI != "" {
+			return nil, nil, fmt.Errorf("invalid Connector artifact metadata for %s", target.platform)
+		}
+		path := filepath.Join(directory, target.filename)
+		if err := verifySignedArtifact(path, artifact.SHA256, artifact.Signature, uint64(artifact.ByteSize), publicKey); err != nil {
+			return nil, nil, fmt.Errorf("Connector artifact %s: %w", target.platform, err)
+		}
+		artifact.SHA256 = strings.ToLower(artifact.SHA256)
+		artifacts = append(artifacts, artifact)
+	}
+	return ed25519.PublicKey(publicKey), artifacts, nil
+}
+
+func signDevelopmentConnectorArtifacts(root, directory, keyID, encodedKey string) (ed25519.PublicKey, []connectorInstallArtifact, error) {
+	publicKey, privateKey, keyID, err := loadArtifactSigningKey(root, keyID, encodedKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	artifacts := make([]connectorInstallArtifact, 0, len(connectorArtifactTargets))
+	for _, target := range connectorArtifactTargets {
+		raw, err := os.ReadFile(filepath.Join(directory, target.filename))
+		if err != nil {
+			return nil, nil, fmt.Errorf("read Connector %s artifact; run argusctl images build first: %w", target.platform, err)
+		}
+		digest := sha256.Sum256(raw)
+		artifacts = append(artifacts, connectorInstallArtifact{Platform: target.platform, SHA256: hex.EncodeToString(digest[:]),
+			Signature: base64.RawStdEncoding.EncodeToString(ed25519.Sign(privateKey, digest[:])), SigningKeyID: keyID, ByteSize: int64(len(raw))})
+	}
+	return publicKey, artifacts, nil
 }
 
 func publishCollectorArtifacts(ctx context.Context, client *minio.Client, cfg *InstallConfig, root string, publicKey ed25519.PublicKey) error {
@@ -263,27 +331,18 @@ func publishConnectorArtifacts(
 	client *minio.Client,
 	cfg *InstallConfig,
 	root string,
-	privateKey ed25519.PrivateKey,
 	publicKey ed25519.PublicKey,
-	keyID string,
+	artifacts []connectorInstallArtifact,
 ) (connectorReleaseRegistration, error) {
-	artifacts := make([]connectorInstallArtifact, 0, 3)
+	keyID := cfg.Spec.Telemetry.SigningKeyID
 	fingerprint := sha256.New()
 	_, _ = fingerprint.Write([]byte("argus.connector_release/v2\x00" + cfg.Spec.Images.Tag + "\x00" + keyID + "\x00"))
-	for _, target := range []struct{ platform, filename string }{
-		{string(installation.LinuxAMD64), "argus-connector-linux-amd64"},
-		{string(installation.LinuxARM64), "argus-connector-linux-arm64"},
-		{string(installation.WindowsAMD64), "argus-connector-windows-amd64.exe"},
-	} {
-		path := filepath.Join(root, "build", "connector", "artifacts", target.filename)
-		raw, err := os.ReadFile(path)
+	for _, artifact := range artifacts {
+		digest, err := hex.DecodeString(artifact.SHA256)
 		if err != nil {
-			return connectorReleaseRegistration{}, fmt.Errorf("Connector %s artifact is missing; run argusctl images build first: %w", target.platform, err)
+			return connectorReleaseRegistration{}, fmt.Errorf("decode Connector artifact digest: %w", err)
 		}
-		digest := sha256.Sum256(raw)
-		_, _ = fingerprint.Write(digest[:])
-		artifacts = append(artifacts, connectorInstallArtifact{Platform: target.platform, SHA256: hex.EncodeToString(digest[:]),
-			Signature: base64.RawStdEncoding.EncodeToString(ed25519.Sign(privateKey, digest[:])), SigningKeyID: keyID, ByteSize: int64(len(raw))})
+		_, _ = fingerprint.Write(digest)
 	}
 	installers := make([]connectorInstallInstaller, 0, 2)
 	for _, item := range []struct {
@@ -313,11 +372,7 @@ func publishConnectorArtifacts(
 	for index := range manifest.Artifacts {
 		objectKey := "argus-connector/" + version + "/" + manifest.Artifacts[index].Platform
 		manifest.Artifacts[index].URI = base + "/" + connectorArtifactBucket + "/" + objectKey
-		filename := "argus-connector-" + strings.ReplaceAll(manifest.Artifacts[index].Platform, "_", "-")
-		if manifest.Artifacts[index].Platform == string(installation.WindowsAMD64) {
-			filename += ".exe"
-		}
-		path := filepath.Join(root, "build", "connector", "artifacts", filename)
+		path := filepath.Join(root, "build", "connector", "artifacts", connectorArtifactTargets[index].filename)
 		if uploadErr := uploadArtifactFile(ctx, client, connectorArtifactBucket, objectKey, path, "application/octet-stream"); uploadErr != nil {
 			return connectorReleaseRegistration{}, uploadErr
 		}

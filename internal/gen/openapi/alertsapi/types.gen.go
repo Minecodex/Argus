@@ -897,12 +897,14 @@ type AlertObservation struct {
 
 // AlertPolicySpec defines model for AlertPolicySpec.
 type AlertPolicySpec struct {
-	ChannelIds      *[]openapi_types.UUID         `json:"channel_ids,omitempty"`
-	Description     *string                       `json:"description,omitempty"`
-	Enabled         bool                          `json:"enabled"`
-	ErrorBehavior   AlertPolicySpecErrorBehavior  `json:"error_behavior"`
-	ForSeconds      int64                         `json:"for_seconds"`
-	IntervalSeconds int64                         `json:"interval_seconds"`
+	ChannelIds      *[]openapi_types.UUID        `json:"channel_ids,omitempty"`
+	Description     *string                      `json:"description,omitempty"`
+	Enabled         bool                         `json:"enabled"`
+	ErrorBehavior   AlertPolicySpecErrorBehavior `json:"error_behavior"`
+	ForSeconds      int64                        `json:"for_seconds"`
+	IntervalSeconds int64                        `json:"interval_seconds"`
+
+	// Labels Static metadata participates in routing, grouping and suppression; observed metric labels take precedence. Reserved argus_* identity labels, resource_id, policy_id, severity, metric and alert_health cannot be configured.
 	Labels          *map[string]string            `json:"labels,omitempty"`
 	MatchBy         *[]string                     `json:"match_by,omitempty"`
 	Mode            AlertPolicySpecMode           `json:"mode"`

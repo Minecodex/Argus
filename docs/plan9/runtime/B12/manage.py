@@ -33,7 +33,7 @@ class Run(OwnedRun):
         assert key in ['direct','redis'];ident=self.compose('ps','--all','--quiet',key);assert ident
         value=json.loads(execute(['docker','inspect',ident]))[0]
         assert value['Config']['Labels']['io.argus.plan9.run']==self.id
-        previous=next((row for row in json.loads(self.resources.read_text())['containers'] if row['service']==key),None)
+        previous=next((row for row in json.loads(self.resources.read_text(encoding='utf-8'))['containers'] if row['service']==key),None)
         if previous:assert value['Id']==previous['id']
         return value
     def prepare(self):
@@ -47,7 +47,7 @@ class Run(OwnedRun):
                 'authorization':'没问题，开始下一轮','model_calls':0,'model_budget':None,'direct_business_database_writes':False,
                 'limits':{'cpus':2,'memory_mib':1472,'traffic_seconds':28800,'redis_capacity_mib':16,'cached_order_keys_max':64}})
         if not (self.private/'enterprise-session.json').exists():write_json(self.private/'enterprise-session.json',{'origin':'https://argus.dev','csrf':'','user':{},'cookies':[]})
-        values=json.loads((self.private/'redis-credentials.json').read_text());acl='user default off\n'
+        values=json.loads((self.private/'redis-credentials.json').read_text(encoding='utf-8'));acl='user default off\n'
         for role,commands in [('monitor','+info +config|get +ping'),('app','~p9:b12:* +get +set +del +ping')]:
             acl+='user '+role+' on #'+hashlib.sha256(values[role].encode()).hexdigest()+' '+commands+'\n'
         (self.private/'users.acl').write_text(acl,encoding='utf-8')
@@ -72,16 +72,16 @@ class Run(OwnedRun):
             'source':{path.name:hashlib.sha256(path.read_bytes()).hexdigest() for path in HERE.iterdir() if path.is_file()}})
         print('Bounded real host/Redis images built and pinned; no formal image changed',flush=True)
     def up(self):
-        assert json.loads((self.out.parent/'p9-b11c-20261115-01/cleanup-verification.json').read_text())['status']=='destroyed'
-        mapping=json.loads(self.resources.read_text());assert not mapping['containers']
+        assert json.loads((self.out.parent/'p9-b11c-20261115-01/cleanup-verification.json').read_text(encoding='utf-8'))['status']=='destroyed'
+        mapping=json.loads(self.resources.read_text(encoding='utf-8'));assert not mapping['containers']
         self.save('platform-before',self.platform())
         self.compose('up','-d','--no-build','--wait','--wait-timeout','120',timeout=180)
-        password=json.loads((self.private/'host-credentials.json').read_text())['direct']['password']
+        password=json.loads((self.private/'host-credentials.json').read_text(encoding='utf-8'))['direct']['password']
         execute(['docker','exec','-i',self.container()['Id'],'chpasswd'],data='root:'+password+'\n')
         for key in ['direct','redis']:
             value=self.container(key);mapping['containers'].append({'service':key,'id':value['Id'],'image_id':value['Image']});self.save('resource-map',mapping)
         host=self.container();self.save('host-specs',{'direct':{'name':'B12-Cache-Host','letter':'A','address':host['NetworkSettings']['Networks']['kind']['IPAddress'],'ssh_port':22}})
-        assert self.platform()==json.loads((self.out/'platform-before.json').read_text())
+        assert self.platform()==json.loads((self.out/'platform-before.json').read_text(encoding='utf-8'))
         print('Fresh B12 Host and actual Redis/HTTP service healthy; prior scenario retired',flush=True)
     def workload(self):
         if self.shell('direct','systemctl is-active plan9-b12-traffic.service || true\n')!='active':

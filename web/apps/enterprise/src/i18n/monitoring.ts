@@ -109,6 +109,12 @@ export const monitoringZh = {
     integrationCatalog: "集成目录",
     createCollection: "新建监控",
     archiveCollection: "删除采集",
+    targets: "监控目标",
+    targetName: "目标名称",
+    searchTargets: "搜索监控目标…",
+    noActiveTargets: "没有符合条件的监控目标",
+    noActiveTargetsHint: "清除搜索条件，或在采集实例中添加监控。",
+    archiveTarget: "归档目标",
     chooseIntegration: "选择监控类型",
     integration: "类型",
     signals: "数据类型",
@@ -292,7 +298,8 @@ export const monitoringZh = {
       unavailable: "监控服务暂不可用。",
       rollback_unverified: "回滚后的运行版本尚未核实，请检查收集器状态。",
       unsupported_integration: "该监控类型目前暂不支持。",
-      dependencies_exist: "仍有启用的采集依赖此对象，请先处理关联采集。",
+      dependencies_exist:
+        "此对象仍有关联。请先归档采集，或解除应用、仪表盘等关联后再试。",
       service_limit: "此应用的服务数量已达到上限。",
       log_rule_overlap:
         "采集范围与已有日志规则重叠，或范围过于复杂无法确认。请缩小范围或先停用旧规则。",
@@ -416,6 +423,13 @@ export const monitoringEn = {
     integrationCatalog: "Integrations",
     createCollection: "New monitor",
     archiveCollection: "Delete collection",
+    targets: "Monitoring targets",
+    targetName: "Target name",
+    searchTargets: "Search monitoring targets…",
+    noActiveTargets: "No monitoring targets match",
+    noActiveTargetsHint:
+      "Clear the search or add monitoring from Collection instances.",
+    archiveTarget: "Archive target",
     chooseIntegration: "Choose a monitoring type",
     integration: "Type",
     signals: "Signals",
@@ -612,7 +626,8 @@ export const monitoringEn = {
         "The running version could not be verified after rollback. Check the Collector status.",
       unsupported_integration:
         "This monitoring integration is currently deferred.",
-      dependencies_exist: "Enabled collections still depend on this object.",
+      dependencies_exist:
+        "This object still has dependencies. Archive its collections or remove its application and dashboard links before retrying.",
       service_limit: "This application has reached its service limit.",
       log_rule_overlap:
         "This log scope overlaps an active rule or is too complex to verify. Narrow it or disable the existing rule first.",

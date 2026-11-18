@@ -392,7 +392,8 @@ func (c *InstallConfig) Image(name string) string {
 		return value
 	}
 	registry := strings.TrimSuffix(c.Spec.Images.Registry, "/")
-	if !strings.HasSuffix(registry, "/argus") {
+	// Docker Hub repositories have exactly a namespace and a repository name.
+	if !strings.HasPrefix(registry, "docker.io/") && !strings.HasSuffix(registry, "/argus") {
 		registry += "/argus"
 	}
 	return fmt.Sprintf("%s/%s:%s", registry, name, c.Spec.Images.Tag)

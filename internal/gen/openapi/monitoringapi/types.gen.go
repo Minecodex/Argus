@@ -1155,6 +1155,7 @@ const (
 	MonitoringMutationKindEndpoint    MonitoringMutationKind = "endpoint"
 	MonitoringMutationKindIngestKey   MonitoringMutationKind = "ingest_key"
 	MonitoringMutationKindService     MonitoringMutationKind = "service"
+	MonitoringMutationKindTarget      MonitoringMutationKind = "target"
 )
 
 // Valid indicates whether the value is a known member of the MonitoringMutationKind enum.
@@ -1171,6 +1172,8 @@ func (e MonitoringMutationKind) Valid() bool {
 	case MonitoringMutationKindIngestKey:
 		return true
 	case MonitoringMutationKindService:
+		return true
+	case MonitoringMutationKindTarget:
 		return true
 	default:
 		return false

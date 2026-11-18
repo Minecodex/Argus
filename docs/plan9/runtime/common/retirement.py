@@ -49,6 +49,9 @@ def retire(run, api, execute, write_json, now):
             preview=api.call('POST','/monitoring/commands/preview',{'kind':'collection','operation':'archive','id':row['id'],'expected_version':row['version'],'collection':{}},key=step,expected=201)
             api.confirm(preview)
         save(step)
+    if 'monitoring-targets-archived' not in state['steps']:
+        retire_monitoring_targets(run, api, write_json, now)
+        save('monitoring-targets-archived')
     for key,h in mapping['hosts'].items():
         hid=h['host_id'];stage=state['hosts'].setdefault(key,{})
         if not stage.get('builtins_stopped'):
@@ -106,3 +109,35 @@ def retire(run, api, execute, write_json, now):
     assert not any(c['id'] in old_ids or c['target']['id'] in owned_hosts for c in rows)
     state.update(status='destroyed',finished_at=now(),owned_runtime_residuals=0,current_collections_remaining=0,historical_target_identities_retained=True)
     save('cleanup-complete');return state
+
+
+def retire_monitoring_targets(run, api, write_json, now):
+    """Finish accepted-batch target retirement without deleting source history.
+
+    Target archival is a separate normal action from collection archival. Never
+    cascade through a live application/collection dependency: the preview must
+    reject it so an operator can review it explicitly.
+    """
+    mapping = json.loads(run.resources.read_text(encoding='utf-8'))
+    retired = []
+    for target in mapping.get('targets', {}).values():
+        collection = api.call('GET', '/monitoring/collections/' + target['collection_id'])
+        assert collection['status'] == 'archived' and collection['target']['id'] == target['target_id']
+        rows = api.call('GET', '/monitoring/targets?integration=' + target['engine'] + '&limit=200')
+        assert not rows.get('next_cursor'), 'Target retirement must not silently truncate the inventory'
+        current = next((x for x in rows['items'] if x['id'] == target['target_id']), None)
+        if current:
+            assert current['name'] == target['name']
+            path = '/monitoring/targets/' + current['id'] + '/dashboard-bindings'
+            bindings = api.call('GET', path)
+            for binding in bindings['items']:
+                api.confirm(api.call('POST', path + '/preview', {'operation': 'detach', 'dashboard_id': binding['dashboard']['id'],
+                                'binding_id': binding['id'], 'expected_binding_version': binding['version'],
+                                'expected_dashboard_version': binding['dashboard']['version'], 'expected_resource_version': bindings['resource_version']},
+                                key='retire-target-board-' + binding['id'], expected=201))
+                bindings = api.call('GET', path)
+            api.confirm(api.call('POST', '/monitoring/commands/preview', {'kind': 'target', 'operation': 'archive', 'id': current['id'],
+                            'expected_version': current['version']}, key='retire-target-' + current['id'], expected=201))
+        retired.append(target['target_id'])
+    write_json(run.out / 'target-retirement.json', {'passed': True, 'at': now(), 'target_ids': retired,
+                                                  'historical_identities_retained': True, 'dashboard_definitions_preserved': True})

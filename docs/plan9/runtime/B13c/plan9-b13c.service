@@ -1,0 +1,15 @@
+[Unit]
+Description=Plan9 B13c actual application and native cache traffic
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/plan9.env
+EnvironmentFile=/etc/plan9-app.env
+ExecStart=/usr/bin/python3 /usr/local/lib/plan9-b13c/service.py serve
+Restart=no
+MemoryMax=128M
+CPUQuota=10%
+
+[Install]
+WantedBy=multi-user.target

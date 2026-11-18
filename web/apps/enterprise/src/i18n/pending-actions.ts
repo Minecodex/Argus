@@ -101,6 +101,12 @@ export const pendingActionsZh = {
         diff: "归档所选仪表盘",
         result: "仪表盘已归档",
       },
+      monitoring_target_archive: {
+        title: "归档监控目标 {{name}}",
+        summary: "目标将移出当前列表，已采集的数据仍可按历史时间查询。",
+        diff: "归档所选监控目标",
+        result: "监控目标已归档",
+      },
       telemetry_dashboard_restore: {
         title: "恢复仪表盘 {{name}}",
         summary: "恢复后发布需重新检查基线",
@@ -377,6 +383,13 @@ export const pendingActionsEn = {
         summary: "Keep history and personal drafts; publishing is suspended",
         diff: "Archive the selected dashboard",
         result: "Dashboard archived",
+      },
+      monitoring_target_archive: {
+        title: "Archive monitoring target {{name}}",
+        summary:
+          "The target will leave the active list. Previously collected data remains available for historical queries.",
+        diff: "Archive the selected monitoring target",
+        result: "Monitoring target archived",
       },
       telemetry_dashboard_restore: {
         title: "Restore dashboard {{name}}",

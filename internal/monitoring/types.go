@@ -161,6 +161,7 @@ type actionPlan struct {
 	Actor         Actor             `json:"actor"`
 	References    map[string]int64  `json:"references"`
 	RuntimePlans  []json.RawMessage `json:"runtime_plans,omitempty"`
+	TargetName    string            `json:"target_name,omitempty"`
 }
 
 func (s Service) now() time.Time {

@@ -45,11 +45,20 @@ class HostEnrollment:
                 state['credential_id'] = credential['id']
                 self.save()
             if not state.get('host_id'):
+                # A failed/expired read-only probe is not an installation to replay.
+                # Keep its evidence and start an explicitly new probe after repairs.
+                if state.get('connection_test_id'):
+                    previous_test = self.api.call('GET', '/enterprise/connection-tests/' + state['connection_test_id'])
+                    if previous_test['status'] in ('failed', 'result_unknown', 'expired'):
+                        state.setdefault('prior_connection_tests', []).append(previous_test['id'])
+                        state['connection_attempt'] = state.get('connection_attempt', 0) + 1
+                        state.pop('connection_test_id')
+                        self.save()
                 connection = self.api.call('POST', '/enterprise/hosts/connection-tests', {
                     'address': address, 'port': port, 'platform': 'linux',
                     'ssh_path': 'direct_executor', 'onboarding_control_path': control_path,
                     'credential_id': state['credential_id'], 'username': username},
-                    key='connection-' + host, expected=202)
+                    key='connection-' + host + '-' + str(state.get('connection_attempt', 0)), expected=202)
                 state['connection_test_id'] = connection['id']
                 self.save()
                 def successful(value):
@@ -129,6 +138,13 @@ class HostEnrollment:
                     'expected_version': collection.get('version', 0), 'config': {'interval': '10s'}},
                     key=f'{host}-{key}-{enabled}-{collection.get("version",0)}', expected=201)
                 self.api.confirm(preview)
+                # Do not supersede an unapplied configuration while enabling
+                # the next source. Configuration activation is a separate gate
+                # from the pending action's successful domain commit.
+                self.api.wait('/enterprise/hosts/' + hid + '/collector',
+                              lambda current: current['status'] == 'converged' and
+                              current['desired_revision'] == current['effective_revision'],
+                              timeout=180, label=host + ' builtin configuration activation')
             state['builtins'] = self.api.call('GET', endpoint)
             self.save()
             print(host + ': fixed metrics configured', flush=True)

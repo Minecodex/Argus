@@ -1986,7 +1986,8 @@
               "collection",
               "endpoint",
               "ingest_key",
-              "service"
+              "service",
+              "target"
             ],
             "type": "string"
           },

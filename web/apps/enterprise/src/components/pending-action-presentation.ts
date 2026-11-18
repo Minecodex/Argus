@@ -36,6 +36,7 @@ export const PENDING_ACTION_TYPES = [
   "telemetry.dashboard.binding.attach",
   "telemetry.dashboard.binding.detach",
   "telemetry.dashboard.archive",
+  "monitoring.target.archive",
   "telemetry.dashboard.restore",
   "telemetry.dashboard.folder.create",
   "telemetry.dashboard.folder.update",

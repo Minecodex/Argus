@@ -2,7 +2,7 @@
 // prettier-ignore
 export const template = {
   "key": "memcached.overview",
-  "version": 2,
+  "version": 3,
   "name": "Memcached",
   "description": "",
   "integration_keys": [
@@ -403,7 +403,7 @@ export const template = {
       },
       {
         "id": "hit_ratio",
-        "title": "(sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])) / (sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])) + sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"miss\"}[5m])))) and ((sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"hit\"}[5m])) + sum by (argus_resource_id) (rate(memcached_operations{operation=\"get\",type=\"miss\"}[5m]))) \u003e 0)",
+        "title": "Cache hit ratio",
         "description": "",
         "type": "timeseries",
         "signal": "metrics",

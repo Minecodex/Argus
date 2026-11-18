@@ -131,6 +131,8 @@ Plan6 完整 runner 保留 M3/M4/P5 Native/M7 的隔离 Replay 前件。在进�
 
 正式构建下的隔离HTTP/SMTP接收器采用本轮公开CA的标准信任配置。runner先验证临时Namespace、fixture Helm TLS Secret所有权和接收器证书DNS，再仅向临时server/worker追加CA目录；保留系统及已有根目录、完整Host/TLS验证，公开CA单独ConfigMap且不挂私钥。该配置不写入候选镜像或正式Helm values，正式构建不使用m4e2e Replay TLS例外。
 
+2026-11-18，B13b 补充通用的凭据级私有 CA：通知凭据 JSON 可选 `ca_pem`（最多 64 KiB、16 个具备 CA/签发用途的证书），用于合法企业私网 SMTP/HTTPS。材料仍由原有 Secret Broker 和通知任务租约承载，不成为模型输出或公开 DTO。每次发送克隆现有 TLS 配置和根池，仅为当前凭据追加 CA；系统根、SNI/主机名验证、最低 TLS 版本及既有 EndpointPolicy 保持有效，禁止私钥/任意 URL 拉取/全局信任修改。无 CA 的凭据不继承其他凭据的信任。无效材料返回不泄密的 `NOTIFICATION_CA_INVALID`；本地接收端验收不等于外部厂商或真实邮箱联通。
+
 正式backend滚动切换会重建Direct Executor中的临时系统Host sidecar。Plan6来源隔离测试在切换后通过真实连接测试、Host Preview/宿主确认和Connector注册准备新owned Host，先保留旧Host状态，并在既有Collector API执行安装/卸载、实际OTLP和Query匹配断言。该准备属于隔离fixture，权限和主机在线状态由真实领域接口及数据库验证，不直接把旧Host状态改为online；正式Host与业务数据不参与。
 
 配置启停与删除的Tool Hub输入仅含现有id和expected_version，不接受name/spec重写；领域服务读取当前完整快照切换状态或保留删除审计范围。启停发现包含状态更新同义词，以原AND检索找到专用动作；全量update留给配置编辑，模型仍自主搜索/Describe/Invoke并由宿主确认。该收紧不改变既有HTTP契约、权限、隐藏Commit或精确变更断言。

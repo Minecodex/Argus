@@ -191,7 +191,10 @@ func planNotifications(ctx context.Context, q *db.Queries, policy db.AlertConfig
 		if decision != "pending" || previous == "muted" || previous == "inhibited" {
 			instance.State.NotificationState = decision
 			instance.State.NoiseReasons = reasons
-			raw, _ := json.Marshal(instance.State)
+			raw, marshalErr := notificationStateForStorage(row, instance.State)
+			if marshalErr != nil {
+				return marshalErr
+			}
 			row, e = q.UpdateAlertInstance(ctx, db.UpdateAlertInstanceParams{EnterpriseID: row.EnterpriseID, ID: row.ID, State: raw, Lifecycle: row.Lifecycle, Health: row.Health, Severity: row.Severity, StartedAt: row.StartedAt, ResolvedAt: row.ResolvedAt, LastEvaluatedAt: row.LastEvaluatedAt, Version: row.Version})
 			if e != nil {
 				return e
@@ -313,7 +316,10 @@ func planNotifications(ctx context.Context, q *db.Queries, policy db.AlertConfig
 		if decision == "pending" && len(channelIDs) > 0 {
 			instance.State.LastNotificationAt = &at
 		}
-		raw, _ := json.Marshal(instance.State)
+		raw, marshalErr := notificationStateForStorage(row, instance.State)
+		if marshalErr != nil {
+			return marshalErr
+		}
 		if _, e = q.UpdateAlertInstance(ctx, db.UpdateAlertInstanceParams{EnterpriseID: row.EnterpriseID, ID: row.ID, State: raw, Lifecycle: row.Lifecycle, Health: row.Health, Severity: row.Severity, StartedAt: row.StartedAt, ResolvedAt: row.ResolvedAt, LastEvaluatedAt: row.LastEvaluatedAt, Version: row.Version}); e != nil {
 			return e
 		}
