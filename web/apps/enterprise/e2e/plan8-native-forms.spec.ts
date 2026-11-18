@@ -51,7 +51,9 @@ for (const item of [
     const catalog = page.getByRole("dialog", {
       name: "Choose a monitoring type",
     });
-    await catalog.getByRole("textbox").fill(item.type);
+    await catalog
+      .getByPlaceholder("Search application or service type")
+      .fill(item.type);
     await catalog
       .getByRole("row")
       .filter({ has: page.getByText(item.type, { exact: true }) })
@@ -95,11 +97,9 @@ for (const item of [
       .getByRole("button", { name: "Confirm changes", exact: true })
       .click();
     await expect(
-      page
-        .getByRole("row")
-        .filter({
-          has: page.getByText(`${item.type} acceptance`, { exact: true }),
-        }),
+      page.getByRole("row").filter({
+        has: page.getByText(`${item.type} acceptance`, { exact: true }),
+      }),
     ).toBeVisible();
     expect(
       await page.evaluate(() => JSON.stringify(localStorage)),

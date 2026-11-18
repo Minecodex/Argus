@@ -59,6 +59,12 @@ for (const english of [false, true])
         }),
       ).toBeVisible();
       await page.goto("/kubernetes/k8s-prod-east");
+      await page
+        .getByRole("tab", {
+          name: english ? "Resources" : "资源查询",
+          exact: true,
+        })
+        .click();
       await expect(
         page.getByRole("tablist", {
           name: english ? "Resource type" : "资源类型",

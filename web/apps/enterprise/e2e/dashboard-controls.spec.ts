@@ -157,12 +157,10 @@ for (const viewport of [
             filters.locator(".argus-variable-list__item"),
           ).toHaveCount(2);
           await expect(
-            filters
-              .locator(".argus-variable-editor")
-              .getByRole("textbox", {
-                name: tx("变量名", "Variable name"),
-                exact: true,
-              }),
+            filters.locator(".argus-variable-editor").getByRole("textbox", {
+              name: tx("变量名", "Variable name"),
+              exact: true,
+            }),
           ).toHaveCount(1);
           await filters.locator(".argus-variable-list__item").first().click();
           await expect(
@@ -207,12 +205,22 @@ for (const viewport of [
             exact: true,
           });
           const resources = toolbar.getByRole("button", {
-            name: tx("资源范围", "Resource scope"),
+            name: tx(
+              "选择资源: 全部授权资源",
+              "Choose resources: All authorized resources",
+            ),
+            exact: true,
+          });
+          const applications = toolbar.getByRole("button", {
+            name: tx(
+              "筛选应用: 不限制应用",
+              "Filter applications: Any application",
+            ),
             exact: true,
           });
           await expect(range).toContainText(tx("最近 6 小时", "Last 6 hours"));
           const a = (await range.boundingBox())!,
-            b = (await resources.boundingBox())!;
+            b = (await applications.boundingBox())!;
           expect(b.x - a.x - a.width).toBeGreaterThanOrEqual(7);
           expect(b.x - a.x - a.width).toBeLessThanOrEqual(9);
           const heights = await toolbar
@@ -257,6 +265,10 @@ for (const viewport of [
             animations: "disabled",
           });
           await page.reload();
+          await expect(range).toContainText(
+            tx("最近 24 小时", "Last 24 hours"),
+          );
+          await page.goto(new URL(page.url()).pathname);
           await expect(range).toContainText(tx("最近 6 小时", "Last 6 hours"));
           await expect(
             selectTrigger(toolbar, tx("刷新间隔", "Refresh interval")),

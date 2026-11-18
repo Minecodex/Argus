@@ -313,7 +313,7 @@ for (const english of [false, true])
         "href",
         `/monitoring?target=${targetId}`,
       );
-      await expect(sourceDialog.locator("details")).not.toHaveAttribute("open");
+      await expect(sourceDialog.getByRole("table")).toBeVisible();
       await page.screenshot({
         path: info.outputPath("dashboard-source-resources.png"),
         animations: "disabled",

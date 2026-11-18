@@ -14,7 +14,7 @@
 | v* Tag / 手动 release | 同一提交的 portable/契约/真实 PG 检查，以及完整共享门户浏览器矩阵 |
 | 独立环境 | M8 ARM64、PlanV2/P4/TLS 双架构实际集群、安装/故障/备份恢复；真实 Windows Server 2019/2022 接入 |
 
-发布工作流仅由版本标签或手动运行触发；PR 标签不触发完整发布，也不会在每次新提交时重跑。固定 `Release CI` 汇总托管软件检查，失败、取消、意外跳过都失败；本工作流不创建公开版本。
+发布工作流仅由版本标签或手动运行触发。完整门户浏览器矩阵并行分为 16 组，各组覆盖所分配的现有用例并独立保留失败诊断。固定 `Release CI` 要求同一提交的三平台、契约、PostgreSQL 和全部浏览器分片成功。失败、取消或意外跳过都会阻止验收。公开发行由发布者完成。
 
 大集群和远程 Windows Server 验收已经从 GitHub Actions 移出，Actions 不需要 `ARGUS_CI_*_RUNNER`、`ARGUS_WINDOWS_HOST_*` Secret、专用 Runner 或 Environment。独立环境验收继续使用现有入口：
 ```sh

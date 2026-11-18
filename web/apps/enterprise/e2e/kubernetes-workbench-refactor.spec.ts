@@ -92,7 +92,16 @@ for (const width of [1280, 1440, 1920])
           path: info.outputPath("resource-detail.png"),
           fullPage: true,
         });
+        await page.mouse.move(0, 0);
         await page.keyboard.press("Escape");
+        await expect(drawer).not.toBeVisible();
+        await page
+          .getByRole("tab", {
+            name: english ? "Resources" : "资源查询",
+            exact: true,
+          })
+          .focus();
+        await expect(page.locator(".argus-hover-summary")).toHaveCount(0);
         await expect(
           page
             .getByRole("button", { name: "deployment-example", exact: true })

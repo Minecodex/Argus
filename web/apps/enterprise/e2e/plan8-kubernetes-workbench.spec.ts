@@ -70,7 +70,16 @@ for (const english of [false, true])
       await expect(dialog.locator("pre")).toContainText(
         "namespace: production",
       );
+      await page.mouse.move(0, 0);
       await page.keyboard.press("Escape");
+      await expect(dialog).not.toBeVisible();
+      await page
+        .getByRole("tab", {
+          name: english ? "Resources" : "资源查询",
+          exact: true,
+        })
+        .focus();
+      await expect(page.locator(".argus-hover-summary")).toHaveCount(0);
       const accessibility = await new AxeBuilder({ page }).analyze();
       expect(
         accessibility.violations.filter(

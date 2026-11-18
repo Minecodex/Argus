@@ -2,10 +2,13 @@ import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { dashboardsZh, dashboardsEn } from "../src/i18n/dashboards";
 import {
+  dashboardControlsEn,
+  dashboardControlsZh,
+} from "../src/i18n/dashboard-controls";
+import {
   dashboardLinksZh,
   dashboardLinksEn,
 } from "../src/i18n/dashboard-links";
-import { setChoice } from "./helpers/choice";
 
 for (const viewport of [
   { width: 1280, height: 800 },
@@ -22,6 +25,8 @@ for (const viewport of [
         }, info) => {
           const d = (english ? dashboardsEn : dashboardsZh).dashboards,
             l = (english ? dashboardLinksEn : dashboardLinksZh).dashboardLinks;
+          const controls = (english ? dashboardControlsEn : dashboardControlsZh)
+            .dashboardControls;
           const tx = (zh: string, en: string) => (english ? en : zh);
           const path =
             theme === "light"
@@ -151,22 +156,26 @@ for (const viewport of [
           await expect(origin.locator("a")).toBeVisible();
           const originText = await origin.textContent();
           const scopeButton = page.getByRole("button", {
-            name: d.resources,
-            exact: true,
+            name: new RegExp(`^${d.chooseResources}:`),
           });
-          await expect(scopeButton).not.toContainText(d.all);
+          await expect(scopeButton).toHaveText(
+            controls.resourceCount.replace("{{count}}", "1"),
+          );
           await scopeButton.click();
           const scope = page.getByRole("dialog", {
             name: d.chooseResources,
             exact: true,
           });
-          await setChoice(
-            scope.getByRole("checkbox", { name: d.all, exact: true }),
-          );
           await scope
-            .getByRole("button", { name: d.apply, exact: true })
+            .getByRole("button", { name: controls.allAuthorized, exact: true })
             .click();
-          await expect(scopeButton).toContainText(d.all);
+          await scope
+            .getByRole("button", {
+              name: tx("确认选择", "Confirm selection"),
+              exact: true,
+            })
+            .click();
+          await expect(scopeButton).toHaveText(controls.allAuthorized);
           await expect(origin).toHaveText(originText!);
           await page.screenshot({
             path: info.outputPath("entry-context.png"),

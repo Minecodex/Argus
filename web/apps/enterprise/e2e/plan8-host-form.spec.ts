@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openToolResults } from "./helpers/tool-results";
 import { createHash } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -82,7 +83,7 @@ for (const english of [false, true])
         { id, source, hash: createHash("sha256").update(source).digest("hex") },
       );
       await page.reload();
-      await page.getByRole("button", { name: /^(查看|View) · / }).click();
+      await openToolResults(page);
       const open = page.getByRole("button", {
         name: english ? "Open secure monitoring form" : "打开监控安全表单",
       });
