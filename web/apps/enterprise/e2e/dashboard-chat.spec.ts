@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+test.use({ timezoneId: "Asia/Shanghai" });
+
 const catalog = JSON.parse(
   readFileSync(
     resolve(process.cwd(), "../template-runtime/src/fixtures.generated.json"),
@@ -163,6 +165,7 @@ for (const width of [1280, 1440, 1920])
         await openToolResults(page);
         const frames = page.locator(".argus-tool-presentation__frame");
         await expect(frames).toHaveCount(2);
+        await expect(frames.first()).toBeVisible();
         await expect
           .poll(async () => (await frames.first().boundingBox())?.width ?? 0)
           .toBeGreaterThan(readingWidth + 24);

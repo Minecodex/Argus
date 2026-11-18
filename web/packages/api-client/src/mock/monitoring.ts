@@ -26,7 +26,7 @@ import {
 import type { ConfirmActionResult, PendingActionPublic } from "../types";
 import { ApiError } from "../transport/errors";
 import type { BaseContext, MockContext } from "./context";
-import { dashboardObjectGrant } from "./dashboard-state";
+import { dashboardObjectGrant, dashboardState } from "./dashboard-state";
 import { resolvePermissions } from "./permissions";
 import {
   createIngestDomains,
@@ -81,6 +81,13 @@ function permission(ctx: BaseContext, name: string) {
   );
   if (!permissions.has("*") && !permissions.has(name))
     fail("MONITORING_DENIED", 403);
+}
+function target(ctx: BaseContext, id: string) {
+  if (!dashboardObjectGrant(ctx, "monitoring_target", id))
+    fail("MONITORING_DENIED", 403);
+  const row = state(ctx).targets?.find((item) => item.id === id);
+  if (!row) fail("MONITORING_NOT_FOUND", 404);
+  return row;
 }
 function app(ctx: BaseContext, id: string) {
   const found = state(ctx).applications.find((v) => v.id === id);
@@ -138,6 +145,48 @@ function validate(
         .length >= 1000
     )
       fail("MONITORING_SERVICE_LIMIT", 409);
+    return;
+  }
+  if (m.kind === "target") {
+    permission(ctx, "monitoring.manage");
+    if (
+      m.operation !== "archive" ||
+      !m.id ||
+      !m.expected_version ||
+      m.application ||
+      m.service ||
+      m.binding ||
+      m.collection ||
+      m.credentials ||
+      m.endpoint ||
+      m.ingest_key
+    )
+      fail();
+    const row = target(ctx, m.id);
+    if (row.status !== "active" || row.version !== m.expected_version)
+      fail("MONITORING_VERSION_CONFLICT", 409);
+    const data = state(ctx);
+    if (
+      data.collections?.some(
+        (item) =>
+          item.target.kind === "monitoring_target" &&
+          item.target.id === row.id &&
+          item.status === "active",
+      ) ||
+      data.bindings.some(
+        (item) =>
+          item.active &&
+          item.target.kind === "monitoring_target" &&
+          item.target.id === row.id,
+      ) ||
+      dashboardState(ctx).bindings?.some(
+        (item) =>
+          item.enterprise === ctx.enterpriseId() &&
+          item.resource_type === "monitoring_target" &&
+          item.resource_id === row.id,
+      )
+    )
+      fail("MONITORING_DEPENDENCIES_EXIST", 409);
     return;
   }
   if (m.kind !== "application" && m.kind !== "binding")
@@ -408,6 +457,7 @@ export function createMonitoringDomains(ctx: MockContext): MonitoringDomains {
             m.application?.name ??
             m.service?.service_name ??
             m.collection?.name ??
+            (m.kind === "target" ? target(ctx, m.id!).name : undefined) ??
             m.kind,
           input_data: {
             ...m,
@@ -454,6 +504,10 @@ export function commitMonitoringAction(
       data,
       Boolean(plan.input_data.credential_prepared),
     );
+  } else if (m.kind === "target") {
+    const row = target(ctx, m.id!);
+    row.status = "archived";
+    row.version++;
   } else if (m.kind === "application") {
     if (m.operation === "create") {
       const input = m.application!;

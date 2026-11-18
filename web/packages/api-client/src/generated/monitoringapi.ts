@@ -478,7 +478,7 @@ export interface components {
             id?: string;
             ingest_key?: components["schemas"]["MonitoringIngestKeyInput"];
             /** @enum {string} */
-            kind: "application" | "binding" | "collection" | "endpoint" | "ingest_key" | "service";
+            kind: "application" | "binding" | "collection" | "endpoint" | "ingest_key" | "service" | "target";
             /** @enum {string} */
             operation: "create" | "update" | "archive" | "delete" | "set_enabled" | "revoke";
             service?: components["schemas"]["MonitoringApplicationServiceInput"];

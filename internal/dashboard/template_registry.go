@@ -60,6 +60,11 @@ func validateTemplate(definition TemplateDefinition) ([]byte, string, error) {
 	if _, err = DecodeSpec(raw); err != nil {
 		return nil, "", err
 	}
+	// A managed template must remain publishable when copied into a personal
+	// draft. Internal-only model sources have their own validation above.
+	if !internal && !Validate(definition.Spec).Valid {
+		return nil, "", ErrInvalid
+	}
 	for _, panel := range definition.Spec.Panels {
 		for _, target := range append(slices.Clone(panel.Targets), panel.DetailQueryTargets...) {
 			if _, err := compileConcreteTarget(target, false); err != nil {

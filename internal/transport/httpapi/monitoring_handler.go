@@ -162,7 +162,7 @@ func (h MonitoringHandler) ListMonitoringServices(ctx context.Context, r api.Lis
 
 func (h MonitoringHandler) PreviewMonitoringCommand(ctx context.Context, r api.PreviewMonitoringCommandRequestObject) (api.PreviewMonitoringCommandResponseObject, error) {
 	permission := "application.manage"
-	if r.Body != nil && string(r.Body.Kind) == "collection" {
+	if r.Body != nil && (string(r.Body.Kind) == "collection" || string(r.Body.Kind) == "target") {
 		permission = "monitoring.manage"
 	}
 	a, f := h.auth(ctx, true, r.Params.XCSRFToken, permission)

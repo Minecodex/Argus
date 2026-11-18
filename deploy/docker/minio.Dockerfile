@@ -4,11 +4,13 @@ FROM --platform=$BUILDPLATFORM mirror.gcr.io/library/golang:1.25.8-alpine@sha256
 ARG TARGETOS
 ARG TARGETARCH
 ARG MINIO_VERSION=RELEASE.2025-10-15T17-29-55Z
+ARG MINIO_COMMIT=9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a
 
 RUN apk add --no-cache ca-certificates git
 WORKDIR /src
 RUN --mount=type=cache,target=/root/.cache/git \
-    git clone --depth 1 --branch "$MINIO_VERSION" https://github.com/minio/minio.git .
+    git clone --depth 1 --branch "$MINIO_VERSION" https://github.com/minio/minio.git . && \
+    test "$(git rev-parse HEAD)" = "$MINIO_COMMIT"
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -tags kqueue -ldflags "-s -w" -o /out/minio .

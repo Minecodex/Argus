@@ -1,4 +1,5 @@
 import { setChoice } from "./helpers/choice";
+import { selectTrigger } from "./helpers/select";
 import { expect, test, type Page, type Locator } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -129,23 +130,22 @@ for (const english of [false, true])
           animations: "disabled",
         });
       });
-      test("capability cards and visible installation network diagrams", async ({
+      test("collection controls and visible installation network diagrams", async ({
         page,
       }, info) => {
         await page.goto("/hosts/host-db-master-01#otlp-collector");
-        const cards = page.locator(".argus-setting-card");
-        await expect(cards).toHaveCount(6);
-        for (const card of await cards.all()) {
-          await expect(card.locator("p")).not.toBeEmpty();
-          await expect(card.getByRole("switch")).toBeVisible();
+        const collection = page.locator("#otlp-collector").getByRole("table");
+        await expect(collection).toBeVisible();
+        for (const name of [
+          tx("主机基础指标", "Host metrics"),
+          tx("Collector 自身指标", "Collector metrics"),
+        ]) {
+          const row = collection
+            .getByRole("row")
+            .filter({ has: page.getByText(name, { exact: true }) });
+          await expect(row).toBeVisible();
+          await expect(row.getByRole("switch")).toBeVisible();
         }
-        const positions = await page
-          .locator("#otlp-collector .argus-setting-card")
-          .evaluateAll((elements) =>
-            elements.map((e) => e.getBoundingClientRect().top),
-          );
-        expect(positions.length).toBeGreaterThan(1);
-        expect(positions[0]).toBeLessThan(positions.at(-1)!);
         await expect(page.locator(".argus-collector-controls")).toHaveCount(0);
         await page.screenshot({
           path: info.outputPath("collection-cards.png"),
@@ -194,7 +194,7 @@ for (const english of [false, true])
             .click();
         }
       });
-      test("temporary resource queries use the dashboard builder without saving a draft", async ({
+      test("resource observation opens with context and leaves dashboards untouched", async ({
         page,
       }, info) => {
         const storedDrafts = () =>
@@ -208,75 +208,70 @@ for (const english of [false, true])
               revisions: db.dashboards?.revisions ?? [],
             });
           });
+        await page.goto("/dashboards");
+        await expect(
+          page.getByRole("link", { name: /Operations overview/ }),
+        ).toBeVisible();
         const before = await storedDrafts();
         for (const url of [
           "/hosts/host-gw-sh-01",
           "/kubernetes/k8s-prod-east",
         ]) {
           await page.goto(url);
+          await page
+            .getByRole("button", {
+              name: tx("观测查询", "Observability queries"),
+              exact: true,
+            })
+            .click();
+          await expect(page).toHaveURL(
+            new RegExp(`/observe\\?.*resource_id=${url.split("/").at(-1)}`),
+          );
+          const query = page.locator(".argus-observe-query");
           for (const [zh, en] of [
             ["指标", "Metrics"],
             ["日志", "Logs"],
             ["链路", "Traces"],
           ]) {
+            const signal = selectTrigger(query, tx("查询类型", "Query type"));
+            await signal.click();
             await page
-              .getByRole("tab", { name: tx(zh!, en!), exact: true })
+              .getByRole("option", { name: tx(zh!, en!), exact: true })
               .click();
-            await expect(
-              page
-                .getByText(
-                  tx(
-                    "设置查询条件后执行查询",
-                    "Configure a query, then run it",
-                  ),
-                )
-                .first(),
-            ).toBeVisible();
-            const cards = page.locator(".argus-resource-query > .argus-card");
-            await expect(cards).toHaveCount(3);
-            await expect(
-              cards.nth(1).locator(".argus-card__title").first(),
-            ).toHaveText(tx("查询条件", "Query conditions"));
-            await expect(
-              cards.nth(2).locator(".argus-card__title").first(),
-            ).toHaveText(tx(zh!, en!));
-            const bounds = await cards.evaluateAll((elements) =>
-              elements.map((element) => {
-                const { top, bottom } = element.getBoundingClientRect();
-                return { top, bottom };
-              }),
+            await expect(signal).toContainText(tx(zh!, en!));
+            const source = selectTrigger(
+              query,
+              tx("采集来源", "Collection source"),
             );
-            expect(bounds[0]!.bottom).toBeLessThanOrEqual(bounds[1]!.top);
-            expect(bounds[1]!.bottom).toBeLessThanOrEqual(bounds[2]!.top);
+            await source.click();
             await page
+              .getByRole("option")
+              .filter({
+                hasNotText: /选择采集来源|Select a collection source/,
+              })
+              .first()
+              .click();
+            if (en === "Metrics") {
+              const metric = query.getByRole("combobox", {
+                name: english ? /^Metric\*?$/ : /^指标\*?$/,
+              });
+              await metric.fill("system_cpu");
+              await metric.press("ArrowDown");
+              await page
+                .getByRole("option", { name: /system_cpu_utilization/ })
+                .first()
+                .click();
+            }
+            await query
               .getByRole("button", {
                 name: tx("执行查询", "Run query"),
                 exact: true,
               })
               .click();
             await expect(
-              page.locator(".argus-telemetry-query-meta"),
-            ).toBeVisible();
-            await setChoice(
-              page.getByRole("radio", {
-                name: tx("DSL 编辑器", "DSL editor"),
-                exact: true,
-              }),
-            );
-            await expect(
-              page.getByRole("textbox", {
-                name: tx("查询语句", "Query expression"),
-                exact: true,
-              }),
-            ).not.toBeEmpty();
-            await page
-              .getByRole("button", {
-                name: tx("执行查询", "Run query"),
-                exact: true,
-              })
-              .click();
-            await expect(
-              page.locator(".argus-telemetry-query-meta"),
+              query
+                .getByRole("status")
+                .filter({ hasText: /查询完成|Complete/ }),
             ).toBeVisible();
             await noOverflow(page);
           }

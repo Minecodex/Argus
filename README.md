@@ -13,7 +13,7 @@
 
 从自然语言提问，到资源查询、异常分析与受控执行。
 
-[核心能力](#核心能力) · [快速部署](#快速部署) · [架构](#架构) · [开发与测试](#本地开发与测试) · [文档](#文档) · [Releases](https://github.com/kakj-go/Argus/releases)
+[核心能力](#核心能力) · [快速部署](#快速部署) · [架构](#架构) · [开发与测试](#本地开发与测试) · [文档](#文档) · [Releases](https://github.com/Minecodex/Argus/releases)
 
 </div>
 
@@ -88,9 +88,9 @@ Argus 使用 Go 构建后端，React + TypeScript + Vite 构建门户，通过 K
 
 ### 获取 v0.0.1-beta
 
-从 [v0.0.1-beta Release](https://github.com/kakj-go/Argus/releases/tag/v0.0.1-beta) 获取适合部署机操作系统与架构的 `argusctl`、配套安装资源和校验文件，完成 SHA-256 校验后解压。容器镜像与 CLI 使用同一版本，镜像仓库地址、支持架构及 Collector/Connector 制品以该版本发布清单为准。
+从 GitHub Beta 发行页下载 `argus-install-v0.0.1-beta.zip`、对应操作系统及架构的 `argusctl-v0.0.1-beta-<os>-<arch>.zip` 和 `SHA256SUMS`。[v0.0.1-beta Release](https://github.com/Minecodex/Argus/releases/tag/v0.0.1-beta)
 
-当前 CLI 需要配套配置、Chart、迁移和签名制品目录。请保留安装资源的完整目录结构（包括 `go.mod`、`deploy/` 等定位文件），在其根目录执行以下命令；不能只复制一个二进制后运行无参数安装。
+CLI 支持 Linux 与 macOS 的 AMD64、ARM64，以及 Windows AMD64。核对 SHA-256 后解压安装包，将 CLI 解压到安装资源根目录。保留 `go.mod`、`deploy/`、`migrations/` 和签名制品的目录结构。Beta 服务镜像支持 Kubernetes `linux/amd64` 节点，镜像摘要与源码提交见 `release-manifest.json`。
 
 ### 前置条件
 
@@ -102,9 +102,9 @@ Argus 使用 Go 构建后端，React + TypeScript + Vite 构建门户，通过 K
 
 ### 配置与安装
 
-以版本随附的安装配置为基础，在安装资源根目录保存为 `argus-install.yaml`，调整 Kubernetes Context、StorageClass、域名与镜像仓库。Beta 使用 `spec.profile: evaluation`；从远程仓库拉取时设置 `spec.images.mode: oci-registry`、`tag: v0.0.1-beta` 和 `pullPolicy: IfNotPresent`。
+修改安装包根目录的 `argus-install.yaml`，设置 Kubernetes Context、StorageClass、Ingress Class 和各访问域名。配置已填入 `evaluation`、`oci-registry`、`docker.io/kakj`、`v0.0.1-beta` 和 `IfNotPresent`，可直接使用对应的公开镜像。
 
-Collector 的制品地址、校验值和签名信息应使用该版本真实发布信息，并与实际部署域名匹配。仓库中的[本地配置模板](deploy/profiles/local-formal.yaml)用于源码部署参考，其中的占位制品元数据不能直接用于安装；完整字段见[配置 Schema](deploy/schemas/argus-install-config.schema.json)。
+将 `spec.telemetry` 中三个制品 URI 的主机名改为 `spec.exposure.artifactHost`，保留路径及其余签名元数据。安装器使用配置中的公钥校验随包提供的 Collector 和 Connector。源码部署配置示例及完整字段见[部署说明](deploy/README.md)和[配置 Schema](deploy/schemas/argus-install-config.schema.json)。
 
 以下假设二进制已命名为 `argusctl`（Windows 为 `argusctl.exe`）。
 
@@ -154,7 +154,7 @@ chmod +x ./argusctl
 
 ## 镜像与发行组成
 
-Beta 镜像标签统一为 `v0.0.1-beta`。下表列出镜像名称；完整仓库前缀使用 Release 随附配置，基础中间件版本由 [versions.lock.yaml](deploy/versions.lock.yaml) 单独锁定。
+Beta 镜像发布在 `docker.io/kakj`，标签统一为 `v0.0.1-beta`。例如后端镜像为 `docker.io/kakj/argus-backend:v0.0.1-beta`。基础中间件版本见 [versions.lock.yaml](deploy/versions.lock.yaml)。
 
 | 镜像                                 | 用途                                                        |
 | ------------------------------------ | ----------------------------------------------------------- |
@@ -168,6 +168,8 @@ Beta 镜像标签统一为 `v0.0.1-beta`。下表列出镜像名称；完整仓�
 | `argus-otelcol:v0.0.1-beta`          | 主机与 Kubernetes 遥测采集                                  |
 
 Collector/Connector 的可执行制品及安装脚本随版本配套提供，由安装流程发布到本部署的制品存储，再供主机接入与采集安装使用。
+
+MinIO 镜像使用锁定的上游源码构建。构建方式见 [MinIO Dockerfile](deploy/docker/minio.Dockerfile)，对应源码及许可见 [MinIO](https://github.com/minio/minio/tree/9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a) 和 [MinIO Client](https://github.com/minio/mc/tree/7394ce0dd2a80935aded936b09fa12cbb3cb8096)。
 
 ## 本地开发与测试
 

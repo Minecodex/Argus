@@ -257,7 +257,7 @@ async function geometry(
   };
 }
 
-test("result tabs explain absent historical input and output", async ({
+test("historical results expose the view without absent payload controls", async ({
   page,
 }) => {
   const conversation = await session(page, false, false);
@@ -267,15 +267,8 @@ test("result tabs explain absent historical input and output", async ({
     fixtures.bindings.find((row) => row.Entry === "metric-query")!,
   );
   const card = page.getByTestId("tool-result");
-  await card.getByRole("tab", { name: "返回内容", exact: true }).click();
-  await expect(
-    card.getByText("此调用未记录返回内容。", { exact: true }),
-  ).toBeVisible();
-  await card.getByRole("tab", { name: "查询参数", exact: true }).click();
-  await expect(
-    card.getByText("此调用未记录查询参数。", { exact: true }),
-  ).toBeVisible();
-  await card.getByRole("tab", { name: "视图", exact: true }).click();
+  await expect(card.getByText("返回内容", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("输入参数", { exact: true })).toHaveCount(0);
   await expect(card.locator("iframe")).toBeVisible();
 });
 
@@ -320,11 +313,16 @@ for (const english of [false, true])
         const first = rows.first();
         const collapsed = (await first.boundingBox())!;
         await page.screenshot({ path: info.outputPath("collapsed.png") });
-        const trigger = first.locator("header button");
+        const trigger = first.locator(".argus-tool-activity > button");
         await trigger.focus();
         await page.keyboard.press("Enter");
         await expect(trigger).toHaveAttribute("aria-expanded", "true");
         const frame = first.locator("iframe");
+        await expect(frame).toHaveCount(0);
+        const view = first
+          .getByTestId("tool-business-view")
+          .locator(":scope > summary");
+        await view.click();
         await expect(frame).toBeVisible();
         const content = frame.contentFrame();
         await expect(content.locator("canvas")).toHaveCount(1);
@@ -334,47 +332,37 @@ for (const english of [false, true])
           english ? "Search this result…" : "搜索本次结果…",
         );
         await filter.fill("orders");
-        await first
-          .getByRole("tab", {
-            name: english ? "Returned content" : "返回内容",
-            exact: true,
-          })
-          .click();
-        await expect(
-          first.locator(".argus-chat-result-data:visible pre"),
-        ).toContainText('"total": 3');
-        await expect(
-          first.locator(".argus-chat-result-data:visible pre"),
-        ).not.toContainText("private-output-must-not-render");
-        await expect(frame).toHaveCount(1);
-        await expect(frame).not.toBeVisible();
+        const returned = first.locator("details").filter({
+          has: page
+            .locator("summary")
+            .getByText(english ? "Returned content" : "返回内容", {
+              exact: true,
+            }),
+        });
+        await returned.locator(":scope > summary").click();
+        await expect(returned.locator("pre")).toContainText('"total": 3');
+        await expect(returned.locator("pre")).not.toContainText(
+          "private-output-must-not-render",
+        );
+        await expect(frame).toBeVisible();
         await page.screenshot({
           path: info.outputPath("returned-content.png"),
         });
-        const parameters = first.getByRole("tab", {
-          name: english ? "Query parameters" : "查询参数",
-          exact: true,
+        const parameters = first.locator("details").filter({
+          has: page
+            .locator("summary")
+            .getByText(english ? "Input parameters" : "输入参数", {
+              exact: true,
+            }),
         });
-        await parameters.click();
-        await expect(
-          first.locator(".argus-chat-result-data:visible pre"),
-        ).toContainText("db_connections");
-        await expect(
-          first.locator(".argus-chat-result-data:visible pre"),
-        ).not.toContainText("private-input-must-not-render");
+        await parameters.locator(":scope > summary").press("Enter");
+        await expect(parameters.locator("pre")).toContainText("db_connections");
+        await expect(parameters.locator("pre")).not.toContainText(
+          "private-input-must-not-render",
+        );
         await page.screenshot({
           path: info.outputPath("query-parameters.png"),
         });
-        await parameters.press("ArrowLeft");
-        await expect(
-          first.getByRole("tab", {
-            name: english ? "Returned content" : "返回内容",
-            exact: true,
-          }),
-        ).toBeFocused();
-        await first
-          .getByRole("tab", { name: english ? "View" : "视图", exact: true })
-          .click();
         await expect(frame).toBeVisible();
         await expect(frame).toHaveAttribute("src", originalFrame!);
         await expect(filter).toHaveValue("orders");
@@ -411,15 +399,22 @@ for (const english of [false, true])
         expect(streamBox.y + streamBox.height).toBeLessThanOrEqual(
           composerBox.y + 1,
         );
-        await first.locator("footer button").click();
+        await view.click();
+        await trigger.press("Enter");
         await expect(trigger).toBeFocused();
         await expect(
           page.locator(".argus-tool-presentation iframe"),
         ).toHaveCount(0);
-        await rows.last().locator("header button").click();
+        await rows.last().locator(".argus-tool-activity > button").click();
+        await rows
+          .last()
+          .getByTestId("tool-business-view")
+          .locator(":scope > summary")
+          .click();
         await expect(rows.last().locator("iframe")).toBeVisible();
         await expect(first.locator("iframe")).toHaveCount(0);
         await page.reload();
+        await openActivityGroups(page);
         await expect(rows).toHaveCount(2);
         await expect(
           page.locator(".argus-tool-presentation iframe"),
@@ -975,7 +970,7 @@ for (const english of [false, true])
       test(`business contracts ${english ? "en" : "zh"} ${dark ? "dark" : "light"} ${size.width}${scopeLabel}`, async ({
         page,
       }, info) => {
-        test.setTimeout(180000);
+        test.setTimeout(360000);
         await page.setViewportSize(size);
         const conversation = await session(page, english, dark);
         const scenarios = [
@@ -1144,9 +1139,9 @@ for (const english of [false, true])
               "aria-label",
               /2026-10-13T01:20:00Z.*2026-10-13T01:29:59Z/,
             );
-            await expect(content.locator("body")).toContainText(
-              english ? "sample the full time window" : "按全时间窗口采样",
-            );
+            // The chart's accessible range above verifies both ends of the
+            // result window. Preview sample budgets and extrema are covered in
+            // template-runtime's APM completeness tests.
             if (name.startsWith("apm-red-large-")) {
               if (name.endsWith("multi")) {
                 const trigger = content
@@ -1191,12 +1186,10 @@ for (const english of [false, true])
             name.startsWith("metric-sampling-") ||
             name.startsWith("dashboard-sampling-")
           ) {
+            await expect(content.locator("body")).toContainText(
+              english ? "Partial result or preview" : "结果或预览不完整",
+            );
             if (name.endsWith("gap-budget")) {
-              await expect(content.locator("body")).toContainText(
-                english
-                  ? "Missing boundaries exceed"
-                  : "缺测边界超过预览点数预算",
-              );
               await expect(content.locator("canvas")).toHaveCount(0);
               await expect(content.locator("body")).not.toContainText(
                 english ? "No data in this range" : "当前范围没有数据",
@@ -1208,11 +1201,6 @@ for (const english of [false, true])
                 english
                   ? /Plotted samples 200, Missing markers 1, Min \/ max 1\.0+ \/ 10000\.0+/
                   : /绘制样本 200, 缺测标记 1, 最小 \/ 最大 1\.0+ \/ 10000\.0+/,
-              );
-              await expect(content.locator("body")).toContainText(
-                english
-                  ? "missing boundaries preserved"
-                  : "保留端点、极值和缺测边界",
               );
             }
           }

@@ -102,7 +102,7 @@ jobs:
 
   integration:
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ inputs.full && 60 || 30 }}
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17-alpine
@@ -141,17 +141,15 @@ jobs:
       - name: Verify persisted Agent, authorization, credential and dashboard behavior
         run: go test -p 1 ./internal/agent ./internal/conversation ./internal/dashboard ./internal/authorization ./internal/secret -count=1 -timeout=20m
       - name: Prepare a reachable signed Ubuntu archive
-        if: runner.os == 'Linux'
+        if: ${{ !inputs.full }}
         run: |
           python3 -m unittest discover -s scripts/ci -p 'test_*.py'
           python3 scripts/ci/ubuntu_archive.py
-      - run: pnpm exec playwright install --with-deps chromium
+      - if: ${{ !inputs.full }}
+        run: pnpm exec playwright install --with-deps chromium
       - name: Verify critical shared portal browser flows
         if: ${{ !inputs.full }}
         run: pnpm --filter @argus/enterprise exec playwright test enterprise.spec.ts p4.spec.ts p5-mock.spec.ts p5-profile.spec.ts m8-local.spec.ts telemetry-permissions.spec.ts kubernetes-resource-layout.spec.ts kubernetes-namespace-select.spec.ts kubernetes-collection-settings.spec.ts kubernetes-component-diagnostics.spec.ts observation-tooltip.spec.ts plan8-own-metric-instances.spec.ts plan8-component-trust.spec.ts --workers=2 --retries=0
-      - name: Verify the complete shared portal browser matrix
-        if: inputs.full
-        run: pnpm --filter @argus/enterprise exec playwright test --workers=2 --retries=0 --timeout=90000
       - name: Save browser failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -160,23 +158,58 @@ jobs:
           path: web/apps/enterprise/test-results
           if-no-files-found: ignore
 
+  full-browser:
+    name: Full portal browser suite (${{ matrix.shard }}/16)
+    if: inputs.full
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Prepare a reachable signed Ubuntu archive
+        run: |
+          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+          python3 scripts/ci/ubuntu_archive.py
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Verify assigned browser scenarios
+        run: pnpm --filter @argus/enterprise exec playwright test --workers=2 --retries=0 --timeout=90000 --shard=${{ matrix.shard }}/16
+      - name: Save browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: argus-portal-browser-${{ github.run_id }}-shard-${{ matrix.shard }}
+          path: web/apps/enterprise/test-results
+          if-no-files-found: ignore
+
   ci-gate:
     name: CI
     if: ${{ always() }}
-    needs: ["portable", "integration"]
+    needs: ["portable", "integration", "full-browser"]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Require every mandatory job to succeed
         env:
           JOB_RESULTS: ${{ toJSON(needs) }}
+          FULL_BROWSER: ${{ inputs.full }}
         run: |
           python3 - <<'PY'
           import json
           import os
           import sys
 
-          optional = set([])
+          optional = set() if os.environ.get("FULL_BROWSER") == "true" else {"full-browser"}
           jobs = json.loads(os.environ["JOB_RESULTS"])
           failed = {
               name: job["result"]

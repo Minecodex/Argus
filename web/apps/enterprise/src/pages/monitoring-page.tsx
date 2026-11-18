@@ -32,6 +32,7 @@ import {
   type CollectionFilterValue,
 } from "../components/monitoring/collection-filters";
 import { CollectionForm } from "../components/monitoring/collection-form";
+import { TargetDirectory } from "../components/monitoring/target-directory";
 import { LogCollectionForm } from "../components/monitoring/log-collection-form";
 import {
   IntegrationCatalog,
@@ -266,6 +267,11 @@ function MonitoringWorkspace({ targetId }: { targetId?: string }) {
             <TabsTrigger value="collections">
               {t("monitoring.collections")}
             </TabsTrigger>
+            {!targetId && (
+              <TabsTrigger value="targets">
+                {t("monitoring.targets")}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="integrations">
               {t("monitoring.integrationCatalog")}
             </TabsTrigger>
@@ -332,6 +338,17 @@ function MonitoringWorkspace({ targetId }: { targetId?: string }) {
               }
             />
           </TabsContent>
+          {!targetId && (
+            <TabsContent value="targets">
+              <TargetDirectory
+                canManage={canManage}
+                actions={actions}
+                onOpenCollections={(id) =>
+                  void navigate({ to: "/monitoring", search: { target: id } })
+                }
+              />
+            </TabsContent>
+          )}
           <TabsContent value="integrations">
             {catalog.data && (
               <IntegrationCatalog

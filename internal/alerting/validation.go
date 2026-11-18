@@ -150,7 +150,7 @@ func normalizeMutation(m Mutation) (Mutation, error) {
 			p.Labels = map[string]string{}
 		}
 		for k, v := range p.Labels {
-			if !labelKey.MatchString(k) || strings.HasPrefix(k, "argus_") || len(v) > 256 {
+			if !labelKey.MatchString(k) || reservedPolicyLabel(k) || len(v) > 256 {
 				return m, ErrInvalid
 			}
 		}

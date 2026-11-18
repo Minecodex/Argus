@@ -68,7 +68,9 @@ for (const english of [false, true])
         const card = page.locator(".argus-card").filter({
           has: page.locator(".argus-card__title").filter({ hasText: /OTLP/ }),
         });
-        await expect(card.locator(".argus-setting-card")).toHaveCount(6);
+        await expect(
+          card.getByRole("table").getByRole("switch").first(),
+        ).toBeVisible();
         await expect(page.locator(".argus-collector-controls")).toHaveCount(0);
         await expect(
           page.getByRole("heading", {
@@ -137,7 +139,9 @@ for (const english of [false, true])
         const row = page.getByRole("row").filter({
           has: page.getByRole("link", { name: "db-master-01", exact: true }),
         });
-        await expect(row.getByRole("button")).toHaveCount(1);
+        await expect(row.locator("td").last().getByRole("button")).toHaveCount(
+          1,
+        );
         const before = await executionState(page);
         const trigger = row.getByRole("button", {
           name: /更多操作|More actions/,

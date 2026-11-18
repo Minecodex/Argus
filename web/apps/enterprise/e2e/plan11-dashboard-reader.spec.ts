@@ -118,12 +118,15 @@ for (const english of [false, true]) {
       }, target);
       await page.goto("/dashboards");
       await expect(
-        page.getByText(tx("还没有仪表盘", "No dashboards yet"), {
-          exact: true,
+        page.getByRole("link", {
+          name: /Kubernetes 运维大盘 \/ Operations overview/,
         }),
       ).toBeVisible();
       await expect(
         page.getByRole("link", { name: "MySQL", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("link", { name: "PostgreSQL", exact: true }),
       ).toHaveCount(0);
       await page.screenshot({
         path: info.outputPath("reader-revoked-directory.png"),

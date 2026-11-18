@@ -39,6 +39,7 @@ type NotificationCredential struct {
 	Password      string   `json:"password"`
 	From          string   `json:"from"`
 	To            []string `json:"to"`
+	CAPEM         string   `json:"ca_pem,omitempty"`
 }
 type Transport struct {
 	Policy           remotemcp.EndpointPolicy
@@ -140,6 +141,21 @@ func (t Transport) sendWebhook(ctx context.Context, ch ChannelSpec, c Notificati
 	if client == nil {
 		client = t.Policy.Client()
 	}
+	if c.CAPEM != "" {
+		base, ok := client.Transport.(*http.Transport)
+		if !ok {
+			return SendResult{ErrorCode: "NOTIFICATION_CA_INVALID"}
+		}
+		configuration, trustErr := notificationTLS(base.TLSClientConfig, c.CAPEM)
+		if trustErr != nil {
+			return SendResult{ErrorCode: "NOTIFICATION_CA_INVALID"}
+		}
+		transport := base.Clone()
+		transport.TLSClientConfig = configuration
+		cloned := *client
+		cloned.Transport = transport
+		client = &cloned
+	}
 	response, err := client.Do(request)
 	if err != nil {
 		if !wrote.Load() {
@@ -236,6 +252,13 @@ func (t Transport) sendSMTP(ctx context.Context, c NotificationCredential, m Mes
 	if t.TLSConfig != nil {
 		tlsConfig = t.TLSConfig.Clone()
 		tlsConfig.ServerName = c.SMTPHost
+	}
+	if c.CAPEM != "" {
+		configuration, trustErr := notificationTLS(tlsConfig, c.CAPEM)
+		if trustErr != nil {
+			return SendResult{ErrorCode: "NOTIFICATION_CA_INVALID"}
+		}
+		tlsConfig = configuration
 	}
 	if c.Security == "tls" {
 		secured := tls.Client(conn, tlsConfig)

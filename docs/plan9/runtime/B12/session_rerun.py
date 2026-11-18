@@ -31,7 +31,7 @@ class Rerun(Verification):
         self.api = Api(self, path, ROOT / 'deploy/.cache/argus-trust-bundle.pem',
                        {'enterprise_username': 'kakj', 'password': os.environ['ARGUS_PLAN9_PASSWORD']})
         self.api.login()
-        self.state = json.loads(self.resources.read_text()) if self.resources.exists() else {'model_id': MODEL}
+        self.state = json.loads(self.resources.read_text(encoding='utf-8')) if self.resources.exists() else {'model_id': MODEL}
 
     def budget(self, run=None):
         usage = self.usage()
@@ -90,7 +90,7 @@ def prepare(v):
 
 
 def query(v):
-    baseline = json.loads((OUT / 'historical-baselines.json').read_text())
+    baseline = json.loads((OUT / 'historical-baselines.json').read_text(encoding='utf-8'))
     ident = v.send('query', baseline['query']['prompt'])
     v.wait_run(ident)
     v.save('ledger-after-query', {'items': v.events()})
@@ -107,7 +107,7 @@ def analyze(v):
     if prior.get('error_code') == 'CONTEXT_COMPACTION_FAILED':
         # This is now the same real failure preceding the original B12 CSV task.
         # Send its original instruction, without a synthesized answer or script.
-        baseline = json.loads((OUT / 'historical-baselines.json').read_text())
+        baseline = json.loads((OUT / 'historical-baselines.json').read_text(encoding='utf-8'))
         prompt = baseline['analysis']['prompt']
     ident = v.send('analysis', prompt, [v.state['csv_file']['id']])
     v.wait_run(ident)

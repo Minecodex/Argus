@@ -1,5 +1,27 @@
 # B12 真实模型闭环运行包
 
+## 收尾复验（2026-11-17）
+
+当前结果见[收尾记录](../../35-b12-closeout-20261117.md)。复用现有模型revision3和本批资源，不重跑已确认的故障/操作；相同CSV正常下载后上传到新会话。执行前正常登录并核对模型、场景、Workspace和有限额度；密钥不进入源码。
+
+设置 `PYTHONUTF8=1`、正常登录用的 `ARGUS_PLAN9_PASSWORD` 和受控的 `ARGUS_B12_RERUN_OUT` 后，按需逐阶段执行：
+
+```text
+python docs/plan9/runtime/B12/closeout.py prepare
+python docs/plan9/runtime/B12/closeout.py query
+python docs/plan9/runtime/B12/closeout.py analysis
+python docs/plan9/runtime/B12/closeout_evidence.py report
+# 仅报告引用仍缩写时，由模型进行有界修订，不手工重写交付
+python docs/plan9/runtime/B12/closeout.py references
+python docs/plan9/runtime/B12/closeout_evidence.py report
+python docs/plan9/runtime/B12/closeout.py measure
+python -m unittest discover -s docs/plan9/runtime/B12 -p test_closeout_evidence.py
+```
+
+已提交阶段复用其原生Run，不盲目重发。三轮总观察上限60次/150万Token/$0.12，每Run660秒，含压缩、失败及引用修订，达到上限取消本轮并保留未完成状态，不自动扩额度。校核同时记录请求窗口与实际点范围，字节/整数字段精确比较；所有原件和交付均从正式API鉴权下载、检查Hash。独立校核代码不改模型报告或写业务/遥测库。
+
+收尾后仅终止该会话拥有的计算Session，保留文件、交付和场景；正常登录的页面测试使用 `ARGUS_B12_CLOSEOUT_REAL=1` 与 `plan9-b12-closeout-real.spec.ts`，不会发送模型消息。人工确认后才按本文件末尾的退役流程进入B13a。
+
 运行 `p9-b12-20261116-01`。用户通过 B11c 后正常停采、卸载 Collector、卸载 Host/Scope 并销毁旧专属 Compose，保留历史。B12 使用新的主机身份、Redis、HTTP 缓存服务、原生采集和真实 APIMart `glm-5.3-flash`。
 
 执行目录 `D:/workspace/go/Argus`。凭据在 C 盘受 ACL 保护的 `private/` 输入；`ARGUS_PLAN9_PASSWORD` 只用于正常登录，CA 为 `deploy/.cache/argus-trust-bundle.pem`。禁止在日志、Compose 渲染、Markdown 或截图写入模型密钥。

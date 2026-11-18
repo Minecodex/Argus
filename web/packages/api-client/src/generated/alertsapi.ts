@@ -318,6 +318,7 @@ export interface components {
             error_behavior: "report" | "keep";
             channel_ids?: string[];
             route_ids?: string[];
+            /** @description Static metadata participates in routing, grouping and suppression; observed metric labels take precedence. Reserved argus_* identity labels, resource_id, policy_id, severity, metric and alert_health cannot be configured. */
             labels?: {
                 [key: string]: string;
             };

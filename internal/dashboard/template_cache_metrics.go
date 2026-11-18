@@ -23,8 +23,7 @@ func redisTemplate() TemplateDefinition {
 		{"evictions", "rate(redis_keys_evicted[5m])", "ops", "timeseries"},
 		{"expired", "rate(redis_keys_expired[5m])", "ops", "timeseries"},
 	})
-	definition.Version = 2
-	return definition
+	return cacheTemplateTitles(definition)
 }
 
 func memcachedTemplate() TemplateDefinition {
@@ -39,6 +38,15 @@ func memcachedTemplate() TemplateDefinition {
 		{"misses", `rate(memcached_operations{operation="get",type="miss"}[5m])`, "ops", "timeseries"},
 		{"hit_ratio", cacheHitRatio(`memcached_operations{operation="get",type="hit"}`, `memcached_operations{operation="get",type="miss"}`), "percent_ratio", "timeseries"},
 	})
-	definition.Version = 2
+	return cacheTemplateTitles(definition)
+}
+
+func cacheTemplateTitles(definition TemplateDefinition) TemplateDefinition {
+	definition.Version = 3
+	for index := range definition.Spec.Panels {
+		if definition.Spec.Panels[index].ID == "hit_ratio" {
+			definition.Spec.Panels[index].Title = "Cache hit ratio"
+		}
+	}
 	return definition
 }
