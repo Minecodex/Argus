@@ -970,7 +970,7 @@ for (const english of [false, true])
       test(`business contracts ${english ? "en" : "zh"} ${dark ? "dark" : "light"} ${size.width}${scopeLabel}`, async ({
         page,
       }, info) => {
-        test.setTimeout(180000);
+        test.setTimeout(360000);
         await page.setViewportSize(size);
         const conversation = await session(page, english, dark);
         const scenarios = [

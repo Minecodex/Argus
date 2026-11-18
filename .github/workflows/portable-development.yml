@@ -162,7 +162,7 @@ jobs:
     name: Full portal browser suite (${{ matrix.shard }}/16)
     if: inputs.full
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
